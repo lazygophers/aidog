@@ -3196,6 +3196,33 @@ export function Settings() {
             t={t}
           />
         ))}
+        {/* Attribution fixed editor (commit + pr only) */}
+        {section.id === "advanced" && (() => {
+          const attr = (config.attribution ?? {}) as Record<string, string>;
+          const rowStyle: React.CSSProperties = { display: "flex", alignItems: "center", gap: 12 };
+          return (
+            <div style={{ display: "flex", flexDirection: "column", gap: S.row, borderTop: "1px solid var(--border)", paddingTop: S.gap }}>
+              <div style={{ fontSize: F.label, fontWeight: 600, color: "var(--text-secondary)" }}>
+                {t("settings.f_attribution", "Attribution")}
+              </div>
+              {(["commit", "pr"] as const).map(field => (
+                <div key={field} style={rowStyle}>
+                  <label style={{ flexShrink: 0, width: 200, fontSize: F.label, fontWeight: 500, color: "var(--text-primary)", paddingTop: 10 }}>
+                    {field === "commit" ? t("settings.attribution.commit", "Commit Author") : t("settings.attribution.pr", "PR Author")}
+                    <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 2 }}>{field}</span>
+                  </label>
+                  <input className="input" style={{ flex: 1, fontSize: F.body, padding: S.inputPad }}
+                    placeholder={field === "commit" ? "e.g. Your Name <you@example.com>" : "e.g. Your Name <you@example.com>"}
+                    value={attr[field] ?? ""}
+                    onChange={(e) => {
+                      const next = { ...attr, [field]: e.target.value };
+                      updateField("attribution", Object.values(next).some(Boolean) ? next : undefined);
+                    }} />
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </div>
     );
   };
