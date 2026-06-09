@@ -1038,14 +1038,38 @@ function PermissionsEditor({ perms, updateField, t }: {
       {/* ── All Rules Summary ── */}
       {rules.length > 0 && (
         <div style={{
-          fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.6,
-          padding: "8px 12px", background: "var(--bg-glass)", borderRadius: "var(--radius-sm)",
-          display: "flex", gap: 16, flexWrap: "wrap",
+          padding: "10px 12px", background: "var(--bg-glass)", borderRadius: "var(--radius-sm)",
+          display: "flex", flexDirection: "column", gap: 4,
         }}>
-          <span>共 {rules.length} 条规则:</span>
-          <span style={{ color: MODE_COLORS.allow }}>✓ allow: {rules.filter(r => r.mode === "allow").length}</span>
-          <span style={{ color: MODE_COLORS.ask }}>? ask: {rules.filter(r => r.mode === "ask").length}</span>
-          <span style={{ color: MODE_COLORS.deny }}>✗ deny: {rules.filter(r => r.mode === "deny").length}</span>
+          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 4, display: "flex", gap: 12 }}>
+            <span>共 {rules.length} 条规则</span>
+            <span style={{ color: MODE_COLORS.deny }}>✗ deny: {rules.filter(r => r.mode === "deny").length}</span>
+            <span style={{ color: MODE_COLORS.ask }}>? ask: {rules.filter(r => r.mode === "ask").length}</span>
+            <span style={{ color: MODE_COLORS.allow }}>✓ allow: {rules.filter(r => r.mode === "allow").length}</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            {rules.map((r, i) => (
+              <div key={i} style={{
+                display: "flex", alignItems: "center", gap: 6,
+                fontSize: F.small, padding: "3px 8px", borderRadius: "var(--radius-sm)",
+                borderLeft: `3px solid ${MODE_COLORS[r.mode]}`,
+                background: `${MODE_COLORS[r.mode]}08`,
+              }}>
+                <span style={{
+                  fontSize: 10, fontWeight: 600, color: MODE_COLORS[r.mode],
+                  textTransform: "uppercase", width: 32, flexShrink: 0,
+                }}>{r.mode}</span>
+                <code style={{
+                  flex: 1, fontSize: F.small, color: "var(--text-primary)",
+                  fontFamily: '"SF Mono", "Fira Code", monospace',
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>{r.pattern}</code>
+                <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
+                  {ruleToolGroup(r.pattern)}
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </>
@@ -1574,7 +1598,7 @@ function MarketplaceSourceEditor({
     <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 8, borderLeft: "2px solid var(--border)" }}>
       {/* Source type selector */}
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-        <span style={{ fontSize: F.hint, color: "var(--text-secondary)", width: compact ? 50 : 80, flexShrink: 0 }}>Type</span>
+        <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: compact ? 50 : 80, flexShrink: 0, whiteSpace: "nowrap" }}>Type</span>
         <select className="input" style={{ fontSize: fs, padding: pad, flex: 1 }}
           value={srcType}
           onChange={(e) => {
@@ -1591,7 +1615,7 @@ function MarketplaceSourceEditor({
       {/* Type-specific fields */}
       {fields.map((f) => (
         <div key={f.key} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", width: compact ? 50 : 80, flexShrink: 0 }}>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: compact ? 50 : 80, flexShrink: 0, whiteSpace: "nowrap" }}>
             {f.label}{f.required && " *"}
           </span>
           <input className="input" style={{ fontSize: fs, padding: pad, flex: 1 }}
@@ -1603,7 +1627,7 @@ function MarketplaceSourceEditor({
       {/* skipLfs for github/git */}
       {(srcType === "github" || srcType === "git") && (
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", width: compact ? 50 : 80, flexShrink: 0 }}>skipLfs</span>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: compact ? 50 : 80, flexShrink: 0, whiteSpace: "nowrap" }}>skipLfs</span>
           <Toggle active={!!source.skipLfs} onChange={(v) => setField("skipLfs", v)} />
           <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>跳过 LFS 下载</span>
         </div>
@@ -1612,7 +1636,7 @@ function MarketplaceSourceEditor({
       {/* URL headers for url type */}
       {srcType === "url" && (
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", width: 80, flexShrink: 0 }}>Headers</span>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: 80, flexShrink: 0, whiteSpace: "nowrap" }}>Headers</span>
           <input className="input" style={{ fontSize: fs, padding: pad, flex: 1 }}
             placeholder='{"Authorization": "Bearer ${TOKEN}"}'
             value={source.headers ? JSON.stringify(source.headers) : ""}
@@ -1665,7 +1689,7 @@ function MarketplaceSourceEditor({
 
       {/* autoUpdate toggle */}
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-        <span style={{ fontSize: F.hint, color: "var(--text-secondary)", width: compact ? 50 : 80, flexShrink: 0 }}>auto</span>
+        <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: compact ? 50 : 80, flexShrink: 0, whiteSpace: "nowrap" }}>auto</span>
         <Toggle active={!!source.autoUpdate} onChange={(v) => setField("autoUpdate", v)} />
         <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>启动时自动刷新</span>
       </div>
@@ -2044,7 +2068,7 @@ function FieldRow({ label, icon, children }: {
     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
       <span style={{
         fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0, fontWeight: 500,
-        display: "flex", alignItems: "center", gap: 4, width: 80,
+        display: "flex", alignItems: "center", gap: 4, minWidth: 80, whiteSpace: "nowrap",
       }}>
         {icon}{label}
       </span>

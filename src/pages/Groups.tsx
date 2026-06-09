@@ -206,21 +206,21 @@ export function Groups() {
           <div style={{ fontSize: F.label, fontWeight: 600, marginBottom: 4 }}>{t("group.basicInfo", "基本信息")}</div>
 
           {/* Name */}
-          <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.name", "名称")}</span>
             <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
               value={editName} onChange={e => setEditName(e.target.value)} />
           </div>
 
           {/* Path */}
-          <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>Path</span>
             <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
               value={editPath} onChange={e => setEditPath(e.target.value)} />
           </div>
 
           {/* Routing mode */}
-          <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", alignItems: "center", gap: 12 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.routingMode", "路由模式")}</span>
             <select className="input" style={{ fontSize: F.body, padding: S.inputPad }}
               value={editMode} onChange={e => setEditMode(e.target.value as RoutingMode)}>
