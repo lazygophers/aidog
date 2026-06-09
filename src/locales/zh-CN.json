@@ -11,6 +11,7 @@
   "group.loadBalance": "负载均衡",
   "group.name": "分组名称",
   "group.platforms": "平台",
+  "group.copyCommand": "复制启动命令",
   "lang.ar-SA": "العربية",
   "lang.de-DE": "Deutsch",
   "lang.en-US": "English",

@@ -25,6 +25,37 @@ function allModelValues(models: Platform["models"]): string[] {
 const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
 const S = { gap: 18, pad: 28, inputPad: "10px 14px", btnPad: "8px 18px", btnIcon: 34 } as const;
 
+/** Copy text to clipboard with a brief visual feedback */
+function CopyButton({ text, title, size = 14 }: { text: string; title?: string; size?: number }) {
+  const [copied, setCopied] = useState(false);
+  const handleCopy = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <button
+      className="btn btn-ghost btn-icon"
+      onClick={handleCopy}
+      title={title || text}
+      style={{ position: "relative", flexShrink: 0 }}
+    >
+      {copied ? (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M20 6L9 17l-5-5" />
+        </svg>
+      ) : (
+        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+        </svg>
+      )}
+    </button>
+  );
+}
+
 export function Groups() {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
@@ -196,6 +227,7 @@ export function Groups() {
             <div style={{ fontSize: F.title, fontWeight: 700 }}>{editName || t("group.edit")}</div>
             <div className="text-secondary" style={{ fontSize: F.hint, marginTop: 2 }}>{editTarget.group.id.slice(0, 8)}</div>
           </div>
+          <CopyButton text={`claude --settings ~/.aidog/settings.${editName}.json`} title={t("group.copyCommand", "复制启动命令")} />
           <button className="btn" onClick={cancelEdit}>{t("action.cancel")}</button>
           <button className="btn btn-primary" onClick={saveEdit}
             disabled={!editName || !editPath}>{t("action.save")}</button>
@@ -480,6 +512,7 @@ export function Groups() {
                     </span>
                   </div>
                 </div>
+                <CopyButton text={`claude --settings ~/.aidog/settings.${group.name}.json`} title={t("group.copyCommand", "复制启动命令")} size={14} />
                 <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
