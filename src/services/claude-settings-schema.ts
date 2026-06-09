@@ -114,7 +114,7 @@ export const SECTIONS: SettingSection[] = [
     id: "sandbox",
     labelKey: "settings.sectionSandbox",
     fields: [
-      { key: "sandbox", label: "Sandbox", type: "json", description: "沙箱配置（文件系统/网络隔离）" },
+      { key: "sandbox", label: "Sandbox", type: "json", description: "沙箱配置（文件系统/网络隔离）", skipGui: true },
     ],
   },
   {
