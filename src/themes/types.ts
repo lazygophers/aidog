@@ -1,6 +1,6 @@
 export type ThemeMode = "light" | "dark";
 
-export type ThemeName = "liquidGlass";
+export type ThemeName = "liquidGlass" | "nord" | "dracula" | "catppuccin" | "solarized";
 
 export interface ThemeDefinition {
   name: ThemeName;

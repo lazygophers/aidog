@@ -1,13 +1,25 @@
 export { liquidGlass } from "./liquidGlass";
+export { nord } from "./nord";
+export { dracula } from "./dracula";
+export { catppuccin } from "./catppuccin";
+export { solarized } from "./solarized";
 export type { ThemeDefinition, ThemeMode, ThemeName } from "./types";
 export { applyThemeVars, clearThemeVars } from "./types";
 
 import { liquidGlass } from "./liquidGlass";
+import { nord } from "./nord";
+import { dracula } from "./dracula";
+import { catppuccin } from "./catppuccin";
+import { solarized } from "./solarized";
 import type { ThemeDefinition, ThemeMode, ThemeName } from "./types";
 import { applyThemeVars, clearThemeVars } from "./types";
 
 const themeMap: Record<ThemeName, ThemeDefinition> = {
   liquidGlass,
+  nord,
+  dracula,
+  catppuccin,
+  solarized,
 };
 
 /** 获取所有可用主题 */
