@@ -926,6 +926,25 @@ type MatcherGroup = {
 
 type HooksConfig = Record<string, MatcherGroup[]>;
 
+/** Reusable field-row with inline label for handler cards */
+function FieldRow({ label, icon, children }: {
+  label: string; icon?: React.ReactNode; children: React.ReactNode;
+}) {
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      <span style={{
+        fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0, fontWeight: 500,
+        display: "flex", alignItems: "center", gap: 4, width: 80,
+      }}>
+        {icon}{label}
+      </span>
+      <div style={{ flex: 1, minWidth: 0, display: "flex", gap: 8, alignItems: "center" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function HooksSection({
   hooksValue,
   updateField,
@@ -1228,30 +1247,38 @@ function HooksSection({
                       </button>
                     </div>
 
-                    {/* Main field: command / URL / prompt (full width, prominent) */}
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      {handler.type === "command" && (
-                        <>
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <PathInput
-                              value={handler.command}
-                              onChange={(v) => updateHandler(eventId, gi, hi, { command: v })}
-                              pathType="file"
-                              placeholder="命令或脚本路径，如 ./scripts/check.sh"
-                            />
-                          </div>
+                    {/* Command — textarea + shell selector on own row */}
+                    {handler.type === "command" && (
+                      <>
+                        <FieldRow label="命令" icon={<SectionIcon name="bolt" size={13} />}>
+                          <textarea
+                            className="input"
+                            style={{
+                              flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0,
+                              fontFamily: '"SF Mono", "Fira Code", monospace', lineHeight: 1.5,
+                              minHeight: 56, resize: "vertical",
+                            }}
+                            placeholder="命令或脚本路径，如 ./scripts/check.sh&#10;支持多行命令，每行独立执行"
+                            value={handler.command ?? ""}
+                            onChange={(e) => updateHandler(eventId, gi, hi, { command: e.target.value || undefined })}
+                          />
+                        </FieldRow>
+                        <FieldRow label="Shell" icon={<SectionIcon name="advanced" size={13} />}>
                           <select
                             className="input"
-                            style={{ ...inputStyle, width: 100, flexShrink: 0 }}
+                            style={{ ...inputStyle, width: 140 }}
                             value={handler.shell ?? ""}
                             onChange={(e) => updateHandler(eventId, gi, hi, { shell: e.target.value || undefined })}
                           >
-                            <option value="">bash</option>
-                            <option value="powershell">powershell</option>
+                            <option value="">Bash</option>
+                            <option value="powershell">PowerShell</option>
                           </select>
-                        </>
-                      )}
-                      {handler.type === "http" && (
+                        </FieldRow>
+                      </>
+                    )}
+                    {/* HTTP URL */}
+                    {handler.type === "http" && (
+                      <FieldRow label="URL" icon={<SectionIcon name="network" size={13} />}>
                         <input
                           className="input"
                           style={{ ...inputStyle, flex: 1 }}
@@ -1259,9 +1286,12 @@ function HooksSection({
                           value={handler.url ?? ""}
                           onChange={(e) => updateHandler(eventId, gi, hi, { url: e.target.value || undefined })}
                         />
-                      )}
-                      {handler.type === "mcp_tool" && (
-                        <>
+                      </FieldRow>
+                    )}
+                    {/* MCP Tool — server + tool each on own row */}
+                    {handler.type === "mcp_tool" && (
+                      <>
+                        <FieldRow label="服务器" icon={<SectionIcon name="network" size={13} />}>
                           <input
                             className="input"
                             style={{ ...inputStyle, flex: 1 }}
@@ -1269,6 +1299,8 @@ function HooksSection({
                             value={handler.server ?? ""}
                             onChange={(e) => updateHandler(eventId, gi, hi, { server: e.target.value || undefined })}
                           />
+                        </FieldRow>
+                        <FieldRow label="工具" icon={<SectionIcon name="advanced" size={13} />}>
                           <input
                             className="input"
                             style={{ ...inputStyle, flex: 1 }}
@@ -1276,64 +1308,71 @@ function HooksSection({
                             value={handler.tool ?? ""}
                             onChange={(e) => updateHandler(eventId, gi, hi, { tool: e.target.value || undefined })}
                           />
-                        </>
-                      )}
-                      {(handler.type === "prompt" || handler.type === "agent") && (
-                        <input
+                        </FieldRow>
+                      </>
+                    )}
+                    {/* Prompt / Agent — textarea */}
+                    {(handler.type === "prompt" || handler.type === "agent") && (
+                      <FieldRow label="提示" icon={<SectionIcon name="behavior" size={13} />}>
+                        <textarea
                           className="input"
-                          style={{ ...inputStyle, flex: 1 }}
-                          placeholder="提示文本，用 $ARGUMENTS 插入 hook 输入数据"
+                          style={{
+                            flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0,
+                            fontFamily: '"SF Mono", "Fira Code", monospace', lineHeight: 1.5,
+                            minHeight: 56, resize: "vertical",
+                          }}
+                          placeholder="提示文本，用 $ARGUMENTS 插入 hook 输入数据&#10;支持多行提示内容"
                           value={handler.prompt ?? ""}
                           onChange={(e) => updateHandler(eventId, gi, hi, { prompt: e.target.value || undefined })}
                         />
-                      )}
-                    </div>
+                      </FieldRow>
+                    )}
 
-                    {/* Auxiliary options row (subtle, smaller) */}
-                    <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", paddingTop: 2 }}>
-                      {eventMeta?.hasMatcher && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0 }}>条件 if</span>
-                          <input
-                            className="input"
-                            style={{ ...inputStyle, width: 160, fontSize: F.hint }}
-                            placeholder="Bash(rm *)"
-                            value={handler["if"] ?? ""}
-                            onChange={(e) => {
-                              const patch: Partial<HookHandler> = {};
-                              if (e.target.value) (patch as any)["if"] = e.target.value;
-                              else (patch as any)["if"] = undefined;
-                              updateHandler(eventId, gi, hi, patch);
-                            }}
-                          />
-                        </div>
-                      )}
-                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0 }}>超时</span>
+                    {/* ── Auxiliary options, each on its own row ── */}
+                    {eventMeta?.hasMatcher && (
+                      <FieldRow label="条件 if" icon={<SectionIcon name="permissions" size={13} />}>
                         <input
                           className="input"
-                          style={{ ...inputStyle, width: 64, fontSize: F.hint }}
-                          type="number"
-                          placeholder="600"
-                          value={handler.timeout ?? ""}
-                          onChange={(e) => updateHandler(eventId, gi, hi, { timeout: e.target.value ? Number(e.target.value) : undefined })}
+                          style={{ ...inputStyle, flex: 1, fontSize: F.hint }}
+                          placeholder="匹配条件，如 Bash(rm *)"
+                          value={handler["if"] ?? ""}
+                          onChange={(e) => {
+                            const patch: Partial<HookHandler> = {};
+                            if (e.target.value) (patch as any)["if"] = e.target.value;
+                            else (patch as any)["if"] = undefined;
+                            updateHandler(eventId, gi, hi, patch);
+                          }}
                         />
-                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>秒</span>
-                      </div>
-                      {handler.type === "command" && (
-                        <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: F.hint, color: "var(--text-tertiary)", cursor: "pointer" }}>
-                          <Toggle active={!!handler.async} onChange={(v) => updateHandler(eventId, gi, hi, { async: v || undefined })} />
-                          后台运行 (async)
-                        </label>
-                      )}
+                      </FieldRow>
+                    )}
+                    <FieldRow label="超时" icon={<SectionIcon name="status" size={13} />}>
                       <input
                         className="input"
-                        style={{ ...inputStyle, flex: "1 1 180px", minWidth: 140, fontSize: F.hint }}
-                        placeholder="状态消息 (运行时显示)"
+                        style={{ ...inputStyle, width: 80, fontSize: F.hint }}
+                        type="number"
+                        placeholder="600"
+                        value={handler.timeout ?? ""}
+                        onChange={(e) => updateHandler(eventId, gi, hi, { timeout: e.target.value ? Number(e.target.value) : undefined })}
+                      />
+                      <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>秒</span>
+                    </FieldRow>
+                    {handler.type === "command" && (
+                      <FieldRow label="async" icon={<SectionIcon name="ui" size={13} />}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: F.hint, color: "var(--text-tertiary)", cursor: "pointer" }}>
+                          <Toggle active={!!handler.async} onChange={(v) => updateHandler(eventId, gi, hi, { async: v || undefined })} />
+                          后台运行（不阻塞主流程）
+                        </label>
+                      </FieldRow>
+                    )}
+                    <FieldRow label="状态" icon={<SectionIcon name="status" size={13} />}>
+                      <input
+                        className="input"
+                        style={{ ...inputStyle, flex: 1, fontSize: F.hint }}
+                        placeholder="运行时显示的状态消息"
                         value={handler.statusMessage ?? ""}
                         onChange={(e) => updateHandler(eventId, gi, hi, { statusMessage: e.target.value || undefined })}
                       />
-                    </div>
+                    </FieldRow>
                   </div>
                 ))}
 
@@ -1563,67 +1602,92 @@ function HooksSectionInline(props: {
                         </button>
                       </div>
 
-                      {/* Main field */}
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        {handler.type === "command" && (
-                          <>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <PathInput value={handler.command} onChange={(v) => updateHandler(eventId, gi, hi, { command: v })} pathType="file" placeholder="命令或脚本路径，如 ./scripts/check.sh" />
-                            </div>
-                            <select className="input" style={{ ...inputStyle, width: 100, flexShrink: 0 }}
+                      {handler.type === "command" && (
+                        <>
+                          <FieldRow label="命令" icon={<SectionIcon name="bolt" size={13} />}>
+                            <textarea
+                              className="input"
+                              style={{
+                                flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0,
+                                fontFamily: '"SF Mono", "Fira Code", monospace', lineHeight: 1.5,
+                                minHeight: 56, resize: "vertical",
+                              }}
+                              placeholder="命令或脚本路径，如 ./scripts/check.sh&#10;支持多行命令，每行独立执行"
+                              value={handler.command ?? ""}
+                              onChange={(e) => updateHandler(eventId, gi, hi, { command: e.target.value || undefined })}
+                            />
+                          </FieldRow>
+                          <FieldRow label="Shell" icon={<SectionIcon name="advanced" size={13} />}>
+                            <select className="input" style={{ ...inputStyle, width: 140 }}
                               value={handler.shell ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { shell: e.target.value || undefined })}>
-                              <option value="">bash</option><option value="powershell">powershell</option>
+                              <option value="">Bash</option><option value="powershell">PowerShell</option>
                             </select>
-                          </>
-                        )}
-                        {handler.type === "http" && (
+                          </FieldRow>
+                        </>
+                      )}
+                      {handler.type === "http" && (
+                        <FieldRow label="URL" icon={<SectionIcon name="network" size={13} />}>
                           <input className="input" style={{ ...inputStyle, flex: 1 }} placeholder="HTTP URL，如 http://localhost:8080/hooks/pre-tool-use"
                             value={handler.url ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { url: e.target.value || undefined })} />
-                        )}
-                        {handler.type === "mcp_tool" && (
-                          <>
+                        </FieldRow>
+                      )}
+                      {handler.type === "mcp_tool" && (
+                        <>
+                          <FieldRow label="服务器" icon={<SectionIcon name="network" size={13} />}>
                             <input className="input" style={{ ...inputStyle, flex: 1 }} placeholder="MCP 服务器名称"
                               value={handler.server ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { server: e.target.value || undefined })} />
+                          </FieldRow>
+                          <FieldRow label="工具" icon={<SectionIcon name="advanced" size={13} />}>
                             <input className="input" style={{ ...inputStyle, flex: 1 }} placeholder="工具名称"
                               value={handler.tool ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { tool: e.target.value || undefined })} />
-                          </>
-                        )}
-                        {(handler.type === "prompt" || handler.type === "agent") && (
-                          <input className="input" style={{ ...inputStyle, flex: 1 }} placeholder="提示文本，用 $ARGUMENTS 插入 hook 输入数据"
-                            value={handler.prompt ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { prompt: e.target.value || undefined })} />
-                        )}
-                      </div>
+                          </FieldRow>
+                        </>
+                      )}
+                      {(handler.type === "prompt" || handler.type === "agent") && (
+                        <FieldRow label="提示" icon={<SectionIcon name="behavior" size={13} />}>
+                          <textarea
+                            className="input"
+                            style={{
+                              flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0,
+                              fontFamily: '"SF Mono", "Fira Code", monospace', lineHeight: 1.5,
+                              minHeight: 56, resize: "vertical",
+                            }}
+                            placeholder="提示文本，用 $ARGUMENTS 插入 hook 输入数据&#10;支持多行提示内容"
+                            value={handler.prompt ?? ""}
+                            onChange={(e) => updateHandler(eventId, gi, hi, { prompt: e.target.value || undefined })}
+                          />
+                        </FieldRow>
+                      )}
 
-                      {/* Auxiliary options */}
-                      <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", paddingTop: 2 }}>
-                        {eventMeta?.hasMatcher && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                            <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0 }}>条件 if</span>
-                            <input className="input" style={{ ...inputStyle, width: 160, fontSize: F.hint }} placeholder="Bash(rm *)"
-                              value={handler["if"] ?? ""} onChange={(e) => {
-                                const patch: Partial<HookHandler> = {};
-                                if (e.target.value) (patch as any)["if"] = e.target.value;
-                                else (patch as any)["if"] = undefined;
-                                updateHandler(eventId, gi, hi, patch);
-                              }} />
-                          </div>
-                        )}
-                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0 }}>超时</span>
-                          <input className="input" style={{ ...inputStyle, width: 64, fontSize: F.hint }} type="number" placeholder="600"
-                            value={handler.timeout ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { timeout: e.target.value ? Number(e.target.value) : undefined })} />
-                          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>秒</span>
-                        </div>
-                        {handler.type === "command" && (
-                          <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: F.hint, color: "var(--text-tertiary)", cursor: "pointer" }}>
+                      {eventMeta?.hasMatcher && (
+                        <FieldRow label="条件 if" icon={<SectionIcon name="permissions" size={13} />}>
+                          <input className="input" style={{ ...inputStyle, flex: 1, fontSize: F.hint }} placeholder="匹配条件，如 Bash(rm *)"
+                            value={handler["if"] ?? ""} onChange={(e) => {
+                              const patch: Partial<HookHandler> = {};
+                              if (e.target.value) (patch as any)["if"] = e.target.value;
+                              else (patch as any)["if"] = undefined;
+                              updateHandler(eventId, gi, hi, patch);
+                            }} />
+                        </FieldRow>
+                      )}
+                      <FieldRow label="超时" icon={<SectionIcon name="status" size={13} />}>
+                        <input className="input" style={{ ...inputStyle, width: 80, fontSize: F.hint }} type="number" placeholder="600"
+                          value={handler.timeout ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { timeout: e.target.value ? Number(e.target.value) : undefined })} />
+                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>秒</span>
+                      </FieldRow>
+                      {handler.type === "command" && (
+                        <FieldRow label="async" icon={<SectionIcon name="ui" size={13} />}>
+                          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: F.hint, color: "var(--text-tertiary)", cursor: "pointer" }}>
                             <Toggle active={!!handler.async} onChange={(v) => updateHandler(eventId, gi, hi, { async: v || undefined })} />
-                            后台运行 (async)
+                            后台运行（不阻塞主流程）
                           </label>
-                        )}
-                        <input className="input" style={{ ...inputStyle, flex: "1 1 180px", minWidth: 140, fontSize: F.hint }}
-                          placeholder="状态消息 (运行时显示)" value={handler.statusMessage ?? ""}
+                        </FieldRow>
+                      )}
+                      <FieldRow label="状态" icon={<SectionIcon name="status" size={13} />}>
+                        <input className="input" style={{ ...inputStyle, flex: 1, fontSize: F.hint }}
+                          placeholder="运行时显示的状态消息" value={handler.statusMessage ?? ""}
                           onChange={(e) => updateHandler(eventId, gi, hi, { statusMessage: e.target.value || undefined })} />
-                      </div>
+                      </FieldRow>
                     </div>
                   ))}
 
@@ -2203,19 +2267,18 @@ export function Settings() {
         </div>
       )}
 
-      {/* GUI mode — sidebar tabs + content */}
+      {/* GUI mode — top tabs + content */}
       {mode === "gui" && (
-        <div style={{ display: "flex", gap: 20, flex: 1, minHeight: 0 }}>
-          {/* Sidebar */}
+        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          {/* Top tab bar */}
           <nav
             style={{
-              width: 200,
-              flexShrink: 0,
               display: "flex",
-              flexDirection: "column",
-              gap: 2,
-              overflowY: "auto",
-              paddingRight: 4,
+              gap: 0,
+              overflowX: "auto",
+              flexShrink: 0,
+              borderBottom: "1px solid var(--border)",
+              marginBottom: 0,
             }}
           >
             {SECTIONS.map((section) => {
@@ -2226,26 +2289,23 @@ export function Settings() {
                 <button
                   key={section.id}
                   type="button"
-                  className="btn btn-ghost"
                   style={{
-                    justifyContent: "flex-start",
-                    gap: 10,
-                    padding: "10px 14px",
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "10px 16px",
                     fontSize: F.body,
                     fontWeight: isActive ? 600 : 400,
                     color: isActive ? "var(--accent)" : "var(--text-secondary)",
-                    background: isActive ? "var(--accent-subtle)" : "transparent",
-                    borderRadius: "var(--radius-sm)",
-                    textAlign: "left",
-                    transition: "all 150ms",
+                    background: "transparent",
                     border: "none",
+                    borderBottom: isActive ? "2px solid var(--accent)" : "2px solid transparent",
+                    cursor: "pointer",
+                    whiteSpace: "nowrap",
+                    transition: "all 150ms",
                   }}
                   onClick={() => setActiveTab(section.id)}
                 >
-                  <span style={{ fontSize: 16, flexShrink: 0, display: "flex", alignItems: "center" }}><SectionIcon name={section.id} size={16} /></span>
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {t(section.labelKey)}
-                  </span>
+                  <SectionIcon name={section.id} size={15} />
+                  <span>{t(section.labelKey)}</span>
                 </button>
               );
             })}
@@ -2258,7 +2318,7 @@ export function Settings() {
               flex: 1,
               minWidth: 0,
               padding: S.pad,
-              borderRadius: "var(--radius-lg)",
+              borderRadius: "0 0 var(--radius-lg) var(--radius-lg)",
               overflowY: "auto",
             }}
           >
@@ -2269,8 +2329,9 @@ export function Settings() {
               // Section heading inside content pane
               const heading = (
                 <div style={{ marginBottom: S.gap + 4 }}>
-                  <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em" }}>
-                    <SectionIcon name={section.id} size={20} style={{ marginRight: 8, verticalAlign: "middle" }} />{t(section.labelKey)}
+                  <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 8 }}>
+                    <SectionIcon name={section.id} size={20} />
+                    {t(section.labelKey)}
                   </div>
                 </div>
               );
