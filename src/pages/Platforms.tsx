@@ -269,23 +269,32 @@ export function Platforms() {
     } catch (e) { console.error(e); }
   };
 
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720, width: "100%" }}>
-      {/* Header */}
-      <div className="section-header" style={{ justifyContent: "space-between" }}>
-        <div>
-          <div className="section-title">{t("page.platforms")}</div>
-          <div className="section-desc">
-            {platforms.length > 0 ? `${platforms.filter(p => p.enabled).length} / ${platforms.length} active` : t("platform.empty")}
+  // ── Edit / Add form (full page, no list) ──
+  if (showForm) {
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720, width: "100%" }}>
+        {/* Edit page header */}
+        <div className="section-header" style={{ gap: 10 }}>
+          <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: 14 }} onClick={resetForm}>
+            ← {t("action.back", "Back")}
+          </button>
+          <div style={{ flex: 1 }}>
+            <div className="section-title">
+              {editing ? editing.name : t("platform.add")}
+            </div>
+            {editing && (
+              <div className="section-desc">{editing.protocol.toUpperCase()} · {editing.base_url}</div>
+            )}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
+            <button className="btn btn-primary" onClick={handleSave}
+              disabled={!name || !baseUrl || !apiKey}>
+              {editing ? t("action.save") : t("action.create")}
+            </button>
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
-          + {t("platform.add")}
-        </button>
-      </div>
 
-      {/* Add/Edit Form */}
-      {showForm && (
         <div className="glass-surface animate-fade-in" style={{
           padding: 20,
           display: "flex",
@@ -294,11 +303,32 @@ export function Platforms() {
         }}>
           <input className="input" placeholder={t("platform.name")} value={name}
             onChange={(e) => setName(e.target.value)} />
-          <select className="input" value={protocol} onChange={(e) => handleProtocolChange(e.target.value as Protocol)}>
-            {PROTOCOLS.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
+          {editing ? (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8,
+              padding: "10px 14px", borderRadius: "var(--radius-sm)",
+              background: "var(--bg-glass)", border: "1px solid var(--border)",
+              fontSize: 14,
+            }}>
+              <span style={{
+                display: "inline-block", padding: "2px 8px", borderRadius: "var(--radius-sm)",
+                background: `${PROTOCOL_COLORS[protocol] || "var(--accent)"}20`,
+                color: PROTOCOL_COLORS[protocol] || "var(--accent)",
+                fontSize: 11, fontWeight: 700,
+              }}>
+                {protocol.toUpperCase()}
+              </span>
+              <span style={{ color: "var(--text-tertiary)", fontSize: 12 }}>
+                {t("platform.protocolLocked", "Protocol cannot be changed after creation")}
+              </span>
+            </div>
+          ) : (
+            <select className="input" value={protocol} onChange={(e) => handleProtocolChange(e.target.value as Protocol)}>
+              {PROTOCOLS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+          )}
           <input className="input" placeholder="Base URL" value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)} />
           {/* API Key with show/copy */}
@@ -538,22 +568,33 @@ export function Platforms() {
               {saveError}
             </div>
           )}
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
-            <button className="btn btn-primary" onClick={handleSave}
-              disabled={!name || !baseUrl || !apiKey}>
-              {editing ? t("action.save") : t("action.create")}
-            </button>
+        </div>
+      </div>
+    );
+  }
+
+  // ── List view ──
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720, width: "100%" }}>
+      {/* Header */}
+      <div className="section-header" style={{ justifyContent: "space-between" }}>
+        <div>
+          <div className="section-title">{t("page.platforms")}</div>
+          <div className="section-desc">
+            {platforms.length > 0 ? `${platforms.filter(p => p.enabled).length} / ${platforms.length} active` : t("platform.empty")}
           </div>
         </div>
-      )}
+        <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
+          + {t("platform.add")}
+        </button>
+      </div>
 
       {/* Platform List */}
       {loading ? (
         <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {platforms.length === 0 && !showForm && (
+          {platforms.length === 0 && (
             <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
               <div className="text-tertiary" style={{ fontSize: 13 }}>{t("platform.empty")}</div>
             </div>
