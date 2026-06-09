@@ -87,6 +87,7 @@ export function Platforms() {
   const [showForm, setShowForm] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState("");
+  const [saveError, setSaveError] = useState("");
 
   // Form state
   const [name, setName] = useState("");
@@ -122,7 +123,7 @@ export function Platforms() {
     setName(""); setProtocol("openai"); setBaseUrl(""); setApiKey("");
     setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "" });
     setAvailableModels([]);
-    setEditing(null); setShowForm(false); setFetchError("");
+    setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
   };
 
   const handleEdit = (p: Platform) => {
@@ -135,7 +136,7 @@ export function Platforms() {
       gpt: p.models.gpt ?? "",
     });
     setAvailableModels(p.available_models ?? []);
-    setEditing(p); setShowForm(true); setFetchError("");
+    setEditing(p); setShowForm(true); setFetchError(""); setSaveError("");
   };
 
   const handleModelChange = (slot: ModelSlot, value: string) => {
@@ -193,6 +194,7 @@ export function Platforms() {
   };
 
   const handleSave = async () => {
+    setSaveError("");
     try {
       const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
       const availablePayload = availableModels.length > 0 ? availableModels : undefined;
@@ -208,7 +210,11 @@ export function Platforms() {
         });
       }
       resetForm(); load();
-    } catch (e) { console.error(e); }
+    } catch (e: any) {
+      const msg = e?.toString() || "Unknown error";
+      console.error(msg);
+      setSaveError(msg);
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -318,16 +324,14 @@ export function Platforms() {
                 {availableModels.length > 0 && (
                   <select
                     className="input"
-                    style={{ width: 28, padding: "0 2px", fontSize: 10, appearance: "none",
-                      cursor: "pointer", color: "var(--text-tertiary)",
-                      background: "var(--bg-glass)", border: "1px solid var(--border)",
-                      borderRadius: "var(--radius-sm)",
+                    style={{ width: 32, minWidth: 32, padding: "0 4px", fontSize: 11,
+                      cursor: "pointer", color: "var(--text-secondary)",
                     }}
                     value=""
                     onChange={(e) => { if (e.target.value) handleModelSelect(key, e.target.value); }}
                     title={t("platform.selectModel")}
                   >
-                    <option value="">▼</option>
+                    <option value="">▾</option>
                     {availableModels.map((m) => <option key={m} value={m}>{m}</option>)}
                   </select>
                 )}
@@ -335,6 +339,11 @@ export function Platforms() {
             ))}
           </div>
 
+          {saveError && (
+            <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>
+              {saveError}
+            </div>
+          )}
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
             <button className="btn btn-primary" onClick={handleSave}

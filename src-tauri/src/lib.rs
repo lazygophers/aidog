@@ -131,13 +131,7 @@ async fn proxy_start(
     }
 
     // 获取 DB 的路径并克隆一份连接
-    let db_path = {
-        let app_dir = app
-            .path()
-            .app_data_dir()
-            .map_err(|e| e.to_string())?;
-        app_dir.join("aidog.db")
-    };
+    let db_path = aidog_data_dir()?.join("aidog.db");
     let proxy_db = Db::new(db_path.to_str().unwrap_or(""))?;
     let proxy_db = std::sync::Mutex::new(proxy_db);
 
@@ -287,18 +281,22 @@ fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String, Str
 
 // ─── Settings Persistence ──────────────────────────────────
 
+/// 统一数据目录：~/.aidog/
+fn aidog_data_dir() -> Result<std::path::PathBuf, String> {
+    let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
+    let dir = home.join(".aidog");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("create ~/.aidog: {e}"))?;
+    Ok(dir)
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 struct ProxySettings {
     port: u16,
     autostart: bool,
 }
 
-fn settings_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    let app_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| e.to_string())?;
-    Ok(app_dir.join("proxy_settings.json"))
+fn settings_path(_app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    Ok(aidog_data_dir()?.join("proxy_settings.json"))
 }
 
 fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> {
@@ -379,12 +377,7 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             // 在 app data dir 创建 SQLite
-            let app_dir = app
-                .path()
-                .app_data_dir()
-                .expect("failed to resolve app data dir");
-            std::fs::create_dir_all(&app_dir).ok();
-            let db_path = app_dir.join("aidog.db");
+            let db_path = aidog_data_dir().expect("failed to resolve data dir").join("aidog.db");
             let db = Db::new(db_path.to_str().unwrap()).expect("failed to open database");
             db.init_tables().expect("failed to init tables");
             db.run_migrations().expect("failed to run migrations");
