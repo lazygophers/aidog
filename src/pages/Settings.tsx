@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import { settingsApi } from "../services/api";
@@ -409,47 +409,82 @@ const MODE_COLORS: Record<RuleMode, string> = {
   deny: "#ff453a",
 };
 
-const PERMISSION_MODES: { value: string; desc: string }[] = [
-  { value: "default", desc: "首次使用每个工具时提示" },
-  { value: "acceptEdits", desc: "自动接受工作目录内的文件编辑" },
-  { value: "plan", desc: "只读模式，不编辑源文件" },
-  { value: "auto", desc: "自动批准，后台安全检查（预览）" },
-  { value: "dontAsk", desc: "未预先批准的工具自动拒绝" },
-  { value: "bypassPermissions", desc: "跳过所有权限提示" },
+const PERMISSION_MODES: { value: string; desc: string; hint: string }[] = [
+  { value: "default", desc: "标准模式", hint: "首次使用每个工具时提示权限" },
+  { value: "acceptEdits", desc: "接受编辑", hint: "自动接受工作目录内的文件编辑和常见文件系统命令" },
+  { value: "plan", desc: "计划模式", hint: "只读 — 读取文件和只读命令，不编辑源文件" },
+  { value: "auto", desc: "自动模式", hint: "自动批准 + 后台安全检查（研究预览）" },
+  { value: "dontAsk", desc: "不再询问", hint: "未预先批准的工具自动拒绝" },
+  { value: "bypassPermissions", desc: "跳过权限", hint: "跳过所有权限提示（根目录删除仍会提示）" },
 ];
 
-const TOOL_TEMPLATES: { tool: string; examples: string[] }[] = [
-  { tool: "Bash", examples: ["Bash(npm run build)", "Bash(git commit *)", "Bash(docker *)"] },
-  { tool: "Read", examples: ["Read(./.env)", "Read(//**/*.key)", "Read(~/.ssh/**)"] },
-  { tool: "Edit", examples: ["Edit(/src/**/*.ts)", "Edit(./config.json)"] },
-  { tool: "WebFetch", examples: ["WebFetch(domain:example.com)"] },
-  { tool: "MCP", examples: ["mcp__puppeteer__*"] },
-  { tool: "Agent", examples: ["Agent(Explore)", "Agent(Plan)"] },
+/** Tool categories with syntax hints and template examples — aligned with permissions docs */
+const TOOL_GROUPS: { tool: string; label: string; syntax: string; examples: string[] }[] = [
+  { tool: "Bash", label: "Bash / Shell", syntax: "Bash(cmd) / Bash(prefix *) / Bash", examples: [
+    "Bash(npm run build)", "Bash(npm run *)", "Bash(git commit *)", "Bash(git * main)",
+    "Bash(docker *)", "Bash(* --version)", "Bash",
+  ] },
+  { tool: "PowerShell", label: "PowerShell", syntax: "PowerShell(cmd) / PowerShell(prefix *) / PowerShell", examples: [
+    "PowerShell(Get-ChildItem *)", "PowerShell(git commit *)", "PowerShell",
+  ] },
+  { tool: "Read", label: "Read", syntax: "Read(path) — //绝对 / ~/主目录 / /项目根 / ./当前", examples: [
+    "Read(./.env)", "Read(//**/*.key)", "Read(~/.ssh/**)", "Read(src/**)", "Read(**/.env)",
+  ] },
+  { tool: "Edit", label: "Edit / Write", syntax: "Edit(path) — 同 Read 路径规则", examples: [
+    "Edit(/src/**/*.ts)", "Edit(./config.json)", "Edit(/docs/**)",
+  ] },
+  { tool: "WebFetch", label: "WebFetch", syntax: "WebFetch(domain:host) / WebFetch", examples: [
+    "WebFetch(domain:example.com)", "WebFetch",
+  ] },
+  { tool: "mcp__", label: "MCP", syntax: "mcp__server__tool / mcp__server__*", examples: [
+    "mcp__puppeteer__*", "mcp__puppeteer__puppeteer_navigate",
+  ] },
+  { tool: "Agent", label: "Agent (子代理)", syntax: "Agent(name)", examples: [
+    "Agent(Explore)", "Agent(Plan)", "Agent(my-custom-agent)",
+  ] },
 ];
 
-function PermissionsSection({
-  perms,
-  updateField,
-  t,
-}: {
-  perms: Record<string, string[]>;
+/** Detect which tool group a rule pattern belongs to */
+function ruleToolGroup(pattern: string): string {
+  if (pattern.startsWith("mcp__")) return "mcp__";
+  const m = pattern.match(/^([A-Za-z_]+)/);
+  return m ? m[1] : "";
+}
+
+/** Shared permissions logic — used by both PermissionsSection & PermissionsSectionInline */
+function PermissionsEditor({ perms, updateField, t }: {
+  perms: Record<string, any>;
   updateField: (field: string, value: any) => void;
   t: ReturnType<typeof useTranslation>["t"];
 }) {
   const [draftRule, setDraftRule] = useState("");
   const [draftMode, setDraftMode] = useState<RuleMode>("allow");
   const [showTemplates, setShowTemplates] = useState(false);
+  const [activeToolGroup, setActiveToolGroup] = useState<string>("Bash");
 
   // Flatten allow/ask/deny into unified rule list
   const rules: { pattern: string; mode: RuleMode }[] = [
-    ...(perms.allow ?? []).map(p => ({ pattern: p, mode: "allow" as RuleMode })),
-    ...(perms.ask ?? []).map(p => ({ pattern: p, mode: "ask" as RuleMode })),
-    ...(perms.deny ?? []).map(p => ({ pattern: p, mode: "deny" as RuleMode })),
+    ...(perms.allow ?? []).map((p: string) => ({ pattern: p, mode: "allow" as RuleMode })),
+    ...(perms.ask ?? []).map((p: string) => ({ pattern: p, mode: "ask" as RuleMode })),
+    ...(perms.deny ?? []).map((p: string) => ({ pattern: p, mode: "deny" as RuleMode })),
   ];
+
+  // Group rules by tool type
+  const grouped = useMemo(() => {
+    const map = new Map<string, { pattern: string; mode: RuleMode; idx: number }[]>();
+    rules.forEach((r, idx) => {
+      const group = ruleToolGroup(r.pattern);
+      if (!map.has(group)) map.set(group, []);
+      map.get(group)!.push({ ...r, idx });
+    });
+    return map;
+  }, [rules]);
 
   const syncRules = (updated: { pattern: string; mode: RuleMode }[]) => {
     const next: Record<string, any> = {};
     if (perms.defaultMode) next.defaultMode = perms.defaultMode;
+    if (perms.disableBypassPermissionsMode) next.disableBypassPermissionsMode = perms.disableBypassPermissionsMode;
+    if (perms.disableAutoMode) next.disableAutoMode = perms.disableAutoMode;
     const allow = updated.filter(r => r.mode === "allow").map(r => r.pattern);
     const ask = updated.filter(r => r.mode === "ask").map(r => r.pattern);
     const deny = updated.filter(r => r.mode === "deny").map(r => r.pattern);
@@ -459,128 +494,166 @@ function PermissionsSection({
     updateField("permissions", Object.keys(next).length > 0 ? next : undefined);
   };
 
+  const updatePermKey = (key: string, value: any) => {
+    const next: Record<string, any> = { ...perms };
+    if (value) next[key] = value;
+    else delete next[key];
+    if (Object.keys(next).length === 0) updateField("permissions", undefined);
+    else updateField("permissions", next);
+  };
+
   const modeLabel = (m: RuleMode) =>
     t(`settings.permissions${m.charAt(0).toUpperCase() + m.slice(1)}`);
-  const modeIcon = (m: RuleMode) => m === "allow" ? "✓" : m === "ask" ? "?" : "✗";
+
+  const MODE_CYCLE: RuleMode[] = ["allow", "ask", "deny"];
 
   const RuleBadge = ({ mode, onClick }: { mode: RuleMode; onClick: () => void }) => (
     <span
       style={{
-        display: "inline-flex", alignItems: "center", gap: 4,
-        fontSize: 14, fontWeight: 600, width: 80, justifyContent: "center",
-        padding: "6px 0", borderRadius: "var(--radius-sm)",
-        background: `${MODE_COLORS[mode]}18`,
+        display: "inline-flex", alignItems: "center", gap: 3,
+        fontSize: F.small, fontWeight: 600, minWidth: 56, justifyContent: "center",
+        padding: "4px 8px", borderRadius: "var(--radius-sm)",
+        background: `${MODE_COLORS[mode]}15`,
         color: MODE_COLORS[mode],
-        cursor: "pointer",
-        userSelect: "none",
+        cursor: "pointer", userSelect: "none",
+        border: `1px solid ${MODE_COLORS[mode]}30`,
+        transition: "all 150ms ease",
       }}
       onClick={onClick}
     >
-      {modeIcon(mode)} {modeLabel(mode)}
+      {modeLabel(mode)}
     </span>
   );
 
-  // Detect tool name from rule pattern for grouping badge
-  const toolBadge = (pattern: string) => {
-    const m = pattern.match(/^([A-Za-z_]+|mcp__[a-z_]+)/);
-    if (!m) return null;
-    return m[1];
-  };
+  const toolGroup = TOOL_GROUPS.find(g => g.tool === activeToolGroup) ?? TOOL_GROUPS[0];
 
   return (
-    <Section title={t("settings.sectionPermissions")} defaultOpen>
-      {/* Default Mode — left-right with descriptions */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-        <label style={{
-          flexShrink: 0, width: 200, fontSize: F.label, fontWeight: 500,
-          color: "var(--text-primary)", lineHeight: 1.5, paddingTop: 10,
-        }}>
-          {t("settings.permissionsDefaultMode")}
-          <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 3, fontFamily: '"SF Mono", "Fira Code", monospace' }}>
-            permissions.defaultMode
-          </span>
-        </label>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <select
-            className="input"
-            style={{ fontSize: F.body, padding: S.inputPad, width: "100%" }}
-            value={perms.defaultMode ?? ""}
-            onChange={(e) => {
-              const next: Record<string, any> = {};
-              if (perms.allow?.length) next.allow = perms.allow;
-              if (perms.ask?.length) next.ask = perms.ask;
-              if (perms.deny?.length) next.deny = perms.deny;
-              if (e.target.value) next.defaultMode = e.target.value;
-              updateField("permissions", Object.keys(next).length > 0 ? next : undefined);
-            }}
-          >
-            <option value="">—</option>
-            {PERMISSION_MODES.map(m => (
-              <option key={m.value} value={m.value}>{m.value} — {m.desc}</option>
-            ))}
-          </select>
-          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: 6, lineHeight: 1.5 }}>
-            规则优先级: deny → ask → allow。第一个匹配的规则生效。
-          </div>
-        </div>
+    <>
+      {/* ── Default Mode ── */}
+      <FieldRow label={t("settings.permissionsDefaultMode")} icon={<SectionIcon name="permissions" size={14} />}>
+        <select
+          className="input"
+          style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
+          value={perms.defaultMode ?? ""}
+          onChange={(e) => updatePermKey("defaultMode", e.target.value || undefined)}
+        >
+          <option value="">—</option>
+          {PERMISSION_MODES.map(m => (
+            <option key={m.value} value={m.value}>{m.desc} — {m.hint}</option>
+          ))}
+        </select>
+      </FieldRow>
+      <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.6, paddingLeft: 92 }}>
+        规则优先级: <span style={{ color: MODE_COLORS.deny, fontWeight: 600 }}>deny</span> →{" "}
+        <span style={{ color: MODE_COLORS.ask, fontWeight: 600 }}>ask</span> →{" "}
+        <span style={{ color: MODE_COLORS.allow, fontWeight: 600 }}>allow</span>。第一个匹配的规则生效。
       </div>
 
-      {/* Existing rules */}
-      {rules.length > 0 && (
-        <div style={{ paddingLeft: 216, display: "flex", flexDirection: "column", gap: S.row }}>
-          {rules.map((rule, i) => {
-            const tool = toolBadge(rule.pattern);
-            return (
-              <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                {tool && (
-                  <span style={{
-                    fontSize: 12, fontWeight: 600, padding: "2px 8px", borderRadius: 4,
-                    background: "var(--bg-glass)", color: "var(--accent)", flexShrink: 0,
-                    border: "1px solid var(--border)",
-                  }}>
-                    {tool}
-                  </span>
-                )}
+      {/* ── Safety Toggles ── */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <FieldRow label="禁用绕过模式" icon={<SectionIcon name="bolt" size={14} />}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: F.body, cursor: "pointer" }}>
+            <input type="checkbox" checked={!!perms.disableBypassPermissionsMode}
+              onChange={(e) => updatePermKey("disableBypassPermissionsMode", e.target.checked ? "disable" : undefined)} />
+            <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>disableBypassPermissionsMode — 阻止使用 bypassPermissions 模式</span>
+          </label>
+        </FieldRow>
+        <FieldRow label="禁用自动模式" icon={<SectionIcon name="bolt" size={14} />}>
+          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: F.body, cursor: "pointer" }}>
+            <input type="checkbox" checked={!!perms.disableAutoMode}
+              onChange={(e) => updatePermKey("disableAutoMode", e.target.checked ? "disable" : undefined)} />
+            <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>disableAutoMode — 阻止使用 auto 模式</span>
+          </label>
+        </FieldRow>
+      </div>
+
+      {/* ── Tool Group Tabs ── */}
+      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
+        {TOOL_GROUPS.map(g => {
+          const count = grouped.get(g.tool)?.length ?? 0;
+          const active = activeToolGroup === g.tool;
+          return (
+            <button key={g.tool} type="button"
+              style={{
+                padding: "6px 12px", fontSize: F.small, fontWeight: active ? 600 : 400,
+                color: active ? "var(--accent)" : "var(--text-secondary)",
+                background: "transparent", border: "none", borderBottom: active ? "2px solid var(--accent)" : "2px solid transparent",
+                cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
+                transition: "all 150ms ease",
+              }}
+              onClick={() => setActiveToolGroup(g.tool)}
+            >
+              {g.label}
+              {count > 0 && (
+                <span style={{
+                  fontSize: 10, padding: "1px 5px", borderRadius: 8,
+                  background: active ? "var(--accent)" : "var(--bg-glass)",
+                  color: active ? "#fff" : "var(--text-tertiary)", fontWeight: 600,
+                }}>{count}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* ── Syntax Hint for Active Group ── */}
+      <div style={{
+        fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.5,
+        padding: "8px 12px", background: "var(--bg-glass)", borderRadius: "var(--radius-sm)",
+        fontFamily: '"SF Mono", "Fira Code", monospace',
+      }}>
+        <span style={{ fontWeight: 600, color: "var(--accent)" }}>{toolGroup.label}</span>: {toolGroup.syntax}
+      </div>
+
+      {/* ── Rules for Active Group ── */}
+      {(() => {
+        const groupRules = grouped.get(activeToolGroup) ?? [];
+        if (groupRules.length === 0) return (
+          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "12px 0", textAlign: "center" }}>
+            暂无 {toolGroup.label} 规则。使用下方输入框添加。
+          </div>
+        );
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {groupRules.map((rule) => (
+              <div key={rule.idx} style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <input
                   className="input"
-                  style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0 }}
+                  style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0, fontFamily: '"SF Mono", "Fira Code", monospace' }}
                   value={rule.pattern}
                   onChange={(e) => {
                     const updated = [...rules];
-                    updated[i] = { ...updated[i], pattern: e.target.value };
+                    updated[rule.idx] = { ...updated[rule.idx], pattern: e.target.value };
                     syncRules(updated);
                   }}
                 />
                 <RuleBadge
                   mode={rule.mode}
                   onClick={() => {
-                    const modes: RuleMode[] = ["allow", "ask", "deny"];
                     const updated = [...rules];
-                    updated[i] = { ...updated[i], mode: modes[(modes.indexOf(rule.mode) + 1) % 3] };
+                    updated[rule.idx] = { ...updated[rule.idx], mode: MODE_CYCLE[(MODE_CYCLE.indexOf(rule.mode) + 1) % 3] };
                     syncRules(updated);
                   }}
                 />
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-icon"
+                <button type="button" className="btn btn-ghost btn-icon"
                   style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.body }}
-                  onClick={() => syncRules(rules.filter((_, j) => j !== i))}
+                  onClick={() => syncRules(rules.filter((_, j) => j !== rule.idx))}
                 >
                   ×
                 </button>
               </div>
-            );
-          })}
-        </div>
-      )}
+            ))}
+          </div>
+        );
+      })()}
 
-      {/* Add rule */}
-      <div style={{ paddingLeft: 216, display: "flex", gap: 6, alignItems: "center" }}>
+      {/* ── Add Rule ── */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <div style={{ position: "relative", flex: 1 }}>
           <input
             className="input"
-            style={{ fontSize: F.body, padding: S.inputPad, width: "100%", paddingRight: 28 }}
-            placeholder="Bash(npm run *) 或 Edit(/src/**)"
+            style={{ fontSize: F.body, padding: S.inputPad, width: "100%", paddingRight: 28, fontFamily: '"SF Mono", "Fira Code", monospace' }}
+            placeholder={toolGroup.examples[0]}
             value={draftRule}
             onChange={(e) => setDraftRule(e.target.value)}
             onKeyDown={(e) => {
@@ -590,9 +663,7 @@ function PermissionsSection({
               }
             }}
           />
-          <button
-            type="button"
-            className="btn btn-ghost btn-icon"
+          <button type="button" className="btn btn-ghost btn-icon"
             style={{
               position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
               width: 24, height: 24, minWidth: 24, padding: 0,
@@ -606,50 +677,45 @@ function PermissionsSection({
           {showTemplates && (
             <>
               <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowTemplates(false)} />
-              <div
-                className="glass-elevated"
+              <div className="glass-elevated"
                 style={{
                   position: "absolute", top: "100%", left: 0, right: 0,
-                  marginTop: 4, maxHeight: 260, overflowY: "auto",
-                  zIndex: 100, padding: 8, animation: "fadeIn 150ms ease both",
+                  marginTop: 4, maxHeight: 300, overflowY: "auto",
+                  zIndex: 100, padding: 10, animation: "fadeIn 150ms ease both",
                 }}
               >
-                {TOOL_TEMPLATES.map(group => (
-                  <div key={group.tool} style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", marginBottom: 4 }}>
-                      {group.tool}
+                {TOOL_GROUPS.map(g => (
+                  <div key={g.tool} style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
+                      {g.label}
+                      <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontWeight: 400, fontFamily: '"SF Mono", "Fira Code", monospace' }}>
+                        {g.syntax}
+                      </span>
                     </div>
-                    {group.examples.map(ex => (
-                      <button
-                        key={ex}
-                        type="button"
-                        className="btn btn-ghost"
-                        style={{
-                          width: "100%", justifyContent: "flex-start",
-                          padding: "5px 10px", fontSize: 14, fontWeight: 400,
-                          color: "var(--text-primary)", borderRadius: "var(--radius-sm)",
-                        }}
-                        onClick={() => { setDraftRule(ex); setShowTemplates(false); }}
-                      >
-                        {ex}
-                      </button>
-                    ))}
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                      {g.examples.map(ex => (
+                        <button key={ex} type="button" className="btn btn-ghost"
+                          style={{
+                            padding: "3px 8px", fontSize: 13, fontWeight: 400,
+                            color: "var(--text-primary)", borderRadius: "var(--radius-sm)",
+                            fontFamily: '"SF Mono", "Fira Code", monospace',
+                          }}
+                          onClick={() => { setDraftRule(ex); setShowTemplates(false); }}
+                        >
+                          {ex}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 ))}
               </div>
             </>
           )}
         </div>
-        <RuleBadge
-          mode={draftMode}
-          onClick={() => {
-            const modes: RuleMode[] = ["allow", "ask", "deny"];
-            setDraftMode(modes[(modes.indexOf(draftMode) + 1) % 3]);
-          }}
-        />
-        <button
-          type="button"
-          className="btn btn-ghost"
+        <RuleBadge mode={draftMode} onClick={() => {
+          setDraftMode(MODE_CYCLE[(MODE_CYCLE.indexOf(draftMode) + 1) % 3]);
+        }} />
+        <button type="button" className="btn btn-ghost"
           style={{ fontSize: F.body, padding: S.btnPad, width: S.btnIcon, minWidth: S.btnIcon }}
           onClick={() => {
             if (draftRule.trim()) {
@@ -661,215 +727,49 @@ function PermissionsSection({
           +
         </button>
       </div>
+
+      {/* ── All Rules Summary ── */}
+      {rules.length > 0 && (
+        <div style={{
+          fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.6,
+          padding: "8px 12px", background: "var(--bg-glass)", borderRadius: "var(--radius-sm)",
+          display: "flex", gap: 16, flexWrap: "wrap",
+        }}>
+          <span>共 {rules.length} 条规则:</span>
+          <span style={{ color: MODE_COLORS.allow }}>✓ allow: {rules.filter(r => r.mode === "allow").length}</span>
+          <span style={{ color: MODE_COLORS.ask }}>? ask: {rules.filter(r => r.mode === "ask").length}</span>
+          <span style={{ color: MODE_COLORS.deny }}>✗ deny: {rules.filter(r => r.mode === "deny").length}</span>
+        </div>
+      )}
+    </>
+  );
+}
+
+function PermissionsSection({
+  perms,
+  updateField,
+  t,
+}: {
+  perms: Record<string, any>;
+  updateField: (field: string, value: any) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  return (
+    <Section title={t("settings.sectionPermissions")} defaultOpen>
+      <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
+        <PermissionsEditor perms={perms} updateField={updateField} t={t} />
+      </div>
     </Section>
   );
 }
 
 /** Permissions without Section wrapper — for tab content pane */
 function PermissionsSectionInline({ perms, updateField, t }: {
-  perms: Record<string, string[]>;
+  perms: Record<string, any>;
   updateField: (field: string, value: any) => void;
   t: ReturnType<typeof useTranslation>["t"];
 }) {
-  // Same logic as PermissionsSection but renders flat (no Section card)
-  const [draftRule, setDraftRule] = useState("");
-  const [draftMode, setDraftMode] = useState<RuleMode>("allow");
-  const [showTemplates, setShowTemplates] = useState(false);
-
-  const rules: { pattern: string; mode: RuleMode }[] = [
-    ...(perms.allow ?? []).map(p => ({ pattern: p, mode: "allow" as RuleMode })),
-    ...(perms.ask ?? []).map(p => ({ pattern: p, mode: "ask" as RuleMode })),
-    ...(perms.deny ?? []).map(p => ({ pattern: p, mode: "deny" as RuleMode })),
-  ];
-
-  const syncRules = (updated: { pattern: string; mode: RuleMode }[]) => {
-    const next: Record<string, any> = {};
-    if (perms.defaultMode) next.defaultMode = perms.defaultMode;
-    const allow = updated.filter(r => r.mode === "allow").map(r => r.pattern);
-    const ask = updated.filter(r => r.mode === "ask").map(r => r.pattern);
-    const deny = updated.filter(r => r.mode === "deny").map(r => r.pattern);
-    if (allow.length) next.allow = allow;
-    if (ask.length) next.ask = ask;
-    if (deny.length) next.deny = deny;
-    updateField("permissions", Object.keys(next).length > 0 ? next : undefined);
-  };
-
-  const modeLabel = (m: RuleMode) => t(`settings.permissions${m.charAt(0).toUpperCase() + m.slice(1)}`);
-  const modeIcon = (m: RuleMode) => m === "allow" ? "✓" : m === "ask" ? "?" : "✗";
-
-  const RuleBadge = ({ mode, onClick }: { mode: RuleMode; onClick: () => void }) => (
-    <span
-      style={{
-        display: "inline-flex", alignItems: "center", gap: 4,
-        fontSize: 14, fontWeight: 600, width: 80, justifyContent: "center",
-        padding: "6px 0", borderRadius: "var(--radius-sm)",
-        background: `${MODE_COLORS[mode]}18`, color: MODE_COLORS[mode],
-        cursor: "pointer", userSelect: "none",
-      }}
-      onClick={onClick}
-    >
-      {modeIcon(mode)} {modeLabel(mode)}
-    </span>
-  );
-
-  const toolBadge = (pattern: string) => {
-    const m = pattern.match(/^([A-Za-z_]+|mcp__[a-z_]+)/);
-    return m ? m[1] : null;
-  };
-
-  return (
-    <>
-      {/* Default Mode */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-        <label style={{
-          flexShrink: 0, width: 200, fontSize: F.label, fontWeight: 500,
-          color: "var(--text-primary)", lineHeight: 1.5, paddingTop: 10,
-        }}>
-          {t("settings.permissionsDefaultMode")}
-          <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 3, fontFamily: '"SF Mono", "Fira Code", monospace' }}>
-            permissions.defaultMode
-          </span>
-        </label>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <select
-            className="input"
-            style={{ fontSize: F.body, padding: S.inputPad, width: "100%" }}
-            value={perms.defaultMode ?? ""}
-            onChange={(e) => {
-              const next: Record<string, any> = {};
-              if (perms.allow?.length) next.allow = perms.allow;
-              if (perms.ask?.length) next.ask = perms.ask;
-              if (perms.deny?.length) next.deny = perms.deny;
-              if (e.target.value) next.defaultMode = e.target.value;
-              updateField("permissions", Object.keys(next).length > 0 ? next : undefined);
-            }}
-          >
-            <option value="">—</option>
-            {PERMISSION_MODES.map(m => (
-              <option key={m.value} value={m.value}>{m.value} — {m.desc}</option>
-            ))}
-          </select>
-          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: 6, lineHeight: 1.5 }}>
-            规则优先级: deny → ask → allow。第一个匹配的规则生效。
-          </div>
-        </div>
-      </div>
-
-      {/* Rules list */}
-      {rules.length > 0 && (
-        <div style={{ paddingLeft: 216, display: "flex", flexDirection: "column", gap: S.row }}>
-          {rules.map((rule, i) => {
-            const tool = toolBadge(rule.pattern);
-            return (
-              <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                {tool && (
-                  <span style={{
-                    fontSize: 12, fontWeight: 600, padding: "2px 8px", borderRadius: 4,
-                    background: "var(--bg-glass)", color: "var(--accent)", flexShrink: 0,
-                    border: "1px solid var(--border)",
-                  }}>
-                    {tool}
-                  </span>
-                )}
-                <input
-                  className="input"
-                  style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0 }}
-                  value={rule.pattern}
-                  onChange={(e) => {
-                    const updated = [...rules];
-                    updated[i] = { ...updated[i], pattern: e.target.value };
-                    syncRules(updated);
-                  }}
-                />
-                <RuleBadge mode={rule.mode} onClick={() => {
-                  const modes: RuleMode[] = ["allow", "ask", "deny"];
-                  const updated = [...rules];
-                  updated[i] = { ...updated[i], mode: modes[(modes.indexOf(rule.mode) + 1) % 3] };
-                  syncRules(updated);
-                }} />
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-icon"
-                  style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.body }}
-                  onClick={() => syncRules(rules.filter((_, j) => j !== i))}
-                >
-                  ×
-                </button>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Add rule */}
-      <div style={{ paddingLeft: 216, display: "flex", gap: 6, alignItems: "center" }}>
-        <div style={{ position: "relative", flex: 1 }}>
-          <input
-            className="input"
-            style={{ fontSize: F.body, padding: S.inputPad, width: "100%", paddingRight: 28 }}
-            placeholder="Bash(npm run *) 或 Edit(/src/**)"
-            value={draftRule}
-            onChange={(e) => setDraftRule(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && draftRule.trim()) {
-                syncRules([...rules, { pattern: draftRule.trim(), mode: draftMode }]);
-                setDraftRule("");
-              }
-            }}
-          />
-          <button
-            type="button"
-            className="btn btn-ghost btn-icon"
-            style={{
-              position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
-              width: 24, height: 24, minWidth: 24, padding: 0,
-              color: showTemplates ? "var(--accent)" : "var(--text-tertiary)",
-            }}
-            onClick={() => setShowTemplates(!showTemplates)}
-            title="规则模板"
-          >
-            <SectionIcon name="bolt" size={14} />
-          </button>
-          {showTemplates && (
-            <>
-              <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowTemplates(false)} />
-              <div className="glass-elevated" style={{
-                position: "absolute", top: "100%", left: 0, right: 0,
-                marginTop: 4, maxHeight: 260, overflowY: "auto",
-                zIndex: 100, padding: 8, animation: "fadeIn 150ms ease both",
-              }}>
-                {TOOL_TEMPLATES.map(group => (
-                  <div key={group.tool} style={{ marginBottom: 8 }}>
-                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", marginBottom: 4 }}>
-                      {group.tool}
-                    </div>
-                    {group.examples.map(ex => (
-                      <button key={ex} type="button" className="btn btn-ghost" style={{
-                        width: "100%", justifyContent: "flex-start",
-                        padding: "5px 10px", fontSize: 14, fontWeight: 400,
-                        color: "var(--text-primary)", borderRadius: "var(--radius-sm)",
-                      }} onClick={() => { setDraftRule(ex); setShowTemplates(false); }}>
-                        {ex}
-                      </button>
-                    ))}
-                  </div>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-        <RuleBadge mode={draftMode} onClick={() => {
-          const modes: RuleMode[] = ["allow", "ask", "deny"];
-          setDraftMode(modes[(modes.indexOf(draftMode) + 1) % 3]);
-        }} />
-        <button type="button" className="btn btn-ghost" style={{ fontSize: F.body, padding: S.btnPad, width: S.btnIcon, minWidth: S.btnIcon }} onClick={() => {
-          if (draftRule.trim()) { syncRules([...rules, { pattern: draftRule.trim(), mode: draftMode }]); setDraftRule(""); }
-        }}>
-          +
-        </button>
-      </div>
-    </>
-  );
+  return <PermissionsEditor perms={perms} updateField={updateField} t={t} />;
 }
 
 // ─── Hooks Section (friendly editor) ────────────────────────
@@ -2110,7 +2010,7 @@ export function Settings() {
   };
 
   // Permissions helpers for the special permissions sub-editor
-  const perms = (config.permissions ?? {}) as Record<string, string[]>;
+  const perms = (config.permissions ?? {}) as Record<string, any>;
 
   // Active section tab
   const [activeTab, setActiveTab] = useState("core");
