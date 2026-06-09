@@ -381,4 +381,35 @@ export const RECOMMENDED_CONFIG: Record<string, any> = {
     "ENABLE_TOOL_SEARCH": "true",
     "ENABLE_PROMPT_CACHING_1H": "1",
   },
+  "extraKnownMarketplaces": {
+    "ccplugin-market": {
+      "source": {
+        "repo": "lazygophers/ccplugin",
+        "source": "github",
+      },
+    },
+    "claude-code-warp": {
+      "source": {
+        "repo": "warpdotdev/claude-code-warp",
+        "source": "github",
+      },
+    },
+    "claude-plugins-official": {
+      "source": {
+        "repo": "anthropics/claude-plugins-official",
+        "source": "github",
+      },
+    },
+  },
+  "enabledPlugins": {
+    "claude-code-setup@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "code-modernization@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "supabase@claude-plugins-official": true,
+    "warp@claude-code-warp": true,
+    "trellisx@ccplugin-market": true,
+    "git@ccplugin-market": true,
+  },
 };

@@ -7,7 +7,7 @@ import {
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
 
-/** 从 PlatformModels 中提取所有非空模型名（去重） */
+/** Extract all non-empty model names (deduplicated) */
 function allModelValues(models: Platform["models"]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -21,20 +21,32 @@ function allModelValues(models: Platform["models"]): string[] {
   return result;
 }
 
+// ─── Design tokens ───
+const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
+const S = { gap: 18, pad: 28, inputPad: "10px 14px", btnPad: "8px 18px", btnIcon: 34 } as const;
+
 export function Groups() {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
+
+  // Edit mode
+  const [editTarget, setEditTarget] = useState<GroupDetail | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPath, setEditPath] = useState("");
+  const [editMode, setEditMode] = useState<RoutingMode>("failover");
+  const [editPlatformIds, setEditPlatformIds] = useState<string[]>([]);
+  const [editMappings, setEditMappings] = useState<{ id?: string; source_model: string; target_platform_id: string; target_model: string }[]>([]);
+
+  // Create mode
+  const [showCreate, setShowCreate] = useState(false);
+  const [cName, setCName] = useState("");
+  const [cPath, setCPath] = useState("/claude");
+  const [cMode, setCMode] = useState<RoutingMode>("failover");
+
+  // Mapping form (for quick add in list view)
   const [mappingGroupId, setMappingGroupId] = useState<string | null>(null);
-
-  // Group form
-  const [gName, setGName] = useState("");
-  const [gPath, setGPath] = useState("/claude");
-  const [gMode, setGMode] = useState<RoutingMode>("failover");
-
-  // Mapping form
   const [mSource, setMSource] = useState("");
   const [mTargetPlatform, setMTargetPlatform] = useState("");
   const [mTargetModel, setMTargetModel] = useState("");
@@ -51,10 +63,87 @@ export function Groups() {
 
   useEffect(() => { load(); }, []);
 
+  // ── Edit handlers ──
+
+  const openEdit = (detail: GroupDetail) => {
+    setEditTarget(detail);
+    setEditName(detail.group.name);
+    setEditPath(detail.group.path);
+    setEditMode(detail.group.routing_mode);
+    setEditPlatformIds(detail.platforms.map(gp => gp.platform.id));
+    setEditMappings(detail.model_mappings.map(m => ({
+      id: m.id,
+      source_model: m.source_model,
+      target_platform_id: m.target_platform_id,
+      target_model: m.target_model,
+    })));
+  };
+
+  const cancelEdit = () => {
+    setEditTarget(null);
+    setEditName("");
+    setEditPath("");
+    setEditMode("failover");
+    setEditPlatformIds([]);
+    setEditMappings([]);
+  };
+
+  const saveEdit = async () => {
+    if (!editTarget) return;
+    try {
+      // Update group basic info
+      await groupApi.update({
+        id: editTarget.group.id,
+        name: editName,
+        path: editPath,
+        routing_mode: editMode,
+      });
+
+      // Update platforms
+      await groupApi.setPlatforms(
+        editTarget.group.id,
+        editPlatformIds.map((pid, i) => ({ platform_id: pid, priority: i + 1, weight: 1 })),
+      );
+
+      // Diff mappings: delete old, create new
+      const oldIds = new Set(editTarget.model_mappings.map(m => m.id));
+      const keptIds = new Set(editMappings.filter(m => m.id).map(m => m.id!));
+      for (const oldId of oldIds) {
+        if (!keptIds.has(oldId)) {
+          await mappingApi.delete(oldId);
+        }
+      }
+      for (const m of editMappings) {
+        if (m.id) {
+          await mappingApi.update({
+            id: m.id,
+            source_model: m.source_model,
+            target_platform_id: m.target_platform_id,
+            target_model: m.target_model,
+          });
+        } else {
+          await mappingApi.create({
+            group_id: editTarget.group.id,
+            source_model: m.source_model,
+            target_platform_id: m.target_platform_id,
+            target_model: m.target_model,
+          });
+        }
+      }
+
+      cancelEdit();
+      load();
+    } catch (e) {
+      console.error(e);
+      alert((e as any)?.toString?.() || "Failed to save group");
+    }
+  };
+
+  // ── Create handler ──
   const handleCreateGroup = async () => {
     try {
-      await groupApi.create({ name: gName, path: gPath, routing_mode: gMode });
-      setGName(""); setGPath("/claude"); setGMode("failover"); setShowForm(false);
+      await groupApi.create({ name: cName, path: cPath, routing_mode: cMode });
+      setCName(""); setCPath("/claude"); setCMode("failover"); setShowCreate(false);
       load();
     } catch (e) { console.error(e); }
   };
@@ -68,6 +157,7 @@ export function Groups() {
     }
   };
 
+  // ── Quick mapping (list view) ──
   const handleAddMapping = async () => {
     if (!mappingGroupId || !mSource || !mTargetPlatform || !mTargetModel) return;
     try {
@@ -87,15 +177,224 @@ export function Groups() {
     try { await mappingApi.delete(id); load(); } catch (e) { console.error(e); }
   };
 
-  // 获取当前选中平台的 models
   const selectedPlatform = platforms.find(p => p.id === mTargetPlatform);
   const availableModels = selectedPlatform ? allModelValues(selectedPlatform.models) : [];
 
-  const handleTargetPlatformChange = (platformId: string) => {
-    setMTargetPlatform(platformId);
-    setMTargetModel(""); // 切换平台时重置 target model
-  };
+  // ── Edit page ──
+  if (editTarget) {
+    const editPlatformOptions = platforms.filter(p => p.enabled);
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720, width: "100%" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button className="btn btn-ghost btn-icon" onClick={cancelEdit} title={t("action.cancel")}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: F.title, fontWeight: 700 }}>{editName || t("group.edit")}</div>
+            <div className="text-secondary" style={{ fontSize: F.hint, marginTop: 2 }}>{editTarget.group.id.slice(0, 8)}</div>
+          </div>
+          <button className="btn" onClick={cancelEdit}>{t("action.cancel")}</button>
+          <button className="btn btn-primary" onClick={saveEdit}
+            disabled={!editName || !editPath}>{t("action.save")}</button>
+        </div>
 
+        {/* Basic info */}
+        <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
+          <div style={{ fontSize: F.label, fontWeight: 600, marginBottom: 4 }}>{t("group.basicInfo", "基本信息")}</div>
+
+          {/* Name */}
+          <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.name", "名称")}</span>
+            <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+              value={editName} onChange={e => setEditName(e.target.value)} />
+          </div>
+
+          {/* Path */}
+          <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>Path</span>
+            <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+              value={editPath} onChange={e => setEditPath(e.target.value)} />
+          </div>
+
+          {/* Routing mode */}
+          <div style={{ display: "grid", gridTemplateColumns: "140px 1fr", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.routingMode", "路由模式")}</span>
+            <select className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+              value={editMode} onChange={e => setEditMode(e.target.value as RoutingMode)}>
+              <option value="failover">{t("group.failover")}</option>
+              <option value="load_balance">{t("group.loadBalance")}</option>
+            </select>
+          </div>
+
+          {/* Auto badge */}
+          {editTarget.group.auto_from_platform && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: F.hint, color: "var(--text-tertiary)" }}>
+              <span className="badge badge-muted" style={{ fontSize: 10, padding: "0 5px" }}>auto</span>
+              {t("group.autoFromPlatform", "自动创建，部分字段不可编辑")}
+            </div>
+          )}
+        </div>
+
+        {/* Platforms */}
+        <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
+          <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("group.platforms", "关联平台")}</div>
+          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: -8 }}>
+            {t("group.platformsHint", "选择并排序此分组使用的平台，顺序决定优先级")}
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {/* Selected platforms — reorderable by drag later, for now ordered list */}
+            {editPlatformIds.map((pid, i) => {
+              const p = platforms.find(pp => pp.id === pid);
+              if (!p) return null;
+              return (
+                <div key={pid} style={{
+                  display: "flex", alignItems: "center", gap: 10,
+                  padding: "8px 12px", borderRadius: "var(--radius-sm)",
+                  background: "var(--bg-glass)", border: "1px solid var(--border)",
+                }}>
+                  <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", width: 20, textAlign: "center" }}>
+                    {i + 1}
+                  </span>
+                  <span style={{
+                    width: 28, height: 28, borderRadius: "var(--radius-sm)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: "var(--accent-subtle)", color: "var(--accent)",
+                    fontSize: 11, fontWeight: 700, flexShrink: 0,
+                  }}>
+                    {p.protocol.slice(0, 2).toUpperCase()}
+                  </span>
+                  <span style={{ flex: 1, fontSize: F.body, fontWeight: 500 }}>{p.name}</span>
+                  {/* Move up/down */}
+                  <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
+                    disabled={i === 0}
+                    onClick={() => {
+                      const ids = [...editPlatformIds];
+                      [ids[i - 1], ids[i]] = [ids[i], ids[i - 1]];
+                      setEditPlatformIds(ids);
+                    }}>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                      <path d="M5 2v6M2 5l3-3 3 3" />
+                    </svg>
+                  </button>
+                  <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
+                    disabled={i === editPlatformIds.length - 1}
+                    onClick={() => {
+                      const ids = [...editPlatformIds];
+                      [ids[i], ids[i + 1]] = [ids[i + 1], ids[i]];
+                      setEditPlatformIds(ids);
+                    }}>
+                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                      <path d="M5 8V2M2 5l3 3 3-3" />
+                    </svg>
+                  </button>
+                  <button type="button" onClick={() => setEditPlatformIds(editPlatformIds.filter(id => id !== pid))} style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
+                  }}>✕</button>
+                </div>
+              );
+            })}
+          </div>
+          {/* Add platform */}
+          {editPlatformIds.length < editPlatformOptions.length && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <select className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
+                onChange={e => {
+                  if (e.target.value && !editPlatformIds.includes(e.target.value)) {
+                    setEditPlatformIds([...editPlatformIds, e.target.value]);
+                  }
+                  e.target.value = "";
+                }}>
+                <option value="">{t("group.addPlatform", "+ 添加平台")}</option>
+                {editPlatformOptions
+                  .filter(p => !editPlatformIds.includes(p.id))
+                  .map(p => <option key={p.id} value={p.id}>{p.name} ({p.protocol})</option>)}
+              </select>
+            </div>
+          )}
+        </div>
+
+        {/* Model Mappings */}
+        <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
+          <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("group.modelMappings", "模型映射")}</div>
+          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: -8 }}>
+            {t("group.mappingsHint", "将源模型名映射到目标平台的具体模型")}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {editMappings.map((m, i) => {
+              const targetPlat = platforms.find(p => p.id === m.target_platform_id);
+              const models = targetPlat ? allModelValues(targetPlat.models) : [];
+              return (
+                <div key={i} style={{
+                  display: "flex", gap: 8, alignItems: "center",
+                  padding: "8px 12px", borderRadius: "var(--radius-sm)",
+                  background: "var(--bg-glass)", border: "1px solid var(--border)",
+                }}>
+                  <input className="input" style={{ fontSize: F.hint, padding: "6px 10px", width: 140, flexShrink: 0 }}
+                    placeholder={t("mapping.source", "源模型")}
+                    value={m.source_model}
+                    onChange={e => {
+                      const ms = [...editMappings];
+                      ms[i] = { ...ms[i], source_model: e.target.value };
+                      setEditMappings(ms);
+                    }} />
+                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M2 6h8M8 4l2 2-2 2" />
+                  </svg>
+                  <select className="input" style={{ fontSize: F.hint, padding: "6px 10px", width: 140, flexShrink: 0 }}
+                    value={m.target_platform_id}
+                    onChange={e => {
+                      const ms = [...editMappings];
+                      ms[i] = { ...ms[i], target_platform_id: e.target.value, target_model: "" };
+                      setEditMappings(ms);
+                    }}>
+                    <option value="">{t("mapping.targetPlatform", "目标平台")}</option>
+                    {platforms.filter(p => p.enabled).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                  {models.length > 0 ? (
+                    <select className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
+                      value={m.target_model}
+                      onChange={e => {
+                        const ms = [...editMappings];
+                        ms[i] = { ...ms[i], target_model: e.target.value };
+                        setEditMappings(ms);
+                      }}>
+                      <option value="">{t("mapping.target", "目标模型")}</option>
+                      {models.map(m2 => <option key={m2} value={m2}>{m2}</option>)}
+                    </select>
+                  ) : (
+                    <input className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
+                      placeholder={t("mapping.target", "目标模型")}
+                      value={m.target_model}
+                      onChange={e => {
+                        const ms = [...editMappings];
+                        ms[i] = { ...ms[i], target_model: e.target.value };
+                        setEditMappings(ms);
+                      }} />
+                  )}
+                  <button type="button" onClick={() => setEditMappings(editMappings.filter((_, j) => j !== i))} style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1, flexShrink: 0,
+                  }}>✕</button>
+                </div>
+              );
+            })}
+
+            <button type="button" className="btn btn-ghost" style={{ fontSize: F.hint, padding: "6px 12px", alignSelf: "flex-start" }}
+              onClick={() => setEditMappings([...editMappings, { source_model: "", target_platform_id: "", target_model: "" }])}>
+              + {t("mapping.add", "添加映射")}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── List view ──
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720, width: "100%" }}>
       {/* Header */}
@@ -106,31 +405,31 @@ export function Groups() {
             {details.length > 0 ? `${details.length} ${t("nav.groups").toLowerCase()}` : t("group.empty")}
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
           + {t("group.add")}
         </button>
       </div>
 
-      {/* Add Group Form */}
-      {showForm && (
+      {/* Create Group Form */}
+      {showCreate && (
         <div className="glass-surface animate-fade-in" style={{
           padding: 20,
           display: "flex",
           flexDirection: "column",
           gap: 12,
         }}>
-          <input className="input" placeholder={t("group.name")} value={gName}
-            onChange={(e) => setGName(e.target.value)} />
-          <input className="input" placeholder="Path (e.g. /claude)" value={gPath}
-            onChange={(e) => setGPath(e.target.value)} />
-          <select className="input" value={gMode} onChange={(e) => setGMode(e.target.value as RoutingMode)}>
+          <input className="input" placeholder={t("group.name")} value={cName}
+            onChange={(e) => setCName(e.target.value)} />
+          <input className="input" placeholder="Path (e.g. /claude)" value={cPath}
+            onChange={(e) => setCPath(e.target.value)} />
+          <select className="input" value={cMode} onChange={(e) => setCMode(e.target.value as RoutingMode)}>
             <option value="failover">{t("group.failover")}</option>
             <option value="load_balance">{t("group.loadBalance")}</option>
           </select>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button className="btn" onClick={() => setShowForm(false)}>{t("action.cancel")}</button>
+            <button className="btn" onClick={() => setShowCreate(false)}>{t("action.cancel")}</button>
             <button className="btn btn-primary" onClick={handleCreateGroup}
-              disabled={!gName || !gPath}>{t("action.create")}</button>
+              disabled={!cName || !cPath}>{t("action.create")}</button>
           </div>
         </div>
       )}
@@ -140,7 +439,7 @@ export function Groups() {
         <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {details.length === 0 && !showForm && (
+          {details.length === 0 && !showCreate && (
             <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
               <div className="text-tertiary" style={{ fontSize: 13 }}>{t("group.empty")}</div>
             </div>
@@ -149,7 +448,8 @@ export function Groups() {
             <div
               key={group.id}
               className="card-item animate-fade-in"
-              style={{ animationDelay: `${i * 60}ms` }}
+              style={{ animationDelay: `${i * 60}ms`, cursor: "pointer" }}
+              onClick={() => openEdit({ group, platforms: gps, model_mappings })}
             >
               {/* Group Header */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
@@ -177,8 +477,14 @@ export function Groups() {
                     </span>
                   </div>
                 </div>
+                <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </button>
                 {!group.auto_from_platform && (
-                  <button className="btn btn-ghost btn-icon btn-danger" onClick={() => handleDeleteGroup(group.id)}>
+                  <button className="btn btn-ghost btn-icon btn-danger" onClick={(e) => { e.stopPropagation(); handleDeleteGroup(group.id); }}>
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
                     </svg>
@@ -217,7 +523,7 @@ export function Groups() {
                       </svg>
                       <span style={{ flex: 1 }}>{m.target_model}</span>
                       <button className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
-                        onClick={() => handleDeleteMapping(m.id)}>
+                        onClick={(e) => { e.stopPropagation(); handleDeleteMapping(m.id); }}>
                         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
                           <path d="M2 2l6 6M8 2l-6 6" />
                         </svg>
@@ -227,9 +533,9 @@ export function Groups() {
                 </div>
               )}
 
-              {/* Add Mapping */}
+              {/* Quick Add Mapping */}
               <button className="btn btn-ghost" style={{ fontSize: 12, gap: 4, padding: "4px 8px", color: "var(--text-secondary)" }}
-                onClick={() => setMappingGroupId(group.id)}>
+                onClick={(e) => { e.stopPropagation(); setMappingGroupId(group.id); }}>
                 <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                   <path d="M6 2v8M2 6h8" />
                 </svg>
@@ -245,12 +551,12 @@ export function Groups() {
                   gap: 8,
                   alignItems: "center",
                   flexWrap: "wrap",
-                }}>
+                }} onClick={e => e.stopPropagation()}>
                   <input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
                     placeholder={t("mapping.source")} value={mSource}
                     onChange={(e) => setMSource(e.target.value)} />
                   <select className="input" style={{ fontSize: 12, width: 140 }} value={mTargetPlatform}
-                    onChange={(e) => handleTargetPlatformChange(e.target.value)}>
+                    onChange={(e) => { setMTargetPlatform(e.target.value); setMTargetModel(""); }}>
                     <option value="">{t("mapping.targetPlatform")}</option>
                     {platforms.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
