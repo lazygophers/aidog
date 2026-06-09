@@ -345,7 +345,7 @@ export const RECOMMENDED_CONFIG: Record<string, any> = {
     "FORCE_AUTOUPDATE_PLUGINS": "true",
     "CLAUDE_CODE_EFFORT_LEVEL": "medium",
     "CLAUDE_CODE_DISABLE_FAST_MODE": "1",
-    "ENABLE_TOOL_SEARCH": "0",
+    "ENABLE_TOOL_SEARCH": "true",
     "ENABLE_PROMPT_CACHING_1H": "1",
   },
 };

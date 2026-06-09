@@ -389,7 +389,7 @@ function EnvVarRow({ def, value, onChange, t }: {
         return (
           <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
             <input className="input" type="number"
-              style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
+              style={{ fontSize: F.body, padding: S.inputPad, width: 160 }}
               placeholder={placeholder} value={value ?? ""} min={min} max={max}
               onChange={(e) => onChange(e.target.value || undefined)} />
             {isSet && removeBtn}
