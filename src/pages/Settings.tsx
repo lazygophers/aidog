@@ -1683,7 +1683,6 @@ function PluginsEditor({
 }) {
   const enabledPlugins = (config.enabledPlugins ?? {}) as Record<string, boolean>;
   const extraMarketplaces = (config.extraKnownMarketplaces ?? {}) as Record<string, any>;
-  const skillOverrides = (config.skillOverrides ?? {}) as Record<string, string>;
 
   // ── Enabled Plugins ──
   const [newPluginKey, setNewPluginKey] = useState("");
@@ -1724,26 +1723,6 @@ function PluginsEditor({
     const next = { ...extraMarketplaces };
     delete next[name];
     updateField("extraKnownMarketplaces", Object.keys(next).length > 0 ? next : undefined);
-  };
-
-  // ── Skill Overrides ──
-  const [newSkillName, setNewSkillName] = useState("");
-  const skillEntries = Object.entries(skillOverrides);
-
-  const setSkillOverride = (name: string, mode: string) => {
-    const next = { ...skillOverrides, [name]: mode };
-    updateField("skillOverrides", next);
-  };
-  const addSkillOverride = () => {
-    const name = newSkillName.trim();
-    if (!name) return;
-    setSkillOverride(name, "on");
-    setNewSkillName("");
-  };
-  const removeSkillOverride = (name: string) => {
-    const next = { ...skillOverrides };
-    delete next[name];
-    updateField("skillOverrides", Object.keys(next).length > 0 ? next : undefined);
   };
 
   return (
@@ -1832,55 +1811,6 @@ function PluginsEditor({
           </div>
         </div>
       </div>
-
-      {/* ── Skill Overrides ── */}
-      <div>
-        <SubHeading>
-          <SvgIcon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" size={14} style={{ opacity: 0.6 }} />
-          Skill Overrides
-        </SubHeading>
-        <Hint>按 skill 名称覆盖可见性 (on / name-only / user-invocable-only / off)</Hint>
-        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
-          {skillEntries.map(([name, mode]) => (
-            <div key={name} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <code style={{
-                flex: 1, fontSize: F.hint, padding: "6px 10px",
-                background: "var(--bg-glass)", borderRadius: "var(--radius-sm)",
-                color: "var(--text-primary)", fontFamily: "monospace",
-                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              }}>
-                {name}
-              </code>
-              <select
-                className="input"
-                style={{ fontSize: F.hint, padding: "6px 10px", width: 160 }}
-                value={mode}
-                onChange={(e) => setSkillOverride(name, e.target.value)}
-              >
-                {SKILL_OVERRIDE_MODES.map((m) => (
-                  <option key={m} value={m}>{m}</option>
-                ))}
-              </select>
-              <button type="button" onClick={() => removeSkillOverride(name)} style={{
-                background: "none", border: "none", cursor: "pointer",
-                color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
-              }}>✕</button>
-            </div>
-          ))}
-          <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
-            <input
-              className="input"
-              style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
-              placeholder="skill-name"
-              value={newSkillName}
-              onChange={(e) => setNewSkillName(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && addSkillOverride()}
-            />
-            <button type="button" className="btn btn-ghost" style={{ fontSize: F.small, padding: "4px 12px" }}
-              onClick={addSkillOverride}>+</button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
@@ -1908,6 +1838,148 @@ function PluginsSectionInline({ config, updateField }: {
   updateField: (field: string, value: any) => void;
 }) {
   return <PluginsEditor config={config} updateField={updateField} />;
+}
+
+// ─── Skills Section (structured editor) ─────────────────────
+
+/** Known skills from installed plugins — populated at build time */
+const KNOWN_SKILLS = [
+  // claude-plugins-official
+  "claude-code-setup", "claude-md-management", "code-modernization", "code-review",
+  "code-simplifier", "supabase", "understand-anything", "cortex", "feature-dev",
+  "session-report", "deep-research", "run", "init", "verify", "simplify",
+  // claude-code-warp
+  "warp",
+  // ccplugin-market
+  "trellisx", "git",
+  // user-invocable built-in
+  "agent-browser", "beautiful-mermaid", "brandkit", "design-taste-frontend",
+  "find-skills", "full-output-enforcement", "gpt-taste", "high-end-visual-design",
+  "huashu-design", "humanizer", "hv-analysis", "image-to-code", "imagegen-frontend-mobile",
+  "imagegen-frontend-web", "industrial-brutalist-ui", "khazix-writer", "lark-approval",
+  "lark-apps", "lark-attendance", "lark-base", "lark-calendar", "lark-contact",
+  "lark-doc", "lark-drive", "lark-event", "lark-im", "lark-mail", "lark-markdown",
+  "lark-minutes", "lark-okr", "lark-openapi-explorer", "lark-shared", "lark-sheets",
+  "lark-skill-maker", "lark-slides", "lark-task", "lark-vc", "lark-vc-agent",
+  "lark-whiteboard", "lark-wiki", "lark-workflow-meeting-summary", "lark-workflow-standup-report",
+  "minimalist-ui", "neat-freak", "qiaomu-anything-to-notebooklm", "redesign-existing-projects",
+  "stitch-design-taste", "aidog-quickstart",
+] as const;
+
+function SkillsEditor({ config, updateField }: {
+  config: Record<string, any>;
+  updateField: (field: string, value: any) => void;
+}) {
+  const skillOverrides = (config.skillOverrides ?? {}) as Record<string, string>;
+  const skillEntries = Object.entries(skillOverrides);
+
+  const setSkillOverride = (name: string, mode: string) => {
+    const next = { ...skillOverrides, [name]: mode };
+    updateField("skillOverrides", next);
+  };
+  const removeSkillOverride = (name: string) => {
+    const next = { ...skillOverrides };
+    delete next[name];
+    updateField("skillOverrides", Object.keys(next).length > 0 ? next : undefined);
+  };
+
+  // Determine which known skills aren't yet configured
+  const configuredNames = new Set(Object.keys(skillOverrides));
+  const availableSkills = KNOWN_SKILLS.filter(s => !configuredNames.has(s));
+
+  const [addName, setAddName] = useState("");
+  const addSkill = () => {
+    const n = addName.trim();
+    if (!n) return;
+    setSkillOverride(n, "on");
+    setAddName("");
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: S.sectionGap }}>
+      {/* Existing overrides */}
+      <div>
+        <SubHeading>
+          <SvgIcon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" size={14} style={{ opacity: 0.6 }} />
+          Skill Overrides
+        </SubHeading>
+        <Hint>覆盖已安装 skill 的可见性（on / name-only / user-invocable-only / off）</Hint>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
+          {skillEntries.map(([name, mode]) => (
+            <div key={name} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <code style={{
+                flex: 1, fontSize: F.hint, padding: "6px 10px",
+                background: "var(--bg-glass)", borderRadius: "var(--radius-sm)",
+                color: "var(--text-primary)", fontFamily: "monospace",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
+                {name}
+              </code>
+              <select className="input" style={{ fontSize: F.hint, padding: "6px 10px", width: 160 }}
+                value={mode} onChange={(e) => setSkillOverride(name, e.target.value)}>
+                {SKILL_OVERRIDE_MODES.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <button type="button" onClick={() => removeSkillOverride(name)} style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
+              }}>✕</button>
+            </div>
+          ))}
+
+          {/* Add skill — dropdown of known skills + free text fallback */}
+          <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
+            <select className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
+              value={addName}
+              onChange={(e) => setAddName(e.target.value)}>
+              <option value="">+ 选择或输入 skill 名称…</option>
+              {availableSkills.map((s) => (
+                <option key={s} value={s}>{s}</option>
+              ))}
+              {/* Already configured but shown for re-add */}
+              {configuredNames.size > 0 && (
+                <optgroup label="已配置">
+                  {[...configuredNames].sort().map((s) => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </optgroup>
+              )}
+            </select>
+            <input className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
+              placeholder="自定义 skill 名称"
+              value={addName}
+              onChange={(e) => setAddName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addSkill()}
+            />
+            <button type="button" className="btn btn-ghost" style={{ fontSize: F.small, padding: "4px 12px" }}
+              onClick={addSkill}>+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Skills with Section wrapper */
+function SkillsSection({ config, updateField, t }: {
+  config: Record<string, any>;
+  updateField: (field: string, value: any) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  return (
+    <Section title={t("settings.sectionSkills")} defaultOpen>
+      <SkillsEditor config={config} updateField={updateField} />
+    </Section>
+  );
+}
+
+/** Skills without Section wrapper — for tab content pane */
+function SkillsSectionInline({ config, updateField }: {
+  config: Record<string, any>;
+  updateField: (field: string, value: any) => void;
+}) {
+  return <SkillsEditor config={config} updateField={updateField} />;
 }
 
 // ─── Hooks Section (friendly editor) ────────────────────────
@@ -3196,6 +3268,16 @@ export function Settings() {
       );
     }
 
+    if (section.id === "skills") {
+      return (
+        <SkillsSection
+          config={config}
+          updateField={updateField}
+          t={t}
+        />
+      );
+    }
+
     if (section.id === "hooks") {
       return (
         <HooksSection
@@ -3355,7 +3437,7 @@ export function Settings() {
           >
             {SECTIONS.map((section) => {
               const visibleFields = section.fields.filter((f) => !f.skipGui);
-              const alwaysShow = ["hooks", "plugins", "sandbox", "permissions", "env"].includes(section.id);
+              const alwaysShow = ["hooks", "plugins", "skills", "sandbox", "permissions", "env"].includes(section.id);
               if (visibleFields.length === 0 && !alwaysShow) return null;
               const isActive = activeTab === section.id;
               return (
@@ -3439,6 +3521,18 @@ export function Settings() {
                   <div>
                     {heading}
                     <PluginsSectionInline
+                      config={config}
+                      updateField={updateField}
+                    />
+                  </div>
+                );
+              }
+
+              if (section.id === "skills") {
+                return (
+                  <div>
+                    {heading}
+                    <SkillsSectionInline
                       config={config}
                       updateField={updateField}
                     />

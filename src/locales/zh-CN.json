@@ -97,6 +97,7 @@
   "settings.sectionEnv": "环境变量",
   "settings.sectionHooks": "生命周期钩子 (Hooks)",
   "settings.sectionPlugins": "插件",
+  "settings.sectionSkills": "Skill 覆盖",
   "settings.sectionSandbox": "沙箱",
   "settings.sectionAttribution": "署名",
   "settings.sectionStatus": "状态行",

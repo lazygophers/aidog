@@ -107,6 +107,12 @@ export const SECTIONS: SettingSection[] = [
     fields: [
       { key: "enabledPlugins", label: "Enabled Plugins", type: "kv", description: "插件@市场 → true/false", skipGui: true },
       { key: "extraKnownMarketplaces", label: "Extra Marketplaces", type: "kv", description: "命名市场源定义", skipGui: true },
+    ],
+  },
+  {
+    id: "skills",
+    labelKey: "settings.sectionSkills",
+    fields: [
       { key: "skillOverrides", label: "Skill Overrides", type: "kv", description: "按 skill 名称的可见性覆盖", skipGui: true },
     ],
   },

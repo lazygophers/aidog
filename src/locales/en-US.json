@@ -97,6 +97,7 @@
   "settings.sectionEnv": "Environment Variables",
   "settings.sectionHooks": "Lifecycle Hooks",
   "settings.sectionPlugins": "Plugins",
+  "settings.sectionSkills": "Skill Overrides",
   "settings.sectionSandbox": "Sandbox",
   "settings.sectionAttribution": "Attribution",
   "settings.sectionStatus": "Status Line",
