@@ -616,7 +616,14 @@ function PermissionsSection({
   );
 }
 
-// ─── Path Input (text + system picker + hint) ─────────────
+// ─── Path Input (text + system picker + autocomplete) ─────
+
+interface PathSuggestion {
+  name: string;
+  full_path: string;
+  is_dir: boolean;
+  modified: number;
+}
 
 function PathInput({
   value,
@@ -629,6 +636,34 @@ function PathInput({
   pathType: "file" | "directory";
   placeholder?: string;
 }) {
+  const [suggestions, setSuggestions] = useState<PathSuggestion[]>([]);
+  const [showSugg, setShowSugg] = useState(false);
+  const [timer, setTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+
+  const fetchSuggestions = useCallback((input: string) => {
+    if (timer) clearTimeout(timer);
+    if (!input || input.length < 1) {
+      setSuggestions([]);
+      setShowSugg(false);
+      return;
+    }
+    const t = setTimeout(async () => {
+      try {
+        let result: PathSuggestion[] = [];
+        if ((window as any).__TAURI_INTERNALS__) {
+          const core = await import("@tauri-apps/api/core");
+          result = await core.invoke<PathSuggestion[]>("fs_autocomplete", { input });
+        }
+        setSuggestions(result);
+        setShowSugg(result.length > 0);
+      } catch {
+        setSuggestions([]);
+        setShowSugg(false);
+      }
+    }, 150);
+    setTimer(t);
+  }, [timer]);
+
   const pick = async () => {
     try {
       const selected = await open({
@@ -642,15 +677,51 @@ function PathInput({
     }
   };
 
+  const selectSuggestion = (s: PathSuggestion) => {
+    // For directory picker, if user selects a dir, append "/" so they can drill deeper
+    if (s.is_dir) {
+      onChange(s.full_path + "/");
+      fetchSuggestions(s.full_path + "/");
+    } else {
+      onChange(s.full_path);
+      setShowSugg(false);
+    }
+  };
+
+  const formatTime = (ts: number) => {
+    if (!ts) return "";
+    const d = new Date(ts * 1000);
+    const now = new Date();
+    const diffMs = now.getTime() - d.getTime();
+    const diffDays = Math.floor(diffMs / 86400000);
+    if (diffDays === 0) {
+      const diffH = Math.floor(diffMs / 3600000);
+      return diffH === 0 ? "刚刚" : `${diffH}小时前`;
+    }
+    if (diffDays < 30) return `${diffDays}天前`;
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, position: "relative" }}>
       <div style={{ display: "flex", gap: 6 }}>
         <input
           className="input"
           style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0 }}
           placeholder={placeholder ?? (pathType === "directory" ? "点击 📁 选择或直接输入路径…" : "点击 📁 选择或直接输入文件路径…")}
           value={value ?? ""}
-          onChange={(e) => onChange(e.target.value || undefined)}
+          onChange={(e) => {
+            const v = e.target.value || undefined;
+            onChange(v);
+            fetchSuggestions(e.target.value);
+          }}
+          onFocus={() => {
+            if (suggestions.length > 0) setShowSugg(true);
+          }}
+          onBlur={() => {
+            // Delay to allow click on suggestion
+            setTimeout(() => setShowSugg(false), 200);
+          }}
         />
         <button
           type="button"
@@ -662,11 +733,66 @@ function PathInput({
           📁
         </button>
       </div>
-      {!value && (
+
+      {/* Autocomplete dropdown */}
+      {showSugg && suggestions.length > 0 && (
+        <div
+          className="glass-elevated"
+          style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            right: 36,
+            marginTop: 2,
+            maxHeight: 240,
+            overflowY: "auto",
+            zIndex: 200,
+            padding: 4,
+            animation: "fadeIn 120ms ease both",
+          }}
+        >
+          {suggestions.map((s) => (
+            <button
+              key={s.full_path}
+              type="button"
+              className="btn btn-ghost"
+              style={{
+                width: "100%",
+                justifyContent: "space-between",
+                alignItems: "center",
+                padding: "6px 10px",
+                fontSize: 14,
+                fontWeight: 400,
+                color: "var(--text-primary)",
+                borderRadius: "var(--radius-sm)",
+              }}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                selectSuggestion(s);
+              }}
+            >
+              <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+                <span style={{ fontSize: 13, flexShrink: 0 }}>
+                  {s.is_dir ? "📁" : "📄"}
+                </span>
+                <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {s.name}
+                </span>
+              </span>
+              <span style={{ fontSize: 12, color: "var(--text-tertiary)", flexShrink: 0 }}>
+                {formatTime(s.modified)}
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Hint when empty and no suggestions */}
+      {!value && !showSugg && (
         <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
           {pathType === "directory"
-            ? "支持绝对路径 (~/my-dir) 或相对路径 (./data)"
-            : "支持绝对路径 (/usr/local/bin/script.sh) 或相对路径 (./run.sh)"}
+            ? "输入 ~/ 浏览主目录，支持 Tab 补全"
+            : "输入路径浏览文件，如 ~/ 或 ./"}
         </span>
       )}
     </div>
