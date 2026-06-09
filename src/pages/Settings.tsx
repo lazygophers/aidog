@@ -1875,28 +1875,18 @@ function PluginsSectionInline({ config, updateField }: {
 
 // ─── Skills Section (structured editor) ─────────────────────
 
-/** Known skills from installed plugins — populated at build time */
+/**
+ * Known built-in (non-plugin) skills for skillOverrides.
+ * NOTE: skillOverrides does NOT apply to plugin skills — those are managed via /plugin.
+ * This list covers only built-in Claude Code skills and non-plugin user-invocable skills.
+ */
 const KNOWN_SKILLS = [
-  // claude-plugins-official
-  "claude-code-setup", "claude-md-management", "code-modernization", "code-review",
-  "code-simplifier", "supabase", "understand-anything", "cortex", "feature-dev",
-  "session-report", "deep-research", "run", "init", "verify", "simplify",
-  // claude-code-warp
-  "warp",
-  // ccplugin-market
-  "trellisx", "git",
-  // user-invocable built-in
-  "agent-browser", "beautiful-mermaid", "brandkit", "design-taste-frontend",
-  "find-skills", "full-output-enforcement", "gpt-taste", "high-end-visual-design",
-  "huashu-design", "humanizer", "hv-analysis", "image-to-code", "imagegen-frontend-mobile",
-  "imagegen-frontend-web", "industrial-brutalist-ui", "khazix-writer", "lark-approval",
-  "lark-apps", "lark-attendance", "lark-base", "lark-calendar", "lark-contact",
-  "lark-doc", "lark-drive", "lark-event", "lark-im", "lark-mail", "lark-markdown",
-  "lark-minutes", "lark-okr", "lark-openapi-explorer", "lark-shared", "lark-sheets",
-  "lark-skill-maker", "lark-slides", "lark-task", "lark-vc", "lark-vc-agent",
-  "lark-whiteboard", "lark-wiki", "lark-workflow-meeting-summary", "lark-workflow-standup-report",
-  "minimalist-ui", "neat-freak", "qiaomu-anything-to-notebooklm", "redesign-existing-projects",
-  "stitch-design-taste", "aidog-quickstart",
+  // Built-in Claude Code skills (non-plugin)
+  "legacy-context", "deploy", "context-manager", "planner",
+  "doctor", "status", "cost", "compact", "resume", "clear",
+  // User-invocable built-in commands
+  "bug", "feedback", "help", "login", "logout", "config",
+  "model", "fast", "memory", "add-dir", "permissions",
 ] as const;
 
 function SkillsEditor({ config, updateField }: {
@@ -1936,7 +1926,7 @@ function SkillsEditor({ config, updateField }: {
           <SvgIcon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" size={14} style={{ opacity: 0.6 }} />
           Skill Overrides
         </SubHeading>
-        <Hint>覆盖已安装 skill 的可见性（on / name-only / user-invocable-only / off）</Hint>
+        <Hint>仅适用于内置 skill，不适用于插件 skill（插件通过 /plugin 管理）。值: on / name-only / user-invocable-only / off</Hint>
         <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
           {skillEntries.map(([name, mode]) => (
             <div key={name} style={{ display: "flex", gap: 8, alignItems: "center" }}>
