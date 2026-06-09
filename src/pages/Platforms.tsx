@@ -88,7 +88,7 @@ export function Platforms() {
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const [saveError, setSaveError] = useState("");
-  const [revealedKey, setRevealedKey] = useState<string | null>(null);
+  const [showKey, setShowKey] = useState(false);
 
   // Form state
   const [name, setName] = useState("");
@@ -301,8 +301,52 @@ export function Platforms() {
           </select>
           <input className="input" placeholder="Base URL" value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)} />
-          <input className="input" type="password" placeholder="API Key" value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)} />
+          {/* API Key with show/copy */}
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <input
+              className="input"
+              type={showKey ? "text" : "password"}
+              placeholder="API Key"
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              style={{ flex: 1 }}
+            />
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon"
+              title={showKey ? "Hide key" : "Show key"}
+              onClick={() => setShowKey(!showKey)}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                {showKey ? (
+                  <>
+                    <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                    <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                    <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                    <line x1="1" y1="1" x2="23" y2="23" />
+                  </>
+                ) : (
+                  <>
+                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                    <circle cx="12" cy="12" r="3" />
+                  </>
+                )}
+              </svg>
+            </button>
+            {editing && apiKey && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon"
+                title="Copy key"
+                onClick={() => navigator.clipboard.writeText(apiKey)}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                  <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                </svg>
+              </button>
+            )}
+          </div>
 
           {/* Models Configuration */}
           <div style={{
@@ -517,112 +561,62 @@ export function Platforms() {
           {platforms.map((p, i) => {
             const color = PROTOCOL_COLORS[p.protocol] || "var(--accent)";
             const configuredModels = allModelValues(p.models);
-            const isRevealed = revealedKey === p.id;
             return (
               <div
                 key={p.id}
                 className="card-item"
                 style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
                   animationDelay: `${i * 50}ms`,
                   opacity: p.enabled ? 1 : 0.5,
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: "var(--radius-sm)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    background: `${color}15`,
-                    border: `1px solid ${color}30`,
-                    color: color, fontSize: 11, fontWeight: 700, flexShrink: 0,
-                  }}>
-                    {p.protocol.slice(0, 2).toUpperCase()}
-                  </div>
-
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
-                    <div className="text-secondary" style={{ fontSize: 12, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {p.protocol.toUpperCase()} · {p.base_url}
-                    </div>
-                    {configuredModels.length > 0 && (
-                      <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
-                        {configuredModels.map((m, mi) => (
-                          <span key={mi} className="badge badge-muted" style={{ fontSize: 11, padding: "2px 6px" }}>
-                            {m}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
-                    <div
-                      className={`toggle ${p.enabled ? "active" : ""}`}
-                      style={{ cursor: "pointer" }}
-                      onClick={() => handleToggle(p)}
-                      title={p.enabled ? "Disable" : "Enable"}
-                    />
-                    <button
-                      className="btn btn-ghost btn-icon"
-                      onClick={() => setRevealedKey(isRevealed ? null : p.id)}
-                      title={isRevealed ? "Hide key" : "View key"}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        {isRevealed ? (
-                          <>
-                            <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
-                            <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
-                            <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
-                            <line x1="1" y1="1" x2="23" y2="23" />
-                          </>
-                        ) : (
-                          <>
-                            <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-                            <circle cx="12" cy="12" r="3" />
-                          </>
-                        )}
-                      </svg>
-                    </button>
-                    <button className="btn btn-ghost btn-icon" onClick={() => handleEdit(p)}>
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M10 2l2 2-7 7H3v-2l7-7z" />
-                      </svg>
-                    </button>
-                    <button className="btn btn-ghost btn-icon btn-danger" onClick={() => handleDelete(p.id)}>
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
-                      </svg>
-                    </button>
-                  </div>
+                <div style={{
+                  width: 36, height: 36, borderRadius: "var(--radius-sm)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: `${color}15`,
+                  border: `1px solid ${color}30`,
+                  color: color, fontSize: 11, fontWeight: 700, flexShrink: 0,
+                }}>
+                  {p.protocol.slice(0, 2).toUpperCase()}
                 </div>
 
-                {/* API Key reveal row */}
-                {isRevealed && (
-                  <div className="animate-fade-in" style={{
-                    display: "flex", gap: 8, alignItems: "center", marginTop: 10,
-                    padding: "8px 12px", background: "var(--bg-glass)",
-                    borderRadius: "var(--radius-sm)", border: "1px solid var(--border)",
-                  }}>
-                    <span style={{ fontSize: 11, color: "var(--text-secondary)", flexShrink: 0 }}>API Key</span>
-                    <code style={{
-                      flex: 1, fontSize: 12, fontFamily: '"SF Mono", "Fira Code", monospace',
-                      color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis",
-                      whiteSpace: "nowrap", userSelect: "all",
-                    }}>
-                      {p.api_key}
-                    </code>
-                    <button
-                      className="btn btn-ghost"
-                      style={{ fontSize: 11, padding: "4px 10px", gap: 4 }}
-                      onClick={() => { navigator.clipboard.writeText(p.api_key); }}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-                      </svg>
-                      Copy
-                    </button>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
+                  <div className="text-secondary" style={{ fontSize: 12, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {p.protocol.toUpperCase()} · {p.base_url}
                   </div>
-                )}
+                  {configuredModels.length > 0 && (
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+                      {configuredModels.map((m, mi) => (
+                        <span key={mi} className="badge badge-muted" style={{ fontSize: 11, padding: "2px 6px" }}>
+                          {m}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+                  <div
+                    className={`toggle ${p.enabled ? "active" : ""}`}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => handleToggle(p)}
+                    title={p.enabled ? "Disable" : "Enable"}
+                  />
+                  <button className="btn btn-ghost btn-icon" onClick={() => handleEdit(p)}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 2l2 2-7 7H3v-2l7-7z" />
+                    </svg>
+                  </button>
+                  <button className="btn btn-ghost btn-icon btn-danger" onClick={() => handleDelete(p.id)}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             );
           })}
