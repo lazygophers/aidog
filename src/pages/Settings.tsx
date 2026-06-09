@@ -359,6 +359,24 @@ const MODE_COLORS: Record<RuleMode, string> = {
   deny: "#ff453a",
 };
 
+const PERMISSION_MODES: { value: string; desc: string }[] = [
+  { value: "default", desc: "首次使用每个工具时提示" },
+  { value: "acceptEdits", desc: "自动接受工作目录内的文件编辑" },
+  { value: "plan", desc: "只读模式，不编辑源文件" },
+  { value: "auto", desc: "自动批准，后台安全检查（预览）" },
+  { value: "dontAsk", desc: "未预先批准的工具自动拒绝" },
+  { value: "bypassPermissions", desc: "跳过所有权限提示" },
+];
+
+const TOOL_TEMPLATES: { tool: string; examples: string[] }[] = [
+  { tool: "Bash", examples: ["Bash(npm run build)", "Bash(git commit *)", "Bash(docker *)"] },
+  { tool: "Read", examples: ["Read(./.env)", "Read(//**/*.key)", "Read(~/.ssh/**)"] },
+  { tool: "Edit", examples: ["Edit(/src/**/*.ts)", "Edit(./config.json)"] },
+  { tool: "WebFetch", examples: ["WebFetch(domain:example.com)"] },
+  { tool: "MCP", examples: ["mcp__puppeteer__*"] },
+  { tool: "Agent", examples: ["Agent(Explore)", "Agent(Plan)"] },
+];
+
 function PermissionsSection({
   perms,
   updateField,
@@ -370,6 +388,7 @@ function PermissionsSection({
 }) {
   const [draftRule, setDraftRule] = useState("");
   const [draftMode, setDraftMode] = useState<RuleMode>("allow");
+  const [showTemplates, setShowTemplates] = useState(false);
 
   // Flatten allow/ask/deny into unified rule list
   const rules: { pattern: string; mode: RuleMode }[] = [
@@ -394,15 +413,16 @@ function PermissionsSection({
     t(`settings.permissions${m.charAt(0).toUpperCase() + m.slice(1)}`);
   const modeIcon = (m: RuleMode) => m === "allow" ? "✓" : m === "ask" ? "?" : "✗";
 
-  const ModeBadge = ({ mode, onClick }: { mode: RuleMode; onClick: () => void }) => (
+  const RuleBadge = ({ mode, onClick }: { mode: RuleMode; onClick: () => void }) => (
     <span
       style={{
         display: "inline-flex", alignItems: "center", gap: 4,
-        fontSize: F.body, fontWeight: 600, width: 90, justifyContent: "center",
+        fontSize: 14, fontWeight: 600, width: 80, justifyContent: "center",
         padding: "6px 0", borderRadius: "var(--radius-sm)",
         background: `${MODE_COLORS[mode]}18`,
         color: MODE_COLORS[mode],
         cursor: "pointer",
+        userSelect: "none",
       }}
       onClick={onClick}
     >
@@ -410,99 +430,167 @@ function PermissionsSection({
     </span>
   );
 
+  // Detect tool name from rule pattern for grouping badge
+  const toolBadge = (pattern: string) => {
+    const m = pattern.match(/^([A-Za-z_]+|mcp__[a-z_]+)/);
+    if (!m) return null;
+    return m[1];
+  };
+
   return (
     <Section title={t("settings.sectionPermissions")} defaultOpen>
-      {/* Default Mode — left-right */}
-      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+      {/* Default Mode — left-right with descriptions */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
         <label style={{
           flexShrink: 0, width: 180, fontSize: F.label, fontWeight: 500,
-          color: "var(--text-secondary)", lineHeight: 1.4,
+          color: "var(--text-secondary)", lineHeight: 1.4, paddingTop: 8,
         }}>
           {t("settings.permissionsDefaultMode")}
           <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 2 }}>
             permissions.defaultMode
           </span>
         </label>
-        <select
-          className="input"
-          style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 0 }}
-          value={perms.defaultMode ?? ""}
-          onChange={(e) => {
-            const next: Record<string, any> = {};
-            if (perms.allow?.length) next.allow = perms.allow;
-            if (perms.ask?.length) next.ask = perms.ask;
-            if (perms.deny?.length) next.deny = perms.deny;
-            if (e.target.value) next.defaultMode = e.target.value;
-            updateField("permissions", Object.keys(next).length > 0 ? next : undefined);
-          }}
-        >
-          <option value="">—</option>
-          <option value="default">default</option>
-          <option value="plan">plan</option>
-          <option value="auto">auto</option>
-          <option value="acceptEdits">acceptEdits</option>
-          <option value="dontAsk">dontAsk</option>
-          <option value="bypassPermissions">bypassPermissions</option>
-        </select>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <select
+            className="input"
+            style={{ fontSize: F.body, padding: S.inputPad, width: "100%" }}
+            value={perms.defaultMode ?? ""}
+            onChange={(e) => {
+              const next: Record<string, any> = {};
+              if (perms.allow?.length) next.allow = perms.allow;
+              if (perms.ask?.length) next.ask = perms.ask;
+              if (perms.deny?.length) next.deny = perms.deny;
+              if (e.target.value) next.defaultMode = e.target.value;
+              updateField("permissions", Object.keys(next).length > 0 ? next : undefined);
+            }}
+          >
+            <option value="">—</option>
+            {PERMISSION_MODES.map(m => (
+              <option key={m.value} value={m.value}>{m.value} — {m.desc}</option>
+            ))}
+          </select>
+          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
+            规则优先级: deny → ask → allow。第一个匹配的规则生效。
+          </div>
+        </div>
       </div>
 
-      {/* Rules list header */}
+      {/* Existing rules */}
       {rules.length > 0 && (
-        <div style={{ display: "flex", gap: 6, alignItems: "center", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 500, paddingLeft: 192, paddingRight: S.btnIcon + 6 }}>
-          <span style={{ flex: 1 }}>Pattern</span>
-          <span style={{ width: 90, textAlign: "center" }}>Mode</span>
+        <div style={{ paddingLeft: 192, display: "flex", flexDirection: "column", gap: S.row }}>
+          {rules.map((rule, i) => {
+            const tool = toolBadge(rule.pattern);
+            return (
+              <div key={i} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                {tool && (
+                  <span style={{
+                    fontSize: 12, fontWeight: 600, padding: "2px 8px", borderRadius: 4,
+                    background: "var(--bg-glass)", color: "var(--accent)", flexShrink: 0,
+                    border: "1px solid var(--border)",
+                  }}>
+                    {tool}
+                  </span>
+                )}
+                <input
+                  className="input"
+                  style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0 }}
+                  value={rule.pattern}
+                  onChange={(e) => {
+                    const updated = [...rules];
+                    updated[i] = { ...updated[i], pattern: e.target.value };
+                    syncRules(updated);
+                  }}
+                />
+                <RuleBadge
+                  mode={rule.mode}
+                  onClick={() => {
+                    const modes: RuleMode[] = ["allow", "ask", "deny"];
+                    const updated = [...rules];
+                    updated[i] = { ...updated[i], mode: modes[(modes.indexOf(rule.mode) + 1) % 3] };
+                    syncRules(updated);
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-icon"
+                  style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.body }}
+                  onClick={() => syncRules(rules.filter((_, j) => j !== i))}
+                >
+                  ×
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* Existing rules */}
-      {rules.map((rule, i) => (
-        <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 192 }}>
+      {/* Add rule */}
+      <div style={{ paddingLeft: 192, display: "flex", gap: 6, alignItems: "center" }}>
+        <div style={{ position: "relative", flex: 1 }}>
           <input
             className="input"
-            style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0 }}
-            value={rule.pattern}
-            onChange={(e) => {
-              const updated = [...rules];
-              updated[i] = { ...updated[i], pattern: e.target.value };
-              syncRules(updated);
-            }}
-          />
-          <ModeBadge
-            mode={rule.mode}
-            onClick={() => {
-              const modes: RuleMode[] = ["allow", "ask", "deny"];
-              const updated = [...rules];
-              updated[i] = { ...updated[i], mode: modes[(modes.indexOf(rule.mode) + 1) % 3] };
-              syncRules(updated);
+            style={{ fontSize: F.body, padding: S.inputPad, width: "100%", paddingRight: 28 }}
+            placeholder="Bash(npm run *) 或 Edit(/src/**)"
+            value={draftRule}
+            onChange={(e) => setDraftRule(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && draftRule.trim()) {
+                syncRules([...rules, { pattern: draftRule.trim(), mode: draftMode }]);
+                setDraftRule("");
+              }
             }}
           />
           <button
             type="button"
             className="btn btn-ghost btn-icon"
-            style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.body }}
-            onClick={() => syncRules(rules.filter((_, j) => j !== i))}
+            style={{
+              position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
+              width: 24, height: 24, minWidth: 24, padding: 0,
+              color: showTemplates ? "var(--accent)" : "var(--text-tertiary)",
+            }}
+            onClick={() => setShowTemplates(!showTemplates)}
+            title="规则模板"
           >
-            ×
+            ⚡
           </button>
+          {showTemplates && (
+            <>
+              <div style={{ position: "fixed", inset: 0, zIndex: 99 }} onClick={() => setShowTemplates(false)} />
+              <div
+                className="glass-elevated"
+                style={{
+                  position: "absolute", top: "100%", left: 0, right: 0,
+                  marginTop: 4, maxHeight: 260, overflowY: "auto",
+                  zIndex: 100, padding: 8, animation: "fadeIn 150ms ease both",
+                }}
+              >
+                {TOOL_TEMPLATES.map(group => (
+                  <div key={group.tool} style={{ marginBottom: 8 }}>
+                    <div style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)", marginBottom: 4 }}>
+                      {group.tool}
+                    </div>
+                    {group.examples.map(ex => (
+                      <button
+                        key={ex}
+                        type="button"
+                        className="btn btn-ghost"
+                        style={{
+                          width: "100%", justifyContent: "flex-start",
+                          padding: "5px 10px", fontSize: 14, fontWeight: 400,
+                          color: "var(--text-primary)", borderRadius: "var(--radius-sm)",
+                        }}
+                        onClick={() => { setDraftRule(ex); setShowTemplates(false); }}
+                      >
+                        {ex}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
         </div>
-      ))}
-
-      {/* Add rule */}
-      <div style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 192 }}>
-        <input
-          className="input"
-          style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0 }}
-          placeholder={t("settings.addRule")}
-          value={draftRule}
-          onChange={(e) => setDraftRule(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && draftRule.trim()) {
-              syncRules([...rules, { pattern: draftRule.trim(), mode: draftMode }]);
-              setDraftRule("");
-            }
-          }}
-        />
-        <ModeBadge
+        <RuleBadge
           mode={draftMode}
           onClick={() => {
             const modes: RuleMode[] = ["allow", "ask", "deny"];
