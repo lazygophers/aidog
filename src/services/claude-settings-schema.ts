@@ -118,13 +118,6 @@ export const SECTIONS: SettingSection[] = [
     ],
   },
   {
-    id: "attribution",
-    labelKey: "settings.sectionAttribution",
-    fields: [
-      { key: "attribution", label: "Attribution", type: "kv", description: "commit / pr 等署名字段" },
-    ],
-  },
-  {
     id: "status",
     labelKey: "settings.sectionStatus",
     fields: [
@@ -164,6 +157,7 @@ export const SECTIONS: SettingSection[] = [
     id: "advanced",
     labelKey: "settings.sectionAdvanced",
     fields: [
+      { key: "attribution", label: "Attribution", type: "kv", description: "commit / pr 等署名字段" },
       { key: "companyAnnouncements", label: "Company Announcements", type: "json" },
       { key: "maxSkillDescriptionChars", label: "Max Skill Description", type: "string", placeholder: "1536" },
       { key: "skillListingBudgetFraction", label: "Skill Listing Budget", type: "string", placeholder: "0.01" },
