@@ -23,6 +23,7 @@ export interface Platform {
   api_key: string;
   extra: string | null;
   models: PlatformModels;
+  available_models: string[];
   enabled: boolean;
   created_at: string;
   updated_at: string;
@@ -72,6 +73,7 @@ export const platformApi = {
     api_key: string;
     extra?: string;
     models?: PlatformModels;
+    available_models?: string[];
   }) => invoke<Platform>("platform_create", { input }),
 
   list: () => invoke<Platform[]>("platform_list"),
@@ -86,6 +88,7 @@ export const platformApi = {
     api_key?: string;
     extra?: string;
     models?: PlatformModels;
+    available_models?: string[];
     enabled?: boolean;
   }) => invoke<Platform>("platform_update", { input }),
 

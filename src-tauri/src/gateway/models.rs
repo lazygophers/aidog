@@ -74,6 +74,8 @@ pub struct Platform {
     pub extra: Option<String>,
     /// 平台模型配置
     pub models: PlatformModels,
+    /// 从 API 获取到的可用模型列表
+    pub available_models: Vec<String>,
     pub enabled: bool,
     pub created_at: String,
     pub updated_at: String,
@@ -88,6 +90,8 @@ pub struct CreatePlatform {
     pub extra: Option<String>,
     #[serde(default)]
     pub models: Option<PlatformModels>,
+    #[serde(default)]
+    pub available_models: Option<Vec<String>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -99,6 +103,7 @@ pub struct UpdatePlatform {
     pub api_key: Option<String>,
     pub extra: Option<String>,
     pub models: Option<PlatformModels>,
+    pub available_models: Option<Vec<String>>,
     pub enabled: Option<bool>,
 }
 

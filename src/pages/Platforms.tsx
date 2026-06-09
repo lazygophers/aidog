@@ -59,18 +59,13 @@ function autoCategorize(modelIds: string[]): Record<ModelSlot, string> {
   const result: Record<ModelSlot, string> = {
     default: "", sonnet: "", opus: "", haiku: "", gpt: "",
   };
-
-  // 模式匹配：按优先级匹配
   const patterns: { slot: ModelSlot; test: (id: string) => boolean }[] = [
     { slot: "opus", test: (id) => /opus/i.test(id) },
     { slot: "sonnet", test: (id) => /sonnet/i.test(id) },
     { slot: "haiku", test: (id) => /haiku/i.test(id) },
     { slot: "gpt", test: (id) => /gpt/i.test(id) && !/mini/i.test(id) },
   ];
-
   const assigned = new Set<string>();
-
-  // 先按模式匹配（取最后一个匹配，通常是最新的）
   for (const { slot, test } of patterns) {
     for (const id of modelIds) {
       if (test(id) && !assigned.has(id)) {
@@ -79,13 +74,8 @@ function autoCategorize(modelIds: string[]): Record<ModelSlot, string> {
       }
     }
   }
-
-  // default：取第一个未被分配的模型，如果全部被分配则取第一个
   const first = modelIds.find(id => !assigned.has(id)) ?? modelIds[0];
-  if (first && !result.default) {
-    result.default = first;
-  }
-
+  if (first && !result.default) result.default = first;
   return result;
 }
 
@@ -106,6 +96,7 @@ export function Platforms() {
   const [models, setModels] = useState<Record<ModelSlot, string>>({
     default: "", sonnet: "", opus: "", haiku: "", gpt: "",
   });
+  const [availableModels, setAvailableModels] = useState<string[]>([]);
 
   const handleProtocolChange = (newProtocol: Protocol) => {
     const oldDefault = DEFAULT_BASE_URLS[protocol];
@@ -130,8 +121,8 @@ export function Platforms() {
   const resetForm = () => {
     setName(""); setProtocol("openai"); setBaseUrl(""); setApiKey("");
     setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "" });
-    setEditing(null); setShowForm(false);
-    setFetchError("");
+    setAvailableModels([]);
+    setEditing(null); setShowForm(false); setFetchError("");
   };
 
   const handleEdit = (p: Platform) => {
@@ -143,23 +134,29 @@ export function Platforms() {
       haiku: p.models.haiku ?? "",
       gpt: p.models.gpt ?? "",
     });
-    setEditing(p); setShowForm(true);
-    setFetchError("");
+    setAvailableModels(p.available_models ?? []);
+    setEditing(p); setShowForm(true); setFetchError("");
   };
 
   const handleModelChange = (slot: ModelSlot, value: string) => {
     setModels(prev => ({ ...prev, [slot]: value }));
   };
 
+  /** 从下拉选择一个模型填入指定槽位 */
+  const handleModelSelect = (slot: ModelSlot, value: string) => {
+    setModels(prev => ({ ...prev, [slot]: value }));
+  };
+
+  /** 一键获取：获取模型列表 + 自动分类 + 持久化 */
   const handleFetchModels = async () => {
     if (!baseUrl || !apiKey) return;
-    setFetching(true);
-    setFetchError("");
+    setFetching(true); setFetchError("");
     try {
       const modelIds = await platformApi.fetchModels(protocol, baseUrl, apiKey);
       if (modelIds.length === 0) {
         setFetchError(t("platform.fetchEmpty"));
       } else {
+        setAvailableModels(modelIds);
         const categorized = autoCategorize(modelIds);
         setModels(categorized);
       }
@@ -169,7 +166,21 @@ export function Platforms() {
     setFetching(false);
   };
 
-  /** 将表单 models 转为 API 结构（空字符串 → undefined） */
+  /** 一键填充：把 default 模型填到所有空槽 */
+  const handleFillAll = () => {
+    const defaultModel = models.default.trim();
+    if (!defaultModel) return;
+    setModels(prev => {
+      const next = { ...prev };
+      for (const slot of MODEL_SLOTS) {
+        if (slot.key !== "default" && !next[slot.key].trim()) {
+          next[slot.key] = defaultModel;
+        }
+      }
+      return next;
+    });
+  };
+
   const buildModelsPayload = () => {
     const result: Record<string, string | undefined> = {};
     let hasAny = false;
@@ -184,16 +195,19 @@ export function Platforms() {
   const handleSave = async () => {
     try {
       const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
+      const availablePayload = availableModels.length > 0 ? availableModels : undefined;
       if (editing) {
         await platformApi.update({
           id: editing.id, name, protocol, base_url: baseUrl, api_key: apiKey,
-          models: modelsPayload,
+          models: modelsPayload, available_models: availablePayload,
         });
       } else {
-        await platformApi.create({ name, protocol, base_url: baseUrl, api_key: apiKey, models: modelsPayload });
+        await platformApi.create({
+          name, protocol, base_url: baseUrl, api_key: apiKey,
+          models: modelsPayload, available_models: availablePayload,
+        });
       }
-      resetForm();
-      load();
+      resetForm(); load();
     } catch (e) { console.error(e); }
   };
 
@@ -253,14 +267,25 @@ export function Platforms() {
               <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
                 {t("platform.models")}
               </div>
-              <button
-                className="btn btn-ghost"
-                style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
-                onClick={handleFetchModels}
-                disabled={!baseUrl || !apiKey || fetching}
-              >
-                {fetching ? t("status.loading") : t("platform.fetchModels")}
-              </button>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--text-secondary)" }}
+                  onClick={handleFillAll}
+                  disabled={!models.default.trim()}
+                  title={t("platform.fillAllHint")}
+                >
+                  {t("platform.fillAll")}
+                </button>
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
+                  onClick={handleFetchModels}
+                  disabled={!baseUrl || !apiKey || fetching}
+                >
+                  {fetching ? t("status.loading") : t("platform.fetchModels")}
+                </button>
+              </div>
             </div>
             {fetchError && (
               <div style={{ fontSize: 12, color: "var(--danger, #e55)", padding: "2px 0" }}>
@@ -275,13 +300,37 @@ export function Platforms() {
                 }}>
                   {t(labelKey)}
                 </span>
-                <input
-                  className="input"
-                  style={{ flex: 1 }}
-                  placeholder={t(labelKey)}
-                  value={models[key]}
-                  onChange={(e) => handleModelChange(key, e.target.value)}
-                />
+                <div style={{ position: "relative", flex: 1 }}>
+                  <input
+                    className="input"
+                    style={{ width: "100%" }}
+                    placeholder={t(labelKey)}
+                    value={models[key]}
+                    onChange={(e) => handleModelChange(key, e.target.value)}
+                    list={availableModels.length > 0 ? `model-list-${key}` : undefined}
+                  />
+                  {availableModels.length > 0 && (
+                    <datalist id={`model-list-${key}`}>
+                      {availableModels.map((m) => <option key={m} value={m} />)}
+                    </datalist>
+                  )}
+                </div>
+                {availableModels.length > 0 && (
+                  <select
+                    className="input"
+                    style={{ width: 28, padding: "0 2px", fontSize: 10, appearance: "none",
+                      cursor: "pointer", color: "var(--text-tertiary)",
+                      background: "var(--bg-glass)", border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-sm)",
+                    }}
+                    value=""
+                    onChange={(e) => { if (e.target.value) handleModelSelect(key, e.target.value); }}
+                    title={t("platform.selectModel")}
+                  >
+                    <option value="">▼</option>
+                    {availableModels.map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
+                )}
               </div>
             ))}
           </div>
@@ -321,26 +370,21 @@ export function Platforms() {
                   opacity: p.enabled ? 1 : 0.5,
                 }}
               >
-                {/* Protocol Color Indicator */}
                 <div style={{
                   width: 36, height: 36, borderRadius: "var(--radius-sm)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   background: `${color}15`,
                   border: `1px solid ${color}30`,
-                  color: color,
-                  fontSize: 11, fontWeight: 700,
-                  flexShrink: 0,
+                  color: color, fontSize: 11, fontWeight: 700, flexShrink: 0,
                 }}>
                   {p.protocol.slice(0, 2).toUpperCase()}
                 </div>
 
-                {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
                   <div className="text-secondary" style={{ fontSize: 12, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {p.protocol.toUpperCase()} · {p.base_url}
                   </div>
-                  {/* Model Tags */}
                   {configuredModels.length > 0 && (
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
                       {configuredModels.map((m, mi) => (
@@ -352,13 +396,8 @@ export function Platforms() {
                   )}
                 </div>
 
-                {/* Actions */}
                 <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                  <button
-                    className="btn btn-ghost btn-icon"
-                    onClick={() => handleToggle(p)}
-                    title={p.enabled ? "Disable" : "Enable"}
-                  >
+                  <button className="btn btn-ghost btn-icon" onClick={() => handleToggle(p)} title={p.enabled ? "Disable" : "Enable"}>
                     <span className={`status-dot ${p.enabled ? "status-dot-active" : "status-dot-inactive"}`} />
                   </button>
                   <button className="btn btn-ghost btn-icon" onClick={() => handleEdit(p)}>

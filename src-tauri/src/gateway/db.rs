@@ -15,6 +15,16 @@ fn serialize_models(models: &PlatformModels) -> String {
     serde_json::to_string(models).unwrap_or_else(|_| "{}".to_string())
 }
 
+/// 从 JSON 字符串反序列化可用模型列表
+fn parse_available_models(json: &str) -> Vec<String> {
+    serde_json::from_str(json).unwrap_or_default()
+}
+
+/// 将可用模型列表序列化为 JSON 字符串
+fn serialize_available_models(models: &[String]) -> String {
+    serde_json::to_string(models).unwrap_or_else(|_| "[]".to_string())
+}
+
 impl Db {
     pub fn new(path: &str) -> Result<Self, String> {
         let conn = Connection::open(path).map_err(|e| e.to_string())?;
@@ -25,7 +35,6 @@ impl Db {
 
     pub fn init_tables(&self) -> Result<(), String> {
         let sql = include_str!("../../migrations/001_init.sql");
-        // 只执行 CREATE TABLE 语句（跳过 PRAGMA，因为已在 new 中设置）
         let conn = self.0.lock().map_err(|e| e.to_string())?;
         conn.execute_batch(sql).map_err(|e| e.to_string())?;
         Ok(())
@@ -35,10 +44,10 @@ impl Db {
     pub fn run_migrations(&self) -> Result<(), String> {
         let migrations = [
             include_str!("../../migrations/002_add_platform_models.sql"),
+            include_str!("../../migrations/003_add_platform_available_models.sql"),
         ];
         let conn = self.0.lock().map_err(|e| e.to_string())?;
         for sql in &migrations {
-            // ALTER TABLE ADD COLUMN 在列已存在时会报错，安全忽略
             if let Err(e) = conn.execute_batch(sql) {
                 let msg = e.to_string();
                 if !msg.contains("duplicate column name") {
@@ -63,39 +72,15 @@ fn new_id() -> String {
 
 // ─── Platform CRUD ─────────────────────────────────────────
 
-pub fn create_platform(db: &Db, input: CreatePlatform) -> Result<Platform, String> {
-    let id = new_id();
-    let now = now();
-    let protocol_str = serde_json::to_string(&input.protocol).unwrap();
-    let models = input.models.unwrap_or_default();
-    let models_str = serialize_models(&models);
-    let platform = Platform {
-        id: id.clone(),
-        name: input.name,
-        protocol: input.protocol,
-        base_url: input.base_url,
-        api_key: input.api_key,
-        extra: input.extra,
-        models,
-        enabled: true,
-        created_at: now.clone(),
-        updated_at: now,
-    };
+/// SELECT 列序
+const PLATFORM_COLUMNS: &str =
+    "id, name, protocol, base_url, api_key, extra, models, available_models, enabled, created_at, updated_at";
 
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT INTO platforms (id, name, protocol, base_url, api_key, extra, models, enabled, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-        params![id, platform.name, protocol_str, platform.base_url, platform.api_key, platform.extra, models_str, platform.enabled as i64, platform.created_at, platform.updated_at],
-    )
-    .map_err(|e| format!("create platform: {e}"))?;
-
-    Ok(platform)
-}
-
-/// 从查询行构造 Platform（SELECT 列序: id, name, protocol, base_url, api_key, extra, models, enabled, created_at, updated_at）
+/// 从查询行构造 Platform
 fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
     let protocol_str: String = row.get(2)?;
     let models_str: String = row.get(6)?;
+    let available_str: String = row.get(7)?;
     Ok(Platform {
         id: row.get(0)?,
         name: row.get(1)?,
@@ -104,13 +89,44 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         api_key: row.get(4)?,
         extra: row.get(5)?,
         models: parse_models(&models_str),
-        enabled: row.get::<_, i64>(7)? == 1,
-        created_at: row.get(8)?,
-        updated_at: row.get(9)?,
+        available_models: parse_available_models(&available_str),
+        enabled: row.get::<_, i64>(8)? == 1,
+        created_at: row.get(9)?,
+        updated_at: row.get(10)?,
     })
 }
 
-const PLATFORM_COLUMNS: &str = "id, name, protocol, base_url, api_key, extra, models, enabled, created_at, updated_at";
+pub fn create_platform(db: &Db, input: CreatePlatform) -> Result<Platform, String> {
+    let id = new_id();
+    let ts = now();
+    let protocol_str = serde_json::to_string(&input.protocol).unwrap();
+    let models = input.models.unwrap_or_default();
+    let models_str = serialize_models(&models);
+    let available_models = input.available_models.unwrap_or_default();
+    let available_str = serialize_available_models(&available_models);
+    let platform = Platform {
+        id: id.clone(),
+        name: input.name,
+        protocol: input.protocol,
+        base_url: input.base_url,
+        api_key: input.api_key,
+        extra: input.extra,
+        models,
+        available_models,
+        enabled: true,
+        created_at: ts.clone(),
+        updated_at: ts,
+    };
+
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        &format!("INSERT INTO platforms ({PLATFORM_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"),
+        params![id, platform.name, protocol_str, platform.base_url, platform.api_key, platform.extra, models_str, available_str, platform.enabled as i64, platform.created_at, platform.updated_at],
+    )
+    .map_err(|e| format!("create platform: {e}"))?;
+
+    Ok(platform)
+}
 
 pub fn list_platforms(db: &Db) -> Result<Vec<Platform>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
@@ -146,6 +162,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
         api_key: input.api_key.unwrap_or(existing.api_key),
         extra: input.extra.or(existing.extra),
         models: input.models.unwrap_or(existing.models),
+        available_models: input.available_models.unwrap_or(existing.available_models),
         enabled: input.enabled.unwrap_or(existing.enabled),
         updated_at: now(),
         ..existing
@@ -153,9 +170,10 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
 
     let protocol_str = serde_json::to_string(&updated.protocol).unwrap();
     let models_str = serialize_models(&updated.models);
+    let available_str = serialize_available_models(&updated.available_models);
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "UPDATE platforms SET name=?1, protocol=?2, base_url=?3, api_key=?4, extra=?5, models=?6, enabled=?7, updated_at=?8 WHERE id=?9",
+        "UPDATE platforms SET name=?1, protocol=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, enabled=?8, updated_at=?9 WHERE id=?10",
         params![
             updated.name,
             protocol_str,
@@ -163,6 +181,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
             updated.api_key,
             updated.extra,
             models_str,
+            available_str,
             updated.enabled as i64,
             updated.updated_at,
             updated.id,
@@ -184,15 +203,15 @@ pub fn delete_platform(db: &Db, id: &str) -> Result<(), String> {
 
 pub fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> {
     let id = new_id();
-    let now = now();
+    let ts = now();
     let routing_str = serde_json::to_string(&input.routing_mode).unwrap();
     let group = Group {
         id: id.clone(),
         name: input.name,
         path: input.path,
         routing_mode: input.routing_mode,
-        created_at: now.clone(),
-        updated_at: now,
+        created_at: ts.clone(),
+        updated_at: ts,
     };
 
     let conn = db.0.lock().map_err(|e| e.to_string())?;
@@ -322,6 +341,7 @@ pub fn get_group_platforms(db: &Db, group_id: &str) -> Result<Vec<GroupPlatformD
             // row layout: priority(0), weight(1), then platform columns starting at 2
             let protocol_str: String = row.get(4)?;
             let models_str: String = row.get(8)?;
+            let available_str: String = row.get(9)?;
             Ok(GroupPlatformDetail {
                 platform: Platform {
                     id: row.get(2)?,
@@ -331,9 +351,10 @@ pub fn get_group_platforms(db: &Db, group_id: &str) -> Result<Vec<GroupPlatformD
                     api_key: row.get(6)?,
                     extra: row.get(7)?,
                     models: parse_models(&models_str),
-                    enabled: row.get::<_, i64>(9)? == 1,
-                    created_at: row.get(10)?,
-                    updated_at: row.get(11)?,
+                    available_models: parse_available_models(&available_str),
+                    enabled: row.get::<_, i64>(10)? == 1,
+                    created_at: row.get(11)?,
+                    updated_at: row.get(12)?,
                 },
                 priority: row.get(0)?,
                 weight: row.get(1)?,
