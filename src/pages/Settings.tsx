@@ -104,25 +104,28 @@ function Section({
   );
 }
 
-/** Label with optional original-key hint */
-function FieldLabel({ field, t }: { field: SettingField; t: ReturnType<typeof useTranslation>["t"] }) {
+/** Label cell for left-right layout */
+function FieldLabel({ field, t, style }: { field: SettingField; t: ReturnType<typeof useTranslation>["t"]; style?: React.CSSProperties }) {
   const translated = t(`settings.f_${field.key}`, field.label);
   return (
     <label
       style={{
-        display: "block",
+        flexShrink: 0,
+        width: 180,
         fontSize: F.label,
         fontWeight: 500,
         color: "var(--text-secondary)",
-        marginBottom: 6,
+        lineHeight: 1.4,
+        paddingTop: 8,
+        ...style,
       }}
     >
-      {translated}{" "}
-      <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400 }}>
-        ({field.key})
+      {translated}
+      <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 2 }}>
+        {field.key}
       </span>
       {field.description && (
-        <span style={{ fontWeight: 400, marginLeft: 8, fontSize: F.hint, color: "var(--text-tertiary)" }}>
+        <span style={{ display: "block", fontWeight: 400, fontSize: F.hint, color: "var(--text-tertiary)", marginTop: 2, lineHeight: 1.4 }}>
           {field.description}
         </span>
       )}
@@ -346,6 +349,184 @@ function StringListEditor({
   );
 }
 
+// ─── Permissions Section (extracted for hooks compliance) ───
+
+type RuleMode = "allow" | "ask" | "deny";
+
+const MODE_COLORS: Record<RuleMode, string> = {
+  allow: "#34c759",
+  ask: "#ff9f0a",
+  deny: "#ff453a",
+};
+
+function PermissionsSection({
+  perms,
+  updateField,
+  t,
+}: {
+  perms: Record<string, string[]>;
+  updateField: (field: string, value: any) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const [draftRule, setDraftRule] = useState("");
+  const [draftMode, setDraftMode] = useState<RuleMode>("allow");
+
+  // Flatten allow/ask/deny into unified rule list
+  const rules: { pattern: string; mode: RuleMode }[] = [
+    ...(perms.allow ?? []).map(p => ({ pattern: p, mode: "allow" as RuleMode })),
+    ...(perms.ask ?? []).map(p => ({ pattern: p, mode: "ask" as RuleMode })),
+    ...(perms.deny ?? []).map(p => ({ pattern: p, mode: "deny" as RuleMode })),
+  ];
+
+  const syncRules = (updated: { pattern: string; mode: RuleMode }[]) => {
+    const next: Record<string, any> = {};
+    if (perms.defaultMode) next.defaultMode = perms.defaultMode;
+    const allow = updated.filter(r => r.mode === "allow").map(r => r.pattern);
+    const ask = updated.filter(r => r.mode === "ask").map(r => r.pattern);
+    const deny = updated.filter(r => r.mode === "deny").map(r => r.pattern);
+    if (allow.length) next.allow = allow;
+    if (ask.length) next.ask = ask;
+    if (deny.length) next.deny = deny;
+    updateField("permissions", Object.keys(next).length > 0 ? next : undefined);
+  };
+
+  const modeLabel = (m: RuleMode) =>
+    t(`settings.permissions${m.charAt(0).toUpperCase() + m.slice(1)}`);
+  const modeIcon = (m: RuleMode) => m === "allow" ? "✓" : m === "ask" ? "?" : "✗";
+
+  const ModeBadge = ({ mode, onClick }: { mode: RuleMode; onClick: () => void }) => (
+    <span
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 4,
+        fontSize: F.body, fontWeight: 600, width: 90, justifyContent: "center",
+        padding: "6px 0", borderRadius: "var(--radius-sm)",
+        background: `${MODE_COLORS[mode]}18`,
+        color: MODE_COLORS[mode],
+        cursor: "pointer",
+      }}
+      onClick={onClick}
+    >
+      {modeIcon(mode)} {modeLabel(mode)}
+    </span>
+  );
+
+  return (
+    <Section title={t("settings.sectionPermissions")} defaultOpen>
+      {/* Default Mode — left-right */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <label style={{
+          flexShrink: 0, width: 180, fontSize: F.label, fontWeight: 500,
+          color: "var(--text-secondary)", lineHeight: 1.4,
+        }}>
+          {t("settings.permissionsDefaultMode")}
+          <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 2 }}>
+            permissions.defaultMode
+          </span>
+        </label>
+        <select
+          className="input"
+          style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 0 }}
+          value={perms.defaultMode ?? ""}
+          onChange={(e) => {
+            const next: Record<string, any> = {};
+            if (perms.allow?.length) next.allow = perms.allow;
+            if (perms.ask?.length) next.ask = perms.ask;
+            if (perms.deny?.length) next.deny = perms.deny;
+            if (e.target.value) next.defaultMode = e.target.value;
+            updateField("permissions", Object.keys(next).length > 0 ? next : undefined);
+          }}
+        >
+          <option value="">—</option>
+          <option value="default">default</option>
+          <option value="plan">plan</option>
+          <option value="auto">auto</option>
+          <option value="acceptEdits">acceptEdits</option>
+          <option value="dontAsk">dontAsk</option>
+          <option value="bypassPermissions">bypassPermissions</option>
+        </select>
+      </div>
+
+      {/* Rules list header */}
+      {rules.length > 0 && (
+        <div style={{ display: "flex", gap: 6, alignItems: "center", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 500, paddingLeft: 192, paddingRight: S.btnIcon + 6 }}>
+          <span style={{ flex: 1 }}>Pattern</span>
+          <span style={{ width: 90, textAlign: "center" }}>Mode</span>
+        </div>
+      )}
+
+      {/* Existing rules */}
+      {rules.map((rule, i) => (
+        <div key={i} style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 192 }}>
+          <input
+            className="input"
+            style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0 }}
+            value={rule.pattern}
+            onChange={(e) => {
+              const updated = [...rules];
+              updated[i] = { ...updated[i], pattern: e.target.value };
+              syncRules(updated);
+            }}
+          />
+          <ModeBadge
+            mode={rule.mode}
+            onClick={() => {
+              const modes: RuleMode[] = ["allow", "ask", "deny"];
+              const updated = [...rules];
+              updated[i] = { ...updated[i], mode: modes[(modes.indexOf(rule.mode) + 1) % 3] };
+              syncRules(updated);
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon"
+            style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.body }}
+            onClick={() => syncRules(rules.filter((_, j) => j !== i))}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+
+      {/* Add rule */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 192 }}>
+        <input
+          className="input"
+          style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0 }}
+          placeholder={t("settings.addRule")}
+          value={draftRule}
+          onChange={(e) => setDraftRule(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && draftRule.trim()) {
+              syncRules([...rules, { pattern: draftRule.trim(), mode: draftMode }]);
+              setDraftRule("");
+            }
+          }}
+        />
+        <ModeBadge
+          mode={draftMode}
+          onClick={() => {
+            const modes: RuleMode[] = ["allow", "ask", "deny"];
+            setDraftMode(modes[(modes.indexOf(draftMode) + 1) % 3]);
+          }}
+        />
+        <button
+          type="button"
+          className="btn btn-ghost"
+          style={{ fontSize: F.body, padding: S.btnPad, width: S.btnIcon, minWidth: S.btnIcon }}
+          onClick={() => {
+            if (draftRule.trim()) {
+              syncRules([...rules, { pattern: draftRule.trim(), mode: draftMode }]);
+              setDraftRule("");
+            }
+          }}
+        >
+          +
+        </button>
+      </div>
+    </Section>
+  );
+}
+
 // ─── Field Renderer ────────────────────────────────────────
 
 function FieldRenderer({
@@ -359,35 +540,29 @@ function FieldRenderer({
   onChange: (v: any) => void;
   t: ReturnType<typeof useTranslation>["t"];
 }) {
+  // Shared left-right row style
+  const rowStyle: React.CSSProperties = {
+    display: "flex",
+    alignItems: "flex-start",
+    gap: 12,
+  };
+
   switch (field.type) {
     case "boolean":
       return (
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          <div>
-            <span style={{ fontSize: F.label, fontWeight: 500, color: "var(--text-secondary)" }}>
-              {t(`settings.f_${field.key}`, field.label)}{" "}
-              <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400 }}>
-                ({field.key})
-              </span>
-            </span>
-          </div>
+        <div style={{ ...rowStyle, alignItems: "center" }}>
+          <FieldLabel field={field} t={t} style={{ paddingTop: 0 }} />
           <Toggle active={!!value} onChange={(v) => onChange(v || undefined)} />
         </div>
       );
 
     case "select":
       return (
-        <div>
+        <div style={rowStyle}>
           <FieldLabel field={field} t={t} />
           <select
             className="input"
-            style={{ fontSize: F.body, padding: S.inputPad }}
+            style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 0 }}
             value={value ?? ""}
             onChange={(e) => onChange(e.target.value || undefined)}
           >
@@ -403,55 +578,63 @@ function FieldRenderer({
 
     case "json":
       return (
-        <div>
+        <div style={rowStyle}>
           <FieldLabel field={field} t={t} />
-          <JsonEditor value={value} onChange={onChange} placeholder="{}" />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <JsonEditor value={value} onChange={onChange} placeholder="{}" />
+          </div>
         </div>
       );
 
     case "kv":
       return (
-        <div>
+        <div style={rowStyle}>
           <FieldLabel field={field} t={t} />
-          <KvEditor
-            items={(value && typeof value === "object" && !Array.isArray(value)) ? value as Record<string, string> : {}}
-            onChange={(kv) => onChange(Object.keys(kv).length > 0 ? kv : undefined)}
-          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <KvEditor
+              items={(value && typeof value === "object" && !Array.isArray(value)) ? value as Record<string, string> : {}}
+              onChange={(kv) => onChange(Object.keys(kv).length > 0 ? kv : undefined)}
+            />
+          </div>
         </div>
       );
 
     case "string[]":
       return (
-        <div>
+        <div style={rowStyle}>
           <FieldLabel field={field} t={t} />
-          <StringListEditor
-            items={Array.isArray(value) ? value : []}
-            onChange={(list) => onChange(list.length > 0 ? list : undefined)}
-            addLabel={t("settings.addRule")}
-          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <StringListEditor
+              items={Array.isArray(value) ? value : []}
+              onChange={(list) => onChange(list.length > 0 ? list : undefined)}
+              addLabel={t("settings.addRule")}
+            />
+          </div>
         </div>
       );
 
     case "string":
     default:
       return (
-        <div>
+        <div style={rowStyle}>
           <FieldLabel field={field} t={t} />
-          <input
-            className="input"
-            style={{ fontSize: F.body, padding: S.inputPad }}
-            placeholder={field.placeholder}
-            value={value ?? ""}
-            onChange={(e) => onChange(e.target.value || undefined)}
-            list={field.options?.length ? `dl-${field.key}` : undefined}
-          />
-          {field.options?.length && (
-            <datalist id={`dl-${field.key}`}>
-              {field.options.map((opt) => (
-                <option key={opt} value={opt} />
-              ))}
-            </datalist>
-          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <input
+              className="input"
+              style={{ fontSize: F.body, padding: S.inputPad, width: "100%" }}
+              placeholder={field.placeholder}
+              value={value ?? ""}
+              onChange={(e) => onChange(e.target.value || undefined)}
+              list={field.options?.length ? `dl-${field.key}` : undefined}
+            />
+            {field.options?.length && (
+              <datalist id={`dl-${field.key}`}>
+                {field.options.map((opt) => (
+                  <option key={opt} value={opt} />
+                ))}
+              </datalist>
+            )}
+          </div>
         </div>
       );
   }
@@ -613,122 +796,15 @@ export function Settings() {
         {mode === "gui" && (
           <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
             {SECTIONS.map((section) => {
-              // Special handling for permissions section: use sub-editors
+              // Special handling for permissions section: unified rule manager
               if (section.id === "permissions") {
                 return (
-                  <Section
+                  <PermissionsSection
                     key={section.id}
-                    title={t(section.labelKey)}
-                    defaultOpen
-                  >
-                    {/* Default Mode */}
-                    <div>
-                      <label
-                        style={{
-                          display: "block",
-                          fontSize: F.label,
-                          fontWeight: 500,
-                          color: "var(--text-secondary)",
-                          marginBottom: 6,
-                        }}
-                      >
-                        {t("settings.permissionsDefaultMode")}{" "}
-                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400 }}>
-                          (permissions.defaultMode)
-                        </span>
-                      </label>
-                      <select
-                        className="input"
-                        style={{ fontSize: F.body, padding: S.inputPad }}
-                        value={perms.defaultMode ?? ""}
-                        onChange={(e) => {
-                          const next: Record<string, any> = {};
-                          if (perms.allow?.length) next.allow = perms.allow;
-                          if (perms.ask?.length) next.ask = perms.ask;
-                          if (perms.deny?.length) next.deny = perms.deny;
-                          if (e.target.value) next.defaultMode = e.target.value;
-                          updateField(
-                            "permissions",
-                            Object.keys(next).length > 0 ? next : undefined,
-                          );
-                        }}
-                      >
-                        <option value="">—</option>
-                        <option value="default">default</option>
-                        <option value="plan">plan</option>
-                        <option value="auto">auto</option>
-                        <option value="acceptEdits">acceptEdits</option>
-                        <option value="dontAsk">dontAsk</option>
-                        <option value="bypassPermissions">bypassPermissions</option>
-                      </select>
-                    </div>
-
-                    {/* Allow */}
-                    <div>
-                      <div style={{ fontSize: F.hint, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 6 }}>
-                        {t("settings.permissionsAllow")} <span style={{ fontSize: F.hint }}>(permissions.allow)</span>
-                      </div>
-                      <StringListEditor
-                        items={perms.allow ?? []}
-                        onChange={(list) => {
-                          const next: Record<string, any> = {};
-                          if (perms.ask?.length) next.ask = perms.ask;
-                          if (perms.deny?.length) next.deny = perms.deny;
-                          if (perms.defaultMode) next.defaultMode = perms.defaultMode;
-                          if (list.length > 0) next.allow = list;
-                          updateField(
-                            "permissions",
-                            Object.keys(next).length > 0 ? next : undefined,
-                          );
-                        }}
-                        addLabel={t("settings.addRule")}
-                      />
-                    </div>
-
-                    {/* Ask */}
-                    <div>
-                      <div style={{ fontSize: F.hint, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 6 }}>
-                        {t("settings.permissionsAsk")} <span style={{ fontSize: F.hint }}>(permissions.ask)</span>
-                      </div>
-                      <StringListEditor
-                        items={perms.ask ?? []}
-                        onChange={(list) => {
-                          const next: Record<string, any> = {};
-                          if (perms.allow?.length) next.allow = perms.allow;
-                          if (perms.deny?.length) next.deny = perms.deny;
-                          if (perms.defaultMode) next.defaultMode = perms.defaultMode;
-                          if (list.length > 0) next.ask = list;
-                          updateField(
-                            "permissions",
-                            Object.keys(next).length > 0 ? next : undefined,
-                          );
-                        }}
-                        addLabel={t("settings.addRule")}
-                      />
-                    </div>
-
-                    {/* Deny */}
-                    <div>
-                      <div style={{ fontSize: F.hint, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 6 }}>
-                        {t("settings.permissionsDeny")} <span style={{ fontSize: F.hint }}>(permissions.deny)</span>
-                      </div>
-                      <StringListEditor
-                        items={perms.deny ?? []}
-                        onChange={(list) => {
-                          const next: Record<string, any> = {};
-                          if (perms.allow?.length) next.allow = perms.allow;
-                          if (perms.ask?.length) next.ask = perms.ask;
-                          if (perms.defaultMode) next.defaultMode = perms.defaultMode;
-                          if (list.length > 0) next.deny = list;
-                          updateField(
-                            "permissions",
-                            Object.keys(next).length > 0 ? next : undefined,
-                          );
-                        }}
-                        addLabel={t("settings.addRule")}
-                      />
-                    </div>
-                  </Section>
+                    perms={perms}
+                    updateField={updateField}
+                    t={t}
+                  />
                 );
               }
 
@@ -740,15 +816,28 @@ export function Settings() {
                     title={t(section.labelKey)}
                     defaultOpen
                   >
-                    <KvEditor
-                      items={(config.env ?? {}) as Record<string, string>}
-                      onChange={(newEnv) =>
-                        updateField(
-                          "env",
-                          Object.keys(newEnv).length > 0 ? newEnv : undefined,
-                        )
-                      }
-                    />
+                    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                      <label style={{
+                        flexShrink: 0, width: 180, fontSize: F.label, fontWeight: 500,
+                        color: "var(--text-secondary)", lineHeight: 1.4, paddingTop: 8,
+                      }}>
+                        {t("settings.f_env", "Environment Variables")}
+                        <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 2 }}>
+                          env
+                        </span>
+                      </label>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <KvEditor
+                          items={(config.env ?? {}) as Record<string, string>}
+                          onChange={(newEnv) =>
+                            updateField(
+                              "env",
+                              Object.keys(newEnv).length > 0 ? newEnv : undefined,
+                            )
+                          }
+                        />
+                      </div>
+                    </div>
                   </Section>
                 );
               }

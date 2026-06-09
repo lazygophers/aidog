@@ -101,9 +101,9 @@ export const SECTIONS: SettingSection[] = [
     id: "plugins",
     labelKey: "settings.sectionPlugins",
     fields: [
-      { key: "enabledPlugins", label: "Enabled Plugins", type: "json", description: "{ 'plugin@marketplace': true }" },
-      { key: "extraKnownMarketplaces", label: "Extra Marketplaces", type: "json", description: "额外插件市场源" },
-      { key: "skillOverrides", label: "Skill Overrides", type: "json", description: "按 skill 名称的可见性覆盖" },
+      { key: "enabledPlugins", label: "Enabled Plugins", type: "kv", description: "插件@市场 → true/false" },
+      { key: "extraKnownMarketplaces", label: "Extra Marketplaces", type: "string[]", description: "额外插件市场源" },
+      { key: "skillOverrides", label: "Skill Overrides", type: "kv", description: "按 skill 名称的可见性覆盖" },
     ],
   },
   {
@@ -117,16 +117,16 @@ export const SECTIONS: SettingSection[] = [
     id: "attribution",
     labelKey: "settings.sectionAttribution",
     fields: [
-      { key: "attribution", label: "Attribution", type: "json", description: "{ commit: '...', pr: '...' }" },
+      { key: "attribution", label: "Attribution", type: "kv", description: "commit / pr 等署名字段" },
     ],
   },
   {
     id: "status",
     labelKey: "settings.sectionStatus",
     fields: [
-      { key: "statusLine", label: "Status Line", type: "json", description: "自定义状态行" },
-      { key: "subagentStatusLine", label: "Subagent Status Line", type: "json" },
-      { key: "fileSuggestion", label: "File Suggestion", type: "json", description: "自定义文件建议脚本" },
+      { key: "statusLine", label: "Status Line", type: "string", description: "自定义状态行模板" },
+      { key: "subagentStatusLine", label: "Subagent Status Line", type: "string", description: "子代理状态行模板" },
+      { key: "fileSuggestion", label: "File Suggestion", type: "string", description: "自定义文件建议脚本路径" },
     ],
   },
   {
@@ -136,15 +136,15 @@ export const SECTIONS: SettingSection[] = [
       { key: "autoUpdatesChannel", label: "Auto Updates Channel", type: "select", options: ["latest", "stable"] },
       { key: "minimumVersion", label: "Minimum Version", type: "string", placeholder: "e.g. 2.1.100" },
       { key: "skipWebFetchPreflight", label: "Skip WebFetch Preflight", type: "boolean" },
-      { key: "allowedHttpHookUrls", label: "Allowed HTTP Hook URLs", type: "json", description: "HTTP hook URL 白名单" },
-      { key: "httpHookAllowedEnvVars", label: "HTTP Hook Env Vars", type: "json", description: "HTTP hook 环境变量白名单" },
+      { key: "allowedHttpHookUrls", label: "Allowed HTTP Hook URLs", type: "string[]", description: "HTTP hook URL 白名单" },
+      { key: "httpHookAllowedEnvVars", label: "HTTP Hook Env Vars", type: "string[]", description: "HTTP hook 环境变量白名单" },
     ],
   },
   {
     id: "memory",
     labelKey: "settings.sectionMemory",
     fields: [
-      { key: "claudeMdExcludes", label: "CLAUDE.md Excludes", type: "json", description: "跳过的 CLAUDE.md glob 模式" },
+      { key: "claudeMdExcludes", label: "CLAUDE.md Excludes", type: "string[]", description: "跳过的 CLAUDE.md glob 模式" },
       { key: "autoMemoryDirectory", label: "Auto Memory Directory", type: "string", placeholder: "~/my-memory-dir" },
       { key: "plansDirectory", label: "Plans Directory", type: "string", placeholder: "~/.claude/plans" },
     ],
@@ -187,6 +187,10 @@ export const RECOMMENDED_CONFIG: Record<string, any> = {
   "autoMemoryEnabled": true,
   "prefersReducedMotion": true,
   "skipDangerousModePermissionPrompt": true,
+  "showThinkingSummaries": true,
+  "showTurnDuration": true,
+  "autoScrollEnabled": true,
+  "terminalProgressBarEnabled": true,
   "feedbackSurveyRate": 0,
   "teammateMode": "auto",
   "attribution": {
