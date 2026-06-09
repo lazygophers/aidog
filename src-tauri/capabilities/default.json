@@ -18,9 +18,6 @@
     "fs:allow-remove",
     "fs:allow-rename",
     "fs:allow-copy-file",
-    "fs:allow-read-dir",
-    "sql:default",
-    "sql:allow-execute",
-    "sql:allow-select"
+    "fs:allow-read-dir"
   ]
 }

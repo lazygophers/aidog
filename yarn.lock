@@ -633,7 +633,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tauri-apps/api@npm:^2, @tauri-apps/api@npm:^2.10.1, @tauri-apps/api@npm:^2.11.0, @tauri-apps/api@npm:^2.8.0":
+"@tauri-apps/api@npm:^2, @tauri-apps/api@npm:^2.11.0, @tauri-apps/api@npm:^2.8.0":
   version: 2.11.0
   resolution: "@tauri-apps/api@npm:2.11.0"
   checksum: 10c0/70c9f692d14ef7a5f69aa56d474e993f2c25f393e30a26099cca198040ccd33724e4978cefd455c73ecb169b36ca9b7ee010db88b05b0a8bd4a85801caa317d6
@@ -788,15 +788,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@tauri-apps/plugin-sql@npm:^2.4.0":
-  version: 2.4.0
-  resolution: "@tauri-apps/plugin-sql@npm:2.4.0"
-  dependencies:
-    "@tauri-apps/api": "npm:^2.10.1"
-  checksum: 10c0/27445bcfa4b3b8537e930d4f7023b6b55ca6a9ae01dc9f38e3af62637741231251fb27e1afe0faa4037b8ea1b9dbcce4466e30f62a680fb05b55e8a648bd2a7d
-  languageName: node
-  linkType: hard
-
 "@types/babel__core@npm:^7.20.5":
   version: 7.20.5
   resolution: "@types/babel__core@npm:7.20.5"
@@ -895,7 +886,6 @@ __metadata:
     "@tauri-apps/plugin-fs": "npm:^2.5.1"
     "@tauri-apps/plugin-notification": "npm:^2.3.3"
     "@tauri-apps/plugin-opener": "npm:^2"
-    "@tauri-apps/plugin-sql": "npm:^2.4.0"
     "@types/react": "npm:^19.1.8"
     "@types/react-dom": "npm:^19.1.6"
     "@vitejs/plugin-react": "npm:^4.6.0"
