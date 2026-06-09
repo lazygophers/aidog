@@ -182,6 +182,8 @@ export const proxyApi = {
 export const configApi = {
   exportClaudeConfig: (port: number) =>
     invoke<string>("export_claude_config", { port }),
+  syncGroupSettings: () =>
+    invoke<string[]>("sync_group_settings"),
 };
 
 // ─── Settings API ──────────────────────────────────────────

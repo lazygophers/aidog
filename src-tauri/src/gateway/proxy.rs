@@ -60,16 +60,39 @@ async fn handle_proxy(
     AxumState(state): AxumState<Arc<ProxyState>>,
     req: Request,
 ) -> Response {
-    // 解析路径匹配分组
-    let path = req.uri().path().to_string();
-
+    // 优先从 Authorization header 提取 group name（Bearer token）
+    // 回退到 path 前缀匹配
     let group = {
+        let auth_header = req.headers()
+            .get("authorization")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("Bearer "))
+            .map(|s| s.trim().to_string());
+
         let db = state.db.lock().map_err(|e| e.to_string());
         match db {
-            Ok(db) => match find_group_by_path(&db, &path) {
-                Some(g) => g,
-                None => return (StatusCode::NOT_FOUND, "no matching group").into_response(),
-            },
+            Ok(db) => {
+                // 1. Try auth token as group name
+                if let Some(ref token) = auth_header {
+                    if let Some(g) = find_group_by_name(&db, token) {
+                        g
+                    } else {
+                        // 2. Fallback to path matching
+                        let path = req.uri().path().to_string();
+                        match find_group_by_path(&db, &path) {
+                            Some(g) => g,
+                            None => return (StatusCode::NOT_FOUND, format!("no matching group for token '{}' or path '{}'", token, path)).into_response(),
+                        }
+                    }
+                } else {
+                    // 3. No auth header — path match only
+                    let path = req.uri().path().to_string();
+                    match find_group_by_path(&db, &path) {
+                        Some(g) => g,
+                        None => return (StatusCode::NOT_FOUND, "no matching group").into_response(),
+                    }
+                }
+            }
             Err(e) => return (StatusCode::INTERNAL_SERVER_ERROR, e).into_response(),
         }
     };
@@ -204,4 +227,10 @@ async fn handle_proxy(
 fn find_group_by_path(db: &Db, request_path: &str) -> Option<Group> {
     let groups = super::db::list_groups(db).ok()?;
     groups.into_iter().find(|g| request_path.starts_with(&g.path))
+}
+
+/// 根据 group name 精确匹配分组
+fn find_group_by_name(db: &Db, name: &str) -> Option<Group> {
+    let groups = super::db::list_groups(db).ok()?;
+    groups.into_iter().find(|g| g.name == name)
 }

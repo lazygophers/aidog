@@ -63,8 +63,10 @@ fn platform_delete(id: String, db: State<'_, Db>) -> Result<(), String> {
 // ─── Group Commands ────────────────────────────────────────
 
 #[tauri::command]
-fn group_create(input: CreateGroup, db: State<'_, Db>) -> Result<Group, String> {
-    db::create_group(&db, input)
+fn group_create(input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+    let result = db::create_group(&db, input)?;
+    let _ = try_sync_settings(&app, &db);
+    Ok(result)
 }
 
 #[tauri::command]
@@ -78,20 +80,26 @@ fn group_get(id: String, db: State<'_, Db>) -> Result<Option<Group>, String> {
 }
 
 #[tauri::command]
-fn group_update(input: UpdateGroup, db: State<'_, Db>) -> Result<Group, String> {
-    db::update_group(&db, input)
+fn group_update(input: UpdateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+    let result = db::update_group(&db, input)?;
+    let _ = try_sync_settings(&app, &db);
+    Ok(result)
 }
 
 #[tauri::command]
-fn group_delete(id: String, db: State<'_, Db>) -> Result<(), String> {
-    db::delete_group(&db, &id)
+fn group_delete(id: String, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
+    db::delete_group(&db, &id)?;
+    let _ = try_sync_settings(&app, &db);
+    Ok(())
 }
 
 // ─── GroupPlatform Commands ────────────────────────────────
 
 #[tauri::command]
-fn group_set_platforms(input: SetGroupPlatforms, db: State<'_, Db>) -> Result<(), String> {
-    db::set_group_platforms(&db, &input.group_id, &input.platforms)
+fn group_set_platforms(input: SetGroupPlatforms, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
+    db::set_group_platforms(&db, &input.group_id, &input.platforms)?;
+    let _ = try_sync_settings(&app, &db);
+    Ok(())
 }
 
 #[tauri::command]
@@ -105,8 +113,10 @@ fn group_get_platforms(
 // ─── ModelMapping Commands ─────────────────────────────────
 
 #[tauri::command]
-fn mapping_create(input: CreateModelMapping, db: State<'_, Db>) -> Result<ModelMapping, String> {
-    db::create_model_mapping(&db, input)
+fn mapping_create(input: CreateModelMapping, db: State<'_, Db>, app: tauri::AppHandle) -> Result<ModelMapping, String> {
+    let result = db::create_model_mapping(&db, input)?;
+    let _ = try_sync_settings(&app, &db);
+    Ok(result)
 }
 
 #[tauri::command]
@@ -115,13 +125,17 @@ fn mapping_list(group_id: String, db: State<'_, Db>) -> Result<Vec<ModelMapping>
 }
 
 #[tauri::command]
-fn mapping_update(input: UpdateModelMapping, db: State<'_, Db>) -> Result<ModelMapping, String> {
-    db::update_model_mapping(&db, input)
+fn mapping_update(input: UpdateModelMapping, db: State<'_, Db>, app: tauri::AppHandle) -> Result<ModelMapping, String> {
+    let result = db::update_model_mapping(&db, input)?;
+    let _ = try_sync_settings(&app, &db);
+    Ok(result)
 }
 
 #[tauri::command]
-fn mapping_delete(id: String, db: State<'_, Db>) -> Result<(), String> {
-    db::delete_model_mapping(&db, &id)
+fn mapping_delete(id: String, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
+    db::delete_model_mapping(&db, &id)?;
+    let _ = try_sync_settings(&app, &db);
+    Ok(())
 }
 
 // ─── Aggregate ─────────────────────────────────────────────
@@ -172,6 +186,11 @@ async fn proxy_start(
 
     // 保存实际使用的端口到设置
     save_proxy_settings(&app, actual_port, true)?;
+
+    // 同步所有分组的 settings 文件（端口可能变了）
+    if let Some(db) = app.try_state::<Db>() {
+        let _ = do_sync_group_settings(&db, actual_port);
+    }
 
     // 更新托盘菜单
     refresh_tray_menu(&app)?;
@@ -312,6 +331,85 @@ fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String, Str
     Ok(config_path.to_string_lossy().to_string())
 }
 
+/// Helper: attempt sync, log errors but don't propagate
+fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
+    if let Ok(settings) = load_proxy_settings(app) {
+        let _ = do_sync_group_settings(db, settings.port);
+    }
+}
+
+/// 为所有分组生成 settings.{group_name}.json 配置文件到 ~/.aidog/ 目录
+/// 核心逻辑：可被多个触发点调用
+fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
+    let groups = gateway::db::list_groups(db)?;
+
+    let aidog_dir = dirs::home_dir()
+        .ok_or("cannot resolve home directory")?
+        .join(".aidog");
+
+    // Ensure ~/.aidog/ exists
+    std::fs::create_dir_all(&aidog_dir)
+        .map_err(|e| format!("create .aidog dir: {e}"))?;
+
+    // Load base claude code config from app settings (scope=global, key=claude_code)
+    let base_config: serde_json::Value = gateway::db::get_setting(db, "global", "claude_code")
+        .ok()
+        .flatten()
+        .unwrap_or(serde_json::Value::Object(Default::default()));
+
+    // Collect current group names for cleanup
+    let group_names: std::collections::HashSet<String> = groups.iter().map(|g| g.name.clone()).collect();
+
+    let mut written = Vec::new();
+
+    for group in &groups {
+        let group_name = &group.name;
+
+        let mut config = base_config.clone();
+
+        // Set proxy routing fields
+        if let Some(obj) = config.as_object_mut() {
+            obj.insert(
+                "ANTHROPIC_BASE_URL".to_string(),
+                serde_json::Value::String(format!("http://127.0.0.1:{}/proxy", port)),
+            );
+            obj.insert(
+                "ANTHROPIC_AUTH_TOKEN".to_string(),
+                serde_json::Value::String(group_name.clone()),
+            );
+        }
+
+        let file_path = aidog_dir.join(format!("settings.{}.json", group_name));
+        let content = serde_json::to_string_pretty(&config)
+            .map_err(|e| format!("serialize config for {}: {e}", group_name))?;
+        std::fs::write(&file_path, content)
+            .map_err(|e| format!("write config for {}: {e}", group_name))?;
+
+        written.push(file_path.to_string_lossy().to_string());
+    }
+
+    // Cleanup: remove settings files for deleted groups
+    if let Ok(entries) = std::fs::read_dir(&aidog_dir) {
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if let Some(group_name) = name.strip_prefix("settings.").and_then(|s| s.strip_suffix(".json")) {
+                if !group_names.contains(group_name) {
+                    let _ = std::fs::remove_file(entry.path());
+                }
+            }
+        }
+    }
+
+    Ok(written)
+}
+
+/// Tauri command — manual sync from UI
+#[tauri::command]
+fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Result<Vec<String>, String> {
+    let proxy_settings = load_proxy_settings(&app)?;
+    do_sync_group_settings(&db, proxy_settings.port)
+}
+
 // ─── Path Autocomplete ─────────────────────────────────────
 
 use serde::Serialize;
@@ -420,8 +518,11 @@ fn settings_get(
 }
 
 #[tauri::command]
-fn settings_set(input: SetSettingInput, db: State<'_, Db>) -> Result<(), String> {
-    db::set_setting(&db, input)
+fn settings_set(input: SetSettingInput, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
+    db::set_setting(&db, input)?;
+    // Auto-sync group settings files when claude code config changes
+    let _ = try_sync_settings(&app, &db);
+    Ok(())
 }
 
 #[tauri::command]
@@ -620,6 +721,7 @@ pub fn run() {
             proxy_set_autostart,
             // Config Export
             export_claude_config,
+            sync_group_settings,
             // Settings
             fs_autocomplete,
             settings_get,

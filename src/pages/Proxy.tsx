@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { proxyApi, configApi } from "../services/api";
+import { proxyApi } from "../services/api";
 
 export function Proxy() {
   const { t } = useTranslation();
@@ -8,7 +8,6 @@ export function Proxy() {
   const [port, setPort] = useState(9876);
   const [autostart, setAutostart] = useState(false);
   const [message, setMessage] = useState("");
-  const [configPath, setConfigPath] = useState("");
 
   const loadSettings = async () => {
     try {
@@ -47,14 +46,6 @@ export function Proxy() {
     try {
       await proxyApi.setAutostart(val);
       setAutostart(val);
-    } catch (e: any) { setMessage(e.toString()); }
-  };
-
-  const handleExportConfig = async () => {
-    try {
-      const path = await configApi.exportClaudeConfig(port);
-      setConfigPath(path);
-      setMessage(t("proxy.configExported"));
     } catch (e: any) { setMessage(e.toString()); }
   };
 
@@ -153,31 +144,6 @@ export function Proxy() {
           aria-checked={autostart}
           tabIndex={0}
         />
-      </div>
-
-      {/* Claude Code Config */}
-      <div className="glass-surface" style={{ padding: "16px 20px" }}>
-        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
-          {t("proxy.configHint")}
-        </div>
-        <code className="code-block">
-          ANTHROPIC_BASE_URL=http://localhost:{port}/claude/v1/messages
-        </code>
-        <div className="text-secondary" style={{ marginTop: 10, fontSize: 12 }}>
-          {t("proxy.configDesc")}
-        </div>
-        <button
-          className="btn btn-primary"
-          style={{ marginTop: 14, fontSize: 13 }}
-          onClick={handleExportConfig}
-        >
-          {t("proxy.exportConfig")}
-        </button>
-        {configPath && (
-          <div className="text-accent" style={{ marginTop: 8, fontSize: 12 }}>
-            {t("proxy.configExportPath")}: {configPath}
-          </div>
-        )}
       </div>
 
       {/* Toast Message */}
