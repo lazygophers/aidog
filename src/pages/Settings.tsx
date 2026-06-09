@@ -505,24 +505,27 @@ function PermissionsEditor({ perms, updateField, t }: {
   const modeLabel = (m: RuleMode) =>
     t(`settings.permissions${m.charAt(0).toUpperCase() + m.slice(1)}`);
 
-  const MODE_CYCLE: RuleMode[] = ["allow", "ask", "deny"];
+  const ALL_MODES: RuleMode[] = ["allow", "ask", "deny"];
 
-  const RuleBadge = ({ mode, onClick }: { mode: RuleMode; onClick: () => void }) => (
-    <span
+  /** Styled mode dropdown — colored border + background per mode */
+  const ModeSelect = ({ mode, onChange }: { mode: RuleMode; onChange: (m: RuleMode) => void }) => (
+    <select
+      className="input"
+      value={mode}
+      onChange={(e) => onChange(e.target.value as RuleMode)}
       style={{
-        display: "inline-flex", alignItems: "center", gap: 3,
-        fontSize: F.small, fontWeight: 600, minWidth: 56, justifyContent: "center",
+        fontSize: F.small, fontWeight: 600, minWidth: 72,
         padding: "4px 8px", borderRadius: "var(--radius-sm)",
-        background: `${MODE_COLORS[mode]}15`,
+        background: `${MODE_COLORS[mode]}12`,
         color: MODE_COLORS[mode],
-        cursor: "pointer", userSelect: "none",
-        border: `1px solid ${MODE_COLORS[mode]}30`,
-        transition: "all 150ms ease",
+        border: `1px solid ${MODE_COLORS[mode]}35`,
+        cursor: "pointer", outline: "none",
       }}
-      onClick={onClick}
     >
-      {modeLabel(mode)}
-    </span>
+      {ALL_MODES.map(m => (
+        <option key={m} value={m}>{modeLabel(m)}</option>
+      ))}
+    </select>
   );
 
   const toolGroup = TOOL_GROUPS.find(g => g.tool === activeToolGroup) ?? TOOL_GROUPS[0];
@@ -550,20 +553,20 @@ function PermissionsEditor({ perms, updateField, t }: {
       </div>
 
       {/* ── Safety Toggles ── */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <FieldRow label="禁用绕过模式" icon={<SectionIcon name="bolt" size={14} />}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: F.body, cursor: "pointer" }}>
-            <input type="checkbox" checked={!!perms.disableBypassPermissionsMode}
-              onChange={(e) => updatePermKey("disableBypassPermissionsMode", e.target.checked ? "disable" : undefined)} />
-            <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>disableBypassPermissionsMode — 阻止使用 bypassPermissions 模式</span>
-          </label>
+          <div
+            className={`toggle${perms.disableBypassPermissionsMode ? " active" : ""}`}
+            onClick={() => updatePermKey("disableBypassPermissionsMode", perms.disableBypassPermissionsMode ? undefined : "disable")}
+          />
+          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>disableBypassPermissionsMode</span>
         </FieldRow>
         <FieldRow label="禁用自动模式" icon={<SectionIcon name="bolt" size={14} />}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: F.body, cursor: "pointer" }}>
-            <input type="checkbox" checked={!!perms.disableAutoMode}
-              onChange={(e) => updatePermKey("disableAutoMode", e.target.checked ? "disable" : undefined)} />
-            <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>disableAutoMode — 阻止使用 auto 模式</span>
-          </label>
+          <div
+            className={`toggle${perms.disableAutoMode ? " active" : ""}`}
+            onClick={() => updatePermKey("disableAutoMode", perms.disableAutoMode ? undefined : "disable")}
+          />
+          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>disableAutoMode</span>
         </FieldRow>
       </div>
 
@@ -627,11 +630,11 @@ function PermissionsEditor({ perms, updateField, t }: {
                     syncRules(updated);
                   }}
                 />
-                <RuleBadge
+                <ModeSelect
                   mode={rule.mode}
-                  onClick={() => {
+                  onChange={(m) => {
                     const updated = [...rules];
-                    updated[rule.idx] = { ...updated[rule.idx], mode: MODE_CYCLE[(MODE_CYCLE.indexOf(rule.mode) + 1) % 3] };
+                    updated[rule.idx] = { ...updated[rule.idx], mode: m };
                     syncRules(updated);
                   }}
                 />
@@ -712,9 +715,7 @@ function PermissionsEditor({ perms, updateField, t }: {
             </>
           )}
         </div>
-        <RuleBadge mode={draftMode} onClick={() => {
-          setDraftMode(MODE_CYCLE[(MODE_CYCLE.indexOf(draftMode) + 1) % 3]);
-        }} />
+        <ModeSelect mode={draftMode} onChange={setDraftMode} />
         <button type="button" className="btn btn-ghost"
           style={{ fontSize: F.body, padding: S.btnPad, width: S.btnIcon, minWidth: S.btnIcon }}
           onClick={() => {
