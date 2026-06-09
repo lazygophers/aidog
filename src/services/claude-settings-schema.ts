@@ -27,7 +27,7 @@ export const SECTIONS: SettingSection[] = [
       { key: "model", label: "Model", type: "string", placeholder: "e.g. claude-sonnet-4-6, sonnet" },
       { key: "effortLevel", label: "Effort Level", type: "select", options: ["low", "medium", "high", "xhigh"] },
       { key: "outputStyle", label: "Output Style", type: "string", placeholder: "Explanatory, Concise..." },
-      { key: "language", label: "Language", type: "string", placeholder: "chinese, english, japanese...", options: ["chinese", "english", "japanese", "korean", "french", "german", "spanish", "portuguese", "italian", "russian", "arabic", "hindi", "thai", "vietnamese"] },
+      { key: "language", label: "Language", type: "string", placeholder: "zh-CN, en-US, ja-JP...", options: ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES", "pt-BR", "it-IT", "ru-RU", "ar-SA", "hi-IN", "th-TH", "vi-VN"] },
       { key: "agent", label: "Agent", type: "string", description: "将主线程作为命名 subagent 运行" },
       { key: "apiKeyHelper", label: "API Key Helper", type: "string", placeholder: "/bin/generate_temp_api_key.sh" },
       { key: "modelOverrides", label: "Model Overrides", type: "kv", description: "模型 ID 映射，如 Bedrock ARN" },
@@ -173,25 +173,11 @@ export const ALL_SETTING_KEYS = SECTIONS.flatMap(s => s.fields.map(f => f.key));
 
 // ── Recommended config (from settings.glm.json, sanitized) ──
 
-/** Detect system language and map to Claude Code language string */
+/** Detect system language and map to locale code */
 function detectLanguage(): string {
   const nav = typeof navigator !== "undefined" ? navigator : null;
-  const lang = nav?.language ?? "en";
-  const lower = lang.toLowerCase();
-  if (lower.startsWith("zh")) return "chinese";
-  if (lower.startsWith("ja")) return "japanese";
-  if (lower.startsWith("ko")) return "korean";
-  if (lower.startsWith("fr")) return "french";
-  if (lower.startsWith("de")) return "german";
-  if (lower.startsWith("es")) return "spanish";
-  if (lower.startsWith("pt")) return "portuguese";
-  if (lower.startsWith("it")) return "italian";
-  if (lower.startsWith("ru")) return "russian";
-  if (lower.startsWith("ar")) return "arabic";
-  if (lower.startsWith("hi")) return "hindi";
-  if (lower.startsWith("th")) return "thai";
-  if (lower.startsWith("vi")) return "vietnamese";
-  return "english";
+  const lang = nav?.language ?? "en-US";
+  return lang;
 }
 
 export const RECOMMENDED_CONFIG: Record<string, any> = {
