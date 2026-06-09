@@ -11,6 +11,8 @@ export interface SettingField {
   description?: string;
   /** When set, renders a path picker button alongside the text input */
   pathType?: "file" | "directory";
+  /** When true, skip default FieldRenderer — section handles this field via custom UI */
+  skipGui?: boolean;
 }
 
 export interface SettingSection {
@@ -96,7 +98,7 @@ export const SECTIONS: SettingSection[] = [
     id: "hooks",
     labelKey: "settings.sectionHooks",
     fields: [
-      { key: "hooks", label: "Hooks", type: "json", description: "生命周期事件钩子配置" },
+      { key: "hooks", label: "Hooks", type: "json", description: "生命周期事件钩子配置", skipGui: true },
     ],
   },
   {

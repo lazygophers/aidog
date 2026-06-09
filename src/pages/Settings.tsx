@@ -616,6 +616,427 @@ function PermissionsSection({
   );
 }
 
+// ─── Hooks Section (friendly editor) ────────────────────────
+
+const HOOK_EVENTS: { id: string; label: string; desc: string; hasMatcher: boolean; matcherHint: string }[] = [
+  { id: "SessionStart", label: "Session Start", desc: "会话启动或恢复时", hasMatcher: true, matcherHint: "startup | resume | clear | compact" },
+  { id: "UserPromptSubmit", label: "Prompt Submit", desc: "用户提交提示时", hasMatcher: false, matcherHint: "" },
+  { id: "PreToolUse", label: "Pre Tool Use", desc: "工具调用前，可阻止", hasMatcher: true, matcherHint: "Bash | Edit | Write | Read | mcp__*" },
+  { id: "PostToolUse", label: "Post Tool Use", desc: "工具调用成功后", hasMatcher: true, matcherHint: "Bash | Edit | Write | mcp__*" },
+  { id: "Notification", label: "Notification", desc: "发送通知时", hasMatcher: true, matcherHint: "permission_prompt | idle_prompt | auth_success" },
+  { id: "Stop", label: "Stop", desc: "Claude 完成响应时", hasMatcher: false, matcherHint: "" },
+  { id: "SubagentStop", label: "Subagent Stop", desc: "子代理完成时", hasMatcher: true, matcherHint: "Explore | Plan | general-purpose" },
+  { id: "ConfigChange", label: "Config Change", desc: "配置文件变更时", hasMatcher: true, matcherHint: "user_settings | project_settings | local_settings" },
+  { id: "FileChanged", label: "File Changed", desc: "监视文件变更时", hasMatcher: true, matcherHint: ".envrc|.env (文字文件名)" },
+  { id: "CwdChanged", label: "CWD Changed", desc: "工作目录切换时", hasMatcher: false, matcherHint: "" },
+  { id: "PreCompact", label: "Pre Compact", desc: "上下文压缩前", hasMatcher: true, matcherHint: "manual | auto" },
+  { id: "SessionEnd", label: "Session End", desc: "会话结束时", hasMatcher: true, matcherHint: "clear | resume | logout | other" },
+];
+
+const HANDLER_TYPES = ["command", "http", "mcp_tool", "prompt", "agent"] as const;
+type HandlerType = (typeof HANDLER_TYPES)[number];
+
+const HANDLER_LABELS: Record<HandlerType, string> = {
+  command: "命令",
+  http: "HTTP",
+  mcp_tool: "MCP 工具",
+  prompt: "LLM 提示",
+  agent: "Agent 验证",
+};
+
+type HookHandler = {
+  type: HandlerType;
+  command?: string;
+  args?: string[];
+  url?: string;
+  headers?: Record<string, string>;
+  allowedEnvVars?: string[];
+  server?: string;
+  tool?: string;
+  input?: Record<string, any>;
+  prompt?: string;
+  model?: string;
+  timeout?: number;
+  async?: boolean;
+  "if"?: string;
+  statusMessage?: string;
+  shell?: string;
+};
+
+type MatcherGroup = {
+  matcher: string;
+  hooks: HookHandler[];
+};
+
+type HooksConfig = Record<string, MatcherGroup[]>;
+
+function HooksSection({
+  hooksValue,
+  updateField,
+  t,
+}: {
+  hooksValue: HooksConfig | undefined;
+  updateField: (field: string, value: any) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const hooks: HooksConfig = hooksValue ?? {};
+  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+
+  // Count total hooks for badge
+  const totalHooks = Object.values(hooks).reduce((sum, groups) => sum + groups.reduce((s, g) => s + g.hooks.length, 0), 0);
+
+  const syncHooks = (updated: HooksConfig) => {
+    const cleaned: HooksConfig = {};
+    for (const [evt, groups] of Object.entries(updated)) {
+      const nonEmpty = groups.filter(g => g.hooks.length > 0);
+      if (nonEmpty.length > 0) cleaned[evt] = nonEmpty;
+    }
+    updateField("hooks", Object.keys(cleaned).length > 0 ? cleaned : undefined);
+  };
+
+  const addMatcherGroup = (eventId: string) => {
+    const updated = { ...hooks };
+    const existing = updated[eventId] ?? [];
+    updated[eventId] = [...existing, { matcher: "", hooks: [{ type: "command" as HandlerType, command: "" }] }];
+    syncHooks(updated);
+    setExpandedEvent(eventId);
+  };
+
+  const removeMatcherGroup = (eventId: string, groupIdx: number) => {
+    const updated = { ...hooks };
+    const groups = [...(updated[eventId] ?? [])];
+    groups.splice(groupIdx, 1);
+    updated[eventId] = groups;
+    syncHooks(updated);
+  };
+
+  const updateMatcher = (eventId: string, groupIdx: number, matcher: string) => {
+    const updated = { ...hooks };
+    const groups = [...(updated[eventId] ?? [])];
+    groups[groupIdx] = { ...groups[groupIdx], matcher };
+    updated[eventId] = groups;
+    syncHooks(updated);
+  };
+
+  const addHandler = (eventId: string, groupIdx: number) => {
+    const updated = { ...hooks };
+    const groups = [...(updated[eventId] ?? [])];
+    const group = { ...groups[groupIdx], hooks: [...groups[groupIdx].hooks, { type: "command" as HandlerType, command: "" }] };
+    groups[groupIdx] = group;
+    updated[eventId] = groups;
+    syncHooks(updated);
+  };
+
+  const removeHandler = (eventId: string, groupIdx: number, handlerIdx: number) => {
+    const updated = { ...hooks };
+    const groups = [...(updated[eventId] ?? [])];
+    const handlers = [...groups[groupIdx].hooks];
+    handlers.splice(handlerIdx, 1);
+    groups[groupIdx] = { ...groups[groupIdx], hooks: handlers };
+    updated[eventId] = groups;
+    syncHooks(updated);
+  };
+
+  const updateHandler = (eventId: string, groupIdx: number, handlerIdx: number, patch: Partial<HookHandler>) => {
+    const updated = { ...hooks };
+    const groups = [...(updated[eventId] ?? [])];
+    const handlers = [...groups[groupIdx].hooks];
+    handlers[handlerIdx] = { ...handlers[handlerIdx], ...patch };
+    groups[groupIdx] = { ...groups[groupIdx], hooks: handlers };
+    updated[eventId] = groups;
+    syncHooks(updated);
+  };
+
+  const eventHookCount = (eventId: string) => {
+    const groups = hooks[eventId];
+    if (!groups) return 0;
+    return groups.reduce((s, g) => s + g.hooks.length, 0);
+  };
+
+  const inputStyle: React.CSSProperties = {
+    fontSize: F.body,
+    padding: S.inputPad,
+    minWidth: 0,
+  };
+
+  return (
+    <Section title={`${t("settings.sectionHooks")}${totalHooks > 0 ? ` (${totalHooks})` : ""}`} defaultOpen={totalHooks > 0}>
+      {/* Event selector — add new hook */}
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        <select
+          className="input"
+          style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 200 }}
+          value=""
+          onChange={(e) => {
+            if (e.target.value) addMatcherGroup(e.target.value);
+          }}
+        >
+          <option value="">+ 添加 Hook 事件…</option>
+          {HOOK_EVENTS.map(ev => (
+            <option key={ev.id} value={ev.id}>
+              {ev.id} — {ev.desc}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {/* Hint */}
+      {totalHooks === 0 && (
+        <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+          Hooks 在 Claude Code 生命周期的特定点自动执行命令/HTTP请求/LLM提示。
+          <br />选择事件类型开始配置。
+        </div>
+      )}
+
+      {/* Configured events */}
+      {Object.entries(hooks).map(([eventId, groups]) => {
+        const eventMeta = HOOK_EVENTS.find(e => e.id === eventId);
+        const isExpanded = expandedEvent === eventId || groups.length > 0;
+        const count = eventHookCount(eventId);
+
+        return (
+          <div
+            key={eventId}
+            className="glass-surface"
+            style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}
+          >
+            {/* Event header */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span
+                style={{ cursor: "pointer", userSelect: "none", fontSize: F.small, color: "var(--text-tertiary)",
+                  transition: "transform 0.15s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)"
+                }}
+                onClick={() => setExpandedEvent(isExpanded ? null : eventId)}
+              >
+                ▶
+              </span>
+              <span style={{ fontSize: F.body, fontWeight: 600, color: "var(--accent)" }}>
+                {eventId}
+              </span>
+              {eventMeta && (
+                <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
+                  — {eventMeta.desc}
+                </span>
+              )}
+              <span style={{
+                fontSize: 12, fontWeight: 600, padding: "1px 8px", borderRadius: 10,
+                background: "var(--accent-subtle)", color: "var(--accent)", marginLeft: "auto",
+              }}>
+                {count}
+              </span>
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon"
+                style={{ width: 22, height: 22, minWidth: 22, fontSize: 13, padding: 0, color: "var(--text-tertiary)" }}
+                onClick={() => {
+                  const updated = { ...hooks };
+                  delete updated[eventId];
+                  syncHooks(updated);
+                }}
+                title="删除此事件所有 hooks"
+              >
+                ×
+              </button>
+            </div>
+
+            {/* Matcher groups */}
+            {isExpanded && groups.map((group, gi) => (
+              <div
+                key={gi}
+                style={{
+                  borderLeft: "3px solid var(--accent)",
+                  paddingLeft: 12,
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: 8,
+                }}
+              >
+                {/* Matcher input */}
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0, width: 60 }}>
+                    Matcher
+                  </span>
+                  <input
+                    className="input"
+                    style={{ ...inputStyle, flex: 1 }}
+                    placeholder={eventMeta?.matcherHint ?? "留空匹配所有"}
+                    value={group.matcher}
+                    onChange={(e) => updateMatcher(eventId, gi, e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-icon"
+                    style={{ width: 22, height: 22, minWidth: 22, fontSize: 13, padding: 0, color: "var(--text-tertiary)" }}
+                    onClick={() => removeMatcherGroup(eventId, gi)}
+                    title="删除此匹配器组"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                {/* Handlers */}
+                {group.hooks.map((handler, hi) => (
+                  <div key={hi} style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 66 }}>
+                    {/* Handler type selector + delete */}
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <select
+                        className="input"
+                        style={{ ...inputStyle, width: 110, flexShrink: 0 }}
+                        value={handler.type}
+                        onChange={(e) => updateHandler(eventId, gi, hi, { type: e.target.value as HandlerType })}
+                      >
+                        {HANDLER_TYPES.map(ht => (
+                          <option key={ht} value={ht}>{HANDLER_LABELS[ht]}</option>
+                        ))}
+                      </select>
+
+                      {/* Common: timeout */}
+                      <input
+                        className="input"
+                        style={{ ...inputStyle, width: 80, flexShrink: 0 }}
+                        type="number"
+                        placeholder="超时(秒)"
+                        value={handler.timeout ?? ""}
+                        onChange={(e) => updateHandler(eventId, gi, hi, { timeout: e.target.value ? Number(e.target.value) : undefined })}
+                      />
+
+                      {/* Command-specific: async toggle */}
+                      {handler.type === "command" && (
+                        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0, cursor: "pointer" }}>
+                          <Toggle active={!!handler.async} onChange={(v) => updateHandler(eventId, gi, hi, { async: v || undefined })} />
+                          async
+                        </label>
+                      )}
+
+                      {/* if condition (tool events only) */}
+                      {eventMeta?.hasMatcher && (
+                        <input
+                          className="input"
+                          style={{ ...inputStyle, width: 140, flexShrink: 0 }}
+                          placeholder="if: Bash(rm *)"
+                          value={handler["if"] ?? ""}
+                          onChange={(e) => {
+                            const patch: Partial<HookHandler> = {};
+                            if (e.target.value) (patch as any)["if"] = e.target.value;
+                            else (patch as any)["if"] = undefined;
+                            updateHandler(eventId, gi, hi, patch);
+                          }}
+                        />
+                      )}
+
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-icon"
+                        style={{ width: 22, height: 22, minWidth: 22, fontSize: 13, padding: 0, color: "var(--text-tertiary)", marginLeft: "auto" }}
+                        onClick={() => removeHandler(eventId, gi, hi)}
+                        title="删除此处理器"
+                      >
+                        ×
+                      </button>
+                    </div>
+
+                    {/* Type-specific fields */}
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      {handler.type === "command" && (
+                        <>
+                          <PathInput
+                            value={handler.command}
+                            onChange={(v) => updateHandler(eventId, gi, hi, { command: v })}
+                            pathType="file"
+                            placeholder="命令或脚本路径，如 ./scripts/check.sh"
+                          />
+                          <select
+                            className="input"
+                            style={{ ...inputStyle, width: 90, flexShrink: 0 }}
+                            value={handler.shell ?? ""}
+                            onChange={(e) => updateHandler(eventId, gi, hi, { shell: e.target.value || undefined })}
+                          >
+                            <option value="">bash</option>
+                            <option value="powershell">powershell</option>
+                          </select>
+                        </>
+                      )}
+                      {handler.type === "http" && (
+                        <input
+                          className="input"
+                          style={{ ...inputStyle, flex: 1 }}
+                          placeholder="http://localhost:8080/hooks/pre-tool-use"
+                          value={handler.url ?? ""}
+                          onChange={(e) => updateHandler(eventId, gi, hi, { url: e.target.value || undefined })}
+                        />
+                      )}
+                      {handler.type === "mcp_tool" && (
+                        <>
+                          <input
+                            className="input"
+                            style={{ ...inputStyle, flex: 1 }}
+                            placeholder="MCP 服务器名称"
+                            value={handler.server ?? ""}
+                            onChange={(e) => updateHandler(eventId, gi, hi, { server: e.target.value || undefined })}
+                          />
+                          <input
+                            className="input"
+                            style={{ ...inputStyle, flex: 1 }}
+                            placeholder="工具名称"
+                            value={handler.tool ?? ""}
+                            onChange={(e) => updateHandler(eventId, gi, hi, { tool: e.target.value || undefined })}
+                          />
+                        </>
+                      )}
+                      {(handler.type === "prompt" || handler.type === "agent") && (
+                        <input
+                          className="input"
+                          style={{ ...inputStyle, flex: 1 }}
+                          placeholder="提示文本，用 $ARGUMENTS 插入 hook 输入"
+                          value={handler.prompt ?? ""}
+                          onChange={(e) => updateHandler(eventId, gi, hi, { prompt: e.target.value || undefined })}
+                        />
+                      )}
+                    </div>
+
+                    {/* Status message (optional, all types) */}
+                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                      <input
+                        className="input"
+                        style={{ ...inputStyle, flex: 1 }}
+                        placeholder="statusMessage (可选，hook 运行时显示的消息)"
+                        value={handler.statusMessage ?? ""}
+                        onChange={(e) => updateHandler(eventId, gi, hi, { statusMessage: e.target.value || undefined })}
+                      />
+                    </div>
+                  </div>
+                ))}
+
+                {/* Add handler button */}
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ fontSize: F.hint, padding: "4px 10px", alignSelf: "flex-start", marginLeft: 66 }}
+                  onClick={() => addHandler(eventId, gi)}
+                >
+                  + 处理器
+                </button>
+              </div>
+            ))}
+
+            {/* Add matcher group to existing event */}
+            {isExpanded && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ fontSize: F.hint, padding: "4px 10px", alignSelf: "flex-start" }}
+                onClick={() => addMatcherGroup(eventId)}
+              >
+                + 匹配器组
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </Section>
+  );
+}
+
 // ─── Path Input (text + system picker + autocomplete) ─────
 
 interface PathSuggestion {
@@ -844,7 +1265,9 @@ function FieldRenderer({
       return (
         <div style={{ ...rowStyle, alignItems: "center" }}>
           <FieldLabel field={field} t={t} style={{ paddingTop: 0 }} />
-          <Toggle active={!!value} onChange={(v) => onChange(v || undefined)} />
+          <div style={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "flex-end" }}>
+            <Toggle active={!!value} onChange={(v) => onChange(v || undefined)} />
+          </div>
         </div>
       );
 
@@ -1150,6 +1573,18 @@ export function Settings() {
                 );
               }
 
+              // Special handling for hooks: friendly editor
+              if (section.id === "hooks") {
+                return (
+                  <HooksSection
+                    key={section.id}
+                    hooksValue={config.hooks as HooksConfig | undefined}
+                    updateField={updateField}
+                    t={t}
+                  />
+                );
+              }
+
               // Default: render each field in section
               return (
                 <Section
@@ -1157,7 +1592,9 @@ export function Settings() {
                   title={t(section.labelKey)}
                   defaultOpen={section.id === "core"}
                 >
-                  {section.fields.map((field) => (
+                  {section.fields
+                    .filter((field) => !field.skipGui)
+                    .map((field) => (
                     <FieldRenderer
                       key={field.key}
                       field={field}
