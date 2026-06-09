@@ -10,23 +10,24 @@ import {
 
 const CONFIG_KEY = "claude_code";
 
-// ─── Design tokens (all derived from 16px base) ───
+// ─── Design tokens ───
 
 const F = {
-  title: 18,        // section heading
-  label: 16,        // field label
-  body: 16,         // input / button / general text
-  hint: 14,         // secondary / key-in-parens / description
-  small: 13,        // arrow icon / error
+  title: 20,        // section heading
+  label: 15,        // field label
+  body: 15,         // input / button / general text
+  hint: 13,         // secondary / key-in-parens / description
+  small: 12,        // arrow icon / error
 } as const;
 
 const S = {
-  gap: 14,          // between fields
-  row: 14,          // kv row gap
-  pad: 20,          // surface padding
-  inputPad: "8px 12px",
-  btnPad: "6px 14px",
-  btnIcon: 30,      // icon button size
+  sectionGap: 20,   // between section cards
+  gap: 18,          // between fields within a section
+  row: 12,          // kv row gap
+  pad: 28,          // card padding
+  inputPad: "10px 14px",
+  btnPad: "8px 18px",
+  btnIcon: 34,      // icon button size
 } as const;
 
 // ─── Sub-components ────────────────────────────────────────
@@ -48,7 +49,7 @@ function Toggle({
   );
 }
 
-/** Collapsible section */
+/** Collapsible section — own card */
 function Section({
   title,
   defaultOpen = false,
@@ -61,9 +62,10 @@ function Section({
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div
+      className="glass-surface"
       style={{
-        borderTop: "1px solid var(--border)",
-        paddingTop: S.gap,
+        padding: S.pad,
+        borderRadius: "var(--radius-lg)",
       }}
     >
       <div
@@ -81,6 +83,7 @@ function Section({
             fontSize: F.title,
             fontWeight: 600,
             color: "var(--text-primary)",
+            letterSpacing: "-0.01em",
           }}
         >
           {title}
@@ -89,7 +92,7 @@ function Section({
           style={{
             fontSize: F.small,
             color: "var(--text-tertiary)",
-            transition: "transform 0.15s",
+            transition: "transform 0.2s cubic-bezier(0.4, 0, 0.2, 1)",
             transform: open ? "rotate(90deg)" : "rotate(0deg)",
           }}
         >
@@ -112,21 +115,21 @@ function FieldLabel({ field, t, style }: { field: SettingField; t: ReturnType<ty
     <label
       style={{
         flexShrink: 0,
-        width: 180,
+        width: 200,
         fontSize: F.label,
         fontWeight: 500,
-        color: "var(--text-secondary)",
-        lineHeight: 1.4,
-        paddingTop: 8,
+        color: "var(--text-primary)",
+        lineHeight: 1.5,
+        paddingTop: 10,
         ...style,
       }}
     >
       {translated}
-      <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 2 }}>
+      <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 3, fontFamily: '"SF Mono", "Fira Code", monospace' }}>
         {field.key}
       </span>
       {field.description && (
-        <span style={{ display: "block", fontWeight: 400, fontSize: F.hint, color: "var(--text-tertiary)", marginTop: 2, lineHeight: 1.4 }}>
+        <span style={{ display: "block", fontWeight: 400, fontSize: F.hint, color: "var(--text-tertiary)", marginTop: 3, lineHeight: 1.5 }}>
           {field.description}
         </span>
       )}
@@ -441,13 +444,13 @@ function PermissionsSection({
   return (
     <Section title={t("settings.sectionPermissions")} defaultOpen>
       {/* Default Mode — left-right with descriptions */}
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
         <label style={{
-          flexShrink: 0, width: 180, fontSize: F.label, fontWeight: 500,
-          color: "var(--text-secondary)", lineHeight: 1.4, paddingTop: 8,
+          flexShrink: 0, width: 200, fontSize: F.label, fontWeight: 500,
+          color: "var(--text-primary)", lineHeight: 1.5, paddingTop: 10,
         }}>
           {t("settings.permissionsDefaultMode")}
-          <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 2 }}>
+          <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 3, fontFamily: '"SF Mono", "Fira Code", monospace' }}>
             permissions.defaultMode
           </span>
         </label>
@@ -470,7 +473,7 @@ function PermissionsSection({
               <option key={m.value} value={m.value}>{m.value} — {m.desc}</option>
             ))}
           </select>
-          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
+          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: 6, lineHeight: 1.5 }}>
             规则优先级: deny → ask → allow。第一个匹配的规则生效。
           </div>
         </div>
@@ -478,7 +481,7 @@ function PermissionsSection({
 
       {/* Existing rules */}
       {rules.length > 0 && (
-        <div style={{ paddingLeft: 192, display: "flex", flexDirection: "column", gap: S.row }}>
+        <div style={{ paddingLeft: 216, display: "flex", flexDirection: "column", gap: S.row }}>
           {rules.map((rule, i) => {
             const tool = toolBadge(rule.pattern);
             return (
@@ -526,7 +529,7 @@ function PermissionsSection({
       )}
 
       {/* Add rule */}
-      <div style={{ paddingLeft: 192, display: "flex", gap: 6, alignItems: "center" }}>
+      <div style={{ paddingLeft: 216, display: "flex", gap: 6, alignItems: "center" }}>
         <div style={{ position: "relative", flex: 1 }}>
           <input
             className="input"
@@ -1265,7 +1268,7 @@ function FieldRenderer({
       return (
         <div style={{ ...rowStyle, alignItems: "center" }}>
           <FieldLabel field={field} t={t} style={{ paddingTop: 0 }} />
-          <div style={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "flex-end" }}>
+          <div style={{ flex: 1, minWidth: 0, display: "flex", justifyContent: "flex-end", paddingTop: 2 }}>
             <Toggle active={!!value} onChange={(v) => onChange(v || undefined)} />
           </div>
         </div>
@@ -1444,75 +1447,87 @@ export function Settings() {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 24,
-        maxWidth: 780,
+        gap: 0,
+        maxWidth: 820,
         width: "100%",
       }}
     >
       {/* Header */}
-      <div className="section-header">
-        <div>
-          <div className="section-title">{t("settings.title")}</div>
-          <div className="section-desc">{t("settings.desc")}</div>
-        </div>
+      <div style={{ marginBottom: 24 }}>
+        <div className="section-title" style={{ fontSize: 22 }}>{t("settings.title")}</div>
+        <div className="section-desc" style={{ marginTop: 4, fontSize: F.body }}>{t("settings.desc")}</div>
       </div>
 
+      {/* Toolbar: mode toggle + Load Recommended + Save */}
       <div
         className="glass-surface"
         style={{
-          padding: S.pad,
+          padding: "12px 20px",
+          borderRadius: "var(--radius-lg)",
           display: "flex",
-          flexDirection: "column",
-          gap: S.gap,
+          alignItems: "center",
+          justifyContent: "space-between",
+          marginBottom: S.sectionGap,
         }}
       >
-        {/* Mode toggle + Load Recommended */}
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-            borderBottom: "1px solid var(--border)",
-            paddingBottom: 10,
-          }}
-        >
-          <div style={{ display: "flex", gap: 6 }}>
-            <button
-              className={`btn ${mode === "gui" ? "btn-primary" : "btn-ghost"}`}
-              style={{ fontSize: F.body, padding: S.btnPad }}
-              onClick={() => setMode("gui")}
-            >
-              {t("settings.guiMode")}
-            </button>
-            <button
-              className={`btn ${mode === "json" ? "btn-primary" : "btn-ghost"}`}
-              style={{ fontSize: F.body, padding: S.btnPad }}
-              onClick={() => {
-                setEditJson(JSON.stringify(config, null, 2));
-                setMode("json");
-              }}
-            >
-              {t("settings.jsonMode")}
-            </button>
-          </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button
+            className={`btn ${mode === "gui" ? "btn-primary" : "btn-ghost"}`}
+            style={{ fontSize: F.body, padding: S.btnPad }}
+            onClick={() => setMode("gui")}
+          >
+            {t("settings.guiMode")}
+          </button>
+          <button
+            className={`btn ${mode === "json" ? "btn-primary" : "btn-ghost"}`}
+            style={{ fontSize: F.body, padding: S.btnPad }}
+            onClick={() => {
+              setEditJson(JSON.stringify(config, null, 2));
+              setMode("json");
+            }}
+          >
+            {t("settings.jsonMode")}
+          </button>
+        </div>
+        <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
           <button
             className="btn btn-ghost"
-            style={{ fontSize: F.hint, padding: "5px 12px" }}
+            style={{ fontSize: F.hint, padding: "6px 14px" }}
             onClick={handleLoadRecommended}
           >
             ⚡ {t("settings.loadRecommended")}
           </button>
+          {toast && (
+            <span style={{ fontSize: F.body, color: "#34c759" }}>
+              {toast}
+            </span>
+          )}
+          {saveError && (
+            <span style={{ fontSize: F.hint, color: "#ff453a", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {saveError}
+            </span>
+          )}
+          <button
+            className="btn btn-primary"
+            style={{ fontSize: F.body, padding: S.btnPad, minWidth: 80 }}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            {saving ? t("status.loading") : t("action.save")}
+          </button>
         </div>
+      </div>
 
-        {/* JSON mode */}
-        {mode === "json" && (
+      {/* JSON mode */}
+      {mode === "json" && (
+        <div className="glass-surface" style={{ padding: S.pad, borderRadius: "var(--radius-lg)" }}>
           <textarea
             className="input"
             style={{
               fontFamily: '"SF Mono", "Fira Code", monospace',
               fontSize: F.body,
-              lineHeight: 1.6,
-              minHeight: 520,
+              lineHeight: 1.7,
+              minHeight: 560,
               resize: "vertical",
               whiteSpace: "pre",
               padding: S.inputPad,
@@ -1521,139 +1536,95 @@ export function Settings() {
             onChange={(e) => setEditJson(e.target.value)}
             spellCheck={false}
           />
-        )}
+        </div>
+      )}
 
-        {/* GUI mode — schema-driven sections */}
-        {mode === "gui" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
-            {SECTIONS.map((section) => {
-              // Special handling for permissions section: unified rule manager
-              if (section.id === "permissions") {
-                return (
-                  <PermissionsSection
-                    key={section.id}
-                    perms={perms}
-                    updateField={updateField}
-                    t={t}
-                  />
-                );
-              }
+      {/* GUI mode — each section is its own card */}
+      {mode === "gui" && (
+        <div style={{ display: "flex", flexDirection: "column", gap: S.sectionGap }}>
+          {SECTIONS.map((section) => {
+            // Special handling for permissions section: unified rule manager
+            if (section.id === "permissions") {
+              return (
+                <PermissionsSection
+                  key={section.id}
+                  perms={perms}
+                  updateField={updateField}
+                  t={t}
+                />
+              );
+            }
 
-              // Special handling for env: use KvEditor
-              if (section.id === "env") {
-                return (
-                  <Section
-                    key={section.id}
-                    title={t(section.labelKey)}
-                    defaultOpen
-                  >
-                    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                      <label style={{
-                        flexShrink: 0, width: 180, fontSize: F.label, fontWeight: 500,
-                        color: "var(--text-secondary)", lineHeight: 1.4, paddingTop: 8,
-                      }}>
-                        {t("settings.f_env", "Environment Variables")}
-                        <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 2 }}>
-                          env
-                        </span>
-                      </label>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <KvEditor
-                          items={(config.env ?? {}) as Record<string, string>}
-                          onChange={(newEnv) =>
-                            updateField(
-                              "env",
-                              Object.keys(newEnv).length > 0 ? newEnv : undefined,
-                            )
-                          }
-                        />
-                      </div>
-                    </div>
-                  </Section>
-                );
-              }
-
-              // Special handling for hooks: friendly editor
-              if (section.id === "hooks") {
-                return (
-                  <HooksSection
-                    key={section.id}
-                    hooksValue={config.hooks as HooksConfig | undefined}
-                    updateField={updateField}
-                    t={t}
-                  />
-                );
-              }
-
-              // Default: render each field in section
+            // Special handling for env: use KvEditor
+            if (section.id === "env") {
               return (
                 <Section
                   key={section.id}
                   title={t(section.labelKey)}
-                  defaultOpen={section.id === "core"}
                 >
-                  {section.fields
-                    .filter((field) => !field.skipGui)
-                    .map((field) => (
-                    <FieldRenderer
-                      key={field.key}
-                      field={field}
-                      value={config[field.key]}
-                      onChange={(v) => updateField(field.key, v)}
-                      t={t}
-                    />
-                  ))}
+                  <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
+                    <label style={{
+                      flexShrink: 0, width: 200, fontSize: F.label, fontWeight: 500,
+                      color: "var(--text-primary)", lineHeight: 1.5, paddingTop: 10,
+                    }}>
+                      {t("settings.f_env", "Environment Variables")}
+                      <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 3, fontFamily: '"SF Mono", "Fira Code", monospace' }}>
+                        env
+                      </span>
+                    </label>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <KvEditor
+                        items={(config.env ?? {}) as Record<string, string>}
+                        onChange={(newEnv) =>
+                          updateField(
+                            "env",
+                            Object.keys(newEnv).length > 0 ? newEnv : undefined,
+                          )
+                        }
+                      />
+                    </div>
+                  </div>
                 </Section>
               );
-            })}
-          </div>
-        )}
+            }
 
-        {/* Error */}
-        {saveError && (
-          <div
-            style={{
-              fontSize: F.body,
-              wordBreak: "break-all",
-              color: "#ff453a",
-            }}
-          >
-            {saveError}
-          </div>
-        )}
+            // Special handling for hooks: friendly editor
+            if (section.id === "hooks") {
+              return (
+                <HooksSection
+                  key={section.id}
+                  hooksValue={config.hooks as HooksConfig | undefined}
+                  updateField={updateField}
+                  t={t}
+                />
+              );
+            }
 
-        {/* Actions */}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "flex-end",
-            gap: 10,
-            paddingTop: 10,
-            borderTop: "1px solid var(--border)",
-          }}
-        >
-          {toast && (
-            <span
-              style={{
-                fontSize: F.body,
-                color: "#34c759",
-                alignSelf: "center",
-                marginRight: "auto",
-              }}
-            >
-              {toast}
-            </span>
-          )}
-          <button
-            className="btn btn-primary"
-            style={{ fontSize: F.body }}
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? t("status.loading") : t("action.save")}
-          </button>
+            // Skip sections with no visible fields
+            const visibleFields = section.fields.filter((f) => !f.skipGui);
+            if (visibleFields.length === 0) return null;
+
+            // Default: render each field in section
+            return (
+              <Section
+                key={section.id}
+                title={t(section.labelKey)}
+                defaultOpen={section.id === "core"}
+              >
+                {visibleFields.map((field) => (
+                  <FieldRenderer
+                    key={field.key}
+                    field={field}
+                    value={config[field.key]}
+                    onChange={(v) => updateField(field.key, v)}
+                    t={t}
+                  />
+                ))}
+              </Section>
+            );
+          })}
         </div>
-      </div>
+      )}
     </div>
   );
 }
