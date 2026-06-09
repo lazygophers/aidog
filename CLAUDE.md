@@ -1,0 +1,7 @@
+- 本项目授权自动 `git commit`：所有文件变更完成后立即提交，无需等待明确指令
+- 提交信息格式：`<type>(<scope>): <description>`，type 遵循 conventional commits（feat / fix / chore / style / refactor / docs）
+- 禁 `git push`，等明确指令
+- 技术栈：Tauri 2.0 + React 19 + TypeScript + Rust + Yarn
+- 主题架构：每个主题定义 light + dark 两组 CSS 变量，位于 `src/themes/`
+- 国际化：7 种语言（zh-CN / en-US / ar-SA / fr-FR / de-DE / ru-RU / ja-JP），阿拉伯语 RTL
+- UI 风格偏好：Liquid Glass

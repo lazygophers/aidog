@@ -1,0 +1,4 @@
+[tools]
+node = "latest"
+yarn = "latest"
+rust = "latest"

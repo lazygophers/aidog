@@ -1,0 +1,19 @@
+{
+  "app.title": "AiDog",
+  "theme.label": "السمة",
+  "theme.light": "فاتح",
+  "theme.dark": "داكن",
+  "theme.liquidGlass": "زجاج سائل",
+  "lang.label": "اللغة",
+  "lang.zh-CN": "简体中文",
+  "lang.en-US": "English",
+  "lang.ar-SA": "العربية",
+  "lang.fr-FR": "Français",
+  "lang.de-DE": "Deutsch",
+  "lang.ru-RU": "Русский",
+  "lang.ja-JP": "日本語",
+  "greet.placeholder": "أدخل اسماً...",
+  "greet.button": "حيّي",
+  "tray.show": "إظهار النافذة",
+  "tray.quit": "خروج"
+}
