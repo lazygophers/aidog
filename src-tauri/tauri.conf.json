@@ -4,9 +4,9 @@
   "version": "0.1.0",
   "identifier": "com.aidog.app",
   "build": {
-    "beforeDevCommand": "yarn dev",
+    "beforeDevCommand": "npx vite",
     "devUrl": "http://localhost:1420",
-    "beforeBuildCommand": "yarn build",
+    "beforeBuildCommand": "npx tsc && npx vite build",
     "frontendDist": "../dist"
   },
   "app": {
