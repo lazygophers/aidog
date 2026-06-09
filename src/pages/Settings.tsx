@@ -2494,7 +2494,7 @@ export function Settings() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 48px)", width: "100%" }}>
       {/* Header bar */}
       <div
         style={{
