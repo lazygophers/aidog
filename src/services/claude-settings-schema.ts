@@ -184,13 +184,14 @@ export interface EnvVarDef {
   group: string;
 }
 
-export const ENV_VAR_GROUP_ORDER = ["performance", "toggles", "network", "model"] as const;
+export const ENV_VAR_GROUP_ORDER = ["performance", "toggles", "network", "provider", "model"] as const;
 
-export const ENV_VAR_GROUP_LABELS: Record<string, string> = {
-  performance: "Performance & Limits",
-  toggles: "Feature Toggles",
-  network: "Network & Proxy",
-  model: "Model Config",
+export const ENV_VAR_GROUP_LABEL_KEYS: Record<string, string> = {
+  performance: "env.group.performance",
+  toggles: "env.group.toggles",
+  network: "env.group.network",
+  provider: "env.group.provider",
+  model: "env.group.model",
 };
 
 export const ENV_VAR_DEFS: EnvVarDef[] = [
@@ -208,35 +209,86 @@ export const ENV_VAR_DEFS: EnvVarDef[] = [
   { key: "CLAUDE_CODE_MAX_CONTEXT_TOKENS", label: "Max Context Tokens", type: "number", group: "performance" },
   { key: "CLAUDE_CODE_MAX_RETRIES", label: "Max Retries", type: "number", placeholder: "10", group: "performance" },
   { key: "CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY", label: "Max Tool Concurrency", type: "number", placeholder: "10", group: "performance" },
+  { key: "CLAUDE_CODE_MAX_TURNS", label: "Max Turns", description: "限制代理转换数量", type: "number", group: "performance" },
+  { key: "MAX_MCP_OUTPUT_TOKENS", label: "MCP Output Tokens", description: "MCP 工具响应最大令牌数", type: "number", placeholder: "25000", group: "performance" },
+  { key: "MAX_STRUCTURED_OUTPUT_RETRIES", label: "Structured Output Retries", description: "结构化输出验证重试次数", type: "number", placeholder: "5", group: "performance" },
+  { key: "CLAUDE_STREAM_IDLE_TIMEOUT_MS", label: "Stream Idle Timeout (ms)", description: "流式空闲超时", type: "number", placeholder: "300000", group: "performance" },
 
   // ── Feature Toggles ──
   { key: "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", label: "Disable Nonessential Traffic", description: "禁用自动更新、反馈、错误报告、遥测", type: "boolean", group: "toggles" },
   { key: "DISABLE_TELEMETRY", label: "Disable Telemetry", description: "选择退出遥测", type: "boolean", group: "toggles" },
   { key: "CLAUDE_CODE_ENABLE_TELEMETRY", label: "Enable OpenTelemetry", description: "启用 OTEL 数据收集", type: "boolean", group: "toggles" },
   { key: "DISABLE_ERROR_REPORTING", label: "Disable Error Reporting", type: "boolean", group: "toggles" },
+  { key: "DISABLE_AUTOUPDATER", label: "Disable Auto Updater", type: "boolean", group: "toggles" },
+  { key: "DISABLE_UPDATES", label: "Disable All Updates", description: "阻止所有更新（含手动）", type: "boolean", group: "toggles" },
   { key: "ENABLE_PROMPT_CACHING_1H", label: "Prompt Caching 1H", description: "1 小时 prompt cache TTL", type: "boolean", group: "toggles" },
   { key: "DISABLE_PROMPT_CACHING", label: "Disable Prompt Caching", type: "boolean", group: "toggles" },
+  { key: "DISABLE_COST_WARNINGS", label: "Disable Cost Warnings", type: "boolean", group: "toggles" },
   { key: "CLAUDE_CODE_DISABLE_FAST_MODE", label: "Disable Fast Mode", type: "boolean", group: "toggles" },
   { key: "CLAUDE_CODE_DISABLE_THINKING", label: "Disable Thinking", description: "强制禁用扩展思考", type: "boolean", group: "toggles" },
   { key: "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING", label: "Disable Adaptive Thinking", description: "回退固定思考预算", type: "boolean", group: "toggles" },
+  { key: "DISABLE_INTERLEAVED_THINKING", label: "Disable Interleaved Thinking", type: "boolean", group: "toggles" },
   { key: "DISABLE_AUTO_COMPACT", label: "Disable Auto Compact", type: "boolean", group: "toggles" },
   { key: "DISABLE_COMPACT", label: "Disable All Compact", type: "boolean", group: "toggles" },
   { key: "CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING", label: "Disable File Checkpointing", type: "boolean", group: "toggles" },
   { key: "CLAUDE_CODE_DISABLE_AUTO_MEMORY", label: "Disable Auto Memory", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_DISABLE_ATTACHMENTS", label: "Disable Attachments", description: "禁用 @ 文件附件处理", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_DISABLE_GIT_INSTRUCTIONS", label: "Disable Git Instructions", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_DISABLE_TERMINAL_TITLE", label: "Disable Terminal Title", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_DISABLE_BACKGROUND_TASKS", label: "Disable Background Tasks", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_DISABLE_1M_CONTEXT", label: "Disable 1M Context", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN", label: "Disable Alternate Screen", description: "使用经典主屏幕渲染器", type: "boolean", group: "toggles" },
+  { key: "ENABLE_TOOL_SEARCH", label: "Enable Tool Search", description: "MCP 工具搜索延迟加载", type: "select", options: ["true", "auto", "false"], group: "toggles" },
+  { key: "CLAUDE_CODE_DISABLE_CRON", label: "Disable Cron", description: "禁用计划任务", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_DISABLE_WORKFLOWS", label: "Disable Workflows", type: "boolean", group: "toggles" },
+  { key: "DISABLE_LOGIN_COMMAND", label: "Disable Login Command", type: "boolean", group: "toggles" },
+  { key: "DISABLE_LOGOUT_COMMAND", label: "Disable Logout Command", type: "boolean", group: "toggles" },
   { key: "DEBUG", label: "Debug Mode", type: "boolean", group: "toggles" },
 
   // ── Network & Proxy ──
   { key: "ANTHROPIC_BASE_URL", label: "Base URL", description: "覆盖 API 端点", type: "string", placeholder: "https://api.anthropic.com", group: "network" },
   { key: "ANTHROPIC_API_KEY", label: "API Key", type: "password", group: "network" },
+  { key: "ANTHROPIC_AUTH_TOKEN", label: "Auth Token", description: "自定义 Authorization 标头值", type: "password", group: "network" },
   { key: "ANTHROPIC_CUSTOM_HEADERS", label: "Custom Headers", description: "Name: Value 格式，多个用换行分隔", type: "string", group: "network" },
+  { key: "ANTHROPIC_BETAS", label: "Beta Headers", description: "逗号分隔的 anthropic-beta 标头值", type: "string", group: "network" },
   { key: "HTTP_PROXY", label: "HTTP Proxy", type: "string", group: "network" },
   { key: "HTTPS_PROXY", label: "HTTPS Proxy", type: "string", group: "network" },
   { key: "NO_PROXY", label: "No Proxy", description: "绕过代理的域名列表", type: "string", group: "network" },
+
+  // ── Provider Routing ──
+  { key: "CLAUDE_CODE_USE_BEDROCK", label: "Use Bedrock", type: "boolean", group: "provider" },
+  { key: "CLAUDE_CODE_USE_VERTEX", label: "Use Vertex AI", type: "boolean", group: "provider" },
+  { key: "CLAUDE_CODE_USE_FOUNDRY", label: "Use Microsoft Foundry", type: "boolean", group: "provider" },
+  { key: "CLAUDE_CODE_USE_ANTHROPIC_AWS", label: "Use Anthropic AWS", type: "boolean", group: "provider" },
+  { key: "CLAUDE_CODE_USE_MANTLE", label: "Use Bedrock Mantle", type: "boolean", group: "provider" },
+  { key: "CLAUDE_CODE_SKIP_BEDROCK_AUTH", label: "Skip Bedrock Auth", description: "跳过 AWS 身份验证（使用 LLM 网关时）", type: "boolean", group: "provider" },
+  { key: "CLAUDE_CODE_SKIP_VERTEX_AUTH", label: "Skip Vertex Auth", type: "boolean", group: "provider" },
+  { key: "CLAUDE_CODE_SKIP_FOUNDRY_AUTH", label: "Skip Foundry Auth", type: "boolean", group: "provider" },
+  { key: "ANTHROPIC_AWS_API_KEY", label: "AWS API Key", description: "Claude Platform on AWS 工作区密钥", type: "password", group: "provider" },
+  { key: "ANTHROPIC_AWS_BASE_URL", label: "AWS Base URL", type: "string", group: "provider" },
+  { key: "ANTHROPIC_AWS_WORKSPACE_ID", label: "AWS Workspace ID", type: "string", group: "provider" },
+  { key: "ANTHROPIC_FOUNDRY_RESOURCE", label: "Foundry Resource", type: "string", group: "provider" },
+  { key: "ANTHROPIC_FOUNDRY_BASE_URL", label: "Foundry Base URL", type: "string", group: "provider" },
+  { key: "ANTHROPIC_FOUNDRY_API_KEY", label: "Foundry API Key", type: "password", group: "provider" },
+  { key: "ANTHROPIC_VERTEX_BASE_URL", label: "Vertex Base URL", type: "string", group: "provider" },
+  { key: "ANTHROPIC_VERTEX_PROJECT_ID", label: "Vertex Project ID", type: "string", group: "provider" },
+  { key: "ANTHROPIC_BEDROCK_BASE_URL", label: "Bedrock Base URL", type: "string", group: "provider" },
+  { key: "ANTHROPIC_BEDROCK_SERVICE_TIER", label: "Bedrock Service Tier", description: "default / flex / priority", type: "select", options: ["default", "flex", "priority"], group: "provider" },
 
   // ── Model Config ──
   { key: "ANTHROPIC_MODEL", label: "Model Override", description: "覆盖使用的模型", type: "string", placeholder: "claude-sonnet-4-6", group: "model" },
   { key: "CLAUDE_CODE_SUBAGENT_MODEL", label: "Subagent Model", type: "string", group: "model" },
   { key: "ANTHROPIC_CUSTOM_MODEL_OPTION", label: "Custom Model Option", description: "在 /model 选择器中添加自定义条目", type: "string", group: "model" },
+  { key: "ANTHROPIC_CUSTOM_MODEL_OPTION_NAME", label: "Custom Model Name", description: "自定义模型显示名称", type: "string", group: "model" },
+  { key: "ANTHROPIC_CUSTOM_MODEL_OPTION_DESCRIPTION", label: "Custom Model Description", description: "自定义模型显示描述", type: "string", group: "model" },
+
+  // ── Misc / Undocumented ──
+  { key: "CLAUDE_AUTO_BACKGROUND_TASKS", label: "Auto Background Tasks", description: "自动将长时间运行的子代理移到后台", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_ATTRIBUTION_HEADER", label: "Attribution Header", description: "从系统提示省略归属块，改善代理缓存", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", label: "Agent Teams (Experimental)", description: "启用代理团队协作", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_AUTO_COMPACT_WINDOW", label: "Auto Compact Window", description: "用于自动压缩计算的上下文令牌数", type: "number", placeholder: "180000", group: "performance" },
+  { key: "CLAUDE_CODE_PLAN_MODE_REQUIRED", label: "Plan Mode Required", type: "boolean", group: "toggles" },
+  { key: "FORCE_AUTOUPDATE_PLUGINS", label: "Force Autoupdate Plugins", type: "boolean", group: "toggles" },
 ];
 
 /** Map key → def for O(1) lookup */
@@ -257,8 +309,10 @@ function detectLanguage(): string {
 export const RECOMMENDED_CONFIG: Record<string, any> = {
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "language": detectLanguage(),
+  "autoConnectIde": true,
   "alwaysThinkingEnabled": true,
   "autoMemoryEnabled": true,
+  "cleanupPeriodDays": 30,
   "prefersReducedMotion": true,
   "skipDangerousModePermissionPrompt": true,
   "showThinkingSummaries": true,
@@ -276,12 +330,22 @@ export const RECOMMENDED_CONFIG: Record<string, any> = {
   },
   "env": {
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-    "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
-    "CLAUDE_CODE_EFFORT_LEVEL": "medium",
+    "CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY": "10",
     "BASH_MAX_OUTPUT_LENGTH": "10240",
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80",
+    "CLAUDE_AUTO_BACKGROUND_TASKS": "1",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0",
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
+    "ANTHROPIC_MODEL": "sonnet",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "NO_PROXY": "localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,*.cn",
     "CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS": "10240",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "180000",
     "CLAUDE_CODE_PLAN_MODE_REQUIRED": "true",
+    "FORCE_AUTOUPDATE_PLUGINS": "true",
+    "CLAUDE_CODE_EFFORT_LEVEL": "medium",
+    "CLAUDE_CODE_DISABLE_FAST_MODE": "1",
+    "ENABLE_TOOL_SEARCH": "0",
     "ENABLE_PROMPT_CACHING_1H": "1",
   },
 };

@@ -159,5 +159,14 @@
   "settings.f_companyAnnouncements": "Company Announcements",
   "settings.f_maxSkillDescriptionChars": "Max Skill Description",
   "settings.f_skillListingBudgetFraction": "Skill Listing Budget",
-  "settings.f_preferredNotifChannel": "Notification Channel"
+  "settings.f_preferredNotifChannel": "Notification Channel",
+  "env.group.performance": "Performance & Limits",
+  "env.group.toggles": "Feature Toggles",
+  "env.group.network": "Network & Proxy",
+  "env.group.provider": "Cloud Provider",
+  "env.group.model": "Model Config",
+  "env.group.custom": "Custom Variables",
+  "env.searchPlaceholder": "Search environment variables…",
+  "env.addKnown": "+ Add Known",
+  "env.addCustom": "+ Custom"
 }
