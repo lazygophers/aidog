@@ -5,6 +5,16 @@ import { invoke } from "@tauri-apps/api/core";
 export type Protocol = "anthropic" | "openai" | "glm" | "kimi" | "minimax" | "codex" | "claude_code";
 export type RoutingMode = "load_balance" | "failover";
 
+export type ModelSlot = "default" | "sonnet" | "opus" | "haiku" | "gpt";
+
+export interface PlatformModels {
+  default?: string;
+  sonnet?: string;
+  opus?: string;
+  haiku?: string;
+  gpt?: string;
+}
+
 export interface Platform {
   id: string;
   name: string;
@@ -12,7 +22,7 @@ export interface Platform {
   base_url: string;
   api_key: string;
   extra: string | null;
-  models: string[];
+  models: PlatformModels;
   enabled: boolean;
   created_at: string;
   updated_at: string;
@@ -61,7 +71,7 @@ export const platformApi = {
     base_url: string;
     api_key: string;
     extra?: string;
-    models?: string[];
+    models?: PlatformModels;
   }) => invoke<Platform>("platform_create", { input }),
 
   list: () => invoke<Platform[]>("platform_list"),
@@ -75,7 +85,7 @@ export const platformApi = {
     base_url?: string;
     api_key?: string;
     extra?: string;
-    models?: string[];
+    models?: PlatformModels;
     enabled?: boolean;
   }) => invoke<Platform>("platform_update", { input }),
 

@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, type Platform, type Protocol } from "../services/api";
+import { platformApi, type Platform, type Protocol, type ModelSlot } from "../services/api";
 
 const PROTOCOLS: { value: Protocol; label: string }[] = [
   { value: "anthropic", label: "Anthropic" },
@@ -32,6 +32,28 @@ const PROTOCOL_COLORS: Record<string, string> = {
   minimax: "#6C5CE7",
 };
 
+const MODEL_SLOTS: { key: ModelSlot; labelKey: string }[] = [
+  { key: "default", labelKey: "platform.modelDefault" },
+  { key: "sonnet", labelKey: "platform.modelSonnet" },
+  { key: "opus", labelKey: "platform.modelOpus" },
+  { key: "haiku", labelKey: "platform.modelHaiku" },
+  { key: "gpt", labelKey: "platform.modelGpt" },
+];
+
+/** 从 PlatformModels 中提取所有非空值（去重） */
+function allModelValues(models: Platform["models"]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const slot of MODEL_SLOTS) {
+    const v = models[slot.key];
+    if (v && !seen.has(v)) {
+      seen.add(v);
+      result.push(v);
+    }
+  }
+  return result;
+}
+
 export function Platforms() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -44,9 +66,9 @@ export function Platforms() {
   const [protocol, setProtocol] = useState<Protocol>("openai");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
-  const [models, setModels] = useState<string[]>([]);
-  const [modelInput, setModelInput] = useState("");
-  const modelInputRef = useRef<HTMLInputElement>(null);
+  const [models, setModels] = useState<Record<ModelSlot, string>>({
+    default: "", sonnet: "", opus: "", haiku: "", gpt: "",
+  });
 
   const handleProtocolChange = (newProtocol: Protocol) => {
     const oldDefault = DEFAULT_BASE_URLS[protocol];
@@ -70,43 +92,48 @@ export function Platforms() {
 
   const resetForm = () => {
     setName(""); setProtocol("openai"); setBaseUrl(""); setApiKey("");
-    setModels([]); setModelInput("");
+    setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "" });
     setEditing(null); setShowForm(false);
   };
 
   const handleEdit = (p: Platform) => {
     setName(p.name); setProtocol(p.protocol); setBaseUrl(p.base_url); setApiKey(p.api_key);
-    setModels([...p.models]); setModelInput("");
+    setModels({
+      default: p.models.default ?? "",
+      sonnet: p.models.sonnet ?? "",
+      opus: p.models.opus ?? "",
+      haiku: p.models.haiku ?? "",
+      gpt: p.models.gpt ?? "",
+    });
     setEditing(p); setShowForm(true);
   };
 
-  const handleAddModel = () => {
-    const trimmed = modelInput.trim();
-    if (trimmed && !models.includes(trimmed)) {
-      setModels([...models, trimmed]);
-      setModelInput("");
-    }
+  const handleModelChange = (slot: ModelSlot, value: string) => {
+    setModels(prev => ({ ...prev, [slot]: value }));
   };
 
-  const handleModelKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleAddModel();
+  /** 将表单 models 转为 API 结构（空字符串 → undefined） */
+  const buildModelsPayload = () => {
+    const result: Record<string, string | undefined> = {};
+    let hasAny = false;
+    for (const slot of MODEL_SLOTS) {
+      const v = models[slot.key].trim();
+      if (v) { result[slot.key] = v; hasAny = true; }
+      else { result[slot.key] = undefined; }
     }
-  };
-
-  const handleRemoveModel = (idx: number) => {
-    setModels(models.filter((_, i) => i !== idx));
+    return hasAny ? result : undefined;
   };
 
   const handleSave = async () => {
     try {
+      const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
       if (editing) {
         await platformApi.update({
-          id: editing.id, name, protocol, base_url: baseUrl, api_key: apiKey, models,
+          id: editing.id, name, protocol, base_url: baseUrl, api_key: apiKey,
+          models: modelsPayload,
         });
       } else {
-        await platformApi.create({ name, protocol, base_url: baseUrl, api_key: apiKey, models });
+        await platformApi.create({ name, protocol, base_url: baseUrl, api_key: apiKey, models: modelsPayload });
       }
       resetForm();
       load();
@@ -160,56 +187,27 @@ export function Platforms() {
             onChange={(e) => setApiKey(e.target.value)} />
 
           {/* Models Configuration */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
               {t("platform.models")}
             </div>
-            {models.length > 0 && (
-              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                {models.map((m, i) => (
-                  <span key={i} className="badge badge-accent" style={{
-                    display: "inline-flex",
-                    alignItems: "center",
-                    gap: 4,
-                    padding: "4px 8px",
-                    fontSize: 12,
-                  }}>
-                    {m}
-                    <button
-                      onClick={() => handleRemoveModel(i)}
-                      style={{
-                        background: "none", border: "none", cursor: "pointer",
-                        color: "var(--accent)", padding: 0, lineHeight: 1,
-                        display: "flex", alignItems: "center",
-                      }}
-                    >
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                        <path d="M2 2l6 6M8 2l-6 6" />
-                      </svg>
-                    </button>
-                  </span>
-                ))}
+            {MODEL_SLOTS.map(({ key, labelKey }) => (
+              <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{
+                  fontSize: 12, fontWeight: 500, color: "var(--text-tertiary)",
+                  width: 56, textAlign: "right", flexShrink: 0,
+                }}>
+                  {t(labelKey)}
+                </span>
+                <input
+                  className="input"
+                  style={{ flex: 1 }}
+                  placeholder={t(labelKey)}
+                  value={models[key]}
+                  onChange={(e) => handleModelChange(key, e.target.value)}
+                />
               </div>
-            )}
-            <div style={{ display: "flex", gap: 6 }}>
-              <input
-                ref={modelInputRef}
-                className="input"
-                style={{ flex: 1 }}
-                placeholder={t("platform.modelPlaceholder")}
-                value={modelInput}
-                onChange={(e) => setModelInput(e.target.value)}
-                onKeyDown={handleModelKeyDown}
-              />
-              <button
-                className="btn"
-                style={{ padding: "0 12px", fontSize: 13 }}
-                onClick={handleAddModel}
-                disabled={!modelInput.trim()}
-              >
-                +
-              </button>
-            </div>
+            ))}
           </div>
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
@@ -234,6 +232,7 @@ export function Platforms() {
           )}
           {platforms.map((p, i) => {
             const color = PROTOCOL_COLORS[p.protocol] || "var(--accent)";
+            const configuredModels = allModelValues(p.models);
             return (
               <div
                 key={p.id}
@@ -266,18 +265,13 @@ export function Platforms() {
                     {p.protocol.toUpperCase()} · {p.base_url}
                   </div>
                   {/* Model Tags */}
-                  {p.models.length > 0 && (
+                  {configuredModels.length > 0 && (
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
-                      {p.models.slice(0, 5).map((m, mi) => (
+                      {configuredModels.map((m, mi) => (
                         <span key={mi} className="badge badge-muted" style={{ fontSize: 11, padding: "2px 6px" }}>
                           {m}
                         </span>
                       ))}
-                      {p.models.length > 5 && (
-                        <span className="badge badge-muted" style={{ fontSize: 11, padding: "2px 6px" }}>
-                          +{p.models.length - 5}
-                        </span>
-                      )}
                     </div>
                   )}
                 </div>

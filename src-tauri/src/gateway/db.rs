@@ -5,14 +5,14 @@ use super::models::*;
 
 pub struct Db(pub Mutex<Connection>);
 
-/// 从 JSON 字符串反序列化 models 列表
-fn parse_models(json: &str) -> Vec<String> {
+/// 从 JSON 字符串反序列化 models
+fn parse_models(json: &str) -> PlatformModels {
     serde_json::from_str(json).unwrap_or_default()
 }
 
-/// 将 models 列表序列化为 JSON 字符串
-fn serialize_models(models: &[String]) -> String {
-    serde_json::to_string(models).unwrap_or_else(|_| "[]".to_string())
+/// 将 models 序列化为 JSON 字符串
+fn serialize_models(models: &PlatformModels) -> String {
+    serde_json::to_string(models).unwrap_or_else(|_| "{}".to_string())
 }
 
 impl Db {

@@ -23,6 +23,39 @@ pub enum RoutingMode {
     Failover,
 }
 
+// ─── Platform Models ───────────────────────────────────────
+
+/// 平台模型配置：5 个固定槽位
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct PlatformModels {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub default: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub sonnet: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub opus: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub haiku: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub gpt: Option<String>,
+}
+
+impl PlatformModels {
+    /// 返回所有已配置的模型名（去重）
+    #[allow(dead_code)]
+    pub fn all_values(&self) -> Vec<String> {
+        let mut v = Vec::new();
+        for m in [&self.default, &self.sonnet, &self.opus, &self.haiku, &self.gpt] {
+            if let Some(s) = m {
+                if !v.contains(s) {
+                    v.push(s.clone());
+                }
+            }
+        }
+        v
+    }
+}
+
 // ─── Platform ──────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,8 +67,8 @@ pub struct Platform {
     pub api_key: String,
     /// JSON 额外配置
     pub extra: Option<String>,
-    /// 平台支持的模型列表
-    pub models: Vec<String>,
+    /// 平台模型配置
+    pub models: PlatformModels,
     pub enabled: bool,
     pub created_at: String,
     pub updated_at: String,
@@ -49,7 +82,7 @@ pub struct CreatePlatform {
     pub api_key: String,
     pub extra: Option<String>,
     #[serde(default)]
-    pub models: Option<Vec<String>>,
+    pub models: Option<PlatformModels>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -60,7 +93,7 @@ pub struct UpdatePlatform {
     pub base_url: Option<String>,
     pub api_key: Option<String>,
     pub extra: Option<String>,
-    pub models: Option<Vec<String>>,
+    pub models: Option<PlatformModels>,
     pub enabled: Option<bool>,
 }
 

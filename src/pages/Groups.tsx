@@ -2,8 +2,24 @@ import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   groupDetailApi, groupApi, mappingApi, platformApi,
-  type GroupDetail, type Platform, type RoutingMode,
+  type GroupDetail, type Platform, type RoutingMode, type ModelSlot,
 } from "../services/api";
+
+const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
+
+/** 从 PlatformModels 中提取所有非空模型名（去重） */
+function allModelValues(models: Platform["models"]): string[] {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const slot of MODEL_SLOTS) {
+    const v = models[slot];
+    if (v && !seen.has(v)) {
+      seen.add(v);
+      result.push(v);
+    }
+  }
+  return result;
+}
 
 export function Groups() {
   const { t } = useTranslation();
@@ -68,7 +84,7 @@ export function Groups() {
 
   // 获取当前选中平台的 models
   const selectedPlatform = platforms.find(p => p.id === mTargetPlatform);
-  const availableModels = selectedPlatform?.models ?? [];
+  const availableModels = selectedPlatform ? allModelValues(selectedPlatform.models) : [];
 
   const handleTargetPlatformChange = (platformId: string) => {
     setMTargetPlatform(platformId);
