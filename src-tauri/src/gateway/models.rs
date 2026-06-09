@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub enum Protocol {
     Anthropic,
     OpenAI,
+    #[allow(clippy::upper_case_acronyms)]
     GLM,
     Kimi,
 }
@@ -85,6 +86,7 @@ pub struct UpdateGroup {
 // ─── GroupPlatform (关联) ──────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct GroupPlatform {
     pub group_id: String,
     pub platform_id: String,

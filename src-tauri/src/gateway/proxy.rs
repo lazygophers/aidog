@@ -1,16 +1,14 @@
 use axum::{
     body::Body,
     extract::{Request, State as AxumState},
-    http::{HeaderMap, HeaderValue, Method, StatusCode},
+    http::StatusCode,
     response::{IntoResponse, Response},
-    routing::any,
     Router,
 };
 use futures::StreamExt;
 use reqwest::Client;
 use serde_json::Value;
 use std::sync::Arc;
-use tokio::sync::Mutex;
 
 use super::adapter::{self, ChatRequest, ChatStreamEvent};
 use super::db::Db;
@@ -20,7 +18,6 @@ use super::router::select_platform;
 /// 代理服务器共享状态
 pub struct ProxyState {
     pub db: std::sync::Mutex<Db>,
-    pub port: u16,
 }
 
 /// 启动代理服务器，返回 shutdown handle
@@ -28,7 +25,7 @@ pub async fn start_proxy(
     db: std::sync::Mutex<Db>,
     port: u16,
 ) -> Result<tokio::task::JoinHandle<()>, String> {
-    let state = Arc::new(ProxyState { db, port });
+    let state = Arc::new(ProxyState { db });
 
     let app = Router::new()
         .fallback(handle_proxy)
@@ -66,7 +63,7 @@ async fn handle_proxy(
     };
 
     // 读取请求体
-    let (parts, body) = req.into_parts();
+    let (_parts, body) = req.into_parts();
     let bytes = match axum::body::to_bytes(body, 10 * 1024 * 1024).await {
         Ok(b) => b,
         Err(e) => return (StatusCode::BAD_REQUEST, format!("read body: {e}")).into_response(),

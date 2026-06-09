@@ -175,14 +175,14 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
             .collect()
     });
 
-    let tool_choice = req.tool_choice.as_ref().and_then(|tc| match tc {
-        ToolChoice::Auto => Some(serde_json::json!("auto")),
-        ToolChoice::Any => Some(serde_json::json!("required")),
-        ToolChoice::None => Some(serde_json::json!("none")),
-        ToolChoice::Named { name } => Some(serde_json::json!({
+    let tool_choice = req.tool_choice.as_ref().map(|tc| match tc {
+        ToolChoice::Auto => serde_json::json!("auto"),
+        ToolChoice::Any => serde_json::json!("required"),
+        ToolChoice::None => serde_json::json!("none"),
+        ToolChoice::Named { name } => serde_json::json!({
             "type": "function",
             "function": { "name": name }
-        })),
+        }),
     });
 
     OpenAIRequest {

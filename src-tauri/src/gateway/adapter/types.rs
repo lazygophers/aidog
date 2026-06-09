@@ -47,22 +47,6 @@ pub enum MessageContent {
     Blocks(Vec<ContentBlock>),
 }
 
-impl MessageContent {
-    pub fn as_text(&self) -> String {
-        match self {
-            MessageContent::Text(s) => s.clone(),
-            MessageContent::Blocks(blocks) => blocks
-                .iter()
-                .filter_map(|b| match b {
-                    ContentBlock::Text { text } => Some(text.as_str()),
-                    _ => None,
-                })
-                .collect::<Vec<_>>()
-                .join(""),
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "type")]
 pub enum ContentBlock {
@@ -102,6 +86,7 @@ pub enum ToolChoice {
 // ─── Response ──────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct ChatResponse {
     pub id: String,
     pub model: String,
@@ -110,6 +95,7 @@ pub struct ChatResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct Choice {
     pub index: u32,
     pub message: Message,
@@ -126,6 +112,7 @@ pub struct Usage {
 // ─── Streaming ─────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
 pub struct StreamEvent {
     pub event: String,
     pub data: serde_json::Value,
