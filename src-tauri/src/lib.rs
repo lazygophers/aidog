@@ -330,6 +330,7 @@ pub fn run() {
             let db_path = app_dir.join("aidog.db");
             let db = Db::new(db_path.to_str().unwrap()).expect("failed to open database");
             db.init_tables().expect("failed to init tables");
+            db.run_migrations().expect("failed to run migrations");
             app.manage(db);
             app.manage(ProxyHandle(StdMutex::new(None)));
 

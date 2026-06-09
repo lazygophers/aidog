@@ -5,6 +5,16 @@ use super::models::*;
 
 pub struct Db(pub Mutex<Connection>);
 
+/// 从 JSON 字符串反序列化 models 列表
+fn parse_models(json: &str) -> Vec<String> {
+    serde_json::from_str(json).unwrap_or_default()
+}
+
+/// 将 models 列表序列化为 JSON 字符串
+fn serialize_models(models: &[String]) -> String {
+    serde_json::to_string(models).unwrap_or_else(|_| "[]".to_string())
+}
+
 impl Db {
     pub fn new(path: &str) -> Result<Self, String> {
         let conn = Connection::open(path).map_err(|e| e.to_string())?;
@@ -18,6 +28,24 @@ impl Db {
         // 只执行 CREATE TABLE 语句（跳过 PRAGMA，因为已在 new 中设置）
         let conn = self.0.lock().map_err(|e| e.to_string())?;
         conn.execute_batch(sql).map_err(|e| e.to_string())?;
+        Ok(())
+    }
+
+    /// 运行增量迁移（忽略 "duplicate column" 错误以兼容已有数据库）
+    pub fn run_migrations(&self) -> Result<(), String> {
+        let migrations = [
+            include_str!("../../migrations/002_add_platform_models.sql"),
+        ];
+        let conn = self.0.lock().map_err(|e| e.to_string())?;
+        for sql in &migrations {
+            // ALTER TABLE ADD COLUMN 在列已存在时会报错，安全忽略
+            if let Err(e) = conn.execute_batch(sql) {
+                let msg = e.to_string();
+                if !msg.contains("duplicate column name") {
+                    return Err(format!("migration failed: {msg}"));
+                }
+            }
+        }
         Ok(())
     }
 }
@@ -39,6 +67,8 @@ pub fn create_platform(db: &Db, input: CreatePlatform) -> Result<Platform, Strin
     let id = new_id();
     let now = now();
     let protocol_str = serde_json::to_string(&input.protocol).unwrap();
+    let models = input.models.unwrap_or_default();
+    let models_str = serialize_models(&models);
     let platform = Platform {
         id: id.clone(),
         name: input.name,
@@ -46,6 +76,7 @@ pub fn create_platform(db: &Db, input: CreatePlatform) -> Result<Platform, Strin
         base_url: input.base_url,
         api_key: input.api_key,
         extra: input.extra,
+        models,
         enabled: true,
         created_at: now.clone(),
         updated_at: now,
@@ -53,34 +84,40 @@ pub fn create_platform(db: &Db, input: CreatePlatform) -> Result<Platform, Strin
 
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO platforms (id, name, protocol, base_url, api_key, extra, enabled, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
-        params![id, platform.name, protocol_str, platform.base_url, platform.api_key, platform.extra, platform.enabled as i64, platform.created_at, platform.updated_at],
+        "INSERT INTO platforms (id, name, protocol, base_url, api_key, extra, models, enabled, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+        params![id, platform.name, protocol_str, platform.base_url, platform.api_key, platform.extra, models_str, platform.enabled as i64, platform.created_at, platform.updated_at],
     )
     .map_err(|e| format!("create platform: {e}"))?;
 
     Ok(platform)
 }
 
+/// 从查询行构造 Platform（SELECT 列序: id, name, protocol, base_url, api_key, extra, models, enabled, created_at, updated_at）
+fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
+    let protocol_str: String = row.get(2)?;
+    let models_str: String = row.get(6)?;
+    Ok(Platform {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        protocol: serde_json::from_str(&protocol_str).unwrap(),
+        base_url: row.get(3)?,
+        api_key: row.get(4)?,
+        extra: row.get(5)?,
+        models: parse_models(&models_str),
+        enabled: row.get::<_, i64>(7)? == 1,
+        created_at: row.get(8)?,
+        updated_at: row.get(9)?,
+    })
+}
+
+const PLATFORM_COLUMNS: &str = "id, name, protocol, base_url, api_key, extra, models, enabled, created_at, updated_at";
+
 pub fn list_platforms(db: &Db) -> Result<Vec<Platform>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare("SELECT id, name, protocol, base_url, api_key, extra, enabled, created_at, updated_at FROM platforms ORDER BY created_at")
-        .map_err(|e| e.to_string())?;
+    let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platforms ORDER BY created_at");
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map([], |row| {
-            let protocol_str: String = row.get(2)?;
-            Ok(Platform {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                protocol: serde_json::from_str(&protocol_str).unwrap(),
-                base_url: row.get(3)?,
-                api_key: row.get(4)?,
-                extra: row.get(5)?,
-                enabled: row.get::<_, i64>(6)? == 1,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
-            })
-        })
+        .query_map([], row_to_platform)
         .map_err(|e| e.to_string())?;
 
     rows.collect::<SqlResult<Vec<_>>>().map_err(|e| e.to_string())
@@ -88,25 +125,11 @@ pub fn list_platforms(db: &Db) -> Result<Vec<Platform>, String> {
 
 pub fn get_platform(db: &Db, id: &str) -> Result<Option<Platform>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare("SELECT id, name, protocol, base_url, api_key, extra, enabled, created_at, updated_at FROM platforms WHERE id = ?1")
-        .map_err(|e| e.to_string())?;
+    let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platforms WHERE id = ?1");
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
 
     let result = stmt
-        .query_row(params![id], |row| {
-            let protocol_str: String = row.get(2)?;
-            Ok(Platform {
-                id: row.get(0)?,
-                name: row.get(1)?,
-                protocol: serde_json::from_str(&protocol_str).unwrap(),
-                base_url: row.get(3)?,
-                api_key: row.get(4)?,
-                extra: row.get(5)?,
-                enabled: row.get::<_, i64>(6)? == 1,
-                created_at: row.get(7)?,
-                updated_at: row.get(8)?,
-            })
-        })
+        .query_row(params![id], row_to_platform)
         .optional()
         .map_err(|e| e.to_string())?;
 
@@ -122,21 +145,24 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
         base_url: input.base_url.unwrap_or(existing.base_url),
         api_key: input.api_key.unwrap_or(existing.api_key),
         extra: input.extra.or(existing.extra),
+        models: input.models.unwrap_or(existing.models),
         enabled: input.enabled.unwrap_or(existing.enabled),
         updated_at: now(),
         ..existing
     };
 
     let protocol_str = serde_json::to_string(&updated.protocol).unwrap();
+    let models_str = serialize_models(&updated.models);
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "UPDATE platforms SET name=?1, protocol=?2, base_url=?3, api_key=?4, extra=?5, enabled=?6, updated_at=?7 WHERE id=?8",
+        "UPDATE platforms SET name=?1, protocol=?2, base_url=?3, api_key=?4, extra=?5, models=?6, enabled=?7, updated_at=?8 WHERE id=?9",
         params![
             updated.name,
             protocol_str,
             updated.base_url,
             updated.api_key,
             updated.extra,
+            models_str,
             updated.enabled as i64,
             updated.updated_at,
             updated.id,
@@ -283,15 +309,19 @@ pub fn get_group_platforms(db: &Db, group_id: &str) -> Result<Vec<GroupPlatformD
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT gp.priority, gp.weight, p.id, p.name, p.protocol, p.base_url, p.api_key, p.extra, p.enabled, p.created_at, p.updated_at \
-             FROM group_platforms gp JOIN platforms p ON gp.platform_id = p.id \
-             WHERE gp.group_id = ?1 ORDER BY gp.priority",
+            &format!(
+                "SELECT gp.priority, gp.weight, p.{PLATFORM_COLUMNS} \
+                 FROM group_platforms gp JOIN platforms p ON gp.platform_id = p.id \
+                 WHERE gp.group_id = ?1 ORDER BY gp.priority"
+            ),
         )
         .map_err(|e| e.to_string())?;
 
     let rows = stmt
         .query_map(params![group_id], |row| {
+            // row layout: priority(0), weight(1), then platform columns starting at 2
             let protocol_str: String = row.get(4)?;
+            let models_str: String = row.get(8)?;
             Ok(GroupPlatformDetail {
                 platform: Platform {
                     id: row.get(2)?,
@@ -300,9 +330,10 @@ pub fn get_group_platforms(db: &Db, group_id: &str) -> Result<Vec<GroupPlatformD
                     base_url: row.get(5)?,
                     api_key: row.get(6)?,
                     extra: row.get(7)?,
-                    enabled: row.get::<_, i64>(8)? == 1,
-                    created_at: row.get(9)?,
-                    updated_at: row.get(10)?,
+                    models: parse_models(&models_str),
+                    enabled: row.get::<_, i64>(9)? == 1,
+                    created_at: row.get(10)?,
+                    updated_at: row.get(11)?,
                 },
                 priority: row.get(0)?,
                 weight: row.get(1)?,

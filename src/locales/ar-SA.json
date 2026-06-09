@@ -34,6 +34,8 @@
   "platform.add": "إضافة منصة",
   "platform.empty": "لا توجد منصات",
   "platform.name": "اسم المنصة",
+  "platform.models": "النماذج المتاحة",
+  "platform.modelPlaceholder": "أدخل اسم النموذج، Enter للإضافة",
   "proxy.autostart": "بدء تلقائي",
   "proxy.autostartDesc": "بدء الوكيل تلقائياً عند تشغيل التطبيق",
   "proxy.configDesc": "قم بتعيين متغير البيئة هذا في Claude Code.",

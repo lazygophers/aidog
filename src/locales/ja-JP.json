@@ -34,6 +34,8 @@
   "platform.add": "追加",
   "platform.empty": "プラットフォームなし",
   "platform.name": "名前",
+  "platform.models": "利用可能モデル",
+  "platform.modelPlaceholder": "モデル名を入力し Enter で追加",
   "proxy.autostart": "自動起動",
   "proxy.autostartDesc": "アプリ起動時にプロキシを自動開始",
   "proxy.configDesc": "Claude Code にこの環境変数を設定してください。",

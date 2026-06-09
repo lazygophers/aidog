@@ -34,6 +34,8 @@
   "platform.add": "Ajouter",
   "platform.empty": "Aucune plateforme",
   "platform.name": "Nom",
+  "platform.models": "Modèles disponibles",
+  "platform.modelPlaceholder": "Nom du modèle, Entrée pour ajouter",
   "proxy.autostart": "Démarrage auto",
   "proxy.autostartDesc": "Démarrer le proxy au lancement de l'application",
   "proxy.configDesc": "Définissez cette variable pour Claude Code.",

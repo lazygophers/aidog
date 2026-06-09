@@ -66,6 +66,15 @@ export function Groups() {
     try { await mappingApi.delete(id); load(); } catch (e) { console.error(e); }
   };
 
+  // 获取当前选中平台的 models
+  const selectedPlatform = platforms.find(p => p.id === mTargetPlatform);
+  const availableModels = selectedPlatform?.models ?? [];
+
+  const handleTargetPlatformChange = (platformId: string) => {
+    setMTargetPlatform(platformId);
+    setMTargetModel(""); // 切换平台时重置 target model
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720, width: "100%" }}>
       {/* Header */}
@@ -213,13 +222,21 @@ export function Groups() {
                     placeholder={t("mapping.source")} value={mSource}
                     onChange={(e) => setMSource(e.target.value)} />
                   <select className="input" style={{ fontSize: 12, width: 140 }} value={mTargetPlatform}
-                    onChange={(e) => setMTargetPlatform(e.target.value)}>
+                    onChange={(e) => handleTargetPlatformChange(e.target.value)}>
                     <option value="">{t("mapping.targetPlatform")}</option>
                     {platforms.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
-                  <input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
-                    placeholder={t("mapping.target")} value={mTargetModel}
-                    onChange={(e) => setMTargetModel(e.target.value)} />
+                  {availableModels.length > 0 ? (
+                    <select className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }} value={mTargetModel}
+                      onChange={(e) => setMTargetModel(e.target.value)}>
+                      <option value="">{t("mapping.target")}</option>
+                      {availableModels.map((m) => <option key={m} value={m}>{m}</option>)}
+                    </select>
+                  ) : (
+                    <input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
+                      placeholder={t("mapping.target")} value={mTargetModel}
+                      onChange={(e) => setMTargetModel(e.target.value)} />
+                  )}
                   <button className="btn btn-primary" style={{ fontSize: 12, padding: "6px 12px" }}
                     onClick={handleAddMapping}
                     disabled={!mSource || !mTargetPlatform || !mTargetModel}>

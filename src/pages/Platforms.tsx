@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { platformApi, type Platform, type Protocol } from "../services/api";
 
@@ -44,6 +44,9 @@ export function Platforms() {
   const [protocol, setProtocol] = useState<Protocol>("openai");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
+  const [models, setModels] = useState<string[]>([]);
+  const [modelInput, setModelInput] = useState("");
+  const modelInputRef = useRef<HTMLInputElement>(null);
 
   const handleProtocolChange = (newProtocol: Protocol) => {
     const oldDefault = DEFAULT_BASE_URLS[protocol];
@@ -67,22 +70,43 @@ export function Platforms() {
 
   const resetForm = () => {
     setName(""); setProtocol("openai"); setBaseUrl(""); setApiKey("");
+    setModels([]); setModelInput("");
     setEditing(null); setShowForm(false);
   };
 
   const handleEdit = (p: Platform) => {
     setName(p.name); setProtocol(p.protocol); setBaseUrl(p.base_url); setApiKey(p.api_key);
+    setModels([...p.models]); setModelInput("");
     setEditing(p); setShowForm(true);
+  };
+
+  const handleAddModel = () => {
+    const trimmed = modelInput.trim();
+    if (trimmed && !models.includes(trimmed)) {
+      setModels([...models, trimmed]);
+      setModelInput("");
+    }
+  };
+
+  const handleModelKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleAddModel();
+    }
+  };
+
+  const handleRemoveModel = (idx: number) => {
+    setModels(models.filter((_, i) => i !== idx));
   };
 
   const handleSave = async () => {
     try {
       if (editing) {
         await platformApi.update({
-          id: editing.id, name, protocol, base_url: baseUrl, api_key: apiKey,
+          id: editing.id, name, protocol, base_url: baseUrl, api_key: apiKey, models,
         });
       } else {
-        await platformApi.create({ name, protocol, base_url: baseUrl, api_key: apiKey });
+        await platformApi.create({ name, protocol, base_url: baseUrl, api_key: apiKey, models });
       }
       resetForm();
       load();
@@ -134,6 +158,60 @@ export function Platforms() {
             onChange={(e) => setBaseUrl(e.target.value)} />
           <input className="input" type="password" placeholder="API Key" value={apiKey}
             onChange={(e) => setApiKey(e.target.value)} />
+
+          {/* Models Configuration */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
+              {t("platform.models")}
+            </div>
+            {models.length > 0 && (
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {models.map((m, i) => (
+                  <span key={i} className="badge badge-accent" style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 4,
+                    padding: "4px 8px",
+                    fontSize: 12,
+                  }}>
+                    {m}
+                    <button
+                      onClick={() => handleRemoveModel(i)}
+                      style={{
+                        background: "none", border: "none", cursor: "pointer",
+                        color: "var(--accent)", padding: 0, lineHeight: 1,
+                        display: "flex", alignItems: "center",
+                      }}
+                    >
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                        <path d="M2 2l6 6M8 2l-6 6" />
+                      </svg>
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", gap: 6 }}>
+              <input
+                ref={modelInputRef}
+                className="input"
+                style={{ flex: 1 }}
+                placeholder={t("platform.modelPlaceholder")}
+                value={modelInput}
+                onChange={(e) => setModelInput(e.target.value)}
+                onKeyDown={handleModelKeyDown}
+              />
+              <button
+                className="btn"
+                style={{ padding: "0 12px", fontSize: 13 }}
+                onClick={handleAddModel}
+                disabled={!modelInput.trim()}
+              >
+                +
+              </button>
+            </div>
+          </div>
+
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
             <button className="btn btn-primary" onClick={handleSave}
@@ -187,6 +265,21 @@ export function Platforms() {
                   <div className="text-secondary" style={{ fontSize: 12, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {p.protocol.toUpperCase()} · {p.base_url}
                   </div>
+                  {/* Model Tags */}
+                  {p.models.length > 0 && (
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+                      {p.models.slice(0, 5).map((m, mi) => (
+                        <span key={mi} className="badge badge-muted" style={{ fontSize: 11, padding: "2px 6px" }}>
+                          {m}
+                        </span>
+                      ))}
+                      {p.models.length > 5 && (
+                        <span className="badge badge-muted" style={{ fontSize: 11, padding: "2px 6px" }}>
+                          +{p.models.length - 5}
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Actions */}
