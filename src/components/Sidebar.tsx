@@ -227,22 +227,31 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         paddingTop: 12,
         borderTop: "1px solid var(--border)",
       }}>
-        {/* Theme + Dark/Light row */}
-        <div style={{ display: "flex", gap: 4, alignItems: "stretch" }}>
-          {/* Theme Picker */}
+        {/* Theme row: picker fills row, dark/light button inside */}
+        <div style={{ position: "relative", width: "100%" }}>
           <Dropdown
             open={themeOpen}
             onToggle={() => setThemeOpen((v) => !v)}
             trigger={
               <button className="btn btn-ghost" style={{
-                flex: 1,
+                width: "100%",
                 justifyContent: "space-between",
                 fontSize: 12,
                 padding: "7px 10px",
                 color: "var(--text-secondary)",
               }}>
                 <span>🎨 {t(`theme.${themeName}`)}</span>
-                <span style={{ opacity: 0.4 }}>{icons.chevron}</span>
+                <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  {/* Dark/Light toggle inline */}
+                  <span
+                    onClick={(e) => { e.stopPropagation(); toggleMode(); }}
+                    style={{ display: "inline-flex", cursor: "pointer", padding: "0 2px" }}
+                    title={themeMode === "light" ? t("theme.dark") : t("theme.light")}
+                  >
+                    {themeMode === "light" ? icons.moon : icons.sun}
+                  </span>
+                  <span style={{ opacity: 0.4 }}>{icons.chevron}</span>
+                </span>
               </button>
             }
           >
@@ -259,22 +268,6 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
               </DropdownItem>
             ))}
           </Dropdown>
-
-          {/* Dark/Light Toggle */}
-          <button
-            className="btn btn-ghost"
-            style={{
-              flexShrink: 0,
-              justifyContent: "center",
-              fontSize: 12,
-              padding: "7px 10px",
-              gap: 4,
-              color: "var(--text-secondary)",
-            }}
-            onClick={toggleMode}
-          >
-            {themeMode === "light" ? icons.moon : icons.sun}
-          </button>
         </div>
 
         {/* Language Picker */}

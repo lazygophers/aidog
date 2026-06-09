@@ -409,6 +409,17 @@ function FieldRenderer({
         </div>
       );
 
+    case "kv":
+      return (
+        <div>
+          <FieldLabel field={field} t={t} />
+          <KvEditor
+            items={(value && typeof value === "object" && !Array.isArray(value)) ? value as Record<string, string> : {}}
+            onChange={(kv) => onChange(Object.keys(kv).length > 0 ? kv : undefined)}
+          />
+        </div>
+      );
+
     case "string[]":
       return (
         <div>

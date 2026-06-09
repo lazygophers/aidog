@@ -554,10 +554,13 @@ export function Platforms() {
                   )}
                 </div>
 
-                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                  <button className="btn btn-ghost btn-icon" onClick={() => handleToggle(p)} title={p.enabled ? "Disable" : "Enable"}>
-                    <span className={`status-dot ${p.enabled ? "status-dot-active" : "status-dot-inactive"}`} />
-                  </button>
+                <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+                  <div
+                    className={`toggle ${p.enabled ? "active" : ""}`}
+                    style={{ cursor: "pointer" }}
+                    onClick={() => handleToggle(p)}
+                    title={p.enabled ? "Disable" : "Enable"}
+                  />
                   <button className="btn btn-ghost btn-icon" onClick={() => handleEdit(p)}>
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M10 2l2 2-7 7H3v-2l7-7z" />

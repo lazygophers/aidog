@@ -5,7 +5,7 @@ export interface SettingField {
   key: string;
   /** English label — used as i18n fallback; primary label is i18n key `settings.f_${key}` */
   label: string;
-  type: "string" | "boolean" | "select" | "json" | "string[]";
+  type: "string" | "boolean" | "select" | "json" | "string[]" | "kv";
   options?: string[];
   placeholder?: string;
   description?: string;
@@ -30,7 +30,7 @@ export const SECTIONS: SettingSection[] = [
       { key: "language", label: "Language", type: "string", placeholder: "chinese, english, japanese..." },
       { key: "agent", label: "Agent", type: "string", description: "将主线程作为命名 subagent 运行" },
       { key: "apiKeyHelper", label: "API Key Helper", type: "string", placeholder: "/bin/generate_temp_api_key.sh" },
-      { key: "modelOverrides", label: "Model Overrides", type: "json", description: "模型 ID 映射，如 Bedrock ARN" },
+      { key: "modelOverrides", label: "Model Overrides", type: "kv", description: "模型 ID 映射，如 Bedrock ARN" },
     ],
   },
   {
@@ -179,6 +179,7 @@ export const RECOMMENDED_CONFIG: Record<string, any> = {
   "alwaysThinkingEnabled": true,
   "autoMemoryEnabled": true,
   "prefersReducedMotion": true,
+  "skipDangerousModePermissionPrompt": true,
   "feedbackSurveyRate": 0,
   "teammateMode": "auto",
   "attribution": {
