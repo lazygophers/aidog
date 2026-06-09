@@ -46,6 +46,7 @@ impl Db {
             include_str!("../../migrations/002_add_platform_models.sql"),
             include_str!("../../migrations/003_add_platform_available_models.sql"),
             include_str!("../../migrations/004_add_settings.sql"),
+            include_str!("../../migrations/005_add_group_auto_from_platform.sql"),
         ];
         let conn = self.0.lock().map_err(|e| e.to_string())?;
         for sql in &migrations {
@@ -194,6 +195,21 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
 }
 
 pub fn delete_platform(db: &Db, id: &str) -> Result<(), String> {
+    // 删除关联的自动分组
+    let conn_inner = db.0.lock().map_err(|e| e.to_string())?;
+    let auto_group_ids: Vec<String> = conn_inner
+        .prepare("SELECT id FROM groups WHERE auto_from_platform = ?1")
+        .map_err(|e| e.to_string())?
+        .query_map(params![id], |row| row.get(0))
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok())
+        .collect();
+    drop(conn_inner);
+
+    for gid in &auto_group_ids {
+        force_delete_group(db, gid)?;
+    }
+
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM platforms WHERE id = ?1", params![id])
         .map_err(|e| format!("delete platform: {e}"))?;
@@ -211,14 +227,15 @@ pub fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> {
         name: input.name,
         path: input.path,
         routing_mode: input.routing_mode,
+        auto_from_platform: input.auto_from_platform.clone(),
         created_at: ts.clone(),
         updated_at: ts,
     };
 
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO groups (id, name, path, routing_mode, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-        params![id, group.name, group.path, routing_str, group.created_at, group.updated_at],
+        "INSERT INTO groups (id, name, path, routing_mode, auto_from_platform, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![id, group.name, group.path, routing_str, group.auto_from_platform, group.created_at, group.updated_at],
     )
     .map_err(|e| format!("create group: {e}"))?;
 
@@ -228,7 +245,7 @@ pub fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> {
 pub fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT id, name, path, routing_mode, created_at, updated_at FROM groups ORDER BY created_at")
+        .prepare("SELECT id, name, path, routing_mode, auto_from_platform, created_at, updated_at FROM groups ORDER BY created_at")
         .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |row| {
@@ -238,8 +255,9 @@ pub fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
                 name: row.get(1)?,
                 path: row.get(2)?,
                 routing_mode: serde_json::from_str(&routing_str).unwrap(),
-                created_at: row.get(4)?,
-                updated_at: row.get(5)?,
+                auto_from_platform: row.get(4)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -250,7 +268,7 @@ pub fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
 pub fn get_group(db: &Db, id: &str) -> Result<Option<Group>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT id, name, path, routing_mode, created_at, updated_at FROM groups WHERE id = ?1")
+        .prepare("SELECT id, name, path, routing_mode, auto_from_platform, created_at, updated_at FROM groups WHERE id = ?1")
         .map_err(|e| e.to_string())?;
 
     let result = stmt
@@ -261,8 +279,9 @@ pub fn get_group(db: &Db, id: &str) -> Result<Option<Group>, String> {
                 name: row.get(1)?,
                 path: row.get(2)?,
                 routing_mode: serde_json::from_str(&routing_str).unwrap(),
-                created_at: row.get(4)?,
-                updated_at: row.get(5)?,
+                auto_from_platform: row.get(4)?,
+                created_at: row.get(5)?,
+                updated_at: row.get(6)?,
             })
         })
         .optional()
@@ -294,6 +313,19 @@ pub fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> {
 }
 
 pub fn delete_group(db: &Db, id: &str) -> Result<(), String> {
+    // 检查是否为自动分组
+    let group = get_group(db, id)?.ok_or("group not found")?;
+    if group.auto_from_platform.is_some() {
+        return Err("auto-created group cannot be deleted manually".to_string());
+    }
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM groups WHERE id = ?1", params![id])
+        .map_err(|e| format!("delete group: {e}"))?;
+    Ok(())
+}
+
+/// 强制删除分组（含自动分组），仅供平台删除时内部调用
+pub fn force_delete_group(db: &Db, id: &str) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute("DELETE FROM groups WHERE id = ?1", params![id])
         .map_err(|e| format!("delete group: {e}"))?;

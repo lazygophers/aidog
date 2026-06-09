@@ -60,7 +60,12 @@ export function Groups() {
   };
 
   const handleDeleteGroup = async (id: string) => {
-    try { await groupApi.delete(id); load(); } catch (e) { console.error(e); }
+    try {
+      await groupApi.delete(id);
+      load();
+    } catch (e: any) {
+      alert(e?.toString?.() || "Failed to delete group");
+    }
   };
 
   const handleAddMapping = async () => {
@@ -151,15 +156,20 @@ export function Groups() {
                 <div style={{
                   width: 32, height: 32, borderRadius: "var(--radius-sm)",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  background: "var(--accent-subtle)",
-                  color: "var(--accent)",
+                  background: group.auto_from_platform ? "var(--bg-glass)" : "var(--accent-subtle)",
+                  color: group.auto_from_platform ? "var(--text-secondary)" : "var(--accent)",
                   fontSize: 13, fontWeight: 700,
                   flexShrink: 0,
                 }}>
                   {group.path.slice(0, 3)}
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{group.name}</div>
+                  <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
+                    {group.name}
+                    {group.auto_from_platform && (
+                      <span className="badge badge-muted" style={{ fontSize: 10, padding: "0 5px", fontWeight: 500 }}>auto</span>
+                    )}
+                  </div>
                   <div className="text-secondary" style={{ fontSize: 12, display: "flex", gap: 8, marginTop: 1 }}>
                     <span>{group.path}</span>
                     <span className="badge badge-muted" style={{ padding: "0 6px" }}>
@@ -167,11 +177,13 @@ export function Groups() {
                     </span>
                   </div>
                 </div>
-                <button className="btn btn-ghost btn-icon btn-danger" onClick={() => handleDeleteGroup(group.id)}>
-                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
-                  </svg>
-                </button>
+                {!group.auto_from_platform && (
+                  <button className="btn btn-ghost btn-icon btn-danger" onClick={() => handleDeleteGroup(group.id)}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
+                    </svg>
+                  </button>
+                )}
               </div>
 
               {/* Platforms */}

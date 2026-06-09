@@ -9,7 +9,35 @@ use serde_json::Value;
 
 #[tauri::command]
 fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
-    db::create_platform(&db, input)
+    let platform = db::create_platform(&db, input)?;
+
+    // 自动创建分组，path 按 protocol 生成
+    let protocol_str = format!("{:?}", platform.protocol).to_lowercase();
+    let group_path = format!("/{}", protocol_str);
+    let group_name = format!("{} (auto)", platform.name);
+
+    let group = db::create_group(
+        &db,
+        CreateGroup {
+            name: group_name,
+            path: group_path,
+            routing_mode: RoutingMode::Failover,
+            auto_from_platform: Some(platform.id.clone()),
+        },
+    )?;
+
+    // 将平台关联到自动分组
+    db::set_group_platforms(
+        &db,
+        &group.id,
+        &[GroupPlatformInput {
+            platform_id: platform.id.clone(),
+            priority: Some(0),
+            weight: Some(1),
+        }],
+    )?;
+
+    Ok(platform)
 }
 
 #[tauri::command]

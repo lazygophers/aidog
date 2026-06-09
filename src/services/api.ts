@@ -34,6 +34,8 @@ export interface Group {
   name: string;
   path: string;
   routing_mode: RoutingMode;
+  /** 关联的平台 ID（自动创建的分组） */
+  auto_from_platform?: string;
   created_at: string;
   updated_at: string;
 }

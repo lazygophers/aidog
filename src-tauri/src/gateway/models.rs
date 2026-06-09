@@ -116,6 +116,8 @@ pub struct Group {
     /// URL path 前缀，如 "/claude"
     pub path: String,
     pub routing_mode: RoutingMode,
+    /// 如果由平台自动创建，记录关联平台 ID
+    pub auto_from_platform: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -125,6 +127,7 @@ pub struct CreateGroup {
     pub name: String,
     pub path: String,
     pub routing_mode: RoutingMode,
+    pub auto_from_platform: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]
