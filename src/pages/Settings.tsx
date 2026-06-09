@@ -621,19 +621,19 @@ function PermissionsSection({
 
 // ─── Hooks Section (friendly editor) ────────────────────────
 
-const HOOK_EVENTS: { id: string; label: string; desc: string; hasMatcher: boolean; matcherHint: string }[] = [
-  { id: "SessionStart", label: "Session Start", desc: "会话启动或恢复时", hasMatcher: true, matcherHint: "startup | resume | clear | compact" },
-  { id: "UserPromptSubmit", label: "Prompt Submit", desc: "用户提交提示时", hasMatcher: false, matcherHint: "" },
-  { id: "PreToolUse", label: "Pre Tool Use", desc: "工具调用前，可阻止", hasMatcher: true, matcherHint: "Bash | Edit | Write | Read | mcp__*" },
-  { id: "PostToolUse", label: "Post Tool Use", desc: "工具调用成功后", hasMatcher: true, matcherHint: "Bash | Edit | Write | mcp__*" },
-  { id: "Notification", label: "Notification", desc: "发送通知时", hasMatcher: true, matcherHint: "permission_prompt | idle_prompt | auth_success" },
-  { id: "Stop", label: "Stop", desc: "Claude 完成响应时", hasMatcher: false, matcherHint: "" },
-  { id: "SubagentStop", label: "Subagent Stop", desc: "子代理完成时", hasMatcher: true, matcherHint: "Explore | Plan | general-purpose" },
-  { id: "ConfigChange", label: "Config Change", desc: "配置文件变更时", hasMatcher: true, matcherHint: "user_settings | project_settings | local_settings" },
-  { id: "FileChanged", label: "File Changed", desc: "监视文件变更时", hasMatcher: true, matcherHint: ".envrc|.env (文字文件名)" },
-  { id: "CwdChanged", label: "CWD Changed", desc: "工作目录切换时", hasMatcher: false, matcherHint: "" },
-  { id: "PreCompact", label: "Pre Compact", desc: "上下文压缩前", hasMatcher: true, matcherHint: "manual | auto" },
-  { id: "SessionEnd", label: "Session End", desc: "会话结束时", hasMatcher: true, matcherHint: "clear | resume | logout | other" },
+const HOOK_EVENTS: { id: string; label: string; desc: string; hasMatcher: boolean; matcherOptions: string[]; matcherFreeform: boolean }[] = [
+  { id: "SessionStart", label: "会话启动", desc: "会话启动或恢复时触发", hasMatcher: true, matcherOptions: ["startup", "resume", "clear", "compact"], matcherFreeform: false },
+  { id: "UserPromptSubmit", label: "提交提示", desc: "用户提交提示时触发", hasMatcher: false, matcherOptions: [], matcherFreeform: false },
+  { id: "PreToolUse", label: "工具调用前", desc: "工具调用前触发，可阻止", hasMatcher: true, matcherOptions: ["Bash", "Edit", "Write", "Read", "Glob", "Grep", "WebFetch", "Agent"], matcherFreeform: true },
+  { id: "PostToolUse", label: "工具调用后", desc: "工具调用成功后触发", hasMatcher: true, matcherOptions: ["Bash", "Edit", "Write", "Read", "Glob", "Grep", "WebFetch", "Agent"], matcherFreeform: true },
+  { id: "Notification", label: "通知", desc: "发送通知时触发", hasMatcher: true, matcherOptions: ["permission_prompt", "idle_prompt", "auth_success", "elicitation_dialog"], matcherFreeform: false },
+  { id: "Stop", label: "停止", desc: "Claude 完成响应时触发", hasMatcher: false, matcherOptions: [], matcherFreeform: false },
+  { id: "SubagentStop", label: "子代理停止", desc: "子代理完成时触发", hasMatcher: true, matcherOptions: ["general-purpose", "Explore", "Plan"], matcherFreeform: true },
+  { id: "ConfigChange", label: "配置变更", desc: "配置文件变更时触发", hasMatcher: true, matcherOptions: ["user_settings", "project_settings", "local_settings", "policy_settings", "skills"], matcherFreeform: false },
+  { id: "FileChanged", label: "文件变更", desc: "监视文件变更时触发", hasMatcher: true, matcherOptions: [], matcherFreeform: true },
+  { id: "CwdChanged", label: "目录切换", desc: "工作目录切换时触发", hasMatcher: false, matcherOptions: [], matcherFreeform: false },
+  { id: "PreCompact", label: "压缩前", desc: "上下文压缩前触发", hasMatcher: true, matcherOptions: ["manual", "auto"], matcherFreeform: false },
+  { id: "SessionEnd", label: "会话结束", desc: "会话结束时触发", hasMatcher: true, matcherOptions: ["clear", "resume", "logout", "prompt_input_exit", "other"], matcherFreeform: false },
 ];
 
 const HANDLER_TYPES = ["command", "http", "mcp_tool", "prompt", "agent"] as const;
@@ -800,20 +800,27 @@ function HooksSection({
         return (
           <div
             key={eventId}
-            className="glass-surface"
-            style={{ padding: 12, display: "flex", flexDirection: "column", gap: 10 }}
+            style={{
+              background: "var(--bg-glass)",
+              border: "1px solid var(--border)",
+              borderRadius: "var(--radius-md)",
+              padding: "16px 20px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}
           >
             {/* Event header */}
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span
                 style={{ cursor: "pointer", userSelect: "none", fontSize: F.small, color: "var(--text-tertiary)",
-                  transition: "transform 0.15s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)"
+                  transition: "transform 0.2s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)"
                 }}
                 onClick={() => setExpandedEvent(isExpanded ? null : eventId)}
               >
                 ▶
               </span>
-              <span style={{ fontSize: F.body, fontWeight: 600, color: "var(--accent)" }}>
+              <span style={{ fontSize: 16, fontWeight: 600, color: "var(--accent)" }}>
                 {eventId}
               </span>
               {eventMeta && (
@@ -822,15 +829,15 @@ function HooksSection({
                 </span>
               )}
               <span style={{
-                fontSize: 12, fontWeight: 600, padding: "1px 8px", borderRadius: 10,
+                fontSize: 12, fontWeight: 600, padding: "2px 10px", borderRadius: 10,
                 background: "var(--accent-subtle)", color: "var(--accent)", marginLeft: "auto",
               }}>
-                {count}
+                {count} handler{count !== 1 ? "s" : ""}
               </span>
               <button
                 type="button"
                 className="btn btn-ghost btn-icon"
-                style={{ width: 22, height: 22, minWidth: 22, fontSize: 13, padding: 0, color: "var(--text-tertiary)" }}
+                style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)" }}
                 onClick={() => {
                   const updated = { ...hooks };
                   delete updated[eventId];
@@ -843,33 +850,79 @@ function HooksSection({
             </div>
 
             {/* Matcher groups */}
-            {isExpanded && groups.map((group, gi) => (
+            {isExpanded && groups.map((group, gi) => {
+              // Parse current matcher into selected tags
+              const matcherTags = group.matcher ? group.matcher.split("|").map(s => s.trim()).filter(Boolean) : [];
+              const toggleMatcherTag = (tag: string) => {
+                const next = matcherTags.includes(tag)
+                  ? matcherTags.filter(t => t !== tag)
+                  : [...matcherTags, tag];
+                updateMatcher(eventId, gi, next.join("|"));
+              };
+
+              return (
               <div
                 key={gi}
                 style={{
                   borderLeft: "3px solid var(--accent)",
-                  paddingLeft: 12,
+                  paddingLeft: 16,
                   display: "flex",
                   flexDirection: "column",
-                  gap: 8,
+                  gap: 12,
                 }}
               >
-                {/* Matcher input */}
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0, width: 60 }}>
-                    Matcher
+                {/* Matcher: tag chips or freeform input */}
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0, fontWeight: 500 }}>
+                    匹配器
                   </span>
-                  <input
-                    className="input"
-                    style={{ ...inputStyle, flex: 1 }}
-                    placeholder={eventMeta?.matcherHint ?? "留空匹配所有"}
-                    value={group.matcher}
-                    onChange={(e) => updateMatcher(eventId, gi, e.target.value)}
-                  />
+                  {eventMeta && eventMeta.matcherOptions.length > 0 ? (
+                    <>
+                      {eventMeta.matcherOptions.map(opt => {
+                        const selected = matcherTags.includes(opt);
+                        return (
+                          <button
+                            key={opt}
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{
+                              fontSize: 13,
+                              padding: "4px 12px",
+                              borderRadius: 16,
+                              fontWeight: selected ? 600 : 400,
+                              background: selected ? "var(--accent-subtle)" : "transparent",
+                              color: selected ? "var(--accent)" : "var(--text-secondary)",
+                              border: selected ? "1px solid var(--accent)" : "1px solid var(--border)",
+                              transition: "all 150ms",
+                            }}
+                            onClick={() => toggleMatcherTag(opt)}
+                          >
+                            {opt}
+                          </button>
+                        );
+                      })}
+                      {/* Selected indicator */}
+                      {matcherTags.length > 0 && !matcherTags.every(t => eventMeta.matcherOptions.includes(t)) && (
+                        <span style={{ fontSize: F.hint, color: "var(--accent)" }}>
+                          + 自定义: {matcherTags.filter(t => !eventMeta.matcherOptions.includes(t)).join(", ")}
+                        </span>
+                      )}
+                    </>
+                  ) : eventMeta?.matcherFreeform ? (
+                    <input
+                      className="input"
+                      style={{ ...inputStyle, flex: 1 }}
+                      placeholder={eventMeta?.id === "FileChanged" ? "文件名，如 .envrc|.env" : "工具名称或正则，多个用 | 分隔"}
+                      value={group.matcher}
+                      onChange={(e) => updateMatcher(eventId, gi, e.target.value)}
+                    />
+                  ) : (
+                    <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>匹配所有</span>
+                  )}
                   <button
                     type="button"
                     className="btn btn-ghost btn-icon"
-                    style={{ width: 22, height: 22, minWidth: 22, fontSize: 13, padding: 0, color: "var(--text-tertiary)" }}
+                    style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)" }}
                     onClick={() => removeMatcherGroup(eventId, gi)}
                     title="删除此匹配器组"
                   >
@@ -877,14 +930,33 @@ function HooksSection({
                   </button>
                 </div>
 
-                {/* Handlers */}
+                {/* Handlers — each in its own sub-card */}
                 {group.hooks.map((handler, hi) => (
-                  <div key={hi} style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 66 }}>
-                    {/* Handler type selector + delete */}
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <div
+                    key={hi}
+                    style={{
+                      marginLeft: 72,
+                      background: "var(--bg-surface)",
+                      border: "1px solid var(--border)",
+                      borderRadius: "var(--radius-sm)",
+                      padding: "14px 16px",
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: 10,
+                    }}
+                  >
+                    {/* Header: type selector + delete */}
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <span style={{
+                        fontSize: 13, fontWeight: 600, padding: "3px 10px", borderRadius: 6,
+                        background: "var(--bg-glass)", color: "var(--accent)", border: "1px solid var(--border)",
+                        flexShrink: 0,
+                      }}>
+                        {HANDLER_LABELS[handler.type]}
+                      </span>
                       <select
                         className="input"
-                        style={{ ...inputStyle, width: 110, flexShrink: 0 }}
+                        style={{ ...inputStyle, width: 130, flexShrink: 0 }}
                         value={handler.type}
                         onChange={(e) => updateHandler(eventId, gi, hi, { type: e.target.value as HandlerType })}
                       >
@@ -892,45 +964,10 @@ function HooksSection({
                           <option key={ht} value={ht}>{HANDLER_LABELS[ht]}</option>
                         ))}
                       </select>
-
-                      {/* Common: timeout */}
-                      <input
-                        className="input"
-                        style={{ ...inputStyle, width: 80, flexShrink: 0 }}
-                        type="number"
-                        placeholder="超时(秒)"
-                        value={handler.timeout ?? ""}
-                        onChange={(e) => updateHandler(eventId, gi, hi, { timeout: e.target.value ? Number(e.target.value) : undefined })}
-                      />
-
-                      {/* Command-specific: async toggle */}
-                      {handler.type === "command" && (
-                        <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0, cursor: "pointer" }}>
-                          <Toggle active={!!handler.async} onChange={(v) => updateHandler(eventId, gi, hi, { async: v || undefined })} />
-                          async
-                        </label>
-                      )}
-
-                      {/* if condition (tool events only) */}
-                      {eventMeta?.hasMatcher && (
-                        <input
-                          className="input"
-                          style={{ ...inputStyle, width: 140, flexShrink: 0 }}
-                          placeholder="if: Bash(rm *)"
-                          value={handler["if"] ?? ""}
-                          onChange={(e) => {
-                            const patch: Partial<HookHandler> = {};
-                            if (e.target.value) (patch as any)["if"] = e.target.value;
-                            else (patch as any)["if"] = undefined;
-                            updateHandler(eventId, gi, hi, patch);
-                          }}
-                        />
-                      )}
-
                       <button
                         type="button"
                         className="btn btn-ghost btn-icon"
-                        style={{ width: 22, height: 22, minWidth: 22, fontSize: 13, padding: 0, color: "var(--text-tertiary)", marginLeft: "auto" }}
+                        style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)", marginLeft: "auto" }}
                         onClick={() => removeHandler(eventId, gi, hi)}
                         title="删除此处理器"
                       >
@@ -938,19 +975,21 @@ function HooksSection({
                       </button>
                     </div>
 
-                    {/* Type-specific fields */}
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    {/* Main field: command / URL / prompt (full width, prominent) */}
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       {handler.type === "command" && (
                         <>
-                          <PathInput
-                            value={handler.command}
-                            onChange={(v) => updateHandler(eventId, gi, hi, { command: v })}
-                            pathType="file"
-                            placeholder="命令或脚本路径，如 ./scripts/check.sh"
-                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <PathInput
+                              value={handler.command}
+                              onChange={(v) => updateHandler(eventId, gi, hi, { command: v })}
+                              pathType="file"
+                              placeholder="命令或脚本路径，如 ./scripts/check.sh"
+                            />
+                          </div>
                           <select
                             className="input"
-                            style={{ ...inputStyle, width: 90, flexShrink: 0 }}
+                            style={{ ...inputStyle, width: 100, flexShrink: 0 }}
                             value={handler.shell ?? ""}
                             onChange={(e) => updateHandler(eventId, gi, hi, { shell: e.target.value || undefined })}
                           >
@@ -963,7 +1002,7 @@ function HooksSection({
                         <input
                           className="input"
                           style={{ ...inputStyle, flex: 1 }}
-                          placeholder="http://localhost:8080/hooks/pre-tool-use"
+                          placeholder="HTTP URL，如 http://localhost:8080/hooks/pre-tool-use"
                           value={handler.url ?? ""}
                           onChange={(e) => updateHandler(eventId, gi, hi, { url: e.target.value || undefined })}
                         />
@@ -990,19 +1029,54 @@ function HooksSection({
                         <input
                           className="input"
                           style={{ ...inputStyle, flex: 1 }}
-                          placeholder="提示文本，用 $ARGUMENTS 插入 hook 输入"
+                          placeholder="提示文本，用 $ARGUMENTS 插入 hook 输入数据"
                           value={handler.prompt ?? ""}
                           onChange={(e) => updateHandler(eventId, gi, hi, { prompt: e.target.value || undefined })}
                         />
                       )}
                     </div>
 
-                    {/* Status message (optional, all types) */}
-                    <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    {/* Auxiliary options row (subtle, smaller) */}
+                    <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", paddingTop: 2 }}>
+                      {eventMeta?.hasMatcher && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0 }}>条件 if</span>
+                          <input
+                            className="input"
+                            style={{ ...inputStyle, width: 160, fontSize: F.hint }}
+                            placeholder="Bash(rm *)"
+                            value={handler["if"] ?? ""}
+                            onChange={(e) => {
+                              const patch: Partial<HookHandler> = {};
+                              if (e.target.value) (patch as any)["if"] = e.target.value;
+                              else (patch as any)["if"] = undefined;
+                              updateHandler(eventId, gi, hi, patch);
+                            }}
+                          />
+                        </div>
+                      )}
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0 }}>超时</span>
+                        <input
+                          className="input"
+                          style={{ ...inputStyle, width: 64, fontSize: F.hint }}
+                          type="number"
+                          placeholder="600"
+                          value={handler.timeout ?? ""}
+                          onChange={(e) => updateHandler(eventId, gi, hi, { timeout: e.target.value ? Number(e.target.value) : undefined })}
+                        />
+                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>秒</span>
+                      </div>
+                      {handler.type === "command" && (
+                        <label style={{ display: "flex", alignItems: "center", gap: 5, fontSize: F.hint, color: "var(--text-tertiary)", cursor: "pointer" }}>
+                          <Toggle active={!!handler.async} onChange={(v) => updateHandler(eventId, gi, hi, { async: v || undefined })} />
+                          后台运行 (async)
+                        </label>
+                      )}
                       <input
                         className="input"
-                        style={{ ...inputStyle, flex: 1 }}
-                        placeholder="statusMessage (可选，hook 运行时显示的消息)"
+                        style={{ ...inputStyle, flex: "1 1 180px", minWidth: 140, fontSize: F.hint }}
+                        placeholder="状态消息 (运行时显示)"
                         value={handler.statusMessage ?? ""}
                         onChange={(e) => updateHandler(eventId, gi, hi, { statusMessage: e.target.value || undefined })}
                       />
@@ -1014,20 +1088,22 @@ function HooksSection({
                 <button
                   type="button"
                   className="btn btn-ghost"
-                  style={{ fontSize: F.hint, padding: "4px 10px", alignSelf: "flex-start", marginLeft: 66 }}
+                  style={{ fontSize: F.hint, padding: "6px 14px", alignSelf: "flex-start", marginLeft: 72 }}
                   onClick={() => addHandler(eventId, gi)}
                 >
                   + 处理器
                 </button>
               </div>
-            ))}
+            );
+            })}
+
 
             {/* Add matcher group to existing event */}
             {isExpanded && (
               <button
                 type="button"
                 className="btn btn-ghost"
-                style={{ fontSize: F.hint, padding: "4px 10px", alignSelf: "flex-start" }}
+                style={{ fontSize: F.hint, padding: "6px 14px", alignSelf: "flex-start" }}
                 onClick={() => addMatcherGroup(eventId)}
               >
                 + 匹配器组
