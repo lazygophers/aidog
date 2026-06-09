@@ -9,6 +9,8 @@ export interface SettingField {
   options?: string[];
   placeholder?: string;
   description?: string;
+  /** When set, renders a path picker button alongside the text input */
+  pathType?: "file" | "directory";
 }
 
 export interface SettingSection {
@@ -29,7 +31,7 @@ export const SECTIONS: SettingSection[] = [
       { key: "outputStyle", label: "Output Style", type: "string", placeholder: "Explanatory, Concise..." },
       { key: "language", label: "Language", type: "string", placeholder: "zh-CN, en-US, ja-JP...", options: ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES", "pt-BR", "it-IT", "ru-RU", "ar-SA", "hi-IN", "th-TH", "vi-VN"] },
       { key: "agent", label: "Agent", type: "string", description: "将主线程作为命名 subagent 运行" },
-      { key: "apiKeyHelper", label: "API Key Helper", type: "string", placeholder: "/bin/generate_temp_api_key.sh" },
+      { key: "apiKeyHelper", label: "API Key Helper", type: "string", placeholder: "/bin/generate_temp_api_key.sh", pathType: "file" },
       { key: "modelOverrides", label: "Model Overrides", type: "kv", description: "模型 ID 映射，如 Bedrock ARN" },
     ],
   },
@@ -126,7 +128,7 @@ export const SECTIONS: SettingSection[] = [
     fields: [
       { key: "statusLine", label: "Status Line", type: "string", description: "自定义状态行模板" },
       { key: "subagentStatusLine", label: "Subagent Status Line", type: "string", description: "子代理状态行模板" },
-      { key: "fileSuggestion", label: "File Suggestion", type: "string", description: "自定义文件建议脚本路径" },
+      { key: "fileSuggestion", label: "File Suggestion", type: "string", description: "自定义文件建议脚本路径", pathType: "file" },
     ],
   },
   {
@@ -145,8 +147,8 @@ export const SECTIONS: SettingSection[] = [
     labelKey: "settings.sectionMemory",
     fields: [
       { key: "claudeMdExcludes", label: "CLAUDE.md Excludes", type: "string[]", description: "跳过的 CLAUDE.md glob 模式" },
-      { key: "autoMemoryDirectory", label: "Auto Memory Directory", type: "string", placeholder: "~/my-memory-dir" },
-      { key: "plansDirectory", label: "Plans Directory", type: "string", placeholder: "~/.claude/plans" },
+      { key: "autoMemoryDirectory", label: "Auto Memory Directory", type: "string", placeholder: "~/my-memory-dir", pathType: "directory" },
+      { key: "plansDirectory", label: "Plans Directory", type: "string", placeholder: "~/.claude/plans", pathType: "directory" },
     ],
   },
   {

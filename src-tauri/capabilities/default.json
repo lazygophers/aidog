@@ -18,6 +18,8 @@
     "fs:allow-remove",
     "fs:allow-rename",
     "fs:allow-copy-file",
-    "fs:allow-read-dir"
+    "fs:allow-read-dir",
+    "dialog:default",
+    "dialog:allow-open"
   ]
 }

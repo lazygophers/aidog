@@ -403,6 +403,7 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_fs::init())
+        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             // 在 app data dir 创建 SQLite
             let db_path = aidog_data_dir().expect("failed to resolve data dir").join("aidog.db");

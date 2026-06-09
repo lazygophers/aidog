@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { open } from "@tauri-apps/plugin-dialog";
 import { settingsApi } from "../services/api";
 import {
   SECTIONS,
@@ -615,6 +616,63 @@ function PermissionsSection({
   );
 }
 
+// ─── Path Input (text + system picker + hint) ─────────────
+
+function PathInput({
+  value,
+  onChange,
+  pathType,
+  placeholder,
+}: {
+  value: string | undefined;
+  onChange: (v: string | undefined) => void;
+  pathType: "file" | "directory";
+  placeholder?: string;
+}) {
+  const pick = async () => {
+    try {
+      const selected = await open({
+        directory: pathType === "directory",
+        multiple: false,
+        title: pathType === "directory" ? "选择目录" : "选择文件",
+      });
+      if (selected) onChange(selected);
+    } catch {
+      // user cancelled
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <div style={{ display: "flex", gap: 6 }}>
+        <input
+          className="input"
+          style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0 }}
+          placeholder={placeholder ?? (pathType === "directory" ? "点击 📁 选择或直接输入路径…" : "点击 📁 选择或直接输入文件路径…")}
+          value={value ?? ""}
+          onChange={(e) => onChange(e.target.value || undefined)}
+        />
+        <button
+          type="button"
+          className="btn btn-ghost"
+          style={{ fontSize: F.body, padding: S.inputPad, flexShrink: 0 }}
+          onClick={pick}
+          title={pathType === "directory" ? "选择目录" : "选择文件"}
+        >
+          📁
+        </button>
+      </div>
+      {!value && (
+        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
+          {pathType === "directory"
+            ? "支持绝对路径 (~/my-dir) 或相对路径 (./data)"
+            : "支持绝对路径 (/usr/local/bin/script.sh) 或相对路径 (./run.sh)"}
+        </span>
+      )}
+    </div>
+  );
+}
+
 // ─── Field Renderer ────────────────────────────────────────
 
 function FieldRenderer({
@@ -703,6 +761,22 @@ function FieldRenderer({
 
     case "string":
     default:
+      // Path-type string fields get picker + hint
+      if (field.pathType) {
+        return (
+          <div style={rowStyle}>
+            <FieldLabel field={field} t={t} />
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <PathInput
+                value={value}
+                onChange={onChange}
+                pathType={field.pathType}
+                placeholder={field.placeholder}
+              />
+            </div>
+          </div>
+        );
+      }
       return (
         <div style={rowStyle}>
           <FieldLabel field={field} t={t} />
