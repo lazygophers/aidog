@@ -638,6 +638,7 @@ function PathInput({
 }) {
   const [suggestions, setSuggestions] = useState<PathSuggestion[]>([]);
   const [showSugg, setShowSugg] = useState(false);
+  const [hlIdx, setHlIdx] = useState(-1);
   const [timer, setTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const fetchSuggestions = useCallback((input: string) => {
@@ -656,6 +657,7 @@ function PathInput({
         }
         setSuggestions(result);
         setShowSugg(result.length > 0);
+        setHlIdx(-1);
       } catch {
         setSuggestions([]);
         setShowSugg(false);
@@ -719,8 +721,25 @@ function PathInput({
             if (suggestions.length > 0) setShowSugg(true);
           }}
           onBlur={() => {
-            // Delay to allow click on suggestion
             setTimeout(() => setShowSugg(false), 200);
+          }}
+          onKeyDown={(e) => {
+            if (!showSugg || suggestions.length === 0) return;
+            if (e.key === "ArrowDown") {
+              e.preventDefault();
+              setHlIdx(i => (i + 1) % suggestions.length);
+            } else if (e.key === "ArrowUp") {
+              e.preventDefault();
+              setHlIdx(i => (i <= 0 ? suggestions.length - 1 : i - 1));
+            } else if (e.key === "Tab") {
+              e.preventDefault();
+              selectSuggestion(suggestions[hlIdx >= 0 ? hlIdx : 0]);
+            } else if (e.key === "Enter" && hlIdx >= 0) {
+              e.preventDefault();
+              selectSuggestion(suggestions[hlIdx]);
+            } else if (e.key === "Escape") {
+              setShowSugg(false);
+            }
           }}
         />
         <button
@@ -751,7 +770,7 @@ function PathInput({
             animation: "fadeIn 120ms ease both",
           }}
         >
-          {suggestions.map((s) => (
+          {suggestions.map((s, i) => (
             <button
               key={s.full_path}
               type="button"
@@ -765,6 +784,7 @@ function PathInput({
                 fontWeight: 400,
                 color: "var(--text-primary)",
                 borderRadius: "var(--radius-sm)",
+                background: i === hlIdx ? "var(--accent-subtle)" : "transparent",
               }}
               onMouseDown={(e) => {
                 e.preventDefault();
