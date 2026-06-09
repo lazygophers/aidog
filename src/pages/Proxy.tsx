@@ -5,7 +5,7 @@ import { proxyApi, configApi } from "../services/api";
 export function Proxy() {
   const { t } = useTranslation();
   const [running, setRunning] = useState(false);
-  const [port, setPort] = useState(8080);
+  const [port, setPort] = useState(9876);
   const [autostart, setAutostart] = useState(false);
   const [message, setMessage] = useState("");
   const [configPath, setConfigPath] = useState("");

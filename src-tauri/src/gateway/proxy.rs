@@ -24,23 +24,35 @@ pub struct ProxyState {
 pub async fn start_proxy(
     db: std::sync::Mutex<Db>,
     port: u16,
-) -> Result<tokio::task::JoinHandle<()>, String> {
+) -> Result<(tokio::task::JoinHandle<()>, u16), String> {
     let state = Arc::new(ProxyState { db });
 
     let app = Router::new()
         .fallback(handle_proxy)
         .with_state(state);
 
-    let addr = std::net::SocketAddr::from(([127, 0, 0, 1], port));
-    let listener = tokio::net::TcpListener::bind(addr)
-        .await
-        .map_err(|e| format!("bind failed: {e}"))?;
+    // Try binding from port upward; if occupied, try port+1..port+100
+    let mut actual_port = port;
+    let listener = loop {
+        let addr = std::net::SocketAddr::from(([127, 0, 0, 1], actual_port));
+        match tokio::net::TcpListener::bind(addr).await {
+            Ok(l) => break l,
+            Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
+                actual_port += 1;
+                if actual_port > port + 100 {
+                    return Err(format!("no available port in range {}..{}", port, port + 101));
+                }
+                continue;
+            }
+            Err(e) => return Err(format!("bind failed: {e}")),
+        }
+    };
 
     let handle = tokio::spawn(async move {
         axum::serve(listener, app).await.ok();
     });
 
-    Ok(handle)
+    Ok((handle, actual_port))
 }
 
 /// 主代理处理函数

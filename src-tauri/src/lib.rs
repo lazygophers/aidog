@@ -163,20 +163,25 @@ async fn proxy_start(
     let proxy_db = Db::new(db_path.to_str().unwrap_or(""))?;
     let proxy_db = std::sync::Mutex::new(proxy_db);
 
-    let proxy_handle = gateway::proxy::start_proxy(proxy_db, port).await?;
+    let (proxy_handle, actual_port) = gateway::proxy::start_proxy(proxy_db, port).await?;
 
     {
         let mut h = handle.0.lock().map_err(|e| e.to_string())?;
         *h = Some(proxy_handle);
     }
 
-    // 保存端口到设置
-    save_proxy_settings(&app, port, true)?;
+    // 保存实际使用的端口到设置
+    save_proxy_settings(&app, actual_port, true)?;
 
     // 更新托盘菜单
     refresh_tray_menu(&app)?;
 
-    Ok(format!("proxy started on port {}", port))
+    let msg = if actual_port != port {
+        format!("proxy started on port {} ({} was occupied)", actual_port, port)
+    } else {
+        format!("proxy started on port {}", actual_port)
+    };
+    Ok(msg)
 }
 
 #[tauri::command]
@@ -456,7 +461,7 @@ fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> 
             .map_err(|e| format!("read settings: {e}"))?;
         serde_json::from_str(&content).map_err(|e| format!("parse settings: {e}"))
     } else {
-        Ok(ProxySettings { port: 8080, autostart: false })
+        Ok(ProxySettings { port: 9876, autostart: true })
     }
 }
 
@@ -544,8 +549,8 @@ pub fn run() {
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "proxy_start" => {
                         let settings = load_proxy_settings(app).unwrap_or(ProxySettings {
-                            port: 8080,
-                            autostart: false,
+                            port: 9876,
+                            autostart: true,
                         });
                         let port = settings.port;
                         tauri::async_runtime::block_on(async {
