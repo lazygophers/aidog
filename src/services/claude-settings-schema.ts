@@ -3,6 +3,7 @@
 
 export interface SettingField {
   key: string;
+  /** English label — used as i18n fallback; primary label is i18n key `settings.f_${key}` */
   label: string;
   type: "string" | "boolean" | "select" | "json" | "string[]";
   options?: string[];
@@ -12,7 +13,7 @@ export interface SettingField {
 
 export interface SettingSection {
   id: string;
-  labelKey: string; // i18n key
+  labelKey: string; // i18n key for section heading
   fields: SettingField[];
 }
 

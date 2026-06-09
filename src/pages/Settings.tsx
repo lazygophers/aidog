@@ -43,7 +43,7 @@ function Section({
     <div
       style={{
         borderTop: "1px solid var(--border)",
-        paddingTop: 10,
+        paddingTop: 12,
       }}
     >
       <div
@@ -58,7 +58,7 @@ function Section({
       >
         <span
           style={{
-            fontSize: 13,
+            fontSize: 14,
             fontWeight: 600,
             color: "var(--text-primary)",
           }}
@@ -67,7 +67,7 @@ function Section({
         </span>
         <span
           style={{
-            fontSize: 11,
+            fontSize: 12,
             color: "var(--text-tertiary)",
             transition: "transform 0.15s",
             transform: open ? "rotate(90deg)" : "rotate(0deg)",
@@ -77,7 +77,7 @@ function Section({
         </span>
       </div>
       {open && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
           {children}
         </div>
       )}
@@ -85,19 +85,28 @@ function Section({
   );
 }
 
-/** Label */
-function Label({ children }: { children: React.ReactNode }) {
+/** Label with optional original-key hint */
+function FieldLabel({ field, t }: { field: SettingField; t: ReturnType<typeof useTranslation>["t"] }) {
+  const translated = t(`settings.f_${field.key}`, field.label);
   return (
     <label
       style={{
         display: "block",
-        fontSize: 12,
+        fontSize: 13,
         fontWeight: 500,
         color: "var(--text-secondary)",
         marginBottom: 4,
       }}
     >
-      {children}
+      {translated}{" "}
+      <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400 }}>
+        ({field.key})
+      </span>
+      {field.description && (
+        <span style={{ fontWeight: 400, marginLeft: 6, fontSize: 11, color: "var(--text-tertiary)" }}>
+          {field.description}
+        </span>
+      )}
     </label>
   );
 }
@@ -142,9 +151,9 @@ function JsonEditor({
         className="input"
         style={{
           fontFamily: '"SF Mono", "Fira Code", monospace',
-          fontSize: 11,
+          fontSize: 12,
           lineHeight: 1.5,
-          minHeight: rows * 18,
+          minHeight: rows * 20,
           resize: "vertical",
           whiteSpace: "pre",
         }}
@@ -167,7 +176,7 @@ function JsonEditor({
         }}
       />
       {error && (
-        <span style={{ fontSize: 10, color: "#ff453a" }}>{error}</span>
+        <span style={{ fontSize: 11, color: "#ff453a" }}>{error}</span>
       )}
     </div>
   );
@@ -191,20 +200,20 @@ function KvEditor({
         <div key={k} style={{ display: "flex", gap: 4 }}>
           <input
             className="input"
-            style={{ flex: 2, fontSize: 12 }}
+            style={{ flex: 2, fontSize: 13 }}
             value={k}
             readOnly
           />
           <input
             className="input"
-            style={{ flex: 3, fontSize: 12 }}
+            style={{ flex: 3, fontSize: 13 }}
             value={v}
             onChange={(e) => onChange({ ...items, [k]: e.target.value })}
           />
           <button
             type="button"
             className="btn btn-ghost btn-icon"
-            style={{ width: 24, height: 24, minWidth: 24, fontSize: 12 }}
+            style={{ width: 26, height: 26, minWidth: 26, fontSize: 13 }}
             onClick={() => {
               const next = { ...items };
               delete next[k];
@@ -218,14 +227,14 @@ function KvEditor({
       <div style={{ display: "flex", gap: 4 }}>
         <input
           className="input"
-          style={{ flex: 2, fontSize: 12 }}
+          style={{ flex: 2, fontSize: 13 }}
           placeholder="KEY"
           value={newKey}
           onChange={(e) => setNewKey(e.target.value)}
         />
         <input
           className="input"
-          style={{ flex: 3, fontSize: 12 }}
+          style={{ flex: 3, fontSize: 13 }}
           placeholder="VALUE"
           value={newVal}
           onChange={(e) => setNewVal(e.target.value)}
@@ -233,7 +242,7 @@ function KvEditor({
         <button
           type="button"
           className="btn btn-ghost"
-          style={{ fontSize: 12, padding: "4px 8px" }}
+          style={{ fontSize: 13, padding: "4px 8px" }}
           onClick={() => {
             if (newKey.trim()) {
               onChange({ ...items, [newKey.trim()]: newVal });
@@ -267,7 +276,7 @@ function StringListEditor({
         <div key={i} style={{ display: "flex", gap: 4 }}>
           <input
             className="input"
-            style={{ flex: 1, fontSize: 12 }}
+            style={{ flex: 1, fontSize: 13 }}
             value={item}
             onChange={(e) => {
               const next = [...items];
@@ -278,7 +287,7 @@ function StringListEditor({
           <button
             type="button"
             className="btn btn-ghost btn-icon"
-            style={{ width: 24, height: 24, minWidth: 24, fontSize: 12 }}
+            style={{ width: 26, height: 26, minWidth: 26, fontSize: 13 }}
             onClick={() => onChange(items.filter((_, j) => j !== i))}
           >
             ×
@@ -288,7 +297,7 @@ function StringListEditor({
       <div style={{ display: "flex", gap: 4 }}>
         <input
           className="input"
-          style={{ flex: 1, fontSize: 12 }}
+          style={{ flex: 1, fontSize: 13 }}
           placeholder={addLabel}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -302,7 +311,7 @@ function StringListEditor({
         <button
           type="button"
           className="btn btn-ghost"
-          style={{ fontSize: 12, padding: "4px 8px" }}
+          style={{ fontSize: 13, padding: "4px 8px" }}
           onClick={() => {
             if (draft.trim()) {
               onChange([...items, draft.trim()]);
@@ -328,7 +337,7 @@ function FieldRenderer({
   field: SettingField;
   value: any;
   onChange: (v: any) => void;
-  t: (key: string) => string;
+  t: ReturnType<typeof useTranslation>["t"];
 }) {
   switch (field.type) {
     case "boolean":
@@ -341,14 +350,12 @@ function FieldRenderer({
           }}
         >
           <div>
-            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)" }}>
-              {field.label}
+            <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>
+              {t(`settings.f_${field.key}`, field.label)}{" "}
+              <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400 }}>
+                ({field.key})
+              </span>
             </span>
-            {field.description && (
-              <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 2 }}>
-                {field.description}
-              </div>
-            )}
           </div>
           <Toggle active={!!value} onChange={(v) => onChange(v || undefined)} />
         </div>
@@ -357,7 +364,7 @@ function FieldRenderer({
     case "select":
       return (
         <div>
-          <Label>{field.label}</Label>
+          <FieldLabel field={field} t={t} />
           <select
             className="input"
             value={value ?? ""}
@@ -376,14 +383,7 @@ function FieldRenderer({
     case "json":
       return (
         <div>
-          <Label>
-            {field.label}
-            {field.description && (
-              <span style={{ fontWeight: 400, marginLeft: 6, fontSize: 10, color: "var(--text-tertiary)" }}>
-                {field.description}
-              </span>
-            )}
-          </Label>
+          <FieldLabel field={field} t={t} />
           <JsonEditor value={value} onChange={onChange} placeholder="{}" />
         </div>
       );
@@ -391,7 +391,7 @@ function FieldRenderer({
     case "string[]":
       return (
         <div>
-          <Label>{field.label}</Label>
+          <FieldLabel field={field} t={t} />
           <StringListEditor
             items={Array.isArray(value) ? value : []}
             onChange={(list) => onChange(list.length > 0 ? list : undefined)}
@@ -404,7 +404,7 @@ function FieldRenderer({
     default:
       return (
         <div>
-          <Label>{field.label}</Label>
+          <FieldLabel field={field} t={t} />
           <input
             className="input"
             placeholder={field.placeholder}
@@ -431,7 +431,9 @@ export function Settings() {
     const load = async () => {
       try {
         const result = await settingsApi.get("global", CONFIG_KEY);
-        const data = (result as Record<string, any>) ?? {};
+        const stored = result as Record<string, any> | null | undefined;
+        // 若从未存储过，默认填入推荐配置
+        const data = stored && Object.keys(stored).length > 0 ? stored : { ...RECOMMENDED_CONFIG };
         setConfig(data);
         setEditJson(JSON.stringify(data, null, 2));
       } catch (e) {
@@ -522,14 +524,14 @@ export function Settings() {
           <div style={{ display: "flex", gap: 4 }}>
             <button
               className={`btn ${mode === "gui" ? "btn-primary" : "btn-ghost"}`}
-              style={{ fontSize: 12, padding: "5px 12px" }}
+              style={{ fontSize: 13, padding: "5px 12px" }}
               onClick={() => setMode("gui")}
             >
               {t("settings.guiMode")}
             </button>
             <button
               className={`btn ${mode === "json" ? "btn-primary" : "btn-ghost"}`}
-              style={{ fontSize: 12, padding: "5px 12px" }}
+              style={{ fontSize: 13, padding: "5px 12px" }}
               onClick={() => {
                 setEditJson(JSON.stringify(config, null, 2));
                 setMode("json");
@@ -540,7 +542,7 @@ export function Settings() {
           </div>
           <button
             className="btn btn-ghost"
-            style={{ fontSize: 11, padding: "4px 10px" }}
+            style={{ fontSize: 12, padding: "4px 10px" }}
             onClick={handleLoadRecommended}
           >
             ⚡ {t("settings.loadRecommended")}
@@ -553,7 +555,7 @@ export function Settings() {
             className="input"
             style={{
               fontFamily: '"SF Mono", "Fira Code", monospace',
-              fontSize: 12,
+              fontSize: 13,
               lineHeight: 1.6,
               minHeight: 480,
               resize: "vertical",
@@ -579,7 +581,20 @@ export function Settings() {
                   >
                     {/* Default Mode */}
                     <div>
-                      <Label>{t("settings.permissionsDefaultMode")}</Label>
+                      <label
+                        style={{
+                          display: "block",
+                          fontSize: 13,
+                          fontWeight: 500,
+                          color: "var(--text-secondary)",
+                          marginBottom: 4,
+                        }}
+                      >
+                        {t("settings.permissionsDefaultMode")}{" "}
+                        <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400 }}>
+                          (permissions.defaultMode)
+                        </span>
+                      </label>
                       <select
                         className="input"
                         value={perms.defaultMode ?? ""}
@@ -607,8 +622,8 @@ export function Settings() {
 
                     {/* Allow */}
                     <div>
-                      <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 4 }}>
-                        {t("settings.permissionsAllow")}
+                      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 4 }}>
+                        {t("settings.permissionsAllow")} <span style={{ fontSize: 11 }}>(permissions.allow)</span>
                       </div>
                       <StringListEditor
                         items={perms.allow ?? []}
@@ -629,8 +644,8 @@ export function Settings() {
 
                     {/* Ask */}
                     <div>
-                      <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 4 }}>
-                        {t("settings.permissionsAsk")}
+                      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 4 }}>
+                        {t("settings.permissionsAsk")} <span style={{ fontSize: 11 }}>(permissions.ask)</span>
                       </div>
                       <StringListEditor
                         items={perms.ask ?? []}
@@ -651,8 +666,8 @@ export function Settings() {
 
                     {/* Deny */}
                     <div>
-                      <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 4 }}>
-                        {t("settings.permissionsDeny")}
+                      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 4 }}>
+                        {t("settings.permissionsDeny")} <span style={{ fontSize: 11 }}>(permissions.deny)</span>
                       </div>
                       <StringListEditor
                         items={perms.deny ?? []}
@@ -721,7 +736,7 @@ export function Settings() {
         {saveError && (
           <div
             style={{
-              fontSize: 12,
+              fontSize: 13,
               wordBreak: "break-all",
               color: "#ff453a",
             }}
@@ -743,7 +758,7 @@ export function Settings() {
           {toast && (
             <span
               style={{
-                fontSize: 12,
+                fontSize: 13,
                 color: "#34c759",
                 alignSelf: "center",
                 marginRight: "auto",
