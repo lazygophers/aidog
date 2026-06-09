@@ -15,33 +15,24 @@ export function Proxy() {
       const s = await proxyApi.getSettings();
       setPort(s.port);
       setAutostart(s.autostart);
-    } catch {
-      // 默认值
-    }
+    } catch { /* defaults */ }
   };
 
   const checkStatus = async () => {
     try {
       const s = await proxyApi.status();
       setRunning(s);
-    } catch {
-      setRunning(false);
-    }
+    } catch { setRunning(false); }
   };
 
-  useEffect(() => {
-    loadSettings();
-    checkStatus();
-  }, []);
+  useEffect(() => { loadSettings(); checkStatus(); }, []);
 
   const handleStart = async () => {
     try {
       const msg = await proxyApi.start(port);
       setRunning(true);
       setMessage(msg);
-    } catch (e: any) {
-      setMessage(e.toString());
-    }
+    } catch (e: any) { setMessage(e.toString()); }
   };
 
   const handleStop = async () => {
@@ -49,18 +40,14 @@ export function Proxy() {
       await proxyApi.stop();
       setRunning(false);
       setMessage(t("proxy.stopped"));
-    } catch (e: any) {
-      setMessage(e.toString());
-    }
+    } catch (e: any) { setMessage(e.toString()); }
   };
 
   const handleAutostartChange = async (val: boolean) => {
     try {
       await proxyApi.setAutostart(val);
       setAutostart(val);
-    } catch (e: any) {
-      setMessage(e.toString());
-    }
+    } catch (e: any) { setMessage(e.toString()); }
   };
 
   const handleExportConfig = async () => {
@@ -68,96 +55,134 @@ export function Proxy() {
       const path = await configApi.exportClaudeConfig(port);
       setConfigPath(path);
       setMessage(t("proxy.configExported"));
-    } catch (e: any) {
-      setMessage(e.toString());
-    }
+    } catch (e: any) { setMessage(e.toString()); }
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 600, width: "100%" }}>
-      <h2 style={{ fontSize: 20, fontWeight: 600 }}>{t("page.proxy")}</h2>
-
-      {/* Status card */}
-      <div className="glass" style={{ padding: 24, textAlign: "center" }}>
-        <div style={{
-          fontSize: 48, marginBottom: 8,
-          filter: running ? "none" : "grayscale(1) opacity(0.4)",
-        }}>
-          {running ? "🟢" : "⚫"}
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 640, width: "100%" }}>
+      {/* Header */}
+      <div className="section-header">
+        <div>
+          <div className="section-title">{t("page.proxy")}</div>
+          <div className="section-desc">{running
+            ? `${t("proxy.listening")} localhost:${port}`
+            : t("proxy.stopped")
+          }</div>
         </div>
-        <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 4 }}>
+      </div>
+
+      {/* Status Hero Card */}
+      <div
+        className={`glass glass-highlight ${running ? "" : ""}`}
+        style={{
+          padding: "32px 24px",
+          textAlign: "center",
+          ...(running ? { animation: running ? "pulseGlow 3s ease-in-out infinite" : undefined } : {}),
+        }}
+      >
+        <div style={{
+          width: 56, height: 56, borderRadius: 28,
+          margin: "0 auto 16px",
+          display: "flex", alignItems: "center", justifyContent: "center",
+          background: running
+            ? "linear-gradient(135deg, rgba(52,199,89,0.2), rgba(52,199,89,0.05))"
+            : "var(--bg-glass)",
+          border: `1px solid ${running ? "rgba(52,199,89,0.2)" : "var(--border)"}`,
+          transition: "all 400ms ease",
+        }}>
+          <span className={`status-dot ${running ? "status-dot-active" : "status-dot-inactive"}`}
+            style={{ width: 20, height: 20 }} />
+        </div>
+        <div style={{ fontSize: 17, fontWeight: 700, marginBottom: 4, letterSpacing: "-0.01em" }}>
           {running ? t("proxy.running") : t("proxy.stopped")}
         </div>
         {running && (
-          <div className="text-secondary" style={{ fontSize: 13 }}>
-            {t("proxy.listening")} localhost:{port}
+          <div className="badge badge-accent" style={{ margin: "0 auto" }}>
+            localhost:{port}
           </div>
         )}
       </div>
 
-      {/* Controls */}
-      <div className="glass-surface" style={{ padding: 20, display: "flex", gap: 12, alignItems: "center" }}>
-        <label style={{ fontSize: 13, whiteSpace: "nowrap" }}>{t("proxy.port")}</label>
-        <input className="input" type="number" value={port}
+      {/* Controls Row */}
+      <div className="glass-surface" style={{
+        padding: "16px 20px",
+        display: "flex",
+        gap: 12,
+        alignItems: "center",
+      }}>
+        <label style={{ fontSize: 13, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+          {t("proxy.port")}
+        </label>
+        <input
+          className="input"
+          type="number"
+          value={port}
           onChange={(e) => setPort(Number(e.target.value))}
           disabled={running}
-          style={{ width: 100 }} />
+          style={{ width: 100 }}
+        />
         <div style={{ flex: 1 }} />
         {!running ? (
-          <button className="btn btn-primary" onClick={handleStart}>{t("proxy.start")}</button>
+          <button className="btn btn-primary" onClick={handleStart}>
+            {t("proxy.start")}
+          </button>
         ) : (
-          <button className="btn" onClick={handleStop} style={{ borderColor: "red", color: "red" }}>
+          <button className="btn btn-danger" onClick={handleStop}>
             {t("proxy.stop")}
           </button>
         )}
       </div>
 
-      {/* Autostart toggle */}
-      <div className="glass-surface" style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      {/* Autostart Toggle */}
+      <div className="glass-surface" style={{
+        padding: "16px 20px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}>
         <div>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.autostart")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{t("proxy.autostartDesc")}</div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {t("proxy.autostartDesc")}
+          </div>
         </div>
-        <button
-          className="btn"
-          style={{
-            padding: "4px 12px", fontSize: 12,
-            background: autostart ? "var(--accent-subtle)" : "var(--bg-glass)",
-            color: autostart ? "var(--accent)" : "var(--text-secondary)",
-          }}
+        <div
+          className={`toggle ${autostart ? "active" : ""}`}
           onClick={() => handleAutostartChange(!autostart)}
-        >
-          {autostart ? "● ON" : "○ OFF"}
-        </button>
+          role="switch"
+          aria-checked={autostart}
+          tabIndex={0}
+        />
       </div>
 
-      {/* Claude Code config */}
-      <div className="glass-surface" style={{ padding: 16, fontSize: 13 }}>
-        <div style={{ fontWeight: 600, marginBottom: 8 }}>{t("proxy.configHint")}</div>
-        <code style={{
-          display: "block", padding: 12, borderRadius: "var(--radius-sm)",
-          background: "var(--bg-base)", fontSize: 12, lineHeight: 1.6,
-          wordBreak: "break-all",
-        }}>
+      {/* Claude Code Config */}
+      <div className="glass-surface" style={{ padding: "16px 20px" }}>
+        <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
+          {t("proxy.configHint")}
+        </div>
+        <code className="code-block">
           ANTHROPIC_BASE_URL=http://localhost:{port}/claude/v1/messages
         </code>
-        <div className="text-secondary" style={{ marginTop: 8, fontSize: 12 }}>
+        <div className="text-secondary" style={{ marginTop: 10, fontSize: 12 }}>
           {t("proxy.configDesc")}
         </div>
-        <button className="btn btn-primary" style={{ marginTop: 12, fontSize: 12 }}
-          onClick={handleExportConfig}>
+        <button
+          className="btn btn-primary"
+          style={{ marginTop: 14, fontSize: 13 }}
+          onClick={handleExportConfig}
+        >
           {t("proxy.exportConfig")}
         </button>
         {configPath && (
-          <div style={{ marginTop: 8, fontSize: 12, color: "var(--accent)" }}>
+          <div className="text-accent" style={{ marginTop: 8, fontSize: 12 }}>
             {t("proxy.configExportPath")}: {configPath}
           </div>
         )}
       </div>
 
+      {/* Toast Message */}
       {message && (
-        <div style={{ padding: 12, fontSize: 13, borderRadius: "var(--radius-sm)",
-          background: "var(--accent-subtle)", color: "var(--accent)" }}>
+        <div className="toast">
           {message}
         </div>
       )}

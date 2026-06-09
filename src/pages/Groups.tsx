@@ -67,14 +67,28 @@ export function Groups() {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 800, width: "100%" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 style={{ fontSize: 20, fontWeight: 600 }}>{t("page.groups")}</h2>
-        <button className="btn btn-primary" onClick={() => setShowForm(true)}>+ {t("group.add")}</button>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720, width: "100%" }}>
+      {/* Header */}
+      <div className="section-header" style={{ justifyContent: "space-between" }}>
+        <div>
+          <div className="section-title">{t("page.groups")}</div>
+          <div className="section-desc">
+            {details.length > 0 ? `${details.length} ${t("nav.groups").toLowerCase()}` : t("group.empty")}
+          </div>
+        </div>
+        <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+          + {t("group.add")}
+        </button>
       </div>
 
+      {/* Add Group Form */}
       {showForm && (
-        <div className="glass-surface" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+        <div className="glass-surface animate-fade-in" style={{
+          padding: 20,
+          display: "flex",
+          flexDirection: "column",
+          gap: 12,
+        }}>
           <input className="input" placeholder={t("group.name")} value={gName}
             onChange={(e) => setGName(e.target.value)} />
           <input className="input" placeholder="Path (e.g. /claude)" value={gPath}
@@ -91,66 +105,122 @@ export function Groups() {
         </div>
       )}
 
-      {loading ? <p className="text-secondary">{t("status.loading")}</p> : (
+      {/* Group List */}
+      {loading ? (
+        <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
+      ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {details.length === 0 && <p className="text-tertiary">{t("group.empty")}</p>}
-          {details.map(({ group, platforms: gps, model_mappings }) => (
-            <div key={group.id} className="glass-surface" style={{ padding: 16 }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-                <span style={{ fontWeight: 600, flex: 1 }}>{group.name}</span>
-                <span className="text-secondary" style={{ fontSize: 12 }}>
-                  {group.path} · {group.routing_mode === "failover" ? t("group.failover") : t("group.loadBalance")}
-                </span>
-                <button className="btn" style={{ padding: "4px 10px", fontSize: 12 }}
-                  onClick={() => handleDeleteGroup(group.id)}>🗑️</button>
+          {details.length === 0 && !showForm && (
+            <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
+              <div className="text-tertiary" style={{ fontSize: 13 }}>{t("group.empty")}</div>
+            </div>
+          )}
+          {details.map(({ group, platforms: gps, model_mappings }, i) => (
+            <div
+              key={group.id}
+              className="card-item animate-fade-in"
+              style={{ animationDelay: `${i * 60}ms` }}
+            >
+              {/* Group Header */}
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: "var(--radius-sm)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "var(--accent-subtle)",
+                  color: "var(--accent)",
+                  fontSize: 13, fontWeight: 700,
+                  flexShrink: 0,
+                }}>
+                  {group.path.slice(0, 3)}
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontWeight: 600, fontSize: 14 }}>{group.name}</div>
+                  <div className="text-secondary" style={{ fontSize: 12, display: "flex", gap: 8, marginTop: 1 }}>
+                    <span>{group.path}</span>
+                    <span className="badge badge-muted" style={{ padding: "0 6px" }}>
+                      {group.routing_mode === "failover" ? t("group.failover") : t("group.loadBalance")}
+                    </span>
+                  </div>
+                </div>
+                <button className="btn btn-ghost btn-icon btn-danger" onClick={() => handleDeleteGroup(group.id)}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
+                  </svg>
+                </button>
               </div>
 
               {/* Platforms */}
               {gps.length > 0 && (
-                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
-                  {t("group.platforms")}: {gps.map((g) => g.platform.name).join(", ")}
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                  {gps.map((g) => (
+                    <span key={g.platform.id} className="badge badge-accent">
+                      {g.platform.name}
+                    </span>
+                  ))}
                 </div>
               )}
 
               {/* Model Mappings */}
               {model_mappings.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 6 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
                   {model_mappings.map((m) => (
                     <div key={m.id} style={{
-                      display: "flex", alignItems: "center", gap: 6, fontSize: 12,
-                      padding: "4px 8px", borderRadius: "var(--radius-sm)",
-                      background: "var(--accent-subtle)",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      fontSize: 12,
+                      padding: "6px 10px",
+                      borderRadius: "var(--radius-sm)",
+                      background: "var(--bg-glass)",
+                      border: "1px solid var(--border)",
                     }}>
-                      <span style={{ fontWeight: 600 }}>{m.source_model}</span>
-                      <span className="text-tertiary">→</span>
-                      <span>{m.target_model}</span>
-                      <button style={{ marginLeft: "auto", background: "none", border: "none",
-                        cursor: "pointer", color: "var(--text-tertiary)", fontSize: 12 }}
-                        onClick={() => handleDeleteMapping(m.id)}>✕</button>
+                      <span style={{ fontWeight: 600, color: "var(--accent)" }}>{m.source_model}</span>
+                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
+                        <path d="M2 6h8M8 4l2 2-2 2" />
+                      </svg>
+                      <span style={{ flex: 1 }}>{m.target_model}</span>
+                      <button className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
+                        onClick={() => handleDeleteMapping(m.id)}>
+                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
+                          <path d="M2 2l6 6M8 2l-6 6" />
+                        </svg>
+                      </button>
                     </div>
                   ))}
                 </div>
               )}
 
-              <button className="btn" style={{ fontSize: 12, padding: "4px 10px" }}
+              {/* Add Mapping */}
+              <button className="btn btn-ghost" style={{ fontSize: 12, gap: 4, padding: "4px 8px", color: "var(--text-secondary)" }}
                 onClick={() => setMappingGroupId(group.id)}>
-                + {t("mapping.add")}
+                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <path d="M6 2v8M2 6h8" />
+                </svg>
+                {t("mapping.add")}
               </button>
 
               {mappingGroupId === group.id && (
-                <div style={{ marginTop: 8, display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                  <input className="input" style={{ flex: 1, minWidth: 120, fontSize: 12 }}
+                <div className="animate-fade-in" style={{
+                  marginTop: 10,
+                  paddingTop: 10,
+                  borderTop: "1px solid var(--border)",
+                  display: "flex",
+                  gap: 8,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}>
+                  <input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
                     placeholder={t("mapping.source")} value={mSource}
                     onChange={(e) => setMSource(e.target.value)} />
-                  <select className="input" style={{ fontSize: 12 }} value={mTargetPlatform}
+                  <select className="input" style={{ fontSize: 12, width: 140 }} value={mTargetPlatform}
                     onChange={(e) => setMTargetPlatform(e.target.value)}>
                     <option value="">{t("mapping.targetPlatform")}</option>
                     {platforms.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
-                  <input className="input" style={{ flex: 1, minWidth: 120, fontSize: 12 }}
+                  <input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
                     placeholder={t("mapping.target")} value={mTargetModel}
                     onChange={(e) => setMTargetModel(e.target.value)} />
-                  <button className="btn btn-primary" style={{ fontSize: 12, padding: "4px 10px" }}
+                  <button className="btn btn-primary" style={{ fontSize: 12, padding: "6px 12px" }}
                     onClick={handleAddMapping}
                     disabled={!mSource || !mTargetPlatform || !mTargetModel}>
                     {t("action.create")}

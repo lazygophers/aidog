@@ -1,4 +1,4 @@
-/* === Liquid Glass Global Styles === */
+/* === AiDog · Liquid Glass Design System === */
 
 *,
 *::before,
@@ -10,13 +10,14 @@
 
 :root {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display",
-    "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   font-size: 14px;
   line-height: 1.5;
   color: var(--text-primary);
   background: var(--bg-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
 }
 
 html,
@@ -28,83 +29,197 @@ body,
 }
 
 body {
-  backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  transition: background var(--transition), color var(--transition);
+  background: var(--bg-base);
+  transition: background 400ms ease, color 400ms ease;
 }
 
-/* === Glass Panel === */
+/* ── Keyframe Animations ── */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-12px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 8px var(--accent-subtle), var(--shadow-md); }
+  50% { box-shadow: 0 0 20px var(--accent-subtle), var(--shadow-lg); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes statusPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 350ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.animate-slide-in {
+  animation: slideInLeft 300ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+/* ── Glass Layers ── */
+
 .glass {
   background: var(--bg-glass);
   border: var(--glass-border);
   border-radius: var(--radius-lg);
   backdrop-filter: blur(var(--glass-blur)) saturate(var(--glass-saturate));
-  box-shadow: var(--shadow-md);
-  transition: all var(--transition);
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .glass:hover {
   background: var(--bg-glass-hover);
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
-/* === Glass Surface (cards, content blocks) === */
 .glass-surface {
   background: var(--bg-surface);
-  border: var(--glass-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-md);
-  box-shadow: var(--shadow-sm);
-  transition: all var(--transition);
+  box-shadow: var(--shadow-sm), inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* === Elevated Layer (modals, popovers) === */
+.glass-surface:hover {
+  box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
 .glass-elevated {
   background: var(--bg-elevated);
-  border: var(--glass-border);
+  border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-xl);
   backdrop-filter: blur(calc(var(--glass-blur) + 10px))
     saturate(var(--glass-saturate));
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
-/* === Buttons === */
+/* ── Glass Highlight (refraction edge) ── */
+
+.glass-highlight {
+  position: relative;
+}
+
+.glass-highlight::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 12px;
+  right: 12px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.15), transparent);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+/* ── Status Indicators ── */
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.status-dot-active {
+  background: #34c759;
+  box-shadow: 0 0 8px rgba(52, 199, 89, 0.5);
+  animation: statusPulse 2s ease-in-out infinite;
+}
+
+.status-dot-inactive {
+  background: var(--text-tertiary);
+}
+
+/* ── Buttons ── */
+
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 6px;
   padding: 8px 16px;
-  border: var(--glass-border);
+  border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-glass);
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 500;
+  font-family: inherit;
   cursor: pointer;
-  backdrop-filter: blur(var(--glass-blur));
-  transition: all var(--transition);
+  backdrop-filter: blur(12px);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
   user-select: none;
+  outline: none;
+  white-space: nowrap;
 }
 
 .btn:hover {
   background: var(--bg-glass-hover);
   box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .btn:active {
-  transform: scale(0.97);
+  transform: translateY(0) scale(0.97);
+}
+
+.btn:focus-visible {
+  box-shadow: 0 0 0 3px var(--accent-subtle);
 }
 
 .btn-primary {
-  background: var(--accent);
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
   color: #fff;
   border-color: transparent;
+  font-weight: 600;
 }
 
 .btn-primary:hover {
-  background: var(--accent-hover);
+  background: linear-gradient(135deg, var(--accent-hover), var(--accent));
+  box-shadow: 0 4px 16px var(--accent-subtle);
 }
 
-/* === Inputs === */
+.btn-danger {
+  color: #ff453a;
+  border-color: rgba(255, 69, 58, 0.2);
+}
+
+.btn-danger:hover {
+  background: rgba(255, 69, 58, 0.1);
+  border-color: rgba(255, 69, 58, 0.3);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+}
+
+.btn-ghost:hover {
+  background: var(--accent-subtle);
+}
+
+.btn-icon {
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  min-width: 32px;
+  height: 32px;
+}
+
+/* ── Inputs ── */
+
 .input {
   padding: 8px 12px;
   border: 1px solid var(--border);
@@ -112,21 +227,163 @@ body {
   background: var(--bg-glass);
   color: var(--text-primary);
   font-size: 13px;
+  font-family: inherit;
   outline: none;
   backdrop-filter: blur(12px);
-  transition: all var(--transition);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100%;
 }
 
 .input:focus {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px var(--accent-subtle);
+  background: var(--bg-surface);
 }
 
 .input::placeholder {
   color: var(--text-tertiary);
 }
 
-/* === Typography === */
+.input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+select.input {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5L6 7.5L9 4.5' stroke='%23888' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 28px;
+}
+
+/* ── Toggle Switch ── */
+
+.toggle {
+  position: relative;
+  width: 40px;
+  height: 22px;
+  border-radius: 11px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  flex-shrink: 0;
+}
+
+.toggle.active {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.toggle::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.toggle.active::after {
+  transform: translateX(18px);
+}
+
+/* ── Badge / Tag ── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.badge-accent {
+  background: var(--accent-subtle);
+  color: var(--accent);
+}
+
+.badge-muted {
+  background: var(--bg-glass);
+  color: var(--text-secondary);
+}
+
+/* ── Code Block ── */
+
+.code-block {
+  display: block;
+  padding: 14px 16px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-base);
+  border: 1px solid var(--border);
+  font-family: "SF Mono", "Fira Code", "Cascadia Code", monospace;
+  font-size: 12px;
+  line-height: 1.7;
+  word-break: break-all;
+  overflow-x: auto;
+}
+
+/* ── Toast ── */
+
+.toast {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  backdrop-filter: blur(20px);
+  box-shadow: var(--shadow-lg);
+  animation: fadeIn 300ms ease both;
+}
+
+/* ── Card List Item ── */
+
+.card-item {
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  animation: fadeIn 350ms cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.card-item:hover {
+  border-color: var(--accent-subtle);
+  box-shadow: var(--shadow-md), 0 0 0 1px var(--accent-subtle);
+}
+
+/* ── Section Header ── */
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+
+.section-title {
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+
+.section-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+
+/* ── Typography ── */
+
 .text-secondary {
   color: var(--text-secondary);
 }
@@ -135,7 +392,12 @@ body {
   color: var(--text-tertiary);
 }
 
-/* === Scrollbar === */
+.text-accent {
+  color: var(--accent);
+}
+
+/* ── Scrollbar ── */
+
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -154,7 +416,8 @@ body {
   background: var(--text-tertiary);
 }
 
-/* === RTL === */
+/* ── RTL ── */
+
 [dir="rtl"] .flex {
   flex-direction: row-reverse;
 }
@@ -163,23 +426,12 @@ body {
   flex-direction: row-reverse;
 }
 
-/* === Utility === */
-.flex {
-  display: flex;
-}
+/* ── Utility ── */
 
-.flex-col {
-  flex-direction: column;
-}
-
-.items-center {
-  align-items: center;
-}
-
-.gap-sm {
-  gap: 8px;
-}
-
-.gap-md {
-  gap: 16px;
-}
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.gap-sm { gap: 8px; }
+.gap-md { gap: 16px; }
+.w-full { width: 100%; }
