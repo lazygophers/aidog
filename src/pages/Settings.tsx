@@ -1192,6 +1192,396 @@ function SandboxSectionInline({ sandboxValue, updateField }: {
   return <SandboxEditor sandboxValue={sandboxValue} updateField={updateField} />;
 }
 
+// ─── Plugins Section (structured editor) ─────────────────────
+
+const MARKETPLACE_SOURCE_TYPES = ["github", "git", "directory", "settings"] as const;
+type SourceType = typeof MARKETPLACE_SOURCE_TYPES[number];
+
+const SKILL_OVERRIDE_MODES = ["on", "name-only", "user-invocable-only", "off"] as const;
+
+/** Source config for a single marketplace entry */
+function MarketplaceSourceEditor({
+  source,
+  onChange,
+}: {
+  source: Record<string, any>;
+  onChange: (s: Record<string, any>) => void;
+}) {
+  const srcType = (source.source ?? "github") as SourceType;
+
+  const setField = (key: string, val: string | boolean) => {
+    onChange({ ...source, [key]: val || undefined });
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6, paddingLeft: 8, borderLeft: "2px solid var(--border)" }}>
+      {/* Source type selector */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <span style={{ fontSize: F.hint, color: "var(--text-secondary)", width: 60, flexShrink: 0 }}>类型</span>
+        <select
+          className="input"
+          style={{ fontSize: F.body, padding: "6px 10px", flex: 1 }}
+          value={srcType}
+          onChange={(e) => onChange({ source: e.target.value })}
+        >
+          {MARKETPLACE_SOURCE_TYPES.map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
+      </div>
+
+      {/* Source-type-specific fields */}
+      {srcType === "github" && (
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", width: 60, flexShrink: 0 }}>repo</span>
+          <input
+            className="input"
+            style={{ fontSize: F.body, padding: "6px 10px", flex: 1 }}
+            placeholder="owner/repo"
+            value={source.repo ?? ""}
+            onChange={(e) => setField("repo", e.target.value)}
+          />
+        </div>
+      )}
+
+      {srcType === "git" && (
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", width: 60, flexShrink: 0 }}>url</span>
+          <input
+            className="input"
+            style={{ fontSize: F.body, padding: "6px 10px", flex: 1 }}
+            placeholder="https://git.example.com/plugins.git"
+            value={source.url ?? ""}
+            onChange={(e) => setField("url", e.target.value)}
+          />
+        </div>
+      )}
+
+      {srcType === "directory" && (
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", width: 60, flexShrink: 0 }}>path</span>
+          <input
+            className="input"
+            style={{ fontSize: F.body, padding: "6px 10px", flex: 1 }}
+            placeholder="/path/to/plugins"
+            value={source.path ?? ""}
+            onChange={(e) => setField("path", e.target.value)}
+          />
+        </div>
+      )}
+
+      {srcType === "settings" && (
+        <>
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            <span style={{ fontSize: F.hint, color: "var(--text-secondary)", width: 60, flexShrink: 0 }}>name</span>
+            <input
+              className="input"
+              style={{ fontSize: F.body, padding: "6px 10px", flex: 1 }}
+              placeholder="marketplace name"
+              value={source.name ?? ""}
+              onChange={(e) => setField("name", e.target.value)}
+            />
+          </div>
+          {/* Inline plugins list for settings source */}
+          {(source.plugins as Array<Record<string, any>> | undefined)?.map((plug, pi) => (
+            <div key={pi} style={{ display: "flex", gap: 6, alignItems: "center", paddingLeft: 8 }}>
+              <input
+                className="input"
+                style={{ fontSize: F.hint, padding: "4px 8px", width: 120 }}
+                placeholder="plugin-name"
+                value={plug.name ?? ""}
+                onChange={(e) => {
+                  const plugs = [...(source.plugins ?? [])];
+                  plugs[pi] = { ...plug, name: e.target.value };
+                  onChange({ ...source, plugins: plugs });
+                }}
+              />
+              <MarketplaceSourceEditor
+                source={plug.source ?? { source: "github" }}
+                onChange={(s) => {
+                  const plugs = [...(source.plugins ?? [])];
+                  plugs[pi] = { ...plug, source: s };
+                  onChange({ ...source, plugins: plugs });
+                }}
+              />
+              <button type="button" onClick={() => {
+                const plugs = (source.plugins ?? []).filter((_: any, j: number) => j !== pi);
+                onChange({ ...source, plugins: plugs.length > 0 ? plugs : undefined });
+              }} style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
+              }}>✕</button>
+            </div>
+          ))}
+          <button type="button" className="btn btn-ghost" style={{ fontSize: F.small, padding: "4px 10px", alignSelf: "flex-start", marginLeft: 8 }}
+            onClick={() => {
+              const plugs = [...(source.plugins ?? []), { name: "", source: { source: "github" } }];
+              onChange({ ...source, plugins: plugs });
+            }}>+ 添加插件</button>
+        </>
+      )}
+
+      {/* Common optional: ref, skipLfs for git/github */}
+      {(srcType === "github" || srcType === "git") && (
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <span style={{ fontSize: F.hint, color: "var(--text-secondary)", width: 60, flexShrink: 0 }}>ref</span>
+          <input
+            className="input"
+            style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
+            placeholder="branch/tag/sha (optional)"
+            value={source.ref ?? ""}
+            onChange={(e) => setField("ref", e.target.value)}
+          />
+        </div>
+      )}
+
+      {/* autoUpdate toggle */}
+      <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+        <span style={{ fontSize: F.hint, color: "var(--text-secondary)", width: 60, flexShrink: 0 }}>auto</span>
+        <Toggle active={!!source.autoUpdate} onChange={(v) => setField("autoUpdate", v)} />
+        <Hint>启动时自动刷新</Hint>
+      </div>
+    </div>
+  );
+}
+
+/** Main plugins structured editor */
+function PluginsEditor({
+  config,
+  updateField,
+}: {
+  config: Record<string, any>;
+  updateField: (field: string, value: any) => void;
+}) {
+  const enabledPlugins = (config.enabledPlugins ?? {}) as Record<string, boolean>;
+  const extraMarketplaces = (config.extraKnownMarketplaces ?? {}) as Record<string, any>;
+  const skillOverrides = (config.skillOverrides ?? {}) as Record<string, string>;
+
+  // ── Enabled Plugins ──
+  const [newPluginKey, setNewPluginKey] = useState("");
+  const pluginEntries = Object.entries(enabledPlugins);
+
+  const setPluginEnabled = (key: string, val: boolean) => {
+    const next = { ...enabledPlugins, [key]: val };
+    updateField("enabledPlugins", next);
+  };
+  const addPlugin = () => {
+    const k = newPluginKey.trim();
+    if (!k) return;
+    setPluginEnabled(k, true);
+    setNewPluginKey("");
+  };
+  const removePlugin = (key: string) => {
+    const next = { ...enabledPlugins };
+    delete next[key];
+    updateField("enabledPlugins", Object.keys(next).length > 0 ? next : undefined);
+  };
+
+  // ── Extra Marketplaces ──
+  const [newMktName, setNewMktName] = useState("");
+  const mktEntries = Object.entries(extraMarketplaces);
+
+  const addMarketplace = () => {
+    const name = newMktName.trim();
+    if (!name) return;
+    const next = { ...extraMarketplaces, [name]: { source: { source: "github" } } };
+    updateField("extraKnownMarketplaces", next);
+    setNewMktName("");
+  };
+  const updateMarketplace = (name: string, val: any) => {
+    const next = { ...extraMarketplaces, [name]: val };
+    updateField("extraKnownMarketplaces", next);
+  };
+  const removeMarketplace = (name: string) => {
+    const next = { ...extraMarketplaces };
+    delete next[name];
+    updateField("extraKnownMarketplaces", Object.keys(next).length > 0 ? next : undefined);
+  };
+
+  // ── Skill Overrides ──
+  const [newSkillName, setNewSkillName] = useState("");
+  const skillEntries = Object.entries(skillOverrides);
+
+  const setSkillOverride = (name: string, mode: string) => {
+    const next = { ...skillOverrides, [name]: mode };
+    updateField("skillOverrides", next);
+  };
+  const addSkillOverride = () => {
+    const name = newSkillName.trim();
+    if (!name) return;
+    setSkillOverride(name, "on");
+    setNewSkillName("");
+  };
+  const removeSkillOverride = (name: string) => {
+    const next = { ...skillOverrides };
+    delete next[name];
+    updateField("skillOverrides", Object.keys(next).length > 0 ? next : undefined);
+  };
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: S.sectionGap }}>
+      {/* ── Enabled Plugins ── */}
+      <div>
+        <SubHeading>
+          <SvgIcon d={ICON_PATHS.plugins} size={14} style={{ opacity: 0.6 }} />
+          Enabled Plugins
+        </SubHeading>
+        <Hint>格式: plugin-name@marketplace → 启用/禁用</Hint>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
+          {pluginEntries.map(([key, val]) => (
+            <div key={key} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <code style={{
+                flex: 1, fontSize: F.hint, padding: "6px 10px",
+                background: "var(--bg-glass)", borderRadius: "var(--radius-sm)",
+                color: "var(--text-primary)", fontFamily: "monospace",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
+                {key}
+              </code>
+              <Toggle active={val} onChange={(v) => setPluginEnabled(key, v)} />
+              <button type="button" onClick={() => removePlugin(key)} style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
+              }}>✕</button>
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
+            <input
+              className="input"
+              style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
+              placeholder="plugin-name@marketplace"
+              value={newPluginKey}
+              onChange={(e) => setNewPluginKey(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addPlugin()}
+            />
+            <button type="button" className="btn btn-ghost" style={{ fontSize: F.small, padding: "4px 12px" }}
+              onClick={addPlugin}>+</button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Extra Marketplaces ── */}
+      <div>
+        <SubHeading>
+          <SvgIcon d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2Z" size={14} style={{ opacity: 0.6 }} />
+          Extra Marketplaces
+        </SubHeading>
+        <Hint>命名市场源定义（github / git / directory / settings）</Hint>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
+          {mktEntries.map(([name, mktConfig]) => (
+            <div key={name} style={{
+              padding: "10px 12px", background: "var(--bg-glass)",
+              borderRadius: "var(--radius-md)", display: "flex", flexDirection: "column", gap: 6,
+            }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{
+                  fontSize: F.body, fontWeight: 600, color: "var(--accent)",
+                  fontFamily: "monospace",
+                }}>{name}</span>
+                <div style={{ flex: 1 }} />
+                <button type="button" onClick={() => removeMarketplace(name)} style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
+                }}>✕</button>
+              </div>
+              <MarketplaceSourceEditor
+                source={mktConfig.source ?? { source: "github" }}
+                onChange={(s) => updateMarketplace(name, { ...mktConfig, source: s })}
+              />
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
+            <input
+              className="input"
+              style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
+              placeholder="marketplace-name"
+              value={newMktName}
+              onChange={(e) => setNewMktName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addMarketplace()}
+            />
+            <button type="button" className="btn btn-ghost" style={{ fontSize: F.small, padding: "4px 12px" }}
+              onClick={addMarketplace}>+</button>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Skill Overrides ── */}
+      <div>
+        <SubHeading>
+          <SvgIcon d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" size={14} style={{ opacity: 0.6 }} />
+          Skill Overrides
+        </SubHeading>
+        <Hint>按 skill 名称覆盖可见性 (on / name-only / user-invocable-only / off)</Hint>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
+          {skillEntries.map(([name, mode]) => (
+            <div key={name} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <code style={{
+                flex: 1, fontSize: F.hint, padding: "6px 10px",
+                background: "var(--bg-glass)", borderRadius: "var(--radius-sm)",
+                color: "var(--text-primary)", fontFamily: "monospace",
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>
+                {name}
+              </code>
+              <select
+                className="input"
+                style={{ fontSize: F.hint, padding: "6px 10px", width: 160 }}
+                value={mode}
+                onChange={(e) => setSkillOverride(name, e.target.value)}
+              >
+                {SKILL_OVERRIDE_MODES.map((m) => (
+                  <option key={m} value={m}>{m}</option>
+                ))}
+              </select>
+              <button type="button" onClick={() => removeSkillOverride(name)} style={{
+                background: "none", border: "none", cursor: "pointer",
+                color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
+              }}>✕</button>
+            </div>
+          ))}
+          <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
+            <input
+              className="input"
+              style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
+              placeholder="skill-name"
+              value={newSkillName}
+              onChange={(e) => setNewSkillName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && addSkillOverride()}
+            />
+            <button type="button" className="btn btn-ghost" style={{ fontSize: F.small, padding: "4px 12px" }}
+              onClick={addSkillOverride}>+</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Plugins with Section wrapper — for card-based layout */
+function PluginsSection({
+  config,
+  updateField,
+  t,
+}: {
+  config: Record<string, any>;
+  updateField: (field: string, value: any) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  return (
+    <Section title={t("settings.sectionPlugins")} defaultOpen>
+      <PluginsEditor config={config} updateField={updateField} />
+    </Section>
+  );
+}
+
+/** Plugins without Section wrapper — for tab content pane */
+function PluginsSectionInline({ config, updateField }: {
+  config: Record<string, any>;
+  updateField: (field: string, value: any) => void;
+}) {
+  return <PluginsEditor config={config} updateField={updateField} />;
+}
+
 // ─── Hooks Section (friendly editor) ────────────────────────
 
 const HOOK_EVENTS: { id: string; label: string; desc: string; hasMatcher: boolean; matcherOptions: string[]; matcherFreeform: boolean }[] = [
@@ -2467,6 +2857,16 @@ export function Settings() {
       );
     }
 
+    if (section.id === "plugins") {
+      return (
+        <PluginsSection
+          config={config}
+          updateField={updateField}
+          t={t}
+        />
+      );
+    }
+
     if (section.id === "hooks") {
       return (
         <HooksSection
@@ -2671,6 +3071,18 @@ export function Settings() {
                     {heading}
                     <SandboxSectionInline
                       sandboxValue={config.sandbox as Record<string, any> | undefined}
+                      updateField={updateField}
+                    />
+                  </div>
+                );
+              }
+
+              if (section.id === "plugins") {
+                return (
+                  <div>
+                    {heading}
+                    <PluginsSectionInline
+                      config={config}
                       updateField={updateField}
                     />
                   </div>
