@@ -107,6 +107,66 @@ fn group_detail_list(db: State<'_, Db>) -> Result<Vec<GroupDetail>, String> {
     db::list_group_details(&db)
 }
 
+// ─── Proxy Commands ────────────────────────────────────────
+
+use std::sync::Mutex as StdMutex;
+use tokio::task::JoinHandle;
+
+/// 代理服务器状态
+struct ProxyHandle(StdMutex<Option<JoinHandle<()>>>);
+
+#[tauri::command]
+async fn proxy_start(
+    port: u16,
+    app: tauri::AppHandle,
+) -> Result<String, String> {
+    // 检查是否已运行
+    let handle = app.state::<ProxyHandle>();
+    {
+        let h = handle.0.lock().map_err(|e| e.to_string())?;
+        if h.is_some() {
+            return Err("proxy already running".to_string());
+        }
+    }
+
+    // 获取 DB 的路径并克隆一份连接
+    let db_path = {
+        let app_dir = app
+            .path()
+            .app_data_dir()
+            .map_err(|e| e.to_string())?;
+        app_dir.join("aidog.db")
+    };
+    let proxy_db = Db::new(db_path.to_str().unwrap_or(""))?;
+    let proxy_db = std::sync::Mutex::new(proxy_db);
+
+    let proxy_handle = gateway::proxy::start_proxy(proxy_db, port).await?;
+
+    {
+        let mut h = handle.0.lock().map_err(|e| e.to_string())?;
+        *h = Some(proxy_handle);
+    }
+
+    Ok(format!("proxy started on port {}", port))
+}
+
+#[tauri::command]
+async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
+    let handle = app.state::<ProxyHandle>();
+    let mut h = handle.0.lock().map_err(|e| e.to_string())?;
+    if let Some(jh) = h.take() {
+        jh.abort();
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn proxy_status(app: tauri::AppHandle) -> Result<bool, String> {
+    let handle = app.state::<ProxyHandle>();
+    let h = handle.0.lock().map_err(|e| e.to_string())?;
+    Ok(h.is_some())
+}
+
 // ─── App Entry ─────────────────────────────────────────────
 
 use tauri::Manager;
@@ -128,6 +188,7 @@ pub fn run() {
             let db = Db::new(db_path.to_str().unwrap()).expect("failed to open database");
             db.init_tables().expect("failed to init tables");
             app.manage(db);
+            app.manage(ProxyHandle(StdMutex::new(None)));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -154,6 +215,10 @@ pub fn run() {
             // Aggregate
             group_detail,
             group_detail_list,
+            // Proxy
+            proxy_start,
+            proxy_stop,
+            proxy_status,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
