@@ -695,7 +695,6 @@ pub fn run() {
             let db_path = aidog_data_dir().expect("failed to resolve data dir").join("aidog.db");
             let db = Db::new(db_path.to_str().unwrap()).expect("failed to open database");
             db.init_tables().expect("failed to init tables");
-            db.run_migrations().expect("failed to run migrations");
             db.fix_group_names();
             app.manage(db);
             app.manage(ProxyHandle(StdMutex::new(None)));

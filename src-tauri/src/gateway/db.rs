@@ -40,26 +40,6 @@ impl Db {
         Ok(())
     }
 
-    /// 运行增量迁移（忽略 "duplicate column" 错误以兼容已有数据库）
-    pub fn run_migrations(&self) -> Result<(), String> {
-        let migrations = [
-            include_str!("../../migrations/002_add_platform_models.sql"),
-            include_str!("../../migrations/003_add_platform_available_models.sql"),
-            include_str!("../../migrations/004_add_settings.sql"),
-            include_str!("../../migrations/005_add_group_auto_from_platform.sql"),
-        ];
-        let conn = self.0.lock().map_err(|e| e.to_string())?;
-        for sql in &migrations {
-            if let Err(e) = conn.execute_batch(sql) {
-                let msg = e.to_string();
-                if !msg.contains("duplicate column name") {
-                    return Err(format!("migration failed: {msg}"));
-                }
-            }
-        }
-        Ok(())
-    }
-
     /// One-time fix: normalize all group names to slug format
     pub fn fix_group_names(&self) {
         let conn = match self.0.lock() {
