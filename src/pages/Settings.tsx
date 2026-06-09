@@ -3333,7 +3333,8 @@ export function Settings() {
           >
             {SECTIONS.map((section) => {
               const visibleFields = section.fields.filter((f) => !f.skipGui);
-              if (visibleFields.length === 0 && section.id !== "hooks") return null;
+              const alwaysShow = ["hooks", "plugins", "sandbox", "permissions", "env"].includes(section.id);
+              if (visibleFields.length === 0 && !alwaysShow) return null;
               const isActive = activeTab === section.id;
               return (
                 <button
