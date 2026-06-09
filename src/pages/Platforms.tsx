@@ -98,6 +98,7 @@ export function Platforms() {
     default: "", sonnet: "", opus: "", haiku: "", gpt: "",
   });
   const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [activeDropdown, setActiveDropdown] = useState<ModelSlot | null>(null);
 
   const handleProtocolChange = (newProtocol: Protocol) => {
     const oldDefault = DEFAULT_BASE_URLS[protocol];
@@ -309,32 +310,75 @@ export function Platforms() {
                 <div style={{ position: "relative", flex: 1 }}>
                   <input
                     className="input"
-                    style={{ width: "100%" }}
+                    style={{ width: "100%", paddingRight: availableModels.length > 0 ? 28 : undefined }}
                     placeholder={t(labelKey)}
                     value={models[key]}
                     onChange={(e) => handleModelChange(key, e.target.value)}
-                    list={availableModels.length > 0 ? `model-list-${key}` : undefined}
                   />
                   {availableModels.length > 0 && (
-                    <datalist id={`model-list-${key}`}>
-                      {availableModels.map((m) => <option key={m} value={m} />)}
-                    </datalist>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-icon"
+                      style={{
+                        position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
+                        width: 24, height: 24, minWidth: 24, padding: 0,
+                        color: "var(--text-tertiary)", cursor: "pointer",
+                      }}
+                      onClick={() => setActiveDropdown(activeDropdown === key ? null : key)}
+                      title={t("platform.selectModel")}
+                    >
+                      ▾
+                    </button>
+                  )}
+                  {/* 自定义下拉列表 — 主题化 */}
+                  {activeDropdown === key && availableModels.length > 0 && (
+                    <>
+                      <div
+                        style={{ position: "fixed", inset: 0, zIndex: 99 }}
+                        onClick={() => setActiveDropdown(null)}
+                      />
+                      <div
+                        className="glass-elevated"
+                        style={{
+                          position: "absolute",
+                          top: "100%",
+                          left: 0,
+                          right: 0,
+                          marginTop: 4,
+                          maxHeight: 200,
+                          overflowY: "auto",
+                          zIndex: 100,
+                          padding: 4,
+                          animation: "fadeIn 150ms ease both",
+                        }}
+                      >
+                        {availableModels.map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            className="btn btn-ghost"
+                            style={{
+                              width: "100%",
+                              justifyContent: "flex-start",
+                              padding: "6px 10px",
+                              fontSize: 12,
+                              fontWeight: models[key] === m ? 600 : 400,
+                              color: models[key] === m ? "var(--accent)" : "var(--text-primary)",
+                              background: models[key] === m ? "var(--accent-subtle)" : "transparent",
+                              borderRadius: "var(--radius-sm)",
+                            }}
+                            onClick={() => {
+                              handleModelSelect(key, m);
+                              setActiveDropdown(null);
+                            }}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                    </>
                   )}
                 </div>
-                {availableModels.length > 0 && (
-                  <select
-                    className="input"
-                    style={{ width: 32, minWidth: 32, padding: "0 4px", fontSize: 11,
-                      cursor: "pointer", color: "var(--text-secondary)",
-                    }}
-                    value=""
-                    onChange={(e) => { if (e.target.value) handleModelSelect(key, e.target.value); }}
-                    title={t("platform.selectModel")}
-                  >
-                    <option value="">▾</option>
-                    {availableModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                  </select>
-                )}
               </div>
             ))}
           </div>
