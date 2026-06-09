@@ -10,6 +10,8 @@
   "lang.label": "Sprache",
   "lang.ru-RU": "Русский",
   "lang.zh-CN": "简体中文",
+  "nav.home": "Startseite",
+  "nav.settings": "Einstellungen",
   "theme.catppuccin": "Catppuccin",
   "theme.dark": "Dunkel",
   "theme.dracula": "Dracula",
