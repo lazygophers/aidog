@@ -2128,27 +2128,12 @@ export function Settings() {
 
     if (section.id === "env") {
       return (
-        <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
-          <div style={{ display: "flex", alignItems: "flex-start", gap: 16 }}>
-            <label style={{
-              flexShrink: 0, width: 200, fontSize: F.label, fontWeight: 500,
-              color: "var(--text-primary)", lineHeight: 1.5, paddingTop: 10,
-            }}>
-              {t("settings.f_env", "Environment Variables")}
-              <span style={{ display: "block", fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400, marginTop: 3, fontFamily: '"SF Mono", "Fira Code", monospace' }}>
-                env
-              </span>
-            </label>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <KvEditor
-                items={(config.env ?? {}) as Record<string, string>}
-                onChange={(newEnv) =>
-                  updateField("env", Object.keys(newEnv).length > 0 ? newEnv : undefined)
-                }
-              />
-            </div>
-          </div>
-        </div>
+        <KvEditor
+          items={(config.env ?? {}) as Record<string, string>}
+          onChange={(newEnv) =>
+            updateField("env", Object.keys(newEnv).length > 0 ? newEnv : undefined)
+          }
+        />
       );
     }
 
