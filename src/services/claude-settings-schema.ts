@@ -158,7 +158,7 @@ export const SECTIONS: SettingSection[] = [
     labelKey: "settings.sectionAdvanced",
     fields: [
       { key: "attribution", label: "Attribution", type: "json", description: "commit / pr 署名字段", skipGui: true },
-      { key: "companyAnnouncements", label: "Company Announcements", type: "json" },
+      { key: "companyAnnouncements", label: "Company Announcements", type: "string[]", description: "公司公告列表" },
       { key: "maxSkillDescriptionChars", label: "Max Skill Description", type: "string", placeholder: "1536" },
       { key: "skillListingBudgetFraction", label: "Skill Listing Budget", type: "string", placeholder: "0.01" },
       { key: "preferredNotifChannel", label: "Notification Channel", type: "select", options: ["auto", "terminal_bell", "iterm2", "iterm2_with_bell", "kitty", "ghostty", "notifications_disabled"] },
