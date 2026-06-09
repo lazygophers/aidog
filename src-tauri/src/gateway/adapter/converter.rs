@@ -26,6 +26,21 @@ pub fn convert_request(req: &ChatRequest, protocol: &Protocol) -> (Value, String
             let json = serde_json::to_value(&kimi_req).unwrap();
             (json, "/v1/chat/completions".to_string())
         }
+        Protocol::MiniMax => {
+            let minimax_req = super::minimax::to_minimax(req);
+            let json = serde_json::to_value(&minimax_req).unwrap();
+            (json, "/v1/text/chatcompletion_v2".to_string())
+        }
+        Protocol::Codex => {
+            let codex_req = super::codex::to_codex(req);
+            let json = serde_json::to_value(&codex_req).unwrap();
+            (json, "/v1/chat/completions".to_string())
+        }
+        Protocol::ClaudeCode => {
+            let claude_req = super::claude_code::to_claude_code(req);
+            let json = serde_json::to_value(&claude_req).unwrap();
+            (json, "/v1/messages".to_string())
+        }
     }
 }
 
@@ -36,6 +51,9 @@ pub fn parse_sse(data: &Value, protocol: &Protocol) -> Option<ChatStreamEvent> {
         Protocol::OpenAI => super::openai::parse_openai_sse(data),
         Protocol::GLM => super::glm::parse_glm_sse(data),
         Protocol::Kimi => super::kimi::parse_kimi_sse(data),
+        Protocol::MiniMax => super::minimax::parse_minimax_sse(data),
+        Protocol::Codex => super::codex::parse_codex_sse(data),
+        Protocol::ClaudeCode => super::claude_code::parse_claude_code_sse(data),
     }
 }
 

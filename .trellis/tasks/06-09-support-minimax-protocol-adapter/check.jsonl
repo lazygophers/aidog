@@ -1,0 +1,9 @@
+{"step":1,"check":"build","desc":"cargo build 通过，无编译错误"}
+{"step":2,"check":"grep","path":"src-tauri/src/gateway/models.rs","pattern":"MiniMax|Codex|ClaudeCode","expect":"3 个变体均存在"}
+{"step":3,"check":"file_exists","path":"src-tauri/src/gateway/adapter/minimax.rs","desc":"MiniMax 适配器文件存在"}
+{"step":4,"check":"file_exists","path":"src-tauri/src/gateway/adapter/codex.rs","desc":"Codex 适配器文件存在"}
+{"step":5,"check":"file_exists","path":"src-tauri/src/gateway/adapter/claude_code.rs","desc":"Claude Code 适配器文件存在"}
+{"step":6,"check":"grep","path":"src-tauri/src/gateway/adapter/converter.rs","pattern":"Protocol::MiniMax|Protocol::Codex|Protocol::ClaudeCode","expect":"3 个 match 分支均存在"}
+{"step":7,"check":"grep","path":"src/services/api.ts","pattern":"minimax|codex|claude_code","expect":"Protocol type 含 3 个新值"}
+{"step":8,"check":"grep","path":"src/pages/Platforms.tsx","pattern":"DEFAULT_BASE_URLS","expect":"默认 base_url 常量存在"}
+{"step":9,"check":"grep","path":"src/locales/zh-CN.json","pattern":"protocol\\.minimax","expect":"中文 locale 含 minimax key"}

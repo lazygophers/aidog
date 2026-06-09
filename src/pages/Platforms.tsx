@@ -4,10 +4,23 @@ import { platformApi, type Platform, type Protocol } from "../services/api";
 
 const PROTOCOLS: { value: Protocol; label: string }[] = [
   { value: "anthropic", label: "Anthropic" },
+  { value: "claude_code", label: "Claude Code" },
   { value: "openai", label: "OpenAI" },
+  { value: "codex", label: "Codex" },
   { value: "glm", label: "GLM" },
   { value: "kimi", label: "Kimi" },
+  { value: "minimax", label: "MiniMax" },
 ];
+
+const DEFAULT_BASE_URLS: Partial<Record<Protocol, string>> = {
+  glm: "https://open.bigmodel.cn/api/paas/v4",
+  kimi: "https://api.moonshot.cn/v1",
+  minimax: "https://api.minimaxi.com/v1",
+  codex: "https://api.openai.com/v1",
+  claude_code: "https://api.anthropic.com",
+};
+
+const ALL_DEFAULT_URLS = new Set(Object.values(DEFAULT_BASE_URLS));
 
 export function Platforms() {
   const { t } = useTranslation();
@@ -19,6 +32,16 @@ export function Platforms() {
   // Form state
   const [name, setName] = useState("");
   const [protocol, setProtocol] = useState<Protocol>("openai");
+
+  const handleProtocolChange = (newProtocol: Protocol) => {
+    const oldDefault = DEFAULT_BASE_URLS[protocol];
+    const newDefault = DEFAULT_BASE_URLS[newProtocol];
+    // 仅当 base_url 为空或等于旧默认值时才自动填充
+    if (!baseUrl || (oldDefault && baseUrl === oldDefault) || ALL_DEFAULT_URLS.has(baseUrl)) {
+      setBaseUrl(newDefault || "");
+    }
+    setProtocol(newProtocol);
+  };
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
 
@@ -85,7 +108,7 @@ export function Platforms() {
         <div className="glass-surface" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
           <input className="input" placeholder={t("platform.name")} value={name}
             onChange={(e) => setName(e.target.value)} />
-          <select className="input" value={protocol} onChange={(e) => setProtocol(e.target.value as Protocol)}>
+          <select className="input" value={protocol} onChange={(e) => handleProtocolChange(e.target.value as Protocol)}>
             {PROTOCOLS.map((p) => (
               <option key={p.value} value={p.value}>{p.label}</option>
             ))}

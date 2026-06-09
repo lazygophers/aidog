@@ -9,6 +9,10 @@ pub enum Protocol {
     #[allow(clippy::upper_case_acronyms)]
     GLM,
     Kimi,
+    MiniMax,
+    Codex,
+    #[serde(rename = "claude_code")]
+    ClaudeCode,
 }
 
 /// 路由模式

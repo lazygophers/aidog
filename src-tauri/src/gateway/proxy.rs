@@ -108,7 +108,10 @@ async fn handle_proxy(
         .body(serde_json::to_string(&req_body).unwrap_or_default());
 
     // Anthropic 协议需要额外 header
-    if matches!(route.platform.protocol, super::models::Protocol::Anthropic) {
+    if matches!(
+        route.platform.protocol,
+        super::models::Protocol::Anthropic | super::models::Protocol::ClaudeCode
+    ) {
         req_builder = req_builder
             .header("anthropic-version", "2023-06-01")
             .header("x-api-key", &route.platform.api_key);

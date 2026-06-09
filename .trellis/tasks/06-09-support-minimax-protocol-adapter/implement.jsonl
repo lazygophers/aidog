@@ -1,0 +1,16 @@
+{"step":1,"action":"edit","path":"src-tauri/src/gateway/models.rs","desc":"Protocol enum 新增 MiniMax / Codex / ClaudeCode 变体"}
+{"step":2,"action":"create","path":"src-tauri/src/gateway/adapter/minimax.rs","desc":"MiniMax 适配器 — 复用 OpenAI 转换 + SSE，endpoint /v1/text/chatcompletion_v2"}
+{"step":3,"action":"create","path":"src-tauri/src/gateway/adapter/codex.rs","desc":"Codex 适配器 — 复用 OpenAI 转换 + SSE，endpoint /v1/chat/completions"}
+{"step":4,"action":"create","path":"src-tauri/src/gateway/adapter/claude_code.rs","desc":"Claude Code 适配器 — 复用 Anthropic 转换 + SSE，endpoint /v1/messages"}
+{"step":5,"action":"edit","path":"src-tauri/src/gateway/adapter/converter.rs","desc":"convert_request + parse_sse 新增 MiniMax / Codex / ClaudeCode match 分支"}
+{"step":6,"action":"edit","path":"src-tauri/src/gateway/adapter/mod.rs","desc":"pub mod minimax / codex / claude_code"}
+{"step":7,"action":"edit","path":"src-tauri/src/gateway/proxy.rs","desc":"ClaudeCode variant 加 anthropic-version + x-api-key header（同 Anthropic 逻辑）"}
+{"step":8,"action":"edit","path":"src/services/api.ts","desc":"Protocol type 新增 minimax | codex | claude_code"}
+{"step":9,"action":"edit","path":"src/pages/Platforms.tsx","desc":"PROTOCOLS 数组新增 3 项 + DEFAULT_BASE_URLS 常量 + onChange auto-fill"}
+{"step":10,"action":"edit","path":"src/locales/zh-CN.json","desc":"新增 protocol.minimax / protocol.codex / protocol.claude_code"}
+{"step":11,"action":"edit","path":"src/locales/en-US.json","desc":"新增 3 个 protocol key"}
+{"step":12,"action":"edit","path":"src/locales/ar-SA.json","desc":"新增 3 个 protocol key"}
+{"step":13,"action":"edit","path":"src/locales/fr-FR.json","desc":"新增 3 个 protocol key"}
+{"step":14,"action":"edit","path":"src/locales/de-DE.json","desc":"新增 3 个 protocol key"}
+{"step":15,"action":"edit","path":"src/locales/ru-RU.json","desc":"新增 3 个 protocol key"}
+{"step":16,"action":"edit","path":"src/locales/ja-JP.json","desc":"新增 3 个 protocol key"}
