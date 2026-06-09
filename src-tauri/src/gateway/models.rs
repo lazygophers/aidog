@@ -2,14 +2,18 @@ use serde::{Deserialize, Serialize};
 
 /// 支持的 AI 协议类型
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
 pub enum Protocol {
+    #[serde(rename = "anthropic")]
     Anthropic,
+    #[serde(rename = "openai")]
     OpenAI,
-    #[allow(clippy::upper_case_acronyms)]
+    #[serde(rename = "glm")]
     GLM,
+    #[serde(rename = "kimi")]
     Kimi,
+    #[serde(rename = "minimax")]
     MiniMax,
+    #[serde(rename = "codex")]
     Codex,
     #[serde(rename = "claude_code")]
     ClaudeCode,
@@ -17,9 +21,10 @@ pub enum Protocol {
 
 /// 路由模式
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-#[serde(rename_all = "snake_case")]
 pub enum RoutingMode {
+    #[serde(rename = "load_balance")]
     LoadBalance,
+    #[serde(rename = "failover")]
     Failover,
 }
 
