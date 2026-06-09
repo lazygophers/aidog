@@ -28,6 +28,7 @@
   "nav.platforms": "AI Platforms",
   "nav.proxy": "Proxy",
   "nav.settings": "Settings",
+  "nav.claudeConfig": "Claude Code",
   "page.groups": "Groups & Routing",
   "page.platforms": "AI Platform Management",
   "page.proxy": "Proxy Console",
@@ -95,5 +96,8 @@
   "settings.customized": "Customized",
   "settings.reset": "Reset",
   "settings.otherSettings": "Other Settings",
-  "settings.editInJson": "Edit in JSON mode"
+  "settings.editInJson": "Edit in JSON mode",
+  "settings.claudeCodeConfig": "Claude Code Config",
+  "settings.platformConfigHint": "Edit JSON config. Fields different from global will be saved as overrides.",
+  "settings.allAligned": "All settings aligned with global"
 }

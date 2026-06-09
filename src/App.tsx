@@ -9,7 +9,7 @@ const NAV_ITEMS: NavItem[] = [
   { id: "proxy", icon: "proxy", labelKey: "nav.proxy" },
   { id: "platforms", icon: "platforms", labelKey: "nav.platforms" },
   { id: "groups", icon: "groups", labelKey: "nav.groups" },
-  { id: "settings", icon: "settings", labelKey: "nav.settings" },
+  { id: "settings", icon: "settings", labelKey: "nav.claudeConfig" },
 ];
 
 function App() {

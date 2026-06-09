@@ -28,6 +28,7 @@
   "nav.platforms": "منصات الذكاء",
   "nav.proxy": "الوكيل",
   "nav.settings": "الإعدادات",
+  "nav.claudeConfig": "Claude Code",
   "page.groups": "المجموعات والتوجيه",
   "page.platforms": "إدارة المنصات",
   "page.proxy": "لوحة الوكيل",
@@ -95,5 +96,8 @@
   "settings.customized": "مخصص",
   "settings.reset": "إعادة تعيين",
   "settings.otherSettings": "إعدادات أخرى",
-  "settings.editInJson": "تحرير في وضع JSON"
+  "settings.editInJson": "تحرير في وضع JSON",
+  "settings.claudeCodeConfig": "إعدادات Claude Code",
+  "settings.platformConfigHint": "تحرير JSON. الحقول المختلفة عن العالمي ستُحفظ كتجاوزات.",
+  "settings.allAligned": "جميع الإعدادات متوافقة مع العالمية"
 }

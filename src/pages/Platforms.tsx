@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, type Platform, type Protocol, type ModelSlot } from "../services/api";
+import { platformApi, settingsApi, type Platform, type Protocol, type ModelSlot } from "../services/api";
 
 const PROTOCOLS: { value: Protocol; label: string }[] = [
   { value: "anthropic", label: "Anthropic" },
@@ -99,6 +99,9 @@ export function Platforms() {
   });
   const [availableModels, setAvailableModels] = useState<string[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<ModelSlot | null>(null);
+  const [showClaudeConfig, setShowClaudeConfig] = useState(false);
+  const [claudeConfigJson, setClaudeConfigJson] = useState("");
+  const [globalClaudeConfig, setGlobalClaudeConfig] = useState<Record<string, any>>({});
 
   const handleProtocolChange = (newProtocol: Protocol) => {
     const oldDefault = DEFAULT_BASE_URLS[protocol];
@@ -125,9 +128,10 @@ export function Platforms() {
     setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "" });
     setAvailableModels([]);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
+    setShowClaudeConfig(false); setClaudeConfigJson("");
   };
 
-  const handleEdit = (p: Platform) => {
+  const handleEdit = async (p: Platform) => {
     setName(p.name); setProtocol(p.protocol); setBaseUrl(p.base_url); setApiKey(p.api_key);
     setModels({
       default: p.models.default ?? "",
@@ -138,6 +142,19 @@ export function Platforms() {
     });
     setAvailableModels(p.available_models ?? []);
     setEditing(p); setShowForm(true); setFetchError(""); setSaveError("");
+    setShowClaudeConfig(false); setClaudeConfigJson("");
+
+    // Load global + platform Claude Code config
+    try {
+      const [globalResult, platformResult] = await Promise.all([
+        settingsApi.get("global", "claude_code"),
+        settingsApi.get(`platform:${p.id}`, "claude_code"),
+      ]);
+      const gv = (globalResult as Record<string, any>) ?? {};
+      const pv = (platformResult as Record<string, any>) ?? {};
+      setGlobalClaudeConfig(gv);
+      setClaudeConfigJson(JSON.stringify({ ...gv, ...pv }, null, 2));
+    } catch (e) { console.error(e); }
   };
 
   const handleModelChange = (slot: ModelSlot, value: string) => {
@@ -199,17 +216,39 @@ export function Platforms() {
     try {
       const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
       const availablePayload = availableModels.length > 0 ? availableModels : undefined;
+      let savedId: string | undefined;
       if (editing) {
         await platformApi.update({
           id: editing.id, name, protocol, base_url: baseUrl, api_key: apiKey,
           models: modelsPayload, available_models: availablePayload,
         });
+        savedId = editing.id;
       } else {
-        await platformApi.create({
+        const created = await platformApi.create({
           name, protocol, base_url: baseUrl, api_key: apiKey,
           models: modelsPayload, available_models: availablePayload,
         });
+        savedId = created.id;
       }
+
+      // Save Claude Code config overrides for this platform
+      if (savedId && showClaudeConfig && claudeConfigJson.trim()) {
+        try {
+          const merged = JSON.parse(claudeConfigJson);
+          const diff: Record<string, any> = {};
+          for (const [k, v] of Object.entries(merged)) {
+            if (JSON.stringify(v) !== JSON.stringify(globalClaudeConfig[k])) {
+              diff[k] = v;
+            }
+          }
+          if (Object.keys(diff).length > 0) {
+            await settingsApi.set(`platform:${savedId}`, "claude_code", diff);
+          } else {
+            await settingsApi.delete(`platform:${savedId}`, "claude_code");
+          }
+        } catch (e) { /* ignore JSON parse errors for config */ }
+      }
+
       resetForm(); load();
     } catch (e: any) {
       const msg = e?.toString() || "Unknown error";
@@ -382,6 +421,72 @@ export function Platforms() {
               </div>
             ))}
           </div>
+
+          {/* Claude Code Config */}
+          {editing && (
+            <div style={{
+              borderTop: "1px solid var(--border)",
+              paddingTop: 8,
+            }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{
+                  width: "100%",
+                  justifyContent: "space-between",
+                  fontSize: 12,
+                  padding: "6px 4px",
+                  color: "var(--text-secondary)",
+                }}
+                onClick={() => setShowClaudeConfig(!showClaudeConfig)}
+              >
+                <span style={{ fontWeight: 600 }}>{t("settings.claudeCodeConfig")}</span>
+                <span style={{ opacity: 0.5 }}>{showClaudeConfig ? "▾" : "▸"}</span>
+              </button>
+              {showClaudeConfig && (
+                <div className="animate-fade-in" style={{ marginTop: 6 }}>
+                  <textarea
+                    className="input"
+                    style={{
+                      fontFamily: '"SF Mono", "Fira Code", monospace',
+                      fontSize: 12,
+                      lineHeight: 1.6,
+                      minHeight: 180,
+                      resize: "vertical",
+                      whiteSpace: "pre",
+                    }}
+                    value={claudeConfigJson}
+                    onChange={(e) => setClaudeConfigJson(e.target.value)}
+                    spellCheck={false}
+                  />
+                  <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4, lineHeight: 1.5 }}>
+                    {t("settings.platformConfigHint")}
+                  </div>
+                  {(() => {
+                    try {
+                      const merged = JSON.parse(claudeConfigJson);
+                      const overridden = Object.keys(merged).filter(
+                        k => JSON.stringify(merged[k]) !== JSON.stringify(globalClaudeConfig[k]),
+                      );
+                      return overridden.length > 0 ? (
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
+                          {overridden.map(k => (
+                            <span key={k} className="badge badge-accent" style={{ fontSize: 10 }}>
+                              {k}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4 }}>
+                          {t("settings.allAligned")}
+                        </div>
+                      );
+                    } catch { return null; }
+                  })()}
+                </div>
+              )}
+            </div>
+          )}
 
           {saveError && (
             <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>

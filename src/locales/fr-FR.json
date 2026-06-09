@@ -28,6 +28,7 @@
   "nav.platforms": "Plateformes IA",
   "nav.proxy": "Proxy",
   "nav.settings": "Paramètres",
+  "nav.claudeConfig": "Claude Code",
   "page.groups": "Groupes et routage",
   "page.platforms": "Gestion des plateformes",
   "page.proxy": "Console Proxy",
@@ -95,5 +96,8 @@
   "settings.customized": "Personnalisé",
   "settings.reset": "Réinitialiser",
   "settings.otherSettings": "Autres paramètres",
-  "settings.editInJson": "Éditer en mode JSON"
+  "settings.editInJson": "Éditer en mode JSON",
+  "settings.claudeCodeConfig": "Config Claude Code",
+  "settings.platformConfigHint": "Modifier la config JSON. Les champs différents du global seront sauvegardés comme overrides.",
+  "settings.allAligned": "Tous alignés sur le global"
 }

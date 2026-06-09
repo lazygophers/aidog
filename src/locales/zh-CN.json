@@ -28,6 +28,7 @@
   "nav.platforms": "AI 平台",
   "nav.proxy": "代理服务",
   "nav.settings": "设置",
+  "nav.claudeConfig": "Claude Code",
   "page.groups": "分组与路由",
   "page.platforms": "AI 平台管理",
   "page.proxy": "代理服务控制台",
@@ -95,5 +96,8 @@
   "settings.customized": "已自定义",
   "settings.reset": "重置",
   "settings.otherSettings": "其他设置",
-  "settings.editInJson": "在 JSON 模式中编辑"
+  "settings.editInJson": "在 JSON 模式中编辑",
+  "settings.claudeCodeConfig": "Claude Code 配置",
+  "settings.platformConfigHint": "编辑 JSON 配置，与全局设置不同的字段将作为覆盖保存",
+  "settings.allAligned": "所有配置与全局设置对齐"
 }

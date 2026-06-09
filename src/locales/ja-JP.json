@@ -28,6 +28,7 @@
   "nav.platforms": "AIプラットフォーム",
   "nav.proxy": "プロキシ",
   "nav.settings": "設定",
+  "nav.claudeConfig": "Claude Code",
   "page.groups": "グループとルーティング",
   "page.platforms": "プラットフォーム管理",
   "page.proxy": "プロキシコンソール",
@@ -95,5 +96,8 @@
   "settings.customized": "カスタム",
   "settings.reset": "リセット",
   "settings.otherSettings": "その他の設定",
-  "settings.editInJson": "JSON モードで編集"
+  "settings.editInJson": "JSON モードで編集",
+  "settings.claudeCodeConfig": "Claude Code 設定",
+  "settings.platformConfigHint": "JSON設定を編集。グローバルと異なるフィールドが上書きとして保存されます",
+  "settings.allAligned": "すべてグローバル設定と同期"
 }

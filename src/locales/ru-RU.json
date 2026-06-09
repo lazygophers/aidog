@@ -28,6 +28,7 @@
   "nav.platforms": "ИИ-платформы",
   "nav.proxy": "Прокси",
   "nav.settings": "Настройки",
+  "nav.claudeConfig": "Claude Code",
   "page.groups": "Группы и маршрутизация",
   "page.platforms": "Управление платформами",
   "page.proxy": "Консоль прокси",
@@ -95,5 +96,8 @@
   "settings.customized": "Переопределено",
   "settings.reset": "Сбросить",
   "settings.otherSettings": "Другие настройки",
-  "settings.editInJson": "Редактировать в JSON-режиме"
+  "settings.editInJson": "Редактировать в JSON-режиме",
+  "settings.claudeCodeConfig": "Конфигурация Claude Code",
+  "settings.platformConfigHint": "Редактировать JSON. Поля, отличные от глобальных, будут сохранены как переопределения.",
+  "settings.allAligned": "Все настройки совпадают с глобальными"
 }

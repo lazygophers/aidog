@@ -28,6 +28,7 @@
   "nav.platforms": "KI-Plattformen",
   "nav.proxy": "Proxy",
   "nav.settings": "Einstellungen",
+  "nav.claudeConfig": "Claude Code",
   "page.groups": "Gruppen & Routing",
   "page.platforms": "Plattformverwaltung",
   "page.proxy": "Proxy-Konsole",
@@ -95,5 +96,8 @@
   "settings.customized": "Angepasst",
   "settings.reset": "Zurücksetzen",
   "settings.otherSettings": "Weitere Einstellungen",
-  "settings.editInJson": "Im JSON-Modus bearbeiten"
+  "settings.editInJson": "Im JSON-Modus bearbeiten",
+  "settings.claudeCodeConfig": "Claude Code Konfiguration",
+  "settings.platformConfigHint": "JSON-Konfiguration bearbeiten. Abweichende Felder werden als Override gespeichert.",
+  "settings.allAligned": "Alle mit globalen Einstellungen synchronisiert"
 }
