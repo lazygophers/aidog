@@ -443,7 +443,15 @@ function FieldRenderer({
             placeholder={field.placeholder}
             value={value ?? ""}
             onChange={(e) => onChange(e.target.value || undefined)}
+            list={field.options?.length ? `dl-${field.key}` : undefined}
           />
+          {field.options?.length && (
+            <datalist id={`dl-${field.key}`}>
+              {field.options.map((opt) => (
+                <option key={opt} value={opt} />
+              ))}
+            </datalist>
+          )}
         </div>
       );
   }
