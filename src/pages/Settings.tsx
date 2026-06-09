@@ -2259,8 +2259,8 @@ export function Settings() {
           <nav
             style={{
               display: "flex",
+              flexWrap: "wrap",
               gap: 0,
-              overflowX: "auto",
               flexShrink: 0,
               borderBottom: "1px solid var(--border)",
               marginBottom: 0,
