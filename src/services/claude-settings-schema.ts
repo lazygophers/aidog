@@ -393,18 +393,24 @@ export const RECOMMENDED_CONFIG: Record<string, any> = {
         "repo": "lazygophers/ccplugin",
         "source": "github",
       },
+      "skipLfs": true,
+      "autoUpdate": true,
     },
     "claude-code-warp": {
       "source": {
         "repo": "warpdotdev/claude-code-warp",
         "source": "github",
       },
+      "skipLfs": true,
+      "autoUpdate": true,
     },
     "claude-plugins-official": {
       "source": {
         "repo": "anthropics/claude-plugins-official",
         "source": "github",
       },
+      "skipLfs": true,
+      "autoUpdate": true,
     },
   },
   "enabledPlugins": {
