@@ -47,7 +47,6 @@ impl Db {
             include_str!("../../migrations/003_add_platform_available_models.sql"),
             include_str!("../../migrations/004_add_settings.sql"),
             include_str!("../../migrations/005_add_group_auto_from_platform.sql"),
-            include_str!("../../migrations/006_slugify_group_names.sql"),
         ];
         let conn = self.0.lock().map_err(|e| e.to_string())?;
         for sql in &migrations {
@@ -59,6 +58,22 @@ impl Db {
             }
         }
         Ok(())
+    }
+
+    /// One-time fix: normalize all group names to slug format
+    pub fn fix_group_names(&self) {
+        let conn = match self.0.lock() {
+            Ok(c) => c,
+            Err(_) => return,
+        };
+        let _ = conn.execute_batch(
+            "UPDATE groups SET name = REPLACE(REPLACE(REPLACE(REPLACE(LOWER(name),' ','-'),'（','-'),'(','-'),'）','-');
+             UPDATE groups SET name = REPLACE(name, ')', '-');
+             UPDATE groups SET name = REPLACE(name, '--', '-');
+             UPDATE groups SET name = REPLACE(name, '--', '-');
+             UPDATE groups SET name = LTRIM(name, '-');
+             UPDATE groups SET name = RTRIM(name, '-');"
+        );
     }
 }
 
