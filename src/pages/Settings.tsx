@@ -9,6 +9,25 @@ import {
 
 const CONFIG_KEY = "claude_code";
 
+// ─── Design tokens (all derived from 16px base) ───
+
+const F = {
+  title: 18,        // section heading
+  label: 16,        // field label
+  body: 16,         // input / button / general text
+  hint: 14,         // secondary / key-in-parens / description
+  small: 13,        // arrow icon / error
+} as const;
+
+const S = {
+  gap: 14,          // between fields
+  row: 14,          // kv row gap
+  pad: 20,          // surface padding
+  inputPad: "8px 12px",
+  btnPad: "6px 14px",
+  btnIcon: 30,      // icon button size
+} as const;
+
 // ─── Sub-components ────────────────────────────────────────
 
 /** Toggle switch */
@@ -43,7 +62,7 @@ function Section({
     <div
       style={{
         borderTop: "1px solid var(--border)",
-        paddingTop: 12,
+        paddingTop: S.gap,
       }}
     >
       <div
@@ -58,7 +77,7 @@ function Section({
       >
         <span
           style={{
-            fontSize: 14,
+            fontSize: F.title,
             fontWeight: 600,
             color: "var(--text-primary)",
           }}
@@ -67,7 +86,7 @@ function Section({
         </span>
         <span
           style={{
-            fontSize: 12,
+            fontSize: F.small,
             color: "var(--text-tertiary)",
             transition: "transform 0.15s",
             transform: open ? "rotate(90deg)" : "rotate(0deg)",
@@ -77,7 +96,7 @@ function Section({
         </span>
       </div>
       {open && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: S.gap, marginTop: S.gap }}>
           {children}
         </div>
       )}
@@ -92,18 +111,18 @@ function FieldLabel({ field, t }: { field: SettingField; t: ReturnType<typeof us
     <label
       style={{
         display: "block",
-        fontSize: 13,
+        fontSize: F.label,
         fontWeight: 500,
         color: "var(--text-secondary)",
-        marginBottom: 4,
+        marginBottom: 6,
       }}
     >
       {translated}{" "}
-      <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400 }}>
+      <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400 }}>
         ({field.key})
       </span>
       {field.description && (
-        <span style={{ fontWeight: 400, marginLeft: 6, fontSize: 11, color: "var(--text-tertiary)" }}>
+        <span style={{ fontWeight: 400, marginLeft: 8, fontSize: F.hint, color: "var(--text-tertiary)" }}>
           {field.description}
         </span>
       )}
@@ -151,11 +170,12 @@ function JsonEditor({
         className="input"
         style={{
           fontFamily: '"SF Mono", "Fira Code", monospace',
-          fontSize: 12,
-          lineHeight: 1.5,
-          minHeight: rows * 20,
+          fontSize: F.body,
+          lineHeight: 1.6,
+          minHeight: rows * 24,
           resize: "vertical",
           whiteSpace: "pre",
+          padding: S.inputPad,
         }}
         value={text}
         placeholder={placeholder}
@@ -176,7 +196,7 @@ function JsonEditor({
         }}
       />
       {error && (
-        <span style={{ fontSize: 11, color: "#ff453a" }}>{error}</span>
+        <span style={{ fontSize: F.small, color: "#ff453a" }}>{error}</span>
       )}
     </div>
   );
@@ -195,25 +215,25 @@ function KvEditor({
   const entries = Object.entries(items);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: S.row }}>
       {entries.map(([k, v]) => (
-        <div key={k} style={{ display: "flex", gap: 4 }}>
+        <div key={k} style={{ display: "flex", gap: 6 }}>
           <input
             className="input"
-            style={{ flex: 2, fontSize: 13 }}
+            style={{ flex: 2, fontSize: F.body, padding: S.inputPad }}
             value={k}
             readOnly
           />
           <input
             className="input"
-            style={{ flex: 3, fontSize: 13 }}
+            style={{ flex: 3, fontSize: F.body, padding: S.inputPad }}
             value={v}
             onChange={(e) => onChange({ ...items, [k]: e.target.value })}
           />
           <button
             type="button"
             className="btn btn-ghost btn-icon"
-            style={{ width: 26, height: 26, minWidth: 26, fontSize: 13 }}
+            style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.body }}
             onClick={() => {
               const next = { ...items };
               delete next[k];
@@ -224,17 +244,17 @@ function KvEditor({
           </button>
         </div>
       ))}
-      <div style={{ display: "flex", gap: 4 }}>
+      <div style={{ display: "flex", gap: 6 }}>
         <input
           className="input"
-          style={{ flex: 2, fontSize: 13 }}
+          style={{ flex: 2, fontSize: F.body, padding: S.inputPad }}
           placeholder="KEY"
           value={newKey}
           onChange={(e) => setNewKey(e.target.value)}
         />
         <input
           className="input"
-          style={{ flex: 3, fontSize: 13 }}
+          style={{ flex: 3, fontSize: F.body, padding: S.inputPad }}
           placeholder="VALUE"
           value={newVal}
           onChange={(e) => setNewVal(e.target.value)}
@@ -242,7 +262,7 @@ function KvEditor({
         <button
           type="button"
           className="btn btn-ghost"
-          style={{ fontSize: 13, padding: "4px 8px" }}
+          style={{ fontSize: F.body, padding: S.btnPad }}
           onClick={() => {
             if (newKey.trim()) {
               onChange({ ...items, [newKey.trim()]: newVal });
@@ -271,12 +291,12 @@ function StringListEditor({
   const [draft, setDraft] = useState("");
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: S.row }}>
       {items.map((item, i) => (
-        <div key={i} style={{ display: "flex", gap: 4 }}>
+        <div key={i} style={{ display: "flex", gap: 6 }}>
           <input
             className="input"
-            style={{ flex: 1, fontSize: 13 }}
+            style={{ flex: 1, fontSize: F.body, padding: S.inputPad }}
             value={item}
             onChange={(e) => {
               const next = [...items];
@@ -287,17 +307,17 @@ function StringListEditor({
           <button
             type="button"
             className="btn btn-ghost btn-icon"
-            style={{ width: 26, height: 26, minWidth: 26, fontSize: 13 }}
+            style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.body }}
             onClick={() => onChange(items.filter((_, j) => j !== i))}
           >
             ×
           </button>
         </div>
       ))}
-      <div style={{ display: "flex", gap: 4 }}>
+      <div style={{ display: "flex", gap: 6 }}>
         <input
           className="input"
-          style={{ flex: 1, fontSize: 13 }}
+          style={{ flex: 1, fontSize: F.body, padding: S.inputPad }}
           placeholder={addLabel}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -311,7 +331,7 @@ function StringListEditor({
         <button
           type="button"
           className="btn btn-ghost"
-          style={{ fontSize: 13, padding: "4px 8px" }}
+          style={{ fontSize: F.body, padding: S.btnPad }}
           onClick={() => {
             if (draft.trim()) {
               onChange([...items, draft.trim()]);
@@ -350,9 +370,9 @@ function FieldRenderer({
           }}
         >
           <div>
-            <span style={{ fontSize: 13, fontWeight: 500, color: "var(--text-secondary)" }}>
+            <span style={{ fontSize: F.label, fontWeight: 500, color: "var(--text-secondary)" }}>
               {t(`settings.f_${field.key}`, field.label)}{" "}
-              <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400 }}>
+              <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400 }}>
                 ({field.key})
               </span>
             </span>
@@ -367,6 +387,7 @@ function FieldRenderer({
           <FieldLabel field={field} t={t} />
           <select
             className="input"
+            style={{ fontSize: F.body, padding: S.inputPad }}
             value={value ?? ""}
             onChange={(e) => onChange(e.target.value || undefined)}
           >
@@ -407,6 +428,7 @@ function FieldRenderer({
           <FieldLabel field={field} t={t} />
           <input
             className="input"
+            style={{ fontSize: F.body, padding: S.inputPad }}
             placeholder={field.placeholder}
             value={value ?? ""}
             onChange={(e) => onChange(e.target.value || undefined)}
@@ -489,8 +511,8 @@ export function Settings() {
       style={{
         display: "flex",
         flexDirection: "column",
-        gap: 20,
-        maxWidth: 720,
+        gap: 24,
+        maxWidth: 780,
         width: "100%",
       }}
     >
@@ -505,10 +527,10 @@ export function Settings() {
       <div
         className="glass-surface"
         style={{
-          padding: 16,
+          padding: S.pad,
           display: "flex",
           flexDirection: "column",
-          gap: 12,
+          gap: S.gap,
         }}
       >
         {/* Mode toggle + Load Recommended */}
@@ -518,20 +540,20 @@ export function Settings() {
             alignItems: "center",
             justifyContent: "space-between",
             borderBottom: "1px solid var(--border)",
-            paddingBottom: 8,
+            paddingBottom: 10,
           }}
         >
-          <div style={{ display: "flex", gap: 4 }}>
+          <div style={{ display: "flex", gap: 6 }}>
             <button
               className={`btn ${mode === "gui" ? "btn-primary" : "btn-ghost"}`}
-              style={{ fontSize: 13, padding: "5px 12px" }}
+              style={{ fontSize: F.body, padding: S.btnPad }}
               onClick={() => setMode("gui")}
             >
               {t("settings.guiMode")}
             </button>
             <button
               className={`btn ${mode === "json" ? "btn-primary" : "btn-ghost"}`}
-              style={{ fontSize: 13, padding: "5px 12px" }}
+              style={{ fontSize: F.body, padding: S.btnPad }}
               onClick={() => {
                 setEditJson(JSON.stringify(config, null, 2));
                 setMode("json");
@@ -542,7 +564,7 @@ export function Settings() {
           </div>
           <button
             className="btn btn-ghost"
-            style={{ fontSize: 12, padding: "4px 10px" }}
+            style={{ fontSize: F.hint, padding: "5px 12px" }}
             onClick={handleLoadRecommended}
           >
             ⚡ {t("settings.loadRecommended")}
@@ -555,11 +577,12 @@ export function Settings() {
             className="input"
             style={{
               fontFamily: '"SF Mono", "Fira Code", monospace',
-              fontSize: 13,
+              fontSize: F.body,
               lineHeight: 1.6,
-              minHeight: 480,
+              minHeight: 520,
               resize: "vertical",
               whiteSpace: "pre",
+              padding: S.inputPad,
             }}
             value={editJson}
             onChange={(e) => setEditJson(e.target.value)}
@@ -569,7 +592,7 @@ export function Settings() {
 
         {/* GUI mode — schema-driven sections */}
         {mode === "gui" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
             {SECTIONS.map((section) => {
               // Special handling for permissions section: use sub-editors
               if (section.id === "permissions") {
@@ -584,19 +607,20 @@ export function Settings() {
                       <label
                         style={{
                           display: "block",
-                          fontSize: 13,
+                          fontSize: F.label,
                           fontWeight: 500,
                           color: "var(--text-secondary)",
-                          marginBottom: 4,
+                          marginBottom: 6,
                         }}
                       >
                         {t("settings.permissionsDefaultMode")}{" "}
-                        <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 400 }}>
+                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontWeight: 400 }}>
                           (permissions.defaultMode)
                         </span>
                       </label>
                       <select
                         className="input"
+                        style={{ fontSize: F.body, padding: S.inputPad }}
                         value={perms.defaultMode ?? ""}
                         onChange={(e) => {
                           const next: Record<string, any> = {};
@@ -622,8 +646,8 @@ export function Settings() {
 
                     {/* Allow */}
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 4 }}>
-                        {t("settings.permissionsAllow")} <span style={{ fontSize: 11 }}>(permissions.allow)</span>
+                      <div style={{ fontSize: F.hint, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 6 }}>
+                        {t("settings.permissionsAllow")} <span style={{ fontSize: F.hint }}>(permissions.allow)</span>
                       </div>
                       <StringListEditor
                         items={perms.allow ?? []}
@@ -644,8 +668,8 @@ export function Settings() {
 
                     {/* Ask */}
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 4 }}>
-                        {t("settings.permissionsAsk")} <span style={{ fontSize: 11 }}>(permissions.ask)</span>
+                      <div style={{ fontSize: F.hint, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 6 }}>
+                        {t("settings.permissionsAsk")} <span style={{ fontSize: F.hint }}>(permissions.ask)</span>
                       </div>
                       <StringListEditor
                         items={perms.ask ?? []}
@@ -666,8 +690,8 @@ export function Settings() {
 
                     {/* Deny */}
                     <div>
-                      <div style={{ fontSize: 12, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 4 }}>
-                        {t("settings.permissionsDeny")} <span style={{ fontSize: 11 }}>(permissions.deny)</span>
+                      <div style={{ fontSize: F.hint, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 6 }}>
+                        {t("settings.permissionsDeny")} <span style={{ fontSize: F.hint }}>(permissions.deny)</span>
                       </div>
                       <StringListEditor
                         items={perms.deny ?? []}
@@ -736,7 +760,7 @@ export function Settings() {
         {saveError && (
           <div
             style={{
-              fontSize: 13,
+              fontSize: F.body,
               wordBreak: "break-all",
               color: "#ff453a",
             }}
@@ -750,15 +774,15 @@ export function Settings() {
           style={{
             display: "flex",
             justifyContent: "flex-end",
-            gap: 8,
-            paddingTop: 8,
+            gap: 10,
+            paddingTop: 10,
             borderTop: "1px solid var(--border)",
           }}
         >
           {toast && (
             <span
               style={{
-                fontSize: 13,
+                fontSize: F.body,
                 color: "#34c759",
                 alignSelf: "center",
                 marginRight: "auto",
@@ -769,6 +793,7 @@ export function Settings() {
           )}
           <button
             className="btn btn-primary"
+            style={{ fontSize: F.body }}
             onClick={handleSave}
             disabled={saving}
           >

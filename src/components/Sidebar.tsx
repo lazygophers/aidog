@@ -227,36 +227,55 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         paddingTop: 12,
         borderTop: "1px solid var(--border)",
       }}>
-        {/* Theme Picker */}
-        <Dropdown
-          open={themeOpen}
-          onToggle={() => setThemeOpen((v) => !v)}
-          trigger={
-            <button className="btn btn-ghost" style={{
-              width: "100%",
-              justifyContent: "space-between",
+        {/* Theme + Dark/Light row */}
+        <div style={{ display: "flex", gap: 4, alignItems: "stretch" }}>
+          {/* Theme Picker */}
+          <Dropdown
+            open={themeOpen}
+            onToggle={() => setThemeOpen((v) => !v)}
+            trigger={
+              <button className="btn btn-ghost" style={{
+                flex: 1,
+                justifyContent: "space-between",
+                fontSize: 12,
+                padding: "7px 10px",
+                color: "var(--text-secondary)",
+              }}>
+                <span>🎨 {t(`theme.${themeName}`)}</span>
+                <span style={{ opacity: 0.4 }}>{icons.chevron}</span>
+              </button>
+            }
+          >
+            {availableThemes.map((th) => (
+              <DropdownItem
+                key={th.name}
+                active={th.name === themeName}
+                onClick={() => {
+                  setThemeName(th.name as ThemeName);
+                  setThemeOpen(false);
+                }}
+              >
+                {t(th.label)}
+              </DropdownItem>
+            ))}
+          </Dropdown>
+
+          {/* Dark/Light Toggle */}
+          <button
+            className="btn btn-ghost"
+            style={{
+              flexShrink: 0,
+              justifyContent: "center",
               fontSize: 12,
               padding: "7px 10px",
+              gap: 4,
               color: "var(--text-secondary)",
-            }}>
-              <span>🎨 {t(`theme.${themeName}`)}</span>
-              <span style={{ opacity: 0.4 }}>{icons.chevron}</span>
-            </button>
-          }
-        >
-          {availableThemes.map((th) => (
-            <DropdownItem
-              key={th.name}
-              active={th.name === themeName}
-              onClick={() => {
-                setThemeName(th.name as ThemeName);
-                setThemeOpen(false);
-              }}
-            >
-              {t(th.label)}
-            </DropdownItem>
-          ))}
-        </Dropdown>
+            }}
+            onClick={toggleMode}
+          >
+            {themeMode === "light" ? icons.moon : icons.sun}
+          </button>
+        </div>
 
         {/* Language Picker */}
         <Dropdown
@@ -288,23 +307,6 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
             </DropdownItem>
           ))}
         </Dropdown>
-
-        {/* Dark/Light Toggle */}
-        <button
-          className="btn btn-ghost"
-          style={{
-            width: "100%",
-            justifyContent: "center",
-            fontSize: 12,
-            padding: "7px 10px",
-            gap: 6,
-            color: "var(--text-secondary)",
-          }}
-          onClick={toggleMode}
-        >
-          {themeMode === "light" ? icons.moon : icons.sun}
-          <span>{themeMode === "light" ? t("theme.dark") : t("theme.light")}</span>
-        </button>
       </div>
     </aside>
   );
