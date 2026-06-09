@@ -1819,6 +1819,15 @@ function PluginsEditor({
                 source={mktConfig.source ?? { source: "github" }}
                 onChange={(s) => updateMarketplace(name, { ...mktConfig, source: s })}
               />
+              {/* Path field — local installation path */}
+              <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
+                <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: 80, flexShrink: 0, whiteSpace: "nowrap" }}>Path</span>
+                <input className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
+                  placeholder="本地安装路径（留空自动管理）"
+                  value={mktConfig.path ?? ""}
+                  onChange={(e) => updateMarketplace(name, { ...mktConfig, path: e.target.value || undefined })}
+                />
+              </div>
             </div>
           ))}
           <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
