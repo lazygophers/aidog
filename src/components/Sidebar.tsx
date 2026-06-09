@@ -25,6 +25,12 @@ const icons = {
       <path d="M6 3h10M6 9h10M6 15h10M2 3h.01M2 9h.01M2 15h.01" />
     </svg>
   ),
+  settings: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M7.2 1.5h3.6l.6 2.2a6 6 0 012 1.15l2.2-.55 1.8 3.12-1.8 1.48a6 6 0 010 2.4l1.8 1.48-1.8 3.12-2.2-.55a6 6 0 01-2 1.15l-.6 2.2H7.2l-.6-2.2a6 6 0 01-2-1.15l-2.2.55-1.8-3.12 1.8-1.48a6 6 0 010-2.4L.6 7.42l1.8-3.12 2.2.55a6 6 0 012-1.15z" />
+      <circle cx="9" cy="9" r="2.5" />
+    </svg>
+  ),
   chevron: (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 4.5L6 7.5L9 4.5" />

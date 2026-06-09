@@ -206,3 +206,21 @@ pub struct GroupPlatformDetail {
     pub priority: i32,
     pub weight: i32,
 }
+
+// ─── Settings (KV) ─────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(dead_code)]
+pub struct SettingEntry {
+    pub scope: String,
+    pub key: String,
+    pub value: serde_json::Value,
+    pub updated_at: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct SetSettingInput {
+    pub scope: String,
+    pub key: String,
+    pub value: serde_json::Value,
+}

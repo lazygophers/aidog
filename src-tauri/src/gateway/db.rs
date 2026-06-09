@@ -45,6 +45,7 @@ impl Db {
         let migrations = [
             include_str!("../../migrations/002_add_platform_models.sql"),
             include_str!("../../migrations/003_add_platform_available_models.sql"),
+            include_str!("../../migrations/004_add_settings.sql"),
         ];
         let conn = self.0.lock().map_err(|e| e.to_string())?;
         for sql in &migrations {
@@ -480,4 +481,60 @@ pub fn list_group_details(db: &Db) -> Result<Vec<GroupDetail>, String> {
         });
     }
     Ok(details)
+}
+
+// ─── Settings CRUD ─────────────────────────────────────────
+
+pub fn get_setting(
+    db: &Db,
+    scope: &str,
+    key: &str,
+) -> Result<Option<serde_json::Value>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT value FROM settings WHERE scope = ?1 AND key = ?2")
+        .map_err(|e| e.to_string())?;
+    let result = stmt
+        .query_row(params![scope, key], |row| {
+            let v: String = row.get(0)?;
+            Ok(serde_json::from_str(&v).unwrap_or(serde_json::Value::Null))
+        })
+        .optional()
+        .map_err(|e| e.to_string())?;
+    Ok(result)
+}
+
+pub fn set_setting(db: &Db, input: SetSettingInput) -> Result<(), String> {
+    let ts = now();
+    let value_str =
+        serde_json::to_string(&input.value).map_err(|e| format!("serialize setting: {e}"))?;
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO settings (scope, key, value, updated_at) VALUES (?1, ?2, ?3, ?4)
+         ON CONFLICT(scope, key) DO UPDATE SET value = ?3, updated_at = ?4",
+        params![input.scope, input.key, value_str, ts],
+    )
+    .map_err(|e| format!("upsert setting: {e}"))?;
+    Ok(())
+}
+
+pub fn delete_setting(db: &Db, scope: &str, key: &str) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "DELETE FROM settings WHERE scope = ?1 AND key = ?2",
+        params![scope, key],
+    )
+    .map_err(|e| format!("delete setting: {e}"))?;
+    Ok(())
+}
+
+pub fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare("SELECT key FROM settings WHERE scope = ?1 ORDER BY key")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![scope], |row| row.get(0))
+        .map_err(|e| e.to_string())?;
+    rows.collect::<SqlResult<Vec<_>>>().map_err(|e| e.to_string())
 }

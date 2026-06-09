@@ -279,6 +279,34 @@ fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String, Str
     Ok(config_path.to_string_lossy().to_string())
 }
 
+// ─── Settings Commands ─────────────────────────────────────
+
+use gateway::models::SetSettingInput;
+
+#[tauri::command]
+fn settings_get(
+    scope: String,
+    key: String,
+    db: State<'_, Db>,
+) -> Result<Option<serde_json::Value>, String> {
+    db::get_setting(&db, &scope, &key)
+}
+
+#[tauri::command]
+fn settings_set(input: SetSettingInput, db: State<'_, Db>) -> Result<(), String> {
+    db::set_setting(&db, input)
+}
+
+#[tauri::command]
+fn settings_delete(scope: String, key: String, db: State<'_, Db>) -> Result<(), String> {
+    db::delete_setting(&db, &scope, &key)
+}
+
+#[tauri::command]
+fn settings_list(scope: String, db: State<'_, Db>) -> Result<Vec<String>, String> {
+    db::list_setting_keys(&db, &scope)
+}
+
 // ─── Settings Persistence ──────────────────────────────────
 
 /// 统一数据目录：~/.aidog/
@@ -464,6 +492,11 @@ pub fn run() {
             proxy_set_autostart,
             // Config Export
             export_claude_config,
+            // Settings
+            settings_get,
+            settings_set,
+            settings_delete,
+            settings_list,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

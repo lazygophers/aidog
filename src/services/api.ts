@@ -181,3 +181,19 @@ export const configApi = {
   exportClaudeConfig: (port: number) =>
     invoke<string>("export_claude_config", { port }),
 };
+
+// ─── Settings API ──────────────────────────────────────────
+
+export const settingsApi = {
+  get: (scope: string, key: string) =>
+    invoke<Record<string, any> | null>("settings_get", { scope, key }),
+
+  set: (scope: string, key: string, value: Record<string, any>) =>
+    invoke<void>("settings_set", { input: { scope, key, value } }),
+
+  delete: (scope: string, key: string) =>
+    invoke<void>("settings_delete", { scope, key }),
+
+  list: (scope: string) =>
+    invoke<string[]>("settings_list", { scope }),
+};

@@ -3,11 +3,13 @@ import { Sidebar, type NavItem } from "./components/Sidebar";
 import { Platforms } from "./pages/Platforms";
 import { Groups } from "./pages/Groups";
 import { Proxy } from "./pages/Proxy";
+import { Settings } from "./pages/Settings";
 
 const NAV_ITEMS: NavItem[] = [
   { id: "proxy", icon: "proxy", labelKey: "nav.proxy" },
   { id: "platforms", icon: "platforms", labelKey: "nav.platforms" },
   { id: "groups", icon: "groups", labelKey: "nav.groups" },
+  { id: "settings", icon: "settings", labelKey: "nav.settings" },
 ];
 
 function App() {
@@ -35,6 +37,7 @@ function App() {
           {activeNav === "proxy" && <Proxy />}
           {activeNav === "platforms" && <Platforms />}
           {activeNav === "groups" && <Groups />}
+          {activeNav === "settings" && <Settings />}
         </div>
       </main>
     </div>
