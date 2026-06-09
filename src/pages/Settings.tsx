@@ -1,76 +1,174 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { settingsApi } from "../services/api";
+import {
+  SECTIONS,
+  RECOMMENDED_CONFIG,
+  type SettingField,
+} from "../services/claude-settings-schema";
 
 const CONFIG_KEY = "claude_code";
-const EFFORT_LEVELS = ["low", "medium", "high", "xhigh"];
 
 // ─── Sub-components ────────────────────────────────────────
 
-/** String list editor (for permissions allow/ask/deny) */
-function StringListEditor({
-  items,
+/** Toggle switch */
+function Toggle({
+  active,
   onChange,
-  addLabel,
 }: {
-  items: string[];
-  onChange: (items: string[]) => void;
-  addLabel: string;
+  active: boolean;
+  onChange: (v: boolean) => void;
 }) {
-  const [draft, setDraft] = useState("");
-
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      {items.map((item, i) => (
-        <div key={i} style={{ display: "flex", gap: 4 }}>
-          <input
-            className="input"
-            style={{ flex: 1, fontSize: 12 }}
-            value={item}
-            onChange={(e) => {
-              const next = [...items];
-              next[i] = e.target.value;
-              onChange(next);
-            }}
-          />
-          <button
-            type="button"
-            className="btn btn-ghost btn-icon"
-            style={{ width: 24, height: 24, minWidth: 24, fontSize: 12 }}
-            onClick={() => onChange(items.filter((_, j) => j !== i))}
-          >
-            ×
-          </button>
-        </div>
-      ))}
-      <div style={{ display: "flex", gap: 4 }}>
-        <input
-          className="input"
-          style={{ flex: 1, fontSize: 12 }}
-          placeholder={addLabel}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && draft.trim()) {
-              onChange([...items, draft.trim()]);
-              setDraft("");
-            }
-          }}
-        />
-        <button
-          type="button"
-          className="btn btn-ghost"
-          style={{ fontSize: 12, padding: "4px 8px" }}
-          onClick={() => {
-            if (draft.trim()) {
-              onChange([...items, draft.trim()]);
-              setDraft("");
-            }
+    <div
+      className={`toggle ${active ? "active" : ""}`}
+      style={{ cursor: "pointer", flexShrink: 0 }}
+      onClick={() => onChange(!active)}
+    />
+  );
+}
+
+/** Collapsible section */
+function Section({
+  title,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div
+      style={{
+        borderTop: "1px solid var(--border)",
+        paddingTop: 10,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          cursor: "pointer",
+          userSelect: "none",
+        }}
+        onClick={() => setOpen(!open)}
+      >
+        <span
+          style={{
+            fontSize: 13,
+            fontWeight: 600,
+            color: "var(--text-primary)",
           }}
         >
-          +
-        </button>
+          {title}
+        </span>
+        <span
+          style={{
+            fontSize: 11,
+            color: "var(--text-tertiary)",
+            transition: "transform 0.15s",
+            transform: open ? "rotate(90deg)" : "rotate(0deg)",
+          }}
+        >
+          ▶
+        </span>
       </div>
+      {open && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: 10 }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Label */
+function Label({ children }: { children: React.ReactNode }) {
+  return (
+    <label
+      style={{
+        display: "block",
+        fontSize: 12,
+        fontWeight: 500,
+        color: "var(--text-secondary)",
+        marginBottom: 4,
+      }}
+    >
+      {children}
+    </label>
+  );
+}
+
+/** JSON textarea for complex objects */
+function JsonEditor({
+  value,
+  onChange,
+  placeholder,
+  rows = 6,
+}: {
+  value: any;
+  onChange: (v: any) => void;
+  placeholder?: string;
+  rows?: number;
+}) {
+  const [text, setText] = useState(() => {
+    if (value === undefined || value === null) return "";
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return String(value);
+    }
+  });
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (value === undefined || value === null) {
+      setText("");
+      return;
+    }
+    try {
+      setText(JSON.stringify(value, null, 2));
+    } catch {
+      setText(String(value));
+    }
+  }, [value]);
+
+  return (
+    <div>
+      <textarea
+        className="input"
+        style={{
+          fontFamily: '"SF Mono", "Fira Code", monospace',
+          fontSize: 11,
+          lineHeight: 1.5,
+          minHeight: rows * 18,
+          resize: "vertical",
+          whiteSpace: "pre",
+        }}
+        value={text}
+        placeholder={placeholder}
+        spellCheck={false}
+        onChange={(e) => {
+          setText(e.target.value);
+          setError("");
+          try {
+            if (e.target.value.trim()) {
+              const parsed = JSON.parse(e.target.value);
+              onChange(parsed);
+            } else {
+              onChange(undefined);
+            }
+          } catch {
+            setError("Invalid JSON");
+          }
+        }}
+      />
+      {error && (
+        <span style={{ fontSize: 10, color: "#ff453a" }}>{error}</span>
+      )}
     </div>
   );
 }
@@ -151,7 +249,174 @@ function KvEditor({
   );
 }
 
-// ─── Main Settings Page (Global Claude Code Config) ────────
+/** String list editor (for permissions allow/ask/deny) */
+function StringListEditor({
+  items,
+  onChange,
+  addLabel,
+}: {
+  items: string[];
+  onChange: (items: string[]) => void;
+  addLabel: string;
+}) {
+  const [draft, setDraft] = useState("");
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      {items.map((item, i) => (
+        <div key={i} style={{ display: "flex", gap: 4 }}>
+          <input
+            className="input"
+            style={{ flex: 1, fontSize: 12 }}
+            value={item}
+            onChange={(e) => {
+              const next = [...items];
+              next[i] = e.target.value;
+              onChange(next);
+            }}
+          />
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon"
+            style={{ width: 24, height: 24, minWidth: 24, fontSize: 12 }}
+            onClick={() => onChange(items.filter((_, j) => j !== i))}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <div style={{ display: "flex", gap: 4 }}>
+        <input
+          className="input"
+          style={{ flex: 1, fontSize: 12 }}
+          placeholder={addLabel}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && draft.trim()) {
+              onChange([...items, draft.trim()]);
+              setDraft("");
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="btn btn-ghost"
+          style={{ fontSize: 12, padding: "4px 8px" }}
+          onClick={() => {
+            if (draft.trim()) {
+              onChange([...items, draft.trim()]);
+              setDraft("");
+            }
+          }}
+        >
+          +
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Field Renderer ────────────────────────────────────────
+
+function FieldRenderer({
+  field,
+  value,
+  onChange,
+  t,
+}: {
+  field: SettingField;
+  value: any;
+  onChange: (v: any) => void;
+  t: (key: string) => string;
+}) {
+  switch (field.type) {
+    case "boolean":
+      return (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+          }}
+        >
+          <div>
+            <span style={{ fontSize: 12, fontWeight: 500, color: "var(--text-secondary)" }}>
+              {field.label}
+            </span>
+            {field.description && (
+              <div style={{ fontSize: 10, color: "var(--text-tertiary)", marginTop: 2 }}>
+                {field.description}
+              </div>
+            )}
+          </div>
+          <Toggle active={!!value} onChange={(v) => onChange(v || undefined)} />
+        </div>
+      );
+
+    case "select":
+      return (
+        <div>
+          <Label>{field.label}</Label>
+          <select
+            className="input"
+            value={value ?? ""}
+            onChange={(e) => onChange(e.target.value || undefined)}
+          >
+            <option value="">—</option>
+            {field.options?.map((opt) => (
+              <option key={opt} value={opt}>
+                {opt}
+              </option>
+            ))}
+          </select>
+        </div>
+      );
+
+    case "json":
+      return (
+        <div>
+          <Label>
+            {field.label}
+            {field.description && (
+              <span style={{ fontWeight: 400, marginLeft: 6, fontSize: 10, color: "var(--text-tertiary)" }}>
+                {field.description}
+              </span>
+            )}
+          </Label>
+          <JsonEditor value={value} onChange={onChange} placeholder="{}" />
+        </div>
+      );
+
+    case "string[]":
+      return (
+        <div>
+          <Label>{field.label}</Label>
+          <StringListEditor
+            items={Array.isArray(value) ? value : []}
+            onChange={(list) => onChange(list.length > 0 ? list : undefined)}
+            addLabel={t("settings.addRule")}
+          />
+        </div>
+      );
+
+    case "string":
+    default:
+      return (
+        <div>
+          <Label>{field.label}</Label>
+          <input
+            className="input"
+            placeholder={field.placeholder}
+            value={value ?? ""}
+            onChange={(e) => onChange(e.target.value || undefined)}
+          />
+        </div>
+      );
+  }
+}
+
+// ─── Main Settings Page ────────────────────────────────────
 
 export function Settings() {
   const { t } = useTranslation();
@@ -176,7 +441,7 @@ export function Settings() {
     load();
   }, []);
 
-  const updateField = (field: string, value: any) => {
+  const updateField = useCallback((field: string, value: any) => {
     setConfig((prev) => {
       const next: Record<string, any> = {};
       for (const [k, v] of Object.entries(prev)) {
@@ -187,7 +452,7 @@ export function Settings() {
       }
       return next;
     });
-  };
+  }, []);
 
   const handleSave = async () => {
     setSaving(true);
@@ -206,9 +471,16 @@ export function Settings() {
     setSaving(false);
   };
 
-  // Permissions helpers
+  const handleLoadRecommended = () => {
+    const merged = { ...RECOMMENDED_CONFIG, ...config };
+    setConfig(merged);
+    setEditJson(JSON.stringify(merged, null, 2));
+    setToast(t("settings.loadedRecommended"));
+    setTimeout(() => setToast(""), 2000);
+  };
+
+  // Permissions helpers for the special permissions sub-editor
   const perms = (config.permissions ?? {}) as Record<string, string[]>;
-  const envObj = (config.env ?? {}) as Record<string, string>;
 
   return (
     <div
@@ -237,31 +509,41 @@ export function Settings() {
           gap: 12,
         }}
       >
-        {/* Mode toggle */}
+        {/* Mode toggle + Load Recommended */}
         <div
           style={{
             display: "flex",
-            gap: 4,
+            alignItems: "center",
+            justifyContent: "space-between",
             borderBottom: "1px solid var(--border)",
             paddingBottom: 8,
           }}
         >
+          <div style={{ display: "flex", gap: 4 }}>
+            <button
+              className={`btn ${mode === "gui" ? "btn-primary" : "btn-ghost"}`}
+              style={{ fontSize: 12, padding: "5px 12px" }}
+              onClick={() => setMode("gui")}
+            >
+              {t("settings.guiMode")}
+            </button>
+            <button
+              className={`btn ${mode === "json" ? "btn-primary" : "btn-ghost"}`}
+              style={{ fontSize: 12, padding: "5px 12px" }}
+              onClick={() => {
+                setEditJson(JSON.stringify(config, null, 2));
+                setMode("json");
+              }}
+            >
+              {t("settings.jsonMode")}
+            </button>
+          </div>
           <button
-            className={`btn ${mode === "gui" ? "btn-primary" : "btn-ghost"}`}
-            style={{ fontSize: 12, padding: "5px 12px" }}
-            onClick={() => setMode("gui")}
+            className="btn btn-ghost"
+            style={{ fontSize: 11, padding: "4px 10px" }}
+            onClick={handleLoadRecommended}
           >
-            {t("settings.guiMode")}
-          </button>
-          <button
-            className={`btn ${mode === "json" ? "btn-primary" : "btn-ghost"}`}
-            style={{ fontSize: 12, padding: "5px 12px" }}
-            onClick={() => {
-              setEditJson(JSON.stringify(config, null, 2));
-              setMode("json");
-            }}
-          >
-            {t("settings.jsonMode")}
+            ⚡ {t("settings.loadRecommended")}
           </button>
         </div>
 
@@ -273,7 +555,7 @@ export function Settings() {
               fontFamily: '"SF Mono", "Fira Code", monospace',
               fontSize: 12,
               lineHeight: 1.6,
-              minHeight: 360,
+              minHeight: 480,
               resize: "vertical",
               whiteSpace: "pre",
             }}
@@ -283,271 +565,161 @@ export function Settings() {
           />
         )}
 
-        {/* GUI mode */}
+        {/* GUI mode — schema-driven sections */}
         {mode === "gui" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {/* Model */}
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: "var(--text-secondary)",
-                  marginBottom: 4,
-                }}
-              >
-                {t("settings.model")}
-              </label>
-              <input
-                className="input"
-                placeholder={t("settings.modelPlaceholder")}
-                value={config.model ?? ""}
-                onChange={(e) =>
-                  updateField("model", e.target.value || undefined)
-                }
-              />
-            </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {SECTIONS.map((section) => {
+              // Special handling for permissions section: use sub-editors
+              if (section.id === "permissions") {
+                return (
+                  <Section
+                    key={section.id}
+                    title={t(section.labelKey)}
+                    defaultOpen
+                  >
+                    {/* Default Mode */}
+                    <div>
+                      <Label>{t("settings.permissionsDefaultMode")}</Label>
+                      <select
+                        className="input"
+                        value={perms.defaultMode ?? ""}
+                        onChange={(e) => {
+                          const next: Record<string, any> = {};
+                          if (perms.allow?.length) next.allow = perms.allow;
+                          if (perms.ask?.length) next.ask = perms.ask;
+                          if (perms.deny?.length) next.deny = perms.deny;
+                          if (e.target.value) next.defaultMode = e.target.value;
+                          updateField(
+                            "permissions",
+                            Object.keys(next).length > 0 ? next : undefined,
+                          );
+                        }}
+                      >
+                        <option value="">—</option>
+                        <option value="default">default</option>
+                        <option value="plan">plan</option>
+                        <option value="auto">auto</option>
+                        <option value="acceptEdits">acceptEdits</option>
+                        <option value="dontAsk">dontAsk</option>
+                        <option value="bypassPermissions">bypassPermissions</option>
+                      </select>
+                    </div>
 
-            {/* Effort Level */}
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: "var(--text-secondary)",
-                  marginBottom: 4,
-                }}
-              >
-                {t("settings.effortLevel")}
-              </label>
-              <select
-                className="input"
-                value={config.effortLevel ?? ""}
-                onChange={(e) =>
-                  updateField("effortLevel", e.target.value || undefined)
-                }
-              >
-                <option value="">—</option>
-                {EFFORT_LEVELS.map((lv) => (
-                  <option key={lv} value={lv}>
-                    {lv}
-                  </option>
-                ))}
-              </select>
-            </div>
+                    {/* Allow */}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 4 }}>
+                        {t("settings.permissionsAllow")}
+                      </div>
+                      <StringListEditor
+                        items={perms.allow ?? []}
+                        onChange={(list) => {
+                          const next: Record<string, any> = {};
+                          if (perms.ask?.length) next.ask = perms.ask;
+                          if (perms.deny?.length) next.deny = perms.deny;
+                          if (perms.defaultMode) next.defaultMode = perms.defaultMode;
+                          if (list.length > 0) next.allow = list;
+                          updateField(
+                            "permissions",
+                            Object.keys(next).length > 0 ? next : undefined,
+                          );
+                        }}
+                        addLabel={t("settings.addRule")}
+                      />
+                    </div>
 
-            {/* Output Style */}
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: "var(--text-secondary)",
-                  marginBottom: 4,
-                }}
-              >
-                {t("settings.outputStyle")}
-              </label>
-              <input
-                className="input"
-                placeholder="Explanatory"
-                value={config.outputStyle ?? ""}
-                onChange={(e) =>
-                  updateField("outputStyle", e.target.value || undefined)
-                }
-              />
-            </div>
+                    {/* Ask */}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 4 }}>
+                        {t("settings.permissionsAsk")}
+                      </div>
+                      <StringListEditor
+                        items={perms.ask ?? []}
+                        onChange={(list) => {
+                          const next: Record<string, any> = {};
+                          if (perms.allow?.length) next.allow = perms.allow;
+                          if (perms.deny?.length) next.deny = perms.deny;
+                          if (perms.defaultMode) next.defaultMode = perms.defaultMode;
+                          if (list.length > 0) next.ask = list;
+                          updateField(
+                            "permissions",
+                            Object.keys(next).length > 0 ? next : undefined,
+                          );
+                        }}
+                        addLabel={t("settings.addRule")}
+                      />
+                    </div>
 
-            {/* Language */}
-            <div>
-              <label
-                style={{
-                  display: "block",
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: "var(--text-secondary)",
-                  marginBottom: 4,
-                }}
-              >
-                {t("settings.language")}
-              </label>
-              <input
-                className="input"
-                placeholder="chinese, english, japanese..."
-                value={config.language ?? ""}
-                onChange={(e) =>
-                  updateField("language", e.target.value || undefined)
-                }
-              />
-            </div>
+                    {/* Deny */}
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)", marginBottom: 4 }}>
+                        {t("settings.permissionsDeny")}
+                      </div>
+                      <StringListEditor
+                        items={perms.deny ?? []}
+                        onChange={(list) => {
+                          const next: Record<string, any> = {};
+                          if (perms.allow?.length) next.allow = perms.allow;
+                          if (perms.ask?.length) next.ask = perms.ask;
+                          if (perms.defaultMode) next.defaultMode = perms.defaultMode;
+                          if (list.length > 0) next.deny = list;
+                          updateField(
+                            "permissions",
+                            Object.keys(next).length > 0 ? next : undefined,
+                          );
+                        }}
+                        addLabel={t("settings.addRule")}
+                      />
+                    </div>
+                  </Section>
+                );
+              }
 
-            {/* Always Thinking */}
-            <div
-              style={{
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "space-between",
-              }}
-            >
-              <span
-                style={{
-                  fontSize: 12,
-                  fontWeight: 500,
-                  color: "var(--text-secondary)",
-                }}
-              >
-                {t("settings.alwaysThinking")}
-              </span>
-              <div
-                className={`toggle ${config.alwaysThinkingEnabled ? "active" : ""}`}
-                onClick={() =>
-                  updateField(
-                    "alwaysThinkingEnabled",
-                    config.alwaysThinkingEnabled ? undefined : true,
-                  )
-                }
-              />
-            </div>
+              // Special handling for env: use KvEditor
+              if (section.id === "env") {
+                return (
+                  <Section
+                    key={section.id}
+                    title={t(section.labelKey)}
+                    defaultOpen
+                  >
+                    <KvEditor
+                      items={(config.env ?? {}) as Record<string, string>}
+                      onChange={(newEnv) =>
+                        updateField(
+                          "env",
+                          Object.keys(newEnv).length > 0 ? newEnv : undefined,
+                        )
+                      }
+                    />
+                  </Section>
+                );
+              }
 
-            {/* Permissions */}
-            <div
-              style={{
-                borderTop: "1px solid var(--border)",
-                paddingTop: 10,
-              }}
-            >
-              <span
-                style={{
-                  display: "block",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "var(--text-primary)",
-                  marginBottom: 8,
-                }}
-              >
-                {t("settings.permissions")}
-              </span>
-
-              <div style={{ marginBottom: 8 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 500,
-                    color: "var(--text-tertiary)",
-                    marginBottom: 4,
-                  }}
+              // Default: render each field in section
+              return (
+                <Section
+                  key={section.id}
+                  title={t(section.labelKey)}
+                  defaultOpen={section.id === "core"}
                 >
-                  {t("settings.permissionsAllow")}
-                </div>
-                <StringListEditor
-                  items={perms.allow ?? []}
-                  onChange={(list) => {
-                    const next: Record<string, string[]> = {};
-                    if (perms.ask?.length) next.ask = perms.ask;
-                    if (perms.deny?.length) next.deny = perms.deny;
-                    if (list.length > 0) next.allow = list;
-                    updateField(
-                      "permissions",
-                      Object.keys(next).length > 0 ? next : undefined,
-                    );
-                  }}
-                  addLabel={t("settings.addRule")}
-                />
-              </div>
-
-              <div style={{ marginBottom: 8 }}>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 500,
-                    color: "var(--text-tertiary)",
-                    marginBottom: 4,
-                  }}
-                >
-                  {t("settings.permissionsAsk")}
-                </div>
-                <StringListEditor
-                  items={perms.ask ?? []}
-                  onChange={(list) => {
-                    const next: Record<string, string[]> = {};
-                    if (perms.allow?.length) next.allow = perms.allow;
-                    if (perms.deny?.length) next.deny = perms.deny;
-                    if (list.length > 0) next.ask = list;
-                    updateField(
-                      "permissions",
-                      Object.keys(next).length > 0 ? next : undefined,
-                    );
-                  }}
-                  addLabel={t("settings.addRule")}
-                />
-              </div>
-
-              <div>
-                <div
-                  style={{
-                    fontSize: 11,
-                    fontWeight: 500,
-                    color: "var(--text-tertiary)",
-                    marginBottom: 4,
-                  }}
-                >
-                  {t("settings.permissionsDeny")}
-                </div>
-                <StringListEditor
-                  items={perms.deny ?? []}
-                  onChange={(list) => {
-                    const next: Record<string, string[]> = {};
-                    if (perms.allow?.length) next.allow = perms.allow;
-                    if (perms.ask?.length) next.ask = perms.ask;
-                    if (list.length > 0) next.deny = list;
-                    updateField(
-                      "permissions",
-                      Object.keys(next).length > 0 ? next : undefined,
-                    );
-                  }}
-                  addLabel={t("settings.addRule")}
-                />
-              </div>
-            </div>
-
-            {/* Env */}
-            <div
-              style={{
-                borderTop: "1px solid var(--border)",
-                paddingTop: 10,
-              }}
-            >
-              <span
-                style={{
-                  display: "block",
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: "var(--text-primary)",
-                  marginBottom: 8,
-                }}
-              >
-                {t("settings.env")}
-              </span>
-              <KvEditor
-                items={envObj}
-                onChange={(newEnv) =>
-                  updateField(
-                    "env",
-                    Object.keys(newEnv).length > 0 ? newEnv : undefined,
-                  )
-                }
-              />
-            </div>
+                  {section.fields.map((field) => (
+                    <FieldRenderer
+                      key={field.key}
+                      field={field}
+                      value={config[field.key]}
+                      onChange={(v) => updateField(field.key, v)}
+                      t={t}
+                    />
+                  ))}
+                </Section>
+              );
+            })}
           </div>
         )}
 
         {/* Error */}
         {saveError && (
           <div
-            className="toast"
             style={{
               fontSize: 12,
               wordBreak: "break-all",
