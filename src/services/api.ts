@@ -46,6 +46,11 @@ export interface GroupDetail {
   model_mappings: ModelMapping[];
 }
 
+export interface ProxySettings {
+  port: number;
+  autostart: boolean;
+}
+
 // ─── Platform API ──────────────────────────────────────────
 
 export const platformApi = {
@@ -146,4 +151,14 @@ export const proxyApi = {
   start: (port: number) => invoke<string>("proxy_start", { port }),
   stop: () => invoke<void>("proxy_stop"),
   status: () => invoke<boolean>("proxy_status"),
+  getSettings: () => invoke<ProxySettings>("proxy_get_settings"),
+  setAutostart: (enabled: boolean) =>
+    invoke<void>("proxy_set_autostart", { enabled }),
+};
+
+// ─── Claude Code Config Export ─────────────────────────────
+
+export const configApi = {
+  exportClaudeConfig: (port: number) =>
+    invoke<string>("export_claude_config", { port }),
 };

@@ -1,12 +1,24 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { proxyApi } from "../services/api";
+import { proxyApi, configApi } from "../services/api";
 
 export function Proxy() {
   const { t } = useTranslation();
   const [running, setRunning] = useState(false);
   const [port, setPort] = useState(8080);
+  const [autostart, setAutostart] = useState(false);
   const [message, setMessage] = useState("");
+  const [configPath, setConfigPath] = useState("");
+
+  const loadSettings = async () => {
+    try {
+      const s = await proxyApi.getSettings();
+      setPort(s.port);
+      setAutostart(s.autostart);
+    } catch {
+      // 默认值
+    }
+  };
 
   const checkStatus = async () => {
     try {
@@ -17,7 +29,10 @@ export function Proxy() {
     }
   };
 
-  useEffect(() => { checkStatus(); }, []);
+  useEffect(() => {
+    loadSettings();
+    checkStatus();
+  }, []);
 
   const handleStart = async () => {
     try {
@@ -34,6 +49,25 @@ export function Proxy() {
       await proxyApi.stop();
       setRunning(false);
       setMessage(t("proxy.stopped"));
+    } catch (e: any) {
+      setMessage(e.toString());
+    }
+  };
+
+  const handleAutostartChange = async (val: boolean) => {
+    try {
+      await proxyApi.setAutostart(val);
+      setAutostart(val);
+    } catch (e: any) {
+      setMessage(e.toString());
+    }
+  };
+
+  const handleExportConfig = async () => {
+    try {
+      const path = await configApi.exportClaudeConfig(port);
+      setConfigPath(path);
+      setMessage(t("proxy.configExported"));
     } catch (e: any) {
       setMessage(e.toString());
     }
@@ -78,7 +112,26 @@ export function Proxy() {
         )}
       </div>
 
-      {/* Config hint */}
+      {/* Autostart toggle */}
+      <div className="glass-surface" style={{ padding: 16, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.autostart")}</div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>{t("proxy.autostartDesc")}</div>
+        </div>
+        <button
+          className="btn"
+          style={{
+            padding: "4px 12px", fontSize: 12,
+            background: autostart ? "var(--accent-subtle)" : "var(--bg-glass)",
+            color: autostart ? "var(--accent)" : "var(--text-secondary)",
+          }}
+          onClick={() => handleAutostartChange(!autostart)}
+        >
+          {autostart ? "● ON" : "○ OFF"}
+        </button>
+      </div>
+
+      {/* Claude Code config */}
       <div className="glass-surface" style={{ padding: 16, fontSize: 13 }}>
         <div style={{ fontWeight: 600, marginBottom: 8 }}>{t("proxy.configHint")}</div>
         <code style={{
@@ -91,6 +144,15 @@ export function Proxy() {
         <div className="text-secondary" style={{ marginTop: 8, fontSize: 12 }}>
           {t("proxy.configDesc")}
         </div>
+        <button className="btn btn-primary" style={{ marginTop: 12, fontSize: 12 }}
+          onClick={handleExportConfig}>
+          {t("proxy.exportConfig")}
+        </button>
+        {configPath && (
+          <div style={{ marginTop: 8, fontSize: 12, color: "var(--accent)" }}>
+            {t("proxy.configExportPath")}: {configPath}
+          </div>
+        )}
       </div>
 
       {message && (

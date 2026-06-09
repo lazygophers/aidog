@@ -147,16 +147,31 @@ async fn proxy_start(
         *h = Some(proxy_handle);
     }
 
+    // 保存端口到设置
+    save_proxy_settings(&app, port, true)?;
+
+    // 更新托盘菜单
+    refresh_tray_menu(&app)?;
+
     Ok(format!("proxy started on port {}", port))
 }
 
 #[tauri::command]
 async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
     let handle = app.state::<ProxyHandle>();
-    let mut h = handle.0.lock().map_err(|e| e.to_string())?;
-    if let Some(jh) = h.take() {
-        jh.abort();
+    {
+        let mut h = handle.0.lock().map_err(|e| e.to_string())?;
+        if let Some(jh) = h.take() {
+            jh.abort();
+        }
     }
+
+    // 更新设置
+    if let Ok(settings) = load_proxy_settings(&app) {
+        save_proxy_settings(&app, settings.port, false)?;
+    }
+
+    refresh_tray_menu(&app)?;
     Ok(())
 }
 
@@ -165,6 +180,134 @@ fn proxy_status(app: tauri::AppHandle) -> Result<bool, String> {
     let handle = app.state::<ProxyHandle>();
     let h = handle.0.lock().map_err(|e| e.to_string())?;
     Ok(h.is_some())
+}
+
+#[tauri::command]
+fn proxy_get_settings(app: tauri::AppHandle) -> Result<ProxySettings, String> {
+    load_proxy_settings(&app)
+}
+
+#[tauri::command]
+fn proxy_set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let current = load_proxy_settings(&app)?;
+    save_proxy_settings(&app, current.port, enabled)?;
+    Ok(())
+}
+
+// ─── Claude Code Config Export ─────────────────────────────
+
+#[tauri::command]
+fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String, String> {
+    let base_url = format!("http://localhost:{}/claude/v1/messages", port);
+    let config_path = dirs::home_dir()
+        .ok_or("cannot resolve home directory")?
+        .join(".claude.json");
+
+    // 读取已有配置
+    let mut config: serde_json::Value = if config_path.exists() {
+        let content = std::fs::read_to_string(&config_path)
+            .map_err(|e| format!("read config: {e}"))?;
+        serde_json::from_str(&content).unwrap_or(serde_json::Value::Object(Default::default()))
+    } else {
+        serde_json::Value::Object(Default::default())
+    };
+
+    // 设置 ANTHROPIC_BASE_URL
+    if let Some(obj) = config.as_object_mut() {
+        obj.insert(
+            "ANTHROPIC_BASE_URL".to_string(),
+            serde_json::Value::String(base_url.clone()),
+        );
+    }
+
+    let content = serde_json::to_string_pretty(&config)
+        .map_err(|e| format!("serialize config: {e}"))?;
+    std::fs::write(&config_path, content)
+        .map_err(|e| format!("write config: {e}"))?;
+
+    Ok(config_path.to_string_lossy().to_string())
+}
+
+// ─── Settings Persistence ──────────────────────────────────
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
+struct ProxySettings {
+    port: u16,
+    autostart: bool,
+}
+
+fn settings_path(app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
+    let app_dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+    Ok(app_dir.join("proxy_settings.json"))
+}
+
+fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> {
+    let path = settings_path(app)?;
+    if path.exists() {
+        let content = std::fs::read_to_string(&path)
+            .map_err(|e| format!("read settings: {e}"))?;
+        serde_json::from_str(&content).map_err(|e| format!("parse settings: {e}"))
+    } else {
+        Ok(ProxySettings { port: 8080, autostart: false })
+    }
+}
+
+fn save_proxy_settings(
+    app: &tauri::AppHandle,
+    port: u16,
+    autostart: bool,
+) -> Result<(), String> {
+    let path = settings_path(app)?;
+    let settings = ProxySettings { port, autostart };
+    let content = serde_json::to_string_pretty(&settings)
+        .map_err(|e| format!("serialize settings: {e}"))?;
+    std::fs::write(&path, content)
+        .map_err(|e| format!("write settings: {e}"))?;
+    Ok(())
+}
+
+// ─── Tray ──────────────────────────────────────────────────
+
+use tauri::menu::{MenuBuilder, MenuItemBuilder};
+use tauri::tray::TrayIconBuilder;
+
+fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wry>, String> {
+    let running = {
+        let handle = app.state::<ProxyHandle>();
+        let h = handle.0.lock().map_err(|e| e.to_string())?;
+        h.is_some()
+    };
+
+    let settings = load_proxy_settings(app)?;
+    let status_text = if running {
+        format!("● Proxy Running :{}", settings.port)
+    } else {
+        "○ Proxy Stopped".to_string()
+    };
+
+    let toggle_id = if running { "proxy_stop" } else { "proxy_start" };
+    let toggle_text = if running { "Stop Proxy" } else { "Start Proxy" };
+
+    let menu = MenuBuilder::new(app)
+        .item(&MenuItemBuilder::with_id("status", status_text).enabled(false).build(app).map_err(|e| e.to_string())?)
+        .separator()
+        .item(&MenuItemBuilder::with_id(toggle_id, toggle_text).build(app).map_err(|e| e.to_string())?)
+        .separator()
+        .item(&MenuItemBuilder::with_id("show", "Show Window").build(app).map_err(|e| e.to_string())?)
+        .item(&MenuItemBuilder::with_id("quit", "Quit").build(app).map_err(|e| e.to_string())?)
+        .build().map_err(|e| e.to_string())?;
+
+    Ok(menu)
+}
+
+fn refresh_tray_menu(app: &tauri::AppHandle) -> Result<(), String> {
+    let tray = app.tray_by_id("main").ok_or("tray not found")?;
+    let menu = build_tray_menu(app)?;
+    tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 // ─── App Entry ─────────────────────────────────────────────
@@ -189,6 +332,52 @@ pub fn run() {
             db.init_tables().expect("failed to init tables");
             app.manage(db);
             app.manage(ProxyHandle(StdMutex::new(None)));
+
+            // 系统托盘
+            let menu = build_tray_menu(app.handle())?;
+            TrayIconBuilder::with_id("main")
+                .icon(app.default_window_icon().cloned().unwrap())
+                .menu(&menu)
+                .tooltip("AiDog — AI API Gateway")
+                .on_menu_event(|app, event| match event.id().as_ref() {
+                    "proxy_start" => {
+                        let settings = load_proxy_settings(app).unwrap_or(ProxySettings {
+                            port: 8080,
+                            autostart: false,
+                        });
+                        let port = settings.port;
+                        tauri::async_runtime::block_on(async {
+                            let _ = proxy_start(port, app.clone()).await;
+                        });
+                    }
+                    "proxy_stop" => {
+                        tauri::async_runtime::block_on(async {
+                            let _ = proxy_stop(app.clone()).await;
+                        });
+                    }
+                    "show" => {
+                        if let Some(w) = app.get_webview_window("main") {
+                            let _ = w.show();
+                            let _ = w.set_focus();
+                        }
+                    }
+                    "quit" => {
+                        app.exit(0);
+                    }
+                    _ => {}
+                })
+                .build(app).map_err(|e| e.to_string())?;
+
+            // 自动启动代理
+            let settings = load_proxy_settings(app.handle())?;
+            if settings.autostart {
+                let port = settings.port;
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let _ = proxy_start(port, handle).await;
+                });
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -219,6 +408,10 @@ pub fn run() {
             proxy_start,
             proxy_stop,
             proxy_status,
+            proxy_get_settings,
+            proxy_set_autostart,
+            // Config Export
+            export_claude_config,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
