@@ -420,6 +420,9 @@ export function Groups() {
         }}>
           <input className="input" placeholder={t("group.name")} value={cName}
             onChange={(e) => setCName(e.target.value)} />
+          <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: -4 }}>
+            仅允许小写字母、数字和连字符（自动转换）
+          </div>
           <input className="input" placeholder="Path (e.g. /claude)" value={cPath}
             onChange={(e) => setCPath(e.target.value)} />
           <select className="input" value={cMode} onChange={(e) => setCMode(e.target.value as RoutingMode)}>

@@ -5,6 +5,55 @@ use gateway::models::*;
 use tauri::State;
 use serde_json::Value;
 
+// ─── Helpers ───────────────────────────────────────────────
+
+/// Convert any string to a slug: lowercase, alphanumeric + hyphens only.
+/// Chinese/special chars are transliterated or stripped.
+fn slugify(input: &str) -> String {
+    input
+        .to_lowercase()
+        .replace(" ", "-")
+        .replace("（", "-")
+        .replace("）", "")
+        .replace("(", "-")
+        .replace(")", "")
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else if c == ' ' {
+                '-'
+            } else {
+                // Strip non-ASCII non-alphanumeric (Chinese chars etc.)
+                '\0'
+            }
+        })
+        .filter(|c| *c != '\0')
+        .collect::<String>()
+        // Collapse multiple hyphens
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+/// Validate group name is a valid slug (lowercase alphanumeric + hyphen)
+fn validate_group_name(name: &str) -> Result<(), String> {
+    if name.is_empty() {
+        return Err("group name cannot be empty".to_string());
+    }
+    if !name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-') {
+        return Err(format!(
+            "group name '{}' must contain only lowercase letters, digits, and hyphens",
+            name
+        ));
+    }
+    if name.starts_with('-') || name.ends_with('-') {
+        return Err("group name cannot start or end with hyphen".to_string());
+    }
+    Ok(())
+}
+
 // ─── Platform Commands ─────────────────────────────────────
 
 #[tauri::command]
@@ -14,7 +63,7 @@ fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform,
     // 自动创建分组，path 按 protocol 生成
     let protocol_str = format!("{:?}", platform.protocol).to_lowercase();
     let group_path = format!("/{}", protocol_str);
-    let group_name = format!("{} (auto)", platform.name);
+    let group_name = slugify(&format!("{}-auto", platform.name));
 
     let group = db::create_group(
         &db,
@@ -63,7 +112,10 @@ fn platform_delete(id: String, db: State<'_, Db>) -> Result<(), String> {
 // ─── Group Commands ────────────────────────────────────────
 
 #[tauri::command]
-fn group_create(input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+fn group_create(mut input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+    // Auto-slugify and validate group name
+    input.name = slugify(&input.name);
+    validate_group_name(&input.name)?;
     let result = db::create_group(&db, input)?;
     let _ = try_sync_settings(&app, &db);
     Ok(result)
@@ -80,7 +132,13 @@ fn group_get(id: String, db: State<'_, Db>) -> Result<Option<Group>, String> {
 }
 
 #[tauri::command]
-fn group_update(input: UpdateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+fn group_update(mut input: UpdateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+    // Auto-slugify and validate if name is being updated
+    if let Some(ref name) = input.name {
+        let slug = slugify(name);
+        validate_group_name(&slug)?;
+        input.name = Some(slug);
+    }
     let result = db::update_group(&db, input)?;
     let _ = try_sync_settings(&app, &db);
     Ok(result)

@@ -47,6 +47,7 @@ impl Db {
             include_str!("../../migrations/003_add_platform_available_models.sql"),
             include_str!("../../migrations/004_add_settings.sql"),
             include_str!("../../migrations/005_add_group_auto_from_platform.sql"),
+            include_str!("../../migrations/006_slugify_group_names.sql"),
         ];
         let conn = self.0.lock().map_err(|e| e.to_string())?;
         for sql in &migrations {
