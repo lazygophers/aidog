@@ -2557,7 +2557,7 @@ export function Settings() {
       {mode === "json" && (
         <div
           className="glass-surface"
-          style={{ flex: 1, padding: S.pad, borderRadius: "var(--radius-lg)", overflow: "auto" }}
+          style={{ flex: 1, display: "flex", flexDirection: "column", padding: S.pad, borderRadius: "var(--radius-lg)", overflow: "hidden" }}
         >
           <textarea
             className="input"
@@ -2565,10 +2565,11 @@ export function Settings() {
               fontFamily: '"SF Mono", "Fira Code", monospace',
               fontSize: F.body,
               lineHeight: 1.7,
-              minHeight: "100%",
-              resize: "vertical",
+              flex: 1,
+              resize: "none",
               whiteSpace: "pre",
               padding: S.inputPad,
+              minHeight: 0,
             }}
             value={editJson}
             onChange={(e) => setEditJson(e.target.value)}
