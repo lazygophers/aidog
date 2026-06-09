@@ -5,7 +5,11 @@ import { settingsApi } from "../services/api";
 import {
   SECTIONS,
   RECOMMENDED_CONFIG,
+  ENV_VAR_DEFS,
+  ENV_VAR_GROUP_ORDER,
+  ENV_VAR_GROUP_LABELS,
   type SettingField,
+  type EnvVarDef,
 } from "../services/claude-settings-schema";
 
 const CONFIG_KEY = "claude_code";
@@ -326,6 +330,301 @@ function KvEditor({
         >
           +
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Env Var Editor (structured) ────────────────────────────
+
+/** Parse env boolean: "1"/"true"/"yes"/"on" → true */
+function envBool(v: string | undefined): boolean {
+  if (!v) return false;
+  return ["1", "true", "yes", "on"].includes(v.toLowerCase());
+}
+
+/** Styled env var row — label on left, control on right */
+function EnvVarRow({ def, value, onChange }: {
+  def: EnvVarDef;
+  value: string | undefined;
+  onChange: (v: string | undefined) => void;
+}) {
+  const { key, label, description, type, options, placeholder, min, max } = def;
+  const isSet = value !== undefined && value !== "";
+
+  const removeBtn = (
+    <button
+      type="button"
+      className="btn btn-ghost btn-icon"
+      style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.small, color: "var(--text-tertiary)" }}
+      onClick={() => onChange(undefined)}
+      title="Remove"
+    >
+      ×
+    </button>
+  );
+
+  const renderControl = () => {
+    switch (type) {
+      case "boolean":
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <Toggle active={envBool(value)} onChange={(v) => onChange(v ? "1" : "0")} />
+            {isSet && removeBtn}
+          </div>
+        );
+      case "select": {
+        const opts = options ?? [];
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+            <select
+              className="input"
+              style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
+              value={value ?? ""}
+              onChange={(e) => onChange(e.target.value || undefined)}
+            >
+              <option value="">—</option>
+              {opts.map((o) => <option key={o} value={o}>{o}</option>)}
+            </select>
+            {isSet && removeBtn}
+          </div>
+        );
+      }
+      case "number":
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+            <input
+              className="input"
+              type="number"
+              style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
+              placeholder={placeholder}
+              value={value ?? ""}
+              min={min}
+              max={max}
+              onChange={(e) => onChange(e.target.value || undefined)}
+            />
+            {isSet && removeBtn}
+          </div>
+        );
+      case "password": {
+        const [show, setShow] = useState(false);
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+            <input
+              className="input"
+              type={show ? "text" : "password"}
+              style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
+              placeholder={placeholder}
+              value={value ?? ""}
+              onChange={(e) => onChange(e.target.value || undefined)}
+            />
+            <button type="button" className="btn btn-ghost btn-icon"
+              style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon }}
+              onClick={() => setShow(!show)}>
+              <SvgIcon d={show ? "M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" : "M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19M1 1l22 22"} size={14} />
+            </button>
+            {isSet && removeBtn}
+          </div>
+        );
+      }
+      case "string":
+      default:
+        return (
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, minWidth: 0 }}>
+            <input
+              className="input"
+              style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
+              placeholder={placeholder}
+              value={value ?? ""}
+              onChange={(e) => onChange(e.target.value || undefined)}
+            />
+            {isSet && removeBtn}
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+      <div style={{ flexShrink: 0, width: 200, paddingTop: 10 }}>
+        <div style={{ fontSize: F.label, fontWeight: 500, color: "var(--text-primary)", lineHeight: 1.4 }}>
+          {label}
+        </div>
+        <div style={{
+          fontSize: F.hint, color: "var(--text-tertiary)", fontFamily: '"SF Mono", "Fira Code", monospace',
+          marginTop: 2,
+        }}>
+          {key}
+        </div>
+        {description && (
+          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: 3, lineHeight: 1.5 }}>
+            {description}
+          </div>
+        )}
+      </div>
+      {renderControl()}
+    </div>
+  );
+}
+
+/** Group heading separator */
+function EnvGroupHeading({ label }: { label: string }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 12,
+      paddingTop: 16, paddingBottom: 4,
+    }}>
+      <span style={{ fontSize: F.label, fontWeight: 600, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+        {label}
+      </span>
+      <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
+    </div>
+  );
+}
+
+/** Structured env var editor — dedicated UI for known vars, generic KV for unknown */
+function EnvEditor({ env, onChange }: {
+  env: Record<string, string>;
+  onChange: (env: Record<string, string>) => void;
+}) {
+  const knownKeys = useMemo(() => new Set(ENV_VAR_DEFS.map(d => d.key)), []);
+  const [showAddMenu, setShowAddMenu] = useState(false);
+  const [customKey, setCustomKey] = useState("");
+  const [customVal, setCustomVal] = useState("");
+
+  const knownDefs = useMemo(
+    () => ENV_VAR_DEFS.filter(d => d.key in env),
+    [env],
+  );
+  const unknownEntries = useMemo(
+    () => Object.entries(env).filter(([k]) => !knownKeys.has(k)),
+    [env, knownKeys],
+  );
+  const addableDefs = useMemo(
+    () => ENV_VAR_DEFS.filter(d => !(d.key in env)),
+    [env],
+  );
+
+  const updateEnv = useCallback((key: string, value: string | undefined) => {
+    onChange(
+      value !== undefined && value !== ""
+        ? { ...env, [key]: value }
+        : Object.fromEntries(Object.entries(env).filter(([k]) => k !== key)),
+    );
+  }, [env, onChange]);
+
+  const grouped = useMemo(() =>
+    ENV_VAR_GROUP_ORDER
+      .map(g => ({ group: g, defs: knownDefs.filter(d => d.group === g) }))
+      .filter(g => g.defs.length > 0),
+    [knownDefs],
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
+      {grouped.map(({ group, defs }) => (
+        <div key={group}>
+          <EnvGroupHeading label={ENV_VAR_GROUP_LABELS[group] ?? group} />
+          <div style={{ display: "flex", flexDirection: "column", gap: S.row }}>
+            {defs.map(def => (
+              <EnvVarRow
+                key={def.key}
+                def={def}
+                value={env[def.key]}
+                onChange={(v) => updateEnv(def.key, v)}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+
+      {unknownEntries.length > 0 && (
+        <div>
+          <EnvGroupHeading label="Custom Variables" />
+          <div style={{ display: "flex", flexDirection: "column", gap: S.row }}>
+            {unknownEntries.map(([k, v]) => (
+              <div key={k} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input className="input" style={{ flex: 2, fontSize: F.body, padding: S.inputPad }} value={k} readOnly />
+                <input className="input" style={{ flex: 3, fontSize: F.body, padding: S.inputPad }} value={v}
+                  onChange={(e) => updateEnv(k, e.target.value)} />
+                <button type="button" className="btn btn-ghost btn-icon"
+                  style={{ width: S.btnIcon, height: S.btnIcon, minWidth: S.btnIcon, fontSize: F.body }}
+                  onClick={() => updateEnv(k, undefined)}>×</button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Add variable */}
+      <div style={{ borderTop: "1px solid var(--border)", paddingTop: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        {addableDefs.length > 0 && (
+          <div style={{ position: "relative" }}>
+            <button className="btn btn-ghost" style={{ fontSize: F.body, padding: S.btnPad }}
+              onClick={() => setShowAddMenu(!showAddMenu)}>
+              + Add Known
+            </button>
+            {showAddMenu && (
+              <div style={{
+                position: "absolute", top: "100%", left: 0, zIndex: 100,
+                background: "var(--bg-surface)", border: "1px solid var(--border)",
+                borderRadius: "var(--radius-md)", padding: 4,
+                maxHeight: 320, overflow: "auto", minWidth: 320,
+                boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
+              }}>
+                {ENV_VAR_GROUP_ORDER.map(g => {
+                  const defs = addableDefs.filter(d => d.group === g);
+                  if (defs.length === 0) return null;
+                  return (
+                    <div key={g}>
+                      <div style={{ fontSize: F.hint, fontWeight: 600, color: "var(--text-tertiary)", padding: "6px 10px 2px" }}>
+                        {ENV_VAR_GROUP_LABELS[g]}
+                      </div>
+                      {defs.map(d => (
+                        <button key={d.key} style={{
+                          display: "block", width: "100%", textAlign: "left",
+                          padding: "6px 10px", fontSize: F.body,
+                          background: "transparent", border: "none", borderRadius: "var(--radius-sm)",
+                          cursor: "pointer", color: "var(--text-primary)",
+                        }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-glass)"; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                          onClick={() => {
+                            const defaultVal = d.type === "boolean" ? "1" : d.type === "select" ? (d.options?.[0] ?? "") : "";
+                            updateEnv(d.key, defaultVal || "1");
+                            setShowAddMenu(false);
+                          }}
+                        >
+                          <span style={{ fontWeight: 500 }}>{d.label}</span>
+                          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginLeft: 8, fontFamily: '"SF Mono", "Fira Code", monospace' }}>
+                            {d.key}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 6, flex: 1, minWidth: 200 }}>
+          <input className="input" style={{ flex: 1, fontSize: F.body, padding: S.inputPad }}
+            placeholder="KEY" value={customKey} onChange={(e) => setCustomKey(e.target.value)} />
+          <input className="input" style={{ flex: 1, fontSize: F.body, padding: S.inputPad }}
+            placeholder="VALUE" value={customVal} onChange={(e) => setCustomVal(e.target.value)} />
+          <button className="btn btn-ghost" style={{ fontSize: F.body, padding: S.btnPad }}
+            onClick={() => {
+              if (customKey.trim()) {
+                updateEnv(customKey.trim(), customVal);
+                setCustomKey("");
+                setCustomVal("");
+              }
+            }}>
+            + Custom
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -2838,8 +3137,8 @@ export function Settings() {
 
     if (section.id === "env") {
       return (
-        <KvEditor
-          items={(config.env ?? {}) as Record<string, string>}
+        <EnvEditor
+          env={(config.env ?? {}) as Record<string, string>}
           onChange={(newEnv) =>
             updateField("env", Object.keys(newEnv).length > 0 ? newEnv : undefined)
           }

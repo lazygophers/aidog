@@ -166,6 +166,82 @@ export const SECTIONS: SettingSection[] = [
   },
 ];
 
+// ── Env Var Definitions ──────────────────────────────────────────
+// Known environment variables with dedicated UI controls.
+// Values in config.env are always strings; UI converts to/from typed controls.
+
+export type EnvVarType = "boolean" | "select" | "number" | "string" | "password";
+
+export interface EnvVarDef {
+  key: string;
+  label: string;
+  description?: string;
+  type: EnvVarType;
+  options?: string[];
+  placeholder?: string;
+  min?: number;
+  max?: number;
+  group: string;
+}
+
+export const ENV_VAR_GROUP_ORDER = ["performance", "toggles", "network", "model"] as const;
+
+export const ENV_VAR_GROUP_LABELS: Record<string, string> = {
+  performance: "Performance & Limits",
+  toggles: "Feature Toggles",
+  network: "Network & Proxy",
+  model: "Model Config",
+};
+
+export const ENV_VAR_DEFS: EnvVarDef[] = [
+  // ── Performance & Limits ──
+  { key: "CLAUDE_CODE_EFFORT_LEVEL", label: "Effort Level", type: "select", options: ["low", "medium", "high", "xhigh", "max", "auto"], group: "performance" },
+  { key: "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE", label: "Auto Compact %", description: "触发自动压缩的上下文容量百分比 (1-100)", type: "number", min: 1, max: 100, placeholder: "95", group: "performance" },
+  { key: "CLAUDE_CODE_MAX_OUTPUT_TOKENS", label: "Max Output Tokens", type: "number", placeholder: "16384", group: "performance" },
+  { key: "MAX_THINKING_TOKENS", label: "Max Thinking Tokens", description: "扩展思考令牌预算，0 禁用思考", type: "number", placeholder: "0", group: "performance" },
+  { key: "API_TIMEOUT_MS", label: "API Timeout (ms)", type: "number", placeholder: "600000", group: "performance" },
+  { key: "BASH_DEFAULT_TIMEOUT_MS", label: "Bash Timeout (ms)", type: "number", placeholder: "120000", group: "performance" },
+  { key: "BASH_MAX_OUTPUT_LENGTH", label: "Bash Max Output", description: "bash 输出最大字符数", type: "number", placeholder: "10240", group: "performance" },
+  { key: "BASH_MAX_TIMEOUT_MS", label: "Bash Max Timeout (ms)", type: "number", placeholder: "600000", group: "performance" },
+  { key: "CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS", label: "File Read Token Limit", type: "number", placeholder: "10240", group: "performance" },
+  { key: "TASK_MAX_OUTPUT_LENGTH", label: "Task Max Output", description: "subagent 输出最大字符数", type: "number", placeholder: "32000", group: "performance" },
+  { key: "CLAUDE_CODE_MAX_CONTEXT_TOKENS", label: "Max Context Tokens", type: "number", group: "performance" },
+  { key: "CLAUDE_CODE_MAX_RETRIES", label: "Max Retries", type: "number", placeholder: "10", group: "performance" },
+  { key: "CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY", label: "Max Tool Concurrency", type: "number", placeholder: "10", group: "performance" },
+
+  // ── Feature Toggles ──
+  { key: "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", label: "Disable Nonessential Traffic", description: "禁用自动更新、反馈、错误报告、遥测", type: "boolean", group: "toggles" },
+  { key: "DISABLE_TELEMETRY", label: "Disable Telemetry", description: "选择退出遥测", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_ENABLE_TELEMETRY", label: "Enable OpenTelemetry", description: "启用 OTEL 数据收集", type: "boolean", group: "toggles" },
+  { key: "DISABLE_ERROR_REPORTING", label: "Disable Error Reporting", type: "boolean", group: "toggles" },
+  { key: "ENABLE_PROMPT_CACHING_1H", label: "Prompt Caching 1H", description: "1 小时 prompt cache TTL", type: "boolean", group: "toggles" },
+  { key: "DISABLE_PROMPT_CACHING", label: "Disable Prompt Caching", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_DISABLE_FAST_MODE", label: "Disable Fast Mode", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_DISABLE_THINKING", label: "Disable Thinking", description: "强制禁用扩展思考", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING", label: "Disable Adaptive Thinking", description: "回退固定思考预算", type: "boolean", group: "toggles" },
+  { key: "DISABLE_AUTO_COMPACT", label: "Disable Auto Compact", type: "boolean", group: "toggles" },
+  { key: "DISABLE_COMPACT", label: "Disable All Compact", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_DISABLE_FILE_CHECKPOINTING", label: "Disable File Checkpointing", type: "boolean", group: "toggles" },
+  { key: "CLAUDE_CODE_DISABLE_AUTO_MEMORY", label: "Disable Auto Memory", type: "boolean", group: "toggles" },
+  { key: "DEBUG", label: "Debug Mode", type: "boolean", group: "toggles" },
+
+  // ── Network & Proxy ──
+  { key: "ANTHROPIC_BASE_URL", label: "Base URL", description: "覆盖 API 端点", type: "string", placeholder: "https://api.anthropic.com", group: "network" },
+  { key: "ANTHROPIC_API_KEY", label: "API Key", type: "password", group: "network" },
+  { key: "ANTHROPIC_CUSTOM_HEADERS", label: "Custom Headers", description: "Name: Value 格式，多个用换行分隔", type: "string", group: "network" },
+  { key: "HTTP_PROXY", label: "HTTP Proxy", type: "string", group: "network" },
+  { key: "HTTPS_PROXY", label: "HTTPS Proxy", type: "string", group: "network" },
+  { key: "NO_PROXY", label: "No Proxy", description: "绕过代理的域名列表", type: "string", group: "network" },
+
+  // ── Model Config ──
+  { key: "ANTHROPIC_MODEL", label: "Model Override", description: "覆盖使用的模型", type: "string", placeholder: "claude-sonnet-4-6", group: "model" },
+  { key: "CLAUDE_CODE_SUBAGENT_MODEL", label: "Subagent Model", type: "string", group: "model" },
+  { key: "ANTHROPIC_CUSTOM_MODEL_OPTION", label: "Custom Model Option", description: "在 /model 选择器中添加自定义条目", type: "string", group: "model" },
+];
+
+/** Map key → def for O(1) lookup */
+export const ENV_VAR_DEF_MAP = new Map(ENV_VAR_DEFS.map(d => [d.key, d]));
+
 // All known top-level keys from Claude Code settings.json
 export const ALL_SETTING_KEYS = SECTIONS.flatMap(s => s.fields.map(f => f.key));
 
