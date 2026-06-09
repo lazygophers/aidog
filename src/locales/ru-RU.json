@@ -40,6 +40,8 @@
   "platform.modelOpus": "Opus",
   "platform.modelHaiku": "Haiku",
   "platform.modelGpt": "GPT",
+  "platform.fetchModels": "Загрузить",
+  "platform.fetchEmpty": "Модели не найдены",
   "proxy.autostart": "Автозапуск",
   "proxy.autostartDesc": "Запускать прокси при старте приложения",
   "proxy.configDesc": "Установите эту переменную окружения в Claude Code.",

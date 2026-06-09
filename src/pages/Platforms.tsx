@@ -54,12 +54,49 @@ function allModelValues(models: Platform["models"]): string[] {
   return result;
 }
 
+/** 根据模型名模式自动分配到槽位 */
+function autoCategorize(modelIds: string[]): Record<ModelSlot, string> {
+  const result: Record<ModelSlot, string> = {
+    default: "", sonnet: "", opus: "", haiku: "", gpt: "",
+  };
+
+  // 模式匹配：按优先级匹配
+  const patterns: { slot: ModelSlot; test: (id: string) => boolean }[] = [
+    { slot: "opus", test: (id) => /opus/i.test(id) },
+    { slot: "sonnet", test: (id) => /sonnet/i.test(id) },
+    { slot: "haiku", test: (id) => /haiku/i.test(id) },
+    { slot: "gpt", test: (id) => /gpt/i.test(id) && !/mini/i.test(id) },
+  ];
+
+  const assigned = new Set<string>();
+
+  // 先按模式匹配（取最后一个匹配，通常是最新的）
+  for (const { slot, test } of patterns) {
+    for (const id of modelIds) {
+      if (test(id) && !assigned.has(id)) {
+        result[slot] = id;
+        assigned.add(id);
+      }
+    }
+  }
+
+  // default：取第一个未被分配的模型，如果全部被分配则取第一个
+  const first = modelIds.find(id => !assigned.has(id)) ?? modelIds[0];
+  if (first && !result.default) {
+    result.default = first;
+  }
+
+  return result;
+}
+
 export function Platforms() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Platform | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [fetching, setFetching] = useState(false);
+  const [fetchError, setFetchError] = useState("");
 
   // Form state
   const [name, setName] = useState("");
@@ -94,6 +131,7 @@ export function Platforms() {
     setName(""); setProtocol("openai"); setBaseUrl(""); setApiKey("");
     setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "" });
     setEditing(null); setShowForm(false);
+    setFetchError("");
   };
 
   const handleEdit = (p: Platform) => {
@@ -106,10 +144,29 @@ export function Platforms() {
       gpt: p.models.gpt ?? "",
     });
     setEditing(p); setShowForm(true);
+    setFetchError("");
   };
 
   const handleModelChange = (slot: ModelSlot, value: string) => {
     setModels(prev => ({ ...prev, [slot]: value }));
+  };
+
+  const handleFetchModels = async () => {
+    if (!baseUrl || !apiKey) return;
+    setFetching(true);
+    setFetchError("");
+    try {
+      const modelIds = await platformApi.fetchModels(protocol, baseUrl, apiKey);
+      if (modelIds.length === 0) {
+        setFetchError(t("platform.fetchEmpty"));
+      } else {
+        const categorized = autoCategorize(modelIds);
+        setModels(categorized);
+      }
+    } catch (e: any) {
+      setFetchError(e.toString());
+    }
+    setFetching(false);
   };
 
   /** 将表单 models 转为 API 结构（空字符串 → undefined） */
@@ -187,10 +244,29 @@ export function Platforms() {
             onChange={(e) => setApiKey(e.target.value)} />
 
           {/* Models Configuration */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
-              {t("platform.models")}
+          <div style={{
+            display: "flex", flexDirection: "column", gap: 6,
+            padding: "12px 0 4px",
+            borderTop: "1px solid var(--border)",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
+                {t("platform.models")}
+              </div>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
+                onClick={handleFetchModels}
+                disabled={!baseUrl || !apiKey || fetching}
+              >
+                {fetching ? t("status.loading") : t("platform.fetchModels")}
+              </button>
             </div>
+            {fetchError && (
+              <div style={{ fontSize: 12, color: "var(--danger, #e55)", padding: "2px 0" }}>
+                {fetchError}
+              </div>
+            )}
             {MODEL_SLOTS.map(({ key, labelKey }) => (
               <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{

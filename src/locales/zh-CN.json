@@ -40,6 +40,8 @@
   "platform.modelOpus": "Opus",
   "platform.modelHaiku": "Haiku",
   "platform.modelGpt": "GPT",
+  "platform.fetchModels": "一键获取",
+  "platform.fetchEmpty": "未获取到可用模型",
   "proxy.autostart": "自动启动",
   "proxy.autostartDesc": "应用启动时自动开启代理服务",
   "proxy.configDesc": "将此环境变量设置到 Claude Code 中，即可通过本代理转发请求。",

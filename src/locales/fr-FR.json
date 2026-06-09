@@ -40,6 +40,8 @@
   "platform.modelOpus": "Opus",
   "platform.modelHaiku": "Haiku",
   "platform.modelGpt": "GPT",
+  "platform.fetchModels": "Récupérer",
+  "platform.fetchEmpty": "Aucun modèle trouvé",
   "proxy.autostart": "Démarrage auto",
   "proxy.autostartDesc": "Démarrer le proxy au lancement de l'application",
   "proxy.configDesc": "Définissez cette variable pour Claude Code.",

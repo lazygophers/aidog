@@ -40,6 +40,8 @@
   "platform.modelOpus": "Opus",
   "platform.modelHaiku": "Haiku",
   "platform.modelGpt": "GPT",
+  "platform.fetchModels": "モデル取得",
+  "platform.fetchEmpty": "モデルが見つかりません",
   "proxy.autostart": "自動起動",
   "proxy.autostartDesc": "アプリ起動時にプロキシを自動開始",
   "proxy.configDesc": "Claude Code にこの環境変数を設定してください。",

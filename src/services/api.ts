@@ -90,6 +90,9 @@ export const platformApi = {
   }) => invoke<Platform>("platform_update", { input }),
 
   delete: (id: string) => invoke<void>("platform_delete", { id }),
+
+  fetchModels: (protocol: Protocol, baseUrl: string, apiKey: string) =>
+    invoke<string[]>("platform_fetch_models", { protocol, baseUrl, apiKey }),
 };
 
 // ─── Group API ─────────────────────────────────────────────

@@ -40,6 +40,8 @@
   "platform.modelOpus": "Opus",
   "platform.modelHaiku": "Haiku",
   "platform.modelGpt": "GPT",
+  "platform.fetchModels": "Fetch Models",
+  "platform.fetchEmpty": "No models found",
   "proxy.autostart": "Auto Start",
   "proxy.autostartDesc": "Start proxy automatically on app launch",
   "proxy.configDesc": "Set this environment variable in Claude Code to route requests through this proxy.",

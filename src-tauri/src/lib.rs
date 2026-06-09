@@ -3,6 +3,7 @@ mod gateway;
 use gateway::db::{self, Db};
 use gateway::models::*;
 use tauri::State;
+use serde_json::Value;
 
 // ─── Platform Commands ─────────────────────────────────────
 
@@ -192,6 +193,62 @@ fn proxy_set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), Strin
     let current = load_proxy_settings(&app)?;
     save_proxy_settings(&app, current.port, enabled)?;
     Ok(())
+}
+
+// ─── Platform Model Fetch ──────────────────────────────────
+
+#[tauri::command]
+async fn platform_fetch_models(
+    protocol: Protocol,
+    base_url: String,
+    api_key: String,
+) -> Result<Vec<String>, String> {
+    let client = reqwest::Client::new();
+    let base = base_url.trim_end_matches('/');
+
+    let resp: Value = match protocol {
+        Protocol::Anthropic | Protocol::ClaudeCode => {
+            let url = format!("{base}/v1/models");
+            client
+                .get(&url)
+                .header("x-api-key", &api_key)
+                .header("anthropic-version", "2023-06-01")
+                .send()
+                .await
+                .map_err(|e| format!("fetch models: {e}"))?
+                .json()
+                .await
+                .map_err(|e| format!("parse response: {e}"))?
+        }
+        Protocol::OpenAI | Protocol::Codex | Protocol::GLM | Protocol::Kimi | Protocol::MiniMax => {
+            let url = format!("{base}/models");
+            client
+                .get(&url)
+                .header("Authorization", format!("Bearer {api_key}"))
+                .send()
+                .await
+                .map_err(|e| format!("fetch models: {e}"))?
+                .json()
+                .await
+                .map_err(|e| format!("parse response: {e}"))?
+        }
+    };
+
+    // 解析 {"data": [{"id": "..."}, ...]} 格式
+    let models = resp
+        .get("data")
+        .and_then(|d| d.as_array())
+        .map(|arr| {
+            let mut ids: Vec<String> = arr
+                .iter()
+                .filter_map(|item| item.get("id").and_then(|v| v.as_str()).map(String::from))
+                .collect();
+            ids.sort();
+            ids
+        })
+        .unwrap_or_default();
+
+    Ok(models)
 }
 
 // ─── Claude Code Config Export ─────────────────────────────
@@ -388,6 +445,7 @@ pub fn run() {
             platform_get,
             platform_update,
             platform_delete,
+            platform_fetch_models,
             // Group
             group_create,
             group_list,
