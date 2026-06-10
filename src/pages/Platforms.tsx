@@ -93,7 +93,7 @@ function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Platform
     ],
     // GLM: 用 openai 协议（OpenAI-compatible），路径由 adapter 按 platform protocol 生成
     glm: [
-      { protocol: "openai", base_url: "https://open.bigmodel.cn", client_type: "codex_tui", coding_plan: cp },
+      { protocol: "openai", base_url: cp ? "https://open.bigmodel.cn/api/coding/paas/v4" : "https://open.bigmodel.cn", client_type: "codex_tui", coding_plan: cp },
       { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic", client_type: "claude_code" },
     ],
     // 百炼: 用 openai 协议

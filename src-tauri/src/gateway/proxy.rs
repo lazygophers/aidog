@@ -944,12 +944,12 @@ fn inject_coding_plan_fields(body: &mut Value, protocol: &super::models::Protoco
     }
 }
 
-/// Coding Plan 需要不同的 API 路径（GLM coding plan 使用 /api/coding/paas/v4 而非 /api/paas/v4）
+/// Coding Plan 需要不同的 API 路径
+/// GLM coding plan base_url 已包含 /api/coding/paas/v4，api_path 只需 /chat/completions
 fn override_coding_plan_path(api_path: &mut String, protocol: &super::models::Protocol) {
     match protocol {
         super::models::Protocol::Glm => {
-            // 普通: /api/paas/v4/chat/completions → Coding: /api/coding/paas/v4/chat/completions
-            *api_path = api_path.replace("/api/paas/v4/", "/api/coding/paas/v4/");
+            *api_path = "/chat/completions".to_string();
         }
         _ => {
             // Kimi / MiniMax / 百炼等 coding plan 路径与普通端点相同
