@@ -1,7 +1,3 @@
-<!-- trellisx:start:prefix -->
-> **trellisx 回复前缀**: 所有回复必须以 `[trellisx-{status}-{task-name}]` 开头 (无 active task 用 `[trellisx]`)。status = planning/in_progress/check/done/blocked。前缀置于回复最前。
-<!-- trellisx:end:prefix -->
-
 # Development Workflow
 
 ---
@@ -157,9 +153,6 @@ Phase 3: Finish  → distill lessons + wrap-up
 No active task. **A Direct answer** — pure Q&A / explanation / lookup / chat; no file writes + one-line answer + repo reads ≤ 2 files → AI judges, no override needed.
 **B Create a task** — any implementation / code change / build / refactor work. Entry sequence: (1) `python3 ./.trellis/scripts/task.py create "<title>"` to create the task (status=planning, breadcrumb switches to [workflow-state:planning] for brainstorm + jsonl phase guidance) → (2) load `trellis-brainstorm` skill to discuss requirements with the user and iterate on prd.md → (3) once prd is done and jsonl is curated, run `task.py start <task-dir>` to enter [workflow-state:in_progress] for the implementation skeleton. **"It looks small" is NOT grounds for downgrading B to A or C**.
 **C Inline change** (per-turn only, escape hatch for B) — the user's CURRENT message MUST contain one of: "skip trellis" / "no task" / "just do it" / "don't create a task" / "跳过 trellis" / "别走流程" / "小修一下" / "直接改" / "先别建任务" → briefly acknowledge ("ok, skipping trellis flow this turn"), then inline. **Without seeing one of these phrases you must NOT inline on your own**; do not invent an override the user never said.
-<!-- trellisx:start:no_task -->
-trellisx 任务门禁: 实施 (写盘/改文件) → 无条件建 task 走 planning; 探索 (纯只读) → 按复杂度决定。实施前必须 task.py create。
-<!-- trellisx:end:no_task -->
 [/workflow-state:no_task]
 
 ### Phase 1: Plan
@@ -473,19 +466,6 @@ If `task.py start` errors with a session-identity message (no context key from h
 
 Goal: turn the prd into code that passes quality checks.
 
-<!-- trellisx:start:phase2_order -->
-### trellisx 前置流程铁律 (实施类, 禁跳步)
-
-trellisx 标准开发流程 (5 步, 禁跳步):
-① **创建任务 + 切 worktree**: task.py create + start → 平台 hook 自动建并提示切入 .trellis/worktrees/<task>
-② **任务规划**: 加载 trellisx-orchestrate skill, 拆 ≥ 2 subtask, 写 prd.md / design.md / implement.md + 每 subtask 独立文件 .trellis/tasks/<task>/subtask/<id>.md + mermaid 调度图
-③ **异步执行**: 按调度图调度拆好的 subtask agent (sub-agent isolation:worktree / agent-team 成员), **尽可能并行开发**提升整体效率; 无依赖的 subtask 同时派发, 有依赖的按调度图顺序; main 可直写 worktree 路径
-④ **整体 check 校验**: 全部 subtask done → trellis-check 综合验证 (闭环, 未过禁继续)
-⑤ **commit + finish**: 合并 worktree → 移除 → commit → task.py archive (finish) → 落 cortex
-
-禁: 直接写代码不建 task / 主工作区写源码 / 该并行的 subtask 串行干等 / 跳过 trellis-check。
-<!-- trellisx:end:phase2_order -->
-
 #### 2.1 Implement `[required · repeatable]`
 
 [Claude Code, Cursor, OpenCode, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi]
@@ -660,14 +640,6 @@ The AI drives a batched commit of this task's code changes so `/finish-work` can
 #### 3.5 Wrap-up reminder
 
 After the above, remind the user they can run `/finish-work` to wrap up (archive the task, record the session).
-
-<!-- trellisx:start:phase3_check -->
-**trellisx 完成判定** (全满足才宣告 done):
-- [ ] 全部 subtask done + 验收
-- [ ] **trellis-check 综合验证通过 (C3 强制闭环)**
-- [ ] 全部 worktree 已合并 + 移除 (.trellis/worktrees/<task> 清空)
-- [ ] commit + 非平凡发现落 cortex
-<!-- trellisx:end:phase3_check -->
 
 ---
 

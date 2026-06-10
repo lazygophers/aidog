@@ -46,8 +46,4 @@ authored-by: trellisx-apply
 | 增量 spec 捕获 | trellis 原生 `trellis-update-spec` |
 | 破坏式 spec 重写 | trellisx `trellisx-spec` skill |
 | planning 文档编排 (PRD/design/implement/subtask 文件 + 调度图) | trellisx `trellisx-orchestrate` skill |
-| worktree 隔离 + 前缀标记 | trellisx (本约定 + 平台 hook) |
-
-## 回复前缀
-
-所有回复以 `[trellisx-{status}-{task}]` 开头 (无 task `[trellisx]`)。
+| worktree 隔离 | trellisx (本约定 + 平台 hook) |
