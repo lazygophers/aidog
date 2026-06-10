@@ -10,6 +10,7 @@
   "showThinkingSummaries": true,
   "showTurnDuration": true,
   "autoScrollEnabled": true,
+  "spinnerTipsEnabled": true,
   "terminalProgressBarEnabled": true,
   "feedbackSurveyRate": 0,
   "teammateMode": "auto",

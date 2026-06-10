@@ -55,15 +55,44 @@ pub async fn start_proxy(
     Ok((handle, actual_port))
 }
 
-/// 主代理处理函数 — 所有请求路径（成功/失败）均记录日志
+/// Upsert a proxy log entry; silently ignore errors
+fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog) {
+    let db = match state.db.lock() {
+        Ok(d) => d,
+        Err(_) => return,
+    };
+    let _ = super::db::upsert_proxy_log(&db, log);
+}
+
+/// 主代理处理函数 — 渐进式日志：每个阶段即时 upsert，用 request_id 串联
 async fn handle_proxy(
     AxumState(state): AxumState<Arc<ProxyState>>,
     req: Request,
 ) -> Response {
     let start = std::time::Instant::now();
+    let request_id = uuid::Uuid::new_v4().to_string();
+    let created_at = chrono::Utc::now().to_rfc3339();
 
-    // Capture request headers for logging (redact Authorization value)
-    let req_headers_json = {
+    // ── 初始化日志条目 ──
+    let mut log = ProxyLog {
+        id: request_id,
+        group_name: String::new(),
+        model: String::new(),
+        actual_model: String::new(),
+        source_protocol: "anthropic".to_string(),
+        target_protocol: String::new(),
+        request_headers: String::new(),
+        request_body: String::new(),
+        response_body: String::new(),
+        status_code: 0,
+        duration_ms: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+        created_at,
+    };
+
+    // ── 捕获请求头 ──
+    log.request_headers = {
         let mut h = serde_json::Map::new();
         for (k, v) in req.headers() {
             if let Ok(s) = v.to_str() {
@@ -85,35 +114,34 @@ async fn handle_proxy(
         .map(|s| s.trim().to_string());
     let path = req.uri().path().to_string();
 
-    // (logging is now unconditional — removed log_settings check)
-
-    // ── 读取请求体（优先于 group 匹配，以便记录早期错误）──
+    // ── 读取请求体 ──
     let (_parts, body) = req.into_parts();
     let bytes = match axum::body::to_bytes(body, 10 * 1024 * 1024).await {
         Ok(b) => b,
         Err(e) => {
-            let duration_ms = start.elapsed().as_millis() as i32;
-            try_log(&state, &LogParams {
-                group_name: "", model: "", actual_model: "",
-                target_protocol: "", req_headers: &req_headers_json,
-                req_body: "", resp_body: &format!("read body error: {e}"),
-                status_code: 400, duration_ms, input_tokens: 0, output_tokens: 0,
-            });
+            log.response_body = format!("read body error: {e}");
+            log.status_code = 400;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(&state, &log);
             return (StatusCode::BAD_REQUEST, format!("read body: {e}")).into_response();
         }
     };
-    let req_body_str = String::from_utf8_lossy(&bytes).to_string();
+    log.request_body = String::from_utf8_lossy(&bytes).to_string();
 
-    // Best-effort model extraction for logging (before full parse)
+    // Best-effort model extraction
     let raw_model = serde_json::from_slice::<Value>(&bytes)
         .ok()
         .and_then(|v| v.get("model").and_then(|m| m.as_str()).map(String::from))
         .unwrap_or_default();
+    log.model = raw_model.clone();
+
+    // Upsert #1: request received
+    upsert_log(&state, &log);
 
     // ── 查找分组 ──
     let group = {
-        let db = state.db.lock().map_err(|e| e.to_string());
-        match db {
+        let db_result = state.db.lock().map_err(|e| e.to_string());
+        match db_result {
             Ok(db) => {
                 if let Some(ref token) = auth_header {
                     if let Some(g) = find_group_by_name(&db, token) {
@@ -122,15 +150,11 @@ async fn handle_proxy(
                         match find_group_by_path(&db, &path) {
                             Some(g) => g,
                             None => {
-                                let duration_ms = start.elapsed().as_millis() as i32;
-                                try_log(&state, &LogParams {
-                                    group_name: "", model: &raw_model, actual_model: "",
-                                    target_protocol: "", req_headers: &req_headers_json,
-                                    req_body: &req_body_str,
-                                    resp_body: &format!("no matching group for token '{}' or path '{}'", token, path),
-                                    status_code: 404, duration_ms, input_tokens: 0, output_tokens: 0,
-                                });
-                                return (StatusCode::NOT_FOUND, format!("no matching group for token '{}' or path '{}'", token, path)).into_response();
+                                log.response_body = format!("no matching group for token '{}' or path '{}'", token, path);
+                                log.status_code = 404;
+                                log.duration_ms = start.elapsed().as_millis() as i32;
+                                upsert_log(&state, &log);
+                                return (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
                             }
                         }
                     }
@@ -138,62 +162,55 @@ async fn handle_proxy(
                     match find_group_by_path(&db, &path) {
                         Some(g) => g,
                         None => {
-                            let duration_ms = start.elapsed().as_millis() as i32;
-                            try_log(&state, &LogParams {
-                                group_name: "", model: &raw_model, actual_model: "",
-                                target_protocol: "", req_headers: &req_headers_json,
-                                req_body: &req_body_str, resp_body: "no matching group",
-                                status_code: 404, duration_ms, input_tokens: 0, output_tokens: 0,
-                            });
+                            log.response_body = "no matching group".to_string();
+                            log.status_code = 404;
+                            log.duration_ms = start.elapsed().as_millis() as i32;
+                            upsert_log(&state, &log);
                             return (StatusCode::NOT_FOUND, "no matching group").into_response();
                         }
                     }
                 }
             }
             Err(e) => {
-                let duration_ms = start.elapsed().as_millis() as i32;
-                try_log(&state, &LogParams {
-                    group_name: "", model: &raw_model, actual_model: "",
-                    target_protocol: "", req_headers: &req_headers_json,
-                    req_body: &req_body_str, resp_body: &format!("db error: {e}"),
-                    status_code: 500, duration_ms, input_tokens: 0, output_tokens: 0,
-                });
+                log.response_body = format!("db error: {e}");
+                log.status_code = 500;
+                log.duration_ms = start.elapsed().as_millis() as i32;
+                upsert_log(&state, &log);
                 return (StatusCode::INTERNAL_SERVER_ERROR, e).into_response();
             }
         }
     };
 
+    // Upsert #2: group resolved
+    log.group_name = group.name.clone();
+    upsert_log(&state, &log);
+
     // ── 解析 ChatRequest ──
     let mut chat_req: ChatRequest = match serde_json::from_slice(&bytes) {
         Ok(r) => r,
         Err(e) => {
-            let duration_ms = start.elapsed().as_millis() as i32;
-            try_log(&state, &LogParams {
-                group_name: &group.name, model: &raw_model, actual_model: "",
-                target_protocol: "", req_headers: &req_headers_json,
-                req_body: &req_body_str, resp_body: &format!("parse request error: {e}"),
-                status_code: 400, duration_ms, input_tokens: 0, output_tokens: 0,
-            });
+            log.response_body = format!("parse request error: {e}");
+            log.status_code = 400;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(&state, &log);
             return (StatusCode::BAD_REQUEST, format!("parse request: {e}")).into_response();
         }
     };
 
     let is_stream = chat_req.stream.unwrap_or(false);
     let requested_model = if chat_req.model.is_empty() { raw_model } else { chat_req.model.clone() };
+    log.model = requested_model.clone();
 
     // ── 路由选择平台 + 模型映射 ──
     let route = {
-        let db = state.db.lock().map_err(|e| e.to_string());
-        match db {
+        let db_result = state.db.lock().map_err(|e| e.to_string());
+        match db_result {
             Ok(db) => select_platform(&db, &group, &chat_req.model),
             Err(e) => {
-                let duration_ms = start.elapsed().as_millis() as i32;
-                try_log(&state, &LogParams {
-                    group_name: &group.name, model: &requested_model, actual_model: "",
-                    target_protocol: "", req_headers: &req_headers_json,
-                    req_body: &req_body_str, resp_body: &format!("db lock error: {e}"),
-                    status_code: 500, duration_ms, input_tokens: 0, output_tokens: 0,
-                });
+                log.response_body = format!("db lock error: {e}");
+                log.status_code = 500;
+                log.duration_ms = start.elapsed().as_millis() as i32;
+                upsert_log(&state, &log);
                 return (StatusCode::INTERNAL_SERVER_ERROR, e).into_response();
             }
         }
@@ -201,13 +218,10 @@ async fn handle_proxy(
     let route = match route {
         Ok(r) => r,
         Err(e) => {
-            let duration_ms = start.elapsed().as_millis() as i32;
-            try_log(&state, &LogParams {
-                group_name: &group.name, model: &requested_model, actual_model: "",
-                target_protocol: "", req_headers: &req_headers_json,
-                req_body: &req_body_str, resp_body: &format!("route error: {e}"),
-                status_code: 400, duration_ms, input_tokens: 0, output_tokens: 0,
-            });
+            log.response_body = format!("route error: {e}");
+            log.status_code = 400;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(&state, &log);
             return (StatusCode::BAD_REQUEST, format!("route: {e}")).into_response();
         }
     };
@@ -215,6 +229,11 @@ async fn handle_proxy(
     let actual_model = route.target_model;
     let target_protocol = format!("{:?}", route.platform.protocol).to_lowercase();
     let needs_model_remap = actual_model != requested_model;
+
+    // Upsert #3: route resolved
+    log.actual_model = actual_model.clone();
+    log.target_protocol = target_protocol.clone();
+    upsert_log(&state, &log);
 
     // 替换模型名
     chat_req.model = actual_model.clone();
@@ -249,8 +268,10 @@ async fn handle_proxy(
     let resp = match req_builder.send().await {
         Ok(r) => r,
         Err(e) => {
-            let duration_ms = start.elapsed().as_millis() as i32;
-            try_log(&state, &LogParams { group_name: &group.name, model: &requested_model, actual_model: &actual_model, target_protocol: &target_protocol, req_headers: &req_headers_json, req_body: &req_body_str, resp_body: "", status_code: 502, duration_ms, input_tokens: 0, output_tokens: 0 });
+            log.response_body = format!("upstream error: {e}");
+            log.status_code = 502;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(&state, &log);
             return (StatusCode::BAD_GATEWAY, format!("upstream: {e}")).into_response();
         }
     };
@@ -258,9 +279,10 @@ async fn handle_proxy(
     let status = resp.status();
     if !status.is_success() {
         let body = resp.text().await.unwrap_or_default();
-        let status_code = status.as_u16() as i32;
-        let duration_ms = start.elapsed().as_millis() as i32;
-        try_log(&state, &LogParams { group_name: &group.name, model: &requested_model, actual_model: &actual_model, target_protocol: &target_protocol, req_headers: &req_headers_json, req_body: &req_body_str, resp_body: &body, status_code, duration_ms, input_tokens: 0, output_tokens: 0 });
+        log.status_code = status.as_u16() as i32;
+        log.response_body = body.clone();
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        upsert_log(&state, &log);
         return (StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY), body)
             .into_response();
     }
@@ -268,13 +290,15 @@ async fn handle_proxy(
     // 非流式：直接透传 JSON
     if !is_stream {
         let body = resp.bytes().await.unwrap_or_default();
-        let duration_ms = start.elapsed().as_millis() as i32;
         let resp_str = String::from_utf8_lossy(&body).to_string();
-
-        // Extract usage tokens from response
         let (input_tokens, output_tokens) = extract_usage(&resp_str);
 
-        try_log(&state, &LogParams { group_name: &group.name, model: &requested_model, actual_model: &actual_model, target_protocol: &target_protocol, req_headers: &req_headers_json, req_body: &req_body_str, resp_body: &resp_str, status_code: 200, duration_ms, input_tokens, output_tokens });
+        log.status_code = 200;
+        log.response_body = resp_str;
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        log.input_tokens = input_tokens;
+        log.output_tokens = output_tokens;
+        upsert_log(&state, &log);
 
         // Replace model in response back to original if remapped
         let body = if needs_model_remap {
@@ -293,8 +317,6 @@ async fn handle_proxy(
 
     // 流式：转换 SSE 格式为 Anthropic 格式返回
     let protocol = route.platform.protocol;
-
-    // Shared state to accumulate tokens from SSE stream
     let tokens_acc = Arc::new(std::sync::atomic::AtomicI32::new(0));
     let tokens_out = Arc::new(std::sync::atomic::AtomicI32::new(0));
     let model_for_response = if needs_model_remap {
@@ -324,7 +346,6 @@ async fn handle_proxy(
                 }
 
                 if let Ok(json) = serde_json::from_str::<Value>(data) {
-                    // Extract usage from stream events
                     if let Some(usage) = json.get("usage") {
                         if let Some(i) = usage.get("prompt_tokens").and_then(|v| v.as_i64()) {
                             acc_in.store(i as i32, std::sync::atomic::Ordering::Relaxed);
@@ -335,7 +356,6 @@ async fn handle_proxy(
                     }
 
                     if let Some(event) = adapter::parse_sse(&json, &protocol) {
-                        // Replace model in Start events if remapped
                         let event = if !model_for_response.is_empty() {
                             match event {
                                 ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {
@@ -360,11 +380,13 @@ async fn handle_proxy(
 
     let body = Body::from_stream(stream);
 
-    // Log for streaming response — tokens captured from SSE
-    let duration_ms = start.elapsed().as_millis() as i32;
-    let in_t = tokens_acc.load(std::sync::atomic::Ordering::Relaxed);
-    let out_t = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
-    try_log(&state, &LogParams { group_name: &group.name, model: &requested_model, actual_model: &actual_model, target_protocol: &target_protocol, req_headers: &req_headers_json, req_body: &req_body_str, resp_body: "[stream]", status_code: 200, duration_ms, input_tokens: in_t, output_tokens: out_t });
+    // Upsert final: stream complete
+    log.status_code = 200;
+    log.response_body = "[stream]".to_string();
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    log.input_tokens = tokens_acc.load(std::sync::atomic::Ordering::Relaxed);
+    log.output_tokens = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
+    upsert_log(&state, &log);
 
     (
         StatusCode::OK,
@@ -397,45 +419,6 @@ fn extract_usage(body: &str) -> (i32, i32) {
         .and_then(|v| v.as_i64())
         .unwrap_or(0) as i32;
     (input, output)
-}
-
-struct LogParams<'a> {
-    group_name: &'a str,
-    model: &'a str,
-    actual_model: &'a str,
-    target_protocol: &'a str,
-    req_headers: &'a str,
-    req_body: &'a str,
-    resp_body: &'a str,
-    status_code: i32,
-    duration_ms: i32,
-    input_tokens: i32,
-    output_tokens: i32,
-}
-
-/// Attempt to insert a proxy log entry; silently ignore errors
-fn try_log(state: &Arc<ProxyState>, p: &LogParams) {
-    let db = match state.db.lock() {
-        Ok(d) => d,
-        Err(_) => return,
-    };
-    let log = ProxyLog {
-        id: uuid::Uuid::new_v4().to_string(),
-        group_name: p.group_name.to_string(),
-        model: p.model.to_string(),
-        actual_model: p.actual_model.to_string(),
-        source_protocol: "anthropic".to_string(),
-        target_protocol: p.target_protocol.to_string(),
-        request_headers: p.req_headers.to_string(),
-        request_body: p.req_body.to_string(),
-        response_body: p.resp_body.to_string(),
-        status_code: p.status_code,
-        duration_ms: p.duration_ms,
-        input_tokens: p.input_tokens,
-        output_tokens: p.output_tokens,
-        created_at: chrono::Utc::now().to_rfc3339(),
-    };
-    let _ = super::db::insert_proxy_log(&db, &log);
 }
 
 /// Replace "model" field in a JSON response body back to the original model name

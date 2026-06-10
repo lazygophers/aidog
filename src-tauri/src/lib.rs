@@ -450,10 +450,14 @@ fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
         let file_path = aidog_dir.join(format!("settings.{}.json", group_name));
         let content = serde_json::to_string_pretty(&config)
             .map_err(|e| format!("serialize config for {}: {e}", group_name))?;
-        std::fs::write(&file_path, content)
-            .map_err(|e| format!("write config for {}: {e}", group_name))?;
 
-        written.push(file_path.to_string_lossy().to_string());
+        // Diff check: only write when content differs
+        let existing = std::fs::read_to_string(&file_path).unwrap_or_default();
+        if existing != content {
+            std::fs::write(&file_path, &content)
+                .map_err(|e| format!("write config for {}: {e}", group_name))?;
+            written.push(file_path.to_string_lossy().to_string());
+        }
     }
 
     // Cleanup: remove settings files for deleted groups
@@ -757,6 +761,14 @@ pub fn run() {
             db.init_tables().expect("failed to init tables");
             db.fix_group_names();
             app.manage(db);
+
+            // 启动时同步所有 settings 文件（检查不一致并更新）
+            {
+                let handle = app.handle();
+                let db_state = app.state::<Db>();
+                try_sync_settings(&handle, &db_state);
+            }
+
             app.manage(ProxyHandle(StdMutex::new(None)));
 
             // 系统托盘

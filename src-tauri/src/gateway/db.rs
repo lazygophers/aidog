@@ -581,13 +581,14 @@ pub fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
 
 // ─── ProxyLog CRUD ─────────────────────────────────────────
 
-pub fn insert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<(), String> {
+/// Upsert (INSERT OR REPLACE) a proxy log entry — used for incremental logging
+pub fn upsert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO proxy_logs (id, group_name, model, actual_model, source_protocol, target_protocol, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, created_at)
+        "INSERT OR REPLACE INTO proxy_logs (id, group_name, model, actual_model, source_protocol, target_protocol, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, created_at)
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
         params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.request_headers, log.request_body, log.response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.created_at],
-    ).map_err(|e| format!("insert proxy log: {e}"))?;
+    ).map_err(|e| format!("upsert proxy log: {e}"))?;
     Ok(())
 }
 
