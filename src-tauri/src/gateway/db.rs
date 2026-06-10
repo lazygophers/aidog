@@ -335,7 +335,7 @@ pub fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "INSERT INTO groups (id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-        params![id, group.name, group.path, routing_str, group.auto_from_platform, group.created_at, group.updated_at, group.request_timeout_secs, group.connect_timeout_secs],
+        params![id, group.name, group.path, routing_str, group.auto_from_platform, group.created_at, group.updated_at, group.request_timeout_secs, group.connect_timeout_secs, group.source_protocol],
     )
     .map_err(|e| format!("create group: {e}"))?;
 

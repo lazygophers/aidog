@@ -520,7 +520,7 @@ function autoCategorize(modelIds: string[]): Record<ModelSlot, string> {
   return result;
 }
 
-/** 可搜索的协议选择器（支持拼音模糊匹配） */
+/** 可搜索的协议选择器（支持拼音模糊匹配，只允许选择不允许自由编辑） */
 function SearchableProtocolSelect({
   value, codingPlan, onChange,
 }: {
@@ -541,62 +541,92 @@ function SearchableProtocolSelect({
   // 按拼音/关键词过滤
   const filtered = PROTOCOLS.filter(p => {
     if (!query.trim()) return true;
-    // 匹配 label
     if (pinyinMatch(query, p.label)) return true;
-    // 匹配 keywords
     if (p.keywords?.some(kw => pinyinMatch(query, kw))) return true;
-    // 匹配 value
     if (pinyinMatch(query, p.value)) return true;
     return false;
   });
 
   return (
     <div style={{ position: "relative" }} ref={listRef}>
-      <input
-        ref={inputRef}
+      {/* 触发器：点击展开下拉，展示当前选中值 */}
+      <div
         className="input"
-        placeholder={selectedLabel}
-        value={open ? query : selectedLabel}
-        onFocus={() => { setOpen(true); setQuery(""); }}
-        onBlur={() => { setTimeout(() => setOpen(false), 150); }}
-        onChange={(e) => setQuery(e.target.value)}
-      />
+        style={{
+          display: "flex", alignItems: "center", justifyContent: "space-between",
+          cursor: "pointer", userSelect: "none",
+        }}
+        onClick={() => {
+          if (!open) {
+            setOpen(true);
+            setQuery("");
+            // 延迟聚焦搜索框，等下拉渲染完成
+            setTimeout(() => inputRef.current?.focus(), 0);
+          } else {
+            setOpen(false);
+            setQuery("");
+          }
+        }}
+      >
+        <span style={{ color: "var(--text-primary)", fontSize: 13 }}>
+          {selectedLabel}
+        </span>
+        <span style={{
+          fontSize: 10, color: "var(--text-tertiary)",
+          transition: "transform 150ms ease",
+          transform: open ? "rotate(180deg)" : "rotate(0deg)",
+        }}>▼</span>
+      </div>
+
+      {/* 下拉面板 */}
       {open && (
         <div
           className="glass-elevated"
           style={{
             position: "absolute", top: "100%", left: 0, right: 0,
-            marginTop: 4, maxHeight: 280, overflowY: "auto",
-            zIndex: 100, padding: 4,
+            marginTop: 4, zIndex: 100, padding: 4,
             animation: "fadeIn 150ms ease both",
           }}
         >
-          {filtered.length === 0 && (
-            <div style={{ padding: "8px 12px", fontSize: 12, color: "var(--text-tertiary)" }}>
-              No match
-            </div>
-          )}
-          {filtered.map((p) => {
-            const isActive = p.value === value && !!p.codingPlan === codingPlan;
-            return (
-              <button
-                key={`${p.value}-${p.codingPlan ? 1 : 0}`}
-                type="button"
-                className="btn btn-ghost"
-                style={{
-                  width: "100%", justifyContent: "flex-start",
-                  padding: "7px 12px", fontSize: 13,
-                  fontWeight: isActive ? 600 : 400,
-                  color: isActive ? "var(--accent)" : "var(--text-primary)",
-                  background: isActive ? "var(--accent-subtle)" : "transparent",
-                  borderRadius: "var(--radius-sm)",
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  onChange(p.value, p.codingPlan);
-                  setOpen(false);
-                  setQuery("");
-                }}
+          {/* 搜索输入 */}
+          <input
+            ref={inputRef}
+            className="input"
+            placeholder="搜索平台..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            autoFocus
+            style={{ fontSize: 12, padding: "6px 10px", marginBottom: 4, width: "100%" }}
+            onBlur={() => { setTimeout(() => { setOpen(false); setQuery(""); }, 150); }}
+          />
+          {/* 选项列表 */}
+          <div style={{ maxHeight: 256, overflowY: "auto" }}>
+            {filtered.length === 0 && (
+              <div style={{ padding: "8px 12px", fontSize: 12, color: "var(--text-tertiary)" }}>
+                No match
+              </div>
+            )}
+            {filtered.map((p) => {
+              const isActive = p.value === value && !!p.codingPlan === codingPlan;
+              return (
+                <button
+                  key={`${p.value}-${p.codingPlan ? 1 : 0}`}
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{
+                    width: "100%", justifyContent: "flex-start",
+                    padding: "7px 12px", fontSize: 13,
+                    fontWeight: isActive ? 600 : 400,
+                    color: isActive ? "var(--accent)" : "var(--text-primary)",
+                    background: isActive ? "var(--accent-subtle)" : "transparent",
+                    borderRadius: "var(--radius-sm)",
+                  }}
+                  onMouseDown={(e) => {
+                    e.preventDefault();
+                    onChange(p.value, p.codingPlan);
+                    setOpen(false);
+                    setQuery("");
+                  }}
               >
                 <span style={{
                   display: "inline-block", padding: "1px 6px", borderRadius: "var(--radius-sm)",
@@ -620,6 +650,7 @@ function SearchableProtocolSelect({
               </button>
             );
           })}
+          </div>
         </div>
       )}
     </div>
