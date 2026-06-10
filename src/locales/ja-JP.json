@@ -159,5 +159,6 @@
   "settings.f_companyAnnouncements": "会社アナウンス",
   "settings.f_maxSkillDescriptionChars": "スキル説明最大文字数",
   "settings.f_skillListingBudgetFraction": "スキルリスト予算割合",
-  "settings.f_preferredNotifChannel": "通知チャンネル"
+  "settings.f_preferredNotifChannel": "通知チャンネル",
+  "unit.sec": "秒"
 }

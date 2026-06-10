@@ -159,5 +159,6 @@
   "settings.f_companyAnnouncements": "Объявления компании",
   "settings.f_maxSkillDescriptionChars": "Макс. описание навыка",
   "settings.f_skillListingBudgetFraction": "Бюджет списка навыков",
-  "settings.f_preferredNotifChannel": "Канал уведомлений"
+  "settings.f_preferredNotifChannel": "Канал уведомлений",
+  "unit.sec": "сек"
 }

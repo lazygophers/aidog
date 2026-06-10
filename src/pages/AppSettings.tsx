@@ -158,7 +158,7 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
                   onChange={(e) => handleTimeoutChange(Math.max(0, Number(e.target.value)), connTimeout)}
                   style={{ width: 80 }}
                 />
-                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>s</span>
+                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("unit.sec", "秒")}</span>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
@@ -172,7 +172,7 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
                   onChange={(e) => handleTimeoutChange(reqTimeout, Math.max(0, Number(e.target.value)))}
                   style={{ width: 80 }}
                 />
-                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>s</span>
+                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{t("unit.sec", "秒")}</span>
               </div>
             </div>
           </div>
@@ -231,7 +231,7 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
               <div>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{t("appLog.title", "应用日志")}</div>
                 <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-                  {t("appLog.desc", "控制台日志始终输出；以下设置仅影响日志文件（发布版本生效）")}
+                  {t("appLog.desc", "控制台日志始终输出；以下设置仅影响日志文件")}
                 </div>
               </div>
               <div

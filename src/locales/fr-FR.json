@@ -159,5 +159,6 @@
   "settings.f_companyAnnouncements": "Annonces d'entreprise",
   "settings.f_maxSkillDescriptionChars": "Max description skill",
   "settings.f_skillListingBudgetFraction": "Budget liste de skills",
-  "settings.f_preferredNotifChannel": "Canal de notification"
+  "settings.f_preferredNotifChannel": "Canal de notification",
+  "unit.sec": "sec"
 }

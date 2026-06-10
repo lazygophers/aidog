@@ -393,8 +393,30 @@ async fn platform_fetch_models(
                 .await
                 .map_err(|e| format!("parse response: {e}"))?
         }
-        Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::Kimi | Protocol::MiniMax | Protocol::Bailian => {
+        Protocol::Bailian => {
+            let url = format!("{base}/compatible-mode/v1/models");
+            tracing::info!("fetch models: {url}");
+            let resp = client
+                .get(&url)
+                .header("Authorization", format!("Bearer {api_key}"))
+                .send()
+                .await
+                .map_err(|e| {
+                    tracing::error!("fetch models request failed: {e}");
+                    format!("fetch models: {e}")
+                })?;
+            let status = resp.status();
+            let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
+            tracing::info!("fetch models response status={status}, body_len={}", body.len());
+            serde_json::from_str::<Value>(&body)
+                .map_err(|e| {
+                    tracing::error!("parse response failed: {e}, body={}", &body[..body.len().min(500)]);
+                    format!("parse response: {e}")
+                })?
+        }
+        Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::Kimi | Protocol::MiniMax => {
             let url = format!("{base}/models");
+            tracing::info!("fetch models: {url}");
             client
                 .get(&url)
                 .header("Authorization", format!("Bearer {api_key}"))

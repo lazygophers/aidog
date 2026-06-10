@@ -159,5 +159,6 @@
   "settings.f_companyAnnouncements": "إعلانات الشركة",
   "settings.f_maxSkillDescriptionChars": "الحد الأقصى لوصف المهارة",
   "settings.f_skillListingBudgetFraction": "ميزانية قائمة المهارات",
-  "settings.f_preferredNotifChannel": "قناة الإشعارات"
+  "settings.f_preferredNotifChannel": "قناة الإشعارات",
+  "unit.sec": "ثانية"
 }

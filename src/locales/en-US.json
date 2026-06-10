@@ -29,7 +29,6 @@
   "nav.platforms": "AI Platforms",
   "nav.proxy": "Proxy",
   "nav.settings": "Settings",
-  
   "nav.claudeConfig": "Claude Code",
   "nav.logs": "Request Logs",
   "page.groups": "Groups & Routing",
@@ -197,5 +196,6 @@
   "env.group.custom": "Custom Variables",
   "env.searchPlaceholder": "Search environment variables…",
   "env.addKnown": "+ Add Known",
-  "env.addCustom": "+ Custom"
+  "env.addCustom": "+ Custom",
+  "unit.sec": "sec"
 }
