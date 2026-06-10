@@ -26,10 +26,9 @@ function App() {
       .catch(() => {});
   }, []);
 
-  // Refresh log nav when returning to proxy page (user may toggle setting)
   const handleNavigate = (id: string) => {
     setActiveNav(id);
-    if (id === "proxy" || id === "logs") {
+    if (id === "logs") {
       proxyLogApi.getSettings()
         .then(s => setLogEnabled(s.enabled))
         .catch(() => {});
@@ -63,10 +62,10 @@ function App() {
         padding: "24px 32px",
       }}>
         <div className="animate-fade-in" key={effectiveNav}>
-          {effectiveNav === "proxy" && <Proxy onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} />}
+          {effectiveNav === "proxy" && <Proxy />}
           {effectiveNav === "platforms" && <Platforms />}
           {effectiveNav === "groups" && <Groups />}
-          {effectiveNav === "settings" && <Settings />}
+          {effectiveNav === "settings" && <Settings onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} />}
           {effectiveNav === "logs" && <Logs />}
         </div>
       </main>

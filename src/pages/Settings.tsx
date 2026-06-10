@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
-import { settingsApi } from "../services/api";
+import { settingsApi, proxyApi, proxyLogApi, type ProxyLogSettings } from "../services/api";
 import {
   SECTIONS,
   RECOMMENDED_CONFIG,
@@ -3179,7 +3179,7 @@ function FieldRenderer({
 
 // ─── Main Settings Page ────────────────────────────────────
 
-export function Settings() {
+export function Settings({ onLogSettingsChanged }: { onLogSettingsChanged?: (enabled: boolean) => void }) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<"json" | "gui">("gui");
   const [config, setConfig] = useState<Record<string, any>>({});
@@ -3187,6 +3187,11 @@ export function Settings() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [toast, setToast] = useState("");
+
+  // ─── Proxy settings state ───
+  const [proxyAutostart, setProxyAutostart] = useState(false);
+  const [logEnabled, setLogEnabled] = useState(false);
+  const [logRetention, setLogRetention] = useState(7);
 
   useEffect(() => {
     const load = async () => {
@@ -3200,9 +3205,43 @@ export function Settings() {
       } catch (e) {
         console.error(e);
       }
+      // Load proxy settings
+      try {
+        const ps = await proxyApi.getSettings();
+        setProxyAutostart(ps.autostart);
+      } catch { /* defaults */ }
+      try {
+        const ls = await proxyLogApi.getSettings();
+        setLogEnabled(ls.enabled);
+        setLogRetention(ls.retention_days);
+      } catch { /* defaults */ }
     };
     load();
   }, []);
+
+  const handleAutostartChange = async (val: boolean) => {
+    try {
+      await proxyApi.setAutostart(val);
+      setProxyAutostart(val);
+    } catch (e: any) { console.error(e); }
+  };
+
+  const handleLogEnabledChange = async (val: boolean) => {
+    try {
+      const settings: ProxyLogSettings = { enabled: val, retention_days: logRetention };
+      await proxyLogApi.setSettings(settings);
+      setLogEnabled(val);
+      onLogSettingsChanged?.(val);
+    } catch (e: any) { console.error(e); }
+  };
+
+  const handleLogRetentionChange = async (days: number) => {
+    setLogRetention(days);
+    try {
+      const settings: ProxyLogSettings = { enabled: logEnabled, retention_days: days };
+      await proxyLogApi.setSettings(settings);
+    } catch (e: any) { console.error(e); }
+  };
 
   const updateField = useCallback((field: string, value: any) => {
     setConfig((prev) => {
@@ -3582,6 +3621,59 @@ export function Settings() {
           </div>
         </div>
       )}
+
+      {/* Proxy settings — always visible at bottom */}
+      <div style={{ marginTop: S.sectionGap }}>
+        <div className="glass-surface" style={{ padding: S.pad, borderRadius: "var(--radius-lg)" }}>
+          <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em", marginBottom: S.gap }}>
+            {t("settings.proxyTitle", "代理设置")}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
+            {/* Autostart */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.autostart")}</div>
+                <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                  {t("proxy.autostartDesc")}
+                </div>
+              </div>
+              <Toggle active={proxyAutostart} onChange={handleAutostartChange} />
+            </div>
+
+            {/* Log recording */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.logRequests", "记录请求日志")}</div>
+                <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                  {t("proxy.logRequestsDesc", "记录代理请求的头部、内容、耗时和 Token 消耗")}
+                </div>
+              </div>
+              <Toggle active={logEnabled} onChange={handleLogEnabledChange} />
+            </div>
+
+            {/* Retention — only when logging enabled */}
+            {logEnabled && (
+              <div style={{ display: "flex", gap: 12, alignItems: "center", paddingTop: 12, borderTop: "1px solid var(--border)" }}>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                  {t("proxy.logRetention", "保留天数")}
+                </label>
+                <input
+                  className="input"
+                  type="number"
+                  min={0}
+                  value={logRetention}
+                  onChange={(e) => handleLogRetentionChange(Math.max(0, Number(e.target.value)))}
+                  style={{ width: 80 }}
+                />
+                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                  {logRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("proxy.logRetentionHint", "0 = 永久保留")}
+                </span>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
