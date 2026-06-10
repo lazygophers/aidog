@@ -234,7 +234,10 @@ pub struct SetSettingInput {
 pub struct ProxyLog {
     pub id: String,
     pub group_name: String,
+    /// 用户请求的原始模型
     pub model: String,
+    /// 实际发送给上游的模型（可能因路由映射而不同）
+    pub actual_model: String,
     pub request_headers: String,
     pub request_body: String,
     pub response_body: String,
@@ -251,6 +254,7 @@ pub struct ProxyLogSummary {
     pub id: String,
     pub group_name: String,
     pub model: String,
+    pub actual_model: String,
     pub status_code: i32,
     pub duration_ms: i32,
     pub input_tokens: i32,

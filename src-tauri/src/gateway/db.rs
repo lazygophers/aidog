@@ -37,6 +37,10 @@ impl Db {
         let sql = include_str!("../../migrations/001_init.sql");
         let conn = self.0.lock().map_err(|e| e.to_string())?;
         conn.execute_batch(sql).map_err(|e| e.to_string())?;
+        // Incremental migrations for existing databases
+        let _ = conn.execute_batch(
+            "ALTER TABLE proxy_logs ADD COLUMN actual_model TEXT NOT NULL DEFAULT '';",
+        );
         Ok(())
     }
 
@@ -578,9 +582,9 @@ pub fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
 pub fn insert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO proxy_logs (id, group_name, model, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, created_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
-        params![log.id, log.group_name, log.model, log.request_headers, log.request_body, log.response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.created_at],
+        "INSERT INTO proxy_logs (id, group_name, model, actual_model, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, created_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12)",
+        params![log.id, log.group_name, log.model, log.actual_model, log.request_headers, log.request_body, log.response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.created_at],
     ).map_err(|e| format!("insert proxy log: {e}"))?;
     Ok(())
 }
@@ -589,7 +593,7 @@ pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::mo
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, group_name, model, status_code, duration_ms, input_tokens, output_tokens, created_at
+            "SELECT id, group_name, model, actual_model, status_code, duration_ms, input_tokens, output_tokens, created_at
              FROM proxy_logs ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
         )
         .map_err(|e| e.to_string())?;
@@ -599,11 +603,12 @@ pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::mo
                 id: row.get(0)?,
                 group_name: row.get(1)?,
                 model: row.get(2)?,
-                status_code: row.get(3)?,
-                duration_ms: row.get(4)?,
-                input_tokens: row.get(5)?,
-                output_tokens: row.get(6)?,
-                created_at: row.get(7)?,
+                actual_model: row.get(3)?,
+                status_code: row.get(4)?,
+                duration_ms: row.get(5)?,
+                input_tokens: row.get(6)?,
+                output_tokens: row.get(7)?,
+                created_at: row.get(8)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -614,7 +619,7 @@ pub fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, group_name, model, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, created_at
+            "SELECT id, group_name, model, actual_model, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, created_at
              FROM proxy_logs WHERE id = ?1",
         )
         .map_err(|e| e.to_string())?;
@@ -623,14 +628,15 @@ pub fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog
             id: row.get(0)?,
             group_name: row.get(1)?,
             model: row.get(2)?,
-            request_headers: row.get(3)?,
-            request_body: row.get(4)?,
-            response_body: row.get(5)?,
-            status_code: row.get(6)?,
-            duration_ms: row.get(7)?,
-            input_tokens: row.get(8)?,
-            output_tokens: row.get(9)?,
-            created_at: row.get(10)?,
+            actual_model: row.get(3)?,
+            request_headers: row.get(4)?,
+            request_body: row.get(5)?,
+            response_body: row.get(6)?,
+            status_code: row.get(7)?,
+            duration_ms: row.get(8)?,
+            input_tokens: row.get(9)?,
+            output_tokens: row.get(10)?,
+            created_at: row.get(11)?,
         })
     })
     .optional()

@@ -160,8 +160,11 @@ async fn handle_proxy(
         Err(e) => return (StatusCode::BAD_REQUEST, format!("route: {e}")).into_response(),
     };
 
+    let actual_model = route.target_model;
+    let needs_model_remap = actual_model != requested_model;
+
     // 替换模型名
-    chat_req.model = route.target_model;
+    chat_req.model = actual_model.clone();
 
     // 协议转换
     let (req_body, api_path) = adapter::convert_request(&chat_req, &route.platform.protocol);
@@ -193,7 +196,7 @@ async fn handle_proxy(
         Err(e) => {
             let duration_ms = start.elapsed().as_millis() as i32;
             if log_settings.enabled {
-                try_log(&state, &group.name, &requested_model, &req_headers_json, &req_body_str, "", 502, duration_ms, 0, 0);
+                try_log(&state, &group.name, &requested_model, &actual_model, &req_headers_json, &req_body_str, "", 502, duration_ms, 0, 0);
             }
             return (StatusCode::BAD_GATEWAY, format!("upstream: {e}")).into_response();
         }
@@ -205,7 +208,7 @@ async fn handle_proxy(
         let status_code = status.as_u16() as i32;
         let duration_ms = start.elapsed().as_millis() as i32;
         if log_settings.enabled {
-            try_log(&state, &group.name, &requested_model, &req_headers_json, &req_body_str, &body, status_code, duration_ms, 0, 0);
+            try_log(&state, &group.name, &requested_model, &actual_model, &req_headers_json, &req_body_str, &body, status_code, duration_ms, 0, 0);
         }
         return (StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY), body)
             .into_response();
@@ -221,8 +224,15 @@ async fn handle_proxy(
         let (input_tokens, output_tokens) = extract_usage(&resp_str);
 
         if log_settings.enabled {
-            try_log(&state, &group.name, &requested_model, &req_headers_json, &req_body_str, &resp_str, 200, duration_ms, input_tokens, output_tokens);
+            try_log(&state, &group.name, &requested_model, &actual_model, &req_headers_json, &req_body_str, &resp_str, 200, duration_ms, input_tokens, output_tokens);
         }
+
+        // Replace model in response back to original if remapped
+        let body = if needs_model_remap {
+            replace_model_in_json(&body, &requested_model)
+        } else {
+            body.to_vec()
+        };
 
         return (
             StatusCode::OK,
@@ -238,6 +248,11 @@ async fn handle_proxy(
     // Shared state to accumulate tokens from SSE stream
     let tokens_acc = Arc::new(std::sync::atomic::AtomicI32::new(0));
     let tokens_out = Arc::new(std::sync::atomic::AtomicI32::new(0));
+    let model_for_response = if needs_model_remap {
+        requested_model.clone()
+    } else {
+        String::new()
+    };
     let acc_in = tokens_acc.clone();
     let acc_out = tokens_out.clone();
 
@@ -271,6 +286,18 @@ async fn handle_proxy(
                     }
 
                     if let Some(event) = adapter::parse_sse(&json, &protocol) {
+                        // Replace model in Start events if remapped
+                        let event = if !model_for_response.is_empty() {
+                            match event {
+                                ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {
+                                    id,
+                                    model: model_for_response.clone(),
+                                },
+                                other => other,
+                            }
+                        } else {
+                            event
+                        };
                         if let Some(sse) = adapter::to_anthropic_sse(&event) {
                             output.push_str(&sse);
                         }
@@ -289,7 +316,7 @@ async fn handle_proxy(
     if log_settings.enabled {
         let in_t = tokens_acc.load(std::sync::atomic::Ordering::Relaxed);
         let out_t = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
-        try_log(&state, &group.name, &requested_model, &req_headers_json, &req_body_str, "[stream]", 200, duration_ms, in_t, out_t);
+        try_log(&state, &group.name, &requested_model, &actual_model, &req_headers_json, &req_body_str, "[stream]", 200, duration_ms, in_t, out_t);
     }
 
     (
@@ -330,6 +357,7 @@ fn try_log(
     state: &Arc<ProxyState>,
     group_name: &str,
     model: &str,
+    actual_model: &str,
     req_headers: &str,
     req_body: &str,
     resp_body: &str,
@@ -346,6 +374,7 @@ fn try_log(
         id: uuid::Uuid::new_v4().to_string(),
         group_name: group_name.to_string(),
         model: model.to_string(),
+        actual_model: actual_model.to_string(),
         request_headers: req_headers.to_string(),
         request_body: req_body.to_string(),
         response_body: resp_body.to_string(),
@@ -356,6 +385,18 @@ fn try_log(
         created_at: chrono::Utc::now().to_rfc3339(),
     };
     let _ = super::db::insert_proxy_log(&db, &log);
+}
+
+/// Replace "model" field in a JSON response body back to the original model name
+fn replace_model_in_json(bytes: &[u8], original_model: &str) -> Vec<u8> {
+    let mut v: Value = match serde_json::from_slice(bytes) {
+        Ok(v) => v,
+        Err(_) => return bytes.to_vec(),
+    };
+    if let Some(obj) = v.as_object_mut() {
+        obj.insert("model".to_string(), Value::String(original_model.to_string()));
+    }
+    serde_json::to_vec(&v).unwrap_or_else(|_| bytes.to_vec())
 }
 
 /// 根据 path 前缀匹配分组

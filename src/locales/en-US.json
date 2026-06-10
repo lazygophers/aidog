@@ -78,6 +78,7 @@
   "logs.status": "Status",
   "logs.duration": "Duration",
   "logs.inputTokens": "Input Tokens",
+  "logs.actualModel": "Actual Model",
   "logs.outputTokens": "Output Tokens",
   "logs.time": "Time",
   "logs.request": "Request",

@@ -192,6 +192,7 @@ export interface ProxyLogSummary {
   id: string;
   group_name: string;
   model: string;
+  actual_model: string;
   status_code: number;
   duration_ms: number;
   input_tokens: number;
@@ -203,6 +204,7 @@ export interface ProxyLogDetail {
   id: string;
   group_name: string;
   model: string;
+  actual_model: string;
   request_headers: string;
   request_body: string;
   response_body: string;

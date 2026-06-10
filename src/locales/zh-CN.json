@@ -78,6 +78,7 @@
   "logs.status": "状态",
   "logs.duration": "耗时",
   "logs.inputTokens": "输入 Token",
+  "logs.actualModel": "实际模型",
   "logs.outputTokens": "输出 Token",
   "logs.time": "时间",
   "logs.request": "请求",

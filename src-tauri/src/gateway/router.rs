@@ -20,7 +20,7 @@ pub fn select_platform(
     let (target_platform_id, target_model) = if let Some(m) = mapping {
         (m.target_platform_id.clone(), m.target_model.clone())
     } else {
-        // 无映射则透传原始模型名
+        // 无显式映射
         ("".to_string(), source_model.to_string())
     };
 
@@ -46,10 +46,43 @@ pub fn select_platform(
         RoutingMode::LoadBalance => select_load_balance(&group_platforms),
     }?;
 
+    // 5. 无显式映射时，按平台 PlatformModels 自动匹配模型
+    let target_model = if mapping.is_none() {
+        resolve_model(&platform.models, source_model)
+    } else {
+        target_model
+    };
+
     Ok(RouteResult {
         platform,
         target_model,
     })
+}
+
+/// 根据平台模型配置自动匹配请求模型。
+/// 匹配规则：请求模型名（小写）包含槽位名（opus/sonnet/haiku/gpt）→ 使用该槽位值；
+/// 全部不匹配 → 使用 default；无 default → 透传原始模型。
+fn resolve_model(models: &PlatformModels, source_model: &str) -> String {
+    let lower = source_model.to_lowercase();
+    let slots: [(&str, &Option<String>); 4] = [
+        ("opus", &models.opus),
+        ("sonnet", &models.sonnet),
+        ("haiku", &models.haiku),
+        ("gpt", &models.gpt),
+    ];
+    for (slot_name, slot_value) in &slots {
+        if lower.contains(slot_name) {
+            if let Some(v) = slot_value {
+                return v.clone();
+            }
+        }
+    }
+    // 回退到 default
+    if let Some(ref default) = models.default {
+        return default.clone();
+    }
+    // 无匹配无 default — 透传
+    source_model.to_string()
 }
 
 /// 故障转移：按 priority 升序选第一个 enabled 的

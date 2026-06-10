@@ -85,6 +85,7 @@ export function Logs() {
         <div className="glass-surface" style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
           <MetaItem label={t("logs.group", "分组")} value={detail.group_name} />
           <MetaItem label={t("logs.model", "模型")} value={detail.model || "-"} />
+          <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} />
           <MetaItem label={t("logs.status", "状态")} value={`${detail.status_code}`} highlight={detail.status_code === 200 ? "ok" : "err"} />
           <MetaItem label={t("logs.duration", "耗时")} value={`${detail.duration_ms} ms`} />
           <MetaItem label={t("logs.inputTokens", "输入 Token")} value={`${detail.input_tokens}`} />
@@ -161,13 +162,16 @@ export function Logs() {
                   <ThCell>{t("logs.group")}</ThCell>
                   <ThCell>{t("logs.model")}</ThCell>
                   <ThCell>{t("logs.status")}</ThCell>
+                  <ThCell>{t("logs.actualModel", "实际模型")}</ThCell>
                   <ThCell>{t("logs.duration")}</ThCell>
                   <ThCell>{t("logs.inputTokens")}</ThCell>
                   <ThCell>{t("logs.outputTokens")}</ThCell>
                 </tr>
               </thead>
               <tbody>
-                {logs.map((log) => (
+                {logs.map((log) => {
+                  const remapped = log.actual_model && log.actual_model !== log.model;
+                  return (
                   <tr key={log.id}
                     className="log-row"
                     onClick={() => openDetail(log.id)}
@@ -175,6 +179,13 @@ export function Logs() {
                     <TdCell>{new Date(log.created_at).toLocaleString()}</TdCell>
                     <TdCell><span className="badge badge-accent" style={{ fontSize: 11 }}>{log.group_name}</span></TdCell>
                     <TdCell><span style={{ fontWeight: 500 }}>{log.model || "-"}</span></TdCell>
+                    <TdCell>
+                      {remapped ? (
+                        <span style={{ fontWeight: 500, color: "var(--color-accent, #007aff)" }}>{log.actual_model}</span>
+                      ) : (
+                        <span className="text-secondary">-</span>
+                      )}
+                    </TdCell>
                     <TdCell>
                       <span style={{ color: log.status_code === 200 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)" }}>
                         {log.status_code}
@@ -184,7 +195,8 @@ export function Logs() {
                     <TdCell>{log.input_tokens || "-"}</TdCell>
                     <TdCell>{log.output_tokens || "-"}</TdCell>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
