@@ -353,5 +353,6 @@
   "test.promptPlaceholder": "输入测试提示词...",
   "test.run": "开始测试",
   "test.running": "测试中...",
-  "test.results": "测试结果"
+  "test.results": "测试结果",
+  "logs.refresh": "刷新"
 }

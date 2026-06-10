@@ -693,7 +693,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     </div>
   );
 
-      {testingPlatform && (
-        <ModelTestPanel platform={testingPlatform} onClose={() => setTestingPlatform(null)} />
+      {testingPlatform !== null && (
+        <ModelTestPanel platform={testingPlatform as Platform} onClose={() => setTestingPlatform(null)} />
       )}
 }

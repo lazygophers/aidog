@@ -197,5 +197,6 @@
   "test.promptPlaceholder": "Entrez un prompt de test...",
   "test.run": "Lancer le test",
   "test.running": "Test en cours...",
-  "test.results": "Resultats"
+  "test.results": "Resultats",
+  "logs.refresh": "刷新"
 }

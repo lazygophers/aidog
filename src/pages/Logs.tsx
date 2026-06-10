@@ -75,6 +75,9 @@ export function Logs() {
               <path d="M19 12H5M12 19l-7-7 7-7" />
             </svg>
           </button>
+          <button className="btn btn-ghost btn-icon" onClick={() => openDetail(detail.id)} title={t("logs.refresh", "刷新")}>
+            <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
+          </button>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: F.title, fontWeight: 700 }}>{t("logs.detail", "请求详情")}</div>
             <div className="text-secondary" style={{ fontSize: F.hint }}>{detail.id.slice(0, 8)}</div>
@@ -140,11 +143,16 @@ export function Logs() {
             {total > 0 ? `${total} ${t("logs.total", "条记录")}` : t("logs.empty", "暂无日志")}
           </div>
         </div>
-        {total > 0 && (
-          <button className="btn btn-danger" onClick={handleClear} style={{ fontSize: F.hint }}>
-            {t("logs.clear", "清除全部")}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn" onClick={() => load()} disabled={loading} style={{ fontSize: F.hint }}>
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
           </button>
-        )}
+          {total > 0 && (
+            <button className="btn btn-danger" onClick={handleClear} style={{ fontSize: F.hint }}>
+              {t("logs.clear", "清除全部")}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Log Table */}

@@ -197,5 +197,6 @@
   "test.promptPlaceholder": "أدخل موجه الاختبار...",
   "test.run": "تشغيل الاختبار",
   "test.running": "جاري الاختبار...",
-  "test.results": "النتائج"
+  "test.results": "النتائج",
+  "logs.refresh": "刷新"
 }

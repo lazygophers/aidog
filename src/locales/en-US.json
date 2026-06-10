@@ -234,5 +234,6 @@
   "test.promptPlaceholder": "Enter test prompt...",
   "test.run": "Run Test",
   "test.running": "Testing...",
-  "test.results": "Results"
+  "test.results": "Results",
+  "logs.refresh": "刷新"
 }

@@ -197,5 +197,6 @@
   "test.promptPlaceholder": "テストプロンプトを入力...",
   "test.run": "テスト実行",
   "test.running": "テスト中...",
-  "test.results": "結果"
+  "test.results": "結果",
+  "logs.refresh": "刷新"
 }
