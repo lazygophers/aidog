@@ -318,7 +318,7 @@ async fn handle_proxy(
 
     // ── 按协议模拟对应客户端 header ──
     match target_protocol_enum {
-        super::models::Protocol::Anthropic | super::models::Protocol::ClaudeCode => {
+        super::models::Protocol::Anthropic => {
             req_builder = req_builder
                 .header("anthropic-version", "2023-06-01")
                 .header("x-api-key", &route.platform.api_key)

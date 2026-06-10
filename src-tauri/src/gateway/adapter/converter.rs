@@ -36,11 +36,6 @@ pub fn convert_request(req: &ChatRequest, protocol: &Protocol) -> (Value, String
             let json = serde_json::to_value(&codex_req).unwrap();
             (json, "/v1/chat/completions".to_string())
         }
-        Protocol::ClaudeCode => {
-            let claude_req = super::claude_code::to_claude_code(req);
-            let json = serde_json::to_value(&claude_req).unwrap();
-            (json, "/v1/messages".to_string())
-        }
         Protocol::Bailian => {
             let bailian_req = super::bailian::to_bailian(req);
             let json = serde_json::to_value(&bailian_req).unwrap();
@@ -58,7 +53,6 @@ pub fn parse_sse(data: &Value, protocol: &Protocol) -> Option<ChatStreamEvent> {
         Protocol::Kimi => super::kimi::parse_kimi_sse(data),
         Protocol::MiniMax => super::minimax::parse_minimax_sse(data),
         Protocol::Codex => super::codex::parse_codex_sse(data),
-        Protocol::ClaudeCode => super::claude_code::parse_claude_code_sse(data),
         Protocol::Bailian => super::bailian::parse_bailian_sse(data),
     }
 }
@@ -153,7 +147,7 @@ pub fn to_anthropic_sse(event: &ChatStreamEvent) -> Option<String> {
 pub fn parse_incoming_request(source_protocol: &str, body: &Value) -> Option<ChatRequest> {
     match source_protocol {
         "openai" => super::openai::from_openai(body),
-        // Anthropic / ClaudeCode / 默认: ChatRequest 结构已兼容 Anthropic 格式，直接反序列化
+        // Anthropic / 默认: ChatRequest 结构已兼容 Anthropic 格式，直接反序列化
         _ => serde_json::from_value(body.clone()).ok(),
     }
 }

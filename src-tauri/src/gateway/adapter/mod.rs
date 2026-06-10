@@ -1,6 +1,6 @@
 pub mod anthropic;
 pub mod bailian;
-pub mod claude_code;
+
 pub mod codex;
 pub mod converter;
 pub mod glm;

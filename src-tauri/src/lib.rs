@@ -383,7 +383,7 @@ async fn platform_fetch_models(
     let base = base_url.trim_end_matches('/');
 
     let resp: Value = match protocol {
-        Protocol::Anthropic | Protocol::ClaudeCode => {
+        Protocol::Anthropic => {
             let url = format!("{base}/v1/models");
             client
                 .get(&url)
@@ -513,7 +513,7 @@ async fn model_test(
         .body(serde_json::to_string(&req_body).unwrap_or_default());
 
     match platform.protocol {
-        Protocol::Anthropic | Protocol::ClaudeCode => {
+        Protocol::Anthropic => {
             req_builder = req_builder
                 .header("anthropic-version", "2023-06-01")
                 .header("x-api-key", &platform.api_key);
@@ -581,7 +581,7 @@ fn truncate_str(s: &str, max: usize) -> String {
 #[allow(dead_code)]
 fn extract_response_text(v: &Value, protocol: &Protocol) -> String {
     match protocol {
-        Protocol::Anthropic | Protocol::ClaudeCode => {
+        Protocol::Anthropic => {
             v.get("content").and_then(|c| c.get(0)).and_then(|b| b.get("text"))
                 .and_then(|t| t.as_str()).unwrap_or("").to_string()
         }
@@ -597,7 +597,7 @@ fn extract_response_text(v: &Value, protocol: &Protocol) -> String {
 fn extract_test_usage(v: &Value, protocol: &Protocol) -> (i32, i32) {
     let usage = v.get("usage");
     match protocol {
-        Protocol::Anthropic | Protocol::ClaudeCode => {
+        Protocol::Anthropic => {
             let in_tok = usage.and_then(|u| u.get("input_tokens")).and_then(|t| t.as_i64()).unwrap_or(0) as i32;
             let out_tok = usage.and_then(|u| u.get("output_tokens")).and_then(|t| t.as_i64()).unwrap_or(0) as i32;
             (in_tok, out_tok)

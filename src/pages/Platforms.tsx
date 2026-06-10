@@ -5,7 +5,6 @@ import { ModelTestPanel } from "./ModelTestPanel";
 
 const PROTOCOLS: { value: Protocol; label: string }[] = [
   { value: "anthropic", label: "Anthropic" },
-  { value: "claude_code", label: "Claude Code" },
   { value: "openai", label: "OpenAI" },
   { value: "codex", label: "Codex" },
   { value: "glm", label: "GLM" },
@@ -14,31 +13,33 @@ const PROTOCOLS: { value: Protocol; label: string }[] = [
   { value: "bailian", label: "百炼" },
 ];
 
-const DEFAULT_BASE_URLS: Partial<Record<Protocol, string>> = {
-  glm: "https://open.bigmodel.cn/api/paas/v4",
-  kimi: "https://api.moonshot.cn/v1",
-  minimax: "https://api.minimaxi.com/v1",
-  codex: "https://api.openai.com/v1",
-  claude_code: "https://api.anthropic.com",
-  bailian: "https://dashscope.aliyuncs.com",
-};
 
-const ALL_DEFAULT_URLS = new Set(Object.values(DEFAULT_BASE_URLS));
-
-/** 内置平台默认端点：每个平台可支持的额外协议及其 base URL */
+/** 内置平台默认端点：每个平台支持的协议及其 base URL
+ * URL 为不含 adapter 路径前缀的基础地址，proxy 会拼接 adapter 路径
+ * 来源：各平台官方文档 */
 const DEFAULT_ENDPOINTS: Partial<Record<Protocol, PlatformEndpoint[]>> = {
+  anthropic: [
+    { protocol: "anthropic", base_url: "https://api.anthropic.com" },
+  ],
+  openai: [
+    { protocol: "openai", base_url: "https://api.openai.com" },
+  ],
+  codex: [
+    { protocol: "openai", base_url: "https://api.openai.com" },
+  ],
   glm: [
-    { protocol: "openai", base_url: "https://open.bigmodel.cn/api/paas/v4" },
-    { protocol: "claude_code", base_url: "https://open.bigmodel.cn/api/paas/v4" },
+    { protocol: "glm", base_url: "https://open.bigmodel.cn" },
+    { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic" },
   ],
   bailian: [
-    { protocol: "openai", base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+    { protocol: "openai", base_url: "https://dashscope.aliyuncs.com/compatible-mode" },
   ],
   minimax: [
-    { protocol: "openai", base_url: "https://api.minimaxi.com/v1" },
+    { protocol: "openai", base_url: "https://api.minimaxi.com" },
+    { protocol: "anthropic", base_url: "https://api.minimaxi.com/anthropic" },
   ],
   kimi: [
-    { protocol: "openai", base_url: "https://api.moonshot.cn/v1" },
+    { protocol: "openai", base_url: "https://api.moonshot.cn" },
   ],
 };
 
@@ -49,7 +50,6 @@ const PROTOCOL_LABELS: Record<Protocol, string> = {
   kimi: "Kimi",
   minimax: "MiniMax",
   codex: "Codex",
-  claude_code: "Claude Code",
   bailian: "百炼",
 };
 
@@ -57,7 +57,6 @@ const DEFAULT_NAMES = new Set(Object.values(PROTOCOL_LABELS));
 
 const PROTOCOL_COLORS: Record<string, string> = {
   anthropic: "#D97757",
-  claude_code: "#D97757",
   openai: "#10A37F",
   codex: "#10A37F",
   glm: "#3B5FEC",
@@ -128,7 +127,6 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // Form state
   const [name, setName] = useState("OpenAI");
   const [protocol, setProtocol] = useState<Protocol>("openai");
-  const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
   const [models, setModels] = useState<Record<ModelSlot, string>>({
     default: "", sonnet: "", opus: "", haiku: "", gpt: "",
@@ -140,20 +138,24 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [claudeConfigJson, setClaudeConfigJson] = useState("");
   const [globalClaudeConfig, setGlobalClaudeConfig] = useState<Record<string, any>>({});
 
+  /** 从 endpoints 中推导主 base_url（匹配主协议的 endpoint，否则取第一个） */
+  const getPrimaryBaseUrl = (proto: Protocol, eps: PlatformEndpoint[]): string => {
+    const primary = eps.find(ep => ep.protocol === proto);
+    if (primary) return primary.base_url;
+    return eps[0]?.base_url || "";
+  };
+
   const handleProtocolChange = (newProtocol: Protocol) => {
-    const oldDefault = DEFAULT_BASE_URLS[protocol];
-    const newDefault = DEFAULT_BASE_URLS[newProtocol];
-    if (!baseUrl || (oldDefault && baseUrl === oldDefault) || ALL_DEFAULT_URLS.has(baseUrl)) {
-      setBaseUrl(newDefault || "");
-    }
     // Auto-fill name with protocol label if empty or still at a default name
     if (!name.trim() || DEFAULT_NAMES.has(name)) {
       setName(PROTOCOL_LABELS[newProtocol]);
     }
-    // Auto-fill endpoints from defaults if none configured yet
+    // Auto-fill endpoints from defaults
     const defaultEps = DEFAULT_ENDPOINTS[newProtocol];
-    if (defaultEps && endpoints.length === 0) {
+    if (defaultEps) {
       setEndpoints(defaultEps.map(ep => ({ ...ep })));
+    } else {
+      setEndpoints([]);
     }
     setProtocol(newProtocol);
   };
@@ -170,7 +172,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   useEffect(() => { load(); }, []);
 
   const resetForm = () => {
-    setName(""); setProtocol("openai"); setBaseUrl(""); setApiKey("");
+    setName(""); setProtocol("openai"); setApiKey("");
     setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "" });
     setAvailableModels([]); setEndpoints([]);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
@@ -178,7 +180,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   };
 
   const handleEdit = async (p: Platform) => {
-    setName(p.name); setProtocol(p.protocol); setBaseUrl(p.base_url); setApiKey(p.api_key);
+    setName(p.name); setProtocol(p.protocol); setApiKey(p.api_key);
     setModels({
       default: p.models.default ?? "",
       sonnet: p.models.sonnet ?? "",
@@ -213,12 +215,16 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setModels(prev => ({ ...prev, [slot]: value }));
   };
 
-  /** 一键获取：获取模型列表 + 自动分类 + 持久化 */
+  /** 一键获取：获取模型列表 + 自动分类 + 持久化
+   *  默认使用 OpenAI 协议 endpoint，回退到主协议 endpoint */
   const handleFetchModels = async () => {
-    if (!baseUrl || !apiKey) return;
+    const openaiEp = endpoints.find(ep => ep.protocol === "openai");
+    const fetchUrl = openaiEp?.base_url || getPrimaryBaseUrl(protocol, endpoints);
+    if (!fetchUrl || !apiKey) return;
     setFetching(true); setFetchError("");
     try {
-      const modelIds = await platformApi.fetchModels(protocol, baseUrl, apiKey);
+      const fetchProtocol: Protocol = openaiEp ? "openai" : protocol;
+      const modelIds = await platformApi.fetchModels(fetchProtocol, fetchUrl, apiKey);
       if (modelIds.length === 0) {
         setFetchError(t("platform.fetchEmpty"));
       } else {
@@ -263,6 +269,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     try {
       const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
       const availablePayload = availableModels.length > 0 ? availableModels : undefined;
+      const baseUrl = getPrimaryBaseUrl(protocol, endpoints);
       let savedId: string | undefined;
       if (editing) {
         await platformApi.update({
@@ -331,13 +338,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               {editing ? editing.name : t("platform.add")}
             </div>
             {editing && (
-              <div className="section-desc">{editing.protocol.toUpperCase()} · {editing.base_url}</div>
+              <div className="section-desc">{editing.protocol.toUpperCase()} · {getPrimaryBaseUrl(editing.protocol, editing.endpoints ?? []) || editing.base_url}</div>
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
             <button className="btn btn-primary" onClick={handleSave}
-              disabled={!name || !baseUrl || !apiKey}>
+              disabled={!name || endpoints.length === 0 || !apiKey}>
               {editing ? t("action.save") : t("action.create")}
             </button>
           </div>
@@ -377,8 +384,6 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               ))}
             </select>
           )}
-          <input className="input" placeholder="Base URL" value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)} />
 
           {/* Protocol Endpoints */}
           <div style={{
@@ -518,7 +523,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   className="btn btn-ghost"
                   style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
                   onClick={handleFetchModels}
-                  disabled={!baseUrl || !apiKey || fetching}
+                  disabled={!apiKey || endpoints.length === 0 || fetching}
                 >
                   {fetching ? t("status.loading") : t("platform.fetchModels")}
                 </button>
@@ -743,7 +748,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
                   <div className="text-secondary" style={{ fontSize: 12, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {p.protocol.toUpperCase()} · {p.base_url}
+                    {p.protocol.toUpperCase()} · {getPrimaryBaseUrl(p.protocol, p.endpoints ?? []) || p.base_url}
                   </div>
                   {p.endpoints && p.endpoints.length > 0 && (
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 3 }}>

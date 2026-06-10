@@ -68,6 +68,51 @@ impl Db {
             // Ignore "duplicate column" errors — column may already exist
             let _ = conn.execute(sql, []);
         }
+
+        // ── Data migrations: fix protocol names & populate endpoints ──
+        // 1. claude_code → anthropic in protocol column
+        let _ = conn.execute(
+            "UPDATE platforms SET protocol = 'anthropic' WHERE protocol = 'claude_code'",
+            [],
+        );
+        // 2. claude_code → anthropic in endpoints JSON
+        let _ = conn.execute(
+            "UPDATE platforms SET endpoints = REPLACE(endpoints, '\"claude_code\"', '\"anthropic\"')",
+            [],
+        );
+        // 3. For platforms with empty endpoints, create from existing base_url + protocol
+        {
+            let conn_ref: &Connection = &conn;
+            let mut stmt = match conn_ref.prepare(
+                "SELECT id, protocol, base_url FROM platforms WHERE endpoints = '[]'",
+            ) {
+                Ok(s) => s,
+                Err(_) => return Ok(()),
+            };
+            let rows: Vec<_> = match stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?))
+            }) {
+                Ok(r) => r.filter_map(|r| r.ok()).collect(),
+                Err(_) => Vec::new(),
+            };
+            let updates: Vec<(String, String)> = rows.into_iter()
+                .filter(|(_, protocol, base_url)| !protocol.is_empty() && !base_url.is_empty())
+                .map(|(id, protocol, base_url)| {
+                    let endpoints_json = serde_json::to_string(&vec![PlatformEndpoint {
+                        protocol: serde_json::from_str(&format!("\"{}\"", protocol)).unwrap_or(Protocol::OpenAI),
+                        base_url,
+                    }]).unwrap_or_else(|_| "[]".to_string());
+                    (id, endpoints_json)
+                })
+                .collect();
+            for (id, endpoints_json) in updates {
+                let _ = conn.execute(
+                    "UPDATE platforms SET endpoints = ?1 WHERE id = ?2",
+                    rusqlite::params![endpoints_json, id],
+                );
+            }
+        }
+
         Ok(())
     }
 
