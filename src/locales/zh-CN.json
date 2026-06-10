@@ -29,6 +29,7 @@
   "nav.platforms": "AI 平台",
   "nav.proxy": "代理服务",
   "nav.settings": "设置",
+  "nav.appSettings": "应用设置",
   "nav.claudeConfig": "Claude Code",
   "nav.logs": "请求日志",
   "page.groups": "分组与路由",

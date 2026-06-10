@@ -4,6 +4,7 @@ import { Platforms } from "./pages/Platforms";
 import { Groups } from "./pages/Groups";
 import { Proxy } from "./pages/Proxy";
 import { Settings } from "./pages/Settings";
+import { AppSettings } from "./pages/AppSettings";
 import { Logs } from "./pages/Logs";
 import { proxyLogApi } from "./services/api";
 
@@ -11,7 +12,8 @@ const BASE_NAV: NavItem[] = [
   { id: "proxy", icon: "proxy", labelKey: "nav.proxy" },
   { id: "platforms", icon: "platforms", labelKey: "nav.platforms" },
   { id: "groups", icon: "groups", labelKey: "nav.groups" },
-  { id: "settings", icon: "settings", labelKey: "nav.claudeConfig" },
+  { id: "settings", icon: "settings", labelKey: "nav.appSettings" },
+  { id: "claudeConfig", icon: "settings", labelKey: "nav.claudeConfig" },
 ];
 
 const LOG_NAV_ITEM: NavItem = { id: "logs", icon: "logs", labelKey: "nav.logs" };
@@ -65,7 +67,8 @@ function App() {
           {effectiveNav === "proxy" && <Proxy />}
           {effectiveNav === "platforms" && <Platforms />}
           {effectiveNav === "groups" && <Groups />}
-          {effectiveNav === "settings" && <Settings onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} />}
+          {effectiveNav === "settings" && <AppSettings onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} />}
+          {effectiveNav === "claudeConfig" && <Settings />}
           {effectiveNav === "logs" && <Logs />}
         </div>
       </main>
