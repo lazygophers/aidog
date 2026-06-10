@@ -50,6 +50,7 @@ impl Db {
             "ALTER TABLE groups ADD COLUMN auto_from_platform TEXT",
             "ALTER TABLE platforms ADD COLUMN models TEXT NOT NULL DEFAULT '[]'",
             "ALTER TABLE platforms ADD COLUMN available_models TEXT NOT NULL DEFAULT '[]'",
+            "ALTER TABLE proxy_logs ADD COLUMN cache_tokens INTEGER NOT NULL DEFAULT 0",
         ];
         for sql in &migrations {
             // Ignore "duplicate column" errors — column may already exist
@@ -613,9 +614,9 @@ pub fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
 pub fn upsert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT OR REPLACE INTO proxy_logs (id, group_name, model, actual_model, source_protocol, target_protocol, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, created_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14)",
-        params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.request_headers, log.request_body, log.response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.created_at],
+        "INSERT OR REPLACE INTO proxy_logs (id, group_name, model, actual_model, source_protocol, target_protocol, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
+        params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.request_headers, log.request_body, log.response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.created_at],
     ).map_err(|e| format!("upsert proxy log: {e}"))?;
     Ok(())
 }
@@ -624,7 +625,7 @@ pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::mo
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, status_code, duration_ms, input_tokens, output_tokens, created_at
+            "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at
              FROM proxy_logs ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
         )
         .map_err(|e| e.to_string())?;
@@ -641,6 +642,7 @@ pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::mo
                 duration_ms: row.get(7)?,
                 input_tokens: row.get(8)?,
                 output_tokens: row.get(9)?,
+                cache_tokens: row.get(10)?,
                 created_at: row.get(10)?,
             })
         })
@@ -652,7 +654,7 @@ pub fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, created_at
+            "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at
              FROM proxy_logs WHERE id = ?1",
         )
         .map_err(|e| e.to_string())?;
@@ -671,7 +673,8 @@ pub fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog
             duration_ms: row.get(10)?,
             input_tokens: row.get(11)?,
             output_tokens: row.get(12)?,
-            created_at: row.get(13)?,
+            cache_tokens: row.get(13)?,
+            created_at: row.get(14)?,
         })
     })
     .optional()
@@ -770,7 +773,7 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
     let overview_sql = format!(
         "SELECT COUNT(*), \
          SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
-         SUM(input_tokens), SUM(output_tokens), AVG(duration_ms) \
+         SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms) \
          FROM proxy_logs WHERE {where_sql}"
     );
     let p = qp.to_sql_params();
@@ -785,7 +788,12 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
                 success_rate: if total > 0 { success as f64 / total as f64 * 100.0 } else { 0.0 },
                 total_input_tokens: row.get(2).unwrap_or(0),
                 total_output_tokens: row.get(3).unwrap_or(0),
-                avg_duration_ms: row.get(4).unwrap_or(0.0),
+                total_cache_tokens: row.get(4).unwrap_or(0),
+                cache_rate: {
+                    let inp: i64 = row.get(2).unwrap_or(0);
+                    if inp > 0 { row.get::<_, i64>(4).unwrap_or(0) as f64 / inp as f64 * 100.0 } else { 0.0 }
+                },
+                avg_duration_ms: row.get(5).unwrap_or(0.0),
             })
         }).map_err(|e| format!("overview: {e}"))?;
 
@@ -794,7 +802,7 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
         "SELECT strftime('{time_fmt}', created_at), COUNT(*), \
          SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
          SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END), \
-         SUM(input_tokens), SUM(output_tokens), AVG(duration_ms) \
+         SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms) \
          FROM proxy_logs WHERE {where_sql} GROUP BY 1 ORDER BY 1"
     );
     let p = qp.to_sql_params();
@@ -809,7 +817,8 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
                 error_count: row.get(3).unwrap_or(0),
                 input_tokens: row.get(4).unwrap_or(0),
                 output_tokens: row.get(5).unwrap_or(0),
-                avg_duration_ms: row.get(6).unwrap_or(0.0),
+                cache_tokens: row.get(6).unwrap_or(0),
+                avg_duration_ms: row.get(7).unwrap_or(0.0),
             })
         }).map_err(|e| format!("buckets: {e}"))?
         .filter_map(|r| r.ok())
@@ -826,7 +835,7 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
         let dim_sql = format!(
             "SELECT {dim_col}, COUNT(*), \
              SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
-             SUM(input_tokens), SUM(output_tokens), AVG(duration_ms) \
+             SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms) \
              FROM proxy_logs WHERE {where_sql} GROUP BY 1 ORDER BY 2 DESC LIMIT 50"
         );
         let p = qp.to_sql_params();
@@ -840,7 +849,8 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
                     success_count: row.get(2).unwrap_or(0),
                     input_tokens: row.get(3).unwrap_or(0),
                     output_tokens: row.get(4).unwrap_or(0),
-                    avg_duration_ms: row.get(5).unwrap_or(0.0),
+                    cache_tokens: row.get(5).unwrap_or(0),
+                    avg_duration_ms: row.get(6).unwrap_or(0.0),
                 })
             }).map_err(|e| format!("dimension: {e}"))?
             .filter_map(|r| r.ok())

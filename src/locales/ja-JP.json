@@ -198,5 +198,14 @@
   "test.run": "テスト実行",
   "test.running": "テスト中...",
   "test.results": "結果",
-  "logs.refresh": "刷新"
+  "logs.refresh": "刷新",
+  "stats": {
+    "inputTokens": "入力トークン",
+    "outputTokens": "出力トークン",
+    "cacheTokens": "キャッシュトークン",
+    "cacheRate": "キャッシュ率"
+  },
+  "logs": {
+    "cacheTokens": "キャッシュトークン"
+  }
 }

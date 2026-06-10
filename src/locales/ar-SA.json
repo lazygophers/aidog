@@ -198,5 +198,14 @@
   "test.run": "تشغيل الاختبار",
   "test.running": "جاري الاختبار...",
   "test.results": "النتائج",
-  "logs.refresh": "刷新"
+  "logs.refresh": "刷新",
+  "stats": {
+    "inputTokens": "رموز الإدخال",
+    "outputTokens": "رموز الإخراج",
+    "cacheTokens": "رموز التخزين المؤقت",
+    "cacheRate": "معدل التخزين المؤقت"
+  },
+  "logs": {
+    "cacheTokens": "رموز التخزين المؤقت"
+  }
 }

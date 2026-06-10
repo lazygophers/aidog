@@ -235,5 +235,14 @@
   "test.run": "Run Test",
   "test.running": "Testing...",
   "test.results": "Results",
-  "logs.refresh": "刷新"
+  "logs.refresh": "刷新",
+  "stats": {
+    "inputTokens": "Input Tokens",
+    "outputTokens": "Output Tokens",
+    "cacheTokens": "Cache Tokens",
+    "cacheRate": "Cache Rate"
+  },
+  "logs": {
+    "cacheTokens": "Cache Tokens"
+  }
 }

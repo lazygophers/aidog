@@ -354,5 +354,14 @@
   "test.run": "开始测试",
   "test.running": "测试中...",
   "test.results": "测试结果",
-  "logs.refresh": "刷新"
+  "logs.refresh": "刷新",
+  "stats": {
+    "inputTokens": "输入 Token",
+    "outputTokens": "输出 Token",
+    "cacheTokens": "缓存 Token",
+    "cacheRate": "缓存率"
+  },
+  "logs": {
+    "cacheTokens": "缓存 Token"
+  }
 }

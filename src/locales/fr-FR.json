@@ -198,5 +198,14 @@
   "test.run": "Lancer le test",
   "test.running": "Test en cours...",
   "test.results": "Resultats",
-  "logs.refresh": "刷新"
+  "logs.refresh": "刷新",
+  "stats": {
+    "inputTokens": "Tokens entrée",
+    "outputTokens": "Tokens sortie",
+    "cacheTokens": "Tokens cache",
+    "cacheRate": "Taux de cache"
+  },
+  "logs": {
+    "cacheTokens": "Tokens cache"
+  }
 }

@@ -120,6 +120,7 @@ async fn handle_proxy(
         duration_ms: 0,
         input_tokens: 0,
         output_tokens: 0,
+        cache_tokens: 0,
         created_at,
     };
 
@@ -359,13 +360,14 @@ async fn handle_proxy(
     if !is_stream {
         let body = resp.bytes().await.unwrap_or_default();
         let resp_str = String::from_utf8_lossy(&body).to_string();
-        let (input_tokens, output_tokens) = extract_usage(&resp_str);
+        let (input_tokens, output_tokens, cache_tokens) = extract_usage(&resp_str);
 
         log.status_code = 200;
         log.response_body = resp_str;
         log.duration_ms = start.elapsed().as_millis() as i32;
         log.input_tokens = input_tokens;
         log.output_tokens = output_tokens;
+        log.cache_tokens = cache_tokens;
         upsert_log(&state, &log);
 
         // Replace model in response back to original if remapped
@@ -387,6 +389,7 @@ async fn handle_proxy(
     let protocol = route.platform.protocol;
     let tokens_acc = Arc::new(std::sync::atomic::AtomicI32::new(0));
     let tokens_out = Arc::new(std::sync::atomic::AtomicI32::new(0));
+    let tokens_cache = Arc::new(std::sync::atomic::AtomicI32::new(0));
     let model_for_response = if needs_model_remap {
         requested_model.clone()
     } else {
@@ -394,6 +397,7 @@ async fn handle_proxy(
     };
     let acc_in = tokens_acc.clone();
     let acc_out = tokens_out.clone();
+    let acc_cache = tokens_cache.clone();
 
     let stream = resp.bytes_stream().map(move |chunk_result| {
         let chunk = match chunk_result {
@@ -420,6 +424,12 @@ async fn handle_proxy(
                         }
                         if let Some(o) = usage.get("completion_tokens").and_then(|v| v.as_i64()).or_else(|| usage.get("output_tokens").and_then(|v| v.as_i64())) {
                             acc_out.store(o as i32, std::sync::atomic::Ordering::Relaxed);
+                        }
+                        if let Some(c) = usage.get("cache_read_input_tokens").and_then(|v| v.as_i64())
+                            .or_else(|| usage.get("prompt_tokens_details").and_then(|d| d.get("cached_tokens")).and_then(|v| v.as_i64()))
+                            .or_else(|| usage.get("cache_tokens").and_then(|v| v.as_i64()))
+                        {
+                            acc_cache.store(c as i32, std::sync::atomic::Ordering::Relaxed);
                         }
                     }
 
@@ -454,6 +464,7 @@ async fn handle_proxy(
     log.duration_ms = start.elapsed().as_millis() as i32;
     log.input_tokens = tokens_acc.load(std::sync::atomic::Ordering::Relaxed);
     log.output_tokens = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
+    log.cache_tokens = tokens_cache.load(std::sync::atomic::Ordering::Relaxed);
     upsert_log(&state, &log);
 
     (
@@ -468,15 +479,15 @@ async fn handle_proxy(
         .into_response()
 }
 
-/// Extract input/output tokens from non-stream response JSON
-fn extract_usage(body: &str) -> (i32, i32) {
+/// Extract input/output/cache tokens from non-stream response JSON
+fn extract_usage(body: &str) -> (i32, i32, i32) {
     let v: Value = match serde_json::from_str(body) {
         Ok(v) => v,
-        Err(_) => return (0, 0),
+        Err(_) => return (0, 0, 0),
     };
     let usage = match v.get("usage") {
         Some(u) => u,
-        None => return (0, 0),
+        None => return (0, 0, 0),
     };
     let input = usage.get("input_tokens")
         .or_else(|| usage.get("prompt_tokens"))
@@ -486,7 +497,15 @@ fn extract_usage(body: &str) -> (i32, i32) {
         .or_else(|| usage.get("completion_tokens"))
         .and_then(|v| v.as_i64())
         .unwrap_or(0) as i32;
-    (input, output)
+    // Cache tokens: Anthropic (cache_read_input_tokens), OpenAI (prompt_tokens_details.cached_tokens), generic
+    let cache = usage.get("cache_read_input_tokens")
+        .and_then(|v| v.as_i64())
+        .or_else(|| usage.get("prompt_tokens_details")
+            .and_then(|d| d.get("cached_tokens"))
+            .and_then(|v| v.as_i64()))
+        .or_else(|| usage.get("cache_tokens").and_then(|v| v.as_i64()))
+        .unwrap_or(0) as i32;
+    (input, output, cache)
 }
 
 /// Replace "model" field in a JSON response body back to the original model name

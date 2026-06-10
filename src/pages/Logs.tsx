@@ -106,6 +106,7 @@ export function Logs() {
           <MetaItem label={t("logs.duration", "耗时")} value={`${detail.duration_ms} ms`} />
           <MetaItem label={t("logs.inputTokens", "输入 Token")} value={`${detail.input_tokens}`} />
           <MetaItem label={t("logs.outputTokens", "输出 Token")} value={`${detail.output_tokens}`} />
+          <MetaItem label={t("logs.cacheTokens", "缓存 Token")} value={`${detail.cache_tokens}`} />
           <MetaItem label={t("logs.time", "时间")} value={new Date(detail.created_at).toLocaleString()} />
         </div>
 

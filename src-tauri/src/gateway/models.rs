@@ -275,6 +275,7 @@ pub struct ProxyLog {
     pub duration_ms: i32,
     pub input_tokens: i32,
     pub output_tokens: i32,
+    pub cache_tokens: i32,
     pub created_at: String,
 }
 
@@ -291,6 +292,7 @@ pub struct ProxyLogSummary {
     pub duration_ms: i32,
     pub input_tokens: i32,
     pub output_tokens: i32,
+    pub cache_tokens: i32,
     pub created_at: String,
 }
 
@@ -358,6 +360,8 @@ pub struct StatsOverview {
     pub success_rate: f64,
     pub total_input_tokens: i64,
     pub total_output_tokens: i64,
+    pub total_cache_tokens: i64,
+    pub cache_rate: f64,
     pub avg_duration_ms: f64,
 }
 
@@ -369,6 +373,7 @@ pub struct StatsBucket {
     pub error_count: i32,
     pub input_tokens: i64,
     pub output_tokens: i64,
+    pub cache_tokens: i64,
     pub avg_duration_ms: f64,
 }
 
@@ -379,6 +384,7 @@ pub struct DimensionEntry {
     pub success_count: i32,
     pub input_tokens: i64,
     pub output_tokens: i64,
+    pub cache_tokens: i64,
     pub avg_duration_ms: f64,
 }
 

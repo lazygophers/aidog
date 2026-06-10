@@ -207,6 +207,7 @@ export interface ProxyLogSummary {
   duration_ms: number;
   input_tokens: number;
   output_tokens: number;
+  cache_tokens: number;
   created_at: string;
 }
 
@@ -224,6 +225,7 @@ export interface ProxyLogDetail {
   duration_ms: number;
   input_tokens: number;
   output_tokens: number;
+  cache_tokens: number;
   created_at: string;
 }
 
@@ -307,6 +309,8 @@ export interface StatsOverview {
   success_rate: number;
   total_input_tokens: number;
   total_output_tokens: number;
+  total_cache_tokens: number;
+  cache_rate: number;
   avg_duration_ms: number;
 }
 
@@ -317,6 +321,7 @@ export interface StatsBucket {
   error_count: number;
   input_tokens: number;
   output_tokens: number;
+  cache_tokens: number;
   avg_duration_ms: number;
 }
 
@@ -326,6 +331,7 @@ export interface DimensionEntry {
   success_count: number;
   input_tokens: number;
   output_tokens: number;
+  cache_tokens: number;
   avg_duration_ms: number;
 }
 

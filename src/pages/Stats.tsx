@@ -160,7 +160,10 @@ export function Stats() {
             {[
               { label: t("stats.totalRequests", "总请求"), value: formatNumber(overview.total_requests), unit: "" },
               { label: t("stats.successRate", "成功率"), value: overview.success_rate.toFixed(1), unit: "%" },
-              { label: t("stats.totalTokens", "总 Token"), value: formatNumber(overview.total_input_tokens + overview.total_output_tokens), unit: "" },
+              { label: t("stats.inputTokens", "输入 Token"), value: formatNumber(overview.total_input_tokens), unit: "" },
+              { label: t("stats.outputTokens", "输出 Token"), value: formatNumber(overview.total_output_tokens), unit: "" },
+              { label: t("stats.cacheTokens", "缓存 Token"), value: formatNumber(overview.total_cache_tokens), unit: "" },
+              { label: t("stats.cacheRate", "缓存率"), value: overview.cache_rate.toFixed(1), unit: "%" },
               { label: t("stats.avgLatency", "平均延迟"), value: overview.avg_duration_ms.toFixed(0), unit: "ms" },
             ].map((card, i) => (
               <div key={i} className="glass-surface" style={{ flex: "1 1 120px", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 4 }}>
@@ -223,7 +226,9 @@ export function Stats() {
                     <th style={{ textAlign: "left", padding: "6px 8px", fontWeight: 600 }}>{t("stats.dimName", "名称")}</th>
                     <th style={{ textAlign: "right", padding: "6px 8px" }}>{t("stats.requests", "请求")}</th>
                     <th style={{ textAlign: "right", padding: "6px 8px" }}>{t("stats.success", "成功")}</th>
-                    <th style={{ textAlign: "right", padding: "6px 8px" }}>{t("stats.tokens", "Token")}</th>
+                    <th style={{ textAlign: "right", padding: "6px 8px" }}>{t("stats.inputTokens", "输入")}</th>
+                    <th style={{ textAlign: "right", padding: "6px 8px" }}>{t("stats.outputTokens", "输出")}</th>
+                    <th style={{ textAlign: "right", padding: "6px 8px" }}>{t("stats.cacheTokens", "缓存")}</th>
                     <th style={{ textAlign: "right", padding: "6px 8px" }}>{t("stats.avgMs", "平均延迟")}</th>
                   </tr>
                 </thead>
@@ -233,7 +238,9 @@ export function Stats() {
                       <td style={{ padding: "6px 8px", fontWeight: 500, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.name}</td>
                       <td style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.total_requests)}</td>
                       <td style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.success_count)}</td>
-                      <td style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.input_tokens + d.output_tokens)}</td>
+                      <td style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.input_tokens)}</td>
+                      <td style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.output_tokens)}</td>
+                      <td style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.cache_tokens)}</td>
                       <td style={{ textAlign: "right", padding: "6px 8px" }}>{d.avg_duration_ms.toFixed(0)} ms</td>
                     </tr>
                   ))}
