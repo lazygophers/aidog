@@ -787,13 +787,13 @@ pub fn count_proxy_logs(db: &Db) -> Result<u32, String> {
 
 pub fn get_platform_usage_stats(db: &Db, platform_id: &str) -> Result<super::models::PlatformUsageStats, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    // Match by platform_id directly, OR via group association for legacy logs without platform_id
-    conn.query_row(
-        "SELECT COUNT(*), \
+    let where_clause = "platform_id = ?1 OR (platform_id = '' AND group_name IN (SELECT name FROM groups WHERE auto_from_platform = ?1))";
+    // Overall stats
+    let stats: super::models::PlatformUsageStats = conn.query_row(
+        &format!("SELECT COUNT(*), \
          SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
          SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens) \
-         FROM proxy_logs WHERE platform_id = ?1 \
-         OR (platform_id = '' AND group_name IN (SELECT name FROM groups WHERE auto_from_platform = ?1))",
+         FROM proxy_logs WHERE {where_clause}"),
         params![platform_id],
         |row| {
             let total: i64 = row.get(0).unwrap_or(0);
@@ -808,14 +808,30 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: &str) -> Result<super::mod
                 total_output_tokens: out,
                 total_cache_tokens: cache,
                 cache_rate: if inp > 0 { cache as f64 / inp as f64 * 100.0 } else { 0.0 },
+                recent_failures: 0,
+                recent_total: 0,
             })
         }
-    ).map_err(|e| format!("platform usage stats: {e}"))
+    ).map_err(|e| format!("platform usage stats: {e}"))?;
+
+    // Recent 5 requests health
+    let (recent_failures, recent_total): (i64, i64) = conn.query_row(
+        &format!("SELECT COUNT(*), SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END) \
+         FROM (SELECT status_code FROM proxy_logs WHERE {where_clause} ORDER BY created_at DESC LIMIT 5)"),
+        params![platform_id],
+        |row| Ok((row.get(1).unwrap_or(0), row.get(0).unwrap_or(0)))
+    ).unwrap_or((0, 0));
+
+    Ok(super::models::PlatformUsageStats {
+        recent_failures: recent_failures,
+        recent_total: recent_total,
+        ..stats
+    })
 }
 
 pub fn get_group_usage_stats(db: &Db, group_name: &str) -> Result<super::models::PlatformUsageStats, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.query_row(
+    let stats: super::models::PlatformUsageStats = conn.query_row(
         "SELECT COUNT(*), \
          SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
          SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens) \
@@ -834,9 +850,24 @@ pub fn get_group_usage_stats(db: &Db, group_name: &str) -> Result<super::models:
                 total_output_tokens: out,
                 total_cache_tokens: cache,
                 cache_rate: if inp > 0 { cache as f64 / inp as f64 * 100.0 } else { 0.0 },
+                recent_failures: 0,
+                recent_total: 0,
             })
         }
-    ).map_err(|e| format!("group usage stats: {e}"))
+    ).map_err(|e| format!("group usage stats: {e}"))?;
+
+    let (recent_failures, recent_total): (i64, i64) = conn.query_row(
+        "SELECT COUNT(*), SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END) \
+         FROM (SELECT status_code FROM proxy_logs WHERE group_name = ?1 ORDER BY created_at DESC LIMIT 5)",
+        params![group_name],
+        |row| Ok((row.get(1).unwrap_or(0), row.get(0).unwrap_or(0)))
+    ).unwrap_or((0, 0));
+
+    Ok(super::models::PlatformUsageStats {
+        recent_failures,
+        recent_total,
+        ..stats
+    })
 }
 
 struct QueryParams {

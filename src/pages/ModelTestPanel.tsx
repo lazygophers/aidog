@@ -9,11 +9,12 @@ import {
 interface Props {
   platform: Platform;
   onClose: () => void;
+  onResult?: (success: boolean) => void;
 }
 
 type TestMode = "quick" | "single" | "batch" | "random" | "custom";
 
-export function ModelTestPanel({ platform, onClose }: Props) {
+export function ModelTestPanel({ platform, onClose, onResult }: Props) {
   const { t } = useTranslation();
   const [mode, setMode] = useState<TestMode>("quick");
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
@@ -73,6 +74,11 @@ export function ModelTestPanel({ platform, onClose }: Props) {
     }
     setRunning(false);
     setCurrentIdx(-1);
+    // Notify parent of overall test result
+    if (onResult) {
+      const allOk = res.length > 0 && res.every(r => r.success);
+      onResult(allOk);
+    }
   };
 
   const modes: { key: TestMode; label: string }[] = [

@@ -34,6 +34,22 @@ const CLIENT_TYPES: { value: ClientType; label: string; desc: string }[] = [
 /** 内置平台默认端点：每个平台支持的协议及其 base URL
  * URL 为不含 adapter 路径前缀的基础地址，proxy 会拼接 adapter 路径
  * 来源：各平台官方文档 */
+type HealthStatus = "healthy" | "warning" | "error" | "unknown";
+const HEALTH_COLORS: Record<HealthStatus, string> = {
+  healthy: "var(--color-success, #34c759)",
+  warning: "var(--color-warning, #ff9500)",
+  error: "var(--color-danger, #ff3b30)",
+  unknown: "transparent",
+};
+
+/** 判断平台健康状态：最近 N 次请求中失败次数 */
+function healthStatus(recentTotal: number, recentFailures: number): HealthStatus {
+  if (recentTotal === 0) return "unknown";
+  if (recentFailures >= recentTotal) return "error";        // 全部失败
+  if (recentFailures > 0) return "warning";                  // 有失败
+  return "healthy";                                           // 全部成功
+}
+
 const DEFAULT_ENDPOINTS: Partial<Record<Protocol, PlatformEndpoint[]>> = {
   anthropic: [
     { protocol: "anthropic", base_url: "https://api.anthropic.com" },
@@ -138,6 +154,7 @@ export function Platforms() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [usageMap, setUsageMap] = useState<Record<string, PlatformUsageStats>>({});
+  const [testResults, setTestResults] = useState<Record<string, "ok" | "fail">>({});
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Platform | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -782,14 +799,31 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   opacity: p.enabled ? 1 : 0.5,
                 }}
               >
-                <div style={{
-                  width: 36, height: 36, borderRadius: "var(--radius-sm)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  background: `${color}15`,
-                  border: `1px solid ${color}30`,
-                  color: color, fontSize: 11, fontWeight: 700, flexShrink: 0,
-                }}>
-                  {p.protocol.slice(0, 2).toUpperCase()}
+                <div style={{ position: "relative", flexShrink: 0 }}>
+                  <div style={{
+                    width: 36, height: 36, borderRadius: "var(--radius-sm)",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    background: `${color}15`,
+                    border: `1px solid ${color}30`,
+                    color: color, fontSize: 11, fontWeight: 700,
+                  }}>
+                    {p.protocol.slice(0, 2).toUpperCase()}
+                  </div>
+                  {(() => {
+                    const manual = testResults[p.id];
+                    const h = manual
+                      ? (manual === "ok" ? "healthy" : "error")
+                      : usageMap[p.id] ? healthStatus(usageMap[p.id].recent_total, usageMap[p.id].recent_failures) : "unknown";
+                    return h !== "unknown" ? (
+                      <div style={{
+                        position: "absolute", top: -3, right: -3,
+                        width: 10, height: 10, borderRadius: "50%",
+                        background: HEALTH_COLORS[h],
+                        border: "2px solid var(--bg-primary)",
+                        boxShadow: `0 0 4px ${HEALTH_COLORS[h]}60`,
+                      }} />
+                    ) : null;
+                  })()}
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -864,7 +898,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   );
 
       {testingPlatform !== null && (
-        <ModelTestPanel platform={testingPlatform as Platform} onClose={() => setTestingPlatform(null)} />
+        <ModelTestPanel
+          platform={testingPlatform as Platform}
+          onClose={() => setTestingPlatform(null)}
+          onResult={(success) => { if (testingPlatform) setTestResults(prev => ({ ...prev, [testingPlatform.id]: success ? "ok" : "fail" })); }}
+        />
       )}
 }
 

@@ -90,6 +90,8 @@ export interface PlatformUsageStats {
   total_output_tokens: number;
   total_cache_tokens: number;
   cache_rate: number;
+  recent_failures: number;
+  recent_total: number;
 }
 
 export const platformApi = {

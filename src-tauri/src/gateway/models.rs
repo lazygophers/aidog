@@ -344,6 +344,10 @@ pub struct PlatformUsageStats {
     pub total_output_tokens: i64,
     pub total_cache_tokens: i64,
     pub cache_rate: f64,
+    /// 最近 N 次请求中失败的次数（用于可用性判断）
+    pub recent_failures: i64,
+    /// 最近 N 次请求的总数
+    pub recent_total: i64,
 }
 
 /// Summary row for list view (excludes large body fields)
