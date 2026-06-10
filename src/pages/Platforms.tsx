@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType } from "../services/api";
+import { platformApi, settingsApi, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats } from "../services/api";
 import { ModelTestPanel } from "./ModelTestPanel";
 
 const PROTOCOLS: { value: Protocol; label: string }[] = [
@@ -137,6 +137,7 @@ function autoCategorize(modelIds: string[]): Record<ModelSlot, string> {
 export function Platforms() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
+  const [usageMap, setUsageMap] = useState<Record<string, PlatformUsageStats>>({});
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Platform | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -187,6 +188,15 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     try {
       const list = await platformApi.list();
       setPlatforms(list || []);
+      // Batch load usage stats
+      const statsMap: Record<string, PlatformUsageStats> = {};
+      await Promise.all((list || []).map(async (p) => {
+        try {
+          const s = await platformApi.usageStats(p.id);
+          if (s && s.total_requests > 0) statsMap[p.id] = s;
+        } catch { /* ignore */ }
+      }));
+      setUsageMap(statsMap);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -805,6 +815,25 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                       ))}
                     </div>
                   )}
+                  {usageMap[p.id] && (() => {
+                    const u = usageMap[p.id];
+                    const total = u.total_input_tokens + u.total_output_tokens;
+                    return (
+                      <div style={{ display: "flex", gap: 8, marginTop: 4, fontSize: 11, color: "var(--text-tertiary)" }}>
+                        <span>{formatTokens(total)} tokens</span>
+                        <span>·</span>
+                        <span>↑{formatTokens(u.total_input_tokens)} ↓{formatTokens(u.total_output_tokens)}</span>
+                        {u.cache_rate > 0 && (
+                          <>
+                            <span>·</span>
+                            <span style={{ color: "var(--color-success, #34c759)" }}>cache {u.cache_rate.toFixed(1)}%</span>
+                          </>
+                        )}
+                        <span>·</span>
+                        <span>{u.total_requests} req</span>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
@@ -841,4 +870,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       {testingPlatform !== null && (
         <ModelTestPanel platform={testingPlatform as Platform} onClose={() => setTestingPlatform(null)} />
       )}
+}
+
+function formatTokens(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return `${n}`;
 }

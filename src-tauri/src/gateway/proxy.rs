@@ -113,6 +113,7 @@ async fn handle_proxy(
         actual_model: String::new(),
         source_protocol: String::new(),  // will be set from group
         target_protocol: String::new(),
+        platform_id: String::new(),
         request_headers: String::new(),
         request_body: String::new(),
         upstream_request_headers: String::new(),
@@ -292,6 +293,7 @@ async fn handle_proxy(
     // Upsert #3: route resolved
     log.actual_model = actual_model.clone();
     log.target_protocol = target_protocol.clone();
+    log.platform_id = route.platform.id.clone();
     upsert_log(&state, &log);
 
     // 替换模型名

@@ -83,6 +83,15 @@ export interface ProxySettings {
 
 // ─── Platform API ──────────────────────────────────────────
 
+export interface PlatformUsageStats {
+  total_requests: number;
+  success_count: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  total_cache_tokens: number;
+  cache_rate: number;
+}
+
 export const platformApi = {
   create: (input: {
     name: string;
@@ -116,6 +125,9 @@ export const platformApi = {
 
   fetchModels: (protocol: Protocol, baseUrl: string, apiKey: string) =>
     invoke<string[]>("platform_fetch_models", { protocol, baseUrl, apiKey }),
+
+  usageStats: (platformId: string) =>
+    invoke<PlatformUsageStats>("platform_usage_stats", { platformId }),
 };
 
 // ─── Group API ─────────────────────────────────────────────

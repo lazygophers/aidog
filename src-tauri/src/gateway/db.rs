@@ -65,6 +65,7 @@ impl Db {
             "ALTER TABLE platforms ADD COLUMN endpoints TEXT NOT NULL DEFAULT '[]'",
             "ALTER TABLE proxy_logs ADD COLUMN upstream_request_headers TEXT NOT NULL DEFAULT ''",
             "ALTER TABLE proxy_logs ADD COLUMN upstream_request_body TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE proxy_logs ADD COLUMN platform_id TEXT NOT NULL DEFAULT ''",
         ];
         for sql in &migrations {
             // Ignore "duplicate column" errors — column may already exist
@@ -688,9 +689,9 @@ pub fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
 pub fn upsert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT OR REPLACE INTO proxy_logs (id, group_name, model, actual_model, source_protocol, target_protocol, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
-        params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.created_at],
+        "INSERT OR REPLACE INTO proxy_logs (id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18)",
+        params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.created_at],
     ).map_err(|e| format!("upsert proxy log: {e}"))?;
     Ok(())
 }
@@ -728,7 +729,7 @@ pub fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at
+            "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at
              FROM proxy_logs WHERE id = ?1",
         )
         .map_err(|e| e.to_string())?;
@@ -740,17 +741,18 @@ pub fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog
             actual_model: row.get(3)?,
             source_protocol: row.get(4)?,
             target_protocol: row.get(5)?,
-            request_headers: row.get(6)?,
-            request_body: row.get(7)?,
-            upstream_request_headers: row.get(8)?,
-            upstream_request_body: row.get(9)?,
-            response_body: row.get(10)?,
-            status_code: row.get(11)?,
-            duration_ms: row.get(12)?,
-            input_tokens: row.get(13)?,
-            output_tokens: row.get(14)?,
-            cache_tokens: row.get(15)?,
-            created_at: row.get(16)?,
+            platform_id: row.get(6)?,
+            request_headers: row.get(7)?,
+            request_body: row.get(8)?,
+            upstream_request_headers: row.get(9)?,
+            upstream_request_body: row.get(10)?,
+            response_body: row.get(11)?,
+            status_code: row.get(12)?,
+            duration_ms: row.get(13)?,
+            input_tokens: row.get(14)?,
+            output_tokens: row.get(15)?,
+            cache_tokens: row.get(16)?,
+            created_at: row.get(17)?,
         })
     })
     .optional()
@@ -781,6 +783,32 @@ pub fn count_proxy_logs(db: &Db) -> Result<u32, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.query_row("SELECT COUNT(*) FROM proxy_logs", [], |row| row.get(0))
         .map_err(|e| e.to_string())
+}
+
+pub fn get_platform_usage_stats(db: &Db, platform_id: &str) -> Result<super::models::PlatformUsageStats, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.query_row(
+        "SELECT COUNT(*), \
+         SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
+         SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens) \
+         FROM proxy_logs WHERE platform_id = ?1",
+        params![platform_id],
+        |row| {
+            let total: i64 = row.get(0).unwrap_or(0);
+            let success: i64 = row.get(1).unwrap_or(0);
+            let inp: i64 = row.get(2).unwrap_or(0);
+            let out: i64 = row.get(3).unwrap_or(0);
+            let cache: i64 = row.get(4).unwrap_or(0);
+            Ok(super::models::PlatformUsageStats {
+                total_requests: total,
+                success_count: success,
+                total_input_tokens: inp,
+                total_output_tokens: out,
+                total_cache_tokens: cache,
+                cache_rate: if inp > 0 { cache as f64 / inp as f64 * 100.0 } else { 0.0 },
+            })
+        }
+    ).map_err(|e| format!("platform usage stats: {e}"))
 }
 
 // ─── Statistics ───────────────────────────────────────────

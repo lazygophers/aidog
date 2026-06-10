@@ -315,6 +315,8 @@ pub struct ProxyLog {
     pub source_protocol: String,
     /// 实际请求上游的协议
     pub target_protocol: String,
+    /// 路由到的目标平台 ID
+    pub platform_id: String,
     /// 原始请求头（用户发给代理的）
     pub request_headers: String,
     /// 原始请求体（用户发给代理的）
@@ -331,6 +333,17 @@ pub struct ProxyLog {
     pub output_tokens: i32,
     pub cache_tokens: i32,
     pub created_at: String,
+}
+
+/// 平台使用统计（从 proxy_logs 聚合）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlatformUsageStats {
+    pub total_requests: i64,
+    pub success_count: i64,
+    pub total_input_tokens: i64,
+    pub total_output_tokens: i64,
+    pub total_cache_tokens: i64,
+    pub cache_rate: f64,
 }
 
 /// Summary row for list view (excludes large body fields)
