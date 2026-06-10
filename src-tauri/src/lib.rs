@@ -430,16 +430,21 @@ fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
 
         let mut config = base_config.clone();
 
-        // Set proxy routing fields
+        // Set proxy routing fields inside env
         if let Some(obj) = config.as_object_mut() {
-            obj.insert(
-                "ANTHROPIC_BASE_URL".to_string(),
-                serde_json::Value::String(format!("http://127.0.0.1:{}/proxy", port)),
-            );
-            obj.insert(
-                "ANTHROPIC_AUTH_TOKEN".to_string(),
-                serde_json::Value::String(group_name.clone()),
-            );
+            if !obj.contains_key("env") {
+                obj.insert("env".into(), serde_json::Value::Object(Default::default()));
+            }
+            if let Some(env_map) = obj.get_mut("env").and_then(|v| v.as_object_mut()) {
+                env_map.insert(
+                    "ANTHROPIC_BASE_URL".to_string(),
+                    serde_json::Value::String(format!("http://127.0.0.1:{}/proxy", port)),
+                );
+                env_map.insert(
+                    "ANTHROPIC_AUTH_TOKEN".to_string(),
+                    serde_json::Value::String(group_name.clone()),
+                );
+            }
         }
 
         let file_path = aidog_dir.join(format!("settings.{}.json", group_name));
