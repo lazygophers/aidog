@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use super::adapter::{self, ChatRequest, ChatStreamEvent};
 use super::db::Db;
-use super::models::{Group, ProxyLog, ProxyTimeoutSettings};
+use super::models::{ClientType, Group, ProxyLog, ProxyTimeoutSettings};
 use super::router::select_platform;
 
 /// 代理服务器共享状态
@@ -273,14 +273,14 @@ async fn handle_proxy(
     let actual_model = route.target_model;
 
     // 尝试匹配端点：按 source_protocol 查找平台是否支持对应协议的端点
-    let (target_protocol_enum, target_base_url) = route.platform.endpoints
+    let (target_protocol_enum, target_base_url, client_type) = route.platform.endpoints
         .iter()
         .find(|ep| {
             let ep_str = format!("{:?}", ep.protocol).to_lowercase();
             ep_str == group.source_protocol
         })
-        .map(|ep| (&ep.protocol, ep.base_url.clone()))
-        .unwrap_or((&route.platform.protocol, route.platform.base_url.clone()));
+        .map(|ep| (&ep.protocol, ep.base_url.clone(), ep.client_type.clone()))
+        .unwrap_or((&route.platform.protocol, route.platform.base_url.clone(), ClientType::Default));
 
     let target_protocol = format!("{:?}", target_protocol_enum).to_lowercase();
     let needs_model_remap = actual_model != requested_model;
@@ -316,50 +316,8 @@ async fn handle_proxy(
         .header("Content-Type", "application/json")
         .body(serde_json::to_string(&req_body).unwrap_or_default());
 
-    // ── 按协议模拟对应客户端 header ──
-    match target_protocol_enum {
-        super::models::Protocol::Anthropic => {
-            req_builder = req_builder
-                .header("anthropic-version", "2023-06-01")
-                .header("x-api-key", &route.platform.api_key)
-                .header("User-Agent", "Claude-Code/1.0");
-        }
-        super::models::Protocol::OpenAI => {
-            req_builder = req_builder
-                .header("Authorization", format!("Bearer {}", route.platform.api_key))
-                .header("User-Agent", "Codex/1.0");
-        }
-        super::models::Protocol::Glm => {
-            req_builder = req_builder
-                .header("Authorization", format!("Bearer {}", route.platform.api_key))
-                .header("User-Agent", "GLM-Client/1.0");
-        }
-        super::models::Protocol::Kimi => {
-            req_builder = req_builder
-                .header("Authorization", format!("Bearer {}", route.platform.api_key))
-                .header("User-Agent", "Kimi-Client/1.0");
-        }
-        super::models::Protocol::MiniMax => {
-            req_builder = req_builder
-                .header("Authorization", format!("Bearer {}", route.platform.api_key))
-                .header("User-Agent", "MiniMax-Client/1.0");
-        }
-        super::models::Protocol::Codex => {
-            req_builder = req_builder
-                .header("Authorization", format!("Bearer {}", route.platform.api_key))
-                .header("User-Agent", "Codex/1.0");
-        }
-        super::models::Protocol::Bailian => {
-            req_builder = req_builder
-                .header("Authorization", format!("Bearer {}", route.platform.api_key))
-                .header("User-Agent", "DashScope/1.0");
-        }
-        super::models::Protocol::Gemini => {
-            req_builder = req_builder
-                .header("x-goog-api-key", &route.platform.api_key)
-                .header("User-Agent", "Gemini-Client/1.0");
-        }
-    }
+    // ── 按 client_type + target_protocol 模拟对应客户端 header ──
+    req_builder = apply_client_headers(req_builder, &client_type, target_protocol_enum, &route.platform.api_key);
 
     let resp = match req_builder.send().await {
         Ok(r) => r,
@@ -562,4 +520,194 @@ fn find_group_by_path(db: &Db, request_path: &str) -> Option<Group> {
 fn find_group_by_name(db: &Db, name: &str) -> Option<Group> {
     let groups = super::db::list_groups(db).ok()?;
     groups.into_iter().find(|g| g.name == name)
+}
+
+// ─── 客户端模拟 Header ────────────────────────────────────────
+
+/// 根据客户端类型和目标协议，构建模拟的 HTTP 请求头。
+/// 数据来源：GitHub 逆向分析（Claude Code CLI、Codex CLI、Cursor、Windsurf）
+fn apply_client_headers(
+    req_builder: reqwest::RequestBuilder,
+    client_type: &ClientType,
+    protocol: &super::models::Protocol,
+    api_key: &str,
+) -> reqwest::RequestBuilder {
+    match client_type {
+        ClientType::Default => apply_default_headers(req_builder, protocol, api_key),
+        ClientType::ClaudeCode => apply_claude_code_headers(req_builder, protocol, api_key),
+        ClientType::CodexCli => apply_codex_cli_headers(req_builder, protocol, api_key),
+        ClientType::Cursor => apply_cursor_headers(req_builder, protocol, api_key),
+        ClientType::Windsurf => apply_windsurf_headers(req_builder, protocol, api_key),
+    }
+}
+
+fn apply_default_headers(
+    mut rb: reqwest::RequestBuilder,
+    protocol: &super::models::Protocol,
+    api_key: &str,
+) -> reqwest::RequestBuilder {
+    match protocol {
+        super::models::Protocol::Anthropic => {
+            rb = rb.header("anthropic-version", "2023-06-01")
+                .header("x-api-key", api_key);
+        }
+        super::models::Protocol::Gemini => {
+            rb = rb.header("x-goog-api-key", api_key);
+        }
+        _ => {
+            rb = rb.header("Authorization", format!("Bearer {api_key}"));
+        }
+    }
+    rb
+}
+
+/// 模拟 Claude Code CLI 请求头
+/// 来源: @anthropic-ai/claude-code/cli.js — buildHeaders() + fV()
+fn apply_claude_code_headers(
+    mut rb: reqwest::RequestBuilder,
+    protocol: &super::models::Protocol,
+    api_key: &str,
+) -> reqwest::RequestBuilder {
+    // Anthropic 协议完整模拟
+    rb = rb
+        .header("User-Agent", "claude-cli/1.0.117 (external, undefined)")
+        .header("x-app", "cli")
+        .header("anthropic-version", "2023-06-01")
+        .header("anthropic-dangerous-direct-browser-access", "true")
+        .header("X-Stainless-Lang", "js")
+        .header("X-Stainless-Package-Version", "0.60.0")
+        .header("X-Stainless-OS", "MacOS")
+        .header("X-Stainless-Arch", "arm64")
+        .header("X-Stainless-Runtime", "node")
+        .header("X-Stainless-Runtime-Version", "v22.19.0")
+        .header("X-Stainless-Retry-Count", "0")
+        .header("X-Stainless-Timeout", "600");
+
+    match protocol {
+        super::models::Protocol::Anthropic => {
+            rb = rb.header("x-api-key", api_key);
+        }
+        super::models::Protocol::OpenAI => {
+            rb = rb.header("Authorization", format!("Bearer {api_key}"));
+        }
+        super::models::Protocol::Gemini => {
+            rb = rb.header("x-goog-api-key", api_key);
+        }
+        _ => {
+            rb = rb.header("Authorization", format!("Bearer {api_key}"));
+        }
+    }
+    rb
+}
+
+/// 模拟 Codex CLI 请求头
+/// 来源: codex-rs/core/src/default_client.rs + model_provider_info.rs + client.rs
+fn apply_codex_cli_headers(
+    mut rb: reqwest::RequestBuilder,
+    protocol: &super::models::Protocol,
+    api_key: &str,
+) -> reqwest::RequestBuilder {
+    rb = rb
+        .header("User-Agent", "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal")
+        .header("originator", "codex_cli_rs")
+        .header("version", "0.38.0")
+        .header("Accept", "text/event-stream");
+
+    match protocol {
+        super::models::Protocol::OpenAI => {
+            rb = rb
+                .header("Authorization", format!("Bearer {api_key}"))
+                .header("OpenAI-Beta", "responses=experimental")
+                .header("conversation_id", uuid_sim())
+                .header("session_id", uuid_sim());
+        }
+        super::models::Protocol::Anthropic => {
+            rb = rb
+                .header("x-api-key", api_key)
+                .header("anthropic-version", "2023-06-01");
+        }
+        super::models::Protocol::Gemini => {
+            rb = rb.header("x-goog-api-key", api_key);
+        }
+        _ => {
+            rb = rb.header("Authorization", format!("Bearer {api_key}"));
+        }
+    }
+    rb
+}
+
+/// 模拟 Cursor IDE 请求头
+/// 来源: GitHub 逆向 — 使用 Anthropic SDK 但有特定 header 组合
+fn apply_cursor_headers(
+    mut rb: reqwest::RequestBuilder,
+    protocol: &super::models::Protocol,
+    api_key: &str,
+) -> reqwest::RequestBuilder {
+    rb = rb
+        .header("User-Agent", "Cursor/0.50.7")
+        .header("x-app", "cursor");
+
+    match protocol {
+        super::models::Protocol::Anthropic => {
+            rb = rb
+                .header("anthropic-version", "2023-06-01")
+                .header("x-api-key", api_key);
+        }
+        super::models::Protocol::OpenAI => {
+            rb = rb.header("Authorization", format!("Bearer {api_key}"));
+        }
+        super::models::Protocol::Gemini => {
+            rb = rb.header("x-goog-api-key", api_key);
+        }
+        _ => {
+            rb = rb.header("Authorization", format!("Bearer {api_key}"));
+        }
+    }
+    rb
+}
+
+/// 模拟 Windsurf IDE 请求头
+/// 来源: GitHub 逆向 — 类似 Cursor，使用 Anthropic SDK
+fn apply_windsurf_headers(
+    mut rb: reqwest::RequestBuilder,
+    protocol: &super::models::Protocol,
+    api_key: &str,
+) -> reqwest::RequestBuilder {
+    rb = rb
+        .header("User-Agent", "Windsurf/1.5.0")
+        .header("x-app", "windsurf");
+
+    match protocol {
+        super::models::Protocol::Anthropic => {
+            rb = rb
+                .header("anthropic-version", "2023-06-01")
+                .header("x-api-key", api_key);
+        }
+        super::models::Protocol::OpenAI => {
+            rb = rb.header("Authorization", format!("Bearer {api_key}"));
+        }
+        super::models::Protocol::Gemini => {
+            rb = rb.header("x-goog-api-key", api_key);
+        }
+        _ => {
+            rb = rb.header("Authorization", format!("Bearer {api_key}"));
+        }
+    }
+    rb
+}
+
+/// 生成简易 UUID v4 格式的随机字符串
+fn uuid_sim() -> String {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    format!("{:08x}-{:04}-4{:03}-{:04}-{:012x}",
+        (ts as u32).wrapping_mul(0x45d9f3b),
+        ((ts >> 16) as u16) & 0xffff,
+        ((ts >> 32) as u16) & 0x0fff,
+        ((ts >> 48) as u16) | 0x8000,
+        ((ts >> 60) as u64) & 0xffffffffffff,
+    )
 }

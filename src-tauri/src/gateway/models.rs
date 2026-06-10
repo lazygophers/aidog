@@ -61,6 +61,24 @@ impl PlatformModels {
     }
 }
 
+// ─── ClientType (客户端模拟) ─────────────────────────────────
+
+/// 可模拟的客户端类型，用于通过上游的客户端校验
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+pub enum ClientType {
+    #[default]
+    #[serde(rename = "default")]
+    Default,
+    #[serde(rename = "claude_code")]
+    ClaudeCode,
+    #[serde(rename = "codex_cli")]
+    CodexCli,
+    #[serde(rename = "cursor")]
+    Cursor,
+    #[serde(rename = "windsurf")]
+    Windsurf,
+}
+
 // ─── Platform Endpoint ──────────────────────────────────────
 
 /// 平台协议端点：同一平台可支持多种协议，每种协议对应不同的 base_url
@@ -68,6 +86,9 @@ impl PlatformModels {
 pub struct PlatformEndpoint {
     pub protocol: Protocol,
     pub base_url: String,
+    /// 模拟的客户端类型（用于通过上游客户端校验）
+    #[serde(default)]
+    pub client_type: ClientType,
 }
 
 // ─── Platform ──────────────────────────────────────────────

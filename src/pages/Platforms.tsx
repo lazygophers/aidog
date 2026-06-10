@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint } from "../services/api";
+import { platformApi, settingsApi, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType } from "../services/api";
 import { ModelTestPanel } from "./ModelTestPanel";
 
 const PROTOCOLS: { value: Protocol; label: string }[] = [
@@ -19,6 +19,15 @@ const ENDPOINT_PROTOCOLS: { value: Protocol; label: string }[] = [
   { value: "openai", label: "OpenAI" },
   { value: "anthropic", label: "Anthropic" },
   { value: "gemini", label: "Gemini" },
+];
+
+/** 客户端模拟选项：用于通过上游客户端校验 */
+const CLIENT_TYPES: { value: ClientType; label: string; desc: string }[] = [
+  { value: "default", label: "Default", desc: "无模拟" },
+  { value: "claude_code", label: "Claude Code", desc: "模拟 claude-cli" },
+  { value: "codex_cli", label: "Codex CLI", desc: "模拟 codex_cli_rs" },
+  { value: "cursor", label: "Cursor", desc: "模拟 Cursor IDE" },
+  { value: "windsurf", label: "Windsurf", desc: "模拟 Windsurf IDE" },
 ];
 
 
@@ -428,7 +437,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               <div key={idx} style={{ display: "flex", gap: 6, alignItems: "center" }}>
                 <select
                   className="input"
-                  style={{ width: 140, flexShrink: 0 }}
+                  style={{ width: 120, flexShrink: 0 }}
                   value={ep.protocol}
                   onChange={(e) => {
                     const next = [...endpoints];
@@ -451,6 +460,21 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     setEndpoints(next);
                   }}
                 />
+                <select
+                  className="input"
+                  style={{ width: 120, flexShrink: 0 }}
+                  value={ep.client_type || "default"}
+                  onChange={(e) => {
+                    const next = [...endpoints];
+                    next[idx] = { ...next[idx], client_type: e.target.value as ClientType };
+                    setEndpoints(next);
+                  }}
+                  title={t("platform.clientType", "客户端模拟")}
+                >
+                  {CLIENT_TYPES.map((c) => (
+                    <option key={c.value} value={c.value}>{c.label}</option>
+                  ))}
+                </select>
                 <button
                   type="button"
                   className="btn btn-ghost btn-icon btn-danger"

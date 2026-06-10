@@ -4,12 +4,14 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type Protocol = "anthropic" | "openai" | "glm" | "kimi" | "minimax" | "codex" | "bailian" | "gemini";
 export type RoutingMode = "load_balance" | "failover";
+export type ClientType = "default" | "claude_code" | "codex_cli" | "cursor" | "windsurf";
 
 export type ModelSlot = "default" | "sonnet" | "opus" | "haiku" | "gpt";
 
 export interface PlatformEndpoint {
   protocol: Protocol;
   base_url: string;
+  client_type?: ClientType;
 }
 
 export interface PlatformModels {

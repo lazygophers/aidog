@@ -101,6 +101,7 @@ impl Db {
                     let endpoints_json = serde_json::to_string(&vec![PlatformEndpoint {
                         protocol: serde_json::from_str(&format!("\"{}\"", protocol)).unwrap_or(Protocol::OpenAI),
                         base_url,
+                        client_type: Default::default(),
                     }]).unwrap_or_else(|_| "[]".to_string());
                     (id, endpoints_json)
                 })
@@ -714,7 +715,7 @@ pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::mo
                 input_tokens: row.get(8)?,
                 output_tokens: row.get(9)?,
                 cache_tokens: row.get(10)?,
-                created_at: row.get(10)?,
+                created_at: row.get(11)?,
             })
         })
         .map_err(|e| e.to_string())?;
