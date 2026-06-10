@@ -359,7 +359,6 @@ async fn handle_proxy(
         Err(e) => {
             log.response_body = format!("upstream error: {e}");
             log.status_code = 502;
-            502;
             log.user_response_body = format!("upstream: {e}");
             log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
@@ -402,7 +401,6 @@ async fn handle_proxy(
 
         log.response_body = resp_str.clone();
         log.status_code = 200;
-        200;
         log.duration_ms = start.elapsed().as_millis() as i32;
         log.input_tokens = input_tokens;
         log.output_tokens = output_tokens;
@@ -455,12 +453,9 @@ async fn handle_proxy(
         for line in text.lines() {
             if let Some(data) = line.strip_prefix("data: ") {
                 if data.trim() == "[DONE]" {
-                    output.push_str(&match adapter::to_client_sse(&ChatStreamEvent::Stop {
+                    output.push_str(&adapter::to_client_sse(&ChatStreamEvent::Stop {
                         finish_reason: Some("end_turn".to_string()),
-                    }, &client_protocol, &model_for_sse) {
-                        Some(s) => s,
-                        None => String::new(),
-                    });
+                    }, &client_protocol, &model_for_sse).unwrap_or_default());
                     continue;
                 }
 
@@ -507,7 +502,6 @@ async fn handle_proxy(
 
     // Upsert final: stream complete
     log.status_code = 200;
-    200;
     log.response_body = "[stream]".to_string();
     log.user_response_body = "[stream]".to_string();
     log.user_response_headers = r#"{"content-type":"text/event-stream","cache-control":"no-cache","connection":"keep-alive"}"#.to_string();
@@ -574,7 +568,7 @@ fn replace_model_in_json(bytes: &[u8], original_model: &str) -> Vec<u8> {
 /// - /v1/messages → anthropic
 /// - /v1/chat/completions, /v1/completions, /v1/responses, /models, /images, /audio → openai
 /// - /v1beta/models/... → gemini
-/// 回退到分组默认的 source_protocol
+///   回退到分组默认的 source_protocol
 fn detect_source_protocol(path: &str, default: &str) -> String {
     // Strip group path prefix (e.g. /proxy/v1/chat/completions → /v1/chat/completions)
     let api_path = if let Some(idx) = path.find("/v1/") {
@@ -838,7 +832,7 @@ fn uuid_sim() -> String {
         .as_nanos();
     format!("{:08x}-{:04}-4{:03}-{:04}-{:012x}",
         (ts as u32).wrapping_mul(0x45d9f3b),
-        ((ts >> 16) as u16) & 0xffff,
+        (ts >> 16) as u16,
         ((ts >> 32) as u16) & 0x0fff,
         ((ts >> 48) as u16) | 0x8000,
         ((ts >> 60) as u64) & 0xffffffffffff,

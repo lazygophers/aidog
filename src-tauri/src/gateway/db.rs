@@ -360,7 +360,7 @@ pub fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
                 updated_at: row.get(6)?,
                 request_timeout_secs: row.get::<_, i64>(7)? as u64,
                 connect_timeout_secs: row.get::<_, i64>(8)? as u64,
-                source_protocol: row.get::<_, String>(9)?.into(),
+                source_protocol: row.get::<_, String>(9)?,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -387,7 +387,7 @@ pub fn get_group(db: &Db, id: &str) -> Result<Option<Group>, String> {
                 updated_at: row.get(6)?,
                 request_timeout_secs: row.get::<_, i64>(7)? as u64,
                 connect_timeout_secs: row.get::<_, i64>(8)? as u64,
-                source_protocol: row.get::<_, String>(9)?.into(),
+                source_protocol: row.get::<_, String>(9)?,
             })
         })
         .optional()
@@ -836,8 +836,8 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: &str) -> Result<super::mod
     ).unwrap_or((0, 0));
 
     Ok(super::models::PlatformUsageStats {
-        recent_failures: recent_failures,
-        recent_total: recent_total,
+        recent_failures,
+        recent_total,
         ..stats
     })
 }
