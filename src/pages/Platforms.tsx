@@ -7,10 +7,18 @@ const PROTOCOLS: { value: Protocol; label: string }[] = [
   { value: "anthropic", label: "Anthropic" },
   { value: "openai", label: "OpenAI" },
   { value: "codex", label: "Codex" },
+  { value: "gemini", label: "Gemini" },
   { value: "glm", label: "GLM" },
   { value: "kimi", label: "Kimi" },
   { value: "minimax", label: "MiniMax" },
   { value: "bailian", label: "百炼" },
+];
+
+/** Endpoint 协议只支持这三种标准格式 */
+const ENDPOINT_PROTOCOLS: { value: Protocol; label: string }[] = [
+  { value: "openai", label: "OpenAI" },
+  { value: "anthropic", label: "Anthropic" },
+  { value: "gemini", label: "Gemini" },
 ];
 
 
@@ -28,7 +36,7 @@ const DEFAULT_ENDPOINTS: Partial<Record<Protocol, PlatformEndpoint[]>> = {
     { protocol: "openai", base_url: "https://api.openai.com" },
   ],
   glm: [
-    { protocol: "glm", base_url: "https://open.bigmodel.cn" },
+    { protocol: "openai", base_url: "https://open.bigmodel.cn/api/paas/v4" },
     { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic" },
   ],
   bailian: [
@@ -41,6 +49,9 @@ const DEFAULT_ENDPOINTS: Partial<Record<Protocol, PlatformEndpoint[]>> = {
   kimi: [
     { protocol: "openai", base_url: "https://api.moonshot.cn" },
   ],
+  gemini: [
+    { protocol: "gemini", base_url: "https://generativelanguage.googleapis.com" },
+  ],
 };
 
 const PROTOCOL_LABELS: Record<Protocol, string> = {
@@ -51,6 +62,7 @@ const PROTOCOL_LABELS: Record<Protocol, string> = {
   minimax: "MiniMax",
   codex: "Codex",
   bailian: "百炼",
+  gemini: "Gemini",
 };
 
 const DEFAULT_NAMES = new Set(Object.values(PROTOCOL_LABELS));
@@ -59,6 +71,7 @@ const PROTOCOL_COLORS: Record<string, string> = {
   anthropic: "#D97757",
   openai: "#10A37F",
   codex: "#10A37F",
+  gemini: "#4285F4",
   glm: "#3B5FEC",
   kimi: "#1783FF",
   minimax: "#6C5CE7",
@@ -423,7 +436,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     setEndpoints(next);
                   }}
                 >
-                  {PROTOCOLS.map((p) => (
+                  {ENDPOINT_PROTOCOLS.map((p) => (
                     <option key={p.value} value={p.value}>{p.label}</option>
                   ))}
                 </select>

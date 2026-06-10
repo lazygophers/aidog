@@ -15,6 +15,8 @@ pub enum Protocol {
     MiniMax,
     #[serde(rename = "codex")]
     Codex,
+    #[serde(rename = "gemini")]
+    Gemini,
     #[serde(rename = "bailian")]
     Bailian,
 }

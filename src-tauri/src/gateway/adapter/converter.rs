@@ -41,6 +41,12 @@ pub fn convert_request(req: &ChatRequest, protocol: &Protocol) -> (Value, String
             let json = serde_json::to_value(&bailian_req).unwrap();
             (json, "/compatible-mode/v1/chat/completions".to_string())
         }
+        Protocol::Gemini => {
+            let gemini_req = super::gemini::to_gemini(req);
+            let json = serde_json::to_value(&gemini_req).unwrap();
+            let path = format!("/v1beta/models/{}:streamGenerateContent", req.model);
+            (json, path)
+        }
     }
 }
 
@@ -54,6 +60,7 @@ pub fn parse_sse(data: &Value, protocol: &Protocol) -> Option<ChatStreamEvent> {
         Protocol::MiniMax => super::minimax::parse_minimax_sse(data),
         Protocol::Codex => super::codex::parse_codex_sse(data),
         Protocol::Bailian => super::bailian::parse_bailian_sse(data),
+        Protocol::Gemini => super::gemini::parse_gemini_sse(data),
     }
 }
 

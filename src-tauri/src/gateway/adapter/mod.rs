@@ -2,6 +2,7 @@ pub mod anthropic;
 pub mod bailian;
 
 pub mod codex;
+pub mod gemini;
 pub mod converter;
 pub mod glm;
 pub mod kimi;

@@ -354,6 +354,11 @@ async fn handle_proxy(
                 .header("Authorization", format!("Bearer {}", route.platform.api_key))
                 .header("User-Agent", "DashScope/1.0");
         }
+        super::models::Protocol::Gemini => {
+            req_builder = req_builder
+                .header("x-goog-api-key", &route.platform.api_key)
+                .header("User-Agent", "Gemini-Client/1.0");
+        }
     }
 
     let resp = match req_builder.send().await {

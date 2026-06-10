@@ -417,7 +417,7 @@ async fn platform_fetch_models(
                     format!("parse response: {e}")
                 })?
         }
-        Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::Kimi | Protocol::MiniMax => {
+        Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::Kimi | Protocol::MiniMax | Protocol::Gemini => {
             let url = format!("{base}/models");
             tracing::info!("fetch models: {url}");
             client
