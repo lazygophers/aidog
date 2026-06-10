@@ -446,6 +446,167 @@ async fn platform_fetch_models(
     Ok(models)
 }
 
+// ─── Statistics ─────────────────────────────────────────────
+
+#[tauri::command]
+async fn stats_query(
+    db: State<'_, Db>,
+    query: StatsQuery,
+) -> Result<StatsResult, String> {
+    db::query_stats(&db, &query)
+}
+
+// ─── Model Testing ─────────────────────────────────────────
+
+#[tauri::command]
+async fn model_test(
+    db: State<'_, Db>,
+    req: ModelTestRequest,
+) -> Result<ModelTestResult, String> {
+    let platform = db::get_platform(&db, &req.platform_id)?
+        .ok_or("platform not found")?;
+
+    let model = req.model.clone().or(platform.models.default.clone())
+        .ok_or("no model specified and no default model configured")?;
+
+    let prompt = req.prompt.clone().unwrap_or_else(|| {
+        let idx = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_nanos() as usize % TEST_PROMPTS.len();
+        TEST_PROMPTS[idx].to_string()
+    });
+
+    let chat_req = gateway::adapter::ChatRequest {
+        model: model.clone(),
+        messages: vec![gateway::adapter::Message {
+            role: gateway::adapter::Role::User,
+            content: gateway::adapter::MessageContent::Text(prompt.clone()),
+        }],
+        system: None,
+        max_tokens: Some(req.max_tokens.unwrap_or(64)),
+        temperature: Some(0.0),
+        top_p: None,
+        stream: Some(false),
+        tools: None,
+        tool_choice: None,
+        extra: None,
+    };
+
+    let (req_body, api_path) = gateway::adapter::convert_request(&chat_req, &platform.protocol);
+    let base_url = platform.base_url.trim_end_matches('/');
+    let url = format!("{}{}", base_url, api_path);
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
+
+    let start = std::time::Instant::now();
+
+    let mut req_builder = client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .body(serde_json::to_string(&req_body).unwrap_or_default());
+
+    match platform.protocol {
+        Protocol::Anthropic | Protocol::ClaudeCode => {
+            req_builder = req_builder
+                .header("anthropic-version", "2023-06-01")
+                .header("x-api-key", &platform.api_key);
+        }
+        _ => {
+            req_builder = req_builder
+                .header("Authorization", format!("Bearer {}", platform.api_key));
+        }
+    }
+
+    let resp = match req_builder.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            return Ok(ModelTestResult {
+                success: false,
+                model,
+                prompt_preview: truncate_str(&prompt, 100),
+                response_preview: String::new(),
+                duration_ms: start.elapsed().as_millis() as i32,
+                input_tokens: 0,
+                output_tokens: 0,
+                error: format!("request failed: {e}"),
+            });
+        }
+    };
+
+    let duration_ms = start.elapsed().as_millis() as i32;
+    let status = resp.status();
+    let body = resp.text().await.unwrap_or_default();
+
+    if !status.is_success() {
+        return Ok(ModelTestResult {
+            success: false,
+            model,
+            prompt_preview: truncate_str(&prompt, 100),
+            response_preview: truncate_str(&body, 200),
+            duration_ms,
+            input_tokens: 0,
+            output_tokens: 0,
+            error: format!("HTTP {}", status),
+        });
+    }
+
+    let resp_json: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
+    let response_text = extract_response_text(&resp_json, &platform.protocol);
+    let (in_tok, out_tok) = extract_test_usage(&resp_json, &platform.protocol);
+
+    Ok(ModelTestResult {
+        success: true,
+        model,
+        prompt_preview: truncate_str(&prompt, 100),
+        response_preview: truncate_str(&response_text, 300),
+        duration_ms,
+        input_tokens: in_tok,
+        output_tokens: out_tok,
+        error: String::new(),
+    })
+}
+
+#[allow(dead_code)]
+fn truncate_str(s: &str, max: usize) -> String {
+    if s.len() <= max { s.to_string() } else { format!("{}\u{2026}", &s[..max]) }
+}
+
+#[allow(dead_code)]
+fn extract_response_text(v: &Value, protocol: &Protocol) -> String {
+    match protocol {
+        Protocol::Anthropic | Protocol::ClaudeCode => {
+            v.get("content").and_then(|c| c.get(0)).and_then(|b| b.get("text"))
+                .and_then(|t| t.as_str()).unwrap_or("").to_string()
+        }
+        _ => {
+            v.get("choices").and_then(|c| c.get(0))
+                .and_then(|c| c.get("message")).and_then(|m| m.get("content"))
+                .and_then(|t| t.as_str()).unwrap_or("").to_string()
+        }
+    }
+}
+
+#[allow(dead_code)]
+fn extract_test_usage(v: &Value, protocol: &Protocol) -> (i32, i32) {
+    let usage = v.get("usage");
+    match protocol {
+        Protocol::Anthropic | Protocol::ClaudeCode => {
+            let in_tok = usage.and_then(|u| u.get("input_tokens")).and_then(|t| t.as_i64()).unwrap_or(0) as i32;
+            let out_tok = usage.and_then(|u| u.get("output_tokens")).and_then(|t| t.as_i64()).unwrap_or(0) as i32;
+            (in_tok, out_tok)
+        }
+        _ => {
+            let in_tok = usage.and_then(|u| u.get("prompt_tokens")).and_then(|t| t.as_i64()).unwrap_or(0) as i32;
+            let out_tok = usage.and_then(|u| u.get("completion_tokens")).and_then(|t| t.as_i64()).unwrap_or(0) as i32;
+            (in_tok, out_tok)
+        }
+    }
+}
+
 // ─── Claude Code Config Export ─────────────────────────────
 
 #[tauri::command]
@@ -930,7 +1091,7 @@ pub fn run() {
             {
                 let handle = app.handle();
                 let db_state = app.state::<Db>();
-                try_sync_settings(&handle, &db_state);
+                try_sync_settings(handle, &db_state);
             }
 
             app.manage(ProxyHandle(StdMutex::new(None)));
@@ -1035,6 +1196,9 @@ pub fn run() {
             settings_set,
             settings_delete,
             settings_list,
+            // Statistics
+            stats_query,
+            model_test,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

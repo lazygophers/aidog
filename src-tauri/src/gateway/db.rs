@@ -703,3 +703,151 @@ pub fn count_proxy_logs(db: &Db) -> Result<u32, String> {
     conn.query_row("SELECT COUNT(*) FROM proxy_logs", [], |row| row.get(0))
         .map_err(|e| e.to_string())
 }
+
+// ─── Statistics ───────────────────────────────────────────
+
+struct QueryParams {
+    start: String,
+    end: String,
+    filter_group: Option<String>,
+    filter_model: Option<String>,
+    filter_protocol: Option<String>,
+}
+
+impl QueryParams {
+    fn to_sql_params(&self) -> Vec<Box<dyn rusqlite::types::ToSql>> {
+        let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = vec![
+            Box::new(self.start.clone()),
+            Box::new(self.end.clone()),
+        ];
+        if let Some(ref v) = self.filter_group { p.push(Box::new(v.clone())); }
+        if let Some(ref v) = self.filter_model { p.push(Box::new(v.clone())); }
+        if let Some(ref v) = self.filter_protocol { p.push(Box::new(v.clone())); }
+        p
+    }
+}
+
+pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+
+    let end = query.end.clone().unwrap_or_else(|| {
+        chrono::Utc::now().naive_utc().format("%Y-%m-%dT%H:%M:%S").to_string()
+    });
+    let start = query.start.clone().unwrap_or_else(|| {
+        (chrono::Utc::now() - chrono::Duration::days(7))
+            .naive_utc().format("%Y-%m-%dT%H:%M:%S").to_string()
+    });
+
+    let qp = QueryParams {
+        start,
+        end,
+        filter_group: query.filter_group.clone(),
+        filter_model: query.filter_model.clone(),
+        filter_protocol: query.filter_protocol.clone(),
+    };
+
+    // Build WHERE clause
+    let mut where_parts = vec!["created_at >= ?1".to_string(), "created_at <= ?2".to_string()];
+    if qp.filter_group.is_some() {
+        where_parts.push("group_name = ?3".to_string());
+    }
+    if qp.filter_model.is_some() {
+        let idx = 3 + qp.filter_group.is_some() as usize;
+        where_parts.push(format!("(model = ?{idx} OR actual_model = ?{idx})"));
+    }
+    if qp.filter_protocol.is_some() {
+        let idx = 3 + qp.filter_group.is_some() as usize + qp.filter_model.is_some() as usize;
+        where_parts.push(format!("target_protocol = ?{idx}"));
+    }
+    let where_sql = where_parts.join(" AND ");
+
+    let time_fmt = match query.granularity.as_deref() {
+        Some("hourly") => "%Y-%m-%d %H:00",
+        _ => "%Y-%m-%d",
+    };
+
+    // ── Overview ──
+    let overview_sql = format!(
+        "SELECT COUNT(*), \
+         SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
+         SUM(input_tokens), SUM(output_tokens), AVG(duration_ms) \
+         FROM proxy_logs WHERE {where_sql}"
+    );
+    let p = qp.to_sql_params();
+    let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+    let overview = conn.prepare(&overview_sql)
+        .map_err(|e| e.to_string())?
+        .query_row(refs.as_slice(), |row| {
+            let total: i32 = row.get(0).unwrap_or(0);
+            let success: i32 = row.get(1).unwrap_or(0);
+            Ok(StatsOverview {
+                total_requests: total,
+                success_rate: if total > 0 { success as f64 / total as f64 * 100.0 } else { 0.0 },
+                total_input_tokens: row.get(2).unwrap_or(0),
+                total_output_tokens: row.get(3).unwrap_or(0),
+                avg_duration_ms: row.get(4).unwrap_or(0.0),
+            })
+        }).map_err(|e| format!("overview: {e}"))?;
+
+    // ── Time buckets ──
+    let bucket_sql = format!(
+        "SELECT strftime('{time_fmt}', created_at), COUNT(*), \
+         SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
+         SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END), \
+         SUM(input_tokens), SUM(output_tokens), AVG(duration_ms) \
+         FROM proxy_logs WHERE {where_sql} GROUP BY 1 ORDER BY 1"
+    );
+    let p = qp.to_sql_params();
+    let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+    let buckets: Vec<StatsBucket> = conn.prepare(&bucket_sql)
+        .map_err(|e| e.to_string())?
+        .query_map(refs.as_slice(), |row| {
+            Ok(StatsBucket {
+                time_bucket: row.get(0).unwrap_or_default(),
+                total_requests: row.get(1).unwrap_or(0),
+                success_count: row.get(2).unwrap_or(0),
+                error_count: row.get(3).unwrap_or(0),
+                input_tokens: row.get(4).unwrap_or(0),
+                output_tokens: row.get(5).unwrap_or(0),
+                avg_duration_ms: row.get(6).unwrap_or(0.0),
+            })
+        }).map_err(|e| format!("buckets: {e}"))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    // ── Dimension breakdown ──
+    let dimension_data = if let Some(ref gb) = query.group_by {
+        let dim_col = match gb.as_str() {
+            "platform" => "target_protocol",
+            "model" => "actual_model",
+            "group" => "group_name",
+            _ => "target_protocol",
+        };
+        let dim_sql = format!(
+            "SELECT {dim_col}, COUNT(*), \
+             SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
+             SUM(input_tokens), SUM(output_tokens), AVG(duration_ms) \
+             FROM proxy_logs WHERE {where_sql} GROUP BY 1 ORDER BY 2 DESC LIMIT 50"
+        );
+        let p = qp.to_sql_params();
+        let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+        conn.prepare(&dim_sql)
+            .map_err(|e| e.to_string())?
+            .query_map(refs.as_slice(), |row| {
+                Ok(DimensionEntry {
+                    name: row.get(0).unwrap_or_default(),
+                    total_requests: row.get(1).unwrap_or(0),
+                    success_count: row.get(2).unwrap_or(0),
+                    input_tokens: row.get(3).unwrap_or(0),
+                    output_tokens: row.get(4).unwrap_or(0),
+                    avg_duration_ms: row.get(5).unwrap_or(0.0),
+                })
+            }).map_err(|e| format!("dimension: {e}"))?
+            .filter_map(|r| r.ok())
+            .collect()
+    } else {
+        vec![]
+    };
+
+    Ok(StatsResult { overview, buckets, dimension_data })
+}

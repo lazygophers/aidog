@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { platformApi, settingsApi, type Platform, type Protocol, type ModelSlot } from "../services/api";
+import { ModelTestPanel } from "./ModelTestPanel";
 
 const PROTOCOLS: { value: Protocol; label: string }[] = [
   { value: "anthropic", label: "Anthropic" },
@@ -104,6 +105,7 @@ export function Platforms() {
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const [saveError, setSaveError] = useState("");
+const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [showKey, setShowKey] = useState(false);
 
   // Form state
@@ -667,6 +669,11 @@ export function Platforms() {
                     onClick={() => handleToggle(p)}
                     title={p.enabled ? "Disable" : "Enable"}
                   />
+                  <button className="btn btn-ghost btn-icon" onClick={() => setTestingPlatform(p)} title="Test">
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M7 1v4M7 9v4M1 7h4M9 7h4" />
+                    </svg>
+                  </button>
                   <button className="btn btn-ghost btn-icon" onClick={() => handleEdit(p)}>
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M10 2l2 2-7 7H3v-2l7-7z" />
@@ -685,4 +692,8 @@ export function Platforms() {
       )}
     </div>
   );
+
+      {testingPlatform && (
+        <ModelTestPanel platform={testingPlatform} onClose={() => setTestingPlatform(null)} />
+      )}
 }

@@ -187,5 +187,15 @@
   "stats.requests": "الطلبات",
   "stats.success": "النجاح",
   "stats.tokens": "الرموز",
-  "stats.avgMs": "متوسط التأخير"
+  "stats.avgMs": "متوسط التأخير",
+  "test.title": "اختبار النموذج",
+  "test.modeQuick": "اختبار سريع",
+  "test.modeSingle": "نموذج واحد",
+  "test.modeBatch": "اختبار دفعي",
+  "test.modeRandom": "دفعي عشوائي",
+  "test.modeCustom": "موجه مخصص",
+  "test.promptPlaceholder": "أدخل موجه الاختبار...",
+  "test.run": "تشغيل الاختبار",
+  "test.running": "جاري الاختبار...",
+  "test.results": "النتائج"
 }

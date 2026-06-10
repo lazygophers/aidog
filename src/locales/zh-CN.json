@@ -343,5 +343,15 @@
   "stats.requests": "请求",
   "stats.success": "成功",
   "stats.tokens": "Token",
-  "stats.avgMs": "平均延迟"
+  "stats.avgMs": "平均延迟",
+  "test.title": "模型测试",
+  "test.modeQuick": "快速测试",
+  "test.modeSingle": "指定模型",
+  "test.modeBatch": "批量测试",
+  "test.modeRandom": "随机提示词批量",
+  "test.modeCustom": "指定提示词",
+  "test.promptPlaceholder": "输入测试提示词...",
+  "test.run": "开始测试",
+  "test.running": "测试中...",
+  "test.results": "测试结果"
 }

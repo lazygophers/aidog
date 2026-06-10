@@ -187,5 +187,15 @@
   "stats.requests": "Anfragen",
   "stats.success": "Erfolg",
   "stats.tokens": "Token",
-  "stats.avgMs": "Durchschn. Latenz"
+  "stats.avgMs": "Durchschn. Latenz",
+  "test.title": "Modelltest",
+  "test.modeQuick": "Schnelltest",
+  "test.modeSingle": "Einzelmodell",
+  "test.modeBatch": "Batch-Test",
+  "test.modeRandom": "Zufällige Prompts",
+  "test.modeCustom": "Benutzerdefiniert",
+  "test.promptPlaceholder": "Test-Prompt eingeben...",
+  "test.run": "Test starten",
+  "test.running": "Teste...",
+  "test.results": "Ergebnisse"
 }

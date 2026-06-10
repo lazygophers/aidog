@@ -338,3 +338,90 @@ impl Default for ProxyTimeoutSettings {
         }
     }
 }
+
+// ─── Statistics ───────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct StatsQuery {
+    pub start: Option<String>,
+    pub end: Option<String>,
+    pub granularity: Option<String>,
+    pub group_by: Option<String>,
+    pub filter_group: Option<String>,
+    pub filter_model: Option<String>,
+    pub filter_protocol: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatsOverview {
+    pub total_requests: i32,
+    pub success_rate: f64,
+    pub total_input_tokens: i64,
+    pub total_output_tokens: i64,
+    pub avg_duration_ms: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatsBucket {
+    pub time_bucket: String,
+    pub total_requests: i32,
+    pub success_count: i32,
+    pub error_count: i32,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub avg_duration_ms: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DimensionEntry {
+    pub name: String,
+    pub total_requests: i32,
+    pub success_count: i32,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub avg_duration_ms: f64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatsResult {
+    pub overview: StatsOverview,
+    pub buckets: Vec<StatsBucket>,
+    pub dimension_data: Vec<DimensionEntry>,
+}
+
+// ─── Model Testing ────────────────────────────────────────
+
+#[derive(Debug, Deserialize)]
+pub struct ModelTestRequest {
+    pub platform_id: String,
+    pub model: Option<String>,
+    pub prompt: Option<String>,
+    pub max_tokens: Option<u32>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ModelTestResult {
+    pub success: bool,
+    pub model: String,
+    pub prompt_preview: String,
+    pub response_preview: String,
+    pub duration_ms: i32,
+    pub input_tokens: i32,
+    pub output_tokens: i32,
+    pub error: String,
+}
+
+/// Built-in test prompts — short, harmless, clearly not real requests
+#[allow(dead_code)]
+pub const TEST_PROMPTS: &[&str] = &[
+    "Respond with only the word 'hello' in lowercase.",
+    "Calculate 7 x 13 and respond with only the number.",
+    "List exactly 3 primary colors, comma-separated.",
+    "What is the capital of France? Answer in one word.",
+    "Translate 'good morning' to Japanese. One word only.",
+    "Count the letters in 'artificial'. Respond with only the number.",
+    "What is 15% of 200? Answer with only the number.",
+    "Name the 4th planet from the Sun. One word.",
+    "What element has the symbol 'O'? One word.",
+    "How many days are in a leap year? Answer with only the number.",
+];

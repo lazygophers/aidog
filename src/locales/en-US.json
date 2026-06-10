@@ -224,5 +224,15 @@
   "stats.requests": "Requests",
   "stats.success": "Success",
   "stats.tokens": "Tokens",
-  "stats.avgMs": "Avg Latency"
+  "stats.avgMs": "Avg Latency",
+  "test.title": "Model Test",
+  "test.modeQuick": "Quick Test",
+  "test.modeSingle": "Single Model",
+  "test.modeBatch": "Batch Test",
+  "test.modeRandom": "Random Prompts Batch",
+  "test.modeCustom": "Custom Prompt",
+  "test.promptPlaceholder": "Enter test prompt...",
+  "test.run": "Run Test",
+  "test.running": "Testing...",
+  "test.results": "Results"
 }

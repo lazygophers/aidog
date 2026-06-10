@@ -187,5 +187,15 @@
   "stats.requests": "リクエスト",
   "stats.success": "成功",
   "stats.tokens": "トークン",
-  "stats.avgMs": "平均レイテンシ"
+  "stats.avgMs": "平均レイテンシ",
+  "test.title": "モデルテスト",
+  "test.modeQuick": "クイックテスト",
+  "test.modeSingle": "モデル指定",
+  "test.modeBatch": "一括テスト",
+  "test.modeRandom": "ランダムプロンプト一括",
+  "test.modeCustom": "カスタムプロンプト",
+  "test.promptPlaceholder": "テストプロンプトを入力...",
+  "test.run": "テスト実行",
+  "test.running": "テスト中...",
+  "test.results": "結果"
 }

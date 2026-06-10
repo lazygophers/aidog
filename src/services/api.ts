@@ -289,3 +289,78 @@ export const appLogApi = {
   set: (settings: AppLogSettings) =>
     invoke<void>("app_log_settings_set", { settings }),
 };
+
+// ─── Statistics Types & API ──────────────────────────────
+
+export interface StatsQuery {
+  start?: string;
+  end?: string;
+  granularity?: "hourly" | "daily";
+  group_by?: "platform" | "model" | "group";
+  filter_group?: string;
+  filter_model?: string;
+  filter_protocol?: string;
+}
+
+export interface StatsOverview {
+  total_requests: number;
+  success_rate: number;
+  total_input_tokens: number;
+  total_output_tokens: number;
+  avg_duration_ms: number;
+}
+
+export interface StatsBucket {
+  time_bucket: string;
+  total_requests: number;
+  success_count: number;
+  error_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  avg_duration_ms: number;
+}
+
+export interface DimensionEntry {
+  name: string;
+  total_requests: number;
+  success_count: number;
+  input_tokens: number;
+  output_tokens: number;
+  avg_duration_ms: number;
+}
+
+export interface StatsResult {
+  overview: StatsOverview;
+  buckets: StatsBucket[];
+  dimension_data: DimensionEntry[];
+}
+
+export const statsApi = {
+  query: (query: StatsQuery) =>
+    invoke<StatsResult>("stats_query", { query }),
+};
+
+// ─── Model Testing Types & API ───────────────────────────
+
+export interface ModelTestRequest {
+  platform_id: string;
+  model?: string;
+  prompt?: string;
+  max_tokens?: number;
+}
+
+export interface ModelTestResult {
+  success: boolean;
+  model: string;
+  prompt_preview: string;
+  response_preview: string;
+  duration_ms: number;
+  input_tokens: number;
+  output_tokens: number;
+  error: string;
+}
+
+export const modelTestApi = {
+  test: (req: ModelTestRequest) =>
+    invoke<ModelTestResult>("model_test", { req }),
+};

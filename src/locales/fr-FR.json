@@ -187,5 +187,15 @@
   "stats.requests": "Requetes",
   "stats.success": "Succes",
   "stats.tokens": "Tokens",
-  "stats.avgMs": "Latence moy."
+  "stats.avgMs": "Latence moy.",
+  "test.title": "Test de modele",
+  "test.modeQuick": "Test rapide",
+  "test.modeSingle": "Modele unique",
+  "test.modeBatch": "Test par lot",
+  "test.modeRandom": "Prompts aleatoires",
+  "test.modeCustom": "Prompt personnalise",
+  "test.promptPlaceholder": "Entrez un prompt de test...",
+  "test.run": "Lancer le test",
+  "test.running": "Test en cours...",
+  "test.results": "Resultats"
 }

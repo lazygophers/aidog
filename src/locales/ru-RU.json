@@ -187,5 +187,15 @@
   "stats.requests": "Запросы",
   "stats.success": "Успех",
   "stats.tokens": "Токены",
-  "stats.avgMs": "Ср. задержка"
+  "stats.avgMs": "Ср. задержка",
+  "test.title": "Тест модели",
+  "test.modeQuick": "Быстрый тест",
+  "test.modeSingle": "Одна модель",
+  "test.modeBatch": "Пакетный тест",
+  "test.modeRandom": "Случайные промпты",
+  "test.modeCustom": "Свой промпт",
+  "test.promptPlaceholder": "Введите тестовый промпт...",
+  "test.run": "Запустить",
+  "test.running": "Тестирование...",
+  "test.results": "Результаты"
 }
