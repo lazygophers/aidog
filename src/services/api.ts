@@ -431,3 +431,37 @@ export const modelTestApi = {
   test: (req: ModelTestRequest) =>
     invoke<ModelTestResult>("model_test", { req }),
 };
+
+// ─── Platform Quota Types & API ────────────────────────────
+
+export interface QuotaTier {
+  name: string;          // "five_hour" | "weekly_limit"
+  utilization: number;   // 0-100
+  resets_at: string | null;
+}
+
+export interface BalanceInfo {
+  remaining: number;
+  total: number | null;
+  used: number | null;
+  currency: string;
+  is_valid: boolean;
+}
+
+export interface CodingPlanInfo {
+  tiers: QuotaTier[];
+  level: string | null;
+}
+
+export interface PlatformQuota {
+  success: boolean;
+  error: string | null;
+  queried_at: number;    // unix millis
+  balance: BalanceInfo | null;
+  coding_plan: CodingPlanInfo | null;
+}
+
+export const quotaApi = {
+  query: (baseUrl: string, apiKey: string) =>
+    invoke<PlatformQuota>("platform_query_quota", { baseUrl, apiKey }),
+};

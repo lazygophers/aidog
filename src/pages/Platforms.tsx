@@ -1,6 +1,6 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota } from "../services/api";
 import { ModelTestPanel } from "./ModelTestPanel";
 import { pinyinMatch } from "../utils/pinyin";
 
@@ -661,6 +661,7 @@ export function Platforms() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [usageMap, setUsageMap] = useState<Record<string, PlatformUsageStats>>({});
+  const [quotaMap, setQuotaMap] = useState<Record<string, PlatformQuota>>({});
   const [testResults, setTestResults] = useState<Record<string, "ok" | "fail">>({});
   const [testingId, setTestingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -726,6 +727,18 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
         } catch { /* ignore */ }
       }));
       setUsageMap(statsMap);
+      // Batch load quota (balance & coding plan)
+      const qMap: Record<string, PlatformQuota> = {};
+      await Promise.all((list || []).map(async (p) => {
+        if (!p.api_key) return;
+        const baseUrl = getPrimaryBaseUrl(p.protocol, p.endpoints ?? []);
+        if (!baseUrl) return;
+        try {
+          const q = await quotaApi.query(baseUrl, p.api_key);
+          if (q.success) qMap[p.id] = q;
+        } catch { /* ignore */ }
+      }));
+      setQuotaMap(qMap);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -1410,6 +1423,25 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                       </div>
                     );
                   })()}
+
+	                  {quotaMap[p.id] && (() => {
+	                    const q = quotaMap[p.id];
+	                    const badges: React.JSX.Element[] = [];
+	                    if (q.balance) {
+	                      const b = q.balance;
+	                      const fmt = b.remaining >= 1 ? b.remaining.toFixed(2) : b.remaining >= 0.01 ? b.remaining.toFixed(4) : "0";
+	                      const color = b.remaining > 0 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)";
+	                      badges.push(<StatBadge key="bal" icon="💳" value={fmt} label={b.currency} color={color} />);
+	                    }
+	                    if (q.coding_plan) {
+	                      for (const tier of q.coding_plan.tiers) {
+	                        const pctColor = tier.utilization < 50 ? "var(--color-success, #34c759)" : tier.utilization < 80 ? "var(--color-warning, #ff9500)" : "var(--color-danger, #ff3b30)";
+	                        const name = tier.name === "five_hour" ? "5h" : "week";
+	                        badges.push(<StatBadge key={tier.name} icon="🪙" value={`${tier.utilization.toFixed(0)}%`} label={name} color={pctColor} />);
+	                      }
+	                    }
+	                    return badges.length > 0 ? <div style={{ display: "flex", gap: 6, marginTop: 4 }}>{badges}</div> : null;
+	                  })()}
                 </div>
 
                 <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>

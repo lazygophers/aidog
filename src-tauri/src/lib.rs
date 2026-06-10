@@ -885,6 +885,15 @@ fn proxy_timeout_set(db: State<'_, Db>, settings: ProxyTimeoutSettings) -> Resul
     })
 }
 
+// ─── Platform Quota (Balance & Coding Plan) ────────────────
+
+use gateway::quota::PlatformQuota;
+
+#[tauri::command]
+async fn platform_query_quota(base_url: String, api_key: String) -> Result<PlatformQuota, String> {
+    Ok(gateway::quota::query_quota(&base_url, &api_key).await)
+}
+
 // ─── Path Autocomplete ─────────────────────────────────────
 
 use serde::Serialize;
@@ -1281,6 +1290,8 @@ pub fn run() {
             // Platform Usage
             platform_usage_stats,
             group_usage_stats,
+            // Platform Quota
+            platform_query_quota,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
