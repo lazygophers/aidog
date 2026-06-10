@@ -1,7 +1,48 @@
 - 本项目授权自动 `git commit`：所有文件变更完成后立即提交，无需等待明确指令
 - 提交信息格式：`<type>(<scope>): <description>`，type 遵循 conventional commits（feat / fix / chore / style / refactor / docs）
 - 禁 `git push`，等明确指令
-- 技术栈：Tauri 2.0 + React 19 + TypeScript + Rust + Yarn
-- 主题架构：每个主题定义 light + dark 两组 CSS 变量，位于 `src/themes/`
-- 国际化：7 种语言（zh-CN / en-US / ar-SA / fr-FR / de-DE / ru-RU / ja-JP），阿拉伯语 RTL
+
+## 技术栈
+
+Tauri 2.0 + React 19 + TypeScript + Rust + Yarn
+
+## 项目结构
+
+```
+src/                    # React 前端
+  pages/                # 页面组件（Platforms, Groups, Logs, Settings, AppSettings）
+  services/api.ts       # TS 类型定义 + Tauri invoke 封装
+  themes/               # 每主题 light/dark CSS 变量
+  utils/pinyin.ts       # 拼音搜索
+src-tauri/src/
+  lib.rs                # Tauri commands（约 50 个）
+  gateway/
+    adapter/            # 协议转换（OpenAI/Anthropic/Gemini/Responses/Completions）
+      converter.rs      # convert_request / parse_sse / parse_incoming_request
+    db.rs               # SQLite CRUD + settings + usage stats + cleanup
+    models.rs           # 所有 Rust 数据模型（Protocol 枚举 53 变体）
+    proxy.rs            # Axum 代理服务器（渐进式日志、超时级联、log settings 感知）
+    quota.rs            # 平台余额 & Coding Plan 配额查询（DeepSeek/StepFun/SiliconFlow/OpenRouter/Novita + Kimi/GLM/MiniMax）
+    router.rs           # 分组匹配 + 模型映射 + 平台选择
+```
+
+## 关键约束
+
+### URL 构造
+- `base_url` 含版本前缀（如 `/v1`、`/api/paas/v4`）
+- `provider_api_path()` 只返回 `/chat/completions`
+- 最终 URL = `base_url + provider_api_path`，禁止额外拼接
+
+### Proxy 日志
+- ProxyLogSettings 控制 3 级记录：master switch / 用户原始请求 / 上游请求
+- 3 级 retention：user_request_retention_days(7d) / upstream_request_retention_days(7d) / retention_days(90d)
+- retention 清理只清空字段（UPDATE SET=''），不删行；retention_days 删整行
+
+### Group 统计
+- Group 卡片的 usage stats 由关联 platforms 的 stats 聚合而来（前端求和），不独立查 proxy_logs
+
+## UI / i18n
+
+- 7 种语言（zh-CN / en-US / ar-SA / fr-FR / de-DE / ru-RU / ja-JP），阿拉伯语 RTL
+- 主题架构：每主题 light + dark 两组 CSS 变量，位于 `src/themes/`
 - UI 风格偏好：Liquid Glass
