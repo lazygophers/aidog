@@ -25,6 +25,23 @@ const DEFAULT_BASE_URLS: Partial<Record<Protocol, string>> = {
 
 const ALL_DEFAULT_URLS = new Set(Object.values(DEFAULT_BASE_URLS));
 
+/** 内置平台默认端点：每个平台可支持的额外协议及其 base URL */
+const DEFAULT_ENDPOINTS: Partial<Record<Protocol, PlatformEndpoint[]>> = {
+  glm: [
+    { protocol: "openai", base_url: "https://open.bigmodel.cn/api/paas/v4" },
+    { protocol: "claude_code", base_url: "https://open.bigmodel.cn/api/paas/v4" },
+  ],
+  bailian: [
+    { protocol: "openai", base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1" },
+  ],
+  minimax: [
+    { protocol: "openai", base_url: "https://api.minimaxi.com/v1" },
+  ],
+  kimi: [
+    { protocol: "openai", base_url: "https://api.moonshot.cn/v1" },
+  ],
+};
+
 const PROTOCOL_LABELS: Record<Protocol, string> = {
   openai: "OpenAI",
   anthropic: "Anthropic",
@@ -132,6 +149,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     // Auto-fill name with protocol label if empty or still at a default name
     if (!name.trim() || DEFAULT_NAMES.has(name)) {
       setName(PROTOCOL_LABELS[newProtocol]);
+    }
+    // Auto-fill endpoints from defaults if none configured yet
+    const defaultEps = DEFAULT_ENDPOINTS[newProtocol];
+    if (defaultEps && endpoints.length === 0) {
+      setEndpoints(defaultEps.map(ep => ({ ...ep })));
     }
     setProtocol(newProtocol);
   };
