@@ -1490,7 +1490,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       {/* Test result toast */}
       {toast && (
         <div style={{
-          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          position: "fixed", top: 24, left: "50%", transform: "translateX(-50%)",
           zIndex: 2000, pointerEvents: "none",
           padding: "10px 20px", borderRadius: 10,
           background: toast.ok ? "var(--color-success, #22c55e)" : "var(--color-danger, #ef4444)",
