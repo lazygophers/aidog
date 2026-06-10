@@ -363,5 +363,8 @@
   },
   "logs": {
     "cacheTokens": "缓存 Token"
+  },
+  "group": {
+    "sourceProtocol": "入站协议"
   }
 }

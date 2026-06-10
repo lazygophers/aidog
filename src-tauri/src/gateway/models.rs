@@ -125,7 +125,12 @@ pub struct Group {
     pub request_timeout_secs: u64,
     #[serde(default)]
     pub connect_timeout_secs: u64,
+    /// 入站协议（默认 anthropic）
+    #[serde(default = "default_source_protocol")]
+    pub source_protocol: String,
 }
+
+fn default_source_protocol() -> String { "anthropic".to_string() }
 
 #[derive(Debug, Deserialize)]
 pub struct CreateGroup {
@@ -137,7 +142,11 @@ pub struct CreateGroup {
     pub request_timeout_secs: u64,
     #[serde(default)]
     pub connect_timeout_secs: u64,
+    #[serde(default = "default_source_protocol_opt")]
+    pub source_protocol: Option<String>,
 }
+
+fn default_source_protocol_opt() -> Option<String> { Some("anthropic".to_string()) }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateGroup {
@@ -149,6 +158,8 @@ pub struct UpdateGroup {
     pub request_timeout_secs: u64,
     #[serde(default)]
     pub connect_timeout_secs: u64,
+    #[serde(default)]
+    pub source_protocol: Option<String>,
 }
 
 // ─── GroupPlatform (关联) ──────────────────────────────────

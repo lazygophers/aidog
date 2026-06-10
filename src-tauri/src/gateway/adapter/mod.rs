@@ -9,5 +9,5 @@ pub mod minimax;
 pub mod openai;
 pub mod types;
 
-pub use converter::{convert_request, parse_sse, to_anthropic_sse};
+pub use converter::{convert_request, parse_sse, parse_incoming_request, to_client_sse};
 pub use types::*;

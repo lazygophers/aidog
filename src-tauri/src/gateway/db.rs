@@ -51,6 +51,7 @@ impl Db {
             "ALTER TABLE platforms ADD COLUMN models TEXT NOT NULL DEFAULT '[]'",
             "ALTER TABLE platforms ADD COLUMN available_models TEXT NOT NULL DEFAULT '[]'",
             "ALTER TABLE proxy_logs ADD COLUMN cache_tokens INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE groups ADD COLUMN source_protocol TEXT NOT NULL DEFAULT 'anthropic'",
         ];
         for sql in &migrations {
             // Ignore "duplicate column" errors — column may already exist
@@ -253,11 +254,12 @@ pub fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> {
         updated_at: ts,
         request_timeout_secs: input.request_timeout_secs,
         connect_timeout_secs: input.connect_timeout_secs,
+        source_protocol: input.source_protocol.unwrap_or_else(|| "anthropic".to_string()),
     };
 
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO groups (id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO groups (id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![id, group.name, group.path, routing_str, group.auto_from_platform, group.created_at, group.updated_at, group.request_timeout_secs, group.connect_timeout_secs],
     )
     .map_err(|e| format!("create group: {e}"))?;
@@ -268,7 +270,7 @@ pub fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> {
 pub fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs FROM groups ORDER BY created_at")
+        .prepare("SELECT id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol FROM groups ORDER BY created_at")
         .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |row| {
@@ -283,6 +285,7 @@ pub fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
                 updated_at: row.get(6)?,
                 request_timeout_secs: row.get::<_, i64>(7)? as u64,
                 connect_timeout_secs: row.get::<_, i64>(8)? as u64,
+                source_protocol: row.get::<_, String>(9)?.into(),
             })
         })
         .map_err(|e| e.to_string())?;
@@ -293,7 +296,7 @@ pub fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
 pub fn get_group(db: &Db, id: &str) -> Result<Option<Group>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs FROM groups WHERE id = ?1")
+        .prepare("SELECT id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol FROM groups WHERE id = ?1")
         .map_err(|e| e.to_string())?;
 
     let result = stmt
@@ -309,6 +312,7 @@ pub fn get_group(db: &Db, id: &str) -> Result<Option<Group>, String> {
                 updated_at: row.get(6)?,
                 request_timeout_secs: row.get::<_, i64>(7)? as u64,
                 connect_timeout_secs: row.get::<_, i64>(8)? as u64,
+                source_protocol: row.get::<_, String>(9)?.into(),
             })
         })
         .optional()
@@ -326,6 +330,7 @@ pub fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> {
         routing_mode: input.routing_mode.unwrap_or(existing.routing_mode),
         request_timeout_secs: if input.request_timeout_secs > 0 { input.request_timeout_secs } else { existing.request_timeout_secs },
         connect_timeout_secs: if input.connect_timeout_secs > 0 { input.connect_timeout_secs } else { existing.connect_timeout_secs },
+        source_protocol: input.source_protocol.unwrap_or(existing.source_protocol),
         updated_at: now(),
         ..existing
     };
@@ -333,8 +338,8 @@ pub fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> {
     let routing_str = serde_json::to_string(&updated.routing_mode).unwrap();
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "UPDATE groups SET name=?1, path=?2, routing_mode=?3, updated_at=?4, request_timeout_secs=?5, connect_timeout_secs=?6 WHERE id=?7",
-        params![updated.name, updated.path, routing_str, updated.updated_at, updated.request_timeout_secs as i64, updated.connect_timeout_secs as i64, updated.id],
+        "UPDATE groups SET name=?1, path=?2, routing_mode=?3, updated_at=?4, request_timeout_secs=?5, connect_timeout_secs=?6, source_protocol=?7 WHERE id=?8",
+        params![updated.name, updated.path, routing_str, updated.updated_at, updated.request_timeout_secs as i64, updated.connect_timeout_secs as i64, updated.source_protocol, updated.id],
     )
     .map_err(|e| format!("update group: {e}"))?;
 

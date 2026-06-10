@@ -41,6 +41,7 @@ export interface Group {
   /** 超时设置（秒），0 = 继承系统设置 */
   request_timeout_secs: number;
   connect_timeout_secs: number;
+  source_protocol: string;
 }
 
 export interface GroupPlatformDetail {
@@ -58,6 +59,7 @@ export interface ModelMapping {
   /** 超时设置（秒），0 = 继承分组设置 */
   request_timeout_secs: number;
   connect_timeout_secs: number;
+  source_protocol: string;
 }
 
 export interface GroupDetail {
@@ -126,6 +128,7 @@ export const groupApi = {
     routing_mode?: RoutingMode;
     request_timeout_secs?: number;
     connect_timeout_secs?: number;
+    source_protocol?: string;
   }) => invoke<Group>("group_update", { input }),
 
   delete: (id: string) => invoke<void>("group_delete", { id }),
@@ -237,6 +240,7 @@ export interface ProxyLogSettings {
 export interface ProxyTimeoutSettings {
   request_timeout_secs: number;
   connect_timeout_secs: number;
+  source_protocol: string;
 }
 
 export interface AppLogSettings {

@@ -207,5 +207,8 @@
   },
   "logs": {
     "cacheTokens": "Токены кэша"
+  },
+  "group": {
+    "sourceProtocol": "Исходный протокол"
   }
 }

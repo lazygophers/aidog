@@ -111,7 +111,7 @@ async fn handle_proxy(
         group_name: String::new(),
         model: String::new(),
         actual_model: String::new(),
-        source_protocol: "anthropic".to_string(),
+        source_protocol: String::new(),  // will be set from group
         target_protocol: String::new(),
         request_headers: String::new(),
         request_body: String::new(),
@@ -216,17 +216,28 @@ async fn handle_proxy(
 
     // Upsert #2: group resolved
     log.group_name = group.name.clone();
+    log.source_protocol = group.source_protocol.clone();
     upsert_log(&state, &log);
 
-    // ── 解析 ChatRequest ──
-    let mut chat_req: ChatRequest = match serde_json::from_slice(&bytes) {
-        Ok(r) => r,
+    // ── 解析 ChatRequest（按入站协议解析） ──
+    let req_value: serde_json::Value = match serde_json::from_slice(&bytes) {
+        Ok(v) => v,
         Err(e) => {
-            log.response_body = format!("parse request error: {e}");
+            log.response_body = format!("parse request json error: {e}");
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log);
-            return (StatusCode::BAD_REQUEST, format!("parse request: {e}")).into_response();
+            return (StatusCode::BAD_REQUEST, format!("parse json: {e}")).into_response();
+        }
+    };
+    let mut chat_req: ChatRequest = match adapter::parse_incoming_request(&log.source_protocol, &req_value) {
+        Some(r) => r,
+        None => {
+            log.response_body = "failed to parse request for protocol".to_string();
+            log.status_code = 400;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(&state, &log);
+            return (StatusCode::BAD_REQUEST, "failed to parse request").into_response();
         }
     };
 
@@ -390,6 +401,8 @@ async fn handle_proxy(
     let tokens_acc = Arc::new(std::sync::atomic::AtomicI32::new(0));
     let tokens_out = Arc::new(std::sync::atomic::AtomicI32::new(0));
     let tokens_cache = Arc::new(std::sync::atomic::AtomicI32::new(0));
+    let client_protocol = group.source_protocol.clone();
+    let model_for_sse = requested_model.clone();
     let model_for_response = if needs_model_remap {
         requested_model.clone()
     } else {
@@ -411,9 +424,12 @@ async fn handle_proxy(
         for line in text.lines() {
             if let Some(data) = line.strip_prefix("data: ") {
                 if data.trim() == "[DONE]" {
-                    output.push_str(&adapter::to_anthropic_sse(&ChatStreamEvent::Stop {
+                    output.push_str(&match adapter::to_client_sse(&ChatStreamEvent::Stop {
                         finish_reason: Some("end_turn".to_string()),
-                    }).unwrap_or_default());
+                    }, &client_protocol, &model_for_sse) {
+                        Some(s) => s,
+                        None => String::new(),
+                    });
                     continue;
                 }
 
@@ -445,7 +461,7 @@ async fn handle_proxy(
                         } else {
                             event
                         };
-                        if let Some(sse) = adapter::to_anthropic_sse(&event) {
+                        if let Some(sse) = adapter::to_client_sse(&event, &client_protocol, &model_for_sse) {
                             output.push_str(&sse);
                         }
                     }

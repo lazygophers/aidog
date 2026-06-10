@@ -148,3 +148,21 @@ pub fn to_anthropic_sse(event: &ChatStreamEvent) -> Option<String> {
         ChatStreamEvent::Usage { .. } => None,
     }
 }
+
+/// 将入站请求按源协议解析为内部 ChatRequest
+pub fn parse_incoming_request(source_protocol: &str, body: &Value) -> Option<ChatRequest> {
+    match source_protocol {
+        "openai" => super::openai::from_openai(body),
+        // Anthropic / ClaudeCode / 默认: ChatRequest 结构已兼容 Anthropic 格式，直接反序列化
+        _ => serde_json::from_value(body.clone()).ok(),
+    }
+}
+
+/// 将统一的 ChatStreamEvent 按客户端协议格式化为 SSE
+pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &str, model: &str) -> Option<String> {
+    match source_protocol {
+        "openai" => super::openai::to_openai_sse(event, model),
+        // 默认 Anthropic 格式
+        _ => to_anthropic_sse(event),
+    }
+}

@@ -244,5 +244,8 @@
   },
   "logs": {
     "cacheTokens": "Cache Tokens"
+  },
+  "group": {
+    "sourceProtocol": "Source Protocol"
   }
 }

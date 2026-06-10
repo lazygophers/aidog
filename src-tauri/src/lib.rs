@@ -80,6 +80,7 @@ fn ensure_platform_groups(db: &Db) {
             auto_from_platform: Some(platform.id.clone()),
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
+            source_protocol: None,
         }) {
             Ok(g) => g,
             Err(e) => { tracing::error!("ensure_platform_groups: create_group failed for {}: {e}", platform.name); continue; }
@@ -117,6 +118,7 @@ fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform,
             auto_from_platform: Some(platform.id.clone()),
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
+            source_protocol: None,
         },
     )?;
 
@@ -162,6 +164,7 @@ fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Platform,
             auto_from_platform: Some(platform.id.clone()),
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
+            source_protocol: None,
         }) {
             let _ = db::set_group_platforms(&db, &group.id, &[GroupPlatformInput {
                 platform_id: platform.id.clone(),

@@ -207,5 +207,8 @@
   },
   "logs": {
     "cacheTokens": "Tokens cache"
+  },
+  "group": {
+    "sourceProtocol": "Protocole source"
   }
 }

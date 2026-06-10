@@ -207,5 +207,8 @@
   },
   "logs": {
     "cacheTokens": "キャッシュトークン"
+  },
+  "group": {
+    "sourceProtocol": "受信プロトコル"
   }
 }

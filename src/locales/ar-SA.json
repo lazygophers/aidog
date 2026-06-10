@@ -207,5 +207,8 @@
   },
   "logs": {
     "cacheTokens": "رموز التخزين المؤقت"
+  },
+  "group": {
+    "sourceProtocol": "بروتوكول المصدر"
   }
 }
