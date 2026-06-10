@@ -1,0 +1,113 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "language": "zh-CN",
+  "autoConnectIde": true,
+  "alwaysThinkingEnabled": true,
+  "autoMemoryEnabled": true,
+  "cleanupPeriodDays": 30,
+  "prefersReducedMotion": true,
+  "skipDangerousModePermissionPrompt": true,
+  "showThinkingSummaries": true,
+  "showTurnDuration": true,
+  "autoScrollEnabled": true,
+  "terminalProgressBarEnabled": true,
+  "feedbackSurveyRate": 0,
+  "teammateMode": "auto",
+  "attribution": {
+    "commit": "",
+    "pr": ""
+  },
+  "permissions": {
+    "defaultMode": "bypassPermissions",
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./.env.local)",
+      "Read(./**/*.key)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.p12)",
+      "Read(./**/*.pfx)",
+      "Read(./**/credentials.json)",
+      "Read(./**/service-account*.json)",
+      "Read(./**/.htpasswd)",
+      "Read(./**/id_rsa)",
+      "Read(./**/id_ed25519)",
+      "Read(./**/id_ecdsa)",
+      "Read(~/.ssh/**)",
+      "Write(./**/go.sum)",
+      "Write(./**/package-lock.json)",
+      "Write(./**/yarn.lock)",
+      "Write(./**/pnpm-lock.yaml)",
+      "Write(./**/Gemfile.lock)",
+      "Write(./**/poetry.lock)",
+      "Write(./**/Cargo.lock)"
+    ],
+    "ask": [
+      "Write(./**/go.mod)",
+      "Write(./**/package.json)",
+      "Write(./**/Cargo.toml)",
+      "Write(./**/Gemfile)",
+      "Write(./**/pyproject.toml)",
+      "Write(./**/*.csproj)",
+      "Write(./**/pom.xml)",
+      "Write(./**/build.gradle)",
+      "Write(./**/*.sln)"
+    ]
+  },
+  "env": {
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
+    "CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY": "10",
+    "BASH_MAX_OUTPUT_LENGTH": "10240",
+    "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80",
+    "CLAUDE_AUTO_BACKGROUND_TASKS": "1",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0",
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "0",
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1",
+    "NO_PROXY": "localhost,127.0.0.1,192.168.0.0/16,10.0.0.0/8,*.cn",
+    "CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS": "10240",
+    "CLAUDE_CODE_AUTO_COMPACT_WINDOW": "180000",
+    "CLAUDE_CODE_PLAN_MODE_REQUIRED": "true",
+    "FORCE_AUTOUPDATE_PLUGINS": "true",
+    "CLAUDE_CODE_EFFORT_LEVEL": "medium",
+    "CLAUDE_CODE_DISABLE_FAST_MODE": "1",
+    "ENABLE_TOOL_SEARCH": "true",
+    "ENABLE_PROMPT_CACHING_1H": "1"
+  },
+  "extraKnownMarketplaces": {
+    "ccplugin-market": {
+      "source": {
+        "repo": "lazygophers/ccplugin",
+        "source": "github"
+      },
+      "skipLfs": true,
+      "autoUpdate": true
+    },
+    "claude-code-warp": {
+      "source": {
+        "repo": "warpdotdev/claude-code-warp",
+        "source": "github"
+      },
+      "skipLfs": true,
+      "autoUpdate": true
+    },
+    "claude-plugins-official": {
+      "source": {
+        "repo": "anthropics/claude-plugins-official",
+        "source": "github"
+      },
+      "skipLfs": true,
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "claude-code-setup@claude-plugins-official": true,
+    "claude-md-management@claude-plugins-official": true,
+    "code-modernization@claude-plugins-official": true,
+    "code-review@claude-plugins-official": true,
+    "code-simplifier@claude-plugins-official": true,
+    "supabase@claude-plugins-official": true,
+    "warp@claude-code-warp": true,
+    "trellisx@ccplugin-market": true,
+    "git@ccplugin-market": true
+  }
+}

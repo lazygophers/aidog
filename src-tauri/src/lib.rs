@@ -410,10 +410,15 @@ fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
         .map_err(|e| format!("create .aidog dir: {e}"))?;
 
     // Load base claude code config from app settings (scope=global, key=claude_code)
+    // Fallback to compiled-in defaults when DB has no config
     let base_config: serde_json::Value = gateway::db::get_setting(db, "global", "claude_code")
         .ok()
         .flatten()
-        .unwrap_or(serde_json::Value::Object(Default::default()));
+        .filter(|v| v.is_object() && v.as_object().map_or(false, |o| !o.is_empty()))
+        .unwrap_or_else(|| {
+            serde_json::from_str(include_str!("../defaults/settings.json"))
+                .unwrap_or(serde_json::Value::Object(Default::default()))
+        });
 
     // Collect current group names for cleanup
     let group_names: std::collections::HashSet<String> = groups.iter().map(|g| g.name.clone()).collect();
