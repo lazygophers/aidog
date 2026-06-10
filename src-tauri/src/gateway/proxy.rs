@@ -157,7 +157,18 @@ async fn handle_proxy(
     };
     let route = match route {
         Ok(r) => r,
-        Err(e) => return (StatusCode::BAD_REQUEST, format!("route: {e}")).into_response(),
+        Err(e) => {
+            let duration_ms = start.elapsed().as_millis() as i32;
+            if log_settings.enabled {
+                try_log(&state, &LogParams {
+                    group_name: &group.name, model: &requested_model, actual_model: "",
+                    target_protocol: "", req_headers: &req_headers_json,
+                    req_body: &req_body_str, resp_body: &format!("route error: {e}"),
+                    status_code: 400, duration_ms, input_tokens: 0, output_tokens: 0,
+                });
+            }
+            return (StatusCode::BAD_REQUEST, format!("route: {e}")).into_response();
+        }
     };
 
     let actual_model = route.target_model;
@@ -179,10 +190,9 @@ async fn handle_proxy(
     let mut req_builder = client
         .post(&url)
         .header("Content-Type", "application/json")
-        .header("Authorization", format!("Bearer {}", route.platform.api_key))
         .body(serde_json::to_string(&req_body).unwrap_or_default());
 
-    // Anthropic 协议需要额外 header
+    // Auth header 按协议区分：Anthropic/ClaudeCode 用 x-api-key，其他用 Bearer
     if matches!(
         route.platform.protocol,
         super::models::Protocol::Anthropic | super::models::Protocol::ClaudeCode
@@ -190,6 +200,9 @@ async fn handle_proxy(
         req_builder = req_builder
             .header("anthropic-version", "2023-06-01")
             .header("x-api-key", &route.platform.api_key);
+    } else {
+        req_builder = req_builder
+            .header("Authorization", format!("Bearer {}", route.platform.api_key));
     }
 
     let resp = match req_builder.send().await {
