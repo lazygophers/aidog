@@ -5,6 +5,8 @@ use super::models::*;
 pub struct RouteResult {
     pub platform: Platform,
     pub target_model: String,
+    /// 匹配到的模型映射（如果有），用于读取超时等维度配置
+    pub mapping: Option<ModelMapping>,
 }
 
 /// 根据分组路由规则选择平台
@@ -36,6 +38,7 @@ pub fn select_platform(
             return Ok(RouteResult {
                 platform: gp.platform.clone(),
                 target_model,
+                mapping: mapping.cloned(),
             });
         }
     }
@@ -56,6 +59,7 @@ pub fn select_platform(
     Ok(RouteResult {
         platform,
         target_model,
+        mapping: mapping.cloned(),
     })
 }
 

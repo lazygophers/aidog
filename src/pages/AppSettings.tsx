@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { proxyApi, proxyLogApi, type ProxyLogSettings } from "../services/api";
+import { proxyApi, proxyLogApi, proxyTimeoutApi, type ProxyLogSettings } from "../services/api";
 import { Settings } from "./Settings";
 
 type Tab = "proxy" | "claude";
@@ -11,6 +11,8 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
   const [autostart, setAutostart] = useState(false);
   const [logEnabled, setLogEnabled] = useState(false);
   const [logRetention, setLogRetention] = useState(7);
+  const [reqTimeout, setReqTimeout] = useState(300);
+  const [connTimeout, setConnTimeout] = useState(10);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -23,6 +25,11 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
         const ls = await proxyLogApi.getSettings();
         setLogEnabled(ls.enabled);
         setLogRetention(ls.retention_days);
+      } catch { /* defaults */ }
+      try {
+        const ts = await proxyTimeoutApi.get();
+        setReqTimeout(ts.request_timeout_secs);
+        setConnTimeout(ts.connect_timeout_secs);
       } catch { /* defaults */ }
     })();
   }, []);
@@ -48,6 +55,14 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
     try {
       const settings: ProxyLogSettings = { enabled: logEnabled, retention_days: days };
       await proxyLogApi.setSettings(settings);
+    } catch (e: any) { setMessage(e.toString()); }
+  };
+
+  const handleTimeoutChange = async (req: number, conn: number) => {
+    setReqTimeout(req);
+    setConnTimeout(conn);
+    try {
+      await proxyTimeoutApi.set({ request_timeout_secs: req, connect_timeout_secs: conn });
     } catch (e: any) { setMessage(e.toString()); }
   };
 
@@ -98,6 +113,49 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
               aria-checked={autostart}
               tabIndex={0}
             />
+          </div>
+
+          {/* Timeout */}
+          <div className="glass-surface" style={{
+            padding: "16px 20px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+          }}>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.timeout", "超时设置")}</div>
+            <div className="text-secondary" style={{ fontSize: 12 }}>
+              {t("proxy.timeoutDesc", "系统默认超时，分组和模型级别可覆盖")}
+            </div>
+            <div style={{ display: "flex", gap: 16, alignItems: "center", marginTop: 4 }}>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                  {t("proxy.requestTimeout", "请求超时")}
+                </label>
+                <input
+                  className="input"
+                  type="number"
+                  min={0}
+                  value={reqTimeout}
+                  onChange={(e) => handleTimeoutChange(Math.max(0, Number(e.target.value)), connTimeout)}
+                  style={{ width: 80 }}
+                />
+                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>s</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                  {t("proxy.connectTimeout", "连接超时")}
+                </label>
+                <input
+                  className="input"
+                  type="number"
+                  min={0}
+                  value={connTimeout}
+                  onChange={(e) => handleTimeoutChange(reqTimeout, Math.max(0, Number(e.target.value)))}
+                  style={{ width: 80 }}
+                />
+                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>s</span>
+              </div>
+            </div>
           </div>
 
           {/* Log recording */}

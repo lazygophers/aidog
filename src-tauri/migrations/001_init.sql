@@ -24,7 +24,9 @@ CREATE TABLE IF NOT EXISTS groups (
     routing_mode        TEXT NOT NULL,
     auto_from_platform  TEXT,
     created_at          TEXT NOT NULL,
-    updated_at          TEXT NOT NULL
+    updated_at          TEXT NOT NULL,
+    request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    connect_timeout_secs INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS group_platforms (
@@ -41,6 +43,8 @@ CREATE TABLE IF NOT EXISTS model_mappings (
     source_model       TEXT NOT NULL,
     target_platform_id TEXT NOT NULL REFERENCES platforms(id),
     target_model       TEXT NOT NULL,
+    request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
     UNIQUE(group_id, source_model)
 );
 

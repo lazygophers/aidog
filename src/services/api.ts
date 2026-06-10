@@ -38,6 +38,9 @@ export interface Group {
   auto_from_platform?: string;
   created_at: string;
   updated_at: string;
+  /** 超时设置（秒），0 = 继承系统设置 */
+  request_timeout_secs: number;
+  connect_timeout_secs: number;
 }
 
 export interface GroupPlatformDetail {
@@ -52,6 +55,9 @@ export interface ModelMapping {
   source_model: string;
   target_platform_id: string;
   target_model: string;
+  /** 超时设置（秒），0 = 继承分组设置 */
+  request_timeout_secs: number;
+  connect_timeout_secs: number;
 }
 
 export interface GroupDetail {
@@ -224,6 +230,11 @@ export interface ProxyLogSettings {
   retention_days: number;
 }
 
+export interface ProxyTimeoutSettings {
+  request_timeout_secs: number;
+  connect_timeout_secs: number;
+}
+
 // ─── Proxy Log API ─────────────────────────────────────────
 
 export const proxyLogApi = {
@@ -237,6 +248,14 @@ export const proxyLogApi = {
     invoke<ProxyLogSettings>("proxy_log_settings_get"),
   setSettings: (settings: ProxyLogSettings) =>
     invoke<void>("proxy_log_settings_set", { settings }),
+};
+
+// ─── Proxy Timeout API ──────────────────────────────────────
+
+export const proxyTimeoutApi = {
+  get: () => invoke<ProxyTimeoutSettings>("proxy_timeout_get"),
+  set: (settings: ProxyTimeoutSettings) =>
+    invoke<void>("proxy_timeout_set", { settings }),
 };
 
 // ─── Settings API ──────────────────────────────────────────

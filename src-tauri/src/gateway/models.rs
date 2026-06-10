@@ -118,6 +118,11 @@ pub struct Group {
     pub auto_from_platform: Option<String>,
     pub created_at: String,
     pub updated_at: String,
+    /// 超时设置（秒），0 = 继承系统设置
+    #[serde(default)]
+    pub request_timeout_secs: u64,
+    #[serde(default)]
+    pub connect_timeout_secs: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -126,6 +131,10 @@ pub struct CreateGroup {
     pub path: String,
     pub routing_mode: RoutingMode,
     pub auto_from_platform: Option<String>,
+    #[serde(default)]
+    pub request_timeout_secs: u64,
+    #[serde(default)]
+    pub connect_timeout_secs: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -134,6 +143,10 @@ pub struct UpdateGroup {
     pub name: Option<String>,
     pub path: Option<String>,
     pub routing_mode: Option<RoutingMode>,
+    #[serde(default)]
+    pub request_timeout_secs: u64,
+    #[serde(default)]
+    pub connect_timeout_secs: u64,
 }
 
 // ─── GroupPlatform (关联) ──────────────────────────────────
@@ -174,6 +187,11 @@ pub struct ModelMapping {
     pub target_platform_id: String,
     /// 实际模型名，如 "glm-4-plus"
     pub target_model: String,
+    /// 超时设置（秒），0 = 继承分组设置
+    #[serde(default)]
+    pub request_timeout_secs: u64,
+    #[serde(default)]
+    pub connect_timeout_secs: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -182,6 +200,10 @@ pub struct CreateModelMapping {
     pub source_model: String,
     pub target_platform_id: String,
     pub target_model: String,
+    #[serde(default)]
+    pub request_timeout_secs: u64,
+    #[serde(default)]
+    pub connect_timeout_secs: u64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -190,6 +212,10 @@ pub struct UpdateModelMapping {
     pub source_model: Option<String>,
     pub target_platform_id: Option<String>,
     pub target_model: Option<String>,
+    #[serde(default)]
+    pub request_timeout_secs: u64,
+    #[serde(default)]
+    pub connect_timeout_secs: u64,
 }
 
 // ─── 辅助：带平台详情的分组 ────────────────────────────────
@@ -285,6 +311,28 @@ impl Default for ProxyLogSettings {
         Self {
             enabled: false,
             retention_days: default_retention_days(),
+        }
+    }
+}
+
+// ─── Proxy Timeout Settings ─────────────────────────────────
+
+/// Upstream request timeout configuration (stored in settings table)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyTimeoutSettings {
+    /// Total request timeout in seconds (0 = no limit)
+    #[serde(default)]
+    pub request_timeout_secs: u64,
+    /// TCP connection timeout in seconds (0 = no limit)
+    #[serde(default)]
+    pub connect_timeout_secs: u64,
+}
+
+impl Default for ProxyTimeoutSettings {
+    fn default() -> Self {
+        Self {
+            request_timeout_secs: 300,  // 5 minutes
+            connect_timeout_secs: 10,   // 10 seconds
         }
     }
 }

@@ -22,6 +22,18 @@ const DEFAULT_BASE_URLS: Partial<Record<Protocol, string>> = {
 
 const ALL_DEFAULT_URLS = new Set(Object.values(DEFAULT_BASE_URLS));
 
+const PROTOCOL_LABELS: Record<Protocol, string> = {
+  openai: "OpenAI",
+  anthropic: "Anthropic",
+  glm: "GLM",
+  kimi: "Kimi",
+  minimax: "MiniMax",
+  codex: "Codex",
+  claude_code: "Claude Code",
+};
+
+const DEFAULT_NAMES = new Set(Object.values(PROTOCOL_LABELS));
+
 const PROTOCOL_COLORS: Record<string, string> = {
   anthropic: "#D97757",
   claude_code: "#D97757",
@@ -91,7 +103,7 @@ export function Platforms() {
   const [showKey, setShowKey] = useState(false);
 
   // Form state
-  const [name, setName] = useState("");
+  const [name, setName] = useState("OpenAI");
   const [protocol, setProtocol] = useState<Protocol>("openai");
   const [baseUrl, setBaseUrl] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -109,6 +121,10 @@ export function Platforms() {
     const newDefault = DEFAULT_BASE_URLS[newProtocol];
     if (!baseUrl || (oldDefault && baseUrl === oldDefault) || ALL_DEFAULT_URLS.has(baseUrl)) {
       setBaseUrl(newDefault || "");
+    }
+    // Auto-fill name with protocol label if empty or still at a default name
+    if (!name.trim() || DEFAULT_NAMES.has(name)) {
+      setName(PROTOCOL_LABELS[newProtocol]);
     }
     setProtocol(newProtocol);
   };

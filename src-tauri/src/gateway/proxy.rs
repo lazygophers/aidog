@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use super::adapter::{self, ChatRequest, ChatStreamEvent};
 use super::db::Db;
-use super::models::{Group, ProxyLog};
+use super::models::{Group, ProxyLog, ProxyTimeoutSettings};
 use super::router::select_platform;
 
 /// 代理服务器共享状态
@@ -62,6 +62,38 @@ fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog) {
         Err(_) => return,
     };
     let _ = super::db::upsert_proxy_log(&db, log);
+}
+
+/// Read system-level timeout settings from DB
+fn get_system_timeout(db: &Db) -> ProxyTimeoutSettings {
+    super::db::get_setting(db, "proxy", "timeout")
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default()
+}
+
+/// Resolve timeout by priority: model_mapping > group > system
+fn resolve_timeout(
+    mapping: &Option<super::models::ModelMapping>,
+    group: &Group,
+    system: &ProxyTimeoutSettings,
+) -> (u64, u64) {
+    let sys_req = if system.request_timeout_secs > 0 { system.request_timeout_secs } else { 300 };
+    let sys_conn = if system.connect_timeout_secs > 0 { system.connect_timeout_secs } else { 10 };
+
+    let (grp_req, grp_conn) = (
+        if group.request_timeout_secs > 0 { group.request_timeout_secs } else { sys_req },
+        if group.connect_timeout_secs > 0 { group.connect_timeout_secs } else { sys_conn },
+    );
+
+    match mapping {
+        Some(m) => (
+            if m.request_timeout_secs > 0 { m.request_timeout_secs } else { grp_req },
+            if m.connect_timeout_secs > 0 { m.connect_timeout_secs } else { grp_conn },
+        ),
+        None => (grp_req, grp_conn),
+    }
 }
 
 /// 主代理处理函数 — 渐进式日志：每个阶段即时 upsert，用 request_id 串联
@@ -245,24 +277,55 @@ async fn handle_proxy(
     let base_url = route.platform.base_url.trim_end_matches('/');
     let url = format!("{}{}", base_url, api_path);
 
-    // 转发请求
-    let client = Client::new();
+    // ── 解析超时：模型 > 分组 > 系统 ──
+    let system_timeout = match state.db.lock() {
+        Ok(db) => get_system_timeout(&db),
+        Err(_) => ProxyTimeoutSettings::default(),
+    };
+    let (req_timeout, conn_timeout) = resolve_timeout(&route.mapping, &group, &system_timeout);
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(req_timeout))
+        .connect_timeout(std::time::Duration::from_secs(conn_timeout))
+        .build()
+        .unwrap_or_else(|_| Client::new());
     let mut req_builder = client
         .post(&url)
         .header("Content-Type", "application/json")
         .body(serde_json::to_string(&req_body).unwrap_or_default());
 
-    // Auth header 按协议区分：Anthropic/ClaudeCode 用 x-api-key，其他用 Bearer
-    if matches!(
-        route.platform.protocol,
-        super::models::Protocol::Anthropic | super::models::Protocol::ClaudeCode
-    ) {
-        req_builder = req_builder
-            .header("anthropic-version", "2023-06-01")
-            .header("x-api-key", &route.platform.api_key);
-    } else {
-        req_builder = req_builder
-            .header("Authorization", format!("Bearer {}", route.platform.api_key));
+    // ── 按协议模拟对应客户端 header ──
+    match route.platform.protocol {
+        super::models::Protocol::Anthropic | super::models::Protocol::ClaudeCode => {
+            req_builder = req_builder
+                .header("anthropic-version", "2023-06-01")
+                .header("x-api-key", &route.platform.api_key)
+                .header("User-Agent", "Claude-Code/1.0");
+        }
+        super::models::Protocol::OpenAI => {
+            req_builder = req_builder
+                .header("Authorization", format!("Bearer {}", route.platform.api_key))
+                .header("User-Agent", "Codex/1.0");
+        }
+        super::models::Protocol::Glm => {
+            req_builder = req_builder
+                .header("Authorization", format!("Bearer {}", route.platform.api_key))
+                .header("User-Agent", "GLM-Client/1.0");
+        }
+        super::models::Protocol::Kimi => {
+            req_builder = req_builder
+                .header("Authorization", format!("Bearer {}", route.platform.api_key))
+                .header("User-Agent", "Kimi-Client/1.0");
+        }
+        super::models::Protocol::MiniMax => {
+            req_builder = req_builder
+                .header("Authorization", format!("Bearer {}", route.platform.api_key))
+                .header("User-Agent", "MiniMax-Client/1.0");
+        }
+        super::models::Protocol::Codex => {
+            req_builder = req_builder
+                .header("Authorization", format!("Bearer {}", route.platform.api_key))
+                .header("User-Agent", "Codex/1.0");
+        }
     }
 
     let resp = match req_builder.send().await {

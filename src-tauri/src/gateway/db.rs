@@ -41,7 +41,11 @@ impl Db {
         let _ = conn.execute_batch(
             "ALTER TABLE proxy_logs ADD COLUMN actual_model TEXT NOT NULL DEFAULT '';
              ALTER TABLE proxy_logs ADD COLUMN source_protocol TEXT NOT NULL DEFAULT '';
-             ALTER TABLE proxy_logs ADD COLUMN target_protocol TEXT NOT NULL DEFAULT '';",
+             ALTER TABLE proxy_logs ADD COLUMN target_protocol TEXT NOT NULL DEFAULT '';
+             ALTER TABLE groups ADD COLUMN request_timeout_secs INTEGER NOT NULL DEFAULT 0;
+             ALTER TABLE groups ADD COLUMN connect_timeout_secs INTEGER NOT NULL DEFAULT 0;
+             ALTER TABLE model_mappings ADD COLUMN request_timeout_secs INTEGER NOT NULL DEFAULT 0;
+             ALTER TABLE model_mappings ADD COLUMN connect_timeout_secs INTEGER NOT NULL DEFAULT 0;",
         );
         Ok(())
     }
@@ -238,12 +242,14 @@ pub fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> {
         auto_from_platform: input.auto_from_platform.clone(),
         created_at: ts.clone(),
         updated_at: ts,
+        request_timeout_secs: input.request_timeout_secs,
+        connect_timeout_secs: input.connect_timeout_secs,
     };
 
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO groups (id, name, path, routing_mode, auto_from_platform, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-        params![id, group.name, group.path, routing_str, group.auto_from_platform, group.created_at, group.updated_at],
+        "INSERT INTO groups (id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        params![id, group.name, group.path, routing_str, group.auto_from_platform, group.created_at, group.updated_at, group.request_timeout_secs, group.connect_timeout_secs],
     )
     .map_err(|e| format!("create group: {e}"))?;
 
@@ -253,7 +259,7 @@ pub fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> {
 pub fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT id, name, path, routing_mode, auto_from_platform, created_at, updated_at FROM groups ORDER BY created_at")
+        .prepare("SELECT id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs FROM groups ORDER BY created_at")
         .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], |row| {
@@ -266,6 +272,8 @@ pub fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
                 auto_from_platform: row.get(4)?,
                 created_at: row.get(5)?,
                 updated_at: row.get(6)?,
+                request_timeout_secs: row.get::<_, i64>(7)? as u64,
+                connect_timeout_secs: row.get::<_, i64>(8)? as u64,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -276,7 +284,7 @@ pub fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
 pub fn get_group(db: &Db, id: &str) -> Result<Option<Group>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT id, name, path, routing_mode, auto_from_platform, created_at, updated_at FROM groups WHERE id = ?1")
+        .prepare("SELECT id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs FROM groups WHERE id = ?1")
         .map_err(|e| e.to_string())?;
 
     let result = stmt
@@ -290,6 +298,8 @@ pub fn get_group(db: &Db, id: &str) -> Result<Option<Group>, String> {
                 auto_from_platform: row.get(4)?,
                 created_at: row.get(5)?,
                 updated_at: row.get(6)?,
+                request_timeout_secs: row.get::<_, i64>(7)? as u64,
+                connect_timeout_secs: row.get::<_, i64>(8)? as u64,
             })
         })
         .optional()
@@ -305,6 +315,8 @@ pub fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> {
         name: input.name.unwrap_or(existing.name),
         path: input.path.unwrap_or(existing.path),
         routing_mode: input.routing_mode.unwrap_or(existing.routing_mode),
+        request_timeout_secs: if input.request_timeout_secs > 0 { input.request_timeout_secs } else { existing.request_timeout_secs },
+        connect_timeout_secs: if input.connect_timeout_secs > 0 { input.connect_timeout_secs } else { existing.connect_timeout_secs },
         updated_at: now(),
         ..existing
     };
@@ -312,8 +324,8 @@ pub fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> {
     let routing_str = serde_json::to_string(&updated.routing_mode).unwrap();
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "UPDATE groups SET name=?1, path=?2, routing_mode=?3, updated_at=?4 WHERE id=?5",
-        params![updated.name, updated.path, routing_str, updated.updated_at, updated.id],
+        "UPDATE groups SET name=?1, path=?2, routing_mode=?3, updated_at=?4, request_timeout_secs=?5, connect_timeout_secs=?6 WHERE id=?7",
+        params![updated.name, updated.path, routing_str, updated.updated_at, updated.request_timeout_secs as i64, updated.connect_timeout_secs as i64, updated.id],
     )
     .map_err(|e| format!("update group: {e}"))?;
 
@@ -416,12 +428,14 @@ pub fn create_model_mapping(db: &Db, input: CreateModelMapping) -> Result<ModelM
         source_model: input.source_model,
         target_platform_id: input.target_platform_id,
         target_model: input.target_model,
+        request_timeout_secs: input.request_timeout_secs,
+        connect_timeout_secs: input.connect_timeout_secs,
     };
 
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO model_mappings (id, group_id, source_model, target_platform_id, target_model) VALUES (?1, ?2, ?3, ?4, ?5)",
-        params![id, mapping.group_id, mapping.source_model, mapping.target_platform_id, mapping.target_model],
+        "INSERT INTO model_mappings (id, group_id, source_model, target_platform_id, target_model, request_timeout_secs, connect_timeout_secs) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+        params![id, mapping.group_id, mapping.source_model, mapping.target_platform_id, mapping.target_model, mapping.request_timeout_secs as i64, mapping.connect_timeout_secs as i64],
     )
     .map_err(|e| format!("create model mapping: {e}"))?;
 
@@ -431,7 +445,7 @@ pub fn create_model_mapping(db: &Db, input: CreateModelMapping) -> Result<ModelM
 pub fn list_model_mappings(db: &Db, group_id: &str) -> Result<Vec<ModelMapping>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT id, group_id, source_model, target_platform_id, target_model FROM model_mappings WHERE group_id = ?1 ORDER BY source_model")
+        .prepare("SELECT id, group_id, source_model, target_platform_id, target_model, request_timeout_secs, connect_timeout_secs FROM model_mappings WHERE group_id = ?1 ORDER BY source_model")
         .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map(params![group_id], |row| {
@@ -441,6 +455,8 @@ pub fn list_model_mappings(db: &Db, group_id: &str) -> Result<Vec<ModelMapping>,
                 source_model: row.get(2)?,
                 target_platform_id: row.get(3)?,
                 target_model: row.get(4)?,
+                request_timeout_secs: row.get::<_, i64>(5)? as u64,
+                connect_timeout_secs: row.get::<_, i64>(6)? as u64,
             })
         })
         .map_err(|e| e.to_string())?;
@@ -451,7 +467,7 @@ pub fn list_model_mappings(db: &Db, group_id: &str) -> Result<Vec<ModelMapping>,
 pub fn update_model_mapping(db: &Db, input: UpdateModelMapping) -> Result<ModelMapping, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare("SELECT id, group_id, source_model, target_platform_id, target_model FROM model_mappings WHERE id = ?1")
+        .prepare("SELECT id, group_id, source_model, target_platform_id, target_model, request_timeout_secs, connect_timeout_secs FROM model_mappings WHERE id = ?1")
         .map_err(|e| e.to_string())?;
 
     let existing = stmt
@@ -462,6 +478,8 @@ pub fn update_model_mapping(db: &Db, input: UpdateModelMapping) -> Result<ModelM
                 source_model: row.get(2)?,
                 target_platform_id: row.get(3)?,
                 target_model: row.get(4)?,
+                request_timeout_secs: row.get::<_, i64>(5)? as u64,
+                connect_timeout_secs: row.get::<_, i64>(6)? as u64,
             })
         })
         .optional()
@@ -472,12 +490,14 @@ pub fn update_model_mapping(db: &Db, input: UpdateModelMapping) -> Result<ModelM
         source_model: input.source_model.unwrap_or(existing.source_model),
         target_platform_id: input.target_platform_id.unwrap_or(existing.target_platform_id),
         target_model: input.target_model.unwrap_or(existing.target_model),
+        request_timeout_secs: if input.request_timeout_secs > 0 { input.request_timeout_secs } else { existing.request_timeout_secs },
+        connect_timeout_secs: if input.connect_timeout_secs > 0 { input.connect_timeout_secs } else { existing.connect_timeout_secs },
         ..existing
     };
 
     conn.execute(
-        "UPDATE model_mappings SET source_model=?1, target_platform_id=?2, target_model=?3 WHERE id=?4",
-        params![updated.source_model, updated.target_platform_id, updated.target_model, updated.id],
+        "UPDATE model_mappings SET source_model=?1, target_platform_id=?2, target_model=?3, request_timeout_secs=?4, connect_timeout_secs=?5 WHERE id=?6",
+        params![updated.source_model, updated.target_platform_id, updated.target_model, updated.request_timeout_secs as i64, updated.connect_timeout_secs as i64, updated.id],
     )
     .map_err(|e| format!("update model mapping: {e}"))?;
 

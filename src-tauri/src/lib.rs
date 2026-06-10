@@ -72,6 +72,8 @@ fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform,
             path: group_path,
             routing_mode: RoutingMode::Failover,
             auto_from_platform: Some(platform.id.clone()),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
         },
     )?;
 
@@ -532,6 +534,28 @@ fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSettings) -> Resu
     Ok(())
 }
 
+// ─── Proxy Timeout Settings ─────────────────────────────────
+
+use gateway::models::ProxyTimeoutSettings;
+
+#[tauri::command]
+fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings, String> {
+    Ok(gateway::db::get_setting(&db, "proxy", "timeout")
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default())
+}
+
+#[tauri::command]
+fn proxy_timeout_set(db: State<'_, Db>, settings: ProxyTimeoutSettings) -> Result<(), String> {
+    gateway::db::set_setting(&db, SetSettingInput {
+        scope: "proxy".to_string(),
+        key: "timeout".to_string(),
+        value: serde_json::to_value(&settings).map_err(|e| format!("serialize: {e}"))?,
+    })
+}
+
 // ─── Path Autocomplete ─────────────────────────────────────
 
 use serde::Serialize;
@@ -859,6 +883,9 @@ pub fn run() {
             proxy_log_count,
             proxy_log_settings_get,
             proxy_log_settings_set,
+            // Proxy Timeout
+            proxy_timeout_get,
+            proxy_timeout_set,
             // Settings
             fs_autocomplete,
             settings_get,
