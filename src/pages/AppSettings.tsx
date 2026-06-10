@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { proxyApi, proxyLogApi, proxyTimeoutApi, type ProxyLogSettings } from "../services/api";
+import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, type ProxyLogSettings, type AppLogSettings } from "../services/api";
 import { Settings } from "./Settings";
 
 type Tab = "proxy" | "claude";
@@ -13,6 +13,9 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
   const [logRetention, setLogRetention] = useState(7);
   const [reqTimeout, setReqTimeout] = useState(300);
   const [connTimeout, setConnTimeout] = useState(10);
+  const [logFileEnabled, setLogFileEnabled] = useState(true);
+  const [logLevel, setLogLevel] = useState("info");
+  const [logRetHours, setLogRetHours] = useState(3);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
@@ -30,6 +33,12 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
         const ts = await proxyTimeoutApi.get();
         setReqTimeout(ts.request_timeout_secs);
         setConnTimeout(ts.connect_timeout_secs);
+      } catch { /* defaults */ }
+      try {
+        const ls = await appLogApi.get();
+        setLogFileEnabled(ls.file_enabled);
+        setLogLevel(ls.level);
+        setLogRetHours(ls.retention_hours);
       } catch { /* defaults */ }
     })();
   }, []);
@@ -63,6 +72,16 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
     setConnTimeout(conn);
     try {
       await proxyTimeoutApi.set({ request_timeout_secs: req, connect_timeout_secs: conn });
+    } catch (e: any) { setMessage(e.toString()); }
+  };
+
+  const handleLogSettingsChange = async (partial: Partial<AppLogSettings>) => {
+    const next = { file_enabled: logFileEnabled, level: logLevel, retention_hours: logRetHours, ...partial };
+    setLogFileEnabled(next.file_enabled);
+    setLogLevel(next.level);
+    setLogRetHours(next.retention_hours);
+    try {
+      await appLogApi.set(next);
     } catch (e: any) { setMessage(e.toString()); }
   };
 
@@ -196,6 +215,69 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
                 />
                 <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
                   {logRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("proxy.logRetentionHint", "0 = 永久保留")}
+                </span>
+              </div>
+            )}
+          </div>
+
+          {/* Application Logging */}
+          <div className="glass-surface" style={{
+            padding: "16px 20px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{t("appLog.title", "应用日志")}</div>
+                <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                  {t("appLog.desc", "控制台日志始终输出；以下设置仅影响日志文件（发布版本生效）")}
+                </div>
+              </div>
+              <div
+                className={`toggle ${logFileEnabled ? "active" : ""}`}
+                onClick={() => handleLogSettingsChange({ file_enabled: !logFileEnabled })}
+                role="switch"
+                aria-checked={logFileEnabled}
+                tabIndex={0}
+              />
+            </div>
+
+            {logFileEnabled && (
+              <div style={{ display: "flex", gap: 16, alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                    {t("appLog.level", "日志级别")}
+                  </label>
+                  <select
+                    className="input"
+                    value={logLevel}
+                    onChange={(e) => handleLogSettingsChange({ level: e.target.value })}
+                    style={{ width: 90, padding: "4px 8px", fontSize: 12 }}
+                  >
+                    {["trace", "debug", "info", "warn", "error"].map((l) => (
+                      <option key={l} value={l}>{l.toUpperCase()}</option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                    {t("appLog.retention", "保留时长")}
+                  </label>
+                  <input
+                    className="input"
+                    type="number"
+                    min={0}
+                    value={logRetHours}
+                    onChange={(e) => handleLogSettingsChange({ retention_hours: Math.max(0, Number(e.target.value)) })}
+                    style={{ width: 70, padding: "4px 8px", fontSize: 12 }}
+                  />
+                  <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                    {t("appLog.retentionUnit", "小时")}
+                  </span>
+                </div>
+                <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                  {logRetHours === 0 ? t("appLog.retentionForever", "永久保留") : ""}
                 </span>
               </div>
             )}

@@ -237,6 +237,12 @@ export interface ProxyTimeoutSettings {
   connect_timeout_secs: number;
 }
 
+export interface AppLogSettings {
+  file_enabled: boolean;
+  level: string;
+  retention_hours: number;
+}
+
 // ─── Proxy Log API ─────────────────────────────────────────
 
 export const proxyLogApi = {
@@ -274,4 +280,12 @@ export const settingsApi = {
 
   list: (scope: string) =>
     invoke<string[]>("settings_list", { scope }),
+};
+
+// ─── App Log Settings API ─────────────────────────────────
+
+export const appLogApi = {
+  get: () => invoke<AppLogSettings>("app_log_settings_get"),
+  set: (settings: AppLogSettings) =>
+    invoke<void>("app_log_settings_set", { settings }),
 };

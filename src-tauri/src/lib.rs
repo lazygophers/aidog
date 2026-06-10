@@ -1,4 +1,5 @@
 mod gateway;
+mod logging;
 
 use gateway::db::{self, Db};
 use gateway::models::*;
@@ -58,7 +59,7 @@ fn validate_group_name(name: &str) -> Result<(), String> {
 fn ensure_platform_groups(db: &Db) {
     let platforms = match db::list_platforms(db) {
         Ok(p) => p,
-        Err(e) => { eprintln!("[ensure_platform_groups] list_platforms failed: {e}"); return; }
+        Err(e) => { tracing::error!("ensure_platform_groups: list_platforms failed: {e}"); return; }
     };
     for platform in &platforms {
         // 检查是否已存在关联此平台的分组
@@ -81,7 +82,7 @@ fn ensure_platform_groups(db: &Db) {
             connect_timeout_secs: 0,
         }) {
             Ok(g) => g,
-            Err(e) => { eprintln!("[ensure_platform_groups] create_group failed for {}: {e}", platform.name); continue; }
+            Err(e) => { tracing::error!("ensure_platform_groups: create_group failed for {}: {e}", platform.name); continue; }
         };
         // 将平台关联到自动分组
         if let Err(e) = db::set_group_platforms(db, &group.id, &[GroupPlatformInput {
@@ -89,9 +90,9 @@ fn ensure_platform_groups(db: &Db) {
             priority: Some(0),
             weight: Some(1),
         }]) {
-            eprintln!("[ensure_platform_groups] set_group_platforms failed for {}: {e}", platform.name);
+            tracing::error!("ensure_platform_groups: set_group_platforms failed for {}: {e}", platform.name);
         }
-        eprintln!("[ensure_platform_groups] created group '{}' path='{}' for platform '{}'", group_name, group_path, platform.name);
+        tracing::info!("ensure_platform_groups: created group '{}' path='{}' for platform '{}'", group_name, group_path, platform.name);
     }
 }
 
@@ -757,6 +758,49 @@ fn aidog_data_dir() -> Result<std::path::PathBuf, String> {
     Ok(dir)
 }
 
+/// Load app log settings from DB (must be called after init_tables)
+fn load_app_log_settings_from_db(db: &Db) -> logging::AppLogSettings {
+    db::get_setting(db, "app", "logging")
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default()
+}
+
+/// Load app log settings from file (pre-DB, uses defaults + env)
+fn load_app_log_settings() -> logging::AppLogSettings {
+    // Try loading from a simple JSON file before DB is available
+    let path = dirs::home_dir()
+        .unwrap_or_default()
+        .join(".aidog")
+        .join("log_settings.json");
+    if path.exists() {
+        if let Ok(data) = std::fs::read_to_string(&path) {
+            if let Ok(s) = serde_json::from_str(&data) {
+                return s;
+            }
+        }
+    }
+    logging::AppLogSettings::default()
+}
+
+#[tauri::command]
+fn app_log_settings_get(db: State<'_, Db>) -> Result<logging::AppLogSettings, String> {
+    Ok(load_app_log_settings_from_db(&db))
+}
+
+#[tauri::command]
+fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, Db>) -> Result<(), String> {
+    let value = serde_json::to_value(&settings).map_err(|e| e.to_string())?;
+    db::set_setting(&db, SetSettingInput { scope: "app".to_string(), key: "logging".to_string(), value })?;
+    // Also persist to file so it's available before DB init on next startup
+    if let Some(dir) = dirs::home_dir() {
+        let path = dir.join(".aidog").join("log_settings.json");
+        let _ = std::fs::write(&path, serde_json::to_string_pretty(&settings).unwrap_or_default());
+    }
+    Ok(())
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 struct ProxySettings {
     port: u16,
@@ -845,8 +889,14 @@ pub fn run() {
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            // 在 app data dir 创建 SQLite
-            let db_path = aidog_data_dir().expect("failed to resolve data dir").join("aidog.db");
+            // 初始化日志（尽早，在 DB 之前）
+            let data_dir = aidog_data_dir().expect("failed to resolve data dir");
+            let log_settings = load_app_log_settings();
+            logging::init_logging(&data_dir, &log_settings);
+            logging::cleanup_old_logs(&data_dir, log_settings.retention_hours);
+
+            // 在 data dir 创建 SQLite
+            let db_path = data_dir.join("aidog.db");
             let db = Db::new(db_path.to_str().unwrap()).expect("failed to open database");
             db.init_tables().expect("failed to init tables");
             db.fix_group_names();
@@ -954,6 +1004,9 @@ pub fn run() {
             // Proxy Timeout
             proxy_timeout_get,
             proxy_timeout_set,
+            // App Logging
+            app_log_settings_get,
+            app_log_settings_set,
             // Settings
             fs_autocomplete,
             settings_get,
