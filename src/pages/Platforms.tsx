@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, type Platform, type Protocol, type ModelSlot } from "../services/api";
+import { platformApi, settingsApi, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint } from "../services/api";
 import { ModelTestPanel } from "./ModelTestPanel";
 
 const PROTOCOLS: { value: Protocol; label: string }[] = [
@@ -117,6 +117,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     default: "", sonnet: "", opus: "", haiku: "", gpt: "",
   });
   const [availableModels, setAvailableModels] = useState<string[]>([]);
+  const [endpoints, setEndpoints] = useState<PlatformEndpoint[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<ModelSlot | null>(null);
   const [showClaudeConfig, setShowClaudeConfig] = useState(false);
   const [claudeConfigJson, setClaudeConfigJson] = useState("");
@@ -149,7 +150,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const resetForm = () => {
     setName(""); setProtocol("openai"); setBaseUrl(""); setApiKey("");
     setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "" });
-    setAvailableModels([]);
+    setAvailableModels([]); setEndpoints([]);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
     setShowClaudeConfig(false); setClaudeConfigJson("");
   };
@@ -164,6 +165,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       gpt: p.models.gpt ?? "",
     });
     setAvailableModels(p.available_models ?? []);
+    setEndpoints(p.endpoints ?? []);
     setEditing(p); setShowForm(true); setFetchError(""); setSaveError("");
     setShowClaudeConfig(false); setClaudeConfigJson("");
 
@@ -244,12 +246,14 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
         await platformApi.update({
           id: editing.id, name, protocol, base_url: baseUrl, api_key: apiKey,
           models: modelsPayload, available_models: availablePayload,
+          endpoints: endpoints.length > 0 ? endpoints : undefined,
         });
         savedId = editing.id;
       } else {
         const created = await platformApi.create({
           name, protocol, base_url: baseUrl, api_key: apiKey,
           models: modelsPayload, available_models: availablePayload,
+          endpoints: endpoints.length > 0 ? endpoints : undefined,
         });
         savedId = created.id;
       }
@@ -353,6 +357,74 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           )}
           <input className="input" placeholder="Base URL" value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)} />
+
+          {/* Protocol Endpoints */}
+          <div style={{
+            display: "flex", flexDirection: "column", gap: 6,
+            padding: "8px 0",
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
+                {t("platform.endpoints", "Protocol Endpoints")}
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
+                onClick={() => setEndpoints([...endpoints, { protocol: "openai", base_url: "" }])}
+              >
+                + {t("platform.addEndpoint", "Add Endpoint")}
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
+              {t("platform.endpointsHint", "Additional protocols this platform supports with different base URLs")}
+            </div>
+            {endpoints.length === 0 && (
+              <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "4px 0", fontStyle: "italic" }}>
+                {t("platform.noEndpoints", "No additional endpoints")}
+              </div>
+            )}
+            {endpoints.map((ep, idx) => (
+              <div key={idx} style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <select
+                  className="input"
+                  style={{ width: 140, flexShrink: 0 }}
+                  value={ep.protocol}
+                  onChange={(e) => {
+                    const next = [...endpoints];
+                    next[idx] = { ...next[idx], protocol: e.target.value as Protocol };
+                    setEndpoints(next);
+                  }}
+                >
+                  {PROTOCOLS.map((p) => (
+                    <option key={p.value} value={p.value}>{p.label}</option>
+                  ))}
+                </select>
+                <input
+                  className="input"
+                  style={{ flex: 1 }}
+                  placeholder="Endpoint Base URL"
+                  value={ep.base_url}
+                  onChange={(e) => {
+                    const next = [...endpoints];
+                    next[idx] = { ...next[idx], base_url: e.target.value };
+                    setEndpoints(next);
+                  }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-icon btn-danger"
+                  style={{ flexShrink: 0 }}
+                  onClick={() => setEndpoints(endpoints.filter((_, i) => i !== idx))}
+                >
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
+                  </svg>
+                </button>
+              </div>
+            ))}
+          </div>
+
           {/* API Key with show/copy */}
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <input
@@ -651,6 +723,15 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   <div className="text-secondary" style={{ fontSize: 12, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {p.protocol.toUpperCase()} · {p.base_url}
                   </div>
+                  {p.endpoints && p.endpoints.length > 0 && (
+                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 3 }}>
+                      {p.endpoints.map((ep, ei) => (
+                        <span key={ei} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px", opacity: 0.8 }}>
+                          {PROTOCOL_LABELS[ep.protocol] || ep.protocol}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   {configuredModels.length > 0 && (
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
                       {configuredModels.map((m, mi) => (

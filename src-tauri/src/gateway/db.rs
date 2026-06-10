@@ -25,6 +25,16 @@ fn serialize_available_models(models: &[String]) -> String {
     serde_json::to_string(models).unwrap_or_else(|_| "[]".to_string())
 }
 
+/// 从 JSON 字符串反序列化协议端点列表
+fn parse_endpoints(json: &str) -> Vec<PlatformEndpoint> {
+    serde_json::from_str(json).unwrap_or_default()
+}
+
+/// 将协议端点列表序列化为 JSON 字符串
+fn serialize_endpoints(endpoints: &[PlatformEndpoint]) -> String {
+    serde_json::to_string(endpoints).unwrap_or_else(|_| "[]".to_string())
+}
+
 impl Db {
     pub fn new(path: &str) -> Result<Self, String> {
         let conn = Connection::open(path).map_err(|e| e.to_string())?;
@@ -52,6 +62,7 @@ impl Db {
             "ALTER TABLE platforms ADD COLUMN available_models TEXT NOT NULL DEFAULT '[]'",
             "ALTER TABLE proxy_logs ADD COLUMN cache_tokens INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE groups ADD COLUMN source_protocol TEXT NOT NULL DEFAULT 'anthropic'",
+            "ALTER TABLE platforms ADD COLUMN endpoints TEXT NOT NULL DEFAULT '[]'",
         ];
         for sql in &migrations {
             // Ignore "duplicate column" errors — column may already exist
@@ -92,13 +103,14 @@ fn new_id() -> String {
 
 /// SELECT 列序
 const PLATFORM_COLUMNS: &str =
-    "id, name, protocol, base_url, api_key, extra, models, available_models, enabled, created_at, updated_at";
+    "id, name, protocol, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at";
 
 /// 从查询行构造 Platform
 fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
     let protocol_str: String = row.get(2)?;
     let models_str: String = row.get(6)?;
     let available_str: String = row.get(7)?;
+    let endpoints_str: String = row.get(8)?;
     Ok(Platform {
         id: row.get(0)?,
         name: row.get(1)?,
@@ -108,9 +120,10 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         extra: row.get(5)?,
         models: parse_models(&models_str),
         available_models: parse_available_models(&available_str),
-        enabled: row.get::<_, i64>(8)? == 1,
-        created_at: row.get(9)?,
-        updated_at: row.get(10)?,
+        endpoints: parse_endpoints(&endpoints_str),
+        enabled: row.get::<_, i64>(9)? == 1,
+        created_at: row.get(10)?,
+        updated_at: row.get(11)?,
     })
 }
 
@@ -128,6 +141,8 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, S
     let models_str = serialize_models(&models);
     let available_models = input.available_models.unwrap_or_default();
     let available_str = serialize_available_models(&available_models);
+    let endpoints = input.endpoints.unwrap_or_default();
+    let endpoints_str = serialize_endpoints(&endpoints);
     let platform = Platform {
         id: id.clone(),
         name: input.name,
@@ -137,6 +152,7 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, S
         extra: input.extra,
         models,
         available_models,
+        endpoints,
         enabled: true,
         created_at: ts.clone(),
         updated_at: ts,
@@ -144,8 +160,8 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, S
 
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        &format!("INSERT INTO platforms ({PLATFORM_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"),
-        params![id, platform.name, protocol_str, platform.base_url, platform.api_key, platform.extra, models_str, available_str, platform.enabled as i64, platform.created_at, platform.updated_at],
+        &format!("INSERT INTO platforms ({PLATFORM_COLUMNS}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"),
+        params![id, platform.name, protocol_str, platform.base_url, platform.api_key, platform.extra, models_str, available_str, endpoints_str, platform.enabled as i64, platform.created_at, platform.updated_at],
     )
     .map_err(|e| format!("create platform: {e}"))?;
 
@@ -187,6 +203,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
         extra: input.extra.or(existing.extra),
         models: input.models.unwrap_or(existing.models),
         available_models: input.available_models.unwrap_or(existing.available_models),
+        endpoints: input.endpoints.unwrap_or(existing.endpoints),
         enabled: input.enabled.unwrap_or(existing.enabled),
         updated_at: now(),
         ..existing
@@ -195,9 +212,10 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
     let protocol_str = serde_json::to_string(&updated.protocol).unwrap();
     let models_str = serialize_models(&updated.models);
     let available_str = serialize_available_models(&updated.available_models);
+    let endpoints_str = serialize_endpoints(&updated.endpoints);
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "UPDATE platforms SET name=?1, protocol=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, enabled=?8, updated_at=?9 WHERE id=?10",
+        "UPDATE platforms SET name=?1, protocol=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10 WHERE id=?11",
         params![
             updated.name,
             protocol_str,
@@ -206,6 +224,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
             updated.extra,
             models_str,
             available_str,
+            endpoints_str,
             updated.enabled as i64,
             updated.updated_at,
             updated.id,
@@ -409,6 +428,7 @@ pub fn get_group_platforms(db: &Db, group_id: &str) -> Result<Vec<GroupPlatformD
             let protocol_str: String = row.get(4)?;
             let models_str: String = row.get(8)?;
             let available_str: String = row.get(9)?;
+            let endpoints_str: String = row.get(10)?;
             Ok(GroupPlatformDetail {
                 platform: Platform {
                     id: row.get(2)?,
@@ -419,9 +439,10 @@ pub fn get_group_platforms(db: &Db, group_id: &str) -> Result<Vec<GroupPlatformD
                     extra: row.get(7)?,
                     models: parse_models(&models_str),
                     available_models: parse_available_models(&available_str),
-                    enabled: row.get::<_, i64>(10)? == 1,
-                    created_at: row.get(11)?,
-                    updated_at: row.get(12)?,
+                    endpoints: parse_endpoints(&endpoints_str),
+                    enabled: row.get::<_, i64>(11)? == 1,
+                    created_at: row.get(12)?,
+                    updated_at: row.get(13)?,
                 },
                 priority: row.get(0)?,
                 weight: row.get(1)?,

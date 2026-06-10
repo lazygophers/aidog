@@ -61,6 +61,15 @@ impl PlatformModels {
     }
 }
 
+// ─── Platform Endpoint ──────────────────────────────────────
+
+/// 平台协议端点：同一平台可支持多种协议，每种协议对应不同的 base_url
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PlatformEndpoint {
+    pub protocol: Protocol,
+    pub base_url: String,
+}
+
 // ─── Platform ──────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +85,9 @@ pub struct Platform {
     pub models: PlatformModels,
     /// 从 API 获取到的可用模型列表
     pub available_models: Vec<String>,
+    /// 额外协议端点：每种协议对应不同的 base_url
+    #[serde(default)]
+    pub endpoints: Vec<PlatformEndpoint>,
     pub enabled: bool,
     pub created_at: String,
     pub updated_at: String,
@@ -92,6 +104,8 @@ pub struct CreatePlatform {
     pub models: Option<PlatformModels>,
     #[serde(default)]
     pub available_models: Option<Vec<String>>,
+    #[serde(default)]
+    pub endpoints: Option<Vec<PlatformEndpoint>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -104,6 +118,7 @@ pub struct UpdatePlatform {
     pub extra: Option<String>,
     pub models: Option<PlatformModels>,
     pub available_models: Option<Vec<String>>,
+    pub endpoints: Option<Vec<PlatformEndpoint>>,
     pub enabled: Option<bool>,
 }
 

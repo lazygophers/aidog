@@ -271,7 +271,18 @@ async fn handle_proxy(
     };
 
     let actual_model = route.target_model;
-    let target_protocol = format!("{:?}", route.platform.protocol).to_lowercase();
+
+    // 尝试匹配端点：按 source_protocol 查找平台是否支持对应协议的端点
+    let (target_protocol_enum, target_base_url) = route.platform.endpoints
+        .iter()
+        .find(|ep| {
+            let ep_str = format!("{:?}", ep.protocol).to_lowercase();
+            ep_str == group.source_protocol
+        })
+        .map(|ep| (&ep.protocol, ep.base_url.clone()))
+        .unwrap_or((&route.platform.protocol, route.platform.base_url.clone()));
+
+    let target_protocol = format!("{:?}", target_protocol_enum).to_lowercase();
     let needs_model_remap = actual_model != requested_model;
 
     // Upsert #3: route resolved
@@ -283,10 +294,10 @@ async fn handle_proxy(
     chat_req.model = actual_model.clone();
 
     // 协议转换
-    let (req_body, api_path) = adapter::convert_request(&chat_req, &route.platform.protocol);
+    let (req_body, api_path) = adapter::convert_request(&chat_req, target_protocol_enum);
 
     // 构建目标 URL
-    let base_url = route.platform.base_url.trim_end_matches('/');
+    let base_url = target_base_url.trim_end_matches('/');
     let url = format!("{}{}", base_url, api_path);
 
     // ── 解析超时：模型 > 分组 > 系统 ──
@@ -306,7 +317,7 @@ async fn handle_proxy(
         .body(serde_json::to_string(&req_body).unwrap_or_default());
 
     // ── 按协议模拟对应客户端 header ──
-    match route.platform.protocol {
+    match target_protocol_enum {
         super::models::Protocol::Anthropic | super::models::Protocol::ClaudeCode => {
             req_builder = req_builder
                 .header("anthropic-version", "2023-06-01")
@@ -397,7 +408,7 @@ async fn handle_proxy(
     }
 
     // 流式：转换 SSE 格式为 Anthropic 格式返回
-    let protocol = route.platform.protocol;
+    let protocol = target_protocol_enum.clone();
     let tokens_acc = Arc::new(std::sync::atomic::AtomicI32::new(0));
     let tokens_out = Arc::new(std::sync::atomic::AtomicI32::new(0));
     let tokens_cache = Arc::new(std::sync::atomic::AtomicI32::new(0));

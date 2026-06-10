@@ -7,6 +7,11 @@ export type RoutingMode = "load_balance" | "failover";
 
 export type ModelSlot = "default" | "sonnet" | "opus" | "haiku" | "gpt";
 
+export interface PlatformEndpoint {
+  protocol: Protocol;
+  base_url: string;
+}
+
 export interface PlatformModels {
   default?: string;
   sonnet?: string;
@@ -24,6 +29,7 @@ export interface Platform {
   extra: string | null;
   models: PlatformModels;
   available_models: string[];
+  endpoints: PlatformEndpoint[];
   enabled: boolean;
   created_at: string;
   updated_at: string;
@@ -84,6 +90,7 @@ export const platformApi = {
     extra?: string;
     models?: PlatformModels;
     available_models?: string[];
+    endpoints?: PlatformEndpoint[];
   }) => invoke<Platform>("platform_create", { input }),
 
   list: () => invoke<Platform[]>("platform_list"),
@@ -99,6 +106,7 @@ export const platformApi = {
     extra?: string;
     models?: PlatformModels;
     available_models?: string[];
+    endpoints?: PlatformEndpoint[];
     enabled?: boolean;
   }) => invoke<Platform>("platform_update", { input }),
 
