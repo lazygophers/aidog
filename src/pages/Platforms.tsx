@@ -10,6 +10,7 @@ const PROTOCOLS: { value: Protocol; label: string }[] = [
   { value: "glm", label: "GLM" },
   { value: "kimi", label: "Kimi" },
   { value: "minimax", label: "MiniMax" },
+  { value: "bailian", label: "百炼" },
 ];
 
 const DEFAULT_BASE_URLS: Partial<Record<Protocol, string>> = {
@@ -18,6 +19,7 @@ const DEFAULT_BASE_URLS: Partial<Record<Protocol, string>> = {
   minimax: "https://api.minimaxi.com/v1",
   codex: "https://api.openai.com/v1",
   claude_code: "https://api.anthropic.com",
+  bailian: "https://dashscope.aliyuncs.com",
 };
 
 const ALL_DEFAULT_URLS = new Set(Object.values(DEFAULT_BASE_URLS));
@@ -30,6 +32,7 @@ const PROTOCOL_LABELS: Record<Protocol, string> = {
   minimax: "MiniMax",
   codex: "Codex",
   claude_code: "Claude Code",
+  bailian: "百炼",
 };
 
 const DEFAULT_NAMES = new Set(Object.values(PROTOCOL_LABELS));
@@ -42,6 +45,7 @@ const PROTOCOL_COLORS: Record<string, string> = {
   glm: "#3B5FEC",
   kimi: "#1783FF",
   minimax: "#6C5CE7",
+  bailian: "#FF6A00",
 };
 
 const MODEL_SLOTS: { key: ModelSlot; labelKey: string }[] = [

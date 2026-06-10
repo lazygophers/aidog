@@ -17,6 +17,8 @@ pub enum Protocol {
     Codex,
     #[serde(rename = "claude_code")]
     ClaudeCode,
+    #[serde(rename = "bailian")]
+    Bailian,
 }
 
 /// 路由模式

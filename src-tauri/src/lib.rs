@@ -363,7 +363,7 @@ async fn platform_fetch_models(
                 .await
                 .map_err(|e| format!("parse response: {e}"))?
         }
-        Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::Kimi | Protocol::MiniMax => {
+        Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::Kimi | Protocol::MiniMax | Protocol::Bailian => {
             let url = format!("{base}/models");
             client
                 .get(&url)

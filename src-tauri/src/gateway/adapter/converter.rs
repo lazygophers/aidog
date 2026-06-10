@@ -41,6 +41,11 @@ pub fn convert_request(req: &ChatRequest, protocol: &Protocol) -> (Value, String
             let json = serde_json::to_value(&claude_req).unwrap();
             (json, "/v1/messages".to_string())
         }
+        Protocol::Bailian => {
+            let bailian_req = super::bailian::to_bailian(req);
+            let json = serde_json::to_value(&bailian_req).unwrap();
+            (json, "/compatible-mode/v1/chat/completions".to_string())
+        }
     }
 }
 
@@ -54,6 +59,7 @@ pub fn parse_sse(data: &Value, protocol: &Protocol) -> Option<ChatStreamEvent> {
         Protocol::MiniMax => super::minimax::parse_minimax_sse(data),
         Protocol::Codex => super::codex::parse_codex_sse(data),
         Protocol::ClaudeCode => super::claude_code::parse_claude_code_sse(data),
+        Protocol::Bailian => super::bailian::parse_bailian_sse(data),
     }
 }
 
