@@ -8,16 +8,69 @@ import { pinyinMatch } from "../utils/pinyin";
 type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[] };
 
 const PROTOCOLS: ProtocolOption[] = [
-  { value: "anthropic", label: "Anthropic", keywords: ["claude", "克劳德"] },
-  { value: "openai", label: "OpenAI", keywords: ["gpt", "chatgpt"] },
-  { value: "codex", label: "Codex", keywords: ["openai"] },
-  { value: "gemini", label: "Gemini", keywords: ["google", "谷歌"] },
+  // ── 官方 ──
+  { value: "anthropic", label: "Anthropic（Claude）", keywords: ["claude", "克劳德", "官方"] },
+  { value: "openai", label: "OpenAI", keywords: ["gpt", "chatgpt", "官方"] },
+  { value: "codex", label: "Codex", keywords: ["openai", "codex"] },
+  { value: "gemini", label: "Gemini（Google）", keywords: ["google", "谷歌", "gemini"] },
+  // ── 国内官方 ──
   { value: "glm", label: "GLM（智谱）", keywords: ["zhipu", "智谱", "bigmodel", "codegeex"] },
   { value: "glm", label: "GLM Coding Plan", codingPlan: true, keywords: ["智谱编程", "codegeex", "glm code"] },
+  { value: "glm_en", label: "GLM 国际版（z.ai）", keywords: ["z.ai", "zhipu en", "智谱国际"] },
   { value: "kimi", label: "Kimi（月之暗面）", keywords: ["moonshot", "月之暗面"] },
-  { value: "kimi", label: "Kimi Code Plan", codingPlan: true, keywords: ["kimi编程", "kimi code"] },
-  { value: "minimax", label: "MiniMax", keywords: ["海螺"] },
+  { value: "kimi", label: "Kimi Code Plan", codingPlan: true, keywords: ["kimi编程", "kimi code", "kimi coding"] },
+  { value: "minimax", label: "MiniMax（海螺）", keywords: ["海螺", "minimax"] },
+  { value: "minimax_en", label: "MiniMax 国际版", keywords: ["minimax io", "minimax en"] },
   { value: "bailian", label: "百炼（阿里）", keywords: ["dashscope", "阿里", "qwen", "通义"] },
+  { value: "bailian_coding", label: "百炼编程", keywords: ["dashscope coding", "阿里编程", "百炼编程"] },
+  { value: "deepseek", label: "DeepSeek（深度求索）", keywords: ["深度求索", "deepseek"] },
+  { value: "stepfun", label: "阶跃星辰（StepFun）", keywords: ["stepfun", "阶跃"] },
+  { value: "stepfun_en", label: "StepFun 国际版", keywords: ["stepfun ai", "阶跃国际"] },
+  { value: "doubao", label: "火山 Agentplan", keywords: ["火山", "volcengine", "agentplan"] },
+  { value: "doubao_seed", label: "豆包 Seed", keywords: ["豆包", "doubao", "seed"] },
+  { value: "byteplus", label: "BytePlus", keywords: ["byteplus", "字节国际"] },
+  { value: "qianfan", label: "百度千帆", keywords: ["baidu", "百度", "千帆"] },
+  { value: "xiaomi_mimo", label: "小米 MiMo", keywords: ["xiaomi", "小米", "mimo"] },
+  { value: "bailing", label: "百灵", keywords: ["bailing", "百灵", "tbox"] },
+  { value: "longcat", label: "Longcat", keywords: ["longcat", "龙猫"] },
+  // ── 聚合平台 ──
+  { value: "openrouter", label: "OpenRouter", keywords: ["openrouter", "聚合"] },
+  { value: "siliconflow", label: "SiliconFlow", keywords: ["siliconflow", "硅基流动"] },
+  { value: "siliconflow_en", label: "SiliconFlow 国际版", keywords: ["siliconflow com"] },
+  { value: "aihubmix", label: "AiHubMix", keywords: ["aihubmix"] },
+  { value: "dmxapi", label: "DMXAPI", keywords: ["dmxapi"] },
+  { value: "modelscope", label: "ModelScope（魔搭）", keywords: ["modelscope", "魔搭"] },
+  { value: "shengsuanyun", label: "盛算云", keywords: ["shengsuanyun", "盛算"] },
+  { value: "atlascloud", label: "AtlasCloud", keywords: ["atlascloud", "atlas"] },
+  { value: "novita", label: "Novita AI", keywords: ["novita"] },
+  { value: "therouter", label: "TheRouter", keywords: ["therouter"] },
+  { value: "cherryin", label: "CherryIN", keywords: ["cherryin"] },
+  // ── 第三方平台 ──
+  { value: "packycode", label: "PackyCode", keywords: ["packycode", "packyapi"] },
+  { value: "cubence", label: "Cubence", keywords: ["cubence"] },
+  { value: "aigocode", label: "AIGoCode", keywords: ["aigocode"] },
+  { value: "rightcode", label: "RightCode", keywords: ["rightcode", "right codes"] },
+  { value: "aicodemirror", label: "AICodeMirror", keywords: ["aicodemirror", "claudecode net cn"] },
+  { value: "nvidia", label: "Nvidia", keywords: ["nvidia", "英伟达"] },
+  { value: "pateway", label: "PatewayAI", keywords: ["pateway"] },
+  { value: "ccsub", label: "CCSub", keywords: ["ccsub"] },
+  { value: "apikeyfun", label: "APIKEY.FUN", keywords: ["apikey fun"] },
+  { value: "apinebula", label: "APINebula", keywords: ["apinebula"] },
+  { value: "sudocode", label: "SudoCode", keywords: ["sudocode"] },
+  { value: "claudeapi", label: "ClaudeAPI", keywords: ["claudeapi"] },
+  { value: "claudecn", label: "ClaudeCN", keywords: ["claudecn"] },
+  { value: "runapi", label: "RunAPI", keywords: ["runapi"] },
+  { value: "relaxycode", label: "RelaxyCode", keywords: ["relaxycode"] },
+  { value: "crazyrouter", label: "CrazyRouter", keywords: ["crazyrouter"] },
+  { value: "sssaicode", label: "SSSAiCode", keywords: ["sssaicode"] },
+  { value: "compshare", label: "Compshare（优云）", keywords: ["compshare", "优云", "ucloud"] },
+  { value: "compshare_coding", label: "Compshare Coding Plan", keywords: ["compshare coding", "优云编程"] },
+  { value: "micu", label: "Micu", keywords: ["micu"] },
+  { value: "ctok", label: "CTok.ai", keywords: ["ctok"] },
+  { value: "eflowcode", label: "E-FlowCode", keywords: ["eflowcode", "flowcode"] },
+  { value: "lemondata", label: "LemonData", keywords: ["lemondata"] },
+  { value: "pipellm", label: "PIPELLM", keywords: ["pipellm"] },
+  { value: "opencode", label: "OpenCode Go", keywords: ["opencode"] },
 ];
 
 /** Endpoint 协议：只有 AI 请求协议（非平台类型） */
@@ -78,10 +131,12 @@ function healthStatus(recentTotal: number, recentFailures: number): HealthStatus
   return "healthy";                                           // 全部成功
 }
 
-/** 根据 ProtocolOption 生成默认端点（含 coding_plan 标记） */
+/** 根据 ProtocolOption 生成默认端点（含 coding_plan 标记）
+ *  数据来源：cc-switch 各平台官方配置 */
 function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): PlatformEndpoint[] {
   const cp = !!codingPlan;
   const base: Partial<Record<Protocol, PlatformEndpoint[]>> = {
+    // ── 官方 ──
     anthropic: [
       { protocol: "anthropic", base_url: "https://api.anthropic.com", client_type: "claude_code" },
     ],
@@ -91,57 +146,331 @@ function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Platform
     codex: [
       { protocol: "openai", base_url: "https://api.openai.com", client_type: "codex_tui" },
     ],
-    // GLM: 用 openai 协议（OpenAI-compatible）
+    gemini: [
+      { protocol: "gemini", base_url: "https://generativelanguage.googleapis.com" },
+    ],
+
+    // ── 国内官方 ──
     glm: [
       { protocol: "openai", base_url: cp ? "https://open.bigmodel.cn/api/coding/paas/v4" : "https://open.bigmodel.cn/api/paas/v4", client_type: "codex_tui", coding_plan: cp },
       { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic", client_type: "claude_code" },
     ],
-    // 百炼: 用 openai 协议
-    bailian: [
-      { protocol: "openai", base_url: "https://dashscope.aliyuncs.com", client_type: "codex_tui" },
+    glm_en: [
+      { protocol: "openai", base_url: "https://api.z.ai/api/paas/v4", client_type: "codex_tui" },
+      { protocol: "anthropic", base_url: "https://api.z.ai/api/anthropic", client_type: "claude_code" },
     ],
-    // MiniMax: 用 openai 协议
+    kimi: [
+      { protocol: "openai", base_url: cp ? "https://api.kimi.com/coding/" : "https://api.moonshot.cn/v1", client_type: "codex_tui", coding_plan: cp },
+      { protocol: "anthropic", base_url: "https://api.moonshot.cn/anthropic", client_type: "claude_code" },
+    ],
     minimax: [
-      { protocol: "openai", base_url: "https://api.minimaxi.com", client_type: "codex_tui" },
+      { protocol: "openai", base_url: "https://api.minimaxi.com/v1", client_type: "codex_tui" },
       { protocol: "anthropic", base_url: "https://api.minimaxi.com/anthropic", client_type: "claude_code" },
     ],
-    // Kimi: 用 openai 协议
-    kimi: [
-      { protocol: "openai", base_url: "https://api.moonshot.cn", client_type: "codex_tui", coding_plan: cp },
+    minimax_en: [
+      { protocol: "openai", base_url: "https://api.minimax.io/v1", client_type: "codex_tui" },
+      { protocol: "anthropic", base_url: "https://api.minimax.io/anthropic", client_type: "claude_code" },
     ],
-    gemini: [
-      { protocol: "gemini", base_url: "https://generativelanguage.googleapis.com" },
+    bailian: [
+      { protocol: "openai", base_url: "https://dashscope.aliyuncs.com", client_type: "codex_tui" },
+      { protocol: "anthropic", base_url: "https://dashscope.aliyuncs.com/apps/anthropic", client_type: "claude_code" },
+    ],
+    bailian_coding: [
+      { protocol: "anthropic", base_url: "https://coding.dashscope.aliyuncs.com/apps/anthropic", client_type: "claude_code" },
+    ],
+    deepseek: [
+      { protocol: "openai", base_url: "https://api.deepseek.com", client_type: "codex_tui" },
+      { protocol: "anthropic", base_url: "https://api.deepseek.com/anthropic", client_type: "claude_code" },
+    ],
+    stepfun: [
+      { protocol: "anthropic", base_url: "https://api.stepfun.com/step_plan", client_type: "claude_code" },
+    ],
+    stepfun_en: [
+      { protocol: "anthropic", base_url: "https://api.stepfun.ai/step_plan", client_type: "claude_code" },
+    ],
+    doubao: [
+      { protocol: "anthropic", base_url: "https://ark.cn-beijing.volces.com/api/coding", client_type: "claude_code" },
+    ],
+    doubao_seed: [
+      { protocol: "anthropic", base_url: "https://ark.cn-beijing.volces.com/api/compatible", client_type: "claude_code" },
+    ],
+    byteplus: [
+      { protocol: "anthropic", base_url: "https://ark.ap-southeast.bytepluses.com/api/coding", client_type: "claude_code" },
+    ],
+    qianfan: [
+      { protocol: "anthropic", base_url: "https://qianfan.baidubce.com/anthropic/coding", client_type: "claude_code" },
+    ],
+    xiaomi_mimo: [
+      { protocol: "anthropic", base_url: "https://api.xiaomimimo.com/anthropic", client_type: "claude_code" },
+    ],
+    bailing: [
+      { protocol: "anthropic", base_url: "https://api.tbox.cn/api/anthropic", client_type: "claude_code" },
+    ],
+    longcat: [
+      { protocol: "anthropic", base_url: "https://api.longcat.chat/anthropic", client_type: "claude_code" },
+    ],
+
+    // ── 聚合平台 ──
+    openrouter: [
+      { protocol: "anthropic", base_url: "https://openrouter.ai/api", client_type: "claude_code" },
+      { protocol: "openai", base_url: "https://openrouter.ai/api/v1", client_type: "codex_tui" },
+      { protocol: "gemini", base_url: "https://openrouter.ai/api" },
+    ],
+    siliconflow: [
+      { protocol: "anthropic", base_url: "https://api.siliconflow.cn", client_type: "claude_code" },
+    ],
+    siliconflow_en: [
+      { protocol: "anthropic", base_url: "https://api.siliconflow.com", client_type: "claude_code" },
+    ],
+    aihubmix: [
+      { protocol: "anthropic", base_url: "https://aihubmix.com", client_type: "claude_code" },
+      { protocol: "openai", base_url: "https://aihubmix.com/v1", client_type: "codex_tui" },
+    ],
+    dmxapi: [
+      { protocol: "anthropic", base_url: "https://www.dmxapi.cn", client_type: "claude_code" },
+      { protocol: "openai", base_url: "https://www.dmxapi.cn/v1", client_type: "codex_tui" },
+    ],
+    modelscope: [
+      { protocol: "anthropic", base_url: "https://api-inference.modelscope.cn", client_type: "claude_code" },
+    ],
+    shengsuanyun: [
+      { protocol: "anthropic", base_url: "https://router.shengsuanyun.com/api", client_type: "claude_code" },
+    ],
+    atlascloud: [
+      { protocol: "anthropic", base_url: "https://api.atlascloud.ai", client_type: "claude_code" },
+    ],
+    novita: [
+      { protocol: "anthropic", base_url: "https://api.novita.ai/anthropic", client_type: "claude_code" },
+    ],
+    therouter: [
+      { protocol: "anthropic", base_url: "https://api.therouter.ai", client_type: "claude_code" },
+    ],
+    cherryin: [
+      { protocol: "anthropic", base_url: "https://open.cherryin.net", client_type: "claude_code" },
+    ],
+
+    // ── 第三方平台 ──
+    packycode: [
+      { protocol: "anthropic", base_url: "https://www.packyapi.com", client_type: "claude_code" },
+      { protocol: "openai", base_url: "https://www.packyapi.com/v1", client_type: "codex_tui" },
+      { protocol: "gemini", base_url: "https://www.packyapi.com" },
+    ],
+    cubence: [
+      { protocol: "anthropic", base_url: "https://api.cubence.com", client_type: "claude_code" },
+      { protocol: "openai", base_url: "https://api.cubence.com/v1", client_type: "codex_tui" },
+      { protocol: "gemini", base_url: "https://api.cubence.com" },
+    ],
+    aigocode: [
+      { protocol: "anthropic", base_url: "https://api.aigocode.com", client_type: "claude_code" },
+      { protocol: "openai", base_url: "https://api.aigocode.com", client_type: "codex_tui" },
+      { protocol: "gemini", base_url: "https://api.aigocode.com" },
+    ],
+    rightcode: [
+      { protocol: "anthropic", base_url: "https://www.right.codes/claude", client_type: "claude_code" },
+      { protocol: "openai", base_url: "https://right.codes/codex/v1", client_type: "codex_tui" },
+    ],
+    aicodemirror: [
+      { protocol: "anthropic", base_url: "https://api.aicodemirror.com/api/claudecode", client_type: "claude_code" },
+      { protocol: "openai", base_url: "https://api.aicodemirror.com/api/codex/backend-api/codex", client_type: "codex_tui" },
+      { protocol: "gemini", base_url: "https://api.aicodemirror.com/api/gemini" },
+    ],
+    nvidia: [
+      { protocol: "openai", base_url: "https://integrate.api.nvidia.com", client_type: "codex_tui" },
+    ],
+    pateway: [
+      { protocol: "anthropic", base_url: "https://api.pateway.ai", client_type: "claude_code" },
+    ],
+    ccsub: [
+      { protocol: "anthropic", base_url: "https://www.ccsub.net", client_type: "claude_code" },
+    ],
+    apikeyfun: [
+      { protocol: "anthropic", base_url: "https://api.apikey.fun", client_type: "claude_code" },
+    ],
+    apinebula: [
+      { protocol: "anthropic", base_url: "https://apinebula.com", client_type: "claude_code" },
+    ],
+    sudocode: [
+      { protocol: "anthropic", base_url: "https://sudocode.us", client_type: "claude_code" },
+    ],
+    claudeapi: [
+      { protocol: "anthropic", base_url: "https://gw.claudeapi.com", client_type: "claude_code" },
+    ],
+    claudecn: [
+      { protocol: "anthropic", base_url: "https://claudecn.top", client_type: "claude_code" },
+    ],
+    runapi: [
+      { protocol: "anthropic", base_url: "https://runapi.co", client_type: "claude_code" },
+    ],
+    relaxycode: [
+      { protocol: "anthropic", base_url: "https://www.relaxycode.com", client_type: "claude_code" },
+    ],
+    crazyrouter: [
+      { protocol: "anthropic", base_url: "https://cn.crazyrouter.com", client_type: "claude_code" },
+    ],
+    sssaicode: [
+      { protocol: "anthropic", base_url: "https://node-hk.sssaicodeapi.com/api", client_type: "claude_code" },
+    ],
+    compshare: [
+      { protocol: "anthropic", base_url: "https://api.modelverse.cn", client_type: "claude_code" },
+    ],
+    compshare_coding: [
+      { protocol: "anthropic", base_url: "https://cp.compshare.cn", client_type: "claude_code" },
+    ],
+    micu: [
+      { protocol: "anthropic", base_url: "https://www.micuapi.ai", client_type: "claude_code" },
+    ],
+    ctok: [
+      { protocol: "anthropic", base_url: "https://api.ctok.ai", client_type: "claude_code" },
+    ],
+    eflowcode: [
+      { protocol: "anthropic", base_url: "https://e-flowcode.cc", client_type: "claude_code" },
+    ],
+    lemondata: [
+      { protocol: "anthropic", base_url: "https://api.lemondata.cc", client_type: "claude_code" },
+    ],
+    pipellm: [
+      { protocol: "anthropic", base_url: "https://cc-api.pipellm.ai", client_type: "claude_code" },
+    ],
+    opencode: [
+      { protocol: "openai", base_url: "https://opencode.ai/zen/go", client_type: "codex_tui" },
     ],
   };
   return (base[protocol] || []).map(ep => ({ ...ep }));
 }
 
 const PROTOCOL_LABELS: Record<Protocol, string> = {
+  // ── AI 请求协议 ──
   openai: "OpenAI",
   openai_responses: "OpenAI Responses",
   openai_completions: "OpenAI Completions",
   anthropic: "Anthropic",
+  gemini: "Gemini",
+  // ── 平台类型 ──
   glm: "GLM",
+  glm_en: "GLM 国际版",
   kimi: "Kimi",
   minimax: "MiniMax",
+  minimax_en: "MiniMax 国际版",
   codex: "Codex",
   bailian: "百炼",
-  gemini: "Gemini",
+  bailian_coding: "百炼编程",
+  // ── 国内官方 ──
+  deepseek: "DeepSeek",
+  stepfun: "阶跃星辰",
+  stepfun_en: "StepFun 国际版",
+  doubao: "火山 Agentplan",
+  doubao_seed: "豆包 Seed",
+  byteplus: "BytePlus",
+  qianfan: "百度千帆",
+  xiaomi_mimo: "小米 MiMo",
+  bailing: "百灵",
+  longcat: "Longcat",
+  // ── 聚合平台 ──
+  openrouter: "OpenRouter",
+  siliconflow: "SiliconFlow",
+  siliconflow_en: "SiliconFlow 国际版",
+  aihubmix: "AiHubMix",
+  dmxapi: "DMXAPI",
+  modelscope: "ModelScope",
+  shengsuanyun: "盛算云",
+  atlascloud: "AtlasCloud",
+  novita: "Novita AI",
+  therouter: "TheRouter",
+  cherryin: "CherryIN",
+  // ── 第三方平台 ──
+  packycode: "PackyCode",
+  cubence: "Cubence",
+  aigocode: "AIGoCode",
+  rightcode: "RightCode",
+  aicodemirror: "AICodeMirror",
+  nvidia: "Nvidia",
+  pateway: "PatewayAI",
+  ccsub: "CCSub",
+  apikeyfun: "APIKEY.FUN",
+  apinebula: "APINebula",
+  sudocode: "SudoCode",
+  claudeapi: "ClaudeAPI",
+  claudecn: "ClaudeCN",
+  runapi: "RunAPI",
+  relaxycode: "RelaxyCode",
+  crazyrouter: "CrazyRouter",
+  sssaicode: "SSSAiCode",
+  compshare: "Compshare",
+  compshare_coding: "Compshare Coding",
+  micu: "Micu",
+  ctok: "CTok.ai",
+  eflowcode: "E-FlowCode",
+  lemondata: "LemonData",
+  pipellm: "PIPELLM",
+  opencode: "OpenCode Go",
 };
 
 const DEFAULT_NAMES = new Set(Object.values(PROTOCOL_LABELS));
 
 const PROTOCOL_COLORS: Record<string, string> = {
+  // ── 官方 ──
   anthropic: "#D97757",
   openai: "#10A37F",
   openai_responses: "#10A37F",
   openai_completions: "#10A37F",
   codex: "#10A37F",
   gemini: "#4285F4",
+  // ── 国内官方 ──
   glm: "#3B5FEC",
+  glm_en: "#3B5FEC",
   kimi: "#1783FF",
-  minimax: "#6C5CE7",
+  minimax: "#FF6B6B",
+  minimax_en: "#FF6B6B",
   bailian: "#FF6A00",
+  bailian_coding: "#FF6A00",
+  deepseek: "#1E88E5",
+  stepfun: "#16D6D2",
+  stepfun_en: "#16D6D2",
+  doubao: "#3370FF",
+  doubao_seed: "#3370FF",
+  byteplus: "#3370FF",
+  qianfan: "#2932E1",
+  xiaomi_mimo: "#FF6900",
+  bailing: "#624AFF",
+  longcat: "#29E154",
+  // ── 聚合平台 ──
+  openrouter: "#6566F1",
+  siliconflow: "#6E29F6",
+  siliconflow_en: "#6E29F6",
+  aihubmix: "#006FFB",
+  dmxapi: "#FF6B6B",
+  modelscope: "#624AFF",
+  shengsuanyun: "#00A67E",
+  atlascloud: "#4285F4",
+  novita: "#000000",
+  therouter: "#6566F1",
+  cherryin: "#FF4081",
+  // ── 第三方平台 ──
+  packycode: "#00BCD4",
+  cubence: "#000000",
+  aigocode: "#5B7FFF",
+  rightcode: "#E96B2C",
+  aicodemirror: "#000000",
+  nvidia: "#76B900",
+  pateway: "#00A67E",
+  ccsub: "#FF6B6B",
+  apikeyfun: "#FF9500",
+  apinebula: "#6C5CE7",
+  sudocode: "#00A67E",
+  claudeapi: "#D97757",
+  claudecn: "#D97757",
+  runapi: "#10A37F",
+  relaxycode: "#6C5CE7",
+  crazyrouter: "#FF6B6B",
+  sssaicode: "#FF9500",
+  compshare: "#00A67E",
+  compshare_coding: "#00A67E",
+  micu: "#FF6B6B",
+  ctok: "#10A37F",
+  eflowcode: "#6C5CE7",
+  lemondata: "#FFD21E",
+  pipellm: "#4285F4",
+  opencode: "#211E1E",
 };
 
 const MODEL_SLOTS: { key: ModelSlot; labelKey: string }[] = [

@@ -17,14 +17,115 @@ pub enum Protocol {
     // ── 平台类型（仅作为平台主协议，不作为 endpoint 协议）──
     #[serde(rename = "glm")]
     Glm,
+    #[serde(rename = "glm_en")]
+    GlmEn,
     #[serde(rename = "kimi")]
     Kimi,
     #[serde(rename = "minimax")]
     MiniMax,
+    #[serde(rename = "minimax_en")]
+    MiniMaxEn,
     #[serde(rename = "codex")]
     Codex,
     #[serde(rename = "bailian")]
     Bailian,
+    #[serde(rename = "bailian_coding")]
+    BailianCoding,
+    // ── 国内官方平台 ──
+    #[serde(rename = "deepseek")]
+    DeepSeek,
+    #[serde(rename = "stepfun")]
+    StepFun,
+    #[serde(rename = "stepfun_en")]
+    StepFunEn,
+    #[serde(rename = "doubao")]
+    Doubao,
+    #[serde(rename = "doubao_seed")]
+    DoubaoSeed,
+    #[serde(rename = "byteplus")]
+    BytePlus,
+    #[serde(rename = "qianfan")]
+    QianFan,
+    #[serde(rename = "xiaomi_mimo")]
+    XiaomiMimo,
+    #[serde(rename = "bailing")]
+    BaiLing,
+    #[serde(rename = "longcat")]
+    Longcat,
+    // ── 聚合平台 ──
+    #[serde(rename = "openrouter")]
+    OpenRouter,
+    #[serde(rename = "siliconflow")]
+    SiliconFlow,
+    #[serde(rename = "siliconflow_en")]
+    SiliconFlowEn,
+    #[serde(rename = "aihubmix")]
+    AiHubMix,
+    #[serde(rename = "dmxapi")]
+    DmxApi,
+    #[serde(rename = "modelscope")]
+    ModelScope,
+    #[serde(rename = "shengsuanyun")]
+    ShengSuanYun,
+    #[serde(rename = "atlascloud")]
+    AtlasCloud,
+    #[serde(rename = "novita")]
+    Novita,
+    #[serde(rename = "therouter")]
+    TheRouter,
+    #[serde(rename = "cherryin")]
+    CherryIn,
+    // ── 第三方平台 ──
+    #[serde(rename = "packycode")]
+    PackyCode,
+    #[serde(rename = "cubence")]
+    Cubence,
+    #[serde(rename = "aigocode")]
+    AiGoCode,
+    #[serde(rename = "rightcode")]
+    RightCode,
+    #[serde(rename = "aicodemirror")]
+    AiCodeMirror,
+    #[serde(rename = "nvidia")]
+    Nvidia,
+    #[serde(rename = "pateway")]
+    Pateway,
+    #[serde(rename = "ccsub")]
+    CcSub,
+    #[serde(rename = "apikeyfun")]
+    ApiKeyFun,
+    #[serde(rename = "apinebula")]
+    ApiNebula,
+    #[serde(rename = "sudocode")]
+    SudoCode,
+    #[serde(rename = "claudeapi")]
+    ClaudeApi,
+    #[serde(rename = "claudecn")]
+    ClaudeCN,
+    #[serde(rename = "runapi")]
+    RunApi,
+    #[serde(rename = "relaxycode")]
+    RelaxyCode,
+    #[serde(rename = "crazyrouter")]
+    CrazyRouter,
+    #[serde(rename = "sssaicode")]
+    SssAiCode,
+    #[serde(rename = "compshare")]
+    Compshare,
+    #[serde(rename = "compshare_coding")]
+    CompshareCoding,
+    #[serde(rename = "micu")]
+    Micu,
+    #[serde(rename = "ctok")]
+    CTok,
+    #[serde(rename = "eflowcode")]
+    EFlowCode,
+    #[serde(rename = "lemondata")]
+    LemonData,
+    #[serde(rename = "pipellm")]
+    PipeLlm,
+    #[serde(rename = "opencode")]
+    OpenCode,
 }
 
 /// 路由模式

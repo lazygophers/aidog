@@ -2,7 +2,22 @@ import { invoke } from "@tauri-apps/api/core";
 
 // ─── Types ─────────────────────────────────────────────────
 
-export type Protocol = "anthropic" | "openai" | "openai_responses" | "openai_completions" | "gemini" | "glm" | "kimi" | "minimax" | "codex" | "bailian";
+export type Protocol =
+  // ── AI 请求协议（endpoint 协议）──
+  | "anthropic" | "openai" | "openai_responses" | "openai_completions" | "gemini"
+  // ── 平台类型 ──
+  | "glm" | "glm_en" | "kimi" | "minimax" | "minimax_en" | "codex" | "bailian" | "bailian_coding"
+  // ── 国内官方平台 ──
+  | "deepseek" | "stepfun" | "stepfun_en" | "doubao" | "doubao_seed" | "byteplus" | "qianfan"
+  | "xiaomi_mimo" | "bailing" | "longcat"
+  // ── 聚合平台 ──
+  | "openrouter" | "siliconflow" | "siliconflow_en" | "aihubmix" | "dmxapi" | "modelscope"
+  | "shengsuanyun" | "atlascloud" | "novita" | "therouter" | "cherryin"
+  // ── 第三方平台 ──
+  | "packycode" | "cubence" | "aigocode" | "rightcode" | "aicodemirror" | "nvidia"
+  | "pateway" | "ccsub" | "apikeyfun" | "apinebula" | "sudocode" | "claudeapi" | "claudecn"
+  | "runapi" | "relaxycode" | "crazyrouter" | "sssaicode" | "compshare" | "compshare_coding"
+  | "micu" | "ctok" | "eflowcode" | "lemondata" | "pipellm" | "opencode";
 export type RoutingMode = "load_balance" | "failover";
 export type ClientType =
   | "default"
