@@ -944,17 +944,9 @@ fn inject_coding_plan_fields(body: &mut Value, protocol: &super::models::Protoco
     }
 }
 
-/// Coding Plan 需要不同的 API 路径
-/// GLM coding plan base_url 已包含 /api/coding/paas/v4，api_path 只需 /chat/completions
-fn override_coding_plan_path(api_path: &mut String, protocol: &super::models::Protocol) {
-    match protocol {
-        super::models::Protocol::Glm => {
-            *api_path = "/chat/completions".to_string();
-        }
-        _ => {
-            // Kimi / MiniMax / 百炼等 coding plan 路径与普通端点相同
-        }
-    }
+/// Coding Plan 的 API 路径覆盖（当前各平台 base_url 已区分 coding/normal，api_path 无需变更）
+fn override_coding_plan_path(_api_path: &mut String, _protocol: &super::models::Protocol) {
+    // 预留：后续若有平台需 coding plan 专用 api_path 可在此扩展
 }
 
 /// Pretty-print JSON string; return original if parsing fails
