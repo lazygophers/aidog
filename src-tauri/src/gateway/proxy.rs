@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use super::adapter::{self, ChatRequest, ChatStreamEvent};
 use super::db::Db;
-use super::models::{ClientType, Group, ProxyLog, ProxyTimeoutSettings};
+use super::models::{ClientType, Group, ProxyLog, ProxyLogSettings, ProxyTimeoutSettings};
 use super::router::select_platform;
 
 /// 代理服务器共享状态
@@ -55,13 +55,40 @@ pub async fn start_proxy(
     Ok((handle, actual_port))
 }
 
-/// Upsert a proxy log entry; silently ignore errors
-fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog) {
+/// Read proxy log settings from DB
+fn get_log_settings(db: &Db) -> ProxyLogSettings {
+    super::db::get_setting(db, "proxy", "logging")
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default()
+}
+
+/// Upsert a proxy log entry; silently ignore errors.
+/// Respects ProxyLogSettings: if logging disabled, does nothing;
+/// if user/upstream recording disabled, clears those fields before writing.
+fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettings) {
+    if !settings.enabled {
+        return;
+    }
+    let mut log = log.clone();
+    // Clear fields based on recording switches
+    if !settings.log_user_request {
+        log.request_headers = String::new();
+        log.request_body = String::new();
+        log.user_response_headers = String::new();
+        log.user_response_body = String::new();
+    }
+    if !settings.log_upstream_request {
+        log.upstream_request_headers = String::new();
+        log.upstream_request_body = String::new();
+        log.upstream_response_headers = String::new();
+    }
     let db = match state.db.lock() {
         Ok(d) => d,
         Err(_) => return,
     };
-    let _ = super::db::upsert_proxy_log(&db, log);
+    let _ = super::db::upsert_proxy_log(&db, &log);
 }
 
 /// Read system-level timeout settings from DB
@@ -104,6 +131,15 @@ async fn handle_proxy(
     let start = std::time::Instant::now();
     let request_id = uuid::Uuid::new_v4().to_string();
     let created_at = chrono::Utc::now().to_rfc3339();
+
+    // Load log settings once per request
+    let log_settings = {
+        let db = match state.db.lock() {
+            Ok(d) => d,
+            Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "db lock").into_response(),
+        };
+        get_log_settings(&db)
+    };
 
     // ── 初始化日志条目 ──
     let mut log = ProxyLog {
@@ -167,7 +203,7 @@ async fn handle_proxy(
             log.response_body = format!("read body error: {e}");
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(&state, &log);
+            upsert_log(&state, &log, &log_settings);
             return (StatusCode::BAD_REQUEST, format!("read body: {e}")).into_response();
         }
     };
@@ -181,7 +217,7 @@ async fn handle_proxy(
     log.model = raw_model.clone();
 
     // Upsert #1: request received
-    upsert_log(&state, &log);
+    upsert_log(&state, &log, &log_settings);
 
     // ── 查找分组 ──
     let group = {
@@ -198,7 +234,7 @@ async fn handle_proxy(
                                 log.response_body = format!("no matching group for token '{}' or path '{}'", token, path);
                                 log.status_code = 404;
                                 log.duration_ms = start.elapsed().as_millis() as i32;
-                                upsert_log(&state, &log);
+                                upsert_log(&state, &log, &log_settings);
                                 return (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
                             }
                         }
@@ -210,7 +246,7 @@ async fn handle_proxy(
                             log.response_body = "no matching group".to_string();
                             log.status_code = 404;
                             log.duration_ms = start.elapsed().as_millis() as i32;
-                            upsert_log(&state, &log);
+                            upsert_log(&state, &log, &log_settings);
                             return (StatusCode::NOT_FOUND, "no matching group").into_response();
                         }
                     }
@@ -220,7 +256,7 @@ async fn handle_proxy(
                 log.response_body = format!("db error: {e}");
                 log.status_code = 500;
                 log.duration_ms = start.elapsed().as_millis() as i32;
-                upsert_log(&state, &log);
+                upsert_log(&state, &log, &log_settings);
                 return (StatusCode::INTERNAL_SERVER_ERROR, e).into_response();
             }
         }
@@ -231,7 +267,7 @@ async fn handle_proxy(
     // Auto-detect source_protocol from request path if group default doesn't match
     let source_protocol = detect_source_protocol(&path, &group.source_protocol);
     log.source_protocol = source_protocol.clone();
-    upsert_log(&state, &log);
+    upsert_log(&state, &log, &log_settings);
 
     // ── 解析 ChatRequest（按入站协议解析） ──
     let req_value: serde_json::Value = match serde_json::from_slice(&bytes) {
@@ -240,7 +276,7 @@ async fn handle_proxy(
             log.response_body = format!("parse request json error: {e}");
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(&state, &log);
+            upsert_log(&state, &log, &log_settings);
             return (StatusCode::BAD_REQUEST, format!("parse json: {e}")).into_response();
         }
     };
@@ -250,7 +286,7 @@ async fn handle_proxy(
             log.response_body = "failed to parse request for protocol".to_string();
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(&state, &log);
+            upsert_log(&state, &log, &log_settings);
             return (StatusCode::BAD_REQUEST, "failed to parse request").into_response();
         }
     };
@@ -268,7 +304,7 @@ async fn handle_proxy(
                 log.response_body = format!("db lock error: {e}");
                 log.status_code = 500;
                 log.duration_ms = start.elapsed().as_millis() as i32;
-                upsert_log(&state, &log);
+                upsert_log(&state, &log, &log_settings);
                 return (StatusCode::INTERNAL_SERVER_ERROR, e).into_response();
             }
         }
@@ -279,7 +315,7 @@ async fn handle_proxy(
             log.response_body = format!("route error: {e}");
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(&state, &log);
+            upsert_log(&state, &log, &log_settings);
             return (StatusCode::BAD_REQUEST, format!("route: {e}")).into_response();
         }
     };
@@ -303,7 +339,7 @@ async fn handle_proxy(
     log.actual_model = actual_model.clone();
     log.target_protocol = target_protocol.clone();
     log.platform_id = route.platform.id.clone();
-    upsert_log(&state, &log);
+    upsert_log(&state, &log, &log_settings);
 
     // 替换模型名
     chat_req.model = actual_model.clone();
@@ -362,7 +398,7 @@ async fn handle_proxy(
             log.user_response_body = format!("upstream: {e}");
             log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(&state, &log);
+            upsert_log(&state, &log, &log_settings);
             return (StatusCode::BAD_GATEWAY, format!("upstream: {e}")).into_response();
         }
     };
@@ -388,7 +424,7 @@ async fn handle_proxy(
         log.user_response_body = body.clone();
         log.user_response_headers = log.upstream_response_headers.clone();
         log.duration_ms = start.elapsed().as_millis() as i32;
-        upsert_log(&state, &log);
+        upsert_log(&state, &log, &log_settings);
         return (StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY), body)
             .into_response();
     }
@@ -415,7 +451,7 @@ async fn handle_proxy(
         log.user_response_body = String::from_utf8_lossy(&body).to_string();
         log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
 
-        upsert_log(&state, &log);
+        upsert_log(&state, &log, &log_settings);
 
         return (
             StatusCode::OK,
@@ -509,7 +545,7 @@ async fn handle_proxy(
     log.input_tokens = tokens_acc.load(std::sync::atomic::Ordering::Relaxed);
     log.output_tokens = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
     log.cache_tokens = tokens_cache.load(std::sync::atomic::Ordering::Relaxed);
-    upsert_log(&state, &log);
+    upsert_log(&state, &log, &log_settings);
 
     (
         StatusCode::OK,

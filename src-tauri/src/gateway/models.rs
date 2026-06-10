@@ -534,21 +534,44 @@ pub struct ProxyLogSummary {
 /// Proxy logging settings stored in settings table (scope=proxy, key=logging)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyLogSettings {
+    /// Master switch: whether to log proxy requests at all
     #[serde(default)]
     pub enabled: bool,
-    /// Maximum days to retain logs; 0 = keep forever
+
+    /// Whether to record user's original request (headers + body)
+    #[serde(default = "default_true")]
+    pub log_user_request: bool,
+
+    /// Whether to record actual upstream request (headers + body)
+    #[serde(default = "default_true")]
+    pub log_upstream_request: bool,
+
+    /// Days to retain user request data (headers, body); 0 = keep forever
+    #[serde(default = "default_user_req_retention")]
+    pub user_request_retention_days: u32,
+
+    /// Days to retain upstream request data (headers, body); 0 = keep forever
+    #[serde(default = "default_upstream_req_retention")]
+    pub upstream_request_retention_days: u32,
+
+    /// Days to retain entire log record; 0 = keep forever
     #[serde(default = "default_retention_days")]
     pub retention_days: u32,
 }
 
-fn default_retention_days() -> u32 {
-    7
-}
+fn default_true() -> bool { true }
+fn default_user_req_retention() -> u32 { 7 }
+fn default_upstream_req_retention() -> u32 { 7 }
+fn default_retention_days() -> u32 { 90 }
 
 impl Default for ProxyLogSettings {
     fn default() -> Self {
         Self {
             enabled: false,
+            log_user_request: true,
+            log_upstream_request: true,
+            user_request_retention_days: default_user_req_retention(),
+            upstream_request_retention_days: default_upstream_req_retention(),
             retention_days: default_retention_days(),
         }
     }

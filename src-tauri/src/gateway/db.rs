@@ -792,6 +792,38 @@ pub fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> Result<(), String> {
     Ok(())
 }
 
+/// Clear user request fields (headers, body, user response) for logs older than retention_days.
+/// Does NOT delete the log row — keeps token stats and metadata.
+pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
+    if retention_days == 0 {
+        return Ok(());
+    }
+    let cutoff = chrono::Utc::now() - chrono::Duration::days(retention_days as i64);
+    let cutoff_str = cutoff.to_rfc3339();
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE proxy_logs SET request_headers = '', request_body = '', user_response_headers = '', user_response_body = '' WHERE created_at < ?1 AND (request_headers != '' OR request_body != '')",
+        params![cutoff_str],
+    ).map_err(|e| format!("cleanup user request fields: {e}"))?;
+    Ok(())
+}
+
+/// Clear upstream request fields (headers, body, response headers) for logs older than retention_days.
+/// Does NOT delete the log row — keeps token stats and metadata.
+pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
+    if retention_days == 0 {
+        return Ok(());
+    }
+    let cutoff = chrono::Utc::now() - chrono::Duration::days(retention_days as i64);
+    let cutoff_str = cutoff.to_rfc3339();
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE proxy_logs SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '' WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '')",
+        params![cutoff_str],
+    ).map_err(|e| format!("cleanup upstream request fields: {e}"))?;
+    Ok(())
+}
+
 pub fn count_proxy_logs(db: &Db) -> Result<u32, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.query_row("SELECT COUNT(*) FROM proxy_logs", [], |row| row.get(0))

@@ -10,7 +10,11 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
   const [tab, setTab] = useState<Tab>("proxy");
   const [autostart, setAutostart] = useState(false);
   const [logEnabled, setLogEnabled] = useState(false);
-  const [logRetention, setLogRetention] = useState(7);
+  const [logRetention, setLogRetention] = useState(90);
+  const [logUserReq, setLogUserReq] = useState(true);
+  const [logUpstreamReq, setLogUpstreamReq] = useState(true);
+  const [userReqRetention, setUserReqRetention] = useState(7);
+  const [upstreamReqRetention, setUpstreamReqRetention] = useState(7);
   const [reqTimeout, setReqTimeout] = useState(300);
   const [connTimeout, setConnTimeout] = useState(10);
   const [logFileEnabled, setLogFileEnabled] = useState(true);
@@ -28,6 +32,10 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
         const ls = await proxyLogApi.getSettings();
         setLogEnabled(ls.enabled);
         setLogRetention(ls.retention_days);
+        setLogUserReq(ls.log_user_request);
+        setLogUpstreamReq(ls.log_upstream_request);
+        setUserReqRetention(ls.user_request_retention_days);
+        setUpstreamReqRetention(ls.upstream_request_retention_days);
       } catch { /* defaults */ }
       try {
         const ts = await proxyTimeoutApi.get();
@@ -50,19 +58,27 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
     } catch (e: any) { setMessage(e.toString()); }
   };
 
+  const buildLogSettings = (): ProxyLogSettings => ({
+    enabled: logEnabled,
+    log_user_request: logUserReq,
+    log_upstream_request: logUpstreamReq,
+    user_request_retention_days: userReqRetention,
+    upstream_request_retention_days: upstreamReqRetention,
+    retention_days: logRetention,
+  });
+
   const handleLogEnabledChange = async (val: boolean) => {
     try {
-      const settings: ProxyLogSettings = { enabled: val, retention_days: logRetention };
+      const settings: ProxyLogSettings = { ...buildLogSettings(), enabled: val };
       await proxyLogApi.setSettings(settings);
       setLogEnabled(val);
       onLogSettingsChanged?.(val);
     } catch (e: any) { setMessage(e.toString()); }
   };
 
-  const handleLogRetentionChange = async (days: number) => {
-    setLogRetention(days);
+  const updateLogSettings = async (partial: Partial<ProxyLogSettings>) => {
+    const settings = { ...buildLogSettings(), ...partial };
     try {
-      const settings: ProxyLogSettings = { enabled: logEnabled, retention_days: days };
       await proxyLogApi.setSettings(settings);
     } catch (e: any) { setMessage(e.toString()); }
   };
@@ -201,22 +217,97 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
             </div>
 
             {logEnabled && (
-              <div style={{ display: "flex", gap: 12, alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-                <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                  {t("proxy.logRetention", "保留天数")}
-                </label>
-                <input
-                  className="input"
-                  type="number"
-                  min={0}
-                  value={logRetention}
-                  onChange={(e) => handleLogRetentionChange(Math.max(0, Number(e.target.value)))}
-                  style={{ width: 80 }}
-                />
-                <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-                  {logRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("proxy.logRetentionHint", "0 = 永久保留")}
-                </span>
-              </div>
+              <>
+                {/* Sub-toggles for recording scope */}
+                <div style={{ paddingTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{t("proxy.logUserReq", "记录用户原始请求")}</div>
+                      <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1 }}>
+                        {t("proxy.logUserReqDesc", "用户发送的请求头和请求体")}
+                      </div>
+                    </div>
+                    <div
+                      className={`toggle ${logUserReq ? "active" : ""}`}
+                      onClick={() => { setLogUserReq(!logUserReq); updateLogSettings({ log_user_request: !logUserReq }); }}
+                      role="switch"
+                      aria-checked={logUserReq}
+                      tabIndex={0}
+                    />
+                  </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 600 }}>{t("proxy.logUpstreamReq", "记录实际上游请求")}</div>
+                      <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1 }}>
+                        {t("proxy.logUpstreamReqDesc", "发送到上游平台的请求头和请求体")}
+                      </div>
+                    </div>
+                    <div
+                      className={`toggle ${logUpstreamReq ? "active" : ""}`}
+                      onClick={() => { setLogUpstreamReq(!logUpstreamReq); updateLogSettings({ log_upstream_request: !logUpstreamReq }); }}
+                      role="switch"
+                      aria-checked={logUpstreamReq}
+                      tabIndex={0}
+                    />
+                  </div>
+                </div>
+
+                {/* Retention settings */}
+                <div style={{ paddingTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
+                  {logUserReq && (
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
+                        {t("proxy.userReqRetention", "原始请求保留天数")}
+                      </label>
+                      <input
+                        className="input"
+                        type="number"
+                        min={0}
+                        value={userReqRetention}
+                        onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUserReqRetention(v); updateLogSettings({ user_request_retention_days: v }); }}
+                        style={{ width: 70 }}
+                      />
+                      <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                        {userReqRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
+                      </span>
+                    </div>
+                  )}
+                  {logUpstreamReq && (
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
+                        {t("proxy.upstreamReqRetention", "上游请求保留天数")}
+                      </label>
+                      <input
+                        className="input"
+                        type="number"
+                        min={0}
+                        value={upstreamReqRetention}
+                        onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUpstreamReqRetention(v); updateLogSettings({ upstream_request_retention_days: v }); }}
+                        style={{ width: 70 }}
+                      />
+                      <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                        {upstreamReqRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
+                      </span>
+                    </div>
+                  )}
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
+                      {t("proxy.logRetention", "日志记录保留天数")}
+                    </label>
+                    <input
+                      className="input"
+                      type="number"
+                      min={0}
+                      value={logRetention}
+                      onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setLogRetention(v); updateLogSettings({ retention_days: v }); }}
+                      style={{ width: 70 }}
+                    />
+                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                      {logRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
+                    </span>
+                  </div>
+                </div>
+              </>
             )}
           </div>
 

@@ -856,8 +856,11 @@ fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSettings) -> Resu
         key: "logging".into(),
         value,
     })?;
-    // When disabled, also run cleanup so stale logs don't accumulate
-    if !settings.enabled && settings.retention_days > 0 {
+    // Run field-level cleanup for user/upstream request data
+    let _ = gateway::db::cleanup_user_request_fields(&db, settings.user_request_retention_days);
+    let _ = gateway::db::cleanup_upstream_request_fields(&db, settings.upstream_request_retention_days);
+    // Delete entire log rows older than overall retention
+    if settings.retention_days > 0 {
         let _ = gateway::db::cleanup_proxy_logs(&db, settings.retention_days);
     }
     Ok(())
