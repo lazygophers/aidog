@@ -186,14 +186,14 @@ export function Platforms() {
     setFetching(false);
   };
 
-  /** 一键填充：把 default 模型填到所有空槽 */
+  /** 一键填充：把 default 模型填到所有槽位（覆盖已有值） */
   const handleFillAll = () => {
     const defaultModel = models.default.trim();
     if (!defaultModel) return;
     setModels(prev => {
       const next = { ...prev };
       for (const slot of MODEL_SLOTS) {
-        if (slot.key !== "default" && !next[slot.key].trim()) {
+        if (slot.key !== "default") {
           next[slot.key] = defaultModel;
         }
       }
