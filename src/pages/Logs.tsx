@@ -59,6 +59,17 @@ export function Logs() {
     } catch (e) { console.error(e); }
   };
 
+  // Auto-refresh detail every 2s while viewing
+  useEffect(() => {
+    if (!detail) return;
+    const id = setInterval(() => {
+      proxyLogApi.get(detail.id)
+        .then(d => { if (d) setDetail(d); })
+        .catch(() => {});
+    }, 2000);
+    return () => clearInterval(id);
+  }, [detail?.id]);
+
   // ── Detail modal ──
   if (detail) {
     const reqHeaders = safeParseJson(detail.request_headers);
