@@ -61,9 +61,11 @@ pub fn select_platform(
 
 /// 根据平台模型配置自动匹配请求模型。
 /// 匹配规则：请求模型名（小写）包含槽位名（opus/sonnet/haiku/gpt）→ 使用该槽位值；
-/// 全部不匹配 → 使用 default；无 default → 透传原始模型。
+/// 全部不匹配 → 使用 default；无 default → 透传原始模型（去掉 [... ] 后缀）。
 fn resolve_model(models: &PlatformModels, source_model: &str) -> String {
-    let lower = source_model.to_lowercase();
+    // Strip Claude Code budget suffix like [1m], [128k]
+    let base_model = source_model.split('[').next().unwrap_or(source_model);
+    let lower = base_model.to_lowercase();
     let slots: [(&str, &Option<String>); 4] = [
         ("opus", &models.opus),
         ("sonnet", &models.sonnet),
@@ -81,8 +83,8 @@ fn resolve_model(models: &PlatformModels, source_model: &str) -> String {
     if let Some(ref default) = models.default {
         return default.clone();
     }
-    // 无匹配无 default — 透传
-    source_model.to_string()
+    // 无匹配无 default — 透传（去掉 budget 后缀）
+    base_model.to_string()
 }
 
 /// 故障转移：按 priority 升序选第一个 enabled 的
