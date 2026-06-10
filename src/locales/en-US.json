@@ -29,7 +29,7 @@
   "nav.platforms": "AI Platforms",
   "nav.proxy": "Proxy",
   "nav.settings": "Settings",
-  "nav.appSettings": "App Settings",
+  
   "nav.claudeConfig": "Claude Code",
   "nav.logs": "Request Logs",
   "page.groups": "Groups & Routing",
