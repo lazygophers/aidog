@@ -99,11 +99,13 @@ pub fn from_responses(body: &Value) -> Option<ChatRequest> {
 }
 
 /// Responses API SSE 解析（与 OpenAI Chat 兼容）
+#[allow(dead_code)]
 pub fn parse_responses_sse(data: &Value) -> Option<ChatStreamEvent> {
     super::openai::parse_openai_sse(data)
 }
 
 /// 将 ChatStreamEvent 转为 Responses API SSE 格式
+#[allow(dead_code)]
 pub fn to_responses_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
     // Responses API SSE 与 OpenAI Chat Completions 格式相似
     super::openai::to_openai_sse(event, model)

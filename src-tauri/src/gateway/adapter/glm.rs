@@ -28,6 +28,7 @@ pub struct GlmRequest {
 }
 
 /// 转为 GLM 格式（复用 OpenAI 消息转换，附加 GLM 特有字段）
+#[allow(dead_code)]
 pub fn to_glm(req: &ChatRequest) -> GlmRequest {
     let openai_req = super::openai::to_openai(req);
     GlmRequest {
@@ -44,6 +45,7 @@ pub fn to_glm(req: &ChatRequest) -> GlmRequest {
 }
 
 /// GLM SSE 与 OpenAI 兼容，直接复用
+#[allow(dead_code)]
 pub fn parse_glm_sse(data: &Value) -> Option<ChatStreamEvent> {
     super::openai::parse_openai_sse(data)
 }
