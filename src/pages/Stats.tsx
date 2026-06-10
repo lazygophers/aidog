@@ -45,7 +45,7 @@ export function Stats() {
   const { t } = useTranslation();
   const [data, setData] = useState<StatsResult | null>(null);
   const [loading, setLoading] = useState(true);
-  const [preset, setPreset] = useState<TimePreset>("7d");
+  const [preset, setPreset] = useState<TimePreset>("today");
   const [granularity, setGranularity] = useState<"daily" | "hourly">("daily");
   const [groupBy, setGroupBy] = useState<"platform" | "model" | "group">("platform");
   const [filterGroup, setFilterGroup] = useState("");
