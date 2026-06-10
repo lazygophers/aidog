@@ -17,6 +17,44 @@ export function Logs() {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<ProxyLogDetail | null>(null);
   const [detailTab, setDetailTab] = useState<"request" | "response">("request");
+  const [copied, setCopied] = useState(false);
+
+  const copyDetail = async (d: ProxyLogDetail) => {
+    const formatJson = (s: string) => {
+      try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; }
+    };
+    const lines = [
+      `# Proxy Log ${d.id}`,
+      ``,
+      `## Meta`,
+      `- ID: ${d.id}`,
+      `- Group: ${d.group_name}`,
+      `- Model: ${d.model || "-"}`,
+      `- Actual Model: ${d.actual_model || "-"}`,
+      `- Source Protocol: ${d.source_protocol || "-"}`,
+      `- Target Protocol: ${d.target_protocol || "-"}`,
+      `- Status: ${d.status_code}`,
+      `- Duration: ${d.duration_ms} ms`,
+      `- Input Tokens: ${d.input_tokens}`,
+      `- Output Tokens: ${d.output_tokens}`,
+      `- Cache Tokens: ${d.cache_tokens}`,
+      `- Time: ${d.created_at}`,
+      ``,
+      `## Request Headers`,
+      formatJson(d.request_headers),
+      ``,
+      `## Request Body`,
+      formatJson(d.request_body),
+      ``,
+      `## Response Body`,
+      d.response_body === "[stream]" ? "(streaming, not captured)" : formatJson(d.response_body),
+    ];
+    try {
+      await navigator.clipboard.writeText(lines.join("\n"));
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (e) { console.error(e); }
+  };
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -88,6 +126,13 @@ export function Logs() {
           </button>
           <button className="btn btn-ghost btn-icon" onClick={() => openDetail(detail.id)} title={t("logs.refresh", "刷新")}>
             <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
+          </button>
+          <button className="btn btn-ghost btn-icon" onClick={() => copyDetail(detail)} title={t("logs.copyAll", "复制完整信息")}>
+            {copied ? (
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="var(--color-success, #34c759)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
+            )}
           </button>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: F.title, fontWeight: 700 }}>{t("logs.detail", "请求详情")}</div>
@@ -187,6 +232,7 @@ export function Logs() {
                   <ThCell>{t("logs.duration")}</ThCell>
                   <ThCell>{t("logs.inputTokens")}</ThCell>
                   <ThCell>{t("logs.outputTokens")}</ThCell>
+                  <ThCell>{""}</ThCell>
                 </tr>
               </thead>
               <tbody>
@@ -206,6 +252,22 @@ export function Logs() {
                     <TdCell>{log.duration_ms}ms</TdCell>
                     <TdCell>{log.input_tokens || "-"}</TdCell>
                     <TdCell>{log.output_tokens || "-"}</TdCell>
+                    <TdCell>
+                      <button
+                        className="btn btn-ghost btn-icon"
+                        style={{ padding: 2 }}
+                        title={t("logs.copyAll", "复制完整信息")}
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            const d = await proxyLogApi.get(log.id);
+                            if (d) await copyDetail(d);
+                          } catch (err) { console.error(err); }
+                        }}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
+                      </button>
+                    </TdCell>
                   </tr>
                 ))}
               </tbody>
