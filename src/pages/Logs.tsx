@@ -16,7 +16,7 @@ export function Logs() {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<ProxyLogDetail | null>(null);
-  const [detailTab, setDetailTab] = useState<"request" | "response">("request");
+  const [detailTab, setDetailTab] = useState<"original" | "upstream" | "response">("original");
   const [copied, setCopied] = useState(false);
 
   const copyDetail = async (d: ProxyLogDetail) => {
@@ -40,13 +40,21 @@ export function Logs() {
       `- Cache Tokens: ${d.cache_tokens}`,
       `- Time: ${d.created_at}`,
       ``,
-      `## Request Headers`,
+      `## Original Request (Client → Proxy)`,
+      `### Headers`,
       formatJson(d.request_headers),
       ``,
-      `## Request Body`,
+      `### Body`,
       formatJson(d.request_body),
       ``,
-      `## Response Body`,
+      `## Upstream Request (Proxy → Platform)`,
+      `### Headers`,
+      formatJson(d.upstream_request_headers),
+      ``,
+      `### Body`,
+      d.upstream_request_body ? formatJson(d.upstream_request_body) : "(not captured)",
+      ``,
+      `## Response`,
       d.response_body === "[stream]" ? "(streaming, not captured)" : formatJson(d.response_body),
     ];
     try {
@@ -112,6 +120,10 @@ export function Logs() {
   if (detail) {
     const reqHeaders = safeParseJson(detail.request_headers);
     const reqBody = safeParseJson(detail.request_body);
+    const upstreamHeaders = safeParseJson(detail.upstream_request_headers);
+    const upstreamBody = detail.upstream_request_body
+      ? safeParseJson(detail.upstream_request_body)
+      : null;
     const respBody = detail.response_body === "[stream]"
       ? t("logs.streamResponse", "(流式响应，内容未记录)")
       : safeParseJson(detail.response_body);
@@ -155,12 +167,16 @@ export function Logs() {
           <MetaItem label={t("logs.time", "时间")} value={new Date(detail.created_at).toLocaleString()} />
         </div>
 
-        {/* Tabs: Request / Response */}
+        {/* Tabs: Original Request / Upstream Request / Response */}
         <div className="glass-surface" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
           <div style={{ display: "flex", gap: 8 }}>
-            <button className={`btn ${detailTab === "request" ? "btn-primary" : ""}`} style={{ fontSize: F.hint }}
-              onClick={() => setDetailTab("request")}>
-              {t("logs.request", "请求")}
+            <button className={`btn ${detailTab === "original" ? "btn-primary" : ""}`} style={{ fontSize: F.hint }}
+              onClick={() => setDetailTab("original")}>
+              {t("logs.originalRequest", "原始请求")}
+            </button>
+            <button className={`btn ${detailTab === "upstream" ? "btn-primary" : ""}`} style={{ fontSize: F.hint }}
+              onClick={() => setDetailTab("upstream")}>
+              {t("logs.upstreamRequest", "上游请求")}
             </button>
             <button className={`btn ${detailTab === "response" ? "btn-primary" : ""}`} style={{ fontSize: F.hint }}
               onClick={() => setDetailTab("response")}>
@@ -168,12 +184,28 @@ export function Logs() {
             </button>
           </div>
 
-          {detailTab === "request" ? (
+          {detailTab === "original" ? (
             <>
               <div style={{ fontSize: F.hint, fontWeight: 600, color: "var(--text-secondary)" }}>{t("logs.headers", "请求头")}</div>
               <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>{JSON.stringify(reqHeaders, null, 2)}</pre>
               <div style={{ fontSize: F.hint, fontWeight: 600, color: "var(--text-secondary)" }}>{t("logs.body", "请求体")}</div>
               <pre className="code-block" style={{ maxHeight: 400, overflow: "auto" }}>{typeof reqBody === "string" ? reqBody : JSON.stringify(reqBody, null, 2)}</pre>
+            </>
+          ) : detailTab === "upstream" ? (
+            <>
+              <div style={{ fontSize: F.hint, fontWeight: 600, color: "var(--text-secondary)" }}>
+                {t("logs.upstreamRequest", "上游请求")}
+                <span style={{ fontWeight: 400, color: "var(--text-tertiary)", marginLeft: 8 }}>
+                  {detail.target_protocol.toUpperCase()}
+                </span>
+              </div>
+              <div style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{t("logs.headers", "请求头")}</div>
+              <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>{JSON.stringify(upstreamHeaders, null, 2)}</pre>
+              <div style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{t("logs.body", "请求体")}</div>
+              {upstreamBody
+                ? <pre className="code-block" style={{ maxHeight: 400, overflow: "auto" }}>{typeof upstreamBody === "string" ? upstreamBody : JSON.stringify(upstreamBody, null, 2)}</pre>
+                : <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontStyle: "italic" }}>{t("logs.noUpstream", "(未捕获上游请求)")}</div>
+              }
             </>
           ) : (
             <>

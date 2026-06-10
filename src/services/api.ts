@@ -233,6 +233,8 @@ export interface ProxyLogDetail {
   target_protocol: string;
   request_headers: string;
   request_body: string;
+  upstream_request_headers: string;
+  upstream_request_body: string;
   response_body: string;
   status_code: number;
   duration_ms: number;

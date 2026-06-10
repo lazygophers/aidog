@@ -63,6 +63,8 @@ impl Db {
             "ALTER TABLE proxy_logs ADD COLUMN cache_tokens INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE groups ADD COLUMN source_protocol TEXT NOT NULL DEFAULT 'anthropic'",
             "ALTER TABLE platforms ADD COLUMN endpoints TEXT NOT NULL DEFAULT '[]'",
+            "ALTER TABLE proxy_logs ADD COLUMN upstream_request_headers TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE proxy_logs ADD COLUMN upstream_request_body TEXT NOT NULL DEFAULT ''",
         ];
         for sql in &migrations {
             // Ignore "duplicate column" errors — column may already exist
@@ -686,9 +688,9 @@ pub fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
 pub fn upsert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT OR REPLACE INTO proxy_logs (id, group_name, model, actual_model, source_protocol, target_protocol, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15)",
-        params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.request_headers, log.request_body, log.response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.created_at],
+        "INSERT OR REPLACE INTO proxy_logs (id, group_name, model, actual_model, source_protocol, target_protocol, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)",
+        params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.created_at],
     ).map_err(|e| format!("upsert proxy log: {e}"))?;
     Ok(())
 }
@@ -726,7 +728,7 @@ pub fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at
+            "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at
              FROM proxy_logs WHERE id = ?1",
         )
         .map_err(|e| e.to_string())?;
@@ -740,13 +742,15 @@ pub fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog
             target_protocol: row.get(5)?,
             request_headers: row.get(6)?,
             request_body: row.get(7)?,
-            response_body: row.get(8)?,
-            status_code: row.get(9)?,
-            duration_ms: row.get(10)?,
-            input_tokens: row.get(11)?,
-            output_tokens: row.get(12)?,
-            cache_tokens: row.get(13)?,
-            created_at: row.get(14)?,
+            upstream_request_headers: row.get(8)?,
+            upstream_request_body: row.get(9)?,
+            response_body: row.get(10)?,
+            status_code: row.get(11)?,
+            duration_ms: row.get(12)?,
+            input_tokens: row.get(13)?,
+            output_tokens: row.get(14)?,
+            cache_tokens: row.get(15)?,
+            created_at: row.get(16)?,
         })
     })
     .optional()

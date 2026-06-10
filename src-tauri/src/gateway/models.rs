@@ -315,8 +315,15 @@ pub struct ProxyLog {
     pub source_protocol: String,
     /// 实际请求上游的协议
     pub target_protocol: String,
+    /// 原始请求头（用户发给代理的）
     pub request_headers: String,
+    /// 原始请求体（用户发给代理的）
     pub request_body: String,
+    /// 代理转发给上游的请求头
+    pub upstream_request_headers: String,
+    /// 代理转发给上游的请求体（协议转换后）
+    pub upstream_request_body: String,
+    /// 上游返回的响应体（非流式完整 JSON，流式为 "[stream]"）
     pub response_body: String,
     pub status_code: i32,
     pub duration_ms: i32,

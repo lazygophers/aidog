@@ -115,6 +115,8 @@ async fn handle_proxy(
         target_protocol: String::new(),
         request_headers: String::new(),
         request_body: String::new(),
+        upstream_request_headers: String::new(),
+        upstream_request_body: String::new(),
         response_body: String::new(),
         status_code: 0,
         duration_ms: 0,
@@ -295,6 +297,7 @@ async fn handle_proxy(
 
     // 协议转换
     let (req_body, api_path) = adapter::convert_request(&chat_req, target_protocol_enum);
+    let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
 
     // 构建目标 URL
     let base_url = target_base_url.trim_end_matches('/');
@@ -311,13 +314,23 @@ async fn handle_proxy(
         .connect_timeout(std::time::Duration::from_secs(conn_timeout))
         .build()
         .unwrap_or_else(|_| Client::new());
+
+    // ── 构建上游请求头（用于日志记录） ──
+    let upstream_headers = build_upstream_headers(&client_type, target_protocol_enum, &route.platform.api_key);
+
     let mut req_builder = client
         .post(&url)
         .header("Content-Type", "application/json")
-        .body(serde_json::to_string(&req_body).unwrap_or_default());
+        .body(req_body_str.clone());
 
     // ── 按 client_type + target_protocol 模拟对应客户端 header ──
     req_builder = apply_client_headers(req_builder, &client_type, target_protocol_enum, &route.platform.api_key);
+
+    // ── 记录上游实际请求 ──
+    log.upstream_request_headers = serde_json::Value::Object(
+        upstream_headers.into_iter().map(|(k, v)| (k, Value::String(v))).collect()
+    ).to_string();
+    log.upstream_request_body = format_pretty_json(&req_body_str);
 
     let resp = match req_builder.send().await {
         Ok(r) => r,
@@ -710,4 +723,78 @@ fn uuid_sim() -> String {
         ((ts >> 48) as u16) | 0x8000,
         ((ts >> 60) as u64) & 0xffffffffffff,
     )
+}
+
+/// 构建上游请求头 KV 表（用于日志记录，与 apply_client_headers 保持一致）
+fn build_upstream_headers(client_type: &ClientType, protocol: &super::models::Protocol, api_key: &str) -> Vec<(String, String)> {
+    let mut h: Vec<(String, String)> = vec![
+        ("Content-Type".into(), "application/json".into()),
+    ];
+    // auth header
+    match protocol {
+        super::models::Protocol::Anthropic => {
+            h.push(("anthropic-version".into(), "2023-06-01".into()));
+            h.push(("x-api-key".into(), redact_key(api_key)));
+        }
+        super::models::Protocol::Gemini => {
+            h.push(("x-goog-api-key".into(), redact_key(api_key)));
+        }
+        _ => {
+            h.push(("Authorization".into(), format!("Bearer {}", redact_key(api_key))));
+        }
+    }
+    // client-specific headers
+    match client_type {
+        ClientType::Default => {}
+        ClientType::ClaudeCode => {
+            h.push(("User-Agent".into(), "claude-cli/1.0.117 (external, undefined)".into()));
+            h.push(("x-app".into(), "cli".into()));
+            h.push(("anthropic-dangerous-direct-browser-access".into(), "true".into()));
+            h.push(("X-Stainless-Lang".into(), "js".into()));
+            h.push(("X-Stainless-Package-Version".into(), "0.60.0".into()));
+            h.push(("X-Stainless-OS".into(), "MacOS".into()));
+            h.push(("X-Stainless-Arch".into(), "arm64".into()));
+            h.push(("X-Stainless-Runtime".into(), "node".into()));
+            h.push(("X-Stainless-Runtime-Version".into(), "v22.19.0".into()));
+            h.push(("X-Stainless-Retry-Count".into(), "0".into()));
+            h.push(("X-Stainless-Timeout".into(), "600".into()));
+        }
+        ClientType::CodexCli => {
+            h.push(("User-Agent".into(), "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal".into()));
+            h.push(("originator".into(), "codex_cli_rs".into()));
+            h.push(("version".into(), "0.38.0".into()));
+            h.push(("Accept".into(), "text/event-stream".into()));
+            if matches!(protocol, super::models::Protocol::OpenAI) {
+                h.push(("OpenAI-Beta".into(), "responses=experimental".into()));
+                h.push(("conversation_id".into(), uuid_sim()));
+                h.push(("session_id".into(), uuid_sim()));
+            }
+        }
+        ClientType::Cursor => {
+            h.push(("User-Agent".into(), "Cursor/0.50.7".into()));
+            h.push(("x-app".into(), "cursor".into()));
+        }
+        ClientType::Windsurf => {
+            h.push(("User-Agent".into(), "Windsurf/1.5.0".into()));
+            h.push(("x-app".into(), "windsurf".into()));
+        }
+    }
+    h
+}
+
+/// Redact API key: show first 4 and last 4 chars, mask the rest
+fn redact_key(key: &str) -> String {
+    if key.len() <= 12 {
+        "[REDACTED]".into()
+    } else {
+        format!("{}****{}", &key[..4], &key[key.len()-4..])
+    }
+}
+
+/// Pretty-print JSON string; return original if parsing fails
+fn format_pretty_json(s: &str) -> String {
+    serde_json::from_str::<Value>(s)
+        .ok()
+        .and_then(|v| serde_json::to_string_pretty(&v).ok())
+        .unwrap_or_else(|| s.to_string())
 }
