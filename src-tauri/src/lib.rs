@@ -496,9 +496,18 @@ async fn model_test(
         extra: None,
     };
 
-    let (req_body, api_path) = gateway::adapter::convert_request(&chat_req, &platform.protocol);
+    // 优先使用 endpoint 匹配（同 proxy 逻辑），回退到平台主配置
+    let (target_protocol, target_base_url) = if !platform.endpoints.is_empty() {
+        // 取第一个 endpoint 作为测试目标
+        let ep = &platform.endpoints[0];
+        (ep.protocol.clone(), ep.base_url.clone())
+    } else {
+        (platform.protocol.clone(), platform.base_url.clone())
+    };
+
+    let (req_body, api_path) = gateway::adapter::convert_request(&chat_req, &target_protocol);
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
-    let base_url = platform.base_url.trim_end_matches('/');
+    let base_url = target_base_url.trim_end_matches('/');
     let url = format!("{}{}", base_url, api_path);
 
     let client = reqwest::Client::builder()
@@ -515,11 +524,15 @@ async fn model_test(
         .header("Content-Type", "application/json")
         .body(req_body_str.clone());
 
-    match platform.protocol {
+    match target_protocol {
         Protocol::Anthropic => {
             req_builder = req_builder
                 .header("anthropic-version", "2023-06-01")
                 .header("x-api-key", &platform.api_key);
+        }
+        Protocol::Gemini => {
+            req_builder = req_builder
+                .header("x-goog-api-key", &platform.api_key);
         }
         _ => {
             req_builder = req_builder
@@ -546,7 +559,7 @@ async fn model_test(
                 model: model.clone(),
                 actual_model: model,
                 source_protocol: "test".into(),
-                target_protocol: format!("{:?}", platform.protocol).to_lowercase(),
+                target_protocol: format!("{:?}", target_protocol).to_lowercase(),
                 platform_id: platform.id.clone(),
                 request_headers: r#"{"source":"model-test"}"#.into(),
                 request_body: serde_json::to_string(&serde_json::json!({"messages":[{"role":"user","content":prompt}]})).unwrap_or_default(),
@@ -586,7 +599,7 @@ async fn model_test(
             model: model.clone(),
             actual_model: model,
             source_protocol: "test".into(),
-            target_protocol: format!("{:?}", platform.protocol).to_lowercase(),
+            target_protocol: format!("{:?}", target_protocol).to_lowercase(),
             platform_id: platform.id.clone(),
             request_headers: r#"{"source":"model-test"}"#.into(),
             request_body: serde_json::to_string(&serde_json::json!({"messages":[{"role":"user","content":prompt}]})).unwrap_or_default(),
@@ -604,8 +617,8 @@ async fn model_test(
     }
 
     let resp_json: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
-    let response_text = extract_response_text(&resp_json, &platform.protocol);
-    let (in_tok, out_tok) = extract_test_usage(&resp_json, &platform.protocol);
+    let response_text = extract_response_text(&resp_json, &target_protocol);
+    let (in_tok, out_tok) = extract_test_usage(&resp_json, &target_protocol);
 
     let result = ModelTestResult {
         success: true,
@@ -625,7 +638,7 @@ async fn model_test(
         model: model.clone(),
         actual_model: model,
         source_protocol: "test".into(),
-        target_protocol: format!("{:?}", platform.protocol).to_lowercase(),
+        target_protocol: format!("{:?}", target_protocol).to_lowercase(),
         platform_id: platform.id.clone(),
         request_headers: r#"{"source":"model-test"}"#.into(),
         request_body: serde_json::to_string(&serde_json::json!({"messages":[{"role":"user","content":prompt}]})).unwrap_or_default(),

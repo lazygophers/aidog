@@ -14,11 +14,16 @@ const PROTOCOLS: { value: Protocol; label: string }[] = [
   { value: "bailian", label: "百炼" },
 ];
 
-/** Endpoint 协议只支持这三种标准格式 */
+/** Endpoint 协议：标准 AI 协议 + 供应商特定协议（路径不同但格式兼容） */
 const ENDPOINT_PROTOCOLS: { value: Protocol; label: string }[] = [
   { value: "openai", label: "OpenAI" },
   { value: "anthropic", label: "Anthropic" },
   { value: "gemini", label: "Gemini" },
+  { value: "glm", label: "GLM" },
+  { value: "kimi", label: "Kimi" },
+  { value: "minimax", label: "MiniMax" },
+  { value: "bailian", label: "百炼" },
+  { value: "codex", label: "Codex" },
 ];
 
 /** 客户端模拟选项：用于通过上游客户端校验 */
@@ -80,19 +85,23 @@ const DEFAULT_ENDPOINTS: Partial<Record<Protocol, PlatformEndpoint[]>> = {
   codex: [
     { protocol: "openai", base_url: "https://api.openai.com", client_type: "codex_tui" },
   ],
+  // GLM: 使用 glm 协议（OpenAI-compatible 格式但路径为 /api/paas/v4/chat/completions）
   glm: [
-    { protocol: "openai", base_url: "https://open.bigmodel.cn/api/paas/v4", client_type: "codex_tui" },
+    { protocol: "glm", base_url: "https://open.bigmodel.cn", client_type: "codex_tui" },
     { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic", client_type: "claude_code" },
   ],
+  // 百炼: 使用 bailian 协议（OpenAI-compatible 格式但路径为 /compatible-mode/v1/chat/completions）
   bailian: [
-    { protocol: "openai", base_url: "https://dashscope.aliyuncs.com/compatible-mode", client_type: "codex_tui" },
+    { protocol: "bailian", base_url: "https://dashscope.aliyuncs.com", client_type: "codex_tui" },
   ],
+  // MiniMax: 使用 minimax 协议（OpenAI-compatible 格式但路径为 /v1/text/chatcompletion_v2）
   minimax: [
-    { protocol: "openai", base_url: "https://api.minimaxi.com", client_type: "codex_tui" },
+    { protocol: "minimax", base_url: "https://api.minimaxi.com", client_type: "codex_tui" },
     { protocol: "anthropic", base_url: "https://api.minimaxi.com/anthropic", client_type: "claude_code" },
   ],
+  // Kimi: OpenAI-compatible, 标准路径 /v1/chat/completions
   kimi: [
-    { protocol: "openai", base_url: "https://api.moonshot.cn", client_type: "codex_tui" },
+    { protocol: "kimi", base_url: "https://api.moonshot.cn", client_type: "codex_tui" },
   ],
   gemini: [
     { protocol: "gemini", base_url: "https://generativelanguage.googleapis.com" },
@@ -183,6 +192,7 @@ export function Platforms() {
   const [fetchError, setFetchError] = useState("");
   const [saveError, setSaveError] = useState("");
 const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
+  const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
   const [showKey, setShowKey] = useState(false);
 
   // Form state
@@ -909,10 +919,16 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                         const defaultModel = p.models.default || p.available_models[0] || "";
                         const r = await modelTestApi.test({ platform_id: p.id, model: defaultModel, max_tokens: 64 });
                         setTestResults(prev => ({ ...prev, [p.id]: r.success ? "ok" : "fail" }));
-                      } catch {
+                        setToast({ text: r.success
+                          ? `${p.name}: ${t("platform.testOk", "测试成功")}${r.duration_ms > 0 ? ` (${r.duration_ms}ms)` : ""}`
+                          : `${p.name}: ${r.error || t("platform.testFail", "测试失败")}`,
+                          ok: r.success });
+                      } catch (e: any) {
                         setTestResults(prev => ({ ...prev, [p.id]: "fail" }));
+                        setToast({ text: `${p.name}: ${e?.message || t("platform.testFail", "测试失败")}`, ok: false });
                       }
                       setTestingId(null);
+                      setTimeout(() => setToast(null), 3000);
                     }}
                     title={t("platform.quickTest", "快速测试默认模型")}
                   >
@@ -960,6 +976,22 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             onClose={() => setTestingPlatform(null)}
             onResult={(success) => { if (testingPlatform) setTestResults(prev => ({ ...prev, [testingPlatform.id]: success ? "ok" : "fail" })); }}
           />
+        </div>
+      )}
+
+      {/* Test result toast */}
+      {toast && (
+        <div style={{
+          position: "fixed", bottom: 24, left: "50%", transform: "translateX(-50%)",
+          zIndex: 2000, pointerEvents: "none",
+          padding: "10px 20px", borderRadius: 10,
+          background: toast.ok ? "var(--color-success, #22c55e)" : "var(--color-danger, #ef4444)",
+          color: "#fff", fontSize: 13, fontWeight: 600,
+          boxShadow: "0 4px 20px rgba(0,0,0,0.25)",
+          opacity: 0.95,
+          transition: "opacity 0.3s",
+        }}>
+          {toast.ok ? "✓" : "✗"} {toast.text}
         </div>
       )}
     </>
