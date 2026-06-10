@@ -124,6 +124,8 @@ export const groupApi = {
     name?: string;
     path?: string;
     routing_mode?: RoutingMode;
+    request_timeout_secs?: number;
+    connect_timeout_secs?: number;
   }) => invoke<Group>("group_update", { input }),
 
   delete: (id: string) => invoke<void>("group_delete", { id }),

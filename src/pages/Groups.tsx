@@ -68,7 +68,9 @@ export function Groups() {
   const [editPath, setEditPath] = useState("");
   const [editMode, setEditMode] = useState<RoutingMode>("failover");
   const [editPlatformIds, setEditPlatformIds] = useState<string[]>([]);
-  const [editMappings, setEditMappings] = useState<{ id?: string; source_model: string; target_platform_id: string; target_model: string }[]>([]);
+  const [editMappings, setEditMappings] = useState<{ id?: string; source_model: string; target_platform_id: string; target_model: string; request_timeout_secs?: number; connect_timeout_secs?: number }[]>([]);
+  const [editReqTimeout, setEditReqTimeout] = useState(0);
+  const [editConnTimeout, setEditConnTimeout] = useState(0);
 
   // Create mode
   const [showCreate, setShowCreate] = useState(false);
@@ -107,7 +109,11 @@ export function Groups() {
       source_model: m.source_model,
       target_platform_id: m.target_platform_id,
       target_model: m.target_model,
+      request_timeout_secs: m.request_timeout_secs,
+      connect_timeout_secs: m.connect_timeout_secs,
     })));
+    setEditReqTimeout(detail.group.request_timeout_secs);
+    setEditConnTimeout(detail.group.connect_timeout_secs);
   };
 
   const cancelEdit = () => {
@@ -117,6 +123,8 @@ export function Groups() {
     setEditMode("failover");
     setEditPlatformIds([]);
     setEditMappings([]);
+    setEditReqTimeout(0);
+    setEditConnTimeout(0);
   };
 
   const saveEdit = async () => {
@@ -128,6 +136,8 @@ export function Groups() {
         name: editName,
         path: editPath,
         routing_mode: editMode,
+        request_timeout_secs: editReqTimeout,
+        connect_timeout_secs: editConnTimeout,
       });
 
       // Update platforms
@@ -259,6 +269,20 @@ export function Groups() {
               <option value="failover">{t("group.failover")}</option>
               <option value="load_balance">{t("group.loadBalance")}</option>
             </select>
+          </div>
+
+          {/* Timeout */}
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.timeout", "超时")}</span>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <input className="input" type="number" min={0} placeholder={t("group.reqTimeout", "请求(s)")}
+                value={editReqTimeout || ""} onChange={e => setEditReqTimeout(Math.max(0, Number(e.target.value)))}
+                style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
+              <input className="input" type="number" min={0} placeholder={t("group.connTimeout", "连接(s)")}
+                value={editConnTimeout || ""} onChange={e => setEditConnTimeout(Math.max(0, Number(e.target.value)))}
+                style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
+              <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>0 = 系统默认</span>
+            </div>
           </div>
 
           {/* Auto badge */}
