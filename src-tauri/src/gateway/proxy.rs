@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use super::adapter::{self, ChatRequest, ChatStreamEvent};
 use super::db::Db;
-use super::models::Group;
+use super::models::{Group, ProxyLog, ProxyLogSettings};
 use super::router::select_platform;
 
 /// 代理服务器共享状态
@@ -55,11 +55,44 @@ pub async fn start_proxy(
     Ok((handle, actual_port))
 }
 
+/// Read logging settings from DB
+fn get_log_settings(db: &Db) -> ProxyLogSettings {
+    super::db::get_setting(db, "proxy", "logging")
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default()
+}
+
 /// 主代理处理函数
 async fn handle_proxy(
     AxumState(state): AxumState<Arc<ProxyState>>,
     req: Request,
 ) -> Response {
+    let start = std::time::Instant::now();
+
+    // Capture request headers for logging
+    let req_headers_json = {
+        let mut h = serde_json::Map::new();
+        for (k, v) in req.headers() {
+            if let Ok(s) = v.to_str() {
+                // Redact Authorization value
+                if k == "authorization" {
+                    h.insert(k.to_string(), Value::String("[REDACTED]".into()));
+                } else {
+                    h.insert(k.to_string(), Value::String(s.to_string()));
+                }
+            }
+        }
+        serde_json::Value::Object(h).to_string()
+    };
+
+    // Check logging enabled
+    let log_settings = {
+        let db = state.db.lock().unwrap_or_else(|e| e.into_inner());
+        get_log_settings(&db)
+    };
+
     // 优先从 Authorization header 提取 group name（Bearer token）
     // 回退到 path 前缀匹配
     let group = {
@@ -104,12 +137,15 @@ async fn handle_proxy(
         Err(e) => return (StatusCode::BAD_REQUEST, format!("read body: {e}")).into_response(),
     };
 
+    let req_body_str = String::from_utf8_lossy(&bytes).to_string();
+
     let mut chat_req: ChatRequest = match serde_json::from_slice(&bytes) {
         Ok(r) => r,
         Err(e) => return (StatusCode::BAD_REQUEST, format!("parse request: {e}")).into_response(),
     };
 
     let is_stream = chat_req.stream.unwrap_or(false);
+    let requested_model = chat_req.model.clone();
 
     // 路由选择平台 + 模型映射
     let route = {
@@ -154,12 +190,23 @@ async fn handle_proxy(
 
     let resp = match req_builder.send().await {
         Ok(r) => r,
-        Err(e) => return (StatusCode::BAD_GATEWAY, format!("upstream: {e}")).into_response(),
+        Err(e) => {
+            let duration_ms = start.elapsed().as_millis() as i32;
+            if log_settings.enabled {
+                try_log(&state, &group.name, &requested_model, &req_headers_json, &req_body_str, "", 502, duration_ms, 0, 0);
+            }
+            return (StatusCode::BAD_GATEWAY, format!("upstream: {e}")).into_response();
+        }
     };
 
     let status = resp.status();
     if !status.is_success() {
         let body = resp.text().await.unwrap_or_default();
+        let status_code = status.as_u16() as i32;
+        let duration_ms = start.elapsed().as_millis() as i32;
+        if log_settings.enabled {
+            try_log(&state, &group.name, &requested_model, &req_headers_json, &req_body_str, &body, status_code, duration_ms, 0, 0);
+        }
         return (StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY), body)
             .into_response();
     }
@@ -167,6 +214,16 @@ async fn handle_proxy(
     // 非流式：直接透传 JSON
     if !is_stream {
         let body = resp.bytes().await.unwrap_or_default();
+        let duration_ms = start.elapsed().as_millis() as i32;
+        let resp_str = String::from_utf8_lossy(&body).to_string();
+
+        // Extract usage tokens from response
+        let (input_tokens, output_tokens) = extract_usage(&resp_str);
+
+        if log_settings.enabled {
+            try_log(&state, &group.name, &requested_model, &req_headers_json, &req_body_str, &resp_str, 200, duration_ms, input_tokens, output_tokens);
+        }
+
         return (
             StatusCode::OK,
             [(axum::http::header::CONTENT_TYPE, "application/json")],
@@ -177,6 +234,13 @@ async fn handle_proxy(
 
     // 流式：转换 SSE 格式为 Anthropic 格式返回
     let protocol = route.platform.protocol;
+
+    // Shared state to accumulate tokens from SSE stream
+    let tokens_acc = Arc::new(std::sync::atomic::AtomicI32::new(0));
+    let tokens_out = Arc::new(std::sync::atomic::AtomicI32::new(0));
+    let acc_in = tokens_acc.clone();
+    let acc_out = tokens_out.clone();
+
     let stream = resp.bytes_stream().map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
@@ -189,7 +253,6 @@ async fn handle_proxy(
         for line in text.lines() {
             if let Some(data) = line.strip_prefix("data: ") {
                 if data.trim() == "[DONE]" {
-                    // OpenAI 结束标记 → 转为 Anthropic stop
                     output.push_str(&adapter::to_anthropic_sse(&ChatStreamEvent::Stop {
                         finish_reason: Some("end_turn".to_string()),
                     }).unwrap_or_default());
@@ -197,6 +260,16 @@ async fn handle_proxy(
                 }
 
                 if let Ok(json) = serde_json::from_str::<Value>(data) {
+                    // Extract usage from stream events
+                    if let Some(usage) = json.get("usage") {
+                        if let Some(i) = usage.get("prompt_tokens").and_then(|v| v.as_i64()) {
+                            acc_in.store(i as i32, std::sync::atomic::Ordering::Relaxed);
+                        }
+                        if let Some(o) = usage.get("completion_tokens").and_then(|v| v.as_i64()).or_else(|| usage.get("output_tokens").and_then(|v| v.as_i64())) {
+                            acc_out.store(o as i32, std::sync::atomic::Ordering::Relaxed);
+                        }
+                    }
+
                     if let Some(event) = adapter::parse_sse(&json, &protocol) {
                         if let Some(sse) = adapter::to_anthropic_sse(&event) {
                             output.push_str(&sse);
@@ -211,6 +284,14 @@ async fn handle_proxy(
 
     let body = Body::from_stream(stream);
 
+    // Log for streaming response — tokens captured from SSE
+    let duration_ms = start.elapsed().as_millis() as i32;
+    if log_settings.enabled {
+        let in_t = tokens_acc.load(std::sync::atomic::Ordering::Relaxed);
+        let out_t = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
+        try_log(&state, &group.name, &requested_model, &req_headers_json, &req_body_str, "[stream]", 200, duration_ms, in_t, out_t);
+    }
+
     (
         StatusCode::OK,
         [
@@ -221,6 +302,60 @@ async fn handle_proxy(
         body,
     )
         .into_response()
+}
+
+/// Extract input/output tokens from non-stream response JSON
+fn extract_usage(body: &str) -> (i32, i32) {
+    let v: Value = match serde_json::from_str(body) {
+        Ok(v) => v,
+        Err(_) => return (0, 0),
+    };
+    let usage = match v.get("usage") {
+        Some(u) => u,
+        None => return (0, 0),
+    };
+    let input = usage.get("input_tokens")
+        .or_else(|| usage.get("prompt_tokens"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0) as i32;
+    let output = usage.get("output_tokens")
+        .or_else(|| usage.get("completion_tokens"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(0) as i32;
+    (input, output)
+}
+
+/// Attempt to insert a proxy log entry; silently ignore errors
+fn try_log(
+    state: &Arc<ProxyState>,
+    group_name: &str,
+    model: &str,
+    req_headers: &str,
+    req_body: &str,
+    resp_body: &str,
+    status_code: i32,
+    duration_ms: i32,
+    input_tokens: i32,
+    output_tokens: i32,
+) {
+    let db = match state.db.lock() {
+        Ok(d) => d,
+        Err(_) => return,
+    };
+    let log = ProxyLog {
+        id: uuid::Uuid::new_v4().to_string(),
+        group_name: group_name.to_string(),
+        model: model.to_string(),
+        request_headers: req_headers.to_string(),
+        request_body: req_body.to_string(),
+        response_body: resp_body.to_string(),
+        status_code,
+        duration_ms,
+        input_tokens,
+        output_tokens,
+        created_at: chrono::Utc::now().to_rfc3339(),
+    };
+    let _ = super::db::insert_proxy_log(&db, &log);
 }
 
 /// 根据 path 前缀匹配分组

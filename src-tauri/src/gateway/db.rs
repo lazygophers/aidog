@@ -566,3 +566,93 @@ pub fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
         .map_err(|e| e.to_string())?;
     rows.collect::<SqlResult<Vec<_>>>().map_err(|e| e.to_string())
 }
+
+// ─── ProxyLog CRUD ─────────────────────────────────────────
+
+pub fn insert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO proxy_logs (id, group_name, model, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, created_at)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11)",
+        params![log.id, log.group_name, log.model, log.request_headers, log.request_body, log.response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.created_at],
+    ).map_err(|e| format!("insert proxy log: {e}"))?;
+    Ok(())
+}
+
+pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::models::ProxyLogSummary>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, group_name, model, status_code, duration_ms, input_tokens, output_tokens, created_at
+             FROM proxy_logs ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
+        )
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(params![limit, offset], |row| {
+            Ok(super::models::ProxyLogSummary {
+                id: row.get(0)?,
+                group_name: row.get(1)?,
+                model: row.get(2)?,
+                status_code: row.get(3)?,
+                duration_ms: row.get(4)?,
+                input_tokens: row.get(5)?,
+                output_tokens: row.get(6)?,
+                created_at: row.get(7)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    rows.collect::<SqlResult<Vec<_>>>().map_err(|e| e.to_string())
+}
+
+pub fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, group_name, model, request_headers, request_body, response_body, status_code, duration_ms, input_tokens, output_tokens, created_at
+             FROM proxy_logs WHERE id = ?1",
+        )
+        .map_err(|e| e.to_string())?;
+    stmt.query_row(params![id], |row| {
+        Ok(super::models::ProxyLog {
+            id: row.get(0)?,
+            group_name: row.get(1)?,
+            model: row.get(2)?,
+            request_headers: row.get(3)?,
+            request_body: row.get(4)?,
+            response_body: row.get(5)?,
+            status_code: row.get(6)?,
+            duration_ms: row.get(7)?,
+            input_tokens: row.get(8)?,
+            output_tokens: row.get(9)?,
+            created_at: row.get(10)?,
+        })
+    })
+    .optional()
+    .map_err(|e| e.to_string())
+}
+
+pub fn clear_proxy_logs(db: &Db) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM proxy_logs", [])
+        .map_err(|e| format!("clear proxy logs: {e}"))?;
+    Ok(())
+}
+
+/// Delete logs older than N days. Pass 0 to skip.
+pub fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> Result<(), String> {
+    if retention_days == 0 {
+        return Ok(());
+    }
+    let cutoff = chrono::Utc::now() - chrono::Duration::days(retention_days as i64);
+    let cutoff_str = cutoff.to_rfc3339();
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("DELETE FROM proxy_logs WHERE created_at < ?1", params![cutoff_str])
+        .map_err(|e| format!("cleanup proxy logs: {e}"))?;
+    Ok(())
+}
+
+pub fn count_proxy_logs(db: &Db) -> Result<u32, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.query_row("SELECT COUNT(*) FROM proxy_logs", [], |row| row.get(0))
+        .map_err(|e| e.to_string())
+}

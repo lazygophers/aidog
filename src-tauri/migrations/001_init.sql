@@ -51,3 +51,20 @@ CREATE TABLE IF NOT EXISTS settings (
     updated_at  TEXT NOT NULL,
     PRIMARY KEY (scope, key)
 );
+
+CREATE TABLE IF NOT EXISTS proxy_logs (
+    id              TEXT PRIMARY KEY,
+    group_name      TEXT NOT NULL,
+    model           TEXT NOT NULL DEFAULT '',
+    request_headers TEXT NOT NULL DEFAULT '{}',
+    request_body    TEXT NOT NULL DEFAULT '',
+    response_body   TEXT NOT NULL DEFAULT '',
+    status_code     INTEGER NOT NULL DEFAULT 0,
+    duration_ms     INTEGER NOT NULL DEFAULT 0,
+    input_tokens    INTEGER NOT NULL DEFAULT 0,
+    output_tokens   INTEGER NOT NULL DEFAULT 0,
+    created_at      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_proxy_logs_group ON proxy_logs(group_name);
+CREATE INDEX IF NOT EXISTS idx_proxy_logs_created ON proxy_logs(created_at);

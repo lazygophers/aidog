@@ -31,6 +31,12 @@ const icons = {
       <circle cx="9" cy="9" r="2.5" />
     </svg>
   ),
+  logs: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 3h12v12H3z" />
+      <path d="M6 6h6M6 9h4M6 12h5" />
+    </svg>
+  ),
   chevron: (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 4.5L6 7.5L9 4.5" />

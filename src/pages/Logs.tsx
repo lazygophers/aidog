@@ -1,0 +1,241 @@
+import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  proxyLogApi,
+  type ProxyLogSummary,
+  type ProxyLogDetail,
+} from "../services/api";
+
+const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
+const PAGE_SIZE = 50;
+
+export function Logs() {
+  const { t } = useTranslation();
+  const [logs, setLogs] = useState<ProxyLogSummary[]>([]);
+  const [total, setTotal] = useState(0);
+  const [offset, setOffset] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [detail, setDetail] = useState<ProxyLogDetail | null>(null);
+  const [detailTab, setDetailTab] = useState<"request" | "response">("request");
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [items, count] = await Promise.all([
+        proxyLogApi.list(PAGE_SIZE, offset),
+        proxyLogApi.count(),
+      ]);
+      setLogs(items || []);
+      setTotal(count);
+    } catch (e) { console.error(e); }
+    setLoading(false);
+  }, [offset]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleClear = async () => {
+    if (!confirm(t("logs.clearConfirm", "确认清除所有日志？此操作不可撤销。"))) return;
+    try {
+      await proxyLogApi.clear();
+      setOffset(0);
+      load();
+    } catch (e) { console.error(e); }
+  };
+
+  const openDetail = async (id: string) => {
+    try {
+      const d = await proxyLogApi.get(id);
+      if (d) { setDetail(d); setDetailTab("request"); }
+    } catch (e) { console.error(e); }
+  };
+
+  // ── Detail modal ──
+  if (detail) {
+    const reqHeaders = safeParseJson(detail.request_headers);
+    const reqBody = safeParseJson(detail.request_body);
+    const respBody = detail.response_body === "[stream]"
+      ? t("logs.streamResponse", "(流式响应，内容未记录)")
+      : safeParseJson(detail.response_body);
+
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 800, width: "100%" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button className="btn btn-ghost btn-icon" onClick={() => setDetail(null)}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: F.title, fontWeight: 700 }}>{t("logs.detail", "请求详情")}</div>
+            <div className="text-secondary" style={{ fontSize: F.hint }}>{detail.id.slice(0, 8)}</div>
+          </div>
+        </div>
+
+        {/* Meta */}
+        <div className="glass-surface" style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
+          <MetaItem label={t("logs.group", "分组")} value={detail.group_name} />
+          <MetaItem label={t("logs.model", "模型")} value={detail.model || "-"} />
+          <MetaItem label={t("logs.status", "状态")} value={`${detail.status_code}`} highlight={detail.status_code === 200 ? "ok" : "err"} />
+          <MetaItem label={t("logs.duration", "耗时")} value={`${detail.duration_ms} ms`} />
+          <MetaItem label={t("logs.inputTokens", "输入 Token")} value={`${detail.input_tokens}`} />
+          <MetaItem label={t("logs.outputTokens", "输出 Token")} value={`${detail.output_tokens}`} />
+          <MetaItem label={t("logs.time", "时间")} value={new Date(detail.created_at).toLocaleString()} />
+        </div>
+
+        {/* Tabs: Request / Response */}
+        <div className="glass-surface" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className={`btn ${detailTab === "request" ? "btn-primary" : ""}`} style={{ fontSize: F.hint }}
+              onClick={() => setDetailTab("request")}>
+              {t("logs.request", "请求")}
+            </button>
+            <button className={`btn ${detailTab === "response" ? "btn-primary" : ""}`} style={{ fontSize: F.hint }}
+              onClick={() => setDetailTab("response")}>
+              {t("logs.response", "响应")}
+            </button>
+          </div>
+
+          {detailTab === "request" ? (
+            <>
+              <div style={{ fontSize: F.hint, fontWeight: 600, color: "var(--text-secondary)" }}>{t("logs.headers", "请求头")}</div>
+              <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>{JSON.stringify(reqHeaders, null, 2)}</pre>
+              <div style={{ fontSize: F.hint, fontWeight: 600, color: "var(--text-secondary)" }}>{t("logs.body", "请求体")}</div>
+              <pre className="code-block" style={{ maxHeight: 400, overflow: "auto" }}>{typeof reqBody === "string" ? reqBody : JSON.stringify(reqBody, null, 2)}</pre>
+            </>
+          ) : (
+            <>
+              <div style={{ fontSize: F.hint, fontWeight: 600, color: "var(--text-secondary)" }}>{t("logs.responseBody", "响应体")}</div>
+              <pre className="code-block" style={{ maxHeight: 500, overflow: "auto" }}>{typeof respBody === "string" ? respBody : JSON.stringify(respBody, null, 2)}</pre>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── List view ──
+  const totalPages = Math.ceil(total / PAGE_SIZE);
+  const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 900, width: "100%" }}>
+      {/* Header */}
+      <div className="section-header" style={{ justifyContent: "space-between" }}>
+        <div>
+          <div className="section-title">{t("page.logs", "请求日志")}</div>
+          <div className="section-desc">
+            {total > 0 ? `${total} ${t("logs.total", "条记录")}` : t("logs.empty", "暂无日志")}
+          </div>
+        </div>
+        {total > 0 && (
+          <button className="btn btn-danger" onClick={handleClear} style={{ fontSize: F.hint }}>
+            {t("logs.clear", "清除全部")}
+          </button>
+        )}
+      </div>
+
+      {/* Log Table */}
+      {loading ? (
+        <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
+      ) : logs.length === 0 ? (
+        <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
+          <div className="text-tertiary" style={{ fontSize: F.hint }}>{t("logs.empty")}</div>
+        </div>
+      ) : (
+        <>
+          <div className="glass-surface" style={{ overflow: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: F.hint }}>
+              <thead>
+                <tr style={{ borderBottom: "1px solid var(--border)" }}>
+                  <ThCell>{t("logs.time")}</ThCell>
+                  <ThCell>{t("logs.group")}</ThCell>
+                  <ThCell>{t("logs.model")}</ThCell>
+                  <ThCell>{t("logs.status")}</ThCell>
+                  <ThCell>{t("logs.duration")}</ThCell>
+                  <ThCell>{t("logs.inputTokens")}</ThCell>
+                  <ThCell>{t("logs.outputTokens")}</ThCell>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log) => (
+                  <tr key={log.id}
+                    className="log-row"
+                    onClick={() => openDetail(log.id)}
+                    style={{ cursor: "pointer", borderBottom: "1px solid var(--border)" }}>
+                    <TdCell>{new Date(log.created_at).toLocaleString()}</TdCell>
+                    <TdCell><span className="badge badge-accent" style={{ fontSize: 11 }}>{log.group_name}</span></TdCell>
+                    <TdCell><span style={{ fontWeight: 500 }}>{log.model || "-"}</span></TdCell>
+                    <TdCell>
+                      <span style={{ color: log.status_code === 200 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)" }}>
+                        {log.status_code}
+                      </span>
+                    </TdCell>
+                    <TdCell>{log.duration_ms}ms</TdCell>
+                    <TdCell>{log.input_tokens || "-"}</TdCell>
+                    <TdCell>{log.output_tokens || "-"}</TdCell>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
+              <button className="btn" disabled={currentPage <= 1}
+                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
+                ←
+              </button>
+              <span className="text-secondary" style={{ fontSize: F.hint }}>
+                {currentPage} / {totalPages}
+              </span>
+              <button className="btn" disabled={currentPage >= totalPages}
+                onClick={() => setOffset(offset + PAGE_SIZE)}>
+                →
+              </button>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+// ── Helpers ──
+
+function safeParseJson(str: string): any {
+  try { return JSON.parse(str); } catch { return str; }
+}
+
+function MetaItem({ label, value, highlight }: { label: string; value: string; highlight?: "ok" | "err" }) {
+  return (
+    <div>
+      <div style={{ fontSize: F.small, color: "var(--text-tertiary)", marginBottom: 2 }}>{label}</div>
+      <div style={{
+        fontSize: F.body, fontWeight: 600,
+        color: highlight === "ok" ? "var(--color-success, #34c759)" : highlight === "err" ? "var(--color-danger, #ff3b30)" : "var(--text-primary)",
+      }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+function ThCell({ children }: { children: React.ReactNode }) {
+  return (
+    <th style={{
+      padding: "10px 14px", textAlign: "left", fontWeight: 600,
+      color: "var(--text-secondary)", whiteSpace: "nowrap", fontSize: F.small,
+    }}>
+      {children}
+    </th>
+  );
+}
+
+function TdCell({ children }: { children: React.ReactNode }) {
+  return (
+    <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
+      {children}
+    </td>
+  );
+}

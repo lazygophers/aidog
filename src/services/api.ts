@@ -186,6 +186,53 @@ export const configApi = {
     invoke<string[]>("sync_group_settings"),
 };
 
+// ─── Proxy Log Types ───────────────────────────────────────
+
+export interface ProxyLogSummary {
+  id: string;
+  group_name: string;
+  model: string;
+  status_code: number;
+  duration_ms: number;
+  input_tokens: number;
+  output_tokens: number;
+  created_at: string;
+}
+
+export interface ProxyLogDetail {
+  id: string;
+  group_name: string;
+  model: string;
+  request_headers: string;
+  request_body: string;
+  response_body: string;
+  status_code: number;
+  duration_ms: number;
+  input_tokens: number;
+  output_tokens: number;
+  created_at: string;
+}
+
+export interface ProxyLogSettings {
+  enabled: boolean;
+  retention_days: number;
+}
+
+// ─── Proxy Log API ─────────────────────────────────────────
+
+export const proxyLogApi = {
+  list: (limit = 50, offset = 0) =>
+    invoke<ProxyLogSummary[]>("proxy_log_list", { limit, offset }),
+  get: (id: string) =>
+    invoke<ProxyLogDetail | null>("proxy_log_get", { id }),
+  clear: () => invoke<void>("proxy_log_clear"),
+  count: () => invoke<number>("proxy_log_count"),
+  getSettings: () =>
+    invoke<ProxyLogSettings>("proxy_log_settings_get"),
+  setSettings: (settings: ProxyLogSettings) =>
+    invoke<void>("proxy_log_settings_set", { settings }),
+};
+
 // ─── Settings API ──────────────────────────────────────────
 
 export const settingsApi = {

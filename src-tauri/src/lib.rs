@@ -478,6 +478,56 @@ fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Result<Vec<S
     do_sync_group_settings(&db, proxy_settings.port)
 }
 
+// ─── Proxy Log Commands ────────────────────────────────────
+
+use gateway::models::{ProxyLog, ProxyLogSummary, ProxyLogSettings};
+
+#[tauri::command]
+fn proxy_log_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
+    gateway::db::list_proxy_logs(&db, limit, offset)
+}
+
+#[tauri::command]
+fn proxy_log_get(id: String, db: State<'_, Db>) -> Result<Option<ProxyLog>, String> {
+    gateway::db::get_proxy_log(&db, &id)
+}
+
+#[tauri::command]
+fn proxy_log_clear(db: State<'_, Db>) -> Result<(), String> {
+    gateway::db::clear_proxy_logs(&db)
+}
+
+#[tauri::command]
+fn proxy_log_count(db: State<'_, Db>) -> Result<u32, String> {
+    gateway::db::count_proxy_logs(&db)
+}
+
+#[tauri::command]
+fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSettings, String> {
+    let val = gateway::db::get_setting(&db, "proxy", "logging")
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    Ok(val)
+}
+
+#[tauri::command]
+fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSettings) -> Result<(), String> {
+    let value = serde_json::to_value(&settings)
+        .map_err(|e| format!("serialize log settings: {e}"))?;
+    gateway::db::set_setting(&db, gateway::models::SetSettingInput {
+        scope: "proxy".into(),
+        key: "logging".into(),
+        value,
+    })?;
+    // When disabled, also run cleanup so stale logs don't accumulate
+    if !settings.enabled && settings.retention_days > 0 {
+        let _ = gateway::db::cleanup_proxy_logs(&db, settings.retention_days);
+    }
+    Ok(())
+}
+
 // ─── Path Autocomplete ─────────────────────────────────────
 
 use serde::Serialize;
@@ -790,6 +840,13 @@ pub fn run() {
             // Config Export
             export_claude_config,
             sync_group_settings,
+            // Proxy Logs
+            proxy_log_list,
+            proxy_log_get,
+            proxy_log_clear,
+            proxy_log_count,
+            proxy_log_settings_get,
+            proxy_log_settings_set,
             // Settings
             fs_autocomplete,
             settings_get,

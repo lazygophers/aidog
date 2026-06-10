@@ -1,19 +1,48 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Sidebar, type NavItem } from "./components/Sidebar";
 import { Platforms } from "./pages/Platforms";
 import { Groups } from "./pages/Groups";
 import { Proxy } from "./pages/Proxy";
 import { Settings } from "./pages/Settings";
+import { Logs } from "./pages/Logs";
+import { proxyLogApi } from "./services/api";
 
-const NAV_ITEMS: NavItem[] = [
+const BASE_NAV: NavItem[] = [
   { id: "proxy", icon: "proxy", labelKey: "nav.proxy" },
   { id: "platforms", icon: "platforms", labelKey: "nav.platforms" },
   { id: "groups", icon: "groups", labelKey: "nav.groups" },
   { id: "settings", icon: "settings", labelKey: "nav.claudeConfig" },
 ];
 
+const LOG_NAV_ITEM: NavItem = { id: "logs", icon: "logs", labelKey: "nav.logs" };
+
 function App() {
   const [activeNav, setActiveNav] = useState("proxy");
+  const [logEnabled, setLogEnabled] = useState(false);
+
+  useEffect(() => {
+    proxyLogApi.getSettings()
+      .then(s => setLogEnabled(s.enabled))
+      .catch(() => {});
+  }, []);
+
+  // Refresh log nav when returning to proxy page (user may toggle setting)
+  const handleNavigate = (id: string) => {
+    setActiveNav(id);
+    if (id === "proxy" || id === "logs") {
+      proxyLogApi.getSettings()
+        .then(s => setLogEnabled(s.enabled))
+        .catch(() => {});
+    }
+  };
+
+  // Insert logs nav item after proxy when enabled
+  const navItems = logEnabled
+    ? [BASE_NAV[0], LOG_NAV_ITEM, ...BASE_NAV.slice(1)]
+    : BASE_NAV;
+
+  // If logs was active but logging got disabled, fallback to proxy
+  const effectiveNav = activeNav === "logs" && !logEnabled ? "proxy" : activeNav;
 
   return (
     <div style={{
@@ -24,20 +53,21 @@ function App() {
       gap: 12,
     }}>
       <Sidebar
-        navItems={NAV_ITEMS}
-        activeId={activeNav}
-        onNavigate={setActiveNav}
+        navItems={navItems}
+        activeId={effectiveNav}
+        onNavigate={handleNavigate}
       />
       <main style={{
         flex: 1,
         overflow: "auto",
         padding: "24px 32px",
       }}>
-        <div className="animate-fade-in" key={activeNav}>
-          {activeNav === "proxy" && <Proxy />}
-          {activeNav === "platforms" && <Platforms />}
-          {activeNav === "groups" && <Groups />}
-          {activeNav === "settings" && <Settings />}
+        <div className="animate-fade-in" key={effectiveNav}>
+          {effectiveNav === "proxy" && <Proxy onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} />}
+          {effectiveNav === "platforms" && <Platforms />}
+          {effectiveNav === "groups" && <Groups />}
+          {effectiveNav === "settings" && <Settings />}
+          {effectiveNav === "logs" && <Logs />}
         </div>
       </main>
     </div>

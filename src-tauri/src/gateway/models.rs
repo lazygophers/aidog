@@ -227,3 +227,56 @@ pub struct SetSettingInput {
     pub key: String,
     pub value: serde_json::Value,
 }
+
+// ─── ProxyLog ──────────────────────────────────────────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyLog {
+    pub id: String,
+    pub group_name: String,
+    pub model: String,
+    pub request_headers: String,
+    pub request_body: String,
+    pub response_body: String,
+    pub status_code: i32,
+    pub duration_ms: i32,
+    pub input_tokens: i32,
+    pub output_tokens: i32,
+    pub created_at: String,
+}
+
+/// Summary row for list view (excludes large body fields)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyLogSummary {
+    pub id: String,
+    pub group_name: String,
+    pub model: String,
+    pub status_code: i32,
+    pub duration_ms: i32,
+    pub input_tokens: i32,
+    pub output_tokens: i32,
+    pub created_at: String,
+}
+
+/// Proxy logging settings stored in settings table (scope=proxy, key=logging)
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyLogSettings {
+    #[serde(default)]
+    pub enabled: bool,
+    /// Maximum days to retain logs; 0 = keep forever
+    #[serde(default = "default_retention_days")]
+    pub retention_days: u32,
+}
+
+fn default_retention_days() -> u32 {
+    7
+}
+
+impl Default for ProxyLogSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            retention_days: default_retention_days(),
+        }
+    }
+}
