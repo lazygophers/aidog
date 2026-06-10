@@ -1,8 +1,8 @@
 ---
-updated: 2026-06-09
-rewrite-version: 1
+updated: 2026-06-11
+rewrite-version: 2
 supersedes:
-  - guides/cross-layer-thinking-guide.md (v0 descriptive + Trellis internals)
+  - guides/cross-layer-thinking-guide.md (v0 descriptive + Trellis internals; v1 renamed → cross-layer-rules.md)
 authored-by: trellisx-spec
 mode: optimize
 ---

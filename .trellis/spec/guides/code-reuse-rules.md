@@ -1,8 +1,8 @@
 ---
-updated: 2026-06-09
-rewrite-version: 1
+updated: 2026-06-11
+rewrite-version: 2
 supersedes:
-  - guides/code-reuse-thinking-guide.md (v0 descriptive)
+  - guides/code-reuse-thinking-guide.md (v0 descriptive; v1 renamed → code-reuse-rules.md)
 authored-by: trellisx-spec
 mode: optimize
 ---

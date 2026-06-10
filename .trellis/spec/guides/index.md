@@ -19,8 +19,9 @@ mode: optimize
 
 | Guide | When |
 |-------|------|
-| [Code Reuse Rules](./code-reuse-thinking-guide.md) | 写新函数 / 组件 / utility 前 |
-| [Cross-Layer Rules](./cross-layer-thinking-guide.md) | 改动跨 Rust↔TypeScript 边界时 |
+| [Code Reuse Rules](./code-reuse-rules.md) | 写新函数 / 组件 / utility 前 |
+| [Cross-Layer Rules](./cross-layer-rules.md) | 改动跨 Rust↔TypeScript 边界时 |
+| [trellisx Conventions](./trellisx-conventions.md) | task 实施 / 检查时 (worktree 隔离 + subtask 拆分约定) |
 
 ## Pre-Change Checklist (MUST)
 
