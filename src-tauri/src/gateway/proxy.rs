@@ -278,14 +278,14 @@ async fn handle_proxy(
     let actual_model = route.target_model;
 
     // 尝试匹配端点：按 source_protocol 查找平台是否支持对应协议的端点
-    let (target_protocol_enum, target_base_url, client_type) = route.platform.endpoints
+    let (target_protocol_enum, target_base_url, client_type, coding_plan) = route.platform.endpoints
         .iter()
         .find(|ep| {
             let ep_str = format!("{:?}", ep.protocol).to_lowercase();
             ep_str == source_protocol
         })
-        .map(|ep| (&ep.protocol, ep.base_url.clone(), ep.client_type.clone()))
-        .unwrap_or((&route.platform.protocol, route.platform.base_url.clone(), ClientType::Default));
+        .map(|ep| (&ep.protocol, ep.base_url.clone(), ep.client_type.clone(), ep.coding_plan))
+        .unwrap_or((&route.platform.protocol, route.platform.base_url.clone(), ClientType::Default, false));
 
     let target_protocol = format!("{:?}", target_protocol_enum).to_lowercase();
     let needs_model_remap = actual_model != requested_model;
@@ -300,7 +300,13 @@ async fn handle_proxy(
     chat_req.model = actual_model.clone();
 
     // 协议转换
-    let (req_body, api_path) = adapter::convert_request(&chat_req, target_protocol_enum);
+    let (mut req_body, api_path) = adapter::convert_request(&chat_req, target_protocol_enum);
+
+    // Coding Plan 特殊处理：注入平台特有字段
+    if coding_plan {
+        inject_coding_plan_fields(&mut req_body, target_protocol_enum);
+    }
+
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
 
     // 构建目标 URL
@@ -874,6 +880,36 @@ fn redact_key(key: &str) -> String {
         "[REDACTED]".into()
     } else {
         format!("{}****{}", &key[..4], &key[key.len()-4..])
+    }
+}
+
+/// 为 Coding Plan 端点注入平台特有字段
+/// - Kimi Code Plan: 注入 prompt_cache_key（必填，用 group + model hash 作会话标识）
+fn inject_coding_plan_fields(body: &mut Value, protocol: &super::models::Protocol) {
+    match protocol {
+        super::models::Protocol::Kimi => {
+            // Kimi Code Plan 要求 prompt_cache_key 以提升缓存命中率
+            // 用模型名 + 短随机串生成会话级 cache key
+            if let Some(obj) = body.as_object_mut() {
+                let model = obj.get("model")
+                    .and_then(|v| v.as_str())
+                    .unwrap_or("unknown");
+                let session_id = format!("aidog-{}-{:06x}",
+                    model,
+                    std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap_or_default()
+                        .as_secs() / 300  // 5-minute window
+                );
+                obj.insert(
+                    "prompt_cache_key".to_string(),
+                    Value::String(session_id),
+                );
+            }
+        }
+        _ => {
+            // GLM / MiniMax / 百炼 等 coding plan 暂无额外字段
+        }
     }
 }
 

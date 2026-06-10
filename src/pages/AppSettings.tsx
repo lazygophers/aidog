@@ -71,7 +71,7 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
     setReqTimeout(req);
     setConnTimeout(conn);
     try {
-      await proxyTimeoutApi.set({ request_timeout_secs: req, connect_timeout_secs: conn });
+      await proxyTimeoutApi.set({ request_timeout_secs: req, connect_timeout_secs: conn, source_protocol: "anthropic" });
     } catch (e: any) { setMessage(e.toString()); }
   };
 

@@ -125,6 +125,9 @@ pub struct PlatformEndpoint {
     /// 模拟的客户端类型（用于通过上游客户端校验）
     #[serde(default)]
     pub client_type: ClientType,
+    /// 是否为 Coding Plan（针对支持编程代理订阅的平台，如 Kimi Code Plan）
+    #[serde(default)]
+    pub coding_plan: bool,
 }
 
 // ─── Platform ──────────────────────────────────────────────

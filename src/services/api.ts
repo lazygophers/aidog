@@ -16,6 +16,7 @@ export interface PlatformEndpoint {
   protocol: Protocol;
   base_url: string;
   client_type?: ClientType;
+  coding_plan?: boolean;
 }
 
 export interface PlatformModels {

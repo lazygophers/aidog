@@ -105,6 +105,7 @@ impl Db {
                         protocol: serde_json::from_str(&format!("\"{}\"", protocol)).unwrap_or(Protocol::OpenAI),
                         base_url,
                         client_type: Default::default(),
+                        coding_plan: false,
                     }]).unwrap_or_else(|_| "[]".to_string());
                     (id, endpoints_json)
                 })

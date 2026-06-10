@@ -1,17 +1,23 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { platformApi, settingsApi, modelTestApi, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats } from "../services/api";
 import { ModelTestPanel } from "./ModelTestPanel";
+import { pinyinMatch } from "../utils/pinyin";
 
-const PROTOCOLS: { value: Protocol; label: string }[] = [
-  { value: "anthropic", label: "Anthropic" },
-  { value: "openai", label: "OpenAI" },
-  { value: "codex", label: "Codex" },
-  { value: "gemini", label: "Gemini" },
-  { value: "glm", label: "GLM" },
-  { value: "kimi", label: "Kimi" },
-  { value: "minimax", label: "MiniMax" },
-  { value: "bailian", label: "百炼" },
+/** 支持的协议选项（含 coding plan 变体） */
+type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[] };
+
+const PROTOCOLS: ProtocolOption[] = [
+  { value: "anthropic", label: "Anthropic", keywords: ["claude", "克劳德"] },
+  { value: "openai", label: "OpenAI", keywords: ["gpt", "chatgpt"] },
+  { value: "codex", label: "Codex", keywords: ["openai"] },
+  { value: "gemini", label: "Gemini", keywords: ["google", "谷歌"] },
+  { value: "glm", label: "GLM（智谱）", keywords: ["zhipu", "zhipu", "智谱", "bigmodel", "codegeex"] },
+  { value: "glm", label: "GLM Coding Plan", codingPlan: true, keywords: ["智谱编程", "codegeex", "glm code"] },
+  { value: "kimi", label: "Kimi（月之暗面）", keywords: ["moonshot", "月之暗面", "moonshot"] },
+  { value: "kimi", label: "Kimi Code Plan", codingPlan: true, keywords: ["kimi编程", "kimi code"] },
+  { value: "minimax", label: "MiniMax", keywords: [] },
+  { value: "bailian", label: "百炼（阿里）", keywords: ["dashscope", "阿里", "qwen", "通义"] },
 ];
 
 /** Endpoint 协议：标准 AI 协议 + 供应商特定协议（路径不同但格式兼容） */
@@ -75,38 +81,39 @@ function healthStatus(recentTotal: number, recentFailures: number): HealthStatus
   return "healthy";                                           // 全部成功
 }
 
-const DEFAULT_ENDPOINTS: Partial<Record<Protocol, PlatformEndpoint[]>> = {
-  anthropic: [
-    { protocol: "anthropic", base_url: "https://api.anthropic.com", client_type: "claude_code" },
-  ],
-  openai: [
-    { protocol: "openai", base_url: "https://api.openai.com", client_type: "codex_tui" },
-  ],
-  codex: [
-    { protocol: "openai", base_url: "https://api.openai.com", client_type: "codex_tui" },
-  ],
-  // GLM: 使用 glm 协议（OpenAI-compatible 格式但路径为 /api/paas/v4/chat/completions）
-  glm: [
-    { protocol: "glm", base_url: "https://open.bigmodel.cn", client_type: "codex_tui" },
-    { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic", client_type: "claude_code" },
-  ],
-  // 百炼: 使用 bailian 协议（OpenAI-compatible 格式但路径为 /compatible-mode/v1/chat/completions）
-  bailian: [
-    { protocol: "bailian", base_url: "https://dashscope.aliyuncs.com", client_type: "codex_tui" },
-  ],
-  // MiniMax: 使用 minimax 协议（OpenAI-compatible 格式但路径为 /v1/text/chatcompletion_v2）
-  minimax: [
-    { protocol: "minimax", base_url: "https://api.minimaxi.com", client_type: "codex_tui" },
-    { protocol: "anthropic", base_url: "https://api.minimaxi.com/anthropic", client_type: "claude_code" },
-  ],
-  // Kimi: OpenAI-compatible, 标准路径 /v1/chat/completions
-  kimi: [
-    { protocol: "kimi", base_url: "https://api.moonshot.cn", client_type: "codex_tui" },
-  ],
-  gemini: [
-    { protocol: "gemini", base_url: "https://generativelanguage.googleapis.com" },
-  ],
-};
+/** 根据 ProtocolOption 生成默认端点（含 coding_plan 标记） */
+function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): PlatformEndpoint[] {
+  const cp = !!codingPlan;
+  const base: Partial<Record<Protocol, PlatformEndpoint[]>> = {
+    anthropic: [
+      { protocol: "anthropic", base_url: "https://api.anthropic.com", client_type: "claude_code" },
+    ],
+    openai: [
+      { protocol: "openai", base_url: "https://api.openai.com", client_type: "codex_tui" },
+    ],
+    codex: [
+      { protocol: "openai", base_url: "https://api.openai.com", client_type: "codex_tui" },
+    ],
+    glm: [
+      { protocol: "glm", base_url: "https://open.bigmodel.cn", client_type: "codex_tui", coding_plan: cp },
+      { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic", client_type: "claude_code" },
+    ],
+    bailian: [
+      { protocol: "bailian", base_url: "https://dashscope.aliyuncs.com", client_type: "codex_tui" },
+    ],
+    minimax: [
+      { protocol: "minimax", base_url: "https://api.minimaxi.com", client_type: "codex_tui" },
+      { protocol: "anthropic", base_url: "https://api.minimaxi.com/anthropic", client_type: "claude_code" },
+    ],
+    kimi: [
+      { protocol: "kimi", base_url: "https://api.moonshot.cn", client_type: "codex_tui", coding_plan: cp },
+    ],
+    gemini: [
+      { protocol: "gemini", base_url: "https://generativelanguage.googleapis.com" },
+    ],
+  };
+  return (base[protocol] || []).map(ep => ({ ...ep }));
+}
 
 const PROTOCOL_LABELS: Record<Protocol, string> = {
   openai: "OpenAI",
@@ -179,6 +186,112 @@ function autoCategorize(modelIds: string[]): Record<ModelSlot, string> {
   return result;
 }
 
+/** 可搜索的协议选择器（支持拼音模糊匹配） */
+function SearchableProtocolSelect({
+  value, codingPlan, onChange,
+}: {
+  value: Protocol;
+  codingPlan: boolean;
+  onChange: (proto: Protocol, codingPlan?: boolean) => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // 当前选中项的显示文本
+  const selectedLabel = PROTOCOLS.find(
+    p => p.value === value && !!p.codingPlan === codingPlan
+  )?.label || PROTOCOL_LABELS[value];
+
+  // 按拼音/关键词过滤
+  const filtered = PROTOCOLS.filter(p => {
+    if (!query.trim()) return true;
+    // 匹配 label
+    if (pinyinMatch(query, p.label)) return true;
+    // 匹配 keywords
+    if (p.keywords?.some(kw => pinyinMatch(query, kw))) return true;
+    // 匹配 value
+    if (pinyinMatch(query, p.value)) return true;
+    return false;
+  });
+
+  return (
+    <div style={{ position: "relative" }} ref={listRef}>
+      <input
+        ref={inputRef}
+        className="input"
+        placeholder={selectedLabel}
+        value={open ? query : selectedLabel}
+        onFocus={() => { setOpen(true); setQuery(""); }}
+        onBlur={() => { setTimeout(() => setOpen(false), 150); }}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      {open && (
+        <div
+          className="glass-elevated"
+          style={{
+            position: "absolute", top: "100%", left: 0, right: 0,
+            marginTop: 4, maxHeight: 280, overflowY: "auto",
+            zIndex: 100, padding: 4,
+            animation: "fadeIn 150ms ease both",
+          }}
+        >
+          {filtered.length === 0 && (
+            <div style={{ padding: "8px 12px", fontSize: 12, color: "var(--text-tertiary)" }}>
+              No match
+            </div>
+          )}
+          {filtered.map((p) => {
+            const isActive = p.value === value && !!p.codingPlan === codingPlan;
+            return (
+              <button
+                key={`${p.value}-${p.codingPlan ? 1 : 0}`}
+                type="button"
+                className="btn btn-ghost"
+                style={{
+                  width: "100%", justifyContent: "flex-start",
+                  padding: "7px 12px", fontSize: 13,
+                  fontWeight: isActive ? 600 : 400,
+                  color: isActive ? "var(--accent)" : "var(--text-primary)",
+                  background: isActive ? "var(--accent-subtle)" : "transparent",
+                  borderRadius: "var(--radius-sm)",
+                }}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange(p.value, p.codingPlan);
+                  setOpen(false);
+                  setQuery("");
+                }}
+              >
+                <span style={{
+                  display: "inline-block", padding: "1px 6px", borderRadius: "var(--radius-sm)",
+                  background: `${PROTOCOL_COLORS[p.value] || "var(--accent)"}20`,
+                  color: PROTOCOL_COLORS[p.value] || "var(--accent)",
+                  fontSize: 10, fontWeight: 700, marginRight: 8,
+                }}>
+                  {p.value.slice(0, 2).toUpperCase()}
+                </span>
+                {p.label}
+                {p.codingPlan && (
+                  <span style={{
+                    marginLeft: 6, padding: "1px 5px", borderRadius: "var(--radius-sm)",
+                    background: "var(--color-success, #34c759)20",
+                    color: "var(--color-success, #34c759)",
+                    fontSize: 10, fontWeight: 600,
+                  }}>
+                    Code
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Platforms() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -198,6 +311,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // Form state
   const [name, setName] = useState("OpenAI");
   const [protocol, setProtocol] = useState<Protocol>("openai");
+  const [codingPlan, setCodingPlan] = useState(false);
   const [apiKey, setApiKey] = useState("");
   const [models, setModels] = useState<Record<ModelSlot, string>>({
     default: "", sonnet: "", opus: "", haiku: "", gpt: "",
@@ -216,19 +330,21 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     return eps[0]?.base_url || "";
   };
 
-  const handleProtocolChange = (newProtocol: Protocol) => {
+  const handleProtocolChange = (newProtocol: Protocol, newCodingPlan?: boolean) => {
+    const cp = !!newCodingPlan;
     // Auto-fill name with protocol label if empty or still at a default name
     if (!name.trim() || DEFAULT_NAMES.has(name)) {
-      setName(PROTOCOL_LABELS[newProtocol]);
+      setName(cp ? `${PROTOCOL_LABELS[newProtocol]} Coding Plan` : PROTOCOL_LABELS[newProtocol]);
     }
     // Auto-fill endpoints from defaults
-    const defaultEps = DEFAULT_ENDPOINTS[newProtocol];
-    if (defaultEps) {
-      setEndpoints(defaultEps.map(ep => ({ ...ep })));
+    const defaultEps = getDefaultEndpoints(newProtocol, cp);
+    if (defaultEps.length > 0) {
+      setEndpoints(defaultEps);
     } else {
       setEndpoints([]);
     }
     setProtocol(newProtocol);
+    setCodingPlan(cp);
   };
 
   const load = async () => {
@@ -252,7 +368,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   useEffect(() => { load(); }, []);
 
   const resetForm = () => {
-    setName(""); setProtocol("openai"); setApiKey("");
+    setName(""); setProtocol("openai"); setCodingPlan(false); setApiKey("");
     setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "" });
     setAvailableModels([]); setEndpoints([]);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
@@ -261,6 +377,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
   const handleEdit = async (p: Platform) => {
     setName(p.name); setProtocol(p.protocol); setApiKey(p.api_key);
+    // 检测 endpoints 中是否有 coding_plan
+    const hasCodingPlan = (p.endpoints || []).some(ep => ep.coding_plan);
+    setCodingPlan(hasCodingPlan);
     setModels({
       default: p.models.default ?? "",
       sonnet: p.models.sonnet ?? "",
@@ -458,11 +577,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               </span>
             </div>
           ) : (
-            <select className="input" value={protocol} onChange={(e) => handleProtocolChange(e.target.value as Protocol)}>
-              {PROTOCOLS.map((p) => (
-                <option key={p.value} value={p.value}>{p.label}</option>
-              ))}
-            </select>
+            <SearchableProtocolSelect
+              value={protocol}
+              codingPlan={codingPlan}
+              onChange={handleProtocolChange}
+            />
           )}
 
           {/* Protocol Endpoints */}
@@ -478,7 +597,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 type="button"
                 className="btn btn-ghost"
                 style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
-                onClick={() => setEndpoints([...endpoints, { protocol: "openai" as Protocol, base_url: "", client_type: defaultClientForProtocol("openai") }])}
+                onClick={() => setEndpoints([...endpoints, { protocol: "openai" as Protocol, base_url: "", client_type: defaultClientForProtocol("openai"), coding_plan: false }])}
               >
                 + {t("platform.addEndpoint", "Add Endpoint")}
               </button>
@@ -539,6 +658,29 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     </optgroup>
                   ))}
                 </select>
+                {/* Coding Plan 开关 */}
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-icon"
+                  style={{
+                    flexShrink: 0,
+                    width: 28, height: 28, minWidth: 28,
+                    padding: 0,
+                    fontSize: 11, fontWeight: 700,
+                    color: ep.coding_plan ? "var(--color-success, #34c759)" : "var(--text-tertiary)",
+                    background: ep.coding_plan ? "var(--color-success, #34c759)15" : "transparent",
+                    border: `1px solid ${ep.coding_plan ? "var(--color-success, #34c759)40" : "var(--border)"}`,
+                    borderRadius: "var(--radius-sm)",
+                  }}
+                  title={ep.coding_plan ? "Coding Plan ✓" : "Coding Plan"}
+                  onClick={() => {
+                    const next = [...endpoints];
+                    next[idx] = { ...next[idx], coding_plan: !next[idx].coding_plan };
+                    setEndpoints(next);
+                  }}
+                >
+                  C
+                </button>
                 <button
                   type="button"
                   className="btn btn-ghost btn-icon btn-danger"
@@ -874,6 +1016,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                       {p.endpoints.map((ep, ei) => (
                         <span key={ei} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px", opacity: 0.8 }}>
                           {PROTOCOL_LABELS[ep.protocol] || ep.protocol}
+                          {ep.coding_plan && <span style={{ color: "var(--color-success, #34c759)", marginLeft: 2, fontWeight: 700 }}>Code</span>}
                         </span>
                       ))}
                     </div>
