@@ -45,8 +45,7 @@ fn provider_api_path(protocol: &Protocol) -> String {
     match protocol {
         Protocol::Glm => "/api/paas/v4/chat/completions".to_string(),
         Protocol::Bailian => "/compatible-mode/v1/chat/completions".to_string(),
-        Protocol::MiniMax => "/v1/text/chatcompletion_v2".to_string(),
-        // OpenAI / Codex / Kimi 等标准路径
+        // OpenAI / Codex / Kimi / MiniMax 等标准路径
         _ => "/v1/chat/completions".to_string(),
     }
 }

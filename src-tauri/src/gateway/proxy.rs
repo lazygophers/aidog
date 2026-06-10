@@ -305,7 +305,7 @@ async fn handle_proxy(
 
     // Coding Plan 特殊处理：注入平台特有字段
     if coding_plan {
-        inject_coding_plan_fields(&mut req_body, target_protocol_enum);
+        inject_coding_plan_fields(&mut req_body, platform_protocol);
     }
 
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
