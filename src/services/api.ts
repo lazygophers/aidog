@@ -4,7 +4,11 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type Protocol = "anthropic" | "openai" | "glm" | "kimi" | "minimax" | "codex" | "bailian" | "gemini";
 export type RoutingMode = "load_balance" | "failover";
-export type ClientType = "default" | "claude_code" | "codex_cli" | "cursor" | "windsurf";
+export type ClientType =
+  | "default"
+  | "claude_code" | "claude_code_vscode" | "claude_code_sdk_ts" | "claude_code_sdk_py" | "claude_code_gh_action"
+  | "codex_cli" | "codex_tui" | "codex_desktop" | "codex_vscode"
+  | "cursor" | "windsurf";
 
 export type ModelSlot = "default" | "sonnet" | "opus" | "haiku" | "gpt";
 

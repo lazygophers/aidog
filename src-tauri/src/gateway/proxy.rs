@@ -575,7 +575,7 @@ fn find_group_by_name(db: &Db, name: &str) -> Option<Group> {
 // ─── 客户端模拟 Header ────────────────────────────────────────
 
 /// 根据客户端类型和目标协议，构建模拟的 HTTP 请求头。
-/// 数据来源：GitHub 逆向分析（Claude Code CLI、Codex CLI、Cursor、Windsurf）
+/// 数据来源：GitHub 逆向分析 + claude-code-hub 参考实现
 fn apply_client_headers(
     req_builder: reqwest::RequestBuilder,
     client_type: &ClientType,
@@ -584,10 +584,47 @@ fn apply_client_headers(
 ) -> reqwest::RequestBuilder {
     match client_type {
         ClientType::Default => apply_default_headers(req_builder, protocol, api_key),
-        ClientType::ClaudeCode => apply_claude_code_headers(req_builder, protocol, api_key),
-        ClientType::CodexCli => apply_codex_cli_headers(req_builder, protocol, api_key),
+        // Claude Code family — 共享 Stainless SDK headers，仅 UA 不同
+        ClientType::ClaudeCode
+        | ClientType::ClaudeCodeVscode
+        | ClientType::ClaudeCodeSdkTs
+        | ClientType::ClaudeCodeSdkPy
+        | ClientType::ClaudeCodeGhAction => {
+            apply_claude_code_family_headers(req_builder, client_type, protocol, api_key)
+        }
+        // Codex family — 共享 Codex 基础 headers，仅 UA 不同
+        ClientType::CodexCli
+        | ClientType::CodexTui
+        | ClientType::CodexDesktop
+        | ClientType::CodexVscode => {
+            apply_codex_family_headers(req_builder, client_type, protocol, api_key)
+        }
         ClientType::Cursor => apply_cursor_headers(req_builder, protocol, api_key),
         ClientType::Windsurf => apply_windsurf_headers(req_builder, protocol, api_key),
+    }
+}
+
+/// 根据 ClientType 子变体返回 Claude Code 家族的 User-Agent 字符串。
+/// 格式: claude-cli/<version> (external, <entrypoint>[, agent-sdk/<sdk_ver>])
+fn claude_code_ua(client_type: &ClientType) -> &'static str {
+    match client_type {
+        ClientType::ClaudeCode => "claude-cli/1.0.117 (external, cli)",
+        ClientType::ClaudeCodeVscode => "claude-cli/1.0.117 (external, claude-vscode, agent-sdk/0.1.30)",
+        ClientType::ClaudeCodeSdkTs => "claude-cli/1.0.117 (external, sdk-ts)",
+        ClientType::ClaudeCodeSdkPy => "claude-cli/1.0.117 (external, sdk-py)",
+        ClientType::ClaudeCodeGhAction => "claude-cli/1.0.117 (external, claude-code-github-action)",
+        _ => "claude-cli/1.0.117 (external, cli)",
+    }
+}
+
+/// 根据 ClientType 子变体返回 Codex 家族的 User-Agent 字符串
+fn codex_ua(client_type: &ClientType) -> &'static str {
+    match client_type {
+        ClientType::CodexCli => "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal",
+        ClientType::CodexTui => "Codex/0.38.0",
+        ClientType::CodexDesktop => "codex desktop/0.38.0",
+        ClientType::CodexVscode => "codex-vscode/0.38.0",
+        _ => "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal",
     }
 }
 
@@ -611,16 +648,17 @@ fn apply_default_headers(
     rb
 }
 
-/// 模拟 Claude Code CLI 请求头
+/// Claude Code 家族共享 Stainless SDK headers
 /// 来源: @anthropic-ai/claude-code/cli.js — buildHeaders() + fV()
-fn apply_claude_code_headers(
+/// 参考: claude-code-hub client-detector.ts — confirmClaudeCodeSignals()
+fn apply_claude_code_family_headers(
     mut rb: reqwest::RequestBuilder,
+    client_type: &ClientType,
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
-    // Anthropic 协议完整模拟
     rb = rb
-        .header("User-Agent", "claude-cli/1.0.117 (external, undefined)")
+        .header("User-Agent", claude_code_ua(client_type))
         .header("x-app", "cli")
         .header("anthropic-version", "2023-06-01")
         .header("anthropic-dangerous-direct-browser-access", "true")
@@ -650,15 +688,17 @@ fn apply_claude_code_headers(
     rb
 }
 
-/// 模拟 Codex CLI 请求头
+/// Codex 家族共享基础 headers
 /// 来源: codex-rs/core/src/default_client.rs + model_provider_info.rs + client.rs
-fn apply_codex_cli_headers(
+/// 参考: claude-code-hub client-detector.ts — CODEX_FAMILY_RULES
+fn apply_codex_family_headers(
     mut rb: reqwest::RequestBuilder,
+    client_type: &ClientType,
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
     rb = rb
-        .header("User-Agent", "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal")
+        .header("User-Agent", codex_ua(client_type))
         .header("originator", "codex_cli_rs")
         .header("version", "0.38.0")
         .header("Accept", "text/event-stream");
@@ -783,8 +823,13 @@ fn build_upstream_headers(client_type: &ClientType, protocol: &super::models::Pr
     // client-specific headers
     match client_type {
         ClientType::Default => {}
-        ClientType::ClaudeCode => {
-            h.push(("User-Agent".into(), "claude-cli/1.0.117 (external, undefined)".into()));
+        // Claude Code family
+        ClientType::ClaudeCode
+        | ClientType::ClaudeCodeVscode
+        | ClientType::ClaudeCodeSdkTs
+        | ClientType::ClaudeCodeSdkPy
+        | ClientType::ClaudeCodeGhAction => {
+            h.push(("User-Agent".into(), claude_code_ua(client_type).into()));
             h.push(("x-app".into(), "cli".into()));
             h.push(("anthropic-dangerous-direct-browser-access".into(), "true".into()));
             h.push(("X-Stainless-Lang".into(), "js".into()));
@@ -796,8 +841,12 @@ fn build_upstream_headers(client_type: &ClientType, protocol: &super::models::Pr
             h.push(("X-Stainless-Retry-Count".into(), "0".into()));
             h.push(("X-Stainless-Timeout".into(), "600".into()));
         }
-        ClientType::CodexCli => {
-            h.push(("User-Agent".into(), "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal".into()));
+        // Codex family
+        ClientType::CodexCli
+        | ClientType::CodexTui
+        | ClientType::CodexDesktop
+        | ClientType::CodexVscode => {
+            h.push(("User-Agent".into(), codex_ua(client_type).into()));
             h.push(("originator".into(), "codex_cli_rs".into()));
             h.push(("version".into(), "0.38.0".into()));
             h.push(("Accept".into(), "text/event-stream".into()));

@@ -63,20 +63,56 @@ impl PlatformModels {
 
 // ─── ClientType (客户端模拟) ─────────────────────────────────
 
-/// 可模拟的客户端类型，用于通过上游的客户端校验
+/// 可模拟的客户端类型，用于通过上游的客户端校验。
+/// 参考 claude-code-hub 的客户端检测逻辑：
+///   - Claude Code 家族: CLI / VSCode / SDK-TS / SDK-PY / GitHub Action
+///   - Codex 家族: CLI-Rust / TUI / Desktop / VSCode
+///   - IDE: Cursor / Windsurf
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
 pub enum ClientType {
     #[default]
     #[serde(rename = "default")]
     Default,
+    // ── Claude Code family ──
     #[serde(rename = "claude_code")]
     ClaudeCode,
+    #[serde(rename = "claude_code_vscode")]
+    ClaudeCodeVscode,
+    #[serde(rename = "claude_code_sdk_ts")]
+    ClaudeCodeSdkTs,
+    #[serde(rename = "claude_code_sdk_py")]
+    ClaudeCodeSdkPy,
+    #[serde(rename = "claude_code_gh_action")]
+    ClaudeCodeGhAction,
+    // ── Codex family ──
     #[serde(rename = "codex_cli")]
     CodexCli,
+    #[serde(rename = "codex_tui")]
+    CodexTui,
+    #[serde(rename = "codex_desktop")]
+    CodexDesktop,
+    #[serde(rename = "codex_vscode")]
+    CodexVscode,
+    // ── IDE ──
     #[serde(rename = "cursor")]
     Cursor,
     #[serde(rename = "windsurf")]
     Windsurf,
+}
+
+impl ClientType {
+    /// 根据 endpoint 协议返回推荐的默认客户端类型：
+    /// - anthropic → claude_code (CLI)
+    /// - openai → codex_tui
+    /// - 其他 → default
+    #[allow(dead_code)]
+    pub fn default_for_protocol(protocol: &Protocol) -> Self {
+        match protocol {
+            Protocol::Anthropic => ClientType::ClaudeCode,
+            Protocol::OpenAI => ClientType::CodexTui,
+            _ => ClientType::Default,
+        }
+    }
 }
 
 // ─── Platform Endpoint ──────────────────────────────────────

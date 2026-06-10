@@ -22,13 +22,33 @@ const ENDPOINT_PROTOCOLS: { value: Protocol; label: string }[] = [
 ];
 
 /** 客户端模拟选项：用于通过上游客户端校验 */
-const CLIENT_TYPES: { value: ClientType; label: string; desc: string }[] = [
-  { value: "default", label: "Default", desc: "无模拟" },
-  { value: "claude_code", label: "Claude Code", desc: "模拟 claude-cli" },
-  { value: "codex_cli", label: "Codex CLI", desc: "模拟 codex_cli_rs" },
-  { value: "cursor", label: "Cursor", desc: "模拟 Cursor IDE" },
-  { value: "windsurf", label: "Windsurf", desc: "模拟 Windsurf IDE" },
+const CLIENT_TYPES: { value: ClientType; label: string; group: string }[] = [
+  // 默认
+  { value: "default", label: "默认（不模拟）", group: "" },
+  // Claude Code 家族
+  { value: "claude_code", label: "Claude Code CLI", group: "Claude Code" },
+  { value: "claude_code_vscode", label: "Claude Code VSCode", group: "Claude Code" },
+  { value: "claude_code_sdk_ts", label: "Claude Code SDK (TS)", group: "Claude Code" },
+  { value: "claude_code_sdk_py", label: "Claude Code SDK (Python)", group: "Claude Code" },
+  { value: "claude_code_gh_action", label: "Claude Code GitHub Action", group: "Claude Code" },
+  // Codex 家族
+  { value: "codex_cli", label: "Codex CLI (Rust)", group: "Codex" },
+  { value: "codex_tui", label: "Codex TUI", group: "Codex" },
+  { value: "codex_desktop", label: "Codex Desktop", group: "Codex" },
+  { value: "codex_vscode", label: "Codex VSCode", group: "Codex" },
+  // IDE
+  { value: "cursor", label: "Cursor", group: "IDE" },
+  { value: "windsurf", label: "Windsurf", group: "IDE" },
 ];
+
+/** 根据端点协议返回推荐的默认客户端类型 */
+function defaultClientForProtocol(protocol: Protocol): ClientType {
+  switch (protocol) {
+    case "anthropic": return "claude_code";
+    case "openai": return "codex_tui";
+    default: return "default";
+  }
+}
 
 
 /** 内置平台默认端点：每个平台支持的协议及其 base URL
@@ -52,27 +72,27 @@ function healthStatus(recentTotal: number, recentFailures: number): HealthStatus
 
 const DEFAULT_ENDPOINTS: Partial<Record<Protocol, PlatformEndpoint[]>> = {
   anthropic: [
-    { protocol: "anthropic", base_url: "https://api.anthropic.com" },
+    { protocol: "anthropic", base_url: "https://api.anthropic.com", client_type: "claude_code" },
   ],
   openai: [
-    { protocol: "openai", base_url: "https://api.openai.com" },
+    { protocol: "openai", base_url: "https://api.openai.com", client_type: "codex_tui" },
   ],
   codex: [
-    { protocol: "openai", base_url: "https://api.openai.com" },
+    { protocol: "openai", base_url: "https://api.openai.com", client_type: "codex_tui" },
   ],
   glm: [
-    { protocol: "openai", base_url: "https://open.bigmodel.cn/api/paas/v4" },
-    { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic" },
+    { protocol: "openai", base_url: "https://open.bigmodel.cn/api/paas/v4", client_type: "codex_tui" },
+    { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic", client_type: "claude_code" },
   ],
   bailian: [
-    { protocol: "openai", base_url: "https://dashscope.aliyuncs.com/compatible-mode" },
+    { protocol: "openai", base_url: "https://dashscope.aliyuncs.com/compatible-mode", client_type: "codex_tui" },
   ],
   minimax: [
-    { protocol: "openai", base_url: "https://api.minimaxi.com" },
-    { protocol: "anthropic", base_url: "https://api.minimaxi.com/anthropic" },
+    { protocol: "openai", base_url: "https://api.minimaxi.com", client_type: "codex_tui" },
+    { protocol: "anthropic", base_url: "https://api.minimaxi.com/anthropic", client_type: "claude_code" },
   ],
   kimi: [
-    { protocol: "openai", base_url: "https://api.moonshot.cn" },
+    { protocol: "openai", base_url: "https://api.moonshot.cn", client_type: "codex_tui" },
   ],
   gemini: [
     { protocol: "gemini", base_url: "https://generativelanguage.googleapis.com" },
@@ -448,7 +468,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 type="button"
                 className="btn btn-ghost"
                 style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
-                onClick={() => setEndpoints([...endpoints, { protocol: "openai", base_url: "" }])}
+                onClick={() => setEndpoints([...endpoints, { protocol: "openai" as Protocol, base_url: "", client_type: defaultClientForProtocol("openai") }])}
               >
                 + {t("platform.addEndpoint", "Add Endpoint")}
               </button>
@@ -468,8 +488,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   style={{ width: 120, flexShrink: 0 }}
                   value={ep.protocol}
                   onChange={(e) => {
+                    const newProto = e.target.value as Protocol;
                     const next = [...endpoints];
-                    next[idx] = { ...next[idx], protocol: e.target.value as Protocol };
+                    next[idx] = { ...next[idx], protocol: newProto, client_type: defaultClientForProtocol(newProto) };
                     setEndpoints(next);
                   }}
                 >
@@ -490,7 +511,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 />
                 <select
                   className="input"
-                  style={{ width: 120, flexShrink: 0 }}
+                  style={{ width: 140, flexShrink: 0 }}
                   value={ep.client_type || "default"}
                   onChange={(e) => {
                     const next = [...endpoints];
@@ -499,8 +520,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   }}
                   title={t("platform.clientType", "客户端模拟")}
                 >
-                  {CLIENT_TYPES.map((c) => (
-                    <option key={c.value} value={c.value}>{c.label}</option>
+                  <option value="default">{CLIENT_TYPES[0].label}</option>
+                  {["Claude Code", "Codex", "IDE"].map(group => (
+                    <optgroup key={group} label={group}>
+                      {CLIENT_TYPES.filter(c => c.group === group).map(c => (
+                        <option key={c.value} value={c.value}>{c.label}</option>
+                      ))}
+                    </optgroup>
                   ))}
                 </select>
                 <button
