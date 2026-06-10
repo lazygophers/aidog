@@ -54,6 +54,43 @@ fn validate_group_name(name: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// 为所有平台确保存在关联的自动分组（一个平台一个，相互独立）
+fn ensure_platform_groups(db: &Db) {
+    let platforms = match db::list_platforms(db) {
+        Ok(p) => p,
+        Err(_) => return,
+    };
+    for platform in &platforms {
+        // 检查是否已存在关联此平台的分组
+        let groups = db::list_groups(db).unwrap_or_default();
+        let exists = groups.iter().any(|g| g.auto_from_platform.as_deref() == Some(&platform.id));
+        if exists {
+            continue;
+        }
+        // 自动创建分组
+        let protocol_str = format!("{:?}", platform.protocol).to_lowercase();
+        let group_path = format!("/{}", protocol_str);
+        let group_name = slugify(&format!("{}-auto", platform.name));
+        let group = match db::create_group(db, CreateGroup {
+            name: group_name,
+            path: group_path,
+            routing_mode: RoutingMode::Failover,
+            auto_from_platform: Some(platform.id.clone()),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+        }) {
+            Ok(g) => g,
+            Err(_) => continue,
+        };
+        // 将平台关联到自动分组
+        let _ = db::set_group_platforms(db, &group.id, &[GroupPlatformInput {
+            platform_id: platform.id.clone(),
+            priority: Some(0),
+            weight: Some(1),
+        }]);
+    }
+}
+
 // ─── Platform Commands ─────────────────────────────────────
 
 #[tauri::command]
@@ -784,6 +821,8 @@ pub fn run() {
             let db = Db::new(db_path.to_str().unwrap()).expect("failed to open database");
             db.init_tables().expect("failed to init tables");
             db.fix_group_names();
+            // 为所有平台确保存在关联分组（一个平台一个）
+            ensure_platform_groups(&db);
             app.manage(db);
 
             // 启动时同步所有 settings 文件（检查不一致并更新）
