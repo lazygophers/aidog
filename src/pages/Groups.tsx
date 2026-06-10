@@ -570,6 +570,26 @@ export function Groups() {
                     </span>
                   </div>
                 </div>
+                {/* Inline token stats in header */}
+                {groupStats[group.name] && (() => {
+                  const u = groupStats[group.name];
+                  const total = u.total_input_tokens + u.total_output_tokens;
+                  if (total === 0 && u.total_requests === 0) return null;
+                  return (
+                    <div style={{ display: "flex", gap: 4, alignItems: "center", marginRight: 4 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)" }}>{fmtTk(total)}</span>
+                      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>tokens</span>
+                      {u.total_requests > 0 && (
+                        <>
+                          <span style={{ fontSize: 10, color: "var(--text-tertiary)", marginLeft: 4 }}>·</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: u.success_count / u.total_requests >= 0.95 ? "var(--color-success, #34c759)" : "var(--color-warning, #ff9500)" }}>
+                            {(u.success_count / u.total_requests * 100).toFixed(0)}%
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
                 <CopyButton text={buildClaudeCommand(group.name)} title={t("group.copyCommand", "复制启动命令")} size={14} />
                 <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
