@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats } from "../services/api";
 import { ModelTestPanel } from "./ModelTestPanel";
 
 const PROTOCOLS: { value: Protocol; label: string }[] = [
@@ -155,6 +155,7 @@ export function Platforms() {
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [usageMap, setUsageMap] = useState<Record<string, PlatformUsageStats>>({});
   const [testResults, setTestResults] = useState<Record<string, "ok" | "fail">>({});
+  const [testingId, setTestingId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Platform | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -760,6 +761,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
   // ── List view ──
   return (
+    <>
     <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720, width: "100%" }}>
       {/* Header */}
       <div className="section-header" style={{ justifyContent: "space-between" }}>
@@ -866,18 +868,41 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   })()}
                 </div>
 
-                <div style={{ display: "flex", gap: 6, flexShrink: 0, alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
                   <div
                     className={`toggle ${p.enabled ? "active" : ""}`}
                     style={{ cursor: "pointer" }}
                     onClick={() => handleToggle(p)}
                     title={p.enabled ? "Disable" : "Enable"}
                   />
-                  <button className="btn btn-ghost" onClick={() => setTestingPlatform(p)} title={t("platform.test", "测试")} style={{ fontSize: 12, gap: 4, padding: "4px 10px" }}>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <button className="btn btn-ghost" style={{ fontSize: 11, gap: 4, padding: "3px 8px" }}
+                    disabled={testingId === p.id}
+                    onClick={async () => {
+                      setTestingId(p.id);
+                      try {
+                        const defaultModel = p.models.default || p.available_models[0] || "";
+                        const r = await modelTestApi.test({ platform_id: p.id, model: defaultModel, max_tokens: 64 });
+                        setTestResults(prev => ({ ...prev, [p.id]: r.success ? "ok" : "fail" }));
+                      } catch {
+                        setTestResults(prev => ({ ...prev, [p.id]: "fail" }));
+                      }
+                      setTestingId(null);
+                    }}
+                    title={t("platform.quickTest", "快速测试默认模型")}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M7 1l1.5 3.5L12 6l-3.5 1.5L7 11l-1.5-3.5L2 6l3.5-1.5L7 1z" />
                     </svg>
-                    {t("platform.test", "测试")}
+                    {testingId === p.id ? "..." : t("platform.quickTest", "快速测试")}
+                  </button>
+                  <button className="btn btn-ghost" style={{ fontSize: 11, gap: 4, padding: "3px 8px" }}
+                    onClick={() => setTestingPlatform(p)}
+                    title={t("platform.customTest", "自定义测试")}
+                  >
+                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M10 2l2 2-7 7H3v-2l7-7z" />
+                    </svg>
+                    {t("platform.customTest", "自定义")}
                   </button>
                   <button className="btn btn-ghost btn-icon" onClick={() => handleEdit(p)}>
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -896,18 +921,23 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
         </div>
       )}
     </div>
-  );
 
-  // ── Test panel overlay ──
-  if (testingPlatform !== null) {
-    return (
-      <ModelTestPanel
-        platform={testingPlatform as Platform}
-        onClose={() => setTestingPlatform(null)}
-        onResult={(success) => { if (testingPlatform) setTestResults(prev => ({ ...prev, [testingPlatform.id]: success ? "ok" : "fail" })); }}
-      />
-    );
-  }
+      {/* Custom test overlay */}
+      {testingPlatform !== null && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 1000,
+          background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <ModelTestPanel
+            platform={testingPlatform as Platform}
+            onClose={() => setTestingPlatform(null)}
+            onResult={(success) => { if (testingPlatform) setTestResults(prev => ({ ...prev, [testingPlatform.id]: success ? "ok" : "fail" })); }}
+          />
+        </div>
+      )}
+    </>
+  );
 }
 
 function formatTokens(n: number): string {
