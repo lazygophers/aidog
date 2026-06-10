@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   proxyLogApi,
@@ -18,8 +18,8 @@ export function Logs() {
   const [detail, setDetail] = useState<ProxyLogDetail | null>(null);
   const [detailTab, setDetailTab] = useState<"request" | "response">("request");
 
-  const load = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const [items, count] = await Promise.all([
         proxyLogApi.list(PAGE_SIZE, offset),
@@ -28,10 +28,20 @@ export function Logs() {
       setLogs(items || []);
       setTotal(count);
     } catch (e) { console.error(e); }
-    setLoading(false);
+    if (!silent) setLoading(false);
   }, [offset]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Auto-refresh every 3s on list view
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    const id = setInterval(() => {
+      if (mountedRef.current && !detail) load(true);
+    }, 3000);
+    return () => { mountedRef.current = false; clearInterval(id); };
+  }, [load, detail]);
 
   const handleClear = async () => {
     if (!confirm(t("logs.clearConfirm", "确认清除所有日志？此操作不可撤销。"))) return;
