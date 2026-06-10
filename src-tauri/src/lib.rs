@@ -767,6 +767,11 @@ fn platform_usage_stats(platform_id: String, db: State<'_, Db>) -> Result<gatewa
 }
 
 #[tauri::command]
+fn group_usage_stats(group_name: String, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
+    gateway::db::get_group_usage_stats(&db, &group_name)
+}
+
+#[tauri::command]
 fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSettings, String> {
     let val = gateway::db::get_setting(&db, "proxy", "logging")
         .ok()
@@ -1209,6 +1214,7 @@ pub fn run() {
             model_test,
             // Platform Usage
             platform_usage_stats,
+            group_usage_stats,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -787,11 +787,13 @@ pub fn count_proxy_logs(db: &Db) -> Result<u32, String> {
 
 pub fn get_platform_usage_stats(db: &Db, platform_id: &str) -> Result<super::models::PlatformUsageStats, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
+    // Match by platform_id directly, OR via group association for legacy logs without platform_id
     conn.query_row(
         "SELECT COUNT(*), \
          SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
          SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens) \
-         FROM proxy_logs WHERE platform_id = ?1",
+         FROM proxy_logs WHERE platform_id = ?1 \
+         OR (platform_id = '' AND group_name IN (SELECT name FROM groups WHERE auto_from_platform = ?1))",
         params![platform_id],
         |row| {
             let total: i64 = row.get(0).unwrap_or(0);
@@ -811,7 +813,31 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: &str) -> Result<super::mod
     ).map_err(|e| format!("platform usage stats: {e}"))
 }
 
-// ─── Statistics ───────────────────────────────────────────
+pub fn get_group_usage_stats(db: &Db, group_name: &str) -> Result<super::models::PlatformUsageStats, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.query_row(
+        "SELECT COUNT(*), \
+         SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
+         SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens) \
+         FROM proxy_logs WHERE group_name = ?1",
+        params![group_name],
+        |row| {
+            let total: i64 = row.get(0).unwrap_or(0);
+            let success: i64 = row.get(1).unwrap_or(0);
+            let inp: i64 = row.get(2).unwrap_or(0);
+            let out: i64 = row.get(3).unwrap_or(0);
+            let cache: i64 = row.get(4).unwrap_or(0);
+            Ok(super::models::PlatformUsageStats {
+                total_requests: total,
+                success_count: success,
+                total_input_tokens: inp,
+                total_output_tokens: out,
+                total_cache_tokens: cache,
+                cache_rate: if inp > 0 { cache as f64 / inp as f64 * 100.0 } else { 0.0 },
+            })
+        }
+    ).map_err(|e| format!("group usage stats: {e}"))
+}
 
 struct QueryParams {
     start: String,

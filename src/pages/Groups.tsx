@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  groupDetailApi, groupApi, mappingApi, platformApi,
-  type GroupDetail, type Platform, type RoutingMode, type ModelSlot,
+  groupDetailApi, groupApi, mappingApi, platformApi, groupUsageApi,
+  type GroupDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
 } from "../services/api";
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
@@ -71,6 +71,7 @@ export function Groups() {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
+  const [groupStats, setGroupStats] = useState<Record<string, PlatformUsageStats>>({});
   const [loading, setLoading] = useState(true);
 
   // Edit mode
@@ -102,6 +103,15 @@ export function Groups() {
       const [d, p] = await Promise.all([groupDetailApi.list(), platformApi.list()]);
       setDetails(d || []);
       setPlatforms(p || []);
+      // Batch load group stats
+      const statsMap: Record<string, PlatformUsageStats> = {};
+      await Promise.all((d || []).map(async (g) => {
+        try {
+          const s = await groupUsageApi.stats(g.group.name);
+          if (s && s.total_requests > 0) statsMap[g.group.name] = s;
+        } catch { /* ignore */ }
+      }));
+      setGroupStats(statsMap);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -587,6 +597,23 @@ export function Groups() {
                 </div>
               )}
 
+              {/* Usage Stats */}
+              {groupStats[group.name] && (() => {
+                const u = groupStats[group.name];
+                const total = u.total_input_tokens + u.total_output_tokens;
+                const cost = estCost(u.total_input_tokens, u.total_output_tokens);
+                const successRate = u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
+                return (
+                  <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                    <StatChip icon="⚡" value={fmtTk(total)} label="tokens" />
+                    <StatChip icon="💰" value={`$${cost}`} label="cost" />
+                    <StatChip icon="📦" value={`${u.cache_rate.toFixed(1)}%`} label="cache" color="var(--color-success, #34c759)" />
+                    <StatChip icon="✓" value={`${successRate.toFixed(1)}%`} label="ok"
+                      color={successRate >= 95 ? "var(--color-success, #34c759)" : successRate >= 80 ? "var(--color-warning, #ff9500)" : "var(--color-danger, #ff3b30)"} />
+                  </div>
+                );
+              })()}
+
               {/* Model Mappings */}
               {model_mappings.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
@@ -666,6 +693,35 @@ export function Groups() {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+function fmtTk(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return `${n}`;
+}
+
+function estCost(inputTokens: number, outputTokens: number): string {
+  const cost = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 12;
+  if (cost >= 1) return cost.toFixed(2);
+  if (cost >= 0.01) return cost.toFixed(3);
+  if (cost > 0) return cost.toFixed(4);
+  return "0";
+}
+
+function StatChip({ icon, value, label, color }: { icon: string; value: string; label: string; color?: string }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 5,
+      padding: "4px 10px", borderRadius: "var(--radius-sm)",
+      background: "var(--bg-glass)", border: "1px solid var(--border)",
+      fontSize: 12,
+    }}>
+      <span style={{ fontSize: 13 }}>{icon}</span>
+      <span style={{ fontWeight: 700, color: color || "var(--text-primary)" }}>{value}</span>
+      <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontWeight: 500 }}>{label}</span>
     </div>
   );
 }

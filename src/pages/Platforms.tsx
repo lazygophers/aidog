@@ -818,19 +818,15 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   {usageMap[p.id] && (() => {
                     const u = usageMap[p.id];
                     const total = u.total_input_tokens + u.total_output_tokens;
+                    const cost = estimateCost(u.total_input_tokens, u.total_output_tokens);
+                    const successRate = u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
                     return (
-                      <div style={{ display: "flex", gap: 8, marginTop: 4, fontSize: 11, color: "var(--text-tertiary)" }}>
-                        <span>{formatTokens(total)} tokens</span>
-                        <span>·</span>
-                        <span>↑{formatTokens(u.total_input_tokens)} ↓{formatTokens(u.total_output_tokens)}</span>
-                        {u.cache_rate > 0 && (
-                          <>
-                            <span>·</span>
-                            <span style={{ color: "var(--color-success, #34c759)" }}>cache {u.cache_rate.toFixed(1)}%</span>
-                          </>
-                        )}
-                        <span>·</span>
-                        <span>{u.total_requests} req</span>
+                      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
+                        <StatBadge icon="⚡" value={formatTokens(total)} label="tokens" />
+                        <StatBadge icon="💰" value={`$${cost}`} label="cost" />
+                        <StatBadge icon="📦" value={`${u.cache_rate.toFixed(1)}%`} label="cache" color="var(--color-success, #34c759)" />
+                        <StatBadge icon="✓" value={`${successRate.toFixed(1)}%`} label="ok"
+                          color={successRate >= 95 ? "var(--color-success, #34c759)" : successRate >= 80 ? "var(--color-warning, #ff9500)" : "var(--color-danger, #ff3b30)"} />
                       </div>
                     );
                   })()}
@@ -876,4 +872,28 @@ function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return `${n}`;
+}
+
+function estimateCost(inputTokens: number, outputTokens: number): string {
+  // Rough average: $3/M input, $12/M output (blends Claude/GPT-4o pricing)
+  const cost = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 12;
+  if (cost >= 1) return cost.toFixed(2);
+  if (cost >= 0.01) return cost.toFixed(3);
+  if (cost > 0) return cost.toFixed(4);
+  return "0";
+}
+
+function StatBadge({ icon, value, label, color }: { icon: string; value: string; label: string; color?: string }) {
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 5,
+      padding: "4px 10px", borderRadius: "var(--radius-sm)",
+      background: "var(--bg-glass)", border: "1px solid var(--border)",
+      fontSize: 12,
+    }}>
+      <span style={{ fontSize: 13 }}>{icon}</span>
+      <span style={{ fontWeight: 700, color: color || "var(--text-primary)" }}>{value}</span>
+      <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontWeight: 500 }}>{label}</span>
+    </div>
+  );
 }

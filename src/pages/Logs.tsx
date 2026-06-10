@@ -101,7 +101,7 @@ export function Logs() {
   const openDetail = async (id: string) => {
     try {
       const d = await proxyLogApi.get(id);
-      if (d) { setDetail(d); setDetailTab("request"); }
+      if (d) { setDetail(d); setDetailTab("original"); }
     } catch (e) { console.error(e); }
   };
 
@@ -154,6 +154,7 @@ export function Logs() {
 
         {/* Meta */}
         <div className="glass-surface" style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
+          <MetaItem label={t("logs.requestId", "请求 ID")} value={detail.id} />
           <MetaItem label={t("logs.group", "分组")} value={detail.group_name} />
           <MetaItem label={t("logs.model", "模型")} value={detail.model || "-"} />
           <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} />

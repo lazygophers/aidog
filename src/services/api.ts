@@ -130,6 +130,11 @@ export const platformApi = {
     invoke<PlatformUsageStats>("platform_usage_stats", { platformId }),
 };
 
+export const groupUsageApi = {
+  stats: (groupName: string) =>
+    invoke<PlatformUsageStats>("group_usage_stats", { groupName }),
+};
+
 // ─── Group API ─────────────────────────────────────────────
 
 export const groupApi = {
