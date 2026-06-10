@@ -873,10 +873,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     onClick={() => handleToggle(p)}
                     title={p.enabled ? "Disable" : "Enable"}
                   />
-                  <button className="btn btn-ghost btn-icon" onClick={() => setTestingPlatform(p)} title="Test">
+                  <button className="btn btn-ghost" onClick={() => setTestingPlatform(p)} title={t("platform.test", "测试")} style={{ fontSize: 12, gap: 4, padding: "4px 10px" }}>
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M7 1v4M7 9v4M1 7h4M9 7h4" />
+                      <path d="M7 1l1.5 3.5L12 6l-3.5 1.5L7 11l-1.5-3.5L2 6l3.5-1.5L7 1z" />
                     </svg>
+                    {t("platform.test", "测试")}
                   </button>
                   <button className="btn btn-ghost btn-icon" onClick={() => handleEdit(p)}>
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
