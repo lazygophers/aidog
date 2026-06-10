@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  groupDetailApi, groupApi, mappingApi, platformApi, groupUsageApi,
+  groupDetailApi, groupApi, mappingApi, platformApi,
   type GroupDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
 } from "../services/api";
 
@@ -72,6 +72,7 @@ export function Groups() {
   const [details, setDetails] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [groupStats, setGroupStats] = useState<Record<string, PlatformUsageStats>>({});
+  const [_platformStats, setPlatformStats] = useState<Record<string, PlatformUsageStats>>({});
   const [loading, setLoading] = useState(true);
 
   // Edit mode
@@ -103,14 +104,39 @@ export function Groups() {
       const [d, p] = await Promise.all([groupDetailApi.list(), platformApi.list()]);
       setDetails(d || []);
       setPlatforms(p || []);
-      // Batch load group stats
-      const statsMap: Record<string, PlatformUsageStats> = {};
-      await Promise.all((d || []).map(async (g) => {
+      // Load per-platform usage stats
+      const pStatsMap: Record<string, PlatformUsageStats> = {};
+      await Promise.all((p || []).map(async (plat) => {
         try {
-          const s = await groupUsageApi.stats(g.group.name);
-          if (s && s.total_requests > 0) statsMap[g.group.name] = s;
+          const s = await platformApi.usageStats(plat.id);
+          if (s && s.total_requests > 0) pStatsMap[plat.id] = s;
         } catch { /* ignore */ }
       }));
+      setPlatformStats(pStatsMap);
+      // Aggregate group stats from associated platform stats
+      const statsMap: Record<string, PlatformUsageStats> = {};
+      for (const g of d || []) {
+        let total_requests = 0, success_count = 0;
+        let total_input_tokens = 0, total_output_tokens = 0, total_cache_tokens = 0;
+        for (const gp of g.platforms) {
+          const ps = pStatsMap[gp.platform.id];
+          if (ps) {
+            total_requests += ps.total_requests;
+            success_count += ps.success_count;
+            total_input_tokens += ps.total_input_tokens;
+            total_output_tokens += ps.total_output_tokens;
+            total_cache_tokens += ps.total_cache_tokens;
+          }
+        }
+        if (total_requests > 0) {
+          statsMap[g.group.name] = {
+            total_requests, success_count,
+            total_input_tokens, total_output_tokens, total_cache_tokens,
+            cache_rate: total_input_tokens > 0 ? total_cache_tokens / total_input_tokens * 100 : 0,
+            recent_failures: 0, recent_total: 0,
+          };
+        }
+      }
       setGroupStats(statsMap);
     } catch (e) { console.error(e); }
     setLoading(false);
