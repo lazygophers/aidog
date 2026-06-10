@@ -16,11 +16,10 @@ export function Logs() {
   const [offset, setOffset] = useState(0);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<ProxyLogDetail | null>(null);
-  const [detailTab, setDetailTab] = useState<"original" | "upstream" | "response">("original");
   const [copied, setCopied] = useState(false);
 
   const copyDetail = async (d: ProxyLogDetail) => {
-    const formatJson = (s: string) => {
+    const fj = (s: string) => {
       try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; }
     };
     const lines = [
@@ -40,22 +39,35 @@ export function Logs() {
       `- Cache Tokens: ${d.cache_tokens}`,
       `- Time: ${d.created_at}`,
       ``,
-      `## Original Request (Client → Proxy)`,
-      `### Headers`,
-      formatJson(d.request_headers),
+      `## User Request (Client → Proxy)`,
+      `- URL: ${d.request_url || "-"}`,
+      `- Status Code: ${d.status_code}`,
+      `### Request Headers`,
+      fj(d.request_headers),
       ``,
-      `### Body`,
-      formatJson(d.request_body),
+      `### Request Body`,
+      fj(d.request_body),
+      ``,
+      `### Response Headers`,
+      fj(d.user_response_headers || "{}"),
+      ``,
+      `### Response Body`,
+      d.user_response_body === "[stream]" ? "(streaming)" : fj(d.user_response_body || d.response_body),
       ``,
       `## Upstream Request (Proxy → Platform)`,
-      `### Headers`,
-      formatJson(d.upstream_request_headers),
+      `- URL: ${d.upstream_request_url || "-"}`,
+      `- Status Code: ${d.upstream_status_code || "-"}`,
+      `### Request Headers`,
+      fj(d.upstream_request_headers),
       ``,
-      `### Body`,
-      d.upstream_request_body ? formatJson(d.upstream_request_body) : "(not captured)",
+      `### Request Body`,
+      d.upstream_request_body ? fj(d.upstream_request_body) : "(not captured)",
       ``,
-      `## Response`,
-      d.response_body === "[stream]" ? "(streaming, not captured)" : formatJson(d.response_body),
+      `### Response Headers`,
+      fj(d.upstream_response_headers || "{}"),
+      ``,
+      `### Response Body`,
+      d.response_body === "[stream]" ? "(streaming)" : fj(d.response_body),
     ];
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
@@ -101,7 +113,7 @@ export function Logs() {
   const openDetail = async (id: string) => {
     try {
       const d = await proxyLogApi.get(id);
-      if (d) { setDetail(d); setDetailTab("original"); }
+      if (d) setDetail(d);
     } catch (e) { console.error(e); }
   };
 
@@ -116,7 +128,7 @@ export function Logs() {
     return () => clearInterval(id);
   }, [detail?.id]);
 
-  // ── Detail modal ──
+  // ── Detail view ──
   if (detail) {
     const reqHeaders = safeParseJson(detail.request_headers);
     const reqBody = safeParseJson(detail.request_body);
@@ -124,12 +136,22 @@ export function Logs() {
     const upstreamBody = detail.upstream_request_body
       ? safeParseJson(detail.upstream_request_body)
       : null;
-    const respBody = detail.response_body === "[stream]"
+    const upstreamRespHeaders = safeParseJson(detail.upstream_response_headers || "{}");
+    const upstreamRespBody = detail.response_body === "[stream]"
       ? t("logs.streamResponse", "(流式响应，内容未记录)")
       : safeParseJson(detail.response_body);
+    const userRespHeaders = safeParseJson(detail.user_response_headers || "{}");
+    const userRespBody = detail.user_response_body === "[stream]" || !detail.user_response_body
+      ? detail.user_response_body === "[stream]"
+        ? t("logs.streamResponse", "(流式响应，内容未记录)")
+        : detail.response_body === "[stream]"
+          ? t("logs.streamResponse", "(流式响应，内容未记录)")
+          : safeParseJson(detail.response_body)
+      : safeParseJson(detail.user_response_body);
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 800, width: "100%" }}>
+        {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button className="btn btn-ghost btn-icon" onClick={() => setDetail(null)}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -168,53 +190,33 @@ export function Logs() {
           <MetaItem label={t("logs.time", "时间")} value={new Date(detail.created_at).toLocaleString()} />
         </div>
 
-        {/* Tabs: Original Request / Upstream Request / Response */}
-        <div className="glass-surface" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button className={`btn ${detailTab === "original" ? "btn-primary" : ""}`} style={{ fontSize: F.hint }}
-              onClick={() => setDetailTab("original")}>
-              {t("logs.originalRequest", "原始请求")}
-            </button>
-            <button className={`btn ${detailTab === "upstream" ? "btn-primary" : ""}`} style={{ fontSize: F.hint }}
-              onClick={() => setDetailTab("upstream")}>
-              {t("logs.upstreamRequest", "上游请求")}
-            </button>
-            <button className={`btn ${detailTab === "response" ? "btn-primary" : ""}`} style={{ fontSize: F.hint }}
-              onClick={() => setDetailTab("response")}>
-              {t("logs.response", "响应")}
-            </button>
-          </div>
+        {/* ── 用户请求 ── */}
+        <RequestSection
+          title={t("logs.userRequest", "用户请求")}
+          subtitle="Client → Proxy"
+          protocol={detail.source_protocol?.toUpperCase()}
+          url={detail.request_url}
+          statusCode={detail.status_code}
+          reqHeaders={reqHeaders}
+          reqBody={reqBody}
+          respHeaders={userRespHeaders}
+          respBody={userRespBody}
+          t={t}
+        />
 
-          {detailTab === "original" ? (
-            <>
-              <div style={{ fontSize: F.hint, fontWeight: 600, color: "var(--text-secondary)" }}>{t("logs.headers", "请求头")}</div>
-              <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>{JSON.stringify(reqHeaders, null, 2)}</pre>
-              <div style={{ fontSize: F.hint, fontWeight: 600, color: "var(--text-secondary)" }}>{t("logs.body", "请求体")}</div>
-              <pre className="code-block" style={{ maxHeight: 400, overflow: "auto" }}>{typeof reqBody === "string" ? reqBody : JSON.stringify(reqBody, null, 2)}</pre>
-            </>
-          ) : detailTab === "upstream" ? (
-            <>
-              <div style={{ fontSize: F.hint, fontWeight: 600, color: "var(--text-secondary)" }}>
-                {t("logs.upstreamRequest", "上游请求")}
-                <span style={{ fontWeight: 400, color: "var(--text-tertiary)", marginLeft: 8 }}>
-                  {detail.target_protocol.toUpperCase()}
-                </span>
-              </div>
-              <div style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{t("logs.headers", "请求头")}</div>
-              <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>{JSON.stringify(upstreamHeaders, null, 2)}</pre>
-              <div style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{t("logs.body", "请求体")}</div>
-              {upstreamBody
-                ? <pre className="code-block" style={{ maxHeight: 400, overflow: "auto" }}>{typeof upstreamBody === "string" ? upstreamBody : JSON.stringify(upstreamBody, null, 2)}</pre>
-                : <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontStyle: "italic" }}>{t("logs.noUpstream", "(未捕获上游请求)")}</div>
-              }
-            </>
-          ) : (
-            <>
-              <div style={{ fontSize: F.hint, fontWeight: 600, color: "var(--text-secondary)" }}>{t("logs.responseBody", "响应体")}</div>
-              <pre className="code-block" style={{ maxHeight: 500, overflow: "auto" }}>{typeof respBody === "string" ? respBody : JSON.stringify(respBody, null, 2)}</pre>
-            </>
-          )}
-        </div>
+        {/* ── 上游请求 ── */}
+        <RequestSection
+          title={t("logs.upstreamRequest", "上游请求")}
+          subtitle="Proxy → Platform"
+          protocol={detail.target_protocol?.toUpperCase()}
+          url={detail.upstream_request_url}
+          statusCode={detail.upstream_status_code}
+          reqHeaders={upstreamHeaders}
+          reqBody={upstreamBody}
+          respHeaders={upstreamRespHeaders}
+          respBody={upstreamRespBody}
+          t={t}
+        />
       </div>
     );
   }
@@ -345,6 +347,109 @@ function MetaItem({ label, value, highlight }: { label: string; value: string; h
       }}>
         {value}
       </div>
+    </div>
+  );
+}
+
+/** 请求区块组件 — 显示完整的 URL / Status / Req Headers / Req Body / Resp Headers / Resp Body */
+function RequestSection({
+  title, subtitle, protocol, url, statusCode,
+  reqHeaders, reqBody, respHeaders, respBody, t,
+}: {
+  title: string;
+  subtitle: string;
+  protocol?: string;
+  url?: string;
+  statusCode?: number;
+  reqHeaders: any;
+  reqBody: any;
+  respHeaders: any;
+  respBody: any;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const [open, setOpen] = useState(true);
+  const bodyStr = (v: any) => typeof v === "string" ? v : JSON.stringify(v, null, 2);
+  const emptyBody = !reqBody && !respBody;
+
+  return (
+    <div className="glass-surface" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* Section header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
+        onClick={() => setOpen(!open)}>
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor"
+          strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
+          style={{ transform: open ? "rotate(90deg)" : "rotate(0)", transition: "transform 0.15s" }}>
+          <path d="M5 3l4 4-4 4" />
+        </svg>
+        <div style={{ fontSize: F.hint, fontWeight: 700 }}>{title}</div>
+        <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{subtitle}</span>
+        {protocol && <span className="badge" style={{ fontSize: 11, padding: "2px 6px" }}>{protocol}</span>}
+        {statusCode != null && statusCode > 0 && (
+          <span style={{
+            fontSize: F.small, fontWeight: 600, marginLeft: "auto",
+            color: statusCode >= 200 && statusCode < 300 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)",
+          }}>
+            HTTP {statusCode}
+          </span>
+        )}
+      </div>
+
+      {open && !emptyBody && (
+        <>
+          {/* URL */}
+          {url && (
+            <div>
+              <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>URL</div>
+              <pre className="code-block" style={{ maxHeight: 60, overflow: "auto", wordBreak: "break-all", whiteSpace: "pre-wrap" }}>{url}</pre>
+            </div>
+          )}
+
+          {/* Request Headers */}
+          <div>
+            <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+              {t("logs.requestHeaders", "请求头")}
+            </div>
+            <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>
+              {typeof reqHeaders === "string" ? reqHeaders : JSON.stringify(reqHeaders, null, 2)}
+            </pre>
+          </div>
+
+          {/* Request Body */}
+          <div>
+            <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+              {t("logs.requestBody", "请求体")}
+            </div>
+            {reqBody
+              ? <pre className="code-block" style={{ maxHeight: 300, overflow: "auto" }}>{bodyStr(reqBody)}</pre>
+              : <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontStyle: "italic" }}>-</div>
+            }
+          </div>
+
+          {/* Response Headers */}
+          <div>
+            <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+              {t("logs.responseHeaders", "响应头")}
+            </div>
+            <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>
+              {typeof respHeaders === "string" ? respHeaders : JSON.stringify(respHeaders, null, 2)}
+            </pre>
+          </div>
+
+          {/* Response Body */}
+          <div>
+            <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+              {t("logs.responseBody", "响应体")}
+            </div>
+            <pre className="code-block" style={{ maxHeight: 400, overflow: "auto" }}>{bodyStr(respBody)}</pre>
+          </div>
+        </>
+      )}
+
+      {open && emptyBody && (
+        <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontStyle: "italic" }}>
+          {t("logs.noUpstream", "(未捕获)")}
+        </div>
+      )}
     </div>
   );
 }

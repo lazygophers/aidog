@@ -497,18 +497,20 @@ async fn model_test(
     };
 
     // 优先使用 endpoint 匹配（同 proxy 逻辑），回退到平台主配置
-    let (target_protocol, target_base_url) = if !platform.endpoints.is_empty() {
-        // 取第一个 endpoint 作为测试目标
+    let (target_protocol, target_base_url, client_type) = if !platform.endpoints.is_empty() {
         let ep = &platform.endpoints[0];
-        (ep.protocol.clone(), ep.base_url.clone())
+        (ep.protocol.clone(), ep.base_url.clone(), ep.client_type.clone())
     } else {
-        (platform.protocol.clone(), platform.base_url.clone())
+        (platform.protocol.clone(), platform.base_url.clone(), ClientType::default())
     };
 
     let (req_body, api_path) = gateway::adapter::convert_request(&chat_req, &target_protocol, &platform.protocol);
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
     let base_url = target_base_url.trim_end_matches('/');
     let url = format!("{}{}", base_url, api_path);
+
+    // ── 使用与 proxy 相同的客户端 header 模拟逻辑 ──
+    let upstream_headers = gateway::proxy::build_upstream_headers(&client_type, &target_protocol, &platform.api_key);
 
     let client = reqwest::Client::builder()
         .timeout(std::time::Duration::from_secs(30))
@@ -519,26 +521,45 @@ async fn model_test(
     let request_id = uuid::Uuid::new_v4().to_string();
     let created_at = chrono::Utc::now().to_rfc3339();
 
-    let mut req_builder = client
+    let req_builder = client
         .post(&url)
         .header("Content-Type", "application/json")
         .body(req_body_str.clone());
+    let req_builder = gateway::proxy::apply_client_headers(req_builder, &client_type, &target_protocol, &platform.api_key);
 
-    match target_protocol {
-        Protocol::Anthropic => {
-            req_builder = req_builder
-                .header("anthropic-version", "2023-06-01")
-                .header("x-api-key", &platform.api_key);
+    // ── 辅助: 构造测试日志 ──
+    let make_log = |body_override: &str, upstream_status: i32, user_status: i32,
+                     upstream_resp_headers: &str, user_resp_body: &str,
+                     in_tok: i32, out_tok: i32| -> gateway::models::ProxyLog {
+        gateway::models::ProxyLog {
+            id: request_id.clone(),
+            group_name: "[test]".into(),
+            model: model.clone(),
+            actual_model: model.clone(),
+            source_protocol: "test".into(),
+            target_protocol: format!("{:?}", target_protocol).to_lowercase(),
+            platform_id: platform.id.clone(),
+            request_headers: r#"{"source":"model-test"}"#.into(),
+            request_body: serde_json::to_string(&serde_json::json!({"messages":[{"role":"user","content":prompt}]})).unwrap_or_default(),
+            upstream_request_headers: serde_json::Value::Object(
+                upstream_headers.iter().map(|(k, v)| (k.clone(), serde_json::Value::String(v.clone()))).collect()
+            ).to_string(),
+            upstream_request_body: req_body_str.clone(),
+            response_body: body_override.into(),
+            request_url: format!("/model-test/{}", platform.id),
+            upstream_request_url: url.clone(),
+            upstream_response_headers: upstream_resp_headers.into(),
+            upstream_status_code: upstream_status,
+            user_response_headers: r#"{"content-type":"application/json"}"#.to_string(),
+            user_response_body: user_resp_body.into(),
+            status_code: user_status,
+            duration_ms: start.elapsed().as_millis() as i32,
+            input_tokens: in_tok,
+            output_tokens: out_tok,
+            cache_tokens: 0,
+            created_at: created_at.clone(),
         }
-        Protocol::Gemini => {
-            req_builder = req_builder
-                .header("x-goog-api-key", &platform.api_key);
-        }
-        _ => {
-            req_builder = req_builder
-                .header("Authorization", format!("Bearer {}", platform.api_key));
-        }
-    }
+    };
 
     let resp = match req_builder.send().await {
         Ok(r) => r,
@@ -553,33 +574,28 @@ async fn model_test(
                 output_tokens: 0,
                 error: format!("request failed: {e}"),
             };
-            let _ = db::upsert_proxy_log(&db, &gateway::models::ProxyLog {
-                id: request_id,
-                group_name: "[test]".into(),
-                model: model.clone(),
-                actual_model: model,
-                source_protocol: "test".into(),
-                target_protocol: format!("{:?}", target_protocol).to_lowercase(),
-                platform_id: platform.id.clone(),
-                request_headers: r#"{"source":"model-test"}"#.into(),
-                request_body: serde_json::to_string(&serde_json::json!({"messages":[{"role":"user","content":prompt}]})).unwrap_or_default(),
-                upstream_request_headers: format!("{{\"url\":\"{}\"}}", url),
-                upstream_request_body: req_body_str,
-                response_body: format!("upstream error: {e}"),
-                status_code: 502,
-                duration_ms: start.elapsed().as_millis() as i32,
-                input_tokens: 0,
-                output_tokens: 0,
-                cache_tokens: 0,
-                created_at,
-            });
+            let _ = db::upsert_proxy_log(&db, &make_log(
+                &format!("upstream error: {e}"), 0, 502, "", &format!("upstream error: {e}"), 0, 0,
+            ));
             return Ok(result);
         }
     };
 
     let duration_ms = start.elapsed().as_millis() as i32;
-    let status_code = resp.status().as_u16() as i32;
+    let upstream_status_code = resp.status().as_u16() as i32;
     let status = resp.status();
+
+    // 捕获上游响应头
+    let upstream_resp_headers = {
+        let mut h = serde_json::Map::new();
+        for (k, v) in resp.headers() {
+            if let Ok(s) = v.to_str() {
+                h.insert(k.to_string(), serde_json::Value::String(s.to_string()));
+            }
+        }
+        serde_json::Value::Object(h).to_string()
+    };
+
     let body = resp.text().await.unwrap_or_default();
 
     if !status.is_success() {
@@ -593,26 +609,10 @@ async fn model_test(
             output_tokens: 0,
             error: format!("HTTP {}", status),
         };
-        let _ = db::upsert_proxy_log(&db, &gateway::models::ProxyLog {
-            id: request_id,
-            group_name: "[test]".into(),
-            model: model.clone(),
-            actual_model: model,
-            source_protocol: "test".into(),
-            target_protocol: format!("{:?}", target_protocol).to_lowercase(),
-            platform_id: platform.id.clone(),
-            request_headers: r#"{"source":"model-test"}"#.into(),
-            request_body: serde_json::to_string(&serde_json::json!({"messages":[{"role":"user","content":prompt}]})).unwrap_or_default(),
-            upstream_request_headers: format!("{{\"url\":\"{}\"}}", url),
-            upstream_request_body: req_body_str,
-            response_body: body,
-            status_code,
-            duration_ms,
-            input_tokens: 0,
-            output_tokens: 0,
-            cache_tokens: 0,
-            created_at,
-        });
+        let _ = db::upsert_proxy_log(&db, &make_log(
+            &body, upstream_status_code, upstream_status_code,
+            &upstream_resp_headers, &body, 0, 0,
+        ));
         return Ok(result);
     }
 
@@ -631,27 +631,10 @@ async fn model_test(
         error: String::new(),
     };
 
-    // Log successful test to proxy_logs
-    let _ = db::upsert_proxy_log(&db, &gateway::models::ProxyLog {
-        id: request_id,
-        group_name: "[test]".into(),
-        model: model.clone(),
-        actual_model: model,
-        source_protocol: "test".into(),
-        target_protocol: format!("{:?}", target_protocol).to_lowercase(),
-        platform_id: platform.id.clone(),
-        request_headers: r#"{"source":"model-test"}"#.into(),
-        request_body: serde_json::to_string(&serde_json::json!({"messages":[{"role":"user","content":prompt}]})).unwrap_or_default(),
-        upstream_request_headers: format!("{{\"url\":\"{}\"}}", url),
-        upstream_request_body: req_body_str,
-        response_body: body,
-        status_code,
-        duration_ms,
-        input_tokens: in_tok,
-        output_tokens: out_tok,
-        cache_tokens: 0,
-        created_at,
-    });
+    let _ = db::upsert_proxy_log(&db, &make_log(
+        &body, upstream_status_code, 200,
+        &upstream_resp_headers, &body, in_tok, out_tok,
+    ));
 
     Ok(result)
 }

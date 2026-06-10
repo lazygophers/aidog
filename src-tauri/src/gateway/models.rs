@@ -372,6 +372,24 @@ pub struct ProxyLog {
     pub upstream_request_body: String,
     /// 上游返回的响应体（非流式完整 JSON，流式为 "[stream]"）
     pub response_body: String,
+    /// 用户请求的完整 URL
+    #[serde(default)]
+    pub request_url: String,
+    /// 上游请求的完整 URL
+    #[serde(default)]
+    pub upstream_request_url: String,
+    /// 上游返回的响应头
+    #[serde(default)]
+    pub upstream_response_headers: String,
+    /// 上游 HTTP 状态码
+    #[serde(default)]
+    pub upstream_status_code: i32,
+    /// 代理返回给用户的响应头
+    #[serde(default)]
+    pub user_response_headers: String,
+    /// 代理返回给用户的响应体（非流式含模型名替换，流式为 "[stream]"）
+    #[serde(default)]
+    pub user_response_body: String,
     pub status_code: i32,
     pub duration_ms: i32,
     pub input_tokens: i32,

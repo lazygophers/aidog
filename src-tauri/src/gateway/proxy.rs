@@ -119,6 +119,12 @@ async fn handle_proxy(
         upstream_request_headers: String::new(),
         upstream_request_body: String::new(),
         response_body: String::new(),
+        request_url: String::new(),
+        upstream_request_url: String::new(),
+        upstream_response_headers: String::new(),
+        upstream_status_code: 0,
+        user_response_headers: String::new(),
+        user_response_body: String::new(),
         status_code: 0,
         duration_ms: 0,
         input_tokens: 0,
@@ -149,6 +155,9 @@ async fn handle_proxy(
         .and_then(|v| v.strip_prefix("Bearer "))
         .map(|s| s.trim().to_string());
     let path = req.uri().path().to_string();
+
+    // ── 记录用户请求 URL ──
+    log.request_url = req.uri().to_string();
 
     // ── 读取请求体 ──
     let (_parts, body) = req.into_parts();
@@ -301,11 +310,12 @@ async fn handle_proxy(
 
     // 协议转换：wire format 由 endpoint 协议决定，API path 由平台类型决定
     let platform_protocol = &route.platform.protocol;
-    let (mut req_body, api_path) = adapter::convert_request(&chat_req, target_protocol_enum, platform_protocol);
+    let (mut req_body, mut api_path) = adapter::convert_request(&chat_req, target_protocol_enum, platform_protocol);
 
-    // Coding Plan 特殊处理：注入平台特有字段
+    // Coding Plan 特殊处理：注入平台特有字段 + 覆盖 API 路径
     if coding_plan {
         inject_coding_plan_fields(&mut req_body, platform_protocol);
+        override_coding_plan_path(&mut api_path, platform_protocol);
     }
 
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
@@ -313,6 +323,7 @@ async fn handle_proxy(
     // 构建目标 URL
     let base_url = target_base_url.trim_end_matches('/');
     let url = format!("{}{}", base_url, api_path);
+    log.upstream_request_url = url.clone();
 
     // ── 解析超时：模型 > 分组 > 系统 ──
     let system_timeout = match state.db.lock() {
@@ -348,17 +359,35 @@ async fn handle_proxy(
         Err(e) => {
             log.response_body = format!("upstream error: {e}");
             log.status_code = 502;
+            502;
+            log.user_response_body = format!("upstream: {e}");
+            log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log);
             return (StatusCode::BAD_GATEWAY, format!("upstream: {e}")).into_response();
         }
     };
 
+    // ── 捕获上游响应 headers + status ──
     let status = resp.status();
+    log.upstream_status_code = status.as_u16() as i32;
+    {
+        let mut h = serde_json::Map::new();
+        for (k, v) in resp.headers() {
+            if let Ok(s) = v.to_str() {
+                h.insert(k.to_string(), Value::String(s.to_string()));
+            }
+        }
+        log.upstream_response_headers = Value::Object(h).to_string();
+    }
+
     if !status.is_success() {
         let body = resp.text().await.unwrap_or_default();
-        log.status_code = status.as_u16() as i32;
         log.response_body = body.clone();
+        log.status_code = status.as_u16() as i32;
+        status.as_u16() as i32;
+        log.user_response_body = body.clone();
+        log.user_response_headers = log.upstream_response_headers.clone();
         log.duration_ms = start.elapsed().as_millis() as i32;
         upsert_log(&state, &log);
         return (StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY), body)
@@ -371,13 +400,13 @@ async fn handle_proxy(
         let resp_str = String::from_utf8_lossy(&body).to_string();
         let (input_tokens, output_tokens, cache_tokens) = extract_usage(&resp_str);
 
+        log.response_body = resp_str.clone();
         log.status_code = 200;
-        log.response_body = resp_str;
+        200;
         log.duration_ms = start.elapsed().as_millis() as i32;
         log.input_tokens = input_tokens;
         log.output_tokens = output_tokens;
         log.cache_tokens = cache_tokens;
-        upsert_log(&state, &log);
 
         // Replace model in response back to original if remapped
         let body = if needs_model_remap {
@@ -385,6 +414,10 @@ async fn handle_proxy(
         } else {
             body.to_vec()
         };
+        log.user_response_body = String::from_utf8_lossy(&body).to_string();
+        log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+
+        upsert_log(&state, &log);
 
         return (
             StatusCode::OK,
@@ -474,7 +507,10 @@ async fn handle_proxy(
 
     // Upsert final: stream complete
     log.status_code = 200;
+    200;
     log.response_body = "[stream]".to_string();
+    log.user_response_body = "[stream]".to_string();
+    log.user_response_headers = r#"{"content-type":"text/event-stream","cache-control":"no-cache","connection":"keep-alive"}"#.to_string();
     log.duration_ms = start.elapsed().as_millis() as i32;
     log.input_tokens = tokens_acc.load(std::sync::atomic::Ordering::Relaxed);
     log.output_tokens = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
@@ -583,7 +619,7 @@ fn find_group_by_name(db: &Db, name: &str) -> Option<Group> {
 
 /// 根据客户端类型和目标协议，构建模拟的 HTTP 请求头。
 /// 数据来源：GitHub 逆向分析 + claude-code-hub 参考实现
-fn apply_client_headers(
+pub fn apply_client_headers(
     req_builder: reqwest::RequestBuilder,
     client_type: &ClientType,
     protocol: &super::models::Protocol,
@@ -810,7 +846,7 @@ fn uuid_sim() -> String {
 }
 
 /// 构建上游请求头 KV 表（用于日志记录，与 apply_client_headers 保持一致）
-fn build_upstream_headers(client_type: &ClientType, protocol: &super::models::Protocol, api_key: &str) -> Vec<(String, String)> {
+pub fn build_upstream_headers(client_type: &ClientType, protocol: &super::models::Protocol, api_key: &str) -> Vec<(String, String)> {
     let mut h: Vec<(String, String)> = vec![
         ("Content-Type".into(), "application/json".into()),
     ];
@@ -876,7 +912,7 @@ fn build_upstream_headers(client_type: &ClientType, protocol: &super::models::Pr
 }
 
 /// Redact API key: show first 4 and last 4 chars, mask the rest
-fn redact_key(key: &str) -> String {
+pub fn redact_key(key: &str) -> String {
     if key.len() <= 12 {
         "[REDACTED]".into()
     } else {
@@ -910,6 +946,19 @@ fn inject_coding_plan_fields(body: &mut Value, protocol: &super::models::Protoco
         }
         _ => {
             // GLM / MiniMax / 百炼 等 coding plan 暂无额外字段
+        }
+    }
+}
+
+/// Coding Plan 需要不同的 API 路径（GLM coding plan 使用 /api/coding/paas/v4 而非 /api/paas/v4）
+fn override_coding_plan_path(api_path: &mut String, protocol: &super::models::Protocol) {
+    match protocol {
+        super::models::Protocol::Glm => {
+            // 普通: /api/paas/v4/chat/completions → Coding: /api/coding/paas/v4/chat/completions
+            *api_path = api_path.replace("/api/paas/v4/", "/api/coding/paas/v4/");
+        }
+        _ => {
+            // Kimi / MiniMax / 百炼等 coding plan 路径与普通端点相同
         }
     }
 }

@@ -260,6 +260,12 @@ export interface ProxyLogDetail {
   upstream_request_headers: string;
   upstream_request_body: string;
   response_body: string;
+  request_url: string;
+  upstream_request_url: string;
+  upstream_response_headers: string;
+  upstream_status_code: number;
+  user_response_headers: string;
+  user_response_body: string;
   status_code: number;
   duration_ms: number;
   input_tokens: number;
