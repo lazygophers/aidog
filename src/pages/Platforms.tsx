@@ -141,10 +141,10 @@ function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Platform
       { protocol: "anthropic", base_url: "https://api.anthropic.com", client_type: "claude_code" },
     ],
     openai: [
-      { protocol: "openai", base_url: "https://api.openai.com", client_type: "codex_tui" },
+      { protocol: "openai", base_url: "https://api.openai.com/v1", client_type: "codex_tui" },
     ],
     codex: [
-      { protocol: "openai", base_url: "https://api.openai.com", client_type: "codex_tui" },
+      { protocol: "openai", base_url: "https://api.openai.com/v1", client_type: "codex_tui" },
     ],
     gemini: [
       { protocol: "gemini", base_url: "https://generativelanguage.googleapis.com" },
@@ -172,14 +172,14 @@ function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Platform
       { protocol: "anthropic", base_url: "https://api.minimax.io/anthropic", client_type: "claude_code" },
     ],
     bailian: [
-      { protocol: "openai", base_url: "https://dashscope.aliyuncs.com", client_type: "codex_tui" },
+      { protocol: "openai", base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1", client_type: "codex_tui" },
       { protocol: "anthropic", base_url: "https://dashscope.aliyuncs.com/apps/anthropic", client_type: "claude_code" },
     ],
     bailian_coding: [
       { protocol: "anthropic", base_url: "https://coding.dashscope.aliyuncs.com/apps/anthropic", client_type: "claude_code" },
     ],
     deepseek: [
-      { protocol: "openai", base_url: "https://api.deepseek.com", client_type: "codex_tui" },
+      { protocol: "openai", base_url: "https://api.deepseek.com/v1", client_type: "codex_tui" },
       { protocol: "anthropic", base_url: "https://api.deepseek.com/anthropic", client_type: "claude_code" },
     ],
     stepfun: [
@@ -275,7 +275,7 @@ function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Platform
       { protocol: "gemini", base_url: "https://api.aicodemirror.com/api/gemini" },
     ],
     nvidia: [
-      { protocol: "openai", base_url: "https://integrate.api.nvidia.com", client_type: "codex_tui" },
+      { protocol: "openai", base_url: "https://integrate.api.nvidia.com/v1", client_type: "codex_tui" },
     ],
     pateway: [
       { protocol: "anthropic", base_url: "https://api.pateway.ai", client_type: "claude_code" },

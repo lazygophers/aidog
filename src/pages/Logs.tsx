@@ -190,31 +190,30 @@ export function Logs() {
           <MetaItem label={t("logs.time", "时间")} value={new Date(detail.created_at).toLocaleString()} />
         </div>
 
-        {/* ── 用户请求 ── */}
-        <RequestSection
-          title={t("logs.userRequest", "用户请求")}
-          subtitle="Client → Proxy"
-          protocol={detail.source_protocol?.toUpperCase()}
-          url={detail.request_url}
-          statusCode={detail.status_code}
-          reqHeaders={reqHeaders}
-          reqBody={reqBody}
-          respHeaders={userRespHeaders}
-          respBody={userRespBody}
-          t={t}
-        />
-
-        {/* ── 上游请求 ── */}
-        <RequestSection
-          title={t("logs.upstreamRequest", "上游请求")}
-          subtitle="Proxy → Platform"
-          protocol={detail.target_protocol?.toUpperCase()}
-          url={detail.upstream_request_url}
-          statusCode={detail.upstream_status_code}
-          reqHeaders={upstreamHeaders}
-          reqBody={upstreamBody}
-          respHeaders={upstreamRespHeaders}
-          respBody={upstreamRespBody}
+        {/* ── 用户请求 / 上游请求 Tab ── */}
+        <RequestTabs
+          userTab={{
+            title: t("logs.userRequest", "用户请求"),
+            subtitle: "Client → Proxy",
+            protocol: detail.source_protocol?.toUpperCase(),
+            url: detail.request_url,
+            statusCode: detail.status_code,
+            reqHeaders,
+            reqBody,
+            respHeaders: userRespHeaders,
+            respBody: userRespBody,
+          }}
+          upstreamTab={{
+            title: t("logs.upstreamRequest", "上游请求"),
+            subtitle: "Proxy → Platform",
+            protocol: detail.target_protocol?.toUpperCase(),
+            url: detail.upstream_request_url,
+            statusCode: detail.upstream_status_code,
+            reqHeaders: upstreamHeaders,
+            reqBody: upstreamBody,
+            respHeaders: upstreamRespHeaders,
+            respBody: upstreamRespBody,
+          }}
           t={t}
         />
       </div>
@@ -351,106 +350,124 @@ function MetaItem({ label, value, highlight }: { label: string; value: string; h
   );
 }
 
-/** 请求区块组件 — 显示完整的 URL / Status / Req Headers / Req Body / Resp Headers / Resp Body */
-function RequestSection({
-  title, subtitle, protocol, url, statusCode,
-  reqHeaders, reqBody, respHeaders, respBody, t,
+/** Tab 切换：用户请求 / 上游请求 */
+function RequestTabs({
+  userTab, upstreamTab, t,
 }: {
-  title: string;
-  subtitle: string;
-  protocol?: string;
+  userTab: { title: string; subtitle: string; protocol?: string; url?: string; statusCode?: number; reqHeaders: any; reqBody: any; respHeaders: any; respBody: any };
+  upstreamTab: { title: string; subtitle: string; protocol?: string; url?: string; statusCode?: number; reqHeaders: any; reqBody: any; respHeaders: any; respBody: any };
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const [active, setActive] = useState<"user" | "upstream">("user");
+  const tab = active === "user" ? userTab : upstreamTab;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
+      {/* Tab bar */}
+      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--border)" }}>
+        {(["user", "upstream"] as const).map((key) => {
+          const item = key === "user" ? userTab : upstreamTab;
+          const isActive = active === key;
+          return (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setActive(key)}
+              style={{
+                padding: "10px 20px", fontSize: F.hint, fontWeight: isActive ? 700 : 400,
+                color: isActive ? "var(--accent)" : "var(--text-secondary)",
+                background: "transparent", border: "none", cursor: "pointer",
+                borderBottom: isActive ? "2px solid var(--accent)" : "2px solid transparent",
+                transition: "all 0.15s ease",
+                display: "flex", alignItems: "center", gap: 8,
+              }}
+            >
+              {item.title}
+              <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontWeight: 400 }}>{item.subtitle}</span>
+              {item.protocol && <span className="badge" style={{ fontSize: 10, padding: "1px 5px" }}>{item.protocol}</span>}
+              {item.statusCode != null && item.statusCode > 0 && (
+                <span style={{
+                  fontSize: F.small, fontWeight: 600,
+                  color: item.statusCode >= 200 && item.statusCode < 300 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)",
+                }}>
+                  {item.statusCode}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab content */}
+      <div className="glass-surface" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
+        <RequestSectionContent {...tab} t={t} />
+      </div>
+    </div>
+  );
+}
+
+/** 请求内容渲染（无折叠，纯内容） */
+function RequestSectionContent({
+  url, reqHeaders, reqBody, respHeaders, respBody, t,
+}: {
   url?: string;
-  statusCode?: number;
   reqHeaders: any;
   reqBody: any;
   respHeaders: any;
   respBody: any;
   t: ReturnType<typeof useTranslation>["t"];
 }) {
-  const [open, setOpen] = useState(true);
   const bodyStr = (v: any) => typeof v === "string" ? v : JSON.stringify(v, null, 2);
   const emptyBody = !reqBody && !respBody;
 
-  return (
-    <div className="glass-surface" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 12 }}>
-      {/* Section header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
-        onClick={() => setOpen(!open)}>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor"
-          strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-          style={{ transform: open ? "rotate(90deg)" : "rotate(0)", transition: "transform 0.15s" }}>
-          <path d="M5 3l4 4-4 4" />
-        </svg>
-        <div style={{ fontSize: F.hint, fontWeight: 700 }}>{title}</div>
-        <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{subtitle}</span>
-        {protocol && <span className="badge" style={{ fontSize: 11, padding: "2px 6px" }}>{protocol}</span>}
-        {statusCode != null && statusCode > 0 && (
-          <span style={{
-            fontSize: F.small, fontWeight: 600, marginLeft: "auto",
-            color: statusCode >= 200 && statusCode < 300 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)",
-          }}>
-            HTTP {statusCode}
-          </span>
-        )}
+  if (emptyBody) {
+    return (
+      <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontStyle: "italic" }}>
+        {t("logs.noUpstream", "(未捕获)")}
       </div>
+    );
+  }
 
-      {open && !emptyBody && (
-        <>
-          {/* URL */}
-          {url && (
-            <div>
-              <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>URL</div>
-              <pre className="code-block" style={{ maxHeight: 60, overflow: "auto", wordBreak: "break-all", whiteSpace: "pre-wrap" }}>{url}</pre>
-            </div>
-          )}
-
-          {/* Request Headers */}
-          <div>
-            <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
-              {t("logs.requestHeaders", "请求头")}
-            </div>
-            <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>
-              {typeof reqHeaders === "string" ? reqHeaders : JSON.stringify(reqHeaders, null, 2)}
-            </pre>
-          </div>
-
-          {/* Request Body */}
-          <div>
-            <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
-              {t("logs.requestBody", "请求体")}
-            </div>
-            {reqBody
-              ? <pre className="code-block" style={{ maxHeight: 300, overflow: "auto" }}>{bodyStr(reqBody)}</pre>
-              : <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontStyle: "italic" }}>-</div>
-            }
-          </div>
-
-          {/* Response Headers */}
-          <div>
-            <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
-              {t("logs.responseHeaders", "响应头")}
-            </div>
-            <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>
-              {typeof respHeaders === "string" ? respHeaders : JSON.stringify(respHeaders, null, 2)}
-            </pre>
-          </div>
-
-          {/* Response Body */}
-          <div>
-            <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
-              {t("logs.responseBody", "响应体")}
-            </div>
-            <pre className="code-block" style={{ maxHeight: 400, overflow: "auto" }}>{bodyStr(respBody)}</pre>
-          </div>
-        </>
-      )}
-
-      {open && emptyBody && (
-        <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontStyle: "italic" }}>
-          {t("logs.noUpstream", "(未捕获)")}
+  return (
+    <>
+      {url && (
+        <div>
+          <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>URL</div>
+          <pre className="code-block" style={{ maxHeight: 60, overflow: "auto", wordBreak: "break-all", whiteSpace: "pre-wrap" }}>{url}</pre>
         </div>
       )}
-    </div>
+      <div>
+        <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+          {t("logs.requestHeaders", "请求头")}
+        </div>
+        <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>
+          {typeof reqHeaders === "string" ? reqHeaders : JSON.stringify(reqHeaders, null, 2)}
+        </pre>
+      </div>
+      <div>
+        <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+          {t("logs.requestBody", "请求体")}
+        </div>
+        {reqBody
+          ? <pre className="code-block" style={{ maxHeight: 300, overflow: "auto" }}>{bodyStr(reqBody)}</pre>
+          : <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontStyle: "italic" }}>-</div>
+        }
+      </div>
+      <div>
+        <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+          {t("logs.responseHeaders", "响应头")}
+        </div>
+        <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>
+          {typeof respHeaders === "string" ? respHeaders : JSON.stringify(respHeaders, null, 2)}
+        </pre>
+      </div>
+      <div>
+        <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
+          {t("logs.responseBody", "响应体")}
+        </div>
+        <pre className="code-block" style={{ maxHeight: 400, overflow: "auto" }}>{bodyStr(respBody)}</pre>
+      </div>
+    </>
   );
 }
 

@@ -40,14 +40,9 @@ pub fn convert_request(req: &ChatRequest, wire_protocol: &Protocol, platform_pro
     }
 }
 
-/// 根据平台类型返回 API 路径（OpenAI-compatible 平台各不相同）
-fn provider_api_path(protocol: &Protocol) -> String {
-    match protocol {
-        Protocol::Glm => "/chat/completions".to_string(),
-        Protocol::Bailian => "/compatible-mode/v1/chat/completions".to_string(),
-        // OpenAI / Codex / Kimi / MiniMax 等标准路径
-        _ => "/v1/chat/completions".to_string(),
-    }
+/// OpenAI Chat Completions 端点路径（统一后缀，base_url 负责版本前缀）
+fn provider_api_path(_protocol: &Protocol) -> String {
+    "/chat/completions".to_string()
 }
 
 /// 将目标协议的 SSE event data 解析为统一的 ChatStreamEvent。
