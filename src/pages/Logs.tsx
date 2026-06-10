@@ -187,8 +187,7 @@ export function Logs() {
                     <TdCell>{log.input_tokens || "-"}</TdCell>
                     <TdCell>{log.output_tokens || "-"}</TdCell>
                   </tr>
-                  );
-                })}
+                ))}
               </tbody>
             </table>
           </div>
