@@ -898,13 +898,16 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     </div>
   );
 
-      {testingPlatform !== null && (
-        <ModelTestPanel
-          platform={testingPlatform as Platform}
-          onClose={() => setTestingPlatform(null)}
-          onResult={(success) => { if (testingPlatform) setTestResults(prev => ({ ...prev, [testingPlatform.id]: success ? "ok" : "fail" })); }}
-        />
-      )}
+  // ── Test panel overlay ──
+  if (testingPlatform !== null) {
+    return (
+      <ModelTestPanel
+        platform={testingPlatform as Platform}
+        onClose={() => setTestingPlatform(null)}
+        onResult={(success) => { if (testingPlatform) setTestResults(prev => ({ ...prev, [testingPlatform.id]: success ? "ok" : "fail" })); }}
+      />
+    );
+  }
 }
 
 function formatTokens(n: number): string {

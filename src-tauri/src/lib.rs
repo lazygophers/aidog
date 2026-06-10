@@ -497,6 +497,7 @@ async fn model_test(
     };
 
     let (req_body, api_path) = gateway::adapter::convert_request(&chat_req, &platform.protocol);
+    let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
     let base_url = platform.base_url.trim_end_matches('/');
     let url = format!("{}{}", base_url, api_path);
 
@@ -506,11 +507,13 @@ async fn model_test(
         .unwrap_or_else(|_| reqwest::Client::new());
 
     let start = std::time::Instant::now();
+    let request_id = uuid::Uuid::new_v4().to_string();
+    let created_at = chrono::Utc::now().to_rfc3339();
 
     let mut req_builder = client
         .post(&url)
         .header("Content-Type", "application/json")
-        .body(serde_json::to_string(&req_body).unwrap_or_default());
+        .body(req_body_str.clone());
 
     match platform.protocol {
         Protocol::Anthropic => {
@@ -527,50 +530,117 @@ async fn model_test(
     let resp = match req_builder.send().await {
         Ok(r) => r,
         Err(e) => {
-            return Ok(ModelTestResult {
+            let result = ModelTestResult {
                 success: false,
-                model,
+                model: model.clone(),
                 prompt_preview: truncate_str(&prompt, 100),
                 response_preview: String::new(),
                 duration_ms: start.elapsed().as_millis() as i32,
                 input_tokens: 0,
                 output_tokens: 0,
                 error: format!("request failed: {e}"),
+            };
+            let _ = db::upsert_proxy_log(&db, &gateway::models::ProxyLog {
+                id: request_id,
+                group_name: "[test]".into(),
+                model: model.clone(),
+                actual_model: model,
+                source_protocol: "test".into(),
+                target_protocol: format!("{:?}", platform.protocol).to_lowercase(),
+                platform_id: platform.id.clone(),
+                request_headers: r#"{"source":"model-test"}"#.into(),
+                request_body: serde_json::to_string(&serde_json::json!({"messages":[{"role":"user","content":prompt}]})).unwrap_or_default(),
+                upstream_request_headers: format!("{{\"url\":\"{}\"}}", url),
+                upstream_request_body: req_body_str,
+                response_body: format!("upstream error: {e}"),
+                status_code: 502,
+                duration_ms: start.elapsed().as_millis() as i32,
+                input_tokens: 0,
+                output_tokens: 0,
+                cache_tokens: 0,
+                created_at,
             });
+            return Ok(result);
         }
     };
 
     let duration_ms = start.elapsed().as_millis() as i32;
+    let status_code = resp.status().as_u16() as i32;
     let status = resp.status();
     let body = resp.text().await.unwrap_or_default();
 
     if !status.is_success() {
-        return Ok(ModelTestResult {
+        let result = ModelTestResult {
             success: false,
-            model,
+            model: model.clone(),
             prompt_preview: truncate_str(&prompt, 100),
             response_preview: truncate_str(&body, 200),
             duration_ms,
             input_tokens: 0,
             output_tokens: 0,
             error: format!("HTTP {}", status),
+        };
+        let _ = db::upsert_proxy_log(&db, &gateway::models::ProxyLog {
+            id: request_id,
+            group_name: "[test]".into(),
+            model: model.clone(),
+            actual_model: model,
+            source_protocol: "test".into(),
+            target_protocol: format!("{:?}", platform.protocol).to_lowercase(),
+            platform_id: platform.id.clone(),
+            request_headers: r#"{"source":"model-test"}"#.into(),
+            request_body: serde_json::to_string(&serde_json::json!({"messages":[{"role":"user","content":prompt}]})).unwrap_or_default(),
+            upstream_request_headers: format!("{{\"url\":\"{}\"}}", url),
+            upstream_request_body: req_body_str,
+            response_body: body,
+            status_code,
+            duration_ms,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_tokens: 0,
+            created_at,
         });
+        return Ok(result);
     }
 
     let resp_json: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
     let response_text = extract_response_text(&resp_json, &platform.protocol);
     let (in_tok, out_tok) = extract_test_usage(&resp_json, &platform.protocol);
 
-    Ok(ModelTestResult {
+    let result = ModelTestResult {
         success: true,
-        model,
+        model: model.clone(),
         prompt_preview: truncate_str(&prompt, 100),
         response_preview: truncate_str(&response_text, 300),
         duration_ms,
         input_tokens: in_tok,
         output_tokens: out_tok,
         error: String::new(),
-    })
+    };
+
+    // Log successful test to proxy_logs
+    let _ = db::upsert_proxy_log(&db, &gateway::models::ProxyLog {
+        id: request_id,
+        group_name: "[test]".into(),
+        model: model.clone(),
+        actual_model: model,
+        source_protocol: "test".into(),
+        target_protocol: format!("{:?}", platform.protocol).to_lowercase(),
+        platform_id: platform.id.clone(),
+        request_headers: r#"{"source":"model-test"}"#.into(),
+        request_body: serde_json::to_string(&serde_json::json!({"messages":[{"role":"user","content":prompt}]})).unwrap_or_default(),
+        upstream_request_headers: format!("{{\"url\":\"{}\"}}", url),
+        upstream_request_body: req_body_str,
+        response_body: body,
+        status_code,
+        duration_ms,
+        input_tokens: in_tok,
+        output_tokens: out_tok,
+        cache_tokens: 0,
+        created_at,
+    });
+
+    Ok(result)
 }
 
 #[allow(dead_code)]
