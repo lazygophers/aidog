@@ -24,6 +24,15 @@
 - SQLite 聚合性能足够（单机场景）
 - 前端图表用纯 SVG，不引入第三方库
 
+### R4 (D1,D2) — Token 细分 + 缓存率（补充）
+
+- R4.1 `proxy_logs` 新增 `cache_tokens` 列，DB migration 在 `init_tables` 内追加
+- R4.2 `extract_usage` 扩展为提取 `(input, output, cache)` 三元组：Anthropic `cache_read_input_tokens` / OpenAI `prompt_tokens_details.cached_tokens` / 通用 `cache_tokens`
+- R4.3 `StatsOverview` 增加 `total_cache_tokens` + `cache_rate`；`StatsBucket` / `DimensionEntry` 增加 `cache_tokens`
+- R4.4 前端概览卡片：Input Token / Output Token / Cache Token / 缓存率 4 张独立卡片
+- R4.5 维度排行表：Token 列拆为 Input / Output / Cache
+- R4.6 请求日志详情展示 `cache_tokens`
+
 ## Open Questions
 
 无 (范围已明确)
