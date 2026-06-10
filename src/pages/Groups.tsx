@@ -21,6 +21,17 @@ function allModelValues(models: Platform["models"]): string[] {
   return result;
 }
 
+/** Build the `claude` CLI invocation for a given group settings file */
+function buildClaudeCommand(settingsName: string): string {
+  return [
+    "claude",
+    "--brief",
+    "--dangerously-skip-permissions",
+    "--settings",
+    `~/.aidog/settings.${settingsName}.json`,
+  ].join(" ");
+}
+
 // ─── Design tokens ───
 const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
 const S = { gap: 18, pad: 28, inputPad: "10px 14px", btnPad: "8px 18px", btnIcon: 34 } as const;
@@ -237,7 +248,7 @@ export function Groups() {
             <div style={{ fontSize: F.title, fontWeight: 700 }}>{editName || t("group.edit")}</div>
             <div className="text-secondary" style={{ fontSize: F.hint, marginTop: 2 }}>{editTarget.group.id.slice(0, 8)}</div>
           </div>
-          <CopyButton text={`claude --brief --settings ~/.aidog/settings.${editName}.json`} title={t("group.copyCommand", "复制启动命令")} />
+          <CopyButton text={buildClaudeCommand(editName)} title={t("group.copyCommand", "复制启动命令")} />
           <button className="btn" onClick={cancelEdit}>{t("action.cancel")}</button>
           <button className="btn btn-primary" onClick={saveEdit}
             disabled={!editName || !editPath}>{t("action.save")}</button>
@@ -536,7 +547,7 @@ export function Groups() {
                     </span>
                   </div>
                 </div>
-                <CopyButton text={`claude --brief --settings ~/.aidog/settings.${group.name}.json`} title={t("group.copyCommand", "复制启动命令")} size={14} />
+                <CopyButton text={buildClaudeCommand(group.name)} title={t("group.copyCommand", "复制启动命令")} size={14} />
                 <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
