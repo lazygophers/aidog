@@ -162,30 +162,20 @@ export function Logs() {
                   <ThCell>{t("logs.group")}</ThCell>
                   <ThCell>{t("logs.model")}</ThCell>
                   <ThCell>{t("logs.status")}</ThCell>
-                  <ThCell>{t("logs.actualModel", "实际模型")}</ThCell>
                   <ThCell>{t("logs.duration")}</ThCell>
                   <ThCell>{t("logs.inputTokens")}</ThCell>
                   <ThCell>{t("logs.outputTokens")}</ThCell>
                 </tr>
               </thead>
               <tbody>
-                {logs.map((log) => {
-                  const remapped = log.actual_model && log.actual_model !== log.model;
-                  return (
+                {logs.map((log) => (
                   <tr key={log.id}
                     className="log-row"
                     onClick={() => openDetail(log.id)}
                     style={{ cursor: "pointer", borderBottom: "1px solid var(--border)" }}>
                     <TdCell>{new Date(log.created_at).toLocaleString()}</TdCell>
                     <TdCell><span className="badge badge-accent" style={{ fontSize: 11 }}>{log.group_name}</span></TdCell>
-                    <TdCell><span style={{ fontWeight: 500 }}>{log.model || "-"}</span></TdCell>
-                    <TdCell>
-                      {remapped ? (
-                        <span style={{ fontWeight: 500, color: "var(--color-accent, #007aff)" }}>{log.actual_model}</span>
-                      ) : (
-                        <span className="text-secondary">-</span>
-                      )}
-                    </TdCell>
+                    <TdCell><span style={{ fontWeight: 500 }}>{log.actual_model || log.model || "-"}</span></TdCell>
                     <TdCell>
                       <span style={{ color: log.status_code === 200 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)" }}>
                         {log.status_code}
