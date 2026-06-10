@@ -238,6 +238,10 @@ pub struct ProxyLog {
     pub model: String,
     /// 实际发送给上游的模型（可能因路由映射而不同）
     pub actual_model: String,
+    /// 用户请求的协议（固定 anthropic）
+    pub source_protocol: String,
+    /// 实际请求上游的协议
+    pub target_protocol: String,
     pub request_headers: String,
     pub request_body: String,
     pub response_body: String,
@@ -255,6 +259,8 @@ pub struct ProxyLogSummary {
     pub group_name: String,
     pub model: String,
     pub actual_model: String,
+    pub source_protocol: String,
+    pub target_protocol: String,
     pub status_code: i32,
     pub duration_ms: i32,
     pub input_tokens: i32,

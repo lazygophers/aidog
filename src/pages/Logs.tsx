@@ -86,6 +86,8 @@ export function Logs() {
           <MetaItem label={t("logs.group", "分组")} value={detail.group_name} />
           <MetaItem label={t("logs.model", "模型")} value={detail.model || "-"} />
           <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} />
+          <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={detail.source_protocol || "-"} />
+          <MetaItem label={t("logs.targetProtocol", "请求格式")} value={detail.target_protocol || "-"} />
           <MetaItem label={t("logs.status", "状态")} value={`${detail.status_code}`} highlight={detail.status_code === 200 ? "ok" : "err"} />
           <MetaItem label={t("logs.duration", "耗时")} value={`${detail.duration_ms} ms`} />
           <MetaItem label={t("logs.inputTokens", "输入 Token")} value={`${detail.input_tokens}`} />

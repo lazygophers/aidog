@@ -57,6 +57,8 @@ CREATE TABLE IF NOT EXISTS proxy_logs (
     group_name      TEXT NOT NULL,
     model           TEXT NOT NULL DEFAULT '',
     actual_model    TEXT NOT NULL DEFAULT '',
+    source_protocol TEXT NOT NULL DEFAULT '',
+    target_protocol TEXT NOT NULL DEFAULT '',
     request_headers TEXT NOT NULL DEFAULT '{}',
     request_body    TEXT NOT NULL DEFAULT '',
     response_body   TEXT NOT NULL DEFAULT '',

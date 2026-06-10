@@ -161,6 +161,7 @@ async fn handle_proxy(
     };
 
     let actual_model = route.target_model;
+    let target_protocol = format!("{:?}", route.platform.protocol).to_lowercase();
     let needs_model_remap = actual_model != requested_model;
 
     // 替换模型名
@@ -196,7 +197,7 @@ async fn handle_proxy(
         Err(e) => {
             let duration_ms = start.elapsed().as_millis() as i32;
             if log_settings.enabled {
-                try_log(&state, &group.name, &requested_model, &actual_model, &req_headers_json, &req_body_str, "", 502, duration_ms, 0, 0);
+                try_log(&state, &group.name, &requested_model, &actual_model, &target_protocol, &req_headers_json, &req_body_str, "", 502, duration_ms, 0, 0);
             }
             return (StatusCode::BAD_GATEWAY, format!("upstream: {e}")).into_response();
         }
@@ -208,7 +209,7 @@ async fn handle_proxy(
         let status_code = status.as_u16() as i32;
         let duration_ms = start.elapsed().as_millis() as i32;
         if log_settings.enabled {
-            try_log(&state, &group.name, &requested_model, &actual_model, &req_headers_json, &req_body_str, &body, status_code, duration_ms, 0, 0);
+            try_log(&state, &group.name, &requested_model, &actual_model, &target_protocol, &req_headers_json, &req_body_str, &body, status_code, duration_ms, 0, 0);
         }
         return (StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY), body)
             .into_response();
@@ -224,7 +225,7 @@ async fn handle_proxy(
         let (input_tokens, output_tokens) = extract_usage(&resp_str);
 
         if log_settings.enabled {
-            try_log(&state, &group.name, &requested_model, &actual_model, &req_headers_json, &req_body_str, &resp_str, 200, duration_ms, input_tokens, output_tokens);
+            try_log(&state, &group.name, &requested_model, &actual_model, &target_protocol, &req_headers_json, &req_body_str, &resp_str, 200, duration_ms, input_tokens, output_tokens);
         }
 
         // Replace model in response back to original if remapped
@@ -316,7 +317,7 @@ async fn handle_proxy(
     if log_settings.enabled {
         let in_t = tokens_acc.load(std::sync::atomic::Ordering::Relaxed);
         let out_t = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
-        try_log(&state, &group.name, &requested_model, &actual_model, &req_headers_json, &req_body_str, "[stream]", 200, duration_ms, in_t, out_t);
+        try_log(&state, &group.name, &requested_model, &actual_model, &target_protocol, &req_headers_json, &req_body_str, "[stream]", 200, duration_ms, in_t, out_t);
     }
 
     (
@@ -358,6 +359,7 @@ fn try_log(
     group_name: &str,
     model: &str,
     actual_model: &str,
+    target_protocol: &str,
     req_headers: &str,
     req_body: &str,
     resp_body: &str,
@@ -375,6 +377,8 @@ fn try_log(
         group_name: group_name.to_string(),
         model: model.to_string(),
         actual_model: actual_model.to_string(),
+        source_protocol: "anthropic".to_string(),
+        target_protocol: target_protocol.to_string(),
         request_headers: req_headers.to_string(),
         request_body: req_body.to_string(),
         response_body: resp_body.to_string(),
