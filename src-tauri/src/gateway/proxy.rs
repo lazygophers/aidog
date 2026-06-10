@@ -299,8 +299,9 @@ async fn handle_proxy(
     // 替换模型名
     chat_req.model = actual_model.clone();
 
-    // 协议转换
-    let (mut req_body, api_path) = adapter::convert_request(&chat_req, target_protocol_enum);
+    // 协议转换：wire format 由 endpoint 协议决定，API path 由平台类型决定
+    let platform_protocol = &route.platform.protocol;
+    let (mut req_body, api_path) = adapter::convert_request(&chat_req, target_protocol_enum, platform_protocol);
 
     // Coding Plan 特殊处理：注入平台特有字段
     if coding_plan {

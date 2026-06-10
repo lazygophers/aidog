@@ -3,10 +3,18 @@ use serde::{Deserialize, Serialize};
 /// 支持的 AI 协议类型
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub enum Protocol {
+    // ── AI 请求协议（可作为 endpoint 协议）──
     #[serde(rename = "anthropic")]
     Anthropic,
     #[serde(rename = "openai")]
     OpenAI,
+    #[serde(rename = "openai_responses")]
+    OpenAIResponses,
+    #[serde(rename = "openai_completions")]
+    OpenAICompletions,
+    #[serde(rename = "gemini")]
+    Gemini,
+    // ── 平台类型（仅作为平台主协议，不作为 endpoint 协议）──
     #[serde(rename = "glm")]
     Glm,
     #[serde(rename = "kimi")]
@@ -15,8 +23,6 @@ pub enum Protocol {
     MiniMax,
     #[serde(rename = "codex")]
     Codex,
-    #[serde(rename = "gemini")]
-    Gemini,
     #[serde(rename = "bailian")]
     Bailian,
 }
@@ -109,7 +115,7 @@ impl ClientType {
     pub fn default_for_protocol(protocol: &Protocol) -> Self {
         match protocol {
             Protocol::Anthropic => ClientType::ClaudeCode,
-            Protocol::OpenAI => ClientType::CodexTui,
+            Protocol::OpenAI | Protocol::OpenAIResponses | Protocol::OpenAICompletions => ClientType::CodexTui,
             _ => ClientType::Default,
         }
     }

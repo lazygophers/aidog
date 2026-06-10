@@ -3,43 +3,16 @@ use serde_json::Value;
 
 use super::types::*;
 
-/// 将内部 ChatRequest 转为目标协议的 JSON body
-pub fn convert_request(req: &ChatRequest, protocol: &Protocol) -> (Value, String) {
-    match protocol {
+/// 将内部 ChatRequest 转为目标格式的 JSON body + API 路径。
+///
+/// - `wire_protocol`: 请求体格式（由 endpoint 协议决定：anthropic/openai/openai_responses/openai_completions/gemini）
+/// - `platform_protocol`: 平台类型（由平台主协议决定，决定 OpenAI-compatible 平台的 API 路径）
+pub fn convert_request(req: &ChatRequest, wire_protocol: &Protocol, platform_protocol: &Protocol) -> (Value, String) {
+    match wire_protocol {
         Protocol::Anthropic => {
             let anthropic_req = super::anthropic::to_anthropic(req);
             let json = serde_json::to_value(&anthropic_req).unwrap();
             (json, "/v1/messages".to_string())
-        }
-        Protocol::OpenAI => {
-            let openai_req = super::openai::to_openai(req);
-            let json = serde_json::to_value(&openai_req).unwrap();
-            (json, "/v1/chat/completions".to_string())
-        }
-        Protocol::Glm => {
-            let glm_req = super::glm::to_glm(req);
-            let json = serde_json::to_value(&glm_req).unwrap();
-            (json, "/api/paas/v4/chat/completions".to_string())
-        }
-        Protocol::Kimi => {
-            let kimi_req = super::kimi::to_kimi(req);
-            let json = serde_json::to_value(&kimi_req).unwrap();
-            (json, "/v1/chat/completions".to_string())
-        }
-        Protocol::MiniMax => {
-            let minimax_req = super::minimax::to_minimax(req);
-            let json = serde_json::to_value(&minimax_req).unwrap();
-            (json, "/v1/text/chatcompletion_v2".to_string())
-        }
-        Protocol::Codex => {
-            let codex_req = super::codex::to_codex(req);
-            let json = serde_json::to_value(&codex_req).unwrap();
-            (json, "/v1/chat/completions".to_string())
-        }
-        Protocol::Bailian => {
-            let bailian_req = super::bailian::to_bailian(req);
-            let json = serde_json::to_value(&bailian_req).unwrap();
-            (json, "/compatible-mode/v1/chat/completions".to_string())
         }
         Protocol::Gemini => {
             let gemini_req = super::gemini::to_gemini(req);
@@ -47,20 +20,67 @@ pub fn convert_request(req: &ChatRequest, protocol: &Protocol) -> (Value, String
             let path = format!("/v1beta/models/{}:streamGenerateContent", req.model);
             (json, path)
         }
+        Protocol::OpenAIResponses => {
+            let responses_req = super::openai_responses::to_responses(req);
+            let json = serde_json::to_value(&responses_req).unwrap();
+            (json, "/v1/responses".to_string())
+        }
+        Protocol::OpenAICompletions => {
+            let completions_req = super::openai_completions::to_completions(req);
+            let json = serde_json::to_value(&completions_req).unwrap();
+            (json, "/v1/completions".to_string())
+        }
+        // OpenAI Chat Completions — 标准 /v1/chat/completions，OpenAI-compatible 平台用各自路径
+        _ => {
+            let openai_req = super::openai::to_openai(req);
+            let json = serde_json::to_value(&openai_req).unwrap();
+            let path = provider_api_path(platform_protocol);
+            (json, path)
+        }
     }
 }
 
-/// 将目标协议的 SSE event data 解析为统一的 ChatStreamEvent
-pub fn parse_sse(data: &Value, protocol: &Protocol) -> Option<ChatStreamEvent> {
+/// 根据平台类型返回 API 路径（OpenAI-compatible 平台各不相同）
+fn provider_api_path(protocol: &Protocol) -> String {
     match protocol {
+        Protocol::Glm => "/api/paas/v4/chat/completions".to_string(),
+        Protocol::Bailian => "/compatible-mode/v1/chat/completions".to_string(),
+        Protocol::MiniMax => "/v1/text/chatcompletion_v2".to_string(),
+        // OpenAI / Codex / Kimi 等标准路径
+        _ => "/v1/chat/completions".to_string(),
+    }
+}
+
+/// 将目标协议的 SSE event data 解析为统一的 ChatStreamEvent。
+/// SSE 响应格式由 wire protocol（endpoint 协议）决定。
+pub fn parse_sse(data: &Value, wire_protocol: &Protocol) -> Option<ChatStreamEvent> {
+    match wire_protocol {
         Protocol::Anthropic => super::anthropic::parse_anthropic_sse(data),
-        Protocol::OpenAI => super::openai::parse_openai_sse(data),
-        Protocol::Glm => super::glm::parse_glm_sse(data),
-        Protocol::Kimi => super::kimi::parse_kimi_sse(data),
-        Protocol::MiniMax => super::minimax::parse_minimax_sse(data),
-        Protocol::Codex => super::codex::parse_codex_sse(data),
-        Protocol::Bailian => super::bailian::parse_bailian_sse(data),
         Protocol::Gemini => super::gemini::parse_gemini_sse(data),
+        // 所有 OpenAI 系列共用 OpenAI SSE 解析
+        _ => super::openai::parse_openai_sse(data),
+    }
+}
+
+/// 将入站请求按源协议解析为内部 ChatRequest（支持所有 AI 请求协议）
+pub fn parse_incoming_request(source_protocol: &str, body: &Value) -> Option<ChatRequest> {
+    match source_protocol {
+        "openai" => super::openai::from_openai(body),
+        "openai_responses" => super::openai_responses::from_responses(body),
+        "openai_completions" => super::openai_completions::from_completions(body),
+        "gemini" => super::gemini::from_gemini(body),
+        // Anthropic / 默认: ChatRequest 结构已兼容 Anthropic 格式，直接反序列化
+        _ => serde_json::from_value(body.clone()).ok(),
+    }
+}
+
+/// 将统一的 ChatStreamEvent 按客户端协议格式化为 SSE
+pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &str, model: &str) -> Option<String> {
+    match source_protocol {
+        "openai" | "openai_responses" | "openai_completions" => super::openai::to_openai_sse(event, model),
+        "gemini" => super::gemini::to_gemini_sse(event, model),
+        // 默认 Anthropic 格式
+        _ => to_anthropic_sse(event),
     }
 }
 
@@ -147,25 +167,5 @@ pub fn to_anthropic_sse(event: &ChatStreamEvent) -> Option<String> {
             })
         )),
         ChatStreamEvent::Usage { .. } => None,
-    }
-}
-
-/// 将入站请求按源协议解析为内部 ChatRequest
-pub fn parse_incoming_request(source_protocol: &str, body: &Value) -> Option<ChatRequest> {
-    match source_protocol {
-        "openai" => super::openai::from_openai(body),
-        "gemini" => super::gemini::from_gemini(body),
-        // Anthropic / 默认: ChatRequest 结构已兼容 Anthropic 格式，直接反序列化
-        _ => serde_json::from_value(body.clone()).ok(),
-    }
-}
-
-/// 将统一的 ChatStreamEvent 按客户端协议格式化为 SSE
-pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &str, model: &str) -> Option<String> {
-    match source_protocol {
-        "openai" => super::openai::to_openai_sse(event, model),
-        "gemini" => super::gemini::to_gemini_sse(event, model),
-        // 默认 Anthropic 格式
-        _ => to_anthropic_sse(event),
     }
 }

@@ -12,24 +12,21 @@ const PROTOCOLS: ProtocolOption[] = [
   { value: "openai", label: "OpenAI", keywords: ["gpt", "chatgpt"] },
   { value: "codex", label: "Codex", keywords: ["openai"] },
   { value: "gemini", label: "Gemini", keywords: ["google", "谷歌"] },
-  { value: "glm", label: "GLM（智谱）", keywords: ["zhipu", "zhipu", "智谱", "bigmodel", "codegeex"] },
+  { value: "glm", label: "GLM（智谱）", keywords: ["zhipu", "智谱", "bigmodel", "codegeex"] },
   { value: "glm", label: "GLM Coding Plan", codingPlan: true, keywords: ["智谱编程", "codegeex", "glm code"] },
-  { value: "kimi", label: "Kimi（月之暗面）", keywords: ["moonshot", "月之暗面", "moonshot"] },
+  { value: "kimi", label: "Kimi（月之暗面）", keywords: ["moonshot", "月之暗面"] },
   { value: "kimi", label: "Kimi Code Plan", codingPlan: true, keywords: ["kimi编程", "kimi code"] },
-  { value: "minimax", label: "MiniMax", keywords: [] },
+  { value: "minimax", label: "MiniMax", keywords: ["海螺"] },
   { value: "bailian", label: "百炼（阿里）", keywords: ["dashscope", "阿里", "qwen", "通义"] },
 ];
 
-/** Endpoint 协议：标准 AI 协议 + 供应商特定协议（路径不同但格式兼容） */
+/** Endpoint 协议：只有 AI 请求协议（非平台类型） */
 const ENDPOINT_PROTOCOLS: { value: Protocol; label: string }[] = [
-  { value: "openai", label: "OpenAI" },
+  { value: "openai", label: "OpenAI Chat" },
+  { value: "openai_responses", label: "OpenAI Responses" },
+  { value: "openai_completions", label: "OpenAI Completions" },
   { value: "anthropic", label: "Anthropic" },
   { value: "gemini", label: "Gemini" },
-  { value: "glm", label: "GLM" },
-  { value: "kimi", label: "Kimi" },
-  { value: "minimax", label: "MiniMax" },
-  { value: "bailian", label: "百炼" },
-  { value: "codex", label: "Codex" },
 ];
 
 /** 客户端模拟选项：用于通过上游客户端校验 */
@@ -94,19 +91,23 @@ function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Platform
     codex: [
       { protocol: "openai", base_url: "https://api.openai.com", client_type: "codex_tui" },
     ],
+    // GLM: 用 openai 协议（OpenAI-compatible），路径由 adapter 按 platform protocol 生成
     glm: [
-      { protocol: "glm", base_url: "https://open.bigmodel.cn", client_type: "codex_tui", coding_plan: cp },
+      { protocol: "openai", base_url: "https://open.bigmodel.cn", client_type: "codex_tui", coding_plan: cp },
       { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic", client_type: "claude_code" },
     ],
+    // 百炼: 用 openai 协议
     bailian: [
-      { protocol: "bailian", base_url: "https://dashscope.aliyuncs.com", client_type: "codex_tui" },
+      { protocol: "openai", base_url: "https://dashscope.aliyuncs.com", client_type: "codex_tui" },
     ],
+    // MiniMax: 用 openai 协议
     minimax: [
-      { protocol: "minimax", base_url: "https://api.minimaxi.com", client_type: "codex_tui" },
+      { protocol: "openai", base_url: "https://api.minimaxi.com", client_type: "codex_tui" },
       { protocol: "anthropic", base_url: "https://api.minimaxi.com/anthropic", client_type: "claude_code" },
     ],
+    // Kimi: 用 openai 协议
     kimi: [
-      { protocol: "kimi", base_url: "https://api.moonshot.cn", client_type: "codex_tui", coding_plan: cp },
+      { protocol: "openai", base_url: "https://api.moonshot.cn", client_type: "codex_tui", coding_plan: cp },
     ],
     gemini: [
       { protocol: "gemini", base_url: "https://generativelanguage.googleapis.com" },
@@ -117,6 +118,8 @@ function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Platform
 
 const PROTOCOL_LABELS: Record<Protocol, string> = {
   openai: "OpenAI",
+  openai_responses: "OpenAI Responses",
+  openai_completions: "OpenAI Completions",
   anthropic: "Anthropic",
   glm: "GLM",
   kimi: "Kimi",
@@ -131,6 +134,8 @@ const DEFAULT_NAMES = new Set(Object.values(PROTOCOL_LABELS));
 const PROTOCOL_COLORS: Record<string, string> = {
   anthropic: "#D97757",
   openai: "#10A37F",
+  openai_responses: "#10A37F",
+  openai_completions: "#10A37F",
   codex: "#10A37F",
   gemini: "#4285F4",
   glm: "#3B5FEC",

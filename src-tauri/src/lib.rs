@@ -417,7 +417,7 @@ async fn platform_fetch_models(
                     format!("parse response: {e}")
                 })?
         }
-        Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::Kimi | Protocol::MiniMax | Protocol::Gemini => {
+        Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::Kimi | Protocol::MiniMax | Protocol::Gemini | Protocol::OpenAIResponses | Protocol::OpenAICompletions => {
             let url = format!("{base}/models");
             tracing::info!("fetch models: {url}");
             client
@@ -505,7 +505,7 @@ async fn model_test(
         (platform.protocol.clone(), platform.base_url.clone())
     };
 
-    let (req_body, api_path) = gateway::adapter::convert_request(&chat_req, &target_protocol);
+    let (req_body, api_path) = gateway::adapter::convert_request(&chat_req, &target_protocol, &platform.protocol);
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
     let base_url = target_base_url.trim_end_matches('/');
     let url = format!("{}{}", base_url, api_path);

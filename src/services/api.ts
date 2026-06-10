@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 // ─── Types ─────────────────────────────────────────────────
 
-export type Protocol = "anthropic" | "openai" | "glm" | "kimi" | "minimax" | "codex" | "bailian" | "gemini";
+export type Protocol = "anthropic" | "openai" | "openai_responses" | "openai_completions" | "gemini" | "glm" | "kimi" | "minimax" | "codex" | "bailian";
 export type RoutingMode = "load_balance" | "failover";
 export type ClientType =
   | "default"
