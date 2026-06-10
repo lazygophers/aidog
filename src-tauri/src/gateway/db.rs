@@ -94,10 +94,16 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
     })
 }
 
-pub fn create_platform(db: &Db, input: CreatePlatform) -> Result<Platform, String> {
+pub fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, String> {
     let id = new_id();
     let ts = now();
     let protocol_str = serde_json::to_string(&input.protocol).unwrap();
+    // If name is empty, auto-generate: {protocol}-{random8}
+    if input.name.trim().is_empty() {
+        let proto_label = format!("{:?}", input.protocol).to_lowercase();
+        let rand_suffix = &uuid::Uuid::new_v4().to_string()[..8];
+        input.name = format!("{}-{}", proto_label, rand_suffix);
+    }
     let models = input.models.unwrap_or_default();
     let models_str = serialize_models(&models);
     let available_models = input.available_models.unwrap_or_default();
