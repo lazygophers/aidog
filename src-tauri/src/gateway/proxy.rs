@@ -218,7 +218,9 @@ async fn handle_proxy(
 
     // Upsert #2: group resolved
     log.group_name = group.name.clone();
-    log.source_protocol = group.source_protocol.clone();
+    // Auto-detect source_protocol from request path if group default doesn't match
+    let source_protocol = detect_source_protocol(&path, &group.source_protocol);
+    log.source_protocol = source_protocol.clone();
     upsert_log(&state, &log);
 
     // ── 解析 ChatRequest（按入站协议解析） ──
@@ -279,7 +281,7 @@ async fn handle_proxy(
         .iter()
         .find(|ep| {
             let ep_str = format!("{:?}", ep.protocol).to_lowercase();
-            ep_str == group.source_protocol
+            ep_str == source_protocol
         })
         .map(|ep| (&ep.protocol, ep.base_url.clone(), ep.client_type.clone()))
         .unwrap_or((&route.platform.protocol, route.platform.base_url.clone(), ClientType::Default));
@@ -388,7 +390,7 @@ async fn handle_proxy(
     let tokens_acc = Arc::new(std::sync::atomic::AtomicI32::new(0));
     let tokens_out = Arc::new(std::sync::atomic::AtomicI32::new(0));
     let tokens_cache = Arc::new(std::sync::atomic::AtomicI32::new(0));
-    let client_protocol = group.source_protocol.clone();
+    let client_protocol = source_protocol.clone();
     let model_for_sse = requested_model.clone();
     let model_for_response = if needs_model_remap {
         requested_model.clone()
@@ -521,6 +523,39 @@ fn replace_model_in_json(bytes: &[u8], original_model: &str) -> Vec<u8> {
         obj.insert("model".to_string(), Value::String(original_model.to_string()));
     }
     serde_json::to_vec(&v).unwrap_or_else(|_| bytes.to_vec())
+}
+
+/// 根据请求路径自动推断入站 AI 协议格式
+/// - /v1/messages → anthropic
+/// - /v1/chat/completions, /v1/completions, /v1/responses, /models, /images, /audio → openai
+/// - /v1beta/models/... → gemini
+/// 回退到分组默认的 source_protocol
+fn detect_source_protocol(path: &str, default: &str) -> String {
+    // Strip group path prefix (e.g. /proxy/v1/chat/completions → /v1/chat/completions)
+    let api_path = if let Some(idx) = path.find("/v1/") {
+        &path[idx..]
+    } else if path.contains("/v1beta/") {
+        return "gemini".to_string();
+    } else {
+        return default.to_string();
+    };
+
+    if api_path.starts_with("/v1/messages") {
+        "anthropic".to_string()
+    } else if api_path.starts_with("/v1/chat/completions")
+        || api_path.starts_with("/v1/completions")
+        || api_path.starts_with("/v1/responses")
+        || api_path.starts_with("/v1/embeddings")
+        || api_path.starts_with("/v1/images")
+        || api_path.starts_with("/v1/audio")
+        || api_path.starts_with("/v1/models")
+    {
+        "openai".to_string()
+    } else if path.contains("/v1beta/") {
+        "gemini".to_string()
+    } else {
+        default.to_string()
+    }
 }
 
 /// 根据 path 前缀匹配分组
