@@ -65,9 +65,19 @@ pub fn to_openai(req: &ChatRequest) -> OpenAIRequest {
 
     // system 消息放在 messages 数组开头
     if let Some(system) = &req.system {
+        let content = match system {
+            SystemContent::Text(t) => Value::String(t.clone()),
+            SystemContent::Blocks(blocks) => {
+                // Extract text from blocks for OpenAI compatibility
+                let texts: Vec<&str> = blocks.iter()
+                    .filter_map(|b| b.get("text").and_then(|v| v.as_str()))
+                    .collect();
+                Value::String(texts.join("\n"))
+            }
+        };
         messages.push(OpenAIMessage {
             role: "system".to_string(),
-            content: Some(Value::String(system.clone())),
+            content: Some(content),
             tool_calls: None,
             tool_call_id: None,
         });

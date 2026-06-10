@@ -8,7 +8,7 @@ pub struct AnthropicRequest {
     pub model: String,
     pub messages: Vec<AnthropicMessage>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub system: Option<String>,
+    pub system: Option<Value>,
     pub max_tokens: u32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f32>,
@@ -76,7 +76,10 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
     AnthropicRequest {
         model: req.model.clone(),
         messages,
-        system: req.system.clone(),
+        system: req.system.as_ref().map(|s| match s {
+            SystemContent::Text(t) => Value::String(t.clone()),
+            SystemContent::Blocks(blocks) => Value::Array(blocks.clone()),
+        }),
         max_tokens: req.max_tokens.unwrap_or(4096),
         temperature: req.temperature,
         top_p: req.top_p,

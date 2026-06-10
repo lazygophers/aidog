@@ -6,7 +6,7 @@ pub struct ChatRequest {
     pub model: String,
     pub messages: Vec<Message>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub system: Option<String>,
+    pub system: Option<SystemContent>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_tokens: Option<u32>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -22,6 +22,14 @@ pub struct ChatRequest {
     /// 额外参数（协议特有字段透传）
     #[serde(flatten)]
     pub extra: Option<serde_json::Value>,
+}
+
+/// System content: can be a plain string or array of content blocks
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum SystemContent {
+    Text(String),
+    Blocks(Vec<serde_json::Value>),
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
