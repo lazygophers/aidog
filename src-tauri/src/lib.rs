@@ -117,7 +117,7 @@ fn group_create(mut input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle
     input.name = slugify(&input.name);
     validate_group_name(&input.name)?;
     let result = db::create_group(&db, input)?;
-    let _ = try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db);
     Ok(result)
 }
 
@@ -140,14 +140,14 @@ fn group_update(mut input: UpdateGroup, db: State<'_, Db>, app: tauri::AppHandle
         input.name = Some(slug);
     }
     let result = db::update_group(&db, input)?;
-    let _ = try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db);
     Ok(result)
 }
 
 #[tauri::command]
 fn group_delete(id: String, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     db::delete_group(&db, &id)?;
-    let _ = try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db);
     Ok(())
 }
 
@@ -156,7 +156,7 @@ fn group_delete(id: String, db: State<'_, Db>, app: tauri::AppHandle) -> Result<
 #[tauri::command]
 fn group_set_platforms(input: SetGroupPlatforms, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     db::set_group_platforms(&db, &input.group_id, &input.platforms)?;
-    let _ = try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db);
     Ok(())
 }
 
@@ -173,7 +173,7 @@ fn group_get_platforms(
 #[tauri::command]
 fn mapping_create(input: CreateModelMapping, db: State<'_, Db>, app: tauri::AppHandle) -> Result<ModelMapping, String> {
     let result = db::create_model_mapping(&db, input)?;
-    let _ = try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db);
     Ok(result)
 }
 
@@ -185,14 +185,14 @@ fn mapping_list(group_id: String, db: State<'_, Db>) -> Result<Vec<ModelMapping>
 #[tauri::command]
 fn mapping_update(input: UpdateModelMapping, db: State<'_, Db>, app: tauri::AppHandle) -> Result<ModelMapping, String> {
     let result = db::update_model_mapping(&db, input)?;
-    let _ = try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db);
     Ok(result)
 }
 
 #[tauri::command]
 fn mapping_delete(id: String, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     db::delete_model_mapping(&db, &id)?;
-    let _ = try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db);
     Ok(())
 }
 
@@ -324,7 +324,7 @@ async fn platform_fetch_models(
                 .await
                 .map_err(|e| format!("parse response: {e}"))?
         }
-        Protocol::OpenAI | Protocol::Codex | Protocol::GLM | Protocol::Kimi | Protocol::MiniMax => {
+        Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::Kimi | Protocol::MiniMax => {
             let url = format!("{base}/models");
             client
                 .get(&url)
@@ -414,7 +414,7 @@ fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
     let base_config: serde_json::Value = gateway::db::get_setting(db, "global", "claude_code")
         .ok()
         .flatten()
-        .filter(|v| v.is_object() && v.as_object().map_or(false, |o| !o.is_empty()))
+        .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
         .unwrap_or_else(|| {
             serde_json::from_str(include_str!("../defaults/settings.json"))
                 .unwrap_or(serde_json::Value::Object(Default::default()))
@@ -639,7 +639,7 @@ fn settings_get(
 fn settings_set(input: SetSettingInput, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     db::set_setting(&db, input)?;
     // Auto-sync group settings files when claude code config changes
-    let _ = try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db);
     Ok(())
 }
 

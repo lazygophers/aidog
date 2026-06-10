@@ -197,7 +197,7 @@ async fn handle_proxy(
         Err(e) => {
             let duration_ms = start.elapsed().as_millis() as i32;
             if log_settings.enabled {
-                try_log(&state, &group.name, &requested_model, &actual_model, &target_protocol, &req_headers_json, &req_body_str, "", 502, duration_ms, 0, 0);
+                try_log(&state, &LogParams { group_name: &group.name, model: &requested_model, actual_model: &actual_model, target_protocol: &target_protocol, req_headers: &req_headers_json, req_body: &req_body_str, resp_body: "", status_code: 502, duration_ms, input_tokens: 0, output_tokens: 0 });
             }
             return (StatusCode::BAD_GATEWAY, format!("upstream: {e}")).into_response();
         }
@@ -209,7 +209,7 @@ async fn handle_proxy(
         let status_code = status.as_u16() as i32;
         let duration_ms = start.elapsed().as_millis() as i32;
         if log_settings.enabled {
-            try_log(&state, &group.name, &requested_model, &actual_model, &target_protocol, &req_headers_json, &req_body_str, &body, status_code, duration_ms, 0, 0);
+            try_log(&state, &LogParams { group_name: &group.name, model: &requested_model, actual_model: &actual_model, target_protocol: &target_protocol, req_headers: &req_headers_json, req_body: &req_body_str, resp_body: &body, status_code, duration_ms, input_tokens: 0, output_tokens: 0 });
         }
         return (StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY), body)
             .into_response();
@@ -225,7 +225,7 @@ async fn handle_proxy(
         let (input_tokens, output_tokens) = extract_usage(&resp_str);
 
         if log_settings.enabled {
-            try_log(&state, &group.name, &requested_model, &actual_model, &target_protocol, &req_headers_json, &req_body_str, &resp_str, 200, duration_ms, input_tokens, output_tokens);
+            try_log(&state, &LogParams { group_name: &group.name, model: &requested_model, actual_model: &actual_model, target_protocol: &target_protocol, req_headers: &req_headers_json, req_body: &req_body_str, resp_body: &resp_str, status_code: 200, duration_ms, input_tokens, output_tokens });
         }
 
         // Replace model in response back to original if remapped
@@ -317,7 +317,7 @@ async fn handle_proxy(
     if log_settings.enabled {
         let in_t = tokens_acc.load(std::sync::atomic::Ordering::Relaxed);
         let out_t = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
-        try_log(&state, &group.name, &requested_model, &actual_model, &target_protocol, &req_headers_json, &req_body_str, "[stream]", 200, duration_ms, in_t, out_t);
+        try_log(&state, &LogParams { group_name: &group.name, model: &requested_model, actual_model: &actual_model, target_protocol: &target_protocol, req_headers: &req_headers_json, req_body: &req_body_str, resp_body: "[stream]", status_code: 200, duration_ms, input_tokens: in_t, output_tokens: out_t });
     }
 
     (
@@ -353,39 +353,40 @@ fn extract_usage(body: &str) -> (i32, i32) {
     (input, output)
 }
 
-/// Attempt to insert a proxy log entry; silently ignore errors
-fn try_log(
-    state: &Arc<ProxyState>,
-    group_name: &str,
-    model: &str,
-    actual_model: &str,
-    target_protocol: &str,
-    req_headers: &str,
-    req_body: &str,
-    resp_body: &str,
+struct LogParams<'a> {
+    group_name: &'a str,
+    model: &'a str,
+    actual_model: &'a str,
+    target_protocol: &'a str,
+    req_headers: &'a str,
+    req_body: &'a str,
+    resp_body: &'a str,
     status_code: i32,
     duration_ms: i32,
     input_tokens: i32,
     output_tokens: i32,
-) {
+}
+
+/// Attempt to insert a proxy log entry; silently ignore errors
+fn try_log(state: &Arc<ProxyState>, p: &LogParams) {
     let db = match state.db.lock() {
         Ok(d) => d,
         Err(_) => return,
     };
     let log = ProxyLog {
         id: uuid::Uuid::new_v4().to_string(),
-        group_name: group_name.to_string(),
-        model: model.to_string(),
-        actual_model: actual_model.to_string(),
+        group_name: p.group_name.to_string(),
+        model: p.model.to_string(),
+        actual_model: p.actual_model.to_string(),
         source_protocol: "anthropic".to_string(),
-        target_protocol: target_protocol.to_string(),
-        request_headers: req_headers.to_string(),
-        request_body: req_body.to_string(),
-        response_body: resp_body.to_string(),
-        status_code,
-        duration_ms,
-        input_tokens,
-        output_tokens,
+        target_protocol: p.target_protocol.to_string(),
+        request_headers: p.req_headers.to_string(),
+        request_body: p.req_body.to_string(),
+        response_body: p.resp_body.to_string(),
+        status_code: p.status_code,
+        duration_ms: p.duration_ms,
+        input_tokens: p.input_tokens,
+        output_tokens: p.output_tokens,
         created_at: chrono::Utc::now().to_rfc3339(),
     };
     let _ = super::db::insert_proxy_log(&db, &log);

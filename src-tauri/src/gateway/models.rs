@@ -8,7 +8,7 @@ pub enum Protocol {
     #[serde(rename = "openai")]
     OpenAI,
     #[serde(rename = "glm")]
-    GLM,
+    Glm,
     #[serde(rename = "kimi")]
     Kimi,
     #[serde(rename = "minimax")]
@@ -50,11 +50,9 @@ impl PlatformModels {
     #[allow(dead_code)]
     pub fn all_values(&self) -> Vec<String> {
         let mut v = Vec::new();
-        for m in [&self.default, &self.sonnet, &self.opus, &self.haiku, &self.gpt] {
-            if let Some(s) = m {
-                if !v.contains(s) {
-                    v.push(s.clone());
-                }
+        for s in [&self.default, &self.sonnet, &self.opus, &self.haiku, &self.gpt].into_iter().flatten() {
+            if !v.contains(s) {
+                v.push(s.clone());
             }
         }
         v

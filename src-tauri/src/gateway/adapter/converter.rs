@@ -16,7 +16,7 @@ pub fn convert_request(req: &ChatRequest, protocol: &Protocol) -> (Value, String
             let json = serde_json::to_value(&openai_req).unwrap();
             (json, "/v1/chat/completions".to_string())
         }
-        Protocol::GLM => {
+        Protocol::Glm => {
             let glm_req = super::glm::to_glm(req);
             let json = serde_json::to_value(&glm_req).unwrap();
             (json, "/api/paas/v4/chat/completions".to_string())
@@ -49,7 +49,7 @@ pub fn parse_sse(data: &Value, protocol: &Protocol) -> Option<ChatStreamEvent> {
     match protocol {
         Protocol::Anthropic => super::anthropic::parse_anthropic_sse(data),
         Protocol::OpenAI => super::openai::parse_openai_sse(data),
-        Protocol::GLM => super::glm::parse_glm_sse(data),
+        Protocol::Glm => super::glm::parse_glm_sse(data),
         Protocol::Kimi => super::kimi::parse_kimi_sse(data),
         Protocol::MiniMax => super::minimax::parse_minimax_sse(data),
         Protocol::Codex => super::codex::parse_codex_sse(data),
