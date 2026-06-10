@@ -37,16 +37,24 @@ impl Db {
         let sql = include_str!("../../migrations/001_init.sql");
         let conn = self.0.lock().map_err(|e| e.to_string())?;
         conn.execute_batch(sql).map_err(|e| e.to_string())?;
-        // Incremental migrations for existing databases
-        let _ = conn.execute_batch(
-            "ALTER TABLE proxy_logs ADD COLUMN actual_model TEXT NOT NULL DEFAULT '';
-             ALTER TABLE proxy_logs ADD COLUMN source_protocol TEXT NOT NULL DEFAULT '';
-             ALTER TABLE proxy_logs ADD COLUMN target_protocol TEXT NOT NULL DEFAULT '';
-             ALTER TABLE groups ADD COLUMN request_timeout_secs INTEGER NOT NULL DEFAULT 0;
-             ALTER TABLE groups ADD COLUMN connect_timeout_secs INTEGER NOT NULL DEFAULT 0;
-             ALTER TABLE model_mappings ADD COLUMN request_timeout_secs INTEGER NOT NULL DEFAULT 0;
-             ALTER TABLE model_mappings ADD COLUMN connect_timeout_secs INTEGER NOT NULL DEFAULT 0;",
-        );
+        // Incremental migrations — execute each ALTER separately so one failure
+        // (e.g. column already exists) does not block the rest.
+        let migrations = [
+            "ALTER TABLE proxy_logs ADD COLUMN actual_model TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE proxy_logs ADD COLUMN source_protocol TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE proxy_logs ADD COLUMN target_protocol TEXT NOT NULL DEFAULT ''",
+            "ALTER TABLE groups ADD COLUMN request_timeout_secs INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE groups ADD COLUMN connect_timeout_secs INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE model_mappings ADD COLUMN request_timeout_secs INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE model_mappings ADD COLUMN connect_timeout_secs INTEGER NOT NULL DEFAULT 0",
+            "ALTER TABLE groups ADD COLUMN auto_from_platform TEXT",
+            "ALTER TABLE platforms ADD COLUMN models TEXT NOT NULL DEFAULT '[]'",
+            "ALTER TABLE platforms ADD COLUMN available_models TEXT NOT NULL DEFAULT '[]'",
+        ];
+        for sql in &migrations {
+            // Ignore "duplicate column" errors — column may already exist
+            let _ = conn.execute(sql, []);
+        }
         Ok(())
     }
 
