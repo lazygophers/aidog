@@ -1507,7 +1507,7 @@ fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wr
 /// 这里用 NSStatusItem button 的 attributedTitle 设小号 NSFont（参考菜单栏紧凑文字，约 9pt）。
 /// 两行（\n）由 NSFont 行高决定，配合居中段落样式保持紧凑。
 #[cfg(target_os = "macos")]
-const TRAY_FONT_SIZE: f64 = 8.0;
+const TRAY_FONT_SIZE: f64 = 9.0;
 
 /// 去除浮点数格式化尾部多余的零：10.10 → "10.1", 0.00 → "0", 965.80 → "965.8"
 fn trim_trailing_zeros(s: &str) -> String {
@@ -1569,7 +1569,7 @@ fn measure_text_width(text: &str, font_size: f64) -> f64 {
     use objc2_foundation::{NSDictionary, NSString};
 
     let ns_text = NSString::from_str(text);
-    let font = NSFont::menuBarFontOfSize(font_size);
+    let font = NSFont::boldSystemFontOfSize(font_size);
     let font_key: &NSString = unsafe { NSFontAttributeName };
     let font_obj: &AnyObject = (&*font).as_ref();
     let attrs: Retained<NSDictionary<NSString, AnyObject>> =
@@ -1631,7 +1631,7 @@ fn set_tray_attributed_title(
             NSTextAlignment::Center
         });
         let line_h = if two_line_mode {
-            TRAY_FONT_SIZE + 3.0 // 两行模式，行间距 3px
+            TRAY_FONT_SIZE + 10.0 // 两行模式，行间距 10px
         } else {
             0.0 // 单行不压缩行高，使用系统默认
         };
@@ -1708,7 +1708,7 @@ fn set_tray_attributed_title(
         // 两行模式：标签行和值行共用 `para`（LeftTabStopType），列边界自然对齐。
         let make_part = |text: &str, font_size: f64, color: &TrayColor, para_style: &NSMutableParagraphStyle| -> Retained<NSAttributedString> {
             let ns_text = NSString::from_str(text);
-            let font: Retained<NSFont> = NSFont::menuBarFontOfSize(font_size);
+            let font: Retained<NSFont> = NSFont::boldSystemFontOfSize(font_size);
             let ns_color = resolve_tray_color(color);
 
             let keys: [&NSString; 4] = [font_key, color_key, para_key, baseline_key];

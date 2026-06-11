@@ -361,7 +361,7 @@ export function TrayConfigTab() {
           padding: hasTwoLine ? "4px 14px" : "2px 14px",
           minHeight: hasTwoLine ? 40 : 26, display: "flex", alignItems: "center",
           fontFamily: '"Maple Mono NF", "Maple Mono", "SF Pro Text", system-ui, sans-serif',
-          fontSize: hasTwoLine ? 11 : 15,
+          fontSize: hasTwoLine ? 12 : 16,
           fontWeight: 600,
           color: "rgba(255,255,255,0.85)", userSelect: "none",
           marginTop: 8,
@@ -391,7 +391,7 @@ export function TrayConfigTab() {
                         pointerEvents: "none", transition: "all 150ms ease",
                         marginRight: 5,
                       }}>
-                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>{gc.label} {gc.value}</span>
+                        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{gc.label} {gc.value}</span>
                       </span>
                     );
                   })()}
@@ -400,7 +400,7 @@ export function TrayConfigTab() {
                       display: "inline-flex", alignItems: "center", justifyContent: "center",
                       width: layout.gaps[i - 1]?.separator ? "auto" : 5,
                       padding: layout.gaps[i - 1]?.separator ? "0 5px" : 0,
-                      fontSize: 11, color: "rgba(255,255,255,0.35)",
+                      fontSize: 12, color: "rgba(255,255,255,0.35)",
                     }}>
                       {layout.gaps[i - 1]?.separator || ""}
                     </span>
@@ -436,7 +436,7 @@ export function TrayConfigTab() {
                         opacity: 0.5, filter: "grayscale(0.8)",
                         pointerEvents: "none", transition: "all 150ms ease",
                       }}>
-                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>{gc.label} {gc.value}</span>
+                        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{gc.label} {gc.value}</span>
                       </span>
                     );
                   })()}
@@ -458,18 +458,18 @@ export function TrayConfigTab() {
                     const gc = layout.columns[previewDrag!.from];
                     return (
                       <div style={{
-                        display: "flex", flexDirection: "column", alignItems: "stretch", gap: 3,
+                        display: "flex", flexDirection: "column", alignItems: "stretch", gap: 10,
                         padding: "2px 6px", borderRadius: 4,
                         border: "1.5px dashed rgba(255,255,255,0.5)",
                         opacity: 0.5, filter: "grayscale(0.8)",
                         pointerEvents: "none", transition: "all 150ms ease",
                         marginRight: 5,
                       }}>
-                        <div style={{ fontSize: 11, lineHeight: "12px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                        <div style={{ fontSize: 12, lineHeight: "13px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
                           {gc.isTwo ? gc.label : `${gc.label} ${gc.value}`}
                         </div>
                         {gc.isTwo && (
-                          <div style={{ fontSize: 15, lineHeight: "16px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                          <div style={{ fontSize: 16, lineHeight: "17px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
                             {gc.value}
                           </div>
                         )}
@@ -481,7 +481,7 @@ export function TrayConfigTab() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       width: layout.gaps[i - 1]?.separator ? "auto" : 5,
                       padding: layout.gaps[i - 1]?.separator ? "0 5px" : 0,
-                      fontSize: 11, color: "rgba(255,255,255,0.35)", height: "100%",
+                      fontSize: 12, color: "rgba(255,255,255,0.35)", height: "100%",
                     }}>
                       {layout.gaps[i - 1]?.separator || ""}
                     </div>
@@ -489,7 +489,7 @@ export function TrayConfigTab() {
                   <div
                     data-preview-col={i}
                     style={{
-                      display: "flex", flexDirection: "column", alignItems: "stretch", gap: 3,
+                      display: "flex", flexDirection: "column", alignItems: "stretch", gap: 10,
                       cursor: "grab", padding: "2px 4px", borderRadius: 4,
                       opacity: previewDrag
                         ? pIsDragging ? 0
@@ -504,11 +504,11 @@ export function TrayConfigTab() {
                     onPointerUp={handlePreviewPointerUp}
                     onClick={(e) => handlePreviewClick(i, e.currentTarget)}
                   >
-                    <div style={{ textAlign: cssAlign(col.align), fontSize: 11, lineHeight: "12px", whiteSpace: "nowrap" }}>
+                    <div style={{ textAlign: cssAlign(col.align), fontSize: 12, lineHeight: "13px", whiteSpace: "nowrap" }}>
                       {col.isTwo ? col.label : `${col.label} ${col.value}`}
                     </div>
                     {col.isTwo && (
-                      <div style={{ textAlign: cssAlign(col.alignRow2), fontSize: 15, lineHeight: "16px", whiteSpace: "nowrap" }}>
+                      <div style={{ textAlign: cssAlign(col.alignRow2), fontSize: 16, lineHeight: "17px", whiteSpace: "nowrap" }}>
                         {col.value}
                       </div>
                     )}
@@ -524,11 +524,11 @@ export function TrayConfigTab() {
                         opacity: 0.5, filter: "grayscale(0.8)",
                         pointerEvents: "none", transition: "all 150ms ease",
                       }}>
-                        <div style={{ fontSize: 11, lineHeight: "12px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                        <div style={{ fontSize: 12, lineHeight: "13px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
                           {gc.isTwo ? gc.label : `${gc.label} ${gc.value}`}
                         </div>
                         {gc.isTwo && (
-                          <div style={{ fontSize: 15, lineHeight: "16px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                          <div style={{ fontSize: 16, lineHeight: "17px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
                             {gc.value}
                           </div>
                         )}
@@ -688,7 +688,7 @@ export function TrayConfigTab() {
               {/* Ghost card: grayscale preview of dragged item at insertion point */}
               {drag && isDragTarget && (
                 <div style={{
-                  display: "flex", alignItems: "center", gap: 8, paddingLeft: 40,
+                  display: "flex", alignItems: "center", gap: 10, paddingLeft: 40,
                   padding: "6px 12px", margin: "2px 0", borderRadius: 8,
                   background: "var(--glass-bg, rgba(255,255,255,0.06))",
                   border: "1.5px dashed var(--accent)",
@@ -722,7 +722,7 @@ export function TrayConfigTab() {
                 >{gripSvg}</div>
 
                 <div
-                  style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", userSelect: "none" }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", userSelect: "none" }}
                   onClick={() => { if (!didDragRef.current) setExpandedIdx(isExpanded ? null : i); }}
                 >
                   <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>
@@ -748,7 +748,7 @@ export function TrayConfigTab() {
                 </div>
 
                 {isExpanded && isSep && (
-                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)", display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}
                     onClick={(e) => e.stopPropagation()}>
                     <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.separatorChar", "分隔符")}</label>
                     <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
@@ -767,7 +767,7 @@ export function TrayConfigTab() {
                   <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)", display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}
                     onClick={(e) => e.stopPropagation()}>
                     {isPlatform && (
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                         <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.display", "展示")}</label>
                         <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                           {(["balance", "coding"] as const).map((d) => (
@@ -781,7 +781,7 @@ export function TrayConfigTab() {
                       </div>
                     )}
                     {!isPlatform && (
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                         <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.metric", "指标")}</label>
                         <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                           {TODAY_METRICS.map((m) => (
@@ -792,7 +792,7 @@ export function TrayConfigTab() {
                         </div>
                       </div>
                     )}
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                       <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.lineMode", "行模式")}</label>
                       <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                         {(["single", "two"] as const).map((lm) => (
@@ -803,7 +803,7 @@ export function TrayConfigTab() {
                         ))}
                       </div>
                     </div>
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                       <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.align", "对齐")}</label>
                       <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                         {ALIGN_OPTIONS.map((a) => (
@@ -814,7 +814,7 @@ export function TrayConfigTab() {
                       </div>
                     </div>
                     {item.line_mode === "two" && (
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                         <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.alignRow2", "值行对齐")}</label>
                         <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
                           {ALIGN_OPTIONS.map((a) => (
@@ -825,7 +825,7 @@ export function TrayConfigTab() {
                         </div>
                       </div>
                     )}
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
                       <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.color", "颜色")}</label>
                       <select className="input" value={item.color.mode}
                         onChange={(e) => { const mode = e.target.value as TrayColor["mode"]; updateItem(i, { color: { mode, value: mode === "preset" ? PRESET_COLORS[0].value : mode === "custom" ? (item.color.value || "#ffffff") : "" } }); }}
@@ -871,7 +871,7 @@ export function TrayConfigTab() {
               : TODAY_METRICS.find((m) => m.value === (di.metric || "tokens"))?.label ?? "Tokens";
           return (
             <div style={{
-              display: "flex", alignItems: "center", gap: 8, paddingLeft: 40,
+              display: "flex", alignItems: "center", gap: 10, paddingLeft: 40,
               padding: "6px 12px", margin: "2px 0", borderRadius: 8,
               background: "var(--glass-bg, rgba(255,255,255,0.06))",
               border: "1.5px dashed var(--accent)",
