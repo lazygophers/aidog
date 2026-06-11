@@ -1155,6 +1155,33 @@ fn settings_list(scope: String, db: State<'_, Db>) -> Result<Vec<String>, String
     db::list_setting_keys(&db, &scope)
 }
 
+// ─── StatusLine Script Generation ──────────────────────────
+
+/// Generate statusline script file in ~/.aidog/ and return absolute path.
+/// `script_type`: "statusline" | "subagent"
+#[tauri::command]
+fn generate_statusline_script(
+    script_type: String,
+    content: String,
+) -> Result<String, String> {
+    let aidog_dir = aidog_data_dir()?;
+    let filename = if script_type == "subagent" {
+        "aidog-subagent-statusline.sh"
+    } else {
+        "aidog-statusline.sh"
+    };
+    let path = aidog_dir.join(filename);
+    std::fs::write(&path, &content).map_err(|e| format!("write script: {e}"))?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mut perms = std::fs::metadata(&path).map_err(|e| format!("stat script: {e}"))?.permissions();
+        perms.set_mode(0o755);
+        std::fs::set_permissions(&path, perms).map_err(|e| format!("chmod script: {e}"))?;
+    }
+    Ok(path.to_string_lossy().to_string())
+}
+
 // ─── Settings Persistence ──────────────────────────────────
 
 /// 统一数据目录：~/.aidog/
@@ -1986,6 +2013,7 @@ pub fn run() {
             settings_set,
             settings_delete,
             settings_list,
+            generate_statusline_script,
             // Statistics
             stats_query,
             model_test,

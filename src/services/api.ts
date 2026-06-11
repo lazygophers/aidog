@@ -577,6 +577,14 @@ export const settingsApi = {
     invoke<string[]>("settings_list", { scope }),
 };
 
+// ─── StatusLine Script Generation ──────────────────────────
+
+export const statuslineApi = {
+  /** Generate statusline script in ~/.aidog/ and return absolute path */
+  generate: (scriptType: string, content: string) =>
+    invoke<string>("generate_statusline_script", { scriptType, content }),
+};
+
 // ─── App Log Settings API ─────────────────────────────────
 
 export const appLogApi = {

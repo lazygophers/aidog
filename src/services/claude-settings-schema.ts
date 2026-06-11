@@ -28,6 +28,7 @@ export const SECTIONS: SettingSection[] = [
     id: "core",
     labelKey: "settings.sectionCore",
     fields: [
+      // ── 原 core ──
       { key: "model", label: "Model", type: "string", placeholder: "e.g. claude-sonnet-4-6, sonnet" },
       { key: "effortLevel", label: "Effort Level", type: "select", options: ["low", "medium", "high", "xhigh"] },
       { key: "outputStyle", label: "Output Style", type: "string", placeholder: "Explanatory, Concise..." },
@@ -35,12 +36,7 @@ export const SECTIONS: SettingSection[] = [
       { key: "agent", label: "Agent", type: "string", description: "将主线程作为命名 subagent 运行" },
       { key: "apiKeyHelper", label: "API Key Helper", type: "string", placeholder: "/bin/generate_temp_api_key.sh", pathType: "file" },
       { key: "modelOverrides", label: "Model Overrides", type: "kv", description: "模型 ID 映射，如 Bedrock ARN" },
-    ],
-  },
-  {
-    id: "behavior",
-    labelKey: "settings.sectionBehavior",
-    fields: [
+      // ── 原 behavior ──
       { key: "alwaysThinkingEnabled", label: "Always Thinking", type: "boolean" },
       { key: "autoMemoryEnabled", label: "Auto Memory", type: "boolean" },
       { key: "prefersReducedMotion", label: "Reduced Motion", type: "boolean" },
@@ -53,6 +49,14 @@ export const SECTIONS: SettingSection[] = [
       { key: "disableAutoMode", label: "Disable Auto Mode", type: "select", options: ["disable", ""] },
       { key: "disableAgentView", label: "Disable Agent View", type: "boolean" },
       { key: "syntaxHighlightingDisabled", label: "Disable Syntax Highlight", type: "boolean" },
+      // ── 原 team ──
+      { key: "teammateMode", label: "Teammate Mode", type: "select", options: ["auto", "in-process", "tmux"] },
+      { key: "fastModePerSessionOptIn", label: "Fast Mode Per-Session", type: "boolean" },
+      { key: "autoMode", label: "Auto Mode", type: "json", description: "自动模式分类器规则" },
+      // ── 原 memory ──
+      { key: "claudeMdExcludes", label: "CLAUDE.md Excludes", type: "string[]", description: "跳过的 CLAUDE.md glob 模式" },
+      { key: "autoMemoryDirectory", label: "Auto Memory Directory", type: "string", placeholder: "~/my-memory-dir", pathType: "directory" },
+      { key: "plansDirectory", label: "Plans Directory", type: "string", placeholder: "~/.claude/plans", pathType: "directory" },
     ],
   },
   {
@@ -69,15 +73,6 @@ export const SECTIONS: SettingSection[] = [
       { key: "autoScrollEnabled", label: "Auto Scroll", type: "boolean" },
       { key: "terminalProgressBarEnabled", label: "Terminal Progress Bar", type: "boolean" },
       { key: "awaySummaryEnabled", label: "Away Summary", type: "boolean" },
-    ],
-  },
-  {
-    id: "team",
-    labelKey: "settings.sectionTeam",
-    fields: [
-      { key: "teammateMode", label: "Teammate Mode", type: "select", options: ["auto", "in-process", "tmux"] },
-      { key: "fastModePerSessionOptIn", label: "Fast Mode Per-Session", type: "boolean" },
-      { key: "autoMode", label: "Auto Mode", type: "json", description: "自动模式分类器规则" },
     ],
   },
   {
@@ -110,13 +105,6 @@ export const SECTIONS: SettingSection[] = [
     ],
   },
   {
-    id: "skills",
-    labelKey: "settings.sectionSkills",
-    fields: [
-      { key: "skillOverrides", label: "Skill Overrides", type: "kv", description: "按 skill 名称的可见性覆盖", skipGui: true },
-    ],
-  },
-  {
     id: "sandbox",
     labelKey: "settings.sectionSandbox",
     fields: [
@@ -127,29 +115,9 @@ export const SECTIONS: SettingSection[] = [
     id: "status",
     labelKey: "settings.sectionStatus",
     fields: [
-      { key: "statusLine", label: "Status Line", type: "string", description: "自定义状态行模板" },
-      { key: "subagentStatusLine", label: "Subagent Status Line", type: "string", description: "子代理状态行模板" },
+      { key: "statusLine", label: "Status Line", type: "json", description: "自定义状态行配置", skipGui: true },
+      { key: "subagentStatusLine", label: "Subagent Status Line", type: "json", description: "子代理状态行配置", skipGui: true },
       { key: "fileSuggestion", label: "File Suggestion", type: "string", description: "自定义文件建议脚本路径", pathType: "file" },
-    ],
-  },
-  {
-    id: "network",
-    labelKey: "settings.sectionNetwork",
-    fields: [
-      { key: "autoUpdatesChannel", label: "Auto Updates Channel", type: "select", options: ["latest", "stable"] },
-      { key: "minimumVersion", label: "Minimum Version", type: "string", placeholder: "e.g. 2.1.100" },
-      { key: "skipWebFetchPreflight", label: "Skip WebFetch Preflight", type: "boolean" },
-      { key: "allowedHttpHookUrls", label: "Allowed HTTP Hook URLs", type: "string[]", description: "HTTP hook URL 白名单" },
-      { key: "httpHookAllowedEnvVars", label: "HTTP Hook Env Vars", type: "string[]", description: "HTTP hook 环境变量白名单" },
-    ],
-  },
-  {
-    id: "memory",
-    labelKey: "settings.sectionMemory",
-    fields: [
-      { key: "claudeMdExcludes", label: "CLAUDE.md Excludes", type: "string[]", description: "跳过的 CLAUDE.md glob 模式" },
-      { key: "autoMemoryDirectory", label: "Auto Memory Directory", type: "string", placeholder: "~/my-memory-dir", pathType: "directory" },
-      { key: "plansDirectory", label: "Plans Directory", type: "string", placeholder: "~/.claude/plans", pathType: "directory" },
     ],
   },
   {
@@ -163,11 +131,18 @@ export const SECTIONS: SettingSection[] = [
     id: "advanced",
     labelKey: "settings.sectionAdvanced",
     fields: [
+      // ── 原 advanced ──
       { key: "attribution", label: "Attribution", type: "json", description: "commit / pr 署名字段", skipGui: true },
       { key: "companyAnnouncements", label: "Company Announcements", type: "string[]", description: "公司公告列表" },
       { key: "maxSkillDescriptionChars", label: "Max Skill Description", type: "string", placeholder: "1536" },
       { key: "skillListingBudgetFraction", label: "Skill Listing Budget", type: "string", placeholder: "0.01" },
       { key: "preferredNotifChannel", label: "Notification Channel", type: "select", options: ["auto", "terminal_bell", "iterm2", "iterm2_with_bell", "kitty", "ghostty", "notifications_disabled"] },
+      // ── 原 network ──
+      { key: "autoUpdatesChannel", label: "Auto Updates Channel", type: "select", options: ["latest", "stable"] },
+      { key: "minimumVersion", label: "Minimum Version", type: "string", placeholder: "e.g. 2.1.100" },
+      { key: "skipWebFetchPreflight", label: "Skip WebFetch Preflight", type: "boolean" },
+      { key: "allowedHttpHookUrls", label: "Allowed HTTP Hook URLs", type: "string[]", description: "HTTP hook URL 白名单" },
+      { key: "httpHookAllowedEnvVars", label: "HTTP Hook Env Vars", type: "string[]", description: "HTTP hook 环境变量白名单" },
     ],
   },
 ];
