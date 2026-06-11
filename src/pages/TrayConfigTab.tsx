@@ -54,7 +54,7 @@ function defaultColor(): TrayColor {
 function makePlatformItem(platformId: number, display: "balance" | "coding", order: number): TrayItem {
   return {
     item_type: "platform", platform_id: platformId, display, metric: null,
-    color: defaultColor(), font_size: DEFAULT_FONT_SIZE, line_mode: "single",
+    color: defaultColor(), font_size: DEFAULT_FONT_SIZE, line_mode: "two",
     align: "left", align_row2: null, enabled: true, order,
   };
 }
@@ -62,7 +62,7 @@ function makePlatformItem(platformId: number, display: "balance" | "coding", ord
 function makeTodayUsageItem(metric: string, order: number): TrayItem {
   return {
     item_type: "today_usage", platform_id: null, display: "", metric,
-    color: defaultColor(), font_size: DEFAULT_FONT_SIZE, line_mode: "single",
+    color: defaultColor(), font_size: DEFAULT_FONT_SIZE, line_mode: "two",
     align: "left", align_row2: null, enabled: true, order,
   };
 }
@@ -357,12 +357,14 @@ export function TrayConfigTab() {
           </div>
         </div>
 
-        {/* Simulated macOS menu bar */}
+        {/* Simulated macOS menu bar — match tray rendering precisely */}
         <div style={{
-          background: "rgba(30, 30, 30, 0.95)", borderRadius: 8, padding: "6px 14px",
-          minHeight: hasTwoLine ? 44 : 32, display: "flex", alignItems: "center",
+          background: "rgba(30, 30, 30, 0.95)", borderRadius: 8,
+          padding: hasTwoLine ? "4px 14px" : "2px 14px",
+          minHeight: hasTwoLine ? 40 : 26, display: "flex", alignItems: "center",
           fontFamily: '-apple-system, "SF Pro Text", system-ui, sans-serif',
-          fontSize: 12, color: "rgba(255,255,255,0.85)", userSelect: "none",
+          fontSize: hasTwoLine ? 12 : 17, // 9pt ≈ 12px (two-line), 13pt ≈ 17px (single)
+          color: "rgba(255,255,255,0.85)", userSelect: "none",
         }}>
           {layout.columns.length === 0 ? (
             <span style={{ color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>
@@ -376,8 +378,8 @@ export function TrayConfigTab() {
                   {i > 0 && (
                     <span style={{
                       display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      width: layout.gaps[i - 1]?.separator ? "auto" : 6,
-                      padding: layout.gaps[i - 1]?.separator ? "0 3px" : 0,
+                      width: layout.gaps[i - 1]?.separator ? "auto" : 5,
+                      padding: layout.gaps[i - 1]?.separator ? "0 5px" : 0,
                       fontSize: 12, color: "rgba(255,255,255,0.35)",
                     }}>
                       {layout.gaps[i - 1]?.separator || ""}
@@ -410,8 +412,8 @@ export function TrayConfigTab() {
                   {i > 0 && (
                     <div style={{
                       display: "flex", alignItems: "center", justifyContent: "center",
-                      width: layout.gaps[i - 1]?.separator ? "auto" : 6,
-                      padding: layout.gaps[i - 1]?.separator ? "0 3px" : 0,
+                      width: layout.gaps[i - 1]?.separator ? "auto" : 5,
+                      padding: layout.gaps[i - 1]?.separator ? "0 5px" : 0,
                       fontSize: 12, color: "rgba(255,255,255,0.35)", height: "100%",
                     }}>
                       {layout.gaps[i - 1]?.separator || ""}
@@ -431,11 +433,11 @@ export function TrayConfigTab() {
                     onPointerUp={handlePreviewPointerUp}
                     onClick={(e) => handlePreviewClick(i, e.currentTarget)}
                   >
-                    <div style={{ textAlign: cssAlign(col.align), fontSize: 12, lineHeight: "14px", whiteSpace: "nowrap" }}>
+                    <div style={{ textAlign: cssAlign(col.align), fontSize: 12, lineHeight: "13px", whiteSpace: "nowrap" }}>
                       {col.isTwo ? col.label : `${col.label} ${col.value}`}
                     </div>
                     {col.isTwo && (
-                      <div style={{ textAlign: cssAlign(col.alignRow2), fontSize: 12, lineHeight: "14px", whiteSpace: "nowrap" }}>
+                      <div style={{ textAlign: cssAlign(col.alignRow2), fontSize: 12, lineHeight: "13px", whiteSpace: "nowrap" }}>
                         {col.value}
                       </div>
                     )}
