@@ -1281,15 +1281,22 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
 
 /// 托盘渲染（多 item）。从 settings tray config 读取 enabled items（按 order），
-/// 每段独立颜色（三态）/ 字号 / line_mode。single 段 "名 值" 单行；two 段 "名\n值" 段内换行。
-/// 菜单栏物理 ≤2 行：单 item 尊重 line_mode；多 item 强制全部 single 横排（separator 拼接）。
-/// 纯文字无 emoji。GUI 实际渲染（暗亮模式对比度）留用户验证。
+/// 每项独立颜色（三态）/ 字号 / line_mode，作为「一列」参与列对齐。
+/// 多平台两行模式（iStat Menus 式）：第一行各列标签横排、第二行各列值横排，列上下对齐。
+/// 列对齐用 NSTextTab（NSParagraphStyle tabStops），每列一个 tab stop（按列宽估位置）。
+/// 全部 single 且无 two_line 列 → 退单行横排（separator 拼接）。
+/// 纯文字无 emoji。GUI 实际渲染（暗亮模式对比度 / 列对齐 / 垂直居中）留用户验证。
 ///
-/// 托盘单个渲染段：文字（line_mode=two 时含段内 `\n`）+ 颜色配置（三态）+ 字号。
-struct TraySegment {
-    text: String,
+/// 托盘单列：name（标签）+ value（值）+ 颜色（三态）+ 字号 + two_line（该列是否两行展示）。
+/// - two_line=true：第一行该列显 name，第二行该列显 value。
+/// - two_line=false（single）：第一行该列显 "name value"，第二行该列留空（tab 占位）。
+#[derive(Debug, Clone)]
+struct TrayColumn {
+    name: String,
+    value: String,
     color: TrayColor,
     font_size: f64,
+    two_line: bool,
 }
 
 /// 计算单个 platform item 的（名, 值）二元组。
@@ -1308,19 +1315,10 @@ fn platform_item_parts(platform: &Platform, display: &str) -> (String, String) {
     (name, value)
 }
 
-/// 按 line_mode 拼接（名, 值）：single → "名 值"（同段单行）；two → "名\n值"（段内换行）。
-fn join_item_parts(name: &str, value: &str, line_mode: &str) -> String {
-    if line_mode == "two" {
-        format!("{name}\n{value}")
-    } else {
-        format!("{name} {value}")
-    }
-}
-
-/// 从托盘配置生成有序渲染段（已按 order 排序、跳过 disabled、跳过取数失败项）。
-/// 每段独立尊重其 line_mode（"single"/"two"）。
-/// 菜单栏物理 ≤2 行约束：统计所有段总行数（two 算 2 行），超过 2 行时从尾部逐个降级为 single。
-fn tray_segments(app: &tauri::AppHandle) -> Vec<TraySegment> {
+/// 从托盘配置生成有序渲染列（已按 order 排序、跳过 disabled、跳过取数失败项）。
+/// 每列保留 (name, value, color, font_size, two_line)，two_line 由该 item 的 line_mode 决定。
+/// 不再做「多 item 强制 single / ≤2 行」限制——iStat Menus 式两行多列布局物理可行。
+fn tray_segments(app: &tauri::AppHandle) -> Vec<TrayColumn> {
     let Some(db) = app.try_state::<Db>() else {
         return Vec::new();
     };
@@ -1330,48 +1328,35 @@ fn tray_segments(app: &tauri::AppHandle) -> Vec<TraySegment> {
     let mut items: Vec<&TrayItem> = config.items.iter().filter(|i| i.enabled).collect();
     items.sort_by_key(|i| i.order);
 
-    // 先用各 item 自身的 line_mode 生成段
-    let mut segments: Vec<(TraySegment, bool)> = Vec::new(); // (segment, is_two)
+    let mut columns: Vec<TrayColumn> = Vec::new();
     for item in items {
-        let line_mode = if item.line_mode == "two" { "two" } else { "single" };
-        let text = match item.item_type.as_str() {
+        let two_line = item.line_mode == "two";
+        let (name, value) = match item.item_type.as_str() {
             "platform" => {
                 let Some(pid) = item.platform_id else { continue };
                 let Ok(Some(platform)) = db::get_platform(&db, pid) else { continue };
-                let (name, value) = platform_item_parts(&platform, &item.display);
-                join_item_parts(&name, &value, line_mode)
+                platform_item_parts(&platform, &item.display)
             }
             "today_usage" => {
                 // MVP: metric=tokens（默认）。其他 metric 暂按 tokens 处理。
                 let total = db::today_token_total(&db).unwrap_or(0);
-                join_item_parts("今日", &format!("{total} tok"), line_mode)
+                ("今日".to_string(), format!("{total} tok"))
             }
             _ => continue,
         };
-        if text.is_empty() {
+        if name.is_empty() && value.is_empty() {
             continue;
         }
-        segments.push((TraySegment {
-            text,
+        columns.push(TrayColumn {
+            name,
+            value,
             color: item.color.clone(),
             font_size: item.font_size,
-        }, line_mode == "two"));
+            two_line,
+        });
     }
 
-    // ≤2 行约束：从尾部降级 two→single 直到总行数 ≤ 2
-    loop {
-        let total_lines: usize = segments.iter().map(|(_, is_two)| if *is_two { 2 } else { 1 }).sum();
-        if total_lines <= 2 { break; }
-        // 找最后一个 two-line 段降级：将段内 \n 替换为空格
-        if let Some(pos) = segments.iter().rposition(|(_, is_two)| *is_two) {
-            segments[pos].0.text = segments[pos].0.text.replace('\n', " ");
-            segments[pos].1 = false;
-        } else {
-            break; // 没有 two-line 段可降级了
-        }
-    }
-
-    segments.into_iter().map(|(seg, _)| seg).collect()
+    columns
 }
 
 /// 托盘配置的分隔符（多 item 横排间隔）。
@@ -1386,14 +1371,17 @@ fn tray_separator(app: &tauri::AppHandle) -> String {
 
 fn default_separator_str() -> String { "  ".to_string() }
 
-/// 菜单内 quota 项的纯文字概要（无颜色/字号，separator 拼接；段内 \n 替换为空格保持单行）。
+/// 菜单内 quota 项的纯文字概要（无颜色/字号，separator 拼接；每列横排 "名 值"）。
 fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
-    let segments = tray_segments(app);
-    if segments.is_empty() {
+    let columns = tray_segments(app);
+    if columns.is_empty() {
         return None;
     }
     let separator = tray_separator(app);
-    let texts: Vec<String> = segments.iter().map(|s| s.text.replace('\n', " ")).collect();
+    let texts: Vec<String> = columns
+        .iter()
+        .map(|c| format!("{} {}", c.name, c.value))
+        .collect();
     Some(texts.join(&separator))
 }
 
@@ -1478,25 +1466,43 @@ fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2_app_kit::N
     }
 }
 
-/// macOS：用 attributedTitle 给 tray button 设多段小字（每段独立颜色/字号）。
+/// 估算列宽（pt）：以最长一行字符数 × 估字宽 + padding。
+/// menuBarFont 近似等宽（CJK 全角约 1 字宽 = fontSize，ASCII 半角约 fontSize*0.6）。
+/// 用「显示宽度单位」估算：CJK 记 2、其他记 1，再 × (fontSize*0.5) + padding。
+#[cfg(target_os = "macos")]
+fn estimate_text_width(text: &str, font_size: f64) -> f64 {
+    let units: f64 = text
+        .chars()
+        .map(|c| if (c as u32) >= 0x2E80 { 2.0 } else { 1.0 })
+        .sum();
+    units * (font_size * 0.5)
+}
+
+/// macOS：用 attributedTitle 给 tray button 设多列小字（每列独立颜色/字号）。
 /// Tauri/tray-icon 的 set_title 走 button.setTitle(NSString) 无字号/颜色控制，故直连 NSStatusItem button。
 /// 通过 tauri TrayIcon::with_inner_tray_icon 拿 tray_icon::TrayIcon，再 ns_status_item() 取底层 NSStatusItem。
 /// 闭包在主线程执行（with_inner_tray_icon 保证），满足 AppKit 主线程约束。
 ///
-/// 段间用 separator 横排拼接（separator 段用首段字号 + labelColor）。
-/// 段内换行（line_mode=two 的 "名\n值"）已包含在 seg.text 中（仅单 item 时存在，保证 ≤2 行）。
-/// 整串套用居中段落样式 + 固定行高 + baselineOffset 垂直居中（保留原单段逻辑）。
+/// 布局（iStat Menus 式）：
+/// - 有任一 two_line 列 → **两行多列模式**：
+///   - 第一行各列：two_line→name；single→"name value"
+///   - 第二行各列：two_line→value；single→""（占位，tab 推进保持列对齐）
+///   - 列间 `\t`，行间一个 `\n`；NSParagraphStyle.tabStops 每列一个 NSTextTab(left, 累加列宽)
+///   - per-column 着色/字号：逐 cell 用 make_part 构造带 attributes 的子串 append，
+///     tab/换行字符用 follow 颜色（无 range:setAttributes，规避 utf16 偏移坑）。
+/// - 无 two_line 列 → **单行模式**：沿用 separator 横排拼接（无回归）。
+/// 整串套用同一 NSParagraphStyle（tabStops + 固定行高居中）+ baselineOffset 垂直居中。
 #[cfg(target_os = "macos")]
 fn set_tray_attributed_title(
     tray: &tauri::tray::TrayIcon,
-    segments: Vec<TraySegment>,
+    columns: Vec<TrayColumn>,
     separator: String,
 ) -> Result<(), String> {
     use objc2::rc::Retained;
     use objc2_app_kit::{NSFont, NSFontAttributeName, NSForegroundColorAttributeName, NSParagraphStyleAttributeName};
-    use objc2_app_kit::{NSMutableParagraphStyle, NSTextAlignment};
+    use objc2_app_kit::{NSMutableParagraphStyle, NSTextAlignment, NSTextTab, NSTextTabType};
     use objc2_app_kit::NSBaselineOffsetAttributeName;
-    use objc2_foundation::{NSAttributedString, NSMutableAttributedString, NSDictionary, NSNumber, NSString};
+    use objc2_foundation::{NSArray, NSAttributedString, NSMutableAttributedString, NSDictionary, NSNumber, NSString};
     use objc2::AnyThread;
 
     tray.with_inner_tray_icon(move |inner| -> Result<(), String> {
@@ -1511,15 +1517,54 @@ fn set_tray_attributed_title(
             .button(mtm)
             .ok_or_else(|| "status item has no button".to_string())?;
 
+        let two_line_mode = columns.iter().any(|c| c.two_line);
+
         // 段落样式：居中（两行视觉对齐）+ 压缩行高（min==max）让两行紧凑。
         // 9pt 字默认行高偏大 → 两行块超出菜单栏可视高 → 视觉偏上。
         // 固定行高 ≈ 字号+1（10.0）使两行总高 ≈ 20pt，贴近菜单栏 ~22pt 高度。
         let para = NSMutableParagraphStyle::new();
-        para.setAlignment(NSTextAlignment::Center);
+        // 两行模式用左对齐（tabStops 控制列位置）；单行模式居中。
+        para.setAlignment(if two_line_mode {
+            NSTextAlignment::Left
+        } else {
+            NSTextAlignment::Center
+        });
         let line_h = TRAY_FONT_SIZE + 1.0; // 10.0pt
         para.setMinimumLineHeight(line_h);
         para.setMaximumLineHeight(line_h);
         para.setLineSpacing(0.0);
+
+        // 两行模式：按各列「显示宽」累加生成 NSTextTab 列位置（left 对齐）。
+        // 列宽 = max(第一行该列文字, 第二行该列文字) 估宽 + padding；位置累加。
+        if two_line_mode {
+            const COL_PADDING: f64 = 6.0;
+            let mut tabs: Vec<Retained<NSTextTab>> = Vec::new();
+            let mut loc: f64 = 0.0;
+            // 第一列从 0 起（无 tab），后续列各一个 tab stop。
+            for col in columns.iter() {
+                // 该列第一行文字
+                let line1 = if col.two_line {
+                    col.name.clone()
+                } else {
+                    format!("{} {}", col.name, col.value)
+                };
+                // 该列第二行文字（two_line→value；single→空）
+                let line2 = if col.two_line { col.value.clone() } else { String::new() };
+                let w1 = estimate_text_width(&line1, col.font_size);
+                let w2 = estimate_text_width(&line2, col.font_size);
+                let col_w = w1.max(w2) + COL_PADDING;
+                loc += col_w;
+                // 为「下一列」起点设 tab stop（最后一列的 tab 多余但无害）。
+                let tab = NSTextTab::initWithType_location(
+                    NSTextTab::alloc(),
+                    NSTextTabType::LeftTabStopType,
+                    loc,
+                );
+                tabs.push(tab);
+            }
+            let tab_array: Retained<NSArray<NSTextTab>> = NSArray::from_retained_slice(&tabs);
+            para.setTabStops(Some(&tab_array));
+        }
 
         // baselineOffset：正值上移、负值下移。AppKit 两行小字默认贴顶 → 用负偏移把整块下推到垂直居中。
         // 经验值 -2.0pt（GUI 实际位置留用户验，按需在 -1.0~-3.0 微调）。
@@ -1555,19 +1600,46 @@ fn set_tray_attributed_title(
             }
         };
 
-        // 段间连接符：separator 横排拼接（套首段字号 + follow 颜色）。段内换行已在 seg.text。
-        let join_str = separator.clone();
-        let join_font = segments.first().map(|s| s.font_size).unwrap_or(TRAY_FONT_SIZE);
-        let follow_color = TrayColor::default(); // mode=follow
-
+        let follow_color = TrayColor::default(); // mode=follow（tab/换行/separator 用）
         let result = NSMutableAttributedString::new();
-        for (idx, seg) in segments.iter().enumerate() {
-            if idx > 0 && !join_str.is_empty() {
-                let sep_part = make_part(&join_str, join_font, &follow_color);
-                result.appendAttributedString(&sep_part);
+
+        if two_line_mode {
+            // 第一行：各列首段，列间 \t（首列前无 tab）。
+            for (idx, col) in columns.iter().enumerate() {
+                if idx > 0 {
+                    result.appendAttributedString(&make_part("\t", col.font_size, &follow_color));
+                }
+                let line1 = if col.two_line {
+                    col.name.clone()
+                } else {
+                    format!("{} {}", col.name, col.value)
+                };
+                result.appendAttributedString(&make_part(&line1, col.font_size, &col.color));
             }
-            let part = make_part(&seg.text, seg.font_size, &seg.color);
-            result.appendAttributedString(&part);
+            // 行间换行（用首列字号 + follow 颜色）。
+            let nl_font = columns.first().map(|c| c.font_size).unwrap_or(TRAY_FONT_SIZE);
+            result.appendAttributedString(&make_part("\n", nl_font, &follow_color));
+            // 第二行：各列次段（two_line→value；single→空占位），列间 \t。
+            for (idx, col) in columns.iter().enumerate() {
+                if idx > 0 {
+                    result.appendAttributedString(&make_part("\t", col.font_size, &follow_color));
+                }
+                let line2 = if col.two_line { col.value.clone() } else { String::new() };
+                if !line2.is_empty() {
+                    result.appendAttributedString(&make_part(&line2, col.font_size, &col.color));
+                }
+            }
+        } else {
+            // 单行模式：每列 "名 值"，separator 横排拼接（套首列字号 + follow 颜色）。
+            let join_str = separator.clone();
+            let join_font = columns.first().map(|c| c.font_size).unwrap_or(TRAY_FONT_SIZE);
+            for (idx, col) in columns.iter().enumerate() {
+                if idx > 0 && !join_str.is_empty() {
+                    result.appendAttributedString(&make_part(&join_str, join_font, &follow_color));
+                }
+                let text = format!("{} {}", col.name, col.value);
+                result.appendAttributedString(&make_part(&text, col.font_size, &col.color));
+            }
         }
 
         button.setAttributedTitle(&result);
@@ -1584,26 +1656,25 @@ fn refresh_tray_menu(app: &tauri::AppHandle) -> Result<(), String> {
     // 非 macOS 平台仅 menu item 降级（不调 set_title / set_icon）。
     #[cfg(target_os = "macos")]
     {
-        let segments = tray_segments(app);
-        if segments.is_empty() {
+        let columns = tray_segments(app);
+        if columns.is_empty() {
             // 无 enabled item → 恢复 logo + 清空 title
             tray.set_icon(app.default_window_icon().cloned())
                 .map_err(|e| e.to_string())?;
             tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
         } else {
-            // 行模式已下沉到各 item（tray_segments 内按 line_mode 渲染段内 \n，并强制 ≤2 行约束）。
-            // 段间用 separator 横排拼接。
+            // 列渲染下沉到 set_tray_attributed_title：有 two_line 列走两行多列（NSTextTab 列对齐），
+            // 否则单行 separator 横排。set_title 仅作兜底（拿不到 button 时保留默认字号文字）。
             let separator = tray_separator(app);
             tray.set_icon(None).map_err(|e| e.to_string())?; // 隐藏 logo
-            // 先 set_title 兜底（保证有文字），再用 attributedTitle 覆盖为多段小字。
-            // attributedTitle 失败（拿不到 button 等）则保留 set_title 的默认字号文字。
-            let fallback_text = segments
+            // 兜底文字：各列 "名 值" 单行 separator 拼接（无颜色/字号控制）。
+            let fallback_text = columns
                 .iter()
-                .map(|s| s.text.as_str())
+                .map(|c| format!("{} {}", c.name, c.value))
                 .collect::<Vec<_>>()
                 .join(separator.as_str());
             tray.set_title(Some(&fallback_text)).map_err(|e| e.to_string())?;
-            if let Err(e) = set_tray_attributed_title(&tray, segments, separator) {
+            if let Err(e) = set_tray_attributed_title(&tray, columns, separator) {
                 tracing::warn!("tray attributed title failed, fallback to default font: {e}");
             }
         }

@@ -528,8 +528,9 @@ pub struct TrayItem {
     pub color: TrayColor,
     #[serde(default = "default_font_size")]
     pub font_size: f64,
-    /// 该项行模式："single"（"名 值" 同段单行）| "two"（"名\n值" 段内换行）。
-    /// 菜单栏物理 ≤2 行：单 item 尊重该模式；多 item 时渲染层强制全部 single 横排。
+    /// 该项行模式（作为「一列」）："single"（第一行 "名 值"，第二行该列留空占位）
+    /// | "two"（第一行该列显 name，第二行该列显 value）。
+    /// iStat Menus 式两行多列：任一列 two → 整体两行模式（NSTextTab 列对齐），否则单行横排。
     #[serde(default = "default_line_mode")]
     pub line_mode: String,
     #[serde(default = "default_true")]
