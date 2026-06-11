@@ -5,8 +5,15 @@ import {
   type GroupDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
   type ModelMapping,
 } from "../services/api";
+import { SortableList } from "../components/SortableList";
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
+
+/** Row model for the sortable selected-platforms list (stable string id for @dnd-kit). */
+interface SortablePlatform {
+  id: string;
+  platformId: number;
+}
 
 /** Extract all non-empty model names (deduplicated) */
 function allModelValues(models: Platform["models"]): string[] {
@@ -85,8 +92,6 @@ export function Groups() {
   const [editMappings, setEditMappings] = useState<ModelMapping[]>([]);
   const [editReqTimeout, setEditReqTimeout] = useState(0);
   const [editConnTimeout, setEditConnTimeout] = useState(0);
-  const [dragIndex, setDragIndex] = useState<number | null>(null);
-  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
   // ── Drag reorder for group list ──
   const [groupDrag, setGroupDrag] = useState<{ from: number; to: number } | null>(null);
@@ -135,13 +140,10 @@ export function Groups() {
     setTimeout(() => { groupDidDragRef.current = false; }, 50);
   };
 
-  // ── Drag reorder for selected platforms ──
-  const reorderPlatforms = (from: number, to: number) => {
-    if (from === to) return;
-    const ids = [...editPlatformIds];
-    const [moved] = ids.splice(from, 1);
-    ids.splice(to, 0, moved);
-    setEditPlatformIds(ids);
+  // ── Drag reorder for selected platforms (order = routing priority) ──
+  // SortableList yields the fully reordered rows; map back to platform ids to persist on save.
+  const handleReorderPlatforms = (next: SortablePlatform[]) => {
+    setEditPlatformIds(next.map(row => row.platformId));
   };
 
   // Create mode
@@ -396,74 +398,76 @@ export function Groups() {
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
             {/* Selected platforms — drag to reorder (order = routing priority) */}
-            {editPlatformIds.map((pid, i) => {
-              const p = platforms.find(pp => pp.id === pid);
-              if (!p) return null;
-              const isDragging = dragIndex === i;
-              const isDragOver = dragOverIndex === i && dragIndex !== null && dragIndex !== i;
-              return (
-                <div key={pid}
-                  draggable
-                  onDragStart={e => { setDragIndex(i); e.dataTransfer.effectAllowed = "move"; }}
-                  onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverIndex !== i) setDragOverIndex(i); }}
-                  onDragLeave={() => { if (dragOverIndex === i) setDragOverIndex(null); }}
-                  onDrop={e => { e.preventDefault(); if (dragIndex !== null) reorderPlatforms(dragIndex, i); setDragIndex(null); setDragOverIndex(null); }}
-                  onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
-                  style={{
-                  display: "flex", alignItems: "center", gap: 10,
-                  padding: "8px 12px", borderRadius: "var(--radius-sm)",
-                  background: "var(--bg-glass)",
-                  border: isDragOver ? "1px solid var(--accent)" : "1px solid var(--border)",
-                  opacity: isDragging ? 0.4 : 1,
-                  boxShadow: isDragOver ? "0 0 0 1px var(--accent) inset" : undefined,
-                  transition: "opacity 0.15s, border-color 0.15s",
-                }}>
-                  <span title={t("group.dragToReorder", "拖动排序")} style={{
-                    cursor: "grab", color: "var(--text-tertiary)", fontSize: 14,
-                    lineHeight: 1, userSelect: "none", flexShrink: 0,
-                  }}>⠿</span>
-                  <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", width: 20, textAlign: "center" }}>
-                    {i + 1}
-                  </span>
-                  <span style={{
-                    width: 28, height: 28, borderRadius: "var(--radius-sm)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    background: "var(--accent-subtle)", color: "var(--accent)",
-                    fontSize: 11, fontWeight: 700, flexShrink: 0,
+            <SortableList<SortablePlatform>
+              items={editPlatformIds.map(pid => ({ id: String(pid), platformId: pid }))}
+              onReorder={handleReorderPlatforms}
+              renderItem={(row, handle) => {
+                const pid = row.platformId;
+                const i = editPlatformIds.indexOf(pid);
+                const p = platforms.find(pp => pp.id === pid);
+                if (!p) return null;
+                return (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 10,
+                    padding: "8px 12px", borderRadius: "var(--radius-sm)",
+                    background: "var(--bg-glass)",
+                    border: "1px solid var(--border)",
+                    marginBottom: 4,
+                    transition: "opacity 0.15s, border-color 0.15s",
                   }}>
-                    {p.platform_type.slice(0, 2).toUpperCase()}
-                  </span>
-                  <span style={{ flex: 1, fontSize: F.body, fontWeight: 500 }}>{p.name}</span>
-                  {/* Move up/down */}
-                  <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
-                    disabled={i === 0}
-                    onClick={() => {
-                      const ids = [...editPlatformIds];
-                      [ids[i - 1], ids[i]] = [ids[i], ids[i - 1]];
-                      setEditPlatformIds(ids);
+                    <span
+                      ref={handle.ref}
+                      {...handle.attributes}
+                      {...handle.listeners}
+                      title={t("group.dragToReorder", "拖动排序")}
+                      style={{
+                        cursor: "grab", color: "var(--text-tertiary)", fontSize: 14,
+                        lineHeight: 1, userSelect: "none", flexShrink: 0, touchAction: "none",
+                      }}
+                    >⠿</span>
+                    <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", width: 20, textAlign: "center" }}>
+                      {i + 1}
+                    </span>
+                    <span style={{
+                      width: 28, height: 28, borderRadius: "var(--radius-sm)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: "var(--accent-subtle)", color: "var(--accent)",
+                      fontSize: 11, fontWeight: 700, flexShrink: 0,
                     }}>
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                      <path d="M5 2v6M2 5l3-3 3 3" />
-                    </svg>
-                  </button>
-                  <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
-                    disabled={i === editPlatformIds.length - 1}
-                    onClick={() => {
-                      const ids = [...editPlatformIds];
-                      [ids[i], ids[i + 1]] = [ids[i + 1], ids[i]];
-                      setEditPlatformIds(ids);
-                    }}>
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                      <path d="M5 8V2M2 5l3 3 3-3" />
-                    </svg>
-                  </button>
-                  <button type="button" onClick={() => setEditPlatformIds(editPlatformIds.filter(id => id !== pid))} style={{
-                    background: "none", border: "none", cursor: "pointer",
-                    color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
-                  }}>✕</button>
-                </div>
-              );
-            })}
+                      {p.platform_type.slice(0, 2).toUpperCase()}
+                    </span>
+                    <span style={{ flex: 1, fontSize: F.body, fontWeight: 500 }}>{p.name}</span>
+                    {/* Move up/down */}
+                    <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
+                      disabled={i === 0}
+                      onClick={() => {
+                        const ids = [...editPlatformIds];
+                        [ids[i - 1], ids[i]] = [ids[i], ids[i - 1]];
+                        setEditPlatformIds(ids);
+                      }}>
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                        <path d="M5 2v6M2 5l3-3 3 3" />
+                      </svg>
+                    </button>
+                    <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
+                      disabled={i === editPlatformIds.length - 1}
+                      onClick={() => {
+                        const ids = [...editPlatformIds];
+                        [ids[i], ids[i + 1]] = [ids[i + 1], ids[i]];
+                        setEditPlatformIds(ids);
+                      }}>
+                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                        <path d="M5 8V2M2 5l3 3 3-3" />
+                      </svg>
+                    </button>
+                    <button type="button" onClick={() => setEditPlatformIds(editPlatformIds.filter(id => id !== pid))} style={{
+                      background: "none", border: "none", cursor: "pointer",
+                      color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
+                    }}>✕</button>
+                  </div>
+                );
+              }}
+            />
           </div>
           {/* Add platform */}
           {editPlatformIds.length < editPlatformOptions.length && (

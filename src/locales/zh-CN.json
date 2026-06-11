@@ -102,8 +102,6 @@
   "theme.solarized": "Solarized",
   "tray.quit": "退出",
   "tray.show": "显示窗口",
-  "settings.title": "Claude Code 配置",
-  "settings.desc": "管理 Claude Code 全局设置（与官方文档完全对齐）",
   "settings.jsonMode": "JSON",
   "settings.guiMode": "GUI",
   "settings.saved": "设置已保存",

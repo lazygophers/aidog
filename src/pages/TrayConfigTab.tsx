@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, Fragment } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import {
   platformApi,
@@ -9,6 +9,7 @@ import {
   type TrayColor,
   type TodayStats,
 } from "../services/api";
+import { SortableList } from "../components/SortableList";
 
 const PRESET_COLORS: { value: string; cssVar: string }[] = [
   { value: "follow", cssVar: "var(--text-primary)" },
@@ -116,6 +117,20 @@ function computeItemText(item: TrayItem, platform: Platform | undefined, todaySt
 interface Column { item: TrayItem; label: string; value: string; isTwo: boolean; align: string; alignRow2: string }
 interface Gap { separator: string | null; sepIndex: number | null }
 
+/** Stable id derived from an item's index within the current snapshot.
+ * dnd-kit only needs ids stable across a single drag (snapshot fixed); the
+ * persisted TrayItem has no id field (backend serde contract), so we derive one. */
+function itemId(index: number): string {
+  return `tray-item-${index}`;
+}
+function colId(index: number): string {
+  return `tray-col-${index}`;
+}
+/** TrayItem + index-derived id, used as SortableList row. */
+interface ListRow { id: string; item: TrayItem; index: number }
+/** Preview column + index-derived id, used as SortableList row (horizontal). */
+interface ColRow extends Column { id: string; colIndex: number }
+
 export function TrayConfigTab() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -125,16 +140,6 @@ export function TrayConfigTab() {
   const [message, setMessage] = useState("");
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
-
-  // Drag state (config list)
-  const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
-  const dragStartRef = useRef<{ y: number; index: number } | null>(null);
-  const didDragRef = useRef(false);
-
-  // Preview drag state (horizontal)
-  const [previewDrag, setPreviewDrag] = useState<{ from: number; to: number } | null>(null);
-  const previewDragRef = useRef<{ x: number; colIdx: number } | null>(null);
-  const didPreviewDragRef = useRef(false);
 
   // Preview popover state
   const [popover, setPopover] = useState<{ colIdx: number; rect: DOMRect } | null>(null);
@@ -224,101 +229,27 @@ export function TrayConfigTab() {
     return { columns, gaps, totalLines, overBudget: totalLines > 2 };
   }, [config, platforms, todayStats]);
 
-  // ── Preview drag handlers (horizontal) ──
-  const handlePreviewPointerDown = (e: React.PointerEvent, colIdx: number) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    previewDragRef.current = { x: e.clientX, colIdx };
+  // ── Reorder via @dnd-kit (SortableList) ──
+  /** Reorder the full config.items list to the new row order. */
+  const reorderItems = (rows: ListRow[]) => {
+    persist({ ...config, items: withOrders(rows.map((r) => r.item)) });
   };
 
-  const handlePreviewPointerMove = (e: React.PointerEvent) => {
-    const start = previewDragRef.current;
-    if (!start) return;
-    if (!previewDrag) {
-      if (Math.abs(e.clientX - start.x) < 5) return;
-      setPreviewDrag({ from: start.colIdx, to: start.colIdx });
-      didPreviewDragRef.current = true;
-    }
-    // Find target column by horizontal position
-    const els = document.querySelectorAll("[data-preview-col]");
-    let newTo = els.length;
-    for (let i = 0; i < els.length; i++) {
-      const rect = els[i].getBoundingClientRect();
-      if (e.clientX < rect.left + rect.width / 2) { newTo = i; break; }
-    }
-    setPreviewDrag((prev) => (prev ? { ...prev, to: newTo } : null));
-  };
-
-  const handlePreviewPointerUp = () => {
-    if (previewDrag) {
-      const { from, to } = previewDrag;
-      const effectiveTo = from < to ? to - 1 : to;
-      if (from !== effectiveTo) {
-        // Map column indices back to config.items indices
-        const fromItem = layout.columns[from]?.item;
-        const toItem = layout.columns[effectiveTo]?.item;
-        if (fromItem && toItem) {
-          const items = [...config.items];
-          const fi = items.indexOf(fromItem);
-          const ti = items.indexOf(toItem);
-          if (fi >= 0 && ti >= 0) {
-            const [moved] = items.splice(fi, 1);
-            items.splice(ti, 0, moved);
-            persist({ ...config, items: withOrders(items) });
-          }
-        }
-      }
-      setPreviewDrag(null);
-    }
-    previewDragRef.current = null;
-    setTimeout(() => { didPreviewDragRef.current = false; }, 50);
+  /** Reorder by preview columns: rebuild config.items so the column-items
+   * follow the new order, while separators keep their slot among the items
+   * (they occupy the same positions in config.items they did before). */
+  const reorderColumns = (cols: ColRow[]) => {
+    const newColItems = cols.map((c) => c.item); // reordered column items
+    let ci = 0;
+    const next = config.items.map((it) =>
+      it.item_type === "separator" || !it.enabled ? it : newColItems[ci++],
+    );
+    persist({ ...config, items: withOrders(next) });
   };
 
   const handlePreviewClick = (colIdx: number, el: HTMLElement) => {
-    if (didPreviewDragRef.current) return;
     if (popover?.colIdx === colIdx) { setPopover(null); return; }
     setPopover({ colIdx, rect: el.getBoundingClientRect() });
-  };
-
-  // ── Config list drag handlers ──
-  const handlePointerDown = (e: React.PointerEvent, index: number) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    dragStartRef.current = { y: e.clientY, index };
-  };
-
-  const handlePointerMove = (e: React.PointerEvent) => {
-    const start = dragStartRef.current;
-    if (!start) return;
-    if (!drag) {
-      if (Math.abs(e.clientY - start.y) < 5) return;
-      setDrag({ from: start.index, to: start.index });
-      didDragRef.current = true;
-    }
-    const el = document.querySelectorAll("[data-tray-item]");
-    let newTo = el.length;
-    for (let i = 0; i < el.length; i++) {
-      const rect = el[i].getBoundingClientRect();
-      if (e.clientY < rect.top + rect.height / 2) { newTo = i; break; }
-    }
-    setDrag((prev) => (prev ? { ...prev, to: newTo } : null));
-  };
-
-  const handlePointerUp = () => {
-    if (drag) {
-      const effectiveTo = drag.from < drag.to ? drag.to - 1 : drag.to;
-      if (drag.from !== effectiveTo) {
-        const items = [...config.items];
-        const [moved] = items.splice(drag.from, 1);
-        items.splice(effectiveTo, 0, moved);
-        persist({ ...config, items: withOrders(items) });
-      }
-      setDrag(null);
-    }
-    dragStartRef.current = null;
-    setTimeout(() => { didDragRef.current = false; }, 50);
   };
 
   const platformName = (id: number | null): string => {
@@ -344,6 +275,20 @@ export function TrayConfigTab() {
   const cssAlign = (a: string) => a === "center" ? "center" : a === "right" ? "right" : "left";
 
   const hasTwoLine = layout.columns.some((c) => c.isTwo);
+
+  // Preview columns as SortableList rows (id derived from underlying item index).
+  const colRows: ColRow[] = layout.columns.map((col, ci) => ({
+    ...col,
+    id: colId(config.items.indexOf(col.item)),
+    colIndex: ci,
+  }));
+
+  // Config items as SortableList rows (id derived from item index).
+  const listRows: ListRow[] = config.items.map((item, index) => ({
+    id: itemId(index),
+    item,
+    index,
+  }));
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }} onClick={() => setPopover(null)}>
@@ -371,178 +316,84 @@ export function TrayConfigTab() {
           color: "rgba(255,255,255,0.85)", userSelect: "none",
           marginTop: 8,
         }}>
-          {layout.columns.length === 0 ? (
+          {colRows.length === 0 ? (
             <span style={{ color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>
               {t("tray.previewEmpty", "暂无展示项")}
             </span>
           ) : !hasTwoLine ? (
-            /* ── Single-line: columns with gaps, draggable + clickable ── */
+            /* ── Single-line: columns with gaps, dnd-kit sortable + clickable ── */
             <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-              {layout.columns.map((col, i) => {
-                const pIsDragging = previewDrag?.from === i;
-                const pIsTarget = previewDrag ? previewDrag.to === i : false;
-                const pIsEnd = previewDrag ? previewDrag.to === layout.columns.length && i === layout.columns.length - 1 : false;
-                return (
-                <Fragment key={i}>
-                  {/* Ghost card at target position */}
-                  {pIsTarget && (() => {
-                    const gc = layout.columns[previewDrag!.from];
-                    return (
+              <SortableList<ColRow> items={colRows} onReorder={reorderColumns}
+                renderItem={(col, handle) => (
+                  <span style={{ display: "inline-flex", alignItems: "center" }}>
+                    {col.colIndex > 0 && (
                       <span style={{
-                        display: "inline-flex", alignItems: "center",
-                        padding: "2px 6px", borderRadius: 4,
-                        border: "1.5px dashed rgba(255,255,255,0.5)",
-                        opacity: 0.5, filter: "grayscale(0.8)",
-                        pointerEvents: "none", transition: "all 150ms ease",
-                        marginRight: 5,
+                        display: "inline-flex", alignItems: "center", justifyContent: "center",
+                        width: layout.gaps[col.colIndex - 1]?.separator ? "auto" : 5,
+                        padding: layout.gaps[col.colIndex - 1]?.separator ? "0 5px" : 0,
+                        fontSize: 12, color: "rgba(255,255,255,0.35)",
                       }}>
-                        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{gc.label} {gc.value}</span>
+                        {layout.gaps[col.colIndex - 1]?.separator || ""}
                       </span>
-                    );
-                  })()}
-                  {i > 0 && (
-                    <span style={{
-                      display: "inline-flex", alignItems: "center", justifyContent: "center",
-                      width: layout.gaps[i - 1]?.separator ? "auto" : 5,
-                      padding: layout.gaps[i - 1]?.separator ? "0 5px" : 0,
-                      fontSize: 12, color: "rgba(255,255,255,0.35)",
-                    }}>
-                      {layout.gaps[i - 1]?.separator || ""}
+                    )}
+                    <span
+                      ref={handle.ref}
+                      {...handle.attributes}
+                      {...handle.listeners}
+                      style={{
+                        textAlign: cssAlign(col.align), whiteSpace: "pre",
+                        cursor: "grab", padding: "2px 4px", borderRadius: 4,
+                        outline: popover?.colIdx === col.colIndex ? "2px solid var(--accent)" : "none",
+                        touchAction: "none",
+                      }}
+                      onClick={(e) => { if (!handle.isDragging) handlePreviewClick(col.colIndex, e.currentTarget); }}
+                    >
+                      {col.label} {col.value}
                     </span>
-                  )}
-                  <span
-                    data-preview-col={i}
-                    style={{
-                      textAlign: cssAlign(col.align), whiteSpace: "pre",
-                      cursor: "grab", padding: "2px 4px", borderRadius: 4,
-                      opacity: previewDrag
-                        ? pIsDragging ? 0
-                        : 0.4
-                        : 1,
-                      ...(pIsDragging ? { width: 0, overflow: "hidden", padding: 0, minWidth: 0 } : {}),
-                      outline: popover?.colIdx === i ? "2px solid var(--accent)" : "none",
-                      transition: "opacity 0.15s",
-                    }}
-                    onPointerDown={(e) => handlePreviewPointerDown(e, i)}
-                    onPointerMove={handlePreviewPointerMove}
-                    onPointerUp={handlePreviewPointerUp}
-                    onClick={(e) => handlePreviewClick(i, e.currentTarget)}
-                  >
-                    {col.label} {col.value}
                   </span>
-                  {/* End-of-list ghost after last item */}
-                  {pIsEnd && (() => {
-                    const gc = layout.columns[previewDrag!.from];
-                    return (
-                      <span style={{
-                        display: "inline-flex", alignItems: "center", marginLeft: 5,
-                        padding: "2px 6px", borderRadius: 4,
-                        border: "1.5px dashed rgba(255,255,255,0.5)",
-                        opacity: 0.5, filter: "grayscale(0.8)",
-                        pointerEvents: "none", transition: "all 150ms ease",
-                      }}>
-                        <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>{gc.label} {gc.value}</span>
-                      </span>
-                    );
-                  })()}
-                </Fragment>
-                );
-              })}
+                )}
+              />
             </div>
           ) : (
-            /* ── Two-line: grid with gaps, draggable + clickable ── */
+            /* ── Two-line: grid with gaps, dnd-kit sortable + clickable ── */
             <div style={{ display: "grid", gridAutoFlow: "column", gap: 0, width: "100%" }}>
-              {layout.columns.map((col, i) => {
-                const pIsDragging = previewDrag?.from === i;
-                const pIsTarget = previewDrag ? previewDrag.to === i : false;
-                const pIsEnd = previewDrag ? previewDrag.to === layout.columns.length && i === layout.columns.length - 1 : false;
-                return (
-                <Fragment key={i}>
-                  {/* Ghost card at target position */}
-                  {pIsTarget && (() => {
-                    const gc = layout.columns[previewDrag!.from];
-                    return (
+              <SortableList<ColRow> items={colRows} onReorder={reorderColumns} strategy="grid"
+                renderItem={(col, handle) => (
+                  <div style={{ display: "flex", alignItems: "stretch", height: "100%" }}>
+                    {col.colIndex > 0 && (
                       <div style={{
-                        display: "flex", flexDirection: "column", alignItems: "stretch", gap: 5,
-                        padding: "2px 6px", borderRadius: 4,
-                        border: "1.5px dashed rgba(255,255,255,0.5)",
-                        opacity: 0.5, filter: "grayscale(0.8)",
-                        pointerEvents: "none", transition: "all 150ms ease",
-                        marginRight: 5,
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        width: layout.gaps[col.colIndex - 1]?.separator ? "auto" : 5,
+                        padding: layout.gaps[col.colIndex - 1]?.separator ? "0 5px" : 0,
+                        fontSize: 12, color: "rgba(255,255,255,0.35)", height: "100%",
                       }}>
-                        <div style={{ fontSize: 12, lineHeight: "13px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
-                          {gc.isTwo ? gc.label : `${gc.label} ${gc.value}`}
-                        </div>
-                        {gc.isTwo && (
-                          <div style={{ fontSize: 16, lineHeight: "17px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
-                            {gc.value}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })()}
-                  {i > 0 && (
-                    <div style={{
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      width: layout.gaps[i - 1]?.separator ? "auto" : 5,
-                      padding: layout.gaps[i - 1]?.separator ? "0 5px" : 0,
-                      fontSize: 12, color: "rgba(255,255,255,0.35)", height: "100%",
-                    }}>
-                      {layout.gaps[i - 1]?.separator || ""}
-                    </div>
-                  )}
-                  <div
-                    data-preview-col={i}
-                    style={{
-                      display: "flex", flexDirection: "column", alignItems: "stretch", gap: 5,
-                      cursor: "grab", padding: "2px 4px", borderRadius: 4,
-                      opacity: previewDrag
-                        ? pIsDragging ? 0
-                        : 0.4
-                        : 1,
-                      ...(pIsDragging ? { height: 0, overflow: "hidden", padding: 0, minHeight: 0 } : {}),
-                      outline: popover?.colIdx === i ? "2px solid var(--accent)" : "none",
-                      transition: "opacity 0.15s",
-                    }}
-                    onPointerDown={(e) => handlePreviewPointerDown(e, i)}
-                    onPointerMove={handlePreviewPointerMove}
-                    onPointerUp={handlePreviewPointerUp}
-                    onClick={(e) => handlePreviewClick(i, e.currentTarget)}
-                  >
-                    <div style={{ textAlign: cssAlign(col.align), fontSize: 12, lineHeight: "13px", whiteSpace: "nowrap" }}>
-                      {col.isTwo ? col.label : `${col.label} ${col.value}`}
-                    </div>
-                    {col.isTwo && (
-                      <div style={{ textAlign: cssAlign(col.alignRow2), fontSize: 16, lineHeight: "17px", whiteSpace: "nowrap" }}>
-                        {col.value}
+                        {layout.gaps[col.colIndex - 1]?.separator || ""}
                       </div>
                     )}
-                  </div>
-                  {/* End-of-list ghost after last item */}
-                  {pIsEnd && (() => {
-                    const gc = layout.columns[previewDrag!.from];
-                    return (
-                      <div style={{
-                        display: "flex", flexDirection: "column", alignItems: "stretch", marginLeft: 5,
-                        padding: "2px 6px", borderRadius: 4,
-                        border: "1.5px dashed rgba(255,255,255,0.5)",
-                        opacity: 0.5, filter: "grayscale(0.8)",
-                        pointerEvents: "none", transition: "all 150ms ease",
-                      }}>
-                        <div style={{ fontSize: 12, lineHeight: "13px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
-                          {gc.isTwo ? gc.label : `${gc.label} ${gc.value}`}
-                        </div>
-                        {gc.isTwo && (
-                          <div style={{ fontSize: 16, lineHeight: "17px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
-                            {gc.value}
-                          </div>
-                        )}
+                    <div
+                      ref={handle.ref}
+                      {...handle.attributes}
+                      {...handle.listeners}
+                      style={{
+                        display: "flex", flexDirection: "column", alignItems: "stretch", gap: 5,
+                        cursor: "grab", padding: "2px 4px", borderRadius: 4,
+                        outline: popover?.colIdx === col.colIndex ? "2px solid var(--accent)" : "none",
+                        touchAction: "none",
+                      }}
+                      onClick={(e) => { if (!handle.isDragging) handlePreviewClick(col.colIndex, e.currentTarget); }}
+                    >
+                      <div style={{ textAlign: cssAlign(col.align), fontSize: 12, lineHeight: "13px", whiteSpace: "nowrap" }}>
+                        {col.isTwo ? col.label : `${col.label} ${col.value}`}
                       </div>
-                    );
-                  })()}
-                </Fragment>
-                );
-              })}
+                      {col.isTwo && (
+                        <div style={{ textAlign: cssAlign(col.alignRow2), fontSize: 16, lineHeight: "17px", whiteSpace: "nowrap" }}>
+                          {col.value}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              />
             </div>
           )}
         </div>
@@ -657,11 +508,12 @@ export function TrayConfigTab() {
           </div>
         )}
 
-        {config.items.map((item, i) => {
+        <SortableList<ListRow> items={listRows} onReorder={reorderItems}
+          renderItem={(row, handle) => {
+          const item = row.item;
+          const i = row.index;
           const isSep = item.item_type === "separator";
           const isExpanded = expandedIdx === i;
-          const isDragging = drag?.from === i;
-          const isDragTarget = drag ? drag.to === i : false;
           const isPlatform = item.item_type === "platform";
           const riskyHex = item.color.mode === "custom" && isRiskyHex(item.color.value);
 
@@ -671,64 +523,26 @@ export function TrayConfigTab() {
               ? item.display === "coding" ? t("tray.displayCoding", "Coding") : t("tray.displayBalance", "余额")
               : TODAY_METRICS.find((m) => m.value === (item.metric || "tokens"))?.label ?? "Tokens";
 
-          // Ghost card at insertion target: grayscale preview of the dragged item
-          const draggedItem = drag ? config.items[drag.from] : null;
-          const draggedSummary = draggedItem
-            ? draggedItem.item_type === "separator"
-              ? t("tray.separatorItem", "分隔符")
-              : draggedItem.item_type === "platform"
-                ? draggedItem.display === "coding" ? t("tray.displayCoding", "Coding") : t("tray.displayBalance", "余额")
-                : TODAY_METRICS.find((m) => m.value === (draggedItem.metric || "tokens"))?.label ?? "Tokens"
-            : "";
-          const draggedName = draggedItem
-            ? draggedItem.item_type === "separator"
-              ? `${t("tray.separatorItem", "分隔符")} "${draggedItem.display || "·"}"`
-              : draggedItem.item_type === "platform"
-                ? platformName(draggedItem.platform_id)
-                : `${t("tray.todayUsage", "今日消耗")} (${TODAY_METRICS.find((m) => m.value === (draggedItem.metric || "tokens"))?.label ?? "Tokens"})`
-            : "";
-
           return (
-            <Fragment key={`${item.item_type}-${item.platform_id ?? "x"}-${item.metric ?? "s"}-${i}`}>
-              {/* Ghost card: grayscale preview of dragged item at insertion point */}
-              {drag && isDragTarget && (
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 5, paddingLeft: 40,
-                  padding: "6px 12px", margin: "2px 0", borderRadius: 8,
-                  background: "var(--glass-bg, rgba(255,255,255,0.06))",
-                  border: "1.5px dashed var(--accent)",
-                  opacity: 0.6, filter: "grayscale(0.8)",
-                  fontSize: 13, color: "var(--text-secondary)",
-                  pointerEvents: "none", transition: "all 150ms ease",
-                }}>
-                  <span style={{ fontWeight: 600 }}>{draggedName}</span>
-                  <span className="badge badge-muted" style={{ fontSize: 10 }}>{draggedSummary}</span>
-                </div>
-              )}
-
+            <Fragment>
               <div
-                data-tray-item
-                className={`card-item${isDragging ? " is-dragging" : ""}`}
+                className={`card-item${handle.isDragging ? " is-dragging" : ""}`}
                 style={{
                   position: "relative", display: "flex", flexDirection: "column", gap: 0,
-                  // Drag: dragged item hidden, others gray out
-                  opacity: drag
-                    ? isDragging ? 0
-                    : 0.4
-                    : item.enabled ? 1 : 0.5,
-                  ...(isDragging ? { height: 0, overflow: "hidden", padding: 0, margin: 0, borderWidth: 0, minHeight: 0 } : {}),
-                  paddingLeft: 40, transition: "all 200ms ease",
+                  opacity: item.enabled ? 1 : 0.5,
+                  paddingLeft: 40, transition: "opacity 200ms ease",
                 }}
               >
-                <div className={`drag-handle${drag?.from === i ? " is-active" : ""}`}
-                  onPointerDown={(e) => handlePointerDown(e, i)}
-                  onPointerMove={handlePointerMove}
-                  onPointerUp={handlePointerUp}
+                <div className={`drag-handle${handle.isDragging ? " is-active" : ""}`}
+                  ref={handle.ref}
+                  {...handle.attributes}
+                  {...handle.listeners}
+                  style={{ touchAction: "none", cursor: "grab" }}
                 >{gripSvg}</div>
 
                 <div
                   style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer", userSelect: "none" }}
-                  onClick={() => { if (!didDragRef.current) setExpandedIdx(isExpanded ? null : i); }}
+                  onClick={() => { if (!handle.isDragging) setExpandedIdx(isExpanded ? null : i); }}
                 >
                   <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>
                     {isSep
@@ -872,35 +686,8 @@ export function TrayConfigTab() {
               </div>
             </Fragment>
           );
-        })}
-        {/* End-of-list ghost card */}
-        {drag && (() => {
-          if (drag.to !== config.items.length) return null;
-          const di = config.items[drag.from];
-          const dn = di.item_type === "separator"
-            ? `${t("tray.separatorItem", "分隔符")} "${di.display || "·"}"`
-            : di.item_type === "platform" ? platformName(di.platform_id)
-            : `${t("tray.todayUsage", "今日消耗")} (${TODAY_METRICS.find((m) => m.value === (di.metric || "tokens"))?.label ?? "Tokens"})`;
-          const ds = di.item_type === "separator"
-            ? t("tray.separatorItem", "分隔符")
-            : di.item_type === "platform"
-              ? di.display === "coding" ? t("tray.displayCoding", "Coding") : t("tray.displayBalance", "余额")
-              : TODAY_METRICS.find((m) => m.value === (di.metric || "tokens"))?.label ?? "Tokens";
-          return (
-            <div style={{
-              display: "flex", alignItems: "center", gap: 5, paddingLeft: 40,
-              padding: "6px 12px", margin: "2px 0", borderRadius: 8,
-              background: "var(--glass-bg, rgba(255,255,255,0.06))",
-              border: "1.5px dashed var(--accent)",
-              opacity: 0.6, filter: "grayscale(0.8)",
-              fontSize: 13, color: "var(--text-secondary)",
-              pointerEvents: "none", transition: "all 150ms ease",
-            }}>
-              <span style={{ fontWeight: 600 }}>{dn}</span>
-              <span className="badge badge-muted" style={{ fontSize: 10 }}>{ds}</span>
-            </div>
-          );
-        })()}
+        }}
+        />
       </div>
 
       {/* ── Add Item ── */}

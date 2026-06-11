@@ -10,6 +10,7 @@ import {
   type SettingField,
   type EnvVarDef,
 } from "../services/claude-settings-schema";
+import { SortableList } from "../components/SortableList";
 
 const CONFIG_KEY = "claude_code";
 
@@ -1943,7 +1944,6 @@ function StatusLinePanel({
   const [showScript, setShowScript] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editSeg, setEditSeg] = useState<StatusLineSegment | null>(null);
-  const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
 
   const setStored = (patch: Record<string, any>) => {
@@ -1960,13 +1960,6 @@ function StatusLinePanel({
   };
 
   const updateSegments = (next: StatusLineSegment[]) => setStored({ segments: next });
-
-  const moveSegment = (from: number, to: number) => {
-    const next = [...segments];
-    const [item] = next.splice(from, 1);
-    next.splice(to, 0, item);
-    updateSegments(next);
-  };
 
   // Generate script
   const scriptPreview = isMain
@@ -2045,61 +2038,69 @@ function StatusLinePanel({
 
           {isMain ? (
             /* ── Main: Drag-sortable segment list ── */
-            <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-              {segments.map((seg, idx) => {
-                const def = SEGMENT_DEF_MAP.get(seg.type);
-                if (!def) return null;
-                return (
-                  <div key={seg.id}
-                    draggable
-                    onDragStart={() => setDragIdx(idx)}
-                    onDragOver={(e) => { e.preventDefault(); }}
-                    onDrop={() => { if (dragIdx !== null && dragIdx !== idx) moveSegment(dragIdx, idx); setDragIdx(null); }}
-                    onDragEnd={() => setDragIdx(null)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 8,
-                      padding: "8px 12px", background: dragIdx === idx ? "var(--accent-subtle, rgba(0,122,255,0.1))" : "var(--bg-glass)",
-                      borderRadius: "var(--radius-sm)", cursor: "grab",
-                      opacity: seg.enabled ? 1 : 0.4,
-                      border: "1px solid var(--border)",
-                      transition: "background 150ms, opacity 150ms",
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <SortableList
+                items={segments}
+                onReorder={updateSegments}
+                renderItem={(seg, handle) => {
+                  const def = SEGMENT_DEF_MAP.get(seg.type);
+                  if (!def) return null;
+                  return (
+                    <div className="glass-surface" style={{
+                      display: "flex", alignItems: "center", gap: 10,
+                      padding: "10px 12px", marginBottom: 6,
+                      borderRadius: "var(--radius-md)",
+                      opacity: seg.enabled ? 1 : 0.45,
+                      border: handle.isDragging ? "1px solid var(--accent)" : "1px solid var(--border)",
+                      boxShadow: handle.isDragging ? "0 6px 20px rgba(0,0,0,0.18)" : "none",
+                      transition: "opacity 150ms, border-color 150ms",
                     }}>
-                    {/* Drag handle */}
-                    <span style={{ color: "var(--text-tertiary)", fontSize: F.hint, cursor: "grab", userSelect: "none" }}>☰</span>
-                    {/* Toggle */}
-                    <Toggle active={seg.enabled} onChange={(v) => {
-                      const next = [...segments];
-                      next[idx] = { ...next[idx], enabled: v };
-                      updateSegments(next);
-                    }} />
-                    {/* Icon + name */}
-                    <SectionIcon name={def.icon} size={14} />
-                    <span style={{ fontSize: F.body, fontWeight: 500, color: "var(--text-primary)", flexShrink: 0 }}>
-                      {def.name}
-                    </span>
-                    {/* Inline preview */}
-                    <span style={{
-                      flex: 1, fontSize: F.hint, color: "var(--text-tertiary)",
-                      fontFamily: '"SF Mono", "Fira Code", monospace',
-                      overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                    }}>
-                      {def.toPreview({ ...def.defaultOptions, ...seg.options })}
-                    </span>
-                    {/* Edit button */}
-                    <button type="button" className="btn btn-ghost"
-                      style={{ fontSize: F.hint, padding: "2px 8px", color: "var(--accent)" }}
-                      onClick={() => setEditSeg({ ...seg })}>
-                      ✎
-                    </button>
-                    {/* Delete */}
-                    <button type="button" className="btn btn-ghost btn-icon"
-                      style={{ width: 24, height: 24, minWidth: 24, fontSize: F.hint, color: "var(--text-tertiary)" }}
-                      onClick={() => updateSegments(segments.filter((_, i) => i !== idx))}>
-                      ×
-                    </button>
-                  </div>
-                );
-              })}
+                      {/* Drag handle (only this element starts the drag) */}
+                      <span
+                        ref={handle.ref}
+                        {...handle.attributes}
+                        {...handle.listeners}
+                        style={{
+                          color: "var(--text-tertiary)", fontSize: F.body,
+                          cursor: handle.isDragging ? "grabbing" : "grab",
+                          userSelect: "none", touchAction: "none",
+                          padding: "0 2px", lineHeight: 1,
+                        }}
+                        title="拖动排序"
+                      >☰</span>
+                      {/* Toggle */}
+                      <Toggle active={seg.enabled} onChange={(v) => {
+                        const next = segments.map(s => s.id === seg.id ? { ...s, enabled: v } : s);
+                        updateSegments(next);
+                      }} />
+                      {/* Name */}
+                      <span style={{ fontSize: F.body, fontWeight: 600, color: "var(--text-primary)", flexShrink: 0 }}>
+                        {def.name}
+                      </span>
+                      {/* Inline preview */}
+                      <span style={{
+                        flex: 1, fontSize: F.hint, color: "var(--text-tertiary)",
+                        fontFamily: '"SF Mono", "Fira Code", monospace',
+                        overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                      }}>
+                        {def.toPreview({ ...def.defaultOptions, ...seg.options })}
+                      </span>
+                      {/* Edit button */}
+                      <button type="button" className="btn btn-ghost"
+                        style={{ fontSize: F.hint, padding: "2px 8px", color: "var(--accent)" }}
+                        onClick={() => setEditSeg({ ...seg })}>
+                        ✎
+                      </button>
+                      {/* Delete */}
+                      <button type="button" className="btn btn-ghost btn-icon"
+                        style={{ width: 24, height: 24, minWidth: 24, fontSize: F.hint, color: "var(--text-tertiary)" }}
+                        onClick={() => updateSegments(segments.filter((s) => s.id !== seg.id))}>
+                        ×
+                      </button>
+                    </div>
+                  );
+                }}
+              />
 
               {/* Add segment */}
               <div style={{ position: "relative", display: "flex", justifyContent: "flex-end", marginTop: 4 }}>
@@ -2335,34 +2336,127 @@ function StatusLineSection({
 
 // ── Import Diff Modal ──
 
+/**
+ * One node in the import diff tree. `path` is a dot-path (`env.FOO`, `permissions.allow`).
+ * Top-level keys whose value is a plain object expand one level into `children`
+ * (MVP: depth 1 — deeper nesting stays as a single leaf, see TODO below).
+ */
+interface DiffNode {
+  path: string;
+  label: string;       // display label (last path segment)
+  current: any;
+  incoming: any;
+  children?: DiffNode[];
+}
+
+const isPlainObject = (v: any): v is Record<string, any> =>
+  typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** Collect all leaf paths under a node (the node itself if it has no children). */
+function collectLeafPaths(node: DiffNode, out: string[]): void {
+  if (node.children && node.children.length > 0) {
+    node.children.forEach(c => collectLeafPaths(c, out));
+  } else {
+    out.push(node.path);
+  }
+}
+
+/**
+ * Build the diff tree between `current` config and `incoming` source.
+ * Skips internal `_aidog_` keys. Object top-level keys expand to child entries.
+ * TODO: only one level of nesting is expanded (covers permissions/env/hooks);
+ * deeper objects are diffed as a single leaf.
+ */
+function buildImportDiffTree(
+  current: Record<string, any>,
+  incoming: Record<string, any>,
+): DiffNode[] {
+  const nodes: DiffNode[] = [];
+  const keys = new Set([...Object.keys(current), ...Object.keys(incoming)]);
+  for (const key of keys) {
+    if (key.startsWith("_aidog_")) continue;
+    const cur = current[key];
+    const inc = incoming[key];
+    if (JSON.stringify(cur) === JSON.stringify(inc)) continue;
+
+    // Expand plain-object top-level keys one level into children.
+    if (isPlainObject(cur) || isPlainObject(inc)) {
+      const curObj = isPlainObject(cur) ? cur : {};
+      const incObj = isPlainObject(inc) ? inc : {};
+      const childKeys = new Set([...Object.keys(curObj), ...Object.keys(incObj)]);
+      const children: DiffNode[] = [];
+      for (const ck of childKeys) {
+        if (JSON.stringify(curObj[ck]) === JSON.stringify(incObj[ck])) continue;
+        children.push({
+          path: `${key}.${ck}`,
+          label: ck,
+          current: curObj[ck],
+          incoming: incObj[ck],
+        });
+      }
+      if (children.length > 0) {
+        nodes.push({ path: key, label: key, current: cur, incoming: inc, children });
+        continue;
+      }
+    }
+    nodes.push({ path: key, label: key, current: cur, incoming: inc });
+  }
+  return nodes;
+}
+
 function ImportDiffModal({
   diff,
   onApply,
   onClose,
 }: {
-  diff: { key: string; current: any; incoming: any; selected: boolean }[];
-  onApply: (selectedKeys: Set<string>) => void;
+  diff: DiffNode[];
+  onApply: (selectedPaths: Set<string>) => void;
   onClose: () => void;
 }) {
-  const [selected, setSelected] = useState<Set<string>>(() => {
-    const s = new Set<string>();
-    diff.forEach(d => { if (d.selected) s.add(d.key); });
-    return s;
-  });
+  // All leaf paths (the actual selectable units).
+  const allLeafPaths = useMemo(() => {
+    const out: string[] = [];
+    diff.forEach(n => collectLeafPaths(n, out));
+    return out;
+  }, [diff]);
 
-  const toggle = (key: string) => {
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(allLeafPaths));
+
+  const toggleLeaf = (path: string) => {
     setSelected(prev => {
       const next = new Set(prev);
-      if (next.has(key)) next.delete(key); else next.add(key);
+      if (next.has(path)) next.delete(path); else next.add(path);
       return next;
     });
   };
 
+  // Toggle a parent: select/deselect all its leaves at once.
+  const toggleNode = (node: DiffNode) => {
+    const leaves: string[] = [];
+    collectLeafPaths(node, leaves);
+    const allOn = leaves.every(p => selected.has(p));
+    setSelected(prev => {
+      const next = new Set(prev);
+      leaves.forEach(p => { if (allOn) next.delete(p); else next.add(p); });
+      return next;
+    });
+  };
+
+  // Parent checkbox state: full / none / partial.
+  const nodeState = (node: DiffNode): "on" | "off" | "partial" => {
+    const leaves: string[] = [];
+    collectLeafPaths(node, leaves);
+    const on = leaves.filter(p => selected.has(p)).length;
+    if (on === 0) return "off";
+    if (on === leaves.length) return "on";
+    return "partial";
+  };
+
   const toggleAll = () => {
-    if (selected.size === diff.length) {
+    if (selected.size === allLeafPaths.length) {
       setSelected(new Set());
     } else {
-      setSelected(new Set(diff.map(d => d.key)));
+      setSelected(new Set(allLeafPaths));
     }
   };
 
@@ -2376,6 +2470,69 @@ function ImportDiffModal({
     if (d.current === undefined) return "added";
     if (d.incoming === undefined) return "removed";
     return "changed";
+  };
+
+  // Render one leaf row (selectable unit with value diff).
+  const renderLeaf = (d: DiffNode, nested: boolean) => {
+    const changeType = getChangeType(d);
+    const isSelected = selected.has(d.path);
+    const bgColor = changeType === "added" ? "rgba(52,199,89,0.06)"
+      : changeType === "removed" ? "rgba(255,69,58,0.06)"
+      : "var(--bg-glass)";
+    const labelColor = changeType === "added" ? "#34c759"
+      : changeType === "removed" ? "#ff453a"
+      : "var(--accent)";
+    const label = changeType === "added" ? "新增" : changeType === "removed" ? "删除" : "变更";
+    return (
+      <div key={d.path} style={{
+        margin: nested ? "4px 0 4px 28px" : "4px 12px",
+        padding: "8px 12px",
+        background: isSelected ? bgColor : "var(--bg-surface)",
+        border: `1px solid ${isSelected ? "var(--border)" : "transparent"}`,
+        borderRadius: "var(--radius-sm)",
+        opacity: isSelected ? 1 : 0.5,
+        transition: "all 150ms",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
+          onClick={() => toggleLeaf(d.path)}>
+          <Toggle active={isSelected} onChange={() => toggleLeaf(d.path)} />
+          <span style={{
+            fontSize: F.body, fontWeight: 600, color: "var(--text-primary)",
+            fontFamily: '"SF Mono", "Fira Code", monospace',
+          }}>{d.label}</span>
+          <span style={{
+            fontSize: F.hint, fontWeight: 600, color: labelColor,
+            padding: "1px 6px", background: `${labelColor}18`, borderRadius: "var(--radius-sm)",
+          }}>{label}</span>
+        </div>
+        {isSelected && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8, marginLeft: 36 }}>
+            <div>
+              <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>当前</div>
+              <pre style={{
+                fontFamily: '"SF Mono", "Fira Code", monospace',
+                fontSize: F.hint, lineHeight: 1.5,
+                background: "var(--bg-surface)", borderRadius: "var(--radius-sm)",
+                padding: 8, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all",
+                color: d.current === undefined ? "var(--text-tertiary)" : "var(--text-primary)",
+                margin: 0, maxHeight: 120,
+              }}>{formatValue(d.current)}</pre>
+            </div>
+            <div>
+              <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>导入</div>
+              <pre style={{
+                fontFamily: '"SF Mono", "Fira Code", monospace',
+                fontSize: F.hint, lineHeight: 1.5,
+                background: "var(--bg-surface)", borderRadius: "var(--radius-sm)",
+                padding: 8, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all",
+                color: d.incoming === undefined ? "var(--text-tertiary)" : "var(--text-primary)",
+                margin: 0, maxHeight: 120,
+              }}>{formatValue(d.incoming)}</pre>
+            </div>
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -2402,7 +2559,7 @@ function ImportDiffModal({
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button className="btn btn-ghost" style={{ fontSize: F.hint, padding: "4px 10px" }}
               onClick={toggleAll}>
-              {selected.size === diff.length ? "取消全选" : "全选"}
+              {selected.size === allLeafPaths.length ? "取消全选" : "全选"}
             </button>
             <button type="button" className="btn btn-ghost btn-icon"
               style={{ width: 28, height: 28, fontSize: F.body }}
@@ -2412,76 +2569,40 @@ function ImportDiffModal({
 
         {/* Diff list */}
         <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
-          {diff.map(d => {
-            const changeType = getChangeType(d);
-            const isSelected = selected.has(d.key);
-            const bgColor = changeType === "added" ? "rgba(52,199,89,0.06)"
-              : changeType === "removed" ? "rgba(255,69,58,0.06)"
-              : "var(--bg-glass)";
-            const labelColor = changeType === "added" ? "#34c759"
-              : changeType === "removed" ? "#ff453a"
-              : "var(--accent)";
-            const label = changeType === "added" ? "新增" : changeType === "removed" ? "删除" : "变更";
-
+          {diff.map(node => {
+            // Leaf node (no children) — render directly as a selectable row.
+            if (!node.children || node.children.length === 0) {
+              return renderLeaf(node, false);
+            }
+            // Parent node — header with tri-state toggle + nested children.
+            const state = nodeState(node);
             return (
-              <div key={d.key} style={{
+              <div key={node.path} style={{
                 margin: "4px 12px", padding: "10px 14px",
-                background: isSelected ? bgColor : "var(--bg-surface)",
-                border: `1px solid ${isSelected ? "var(--border)" : "transparent"}`,
+                background: "var(--bg-glass)",
+                border: "1px solid var(--border)",
                 borderRadius: "var(--radius-sm)",
-                opacity: isSelected ? 1 : 0.5,
+                opacity: state === "off" ? 0.6 : 1,
                 transition: "all 150ms",
               }}>
-                {/* Key header */}
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  cursor: "pointer",
-                }} onClick={() => toggle(d.key)}>
-                  <Toggle active={isSelected} onChange={() => toggle(d.key)} />
+                <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
+                  onClick={() => toggleNode(node)}>
+                  <Toggle active={state !== "off"} onChange={() => toggleNode(node)} />
                   <span style={{
                     fontSize: F.body, fontWeight: 600, color: "var(--text-primary)",
                     fontFamily: '"SF Mono", "Fira Code", monospace',
-                  }}>
-                    {d.key}
-                  </span>
+                  }}>{node.label}</span>
                   <span style={{
-                    fontSize: F.hint, fontWeight: 600, color: labelColor,
-                    padding: "1px 6px", background: `${labelColor}18`, borderRadius: "var(--radius-sm)",
-                  }}>
-                    {label}
-                  </span>
+                    fontSize: F.hint, fontWeight: 600,
+                    color: state === "partial" ? "#ff9f0a" : "var(--accent)",
+                    padding: "1px 6px",
+                    background: state === "partial" ? "rgba(255,159,10,0.12)" : "rgba(0,122,255,0.12)",
+                    borderRadius: "var(--radius-sm)",
+                  }}>{state === "partial" ? "部分" : "对象"}</span>
                 </div>
-
-                {/* Values diff */}
-                {isSelected && (
-                  <div style={{
-                    display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8,
-                    marginTop: 8, marginLeft: 36,
-                  }}>
-                    <div>
-                      <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>当前</div>
-                      <pre style={{
-                        fontFamily: '"SF Mono", "Fira Code", monospace',
-                        fontSize: F.hint, lineHeight: 1.5,
-                        background: "var(--bg-surface)", borderRadius: "var(--radius-sm)",
-                        padding: 8, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all",
-                        color: d.current === undefined ? "var(--text-tertiary)" : "var(--text-primary)",
-                        margin: 0, maxHeight: 120,
-                      }}>{formatValue(d.current)}</pre>
-                    </div>
-                    <div>
-                      <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>导入</div>
-                      <pre style={{
-                        fontFamily: '"SF Mono", "Fira Code", monospace',
-                        fontSize: F.hint, lineHeight: 1.5,
-                        background: "var(--bg-surface)", borderRadius: "var(--radius-sm)",
-                        padding: 8, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all",
-                        color: d.incoming === undefined ? "var(--text-tertiary)" : "var(--text-primary)",
-                        margin: 0, maxHeight: 120,
-                      }}>{formatValue(d.incoming)}</pre>
-                    </div>
-                  </div>
-                )}
+                <div style={{ marginTop: 6 }}>
+                  {node.children.map(child => renderLeaf(child, true))}
+                </div>
               </div>
             );
           })}
@@ -2493,7 +2614,7 @@ function ImportDiffModal({
           display: "flex", justifyContent: "space-between", alignItems: "center",
         }}>
           <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
-            已选 {selected.size}/{diff.length} 项
+            已选 {selected.size}/{allLeafPaths.length} 项
           </span>
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn btn-ghost" style={{ fontSize: F.body, padding: S.btnPad }}
@@ -4050,7 +4171,7 @@ export function Settings() {
   const [toast, setToast] = useState("");
   const [importDiff, setImportDiff] = useState<{
     source: Record<string, any>;
-    diff: { key: string; current: any; incoming: any; selected: boolean }[];
+    diff: DiffNode[];
   } | null>(null);
 
   useEffect(() => {
@@ -4110,16 +4231,8 @@ export function Settings() {
   const handleImportFromClaudeCode = async () => {
     try {
       const source = await claudeSettingsImportApi.readDefault();
-      // Build diff: only top-level keys, skip _aidog_ internal keys
-      const diff: { key: string; current: any; incoming: any; selected: boolean }[] = [];
-      const allKeys = new Set([...Object.keys(config), ...Object.keys(source)]);
-      for (const key of allKeys) {
-        if (key.startsWith("_aidog_")) continue;
-        const current = config[key];
-        const incoming = source[key];
-        if (JSON.stringify(current) === JSON.stringify(incoming)) continue;
-        diff.push({ key, current, incoming, selected: true });
-      }
+      // Build nested diff tree: top-level objects expand one level into children.
+      const diff = buildImportDiffTree(config, source);
       if (diff.length === 0) {
         setToast(t("settings.noDiff", "无差异，无需导入"));
         setTimeout(() => setToast(""), 2000);
@@ -4132,11 +4245,40 @@ export function Settings() {
     }
   };
 
-  const applyImport = (selectedKeys: Set<string>) => {
+  const applyImport = (selectedPaths: Set<string>) => {
     if (!importDiff) return;
-    const next = { ...config };
-    for (const key of selectedKeys) {
-      next[key] = importDiff.source[key];
+    // Deep-merge selected dot-paths from source into a clone of current config.
+    // Unselected sub-keys keep their current value (object keys are cloned before merge).
+    const next: Record<string, any> = JSON.parse(JSON.stringify(config));
+    const { source } = importDiff;
+    for (const path of selectedPaths) {
+      const segs = path.split(".");
+      // Resolve incoming value by walking source along the path.
+      let incoming: any = source;
+      let found = true;
+      for (const s of segs) {
+        if (incoming != null && typeof incoming === "object" && s in incoming) {
+          incoming = incoming[s];
+        } else {
+          incoming = undefined;
+          found = false;
+          break;
+        }
+      }
+      // Write into next at the path, creating intermediate objects as needed.
+      let cursor = next;
+      for (let i = 0; i < segs.length - 1; i++) {
+        const s = segs[i];
+        if (!isPlainObject(cursor[s])) cursor[s] = {};
+        cursor = cursor[s];
+      }
+      const leaf = segs[segs.length - 1];
+      if (found) {
+        cursor[leaf] = incoming;
+      } else {
+        // Source lacks this key (a "removed" diff) → drop it.
+        delete cursor[leaf];
+      }
     }
     setConfig(next);
     setEditJson(JSON.stringify(next, null, 2));
@@ -4270,15 +4412,7 @@ export function Settings() {
           flexShrink: 0,
         }}
       >
-        <div>
-          <div style={{ fontSize: 22, fontWeight: 700, color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
-            {t("settings.title")}
-          </div>
-          <div style={{ fontSize: F.body, color: "var(--text-secondary)", marginTop: 2 }}>
-            {t("settings.desc")}
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", marginLeft: "auto" }}>
           <button
             className={`btn ${mode === "gui" ? "btn-primary" : "btn-ghost"}`}
             style={{ fontSize: F.body, padding: S.btnPad }}
@@ -4434,7 +4568,6 @@ export function Settings() {
                       if (!isActive) e.currentTarget.style.background = "transparent";
                     }}
                   >
-                    <SectionIcon name={section.id} size={15} />
                     <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                       {t(section.labelKey)}
                     </span>

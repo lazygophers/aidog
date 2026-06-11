@@ -102,8 +102,6 @@
   "theme.solarized": "Solarized",
   "tray.quit": "Quit",
   "tray.show": "Show Window",
-  "settings.title": "Claude Code Settings",
-  "settings.desc": "Manage Claude Code global settings (fully aligned with official docs)",
   "settings.jsonMode": "JSON",
   "settings.guiMode": "GUI",
   "settings.saved": "Settings saved",
