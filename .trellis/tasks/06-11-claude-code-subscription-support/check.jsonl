@@ -1,1 +1,3 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/06-11-claude-code-subscription-support/design.md", "reason": "校验纯透传语义落地（不转换/不注入/记日志）"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端类型安全 / 平台配置 UI 合规"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Protocol 前后端契约一致性"}

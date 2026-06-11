@@ -1,1 +1,4 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/06-11-claude-code-subscription-support/design.md", "reason": "纯透传语义 + 原始请求捕获点 + handle_passthrough + 拦截点 — 实施契约源"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "base_url 含版本前缀约定 + extra 列用法"}
+{"file": ".trellis/spec/backend/mock-platform.md", "reason": "同类平台拦截分支先例（mock 在 proxy 拦截）参照"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Protocol enum 跨层契约（Rust ↔ 前端 union 同步）"}
