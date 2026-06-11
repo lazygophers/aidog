@@ -114,7 +114,7 @@ Phase 3: 收尾   → 沉淀经验 + 收尾
 - 1.0 创建任务 `[required · once]` (仅 `task.py create`；status 进入 planning)
 - 1.1 需求探索 `[required · repeatable]`
 - 1.2 研究 `[optional · repeatable]`
-- 1.3 配置上下文 `[required · once]` — Claude Code, Cursor, OpenCode, Codex, Kiro, Gemini, Qoder, CodeBuddy, Copilot, Droid, Pi
+- 1.3 配置上下文 `[required · once]` — Claude Code
 - 1.4 激活任务 `[required · once]` (运行 `task.py start`；status → in_progress)
 - 1.5 完成标准
 
@@ -143,12 +143,12 @@ Phase 1.3 jsonl 策划在 inline dispatch 模式下**跳过** — 主会话在 P
 **流程**: trellis-implement → trellis-check → trellis-update-spec → 提交 (Phase 3.4) → `/trellis:finish-work`。
 **主会话默认 (无覆盖)**: 派发 `trellis-implement` / `trellis-check` sub-agent — 主 agent 默认不直接编辑代码。Phase 3.4 提交 (required, once): 在 trellis-update-spec 之后，或实施已确认完成时，主 agent **驱动提交** — 在面向用户的文本中陈述提交计划，然后执行 `git commit` — 在建议 `/trellis:finish-work` 之前。`/finish-work` 拒绝在脏工作树上运行（`.trellis/workspace/` 和 `.trellis/tasks/` 以外的路径）。
 **Sub-agent 自免除**: 如果你已经在作为 `trellis-implement` 运行，直接从加载的任务上下文实施，不要再生成另一个 `trellis-implement`；如果你已经在作为 `trellis-check` 运行，直接审查/修复，不要再生成另一个 `trellis-check`。默认派发规则仅适用于主会话。
-**Sub-agent 派发协议 (所有平台、所有 sub-agent)**: 当你派发 `trellis-implement` / `trellis-check` / `trellis-research` 时，派发 prompt **必须**以一行开头：`Active task: <task path from \`task.py current\`>`。无例外。在 class-2 平台 (codex / copilot / gemini / qoder) 上，sub-agent 依赖这一行，因为没有 hook 来注入任务上下文。在 class-1 平台 (claude / cursor / opencode / kiro / codebuddy / droid) 上，这一行通常是冗余的 — hook 直接注入上下文 — 但当 hook 失败时它充当关键回退（Windows + Claude Code PreToolUse 静默跳过、`--continue` 恢复、fork 分发、hooks 禁用等）。对于 `trellis-research`，这一行告诉 sub-agent 写入哪个 `{task_dir}/research/`。
+**Sub-agent 派发协议 (所有 sub-agent)**: 当你派发 `trellis-implement` / `trellis-check` / `trellis-research` 时，派发 prompt **必须**以一行开头：`Active task: <task path from \`task.py current\`>`。无例外。这一行在 hook 注入失败时充当关键回退（Windows + Claude Code PreToolUse 静默跳过、`--continue` 恢复、fork 分发、hooks 禁用等）。对于 `trellis-research`，这一行告诉 sub-agent 写入哪个 `{task_dir}/research/`。
 **Inline 覆盖** (仅当前轮，sub-agent 派发的逃生舱): 用户的**当前消息**必须明确包含以下之一："do it inline" / "no sub-agent" / "你直接改" / "别派 sub-agent" / "main session 写就行" / "不用 sub-agent"。**没有看到这些短语时，不得自行内联**；不要编造用户从未说过的覆盖指令。
 <!-- trellisx:start:in_progress -->
 ⛔ trellisx 执行硬规 (本 task 必守, 违反即流程错误):
 
-1. **强制 worktree**: 本 task 全部源码改动 MUST 落在 worktree (.trellis/worktrees/<task>, 平台 hook 已自动建)。**禁在主工作区写源码** — 写盘 file_path 必须是 worktree 路径。
+1. **强制 worktree**: 本 task 全部源码改动 MUST 落在 worktree (git 根/子仓 .worktrees/<worktree>, trellis 生命周期 hook 已自动建)。**禁在主工作区写源码** — 写盘 file_path 必须是 worktree 路径。
 2. **强制派 agent**: 每个 subtask 的实施 MUST 派 sub-agent (isolation:worktree) 或 agent-team 成员执行。**main 禁直接写源码** — main 只拆分 / 派发 / 收集 / 合并 / 协调。
 3. **强制异步并行**: 无依赖的 subtask MUST 在同一条回复里一次性发起多个 sub-agent 调用 (Claude Code 同消息多 Agent = 真并行)。**禁逐个串行派** (串行 = 耗时叠加)。有依赖的按调度图顺序。
 4. **强制按调度图**: 严格按 PRD 调度图的依赖 + 并行组执行, 禁跳步。
@@ -161,7 +161,7 @@ Phase 1.3 jsonl 策划在 inline dispatch 模式下**跳过** — 主会话在 P
 **主会话默认 (inline dispatch_mode)**: 主 agent 直接编辑代码。不要派发 `trellis-implement` / `trellis-check` sub-agent。写代码前加载 `trellis-before-dev` skill；报告完成前加载 `trellis-check` skill。
 Phase 3.4 提交 (required, once): 在 `trellis-update-spec` 之后，或实施已确认完成时，主 agent **驱动提交** — 在面向用户的文本中陈述提交计划，然后执行 `git commit` — 在建议 `/trellis:finish-work` 之前。`/finish-work` 拒绝在脏工作树上运行（`.trellis/workspace/` 和 `.trellis/tasks/` 以外的路径）。
 <!-- trellisx:start:in_progress_inline -->
-trellisx (增量): inline 模式 main 直接 edit, 但源码目标路径必须在 worktree (.trellis/worktrees/<task>) 内。
+trellisx (增量): inline 模式 main 直接 edit, 但源码目标路径必须在 worktree (.worktrees/<worktree>) 内。
 <!-- trellisx:end:in_progress_inline -->
 [/workflow-state:in_progress-inline]
 
