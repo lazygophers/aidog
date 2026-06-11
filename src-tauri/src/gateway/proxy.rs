@@ -193,6 +193,7 @@ async fn handle_proxy(
         .and_then(|v| v.strip_prefix("Bearer "))
         .map(|s| s.trim().to_string());
     let path = req.uri().path().to_string();
+    tracing::info!(path = %path, "http request");
 
     // ── 记录用户请求 URL ──
     log.request_url = req.uri().to_string();
