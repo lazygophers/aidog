@@ -1812,6 +1812,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     ? isDragging ? 0
                     : 0.4
                     : p.enabled ? 1 : 0.5,
+                  ...(isDragging ? { height: 0, overflow: "hidden", padding: 0, margin: 0, borderWidth: 0, minHeight: 0 } : {}),
                   transition: "transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease",
                   cursor: "default",
                   position: "relative",

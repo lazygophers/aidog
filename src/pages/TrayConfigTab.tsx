@@ -617,6 +617,7 @@ export function TrayConfigTab() {
                     ? isDragging ? 0
                     : 0.4
                     : item.enabled ? 1 : 0.5,
+                  ...(isDragging ? { height: 0, overflow: "hidden", padding: 0, margin: 0, borderWidth: 0, minHeight: 0 } : {}),
                   paddingLeft: 40, transition: "all 200ms ease",
                 }}
               >
