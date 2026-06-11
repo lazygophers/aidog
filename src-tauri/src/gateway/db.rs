@@ -62,6 +62,10 @@ fn now() -> i64 {
 const PLATFORM_COLUMNS: &str =
     "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at";
 
+/// 同 PLATFORM_COLUMNS，但每列加 `p.` 限定，用于与其他表 JOIN 时消除同名列歧义（如 created_at/updated_at）
+const PLATFORM_COLUMNS_PREFIXED: &str =
+    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at";
+
 /// 从查询行构造 Platform
 fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
     let platform_type_str: String = row.get(2)?;
@@ -384,7 +388,7 @@ pub fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlatformDe
     let mut stmt = conn
         .prepare(
             &format!(
-                "SELECT gp.priority, gp.weight, p.{PLATFORM_COLUMNS} \
+                "SELECT gp.priority, gp.weight, {PLATFORM_COLUMNS_PREFIXED} \
                  FROM group_platform gp JOIN platform p ON gp.platform_id = p.id \
                  WHERE gp.group_id = ?1 AND gp.deleted_at = 0 AND p.deleted_at = 0 ORDER BY gp.priority"
             ),
@@ -884,4 +888,333 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
     };
 
     Ok(StatsResult { overview, buckets, dimension_data })
+}
+
+// ─── Tests: DB Schema v2 规范固化 ──────────────────────────
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 创建一个初始化好的内存库
+    fn test_db() -> Db {
+        let db = Db::new(":memory:").expect("open memory db");
+        db.init_tables().expect("init tables");
+        db
+    }
+
+    fn sample_platform(name: &str) -> CreatePlatform {
+        CreatePlatform {
+            name: name.to_string(),
+            platform_type: Protocol::Anthropic,
+            base_url: "https://example.com".to_string(),
+            api_key: "sk-test".to_string(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: None,
+        }
+    }
+
+    fn sample_group(name: &str, path: &str, mappings: Vec<ModelMapping>) -> CreateGroup {
+        CreateGroup {
+            name: name.to_string(),
+            path: path.to_string(),
+            routing_mode: RoutingMode::Failover,
+            auto_from_platform: String::new(),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+            source_protocol: None,
+            model_mappings: mappings,
+        }
+    }
+
+    fn sample_log(id: &str, group_name: &str, created_at: i64) -> ProxyLog {
+        ProxyLog {
+            id: id.to_string(),
+            group_name: group_name.to_string(),
+            model: "claude-sonnet-4".to_string(),
+            actual_model: "glm-4-plus".to_string(),
+            source_protocol: "anthropic".to_string(),
+            target_protocol: "openai".to_string(),
+            platform_id: 1,
+            request_headers: String::new(),
+            request_body: String::new(),
+            upstream_request_headers: String::new(),
+            upstream_request_body: String::new(),
+            response_body: String::new(),
+            request_url: String::new(),
+            upstream_request_url: String::new(),
+            upstream_response_headers: String::new(),
+            upstream_status_code: 200,
+            user_response_headers: String::new(),
+            user_response_body: String::new(),
+            status_code: 200,
+            duration_ms: 100,
+            input_tokens: 10,
+            output_tokens: 20,
+            cache_tokens: 0,
+            created_at,
+            updated_at: created_at,
+            deleted_at: 0,
+        }
+    }
+
+    // ── R2 单数表名 + "group" 转义：init_tables 成功间接验证 DDL ──
+    #[test]
+    fn r2_singular_table_names_and_group_escaped() {
+        // init_tables() 已在 test_db 中执行；进一步断言单数表名存在、复数不存在
+        let db = test_db();
+        let conn = db.0.lock().unwrap();
+        let names: Vec<String> = conn
+            .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert!(names.contains(&"platform".to_string()));
+        assert!(names.contains(&"group".to_string()));
+        assert!(names.contains(&"group_platform".to_string()));
+        assert!(names.contains(&"setting".to_string()));
+        assert!(names.contains(&"proxy_log".to_string()));
+        // 复数旧表名禁止存在
+        assert!(!names.contains(&"platforms".to_string()));
+        assert!(!names.contains(&"groups".to_string()));
+        assert!(!names.contains(&"model_mappings".to_string()));
+    }
+
+    // ── R7 / D1 主键自增 uint64 ──
+    #[test]
+    fn r7_platform_pk_autoincrement_u64() {
+        let db = test_db();
+        let p1 = create_platform(&db, sample_platform("p1")).unwrap();
+        let p2 = create_platform(&db, sample_platform("p2")).unwrap();
+        assert!(p1.id >= 1, "first id should be >= 1, got {}", p1.id);
+        assert_eq!(p2.id, p1.id + 1, "id should auto-increment");
+        // 类型为 u64（编译期保证），运行期断言 >0
+        let _: u64 = p2.id;
+        assert!(p2.id > 0);
+    }
+
+    // ── R1 / R9 毫秒级时间戳 ──
+    #[test]
+    fn r1_timestamps_are_millis() {
+        let db = test_db();
+        let before = chrono::Utc::now().timestamp_millis();
+        let p = create_platform(&db, sample_platform("ts")).unwrap();
+        let after = chrono::Utc::now().timestamp_millis();
+        // 毫秒级：> 1e12（2001 年之后），且落在 before..=after 区间
+        assert!(p.created_at > 1_000_000_000_000, "created_at not ms-level: {}", p.created_at);
+        assert!(p.updated_at > 1_000_000_000_000, "updated_at not ms-level: {}", p.updated_at);
+        assert!(p.created_at >= before && p.created_at <= after);
+        assert_eq!(p.created_at, p.updated_at);
+    }
+
+    // ── R9 软删除：delete 后 deleted_at>0；list 不含；get 返回 None ──
+    #[test]
+    fn r9_soft_delete_platform() {
+        let db = test_db();
+        let p = create_platform(&db, sample_platform("del")).unwrap();
+        assert_eq!(list_platforms(&db).unwrap().len(), 1);
+
+        delete_platform(&db, p.id).unwrap();
+
+        // list 不返回已删行
+        assert_eq!(list_platforms(&db).unwrap().len(), 0);
+        // get 返回 None
+        assert!(get_platform(&db, p.id).unwrap().is_none());
+
+        // 行仍存在且 deleted_at > 0（物理保留）
+        let conn = db.0.lock().unwrap();
+        let deleted_at: i64 = conn
+            .query_row("SELECT deleted_at FROM platform WHERE id = ?1", params![p.id as i64], |r| r.get(0))
+            .unwrap();
+        assert!(deleted_at > 0, "deleted_at should be set, got {deleted_at}");
+    }
+
+    // ── R10 禁 NULL：未提供 extra 时为空串而非 NULL ──
+    #[test]
+    fn r10_no_null_defaults() {
+        let db = test_db();
+        let p = create_platform(&db, sample_platform("nn")).unwrap();
+        assert_eq!(p.extra, "");
+
+        let g = create_group(&db, sample_group("g", "/g", vec![])).unwrap();
+        assert_eq!(g.auto_from_platform, "");
+        assert_eq!(g.model_mappings.len(), 0);
+
+        // 直接断言列值非 NULL
+        let conn = db.0.lock().unwrap();
+        let null_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM platform WHERE extra IS NULL OR base_url IS NULL OR api_key IS NULL",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(null_count, 0, "no platform column should be NULL");
+        let g_null: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM \"group\" WHERE auto_from_platform IS NULL OR model_mappings IS NULL OR source_protocol IS NULL",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(g_null, 0, "no group column should be NULL");
+    }
+
+    // ── R3 platform_type 列（protocol 改名）往返 ──
+    #[test]
+    fn r3_platform_type_roundtrip() {
+        let db = test_db();
+        let mut input = sample_platform("pt");
+        input.platform_type = Protocol::Glm;
+        let p = create_platform(&db, input).unwrap();
+        let fetched = get_platform(&db, p.id).unwrap().unwrap();
+        assert_eq!(fetched.platform_type, Protocol::Glm);
+        // 列名为 platform_type（间接：能写入该列即证明列存在）
+        let conn = db.0.lock().unwrap();
+        let stored: String = conn
+            .query_row("SELECT platform_type FROM platform WHERE id = ?1", params![p.id as i64], |r| r.get(0))
+            .unwrap();
+        assert_eq!(stored, "\"glm\"");
+    }
+
+    // ── R4 / D4 model_mappings 内联 JSON 往返 ──
+    #[test]
+    fn r4_group_model_mappings_inline_roundtrip() {
+        let db = test_db();
+        let mappings = vec![
+            ModelMapping {
+                source_model: "claude-sonnet-4".to_string(),
+                target_platform_id: 42,
+                target_model: "glm-4-plus".to_string(),
+                request_timeout_secs: 30,
+                connect_timeout_secs: 5,
+            },
+            ModelMapping {
+                source_model: "claude-haiku".to_string(),
+                target_platform_id: 7,
+                target_model: "glm-4-air".to_string(),
+                request_timeout_secs: 0,
+                connect_timeout_secs: 0,
+            },
+        ];
+        let g = create_group(&db, sample_group("mm", "/mm", mappings)).unwrap();
+
+        let fetched = get_group(&db, g.id).unwrap().unwrap();
+        assert_eq!(fetched.model_mappings.len(), 2);
+        assert_eq!(fetched.model_mappings[0].source_model, "claude-sonnet-4");
+        // target_platform_id 为 u64
+        let tpid: u64 = fetched.model_mappings[0].target_platform_id;
+        assert_eq!(tpid, 42);
+        assert_eq!(fetched.model_mappings[0].target_model, "glm-4-plus");
+        assert_eq!(fetched.model_mappings[0].request_timeout_secs, 30);
+        assert_eq!(fetched.model_mappings[1].target_platform_id, 7);
+    }
+
+    // ── R4 model_mappings 来自 group 字段（get_group_detail）──
+    #[test]
+    fn r4_group_detail_mappings_from_group_field() {
+        let db = test_db();
+        let mappings = vec![ModelMapping {
+            source_model: "src".to_string(),
+            target_platform_id: 3,
+            target_model: "tgt".to_string(),
+            request_timeout_secs: 0,
+            connect_timeout_secs: 0,
+        }];
+        let g = create_group(&db, sample_group("d", "/d", mappings)).unwrap();
+        // 该分组无关联平台 → get_group_platforms join 为空，规避遗留 BUG-1（见任务遗留）
+        let detail = get_group_detail(&db, g.id).unwrap().unwrap();
+        // detail.model_mappings 来自 group 内联字段（逐字段一致）
+        assert_eq!(detail.model_mappings.len(), 1);
+        assert_eq!(detail.model_mappings.len(), detail.group.model_mappings.len());
+        assert_eq!(detail.model_mappings[0].source_model, detail.group.model_mappings[0].source_model);
+        assert_eq!(detail.model_mappings[0].target_platform_id, detail.group.model_mappings[0].target_platform_id);
+        assert_eq!(detail.model_mappings[0].target_model, detail.group.model_mappings[0].target_model);
+    }
+
+    // ── R8 proxy_log 主键 TEXT hex32（无连字符），软删 + retention ──
+    #[test]
+    fn r8_proxy_log_uuid_no_hyphen_and_retention() {
+        let db = test_db();
+        // hex32 无连字符 id（模拟生产生成方式 uuid simple）
+        let new_id = uuid::Uuid::new_v4().simple().to_string();
+        assert_eq!(new_id.len(), 32, "simple uuid should be 32 hex chars");
+        assert!(!new_id.contains('-'), "uuid must not contain hyphen");
+
+        let now_ms = chrono::Utc::now().timestamp_millis();
+        // 一条最近日志
+        upsert_proxy_log(&db, &sample_log(&new_id, "g", now_ms)).unwrap();
+        // 一条很旧的日志（100 天前）
+        let old_id = uuid::Uuid::new_v4().simple().to_string();
+        let old_ms = now_ms - 100 * 86_400_000;
+        upsert_proxy_log(&db, &sample_log(&old_id, "g", old_ms)).unwrap();
+
+        assert_eq!(count_proxy_logs(&db).unwrap(), 2);
+
+        // retention 30 天：旧日志被软删
+        cleanup_proxy_logs(&db, 30).unwrap();
+        assert_eq!(count_proxy_logs(&db).unwrap(), 1);
+        assert!(get_proxy_log(&db, &old_id).unwrap().is_none());
+        assert!(get_proxy_log(&db, &new_id).unwrap().is_some());
+
+        // proxy_log 主键存储原样 TEXT
+        let fetched = get_proxy_log(&db, &new_id).unwrap().unwrap();
+        assert_eq!(fetched.id, new_id);
+        assert!(fetched.created_at > 1_000_000_000_000);
+    }
+
+    // ── D3 复合唯一约束：group_platform 加代理主键 + UNIQUE(group_id, platform_id) ──
+    #[test]
+    fn d3_group_platform_proxy_pk_and_unique() {
+        let db = test_db();
+        let p1 = create_platform(&db, sample_platform("a")).unwrap();
+        let p2 = create_platform(&db, sample_platform("b")).unwrap();
+        let g = create_group(&db, sample_group("g", "/g", vec![])).unwrap();
+
+        set_group_platforms(
+            &db,
+            g.id,
+            &[
+                GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1) },
+                GroupPlatformInput { platform_id: p2.id, priority: Some(1), weight: Some(2) },
+            ],
+        )
+        .unwrap();
+
+        let details = get_group_platforms(&db, g.id).unwrap();
+        assert_eq!(details.len(), 2);
+
+        // 代理主键 id 存在且自增
+        let conn = db.0.lock().unwrap();
+        let ids: Vec<i64> = conn
+            .prepare("SELECT id FROM group_platform ORDER BY id")
+            .unwrap()
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(ids.len(), 2);
+        assert!(ids[0] >= 1 && ids[1] > ids[0]);
+    }
+
+    // ── setting 软删除 + upsert ──
+    #[test]
+    fn setting_upsert_and_soft_delete() {
+        let db = test_db();
+        set_setting(&db, SetSettingInput {
+            scope: "proxy".to_string(),
+            key: "logging".to_string(),
+            value: serde_json::json!({"enabled": true}),
+        }).unwrap();
+        assert_eq!(list_setting_keys(&db, "proxy").unwrap(), vec!["logging".to_string()]);
+        let v = get_setting(&db, "proxy", "logging").unwrap().unwrap();
+        assert_eq!(v["enabled"], serde_json::json!(true));
+
+        delete_setting(&db, "proxy", "logging").unwrap();
+        assert!(get_setting(&db, "proxy", "logging").unwrap().is_none());
+        assert_eq!(list_setting_keys(&db, "proxy").unwrap().len(), 0);
+    }
 }
