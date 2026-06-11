@@ -572,16 +572,51 @@ export function TrayConfigTab() {
               ? item.display === "coding" ? t("tray.displayCoding", "Coding") : t("tray.displayBalance", "余额")
               : TODAY_METRICS.find((m) => m.value === (item.metric || "tokens"))?.label ?? "Tokens";
 
+          // Ghost card at insertion target: grayscale preview of the dragged item
+          const draggedItem = drag ? config.items[drag.from] : null;
+          const draggedSummary = draggedItem
+            ? draggedItem.item_type === "separator"
+              ? t("tray.separatorItem", "分隔符")
+              : draggedItem.item_type === "platform"
+                ? draggedItem.display === "coding" ? t("tray.displayCoding", "Coding") : t("tray.displayBalance", "余额")
+                : TODAY_METRICS.find((m) => m.value === (draggedItem.metric || "tokens"))?.label ?? "Tokens"
+            : "";
+          const draggedName = draggedItem
+            ? draggedItem.item_type === "separator"
+              ? `${t("tray.separatorItem", "分隔符")} "${draggedItem.display || "·"}"`
+              : draggedItem.item_type === "platform"
+                ? platformName(draggedItem.platform_id)
+                : `${t("tray.todayUsage", "今日消耗")} (${TODAY_METRICS.find((m) => m.value === (draggedItem.metric || "tokens"))?.label ?? "Tokens"})`
+            : "";
+
           return (
             <Fragment key={`${item.item_type}-${item.platform_id ?? "x"}-${item.metric ?? "s"}-${i}`}>
-              {drag && isDragTarget && drag.from !== i && <div className="insertion-line" />}
+              {/* Ghost card: grayscale preview of dragged item at insertion point */}
+              {drag && isDragTarget && drag.from !== i && (
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8, paddingLeft: 40,
+                  padding: "6px 12px", margin: "2px 0", borderRadius: 8,
+                  background: "var(--glass-bg, rgba(255,255,255,0.06))",
+                  border: "1.5px dashed var(--accent)",
+                  opacity: 0.6, filter: "grayscale(0.8)",
+                  fontSize: 13, color: "var(--text-secondary)",
+                  pointerEvents: "none", transition: "all 150ms ease",
+                }}>
+                  <span style={{ fontWeight: 600 }}>{draggedName}</span>
+                  <span className="badge badge-muted" style={{ fontSize: 10 }}>{draggedSummary}</span>
+                </div>
+              )}
 
               <div
                 data-tray-item
                 className={`card-item${isDragging ? " is-dragging" : ""}`}
                 style={{
                   position: "relative", display: "flex", flexDirection: "column", gap: 0,
-                  opacity: isDragging ? undefined : item.enabled ? 1 : 0.5,
+                  // Drag: dragged item fades, others gray out
+                  opacity: drag
+                    ? isDragging ? 0.3
+                    : 0.4
+                    : item.enabled ? 1 : 0.5,
                   paddingLeft: 40, transition: "all 200ms ease",
                 }}
               >

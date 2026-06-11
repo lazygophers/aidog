@@ -1780,9 +1780,26 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             const isDragging = platDrag?.from === i;
             const pEffTo = platDrag ? (platDrag.from < platDrag.to ? platDrag.to - 1 : platDrag.to) : -1;
             const pHasChange = platDrag ? platDrag.from !== pEffTo : false;
+            // Ghost card info
+            const draggedPlat = platDrag ? platforms[platDrag.from] : null;
+            const draggedColor = draggedPlat ? (PROTOCOL_COLORS[draggedPlat.platform_type] || "var(--accent)") : "";
             return (
               <React.Fragment key={p.id}>
-                {platDrag && pHasChange && platDrag.to === i && <div className="insertion-line" />}
+                {/* Ghost card at insertion point */}
+                {platDrag && pHasChange && platDrag.to === i && draggedPlat && (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 14, paddingLeft: 44,
+                    padding: "10px 16px", margin: "2px 0", borderRadius: 12,
+                    background: "var(--glass-bg, rgba(255,255,255,0.06))",
+                    border: "1.5px dashed var(--accent)",
+                    opacity: 0.5, filter: "grayscale(0.8)",
+                    pointerEvents: "none", transition: "all 150ms ease",
+                  }}>
+                    <div style={{ width: 10, height: 10, borderRadius: "50%", background: draggedColor, flexShrink: 0 }} />
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{draggedPlat.name}</span>
+                    <span className="badge badge-muted" style={{ fontSize: 10 }}>{PROTOCOL_LABELS[draggedPlat.platform_type] || draggedPlat.platform_type}</span>
+                  </div>
+                )}
               <div
                 data-platform-id={p.id}
                 className={`card-item${isDragging ? " is-dragging" : ""}`}
@@ -1791,7 +1808,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   alignItems: "center",
                   gap: 14,
                   animationDelay: `${i * 50}ms`,
-                  opacity: isDragging ? undefined : (p.enabled ? 1 : 0.5),
+                  opacity: platDrag
+                    ? isDragging ? 0.3
+                    : 0.4
+                    : p.enabled ? 1 : 0.5,
                   transition: "transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease",
                   cursor: "default",
                   position: "relative",
@@ -2032,7 +2052,23 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           })}
           {platDrag && (() => {
             const et = platDrag.from < platDrag.to ? platDrag.to - 1 : platDrag.to;
-            return platDrag.from !== et && platDrag.to === platforms.length ? <div className="insertion-line" /> : null;
+            if (platDrag.from === et || platDrag.to !== platforms.length) return null;
+            const dp = platforms[platDrag.from];
+            const dc = PROTOCOL_COLORS[dp.platform_type] || "var(--accent)";
+            return (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 14, paddingLeft: 44,
+                padding: "10px 16px", margin: "2px 0", borderRadius: 12,
+                background: "var(--glass-bg, rgba(255,255,255,0.06))",
+                border: "1.5px dashed var(--accent)",
+                opacity: 0.5, filter: "grayscale(0.8)",
+                pointerEvents: "none", transition: "all 150ms ease",
+              }}>
+                <div style={{ width: 10, height: 10, borderRadius: "50%", background: dc, flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{dp.name}</span>
+                <span className="badge badge-muted" style={{ fontSize: 10 }}>{PROTOCOL_LABELS[dp.platform_type] || dp.platform_type}</span>
+              </div>
+            );
           })()}
         </div>
       )}

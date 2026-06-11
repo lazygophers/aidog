@@ -620,7 +620,31 @@ export function Groups() {
             const gHasChange = groupDrag ? groupDrag.from !== gEffTo : false;
             return (
             <Fragment key={group.id}>
-              {groupDrag && gHasChange && groupDrag.to === i && <div className="insertion-line" />}
+              {groupDrag && gHasChange && groupDrag.to === i && (() => {
+                const dg = details[groupDrag.from];
+                const routeLabel = dg.group.routing_mode === "failover" ? t("group.failover") : t("group.loadBalance");
+                return (
+                  <div style={{
+                    display: "flex", alignItems: "center", gap: 10, paddingLeft: 44,
+                    padding: "10px 16px", margin: "2px 0", borderRadius: 12,
+                    background: "var(--glass-bg, rgba(255,255,255,0.06))",
+                    border: "1.5px dashed var(--accent)",
+                    opacity: 0.5, filter: "grayscale(0.8)",
+                    pointerEvents: "none", transition: "all 150ms ease",
+                  }}>
+                    <div style={{
+                      width: 24, height: 24, borderRadius: "var(--radius-sm)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: "var(--bg-glass)", fontSize: 11, fontWeight: 700,
+                      color: "var(--text-secondary)", flexShrink: 0,
+                    }}>
+                      {dg.group.path.slice(0, 3)}
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 600 }}>{dg.group.name}</span>
+                    <span className="badge badge-muted" style={{ fontSize: 10, padding: "0 6px" }}>{routeLabel}</span>
+                  </div>
+                );
+              })()}
             <div
               data-group-id={group.id}
               className={`card-item animate-fade-in${isDragging ? " is-dragging" : ""}`}
@@ -629,6 +653,7 @@ export function Groups() {
                 paddingLeft: 44,
                 animationDelay: `${i * 60}ms`,
                 cursor: "pointer",
+                opacity: groupDrag ? (isDragging ? 0.3 : 0.4) : undefined,
                 transition: "transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease",
               }}
               onClick={() => {
@@ -815,7 +840,30 @@ export function Groups() {
           })}
           {groupDrag && (() => {
             const et = groupDrag.from < groupDrag.to ? groupDrag.to - 1 : groupDrag.to;
-            return groupDrag.from !== et && groupDrag.to === details.length ? <div className="insertion-line" /> : null;
+            if (groupDrag.from === et || groupDrag.to !== details.length) return null;
+            const dg = details[groupDrag.from];
+            const routeLabel = dg.group.routing_mode === "failover" ? t("group.failover") : t("group.loadBalance");
+            return (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 10, paddingLeft: 44,
+                padding: "10px 16px", margin: "2px 0", borderRadius: 12,
+                background: "var(--glass-bg, rgba(255,255,255,0.06))",
+                border: "1.5px dashed var(--accent)",
+                opacity: 0.5, filter: "grayscale(0.8)",
+                pointerEvents: "none", transition: "all 150ms ease",
+              }}>
+                <div style={{
+                  width: 24, height: 24, borderRadius: "var(--radius-sm)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "var(--bg-glass)", fontSize: 11, fontWeight: 700,
+                  color: "var(--text-secondary)", flexShrink: 0,
+                }}>
+                  {dg.group.path.slice(0, 3)}
+                </div>
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{dg.group.name}</span>
+                <span className="badge badge-muted" style={{ fontSize: 10, padding: "0 6px" }}>{routeLabel}</span>
+              </div>
+            );
           })()}
         </div>
       )}
