@@ -170,7 +170,7 @@ Load the `trellis-brainstorm` skill and iterate on prd.md with the user.
 Phase 1.3 (required, once): before `task.py start`, you MUST curate `implement.jsonl` and `check.jsonl` — list the spec / research files sub-agents need so they get the right context injected. You may skip only if the jsonl already has agent-curated entries (the seed `_example` row alone doesn't count).
 Then run `task.py start <task-dir>` to flip status to in_progress.
 <!-- trellisx:start:planning -->
-trellisx planning (加载 trellisx-orchestrate skill): task 必须拆 ≥ 2 subtask, 每 subtask 独立文件 .trellis/tasks/<task>/subtask/<id>-<slug>.md + PRD 内 mermaid 调度图。**调度图必须显式标并行组**: 无依赖的 subtask 归同一并行批次 (同批同时跑), 有依赖的标依赖箭头。拆分目标 = 最大化可并行 subtask 数, 缩短关键路径。planning 完成进 task.py start 前确认 PRD/design/implement 齐备。
+⛔ trellisx 规划硬规: 任务 MUST 拆 ≥ 2 subtask, 每 subtask 独立文件 .trellis/tasks/<task>/subtask/<id>-<slug>.md。PRD MUST 含 mermaid 调度图, **显式标并行组** (无依赖 subtask 归同批同时跑) + 依赖箭头。拆分目标 = 最大化可并行 subtask 数, 缩短关键路径。每 subtask 必须可独立派给一个 agent 执行。详见 trellisx-orchestrate skill。
 <!-- trellisx:end:planning -->
 [/workflow-state:planning]
 
@@ -205,12 +205,13 @@ Then run `task.py start <task-dir>` to flip status to in_progress.
 **Sub-agent dispatch protocol (all platforms, all sub-agents)**: When you spawn `trellis-implement` / `trellis-check` / `trellis-research`, your dispatch prompt **MUST** start with one line: `Active task: <task path from \`task.py current\`>`. No exceptions. On class-2 platforms (codex / copilot / gemini / qoder) the sub-agent depends on this line because there is no hook to inject task context. On class-1 platforms (claude / cursor / opencode / kiro / codebuddy / droid) the line is normally redundant — the hook injects context directly — but it serves as a critical fallback when the hook fails (Windows + Claude Code PreToolUse silent skip, `--continue` resume, fork distribution, hooks disabled, etc.). For `trellis-research`, the line tells the sub-agent which `{task_dir}/research/` to write into.
 **Inline override** (per-turn only, escape hatch for sub-agent dispatch): the user's CURRENT message MUST explicitly contain one of: "do it inline" / "no sub-agent" / "你直接改" / "别派 sub-agent" / "main session 写就行" / "不用 sub-agent". **Without seeing one of these phrases you must NOT inline on your own**; do not invent an override the user never said.
 <!-- trellisx:start:in_progress -->
-trellisx 执行 (worktree 隔离 + 异步并行, C1: main 可写但必在 worktree):
-- worktree 已建于 .trellis/worktrees/<task> (创建任务时自动); 全部源码改动必须落该 worktree 内, 主工作区保持干净
-- **异步并行硬规 (降低总开发时长)**: 按调度图执行, 无依赖的 subtask **必须在同一条回复里一次性发起多个 sub-agent 调用** (Claude Code 同一消息多个 Agent tool = 真并行同时跑); **禁逐个串行派** (串行 = 各 subtask 耗时叠加, 违背提效)。有依赖的 subtask 等上游 done 再派下游
-- 每个写盘 sub-agent 带 isolation:worktree (或 agent-team 成员); 收到各 agent 返回立即回传用户进度
-- main 可直接写源码 (trellis inline), 但目标路径必须在 worktree (写绝对路径或 EnterWorktree 切入); 简单 subtask main 直做, 复杂/并行派 agent
-- 全部 subtask done → trellis-check 整体校验 (C3 闭环), 未过禁宣告完成; task archive 时 worktree 干净则自动销毁
+⛔ trellisx 执行硬规 (本 task 必守, 违反即流程错误):
+
+1. **强制 worktree**: 本 task 全部源码改动 MUST 落在 worktree (.trellis/worktrees/<task>, 平台 hook 已自动建)。**禁在主工作区写源码** — 写盘 file_path 必须是 worktree 路径。
+2. **强制派 agent**: 每个 subtask 的实施 MUST 派 sub-agent (isolation:worktree) 或 agent-team 成员执行。**main 禁直接写源码** — main 只拆分 / 派发 / 收集 / 合并 / 协调。
+3. **强制异步并行**: 无依赖的 subtask MUST 在同一条回复里一次性发起多个 sub-agent 调用 (Claude Code 同消息多 Agent = 真并行)。**禁逐个串行派** (串行 = 耗时叠加)。有依赖的按调度图顺序。
+4. **强制按调度图**: 严格按 PRD 调度图的依赖 + 并行组执行, 禁跳步。
+5. 收每个 agent 返回立即回传用户进度; task archive 时 worktree 干净则自动销毁。
 <!-- trellisx:end:in_progress -->
 [/workflow-state:in_progress]
 
@@ -224,7 +225,7 @@ trellisx 执行 (worktree 隔离 + 异步并行, C1: main 可写但必在 worktr
 **Main-session default (inline dispatch_mode)**: the main agent edits code directly. Do NOT dispatch `trellis-implement` / `trellis-check` sub-agents. Load the `trellis-before-dev` skill before writing code; load the `trellis-check` skill before reporting completion.
 Phase 3.4 commit (required, once): after `trellis-update-spec`, or whenever implementation is verifiably complete, the main agent **drives the commit** — state the commit plan in user-facing text, then run `git commit` — BEFORE suggesting `/trellis:finish-work`. `/finish-work` refuses to run on a dirty working tree (paths outside `.trellis/workspace/` and `.trellis/tasks/`).
 <!-- trellisx:start:in_progress_inline -->
-trellisx inline: main 直接 edit, 但源码目标路径必须在 worktree .trellis/worktrees/<task> 内。完成后必经 trellis-check。
+trellisx (增量): inline 模式 main 直接 edit, 但源码目标路径必须在 worktree (.trellis/worktrees/<task>) 内。
 <!-- trellisx:end:in_progress_inline -->
 [/workflow-state:in_progress-inline]
 
