@@ -1368,7 +1368,7 @@ fn platform_item_parts(platform: &Platform, display: &str) -> (String, String) {
         let util = first_tier.map(|t| t.est_utilization).unwrap_or(0.0);
         format!("{:.0}%", (100.0 - util).max(0.0))
     } else {
-        format!("${:.2}", platform.est_balance_remaining)
+        format!("${}", trim_trailing_zeros(&format!("{:.2}", platform.est_balance_remaining)))
     };
     (name, value)
 }
@@ -1412,7 +1412,7 @@ fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
                 let metric = item.metric.as_deref().unwrap_or("tokens");
                 let (label, val) = match metric {
                     "cache_rate" => ("Cache".to_string(), format!("{:.0}%", stats.cache_rate)),
-                    "cost" => ("花费".to_string(), format!("${:.4}", stats.cost)),
+                    "cost" => ("花费".to_string(), format!("${}", trim_trailing_zeros(&format!("{:.4}", stats.cost)))),
                     "requests" => ("请求".to_string(), format!("{}", stats.total_requests)),
                     _ => ("今日".to_string(), format!("{} tok", stats.tokens)),
                 };
@@ -1508,6 +1508,16 @@ fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wr
 /// 两行（\n）由 NSFont 行高决定，配合居中段落样式保持紧凑。
 #[cfg(target_os = "macos")]
 const TRAY_FONT_SIZE: f64 = 9.0;
+
+/// 去除浮点数格式化尾部多余的零：10.10 → "10.1", 0.00 → "0", 965.80 → "965.8"
+fn trim_trailing_zeros(s: &str) -> String {
+    if let Some(pos) = s.find('.') {
+        let trimmed = s.trim_end_matches('0').trim_end_matches('.');
+        if trimmed.is_empty() { "0".to_string() } else { trimmed.to_string() }
+    } else {
+        s.to_string()
+    }
+}
 
 /// 将 TrayColor（三态）解析为 NSColor：
 /// - follow → labelColor（系统自适应明暗）

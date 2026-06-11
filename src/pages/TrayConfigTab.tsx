@@ -16,6 +16,12 @@ const PRESET_COLORS: { value: string; cssVar: string }[] = [
   { value: "orange", cssVar: "#ff9f0a" },
 ];
 
+/** 去除尾部多余的零：0.111000 → 0.111, 10.10100 → 10.101, 0.000 → 0 */
+function trimZeros(s: string): string {
+  if (!s.includes(".")) return s;
+  return s.replace(/\.?0+$/, "");
+}
+
 const DEFAULT_FONT_SIZE = 9;
 
 const PRESET_SEPARATORS = [
@@ -84,7 +90,7 @@ function computeItemText(item: TrayItem, platform: Platform | undefined, todaySt
     const s = todayStats ?? { tokens: 0, cache_rate: 0, cost: 0, total_requests: 0 };
     switch (item.metric || "tokens") {
       case "cache_rate": return { label: "Cache", value: `${s.cache_rate.toFixed(0)}%` };
-      case "cost": return { label: "花费", value: `$${s.cost.toFixed(4)}` };
+      case "cost": return { label: "花费", value: `$${trimZeros(s.cost.toFixed(4))}` };
       case "requests": return { label: "请求", value: `${s.total_requests}` };
       default: return { label: "今日", value: `${s.tokens} tok` };
     }
@@ -98,7 +104,7 @@ function computeItemText(item: TrayItem, platform: Platform | undefined, todaySt
       if (p?.tiers?.length) { isCoding = true; util = p.tiers[0].est_utilization ?? 0; }
     } catch { /* */ }
   }
-  return { label: platform.name, value: isCoding ? `${Math.max(0, 100 - util).toFixed(0)}%` : `$${platform.est_balance_remaining.toFixed(2)}` };
+  return { label: platform.name, value: isCoding ? `${Math.max(0, 100 - util).toFixed(0)}%` : `$${trimZeros(platform.est_balance_remaining.toFixed(2))}` };
 }
 
 interface Column { item: TrayItem; label: string; value: string; isTwo: boolean; align: string; alignRow2: string }

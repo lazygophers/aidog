@@ -1904,7 +1904,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                       estimated = true;
                       if (hasEstBalance) {
                         const r = p.est_balance_remaining;
-                        const fmt = r >= 1 ? r.toFixed(2) : r >= 0.01 ? r.toFixed(4) : "0";
+                        const fmt = r >= 1 ? trimZeros(r.toFixed(2)) : r >= 0.01 ? trimZeros(r.toFixed(4)) : "0";
                         badges.push(<StatBadge key="bal" icon="💳" value={fmt} label={q?.balance?.currency || "USD"} color="var(--color-success, #34c759)" />);
                       }
                       if (estCoding) {
@@ -1916,7 +1916,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                       // 冷启动/无预估 → 回退展示真查值（实测）
                       if (q.balance) {
                         const b = q.balance;
-                        const fmt = b.remaining >= 1 ? b.remaining.toFixed(2) : b.remaining >= 0.01 ? b.remaining.toFixed(4) : "0";
+                        const fmt = b.remaining >= 1 ? trimZeros(b.remaining.toFixed(2)) : b.remaining >= 0.01 ? trimZeros(b.remaining.toFixed(4)) : "0";
                         const color = b.remaining > 0 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)";
                         badges.push(<StatBadge key="bal" icon="💳" value={fmt} label={b.currency} color={color} />);
                       }
@@ -2072,18 +2072,24 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   );
 }
 
+/** 去除尾部多余的零：0.111000 → 0.111, 10.10100 → 10.101, 0.000 → 0 */
+function trimZeros(s: string): string {
+  if (!s.includes(".")) return s;
+  return s.replace(/\.?0+$/, "");
+}
+
 function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  if (n >= 1_000_000) return `${trimZeros((n / 1_000_000).toFixed(1))}M`;
+  if (n >= 1_000) return `${trimZeros((n / 1_000).toFixed(1))}K`;
   return `${n}`;
 }
 
 function estimateCost(inputTokens: number, outputTokens: number): string {
   // Rough average: $3/M input, $12/M output (blends Claude/GPT-4o pricing)
   const cost = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 12;
-  if (cost >= 1) return cost.toFixed(2);
-  if (cost >= 0.01) return cost.toFixed(3);
-  if (cost > 0) return cost.toFixed(4);
+  if (cost >= 1) return trimZeros(cost.toFixed(2));
+  if (cost >= 0.01) return trimZeros(cost.toFixed(3));
+  if (cost > 0) return trimZeros(cost.toFixed(4));
   return "0";
 }
 
