@@ -53,7 +53,7 @@ function defaultColor(): TrayColor {
 
 function makePlatformItem(platformId: number, display: "balance" | "coding", order: number): TrayItem {
   return {
-    item_type: "platform", platform_id: platformId, display, metric: null,
+    item_type: "platform", platform_id: platformId, display, metric: null, label: null,
     color: defaultColor(), font_size: DEFAULT_FONT_SIZE, line_mode: "two",
     align: "left", align_row2: null, enabled: true, order,
   };
@@ -61,7 +61,7 @@ function makePlatformItem(platformId: number, display: "balance" | "coding", ord
 
 function makeTodayUsageItem(metric: string, order: number): TrayItem {
   return {
-    item_type: "today_usage", platform_id: null, display: "", metric,
+    item_type: "today_usage", platform_id: null, display: "", metric, label: null,
     color: defaultColor(), font_size: DEFAULT_FONT_SIZE, line_mode: "two",
     align: "left", align_row2: null, enabled: true, order,
   };
@@ -69,7 +69,7 @@ function makeTodayUsageItem(metric: string, order: number): TrayItem {
 
 function makeSeparatorItem(separator: string, order: number): TrayItem {
   return {
-    item_type: "separator", platform_id: null, display: separator, metric: null,
+    item_type: "separator", platform_id: null, display: separator, metric: null, label: null,
     color: defaultColor(), font_size: DEFAULT_FONT_SIZE, line_mode: "single",
     align: "center", align_row2: null, enabled: true, order,
   };
@@ -89,14 +89,17 @@ function isRiskyHex(hex: string): boolean {
 function computeItemText(item: TrayItem, platform: Platform | undefined, todayStats: TodayStats | null): { label: string; value: string } {
   if (item.item_type === "today_usage") {
     const s = todayStats ?? { tokens: 0, cache_rate: 0, cost: 0, total_requests: 0 };
-    switch (item.metric || "tokens") {
-      case "cache_rate": return { label: "Cache", value: `${s.cache_rate.toFixed(0)}%` };
-      case "cost": return { label: "花费", value: `$${trimZeros(s.cost.toFixed(4))}` };
-      case "requests": return { label: "请求", value: `${s.total_requests}` };
-      default: return { label: "今日", value: `${s.tokens} tok` };
-    }
+    const auto = (() => {
+      switch (item.metric || "tokens") {
+        case "cache_rate": return { label: "Cache", value: `${s.cache_rate.toFixed(0)}%` };
+        case "cost": return { label: "花费", value: `$${trimZeros(s.cost.toFixed(4))}` };
+        case "requests": return { label: "请求", value: `${s.total_requests}` };
+        default: return { label: "今日", value: `${s.tokens} tok` };
+      }
+    })();
+    return { label: item.label || auto.label, value: auto.value };
   }
-  if (!platform) return { label: `#${item.platform_id}`, value: "--.--" };
+  if (!platform) return { label: item.label || `#${item.platform_id}`, value: "--.--" };
   let isCoding = item.display === "coding";
   let util = 0;
   if (platform.est_coding_plan) {
@@ -105,7 +108,9 @@ function computeItemText(item: TrayItem, platform: Platform | undefined, todaySt
       if (p?.tiers?.length) { isCoding = true; util = p.tiers[0].est_utilization ?? 0; }
     } catch { /* */ }
   }
-  return { label: platform.name, value: isCoding ? `${Math.max(0, 100 - util).toFixed(0)}%` : `$${trimZeros(platform.est_balance_remaining.toFixed(2))}` };
+  const autoLabel = platform.name;
+  const autoValue = isCoding ? `${Math.max(0, 100 - util).toFixed(0)}%` : `$${trimZeros(platform.est_balance_remaining.toFixed(2))}`;
+  return { label: item.label || autoLabel, value: autoValue };
 }
 
 interface Column { item: TrayItem; label: string; value: string; isTwo: boolean; align: string; alignRow2: string }
@@ -792,6 +797,12 @@ export function TrayConfigTab() {
                         </div>
                       </div>
                     )}
+                    <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                      <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.customLabel", "标签")}</label>
+                      <input className="input" type="text" value={item.label || ""} placeholder={t("tray.customLabelPlaceholder", "默认")}
+                        onChange={(e) => updateItem(i, { label: e.target.value || null })}
+                        style={{ width: 80, fontSize: 12, padding: "3px 8px" }} />
+                    </div>
                     <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
                       <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.lineMode", "行模式")}</label>
                       <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>

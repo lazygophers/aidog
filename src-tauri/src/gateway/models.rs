@@ -525,6 +525,9 @@ pub struct TrayItem {
     pub display: String,
     #[serde(default)]
     pub metric: Option<String>,
+    /// 自定义标签（优先于自动生成的 name）。None = 使用默认。
+    #[serde(default)]
+    pub label: Option<String>,
     #[serde(default)]
     pub color: TrayColor,
     #[serde(default = "default_font_size")]

@@ -1423,6 +1423,8 @@ fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
         if name.is_empty() && value.is_empty() {
             continue;
         }
+        // 自定义 label 优先
+        let name = item.label.clone().unwrap_or(name);
         columns.push(TrayColumn {
             name, value,
             color: item.color.clone(),

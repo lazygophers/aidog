@@ -339,6 +339,8 @@ export interface TrayItem {
   platform_id: number | null;
   display: string;
   metric: string | null;
+  /** 自定义标签，null = 使用默认自动生成的名称 */
+  label: string | null;
   color: TrayColor;
   font_size: number;
   /** 该项行模式："single"（"名 值" 同行）| "two"（"名/值" 两行）。 */
