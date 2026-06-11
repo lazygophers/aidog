@@ -236,6 +236,9 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
 }
 
 /// 将 quota 查询结果写回 platform 表（余额 + coding plan JSON）。
+/// 直写 est_balance/est_coding_plan（不校准、不重置基线）。
+/// 已被 estimate::calibrate_from_quota 取代（真查须严格对齐 est=真实 + 重置拟合基线），保留备用。
+#[allow(dead_code)]
 pub fn update_platform_quota(db: &Db, id: u64, balance: f64, coding_plan_json: &str) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(

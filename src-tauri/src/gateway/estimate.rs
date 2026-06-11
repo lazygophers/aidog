@@ -226,7 +226,7 @@ pub fn write_real_quota(
 }
 
 /// 根据真查结果 + 上一窗口预估状态，构造校准后的 est_coding_plan JSON（纯计算 + 一次短读拿 prev）。
-fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota) -> EstCodingPlan {
+pub fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota) -> EstCodingPlan {
     let cp = match &quota.coding_plan {
         Some(c) => c,
         None => return EstCodingPlan::default(),
@@ -248,21 +248,15 @@ fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota) -> 
     EstCodingPlan { tiers, level: cp.level.clone() }
 }
 
-/// 后台校准编排：锁外 await query_quota → 锁内覆盖。失败保留预估（不重置）。
-async fn run_calibration(
-    db: &Db,
-    platform_id: u64,
-    base_url: &str,
-    api_key: &str,
-    is_coding_plan: bool,
-) {
-    // 锁外 async 真查
-    let quota = super::quota::query_quota(base_url, api_key).await;
+/// 用一次真查结果对齐 est（严格覆盖）：est_balance/est_coding_plan = 真实值，
+/// 重置 last_real_query_at + estimate_count，并（方案 B）拟合 coef。
+/// 供 GUI 手动真查 + 冷启动初始化复用——确保真查发生时 est 立即严格对齐真实，
+/// 避免 raw CodingPlanInfo JSON 直写 est_coding_plan（字段 utilization≠est_utilization）导致 est 显 0/偏差。
+/// 一次短读拿 prev coding plan（用于拟合）→ 锁外纯计算 → write_real_quota 短持锁覆盖。
+pub fn calibrate_from_quota(db: &Db, platform_id: u64, quota: &PlatformQuota, is_coding_plan: bool) {
     if !quota.success {
-        // 失败：保留预估值，不重置计数/时间，下次请求再试
         return;
     }
-    // 读上一窗口 coding plan 状态（短持锁），用于方案 B 拟合
     let prev_json: String = match db.0.lock() {
         Ok(conn) => conn
             .query_row(
@@ -274,18 +268,31 @@ async fn run_calibration(
         Err(_) => String::new(),
     };
     let prev = EstCodingPlan::from_json(&prev_json);
-
     let est_balance = if is_coding_plan {
         0.0
     } else {
         quota.balance.as_ref().map(|b| b.remaining).unwrap_or(0.0)
     };
     let coding_json = if is_coding_plan {
-        build_calibrated_coding_plan(&prev, &quota).to_json()
+        build_calibrated_coding_plan(&prev, quota).to_json()
     } else {
         String::new()
     };
     let _ = write_real_quota(db, platform_id, est_balance, &coding_json, now());
+}
+
+/// 后台校准编排：锁外 await query_quota → 锁内覆盖。失败保留预估（不重置）。
+async fn run_calibration(
+    db: &Db,
+    platform_id: u64,
+    base_url: &str,
+    api_key: &str,
+    is_coding_plan: bool,
+) {
+    // 锁外 async 真查
+    let quota = super::quota::query_quota(base_url, api_key).await;
+    // 失败时 calibrate_from_quota 自身 early-return（保留预估值，不重置计数/时间，下次请求再试）。
+    calibrate_from_quota(db, platform_id, &quota, is_coding_plan);
 }
 
 /// 单次请求后的预估入口（在 proxy 后台 tokio::spawn 中调用）。
@@ -569,5 +576,115 @@ mod tests {
         assert!(stored.tiers[0].has_base);
         assert!((stored.tiers[0].limit - 10_000.0).abs() < 1e-9);
         assert!((stored.tiers[0].est_utilization - 30.0).abs() < 1e-9);
+    }
+
+    // ── 真查校准入口 calibrate_from_quota：est 严格对齐真实 + 重置基线/计数（coding plan）──
+    #[test]
+    fn calibrate_from_quota_aligns_coding_plan() {
+        let db = mem_db();
+        let id = mk_platform(&db, true);
+        // 制造预估漂移：先初始化方案 B tier（非 has_base），再累积 token 让 est 偏离真值。
+        let drift = EstCodingPlan {
+            tiers: vec![EstTier {
+                name: "five_hour".into(),
+                est_utilization: 88.0, // 预估漂到 88%
+                coef_per_token: 0.0001,
+                util_at_last_real: 40.0,
+                tokens_since_real: 480_000.0,
+                has_base: false,
+                limit: 0.0,
+            }],
+            level: None,
+        };
+        write_real_quota(&db, id, 0.0, &drift.to_json(), 0).unwrap();
+        apply_balance_delta(&db, id, 1.0).unwrap(); // count=1
+
+        // 真查得 util_real=55%（GLM 方案 B，无 limit）
+        let quota = PlatformQuota {
+            success: true,
+            error: None,
+            queried_at: now(),
+            balance: None,
+            coding_plan: Some(CodingPlanInfo {
+                tiers: vec![QuotaTier {
+                    name: "five_hour".into(),
+                    utilization: 55.0,
+                    resets_at: None,
+                    limit: None,
+                    remaining: None,
+                }],
+                level: Some("max".into()),
+            }),
+            newapi_user_id: None,
+        };
+        calibrate_from_quota(&db, id, &quota, true);
+
+        let after = super::super::db::get_platform(&db, id).unwrap().unwrap();
+        assert_eq!(after.estimate_count, 0, "校准重置 count");
+        assert!(after.last_real_query_at > 0, "校准记 last_real_query_at");
+        let stored = EstCodingPlan::from_json(&after.est_coding_plan);
+        let t = &stored.tiers[0];
+        // est 严格对齐真实（不被旧漂移 88% 残留）
+        assert!((t.est_utilization - 55.0).abs() < 1e-9, "est 应=真实 55，got {}", t.est_utilization);
+        assert!((t.util_at_last_real - 55.0).abs() < 1e-9, "基线应=真实");
+        assert_eq!(t.tokens_since_real, 0.0, "累积应清零");
+        // 拟合 coef = (55-40)/480000
+        assert!((t.coef_per_token - (15.0 / 480_000.0)).abs() < 1e-12, "coef = {}", t.coef_per_token);
+    }
+
+    // ── calibrate_from_quota：余额平台 est_balance 严格对齐真实 ──
+    #[test]
+    fn calibrate_from_quota_aligns_balance() {
+        let db = mem_db();
+        let id = mk_platform(&db, false);
+        // 制造漂移：est 余额扣到很低
+        write_real_quota(&db, id, 3.5, "", 0).unwrap();
+        apply_balance_delta(&db, id, 1.0).unwrap();
+
+        let quota = PlatformQuota {
+            success: true,
+            error: None,
+            queried_at: now(),
+            balance: Some(crate::gateway::quota::BalanceInfo {
+                remaining: 99.9,
+                total: None,
+                used: None,
+                currency: "USD".into(),
+                is_valid: true,
+            }),
+            coding_plan: None,
+            newapi_user_id: None,
+        };
+        calibrate_from_quota(&db, id, &quota, false);
+
+        let after = super::super::db::get_platform(&db, id).unwrap().unwrap();
+        assert!((after.est_balance_remaining - 99.9).abs() < 1e-9, "est_balance 应=真实 99.9，got {}", after.est_balance_remaining);
+        assert_eq!(after.estimate_count, 0);
+        assert!(after.last_real_query_at > 0);
+    }
+
+    // ── 真查失败不重置（保留预估）──
+    #[test]
+    fn calibrate_from_quota_failure_preserves() {
+        let db = mem_db();
+        let id = mk_platform(&db, false);
+        write_real_quota(&db, id, 50.0, "", 12345).unwrap();
+        apply_balance_delta(&db, id, 1.0).unwrap();
+
+        let quota = PlatformQuota {
+            success: false,
+            error: Some("boom".into()),
+            queried_at: now(),
+            balance: None,
+            coding_plan: None,
+            newapi_user_id: None,
+        };
+        calibrate_from_quota(&db, id, &quota, false);
+
+        let after = super::super::db::get_platform(&db, id).unwrap().unwrap();
+        // 不重置：count 保留、last_real_query_at 保留、est 不变
+        assert_eq!(after.estimate_count, 1, "失败不应重置 count");
+        assert_eq!(after.last_real_query_at, 12345, "失败不应改 last_real_query_at");
+        assert!((after.est_balance_remaining - (50.0 - 1.0)).abs() < 1e-9);
     }
 }

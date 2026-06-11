@@ -967,15 +967,54 @@ async fn platform_query_quota_newapi(
     Ok(q)
 }
 
-/// 将 quota 查询结果写回 platform 表（est_balance_remaining / est_coding_plan）。
+/// 将 quota 真查结果写回 platform 表，并作为一次「校准」严格对齐 est = 真实。
+/// 走 estimate::calibrate_from_quota：est_coding_plan 写入正确的 EstCodingPlan 形态
+/// （est_utilization=真实 util、util_at_last_real=真实、tokens_since_real=0、拟合 coef），
+/// 并重置 last_real_query_at + estimate_count。
+/// 这修复了旧路径直写 raw CodingPlanInfo JSON（字段 utilization≠est_utilization）→ tray est 显 0/偏差大的根因，
+/// 同时保证「真查发生时 est 立即对齐真实」。
 fn persist_quota_to_db(db: &Db, platform_id: Option<u64>, q: &PlatformQuota) {
     let Some(pid) = platform_id else { return };
-    let balance = q.balance.as_ref().map(|b| b.remaining).unwrap_or(0.0);
-    let coding_plan_json = q.coding_plan.as_ref()
-        .map(|cp| serde_json::to_string(cp).unwrap_or_default())
-        .unwrap_or_default();
-    if let Err(e) = db::update_platform_quota(db, pid, balance, &coding_plan_json) {
-        tracing::warn!("persist quota to db failed: {e}");
+    let is_coding_plan = q.coding_plan.is_some();
+    gateway::estimate::calibrate_from_quota(db, pid, q, is_coding_plan);
+}
+
+/// 冷启动 est 初始化：对 tray 中启用、且从未真查过（last_real_query_at==0）的平台，
+/// 后台触发一次真查并校准对齐 est=真实。避免冷启动 tray 显 0/旧偏差大。
+/// 不阻塞：每平台 spawn 独立 async（锁外 await 真查，calibrate_from_quota 短持锁写）。
+/// 真查完成后发 tray-refresh，让主线程刷新托盘显示。
+fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
+    let Some(db_state) = app.try_state::<Db>() else { return };
+    let Ok(Some(config)) = db::get_tray_config(&db_state) else { return };
+    // 收集 tray 启用、platform 类型、且 last_real_query_at==0 的平台
+    let mut targets: Vec<gateway::models::Platform> = Vec::new();
+    for item in config.items.iter().filter(|i| i.enabled && i.item_type == "platform") {
+        let Some(pid) = item.platform_id else { continue };
+        if let Ok(Some(p)) = db::get_platform(&db_state, pid) {
+            if p.last_real_query_at == 0 {
+                targets.push(p);
+            }
+        }
+    }
+    for p in targets {
+        let handle = app.clone();
+        tauri::async_runtime::spawn(async move {
+            let Some(db) = handle.try_state::<Db>() else { return };
+            let is_newapi = matches!(p.platform_type, gateway::models::Protocol::NewApi);
+            // 锁外 async 真查
+            let q = if is_newapi {
+                gateway::quota::query_quota_newapi(&p.base_url, &p.api_key, &p.extra).await
+            } else {
+                gateway::quota::query_quota(&p.base_url, &p.api_key).await
+            };
+            if !q.success {
+                return; // 失败保留，下次再试（不重置 last_real_query_at）
+            }
+            let is_coding_plan = q.coding_plan.is_some();
+            gateway::estimate::calibrate_from_quota(&db, p.id, &q, is_coding_plan);
+            use tauri::Emitter;
+            let _ = handle.emit("tray-refresh", ());
+        });
     }
 }
 
@@ -1300,7 +1339,7 @@ struct TrayColumn {
 }
 
 /// 计算单个 platform item 的（名, 值）二元组。
-/// display="coding" 或平台具 coding plan → 值=`剩 {%}%`；否则 值=`{balance:.2}`。
+/// display="coding" 或平台具 coding plan → 值=`{%}%`（剩余百分比）；否则 值=`{balance:.2}`。
 fn platform_item_parts(platform: &Platform, display: &str) -> (String, String) {
     let name = platform.name.clone();
     let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
@@ -1308,7 +1347,7 @@ fn platform_item_parts(platform: &Platform, display: &str) -> (String, String) {
     let is_coding = display == "coding" || first_tier.is_some();
     let value = if is_coding {
         let util = first_tier.map(|t| t.est_utilization).unwrap_or(0.0);
-        format!("剩 {:.0}%", (100.0 - util).max(0.0))
+        format!("{:.0}%", (100.0 - util).max(0.0))
     } else {
         format!("{:.2}", platform.est_balance_remaining)
     };
@@ -1534,13 +1573,24 @@ fn set_tray_attributed_title(
         para.setMaximumLineHeight(line_h);
         para.setLineSpacing(0.0);
 
-        // 两行模式：按各列「显示宽」累加生成 NSTextTab 列位置（left 对齐）。
-        // 列宽 = max(第一行该列文字, 第二行该列文字) 估宽 + padding；位置累加。
+        // 值行段落样式：第二行（值）相对第一行（标签）右对齐——标签左对齐列起、值右对齐列末。
+        // 用 RightTabStopType tab stop（位置 = 列右边界）：值在 tab 后右对齐到该 tab location。
+        // 仅两行模式构造；单行模式不用。
+        let para_value = NSMutableParagraphStyle::new();
+        para_value.setAlignment(NSTextAlignment::Left);
+        para_value.setMinimumLineHeight(line_h);
+        para_value.setMaximumLineHeight(line_h);
+        para_value.setLineSpacing(0.0);
+
+        // 两行模式：按各列「显示宽」累加生成 NSTextTab 列位置。
+        // 列宽 = max(第一行该列文字, 第二行该列文字) 估宽 + padding；位置累加（loc = 各列右边界）。
+        // 标签行（para）：left tab @列右边界（= 下一列起点），标签左对齐。
+        // 值行（para_value）：right tab @列右边界，值右对齐到列末。
         if two_line_mode {
             const COL_PADDING: f64 = 6.0;
-            let mut tabs: Vec<Retained<NSTextTab>> = Vec::new();
+            let mut left_tabs: Vec<Retained<NSTextTab>> = Vec::new();
+            let mut right_tabs: Vec<Retained<NSTextTab>> = Vec::new();
             let mut loc: f64 = 0.0;
-            // 第一列从 0 起（无 tab），后续列各一个 tab stop。
             for col in columns.iter() {
                 // 该列第一行文字
                 let line1 = if col.two_line {
@@ -1554,16 +1604,22 @@ fn set_tray_attributed_title(
                 let w2 = estimate_text_width(&line2, col.font_size);
                 let col_w = w1.max(w2) + COL_PADDING;
                 loc += col_w;
-                // 为「下一列」起点设 tab stop（最后一列的 tab 多余但无害）。
-                let tab = NSTextTab::initWithType_location(
+                // loc = 该列右边界：标签行 left tab（= 下一列起点）；值行 right tab（值右对齐到此）。
+                left_tabs.push(NSTextTab::initWithType_location(
                     NSTextTab::alloc(),
                     NSTextTabType::LeftTabStopType,
                     loc,
-                );
-                tabs.push(tab);
+                ));
+                right_tabs.push(NSTextTab::initWithType_location(
+                    NSTextTab::alloc(),
+                    NSTextTabType::RightTabStopType,
+                    loc,
+                ));
             }
-            let tab_array: Retained<NSArray<NSTextTab>> = NSArray::from_retained_slice(&tabs);
-            para.setTabStops(Some(&tab_array));
+            let left_array: Retained<NSArray<NSTextTab>> = NSArray::from_retained_slice(&left_tabs);
+            para.setTabStops(Some(&left_array));
+            let right_array: Retained<NSArray<NSTextTab>> = NSArray::from_retained_slice(&right_tabs);
+            para_value.setTabStops(Some(&right_array));
         }
 
         // baselineOffset：正值上移、负值下移。AppKit 两行小字默认贴顶 → 用负偏移把整块下推到垂直居中。
@@ -1576,8 +1632,9 @@ fn set_tray_attributed_title(
         let font_key: &NSString = unsafe { NSFontAttributeName };
         let color_key: &NSString = unsafe { NSForegroundColorAttributeName };
 
-        // 构造单段 attributed string（文字 + 字号 + 颜色 + 共享段落/baseline）。
-        let make_part = |text: &str, font_size: f64, color: &TrayColor| -> Retained<NSAttributedString> {
+        // 构造单段 attributed string（文字 + 字号 + 颜色 + 指定段落/baseline）。
+        // para_style：标签行/单行用 `para`（left tab）；值行用 `para_value`（right tab）。
+        let make_part = |text: &str, font_size: f64, color: &TrayColor, para_style: &NSMutableParagraphStyle| -> Retained<NSAttributedString> {
             let ns_text = NSString::from_str(text);
             let font: Retained<NSFont> = NSFont::menuBarFontOfSize(font_size);
             let ns_color = resolve_tray_color(color);
@@ -1585,7 +1642,7 @@ fn set_tray_attributed_title(
             let keys: [&NSString; 4] = [font_key, color_key, para_key, baseline_key];
             let font_obj: &AnyObject = (&*font).as_ref();
             let color_obj: &AnyObject = (&*ns_color).as_ref();
-            let para_obj: &AnyObject = (&*para).as_ref();
+            let para_obj: &AnyObject = (&*para_style).as_ref();
             let baseline_obj: &AnyObject = (&*baseline_offset).as_ref();
             let objects: [&AnyObject; 4] = [font_obj, color_obj, para_obj, baseline_obj];
             let attrs: Retained<NSDictionary<NSString, objc2::runtime::AnyObject>> =
@@ -1604,41 +1661,41 @@ fn set_tray_attributed_title(
         let result = NSMutableAttributedString::new();
 
         if two_line_mode {
-            // 第一行：各列首段，列间 \t（首列前无 tab）。
+            // 第一行（标签行）：各列首段，列间 \t（首列前无 tab）。整行用 `para`（left tab）。
             for (idx, col) in columns.iter().enumerate() {
                 if idx > 0 {
-                    result.appendAttributedString(&make_part("\t", col.font_size, &follow_color));
+                    result.appendAttributedString(&make_part("\t", col.font_size, &follow_color, &para));
                 }
                 let line1 = if col.two_line {
                     col.name.clone()
                 } else {
                     format!("{} {}", col.name, col.value)
                 };
-                result.appendAttributedString(&make_part(&line1, col.font_size, &col.color));
+                result.appendAttributedString(&make_part(&line1, col.font_size, &col.color, &para));
             }
-            // 行间换行（用首列字号 + follow 颜色）。
+            // 行间换行（用首列字号 + follow 颜色）。换行字符归属第一行，套 `para`。
             let nl_font = columns.first().map(|c| c.font_size).unwrap_or(TRAY_FONT_SIZE);
-            result.appendAttributedString(&make_part("\n", nl_font, &follow_color));
-            // 第二行：各列次段（two_line→value；single→空占位），列间 \t。
-            for (idx, col) in columns.iter().enumerate() {
-                if idx > 0 {
-                    result.appendAttributedString(&make_part("\t", col.font_size, &follow_color));
-                }
+            result.appendAttributedString(&make_part("\n", nl_font, &follow_color, &para));
+            // 第二行（值行）：各列次段（two_line→value；single→空占位），整行用 `para_value`（right tab，值右对齐列末）。
+            // RightTabStop 须靠「值前的 tab」消费：每列（含首列）值前置一个 \t → 第 i 个 tab 推进到 right_tabs[i]
+            // （= 第 i 列右边界），值在 tab 后右对齐到该位置。首列也需前置 tab，否则 x=0 起算无法右对齐。
+            for col in columns.iter() {
+                result.appendAttributedString(&make_part("\t", col.font_size, &follow_color, &para_value));
                 let line2 = if col.two_line { col.value.clone() } else { String::new() };
                 if !line2.is_empty() {
-                    result.appendAttributedString(&make_part(&line2, col.font_size, &col.color));
+                    result.appendAttributedString(&make_part(&line2, col.font_size, &col.color, &para_value));
                 }
             }
         } else {
-            // 单行模式：每列 "名 值"，separator 横排拼接（套首列字号 + follow 颜色）。
+            // 单行模式：每列 "名 值"，separator 横排拼接（套首列字号 + follow 颜色）。整行用 `para`（居中）。
             let join_str = separator.clone();
             let join_font = columns.first().map(|c| c.font_size).unwrap_or(TRAY_FONT_SIZE);
             for (idx, col) in columns.iter().enumerate() {
                 if idx > 0 && !join_str.is_empty() {
-                    result.appendAttributedString(&make_part(&join_str, join_font, &follow_color));
+                    result.appendAttributedString(&make_part(&join_str, join_font, &follow_color, &para));
                 }
                 let text = format!("{} {}", col.name, col.value);
-                result.appendAttributedString(&make_part(&text, col.font_size, &col.color));
+                result.appendAttributedString(&make_part(&text, col.font_size, &col.color, &para));
             }
         }
 
@@ -1770,6 +1827,9 @@ pub fn run() {
                     let _ = proxy_start(port, handle).await;
                 });
             }
+
+            // 冷启动 est 初始化：tray 平台从未真查（last_real_query_at==0）→ 后台真查对齐 est=真实。
+            cold_start_init_tray_estimates(app.handle());
 
             Ok(())
         })
