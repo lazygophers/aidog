@@ -1905,11 +1905,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                       if (hasEstBalance) {
                         const r = p.est_balance_remaining;
                         const fmt = r >= 1 ? r.toFixed(2) : r >= 0.01 ? r.toFixed(4) : "0";
-                        badges.push(<StatBadge key="bal" icon="💳" value={`~${fmt}`} label={q?.balance?.currency || "USD"} color="var(--color-success, #34c759)" />);
+                        badges.push(<StatBadge key="bal" icon="💳" value={fmt} label={q?.balance?.currency || "USD"} color="var(--color-success, #34c759)" />);
                       }
                       if (estCoding) {
                         for (const tier of estCoding.tiers) {
-                          badges.push(<StatBadge key={tier.name} icon="🪙" value={`~${tier.est_utilization.toFixed(0)}%`} label={tierLabel(tier.name)} color={utilColor(tier.est_utilization)} />);
+                          badges.push(<StatBadge key={tier.name} icon="🪙" value={`${Math.max(0, 100 - tier.est_utilization).toFixed(0)}%`} label={tierLabel(tier.name)} color={utilColor(tier.est_utilization)} />);
                         }
                       }
                     } else if (q) {
