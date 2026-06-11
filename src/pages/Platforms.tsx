@@ -2,6 +2,22 @@ import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { platformApi, settingsApi, modelTestApi, quotaApi, trayApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, DEFAULT_MOCK_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig } from "../services/api";
 import { getPlatformLogo } from "../assets/platforms";
+
+/** 从 base_url 提取 origin，用于 favicon 回退 */
+function extractOrigin(baseUrl: string): string | null {
+  try {
+    const u = new URL(baseUrl);
+    return u.origin;
+  } catch { return null; }
+}
+
+/** 从 platform 的 endpoints/base_url 推导 favicon URL */
+function getFaviconUrl(p: Platform): string | null {
+  const eps = p.endpoints ?? [];
+  const baseUrl = eps[0]?.base_url || p.base_url;
+  const origin = extractOrigin(baseUrl);
+  return origin ? `${origin}/favicon.ico` : null;
+}
 import { ModelTestPanel } from "./ModelTestPanel";
 import { pinyinMatch } from "../utils/pinyin";
 
@@ -828,6 +844,8 @@ export function Platforms() {
   const [quotaRealIds, setQuotaRealIds] = useState<Record<number, boolean>>({});
   const [quotaRefreshing, setQuotaRefreshing] = useState<Record<number, boolean>>({});
   const [testResults, setTestResults] = useState<Record<number, "ok" | "fail">>({});
+  /** favicon 加载失败的平台 ID 集合（回退到文字缩写） */
+  const [faviconFailed, setFaviconFailed] = useState<Set<number>>(new Set());
   const [testingId, setTestingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Platform | null>(null);
@@ -1718,21 +1736,28 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 }}
               >
                 <div style={{ position: "relative", flexShrink: 0 }}>
-                  <div style={{
-                    width: 36, height: 36, borderRadius: "var(--radius-sm)",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    background: getPlatformLogo(p.platform_type)
-                      ? "transparent"
-                      : `${color}15`,
-                    border: `1px solid ${color}30`,
-                    color: color, fontSize: 11, fontWeight: 700,
-                    overflow: "hidden",
-                  }}>
-                    {getPlatformLogo(p.platform_type)
-                      ? <img src={getPlatformLogo(p.platform_type)} alt={p.platform_type} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
-                      : p.platform_type.slice(0, 2).toUpperCase()
-                    }
-                  </div>
+                  {(() => {
+                    const svg = getPlatformLogo(p.platform_type);
+                    const favicon = !svg && !faviconFailed.has(p.id) ? getFaviconUrl(p) : null;
+                    return <div style={{
+                      width: 36, height: 36, borderRadius: "var(--radius-sm)",
+                      display: "flex", alignItems: "center", justifyContent: "center",
+                      background: (svg || favicon) ? "transparent" : `${color}15`,
+                      border: `1px solid ${color}30`,
+                      color: color, fontSize: 11, fontWeight: 700,
+                      overflow: "hidden",
+                    }}>
+                      {svg
+                        ? <img src={svg} alt={p.platform_type} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
+                        : favicon
+                          ? <img src={favicon} alt={p.platform_type}
+                              style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }}
+                              onError={() => setFaviconFailed(prev => new Set(prev).add(p.id))}
+                            />
+                          : p.platform_type.slice(0, 2).toUpperCase()
+                      }
+                    </div>;
+                  })()}
                   {(() => {
                     const manual = testResults[p.id];
                     const h = manual

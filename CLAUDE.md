@@ -22,7 +22,7 @@ src-tauri/src/
     db.rs               # SQLite CRUD + settings + usage stats + cleanup
     models.rs           # 所有 Rust 数据模型（Protocol 枚举 53 变体）
     proxy.rs            # Axum 代理服务器（渐进式日志、超时级联、log settings 感知）
-    quota.rs            # 平台余额 & Coding Plan 配额查询（DeepSeek/StepFun/SiliconFlow/OpenRouter/Novita + Kimi/GLM/MiniMax）
+    quota.rs            # 平台余额 & Coding Plan 配额查询（DeepSeek/StepFun/SiliconFlow/OpenRouter/Novita + Kimi/GLM/MiniMax + NewAPI）
     router.rs           # 分组匹配 + 模型映射 + 平台选择
 ```
 
