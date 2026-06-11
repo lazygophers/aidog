@@ -112,7 +112,7 @@ export function TrayConfigTab() {
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
-  const [gapMenuIdx, setGapMenuIdx] = useState<number | null>(null); // which gap's separator menu is open
+  const [showAddMenu, setShowAddMenu] = useState(false);
 
   // Drag state
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
@@ -161,13 +161,13 @@ export function TrayConfigTab() {
   const addPlatform = (pid: number) => {
     const items = [...config.items, makePlatformItem(pid, "balance", config.items.length)];
     persist({ ...config, items: withOrders(items) });
-    setGapMenuIdx(null);
+    setShowAddMenu(false);
   };
 
   const addTodayUsage = (metric: string) => {
     const items = [...config.items, makeTodayUsageItem(metric, config.items.length)];
     persist({ ...config, items: withOrders(items) });
-    setGapMenuIdx(null);
+    setShowAddMenu(false);
   };
 
   // ── Decompose items into columns + gaps ──
@@ -199,7 +199,8 @@ export function TrayConfigTab() {
       }
     }
 
-    const totalLines = columns.reduce((sum, c) => sum + (c.isTwo ? 2 : 1), 0);
+    // 多列并排：行数 = max(各列行数)，不是 sum
+    const totalLines = columns.length === 0 ? 0 : Math.max(...columns.map((c) => c.isTwo ? 2 : 1));
     return { columns, gaps, totalLines, overBudget: totalLines > 2 };
   }, [config, platforms, todayStats]);
 
@@ -357,41 +358,17 @@ export function TrayConfigTab() {
 
         {config.items.map((item, i) => {
           const isSep = item.item_type === "separator";
-
-          // ── Separator item: render as thin gap chip ──
-          if (isSep) {
-            return (
-              <div
-                key={`sep-${i}`}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  padding: "4px 0", gap: 4,
-                }}
-              >
-                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-                <span style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "2px 6px", background: "var(--bg)", borderRadius: 4, border: "1px solid var(--border)" }}>
-                  {item.display || "·"}
-                </span>
-                <button
-                  className="btn btn-ghost btn-icon"
-                  style={{ fontSize: 10, color: "var(--danger, #ff453a)", width: 16, height: 16, padding: 0 }}
-                  onClick={() => removeItem(i)}
-                >×</button>
-                <div style={{ flex: 1, height: 1, background: "var(--border)" }} />
-              </div>
-            );
-          }
-
-          // ── Regular item card ──
           const isExpanded = expandedIdx === i;
           const isDragging = drag?.from === i;
           const isDragTarget = drag?.to === i && drag?.from !== i;
           const isPlatform = item.item_type === "platform";
           const riskyHex = item.color.mode === "custom" && isRiskyHex(item.color.value);
 
-          const summary = isPlatform
-            ? item.display === "coding" ? t("tray.displayCoding", "Coding") : t("tray.displayBalance", "余额")
-            : TODAY_METRICS.find((m) => m.value === (item.metric || "tokens"))?.label ?? "Tokens";
+          const summary = isSep
+            ? t("tray.separatorItem", "分隔符")
+            : isPlatform
+              ? item.display === "coding" ? t("tray.displayCoding", "Coding") : t("tray.displayBalance", "余额")
+              : TODAY_METRICS.find((m) => m.value === (item.metric || "tokens"))?.label ?? "Tokens";
 
           return (
             <Fragment key={`${item.item_type}-${item.platform_id ?? "x"}-${item.metric ?? "s"}-${i}`}>
@@ -417,7 +394,11 @@ export function TrayConfigTab() {
                   onClick={() => { if (!didDragRef.current) setExpandedIdx(isExpanded ? null : i); }}
                 >
                   <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>
-                    {isPlatform ? platformName(item.platform_id) : `${t("tray.todayUsage", "今日消耗")} (${TODAY_METRICS.find((m) => m.value === (item.metric || "tokens"))?.label ?? "Tokens"})`}
+                    {isSep
+                      ? `${t("tray.separatorItem", "分隔符")} "${item.display || "·"}"`
+                      : isPlatform
+                        ? platformName(item.platform_id)
+                        : `${t("tray.todayUsage", "今日消耗")} (${TODAY_METRICS.find((m) => m.value === (item.metric || "tokens"))?.label ?? "Tokens"})`}
                   </span>
                   <span className="badge badge-muted" style={{ fontSize: 10 }}>{summary}</span>
                   {item.line_mode === "two" && <span className="badge badge-accent" style={{ fontSize: 10 }}>{t("tray.lineModeTwo", "两行")}</span>}
@@ -434,7 +415,23 @@ export function TrayConfigTab() {
                     onClick={(e) => { e.stopPropagation(); removeItem(i); }}>×</button>
                 </div>
 
-                {isExpanded && (
+                {isExpanded && isSep && (
+                  <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}
+                    onClick={(e) => e.stopPropagation()}>
+                    <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.separatorChar", "分隔符")}</label>
+                    <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
+                      {PRESET_SEPARATORS.map((s) => (
+                        <button key={s.value} className="btn btn-ghost"
+                          style={{ padding: "3px 10px", fontSize: 13, borderRadius: 0, minWidth: 28, background: item.display === s.value ? "var(--accent)" : "transparent", color: item.display === s.value ? "#fff" : "var(--text-secondary)" }}
+                          onClick={() => updateItem(i, { display: s.value })}>{s.label}</button>
+                      ))}
+                    </div>
+                    <input className="input" type="text" value={item.display} placeholder="自定义"
+                      onChange={(e) => updateItem(i, { display: e.target.value })} style={{ width: 60, fontSize: 12, padding: "3px 8px" }} />
+                  </div>
+                )}
+
+                {isExpanded && !isSep && (
                   <div style={{ marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border)", display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}
                     onClick={(e) => e.stopPropagation()}>
                     {isPlatform && (
@@ -537,14 +534,14 @@ export function TrayConfigTab() {
 
       {/* ── Add Item ── */}
       <div style={{ position: "relative" }}>
-        <button className="btn btn-primary" onClick={() => setGapMenuIdx(gapMenuIdx === -1 ? null : -1)} style={{ fontSize: 12, gap: 6 }}>
+        <button className="btn btn-primary" onClick={() => setShowAddMenu(!showAddMenu)} style={{ fontSize: 12, gap: 6 }}>
           <span style={{ fontSize: 16, lineHeight: 1 }}>+</span>
           {t("tray.addItem", "添加展示项")}
         </button>
 
-        {gapMenuIdx === -1 && (
+        {showAddMenu && (
           <>
-            <div style={{ position: "fixed", inset: 0, zIndex: 998 }} onClick={() => setGapMenuIdx(null)} />
+            <div style={{ position: "fixed", inset: 0, zIndex: 998 }} onClick={() => setShowAddMenu(false)} />
             <div className="glass-elevated" style={{
               position: "absolute", top: "100%", left: 0, marginTop: 6,
               minWidth: 280, padding: 8, zIndex: 999, display: "flex", flexDirection: "column", gap: 2,
@@ -571,7 +568,7 @@ export function TrayConfigTab() {
                     onClick={() => {
                       const items = [...config.items, makeSeparatorItem(s.value, config.items.length)];
                       persist({ ...config, items: withOrders(items) });
-                      setGapMenuIdx(null);
+                      setShowAddMenu(false);
                     }}
                   >{s.label}</button>
                 ))}

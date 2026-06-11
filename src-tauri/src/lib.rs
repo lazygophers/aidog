@@ -1348,6 +1348,15 @@ struct TrayColumn {
     align_row2: Option<String>,
 }
 
+/// 托盘渲染布局：columns（数据列）+ gaps（列间间隙）。
+/// gaps[i] = columns[i] 与 columns[i+1] 之间的间隙；None = 默认 2px 空白。
+struct TrayLayout {
+    columns: Vec<TrayColumn>,
+    /// 长度 = columns.len() - 1（若 columns.len() ≥ 2）。
+    /// None = 默认空白间隙；Some(text) = 自定义分隔符文本。
+    gaps: Vec<Option<String>>,
+}
+
 /// 计算单个 platform item 的（名, 值）二元组。
 /// display="coding" 或平台具 coding plan → 值=`{%}%`（剩余百分比）；否则 值=`{balance:.2}`。
 fn platform_item_parts(platform: &Platform, display: &str) -> (String, String) {
@@ -1364,32 +1373,37 @@ fn platform_item_parts(platform: &Platform, display: &str) -> (String, String) {
     (name, value)
 }
 
-/// 从托盘配置生成有序渲染列（已按 order 排序、跳过 disabled、跳过取数失败项）。
-/// 每列保留 (name, value, color, font_size, two_line)，two_line 由该 item 的 line_mode 决定。
-/// 不再做「多 item 强制 single / ≤2 行」限制——iStat Menus 式两行多列布局物理可行。
-fn tray_segments(app: &tauri::AppHandle) -> Vec<TrayColumn> {
-    let Some(db) = app.try_state::<Db>() else {
-        return Vec::new();
-    };
-    let Ok(Some(config)) = db::get_tray_config(&db) else {
-        return Vec::new();
-    };
+/// 从托盘配置生成有序渲染布局（已按 order 排序、跳过 disabled、跳过取数失败项）。
+/// separator items 不生成列，而是作为相邻数据列之间的间隙。
+/// gaps[i] = columns[i] 与 columns[i+1] 之间的间隙；None = 默认空白。
+fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
+    let empty = TrayLayout { columns: Vec::new(), gaps: Vec::new() };
+    let Some(db) = app.try_state::<Db>() else { return empty; };
+    let Ok(Some(config)) = db::get_tray_config(&db) else { return empty; };
     let mut items: Vec<&TrayItem> = config.items.iter().filter(|i| i.enabled).collect();
     items.sort_by_key(|i| i.order);
 
     let mut columns: Vec<TrayColumn> = Vec::new();
+    let mut gaps: Vec<Option<String>> = Vec::new();
+    let mut pending_sep: Option<String> = None;
+
     for item in items {
+        if item.item_type == "separator" {
+            pending_sep = Some(if item.display.is_empty() { "·".to_string() } else { item.display.clone() });
+            continue;
+        }
+
+        // Non-separator item → compute column data
+        if !columns.is_empty() {
+            gaps.push(pending_sep.take());
+        }
+
         let two_line = item.line_mode == "two";
         let (name, value) = match item.item_type.as_str() {
             "platform" => {
                 let Some(pid) = item.platform_id else { continue };
                 let Ok(Some(platform)) = db::get_platform(&db, pid) else { continue };
                 platform_item_parts(&platform, &item.display)
-            }
-            "separator" => {
-                // 分隔符项：name=分隔符文本，value=空
-                let sep = if item.display.is_empty() { "·".to_string() } else { item.display.clone() };
-                (sep, String::new())
             }
             "today_usage" => {
                 let stats = db::today_stats(&db).unwrap_or_else(|_| db::TodayStats {
@@ -1410,8 +1424,7 @@ fn tray_segments(app: &tauri::AppHandle) -> Vec<TrayColumn> {
             continue;
         }
         columns.push(TrayColumn {
-            name,
-            value,
+            name, value,
             color: item.color.clone(),
             font_size: item.font_size,
             two_line,
@@ -1420,7 +1433,7 @@ fn tray_segments(app: &tauri::AppHandle) -> Vec<TrayColumn> {
         });
     }
 
-    columns
+    TrayLayout { columns, gaps }
 }
 
 /// 托盘配置的分隔符（多 item 横排间隔）。
@@ -1437,16 +1450,20 @@ fn default_separator_str() -> String { "  ".to_string() }
 
 /// 菜单内 quota 项的纯文字概要（无颜色/字号，separator 拼接；每列横排 "名 值"）。
 fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
-    let columns = tray_segments(app);
-    if columns.is_empty() {
+    let layout = tray_layout(app);
+    if layout.columns.is_empty() {
         return None;
     }
-    let separator = tray_separator(app);
-    let texts: Vec<String> = columns
-        .iter()
-        .map(|c| format!("{} {}", c.name, c.value))
-        .collect();
-    Some(texts.join(&separator))
+    let default_sep = tray_separator(app);
+    let mut texts: Vec<String> = Vec::new();
+    for (i, col) in layout.columns.iter().enumerate() {
+        if i > 0 {
+            let gap = layout.gaps.get(i - 1).and_then(|g| g.clone()).unwrap_or_else(|| " ".to_string());
+            texts.push(gap);
+        }
+        texts.push(format!("{} {}", col.name, col.value));
+    }
+    Some(texts.join(&default_sep))
 }
 
 fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wry>, String> {
@@ -1560,6 +1577,7 @@ fn estimate_text_width(text: &str, font_size: f64) -> f64 {
 fn set_tray_attributed_title(
     tray: &tauri::tray::TrayIcon,
     columns: Vec<TrayColumn>,
+    gaps: Vec<Option<String>>,
     separator: String,
 ) -> Result<(), String> {
     use objc2::rc::Retained;
@@ -1686,10 +1704,18 @@ fn set_tray_attributed_title(
         let result = NSMutableAttributedString::new();
 
         if two_line_mode {
-            // 第一行（标签行）：各列首段，列间 \t（首列前无 tab）。整行用 `para`（left tab）。
+            let default_gap = " ".to_string();
+            // 第一行（标签行）：各列首段，列间 \t + gap 文字。整行用 `para`（left tab）。
             for (idx, col) in columns.iter().enumerate() {
                 if idx > 0 {
                     result.appendAttributedString(&make_part("\t", col.font_size, &follow_color, &para));
+                    // 在 tab 后、列文字前插入 gap 文字（如果有自定义分隔符）
+                    let gap_text = gaps.get(idx - 1)
+                        .and_then(|g| g.clone())
+                        .unwrap_or_default();
+                    if !gap_text.is_empty() {
+                        result.appendAttributedString(&make_part(&gap_text, col.font_size, &follow_color, &para));
+                    }
                 }
                 let line1 = if col.two_line {
                     col.name.clone()
@@ -1698,26 +1724,36 @@ fn set_tray_attributed_title(
                 };
                 result.appendAttributedString(&make_part(&line1, col.font_size, &col.color, &para));
             }
-            // 行间换行（用首列字号 + follow 颜色）。换行字符归属第一行，套 `para`。
+            // 行间换行
             let nl_font = columns.first().map(|c| c.font_size).unwrap_or(TRAY_FONT_SIZE);
             result.appendAttributedString(&make_part("\n", nl_font, &follow_color, &para));
-            // 第二行（值行）：各列次段（two_line→value；single→空占位），整行用 `para_value`（right tab，值右对齐列末）。
-            // RightTabStop 须靠「值前的 tab」消费：每列（含首列）值前置一个 \t → 第 i 个 tab 推进到 right_tabs[i]
-            // （= 第 i 列右边界），值在 tab 后右对齐到该位置。首列也需前置 tab，否则 x=0 起算无法右对齐。
-            for col in columns.iter() {
+            // 第二行（值行）：各列次段（two_line→value；single→空占位），整行用 `para_value`（right tab）。
+            for (idx, col) in columns.iter().enumerate() {
                 result.appendAttributedString(&make_part("\t", col.font_size, &follow_color, &para_value));
+                // gap 文字也出现在第二行（保持对齐）
+                if idx > 0 {
+                    let gap_text = gaps.get(idx - 1)
+                        .and_then(|g| g.clone())
+                        .unwrap_or_default();
+                    if !gap_text.is_empty() {
+                        result.appendAttributedString(&make_part(&gap_text, col.font_size, &follow_color, &para_value));
+                    }
+                }
                 let line2 = if col.two_line { col.value.clone() } else { String::new() };
                 if !line2.is_empty() {
                     result.appendAttributedString(&make_part(&line2, col.font_size, &col.color, &para_value));
                 }
             }
         } else {
-            // 单行模式：每列 "名 值"，separator 横排拼接（套首列字号 + follow 颜色）。整行用 `para`（居中）。
-            let join_str = separator.clone();
+            // 单行模式：每列 "名 值"，列间用 gap（自定义分隔符或默认空白 " "）拼接。
+            let default_gap = " ".to_string();
             let join_font = columns.first().map(|c| c.font_size).unwrap_or(TRAY_FONT_SIZE);
             for (idx, col) in columns.iter().enumerate() {
-                if idx > 0 && !join_str.is_empty() {
-                    result.appendAttributedString(&make_part(&join_str, join_font, &follow_color, &para));
+                if idx > 0 {
+                    let gap_text = gaps.get(idx - 1)
+                        .and_then(|g| g.clone())
+                        .unwrap_or_else(|| default_gap.clone());
+                    result.appendAttributedString(&make_part(&gap_text, join_font, &follow_color, &para));
                 }
                 let text = format!("{} {}", col.name, col.value);
                 result.appendAttributedString(&make_part(&text, col.font_size, &col.color, &para));
@@ -1738,25 +1774,22 @@ fn refresh_tray_menu(app: &tauri::AppHandle) -> Result<(), String> {
     // 非 macOS 平台仅 menu item 降级（不调 set_title / set_icon）。
     #[cfg(target_os = "macos")]
     {
-        let columns = tray_segments(app);
-        if columns.is_empty() {
-            // 无 enabled item → 恢复 logo + 清空 title
+        let layout = tray_layout(app);
+        if layout.columns.is_empty() {
             tray.set_icon(app.default_window_icon().cloned())
                 .map_err(|e| e.to_string())?;
             tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
         } else {
-            // 列渲染下沉到 set_tray_attributed_title：有 two_line 列走两行多列（NSTextTab 列对齐），
-            // 否则单行 separator 横排。set_title 仅作兜底（拿不到 button 时保留默认字号文字）。
             let separator = tray_separator(app);
-            tray.set_icon(None).map_err(|e| e.to_string())?; // 隐藏 logo
-            // 兜底文字：各列 "名 值" 单行 separator 拼接（无颜色/字号控制）。
-            let fallback_text = columns
+            tray.set_icon(None).map_err(|e| e.to_string())?;
+            // 兜底文字：各列 "名 值"，间隙用 separator
+            let fallback_text = layout.columns
                 .iter()
                 .map(|c| format!("{} {}", c.name, c.value))
                 .collect::<Vec<_>>()
                 .join(separator.as_str());
             tray.set_title(Some(&fallback_text)).map_err(|e| e.to_string())?;
-            if let Err(e) = set_tray_attributed_title(&tray, columns, separator) {
+            if let Err(e) = set_tray_attributed_title(&tray, layout.columns, layout.gaps, separator) {
                 tracing::warn!("tray attributed title failed, fallback to default font: {e}");
             }
         }
