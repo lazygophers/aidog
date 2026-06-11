@@ -2,7 +2,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig } from "../services/api";
 import { getPlatformLogo } from "../assets/platforms";
-import { IconBolt, IconCost, IconPackage, IconCheck, IconClose, IconCard, IconCoin } from "../components/icons";
+import { IconBolt, IconCost, IconCheck, IconClose, IconCoin } from "../components/icons";
+import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
+import { formatNumber, formatCost, formatPercent } from "../utils/formatters";
 
 /** 从 base_url 提取 origin，用于 favicon 回退 */
 function extractOrigin(baseUrl: string): string | null {
@@ -838,6 +840,97 @@ function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
   );
 }
 
+/** 配额展示数据：合并预估(est_*)与真查(quotaMap)，优先级与原列表逻辑一致。
+ *  手动刷新校准过(preferReal)→优先真值；否则有预估→预估；冷启动→真查回退。 */
+interface QuotaDisplay {
+  estimated: boolean;
+  /** 余额剩余（用于 BalanceBar）。null 表示无余额数据。 */
+  balanceRemaining: number | null;
+  balanceTotal: number | null;
+  currency: string;
+  /** coding plan 各档剩余百分比（0–100，越高越充足）。 */
+  tiers: { name: string; remainPct: number; utilization: number }[];
+  /** 是否有任意配额数据（余额或 coding plan）。 */
+  hasData: boolean;
+}
+
+function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, preferRealCalibrated: boolean): QuotaDisplay {
+  const tierRemain = (utilization: number) => Math.max(0, Math.min(100, 100 - utilization));
+  const preferReal = preferRealCalibrated && !!q;
+  const estCoding = parseEstCodingPlan(p.est_coding_plan);
+  const hasEstBalance = p.est_balance_remaining > 0;
+  const hasEst = hasEstBalance || (estCoding !== null && estCoding.tiers.length > 0);
+
+  if (hasEst && !preferReal) {
+    const tiers = estCoding
+      ? estCoding.tiers.map(tier => ({ name: tier.name, remainPct: tierRemain(tier.est_utilization), utilization: tier.est_utilization }))
+      : [];
+    return {
+      estimated: true,
+      balanceRemaining: hasEstBalance ? p.est_balance_remaining : null,
+      balanceTotal: null,
+      currency: q?.balance?.currency || "USD",
+      tiers,
+      hasData: hasEstBalance || tiers.length > 0,
+    };
+  }
+  if (q) {
+    const tiers = q.coding_plan
+      ? q.coding_plan.tiers.map(tier => ({ name: tier.name, remainPct: tierRemain(tier.utilization), utilization: tier.utilization }))
+      : [];
+    return {
+      estimated: false,
+      balanceRemaining: q.balance ? q.balance.remaining : null,
+      balanceTotal: q.balance?.total ?? null,
+      currency: q.balance?.currency || "USD",
+      tiers,
+      hasData: !!q.balance || tiers.length > 0,
+    };
+  }
+  return { estimated: false, balanceRemaining: null, balanceTotal: null, currency: "USD", tiers: [], hasData: false };
+}
+
+/** coding plan 档名 → 简短标签 */
+function tierLabel(name: string): string {
+  return name === "five_hour" ? "5h" : "week";
+}
+
+/** 配额剩余百分比 → 语义色（越低越危险） */
+function utilColor(utilization: number): string {
+  if (utilization < 50) return "var(--color-success)";
+  if (utilization < 80) return "var(--color-warning)";
+  return "var(--color-danger)";
+}
+
+/** 编辑页分区卡片：glass-surface 容器 + 标题 + 可选描述 + 内容区，统一视觉层次。 */
+interface FormSectionProps {
+  title: string;
+  desc?: string;
+  /** 标题右侧操作区（如「添加端点」「获取模型」按钮）。 */
+  action?: React.ReactNode;
+  children: React.ReactNode;
+}
+
+function FormSection({ title, desc, action, children }: FormSectionProps) {
+  return (
+    <div
+      className="glass-surface"
+      style={{ display: "flex", flexDirection: "column", gap: 12, padding: 16, borderRadius: "var(--radius-md)" }}
+    >
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>{title}</div>
+          {desc && (
+            <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4, marginTop: 2 }}>{desc}</div>
+          )}
+        </div>
+        {action && <div style={{ flexShrink: 0 }}>{action}</div>}
+      </div>
+      {children}
+    </div>
+  );
+}
+
 export function Platforms() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -895,6 +988,15 @@ export function Platforms() {
   const [testResults, setTestResults] = useState<Record<number, "ok" | "fail">>({});
   /** favicon 加载失败的平台 ID 集合（回退到文字缩写） */
   const [faviconFailed, setFaviconFailed] = useState<Set<number>>(new Set());
+  /** 列表卡片已展开（显 endpoints/模型明细）的平台 ID 集合 */
+  const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
+  const toggleExpanded = (id: number, next: boolean) => {
+    setExpandedIds(prev => {
+      const s = new Set(prev);
+      if (next) s.add(id); else s.delete(id);
+      return s;
+    });
+  };
   const [testingId, setTestingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Platform | null>(null);
@@ -1223,14 +1325,15 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           </div>
         </div>
 
-        <div className="glass-surface animate-fade-in" style={{
-          padding: 20,
+        <div className="animate-fade-in" style={{
           display: "flex",
           flexDirection: "column",
-          gap: 12,
+          gap: 16,
         }}>
-          <input className="input" placeholder={t("platform.name")} value={name}
-            onChange={(e) => setName(e.target.value)} />
+          {/* 基础信息：名称 + 协议 */}
+          <FormSection title={t("platform.sectionBasic", "基础信息")}>
+            <input className="input" placeholder={t("platform.name")} value={name}
+              onChange={(e) => setName(e.target.value)} />
           {editing ? (
             <div style={{
               display: "flex", alignItems: "center", gap: 8,
@@ -1257,21 +1360,21 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               onChange={handleProtocolChange}
             />
           )}
+          </FormSection>
 
           {/* Mock 平台配置编辑器（仅 mock 平台显示，替代 endpoints / API Key / 模型） */}
           {isMock && (
-            <MockConfigEditor config={mockConfig} onChange={setMockConfig} />
+            <FormSection title={t("platform.sectionSpecial", "特例配置")}>
+              <MockConfigEditor config={mockConfig} onChange={setMockConfig} />
+            </FormSection>
           )}
 
           {/* New API 余额查询配置（仅 newapi 平台显示） */}
           {protocol === "newapi" && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12, background: "var(--bg-tertiary)", borderRadius: 8 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
-                {t("platform.newapiBalanceConfig", "余额查询配置")}
-              </div>
-              <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-                {t("platform.newapiBalanceHint", "查询余额需要独立的地址和 Token（从控制台获取），与 API Key 不同")}
-              </div>
+            <FormSection
+              title={t("platform.newapiBalanceConfig", "余额查询配置")}
+              desc={t("platform.newapiBalanceHint", "查询余额需要独立的地址和 Token（从控制台获取），与 API Key 不同")}
+            >
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
                   {t("platform.newapiBalanceUrl", "余额查询地址")}
@@ -1306,12 +1409,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   onChange={(e) => setNewApiConfig(prev => ({ ...prev, user_id: e.target.value }))}
                 />
               </div>
-            </div>
+            </FormSection>
           )}
 
           {/* Claude Code 订阅（透传）配置：仅 base_url（host 根）+ 可空 api_key */}
           {isPassthrough && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <FormSection title={t("platform.sectionPassthrough", "透传配置")}>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
                   {t("platform.passthroughBaseUrl", "上游地址（Base URL）")}
@@ -1370,20 +1473,16 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
                 {t("platform.passthroughNote", "纯透传：客户端请求的 header（含订阅 OAuth 认证）与 body 原样转发，aidog 不做任何转换或认证注入。上方 API Key 可留空。")}
               </div>
-            </div>
+            </FormSection>
           )}
 
           {/* Protocol Endpoints（mock / 透传平台隐藏，无可编辑上游） */}
           {!isMock && !isPassthrough && (
           <>
-          <div style={{
-            display: "flex", flexDirection: "column", gap: 6,
-            padding: "8px 0",
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
-                {t("platform.endpoints", "Protocol Endpoints")}
-              </div>
+          <FormSection
+            title={t("platform.endpoints", "Protocol Endpoints")}
+            desc={t("platform.endpointsHint", "Additional protocols this platform supports with different base URLs")}
+            action={(
               <button
                 type="button"
                 className="btn btn-ghost"
@@ -1392,10 +1491,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               >
                 + {t("platform.addEndpoint", "Add Endpoint")}
               </button>
-            </div>
-            <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
-              {t("platform.endpointsHint", "Additional protocols this platform supports with different base URLs")}
-            </div>
+            )}
+          >
             {endpoints.length === 0 && (
               <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "4px 0", fontStyle: "italic" }}>
                 {t("platform.noEndpoints", "No additional endpoints")}
@@ -1484,9 +1581,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 </button>
               </div>
             ))}
-          </div>
+          </FormSection>
 
           {/* API Key with show/copy */}
+          <FormSection title={t("platform.sectionAuth", "认证")}>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             <input
               className="input"
@@ -1532,17 +1630,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               </button>
             )}
           </div>
+          </FormSection>
 
           {/* Models Configuration */}
-          <div style={{
-            display: "flex", flexDirection: "column", gap: 6,
-            padding: "12px 0 4px",
-            borderTop: "1px solid var(--border)",
-          }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
-                {t("platform.models")}
-              </div>
+          <FormSection
+            title={t("platform.models")}
+            action={(
               <div style={{ display: "flex", gap: 6 }}>
                 <button
                   className="btn btn-ghost"
@@ -1562,7 +1655,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   {fetching ? t("status.loading") : t("platform.fetchModels")}
                 </button>
               </div>
-            </div>
+            )}
+          >
             {fetchError && (
               <div style={{ fontSize: 12, color: "var(--danger, #e55)", padding: "2px 0" }}>
                 {fetchError}
@@ -1668,16 +1762,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               </div>
               );
             })}
-          </div>
+          </FormSection>
           </>
           )}
 
           {/* Claude Code Config */}
           {editing && (
-            <div style={{
-              borderTop: "1px solid var(--border)",
-              paddingTop: 8,
-            }}>
+            <FormSection title={t("settings.claudeCodeConfig")}>
               <button
                 type="button"
                 className="btn btn-ghost"
@@ -1690,7 +1781,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 }}
                 onClick={() => setShowClaudeConfig(!showClaudeConfig)}
               >
-                <span style={{ fontWeight: 600 }}>{t("settings.claudeCodeConfig")}</span>
+                <span style={{ fontWeight: 600 }}>{t("settings.claudeConfigToggle", "Config Override")}</span>
                 <span style={{ opacity: 0.5 }}>{showClaudeConfig ? "▾" : "▸"}</span>
               </button>
               {showClaudeConfig && (
@@ -1735,7 +1826,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   })()}
                 </div>
               )}
-            </div>
+            </FormSection>
           )}
 
           {saveError && (
@@ -1799,253 +1890,229 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     <span className="badge badge-muted" style={{ fontSize: 10 }}>{PROTOCOL_LABELS[draggedPlat.platform_type] || draggedPlat.platform_type}</span>
                   </div>
                 )}
-              <div
-                data-platform-id={p.id}
-                className={`card-item${isDragging ? " is-dragging" : ""}`}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  animationDelay: `${i * 50}ms`,
-                  opacity: platDrag
-                    ? isDragging ? 0
-                    : 0.4
-                    : p.enabled ? 1 : 0.5,
-                  ...(isDragging ? { height: 0, overflow: "hidden", padding: 0, margin: 0, borderWidth: 0, minHeight: 0 } : {}),
-                  transition: "transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease",
-                  cursor: "default",
-                  position: "relative",
-                  paddingLeft: 44,
-                }}
-              >
-                <div
-                  className={`drag-handle${isDragging ? " is-active" : ""}`}
-                  onPointerDown={e => handlePlatPointerDown(e, i)}
-                  onPointerMove={handlePlatPointerMove}
-                  onPointerUp={handlePlatPointerUp}
-                >
-                  <svg width="14" height="20" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
-                </div>
-                <div style={{ position: "relative", flexShrink: 0 }}>
-                  {(() => {
-                    const svg = getPlatformLogo(p.platform_type);
-                    const favicon = !svg && !faviconFailed.has(p.id) ? getFaviconUrl(p) : null;
-                    return <div style={{
-                      width: 36, height: 36, borderRadius: "var(--radius-sm)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      background: (svg || favicon) ? "transparent" : `${color}15`,
-                      border: `1px solid ${color}30`,
-                      color: color, fontSize: 11, fontWeight: 700,
-                      overflow: "hidden",
-                    }}>
-                      {svg
-                        ? <img src={svg} alt={p.platform_type} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
-                        : favicon
-                          ? <img src={favicon} alt={p.platform_type}
-                              style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }}
-                              onError={() => setFaviconFailed(prev => new Set(prev).add(p.id))}
-                            />
-                          : p.platform_type.slice(0, 2).toUpperCase()
-                      }
-                    </div>;
-                  })()}
-                  {(() => {
-                    const manual = testResults[p.id];
-                    const h = manual
-                      ? (manual === "ok" ? "healthy" : "error")
-                      : usageMap[p.id] ? healthStatus(usageMap[p.id].recent_total, usageMap[p.id].recent_failures) : "unknown";
-                    return h !== "unknown" ? (
-                      <div style={{
-                        position: "absolute", top: -3, right: -3,
-                        width: 10, height: 10, borderRadius: "50%",
-                        background: HEALTH_COLORS[h],
-                        border: "2px solid var(--bg-primary)",
-                        boxShadow: `0 0 4px ${HEALTH_COLORS[h]}60`,
-                      }} />
-                    ) : null;
-                  })()}
-                </div>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
-                  <div className="text-secondary" style={{ fontSize: 12, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {p.platform_type.toUpperCase()} · {getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
-                  </div>
-                  {p.endpoints && p.endpoints.length > 0 && (
-                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 3 }}>
-                      {p.endpoints.map((ep, ei) => (
-                        <span key={ei} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px", opacity: 0.8 }}>
-                          {PROTOCOL_LABELS[ep.protocol] || ep.protocol}
-                          {ep.coding_plan && <span style={{ color: "var(--color-success, #34c759)", marginLeft: 2, fontWeight: 700 }}>Code</span>}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {configuredModels.length > 0 && (
-                    <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 4 }}>
-                      {configuredModels.map((m, mi) => (
-                        <span key={mi} className="badge badge-muted" style={{ fontSize: 11, padding: "2px 6px" }}>
-                          {m}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {usageMap[p.id] && (() => {
-                    const u = usageMap[p.id];
-                    const total = u.total_input_tokens + u.total_output_tokens;
-                    const costVal = u.total_cost;
-                    const cost = costVal > 0 ? `$${costVal >= 1 ? costVal.toFixed(2) : costVal >= 0.01 ? costVal.toFixed(3) : costVal.toFixed(5)}` : "$0";
-                    const successRate = u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
-                    return (
-                      <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                        <StatBadge icon={<IconBolt size={13} />} value={formatTokens(total)} label="tokens" />
-                        <StatBadge icon={<IconCost size={13} />} value={`$${cost}`} label="cost" />
-                        <StatBadge icon={<IconPackage size={13} />} value={`${u.cache_rate.toFixed(1)}%`} label="cache" color="var(--color-success, #34c759)" />
-                        <StatBadge icon={<IconCheck size={13} />} value={`${successRate.toFixed(1)}%`} label="ok"
-                          color={successRate >= 95 ? "var(--color-success, #34c759)" : successRate >= 80 ? "var(--color-warning, #ff9500)" : "var(--color-danger, #ff3b30)"} />
-                      </div>
-                    );
-                  })()}
-
-                  {p.platform_type !== "mock" && p.platform_type !== "claude_code" && (() => {
-                    const q = quotaMap[p.id];
-                    const refreshing = !!quotaRefreshing[p.id];
-                    // 手动刷新（真查校准）过 → 优先展示真值（实测）而非预估
-                    const preferReal = !!quotaRealIds[p.id] && !!q;
-                    const badges: React.JSX.Element[] = [];
-                    // 预估值：余额 > 0 或 coding plan JSON 非空 → 优先展示预估（标「预估」）
-                    const estCoding = parseEstCodingPlan(p.est_coding_plan);
-                    const hasEstBalance = p.est_balance_remaining > 0;
-                    const hasEst = hasEstBalance || (estCoding !== null && estCoding.tiers.length > 0);
-                    let estimated = false;
-                    const utilColor = (u: number) =>
-                      u < 50 ? "var(--color-success, #34c759)" : u < 80 ? "var(--color-warning, #ff9500)" : "var(--color-danger, #ff3b30)";
-                    const tierLabel = (name: string) => name === "five_hour" ? "5h" : "week";
-                    if (hasEst && !preferReal) {
-                      estimated = true;
-                      if (hasEstBalance) {
-                        const r = p.est_balance_remaining;
-                        const fmt = r >= 1 ? trimZeros(r.toFixed(2)) : r >= 0.01 ? trimZeros(r.toFixed(4)) : "0";
-                        badges.push(<StatBadge key="bal" icon={<IconCard size={13} />} value={fmt} label={q?.balance?.currency || "USD"} color="var(--color-success, #34c759)" />);
-                      }
-                      if (estCoding) {
-                        for (const tier of estCoding.tiers) {
-                          badges.push(<StatBadge key={tier.name} icon={<IconCoin size={13} />} value={`${Math.max(0, 100 - tier.est_utilization).toFixed(0)}%`} label={tierLabel(tier.name)} color={utilColor(tier.est_utilization)} />);
-                        }
-                      }
-                    } else if (q) {
-                      // 冷启动/无预估 → 回退展示真查值（实测）
-                      if (q.balance) {
-                        const b = q.balance;
-                        const fmt = b.remaining >= 1 ? trimZeros(b.remaining.toFixed(2)) : b.remaining >= 0.01 ? trimZeros(b.remaining.toFixed(4)) : "0";
-                        const color = b.remaining > 0 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)";
-                        badges.push(<StatBadge key="bal" icon={<IconCard size={13} />} value={fmt} label={b.currency} color={color} />);
-                      }
-                      if (q.coding_plan) {
-                        for (const tier of q.coding_plan.tiers) {
-                          badges.push(<StatBadge key={tier.name} icon={<IconCoin size={13} />} value={`${tier.utilization.toFixed(0)}%`} label={tierLabel(tier.name)} color={utilColor(tier.utilization)} />);
-                        }
-                      }
-                    }
-                    // 无额度数据（余额/配额均空）→ 整行不展示
-                    if (badges.length === 0) return null;
-                    return (
-                      <div className="glass-surface" style={{
-                        display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
-                        marginTop: 8, padding: "6px 10px", borderRadius: "var(--radius-sm)",
-                        border: "1px solid var(--border)",
-                      }}>
-                        <span className="text-secondary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.2 }}>
-                          {t("platform.quotaLabel", "额度")}
-                        </span>
-                        <span style={{
-                          fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: "var(--radius-sm)",
-                          background: estimated ? "var(--color-warning, #ff9500)18" : "var(--accent-subtle)",
-                          color: estimated ? "var(--color-warning, #ff9500)" : "var(--accent)",
-                          letterSpacing: 0.3,
-                        }}>
-                          {estimated ? t("platform.quotaEstimated", "预估") : t("platform.quotaMeasured", "实测")}
-                        </span>
-                        <button
-                          className="btn btn-ghost"
-                          style={{ padding: 2, lineHeight: 0, minWidth: "auto", display: "inline-flex", alignItems: "center" }}
-                          disabled={refreshing}
-                          title={t("platform.quotaRefresh", "刷新额度")}
-                          onClick={() => refreshQuota(p)}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                            strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-                            style={refreshing ? { animation: "spin 0.9s linear infinite" } : undefined}>
-                            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                            <polyline points="21 3 21 9 15 9" />
-                          </svg>
-                        </button>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{badges}</div>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
+              {(() => {
+                const q = quotaMap[p.id];
+                const refreshing = !!quotaRefreshing[p.id];
+                // 手动刷新（真查校准）过 → 优先展示真值（实测）而非预估
+                const preferReal = !!quotaRealIds[p.id];
+                const quota = computeQuotaDisplay(p, q, preferReal);
+                const showQuota = p.platform_type !== "mock" && p.platform_type !== "claude_code" && quota.hasData;
+                const u = usageMap[p.id];
+                const total = u ? u.total_input_tokens + u.total_output_tokens : 0;
+                const sr = u && u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
+                const hasDetail = (p.endpoints && p.endpoints.length > 0) || configuredModels.length > 0 || quota.tiers.length > 0;
+                const expanded = expandedIds.has(p.id);
+                const manual = testResults[p.id];
+                const health = manual
+                  ? (manual === "ok" ? "healthy" : "error")
+                  : u ? healthStatus(u.recent_total, u.recent_failures) : "unknown";
+                const logoSvg = getPlatformLogo(p.platform_type);
+                const favicon = !logoSvg && !faviconFailed.has(p.id) ? getFaviconUrl(p) : null;
+                return (
                   <div
-                    className={`toggle ${p.enabled ? "active" : ""}`}
-                    style={{ cursor: "pointer" }}
-                    onClick={() => handleToggle(p)}
-                    title={p.enabled ? "Disable" : "Enable"}
-                  />
-                  {/* Split test button: left = quick test, right = custom test dialog */}
-                  <div style={{ display: "inline-flex", fontSize: 11 }}>
-                    <button
-                      className="btn btn-ghost"
-                      style={{ fontSize: 11, gap: 4, padding: "3px 8px", borderRadius: "6px 0 0 6px", borderRight: "1px solid var(--border)" }}
-                      disabled={testingId === p.id}
-                      onClick={async () => {
-                        setTestingId(p.id);
-                        try {
-                          const defaultModel = p.models.default || p.available_models[0] || "";
-                          const r = await modelTestApi.test({ platform_id: p.id, model: defaultModel, max_tokens: 64 });
-                          setTestResults(prev => ({ ...prev, [p.id]: r.success ? "ok" : "fail" }));
-                          setToast({ text: r.success
-                            ? `${p.name}: ${t("platform.testOk", "测试成功")}${r.duration_ms > 0 ? ` (${r.duration_ms}ms)` : ""}`
-                            : `${p.name}: ${r.error || t("platform.testFail", "测试失败")}`,
-                            ok: r.success });
-                        } catch (e: any) {
-                          setTestResults(prev => ({ ...prev, [p.id]: "fail" }));
-                          setToast({ text: `${p.name}: ${e?.message || t("platform.testFail", "测试失败")}`, ok: false });
-                        }
-                        setTestingId(null);
-                        setTimeout(() => setToast(null), 3000);
-                      }}
-                      title={t("platform.quickTest", "快速测试默认模型")}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7 1l1.5 3.5L12 6l-3.5 1.5L7 11l-1.5-3.5L2 6l3.5-1.5L7 1z" />
-                      </svg>
-                      {testingId === p.id ? "..." : t("platform.quickTest", "快速测试")}
-                    </button>
-                    <button
-                      className="btn btn-ghost"
-                      style={{ fontSize: 11, padding: "3px 6px", borderRadius: "0 6px 6px 0" }}
-                      onClick={() => setTestingPlatform(p)}
-                      title={t("platform.customTest", "自定义测试")}
-                    >
-                      <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M3 5l4 4 4-4" />
-                      </svg>
-                    </button>
+                    data-platform-id={p.id}
+                    style={{
+                      animationDelay: `${i * 50}ms`,
+                      opacity: platDrag ? (isDragging ? 0 : 0.4) : p.enabled ? 1 : 0.5,
+                      ...(isDragging ? { height: 0, overflow: "hidden", padding: 0, margin: 0, borderWidth: 0, minHeight: 0 } : {}),
+                      transition: "opacity 150ms ease",
+                    }}
+                  >
+                  <CompactCard
+                    expanded={hasDetail ? expanded : undefined}
+                    onToggle={hasDetail ? (next) => toggleExpanded(p.id, next) : undefined}
+                    toggleLabel={t("platform.toggleDetail", "展开/收起明细")}
+                    header={(
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                        {/* 拖拽把手 */}
+                        <div
+                          className={`drag-handle-inline${isDragging ? " is-active" : ""}`}
+                          style={{ cursor: "grab", color: "var(--text-tertiary)", flexShrink: 0, display: "flex", touchAction: "none" }}
+                          onPointerDown={e => handlePlatPointerDown(e, i)}
+                          onPointerMove={handlePlatPointerMove}
+                          onPointerUp={handlePlatPointerUp}
+                          title={t("platform.dragReorder", "拖拽排序")}
+                        >
+                          <svg width="12" height="18" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
+                        </div>
+                        {/* Logo + 健康点 */}
+                        <div style={{ position: "relative", flexShrink: 0 }}>
+                          <div style={{
+                            width: 34, height: 34, borderRadius: "var(--radius-sm)",
+                            display: "flex", alignItems: "center", justifyContent: "center",
+                            background: (logoSvg || favicon) ? "transparent" : `${color}15`,
+                            border: `1px solid ${color}30`,
+                            color: color, fontSize: 11, fontWeight: 700, overflow: "hidden",
+                          }}>
+                            {logoSvg
+                              ? <img src={logoSvg} alt={p.platform_type} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
+                              : favicon
+                                ? <img src={favicon} alt={p.platform_type}
+                                    style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }}
+                                    onError={() => setFaviconFailed(prev => new Set(prev).add(p.id))}
+                                  />
+                                : p.platform_type.slice(0, 2).toUpperCase()
+                            }
+                          </div>
+                          {health !== "unknown" && (
+                            <div style={{
+                              position: "absolute", top: -3, right: -3,
+                              width: 10, height: 10, borderRadius: "50%",
+                              background: HEALTH_COLORS[health],
+                              border: "2px solid var(--bg-primary)",
+                              boxShadow: `0 0 4px ${HEALTH_COLORS[health]}60`,
+                            }} />
+                          )}
+                        </div>
+                        {/* 名称 + 协议·base_url */}
+                        <div style={{ minWidth: 0, width: 180, flexShrink: 0 }}>
+                          <div style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                          <div className="text-secondary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                            {p.platform_type.toUpperCase()} · {getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
+                          </div>
+                        </div>
+                        {/* 余额（直显，缺值不渲染） */}
+                        {showQuota && quota.balanceRemaining != null && (
+                          <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
+                            <BalanceBar remaining={quota.balanceRemaining} total={quota.balanceTotal} currency={quota.currency === "USD" ? "$" : quota.currency} />
+                            <span style={{ fontSize: 9, fontWeight: 700, color: quota.estimated ? "var(--color-warning)" : "var(--accent)" }}>
+                              {quota.estimated ? t("platform.quotaEstimated", "预估") : t("platform.quotaMeasured", "实测")}
+                            </span>
+                          </div>
+                        )}
+                        {/* 核心统计 chips（色编码） */}
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
+                          {u && (
+                            <>
+                              <StatChip icon={<IconBolt size={13} />} value={formatNumber(total)} label="tokens" />
+                              <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
+                              <StatChip icon={<IconCheck size={13} />} value={formatPercent(sr)} label="ok" level={successRateLevel(sr, u.total_requests)} />
+                            </>
+                          )}
+                        </div>
+                        {/* 快操作 */}
+                        <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
+                          {showQuota && (
+                            <button
+                              className="btn btn-ghost btn-icon"
+                              style={{ padding: 4, lineHeight: 0, minWidth: "auto" }}
+                              disabled={refreshing}
+                              title={t("platform.quotaRefresh", "刷新额度")}
+                              onClick={(e) => { e.stopPropagation(); refreshQuota(p); }}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                                strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                                style={refreshing ? { animation: "spin 0.9s linear infinite" } : undefined}>
+                                <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                                <polyline points="21 3 21 9 15 9" />
+                              </svg>
+                            </button>
+                          )}
+                          <div
+                            className={`toggle ${p.enabled ? "active" : ""}`}
+                            style={{ cursor: "pointer" }}
+                            onClick={(e) => { e.stopPropagation(); handleToggle(p); }}
+                            title={p.enabled ? "Disable" : "Enable"}
+                          />
+                          <div style={{ display: "inline-flex", fontSize: 11 }}>
+                            <button
+                              className="btn btn-ghost"
+                              style={{ fontSize: 11, gap: 4, padding: "3px 8px", borderRadius: "6px 0 0 6px", borderRight: "1px solid var(--border)" }}
+                              disabled={testingId === p.id}
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                setTestingId(p.id);
+                                try {
+                                  const defaultModel = p.models.default || p.available_models[0] || "";
+                                  const r = await modelTestApi.test({ platform_id: p.id, model: defaultModel, max_tokens: 64 });
+                                  setTestResults(prev => ({ ...prev, [p.id]: r.success ? "ok" : "fail" }));
+                                  setToast({ text: r.success
+                                    ? `${p.name}: ${t("platform.testOk", "测试成功")}${r.duration_ms > 0 ? ` (${r.duration_ms}ms)` : ""}`
+                                    : `${p.name}: ${r.error || t("platform.testFail", "测试失败")}`,
+                                    ok: r.success });
+                                } catch (err: any) {
+                                  setTestResults(prev => ({ ...prev, [p.id]: "fail" }));
+                                  setToast({ text: `${p.name}: ${err?.message || t("platform.testFail", "测试失败")}`, ok: false });
+                                }
+                                setTestingId(null);
+                                setTimeout(() => setToast(null), 3000);
+                              }}
+                              title={t("platform.quickTest", "快速测试默认模型")}
+                            >
+                              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M7 1l1.5 3.5L12 6l-3.5 1.5L7 11l-1.5-3.5L2 6l3.5-1.5L7 1z" />
+                              </svg>
+                              {testingId === p.id ? "..." : t("platform.quickTest", "快速测试")}
+                            </button>
+                            <button
+                              className="btn btn-ghost"
+                              style={{ fontSize: 11, padding: "3px 6px", borderRadius: "0 6px 6px 0" }}
+                              onClick={(e) => { e.stopPropagation(); setTestingPlatform(p); }}
+                              title={t("platform.customTest", "自定义测试")}
+                            >
+                              <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M3 5l4 4 4-4" />
+                              </svg>
+                            </button>
+                          </div>
+                          <button className="btn btn-ghost btn-icon" onClick={(e) => { e.stopPropagation(); handleEdit(p); }}>
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M10 2l2 2-7 7H3v-2l7-7z" />
+                            </svg>
+                          </button>
+                          <button className="btn btn-ghost btn-icon btn-danger" onClick={(e) => { e.stopPropagation(); handleDelete(p.id); }}>
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  >
+                    {hasDetail && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        {/* 配额各档明细（coding plan tiers，色编码） */}
+                        {showQuota && quota.tiers.length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.quotaLabel", "额度")}</span>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              {quota.tiers.map(tier => (
+                                <StatChip key={tier.name} icon={<IconCoin size={13} />} value={`${tier.remainPct.toFixed(0)}%`} label={tierLabel(tier.name)} color={utilColor(tier.utilization)} />
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {/* Endpoints badges */}
+                        {p.endpoints && p.endpoints.length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.endpoints", "Protocol Endpoints")}</span>
+                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                              {p.endpoints.map((ep, ei) => (
+                                <span key={ei} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px", opacity: 0.85 }}>
+                                  {PROTOCOL_LABELS[ep.protocol] || ep.protocol}
+                                  {ep.coding_plan && <span style={{ color: "var(--color-success)", marginLeft: 2, fontWeight: 700 }}>Code</span>}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {/* 模型 badges */}
+                        {configuredModels.length > 0 && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.models")}</span>
+                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+                              {configuredModels.map((m, mi) => (
+                                <span key={mi} className="badge badge-muted" style={{ fontSize: 11, padding: "2px 6px" }}>{m}</span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </CompactCard>
                   </div>
-                  <button className="btn btn-ghost btn-icon" onClick={() => handleEdit(p)}>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M10 2l2 2-7 7H3v-2l7-7z" />
-                    </svg>
-                  </button>
-                  <button className="btn btn-ghost btn-icon btn-danger" onClick={() => handleDelete(p.id)}>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
-                    </svg>
-                  </button>
-                </div>
-              </div>
+                );
+              })()}
               </React.Fragment>
             );
           })}
@@ -2106,29 +2173,3 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   );
 }
 
-/** 去除尾部多余的零：0.111000 → 0.111, 10.10100 → 10.101, 0.000 → 0 */
-function trimZeros(s: string): string {
-  if (!s.includes(".")) return s;
-  return s.replace(/\.?0+$/, "");
-}
-
-function formatTokens(n: number): string {
-  if (n >= 1_000_000) return `${trimZeros((n / 1_000_000).toFixed(1))}M`;
-  if (n >= 1_000) return `${trimZeros((n / 1_000).toFixed(1))}K`;
-  return `${n}`;
-}
-
-function StatBadge({ icon, value, label, color }: { icon: React.ReactNode; value: string; label: string; color?: string }) {
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 5,
-      padding: "4px 10px", borderRadius: "var(--radius-sm)",
-      background: "var(--bg-glass)", border: "1px solid var(--border)",
-      fontSize: 12,
-    }}>
-      <span style={{ fontSize: 13 }}>{icon}</span>
-      <span style={{ fontWeight: 700, color: color || "var(--text-primary)" }}>{value}</span>
-      <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontWeight: 500 }}>{label}</span>
-    </div>
-  );
-}

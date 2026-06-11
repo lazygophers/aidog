@@ -18,6 +18,18 @@
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
+
+  /* ── Semantic status colors (theme-independent, contrast-safe on light+dark) ──
+     供 colorScale / StatChip / BalanceBar 等共享组件统一引用，避免散落硬编码十六进制。
+     现有 status-dot / badge 仍用裸十六进制，此处提供具名变量收敛后续用法。 */
+  --color-success: #2faa55;
+  --color-success-bg: rgba(52, 199, 89, 0.14);
+  --color-warning: #d98a13;
+  --color-warning-bg: rgba(255, 159, 10, 0.16);
+  --color-danger: #e0322b;
+  --color-danger-bg: rgba(255, 59, 48, 0.14);
+  --color-neutral: var(--text-secondary);
+  --color-neutral-bg: var(--bg-glass);
 }
 
 html,
@@ -381,6 +393,18 @@ select.input {
 }
 .card-item:hover .drag-handle {
   opacity: 0.5;
+}
+/* Inline drag handle (inside CompactCard header, not absolute-positioned) */
+.drag-handle-inline {
+  position: static;
+  width: auto;
+  height: auto;
+  opacity: 0.5;
+  border-radius: var(--radius-sm);
+  padding: 2px;
+}
+.drag-handle-inline:hover {
+  opacity: 1 !important;
 }
 .drag-handle:hover {
   opacity: 1 !important;
