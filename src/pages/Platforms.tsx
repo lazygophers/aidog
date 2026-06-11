@@ -88,6 +88,8 @@ const PROTOCOLS: ProtocolOption[] = [
   { value: "lemondata", label: "LemonData", keywords: ["lemondata"] },
   { value: "pipellm", label: "PIPELLM", keywords: ["pipellm"] },
   { value: "opencode", label: "OpenCode Go", keywords: ["opencode"] },
+  // ── 中转平台 ──
+  { value: "newapi", label: "New API", keywords: ["newapi", "new-api", "one-api", "oneapi", "中转"] },
   // ── 订阅透传 ──
   { value: "claude_code", label: "Claude Code 订阅（透传）", keywords: ["claude code", "订阅", "透传", "subscription", "passthrough"] },
   // ── 测试 ──
