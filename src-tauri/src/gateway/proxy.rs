@@ -264,8 +264,8 @@ async fn handle_proxy(
 
     // Upsert #2: group resolved
     log.group_name = group.name.clone();
-    // Auto-detect source_protocol from request path if group default doesn't match
-    let source_protocol = detect_source_protocol(&path, &group.source_protocol);
+    // Auto-detect source_protocol from request path (group no longer restricts inbound protocol)
+    let source_protocol = detect_source_protocol(&path);
     log.source_protocol = source_protocol.clone();
     upsert_log(&state, &log, &log_settings);
 
@@ -1020,15 +1020,15 @@ fn replace_model_in_json(bytes: &[u8], original_model: &str) -> Vec<u8> {
 /// - /v1/messages → anthropic
 /// - /v1/chat/completions, /v1/completions, /v1/responses, /models, /images, /audio → openai
 /// - /v1beta/models/... → gemini
-///   回退到分组默认的 source_protocol
-fn detect_source_protocol(path: &str, default: &str) -> String {
+///   回退到 anthropic
+fn detect_source_protocol(path: &str) -> String {
     // Strip group path prefix (e.g. /proxy/v1/chat/completions → /v1/chat/completions)
     let api_path = if let Some(idx) = path.find("/v1/") {
         &path[idx..]
     } else if path.contains("/v1beta/") {
         return "gemini".to_string();
     } else {
-        return default.to_string();
+        return "anthropic".to_string();
     };
 
     if api_path.starts_with("/v1/messages") {
@@ -1045,7 +1045,7 @@ fn detect_source_protocol(path: &str, default: &str) -> String {
     } else if path.contains("/v1beta/") {
         "gemini".to_string()
     } else {
-        default.to_string()
+        "anthropic".to_string()
     }
 }
 

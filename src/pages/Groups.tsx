@@ -85,7 +85,6 @@ export function Groups() {
   const [editMappings, setEditMappings] = useState<ModelMapping[]>([]);
   const [editReqTimeout, setEditReqTimeout] = useState(0);
   const [editConnTimeout, setEditConnTimeout] = useState(0);
-  const [editSourceProtocol, setEditSourceProtocol] = useState("anthropic");
 
   // Create mode
   const [showCreate, setShowCreate] = useState(false);
@@ -161,7 +160,6 @@ export function Groups() {
       connect_timeout_secs: m.connect_timeout_secs,
     })));
     setEditReqTimeout(detail.group.request_timeout_secs);
-      setEditSourceProtocol(detail.group.source_protocol || "anthropic");
     setEditConnTimeout(detail.group.connect_timeout_secs);
   };
 
@@ -187,7 +185,6 @@ export function Groups() {
         routing_mode: editMode,
         request_timeout_secs: editReqTimeout,
         connect_timeout_secs: editConnTimeout,
-        source_protocol: editSourceProtocol,
         model_mappings: editMappings,
       });
 
@@ -321,16 +318,6 @@ export function Groups() {
                 style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
               <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>0 = 系统默认</span>
             </div>
-          </div>
-
-          {/* Source protocol */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.sourceProtocol", "入站协议")}</span>
-            <select className="input" value={editSourceProtocol} onChange={e => setEditSourceProtocol(e.target.value)}
-              style={{ fontSize: F.body, padding: S.inputPad, width: 160 }}>
-              <option value="anthropic">Anthropic</option>
-              <option value="openai">OpenAI</option>
-            </select>
           </div>
 
           {/* Auto badge */}
