@@ -1809,7 +1809,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   gap: 14,
                   animationDelay: `${i * 50}ms`,
                   opacity: platDrag
-                    ? isDragging ? 0.3
+                    ? isDragging ? 0
                     : 0.4
                     : p.enabled ? 1 : 0.5,
                   transition: "transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease",

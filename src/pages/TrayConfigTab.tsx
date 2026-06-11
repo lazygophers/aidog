@@ -612,9 +612,9 @@ export function TrayConfigTab() {
                 className={`card-item${isDragging ? " is-dragging" : ""}`}
                 style={{
                   position: "relative", display: "flex", flexDirection: "column", gap: 0,
-                  // Drag: dragged item fades, others gray out
+                  // Drag: dragged item hidden, others gray out
                   opacity: drag
-                    ? isDragging ? 0.3
+                    ? isDragging ? 0
                     : 0.4
                     : item.enabled ? 1 : 0.5,
                   paddingLeft: 40, transition: "all 200ms ease",

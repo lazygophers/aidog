@@ -653,7 +653,7 @@ export function Groups() {
                 paddingLeft: 44,
                 animationDelay: `${i * 60}ms`,
                 cursor: "pointer",
-                opacity: groupDrag ? (isDragging ? 0.3 : 0.4) : undefined,
+                opacity: groupDrag ? (isDragging ? 0 : 0.4) : undefined,
                 transition: "transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease",
               }}
               onClick={() => {
