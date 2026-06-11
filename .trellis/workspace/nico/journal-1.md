@@ -286,3 +286,36 @@ platform +show_in_tray/tray_display(互斥单平台), migration 005; set_tray_pl
 ### Next Steps
 
 - None - task complete
+
+
+## Session 9: 分组平台拖动排序
+
+**Date**: 2026-06-11
+**Task**: 分组平台拖动排序
+**Branch**: `master`
+
+### Summary
+
+Groups 关联平台列表 HTML5 native 拖拽重排(dragIndex/reorder + ⠿手柄 + 视觉); saveEdit 按顺序设 priority(i+1) 复用; 后端 set_group_platforms/ORDER BY priority 无改. tsc 0.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `69fa530` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
