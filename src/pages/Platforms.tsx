@@ -840,6 +840,10 @@ function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
 export function Platforms() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
+  // ── Drag reorder for platform list ──
+  const [platDragIdx, setPlatDragIdx] = useState<number | null>(null);
+  const [platInsertIdx, setPlatInsertIdx] = useState<number | null>(null);
+  const wasPlatDragRef = useRef(false);
   const [usageMap, setUsageMap] = useState<Record<number, PlatformUsageStats>>({});
   const [quotaMap, setQuotaMap] = useState<Record<number, PlatformQuota>>({});
   // 手动刷新（真查校准）后的平台 id → 优先展示 quotaMap 真值而非预估
@@ -1758,16 +1762,62 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           {platforms.map((p, i) => {
             const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
             const configuredModels = allModelValues(p.models);
+            const isDragging = platDragIdx === i;
+            let shiftY = 0;
+            if (platDragIdx !== null && platInsertIdx !== null && !isDragging) {
+              if (platInsertIdx > platDragIdx) {
+                if (i > platDragIdx && i < platInsertIdx) shiftY = -1;
+              } else {
+                if (i >= platInsertIdx && i < platDragIdx) shiftY = 1;
+              }
+            }
             return (
               <div
                 key={p.id}
                 className="card-item"
+                draggable
+                onDragStart={e => { setPlatDragIdx(i); wasPlatDragRef.current = true; e.dataTransfer.effectAllowed = "move"; }}
+                onDragOver={e => {
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  const midY = rect.top + rect.height / 2;
+                  const insert = e.clientY < midY ? i : i + 1;
+                  if (platInsertIdx !== insert) setPlatInsertIdx(insert);
+                }}
+                onDragLeave={() => {}}
+                onDrop={e => {
+                  e.preventDefault();
+                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                  const midY = rect.top + rect.height / 2;
+                  let insert = e.clientY < midY ? i : i + 1;
+                  if (platDragIdx !== null) {
+                    if (insert > platDragIdx) insert--;
+                    if (platDragIdx !== insert) {
+                      const reordered = [...platforms];
+                      const [moved] = reordered.splice(platDragIdx, 1);
+                      reordered.splice(insert, 0, moved);
+                      setPlatforms(reordered);
+                      platformApi.reorder(reordered.map(pp => pp.id)).catch(console.error);
+                    }
+                  }
+                  setPlatDragIdx(null);
+                  setPlatInsertIdx(null);
+                }}
+                onDragEnd={() => {
+                  setPlatDragIdx(null);
+                  setPlatInsertIdx(null);
+                  setTimeout(() => { wasPlatDragRef.current = false; }, 50);
+                }}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 14,
                   animationDelay: `${i * 50}ms`,
-                  opacity: p.enabled ? 1 : 0.5,
+                  opacity: isDragging ? 0.3 : (p.enabled ? 1 : 0.5),
+                  transform: shiftY !== 0 ? `translateY(${shiftY * 6}px)` : undefined,
+                  transition: "opacity 0.15s, transform 0.15s ease",
+                  cursor: "default",
                 }}
               >
                 <div style={{ position: "relative", flexShrink: 0 }}>

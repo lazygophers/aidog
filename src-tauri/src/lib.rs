@@ -935,6 +935,11 @@ async fn platform_query_quota_newapi(base_url: String, api_key: String, extra: S
     Ok(gateway::quota::query_quota_newapi(&base_url, &api_key, &extra).await)
 }
 
+#[tauri::command]
+fn platform_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>) -> Result<(), String> {
+    db::reorder_platforms(&db, &ordered_ids)
+}
+
 // ─── Path Autocomplete ─────────────────────────────────────
 
 use serde::Serialize;
@@ -1563,6 +1568,7 @@ pub fn run() {
             // Platform Quota
             platform_query_quota,
             platform_query_quota_newapi,
+            platform_reorder,
             // Model Prices
             model_price_list,
             model_price_count,

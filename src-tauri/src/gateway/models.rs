@@ -299,6 +299,9 @@ pub struct Platform {
     /// tray 展示类型: "balance" | "coding"
     #[serde(default)]
     pub tray_display: String,
+    /// 排序权重（越小越靠前），0 = 按 created_at 排序
+    #[serde(default)]
+    pub sort_order: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -484,6 +487,81 @@ pub struct SetSettingInput {
     pub scope: String,
     pub key: String,
     pub value: serde_json::Value,
+}
+
+// ─── Tray Config (KV: scope=tray, key=config) ──────────────
+
+/// 单项颜色配置（三态）。
+/// - mode="follow": 跟随系统（labelColor，自适应明暗）
+/// - mode="preset": value ∈ {"red","green","orange"} → systemRed/Green/Orange（自适应明暗）
+/// - mode="custom": value = hex（如 "#RRGGBB"），固定色，可能在某主题下可读性差
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrayColor {
+    #[serde(default = "default_color_mode")]
+    pub mode: String,
+    #[serde(default)]
+    pub value: String,
+}
+
+fn default_color_mode() -> String { "follow".to_string() }
+
+impl Default for TrayColor {
+    fn default() -> Self {
+        Self { mode: default_color_mode(), value: String::new() }
+    }
+}
+
+/// 托盘单个展示项。
+/// - item_type="platform": platform_id 指定平台，display ∈ {"balance","coding"}
+/// - item_type="today_usage": metric ∈ {"tokens"}（MVP），display/platform_id 忽略
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrayItem {
+    #[serde(default = "default_item_type")]
+    pub item_type: String,
+    #[serde(default)]
+    pub platform_id: Option<u64>,
+    #[serde(default = "default_display")]
+    pub display: String,
+    #[serde(default)]
+    pub metric: Option<String>,
+    #[serde(default)]
+    pub color: TrayColor,
+    #[serde(default = "default_font_size")]
+    pub font_size: f64,
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    #[serde(default)]
+    pub order: i32,
+}
+
+fn default_item_type() -> String { "platform".to_string() }
+fn default_display() -> String { "balance".to_string() }
+fn default_font_size() -> f64 { 9.0 }
+
+/// 托盘整体配置（存 settings: scope="tray", key="config"）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TrayConfig {
+    /// "single_line"（分隔符拼接）| "two_line"（\n 换行，≤2 行）
+    #[serde(default = "default_layout")]
+    pub layout: String,
+    /// single_line 模式下各项之间的分隔符
+    #[serde(default = "default_separator")]
+    pub separator: String,
+    #[serde(default)]
+    pub items: Vec<TrayItem>,
+}
+
+fn default_layout() -> String { "single_line".to_string() }
+fn default_separator() -> String { "  ".to_string() }
+
+impl Default for TrayConfig {
+    fn default() -> Self {
+        Self {
+            layout: default_layout(),
+            separator: default_separator(),
+            items: Vec::new(),
+        }
+    }
 }
 
 // ─── ProxyLog ──────────────────────────────────────────────

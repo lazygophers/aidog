@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import {
   groupDetailApi, groupApi, platformApi,
@@ -90,7 +90,8 @@ export function Groups() {
 
   // ── Drag reorder for group list ──
   const [groupDragIdx, setGroupDragIdx] = useState<number | null>(null);
-  const [groupDragOverIdx, setGroupDragOverIdx] = useState<number | null>(null);
+  const [groupInsertIdx, setGroupInsertIdx] = useState<number | null>(null);
+  const wasGroupDragRef = useRef(false);
 
   // ── Drag reorder for selected platforms ──
   const reorderPlatforms = (from: number, to: number) => {
@@ -572,40 +573,66 @@ export function Groups() {
             </div>
           )}
           {details.map(({ group, platforms: gps, model_mappings }, i) => {
-            const isGroupDragging = groupDragIdx === i;
-            const isGroupDragOver = groupDragOverIdx === i && groupDragIdx !== null && groupDragIdx !== i;
+            const isDragging = groupDragIdx === i;
+            // 计算让位偏移：当拖拽项不在此位置时，根据 insertIdx 计算位移
+            let shiftY = 0;
+            if (groupDragIdx !== null && groupInsertIdx !== null && !isDragging) {
+              if (groupInsertIdx > groupDragIdx) {
+                // 向下拖：insertIdx 到 dragIdx 之间的项向上移
+                if (i > groupDragIdx && i < groupInsertIdx) shiftY = -1;
+              } else {
+                // 向上拖：insertIdx 到 dragIdx 之间的项向下移
+                if (i >= groupInsertIdx && i < groupDragIdx) shiftY = 1;
+              }
+            }
             return (
             <div
               key={group.id}
               className="card-item animate-fade-in"
               draggable
-              onDragStart={e => { setGroupDragIdx(i); e.dataTransfer.effectAllowed = "move"; }}
-              onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (groupDragOverIdx !== i) setGroupDragOverIdx(i); }}
-              onDragLeave={() => { if (groupDragOverIdx === i) setGroupDragOverIdx(null); }}
+              onDragStart={e => { setGroupDragIdx(i); wasGroupDragRef.current = true; e.dataTransfer.effectAllowed = "move"; }}
+              onDragOver={e => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                const insert = e.clientY < midY ? i : i + 1;
+                if (groupInsertIdx !== insert) setGroupInsertIdx(insert);
+              }}
+              onDragLeave={() => {}}
               onDrop={e => {
                 e.preventDefault();
-                if (groupDragIdx !== null && groupDragIdx !== i) {
-                  const reordered = [...details];
-                  const [moved] = reordered.splice(groupDragIdx, 1);
-                  reordered.splice(i, 0, moved);
-                  setDetails(reordered);
-                  groupApi.reorder(reordered.map(d => d.group.id)).catch(console.error);
+                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+                const midY = rect.top + rect.height / 2;
+                let insert = e.clientY < midY ? i : i + 1;
+                if (groupDragIdx !== null) {
+                  if (insert > groupDragIdx) insert--;
+                  if (groupDragIdx !== insert) {
+                    const reordered = [...details];
+                    const [moved] = reordered.splice(groupDragIdx, 1);
+                    reordered.splice(insert, 0, moved);
+                    setDetails(reordered);
+                    groupApi.reorder(reordered.map(d => d.group.id)).catch(console.error);
+                  }
                 }
                 setGroupDragIdx(null);
-                setGroupDragOverIdx(null);
+                setGroupInsertIdx(null);
               }}
-              onDragEnd={() => { setGroupDragIdx(null); setGroupDragOverIdx(null); }}
+              onDragEnd={() => {
+                setGroupDragIdx(null);
+                setGroupInsertIdx(null);
+                setTimeout(() => { wasGroupDragRef.current = false; }, 50);
+              }}
               style={{
                 position: "relative",
                 paddingLeft: 28,
                 animationDelay: `${i * 60}ms`,
                 cursor: "pointer",
-                opacity: isGroupDragging ? 0.4 : 1,
-                border: isGroupDragOver ? "1px solid var(--accent)" : undefined,
-                boxShadow: isGroupDragOver ? "0 0 0 1px var(--accent) inset" : undefined,
-                transition: "opacity 0.15s, border-color 0.15s",
+                opacity: isDragging ? 0.3 : 1,
+                transform: shiftY !== 0 ? `translateY(${shiftY * 6}px)` : undefined,
+                transition: "opacity 0.15s, transform 0.15s ease",
               }}
-              onClick={() => openEdit({ group, platforms: gps, model_mappings })}
+              onClick={() => { if (!wasGroupDragRef.current) openEdit({ group, platforms: gps, model_mappings }); }}
             >
               {/* Drag handle */}
               <span
@@ -615,7 +642,6 @@ export function Groups() {
                   cursor: "grab", color: "var(--text-tertiary)", fontSize: 14,
                   lineHeight: 1, userSelect: "none",
                 }}
-                onClick={e => e.stopPropagation()}
               >⠿</span>
               {/* Group Header */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>

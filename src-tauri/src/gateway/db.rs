@@ -61,6 +61,8 @@ impl Db {
         let _ = conn.execute("ALTER TABLE platform ADD COLUMN tray_display TEXT NOT NULL DEFAULT 'balance'", []);
         // Migration 006: group 排序权重
         let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
+        // Migration 007: platform 排序权重
+        let _ = conn.execute("ALTER TABLE platform ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
         Ok(())
     }
 }
@@ -82,11 +84,11 @@ fn retention_cutoff(days: u32) -> Option<i64> {
 
 /// SELECT 列序
 const PLATFORM_COLUMNS: &str =
-    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display";
+    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order";
 
 /// 同 PLATFORM_COLUMNS，但每列加 `p.` 限定，用于与其他表 JOIN 时消除同名列歧义（如 created_at/updated_at）
 const PLATFORM_COLUMNS_PREFIXED: &str =
-    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display";
+    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display, p.sort_order";
 
 /// 从查询行构造 Platform
 fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -114,6 +116,7 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         estimate_count: row.get(15)?,
         show_in_tray: row.get::<_, i64>(16)? == 1,
         tray_display: row.get(17)?,
+        sort_order: row.get::<_, i64>(18)?,
     })
 }
 
@@ -161,12 +164,13 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, S
         estimate_count: 0,
         show_in_tray: false,
         tray_display: "balance".to_string(),
+        sort_order: 0,
     })
 }
 
 pub fn list_platforms(db: &Db) -> Result<Vec<Platform>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE deleted_at = 0 ORDER BY created_at");
+    let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE deleted_at = 0 ORDER BY sort_order, created_at");
     let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], row_to_platform)
@@ -293,6 +297,77 @@ pub fn get_tray_platform(db: &Db) -> Result<Option<Platform>, String> {
     Ok(result)
 }
 
+// ─── Tray Config (settings: scope="tray", key="config") ────
+
+/// 读取 TrayConfig。无配置时（首次/升级）从旧 `show_in_tray=1` 平台迁移生成默认配置并持久化。
+/// 返回 None 仅当迁移后仍无任何 enabled 平台（即旧配置也为空）。
+pub fn get_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
+    if let Some(v) = get_setting(db, "tray", "config")? {
+        if !v.is_null() {
+            // 容错解析：损坏配置回退默认空（避免整条链 panic）。
+            let cfg: TrayConfig = serde_json::from_value(v).unwrap_or_default();
+            return Ok(Some(cfg));
+        }
+    }
+    // 迁移：无 tray config → 从旧 show_in_tray=1 平台生成默认。
+    let migrated = migrate_tray_config(db)?;
+    Ok(migrated)
+}
+
+/// 从旧 `show_in_tray=1` 平台生成默认 TrayConfig 并存入 settings。
+/// 无旧平台 → 存空配置（避免每次启动重复迁移），返回空配置。
+fn migrate_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
+    let legacy = get_tray_platform(db)?;
+    let mut cfg = TrayConfig::default();
+    if let Some(p) = legacy {
+        let display = if p.tray_display == "coding" { "coding" } else { "balance" };
+        cfg.items.push(TrayItem {
+            item_type: "platform".to_string(),
+            platform_id: Some(p.id),
+            display: display.to_string(),
+            metric: None,
+            color: TrayColor::default(),
+            font_size: 9.0,
+            enabled: true,
+            order: 0,
+        });
+    }
+    set_tray_config(db, &cfg)?;
+    Ok(Some(cfg))
+}
+
+/// 写入 TrayConfig 到 settings。
+pub fn set_tray_config(db: &Db, cfg: &TrayConfig) -> Result<(), String> {
+    let value = serde_json::to_value(cfg).map_err(|e| format!("serialize tray config: {e}"))?;
+    set_setting(db, SetSettingInput {
+        scope: "tray".to_string(),
+        key: "config".to_string(),
+        value,
+    })
+}
+
+/// 今日（本地时区 00:00 起）累计 token 总量（input + output），未删除日志。
+pub fn today_token_total(db: &Db) -> Result<i64, String> {
+    use chrono::{Local, TimeZone};
+    let today = Local::now().date_naive();
+    let start_dt = today.and_hms_opt(0, 0, 0).ok_or("invalid local midnight")?;
+    let start_local = Local
+        .from_local_datetime(&start_dt)
+        .single()
+        .ok_or("ambiguous local midnight")?;
+    let start_ms = start_local.timestamp_millis();
+
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let total: i64 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(input_tokens + output_tokens), 0) FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
+            params![start_ms],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("today token total: {e}"))?;
+    Ok(total)
+}
+
 // ─── Group CRUD ────────────────────────────────────────────
 
 /// 序列化 / 反序列化内联 model_mappings
@@ -367,6 +442,18 @@ pub fn reorder_groups(db: &Db, ordered_ids: &[u64]) -> Result<(), String> {
             "UPDATE \"group\" SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
             params![(i + 1) as i64, now(), id as i64],
         ).map_err(|e| format!("reorder group {id}: {e}"))?;
+    }
+    Ok(())
+}
+
+/// 批量更新 platform 的 sort_order
+pub fn reorder_platforms(db: &Db, ordered_ids: &[u64]) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    for (i, &id) in ordered_ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE platform SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
+            params![(i + 1) as i64, now(), id as i64],
+        ).map_err(|e| format!("reorder platform {id}: {e}"))?;
     }
     Ok(())
 }
@@ -511,6 +598,7 @@ pub fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlatformDe
                     estimate_count: row.get(17)?,
                     show_in_tray: row.get::<_, i64>(18)? == 1,
                     tray_display: row.get(19)?,
+                    sort_order: 0,
                 },
                 priority: row.get(0)?,
                 weight: row.get(1)?,

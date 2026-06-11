@@ -282,6 +282,10 @@ export const platformApi = {
 
   delete: (id: number) => invoke<void>("platform_delete", { id }),
 
+  /** 拖拽排序：传入按新顺序排列的 platform id 列表 */
+  reorder: (orderedIds: number[]) =>
+    invoke<void>("platform_reorder", { orderedIds }),
+
   fetchModels: (protocol: Protocol, baseUrl: string, apiKey: string) =>
     invoke<string[]>("platform_fetch_models", { protocol, baseUrl, apiKey }),
 
