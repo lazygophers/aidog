@@ -660,9 +660,9 @@ function SearchableProtocolSelect({
 export function Platforms() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
-  const [usageMap, setUsageMap] = useState<Record<string, PlatformUsageStats>>({});
-  const [quotaMap, setQuotaMap] = useState<Record<string, PlatformQuota>>({});
-  const [testResults, setTestResults] = useState<Record<string, "ok" | "fail">>({});
+  const [usageMap, setUsageMap] = useState<Record<number, PlatformUsageStats>>({});
+  const [quotaMap, setQuotaMap] = useState<Record<number, PlatformQuota>>({});
+  const [testResults, setTestResults] = useState<Record<number, "ok" | "fail">>({});
   const [testingId, setTestingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Platform | null>(null);
@@ -719,7 +719,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       const list = await platformApi.list();
       setPlatforms(list || []);
       // Batch load usage stats
-      const statsMap: Record<string, PlatformUsageStats> = {};
+      const statsMap: Record<number, PlatformUsageStats> = {};
       await Promise.all((list || []).map(async (p) => {
         try {
           const s = await platformApi.usageStats(p.id);
@@ -728,7 +728,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       }));
       setUsageMap(statsMap);
       // Batch load quota (balance & coding plan)
-      const qMap: Record<string, PlatformQuota> = {};
+      const qMap: Record<number, PlatformQuota> = {};
       await Promise.all((list || []).map(async (p) => {
         if (!p.api_key) return;
         const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []);

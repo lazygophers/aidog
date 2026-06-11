@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS setting (
     UNIQUE(scope, key)
 );
 
+-- proxy_log PK 用无连字符 uuid（请求 ID），R7 uint64 主键规则的明示例外（R8）
 CREATE TABLE IF NOT EXISTS proxy_log (
     id                        TEXT PRIMARY KEY,
     group_name                TEXT NOT NULL DEFAULT '',
@@ -87,5 +88,5 @@ CREATE TABLE IF NOT EXISTS proxy_log (
     deleted_at                INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_proxy_log_group ON proxy_log(group_name);
-CREATE INDEX IF NOT EXISTS idx_proxy_log_created ON proxy_log(created_at);
+CREATE INDEX IF NOT EXISTS idx_proxy_log_group ON proxy_log(group_name) WHERE deleted_at = 0;
+CREATE INDEX IF NOT EXISTS idx_proxy_log_created ON proxy_log(created_at) WHERE deleted_at = 0;

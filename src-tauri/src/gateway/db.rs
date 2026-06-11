@@ -52,8 +52,16 @@ impl Db {
 }
 
 /// 当前毫秒级 Unix 时间戳
-fn now() -> i64 {
+pub(crate) fn now() -> i64 {
     chrono::Utc::now().timestamp_millis()
+}
+
+/// 计算保留期截止时间戳（毫秒）。`days == 0` 表示跳过清理，返回 None。
+fn retention_cutoff(days: u32) -> Option<i64> {
+    if days == 0 {
+        return None;
+    }
+    Some((chrono::Utc::now() - chrono::Duration::days(days as i64)).timestamp_millis())
 }
 
 // ─── Platform CRUD ─────────────────────────────────────────
@@ -435,6 +443,8 @@ pub fn get_group_detail(db: &Db, id: u64) -> Result<Option<GroupDetail>, String>
         None => return Ok(None),
     };
     let platforms = get_group_platforms(db, id)?;
+    // GroupDetail 同时携带 group（含其 model_mappings）与独立的 model_mappings 副本，
+    // 二者均被消费方读取（见测试 r4_group_detail_mappings_from_group_field），故须 clone 而非 move。
     let model_mappings = group.model_mappings.clone();
 
     Ok(Some(GroupDetail {
@@ -517,12 +527,48 @@ pub fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
 
 // ─── ProxyLog CRUD ─────────────────────────────────────────
 
+/// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
+const PROXY_LOG_COLUMNS: &str =
+    "id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at, updated_at, deleted_at";
+
+/// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
+fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
+    Ok(super::models::ProxyLog {
+        id: row.get(0)?,
+        group_name: row.get(1)?,
+        model: row.get(2)?,
+        actual_model: row.get(3)?,
+        source_protocol: row.get(4)?,
+        target_protocol: row.get(5)?,
+        platform_id: row.get::<_, i64>(6)? as u64,
+        request_headers: row.get(7)?,
+        request_body: row.get(8)?,
+        upstream_request_headers: row.get(9)?,
+        upstream_request_body: row.get(10)?,
+        response_body: row.get(11)?,
+        request_url: row.get(12)?,
+        upstream_request_url: row.get(13)?,
+        upstream_response_headers: row.get(14)?,
+        upstream_status_code: row.get(15)?,
+        user_response_headers: row.get(16)?,
+        user_response_body: row.get(17)?,
+        status_code: row.get(18)?,
+        duration_ms: row.get(19)?,
+        input_tokens: row.get(20)?,
+        output_tokens: row.get(21)?,
+        cache_tokens: row.get(22)?,
+        created_at: row.get(23)?,
+        updated_at: row.get(24)?,
+        deleted_at: row.get(25)?,
+    })
+}
+
 /// Upsert (INSERT OR REPLACE) a proxy log entry — used for incremental logging
 pub fn upsert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<(), String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT OR REPLACE INTO proxy_log (id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at, updated_at, deleted_at)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26)",
+        &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26)"),
         params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.created_at, log.updated_at, log.deleted_at],
     ).map_err(|e| format!("upsert proxy log: {e}"))?;
     Ok(())
@@ -560,43 +606,13 @@ pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::mo
 pub fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare(
-            "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at, updated_at, deleted_at
-             FROM proxy_log WHERE id = ?1 AND deleted_at = 0",
-        )
+        .prepare(&format!(
+            "SELECT {PROXY_LOG_COLUMNS} FROM proxy_log WHERE id = ?1 AND deleted_at = 0"
+        ))
         .map_err(|e| e.to_string())?;
-    stmt.query_row(params![id], |row| {
-        Ok(super::models::ProxyLog {
-            id: row.get(0)?,
-            group_name: row.get(1)?,
-            model: row.get(2)?,
-            actual_model: row.get(3)?,
-            source_protocol: row.get(4)?,
-            target_protocol: row.get(5)?,
-            platform_id: row.get::<_, i64>(6)? as u64,
-            request_headers: row.get(7)?,
-            request_body: row.get(8)?,
-            upstream_request_headers: row.get(9)?,
-            upstream_request_body: row.get(10)?,
-            response_body: row.get(11)?,
-            request_url: row.get(12)?,
-            upstream_request_url: row.get(13)?,
-            upstream_response_headers: row.get(14)?,
-            upstream_status_code: row.get(15)?,
-            user_response_headers: row.get(16)?,
-            user_response_body: row.get(17)?,
-            status_code: row.get(18)?,
-            duration_ms: row.get(19)?,
-            input_tokens: row.get(20)?,
-            output_tokens: row.get(21)?,
-            cache_tokens: row.get(22)?,
-            created_at: row.get(23)?,
-            updated_at: row.get(24)?,
-            deleted_at: row.get(25)?,
-        })
-    })
-    .optional()
-    .map_err(|e| e.to_string())
+    stmt.query_row(params![id], row_to_proxy_log)
+        .optional()
+        .map_err(|e| e.to_string())
 }
 
 pub fn clear_proxy_logs(db: &Db) -> Result<(), String> {
@@ -608,10 +624,7 @@ pub fn clear_proxy_logs(db: &Db) -> Result<(), String> {
 
 /// Delete logs older than N days. Pass 0 to skip.
 pub fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> Result<(), String> {
-    if retention_days == 0 {
-        return Ok(());
-    }
-    let cutoff = (chrono::Utc::now() - chrono::Duration::days(retention_days as i64)).timestamp_millis();
+    let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute("UPDATE proxy_log SET deleted_at = ?1 WHERE created_at < ?2 AND deleted_at = 0", params![now(), cutoff])
         .map_err(|e| format!("cleanup proxy logs: {e}"))?;
@@ -621,10 +634,7 @@ pub fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> Result<(), String> {
 /// Clear user request fields (headers, body, user response) for logs older than retention_days.
 /// Does NOT delete the log row — keeps token stats and metadata.
 pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
-    if retention_days == 0 {
-        return Ok(());
-    }
-    let cutoff = (chrono::Utc::now() - chrono::Duration::days(retention_days as i64)).timestamp_millis();
+    let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE proxy_log SET request_headers = '', request_body = '', user_response_headers = '', user_response_body = '' WHERE created_at < ?1 AND (request_headers != '' OR request_body != '')",
@@ -636,10 +646,7 @@ pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> Result<(), S
 /// Clear upstream request fields (headers, body, response headers) for logs older than retention_days.
 /// Does NOT delete the log row — keeps token stats and metadata.
 pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
-    if retention_days == 0 {
-        return Ok(());
-    }
-    let cutoff = (chrono::Utc::now() - chrono::Duration::days(retention_days as i64)).timestamp_millis();
+    let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
         "UPDATE proxy_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '' WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '')",
@@ -654,17 +661,19 @@ pub fn count_proxy_logs(db: &Db) -> Result<u32, String> {
         .map_err(|e| e.to_string())
 }
 
-pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> Result<super::models::PlatformUsageStats, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    // platform_id 现为整数；自动分组日志可能未带 platform_id（=0），通过 group.auto_from_platform（存十进制字符串）回溯
-    let where_clause = "deleted_at = 0 AND (platform_id = ?1 OR (platform_id = 0 AND group_name IN (SELECT name FROM \"group\" WHERE auto_from_platform = ?2 AND deleted_at = 0)))";
-    // Overall stats
+/// 共用使用量聚合：按给定 WHERE 子句统计总量 + 最近 5 次健康度。
+/// `where_clause` 不含 `WHERE` 关键字；`params` 须与 `where_clause` 占位符一一对应。
+fn usage_stats(
+    conn: &Connection,
+    where_clause: &str,
+    params: &[&dyn rusqlite::types::ToSql],
+) -> SqlResult<super::models::PlatformUsageStats> {
     let stats: super::models::PlatformUsageStats = conn.query_row(
         &format!("SELECT COUNT(*), \
          SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
          SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens) \
          FROM proxy_log WHERE {where_clause}"),
-        params![platform_id as i64, platform_id.to_string()],
+        params,
         |row| {
             let total: i64 = row.get(0).unwrap_or(0);
             let success: i64 = row.get(1).unwrap_or(0);
@@ -681,15 +690,15 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> Result<super::mode
                 recent_failures: 0,
                 recent_total: 0,
             })
-        }
-    ).map_err(|e| format!("platform usage stats: {e}"))?;
+        },
+    )?;
 
     // Recent 5 requests health
     let (recent_failures, recent_total): (i64, i64) = conn.query_row(
         &format!("SELECT COUNT(*), SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END) \
          FROM (SELECT status_code FROM proxy_log WHERE {where_clause} ORDER BY created_at DESC LIMIT 5)"),
-        params![platform_id as i64, platform_id.to_string()],
-        |row| Ok((row.get(1).unwrap_or(0), row.get(0).unwrap_or(0)))
+        params,
+        |row| Ok((row.get(1).unwrap_or(0), row.get(0).unwrap_or(0))),
     ).unwrap_or((0, 0));
 
     Ok(super::models::PlatformUsageStats {
@@ -699,45 +708,20 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> Result<super::mode
     })
 }
 
+pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> Result<super::models::PlatformUsageStats, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    // platform_id 现为整数；自动分组日志可能未带 platform_id（=0），通过 group.auto_from_platform（存十进制字符串）回溯
+    let where_clause = "deleted_at = 0 AND (platform_id = ?1 OR (platform_id = 0 AND group_name IN (SELECT name FROM \"group\" WHERE auto_from_platform = ?2 AND deleted_at = 0)))";
+    let pid = platform_id as i64;
+    let pid_str = platform_id.to_string();
+    usage_stats(&conn, where_clause, &[&pid, &pid_str])
+        .map_err(|e| format!("platform usage stats: {e}"))
+}
+
 pub fn get_group_usage_stats(db: &Db, group_name: &str) -> Result<super::models::PlatformUsageStats, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let stats: super::models::PlatformUsageStats = conn.query_row(
-        "SELECT COUNT(*), \
-         SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
-         SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens) \
-         FROM proxy_log WHERE group_name = ?1 AND deleted_at = 0",
-        params![group_name],
-        |row| {
-            let total: i64 = row.get(0).unwrap_or(0);
-            let success: i64 = row.get(1).unwrap_or(0);
-            let inp: i64 = row.get(2).unwrap_or(0);
-            let out: i64 = row.get(3).unwrap_or(0);
-            let cache: i64 = row.get(4).unwrap_or(0);
-            Ok(super::models::PlatformUsageStats {
-                total_requests: total,
-                success_count: success,
-                total_input_tokens: inp,
-                total_output_tokens: out,
-                total_cache_tokens: cache,
-                cache_rate: if inp > 0 { cache as f64 / inp as f64 * 100.0 } else { 0.0 },
-                recent_failures: 0,
-                recent_total: 0,
-            })
-        }
-    ).map_err(|e| format!("group usage stats: {e}"))?;
-
-    let (recent_failures, recent_total): (i64, i64) = conn.query_row(
-        "SELECT COUNT(*), SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END) \
-         FROM (SELECT status_code FROM proxy_log WHERE group_name = ?1 AND deleted_at = 0 ORDER BY created_at DESC LIMIT 5)",
-        params![group_name],
-        |row| Ok((row.get(1).unwrap_or(0), row.get(0).unwrap_or(0)))
-    ).unwrap_or((0, 0));
-
-    Ok(super::models::PlatformUsageStats {
-        recent_failures,
-        recent_total,
-        ..stats
-    })
+    usage_stats(&conn, "group_name = ?1 AND deleted_at = 0", &[&group_name])
+        .map_err(|e| format!("group usage stats: {e}"))
 }
 
 struct QueryParams {

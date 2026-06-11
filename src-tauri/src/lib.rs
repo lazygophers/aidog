@@ -61,12 +61,16 @@ fn ensure_platform_groups(db: &Db) {
         Ok(p) => p,
         Err(e) => { tracing::error!("ensure_platform_groups: list_platforms failed: {e}"); return; }
     };
+    // 一次性取出已有分组的 auto_from_platform 集合，避免循环内重复全表查询（N+1）
+    let mut existing_auto: std::collections::HashSet<String> = db::list_groups(db)
+        .unwrap_or_default()
+        .into_iter()
+        .map(|g| g.auto_from_platform)
+        .collect();
     for platform in &platforms {
         // 检查是否已存在关联此平台的分组
-        let groups = db::list_groups(db).unwrap_or_default();
         let platform_id_str = platform.id.to_string();
-        let exists = groups.iter().any(|g| g.auto_from_platform == platform_id_str);
-        if exists {
+        if existing_auto.contains(&platform_id_str) {
             continue;
         }
         // 自动创建分组 — path 用平台 ID 前缀避免同名协议冲突
@@ -86,6 +90,7 @@ fn ensure_platform_groups(db: &Db) {
             Ok(g) => g,
             Err(e) => { tracing::error!("ensure_platform_groups: create_group failed for {}: {e}", platform.name); continue; }
         };
+        existing_auto.insert(platform_id_str);
         // 将平台关联到自动分组
         if let Err(e) = db::set_group_platforms(db, group.id, &[GroupPlatformInput {
             platform_id: platform.id,
@@ -493,7 +498,7 @@ async fn model_test(
 
     let start = std::time::Instant::now();
     let request_id = uuid::Uuid::new_v4().simple().to_string();
-    let created_at = chrono::Utc::now().timestamp_millis();
+    let created_at = gateway::db::now();
 
     let req_builder = client
         .post(&url)

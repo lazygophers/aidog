@@ -130,7 +130,7 @@ async fn handle_proxy(
 ) -> Response {
     let start = std::time::Instant::now();
     let request_id = uuid::Uuid::new_v4().simple().to_string();
-    let created_at = chrono::Utc::now().timestamp_millis();
+    let created_at = super::db::now();
 
     // Load log settings once per request
     let log_settings = {
@@ -226,25 +226,16 @@ async fn handle_proxy(
         let db_result = state.db.lock().map_err(|e| e.to_string());
         match db_result {
             Ok(db) => {
-                if let Some(ref token) = auth_header {
-                    if let Some(g) = find_group_by_name(&db, token) {
-                        g
-                    } else {
-                        match find_group_by_path(&db, &path) {
-                            Some(g) => g,
-                            None => {
-                                log.response_body = format!("no matching group for token '{}' or path '{}'", token, path);
-                                log.status_code = 404;
-                                log.duration_ms = start.elapsed().as_millis() as i32;
-                                upsert_log(&state, &log, &log_settings);
-                                return (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
-                            }
-                        }
-                    }
-                } else {
-                    match find_group_by_path(&db, &path) {
-                        Some(g) => g,
-                        None => {
+                match resolve_group(&db, auth_header.as_deref(), &path) {
+                    Some(g) => g,
+                    None => {
+                        if let Some(ref token) = auth_header {
+                            log.response_body = format!("no matching group for token '{}' or path '{}'", token, path);
+                            log.status_code = 404;
+                            log.duration_ms = start.elapsed().as_millis() as i32;
+                            upsert_log(&state, &log, &log_settings);
+                            return (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
+                        } else {
                             log.response_body = "no matching group".to_string();
                             log.status_code = 404;
                             log.duration_ms = start.elapsed().as_millis() as i32;
@@ -635,16 +626,17 @@ fn detect_source_protocol(path: &str, default: &str) -> String {
     }
 }
 
-/// 根据 path 前缀匹配分组
-fn find_group_by_path(db: &Db, request_path: &str) -> Option<Group> {
+/// 在已取出的分组列表中按 group name 精确匹配，匹配不到再按 path 前缀匹配。
+/// 单次 list_groups → 同一 Vec 上跑两种匹配，避免热路径重复全表读 + 重复 mappings JSON 解析。
+/// 行为等价于原「先 name 后 path」优先级。
+fn resolve_group(db: &Db, name: Option<&str>, request_path: &str) -> Option<Group> {
     let groups = super::db::list_groups(db).ok()?;
+    if let Some(name) = name {
+        if let Some(idx) = groups.iter().position(|g| g.name == name) {
+            return groups.into_iter().nth(idx);
+        }
+    }
     groups.into_iter().find(|g| request_path.starts_with(&g.path))
-}
-
-/// 根据 group name 精确匹配分组
-fn find_group_by_name(db: &Db, name: &str) -> Option<Group> {
-    let groups = super::db::list_groups(db).ok()?;
-    groups.into_iter().find(|g| g.name == name)
 }
 
 // ─── 客户端模拟 Header ────────────────────────────────────────
