@@ -1723,41 +1723,47 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     onClick={() => handleToggle(p)}
                     title={p.enabled ? "Disable" : "Enable"}
                   />
-                  <button className="btn btn-ghost" style={{ fontSize: 11, gap: 4, padding: "3px 8px" }}
-                    disabled={testingId === p.id}
-                    onClick={async () => {
-                      setTestingId(p.id);
-                      try {
-                        const defaultModel = p.models.default || p.available_models[0] || "";
-                        const r = await modelTestApi.test({ platform_id: p.id, model: defaultModel, max_tokens: 64 });
-                        setTestResults(prev => ({ ...prev, [p.id]: r.success ? "ok" : "fail" }));
-                        setToast({ text: r.success
-                          ? `${p.name}: ${t("platform.testOk", "测试成功")}${r.duration_ms > 0 ? ` (${r.duration_ms}ms)` : ""}`
-                          : `${p.name}: ${r.error || t("platform.testFail", "测试失败")}`,
-                          ok: r.success });
-                      } catch (e: any) {
-                        setTestResults(prev => ({ ...prev, [p.id]: "fail" }));
-                        setToast({ text: `${p.name}: ${e?.message || t("platform.testFail", "测试失败")}`, ok: false });
-                      }
-                      setTestingId(null);
-                      setTimeout(() => setToast(null), 3000);
-                    }}
-                    title={t("platform.quickTest", "快速测试默认模型")}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M7 1l1.5 3.5L12 6l-3.5 1.5L7 11l-1.5-3.5L2 6l3.5-1.5L7 1z" />
-                    </svg>
-                    {testingId === p.id ? "..." : t("platform.quickTest", "快速测试")}
-                  </button>
-                  <button className="btn btn-ghost" style={{ fontSize: 11, gap: 4, padding: "3px 8px" }}
-                    onClick={() => setTestingPlatform(p)}
-                    title={t("platform.customTest", "自定义测试")}
-                  >
-                    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M10 2l2 2-7 7H3v-2l7-7z" />
-                    </svg>
-                    {t("platform.customTest", "自定义")}
-                  </button>
+                  {/* Split test button: left = quick test, right = custom test dialog */}
+                  <div style={{ display: "inline-flex", fontSize: 11 }}>
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 11, gap: 4, padding: "3px 8px", borderRadius: "6px 0 0 6px", borderRight: "1px solid var(--border)" }}
+                      disabled={testingId === p.id}
+                      onClick={async () => {
+                        setTestingId(p.id);
+                        try {
+                          const defaultModel = p.models.default || p.available_models[0] || "";
+                          const r = await modelTestApi.test({ platform_id: p.id, model: defaultModel, max_tokens: 64 });
+                          setTestResults(prev => ({ ...prev, [p.id]: r.success ? "ok" : "fail" }));
+                          setToast({ text: r.success
+                            ? `${p.name}: ${t("platform.testOk", "测试成功")}${r.duration_ms > 0 ? ` (${r.duration_ms}ms)` : ""}`
+                            : `${p.name}: ${r.error || t("platform.testFail", "测试失败")}`,
+                            ok: r.success });
+                        } catch (e: any) {
+                          setTestResults(prev => ({ ...prev, [p.id]: "fail" }));
+                          setToast({ text: `${p.name}: ${e?.message || t("platform.testFail", "测试失败")}`, ok: false });
+                        }
+                        setTestingId(null);
+                        setTimeout(() => setToast(null), 3000);
+                      }}
+                      title={t("platform.quickTest", "快速测试默认模型")}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7 1l1.5 3.5L12 6l-3.5 1.5L7 11l-1.5-3.5L2 6l3.5-1.5L7 1z" />
+                      </svg>
+                      {testingId === p.id ? "..." : t("platform.quickTest", "快速测试")}
+                    </button>
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 11, padding: "3px 6px", borderRadius: "0 6px 6px 0" }}
+                      onClick={() => setTestingPlatform(p)}
+                      title={t("platform.customTest", "自定义测试")}
+                    >
+                      <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M3 5l4 4 4-4" />
+                      </svg>
+                    </button>
+                  </div>
                   <button className="btn btn-ghost btn-icon" onClick={() => handleEdit(p)}>
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M10 2l2 2-7 7H3v-2l7-7z" />
