@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端目录/组件/状态/Hook/类型/API 强制规则 — 新建 utils/formatters + components/shared 须遵守"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "抽 formatters/共享组件前查已有实现，避免重复；替换 Groups/Stats/Logs 重复定义"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "列表/详情走 platformApi/groupApi/statsApi/quotaApi，禁破坏契约字段"}
