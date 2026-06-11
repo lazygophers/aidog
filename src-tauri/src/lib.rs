@@ -1616,23 +1616,13 @@ fn set_tray_attributed_title(
         para.setMaximumLineHeight(line_h);
         para.setLineSpacing(0.0);
 
-        // 值行段落样式：第二行（值）相对第一行（标签）右对齐——标签左对齐列起、值右对齐列末。
-        // 用 RightTabStopType tab stop（位置 = 列右边界）：值在 tab 后右对齐到该 tab location。
-        // 仅两行模式构造；单行模式不用。
-        let para_value = NSMutableParagraphStyle::new();
-        para_value.setAlignment(NSTextAlignment::Left);
-        para_value.setMinimumLineHeight(line_h);
-        para_value.setMaximumLineHeight(line_h);
-        para_value.setLineSpacing(0.0);
-
-        // 两行模式：按各列「显示宽」累加生成 NSTextTab 列位置。
+        // 两行模式：两行共用同一个段落样式（para），均使用 LeftTabStopType。
         // 列宽 = max(第一行该列文字, 第二行该列文字) 估宽 + padding；位置累加（loc = 各列右边界）。
-        // 标签行（para）：left tab @列右边界（= 下一列起点），标签左对齐。
-        // 值行（para_value）：right tab @列右边界，值右对齐到列末。
+        // 两行都用 left tab @列右边界：标签和值均左对齐，同一列两行起始位置相同 → 列边界对齐。
+        // （之前值行用 RightTabStopType 导致第二行右边界与第一行不对齐，现统一为 LeftTabStopType。）
         if two_line_mode {
             const COL_PADDING: f64 = 6.0;
             let mut left_tabs: Vec<Retained<NSTextTab>> = Vec::new();
-            let mut right_tabs: Vec<Retained<NSTextTab>> = Vec::new();
             let mut loc: f64 = 0.0;
             for col in columns.iter() {
                 // 该列第一行文字
@@ -1647,22 +1637,15 @@ fn set_tray_attributed_title(
                 let w2 = estimate_text_width(&line2, col.font_size);
                 let col_w = w1.max(w2) + COL_PADDING;
                 loc += col_w;
-                // loc = 该列右边界：标签行 left tab（= 下一列起点）；值行 right tab（值右对齐到此）。
+                // loc = 该列右边界：两行都用 LeftTabStopType，文本左对齐到 tab 位置。
                 left_tabs.push(NSTextTab::initWithType_location(
                     NSTextTab::alloc(),
                     NSTextTabType::LeftTabStopType,
                     loc,
                 ));
-                right_tabs.push(NSTextTab::initWithType_location(
-                    NSTextTab::alloc(),
-                    NSTextTabType::RightTabStopType,
-                    loc,
-                ));
             }
             let left_array: Retained<NSArray<NSTextTab>> = NSArray::from_retained_slice(&left_tabs);
             para.setTabStops(Some(&left_array));
-            let right_array: Retained<NSArray<NSTextTab>> = NSArray::from_retained_slice(&right_tabs);
-            para_value.setTabStops(Some(&right_array));
         }
 
         // baselineOffset：正值上移、负值下移。AppKit 两行小字默认贴顶 → 用负偏移把整块下推到垂直居中。
@@ -1676,7 +1659,7 @@ fn set_tray_attributed_title(
         let color_key: &NSString = unsafe { NSForegroundColorAttributeName };
 
         // 构造单段 attributed string（文字 + 字号 + 颜色 + 指定段落/baseline）。
-        // para_style：标签行/单行用 `para`（left tab）；值行用 `para_value`（right tab）。
+        // 两行模式：标签行和值行共用 `para`（LeftTabStopType），列边界自然对齐。
         let make_part = |text: &str, font_size: f64, color: &TrayColor, para_style: &NSMutableParagraphStyle| -> Retained<NSAttributedString> {
             let ns_text = NSString::from_str(text);
             let font: Retained<NSFont> = NSFont::menuBarFontOfSize(font_size);
@@ -1727,21 +1710,22 @@ fn set_tray_attributed_title(
             // 行间换行
             let nl_font = columns.first().map(|c| c.font_size).unwrap_or(TRAY_FONT_SIZE);
             result.appendAttributedString(&make_part("\n", nl_font, &follow_color, &para));
-            // 第二行（值行）：各列次段（two_line→value；single→空占位），整行用 `para_value`（right tab）。
+            // 第二行（值行）：与标签行相同结构——\t 仅在 idx>0 时输出，共用 `para`（LeftTabStopType）。
+            // 同一列两行起始位置相同 → 列左右边界对齐。
             for (idx, col) in columns.iter().enumerate() {
-                result.appendAttributedString(&make_part("\t", col.font_size, &follow_color, &para_value));
-                // gap 文字也出现在第二行（保持对齐）
                 if idx > 0 {
+                    result.appendAttributedString(&make_part("\t", col.font_size, &follow_color, &para));
+                    // gap 文字也出现在第二行（保持对齐）
                     let gap_text = gaps.get(idx - 1)
                         .and_then(|g| g.clone())
                         .unwrap_or_default();
                     if !gap_text.is_empty() {
-                        result.appendAttributedString(&make_part(&gap_text, col.font_size, &follow_color, &para_value));
+                        result.appendAttributedString(&make_part(&gap_text, col.font_size, &follow_color, &para));
                     }
                 }
                 let line2 = if col.two_line { col.value.clone() } else { String::new() };
                 if !line2.is_empty() {
-                    result.appendAttributedString(&make_part(&line2, col.font_size, &col.color, &para_value));
+                    result.appendAttributedString(&make_part(&line2, col.font_size, &col.color, &para));
                 }
             }
         } else {
