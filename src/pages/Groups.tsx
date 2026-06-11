@@ -88,6 +88,10 @@ export function Groups() {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
+  // ── Drag reorder for group list ──
+  const [groupDragIdx, setGroupDragIdx] = useState<number | null>(null);
+  const [groupDragOverIdx, setGroupDragOverIdx] = useState<number | null>(null);
+
   // ── Drag reorder for selected platforms ──
   const reorderPlatforms = (from: number, to: number) => {
     if (from === to) return;
@@ -567,13 +571,52 @@ export function Groups() {
               <div className="text-tertiary" style={{ fontSize: 13 }}>{t("group.empty")}</div>
             </div>
           )}
-          {details.map(({ group, platforms: gps, model_mappings }, i) => (
+          {details.map(({ group, platforms: gps, model_mappings }, i) => {
+            const isGroupDragging = groupDragIdx === i;
+            const isGroupDragOver = groupDragOverIdx === i && groupDragIdx !== null && groupDragIdx !== i;
+            return (
             <div
               key={group.id}
               className="card-item animate-fade-in"
-              style={{ animationDelay: `${i * 60}ms`, cursor: "pointer" }}
+              draggable
+              onDragStart={e => { setGroupDragIdx(i); e.dataTransfer.effectAllowed = "move"; }}
+              onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (groupDragOverIdx !== i) setGroupDragOverIdx(i); }}
+              onDragLeave={() => { if (groupDragOverIdx === i) setGroupDragOverIdx(null); }}
+              onDrop={e => {
+                e.preventDefault();
+                if (groupDragIdx !== null && groupDragIdx !== i) {
+                  const reordered = [...details];
+                  const [moved] = reordered.splice(groupDragIdx, 1);
+                  reordered.splice(i, 0, moved);
+                  setDetails(reordered);
+                  groupApi.reorder(reordered.map(d => d.group.id)).catch(console.error);
+                }
+                setGroupDragIdx(null);
+                setGroupDragOverIdx(null);
+              }}
+              onDragEnd={() => { setGroupDragIdx(null); setGroupDragOverIdx(null); }}
+              style={{
+                position: "relative",
+                paddingLeft: 28,
+                animationDelay: `${i * 60}ms`,
+                cursor: "pointer",
+                opacity: isGroupDragging ? 0.4 : 1,
+                border: isGroupDragOver ? "1px solid var(--accent)" : undefined,
+                boxShadow: isGroupDragOver ? "0 0 0 1px var(--accent) inset" : undefined,
+                transition: "opacity 0.15s, border-color 0.15s",
+              }}
               onClick={() => openEdit({ group, platforms: gps, model_mappings })}
             >
+              {/* Drag handle */}
+              <span
+                title={t("group.dragToReorder", "拖动排序")}
+                style={{
+                  position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
+                  cursor: "grab", color: "var(--text-tertiary)", fontSize: 14,
+                  lineHeight: 1, userSelect: "none",
+                }}
+                onClick={e => e.stopPropagation()}
+              >⠿</span>
               {/* Group Header */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                 <div style={{
@@ -740,7 +783,8 @@ export function Groups() {
                 </div>
               )}
             </div>
-          ))}
+          );
+          })}
         </div>
       )}
     </div>

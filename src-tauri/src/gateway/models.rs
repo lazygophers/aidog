@@ -354,6 +354,9 @@ pub struct Group {
     /// 入站协议（默认 anthropic）
     #[serde(default = "default_source_protocol")]
     pub source_protocol: String,
+    /// 排序权重（越小越靠前），0 = 按 created_at 排序
+    #[serde(default)]
+    pub sort_order: i64,
     /// 模型映射（内联 JSON 数组）
     #[serde(default)]
     pub model_mappings: Vec<ModelMapping>,

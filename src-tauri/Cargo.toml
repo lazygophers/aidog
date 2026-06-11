@@ -38,6 +38,6 @@ tracing-appender = "0.2"
 # Tauri minor 升级可能更新 tray-icon → 需同步本处版本。
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
-objc2-foundation = { version = "0.3", features = ["NSString", "NSDictionary", "NSAttributedString", "NSGeometry"] }
+objc2-foundation = { version = "0.3", features = ["NSString", "NSDictionary", "NSAttributedString", "NSGeometry", "NSValue"] }
 objc2-app-kit = { version = "0.3", features = ["NSStatusItem", "NSStatusBarButton", "NSButton", "NSControl", "NSResponder", "NSView", "NSFont", "NSParagraphStyle", "NSAttributedString"] }
 

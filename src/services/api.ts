@@ -338,6 +338,10 @@ export const groupApi = {
 
   delete: (id: number) => invoke<void>("group_delete", { id }),
 
+  /** 拖拽排序：传入按新顺序排列的 group id 列表 */
+  reorder: (orderedIds: number[]) =>
+    invoke<void>("group_reorder", { orderedIds }),
+
   setPlatforms: (
     groupId: number,
     platforms: { platform_id: number; priority?: number; weight?: number }[]

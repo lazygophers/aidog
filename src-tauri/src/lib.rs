@@ -279,6 +279,13 @@ fn group_detail_list(db: State<'_, Db>) -> Result<Vec<GroupDetail>, String> {
     db::list_group_details(&db)
 }
 
+#[tauri::command]
+fn group_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
+    db::reorder_groups(&db, &ordered_ids)?;
+    try_sync_settings(&app, &db);
+    Ok(())
+}
+
 // ─── Proxy Commands ────────────────────────────────────────
 
 use std::sync::Mutex as StdMutex;
@@ -1227,8 +1234,10 @@ use tauri::tray::TrayIconBuilder;
 /// 计算 tray 展示文字（选定平台的余额或 coding% 预估值）。无选定平台 / 无 est 返回 None。
 ///
 /// 返回两行纯文字（无 emoji）：第一行=平台名，第二行=余额。
-/// - coding plan（tray_display=="coding"）：第二行=`剩 {100-util}%`（剩余百分比）
-/// - balance：第二行=`{remaining:.2}`（总余额，纯数值）
+///
+/// 第二行数据驱动（不依赖 tray_display 字段，避免 coding plan 平台误显 0.00 余额）：
+/// - coding plan 平台（est_coding_plan 解析出有效 tiers）：第二行=`剩 {100-util}%`（剩余百分比）
+/// - 纯 balance 平台（est_coding_plan 空/无 tiers）：第二行=`{remaining:.2}`（总余额，纯数值）
 ///
 /// 注：macOS NSStatusItem set_title 对 `\n` 默认仅渲染单行（截断 / 取首行）。
 /// 经查 Tauri 2.0 set_title 透传给 NSStatusBarButton.title，不做多行布局，
@@ -1239,11 +1248,17 @@ fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
     let db = app.try_state::<Db>()?;
     let platform = db::get_tray_platform(&db).ok().flatten()?;
     let name = platform.name;
-    let second = if platform.tray_display == "coding" {
-        // coding：解析首 tier est_utilization，展示剩余百分比
-        let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
-        let tier = plan.tiers.first()?;
-        format!("剩 {:.0}%", (100.0 - tier.est_utilization).max(0.0))
+    // coding plan 判定（双信号，避免 GLM 等 coding 平台冷启动 tiers 为空时误显 0.00 余额）：
+    //   1) 用户显式 tray_display == "coding"（前端开 tray 时选定，最强意图）；
+    //   2) est_coding_plan 解析出首 tier（数据驱动，平台具 coding plan 能力）。
+    // 任一成立即视为 coding plan 平台，优先展示剩余%；纯 balance 平台展示总余额。
+    let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
+    let first_tier = plan.tiers.first();
+    let is_coding = platform.tray_display == "coding" || first_tier.is_some();
+    let second = if is_coding {
+        // 有 tier 用真实预估利用率；冷启动（tiers 空但 tray_display=coding）显 100%（未消耗）。
+        let util = first_tier.map(|t| t.est_utilization).unwrap_or(0.0);
+        format!("剩 {:.0}%", (100.0 - util).max(0.0))
     } else {
         // balance：est_balance_remaining 总余额（纯数值）
         format!("{:.2}", platform.est_balance_remaining)
@@ -1308,7 +1323,8 @@ fn set_tray_attributed_title(tray: &tauri::tray::TrayIcon, text: String) -> Resu
     use objc2::rc::Retained;
     use objc2_app_kit::{NSFont, NSFontAttributeName, NSParagraphStyleAttributeName};
     use objc2_app_kit::{NSMutableParagraphStyle, NSTextAlignment};
-    use objc2_foundation::{NSAttributedString, NSDictionary, NSString};
+    use objc2_app_kit::NSBaselineOffsetAttributeName;
+    use objc2_foundation::{NSAttributedString, NSDictionary, NSNumber, NSString};
     use objc2::AnyThread;
 
     tray.with_inner_tray_icon(move |inner| -> Result<(), String> {
@@ -1326,17 +1342,29 @@ fn set_tray_attributed_title(tray: &tauri::tray::TrayIcon, text: String) -> Resu
         let ns_text = NSString::from_str(&text);
         let font: Retained<NSFont> = NSFont::menuBarFontOfSize(TRAY_FONT_SIZE);
 
-        // 段落样式：居中（两行视觉对齐），紧凑。
+        // 段落样式：居中（两行视觉对齐）+ 压缩行高（min==max）让两行紧凑。
+        // 9pt 字默认行高偏大 → 两行块超出菜单栏可视高 → 视觉偏上。
+        // 固定行高 ≈ 字号+1（10.0）使两行总高 ≈ 20pt，贴近菜单栏 ~22pt 高度。
         let para = NSMutableParagraphStyle::new();
         para.setAlignment(NSTextAlignment::Center);
+        let line_h = TRAY_FONT_SIZE + 1.0; // 10.0pt
+        para.setMinimumLineHeight(line_h);
+        para.setMaximumLineHeight(line_h);
+        para.setLineSpacing(0.0);
+
+        // baselineOffset：正值上移、负值下移。AppKit 两行小字默认贴顶 → 用负偏移把整块下推到垂直居中。
+        // 经验值 -2.0pt（GUI 实际位置留用户验，按需在 -1.0~-3.0 微调）。
+        let baseline_offset = NSNumber::new_f64(-2.0);
 
         use objc2::runtime::AnyObject;
         let font_key: &NSString = unsafe { NSFontAttributeName };
         let para_key: &NSString = unsafe { NSParagraphStyleAttributeName };
-        let keys: [&NSString; 2] = [font_key, para_key];
+        let baseline_key: &NSString = unsafe { NSBaselineOffsetAttributeName };
+        let keys: [&NSString; 3] = [font_key, para_key, baseline_key];
         let font_obj: &AnyObject = (&*font).as_ref();
         let para_obj: &AnyObject = (&*para).as_ref();
-        let objects: [&AnyObject; 2] = [font_obj, para_obj];
+        let baseline_obj: &AnyObject = (&*baseline_offset).as_ref();
+        let objects: [&AnyObject; 3] = [font_obj, para_obj, baseline_obj];
         let attrs: Retained<NSDictionary<NSString, objc2::runtime::AnyObject>> =
             NSDictionary::from_slices(&keys, &objects);
 
@@ -1495,6 +1523,7 @@ pub fn run() {
             // Aggregate
             group_detail,
             group_detail_list,
+            group_reorder,
             // Proxy
             proxy_start,
             proxy_stop,

@@ -59,6 +59,8 @@ impl Db {
         // Migration 005: tray 展示列（互斥单平台 show_in_tray + balance/coding 二选一 tray_display）
         let _ = conn.execute("ALTER TABLE platform ADD COLUMN show_in_tray INTEGER NOT NULL DEFAULT 0", []);
         let _ = conn.execute("ALTER TABLE platform ADD COLUMN tray_display TEXT NOT NULL DEFAULT 'balance'", []);
+        // Migration 006: group 排序权重
+        let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
         Ok(())
     }
 }
@@ -304,7 +306,7 @@ fn parse_mappings(json: &str) -> Vec<ModelMapping> {
 
 /// Group SELECT 列序
 const GROUP_COLUMNS: &str =
-    "id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings";
+    "id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order";
 
 fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
     let routing_str: String = row.get(3)?;
@@ -322,6 +324,7 @@ fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
         source_protocol: row.get::<_, String>(9)?,
         model_mappings: parse_mappings(&mappings_str),
         deleted_at: 0,
+        sort_order: row.get::<_, i64>(11)?,
     })
 }
 
@@ -352,13 +355,26 @@ pub fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> {
         source_protocol,
         model_mappings: input.model_mappings,
         deleted_at: 0,
+        sort_order: 0,
     })
+}
+
+/// 批量更新 group 的 sort_order：接收有序 id 列表，按序赋值 1, 2, 3, …
+pub fn reorder_groups(db: &Db, ordered_ids: &[u64]) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    for (i, &id) in ordered_ids.iter().enumerate() {
+        conn.execute(
+            "UPDATE \"group\" SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
+            params![(i + 1) as i64, now(), id as i64],
+        ).map_err(|e| format!("reorder group {id}: {e}"))?;
+    }
+    Ok(())
 }
 
 pub fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
-        .prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE deleted_at = 0 ORDER BY created_at"))
+        .prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE deleted_at = 0 ORDER BY sort_order, created_at"))
         .map_err(|e| e.to_string())?;
     let rows = stmt
         .query_map([], row_to_group)
