@@ -1631,7 +1631,7 @@ fn set_tray_attributed_title(
             NSTextAlignment::Center
         });
         let line_h = if two_line_mode {
-            TRAY_FONT_SIZE + 10.0 // 两行模式，行间距 10px
+            TRAY_FONT_SIZE + 7.0 // 两行模式，行间距 10px
         } else {
             0.0 // 单行不压缩行高，使用系统默认
         };
