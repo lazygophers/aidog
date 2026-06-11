@@ -87,9 +87,9 @@ const ENDPOINT_PROTOCOLS: { value: Protocol; label: string }[] = [
 ];
 
 /** 客户端模拟选项：用于通过上游客户端校验 */
-const CLIENT_TYPES: { value: ClientType; label: string; group: string }[] = [
+const CLIENT_TYPES: { value: ClientType; labelKey?: string; label?: string; group: string }[] = [
   // 默认
-  { value: "default", label: "默认（不模拟）", group: "" },
+  { value: "default", labelKey: "platform.mockDefault", group: "" },
   // Claude Code 家族
   { value: "claude_code", label: "Claude Code CLI", group: "Claude Code" },
   { value: "claude_code_vscode", label: "Claude Code VSCode", group: "Claude Code" },
@@ -609,7 +609,7 @@ function SearchableProtocolSelect({
           <input
             ref={inputRef}
             className="input"
-            placeholder="搜索平台..."
+            placeholder={t("platform.searchPlaceholder", "搜索平台...")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             autoFocus
@@ -680,14 +680,15 @@ interface MockConfigEditorProps {
   onChange: (next: MockConfig) => void;
 }
 
-const MOCK_ERROR_MODES: { value: MockErrorMode; label: string }[] = [
-  { value: "none", label: "正常返回（none）" },
-  { value: "http_error", label: "HTTP 错误（http_error）" },
-  { value: "rate_limit_429", label: "限流 429（rate_limit_429）" },
-  { value: "timeout", label: "超时（timeout）" },
+const MOCK_ERROR_MODES: { value: MockErrorMode; labelKey: string }[] = [
+  { value: "none", labelKey: "platform.mockErrorNone" },
+  { value: "http_error", labelKey: "platform.mockErrorHttp" },
+  { value: "rate_limit_429", labelKey: "platform.mockErrorRateLimit" },
+  { value: "timeout", labelKey: "platform.mockErrorTimeout" },
 ];
 
 function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
+  const { t } = useTranslation();
   const setField = <K extends keyof MockConfig>(key: K, value: MockConfig[K]) => {
     onChange({ ...config, [key]: value });
   };
@@ -715,12 +716,12 @@ function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
       background: "var(--bg-glass)", border: "1px solid var(--border)",
     }}>
       <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
-        Mock 模拟配置（写入 platform.extra）
+        {t("platform.mockConfig")}（{t("platform.mockConfigHint")}）
       </div>
 
       {/* 响应文本 */}
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>响应文本（response_text）</span>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockResponseText")}（response_text）</span>
         <textarea
           className="input"
           style={{ minHeight: 60, resize: "vertical" }}
@@ -740,30 +741,30 @@ function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
 
       {/* 数值字段网格 */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        {numberField("HTTP 状态码（status_code）", "status_code")}
-        {numberField("延迟毫秒（delay_ms）", "delay_ms")}
-        {numberField("输入 token（input_tokens）", "input_tokens")}
-        {numberField("输出 token（output_tokens）", "output_tokens")}
-        {numberField("缓存 token（cache_tokens）", "cache_tokens")}
-        {numberField("流式分块数（chunk_count）", "chunk_count")}
+        {numberField(`${t("platform.mockStatusCode")}（status_code）`, "status_code")}
+        {numberField(`${t("platform.mockDelayMs")}（delay_ms）`, "delay_ms")}
+        {numberField(`${t("platform.mockInputTokens")}（input_tokens）`, "input_tokens")}
+        {numberField(`${t("platform.mockOutputTokens")}（output_tokens）`, "output_tokens")}
+        {numberField(`${t("platform.mockCacheTokens")}（cache_tokens）`, "cache_tokens")}
+        {numberField(`${t("platform.mockChunkCount")}（chunk_count）`, "chunk_count")}
       </div>
 
       {/* error_mode + stream_override */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>错误模式（error_mode）</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockErrorMode")}（error_mode）</span>
           <select
             className="input"
             value={config.error_mode}
             onChange={(e) => setField("error_mode", e.target.value as MockErrorMode)}
           >
             {MOCK_ERROR_MODES.map((m) => (
-              <option key={m.value} value={m.value}>{m.label}</option>
+              <option key={m.value} value={m.value}>{t(m.labelKey)}</option>
             ))}
           </select>
         </label>
         <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>流式开关（stream_override）</span>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{t("platform.mockStreamOverride")}（stream_override）</span>
           <select
             className="input"
             value={streamValue}
@@ -772,9 +773,9 @@ function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
               setField("stream_override", v === "follow" ? null : v === "force_on");
             }}
           >
-            <option value="follow">跟随请求（null）</option>
-            <option value="force_on">强制流式（true）</option>
-            <option value="force_off">强制非流式（false）</option>
+            <option value="follow">{t("platform.mockStreamFollow")}（null）</option>
+            <option value="force_on">{t("platform.mockStreamForceOn")}（true）</option>
+            <option value="force_off">{t("platform.mockStreamForceOff")}（false）</option>
           </select>
         </label>
       </div>
@@ -1269,7 +1270,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   }}
                   title={t("platform.clientType", "客户端模拟")}
                 >
-                  <option value="default">{CLIENT_TYPES[0].label}</option>
+                  <option value="default">{t(CLIENT_TYPES[0].labelKey!)}</option>
                   {["Claude Code", "Codex", "IDE"].map(group => (
                     <optgroup key={group} label={group}>
                       {CLIENT_TYPES.filter(c => c.group === group).map(c => (
