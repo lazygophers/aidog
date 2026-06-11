@@ -1647,7 +1647,7 @@ fn set_tray_attributed_title(
         // 两行都用 left tab @列右边界 → 同一列两行起始位置相同 → 列边界对齐。
         let mut col_widths: Vec<f64> = Vec::new();
         if two_line_mode {
-            const COL_PADDING: f64 = 3.0; // 精确测量后只需少量间距
+            const COL_PADDING: f64 = 5.0; // 列间最小间距 5px
             let mut left_tabs: Vec<Retained<NSTextTab>> = Vec::new();
             let mut loc: f64 = 0.0;
             for col in columns.iter() {

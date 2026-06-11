@@ -11,6 +11,7 @@ import {
 } from "../services/api";
 
 const PRESET_COLORS: { value: string; cssVar: string }[] = [
+  { value: "follow", cssVar: "var(--text-primary)" },
   { value: "red", cssVar: "#ff453a" },
   { value: "green", cssVar: "#32d74b" },
   { value: "orange", cssVar: "#ff9f0a" },
@@ -120,10 +121,18 @@ export function TrayConfigTab() {
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
   const [showAddMenu, setShowAddMenu] = useState(false);
 
-  // Drag state
+  // Drag state (config list)
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
   const dragStartRef = useRef<{ y: number; index: number } | null>(null);
   const didDragRef = useRef(false);
+
+  // Preview drag state (horizontal)
+  const [previewDrag, setPreviewDrag] = useState<{ from: number; to: number } | null>(null);
+  const previewDragRef = useRef<{ x: number; colIdx: number } | null>(null);
+  const didPreviewDragRef = useRef(false);
+
+  // Preview popover state
+  const [popover, setPopover] = useState<{ colIdx: number; rect: DOMRect } | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -210,7 +219,65 @@ export function TrayConfigTab() {
     return { columns, gaps, totalLines, overBudget: totalLines > 2 };
   }, [config, platforms, todayStats]);
 
-  // ── Drag handlers ──
+  // ── Preview drag handlers (horizontal) ──
+  const handlePreviewPointerDown = (e: React.PointerEvent, colIdx: number) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    previewDragRef.current = { x: e.clientX, colIdx };
+  };
+
+  const handlePreviewPointerMove = (e: React.PointerEvent) => {
+    const start = previewDragRef.current;
+    if (!start) return;
+    if (!previewDrag) {
+      if (Math.abs(e.clientX - start.x) < 5) return;
+      setPreviewDrag({ from: start.colIdx, to: start.colIdx });
+      didPreviewDragRef.current = true;
+    }
+    // Find target column by horizontal position
+    const els = document.querySelectorAll("[data-preview-col]");
+    let closest = previewDrag?.from ?? start.colIdx;
+    for (let i = 0; i < els.length; i++) {
+      const rect = els[i].getBoundingClientRect();
+      if (e.clientX > rect.left + rect.width / 2) closest = i;
+      else break;
+    }
+    setPreviewDrag((prev) => (prev ? { ...prev, to: closest } : null));
+  };
+
+  const handlePreviewPointerUp = () => {
+    if (previewDrag) {
+      const { from, to } = previewDrag;
+      const effectiveTo = from < to ? to - 1 : to;
+      if (from !== effectiveTo) {
+        // Map column indices back to config.items indices
+        const fromItem = layout.columns[from]?.item;
+        const toItem = layout.columns[effectiveTo]?.item;
+        if (fromItem && toItem) {
+          const items = [...config.items];
+          const fi = items.indexOf(fromItem);
+          const ti = items.indexOf(toItem);
+          if (fi >= 0 && ti >= 0) {
+            const [moved] = items.splice(fi, 1);
+            items.splice(ti, 0, moved);
+            persist({ ...config, items: withOrders(items) });
+          }
+        }
+      }
+      setPreviewDrag(null);
+    }
+    previewDragRef.current = null;
+    setTimeout(() => { didPreviewDragRef.current = false; }, 50);
+  };
+
+  const handlePreviewClick = (colIdx: number, el: HTMLElement) => {
+    if (didPreviewDragRef.current) return;
+    if (popover?.colIdx === colIdx) { setPopover(null); return; }
+    setPopover({ colIdx, rect: el.getBoundingClientRect() });
+  };
+
+  // ── Config list drag handlers ──
   const handlePointerDown = (e: React.PointerEvent, index: number) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -302,7 +369,7 @@ export function TrayConfigTab() {
               {t("tray.previewEmpty", "暂无展示项")}
             </span>
           ) : !hasTwoLine ? (
-            /* ── Single-line: columns with gaps ── */
+            /* ── Single-line: columns with gaps, draggable + clickable ── */
             <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
               {layout.columns.map((col, i) => (
                 <Fragment key={i}>
@@ -316,14 +383,27 @@ export function TrayConfigTab() {
                       {layout.gaps[i - 1]?.separator || ""}
                     </span>
                   )}
-                  <span style={{ textAlign: cssAlign(col.align), whiteSpace: "pre" }}>
+                  <span
+                    data-preview-col={i}
+                    style={{
+                      textAlign: cssAlign(col.align), whiteSpace: "pre",
+                      cursor: "grab", padding: "2px 4px", borderRadius: 4,
+                      opacity: previewDrag?.from === i ? 0.4 : 1,
+                      outline: popover?.colIdx === i ? "2px solid var(--accent)" : "none",
+                      transition: "opacity 0.15s",
+                    }}
+                    onPointerDown={(e) => handlePreviewPointerDown(e, i)}
+                    onPointerMove={handlePreviewPointerMove}
+                    onPointerUp={handlePreviewPointerUp}
+                    onClick={(e) => handlePreviewClick(i, e.currentTarget)}
+                  >
                     {col.label} {col.value}
                   </span>
                 </Fragment>
               ))}
             </div>
           ) : (
-            /* ── Two-line: grid with gaps ── */
+            /* ── Two-line: grid with gaps, draggable + clickable ── */
             <div style={{ display: "grid", gridAutoFlow: "column", gap: 0, width: "100%" }}>
               {layout.columns.map((col, i) => (
                 <Fragment key={i}>
@@ -337,7 +417,20 @@ export function TrayConfigTab() {
                       {layout.gaps[i - 1]?.separator || ""}
                     </div>
                   )}
-                  <div style={{ display: "flex", flexDirection: "column", alignItems: "stretch" }}>
+                  <div
+                    data-preview-col={i}
+                    style={{
+                      display: "flex", flexDirection: "column", alignItems: "stretch",
+                      cursor: "grab", padding: "2px 4px", borderRadius: 4,
+                      opacity: previewDrag?.from === i ? 0.4 : 1,
+                      outline: popover?.colIdx === i ? "2px solid var(--accent)" : "none",
+                      transition: "opacity 0.15s",
+                    }}
+                    onPointerDown={(e) => handlePreviewPointerDown(e, i)}
+                    onPointerMove={handlePreviewPointerMove}
+                    onPointerUp={handlePreviewPointerUp}
+                    onClick={(e) => handlePreviewClick(i, e.currentTarget)}
+                  >
                     <div style={{ textAlign: cssAlign(col.align), fontSize: 12, lineHeight: "14px", whiteSpace: "nowrap" }}>
                       {col.isTwo ? col.label : `${col.label} ${col.value}`}
                     </div>
@@ -352,6 +445,107 @@ export function TrayConfigTab() {
             </div>
           )}
         </div>
+
+        {/* ── Popover for preview item settings ── */}
+        {popover && (() => {
+          const col = layout.columns[popover.colIdx];
+          if (!col) return null;
+          const item = col.item;
+          const isPlatform = item.item_type === "platform";
+          // Position popover below the anchor
+          const anchorCenter = popover.rect.left + popover.rect.width / 2;
+          const anchorBottom = popover.rect.bottom + 8; // 8px gap + preview padding
+          return (
+            <div
+              style={{ position: "fixed", top: anchorBottom, left: anchorCenter, transform: "translateX(-50%)", zIndex: 100 }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Arrow */}
+              <div style={{
+                width: 0, height: 0, margin: "0 auto",
+                borderLeft: "6px solid transparent", borderRight: "6px solid transparent",
+                borderBottom: "6px solid var(--glass-bg, rgba(255,255,255,0.12))",
+              }} />
+              <div className="glass-surface" style={{
+                padding: 12, minWidth: 220, borderRadius: 10,
+                backdropFilter: "blur(20px)", border: "1px solid var(--glass-border, rgba(255,255,255,0.08))",
+              }}>
+                <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 8 }}>
+                  {isPlatform ? platformName(item.platform_id) : t("tray.todayStats", "今日统计")}
+                </div>
+
+                {/* Color */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: "var(--text-secondary)", width: 40 }}>{t("tray.color", "颜色")}</span>
+                  {PRESET_COLORS.map((c) => (
+                    <button key={c.value} title={c.value}
+                      style={{
+                        width: 18, height: 18, borderRadius: "50%", border: item.color.value === c.cssVar || (item.color.mode !== "custom" && c.value === "follow") ? "2px solid var(--accent)" : "1px solid var(--glass-border)",
+                        background: c.value === "follow" ? "var(--text-primary)" : c.cssVar,
+                        cursor: "pointer", padding: 0,
+                      }}
+                      onClick={() => {
+                        const idx = config.items.indexOf(item);
+                        if (idx >= 0) updateItem(idx, { color: { mode: c.value === "follow" ? "follow" as const : "custom" as const, value: c.value === "follow" ? "" : c.cssVar } });
+                      }}
+                    />
+                  ))}
+                </div>
+
+                {/* Line mode */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: "var(--text-secondary)", width: 40 }}>{t("tray.lineMode", "行")}</span>
+                  {(["single", "two"] as const).map((m) => (
+                    <button key={m}
+                      className={item.line_mode === m ? "accent-btn" : ""}
+                      style={{
+                        fontSize: 11, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                        border: item.line_mode === m ? "none" : "1px solid var(--glass-border)",
+                        background: item.line_mode === m ? "var(--accent)" : "transparent",
+                        color: item.line_mode === m ? "#fff" : "var(--text-secondary)",
+                      }}
+                      onClick={() => {
+                        const idx = config.items.indexOf(item);
+                        if (idx >= 0) updateItem(idx, { line_mode: m });
+                      }}
+                    >
+                      {m === "single" ? t("tray.singleLine", "单行") : t("tray.twoLine", "两行")}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Alignment */}
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 8 }}>
+                  <span style={{ fontSize: 11, color: "var(--text-secondary)", width: 40 }}>{t("tray.align", "对齐")}</span>
+                  {(["left", "center", "right"] as const).map((a) => (
+                    <button key={a}
+                      style={{
+                        fontSize: 11, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+                        border: item.align === a ? "none" : "1px solid var(--glass-border)",
+                        background: item.align === a ? "var(--accent)" : "transparent",
+                        color: item.align === a ? "#fff" : "var(--text-secondary)",
+                      }}
+                      onClick={() => {
+                        const idx = config.items.indexOf(item);
+                        if (idx >= 0) updateItem(idx, { align: a });
+                      }}
+                    >
+                      {a === "left" ? "←" : a === "center" ? "↔" : "→"}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Close */}
+                <button style={{
+                  fontSize: 11, color: "var(--text-tertiary)", cursor: "pointer",
+                  background: "none", border: "none", padding: "2px 0", marginTop: 4,
+                }} onClick={() => setPopover(null)}>
+                  {t("common.close", "关闭")}
+                </button>
+              </div>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── Items List ── */}
