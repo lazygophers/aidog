@@ -5,6 +5,7 @@ import {
   type Platform,
   type ModelTestResult,
 } from "../services/api";
+import { IconClose, IconCheck } from "../components/icons";
 
 interface Props {
   platform: Platform;
@@ -107,7 +108,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
               {platform.name} · {platform.platform_type.toUpperCase()}
             </div>
           </div>
-          <button className="btn btn-ghost btn-icon" onClick={onClose}>✕</button>
+          <button className="btn btn-ghost btn-icon" onClick={onClose}><IconClose size={16} /></button>
         </div>
 
         <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
@@ -159,7 +160,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   <div style={{ fontWeight: 600, fontSize: 12 }}>{r.model}</div>
                   <div style={{ display: "flex", gap: 8, fontSize: 11, color: "var(--text-secondary)" }}>
-                    <span>{r.success ? "✓" : "✗"}</span>
+                    <span style={{ display: "inline-flex" }}>{r.success ? <IconCheck size={12} color="var(--success, #22c55e)" /> : <IconClose size={12} color="var(--danger, #ef4444)" />}</span>
                     {r.duration_ms > 0 && <span>{r.duration_ms}ms</span>}
                     {r.output_tokens > 0 && <span>{r.input_tokens + r.output_tokens} tok</span>}
                   </div>

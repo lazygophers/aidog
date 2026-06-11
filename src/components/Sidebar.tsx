@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useApp } from "../context/AppContext";
 import { ALL_LOCALES } from "../locales";
 import type { ThemeName } from "../themes";
+import { IconPaw, IconPalette, IconGlobe } from "./icons";
 
 // ── SVG Icons ──
 
@@ -188,9 +189,9 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         gap: 8,
       }}>
         <span style={{
-          fontSize: 22,
+          display: "inline-flex",
           filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))",
-        }}>🐕</span>
+        }}><IconPaw size={22} /></span>
         <span>{t("app.title")}</span>
       </div>
 
@@ -251,7 +252,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                 padding: "7px 10px",
                 color: "var(--text-secondary)",
               }}>
-                <span>🎨 {t(`theme.${themeName}`)}</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><IconPalette size={14} /> {t(`theme.${themeName}`)}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   {/* Dark/Light toggle inline */}
                   <span
@@ -293,7 +294,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
               padding: "7px 10px",
               color: "var(--text-secondary)",
             }}>
-              <span>🌐 {t(`lang.${locale}`)}</span>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><IconGlobe size={14} /> {t(`lang.${locale}`)}</span>
               <span style={{ opacity: 0.4 }}>{icons.chevron}</span>
             </button>
           }

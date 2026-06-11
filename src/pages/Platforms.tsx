@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig } from "../services/api";
 import { getPlatformLogo } from "../assets/platforms";
+import { IconBolt, IconCost, IconPackage, IconCheck, IconClose, IconCard, IconCoin } from "../components/icons";
 
 /** 从 base_url 提取 origin，用于 favicon 回退 */
 function extractOrigin(baseUrl: string): string | null {
@@ -1462,7 +1463,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     border: `1px solid ${ep.coding_plan ? "var(--color-success, #34c759)40" : "var(--border)"}`,
                     borderRadius: "var(--radius-sm)",
                   }}
-                  title={ep.coding_plan ? "Coding Plan ✓" : "Coding Plan"}
+                  title={ep.coding_plan ? "Coding Plan ON" : "Coding Plan"}
                   onClick={() => {
                     const next = [...endpoints];
                     next[idx] = { ...next[idx], coding_plan: !next[idx].coding_plan };
@@ -1897,10 +1898,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     const successRate = u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
                     return (
                       <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
-                        <StatBadge icon="⚡" value={formatTokens(total)} label="tokens" />
-                        <StatBadge icon="💰" value={`$${cost}`} label="cost" />
-                        <StatBadge icon="📦" value={`${u.cache_rate.toFixed(1)}%`} label="cache" color="var(--color-success, #34c759)" />
-                        <StatBadge icon="✓" value={`${successRate.toFixed(1)}%`} label="ok"
+                        <StatBadge icon={<IconBolt size={13} />} value={formatTokens(total)} label="tokens" />
+                        <StatBadge icon={<IconCost size={13} />} value={`$${cost}`} label="cost" />
+                        <StatBadge icon={<IconPackage size={13} />} value={`${u.cache_rate.toFixed(1)}%`} label="cache" color="var(--color-success, #34c759)" />
+                        <StatBadge icon={<IconCheck size={13} />} value={`${successRate.toFixed(1)}%`} label="ok"
                           color={successRate >= 95 ? "var(--color-success, #34c759)" : successRate >= 80 ? "var(--color-warning, #ff9500)" : "var(--color-danger, #ff3b30)"} />
                       </div>
                     );
@@ -1925,11 +1926,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                       if (hasEstBalance) {
                         const r = p.est_balance_remaining;
                         const fmt = r >= 1 ? trimZeros(r.toFixed(2)) : r >= 0.01 ? trimZeros(r.toFixed(4)) : "0";
-                        badges.push(<StatBadge key="bal" icon="💳" value={fmt} label={q?.balance?.currency || "USD"} color="var(--color-success, #34c759)" />);
+                        badges.push(<StatBadge key="bal" icon={<IconCard size={13} />} value={fmt} label={q?.balance?.currency || "USD"} color="var(--color-success, #34c759)" />);
                       }
                       if (estCoding) {
                         for (const tier of estCoding.tiers) {
-                          badges.push(<StatBadge key={tier.name} icon="🪙" value={`${Math.max(0, 100 - tier.est_utilization).toFixed(0)}%`} label={tierLabel(tier.name)} color={utilColor(tier.est_utilization)} />);
+                          badges.push(<StatBadge key={tier.name} icon={<IconCoin size={13} />} value={`${Math.max(0, 100 - tier.est_utilization).toFixed(0)}%`} label={tierLabel(tier.name)} color={utilColor(tier.est_utilization)} />);
                         }
                       }
                     } else if (q) {
@@ -1938,11 +1939,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                         const b = q.balance;
                         const fmt = b.remaining >= 1 ? trimZeros(b.remaining.toFixed(2)) : b.remaining >= 0.01 ? trimZeros(b.remaining.toFixed(4)) : "0";
                         const color = b.remaining > 0 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)";
-                        badges.push(<StatBadge key="bal" icon="💳" value={fmt} label={b.currency} color={color} />);
+                        badges.push(<StatBadge key="bal" icon={<IconCard size={13} />} value={fmt} label={b.currency} color={color} />);
                       }
                       if (q.coding_plan) {
                         for (const tier of q.coding_plan.tiers) {
-                          badges.push(<StatBadge key={tier.name} icon="🪙" value={`${tier.utilization.toFixed(0)}%`} label={tierLabel(tier.name)} color={utilColor(tier.utilization)} />);
+                          badges.push(<StatBadge key={tier.name} icon={<IconCoin size={13} />} value={`${tier.utilization.toFixed(0)}%`} label={tierLabel(tier.name)} color={utilColor(tier.utilization)} />);
                         }
                       }
                     }
@@ -2100,7 +2101,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           opacity: 0.95,
           transition: "opacity 0.3s",
         }}>
-          {toast.ok ? "✓" : "✗"} {toast.text}
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{toast.ok ? <IconCheck size={14} color="#fff" /> : <IconClose size={14} color="#fff" />} {toast.text}</span>
         </div>
       )}
     </>
@@ -2119,7 +2120,7 @@ function formatTokens(n: number): string {
   return `${n}`;
 }
 
-function StatBadge({ icon, value, label, color }: { icon: string; value: string; label: string; color?: string }) {
+function StatBadge({ icon, value, label, color }: { icon: React.ReactNode; value: string; label: string; color?: string }) {
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 5,

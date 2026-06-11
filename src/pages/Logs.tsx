@@ -10,6 +10,7 @@ import {
   type Platform,
   type GroupDetail,
 } from "../services/api";
+import { IconClose } from "../components/icons";
 
 const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
 const PAGE_SIZE = 50;
@@ -406,7 +407,7 @@ export function Logs() {
         {/* Clear */}
         {hasFilter && (
           <button className="btn btn-ghost" onClick={clearFilter} style={{ fontSize: F.small, padding: "2px 8px", color: "var(--text-tertiary)" }}>
-            ✕ {t("logs.clearFilter", "清除")}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><IconClose size={11} /> {t("logs.clearFilter", "清除")}</span>
           </button>
         )}
       </div>

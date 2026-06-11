@@ -11,6 +11,7 @@ import {
   type EnvVarDef,
 } from "../services/claude-settings-schema";
 import { SortableList } from "../components/SortableList";
+import { IconClose, IconCheck, IconMenu, IconEdit } from "../components/icons";
 
 const CONFIG_KEY = "claude_code";
 
@@ -1044,9 +1045,9 @@ function PermissionsEditor({ perms, updateField, t }: {
         }}>
           <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 4, display: "flex", gap: 12 }}>
             <span>共 {rules.length} 条规则</span>
-            <span style={{ color: MODE_COLORS.deny }}>✗ deny: {rules.filter(r => r.mode === "deny").length}</span>
+            <span style={{ color: MODE_COLORS.deny, display: "inline-flex", alignItems: "center", gap: 4 }}><IconClose size={12} /> deny: {rules.filter(r => r.mode === "deny").length}</span>
             <span style={{ color: MODE_COLORS.ask }}>? ask: {rules.filter(r => r.mode === "ask").length}</span>
-            <span style={{ color: MODE_COLORS.allow }}>✓ allow: {rules.filter(r => r.mode === "allow").length}</span>
+            <span style={{ color: MODE_COLORS.allow, display: "inline-flex", alignItems: "center", gap: 4 }}><IconCheck size={12} /> allow: {rules.filter(r => r.mode === "allow").length}</span>
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             {rules.map((r, i) => (
@@ -1138,7 +1139,7 @@ function TagList({
             style={{
               background: "none", border: "none", cursor: "pointer",
               color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
-            }}>✕</button>
+            }}><IconClose size={12} /></button>
         </div>
       ))}
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -1194,7 +1195,7 @@ function PathList({
             style={{
               background: "none", border: "none", cursor: "pointer",
               color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
-            }}>✕</button>
+            }}><IconClose size={12} /></button>
         </div>
       ))}
       <div style={{ display: "flex", gap: 6, alignItems: "stretch" }}>
@@ -2067,7 +2068,7 @@ function StatusLinePanel({
                           padding: "0 2px", lineHeight: 1,
                         }}
                         title="拖动排序"
-                      >☰</span>
+                      ><IconMenu size={15} /></span>
                       {/* Toggle */}
                       <Toggle active={seg.enabled} onChange={(v) => {
                         const next = segments.map(s => s.id === seg.id ? { ...s, enabled: v } : s);
@@ -2089,13 +2090,13 @@ function StatusLinePanel({
                       <button type="button" className="btn btn-ghost"
                         style={{ fontSize: F.hint, padding: "2px 8px", color: "var(--accent)" }}
                         onClick={() => setEditSeg({ ...seg })}>
-                        ✎
+                        <IconEdit size={13} />
                       </button>
                       {/* Delete */}
                       <button type="button" className="btn btn-ghost btn-icon"
                         style={{ width: 24, height: 24, minWidth: 24, fontSize: F.hint, color: "var(--text-tertiary)" }}
                         onClick={() => updateSegments(segments.filter((s) => s.id !== seg.id))}>
-                        ×
+                        <IconClose size={13} />
                       </button>
                     </div>
                   );
@@ -2783,7 +2784,7 @@ function MarketplaceSourceEditor({
               }} style={{
                 background: "none", border: "none", cursor: "pointer",
                 color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1, flexShrink: 0,
-              }}>✕</button>
+              }}><IconClose size={12} /></button>
             </div>
           ))}
           <button type="button" className="btn btn-ghost" style={{ fontSize: F.small, padding: "4px 10px", alignSelf: "flex-start", marginLeft: 8 }}
@@ -2880,7 +2881,7 @@ function PluginsEditor({
               <button type="button" onClick={() => removePlugin(key)} style={{
                 background: "none", border: "none", cursor: "pointer",
                 color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
-              }}>✕</button>
+              }}><IconClose size={12} /></button>
             </div>
           ))}
           <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
@@ -2920,7 +2921,7 @@ function PluginsEditor({
                 <button type="button" onClick={() => removeMarketplace(name)} style={{
                   background: "none", border: "none", cursor: "pointer",
                   color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
-                }}>✕</button>
+                }}><IconClose size={12} /></button>
               </div>
               <MarketplaceSourceEditor
                 source={mktConfig.source ?? { source: "github" }}

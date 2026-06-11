@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import {
   groupDetailApi, groupApi, platformApi,
@@ -6,6 +6,7 @@ import {
   type ModelMapping,
 } from "../services/api";
 import { SortableList } from "../components/SortableList";
+import { IconClose, IconCheck, IconBolt, IconCost, IconPackage } from "../components/icons";
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
 
@@ -429,7 +430,7 @@ export function Groups() {
                     <button type="button" onClick={() => setEditPlatformIds(editPlatformIds.filter(id => id !== pid))} style={{
                       background: "none", border: "none", cursor: "pointer",
                       color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
-                    }}>✕</button>
+                    }}><IconClose size={12} /></button>
                   </div>
                 );
               }}
@@ -517,7 +518,7 @@ export function Groups() {
                   <button type="button" onClick={() => setEditMappings(editMappings.filter((_, j) => j !== i))} style={{
                     background: "none", border: "none", cursor: "pointer",
                     color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1, flexShrink: 0,
-                  }}>✕</button>
+                  }}><IconClose size={12} /></button>
                 </div>
               );
             })}
@@ -704,10 +705,10 @@ export function Groups() {
                 const successRate = u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
                 return (
                   <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                    <StatChip icon="⚡" value={fmtTk(total)} label="tokens" />
-                    <StatChip icon="💰" value={`$${cost}`} label="cost" />
-                    <StatChip icon="📦" value={`${u.cache_rate.toFixed(1)}%`} label="cache" color="var(--color-success, #34c759)" />
-                    <StatChip icon="✓" value={`${successRate.toFixed(1)}%`} label="ok"
+                    <StatChip icon={<IconBolt size={13} />} value={fmtTk(total)} label="tokens" />
+                    <StatChip icon={<IconCost size={13} />} value={`$${cost}`} label="cost" />
+                    <StatChip icon={<IconPackage size={13} />} value={`${u.cache_rate.toFixed(1)}%`} label="cache" color="var(--color-success, #34c759)" />
+                    <StatChip icon={<IconCheck size={13} />} value={`${successRate.toFixed(1)}%`} label="ok"
                       color={successRate >= 95 ? "var(--color-success, #34c759)" : successRate >= 80 ? "var(--color-warning, #ff9500)" : "var(--color-danger, #ff3b30)"} />
                   </div>
                 );
@@ -804,7 +805,7 @@ function fmtTk(n: number): string {
   return `${n}`;
 }
 
-function StatChip({ icon, value, label, color }: { icon: string; value: string; label: string; color?: string }) {
+function StatChip({ icon, value, label, color }: { icon: ReactNode; value: string; label: string; color?: string }) {
   return (
     <div style={{
       display: "flex", alignItems: "center", gap: 5,

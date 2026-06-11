@@ -8,6 +8,7 @@ import {
   type PriceSyncResult,
   type ModelPriceFilter,
 } from "../services/api";
+import { IconClose } from "../components/icons";
 
 const F = { title: 15, body: 14, hint: 13, small: 12 } as const;
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
@@ -237,7 +238,7 @@ export function PricingTab() {
         </select>
         {hasFilter && (
           <button className="btn btn-ghost" onClick={clearFilter} style={{ fontSize: F.small, padding: "4px 8px", color: "var(--text-tertiary)" }}>
-            ✕ {t("pricing.clearFilter", "清除")}
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 4 }}><IconClose size={11} /> {t("pricing.clearFilter", "清除")}</span>
           </button>
         )}
       </div>
