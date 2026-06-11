@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, DEFAULT_MOCK_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, trayApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, DEFAULT_MOCK_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig } from "../services/api";
 import { getPlatformLogo } from "../assets/platforms";
 import { ModelTestPanel } from "./ModelTestPanel";
 import { pinyinMatch } from "../utils/pinyin";
@@ -1125,6 +1125,34 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     } catch (e) { console.error(e); }
   };
 
+  /** 切换托盘 quota 展示（互斥单平台）：开 → set 并清其他；关 → clear */
+  const handleTrayToggle = async (p: Platform) => {
+    const turnOn = !p.show_in_tray;
+    try {
+      if (turnOn) {
+        await trayApi.set(p.id, p.tray_display || "balance");
+      } else {
+        await trayApi.clear();
+      }
+      // 本地互斥：仅当前平台高亮，其余 show_in_tray 置 false
+      setPlatforms(prev => prev.map(x =>
+        x.id === p.id ? { ...x, show_in_tray: turnOn } : { ...x, show_in_tray: false }
+      ));
+    } catch (e) { console.error(e); }
+  };
+
+  /** 切换托盘展示内容（balance / coding）：若该平台已开，同步刷新后端 */
+  const handleTrayDisplay = async (p: Platform, display: string) => {
+    try {
+      if (p.show_in_tray) {
+        await trayApi.set(p.id, display);
+      }
+      setPlatforms(prev => prev.map(x =>
+        x.id === p.id ? { ...x, tray_display: display } : x
+      ));
+    } catch (e) { console.error(e); }
+  };
+
   // ── Edit / Add form (full page, no list) ──
   if (showForm) {
     return (
@@ -1838,6 +1866,39 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                         {badges.length > 0
                           ? <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{badges}</div>
                           : <span className="text-tertiary" style={{ fontSize: 11 }}>{t("platform.quotaEmpty", "暂无数据")}</span>}
+                        {p.enabled && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
+                            {/* 余额 / coding 二选一（仅托盘开启时影响展示） */}
+                            <div style={{ display: "inline-flex", fontSize: 10 }}>
+                              {(["balance", "coding"] as const).map((d, di) => (
+                                <button
+                                  key={d}
+                                  className={`btn ${p.tray_display === d ? "btn-primary" : "btn-ghost"}`}
+                                  style={{
+                                    fontSize: 10, padding: "2px 8px",
+                                    borderRadius: di === 0 ? "6px 0 0 6px" : "0 6px 6px 0",
+                                    borderRight: di === 0 ? "1px solid var(--border)" : undefined,
+                                  }}
+                                  onClick={() => handleTrayDisplay(p, d)}
+                                  title={d === "balance" ? t("platform.trayBalance", "余额") : t("platform.trayCoding", "用量%")}
+                                >
+                                  {d === "balance" ? `💳 ${t("platform.trayBalance", "余额")}` : `🪙 ${t("platform.trayCoding", "用量%")}`}
+                                </button>
+                              ))}
+                            </div>
+                            {/* 托盘展示开关（互斥单平台） */}
+                            <button
+                              className={`btn ${p.show_in_tray ? "btn-primary" : "btn-ghost"}`}
+                              style={{ fontSize: 10, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 3 }}
+                              onClick={() => handleTrayToggle(p)}
+                              title={p.show_in_tray
+                                ? t("platform.trayOn", "已在系统托盘展示（点击关闭）")
+                                : t("platform.trayOff", "在系统托盘展示此平台额度")}
+                            >
+                              {p.show_in_tray ? "📌" : "📍"} {t("platform.tray", "托盘")}
+                            </button>
+                          </div>
+                        )}
                       </div>
                     );
                   })()}
