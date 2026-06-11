@@ -1533,7 +1533,14 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 {fetchError}
               </div>
             )}
-            {MODEL_SLOTS.map(({ key, labelKey }) => (
+            {MODEL_SLOTS.map(({ key, labelKey }) => {
+              const query = models[key].trim().toLowerCase();
+              const filtered = availableModels.length > 0
+                ? (query
+                  ? availableModels.filter(m => pinyinMatch(query, m))
+                  : availableModels)
+                : [];
+              return (
               <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{
                   fontSize: 12, fontWeight: 500, color: "var(--text-tertiary)",
@@ -1547,7 +1554,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     style={{ width: "100%", paddingRight: availableModels.length > 0 ? 28 : undefined }}
                     placeholder={t(labelKey)}
                     value={models[key]}
-                    onChange={(e) => handleModelChange(key, e.target.value)}
+                    onChange={(e) => {
+                      handleModelChange(key, e.target.value);
+                      if (availableModels.length > 0) setActiveDropdown(key);
+                    }}
+                    onFocus={() => {
+                      if (availableModels.length > 0) setActiveDropdown(key);
+                    }}
                   />
                   {availableModels.length > 0 && (
                     <button
@@ -1558,18 +1571,21 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                         width: 24, height: 24, minWidth: 24, padding: 0,
                         color: "var(--text-tertiary)", cursor: "pointer",
                       }}
-                      onClick={() => setActiveDropdown(activeDropdown === key ? null : key)}
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        setActiveDropdown(activeDropdown === key ? null : key);
+                      }}
                       title={t("platform.selectModel")}
                     >
                       ▾
                     </button>
                   )}
-                  {/* 自定义下拉列表 — 主题化 */}
-                  {activeDropdown === key && availableModels.length > 0 && (
+                  {/* 可搜索下拉列表 — 主题化 */}
+                  {activeDropdown === key && filtered.length > 0 && (
                     <>
                       <div
                         style={{ position: "fixed", inset: 0, zIndex: 99 }}
-                        onClick={() => setActiveDropdown(null)}
+                        onMouseDown={() => setActiveDropdown(null)}
                       />
                       <div
                         className="glass-elevated"
@@ -1586,7 +1602,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                           animation: "fadeIn 150ms ease both",
                         }}
                       >
-                        {availableModels.map((m) => (
+                        {filtered.map((m) => (
                           <button
                             key={m}
                             type="button"
@@ -1601,7 +1617,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                               background: models[key] === m ? "var(--accent-subtle)" : "transparent",
                               borderRadius: "var(--radius-sm)",
                             }}
-                            onClick={() => {
+                            onMouseDown={(e) => {
+                              e.preventDefault();
                               handleModelSelect(key, m);
                               setActiveDropdown(null);
                             }}
@@ -1614,7 +1631,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   )}
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
           </>
           )}
