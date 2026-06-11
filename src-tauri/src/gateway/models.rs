@@ -549,7 +549,7 @@ pub struct TrayItem {
 fn default_item_type() -> String { "platform".to_string() }
 fn default_display() -> String { "balance".to_string() }
 fn default_font_size() -> f64 { 9.0 }
-fn default_line_mode() -> String { "single".to_string() }
+fn default_line_mode() -> String { "two".to_string() }
 fn default_align() -> String { "left".to_string() }
 
 /// 托盘整体配置（存 settings: scope="tray", key="config"）。

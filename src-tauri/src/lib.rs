@@ -1610,9 +1610,9 @@ fn set_tray_attributed_title(
 
         let two_line_mode = columns.iter().any(|c| c.two_line);
 
-        // 段落样式：居中（两行视觉对齐）+ 压缩行高（min==max）让两行紧凑。
-        // 9pt 字默认行高偏大 → 两行块超出菜单栏可视高 → 视觉偏上。
-        // 固定行高 ≈ 字号+1（10.0）使两行总高 ≈ 20pt，贴近菜单栏 ~22pt 高度。
+        // 段落样式：两行模式压缩行高（min==max）让两行紧凑；单行模式不压缩，字号更大。
+        // 两行：9pt × 2 行 ≈ 20pt，贴近菜单栏 ~22pt 高度。
+        // 单行：13pt × 1 行，充分利用菜单栏垂直空间。
         let para = NSMutableParagraphStyle::new();
         // 两行模式用左对齐（tabStops 控制列位置）；单行模式居中。
         para.setAlignment(if two_line_mode {
@@ -1620,10 +1620,16 @@ fn set_tray_attributed_title(
         } else {
             NSTextAlignment::Center
         });
-        let line_h = TRAY_FONT_SIZE + 1.0; // 10.0pt
-        para.setMinimumLineHeight(line_h);
-        para.setMaximumLineHeight(line_h);
-        para.setLineSpacing(0.0);
+        let line_h = if two_line_mode {
+            TRAY_FONT_SIZE + 1.0 // 10.0pt — 两行压缩
+        } else {
+            0.0 // 单行不压缩行高，使用系统默认
+        };
+        if two_line_mode {
+            para.setMinimumLineHeight(line_h);
+            para.setMaximumLineHeight(line_h);
+            para.setLineSpacing(0.0);
+        }
 
         // 两行模式：两行共用同一个段落样式（para），均使用 LeftTabStopType。
         // 列宽 = max(第一行该列文字, 第二行该列文字) 估宽 + padding；位置累加（loc = 各列右边界）。
@@ -1657,9 +1663,11 @@ fn set_tray_attributed_title(
             para.setTabStops(Some(&left_array));
         }
 
-        // baselineOffset：正值上移、负值下移。AppKit 两行小字默认贴顶 → 用负偏移把整块下推到垂直居中。
-        // 经验值 -2.0pt（GUI 实际位置留用户验，按需在 -1.0~-3.0 微调）。
-        let baseline_offset = NSNumber::new_f64(-2.0);
+        // baselineOffset：两行模式需要负偏移下推居中；单行模式无需偏移。
+        let baseline_offset = NSNumber::new_f64(if two_line_mode { -2.0 } else { 0.0 });
+
+        // 单行模式：每列字号覆盖为更大值（只有一行，充分利用菜单栏高度）。
+        let single_line_font_size: f64 = 13.0;
 
         use objc2::runtime::AnyObject;
         let para_key: &NSString = unsafe { NSParagraphStyleAttributeName };
@@ -1738,9 +1746,9 @@ fn set_tray_attributed_title(
                 }
             }
         } else {
-            // 单行模式：每列 "名 值"，列间用 gap（自定义分隔符或默认空白 " "）拼接。
+            // 单行模式：每列 "名 值"，列间用 gap 拼接。字号加大（只有一行，充分利用菜单栏高度）。
             let default_gap = " ".to_string();
-            let join_font = columns.first().map(|c| c.font_size).unwrap_or(TRAY_FONT_SIZE);
+            let join_font = single_line_font_size;
             for (idx, col) in columns.iter().enumerate() {
                 if idx > 0 {
                     let gap_text = gaps.get(idx - 1)
@@ -1749,7 +1757,7 @@ fn set_tray_attributed_title(
                     result.appendAttributedString(&make_part(&gap_text, join_font, &follow_color, &para));
                 }
                 let text = format!("{} {}", col.name, col.value);
-                result.appendAttributedString(&make_part(&text, col.font_size, &col.color, &para));
+                result.appendAttributedString(&make_part(&text, single_line_font_size, &col.color, &para));
             }
         }
 
