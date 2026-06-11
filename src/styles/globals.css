@@ -523,6 +523,27 @@ select.input {
   flex-direction: row-reverse;
 }
 
+/* ── Settings page (scoped, additive — no global class overrides) ── */
+
+/* Sticky header / anchor-nav bars: softer floating separation than a flat
+   border. Gradient bottom edge + subtle drop shadow reads as "above content".
+   Directional-neutral (no left/right) → RTL-safe. */
+.settings-sticky-bar {
+  border-bottom: 1px solid transparent;
+  background-image:
+    linear-gradient(var(--bg-glass), var(--bg-glass)),
+    linear-gradient(90deg, transparent, var(--border) 18%, var(--border) 82%, transparent);
+  background-origin: padding-box, border-box;
+  background-clip: padding-box, border-box;
+  box-shadow: 0 6px 16px -12px rgba(0, 0, 0, 0.25);
+}
+
+/* Section card refraction edge tuned for the wide settings cards. */
+.settings-section-card::before {
+  left: 20px;
+  right: 20px;
+}
+
 /* ── Utility ── */
 
 .flex { display: flex; }

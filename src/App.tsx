@@ -7,6 +7,7 @@ import { AppSettings } from "./pages/AppSettings";
 import { Logs } from "./pages/Logs";
 import { Stats } from "./pages/Stats";
 import { proxyLogApi } from "./services/api";
+import { requestNavigation } from "./utils/navGuard";
 
 const BASE_NAV: NavItem[] = [
   { id: "proxy", icon: "proxy", labelKey: "nav.proxy" },
@@ -29,12 +30,16 @@ function App() {
   }, []);
 
   const handleNavigate = (id: string) => {
-    setActiveNav(id);
-    if (id === "logs") {
-      proxyLogApi.getSettings()
-        .then(s => setLogEnabled(s.enabled))
-        .catch(() => {});
-    }
+    if (id === activeNav) return;
+    // A dirty page (e.g. Claude Code Settings) may intercept the switch.
+    requestNavigation(() => {
+      setActiveNav(id);
+      if (id === "logs") {
+        proxyLogApi.getSettings()
+          .then(s => setLogEnabled(s.enabled))
+          .catch(() => {});
+      }
+    });
   };
 
   const navItems = logEnabled
