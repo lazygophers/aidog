@@ -17,7 +17,7 @@ const ALIASES: Partial<Record<Protocol, string>> = {
 };
 
 // ── Build Protocol → URL lookup ──────────────────────────────
-const svgModules = import.meta.glob("./*.svg", { eager: true, as: "url" });
+const svgModules = import.meta.glob("./*.svg", { eager: true, query: "?url", import: "default" });
 
 // filename → URL map (strip "./" prefix and ".svg" suffix)
 const fileMap = new Map<string, string>();
