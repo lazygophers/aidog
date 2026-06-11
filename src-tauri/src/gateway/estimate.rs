@@ -556,6 +556,7 @@ mod tests {
                 }],
                 level: Some("pro".into()),
             }),
+            newapi_user_id: None,
         };
         let prev = EstCodingPlan::from_json(&before.est_coding_plan);
         let calibrated = build_calibrated_coding_plan(&prev, &quota);

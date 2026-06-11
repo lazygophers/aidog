@@ -1756,4 +1756,100 @@ mod tests {
         assert!(get_setting(&db, "proxy", "logging").unwrap().is_none());
         assert_eq!(list_setting_keys(&db, "proxy").unwrap().len(), 0);
     }
+
+    // ─── Tray Config ───────────────────────────────────────
+
+    /// TrayConfig serde 往返：写入后读回各字段一致（layout/separator/items 颜色三态/字号/排序）。
+    #[test]
+    fn tray_config_serde_roundtrip() {
+        let db = test_db();
+        let cfg = TrayConfig {
+            layout: "two_line".to_string(),
+            separator: " | ".to_string(),
+            items: vec![
+                TrayItem {
+                    item_type: "platform".to_string(),
+                    platform_id: Some(7),
+                    display: "coding".to_string(),
+                    metric: None,
+                    color: TrayColor { mode: "preset".to_string(), value: "green".to_string() },
+                    font_size: 11.0,
+                    enabled: true,
+                    order: 0,
+                },
+                TrayItem {
+                    item_type: "today_usage".to_string(),
+                    platform_id: None,
+                    display: "balance".to_string(),
+                    metric: Some("tokens".to_string()),
+                    color: TrayColor { mode: "custom".to_string(), value: "#ff8800".to_string() },
+                    font_size: 9.0,
+                    enabled: false,
+                    order: 1,
+                },
+            ],
+        };
+        set_tray_config(&db, &cfg).unwrap();
+        let got = get_tray_config(&db).unwrap().expect("config present");
+        assert_eq!(got.layout, "two_line");
+        assert_eq!(got.separator, " | ");
+        assert_eq!(got.items.len(), 2);
+        assert_eq!(got.items[0].item_type, "platform");
+        assert_eq!(got.items[0].platform_id, Some(7));
+        assert_eq!(got.items[0].display, "coding");
+        assert_eq!(got.items[0].color.mode, "preset");
+        assert_eq!(got.items[0].color.value, "green");
+        assert!((got.items[0].font_size - 11.0).abs() < 1e-9);
+        assert!(got.items[0].enabled);
+        assert_eq!(got.items[1].item_type, "today_usage");
+        assert_eq!(got.items[1].metric.as_deref(), Some("tokens"));
+        assert_eq!(got.items[1].color.mode, "custom");
+        assert_eq!(got.items[1].color.value, "#ff8800");
+        assert!(!got.items[1].enabled);
+        assert_eq!(got.items[1].order, 1);
+    }
+
+    /// 迁移：无 tray config 且无旧 show_in_tray 平台 → 生成空配置并持久化（避免重复迁移）。
+    #[test]
+    fn tray_config_migrate_empty() {
+        let db = test_db();
+        // 首次读取触发迁移；无旧平台 → 空 items。
+        let cfg = get_tray_config(&db).unwrap().expect("migrated config");
+        assert_eq!(cfg.layout, "single_line");
+        assert_eq!(cfg.items.len(), 0);
+        // 已持久化：settings 中应存在 tray/config。
+        assert!(get_setting(&db, "tray", "config").unwrap().is_some());
+    }
+
+    /// 迁移：旧 show_in_tray=1 平台 → 生成默认 platform item（保留 tray_display）。
+    #[test]
+    fn tray_config_migrate_from_legacy_platform() {
+        let db = test_db();
+        let p = create_platform(&db, sample_platform("legacy")).unwrap();
+        set_tray_platform(&db, p.id, "coding").unwrap();
+
+        let cfg = get_tray_config(&db).unwrap().expect("migrated config");
+        assert_eq!(cfg.items.len(), 1, "应从旧平台生成 1 个 platform item");
+        let item = &cfg.items[0];
+        assert_eq!(item.item_type, "platform");
+        assert_eq!(item.platform_id, Some(p.id));
+        assert_eq!(item.display, "coding");
+        assert!(item.enabled);
+    }
+
+    /// today_token_total：仅统计今日（本地 0 点起）未删除日志的 input+output。
+    #[test]
+    fn today_token_total_sums_today_only() {
+        use chrono::{Local, Duration};
+        let db = test_db();
+        let now_ms = now();
+        // 今日两条：(10+20) + (10+20) = 60
+        upsert_proxy_log(&db, &sample_log("a", "g", now_ms)).unwrap();
+        upsert_proxy_log(&db, &sample_log("b", "g", now_ms)).unwrap();
+        // 昨日一条：不计入。
+        let yesterday_ms = (Local::now() - Duration::days(1)).timestamp_millis();
+        upsert_proxy_log(&db, &sample_log("c", "g", yesterday_ms)).unwrap();
+
+        assert_eq!(today_token_total(&db).unwrap(), 60);
+    }
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, trayApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig } from "../services/api";
 import { getPlatformLogo } from "../assets/platforms";
 
 /** 从 base_url 提取 origin，用于 favicon 回退 */
@@ -1184,32 +1184,6 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     } catch (e) { console.error(e); }
   };
 
-  /** 自动检测展示类型：有 coding plan → "coding"，否则 → "balance" */
-  const autoTrayDisplay = (p: Platform): string => {
-    const q = quotaMap[p.id];
-    const estCoding = parseEstCodingPlan(p.est_coding_plan);
-    const hasCoding = (q?.coding_plan && q.coding_plan.tiers.length > 0) || (estCoding && estCoding.tiers.length > 0);
-    return hasCoding ? "coding" : "balance";
-  };
-
-  /** 切换托盘 quota 展示（互斥单平台）：开 → 自动检测类型 set 并清其他；关 → clear */
-  const handleTrayToggle = async (p: Platform) => {
-    const turnOn = !p.show_in_tray;
-    try {
-      if (turnOn) {
-        const display = autoTrayDisplay(p);
-        await trayApi.set(p.id, display);
-        setPlatforms(prev => prev.map(x =>
-          x.id === p.id ? { ...x, show_in_tray: true, tray_display: display } : { ...x, show_in_tray: false }
-        ));
-      } else {
-        await trayApi.clear();
-        setPlatforms(prev => prev.map(x =>
-          x.id === p.id ? { ...x, show_in_tray: false } : x
-        ));
-      }
-    } catch (e) { console.error(e); }
-  };
 
   // ── Edit / Add form (full page, no list) ──
   if (showForm) {
@@ -1979,21 +1953,6 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                         {badges.length > 0
                           ? <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{badges}</div>
                           : <span className="text-tertiary" style={{ fontSize: 11 }}>{t("platform.quotaEmpty", "暂无数据")}</span>}
-                        {p.enabled && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
-                            {/* 托盘展示开关（互斥单平台） */}
-                            <button
-                              className={`btn ${p.show_in_tray ? "btn-primary" : "btn-ghost"}`}
-                              style={{ fontSize: 10, padding: "2px 8px", display: "inline-flex", alignItems: "center", gap: 3 }}
-                              onClick={() => handleTrayToggle(p)}
-                              title={p.show_in_tray
-                                ? t("platform.trayOn", "已在系统托盘展示（点击关闭）")
-                                : t("platform.trayOff", "在系统托盘展示此平台额度")}
-                            >
-                              {p.show_in_tray ? "📌" : "📍"} {t("platform.tray", "托盘")}
-                            </button>
-                          </div>
-                        )}
                       </div>
                     );
                   })()}
