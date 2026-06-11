@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 1
+- **Total Sessions**: 2
 - **Last Active**: 2026-06-11
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~48 | Active |
+| `journal-1.md` | ~84 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 2 | 2026-06-11 | 添加 mock 平台类型 | `dae1c10`, `d3c2188`, `448570b`, `73fa042` | `master` |
 | 1 | 2026-06-11 | DB schema v2 规范化重构 | `5bb8743`, `979f096`, `a05960a`, `48d3ebe`, `f9eaaed`, `60eebde`, `348ff28`, `c980dd7`, `ce26867` | `master` |
 <!-- @@@/auto:session-history -->
 

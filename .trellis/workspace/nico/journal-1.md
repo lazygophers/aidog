@@ -46,3 +46,39 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: 添加 mock 平台类型
+
+**Date**: 2026-06-11
+**Task**: 添加 mock 平台类型
+**Branch**: `master`
+
+### Summary
+
+新增 Protocol::Mock 平台类型: 路由到 mock 平台不转发真实上游, 本地按入站协议(anthropic/openai/openai_completions/openai_responses/gemini)生成可控假响应(非流式+流式SSE). 三层配置覆盖(请求body.mock>message role映射>platform.extra), error_mode(none/http_error/429/timeout) + delay_ms + 假token. 配置存platform.extra零schema变更. 前端MockConfigEditor. 拦截点proxy.rs handle_mock仅matches!(Mock)不影响现有平台. 22单测全绿, spec沉淀mock-platform.md.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `dae1c10` | (see git log) |
+| `d3c2188` | (see git log) |
+| `448570b` | (see git log) |
+| `73fa042` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
