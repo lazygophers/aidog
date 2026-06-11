@@ -513,6 +513,32 @@ function allModelValues(models: Platform["models"]): string[] {
   return result;
 }
 
+/** 预估 coding plan JSON 结构（后端 est_coding_plan 列） */
+interface EstCodingTier {
+  name: string;
+  est_utilization: number;
+  coef_per_token: number;
+  util_at_last_real: number;
+  tokens_since_real: number;
+  has_base: boolean;
+}
+interface EstCodingPlan {
+  tiers: EstCodingTier[];
+  level: string | null;
+}
+
+/** 安全解析 est_coding_plan JSON；非法/空串返回 null */
+function parseEstCodingPlan(raw: string): EstCodingPlan | null {
+  if (!raw || !raw.trim()) return null;
+  try {
+    const obj = JSON.parse(raw) as Partial<EstCodingPlan>;
+    if (!obj || !Array.isArray(obj.tiers)) return null;
+    return { tiers: obj.tiers as EstCodingTier[], level: obj.level ?? null };
+  } catch {
+    return null;
+  }
+}
+
 /** 根据模型名模式自动分配到槽位 */
 function autoCategorize(modelIds: string[]): Record<ModelSlot, string> {
   const result: Record<ModelSlot, string> = {
@@ -546,6 +572,7 @@ function SearchableProtocolSelect({
   codingPlan: boolean;
   onChange: (proto: Protocol, codingPlan?: boolean) => void;
 }) {
+  const { t } = useTranslation();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -789,6 +816,8 @@ export function Platforms() {
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [usageMap, setUsageMap] = useState<Record<number, PlatformUsageStats>>({});
   const [quotaMap, setQuotaMap] = useState<Record<number, PlatformQuota>>({});
+  // 手动刷新（真查校准）后的平台 id → 优先展示 quotaMap 真值而非预估
+  const [quotaRealIds, setQuotaRealIds] = useState<Record<number, boolean>>({});
   const [quotaRefreshing, setQuotaRefreshing] = useState<Record<number, boolean>>({});
   const [testResults, setTestResults] = useState<Record<number, "ok" | "fail">>({});
   const [testingId, setTestingId] = useState<number | null>(null);
@@ -898,6 +927,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       const q = await quotaApi.query(baseUrl, p.api_key);
       if (q.success) {
         setQuotaMap((s) => ({ ...s, [p.id]: q }));
+        setQuotaRealIds((s) => ({ ...s, [p.id]: true }));
       } else {
         setToast({ text: `${p.name}: ${q.error || t("platform.quotaRefreshFail", "刷新额度失败")}`, ok: false });
         setTimeout(() => setToast(null), 3000);
@@ -1679,18 +1709,41 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   {p.platform_type !== "mock" && p.platform_type !== "claude_code" && (() => {
                     const q = quotaMap[p.id];
                     const refreshing = !!quotaRefreshing[p.id];
+                    // 手动刷新（真查校准）过 → 优先展示真值（实测）而非预估
+                    const preferReal = !!quotaRealIds[p.id] && !!q;
                     const badges: React.JSX.Element[] = [];
-                    if (q?.balance) {
-                      const b = q.balance;
-                      const fmt = b.remaining >= 1 ? b.remaining.toFixed(2) : b.remaining >= 0.01 ? b.remaining.toFixed(4) : "0";
-                      const color = b.remaining > 0 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)";
-                      badges.push(<StatBadge key="bal" icon="💳" value={fmt} label={b.currency} color={color} />);
-                    }
-                    if (q?.coding_plan) {
-                      for (const tier of q.coding_plan.tiers) {
-                        const pctColor = tier.utilization < 50 ? "var(--color-success, #34c759)" : tier.utilization < 80 ? "var(--color-warning, #ff9500)" : "var(--color-danger, #ff3b30)";
-                        const tierName = tier.name === "five_hour" ? "5h" : "week";
-                        badges.push(<StatBadge key={tier.name} icon="🪙" value={`${tier.utilization.toFixed(0)}%`} label={tierName} color={pctColor} />);
+                    // 预估值：余额 > 0 或 coding plan JSON 非空 → 优先展示预估（标「预估」）
+                    const estCoding = parseEstCodingPlan(p.est_coding_plan);
+                    const hasEstBalance = p.est_balance_remaining > 0;
+                    const hasEst = hasEstBalance || (estCoding !== null && estCoding.tiers.length > 0);
+                    let estimated = false;
+                    const utilColor = (u: number) =>
+                      u < 50 ? "var(--color-success, #34c759)" : u < 80 ? "var(--color-warning, #ff9500)" : "var(--color-danger, #ff3b30)";
+                    const tierLabel = (name: string) => name === "five_hour" ? "5h" : "week";
+                    if (hasEst && !preferReal) {
+                      estimated = true;
+                      if (hasEstBalance) {
+                        const r = p.est_balance_remaining;
+                        const fmt = r >= 1 ? r.toFixed(2) : r >= 0.01 ? r.toFixed(4) : "0";
+                        badges.push(<StatBadge key="bal" icon="💳" value={`~${fmt}`} label={q?.balance?.currency || "USD"} color="var(--color-success, #34c759)" />);
+                      }
+                      if (estCoding) {
+                        for (const tier of estCoding.tiers) {
+                          badges.push(<StatBadge key={tier.name} icon="🪙" value={`~${tier.est_utilization.toFixed(0)}%`} label={tierLabel(tier.name)} color={utilColor(tier.est_utilization)} />);
+                        }
+                      }
+                    } else if (q) {
+                      // 冷启动/无预估 → 回退展示真查值（实测）
+                      if (q.balance) {
+                        const b = q.balance;
+                        const fmt = b.remaining >= 1 ? b.remaining.toFixed(2) : b.remaining >= 0.01 ? b.remaining.toFixed(4) : "0";
+                        const color = b.remaining > 0 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)";
+                        badges.push(<StatBadge key="bal" icon="💳" value={fmt} label={b.currency} color={color} />);
+                      }
+                      if (q.coding_plan) {
+                        for (const tier of q.coding_plan.tiers) {
+                          badges.push(<StatBadge key={tier.name} icon="🪙" value={`${tier.utilization.toFixed(0)}%`} label={tierLabel(tier.name)} color={utilColor(tier.utilization)} />);
+                        }
                       }
                     }
                     return (
@@ -1702,6 +1755,16 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                         <span className="text-secondary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.2 }}>
                           {t("platform.quotaLabel", "额度")}
                         </span>
+                        {badges.length > 0 && (
+                          <span style={{
+                            fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: "var(--radius-sm)",
+                            background: estimated ? "var(--color-warning, #ff9500)18" : "var(--accent-subtle)",
+                            color: estimated ? "var(--color-warning, #ff9500)" : "var(--accent)",
+                            letterSpacing: 0.3,
+                          }}>
+                            {estimated ? t("platform.quotaEstimated", "预估") : t("platform.quotaMeasured", "实测")}
+                          </span>
+                        )}
                         <button
                           className="btn btn-ghost"
                           style={{ padding: 2, lineHeight: 0, minWidth: "auto", display: "inline-flex", alignItems: "center" }}
