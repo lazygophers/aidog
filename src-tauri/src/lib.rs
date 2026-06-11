@@ -226,6 +226,12 @@ fn tray_config_set(
     Ok(())
 }
 
+/// 获取今日统计摘要（供前端预览使用）
+#[tauri::command]
+fn tray_today_stats(db: State<'_, Db>) -> Result<db::TodayStats, String> {
+    db::today_stats(&db)
+}
+
 // ─── Group Commands ────────────────────────────────────────
 
 #[tauri::command]
@@ -1336,6 +1342,10 @@ struct TrayColumn {
     color: TrayColor,
     font_size: f64,
     two_line: bool,
+    /// "left" | "center" | "right"
+    align: String,
+    /// 两行模式第二行对齐，None = 跟随 align
+    align_row2: Option<String>,
 }
 
 /// 计算单个 platform item 的（名, 值）二元组。
@@ -1376,10 +1386,23 @@ fn tray_segments(app: &tauri::AppHandle) -> Vec<TrayColumn> {
                 let Ok(Some(platform)) = db::get_platform(&db, pid) else { continue };
                 platform_item_parts(&platform, &item.display)
             }
+            "separator" => {
+                // 分隔符项：name=分隔符文本，value=空
+                let sep = if item.display.is_empty() { "·".to_string() } else { item.display.clone() };
+                (sep, String::new())
+            }
             "today_usage" => {
-                // MVP: metric=tokens（默认）。其他 metric 暂按 tokens 处理。
-                let total = db::today_token_total(&db).unwrap_or(0);
-                ("今日".to_string(), format!("{total} tok"))
+                let stats = db::today_stats(&db).unwrap_or_else(|_| db::TodayStats {
+                    tokens: 0, cache_rate: 0.0, cost: 0.0, total_requests: 0,
+                });
+                let metric = item.metric.as_deref().unwrap_or("tokens");
+                let (label, val) = match metric {
+                    "cache_rate" => ("Cache".to_string(), format!("{:.0}%", stats.cache_rate)),
+                    "cost" => ("花费".to_string(), format!("${:.4}", stats.cost)),
+                    "requests" => ("请求".to_string(), format!("{}", stats.total_requests)),
+                    _ => ("今日".to_string(), format!("{} tok", stats.tokens)),
+                };
+                (label, val)
             }
             _ => continue,
         };
@@ -1392,6 +1415,8 @@ fn tray_segments(app: &tauri::AppHandle) -> Vec<TrayColumn> {
             color: item.color.clone(),
             font_size: item.font_size,
             two_line,
+            align: item.align.clone(),
+            align_row2: item.align_row2.clone(),
         });
     }
 
@@ -1845,6 +1870,7 @@ pub fn run() {
             // Tray Config
             tray_config_get,
             tray_config_set,
+            tray_today_stats,
             // Group
             group_create,
             group_list,

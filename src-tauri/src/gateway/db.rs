@@ -1,4 +1,5 @@
 use rusqlite::{params, Connection, OptionalExtension, Result as SqlResult};
+use serde::{Deserialize, Serialize};
 use std::sync::Mutex;
 
 use super::models::*;
@@ -354,6 +355,8 @@ fn migrate_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
             color: TrayColor::default(),
             font_size: 9.0,
             line_mode: "single".to_string(),
+            align: "left".to_string(),
+            align_row2: None,
             enabled: true,
             order: 0,
         });
@@ -392,6 +395,119 @@ pub fn today_token_total(db: &Db) -> Result<i64, String> {
         )
         .map_err(|e| format!("today token total: {e}"))?;
     Ok(total)
+}
+
+/// 今日统计摘要（供托盘预览使用）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TodayStats {
+    /// 今日总 token 数（input + output）
+    pub tokens: i64,
+    /// 今日 cache 命中率（cache_tokens / input_tokens * 100）
+    pub cache_rate: f64,
+    /// 今日预估花费（$），基于 model_price 定价
+    pub cost: f64,
+    /// 今日总请求数
+    pub total_requests: i64,
+}
+
+/// 获取今日统计（本地时区 00:00 起，未删除日志）
+pub fn today_stats(db: &Db) -> Result<TodayStats, String> {
+    use chrono::{Local, TimeZone};
+    let today = Local::now().date_naive();
+    let start_dt = today.and_hms_opt(0, 0, 0).ok_or("invalid local midnight")?;
+    let start_local = Local
+        .from_local_datetime(&start_dt)
+        .single()
+        .ok_or("ambiguous local midnight")?;
+    let start_ms = start_local.timestamp_millis();
+
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+
+    // 基础统计
+    let (tokens, cache_tokens, input_tokens, total_requests): (i64, i64, i64, i64) = conn
+        .query_row(
+            "SELECT COALESCE(SUM(input_tokens + output_tokens), 0), \
+             COALESCE(SUM(cache_tokens), 0), \
+             COALESCE(SUM(input_tokens), 0), \
+             COUNT(*) \
+             FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
+            params![start_ms],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+        )
+        .map_err(|e| format!("today stats: {e}"))?;
+
+    let cache_rate = if input_tokens > 0 {
+        cache_tokens as f64 / input_tokens as f64 * 100.0
+    } else {
+        0.0
+    };
+
+    // 计算花费：按 model 分组，查定价后累加
+    let mut cost: f64 = 0.0;
+    {
+        let mut stmt = conn
+            .prepare(
+                "SELECT model, SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens) \
+                 FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0 \
+                 GROUP BY model",
+            )
+            .map_err(|e| e.to_string())?;
+        let rows = stmt
+            .query_map(params![start_ms], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, i64>(1)?,
+                    row.get::<_, i64>(2)?,
+                    row.get::<_, i64>(3)?,
+                ))
+            })
+            .map_err(|e| e.to_string())?;
+
+        for r in rows {
+            let (model, inp, out, cache) = r.map_err(|e| e.to_string())?;
+            // 直接从 model_price 表查定价（用 top-level 字段）
+            let price: Option<(f64, f64, f64)> = conn
+                .query_row(
+                    "SELECT price_data FROM model_price WHERE model_name = ?1 AND deleted_at = 0 LIMIT 1",
+                    params![model],
+                    |row| {
+                        let pd: String = row.get(0)?;
+                        let v: serde_json::Value = serde_json::from_str(&pd).unwrap_or_default();
+                        let inp_cost = v.get("input_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                        let out_cost = v.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                        let cache_cost = v.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                        // 如果 top-level 无值，尝试 default_platform
+                        if inp_cost == 0.0 && out_cost == 0.0 {
+                            if let Some(dp) = v.get("default_platform").and_then(|v| v.as_str()) {
+                                if let Some(pn) = v.get("pricing").and_then(|p| p.get(dp)) {
+                                    return Ok(Some((
+                                        pn.get("input_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                                        pn.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                                        pn.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                                    )));
+                                }
+                            }
+                        }
+                        Ok(Some((inp_cost, out_cost, cache_cost)))
+                    },
+                )
+                .ok()
+                .flatten();
+
+            if let Some((inp_cost, out_cost, cache_cost)) = price {
+                cost += inp as f64 * inp_cost
+                    + out as f64 * out_cost
+                    + cache as f64 * cache_cost;
+            }
+        }
+    }
+
+    Ok(TodayStats {
+        tokens,
+        cache_rate,
+        cost,
+        total_requests,
+    })
 }
 
 // ─── Group CRUD ────────────────────────────────────────────
@@ -1800,6 +1916,8 @@ mod tests {
                     color: TrayColor { mode: "preset".to_string(), value: "green".to_string() },
                     font_size: 11.0,
                     line_mode: "two".to_string(),
+                    align: "left".to_string(),
+                    align_row2: None,
                     enabled: true,
                     order: 0,
                 },
@@ -1811,6 +1929,8 @@ mod tests {
                     color: TrayColor { mode: "custom".to_string(), value: "#ff8800".to_string() },
                     font_size: 9.0,
                     line_mode: "single".to_string(),
+                    align: "left".to_string(),
+                    align_row2: None,
                     enabled: false,
                     order: 1,
                 },

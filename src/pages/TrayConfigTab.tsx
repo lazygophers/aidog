@@ -7,6 +7,7 @@ import {
   type TrayConfig,
   type TrayItem,
   type TrayColor,
+  type TodayStats,
 } from "../services/api";
 
 const PRESET_COLORS: { value: string; cssVar: string }[] = [
@@ -16,6 +17,28 @@ const PRESET_COLORS: { value: string; cssVar: string }[] = [
 ];
 
 const DEFAULT_FONT_SIZE = 9;
+
+const PRESET_SEPARATORS = [
+  { label: "|", value: "|" },
+  { label: "·", value: "·" },
+  { label: "—", value: "—" },
+  { label: "/", value: "/" },
+  { label: "»", value: "»" },
+  { label: "空格", value: " " },
+];
+
+const ALIGN_OPTIONS = [
+  { value: "left", label: "←" },
+  { value: "center", label: "↔" },
+  { value: "right", label: "→" },
+] as const;
+
+const TODAY_METRICS = [
+  { value: "tokens", label: "Tokens" },
+  { value: "cache_rate", label: "Cache%" },
+  { value: "cost", label: "花费$" },
+  { value: "requests", label: "请求" },
+] as const;
 
 function defaultColor(): TrayColor {
   return { mode: "follow", value: "" };
@@ -30,20 +53,40 @@ function makePlatformItem(platformId: number, display: "balance" | "coding", ord
     color: defaultColor(),
     font_size: DEFAULT_FONT_SIZE,
     line_mode: "single",
+    align: "left",
+    align_row2: null,
     enabled: true,
     order,
   };
 }
 
-function makeTodayUsageItem(order: number): TrayItem {
+function makeTodayUsageItem(metric: string, order: number): TrayItem {
   return {
     item_type: "today_usage",
     platform_id: null,
     display: "",
-    metric: "tokens",
+    metric,
     color: defaultColor(),
     font_size: DEFAULT_FONT_SIZE,
     line_mode: "single",
+    align: "left",
+    align_row2: null,
+    enabled: true,
+    order,
+  };
+}
+
+function makeSeparatorItem(separator: string, order: number): TrayItem {
+  return {
+    item_type: "separator",
+    platform_id: null,
+    display: separator,
+    metric: null,
+    color: defaultColor(),
+    font_size: DEFAULT_FONT_SIZE,
+    line_mode: "single",
+    align: "center",
+    align_row2: null,
     enabled: true,
     order,
   };
@@ -60,18 +103,55 @@ function isRiskyHex(hex: string): boolean {
   return luminance < 40 || luminance > 215;
 }
 
+/** 用与后端 tray_segments 相同的逻辑计算预览文本 */
+function computePreviewText(item: TrayItem, platform: Platform | undefined, todayStats: TodayStats | null): { label: string; value: string } {
+  if (item.item_type === "separator") {
+    return { label: item.display || "·", value: "" };
+  }
+  if (item.item_type === "today_usage") {
+    const stats = todayStats ?? { tokens: 0, cache_rate: 0, cost: 0, total_requests: 0 };
+    const metric = item.metric || "tokens";
+    switch (metric) {
+      case "cache_rate": return { label: "Cache", value: `${stats.cache_rate.toFixed(0)}%` };
+      case "cost": return { label: "花费", value: `$${stats.cost.toFixed(4)}` };
+      case "requests": return { label: "请求", value: `${stats.total_requests}` };
+      default: return { label: "今日", value: `${stats.tokens} tok` };
+    }
+  }
+  // platform
+  if (!platform) return { label: `#${item.platform_id}`, value: "--.--" };
+  const name = platform.name;
+  const codingPlan = platform.est_coding_plan;
+  let isCoding = item.display === "coding";
+  let util = 0;
+  if (codingPlan) {
+    try {
+      const parsed = JSON.parse(codingPlan);
+      if (parsed?.tiers?.length) { isCoding = true; util = parsed.tiers[0].est_utilization ?? 0; }
+    } catch { /* ignore */ }
+  }
+  const value = isCoding ? `${Math.max(0, 100 - util).toFixed(0)}%` : platform.est_balance_remaining.toFixed(2);
+  return { label: name, value };
+}
+
 export function TrayConfigTab() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [config, setConfig] = useState<TrayConfig>({ separator: "  ", items: [] });
+  const [todayStats, setTodayStats] = useState<TodayStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [expandedIdx, setExpandedIdx] = useState<number | null>(null);
 
-  // Drag state (pointer-event pattern, matching Groups/Platforms)
+  // Drag state (pointer-event pattern)
   const [drag, setDrag] = useState<{ from: number; to: number } | null>(null);
   const dragStartRef = useRef<{ y: number; index: number } | null>(null);
   const didDragRef = useRef(false);
+
+  // Preview drag state
+  const [previewDrag, setPreviewDrag] = useState<{ from: number; to: number } | null>(null);
+  const previewDragStartRef = useRef<{ x: number; index: number } | null>(null);
+  const previewDidDragRef = useRef(false);
 
   // Add item dropdown
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -79,19 +159,27 @@ export function TrayConfigTab() {
   useEffect(() => {
     (async () => {
       try {
-        const list = await platformApi.list();
+        const [list, cfg, stats] = await Promise.all([
+          platformApi.list(),
+          trayConfigApi.get(),
+          trayConfigApi.todayStats(),
+        ]);
         setPlatforms(list.filter((p) => p.enabled));
-      } catch (e) {
-        console.error(e);
-      }
-      try {
-        const cfg = await trayConfigApi.get();
         setConfig(cfg);
+        setTodayStats(stats);
       } catch (e) {
         console.error(e);
       }
       setLoading(false);
     })();
+  }, []);
+
+  // Refresh today stats periodically
+  useEffect(() => {
+    const timer = setInterval(async () => {
+      try { setTodayStats(await trayConfigApi.todayStats()); } catch { /* ignore */ }
+    }, 30_000);
+    return () => clearInterval(timer);
   }, []);
 
   const persist = async (next: TrayConfig) => {
@@ -119,19 +207,24 @@ export function TrayConfigTab() {
   };
 
   const addPlatform = (pid: number) => {
-    const display = "balance" as const;
-    const items = [...config.items, makePlatformItem(pid, display, config.items.length)];
+    const items = [...config.items, makePlatformItem(pid, "balance", config.items.length)];
     persist({ ...config, items: withOrders(items) });
     setShowAddMenu(false);
   };
 
-  const addTodayUsage = () => {
-    const items = [...config.items, makeTodayUsageItem(config.items.length)];
+  const addTodayUsage = (metric: string) => {
+    const items = [...config.items, makeTodayUsageItem(metric, config.items.length)];
     persist({ ...config, items: withOrders(items) });
     setShowAddMenu(false);
   };
 
-  // ── Preview computation ──
+  const addSeparator = (sep: string) => {
+    const items = [...config.items, makeSeparatorItem(sep, config.items.length)];
+    persist({ ...config, items: withOrders(items) });
+    setShowAddMenu(false);
+  };
+
+  // ── Preview computation (mirrors backend tray_segments exactly) ──
   const preview = useMemo(() => {
     const enabled = config.items
       .filter((i) => i.enabled)
@@ -142,24 +235,18 @@ export function TrayConfigTab() {
       const isTwo = item.line_mode === "two";
       const lines = isTwo ? 2 : 1;
       totalLines += lines;
-      let label = "";
-      let value = "";
-      if (item.item_type === "platform" && item.platform_id) {
-        const p = platforms.find((pp) => pp.id === item.platform_id);
-        label = p?.name ?? `#${item.platform_id}`;
-        value = item.display === "coding" ? "剩 --%" : "--.--";
-      } else if (item.item_type === "today_usage") {
-        label = "今日";
-        value = "-- tok";
-      }
-      const text = isTwo ? `${label}\n${value}` : `${label} ${value}`;
-      return { text, lines, isTwo };
+      const p = item.item_type === "platform" && item.platform_id
+        ? platforms.find((pp) => pp.id === item.platform_id)
+        : undefined;
+      const { label, value } = computePreviewText(item, p, todayStats);
+      const isSep = item.item_type === "separator";
+      return { text: isSep ? label : (isTwo ? `${label}\n${value}` : `${label} ${value}`), lines, isTwo, isSep, align: item.align, alignRow2: item.align_row2 || item.align };
     });
 
     return { segments: segs, totalLines, overBudget: totalLines > 2 };
-  }, [config, platforms]);
+  }, [config, platforms, todayStats]);
 
-  // ── Drag handlers (pointer-event pattern) ──
+  // ── Drag handlers (card list) ──
   const handlePointerDown = (e: React.PointerEvent, index: number) => {
     if (e.button !== 0) return;
     e.preventDefault();
@@ -175,7 +262,6 @@ export function TrayConfigTab() {
       setDrag({ from: start.index, to: start.index });
       didDragRef.current = true;
     }
-    // Determine insertion point from pointer position
     const el = document.querySelectorAll("[data-tray-item]");
     let closest = drag?.from ?? start.index;
     for (let i = 0; i < el.length; i++) {
@@ -203,17 +289,66 @@ export function TrayConfigTab() {
     setTimeout(() => { didDragRef.current = false; }, 50);
   };
 
+  // ── Preview drag handlers (horizontal) ──
+  const handlePreviewPointerDown = (e: React.PointerEvent, index: number) => {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    previewDragStartRef.current = { x: e.clientX, index };
+  };
+
+  const handlePreviewPointerMove = (e: React.PointerEvent) => {
+    const start = previewDragStartRef.current;
+    if (!start) return;
+    if (!previewDrag) {
+      if (Math.abs(e.clientX - start.x) < 5) return;
+      setPreviewDrag({ from: start.index, to: start.index });
+      previewDidDragRef.current = true;
+    }
+    const el = document.querySelectorAll("[data-preview-seg]");
+    let closest = previewDrag?.from ?? start.index;
+    for (let i = 0; i < el.length; i++) {
+      const rect = el[i].getBoundingClientRect();
+      const mid = rect.left + rect.width / 2;
+      if (e.clientX > mid) closest = i;
+      else break;
+    }
+    setPreviewDrag((prev) => (prev ? { ...prev, to: closest } : null));
+  };
+
+  const handlePreviewPointerUp = () => {
+    if (previewDrag) {
+      const enabledItems = config.items.filter((i) => i.enabled).sort((a, b) => a.order - b.order);
+      const allItems = [...config.items];
+      // Find indices in allItems
+      const fromItem = enabledItems[previewDrag.from];
+      const toItem = enabledItems[previewDrag.to];
+      if (fromItem && toItem) {
+        const fromAllIdx = allItems.findIndex((it) => it === fromItem);
+        const toAllIdx = allItems.findIndex((it) => it === toItem);
+        if (fromAllIdx !== -1 && toAllIdx !== -1 && fromAllIdx !== toAllIdx) {
+          const [moved] = allItems.splice(fromAllIdx, 1);
+          const insertIdx = allItems.findIndex((it) => it === toItem);
+          allItems.splice(insertIdx, 0, moved);
+          persist({ ...config, items: withOrders(allItems) });
+        }
+      }
+      setPreviewDrag(null);
+    }
+    previewDragStartRef.current = null;
+    setTimeout(() => { previewDidDragRef.current = false; }, 50);
+  };
+
   const platformName = (id: number | null): string => {
     if (id === null) return "";
     const p = platforms.find((pp) => pp.id === id);
     return p ? p.name : `#${id}`;
   };
 
-  // Items already in config (to filter from add dropdown)
+  // Items already in config
   const usedPlatformIds = new Set(
     config.items.filter((i) => i.item_type === "platform").map((i) => i.platform_id)
   );
-  const hasTodayUsage = config.items.some((i) => i.item_type === "today_usage");
   const availablePlatforms = platforms.filter((p) => !usedPlatformIds.has(p.id));
 
   if (loading) {
@@ -235,59 +370,20 @@ export function TrayConfigTab() {
     </svg>
   );
 
+  const cssAlign = (a: string) => a === "center" ? "center" : a === "right" ? "right" : "left";
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720 }}>
       {/* ── Preview Bar ── */}
       <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>
-          {t("tray.preview", "实时预览")}
-        </div>
-        {/* Simulated macOS menu bar */}
-        <div
-          style={{
-            background: "rgba(30, 30, 30, 0.95)",
-            borderRadius: 8,
-            padding: "6px 14px",
-            minHeight: 32,
-            display: "flex",
-            alignItems: "center",
-            fontFamily: '-apple-system, "SF Pro Text", system-ui, sans-serif',
-            fontSize: 12,
-            color: "rgba(255, 255, 255, 0.85)",
-            gap: 4,
-            flexWrap: "wrap",
-            lineHeight: 1.3,
-            position: "relative",
-            overflow: "hidden",
-          }}
-        >
-          {preview.segments.length === 0 ? (
-            <span style={{ color: "rgba(255, 255, 255, 0.35)", fontStyle: "italic" }}>
-              {t("tray.previewEmpty", "暂无展示项，托盘将显示图标")}
-            </span>
-          ) : (
-            preview.segments.map((seg, i) => (
-              <Fragment key={i}>
-                {i > 0 && (
-                  <span style={{ color: "rgba(255, 255, 255, 0.3)" }}>
-                    {config.separator}
-                  </span>
-                )}
-                <span style={{ whiteSpace: "pre-line" }}>{seg.text}</span>
-              </Fragment>
-            ))
-          )}
-        </div>
-
-        {/* Status row */}
-        <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>
+            {t("tray.preview", "实时预览")}
+          </div>
           {/* Line budget */}
           <div
             style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 6,
-              fontSize: 11,
+              display: "flex", alignItems: "center", gap: 6, fontSize: 11,
               color: preview.overBudget
                 ? "#ff9f0a"
                 : preview.totalLines === 2
@@ -304,20 +400,98 @@ export function TrayConfigTab() {
               </span>
             )}
           </div>
-          {/* Separator */}
-          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-              {t("tray.separator", "分隔符")}
-            </label>
-            <input
-              className="input"
-              type="text"
-              value={config.separator}
-              onChange={(e) => setConfig({ ...config, separator: e.target.value })}
-              onBlur={() => persist(config)}
-              style={{ width: 60, fontSize: 12, padding: "3px 8px" }}
-            />
-          </div>
+        </div>
+
+        {/* Simulated macOS menu bar — mirrors actual tray rendering */}
+        <div
+          style={{
+            background: "rgba(30, 30, 30, 0.95)",
+            borderRadius: 8,
+            padding: "6px 14px",
+            minHeight: 32,
+            display: "flex",
+            alignItems: "center",
+            fontFamily: '-apple-system, "SF Pro Text", system-ui, sans-serif',
+            fontSize: 12,
+            color: "rgba(255, 255, 255, 0.85)",
+            gap: 0,
+            position: "relative",
+            overflow: "hidden",
+            userSelect: "none",
+          }}
+        >
+          {preview.segments.length === 0 ? (
+            <span style={{ color: "rgba(255, 255, 255, 0.35)", fontStyle: "italic" }}>
+              {t("tray.previewEmpty", "暂无展示项，托盘将显示图标")}
+            </span>
+          ) : (
+            <>
+              {/* Single-line mode: horizontal with separator */}
+              {!preview.segments.some((s) => s.isTwo) ? (
+                preview.segments.map((seg, i) => {
+                  const isDragging = previewDrag?.from === i;
+                  return (
+                    <Fragment key={i}>
+                      {i > 0 && !preview.segments[i - 1]?.isSep && !seg.isSep && (
+                        <span style={{ color: "rgba(255,255,255,0.3)", margin: "0 2px" }}>
+                          {config.separator}
+                        </span>
+                      )}
+                      <span
+                        data-preview-seg
+                        onPointerDown={(e) => handlePreviewPointerDown(e, i)}
+                        onPointerMove={handlePreviewPointerMove}
+                        onPointerUp={handlePreviewPointerUp}
+                        style={{
+                          cursor: "grab",
+                          opacity: isDragging ? 0.4 : 1,
+                          transition: "opacity 150ms",
+                          textAlign: cssAlign(seg.align),
+                          whiteSpace: "pre",
+                        }}
+                      >
+                        {seg.text}
+                      </span>
+                    </Fragment>
+                  );
+                })
+              ) : (
+                /* Two-line mode: table layout mirroring NSTextTab */
+                <div style={{ display: "grid", gridAutoFlow: "column", gap: 8, width: "100%" }}>
+                  {preview.segments.map((seg, i) => {
+                    const isDragging = previewDrag?.from === i;
+                    const lines = seg.text.split("\n");
+                    return (
+                      <div
+                        key={i}
+                        data-preview-seg
+                        onPointerDown={(e) => handlePreviewPointerDown(e, i)}
+                        onPointerMove={handlePreviewPointerMove}
+                        onPointerUp={handlePreviewPointerUp}
+                        style={{
+                          cursor: "grab",
+                          opacity: isDragging ? 0.4 : 1,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "stretch",
+                          transition: "opacity 150ms",
+                        }}
+                      >
+                        <div style={{ textAlign: cssAlign(seg.align), fontSize: 12, lineHeight: "14px", whiteSpace: "nowrap" }}>
+                          {lines[0]}
+                        </div>
+                        {seg.isTwo && lines[1] && (
+                          <div style={{ textAlign: cssAlign(seg.alignRow2), fontSize: 12, lineHeight: "14px", whiteSpace: "nowrap" }}>
+                            {lines[1]}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          )}
         </div>
       </div>
 
@@ -342,17 +516,20 @@ export function TrayConfigTab() {
           const isDragging = drag?.from === i;
           const isDragTarget = drag?.to === i && drag?.from !== i;
           const isPlatform = item.item_type === "platform";
+          const isSep = item.item_type === "separator";
           const riskyHex = item.color.mode === "custom" && isRiskyHex(item.color.value);
 
           // Summary text for collapsed state
-          const summary = isPlatform
-            ? item.display === "coding"
-              ? t("tray.displayCoding", "Coding")
-              : t("tray.displayBalance", "余额")
-            : t("tray.todayUsage", "Tokens");
+          const summary = isSep
+            ? t("tray.separatorItem", "分隔符")
+            : isPlatform
+              ? item.display === "coding"
+                ? t("tray.displayCoding", "Coding")
+                : t("tray.displayBalance", "余额")
+              : TODAY_METRICS.find((m) => m.value === (item.metric || "tokens"))?.label ?? "Tokens";
 
           return (
-            <Fragment key={`${item.item_type}-${item.platform_id ?? "x"}-${i}`}>
+            <Fragment key={`${item.item_type}-${item.platform_id ?? "x"}-${item.metric ?? "s"}-${i}`}>
               {/* Insertion line above */}
               {drag && isDragTarget && drag.from !== i && (
                 <div className="insertion-line" />
@@ -367,7 +544,7 @@ export function TrayConfigTab() {
                   flexDirection: "column",
                   gap: 0,
                   opacity: isDragging ? undefined : item.enabled ? 1 : 0.5,
-                  paddingLeft: 40, // space for grip handle
+                  paddingLeft: 40,
                   transition: "all 200ms ease",
                 }}
               >
@@ -381,7 +558,7 @@ export function TrayConfigTab() {
                   {gripSvg}
                 </div>
 
-                {/* Header row — always visible */}
+                {/* Header row */}
                 <div
                   style={{
                     display: "flex",
@@ -398,37 +575,30 @@ export function TrayConfigTab() {
                 >
                   {/* Item name */}
                   <span style={{ fontSize: 13, fontWeight: 600, flex: 1 }}>
-                    {isPlatform ? platformName(item.platform_id) : t("tray.todayUsage", "今日消耗")}
+                    {isSep
+                      ? `${t("tray.separatorItem", "分隔符")} "${item.display || "·"}"`
+                      : isPlatform
+                        ? platformName(item.platform_id)
+                        : `${t("tray.todayUsage", "今日消耗")} (${TODAY_METRICS.find((m) => m.value === (item.metric || "tokens"))?.label ?? "Tokens"})`}
                   </span>
 
                   {/* Summary badge */}
-                  <span
-                    className="badge badge-muted"
-                    style={{ fontSize: 10 }}
-                  >
+                  <span className="badge badge-muted" style={{ fontSize: 10 }}>
                     {summary}
                   </span>
 
                   {/* Line mode hint */}
                   {item.line_mode === "two" && (
-                    <span
-                      className="badge badge-accent"
-                      style={{ fontSize: 10 }}
-                    >
+                    <span className="badge badge-accent" style={{ fontSize: 10 }}>
                       {t("tray.lineModeTwo", "两行")}
                     </span>
                   )}
 
                   {/* Expand chevron */}
                   <svg
-                    width="14"
-                    height="14"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="var(--text-tertiary)"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
+                    width="14" height="14" viewBox="0 0 14 14" fill="none"
+                    stroke="var(--text-tertiary)" strokeWidth="1.5"
+                    strokeLinecap="round" strokeLinejoin="round"
                     style={{
                       transition: "transform 200ms ease",
                       transform: isExpanded ? "rotate(180deg)" : "rotate(0deg)",
@@ -441,38 +611,23 @@ export function TrayConfigTab() {
                   {/* Enabled toggle */}
                   <div
                     className={`toggle ${item.enabled ? "active" : ""}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      updateItem(i, { enabled: !item.enabled });
-                    }}
-                    role="switch"
-                    aria-checked={item.enabled}
-                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); updateItem(i, { enabled: !item.enabled }); }}
+                    role="switch" aria-checked={item.enabled} tabIndex={0}
                     style={{ width: 32, height: 18, flexShrink: 0 }}
                   />
 
                   {/* Delete */}
                   <button
                     className="btn btn-ghost btn-icon"
-                    style={{
-                      fontSize: 12,
-                      color: "var(--danger, #ff453a)",
-                      width: 24,
-                      height: 24,
-                      padding: 0,
-                      flexShrink: 0,
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      removeItem(i);
-                    }}
+                    style={{ fontSize: 12, color: "var(--danger, #ff453a)", width: 24, height: 24, padding: 0, flexShrink: 0 }}
+                    onClick={(e) => { e.stopPropagation(); removeItem(i); }}
                   >
                     ×
                   </button>
                 </div>
 
                 {/* Expanded config */}
-                {isExpanded && (
+                {isExpanded && !isSep && (
                   <div
                     style={{
                       marginTop: 10,
@@ -497,17 +652,38 @@ export function TrayConfigTab() {
                               key={d}
                               className="btn btn-ghost"
                               style={{
-                                padding: "3px 10px",
-                                fontSize: 11,
-                                borderRadius: 0,
+                                padding: "3px 10px", fontSize: 11, borderRadius: 0,
                                 background: item.display === d ? "var(--accent)" : "transparent",
                                 color: item.display === d ? "#fff" : "var(--text-secondary)",
                               }}
                               onClick={() => updateItem(i, { display: d })}
                             >
-                              {d === "balance"
-                                ? t("tray.displayBalance", "余额")
-                                : t("tray.displayCoding", "Coding")}
+                              {d === "balance" ? t("tray.displayBalance", "余额") : t("tray.displayCoding", "Coding")}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Metric (today_usage only) */}
+                    {!isPlatform && (
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                          {t("tray.metric", "指标")}
+                        </label>
+                        <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
+                          {TODAY_METRICS.map((m) => (
+                            <button
+                              key={m.value}
+                              className="btn btn-ghost"
+                              style={{
+                                padding: "3px 8px", fontSize: 11, borderRadius: 0,
+                                background: (item.metric || "tokens") === m.value ? "var(--accent)" : "transparent",
+                                color: (item.metric || "tokens") === m.value ? "#fff" : "var(--text-secondary)",
+                              }}
+                              onClick={() => updateItem(i, { metric: m.value })}
+                            >
+                              {m.label}
                             </button>
                           ))}
                         </div>
@@ -525,21 +701,65 @@ export function TrayConfigTab() {
                             key={lm}
                             className="btn btn-ghost"
                             style={{
-                              padding: "3px 10px",
-                              fontSize: 11,
-                              borderRadius: 0,
+                              padding: "3px 10px", fontSize: 11, borderRadius: 0,
                               background: item.line_mode === lm ? "var(--accent)" : "transparent",
                               color: item.line_mode === lm ? "#fff" : "var(--text-secondary)",
                             }}
                             onClick={() => updateItem(i, { line_mode: lm })}
                           >
-                            {lm === "single"
-                              ? t("tray.lineModeSingle", "单行")
-                              : t("tray.lineModeTwo", "两行")}
+                            {lm === "single" ? t("tray.lineModeSingle", "单行") : t("tray.lineModeTwo", "两行")}
                           </button>
-                          ))}
+                        ))}
                       </div>
                     </div>
+
+                    {/* Alignment row 1 */}
+                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                      <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                        {t("tray.align", "对齐")}
+                      </label>
+                      <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
+                        {ALIGN_OPTIONS.map((a) => (
+                          <button
+                            key={a.value}
+                            className="btn btn-ghost"
+                            style={{
+                              padding: "3px 8px", fontSize: 12, borderRadius: 0,
+                              background: item.align === a.value ? "var(--accent)" : "transparent",
+                              color: item.align === a.value ? "#fff" : "var(--text-secondary)",
+                            }}
+                            onClick={() => updateItem(i, { align: a.value })}
+                          >
+                            {a.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Alignment row 2 (only when two-line) */}
+                    {item.line_mode === "two" && (
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                          {t("tray.alignRow2", "值行对齐")}
+                        </label>
+                        <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
+                          {ALIGN_OPTIONS.map((a) => (
+                            <button
+                              key={a.value}
+                              className="btn btn-ghost"
+                              style={{
+                                padding: "3px 8px", fontSize: 12, borderRadius: 0,
+                                background: (item.align_row2 || item.align) === a.value ? "var(--accent)" : "transparent",
+                                color: (item.align_row2 || item.align) === a.value ? "#fff" : "var(--text-secondary)",
+                              }}
+                              onClick={() => updateItem(i, { align_row2: a.value })}
+                            >
+                              {a.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Font size */}
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -547,14 +767,9 @@ export function TrayConfigTab() {
                         {t("tray.fontSize", "字号")}
                       </label>
                       <input
-                        className="input"
-                        type="number"
-                        min={6}
-                        max={20}
+                        className="input" type="number" min={6} max={20}
                         value={item.font_size}
-                        onChange={(e) =>
-                          updateItem(i, { font_size: Math.max(6, Math.min(20, Number(e.target.value))) })
-                        }
+                        onChange={(e) => updateItem(i, { font_size: Math.max(6, Math.min(20, Number(e.target.value))) })}
                         style={{ width: 52, fontSize: 12, padding: "3px 8px" }}
                       />
                     </div>
@@ -569,12 +784,7 @@ export function TrayConfigTab() {
                         value={item.color.mode}
                         onChange={(e) => {
                           const mode = e.target.value as TrayColor["mode"];
-                          const value =
-                            mode === "preset"
-                              ? PRESET_COLORS[0].value
-                              : mode === "custom"
-                                ? (item.color.value || "#ffffff")
-                                : "";
+                          const value = mode === "preset" ? PRESET_COLORS[0].value : mode === "custom" ? (item.color.value || "#ffffff") : "";
                           updateItem(i, { color: { mode, value } });
                         }}
                         style={{ width: 100, padding: "3px 8px", fontSize: 11 }}
@@ -588,9 +798,7 @@ export function TrayConfigTab() {
                         <select
                           className="input"
                           value={item.color.value}
-                          onChange={(e) =>
-                            updateItem(i, { color: { mode: "preset", value: e.target.value } })
-                          }
+                          onChange={(e) => updateItem(i, { color: { mode: "preset", value: e.target.value } })}
                           style={{ width: 80, padding: "3px 8px", fontSize: 11 }}
                         >
                           {PRESET_COLORS.map((c) => (
@@ -603,20 +811,55 @@ export function TrayConfigTab() {
                         <input
                           type="color"
                           value={/^#[0-9a-fA-F]{6}$/.test(item.color.value) ? item.color.value : "#ffffff"}
-                          onChange={(e) =>
-                            updateItem(i, { color: { mode: "custom", value: e.target.value } })
-                          }
-                          style={{
-                            width: 28,
-                            height: 22,
-                            padding: 0,
-                            border: "1px solid var(--border)",
-                            borderRadius: 4,
-                            background: "transparent",
-                          }}
+                          onChange={(e) => updateItem(i, { color: { mode: "custom", value: e.target.value } })}
+                          style={{ width: 28, height: 22, padding: 0, border: "1px solid var(--border)", borderRadius: 4, background: "transparent" }}
                         />
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* Separator expanded config */}
+                {isExpanded && isSep && (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      paddingTop: 10,
+                      borderTop: "1px solid var(--border)",
+                      display: "flex",
+                      gap: 8,
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                      {t("tray.separatorChar", "分隔符")}
+                    </label>
+                    <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 6, overflow: "hidden" }}>
+                      {PRESET_SEPARATORS.map((s) => (
+                        <button
+                          key={s.value}
+                          className="btn btn-ghost"
+                          style={{
+                            padding: "3px 10px", fontSize: 13, borderRadius: 0, minWidth: 28,
+                            background: item.display === s.value ? "var(--accent)" : "transparent",
+                            color: item.display === s.value ? "#fff" : "var(--text-secondary)",
+                          }}
+                          onClick={() => updateItem(i, { display: s.value })}
+                        >
+                          {s.label}
+                        </button>
+                      ))}
+                    </div>
+                    {/* Custom separator input */}
+                    <input
+                      className="input" type="text"
+                      value={item.display}
+                      placeholder="自定义"
+                      onChange={(e) => updateItem(i, { display: e.target.value })}
+                      style={{ width: 60, fontSize: 12, padding: "3px 8px" }}
+                    />
                   </div>
                 )}
 
@@ -645,59 +888,64 @@ export function TrayConfigTab() {
 
         {showAddMenu && (
           <>
-            {/* Backdrop to close menu */}
-            <div
-              style={{ position: "fixed", inset: 0, zIndex: 998 }}
-              onClick={() => { setShowAddMenu(false); }}
-            />
+            <div style={{ position: "fixed", inset: 0, zIndex: 998 }} onClick={() => setShowAddMenu(false)} />
             <div
               className="glass-elevated"
               style={{
-                position: "absolute",
-                top: "100%",
-                left: 0,
-                marginTop: 6,
-                minWidth: 240,
-                padding: 8,
-                zIndex: 999,
-                display: "flex",
-                flexDirection: "column",
-                gap: 2,
+                position: "absolute", top: "100%", left: 0, marginTop: 6,
+                minWidth: 280, padding: 8, zIndex: 999,
+                display: "flex", flexDirection: "column", gap: 2,
               }}
             >
-              {/* Platform options */}
-              {availablePlatforms.map((p) => (
-                <button
-                  key={p.id}
-                  className="btn btn-ghost"
+              {/* Section: Platforms */}
+              {availablePlatforms.length > 0 && (
+                <>
+                  <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 12px 2px", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5 }}>
+                    {t("tray.addPlatform", "平台")}
+                  </div>
+                  {availablePlatforms.map((p) => (
+                    <button key={p.id} className="btn btn-ghost"
+                      style={{ justifyContent: "flex-start", fontSize: 12, padding: "8px 12px" }}
+                      onClick={() => addPlatform(p.id)}
+                    >
+                      {p.name}
+                    </button>
+                  ))}
+                </>
+              )}
+
+              {/* Section: Today metrics */}
+              <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 12px 2px", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, borderTop: "1px solid var(--border)", marginTop: 4 }}>
+                {t("tray.addToday", "今日统计")}
+              </div>
+              {TODAY_METRICS.map((m) => (
+                <button key={m.value} className="btn btn-ghost"
                   style={{ justifyContent: "flex-start", fontSize: 12, padding: "8px 12px" }}
-                  onClick={() => addPlatform(p.id)}
+                  onClick={() => addTodayUsage(m.value)}
                 >
-                  {p.name}
+                  {t("tray.todayUsage", "今日消耗")} — {m.label}
                 </button>
               ))}
 
-              {/* Today usage */}
-              {!hasTodayUsage && (
-                <button
-                  className="btn btn-ghost"
-                  style={{
-                    justifyContent: "flex-start",
-                    fontSize: 12,
-                    padding: "8px 12px",
-                    borderTop: availablePlatforms.length > 0 ? "1px solid var(--border)" : undefined,
-                    marginTop: availablePlatforms.length > 0 ? 4 : undefined,
-                  }}
-                  onClick={addTodayUsage}
-                >
-                  {t("tray.todayUsage", "今日消耗 (Tokens)")}
-                </button>
-              )}
+              {/* Section: Separators */}
+              <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 12px 2px", fontWeight: 600, textTransform: "uppercase", letterSpacing: 0.5, borderTop: "1px solid var(--border)", marginTop: 4 }}>
+                {t("tray.addSeparator", "分隔符")}
+              </div>
+              <div style={{ display: "flex", gap: 2, padding: "4px 8px" }}>
+                {PRESET_SEPARATORS.map((s) => (
+                  <button key={s.value} className="btn btn-ghost"
+                    style={{ fontSize: 14, padding: "6px 10px", minWidth: 32, textAlign: "center" }}
+                    onClick={() => addSeparator(s.value)}
+                  >
+                    {s.label}
+                  </button>
+                ))}
+              </div>
 
               {/* Nothing available */}
-              {availablePlatforms.length === 0 && hasTodayUsage && (
-                <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "8px 12px" }}>
-                  {t("tray.allAdded", "所有可用的展示项已添加")}
+              {availablePlatforms.length === 0 && (
+                <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "4px 12px" }}>
+                  {t("tray.allPlatformsAdded", "所有平台已添加")}
                 </div>
               )}
             </div>

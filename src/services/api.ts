@@ -331,28 +331,40 @@ export interface TrayColor {
 
 /** 托盘单个展示项。
  * - item_type="platform": platform_id 指定平台，display ∈ "balance" | "coding"
- * - item_type="today_usage": metric ∈ "tokens"（MVP），platform_id/display 忽略
+ * - item_type="today_usage": metric ∈ "tokens" | "cache_rate" | "cost" | "requests"，platform_id/display 忽略
+ * - item_type="separator": display 存分隔符文本（如 "|"、"·"、"—"）
  */
 export interface TrayItem {
-  item_type: "platform" | "today_usage";
+  item_type: "platform" | "today_usage" | "separator";
   platform_id: number | null;
   display: string;
   metric: string | null;
   color: TrayColor;
   font_size: number;
-  /** 该项行模式："single"（"名 值" 同行）| "two"（"名/值" 两行）。
-   * 菜单栏物理 ≤2 行：单 item 时尊重该模式；多 item 时渲染层强制全部 single 横排。 */
+  /** 该项行模式："single"（"名 值" 同行）| "two"（"名/值" 两行）。 */
   line_mode: "single" | "two";
+  /** 对齐方式："left" | "center" | "right" */
+  align: string;
+  /** 两行模式第二行对齐，null = 跟随 align */
+  align_row2: string | null;
   enabled: boolean;
   order: number;
 }
 
 /** 托盘整体配置（存 settings: scope="tray", key="config"）。
- * 行模式（单/两行）已下沉到各 item 的 line_mode；全局仅保留 separator（多 item 间分隔）。 */
+ * 全局仅保留 separator（多 item 间分隔，单行模式用）。 */
 export interface TrayConfig {
-  /** 多 item 横排时各项之间的分隔符 */
+  /** 多 item 横排时各项之间的分隔符（单行模式使用） */
   separator: string;
   items: TrayItem[];
+}
+
+/** 今日统计摘要 */
+export interface TodayStats {
+  tokens: number;
+  cache_rate: number;
+  cost: number;
+  total_requests: number;
 }
 
 export const trayConfigApi = {
@@ -360,6 +372,8 @@ export const trayConfigApi = {
   get: () => invoke<TrayConfig>("tray_config_get"),
   /** 保存托盘配置并刷新托盘渲染。 */
   set: (config: TrayConfig) => invoke<void>("tray_config_set", { config }),
+  /** 获取今日统计摘要（tokens / cache_rate / cost / requests）。 */
+  todayStats: () => invoke<TodayStats>("tray_today_stats"),
 };
 
 // ─── Group API ─────────────────────────────────────────────

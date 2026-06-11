@@ -513,7 +513,8 @@ impl Default for TrayColor {
 
 /// 托盘单个展示项。
 /// - item_type="platform": platform_id 指定平台，display ∈ {"balance","coding"}
-/// - item_type="today_usage": metric ∈ {"tokens"}（MVP），display/platform_id 忽略
+/// - item_type="today_usage": metric ∈ {"tokens","cache_rate","cost","requests"}，display/platform_id 忽略
+/// - item_type="separator": display 存分隔符文本（如 "|"、"·"、"—"）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrayItem {
     #[serde(default = "default_item_type")]
@@ -533,6 +534,12 @@ pub struct TrayItem {
     /// iStat Menus 式两行多列：任一列 two → 整体两行模式（NSTextTab 列对齐），否则单行横排。
     #[serde(default = "default_line_mode")]
     pub line_mode: String,
+    /// 对齐方式："left" | "center" | "right"，默认 "left"
+    #[serde(default = "default_align")]
+    pub align: String,
+    /// 两行模式下第二行对齐："left" | "center" | "right"，默认跟随 align
+    #[serde(default)]
+    pub align_row2: Option<String>,
     #[serde(default = "default_true")]
     pub enabled: bool,
     #[serde(default)]
@@ -543,6 +550,7 @@ fn default_item_type() -> String { "platform".to_string() }
 fn default_display() -> String { "balance".to_string() }
 fn default_font_size() -> f64 { 9.0 }
 fn default_line_mode() -> String { "single".to_string() }
+fn default_align() -> String { "left".to_string() }
 
 /// 托盘整体配置（存 settings: scope="tray", key="config"）。
 /// 行模式（单/两行）改为每 item 各自 `line_mode`，全局仅保留 separator（多 item 间分隔）。
