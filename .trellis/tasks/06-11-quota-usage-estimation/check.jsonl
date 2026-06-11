@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/06-11-quota-usage-estimation/design.md", "reason": "校验预估算法/触发/校准落地 + 并发安全"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "schema 加列合规 + 无持锁跨 await"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Platform est_* 字段前后端契约一致"}
