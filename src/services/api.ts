@@ -340,15 +340,17 @@ export interface TrayItem {
   metric: string | null;
   color: TrayColor;
   font_size: number;
+  /** 该项行模式："single"（"名 值" 同行）| "two"（"名/值" 两行）。
+   * 菜单栏物理 ≤2 行：单 item 时尊重该模式；多 item 时渲染层强制全部 single 横排。 */
+  line_mode: "single" | "two";
   enabled: boolean;
   order: number;
 }
 
-/** 托盘整体配置（存 settings: scope="tray", key="config"）。 */
+/** 托盘整体配置（存 settings: scope="tray", key="config"）。
+ * 行模式（单/两行）已下沉到各 item 的 line_mode；全局仅保留 separator（多 item 间分隔）。 */
 export interface TrayConfig {
-  /** "single_line"（分隔符拼接）| "two_line"（换行，≤2 行） */
-  layout: "single_line" | "two_line";
-  /** single_line 模式下各项之间的分隔符 */
+  /** 多 item 横排时各项之间的分隔符 */
   separator: string;
   items: TrayItem[];
 }

@@ -528,6 +528,10 @@ pub struct TrayItem {
     pub color: TrayColor,
     #[serde(default = "default_font_size")]
     pub font_size: f64,
+    /// 该项行模式："single"（"名 值" 同段单行）| "two"（"名\n值" 段内换行）。
+    /// 菜单栏物理 ≤2 行：单 item 尊重该模式；多 item 时渲染层强制全部 single 横排。
+    #[serde(default = "default_line_mode")]
+    pub line_mode: String,
     #[serde(default = "default_true")]
     pub enabled: bool,
     #[serde(default)]
@@ -537,27 +541,24 @@ pub struct TrayItem {
 fn default_item_type() -> String { "platform".to_string() }
 fn default_display() -> String { "balance".to_string() }
 fn default_font_size() -> f64 { 9.0 }
+fn default_line_mode() -> String { "single".to_string() }
 
 /// 托盘整体配置（存 settings: scope="tray", key="config"）。
+/// 行模式（单/两行）改为每 item 各自 `line_mode`，全局仅保留 separator（多 item 间分隔）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TrayConfig {
-    /// "single_line"（分隔符拼接）| "two_line"（\n 换行，≤2 行）
-    #[serde(default = "default_layout")]
-    pub layout: String,
-    /// single_line 模式下各项之间的分隔符
+    /// 多 item 横排时各项之间的分隔符
     #[serde(default = "default_separator")]
     pub separator: String,
     #[serde(default)]
     pub items: Vec<TrayItem>,
 }
 
-fn default_layout() -> String { "single_line".to_string() }
 fn default_separator() -> String { "  ".to_string() }
 
 impl Default for TrayConfig {
     fn default() -> Self {
         Self {
-            layout: default_layout(),
             separator: default_separator(),
             items: Vec::new(),
         }

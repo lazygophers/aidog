@@ -304,8 +304,19 @@ pub fn get_tray_platform(db: &Db) -> Result<Option<Platform>, String> {
 pub fn get_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
     if let Some(v) = get_setting(db, "tray", "config")? {
         if !v.is_null() {
-            // 容错解析：损坏配置回退默认空（避免整条链 panic）。
-            let cfg: TrayConfig = serde_json::from_value(v).unwrap_or_default();
+            // 旧全局 layout(single_line/two_line) → 各 item line_mode 迁移：
+            // 解析前先抓顶层 layout，若旧配置含该字段则映射到所有 item（two_line→"two" / 其他→"single"）。
+            let legacy_line_mode = v
+                .get("layout")
+                .and_then(|l| l.as_str())
+                .map(|l| if l == "two_line" { "two" } else { "single" }.to_string());
+            // 容错解析：损坏配置回退默认空（避免整条链 panic）。layout 为未知字段，serde 默认忽略。
+            let mut cfg: TrayConfig = serde_json::from_value(v).unwrap_or_default();
+            if let Some(lm) = legacy_line_mode {
+                for item in &mut cfg.items {
+                    item.line_mode = lm.clone();
+                }
+            }
             return Ok(Some(cfg));
         }
     }
@@ -328,6 +339,7 @@ fn migrate_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
             metric: None,
             color: TrayColor::default(),
             font_size: 9.0,
+            line_mode: "single".to_string(),
             enabled: true,
             order: 0,
         });
@@ -1759,12 +1771,11 @@ mod tests {
 
     // ─── Tray Config ───────────────────────────────────────
 
-    /// TrayConfig serde 往返：写入后读回各字段一致（layout/separator/items 颜色三态/字号/排序）。
+    /// TrayConfig serde 往返：写入后读回各字段一致（separator/items 颜色三态/字号/line_mode/排序）。
     #[test]
     fn tray_config_serde_roundtrip() {
         let db = test_db();
         let cfg = TrayConfig {
-            layout: "two_line".to_string(),
             separator: " | ".to_string(),
             items: vec![
                 TrayItem {
@@ -1774,6 +1785,7 @@ mod tests {
                     metric: None,
                     color: TrayColor { mode: "preset".to_string(), value: "green".to_string() },
                     font_size: 11.0,
+                    line_mode: "two".to_string(),
                     enabled: true,
                     order: 0,
                 },
@@ -1784,6 +1796,7 @@ mod tests {
                     metric: Some("tokens".to_string()),
                     color: TrayColor { mode: "custom".to_string(), value: "#ff8800".to_string() },
                     font_size: 9.0,
+                    line_mode: "single".to_string(),
                     enabled: false,
                     order: 1,
                 },
@@ -1791,7 +1804,6 @@ mod tests {
         };
         set_tray_config(&db, &cfg).unwrap();
         let got = get_tray_config(&db).unwrap().expect("config present");
-        assert_eq!(got.layout, "two_line");
         assert_eq!(got.separator, " | ");
         assert_eq!(got.items.len(), 2);
         assert_eq!(got.items[0].item_type, "platform");
@@ -1800,7 +1812,9 @@ mod tests {
         assert_eq!(got.items[0].color.mode, "preset");
         assert_eq!(got.items[0].color.value, "green");
         assert!((got.items[0].font_size - 11.0).abs() < 1e-9);
+        assert_eq!(got.items[0].line_mode, "two");
         assert!(got.items[0].enabled);
+        assert_eq!(got.items[1].line_mode, "single");
         assert_eq!(got.items[1].item_type, "today_usage");
         assert_eq!(got.items[1].metric.as_deref(), Some("tokens"));
         assert_eq!(got.items[1].color.mode, "custom");
@@ -1815,7 +1829,6 @@ mod tests {
         let db = test_db();
         // 首次读取触发迁移；无旧平台 → 空 items。
         let cfg = get_tray_config(&db).unwrap().expect("migrated config");
-        assert_eq!(cfg.layout, "single_line");
         assert_eq!(cfg.items.len(), 0);
         // 已持久化：settings 中应存在 tray/config。
         assert!(get_setting(&db, "tray", "config").unwrap().is_some());
@@ -1835,6 +1848,44 @@ mod tests {
         assert_eq!(item.platform_id, Some(p.id));
         assert_eq!(item.display, "coding");
         assert!(item.enabled);
+    }
+
+    /// 迁移：旧全局 layout=two_line → 各 item line_mode="two"；缺 line_mode 字段时按 serde default "single"。
+    #[test]
+    fn tray_config_migrate_legacy_layout() {
+        let db = test_db();
+        // 模拟旧版本写入：含全局 layout 字段，item 无 line_mode 字段。
+        let legacy = serde_json::json!({
+            "layout": "two_line",
+            "separator": "  ",
+            "items": [
+                { "item_type": "platform", "platform_id": 3, "display": "balance",
+                  "color": { "mode": "follow", "value": "" }, "font_size": 9.0,
+                  "enabled": true, "order": 0 }
+            ]
+        });
+        set_setting(&db, SetSettingInput {
+            scope: "tray".to_string(),
+            key: "config".to_string(),
+            value: legacy,
+        }).unwrap();
+
+        let cfg = get_tray_config(&db).unwrap().expect("config present");
+        assert_eq!(cfg.items.len(), 1);
+        // 旧全局 two_line → item line_mode="two"。
+        assert_eq!(cfg.items[0].line_mode, "two");
+    }
+
+    /// serde default：缺 line_mode 字段 → "single"。
+    #[test]
+    fn tray_item_line_mode_serde_default() {
+        let raw = serde_json::json!({
+            "item_type": "platform", "platform_id": 1, "display": "balance",
+            "color": { "mode": "follow", "value": "" }, "font_size": 9.0,
+            "enabled": true, "order": 0
+        });
+        let item: TrayItem = serde_json::from_value(raw).unwrap();
+        assert_eq!(item.line_mode, "single");
     }
 
     /// today_token_total：仅统计今日（本地 0 点起）未删除日志的 input+output。

@@ -1255,32 +1255,45 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
 
 /// 托盘渲染（多 item）。从 settings tray config 读取 enabled items（按 order），
-/// 每段独立颜色（三态）/ 字号，single_line 用 separator 拼接、two_line 用 `\n`（≤2 行）。
+/// 每段独立颜色（三态）/ 字号 / line_mode。single 段 "名 值" 单行；two 段 "名\n值" 段内换行。
+/// 菜单栏物理 ≤2 行：单 item 尊重 line_mode；多 item 强制全部 single 横排（separator 拼接）。
 /// 纯文字无 emoji。GUI 实际渲染（暗亮模式对比度）留用户验证。
 ///
-/// 托盘单个渲染段：文字 + 颜色配置（三态）+ 字号。
+/// 托盘单个渲染段：文字（line_mode=two 时含段内 `\n`）+ 颜色配置（三态）+ 字号。
 struct TraySegment {
     text: String,
     color: TrayColor,
     font_size: f64,
 }
 
-/// 计算单个 platform item 的展示文字（含平台名）。
-/// display="coding" 或平台具 coding plan → `{name} 剩 {%}%`；否则 `{name} {balance:.2}`。
-fn platform_item_text(platform: &Platform, display: &str) -> String {
-    let name = &platform.name;
+/// 计算单个 platform item 的（名, 值）二元组。
+/// display="coding" 或平台具 coding plan → 值=`剩 {%}%`；否则 值=`{balance:.2}`。
+fn platform_item_parts(platform: &Platform, display: &str) -> (String, String) {
+    let name = platform.name.clone();
     let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
     let first_tier = plan.tiers.first();
     let is_coding = display == "coding" || first_tier.is_some();
-    if is_coding {
+    let value = if is_coding {
         let util = first_tier.map(|t| t.est_utilization).unwrap_or(0.0);
-        format!("{name} 剩 {:.0}%", (100.0 - util).max(0.0))
+        format!("剩 {:.0}%", (100.0 - util).max(0.0))
     } else {
-        format!("{name} {:.2}", platform.est_balance_remaining)
+        format!("{:.2}", platform.est_balance_remaining)
+    };
+    (name, value)
+}
+
+/// 按 line_mode 拼接（名, 值）：single → "名 值"（同段单行）；two → "名\n值"（段内换行）。
+fn join_item_parts(name: &str, value: &str, line_mode: &str) -> String {
+    if line_mode == "two" {
+        format!("{name}\n{value}")
+    } else {
+        format!("{name} {value}")
     }
 }
 
 /// 从托盘配置生成有序渲染段（已按 order 排序、跳过 disabled、跳过取数失败项）。
+/// 菜单栏物理 ≤2 行：仅当 **恰好 1 个 enabled item** 时尊重其 line_mode；
+/// 多 item 时强制全部 single 横排（多 item 多行菜单栏无法表达）。
 fn tray_segments(app: &tauri::AppHandle) -> Vec<TraySegment> {
     let Some(db) = app.try_state::<Db>() else {
         return Vec::new();
@@ -1291,18 +1304,23 @@ fn tray_segments(app: &tauri::AppHandle) -> Vec<TraySegment> {
     let mut items: Vec<&TrayItem> = config.items.iter().filter(|i| i.enabled).collect();
     items.sort_by_key(|i| i.order);
 
+    // ≤2 行约束：单 item 才允许 two；多 item 强制 single 横排。
+    let allow_two = items.len() == 1;
+
     let mut segments = Vec::new();
     for item in items {
+        let line_mode = if allow_two && item.line_mode == "two" { "two" } else { "single" };
         let text = match item.item_type.as_str() {
             "platform" => {
                 let Some(pid) = item.platform_id else { continue };
                 let Ok(Some(platform)) = db::get_platform(&db, pid) else { continue };
-                platform_item_text(&platform, &item.display)
+                let (name, value) = platform_item_parts(&platform, &item.display);
+                join_item_parts(&name, &value, line_mode)
             }
             "today_usage" => {
                 // MVP: metric=tokens（默认）。其他 metric 暂按 tokens 处理。
                 let total = db::today_token_total(&db).unwrap_or(0);
-                format!("今日 {total} tok")
+                join_item_parts("今日", &format!("{total} tok"), line_mode)
             }
             _ => continue,
         };
@@ -1318,27 +1336,26 @@ fn tray_segments(app: &tauri::AppHandle) -> Vec<TraySegment> {
     segments
 }
 
-/// 托盘配置的全局布局（single_line / two_line）+ 分隔符。
-fn tray_layout(app: &tauri::AppHandle) -> (String, String) {
+/// 托盘配置的分隔符（多 item 横排间隔）。
+fn tray_separator(app: &tauri::AppHandle) -> String {
     if let Some(db) = app.try_state::<Db>() {
         if let Ok(Some(config)) = db::get_tray_config(&db) {
-            return (config.layout, config.separator);
+            return config.separator;
         }
     }
-    (default_layout_str(), default_separator_str())
+    default_separator_str()
 }
 
-fn default_layout_str() -> String { "single_line".to_string() }
 fn default_separator_str() -> String { "  ".to_string() }
 
-/// 菜单内 quota 项的纯文字概要（无颜色/字号，单行分隔符拼接）。
+/// 菜单内 quota 项的纯文字概要（无颜色/字号，separator 拼接；段内 \n 替换为空格保持单行）。
 fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
     let segments = tray_segments(app);
     if segments.is_empty() {
         return None;
     }
-    let (_, separator) = tray_layout(app);
-    let texts: Vec<&str> = segments.iter().map(|s| s.text.as_str()).collect();
+    let separator = tray_separator(app);
+    let texts: Vec<String> = segments.iter().map(|s| s.text.replace('\n', " ")).collect();
     Some(texts.join(&separator))
 }
 
@@ -1428,14 +1445,13 @@ fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2_app_kit::N
 /// 通过 tauri TrayIcon::with_inner_tray_icon 拿 tray_icon::TrayIcon，再 ns_status_item() 取底层 NSStatusItem。
 /// 闭包在主线程执行（with_inner_tray_icon 保证），满足 AppKit 主线程约束。
 ///
-/// layout=single_line：段间插 separator（separator 段用首段字号 + labelColor）；
-/// layout=two_line：段间用 `\n`（≤2 行，调用方已 fallback 超 2 项）。
+/// 段间用 separator 横排拼接（separator 段用首段字号 + labelColor）。
+/// 段内换行（line_mode=two 的 "名\n值"）已包含在 seg.text 中（仅单 item 时存在，保证 ≤2 行）。
 /// 整串套用居中段落样式 + 固定行高 + baselineOffset 垂直居中（保留原单段逻辑）。
 #[cfg(target_os = "macos")]
 fn set_tray_attributed_title(
     tray: &tauri::tray::TrayIcon,
     segments: Vec<TraySegment>,
-    layout: String,
     separator: String,
 ) -> Result<(), String> {
     use objc2::rc::Retained;
@@ -1501,8 +1517,8 @@ fn set_tray_attributed_title(
             }
         };
 
-        // 段间连接符：two_line 用 \n，single_line 用 separator（套首段字号 + follow 颜色）。
-        let join_str = if layout == "two_line" { "\n".to_string() } else { separator.clone() };
+        // 段间连接符：separator 横排拼接（套首段字号 + follow 颜色）。段内换行已在 seg.text。
+        let join_str = separator.clone();
         let join_font = segments.first().map(|s| s.font_size).unwrap_or(TRAY_FONT_SIZE);
         let follow_color = TrayColor::default(); // mode=follow
 
@@ -1537,20 +1553,19 @@ fn refresh_tray_menu(app: &tauri::AppHandle) -> Result<(), String> {
                 .map_err(|e| e.to_string())?;
             tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
         } else {
-            let (mut layout, separator) = tray_layout(app);
-            // two_line 仅支持 ≤2 项；>2 项 fallback 单行拼接（见 research/01 行数上限 2）。
-            if layout == "two_line" && segments.len() > 2 {
-                layout = "single_line".to_string();
-            }
+            // 行模式已下沉到各 item（tray_segments 内按 line_mode 渲染段内 \n，并强制 ≤2 行约束）。
+            // 段间用 separator 横排拼接。
+            let separator = tray_separator(app);
             tray.set_icon(None).map_err(|e| e.to_string())?; // 隐藏 logo
             // 先 set_title 兜底（保证有文字），再用 attributedTitle 覆盖为多段小字。
             // attributedTitle 失败（拿不到 button 等）则保留 set_title 的默认字号文字。
-            let fallback_text = {
-                let join = if layout == "two_line" { "\n" } else { separator.as_str() };
-                segments.iter().map(|s| s.text.as_str()).collect::<Vec<_>>().join(join)
-            };
+            let fallback_text = segments
+                .iter()
+                .map(|s| s.text.as_str())
+                .collect::<Vec<_>>()
+                .join(separator.as_str());
             tray.set_title(Some(&fallback_text)).map_err(|e| e.to_string())?;
-            if let Err(e) = set_tray_attributed_title(&tray, segments, layout, separator) {
+            if let Err(e) = set_tray_attributed_title(&tray, segments, separator) {
                 tracing::warn!("tray attributed title failed, fallback to default font: {e}");
             }
         }

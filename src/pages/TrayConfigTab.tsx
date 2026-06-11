@@ -29,6 +29,7 @@ function makePlatformItem(platformId: number, order: number): TrayItem {
     metric: null,
     color: defaultColor(),
     font_size: DEFAULT_FONT_SIZE,
+    line_mode: "single",
     enabled: true,
     order,
   };
@@ -42,6 +43,7 @@ function makeTodayUsageItem(order: number): TrayItem {
     metric: "tokens",
     color: defaultColor(),
     font_size: DEFAULT_FONT_SIZE,
+    line_mode: "single",
     enabled: true,
     order,
   };
@@ -63,7 +65,6 @@ export function TrayConfigTab() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [config, setConfig] = useState<TrayConfig>({
-    layout: "single_line",
     separator: "  ",
     items: [],
   });
@@ -158,43 +159,23 @@ export function TrayConfigTab() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720 }}>
-      {/* Layout & separator */}
+      {/* Separator（多 item 横排间隔；单/两行已下沉到各项 line_mode） */}
       <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("tray.layout", "布局")}</div>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("tray.separator", "分隔符")}</div>
         <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", gap: 0, border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
-            {(["single_line", "two_line"] as const).map((layout) => (
-              <button
-                key={layout}
-                className="btn btn-ghost"
-                style={{
-                  padding: "6px 14px",
-                  fontSize: 12,
-                  borderRadius: 0,
-                  background: config.layout === layout ? "var(--accent)" : "transparent",
-                  color: config.layout === layout ? "#fff" : "var(--text-secondary)",
-                }}
-                onClick={() => persist({ ...config, layout })}
-              >
-                {layout === "single_line" ? t("tray.layoutSingle", "单行") : t("tray.layoutTwo", "两行")}
-              </button>
-            ))}
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+              {t("tray.separatorDesc", "多展示项之间的分隔符")}
+            </label>
+            <input
+              className="input"
+              type="text"
+              value={config.separator}
+              onChange={(e) => setConfig({ ...config, separator: e.target.value })}
+              onBlur={() => persist(config)}
+              style={{ width: 80 }}
+            />
           </div>
-          {config.layout === "single_line" && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-                {t("tray.separator", "分隔符")}
-              </label>
-              <input
-                className="input"
-                type="text"
-                value={config.separator}
-                onChange={(e) => setConfig({ ...config, separator: e.target.value })}
-                onBlur={() => persist(config)}
-                style={{ width: 80 }}
-              />
-            </div>
-          )}
         </div>
       </div>
 
@@ -321,6 +302,28 @@ export function TrayConfigTab() {
                     </div>
                   </div>
                 )}
+
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("tray.lineMode", "行模式")}</label>
+                  <div style={{ display: "flex", border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden" }}>
+                    {(["single", "two"] as const).map((lm) => (
+                      <button
+                        key={lm}
+                        className="btn btn-ghost"
+                        style={{
+                          padding: "4px 12px",
+                          fontSize: 12,
+                          borderRadius: 0,
+                          background: item.line_mode === lm ? "var(--accent)" : "transparent",
+                          color: item.line_mode === lm ? "#fff" : "var(--text-secondary)",
+                        }}
+                        onClick={() => updateItem(i, { line_mode: lm })}
+                      >
+                        {lm === "single" ? t("tray.lineModeSingle", "单行") : t("tray.lineModeTwo", "两行")}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                   <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("tray.fontSize", "字号")}</label>
