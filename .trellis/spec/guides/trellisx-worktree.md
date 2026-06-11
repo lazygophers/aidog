@@ -1,6 +1,8 @@
 ---
-created: 2026-06-11
-authored-by: trellisx-apply
+updated: 2026-06-11
+rewrite-version: 1
+authored-by: trellisx-spec
+mode: optimize
 ---
 
 # trellisx worktree + subtask 约定
@@ -8,6 +10,8 @@ authored-by: trellisx-apply
 何时被读: trellis task 实施时 (sub-agent dispatch 注入)
 谁读: main / 执行者 agent
 不遵守的代价: worktree 污染主工作区 / subtask 无隔离 / 串行派降低提效
+
+> **本文件是 worktree 隔离 + subtask 异步并行的单一事实源。** trellisx-conventions.md 只引用本文件, 禁重复其条款。
 
 ## worktree 隔离
 

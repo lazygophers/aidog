@@ -1,6 +1,8 @@
 ---
-updated: 2026-06-10
-authored-by: trellisx-apply
+updated: 2026-06-11
+rewrite-version: 2
+authored-by: trellisx-spec
+mode: optimize
 ---
 
 # trellisx 任务编排约定
@@ -9,13 +11,10 @@ authored-by: trellisx-apply
 谁读: main / trellis-implement / trellis-check / 任何执行者
 不遵守的代价: worktree 污染主工作区 / task 无隔离 / 流程跳步
 
-## worktree 隔离 (trellisx 补 trellis 缺失)
+## worktree 隔离 + subtask 拆分 (单一事实源)
 
-- task.py start 后自动建 `.trellis/worktrees/<task>` (平台 hook trellisx-worktree.py)
-- 全部源码改动**必须**落 worktree 内, 主工作区保持干净
-- main 可直接写源码 (trellis inline), 但目标路径必须在 worktree
-- 复杂 / 并行 subtask → 派 sub-agent (isolation:worktree) 或 agent-team 成员
-- task archive 时: worktree 干净 → 自动销毁; 脏 → 警告先合并
+- worktree 隔离 + subtask 异步并行的**完整强制约定**见 [trellisx-worktree.md](./trellisx-worktree.md), 本文件禁重复其条款
+- 摘要: task.py start 后自动建 `.trellis/worktrees/<task>`; 源码改动必须落 worktree 内; subtask 拆 ≥ 2 + 异步并行派发; task archive 干净则自动销毁
 
 ## 标准开发流程 (5 步)
 
@@ -24,13 +23,6 @@ authored-by: trellisx-apply
 ③ 异步执行 (按调度图调度 subtask agent, 无依赖的并行派发提效)
 ④ 整体 trellis-check 校验 (闭环)
 ⑤ commit + finish (合并移除 worktree → commit → archive → 落 cortex)
-
-## subtask 拆分
-
-- task 必须拆 ≥ 2 subtask (按 实施/验证/文档 维度)
-- 每 subtask 独立文件 `.trellis/tasks/<task>/subtask/<id>-<slug>.md` (见 trellisx-orchestrate skill)
-- PRD 含 mermaid 调度图 (依赖 + 并行)
-- parent-child 用 trellis 原生 `task.py add-subtask`
 
 ## trellis-check 闭环 (强制)
 

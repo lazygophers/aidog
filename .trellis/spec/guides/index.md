@@ -21,7 +21,8 @@ mode: optimize
 |-------|------|
 | [Code Reuse Rules](./code-reuse-rules.md) | 写新函数 / 组件 / utility 前 |
 | [Cross-Layer Rules](./cross-layer-rules.md) | 改动跨 Rust↔TypeScript 边界时 |
-| [trellisx Conventions](./trellisx-conventions.md) | task 实施 / 检查时 (worktree 隔离 + subtask 拆分约定) |
+| [trellisx Conventions](./trellisx-conventions.md) | task 实施 / 检查时 (标准 5 步流程 + check 闭环 + 分工表) |
+| [trellisx Worktree](./trellisx-worktree.md) | worktree 隔离 + subtask 异步并行 (单一事实源) |
 
 ## Pre-Change Checklist (MUST)
 
