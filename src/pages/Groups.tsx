@@ -1,4 +1,4 @@
-import { useState, useEffect, type ReactNode } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   groupDetailApi, groupApi, platformApi,
@@ -6,7 +6,9 @@ import {
   type ModelMapping,
 } from "../services/api";
 import { SortableList } from "../components/SortableList";
-import { IconClose, IconCheck, IconBolt, IconCost, IconPackage } from "../components/icons";
+import { IconClose, IconCheck, IconBolt, IconCost } from "../components/icons";
+import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../utils/formatters";
+import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
 
@@ -88,6 +90,8 @@ export function Groups() {
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [groupStats, setGroupStats] = useState<Record<string, PlatformUsageStats>>({});
   const [_platformStats, setPlatformStats] = useState<Record<string, PlatformUsageStats>>({});
+  // 聚合余额：关联 platforms 的 est_balance_remaining 求和（platformApi.list 已带，无额外 HTTP）。group.id → 余额；缺值不写入。
+  const [groupBalance, setGroupBalance] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
 
   // Edit mode
@@ -140,12 +144,18 @@ export function Groups() {
         } catch { /* ignore */ }
       }));
       setPlatformStats(pStatsMap);
-      // Aggregate group stats from associated platform stats
+      // Aggregate group stats + balance from associated platform stats / est_balance_remaining
       const statsMap: Record<string, PlatformUsageStats> = {};
+      const balanceMap: Record<number, number> = {};
+      const platById = new Map((p || []).map(pp => [pp.id, pp]));
       for (const g of d || []) {
         let total_requests = 0, success_count = 0;
         let total_input_tokens = 0, total_output_tokens = 0, total_cache_tokens = 0, total_cost = 0;
+        let balance = 0;
         for (const gp of g.platforms) {
+          const plat = platById.get(gp.platform.id);
+          const est = plat?.est_balance_remaining;
+          if (typeof est === "number" && est > 0) balance += est;
           const ps = pStatsMap[gp.platform.id];
           if (ps) {
             total_requests += ps.total_requests;
@@ -164,8 +174,10 @@ export function Groups() {
             recent_failures: 0, recent_total: 0, total_cost,
           };
         }
+        if (balance > 0) balanceMap[g.group.id] = balance;
       }
       setGroupStats(statsMap);
+      setGroupBalance(balanceMap);
     } catch (e) { console.error(e); }
     setLoading(false);
   };
@@ -226,7 +238,7 @@ export function Groups() {
       load();
     } catch (e) {
       console.error(e);
-      alert((e as any)?.toString?.() || "Failed to save group");
+      alert(String(e) || "Failed to save group");
     }
   };
 
@@ -243,8 +255,8 @@ export function Groups() {
     try {
       await groupApi.delete(id);
       load();
-    } catch (e: any) {
-      alert(e?.toString?.() || "Failed to delete group");
+    } catch (e) {
+      alert(String(e) || "Failed to delete group");
     }
   };
 
@@ -344,7 +356,7 @@ export function Groups() {
               <input className="input" type="number" min={0} placeholder={t("group.connTimeout", "连接(s)")}
                 value={editConnTimeout || ""} onChange={e => setEditConnTimeout(Math.max(0, Number(e.target.value)))}
                 style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
-              <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>0 = 系统默认</span>
+              <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("group.timeoutDefault", "0 = 系统默认（秒）")}</span>
             </div>
           </div>
 
@@ -560,7 +572,7 @@ export function Groups() {
           <input className="input" placeholder={t("group.name")} value={cName}
             onChange={(e) => setCName(e.target.value)} />
           <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: -4 }}>
-            仅允许小写字母、数字和连字符（自动转换）
+            {t("group.nameRule", "仅允许小写字母、数字和连字符（自动转换）")}
           </div>
           <input className="input" placeholder="Path (e.g. /claude)" value={cPath}
             onChange={(e) => setCPath(e.target.value)} />
@@ -592,84 +604,74 @@ export function Groups() {
             renderItem={(row, handle) => {
             const { group, platforms: gps, model_mappings } = row.detail;
             const i = details.findIndex(d => d.group.id === group.id);
-            return (
-            <div
-              className="card-item animate-fade-in"
-              style={{
-                position: "relative",
-                paddingLeft: 44,
-                animationDelay: `${i * 60}ms`,
-                cursor: "pointer",
-                transition: "transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease",
-              }}
-              onClick={() => {
-                if (handle.isDragging) return;
-                openEdit({ group, platforms: gps, model_mappings });
-              }}
-            >
-              <div
-                ref={handle.ref}
-                {...handle.attributes}
-                {...handle.listeners}
-                className={`drag-handle${handle.isDragging ? " is-active" : ""}`}
-                title={t("group.dragToReorder", "拖动排序")}
-                style={{ touchAction: "none" }}
-              >
-                <svg width="14" height="20" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
-              </div>
-              {/* Group Header */}
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            const u = groupStats[group.name];
+            const balance = groupBalance[group.id];
+            const totalTokens = u ? u.total_input_tokens + u.total_output_tokens : 0;
+            const sRate = u ? calcSuccessRate(u.success_count, u.total_requests) : 0;
+
+            const header = (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                {/* Drag handle */}
+                <span
+                  ref={handle.ref}
+                  {...handle.attributes}
+                  {...handle.listeners}
+                  className={`drag-handle drag-handle-inline${handle.isDragging ? " is-active" : ""}`}
+                  title={t("group.dragToReorder", "拖动排序")}
+                  style={{ touchAction: "none", flexShrink: 0, display: "inline-flex" }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <svg width="14" height="20" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
+                </span>
+                {/* Group icon */}
                 <div style={{
                   width: 32, height: 32, borderRadius: "var(--radius-sm)",
                   display: "flex", alignItems: "center", justifyContent: "center",
                   background: group.auto_from_platform ? "var(--bg-glass)" : "var(--accent-subtle)",
                   color: group.auto_from_platform ? "var(--text-secondary)" : "var(--accent)",
-                  fontSize: 13, fontWeight: 700,
-                  flexShrink: 0,
+                  fontSize: 13, fontWeight: 700, flexShrink: 0,
                 }}>
                   {group.path.slice(0, 3)}
                 </div>
-                <div style={{ flex: 1, minWidth: 0 }}>
+                {/* Name + path + routing + platform count */}
+                <div
+                  style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
+                  onClick={() => { if (!handle.isDragging) openEdit({ group, platforms: gps, model_mappings }); }}
+                >
                   <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
                     {group.name}
                     {group.auto_from_platform && (
                       <span className="badge badge-muted" style={{ fontSize: 10, padding: "0 5px", fontWeight: 500 }}>auto</span>
                     )}
                   </div>
-                  <div className="text-secondary" style={{ fontSize: 12, display: "flex", gap: 8, marginTop: 1 }}>
+                  <div className="text-secondary" style={{ fontSize: 12, display: "flex", gap: 8, marginTop: 1, alignItems: "center", flexWrap: "wrap" }}>
                     <span>{group.path}</span>
                     <span className="badge badge-muted" style={{ padding: "0 6px" }}>
                       {group.routing_mode === "failover" ? t("group.failover") : t("group.loadBalance")}
                     </span>
+                    {gps.length > 0 && (
+                      <span className="text-tertiary">{gps.length} {t("group.platforms", "平台")}</span>
+                    )}
                   </div>
                 </div>
-                {/* Inline token stats in header */}
-                {groupStats[group.name] && (() => {
-                  const u = groupStats[group.name];
-                  const total = u.total_input_tokens + u.total_output_tokens;
-                  if (total === 0 && u.total_requests === 0) return null;
-                  const cost = u.total_cost > 0 ? u.total_cost.toFixed(u.total_cost >= 1 ? 2 : u.total_cost >= 0.01 ? 3 : 5) : "0";
-                  return (
-                    <div style={{ display: "flex", gap: 4, alignItems: "center", marginRight: 4 }}>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)" }}>{fmtTk(total)}</span>
-                      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>tokens</span>
-                      {Number(cost) > 0 && (
-                        <>
-                          <span style={{ fontSize: 10, color: "var(--text-tertiary)", marginLeft: 4 }}>·</span>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-success, #34c759)" }}>${cost}</span>
-                        </>
-                      )}
-                      {u.total_requests > 0 && (
-                        <>
-                          <span style={{ fontSize: 10, color: "var(--text-tertiary)", marginLeft: 4 }}>·</span>
-                          <span style={{ fontSize: 11, fontWeight: 600, color: u.success_count / u.total_requests >= 0.95 ? "var(--color-success, #34c759)" : "var(--color-warning, #ff9500)" }}>
-                            {(u.success_count / u.total_requests * 100).toFixed(0)}%
-                          </span>
-                        </>
-                      )}
-                    </div>
-                  );
-                })()}
+                {/* Aggregate stats chips */}
+                {u && (
+                  <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                    <StatChip icon={<IconBolt size={13} />} value={formatNumber(totalTokens)} label="tokens" />
+                    <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
+                    {u.total_requests > 0 && (
+                      <StatChip icon={<IconCheck size={13} />} value={formatPercent(sRate, 0)} label="ok"
+                        level={successRateLevel(sRate, u.total_requests)} />
+                    )}
+                  </div>
+                )}
+                {/* Aggregate balance */}
+                {balance != null && (
+                  <div style={{ minWidth: 90, flexShrink: 0 }}>
+                    <BalanceBar remaining={balance} showTotal={false} />
+                  </div>
+                )}
+                {/* Quick actions */}
                 <CopyButton text={buildClaudeCommand(group.name)} title={t("group.copyCommand", "复制启动命令")} size={14} />
                 <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -685,137 +687,102 @@ export function Groups() {
                   </button>
                 )}
               </div>
+            );
 
-              {/* Platforms */}
-              {gps.length > 0 && (
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-                  {gps.map((g) => (
-                    <span key={g.platform.id} className="badge badge-accent">
-                      {g.platform.name}
-                    </span>
-                  ))}
-                </div>
-              )}
+            return (
+              <div className="animate-fade-in" style={{ animationDelay: `${i * 60}ms` }}>
+                <CompactCard
+                  header={header}
+                  toggleLabel={t("group.toggleDetails", "展开/收起明细")}
+                  style={handle.isDragging ? { opacity: 0.5 } : undefined}
+                >
+                  {(
+                    <div style={{ display: "flex", flexDirection: "column", gap: 10 }} onClick={e => e.stopPropagation()}>
+                      {/* Platform badges */}
+                      {gps.length > 0 && (
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                          {gps.map((g) => (
+                            <span key={g.platform.id} className="badge badge-accent">
+                              {g.platform.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
 
-              {/* Usage Stats */}
-              {groupStats[group.name] && (() => {
-                const u = groupStats[group.name];
-                const total = u.total_input_tokens + u.total_output_tokens;
-                const cost = u.total_cost > 0 ? u.total_cost.toFixed(u.total_cost >= 1 ? 2 : u.total_cost >= 0.01 ? 3 : 5) : "0";
-                const successRate = u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
-                return (
-                  <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
-                    <StatChip icon={<IconBolt size={13} />} value={fmtTk(total)} label="tokens" />
-                    <StatChip icon={<IconCost size={13} />} value={`$${cost}`} label="cost" />
-                    <StatChip icon={<IconPackage size={13} />} value={`${u.cache_rate.toFixed(1)}%`} label="cache" color="var(--color-success, #34c759)" />
-                    <StatChip icon={<IconCheck size={13} />} value={`${successRate.toFixed(1)}%`} label="ok"
-                      color={successRate >= 95 ? "var(--color-success, #34c759)" : successRate >= 80 ? "var(--color-warning, #ff9500)" : "var(--color-danger, #ff3b30)"} />
-                  </div>
-                );
-              })()}
+                      {/* Model Mappings */}
+                      {model_mappings.length > 0 && (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                          {model_mappings.map((m, mi) => (
+                            <div key={mi} style={{
+                              display: "flex", alignItems: "center", gap: 8, fontSize: 12,
+                              padding: "6px 10px", borderRadius: "var(--radius-sm)",
+                              background: "var(--bg-glass)", border: "1px solid var(--border)",
+                            }}>
+                              <span style={{ fontWeight: 600, color: "var(--accent)" }}>{m.source_model}</span>
+                              <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
+                                <path d="M2 6h8M8 4l2 2-2 2" />
+                              </svg>
+                              <span style={{ flex: 1 }}>{m.target_model}</span>
+                              <button className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
+                                onClick={(e) => { e.stopPropagation(); handleDeleteMapping(group.id, mi); }}>
+                                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
+                                  <path d="M2 2l6 6M8 2l-6 6" />
+                                </svg>
+                              </button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
-              {/* Model Mappings */}
-              {model_mappings.length > 0 && (
-                <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
-                  {model_mappings.map((m, mi) => (
-                    <div key={mi} style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      fontSize: 12,
-                      padding: "6px 10px",
-                      borderRadius: "var(--radius-sm)",
-                      background: "var(--bg-glass)",
-                      border: "1px solid var(--border)",
-                    }}>
-                      <span style={{ fontWeight: 600, color: "var(--accent)" }}>{m.source_model}</span>
-                      <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
-                        <path d="M2 6h8M8 4l2 2-2 2" />
-                      </svg>
-                      <span style={{ flex: 1 }}>{m.target_model}</span>
-                      <button className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
-                        onClick={(e) => { e.stopPropagation(); handleDeleteMapping(group.id, mi); }}>
-                        <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
-                          <path d="M2 2l6 6M8 2l-6 6" />
+                      {/* Quick Add Mapping */}
+                      <button className="btn btn-ghost" style={{ fontSize: 12, gap: 4, padding: "4px 8px", color: "var(--text-secondary)", alignSelf: "flex-start" }}
+                        onClick={(e) => { e.stopPropagation(); setMappingGroupId(mappingGroupId === group.id ? null : group.id); }}>
+                        <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                          <path d="M6 2v8M2 6h8" />
                         </svg>
+                        {t("mapping.add")}
                       </button>
+
+                      {mappingGroupId === group.id && (
+                        <div className="animate-fade-in" style={{
+                          paddingTop: 10, borderTop: "1px solid var(--border)",
+                          display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap",
+                        }} onClick={e => e.stopPropagation()}>
+                          <input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
+                            placeholder={t("mapping.source")} value={mSource}
+                            onChange={(e) => setMSource(e.target.value)} />
+                          <select className="input" style={{ fontSize: 12, width: 140 }} value={mTargetPlatform}
+                            onChange={(e) => { setMTargetPlatform(e.target.value === "" ? "" : Number(e.target.value)); setMTargetModel(""); }}>
+                            <option value="">{t("mapping.targetPlatform")}</option>
+                            {platforms.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                          </select>
+                          {availableModels.length > 0 ? (
+                            <select className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }} value={mTargetModel}
+                              onChange={(e) => setMTargetModel(e.target.value)}>
+                              <option value="">{t("mapping.target")}</option>
+                              {availableModels.map((m) => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                          ) : (
+                            <input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
+                              placeholder={t("mapping.target")} value={mTargetModel}
+                              onChange={(e) => setMTargetModel(e.target.value)} />
+                          )}
+                          <button className="btn btn-primary" style={{ fontSize: 12, padding: "6px 12px" }}
+                            onClick={handleAddMapping}
+                            disabled={!mSource || !mTargetPlatform || !mTargetModel}>
+                            {t("action.create")}
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  ))}
-                </div>
-              )}
-
-              {/* Quick Add Mapping */}
-              <button className="btn btn-ghost" style={{ fontSize: 12, gap: 4, padding: "4px 8px", color: "var(--text-secondary)" }}
-                onClick={(e) => { e.stopPropagation(); setMappingGroupId(group.id); }}>
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <path d="M6 2v8M2 6h8" />
-                </svg>
-                {t("mapping.add")}
-              </button>
-
-              {mappingGroupId === group.id && (
-                <div className="animate-fade-in" style={{
-                  marginTop: 10,
-                  paddingTop: 10,
-                  borderTop: "1px solid var(--border)",
-                  display: "flex",
-                  gap: 8,
-                  alignItems: "center",
-                  flexWrap: "wrap",
-                }} onClick={e => e.stopPropagation()}>
-                  <input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
-                    placeholder={t("mapping.source")} value={mSource}
-                    onChange={(e) => setMSource(e.target.value)} />
-                  <select className="input" style={{ fontSize: 12, width: 140 }} value={mTargetPlatform}
-                    onChange={(e) => { setMTargetPlatform(e.target.value === "" ? "" : Number(e.target.value)); setMTargetModel(""); }}>
-                    <option value="">{t("mapping.targetPlatform")}</option>
-                    {platforms.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                  {availableModels.length > 0 ? (
-                    <select className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }} value={mTargetModel}
-                      onChange={(e) => setMTargetModel(e.target.value)}>
-                      <option value="">{t("mapping.target")}</option>
-                      {availableModels.map((m) => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                  ) : (
-                    <input className="input" style={{ flex: 1, minWidth: 100, fontSize: 12 }}
-                      placeholder={t("mapping.target")} value={mTargetModel}
-                      onChange={(e) => setMTargetModel(e.target.value)} />
                   )}
-                  <button className="btn btn-primary" style={{ fontSize: 12, padding: "6px 12px" }}
-                    onClick={handleAddMapping}
-                    disabled={!mSource || !mTargetPlatform || !mTargetModel}>
-                    {t("action.create")}
-                  </button>
-                </div>
-              )}
-            </div>
-          );
+                </CompactCard>
+              </div>
+            );
             }}
           />
         </div>
       )}
-    </div>
-  );
-}
-
-function fmtTk(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return `${n}`;
-}
-
-function StatChip({ icon, value, label, color }: { icon: ReactNode; value: string; label: string; color?: string }) {
-  return (
-    <div style={{
-      display: "flex", alignItems: "center", gap: 5,
-      padding: "4px 10px", borderRadius: "var(--radius-sm)",
-      background: "var(--bg-glass)", border: "1px solid var(--border)",
-      fontSize: 12,
-    }}>
-      <span style={{ fontSize: 13 }}>{icon}</span>
-      <span style={{ fontWeight: 700, color: color || "var(--text-primary)" }}>{value}</span>
-      <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontWeight: 500 }}>{label}</span>
     </div>
   );
 }
