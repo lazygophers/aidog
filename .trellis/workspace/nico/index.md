@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 11
+- **Total Sessions**: 12
 - **Last Active**: 2026-06-11
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~393 | Active |
+| `journal-1.md` | ~427 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 12 | 2026-06-11 | tray 每项单/两行配置 | `728f38f`, `225317b` | `master` |
 | 11 | 2026-06-11 | 可配置 tray 面板 | `9545b9c`, `21bdd9e`, `d395ce7`, `7cb6682` | `master` |
 | 10 | 2026-06-11 | 托盘两行小字展示 | `a726869`, `96e7340`, `bbd4b9c`, `10e743e` | `master` |
 | 9 | 2026-06-11 | 分组平台拖动排序 | `69fa530` | `master` |
