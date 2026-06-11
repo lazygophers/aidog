@@ -1293,18 +1293,84 @@ fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wr
     Ok(menu)
 }
 
+/// macOS 菜单栏 tray 文字字号（pt）。默认 set_title 用系统字号（偏大），
+/// 这里用 NSStatusItem button 的 attributedTitle 设小号 NSFont（参考菜单栏紧凑文字，约 9pt）。
+/// 两行（\n）由 NSFont 行高决定，配合居中段落样式保持紧凑。
+#[cfg(target_os = "macos")]
+const TRAY_FONT_SIZE: f64 = 9.0;
+
+/// macOS：用 attributedTitle 给 tray button 设小号字体（NSFont），实现两行小字。
+/// Tauri/tray-icon 的 set_title 走 button.setTitle(NSString) 无字号控制，故直连 NSStatusItem button。
+/// 通过 tauri TrayIcon::with_inner_tray_icon 拿 tray_icon::TrayIcon，再 ns_status_item() 取底层 NSStatusItem。
+/// 闭包在主线程执行（with_inner_tray_icon 保证），满足 AppKit 主线程约束。
+#[cfg(target_os = "macos")]
+fn set_tray_attributed_title(tray: &tauri::tray::TrayIcon, text: String) -> Result<(), String> {
+    use objc2::rc::Retained;
+    use objc2_app_kit::{NSFont, NSFontAttributeName, NSParagraphStyleAttributeName};
+    use objc2_app_kit::{NSMutableParagraphStyle, NSTextAlignment};
+    use objc2_foundation::{NSAttributedString, NSDictionary, NSString};
+    use objc2::AnyThread;
+
+    tray.with_inner_tray_icon(move |inner| -> Result<(), String> {
+        // SAFETY: with_inner_tray_icon 在主线程执行闭包，AppKit 调用满足主线程要求。
+        let status_item = inner
+            .ns_status_item()
+            .ok_or_else(|| "ns_status_item unavailable".to_string())?;
+        // MainThreadMarker：闭包已在主线程，断言获取。
+        let mtm = objc2_foundation::MainThreadMarker::new()
+            .ok_or_else(|| "not on main thread".to_string())?;
+        let button = status_item
+            .button(mtm)
+            .ok_or_else(|| "status item has no button".to_string())?;
+
+        let ns_text = NSString::from_str(&text);
+        let font: Retained<NSFont> = NSFont::menuBarFontOfSize(TRAY_FONT_SIZE);
+
+        // 段落样式：居中（两行视觉对齐），紧凑。
+        let para = NSMutableParagraphStyle::new();
+        para.setAlignment(NSTextAlignment::Center);
+
+        use objc2::runtime::AnyObject;
+        let font_key: &NSString = unsafe { NSFontAttributeName };
+        let para_key: &NSString = unsafe { NSParagraphStyleAttributeName };
+        let keys: [&NSString; 2] = [font_key, para_key];
+        let font_obj: &AnyObject = (&*font).as_ref();
+        let para_obj: &AnyObject = (&*para).as_ref();
+        let objects: [&AnyObject; 2] = [font_obj, para_obj];
+        let attrs: Retained<NSDictionary<NSString, objc2::runtime::AnyObject>> =
+            NSDictionary::from_slices(&keys, &objects);
+
+        // SAFETY: attrs 键为 NSAttributedStringKey(NSString)、值为合法 AppKit 对象，类型正确。
+        let attr_str = unsafe {
+            NSAttributedString::initWithString_attributes(
+                NSAttributedString::alloc(),
+                &ns_text,
+                Some(&attrs),
+            )
+        };
+        button.setAttributedTitle(&attr_str);
+        Ok(())
+    })
+    .map_err(|e| e.to_string())?
+}
+
 fn refresh_tray_menu(app: &tauri::AppHandle) -> Result<(), String> {
     let tray = app.tray_by_id("main").ok_or("tray not found")?;
     let menu = build_tray_menu(app)?;
     tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
-    // macOS 菜单栏：有 quota 值时隐藏 logo + 两行文字 title；无值时恢复 logo + 清 title。
+    // macOS 菜单栏：有 quota 值时隐藏 logo + 两行小字 title；无值时恢复 logo + 清 title。
     // 非 macOS 平台仅 menu item 降级（不调 set_title / set_icon）。
     #[cfg(target_os = "macos")]
     {
         match tray_quota_text(app) {
             Some(text) => {
                 tray.set_icon(None).map_err(|e| e.to_string())?; // 隐藏 logo
-                tray.set_title(Some(&text)).map_err(|e| e.to_string())?; // 两行（\n，降级单行见 tray_quota_text）
+                // 先 set_title 兜底（保证有文字），再用 attributedTitle 覆盖为小字。
+                // attributedTitle 失败（拿不到 button 等）则保留 set_title 的默认字号文字。
+                tray.set_title(Some(&text)).map_err(|e| e.to_string())?;
+                if let Err(e) = set_tray_attributed_title(&tray, text) {
+                    tracing::warn!("tray attributed title failed, fallback to default font: {e}");
+                }
             }
             None => {
                 // 恢复 logo + 清空 title
