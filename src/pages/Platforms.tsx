@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, DEFAULT_MOCK_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode } from "../services/api";
+import { getPlatformLogo } from "../assets/platforms";
 import { ModelTestPanel } from "./ModelTestPanel";
 import { pinyinMatch } from "../utils/pinyin";
 
@@ -1606,11 +1607,17 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   <div style={{
                     width: 36, height: 36, borderRadius: "var(--radius-sm)",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    background: `${color}15`,
+                    background: getPlatformLogo(p.platform_type)
+                      ? "transparent"
+                      : `${color}15`,
                     border: `1px solid ${color}30`,
                     color: color, fontSize: 11, fontWeight: 700,
+                    overflow: "hidden",
                   }}>
-                    {p.platform_type.slice(0, 2).toUpperCase()}
+                    {getPlatformLogo(p.platform_type)
+                      ? <img src={getPlatformLogo(p.platform_type)} alt={p.platform_type} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
+                      : p.platform_type.slice(0, 2).toUpperCase()
+                    }
                   </div>
                   {(() => {
                     const manual = testResults[p.id];
