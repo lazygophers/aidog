@@ -21,6 +21,9 @@ pub struct PlatformQuota {
     pub balance: Option<BalanceInfo>,
     /// Coding Plan 配额 (订阅制平台)
     pub coding_plan: Option<CodingPlanInfo>,
+    /// New API: 从 /api/user/self 自动获取的用户 ID，前端可回填
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub newapi_user_id: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -83,7 +86,7 @@ fn parse_f64_field(obj: &serde_json::Value, field: &str) -> Option<f64> {
 }
 
 fn err_quota(msg: &str) -> PlatformQuota {
-    PlatformQuota { success: false, error: Some(msg.to_string()), queried_at: now_millis(), balance: None, coding_plan: None }
+    PlatformQuota { success: false, error: Some(msg.to_string()), queried_at: now_millis(), balance: None, coding_plan: None, newapi_user_id: None }
 }
 
 fn http_client() -> reqwest::Client {
@@ -123,7 +126,7 @@ async fn query_deepseek_balance(api_key: &str) -> PlatformQuota {
     PlatformQuota {
         success: true, error: None, queried_at: now_millis(),
         balance: Some(BalanceInfo { remaining, total: None, used: None, currency: "CNY".into(), is_valid: is_available }),
-        coding_plan: None,
+        coding_plan: None, newapi_user_id: None,
     }
 }
 
@@ -149,7 +152,7 @@ async fn query_stepfun_balance(api_key: &str) -> PlatformQuota {
     PlatformQuota {
         success: true, error: None, queried_at: now_millis(),
         balance: Some(BalanceInfo { remaining: balance, total: None, used: None, currency: "CNY".into(), is_valid: true }),
-        coding_plan: None,
+        coding_plan: None, newapi_user_id: None,
     }
 }
 
@@ -182,7 +185,7 @@ async fn query_siliconflow_balance(api_key: &str, is_cn: bool) -> PlatformQuota 
     PlatformQuota {
         success: true, error: None, queried_at: now_millis(),
         balance: Some(BalanceInfo { remaining: total, total: None, used: None, currency: unit.into(), is_valid: true }),
-        coding_plan: None,
+        coding_plan: None, newapi_user_id: None,
     }
 }
 
@@ -214,7 +217,7 @@ async fn query_openrouter_balance(api_key: &str) -> PlatformQuota {
             remaining, total: Some(total_credits), used: Some(total_usage),
             currency: "USD".into(), is_valid: remaining > 0.0,
         }),
-        coding_plan: None,
+        coding_plan: None, newapi_user_id: None,
     }
 }
 
@@ -241,7 +244,7 @@ async fn query_novita_balance(api_key: &str) -> PlatformQuota {
     PlatformQuota {
         success: true, error: None, queried_at: now_millis(),
         balance: Some(BalanceInfo { remaining: available, total: None, used: None, currency: "USD".into(), is_valid: available > 0.0 }),
-        coding_plan: None,
+        coding_plan: None, newapi_user_id: None,
     }
 }
 
@@ -294,6 +297,7 @@ async fn query_kimi_coding_plan(api_key: &str) -> PlatformQuota {
     PlatformQuota {
         success: true, error: None, queried_at: now_millis(), balance: None,
         coding_plan: Some(CodingPlanInfo { tiers, level: None }),
+        newapi_user_id: None,
     }
 }
 
@@ -352,6 +356,7 @@ async fn query_zhipu_coding_plan(base_url: &str, api_key: &str) -> PlatformQuota
     PlatformQuota {
         success: true, error: None, queried_at: now_millis(), balance: None,
         coding_plan: Some(CodingPlanInfo { tiers, level }),
+        newapi_user_id: None,
     }
 }
 
@@ -406,6 +411,7 @@ async fn query_minimax_coding_plan(api_key: &str, is_cn: bool) -> PlatformQuota 
     PlatformQuota {
         success: true, error: None, queried_at: now_millis(), balance: None,
         coding_plan: Some(CodingPlanInfo { tiers, level: None }),
+        newapi_user_id: None,
     }
 }
 
@@ -462,97 +468,85 @@ pub async fn query_quota(base_url: &str, api_key: &str) -> PlatformQuota {
 }
 
 // ── New API (中转平台) ──────────────────────────────────────
-// GET {base}/dashboard/billing/subscription → hard_limit_usd
-// GET {base}/dashboard/billing/usage → total_usage (cents)
-// 认证: Bearer <balance_api_key> + New-Api-User: <user_id>
+// ── New API (中转平台) ──────────────────────────────────────
+// GET {base}/api/user/self → { success, data: { id, quota, used_quota, group } }
+// quota 单位: 内部计量，÷500000 = USD
+// 认证: Bearer <balance_api_key>
 
 /// 从 platform.extra JSON 解析 New API 配置
-/// Returns (balance_base_url, balance_api_key, user_id)
-pub fn parse_newapi_extra(extra: &str) -> Option<(String, String, String)> {
+/// Returns (balance_base_url, balance_api_key)
+pub fn parse_newapi_extra(extra: &str) -> Option<(String, String)> {
     if extra.trim().is_empty() { return None; }
     let obj: serde_json::Value = serde_json::from_str(extra).ok()?;
     let newapi = obj.get("newapi")?;
     let base_url = newapi.get("balance_base_url").and_then(|v| v.as_str()).unwrap_or("").to_string();
     let key = newapi.get("balance_api_key").and_then(|v| v.as_str())?.to_string();
-    let uid = newapi.get("user_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
     if key.is_empty() { return None; }
-    Some((base_url, key, uid))
+    Some((base_url, key))
 }
 
-async fn query_newapi_balance(base_url: &str, balance_api_key: &str, user_id: &str) -> PlatformQuota {
-    // 订阅额度
-    let sub_url = format!("{}/dashboard/billing/subscription", base_url.trim_end_matches('/'));
-    let mut req = http_client()
-        .get(&sub_url)
+async fn query_newapi_balance(base_url: &str, balance_api_key: &str) -> PlatformQuota {
+    let url = format!("{}/api/user/self", base_url.trim_end_matches('/'));
+    let resp = match http_client()
+        .get(&url)
         .header("Authorization", format!("Bearer {balance_api_key}"))
-        .header("Content-Type", "application/json");
-    if !user_id.is_empty() {
-        req = req.header("New-Api-User", user_id);
-    }
-    let resp = match req.send().await {
+        .header("Content-Type", "application/json")
+        .send().await
+    {
         Ok(r) => r,
-        Err(e) => return err_quota(&format!("Network (subscription): {e}")),
+        Err(e) => return err_quota(&format!("Network: {e}")),
     };
     let status = resp.status();
-    if !status.is_success() { return err_quota(&format!("HTTP {status} (subscription)")); }
-    let sub_body: serde_json::Value = match resp.json().await {
+    if !status.is_success() { return err_quota(&format!("HTTP {status}")); }
+    let body: serde_json::Value = match resp.json().await {
         Ok(v) => v,
-        Err(e) => return err_quota(&format!("Parse (subscription): {e}")),
+        Err(e) => return err_quota(&format!("Parse: {e}")),
     };
-    // 检查错误响应
-    if let Some(err) = sub_body.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
-        return err_quota(err);
+    if body.get("success").and_then(|v| v.as_bool()) != Some(true) {
+        let msg = body.get("message").and_then(|v| v.as_str()).unwrap_or("Query failed");
+        return err_quota(msg);
     }
-    let hard_limit = parse_f64_field(&sub_body, "hard_limit_usd").unwrap_or(0.0);
+    let data = match body.get("data") {
+        Some(d) => d,
+        None => return err_quota("Missing data field"),
+    };
 
-    // 使用量
-    let usage_url = format!("{}/dashboard/billing/usage", base_url.trim_end_matches('/'));
-    let mut req2 = http_client()
-        .get(&usage_url)
-        .header("Authorization", format!("Bearer {balance_api_key}"))
-        .header("Content-Type", "application/json");
-    if !user_id.is_empty() {
-        req2 = req2.header("New-Api-User", user_id);
-    }
-    let resp2 = match req2.send().await {
-        Ok(r) => r,
-        Err(e) => return err_quota(&format!("Network (usage): {e}")),
-    };
-    let status2 = resp2.status();
-    if !status2.is_success() { return err_quota(&format!("HTTP {status2} (usage)")); }
-    let use_body: serde_json::Value = match resp2.json().await {
-        Ok(v) => v,
-        Err(e) => return err_quota(&format!("Parse (usage): {e}")),
-    };
-    if let Some(err) = use_body.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
-        return err_quota(err);
-    }
-    // total_usage 单位 0.01 USD (cents)
-    let total_usage_cents = parse_f64_field(&use_body, "total_usage").unwrap_or(0.0);
-    let used_usd = total_usage_cents / 100.0;
-    let remaining = (hard_limit - used_usd).max(0.0);
+    // 提取用户 ID 用于回填
+    let user_id = data.get("id").and_then(|v| {
+        // id 可能是 number 或 string
+        v.as_i64().map(|i| i.to_string()).or_else(|| v.as_str().map(String::from))
+    });
+
+    // quota = 剩余内部单位, used_quota = 已用内部单位
+    // ÷500000 = USD
+    let quota = parse_f64_field(data, "quota").unwrap_or(0.0);
+    let used_quota = parse_f64_field(data, "used_quota").unwrap_or(0.0);
+    let remaining = quota / 500000.0;
+    let used = used_quota / 500000.0;
+    let total = remaining + used;
 
     PlatformQuota {
         success: true, error: None, queried_at: now_millis(),
         balance: Some(BalanceInfo {
             remaining,
-            total: Some(hard_limit),
-            used: Some(used_usd),
+            total: Some(total),
+            used: Some(used),
             currency: "USD".into(),
             is_valid: remaining > 0.0,
         }),
         coding_plan: None,
+        newapi_user_id: user_id,
     }
 }
 
 /// New API 余额查询入口（需要 extra 中的独立 balance key + balance base url）
 pub async fn query_quota_newapi(_base_url: &str, extra: &str) -> PlatformQuota {
     match parse_newapi_extra(extra) {
-        Some((balance_base_url, balance_key, user_id)) => {
+        Some((balance_base_url, balance_key)) => {
             if balance_base_url.is_empty() {
                 return err_quota("New API: missing balance_base_url in extra");
             }
-            query_newapi_balance(&balance_base_url, &balance_key, &user_id).await
+            query_newapi_balance(&balance_base_url, &balance_key).await
         }
         None => err_quota("New API: missing balance_api_key in extra"),
     }

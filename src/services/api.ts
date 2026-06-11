@@ -618,6 +618,8 @@ export interface PlatformQuota {
   queried_at: number;    // unix millis
   balance: BalanceInfo | null;
   coding_plan: CodingPlanInfo | null;
+  /** New API: 自动获取的用户 ID，前端可回填到配置 */
+  newapi_user_id?: string;
 }
 
 export const quotaApi = {

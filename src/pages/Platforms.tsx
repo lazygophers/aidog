@@ -965,6 +965,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       if (q.success) {
         setQuotaMap((s) => ({ ...s, [p.id]: q }));
         setQuotaRealIds((s) => ({ ...s, [p.id]: true }));
+        // New API: 自动回填 user_id
+        if (p.platform_type === "newapi" && q.newapi_user_id && editing?.id === p.id) {
+          setNewApiConfig(prev => prev.user_id ? prev : { ...prev, user_id: q.newapi_user_id! });
+        }
       } else {
         setToast({ text: `${p.name}: ${q.error || t("platform.quotaRefreshFail", "刷新额度失败")}`, ok: false });
         setTimeout(() => setToast(null), 3000);
