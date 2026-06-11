@@ -1265,7 +1265,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 </div>
                 <input
                   className="input"
-                  type="password"
+                  type="text"
                   placeholder={t("platform.newapiBalanceKeyPlaceholder", "sess-xxxx 或 access token")}
                   value={newApiConfig.balance_api_key}
                   onChange={(e) => setNewApiConfig(prev => ({ ...prev, balance_api_key: e.target.value }))}
