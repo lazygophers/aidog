@@ -932,12 +932,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       // Batch load quota (balance & coding plan)
       const qMap: Record<number, PlatformQuota> = {};
       await Promise.all((list || []).map(async (p) => {
-        if (!p.api_key && p.platform_type !== "newapi") return;
+        if (!p.api_key) return;
         const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []);
         if (!baseUrl) return;
         try {
           const q = p.platform_type === "newapi"
-            ? await quotaApi.queryNewapi(baseUrl, p.extra ?? "")
+            ? await quotaApi.queryNewapi(baseUrl, p.api_key, p.extra ?? "")
             : await quotaApi.query(baseUrl, p.api_key);
           if (q.success) qMap[p.id] = q;
         } catch { /* ignore */ }
@@ -951,7 +951,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
   /** 刷新单个平台 quota（合查 balance + coding_plan） */
   const refreshQuota = async (p: Platform) => {
-    if (!p.api_key && p.platform_type !== "newapi") {
+    if (!p.api_key) {
       setToast({ text: `${p.name}: ${t("platform.quotaNoKey", "缺少 API Key")}`, ok: false });
       setTimeout(() => setToast(null), 3000);
       return;
@@ -960,7 +960,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     try {
       const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url;
       const q = p.platform_type === "newapi"
-        ? await quotaApi.queryNewapi(baseUrl, p.extra ?? "")
+        ? await quotaApi.queryNewapi(baseUrl, p.api_key, p.extra ?? "")
         : await quotaApi.query(baseUrl, p.api_key);
       if (q.success) {
         setQuotaMap((s) => ({ ...s, [p.id]: q }));

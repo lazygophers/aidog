@@ -922,10 +922,10 @@ async fn platform_query_quota(base_url: String, api_key: String) -> Result<Platf
     Ok(gateway::quota::query_quota(&base_url, &api_key).await)
 }
 
-/// New API 专用余额查询（需要 extra 中的独立 balance key）
+/// New API 专用余额查询（两步：先查 token quota 类型，再按需查用户余额）
 #[tauri::command]
-async fn platform_query_quota_newapi(base_url: String, extra: String) -> Result<PlatformQuota, String> {
-    Ok(gateway::quota::query_quota_newapi(&base_url, &extra).await)
+async fn platform_query_quota_newapi(base_url: String, api_key: String, extra: String) -> Result<PlatformQuota, String> {
+    Ok(gateway::quota::query_quota_newapi(&base_url, &api_key, &extra).await)
 }
 
 // ─── Path Autocomplete ─────────────────────────────────────

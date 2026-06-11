@@ -625,8 +625,8 @@ export interface PlatformQuota {
 export const quotaApi = {
   query: (baseUrl: string, apiKey: string) =>
     invoke<PlatformQuota>("platform_query_quota", { baseUrl, apiKey }),
-  queryNewapi: (baseUrl: string, extra: string) =>
-    invoke<PlatformQuota>("platform_query_quota_newapi", { baseUrl, extra }),
+  queryNewapi: (baseUrl: string, apiKey: string, extra: string) =>
+    invoke<PlatformQuota>("platform_query_quota_newapi", { baseUrl, apiKey, extra }),
 };
 
 // ─── Model Price Types & API ──────────────────────────────
