@@ -555,6 +555,17 @@ async fn handle_proxy(
     let est_cache = tokens_cache.clone();
     let est_fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
+    // ── 流式日志最终 token 回写：upsert 在返回 stream 前发生（:641），此时 token 仍为 0；
+    // token 仅在流被消费完（[DONE]）才累加完整，故 clone log/state/settings 进闭包，
+    // 在 [DONE] 处用最终 token 再次 upsert（INSERT OR REPLACE，同 log.id 覆盖）。──
+    let done_log = log.clone();
+    let done_state = state.clone();
+    let done_settings = log_settings.clone();
+    let done_start = start;
+    let done_in = tokens_acc.clone();
+    let done_out = tokens_out.clone();
+    let done_cache = tokens_cache.clone();
+
     let stream = resp.bytes_stream().map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
@@ -570,8 +581,17 @@ async fn handle_proxy(
                     output.push_str(&adapter::to_client_sse(&ChatStreamEvent::Stop {
                         finish_reason: Some("end_turn".to_string()),
                     }, &client_protocol, &model_for_sse).unwrap_or_default());
-                    // 流终止：token 已累加完整 → 后台预估（仅触发一次）
+                    // 流终止：token 已累加完整 → 回写日志最终 token + 后台预估（仅触发一次）
                     if !est_fired.swap(true, std::sync::atomic::Ordering::Relaxed) {
+                        // 用最终 token 覆盖日志（提前 :641 upsert 时 token 仍为 0）
+                        let mut final_log = done_log.clone();
+                        final_log.input_tokens = done_in.load(std::sync::atomic::Ordering::Relaxed);
+                        final_log.output_tokens = done_out.load(std::sync::atomic::Ordering::Relaxed);
+                        final_log.cache_tokens = done_cache.load(std::sync::atomic::Ordering::Relaxed);
+                        final_log.status_code = 200;
+                        final_log.duration_ms = done_start.elapsed().as_millis() as i32;
+                        upsert_log(&done_state, &final_log, &done_settings);
+
                         spawn_estimate(
                             &est_state,
                             est_platform_id,
