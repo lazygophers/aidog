@@ -1069,7 +1069,8 @@ fn usage_stats(
     let stats: super::models::PlatformUsageStats = conn.query_row(
         &format!("SELECT COUNT(*), \
          SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
-         SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens) \
+         SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), \
+         COALESCE(SUM(est_cost), 0.0) \
          FROM proxy_log WHERE {where_clause}"),
         params,
         |row| {
@@ -1078,6 +1079,7 @@ fn usage_stats(
             let inp: i64 = row.get(2).unwrap_or(0);
             let out: i64 = row.get(3).unwrap_or(0);
             let cache: i64 = row.get(4).unwrap_or(0);
+            let cost: f64 = row.get(5).unwrap_or(0.0);
             Ok(super::models::PlatformUsageStats {
                 total_requests: total,
                 success_count: success,
@@ -1087,6 +1089,7 @@ fn usage_stats(
                 cache_rate: if inp > 0 { cache as f64 / inp as f64 * 100.0 } else { 0.0 },
                 recent_failures: 0,
                 recent_total: 0,
+                total_cost: cost,
             })
         },
     )?;

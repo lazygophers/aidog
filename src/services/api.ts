@@ -215,6 +215,7 @@ export interface PlatformUsageStats {
   cache_rate: number;
   recent_failures: number;
   recent_total: number;
+  total_cost: number;
 }
 
 /** 从 platform.extra JSON 字符串解析 mock 配置（缺省字段回退默认值） */

@@ -652,6 +652,9 @@ pub struct PlatformUsageStats {
     pub recent_failures: i64,
     /// 最近 N 次请求的总数
     pub recent_total: i64,
+    /// 累计预估花费（$），基于 est_cost 聚合
+    #[serde(default)]
+    pub total_cost: f64,
 }
 
 /// Summary row for list view (excludes large body fields)

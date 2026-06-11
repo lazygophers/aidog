@@ -1892,7 +1892,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   {usageMap[p.id] && (() => {
                     const u = usageMap[p.id];
                     const total = u.total_input_tokens + u.total_output_tokens;
-                    const cost = estimateCost(u.total_input_tokens, u.total_output_tokens);
+                    const costVal = u.total_cost;
+                    const cost = costVal > 0 ? `$${costVal >= 1 ? costVal.toFixed(2) : costVal >= 0.01 ? costVal.toFixed(3) : costVal.toFixed(5)}` : "$0";
                     const successRate = u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
                     return (
                       <div style={{ display: "flex", gap: 6, marginTop: 6 }}>
@@ -2116,15 +2117,6 @@ function formatTokens(n: number): string {
   if (n >= 1_000_000) return `${trimZeros((n / 1_000_000).toFixed(1))}M`;
   if (n >= 1_000) return `${trimZeros((n / 1_000).toFixed(1))}K`;
   return `${n}`;
-}
-
-function estimateCost(inputTokens: number, outputTokens: number): string {
-  // Rough average: $3/M input, $12/M output (blends Claude/GPT-4o pricing)
-  const cost = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 12;
-  if (cost >= 1) return trimZeros(cost.toFixed(2));
-  if (cost >= 0.01) return trimZeros(cost.toFixed(3));
-  if (cost > 0) return trimZeros(cost.toFixed(4));
-  return "0";
 }
 
 function StatBadge({ icon, value, label, color }: { icon: string; value: string; label: string; color?: string }) {

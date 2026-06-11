@@ -175,7 +175,7 @@ export function Groups() {
       const statsMap: Record<string, PlatformUsageStats> = {};
       for (const g of d || []) {
         let total_requests = 0, success_count = 0;
-        let total_input_tokens = 0, total_output_tokens = 0, total_cache_tokens = 0;
+        let total_input_tokens = 0, total_output_tokens = 0, total_cache_tokens = 0, total_cost = 0;
         for (const gp of g.platforms) {
           const ps = pStatsMap[gp.platform.id];
           if (ps) {
@@ -184,6 +184,7 @@ export function Groups() {
             total_input_tokens += ps.total_input_tokens;
             total_output_tokens += ps.total_output_tokens;
             total_cache_tokens += ps.total_cache_tokens;
+            total_cost += ps.total_cost;
           }
         }
         if (total_requests > 0) {
@@ -191,7 +192,7 @@ export function Groups() {
             total_requests, success_count,
             total_input_tokens, total_output_tokens, total_cache_tokens,
             cache_rate: total_input_tokens > 0 ? total_cache_tokens / total_input_tokens * 100 : 0,
-            recent_failures: 0, recent_total: 0,
+            recent_failures: 0, recent_total: 0, total_cost,
           };
         }
       }
@@ -699,7 +700,7 @@ export function Groups() {
                   const u = groupStats[group.name];
                   const total = u.total_input_tokens + u.total_output_tokens;
                   if (total === 0 && u.total_requests === 0) return null;
-                  const cost = estCost(u.total_input_tokens, u.total_output_tokens);
+                  const cost = u.total_cost > 0 ? u.total_cost.toFixed(u.total_cost >= 1 ? 2 : u.total_cost >= 0.01 ? 3 : 5) : "0";
                   return (
                     <div style={{ display: "flex", gap: 4, alignItems: "center", marginRight: 4 }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)" }}>{fmtTk(total)}</span>
@@ -752,7 +753,7 @@ export function Groups() {
               {groupStats[group.name] && (() => {
                 const u = groupStats[group.name];
                 const total = u.total_input_tokens + u.total_output_tokens;
-                const cost = estCost(u.total_input_tokens, u.total_output_tokens);
+                const cost = u.total_cost > 0 ? u.total_cost.toFixed(u.total_cost >= 1 ? 2 : u.total_cost >= 0.01 ? 3 : 5) : "0";
                 const successRate = u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
                 return (
                   <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
@@ -880,14 +881,6 @@ function fmtTk(n: number): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
   return `${n}`;
-}
-
-function estCost(inputTokens: number, outputTokens: number): string {
-  const cost = (inputTokens / 1_000_000) * 3 + (outputTokens / 1_000_000) * 12;
-  if (cost >= 1) return cost.toFixed(2);
-  if (cost >= 0.01) return cost.toFixed(3);
-  if (cost > 0) return cost.toFixed(4);
-  return "0";
 }
 
 function StatChip({ icon, value, label, color }: { icon: string; value: string; label: string; color?: string }) {
