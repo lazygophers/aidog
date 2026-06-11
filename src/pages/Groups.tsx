@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, Fragment } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
   groupDetailApi, groupApi, platformApi,
@@ -13,6 +13,12 @@ const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
 interface SortablePlatform {
   id: string;
   platformId: number;
+}
+
+/** Row model for the sortable group list (GroupDetail has no top-level stable id). */
+interface GroupRow {
+  id: string;
+  detail: GroupDetail;
 }
 
 /** Extract all non-empty model names (deduplicated) */
@@ -93,51 +99,11 @@ export function Groups() {
   const [editReqTimeout, setEditReqTimeout] = useState(0);
   const [editConnTimeout, setEditConnTimeout] = useState(0);
 
-  // ── Drag reorder for group list ──
-  const [groupDrag, setGroupDrag] = useState<{ from: number; to: number } | null>(null);
-  const groupListRef = useRef<HTMLDivElement>(null);
-  const groupDragStartRef = useRef<{ y: number; index: number } | null>(null);
-  const groupDidDragRef = useRef(false);
-
-  const handleGroupPointerDown = (e: React.PointerEvent, index: number) => {
-    if (e.button !== 0) return;
-    e.preventDefault();
-    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
-    groupDragStartRef.current = { y: e.clientY, index };
-  };
-
-  const handleGroupPointerMove = (e: React.PointerEvent) => {
-    const start = groupDragStartRef.current;
-    if (!start) return;
-    if (!groupDrag) {
-      if (Math.abs(e.clientY - start.y) < 5) return;
-      setGroupDrag({ from: start.index, to: start.index });
-      groupDidDragRef.current = true;
-    }
-    if (!groupListRef.current) return;
-    const cards = groupListRef.current.querySelectorAll<HTMLElement>("[data-group-id]");
-    let newTo = cards.length;
-    for (let i = 0; i < cards.length; i++) {
-      const rect = cards[i].getBoundingClientRect();
-      if (e.clientY < rect.top + rect.height / 2) { newTo = i; break; }
-    }
-    setGroupDrag(d => d ? { ...d, to: newTo } : null);
-  };
-
-  const handleGroupPointerUp = () => {
-    if (groupDrag) {
-      const effectiveTo = groupDrag.from < groupDrag.to ? groupDrag.to - 1 : groupDrag.to;
-      if (groupDrag.from !== effectiveTo) {
-        const reordered = [...details];
-        const [moved] = reordered.splice(groupDrag.from, 1);
-        reordered.splice(effectiveTo, 0, moved);
-        setDetails(reordered);
-        groupApi.reorder(reordered.map(d => d.group.id)).catch(console.error);
-      }
-    }
-    setGroupDrag(null);
-    groupDragStartRef.current = null;
-    setTimeout(() => { groupDidDragRef.current = false; }, 50);
+  // ── Drag reorder for group list (via shared SortableList @dnd-kit) ──
+  const handleReorderGroups = (next: GroupRow[]) => {
+    const reordered = next.map(r => r.detail);
+    setDetails(reordered);
+    groupApi.reorder(reordered.map(d => d.group.id)).catch(console.error);
   };
 
   // ── Drag reorder for selected platforms (order = routing priority) ──
@@ -613,63 +579,40 @@ export function Groups() {
       {loading ? (
         <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
       ) : (
-        <div ref={groupListRef} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {details.length === 0 && !showCreate && (
             <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
               <div className="text-tertiary" style={{ fontSize: 13 }}>{t("group.empty")}</div>
             </div>
           )}
-          {details.map(({ group, platforms: gps, model_mappings }, i) => {
-            const isDragging = groupDrag?.from === i;
+          <SortableList<GroupRow>
+            items={details.map(d => ({ id: String(d.group.id), detail: d }))}
+            onReorder={handleReorderGroups}
+            renderItem={(row, handle) => {
+            const { group, platforms: gps, model_mappings } = row.detail;
+            const i = details.findIndex(d => d.group.id === group.id);
             return (
-            <Fragment key={group.id}>
-              {groupDrag && groupDrag.to === i && (() => {
-                const dg = details[groupDrag.from];
-                const routeLabel = dg.group.routing_mode === "failover" ? t("group.failover") : t("group.loadBalance");
-                return (
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 10, paddingLeft: 44,
-                    padding: "10px 16px", margin: "2px 0", borderRadius: 12,
-                    background: "var(--glass-bg, rgba(255,255,255,0.06))",
-                    border: "1.5px dashed var(--accent)",
-                    opacity: 0.5, filter: "grayscale(0.8)",
-                    pointerEvents: "none", transition: "all 150ms ease",
-                  }}>
-                    <div style={{
-                      width: 24, height: 24, borderRadius: "var(--radius-sm)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      background: "var(--bg-glass)", fontSize: 11, fontWeight: 700,
-                      color: "var(--text-secondary)", flexShrink: 0,
-                    }}>
-                      {dg.group.path.slice(0, 3)}
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: 600 }}>{dg.group.name}</span>
-                    <span className="badge badge-muted" style={{ fontSize: 10, padding: "0 6px" }}>{routeLabel}</span>
-                  </div>
-                );
-              })()}
             <div
-              data-group-id={group.id}
-              className={`card-item animate-fade-in${isDragging ? " is-dragging" : ""}`}
+              className="card-item animate-fade-in"
               style={{
                 position: "relative",
                 paddingLeft: 44,
                 animationDelay: `${i * 60}ms`,
                 cursor: "pointer",
-                opacity: groupDrag ? (isDragging ? 0 : 0.4) : undefined,
-                ...(isDragging ? { height: 0, overflow: "hidden", padding: 0, margin: 0, borderWidth: 0, minHeight: 0 } : {}),
                 transition: "transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease",
               }}
               onClick={() => {
-                if (groupDidDragRef.current) return;
+                if (handle.isDragging) return;
                 openEdit({ group, platforms: gps, model_mappings });
               }}
             >
               <div
-                className={`drag-handle${isDragging ? " is-active" : ""}`}
-                onPointerDown={e => handleGroupPointerDown(e, i)}
-                onPointerMove={handleGroupPointerMove}
-                onPointerUp={handleGroupPointerUp}
+                ref={handle.ref}
+                {...handle.attributes}
+                {...handle.listeners}
+                className={`drag-handle${handle.isDragging ? " is-active" : ""}`}
+                title={t("group.dragToReorder", "拖动排序")}
+                style={{ touchAction: "none" }}
               >
                 <svg width="14" height="20" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
               </div>
@@ -846,35 +789,9 @@ export function Groups() {
                 </div>
               )}
             </div>
-            </Fragment>
           );
-          })}
-          {groupDrag && (() => {
-            if (groupDrag.to !== details.length) return null;
-            const dg = details[groupDrag.from];
-            const routeLabel = dg.group.routing_mode === "failover" ? t("group.failover") : t("group.loadBalance");
-            return (
-              <div style={{
-                display: "flex", alignItems: "center", gap: 10, paddingLeft: 44,
-                padding: "10px 16px", margin: "2px 0", borderRadius: 12,
-                background: "var(--glass-bg, rgba(255,255,255,0.06))",
-                border: "1.5px dashed var(--accent)",
-                opacity: 0.5, filter: "grayscale(0.8)",
-                pointerEvents: "none", transition: "all 150ms ease",
-              }}>
-                <div style={{
-                  width: 24, height: 24, borderRadius: "var(--radius-sm)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  background: "var(--bg-glass)", fontSize: 11, fontWeight: 700,
-                  color: "var(--text-secondary)", flexShrink: 0,
-                }}>
-                  {dg.group.path.slice(0, 3)}
-                </div>
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{dg.group.name}</span>
-                <span className="badge badge-muted" style={{ fontSize: 10, padding: "0 6px" }}>{routeLabel}</span>
-              </div>
-            );
-          })()}
+            }}
+          />
         </div>
       )}
     </div>
