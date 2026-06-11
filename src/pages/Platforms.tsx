@@ -1778,15 +1778,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
             const configuredModels = allModelValues(p.models);
             const isDragging = platDrag?.from === i;
-            const pEffTo = platDrag ? (platDrag.from < platDrag.to ? platDrag.to - 1 : platDrag.to) : -1;
-            const pHasChange = platDrag ? platDrag.from !== pEffTo : false;
             // Ghost card info
             const draggedPlat = platDrag ? platforms[platDrag.from] : null;
             const draggedColor = draggedPlat ? (PROTOCOL_COLORS[draggedPlat.platform_type] || "var(--accent)") : "";
             return (
               <React.Fragment key={p.id}>
                 {/* Ghost card at insertion point */}
-                {platDrag && pHasChange && platDrag.to === i && draggedPlat && (
+                {platDrag && platDrag.to === i && draggedPlat && (
                   <div style={{
                     display: "flex", alignItems: "center", gap: 14, paddingLeft: 44,
                     padding: "10px 16px", margin: "2px 0", borderRadius: 12,
@@ -2052,8 +2050,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             );
           })}
           {platDrag && (() => {
-            const et = platDrag.from < platDrag.to ? platDrag.to - 1 : platDrag.to;
-            if (platDrag.from === et || platDrag.to !== platforms.length) return null;
+            if (platDrag.to !== platforms.length) return null;
             const dp = platforms[platDrag.from];
             const dc = PROTOCOL_COLORS[dp.platform_type] || "var(--accent)";
             return (

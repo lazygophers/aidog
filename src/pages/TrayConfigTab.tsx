@@ -375,10 +375,8 @@ export function TrayConfigTab() {
             <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
               {layout.columns.map((col, i) => {
                 const pIsDragging = previewDrag?.from === i;
-                const pEffTo = previewDrag ? (previewDrag.from < previewDrag.to ? previewDrag.to - 1 : previewDrag.to) : -1;
-                const pHasChange = previewDrag ? previewDrag.from !== pEffTo : false;
-                const pIsTarget = previewDrag ? pHasChange && previewDrag.to === i : false;
-                const pIsEnd = previewDrag ? pHasChange && previewDrag.to === layout.columns.length && i === layout.columns.length - 1 : false;
+                const pIsTarget = previewDrag ? previewDrag.to === i : false;
+                const pIsEnd = previewDrag ? previewDrag.to === layout.columns.length && i === layout.columns.length - 1 : false;
                 return (
                 <Fragment key={i}>
                   {/* Ghost card at target position */}
@@ -451,10 +449,8 @@ export function TrayConfigTab() {
             <div style={{ display: "grid", gridAutoFlow: "column", gap: 0, width: "100%" }}>
               {layout.columns.map((col, i) => {
                 const pIsDragging = previewDrag?.from === i;
-                const pEffTo = previewDrag ? (previewDrag.from < previewDrag.to ? previewDrag.to - 1 : previewDrag.to) : -1;
-                const pHasChange = previewDrag ? previewDrag.from !== pEffTo : false;
-                const pIsTarget = previewDrag ? pHasChange && previewDrag.to === i : false;
-                const pIsEnd = previewDrag ? pHasChange && previewDrag.to === layout.columns.length && i === layout.columns.length - 1 : false;
+                const pIsTarget = previewDrag ? previewDrag.to === i : false;
+                const pIsEnd = previewDrag ? previewDrag.to === layout.columns.length && i === layout.columns.length - 1 : false;
                 return (
                 <Fragment key={i}>
                   {/* Ghost card at target position */}
@@ -473,7 +469,7 @@ export function TrayConfigTab() {
                           {gc.isTwo ? gc.label : `${gc.label} ${gc.value}`}
                         </div>
                         {gc.isTwo && (
-                          <div style={{ fontSize: 13, lineHeight: "14px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                          <div style={{ fontSize: 14, lineHeight: "15px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
                             {gc.value}
                           </div>
                         )}
@@ -512,7 +508,7 @@ export function TrayConfigTab() {
                       {col.isTwo ? col.label : `${col.label} ${col.value}`}
                     </div>
                     {col.isTwo && (
-                      <div style={{ textAlign: cssAlign(col.alignRow2), fontSize: 13, lineHeight: "14px", whiteSpace: "nowrap" }}>
+                      <div style={{ textAlign: cssAlign(col.alignRow2), fontSize: 14, lineHeight: "15px", whiteSpace: "nowrap" }}>
                         {col.value}
                       </div>
                     )}
@@ -532,7 +528,7 @@ export function TrayConfigTab() {
                           {gc.isTwo ? gc.label : `${gc.label} ${gc.value}`}
                         </div>
                         {gc.isTwo && (
-                          <div style={{ fontSize: 13, lineHeight: "14px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                          <div style={{ fontSize: 14, lineHeight: "15px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
                             {gc.value}
                           </div>
                         )}
@@ -660,9 +656,7 @@ export function TrayConfigTab() {
           const isSep = item.item_type === "separator";
           const isExpanded = expandedIdx === i;
           const isDragging = drag?.from === i;
-          const effTo = drag ? (drag.from < drag.to ? drag.to - 1 : drag.to) : -1;
-          const hasChange = drag ? drag.from !== effTo : false;
-          const isDragTarget = drag ? hasChange && drag.to === i : false;
+          const isDragTarget = drag ? drag.to === i : false;
           const isPlatform = item.item_type === "platform";
           const riskyHex = item.color.mode === "custom" && isRiskyHex(item.color.value);
 
@@ -870,8 +864,7 @@ export function TrayConfigTab() {
         })}
         {/* End-of-list ghost card */}
         {drag && (() => {
-          const et = drag.from < drag.to ? drag.to - 1 : drag.to;
-          if (drag.from === et || drag.to !== config.items.length) return null;
+          if (drag.to !== config.items.length) return null;
           const di = config.items[drag.from];
           const dn = di.item_type === "separator"
             ? `${t("tray.separatorItem", "分隔符")} "${di.display || "·"}"`

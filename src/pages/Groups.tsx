@@ -616,11 +616,9 @@ export function Groups() {
           )}
           {details.map(({ group, platforms: gps, model_mappings }, i) => {
             const isDragging = groupDrag?.from === i;
-            const gEffTo = groupDrag ? (groupDrag.from < groupDrag.to ? groupDrag.to - 1 : groupDrag.to) : -1;
-            const gHasChange = groupDrag ? groupDrag.from !== gEffTo : false;
             return (
             <Fragment key={group.id}>
-              {groupDrag && gHasChange && groupDrag.to === i && (() => {
+              {groupDrag && groupDrag.to === i && (() => {
                 const dg = details[groupDrag.from];
                 const routeLabel = dg.group.routing_mode === "failover" ? t("group.failover") : t("group.loadBalance");
                 return (
@@ -840,8 +838,7 @@ export function Groups() {
           );
           })}
           {groupDrag && (() => {
-            const et = groupDrag.from < groupDrag.to ? groupDrag.to - 1 : groupDrag.to;
-            if (groupDrag.from === et || groupDrag.to !== details.length) return null;
+            if (groupDrag.to !== details.length) return null;
             const dg = details[groupDrag.from];
             const routeLabel = dg.group.routing_mode === "failover" ? t("group.failover") : t("group.loadBalance");
             return (
