@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/状态/类型/Hook 强制约定 —— SortableList 封装 + Settings.tsx 改动必须遵守 (named export / inline style+glass class / 禁 any / union type)"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "3 处拖拽提取通用 SortableList 的依据 (≥2 调用点必须提取共享函数, 放 src/components/)"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Groups/Tray 拖拽排序若涉及持久化, invoke 包装契约 + 数据流单向约定"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端 spec 入口导航"}
