@@ -963,34 +963,34 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
   const load = async () => {
     setLoading(true);
+    let list: Platform[] = [];
     try {
-      const list = await platformApi.list();
-      setPlatforms(list || []);
-      // Batch load usage stats
-      const statsMap: Record<number, PlatformUsageStats> = {};
-      await Promise.all((list || []).map(async (p) => {
-        try {
-          const s = await platformApi.usageStats(p.id);
-          if (s && s.total_requests > 0) statsMap[p.id] = s;
-        } catch { /* ignore */ }
-      }));
-      setUsageMap(statsMap);
-      // Batch load quota (balance & coding plan)
-      const qMap: Record<number, PlatformQuota> = {};
-      await Promise.all((list || []).map(async (p) => {
-        if (!p.api_key) return;
-        const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []);
-        if (!baseUrl) return;
-        try {
-          const q = p.platform_type === "newapi"
-            ? await quotaApi.queryNewapi(baseUrl, p.api_key, p.extra ?? "")
-            : await quotaApi.query(baseUrl, p.api_key);
-          if (q.success) qMap[p.id] = q;
-        } catch { /* ignore */ }
-      }));
-      setQuotaMap(qMap);
+      list = (await platformApi.list()) || [];
+      setPlatforms(list);
     } catch (e) { console.error(e); }
+    // 平台列表到手即渲染，余额/用量改后台渐进填充，禁止外部 quota HTTP 阻塞整页
     setLoading(false);
+
+    // Usage stats（本地查询）渐进填充
+    list.forEach(async (p) => {
+      try {
+        const s = await platformApi.usageStats(p.id);
+        if (s && s.total_requests > 0) setUsageMap(prev => ({ ...prev, [p.id]: s }));
+      } catch { /* ignore */ }
+    });
+
+    // Quota（balance & coding plan，外部 HTTP，慢）逐平台返回逐个更新
+    list.forEach(async (p) => {
+      if (!p.api_key) return;
+      const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []);
+      if (!baseUrl) return;
+      try {
+        const q = p.platform_type === "newapi"
+          ? await quotaApi.queryNewapi(baseUrl, p.api_key, p.extra ?? "")
+          : await quotaApi.query(baseUrl, p.api_key);
+        if (q.success) setQuotaMap(prev => ({ ...prev, [p.id]: q }));
+      } catch { /* ignore */ }
+    });
   };
 
   useEffect(() => { load(); }, []);
