@@ -1642,27 +1642,26 @@ fn set_tray_attributed_title(
         }
 
         // 两行模式：两行共用同一个段落样式（para），均使用 LeftTabStopType。
-        // 列宽 = max(第一行该列文字, 第二行该列文字) 估宽 + padding；位置累加（loc = 各列右边界）。
-        // 两行都用 left tab @列右边界：标签和值均左对齐，同一列两行起始位置相同 → 列边界对齐。
-        // （之前值行用 RightTabStopType 导致第二行右边界与第一行不对齐，现统一为 LeftTabStopType。）
+        // 列宽 = max(第一行该列文字, 第二行该列文字) 实测宽 + padding；位置累加（loc = 各列右边界）。
+        // 对齐：通过在文本前填充空格实现右/居中对齐（精确测量 + 空格宽度推算）。
+        // 两行都用 left tab @列右边界 → 同一列两行起始位置相同 → 列边界对齐。
+        let mut col_widths: Vec<f64> = Vec::new();
         if two_line_mode {
             const COL_PADDING: f64 = 3.0; // 精确测量后只需少量间距
             let mut left_tabs: Vec<Retained<NSTextTab>> = Vec::new();
             let mut loc: f64 = 0.0;
             for col in columns.iter() {
-                // 该列第一行文字
                 let line1 = if col.two_line {
                     col.name.clone()
                 } else {
                     format!("{} {}", col.name, col.value)
                 };
-                // 该列第二行文字（two_line→value；single→空）
                 let line2 = if col.two_line { col.value.clone() } else { String::new() };
                 let w1 = measure_text_width(&line1, col.font_size);
                 let w2 = measure_text_width(&line2, col.font_size);
                 let col_w = w1.max(w2) + COL_PADDING;
+                col_widths.push(col_w);
                 loc += col_w;
-                // loc = 该列右边界：两行都用 LeftTabStopType，文本左对齐到 tab 位置。
                 left_tabs.push(NSTextTab::initWithType_location(
                     NSTextTab::alloc(),
                     NSTextTabType::LeftTabStopType,
@@ -1672,6 +1671,26 @@ fn set_tray_attributed_title(
             let left_array: Retained<NSArray<NSTextTab>> = NSArray::from_retained_slice(&left_tabs);
             para.setTabStops(Some(&left_array));
         }
+
+        /// 根据对齐设置在文本前填充空格：right → 左侧填充至列宽；center → 两侧填充。
+        let align_text = |text: &str, col_w: f64, font_size: f64, align: &str| -> String {
+            if align == "left" || text.is_empty() {
+                return text.to_string();
+            }
+            let text_w = measure_text_width(text, font_size);
+            let space_w = measure_text_width(" ", font_size);
+            if space_w <= 0.0 { return text.to_string(); }
+            let extra = (col_w - text_w).max(0.0);
+            let n_spaces = (extra / space_w).round() as usize;
+            match align {
+                "right" => format!("{}{}", " ".repeat(n_spaces), text),
+                "center" => {
+                    let half = n_spaces / 2;
+                    format!("{}{}{}", " ".repeat(half), text, " ".repeat(n_spaces - half))
+                }
+                _ => text.to_string(),
+            }
+        };
 
         // baselineOffset：两行模式需要负偏移下推居中；单行模式无需偏移。
         let baseline_offset = NSNumber::new_f64(if two_line_mode { -2.0 } else { 0.0 });
@@ -1719,7 +1738,6 @@ fn set_tray_attributed_title(
             for (idx, col) in columns.iter().enumerate() {
                 if idx > 0 {
                     result.appendAttributedString(&make_part("\t", col.font_size, &follow_color, &para));
-                    // 在 tab 后、列文字前插入 gap 文字（如果有自定义分隔符）
                     let gap_text = gaps.get(idx - 1)
                         .and_then(|g| g.clone())
                         .unwrap_or_default();
@@ -1732,17 +1750,17 @@ fn set_tray_attributed_title(
                 } else {
                     format!("{} {}", col.name, col.value)
                 };
-                result.appendAttributedString(&make_part(&line1, col.font_size, &col.color, &para));
+                let col_w = col_widths.get(idx).copied().unwrap_or(0.0);
+                let aligned = align_text(&line1, col_w, col.font_size, &col.align);
+                result.appendAttributedString(&make_part(&aligned, col.font_size, &col.color, &para));
             }
             // 行间换行
             let nl_font = columns.first().map(|c| c.font_size).unwrap_or(TRAY_FONT_SIZE);
             result.appendAttributedString(&make_part("\n", nl_font, &follow_color, &para));
-            // 第二行（值行）：与标签行相同结构——\t 仅在 idx>0 时输出，共用 `para`（LeftTabStopType）。
-            // 同一列两行起始位置相同 → 列左右边界对齐。
+            // 第二行（值行）：与标签行相同结构，对齐取 align_row2（fallback align）。
             for (idx, col) in columns.iter().enumerate() {
                 if idx > 0 {
                     result.appendAttributedString(&make_part("\t", col.font_size, &follow_color, &para));
-                    // gap 文字也出现在第二行（保持对齐）
                     let gap_text = gaps.get(idx - 1)
                         .and_then(|g| g.clone())
                         .unwrap_or_default();
@@ -1752,7 +1770,10 @@ fn set_tray_attributed_title(
                 }
                 let line2 = if col.two_line { col.value.clone() } else { String::new() };
                 if !line2.is_empty() {
-                    result.appendAttributedString(&make_part(&line2, col.font_size, &col.color, &para));
+                    let row2_align = col.align_row2.as_deref().unwrap_or(&col.align);
+                    let col_w = col_widths.get(idx).copied().unwrap_or(0.0);
+                    let aligned = align_text(&line2, col_w, col.font_size, row2_align);
+                    result.appendAttributedString(&make_part(&aligned, col.font_size, &col.color, &para));
                 }
             }
         } else {
