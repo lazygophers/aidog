@@ -840,10 +840,41 @@ function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
 export function Platforms() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
-  // ── Drag reorder for platform list ──
-  const [platDragIdx, setPlatDragIdx] = useState<number | null>(null);
-  const [platInsertIdx, setPlatInsertIdx] = useState<number | null>(null);
-  const wasPlatDragRef = useRef(false);
+  // ── Drag reorder for platform list (pointer events) ──
+  const [platDrag, setPlatDrag] = useState<{ from: number; to: number } | null>(null);
+  const platListRef = useRef<HTMLDivElement>(null);
+
+  const handlePlatDragStart = (e: React.PointerEvent, index: number) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    setPlatDrag({ from: index, to: index });
+  };
+
+  const handlePlatDragMove = (e: React.PointerEvent) => {
+    if (!platDrag || !platListRef.current) return;
+    const cards = platListRef.current.querySelectorAll<HTMLElement>("[data-platform-id]");
+    let newTo = platDrag.from;
+    cards.forEach((card, i) => {
+      const rect = card.getBoundingClientRect();
+      if (e.clientY > rect.top + rect.height / 2) newTo = i;
+    });
+    if (newTo !== platDrag.to) setPlatDrag(prev => prev ? { ...prev, to: newTo } : null);
+  };
+
+  const handlePlatDragEnd = () => {
+    if (platDrag && platDrag.from !== platDrag.to) {
+      const reordered = [...platforms];
+      const [moved] = reordered.splice(platDrag.from, 1);
+      reordered.splice(platDrag.to, 0, moved);
+      setPlatforms(reordered);
+      platformApi.reorder(reordered.map(pp => pp.id)).catch(console.error);
+    }
+    setPlatDrag(null);
+  };
+
+  const platDisplay = platDrag && platDrag.from !== platDrag.to
+    ? (() => { const r = [...platforms]; const [m] = r.splice(platDrag.from, 1); r.splice(platDrag.to, 0, m); return r; })()
+    : platforms;
   const [usageMap, setUsageMap] = useState<Record<number, PlatformUsageStats>>({});
   const [quotaMap, setQuotaMap] = useState<Record<number, PlatformQuota>>({});
   // 手动刷新（真查校准）后的平台 id → 优先展示 quotaMap 真值而非预估
@@ -1153,31 +1184,30 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     } catch (e) { console.error(e); }
   };
 
-  /** 切换托盘 quota 展示（互斥单平台）：开 → set 并清其他；关 → clear */
+  /** 自动检测展示类型：有 coding plan → "coding"，否则 → "balance" */
+  const autoTrayDisplay = (p: Platform): string => {
+    const q = quotaMap[p.id];
+    const estCoding = parseEstCodingPlan(p.est_coding_plan);
+    const hasCoding = (q?.coding_plan && q.coding_plan.tiers.length > 0) || (estCoding && estCoding.tiers.length > 0);
+    return hasCoding ? "coding" : "balance";
+  };
+
+  /** 切换托盘 quota 展示（互斥单平台）：开 → 自动检测类型 set 并清其他；关 → clear */
   const handleTrayToggle = async (p: Platform) => {
     const turnOn = !p.show_in_tray;
     try {
       if (turnOn) {
-        await trayApi.set(p.id, p.tray_display || "balance");
+        const display = autoTrayDisplay(p);
+        await trayApi.set(p.id, display);
+        setPlatforms(prev => prev.map(x =>
+          x.id === p.id ? { ...x, show_in_tray: true, tray_display: display } : { ...x, show_in_tray: false }
+        ));
       } else {
         await trayApi.clear();
+        setPlatforms(prev => prev.map(x =>
+          x.id === p.id ? { ...x, show_in_tray: false } : x
+        ));
       }
-      // 本地互斥：仅当前平台高亮，其余 show_in_tray 置 false
-      setPlatforms(prev => prev.map(x =>
-        x.id === p.id ? { ...x, show_in_tray: turnOn } : { ...x, show_in_tray: false }
-      ));
-    } catch (e) { console.error(e); }
-  };
-
-  /** 切换托盘展示内容（balance / coding）：若该平台已开，同步刷新后端 */
-  const handleTrayDisplay = async (p: Platform, display: string) => {
-    try {
-      if (p.show_in_tray) {
-        await trayApi.set(p.id, display);
-      }
-      setPlatforms(prev => prev.map(x =>
-        x.id === p.id ? { ...x, tray_display: display } : x
-      ));
     } catch (e) { console.error(e); }
   };
 
@@ -1753,73 +1783,46 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       {loading ? (
         <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div ref={platListRef} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {platforms.length === 0 && (
             <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
               <div className="text-tertiary" style={{ fontSize: 13 }}>{t("platform.empty")}</div>
             </div>
           )}
-          {platforms.map((p, i) => {
+          {platDisplay.map((p, i) => {
             const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
             const configuredModels = allModelValues(p.models);
-            const isDragging = platDragIdx === i;
-            let shiftY = 0;
-            if (platDragIdx !== null && platInsertIdx !== null && !isDragging) {
-              if (platInsertIdx > platDragIdx) {
-                if (i > platDragIdx && i < platInsertIdx) shiftY = -1;
-              } else {
-                if (i >= platInsertIdx && i < platDragIdx) shiftY = 1;
-              }
-            }
+            const isDragging = platDrag !== null && platDrag.from === i && platDrag.from !== platDrag.to;
             return (
               <div
                 key={p.id}
+                data-platform-id={p.id}
                 className="card-item"
-                draggable
-                onDragStart={e => { setPlatDragIdx(i); wasPlatDragRef.current = true; e.dataTransfer.effectAllowed = "move"; }}
-                onDragOver={e => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = "move";
-                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                  const midY = rect.top + rect.height / 2;
-                  const insert = e.clientY < midY ? i : i + 1;
-                  if (platInsertIdx !== insert) setPlatInsertIdx(insert);
-                }}
-                onDragLeave={() => {}}
-                onDrop={e => {
-                  e.preventDefault();
-                  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                  const midY = rect.top + rect.height / 2;
-                  let insert = e.clientY < midY ? i : i + 1;
-                  if (platDragIdx !== null) {
-                    if (insert > platDragIdx) insert--;
-                    if (platDragIdx !== insert) {
-                      const reordered = [...platforms];
-                      const [moved] = reordered.splice(platDragIdx, 1);
-                      reordered.splice(insert, 0, moved);
-                      setPlatforms(reordered);
-                      platformApi.reorder(reordered.map(pp => pp.id)).catch(console.error);
-                    }
-                  }
-                  setPlatDragIdx(null);
-                  setPlatInsertIdx(null);
-                }}
-                onDragEnd={() => {
-                  setPlatDragIdx(null);
-                  setPlatInsertIdx(null);
-                  setTimeout(() => { wasPlatDragRef.current = false; }, 50);
-                }}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 14,
                   animationDelay: `${i * 50}ms`,
-                  opacity: isDragging ? 0.3 : (p.enabled ? 1 : 0.5),
-                  transform: shiftY !== 0 ? `translateY(${shiftY * 6}px)` : undefined,
-                  transition: "opacity 0.15s, transform 0.15s ease",
+                  opacity: isDragging ? 0.4 : (p.enabled ? 1 : 0.5),
+                  transition: "opacity 0.15s",
                   cursor: "default",
+                  position: "relative",
+                  paddingLeft: 28,
+                  border: isDragging ? "1px dashed var(--accent)" : undefined,
                 }}
               >
+                {/* Drag handle — pointer events */}
+                <span
+                  onPointerDown={e => handlePlatDragStart(e, i)}
+                  onPointerMove={handlePlatDragMove}
+                  onPointerUp={handlePlatDragEnd}
+                  style={{
+                    position: "absolute", left: 6, top: 0, bottom: 0, width: 22,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    cursor: "grab", color: "var(--text-tertiary)", fontSize: 14,
+                    lineHeight: 1, userSelect: "none", touchAction: "none",
+                  }}
+                >⠿</span>
                 <div style={{ position: "relative", flexShrink: 0 }}>
                   {(() => {
                     const svg = getPlatformLogo(p.platform_type);
@@ -1978,24 +1981,6 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                           : <span className="text-tertiary" style={{ fontSize: 11 }}>{t("platform.quotaEmpty", "暂无数据")}</span>}
                         {p.enabled && (
                           <div style={{ display: "flex", alignItems: "center", gap: 6, marginLeft: "auto" }}>
-                            {/* 余额 / coding 二选一（仅托盘开启时影响展示） */}
-                            <div style={{ display: "inline-flex", fontSize: 10 }}>
-                              {(["balance", "coding"] as const).map((d, di) => (
-                                <button
-                                  key={d}
-                                  className={`btn ${p.tray_display === d ? "btn-primary" : "btn-ghost"}`}
-                                  style={{
-                                    fontSize: 10, padding: "2px 8px",
-                                    borderRadius: di === 0 ? "6px 0 0 6px" : "0 6px 6px 0",
-                                    borderRight: di === 0 ? "1px solid var(--border)" : undefined,
-                                  }}
-                                  onClick={() => handleTrayDisplay(p, d)}
-                                  title={d === "balance" ? t("platform.trayBalance", "余额") : t("platform.trayCoding", "用量%")}
-                                >
-                                  {d === "balance" ? `💳 ${t("platform.trayBalance", "余额")}` : `🪙 ${t("platform.trayCoding", "用量%")}`}
-                                </button>
-                              ))}
-                            </div>
                             {/* 托盘展示开关（互斥单平台） */}
                             <button
                               className={`btn ${p.show_in_tray ? "btn-primary" : "btn-ghost"}`}

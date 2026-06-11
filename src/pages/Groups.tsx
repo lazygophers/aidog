@@ -88,10 +88,42 @@ export function Groups() {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-  // ── Drag reorder for group list ──
-  const [groupDragIdx, setGroupDragIdx] = useState<number | null>(null);
-  const [groupInsertIdx, setGroupInsertIdx] = useState<number | null>(null);
-  const wasGroupDragRef = useRef(false);
+  // ── Drag reorder for group list (pointer events) ──
+  const [groupDrag, setGroupDrag] = useState<{ from: number; to: number } | null>(null);
+  const groupListRef = useRef<HTMLDivElement>(null);
+
+  const handleGroupDragStart = (e: React.PointerEvent, index: number) => {
+    e.preventDefault();
+    (e.target as HTMLElement).setPointerCapture(e.pointerId);
+    setGroupDrag({ from: index, to: index });
+  };
+
+  const handleGroupDragMove = (e: React.PointerEvent) => {
+    if (!groupDrag || !groupListRef.current) return;
+    const cards = groupListRef.current.querySelectorAll<HTMLElement>("[data-group-id]");
+    let newTo = groupDrag.from;
+    cards.forEach((card, i) => {
+      const rect = card.getBoundingClientRect();
+      if (e.clientY > rect.top + rect.height / 2) newTo = i;
+    });
+    if (newTo !== groupDrag.to) setGroupDrag(prev => prev ? { ...prev, to: newTo } : null);
+  };
+
+  const handleGroupDragEnd = () => {
+    if (groupDrag && groupDrag.from !== groupDrag.to) {
+      const reordered = [...details];
+      const [moved] = reordered.splice(groupDrag.from, 1);
+      reordered.splice(groupDrag.to, 0, moved);
+      setDetails(reordered);
+      groupApi.reorder(reordered.map(d => d.group.id)).catch(console.error);
+    }
+    setGroupDrag(null);
+  };
+
+  // 计算拖拽预览顺序
+  const groupDisplay = groupDrag && groupDrag.from !== groupDrag.to
+    ? (() => { const r = [...details]; const [m] = r.splice(groupDrag.from, 1); r.splice(groupDrag.to, 0, m); return r; })()
+    : details;
 
   // ── Drag reorder for selected platforms ──
   const reorderPlatforms = (from: number, to: number) => {
@@ -566,81 +598,41 @@ export function Groups() {
       {loading ? (
         <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <div ref={groupListRef} style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {details.length === 0 && !showCreate && (
             <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
               <div className="text-tertiary" style={{ fontSize: 13 }}>{t("group.empty")}</div>
             </div>
           )}
-          {details.map(({ group, platforms: gps, model_mappings }, i) => {
-            const isDragging = groupDragIdx === i;
-            // 计算让位偏移：当拖拽项不在此位置时，根据 insertIdx 计算位移
-            let shiftY = 0;
-            if (groupDragIdx !== null && groupInsertIdx !== null && !isDragging) {
-              if (groupInsertIdx > groupDragIdx) {
-                // 向下拖：insertIdx 到 dragIdx 之间的项向上移
-                if (i > groupDragIdx && i < groupInsertIdx) shiftY = -1;
-              } else {
-                // 向上拖：insertIdx 到 dragIdx 之间的项向下移
-                if (i >= groupInsertIdx && i < groupDragIdx) shiftY = 1;
-              }
-            }
+          {groupDisplay.map(({ group, platforms: gps, model_mappings }, i) => {
+            const isDragging = groupDrag !== null && groupDrag.from === i && groupDrag.from !== groupDrag.to;
             return (
             <div
               key={group.id}
+              data-group-id={group.id}
               className="card-item animate-fade-in"
-              draggable
-              onDragStart={e => { setGroupDragIdx(i); wasGroupDragRef.current = true; e.dataTransfer.effectAllowed = "move"; }}
-              onDragOver={e => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                const midY = rect.top + rect.height / 2;
-                const insert = e.clientY < midY ? i : i + 1;
-                if (groupInsertIdx !== insert) setGroupInsertIdx(insert);
-              }}
-              onDragLeave={() => {}}
-              onDrop={e => {
-                e.preventDefault();
-                const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-                const midY = rect.top + rect.height / 2;
-                let insert = e.clientY < midY ? i : i + 1;
-                if (groupDragIdx !== null) {
-                  if (insert > groupDragIdx) insert--;
-                  if (groupDragIdx !== insert) {
-                    const reordered = [...details];
-                    const [moved] = reordered.splice(groupDragIdx, 1);
-                    reordered.splice(insert, 0, moved);
-                    setDetails(reordered);
-                    groupApi.reorder(reordered.map(d => d.group.id)).catch(console.error);
-                  }
-                }
-                setGroupDragIdx(null);
-                setGroupInsertIdx(null);
-              }}
-              onDragEnd={() => {
-                setGroupDragIdx(null);
-                setGroupInsertIdx(null);
-                setTimeout(() => { wasGroupDragRef.current = false; }, 50);
-              }}
               style={{
                 position: "relative",
                 paddingLeft: 28,
                 animationDelay: `${i * 60}ms`,
                 cursor: "pointer",
-                opacity: isDragging ? 0.3 : 1,
-                transform: shiftY !== 0 ? `translateY(${shiftY * 6}px)` : undefined,
-                transition: "opacity 0.15s, transform 0.15s ease",
+                opacity: isDragging ? 0.4 : 1,
+                transition: "opacity 0.15s",
+                border: isDragging ? "1px dashed var(--accent)" : undefined,
               }}
-              onClick={() => { if (!wasGroupDragRef.current) openEdit({ group, platforms: gps, model_mappings }); }}
+              onClick={() => openEdit({ group, platforms: gps, model_mappings })}
             >
-              {/* Drag handle */}
+              {/* Drag handle — pointer events */}
               <span
                 title={t("group.dragToReorder", "拖动排序")}
+                onPointerDown={e => handleGroupDragStart(e, i)}
+                onPointerMove={handleGroupDragMove}
+                onPointerUp={handleGroupDragEnd}
                 style={{
-                  position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)",
+                  position: "absolute", left: 6, top: 0, bottom: 0, width: 22,
+                  display: "flex", alignItems: "center", justifyContent: "center",
                   cursor: "grab", color: "var(--text-tertiary)", fontSize: 14,
-                  lineHeight: 1, userSelect: "none",
+                  lineHeight: 1, userSelect: "none", touchAction: "none",
                 }}
               >⠿</span>
               {/* Group Header */}
