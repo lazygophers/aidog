@@ -17,7 +17,9 @@ export type Protocol =
   | "packycode" | "cubence" | "aigocode" | "rightcode" | "aicodemirror" | "nvidia"
   | "pateway" | "ccsub" | "apikeyfun" | "apinebula" | "sudocode" | "claudeapi" | "claudecn"
   | "runapi" | "relaxycode" | "crazyrouter" | "sssaicode" | "compshare" | "compshare_coding"
-  | "micu" | "ctok" | "eflowcode" | "lemondata" | "pipellm" | "opencode";
+  | "micu" | "ctok" | "eflowcode" | "lemondata" | "pipellm" | "opencode"
+  // ── 测试 ──
+  | "mock";
 export type RoutingMode = "load_balance" | "failover";
 export type ClientType =
   | "default"
@@ -41,6 +43,36 @@ export interface PlatformModels {
   haiku?: string;
   gpt?: string;
 }
+
+export type MockErrorMode = "none" | "http_error" | "rate_limit_429" | "timeout";
+
+/** Mock 平台模拟配置（持久化在 platform.extra 的 `mock` 子对象内） */
+export interface MockConfig {
+  status_code: number;
+  delay_ms: number;
+  /** null = 跟随请求的 stream；true/false = 强制流式/非流式 */
+  stream_override: boolean | null;
+  response_text: string;
+  finish_reason: string;
+  input_tokens: number;
+  output_tokens: number;
+  cache_tokens: number;
+  error_mode: MockErrorMode;
+  chunk_count: number;
+}
+
+export const DEFAULT_MOCK_CONFIG: MockConfig = {
+  status_code: 200,
+  delay_ms: 0,
+  stream_override: null,
+  response_text: "Hello from mock",
+  finish_reason: "end_turn",
+  input_tokens: 100,
+  output_tokens: 50,
+  cache_tokens: 0,
+  error_mode: "none",
+  chunk_count: 5,
+};
 
 export interface Platform {
   id: number;
@@ -121,6 +153,40 @@ export interface PlatformUsageStats {
   cache_rate: number;
   recent_failures: number;
   recent_total: number;
+}
+
+/** 从 platform.extra JSON 字符串解析 mock 配置（缺省字段回退默认值） */
+export function parseMockConfig(extra: string): MockConfig {
+  if (!extra.trim()) return { ...DEFAULT_MOCK_CONFIG };
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && "mock" in parsed) {
+      const mock = (parsed as { mock: unknown }).mock;
+      if (mock && typeof mock === "object") {
+        return { ...DEFAULT_MOCK_CONFIG, ...(mock as Partial<MockConfig>) };
+      }
+    }
+  } catch {
+    /* 非法 JSON → 回退默认 */
+  }
+  return { ...DEFAULT_MOCK_CONFIG };
+}
+
+/** 把 mock 配置写回 extra JSON 字符串，保留 extra 中其他键 */
+export function serializeMockConfig(extra: string, mock: MockConfig): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch {
+      /* 非法 JSON → 重建 */
+    }
+  }
+  obj.mock = mock;
+  return JSON.stringify(obj);
 }
 
 export const platformApi = {

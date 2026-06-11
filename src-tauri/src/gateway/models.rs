@@ -15,6 +15,8 @@ pub enum Protocol {
     #[serde(rename = "gemini")]
     Gemini,
     // ── 平台类型（仅作为平台主协议，不作为 endpoint 协议）──
+    #[serde(rename = "mock")]
+    Mock,
     #[serde(rename = "glm")]
     Glm,
     #[serde(rename = "glm_en")]

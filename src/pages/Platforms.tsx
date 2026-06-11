@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, DEFAULT_MOCK_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode } from "../services/api";
 import { ModelTestPanel } from "./ModelTestPanel";
 import { pinyinMatch } from "../utils/pinyin";
 
@@ -71,6 +71,8 @@ const PROTOCOLS: ProtocolOption[] = [
   { value: "lemondata", label: "LemonData", keywords: ["lemondata"] },
   { value: "pipellm", label: "PIPELLM", keywords: ["pipellm"] },
   { value: "opencode", label: "OpenCode Go", keywords: ["opencode"] },
+  // ── 测试 ──
+  { value: "mock", label: "Mock（本地模拟）", keywords: ["mock", "测试", "调试", "假数据"] },
 ];
 
 /** Endpoint 协议：只有 AI 请求协议（非平台类型） */
@@ -403,6 +405,8 @@ const PROTOCOL_LABELS: Record<Protocol, string> = {
   lemondata: "LemonData",
   pipellm: "PIPELLM",
   opencode: "OpenCode Go",
+  // ── 测试 ──
+  mock: "Mock",
 };
 
 const DEFAULT_NAMES = new Set(Object.values(PROTOCOL_LABELS));
@@ -471,6 +475,8 @@ const PROTOCOL_COLORS: Record<string, string> = {
   lemondata: "#FFD21E",
   pipellm: "#4285F4",
   opencode: "#211E1E",
+  // ── 测试 ──
+  mock: "#8E8E93",
 };
 
 const MODEL_SLOTS: { key: ModelSlot; labelKey: string }[] = [
@@ -657,6 +663,114 @@ function SearchableProtocolSelect({
   );
 }
 
+/** Mock 平台配置编辑器：编辑 platform.extra 的 mock 子对象 */
+interface MockConfigEditorProps {
+  config: MockConfig;
+  onChange: (next: MockConfig) => void;
+}
+
+const MOCK_ERROR_MODES: { value: MockErrorMode; label: string }[] = [
+  { value: "none", label: "正常返回（none）" },
+  { value: "http_error", label: "HTTP 错误（http_error）" },
+  { value: "rate_limit_429", label: "限流 429（rate_limit_429）" },
+  { value: "timeout", label: "超时（timeout）" },
+];
+
+function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
+  const setField = <K extends keyof MockConfig>(key: K, value: MockConfig[K]) => {
+    onChange({ ...config, [key]: value });
+  };
+
+  const numberField = (label: string, key: "status_code" | "delay_ms" | "input_tokens" | "output_tokens" | "cache_tokens" | "chunk_count", hint?: string) => (
+    <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>{label}</span>
+      <input
+        className="input"
+        type="number"
+        value={config[key]}
+        onChange={(e) => setField(key, Number(e.target.value))}
+      />
+      {hint && <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{hint}</span>}
+    </label>
+  );
+
+  // stream_override: null=跟随请求 / true / false → 用三态下拉
+  const streamValue = config.stream_override === null ? "follow" : config.stream_override ? "force_on" : "force_off";
+
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", gap: 12,
+      padding: 12, borderRadius: "var(--radius-sm)",
+      background: "var(--bg-glass)", border: "1px solid var(--border)",
+    }}>
+      <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
+        Mock 模拟配置（写入 platform.extra）
+      </div>
+
+      {/* 响应文本 */}
+      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>响应文本（response_text）</span>
+        <textarea
+          className="input"
+          style={{ minHeight: 60, resize: "vertical" }}
+          value={config.response_text}
+          onChange={(e) => setField("response_text", e.target.value)}
+        />
+      </label>
+
+      <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>finish_reason</span>
+        <input
+          className="input"
+          value={config.finish_reason}
+          onChange={(e) => setField("finish_reason", e.target.value)}
+        />
+      </label>
+
+      {/* 数值字段网格 */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        {numberField("HTTP 状态码（status_code）", "status_code")}
+        {numberField("延迟毫秒（delay_ms）", "delay_ms")}
+        {numberField("输入 token（input_tokens）", "input_tokens")}
+        {numberField("输出 token（output_tokens）", "output_tokens")}
+        {numberField("缓存 token（cache_tokens）", "cache_tokens")}
+        {numberField("流式分块数（chunk_count）", "chunk_count")}
+      </div>
+
+      {/* error_mode + stream_override */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>错误模式（error_mode）</span>
+          <select
+            className="input"
+            value={config.error_mode}
+            onChange={(e) => setField("error_mode", e.target.value as MockErrorMode)}
+          >
+            {MOCK_ERROR_MODES.map((m) => (
+              <option key={m.value} value={m.value}>{m.label}</option>
+            ))}
+          </select>
+        </label>
+        <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>流式开关（stream_override）</span>
+          <select
+            className="input"
+            value={streamValue}
+            onChange={(e) => {
+              const v = e.target.value;
+              setField("stream_override", v === "follow" ? null : v === "force_on");
+            }}
+          >
+            <option value="follow">跟随请求（null）</option>
+            <option value="force_on">强制流式（true）</option>
+            <option value="force_off">强制非流式（false）</option>
+          </select>
+        </label>
+      </div>
+    </div>
+  );
+}
+
 export function Platforms() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -688,6 +802,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [showClaudeConfig, setShowClaudeConfig] = useState(false);
   const [claudeConfigJson, setClaudeConfigJson] = useState("");
   const [globalClaudeConfig, setGlobalClaudeConfig] = useState<Record<string, any>>({});
+  // Mock 平台配置（持久化到 platform.extra 的 mock 子对象）
+  const [extra, setExtra] = useState("");
+  const [mockConfig, setMockConfig] = useState<MockConfig>({ ...DEFAULT_MOCK_CONFIG });
+
+  const isMock = protocol === "mock";
 
   /** 从 endpoints 中推导主 base_url（匹配主协议的 endpoint，否则取第一个） */
   const getPrimaryBaseUrl = (proto: Protocol, eps: PlatformEndpoint[]): string => {
@@ -702,12 +821,16 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     if (!name.trim() || DEFAULT_NAMES.has(name)) {
       setName(cp ? `${PROTOCOL_LABELS[newProtocol]} Coding Plan` : PROTOCOL_LABELS[newProtocol]);
     }
-    // Auto-fill endpoints from defaults
+    // Auto-fill endpoints from defaults（mock 无真实上游，返回空）
     const defaultEps = getDefaultEndpoints(newProtocol, cp);
     if (defaultEps.length > 0) {
       setEndpoints(defaultEps);
     } else {
       setEndpoints([]);
+    }
+    // 切到 mock 时用当前 extra 初始化 mock 配置编辑器
+    if (newProtocol === "mock") {
+      setMockConfig(parseMockConfig(extra));
     }
     setProtocol(newProtocol);
     setCodingPlan(cp);
@@ -751,6 +874,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setAvailableModels([]); setEndpoints([]);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
     setShowClaudeConfig(false); setClaudeConfigJson("");
+    setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
   };
 
   const handleEdit = async (p: Platform) => {
@@ -769,6 +893,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setEndpoints(p.endpoints ?? []);
     setEditing(p); setShowForm(true); setFetchError(""); setSaveError("");
     setShowClaudeConfig(false); setClaudeConfigJson("");
+    setExtra(p.extra ?? "");
+    setMockConfig(parseMockConfig(p.extra ?? ""));
 
     // Load global + platform Claude Code config
     try {
@@ -847,10 +973,14 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
       const availablePayload = availableModels.length > 0 ? availableModels : undefined;
       const baseUrl = getPrimaryBaseUrl(protocol, endpoints);
+      // mock 平台：把配置写回 extra；其余平台原样保留已有 extra
+      const extraPayload = isMock ? serializeMockConfig(extra, mockConfig) : extra;
+      const extraArg = extraPayload ? extraPayload : undefined;
       let savedId: number | undefined;
       if (editing) {
         await platformApi.update({
           id: editing.id, name, platform_type: protocol, base_url: baseUrl, api_key: apiKey,
+          extra: extraArg,
           models: modelsPayload, available_models: availablePayload,
           endpoints: endpoints.length > 0 ? endpoints : undefined,
         });
@@ -858,6 +988,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       } else {
         const created = await platformApi.create({
           name, platform_type: protocol, base_url: baseUrl, api_key: apiKey,
+          extra: extraArg,
           models: modelsPayload, available_models: availablePayload,
           endpoints: endpoints.length > 0 ? endpoints : undefined,
         });
@@ -921,7 +1052,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
             <button className="btn btn-primary" onClick={handleSave}
-              disabled={!name || endpoints.length === 0 || !apiKey}>
+              disabled={!name || (!isMock && (endpoints.length === 0 || !apiKey))}>
               {editing ? t("action.save") : t("action.create")}
             </button>
           </div>
@@ -962,7 +1093,14 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             />
           )}
 
-          {/* Protocol Endpoints */}
+          {/* Mock 平台配置编辑器（仅 mock 平台显示，替代 endpoints / API Key / 模型） */}
+          {isMock && (
+            <MockConfigEditor config={mockConfig} onChange={setMockConfig} />
+          )}
+
+          {/* Protocol Endpoints（mock 平台隐藏，无真实上游） */}
+          {!isMock && (
+          <>
           <div style={{
             display: "flex", flexDirection: "column", gap: 6,
             padding: "8px 0",
@@ -1238,6 +1376,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               </div>
             ))}
           </div>
+          </>
+          )}
 
           {/* Claude Code Config */}
           {editing && (

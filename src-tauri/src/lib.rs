@@ -361,7 +361,13 @@ async fn platform_fetch_models(
     let client = reqwest::Client::new();
     let base = base_url.trim_end_matches('/');
 
+    // Mock 平台无真实上游，不拉取模型
+    if matches!(protocol, Protocol::Mock) {
+        return Ok(Vec::new());
+    }
+
     let resp: Value = match protocol {
+        Protocol::Mock => unreachable!(),
         Protocol::Anthropic => {
             let url = format!("{base}/v1/models");
             client

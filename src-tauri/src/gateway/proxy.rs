@@ -12,7 +12,7 @@ use std::sync::Arc;
 
 use super::adapter::{self, ChatRequest, ChatStreamEvent};
 use super::db::Db;
-use super::models::{ClientType, Group, ProxyLog, ProxyLogSettings, ProxyTimeoutSettings};
+use super::models::{ClientType, Group, Protocol, ProxyLog, ProxyLogSettings, ProxyTimeoutSettings};
 use super::router::select_platform;
 
 /// 代理服务器共享状态
@@ -337,6 +337,23 @@ async fn handle_proxy(
     // 替换模型名
     chat_req.model = actual_model.clone();
 
+    // ── Mock 平台拦截：不发真实上游，本地生成可控假响应 ──
+    if matches!(route.platform.platform_type, Protocol::Mock) {
+        return handle_mock(
+            state,
+            log,
+            log_settings,
+            &route.platform.extra,
+            &chat_req,
+            &req_value,
+            &source_protocol,
+            &requested_model,
+            is_stream,
+            start,
+        )
+        .await;
+    }
+
     // 协议转换：wire format 由 endpoint 协议决定，API path 由平台类型决定
     let platform_protocol = &route.platform.platform_type;
     let (mut req_body, mut api_path) = adapter::convert_request(&chat_req, target_protocol_enum, platform_protocol);
@@ -550,6 +567,132 @@ async fn handle_proxy(
         body,
     )
         .into_response()
+}
+
+/// Mock 平台请求处理：本地生成可控假响应（非流式 JSON / 流式 SSE），填假 token 进 log。
+#[allow(clippy::too_many_arguments)]
+async fn handle_mock(
+    state: Arc<ProxyState>,
+    mut log: ProxyLog,
+    log_settings: ProxyLogSettings,
+    extra: &str,
+    chat_req: &ChatRequest,
+    req_value: &Value,
+    source_protocol: &str,
+    requested_model: &str,
+    is_stream: bool,
+    start: std::time::Instant,
+) -> Response {
+    use super::adapter::mock;
+
+    let cfg = mock::resolve_mock_config(extra, chat_req, req_value);
+
+    // 真延迟
+    if cfg.delay_ms > 0 {
+        tokio::time::sleep(std::time::Duration::from_millis(cfg.delay_ms)).await;
+    }
+
+    // 填假 token（最终生效值）
+    log.input_tokens = cfg.input_tokens;
+    log.output_tokens = cfg.output_tokens;
+    log.cache_tokens = cfg.cache_tokens;
+
+    // ── 错误 / 超时模拟 ──
+    match cfg.error_mode.as_str() {
+        "http_error" => {
+            let body = mock::build_error_body(source_protocol, cfg.status_code, "mock http_error");
+            let body_str = serde_json::to_string(&body).unwrap_or_default();
+            let status = StatusCode::from_u16(cfg.status_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
+            log.status_code = cfg.status_code as i32;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            log.response_body = body_str.clone();
+            log.user_response_body = body_str.clone();
+            log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+            upsert_log(&state, &log, &log_settings);
+            return (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response();
+        }
+        "rate_limit_429" => {
+            let body = mock::build_error_body(source_protocol, 429, "mock rate limit");
+            let body_str = serde_json::to_string(&body).unwrap_or_default();
+            log.status_code = 429;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            log.response_body = body_str.clone();
+            log.user_response_body = body_str.clone();
+            log.user_response_headers = r#"{"content-type":"application/json","retry-after":"5"}"#.to_string();
+            upsert_log(&state, &log, &log_settings);
+            return (
+                StatusCode::TOO_MANY_REQUESTS,
+                [
+                    (axum::http::header::CONTENT_TYPE, "application/json"),
+                    (axum::http::header::RETRY_AFTER, "5"),
+                ],
+                body_str,
+            )
+                .into_response();
+        }
+        "timeout" => {
+            // sleep 上限保护，不真 hang 连接
+            tokio::time::sleep(std::time::Duration::from_secs(600)).await;
+            let body = mock::build_error_body(source_protocol, 504, "mock timeout");
+            let body_str = serde_json::to_string(&body).unwrap_or_default();
+            log.status_code = 504;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            log.response_body = body_str.clone();
+            log.user_response_body = body_str.clone();
+            log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+            upsert_log(&state, &log, &log_settings);
+            return (StatusCode::GATEWAY_TIMEOUT, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str)
+                .into_response();
+        }
+        _ => {}
+    }
+
+    // stream_override 优先于请求 is_stream
+    let stream = cfg.stream_override.unwrap_or(is_stream);
+
+    if stream {
+        let chunks = mock::build_sse_chunks(&cfg, source_protocol, requested_model);
+        let delay_ms = cfg.delay_ms;
+        let body_stream = futures::stream::iter(chunks.into_iter().map(Ok::<_, std::io::Error>))
+            .then(move |item| async move {
+                if delay_ms > 0 {
+                    tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                }
+                item
+            });
+        let body = Body::from_stream(body_stream);
+
+        log.status_code = 200;
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        log.response_body = "[mock stream]".to_string();
+        log.user_response_body = "[mock stream]".to_string();
+        log.user_response_headers = r#"{"content-type":"text/event-stream","cache-control":"no-cache","connection":"keep-alive"}"#.to_string();
+        upsert_log(&state, &log, &log_settings);
+
+        return (
+            StatusCode::OK,
+            [
+                (axum::http::header::CONTENT_TYPE, "text/event-stream"),
+                (axum::http::header::CACHE_CONTROL, "no-cache"),
+                (axum::http::header::CONNECTION, "keep-alive"),
+            ],
+            body,
+        )
+            .into_response();
+    }
+
+    // 非流式 JSON
+    let resp_body = mock::build_response(&cfg, source_protocol, requested_model);
+    let body_str = serde_json::to_string(&resp_body).unwrap_or_default();
+    let status = StatusCode::from_u16(cfg.status_code).unwrap_or(StatusCode::OK);
+    log.status_code = cfg.status_code as i32;
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    log.response_body = body_str.clone();
+    log.user_response_body = body_str.clone();
+    log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+    upsert_log(&state, &log, &log_settings);
+
+    (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response()
 }
 
 /// Extract input/output/cache tokens from non-stream response JSON

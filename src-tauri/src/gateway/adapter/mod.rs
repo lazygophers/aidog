@@ -6,6 +6,7 @@ pub mod gemini;
 pub mod glm;
 pub mod kimi;
 pub mod minimax;
+pub mod mock;
 pub mod openai;
 pub mod openai_completions;
 pub mod openai_responses;
