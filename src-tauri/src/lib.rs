@@ -1080,6 +1080,64 @@ fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, Db>) ->
     Ok(())
 }
 
+// ─── Model Price Commands ──────────────────────────────────
+
+#[tauri::command]
+fn model_price_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
+    gateway::db::list_model_prices(&db, limit, offset)
+}
+
+#[tauri::command]
+fn model_price_count(db: State<'_, Db>) -> Result<u32, String> {
+    gateway::db::count_model_prices(&db)
+}
+
+#[tauri::command]
+fn model_price_search(db: State<'_, Db>, query: String, limit: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
+    gateway::db::search_model_prices(&db, &query, limit)
+}
+
+#[tauri::command]
+fn model_price_delete(db: State<'_, Db>, model_name: String) -> Result<(), String> {
+    gateway::db::delete_model_price(&db, &model_name)
+}
+
+#[tauri::command]
+fn model_price_upsert(
+    db: State<'_, Db>,
+    model_name: String,
+    source: String,
+    price_data: String,
+) -> Result<(), String> {
+    gateway::db::upsert_model_price(&db, &model_name, &source, &price_data)
+}
+
+#[tauri::command]
+fn model_price_resolve(
+    db: State<'_, Db>,
+    model_name: String,
+    platform_type: String,
+) -> Result<gateway::models::ResolvedPrice, String> {
+    let settings = gateway::price_sync::get_sync_settings(&db);
+    gateway::db::resolve_price(&db, &model_name, &platform_type, settings.fallback_input_price, settings.fallback_output_price)
+}
+
+#[tauri::command]
+async fn model_price_sync(db: State<'_, Db>) -> Result<gateway::models::PriceSyncResult, String> {
+    gateway::price_sync::sync_litellm_prices(&db).await
+}
+
+#[tauri::command]
+fn price_sync_settings_get(db: State<'_, Db>) -> Result<gateway::models::PriceSyncSettings, String> {
+    Ok(gateway::price_sync::get_sync_settings(&db))
+}
+
+#[tauri::command]
+fn price_sync_settings_set(db: State<'_, Db>, settings: gateway::models::PriceSyncSettings) -> Result<(), String> {
+    gateway::price_sync::save_sync_settings(&db, &settings);
+    Ok(())
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 struct ProxySettings {
     port: u16,
@@ -1296,6 +1354,16 @@ pub fn run() {
             group_usage_stats,
             // Platform Quota
             platform_query_quota,
+            // Model Prices
+            model_price_list,
+            model_price_count,
+            model_price_search,
+            model_price_delete,
+            model_price_upsert,
+            model_price_resolve,
+            model_price_sync,
+            price_sync_settings_get,
+            price_sync_settings_set,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

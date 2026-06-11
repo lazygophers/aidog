@@ -49,6 +49,8 @@ impl Db {
             .map_err(|e| e.to_string())?;
         conn.execute_batch(include_str!("../../migrations/002_log_filter_indexes.sql"))
             .map_err(|e| e.to_string())?;
+        conn.execute_batch(include_str!("../../migrations/003_model_price.sql"))
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 }
@@ -965,6 +967,194 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
     Ok(StatsResult { overview, buckets, dimension_data })
 }
 
+// ─── Model Price CRUD ──────────────────────────────────────
+
+const MODEL_PRICE_COLUMNS: &str =
+    "id, model_name, source, price_data, created_at, updated_at, deleted_at";
+
+fn row_to_model_price(row: &rusqlite::Row) -> SqlResult<super::models::ModelPrice> {
+    Ok(super::models::ModelPrice {
+        id: row.get::<_, i64>(0)? as u64,
+        model_name: row.get(1)?,
+        source: row.get(2)?,
+        price_data: row.get(3)?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
+        deleted_at: row.get(6)?,
+    })
+}
+
+/// 提取关键字段构建摘要
+fn price_data_to_summary(mp: &super::models::ModelPrice) -> super::models::ModelPriceSummary {
+    let pd: serde_json::Value = serde_json::from_str(&mp.price_data).unwrap_or_default();
+    let input = pd.get("input_cost_per_token").and_then(|v| v.as_f64());
+    let output = pd.get("output_cost_per_token").and_then(|v| v.as_f64());
+    let cache_read = pd.get("cache_read_input_token_cost").and_then(|v| v.as_f64());
+    let default_platform = pd.get("default_platform").and_then(|v| v.as_str()).map(String::from);
+
+    super::models::ModelPriceSummary {
+        id: mp.id,
+        model_name: mp.model_name.clone(),
+        source: mp.source.clone(),
+        default_platform,
+        // Convert $/token → $/M tokens for display
+        input_price: input.map(|v| v * 1_000_000.0),
+        output_price: output.map(|v| v * 1_000_000.0),
+        cache_read_price: cache_read.map(|v| v * 1_000_000.0),
+        updated_at: mp.updated_at,
+    }
+}
+
+pub fn list_model_prices(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::models::ModelPriceSummary>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(
+        &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 ORDER BY model_name LIMIT ?1 OFFSET ?2")
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(params![limit, offset], row_to_model_price)
+        .map_err(|e| e.to_string())?;
+    let mut result = Vec::new();
+    for r in rows {
+        let mp = r.map_err(|e| e.to_string())?;
+        result.push(price_data_to_summary(&mp));
+    }
+    Ok(result)
+}
+
+pub fn count_model_prices(db: &Db) -> Result<u32, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.query_row("SELECT COUNT(*) FROM model_price WHERE deleted_at = 0", [], |row| row.get(0))
+        .map_err(|e| e.to_string())
+}
+
+/// 获取指定模型的最新价格记录（优先 manual > litellm）
+pub fn get_model_price(db: &Db, model_name: &str) -> Result<Option<super::models::ModelPrice>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    // 优先取 manual 记录
+    let mut stmt = conn.prepare(
+        &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE model_name = ?1 AND source = 'manual' AND deleted_at = 0")
+    ).map_err(|e| e.to_string())?;
+    if let Some(mp) = stmt.query_row(params![model_name], row_to_model_price).optional().map_err(|e| e.to_string())? {
+        return Ok(Some(mp));
+    }
+    // 回退到 litellm
+    let mut stmt2 = conn.prepare(
+        &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE model_name = ?1 AND source = 'litellm' AND deleted_at = 0")
+    ).map_err(|e| e.to_string())?;
+    stmt2.query_row(params![model_name], row_to_model_price).optional().map_err(|e| e.to_string())
+}
+
+/// Upsert a model price record (INSERT OR REPLACE by model_name + source)
+pub fn upsert_model_price(
+    db: &Db,
+    model_name: &str,
+    source: &str,
+    price_data: &str,
+) -> Result<(), String> {
+    let ts = now();
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "INSERT INTO model_price (model_name, source, price_data, created_at, updated_at, deleted_at)
+         VALUES (?1, ?2, ?3, ?4, ?4, 0)
+         ON CONFLICT(model_name, source) DO UPDATE SET price_data = ?3, updated_at = ?4, deleted_at = 0",
+        params![model_name, source, price_data, ts],
+    ).map_err(|e| format!("upsert model price: {e}"))?;
+    Ok(())
+}
+
+/// Delete a model price by name (soft delete all sources)
+pub fn delete_model_price(db: &Db, model_name: &str) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("UPDATE model_price SET deleted_at = ?1 WHERE model_name = ?2 AND deleted_at = 0", params![now(), model_name])
+        .map_err(|e| format!("delete model price: {e}"))?;
+    Ok(())
+}
+
+/// 解析价格：model_name + platform_type → ResolvedPrice
+/// 优先级: pricing[platform_type] > top_level > default_platform pricing > fallback settings
+pub fn resolve_price(
+    db: &Db,
+    model_name: &str,
+    platform_type: &str,
+    fallback_input: f64,
+    fallback_output: f64,
+) -> Result<super::models::ResolvedPrice, String> {
+    let mp = get_model_price(db, model_name)?;
+    let pd: serde_json::Value = match &mp {
+        Some(m) => serde_json::from_str(&m.price_data).unwrap_or_default(),
+        None => serde_json::Value::Null,
+    };
+
+    // 1. Try pricing[platform_type]
+    if let Some(pricing_node) = pd.get("pricing").and_then(|p| p.get(platform_type)) {
+        let input = pricing_node.get("input_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let output = pricing_node.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let cache = pricing_node.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        if input > 0.0 || output > 0.0 {
+            return Ok(super::models::ResolvedPrice {
+                input_cost_per_token: input,
+                output_cost_per_token: output,
+                cache_read_input_token_cost: cache,
+                source: "platform_override".to_string(),
+            });
+        }
+    }
+
+    // 2. Try top-level price
+    let top_input = pd.get("input_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let top_output = pd.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    let top_cache = pd.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
+    if top_input > 0.0 || top_output > 0.0 {
+        return Ok(super::models::ResolvedPrice {
+            input_cost_per_token: top_input,
+            output_cost_per_token: top_output,
+            cache_read_input_token_cost: top_cache,
+            source: "top_level".to_string(),
+        });
+    }
+
+    // 3. Try default_platform pricing
+    if let Some(dp) = pd.get("default_platform").and_then(|v| v.as_str()) {
+        if let Some(pricing_node) = pd.get("pricing").and_then(|p| p.get(dp)) {
+            let input = pricing_node.get("input_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let output = pricing_node.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let cache = pricing_node.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            if input > 0.0 || output > 0.0 {
+                return Ok(super::models::ResolvedPrice {
+                    input_cost_per_token: input,
+                    output_cost_per_token: output,
+                    cache_read_input_token_cost: cache,
+                    source: "default_platform".to_string(),
+                });
+            }
+        }
+    }
+
+    // 4. Fallback
+    Ok(super::models::ResolvedPrice {
+        input_cost_per_token: fallback_input / 1_000_000.0,
+        output_cost_per_token: fallback_output / 1_000_000.0,
+        cache_read_input_token_cost: 0.0,
+        source: "fallback".to_string(),
+    })
+}
+
+/// 搜索模型价格
+pub fn search_model_prices(db: &Db, query: &str, limit: u32) -> Result<Vec<super::models::ModelPriceSummary>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let pattern = format!("%{query}%");
+    let mut stmt = conn.prepare(
+        &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 AND model_name LIKE ?1 ORDER BY model_name LIMIT ?2")
+    ).map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(params![pattern, limit], row_to_model_price)
+        .map_err(|e| e.to_string())?;
+    let mut result = Vec::new();
+    for r in rows {
+        let mp = r.map_err(|e| e.to_string())?;
+        result.push(price_data_to_summary(&mp));
+    }
+    Ok(result)
+}
+
 // ─── Tests: DB Schema v2 规范固化 ──────────────────────────
 #[cfg(test)]
 mod tests {
@@ -1032,6 +1222,30 @@ mod tests {
             updated_at: created_at,
             deleted_at: 0,
         }
+    }
+
+    /// endpoints 反序列化容错：DB 中含未知 client_type（如旧数据 "anthropic"）的
+    /// endpoint 数组应仍能完整解析，而非因单个未知枚举值整体失败 → 空 Vec → 前端丢失。
+    #[test]
+    fn endpoints_with_unknown_client_type_still_parse() {
+        let json = r#"[{"protocol":"openai","base_url":"https://x/v1","client_type":"codex_tui","coding_plan":false},{"protocol":"anthropic","base_url":"https://x/anthropic","client_type":"anthropic","coding_plan":false}]"#;
+        let parsed = parse_endpoints(json);
+        assert_eq!(parsed.len(), 2, "未知 client_type 不应导致整个数组解析失败");
+        assert_eq!(parsed[1].client_type, ClientType::Default, "未知值回退为 Default");
+        assert_eq!(parsed[1].protocol, Protocol::Anthropic);
+
+        // 端到端：写入 DB 后 list_platforms 应带回 endpoints
+        let db = test_db();
+        let mut input = sample_platform("p1");
+        input.endpoints = Some(vec![PlatformEndpoint {
+            protocol: Protocol::OpenAI,
+            base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string(),
+            client_type: ClientType::CodexTui,
+            coding_plan: true,
+        }]);
+        create_platform(&db, input).unwrap();
+        let listed = list_platforms(&db).unwrap();
+        assert_eq!(listed[0].endpoints.len(), 1, "list_platforms 应返回 endpoints");
     }
 
     // ── R2 单数表名 + "group" 转义：init_tables 成功间接验证 DDL ──
