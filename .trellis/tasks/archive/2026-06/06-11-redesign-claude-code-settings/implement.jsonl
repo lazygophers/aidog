@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端目录结构/组件/状态/Hook/API/类型强制规则 — 拆组件到 components/settings/ 必须遵守"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "拆分前查已有实现复用，避免重复 SettingRow/FieldRenderer"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "保存/导入走 settingsApi Tauri command，禁破坏契约字段"}

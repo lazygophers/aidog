@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验拆分组件符合前端规约 + 文案走 t() + 类型完整"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校验 Tauri command 契约不回退（settingsApi/claudeSettingsImportApi/statuslineApi）"}
