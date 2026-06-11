@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验组件/类型约定 (禁新增 any / inline+glass / 错误 catch)"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "校验拖拽确实收口单一 SortableList, group 列表无 pointer-event 残留"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校验 groupApi.reorder 持久化契约不变"}
