@@ -361,13 +361,13 @@ async fn platform_fetch_models(
     let client = reqwest::Client::new();
     let base = base_url.trim_end_matches('/');
 
-    // Mock 平台无真实上游，不拉取模型
-    if matches!(protocol, Protocol::Mock) {
+    // Mock / Claude Code 透传平台无真实上游模型列表，不拉取模型
+    if matches!(protocol, Protocol::Mock | Protocol::ClaudeCode) {
         return Ok(Vec::new());
     }
 
     let resp: Value = match protocol {
-        Protocol::Mock => unreachable!(),
+        Protocol::Mock | Protocol::ClaudeCode => unreachable!(),
         Protocol::Anthropic => {
             let url = format!("{base}/v1/models");
             client
@@ -792,11 +792,29 @@ fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Result<Vec<S
 
 // ─── Proxy Log Commands ────────────────────────────────────
 
-use gateway::models::{ProxyLog, ProxyLogSummary, ProxyLogSettings};
+use gateway::models::{ProxyLog, ProxyLogSummary, ProxyLogSettings, ProxyLogFilter};
 
 #[tauri::command]
 fn proxy_log_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
     gateway::db::list_proxy_logs(&db, limit, offset)
+}
+
+#[tauri::command]
+fn proxy_log_list_filtered(
+    db: State<'_, Db>,
+    filter: ProxyLogFilter,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<ProxyLogSummary>, String> {
+    gateway::db::filtered_list_proxy_logs(&db, &filter, limit, offset)
+}
+
+#[tauri::command]
+fn proxy_log_count_filtered(
+    db: State<'_, Db>,
+    filter: ProxyLogFilter,
+) -> Result<u32, String> {
+    gateway::db::filtered_count_proxy_logs(&db, &filter)
 }
 
 #[tauri::command]
@@ -1251,6 +1269,8 @@ pub fn run() {
             sync_group_settings,
             // Proxy Logs
             proxy_log_list,
+            proxy_log_list_filtered,
+            proxy_log_count_filtered,
             proxy_log_get,
             proxy_log_clear,
             proxy_log_count,

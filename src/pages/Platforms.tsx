@@ -71,6 +71,8 @@ const PROTOCOLS: ProtocolOption[] = [
   { value: "lemondata", label: "LemonData", keywords: ["lemondata"] },
   { value: "pipellm", label: "PIPELLM", keywords: ["pipellm"] },
   { value: "opencode", label: "OpenCode Go", keywords: ["opencode"] },
+  // ── 订阅透传 ──
+  { value: "claude_code", label: "Claude Code 订阅（透传）", keywords: ["claude code", "订阅", "透传", "subscription", "passthrough"] },
   // ── 测试 ──
   { value: "mock", label: "Mock（本地模拟）", keywords: ["mock", "测试", "调试", "假数据"] },
 ];
@@ -336,6 +338,11 @@ function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Platform
     opencode: [
       { protocol: "openai", base_url: "https://opencode.ai/zen/go", client_type: "codex_tui" },
     ],
+
+    // ── 订阅透传（纯透传，base_url 填 host 根，客户端原始 path 直接拼接）──
+    claude_code: [
+      { protocol: "anthropic", base_url: "https://api.anthropic.com", client_type: "default" },
+    ],
   };
   return (base[protocol] || []).map(ep => ({ ...ep }));
 }
@@ -405,6 +412,8 @@ const PROTOCOL_LABELS: Record<Protocol, string> = {
   lemondata: "LemonData",
   pipellm: "PIPELLM",
   opencode: "OpenCode Go",
+  // ── 订阅透传 ──
+  claude_code: "Claude Code 订阅",
   // ── 测试 ──
   mock: "Mock",
 };
@@ -475,6 +484,8 @@ const PROTOCOL_COLORS: Record<string, string> = {
   lemondata: "#FFD21E",
   pipellm: "#4285F4",
   opencode: "#211E1E",
+  // ── 订阅透传 ──
+  claude_code: "#D97757",
   // ── 测试 ──
   mock: "#8E8E93",
 };
@@ -807,6 +818,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [mockConfig, setMockConfig] = useState<MockConfig>({ ...DEFAULT_MOCK_CONFIG });
 
   const isMock = protocol === "mock";
+  // Claude Code 订阅纯透传：客户端自带订阅 OAuth 认证，aidog 原样转发。
+  // 仅需 base_url（host 根），api_key 可空，隐藏 endpoints/models 编辑。
+  const isPassthrough = protocol === "claude_code";
 
   /** 从 endpoints 中推导主 base_url（匹配主协议的 endpoint，否则取第一个） */
   const getPrimaryBaseUrl = (proto: Protocol, eps: PlatformEndpoint[]): string => {
@@ -1052,7 +1066,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
             <button className="btn btn-primary" onClick={handleSave}
-              disabled={!name || (!isMock && (endpoints.length === 0 || !apiKey))}>
+              disabled={!name || (isPassthrough ? endpoints.length === 0 : (!isMock && (endpoints.length === 0 || !apiKey)))}>
               {editing ? t("action.save") : t("action.create")}
             </button>
           </div>
@@ -1098,8 +1112,72 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             <MockConfigEditor config={mockConfig} onChange={setMockConfig} />
           )}
 
-          {/* Protocol Endpoints（mock 平台隐藏，无真实上游） */}
-          {!isMock && (
+          {/* Claude Code 订阅（透传）配置：仅 base_url（host 根）+ 可空 api_key */}
+          {isPassthrough && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
+                  {t("platform.passthroughBaseUrl", "上游地址（Base URL）")}
+                </div>
+                <input
+                  className="input"
+                  placeholder="https://api.anthropic.com"
+                  value={endpoints[0]?.base_url ?? ""}
+                  onChange={(e) => {
+                    const next = [...endpoints];
+                    if (next.length === 0) {
+                      next.push({ protocol: "anthropic" as Protocol, base_url: e.target.value, client_type: "default" });
+                    } else {
+                      next[0] = { ...next[0], base_url: e.target.value };
+                    }
+                    setEndpoints(next);
+                  }}
+                />
+                <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+                  {t("platform.passthroughBaseUrlHint", "填 host 根（如 https://api.anthropic.com）。纯透传会拼接客户端原始 path/query 直接转发，请勿带版本前缀。")}
+                </div>
+              </div>
+              {/* 可空 API Key（透传模式客户端自带认证，留空即可） */}
+              <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <input
+                  className="input"
+                  type={showKey ? "text" : "password"}
+                  placeholder={t("platform.apiKeyOptional", "API Key（可选，透传可留空）")}
+                  value={apiKey}
+                  onChange={(e) => setApiKey(e.target.value)}
+                  style={{ flex: 1 }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-icon"
+                  title={showKey ? "Hide key" : "Show key"}
+                  onClick={() => setShowKey(!showKey)}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    {showKey ? (
+                      <>
+                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                        <path d="M14.12 14.12a3 3 0 1 1-4.24-4.24" />
+                        <line x1="1" y1="1" x2="23" y2="23" />
+                      </>
+                    ) : (
+                      <>
+                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                        <circle cx="12" cy="12" r="3" />
+                      </>
+                    )}
+                  </svg>
+                </button>
+              </div>
+              <div style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+                {t("platform.passthroughNote", "纯透传：客户端请求的 header（含订阅 OAuth 认证）与 body 原样转发，aidog 不做任何转换或认证注入。上方 API Key 可留空。")}
+              </div>
+            </div>
+          )}
+
+          {/* Protocol Endpoints（mock / 透传平台隐藏，无可编辑上游） */}
+          {!isMock && !isPassthrough && (
           <>
           <div style={{
             display: "flex", flexDirection: "column", gap: 6,

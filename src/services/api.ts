@@ -18,6 +18,8 @@ export type Protocol =
   | "pateway" | "ccsub" | "apikeyfun" | "apinebula" | "sudocode" | "claudeapi" | "claudecn"
   | "runapi" | "relaxycode" | "crazyrouter" | "sssaicode" | "compshare" | "compshare_coding"
   | "micu" | "ctok" | "eflowcode" | "lemondata" | "pipellm" | "opencode"
+  // ── 订阅透传 ──
+  | "claude_code"
   // ── 测试 ──
   | "mock";
 export type RoutingMode = "load_balance" | "failover";
@@ -308,6 +310,7 @@ export interface ProxyLogSummary {
   actual_model: string;
   source_protocol: string;
   target_protocol: string;
+  platform_id: number;
   status_code: number;
   duration_ms: number;
   input_tokens: number;
@@ -366,15 +369,33 @@ export interface AppLogSettings {
   retention_hours: number;
 }
 
+// ─── Proxy Log Filter ──────────────────────────────────────
+
+export interface ProxyLogFilter {
+  platform_id?: number;
+  group_name?: string;
+  /** None=all, 200=success, -1=error */
+  status?: number;
+  time_start?: number;
+  time_end?: number;
+  model?: string;
+  /** "original" = model 列, "actual" = actual_model 列 */
+  model_type?: "original" | "actual";
+}
+
 // ─── Proxy Log API ─────────────────────────────────────────
 
 export const proxyLogApi = {
   list: (limit = 50, offset = 0) =>
     invoke<ProxyLogSummary[]>("proxy_log_list", { limit, offset }),
+  listFiltered: (filter: ProxyLogFilter, limit = 50, offset = 0) =>
+    invoke<ProxyLogSummary[]>("proxy_log_list_filtered", { filter, limit, offset }),
   get: (id: string) =>
     invoke<ProxyLogDetail | null>("proxy_log_get", { id }),
   clear: () => invoke<void>("proxy_log_clear"),
   count: () => invoke<number>("proxy_log_count"),
+  countFiltered: (filter: ProxyLogFilter) =>
+    invoke<number>("proxy_log_count_filtered", { filter }),
   getSettings: () =>
     invoke<ProxyLogSettings>("proxy_log_settings_get"),
   setSettings: (settings: ProxyLogSettings) =>

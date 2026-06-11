@@ -17,6 +17,9 @@ pub enum Protocol {
     // ── 平台类型（仅作为平台主协议，不作为 endpoint 协议）──
     #[serde(rename = "mock")]
     Mock,
+    /// Claude Code 原始订阅平台（纯透传，客户端自带 OAuth 认证）
+    #[serde(rename = "claude_code")]
+    ClaudeCode,
     #[serde(rename = "glm")]
     Glm,
     #[serde(rename = "glm_en")]
@@ -526,12 +529,27 @@ pub struct ProxyLogSummary {
     pub actual_model: String,
     pub source_protocol: String,
     pub target_protocol: String,
+    pub platform_id: u64,
     pub status_code: i32,
     pub duration_ms: i32,
     pub input_tokens: i32,
     pub output_tokens: i32,
     pub cache_tokens: i32,
     pub created_at: i64,
+}
+
+/// 日志列表筛选条件
+#[derive(Debug, Default, Deserialize)]
+pub struct ProxyLogFilter {
+    pub platform_id: Option<u64>,
+    pub group_name: Option<String>,
+    /// None=全部; Some(200)=仅成功; Some(-1)=仅失败
+    pub status: Option<i32>,
+    pub time_start: Option<i64>,
+    pub time_end: Option<i64>,
+    pub model: Option<String>,
+    /// "original" = 按 model 列; "actual" = 按 actual_model 列
+    pub model_type: Option<String>,
 }
 
 /// Proxy logging settings stored in settings table (scope=proxy, key=logging)

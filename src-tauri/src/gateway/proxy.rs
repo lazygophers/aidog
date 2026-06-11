@@ -198,6 +198,12 @@ async fn handle_proxy(
     // ── 记录用户请求 URL ──
     log.request_url = req.uri().to_string();
 
+    // ── 捕获原始请求量（用于 Claude Code 纯透传：未 redact 的真实 header / method / uri）──
+    // 现有 log.request_headers 把 Authorization REDACT 了，不可用于透传，故在 into_parts 前 clone 原始量。
+    let orig_method = req.method().clone();
+    let orig_uri = req.uri().clone();
+    let orig_headers = req.headers().clone();
+
     // ── 读取请求体 ──
     let (_parts, body) = req.into_parts();
     let bytes = match axum::body::to_bytes(body, 10 * 1024 * 1024).await {
@@ -350,6 +356,22 @@ async fn handle_proxy(
             &source_protocol,
             &requested_model,
             is_stream,
+            start,
+        )
+        .await;
+    }
+
+    // ── Claude Code 纯透传拦截：bypass 所有转换，1:1 relay 客户端原始请求到 base_url ──
+    if matches!(route.platform.platform_type, Protocol::ClaudeCode) {
+        return handle_passthrough(
+            &state,
+            &mut log,
+            &log_settings,
+            orig_method,
+            orig_uri,
+            orig_headers,
+            bytes,
+            &route.platform.base_url,
             start,
         )
         .await;
@@ -694,6 +716,263 @@ async fn handle_mock(
     upsert_log(&state, &log, &log_settings);
 
     (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response()
+}
+
+/// Claude Code 订阅平台纯透传：把客户端原始请求 1:1 relay 到 base_url，原样返回响应，记 proxy_log。
+/// 不做任何协议 / header / 认证转换；客户端自带订阅 OAuth header。
+#[allow(clippy::too_many_arguments)]
+async fn handle_passthrough(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    log_settings: &ProxyLogSettings,
+    orig_method: axum::http::Method,
+    orig_uri: axum::http::Uri,
+    orig_headers: axum::http::HeaderMap,
+    bytes: axum::body::Bytes,
+    base_url: &str,
+    start: std::time::Instant,
+) -> Response {
+    // 透传不转换协议，source/target 都标 claude_code
+    log.source_protocol = "claude_code".to_string();
+    log.target_protocol = "claude_code".to_string();
+
+    // 目标 URL = base_url(host 根) + 客户端原始 path(+query)
+    let url = build_passthrough_url(base_url, &orig_uri);
+    log.upstream_request_url = url.clone();
+
+    // 解析超时（系统级；透传无 group/model mapping 覆盖）
+    let system_timeout = match state.db.lock() {
+        Ok(db) => get_system_timeout(&db),
+        Err(_) => ProxyTimeoutSettings::default(),
+    };
+    let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 300 };
+    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
+    let client = Client::builder()
+        .timeout(std::time::Duration::from_secs(req_timeout))
+        .connect_timeout(std::time::Duration::from_secs(conn_timeout))
+        .build()
+        .unwrap_or_else(|_| Client::new());
+
+    // 原样转发 header，剔除 hop-by-hop（Host / Content-Length 由 reqwest 按目标 URL + body 重设）
+    let fwd_headers = passthrough_headers(&orig_headers);
+    // 记录上游请求头（透传 redact authorization）
+    log.upstream_request_headers = {
+        let mut h = serde_json::Map::new();
+        for (k, v) in &fwd_headers {
+            let name = k.as_str();
+            if name.eq_ignore_ascii_case("authorization") {
+                h.insert(name.to_string(), Value::String("[REDACTED]".into()));
+            } else if let Ok(s) = v.to_str() {
+                h.insert(name.to_string(), Value::String(s.to_string()));
+            }
+        }
+        Value::Object(h).to_string()
+    };
+    log.upstream_request_body = String::from_utf8_lossy(&bytes).to_string();
+
+    let method = match reqwest::Method::from_bytes(orig_method.as_str().as_bytes()) {
+        Ok(m) => m,
+        Err(_) => reqwest::Method::POST,
+    };
+    let mut req_builder = client.request(method, &url).body(bytes.to_vec());
+    req_builder = req_builder.headers(fwd_headers);
+
+    let resp = match req_builder.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            log.response_body = format!("upstream error: {e}");
+            log.status_code = 502;
+            log.user_response_body = format!("upstream: {e}");
+            log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(state, log, log_settings);
+            return (StatusCode::BAD_GATEWAY, format!("upstream: {e}")).into_response();
+        }
+    };
+
+    let status = resp.status();
+    log.upstream_status_code = status.as_u16() as i32;
+
+    // 捕获上游响应头（原样照搬给客户端）
+    let mut resp_header_map = axum::http::HeaderMap::new();
+    {
+        let mut h = serde_json::Map::new();
+        for (k, v) in resp.headers() {
+            if let Ok(s) = v.to_str() {
+                h.insert(k.to_string(), Value::String(s.to_string()));
+            }
+            // 剔除 hop-by-hop / 长度类，由 axum 按 body 重设
+            let name = k.as_str();
+            if name.eq_ignore_ascii_case("content-length")
+                || name.eq_ignore_ascii_case("transfer-encoding")
+                || name.eq_ignore_ascii_case("connection")
+            {
+                continue;
+            }
+            if let (Ok(hn), Ok(hv)) = (
+                axum::http::HeaderName::from_bytes(k.as_str().as_bytes()),
+                axum::http::HeaderValue::from_bytes(v.as_bytes()),
+            ) {
+                resp_header_map.insert(hn, hv);
+            }
+        }
+        log.upstream_response_headers = Value::Object(h).to_string();
+    }
+
+    let content_type = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let is_stream = content_type.contains("text/event-stream")
+        || resp
+            .headers()
+            .get(reqwest::header::TRANSFER_ENCODING)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.contains("chunked"))
+            .unwrap_or(false);
+
+    let resp_status = StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+
+    // ── 非流式：原样 relay bytes ──
+    if !is_stream {
+        let body = resp.bytes().await.unwrap_or_default();
+        let resp_str = String::from_utf8_lossy(&body).to_string();
+        let (input_tokens, output_tokens, cache_tokens) = extract_usage(&resp_str);
+
+        log.response_body = resp_str.clone();
+        log.status_code = status.as_u16() as i32;
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        log.input_tokens = input_tokens;
+        log.output_tokens = output_tokens;
+        log.cache_tokens = cache_tokens;
+        log.user_response_body = resp_str;
+        log.user_response_headers = log.upstream_response_headers.clone();
+        upsert_log(state, log, log_settings);
+
+        let mut response = (resp_status, body.to_vec()).into_response();
+        *response.headers_mut() = resp_header_map;
+        return response;
+    }
+
+    // ── 流式：原样透传 SSE bytes，不解析不转换；尽力累计 token ──
+    let tokens_in = Arc::new(std::sync::atomic::AtomicI32::new(0));
+    let tokens_out = Arc::new(std::sync::atomic::AtomicI32::new(0));
+    let tokens_cache = Arc::new(std::sync::atomic::AtomicI32::new(0));
+    let acc_in = tokens_in.clone();
+    let acc_out = tokens_out.clone();
+    let acc_cache = tokens_cache.clone();
+
+    let stream = resp.bytes_stream().map(move |chunk_result| {
+        let chunk = match chunk_result {
+            Ok(c) => c,
+            Err(e) => return Err(std::io::Error::other(e.to_string())),
+        };
+        // 尽力从 SSE data 累计 usage（Anthropic / OpenAI 兼容字段），不改写 chunk
+        let text = String::from_utf8_lossy(&chunk);
+        for line in text.lines() {
+            if let Some(data) = line.strip_prefix("data: ") {
+                if data.trim() == "[DONE]" {
+                    continue;
+                }
+                if let Ok(json) = serde_json::from_str::<Value>(data) {
+                    accumulate_sse_usage(&json, &acc_in, &acc_out, &acc_cache);
+                }
+            }
+        }
+        Ok::<_, std::io::Error>(chunk)
+    });
+
+    let body = Body::from_stream(stream);
+
+    log.status_code = status.as_u16() as i32;
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    log.response_body = "[stream]".to_string();
+    log.user_response_body = "[stream]".to_string();
+    log.user_response_headers = log.upstream_response_headers.clone();
+    log.input_tokens = tokens_in.load(std::sync::atomic::Ordering::Relaxed);
+    log.output_tokens = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
+    log.cache_tokens = tokens_cache.load(std::sync::atomic::Ordering::Relaxed);
+    upsert_log(state, log, log_settings);
+
+    let mut response = (resp_status, body).into_response();
+    *response.headers_mut() = resp_header_map;
+    response
+}
+
+/// 透传目标 URL 拼接：base_url(去尾斜杠) + 客户端原始 path(+query)
+fn build_passthrough_url(base_url: &str, uri: &axum::http::Uri) -> String {
+    let base = base_url.trim_end_matches('/');
+    let pq = uri
+        .path_and_query()
+        .map(|pq| pq.as_str())
+        .unwrap_or_else(|| uri.path());
+    format!("{}{}", base, pq)
+}
+
+/// 构建透传转发 header：原样保留客户端全部 header（含 Authorization OAuth），
+/// 仅剔除 hop-by-hop（Host / Content-Length，由 reqwest 按目标 URL + body 重设）。
+fn passthrough_headers(orig: &axum::http::HeaderMap) -> reqwest::header::HeaderMap {
+    let mut out = reqwest::header::HeaderMap::new();
+    for (k, v) in orig {
+        let name = k.as_str();
+        if name.eq_ignore_ascii_case("host") || name.eq_ignore_ascii_case("content-length") {
+            continue;
+        }
+        if let (Ok(hn), Ok(hv)) = (
+            reqwest::header::HeaderName::from_bytes(name.as_bytes()),
+            reqwest::header::HeaderValue::from_bytes(v.as_bytes()),
+        ) {
+            out.append(hn, hv);
+        }
+    }
+    out
+}
+
+/// 从 SSE event JSON 尽力累计 usage（Anthropic / OpenAI 兼容字段）
+fn accumulate_sse_usage(
+    json: &Value,
+    acc_in: &std::sync::atomic::AtomicI32,
+    acc_out: &std::sync::atomic::AtomicI32,
+    acc_cache: &std::sync::atomic::AtomicI32,
+) {
+    use std::sync::atomic::Ordering::Relaxed;
+    // usage 可能在顶层，也可能在 message.usage（Anthropic message_start）
+    let usage = json
+        .get("usage")
+        .or_else(|| json.get("message").and_then(|m| m.get("usage")));
+    let usage = match usage {
+        Some(u) => u,
+        None => return,
+    };
+    if let Some(i) = usage
+        .get("input_tokens")
+        .or_else(|| usage.get("prompt_tokens"))
+        .and_then(|v| v.as_i64())
+    {
+        acc_in.store(i as i32, Relaxed);
+    }
+    if let Some(o) = usage
+        .get("output_tokens")
+        .or_else(|| usage.get("completion_tokens"))
+        .and_then(|v| v.as_i64())
+    {
+        acc_out.store(o as i32, Relaxed);
+    }
+    if let Some(c) = usage
+        .get("cache_read_input_tokens")
+        .and_then(|v| v.as_i64())
+        .or_else(|| {
+            usage
+                .get("prompt_tokens_details")
+                .and_then(|d| d.get("cached_tokens"))
+                .and_then(|v| v.as_i64())
+        })
+        .or_else(|| usage.get("cache_tokens").and_then(|v| v.as_i64()))
+    {
+        acc_cache.store(c as i32, Relaxed);
+    }
 }
 
 /// Extract input/output/cache tokens from non-stream response JSON
@@ -1129,4 +1408,113 @@ fn format_pretty_json(s: &str) -> String {
         .ok()
         .and_then(|v| serde_json::to_string_pretty(&v).ok())
         .unwrap_or_else(|| s.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── 透传 URL 拼接：base_url(host 根) + 客户端原始 path(+query) ──
+
+    #[test]
+    fn passthrough_url_path_only() {
+        let uri: axum::http::Uri = "/v1/messages".parse().unwrap();
+        assert_eq!(
+            build_passthrough_url("https://api.anthropic.com", &uri),
+            "https://api.anthropic.com/v1/messages"
+        );
+    }
+
+    #[test]
+    fn passthrough_url_with_query() {
+        let uri: axum::http::Uri = "/v1/messages?beta=true&foo=bar".parse().unwrap();
+        assert_eq!(
+            build_passthrough_url("https://api.anthropic.com", &uri),
+            "https://api.anthropic.com/v1/messages?beta=true&foo=bar"
+        );
+    }
+
+    #[test]
+    fn passthrough_url_trims_trailing_slash() {
+        let uri: axum::http::Uri = "/v1/messages".parse().unwrap();
+        assert_eq!(
+            build_passthrough_url("https://api.anthropic.com/", &uri),
+            "https://api.anthropic.com/v1/messages"
+        );
+    }
+
+    // ── 透传 header 剔除 Host + Content-Length，保留 Authorization 及其他 ──
+
+    #[test]
+    fn passthrough_headers_drops_hop_by_hop_keeps_auth() {
+        let mut orig = axum::http::HeaderMap::new();
+        orig.insert("host", "127.0.0.1:8080".parse().unwrap());
+        orig.insert("content-length", "123".parse().unwrap());
+        orig.insert("authorization", "Bearer sk-oauth-token".parse().unwrap());
+        orig.insert("anthropic-version", "2023-06-01".parse().unwrap());
+        orig.insert("x-custom", "keep-me".parse().unwrap());
+
+        let fwd = passthrough_headers(&orig);
+
+        // hop-by-hop 剔除
+        assert!(!fwd.contains_key("host"), "host must be dropped");
+        assert!(!fwd.contains_key("content-length"), "content-length must be dropped");
+        // 客户端自带订阅 OAuth 原样保留
+        assert_eq!(
+            fwd.get("authorization").and_then(|v| v.to_str().ok()),
+            Some("Bearer sk-oauth-token")
+        );
+        // 其余 header 原样
+        assert_eq!(
+            fwd.get("anthropic-version").and_then(|v| v.to_str().ok()),
+            Some("2023-06-01")
+        );
+        assert_eq!(
+            fwd.get("x-custom").and_then(|v| v.to_str().ok()),
+            Some("keep-me")
+        );
+    }
+
+    // ── 透传分支不调 convert_request（结构性确认）──
+    // ClaudeCode 命中拦截分支后直接 return handle_passthrough，
+    // handle_passthrough 不引用 convert_request / build_upstream_headers / apply_client_headers。
+    #[test]
+    fn passthrough_does_not_invoke_convert_request() {
+        let src = include_str!("proxy.rs");
+        // 定位 handle_passthrough 函数体范围
+        let start = src.find("async fn handle_passthrough(").expect("fn present");
+        // 下一个顶层 fn 作为结束边界
+        let rest = &src[start + 1..];
+        let end = rest.find("\nfn ").map(|i| start + 1 + i).unwrap_or(src.len());
+        let body = &src[start..end];
+        assert!(!body.contains("convert_request"), "passthrough must bypass convert_request");
+        assert!(!body.contains("build_upstream_headers"), "passthrough must bypass build_upstream_headers");
+        assert!(!body.contains("apply_client_headers"), "passthrough must bypass apply_client_headers");
+    }
+
+    // ── SSE usage 累计（Anthropic message.usage + OpenAI 顶层 usage）──
+    #[test]
+    fn accumulate_sse_usage_anthropic_and_openai() {
+        use std::sync::atomic::{AtomicI32, Ordering::Relaxed};
+        let i = AtomicI32::new(0);
+        let o = AtomicI32::new(0);
+        let c = AtomicI32::new(0);
+
+        // Anthropic message_start: usage 嵌在 message
+        let anth: Value = serde_json::json!({
+            "type": "message_start",
+            "message": { "usage": { "input_tokens": 10, "cache_read_input_tokens": 3 } }
+        });
+        accumulate_sse_usage(&anth, &i, &o, &c);
+        assert_eq!(i.load(Relaxed), 10);
+        assert_eq!(c.load(Relaxed), 3);
+
+        // OpenAI 顶层 usage
+        let oai: Value = serde_json::json!({
+            "usage": { "prompt_tokens": 20, "completion_tokens": 7 }
+        });
+        accumulate_sse_usage(&oai, &i, &o, &c);
+        assert_eq!(i.load(Relaxed), 20);
+        assert_eq!(o.load(Relaxed), 7);
+    }
 }
