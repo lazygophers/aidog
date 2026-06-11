@@ -446,65 +446,14 @@ pub fn today_stats(db: &Db) -> Result<TodayStats, String> {
         0.0
     };
 
-    // 计算花费：按 model 分组，查定价后累加
-    let mut cost: f64 = 0.0;
-    {
-        let mut stmt = conn
-            .prepare(
-                "SELECT model, SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens) \
-                 FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0 \
-                 GROUP BY model",
-            )
-            .map_err(|e| e.to_string())?;
-        let rows = stmt
-            .query_map(params![start_ms], |row| {
-                Ok((
-                    row.get::<_, String>(0)?,
-                    row.get::<_, i64>(1)?,
-                    row.get::<_, i64>(2)?,
-                    row.get::<_, i64>(3)?,
-                ))
-            })
-            .map_err(|e| e.to_string())?;
-
-        for r in rows {
-            let (model, inp, out, cache) = r.map_err(|e| e.to_string())?;
-            // 直接从 model_price 表查定价（用 top-level 字段）
-            let price: Option<(f64, f64, f64)> = conn
-                .query_row(
-                    "SELECT price_data FROM model_price WHERE model_name = ?1 AND deleted_at = 0 LIMIT 1",
-                    params![model],
-                    |row| {
-                        let pd: String = row.get(0)?;
-                        let v: serde_json::Value = serde_json::from_str(&pd).unwrap_or_default();
-                        let inp_cost = v.get("input_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                        let out_cost = v.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                        let cache_cost = v.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                        // 如果 top-level 无值，尝试 default_platform
-                        if inp_cost == 0.0 && out_cost == 0.0 {
-                            if let Some(dp) = v.get("default_platform").and_then(|v| v.as_str()) {
-                                if let Some(pn) = v.get("pricing").and_then(|p| p.get(dp)) {
-                                    return Ok(Some((
-                                        pn.get("input_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                                        pn.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                                        pn.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                                    )));
-                                }
-                            }
-                        }
-                        Ok(Some((inp_cost, out_cost, cache_cost)))
-                    },
-                )
-                .ok()
-                .flatten();
-
-            if let Some((inp_cost, out_cost, cache_cost)) = price {
-                cost += inp as f64 * inp_cost
-                    + out as f64 * out_cost
-                    + cache as f64 * cache_cost;
-            }
-        }
-    }
+    // 计算花费：直接使用持久化的 est_cost
+    let cost: f64 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(est_cost), 0.0) FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
+            params![start_ms],
+            |row| row.get(0),
+        )
+        .unwrap_or(0.0);
 
     Ok(TodayStats {
         tokens,
