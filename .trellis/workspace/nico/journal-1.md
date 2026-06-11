@@ -82,3 +82,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Claude Code 订阅平台（纯透传）
+
+**Date**: 2026-06-11
+**Task**: Claude Code 订阅平台（纯透传）
+**Branch**: `master`
+
+### Summary
+
+新增 Protocol::ClaudeCode 平台类型, 纯透传 relay: 路由到 CC 平台原样转发客户端请求到 base_url, 不转换 body/header/不注入认证(客户端自带订阅 OAuth). into_parts 前捕获 orig method/uri/headers; handle_passthrough 剔 Host+Content-Length 保留 Authorization, 流式+非流式 1:1 relay, proxy_log 正常记+token 尽力解析. 不调 convert_request/build_upstream_headers. 6 透传单测+spec claude-code-passthrough.md. 后续: 分组路由 AI 平台拖动排序(独立 task) + endpoints 前端不展示 bug 待查.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7b21f33` | (see git log) |
+| `3d3593b` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
