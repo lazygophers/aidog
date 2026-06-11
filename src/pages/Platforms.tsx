@@ -787,6 +787,7 @@ export function Platforms() {
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [usageMap, setUsageMap] = useState<Record<number, PlatformUsageStats>>({});
   const [quotaMap, setQuotaMap] = useState<Record<number, PlatformQuota>>({});
+  const [quotaRefreshing, setQuotaRefreshing] = useState<Record<number, boolean>>({});
   const [testResults, setTestResults] = useState<Record<number, "ok" | "fail">>({});
   const [testingId, setTestingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -881,6 +882,31 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   };
 
   useEffect(() => { load(); }, []);
+
+  /** 刷新单个平台 quota（合查 balance + coding_plan） */
+  const refreshQuota = async (p: Platform) => {
+    if (!p.api_key) {
+      setToast({ text: `${p.name}: ${t("platform.quotaNoKey", "缺少 API Key")}`, ok: false });
+      setTimeout(() => setToast(null), 3000);
+      return;
+    }
+    setQuotaRefreshing((s) => ({ ...s, [p.id]: true }));
+    try {
+      const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url;
+      const q = await quotaApi.query(baseUrl, p.api_key);
+      if (q.success) {
+        setQuotaMap((s) => ({ ...s, [p.id]: q }));
+      } else {
+        setToast({ text: `${p.name}: ${q.error || t("platform.quotaRefreshFail", "刷新额度失败")}`, ok: false });
+        setTimeout(() => setToast(null), 3000);
+      }
+    } catch (e) {
+      console.error(e);
+      setToast({ text: `${p.name}: ${t("platform.quotaRefreshFail", "刷新额度失败")}`, ok: false });
+      setTimeout(() => setToast(null), 3000);
+    }
+    setQuotaRefreshing((s) => ({ ...s, [p.id]: false }));
+  };
 
   const resetForm = () => {
     setName(""); setProtocol("openai"); setCodingPlan(false); setApiKey("");
@@ -1642,24 +1668,52 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     );
                   })()}
 
-	                  {quotaMap[p.id] && (() => {
-	                    const q = quotaMap[p.id];
-	                    const badges: React.JSX.Element[] = [];
-	                    if (q.balance) {
-	                      const b = q.balance;
-	                      const fmt = b.remaining >= 1 ? b.remaining.toFixed(2) : b.remaining >= 0.01 ? b.remaining.toFixed(4) : "0";
-	                      const color = b.remaining > 0 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)";
-	                      badges.push(<StatBadge key="bal" icon="💳" value={fmt} label={b.currency} color={color} />);
-	                    }
-	                    if (q.coding_plan) {
-	                      for (const tier of q.coding_plan.tiers) {
-	                        const pctColor = tier.utilization < 50 ? "var(--color-success, #34c759)" : tier.utilization < 80 ? "var(--color-warning, #ff9500)" : "var(--color-danger, #ff3b30)";
-	                        const name = tier.name === "five_hour" ? "5h" : "week";
-	                        badges.push(<StatBadge key={tier.name} icon="🪙" value={`${tier.utilization.toFixed(0)}%`} label={name} color={pctColor} />);
-	                      }
-	                    }
-	                    return badges.length > 0 ? <div style={{ display: "flex", gap: 6, marginTop: 4 }}>{badges}</div> : null;
-	                  })()}
+                  {p.platform_type !== "mock" && p.platform_type !== "claude_code" && (() => {
+                    const q = quotaMap[p.id];
+                    const refreshing = !!quotaRefreshing[p.id];
+                    const badges: React.JSX.Element[] = [];
+                    if (q?.balance) {
+                      const b = q.balance;
+                      const fmt = b.remaining >= 1 ? b.remaining.toFixed(2) : b.remaining >= 0.01 ? b.remaining.toFixed(4) : "0";
+                      const color = b.remaining > 0 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)";
+                      badges.push(<StatBadge key="bal" icon="💳" value={fmt} label={b.currency} color={color} />);
+                    }
+                    if (q?.coding_plan) {
+                      for (const tier of q.coding_plan.tiers) {
+                        const pctColor = tier.utilization < 50 ? "var(--color-success, #34c759)" : tier.utilization < 80 ? "var(--color-warning, #ff9500)" : "var(--color-danger, #ff3b30)";
+                        const tierName = tier.name === "five_hour" ? "5h" : "week";
+                        badges.push(<StatBadge key={tier.name} icon="🪙" value={`${tier.utilization.toFixed(0)}%`} label={tierName} color={pctColor} />);
+                      }
+                    }
+                    return (
+                      <div className="glass-surface" style={{
+                        display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
+                        marginTop: 8, padding: "6px 10px", borderRadius: "var(--radius-sm)",
+                        border: "1px solid var(--border)",
+                      }}>
+                        <span className="text-secondary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.2 }}>
+                          {t("platform.quotaLabel", "额度")}
+                        </span>
+                        <button
+                          className="btn btn-ghost"
+                          style={{ padding: 2, lineHeight: 0, minWidth: "auto", display: "inline-flex", alignItems: "center" }}
+                          disabled={refreshing}
+                          title={t("platform.quotaRefresh", "刷新额度")}
+                          onClick={() => refreshQuota(p)}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
+                            style={refreshing ? { animation: "spin 0.9s linear infinite" } : undefined}>
+                            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+                            <polyline points="21 3 21 9 15 9" />
+                          </svg>
+                        </button>
+                        {badges.length > 0
+                          ? <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{badges}</div>
+                          : <span className="text-tertiary" style={{ fontSize: 11 }}>{t("platform.quotaEmpty", "暂无数据")}</span>}
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>

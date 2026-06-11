@@ -60,6 +60,11 @@ body {
   50% { opacity: 0.5; }
 }
 
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
 .animate-fade-in {
   animation: fadeIn 350ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }
