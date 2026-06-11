@@ -116,3 +116,36 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 4: 修复 endpoints 前端不展示
+
+**Date**: 2026-06-11
+**Task**: 修复 endpoints 前端不展示
+**Branch**: `master`
+
+### Summary
+
+根因: parse_endpoints serde_json::from_str.unwrap_or_default() 反序列化 endpoints 数组时, 单个元素未知 client_type='anthropic'(ClientType enum 无此变体) 致整个数组解析失败, 静默返空 → endpoints 全丢. 修: deserialize_client_type_lenient(未知值回退 Default) field-level deserialize_with + 回归测试. cargo test 40 绿. 注: 修复因多窗口并行同文件被别窗口 pricing commit(540b912)卷入, 未独立 commit.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `540b912` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
