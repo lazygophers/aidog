@@ -546,3 +546,66 @@ export const quotaApi = {
   query: (baseUrl: string, apiKey: string) =>
     invoke<PlatformQuota>("platform_query_quota", { baseUrl, apiKey }),
 };
+
+// ─── Model Price Types & API ──────────────────────────────
+
+export interface ModelPriceSummary {
+  id: number;
+  model_name: string;
+  source: string;
+  default_platform: string | null;
+  /** $/M input tokens */
+  input_price: number | null;
+  /** $/M output tokens */
+  output_price: number | null;
+  /** $/M cache read tokens */
+  cache_read_price: number | null;
+  updated_at: number;
+}
+
+export interface ResolvedPrice {
+  input_cost_per_token: number;
+  output_cost_per_token: number;
+  cache_read_input_token_cost: number;
+  source: string;
+}
+
+export interface PriceSyncSettings {
+  auto_sync_enabled: boolean;
+  sync_interval_secs: number;
+  last_sync_at: number;
+  fallback_input_price: number;
+  fallback_output_price: number;
+}
+
+export interface PriceSyncResult {
+  added: number;
+  updated: number;
+  unchanged: number;
+  failed: number;
+  total: number;
+}
+
+export const modelPriceApi = {
+  list: (limit = 50, offset = 0) =>
+    invoke<ModelPriceSummary[]>("model_price_list", { limit, offset }),
+  count: () =>
+    invoke<number>("model_price_count"),
+  search: (query: string, limit = 50) =>
+    invoke<ModelPriceSummary[]>("model_price_search", { query, limit }),
+  delete: (modelName: string) =>
+    invoke<void>("model_price_delete", { modelName }),
+  upsert: (modelName: string, source: string, priceData: string) =>
+    invoke<void>("model_price_upsert", { modelName, source, priceData }),
+  resolve: (modelName: string, platformType: string) =>
+    invoke<ResolvedPrice>("model_price_resolve", { modelName, platformType }),
+  sync: () =>
+    invoke<PriceSyncResult>("model_price_sync"),
+};
+
+export const priceSyncApi = {
+  get: () =>
+    invoke<PriceSyncSettings>("price_sync_settings_get"),
+  set: (settings: PriceSyncSettings) =>
+    invoke<void>("price_sync_settings_set", { settings }),
+};
