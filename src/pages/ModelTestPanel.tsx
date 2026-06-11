@@ -104,7 +104,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
           <div>
             <div style={{ fontSize: 15, fontWeight: 700 }}>{t("test.title", "模型测试")}</div>
             <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-              {platform.name} · {platform.protocol.toUpperCase()}
+              {platform.name} · {platform.platform_type.toUpperCase()}
             </div>
           </div>
           <button className="btn btn-ghost btn-icon" onClick={onClose}>✕</button>

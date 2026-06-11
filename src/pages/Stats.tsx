@@ -20,24 +20,24 @@ function formatNumber(n: number): string {
   return n.toFixed(n % 1 === 0 ? 0 : 1);
 }
 
-function getTimeRange(preset: TimePreset, customStart?: string, customEnd?: string): { start: string; end: string } {
+function getTimeRange(preset: TimePreset, customStart?: number, customEnd?: number): { start: number; end: number } {
   const now = new Date();
-  const fmt = (d: Date) => d.toISOString().slice(0, 19);
+  const ms = (d: Date) => d.getTime();
   switch (preset) {
     case "today": {
       const s = new Date(now); s.setHours(0, 0, 0, 0);
-      return { start: fmt(s), end: fmt(now) };
+      return { start: ms(s), end: ms(now) };
     }
     case "7d": {
       const s = new Date(now); s.setDate(s.getDate() - 7);
-      return { start: fmt(s), end: fmt(now) };
+      return { start: ms(s), end: ms(now) };
     }
     case "30d": {
       const s = new Date(now); s.setDate(s.getDate() - 30);
-      return { start: fmt(s), end: fmt(now) };
+      return { start: ms(s), end: ms(now) };
     }
     case "custom":
-      return { start: customStart || fmt(new Date(now.getTime() - 7 * 86400000)), end: customEnd || fmt(now) };
+      return { start: customStart ?? (now.getTime() - 7 * 86400000), end: customEnd ?? now.getTime() };
   }
 }
 
@@ -145,7 +145,7 @@ export function Stats() {
         {/* Filter: protocol */}
         <select className="input" style={{ fontSize: 12, width: 120 }} value={filterProtocol} onChange={e => setFilterProtocol(e.target.value)}>
           <option value="">{t("stats.allPlatforms", "全部平台")}</option>
-          {Array.from(new Set(platforms.map(p => p.protocol))).sort().map(p => <option key={p} value={p}>{p}</option>)}
+          {Array.from(new Set(platforms.map(p => p.platform_type))).sort().map(p => <option key={p} value={p}>{p}</option>)}
         </select>
       </div>
 

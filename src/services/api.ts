@@ -43,33 +43,37 @@ export interface PlatformModels {
 }
 
 export interface Platform {
-  id: string;
+  id: number;
   name: string;
-  protocol: Protocol;
+  platform_type: Protocol;
   base_url: string;
   api_key: string;
-  extra: string | null;
+  extra: string;
   models: PlatformModels;
   available_models: string[];
   endpoints: PlatformEndpoint[];
   enabled: boolean;
-  created_at: string;
-  updated_at: string;
+  created_at: number;
+  updated_at: number;
+  deleted_at: number;
 }
 
 export interface Group {
-  id: string;
+  id: number;
   name: string;
   path: string;
   routing_mode: RoutingMode;
-  /** 关联的平台 ID（自动创建的分组） */
-  auto_from_platform?: string;
-  created_at: string;
-  updated_at: string;
+  /** 关联的平台 ID（十进制字符串；空串表示非自动） */
+  auto_from_platform: string;
+  created_at: number;
+  updated_at: number;
+  deleted_at: number;
   /** 超时设置（秒），0 = 继承系统设置 */
   request_timeout_secs: number;
   connect_timeout_secs: number;
   source_protocol: string;
+  /** 内联模型映射数组 */
+  model_mappings: ModelMapping[];
 }
 
 export interface GroupPlatformDetail {
@@ -79,15 +83,20 @@ export interface GroupPlatformDetail {
 }
 
 export interface ModelMapping {
-  id: string;
-  group_id: string;
   source_model: string;
-  target_platform_id: string;
+  target_platform_id: number;
   target_model: string;
   /** 超时设置（秒），0 = 继承分组设置 */
   request_timeout_secs: number;
   connect_timeout_secs: number;
-  source_protocol: string;
+}
+
+export interface GroupPlatform {
+  id: number;
+  group_id: number;
+  platform_id: number;
+  priority: number;
+  weight: number;
 }
 
 export interface GroupDetail {
@@ -117,7 +126,7 @@ export interface PlatformUsageStats {
 export const platformApi = {
   create: (input: {
     name: string;
-    protocol: Protocol;
+    platform_type: Protocol;
     base_url: string;
     api_key: string;
     extra?: string;
@@ -128,12 +137,12 @@ export const platformApi = {
 
   list: () => invoke<Platform[]>("platform_list"),
 
-  get: (id: string) => invoke<Platform | null>("platform_get", { id }),
+  get: (id: number) => invoke<Platform | null>("platform_get", { id }),
 
   update: (input: {
-    id: string;
+    id: number;
     name?: string;
-    protocol?: Protocol;
+    platform_type?: Protocol;
     base_url?: string;
     api_key?: string;
     extra?: string;
@@ -143,12 +152,12 @@ export const platformApi = {
     enabled?: boolean;
   }) => invoke<Platform>("platform_update", { input }),
 
-  delete: (id: string) => invoke<void>("platform_delete", { id }),
+  delete: (id: number) => invoke<void>("platform_delete", { id }),
 
   fetchModels: (protocol: Protocol, baseUrl: string, apiKey: string) =>
     invoke<string[]>("platform_fetch_models", { protocol, baseUrl, apiKey }),
 
-  usageStats: (platformId: string) =>
+  usageStats: (platformId: number) =>
     invoke<PlatformUsageStats>("platform_usage_stats", { platformId }),
 };
 
@@ -168,59 +177,37 @@ export const groupApi = {
 
   list: () => invoke<Group[]>("group_list"),
 
-  get: (id: string) => invoke<Group | null>("group_get", { id }),
+  get: (id: number) => invoke<Group | null>("group_get", { id }),
 
   update: (input: {
-    id: string;
+    id: number;
     name?: string;
     path?: string;
     routing_mode?: RoutingMode;
     request_timeout_secs?: number;
     connect_timeout_secs?: number;
     source_protocol?: string;
+    model_mappings?: ModelMapping[];
   }) => invoke<Group>("group_update", { input }),
 
-  delete: (id: string) => invoke<void>("group_delete", { id }),
+  delete: (id: number) => invoke<void>("group_delete", { id }),
 
   setPlatforms: (
-    groupId: string,
-    platforms: { platform_id: string; priority?: number; weight?: number }[]
+    groupId: number,
+    platforms: { platform_id: number; priority?: number; weight?: number }[]
   ) =>
     invoke<void>("group_set_platforms", {
       input: { group_id: groupId, platforms },
     }),
 
-  getPlatforms: (groupId: string) =>
+  getPlatforms: (groupId: number) =>
     invoke<GroupPlatformDetail[]>("group_get_platforms", { groupId }),
-};
-
-// ─── Model Mapping API ─────────────────────────────────────
-
-export const mappingApi = {
-  create: (input: {
-    group_id: string;
-    source_model: string;
-    target_platform_id: string;
-    target_model: string;
-  }) => invoke<ModelMapping>("mapping_create", { input }),
-
-  list: (groupId: string) =>
-    invoke<ModelMapping[]>("mapping_list", { groupId }),
-
-  update: (input: {
-    id: string;
-    source_model?: string;
-    target_platform_id?: string;
-    target_model?: string;
-  }) => invoke<ModelMapping>("mapping_update", { input }),
-
-  delete: (id: string) => invoke<void>("mapping_delete", { id }),
 };
 
 // ─── Aggregate API ─────────────────────────────────────────
 
 export const groupDetailApi = {
-  get: (id: string) =>
+  get: (id: number) =>
     invoke<GroupDetail | null>("group_detail", { id }),
 
   list: () => invoke<GroupDetail[]>("group_detail_list"),
@@ -260,7 +247,7 @@ export interface ProxyLogSummary {
   input_tokens: number;
   output_tokens: number;
   cache_tokens: number;
-  created_at: string;
+  created_at: number;
 }
 
 export interface ProxyLogDetail {
@@ -270,6 +257,7 @@ export interface ProxyLogDetail {
   actual_model: string;
   source_protocol: string;
   target_protocol: string;
+  platform_id: number;
   request_headers: string;
   request_body: string;
   upstream_request_headers: string;
@@ -286,7 +274,9 @@ export interface ProxyLogDetail {
   input_tokens: number;
   output_tokens: number;
   cache_tokens: number;
-  created_at: string;
+  created_at: number;
+  updated_at: number;
+  deleted_at: number;
 }
 
 export interface ProxyLogSettings {
@@ -360,8 +350,8 @@ export const appLogApi = {
 // ─── Statistics Types & API ──────────────────────────────
 
 export interface StatsQuery {
-  start?: string;
-  end?: string;
+  start?: number;
+  end?: number;
   granularity?: "hourly" | "daily";
   group_by?: "platform" | "model" | "group";
   filter_group?: string;
@@ -414,7 +404,7 @@ export const statsApi = {
 // ─── Model Testing Types & API ───────────────────────────
 
 export interface ModelTestRequest {
-  platform_id: string;
+  platform_id: number;
   model?: string;
   prompt?: string;
   max_tokens?: number;

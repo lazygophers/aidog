@@ -663,7 +663,7 @@ export function Platforms() {
   const [usageMap, setUsageMap] = useState<Record<string, PlatformUsageStats>>({});
   const [quotaMap, setQuotaMap] = useState<Record<string, PlatformQuota>>({});
   const [testResults, setTestResults] = useState<Record<string, "ok" | "fail">>({});
-  const [testingId, setTestingId] = useState<string | null>(null);
+  const [testingId, setTestingId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Platform | null>(null);
   const [showForm, setShowForm] = useState(false);
@@ -731,7 +731,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       const qMap: Record<string, PlatformQuota> = {};
       await Promise.all((list || []).map(async (p) => {
         if (!p.api_key) return;
-        const baseUrl = getPrimaryBaseUrl(p.protocol, p.endpoints ?? []);
+        const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []);
         if (!baseUrl) return;
         try {
           const q = await quotaApi.query(baseUrl, p.api_key);
@@ -754,7 +754,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   };
 
   const handleEdit = async (p: Platform) => {
-    setName(p.name); setProtocol(p.protocol); setApiKey(p.api_key);
+    setName(p.name); setProtocol(p.platform_type); setApiKey(p.api_key);
     // 检测 endpoints 中是否有 coding_plan
     const hasCodingPlan = (p.endpoints || []).some(ep => ep.coding_plan);
     setCodingPlan(hasCodingPlan);
@@ -847,17 +847,17 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
       const availablePayload = availableModels.length > 0 ? availableModels : undefined;
       const baseUrl = getPrimaryBaseUrl(protocol, endpoints);
-      let savedId: string | undefined;
+      let savedId: number | undefined;
       if (editing) {
         await platformApi.update({
-          id: editing.id, name, protocol, base_url: baseUrl, api_key: apiKey,
+          id: editing.id, name, platform_type: protocol, base_url: baseUrl, api_key: apiKey,
           models: modelsPayload, available_models: availablePayload,
           endpoints: endpoints.length > 0 ? endpoints : undefined,
         });
         savedId = editing.id;
       } else {
         const created = await platformApi.create({
-          name, protocol, base_url: baseUrl, api_key: apiKey,
+          name, platform_type: protocol, base_url: baseUrl, api_key: apiKey,
           models: modelsPayload, available_models: availablePayload,
           endpoints: endpoints.length > 0 ? endpoints : undefined,
         });
@@ -890,7 +890,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     }
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     try { await platformApi.delete(id); load(); } catch (e) { console.error(e); }
   };
 
@@ -915,7 +915,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               {editing ? editing.name : t("platform.add")}
             </div>
             {editing && (
-              <div className="section-desc">{editing.protocol.toUpperCase()} · {getPrimaryBaseUrl(editing.protocol, editing.endpoints ?? []) || editing.base_url}</div>
+              <div className="section-desc">{editing.platform_type.toUpperCase()} · {getPrimaryBaseUrl(editing.platform_type, editing.endpoints ?? []) || editing.base_url}</div>
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
@@ -1343,7 +1343,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             </div>
           )}
           {platforms.map((p, i) => {
-            const color = PROTOCOL_COLORS[p.protocol] || "var(--accent)";
+            const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
             const configuredModels = allModelValues(p.models);
             return (
               <div
@@ -1365,7 +1365,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     border: `1px solid ${color}30`,
                     color: color, fontSize: 11, fontWeight: 700,
                   }}>
-                    {p.protocol.slice(0, 2).toUpperCase()}
+                    {p.platform_type.slice(0, 2).toUpperCase()}
                   </div>
                   {(() => {
                     const manual = testResults[p.id];
@@ -1387,7 +1387,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontWeight: 600, fontSize: 14 }}>{p.name}</div>
                   <div className="text-secondary" style={{ fontSize: 12, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {p.protocol.toUpperCase()} · {getPrimaryBaseUrl(p.protocol, p.endpoints ?? []) || p.base_url}
+                    {p.platform_type.toUpperCase()} · {getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
                   </div>
                   {p.endpoints && p.endpoints.length > 0 && (
                     <div style={{ display: "flex", gap: 4, flexWrap: "wrap", marginTop: 3 }}>

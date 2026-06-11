@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  groupDetailApi, groupApi, mappingApi, platformApi,
+  groupDetailApi, groupApi, platformApi,
   type GroupDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
+  type ModelMapping,
 } from "../services/api";
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
@@ -80,8 +81,8 @@ export function Groups() {
   const [editName, setEditName] = useState("");
   const [editPath, setEditPath] = useState("");
   const [editMode, setEditMode] = useState<RoutingMode>("failover");
-  const [editPlatformIds, setEditPlatformIds] = useState<string[]>([]);
-  const [editMappings, setEditMappings] = useState<{ id?: string; source_model: string; target_platform_id: string; target_model: string; request_timeout_secs?: number; connect_timeout_secs?: number }[]>([]);
+  const [editPlatformIds, setEditPlatformIds] = useState<number[]>([]);
+  const [editMappings, setEditMappings] = useState<ModelMapping[]>([]);
   const [editReqTimeout, setEditReqTimeout] = useState(0);
   const [editConnTimeout, setEditConnTimeout] = useState(0);
   const [editSourceProtocol, setEditSourceProtocol] = useState("anthropic");
@@ -93,9 +94,9 @@ export function Groups() {
   const [cMode, setCMode] = useState<RoutingMode>("failover");
 
   // Mapping form (for quick add in list view)
-  const [mappingGroupId, setMappingGroupId] = useState<string | null>(null);
+  const [mappingGroupId, setMappingGroupId] = useState<number | null>(null);
   const [mSource, setMSource] = useState("");
-  const [mTargetPlatform, setMTargetPlatform] = useState("");
+  const [mTargetPlatform, setMTargetPlatform] = useState<number | "">("");
   const [mTargetModel, setMTargetModel] = useState("");
 
   const load = async () => {
@@ -153,7 +154,6 @@ export function Groups() {
     setEditMode(detail.group.routing_mode);
     setEditPlatformIds(detail.platforms.map(gp => gp.platform.id));
     setEditMappings(detail.model_mappings.map(m => ({
-      id: m.id,
       source_model: m.source_model,
       target_platform_id: m.target_platform_id,
       target_model: m.target_model,
@@ -179,7 +179,7 @@ export function Groups() {
   const saveEdit = async () => {
     if (!editTarget) return;
     try {
-      // Update group basic info
+      // Update group basic info + inline model mappings
       await groupApi.update({
         id: editTarget.group.id,
         name: editName,
@@ -188,6 +188,7 @@ export function Groups() {
         request_timeout_secs: editReqTimeout,
         connect_timeout_secs: editConnTimeout,
         source_protocol: editSourceProtocol,
+        model_mappings: editMappings,
       });
 
       // Update platforms
@@ -195,32 +196,6 @@ export function Groups() {
         editTarget.group.id,
         editPlatformIds.map((pid, i) => ({ platform_id: pid, priority: i + 1, weight: 1 })),
       );
-
-      // Diff mappings: delete old, create new
-      const oldIds = new Set(editTarget.model_mappings.map(m => m.id));
-      const keptIds = new Set(editMappings.filter(m => m.id).map(m => m.id!));
-      for (const oldId of oldIds) {
-        if (!keptIds.has(oldId)) {
-          await mappingApi.delete(oldId);
-        }
-      }
-      for (const m of editMappings) {
-        if (m.id) {
-          await mappingApi.update({
-            id: m.id,
-            source_model: m.source_model,
-            target_platform_id: m.target_platform_id,
-            target_model: m.target_model,
-          });
-        } else {
-          await mappingApi.create({
-            group_id: editTarget.group.id,
-            source_model: m.source_model,
-            target_platform_id: m.target_platform_id,
-            target_model: m.target_model,
-          });
-        }
-      }
 
       cancelEdit();
       load();
@@ -239,7 +214,7 @@ export function Groups() {
     } catch (e) { console.error(e); }
   };
 
-  const handleDeleteGroup = async (id: string) => {
+  const handleDeleteGroup = async (id: number) => {
     try {
       await groupApi.delete(id);
       load();
@@ -248,24 +223,37 @@ export function Groups() {
     }
   };
 
-  // ── Quick mapping (list view) ──
+  // ── Quick mapping (list view) — persists inline via group.update ──
   const handleAddMapping = async () => {
-    if (!mappingGroupId || !mSource || !mTargetPlatform || !mTargetModel) return;
+    if (!mappingGroupId || !mSource || mTargetPlatform === "" || !mTargetModel) return;
+    const detail = details.find(d => d.group.id === mappingGroupId);
+    if (!detail) return;
     try {
-      await mappingApi.create({
-        group_id: mappingGroupId,
-        source_model: mSource,
-        target_platform_id: mTargetPlatform,
-        target_model: mTargetModel,
-      });
+      const next: ModelMapping[] = [
+        ...detail.model_mappings,
+        {
+          source_model: mSource,
+          target_platform_id: mTargetPlatform,
+          target_model: mTargetModel,
+          request_timeout_secs: 0,
+          connect_timeout_secs: 0,
+        },
+      ];
+      await groupApi.update({ id: mappingGroupId, model_mappings: next });
       setMSource(""); setMTargetPlatform(""); setMTargetModel("");
       setMappingGroupId(null);
       load();
     } catch (e) { console.error(e); }
   };
 
-  const handleDeleteMapping = async (id: string) => {
-    try { await mappingApi.delete(id); load(); } catch (e) { console.error(e); }
+  const handleDeleteMapping = async (groupId: number, index: number) => {
+    const detail = details.find(d => d.group.id === groupId);
+    if (!detail) return;
+    try {
+      const next = detail.model_mappings.filter((_, i) => i !== index);
+      await groupApi.update({ id: groupId, model_mappings: next });
+      load();
+    } catch (e) { console.error(e); }
   };
 
   const selectedPlatform = platforms.find(p => p.id === mTargetPlatform);
@@ -285,7 +273,7 @@ export function Groups() {
           </button>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: F.title, fontWeight: 700 }}>{editName || t("group.edit")}</div>
-            <div className="text-secondary" style={{ fontSize: F.hint, marginTop: 2 }}>{editTarget.group.id.slice(0, 8)}</div>
+            <div className="text-secondary" style={{ fontSize: F.hint, marginTop: 2 }}>#{editTarget.group.id}</div>
           </div>
           <CopyButton text={buildClaudeCommand(editName)} title={t("group.copyCommand", "复制启动命令")} />
           <button className="btn" onClick={cancelEdit}>{t("action.cancel")}</button>
@@ -380,7 +368,7 @@ export function Groups() {
                     background: "var(--accent-subtle)", color: "var(--accent)",
                     fontSize: 11, fontWeight: 700, flexShrink: 0,
                   }}>
-                    {p.protocol.slice(0, 2).toUpperCase()}
+                    {p.platform_type.slice(0, 2).toUpperCase()}
                   </span>
                   <span style={{ flex: 1, fontSize: F.body, fontWeight: 500 }}>{p.name}</span>
                   {/* Move up/down */}
@@ -419,15 +407,16 @@ export function Groups() {
             <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
               <select className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
                 onChange={e => {
-                  if (e.target.value && !editPlatformIds.includes(e.target.value)) {
-                    setEditPlatformIds([...editPlatformIds, e.target.value]);
+                  const pid = Number(e.target.value);
+                  if (e.target.value && !editPlatformIds.includes(pid)) {
+                    setEditPlatformIds([...editPlatformIds, pid]);
                   }
                   e.target.value = "";
                 }}>
                 <option value="">{t("group.addPlatform", "+ 添加平台")}</option>
                 {editPlatformOptions
                   .filter(p => !editPlatformIds.includes(p.id))
-                  .map(p => <option key={p.id} value={p.id}>{p.name} ({p.protocol})</option>)}
+                  .map(p => <option key={p.id} value={p.id}>{p.name} ({p.platform_type})</option>)}
               </select>
             </div>
           )}
@@ -462,10 +451,10 @@ export function Groups() {
                     <path d="M2 6h8M8 4l2 2-2 2" />
                   </svg>
                   <select className="input" style={{ fontSize: F.hint, padding: "6px 10px", width: 140, flexShrink: 0 }}
-                    value={m.target_platform_id}
+                    value={m.target_platform_id || ""}
                     onChange={e => {
                       const ms = [...editMappings];
-                      ms[i] = { ...ms[i], target_platform_id: e.target.value, target_model: "" };
+                      ms[i] = { ...ms[i], target_platform_id: e.target.value === "" ? 0 : Number(e.target.value), target_model: "" };
                       setEditMappings(ms);
                     }}>
                     <option value="">{t("mapping.targetPlatform", "目标平台")}</option>
@@ -501,7 +490,7 @@ export function Groups() {
             })}
 
             <button type="button" className="btn btn-ghost" style={{ fontSize: F.hint, padding: "6px 12px", alignSelf: "flex-start" }}
-              onClick={() => setEditMappings([...editMappings, { source_model: "", target_platform_id: "", target_model: "" }])}>
+              onClick={() => setEditMappings([...editMappings, { source_model: "", target_platform_id: 0, target_model: "", request_timeout_secs: 0, connect_timeout_secs: 0 }])}>
               + {t("mapping.add", "添加映射")}
             </button>
           </div>
@@ -663,8 +652,8 @@ export function Groups() {
               {/* Model Mappings */}
               {model_mappings.length > 0 && (
                 <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 8 }}>
-                  {model_mappings.map((m) => (
-                    <div key={m.id} style={{
+                  {model_mappings.map((m, mi) => (
+                    <div key={mi} style={{
                       display: "flex",
                       alignItems: "center",
                       gap: 8,
@@ -680,7 +669,7 @@ export function Groups() {
                       </svg>
                       <span style={{ flex: 1 }}>{m.target_model}</span>
                       <button className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
-                        onClick={(e) => { e.stopPropagation(); handleDeleteMapping(m.id); }}>
+                        onClick={(e) => { e.stopPropagation(); handleDeleteMapping(group.id, mi); }}>
                         <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
                           <path d="M2 2l6 6M8 2l-6 6" />
                         </svg>
@@ -713,7 +702,7 @@ export function Groups() {
                     placeholder={t("mapping.source")} value={mSource}
                     onChange={(e) => setMSource(e.target.value)} />
                   <select className="input" style={{ fontSize: 12, width: 140 }} value={mTargetPlatform}
-                    onChange={(e) => { setMTargetPlatform(e.target.value); setMTargetModel(""); }}>
+                    onChange={(e) => { setMTargetPlatform(e.target.value === "" ? "" : Number(e.target.value)); setMTargetModel(""); }}>
                     <option value="">{t("mapping.targetPlatform")}</option>
                     {platforms.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
