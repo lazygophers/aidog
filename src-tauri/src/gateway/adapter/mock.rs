@@ -320,3 +320,327 @@ fn gemini_finish(reason: &str) -> &str {
         _ => "STOP",
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// 最小 ChatRequest（messages 用 Anthropic 兼容结构，role 仅 User/Assistant/System/Tool）。
+    fn chat_req(messages: Vec<Message>) -> ChatRequest {
+        ChatRequest {
+            model: "mock-model".to_string(),
+            messages,
+            system: None,
+            max_tokens: None,
+            temperature: None,
+            top_p: None,
+            stream: None,
+            tools: None,
+            tool_choice: None,
+            extra: None,
+        }
+    }
+
+    fn empty_req() -> ChatRequest {
+        chat_req(vec![])
+    }
+
+    // ─── 三层覆盖优先级 ──────────────────────────────────────
+
+    #[test]
+    fn empty_extra_yields_defaults() {
+        let cfg = resolve_mock_config("", &empty_req(), &json!({}));
+        let def = MockConfig::default();
+        assert_eq!(cfg.status_code, def.status_code);
+        assert_eq!(cfg.input_tokens, def.input_tokens);
+        assert_eq!(cfg.output_tokens, def.output_tokens);
+        assert_eq!(cfg.cache_tokens, def.cache_tokens);
+        assert_eq!(cfg.response_text, def.response_text);
+        assert_eq!(cfg.error_mode, "none");
+        assert_eq!(cfg.chunk_count, def.chunk_count);
+    }
+
+    #[test]
+    fn extra_layer_applied() {
+        let extra = r#"{"mock":{"input_tokens":11,"output_tokens":22,"cache_tokens":33,"status_code":201,"response_text":"from-extra","error_mode":"http_error","chunk_count":3}}"#;
+        let cfg = resolve_mock_config(extra, &empty_req(), &json!({}));
+        assert_eq!(cfg.input_tokens, 11);
+        assert_eq!(cfg.output_tokens, 22);
+        assert_eq!(cfg.cache_tokens, 33);
+        assert_eq!(cfg.status_code, 201);
+        assert_eq!(cfg.response_text, "from-extra");
+        assert_eq!(cfg.error_mode, "http_error");
+        assert_eq!(cfg.chunk_count, 3);
+    }
+
+    #[test]
+    fn message_role_layer_overrides_extra() {
+        // 第二层走原始 body messages 扫描（自定义 role 名当字段 key）。
+        let extra = r#"{"mock":{"input_tokens":11,"output_tokens":22}}"#;
+        let body = json!({
+            "messages": [
+                {"role": "input_tokens", "content": "555"},
+                {"role": "status_code", "content": "503"},
+            ]
+        });
+        let cfg = resolve_mock_config(extra, &empty_req(), &body);
+        // 被 message role 覆盖
+        assert_eq!(cfg.input_tokens, 555);
+        assert_eq!(cfg.status_code, 503);
+        // 未被覆盖字段回退 extra
+        assert_eq!(cfg.output_tokens, 22);
+    }
+
+    #[test]
+    fn body_mock_overrides_all_layers() {
+        let extra = r#"{"mock":{"input_tokens":11,"output_tokens":22,"status_code":201}}"#;
+        let body = json!({
+            "messages": [
+                {"role": "input_tokens", "content": "555"},
+            ],
+            "mock": { "input_tokens": 999, "status_code": 429 }
+        });
+        let cfg = resolve_mock_config(extra, &empty_req(), &body);
+        // body.mock 最高优先级
+        assert_eq!(cfg.input_tokens, 999);
+        assert_eq!(cfg.status_code, 429);
+        // 未在 body.mock 出现的字段回退（message 层无，回退 extra）
+        assert_eq!(cfg.output_tokens, 22);
+    }
+
+    #[test]
+    fn per_field_independent_fallback() {
+        // body 只覆盖 output_tokens；input 回退 message 层；cache 回退 extra。
+        let extra = r#"{"mock":{"input_tokens":1,"output_tokens":2,"cache_tokens":3}}"#;
+        let body = json!({
+            "messages": [ {"role": "input_tokens", "content": "100"} ],
+            "mock": { "output_tokens": 200 }
+        });
+        let cfg = resolve_mock_config(extra, &empty_req(), &body);
+        assert_eq!(cfg.input_tokens, 100); // message 层
+        assert_eq!(cfg.output_tokens, 200); // body 层
+        assert_eq!(cfg.cache_tokens, 3); // extra 兜底
+    }
+
+    // ─── 5 协议非流式 build_response shape ─────────────────────
+
+    fn cfg_with_tokens() -> MockConfig {
+        MockConfig {
+            input_tokens: 100,
+            output_tokens: 50,
+            cache_tokens: 7,
+            response_text: "hello-mock".to_string(),
+            finish_reason: "end_turn".to_string(),
+            ..MockConfig::default()
+        }
+    }
+
+    #[test]
+    fn build_response_anthropic_shape() {
+        let v = build_response(&cfg_with_tokens(), "anthropic", "claude-x");
+        assert_eq!(v["type"], "message");
+        assert_eq!(v["role"], "assistant");
+        assert_eq!(v["model"], "claude-x");
+        assert_eq!(v["content"][0]["type"], "text");
+        assert_eq!(v["content"][0]["text"], "hello-mock");
+        assert_eq!(v["stop_reason"], "end_turn");
+        assert_eq!(v["usage"]["input_tokens"], 100);
+        assert_eq!(v["usage"]["output_tokens"], 50);
+        assert_eq!(v["usage"]["cache_read_input_tokens"], 7);
+    }
+
+    #[test]
+    fn build_response_openai_shape() {
+        let v = build_response(&cfg_with_tokens(), "openai", "gpt-x");
+        assert_eq!(v["object"], "chat.completion");
+        assert_eq!(v["model"], "gpt-x");
+        assert_eq!(v["choices"][0]["message"]["role"], "assistant");
+        assert_eq!(v["choices"][0]["message"]["content"], "hello-mock");
+        // end_turn → stop 归一化
+        assert_eq!(v["choices"][0]["finish_reason"], "stop");
+        assert_eq!(v["usage"]["prompt_tokens"], 100);
+        assert_eq!(v["usage"]["completion_tokens"], 50);
+        assert_eq!(v["usage"]["total_tokens"], 150);
+        assert_eq!(v["usage"]["prompt_tokens_details"]["cached_tokens"], 7);
+    }
+
+    #[test]
+    fn build_response_openai_completions_shape() {
+        let v = build_response(&cfg_with_tokens(), "openai_completions", "gpt-x");
+        assert_eq!(v["object"], "text_completion");
+        assert_eq!(v["choices"][0]["text"], "hello-mock");
+        assert_eq!(v["choices"][0]["index"], 0);
+        assert_eq!(v["choices"][0]["finish_reason"], "stop");
+        assert_eq!(v["usage"]["prompt_tokens"], 100);
+        assert_eq!(v["usage"]["completion_tokens"], 50);
+        assert_eq!(v["usage"]["total_tokens"], 150);
+    }
+
+    #[test]
+    fn build_response_openai_responses_shape() {
+        let v = build_response(&cfg_with_tokens(), "openai_responses", "gpt-x");
+        assert_eq!(v["object"], "response");
+        assert_eq!(v["status"], "completed");
+        assert_eq!(v["output"][0]["type"], "message");
+        assert_eq!(v["output"][0]["content"][0]["type"], "output_text");
+        assert_eq!(v["output"][0]["content"][0]["text"], "hello-mock");
+        assert_eq!(v["usage"]["input_tokens"], 100);
+        assert_eq!(v["usage"]["output_tokens"], 50);
+        assert_eq!(v["usage"]["total_tokens"], 150);
+    }
+
+    #[test]
+    fn build_response_gemini_shape() {
+        let v = build_response(&cfg_with_tokens(), "gemini", "gemini-x");
+        assert_eq!(v["candidates"][0]["content"]["parts"][0]["text"], "hello-mock");
+        assert_eq!(v["candidates"][0]["content"]["role"], "model");
+        assert_eq!(v["candidates"][0]["finishReason"], "STOP");
+        assert_eq!(v["usageMetadata"]["promptTokenCount"], 100);
+        assert_eq!(v["usageMetadata"]["candidatesTokenCount"], 50);
+        assert_eq!(v["usageMetadata"]["cachedContentTokenCount"], 7);
+        assert_eq!(v["usageMetadata"]["totalTokenCount"], 150);
+    }
+
+    #[test]
+    fn build_response_unknown_protocol_falls_back_anthropic() {
+        let v = build_response(&cfg_with_tokens(), "weird-proto", "m");
+        assert_eq!(v["type"], "message");
+        assert_eq!(v["content"][0]["text"], "hello-mock");
+    }
+
+    // ─── SSE build_sse_chunks 序列 ───────────────────────────
+
+    #[test]
+    fn sse_anthropic_start_delta_stop_sequence() {
+        let cfg = MockConfig {
+            response_text: "abcdef".to_string(),
+            chunk_count: 3,
+            finish_reason: "end_turn".to_string(),
+            ..MockConfig::default()
+        };
+        let chunks = build_sse_chunks(&cfg, "anthropic", "claude-x");
+        // 1 Start + 3 Delta + 1 Stop = 5
+        assert_eq!(chunks.len(), 5);
+        assert!(chunks[0].contains("message_start"));
+        assert!(chunks[1].contains("content_block_delta"));
+        assert!(chunks[2].contains("content_block_delta"));
+        assert!(chunks[3].contains("content_block_delta"));
+        assert!(chunks[4].contains("message_stop"));
+        // chunk_count=3，6 字符 → 每块 2 字符
+        assert!(chunks[1].contains("\"text\":\"ab\""));
+        assert!(chunks[2].contains("\"text\":\"cd\""));
+        assert!(chunks[3].contains("\"text\":\"ef\""));
+    }
+
+    #[test]
+    fn sse_openai_sequence_has_done() {
+        let cfg = MockConfig {
+            response_text: "xy".to_string(),
+            chunk_count: 2,
+            ..MockConfig::default()
+        };
+        let chunks = build_sse_chunks(&cfg, "openai", "gpt-x");
+        // Start + 2 Delta + Stop
+        assert_eq!(chunks.len(), 4);
+        assert!(chunks[0].contains("chat.completion.chunk"));
+        assert!(chunks.last().unwrap().contains("[DONE]"));
+    }
+
+    #[test]
+    fn sse_chunk_count_capped_to_text_len() {
+        // chunk_count 大于文本长度时按字符数封顶。
+        let cfg = MockConfig {
+            response_text: "ab".to_string(),
+            chunk_count: 10,
+            ..MockConfig::default()
+        };
+        let chunks = build_sse_chunks(&cfg, "anthropic", "m");
+        // 2 字符 → 最多 2 Delta：Start + 2 Delta + Stop = 4
+        assert_eq!(chunks.len(), 4);
+    }
+
+    #[test]
+    fn sse_empty_text_yields_single_delta() {
+        let cfg = MockConfig {
+            response_text: String::new(),
+            chunk_count: 5,
+            ..MockConfig::default()
+        };
+        let chunks = build_sse_chunks(&cfg, "anthropic", "m");
+        // 空文本 → split_text 返单块 → Start + 1 Delta + Stop = 3
+        assert_eq!(chunks.len(), 3);
+    }
+
+    #[test]
+    fn split_text_basic() {
+        assert_eq!(split_text("abcd", 2), vec!["ab", "cd"]);
+        assert_eq!(split_text("abc", 2), vec!["ab", "c"]);
+        assert_eq!(split_text("", 5), vec![String::new()]);
+        // n=0 视为 1 块
+        assert_eq!(split_text("abc", 0), vec!["abc"]);
+    }
+
+    // ─── build_error_body 各协议 shape ───────────────────────
+
+    #[test]
+    fn error_body_anthropic_shape() {
+        let v = build_error_body("anthropic", 500, "boom");
+        assert_eq!(v["type"], "error");
+        assert_eq!(v["error"]["type"], "mock_error");
+        assert_eq!(v["error"]["message"], "boom");
+    }
+
+    #[test]
+    fn error_body_openai_shape() {
+        for proto in ["openai", "openai_responses", "openai_completions"] {
+            let v = build_error_body(proto, 429, "rate limited");
+            assert_eq!(v["error"]["message"], "rate limited", "proto {proto}");
+            assert_eq!(v["error"]["type"], "mock_error", "proto {proto}");
+            assert_eq!(v["error"]["code"], 429, "proto {proto}");
+        }
+    }
+
+    #[test]
+    fn error_body_gemini_shape() {
+        let v = build_error_body("gemini", 503, "unavailable");
+        assert_eq!(v["error"]["code"], 503);
+        assert_eq!(v["error"]["message"], "unavailable");
+        assert_eq!(v["error"]["status"], "MOCK_ERROR");
+    }
+
+    // ─── error_mode 字段解析（语义在 handle_mock，纯函数侧验证配置可控） ──
+
+    #[test]
+    fn error_mode_variants_parse() {
+        for mode in ["none", "http_error", "rate_limit_429", "timeout"] {
+            let extra = format!(r#"{{"mock":{{"error_mode":"{mode}"}}}}"#);
+            let cfg = resolve_mock_config(&extra, &empty_req(), &json!({}));
+            assert_eq!(cfg.error_mode, mode);
+        }
+    }
+
+    #[test]
+    fn stream_override_and_delay_parse() {
+        let extra = r#"{"mock":{"stream_override":true,"delay_ms":1500}}"#;
+        let cfg = resolve_mock_config(extra, &empty_req(), &json!({}));
+        assert_eq!(cfg.stream_override, Some(true));
+        assert_eq!(cfg.delay_ms, 1500);
+    }
+
+    #[test]
+    fn parsed_message_role_layer_for_standard_roles() {
+        // 标准 Role（user/assistant/system/tool）经 ChatRequest.messages 扫描，
+        // 这些 role 名不匹配任何 mock 字段，不应改动配置。
+        let req = chat_req(vec![Message {
+            role: Role::User,
+            content: MessageContent::Text("ignored".to_string()),
+        }]);
+        let cfg = resolve_mock_config("", &req, &json!({}));
+        let def = MockConfig::default();
+        assert_eq!(cfg.input_tokens, def.input_tokens);
+        assert_eq!(cfg.output_tokens, def.output_tokens);
+        assert_eq!(cfg.status_code, def.status_code);
+        assert_eq!(cfg.response_text, def.response_text);
+    }
+}
