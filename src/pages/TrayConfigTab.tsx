@@ -237,13 +237,12 @@ export function TrayConfigTab() {
     }
     // Find target column by horizontal position
     const els = document.querySelectorAll("[data-preview-col]");
-    let closest = previewDrag?.from ?? start.colIdx;
+    let newTo = els.length;
     for (let i = 0; i < els.length; i++) {
       const rect = els[i].getBoundingClientRect();
-      if (e.clientX > rect.left + rect.width / 2) closest = i;
-      else break;
+      if (e.clientX < rect.left + rect.width / 2) { newTo = i; break; }
     }
-    setPreviewDrag((prev) => (prev ? { ...prev, to: closest } : null));
+    setPreviewDrag((prev) => (prev ? { ...prev, to: newTo } : null));
   };
 
   const handlePreviewPointerUp = () => {
@@ -294,13 +293,12 @@ export function TrayConfigTab() {
       didDragRef.current = true;
     }
     const el = document.querySelectorAll("[data-tray-item]");
-    let closest = drag?.from ?? start.index;
+    let newTo = el.length;
     for (let i = 0; i < el.length; i++) {
       const rect = el[i].getBoundingClientRect();
-      if (e.clientY > rect.top + rect.height / 2) closest = i;
-      else break;
+      if (e.clientY < rect.top + rect.height / 2) { newTo = i; break; }
     }
-    setDrag((prev) => (prev ? { ...prev, to: closest } : null));
+    setDrag((prev) => (prev ? { ...prev, to: newTo } : null));
   };
 
   const handlePointerUp = () => {
@@ -362,9 +360,11 @@ export function TrayConfigTab() {
           background: "rgba(30, 30, 30, 0.95)", borderRadius: 8,
           padding: hasTwoLine ? "4px 14px" : "2px 14px",
           minHeight: hasTwoLine ? 40 : 26, display: "flex", alignItems: "center",
-          fontFamily: '-apple-system, "SF Pro Text", system-ui, sans-serif',
-          fontSize: hasTwoLine ? 12 : 17, // 9pt ≈ 12px (two-line), 13pt ≈ 17px (single)
+          fontFamily: '"Maple Mono NF", "Maple Mono", "SF Pro Text", system-ui, sans-serif',
+          fontSize: hasTwoLine ? 13 : 18,
+          fontWeight: 600,
           color: "rgba(255,255,255,0.85)", userSelect: "none",
+          marginTop: 5,
         }}>
           {layout.columns.length === 0 ? (
             <span style={{ color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>
@@ -373,14 +373,36 @@ export function TrayConfigTab() {
           ) : !hasTwoLine ? (
             /* ── Single-line: columns with gaps, draggable + clickable ── */
             <div style={{ display: "flex", alignItems: "center", gap: 0 }}>
-              {layout.columns.map((col, i) => (
+              {layout.columns.map((col, i) => {
+                const pIsDragging = previewDrag?.from === i;
+                const pEffTo = previewDrag ? (previewDrag.from < previewDrag.to ? previewDrag.to - 1 : previewDrag.to) : -1;
+                const pHasChange = previewDrag ? previewDrag.from !== pEffTo : false;
+                const pIsTarget = previewDrag ? pHasChange && previewDrag.to === i : false;
+                const pIsEnd = previewDrag ? pHasChange && previewDrag.to === layout.columns.length && i === layout.columns.length - 1 : false;
+                return (
                 <Fragment key={i}>
+                  {/* Ghost card at target position */}
+                  {pIsTarget && (() => {
+                    const gc = layout.columns[previewDrag!.from];
+                    return (
+                      <span style={{
+                        display: "inline-flex", alignItems: "center",
+                        padding: "2px 6px", borderRadius: 4,
+                        border: "1.5px dashed rgba(255,255,255,0.5)",
+                        opacity: 0.5, filter: "grayscale(0.8)",
+                        pointerEvents: "none", transition: "all 150ms ease",
+                        marginRight: 5,
+                      }}>
+                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>{gc.label} {gc.value}</span>
+                      </span>
+                    );
+                  })()}
                   {i > 0 && (
                     <span style={{
                       display: "inline-flex", alignItems: "center", justifyContent: "center",
                       width: layout.gaps[i - 1]?.separator ? "auto" : 5,
                       padding: layout.gaps[i - 1]?.separator ? "0 5px" : 0,
-                      fontSize: 12, color: "rgba(255,255,255,0.35)",
+                      fontSize: 13, color: "rgba(255,255,255,0.35)",
                     }}>
                       {layout.gaps[i - 1]?.separator || ""}
                     </span>
@@ -390,7 +412,11 @@ export function TrayConfigTab() {
                     style={{
                       textAlign: cssAlign(col.align), whiteSpace: "pre",
                       cursor: "grab", padding: "2px 4px", borderRadius: 4,
-                      opacity: previewDrag?.from === i ? 0.4 : 1,
+                      opacity: previewDrag
+                        ? pIsDragging ? 0
+                        : 0.4
+                        : 1,
+                      ...(pIsDragging ? { width: 0, overflow: "hidden", padding: 0, minWidth: 0 } : {}),
                       outline: popover?.colIdx === i ? "2px solid var(--accent)" : "none",
                       transition: "opacity 0.15s",
                     }}
@@ -401,20 +427,65 @@ export function TrayConfigTab() {
                   >
                     {col.label} {col.value}
                   </span>
+                  {/* End-of-list ghost after last item */}
+                  {pIsEnd && (() => {
+                    const gc = layout.columns[previewDrag!.from];
+                    return (
+                      <span style={{
+                        display: "inline-flex", alignItems: "center", marginLeft: 5,
+                        padding: "2px 6px", borderRadius: 4,
+                        border: "1.5px dashed rgba(255,255,255,0.5)",
+                        opacity: 0.5, filter: "grayscale(0.8)",
+                        pointerEvents: "none", transition: "all 150ms ease",
+                      }}>
+                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>{gc.label} {gc.value}</span>
+                      </span>
+                    );
+                  })()}
                 </Fragment>
-              ))}
+                );
+              })}
             </div>
           ) : (
             /* ── Two-line: grid with gaps, draggable + clickable ── */
             <div style={{ display: "grid", gridAutoFlow: "column", gap: 0, width: "100%" }}>
-              {layout.columns.map((col, i) => (
+              {layout.columns.map((col, i) => {
+                const pIsDragging = previewDrag?.from === i;
+                const pEffTo = previewDrag ? (previewDrag.from < previewDrag.to ? previewDrag.to - 1 : previewDrag.to) : -1;
+                const pHasChange = previewDrag ? previewDrag.from !== pEffTo : false;
+                const pIsTarget = previewDrag ? pHasChange && previewDrag.to === i : false;
+                const pIsEnd = previewDrag ? pHasChange && previewDrag.to === layout.columns.length && i === layout.columns.length - 1 : false;
+                return (
                 <Fragment key={i}>
+                  {/* Ghost card at target position */}
+                  {pIsTarget && (() => {
+                    const gc = layout.columns[previewDrag!.from];
+                    return (
+                      <div style={{
+                        display: "flex", flexDirection: "column", alignItems: "stretch",
+                        padding: "2px 6px", borderRadius: 4,
+                        border: "1.5px dashed rgba(255,255,255,0.5)",
+                        opacity: 0.5, filter: "grayscale(0.8)",
+                        pointerEvents: "none", transition: "all 150ms ease",
+                        marginRight: 5,
+                      }}>
+                        <div style={{ fontSize: 13, lineHeight: "14px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                          {gc.isTwo ? gc.label : `${gc.label} ${gc.value}`}
+                        </div>
+                        {gc.isTwo && (
+                          <div style={{ fontSize: 13, lineHeight: "14px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                            {gc.value}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {i > 0 && (
                     <div style={{
                       display: "flex", alignItems: "center", justifyContent: "center",
                       width: layout.gaps[i - 1]?.separator ? "auto" : 5,
                       padding: layout.gaps[i - 1]?.separator ? "0 5px" : 0,
-                      fontSize: 12, color: "rgba(255,255,255,0.35)", height: "100%",
+                      fontSize: 13, color: "rgba(255,255,255,0.35)", height: "100%",
                     }}>
                       {layout.gaps[i - 1]?.separator || ""}
                     </div>
@@ -424,7 +495,11 @@ export function TrayConfigTab() {
                     style={{
                       display: "flex", flexDirection: "column", alignItems: "stretch",
                       cursor: "grab", padding: "2px 4px", borderRadius: 4,
-                      opacity: previewDrag?.from === i ? 0.4 : 1,
+                      opacity: previewDrag
+                        ? pIsDragging ? 0
+                        : 0.4
+                        : 1,
+                      ...(pIsDragging ? { height: 0, overflow: "hidden", padding: 0, minHeight: 0 } : {}),
                       outline: popover?.colIdx === i ? "2px solid var(--accent)" : "none",
                       transition: "opacity 0.15s",
                     }}
@@ -433,17 +508,40 @@ export function TrayConfigTab() {
                     onPointerUp={handlePreviewPointerUp}
                     onClick={(e) => handlePreviewClick(i, e.currentTarget)}
                   >
-                    <div style={{ textAlign: cssAlign(col.align), fontSize: 12, lineHeight: "13px", whiteSpace: "nowrap" }}>
+                    <div style={{ textAlign: cssAlign(col.align), fontSize: 13, lineHeight: "14px", whiteSpace: "nowrap" }}>
                       {col.isTwo ? col.label : `${col.label} ${col.value}`}
                     </div>
                     {col.isTwo && (
-                      <div style={{ textAlign: cssAlign(col.alignRow2), fontSize: 12, lineHeight: "13px", whiteSpace: "nowrap" }}>
+                      <div style={{ textAlign: cssAlign(col.alignRow2), fontSize: 13, lineHeight: "14px", whiteSpace: "nowrap" }}>
                         {col.value}
                       </div>
                     )}
                   </div>
+                  {/* End-of-list ghost after last item */}
+                  {pIsEnd && (() => {
+                    const gc = layout.columns[previewDrag!.from];
+                    return (
+                      <div style={{
+                        display: "flex", flexDirection: "column", alignItems: "stretch", marginLeft: 5,
+                        padding: "2px 6px", borderRadius: 4,
+                        border: "1.5px dashed rgba(255,255,255,0.5)",
+                        opacity: 0.5, filter: "grayscale(0.8)",
+                        pointerEvents: "none", transition: "all 150ms ease",
+                      }}>
+                        <div style={{ fontSize: 13, lineHeight: "14px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                          {gc.isTwo ? gc.label : `${gc.label} ${gc.value}`}
+                        </div>
+                        {gc.isTwo && (
+                          <div style={{ fontSize: 13, lineHeight: "14px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                            {gc.value}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
                 </Fragment>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -562,7 +660,9 @@ export function TrayConfigTab() {
           const isSep = item.item_type === "separator";
           const isExpanded = expandedIdx === i;
           const isDragging = drag?.from === i;
-          const isDragTarget = drag?.to === i && drag?.from !== i;
+          const effTo = drag ? (drag.from < drag.to ? drag.to - 1 : drag.to) : -1;
+          const hasChange = drag ? drag.from !== effTo : false;
+          const isDragTarget = drag ? hasChange && drag.to === i : false;
           const isPlatform = item.item_type === "platform";
           const riskyHex = item.color.mode === "custom" && isRiskyHex(item.color.value);
 
@@ -592,7 +692,7 @@ export function TrayConfigTab() {
           return (
             <Fragment key={`${item.item_type}-${item.platform_id ?? "x"}-${item.metric ?? "s"}-${i}`}>
               {/* Ghost card: grayscale preview of dragged item at insertion point */}
-              {drag && isDragTarget && drag.from !== i && (
+              {drag && isDragTarget && (
                 <div style={{
                   display: "flex", alignItems: "center", gap: 8, paddingLeft: 40,
                   padding: "6px 12px", margin: "2px 0", borderRadius: 8,
@@ -768,6 +868,35 @@ export function TrayConfigTab() {
             </Fragment>
           );
         })}
+        {/* End-of-list ghost card */}
+        {drag && (() => {
+          const et = drag.from < drag.to ? drag.to - 1 : drag.to;
+          if (drag.from === et || drag.to !== config.items.length) return null;
+          const di = config.items[drag.from];
+          const dn = di.item_type === "separator"
+            ? `${t("tray.separatorItem", "分隔符")} "${di.display || "·"}"`
+            : di.item_type === "platform" ? platformName(di.platform_id)
+            : `${t("tray.todayUsage", "今日消耗")} (${TODAY_METRICS.find((m) => m.value === (di.metric || "tokens"))?.label ?? "Tokens"})`;
+          const ds = di.item_type === "separator"
+            ? t("tray.separatorItem", "分隔符")
+            : di.item_type === "platform"
+              ? di.display === "coding" ? t("tray.displayCoding", "Coding") : t("tray.displayBalance", "余额")
+              : TODAY_METRICS.find((m) => m.value === (di.metric || "tokens"))?.label ?? "Tokens";
+          return (
+            <div style={{
+              display: "flex", alignItems: "center", gap: 8, paddingLeft: 40,
+              padding: "6px 12px", margin: "2px 0", borderRadius: 8,
+              background: "var(--glass-bg, rgba(255,255,255,0.06))",
+              border: "1.5px dashed var(--accent)",
+              opacity: 0.6, filter: "grayscale(0.8)",
+              fontSize: 13, color: "var(--text-secondary)",
+              pointerEvents: "none", transition: "all 150ms ease",
+            }}>
+              <span style={{ fontWeight: 600 }}>{dn}</span>
+              <span className="badge badge-muted" style={{ fontSize: 10 }}>{ds}</span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── Add Item ── */}
