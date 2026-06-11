@@ -469,7 +469,7 @@ export function TrayConfigTab() {
                           {gc.isTwo ? gc.label : `${gc.label} ${gc.value}`}
                         </div>
                         {gc.isTwo && (
-                          <div style={{ fontSize: 14, lineHeight: "15px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                          <div style={{ fontSize: 15, lineHeight: "16px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
                             {gc.value}
                           </div>
                         )}
@@ -508,7 +508,7 @@ export function TrayConfigTab() {
                       {col.isTwo ? col.label : `${col.label} ${col.value}`}
                     </div>
                     {col.isTwo && (
-                      <div style={{ textAlign: cssAlign(col.alignRow2), fontSize: 14, lineHeight: "15px", whiteSpace: "nowrap" }}>
+                      <div style={{ textAlign: cssAlign(col.alignRow2), fontSize: 15, lineHeight: "16px", whiteSpace: "nowrap" }}>
                         {col.value}
                       </div>
                     )}
@@ -528,7 +528,7 @@ export function TrayConfigTab() {
                           {gc.isTwo ? gc.label : `${gc.label} ${gc.value}`}
                         </div>
                         {gc.isTwo && (
-                          <div style={{ fontSize: 14, lineHeight: "15px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                          <div style={{ fontSize: 15, lineHeight: "16px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
                             {gc.value}
                           </div>
                         )}
@@ -825,12 +825,6 @@ export function TrayConfigTab() {
                         </div>
                       </div>
                     )}
-                    <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                      <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.fontSize", "字号")}</label>
-                      <input className="input" type="number" min={6} max={20} value={item.font_size}
-                        onChange={(e) => updateItem(i, { font_size: Math.max(6, Math.min(20, Number(e.target.value))) })}
-                        style={{ width: 52, fontSize: 12, padding: "3px 8px" }} />
-                    </div>
                     <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                       <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.color", "颜色")}</label>
                       <select className="input" value={item.color.mode}

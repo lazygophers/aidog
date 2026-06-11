@@ -1631,7 +1631,7 @@ fn set_tray_attributed_title(
             NSTextAlignment::Center
         });
         let line_h = if two_line_mode {
-            TRAY_FONT_SIZE + 1.0 // 10.0pt — 两行压缩
+            TRAY_FONT_SIZE + 1.0 + 10.0 // 20.0pt — 两行，value 行额外下移 10px
         } else {
             0.0 // 单行不压缩行高，使用系统默认
         };
@@ -1657,8 +1657,8 @@ fn set_tray_attributed_title(
                     format!("{} {}", col.name, col.value)
                 };
                 let line2 = if col.two_line { col.value.clone() } else { String::new() };
-                let w1 = measure_text_width(&line1, col.font_size);
-                let w2 = measure_text_width(&line2, col.font_size + 1.0);
+                let w1 = measure_text_width(&line1, TRAY_FONT_SIZE);
+                let w2 = measure_text_width(&line2, TRAY_FONT_SIZE + 3.0);
                 let col_w = w1.max(w2) + COL_PADDING;
                 col_widths.push(col_w);
                 loc += col_w;
@@ -1737,12 +1737,12 @@ fn set_tray_attributed_title(
             // 第一行（标签行）：各列首段，列间 \t + gap 文字。整行用 `para`（left tab）。
             for (idx, col) in columns.iter().enumerate() {
                 if idx > 0 {
-                    result.appendAttributedString(&make_part("\t", col.font_size, &follow_color, &para));
+                    result.appendAttributedString(&make_part("\t", TRAY_FONT_SIZE, &follow_color, &para));
                     let gap_text = gaps.get(idx - 1)
                         .and_then(|g| g.clone())
                         .unwrap_or_default();
                     if !gap_text.is_empty() {
-                        result.appendAttributedString(&make_part(&gap_text, col.font_size, &follow_color, &para));
+                        result.appendAttributedString(&make_part(&gap_text, TRAY_FONT_SIZE, &follow_color, &para));
                     }
                 }
                 let line1 = if col.two_line {
@@ -1751,15 +1751,15 @@ fn set_tray_attributed_title(
                     format!("{} {}", col.name, col.value)
                 };
                 let col_w = col_widths.get(idx).copied().unwrap_or(0.0);
-                let aligned = align_text(&line1, col_w, col.font_size, &col.align);
-                result.appendAttributedString(&make_part(&aligned, col.font_size, &col.color, &para));
+                let aligned = align_text(&line1, col_w, TRAY_FONT_SIZE, &col.align);
+                result.appendAttributedString(&make_part(&aligned, TRAY_FONT_SIZE, &col.color, &para));
             }
             // 行间换行
             let nl_font = columns.first().map(|c| c.font_size).unwrap_or(TRAY_FONT_SIZE);
             result.appendAttributedString(&make_part("\n", nl_font, &follow_color, &para));
             // 第二行（值行）：与标签行相同结构，对齐取 align_row2（fallback align）。字体比标签行大1pt。
             for (idx, col) in columns.iter().enumerate() {
-                let row2_font = col.font_size + 1.0;
+                let row2_font = TRAY_FONT_SIZE + 3.0;
                 if idx > 0 {
                     result.appendAttributedString(&make_part("\t", row2_font, &follow_color, &para));
                     let gap_text = gaps.get(idx - 1)
