@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/06-11-db-schema-conventions-refactor/design.md", "reason": "新 schema DDL + 命名/类型映射 + 迁移脚本 + 默认值规则 — 实施唯一契约源"}
+{"file": ".trellis/tasks/06-11-db-schema-conventions-refactor/prd.md", "reason": "10 条 DB 规范原文 + 4 决策结论"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端类型/API 层强制规则 — ST4 改 api.ts/pages 须遵守"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Tauri↔React 契约 + 字段命名 — schema 改动跨层须同步"}
