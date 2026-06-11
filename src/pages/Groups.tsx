@@ -85,6 +85,17 @@ export function Groups() {
   const [editMappings, setEditMappings] = useState<ModelMapping[]>([]);
   const [editReqTimeout, setEditReqTimeout] = useState(0);
   const [editConnTimeout, setEditConnTimeout] = useState(0);
+  const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+
+  // ── Drag reorder for selected platforms ──
+  const reorderPlatforms = (from: number, to: number) => {
+    if (from === to) return;
+    const ids = [...editPlatformIds];
+    const [moved] = ids.splice(from, 1);
+    ids.splice(to, 0, moved);
+    setEditPlatformIds(ids);
+  };
 
   // Create mode
   const [showCreate, setShowCreate] = useState(false);
@@ -336,16 +347,33 @@ export function Groups() {
             {t("group.platformsHint", "选择并排序此分组使用的平台，顺序决定优先级")}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {/* Selected platforms — reorderable by drag later, for now ordered list */}
+            {/* Selected platforms — drag to reorder (order = routing priority) */}
             {editPlatformIds.map((pid, i) => {
               const p = platforms.find(pp => pp.id === pid);
               if (!p) return null;
+              const isDragging = dragIndex === i;
+              const isDragOver = dragOverIndex === i && dragIndex !== null && dragIndex !== i;
               return (
-                <div key={pid} style={{
+                <div key={pid}
+                  draggable
+                  onDragStart={e => { setDragIndex(i); e.dataTransfer.effectAllowed = "move"; }}
+                  onDragOver={e => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOverIndex !== i) setDragOverIndex(i); }}
+                  onDragLeave={() => { if (dragOverIndex === i) setDragOverIndex(null); }}
+                  onDrop={e => { e.preventDefault(); if (dragIndex !== null) reorderPlatforms(dragIndex, i); setDragIndex(null); setDragOverIndex(null); }}
+                  onDragEnd={() => { setDragIndex(null); setDragOverIndex(null); }}
+                  style={{
                   display: "flex", alignItems: "center", gap: 10,
                   padding: "8px 12px", borderRadius: "var(--radius-sm)",
-                  background: "var(--bg-glass)", border: "1px solid var(--border)",
+                  background: "var(--bg-glass)",
+                  border: isDragOver ? "1px solid var(--accent)" : "1px solid var(--border)",
+                  opacity: isDragging ? 0.4 : 1,
+                  boxShadow: isDragOver ? "0 0 0 1px var(--accent) inset" : undefined,
+                  transition: "opacity 0.15s, border-color 0.15s",
                 }}>
+                  <span title={t("group.dragToReorder", "拖动排序")} style={{
+                    cursor: "grab", color: "var(--text-tertiary)", fontSize: 14,
+                    lineHeight: 1, userSelect: "none", flexShrink: 0,
+                  }}>⠿</span>
                   <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", width: 20, textAlign: "center" }}>
                     {i + 1}
                   </span>
