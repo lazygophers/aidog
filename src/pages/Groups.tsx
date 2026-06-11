@@ -699,10 +699,17 @@ export function Groups() {
                   const u = groupStats[group.name];
                   const total = u.total_input_tokens + u.total_output_tokens;
                   if (total === 0 && u.total_requests === 0) return null;
+                  const cost = estCost(u.total_input_tokens, u.total_output_tokens);
                   return (
                     <div style={{ display: "flex", gap: 4, alignItems: "center", marginRight: 4 }}>
                       <span style={{ fontSize: 11, fontWeight: 700, color: "var(--accent)" }}>{fmtTk(total)}</span>
                       <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>tokens</span>
+                      {Number(cost) > 0 && (
+                        <>
+                          <span style={{ fontSize: 10, color: "var(--text-tertiary)", marginLeft: 4 }}>·</span>
+                          <span style={{ fontSize: 11, fontWeight: 600, color: "var(--color-success, #34c759)" }}>${cost}</span>
+                        </>
+                      )}
                       {u.total_requests > 0 && (
                         <>
                           <span style={{ fontSize: 10, color: "var(--text-tertiary)", marginLeft: 4 }}>·</span>

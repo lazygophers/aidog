@@ -528,6 +528,9 @@ pub struct TrayItem {
     /// 自定义标签（优先于自动生成的 name）。None = 使用默认。
     #[serde(default)]
     pub label: Option<String>,
+    /// 花费/余额小数位数。None = 默认 5 位。
+    #[serde(default)]
+    pub decimals: Option<u32>,
     #[serde(default)]
     pub color: TrayColor,
     #[serde(default = "default_font_size")]

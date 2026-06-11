@@ -53,7 +53,7 @@ function defaultColor(): TrayColor {
 
 function makePlatformItem(platformId: number, display: "balance" | "coding", order: number): TrayItem {
   return {
-    item_type: "platform", platform_id: platformId, display, metric: null, label: null,
+    item_type: "platform", platform_id: platformId, display, metric: null, label: null, decimals: null,
     color: defaultColor(), font_size: DEFAULT_FONT_SIZE, line_mode: "two",
     align: "left", align_row2: null, enabled: true, order,
   };
@@ -61,7 +61,7 @@ function makePlatformItem(platformId: number, display: "balance" | "coding", ord
 
 function makeTodayUsageItem(metric: string, order: number): TrayItem {
   return {
-    item_type: "today_usage", platform_id: null, display: "", metric, label: null,
+    item_type: "today_usage", platform_id: null, display: "", metric, label: null, decimals: null,
     color: defaultColor(), font_size: DEFAULT_FONT_SIZE, line_mode: "two",
     align: "left", align_row2: null, enabled: true, order,
   };
@@ -69,7 +69,7 @@ function makeTodayUsageItem(metric: string, order: number): TrayItem {
 
 function makeSeparatorItem(separator: string, order: number): TrayItem {
   return {
-    item_type: "separator", platform_id: null, display: separator, metric: null, label: null,
+    item_type: "separator", platform_id: null, display: separator, metric: null, label: null, decimals: null,
     color: defaultColor(), font_size: DEFAULT_FONT_SIZE, line_mode: "single",
     align: "center", align_row2: null, enabled: true, order,
   };
@@ -92,7 +92,7 @@ function computeItemText(item: TrayItem, platform: Platform | undefined, todaySt
     const auto = (() => {
       switch (item.metric || "tokens") {
         case "cache_rate": return { label: "Cache", value: `${s.cache_rate.toFixed(0)}%` };
-        case "cost": return { label: "花费", value: `$${trimZeros(s.cost.toFixed(4))}` };
+        case "cost": return { label: "花费", value: `$${trimZeros(s.cost.toFixed(item.decimals ?? 5))}` };
         case "requests": return { label: "请求", value: `${s.total_requests}` };
         default: return { label: "今日", value: `${s.tokens} tok` };
       }
@@ -802,6 +802,12 @@ export function TrayConfigTab() {
                       <input className="input" type="text" value={item.label || ""} placeholder={t("tray.customLabelPlaceholder", "默认")}
                         onChange={(e) => updateItem(i, { label: e.target.value || null })}
                         style={{ width: 80, fontSize: 12, padding: "3px 8px" }} />
+                    </div>
+                    <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
+                      <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.decimals", "小数位")}</label>
+                      <input className="input" type="number" min={0} max={10} value={item.decimals ?? 5}
+                        onChange={(e) => updateItem(i, { decimals: Number(e.target.value) || null })}
+                        style={{ width: 52, fontSize: 12, padding: "3px 8px" }} />
                     </div>
                     <div style={{ display: "flex", gap: 5, alignItems: "center" }}>
                       <label style={{ fontSize: 11, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>{t("tray.lineMode", "行模式")}</label>

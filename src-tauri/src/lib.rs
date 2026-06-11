@@ -1412,7 +1412,10 @@ fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
                 let metric = item.metric.as_deref().unwrap_or("tokens");
                 let (label, val) = match metric {
                     "cache_rate" => ("Cache".to_string(), format!("{:.0}%", stats.cache_rate)),
-                    "cost" => ("花费".to_string(), format!("${}", trim_trailing_zeros(&format!("{:.4}", stats.cost)))),
+                    "cost" => {
+                        let d = item.decimals.unwrap_or(5) as usize;
+                        ("花费".to_string(), format!("${}", trim_trailing_zeros(&format!("{:.d$}", stats.cost, d = d))))
+                    }
                     "requests" => ("请求".to_string(), format!("{}", stats.total_requests)),
                     _ => ("今日".to_string(), format!("{} tok", stats.tokens)),
                 };
