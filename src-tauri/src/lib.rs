@@ -1549,14 +1549,23 @@ fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2_app_kit::N
 
 /// 估算列宽（pt）：以最长一行字符数 × 估字宽 + padding。
 /// menuBarFont 近似等宽（CJK 全角约 1 字宽 = fontSize，ASCII 半角约 fontSize*0.6）。
-/// 用「显示宽度单位」估算：CJK 记 2、其他记 1，再 × (fontSize*0.5) + padding。
+/// 精确测量文本渲染宽度：用 AppKit sizeWithAttributes 返回实际像素宽。
+/// 需要 MainThread（AppKit 要求），调用方已在主线程闭包内。
 #[cfg(target_os = "macos")]
-fn estimate_text_width(text: &str, font_size: f64) -> f64 {
-    let units: f64 = text
-        .chars()
-        .map(|c| if (c as u32) >= 0x2E80 { 2.0 } else { 1.0 })
-        .sum();
-    units * (font_size * 0.5)
+fn measure_text_width(text: &str, font_size: f64) -> f64 {
+    use objc2::rc::Retained;
+    use objc2::runtime::AnyObject;
+    use objc2_app_kit::{NSFont, NSFontAttributeName, NSStringDrawing};
+    use objc2_foundation::{NSDictionary, NSString};
+
+    let ns_text = NSString::from_str(text);
+    let font = NSFont::menuBarFontOfSize(font_size);
+    let font_key: &NSString = unsafe { NSFontAttributeName };
+    let font_obj: &AnyObject = (&*font).as_ref();
+    let attrs: Retained<NSDictionary<NSString, AnyObject>> =
+        NSDictionary::from_slices(&[font_key], &[font_obj]);
+    // SAFETY: attrs 类型正确（NSFontAttributeName → NSFont）。
+    unsafe { ns_text.sizeWithAttributes(Some(&attrs)) }.width
 }
 
 /// macOS：用 attributedTitle 给 tray button 设多列小字（每列独立颜色/字号）。
@@ -1578,7 +1587,7 @@ fn set_tray_attributed_title(
     tray: &tauri::tray::TrayIcon,
     columns: Vec<TrayColumn>,
     gaps: Vec<Option<String>>,
-    separator: String,
+    _separator: String,
 ) -> Result<(), String> {
     use objc2::rc::Retained;
     use objc2_app_kit::{NSFont, NSFontAttributeName, NSForegroundColorAttributeName, NSParagraphStyleAttributeName};
@@ -1621,7 +1630,7 @@ fn set_tray_attributed_title(
         // 两行都用 left tab @列右边界：标签和值均左对齐，同一列两行起始位置相同 → 列边界对齐。
         // （之前值行用 RightTabStopType 导致第二行右边界与第一行不对齐，现统一为 LeftTabStopType。）
         if two_line_mode {
-            const COL_PADDING: f64 = 6.0;
+            const COL_PADDING: f64 = 3.0; // 精确测量后只需少量间距
             let mut left_tabs: Vec<Retained<NSTextTab>> = Vec::new();
             let mut loc: f64 = 0.0;
             for col in columns.iter() {
@@ -1633,8 +1642,8 @@ fn set_tray_attributed_title(
                 };
                 // 该列第二行文字（two_line→value；single→空）
                 let line2 = if col.two_line { col.value.clone() } else { String::new() };
-                let w1 = estimate_text_width(&line1, col.font_size);
-                let w2 = estimate_text_width(&line2, col.font_size);
+                let w1 = measure_text_width(&line1, col.font_size);
+                let w2 = measure_text_width(&line2, col.font_size);
                 let col_w = w1.max(w2) + COL_PADDING;
                 loc += col_w;
                 // loc = 该列右边界：两行都用 LeftTabStopType，文本左对齐到 tab 位置。
@@ -1687,7 +1696,7 @@ fn set_tray_attributed_title(
         let result = NSMutableAttributedString::new();
 
         if two_line_mode {
-            let default_gap = " ".to_string();
+            let _default_gap = " ".to_string();
             // 第一行（标签行）：各列首段，列间 \t + gap 文字。整行用 `para`（left tab）。
             for (idx, col) in columns.iter().enumerate() {
                 if idx > 0 {
