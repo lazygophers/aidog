@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
-import { settingsApi, statuslineApi } from "../services/api";
+import { settingsApi, statuslineApi, claudeSettingsImportApi } from "../services/api";
 import {
   SECTIONS,
   RECOMMENDED_CONFIG,
@@ -2333,6 +2333,183 @@ function StatusLineSection({
   );
 }
 
+// ── Import Diff Modal ──
+
+function ImportDiffModal({
+  diff,
+  onApply,
+  onClose,
+}: {
+  diff: { key: string; current: any; incoming: any; selected: boolean }[];
+  onApply: (selectedKeys: Set<string>) => void;
+  onClose: () => void;
+}) {
+  const [selected, setSelected] = useState<Set<string>>(() => {
+    const s = new Set<string>();
+    diff.forEach(d => { if (d.selected) s.add(d.key); });
+    return s;
+  });
+
+  const toggle = (key: string) => {
+    setSelected(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (selected.size === diff.length) {
+      setSelected(new Set());
+    } else {
+      setSelected(new Set(diff.map(d => d.key)));
+    }
+  };
+
+  const formatValue = (v: any): string => {
+    if (v === undefined) return "(无)";
+    if (typeof v === "object") return JSON.stringify(v, null, 2);
+    return String(v);
+  };
+
+  const getChangeType = (d: { current: any; incoming: any }) => {
+    if (d.current === undefined) return "added";
+    if (d.incoming === undefined) return "removed";
+    return "changed";
+  };
+
+  return (
+    <div style={{
+      position: "fixed", inset: 0, zIndex: 1000,
+      display: "flex", alignItems: "center", justifyContent: "center",
+      background: "rgba(0,0,0,0.5)", animation: "fadeIn 150ms ease both",
+    }} onClick={onClose}>
+      <div className="glass-elevated"
+        style={{
+          width: 680, maxHeight: "85vh", display: "flex", flexDirection: "column",
+          padding: 0, borderRadius: "var(--radius-lg)",
+          animation: "fadeIn 200ms ease both",
+        }}
+        onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div style={{
+          padding: "16px 20px", borderBottom: "1px solid var(--border)",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)" }}>
+            从 Claude Code 导入配置
+          </div>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <button className="btn btn-ghost" style={{ fontSize: F.hint, padding: "4px 10px" }}
+              onClick={toggleAll}>
+              {selected.size === diff.length ? "取消全选" : "全选"}
+            </button>
+            <button type="button" className="btn btn-ghost btn-icon"
+              style={{ width: 28, height: 28, fontSize: F.body }}
+              onClick={onClose}>×</button>
+          </div>
+        </div>
+
+        {/* Diff list */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "8px 0" }}>
+          {diff.map(d => {
+            const changeType = getChangeType(d);
+            const isSelected = selected.has(d.key);
+            const bgColor = changeType === "added" ? "rgba(52,199,89,0.06)"
+              : changeType === "removed" ? "rgba(255,69,58,0.06)"
+              : "var(--bg-glass)";
+            const labelColor = changeType === "added" ? "#34c759"
+              : changeType === "removed" ? "#ff453a"
+              : "var(--accent)";
+            const label = changeType === "added" ? "新增" : changeType === "removed" ? "删除" : "变更";
+
+            return (
+              <div key={d.key} style={{
+                margin: "4px 12px", padding: "10px 14px",
+                background: isSelected ? bgColor : "var(--bg-surface)",
+                border: `1px solid ${isSelected ? "var(--border)" : "transparent"}`,
+                borderRadius: "var(--radius-sm)",
+                opacity: isSelected ? 1 : 0.5,
+                transition: "all 150ms",
+              }}>
+                {/* Key header */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  cursor: "pointer",
+                }} onClick={() => toggle(d.key)}>
+                  <Toggle active={isSelected} onChange={() => toggle(d.key)} />
+                  <span style={{
+                    fontSize: F.body, fontWeight: 600, color: "var(--text-primary)",
+                    fontFamily: '"SF Mono", "Fira Code", monospace',
+                  }}>
+                    {d.key}
+                  </span>
+                  <span style={{
+                    fontSize: F.hint, fontWeight: 600, color: labelColor,
+                    padding: "1px 6px", background: `${labelColor}18`, borderRadius: "var(--radius-sm)",
+                  }}>
+                    {label}
+                  </span>
+                </div>
+
+                {/* Values diff */}
+                {isSelected && (
+                  <div style={{
+                    display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8,
+                    marginTop: 8, marginLeft: 36,
+                  }}>
+                    <div>
+                      <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>当前</div>
+                      <pre style={{
+                        fontFamily: '"SF Mono", "Fira Code", monospace',
+                        fontSize: F.hint, lineHeight: 1.5,
+                        background: "var(--bg-surface)", borderRadius: "var(--radius-sm)",
+                        padding: 8, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all",
+                        color: d.current === undefined ? "var(--text-tertiary)" : "var(--text-primary)",
+                        margin: 0, maxHeight: 120,
+                      }}>{formatValue(d.current)}</pre>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>导入</div>
+                      <pre style={{
+                        fontFamily: '"SF Mono", "Fira Code", monospace',
+                        fontSize: F.hint, lineHeight: 1.5,
+                        background: "var(--bg-surface)", borderRadius: "var(--radius-sm)",
+                        padding: 8, overflow: "auto", whiteSpace: "pre-wrap", wordBreak: "break-all",
+                        color: d.incoming === undefined ? "var(--text-tertiary)" : "var(--text-primary)",
+                        margin: 0, maxHeight: 120,
+                      }}>{formatValue(d.incoming)}</pre>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Footer */}
+        <div style={{
+          padding: "12px 20px", borderTop: "1px solid var(--border)",
+          display: "flex", justifyContent: "space-between", alignItems: "center",
+        }}>
+          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
+            已选 {selected.size}/{diff.length} 项
+          </span>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn btn-ghost" style={{ fontSize: F.body, padding: S.btnPad }}
+              onClick={onClose}>取消</button>
+            <button className="btn btn-primary" style={{ fontSize: F.body, padding: S.btnPad }}
+              disabled={selected.size === 0}
+              onClick={() => onApply(selected)}>
+              导入选中 ({selected.size})
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Plugins Section (structured editor) ─────────────────────
 
 const MARKETPLACE_SOURCE_TYPES = ["github", "git", "url", "npm", "file", "directory", "settings", "hostPattern", "pathPattern"] as const;
@@ -3871,6 +4048,10 @@ export function Settings() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState("");
   const [toast, setToast] = useState("");
+  const [importDiff, setImportDiff] = useState<{
+    source: Record<string, any>;
+    diff: { key: string; current: any; incoming: any; selected: boolean }[];
+  } | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -3923,6 +4104,44 @@ export function Settings() {
     setConfig(merged);
     setEditJson(JSON.stringify(merged, null, 2));
     setToast(t("settings.loadedRecommended"));
+    setTimeout(() => setToast(""), 2000);
+  };
+
+  const handleImportFromClaudeCode = async () => {
+    try {
+      const source = await claudeSettingsImportApi.readDefault();
+      // Build diff: only top-level keys, skip _aidog_ internal keys
+      const diff: { key: string; current: any; incoming: any; selected: boolean }[] = [];
+      const allKeys = new Set([...Object.keys(config), ...Object.keys(source)]);
+      for (const key of allKeys) {
+        if (key.startsWith("_aidog_")) continue;
+        const current = config[key];
+        const incoming = source[key];
+        if (JSON.stringify(current) === JSON.stringify(incoming)) continue;
+        diff.push({ key, current, incoming, selected: true });
+      }
+      if (diff.length === 0) {
+        setToast(t("settings.noDiff", "无差异，无需导入"));
+        setTimeout(() => setToast(""), 2000);
+        return;
+      }
+      setImportDiff({ source, diff });
+    } catch (e: any) {
+      setToast(e?.toString?.() ?? "导入失败");
+      setTimeout(() => setToast(""), 3000);
+    }
+  };
+
+  const applyImport = (selectedKeys: Set<string>) => {
+    if (!importDiff) return;
+    const next = { ...config };
+    for (const key of selectedKeys) {
+      next[key] = importDiff.source[key];
+    }
+    setConfig(next);
+    setEditJson(JSON.stringify(next, null, 2));
+    setImportDiff(null);
+    setToast(t("settings.imported", "已导入"));
     setTimeout(() => setToast(""), 2000);
   };
 
@@ -4083,6 +4302,13 @@ export function Settings() {
             onClick={handleLoadRecommended}
           >
             <SectionIcon name="bolt" size={14} /> {t("settings.loadRecommended")}
+          </button>
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: F.hint, padding: "6px 14px" }}
+            onClick={handleImportFromClaudeCode}
+          >
+            <SectionIcon name="folder" size={14} /> {t("settings.importFromClaudeCode", "从 Claude Code 导入")}
           </button>
           {toast && (
             <span style={{ fontSize: F.body, color: "#34c759" }}>{toast}</span>
@@ -4262,6 +4488,15 @@ export function Settings() {
             })()}
           </div>
         </div>
+      )}
+
+      {/* Import diff modal */}
+      {importDiff && (
+        <ImportDiffModal
+          diff={importDiff.diff}
+          onApply={applyImport}
+          onClose={() => setImportDiff(null)}
+        />
       )}
     </div>
   );

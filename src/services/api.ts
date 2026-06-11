@@ -585,6 +585,14 @@ export const statuslineApi = {
     invoke<string>("generate_statusline_script", { scriptType, content }),
 };
 
+// ─── Claude Code Settings Import ──────────────────────────
+
+export const claudeSettingsImportApi = {
+  /** Read ~/.claude/settings.json and return parsed JSON */
+  readDefault: () =>
+    invoke<Record<string, any>>("read_claude_code_settings"),
+};
+
 // ─── App Log Settings API ─────────────────────────────────
 
 export const appLogApi = {

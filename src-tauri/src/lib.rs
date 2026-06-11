@@ -1192,6 +1192,17 @@ fn aidog_data_dir() -> Result<std::path::PathBuf, String> {
     Ok(dir)
 }
 
+#[tauri::command]
+fn read_claude_code_settings() -> Result<serde_json::Value, String> {
+    let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
+    let path = home.join(".claude").join("settings.json");
+    if !path.exists() {
+        return Err("~/.claude/settings.json not found".into());
+    }
+    let content = std::fs::read_to_string(&path).map_err(|e| format!("read settings: {e}"))?;
+    serde_json::from_str(&content).map_err(|e| format!("parse settings: {e}"))
+}
+
 /// Load app log settings from DB (must be called after init_tables)
 fn load_app_log_settings_from_db(db: &Db) -> logging::AppLogSettings {
     db::get_setting(db, "app", "logging")
@@ -2014,6 +2025,7 @@ pub fn run() {
             settings_delete,
             settings_list,
             generate_statusline_script,
+            read_claude_code_settings,
             // Statistics
             stats_query,
             model_test,
