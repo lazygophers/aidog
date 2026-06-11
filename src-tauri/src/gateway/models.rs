@@ -241,13 +241,13 @@ pub struct PlatformEndpoint {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Platform {
-    pub id: String,
+    pub id: u64,
     pub name: String,
-    pub protocol: Protocol,
+    pub platform_type: Protocol,
     pub base_url: String,
     pub api_key: String,
     /// JSON 额外配置
-    pub extra: Option<String>,
+    pub extra: String,
     /// 平台模型配置
     pub models: PlatformModels,
     /// 从 API 获取到的可用模型列表
@@ -256,17 +256,20 @@ pub struct Platform {
     #[serde(default)]
     pub endpoints: Vec<PlatformEndpoint>,
     pub enabled: bool,
-    pub created_at: String,
-    pub updated_at: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    #[serde(default)]
+    pub deleted_at: i64,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct CreatePlatform {
     pub name: String,
-    pub protocol: Protocol,
+    pub platform_type: Protocol,
     pub base_url: String,
     pub api_key: String,
-    pub extra: Option<String>,
+    #[serde(default)]
+    pub extra: String,
     #[serde(default)]
     pub models: Option<PlatformModels>,
     #[serde(default)]
@@ -277,9 +280,9 @@ pub struct CreatePlatform {
 
 #[derive(Debug, Deserialize)]
 pub struct UpdatePlatform {
-    pub id: String,
+    pub id: u64,
     pub name: Option<String>,
-    pub protocol: Option<Protocol>,
+    pub platform_type: Option<Protocol>,
     pub base_url: Option<String>,
     pub api_key: Option<String>,
     pub extra: Option<String>,
@@ -293,15 +296,17 @@ pub struct UpdatePlatform {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Group {
-    pub id: String,
+    pub id: u64,
     pub name: String,
     /// URL path 前缀，如 "/claude"
     pub path: String,
     pub routing_mode: RoutingMode,
-    /// 如果由平台自动创建，记录关联平台 ID
-    pub auto_from_platform: Option<String>,
-    pub created_at: String,
-    pub updated_at: String,
+    /// 如果由平台自动创建，记录关联平台 ID（十进制字符串；空串表示非自动）
+    pub auto_from_platform: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    #[serde(default)]
+    pub deleted_at: i64,
     /// 超时设置（秒），0 = 继承系统设置
     #[serde(default)]
     pub request_timeout_secs: u64,
@@ -310,6 +315,9 @@ pub struct Group {
     /// 入站协议（默认 anthropic）
     #[serde(default = "default_source_protocol")]
     pub source_protocol: String,
+    /// 模型映射（内联 JSON 数组）
+    #[serde(default)]
+    pub model_mappings: Vec<ModelMapping>,
 }
 
 fn default_source_protocol() -> String { "anthropic".to_string() }
@@ -319,20 +327,23 @@ pub struct CreateGroup {
     pub name: String,
     pub path: String,
     pub routing_mode: RoutingMode,
-    pub auto_from_platform: Option<String>,
+    #[serde(default)]
+    pub auto_from_platform: String,
     #[serde(default)]
     pub request_timeout_secs: u64,
     #[serde(default)]
     pub connect_timeout_secs: u64,
     #[serde(default = "default_source_protocol_opt")]
     pub source_protocol: Option<String>,
+    #[serde(default)]
+    pub model_mappings: Vec<ModelMapping>,
 }
 
 fn default_source_protocol_opt() -> Option<String> { Some("anthropic".to_string()) }
 
 #[derive(Debug, Deserialize)]
 pub struct UpdateGroup {
-    pub id: String,
+    pub id: u64,
     pub name: Option<String>,
     pub path: Option<String>,
     pub routing_mode: Option<RoutingMode>,
@@ -342,6 +353,8 @@ pub struct UpdateGroup {
     pub connect_timeout_secs: u64,
     #[serde(default)]
     pub source_protocol: Option<String>,
+    #[serde(default)]
+    pub model_mappings: Vec<ModelMapping>,
 }
 
 // ─── GroupPlatform (关联) ──────────────────────────────────
@@ -349,64 +362,44 @@ pub struct UpdateGroup {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(dead_code)]
 pub struct GroupPlatform {
-    pub group_id: String,
-    pub platform_id: String,
+    pub id: u64,
+    pub group_id: u64,
+    pub platform_id: u64,
     /// 故障转移优先级（越小越优先）
     pub priority: i32,
     /// 负载均衡权重
     pub weight: i32,
+    pub created_at: i64,
+    pub updated_at: i64,
+    #[serde(default)]
+    pub deleted_at: i64,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct SetGroupPlatforms {
-    pub group_id: String,
+    pub group_id: u64,
     /// (platform_id, priority, weight) 列表
     pub platforms: Vec<GroupPlatformInput>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct GroupPlatformInput {
-    pub platform_id: String,
+    pub platform_id: u64,
     pub priority: Option<i32>,
     pub weight: Option<i32>,
 }
 
 // ─── ModelMapping ──────────────────────────────────────────
 
+/// 内联于 group.model_mappings JSON 数组的元素
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModelMapping {
-    pub id: String,
-    pub group_id: String,
     /// 对外模型名，如 "claude-sonnet-4-6"
     pub source_model: String,
-    pub target_platform_id: String,
+    pub target_platform_id: u64,
     /// 实际模型名，如 "glm-4-plus"
     pub target_model: String,
     /// 超时设置（秒），0 = 继承分组设置
-    #[serde(default)]
-    pub request_timeout_secs: u64,
-    #[serde(default)]
-    pub connect_timeout_secs: u64,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct CreateModelMapping {
-    pub group_id: String,
-    pub source_model: String,
-    pub target_platform_id: String,
-    pub target_model: String,
-    #[serde(default)]
-    pub request_timeout_secs: u64,
-    #[serde(default)]
-    pub connect_timeout_secs: u64,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct UpdateModelMapping {
-    pub id: String,
-    pub source_model: Option<String>,
-    pub target_platform_id: Option<String>,
-    pub target_model: Option<String>,
     #[serde(default)]
     pub request_timeout_secs: u64,
     #[serde(default)]
@@ -434,10 +427,14 @@ pub struct GroupPlatformDetail {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(dead_code)]
 pub struct SettingEntry {
+    pub id: u64,
     pub scope: String,
     pub key: String,
     pub value: serde_json::Value,
-    pub updated_at: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    #[serde(default)]
+    pub deleted_at: i64,
 }
 
 #[derive(Debug, Deserialize)]
@@ -462,7 +459,7 @@ pub struct ProxyLog {
     /// 实际请求上游的协议
     pub target_protocol: String,
     /// 路由到的目标平台 ID
-    pub platform_id: String,
+    pub platform_id: u64,
     /// 原始请求头（用户发给代理的）
     pub request_headers: String,
     /// 原始请求体（用户发给代理的）
@@ -496,7 +493,11 @@ pub struct ProxyLog {
     pub input_tokens: i32,
     pub output_tokens: i32,
     pub cache_tokens: i32,
-    pub created_at: String,
+    pub created_at: i64,
+    #[serde(default)]
+    pub updated_at: i64,
+    #[serde(default)]
+    pub deleted_at: i64,
 }
 
 /// 平台使用统计（从 proxy_logs 聚合）
@@ -528,7 +529,7 @@ pub struct ProxyLogSummary {
     pub input_tokens: i32,
     pub output_tokens: i32,
     pub cache_tokens: i32,
-    pub created_at: String,
+    pub created_at: i64,
 }
 
 /// Proxy logging settings stored in settings table (scope=proxy, key=logging)
@@ -603,8 +604,8 @@ impl Default for ProxyTimeoutSettings {
 
 #[derive(Debug, Deserialize)]
 pub struct StatsQuery {
-    pub start: Option<String>,
-    pub end: Option<String>,
+    pub start: Option<i64>,
+    pub end: Option<i64>,
     pub granularity: Option<String>,
     pub group_by: Option<String>,
     pub filter_group: Option<String>,

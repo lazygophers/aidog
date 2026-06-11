@@ -15,25 +15,24 @@ pub fn select_platform(
     group: &Group,
     source_model: &str,
 ) -> Result<RouteResult, String> {
-    // 1. 查找模型映射
-    let mappings = db::list_model_mappings(db, &group.id)?;
-    let mapping = mappings.iter().find(|m| m.source_model == source_model);
+    // 1. 查找模型映射（内联于 group.model_mappings）
+    let mapping = group.model_mappings.iter().find(|m| m.source_model == source_model);
 
     let (target_platform_id, target_model) = if let Some(m) = mapping {
-        (m.target_platform_id.clone(), m.target_model.clone())
+        (m.target_platform_id, m.target_model.clone())
     } else {
-        // 无显式映射
-        ("".to_string(), source_model.to_string())
+        // 无显式映射（0 表示未指定）
+        (0u64, source_model.to_string())
     };
 
     // 2. 获取分组中的平台列表
-    let group_platforms = db::get_group_platforms(db, &group.id)?;
+    let group_platforms = db::get_group_platforms(db, group.id)?;
     if group_platforms.is_empty() {
         return Err("group has no platforms".to_string());
     }
 
     // 3. 如果有指定目标平台，优先使用
-    if !target_platform_id.is_empty() {
+    if target_platform_id != 0 {
         if let Some(gp) = group_platforms.iter().find(|gp| gp.platform.id == target_platform_id) {
             return Ok(RouteResult {
                 platform: gp.platform.clone(),

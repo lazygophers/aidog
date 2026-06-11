@@ -129,8 +129,8 @@ async fn handle_proxy(
     req: Request,
 ) -> Response {
     let start = std::time::Instant::now();
-    let request_id = uuid::Uuid::new_v4().to_string();
-    let created_at = chrono::Utc::now().to_rfc3339();
+    let request_id = uuid::Uuid::new_v4().simple().to_string();
+    let created_at = chrono::Utc::now().timestamp_millis();
 
     // Load log settings once per request
     let log_settings = {
@@ -149,7 +149,7 @@ async fn handle_proxy(
         actual_model: String::new(),
         source_protocol: String::new(),  // will be set from group
         target_protocol: String::new(),
-        platform_id: String::new(),
+        platform_id: 0,
         request_headers: String::new(),
         request_body: String::new(),
         upstream_request_headers: String::new(),
@@ -167,6 +167,8 @@ async fn handle_proxy(
         output_tokens: 0,
         cache_tokens: 0,
         created_at,
+        updated_at: created_at,
+        deleted_at: 0,
     };
 
     // ── 捕获请求头 ──
@@ -330,7 +332,7 @@ async fn handle_proxy(
             ep_str == source_protocol
         })
         .map(|ep| (&ep.protocol, ep.base_url.clone(), ep.client_type.clone(), ep.coding_plan))
-        .unwrap_or((&route.platform.protocol, route.platform.base_url.clone(), ClientType::Default, false));
+        .unwrap_or((&route.platform.platform_type, route.platform.base_url.clone(), ClientType::Default, false));
 
     let target_protocol = format!("{:?}", target_protocol_enum).to_lowercase();
     let needs_model_remap = actual_model != requested_model;
@@ -338,14 +340,14 @@ async fn handle_proxy(
     // Upsert #3: route resolved
     log.actual_model = actual_model.clone();
     log.target_protocol = target_protocol.clone();
-    log.platform_id = route.platform.id.clone();
+    log.platform_id = route.platform.id;
     upsert_log(&state, &log, &log_settings);
 
     // 替换模型名
     chat_req.model = actual_model.clone();
 
     // 协议转换：wire format 由 endpoint 协议决定，API path 由平台类型决定
-    let platform_protocol = &route.platform.protocol;
+    let platform_protocol = &route.platform.platform_type;
     let (mut req_body, mut api_path) = adapter::convert_request(&chat_req, target_protocol_enum, platform_protocol);
 
     // Coding Plan 特殊处理：注入平台特有字段 + 覆盖 API 路径

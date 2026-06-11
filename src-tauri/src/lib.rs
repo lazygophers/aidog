@@ -64,30 +64,31 @@ fn ensure_platform_groups(db: &Db) {
     for platform in &platforms {
         // 检查是否已存在关联此平台的分组
         let groups = db::list_groups(db).unwrap_or_default();
-        let exists = groups.iter().any(|g| g.auto_from_platform.as_deref() == Some(&platform.id));
+        let platform_id_str = platform.id.to_string();
+        let exists = groups.iter().any(|g| g.auto_from_platform == platform_id_str);
         if exists {
             continue;
         }
         // 自动创建分组 — path 用平台 ID 前缀避免同名协议冲突
-        let protocol_str = format!("{:?}", platform.protocol).to_lowercase();
-        let short_id = &platform.id[..8.min(platform.id.len())];
-        let group_path = format!("/{}-{}", protocol_str, short_id);
+        let protocol_str = format!("{:?}", platform.platform_type).to_lowercase();
+        let group_path = format!("/{}-{}", protocol_str, platform.id);
         let group_name = slugify(&format!("{}-auto", platform.name));
         let group = match db::create_group(db, CreateGroup {
             name: group_name.clone(),
             path: group_path.clone(),
             routing_mode: RoutingMode::Failover,
-            auto_from_platform: Some(platform.id.clone()),
+            auto_from_platform: platform_id_str.clone(),
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
             source_protocol: None,
+            model_mappings: Vec::new(),
         }) {
             Ok(g) => g,
             Err(e) => { tracing::error!("ensure_platform_groups: create_group failed for {}: {e}", platform.name); continue; }
         };
         // 将平台关联到自动分组
-        if let Err(e) = db::set_group_platforms(db, &group.id, &[GroupPlatformInput {
-            platform_id: platform.id.clone(),
+        if let Err(e) = db::set_group_platforms(db, group.id, &[GroupPlatformInput {
+            platform_id: platform.id,
             priority: Some(0),
             weight: Some(1),
         }]) {
@@ -103,10 +104,9 @@ fn ensure_platform_groups(db: &Db) {
 fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
     let platform = db::create_platform(&db, input)?;
 
-    // 自动创建分组，path 按 protocol + 平台短 ID 生成
-    let protocol_str = format!("{:?}", platform.protocol).to_lowercase();
-    let short_id = &platform.id[..8.min(platform.id.len())];
-    let group_path = format!("/{}-{}", protocol_str, short_id);
+    // 自动创建分组，path 按 protocol + 平台 ID 生成
+    let protocol_str = format!("{:?}", platform.platform_type).to_lowercase();
+    let group_path = format!("/{}-{}", protocol_str, platform.id);
     let group_name = slugify(&format!("{}-auto", platform.name));
 
     let group = db::create_group(
@@ -115,19 +115,20 @@ fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform,
             name: group_name,
             path: group_path,
             routing_mode: RoutingMode::Failover,
-            auto_from_platform: Some(platform.id.clone()),
+            auto_from_platform: platform.id.to_string(),
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
             source_protocol: None,
+            model_mappings: Vec::new(),
         },
     )?;
 
     // 将平台关联到自动分组
     db::set_group_platforms(
         &db,
-        &group.id,
+        group.id,
         &[GroupPlatformInput {
-            platform_id: platform.id.clone(),
+            platform_id: platform.id,
             priority: Some(0),
             weight: Some(1),
         }],
@@ -142,8 +143,8 @@ fn platform_list(db: State<'_, Db>) -> Result<Vec<Platform>, String> {
 }
 
 #[tauri::command]
-fn platform_get(id: String, db: State<'_, Db>) -> Result<Option<Platform>, String> {
-    db::get_platform(&db, &id)
+fn platform_get(id: u64, db: State<'_, Db>) -> Result<Option<Platform>, String> {
+    db::get_platform(&db, id)
 }
 
 #[tauri::command]
@@ -151,23 +152,24 @@ fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Platform,
     let platform = db::update_platform(&db, input)?;
     // 确保该平台有关联分组，若无则自动创建
     let groups = db::list_groups(&db).unwrap_or_default();
-    let exists = groups.iter().any(|g| g.auto_from_platform.as_deref() == Some(&platform.id));
+    let platform_id_str = platform.id.to_string();
+    let exists = groups.iter().any(|g| g.auto_from_platform == platform_id_str);
     if !exists {
-        let protocol_str = format!("{:?}", platform.protocol).to_lowercase();
-        let short_id = &platform.id[..8.min(platform.id.len())];
-        let group_path = format!("/{}-{}", protocol_str, short_id);
+        let protocol_str = format!("{:?}", platform.platform_type).to_lowercase();
+        let group_path = format!("/{}-{}", protocol_str, platform.id);
         let group_name = slugify(&format!("{}-auto", platform.name));
         if let Ok(group) = db::create_group(&db, CreateGroup {
             name: group_name,
             path: group_path,
             routing_mode: RoutingMode::Failover,
-            auto_from_platform: Some(platform.id.clone()),
+            auto_from_platform: platform_id_str.clone(),
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
             source_protocol: None,
+            model_mappings: Vec::new(),
         }) {
-            let _ = db::set_group_platforms(&db, &group.id, &[GroupPlatformInput {
-                platform_id: platform.id.clone(),
+            let _ = db::set_group_platforms(&db, group.id, &[GroupPlatformInput {
+                platform_id: platform.id,
                 priority: Some(0),
                 weight: Some(1),
             }]);
@@ -177,8 +179,8 @@ fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Platform,
 }
 
 #[tauri::command]
-fn platform_delete(id: String, db: State<'_, Db>) -> Result<(), String> {
-    db::delete_platform(&db, &id)
+fn platform_delete(id: u64, db: State<'_, Db>) -> Result<(), String> {
+    db::delete_platform(&db, id)
 }
 
 // ─── Group Commands ────────────────────────────────────────
@@ -199,8 +201,8 @@ fn group_list(db: State<'_, Db>) -> Result<Vec<Group>, String> {
 }
 
 #[tauri::command]
-fn group_get(id: String, db: State<'_, Db>) -> Result<Option<Group>, String> {
-    db::get_group(&db, &id)
+fn group_get(id: u64, db: State<'_, Db>) -> Result<Option<Group>, String> {
+    db::get_group(&db, id)
 }
 
 #[tauri::command]
@@ -217,8 +219,8 @@ fn group_update(mut input: UpdateGroup, db: State<'_, Db>, app: tauri::AppHandle
 }
 
 #[tauri::command]
-fn group_delete(id: String, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
-    db::delete_group(&db, &id)?;
+fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
+    db::delete_group(&db, id)?;
     try_sync_settings(&app, &db);
     Ok(())
 }
@@ -227,52 +229,24 @@ fn group_delete(id: String, db: State<'_, Db>, app: tauri::AppHandle) -> Result<
 
 #[tauri::command]
 fn group_set_platforms(input: SetGroupPlatforms, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
-    db::set_group_platforms(&db, &input.group_id, &input.platforms)?;
+    db::set_group_platforms(&db, input.group_id, &input.platforms)?;
     try_sync_settings(&app, &db);
     Ok(())
 }
 
 #[tauri::command]
 fn group_get_platforms(
-    group_id: String,
+    group_id: u64,
     db: State<'_, Db>,
 ) -> Result<Vec<GroupPlatformDetail>, String> {
-    db::get_group_platforms(&db, &group_id)
-}
-
-// ─── ModelMapping Commands ─────────────────────────────────
-
-#[tauri::command]
-fn mapping_create(input: CreateModelMapping, db: State<'_, Db>, app: tauri::AppHandle) -> Result<ModelMapping, String> {
-    let result = db::create_model_mapping(&db, input)?;
-    try_sync_settings(&app, &db);
-    Ok(result)
-}
-
-#[tauri::command]
-fn mapping_list(group_id: String, db: State<'_, Db>) -> Result<Vec<ModelMapping>, String> {
-    db::list_model_mappings(&db, &group_id)
-}
-
-#[tauri::command]
-fn mapping_update(input: UpdateModelMapping, db: State<'_, Db>, app: tauri::AppHandle) -> Result<ModelMapping, String> {
-    let result = db::update_model_mapping(&db, input)?;
-    try_sync_settings(&app, &db);
-    Ok(result)
-}
-
-#[tauri::command]
-fn mapping_delete(id: String, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
-    db::delete_model_mapping(&db, &id)?;
-    try_sync_settings(&app, &db);
-    Ok(())
+    db::get_group_platforms(&db, group_id)
 }
 
 // ─── Aggregate ─────────────────────────────────────────────
 
 #[tauri::command]
-fn group_detail(id: String, db: State<'_, Db>) -> Result<Option<GroupDetail>, String> {
-    db::get_group_detail(&db, &id)
+fn group_detail(id: u64, db: State<'_, Db>) -> Result<Option<GroupDetail>, String> {
+    db::get_group_detail(&db, id)
 }
 
 #[tauri::command]
@@ -466,7 +440,9 @@ async fn model_test(
     db: State<'_, Db>,
     req: ModelTestRequest,
 ) -> Result<ModelTestResult, String> {
-    let platform = db::get_platform(&db, &req.platform_id)?
+    let platform_id: u64 = req.platform_id.parse()
+        .map_err(|_| format!("invalid platform_id: {}", req.platform_id))?;
+    let platform = db::get_platform(&db, platform_id)?
         .ok_or("platform not found")?;
 
     let model = req.model.clone().or(platform.models.default.clone())
@@ -501,10 +477,10 @@ async fn model_test(
         let ep = &platform.endpoints[0];
         (ep.protocol.clone(), ep.base_url.clone(), ep.client_type.clone())
     } else {
-        (platform.protocol.clone(), platform.base_url.clone(), ClientType::default())
+        (platform.platform_type.clone(), platform.base_url.clone(), ClientType::default())
     };
 
-    let (req_body, api_path) = gateway::adapter::convert_request(&chat_req, &target_protocol, &platform.protocol);
+    let (req_body, api_path) = gateway::adapter::convert_request(&chat_req, &target_protocol, &platform.platform_type);
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
     let base_url = target_base_url.trim_end_matches('/');
     let url = format!("{}{}", base_url, api_path);
@@ -518,8 +494,8 @@ async fn model_test(
         .unwrap_or_else(|_| reqwest::Client::new());
 
     let start = std::time::Instant::now();
-    let request_id = uuid::Uuid::new_v4().to_string();
-    let created_at = chrono::Utc::now().to_rfc3339();
+    let request_id = uuid::Uuid::new_v4().simple().to_string();
+    let created_at = chrono::Utc::now().timestamp_millis();
 
     let req_builder = client
         .post(&url)
@@ -538,7 +514,7 @@ async fn model_test(
             actual_model: model.clone(),
             source_protocol: "test".into(),
             target_protocol: format!("{:?}", target_protocol).to_lowercase(),
-            platform_id: platform.id.clone(),
+            platform_id: platform.id,
             request_headers: r#"{"source":"model-test"}"#.into(),
             request_body: serde_json::to_string(&serde_json::json!({"messages":[{"role":"user","content":prompt}]})).unwrap_or_default(),
             upstream_request_headers: serde_json::Value::Object(
@@ -557,7 +533,9 @@ async fn model_test(
             input_tokens: in_tok,
             output_tokens: out_tok,
             cache_tokens: 0,
-            created_at: created_at.clone(),
+            created_at,
+            updated_at: created_at,
+            deleted_at: 0,
         }
     };
 
@@ -828,8 +806,8 @@ fn proxy_log_count(db: State<'_, Db>) -> Result<u32, String> {
 }
 
 #[tauri::command]
-fn platform_usage_stats(platform_id: String, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
-    gateway::db::get_platform_usage_stats(&db, &platform_id)
+fn platform_usage_stats(platform_id: u64, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
+    gateway::db::get_platform_usage_stats(&db, platform_id)
 }
 
 #[tauri::command]
@@ -1173,7 +1151,6 @@ pub fn run() {
             let db_path = data_dir.join("aidog.db");
             let db = Db::new(db_path.to_str().unwrap()).expect("failed to open database");
             db.init_tables().expect("failed to init tables");
-            db.fix_group_names();
             // 为所有平台确保存在关联分组（一个平台一个）
             ensure_platform_groups(&db);
             app.manage(db);
@@ -1251,11 +1228,6 @@ pub fn run() {
             // GroupPlatform
             group_set_platforms,
             group_get_platforms,
-            // ModelMapping
-            mapping_create,
-            mapping_list,
-            mapping_update,
-            mapping_delete,
             // Aggregate
             group_detail,
             group_detail_list,
