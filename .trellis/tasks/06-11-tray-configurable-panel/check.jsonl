@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/06-11-tray-configurable-panel/design.md", "reason": "校验多 item 渲染/颜色三态/今日tokens/迁移/设置页落地"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "TrayConfig 前后端契约一致"}

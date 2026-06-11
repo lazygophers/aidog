@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 9
+- **Total Sessions**: 10
 - **Last Active**: 2026-06-11
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~321 | Active |
+| `journal-1.md` | ~357 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 10 | 2026-06-11 | 托盘两行小字展示 | `a726869`, `96e7340`, `bbd4b9c`, `10e743e` | `master` |
 | 9 | 2026-06-11 | 分组平台拖动排序 | `69fa530` | `master` |
 | 8 | 2026-06-11 | 修复流式 proxy_log token=0 | `8cdd188`, `27d99c2` | `master` |
 | 7 | 2026-06-11 | 平台 quota 系统托盘展示 | `d1f3ae6`, `466db11` | `master` |
