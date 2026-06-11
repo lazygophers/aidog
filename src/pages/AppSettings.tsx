@@ -4,12 +4,18 @@ import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, type ProxyLogSetting
 import { Settings } from "./Settings";
 import { PricingTab } from "./PricingTab";
 import { TrayConfigTab } from "./TrayConfigTab";
+import { requestNavigation } from "../utils/navGuard";
 
 type Tab = "proxy" | "claude" | "pricing" | "tray";
 
 export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (enabled: boolean) => void }) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("proxy");
+  // Switching tabs may be intercepted by a dirty page (e.g. Claude Code Settings).
+  const switchTab = (next: Tab) => {
+    if (next === tab) return;
+    requestNavigation(() => setTab(next));
+  };
   const [autostart, setAutostart] = useState(false);
   const [logEnabled, setLogEnabled] = useState(false);
   const [logRetention, setLogRetention] = useState(90);
@@ -119,7 +125,7 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
               borderBottom: tab === id ? "2px solid var(--accent)" : "2px solid transparent",
               borderRadius: 0,
             }}
-            onClick={() => setTab(id)}
+            onClick={() => switchTab(id)}
           >
             {id === "proxy"
               ? t("appSettings.proxyTab", "代理配置")
