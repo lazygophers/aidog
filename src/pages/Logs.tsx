@@ -1,13 +1,28 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   proxyLogApi,
+  platformApi,
+  groupDetailApi,
   type ProxyLogSummary,
   type ProxyLogDetail,
+  type ProxyLogFilter,
+  type Platform,
+  type GroupDetail,
 } from "../services/api";
 
 const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
 const PAGE_SIZE = 50;
+
+/** 时间范围预设 */
+type TimePreset = "all" | "1h" | "6h" | "24h" | "7d" | "30d";
+
+function timePresetToRange(preset: TimePreset): { start?: number; end?: number } {
+  if (preset === "all") return {};
+  const now = Date.now();
+  const ms: Record<string, number> = { "1h": 3600000, "6h": 21600000, "24h": 86400000, "7d": 604800000, "30d": 2592000000 };
+  return { start: now - (ms[preset] ?? 0), end: now };
+}
 
 export function Logs() {
   const { t } = useTranslation();
@@ -17,6 +32,50 @@ export function Logs() {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<ProxyLogDetail | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // ── Filter state ──
+  const [platforms, setPlatforms] = useState<Platform[]>([]);
+  const [groups, setGroups] = useState<GroupDetail[]>([]);
+  const [filterPlatform, setFilterPlatform] = useState<string>("");   // platform_id or ""
+  const [filterGroup, setFilterGroup] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<string>("");       // "" | "success" | "error"
+  const [filterTime, setFilterTime] = useState<TimePreset>("all");
+  const [filterModelType, setFilterModelType] = useState<"original" | "actual">("actual");
+  const [filterModelText, setFilterModelText] = useState<string>("");
+
+  // Load platforms & groups for filter dropdowns
+  useEffect(() => {
+    platformApi.list().then(setPlatforms).catch(() => {});
+    groupDetailApi.list().then(setGroups).catch(() => {});
+  }, []);
+
+  // Build filter object
+  const activeFilter: ProxyLogFilter = useMemo(() => {
+    const f: ProxyLogFilter = {};
+    if (filterPlatform) f.platform_id = Number(filterPlatform);
+    if (filterGroup) f.group_name = filterGroup;
+    if (filterStatus === "success") f.status = 200;
+    else if (filterStatus === "error") f.status = -1;
+    const tr = timePresetToRange(filterTime);
+    if (tr.start) f.time_start = tr.start;
+    if (tr.end) f.time_end = tr.end;
+    if (filterModelText.trim()) {
+      f.model = filterModelText.trim();
+      f.model_type = filterModelType;
+    }
+    return f;
+  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModelText, filterModelType]);
+
+  // Check if any filter is active
+  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModelText.trim());
+
+  // Collect unique models from current logs for model filter dropdown
+  const modelOptions = useMemo(() => {
+    const col = filterModelType === "actual" ? "actual_model" : "model";
+    const set = new Set<string>();
+    logs.forEach(l => { if (l[col]) set.add(l[col]); });
+    return Array.from(set).sort();
+  }, [logs, filterModelType]);
 
   const copyDetail = async (d: ProxyLogDetail) => {
     const fj = (s: string) => {
@@ -79,17 +138,29 @@ export function Logs() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      const [items, count] = await Promise.all([
-        proxyLogApi.list(PAGE_SIZE, offset),
-        proxyLogApi.count(),
-      ]);
-      setLogs(items || []);
-      setTotal(count);
+      if (hasFilter) {
+        const [items, count] = await Promise.all([
+          proxyLogApi.listFiltered(activeFilter, PAGE_SIZE, offset),
+          proxyLogApi.countFiltered(activeFilter),
+        ]);
+        setLogs(items || []);
+        setTotal(count);
+      } else {
+        const [items, count] = await Promise.all([
+          proxyLogApi.list(PAGE_SIZE, offset),
+          proxyLogApi.count(),
+        ]);
+        setLogs(items || []);
+        setTotal(count);
+      }
     } catch (e) { console.error(e); }
     if (!silent) setLoading(false);
-  }, [offset]);
+  }, [offset, hasFilter, activeFilter]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Reset offset when filter changes
+  useEffect(() => { setOffset(0); }, [hasFilter, activeFilter]);
 
   // Auto-refresh every 3s on list view
   const mountedRef = useRef(true);
@@ -108,6 +179,15 @@ export function Logs() {
       setOffset(0);
       load();
     } catch (e) { console.error(e); }
+  };
+
+  const clearFilter = () => {
+    setFilterPlatform("");
+    setFilterGroup("");
+    setFilterStatus("");
+    setFilterTime("all");
+    setFilterModelText("");
+    setFilterModelType("actual");
   };
 
   const openDetail = async (id: string) => {
@@ -170,15 +250,19 @@ export function Logs() {
           </button>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: F.title, fontWeight: 700 }}>{t("logs.detail", "请求详情")}</div>
-            <div className="text-secondary" style={{ fontSize: F.hint }}>{detail.id.slice(0, 8)}</div>
           </div>
         </div>
 
-        {/* Meta */}
+        {/* Request ID — full row */}
+        <div className="glass-surface" style={{ padding: "12px 20", display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontWeight: 600 }}>{t("logs.requestId", "请求 ID")}</span>
+          <span style={{ fontSize: F.hint, fontFamily: "monospace", color: "var(--text-primary)" }}>{detail.id}</span>
+        </div>
+
+        {/* Meta grid */}
         <div className="glass-surface" style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
-          <MetaItem label={t("logs.requestId", "请求 ID")} value={detail.id} />
           <MetaItem label={t("logs.group", "分组")} value={detail.group_name} />
-          <MetaItem label={t("logs.model", "模型")} value={detail.model || "-"} />
+          <MetaItem label={t("logs.model", "原始模型")} value={detail.model || "-"} />
           <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} />
           <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={detail.source_protocol || "-"} />
           <MetaItem label={t("logs.targetProtocol", "请求格式")} value={detail.target_protocol || "-"} />
@@ -224,8 +308,15 @@ export function Logs() {
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
 
+  // Build platform lookup
+  const platformMap = useMemo(() => {
+    const m = new Map<number, string>();
+    platforms.forEach(p => m.set(p.id, p.name));
+    return m;
+  }, [platforms]);
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 900, width: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1000, width: "100%" }}>
       {/* Header */}
       <div className="section-header" style={{ justifyContent: "space-between" }}>
         <div>
@@ -246,6 +337,73 @@ export function Logs() {
         </div>
       </div>
 
+      {/* ── Filter bar ── */}
+      <div className="glass-surface" style={{ padding: "12px 16", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+        {/* Platform */}
+        <FilterSelect
+          value={filterPlatform}
+          onChange={setFilterPlatform}
+          options={platforms.map(p => ({ value: String(p.id), label: p.name }))}
+          placeholder={t("logs.filterPlatform", "平台")}
+        />
+        {/* Group */}
+        <FilterSelect
+          value={filterGroup}
+          onChange={setFilterGroup}
+          options={groups.map(g => ({ value: g.group.name, label: g.group.name }))}
+          placeholder={t("logs.filterGroup", "分组")}
+        />
+        {/* Status */}
+        <FilterSelect
+          value={filterStatus}
+          onChange={setFilterStatus}
+          options={[
+            { value: "success", label: t("logs.statusSuccess", "成功") },
+            { value: "error", label: t("logs.statusError", "失败") },
+          ]}
+          placeholder={t("logs.filterStatus", "状态")}
+        />
+        {/* Time range */}
+        <FilterSelect
+          value={filterTime}
+          onChange={v => setFilterTime(v as TimePreset)}
+          options={[
+            { value: "1h", label: "1h" },
+            { value: "6h", label: "6h" },
+            { value: "24h", label: "24h" },
+            { value: "7d", label: "7d" },
+            { value: "30d", label: "30d" },
+          ]}
+          placeholder={t("logs.filterTime", "时间")}
+        />
+        {/* Model type toggle */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: F.small }}>
+          <button
+            className={`btn btn-ghost ${filterModelType === "actual" ? "active" : ""}`}
+            style={{ padding: "2px 8px", fontSize: F.small, fontWeight: filterModelType === "actual" ? 700 : 400, opacity: filterModelType === "actual" ? 1 : 0.6 }}
+            onClick={() => setFilterModelType("actual")}
+          >{t("logs.actualModel", "实际模型")}</button>
+          <button
+            className={`btn btn-ghost ${filterModelType === "original" ? "active" : ""}`}
+            style={{ padding: "2px 8px", fontSize: F.small, fontWeight: filterModelType === "original" ? 700 : 400, opacity: filterModelType === "original" ? 1 : 0.6 }}
+            onClick={() => setFilterModelType("original")}
+          >{t("logs.model", "原始模型")}</button>
+        </div>
+        {/* Model text / select */}
+        <FilterSelect
+          value={filterModelText}
+          onChange={setFilterModelText}
+          options={modelOptions.map(m => ({ value: m, label: m }))}
+          placeholder={t("logs.filterModel", "模型")}
+        />
+        {/* Clear */}
+        {hasFilter && (
+          <button className="btn btn-ghost" onClick={clearFilter} style={{ fontSize: F.small, padding: "2px 8px", color: "var(--text-tertiary)" }}>
+            ✕ {t("logs.clearFilter", "清除")}
+          </button>
+        )}
+      </div>
+
       {/* Log Table */}
       {loading ? (
         <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
@@ -261,7 +419,9 @@ export function Logs() {
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
                   <ThCell>{t("logs.time")}</ThCell>
                   <ThCell>{t("logs.group")}</ThCell>
-                  <ThCell>{t("logs.model")}</ThCell>
+                  <ThCell>{t("logs.platform", "平台")}</ThCell>
+                  <ThCell>{t("logs.model", "原始模型")}</ThCell>
+                  <ThCell>{t("logs.actualModel", "实际模型")}</ThCell>
                   <ThCell>{t("logs.status")}</ThCell>
                   <ThCell>{t("logs.duration")}</ThCell>
                   <ThCell>{t("logs.inputTokens")}</ThCell>
@@ -277,9 +437,11 @@ export function Logs() {
                     style={{ cursor: "pointer", borderBottom: "1px solid var(--border)" }}>
                     <TdCell>{new Date(log.created_at).toLocaleString()}</TdCell>
                     <TdCell><span className="badge badge-accent" style={{ fontSize: 11 }}>{log.group_name}</span></TdCell>
-                    <TdCell><span style={{ fontWeight: 500 }}>{log.actual_model || log.model || "-"}</span></TdCell>
+                    <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{platformMap.get(log.platform_id) || "-"}</span></TdCell>
+                    <TdCell><span style={{ fontWeight: 500, fontSize: F.small }}>{log.model || "-"}</span></TdCell>
+                    <TdCell><span style={{ fontWeight: 500, fontSize: F.small }}>{log.actual_model || "-"}</span></TdCell>
                     <TdCell>
-                      <span style={{ color: log.status_code === 200 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)" }}>
+                      <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)" }}>
                         {log.status_code}
                       </span>
                     </TdCell>
@@ -334,6 +496,41 @@ export function Logs() {
 
 function safeParseJson(str: string): any {
   try { return JSON.parse(str); } catch { return str; }
+}
+
+/** 通用筛选下拉 */
+function FilterSelect({
+  value,
+  onChange,
+  options,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: { value: string; label: string }[];
+  placeholder: string;
+}) {
+  return (
+    <select
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      style={{
+        fontSize: F.small,
+        padding: "4px 8px",
+        borderRadius: 6,
+        border: "1px solid var(--border)",
+        background: "var(--bg-secondary, rgba(255,255,255,0.05))",
+        color: "var(--text-primary)",
+        cursor: "pointer",
+        maxWidth: 140,
+      }}
+    >
+      <option value="">{placeholder}</option>
+      {options.map(o => (
+        <option key={o.value} value={o.value}>{o.label}</option>
+      ))}
+    </select>
+  );
 }
 
 function MetaItem({ label, value, highlight }: { label: string; value: string; highlight?: "ok" | "err" }) {

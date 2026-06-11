@@ -44,9 +44,11 @@ impl Db {
     }
 
     pub fn init_tables(&self) -> Result<(), String> {
-        let sql = include_str!("../../migrations/001_init.sql");
         let conn = self.0.lock().map_err(|e| e.to_string())?;
-        conn.execute_batch(sql).map_err(|e| e.to_string())?;
+        conn.execute_batch(include_str!("../../migrations/001_init.sql"))
+            .map_err(|e| e.to_string())?;
+        conn.execute_batch(include_str!("../../migrations/002_log_filter_indexes.sql"))
+            .map_err(|e| e.to_string())?;
         Ok(())
     }
 }
@@ -578,29 +580,118 @@ pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::mo
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     let mut stmt = conn
         .prepare(
-            "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at
+            "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at
              FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
         )
         .map_err(|e| e.to_string())?;
     let rows = stmt
-        .query_map(params![limit, offset], |row| {
-            Ok(super::models::ProxyLogSummary {
-                id: row.get(0)?,
-                group_name: row.get(1)?,
-                model: row.get(2)?,
-                actual_model: row.get(3)?,
-                source_protocol: row.get(4)?,
-                target_protocol: row.get(5)?,
-                status_code: row.get(6)?,
-                duration_ms: row.get(7)?,
-                input_tokens: row.get(8)?,
-                output_tokens: row.get(9)?,
-                cache_tokens: row.get(10)?,
-                created_at: row.get(11)?,
-            })
-        })
+        .query_map(params![limit, offset], row_to_proxy_log_summary)
         .map_err(|e| e.to_string())?;
     rows.collect::<SqlResult<Vec<_>>>().map_err(|e| e.to_string())
+}
+
+/// Summary row mapper (column order must match SELECT)
+fn row_to_proxy_log_summary(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLogSummary> {
+    Ok(super::models::ProxyLogSummary {
+        id: row.get(0)?,
+        group_name: row.get(1)?,
+        model: row.get(2)?,
+        actual_model: row.get(3)?,
+        source_protocol: row.get(4)?,
+        target_protocol: row.get(5)?,
+        platform_id: row.get::<_, i64>(6)? as u64,
+        status_code: row.get(7)?,
+        duration_ms: row.get(8)?,
+        input_tokens: row.get(9)?,
+        output_tokens: row.get(10)?,
+        cache_tokens: row.get(11)?,
+        created_at: row.get(12)?,
+    })
+}
+
+pub fn filtered_list_proxy_logs(
+    db: &Db,
+    filter: &super::models::ProxyLogFilter,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<super::models::ProxyLogSummary>, String> {
+    let (where_sql, mut p) = build_filter_where(filter);
+    p.push(Box::new(limit));
+    p.push(Box::new(offset));
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let sql = format!(
+        "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at \
+         FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?"
+    );
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+    let rows = stmt
+        .query_map(refs.as_slice(), row_to_proxy_log_summary)
+        .map_err(|e| e.to_string())?;
+    rows.collect::<SqlResult<Vec<_>>>().map_err(|e| e.to_string())
+}
+
+pub fn filtered_count_proxy_logs(
+    db: &Db,
+    filter: &super::models::ProxyLogFilter,
+) -> Result<u32, String> {
+    let (where_sql, p) = build_filter_where(filter);
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
+    let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+    conn.query_row(&sql, refs.as_slice(), |row| row.get(0))
+        .map_err(|e| e.to_string())
+}
+
+/// Build WHERE clause extensions + params from filter.
+/// Returns (" AND ...", params). Empty filter → ("", []).
+fn build_filter_where(filter: &super::models::ProxyLogFilter) -> (String, Vec<Box<dyn rusqlite::types::ToSql>>) {
+    let mut parts: Vec<String> = Vec::new();
+    let mut p: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+    let mut idx = 1u32;
+
+    if let Some(ref v) = filter.platform_id {
+        parts.push(format!("AND platform_id = ?{idx}"));
+        p.push(Box::new(*v as i64));
+        idx += 1;
+    }
+    if let Some(ref v) = filter.group_name {
+        parts.push(format!("AND group_name = ?{idx}"));
+        p.push(Box::new(v.clone()));
+        idx += 1;
+    }
+    if let Some(s) = filter.status {
+        if s == 200 {
+            parts.push(format!("AND status_code >= 200 AND status_code < 300"));
+        } else if s == -1 {
+            parts.push("AND (status_code < 200 OR status_code >= 300)".to_string());
+        } else {
+            parts.push(format!("AND status_code = ?{idx}"));
+            p.push(Box::new(s));
+            idx += 1;
+        }
+    }
+    if let Some(ts) = filter.time_start {
+        parts.push(format!("AND created_at >= ?{idx}"));
+        p.push(Box::new(ts));
+        idx += 1;
+    }
+    if let Some(ts) = filter.time_end {
+        parts.push(format!("AND created_at <= ?{idx}"));
+        p.push(Box::new(ts));
+        idx += 1;
+    }
+    if let Some(ref v) = filter.model {
+        let col = match filter.model_type.as_deref() {
+            Some("actual") => "actual_model",
+            _ => "model",
+        };
+        parts.push(format!("AND {col} = ?{idx}"));
+        p.push(Box::new(v.clone()));
+    }
+
+    let where_sql = if parts.is_empty() { String::new() } else { format!(" {}", parts.join(" ")) };
+    (where_sql, p)
 }
 
 pub fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog>, String> {
