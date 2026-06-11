@@ -1225,17 +1225,34 @@ use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
 
 /// 计算 tray 展示文字（选定平台的余额或 coding% 预估值）。无选定平台 / 无 est 返回 None。
+///
+/// 返回两行纯文字（无 emoji）：第一行=平台名，第二行=余额。
+/// - coding plan（tray_display=="coding"）：第二行=`剩 {100-util}%`（剩余百分比）
+/// - balance：第二行=`{remaining:.2}`（总余额，纯数值）
+///
+/// 注：macOS NSStatusItem set_title 对 `\n` 默认仅渲染单行（截断 / 取首行）。
+/// 经查 Tauri 2.0 set_title 透传给 NSStatusBarButton.title，不做多行布局，
+/// 因此提供单行降级路径，由 TRAY_TITLE_MULTILINE 控制。GUI 实际渲染留用户验证。
+const TRAY_TITLE_MULTILINE: bool = true;
+
 fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
     let db = app.try_state::<Db>()?;
     let platform = db::get_tray_platform(&db).ok().flatten()?;
-    if platform.tray_display == "coding" {
-        // coding：解析首 tier est_utilization
+    let name = platform.name;
+    let second = if platform.tray_display == "coding" {
+        // coding：解析首 tier est_utilization，展示剩余百分比
         let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
         let tier = plan.tiers.first()?;
-        Some(format!("🪙 {:.0}%", tier.est_utilization))
+        format!("剩 {:.0}%", (100.0 - tier.est_utilization).max(0.0))
     } else {
-        // balance：est_balance_remaining
-        Some(format!("💳 {:.2}", platform.est_balance_remaining))
+        // balance：est_balance_remaining 总余额（纯数值）
+        format!("{:.2}", platform.est_balance_remaining)
+    };
+    // 两行优先；若 macOS 不渲染两行则降级单行紧凑（prd 已授权"尽力两行→不行单行"）
+    if TRAY_TITLE_MULTILINE {
+        Some(format!("{name}\n{second}"))
+    } else {
+        Some(format!("{name} {second}"))
     }
 }
 
@@ -1280,11 +1297,22 @@ fn refresh_tray_menu(app: &tauri::AppHandle) -> Result<(), String> {
     let tray = app.tray_by_id("main").ok_or("tray not found")?;
     let menu = build_tray_menu(app)?;
     tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
-    // macOS 菜单栏文字展示 quota；非 macOS 平台仅 menu item 降级（不调 set_title）
+    // macOS 菜单栏：有 quota 值时隐藏 logo + 两行文字 title；无值时恢复 logo + 清 title。
+    // 非 macOS 平台仅 menu item 降级（不调 set_title / set_icon）。
     #[cfg(target_os = "macos")]
     {
-        let title = tray_quota_text(app);
-        tray.set_title(title.as_deref()).map_err(|e| e.to_string())?;
+        match tray_quota_text(app) {
+            Some(text) => {
+                tray.set_icon(None).map_err(|e| e.to_string())?; // 隐藏 logo
+                tray.set_title(Some(&text)).map_err(|e| e.to_string())?; // 两行（\n，降级单行见 tray_quota_text）
+            }
+            None => {
+                // 恢复 logo + 清空 title
+                tray.set_icon(app.default_window_icon().cloned())
+                    .map_err(|e| e.to_string())?;
+                tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
+            }
+        }
     }
     Ok(())
 }
