@@ -316,6 +316,50 @@ export const groupUsageApi = {
     invoke<PlatformUsageStats>("group_usage_stats", { groupName }),
 };
 
+// ─── Tray Config API ───────────────────────────────────────
+// 字段名与 Rust serde（src-tauri/src/gateway/models.rs TrayConfig/TrayItem/TrayColor）保持 snake_case 一致。
+
+/** 单项颜色（三态）。
+ * - mode="follow": 跟随系统（labelColor，自适应明暗），value 忽略
+ * - mode="preset": value ∈ "red" | "green" | "orange"（systemRed/Green/Orange 自适应）
+ * - mode="custom": value = hex（如 "#RRGGBB"），固定色，某些菜单栏主题下可读性差
+ */
+export interface TrayColor {
+  mode: "follow" | "preset" | "custom";
+  value: string;
+}
+
+/** 托盘单个展示项。
+ * - item_type="platform": platform_id 指定平台，display ∈ "balance" | "coding"
+ * - item_type="today_usage": metric ∈ "tokens"（MVP），platform_id/display 忽略
+ */
+export interface TrayItem {
+  item_type: "platform" | "today_usage";
+  platform_id: number | null;
+  display: string;
+  metric: string | null;
+  color: TrayColor;
+  font_size: number;
+  enabled: boolean;
+  order: number;
+}
+
+/** 托盘整体配置（存 settings: scope="tray", key="config"）。 */
+export interface TrayConfig {
+  /** "single_line"（分隔符拼接）| "two_line"（换行，≤2 行） */
+  layout: "single_line" | "two_line";
+  /** single_line 模式下各项之间的分隔符 */
+  separator: string;
+  items: TrayItem[];
+}
+
+export const trayConfigApi = {
+  /** 读取托盘配置（无配置时后端迁移旧 show_in_tray 平台生成默认）。 */
+  get: () => invoke<TrayConfig>("tray_config_get"),
+  /** 保存托盘配置并刷新托盘渲染。 */
+  set: (config: TrayConfig) => invoke<void>("tray_config_set", { config }),
+};
+
 // ─── Group API ─────────────────────────────────────────────
 
 export const groupApi = {

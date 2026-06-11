@@ -39,5 +39,5 @@ tracing-appender = "0.2"
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSString", "NSDictionary", "NSAttributedString", "NSGeometry", "NSValue"] }
-objc2-app-kit = { version = "0.3", features = ["NSStatusItem", "NSStatusBarButton", "NSButton", "NSControl", "NSResponder", "NSView", "NSFont", "NSParagraphStyle", "NSAttributedString"] }
+objc2-app-kit = { version = "0.3", features = ["NSStatusItem", "NSStatusBarButton", "NSButton", "NSControl", "NSResponder", "NSView", "NSFont", "NSParagraphStyle", "NSAttributedString", "NSColor", "objc2-core-foundation"] }
 

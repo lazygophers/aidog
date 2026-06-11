@@ -208,6 +208,24 @@ fn platform_set_tray(
     Ok(())
 }
 
+/// 读取托盘配置。无配置时（首次/升级）从旧 show_in_tray 平台迁移生成默认。
+#[tauri::command]
+fn tray_config_get(db: State<'_, Db>) -> Result<TrayConfig, String> {
+    Ok(db::get_tray_config(&db)?.unwrap_or_default())
+}
+
+/// 保存托盘配置并刷新托盘渲染。
+#[tauri::command]
+fn tray_config_set(
+    config: TrayConfig,
+    db: State<'_, Db>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    db::set_tray_config(&db, &config)?;
+    refresh_tray_menu(&app)?;
+    Ok(())
+}
+
 // ─── Group Commands ────────────────────────────────────────
 
 #[tauri::command]
@@ -1236,44 +1254,92 @@ fn save_proxy_settings(
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
 
-/// 计算 tray 展示文字（选定平台的余额或 coding% 预估值）。无选定平台 / 无 est 返回 None。
+/// 托盘渲染（多 item）。从 settings tray config 读取 enabled items（按 order），
+/// 每段独立颜色（三态）/ 字号，single_line 用 separator 拼接、two_line 用 `\n`（≤2 行）。
+/// 纯文字无 emoji。GUI 实际渲染（暗亮模式对比度）留用户验证。
 ///
-/// 返回两行纯文字（无 emoji）：第一行=平台名，第二行=余额。
-///
-/// 第二行数据驱动（不依赖 tray_display 字段，避免 coding plan 平台误显 0.00 余额）：
-/// - coding plan 平台（est_coding_plan 解析出有效 tiers）：第二行=`剩 {100-util}%`（剩余百分比）
-/// - 纯 balance 平台（est_coding_plan 空/无 tiers）：第二行=`{remaining:.2}`（总余额，纯数值）
-///
-/// 注：macOS NSStatusItem set_title 对 `\n` 默认仅渲染单行（截断 / 取首行）。
-/// 经查 Tauri 2.0 set_title 透传给 NSStatusBarButton.title，不做多行布局，
-/// 因此提供单行降级路径，由 TRAY_TITLE_MULTILINE 控制。GUI 实际渲染留用户验证。
-const TRAY_TITLE_MULTILINE: bool = true;
+/// 托盘单个渲染段：文字 + 颜色配置（三态）+ 字号。
+struct TraySegment {
+    text: String,
+    color: TrayColor,
+    font_size: f64,
+}
 
-fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
-    let db = app.try_state::<Db>()?;
-    let platform = db::get_tray_platform(&db).ok().flatten()?;
-    let name = platform.name;
-    // coding plan 判定（双信号，避免 GLM 等 coding 平台冷启动 tiers 为空时误显 0.00 余额）：
-    //   1) 用户显式 tray_display == "coding"（前端开 tray 时选定，最强意图）；
-    //   2) est_coding_plan 解析出首 tier（数据驱动，平台具 coding plan 能力）。
-    // 任一成立即视为 coding plan 平台，优先展示剩余%；纯 balance 平台展示总余额。
+/// 计算单个 platform item 的展示文字（含平台名）。
+/// display="coding" 或平台具 coding plan → `{name} 剩 {%}%`；否则 `{name} {balance:.2}`。
+fn platform_item_text(platform: &Platform, display: &str) -> String {
+    let name = &platform.name;
     let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
     let first_tier = plan.tiers.first();
-    let is_coding = platform.tray_display == "coding" || first_tier.is_some();
-    let second = if is_coding {
-        // 有 tier 用真实预估利用率；冷启动（tiers 空但 tray_display=coding）显 100%（未消耗）。
+    let is_coding = display == "coding" || first_tier.is_some();
+    if is_coding {
         let util = first_tier.map(|t| t.est_utilization).unwrap_or(0.0);
-        format!("剩 {:.0}%", (100.0 - util).max(0.0))
+        format!("{name} 剩 {:.0}%", (100.0 - util).max(0.0))
     } else {
-        // balance：est_balance_remaining 总余额（纯数值）
-        format!("{:.2}", platform.est_balance_remaining)
-    };
-    // 两行优先；若 macOS 不渲染两行则降级单行紧凑（prd 已授权"尽力两行→不行单行"）
-    if TRAY_TITLE_MULTILINE {
-        Some(format!("{name}\n{second}"))
-    } else {
-        Some(format!("{name} {second}"))
+        format!("{name} {:.2}", platform.est_balance_remaining)
     }
+}
+
+/// 从托盘配置生成有序渲染段（已按 order 排序、跳过 disabled、跳过取数失败项）。
+fn tray_segments(app: &tauri::AppHandle) -> Vec<TraySegment> {
+    let Some(db) = app.try_state::<Db>() else {
+        return Vec::new();
+    };
+    let Ok(Some(config)) = db::get_tray_config(&db) else {
+        return Vec::new();
+    };
+    let mut items: Vec<&TrayItem> = config.items.iter().filter(|i| i.enabled).collect();
+    items.sort_by_key(|i| i.order);
+
+    let mut segments = Vec::new();
+    for item in items {
+        let text = match item.item_type.as_str() {
+            "platform" => {
+                let Some(pid) = item.platform_id else { continue };
+                let Ok(Some(platform)) = db::get_platform(&db, pid) else { continue };
+                platform_item_text(&platform, &item.display)
+            }
+            "today_usage" => {
+                // MVP: metric=tokens（默认）。其他 metric 暂按 tokens 处理。
+                let total = db::today_token_total(&db).unwrap_or(0);
+                format!("今日 {total} tok")
+            }
+            _ => continue,
+        };
+        if text.is_empty() {
+            continue;
+        }
+        segments.push(TraySegment {
+            text,
+            color: item.color.clone(),
+            font_size: item.font_size,
+        });
+    }
+    segments
+}
+
+/// 托盘配置的全局布局（single_line / two_line）+ 分隔符。
+fn tray_layout(app: &tauri::AppHandle) -> (String, String) {
+    if let Some(db) = app.try_state::<Db>() {
+        if let Ok(Some(config)) = db::get_tray_config(&db) {
+            return (config.layout, config.separator);
+        }
+    }
+    (default_layout_str(), default_separator_str())
+}
+
+fn default_layout_str() -> String { "single_line".to_string() }
+fn default_separator_str() -> String { "  ".to_string() }
+
+/// 菜单内 quota 项的纯文字概要（无颜色/字号，单行分隔符拼接）。
+fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
+    let segments = tray_segments(app);
+    if segments.is_empty() {
+        return None;
+    }
+    let (_, separator) = tray_layout(app);
+    let texts: Vec<&str> = segments.iter().map(|s| s.text.as_str()).collect();
+    Some(texts.join(&separator))
 }
 
 fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wry>, String> {
@@ -1319,17 +1385,64 @@ fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wr
 #[cfg(target_os = "macos")]
 const TRAY_FONT_SIZE: f64 = 9.0;
 
-/// macOS：用 attributedTitle 给 tray button 设小号字体（NSFont），实现两行小字。
-/// Tauri/tray-icon 的 set_title 走 button.setTitle(NSString) 无字号控制，故直连 NSStatusItem button。
+/// 将 TrayColor（三态）解析为 NSColor：
+/// - follow → labelColor（系统自适应明暗）
+/// - preset red/green/orange → systemRed/Green/Orange（自适应明暗）
+/// - custom → 解析 hex（#RRGGBB / RRGGBB），sRGB 构造；解析失败回退 labelColor
+/// 注意：custom 固定色在某些菜单栏主题下可读性差（前端已警告）。
+#[cfg(target_os = "macos")]
+fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2_app_kit::NSColor> {
+    use objc2_app_kit::NSColor;
+    match color.mode.as_str() {
+        "preset" => match color.value.as_str() {
+            "red" => NSColor::systemRedColor(),
+            "green" => NSColor::systemGreenColor(),
+            "orange" => NSColor::systemOrangeColor(),
+            _ => NSColor::labelColor(),
+        },
+        "custom" => {
+            let hex = color.value.trim().trim_start_matches('#');
+            if hex.len() == 6 {
+                if let (Ok(r), Ok(g), Ok(b)) = (
+                    u8::from_str_radix(&hex[0..2], 16),
+                    u8::from_str_radix(&hex[2..4], 16),
+                    u8::from_str_radix(&hex[4..6], 16),
+                ) {
+                    return NSColor::colorWithSRGBRed_green_blue_alpha(
+                        r as f64 / 255.0,
+                        g as f64 / 255.0,
+                        b as f64 / 255.0,
+                        1.0,
+                    );
+                }
+            }
+            NSColor::labelColor()
+        }
+        // "follow" 及未知 → labelColor
+        _ => NSColor::labelColor(),
+    }
+}
+
+/// macOS：用 attributedTitle 给 tray button 设多段小字（每段独立颜色/字号）。
+/// Tauri/tray-icon 的 set_title 走 button.setTitle(NSString) 无字号/颜色控制，故直连 NSStatusItem button。
 /// 通过 tauri TrayIcon::with_inner_tray_icon 拿 tray_icon::TrayIcon，再 ns_status_item() 取底层 NSStatusItem。
 /// 闭包在主线程执行（with_inner_tray_icon 保证），满足 AppKit 主线程约束。
+///
+/// layout=single_line：段间插 separator（separator 段用首段字号 + labelColor）；
+/// layout=two_line：段间用 `\n`（≤2 行，调用方已 fallback 超 2 项）。
+/// 整串套用居中段落样式 + 固定行高 + baselineOffset 垂直居中（保留原单段逻辑）。
 #[cfg(target_os = "macos")]
-fn set_tray_attributed_title(tray: &tauri::tray::TrayIcon, text: String) -> Result<(), String> {
+fn set_tray_attributed_title(
+    tray: &tauri::tray::TrayIcon,
+    segments: Vec<TraySegment>,
+    layout: String,
+    separator: String,
+) -> Result<(), String> {
     use objc2::rc::Retained;
-    use objc2_app_kit::{NSFont, NSFontAttributeName, NSParagraphStyleAttributeName};
+    use objc2_app_kit::{NSFont, NSFontAttributeName, NSForegroundColorAttributeName, NSParagraphStyleAttributeName};
     use objc2_app_kit::{NSMutableParagraphStyle, NSTextAlignment};
     use objc2_app_kit::NSBaselineOffsetAttributeName;
-    use objc2_foundation::{NSAttributedString, NSDictionary, NSNumber, NSString};
+    use objc2_foundation::{NSAttributedString, NSMutableAttributedString, NSDictionary, NSNumber, NSString};
     use objc2::AnyThread;
 
     tray.with_inner_tray_icon(move |inner| -> Result<(), String> {
@@ -1343,9 +1456,6 @@ fn set_tray_attributed_title(tray: &tauri::tray::TrayIcon, text: String) -> Resu
         let button = status_item
             .button(mtm)
             .ok_or_else(|| "status item has no button".to_string())?;
-
-        let ns_text = NSString::from_str(&text);
-        let font: Retained<NSFont> = NSFont::menuBarFontOfSize(TRAY_FONT_SIZE);
 
         // 段落样式：居中（两行视觉对齐）+ 压缩行高（min==max）让两行紧凑。
         // 9pt 字默认行高偏大 → 两行块超出菜单栏可视高 → 视觉偏上。
@@ -1362,26 +1472,51 @@ fn set_tray_attributed_title(tray: &tauri::tray::TrayIcon, text: String) -> Resu
         let baseline_offset = NSNumber::new_f64(-2.0);
 
         use objc2::runtime::AnyObject;
-        let font_key: &NSString = unsafe { NSFontAttributeName };
         let para_key: &NSString = unsafe { NSParagraphStyleAttributeName };
         let baseline_key: &NSString = unsafe { NSBaselineOffsetAttributeName };
-        let keys: [&NSString; 3] = [font_key, para_key, baseline_key];
-        let font_obj: &AnyObject = (&*font).as_ref();
-        let para_obj: &AnyObject = (&*para).as_ref();
-        let baseline_obj: &AnyObject = (&*baseline_offset).as_ref();
-        let objects: [&AnyObject; 3] = [font_obj, para_obj, baseline_obj];
-        let attrs: Retained<NSDictionary<NSString, objc2::runtime::AnyObject>> =
-            NSDictionary::from_slices(&keys, &objects);
+        let font_key: &NSString = unsafe { NSFontAttributeName };
+        let color_key: &NSString = unsafe { NSForegroundColorAttributeName };
 
-        // SAFETY: attrs 键为 NSAttributedStringKey(NSString)、值为合法 AppKit 对象，类型正确。
-        let attr_str = unsafe {
-            NSAttributedString::initWithString_attributes(
-                NSAttributedString::alloc(),
-                &ns_text,
-                Some(&attrs),
-            )
+        // 构造单段 attributed string（文字 + 字号 + 颜色 + 共享段落/baseline）。
+        let make_part = |text: &str, font_size: f64, color: &TrayColor| -> Retained<NSAttributedString> {
+            let ns_text = NSString::from_str(text);
+            let font: Retained<NSFont> = NSFont::menuBarFontOfSize(font_size);
+            let ns_color = resolve_tray_color(color);
+
+            let keys: [&NSString; 4] = [font_key, color_key, para_key, baseline_key];
+            let font_obj: &AnyObject = (&*font).as_ref();
+            let color_obj: &AnyObject = (&*ns_color).as_ref();
+            let para_obj: &AnyObject = (&*para).as_ref();
+            let baseline_obj: &AnyObject = (&*baseline_offset).as_ref();
+            let objects: [&AnyObject; 4] = [font_obj, color_obj, para_obj, baseline_obj];
+            let attrs: Retained<NSDictionary<NSString, objc2::runtime::AnyObject>> =
+                NSDictionary::from_slices(&keys, &objects);
+            // SAFETY: attrs 键为 NSAttributedStringKey(NSString)、值为合法 AppKit 对象，类型正确。
+            unsafe {
+                NSAttributedString::initWithString_attributes(
+                    NSAttributedString::alloc(),
+                    &ns_text,
+                    Some(&attrs),
+                )
+            }
         };
-        button.setAttributedTitle(&attr_str);
+
+        // 段间连接符：two_line 用 \n，single_line 用 separator（套首段字号 + follow 颜色）。
+        let join_str = if layout == "two_line" { "\n".to_string() } else { separator.clone() };
+        let join_font = segments.first().map(|s| s.font_size).unwrap_or(TRAY_FONT_SIZE);
+        let follow_color = TrayColor::default(); // mode=follow
+
+        let result = NSMutableAttributedString::new();
+        for (idx, seg) in segments.iter().enumerate() {
+            if idx > 0 && !join_str.is_empty() {
+                let sep_part = make_part(&join_str, join_font, &follow_color);
+                result.appendAttributedString(&sep_part);
+            }
+            let part = make_part(&seg.text, seg.font_size, &seg.color);
+            result.appendAttributedString(&part);
+        }
+
+        button.setAttributedTitle(&result);
         Ok(())
     })
     .map_err(|e| e.to_string())?
@@ -1395,21 +1530,28 @@ fn refresh_tray_menu(app: &tauri::AppHandle) -> Result<(), String> {
     // 非 macOS 平台仅 menu item 降级（不调 set_title / set_icon）。
     #[cfg(target_os = "macos")]
     {
-        match tray_quota_text(app) {
-            Some(text) => {
-                tray.set_icon(None).map_err(|e| e.to_string())?; // 隐藏 logo
-                // 先 set_title 兜底（保证有文字），再用 attributedTitle 覆盖为小字。
-                // attributedTitle 失败（拿不到 button 等）则保留 set_title 的默认字号文字。
-                tray.set_title(Some(&text)).map_err(|e| e.to_string())?;
-                if let Err(e) = set_tray_attributed_title(&tray, text) {
-                    tracing::warn!("tray attributed title failed, fallback to default font: {e}");
-                }
+        let segments = tray_segments(app);
+        if segments.is_empty() {
+            // 无 enabled item → 恢复 logo + 清空 title
+            tray.set_icon(app.default_window_icon().cloned())
+                .map_err(|e| e.to_string())?;
+            tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
+        } else {
+            let (mut layout, separator) = tray_layout(app);
+            // two_line 仅支持 ≤2 项；>2 项 fallback 单行拼接（见 research/01 行数上限 2）。
+            if layout == "two_line" && segments.len() > 2 {
+                layout = "single_line".to_string();
             }
-            None => {
-                // 恢复 logo + 清空 title
-                tray.set_icon(app.default_window_icon().cloned())
-                    .map_err(|e| e.to_string())?;
-                tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
+            tray.set_icon(None).map_err(|e| e.to_string())?; // 隐藏 logo
+            // 先 set_title 兜底（保证有文字），再用 attributedTitle 覆盖为多段小字。
+            // attributedTitle 失败（拿不到 button 等）则保留 set_title 的默认字号文字。
+            let fallback_text = {
+                let join = if layout == "two_line" { "\n" } else { separator.as_str() };
+                segments.iter().map(|s| s.text.as_str()).collect::<Vec<_>>().join(join)
+            };
+            tray.set_title(Some(&fallback_text)).map_err(|e| e.to_string())?;
+            if let Err(e) = set_tray_attributed_title(&tray, segments, layout, separator) {
+                tracing::warn!("tray attributed title failed, fallback to default font: {e}");
             }
         }
     }
@@ -1516,6 +1658,9 @@ pub fn run() {
             platform_delete,
             platform_set_tray,
             platform_fetch_models,
+            // Tray Config
+            tray_config_get,
+            tray_config_set,
             // Group
             group_create,
             group_list,
