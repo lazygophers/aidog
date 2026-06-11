@@ -4150,6 +4150,7 @@ export function Settings() {
 
   // Active section tab
   const [activeTab, setActiveTab] = useState("core");
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Render a single section's content (no card wrapper — card is the content pane)
   const renderSectionContent = (section: typeof SECTIONS[number]) => {
@@ -4354,59 +4355,101 @@ export function Settings() {
         </div>
       )}
 
-      {/* GUI mode — top tabs + content */}
+      {/* GUI mode — VS Code sidebar + content */}
       {mode === "gui" && (
-        <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
-          {/* Top tab bar */}
-          <nav
-            style={{
-              display: "flex",
-              flexWrap: "wrap",
-              gap: 0,
-              flexShrink: 0,
-              borderBottom: "1px solid var(--border)",
-              marginBottom: 0,
-            }}
-          >
-            {SECTIONS.map((section) => {
-              const visibleFields = section.fields.filter((f) => !f.skipGui);
-              const alwaysShow = ["hooks", "plugins", "sandbox", "permissions", "env", "status"].includes(section.id);
-              if (visibleFields.length === 0 && !alwaysShow) return null;
-              const isActive = activeTab === section.id;
-              return (
-                <button
-                  key={section.id}
-                  type="button"
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "10px 16px",
-                    fontSize: F.body,
-                    fontWeight: isActive ? 600 : 400,
-                    color: isActive ? "var(--accent)" : "var(--text-secondary)",
-                    background: "transparent",
-                    border: "none",
-                    borderBottom: isActive ? "2px solid var(--accent)" : "2px solid transparent",
-                    cursor: "pointer",
-                    whiteSpace: "nowrap",
-                    transition: "all 150ms",
-                  }}
-                  onClick={() => setActiveTab(section.id)}
-                >
-                  <SectionIcon name={section.id} size={15} />
-                  <span>{t(section.labelKey)}</span>
-                </button>
-              );
-            })}
-          </nav>
+        <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
+          {/* ── Left sidebar ── */}
+          <aside style={{
+            width: 220,
+            flexShrink: 0,
+            display: "flex",
+            flexDirection: "column",
+            borderRight: "1px solid var(--border)",
+            background: "var(--bg-glass)",
+            overflow: "hidden",
+          }}>
+            {/* Search */}
+            <div style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>
+              <div style={{ position: "relative" }}>
+                <SvgIcon d="M11 3a8 8 0 1 0 0 16 8 8 0 0 0 0-16Z M21 21l-4.35-4.35" size={14}
+                  style={{ position: "absolute", left: 8, top: "50%", transform: "translateY(-50%)", color: "var(--text-tertiary)" }} />
+                <input className="input" style={{ fontSize: F.hint, padding: "6px 10px 6px 28", width: "100%" }}
+                  placeholder={t("settings.search", "搜索设置…")}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)} />
+                {searchQuery && (
+                  <button type="button" style={{
+                    position: "absolute", right: 4, top: "50%", transform: "translateY(-50%)",
+                    background: "none", border: "none", cursor: "pointer", color: "var(--text-tertiary)", fontSize: 12,
+                  }} onClick={() => setSearchQuery("")}>×</button>
+                )}
+              </div>
+            </div>
 
-          {/* Content pane */}
-          <div
-            className="glass-surface"
+            {/* Nav list */}
+            <nav style={{ flex: 1, overflowY: "auto", padding: "6px 0" }}>
+              {SECTIONS.map((section) => {
+                const visibleFields = section.fields.filter((f) => !f.skipGui);
+                const alwaysShow = ["hooks", "plugins", "sandbox", "permissions", "env", "status"].includes(section.id);
+                if (visibleFields.length === 0 && !alwaysShow) return null;
+
+                // Filter by search query
+                if (searchQuery) {
+                  const q = searchQuery.toLowerCase();
+                  const sectionMatch = t(section.labelKey).toLowerCase().includes(q);
+                  const fieldMatch = section.fields.some(f =>
+                    f.key.toLowerCase().includes(q) ||
+                    f.label.toLowerCase().includes(q) ||
+                    (f.description ?? "").toLowerCase().includes(q),
+                  );
+                  if (!sectionMatch && !fieldMatch) return null;
+                }
+
+                const isActive = activeTab === section.id;
+                return (
+                  <button
+                    key={section.id}
+                    type="button"
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      width: "100%",
+                      padding: "8px 14px",
+                      fontSize: F.body,
+                      fontWeight: isActive ? 600 : 400,
+                      color: isActive ? "var(--accent)" : "var(--text-secondary)",
+                      background: isActive ? "var(--accent-subtle, rgba(0,122,255,0.08))" : "transparent",
+                      border: "none",
+                      borderLeft: isActive ? "3px solid var(--accent)" : "3px solid transparent",
+                      cursor: "pointer",
+                      textAlign: "left",
+                      transition: "all 100ms ease",
+                    }}
+                    onClick={() => setActiveTab(section.id)}
+                    onMouseEnter={(e) => {
+                      if (!isActive) e.currentTarget.style.background = "var(--bg-glass)";
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) e.currentTarget.style.background = "transparent";
+                    }}
+                  >
+                    <SectionIcon name={section.id} size={15} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {t(section.labelKey)}
+                    </span>
+                  </button>
+                );
+              })}
+            </nav>
+          </aside>
+
+          {/* ── Right content pane ── */}
+          <main
             style={{
               flex: 1,
               minWidth: 0,
               padding: S.pad,
-              borderRadius: "0 0 var(--radius-lg) var(--radius-lg)",
               overflowY: "auto",
             }}
           >
@@ -4486,7 +4529,7 @@ export function Settings() {
                 </div>
               );
             })()}
-          </div>
+          </main>
         </div>
       )}
 
