@@ -215,6 +215,13 @@ export function Logs() {
     return () => clearInterval(id);
   }, [detail?.id]);
 
+  // Build platform lookup — must run before any conditional return to keep hook order stable
+  const platformMap = useMemo(() => {
+    const m = new Map<number, string>();
+    platforms.forEach(p => m.set(p.id, p.name));
+    return m;
+  }, [platforms]);
+
   // ── Detail view ──
   if (detail) {
     const reqHeaders = safeParseJson(detail.request_headers);
@@ -314,13 +321,6 @@ export function Logs() {
   // ── List view ──
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
-
-  // Build platform lookup
-  const platformMap = useMemo(() => {
-    const m = new Map<number, string>();
-    platforms.forEach(p => m.set(p.id, p.name));
-    return m;
-  }, [platforms]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
