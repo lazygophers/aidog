@@ -245,5 +245,7 @@
   "platform.newapiBalanceKey": "رمز استعلام الرصيد",
   "platform.newapiBalanceKeyPlaceholder": "sess-xxxx أو رمز الوصول",
   "platform.newapiUserId": "معرف المستخدم",
-  "platform.newapiUserIdPlaceholder": "معرف رقمي (اختياري)"
+  "platform.newapiUserIdPlaceholder": "معرف رقمي (اختياري)",
+  "platform.newapiBalanceUrl": "رابط استعلام الرصيد",
+  "platform.newapiBalanceUrlPlaceholder": "https://your-newapi-instance.com"
 }

@@ -406,5 +406,7 @@
   "platform.newapiBalanceKey": "余额查询 Token",
   "platform.newapiBalanceKeyPlaceholder": "sess-xxxx 或 access token",
   "platform.newapiUserId": "用户 ID",
-  "platform.newapiUserIdPlaceholder": "数字 ID（可选）"
+  "platform.newapiUserIdPlaceholder": "数字 ID（可选）",
+  "platform.newapiBalanceUrl": "余额查询地址",
+  "platform.newapiBalanceUrlPlaceholder": "https://your-newapi-instance.com"
 }

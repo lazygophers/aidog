@@ -245,5 +245,7 @@
   "platform.newapiBalanceKey": "Guthaben-Token",
   "platform.newapiBalanceKeyPlaceholder": "sess-xxxx oder Access-Token",
   "platform.newapiUserId": "Benutzer-ID",
-  "platform.newapiUserIdPlaceholder": "Numerische ID (optional)"
+  "platform.newapiUserIdPlaceholder": "Numerische ID (optional)",
+  "platform.newapiBalanceUrl": "Guthaben-Abfrage-URL",
+  "platform.newapiBalanceUrlPlaceholder": "https://your-newapi-instance.com"
 }

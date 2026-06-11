@@ -245,5 +245,7 @@
   "platform.newapiBalanceKey": "残高照会トークン",
   "platform.newapiBalanceKeyPlaceholder": "sess-xxxx またはアクセストークン",
   "platform.newapiUserId": "ユーザーID",
-  "platform.newapiUserIdPlaceholder": "数値ID（任意）"
+  "platform.newapiUserIdPlaceholder": "数値ID（任意）",
+  "platform.newapiBalanceUrl": "残高照会URL",
+  "platform.newapiBalanceUrlPlaceholder": "https://your-newapi-instance.com"
 }

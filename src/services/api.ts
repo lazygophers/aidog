@@ -80,6 +80,8 @@ export const DEFAULT_MOCK_CONFIG: MockConfig = {
 
 /** New API 平台余额查询配置（持久化在 platform.extra 的 `newapi` 子对象内） */
 export interface NewApiConfig {
+  /** 余额查询专用 API 地址（独立于主 base_url） */
+  balance_base_url: string;
   /** 余额查询专用 API key（独立于主 api_key） */
   balance_api_key: string;
   /** 用户 ID（用于 New-Api-User 请求头） */
@@ -87,6 +89,7 @@ export interface NewApiConfig {
 }
 
 export const DEFAULT_NEWAPI_CONFIG: NewApiConfig = {
+  balance_base_url: "",
   balance_api_key: "",
   user_id: "",
 };

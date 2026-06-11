@@ -245,5 +245,7 @@
   "platform.newapiBalanceKey": "Токен баланса",
   "platform.newapiBalanceKeyPlaceholder": "sess-xxxx или access token",
   "platform.newapiUserId": "ID пользователя",
-  "platform.newapiUserIdPlaceholder": "Числовой ID (необязательно)"
+  "platform.newapiUserIdPlaceholder": "Числовой ID (необязательно)",
+  "platform.newapiBalanceUrl": "URL запроса баланса",
+  "platform.newapiBalanceUrlPlaceholder": "https://your-newapi-instance.com"
 }

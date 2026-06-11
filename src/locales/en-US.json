@@ -287,5 +287,7 @@
   "platform.newapiBalanceKey": "Balance Token",
   "platform.newapiBalanceKeyPlaceholder": "sess-xxxx or access token",
   "platform.newapiUserId": "User ID",
-  "platform.newapiUserIdPlaceholder": "Numeric ID (optional)"
+  "platform.newapiUserIdPlaceholder": "Numeric ID (optional)",
+  "platform.newapiBalanceUrl": "Balance Query URL",
+  "platform.newapiBalanceUrlPlaceholder": "https://your-newapi-instance.com"
 }

@@ -467,14 +467,16 @@ pub async fn query_quota(base_url: &str, api_key: &str) -> PlatformQuota {
 // 认证: Bearer <balance_api_key> + New-Api-User: <user_id>
 
 /// 从 platform.extra JSON 解析 New API 配置
-pub fn parse_newapi_extra(extra: &str) -> Option<(String, String)> {
+/// Returns (balance_base_url, balance_api_key, user_id)
+pub fn parse_newapi_extra(extra: &str) -> Option<(String, String, String)> {
     if extra.trim().is_empty() { return None; }
     let obj: serde_json::Value = serde_json::from_str(extra).ok()?;
     let newapi = obj.get("newapi")?;
+    let base_url = newapi.get("balance_base_url").and_then(|v| v.as_str()).unwrap_or("").to_string();
     let key = newapi.get("balance_api_key").and_then(|v| v.as_str())?.to_string();
     let uid = newapi.get("user_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
     if key.is_empty() { return None; }
-    Some((key, uid))
+    Some((base_url, key, uid))
 }
 
 async fn query_newapi_balance(base_url: &str, balance_api_key: &str, user_id: &str) -> PlatformQuota {
@@ -543,11 +545,14 @@ async fn query_newapi_balance(base_url: &str, balance_api_key: &str, user_id: &s
     }
 }
 
-/// New API 余额查询入口（需要 extra 中的独立 balance key）
-pub async fn query_quota_newapi(base_url: &str, extra: &str) -> PlatformQuota {
+/// New API 余额查询入口（需要 extra 中的独立 balance key + balance base url）
+pub async fn query_quota_newapi(_base_url: &str, extra: &str) -> PlatformQuota {
     match parse_newapi_extra(extra) {
-        Some((balance_key, user_id)) => {
-            query_newapi_balance(base_url, &balance_key, &user_id).await
+        Some((balance_base_url, balance_key, user_id)) => {
+            if balance_base_url.is_empty() {
+                return err_quota("New API: missing balance_base_url in extra");
+            }
+            query_newapi_balance(&balance_base_url, &balance_key, &user_id).await
         }
         None => err_quota("New API: missing balance_api_key in extra"),
     }

@@ -245,5 +245,7 @@
   "platform.newapiBalanceKey": "Jeton de solde",
   "platform.newapiBalanceKeyPlaceholder": "sess-xxxx ou jeton d'accès",
   "platform.newapiUserId": "ID utilisateur",
-  "platform.newapiUserIdPlaceholder": "ID numérique (facultatif)"
+  "platform.newapiUserIdPlaceholder": "ID numérique (facultatif)",
+  "platform.newapiBalanceUrl": "URL requête solde",
+  "platform.newapiBalanceUrlPlaceholder": "https://your-newapi-instance.com"
 }

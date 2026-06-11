@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, trayApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, DEFAULT_MOCK_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, trayApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig } from "../services/api";
 import { getPlatformLogo } from "../assets/platforms";
 
 /** 从 base_url 提取 origin，用于 favicon 回退 */
@@ -876,7 +876,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // Mock 平台配置（持久化到 platform.extra 的 mock 子对象）
   const [extra, setExtra] = useState("");
   const [mockConfig, setMockConfig] = useState<MockConfig>({ ...DEFAULT_MOCK_CONFIG });
-  const [newApiConfig, setNewApiConfig] = useState<NewApiConfig>({ balance_api_key: "", user_id: "" });
+  const [newApiConfig, setNewApiConfig] = useState<NewApiConfig>({ ...DEFAULT_NEWAPI_CONFIG });
 
   const isMock = protocol === "mock";
   // Claude Code 订阅纯透传：客户端自带订阅 OAuth 认证，aidog 原样转发。
@@ -984,7 +984,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
     setShowClaudeConfig(false); setClaudeConfigJson("");
     setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
-    setNewApiConfig({ balance_api_key: "", user_id: "" });
+    setNewApiConfig({ ...DEFAULT_NEWAPI_CONFIG });
   };
 
   const handleEdit = async (p: Platform) => {
@@ -1246,7 +1246,18 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 {t("platform.newapiBalanceConfig", "余额查询配置")}
               </div>
               <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
-                {t("platform.newapiBalanceHint", "查询余额需要独立的 Token（从控制台获取），与 API Key 不同")}
+                {t("platform.newapiBalanceHint", "查询余额需要独立的地址和 Token（从控制台获取），与 API Key 不同")}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                  {t("platform.newapiBalanceUrl", "余额查询地址")}
+                </div>
+                <input
+                  className="input"
+                  placeholder={t("platform.newapiBalanceUrlPlaceholder", "https://your-newapi-instance.com")}
+                  value={newApiConfig.balance_base_url}
+                  onChange={(e) => setNewApiConfig(prev => ({ ...prev, balance_base_url: e.target.value }))}
+                />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
