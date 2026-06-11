@@ -69,13 +69,22 @@ export function Logs() {
   // Check if any filter is active
   const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModelText.trim());
 
-  // Collect unique models from current logs for model filter dropdown
-  const modelOptions = useMemo(() => {
-    const col = filterModelType === "actual" ? "actual_model" : "model";
-    const set = new Set<string>();
-    logs.forEach(l => { if (l[col]) set.add(l[col]); });
-    return Array.from(set).sort();
-  }, [logs, filterModelType]);
+  // Collect unique models from ALL loaded logs (across pages) for suggestions.
+  // Fetch a large unfiltered batch once to populate suggestions without being
+  // affected by the current filter selection.
+  const [modelSuggestions, setModelSuggestions] = useState<string[]>([]);
+  useEffect(() => {
+    (async () => {
+      try {
+        // Fetch a large sample without model filter to get diverse suggestions
+        const items = await proxyLogApi.list(200, 0);
+        const col = filterModelType === "actual" ? "actual_model" : "model";
+        const set = new Set<string>();
+        (items || []).forEach(l => { if ((l as any)[col]) set.add((l as any)[col]); });
+        setModelSuggestions(Array.from(set).sort());
+      } catch { /* ignore */ }
+    })();
+  }, [filterModelType]);
 
   const copyDetail = async (d: ProxyLogDetail) => {
     const fj = (s: string) => {
@@ -389,13 +398,28 @@ export function Logs() {
             onClick={() => setFilterModelType("original")}
           >{t("logs.model", "原始模型")}</button>
         </div>
-        {/* Model text / select */}
-        <FilterSelect
-          value={filterModelText}
-          onChange={setFilterModelText}
-          options={modelOptions.map(m => ({ value: m, label: m }))}
-          placeholder={t("logs.filterModel", "模型")}
-        />
+        {/* Model text input with suggestions */}
+        <div style={{ position: "relative" }}>
+          <input
+            list="model-suggestions"
+            className="input"
+            value={filterModelText}
+            onChange={e => setFilterModelText(e.target.value)}
+            placeholder={t("logs.filterModel", "模型")}
+            style={{
+              fontSize: F.small,
+              padding: "4px 8px",
+              width: 140,
+              borderRadius: 6,
+              border: "1px solid var(--border)",
+              background: "var(--bg-secondary, rgba(255,255,255,0.05))",
+              color: "var(--text-primary)",
+            }}
+          />
+          <datalist id="model-suggestions">
+            {modelSuggestions.map(m => <option key={m} value={m} />)}
+          </datalist>
+        </div>
         {/* Clear */}
         {hasFilter && (
           <button className="btn btn-ghost" onClick={clearFilter} style={{ fontSize: F.small, padding: "2px 8px", color: "var(--text-tertiary)" }}>
@@ -471,20 +495,14 @@ export function Logs() {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
-              <button className="btn" disabled={currentPage <= 1}
-                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>
-                ←
-              </button>
-              <span className="text-secondary" style={{ fontSize: F.hint }}>
-                {currentPage} / {totalPages}
-              </span>
-              <button className="btn" disabled={currentPage >= totalPages}
-                onClick={() => setOffset(offset + PAGE_SIZE)}>
-                →
-              </button>
-            </div>
+          {total > 0 && (
+            <Pagination
+              currentPage={currentPage}
+              totalPages={totalPages}
+              total={total}
+              pageSize={PAGE_SIZE}
+              onPageChange={page => setOffset((page - 1) * PAGE_SIZE)}
+            />
           )}
         </>
       )}
@@ -496,6 +514,68 @@ export function Logs() {
 
 function safeParseJson(str: string): any {
   try { return JSON.parse(str); } catch { return str; }
+}
+
+/** 分页导航：首页/上一页/页码按钮/下一页/末页 + 总数 */
+function Pagination({
+  currentPage, totalPages, total, pageSize, onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  total: number;
+  pageSize: number;
+  onPageChange: (page: number) => void;
+}) {
+  const rangeStart = (currentPage - 1) * pageSize + 1;
+  const rangeEnd = Math.min(currentPage * pageSize, total);
+
+  // Generate page buttons: show at most 7 buttons with ellipsis
+  const pages: (number | "ellipsis")[] = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    if (currentPage > 3) pages.push("ellipsis");
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push("ellipsis");
+    pages.push(totalPages);
+  }
+
+  const btnStyle: React.CSSProperties = {
+    fontSize: 12, padding: "4px 8px", minWidth: 28, textAlign: "center",
+  };
+
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      <span className="text-tertiary" style={{ fontSize: 12 }}>
+        {rangeStart}–{rangeEnd} / {total}
+      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage <= 1}
+          onClick={() => onPageChange(1)} title="First">⟪</button>
+        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage <= 1}
+          onClick={() => onPageChange(currentPage - 1)}>←</button>
+        {pages.map((p, i) =>
+          p === "ellipsis" ? (
+            <span key={`e${i}`} className="text-tertiary" style={{ fontSize: 12, padding: "0 4px" }}>…</span>
+          ) : (
+            <button key={p} className={`btn ${p === currentPage ? "" : "btn-ghost"}`}
+              style={{
+                ...btnStyle,
+                ...(p === currentPage ? { fontWeight: 700, color: "var(--accent)" } : {}),
+              }}
+              onClick={() => onPageChange(p)}>{p}</button>
+          ),
+        )}
+        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(currentPage + 1)}>→</button>
+        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(totalPages)} title="Last">⟫</button>
+      </div>
+    </div>
+  );
 }
 
 /** 通用筛选下拉 */
