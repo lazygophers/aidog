@@ -593,6 +593,7 @@ async fn model_test(
             input_tokens: in_tok,
             output_tokens: out_tok,
             cache_tokens: 0,
+            est_cost: 0.0,
             created_at,
             updated_at: created_at,
             deleted_at: 0,

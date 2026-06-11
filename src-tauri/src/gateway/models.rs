@@ -629,6 +629,9 @@ pub struct ProxyLog {
     pub input_tokens: i32,
     pub output_tokens: i32,
     pub cache_tokens: i32,
+    /// 预估花费（$），基于 model_price 定价
+    #[serde(default)]
+    pub est_cost: f64,
     pub created_at: i64,
     #[serde(default)]
     pub updated_at: i64,

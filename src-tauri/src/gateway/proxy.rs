@@ -90,6 +90,11 @@ fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettin
         log.upstream_request_body = String::new();
         log.upstream_response_headers = String::new();
     }
+    // Calculate est_cost from model_price if tokens are present
+    if log.est_cost == 0.0 && (log.input_tokens > 0 || log.output_tokens > 0) {
+        let model_name = if log.actual_model.is_empty() { &log.model } else { &log.actual_model };
+        log.est_cost = super::db::calc_est_cost(&state.db, model_name, log.input_tokens, log.output_tokens, log.cache_tokens);
+    }
     let _ = super::db::upsert_proxy_log(&state.db, &log);
 }
 
@@ -211,6 +216,7 @@ async fn handle_proxy(
         input_tokens: 0,
         output_tokens: 0,
         cache_tokens: 0,
+        est_cost: 0.0,
         created_at,
         updated_at: created_at,
         deleted_at: 0,

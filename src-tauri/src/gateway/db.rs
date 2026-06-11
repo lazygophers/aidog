@@ -64,6 +64,8 @@ impl Db {
         let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
         // Migration 007: platform 排序权重
         let _ = conn.execute("ALTER TABLE platform ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
+        // Migration 008: proxy_log 预估花费列
+        let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN est_cost REAL NOT NULL DEFAULT 0", []);
         Ok(())
     }
 }
@@ -512,6 +514,44 @@ pub fn today_stats(db: &Db) -> Result<TodayStats, String> {
     })
 }
 
+/// 根据 model_price 定价计算单次请求预估花费（$）
+pub fn calc_est_cost(db: &Db, model_name: &str, input_tokens: i32, output_tokens: i32, cache_tokens: i32) -> f64 {
+    let conn = db.0.lock().unwrap();
+    let price: Option<(f64, f64, f64)> = conn
+        .query_row(
+            "SELECT price_data FROM model_price WHERE model_name = ?1 AND deleted_at = 0 LIMIT 1",
+            params![model_name],
+            |row| {
+                let pd: String = row.get(0)?;
+                let v: serde_json::Value = serde_json::from_str(&pd).unwrap_or_default();
+                let inp_cost = v.get("input_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let out_cost = v.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                let cache_cost = v.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
+                if inp_cost == 0.0 && out_cost == 0.0 {
+                    if let Some(dp) = v.get("default_platform").and_then(|v| v.as_str()) {
+                        if let Some(pn) = v.get("pricing").and_then(|p| p.get(dp)) {
+                            return Ok(Some((
+                                pn.get("input_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                                pn.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                                pn.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0),
+                            )));
+                        }
+                    }
+                }
+                Ok(Some((inp_cost, out_cost, cache_cost)))
+            },
+        )
+        .ok()
+        .flatten();
+
+    match price {
+        Some((inp_cost, out_cost, cache_cost)) => {
+            input_tokens as f64 * inp_cost + output_tokens as f64 * out_cost + cache_tokens as f64 * cache_cost
+        }
+        None => 0.0,
+    }
+}
+
 // ─── Group CRUD ────────────────────────────────────────────
 
 /// 序列化 / 反序列化内联 model_mappings
@@ -847,7 +887,7 @@ pub fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
 
 /// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
 const PROXY_LOG_COLUMNS: &str =
-    "id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at, updated_at, deleted_at";
+    "id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, created_at, updated_at, deleted_at";
 
 /// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
 fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
@@ -875,9 +915,10 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
         input_tokens: row.get(20)?,
         output_tokens: row.get(21)?,
         cache_tokens: row.get(22)?,
-        created_at: row.get(23)?,
-        updated_at: row.get(24)?,
-        deleted_at: row.get(25)?,
+        est_cost: row.get(23)?,
+        created_at: row.get(24)?,
+        updated_at: row.get(25)?,
+        deleted_at: row.get(26)?,
     })
 }
 
@@ -886,8 +927,8 @@ pub fn upsert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<(), St
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
         &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26)"),
-        params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.created_at, log.updated_at, log.deleted_at],
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27)"),
+        params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.created_at, log.updated_at, log.deleted_at],
     ).map_err(|e| format!("upsert proxy log: {e}"))?;
     Ok(())
 }
@@ -1612,6 +1653,7 @@ mod tests {
             input_tokens: 10,
             output_tokens: 20,
             cache_tokens: 0,
+            est_cost: 0.0,
             created_at,
             updated_at: created_at,
             deleted_at: 0,
