@@ -108,6 +108,13 @@ Phase 3: 收尾   → 沉淀经验 + 收尾
 无活跃任务。**A 直接回答** — 纯问答 / 解释 / 查询 / 闲聊；无文件写入 + 一行回答 + 仓库文件读取 ≤ 2 → AI 自行判断，无需覆盖。
 **B 创建任务** — 任何实现 / 代码变更 / 构建 / 重构工作。入口序列：(1) `python3 ./.trellis/scripts/task.py create "<title>"` 创建任务 (status=planning, 面包屑切换到 [workflow-state:planning] 进入头脑风暴 + jsonl 阶段指引) → (2) 加载 `trellis-brainstorm` skill 与用户讨论需求并迭代 prd.md → (3) prd 完成且 jsonl 已策划后，运行 `task.py start <task-dir>` 切换到 [workflow-state:in_progress] 进入实施骨架。**"看起来很小" 不是把 B 降级为 A 或 C 的理由**。
 **C 内联变更** (仅当前轮，B 的逃生舱) — 用户**当前消息**必须包含以下之一："skip trellis" / "no task" / "just do it" / "don't create a task" / "跳过 trellis" / "别走流程" / "小修一下" / "直接改" / "先别建任务" → 简短确认 ("ok, 跳过 trellis 流程")，然后内联处理。**没有看到这些短语时，不得自行内联**；不要编造用户从未说过的覆盖指令。
+<!-- trellisx:start:no_task -->
+trellisx 倾向 (强化上方原生判定, 不替换): 本项目偏好更多使用 Trellis task。
+- 涉及代码改动 / 多步骤 / 跨文件 的请求 → **倾向建 task** (而非直接 inline 处理)。
+- 边界模糊 (拿不准该不该建 task, 或 simple 还是 complex) → **MUST 主动用 AskUserQuestion 问用户** "本轮是否创建 Trellis task?", 禁默认跳过 / 禁自行替用户决定。
+- 仅纯问答 / 查询 / 单行琐改 可不建 (仍可问)。
+原生的「先分类 + 征得同意才建」不变 — 只是倾向更偏建 task, 且不确定时必问。
+<!-- trellisx:end:no_task -->
 [/workflow-state:no_task]
 
 ### Phase 1: 规划
@@ -123,7 +130,13 @@ Phase 3: 收尾   → 沉淀经验 + 收尾
 Phase 1.3 (required, once): 在 `task.py start` 之前，必须策划 `implement.jsonl` 和 `check.jsonl` — 列出 sub-agent 需要的 spec / research 文件，确保注入正确上下文。只有当 jsonl 已有 agent 策划的条目时才可跳过（仅有一个 `_example` 种子行不算）。
 然后运行 `task.py start <task-dir>` 将 status 切换到 in_progress。
 <!-- trellisx:start:planning -->
-⛔ trellisx 规划硬规: 任务 MUST 拆 ≥ 2 subtask, 每 subtask 独立文件 .trellis/tasks/<task>/subtask/<id>-<slug>.md。PRD MUST 含 mermaid 调度图, **显式标并行组** (无依赖 subtask 归同批同时跑) + 依赖箭头。拆分目标 = 最大化可并行 subtask 数, 缩短关键路径。每 subtask 必须可独立派给一个 agent 执行。详见 trellisx-orchestrate skill。
+trellisx 规划规约 (启用判定跟随 trellis 原生 parent/child 语义, 不看数量):
+
+判定: 本请求是否含**多个独立可验收交付** (各自可独立 plan/implement/check/archive)?
+- **是 (多交付)** → 拆为 parent + child tasks (trellis 原生 `task.py create --parent`)。每个 child 独立 worktree; 无依赖的 child MUST 并行执行 (同一回复一次性派多 agent)。PRD MUST 含 mermaid 调度图显式标并行组 + 依赖箭头。child 间依赖写进 child 自己的 prd.md/implement.md (非树位置隐含)。
+- **否 (单一交付)** → 轻量单 task inline, **不强制拆 subtask**。仍走单 worktree 隔离。
+
+拆分目的 = 让独立可验收交付各自隔离 + 最大化并行, 缩短关键路径; 不是为凑数量。详见 trellisx-orchestrate skill。
 <!-- trellisx:end:planning -->
 [/workflow-state:planning]
 
@@ -148,11 +161,10 @@ Phase 1.3 jsonl 策划在 inline dispatch 模式下**跳过** — 主会话在 P
 <!-- trellisx:start:in_progress -->
 ⛔ trellisx 执行硬规 (本 task 必守, 违反即流程错误):
 
-1. **强制 worktree**: 本 task 全部源码改动 MUST 落在 worktree (git 根/子仓 .worktrees/<worktree>, trellis 生命周期 hook 已自动建)。**禁在主工作区写源码** — 写盘 file_path 必须是 worktree 路径。
-2. **强制派 agent**: 每个 subtask 的实施 MUST 派 sub-agent (isolation:worktree) 或 agent-team 成员执行。**main 禁直接写源码** — main 只拆分 / 派发 / 收集 / 合并 / 协调。
-3. **强制异步并行**: 无依赖的 subtask MUST 在同一条回复里一次性发起多个 sub-agent 调用 (Claude Code 同消息多 Agent = 真并行)。**禁逐个串行派** (串行 = 耗时叠加)。有依赖的按调度图顺序。
-4. **强制按调度图**: 严格按 PRD 调度图的依赖 + 并行组执行, 禁跳步。
-5. 收每个 agent 返回立即回传用户进度; task archive 时 worktree 干净则自动销毁。
+1. **强制 worktree** (两种模式都守): 本 task 全部源码改动 MUST 落在 worktree (git 根/子仓 .worktrees/<worktree>, trellis 生命周期 hook 已自动建)。**禁在主工作区写源码** — 写盘 file_path 必须是 worktree 路径。
+2. **多交付并行模式** (本请求拆了 parent + child tasks): 每个 child MUST 派 sub-agent (isolation:worktree) 或 agent-team 成员执行, **main 禁直接写源码** (只拆分/派发/收集/合并/协调)。无依赖的 child MUST 在同一条回复里一次性发起多个 agent 调用 (真并行), 禁逐个串行派。严格按 PRD 调度图依赖 + 并行组执行, 禁跳步。
+3. **单一交付轻量模式** (单 task 未拆 child): main 可在 worktree 内直接 edit 实施, 无需派 agent。仍守第 1 条 (写盘路径在 worktree)。
+4. 收每个 agent 返回立即回传用户进度; task archive 时 worktree 干净则自动销毁。
 <!-- trellisx:end:in_progress -->
 [/workflow-state:in_progress]
 
