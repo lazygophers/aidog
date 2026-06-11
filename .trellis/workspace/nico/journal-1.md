@@ -252,3 +252,37 @@ platform +show_in_tray/tray_display(互斥单平台), migration 005; set_tray_pl
 ### Next Steps
 
 - None - task complete
+
+
+## Session 8: 修复流式 proxy_log token=0
+
+**Date**: 2026-06-11
+**Task**: 修复流式 proxy_log token=0
+**Branch**: `master`
+
+### Summary
+
+流式分支 upsert_log 在 axum 消费 stream 前执行致 tokens_acc=0; 在 [DONE] 闭包(est_fired 守卫)再 upsert 最终 token(INSERT OR REPLACE 覆盖)+status; 非流式不动. cargo test 50 绿.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8cdd188` | (see git log) |
+| `27d99c2` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
