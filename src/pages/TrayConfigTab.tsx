@@ -361,10 +361,10 @@ export function TrayConfigTab() {
           padding: hasTwoLine ? "4px 14px" : "2px 14px",
           minHeight: hasTwoLine ? 40 : 26, display: "flex", alignItems: "center",
           fontFamily: '"Maple Mono NF", "Maple Mono", "SF Pro Text", system-ui, sans-serif',
-          fontSize: hasTwoLine ? 13 : 18,
+          fontSize: hasTwoLine ? 11 : 15,
           fontWeight: 600,
           color: "rgba(255,255,255,0.85)", userSelect: "none",
-          marginTop: 5,
+          marginTop: 8,
         }}>
           {layout.columns.length === 0 ? (
             <span style={{ color: "rgba(255,255,255,0.35)", fontStyle: "italic" }}>
@@ -391,7 +391,7 @@ export function TrayConfigTab() {
                         pointerEvents: "none", transition: "all 150ms ease",
                         marginRight: 5,
                       }}>
-                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>{gc.label} {gc.value}</span>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>{gc.label} {gc.value}</span>
                       </span>
                     );
                   })()}
@@ -400,7 +400,7 @@ export function TrayConfigTab() {
                       display: "inline-flex", alignItems: "center", justifyContent: "center",
                       width: layout.gaps[i - 1]?.separator ? "auto" : 5,
                       padding: layout.gaps[i - 1]?.separator ? "0 5px" : 0,
-                      fontSize: 13, color: "rgba(255,255,255,0.35)",
+                      fontSize: 11, color: "rgba(255,255,255,0.35)",
                     }}>
                       {layout.gaps[i - 1]?.separator || ""}
                     </span>
@@ -436,7 +436,7 @@ export function TrayConfigTab() {
                         opacity: 0.5, filter: "grayscale(0.8)",
                         pointerEvents: "none", transition: "all 150ms ease",
                       }}>
-                        <span style={{ fontSize: 13, color: "rgba(255,255,255,0.6)" }}>{gc.label} {gc.value}</span>
+                        <span style={{ fontSize: 11, color: "rgba(255,255,255,0.6)" }}>{gc.label} {gc.value}</span>
                       </span>
                     );
                   })()}
@@ -458,14 +458,14 @@ export function TrayConfigTab() {
                     const gc = layout.columns[previewDrag!.from];
                     return (
                       <div style={{
-                        display: "flex", flexDirection: "column", alignItems: "stretch",
+                        display: "flex", flexDirection: "column", alignItems: "stretch", gap: 3,
                         padding: "2px 6px", borderRadius: 4,
                         border: "1.5px dashed rgba(255,255,255,0.5)",
                         opacity: 0.5, filter: "grayscale(0.8)",
                         pointerEvents: "none", transition: "all 150ms ease",
                         marginRight: 5,
                       }}>
-                        <div style={{ fontSize: 13, lineHeight: "14px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                        <div style={{ fontSize: 11, lineHeight: "12px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
                           {gc.isTwo ? gc.label : `${gc.label} ${gc.value}`}
                         </div>
                         {gc.isTwo && (
@@ -481,7 +481,7 @@ export function TrayConfigTab() {
                       display: "flex", alignItems: "center", justifyContent: "center",
                       width: layout.gaps[i - 1]?.separator ? "auto" : 5,
                       padding: layout.gaps[i - 1]?.separator ? "0 5px" : 0,
-                      fontSize: 13, color: "rgba(255,255,255,0.35)", height: "100%",
+                      fontSize: 11, color: "rgba(255,255,255,0.35)", height: "100%",
                     }}>
                       {layout.gaps[i - 1]?.separator || ""}
                     </div>
@@ -489,7 +489,7 @@ export function TrayConfigTab() {
                   <div
                     data-preview-col={i}
                     style={{
-                      display: "flex", flexDirection: "column", alignItems: "stretch",
+                      display: "flex", flexDirection: "column", alignItems: "stretch", gap: 3,
                       cursor: "grab", padding: "2px 4px", borderRadius: 4,
                       opacity: previewDrag
                         ? pIsDragging ? 0
@@ -504,7 +504,7 @@ export function TrayConfigTab() {
                     onPointerUp={handlePreviewPointerUp}
                     onClick={(e) => handlePreviewClick(i, e.currentTarget)}
                   >
-                    <div style={{ textAlign: cssAlign(col.align), fontSize: 13, lineHeight: "14px", whiteSpace: "nowrap" }}>
+                    <div style={{ textAlign: cssAlign(col.align), fontSize: 11, lineHeight: "12px", whiteSpace: "nowrap" }}>
                       {col.isTwo ? col.label : `${col.label} ${col.value}`}
                     </div>
                     {col.isTwo && (
@@ -524,7 +524,7 @@ export function TrayConfigTab() {
                         opacity: 0.5, filter: "grayscale(0.8)",
                         pointerEvents: "none", transition: "all 150ms ease",
                       }}>
-                        <div style={{ fontSize: 13, lineHeight: "14px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
+                        <div style={{ fontSize: 11, lineHeight: "12px", whiteSpace: "nowrap", color: "rgba(255,255,255,0.6)" }}>
                           {gc.isTwo ? gc.label : `${gc.label} ${gc.value}`}
                         </div>
                         {gc.isTwo && (

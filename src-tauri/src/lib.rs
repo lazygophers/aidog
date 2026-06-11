@@ -1507,7 +1507,7 @@ fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wr
 /// 这里用 NSStatusItem button 的 attributedTitle 设小号 NSFont（参考菜单栏紧凑文字，约 9pt）。
 /// 两行（\n）由 NSFont 行高决定，配合居中段落样式保持紧凑。
 #[cfg(target_os = "macos")]
-const TRAY_FONT_SIZE: f64 = 9.0;
+const TRAY_FONT_SIZE: f64 = 8.0;
 
 /// 去除浮点数格式化尾部多余的零：10.10 → "10.1", 0.00 → "0", 965.80 → "965.8"
 fn trim_trailing_zeros(s: &str) -> String {
@@ -1631,7 +1631,7 @@ fn set_tray_attributed_title(
             NSTextAlignment::Center
         });
         let line_h = if two_line_mode {
-            TRAY_FONT_SIZE + 1.0 + 10.0 // 20.0pt — 两行，value 行额外下移 10px
+            TRAY_FONT_SIZE + 3.0 // 两行模式，行间距 3px
         } else {
             0.0 // 单行不压缩行高，使用系统默认
         };
@@ -1693,7 +1693,7 @@ fn set_tray_attributed_title(
         };
 
         // baselineOffset：两行模式需要负偏移下推居中；单行模式无需偏移。
-        let baseline_offset = NSNumber::new_f64(if two_line_mode { -2.0 } else { 0.0 });
+        let baseline_offset = NSNumber::new_f64(if two_line_mode { -5.0 } else { -3.0 });
 
         // 单行模式：每列字号覆盖为更大值（只有一行，充分利用菜单栏高度）。
         let single_line_font_size: f64 = 13.0;
