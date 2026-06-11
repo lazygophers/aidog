@@ -1631,7 +1631,7 @@ fn set_tray_attributed_title(
             NSTextAlignment::Center
         });
         let line_h = if two_line_mode {
-            TRAY_FONT_SIZE + 7.0 // 两行模式，行间距 10px
+            TRAY_FONT_SIZE + 5.0 // 两行模式，行间距 10px
         } else {
             0.0 // 单行不压缩行高，使用系统默认
         };
@@ -1693,7 +1693,7 @@ fn set_tray_attributed_title(
         };
 
         // baselineOffset：两行模式需要负偏移下推居中；单行模式无需偏移。
-        let baseline_offset = NSNumber::new_f64(if two_line_mode { -5.0 } else { -3.0 });
+        let baseline_offset = NSNumber::new_f64(if two_line_mode { -7.0 } else { -5.0 });
 
         // 单行模式：每列字号覆盖为更大值（只有一行，充分利用菜单栏高度）。
         let single_line_font_size: f64 = 13.0;
