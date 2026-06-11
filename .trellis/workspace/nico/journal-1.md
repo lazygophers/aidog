@@ -149,3 +149,37 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 5: 平台 quota 展示区分 + 统一刷新
+
+**Date**: 2026-06-11
+**Task**: 平台 quota 展示区分 + 统一刷新
+**Branch**: `master`
+
+### Summary
+
+Platforms 卡片: coding plan/余额(quota) 独立 glass-surface 分组+「额度」标签, 与 usage 统计 badge 视觉/位置区分; quota 内联刷新图标(↻ spin), 统一刷 balance+coding_plan(quotaApi.query 合查) + loading + 错误 toast, mock/claude_code 隐藏; i18n zh/en. 纯前端, tsc 0.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `c504d7b` | (see git log) |
+| `961c9ad` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

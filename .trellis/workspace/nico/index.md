@@ -8,7 +8,7 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 4
+- **Total Sessions**: 5
 - **Last Active**: 2026-06-11
 <!-- @@@/auto:current-status -->
 
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~151 | Active |
+| `journal-1.md` | ~185 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 5 | 2026-06-11 | 平台 quota 展示区分 + 统一刷新 | `c504d7b`, `961c9ad` | `master` |
 | 4 | 2026-06-11 | 修复 endpoints 前端不展示 | `540b912` | `master` |
 | 3 | 2026-06-11 | Claude Code 订阅平台（纯透传） | `7b21f33`, `3d3593b` | `master` |
 | 2 | 2026-06-11 | 添加 mock 平台类型 | `dae1c10`, `d3c2188`, `448570b`, `73fa042` | `master` |
