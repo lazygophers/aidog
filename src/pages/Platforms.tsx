@@ -1006,8 +1006,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     try {
       const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url;
       const q = p.platform_type === "newapi"
-        ? await quotaApi.queryNewapi(baseUrl, p.api_key, p.extra ?? "")
-        : await quotaApi.query(baseUrl, p.api_key);
+        ? await quotaApi.queryNewapi(baseUrl, p.api_key, p.extra ?? "", p.id)
+        : await quotaApi.query(baseUrl, p.api_key, p.id);
       if (q.success) {
         setQuotaMap((s) => ({ ...s, [p.id]: q }));
         setQuotaRealIds((s) => ({ ...s, [p.id]: true }));

@@ -235,6 +235,17 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
     Ok(updated)
 }
 
+/// 将 quota 查询结果写回 platform 表（余额 + coding plan JSON）。
+pub fn update_platform_quota(db: &Db, id: u64, balance: f64, coding_plan_json: &str) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute(
+        "UPDATE platform SET est_balance_remaining = ?1, est_coding_plan = ?2 WHERE id = ?3",
+        params![balance, coding_plan_json, id as i64],
+    )
+    .map_err(|e| format!("update platform quota: {e}"))?;
+    Ok(())
+}
+
 pub fn delete_platform(db: &Db, id: u64) -> Result<(), String> {
     // 删除关联的自动分组
     let conn_inner = db.0.lock().map_err(|e| e.to_string())?;

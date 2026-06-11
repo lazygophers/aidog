@@ -943,14 +943,40 @@ fn proxy_timeout_set(db: State<'_, Db>, settings: ProxyTimeoutSettings) -> Resul
 use gateway::quota::PlatformQuota;
 
 #[tauri::command]
-async fn platform_query_quota(base_url: String, api_key: String) -> Result<PlatformQuota, String> {
-    Ok(gateway::quota::query_quota(&base_url, &api_key).await)
+async fn platform_query_quota(
+    base_url: String, api_key: String,
+    platform_id: Option<u64>, db: State<'_, Db>,
+) -> Result<PlatformQuota, String> {
+    let q = gateway::quota::query_quota(&base_url, &api_key).await;
+    if q.success {
+        persist_quota_to_db(&db, platform_id, &q);
+    }
+    Ok(q)
 }
 
 /// New API 专用余额查询（两步：先查 token quota 类型，再按需查用户余额）
 #[tauri::command]
-async fn platform_query_quota_newapi(base_url: String, api_key: String, extra: String) -> Result<PlatformQuota, String> {
-    Ok(gateway::quota::query_quota_newapi(&base_url, &api_key, &extra).await)
+async fn platform_query_quota_newapi(
+    base_url: String, api_key: String, extra: String,
+    platform_id: Option<u64>, db: State<'_, Db>,
+) -> Result<PlatformQuota, String> {
+    let q = gateway::quota::query_quota_newapi(&base_url, &api_key, &extra).await;
+    if q.success {
+        persist_quota_to_db(&db, platform_id, &q);
+    }
+    Ok(q)
+}
+
+/// 将 quota 查询结果写回 platform 表（est_balance_remaining / est_coding_plan）。
+fn persist_quota_to_db(db: &Db, platform_id: Option<u64>, q: &PlatformQuota) {
+    let Some(pid) = platform_id else { return };
+    let balance = q.balance.as_ref().map(|b| b.remaining).unwrap_or(0.0);
+    let coding_plan_json = q.coding_plan.as_ref()
+        .map(|cp| serde_json::to_string(cp).unwrap_or_default())
+        .unwrap_or_default();
+    if let Err(e) = db::update_platform_quota(db, pid, balance, &coding_plan_json) {
+        tracing::warn!("persist quota to db failed: {e}");
+    }
 }
 
 #[tauri::command]
@@ -1292,8 +1318,8 @@ fn join_item_parts(name: &str, value: &str, line_mode: &str) -> String {
 }
 
 /// 从托盘配置生成有序渲染段（已按 order 排序、跳过 disabled、跳过取数失败项）。
-/// 菜单栏物理 ≤2 行：仅当 **恰好 1 个 enabled item** 时尊重其 line_mode；
-/// 多 item 时强制全部 single 横排（多 item 多行菜单栏无法表达）。
+/// 每段独立尊重其 line_mode（"single"/"two"）。
+/// 菜单栏物理 ≤2 行约束：统计所有段总行数（two 算 2 行），超过 2 行时从尾部逐个降级为 single。
 fn tray_segments(app: &tauri::AppHandle) -> Vec<TraySegment> {
     let Some(db) = app.try_state::<Db>() else {
         return Vec::new();
@@ -1304,12 +1330,10 @@ fn tray_segments(app: &tauri::AppHandle) -> Vec<TraySegment> {
     let mut items: Vec<&TrayItem> = config.items.iter().filter(|i| i.enabled).collect();
     items.sort_by_key(|i| i.order);
 
-    // ≤2 行约束：单 item 才允许 two；多 item 强制 single 横排。
-    let allow_two = items.len() == 1;
-
-    let mut segments = Vec::new();
+    // 先用各 item 自身的 line_mode 生成段
+    let mut segments: Vec<(TraySegment, bool)> = Vec::new(); // (segment, is_two)
     for item in items {
-        let line_mode = if allow_two && item.line_mode == "two" { "two" } else { "single" };
+        let line_mode = if item.line_mode == "two" { "two" } else { "single" };
         let text = match item.item_type.as_str() {
             "platform" => {
                 let Some(pid) = item.platform_id else { continue };
@@ -1327,13 +1351,27 @@ fn tray_segments(app: &tauri::AppHandle) -> Vec<TraySegment> {
         if text.is_empty() {
             continue;
         }
-        segments.push(TraySegment {
+        segments.push((TraySegment {
             text,
             color: item.color.clone(),
             font_size: item.font_size,
-        });
+        }, line_mode == "two"));
     }
-    segments
+
+    // ≤2 行约束：从尾部降级 two→single 直到总行数 ≤ 2
+    loop {
+        let total_lines: usize = segments.iter().map(|(_, is_two)| if *is_two { 2 } else { 1 }).sum();
+        if total_lines <= 2 { break; }
+        // 找最后一个 two-line 段降级：将段内 \n 替换为空格
+        if let Some(pos) = segments.iter().rposition(|(_, is_two)| *is_two) {
+            segments[pos].0.text = segments[pos].0.text.replace('\n', " ");
+            segments[pos].1 = false;
+        } else {
+            break; // 没有 two-line 段可降级了
+        }
+    }
+
+    segments.into_iter().map(|(seg, _)| seg).collect()
 }
 
 /// 托盘配置的分隔符（多 item 横排间隔）。
