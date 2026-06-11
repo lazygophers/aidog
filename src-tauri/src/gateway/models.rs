@@ -779,6 +779,7 @@ pub struct StatsOverview {
     pub total_cache_tokens: i64,
     pub cache_rate: f64,
     pub avg_duration_ms: f64,
+    pub total_cost: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -791,6 +792,7 @@ pub struct StatsBucket {
     pub output_tokens: i64,
     pub cache_tokens: i64,
     pub avg_duration_ms: f64,
+    pub total_cost: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -802,6 +804,7 @@ pub struct DimensionEntry {
     pub output_tokens: i64,
     pub cache_tokens: i64,
     pub avg_duration_ms: f64,
+    pub total_cost: f64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -621,6 +621,7 @@ export interface StatsOverview {
   total_cache_tokens: number;
   cache_rate: number;
   avg_duration_ms: number;
+  total_cost: number;
 }
 
 export interface StatsBucket {
@@ -632,6 +633,7 @@ export interface StatsBucket {
   output_tokens: number;
   cache_tokens: number;
   avg_duration_ms: number;
+  total_cost: number;
 }
 
 export interface DimensionEntry {
@@ -642,6 +644,7 @@ export interface DimensionEntry {
   output_tokens: number;
   cache_tokens: number;
   avg_duration_ms: number;
+  total_cost: number;
 }
 
 export interface StatsResult {

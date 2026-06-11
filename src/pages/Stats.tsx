@@ -165,6 +165,7 @@ export function Stats() {
               { label: t("stats.cacheTokens", "缓存 Token"), value: formatNumber(overview.total_cache_tokens), unit: "" },
               { label: t("stats.cacheRate", "缓存率"), value: overview.cache_rate.toFixed(1), unit: "%" },
               { label: t("stats.avgLatency", "平均延迟"), value: overview.avg_duration_ms.toFixed(0), unit: "ms" },
+              { label: t("stats.totalCost", "预估成本"), value: "$" + overview.total_cost.toFixed(2), unit: "" },
             ].map((card, i) => (
               <div key={i} className="glass-surface" style={{ flex: "1 1 120px", padding: "16px 20px", display: "flex", flexDirection: "column", gap: 4 }}>
                 <div style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{card.label}</div>
@@ -230,6 +231,7 @@ export function Stats() {
                     <th style={{ textAlign: "right", padding: "6px 8px" }}>{t("stats.outputTokens", "输出")}</th>
                     <th style={{ textAlign: "right", padding: "6px 8px" }}>{t("stats.cacheTokens", "缓存")}</th>
                     <th style={{ textAlign: "right", padding: "6px 8px" }}>{t("stats.avgMs", "平均延迟")}</th>
+                      <th style={{ textAlign: "right", padding: "6px 8px" }}>{t("stats.totalCost", "预估成本")}</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -242,6 +244,7 @@ export function Stats() {
                       <td style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.output_tokens)}</td>
                       <td style={{ textAlign: "right", padding: "6px 8px" }}>{formatNumber(d.cache_tokens)}</td>
                       <td style={{ textAlign: "right", padding: "6px 8px" }}>{d.avg_duration_ms.toFixed(0)} ms</td>
+                      <td style={{ textAlign: "right", padding: "6px 8px" }}>${d.total_cost.toFixed(2)}</td>
                     </tr>
                   ))}
                 </tbody>

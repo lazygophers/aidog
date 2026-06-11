@@ -1186,7 +1186,8 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
     let overview_sql = format!(
         "SELECT COUNT(*), \
          SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
-         SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms) \
+         SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), \
+         COALESCE(SUM(est_cost), 0.0) \
          FROM proxy_log WHERE deleted_at = 0 AND {where_sql}"
     );
     let p = qp.to_sql_params();
@@ -1207,6 +1208,7 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
                     if inp > 0 { row.get::<_, i64>(4).unwrap_or(0) as f64 / inp as f64 * 100.0 } else { 0.0 }
                 },
                 avg_duration_ms: row.get(5).unwrap_or(0.0),
+                total_cost: row.get(6).unwrap_or(0.0),
             })
         }).map_err(|e| format!("overview: {e}"))?;
 
@@ -1215,7 +1217,8 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
         "SELECT strftime('{time_fmt}', created_at/1000, 'unixepoch'), COUNT(*), \
          SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
          SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END), \
-         SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms) \
+         SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), \
+         COALESCE(SUM(est_cost), 0.0) \
          FROM proxy_log WHERE deleted_at = 0 AND {where_sql} GROUP BY 1 ORDER BY 1"
     );
     let p = qp.to_sql_params();
@@ -1232,6 +1235,7 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
                 output_tokens: row.get(5).unwrap_or(0),
                 cache_tokens: row.get(6).unwrap_or(0),
                 avg_duration_ms: row.get(7).unwrap_or(0.0),
+                total_cost: row.get(8).unwrap_or(0.0),
             })
         }).map_err(|e| format!("buckets: {e}"))?
         .filter_map(|r| r.ok())
@@ -1248,7 +1252,8 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
         let dim_sql = format!(
             "SELECT {dim_col}, COUNT(*), \
              SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
-             SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms) \
+             SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), \
+             COALESCE(SUM(est_cost), 0.0) \
              FROM proxy_log WHERE deleted_at = 0 AND {where_sql} GROUP BY 1 ORDER BY 2 DESC LIMIT 50"
         );
         let p = qp.to_sql_params();
@@ -1264,6 +1269,7 @@ pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
                     output_tokens: row.get(4).unwrap_or(0),
                     cache_tokens: row.get(5).unwrap_or(0),
                     avg_duration_ms: row.get(6).unwrap_or(0.0),
+                    total_cost: row.get(7).unwrap_or(0.0),
                 })
             }).map_err(|e| format!("dimension: {e}"))?
             .filter_map(|r| r.ok())
