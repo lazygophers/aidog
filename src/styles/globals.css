@@ -365,6 +365,74 @@ select.input {
   box-shadow: var(--shadow-md), 0 0 0 1px var(--accent-subtle);
 }
 
+/* ── Drag & Drop ── */
+
+.drag-handle {
+  position: absolute;
+  left: 0; top: 0; bottom: 0; width: 40px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: grab;
+  color: var(--text-tertiary);
+  opacity: 0;
+  transition: opacity 200ms ease, color 150ms ease, background 150ms ease;
+  border-radius: var(--radius-md) 0 0 var(--radius-md);
+  touch-action: none;
+  user-select: none;
+}
+.card-item:hover .drag-handle {
+  opacity: 0.5;
+}
+.drag-handle:hover {
+  opacity: 1 !important;
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+.drag-handle:active,
+.drag-handle.is-active {
+  cursor: grabbing;
+  opacity: 1 !important;
+  color: var(--accent);
+  background: var(--accent-subtle);
+}
+
+.card-item.is-dragging {
+  opacity: 0.3;
+  transform: scale(0.98);
+  border-style: dashed;
+  border-color: var(--accent-subtle);
+  pointer-events: none;
+}
+
+.insertion-line {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 3px 0;
+  padding: 0 12px;
+  animation: insertionLineIn 200ms ease both;
+}
+.insertion-line::before {
+  content: '';
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+  box-shadow: 0 0 6px var(--accent-subtle);
+}
+.insertion-line::after {
+  content: '';
+  flex: 1;
+  height: 2px;
+  background: var(--accent);
+  border-radius: 1px;
+  opacity: 0.6;
+}
+
+@keyframes insertionLineIn {
+  from { opacity: 0; transform: scaleX(0.5); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
 /* ── Section Header ── */
 
 .section-header {

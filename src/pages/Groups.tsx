@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import {
   groupDetailApi, groupApi, platformApi,
@@ -88,42 +88,52 @@ export function Groups() {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
-  // ── Drag reorder for group list (pointer events) ──
+  // ── Drag reorder for group list ──
   const [groupDrag, setGroupDrag] = useState<{ from: number; to: number } | null>(null);
   const groupListRef = useRef<HTMLDivElement>(null);
+  const groupDragStartRef = useRef<{ y: number; index: number } | null>(null);
+  const groupDidDragRef = useRef(false);
 
-  const handleGroupDragStart = (e: React.PointerEvent, index: number) => {
+  const handleGroupPointerDown = (e: React.PointerEvent, index: number) => {
+    if (e.button !== 0) return;
     e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    setGroupDrag({ from: index, to: index });
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    groupDragStartRef.current = { y: e.clientY, index };
   };
 
-  const handleGroupDragMove = (e: React.PointerEvent) => {
-    if (!groupDrag || !groupListRef.current) return;
+  const handleGroupPointerMove = (e: React.PointerEvent) => {
+    const start = groupDragStartRef.current;
+    if (!start) return;
+    if (!groupDrag) {
+      if (Math.abs(e.clientY - start.y) < 5) return;
+      setGroupDrag({ from: start.index, to: start.index });
+      groupDidDragRef.current = true;
+    }
+    if (!groupListRef.current) return;
     const cards = groupListRef.current.querySelectorAll<HTMLElement>("[data-group-id]");
-    let newTo = groupDrag.from;
-    cards.forEach((card, i) => {
-      const rect = card.getBoundingClientRect();
-      if (e.clientY > rect.top + rect.height / 2) newTo = i;
-    });
-    if (newTo !== groupDrag.to) setGroupDrag(prev => prev ? { ...prev, to: newTo } : null);
+    let newTo = cards.length;
+    for (let i = 0; i < cards.length; i++) {
+      const rect = cards[i].getBoundingClientRect();
+      if (e.clientY < rect.top + rect.height / 2) { newTo = i; break; }
+    }
+    setGroupDrag(d => d ? { ...d, to: newTo } : null);
   };
 
-  const handleGroupDragEnd = () => {
-    if (groupDrag && groupDrag.from !== groupDrag.to) {
-      const reordered = [...details];
-      const [moved] = reordered.splice(groupDrag.from, 1);
-      reordered.splice(groupDrag.to, 0, moved);
-      setDetails(reordered);
-      groupApi.reorder(reordered.map(d => d.group.id)).catch(console.error);
+  const handleGroupPointerUp = () => {
+    if (groupDrag) {
+      const effectiveTo = groupDrag.from < groupDrag.to ? groupDrag.to - 1 : groupDrag.to;
+      if (groupDrag.from !== effectiveTo) {
+        const reordered = [...details];
+        const [moved] = reordered.splice(groupDrag.from, 1);
+        reordered.splice(effectiveTo, 0, moved);
+        setDetails(reordered);
+        groupApi.reorder(reordered.map(d => d.group.id)).catch(console.error);
+      }
     }
     setGroupDrag(null);
+    groupDragStartRef.current = null;
+    setTimeout(() => { groupDidDragRef.current = false; }, 50);
   };
-
-  // 计算拖拽预览顺序
-  const groupDisplay = groupDrag && groupDrag.from !== groupDrag.to
-    ? (() => { const r = [...details]; const [m] = r.splice(groupDrag.from, 1); r.splice(groupDrag.to, 0, m); return r; })()
-    : details;
 
   // ── Drag reorder for selected platforms ──
   const reorderPlatforms = (from: number, to: number) => {
@@ -604,37 +614,36 @@ export function Groups() {
               <div className="text-tertiary" style={{ fontSize: 13 }}>{t("group.empty")}</div>
             </div>
           )}
-          {groupDisplay.map(({ group, platforms: gps, model_mappings }, i) => {
-            const isDragging = groupDrag !== null && groupDrag.from === i && groupDrag.from !== groupDrag.to;
+          {details.map(({ group, platforms: gps, model_mappings }, i) => {
+            const isDragging = groupDrag?.from === i;
+            const gEffTo = groupDrag ? (groupDrag.from < groupDrag.to ? groupDrag.to - 1 : groupDrag.to) : -1;
+            const gHasChange = groupDrag ? groupDrag.from !== gEffTo : false;
             return (
+            <Fragment key={group.id}>
+              {groupDrag && gHasChange && groupDrag.to === i && <div className="insertion-line" />}
             <div
-              key={group.id}
               data-group-id={group.id}
-              className="card-item animate-fade-in"
+              className={`card-item animate-fade-in${isDragging ? " is-dragging" : ""}`}
               style={{
                 position: "relative",
-                paddingLeft: 28,
+                paddingLeft: 44,
                 animationDelay: `${i * 60}ms`,
                 cursor: "pointer",
-                opacity: isDragging ? 0.4 : 1,
-                transition: "opacity 0.15s",
-                border: isDragging ? "1px dashed var(--accent)" : undefined,
+                transition: "transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease",
               }}
-              onClick={() => openEdit({ group, platforms: gps, model_mappings })}
+              onClick={() => {
+                if (groupDidDragRef.current) return;
+                openEdit({ group, platforms: gps, model_mappings });
+              }}
             >
-              {/* Drag handle — pointer events */}
-              <span
-                title={t("group.dragToReorder", "拖动排序")}
-                onPointerDown={e => handleGroupDragStart(e, i)}
-                onPointerMove={handleGroupDragMove}
-                onPointerUp={handleGroupDragEnd}
-                style={{
-                  position: "absolute", left: 6, top: 0, bottom: 0, width: 22,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  cursor: "grab", color: "var(--text-tertiary)", fontSize: 14,
-                  lineHeight: 1, userSelect: "none", touchAction: "none",
-                }}
-              >⠿</span>
+              <div
+                className={`drag-handle${isDragging ? " is-active" : ""}`}
+                onPointerDown={e => handleGroupPointerDown(e, i)}
+                onPointerMove={handleGroupPointerMove}
+                onPointerUp={handleGroupPointerUp}
+              >
+                <svg width="14" height="20" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
+              </div>
               {/* Group Header */}
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
                 <div style={{
@@ -801,8 +810,13 @@ export function Groups() {
                 </div>
               )}
             </div>
+            </Fragment>
           );
           })}
+          {groupDrag && (() => {
+            const et = groupDrag.from < groupDrag.to ? groupDrag.to - 1 : groupDrag.to;
+            return groupDrag.from !== et && groupDrag.to === details.length ? <div className="insertion-line" /> : null;
+          })()}
         </div>
       )}
     </div>

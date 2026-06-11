@@ -840,41 +840,52 @@ function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
 export function Platforms() {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
-  // ── Drag reorder for platform list (pointer events) ──
+  // ── Drag reorder for platform list ──
   const [platDrag, setPlatDrag] = useState<{ from: number; to: number } | null>(null);
   const platListRef = useRef<HTMLDivElement>(null);
+  const platDragStartRef = useRef<{ y: number; index: number } | null>(null);
+  const platDidDragRef = useRef(false);
 
-  const handlePlatDragStart = (e: React.PointerEvent, index: number) => {
+  const handlePlatPointerDown = (e: React.PointerEvent, index: number) => {
+    if (e.button !== 0) return;
     e.preventDefault();
-    (e.target as HTMLElement).setPointerCapture(e.pointerId);
-    setPlatDrag({ from: index, to: index });
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    platDragStartRef.current = { y: e.clientY, index };
   };
 
-  const handlePlatDragMove = (e: React.PointerEvent) => {
-    if (!platDrag || !platListRef.current) return;
+  const handlePlatPointerMove = (e: React.PointerEvent) => {
+    const start = platDragStartRef.current;
+    if (!start) return;
+    if (!platDrag) {
+      if (Math.abs(e.clientY - start.y) < 5) return;
+      setPlatDrag({ from: start.index, to: start.index });
+      platDidDragRef.current = true;
+    }
+    if (!platListRef.current) return;
     const cards = platListRef.current.querySelectorAll<HTMLElement>("[data-platform-id]");
-    let newTo = platDrag.from;
-    cards.forEach((card, i) => {
-      const rect = card.getBoundingClientRect();
-      if (e.clientY > rect.top + rect.height / 2) newTo = i;
-    });
-    if (newTo !== platDrag.to) setPlatDrag(prev => prev ? { ...prev, to: newTo } : null);
+    let newTo = cards.length;
+    for (let i = 0; i < cards.length; i++) {
+      const rect = cards[i].getBoundingClientRect();
+      if (e.clientY < rect.top + rect.height / 2) { newTo = i; break; }
+    }
+    setPlatDrag(d => d ? { ...d, to: newTo } : null);
   };
 
-  const handlePlatDragEnd = () => {
-    if (platDrag && platDrag.from !== platDrag.to) {
-      const reordered = [...platforms];
-      const [moved] = reordered.splice(platDrag.from, 1);
-      reordered.splice(platDrag.to, 0, moved);
-      setPlatforms(reordered);
-      platformApi.reorder(reordered.map(pp => pp.id)).catch(console.error);
+  const handlePlatPointerUp = () => {
+    if (platDrag) {
+      const effectiveTo = platDrag.from < platDrag.to ? platDrag.to - 1 : platDrag.to;
+      if (platDrag.from !== effectiveTo) {
+        const reordered = [...platforms];
+        const [moved] = reordered.splice(platDrag.from, 1);
+        reordered.splice(effectiveTo, 0, moved);
+        setPlatforms(reordered);
+        platformApi.reorder(reordered.map(pp => pp.id)).catch(console.error);
+      }
     }
     setPlatDrag(null);
+    platDragStartRef.current = null;
+    setTimeout(() => { platDidDragRef.current = false; }, 50);
   };
-
-  const platDisplay = platDrag && platDrag.from !== platDrag.to
-    ? (() => { const r = [...platforms]; const [m] = r.splice(platDrag.from, 1); r.splice(platDrag.to, 0, m); return r; })()
-    : platforms;
   const [usageMap, setUsageMap] = useState<Record<number, PlatformUsageStats>>({});
   const [quotaMap, setQuotaMap] = useState<Record<number, PlatformQuota>>({});
   // 手动刷新（真查校准）后的平台 id → 优先展示 quotaMap 真值而非预估
@@ -1763,40 +1774,38 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               <div className="text-tertiary" style={{ fontSize: 13 }}>{t("platform.empty")}</div>
             </div>
           )}
-          {platDisplay.map((p, i) => {
+          {platforms.map((p, i) => {
             const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
             const configuredModels = allModelValues(p.models);
-            const isDragging = platDrag !== null && platDrag.from === i && platDrag.from !== platDrag.to;
+            const isDragging = platDrag?.from === i;
+            const pEffTo = platDrag ? (platDrag.from < platDrag.to ? platDrag.to - 1 : platDrag.to) : -1;
+            const pHasChange = platDrag ? platDrag.from !== pEffTo : false;
             return (
+              <React.Fragment key={p.id}>
+                {platDrag && pHasChange && platDrag.to === i && <div className="insertion-line" />}
               <div
-                key={p.id}
                 data-platform-id={p.id}
-                className="card-item"
+                className={`card-item${isDragging ? " is-dragging" : ""}`}
                 style={{
                   display: "flex",
                   alignItems: "center",
                   gap: 14,
                   animationDelay: `${i * 50}ms`,
-                  opacity: isDragging ? 0.4 : (p.enabled ? 1 : 0.5),
-                  transition: "opacity 0.15s",
+                  opacity: isDragging ? undefined : (p.enabled ? 1 : 0.5),
+                  transition: "transform 200ms ease, box-shadow 200ms ease, opacity 150ms ease",
                   cursor: "default",
                   position: "relative",
-                  paddingLeft: 28,
-                  border: isDragging ? "1px dashed var(--accent)" : undefined,
+                  paddingLeft: 44,
                 }}
               >
-                {/* Drag handle — pointer events */}
-                <span
-                  onPointerDown={e => handlePlatDragStart(e, i)}
-                  onPointerMove={handlePlatDragMove}
-                  onPointerUp={handlePlatDragEnd}
-                  style={{
-                    position: "absolute", left: 6, top: 0, bottom: 0, width: 22,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    cursor: "grab", color: "var(--text-tertiary)", fontSize: 14,
-                    lineHeight: 1, userSelect: "none", touchAction: "none",
-                  }}
-                >⠿</span>
+                <div
+                  className={`drag-handle${isDragging ? " is-active" : ""}`}
+                  onPointerDown={e => handlePlatPointerDown(e, i)}
+                  onPointerMove={handlePlatPointerMove}
+                  onPointerUp={handlePlatPointerUp}
+                >
+                  <svg width="14" height="20" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
+                </div>
                 <div style={{ position: "relative", flexShrink: 0 }}>
                   {(() => {
                     const svg = getPlatformLogo(p.platform_type);
@@ -2018,8 +2027,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   </button>
                 </div>
               </div>
+              </React.Fragment>
             );
           })}
+          {platDrag && (() => {
+            const et = platDrag.from < platDrag.to ? platDrag.to - 1 : platDrag.to;
+            return platDrag.from !== et && platDrag.to === platforms.length ? <div className="insertion-line" /> : null;
+          })()}
         </div>
       )}
     </div>
