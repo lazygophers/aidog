@@ -658,7 +658,7 @@ pub struct StatsResult {
 
 #[derive(Debug, Deserialize)]
 pub struct ModelTestRequest {
-    pub platform_id: String,
+    pub platform_id: u64,
     pub model: Option<String>,
     pub prompt: Option<String>,
     pub max_tokens: Option<u32>,

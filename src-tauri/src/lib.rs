@@ -440,9 +440,7 @@ async fn model_test(
     db: State<'_, Db>,
     req: ModelTestRequest,
 ) -> Result<ModelTestResult, String> {
-    let platform_id: u64 = req.platform_id.parse()
-        .map_err(|_| format!("invalid platform_id: {}", req.platform_id))?;
-    let platform = db::get_platform(&db, platform_id)?
+    let platform = db::get_platform(&db, req.platform_id)?
         .ok_or("platform not found")?;
 
     let model = req.model.clone().or(platform.models.default.clone())
