@@ -1407,7 +1407,7 @@ fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
                 platform_item_parts(&platform, &item.display)
             }
             "today_usage" => {
-                let stats = db::today_stats(&db).unwrap_or_else(|_| db::TodayStats {
+                let stats = db::today_stats(&db).unwrap_or(db::TodayStats {
                     tokens: 0, cache_rate: 0.0, cost: 0.0, total_requests: 0,
                 });
                 let metric = item.metric.as_deref().unwrap_or("tokens");
@@ -1517,7 +1517,7 @@ const TRAY_FONT_SIZE: f64 = 9.0;
 
 /// 去除浮点数格式化尾部多余的零：10.10 → "10.1", 0.00 → "0", 965.80 → "965.8"
 fn trim_trailing_zeros(s: &str) -> String {
-    if let Some(pos) = s.find('.') {
+    if let Some(_pos) = s.find('.') {
         let trimmed = s.trim_end_matches('0').trim_end_matches('.');
         if trimmed.is_empty() { "0".to_string() } else { trimmed.to_string() }
     } else {
@@ -1529,7 +1529,7 @@ fn trim_trailing_zeros(s: &str) -> String {
 /// - follow → labelColor（系统自适应明暗）
 /// - preset red/green/orange → systemRed/Green/Orange（自适应明暗）
 /// - custom → 解析 hex（#RRGGBB / RRGGBB），sRGB 构造；解析失败回退 labelColor
-/// 注意：custom 固定色在某些菜单栏主题下可读性差（前端已警告）。
+///   注意：custom 固定色在某些菜单栏主题下可读性差（前端已警告）。
 #[cfg(target_os = "macos")]
 fn resolve_tray_color(color: &TrayColor) -> objc2::rc::Retained<objc2_app_kit::NSColor> {
     use objc2_app_kit::NSColor;
@@ -1577,7 +1577,7 @@ fn measure_text_width(text: &str, font_size: f64) -> f64 {
     let ns_text = NSString::from_str(text);
     let font = NSFont::boldSystemFontOfSize(font_size);
     let font_key: &NSString = unsafe { NSFontAttributeName };
-    let font_obj: &AnyObject = (&*font).as_ref();
+    let font_obj: &AnyObject = (*font).as_ref();
     let attrs: Retained<NSDictionary<NSString, AnyObject>> =
         NSDictionary::from_slices(&[font_key], &[font_obj]);
     // SAFETY: attrs 类型正确（NSFontAttributeName → NSFont）。
@@ -1597,7 +1597,7 @@ fn measure_text_width(text: &str, font_size: f64) -> f64 {
 ///   - per-column 着色/字号：逐 cell 用 make_part 构造带 attributes 的子串 append，
 ///     tab/换行字符用 follow 颜色（无 range:setAttributes，规避 utf16 偏移坑）。
 /// - 无 two_line 列 → **单行模式**：沿用 separator 横排拼接（无回归）。
-/// 整串套用同一 NSParagraphStyle（tabStops + 固定行高居中）+ baselineOffset 垂直居中。
+///   整串套用同一 NSParagraphStyle（tabStops + 固定行高居中）+ baselineOffset 垂直居中。
 #[cfg(target_os = "macos")]
 fn set_tray_attributed_title(
     tray: &tauri::tray::TrayIcon,
@@ -1678,7 +1678,7 @@ fn set_tray_attributed_title(
             para.setTabStops(Some(&left_array));
         }
 
-        /// 根据对齐设置在文本前填充空格：right → 左侧填充至列宽；center → 两侧填充。
+        // 根据对齐设置在文本前填充空格：right → 左侧填充至列宽；center → 两侧填充。
         let align_text = |text: &str, col_w: f64, font_size: f64, align: &str| -> String {
             if align == "left" || text.is_empty() {
                 return text.to_string();
@@ -1718,10 +1718,10 @@ fn set_tray_attributed_title(
             let ns_color = resolve_tray_color(color);
 
             let keys: [&NSString; 4] = [font_key, color_key, para_key, baseline_key];
-            let font_obj: &AnyObject = (&*font).as_ref();
-            let color_obj: &AnyObject = (&*ns_color).as_ref();
-            let para_obj: &AnyObject = (&*para_style).as_ref();
-            let baseline_obj: &AnyObject = (&*baseline_offset).as_ref();
+            let font_obj: &AnyObject = (*font).as_ref();
+            let color_obj: &AnyObject = (*ns_color).as_ref();
+            let para_obj: &AnyObject = para_style.as_ref();
+            let baseline_obj: &AnyObject = (*baseline_offset).as_ref();
             let objects: [&AnyObject; 4] = [font_obj, color_obj, para_obj, baseline_obj];
             let attrs: Retained<NSDictionary<NSString, objc2::runtime::AnyObject>> =
                 NSDictionary::from_slices(&keys, &objects);

@@ -380,6 +380,7 @@ pub fn set_tray_config(db: &Db, cfg: &TrayConfig) -> Result<(), String> {
 }
 
 /// 今日（本地时区 00:00 起）累计 token 总量（input + output），未删除日志。
+#[cfg(test)]
 pub fn today_token_total(db: &Db) -> Result<i64, String> {
     use chrono::{Local, TimeZone};
     let today = Local::now().date_naive();
@@ -968,7 +969,7 @@ fn build_filter_where(filter: &super::models::ProxyLogFilter) -> (String, Vec<Bo
     }
     if let Some(s) = filter.status {
         if s == 200 {
-            parts.push(format!("AND status_code >= 200 AND status_code < 300"));
+            parts.push("AND status_code >= 200 AND status_code < 300".to_string());
         } else if s == -1 {
             parts.push("AND (status_code < 200 OR status_code >= 300)".to_string());
         } else {
