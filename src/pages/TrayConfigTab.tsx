@@ -98,7 +98,7 @@ function computeItemText(item: TrayItem, platform: Platform | undefined, todaySt
       if (p?.tiers?.length) { isCoding = true; util = p.tiers[0].est_utilization ?? 0; }
     } catch { /* */ }
   }
-  return { label: platform.name, value: isCoding ? `${Math.max(0, 100 - util).toFixed(0)}%` : platform.est_balance_remaining.toFixed(2) };
+  return { label: platform.name, value: isCoding ? `${Math.max(0, 100 - util).toFixed(0)}%` : `$${platform.est_balance_remaining.toFixed(2)}` };
 }
 
 interface Column { item: TrayItem; label: string; value: string; isTwo: boolean; align: string; alignRow2: string }

@@ -1368,7 +1368,7 @@ fn platform_item_parts(platform: &Platform, display: &str) -> (String, String) {
         let util = first_tier.map(|t| t.est_utilization).unwrap_or(0.0);
         format!("{:.0}%", (100.0 - util).max(0.0))
     } else {
-        format!("{:.2}", platform.est_balance_remaining)
+        format!("${:.2}", platform.est_balance_remaining)
     };
     (name, value)
 }
