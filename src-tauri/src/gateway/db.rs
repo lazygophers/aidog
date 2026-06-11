@@ -51,6 +51,11 @@ impl Db {
             .map_err(|e| e.to_string())?;
         conn.execute_batch(include_str!("../../migrations/003_model_price.sql"))
             .map_err(|e| e.to_string())?;
+        // Migration 004: 旧库补预估列（ALTER 无 IF NOT EXISTS → 忽略 duplicate column）
+        let _ = conn.execute("ALTER TABLE platform ADD COLUMN est_balance_remaining REAL NOT NULL DEFAULT 0", []);
+        let _ = conn.execute("ALTER TABLE platform ADD COLUMN est_coding_plan TEXT NOT NULL DEFAULT ''", []);
+        let _ = conn.execute("ALTER TABLE platform ADD COLUMN last_real_query_at INTEGER NOT NULL DEFAULT 0", []);
+        let _ = conn.execute("ALTER TABLE platform ADD COLUMN estimate_count INTEGER NOT NULL DEFAULT 0", []);
         Ok(())
     }
 }
@@ -72,11 +77,11 @@ fn retention_cutoff(days: u32) -> Option<i64> {
 
 /// SELECT 列序
 const PLATFORM_COLUMNS: &str =
-    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at";
+    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count";
 
 /// 同 PLATFORM_COLUMNS，但每列加 `p.` 限定，用于与其他表 JOIN 时消除同名列歧义（如 created_at/updated_at）
 const PLATFORM_COLUMNS_PREFIXED: &str =
-    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at";
+    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count";
 
 /// 从查询行构造 Platform
 fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -98,6 +103,10 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         created_at: row.get(10)?,
         updated_at: row.get(11)?,
         deleted_at: 0,
+        est_balance_remaining: row.get(12)?,
+        est_coding_plan: row.get(13)?,
+        last_real_query_at: row.get(14)?,
+        estimate_count: row.get(15)?,
     })
 }
 
@@ -139,6 +148,10 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, S
         created_at: ts,
         updated_at: ts,
         deleted_at: 0,
+        est_balance_remaining: 0.0,
+        est_coding_plan: String::new(),
+        last_real_query_at: 0,
+        estimate_count: 0,
     })
 }
 
@@ -429,6 +442,10 @@ pub fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlatformDe
                     created_at: row.get(12)?,
                     updated_at: row.get(13)?,
                     deleted_at: 0,
+                    est_balance_remaining: row.get(14)?,
+                    est_coding_plan: row.get(15)?,
+                    last_real_query_at: row.get(16)?,
+                    estimate_count: row.get(17)?,
                 },
                 priority: row.get(0)?,
                 weight: row.get(1)?,

@@ -53,6 +53,12 @@ pub struct QuotaTier {
     pub utilization: f64,
     /// 重置时间 (ISO 8601)
     pub resets_at: Option<String>,
+    /// 绝对配额上限（token 数）。仅 Kimi 等暴露绝对量的平台有值，用于精确预估基数。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<f64>,
+    /// 绝对剩余量（token 数）。仅 Kimi 等暴露绝对量的平台有值。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub remaining: Option<f64>,
 }
 
 fn now_millis() -> i64 {
@@ -269,7 +275,8 @@ async fn query_kimi_coding_plan(api_key: &str) -> PlatformQuota {
                 let resets_at = detail.get("resetTime").and_then(|v| {
                     v.as_str().map(String::from).or_else(|| v.as_i64().and_then(millis_to_iso8601))
                 });
-                tiers.push(QuotaTier { name: "five_hour".into(), utilization, resets_at });
+                // Kimi 暴露绝对 limit/remaining → 保留供精确预估基数
+                tiers.push(QuotaTier { name: "five_hour".into(), utilization, resets_at, limit: Some(limit), remaining: Some(remaining) });
             }
         }
     }
@@ -282,7 +289,7 @@ async fn query_kimi_coding_plan(api_key: &str) -> PlatformQuota {
         let resets_at = usage.get("resetTime").and_then(|v| {
             v.as_str().map(String::from).or_else(|| v.as_i64().and_then(millis_to_iso8601))
         });
-        tiers.push(QuotaTier { name: "weekly_limit".into(), utilization, resets_at });
+        tiers.push(QuotaTier { name: "weekly_limit".into(), utilization, resets_at, limit: Some(limit), remaining: Some(remaining) });
     }
     PlatformQuota {
         success: true, error: None, queried_at: now_millis(), balance: None,
@@ -339,7 +346,8 @@ async fn query_zhipu_coding_plan(base_url: &str, api_key: &str) -> PlatformQuota
     raw_limits.sort_by_key(|(reset, _, _)| (reset.is_some(), reset.unwrap_or(i64::MIN)));
     let tiers: Vec<QuotaTier> = raw_limits.into_iter().enumerate().filter_map(|(idx, (_, pct, resets_at))| {
         let name = match idx { 0 => "five_hour", 1 => "weekly_limit", _ => return None };
-        Some(QuotaTier { name: name.into(), utilization: pct, resets_at })
+        // GLM 上游仅给百分比，无绝对基数 → 方案 B 拟合
+        Some(QuotaTier { name: name.into(), utilization: pct, resets_at, limit: None, remaining: None })
     }).collect();
     PlatformQuota {
         success: true, error: None, queried_at: now_millis(), balance: None,
@@ -384,13 +392,13 @@ async fn query_minimax_coding_plan(api_key: &str, is_cn: bool) -> PlatformQuota 
             // 5h 桶
             if let Some(remain_pct) = item.get("current_interval_remaining_percent").and_then(|v| v.as_f64()) {
                 let resets_at = item.get("end_time").and_then(|v| v.as_i64()).and_then(millis_to_iso8601);
-                tiers.push(QuotaTier { name: "five_hour".into(), utilization: 100.0 - remain_pct, resets_at });
+                tiers.push(QuotaTier { name: "five_hour".into(), utilization: 100.0 - remain_pct, resets_at, limit: None, remaining: None });
             }
             // 周桶 (仅 status=1)
             if item.get("current_weekly_status").and_then(|v| v.as_i64()) == Some(1) {
                 if let Some(remain_pct) = item.get("current_weekly_remaining_percent").and_then(|v| v.as_f64()) {
                     let resets_at = item.get("weekly_end_time").and_then(|v| v.as_i64()).and_then(millis_to_iso8601);
-                    tiers.push(QuotaTier { name: "weekly_limit".into(), utilization: 100.0 - remain_pct, resets_at });
+                    tiers.push(QuotaTier { name: "weekly_limit".into(), utilization: 100.0 - remain_pct, resets_at, limit: None, remaining: None });
                 }
             }
         }

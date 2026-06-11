@@ -14,6 +14,10 @@ CREATE TABLE IF NOT EXISTS platform (
     available_models TEXT NOT NULL DEFAULT '[]',
     endpoints        TEXT NOT NULL DEFAULT '[]',
     enabled          INTEGER NOT NULL DEFAULT 1,
+    est_balance_remaining REAL NOT NULL DEFAULT 0,
+    est_coding_plan       TEXT NOT NULL DEFAULT '',
+    last_real_query_at    INTEGER NOT NULL DEFAULT 0,
+    estimate_count        INTEGER NOT NULL DEFAULT 0,
     created_at       INTEGER NOT NULL DEFAULT 0,
     updated_at       INTEGER NOT NULL DEFAULT 0,
     deleted_at       INTEGER NOT NULL DEFAULT 0

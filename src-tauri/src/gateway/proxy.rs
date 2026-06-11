@@ -17,12 +17,14 @@ use super::router::select_platform;
 
 /// 代理服务器共享状态
 pub struct ProxyState {
-    pub db: std::sync::Mutex<Db>,
+    /// 用 Arc<Db> 而非 Mutex<Db>：Db 内部已自带 Mutex<Connection>，
+    /// Arc 便于克隆进后台预估 spawn（每次操作锁内自治，禁持锁跨 await）。
+    pub db: Arc<Db>,
 }
 
 /// 启动代理服务器，返回 shutdown handle
 pub async fn start_proxy(
-    db: std::sync::Mutex<Db>,
+    db: Arc<Db>,
     port: u16,
 ) -> Result<(tokio::task::JoinHandle<()>, u16), String> {
     let state = Arc::new(ProxyState { db });
@@ -84,11 +86,50 @@ fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettin
         log.upstream_request_body = String::new();
         log.upstream_response_headers = String::new();
     }
-    let db = match state.db.lock() {
-        Ok(d) => d,
-        Err(_) => return,
-    };
-    let _ = super::db::upsert_proxy_log(&db, &log);
+    let _ = super::db::upsert_proxy_log(&state.db, &log);
+}
+
+/// 在后台 tokio::spawn 中执行请求驱动的 quota 预估（不阻塞响应）。
+/// 余额平台扣金额 / coding plan 平台更新利用率，并按阈值触发真查校准。
+/// platform_type 传入 serde rename 裸名（如 "deepseek"），供 resolve_price 查 pricing key。
+#[allow(clippy::too_many_arguments)]
+fn spawn_estimate(
+    state: &Arc<ProxyState>,
+    platform_id: u64,
+    platform_type: &Protocol,
+    quota_base_url: String,
+    api_key: String,
+    model: String,
+    input_tokens: i32,
+    output_tokens: i32,
+    cache_tokens: i32,
+    is_coding_plan: bool,
+) {
+    // 无 token（请求失败 / 无 usage）则跳过
+    if input_tokens <= 0 && output_tokens <= 0 && cache_tokens <= 0 {
+        return;
+    }
+    // serde rename 裸名（去掉 to_string 的引号），与 pricing JSON key 一致
+    let ptype = serde_json::to_string(platform_type)
+        .unwrap_or_default()
+        .trim_matches('"')
+        .to_string();
+    let db = state.db.clone();
+    tokio::spawn(async move {
+        super::estimate::estimate_after_request(
+            &db,
+            platform_id,
+            &ptype,
+            &quota_base_url,
+            &api_key,
+            &model,
+            input_tokens as i64,
+            output_tokens as i64,
+            cache_tokens as i64,
+            is_coding_plan,
+        )
+        .await;
+    });
 }
 
 /// Read system-level timeout settings from DB
@@ -133,13 +174,7 @@ async fn handle_proxy(
     let created_at = super::db::now();
 
     // Load log settings once per request
-    let log_settings = {
-        let db = match state.db.lock() {
-            Ok(d) => d,
-            Err(_) => return (StatusCode::INTERNAL_SERVER_ERROR, "db lock").into_response(),
-        };
-        get_log_settings(&db)
-    };
+    let log_settings = get_log_settings(&state.db);
 
     // ── 初始化日志条目 ──
     let mut log = ProxyLog {
@@ -230,34 +265,22 @@ async fn handle_proxy(
 
     // ── 查找分组 ──
     let group = {
-        let db_result = state.db.lock().map_err(|e| e.to_string());
-        match db_result {
-            Ok(db) => {
-                match resolve_group(&db, auth_header.as_deref(), &path) {
-                    Some(g) => g,
-                    None => {
-                        if let Some(ref token) = auth_header {
-                            log.response_body = format!("no matching group for token '{}' or path '{}'", token, path);
-                            log.status_code = 404;
-                            log.duration_ms = start.elapsed().as_millis() as i32;
-                            upsert_log(&state, &log, &log_settings);
-                            return (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
-                        } else {
-                            log.response_body = "no matching group".to_string();
-                            log.status_code = 404;
-                            log.duration_ms = start.elapsed().as_millis() as i32;
-                            upsert_log(&state, &log, &log_settings);
-                            return (StatusCode::NOT_FOUND, "no matching group").into_response();
-                        }
-                    }
+        match resolve_group(&state.db, auth_header.as_deref(), &path) {
+            Some(g) => g,
+            None => {
+                if let Some(ref token) = auth_header {
+                    log.response_body = format!("no matching group for token '{}' or path '{}'", token, path);
+                    log.status_code = 404;
+                    log.duration_ms = start.elapsed().as_millis() as i32;
+                    upsert_log(&state, &log, &log_settings);
+                    return (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
+                } else {
+                    log.response_body = "no matching group".to_string();
+                    log.status_code = 404;
+                    log.duration_ms = start.elapsed().as_millis() as i32;
+                    upsert_log(&state, &log, &log_settings);
+                    return (StatusCode::NOT_FOUND, "no matching group").into_response();
                 }
-            }
-            Err(e) => {
-                log.response_body = format!("db error: {e}");
-                log.status_code = 500;
-                log.duration_ms = start.elapsed().as_millis() as i32;
-                upsert_log(&state, &log, &log_settings);
-                return (StatusCode::INTERNAL_SERVER_ERROR, e).into_response();
             }
         }
     };
@@ -296,19 +319,7 @@ async fn handle_proxy(
     log.model = requested_model.clone();
 
     // ── 路由选择平台 + 模型映射 ──
-    let route = {
-        let db_result = state.db.lock().map_err(|e| e.to_string());
-        match db_result {
-            Ok(db) => select_platform(&db, &group, &chat_req.model),
-            Err(e) => {
-                log.response_body = format!("db lock error: {e}");
-                log.status_code = 500;
-                log.duration_ms = start.elapsed().as_millis() as i32;
-                upsert_log(&state, &log, &log_settings);
-                return (StatusCode::INTERNAL_SERVER_ERROR, e).into_response();
-            }
-        }
-    };
+    let route = select_platform(&state.db, &group, &chat_req.model);
     let route = match route {
         Ok(r) => r,
         Err(e) => {
@@ -395,10 +406,7 @@ async fn handle_proxy(
     log.upstream_request_url = url.clone();
 
     // ── 解析超时：模型 > 分组 > 系统 ──
-    let system_timeout = match state.db.lock() {
-        Ok(db) => get_system_timeout(&db),
-        Err(_) => ProxyTimeoutSettings::default(),
-    };
+    let system_timeout = get_system_timeout(&state.db);
     let (req_timeout, conn_timeout) = resolve_timeout(&route.mapping, &group, &system_timeout);
     let client = Client::builder()
         .timeout(std::time::Duration::from_secs(req_timeout))
@@ -486,6 +494,20 @@ async fn handle_proxy(
 
         upsert_log(&state, &log, &log_settings);
 
+        // ── 请求驱动预估（后台，不阻塞响应）──
+        spawn_estimate(
+            &state,
+            route.platform.id,
+            &route.platform.platform_type,
+            route.platform.base_url.clone(),
+            route.platform.api_key.clone(),
+            actual_model.clone(),
+            input_tokens,
+            output_tokens,
+            cache_tokens,
+            coding_plan,
+        );
+
         return (
             StatusCode::OK,
             [(axum::http::header::CONTENT_TYPE, "application/json")],
@@ -510,6 +532,19 @@ async fn handle_proxy(
     let acc_out = tokens_out.clone();
     let acc_cache = tokens_cache.clone();
 
+    // ── 流式预估：token 仅在流被消费完（[DONE]）才确定，故在闭包内 [DONE] 处触发 ──
+    let est_state = state.clone();
+    let est_platform_id = route.platform.id;
+    let est_platform_type = route.platform.platform_type.clone();
+    let est_base_url = route.platform.base_url.clone();
+    let est_api_key = route.platform.api_key.clone();
+    let est_model = actual_model.clone();
+    let est_coding_plan = coding_plan;
+    let est_in = tokens_acc.clone();
+    let est_out = tokens_out.clone();
+    let est_cache = tokens_cache.clone();
+    let est_fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
+
     let stream = resp.bytes_stream().map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
@@ -525,6 +560,21 @@ async fn handle_proxy(
                     output.push_str(&adapter::to_client_sse(&ChatStreamEvent::Stop {
                         finish_reason: Some("end_turn".to_string()),
                     }, &client_protocol, &model_for_sse).unwrap_or_default());
+                    // 流终止：token 已累加完整 → 后台预估（仅触发一次）
+                    if !est_fired.swap(true, std::sync::atomic::Ordering::Relaxed) {
+                        spawn_estimate(
+                            &est_state,
+                            est_platform_id,
+                            &est_platform_type,
+                            est_base_url.clone(),
+                            est_api_key.clone(),
+                            est_model.clone(),
+                            est_in.load(std::sync::atomic::Ordering::Relaxed),
+                            est_out.load(std::sync::atomic::Ordering::Relaxed),
+                            est_cache.load(std::sync::atomic::Ordering::Relaxed),
+                            est_coding_plan,
+                        );
+                    }
                     continue;
                 }
 
@@ -741,10 +791,7 @@ async fn handle_passthrough(
     log.upstream_request_url = url.clone();
 
     // 解析超时（系统级；透传无 group/model mapping 覆盖）
-    let system_timeout = match state.db.lock() {
-        Ok(db) => get_system_timeout(&db),
-        Err(_) => ProxyTimeoutSettings::default(),
-    };
+    let system_timeout = get_system_timeout(&state.db);
     let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 300 };
     let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
     let client = Client::builder()

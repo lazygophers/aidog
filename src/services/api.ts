@@ -90,6 +90,14 @@ export interface Platform {
   created_at: number;
   updated_at: number;
   deleted_at: number;
+  /** 预估剩余余额（系统维护，只读） */
+  est_balance_remaining: number;
+  /** 预估 coding plan JSON（系统维护，只读） */
+  est_coding_plan: string;
+  /** 上次真实 quota 查询毫秒戳（系统维护，只读） */
+  last_real_query_at: number;
+  /** 自上次真查以来的预估次数（系统维护，只读） */
+  estimate_count: number;
 }
 
 export interface Group {

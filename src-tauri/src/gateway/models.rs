@@ -278,6 +278,18 @@ pub struct Platform {
     pub updated_at: i64,
     #[serde(default)]
     pub deleted_at: i64,
+    /// 预估剩余余额（按量计费平台，请求驱动增量自减；系统维护，前端只读）
+    #[serde(default)]
+    pub est_balance_remaining: f64,
+    /// 预估 coding plan JSON（含 tiers est_utilization + 方案 B 拟合系数/样本；系统维护，前端只读）
+    #[serde(default)]
+    pub est_coding_plan: String,
+    /// 上次真实 quota 查询毫秒戳（校准基准；系统维护，前端只读）
+    #[serde(default)]
+    pub last_real_query_at: i64,
+    /// 自上次真查以来的预估次数（校准计数；系统维护，前端只读）
+    #[serde(default)]
+    pub estimate_count: i64,
 }
 
 #[derive(Debug, Deserialize)]

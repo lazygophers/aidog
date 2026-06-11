@@ -284,7 +284,7 @@ async fn proxy_start(
     // 获取 DB 的路径并克隆一份连接
     let db_path = aidog_data_dir()?.join("aidog.db");
     let proxy_db = Db::new(db_path.to_str().unwrap_or(""))?;
-    let proxy_db = std::sync::Mutex::new(proxy_db);
+    let proxy_db = std::sync::Arc::new(proxy_db);
 
     let (proxy_handle, actual_port) = gateway::proxy::start_proxy(proxy_db, port).await?;
 
