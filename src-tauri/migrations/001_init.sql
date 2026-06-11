@@ -18,6 +18,8 @@ CREATE TABLE IF NOT EXISTS platform (
     est_coding_plan       TEXT NOT NULL DEFAULT '',
     last_real_query_at    INTEGER NOT NULL DEFAULT 0,
     estimate_count        INTEGER NOT NULL DEFAULT 0,
+    show_in_tray          INTEGER NOT NULL DEFAULT 0,
+    tray_display          TEXT NOT NULL DEFAULT 'balance',
     created_at       INTEGER NOT NULL DEFAULT 0,
     updated_at       INTEGER NOT NULL DEFAULT 0,
     deleted_at       INTEGER NOT NULL DEFAULT 0

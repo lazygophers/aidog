@@ -239,5 +239,11 @@
   "platform.mockErrorNone": "استجابة عادية",
   "platform.mockErrorHttp": "خطأ HTTP",
   "platform.mockErrorRateLimit": "حد المعدل 429",
-  "platform.mockErrorTimeout": "انتهاء المهلة"
+  "platform.mockErrorTimeout": "انتهاء المهلة",
+  "platform.newapiBalanceConfig": "إعدادات استعلام الرصيد",
+  "platform.newapiBalanceHint": "يتطلب رمزًا منفصلاً للاستعلام عن الرصيد",
+  "platform.newapiBalanceKey": "رمز استعلام الرصيد",
+  "platform.newapiBalanceKeyPlaceholder": "sess-xxxx أو رمز الوصول",
+  "platform.newapiUserId": "معرف المستخدم",
+  "platform.newapiUserIdPlaceholder": "معرف رقمي (اختياري)"
 }

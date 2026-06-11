@@ -460,3 +460,95 @@ pub async fn query_quota(base_url: &str, api_key: &str) -> PlatformQuota {
     // 不支持的平台
     err_quota("Unsupported platform for quota query")
 }
+
+// ── New API (中转平台) ──────────────────────────────────────
+// GET {base}/dashboard/billing/subscription → hard_limit_usd
+// GET {base}/dashboard/billing/usage → total_usage (cents)
+// 认证: Bearer <balance_api_key> + New-Api-User: <user_id>
+
+/// 从 platform.extra JSON 解析 New API 配置
+pub fn parse_newapi_extra(extra: &str) -> Option<(String, String)> {
+    if extra.trim().is_empty() { return None; }
+    let obj: serde_json::Value = serde_json::from_str(extra).ok()?;
+    let newapi = obj.get("newapi")?;
+    let key = newapi.get("balance_api_key").and_then(|v| v.as_str())?.to_string();
+    let uid = newapi.get("user_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    if key.is_empty() { return None; }
+    Some((key, uid))
+}
+
+async fn query_newapi_balance(base_url: &str, balance_api_key: &str, user_id: &str) -> PlatformQuota {
+    // 订阅额度
+    let sub_url = format!("{}/dashboard/billing/subscription", base_url.trim_end_matches('/'));
+    let mut req = http_client()
+        .get(&sub_url)
+        .header("Authorization", format!("Bearer {balance_api_key}"))
+        .header("Content-Type", "application/json");
+    if !user_id.is_empty() {
+        req = req.header("New-Api-User", user_id);
+    }
+    let resp = match req.send().await {
+        Ok(r) => r,
+        Err(e) => return err_quota(&format!("Network (subscription): {e}")),
+    };
+    let status = resp.status();
+    if !status.is_success() { return err_quota(&format!("HTTP {status} (subscription)")); }
+    let sub_body: serde_json::Value = match resp.json().await {
+        Ok(v) => v,
+        Err(e) => return err_quota(&format!("Parse (subscription): {e}")),
+    };
+    // 检查错误响应
+    if let Some(err) = sub_body.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
+        return err_quota(err);
+    }
+    let hard_limit = parse_f64_field(&sub_body, "hard_limit_usd").unwrap_or(0.0);
+
+    // 使用量
+    let usage_url = format!("{}/dashboard/billing/usage", base_url.trim_end_matches('/'));
+    let mut req2 = http_client()
+        .get(&usage_url)
+        .header("Authorization", format!("Bearer {balance_api_key}"))
+        .header("Content-Type", "application/json");
+    if !user_id.is_empty() {
+        req2 = req2.header("New-Api-User", user_id);
+    }
+    let resp2 = match req2.send().await {
+        Ok(r) => r,
+        Err(e) => return err_quota(&format!("Network (usage): {e}")),
+    };
+    let status2 = resp2.status();
+    if !status2.is_success() { return err_quota(&format!("HTTP {status2} (usage)")); }
+    let use_body: serde_json::Value = match resp2.json().await {
+        Ok(v) => v,
+        Err(e) => return err_quota(&format!("Parse (usage): {e}")),
+    };
+    if let Some(err) = use_body.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()) {
+        return err_quota(err);
+    }
+    // total_usage 单位 0.01 USD (cents)
+    let total_usage_cents = parse_f64_field(&use_body, "total_usage").unwrap_or(0.0);
+    let used_usd = total_usage_cents / 100.0;
+    let remaining = (hard_limit - used_usd).max(0.0);
+
+    PlatformQuota {
+        success: true, error: None, queried_at: now_millis(),
+        balance: Some(BalanceInfo {
+            remaining,
+            total: Some(hard_limit),
+            used: Some(used_usd),
+            currency: "USD".into(),
+            is_valid: remaining > 0.0,
+        }),
+        coding_plan: None,
+    }
+}
+
+/// New API 余额查询入口（需要 extra 中的独立 balance key）
+pub async fn query_quota_newapi(base_url: &str, extra: &str) -> PlatformQuota {
+    match parse_newapi_extra(extra) {
+        Some((balance_key, user_id)) => {
+            query_newapi_balance(base_url, &balance_key, &user_id).await
+        }
+        None => err_quota("New API: missing balance_api_key in extra"),
+    }
+}

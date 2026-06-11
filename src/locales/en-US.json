@@ -281,5 +281,11 @@
   "platform.mockErrorNone": "Normal response",
   "platform.mockErrorHttp": "HTTP Error",
   "platform.mockErrorRateLimit": "Rate Limit 429",
-  "platform.mockErrorTimeout": "Timeout"
+  "platform.mockErrorTimeout": "Timeout",
+  "platform.newapiBalanceConfig": "Balance Query Config",
+  "platform.newapiBalanceHint": "Requires a separate token (from dashboard) to query balance",
+  "platform.newapiBalanceKey": "Balance Token",
+  "platform.newapiBalanceKeyPlaceholder": "sess-xxxx or access token",
+  "platform.newapiUserId": "User ID",
+  "platform.newapiUserIdPlaceholder": "Numeric ID (optional)"
 }

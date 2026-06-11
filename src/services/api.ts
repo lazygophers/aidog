@@ -18,6 +18,8 @@ export type Protocol =
   | "pateway" | "ccsub" | "apikeyfun" | "apinebula" | "sudocode" | "claudeapi" | "claudecn"
   | "runapi" | "relaxycode" | "crazyrouter" | "sssaicode" | "compshare" | "compshare_coding"
   | "micu" | "ctok" | "eflowcode" | "lemondata" | "pipellm" | "opencode"
+  // ── 中转平台 ──
+  | "newapi"
   // ── 订阅透传 ──
   | "claude_code"
   // ── 测试 ──
@@ -75,6 +77,49 @@ export const DEFAULT_MOCK_CONFIG: MockConfig = {
   error_mode: "none",
   chunk_count: 5,
 };
+
+/** New API 平台余额查询配置（持久化在 platform.extra 的 `newapi` 子对象内） */
+export interface NewApiConfig {
+  /** 余额查询专用 API key（独立于主 api_key） */
+  balance_api_key: string;
+  /** 用户 ID（用于 New-Api-User 请求头） */
+  user_id: string;
+}
+
+export const DEFAULT_NEWAPI_CONFIG: NewApiConfig = {
+  balance_api_key: "",
+  user_id: "",
+};
+
+/** 从 platform.extra JSON 字符串解析 New API 配置 */
+export function parseNewApiConfig(extra: string): NewApiConfig {
+  if (!extra.trim()) return { ...DEFAULT_NEWAPI_CONFIG };
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && "newapi" in parsed) {
+      const cfg = (parsed as { newapi: unknown }).newapi;
+      if (cfg && typeof cfg === "object") {
+        return { ...DEFAULT_NEWAPI_CONFIG, ...(cfg as Partial<NewApiConfig>) };
+      }
+    }
+  } catch { /* ignore */ }
+  return { ...DEFAULT_NEWAPI_CONFIG };
+}
+
+/** 把 New API 配置写回 extra JSON 字符串，保留 extra 中其他键 */
+export function serializeNewApiConfig(extra: string, cfg: NewApiConfig): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* ignore */ }
+  }
+  obj.newapi = cfg;
+  return JSON.stringify(obj);
+}
 
 export interface Platform {
   id: number;
@@ -553,6 +598,8 @@ export interface PlatformQuota {
 export const quotaApi = {
   query: (baseUrl: string, apiKey: string) =>
     invoke<PlatformQuota>("platform_query_quota", { baseUrl, apiKey }),
+  queryNewapi: (baseUrl: string, extra: string) =>
+    invoke<PlatformQuota>("platform_query_quota_newapi", { baseUrl, extra }),
 };
 
 // ─── Model Price Types & API ──────────────────────────────

@@ -400,5 +400,11 @@
   "platform.mockErrorNone": "正常返回",
   "platform.mockErrorHttp": "HTTP 错误",
   "platform.mockErrorRateLimit": "限流 429",
-  "platform.mockErrorTimeout": "超时"
+  "platform.mockErrorTimeout": "超时",
+  "platform.newapiBalanceConfig": "余额查询配置",
+  "platform.newapiBalanceHint": "查询余额需要独立的 Token（从控制台获取），与 API Key 不同",
+  "platform.newapiBalanceKey": "余额查询 Token",
+  "platform.newapiBalanceKeyPlaceholder": "sess-xxxx 或 access token",
+  "platform.newapiUserId": "用户 ID",
+  "platform.newapiUserIdPlaceholder": "数字 ID（可选）"
 }

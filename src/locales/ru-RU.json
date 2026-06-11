@@ -239,5 +239,11 @@
   "platform.mockErrorNone": "Нормальный ответ",
   "platform.mockErrorHttp": "Ошибка HTTP",
   "platform.mockErrorRateLimit": "Лимит запросов 429",
-  "platform.mockErrorTimeout": "Таймаут"
+  "platform.mockErrorTimeout": "Таймаут",
+  "platform.newapiBalanceConfig": "Настройка запроса баланса",
+  "platform.newapiBalanceHint": "Для запроса баланса нужен отдельный токен",
+  "platform.newapiBalanceKey": "Токен баланса",
+  "platform.newapiBalanceKeyPlaceholder": "sess-xxxx или access token",
+  "platform.newapiUserId": "ID пользователя",
+  "platform.newapiUserIdPlaceholder": "Числовой ID (необязательно)"
 }

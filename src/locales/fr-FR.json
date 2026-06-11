@@ -239,5 +239,11 @@
   "platform.mockErrorNone": "Réponse normale",
   "platform.mockErrorHttp": "Erreur HTTP",
   "platform.mockErrorRateLimit": "Limite de débit 429",
-  "platform.mockErrorTimeout": "Délai expiré"
+  "platform.mockErrorTimeout": "Délai expiré",
+  "platform.newapiBalanceConfig": "Config requête solde",
+  "platform.newapiBalanceHint": "Requiert un jeton distinct pour interroger le solde",
+  "platform.newapiBalanceKey": "Jeton de solde",
+  "platform.newapiBalanceKeyPlaceholder": "sess-xxxx ou jeton d'accès",
+  "platform.newapiUserId": "ID utilisateur",
+  "platform.newapiUserIdPlaceholder": "ID numérique (facultatif)"
 }

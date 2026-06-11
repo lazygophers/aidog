@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, DEFAULT_MOCK_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, DEFAULT_MOCK_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig } from "../services/api";
 import { getPlatformLogo } from "../assets/platforms";
 import { ModelTestPanel } from "./ModelTestPanel";
 import { pinyinMatch } from "../utils/pinyin";
@@ -339,6 +339,10 @@ function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Platform
     opencode: [
       { protocol: "openai", base_url: "https://opencode.ai/zen/go", client_type: "codex_tui" },
     ],
+    // ── 中转平台 ──
+    newapi: [
+      { protocol: "openai", base_url: "https://your-newapi-instance.com/v1", client_type: "codex_tui" },
+    ],
 
     // ── 订阅透传（纯透传，base_url 填 host 根，客户端原始 path 直接拼接）──
     claude_code: [
@@ -415,6 +419,8 @@ const PROTOCOL_LABELS: Record<Protocol, string> = {
   opencode: "OpenCode Go",
   // ── 订阅透传 ──
   claude_code: "Claude Code 订阅",
+  // ── 中转平台 ──
+  newapi: "New API",
   // ── 测试 ──
   mock: "Mock",
 };
@@ -487,6 +493,8 @@ const PROTOCOL_COLORS: Record<string, string> = {
   opencode: "#211E1E",
   // ── 订阅透传 ──
   claude_code: "#D97757",
+  // ── 中转平台 ──
+  newapi: "#10A37F",
   // ── 测试 ──
   mock: "#8E8E93",
 };
@@ -848,6 +856,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // Mock 平台配置（持久化到 platform.extra 的 mock 子对象）
   const [extra, setExtra] = useState("");
   const [mockConfig, setMockConfig] = useState<MockConfig>({ ...DEFAULT_MOCK_CONFIG });
+  const [newApiConfig, setNewApiConfig] = useState<NewApiConfig>({ balance_api_key: "", user_id: "" });
 
   const isMock = protocol === "mock";
   // Claude Code 订阅纯透传：客户端自带订阅 OAuth 认证，aidog 原样转发。
@@ -878,6 +887,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     if (newProtocol === "mock") {
       setMockConfig(parseMockConfig(extra));
     }
+    // 切到 newapi 时用当前 extra 初始化 newapi 配置
+    if (newProtocol === "newapi") {
+      setNewApiConfig(parseNewApiConfig(extra));
+    }
     setProtocol(newProtocol);
     setCodingPlan(cp);
   };
@@ -899,11 +912,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       // Batch load quota (balance & coding plan)
       const qMap: Record<number, PlatformQuota> = {};
       await Promise.all((list || []).map(async (p) => {
-        if (!p.api_key) return;
+        if (!p.api_key && p.platform_type !== "newapi") return;
         const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []);
         if (!baseUrl) return;
         try {
-          const q = await quotaApi.query(baseUrl, p.api_key);
+          const q = p.platform_type === "newapi"
+            ? await quotaApi.queryNewapi(baseUrl, p.extra ?? "")
+            : await quotaApi.query(baseUrl, p.api_key);
           if (q.success) qMap[p.id] = q;
         } catch { /* ignore */ }
       }));
@@ -916,7 +931,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
   /** 刷新单个平台 quota（合查 balance + coding_plan） */
   const refreshQuota = async (p: Platform) => {
-    if (!p.api_key) {
+    if (!p.api_key && p.platform_type !== "newapi") {
       setToast({ text: `${p.name}: ${t("platform.quotaNoKey", "缺少 API Key")}`, ok: false });
       setTimeout(() => setToast(null), 3000);
       return;
@@ -924,7 +939,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setQuotaRefreshing((s) => ({ ...s, [p.id]: true }));
     try {
       const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url;
-      const q = await quotaApi.query(baseUrl, p.api_key);
+      const q = p.platform_type === "newapi"
+        ? await quotaApi.queryNewapi(baseUrl, p.extra ?? "")
+        : await quotaApi.query(baseUrl, p.api_key);
       if (q.success) {
         setQuotaMap((s) => ({ ...s, [p.id]: q }));
         setQuotaRealIds((s) => ({ ...s, [p.id]: true }));
@@ -947,6 +964,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
     setShowClaudeConfig(false); setClaudeConfigJson("");
     setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
+    setNewApiConfig({ balance_api_key: "", user_id: "" });
   };
 
   const handleEdit = async (p: Platform) => {
@@ -967,6 +985,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setShowClaudeConfig(false); setClaudeConfigJson("");
     setExtra(p.extra ?? "");
     setMockConfig(parseMockConfig(p.extra ?? ""));
+    setNewApiConfig(parseNewApiConfig(p.extra ?? ""));
 
     // Load global + platform Claude Code config
     try {
@@ -1045,8 +1064,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
       const availablePayload = availableModels.length > 0 ? availableModels : undefined;
       const baseUrl = getPrimaryBaseUrl(protocol, endpoints);
-      // mock 平台：把配置写回 extra；其余平台原样保留已有 extra
-      const extraPayload = isMock ? serializeMockConfig(extra, mockConfig) : extra;
+      // mock 平台：把配置写回 extra；newapi 平台写回 newapi 配置；其余原样保留
+      let extraPayload = extra;
+      if (isMock) extraPayload = serializeMockConfig(extra, mockConfig);
+      if (protocol === "newapi") extraPayload = serializeNewApiConfig(extraPayload, newApiConfig);
       const extraArg = extraPayload ? extraPayload : undefined;
       let savedId: number | undefined;
       if (editing) {
@@ -1168,6 +1189,41 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           {/* Mock 平台配置编辑器（仅 mock 平台显示，替代 endpoints / API Key / 模型） */}
           {isMock && (
             <MockConfigEditor config={mockConfig} onChange={setMockConfig} />
+          )}
+
+          {/* New API 余额查询配置（仅 newapi 平台显示） */}
+          {protocol === "newapi" && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12, background: "var(--bg-tertiary)", borderRadius: 8 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
+                {t("platform.newapiBalanceConfig", "余额查询配置")}
+              </div>
+              <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                {t("platform.newapiBalanceHint", "查询余额需要独立的 Token（从控制台获取），与 API Key 不同")}
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                  {t("platform.newapiBalanceKey", "余额查询 Token")}
+                </div>
+                <input
+                  className="input"
+                  type="password"
+                  placeholder={t("platform.newapiBalanceKeyPlaceholder", "sess-xxxx 或 access token")}
+                  value={newApiConfig.balance_api_key}
+                  onChange={(e) => setNewApiConfig(prev => ({ ...prev, balance_api_key: e.target.value }))}
+                />
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                  {t("platform.newapiUserId", "用户 ID")}
+                </div>
+                <input
+                  className="input"
+                  placeholder={t("platform.newapiUserIdPlaceholder", "数字 ID（可选）")}
+                  value={newApiConfig.user_id}
+                  onChange={(e) => setNewApiConfig(prev => ({ ...prev, user_id: e.target.value }))}
+                />
+              </div>
+            </div>
           )}
 
           {/* Claude Code 订阅（透传）配置：仅 base_url（host 根）+ 可空 api_key */}

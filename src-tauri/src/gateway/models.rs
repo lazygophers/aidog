@@ -131,6 +131,9 @@ pub enum Protocol {
     PipeLlm,
     #[serde(rename = "opencode")]
     OpenCode,
+    // ── 中转平台 ──
+    #[serde(rename = "newapi")]
+    NewApi,
 }
 
 /// 路由模式
@@ -290,6 +293,12 @@ pub struct Platform {
     /// 自上次真查以来的预估次数（校准计数；系统维护，前端只读）
     #[serde(default)]
     pub estimate_count: i64,
+    /// 是否在 tray 中展示此平台
+    #[serde(default)]
+    pub show_in_tray: bool,
+    /// tray 展示类型: "balance" | "coding"
+    #[serde(default)]
+    pub tray_display: String,
 }
 
 #[derive(Debug, Deserialize)]

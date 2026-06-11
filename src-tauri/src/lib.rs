@@ -188,6 +188,26 @@ fn platform_delete(id: u64, db: State<'_, Db>) -> Result<(), String> {
     db::delete_platform(&db, id)
 }
 
+/// 设置 / 清除托盘展示平台（互斥单平台）。
+/// enabled=true → 设 platform_id 为唯一展示平台（tray_display: "balance"|"coding"）；
+/// enabled=false → 清空所有。改后刷新托盘。
+#[tauri::command]
+fn platform_set_tray(
+    platform_id: u64,
+    tray_display: String,
+    enabled: bool,
+    db: State<'_, Db>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    if enabled {
+        db::set_tray_platform(&db, platform_id, &tray_display)?;
+    } else {
+        db::clear_tray(&db)?;
+    }
+    refresh_tray_menu(&app)?;
+    Ok(())
+}
+
 // ─── Group Commands ────────────────────────────────────────
 
 #[tauri::command]
@@ -286,7 +306,7 @@ async fn proxy_start(
     let proxy_db = Db::new(db_path.to_str().unwrap_or(""))?;
     let proxy_db = std::sync::Arc::new(proxy_db);
 
-    let (proxy_handle, actual_port) = gateway::proxy::start_proxy(proxy_db, port).await?;
+    let (proxy_handle, actual_port) = gateway::proxy::start_proxy(proxy_db, port, Some(app.clone())).await?;
 
     {
         let mut h = handle.0.lock().map_err(|e| e.to_string())?;
@@ -402,7 +422,7 @@ async fn platform_fetch_models(
                     format!("parse response: {e}")
                 })?
         }
-        Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::GlmEn | Protocol::Kimi | Protocol::MiniMax | Protocol::MiniMaxEn | Protocol::Gemini | Protocol::OpenAIResponses | Protocol::OpenAICompletions | Protocol::BailianCoding | Protocol::DeepSeek | Protocol::StepFun | Protocol::StepFunEn | Protocol::Doubao | Protocol::DoubaoSeed | Protocol::BytePlus | Protocol::QianFan | Protocol::XiaomiMimo | Protocol::BaiLing | Protocol::Longcat | Protocol::OpenRouter | Protocol::SiliconFlow | Protocol::SiliconFlowEn | Protocol::AiHubMix | Protocol::DmxApi | Protocol::ModelScope | Protocol::ShengSuanYun | Protocol::AtlasCloud | Protocol::Novita | Protocol::TheRouter | Protocol::CherryIn | Protocol::PackyCode | Protocol::Cubence | Protocol::AiGoCode | Protocol::RightCode | Protocol::AiCodeMirror | Protocol::Nvidia | Protocol::Pateway | Protocol::CcSub | Protocol::ApiKeyFun | Protocol::ApiNebula | Protocol::SudoCode | Protocol::ClaudeApi | Protocol::ClaudeCN | Protocol::RunApi | Protocol::RelaxyCode | Protocol::CrazyRouter | Protocol::SssAiCode | Protocol::Compshare | Protocol::CompshareCoding | Protocol::Micu | Protocol::CTok | Protocol::EFlowCode | Protocol::LemonData | Protocol::PipeLlm | Protocol::OpenCode => {
+        Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::GlmEn | Protocol::Kimi | Protocol::MiniMax | Protocol::MiniMaxEn | Protocol::Gemini | Protocol::OpenAIResponses | Protocol::OpenAICompletions | Protocol::BailianCoding | Protocol::DeepSeek | Protocol::StepFun | Protocol::StepFunEn | Protocol::Doubao | Protocol::DoubaoSeed | Protocol::BytePlus | Protocol::QianFan | Protocol::XiaomiMimo | Protocol::BaiLing | Protocol::Longcat | Protocol::OpenRouter | Protocol::SiliconFlow | Protocol::SiliconFlowEn | Protocol::AiHubMix | Protocol::DmxApi | Protocol::ModelScope | Protocol::ShengSuanYun | Protocol::AtlasCloud | Protocol::Novita | Protocol::TheRouter | Protocol::CherryIn | Protocol::PackyCode | Protocol::Cubence | Protocol::AiGoCode | Protocol::RightCode | Protocol::AiCodeMirror | Protocol::Nvidia | Protocol::Pateway | Protocol::CcSub | Protocol::ApiKeyFun | Protocol::ApiNebula | Protocol::SudoCode | Protocol::ClaudeApi | Protocol::ClaudeCN | Protocol::RunApi | Protocol::RelaxyCode | Protocol::CrazyRouter | Protocol::SssAiCode | Protocol::Compshare | Protocol::CompshareCoding | Protocol::Micu | Protocol::CTok | Protocol::EFlowCode | Protocol::LemonData | Protocol::PipeLlm | Protocol::OpenCode | Protocol::NewApi => {
             let url = format!("{base}/models");
             tracing::info!("fetch models: {url}");
             client
@@ -902,6 +922,12 @@ async fn platform_query_quota(base_url: String, api_key: String) -> Result<Platf
     Ok(gateway::quota::query_quota(&base_url, &api_key).await)
 }
 
+/// New API 专用余额查询（需要 extra 中的独立 balance key）
+#[tauri::command]
+async fn platform_query_quota_newapi(base_url: String, extra: String) -> Result<PlatformQuota, String> {
+    Ok(gateway::quota::query_quota_newapi(&base_url, &extra).await)
+}
+
 // ─── Path Autocomplete ─────────────────────────────────────
 
 use serde::Serialize;
@@ -1198,6 +1224,21 @@ fn save_proxy_settings(
 use tauri::menu::{MenuBuilder, MenuItemBuilder};
 use tauri::tray::TrayIconBuilder;
 
+/// 计算 tray 展示文字（选定平台的余额或 coding% 预估值）。无选定平台 / 无 est 返回 None。
+fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
+    let db = app.try_state::<Db>()?;
+    let platform = db::get_tray_platform(&db).ok().flatten()?;
+    if platform.tray_display == "coding" {
+        // coding：解析首 tier est_utilization
+        let plan = gateway::estimate::EstCodingPlan::from_json(&platform.est_coding_plan);
+        let tier = plan.tiers.first()?;
+        Some(format!("🪙 {:.0}%", tier.est_utilization))
+    } else {
+        // balance：est_balance_remaining
+        Some(format!("💳 {:.2}", platform.est_balance_remaining))
+    }
+}
+
 fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wry>, String> {
     let running = {
         let handle = app.state::<ProxyHandle>();
@@ -1215,8 +1256,16 @@ fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wr
     let toggle_id = if running { "proxy_stop" } else { "proxy_start" };
     let toggle_text = if running { "Stop Proxy" } else { "Start Proxy" };
 
-    let menu = MenuBuilder::new(app)
-        .item(&MenuItemBuilder::with_id("status", status_text).enabled(false).build(app).map_err(|e| e.to_string())?)
+    let mut builder = MenuBuilder::new(app)
+        .item(&MenuItemBuilder::with_id("status", status_text).enabled(false).build(app).map_err(|e| e.to_string())?);
+
+    // tray quota 详情项（选定平台余额 / coding%）
+    if let Some(quota_text) = tray_quota_text(app) {
+        builder = builder
+            .item(&MenuItemBuilder::with_id("tray_quota", quota_text).enabled(false).build(app).map_err(|e| e.to_string())?);
+    }
+
+    let menu = builder
         .separator()
         .item(&MenuItemBuilder::with_id(toggle_id, toggle_text).build(app).map_err(|e| e.to_string())?)
         .separator()
@@ -1231,6 +1280,12 @@ fn refresh_tray_menu(app: &tauri::AppHandle) -> Result<(), String> {
     let tray = app.tray_by_id("main").ok_or("tray not found")?;
     let menu = build_tray_menu(app)?;
     tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
+    // macOS 菜单栏文字展示 quota；非 macOS 平台仅 menu item 降级（不调 set_title）
+    #[cfg(target_os = "macos")]
+    {
+        let title = tray_quota_text(app);
+        tray.set_title(title.as_deref()).map_err(|e| e.to_string())?;
+    }
     Ok(())
 }
 
@@ -1304,6 +1359,15 @@ pub fn run() {
                 })
                 .build(app).map_err(|e| e.to_string())?;
 
+            // 监听后台预估发出的 tray-refresh 事件，在主线程刷新托盘（避免后台线程直接操作 tray）
+            {
+                use tauri::Listener;
+                let handle = app.handle().clone();
+                app.listen("tray-refresh", move |_| {
+                    let _ = refresh_tray_menu(&handle);
+                });
+            }
+
             // 自动启动代理
             let settings = load_proxy_settings(app.handle())?;
             if settings.autostart {
@@ -1323,6 +1387,7 @@ pub fn run() {
             platform_get,
             platform_update,
             platform_delete,
+            platform_set_tray,
             platform_fetch_models,
             // Group
             group_create,
@@ -1374,6 +1439,7 @@ pub fn run() {
             group_usage_stats,
             // Platform Quota
             platform_query_quota,
+            platform_query_quota_newapi,
             // Model Prices
             model_price_list,
             model_price_count,

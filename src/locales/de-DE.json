@@ -239,5 +239,11 @@
   "platform.mockErrorNone": "Normale Antwort",
   "platform.mockErrorHttp": "HTTP-Fehler",
   "platform.mockErrorRateLimit": "Rate-Limit 429",
-  "platform.mockErrorTimeout": "Zeitüberschreitung"
+  "platform.mockErrorTimeout": "Zeitüberschreitung",
+  "platform.newapiBalanceConfig": "Guthaben-Abfragekonfig",
+  "platform.newapiBalanceHint": "Erfordert ein separates Token für Guthabenabfrage",
+  "platform.newapiBalanceKey": "Guthaben-Token",
+  "platform.newapiBalanceKeyPlaceholder": "sess-xxxx oder Access-Token",
+  "platform.newapiUserId": "Benutzer-ID",
+  "platform.newapiUserIdPlaceholder": "Numerische ID (optional)"
 }

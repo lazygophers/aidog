@@ -239,5 +239,11 @@
   "platform.mockErrorNone": "通常レスポンス",
   "platform.mockErrorHttp": "HTTP エラー",
   "platform.mockErrorRateLimit": "レート制限 429",
-  "platform.mockErrorTimeout": "タイムアウト"
+  "platform.mockErrorTimeout": "タイムアウト",
+  "platform.newapiBalanceConfig": "残高照会設定",
+  "platform.newapiBalanceHint": "残高照会にはAPIキーとは別のトークンが必要です",
+  "platform.newapiBalanceKey": "残高照会トークン",
+  "platform.newapiBalanceKeyPlaceholder": "sess-xxxx またはアクセストークン",
+  "platform.newapiUserId": "ユーザーID",
+  "platform.newapiUserIdPlaceholder": "数値ID（任意）"
 }

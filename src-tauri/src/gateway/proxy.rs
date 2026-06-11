@@ -20,14 +20,18 @@ pub struct ProxyState {
     /// 用 Arc<Db> 而非 Mutex<Db>：Db 内部已自带 Mutex<Connection>，
     /// Arc 便于克隆进后台预估 spawn（每次操作锁内自治，禁持锁跨 await）。
     pub db: Arc<Db>,
+    /// 可选 AppHandle：预估更新后 emit "tray-refresh" 事件让主线程刷新托盘。
+    /// 后台 spawn 不直接操作 tray（线程安全），改 emit 事件由主线程 setup 监听刷新。
+    pub app: Option<tauri::AppHandle>,
 }
 
 /// 启动代理服务器，返回 shutdown handle
 pub async fn start_proxy(
     db: Arc<Db>,
     port: u16,
+    app: Option<tauri::AppHandle>,
 ) -> Result<(tokio::task::JoinHandle<()>, u16), String> {
-    let state = Arc::new(ProxyState { db });
+    let state = Arc::new(ProxyState { db, app });
 
     let app = Router::new()
         .fallback(handle_proxy)
@@ -115,6 +119,7 @@ fn spawn_estimate(
         .trim_matches('"')
         .to_string();
     let db = state.db.clone();
+    let app = state.app.clone();
     tokio::spawn(async move {
         super::estimate::estimate_after_request(
             &db,
@@ -129,6 +134,11 @@ fn spawn_estimate(
             is_coding_plan,
         )
         .await;
+        // 预估更新后通知主线程刷新托盘（emit 事件，避免后台线程直接操作 tray）
+        if let Some(app) = app {
+            use tauri::Emitter;
+            let _ = app.emit("tray-refresh", ());
+        }
     });
 }
 

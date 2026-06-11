@@ -56,6 +56,9 @@ impl Db {
         let _ = conn.execute("ALTER TABLE platform ADD COLUMN est_coding_plan TEXT NOT NULL DEFAULT ''", []);
         let _ = conn.execute("ALTER TABLE platform ADD COLUMN last_real_query_at INTEGER NOT NULL DEFAULT 0", []);
         let _ = conn.execute("ALTER TABLE platform ADD COLUMN estimate_count INTEGER NOT NULL DEFAULT 0", []);
+        // Migration 005: tray 展示列（互斥单平台 show_in_tray + balance/coding 二选一 tray_display）
+        let _ = conn.execute("ALTER TABLE platform ADD COLUMN show_in_tray INTEGER NOT NULL DEFAULT 0", []);
+        let _ = conn.execute("ALTER TABLE platform ADD COLUMN tray_display TEXT NOT NULL DEFAULT 'balance'", []);
         Ok(())
     }
 }
@@ -77,11 +80,11 @@ fn retention_cutoff(days: u32) -> Option<i64> {
 
 /// SELECT 列序
 const PLATFORM_COLUMNS: &str =
-    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count";
+    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display";
 
 /// 同 PLATFORM_COLUMNS，但每列加 `p.` 限定，用于与其他表 JOIN 时消除同名列歧义（如 created_at/updated_at）
 const PLATFORM_COLUMNS_PREFIXED: &str =
-    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count";
+    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display";
 
 /// 从查询行构造 Platform
 fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -107,6 +110,8 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         est_coding_plan: row.get(13)?,
         last_real_query_at: row.get(14)?,
         estimate_count: row.get(15)?,
+        show_in_tray: row.get::<_, i64>(16)? == 1,
+        tray_display: row.get(17)?,
     })
 }
 
@@ -152,6 +157,8 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, S
         est_coding_plan: String::new(),
         last_real_query_at: 0,
         estimate_count: 0,
+        show_in_tray: false,
+        tray_display: "balance".to_string(),
     })
 }
 
@@ -242,6 +249,46 @@ pub fn delete_platform(db: &Db, id: u64) -> Result<(), String> {
     conn.execute("UPDATE platform SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])
         .map_err(|e| format!("delete platform: {e}"))?;
     Ok(())
+}
+
+// ─── Tray 展示（互斥单平台）─────────────────────────────────
+
+/// 互斥设置 tray 展示平台：单事务先清所有 show_in_tray，再置选中平台为 1。
+/// `tray_display`: "balance" | "coding"。
+pub fn set_tray_platform(db: &Db, platform_id: u64, tray_display: &str) -> Result<(), String> {
+    let display = if tray_display == "coding" { "coding" } else { "balance" };
+    let ts = now();
+    let mut conn = db.0.lock().map_err(|e| e.to_string())?;
+    let tx = conn.transaction().map_err(|e| e.to_string())?;
+    tx.execute("UPDATE platform SET show_in_tray = 0, updated_at = ?1 WHERE show_in_tray = 1", params![ts])
+        .map_err(|e| format!("clear tray: {e}"))?;
+    tx.execute(
+        "UPDATE platform SET show_in_tray = 1, tray_display = ?1, updated_at = ?2 WHERE id = ?3 AND deleted_at = 0",
+        params![display, ts, platform_id as i64],
+    )
+    .map_err(|e| format!("set tray: {e}"))?;
+    tx.commit().map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+/// 清空所有 tray 展示（关闭）。
+pub fn clear_tray(db: &Db) -> Result<(), String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    conn.execute("UPDATE platform SET show_in_tray = 0, updated_at = ?1 WHERE show_in_tray = 1", params![now()])
+        .map_err(|e| format!("clear tray: {e}"))?;
+    Ok(())
+}
+
+/// 取当前 tray 展示平台（show_in_tray = 1），无则 None。
+pub fn get_tray_platform(db: &Db) -> Result<Option<Platform>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE show_in_tray = 1 AND deleted_at = 0 LIMIT 1");
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let result = stmt
+        .query_row([], row_to_platform)
+        .optional()
+        .map_err(|e| e.to_string())?;
+    Ok(result)
 }
 
 // ─── Group CRUD ────────────────────────────────────────────
@@ -446,6 +493,8 @@ pub fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlatformDe
                     est_coding_plan: row.get(15)?,
                     last_real_query_at: row.get(16)?,
                     estimate_count: row.get(17)?,
+                    show_in_tray: row.get::<_, i64>(18)? == 1,
+                    tray_display: row.get(19)?,
                 },
                 priority: row.get(0)?,
                 weight: row.get(1)?,
