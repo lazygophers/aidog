@@ -143,6 +143,10 @@ export interface Platform {
   last_real_query_at: number;
   /** 自上次真查以来的预估次数（系统维护，只读） */
   estimate_count: number;
+  /** 是否在系统托盘展示该平台 quota（互斥单平台） */
+  show_in_tray: boolean;
+  /** 托盘展示内容："balance" | "coding" */
+  tray_display: string;
 }
 
 export interface Group {
@@ -280,6 +284,24 @@ export const platformApi = {
 
   usageStats: (platformId: number) =>
     invoke<PlatformUsageStats>("platform_usage_stats", { platformId }),
+};
+
+/** 系统托盘 quota 展示（互斥单平台） */
+export const trayApi = {
+  /** 设选定平台为唯一托盘展示平台，display: "balance" | "coding" */
+  set: (platformId: number, display: string) =>
+    invoke<void>("platform_set_tray", {
+      platformId,
+      trayDisplay: display,
+      enabled: true,
+    }),
+  /** 关闭托盘 quota 展示（清空所有平台） */
+  clear: () =>
+    invoke<void>("platform_set_tray", {
+      platformId: 0,
+      trayDisplay: "balance",
+      enabled: false,
+    }),
 };
 
 export const groupUsageApi = {
