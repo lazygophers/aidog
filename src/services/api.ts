@@ -586,6 +586,11 @@ export interface PriceSyncResult {
   total: number;
 }
 
+export interface ModelPriceFilter {
+  query?: string;
+  source?: string;
+}
+
 export const modelPriceApi = {
   list: (limit = 50, offset = 0) =>
     invoke<ModelPriceSummary[]>("model_price_list", { limit, offset }),
@@ -593,6 +598,10 @@ export const modelPriceApi = {
     invoke<number>("model_price_count"),
   search: (query: string, limit = 50) =>
     invoke<ModelPriceSummary[]>("model_price_search", { query, limit }),
+  listFiltered: (filter: ModelPriceFilter, limit = 50, offset = 0) =>
+    invoke<ModelPriceSummary[]>("model_price_list_filtered", { ...filter, limit, offset }),
+  countFiltered: (filter: ModelPriceFilter) =>
+    invoke<number>("model_price_count_filtered", { ...filter }),
   delete: (modelName: string) =>
     invoke<void>("model_price_delete", { modelName }),
   upsert: (modelName: string, source: string, priceData: string) =>

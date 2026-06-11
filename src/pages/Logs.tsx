@@ -69,19 +69,17 @@ export function Logs() {
   // Check if any filter is active
   const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModelText.trim());
 
-  // Collect unique models from ALL loaded logs (across pages) for suggestions.
-  // Fetch a large unfiltered batch once to populate suggestions without being
-  // affected by the current filter selection.
-  const [modelSuggestions, setModelSuggestions] = useState<string[]>([]);
+  // Collect unique models from a large unfiltered query so options stay stable
+  // regardless of the current filter selection.
+  const [modelOptions, setModelOptions] = useState<string[]>([]);
   useEffect(() => {
     (async () => {
       try {
-        // Fetch a large sample without model filter to get diverse suggestions
         const items = await proxyLogApi.list(200, 0);
         const col = filterModelType === "actual" ? "actual_model" : "model";
         const set = new Set<string>();
         (items || []).forEach(l => { if ((l as any)[col]) set.add((l as any)[col]); });
-        setModelSuggestions(Array.from(set).sort());
+        setModelOptions(Array.from(set).sort());
       } catch { /* ignore */ }
     })();
   }, [filterModelType]);
@@ -398,28 +396,13 @@ export function Logs() {
             onClick={() => setFilterModelType("original")}
           >{t("logs.model", "原始模型")}</button>
         </div>
-        {/* Model text input with suggestions */}
-        <div style={{ position: "relative" }}>
-          <input
-            list="model-suggestions"
-            className="input"
-            value={filterModelText}
-            onChange={e => setFilterModelText(e.target.value)}
-            placeholder={t("logs.filterModel", "模型")}
-            style={{
-              fontSize: F.small,
-              padding: "4px 8px",
-              width: 140,
-              borderRadius: 6,
-              border: "1px solid var(--border)",
-              background: "var(--bg-secondary, rgba(255,255,255,0.05))",
-              color: "var(--text-primary)",
-            }}
-          />
-          <datalist id="model-suggestions">
-            {modelSuggestions.map(m => <option key={m} value={m} />)}
-          </datalist>
-        </div>
+        {/* Model dropdown — options from unfiltered query */}
+        <FilterSelect
+          value={filterModelText}
+          onChange={setFilterModelText}
+          options={modelOptions.map(m => ({ value: m, label: m }))}
+          placeholder={t("logs.filterModel", "模型")}
+        />
         {/* Clear */}
         {hasFilter && (
           <button className="btn btn-ghost" onClick={clearFilter} style={{ fontSize: F.small, padding: "2px 8px", color: "var(--text-tertiary)" }}>

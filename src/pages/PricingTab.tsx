@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   modelPriceApi,
@@ -6,18 +6,20 @@ import {
   type ModelPriceSummary,
   type PriceSyncSettings,
   type PriceSyncResult,
+  type ModelPriceFilter,
 } from "../services/api";
 
 const F = { title: 15, body: 14, hint: 13, small: 12 } as const;
-const PAGE_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
 
 export function PricingTab() {
   const { t } = useTranslation();
   const [prices, setPrices] = useState<ModelPriceSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
+  const [pageSize, setPageSize] = useState(50);
+  const [jumpPage, setJumpPage] = useState("");
   const [loading, setLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState("");
   const [message, setMessage] = useState("");
   const [syncing, setSyncing] = useState(false);
   const [syncSettings, setSyncSettings] = useState<PriceSyncSettings>({
@@ -27,6 +29,19 @@ export function PricingTab() {
     fallback_input_price: 3.0,
     fallback_output_price: 3.0,
   });
+
+  // ── Filter state ──
+  const [filterQuery, setFilterQuery] = useState("");
+  const [filterSource, setFilterSource] = useState("");
+
+  const activeFilter = useMemo<ModelPriceFilter>(() => {
+    const f: ModelPriceFilter = {};
+    if (filterQuery.trim()) f.query = filterQuery.trim();
+    if (filterSource) f.source = filterSource;
+    return f;
+  }, [filterQuery, filterSource]);
+
+  const hasFilter = !!(filterQuery.trim() || filterSource);
 
   const loadSettings = useCallback(async () => {
     try {
@@ -38,24 +53,21 @@ export function PricingTab() {
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
     try {
-      if (searchQuery.trim()) {
-        const items = await modelPriceApi.search(searchQuery.trim(), PAGE_SIZE);
-        setPrices(items || []);
-        setTotal(items?.length ?? 0);
-      } else {
-        const [items, count] = await Promise.all([
-          modelPriceApi.list(PAGE_SIZE, offset),
-          modelPriceApi.count(),
-        ]);
-        setPrices(items || []);
-        setTotal(count);
-      }
+      const [items, count] = await Promise.all([
+        modelPriceApi.listFiltered(activeFilter, pageSize, offset),
+        modelPriceApi.countFiltered(activeFilter),
+      ]);
+      setPrices(items || []);
+      setTotal(count);
     } catch (e) { console.error(e); }
     if (!silent) setLoading(false);
-  }, [offset, searchQuery]);
+  }, [offset, pageSize, activeFilter]);
 
   useEffect(() => { loadSettings(); }, [loadSettings]);
   useEffect(() => { load(); }, [load]);
+
+  // Reset offset when filter or page size changes
+  useEffect(() => { setOffset(0); }, [hasFilter, activeFilter, pageSize]);
 
   const handleSync = async () => {
     setSyncing(true);
@@ -93,8 +105,21 @@ export function PricingTab() {
     } catch (e: any) { setMessage(e.toString()); }
   };
 
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-  const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
+  const clearFilter = () => {
+    setFilterQuery("");
+    setFilterSource("");
+  };
+
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(Math.floor(offset / pageSize) + 1, totalPages);
+
+  const handleJumpPage = () => {
+    const p = parseInt(jumpPage, 10);
+    if (p >= 1 && p <= totalPages) {
+      setOffset((p - 1) * pageSize);
+      setJumpPage("");
+    }
+  };
 
   const formatPrice = (v: number | null) => {
     if (v == null) return "-";
@@ -133,7 +158,6 @@ export function PricingTab() {
 
         {/* Sync settings row */}
         <div style={{ display: "flex", gap: 16, alignItems: "center", flexWrap: "wrap", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-          {/* Auto sync toggle */}
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div
               className={`toggle ${syncSettings.auto_sync_enabled ? "active" : ""}`}
@@ -144,8 +168,6 @@ export function PricingTab() {
             />
             <span style={{ fontSize: F.small, fontWeight: 600 }}>{t("pricing.autoSync", "自动同步")}</span>
           </div>
-
-          {/* Sync interval */}
           {syncSettings.auto_sync_enabled && (
             <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
               <label style={{ fontSize: F.small, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
@@ -165,8 +187,6 @@ export function PricingTab() {
               </select>
             </div>
           )}
-
-          {/* Last sync time */}
           <span style={{ fontSize: F.small, color: "var(--text-tertiary)", marginLeft: "auto" }}>
             {t("pricing.lastSync", "上次同步")}: {formatTime(syncSettings.last_sync_at)}
           </span>
@@ -196,18 +216,30 @@ export function PricingTab() {
         </div>
       </div>
 
-      {/* Search */}
-      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      {/* Filter bar */}
+      <div className="glass-surface" style={{ padding: "10px 16px", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
         <input
           className="input"
           placeholder={t("pricing.searchPlaceholder", "搜索模型名称...")}
-          value={searchQuery}
-          onChange={(e) => { setSearchQuery(e.target.value); setOffset(0); }}
-          style={{ flex: 1, fontSize: F.hint, padding: "8px 12px" }}
+          value={filterQuery}
+          onChange={(e) => setFilterQuery(e.target.value)}
+          style={{ flex: "1 1 160px", fontSize: F.small, padding: "6px 10px" }}
         />
-        <button className="btn" onClick={() => load()} disabled={loading} style={{ fontSize: F.hint }}>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
-        </button>
+        <select
+          className="input"
+          value={filterSource}
+          onChange={(e) => setFilterSource(e.target.value)}
+          style={{ fontSize: F.small, padding: "6px 8px", width: 100 }}
+        >
+          <option value="">{t("pricing.allSources", "全部来源")}</option>
+          <option value="litellm">LiteLLM</option>
+          <option value="manual">{t("pricing.manual", "手动")}</option>
+        </select>
+        {hasFilter && (
+          <button className="btn btn-ghost" onClick={clearFilter} style={{ fontSize: F.small, padding: "4px 8px", color: "var(--text-tertiary)" }}>
+            ✕ {t("pricing.clearFilter", "清除")}
+          </button>
+        )}
       </div>
 
       {/* Price table */}
@@ -269,25 +301,120 @@ export function PricingTab() {
           </div>
 
           {/* Pagination */}
-          {totalPages > 1 && !searchQuery && (
-            <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12 }}>
-              <button className="btn" disabled={currentPage <= 1}
-                onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}>←</button>
-              <span className="text-secondary" style={{ fontSize: F.hint }}>
-                {currentPage} / {totalPages}
-              </span>
-              <button className="btn" disabled={currentPage >= totalPages}
-                onClick={() => setOffset(offset + PAGE_SIZE)}>→</button>
-            </div>
-          )}
-
-          <div className="text-tertiary" style={{ fontSize: F.small, textAlign: "center" }}>
-            {t("pricing.total", "共 {count} 个模型价格").replace("{count}", String(total))}
-          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            total={total}
+            pageSize={pageSize}
+            pageSizeOptions={PAGE_SIZE_OPTIONS}
+            jumpPage={jumpPage}
+            onJumpPageChange={setJumpPage}
+            onJump={handleJumpPage}
+            onPageSizeChange={ps => { setPageSize(ps); setOffset(0); }}
+            onPageChange={page => setOffset((page - 1) * pageSize)}
+          />
         </>
       )}
 
       {message && <div className="toast">{message}</div>}
+    </div>
+  );
+}
+
+/** 分页导航：页码按钮 + 跳页 + 每页数量 */
+function Pagination({
+  currentPage, totalPages, total, pageSize, pageSizeOptions,
+  jumpPage, onJumpPageChange, onJump, onPageSizeChange, onPageChange,
+}: {
+  currentPage: number;
+  totalPages: number;
+  total: number;
+  pageSize: number;
+  pageSizeOptions: number[];
+  jumpPage: string;
+  onJumpPageChange: (v: string) => void;
+  onJump: () => void;
+  onPageSizeChange: (size: number) => void;
+  onPageChange: (page: number) => void;
+}) {
+  const rangeStart = (currentPage - 1) * pageSize + 1;
+  const rangeEnd = Math.min(currentPage * pageSize, total);
+
+  const pages: (number | "ellipsis")[] = [];
+  if (totalPages <= 7) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    if (currentPage > 3) pages.push("ellipsis");
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+    for (let i = start; i <= end; i++) pages.push(i);
+    if (currentPage < totalPages - 2) pages.push("ellipsis");
+    pages.push(totalPages);
+  }
+
+  const btnStyle: React.CSSProperties = {
+    fontSize: 12, padding: "4px 8px", minWidth: 28, textAlign: "center",
+  };
+
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+      {/* Left: range info + page size */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span className="text-tertiary" style={{ fontSize: 12 }}>
+          {rangeStart}–{rangeEnd} / {total}
+        </span>
+        <select
+          className="input"
+          value={pageSize}
+          onChange={e => onPageSizeChange(Number(e.target.value))}
+          style={{ fontSize: 12, padding: "2px 6px", width: 70 }}
+        >
+          {pageSizeOptions.map(s => <option key={s} value={s}>{s}/page</option>)}
+        </select>
+      </div>
+
+      {/* Right: page nav + jump */}
+      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage <= 1}
+          onClick={() => onPageChange(1)} title="First">⟪</button>
+        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage <= 1}
+          onClick={() => onPageChange(currentPage - 1)}>←</button>
+        {pages.map((p, i) =>
+          p === "ellipsis" ? (
+            <span key={`e${i}`} className="text-tertiary" style={{ fontSize: 12, padding: "0 4px" }}>…</span>
+          ) : (
+            <button key={p} className={`btn ${p === currentPage ? "" : "btn-ghost"}`}
+              style={{
+                ...btnStyle,
+                ...(p === currentPage ? { fontWeight: 700, color: "var(--accent)" } : {}),
+              }}
+              onClick={() => onPageChange(p)}>{p}</button>
+          ),
+        )}
+        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(currentPage + 1)}>→</button>
+        <button className="btn btn-ghost" style={btnStyle} disabled={currentPage >= totalPages}
+          onClick={() => onPageChange(totalPages)} title="Last">⟫</button>
+
+        {/* Jump to page */}
+        <div style={{ display: "flex", alignItems: "center", gap: 4, marginLeft: 8 }}>
+          <input
+            className="input"
+            type="number"
+            min={1}
+            max={totalPages}
+            value={jumpPage}
+            onChange={e => onJumpPageChange(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") onJump(); }}
+            placeholder="#"
+            style={{ width: 50, fontSize: 12, padding: "3px 6px", textAlign: "center" }}
+          />
+          <button className="btn btn-ghost" style={btnStyle} onClick={onJump}>
+            Go
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

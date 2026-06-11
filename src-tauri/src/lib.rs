@@ -1098,6 +1098,26 @@ fn model_price_search(db: State<'_, Db>, query: String, limit: u32) -> Result<Ve
 }
 
 #[tauri::command]
+fn model_price_list_filtered(
+    db: State<'_, Db>,
+    query: Option<String>,
+    source: Option<String>,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
+    gateway::db::filtered_list_model_prices(&db, query.as_deref(), source.as_deref(), limit, offset)
+}
+
+#[tauri::command]
+fn model_price_count_filtered(
+    db: State<'_, Db>,
+    query: Option<String>,
+    source: Option<String>,
+) -> Result<u32, String> {
+    gateway::db::filtered_count_model_prices(&db, query.as_deref(), source.as_deref())
+}
+
+#[tauri::command]
 fn model_price_delete(db: State<'_, Db>, model_name: String) -> Result<(), String> {
     gateway::db::delete_model_price(&db, &model_name)
 }
@@ -1358,6 +1378,8 @@ pub fn run() {
             model_price_list,
             model_price_count,
             model_price_search,
+model_price_list_filtered,
+model_price_count_filtered,
             model_price_delete,
             model_price_upsert,
             model_price_resolve,

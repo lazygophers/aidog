@@ -1155,6 +1155,86 @@ pub fn search_model_prices(db: &Db, query: &str, limit: u32) -> Result<Vec<super
     Ok(result)
 }
 
+/// Filtered list: optional query (LIKE model_name), optional source, limit, offset.
+pub fn filtered_list_model_prices(
+    db: &Db,
+    query: Option<&str>,
+    source: Option<&str>,
+    limit: u32,
+    offset: u32,
+) -> Result<Vec<super::models::ModelPriceSummary>, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut where_parts = vec!["deleted_at = 0".to_string()];
+    let mut param_idx = 1;
+    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+    if let Some(q) = query {
+        if !q.is_empty() {
+            where_parts.push(format!("model_name LIKE ?{param_idx}"));
+            params.push(Box::new(format!("%{q}%")));
+            param_idx += 1;
+        }
+    }
+    if let Some(s) = source {
+        if !s.is_empty() {
+            where_parts.push(format!("source = ?{param_idx}"));
+            params.push(Box::new(s.to_string()));
+            param_idx += 1;
+        }
+    }
+
+    let where_sql = where_parts.join(" AND ");
+    let sql = format!(
+        "SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE {where_sql} ORDER BY model_name LIMIT ?{param_idx} OFFSET ?{}",
+        param_idx + 1
+    );
+    params.push(Box::new(limit));
+    params.push(Box::new(offset));
+
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    let rows = stmt.query_map(param_refs.as_slice(), row_to_model_price)
+        .map_err(|e| e.to_string())?;
+    let mut result = Vec::new();
+    for r in rows {
+        let mp = r.map_err(|e| e.to_string())?;
+        result.push(price_data_to_summary(&mp));
+    }
+    Ok(result)
+}
+
+/// Count matching model prices with optional filters.
+pub fn filtered_count_model_prices(
+    db: &Db,
+    query: Option<&str>,
+    source: Option<&str>,
+) -> Result<u32, String> {
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let mut where_parts = vec!["deleted_at = 0".to_string()];
+    let mut param_idx = 1;
+    let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
+
+    if let Some(q) = query {
+        if !q.is_empty() {
+            where_parts.push(format!("model_name LIKE ?{param_idx}"));
+            params.push(Box::new(format!("%{q}%")));
+            param_idx += 1;
+        }
+    }
+    if let Some(s) = source {
+        if !s.is_empty() {
+            where_parts.push(format!("source = ?{param_idx}"));
+            params.push(Box::new(s.to_string()));
+        }
+    }
+
+    let where_sql = where_parts.join(" AND ");
+    let sql = format!("SELECT COUNT(*) FROM model_price WHERE {where_sql}");
+    let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    conn.query_row(&sql, param_refs.as_slice(), |row| row.get(0))
+        .map_err(|e| e.to_string())
+}
+
 // ─── Tests: DB Schema v2 规范固化 ──────────────────────────
 #[cfg(test)]
 mod tests {
