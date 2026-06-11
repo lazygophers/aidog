@@ -237,7 +237,7 @@ export function Logs() {
       : safeParseJson(detail.user_response_body);
 
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 800, width: "100%" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button className="btn btn-ghost btn-icon" onClick={() => setDetail(null)}>
@@ -323,7 +323,7 @@ export function Logs() {
   }, [platforms]);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 1000, width: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       {/* Header */}
       <div className="section-header" style={{ justifyContent: "space-between" }}>
         <div>

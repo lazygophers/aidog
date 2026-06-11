@@ -1199,7 +1199,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // ── Edit / Add form (full page, no list) ──
   if (showForm) {
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720, width: "100%" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
         {/* Edit page header */}
         <div className="section-header" style={{ gap: 10 }}>
           <button className="btn btn-ghost" style={{ padding: "4px 8px", fontSize: 14 }} onClick={resetForm}>
@@ -1750,7 +1750,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // ── List view ──
   return (
     <>
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720, width: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Header */}
       <div className="section-header" style={{ justifyContent: "space-between" }}>
         <div>

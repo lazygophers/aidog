@@ -319,7 +319,7 @@ export function Groups() {
   if (editTarget) {
     const editPlatformOptions = platforms.filter(p => p.enabled);
     return (
-      <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720, width: "100%" }}>
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
         {/* Header */}
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <button className="btn btn-ghost btn-icon" onClick={cancelEdit} title={t("action.cancel")}>
@@ -564,7 +564,7 @@ export function Groups() {
 
   // ── List view ──
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720, width: "100%" }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Header */}
       <div className="section-header" style={{ justifyContent: "space-between" }}>
         <div>

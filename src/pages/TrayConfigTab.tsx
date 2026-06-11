@@ -346,7 +346,7 @@ export function TrayConfigTab() {
   const hasTwoLine = layout.columns.some((c) => c.isTwo);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720 }} onClick={() => setPopover(null)}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }} onClick={() => setPopover(null)}>
       {/* ── Preview Bar ── */}
       <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>

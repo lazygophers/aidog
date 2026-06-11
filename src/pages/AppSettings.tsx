@@ -137,7 +137,7 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
       ) : tab === "tray" ? (
         <TrayConfigTab />
       ) : tab === "proxy" ? (
-        <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 640 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* Autostart */}
           <div className="glass-surface" style={{
             padding: "16px 20px",
