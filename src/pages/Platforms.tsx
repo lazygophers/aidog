@@ -1947,6 +1947,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                         }
                       }
                     }
+                    // 无额度数据（余额/配额均空）→ 整行不展示
+                    if (badges.length === 0) return null;
                     return (
                       <div className="glass-surface" style={{
                         display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap",
@@ -1956,16 +1958,14 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                         <span className="text-secondary" style={{ fontSize: 11, fontWeight: 600, letterSpacing: 0.2 }}>
                           {t("platform.quotaLabel", "额度")}
                         </span>
-                        {badges.length > 0 && (
-                          <span style={{
-                            fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: "var(--radius-sm)",
-                            background: estimated ? "var(--color-warning, #ff9500)18" : "var(--accent-subtle)",
-                            color: estimated ? "var(--color-warning, #ff9500)" : "var(--accent)",
-                            letterSpacing: 0.3,
-                          }}>
-                            {estimated ? t("platform.quotaEstimated", "预估") : t("platform.quotaMeasured", "实测")}
-                          </span>
-                        )}
+                        <span style={{
+                          fontSize: 9, fontWeight: 700, padding: "1px 5px", borderRadius: "var(--radius-sm)",
+                          background: estimated ? "var(--color-warning, #ff9500)18" : "var(--accent-subtle)",
+                          color: estimated ? "var(--color-warning, #ff9500)" : "var(--accent)",
+                          letterSpacing: 0.3,
+                        }}>
+                          {estimated ? t("platform.quotaEstimated", "预估") : t("platform.quotaMeasured", "实测")}
+                        </span>
                         <button
                           className="btn btn-ghost"
                           style={{ padding: 2, lineHeight: 0, minWidth: "auto", display: "inline-flex", alignItems: "center" }}
@@ -1980,9 +1980,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                             <polyline points="21 3 21 9 15 9" />
                           </svg>
                         </button>
-                        {badges.length > 0
-                          ? <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{badges}</div>
-                          : <span className="text-tertiary" style={{ fontSize: 11 }}>{t("platform.quotaEmpty", "暂无数据")}</span>}
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>{badges}</div>
                       </div>
                     );
                   })()}
