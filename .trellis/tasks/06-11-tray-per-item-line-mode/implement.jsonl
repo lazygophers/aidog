@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/06-11-tray-per-item-line-mode/design.md", "reason": "per-item line_mode + 渲染 ≤2行约束 + 迁移 — 实施契约"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "TrayItem line_mode 前后端契约"}
