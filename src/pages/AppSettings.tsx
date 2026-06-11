@@ -3,8 +3,9 @@ import { useTranslation } from "react-i18next";
 import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, type ProxyLogSettings, type AppLogSettings } from "../services/api";
 import { Settings } from "./Settings";
 import { PricingTab } from "./PricingTab";
+import { TrayConfigTab } from "./TrayConfigTab";
 
-type Tab = "proxy" | "claude" | "pricing";
+type Tab = "proxy" | "claude" | "pricing" | "tray";
 
 export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (enabled: boolean) => void }) {
   const { t } = useTranslation();
@@ -106,7 +107,7 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Tab bar */}
       <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--border)" }}>
-        {(["proxy", "claude", "pricing"] as Tab[]).map((id) => (
+        {(["proxy", "claude", "pricing", "tray"] as Tab[]).map((id) => (
           <button
             key={id}
             className="btn btn-ghost"
@@ -124,13 +125,17 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
               ? t("appSettings.proxyTab", "代理配置")
               : id === "claude"
                 ? t("appSettings.claudeTab", "Claude Code")
-                : t("appSettings.pricingTab", "模型价格")}
+                : id === "pricing"
+                  ? t("appSettings.pricingTab", "模型价格")
+                  : t("appSettings.trayTab", "系统托盘")}
           </button>
         ))}
       </div>
 
       {tab === "pricing" ? (
         <PricingTab />
+      ) : tab === "tray" ? (
+        <TrayConfigTab />
       ) : tab === "proxy" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 640 }}>
           {/* Autostart */}
