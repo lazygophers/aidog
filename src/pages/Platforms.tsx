@@ -1136,14 +1136,15 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     });
 
     // Quota（balance & coding plan，外部 HTTP，慢）逐平台返回逐个更新
+    // 传 platformId → 后端 calibrate_from_quota 校准 est_balance/est_coding_plan
     list.forEach(async (p) => {
       if (!p.api_key) return;
       const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []);
       if (!baseUrl) return;
       try {
         const q = p.platform_type === "newapi"
-          ? await quotaApi.queryNewapi(baseUrl, p.api_key, p.extra ?? "")
-          : await quotaApi.query(baseUrl, p.api_key);
+          ? await quotaApi.queryNewapi(baseUrl, p.api_key, p.extra ?? "", p.id)
+          : await quotaApi.query(baseUrl, p.api_key, p.id);
         if (q.success) setQuotaMap(prev => ({ ...prev, [p.id]: q }));
       } catch { /* ignore */ }
     });
