@@ -2,6 +2,7 @@ import { defineConfig } from 'rspress/config';
 
 export default defineConfig({
   root: 'docs',
+  base: '/aidog/',
   lang: 'zh',
   title: 'AiDog',
   description: 'AI API 网关代理 — 多平台聚合、智能路由、用量统计',
