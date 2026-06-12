@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { settingsApi, claudeSettingsImportApi, configApi } from "../services/api";
+import { settingsApi, claudeSettingsImportApi, configApi, statuslineApi } from "../services/api";
 import { registerNavGuard } from "../utils/navGuard";
 import { UnsavedChangesModal } from "../components/settings/UnsavedChangesModal";
 import { SECTIONS, RECOMMENDED_CONFIG } from "../services/claude-settings-schema";
@@ -15,6 +15,7 @@ import {
   PluginsSectionInline,
   HooksSectionInline,
   StatusLineSection,
+  materializeStatusline,
   ImportDiffModal,
   buildImportDiffTree,
   isPlainObject,
@@ -37,6 +38,66 @@ function stableStringify(value: any): string {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
   const keys = Object.keys(value).sort();
   return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(",")}}`;
+}
+
+// Materialize the native `statusLine` / `subagentStatusLine` fields from their
+// `_aidog_*` UI drafts at save time — the authoritative, race-free path that
+// replaces the UI's debounce-effect draft writes. For each of main + subagent:
+//   • disabled            → delete the native field
+//   • enabled + custom    → field = { type:"command", command:<customCommand> }
+//                           (empty command → delete the field)
+//   • enabled + builtin   → generate the bash script (writes the .sh file via
+//                           statuslineApi.generate) → field.command = <path>
+// Returns a NEW config object; the source is never mutated. Best-effort: a
+// generate() failure logs and leaves that field untouched, never blocks save.
+async function materializeStatuslineFields(
+  config: Record<string, any>,
+): Promise<Record<string, any>> {
+  const next = { ...config };
+  const targets: { aidogKey: string; fieldName: string; scriptType: "statusline" | "subagent"; isMain: boolean }[] = [
+    { aidogKey: "_aidog_statusline", fieldName: "statusLine", scriptType: "statusline", isMain: true },
+    { aidogKey: "_aidog_subagent_statusline", fieldName: "subagentStatusLine", scriptType: "subagent", isMain: false },
+  ];
+
+  for (const { aidogKey, fieldName, scriptType, isMain } of targets) {
+    const stored = next[aidogKey] as Record<string, any> | undefined;
+    const m = materializeStatusline(stored, scriptType);
+
+    // Disabled → drop the native field entirely.
+    if (!m.enabled) {
+      delete next[fieldName];
+      continue;
+    }
+
+    // Custom → write the user command verbatim; empty → drop the field.
+    if (m.mode === "custom") {
+      const cmd = m.customCommand.trim();
+      if (!cmd) {
+        delete next[fieldName];
+        continue;
+      }
+      const value: Record<string, any> = { type: "command", command: cmd };
+      if (isMain && m.padding > 0) value.padding = m.padding;
+      next[fieldName] = value;
+      continue;
+    }
+
+    // Builtin → generate the script file, point the field at the returned path.
+    if (m.scriptContent != null) {
+      try {
+        const path = await statuslineApi.generate(scriptType, m.scriptContent);
+        const value: Record<string, any> = { type: "command", command: path };
+        if (isMain && m.padding > 0) value.padding = m.padding;
+        if (isMain && m.hideVimModeIndicator) value.hideVimModeIndicator = true;
+        next[fieldName] = value;
+      } catch (e) {
+        // Never block the save — leave the existing field value as-is.
+        console.error(`materialize ${fieldName}:`, e);
+      }
+    }
+  }
+
+  return next;
 }
 
 // ─── Main Settings Page ────────────────────────────────────
@@ -123,7 +184,11 @@ export function Settings() {
     setSaving(true);
     setSaveError("");
     try {
-      const value = mode === "json" ? JSON.parse(editJson) : { ...config };
+      const draft = mode === "json" ? JSON.parse(editJson) : { ...config };
+      // Authoritative, race-free materialization of statusLine / subagentStatusLine
+      // from their `_aidog_*` drafts — must run BEFORE persisting so the native
+      // fields are always in sync with the toggle/mode the user just saved.
+      const value = await materializeStatuslineFields(draft);
       await settingsApi.set("global", CONFIG_KEY, value);
       setConfig(value);
       setEditJson(JSON.stringify(value, null, 2));
