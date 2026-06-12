@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "后端 Rust 规约入口 — estimate/proxy/db/models 改动"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "锁约定/JSON RMW 同临界区/禁持锁跨 await — 扣减安全"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "platformApi 字段契约一致(Rust↔TS)"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端编辑表单/列表/状态/i18n 规约"}

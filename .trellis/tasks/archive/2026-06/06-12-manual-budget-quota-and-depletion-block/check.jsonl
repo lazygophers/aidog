@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "校验锁安全/无持锁跨 await/向后兼容"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校验跨层契约 + 阻断/扣减正确 + 不回退"}
