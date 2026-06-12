@@ -2,13 +2,14 @@
   "name": "aidog-docs",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "yarn@4.16.0",
   "scripts": {
     "dev": "rspress dev",
     "build": "rspress build",
     "preview": "rspress preview"
   },
   "dependencies": {
-    "rspress": "^2.0.14",
-    "@rspress/core": "^2.0.14"
+    "@rspress/core": "2.0.0-beta.21",
+    "rspress": "2.0.0-beta.21"
   }
 }

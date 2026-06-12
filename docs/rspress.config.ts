@@ -1,4 +1,4 @@
-import { defineConfig } from 'rspress/core';
+import { defineConfig } from 'rspress/config';
 
 export default defineConfig({
   root: 'docs',

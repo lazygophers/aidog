@@ -1,0 +1,4 @@
+# docs 子项目固定 node 20 — rspress 2.x/rspack 在 node 26 下 SSG 阶段挂起
+[tools]
+node = "20"
+yarn = "latest"
