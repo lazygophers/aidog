@@ -77,7 +77,7 @@ const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
 const S = { gap: 18, pad: 28, inputPad: "10px 14px", btnPad: "8px 18px", btnIcon: 34 } as const;
 
 /** Copy text to clipboard with a brief visual feedback */
-function CopyButton({ text, title, size = 14 }: { text: string; title?: string; size?: number }) {
+function CopyButton({ text, title, label, size = 14 }: { text: string; title?: string; label?: string; size?: number }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -88,10 +88,10 @@ function CopyButton({ text, title, size = 14 }: { text: string; title?: string; 
   };
   return (
     <button
-      className="btn btn-ghost btn-icon"
+      className={label ? "btn btn-ghost" : "btn btn-ghost btn-icon"}
       onClick={handleCopy}
       title={title || text}
-      style={{ position: "relative", flexShrink: 0 }}
+      style={{ position: "relative", flexShrink: 0, gap: label ? 5 : 0, fontSize: label ? 12 : undefined, padding: label ? "4px 10px" : undefined }}
     >
       {copied ? (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -103,6 +103,7 @@ function CopyButton({ text, title, size = 14 }: { text: string; title?: string; 
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
       )}
+      {label && <span style={{ fontWeight: 500 }}>{label}</span>}
     </button>
   );
 }
@@ -338,8 +339,8 @@ export function Groups() {
             <div style={{ fontSize: F.title, fontWeight: 700 }}>{editName || t("group.edit")}</div>
             <div className="text-secondary" style={{ fontSize: F.hint, marginTop: 2 }}>#{editTarget.group.id}</div>
           </div>
-          <CopyButton text={buildClaudeCommand(editName)} title={t("group.copyCommand", "复制启动命令")} />
-          <CopyButton text={buildCodexCommand(editName)} title={t("group.copyCodexCommand", "复制 Codex 命令")} />
+          <CopyButton text={buildClaudeCommand(editName)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} />
+          <CopyButton text={buildCodexCommand(editName)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} />
           <button className="btn" onClick={cancelEdit}>{t("action.cancel")}</button>
           <button className="btn btn-primary" onClick={saveEdit}
             disabled={!editName || !editPath}>{t("action.save")}</button>
@@ -699,8 +700,8 @@ export function Groups() {
                   </div>
                 )}
                 {/* Quick actions */}
-                <CopyButton text={buildClaudeCommand(group.name)} title={t("group.copyCommand", "复制启动命令")} size={14} />
-                <CopyButton text={buildCodexCommand(group.name)} title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
+                <CopyButton text={buildClaudeCommand(group.name)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} size={14} />
+                <CopyButton text={buildCodexCommand(group.name)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
                 <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
