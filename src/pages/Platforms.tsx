@@ -50,6 +50,7 @@ const PROTOCOLS: ProtocolOption[] = [
   { value: "doubao_seed", label: "豆包 Seed", keywords: ["豆包", "doubao", "seed"] },
   { value: "byteplus", label: "BytePlus", keywords: ["byteplus", "字节国际"] },
   { value: "qianfan", label: "百度千帆", keywords: ["baidu", "百度", "千帆"] },
+  { value: "qianfan", label: "百度千帆 Coding Plan Lite", codingPlan: true, keywords: ["baidu", "百度", "千帆", "qianfan", "coding"] },
   { value: "xiaomi_mimo", label: "小米 MiMo", keywords: ["xiaomi", "小米", "mimo"] },
   { value: "bailing", label: "百灵", keywords: ["bailing", "百灵", "tbox"] },
   { value: "longcat", label: "Longcat", keywords: ["longcat", "龙猫"] },
@@ -223,7 +224,10 @@ function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Platform
     byteplus: [
       { protocol: "anthropic", base_url: "https://ark.ap-southeast.bytepluses.com/api/coding", client_type: "claude_code" },
     ],
-    qianfan: [
+    qianfan: cp ? [
+      { protocol: "openai", base_url: "https://qianfan.baidubce.com/v2/coding", client_type: "codex_tui", coding_plan: true },
+      { protocol: "anthropic", base_url: "https://qianfan.baidubce.com/anthropic/coding", client_type: "claude_code", coding_plan: true },
+    ] : [
       { protocol: "anthropic", base_url: "https://qianfan.baidubce.com/anthropic/coding", client_type: "claude_code" },
     ],
     xiaomi_mimo: [
