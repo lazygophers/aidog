@@ -2,49 +2,49 @@
 title: Consulter les journaux
 ---
 
-# Consulter les journaux
+# Viewing Logs
 
-La page **« Journaux »** enregistre chaque requête proxy passant par AiDog, ce qui facilite le diagnostic des problèmes de routage, de conversion de protocole et de réponse de l'amont.
+The **Logs** page records every proxy request that passes through AiDog, making it easy to troubleshoot routing, protocol conversion, and upstream response issues.
 
-## Liste des journaux
+## Log List
 
-Chaque entrée de journal affiche les informations suivantes :
+Each log entry shows the following information:
 
-| Champ | Description |
+| Field | Description |
 |------|------|
-| Groupes | Nom du groupe correspondant |
-| Modèle | Modèle d'origine demandé par le client |
-| Modèle réel | Modèle envoyé à l'amont après le mappage de modèle |
-| Protocole | Protocole entrant → protocole de l'amont |
-| Plateformes | Plateforme ayant réellement traité la requête |
-| Statut | Code de statut HTTP (succès / échec) |
-| Durée | Durée totale de la requête (en millisecondes) |
-| Token | Nombre de tokens d'entrée / de sortie / en cache |
-| Heure | Heure à laquelle la requête a eu lieu |
+| Group | Name of the matched group |
+| Model | Original model requested by the client |
+| Actual Model | Model sent to the upstream after model mapping |
+| Protocol | Inbound protocol → upstream protocol |
+| Platform | Platform that actually handled the request |
+| Status | HTTP status code (success / failure) |
+| Duration | Total request duration (milliseconds) |
+| Token | Number of input / output / cache tokens |
+| Time | When the request occurred |
 
-La liste affiche 50 entrées par page et prend en charge la pagination.
+The list shows 50 entries per page with pagination support.
 
-## Filtrage
+## Filtering
 
-Utilisez les filtres en haut de la page pour localiser rapidement les journaux :
+Use the filters at the top to quickly locate logs:
 
-- **Plateformes** : filtrer par plateforme spécifiée
-- **Groupes** : filtrer par groupe
-- **Statut** : succès uniquement / échecs uniquement
-- **Plage de temps** : tout / dernière 1 heure / 6 heures / 24 heures / 7 jours / 30 jours
-- **Modèle** : rechercher par nom du modèle d'origine ou du modèle réel
+- **Platform**: filter by a specific platform
+- **Group**: filter by group
+- **Status**: success only / failure only
+- **Time range**: all / last 1 hour / 6 hours / 24 hours / 7 days / 30 days
+- **Model**: search by original or actual model name
 
-## Détails de la requête
+## Request Details
 
-Cliquez sur n'importe quelle entrée de journal pour développer ses détails et consulter la chaîne complète de la requête :
+Click any log entry to expand its details and view the complete request chain:
 
-- **Requête utilisateur** : URL, en-têtes de la requête et corps de la requête d'origine
-- **Requête amont** : URL, en-têtes de la requête et corps de la requête convertis et envoyés à l'amont
-- **Réponse amont** : code de statut, en-têtes de réponse et corps de réponse renvoyés par l'amont
-- **Réponse utilisateur** : en-têtes de réponse et corps de réponse finalement renvoyés au client
+- **User request**: original request URL, request headers, request body
+- **Upstream request**: the converted URL, request headers, and request body sent to the upstream
+- **Upstream response**: status code, response headers, and response body returned by the upstream
+- **User response**: the final response headers and response body returned to the client
 
-Les détails peuvent être copiés en un clic, pour faciliter le collage dans un ticket ou un outil de débogage.
+Details support one-click copy, making it easy to paste into a support ticket or debugging tool.
 
 :::tip
-Le contenu « Requête utilisateur » et « Requête amont » enregistré dans les détails est contrôlé par les paramètres des journaux ; par défaut, le corps de la requête n'est pas enregistré. Pour en savoir plus, consultez [Paramètres des journaux](/logs/log-settings).
+The "User request" and "Upstream request" content recorded in the details is controlled by the log settings. By default, the request body is not recorded. See [Log Settings](/logs/log-settings) for more.
 :::

@@ -2,38 +2,56 @@
 title: 料金と課金
 ---
 
-# 料金と課金
+# Pricing & Billing
 
-AiDog はモデル価格テーブルに基づいて各リクエストの費用を自動推定します。
+AiDog automatically estimates request costs based on model pricing tables.
 
-## 費用推定
+## Cost Estimation
 
-各リクエスト完了後、AiDog は以下を実行：
-1. アップストリームレスポンスからトークン使用量を取得
-2. 価格テーブルでモデルの単価を検索
-3. `費用 = Prompt トークン × 入力単価 + Completion トークン × 出力単価` を計算
+After each request, AiDog:
+1. Extracts token usage from the upstream response
+2. Looks up the model's unit price in the pricing table
+3. Calculates `Cost = Prompt Tokens × Input Price + Completion Tokens × Output Price`
 
-## 価格ソース
-
-AiDog は内蔵価格データを含み、以下をサポート：
-- **内蔵価格** — 主要モデルの公式価格
-- **カスタム価格** — 特定モデルの単価を手動設定
-- **価格同期** — プラットフォームから最新価格を自動取得
-
-## 推定費用フィールド
-
-各ログエントリの `est_cost` フィールドに推定費用を記録：
-- `resolve_price` フォールバックチェーンを使用し、常に価格が利用可能
-- フォールバック順：カスタム価格 → 内蔵価格 → デフォルト価格
-- フロントエンドは `SUM(est_cost)` で日次/月次費用を集計
-
-:::tip{title="注意"}
-推定費用は参考値です。実際の費用はプラットフォームの請求に基づいてください。
+:::tip{title="Note"}
+Estimated costs are for reference only. Actual costs are based on platform billing.
 :::
 
-## 費用の確認
+## Pricing Sources
 
-**「統計」** ページの「料金」タブで：
-- 各モデルの価格を確認
-- カスタム価格を編集
-- 価格同期を実行
+AiDog supports multiple pricing data sources:
+
+- **Built-in pricing** — Official pricing for mainstream models
+- **Custom pricing** — Manually set prices for specific models, takes priority over built-in pricing
+- **Auto-sync** — Automatically fetch the latest model pricing from pricing sources
+
+Pricing fallback order: Custom pricing → Built-in pricing → Default price
+
+## Pricing Management Page
+
+Manage all model pricing in **"Settings" → "Model Pricing"**:
+
+### Browse & Search
+
+- Search by model name
+- Filter by pricing source (Built-in / Custom / Synced)
+- Paginated browsing of all pricing records
+
+### Edit Custom Pricing
+
+- Add custom unit prices for any model
+- Set input token price and output token price separately
+- Edit or delete existing custom pricing
+
+### Price Sync
+
+- Configure pricing sync sources
+- One-click sync of latest pricing data
+- View sync results
+
+## Viewing Costs
+
+In the **"Statistics"** page:
+- Today/this week/this month estimated costs
+- Cost distribution by platform, group, and model
+- Cost trend charts

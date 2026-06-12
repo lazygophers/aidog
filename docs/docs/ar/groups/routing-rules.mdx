@@ -2,54 +2,74 @@
 title: قواعد التوجيه
 ---
 
-# قواعد التوجيه
+# Routing Rules
 
-تحدد قواعد التوجيه كيف يطابق AiDog الطلبات الواردة بالمجموعة والمنصة المناسبة.
+Routing rules determine how AiDog matches inbound requests to the appropriate group and platform.
 
-## تدفق المطابقة
+## Matching Flow
 
 ```
-طلب وارد ← كشف البروتوكول ← مطابقة المجموعة ← اختيار المنصة ← تعيين النموذج ← التوجيه
+Inbound Request → Detect Protocol → Match Group → Select Platform → Map Model → Forward
 ```
 
-## مطابقة المجموعة
+## Group Matching
 
-يتم مطابقة الطلبات للمجموعات حسب الأولوية:
+Requests are matched to groups by priority:
 
-1. **مطابقة اسم النموذج** — اسم النموذج المطلوب موجود في جدول تعيين مجموعة
-2. **المجموعة الافتراضية** — تُستخدم عند عدم وجود تطابق
-3. **المجموعة الأولى** — تُستخدم عند عدم تحديد مجموعة افتراضية
+1. **Path match** — Request path matches the group's configured path prefix
+2. **Model name match** — Request model name is in a group's model mapping table
+3. **Default group** — Used when no match is found
+4. **First group** — Used when no default group is set
 
-## اختيار المنصة
+## Source Protocol Filtering
 
-ضمن مجموعة، يتم اختيار المنصات حسب الاستراتيجية:
+Groups can filter by source protocol, only processing requests of a specified inbound protocol. For example:
 
-1. التحقق من تفعيل المنصة
-2. التحقق من صلاحية مفتاح API
-3. اختيار منصة واحدة حسب الاستراتيجية
-4. إرسال الطلب
+- Set source protocol to `anthropic` → Only Anthropic-protocol requests are routed to this group
+- Leave unset → Accept requests from all protocols
 
-إذا أعادت المنصة المختارة خطأ (مثل 429 حد السرعة)، يحاول AiDog تلقائياً المنصة التالية (ال failover).
+## Platform Selection
+
+Within a group, platforms are selected by routing mode:
+
+### Failover Mode
+
+1. Select the first enabled platform
+2. Send the request
+3. If it fails (429 rate limit, 5xx error, timeout, network error), try the next one automatically
+4. If all platforms fail, return an error to the client
+
+### Load Balance Mode
+
+1. Randomly select an enabled platform by weight
+2. Send the request
+3. Failover also applies on failure
 
 ## Failover
 
-المنصات ضمن مجموعة مرتبة. عند فشل المنصة الحالية:
+Platforms within a group are ordered. When the current platform fails:
 
-1. تسجيل الفشل
-2. المحاولة التلقائية للمنصة التالية
-3. إذا فشلت جميع المنصات، إرجاع خطأ للعميل
+1. Log the failure
+2. Automatically try the next platform
+3. If all platforms fail, return an error to the client
 
-## سلسلة تعيين النماذج
+Failover is triggered by:
+- HTTP 429 (Rate Limit)
+- HTTP 5xx (Server Error)
+- Connection timeout
+- Network error
 
-ترتيب حل أسماء النماذج:
+## Model Mapping Chain
 
-1. **التعيين على مستوى المجموعة** — إذا كانت المجموعة تحدد تعيينات
-2. **التعيين على مستوى المنصة** — إذا كانت المنصة تحدد تعيينات
-3. **القيمة الأصلية** — استخدام اسم النموذج الأصلي من الطلب
+Model name resolution order:
+
+1. **Group-level mapping** — If the group defines model mappings
+2. **Platform-level mapping** — If the platform defines model mappings
+3. **Original value** — Use the original model name from the request
 
 ```
-العميل يطلب: gpt-4o
-  ← تعيين المجموعة: gpt-4o → deepseek-chat
-  ← تعيين المنصة: (لا يوجد)
-  ← أُرسل إلى المنصة: deepseek-chat
+Client requests: gpt-4o
+  → Group mapping: gpt-4o → deepseek-chat
+  → Platform mapping: (none)
+  → Sent to platform: deepseek-chat
 ```

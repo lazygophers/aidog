@@ -2,39 +2,61 @@
 title: アプリ設定
 ---
 
-# アプリ設定
+# App Settings
 
-**「設定」** ページで AiDog のグローバル動作を設定します。
+Configure AiDog's global behavior in the **"Settings"** page. It contains 5 tabs: Proxy, Claude Code, Codex, Model Pricing, and System Tray.
 
-## プロキシ設定
+## Proxy
 
-| 設定項目 | デフォルト | 説明 |
+### Proxy Settings
+
+| Setting | Default | Description |
 |---------|---------|-------------|
-| プロキシポート | `7860` | HTTP プロキシのリスニングポート |
-| リクエストタイムアウト | `300s` | アップストリームリクエストのタイムアウト |
+| Proxy port | `7860` | HTTP proxy listen port |
+| Request timeout | `300s` | Upstream request timeout |
+| Auto-start | Off | Automatically start proxy when AiDog launches |
 
-## ログ設定
+### Log Settings
 
-詳細は[ログ設定](/logs/log-settings)を参照。
+Control logging granularity and retention. See [Log Settings](/logs/log-settings).
 
-## データ管理
+### Data Management
 
-### データのエクスポート
+- Export platform config (JSON)
+- Export group config (JSON)
+- Export statistics (CSV)
+- Clean expired logs
+- Reset statistics
 
-- プラットフォーム設定のエクスポート（JSON）
-- グループ設定のエクスポート（JSON）
-- 統計データのエクスポート（CSV）
+## Claude Code
 
-### データのクリーンアップ
+Edit Claude Code settings including model, permissions, sandbox, plugins, hooks, and StatusLine.
 
-- 期限切れログのクリーンアップ
-- 統計データのリセット
+- **Import from Claude Code** — Read existing Claude Code configuration into AiDog
+- **Export to Claude Code** — Write proxy address to Claude Code config file
+- **Sync Group Settings** — Generate independent Claude Code config files for each group
 
-## インターフェース設定
+See [Codex Integration](/proxy/codex-integration).
 
-### 言語
+## Codex
 
-7 種類のインターフェース言語に対応：
+Edit Codex settings in `~/.codex/config.toml` directly, without manually locating config files.
+
+See [Codex Integration](/proxy/codex-integration).
+
+## Model Pricing
+
+Browse, search, and manage all model pricing data. See [Pricing & Billing](/stats/pricing).
+
+## System Tray
+
+Configure tray display content and format. See [Tray Configuration](/settings/tray).
+
+## Interface Settings
+
+### Language
+
+7 interface languages supported:
 - 简体中文 (zh-CN)
 - English (en-US)
 - العربية (ar-SA)
@@ -43,17 +65,16 @@ title: アプリ設定
 - Русский (ru-RU)
 - 日本語 (ja-JP)
 
-### テーマ
+### Themes
 
-詳細は[テーマ](/settings/themes)を参照。
+See [Themes](/settings/themes).
 
-## データストレージ
+## Data Storage
 
-すべてのデータはローカルに保存されます：
+All data is stored locally:
 
-| データ | パス |
+| Data | Path |
 |------|------|
-| データベース | `~/.aidog/aidog.db` |
-| 設定ファイル | `~/.aidog/config.json` |
+| Database | `~/.aidog/aidog.db` |
 
-データはお使いのコンピュータから外部に送信されることはありません。
+Data never leaves your machine and is never uploaded to any server.

@@ -2,67 +2,130 @@
 title: إضافة منصة
 ---
 
-# إضافة منصة
+# Add Platform
 
-المنصات هي المفهوم الأساسي في AiDog — كل منها يمثل نقطة وصول لخدمة API ذكاء اصطناعي.
+Platforms are the core concept in AiDog — each represents an AI API service endpoint.
 
-## خطوات الإضافة
+## Adding Steps
 
-1. انتقل إلى صفحة **"المنصات"**
-2. انقر على زر **"+"** في أعلى اليمين
-3. املأ التكوين:
+1. Go to the **"Platforms"** page
+2. Click the **"+"** button in the top right
+3. Select a platform preset (or fill in manually)
+4. Fill in the configuration and click Save
 
-### التكوين الأساسي
+:::tip{title="Auto Group"}
+After saving a platform, AiDog automatically creates a group for it, so you can start using it right away without manual configuration.
+:::
 
-| الحقل | الوصف | المثال |
+## Basic Configuration
+
+| Field | Description | Example |
 |-------|-------------|---------|
-| الاسم | اسم العرض | `OpenAI الخاص بي` |
-| Base URL | عنوان URL الأساسي للـ API (مع بادئة الإصدار) | `https://api.openai.com/v1` |
-| API Key | مفتاح API للمنصة | `sk-...` |
-| البروتوكول | نوع بروتوكول الطلب | `openai_chat` |
+| Name | Display name | `My OpenAI` |
+| Base URL | API base URL (with version prefix) | `https://api.openai.com/v1` |
+| API Key | Platform API key | `sk-...` |
+| Protocol | Request protocol type | `openai_chat` |
 
-### اختيار البروتوكول
+### Platform Presets
 
-اختر البروتوكول المطابق للمنصة المستهدفة. يتضمن AiDog أكثر من 50 إعداداً مسبقاً للمنصات يملأ البروتوكول تلقائياً.
+AiDog includes 50+ built-in platform presets. Selecting a preset auto-fills the Base URL and protocol.
 
-البروتوكولات الشائعة:
-- **openai_chat** — Chat Completions المتوافق مع OpenAI (الأكثر شمولية)
-- **openai_completions** — Text Completions لـ OpenAI (قديم)
-- **openai_responses** — Responses API لـ OpenAI (يستخدمه Codex)
-- **anthropic** — بروتوكول Anthropic Claude الأصلي
-- **gemini** — بروتوكول Google Gemini الأصلي
+### Protocol Selection
 
-راجع [أنواع البروتوكولات](/platforms/protocols) للتفاصيل.
+Select the protocol matching your target platform. Common protocols:
 
-### خيارات متقدمة
+- **openai_chat** — OpenAI-compatible Chat Completions (most universal)
+- **openai_responses** — OpenAI Responses API (used by Codex)
+- **anthropic** — Anthropic Claude native protocol
+- **gemini** — Google Gemini native protocol
+- **mock** — Simulated platform for testing, does not send real requests
 
-- **تعيين النماذج** — تعيين أسماء النماذج المطلوبة إلى النماذج الفعلية للمنصة (راجع [تعيين النماذج](/platforms/model-mapping))
-- **تفعيل/تعطيل** — إيقاف منصة مؤقتاً دون حذفها
+See [Protocol Types](/platforms/protocols) for details.
 
-## تعديل المنصة
+## Endpoints
 
-انقر على بطاقة المنصة لعرض التفاصيل وتعديل الإعدادات. انقر على "حفظ" بعد التعديلات.
+Each platform can have multiple endpoints, each with its own protocol and Base URL:
 
-## حذف المنصة
+| Field | Description |
+|-------|-------------|
+| Protocol | Outbound protocol for this endpoint |
+| Base URL | API address for this endpoint |
+| Client Type | Request header emulation method (affects compatibility with some platforms) |
+| Coding Plan | Whether this endpoint supports Coding Plan quota queries |
 
-انقر على زر الحذف على بطاقة المنصة. السجلات والإحصائيات المرتبطة يتم الاحتفاظ بها.
+For example, a platform can have both `openai_chat` and `openai_responses` endpoints. AiDog automatically matches the appropriate endpoint based on the inbound protocol.
 
-## الأسئلة الشائعة
+## Model Configuration
 
-### كيفية ملء Base URL
+### Model Slots
 
-Base URL هو المسار الأساسي الكامل متضمناً بادئة الإصدار:
+Each platform supports 5 model slots for quick assignment of commonly used models:
 
-| المنصة | Base URL |
-|------------|----------|
+| Slot | Purpose |
+|------|---------|
+| **default** | Default model, used for testing and when no model is specified |
+| **sonnet** | Sonnet-tier model (e.g. `claude-3-5-sonnet`) |
+| **opus** | Opus-tier model (e.g. `claude-3-opus`) |
+| **haiku** | Haiku-tier model (e.g. `claude-3-haiku`) |
+| **gpt** | GPT-series model (e.g. `gpt-4o`) |
+
+### Fetch Model List
+
+When editing a platform, click the "Fetch Models" button next to the model input. AiDog will automatically retrieve the list of available models from the platform API.
+
+### Model Mapping
+
+In the "Model Mapping" section, you can map requested model names to the actual model names supported by the platform. See [Model Mapping](/platforms/model-mapping).
+
+## Model Testing
+
+After saving a platform, you can test its connectivity:
+
+1. Click the "Test" button on the platform card
+2. Choose a test mode: Quick (default model) / Batch (multiple models) / Custom (specify model and prompt)
+3. View results: response time, token count, success or failure
+
+See [Model Testing](/platforms/model-testing).
+
+## Other Operations
+
+### Enable/Disable
+
+Pause a platform without deleting it. Disabled platforms are excluded from routing.
+
+### Editing Platforms
+
+Click a platform card to view details and modify settings. Click "Save" after changes.
+
+### Deleting Platforms
+
+Click the delete button on the platform card. Related logs and statistics are preserved.
+
+### Drag to Reorder
+
+Drag platform cards in the list to adjust their display order.
+
+## FAQ
+
+### How to fill Base URL?
+
+The Base URL is the complete base path including the version prefix:
+
+| Platform | Base URL |
+|----------|----------|
 | OpenAI | `https://api.openai.com/v1` |
 | Anthropic | `https://api.anthropic.com/v1` |
 | DeepSeek | `https://api.deepseek.com/v1` |
+| Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 
-:::caution{title="تنبيه"}
-لا تضف `/chat/completions` في نهاية Base URL. يتولى AiDog ذلك تلقائياً.
+:::caution{title="Note"}
+Do not append `/chat/completions` to the Base URL. AiDog handles this automatically.
 :::
 
-### أمان مفتاح API
+### API Key Security
 
-يتم تخزين مفاتيح API في قاعدة بيانات SQLite المحلية ولا يتم رفعها إلى أي خادم أبداً.
+API keys are stored in the local database and never uploaded to any server.
+
+### What is the Mock platform?
+
+Mock platforms simulate AI responses without sending real requests. Useful for offline work or debugging. You can customize response content, status codes, delays, token counts, and even simulate rate limits and timeouts.

@@ -2,43 +2,46 @@
 title: إحصائيات الاستخدام
 ---
 
-# إحصائيات الاستخدام
+# Usage Statistics
 
-يتتبع AiDog تلقائياً بيانات الاستخدام لجميع طلبات الوكيل.
+AiDog automatically tracks usage data for all proxied requests.
 
-## صفحة الإحصائيات
+## Statistics Page
 
-انتقل إلى صفحة **"الإحصائيات"** لعرض ملخص الاستخدام.
+Go to the **"Statistics"** page for a usage overview.
 
-### إحصائيات اليوم
+### Today's Stats
 
-- إجمالي الطلبات
-- معدل النجاح/الفشل
-- إجمالي استخدام الرموز (Prompt + Completion)
-- التكلفة المقدرة
+- Total requests
+- Success/failure rate
+- Total token usage (Prompt + Completion)
+- Estimated cost
 
-### الاتجاهات
+### Trends
 
-عرض باليوم/الأسبوع/الشهر:
-- اتجاه عدد الطلبات
-- اتجاه استخدام الرموز
-- اتجاه التكاليف
+View by day/week/month:
+- Request count trends
+- Token usage trends
+- Cost trends
 
-### إحصائيات المجموعات
+### Group Statistics
 
-إحصائيات بطاقات المجموعات يتم تجميعها من المنصات المرتبطة (الجمع في الواجهة الأمامية).
+Group card statistics are aggregated from their associated platforms.
 
-## الأبعاد
+## Dimensions
 
-عرض الإحصائيات حسب:
-- **حسب المنصة** — استخدام كل منصة
-- **حسب المجموعة** — استخدام كل مجموعة
-- **حسب النموذج** — استخدام كل نموذج
-- **حسب الفترة** — تجميع يومي/أسبوعي/شهري
+View statistics by:
+- **By platform** — Per-platform usage
+- **By group** — Per-group usage
+- **By model** — Per-model usage
+- **By time** — Daily/weekly/monthly aggregation
 
-## مصدر البيانات
+## Data Source
 
-الإحصائيات مجمعة من جدول `proxy_logs`:
-- استخدام الرموز: مستخرج من استجابات API upstream
-- التكلفة المقدرة: محسوبة عبر جدول التسعير + اسم النموذج (سلسلة الاحتياط `resolve_price`)
-- عدد الطلبات: تجميع صفوف السجلات
+- Token usage: Extracted directly from upstream API responses
+- Estimated cost: Calculated automatically based on model pricing tables
+- Request count: Aggregated from proxy log records
+
+:::tip{title="Note"}
+Estimated costs are based on built-in pricing tables and are for reference only. Actual costs are based on platform billing.
+:::

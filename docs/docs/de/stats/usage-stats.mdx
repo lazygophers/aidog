@@ -2,43 +2,46 @@
 title: Nutzungsstatistiken
 ---
 
-# Nutzungsstatistiken
+# Usage Statistics
 
-AiDog verfolgt automatisch Nutzungsdaten für alle Proxy-Anfragen.
+AiDog automatically tracks usage data for all proxied requests.
 
-## Statistikseite
+## Statistics Page
 
-Gehen Sie zur Seite **„Statistiken"** für eine Nutzungsübersicht.
+Go to the **"Statistics"** page for a usage overview.
 
-### Heutige Statistiken
+### Today's Stats
 
-- Gesamtanfragen
-| Erfolgs-/Fehlerrate
-- Gesamte Token-Nutzung (Prompt + Completion)
-- Geschätzte Kosten
+- Total requests
+- Success/failure rate
+- Total token usage (Prompt + Completion)
+- Estimated cost
 
 ### Trends
 
-Ansicht nach Tag/Woche/Monat:
-- Anfragezahl-Trends
-- Token-Nutzungs-Trends
-- Kosten-Trends
+View by day/week/month:
+- Request count trends
+- Token usage trends
+- Cost trends
 
-### Gruppenstatistiken
+### Group Statistics
 
-Gruppenkarten-Statistiken werden aus zugehörigen Plattformen aggregiert (Frontend-Summierung).
+Group card statistics are aggregated from their associated platforms.
 
-## Dimensionen
+## Dimensions
 
-Statistiken anzeigen nach:
-- **Nach Plattform** — Nutzung pro Plattform
-- **Nach Gruppe** — Nutzung pro Gruppe
-- **Nach Modell** — Nutzung pro Modell
-- **Nach Zeit** — Tages-/Wochen-/Monatsaggregation
+View statistics by:
+- **By platform** — Per-platform usage
+- **By group** — Per-group usage
+- **By model** — Per-model usage
+- **By time** — Daily/weekly/monthly aggregation
 
-## Datenquelle
+## Data Source
 
-Statistiken werden aus der Tabelle `proxy_logs` aggregiert:
-- Token-Nutzung: Aus Upstream-API-Antworten extrahiert
-- Geschätzte Kosten: Über Preis-Tabelle + Modellname (`resolve_price`-Fallback-Kette) berechnet
-- Anfragezahl: Protokollzeilen-Aggregation
+- Token usage: Extracted directly from upstream API responses
+- Estimated cost: Calculated automatically based on model pricing tables
+- Request count: Aggregated from proxy log records
+
+:::tip{title="Note"}
+Estimated costs are based on built-in pricing tables and are for reference only. Actual costs are based on platform billing.
+:::

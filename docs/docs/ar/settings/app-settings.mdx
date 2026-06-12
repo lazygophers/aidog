@@ -2,39 +2,61 @@
 title: إعدادات التطبيق
 ---
 
-# إعدادات التطبيق
+# App Settings
 
-تكوين السلوك العام لـ AiDog في صفحة **"الإعدادات"**.
+Configure AiDog's global behavior in the **"Settings"** page. It contains 5 tabs: Proxy, Claude Code, Codex, Model Pricing, and System Tray.
 
-## إعدادات الوكيل
+## Proxy
 
-| الإعداد | الافتراضي | الوصف |
+### Proxy Settings
+
+| Setting | Default | Description |
 |---------|---------|-------------|
-| منفذ الوكيل | `7860` | منفذ استماع وكيل HTTP |
-| مهلة الطلب | `300s` | مهلة طلب upstream |
+| Proxy port | `7860` | HTTP proxy listen port |
+| Request timeout | `300s` | Upstream request timeout |
+| Auto-start | Off | Automatically start proxy when AiDog launches |
 
-## إعدادات السجلات
+### Log Settings
 
-راجع [إعدادات السجلات](/logs/log-settings) للتفاصيل.
+Control logging granularity and retention. See [Log Settings](/logs/log-settings).
 
-## إدارة البيانات
+### Data Management
 
-### تصدير البيانات
+- Export platform config (JSON)
+- Export group config (JSON)
+- Export statistics (CSV)
+- Clean expired logs
+- Reset statistics
 
-- تصدير تكوين المنصات (JSON)
-- تصدير تكوين المجموعات (JSON)
-- تصدير الإحصائيات (CSV)
+## Claude Code
 
-### تنظيف البيانات
+Edit Claude Code settings including model, permissions, sandbox, plugins, hooks, and StatusLine.
 
-- تنظيف السجلات منتهية الصلاحية
-- إعادة تعيين الإحصائيات
+- **Import from Claude Code** — Read existing Claude Code configuration into AiDog
+- **Export to Claude Code** — Write proxy address to Claude Code config file
+- **Sync Group Settings** — Generate independent Claude Code config files for each group
 
-## إعدادات الواجهة
+See [Codex Integration](/proxy/codex-integration).
 
-### اللغة
+## Codex
 
-7 لغات واجهة مدعومة:
+Edit Codex settings in `~/.codex/config.toml` directly, without manually locating config files.
+
+See [Codex Integration](/proxy/codex-integration).
+
+## Model Pricing
+
+Browse, search, and manage all model pricing data. See [Pricing & Billing](/stats/pricing).
+
+## System Tray
+
+Configure tray display content and format. See [Tray Configuration](/settings/tray).
+
+## Interface Settings
+
+### Language
+
+7 interface languages supported:
 - 简体中文 (zh-CN)
 - English (en-US)
 - العربية (ar-SA)
@@ -43,17 +65,16 @@ title: إعدادات التطبيق
 - Русский (ru-RU)
 - 日本語 (ja-JP)
 
-### السمات
+### Themes
 
-راجع [السمات](/settings/themes) للتفاصيل.
+See [Themes](/settings/themes).
 
-## تخزين البيانات
+## Data Storage
 
-جميع البيانات مخزنة محلياً:
+All data is stored locally:
 
-| البيانات | المسار |
+| Data | Path |
 |------|------|
-| قاعدة البيانات | `~/.aidog/aidog.db` |
-| التكوين | `~/.aidog/config.json` |
+| Database | `~/.aidog/aidog.db` |
 
-البيانات لا تغادر جهازك ولا يتم رفعها إلى أي خادم.
+Data never leaves your machine and is never uploaded to any server.

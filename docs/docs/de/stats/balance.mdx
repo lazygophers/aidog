@@ -2,36 +2,62 @@
 title: Guthabenabfrage
 ---
 
-# Guthabenabfrage
+# Balance Query
 
-AiDog kann Kontoguthaben und Coding Plan-Kontingente unterstützter Plattformen abfragen.
+AiDog can query account balances and Coding Plan quotas for supported platforms.
 
-## Unterstützte Plattformen
+## Auto-Query Platforms
 
-| Plattform | Abfrageinhalt |
+| Platform | Query Content |
 |----------|---------------|
-| OpenAI | Kontoguthaben |
-| DeepSeek | Kontoguthaben |
-| StepFun | Kontoguthaben |
-| SiliconFlow | Kontoguthaben |
-| OpenRouter | Kontoguthaben / Nutzung |
-| Novita | Kontoguthaben |
-| Kimi | Kontoguthaben |
-| GLM (Zhipu) | Kontoguthaben |
-| MiniMax | Kontoguthaben |
+| OpenAI | Account balance |
+| DeepSeek | Account balance |
+| StepFun | Account balance |
+| SiliconFlow | Account balance |
+| OpenRouter | Account balance / usage |
+| Novita | Account balance |
+| Kimi | Account balance |
+| GLM (Zhipu) | Account balance |
+| MiniMax | Account balance |
 
-## Guthaben einsehen
+## Viewing Balances
 
-Guthabeninformationen werden angezeigt in:
+Balance information is displayed in:
 
-1. **Plattformkarten** — Echtzeit-Guthaben pro Plattform
-2. **Gruppenkarten** — Aggregiertes Guthaben der Gruppenplattformen
-3. **Systemleiste** — Guthabenstatus-Anzeige
+1. **Platform cards** — Real-time balance per platform
+2. **Group cards** — Aggregated balance across group platforms
+3. **System tray** — Balance status display
 
-## Aktualisierung
+## Refreshing
 
-Guthabendaten werden automatisch nach Zeitplan aktualisiert. Sie können auch manuell auf die Aktualisierungsschaltfläche klicken.
+Balance data refreshes automatically on a schedule. You can also manually click the refresh button.
 
 ## Coding Plan
 
-Einige Plattformen stellen Coding Plan-Kontingentinformationen bereit, die AiDog zusätzlich zu den Guthabendaten abfragt und anzeigt.
+Some platforms provide Coding Plan quota information (e.g. OpenAI Plus/Team/Enterprise plans), which AiDog queries and displays alongside balance data.
+
+## Manual Budget
+
+For platforms that don't support automatic balance queries, AiDog provides a manual budget feature:
+
+### Configuration
+
+Set up a manual budget in the platform configuration. Supported types:
+
+| Type | Description |
+|------|-------------|
+| Total | Set an overall spending limit |
+| Rolling Window | Spending limit within a rolling time window |
+| Fixed Period | Spending limit that resets on a fixed schedule |
+| Daily | Daily spending limit |
+
+### Budget Units
+
+- **USD** — Measured by cost
+- **Tokens** — Measured by token count
+
+### Window Duration
+
+Rolling window and fixed period support multiple time units: minute, hour, day, week, month.
+
+Budget consumption is automatically tracked by AiDog based on proxied requests. When the limit is reached, the platform is marked as out of balance.

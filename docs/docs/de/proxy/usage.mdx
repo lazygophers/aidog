@@ -2,30 +2,34 @@
 title: Verwendung
 ---
 
-# Proxy-Verwendung
+# Proxy Usage
 
-AiDog betreibt einen lokalen HTTP-Proxy-Server, der KI-API-Anfragen empfängt und weiterleitet.
+AiDog runs a local HTTP proxy server that receives and forwards AI API requests.
 
-## Proxy-Adresse
+## Proxy Address
 
-Standard-Proxy-Adresse:
+Default proxy address:
 
 ```
 http://127.0.0.1:7860
 ```
 
-Der Port kann in **„Einstellungen"** geändert werden.
+The port can be changed in **"Settings" → "Proxy"**.
 
-## Grundlegende Verwendung
+## Auto-Start
 
-Richten Sie jeden KI-Client, der benutzerdefinierte API-Adressen unterstützt, auf AiDog:
+Enable "Auto-start proxy" in settings. When enabled, the proxy service starts automatically when AiDog launches.
 
-| Client-Typ | Konfiguration |
+## Basic Usage
+
+Point any AI client that supports custom API addresses to AiDog:
+
+| Client Type | Configuration |
 |-------------|---------------|
-| OpenAI SDK | `base_url` auf Proxy-Adresse setzen |
-| curl | Proxy-Adresse direkt anfragen |
-| Web-Apps | API-Endpunkt auf Proxy setzen |
-| Programmierassistenten | API-Base-URL setzen |
+| OpenAI SDK | Set `base_url` to proxy address |
+| curl | Request proxy address directly |
+| Web apps | Set API endpoint to proxy |
+| Coding assistants | Set API base URL |
 
 ### Python (OpenAI SDK)
 
@@ -34,12 +38,12 @@ from openai import OpenAI
 
 client = OpenAI(
     base_url="http://127.0.0.1:7860/v1",
-    api_key="any-value"  # AiDog verwendet Ihren echten Schlüssel
+    api_key="any-value"  # AiDog uses your configured real key
 )
 
 response = client.chat.completions.create(
     model="gpt-4o",
-    messages=[{"role": "user", "content": "Hallo!"}]
+    messages=[{"role": "user", "content": "Hello!"}]
 )
 ```
 
@@ -55,7 +59,7 @@ const client = new OpenAI({
 
 const response = await client.chat.completions.create({
   model: 'gpt-4o',
-  messages: [{ role: 'user', content: 'Hallo!' }],
+  messages: [{ role: 'user', content: 'Hello!' }],
 });
 ```
 
@@ -67,17 +71,17 @@ curl http://127.0.0.1:7860/v1/chat/completions \
   -H "Authorization: Bearer any-value" \
   -d '{
     "model": "gpt-4o",
-    "messages": [{"role": "user", "content": "Hallo!"}]
+    "messages": [{"role": "user", "content": "Hello!"}]
   }'
 ```
 
 ## Streaming
 
-AiDog unterstützt SSE (Server-Sent Events) Streaming vollständig. Client-Streaming-Anfragen werden transparent an die Upstream-Plattform weitergeleitet.
+AiDog fully supports SSE (Server-Sent Events) streaming. Client streaming requests are transparently forwarded to the upstream platform.
 
 ## Timeout
 
-Proxy-Anfragen haben einen Timeout-Schutz:
-- Standard-Timeout: 300 Sekunden
-- In den Einstellungen konfigurierbar
-- Gibt 504 Gateway Timeout bei Ablauf zurück
+Proxy requests have timeout protection:
+- Default timeout: 300 seconds
+- Configurable globally or per-group
+- Returns 504 Gateway Timeout on expiry

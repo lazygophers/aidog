@@ -2,38 +2,56 @@
 title: Precios y facturación
 ---
 
-# Precios y facturación
+# Pricing & Billing
 
-AiDog estima automáticamente los costos de las solicitudes basándose en tablas de precios de modelos.
+AiDog automatically estimates request costs based on model pricing tables.
 
-## Estimación de costos
+## Cost Estimation
 
-Después de cada solicitud, AiDog:
-1. Extrae el uso de tokens de la respuesta upstream
-2. Busca el precio unitario del modelo en la tabla de precios
-3. Calcula `Costo = Tokens Prompt × Precio entrada + Tokens Completion × Precio salida`
+After each request, AiDog:
+1. Extracts token usage from the upstream response
+2. Looks up the model's unit price in the pricing table
+3. Calculates `Cost = Prompt Tokens × Input Price + Completion Tokens × Output Price`
 
-## Fuentes de precios
-
-AiDog incluye datos de precios integrados y soporta:
-- **Precios integrados** — Precios oficiales para modelos principales
-- **Precios personalizados** — Establecer precios manualmente para modelos específicos
-- **Sincronización de precios** — Obtener automáticamente los últimos precios de las plataformas
-
-## Campo de costo estimado
-
-El campo `est_cost` de cada entrada de registro registra el costo estimado:
-- Usa la cadena de respaldo `resolve_price` para garantizar que siempre haya un precio disponible
-- Orden de respaldo: Precios personalizados → Precios integrados → Precio predeterminado
-- El frontend usa `SUM(est_cost)` para agregar costos diarios/mensuales
-
-:::tip{title="Nota"}
-Los costos estimados son solo de referencia. Los costos reales se basan en la facturación de la plataforma.
+:::tip{title="Note"}
+Estimated costs are for reference only. Actual costs are based on platform billing.
 :::
 
-## Ver costos
+## Pricing Sources
 
-En la página **"Estadísticas"**, pestaña "Precios":
-- Ver precios de cada modelo
-- Editar precios personalizados
-- Activar sincronización de precios
+AiDog supports multiple pricing data sources:
+
+- **Built-in pricing** — Official pricing for mainstream models
+- **Custom pricing** — Manually set prices for specific models, takes priority over built-in pricing
+- **Auto-sync** — Automatically fetch the latest model pricing from pricing sources
+
+Pricing fallback order: Custom pricing → Built-in pricing → Default price
+
+## Pricing Management Page
+
+Manage all model pricing in **"Settings" → "Model Pricing"**:
+
+### Browse & Search
+
+- Search by model name
+- Filter by pricing source (Built-in / Custom / Synced)
+- Paginated browsing of all pricing records
+
+### Edit Custom Pricing
+
+- Add custom unit prices for any model
+- Set input token price and output token price separately
+- Edit or delete existing custom pricing
+
+### Price Sync
+
+- Configure pricing sync sources
+- One-click sync of latest pricing data
+- View sync results
+
+## Viewing Costs
+
+In the **"Statistics"** page:
+- Today/this week/this month estimated costs
+- Cost distribution by platform, group, and model
+- Cost trend charts

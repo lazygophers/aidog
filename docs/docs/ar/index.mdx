@@ -4,33 +4,41 @@ title: AiDog — بوابة وكيل API للذكاء الاصطناعي
 
 # AiDog
 
-AiDog هو تطبيق سطح مكتب متعدد المنصات (macOS / Windows / Linux) يعمل كـ **بوابة وكيل API للذكاء الاصطناعي**، يساعدك في إدارة مفاتيح API لمنصات ذكاء اصطناعي متعددة، وتوجيه الطلبات بذكاء، وتتبع الاستخدام والتكاليف.
+AiDog is a cross-platform desktop app (macOS / Windows / Linux) that acts as an **AI API gateway proxy**, helping you manage API keys for multiple AI platforms, route requests intelligently, and track usage and costs.
 
-## الميزات الأساسية
+## Key Features
 
-- **تجميع متعدد المنصات** — إدارة واجهات برمجة تطبيقات OpenAI و Anthropic و Gemini و DeepSeek و Qwen وأكثر من 50 منصة
-- **التوجيه الذكي** — اختيار تلقائي للمنصة عبر المجموعات وقواعد تعيين النماذج
-- **تحليلات الاستخدام** — تتبع الرموز في الوقت الفعلي، تقدير التكاليف، استعلام الأرصدة
-- **نظام السجلات** — 3 مستويات من دقة التسجيل، سياسات احتفاظ قابلة للتكوين
-- **تكامل Codex** — دعم أصلي لـ OpenAI Codex / Claude Code ومساعدي البرمجة الآخرين
-- **متعدد البروتوكولات** — بروتوكولات OpenAI Chat/Completions/Responses و Anthropic و Gemini الأصلية
-- **تخصيص السمات** — Liquid Glass و Nord و Dracula والمزيد
-- **شريط النظام** — عرض مستمر للرصيد والحالة
+- **Multi-Platform Aggregation** — Manage APIs for 50+ platforms including OpenAI, Anthropic, Gemini, DeepSeek, Qwen, and more
+- **Smart Routing** — Automatically select the best platform by group and model mapping rules, with failover and load balancing
+- **Usage Analytics** — Track token usage in real time, estimate costs, query balances and Coding Plan quotas
+- **Logging System** — Three-level recording granularity, configurable retention policies, full request chain tracing
+- **Model Testing** — One-click connectivity testing with quick, batch, and custom modes
+- **Codex Integration** — Built-in Codex config editor, one-click Claude Code config export
+- **Multi-Protocol Support** — OpenAI Chat/Completions/Responses, Anthropic, Gemini native protocols with automatic inbound/outbound conversion
+- **Theme Customization** — Liquid Glass, Nord, Dracula, and more themes, each with light/dark mode
+- **System Tray** — Persistent tray display of balance, usage, and status with customizable content
+- **Pricing Management** — Built-in model pricing table, auto-sync, custom pricing support
 
-## البدء السريع
+## Quick Start
 
 ```
-تنزيل ← تشغيل ← إضافة أول منصة ← تعيين عنوان الوكيل ← بدء الاستخدام
+Download the latest release → Launch → Add your first platform → Set proxy address → Start using
 ```
 
-→ [دليل التثبيت](/getting-started/installation)
+→ [Installation Guide](/getting-started/installation) · [Quick Start](/getting-started/quick-start)
 
-## التقنيات المستخدمة
+## App Overview
 
-| الطبقة | التقنية |
-|---|---|
-| سطح المكتب | Tauri 2.0 |
-| الواجهة الأمامية | React 19 + TypeScript |
-| الواجهة الخلفية | Rust + Axum |
-| قاعدة البيانات | SQLite |
-| البناء | Vite + Yarn |
+The AiDog main interface contains these pages:
+
+| Page | Function |
+|------|----------|
+| **Platforms** | Manage all AI platform connections, endpoints, models, and balances |
+| **Groups** | Organize platforms by use case, configure routing strategies and model mapping |
+| **Statistics** | Usage stats, cost estimation, balance query, pricing management |
+| **Logs** | View complete request chain details for every proxied request |
+| **Settings** | Proxy config, Claude Code settings, Codex settings, model pricing, system tray |
+
+## Screenshots
+
+> Screenshots coming soon

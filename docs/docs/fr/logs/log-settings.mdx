@@ -2,40 +2,40 @@
 title: Paramètres des journaux
 ---
 
-# Paramètres des journaux
+# Log Settings
 
-Sur la page **« Paramètres »**, contrôlez la granularité d'enregistrement et la durée de conservation des journaux, afin de trouver un équilibre entre observabilité et confidentialité / occupation disque.
+On the **Settings** page you can control the granularity and retention of logging, striking a balance between observability and privacy / disk usage.
 
-## Niveaux d'enregistrement
+## Recording Levels
 
-L'enregistrement des journaux comporte trois niveaux d'interrupteurs, qui s'appliquent successivement :
+Logging has three levels of switches that take effect progressively:
 
-| Niveau | Description | Par défaut |
+| Level | Description | Default |
 |------|------|------|
-| Interrupteur principal | Une fois désactivé, aucun journal proxy n'est enregistré | Activé |
-| Enregistrer la requête utilisateur d'origine | Enregistre les en-têtes et le corps de la requête d'origine envoyés par le client | Désactivé |
-| Enregistrer la requête amont | Enregistre les en-têtes et le corps de la requête convertis et envoyés à l'amont | Désactivé |
+| Master switch | When off, no proxy logs are recorded at all | On |
+| Record original user request | Records the original request headers and request body sent by the client | Off |
+| Record upstream request | Records the converted request headers and request body sent to the upstream | Off |
 
 :::warning
-Le corps de la requête peut contenir du contenu sensible (invites, clés, etc.). Avant d'activer « Enregistrer la requête utilisateur d'origine » ou « Enregistrer la requête amont », assurez-vous que l'environnement local est de confiance.
+The request body may contain sensitive content (prompts, keys, etc.). Make sure your local environment is trusted before enabling "Record original user request" or "Record upstream request".
 :::
 
-## Durée de conservation
+## Retention
 
-Les journaux sont nettoyés selon trois durées de conservation indépendantes :
+Logs are cleaned up according to three independent retention periods:
 
-| Type | Par défaut | Méthode de nettoyage |
+| Type | Default | Cleanup method |
 |------|------|----------|
-| Requête utilisateur d'origine | 7 jours | Vide uniquement le champ du corps de la requête, conserve la ligne de journal |
-| Requête amont | 7 jours | Vide uniquement le champ du corps de la requête, conserve la ligne de journal |
-| Journal | 90 jours | Supprime l'entrée de journal complète |
+| Original user request | 7 days | Clears only the request body field, keeps the log row |
+| Upstream request | 7 days | Clears only the request body field, keeps the log row |
+| Log records | 90 days | Deletes the entire log entry |
 
-Autrement dit, le corps des requêtes datant de plus de 7 jours est vidé (les informations statistiques sont conservées), et les journaux datant de plus de 90 jours sont entièrement supprimés.
+In other words, request bodies older than 7 days are cleared (statistics are still retained), and logs older than 90 days are deleted entirely.
 
-## Nettoyage manuel
+## Manual Cleanup
 
-Dans **« Paramètres » → « Gestion des données »**, vous pouvez à tout moment « nettoyer les journaux expirés » manuellement, ce qui exécute immédiatement le nettoyage selon les règles de conservation ci-dessus.
+In **Settings → Data Management** you can manually trigger "Clean up expired logs" at any time, which immediately applies the retention rules above.
 
-## Stockage des données
+## Data Storage
 
-Tous les journaux sont stockés dans la base de données locale `~/.aidog/aidog.db` et ne sont téléversés vers aucun serveur.
+All logs are stored in the local database `~/.aidog/aidog.db` and are never uploaded to any server.

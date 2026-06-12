@@ -2,40 +2,40 @@
 title: Configuración de registros
 ---
 
-# Configuración de registros
+# Log Settings
 
-En la página **«Configuración»** puedes controlar la granularidad del registro y el período de retención de los registros, equilibrando la observabilidad con la privacidad y el uso del disco.
+On the **Settings** page you can control the granularity and retention of logging, striking a balance between observability and privacy / disk usage.
 
-## Niveles de registro
+## Recording Levels
 
-El registro tiene tres niveles de interruptores, que surten efecto de forma escalonada:
+Logging has three levels of switches that take effect progressively:
 
-| Nivel | Descripción | Predeterminado |
+| Level | Description | Default |
 |------|------|------|
-| Interruptor principal | Si se desactiva, no se registra ningún registro de proxy en absoluto | Activado |
-| Registrar solicitud original del usuario | Registra los encabezados de la solicitud y el cuerpo de la solicitud originales enviados por el cliente | Desactivado |
-| Registrar solicitud al upstream | Registra los encabezados de la solicitud y el cuerpo de la solicitud convertidos y enviados al upstream | Desactivado |
+| Master switch | When off, no proxy logs are recorded at all | On |
+| Record original user request | Records the original request headers and request body sent by the client | Off |
+| Record upstream request | Records the converted request headers and request body sent to the upstream | Off |
 
 :::warning
-El cuerpo de la solicitud puede contener contenido sensible (prompts, claves, etc.). Antes de activar «Registrar solicitud original del usuario» o «Registrar solicitud al upstream», asegúrate de que el entorno local es de confianza.
+The request body may contain sensitive content (prompts, keys, etc.). Make sure your local environment is trusted before enabling "Record original user request" or "Record upstream request".
 :::
 
-## Período de retención
+## Retention
 
-Los registros se depuran según tres tipos independientes de período de retención:
+Logs are cleaned up according to three independent retention periods:
 
-| Tipo | Predeterminado | Forma de depuración |
+| Type | Default | Cleanup method |
 |------|------|----------|
-| Solicitud original del usuario | 7 días | Solo se vacía el campo del cuerpo de la solicitud, conservando la fila del registro |
-| Solicitud al upstream | 7 días | Solo se vacía el campo del cuerpo de la solicitud, conservando la fila del registro |
-| Registro | 90 días | Se elimina el registro completo |
+| Original user request | 7 days | Clears only the request body field, keeps the log row |
+| Upstream request | 7 days | Clears only the request body field, keeps the log row |
+| Log records | 90 days | Deletes the entire log entry |
 
-Es decir, el cuerpo de la solicitud con más de 7 días se vacía (la información estadística se conserva), y los registros con más de 90 días se eliminan por completo.
+In other words, request bodies older than 7 days are cleared (statistics are still retained), and logs older than 90 days are deleted entirely.
 
-## Depuración manual
+## Manual Cleanup
 
-En **«Configuración» → «Gestión de datos»** puedes ejecutar en cualquier momento la «Depuración de registros caducados» de forma manual, lo que aplica de inmediato las reglas de retención descritas arriba.
+In **Settings → Data Management** you can manually trigger "Clean up expired logs" at any time, which immediately applies the retention rules above.
 
-## Almacenamiento de datos
+## Data Storage
 
-Todos los registros se almacenan en la base de datos local `~/.aidog/aidog.db` y no se suben a ningún servidor.
+All logs are stored in the local database `~/.aidog/aidog.db` and are never uploaded to any server.

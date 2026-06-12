@@ -2,36 +2,62 @@
 title: 残高照会
 ---
 
-# 残高照会
+# Balance Query
 
-AiDog は対応プラットフォームのアカウント残高と Coding Plan クォータの照会に対応しています。
+AiDog can query account balances and Coding Plan quotas for supported platforms.
 
-## 対応プラットフォーム
+## Auto-Query Platforms
 
-| プラットフォーム | 照会内容 |
+| Platform | Query Content |
 |----------|---------------|
-| OpenAI | アカウント残高 |
-| DeepSeek | アカウント残高 |
-| StepFun | アカウント残高 |
-| SiliconFlow | アカウント残高 |
-| OpenRouter | アカウント残高 / 使用量 |
-| Novita | アカウント残高 |
-| Kimi | アカウント残高 |
-| GLM (智譜) | アカウント残高 |
-| MiniMax | アカウント残高 |
+| OpenAI | Account balance |
+| DeepSeek | Account balance |
+| StepFun | Account balance |
+| SiliconFlow | Account balance |
+| OpenRouter | Account balance / usage |
+| Novita | Account balance |
+| Kimi | Account balance |
+| GLM (Zhipu) | Account balance |
+| MiniMax | Account balance |
 
-## 残高の確認
+## Viewing Balances
 
-残高情報は以下に表示されます：
+Balance information is displayed in:
 
-1. **プラットフォームカード** — 各プラットフォームのリアルタイム残高
-2. **グループカード** — グループ内プラットフォームの残高集計
-3. **システムトレイ** — 残高ステータスの表示
+1. **Platform cards** — Real-time balance per platform
+2. **Group cards** — Aggregated balance across group platforms
+3. **System tray** — Balance status display
 
-## 更新
+## Refreshing
 
-残高データはスケジュールに従って自動更新されます。手動で更新ボタンをクリックすることも可能です。
+Balance data refreshes automatically on a schedule. You can also manually click the refresh button.
 
 ## Coding Plan
 
-一部のプラットフォームは Coding Plan クォータ情報を提供しており、AiDog は残高データと併せて照会・表示します。
+Some platforms provide Coding Plan quota information (e.g. OpenAI Plus/Team/Enterprise plans), which AiDog queries and displays alongside balance data.
+
+## Manual Budget
+
+For platforms that don't support automatic balance queries, AiDog provides a manual budget feature:
+
+### Configuration
+
+Set up a manual budget in the platform configuration. Supported types:
+
+| Type | Description |
+|------|-------------|
+| Total | Set an overall spending limit |
+| Rolling Window | Spending limit within a rolling time window |
+| Fixed Period | Spending limit that resets on a fixed schedule |
+| Daily | Daily spending limit |
+
+### Budget Units
+
+- **USD** — Measured by cost
+- **Tokens** — Measured by token count
+
+### Window Duration
+
+Rolling window and fixed period support multiple time units: minute, hour, day, week, month.
+
+Budget consumption is automatically tracked by AiDog based on proxied requests. When the limit is reached, the platform is marked as out of balance.

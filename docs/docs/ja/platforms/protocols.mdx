@@ -1,66 +1,76 @@
 ---
-title: プロトコルの種類
+title: プロトコル
 ---
 
-# プロトコルの種類
+# Protocol Types
 
-AiDog は複数の AI API プロトコルに対応しており、インバウンドリクエストの検出とアウトバウンドリクエストの変換の両方に使用されます。
+AiDog supports multiple AI API protocols for both inbound request detection and outbound request conversion.
 
-## 対応プロトコル
+## Supported Protocols
 
-### OpenAI シリーズ
+### OpenAI Series
 
-| プロトコル | 説明 | エンドポイント |
-|----------|------|------------|
+| Protocol | Description | Endpoint |
+|----------|-------------|----------|
 | `openai_chat` | Chat Completions API | `/v1/chat/completions` |
-| `openai_completions` | Text Completions API（レガシー） | `/v1/completions` |
-| `openai_responses` | Responses API（Codex 用） | `/v1/responses` |
+| `openai_completions` | Text Completions API (legacy) | `/v1/completions` |
+| `openai_responses` | Responses API (Codex) | `/v1/responses` |
 
 ### Anthropic
 
-| プロトコル | 説明 | エンドポイント |
-|----------|------|------------|
+| Protocol | Description | Endpoint |
+|----------|-------------|----------|
 | `anthropic` | Claude Messages API | `/v1/messages` |
 
 ### Google
 
-| プロトコル | 説明 | エンドポイント |
-|----------|------|------------|
+| Protocol | Description | Endpoint |
+|----------|-------------|----------|
 | `gemini` | Gemini Generate Content API | `/v1beta/models/{model}:generateContent` |
 
-### その他
+### Chinese Platforms
 
-| プロトコル | 説明 |
-|----------|------|
-| `minimax` | MiniMax ネイティブプロトコル |
-| `glm` | 智譜 GLM ネイティブプロトコル |
+| Protocol | Description |
+|----------|-------------|
+| `glm` / `glm_en` | Zhipu GLM native protocol |
+| `kimi` | Kimi (Moonshot) native protocol |
+| `minimax` / `minimax_en` | MiniMax native protocol |
+| `bailian` | Alibaba Bailian native protocol |
 
-## 自動検出
+### Tools / Testing
 
-AiDog はリクエストパスに基づいてインバウンドプロトコルを自動検出します：
+| Protocol | Description |
+|----------|-------------|
+| `mock` | Simulated platform, no real requests, for development and testing |
+| `claude_code` | Claude Code passthrough mode |
+
+## Auto-Detection
+
+AiDog automatically detects the inbound protocol based on the request path:
 
 - `/v1/chat/completions` → `openai_chat`
 - `/v1/completions` → `openai_completions`
 - `/v1/responses` → `openai_responses`
+- `/claude/v1/messages` → `anthropic` (Claude Code dedicated path)
 
-同じプロキシアドレスで異なるタイプのクライアントに対応できます。
+This means you can serve different client types through the same proxy address.
 
-## プロトコル変換
+## Protocol Conversion
 
-インバウンドとアウトバウンドのプロトコルは異なっていても構いません。AiDog が自動的に変換を処理します：
+Inbound and outbound protocols can differ. AiDog automatically handles conversion:
 
-1. インバウンドリクエストを解析（検出されたプロトコル）
-2. 内部フォーマットに変換
-3. 対象プラットフォームのアウトバウンドプロトコルに変換
-4. リクエストを送信
+1. Parse inbound request (detected protocol)
+2. Convert to internal format
+3. Transform to target platform's outbound protocol
+4. Send the request
 
-例：クライアントが `openai_chat` でリクエスト → AiDog が `anthropic` プロトコルに変換 → Claude に送信。
+Example: Client sends `openai_chat` → AiDog converts to `anthropic` protocol → sends to Claude.
 
-## プラットフォームプリセット
+## Platform Presets
 
-AiDog には 50 以上のプラットフォームプリセットが内蔵されており、各プリセットには以下が含まれます：
-- デフォルトの Base URL
-- デフォルトのプロトコル
-- 対応モデル一覧
+AiDog includes 50+ built-in platform presets, each containing:
+- Default Base URL
+- Default protocol
+- Recommended endpoint configuration
 
-プリセットを選択するとこれらの値が自動入力されます。
+Selecting a preset auto-fills these values.

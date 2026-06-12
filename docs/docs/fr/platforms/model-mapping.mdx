@@ -2,36 +2,57 @@
 title: Mappage de modèles
 ---
 
-# Mappage de modèles
+# Model Mapping
 
-Le mappage de modèles permet de traduire les noms de modèles des requêtes clients vers les noms réels supportés par la plateforme.
+Model mapping allows you to translate model names from client requests to the actual model names supported by the platform.
 
-## Cas d'utilisation
+## Use Cases
 
-- Le client demande `gpt-4o`, mais vous souhaitez router vers `deepseek-chat` de DeepSeek
-- Standardiser la nomination des modèles entre plateformes
-- Tests A/B de modèles équivalents sur différentes plateformes
+- Client requests `gpt-4o`, but you want to route to DeepSeek's `deepseek-chat`
+- Standardize model naming across platforms
+- Simplify model selection with aliases (e.g. `fast` → `gpt-4o-mini`)
 
 ## Configuration
 
-Ajoutez des règles de mappage dans la section « Mappage de modèles » de la plateforme :
+Add mapping rules in the platform or group's "Model Mapping" section:
 
-| Modèle demandé | Mappé vers |
+| Request Model | Maps To |
 |---------------|---------|
 | `gpt-4o` | `deepseek-chat` |
 | `claude-3-opus` | `claude-3-opus-20240229` |
 
-### Règles de mappage
+### Mapping Rules
 
-1. **Correspondance exacte** — Ne mappe que lorsque le nom correspond exactement
-2. **Préservation de l'original** — Les noms sans correspondance passent inchangés
-3. **Priorité** — Mappages au niveau plateforme d'abord, puis au niveau groupe
+1. **Exact match** — Only maps when the model name matches exactly
+2. **Preserve original** — Unmatched model names pass through unchanged
+3. **Priority** — Group-level mappings take precedence over platform-level mappings
 
-## Utilisation dans les groupes
+## Two-Level Mapping
 
-Le mappage peut être configuré à deux niveaux :
+Model mapping can be configured at two levels:
 
-- **Niveau plateforme** — S'applique à toutes les requêtes de cette plateforme
-- **Niveau groupe** — Ne s'applique que dans les règles de routage du groupe
+- **Platform level** — Applies to all requests on that platform
+- **Group level** — Only applies within that group's routing rules
 
-Le mappage au niveau groupe est prioritaire sur celui au niveau plateforme. Voir [Règles de routage](/groups/routing-rules).
+Group-level mappings take precedence over platform-level mappings. See [Routing Rules](/groups/routing-rules).
+
+## Model Alias Example
+
+Use model mapping to create an alias system. Clients only need short aliases:
+
+| Alias | Target | Purpose |
+|-------|--------|---------|
+| `fast` | `gpt-4o-mini` | Fast responses |
+| `smart` | `claude-3-opus` | High quality |
+| `code` | `deepseek-coder` | Code generation |
+
+## Chain Mapping
+
+Model mappings can cascade across groups and platforms:
+
+1. Client requests model `smart`
+2. Group mapping: `smart` → `claude-3-opus`
+3. Platform mapping: `claude-3-opus` → `claude-3-opus-20240229`
+4. Sent to Anthropic
+
+See [Advanced Routing](/proxy/advanced-routing).

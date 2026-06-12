@@ -28,12 +28,21 @@ AiDog 支持多种 AI API 协议，作为入站请求的识别方式和出站请
 |------|------|------|
 | `gemini` | Gemini Generate Content API | `/v1beta/models/{model}:generateContent` |
 
-### 其他
+### 国内平台
 
 | 协议 | 说明 |
 |------|------|
-| `minimax` | MiniMax 原生协议 |
-| `glm` | 智谱 GLM 原生协议 |
+| `glm` / `glm_en` | 智谱 GLM 原生协议 |
+| `kimi` | Kimi（月之暗面）原生协议 |
+| `minimax` / `minimax_en` | MiniMax 原生协议 |
+| `bailian` | 阿里百炼原生协议 |
+
+### 工具 / 测试
+
+| 协议 | 说明 |
+|------|------|
+| `mock` | 模拟平台，不发送真实请求，用于开发测试 |
+| `claude_code` | Claude Code 透传模式 |
 
 ## 协议自动检测
 
@@ -42,6 +51,7 @@ AiDog 会根据请求路径和内容自动检测入站协议：
 - `/v1/chat/completions` → `openai_chat`
 - `/v1/completions` → `openai_completions`
 - `/v1/responses` → `openai_responses`
+- `/claude/v1/messages` → `anthropic`（Claude Code 专用路径）
 
 这意味着你可以用同一个代理地址同时服务不同类型的客户端。
 
@@ -61,6 +71,6 @@ AiDog 会根据请求路径和内容自动检测入站协议：
 AiDog 内置 50+ 平台预设，每个预设包含：
 - 默认 Base URL
 - 默认协议
-- 支持的模型列表
+- 推荐的端点配置
 
 选择预设后这些值会自动填充。

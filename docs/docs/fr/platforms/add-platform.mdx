@@ -2,67 +2,130 @@
 title: Ajouter une plateforme
 ---
 
-# Ajouter une plateforme
+# Add Platform
 
-Les plateformes sont le concept central d'AiDog — chacune représente un point d'accès à un service d'API IA.
+Platforms are the core concept in AiDog — each represents an AI API service endpoint.
 
-## Étapes d'ajout
+## Adding Steps
 
-1. Allez à la page **« Plateformes »**
-2. Cliquez sur le bouton **« + »** en haut à droite
-3. Remplissez la configuration :
+1. Go to the **"Platforms"** page
+2. Click the **"+"** button in the top right
+3. Select a platform preset (or fill in manually)
+4. Fill in the configuration and click Save
 
-### Configuration de base
+:::tip{title="Auto Group"}
+After saving a platform, AiDog automatically creates a group for it, so you can start using it right away without manual configuration.
+:::
 
-| Champ | Description | Exemple |
+## Basic Configuration
+
+| Field | Description | Example |
 |-------|-------------|---------|
-| Nom | Nom d'affichage | `Mon OpenAI` |
-| Base URL | URL de base de l'API (avec préfixe de version) | `https://api.openai.com/v1` |
-| API Key | Clé API de la plateforme | `sk-...` |
-| Protocole | Type de protocole de requête | `openai_chat` |
+| Name | Display name | `My OpenAI` |
+| Base URL | API base URL (with version prefix) | `https://api.openai.com/v1` |
+| API Key | Platform API key | `sk-...` |
+| Protocol | Request protocol type | `openai_chat` |
 
-### Sélection du protocole
+### Platform Presets
 
-Sélectionnez le protocole correspondant à votre plateforme cible. AiDog inclut plus de 50 préréglages de plateformes qui remplissent automatiquement le protocole.
+AiDog includes 50+ built-in platform presets. Selecting a preset auto-fills the Base URL and protocol.
 
-Protocoles courants :
-- **openai_chat** — Chat Completions compatible OpenAI (le plus universel)
-- **openai_completions** — Text Completions OpenAI (hérité)
-- **openai_responses** — API Responses OpenAI (utilisé par Codex)
-- **anthropic** — Protocole natif Anthropic Claude
-- **gemini** — Protocole natif Google Gemini
+### Protocol Selection
 
-Voir [Types de protocoles](/platforms/protocols) pour plus de détails.
+Select the protocol matching your target platform. Common protocols:
 
-### Options avancées
+- **openai_chat** — OpenAI-compatible Chat Completions (most universal)
+- **openai_responses** — OpenAI Responses API (used by Codex)
+- **anthropic** — Anthropic Claude native protocol
+- **gemini** — Google Gemini native protocol
+- **mock** — Simulated platform for testing, does not send real requests
 
-- **Mappage de modèles** — Mappez les noms de modèles demandés aux modèles réels de la plateforme (voir [Mappage de modèles](/platforms/model-mapping))
-- **Activer/Désactiver** — Suspendre une plateforme sans la supprimer
+See [Protocol Types](/platforms/protocols) for details.
 
-## Modifier une plateforme
+## Endpoints
 
-Cliquez sur une carte de plateforme pour voir les détails et modifier les paramètres. Cliquez sur « Enregistrer » après les modifications.
+Each platform can have multiple endpoints, each with its own protocol and Base URL:
 
-## Supprimer une plateforme
+| Field | Description |
+|-------|-------------|
+| Protocol | Outbound protocol for this endpoint |
+| Base URL | API address for this endpoint |
+| Client Type | Request header emulation method (affects compatibility with some platforms) |
+| Coding Plan | Whether this endpoint supports Coding Plan quota queries |
 
-Cliquez sur le bouton de suppression sur la carte de plateforme. Les journaux et statistiques associés sont conservés.
+For example, a platform can have both `openai_chat` and `openai_responses` endpoints. AiDog automatically matches the appropriate endpoint based on the inbound protocol.
+
+## Model Configuration
+
+### Model Slots
+
+Each platform supports 5 model slots for quick assignment of commonly used models:
+
+| Slot | Purpose |
+|------|---------|
+| **default** | Default model, used for testing and when no model is specified |
+| **sonnet** | Sonnet-tier model (e.g. `claude-3-5-sonnet`) |
+| **opus** | Opus-tier model (e.g. `claude-3-opus`) |
+| **haiku** | Haiku-tier model (e.g. `claude-3-haiku`) |
+| **gpt** | GPT-series model (e.g. `gpt-4o`) |
+
+### Fetch Model List
+
+When editing a platform, click the "Fetch Models" button next to the model input. AiDog will automatically retrieve the list of available models from the platform API.
+
+### Model Mapping
+
+In the "Model Mapping" section, you can map requested model names to the actual model names supported by the platform. See [Model Mapping](/platforms/model-mapping).
+
+## Model Testing
+
+After saving a platform, you can test its connectivity:
+
+1. Click the "Test" button on the platform card
+2. Choose a test mode: Quick (default model) / Batch (multiple models) / Custom (specify model and prompt)
+3. View results: response time, token count, success or failure
+
+See [Model Testing](/platforms/model-testing).
+
+## Other Operations
+
+### Enable/Disable
+
+Pause a platform without deleting it. Disabled platforms are excluded from routing.
+
+### Editing Platforms
+
+Click a platform card to view details and modify settings. Click "Save" after changes.
+
+### Deleting Platforms
+
+Click the delete button on the platform card. Related logs and statistics are preserved.
+
+### Drag to Reorder
+
+Drag platform cards in the list to adjust their display order.
 
 ## FAQ
 
-### Comment remplir la Base URL ?
+### How to fill Base URL?
 
-La Base URL est le chemin de base complet incluant le préfixe de version :
+The Base URL is the complete base path including the version prefix:
 
-| Plateforme | Base URL |
-|------------|----------|
+| Platform | Base URL |
+|----------|----------|
 | OpenAI | `https://api.openai.com/v1` |
 | Anthropic | `https://api.anthropic.com/v1` |
 | DeepSeek | `https://api.deepseek.com/v1` |
+| Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 
-:::caution{title="Attention"}
-N'ajoutez pas `/chat/completions` à la fin de la Base URL. AiDog le gère automatiquement.
+:::caution{title="Note"}
+Do not append `/chat/completions` to the Base URL. AiDog handles this automatically.
 :::
 
-### Sécurité des clés API
+### API Key Security
 
-Les clés API sont stockées dans la base de données SQLite locale et ne sont jamais téléchargées vers un serveur.
+API keys are stored in the local database and never uploaded to any server.
+
+### What is the Mock platform?
+
+Mock platforms simulate AI responses without sending real requests. Useful for offline work or debugging. You can customize response content, status codes, delays, token counts, and even simulate rate limits and timeouts.

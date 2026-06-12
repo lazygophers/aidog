@@ -2,54 +2,74 @@
 title: Routing-Regeln
 ---
 
-# Routing-Regeln
+# Routing Rules
 
-Routing-Regeln bestimmen, wie AiDog eingehende Anfragen der entsprechenden Gruppe und Plattform zuordnet.
+Routing rules determine how AiDog matches inbound requests to the appropriate group and platform.
 
-## Zuordnungsfluss
+## Matching Flow
 
 ```
-Eingehende Anfrage → Protokoll erkennen → Gruppe zuordnen → Plattform wählen → Modell zuordnen → Weiterleiten
+Inbound Request → Detect Protocol → Match Group → Select Platform → Map Model → Forward
 ```
 
-## Gruppenzuordnung
+## Group Matching
 
-Anfragen werden nach Priorität Gruppen zugeordnet:
+Requests are matched to groups by priority:
 
-1. **Modellnamen-Zuordnung** — Angefragter Modellname ist in der Zuordnungstabelle einer Gruppe
-2. **Standardgruppe** — Wird verwendet, wenn keine Übereinstimmung gefunden wird
-3. **Erste Gruppe** — Wird verwendet, wenn keine Standardgruppe festgelegt ist
+1. **Path match** — Request path matches the group's configured path prefix
+2. **Model name match** — Request model name is in a group's model mapping table
+3. **Default group** — Used when no match is found
+4. **First group** — Used when no default group is set
 
-## Plattformauswahl
+## Source Protocol Filtering
 
-Innerhalb einer Gruppe werden Plattformen nach Strategie ausgewählt:
+Groups can filter by source protocol, only processing requests of a specified inbound protocol. For example:
 
-1. Prüfen, ob die Plattform aktiviert ist
-2. Prüfen, ob der API-Schlüssel gültig ist
-3. Eine Plattform nach Strategie auswählen
-4. Anfrage senden
+- Set source protocol to `anthropic` → Only Anthropic-protocol requests are routed to this group
+- Leave unset → Accept requests from all protocols
 
-Wenn die ausgewählte Plattform einen Fehler zurückgibt (z.B. 429 Rate Limit), versucht AiDog automatisch die nächste Plattform (Failover).
+## Platform Selection
+
+Within a group, platforms are selected by routing mode:
+
+### Failover Mode
+
+1. Select the first enabled platform
+2. Send the request
+3. If it fails (429 rate limit, 5xx error, timeout, network error), try the next one automatically
+4. If all platforms fail, return an error to the client
+
+### Load Balance Mode
+
+1. Randomly select an enabled platform by weight
+2. Send the request
+3. Failover also applies on failure
 
 ## Failover
 
-Plattformen innerhalb einer Gruppe sind geordnet. Wenn die aktuelle Plattform fehlschlägt:
+Platforms within a group are ordered. When the current platform fails:
 
-1. Fehler protokollieren
-2. Automatisch die nächste Plattform versuchen
-3. Wenn alle Plattformen fehlschlagen, Fehler an den Client zurückgeben
+1. Log the failure
+2. Automatically try the next platform
+3. If all platforms fail, return an error to the client
 
-## Modellzuordnungskette
+Failover is triggered by:
+- HTTP 429 (Rate Limit)
+- HTTP 5xx (Server Error)
+- Connection timeout
+- Network error
 
-Auflösungsreihenfolge für Modellnamen:
+## Model Mapping Chain
 
-1. **Zuordnung auf Gruppenebene** — Wenn die Gruppe Zuordnungen definiert
-2. **Zuordnung auf Plattformebene** — Wenn die Plattform Zuordnungen definiert
-3. **Ursprünglicher Wert** — Den ursprünglichen Modellnamen der Anfrage verwenden
+Model name resolution order:
+
+1. **Group-level mapping** — If the group defines model mappings
+2. **Platform-level mapping** — If the platform defines model mappings
+3. **Original value** — Use the original model name from the request
 
 ```
-Client fragt an: gpt-4o
-  → Gruppenzuordnung: gpt-4o → deepseek-chat
-  → Plattformzuordnung: (keine)
-  → An Plattform gesendet: deepseek-chat
+Client requests: gpt-4o
+  → Group mapping: gpt-4o → deepseek-chat
+  → Platform mapping: (none)
+  → Sent to platform: deepseek-chat
 ```

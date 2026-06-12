@@ -2,40 +2,31 @@
 title: Temas
 ---
 
-# Temas
+# Themes
 
-AiDog ofrece múltiples temas integrados, cada uno con modos Light y Dark.
+AiDog provides multiple built-in themes, each with Light and Dark modes.
 
-## Temas integrados
+## Built-in Themes
 
-| Tema | Estilo |
+| Theme | Style |
 |-------|-------|
-| Liquid Glass | Efecto cristal, transparencia |
-| Nord | Tonos azules árticos, calmado |
-| Dracula | Tema oscuro, paleta popular |
-| Catppuccin | Colores cálidos, suave para los ojos |
-| Solarized | Paleta científica clásica |
+| Liquid Glass | Glassmorphism, translucent |
+| Nord | Arctic blue tones, calm |
+| Dracula | Dark theme, popular palette |
+| Catppuccin | Warm colors, easy on the eyes |
+| Solarized | Classic scientific palette |
 
-## Cambiar tema
+## Switching Themes
 
-Selecciona un tema en **"Configuración"** → "Temas".
+Select a theme in the **"Settings"** page theme selector.
 
-### Modo Light/Dark
+### Light/Dark Mode
 
-Cada tema soporta modos Light y Dark, siguiendo la configuración del sistema o cambio manual.
+Each theme supports both Light and Dark modes. Follows system settings automatically or switch manually.
 
-## Arquitectura de temas
+## Theme Features
 
-Los temas se implementan mediante un sistema de variables CSS:
-- Cada tema proporciona conjuntos de variables CSS light + dark
-- Los archivos de variables están en el directorio `src/themes/`
-- Cambiar tema reemplaza el conjunto de variables CSS
-
-### Temas personalizados
-
-Para crear un tema personalizado:
-
-1. Copia un archivo de tema existente como plantilla
-2. Modifica los valores de las variables CSS
-3. Registra el nuevo tema en `src/themes/index.ts`
-4. Reconstruye la aplicación
+- **Rounded corners** — Layered border-radius system (sm / md / lg / xl)
+- **Frosted glass** — Semi-transparent panels with blurred backgrounds
+- **Smooth transitions** — Theme switching with easing animations
+- **High contrast** — Ensures good readability in both light and dark modes

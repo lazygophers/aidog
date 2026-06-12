@@ -2,36 +2,57 @@
 title: تعيين النماذج
 ---
 
-# تعيين النماذج
+# Model Mapping
 
-يتيح تعيين النماذج ترجمة أسماء النماذج من طلبات العميل إلى الأسماء الفعلية المدعومة من المنصة.
+Model mapping allows you to translate model names from client requests to the actual model names supported by the platform.
 
-## حالات الاستخدام
+## Use Cases
 
-- العميل يطلب `gpt-4o`، لكنك تريد التوجيه إلى `deepseek-chat` من DeepSeek
-- توحيد تسمية النماذج عبر المنصات
-- اختبار A/B لنماذج مكافئة على منصات مختلفة
+- Client requests `gpt-4o`, but you want to route to DeepSeek's `deepseek-chat`
+- Standardize model naming across platforms
+- Simplify model selection with aliases (e.g. `fast` → `gpt-4o-mini`)
 
-## التكوين
+## Configuration
 
-أضف قواعد التعيين في قسم "تعيين النماذج" في المنصة:
+Add mapping rules in the platform or group's "Model Mapping" section:
 
-| النموذج المطلوب | التعيين إلى |
+| Request Model | Maps To |
 |---------------|---------|
 | `gpt-4o` | `deepseek-chat` |
 | `claude-3-opus` | `claude-3-opus-20240229` |
 
-### قواعد التعيين
+### Mapping Rules
 
-1. **التطابق التام** — التعيين فقط عند تطابق الاسم بالكامل
-2. **الحفاظ على الأصل** — الأسماء غير المتطابقة تمر كما هي
-3. **الأولوية** — التعيين على مستوى المنصة أولاً، ثم على مستوى المجموعة
+1. **Exact match** — Only maps when the model name matches exactly
+2. **Preserve original** — Unmatched model names pass through unchanged
+3. **Priority** — Group-level mappings take precedence over platform-level mappings
 
-## الاستخدام في المجموعات
+## Two-Level Mapping
 
-يمكن تكوين تعيين النماذج على مستويين:
+Model mapping can be configured at two levels:
 
-- **مستوى المنصة** — ينطبق على جميع طلبات هذه المنصة
-- **مستوى المجموعة** — ينطبق فقط ضمن قواعد توجيه المجموعة
+- **Platform level** — Applies to all requests on that platform
+- **Group level** — Only applies within that group's routing rules
 
-التعيين على مستوى المجموعة له أولوية على مستوى المنصة. راجع [قواعد التوجيه](/groups/routing-rules).
+Group-level mappings take precedence over platform-level mappings. See [Routing Rules](/groups/routing-rules).
+
+## Model Alias Example
+
+Use model mapping to create an alias system. Clients only need short aliases:
+
+| Alias | Target | Purpose |
+|-------|--------|---------|
+| `fast` | `gpt-4o-mini` | Fast responses |
+| `smart` | `claude-3-opus` | High quality |
+| `code` | `deepseek-coder` | Code generation |
+
+## Chain Mapping
+
+Model mappings can cascade across groups and platforms:
+
+1. Client requests model `smart`
+2. Group mapping: `smart` → `claude-3-opus`
+3. Platform mapping: `claude-3-opus` → `claude-3-opus-20240229`
+4. Sent to Anthropic
+
+See [Advanced Routing](/proxy/advanced-routing).

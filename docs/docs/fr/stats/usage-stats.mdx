@@ -2,43 +2,46 @@
 title: Statistiques d'utilisation
 ---
 
-# Statistiques d'utilisation
+# Usage Statistics
 
-AiDog suit automatiquement les données d'utilisation de toutes les requêtes proxy.
+AiDog automatically tracks usage data for all proxied requests.
 
-## Page des statistiques
+## Statistics Page
 
-Allez à la page **« Statistiques »** pour un aperçu de l'utilisation.
+Go to the **"Statistics"** page for a usage overview.
 
-### Statistiques du jour
+### Today's Stats
 
-- Total des requêtes
-- Taux de succès/échec
-- Utilisation totale des tokens (Prompt + Completion)
-- Coût estimé
+- Total requests
+- Success/failure rate
+- Total token usage (Prompt + Completion)
+- Estimated cost
 
-### Tendances
+### Trends
 
-Visualisez par jour/semaine/mois :
-- Tendance du nombre de requêtes
-- Tendance de l'utilisation des tokens
-- Tendance des coûts
+View by day/week/month:
+- Request count trends
+- Token usage trends
+- Cost trends
 
-### Statistiques des groupes
+### Group Statistics
 
-Les statistiques des cartes de groupe sont agrégées à partir des plateformes associées (somme côté frontend).
+Group card statistics are aggregated from their associated platforms.
 
 ## Dimensions
 
-Visualisez les statistiques par :
-- **Par plateforme** — Utilisation par plateforme
-- **Par groupe** — Utilisation par groupe
-- **Par modèle** — Utilisation par modèle
-- **Par période** — Agrégation journalière/hebdomadaire/mensuelle
+View statistics by:
+- **By platform** — Per-platform usage
+- **By group** — Per-group usage
+- **By model** — Per-model usage
+- **By time** — Daily/weekly/monthly aggregation
 
-## Source des données
+## Data Source
 
-Les statistiques sont agrégées depuis la table `proxy_logs` :
-- Utilisation des tokens : Extraite des réponses API amont
-- Coût estimé : Calculé via la table de tarification + nom du modèle (chaîne de repli `resolve_price`)
-- Nombre de requêtes : Agrégation des lignes de journal
+- Token usage: Extracted directly from upstream API responses
+- Estimated cost: Calculated automatically based on model pricing tables
+- Request count: Aggregated from proxy log records
+
+:::tip{title="Note"}
+Estimated costs are based on built-in pricing tables and are for reference only. Actual costs are based on platform billing.
+:::

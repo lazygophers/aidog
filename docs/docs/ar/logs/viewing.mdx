@@ -2,49 +2,49 @@
 title: عرض السجلات
 ---
 
-# عرض السجلات
+# Viewing Logs
 
-تسجّل صفحة **«السجلات»** كل طلب وكيل يمر عبر AiDog، مما يسهّل تتبّع مشكلات التوجيه وتحويل البروتوكول واستجابات الخادم الأعلى.
+The **Logs** page records every proxy request that passes through AiDog, making it easy to troubleshoot routing, protocol conversion, and upstream response issues.
 
-## قائمة السجلات
+## Log List
 
-يعرض كل سجل المعلومات التالية:
+Each log entry shows the following information:
 
-| الحقل | الوصف |
+| Field | Description |
 |------|------|
-| المجموعة | اسم المجموعة المطابِقة |
-| النموذج | النموذج الأصلي الذي طلبه العميل |
-| النموذج الفعلي | النموذج المُرسَل إلى الخادم الأعلى بعد تعيين النموذج |
-| البروتوكول | بروتوكول الوارد ← بروتوكول الخادم الأعلى |
-| المنصة | المنصة التي عالجت الطلب فعلياً |
-| الحالة | رمز حالة HTTP (نجاح / فشل) |
-| المدة | إجمالي مدة الطلب (بالميلي ثانية) |
-| Token | عدد رموز الإدخال / الإخراج / التخزين المؤقت |
-| الوقت | وقت حدوث الطلب |
+| Group | Name of the matched group |
+| Model | Original model requested by the client |
+| Actual Model | Model sent to the upstream after model mapping |
+| Protocol | Inbound protocol → upstream protocol |
+| Platform | Platform that actually handled the request |
+| Status | HTTP status code (success / failure) |
+| Duration | Total request duration (milliseconds) |
+| Token | Number of input / output / cache tokens |
+| Time | When the request occurred |
 
-تعرض القائمة 50 سجلاً لكل صفحة، مع دعم التنقّل بين الصفحات.
+The list shows 50 entries per page with pagination support.
 
-## التصفية
+## Filtering
 
-حدّد موقع السجلات بسرعة عبر أداة التصفية العلوية:
+Use the filters at the top to quickly locate logs:
 
-- **المنصة**: التصفية حسب منصة محددة
-- **المجموعة**: التصفية حسب المجموعة
-- **الحالة**: الناجحة فقط / الفاشلة فقط
-- **النطاق الزمني**: الكل / آخر ساعة واحدة / 6 ساعات / 24 ساعة / 7 أيام / 30 يوماً
-- **النموذج**: البحث حسب اسم النموذج الأصلي أو النموذج الفعلي
+- **Platform**: filter by a specific platform
+- **Group**: filter by group
+- **Status**: success only / failure only
+- **Time range**: all / last 1 hour / 6 hours / 24 hours / 7 days / 30 days
+- **Model**: search by original or actual model name
 
-## تفاصيل الطلب
+## Request Details
 
-انقر على أي سجل لتوسيع التفاصيل وعرض مسار الطلب الكامل:
+Click any log entry to expand its details and view the complete request chain:
 
-- **طلب المستخدم**: عنوان URL الأصلي وترويسات الطلب ونص الطلب
-- **طلب الخادم الأعلى**: عنوان URL وترويسات الطلب ونص الطلب المُرسَلة إلى الخادم الأعلى بعد التحويل
-- **استجابة الخادم الأعلى**: رمز الحالة وترويسات الاستجابة ونص الاستجابة التي يعيدها الخادم الأعلى
-- **استجابة المستخدم**: ترويسات الاستجابة ونص الاستجابة النهائية المُعادة إلى العميل
+- **User request**: original request URL, request headers, request body
+- **Upstream request**: the converted URL, request headers, and request body sent to the upstream
+- **Upstream response**: status code, response headers, and response body returned by the upstream
+- **User response**: the final response headers and response body returned to the client
 
-تدعم التفاصيل النسخ بنقرة واحدة، مما يسهّل لصقها في تذكرة دعم أو أداة تصحيح أخطاء.
+Details support one-click copy, making it easy to paste into a support ticket or debugging tool.
 
 :::tip
-يخضع محتوى «طلب المستخدم» و«طلب الخادم الأعلى» المُسجَّل في التفاصيل لإعدادات السجلات، ولا يُسجَّل نص الطلب افتراضياً. للتفاصيل راجع [إعدادات السجلات](/logs/log-settings).
+The "User request" and "Upstream request" content recorded in the details is controlled by the log settings. By default, the request body is not recorded. See [Log Settings](/logs/log-settings) for more.
 :::

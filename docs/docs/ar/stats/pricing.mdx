@@ -2,38 +2,56 @@
 title: التسعير والفوترة
 ---
 
-# التسعير والفوترة
+# Pricing & Billing
 
-يقدر AiDog تلقائياً تكاليف الطلبات بناءً على جداول تسعير النماذج.
+AiDog automatically estimates request costs based on model pricing tables.
 
-## تقدير التكاليف
+## Cost Estimation
 
-بعد كل طلب، يقوم AiDog بـ:
-1. استخراج استخدام الرموز من استجابة upstream
-2. البحث عن سعر وحدة النموذج في جدول التسعير
-3. حساب `التكلفة = رموز Prompt × سعر الإدخال + رموز Completion × سعر الإخراج`
+After each request, AiDog:
+1. Extracts token usage from the upstream response
+2. Looks up the model's unit price in the pricing table
+3. Calculates `Cost = Prompt Tokens × Input Price + Completion Tokens × Output Price`
 
-## مصادر التسعير
-
-يتضمن AiDog بيانات تسعير مدمجة ويدعم:
-- **التسعير المدمج** — الأسعار الرسمية للنماذج الرئيسية
-- **التسعير المخصص** — تعيين الأسعار يدوياً لنماذج محددة
-- **مزامنة الأسعار** — جلب أحدث الأسعار تلقائياً من المنصات
-
-## حقل التكلفة المقدرة
-
-يسجل حقل `est_cost` في كل سجل التكلفة المقدرة:
-- يستخدم سلسلة الاحتياط `resolve_price` لضمان توفر سعر دائماً
-- ترتيب الاحتياط: تسعير مخصص ← تسعير مدمج ← سعر افتراضي
-- الواجهة الأمامية تستخدم `SUM(est_cost)` لتجميع التكاليف اليومية/الشهرية
-
-:::tip{title="ملاحظة"}
-التكاليف المقدرة للإشارة فقط. التكاليف الفعلية تعتمد على فوترة المنصة.
+:::tip{title="Note"}
+Estimated costs are for reference only. Actual costs are based on platform billing.
 :::
 
-## عرض التكاليف
+## Pricing Sources
 
-في صفحة **"الإحصائيات"**، تبويب "التسعير":
-- عرض تسعير كل نموذج
-- تعديل التسعير المخصص
-- تشغيل مزامنة الأسعار
+AiDog supports multiple pricing data sources:
+
+- **Built-in pricing** — Official pricing for mainstream models
+- **Custom pricing** — Manually set prices for specific models, takes priority over built-in pricing
+- **Auto-sync** — Automatically fetch the latest model pricing from pricing sources
+
+Pricing fallback order: Custom pricing → Built-in pricing → Default price
+
+## Pricing Management Page
+
+Manage all model pricing in **"Settings" → "Model Pricing"**:
+
+### Browse & Search
+
+- Search by model name
+- Filter by pricing source (Built-in / Custom / Synced)
+- Paginated browsing of all pricing records
+
+### Edit Custom Pricing
+
+- Add custom unit prices for any model
+- Set input token price and output token price separately
+- Edit or delete existing custom pricing
+
+### Price Sync
+
+- Configure pricing sync sources
+- One-click sync of latest pricing data
+- View sync results
+
+## Viewing Costs
+
+In the **"Statistics"** page:
+- Today/this week/this month estimated costs
+- Cost distribution by platform, group, and model
+- Cost trend charts

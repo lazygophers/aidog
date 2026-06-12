@@ -4,31 +4,53 @@ title: 应用设置
 
 # 应用设置
 
-在 **「设置」** 页面配置 AiDog 的全局行为。
+在 **「设置」** 页面配置 AiDog 的全局行为。设置页面包含 5 个标签页：代理配置、Claude Code、Codex、模型价格、系统托盘。
 
-## 代理设置
+## 代理配置
+
+### 代理设置
 
 | 设置项 | 默认值 | 说明 |
 |--------|--------|------|
 | 代理端口 | `7860` | HTTP 代理监听端口 |
 | 请求超时 | `300s` | 上游请求超时时间 |
+| 自动启动 | 关闭 | AiDog 启动时自动运行代理服务 |
 
-## 日志设置
+### 日志设置
 
-详见 [日志设置](/logs/log-settings)。
+控制日志的记录粒度与保留时长。详见 [日志设置](/logs/log-settings)。
 
-## 数据管理
-
-### 导出数据
+### 数据管理
 
 - 导出平台配置（JSON）
 - 导出分组配置（JSON）
 - 导出统计数据（CSV）
-
-### 清理数据
-
 - 清理过期日志
 - 重置统计数据
+
+## Claude Code
+
+编辑 Claude Code 的各项配置，包括模型、权限、沙箱、插件、Hooks 和 StatusLine 等。
+
+- **从 Claude Code 导入** — 读取现有 Claude Code 配置到 AiDog
+- **导出到 Claude Code** — 将代理地址写入 Claude Code 配置文件
+- **同步分组设置** — 为每个分组生成独立的 Claude Code 配置文件
+
+详见 [Codex 集成](/proxy/codex-integration)。
+
+## Codex
+
+直接编辑 `~/.codex/config.toml` 中的 Codex 设置，无需手动查找配置文件。
+
+详见 [Codex 集成](/proxy/codex-integration)。
+
+## 模型价格
+
+浏览、搜索和管理所有模型定价数据。详见 [定价与计费](/stats/pricing)。
+
+## 系统托盘
+
+配置托盘显示内容和格式。详见 [托盘配置](/settings/tray)。
 
 ## 界面设置
 
@@ -54,6 +76,5 @@ title: 应用设置
 | 数据 | 路径 |
 |------|------|
 | 数据库 | `~/.aidog/aidog.db` |
-| 配置文件 | `~/.aidog/config.json` |
 
 数据不离开本机，不上传任何服务器。

@@ -18,24 +18,15 @@ AiDog provides multiple built-in themes, each with Light and Dark modes.
 
 ## Switching Themes
 
-Select a theme in **"Settings"** → "Themes".
+Select a theme in the **"Settings"** page theme selector.
 
 ### Light/Dark Mode
 
-Each theme supports both Light and Dark modes, following system settings or manual toggle.
+Each theme supports both Light and Dark modes. Follows system settings automatically or switch manually.
 
-## Theme Architecture
+## Theme Features
 
-Themes are implemented via CSS variables:
-- Each theme provides light + dark CSS variable sets
-- Variable files are in the `src/themes/` directory
-- Switching themes replaces the CSS variable set
-
-### Custom Themes
-
-To create a custom theme:
-
-1. Copy an existing theme file as a template
-2. Modify the CSS variable values
-3. Register the new theme in `src/themes/index.ts`
-4. Rebuild the application
+- **Rounded corners** — Layered border-radius system (sm / md / lg / xl)
+- **Frosted glass** — Semi-transparent panels with blurred backgrounds
+- **Smooth transitions** — Theme switching with easing animations
+- **High contrast** — Ensures good readability in both light and dark modes

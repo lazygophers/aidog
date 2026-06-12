@@ -1,41 +1,32 @@
 ---
-title: Themes
+title: Themen
 ---
 
 # Themes
 
-AiDog bietet mehrere integrierte Themes, jedes mit Light- und Dark-Modus.
+AiDog provides multiple built-in themes, each with Light and Dark modes.
 
-## Integrierte Themes
+## Built-in Themes
 
-| Theme | Stil |
+| Theme | Style |
 |-------|-------|
-| Liquid Glass | Glasmorphismus, Transparenz |
-| Nord | Arktische Blautöne, ruhig |
-| Dracula | Dunkles Theme, beliebte Palette |
-| Catppuccin | Warme Farben, augenfreundlich |
-| Solarized | Klassische wissenschaftliche Palette |
+| Liquid Glass | Glassmorphism, translucent |
+| Nord | Arctic blue tones, calm |
+| Dracula | Dark theme, popular palette |
+| Catppuccin | Warm colors, easy on the eyes |
+| Solarized | Classic scientific palette |
 
-## Theme wechseln
+## Switching Themes
 
-Wählen Sie ein Theme unter **„Einstellungen"** → „Themes".
+Select a theme in the **"Settings"** page theme selector.
 
-### Light/Dark-Modus
+### Light/Dark Mode
 
-Jedes Theme unterstützt Light- und Dark-Modi, folgt den Systemeinstellungen oder kann manuell umgeschaltet werden.
+Each theme supports both Light and Dark modes. Follows system settings automatically or switch manually.
 
-## Theme-Architektur
+## Theme Features
 
-Themes werden über ein CSS-Variablen-System implementiert:
-- Jedes Theme bietet Light + Dark CSS-Variablen-Sets
-- Variablen-Dateien befinden sich im Verzeichnis `src/themes/`
-| Theme-Wechsel ersetzt das CSS-Variablen-Set
-
-### Benutzerdefinierte Themes
-
-So erstellen Sie ein benutzerdefiniertes Theme:
-
-1. Eine bestehende Theme-Datei als Vorlage kopieren
-2. CSS-Variablenwerte ändern
-3. Neues Theme in `src/themes/index.ts` registrieren
-4. Anwendung neu erstellen
+- **Rounded corners** — Layered border-radius system (sm / md / lg / xl)
+- **Frosted glass** — Semi-transparent panels with blurred backgrounds
+- **Smooth transitions** — Theme switching with easing animations
+- **High contrast** — Ensures good readability in both light and dark modes

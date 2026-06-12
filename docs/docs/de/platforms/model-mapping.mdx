@@ -2,36 +2,57 @@
 title: Modellzuordnung
 ---
 
-# Modellzuordnung
+# Model Mapping
 
-Die Modellzuordnung ermöglicht es, Modellnamen aus Client-Anfragen in die tatsächlichen, von der Plattform unterstützten Modellnamen zu übersetzen.
+Model mapping allows you to translate model names from client requests to the actual model names supported by the platform.
 
-## Anwendungsfälle
+## Use Cases
 
-- Client fragt `gpt-4o` an, aber Sie möchten zu DeepSeeks `deepseek-chat` routen
-- Modellbenennung plattformübergreifend standardisieren
-- A/B-Tests äquivalenter Modelle auf verschiedenen Plattformen
+- Client requests `gpt-4o`, but you want to route to DeepSeek's `deepseek-chat`
+- Standardize model naming across platforms
+- Simplify model selection with aliases (e.g. `fast` → `gpt-4o-mini`)
 
-## Konfiguration
+## Configuration
 
-Fügen Sie Zuordnungsregeln im Abschnitt „Modellzuordnung" der Plattform hinzu:
+Add mapping rules in the platform or group's "Model Mapping" section:
 
-| Angefragtes Modell | Zugeordnet zu |
+| Request Model | Maps To |
 |---------------|---------|
 | `gpt-4o` | `deepseek-chat` |
 | `claude-3-opus` | `claude-3-opus-20240229` |
 
-### Zuordnungsregeln
+### Mapping Rules
 
-1. **Exakte Übereinstimmung** — Ordnet nur bei exaktem Modellnamen zu
-2. **Original beibehalten** — Nicht übereinstimmende Modellnamen bleiben unverändert
-3. **Priorität** — Plattformebene zuerst, dann Gruppenebene
+1. **Exact match** — Only maps when the model name matches exactly
+2. **Preserve original** — Unmatched model names pass through unchanged
+3. **Priority** — Group-level mappings take precedence over platform-level mappings
 
-## Verwendung in Gruppen
+## Two-Level Mapping
 
-Modellzuordnung kann auf zwei Ebenen konfiguriert werden:
+Model mapping can be configured at two levels:
 
-- **Plattformebene** — Gilt für alle Anfragen dieser Plattform
-- **Gruppenebene** — Gilt nur innerhalb der Routing-Regeln der Gruppe
+- **Platform level** — Applies to all requests on that platform
+- **Group level** — Only applies within that group's routing rules
 
-Gruppenebene hat Vorrang vor Plattformebene. Siehe [Routing-Regeln](/groups/routing-rules).
+Group-level mappings take precedence over platform-level mappings. See [Routing Rules](/groups/routing-rules).
+
+## Model Alias Example
+
+Use model mapping to create an alias system. Clients only need short aliases:
+
+| Alias | Target | Purpose |
+|-------|--------|---------|
+| `fast` | `gpt-4o-mini` | Fast responses |
+| `smart` | `claude-3-opus` | High quality |
+| `code` | `deepseek-coder` | Code generation |
+
+## Chain Mapping
+
+Model mappings can cascade across groups and platforms:
+
+1. Client requests model `smart`
+2. Group mapping: `smart` → `claude-3-opus`
+3. Platform mapping: `claude-3-opus` → `claude-3-opus-20240229`
+4. Sent to Anthropic
+
+See [Advanced Routing](/proxy/advanced-routing).

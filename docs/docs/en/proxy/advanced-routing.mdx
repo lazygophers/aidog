@@ -6,26 +6,9 @@ title: Advanced Routing
 
 Master AiDog's advanced routing capabilities for fine-grained traffic control.
 
-## Multi-Platform Load Balancing
+## Multi-Platform Aggregation
 
-Add multiple platforms to a group with different routing strategies:
-
-### Sequential
-
-Platforms receive requests in order. Ideal for primary/backup scenarios.
-
-### Random
-
-Requests are randomly distributed across platforms. Good for even distribution.
-
-### Weighted
-
-Distribute requests by weight ratio. Example:
-
-| Platform | Weight | Expected Traffic |
-|----------|--------|------------------|
-| OpenAI | 70 | ~70% |
-| DeepSeek | 30 | ~30% |
+Add multiple platforms to a group with different routing modes. See [Create & Manage](/groups/manage-groups).
 
 ## Failover
 
@@ -43,6 +26,15 @@ Failover triggers on:
 - Connection timeout
 - Network errors
 
+## Load Balancing
+
+Distribute requests across multiple platforms by weight. Example:
+
+| Platform | Weight | Expected Traffic |
+|----------|--------|------------------|
+| OpenAI | 70 | ~70% |
+| DeepSeek | 30 | ~30% |
+
 ## Model Aliases
 
 Create aliases via model mapping:
@@ -57,9 +49,15 @@ Clients use aliases; AiDog routes to actual platforms based on group configurati
 
 ## Chained Routing
 
-Combine group and platform mappings:
+Combine group and platform mappings for multi-layer transformation:
 
 1. Client requests model `smart`
 2. Group A maps `smart` → `claude-3-opus`
 3. Platform X maps `claude-3-opus` → `claude-3-opus-20240229`
 4. Sent to Anthropic
+
+## Group-Level Timeout
+
+Each group can independently set request timeout and connect timeout, overriding global defaults. Useful when certain slower models need longer wait times.
+
+See [Create & Manage](/groups/manage-groups).

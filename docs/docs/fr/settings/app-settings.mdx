@@ -2,39 +2,61 @@
 title: Paramètres de l'application
 ---
 
-# Paramètres de l'application
+# App Settings
 
-Configurez le comportement global d'AiDog dans la page **« Paramètres »**.
+Configure AiDog's global behavior in the **"Settings"** page. It contains 5 tabs: Proxy, Claude Code, Codex, Model Pricing, and System Tray.
 
-## Paramètres du proxy
+## Proxy
 
-| Paramètre | Défaut | Description |
+### Proxy Settings
+
+| Setting | Default | Description |
 |---------|---------|-------------|
-| Port du proxy | `7860` | Port d'écoute du proxy HTTP |
-| Timeout des requêtes | `300s` | Timeout des requêtes amont |
+| Proxy port | `7860` | HTTP proxy listen port |
+| Request timeout | `300s` | Upstream request timeout |
+| Auto-start | Off | Automatically start proxy when AiDog launches |
 
-## Paramètres des journaux
+### Log Settings
 
-Voir [Paramètres des journaux](/logs/log-settings) pour plus de détails.
+Control logging granularity and retention. See [Log Settings](/logs/log-settings).
 
-## Gestion des données
+### Data Management
 
-### Exporter les données
+- Export platform config (JSON)
+- Export group config (JSON)
+- Export statistics (CSV)
+- Clean expired logs
+- Reset statistics
 
-- Exporter la config des plateformes (JSON)
-- Exporter la config des groupes (JSON)
-- Exporter les statistiques (CSV)
+## Claude Code
 
-### Nettoyer les données
+Edit Claude Code settings including model, permissions, sandbox, plugins, hooks, and StatusLine.
 
-- Nettoyer les journaux expirés
-- Réinitialiser les statistiques
+- **Import from Claude Code** — Read existing Claude Code configuration into AiDog
+- **Export to Claude Code** — Write proxy address to Claude Code config file
+- **Sync Group Settings** — Generate independent Claude Code config files for each group
 
-## Paramètres de l'interface
+See [Codex Integration](/proxy/codex-integration).
 
-### Langue
+## Codex
 
-7 langues d'interface supportées :
+Edit Codex settings in `~/.codex/config.toml` directly, without manually locating config files.
+
+See [Codex Integration](/proxy/codex-integration).
+
+## Model Pricing
+
+Browse, search, and manage all model pricing data. See [Pricing & Billing](/stats/pricing).
+
+## System Tray
+
+Configure tray display content and format. See [Tray Configuration](/settings/tray).
+
+## Interface Settings
+
+### Language
+
+7 interface languages supported:
 - 简体中文 (zh-CN)
 - English (en-US)
 - العربية (ar-SA)
@@ -43,17 +65,16 @@ Voir [Paramètres des journaux](/logs/log-settings) pour plus de détails.
 - Русский (ru-RU)
 - 日本語 (ja-JP)
 
-### Thèmes
+### Themes
 
-Voir [Thèmes](/settings/themes) pour plus de détails.
+See [Themes](/settings/themes).
 
-## Stockage des données
+## Data Storage
 
-Toutes les données sont stockées localement :
+All data is stored locally:
 
-| Données | Chemin |
+| Data | Path |
 |------|------|
-| Base de données | `~/.aidog/aidog.db` |
-| Configuration | `~/.aidog/config.json` |
+| Database | `~/.aidog/aidog.db` |
 
-Les données ne quittent jamais votre machine et ne sont jamais téléchargées vers un serveur.
+Data never leaves your machine and is never uploaded to any server.

@@ -62,6 +62,15 @@
     "ar": "تعيين النماذج",
     "es": "Mapeo de modelos"
   },
+  "modelTesting": {
+    "zh": "模型测试",
+    "en": "Model Testing",
+    "ja": "モデルテスト",
+    "fr": "Test de modèle",
+    "de": "Modelltest",
+    "ar": "اختبار النموذج",
+    "es": "Prueba de modelo"
+  },
   "groups": {
     "zh": "分组管理",
     "en": "Groups",

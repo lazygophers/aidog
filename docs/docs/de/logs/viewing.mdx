@@ -1,50 +1,50 @@
 ---
-title: Logs anzeigen
+title: Protokolle anzeigen
 ---
 
-# Logs anzeigen
+# Viewing Logs
 
-Die Seite **„Logs"** zeichnet jede Proxy-Anfrage auf, die AiDog durchläuft, und erleichtert so die Fehlersuche bei Routing, Protokollkonvertierung und Upstream-Antworten.
+The **Logs** page records every proxy request that passes through AiDog, making it easy to troubleshoot routing, protocol conversion, and upstream response issues.
 
-## Log-Liste
+## Log List
 
-Jeder Log-Eintrag zeigt folgende Informationen:
+Each log entry shows the following information:
 
-| Feld | Beschreibung |
+| Field | Description |
 |------|------|
-| Gruppe | Name der getroffenen Gruppe |
-| Modell | Das vom Client ursprünglich angefragte Modell |
-| Tatsächliches Modell | Das nach der Modellzuordnung an den Upstream gesendete Modell |
-| Protokoll | Eingehendes Protokoll → Upstream-Protokoll |
-| Plattform | Die Plattform, die die Anfrage tatsächlich verarbeitet hat |
-| Status | HTTP-Statuscode (Erfolg / Fehler) |
-| Dauer | Gesamtdauer der Anfrage (Millisekunden) |
-| Token | Anzahl der Token für Eingabe / Ausgabe / Cache |
-| Zeit | Zeitpunkt der Anfrage |
+| Group | Name of the matched group |
+| Model | Original model requested by the client |
+| Actual Model | Model sent to the upstream after model mapping |
+| Protocol | Inbound protocol → upstream protocol |
+| Platform | Platform that actually handled the request |
+| Status | HTTP status code (success / failure) |
+| Duration | Total request duration (milliseconds) |
+| Token | Number of input / output / cache tokens |
+| Time | When the request occurred |
 
-Die Liste zeigt 50 Einträge pro Seite und unterstützt das Blättern.
+The list shows 50 entries per page with pagination support.
 
-## Filtern
+## Filtering
 
-Über die Filter am oberen Rand finden Sie Logs schnell:
+Use the filters at the top to quickly locate logs:
 
-- **Plattform**: Nach einer bestimmten Plattform filtern
-- **Gruppe**: Nach Gruppe filtern
-- **Status**: Nur Erfolg / Nur Fehler
-- **Zeitraum**: Alle / Letzte 1 Stunde / 6 Stunden / 24 Stunden / 7 Tage / 30 Tage
-- **Modell**: Nach dem ursprünglichen oder dem tatsächlichen Modellnamen suchen
+- **Platform**: filter by a specific platform
+- **Group**: filter by group
+- **Status**: success only / failure only
+- **Time range**: all / last 1 hour / 6 hours / 24 hours / 7 days / 30 days
+- **Model**: search by original or actual model name
 
-## Anfragedetails
+## Request Details
 
-Klicken Sie auf einen beliebigen Log-Eintrag, um die Details aufzuklappen und den vollständigen Anfrageverlauf einzusehen:
+Click any log entry to expand its details and view the complete request chain:
 
-- **Benutzeranfrage**: Ursprüngliche Anfrage-URL, Anfrage-Header, Anfragetext
-- **Upstream-Anfrage**: Konvertierte und an den Upstream gesendete URL, Anfrage-Header, Anfragetext
-- **Upstream-Antwort**: Vom Upstream zurückgegebener Statuscode, Antwort-Header, Antworttext
-- **Benutzerantwort**: Die letztlich an den Client zurückgegebenen Antwort-Header und der Antworttext
+- **User request**: original request URL, request headers, request body
+- **Upstream request**: the converted URL, request headers, and request body sent to the upstream
+- **Upstream response**: status code, response headers, and response body returned by the upstream
+- **User response**: the final response headers and response body returned to the client
 
-Die Details lassen sich per Klick kopieren, um sie etwa in ein Ticket oder ein Debugging-Tool einzufügen.
+Details support one-click copy, making it easy to paste into a support ticket or debugging tool.
 
 :::tip
-Die in den Details aufgezeichneten Inhalte von „Benutzeranfrage" und „Upstream-Anfrage" werden durch die Log-Einstellungen gesteuert; standardmäßig wird der Anfragetext nicht aufgezeichnet. Siehe [Log-Einstellungen](/logs/log-settings).
+The "User request" and "Upstream request" content recorded in the details is controlled by the log settings. By default, the request body is not recorded. See [Log Settings](/logs/log-settings) for more.
 :::

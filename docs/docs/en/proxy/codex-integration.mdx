@@ -4,7 +4,7 @@ title: Codex Integration
 
 # Codex Integration
 
-AiDog natively supports OpenAI Codex CLI, Claude Code, and other AI coding assistants.
+AiDog natively supports OpenAI Codex CLI, Claude Code, and other AI coding assistants, with built-in configuration editors.
 
 ## OpenAI Codex
 
@@ -22,29 +22,49 @@ api_key = "any-value"
 name = "o3"
 ```
 
+### Codex Settings Page
+
+AiDog provides a built-in Codex configuration editor in **"Settings" → "Codex"**:
+
+- Edit `~/.codex/config.toml` settings directly
+- No need to manually locate and edit config files
+- Changes take effect immediately after saving
+
 ### Notes
 
 - Codex uses the **Responses API** (`/v1/responses`). AiDog detects and routes automatically.
-- Ensure the target platform has `openai_responses` protocol enabled.
+- Ensure the target platform has an endpoint with `openai_responses` protocol configured.
 - Add model mappings at the platform or group level as needed.
 
 ## Claude Code
 
-### Configuration
+### One-Click Config Export
 
-Set environment variables:
+In AiDog's **"Settings" → "Claude Code"** tab, click "Export Config". AiDog automatically writes the proxy address to Claude Code's config file (`~/.claude.json`).
+
+### Manual Configuration
+
+You can also set environment variables:
 
 ```bash
 export ANTHROPIC_BASE_URL="http://127.0.0.1:7860"
 export ANTHROPIC_API_KEY="any-value"
 ```
 
-Or configure the API base URL in Claude Code's settings.
+### Claude Code Settings Page
+
+AiDog provides a dedicated settings editor in **"Settings" → "Claude Code"**:
+
+- **Config Editing** — Edit Claude Code settings (model, permissions, sandbox, plugins, hooks, StatusLine, etc.)
+- **Import from Claude Code** — One-click import of existing Claude Code configuration
+- **Export to Claude Code** — Write AiDog's proxy address to Claude Code config
+- **Sync Group Settings** — Automatically generate independent config files for each group, making it easy to switch between groups
 
 ### Notes
 
 - Claude Code uses the **Anthropic native protocol**
 - Ensure the target platform supports the Anthropic protocol or configure protocol conversion
+- AiDog provides a dedicated `/claude/v1/messages` path for Claude Code
 
 ## Other Assistants
 

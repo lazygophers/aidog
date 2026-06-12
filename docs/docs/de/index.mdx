@@ -4,33 +4,41 @@ title: AiDog — KI-API-Gateway-Proxy
 
 # AiDog
 
-AiDog ist eine plattformübergreifende Desktop-Anwendung (macOS / Windows / Linux), die als **KI-API-Gateway-Proxy** fungiert und Ihnen hilft, API-Schlüssel mehrerer KI-Plattformen zu verwalten, Anfragen intelligent zu routen und Nutzung sowie Kosten zu verfolgen.
+AiDog is a cross-platform desktop app (macOS / Windows / Linux) that acts as an **AI API gateway proxy**, helping you manage API keys for multiple AI platforms, route requests intelligently, and track usage and costs.
 
-## Kernfunktionen
+## Key Features
 
-- **Multi-Plattform-Aggregation** — API-Verwaltung für OpenAI, Anthropic, Gemini, DeepSeek, Qwen und 50+ Plattformen
-- **Intelligentes Routing** — Automatische Plattformauswahl über Gruppen und Modellzuordnungsregeln
-- **Nutzungsanalysen** — Echtzeit-Token-Tracking, Kostenschätzung, Guthabenabfrage
-- **Protokollierungssystem** — 3-stufige Aufzeichnungsgranularität, konfigurierbare Aufbewahrungsrichtlinien
-- **Codex-Integration** — Native Unterstützung für OpenAI Codex / Claude Code und andere Programmierassistenten
-- **Multi-Protokoll** — OpenAI Chat/Completions/Responses, Anthropic, Gemini native Protokolle
-- **Theme-Anpassung** — Liquid Glass, Nord, Dracula und mehr
-- **Systemleiste** — Persistente Anzeige von Guthaben und Status
+- **Multi-Platform Aggregation** — Manage APIs for 50+ platforms including OpenAI, Anthropic, Gemini, DeepSeek, Qwen, and more
+- **Smart Routing** — Automatically select the best platform by group and model mapping rules, with failover and load balancing
+- **Usage Analytics** — Track token usage in real time, estimate costs, query balances and Coding Plan quotas
+- **Logging System** — Three-level recording granularity, configurable retention policies, full request chain tracing
+- **Model Testing** — One-click connectivity testing with quick, batch, and custom modes
+- **Codex Integration** — Built-in Codex config editor, one-click Claude Code config export
+- **Multi-Protocol Support** — OpenAI Chat/Completions/Responses, Anthropic, Gemini native protocols with automatic inbound/outbound conversion
+- **Theme Customization** — Liquid Glass, Nord, Dracula, and more themes, each with light/dark mode
+- **System Tray** — Persistent tray display of balance, usage, and status with customizable content
+- **Pricing Management** — Built-in model pricing table, auto-sync, custom pricing support
 
-## Schnellstart
+## Quick Start
 
 ```
-Herunterladen → Starten → Erste Plattform hinzufügen → Proxy-Adresse konfigurieren → Loslegen
+Download the latest release → Launch → Add your first platform → Set proxy address → Start using
 ```
 
-→ [Installationsanleitung](/getting-started/installation)
+→ [Installation Guide](/getting-started/installation) · [Quick Start](/getting-started/quick-start)
 
-## Technologie-Stack
+## App Overview
 
-| Schicht | Technologie |
-|---|---|
-| Desktop | Tauri 2.0 |
-| Frontend | React 19 + TypeScript |
-| Backend | Rust + Axum |
-| Datenbank | SQLite |
-| Build | Vite + Yarn |
+The AiDog main interface contains these pages:
+
+| Page | Function |
+|------|----------|
+| **Platforms** | Manage all AI platform connections, endpoints, models, and balances |
+| **Groups** | Organize platforms by use case, configure routing strategies and model mapping |
+| **Statistics** | Usage stats, cost estimation, balance query, pricing management |
+| **Logs** | View complete request chain details for every proxied request |
+| **Settings** | Proxy config, Claude Code settings, Codex settings, model pricing, system tray |
+
+## Screenshots
+
+> Screenshots coming soon

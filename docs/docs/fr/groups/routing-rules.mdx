@@ -2,54 +2,74 @@
 title: Règles de routage
 ---
 
-# Règles de routage
+# Routing Rules
 
-Les règles de routage déterminent comment AiDog fait correspondre les requêtes entrantes au groupe et à la plateforme appropriés.
+Routing rules determine how AiDog matches inbound requests to the appropriate group and platform.
 
-## Flux de correspondance
-
-```
-Requête entrante → Détection protocole → Correspondance groupe → Sélection plateforme → Mappage modèle → Transfert
-```
-
-## Correspondance de groupe
-
-Les requêtes sont associées aux groupes par priorité :
-
-1. **Correspondance par nom de modèle** — Le nom de modèle demandé est dans la table de mappage d'un groupe
-2. **Groupe par défaut** — Utilisé quand aucune correspondance n'est trouvée
-3. **Premier groupe** — Utilisé quand aucun groupe par défaut n'est défini
-
-## Sélection de plateforme
-
-Dans un groupe, les plateformes sont sélectionnées par stratégie :
-
-1. Vérifie si la plateforme est activée
-2. Vérifie si la clé API est valide
-3. Sélectionne une plateforme selon la stratégie
-4. Envoie la requête
-
-Si la plateforme sélectionnée retourne une erreur (ex. : 429 limite de débit), AiDog essaie automatiquement la plateforme suivante (basculement).
-
-## Basculement (failover)
-
-Les plateformes dans un groupe sont ordonnées. Quand la plateforme actuelle échoue :
-
-1. Journalise l'échec
-2. Essaie automatiquement la plateforme suivante
-3. Si toutes les plateformes échouent, retourne une erreur au client
-
-## Chaîne de mappage de modèles
-
-Ordre de résolution des noms de modèles :
-
-1. **Mappage au niveau groupe** — Si le groupe définit des mappages
-2. **Mappage au niveau plateforme** — Si la plateforme définit des mappages
-3. **Valeur originale** — Utilise le nom de modèle original de la requête
+## Matching Flow
 
 ```
-Client demande : gpt-4o
-  → Mappage groupe : gpt-4o → deepseek-chat
-  → Mappage plateforme : (aucun)
-  → Envoyé à la plateforme : deepseek-chat
+Inbound Request → Detect Protocol → Match Group → Select Platform → Map Model → Forward
+```
+
+## Group Matching
+
+Requests are matched to groups by priority:
+
+1. **Path match** — Request path matches the group's configured path prefix
+2. **Model name match** — Request model name is in a group's model mapping table
+3. **Default group** — Used when no match is found
+4. **First group** — Used when no default group is set
+
+## Source Protocol Filtering
+
+Groups can filter by source protocol, only processing requests of a specified inbound protocol. For example:
+
+- Set source protocol to `anthropic` → Only Anthropic-protocol requests are routed to this group
+- Leave unset → Accept requests from all protocols
+
+## Platform Selection
+
+Within a group, platforms are selected by routing mode:
+
+### Failover Mode
+
+1. Select the first enabled platform
+2. Send the request
+3. If it fails (429 rate limit, 5xx error, timeout, network error), try the next one automatically
+4. If all platforms fail, return an error to the client
+
+### Load Balance Mode
+
+1. Randomly select an enabled platform by weight
+2. Send the request
+3. Failover also applies on failure
+
+## Failover
+
+Platforms within a group are ordered. When the current platform fails:
+
+1. Log the failure
+2. Automatically try the next platform
+3. If all platforms fail, return an error to the client
+
+Failover is triggered by:
+- HTTP 429 (Rate Limit)
+- HTTP 5xx (Server Error)
+- Connection timeout
+- Network error
+
+## Model Mapping Chain
+
+Model name resolution order:
+
+1. **Group-level mapping** — If the group defines model mappings
+2. **Platform-level mapping** — If the platform defines model mappings
+3. **Original value** — Use the original model name from the request
+
+```
+Client requests: gpt-4o
+  → Group mapping: gpt-4o → deepseek-chat
+  → Platform mapping: (none)
+  → Sent to platform: deepseek-chat
 ```

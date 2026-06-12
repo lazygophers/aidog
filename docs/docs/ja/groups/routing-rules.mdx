@@ -2,54 +2,74 @@
 title: ルーティングルール
 ---
 
-# ルーティングルール
+# Routing Rules
 
-ルーティングルールは、インバウンドリクエストを適切なグループとプラットフォームにマッチングする方法を決定します。
+Routing rules determine how AiDog matches inbound requests to the appropriate group and platform.
 
-## マッチングフロー
-
-```
-インバウンドリクエスト → プロトコル検出 → グループマッチング → プラットフォーム選択 → モデルマッピング → 転送
-```
-
-## グループマッチング
-
-リクエストは以下の優先順位でグループにマッチングされます：
-
-1. **モデル名マッチ** — リクエストのモデル名がグループのモデルマッピングテーブルにある
-2. **デフォルトグループ** — マッチがない場合に使用
-3. **最初のグループ** — デフォルトグループが未設定の場合に使用
-
-## プラットフォーム選択
-
-グループ内で、戦略に従ってプラットフォームを選択：
-
-1. プラットフォームが有効かチェック
-2. API キーが有効かチェック
-3. 戦略に従ってプラットフォームを 1 つ選択
-4. リクエストを送信
-
-選択されたプラットフォームがエラー（例：429 レートリミット）を返した場合、AiDog は自動的に次のプラットフォームを試行します（フェイルオーバー）。
-
-## フェイルオーバー
-
-グループ内のプラットフォームは順序付きです。現在のプラットフォームが失敗した場合：
-
-1. 失敗をログに記録
-2. 自動的に次のプラットフォームを試行
-3. 全プラットフォームが失敗した場合、クライアントにエラーを返す
-
-## モデルマッピングチェーン
-
-モデル名の解決順序：
-
-1. **グループレベルのマッピング** — グループがモデルマッピングを定義している場合
-2. **プラットフォームレベルのマッピング** — プラットフォームがモデルマッピングを定義している場合
-3. **元の値** — マッピングがない場合、リクエストの元のモデル名を使用
+## Matching Flow
 
 ```
-クライアントリクエスト: gpt-4o
-  → グループマッピング: gpt-4o → deepseek-chat
-  → プラットフォームマッピング: (なし)
-  → プラットフォームに送信: deepseek-chat
+Inbound Request → Detect Protocol → Match Group → Select Platform → Map Model → Forward
+```
+
+## Group Matching
+
+Requests are matched to groups by priority:
+
+1. **Path match** — Request path matches the group's configured path prefix
+2. **Model name match** — Request model name is in a group's model mapping table
+3. **Default group** — Used when no match is found
+4. **First group** — Used when no default group is set
+
+## Source Protocol Filtering
+
+Groups can filter by source protocol, only processing requests of a specified inbound protocol. For example:
+
+- Set source protocol to `anthropic` → Only Anthropic-protocol requests are routed to this group
+- Leave unset → Accept requests from all protocols
+
+## Platform Selection
+
+Within a group, platforms are selected by routing mode:
+
+### Failover Mode
+
+1. Select the first enabled platform
+2. Send the request
+3. If it fails (429 rate limit, 5xx error, timeout, network error), try the next one automatically
+4. If all platforms fail, return an error to the client
+
+### Load Balance Mode
+
+1. Randomly select an enabled platform by weight
+2. Send the request
+3. Failover also applies on failure
+
+## Failover
+
+Platforms within a group are ordered. When the current platform fails:
+
+1. Log the failure
+2. Automatically try the next platform
+3. If all platforms fail, return an error to the client
+
+Failover is triggered by:
+- HTTP 429 (Rate Limit)
+- HTTP 5xx (Server Error)
+- Connection timeout
+- Network error
+
+## Model Mapping Chain
+
+Model name resolution order:
+
+1. **Group-level mapping** — If the group defines model mappings
+2. **Platform-level mapping** — If the platform defines model mappings
+3. **Original value** — Use the original model name from the request
+
+```
+Client requests: gpt-4o
+  → Group mapping: gpt-4o → deepseek-chat
+  → Platform mapping: (none)
+  → Sent to platform: deepseek-chat
 ```

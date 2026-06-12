@@ -6,7 +6,7 @@ title: Balance Query
 
 AiDog can query account balances and Coding Plan quotas for supported platforms.
 
-## Supported Platforms
+## Auto-Query Platforms
 
 | Platform | Query Content |
 |----------|---------------|
@@ -34,4 +34,30 @@ Balance data refreshes automatically on a schedule. You can also manually click 
 
 ## Coding Plan
 
-Some platforms provide Coding Plan quota information, which AiDog queries and displays alongside balance data.
+Some platforms provide Coding Plan quota information (e.g. OpenAI Plus/Team/Enterprise plans), which AiDog queries and displays alongside balance data.
+
+## Manual Budget
+
+For platforms that don't support automatic balance queries, AiDog provides a manual budget feature:
+
+### Configuration
+
+Set up a manual budget in the platform configuration. Supported types:
+
+| Type | Description |
+|------|-------------|
+| Total | Set an overall spending limit |
+| Rolling Window | Spending limit within a rolling time window |
+| Fixed Period | Spending limit that resets on a fixed schedule |
+| Daily | Daily spending limit |
+
+### Budget Units
+
+- **USD** — Measured by cost
+- **Tokens** — Measured by token count
+
+### Window Duration
+
+Rolling window and fixed period support multiple time units: minute, hour, day, week, month.
+
+Budget consumption is automatically tracked by AiDog based on proxied requests. When the limit is reached, the platform is marked as out of balance.

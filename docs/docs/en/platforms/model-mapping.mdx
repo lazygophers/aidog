@@ -10,11 +10,11 @@ Model mapping allows you to translate model names from client requests to the ac
 
 - Client requests `gpt-4o`, but you want to route to DeepSeek's `deepseek-chat`
 - Standardize model naming across platforms
-- A/B test equivalent models across platforms
+- Simplify model selection with aliases (e.g. `fast` → `gpt-4o-mini`)
 
 ## Configuration
 
-Add mapping rules in the platform's "Model Mapping" section:
+Add mapping rules in the platform or group's "Model Mapping" section:
 
 | Request Model | Maps To |
 |---------------|---------|
@@ -25,9 +25,9 @@ Add mapping rules in the platform's "Model Mapping" section:
 
 1. **Exact match** — Only maps when the model name matches exactly
 2. **Preserve original** — Unmatched model names pass through unchanged
-3. **Priority** — Platform-level mappings apply first, then group-level mappings
+3. **Priority** — Group-level mappings take precedence over platform-level mappings
 
-## Using in Groups
+## Two-Level Mapping
 
 Model mapping can be configured at two levels:
 
@@ -35,3 +35,24 @@ Model mapping can be configured at two levels:
 - **Group level** — Only applies within that group's routing rules
 
 Group-level mappings take precedence over platform-level mappings. See [Routing Rules](/groups/routing-rules).
+
+## Model Alias Example
+
+Use model mapping to create an alias system. Clients only need short aliases:
+
+| Alias | Target | Purpose |
+|-------|--------|---------|
+| `fast` | `gpt-4o-mini` | Fast responses |
+| `smart` | `claude-3-opus` | High quality |
+| `code` | `deepseek-coder` | Code generation |
+
+## Chain Mapping
+
+Model mappings can cascade across groups and platforms:
+
+1. Client requests model `smart`
+2. Group mapping: `smart` → `claude-3-opus`
+3. Platform mapping: `claude-3-opus` → `claude-3-opus-20240229`
+4. Sent to Anthropic
+
+See [Advanced Routing](/proxy/advanced-routing).

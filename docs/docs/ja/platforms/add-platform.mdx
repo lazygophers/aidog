@@ -2,67 +2,130 @@
 title: プラットフォームの追加
 ---
 
-# プラットフォームの追加
+# Add Platform
 
-プラットフォームは AiDog の中核概念です — 各プラットフォームは AI API サービスの接続先を表します。
+Platforms are the core concept in AiDog — each represents an AI API service endpoint.
 
-## 追加手順
+## Adding Steps
 
-1. **「プラットフォーム」** ページに移動
-2. 右上の **「+」** ボタンをクリック
-3. 設定を入力：
+1. Go to the **"Platforms"** page
+2. Click the **"+"** button in the top right
+3. Select a platform preset (or fill in manually)
+4. Fill in the configuration and click Save
 
-### 基本設定
+:::tip{title="Auto Group"}
+After saving a platform, AiDog automatically creates a group for it, so you can start using it right away without manual configuration.
+:::
 
-| 項目 | 説明 | 例 |
-|------|------|-----|
-| 名前 | 表示名 | `My OpenAI` |
-| Base URL | API ベース URL（バージョンプレフィックス付き） | `https://api.openai.com/v1` |
-| API Key | プラットフォームの API キー | `sk-...` |
-| プロトコル | リクエストプロトコルタイプ | `openai_chat` |
+## Basic Configuration
 
-### プロトコル選択
+| Field | Description | Example |
+|-------|-------------|---------|
+| Name | Display name | `My OpenAI` |
+| Base URL | API base URL (with version prefix) | `https://api.openai.com/v1` |
+| API Key | Platform API key | `sk-...` |
+| Protocol | Request protocol type | `openai_chat` |
 
-対象プラットフォームに一致するプロトコルを選択します。AiDog には 50 以上のプラットフォームプリセットが内蔵されており、選択するとプロトコルが自動入力されます。
+### Platform Presets
 
-主なプロトコル：
-- **openai_chat** — OpenAI 互換 Chat Completions（最も汎用的）
-- **openai_completions** — OpenAI Text Completions（レガシー）
-- **openai_responses** — OpenAI Responses API（Codex 用）
-- **anthropic** — Anthropic Claude ネイティブプロトコル
-- **gemini** — Google Gemini ネイティブプロトコル
+AiDog includes 50+ built-in platform presets. Selecting a preset auto-fills the Base URL and protocol.
 
-詳細は [プロトコルの種類](/platforms/protocols) を参照。
+### Protocol Selection
 
-### 詳細オプション
+Select the protocol matching your target platform. Common protocols:
 
-- **モデルマッピング** — リクエストのモデル名をプラットフォームの実際のモデル名にマッピング（[モデルマッピング](/platforms/model-mapping)参照）
-- **有効/無効** — プラットフォームを削除せずに一時停止
+- **openai_chat** — OpenAI-compatible Chat Completions (most universal)
+- **openai_responses** — OpenAI Responses API (used by Codex)
+- **anthropic** — Anthropic Claude native protocol
+- **gemini** — Google Gemini native protocol
+- **mock** — Simulated platform for testing, does not send real requests
 
-## プラットフォームの編集
+See [Protocol Types](/platforms/protocols) for details.
 
-プラットフォームカードをクリックして詳細を表示し、設定を変更。変更後「保存」をクリック。
+## Endpoints
 
-## プラットフォームの削除
+Each platform can have multiple endpoints, each with its own protocol and Base URL:
 
-プラットフォームカード右上の削除ボタンをクリック。関連ログと統計データは保持されます。
+| Field | Description |
+|-------|-------------|
+| Protocol | Outbound protocol for this endpoint |
+| Base URL | API address for this endpoint |
+| Client Type | Request header emulation method (affects compatibility with some platforms) |
+| Coding Plan | Whether this endpoint supports Coding Plan quota queries |
 
-## よくある質問
+For example, a platform can have both `openai_chat` and `openai_responses` endpoints. AiDog automatically matches the appropriate endpoint based on the inbound protocol.
 
-### Base URL の入力方法
+## Model Configuration
 
-Base URL はバージョンプレフィックスを含む完全なベースパスです：
+### Model Slots
 
-| プラットフォーム | Base URL |
+Each platform supports 5 model slots for quick assignment of commonly used models:
+
+| Slot | Purpose |
+|------|---------|
+| **default** | Default model, used for testing and when no model is specified |
+| **sonnet** | Sonnet-tier model (e.g. `claude-3-5-sonnet`) |
+| **opus** | Opus-tier model (e.g. `claude-3-opus`) |
+| **haiku** | Haiku-tier model (e.g. `claude-3-haiku`) |
+| **gpt** | GPT-series model (e.g. `gpt-4o`) |
+
+### Fetch Model List
+
+When editing a platform, click the "Fetch Models" button next to the model input. AiDog will automatically retrieve the list of available models from the platform API.
+
+### Model Mapping
+
+In the "Model Mapping" section, you can map requested model names to the actual model names supported by the platform. See [Model Mapping](/platforms/model-mapping).
+
+## Model Testing
+
+After saving a platform, you can test its connectivity:
+
+1. Click the "Test" button on the platform card
+2. Choose a test mode: Quick (default model) / Batch (multiple models) / Custom (specify model and prompt)
+3. View results: response time, token count, success or failure
+
+See [Model Testing](/platforms/model-testing).
+
+## Other Operations
+
+### Enable/Disable
+
+Pause a platform without deleting it. Disabled platforms are excluded from routing.
+
+### Editing Platforms
+
+Click a platform card to view details and modify settings. Click "Save" after changes.
+
+### Deleting Platforms
+
+Click the delete button on the platform card. Related logs and statistics are preserved.
+
+### Drag to Reorder
+
+Drag platform cards in the list to adjust their display order.
+
+## FAQ
+
+### How to fill Base URL?
+
+The Base URL is the complete base path including the version prefix:
+
+| Platform | Base URL |
 |----------|----------|
 | OpenAI | `https://api.openai.com/v1` |
 | Anthropic | `https://api.anthropic.com/v1` |
 | DeepSeek | `https://api.deepseek.com/v1` |
+| Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 
-:::caution{title="注意"}
-Base URL の末尾に `/chat/completions` を追加しないでください。AiDog が自動的に処理します。
+:::caution{title="Note"}
+Do not append `/chat/completions` to the Base URL. AiDog handles this automatically.
 :::
 
-### API キーのセキュリティ
+### API Key Security
 
-API キーはローカルの SQLite データベースに保存され、外部サーバーにアップロードされることはありません。
+API keys are stored in the local database and never uploaded to any server.
+
+### What is the Mock platform?
+
+Mock platforms simulate AI responses without sending real requests. Useful for offline work or debugging. You can customize response content, status codes, delays, token counts, and even simulate rate limits and timeouts.

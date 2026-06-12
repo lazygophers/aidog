@@ -2,41 +2,77 @@
 title: الإنشاء والإدارة
 ---
 
-# إنشاء وإدارة المجموعات
+# Create & Manage Groups
 
-المجموعات هي جوهر التوجيه في AiDog — نظم المنصات حسب الغرض وتحكم في توجيه الطلبات بالقواعد.
+Groups are the routing core of AiDog — organize platforms by purpose and control request routing with rules.
 
-## إنشاء مجموعة
+## Creating a Group
 
-1. انتقل إلى صفحة **"المجموعات"**
-2. انقر على **"+ إضافة مجموعة"**
-3. التكوين:
+1. Go to the **"Groups"** page
+2. Click **"+ Add Group"**
+3. Configure:
 
-| الحقل | الوصف |
+| Field | Description |
 |-------|-------------|
-| الاسم | اسم عرض المجموعة |
-| الوصف | وصف اختياري للمجموعة |
-| المنصات | اختر المنصات لتضمينها |
-| استراتيجية التوجيه | ترتيب اختيار المنصات |
+| Name | Group display name |
+| Path | Routing match path, e.g. `/claude`, `/openai` |
+| Routing Mode | Failover or Load Balance |
+| Platforms | Select platforms to include |
 
-### استراتيجيات التوجيه
+:::tip{title="Auto Group"}
+When you add a platform, AiDog automatically creates a corresponding group. You can also create more groups manually.
+:::
 
-- **متسلسل** — تجربة المنصات بالترتيب
-- **عشوائي** — اختيار عشوائي من المنصات المتاحة
-- **مرجح** — توزيع الطلبات حسب نسبة الأوزان
+## Routing Modes
 
-## إدارة المنصات
+Groups support two routing modes:
 
-ضمن مجموعة، يمكنك:
-- **السحب لإعادة الترتيب** — تعديل الأولوية (الاستراتيجية المتسلسلة)
-- **تفعيل/تعطيل** — تخطي منصة مؤقتاً
-- **تعيين الأوزان** — نسبة الطلبات للاستراتيجية المرجحة
-- **تعيين النماذج** — تجاوز تعيين النماذج على مستوى المجموعة
+### Failover
 
-## تعديل المجموعة
+The default mode. Platforms are used in order. When the current platform fails, the next one is tried automatically. Ideal for primary/backup setups.
 
-انقر على بطاقة المجموعة للدخول إلى وضع التعديل. انقر على "حفظ" بعد التعديلات.
+```
+Request → Platform A (primary) → Success → Return
+                ↓ (failed)
+         Platform B (backup) → Success → Return
+```
 
-## حذف المجموعة
+### Load Balance
 
-حذف مجموعة لا يحذف منصاتها — تتم إزالة الارتباط فقط.
+Requests are distributed across platforms by weight. Ideal for multi-platform traffic splitting.
+
+| Platform | Weight | Expected Traffic |
+|----------|--------|-----------------|
+| OpenAI | 70 | ~70% |
+| DeepSeek | 30 | ~30% |
+
+## Group-Level Timeout
+
+Each group can independently set timeout values, overriding global settings:
+
+| Setting | Description |
+|---------|-------------|
+| Request Timeout | Maximum time to wait for an upstream response |
+| Connect Timeout | Maximum time to establish a connection |
+
+Set to 0 to use the global timeout settings.
+
+## Managing Platforms
+
+Within a group, you can:
+- **Drag to reorder** — Adjust priority (determines primary/backup order in failover mode)
+- **Enable/Disable** — Temporarily skip a platform
+- **Set weights** — Request ratio for load balance mode
+- **Model mapping** — Group-level model mapping, takes precedence over platform-level mappings
+
+## Editing Groups
+
+Click a group card to enter edit mode. Click "Save" after changes.
+
+## Deleting Groups
+
+Deleting a group does not delete its platforms — it only removes the association.
+
+## Drag to Reorder
+
+Drag group cards in the list to adjust their display order.

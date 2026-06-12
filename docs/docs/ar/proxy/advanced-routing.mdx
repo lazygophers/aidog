@@ -2,64 +2,62 @@
 title: التوجيه المتقدم
 ---
 
-# التوجيه المتقدم
+# Advanced Routing
 
-أتقن قدرات التوجيه المتقدمة في AiDog للتحكم الدقيق في حركة البيانات.
+Master AiDog's advanced routing capabilities for fine-grained traffic control.
 
-## موازنة الحمل متعدد المنصات
+## Multi-Platform Aggregation
 
-أضف منصات متعددة إلى مجموعة مع استراتيجيات توجيه مختلفة:
+Add multiple platforms to a group with different routing modes. See [Create & Manage](/groups/manage-groups).
 
-### متسلسل
+## Failover
 
-المنصات تتلقى الطلبات بالترتيب. مثالي لسيناريوهات الأساسي/الاحتياطي.
+When a platform request fails, AiDog automatically tries the next platform in the group:
 
-### عشوائي
+```
+Request → Platform A (429 Rate Limit)
+        → Platform B (Success)
+        → Return response
+```
 
-يتم توزيع الطلبات عشوائياً على المنصات. جيد للتوزيع المتساوي.
+Failover triggers on:
+- HTTP 429 (Rate Limit)
+- HTTP 5xx (Server Error)
+- Connection timeout
+- Network errors
 
-### مرجح
+## Load Balancing
 
-توزيع الطلبات حسب نسبة الأوزان. مثال:
+Distribute requests across multiple platforms by weight. Example:
 
-| المنصة | الوزن | الحركة المتوقعة |
+| Platform | Weight | Expected Traffic |
 |----------|--------|------------------|
 | OpenAI | 70 | ~70% |
 | DeepSeek | 30 | ~30% |
 
-## Failover
+## Model Aliases
 
-عند فشل طلب المنصة، يحاول AiDog تلقائياً المنصة التالية في المجموعة:
+Create aliases via model mapping:
 
-```
-طلب ← المنصة أ (429 حد السرعة)
-     ← المنصة ب (نجاح)
-     ← إرجاع الاستجابة
-```
-
-يتم تشغيل Failover عند:
-- HTTP 429 (حد السرعة)
-- HTTP 5xx (خطأ الخادم)
-- مهلة الاتصال
-- أخطاء الشبكة
-
-## أسماء مستعارة للنماذج
-
-إنشاء أسماء مستعارة عبر تعيين النماذج:
-
-| الاسم المستعار | التعيين إلى | الغرض |
+| Alias | Maps To | Purpose |
 |-------|---------|---------|
-| `fast` | `gpt-4o-mini` | استجابات سريعة |
-| `smart` | `claude-3-opus` | جودة عالية |
-| `code` | `deepseek-coder` | توليد الكود |
+| `fast` | `gpt-4o-mini` | Quick responses |
+| `smart` | `claude-3-opus` | High quality |
+| `code` | `deepseek-coder` | Code generation |
 
-العملاء يستخدمون الأسماء المستعارة؛ AiDog يوجه إلى المنصات الفعلية بناءً على تكوين المجموعة.
+Clients use aliases; AiDog routes to actual platforms based on group configuration.
 
-## التوجيه المتسلسل
+## Chained Routing
 
-الجمع بين تعيينات المجموعة والمنصة:
+Combine group and platform mappings for multi-layer transformation:
 
-1. العميل يطلب النموذج `smart`
-2. المجموعة أ تعين `smart` ← `claude-3-opus`
-3. المنصة X تعين `claude-3-opus` ← `claude-3-opus-20240229`
-4. أُرسل إلى Anthropic
+1. Client requests model `smart`
+2. Group A maps `smart` → `claude-3-opus`
+3. Platform X maps `claude-3-opus` → `claude-3-opus-20240229`
+4. Sent to Anthropic
+
+## Group-Level Timeout
+
+Each group can independently set request timeout and connect timeout, overriding global defaults. Useful when certain slower models need longer wait times.
+
+See [Create & Manage](/groups/manage-groups).

@@ -16,20 +16,34 @@ Inbound Request → Detect Protocol → Match Group → Select Platform → Map 
 
 Requests are matched to groups by priority:
 
-1. **Model name match** — Request model name is in a group's model mapping table
-2. **Default group** — Used when no match is found
-3. **First group** — Used when no default group is set
+1. **Path match** — Request path matches the group's configured path prefix
+2. **Model name match** — Request model name is in a group's model mapping table
+3. **Default group** — Used when no match is found
+4. **First group** — Used when no default group is set
+
+## Source Protocol Filtering
+
+Groups can filter by source protocol, only processing requests of a specified inbound protocol. For example:
+
+- Set source protocol to `anthropic` → Only Anthropic-protocol requests are routed to this group
+- Leave unset → Accept requests from all protocols
 
 ## Platform Selection
 
-Within a group, platforms are selected by strategy:
+Within a group, platforms are selected by routing mode:
 
-1. Check if the platform is enabled
-2. Check if the API key is valid
-3. Select one platform by strategy
-4. Send the request
+### Failover Mode
 
-If the selected platform returns an error (e.g. 429 rate limit), AiDog automatically tries the next platform (failover).
+1. Select the first enabled platform
+2. Send the request
+3. If it fails (429 rate limit, 5xx error, timeout, network error), try the next one automatically
+4. If all platforms fail, return an error to the client
+
+### Load Balance Mode
+
+1. Randomly select an enabled platform by weight
+2. Send the request
+3. Failover also applies on failure
 
 ## Failover
 
@@ -38,6 +52,12 @@ Platforms within a group are ordered. When the current platform fails:
 1. Log the failure
 2. Automatically try the next platform
 3. If all platforms fail, return an error to the client
+
+Failover is triggered by:
+- HTTP 429 (Rate Limit)
+- HTTP 5xx (Server Error)
+- Connection timeout
+- Network error
 
 ## Model Mapping Chain
 

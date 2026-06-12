@@ -4,33 +4,41 @@ title: AiDog — AI API ゲートウェイプロキシ
 
 # AiDog
 
-AiDog はクロスプラットフォームのデスクトップアプリケーション（macOS / Windows / Linux）で、**AI API ゲートウェイプロキシ**として、複数の AI プラットフォームの API キーを一元管理、リクエストをインテリジェントにルーティング、使用量とコストを追跡します。
+AiDog is a cross-platform desktop app (macOS / Windows / Linux) that acts as an **AI API gateway proxy**, helping you manage API keys for multiple AI platforms, route requests intelligently, and track usage and costs.
 
-## 主な機能
+## Key Features
 
-- **マルチプラットフォーム統合** — OpenAI、Anthropic、Gemini、DeepSeek、Qwen など 50 以上のプラットフォーム API を一元管理
-- **スマートルーティング** — グループとモデルマッピングルールによる自動プラットフォーム選択
-- **使用量分析** — リアルタイムのトークン追跡、コスト推定、残高照会
-- **ログシステム** — 3 段階の記録粒度、設定可能な保持ポリシー
-- **Codex 連携** — OpenAI Codex / Claude Code などのコーディングアシスタントにネイティブ対応
-- **マルチプロトコル** — OpenAI Chat/Completions/Responses、Anthropic、Gemini ネイティブプロトコル
-- **テーマカスタマイズ** — Liquid Glass、Nord、Dracula など
-- **システムトレイ** — 残高とステータスを表示する常駐トレイ
+- **Multi-Platform Aggregation** — Manage APIs for 50+ platforms including OpenAI, Anthropic, Gemini, DeepSeek, Qwen, and more
+- **Smart Routing** — Automatically select the best platform by group and model mapping rules, with failover and load balancing
+- **Usage Analytics** — Track token usage in real time, estimate costs, query balances and Coding Plan quotas
+- **Logging System** — Three-level recording granularity, configurable retention policies, full request chain tracing
+- **Model Testing** — One-click connectivity testing with quick, batch, and custom modes
+- **Codex Integration** — Built-in Codex config editor, one-click Claude Code config export
+- **Multi-Protocol Support** — OpenAI Chat/Completions/Responses, Anthropic, Gemini native protocols with automatic inbound/outbound conversion
+- **Theme Customization** — Liquid Glass, Nord, Dracula, and more themes, each with light/dark mode
+- **System Tray** — Persistent tray display of balance, usage, and status with customizable content
+- **Pricing Management** — Built-in model pricing table, auto-sync, custom pricing support
 
-## クイックスタート
+## Quick Start
 
 ```
-ダウンロード → 起動 → 最初のプラットフォームを追加 → プロキシアドレスを設定 → 利用開始
+Download the latest release → Launch → Add your first platform → Set proxy address → Start using
 ```
 
-→ [インストールガイド](/getting-started/installation)
+→ [Installation Guide](/getting-started/installation) · [Quick Start](/getting-started/quick-start)
 
-## 技術スタック
+## App Overview
 
-| レイヤー | 技術 |
-|---|---|
-| デスクトップ | Tauri 2.0 |
-| フロントエンド | React 19 + TypeScript |
-| バックエンド | Rust + Axum |
-| データベース | SQLite |
-| ビルド | Vite + Yarn |
+The AiDog main interface contains these pages:
+
+| Page | Function |
+|------|----------|
+| **Platforms** | Manage all AI platform connections, endpoints, models, and balances |
+| **Groups** | Organize platforms by use case, configure routing strategies and model mapping |
+| **Statistics** | Usage stats, cost estimation, balance query, pricing management |
+| **Logs** | View complete request chain details for every proxied request |
+| **Settings** | Proxy config, Claude Code settings, Codex settings, model pricing, system tray |
+
+## Screenshots
+
+> Screenshots coming soon

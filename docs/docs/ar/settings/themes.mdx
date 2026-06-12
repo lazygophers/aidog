@@ -2,40 +2,31 @@
 title: السمات
 ---
 
-# السمات
+# Themes
 
-يوفر AiDog عدة سمات مدمجة، كل منها بأوضاع Light و Dark.
+AiDog provides multiple built-in themes, each with Light and Dark modes.
 
-## السمات المدمجة
+## Built-in Themes
 
-| السمة | النمط |
+| Theme | Style |
 |-------|-------|
-| Liquid Glass | زجاجية، شفافة |
-| Nord | درجات زرقاء قطبية، هادئة |
-| Dracula | سمة داكنة، لوحة ألوان شائعة |
-| Catppuccin | ألوان دافئة، مريحة للعين |
-| Solarized | لوحة ألوان علمية كلاسيكية |
+| Liquid Glass | Glassmorphism, translucent |
+| Nord | Arctic blue tones, calm |
+| Dracula | Dark theme, popular palette |
+| Catppuccin | Warm colors, easy on the eyes |
+| Solarized | Classic scientific palette |
 
-## تبديل السمات
+## Switching Themes
 
-اختر سمة في **"الإعدادات"** ← "السمات".
+Select a theme in the **"Settings"** page theme selector.
 
-### وضع Light/Dark
+### Light/Dark Mode
 
-كل سمة تدعم وضعي Light و Dark، تتبع إعدادات النظام أو التبديل اليدوي.
+Each theme supports both Light and Dark modes. Follows system settings automatically or switch manually.
 
-## بنية السمات
+## Theme Features
 
-السمات مطبقة عبر نظام متغيرات CSS:
-- كل سمة توفر مجموعتين من متغيرات CSS (light + dark)
-- ملفات المتغيرات في دليل `src/themes/`
-- تبديل السمة يستبدل مجموعة متغيرات CSS
-
-### سمات مخصصة
-
-لإنشاء سمة مخصصة:
-
-1. نسخ ملف سمة موجودة كقالب
-2. تعديل قيم متغيرات CSS
-3. تسجيل السمة الجديدة في `src/themes/index.ts`
-4. إعادة بناء التطبيق
+- **Rounded corners** — Layered border-radius system (sm / md / lg / xl)
+- **Frosted glass** — Semi-transparent panels with blurred backgrounds
+- **Smooth transitions** — Theme switching with easing animations
+- **High contrast** — Ensures good readability in both light and dark modes

@@ -14,7 +14,11 @@ Default proxy address:
 http://127.0.0.1:7860
 ```
 
-The port can be changed in **"Settings"**.
+The port can be changed in **"Settings" → "Proxy"**.
+
+## Auto-Start
+
+Enable "Auto-start proxy" in settings. When enabled, the proxy service starts automatically when AiDog launches.
 
 ## Basic Usage
 
@@ -79,5 +83,5 @@ AiDog fully supports SSE (Server-Sent Events) streaming. Client streaming reques
 
 Proxy requests have timeout protection:
 - Default timeout: 300 seconds
-- Configurable in settings
+- Configurable globally or per-group
 - Returns 504 Gateway Timeout on expiry

@@ -2,40 +2,31 @@
 title: テーマ
 ---
 
-# テーマ
+# Themes
 
-AiDog は複数の内蔵テーマを提供しており、それぞれに Light と Dark モードがあります。
+AiDog provides multiple built-in themes, each with Light and Dark modes.
 
-## 内蔵テーマ
+## Built-in Themes
 
-| テーマ | スタイル |
-|-------|--------|
-| Liquid Glass | グラスモーフィズム、透明感 |
-| Nord | 北極ブルーのトーン、穏やか |
-| Dracula | ダークテーマ、人気のカラーパレット |
-| Catppuccin | 温かみのある色合い、目に優しい |
-| Solarized | クラシックな科学的カラーパレット |
+| Theme | Style |
+|-------|-------|
+| Liquid Glass | Glassmorphism, translucent |
+| Nord | Arctic blue tones, calm |
+| Dracula | Dark theme, popular palette |
+| Catppuccin | Warm colors, easy on the eyes |
+| Solarized | Classic scientific palette |
 
-## テーマの切り替え
+## Switching Themes
 
-**「設定」** → 「テーマ」で選択。
+Select a theme in the **"Settings"** page theme selector.
 
-### Light/Dark モード
+### Light/Dark Mode
 
-各テーマは Light と Dark の両モードに対応しており、システム設定に追従するか手動で切り替え可能です。
+Each theme supports both Light and Dark modes. Follows system settings automatically or switch manually.
 
-## テーマアーキテクチャ
+## Theme Features
 
-テーマは CSS 変数システムで実装されています：
-- 各テーマは light + dark の CSS 変数セットを提供
-- 変数ファイルは `src/themes/` ディレクトリに配置
-- テーマ切替時に CSS 変数セットを置換
-
-### カスタムテーマ
-
-カスタムテーマを作成するには：
-
-1. 既存のテーマファイルをテンプレートとしてコピー
-2. CSS 変数値を変更
-3. `src/themes/index.ts` で新しいテーマを登録
-4. アプリケーションを再ビルド
+- **Rounded corners** — Layered border-radius system (sm / md / lg / xl)
+- **Frosted glass** — Semi-transparent panels with blurred backgrounds
+- **Smooth transitions** — Theme switching with easing animations
+- **High contrast** — Ensures good readability in both light and dark modes

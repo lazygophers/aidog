@@ -2,40 +2,40 @@
 title: إعدادات السجلات
 ---
 
-# إعدادات السجلات
+# Log Settings
 
-تحكّم في دقة تسجيل السجلات ومدة الاحتفاظ بها من صفحة **«الإعدادات»**، لتحقيق التوازن بين قابلية المراقبة والخصوصية / استهلاك مساحة القرص.
+On the **Settings** page you can control the granularity and retention of logging, striking a balance between observability and privacy / disk usage.
 
-## مستويات التسجيل
+## Recording Levels
 
-ينقسم تسجيل السجلات إلى ثلاثة مفاتيح، تسري بشكل متدرّج:
+Logging has three levels of switches that take effect progressively:
 
-| المستوى | الوصف | الافتراضي |
+| Level | Description | Default |
 |------|------|------|
-| المفتاح الرئيسي | عند إيقافه لا تُسجَّل أي سجلات وكيل إطلاقاً | مُفعّل |
-| تسجيل طلب المستخدم الأصلي | تسجيل ترويسات الطلب ونص الطلب الأصليين المُرسَلين من العميل | مُعطّل |
-| تسجيل طلب الخادم الأعلى | تسجيل ترويسات الطلب ونص الطلب المُرسَلين إلى الخادم الأعلى بعد التحويل | مُعطّل |
+| Master switch | When off, no proxy logs are recorded at all | On |
+| Record original user request | Records the original request headers and request body sent by the client | Off |
+| Record upstream request | Records the converted request headers and request body sent to the upstream | Off |
 
 :::warning
-قد يحتوي نص الطلب على محتوى حسّاس (المطالبات والمفاتيح وما إلى ذلك). تأكّد من أن بيئة جهازك موثوقة قبل تفعيل «تسجيل طلب المستخدم الأصلي» أو «تسجيل طلب الخادم الأعلى».
+The request body may contain sensitive content (prompts, keys, etc.). Make sure your local environment is trusted before enabling "Record original user request" or "Record upstream request".
 :::
 
-## مدة الاحتفاظ
+## Retention
 
-تُنظَّف السجلات وفق ثلاث مدد احتفاظ مستقلة:
+Logs are cleaned up according to three independent retention periods:
 
-| النوع | الافتراضي | طريقة التنظيف |
+| Type | Default | Cleanup method |
 |------|------|----------|
-| طلب المستخدم الأصلي | 7 أيام | إفراغ حقل نص الطلب فقط، مع الاحتفاظ بسطر السجل |
-| طلب الخادم الأعلى | 7 أيام | إفراغ حقل نص الطلب فقط، مع الاحتفاظ بسطر السجل |
-| السجل | 90 يوماً | حذف السجل بالكامل |
+| Original user request | 7 days | Clears only the request body field, keeps the log row |
+| Upstream request | 7 days | Clears only the request body field, keeps the log row |
+| Log records | 90 days | Deletes the entire log entry |
 
-أي أن نص الطلب الذي يتجاوز 7 أيام يُفرَّغ (مع بقاء المعلومات الإحصائية)، وأما السجلات التي تتجاوز 90 يوماً فتُحذف بالكامل.
+In other words, request bodies older than 7 days are cleared (statistics are still retained), and logs older than 90 days are deleted entirely.
 
-## التنظيف اليدوي
+## Manual Cleanup
 
-يمكنك في أي وقت تنفيذ «تنظيف السجلات منتهية الصلاحية» يدوياً من **«الإعدادات» ← «إدارة البيانات»**، ليُنفَّذ التنظيف فوراً وفق قواعد الاحتفاظ المذكورة أعلاه.
+In **Settings → Data Management** you can manually trigger "Clean up expired logs" at any time, which immediately applies the retention rules above.
 
-## تخزين البيانات
+## Data Storage
 
-تُخزَّن جميع السجلات في قاعدة البيانات المحلية `~/.aidog/aidog.db`، ولا يتم رفعها إلى أي خادم.
+All logs are stored in the local database `~/.aidog/aidog.db` and are never uploaded to any server.

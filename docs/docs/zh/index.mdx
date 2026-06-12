@@ -9,32 +9,35 @@ AiDog 是一款跨平台桌面应用（macOS / Windows / Linux），作为 **AI 
 ## 核心功能
 
 - **多平台聚合** — 统一管理 OpenAI、Anthropic、Gemini、DeepSeek、通义千问 等 50+ 平台的 API
-- **智能路由** — 按分组、模型映射规则自动选择最优平台
-- **用量统计** — 实时追踪 Token 用量、估算费用、查询余额
-- **日志系统** — 三级记录粒度、可配置保留策略
-- **Codex 集成** — 原生支持 OpenAI Codex / Claude Code 等编程助手
-- **多协议支持** — OpenAI Chat/Completions/Responses、Anthropic、Gemini 原生协议
-- **主题定制** — Liquid Glass、Nord、Dracula 等多种主题
-- **系统托盘** — 常驻托盘显示余额与状态
+- **智能路由** — 按分组与模型映射规则自动选择最优平台，支持故障转移与负载均衡
+- **用量统计** — 实时追踪 Token 用量、估算费用、查询余额与 Coding Plan 配额
+- **日志系统** — 三级记录粒度、可配置保留策略、完整的请求链路追踪
+- **模型测试** — 一键测试平台连通性，支持快速、批量、自定义等多种模式
+- **Codex 集成** — 内置 Codex 配置编辑器，一键导出 Claude Code 配置
+- **多协议支持** — OpenAI Chat/Completions/Responses、Anthropic、Gemini 原生协议，入站出站自动转换
+- **主题定制** — Liquid Glass、Nord、Dracula 等多种主题，每套支持亮色/暗色模式
+- **系统托盘** — 常驻托盘显示余额、用量、状态，可自定义显示内容
+- **定价管理** — 内置模型定价表、自动同步、支持自定义定价
 
 ## 快速开始
 
 ```
-# 安装
 下载最新版本 → 启动 → 添加第一个平台 → 设置代理地址 → 开始使用
 ```
 
-→ [安装指南](/getting-started/installation)
+→ [安装指南](/getting-started/installation) · [快速开始](/getting-started/quick-start)
 
-## 技术栈
+## 应用概览
 
-| 层 | 技术 |
-|---|---|
-| 桌面框架 | Tauri 2.0 |
-| 前端 | React 19 + TypeScript |
-| 后端 | Rust + Axum |
-| 数据库 | SQLite |
-| 构建 | Vite + Yarn |
+AiDog 主界面包含以下页面：
+
+| 页面 | 功能 |
+|------|------|
+| **平台** | 管理所有 AI 平台的接入配置、端点、模型、余额 |
+| **分组** | 将平台按用途组织，配置路由策略与模型映射 |
+| **统计** | 用量统计、费用估算、余额查询、定价管理 |
+| **日志** | 查看每次代理请求的完整链路与详情 |
+| **设置** | 代理配置、Claude Code 设置、Codex 设置、模型价格、系统托盘 |
 
 ## 截图
 

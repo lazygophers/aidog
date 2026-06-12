@@ -2,65 +2,75 @@
 title: Protokolle
 ---
 
-# Protokolltypen
+# Protocol Types
 
-AiDog unterstützt mehrere KI-API-Protokolle für eingehende Anfrageerkennung und ausgehende Anfragekonvertierung.
+AiDog supports multiple AI API protocols for both inbound request detection and outbound request conversion.
 
-## Unterstützte Protokolle
+## Supported Protocols
 
-### OpenAI-Serie
+### OpenAI Series
 
-| Protokoll | Beschreibung | Endpunkt |
+| Protocol | Description | Endpoint |
 |----------|-------------|----------|
 | `openai_chat` | Chat Completions API | `/v1/chat/completions` |
-| `openai_completions` | Text Completions API (Legacy) | `/v1/completions` |
+| `openai_completions` | Text Completions API (legacy) | `/v1/completions` |
 | `openai_responses` | Responses API (Codex) | `/v1/responses` |
 
 ### Anthropic
 
-| Protokoll | Beschreibung | Endpunkt |
+| Protocol | Description | Endpoint |
 |----------|-------------|----------|
 | `anthropic` | Claude Messages API | `/v1/messages` |
 
 ### Google
 
-| Protokoll | Beschreibung | Endpunkt |
+| Protocol | Description | Endpoint |
 |----------|-------------|----------|
 | `gemini` | Gemini Generate Content API | `/v1beta/models/{model}:generateContent` |
 
-### Weitere
+### Chinese Platforms
 
-| Protokoll | Beschreibung |
+| Protocol | Description |
 |----------|-------------|
-| `minimax` | MiniMax natives Protokoll |
-| `glm` | Zhipu GLM natives Protokoll |
+| `glm` / `glm_en` | Zhipu GLM native protocol |
+| `kimi` | Kimi (Moonshot) native protocol |
+| `minimax` / `minimax_en` | MiniMax native protocol |
+| `bailian` | Alibaba Bailian native protocol |
 
-## Automatische Erkennung
+### Tools / Testing
 
-AiDog erkennt das eingehende Protokoll automatisch anhand des Anfragepfads:
+| Protocol | Description |
+|----------|-------------|
+| `mock` | Simulated platform, no real requests, for development and testing |
+| `claude_code` | Claude Code passthrough mode |
+
+## Auto-Detection
+
+AiDog automatically detects the inbound protocol based on the request path:
 
 - `/v1/chat/completions` → `openai_chat`
 - `/v1/completions` → `openai_completions`
 - `/v1/responses` → `openai_responses`
+- `/claude/v1/messages` → `anthropic` (Claude Code dedicated path)
 
-So können verschiedene Client-Typen über dieselbe Proxy-Adresse bedient werden.
+This means you can serve different client types through the same proxy address.
 
-## Protokollkonvertierung
+## Protocol Conversion
 
-Eingehende und ausgehende Protokolle können unterschiedlich sein. AiDog übernimmt die Konvertierung automatisch:
+Inbound and outbound protocols can differ. AiDog automatically handles conversion:
 
-1. Eingehende Anfrage analysieren (erkanntes Protokoll)
-2. In internes Format konvertieren
-3. In das Ausgangsprotokoll der Zielplattform transformieren
-4. Anfrage senden
+1. Parse inbound request (detected protocol)
+2. Convert to internal format
+3. Transform to target platform's outbound protocol
+4. Send the request
 
-Beispiel: Client sendet `openai_chat` → AiDog konvertiert zu `anthropic`-Protokoll → sendet an Claude.
+Example: Client sends `openai_chat` → AiDog converts to `anthropic` protocol → sends to Claude.
 
-## Plattform-Voreinstellungen
+## Platform Presets
 
-AiDog enthält 50+ integrierte Plattform-Voreinstellungen, die jeweils Folgendes enthalten:
-- Standard-Base URL
-- Standard-Protokoll
-- Liste unterstützter Modelle
+AiDog includes 50+ built-in platform presets, each containing:
+- Default Base URL
+- Default protocol
+- Recommended endpoint configuration
 
-Bei Auswahl einer Voreinstellung werden diese Werte automatisch ausgefüllt.
+Selecting a preset auto-fills these values.

@@ -2,43 +2,46 @@
 title: Estadísticas de uso
 ---
 
-# Estadísticas de uso
+# Usage Statistics
 
-AiDog rastrea automáticamente los datos de uso de todas las solicitudes del proxy.
+AiDog automatically tracks usage data for all proxied requests.
 
-## Página de estadísticas
+## Statistics Page
 
-Ve a la página **"Estadísticas"** para ver un resumen del uso.
+Go to the **"Statistics"** page for a usage overview.
 
-### Estadísticas de hoy
+### Today's Stats
 
-- Total de solicitudes
-- Tasa de éxito/fallo
-- Uso total de tokens (Prompt + Completion)
-- Costo estimado
+- Total requests
+- Success/failure rate
+- Total token usage (Prompt + Completion)
+- Estimated cost
 
-### Tendencias
+### Trends
 
-Ver por día/semana/mes:
-- Tendencia de cantidad de solicitudes
-- Tendencia de uso de tokens
-- Tendencia de costos
+View by day/week/month:
+- Request count trends
+- Token usage trends
+- Cost trends
 
-### Estadísticas de grupos
+### Group Statistics
 
-Las estadísticas de las tarjetas de grupo se agregan desde las plataformas asociadas (sumadas en el frontend).
+Group card statistics are aggregated from their associated platforms.
 
-## Dimensiones
+## Dimensions
 
-Ver estadísticas por:
-- **Por plataforma** — Uso por plataforma
-- **Por grupo** — Uso por grupo
-- **Por modelo** — Uso por modelo
-- **Por período** — Agregación diaria/semanal/mensual
+View statistics by:
+- **By platform** — Per-platform usage
+- **By group** — Per-group usage
+- **By model** — Per-model usage
+- **By time** — Daily/weekly/monthly aggregation
 
-## Fuente de datos
+## Data Source
 
-Las estadísticas se agregan desde la tabla `proxy_logs`:
-- Uso de tokens: Extraído de respuestas API upstream
-- Costo estimado: Calculado vía tabla de precios + nombre del modelo (cadena de respaldo `resolve_price`)
-- Conteo de solicitudes: Agregación de filas de registro
+- Token usage: Extracted directly from upstream API responses
+- Estimated cost: Calculated automatically based on model pricing tables
+- Request count: Aggregated from proxy log records
+
+:::tip{title="Note"}
+Estimated costs are based on built-in pricing tables and are for reference only. Actual costs are based on platform billing.
+:::

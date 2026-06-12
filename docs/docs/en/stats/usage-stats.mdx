@@ -26,7 +26,7 @@ View by day/week/month:
 
 ### Group Statistics
 
-Group card statistics are aggregated from associated platforms (summed on the frontend).
+Group card statistics are aggregated from their associated platforms.
 
 ## Dimensions
 
@@ -38,7 +38,10 @@ View statistics by:
 
 ## Data Source
 
-Statistics are aggregated from the `proxy_logs` table:
-- Token usage: Extracted from upstream API responses
-- Estimated cost: Calculated via pricing table + model name (`resolve_price` fallback chain)
-- Request count: Log row aggregation
+- Token usage: Extracted directly from upstream API responses
+- Estimated cost: Calculated automatically based on model pricing tables
+- Request count: Aggregated from proxy log records
+
+:::tip{title="Note"}
+Estimated costs are based on built-in pricing tables and are for reference only. Actual costs are based on platform billing.
+:::

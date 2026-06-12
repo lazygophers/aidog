@@ -4,31 +4,53 @@ title: App Settings
 
 # App Settings
 
-Configure AiDog's global behavior in the **"Settings"** page.
+Configure AiDog's global behavior in the **"Settings"** page. It contains 5 tabs: Proxy, Claude Code, Codex, Model Pricing, and System Tray.
 
-## Proxy Settings
+## Proxy
+
+### Proxy Settings
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Proxy port | `7860` | HTTP proxy listen port |
 | Request timeout | `300s` | Upstream request timeout |
+| Auto-start | Off | Automatically start proxy when AiDog launches |
 
-## Log Settings
+### Log Settings
 
-See [Log Settings](/logs/log-settings) for details.
+Control logging granularity and retention. See [Log Settings](/logs/log-settings).
 
-## Data Management
-
-### Export Data
+### Data Management
 
 - Export platform config (JSON)
 - Export group config (JSON)
 - Export statistics (CSV)
-
-### Cleanup Data
-
 - Clean expired logs
 - Reset statistics
+
+## Claude Code
+
+Edit Claude Code settings including model, permissions, sandbox, plugins, hooks, and StatusLine.
+
+- **Import from Claude Code** — Read existing Claude Code configuration into AiDog
+- **Export to Claude Code** — Write proxy address to Claude Code config file
+- **Sync Group Settings** — Generate independent Claude Code config files for each group
+
+See [Codex Integration](/proxy/codex-integration).
+
+## Codex
+
+Edit Codex settings in `~/.codex/config.toml` directly, without manually locating config files.
+
+See [Codex Integration](/proxy/codex-integration).
+
+## Model Pricing
+
+Browse, search, and manage all model pricing data. See [Pricing & Billing](/stats/pricing).
+
+## System Tray
+
+Configure tray display content and format. See [Tray Configuration](/settings/tray).
 
 ## Interface Settings
 
@@ -45,7 +67,7 @@ See [Log Settings](/logs/log-settings) for details.
 
 ### Themes
 
-See [Themes](/settings/themes) for details.
+See [Themes](/settings/themes).
 
 ## Data Storage
 
@@ -54,6 +76,5 @@ All data is stored locally:
 | Data | Path |
 |------|------|
 | Database | `~/.aidog/aidog.db` |
-| Config | `~/.aidog/config.json` |
 
 Data never leaves your machine and is never uploaded to any server.

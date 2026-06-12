@@ -2,64 +2,62 @@
 title: Erweitertes Routing
 ---
 
-# Erweitertes Routing
+# Advanced Routing
 
-Meistern Sie AiDogs erweiterte Routing-Fähigkeiten für feingranulare Datenverkehrssteuerung.
+Master AiDog's advanced routing capabilities for fine-grained traffic control.
 
-## Multi-Plattform-Lastverteilung
+## Multi-Platform Aggregation
 
-Mehrere Plattformen zu einer Gruppe mit verschiedenen Routing-Strategien hinzufügen:
+Add multiple platforms to a group with different routing modes. See [Create & Manage](/groups/manage-groups).
 
-### Sequentiell
+## Failover
 
-Plattformen empfangen Anfragen der Reihe nach. Ideal für Primär/Backup-Szenarien.
+When a platform request fails, AiDog automatically tries the next platform in the group:
 
-### Zufällig
+```
+Request → Platform A (429 Rate Limit)
+        → Platform B (Success)
+        → Return response
+```
 
-Anfragen werden zufällig auf Plattformen verteilt. Gut für gleichmäßige Verteilung.
+Failover triggers on:
+- HTTP 429 (Rate Limit)
+- HTTP 5xx (Server Error)
+- Connection timeout
+- Network errors
 
-### Gewichtet
+## Load Balancing
 
-Anfragen nach Gewichtsverhältnis verteilen. Beispiel:
+Distribute requests across multiple platforms by weight. Example:
 
-| Plattform | Gewicht | Erwarteter Traffic |
+| Platform | Weight | Expected Traffic |
 |----------|--------|------------------|
 | OpenAI | 70 | ~70% |
 | DeepSeek | 30 | ~30% |
 
-## Failover
+## Model Aliases
 
-Wenn eine Plattform-Anfrage fehlschlägt, versucht AiDog automatisch die nächste Plattform in der Gruppe:
+Create aliases via model mapping:
 
-```
-Anfrage → Plattform A (429 Rate Limit)
-        → Plattform B (Erfolg)
-        → Antwort zurückgeben
-```
-
-Failover wird ausgelöst bei:
-- HTTP 429 (Rate Limit)
-- HTTP 5xx (Serverfehler)
-- Verbindungs-Timeout
-| Netzwerkfehlern
-
-## Modell-Aliase
-
-Aliase über Modellzuordnung erstellen:
-
-| Alias | Zugeordnet zu | Zweck |
+| Alias | Maps To | Purpose |
 |-------|---------|---------|
-| `fast` | `gpt-4o-mini` | Schnelle Antworten |
-| `smart` | `claude-3-opus` | Hohe Qualität |
-| `code` | `deepseek-coder` | Code-Generierung |
+| `fast` | `gpt-4o-mini` | Quick responses |
+| `smart` | `claude-3-opus` | High quality |
+| `code` | `deepseek-coder` | Code generation |
 
-Clients verwenden Aliase; AiDog routet zu tatsächlichen Plattformen basierend auf Gruppenkonfiguration.
+Clients use aliases; AiDog routes to actual platforms based on group configuration.
 
-## Ketten-Routing
+## Chained Routing
 
-Gruppen- und Plattform-Zuordnungen kombinieren:
+Combine group and platform mappings for multi-layer transformation:
 
-1. Client fragt Modell `smart` an
-2. Gruppe A ordnet `smart` → `claude-3-opus` zu
-3. Plattform X ordnet `claude-3-opus` → `claude-3-opus-20240229` zu
-4. An Anthropic gesendet
+1. Client requests model `smart`
+2. Group A maps `smart` → `claude-3-opus`
+3. Platform X maps `claude-3-opus` → `claude-3-opus-20240229`
+4. Sent to Anthropic
+
+## Group-Level Timeout
+
+Each group can independently set request timeout and connect timeout, overriding global defaults. Useful when certain slower models need longer wait times.
+
+See [Create & Manage](/groups/manage-groups).

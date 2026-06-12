@@ -1,50 +1,50 @@
 ---
-title: ログの確認
+title: ログの表示
 ---
 
-# ログの確認
+# Viewing Logs
 
-**「ログ」** ページには、AiDog を経由したすべてのプロキシリクエストが記録され、ルーティング・プロトコル変換・アップストリーム応答の問題を調査しやすくなっています。
+The **Logs** page records every proxy request that passes through AiDog, making it easy to troubleshoot routing, protocol conversion, and upstream response issues.
 
-## ログ一覧
+## Log List
 
-各ログには以下の情報が表示されます。
+Each log entry shows the following information:
 
-| フィールド | 説明 |
+| Field | Description |
 |------|------|
-| グループ | 一致したグループ名 |
-| モデル | クライアントがリクエストした元のモデル |
-| 実際のモデル | モデルマッピングを経てアップストリームに送信されたモデル |
-| プロトコル | インバウンドプロトコル → アップストリームプロトコル |
-| プラットフォーム | 実際にリクエストを処理したプラットフォーム |
-| ステータス | HTTP ステータスコード（成功 / 失敗） |
-| 所要時間 | リクエストの総所要時間（ミリ秒） |
-| Token | 入力 / 出力 / キャッシュの token 数 |
-| 時刻 | リクエストが発生した時刻 |
+| Group | Name of the matched group |
+| Model | Original model requested by the client |
+| Actual Model | Model sent to the upstream after model mapping |
+| Protocol | Inbound protocol → upstream protocol |
+| Platform | Platform that actually handled the request |
+| Status | HTTP status code (success / failure) |
+| Duration | Total request duration (milliseconds) |
+| Token | Number of input / output / cache tokens |
+| Time | When the request occurred |
 
-一覧は 1 ページあたり 50 件で、ページ送りに対応しています。
+The list shows 50 entries per page with pagination support.
 
-## フィルタリング
+## Filtering
 
-上部のフィルターを使って、ログをすばやく絞り込めます。
+Use the filters at the top to quickly locate logs:
 
-- **プラットフォーム**：指定したプラットフォームで絞り込み
-- **グループ**：グループで絞り込み
-- **ステータス**：成功のみ / 失敗のみ
-- **期間**：すべて / 直近 1 時間 / 6 時間 / 24 時間 / 7 日 / 30 日
-- **モデル**：元のモデル名または実際のモデル名で検索
+- **Platform**: filter by a specific platform
+- **Group**: filter by group
+- **Status**: success only / failure only
+- **Time range**: all / last 1 hour / 6 hours / 24 hours / 7 days / 30 days
+- **Model**: search by original or actual model name
 
-## リクエスト詳細
+## Request Details
 
-任意のログをクリックして詳細を展開すると、リクエストの完全な経路を確認できます。
+Click any log entry to expand its details and view the complete request chain:
 
-- **ユーザーリクエスト**：元のリクエスト URL、リクエストヘッダー、リクエストボディ
-- **アップストリームリクエスト**：変換後にアップストリームへ送信した URL、リクエストヘッダー、リクエストボディ
-- **アップストリーム応答**：アップストリームが返したステータスコード、レスポンスヘッダー、レスポンスボディ
-- **ユーザー応答**：最終的にクライアントへ返したレスポンスヘッダー、レスポンスボディ
+- **User request**: original request URL, request headers, request body
+- **Upstream request**: the converted URL, request headers, and request body sent to the upstream
+- **Upstream response**: status code, response headers, and response body returned by the upstream
+- **User response**: the final response headers and response body returned to the client
 
-詳細はワンクリックでコピーでき、チケットやデバッグツールへの貼り付けに便利です。
+Details support one-click copy, making it easy to paste into a support ticket or debugging tool.
 
 :::tip
-詳細に記録される「ユーザーリクエスト」と「アップストリームリクエスト」の内容はログ設定によって制御され、デフォルトではリクエストボディは記録されません。詳しくは [ログ設定](/logs/log-settings) を参照してください。
+The "User request" and "Upstream request" content recorded in the details is controlled by the log settings. By default, the request body is not recorded. See [Log Settings](/logs/log-settings) for more.
 :::

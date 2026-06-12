@@ -2,36 +2,62 @@
 title: استعلام الرصيد
 ---
 
-# استعلام الرصيد
+# Balance Query
 
-يمكن لـ AiDog استعلام أرصدة الحسابات وحصص Coding Plan للمنصات المدعومة.
+AiDog can query account balances and Coding Plan quotas for supported platforms.
 
-## المنصات المدعومة
+## Auto-Query Platforms
 
-| المنصة | محتوى الاستعلام |
+| Platform | Query Content |
 |----------|---------------|
-| OpenAI | رصيد الحساب |
-| DeepSeek | رصيد الحساب |
-| StepFun | رصيد الحساب |
-| SiliconFlow | رصيد الحساب |
-| OpenRouter | رصيد الحساب / الاستخدام |
-| Novita | رصيد الحساب |
-| Kimi | رصيد الحساب |
-| GLM (Zhipu) | رصيد الحساب |
-| MiniMax | رصيد الحساب |
+| OpenAI | Account balance |
+| DeepSeek | Account balance |
+| StepFun | Account balance |
+| SiliconFlow | Account balance |
+| OpenRouter | Account balance / usage |
+| Novita | Account balance |
+| Kimi | Account balance |
+| GLM (Zhipu) | Account balance |
+| MiniMax | Account balance |
 
-## عرض الأرصدة
+## Viewing Balances
 
-معلومات الرصيد معروضة في:
+Balance information is displayed in:
 
-1. **بطاقات المنصات** — رصيد فوري لكل منصة
-2. **بطاقات المجموعات** — رصيد مجمع لمنصات المجموعة
-3. **شريط النظام** — عرض حالة الرصيد
+1. **Platform cards** — Real-time balance per platform
+2. **Group cards** — Aggregated balance across group platforms
+3. **System tray** — Balance status display
 
-## التحديث
+## Refreshing
 
-يتم تحديث بيانات الرصيد تلقائياً حسب جدول زمني. يمكنك أيضاً النقر يدوياً على زر التحديث.
+Balance data refreshes automatically on a schedule. You can also manually click the refresh button.
 
 ## Coding Plan
 
-بعض المنصات توفر معلومات حصة Coding Plan، يستعلمها AiDog ويعرضها جنباً إلى جنب مع بيانات الرصيد.
+Some platforms provide Coding Plan quota information (e.g. OpenAI Plus/Team/Enterprise plans), which AiDog queries and displays alongside balance data.
+
+## Manual Budget
+
+For platforms that don't support automatic balance queries, AiDog provides a manual budget feature:
+
+### Configuration
+
+Set up a manual budget in the platform configuration. Supported types:
+
+| Type | Description |
+|------|-------------|
+| Total | Set an overall spending limit |
+| Rolling Window | Spending limit within a rolling time window |
+| Fixed Period | Spending limit that resets on a fixed schedule |
+| Daily | Daily spending limit |
+
+### Budget Units
+
+- **USD** — Measured by cost
+- **Tokens** — Measured by token count
+
+### Window Duration
+
+Rolling window and fixed period support multiple time units: minute, hour, day, week, month.
+
+Budget consumption is automatically tracked by AiDog based on proxied requests. When the limit is reached, the platform is marked as out of balance.

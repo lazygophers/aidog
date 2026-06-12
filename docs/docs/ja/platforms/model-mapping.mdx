@@ -2,36 +2,57 @@
 title: モデルマッピング
 ---
 
-# モデルマッピング
+# Model Mapping
 
-モデルマッピングにより、クライアントリクエストのモデル名をプラットフォームが実際にサポートするモデル名に変換できます。
+Model mapping allows you to translate model names from client requests to the actual model names supported by the platform.
 
-## ユースケース
+## Use Cases
 
-- クライアントが `gpt-4o` をリクエストするが、DeepSeek の `deepseek-chat` にルーティングしたい
-- プラットフォーム間でモデル命名を統一
-- 異なるプラットフォームの同等モデルを A/B テスト
+- Client requests `gpt-4o`, but you want to route to DeepSeek's `deepseek-chat`
+- Standardize model naming across platforms
+- Simplify model selection with aliases (e.g. `fast` → `gpt-4o-mini`)
 
-## 設定方法
+## Configuration
 
-プラットフォーム設定の「モデルマッピング」セクションでマッピングルールを追加：
+Add mapping rules in the platform or group's "Model Mapping" section:
 
-| リクエストモデル | マッピング先 |
+| Request Model | Maps To |
 |---------------|---------|
 | `gpt-4o` | `deepseek-chat` |
 | `claude-3-opus` | `claude-3-opus-20240229` |
 
-### マッピングルール
+### Mapping Rules
 
-1. **完全一致** — モデル名が完全に一致した場合のみマッピング
-2. **元の値を保持** — マッピングルールに一致しないモデル名はそのまま
-3. **優先順位** — プラットフォームレベルのマッピングが先、次にグループレベル
+1. **Exact match** — Only maps when the model name matches exactly
+2. **Preserve original** — Unmatched model names pass through unchanged
+3. **Priority** — Group-level mappings take precedence over platform-level mappings
 
-## グループでの使用
+## Two-Level Mapping
 
-モデルマッピングは 2 つのレベルで設定可能：
+Model mapping can be configured at two levels:
 
-- **プラットフォームレベル** — そのプラットフォームの全リクエストに適用
-- **グループレベル** — そのグループのルーティングルール内でのみ適用
+- **Platform level** — Applies to all requests on that platform
+- **Group level** — Only applies within that group's routing rules
 
-グループレベルのマッピングがプラットフォームレベルより優先されます。詳しくは [ルーティングルール](/groups/routing-rules) を参照。
+Group-level mappings take precedence over platform-level mappings. See [Routing Rules](/groups/routing-rules).
+
+## Model Alias Example
+
+Use model mapping to create an alias system. Clients only need short aliases:
+
+| Alias | Target | Purpose |
+|-------|--------|---------|
+| `fast` | `gpt-4o-mini` | Fast responses |
+| `smart` | `claude-3-opus` | High quality |
+| `code` | `deepseek-coder` | Code generation |
+
+## Chain Mapping
+
+Model mappings can cascade across groups and platforms:
+
+1. Client requests model `smart`
+2. Group mapping: `smart` → `claude-3-opus`
+3. Platform mapping: `claude-3-opus` → `claude-3-opus-20240229`
+4. Sent to Anthropic
+
+See [Advanced Routing](/proxy/advanced-routing).

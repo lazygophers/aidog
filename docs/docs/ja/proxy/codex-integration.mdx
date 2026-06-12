@@ -2,15 +2,15 @@
 title: Codex 連携
 ---
 
-# Codex 連携
+# Codex Integration
 
-AiDog は OpenAI Codex CLI、Claude Code などの AI コーディングアシスタントにネイティブ対応しています。
+AiDog natively supports OpenAI Codex CLI, Claude Code, and other AI coding assistants, with built-in configuration editors.
 
 ## OpenAI Codex
 
-### 設定
+### Configuration
 
-Codex の設定ファイル `~/.codex/config.toml` に以下を設定：
+Set the following in Codex's config file `~/.codex/config.toml`:
 
 ```toml
 [provider]
@@ -22,34 +22,54 @@ api_key = "any-value"
 name = "o3"
 ```
 
-### 注意事項
+### Codex Settings Page
 
-- Codex は **Responses API**（`/v1/responses`）を使用します。AiDog が自動的に検出してルーティングします。
-- 対象プラットフォームで `openai_responses` プロトコルが有効になっていることを確認してください。
-- 必要に応じてプラットフォームまたはグループレベルでモデルマッピングを追加してください。
+AiDog provides a built-in Codex configuration editor in **"Settings" → "Codex"**:
+
+- Edit `~/.codex/config.toml` settings directly
+- No need to manually locate and edit config files
+- Changes take effect immediately after saving
+
+### Notes
+
+- Codex uses the **Responses API** (`/v1/responses`). AiDog detects and routes automatically.
+- Ensure the target platform has an endpoint with `openai_responses` protocol configured.
+- Add model mappings at the platform or group level as needed.
 
 ## Claude Code
 
-### 設定
+### One-Click Config Export
 
-環境変数を設定：
+In AiDog's **"Settings" → "Claude Code"** tab, click "Export Config". AiDog automatically writes the proxy address to Claude Code's config file (`~/.claude.json`).
+
+### Manual Configuration
+
+You can also set environment variables:
 
 ```bash
 export ANTHROPIC_BASE_URL="http://127.0.0.1:7860"
 export ANTHROPIC_API_KEY="any-value"
 ```
 
-または Claude Code の設定で API base URL を設定。
+### Claude Code Settings Page
 
-### 注意事項
+AiDog provides a dedicated settings editor in **"Settings" → "Claude Code"**:
 
-- Claude Code は **Anthropic ネイティブプロトコル**を使用します
-- 対象プラットフォームが Anthropic プロトコルをサポートしているか、プロトコル変換を設定してください
+- **Config Editing** — Edit Claude Code settings (model, permissions, sandbox, plugins, hooks, StatusLine, etc.)
+- **Import from Claude Code** — One-click import of existing Claude Code configuration
+- **Export to Claude Code** — Write AiDog's proxy address to Claude Code config
+- **Sync Group Settings** — Automatically generate independent config files for each group, making it easy to switch between groups
 
-## その他のアシスタント
+### Notes
 
-カスタム API アドレスをサポートするツールなら、AiDog をプロキシとして使用できます：
+- Claude Code uses the **Anthropic native protocol**
+- Ensure the target platform supports the Anthropic protocol or configure protocol conversion
+- AiDog provides a dedicated `/claude/v1/messages` path for Claude Code
 
-1. API base URL を `http://127.0.0.1:7860` に設定
-2. API キーに任意の値を設定
-3. AiDog に対応するプラットフォームとプロトコルが設定されていることを確認
+## Other Assistants
+
+Any tool that supports custom API addresses can use AiDog as a proxy:
+
+1. Set the API base URL to `http://127.0.0.1:7860`
+2. Set the API key to any value
+3. Ensure AiDog has a matching platform and protocol configured

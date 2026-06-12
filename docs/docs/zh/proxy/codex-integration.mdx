@@ -4,7 +4,7 @@ title: Codex 集成
 
 # Codex 集成
 
-AiDog 原生支持 OpenAI Codex CLI 和 Claude Code 等编程助手。
+AiDog 原生支持 OpenAI Codex CLI 和 Claude Code 等编程助手，并提供内置配置编辑器。
 
 ## OpenAI Codex
 
@@ -22,29 +22,49 @@ api_key = "any-value"
 name = "o3"
 ```
 
+### Codex 设置页面
+
+AiDog 在 **「设置」→「Codex」** 标签页中提供内置的 Codex 配置编辑器：
+
+- 直接编辑 `~/.codex/config.toml` 中的设置
+- 无需手动查找和修改配置文件
+- 保存后立即生效
+
 ### 注意事项
 
 - Codex 使用 **Responses API**（`/v1/responses`），AiDog 会自动检测并路由
-- 确保对应的平台在 AiDog 中启用了 `openai_responses` 协议
+- 确保对应的平台在 AiDog 中配置了 `openai_responses` 协议的端点
 - 如需模型映射，在平台或分组配置中添加
 
 ## Claude Code
 
-### 配置
+### 一键导出配置
 
-设置环境变量：
+在 AiDog 的 **「设置」→「Claude Code」** 标签页中，点击「导出配置」按钮，AiDog 会自动将代理地址写入 Claude Code 的配置文件（`~/.claude.json`）。
+
+### 手动配置
+
+也可以设置环境变量：
 
 ```bash
 export ANTHROPIC_BASE_URL="http://127.0.0.1:7860"
 export ANTHROPIC_API_KEY="any-value"
 ```
 
-或在 Claude Code 的设置中配置 API base URL。
+### Claude Code 设置页面
+
+AiDog 在 **「设置」→「Claude Code」** 标签页中提供：
+
+- **配置编辑** — 编辑 Claude Code 的各项设置（模型、权限、沙箱、插件、Hooks、StatusLine 等）
+- **从 Claude Code 导入** — 一键读取现有 Claude Code 配置
+- **导出到 Claude Code** — 将 AiDog 的代理地址写入 Claude Code 配置
+- **同步分组设置** — 为每个分组自动生成独立的配置文件，方便在不同分组间切换
 
 ### 注意事项
 
 - Claude Code 使用 **Anthropic 原生协议**
 - 确保目标平台支持 Anthropic 协议或配置协议转换
+- AiDog 为 Claude Code 提供专用的 `/claude/v1/messages` 路径
 
 ## 其他编程助手
 

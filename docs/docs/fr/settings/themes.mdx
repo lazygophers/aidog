@@ -2,40 +2,31 @@
 title: Thèmes
 ---
 
-# Thèmes
+# Themes
 
-AiDog propose plusieurs thèmes intégrés, chacun avec des modes Light et Dark.
+AiDog provides multiple built-in themes, each with Light and Dark modes.
 
-## Thèmes intégrés
+## Built-in Themes
 
-| Thème | Style |
+| Theme | Style |
 |-------|-------|
-| Liquid Glass | Glassmorphisme, translucidité |
-| Nord | Tons bleus arctiques, calme |
-| Dracula | Thème sombre, palette populaire |
-| Catppuccin | Couleurs chaleureuses, doux pour les yeux |
-| Solarized | Palette scientifique classique |
+| Liquid Glass | Glassmorphism, translucent |
+| Nord | Arctic blue tones, calm |
+| Dracula | Dark theme, popular palette |
+| Catppuccin | Warm colors, easy on the eyes |
+| Solarized | Classic scientific palette |
 
-## Changer de thème
+## Switching Themes
 
-Sélectionnez un thème dans **« Paramètres »** → « Thèmes ».
+Select a theme in the **"Settings"** page theme selector.
 
-### Mode Light/Dark
+### Light/Dark Mode
 
-Chaque thème supporte les modes Light et Dark, suivant les paramètres système ou basculant manuellement.
+Each theme supports both Light and Dark modes. Follows system settings automatically or switch manually.
 
-## Architecture des thèmes
+## Theme Features
 
-Les thèmes sont implémentés via un système de variables CSS :
-- Chaque thème fournit un jeu de variables CSS light + dark
-- Les fichiers de variables se trouvent dans le répertoire `src/themes/`
-- Le changement de thème remplace le jeu de variables CSS
-
-### Thèmes personnalisés
-
-Pour créer un thème personnalisé :
-
-1. Copiez un fichier de thème existant comme modèle
-2. Modifiez les valeurs des variables CSS
-3. Enregistrez le nouveau thème dans `src/themes/index.ts`
-4. Recompilez l'application
+- **Rounded corners** — Layered border-radius system (sm / md / lg / xl)
+- **Frosted glass** — Semi-transparent panels with blurred backgrounds
+- **Smooth transitions** — Theme switching with easing animations
+- **High contrast** — Ensures good readability in both light and dark modes
