@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/状态/类型/Hook 强制规则 — 改 StatusLinePanel/segment 数据模型须遵守"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "statuslineApi.generate Tauri 契约不破坏；生成脚本逻辑在 TS 侧"}
