@@ -1690,100 +1690,6 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           </div>
           </FormSection>
 
-          {/* Manual Budgets — 所有平台可设（含 mock / 有上游配额支持的平台），仅透传订阅不需要 */}
-          {!isPassthrough && (
-            <FormSection
-              title={t("platform.manualBudgetTitle", "手动预算")}
-              desc={t("platform.manualBudgetDesc", "该平台无上游额度自动查询，可手动设置一个或多个预算限额，按用量预估扣减；任一耗尽时停止转发（返回 402），窗口/次日恢复后自动放行。")}
-              action={(
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
-                  onClick={() => setManualBudgets([...manualBudgets, newManualBudget()])}
-                >
-                  {t("platform.manualBudgetAdd", "添加限额")}
-                </button>
-              )}
-            >
-              {manualBudgets.length === 0 && (
-                <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "2px 0" }}>
-                  {t("platform.manualBudgetEmpty", "暂无限额，点击「添加限额」开始配置。")}
-                </div>
-              )}
-              {manualBudgets.map((b, idx) => {
-                const update = (patch: Partial<ManualBudget>) =>
-                  setManualBudgets(manualBudgets.map((x, i) => i === idx ? { ...x, ...patch } : x));
-                const needsWindow = b.kind === "rolling" || b.kind === "fixed";
-                return (
-                  <div key={b.id} style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                    <select
-                      className="input"
-                      style={{ width: 110, flexShrink: 0 }}
-                      value={b.kind}
-                      onChange={e => update({ kind: e.target.value as ManualBudgetKind })}
-                    >
-                      <option value="total">{t("platform.manualBudgetKindTotal", "总额")}</option>
-                      <option value="rolling">{t("platform.manualBudgetKindRolling", "滑动窗口")}</option>
-                      <option value="fixed">{t("platform.manualBudgetKindFixed", "固定窗口")}</option>
-                      <option value="daily">{t("platform.manualBudgetKindDaily", "每日")}</option>
-                    </select>
-                    <select
-                      className="input"
-                      style={{ width: 90, flexShrink: 0 }}
-                      value={b.unit}
-                      onChange={e => update({ unit: e.target.value as ManualBudgetUnit })}
-                    >
-                      <option value="usd">$ USD</option>
-                      <option value="token">{t("platform.manualBudgetUnitToken", "Token")}</option>
-                    </select>
-                    <input
-                      className="input"
-                      type="number"
-                      min={0}
-                      step="any"
-                      style={{ width: 100, flexShrink: 0 }}
-                      placeholder={t("platform.manualBudgetAmount", "额度")}
-                      value={b.amount || ""}
-                      onChange={e => update({ amount: parseFloat(e.target.value) || 0 })}
-                    />
-                    {needsWindow && (
-                      <input
-                        className="input"
-                        type="number"
-                        min={0}
-                        step="any"
-                        style={{ width: 110, flexShrink: 0 }}
-                        placeholder={t("platform.manualBudgetWindowHours", "窗口(小时)")}
-                        value={b.window_hours ?? ""}
-                        onChange={e => update({ window_hours: e.target.value === "" ? null : (parseFloat(e.target.value) || 0) })}
-                      />
-                    )}
-                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
-                      <input
-                        type="checkbox"
-                        checked={b.enabled}
-                        onChange={e => update({ enabled: e.target.checked })}
-                      />
-                      {t("platform.manualBudgetEnabled", "启用")}
-                    </label>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-icon btn-danger"
-                      style={{ flexShrink: 0 }}
-                      title={t("action.delete", "删除")}
-                      onClick={() => setManualBudgets(manualBudgets.filter((_, i) => i !== idx))}
-                    >
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
-                      </svg>
-                    </button>
-                  </div>
-                );
-              })}
-            </FormSection>
-          )}
-
           {/* Models Configuration */}
           <FormSection
             title={t("platform.models")}
@@ -1916,6 +1822,100 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             })}
           </FormSection>
           </>
+          )}
+
+          {/* Manual Budgets — 所有平台可设（含 mock / 有上游配额支持的平台），仅透传订阅不需要 */}
+          {!isPassthrough && (
+            <FormSection
+              title={t("platform.manualBudgetTitle", "手动预算")}
+              desc={t("platform.manualBudgetDesc", "该平台无上游额度自动查询，可手动设置一个或多个预算限额，按用量预估扣减；任一耗尽时停止转发（返回 402），窗口/次日恢复后自动放行。")}
+              action={(
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
+                  onClick={() => setManualBudgets([...manualBudgets, newManualBudget()])}
+                >
+                  {t("platform.manualBudgetAdd", "添加限额")}
+                </button>
+              )}
+            >
+              {manualBudgets.length === 0 && (
+                <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "2px 0" }}>
+                  {t("platform.manualBudgetEmpty", "暂无限额，点击「添加限额」开始配置。")}
+                </div>
+              )}
+              {manualBudgets.map((b, idx) => {
+                const update = (patch: Partial<ManualBudget>) =>
+                  setManualBudgets(manualBudgets.map((x, i) => i === idx ? { ...x, ...patch } : x));
+                const needsWindow = b.kind === "rolling" || b.kind === "fixed";
+                return (
+                  <div key={b.id} style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                    <select
+                      className="input"
+                      style={{ width: 110, flexShrink: 0 }}
+                      value={b.kind}
+                      onChange={e => update({ kind: e.target.value as ManualBudgetKind })}
+                    >
+                      <option value="total">{t("platform.manualBudgetKindTotal", "总额")}</option>
+                      <option value="rolling">{t("platform.manualBudgetKindRolling", "滑动窗口")}</option>
+                      <option value="fixed">{t("platform.manualBudgetKindFixed", "固定窗口")}</option>
+                      <option value="daily">{t("platform.manualBudgetKindDaily", "每日")}</option>
+                    </select>
+                    <select
+                      className="input"
+                      style={{ width: 90, flexShrink: 0 }}
+                      value={b.unit}
+                      onChange={e => update({ unit: e.target.value as ManualBudgetUnit })}
+                    >
+                      <option value="usd">$ USD</option>
+                      <option value="token">{t("platform.manualBudgetUnitToken", "Token")}</option>
+                    </select>
+                    <input
+                      className="input"
+                      type="number"
+                      min={0}
+                      step="any"
+                      style={{ width: 100, flexShrink: 0 }}
+                      placeholder={t("platform.manualBudgetAmount", "额度")}
+                      value={b.amount || ""}
+                      onChange={e => update({ amount: parseFloat(e.target.value) || 0 })}
+                    />
+                    {needsWindow && (
+                      <input
+                        className="input"
+                        type="number"
+                        min={0}
+                        step="any"
+                        style={{ width: 110, flexShrink: 0 }}
+                        placeholder={t("platform.manualBudgetWindowHours", "窗口(小时)")}
+                        value={b.window_hours ?? ""}
+                        onChange={e => update({ window_hours: e.target.value === "" ? null : (parseFloat(e.target.value) || 0) })}
+                      />
+                    )}
+                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+                      <input
+                        type="checkbox"
+                        checked={b.enabled}
+                        onChange={e => update({ enabled: e.target.checked })}
+                      />
+                      {t("platform.manualBudgetEnabled", "启用")}
+                    </label>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-icon btn-danger"
+                      style={{ flexShrink: 0 }}
+                      title={t("action.delete", "删除")}
+                      onClick={() => setManualBudgets(manualBudgets.filter((_, i) => i !== idx))}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })}
+            </FormSection>
           )}
 
           {/* Claude Code Config */}
