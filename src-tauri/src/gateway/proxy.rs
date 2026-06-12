@@ -93,7 +93,21 @@ fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettin
     // Calculate est_cost from model_price if tokens are present
     if log.est_cost == 0.0 && (log.input_tokens > 0 || log.output_tokens > 0) {
         let model_name = if log.actual_model.is_empty() { &log.model } else { &log.actual_model };
-        log.est_cost = super::db::calc_est_cost(&state.db, model_name, log.input_tokens, log.output_tokens, log.cache_tokens);
+        // best-effort 取平台主类型的 serde 裸名（如 "deepseek"）以启用 pricing[platform_type] override；
+        // 拿不到则传 ""，calc_est_cost 的 fallback 回退链仍保证非 0。
+        let platform_type = super::db::get_platform(&state.db, log.platform_id)
+            .ok()
+            .flatten()
+            .map(|p| serde_json::to_string(&p.platform_type).unwrap_or_default().trim_matches('"').to_string())
+            .unwrap_or_default();
+        log.est_cost = super::db::calc_est_cost(
+            &state.db,
+            model_name,
+            &platform_type,
+            log.input_tokens,
+            log.output_tokens,
+            log.cache_tokens,
+        );
     }
     let _ = super::db::upsert_proxy_log(&state.db, &log);
 }

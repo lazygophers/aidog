@@ -465,41 +465,43 @@ pub fn today_stats(db: &Db) -> Result<TodayStats, String> {
 }
 
 /// 根据 model_price 定价计算单次请求预估花费（$）
-pub fn calc_est_cost(db: &Db, model_name: &str, input_tokens: i32, output_tokens: i32, cache_tokens: i32) -> f64 {
-    let conn = db.0.lock().unwrap();
-    let price: Option<(f64, f64, f64)> = conn
-        .query_row(
-            "SELECT price_data FROM model_price WHERE model_name = ?1 AND deleted_at = 0 LIMIT 1",
-            params![model_name],
-            |row| {
-                let pd: String = row.get(0)?;
-                let v: serde_json::Value = serde_json::from_str(&pd).unwrap_or_default();
-                let inp_cost = v.get("input_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                let out_cost = v.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                let cache_cost = v.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
-                if inp_cost == 0.0 && out_cost == 0.0 {
-                    if let Some(dp) = v.get("default_platform").and_then(|v| v.as_str()) {
-                        if let Some(pn) = v.get("pricing").and_then(|p| p.get(dp)) {
-                            return Ok(Some((
-                                pn.get("input_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                                pn.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                                pn.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0),
-                            )));
-                        }
-                    }
-                }
-                Ok(Some((inp_cost, out_cost, cache_cost)))
-            },
-        )
-        .ok()
-        .flatten();
+///
+/// 复用 `resolve_price` 的回退链（pricing[platform_type] > top_level >
+/// default_platform > fallback 默认价），与 preview 命令 `model_price_resolve` 行为一致：
+/// 无模型价 / 价为 0 时回退到 `PriceSyncSettings` 的 fallback 默认价（默认 3.0 $/M），不再返回 0。
+///
+/// 锁安全：本函数不持有 `db.0.lock()`；`get_sync_settings` / `resolve_price`
+/// （内部 `get_model_price`）各自获取并释放 db 锁，不会重入死锁。
+///
+/// `platform_type` 传入平台主类型的 serde 裸名（如 `"deepseek"`）以启用 pricing override；
+/// 传 `""` 时 override 不命中，但回退链仍保证非 0。
+pub fn calc_est_cost(
+    db: &Db,
+    model_name: &str,
+    platform_type: &str,
+    input_tokens: i32,
+    output_tokens: i32,
+    cache_tokens: i32,
+) -> f64 {
+    let settings = super::price_sync::get_sync_settings(db);
+    let rp = resolve_price(
+        db,
+        model_name,
+        platform_type,
+        settings.fallback_input_price,
+        settings.fallback_output_price,
+    )
+    .unwrap_or_else(|_| super::models::ResolvedPrice {
+        // 安全默认：直接用 fallback 默认价（$/M → $/token），保证非 0、不 panic
+        input_cost_per_token: settings.fallback_input_price / 1_000_000.0,
+        output_cost_per_token: settings.fallback_output_price / 1_000_000.0,
+        cache_read_input_token_cost: 0.0,
+        source: "fallback".to_string(),
+    });
 
-    match price {
-        Some((inp_cost, out_cost, cache_cost)) => {
-            input_tokens as f64 * inp_cost + output_tokens as f64 * out_cost + cache_tokens as f64 * cache_cost
-        }
-        None => 0.0,
-    }
+    input_tokens as f64 * rp.input_cost_per_token
+        + output_tokens as f64 * rp.output_cost_per_token
+        + cache_tokens as f64 * rp.cache_read_input_token_cost
 }
 
 // ─── Group CRUD ────────────────────────────────────────────
