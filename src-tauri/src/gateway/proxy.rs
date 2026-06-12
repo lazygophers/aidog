@@ -552,42 +552,9 @@ async fn handle_proxy(
     // 替换模型名
     chat_req.model = actual_model.clone();
 
-    // ── Mock 平台拦截：不发真实上游，本地生成可控假响应 ──
-    if matches!(route.platform.platform_type, Protocol::Mock) {
-        return handle_mock(
-            state,
-            log,
-            log_settings,
-            &route.platform.extra,
-            &chat_req,
-            &req_value,
-            &source_protocol,
-            &requested_model,
-            is_stream,
-            start,
-        )
-        .await;
-    }
-
-    // ── Claude Code 纯透传拦截：bypass 所有转换，1:1 relay 客户端原始请求到 base_url ──
-    if matches!(route.platform.platform_type, Protocol::ClaudeCode) {
-        return handle_passthrough(
-            &state,
-            &mut log,
-            &log_settings,
-            orig_method,
-            orig_uri,
-            orig_headers,
-            bytes,
-            &route.platform.base_url,
-            start,
-        )
-        .await;
-    }
-
-    // ── 手动预算耗尽阻断（转发前，惰性只读判定，不写库）──
-    // 任一 enabled 限额剩余 ≤ 0（含窗口惰性重置后）→ 不发上游，返回 402。
-    // 平台保持启用，窗口/次日恢复后自动放行。无 manual_budgets → 跳过。
+    // ── 手动预算耗尽阻断（mock / 上游平台均适用，转发前惰性只读判定，不写库）──
+    // 任一 enabled 限额剩余 ≤ 0（含窗口惰性重置后）→ 不发上游/不出 mock，返回 402。
+    // 平台保持启用，窗口/次日恢复后自动放行。无 manual_budgets（含透传）→ 跳过。
     if let Some(info) = super::manual_budget::evaluate_depletion(&route.platform.manual_budgets, super::db::now()) {
         let recover_hint = match info.kind.as_str() {
             "daily" => "Budget will reset at local midnight.",
@@ -620,6 +587,39 @@ async fn handle_proxy(
             body,
         )
             .into_response();
+    }
+
+    // ── Mock 平台拦截：不发真实上游，本地生成可控假响应 ──
+    if matches!(route.platform.platform_type, Protocol::Mock) {
+        return handle_mock(
+            state,
+            log,
+            log_settings,
+            &route.platform.extra,
+            &chat_req,
+            &req_value,
+            &source_protocol,
+            &requested_model,
+            is_stream,
+            start,
+        )
+        .await;
+    }
+
+    // ── Claude Code 纯透传拦截：bypass 所有转换，1:1 relay 客户端原始请求到 base_url ──
+    if matches!(route.platform.platform_type, Protocol::ClaudeCode) {
+        return handle_passthrough(
+            &state,
+            &mut log,
+            &log_settings,
+            orig_method,
+            orig_uri,
+            orig_headers,
+            bytes,
+            &route.platform.base_url,
+            start,
+        )
+        .await;
     }
 
     // 协议转换：wire format 由 endpoint 协议决定，API path 由平台类型决定
@@ -972,6 +972,13 @@ async fn handle_mock(
                 .into_response();
         }
         _ => {}
+    }
+
+    // 手动预算扣减（mock 也按用量预估扣减，与上游平台一致；仅成功路径，错误模式上方已 return）
+    let mb_total = (log.input_tokens + log.output_tokens + log.cache_tokens) as f64;
+    if mb_total > 0.0 {
+        let est = super::db::calc_est_cost(&state.db, &log.actual_model, "mock", log.input_tokens, log.output_tokens, log.cache_tokens);
+        let _ = super::manual_budget::apply_manual_budgets(&state.db, log.platform_id, est, mb_total, super::db::now());
     }
 
     // stream_override 优先于请求 is_stream
