@@ -1813,8 +1813,8 @@ function groupBalanceDynBash(prefix: string): string {
   // 余额由 balance 段展示，两者可共存。
   return `${GROUP_GUARD}
 __bal=$(cat "$__gi" | jq -r '.balance // 0 | (. * 100 | round) / 100')
-__bal=$(printf '%.2f' "$__bal")
-[ "$__bal" = "0.00" ] && exit 0
+__bal=$(printf '%g' "$__bal")
+[ "$__bal" = "0" ] || [ "$__bal" = "0.0" ] && exit 0
 __txt="${pfx}$__bal"
 __days=$(cat "$__gi" | jq -r '.balance_days_remaining // empty')
 if [ -z "$__days" ] || [ "$__days" = "null" ]; then
@@ -2625,7 +2625,7 @@ export const DEFAULT_SEGMENTS: StatusLineSegment[] = [
   { id: "d-coding", type: "group-coding", enabled: true, newline: true,
     options: { dynamicColor: true } },
   { id: "d-balance", type: "group-balance", enabled: true, newline: false,
-    options: { dynamicColor: true, prefix: "$" } },
+    options: { dynamicColor: true, prefix: "$", affixPre: "·" } },
   { id: "d-version", type: "version", enabled: true, newline: false, color: "#8E8E93",
     options: { prefix: "v", affixPre: " · " } },
 ];
