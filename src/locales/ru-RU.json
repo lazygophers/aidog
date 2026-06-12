@@ -33,6 +33,7 @@
   "page.platforms": "Управление платформами",
   "page.proxy": "Консоль прокси",
   "platform.add": "Добавить",
+  "platform.usageLabel": "Использовано",
   "platform.sectionBasic": "Основное",
   "platform.sectionAuth": "Аутентификация",
   "platform.sectionSpecial": "Спец. настройка",

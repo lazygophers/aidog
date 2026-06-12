@@ -46,6 +46,7 @@
   "platform.dragReorder": "拖拽排序",
   "settings.claudeConfigToggle": "配置覆盖",
   "platform.quotaLabel": "额度",
+  "platform.usageLabel": "已使用",
   "platform.quotaRefresh": "刷新额度",
   "platform.quotaEmpty": "暂无数据",
   "platform.quotaNoKey": "缺少 API Key",

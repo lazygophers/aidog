@@ -33,6 +33,7 @@
   "page.platforms": "プラットフォーム管理",
   "page.proxy": "プロキシコンソール",
   "platform.add": "追加",
+  "platform.usageLabel": "使用済み",
   "platform.sectionBasic": "基本情報",
   "platform.sectionAuth": "認証",
   "platform.sectionSpecial": "特殊設定",

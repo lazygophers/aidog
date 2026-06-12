@@ -1900,7 +1900,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 const u = usageMap[p.id];
                 const total = u ? u.total_input_tokens + u.total_output_tokens : 0;
                 const sr = u && u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
-                const hasDetail = (p.endpoints && p.endpoints.length > 0) || configuredModels.length > 0 || quota.tiers.length > 0;
+                const hasDetail = !!u || (p.endpoints && p.endpoints.length > 0) || configuredModels.length > 0 || quota.tiers.length > 0;
                 const expanded = expandedIds.has(p.id);
                 const manual = testResults[p.id];
                 const health = manual
@@ -1980,16 +1980,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                             </span>
                           </div>
                         )}
-                        {/* 核心统计 chips（色编码） */}
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", flex: 1, minWidth: 0 }}>
-                          {u && (
-                            <>
-                              <StatChip icon={<IconBolt size={13} />} value={formatNumber(total)} label="tokens" />
-                              <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
-                              <StatChip icon={<IconCheck size={13} />} value={formatPercent(sr)} label="ok" level={successRateLevel(sr, u.total_requests)} />
-                            </>
-                          )}
-                        </div>
+                        {/* 已使用统计已移至下拉展开区，此处留白把快操作推到右侧 */}
+                        <div style={{ flex: 1, minWidth: 0 }} />
                         {/* 快操作 */}
                         <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
                           {showQuota && (
@@ -2071,6 +2063,17 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   >
                     {hasDetail && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                        {/* 已使用统计（色编码，点击展开后才见） */}
+                        {u && (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                            <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
+                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                              <StatChip icon={<IconBolt size={13} />} value={formatNumber(total)} label="tokens" />
+                              <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
+                              <StatChip icon={<IconCheck size={13} />} value={formatPercent(sr)} label="ok" level={successRateLevel(sr, u.total_requests)} />
+                            </div>
+                          </div>
+                        )}
                         {/* 配额各档明细（coding plan tiers，色编码） */}
                         {showQuota && quota.tiers.length > 0 && (
                           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>

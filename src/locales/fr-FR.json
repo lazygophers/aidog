@@ -33,6 +33,7 @@
   "page.platforms": "Gestion des plateformes",
   "page.proxy": "Console Proxy",
   "platform.add": "Ajouter",
+  "platform.usageLabel": "Utilisé",
   "platform.sectionBasic": "Informations de base",
   "platform.sectionAuth": "Authentification",
   "platform.sectionSpecial": "Config spéciale",
