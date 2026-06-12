@@ -2624,7 +2624,7 @@ export const DEFAULT_SEGMENTS: StatusLineSegment[] = [
   { id: "d-coding", type: "group-coding", enabled: true, newline: true,
     options: { dynamicColor: true } },
   { id: "d-balance", type: "group-balance", enabled: true, newline: false,
-    options: { dynamicColor: true, prefix: "余额 " } },
+    options: { dynamicColor: true, prefix: "$" } },
   { id: "d-version", type: "version", enabled: true, newline: false, color: "#8E8E93",
     options: { prefix: "v", affixPre: " · " } },
 ];
