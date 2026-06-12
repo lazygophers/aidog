@@ -63,6 +63,14 @@ export function Settings() {
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  // 粘性顶栏 / 锚点栏的实际渲染高度（chip 可能换行成 2 行）。用 ResizeObserver 量测，
+  // 替代写死的 HEADER_H/NAV_H，驱动 scroll-spy rootMargin + section scrollMarginTop + nav top。
+  const headerElRef = useRef<HTMLDivElement | null>(null);
+  const navElRef = useRef<HTMLDivElement | null>(null);
+  const [headerH, setHeaderH] = useState(HEADER_H);
+  const [navH, setNavH] = useState(NAV_H);
+  const setHeaderEl = useCallback((el: HTMLDivElement | null) => { headerElRef.current = el; }, []);
+  const setNavEl = useCallback((el: HTMLDivElement | null) => { navElRef.current = el; }, []);
 
   // Current draft signature: in JSON mode use the textarea (best-effort parse),
   // otherwise the structured config object.
@@ -234,6 +242,23 @@ export function Settings() {
     [search],
   );
 
+  // ── 量测粘性顶栏 + 锚点栏实际高度（换行时 > 单行常量），驱动偏移 ──
+  useEffect(() => {
+    if (mode !== "gui") return;
+    const hEl = headerElRef.current;
+    const nEl = navElRef.current;
+    const ro = new ResizeObserver(() => {
+      if (hEl) setHeaderH(Math.round(hEl.getBoundingClientRect().height));
+      if (nEl) setNavH(Math.round(nEl.getBoundingClientRect().height));
+    });
+    if (hEl) ro.observe(hEl);
+    if (nEl) ro.observe(nEl);
+    // 首帧立即量一次（observe 回调虽会触发，但确保初值准确）
+    if (hEl) setHeaderH(Math.round(hEl.getBoundingClientRect().height));
+    if (nEl) setNavH(Math.round(nEl.getBoundingClientRect().height));
+    return () => ro.disconnect();
+  }, [mode]);
+
   // ── Scroll-spy: highlight the section currently in view ──
   useEffect(() => {
     if (mode !== "gui") return;
@@ -249,14 +274,14 @@ export function Settings() {
           if (id) setActiveSection(id);
         }
       },
-      { root, rootMargin: `-${HEADER_H + NAV_H}px 0px -55% 0px`, threshold: [0, 0.25, 0.5, 1] },
+      { root, rootMargin: `-${headerH + navH}px 0px -55% 0px`, threshold: [0, 0.25, 0.5, 1] },
     );
     visibleSections.forEach((s) => {
       const el = sectionRefs.current[s.id];
       if (el) observer.observe(el);
     });
     return () => observer.disconnect();
-  }, [mode, visibleSections]);
+  }, [mode, visibleSections, headerH, navH]);
 
   // ── R8: on search, scroll the first matching section into view ──
   useEffect(() => {
@@ -496,8 +521,9 @@ export function Settings() {
             saving={saving}
             toast={toast}
             dirty={dirty}
+            rootRef={setHeaderEl}
           />
-          <SectionAnchorNav activeId={activeSection} onJump={jumpToSection} top={HEADER_H} />
+          <SectionAnchorNav activeId={activeSection} onJump={jumpToSection} top={headerH} rootRef={setNavEl} />
 
           <div style={{ display: "flex", flexDirection: "column", gap: S.sectionGap, padding: "20px 4px 80px" }}>
             {visibleSections.length === 0 && (
@@ -514,7 +540,7 @@ export function Settings() {
                 data-section-id={section.id}
                 ref={(el) => { sectionRefs.current[section.id] = el; }}
                 className="glass-surface glass-highlight settings-section-card"
-                style={{ padding: S.pad, borderRadius: "var(--radius-lg)", scrollMarginTop: HEADER_H + NAV_H + 12 }}
+                style={{ padding: S.pad, borderRadius: "var(--radius-lg)", scrollMarginTop: headerH + navH + 12 }}
               >
                 <div style={{ marginBottom: S.gap + 4 }}>
                   <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)", letterSpacing: "-0.01em", display: "flex", alignItems: "center", gap: 8 }}>

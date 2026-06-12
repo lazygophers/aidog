@@ -17,6 +17,8 @@ export interface SettingsHeaderProps {
   toast: string;
   /** Draft differs from last-saved baseline. */
   dirty: boolean;
+  /** callback ref on the sticky root — parent measures actual (possibly multi-row) height */
+  rootRef?: (el: HTMLDivElement | null) => void;
 }
 
 export function SettingsHeader({
@@ -30,10 +32,12 @@ export function SettingsHeader({
   saving,
   toast,
   dirty,
+  rootRef,
 }: SettingsHeaderProps) {
   const { t } = useTranslation();
   return (
     <div
+      ref={rootRef}
       className="settings-sticky-bar"
       style={{
         position: "sticky",
