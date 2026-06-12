@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  groupDetailApi, groupApi, platformApi,
+  groupDetailApi, groupApi, platformApi, onProxyLogUpdated,
   type GroupDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
   type ModelMapping,
 } from "../services/api";
@@ -183,6 +183,9 @@ export function Groups() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // 请求完成后后端 emit "proxy-log-updated" → debounce 重载聚合统计（实时刷新，无需切页）
+  useEffect(() => onProxyLogUpdated(() => { load(); }), []);
 
   // ── Edit handlers ──
 

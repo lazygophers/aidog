@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig } from "../services/api";
 import { getPlatformLogo } from "../assets/platforms";
 import { IconBolt, IconCost, IconCheck, IconClose, IconCoin } from "../components/icons";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
@@ -1097,6 +1097,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   };
 
   useEffect(() => { load(); }, []);
+
+  // 请求完成后后端 emit "proxy-log-updated" → debounce 重载统计（实时刷新，无需切页）
+  useEffect(() => onProxyLogUpdated(() => { load(); }), []);
 
   /** 刷新单个平台 quota（合查 balance + coding_plan） */
   const refreshQuota = async (p: Platform) => {

@@ -109,7 +109,14 @@ fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettin
             log.cache_tokens,
         );
     }
-    let _ = super::db::upsert_proxy_log(&state.db, &log);
+    if super::db::upsert_proxy_log(&state.db, &log).is_ok() {
+        // 日志写库成功后通知前端三页（Platforms/Groups/Stats）实时刷新统计。
+        // app handle 为 None（无 GUI 上下文）时安全跳过，不影响代理逻辑。
+        if let Some(app) = &state.app {
+            use tauri::Emitter;
+            let _ = app.emit("proxy-log-updated", log.platform_id);
+        }
+    }
 }
 
 /// 在后台 tokio::spawn 中执行请求驱动的 quota 预估（不阻塞响应）。
