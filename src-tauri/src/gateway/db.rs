@@ -2067,7 +2067,7 @@ decimals: None,
         assert_eq!(cfg.items[0].line_mode, "two");
     }
 
-    /// serde default：缺 line_mode 字段 → "single"。
+    /// serde default：缺 line_mode 字段 → "two"（default_line_mode）。
     #[test]
     fn tray_item_line_mode_serde_default() {
         let raw = serde_json::json!({
@@ -2076,7 +2076,7 @@ decimals: None,
             "enabled": true, "order": 0
         });
         let item: TrayItem = serde_json::from_value(raw).unwrap();
-        assert_eq!(item.line_mode, "single");
+        assert_eq!(item.line_mode, "two");
     }
 
     /// today_token_total：仅统计今日（本地 0 点起）未删除日志的 input+output。
