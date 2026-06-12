@@ -517,5 +517,17 @@
   "settings.hooks.handler.command": "Befehl",
   "settings.hooks.handler.mcp_tool": "MCP-Tool",
   "settings.hooks.handler.prompt": "LLM-Prompt",
-  "settings.hooks.handler.agent": "Agent-Validierung"
+  "settings.hooks.handler.agent": "Agent-Validierung",
+  "statusline.seg.group-balance.name": "Gruppensaldo",
+  "statusline.seg.group-balance.desc": "Geschätztes Restguthaben der einzelnen Plattform der Gruppe (nur Einzelplattform-Gruppen)",
+  "statusline.seg.group-spent.name": "Gruppenausgaben",
+  "statusline.seg.group-spent.desc": "Kumulierte geschätzte Ausgaben der aktuellen Gruppe (nur Einzelplattform-Gruppen)",
+  "statusline.seg.group-coding.name": "Coding Plan",
+  "statusline.seg.group-coding.desc": "Coding-Plan-Stufenauslastung (nur Einzelplattform-Gruppen)",
+  "statusline.seg.group-requests.name": "Anfragen · Erfolg",
+  "statusline.seg.group-requests.desc": "Anfragenanzahl · Erfolgsrate der Gruppe (nur Einzelplattform-Gruppen)",
+  "statusline.seg.group-cache.name": "Cache-Rate",
+  "statusline.seg.group-cache.desc": "Cache-Trefferquote der Gruppe (nur Einzelplattform-Gruppen)",
+  "statusline.seg.group-tokens.name": "Tokens gesamt",
+  "statusline.seg.group-tokens.desc": "Von der aktuellen Gruppe verwendete Gesamt-Tokens (nur Einzelplattform-Gruppen)"
 }

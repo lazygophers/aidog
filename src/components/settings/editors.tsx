@@ -1659,6 +1659,12 @@ type SegmentType =
   | "effort"         // Effort level
   | "vim"            // Vim mode
   | "separator"      // Visual separator (· or |)
+  | "group-balance"  // aidog group: 预估余额
+  | "group-spent"    // aidog group: 累计预估花费
+  | "group-coding"   // aidog group: coding plan 利用率
+  | "group-requests" // aidog group: 请求数 · 成功率
+  | "group-cache"    // aidog group: 缓存命中率
+  | "group-tokens"   // aidog group: 已使用总 tokens
   | "custom";        // Custom jq expression
 
 interface SegmentDef {
@@ -1673,6 +1679,55 @@ interface SegmentDef {
   toPreview: (opts: Record<string, any>) => string;
   /** Editable fields for the modal */
   fields: { key: string; label: string; type: "string" | "number" | "select"; options?: string[]; placeholder?: string }[];
+}
+
+/** Segment types that consume the shared aidog group-info endpoint. */
+const GROUP_SEG_TYPES = new Set<SegmentType>([
+  "group-balance", "group-spent", "group-coding",
+  "group-requests", "group-cache", "group-tokens",
+]);
+
+/**
+ * Build a bash snippet for an aidog group-info segment.
+ *
+ * Contract (relies on the script prelude `__aidog_fetch_info` having run once):
+ *  - Gracefully degrades to empty output when `$AIDOG_INFO_URL` is unset
+ *    (main settings / non-group settings) or the cached payload is missing /
+ *    not applicable (multi-platform or no-platform group / unreachable endpoint).
+ *  - Reads the cached JSON written by the prelude (`$__AIDOG_INFO_FILE`) so a
+ *    row with several group segments only curls the endpoint once.
+ *  - `jqExpr` is passed verbatim to `jq` (may begin with flags like `-r`);
+ *    it extracts the field(s) for this segment from the cached JSON.
+ *  - `prefix` is a literal label prepended when output is non-empty.
+ */
+function groupSegBash(jqExpr: string, prefix: string): string {
+  const pfx = bashEscapeDq(prefix);
+  return `[ -z "\${AIDOG_INFO_URL:-}" ] && exit 0
+__gi="\${__AIDOG_INFO_FILE:-}"
+[ -z "$__gi" ] || [ ! -s "$__gi" ] && exit 0
+echo "$(cat "$__gi")" | jq -e '.applicable == true' >/dev/null 2>&1 || exit 0
+__val=$(cat "$__gi" | jq ${jqExpr} 2>/dev/null)
+[ -z "$__val" ] && exit 0
+echo -n "${pfx}$__val"`;
+}
+
+/**
+ * Prelude helper: fetch the group-info endpoint at most once per render and
+ * cache the payload in a temp file shared by all group segments on the row.
+ * Short `--max-time` + silent failure so an unreachable endpoint never stalls
+ * the statusline. Emitted only when at least one group segment is active.
+ */
+function aidogFetchPrelude(): string {
+  return `# ── aidog group-info (fetched once, shared by group-* segments) ──
+__AIDOG_INFO_FILE=""
+if [ -n "\${AIDOG_INFO_URL:-}" ]; then
+  __AIDOG_INFO_FILE="\${TMPDIR:-/tmp}/aidog_info_\${AIDOG_GROUP:-_}_$$"
+  curl -fsS --max-time 1 \\
+    -H "X-Aidog-Key: \${AIDOG_KEY:-}" \\
+    --get --data-urlencode "group=\${AIDOG_GROUP:-}" \\
+    "$AIDOG_INFO_URL" > "$__AIDOG_INFO_FILE" 2>/dev/null || : > "$__AIDOG_INFO_FILE"
+fi
+`;
 }
 
 const SEGMENT_DEFS: SegmentDef[] = [
@@ -1810,6 +1865,74 @@ echo -n "$__bar $__pct%"`;
     toPreview: (o) => o.char || " · ",
     fields: [
       { key: "char", label: "分隔符字符", type: "string", placeholder: " · " },
+    ],
+  },
+  {
+    type: "group-balance",
+    name: "分组余额",
+    icon: "bolt",
+    desc: "当前分组单平台预估剩余余额（仅单平台分组）",
+    defaultOptions: { prefix: "余额 " },
+    toBash: (o) => groupSegBash(`'.balance // 0 | (. * 100 | round) / 100' | awk '{printf "%.2f", $0}'`, o.prefix ?? "余额 "),
+    toPreview: (o) => `${o.prefix ?? "余额 "}48.20`,
+    fields: [
+      { key: "prefix", label: "前缀", type: "string", placeholder: "余额 " },
+    ],
+  },
+  {
+    type: "group-spent",
+    name: "分组花费",
+    icon: "bolt",
+    desc: "当前分组累计预估花费（仅单平台分组）",
+    defaultOptions: { prefix: "$" },
+    toBash: (o) => groupSegBash(`'.spent // 0 | (. * 100 | round) / 100' | awk '{printf "%.2f", $0}'`, o.prefix ?? "$"),
+    toPreview: (o) => `${o.prefix ?? "$"}1.23`,
+    fields: [
+      { key: "prefix", label: "前缀", type: "string", placeholder: "$" },
+    ],
+  },
+  {
+    type: "group-coding",
+    name: "Coding Plan",
+    icon: "permissions",
+    desc: "Coding Plan 各档利用率（仅单平台分组）",
+    defaultOptions: {},
+    toBash: () => groupSegBash(`-r '(.coding_plan // []) | map((.name | .[0:2]) + ":" + ((.utilization // 0) | round | tostring) + "%") | join(" ")'`, ""),
+    toPreview: () => "fi:23% we:41%",
+    fields: [],
+  },
+  {
+    type: "group-requests",
+    name: "请求·成功率",
+    icon: "status",
+    desc: "当前分组请求数 · 成功率（仅单平台分组）",
+    defaultOptions: {},
+    toBash: () => groupSegBash(`-r '"\\(.requests // 0)·\\((.success_rate // 0) | round)%"'`, ""),
+    toPreview: () => "128·99%",
+    fields: [],
+  },
+  {
+    type: "group-cache",
+    name: "缓存率",
+    icon: "status",
+    desc: "当前分组缓存命中率（仅单平台分组）",
+    defaultOptions: { prefix: "缓存 " },
+    toBash: (o) => groupSegBash(`-r '"\\((.cache_rate // 0) | round)%"'`, o.prefix ?? "缓存 "),
+    toPreview: (o) => `${o.prefix ?? "缓存 "}37%`,
+    fields: [
+      { key: "prefix", label: "前缀", type: "string", placeholder: "缓存 " },
+    ],
+  },
+  {
+    type: "group-tokens",
+    name: "总 Tokens",
+    icon: "core",
+    desc: "当前分组已使用总 tokens（仅单平台分组）",
+    defaultOptions: { prefix: "" },
+    toBash: (o) => groupSegBash(`-r '(.total_tokens // 0) | if . >= 1000000 then ((. / 100000 | round) / 10 | tostring) + "M" elif . >= 1000 then ((. / 100 | round) / 10 | tostring) + "K" else tostring end'`, o.prefix ?? ""),
+    toPreview: (o) => `${o.prefix ?? ""}1.2M`,
+    fields: [
+      { key: "prefix", label: "前缀", type: "string", placeholder: "" },
     ],
   },
   {
@@ -1965,22 +2088,21 @@ function generateStatusLineScript(segments: StatusLineSegment[], separator: stri
     "",
   ];
 
+  // Fetch the aidog group-info endpoint once (shared by all group-* segments)
+  // before any row renders. Omitted entirely when no group segment is active.
+  if (active.some(s => GROUP_SEG_TYPES.has(s.type))) {
+    lines.push(aidogFetchPrelude());
+  }
+
   const rows = groupRows(active);
 
   for (let i = 0; i < rows.length; i++) {
     const { align, segs } = rows[i];
     lines.push(`# ── row ${i + 1} (${align}) ──`);
     lines.push(`__line${i}=""`);
-    let placed = 0; // count of segments already appended on this row
     for (const seg of segs) {
       const def = SEGMENT_DEF_MAP.get(seg.type);
       if (!def) continue;
-      // Insert the global separator between adjacent items (never before the
-      // first item on the row, never across rows). Plain text, no ANSI.
-      if (placed > 0 && sepLiteral) {
-        lines.push(`__line${i}+="${sepLiteral}"`);
-      }
-      placed++;
       const opts = { ...def.defaultOptions, ...seg.options };
       const body = def.toBash(opts);
       let snippet: string;
@@ -1991,8 +2113,17 @@ function generateStatusLineScript(segments: StatusLineSegment[], separator: stri
         snippet = rgb ? fixedColorBash(body, rgb) : body;
       }
       // Each segment runs in its own subshell; its full (possibly ANSI-wrapped)
-      // output is appended as one unit so word-splitting never severs color codes.
-      lines.push(`__line${i}+="$(\n${snippet}\n)"`);
+      // output is captured as one unit so word-splitting never severs color codes.
+      // The global separator is inserted only when BOTH the row already has
+      // content AND this segment produced non-empty output — so segments that
+      // degrade to empty (group-* without env, effort/vim when absent) never
+      // leave an orphaned separator.
+      lines.push(`__seg="$(\n${snippet}\n)"`);
+      if (sepLiteral) {
+        lines.push(`if [ -n "$__seg" ]; then [ -n "$__line${i}" ] && __line${i}+="${sepLiteral}"; __line${i}+="$__seg"; fi`);
+      } else {
+        lines.push(`__line${i}+="$__seg"`);
+      }
     }
     if (align === "center" || align === "right") {
       // Strip ANSI for visible-width measurement, then pad with printf.
