@@ -2931,7 +2931,10 @@ export function ImportDiffModal({
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
           onClick={() => toggleLeaf(d.path)}>
-          <Toggle active={isSelected} onChange={() => toggleLeaf(d.path)} />
+          {/* 阻止冒泡：否则点开关会触发 Toggle.onChange + 父 div.onClick 双次 toggle 互相抵消 → 看似无效 */}
+          <span onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex" }}>
+            <Toggle active={isSelected} onChange={() => toggleLeaf(d.path)} />
+          </span>
           <span style={{
             fontSize: F.body, fontWeight: 600, color: "var(--text-primary)",
             fontFamily: '"SF Mono", "Fira Code", monospace',
@@ -3023,7 +3026,10 @@ export function ImportDiffModal({
               }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}
                   onClick={() => toggleNode(node)}>
-                  <Toggle active={state !== "off"} onChange={() => toggleNode(node)} />
+                  {/* 同 leaf：阻止冒泡避免 Toggle + 父 div 双次 toggle 抵消 */}
+                  <span onClick={(e) => e.stopPropagation()} style={{ display: "inline-flex" }}>
+                    <Toggle active={state !== "off"} onChange={() => toggleNode(node)} />
+                  </span>
                   <span style={{
                     fontSize: F.body, fontWeight: 600, color: "var(--text-primary)",
                     fontFamily: '"SF Mono", "Fira Code", monospace',
