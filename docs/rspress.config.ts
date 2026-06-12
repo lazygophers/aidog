@@ -1,3 +1,4 @@
+import * as path from 'node:path';
 import { defineConfig } from 'rspress/config';
 
 export default defineConfig({
@@ -7,6 +8,7 @@ export default defineConfig({
   title: 'AiDog',
   description: 'AI API 网关代理 — 多平台聚合、智能路由、用量统计',
   icon: '/logo.svg',
+  globalStyles: path.join(__dirname, 'styles/custom.css'),
   locales: [
     {
       lang: 'zh',

@@ -1,0 +1,22 @@
+[
+  {
+    "text": "快速开始",
+    "link": "/zh/getting-started/quick-start",
+    "activeMatch": "/zh/getting-started"
+  },
+  {
+    "text": "平台管理",
+    "link": "/zh/platforms/add-platform",
+    "activeMatch": "/zh/platforms"
+  },
+  {
+    "text": "分组管理",
+    "link": "/zh/groups/manage-groups",
+    "activeMatch": "/zh/groups"
+  },
+  {
+    "text": "统计",
+    "link": "/zh/stats/usage-stats",
+    "activeMatch": "/zh/stats"
+  }
+]

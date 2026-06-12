@@ -1,44 +1,67 @@
 ---
-title: AiDog — بوابة وكيل API للذكاء الاصطناعي
+pageType: home
+
+hero:
+  name: AiDog
+  text: إدارة موحّدة لبوابة واجهات الذكاء الاصطناعي الخاصة بك
+  tagline: تجميع متعدد المنصات · توجيه ذكي · إحصاءات الاستخدام —— تطبيق سطح مكتب متعدد المنصات لإدارة مفاتيح وطلبات ونفقات جميع منصات الذكاء الاصطناعي
+  actions:
+    - theme: brand
+      text: البدء السريع
+      link: /ar/getting-started/quick-start
+    - theme: alt
+      text: GitHub
+      link: https://github.com/lazygophers/aidog
+
+features:
+  - title: تجميع متعدد المنصات
+    details: إدارة موحّدة لمفاتيح ونقاط نهاية واجهات أكثر من 50 منصة مثل OpenAI وAnthropic وGemini وDeepSeek وTongyi Qianwen.
+    icon: 🧩
+    link: /ar/platforms/add-platform
+  - title: توجيه ذكي
+    details: وفقًا لقواعد المجموعات وتعيين النماذج، يُوجَّه كل طلب تلقائيًا إلى أفضل منصة.
+    icon: 🧭
+    link: /ar/groups/routing-rules
+  - title: إحصاءات الاستخدام
+    details: تتبّع استخدام التوكنات في الوقت الفعلي، وتقدير تكلفة الاستدعاءات، والاستعلام عن أرصدة كل منصة.
+    icon: 📊
+    link: /ar/stats/usage-stats
+  - title: تحويل متعدد البروتوكولات
+    details: تحويل متبادل بين البروتوكولات الأصلية OpenAI Chat / Completions / Responses وAnthropic وGemini.
+    icon: 🔌
+    link: /ar/platforms/protocols
+  - title: تكامل Codex
+    details: دعم أصلي لمساعدي البرمجة مثل OpenAI Codex وClaude Code، مع اتصال بنقرة واحدة.
+    icon: ⚡
+    link: /ar/proxy/codex-integration
+  - title: نظام السجلات
+    details: ثلاثة مستويات لدقة التسجيل، وسياسات احتفاظ قابلة للتهيئة، مع مسار طلبات واضح للعيان.
+    icon: 📑
+    link: /ar/logs/viewing
+  - title: تخصيص السمات
+    details: سمات متعددة مثل Liquid Glass وNord وDracula، مع وضعين فاتح وداكن.
+    icon: 🎨
+    link: /ar/settings/themes
+  - title: علبة النظام
+    details: مقيمة في علبة النظام، وتعرض الرصيد وحالة الوكيل في الوقت الفعلي.
+    icon: 🖥️
+    link: /ar/settings/tray
 ---
 
-# AiDog
+## ثلاث خطوات للبدء
 
-AiDog is a cross-platform desktop app (macOS / Windows / Linux) that acts as an **AI API gateway proxy**, helping you manage API keys for multiple AI platforms, route requests intelligently, and track usage and costs.
+1. **إضافة منصة** —— أدخِل مفتاح API ونقطة النهاية لإحدى منصات الذكاء الاصطناعي
+2. **ضبط عنوان الوكيل** —— وجِّه عميلك إلى وكيل AiDog المحلي
+3. **ابدأ الاستخدام** —— يتم توجيه الطلبات وقياسها وتسجيلها تلقائيًا
 
-## Key Features
+→ [دليل التثبيت](/ar/getting-started/installation) · [البدء السريع](/ar/getting-started/quick-start)
 
-- **Multi-Platform Aggregation** — Manage APIs for 50+ platforms including OpenAI, Anthropic, Gemini, DeepSeek, Qwen, and more
-- **Smart Routing** — Automatically select the best platform by group and model mapping rules, with failover and load balancing
-- **Usage Analytics** — Track token usage in real time, estimate costs, query balances and Coding Plan quotas
-- **Logging System** — Three-level recording granularity, configurable retention policies, full request chain tracing
-- **Model Testing** — One-click connectivity testing with quick, batch, and custom modes
-- **Codex Integration** — Built-in Codex config editor, one-click Claude Code config export
-- **Multi-Protocol Support** — OpenAI Chat/Completions/Responses, Anthropic, Gemini native protocols with automatic inbound/outbound conversion
-- **Theme Customization** — Liquid Glass, Nord, Dracula, and more themes, each with light/dark mode
-- **System Tray** — Persistent tray display of balance, usage, and status with customizable content
-- **Pricing Management** — Built-in model pricing table, auto-sync, custom pricing support
+## المكدّس التقني
 
-## Quick Start
-
-```
-Download the latest release → Launch → Add your first platform → Set proxy address → Start using
-```
-
-→ [Installation Guide](/getting-started/installation) · [Quick Start](/getting-started/quick-start)
-
-## App Overview
-
-The AiDog main interface contains these pages:
-
-| Page | Function |
-|------|----------|
-| **Platforms** | Manage all AI platform connections, endpoints, models, and balances |
-| **Groups** | Organize platforms by use case, configure routing strategies and model mapping |
-| **Statistics** | Usage stats, cost estimation, balance query, pricing management |
-| **Logs** | View complete request chain details for every proxied request |
-| **Settings** | Proxy config, Claude Code settings, Codex settings, model pricing, system tray |
-
-## Screenshots
-
-> Screenshots coming soon
+| الطبقة | التقنية |
+|---|---|
+| إطار سطح المكتب | Tauri 2.0 |
+| الواجهة الأمامية | React 19 + TypeScript |
+| الخلفية | Rust + Axum |
+| قاعدة البيانات | SQLite |
+| البناء | Vite + Yarn |

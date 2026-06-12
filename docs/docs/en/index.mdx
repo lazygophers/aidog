@@ -1,44 +1,67 @@
 ---
-title: AiDog — AI API Gateway Proxy
+pageType: home
+
+hero:
+  name: AiDog
+  text: Manage all your AI API gateways in one place
+  tagline: Multi-platform aggregation · Smart routing · Usage stats —— a cross-platform desktop app that manages the keys, requests, and spending of all your AI platforms
+  actions:
+    - theme: brand
+      text: Quick Start
+      link: /en/getting-started/quick-start
+    - theme: alt
+      text: GitHub
+      link: https://github.com/lazygophers/aidog
+
+features:
+  - title: Multi-platform aggregation
+    details: Manage API keys and endpoints for 50+ platforms such as OpenAI, Anthropic, Gemini, DeepSeek, and Qwen in one place.
+    icon: 🧩
+    link: /en/platforms/add-platform
+  - title: Smart routing
+    details: Automatically forward each request to the best platform based on group and model mapping rules.
+    icon: 🧭
+    link: /en/groups/routing-rules
+  - title: Usage stats
+    details: Track token usage in real time, estimate call costs, and query the balance of each platform.
+    icon: 📊
+    link: /en/stats/usage-stats
+  - title: Multi-protocol conversion
+    details: Convert between OpenAI Chat / Completions / Responses, Anthropic, and Gemini native protocols.
+    icon: 🔌
+    link: /en/platforms/protocols
+  - title: Codex integration
+    details: Native support for coding assistants like OpenAI Codex and Claude Code, with one-click setup.
+    icon: ⚡
+    link: /en/proxy/codex-integration
+  - title: Logging system
+    details: Three levels of logging granularity and configurable retention policies make the request chain crystal clear.
+    icon: 📑
+    link: /en/logs/viewing
+  - title: Theme customization
+    details: Multiple themes such as Liquid Glass, Nord, and Dracula, with both light and dark modes.
+    icon: 🎨
+    link: /en/settings/themes
+  - title: System tray
+    details: Lives in the system tray, showing balance and proxy status in real time.
+    icon: 🖥️
+    link: /en/settings/tray
 ---
 
-# AiDog
+## Three steps to get started
 
-AiDog is a cross-platform desktop app (macOS / Windows / Linux) that acts as an **AI API gateway proxy**, helping you manage API keys for multiple AI platforms, route requests intelligently, and track usage and costs.
+1. **Add a platform** —— enter the API key and endpoint of an AI platform
+2. **Set the proxy address** —— point your client to the AiDog local proxy
+3. **Start using it** —— requests are automatically routed, metered, and logged
 
-## Key Features
+→ [Installation Guide](/en/getting-started/installation) · [Quick Start](/en/getting-started/quick-start)
 
-- **Multi-Platform Aggregation** — Manage APIs for 50+ platforms including OpenAI, Anthropic, Gemini, DeepSeek, Qwen, and more
-- **Smart Routing** — Automatically select the best platform by group and model mapping rules, with failover and load balancing
-- **Usage Analytics** — Track token usage in real time, estimate costs, query balances and Coding Plan quotas
-- **Logging System** — Three-level recording granularity, configurable retention policies, full request chain tracing
-- **Model Testing** — One-click connectivity testing with quick, batch, and custom modes
-- **Codex Integration** — Built-in Codex config editor, one-click Claude Code config export
-- **Multi-Protocol Support** — OpenAI Chat/Completions/Responses, Anthropic, Gemini native protocols with automatic inbound/outbound conversion
-- **Theme Customization** — Liquid Glass, Nord, Dracula, and more themes, each with light/dark mode
-- **System Tray** — Persistent tray display of balance, usage, and status with customizable content
-- **Pricing Management** — Built-in model pricing table, auto-sync, custom pricing support
+## Tech stack
 
-## Quick Start
-
-```
-Download the latest release → Launch → Add your first platform → Set proxy address → Start using
-```
-
-→ [Installation Guide](/getting-started/installation) · [Quick Start](/getting-started/quick-start)
-
-## App Overview
-
-The AiDog main interface contains these pages:
-
-| Page | Function |
-|------|----------|
-| **Platforms** | Manage all AI platform connections, endpoints, models, and balances |
-| **Groups** | Organize platforms by use case, configure routing strategies and model mapping |
-| **Statistics** | Usage stats, cost estimation, balance query, pricing management |
-| **Logs** | View complete request chain details for every proxied request |
-| **Settings** | Proxy config, Claude Code settings, Codex settings, model pricing, system tray |
-
-## Screenshots
-
-> Screenshots coming soon
+| Layer | Technology |
+|---|---|
+| Desktop framework | Tauri 2.0 |
+| Frontend | React 19 + TypeScript |
+| Backend | Rust + Axum |
+| Database | SQLite |
+| Build | Vite + Yarn |

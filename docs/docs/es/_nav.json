@@ -1,0 +1,22 @@
+[
+  {
+    "text": "Inicio rápido",
+    "link": "/es/getting-started/quick-start",
+    "activeMatch": "/es/getting-started"
+  },
+  {
+    "text": "Plataformas",
+    "link": "/es/platforms/add-platform",
+    "activeMatch": "/es/platforms"
+  },
+  {
+    "text": "Grupos",
+    "link": "/es/groups/manage-groups",
+    "activeMatch": "/es/groups"
+  },
+  {
+    "text": "Estadísticas",
+    "link": "/es/stats/usage-stats",
+    "activeMatch": "/es/stats"
+  }
+]
