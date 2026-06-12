@@ -465,5 +465,21 @@
   "platform.newapiUserId": "用户 ID",
   "platform.newapiUserIdPlaceholder": "数字 ID（可选）",
   "platform.newapiBalanceUrl": "余额查询地址",
-  "platform.newapiBalanceUrlPlaceholder": "https://your-newapi-instance.com"
+  "platform.newapiBalanceUrlPlaceholder": "https://your-newapi-instance.com",
+  "statusline.preview": "预览",
+  "statusline.previewEmpty": "(空)",
+  "statusline.segNewline": "换行显示（在此段前插入新行）",
+  "statusline.rowLabel": "行",
+  "statusline.rowAlign": "行对齐",
+  "statusline.align.left": "左对齐",
+  "statusline.align.center": "居中",
+  "statusline.align.right": "右对齐",
+  "statusline.color": "颜色",
+  "statusline.autoColor": "按值自动上色",
+  "statusline.clearColor": "清除",
+  "statusline.cancel": "取消",
+  "statusline.save": "保存",
+  "statusline.addRow": "+ 添加行",
+  "statusline.addSegment": "+ 添加段",
+  "statusline.toggleNewline": "另起一行"
 }

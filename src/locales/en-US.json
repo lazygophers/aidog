@@ -346,5 +346,21 @@
   "platform.newapiUserId": "User ID",
   "platform.newapiUserIdPlaceholder": "Numeric ID (optional)",
   "platform.newapiBalanceUrl": "Balance Query URL",
-  "platform.newapiBalanceUrlPlaceholder": "https://your-newapi-instance.com"
+  "platform.newapiBalanceUrlPlaceholder": "https://your-newapi-instance.com",
+  "statusline.preview": "Preview",
+  "statusline.previewEmpty": "(empty)",
+  "statusline.segNewline": "Break to new line (insert a line break before this segment)",
+  "statusline.rowLabel": "Row",
+  "statusline.rowAlign": "Row alignment",
+  "statusline.align.left": "Left",
+  "statusline.align.center": "Center",
+  "statusline.align.right": "Right",
+  "statusline.color": "Color",
+  "statusline.autoColor": "Auto-color by value",
+  "statusline.clearColor": "Clear",
+  "statusline.cancel": "Cancel",
+  "statusline.save": "Save",
+  "statusline.addRow": "+ Add row",
+  "statusline.addSegment": "+ Add segment",
+  "statusline.toggleNewline": "Break to new line"
 }
