@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import { settingsApi, claudeSettingsImportApi } from "../services/api";
+import { settingsApi, claudeSettingsImportApi, configApi } from "../services/api";
 import { registerNavGuard } from "../utils/navGuard";
 import { UnsavedChangesModal } from "../components/settings/UnsavedChangesModal";
 import { SECTIONS, RECOMMENDED_CONFIG } from "../services/claude-settings-schema";
@@ -129,6 +129,14 @@ export function Settings() {
       setEditJson(JSON.stringify(value, null, 2));
       // Refresh the baseline → draft becomes non-dirty.
       setBaseline(stableStringify(value));
+      // Re-sync per-group `settings.{group}.json` so changes that live in the
+      // effective files (statusLine, etc.) actually take effect. Best-effort:
+      // never block the save if syncing fails.
+      try {
+        await configApi.syncGroupSettings();
+      } catch (e) {
+        console.error("sync_group_settings:", e);
+      }
       setToast(t("settings.saved"));
       setTimeout(() => setToast(""), 2000);
       setSaving(false);

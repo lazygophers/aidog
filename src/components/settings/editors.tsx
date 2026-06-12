@@ -2,7 +2,7 @@
 // Extracted verbatim from the former monolithic Settings.tsx (D1 split).
 // Behavior is unchanged; only module boundaries moved.
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import { statuslineApi } from "../../services/api";
@@ -3243,6 +3243,40 @@ function StatusLinePanel({
     }
     setSaving(false);
   };
+
+  // Auto-maintain the native `statusLine` / `subagentStatusLine` field whenever the
+  // built-in mode is enabled, so users no longer need to click "generate" by hand.
+  // The effect keys off the *real inputs* (scriptPreview / padding / hideVim / enabled),
+  // NOT the generated path, and skips the write when the resulting value is unchanged —
+  // this keeps `updateField` idempotent so the dirty state never thrashes / loops.
+  const lastWrittenRef = useRef<string>("");
+  useEffect(() => {
+    if (!enabled || mode !== "builtin") return;
+    let cancelled = false;
+    const timer = setTimeout(async () => {
+      try {
+        const path = await statuslineApi.generate(scriptType, scriptPreview);
+        if (cancelled) return;
+        const value: Record<string, any> = { type: "command", command: path };
+        if (isMain && padding > 0) value.padding = padding;
+        if (isMain && hideVimModeIndicator) value.hideVimModeIndicator = true;
+        const signature = JSON.stringify(value);
+        // Skip when the field already holds this exact value → no spurious dirty.
+        const current = config[fieldName];
+        if (signature === lastWrittenRef.current && JSON.stringify(current) === signature) return;
+        lastWrittenRef.current = signature;
+        updateField(fieldName, value);
+      } catch (e: any) {
+        console.error("auto generate_statusline_script:", e);
+      }
+    }, 500);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+    // Depends on real inputs only (scriptPreview captures segments/separator/template).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [enabled, mode, scriptPreview, padding, hideVimModeIndicator, scriptType, isMain, fieldName]);
 
   // Apply custom mode: write the native Claude Code statusLine command directly,
   // bypassing aidog script generation. Empty command clears the field.
