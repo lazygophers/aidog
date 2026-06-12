@@ -18,5 +18,10 @@
     "text": "الإحصائيات",
     "link": "/ar/stats/usage-stats",
     "activeMatch": "/ar/stats"
+  },
+  {
+    "text": "مرجع API",
+    "link": "/ar/api/api-reference",
+    "activeMatch": "/ar/api"
   }
 ]

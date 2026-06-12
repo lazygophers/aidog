@@ -186,6 +186,9 @@ export function Settings() {
       // from their `_aidog_*` drafts — must run BEFORE persisting so the native
       // fields are always in sync with the toggle/mode the user just saved.
       const value = await materializeStatuslineFields(draft);
+      // Strip internal aidog UI state — not a real Claude Code field.
+      delete value._aidog_statusline;
+      delete value._aidog_subagent_statusline;
       await settingsApi.set("global", CONFIG_KEY, value);
       setConfig(value);
       setEditJson(JSON.stringify(value, null, 2));

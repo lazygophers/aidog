@@ -25,8 +25,8 @@
     "activeMatch": "/en/api"
   },
   {
-    "text": "API Reference",
-    "link": "/en/api/api-reference",
-    "activeMatch": "/en/api"
+    "text": "Справочник API",
+    "link": "/ru/api/api-reference",
+    "activeMatch": "/ru/api"
   }
 ]

@@ -18,5 +18,15 @@
     "text": "Statistiken",
     "link": "/de/stats/usage-stats",
     "activeMatch": "/de/stats"
+  },
+  {
+    "text": "API-Referenz",
+    "link": "/de/api/api-reference",
+    "activeMatch": "/de/api"
+  },
+  {
+    "text": "API-Referenz",
+    "link": "/de/api/api-reference",
+    "activeMatch": "/de/api"
   }
 ]

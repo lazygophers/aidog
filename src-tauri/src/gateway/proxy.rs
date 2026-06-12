@@ -1,9 +1,9 @@
 use axum::{
     body::Body,
-    extract::{Query, Request, State as AxumState},
+    extract::{Request, State as AxumState},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::get,
+    routing::post,
     Json, Router,
 };
 use futures::StreamExt;
@@ -46,7 +46,7 @@ pub async fn start_proxy(
     let state = Arc::new(ProxyState { db, app });
 
     let app = Router::new()
-        .route("/__aidog/group-info", get(handle_group_info))
+        .route("/api/group-info", post(handle_group_info))
         .fallback(handle_proxy)
         .with_state(state);
 
@@ -72,14 +72,6 @@ pub async fn start_proxy(
     });
 
     Ok((handle, actual_port))
-}
-
-/// `GET /__aidog/group-info` 入参（query）
-#[derive(serde::Deserialize)]
-struct GroupInfoQuery {
-    group: String,
-    #[serde(default)]
-    key: String,
 }
 
 /// statusline 段消费的本地预估信息（只读，不上游真查）
@@ -114,12 +106,10 @@ struct CodingTierResp {
 }
 
 /// 分组信息端点 — 仅单平台分组返回本地预估值。
-/// 鉴权：query `key` 必须等于该分组单平台 api_key，否则 401。
+/// 鉴权：`Authorization: Bearer <group_name>`，localhost-only 端点。
 /// 多平台 / 无平台分组返回 `{ applicable:false, ... }`（200）。
-/// header `X-Aidog-Key` 亦可携带 key（优先于 query，避免进程列表暴露）。
 async fn handle_group_info(
     AxumState(state): AxumState<Arc<ProxyState>>,
-    Query(q): Query<GroupInfoQuery>,
     headers: axum::http::HeaderMap,
 ) -> Response {
     let empty = || GroupInfoResp {
@@ -135,12 +125,23 @@ async fn handle_group_info(
         balance_days_remaining: None,
     };
 
+    // 从 Authorization: Bearer <token> 提取 group_name
+    let group_name = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(|s| s.trim().to_string());
+    let group_name = match group_name {
+        Some(n) if !n.is_empty() => n,
+        _ => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+
     // 定位分组
     let groups = match super::db::list_groups(&state.db) {
         Ok(g) => g,
         Err(_) => return (StatusCode::OK, Json(empty())).into_response(),
     };
-    let group = match groups.iter().find(|g| g.name == q.group) {
+    let group = match groups.iter().find(|g| g.name == group_name) {
         Some(g) => g,
         None => return (StatusCode::OK, Json(empty())).into_response(),
     };
@@ -154,17 +155,6 @@ async fn handle_group_info(
         return (StatusCode::OK, Json(empty())).into_response();
     }
     let platform = &platforms[0].platform;
-
-    // 鉴权：header X-Aidog-Key 优先，回退 query key
-    let provided_key = headers
-        .get("x-aidog-key")
-        .and_then(|v| v.to_str().ok())
-        .map(|s| s.to_string())
-        .filter(|s| !s.is_empty())
-        .unwrap_or(q.key);
-    if provided_key.is_empty() || provided_key != platform.api_key {
-        return StatusCode::UNAUTHORIZED.into_response();
-    }
 
     // usage 统计（复用现有 db 查询，只读）
     let stats = super::db::get_group_usage_stats(&state.db, &group.name).unwrap_or(

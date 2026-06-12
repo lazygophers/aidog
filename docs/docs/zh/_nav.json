@@ -18,5 +18,15 @@
     "text": "统计",
     "link": "/zh/stats/usage-stats",
     "activeMatch": "/zh/stats"
+  },
+  {
+    "text": "API 接口",
+    "link": "/zh/api/api-reference",
+    "activeMatch": "/zh/api"
+  },
+  {
+    "text": "API 接口",
+    "link": "/zh/api/api-reference",
+    "activeMatch": "/zh/api"
   }
 ]

@@ -18,5 +18,15 @@
     "text": "統計",
     "link": "/ja/stats/usage-stats",
     "activeMatch": "/ja/stats"
+  },
+  {
+    "text": "API リファレンス",
+    "link": "/ja/api/api-reference",
+    "activeMatch": "/ja/api"
+  },
+  {
+    "text": "API リファレンス",
+    "link": "/ja/api/api-reference",
+    "activeMatch": "/ja/api"
   }
 ]

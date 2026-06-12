@@ -756,12 +756,6 @@ fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
     }
 }
 
-/// POSIX shell 单引号安全转义：返回可直接拼接进命令行的单引号包裹 token，
-/// 内部单引号用 `'\''` 序列闭合 / 转义 / 重开，杜绝参数注入。
-fn shell_squote(s: &str) -> String {
-    format!("'{}'", s.replace('\'', "'\\''"))
-}
-
 /// 为所有分组生成 settings.{group_name}.json 配置文件到 ~/.aidog/ 目录
 /// 核心逻辑：可被多个触发点调用
 fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
@@ -796,9 +790,6 @@ fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
 
         let mut config = base_config.clone();
 
-        // 单平台分组：group-info 端点参数 (url, group, key)，稍后追加到 statusLine command。
-        let mut statusline_args: Option<(String, String, String)> = None;
-
         // Set proxy routing fields inside env
         if let Some(obj) = config.as_object_mut() {
             if !obj.contains_key("env") {
@@ -813,72 +804,13 @@ fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
                     "ANTHROPIC_AUTH_TOKEN".to_string(),
                     serde_json::Value::String(group_name.clone()),
                 );
-
-                // 仅单平台分组额外注入 statusline group-info 端点 env：
-                // AIDOG_INFO_URL / AIDOG_GROUP / AIDOG_KEY（该平台 api_key 作鉴权密钥）。
-                // 多平台 / 无平台分组不注入这三个 env，statusline 段据此优雅降级。
-                if let Ok(platforms) = gateway::db::get_group_platforms(db, group.id) {
-                    if platforms.len() == 1 {
-                        let info_url =
-                            format!("http://127.0.0.1:{}/__aidog/group-info", port);
-                        let api_key = platforms[0].platform.api_key.clone();
-                        env_map.insert(
-                            "AIDOG_INFO_URL".to_string(),
-                            serde_json::Value::String(info_url.clone()),
-                        );
-                        env_map.insert(
-                            "AIDOG_GROUP".to_string(),
-                            serde_json::Value::String(group_name.clone()),
-                        );
-                        env_map.insert(
-                            "AIDOG_KEY".to_string(),
-                            serde_json::Value::String(api_key.clone()),
-                        );
-                        statusline_args =
-                            Some((info_url, group_name.clone(), api_key));
-                    }
-                }
             }
         }
 
-        // Claude Code 不把 settings 的 env 转发给 statusLine 子进程，所以单平台分组
-        // 把 group-info 端点 url/group/key 作为位置参数追加到 statusLine /
-        // subagentStatusLine 的 command（脚本头部位置参数优先、env 兜底）。仅当
-        // command 指向 aidog 生成脚本（含 "aidog-statusline" / "aidog-subagent-statusline"）
-        // 时追加，避免污染用户自定义 command。
-        if let Some((url, grp, key)) = &statusline_args {
-            if let Some(obj) = config.as_object_mut() {
-                for field in ["statusLine", "subagentStatusLine"] {
-                    if let Some(cmd_obj) =
-                        obj.get_mut(field).and_then(|v| v.as_object_mut())
-                    {
-                        let is_command = cmd_obj
-                            .get("type")
-                            .and_then(|v| v.as_str())
-                            .is_none_or(|t| t == "command");
-                        let cmd = cmd_obj
-                            .get("command")
-                            .and_then(|v| v.as_str())
-                            .map(|s| s.to_string());
-                        if let Some(cmd) = cmd {
-                            let is_aidog = cmd.contains("aidog-statusline")
-                                || cmd.contains("aidog-subagent-statusline");
-                            if is_command && is_aidog {
-                                let augmented = format!(
-                                    "{cmd} {} {} {}",
-                                    shell_squote(url),
-                                    shell_squote(grp),
-                                    shell_squote(key),
-                                );
-                                cmd_obj.insert(
-                                    "command".to_string(),
-                                    serde_json::Value::String(augmented),
-                                );
-                            }
-                        }
-                    }
-                }
-            }
+        // Strip internal aidog UI state — not real Claude Code fields.
+        if let Some(obj) = config.as_object_mut() {
+            obj.remove("_aidog_statusline");
+            obj.remove("_aidog_subagent_statusline");
         }
 
         let file_path = aidog_dir.join(format!("settings.{}.json", group_name));
