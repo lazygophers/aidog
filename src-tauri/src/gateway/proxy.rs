@@ -6,7 +6,6 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use std::collections::HashMap;
 use futures::StreamExt;
 use reqwest::Client;
 use serde_json::Value;
