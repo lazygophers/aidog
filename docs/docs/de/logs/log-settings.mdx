@@ -1,0 +1,41 @@
+---
+title: Log-Einstellungen
+---
+
+# Log-Einstellungen
+
+Auf der Seite **„Einstellungen"** steuern Sie die Aufzeichnungsgranularität und die Aufbewahrungsdauer der Logs und schaffen so ein Gleichgewicht zwischen Beobachtbarkeit und Datenschutz / Speicherplatzbedarf.
+
+## Aufzeichnungsstufen
+
+Die Log-Aufzeichnung hat drei Schalter, die stufenweise wirken:
+
+| Stufe | Beschreibung | Standard |
+|------|------|------|
+| Hauptschalter | Im ausgeschalteten Zustand werden überhaupt keine Proxy-Logs aufgezeichnet | Ein |
+| Ursprüngliche Benutzeranfrage aufzeichnen | Zeichnet die vom Client gesendeten ursprünglichen Anfrage-Header und den Anfragetext auf | Aus |
+| Upstream-Anfrage aufzeichnen | Zeichnet die konvertierten, an den Upstream gesendeten Anfrage-Header und den Anfragetext auf | Aus |
+
+:::warning
+Der Anfragetext kann sensible Inhalte enthalten (Prompts, Schlüssel usw.). Stellen Sie vor dem Aktivieren von „Ursprüngliche Benutzeranfrage aufzeichnen" oder „Upstream-Anfrage aufzeichnen" sicher, dass die lokale Umgebung vertrauenswürdig ist.
+:::
+
+## Aufbewahrungsdauer
+
+Logs werden nach drei unabhängigen Aufbewahrungsdauern bereinigt:
+
+| Typ | Standard | Bereinigungsweise |
+|------|------|----------|
+| Ursprüngliche Benutzeranfrage | 7 Tage | Nur das Anfragetext-Feld wird geleert, die Log-Zeile bleibt erhalten |
+| Upstream-Anfrage | 7 Tage | Nur das Anfragetext-Feld wird geleert, die Log-Zeile bleibt erhalten |
+| Log-Eintrag | 90 Tage | Der gesamte Log-Eintrag wird gelöscht |
+
+Mit anderen Worten: Der Anfragetext, der älter als 7 Tage ist, wird geleert (die Statistikinformationen bleiben erhalten), und Logs, die älter als 90 Tage sind, werden vollständig gelöscht.
+
+## Manuelle Bereinigung
+
+Unter **„Einstellungen" → „Datenverwaltung"** können Sie jederzeit manuell „Abgelaufene Logs bereinigen" auslösen, wodurch die Bereinigung sofort gemäß den oben genannten Aufbewahrungsregeln ausgeführt wird.
+
+## Datenspeicherung
+
+Alle Logs werden in der lokalen Datenbank `~/.aidog/aidog.db` gespeichert und an keinen Server hochgeladen.

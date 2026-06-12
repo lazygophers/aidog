@@ -1,0 +1,50 @@
+---
+title: Viewing Logs
+---
+
+# Viewing Logs
+
+The **Logs** page records every proxy request that passes through AiDog, making it easy to troubleshoot routing, protocol conversion, and upstream response issues.
+
+## Log List
+
+Each log entry shows the following information:
+
+| Field | Description |
+|------|------|
+| Group | Name of the matched group |
+| Model | Original model requested by the client |
+| Actual Model | Model sent to the upstream after model mapping |
+| Protocol | Inbound protocol → upstream protocol |
+| Platform | Platform that actually handled the request |
+| Status | HTTP status code (success / failure) |
+| Duration | Total request duration (milliseconds) |
+| Token | Number of input / output / cache tokens |
+| Time | When the request occurred |
+
+The list shows 50 entries per page with pagination support.
+
+## Filtering
+
+Use the filters at the top to quickly locate logs:
+
+- **Platform**: filter by a specific platform
+- **Group**: filter by group
+- **Status**: success only / failure only
+- **Time range**: all / last 1 hour / 6 hours / 24 hours / 7 days / 30 days
+- **Model**: search by original or actual model name
+
+## Request Details
+
+Click any log entry to expand its details and view the complete request chain:
+
+- **User request**: original request URL, request headers, request body
+- **Upstream request**: the converted URL, request headers, and request body sent to the upstream
+- **Upstream response**: status code, response headers, and response body returned by the upstream
+- **User response**: the final response headers and response body returned to the client
+
+Details support one-click copy, making it easy to paste into a support ticket or debugging tool.
+
+:::tip
+The "User request" and "Upstream request" content recorded in the details is controlled by the log settings. By default, the request body is not recorded. See [Log Settings](/logs/log-settings) for more.
+:::

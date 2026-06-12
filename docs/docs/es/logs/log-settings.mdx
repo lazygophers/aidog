@@ -1,0 +1,41 @@
+---
+title: Configuración de registros
+---
+
+# Configuración de registros
+
+En la página **«Configuración»** puedes controlar la granularidad del registro y el período de retención de los registros, equilibrando la observabilidad con la privacidad y el uso del disco.
+
+## Niveles de registro
+
+El registro tiene tres niveles de interruptores, que surten efecto de forma escalonada:
+
+| Nivel | Descripción | Predeterminado |
+|------|------|------|
+| Interruptor principal | Si se desactiva, no se registra ningún registro de proxy en absoluto | Activado |
+| Registrar solicitud original del usuario | Registra los encabezados de la solicitud y el cuerpo de la solicitud originales enviados por el cliente | Desactivado |
+| Registrar solicitud al upstream | Registra los encabezados de la solicitud y el cuerpo de la solicitud convertidos y enviados al upstream | Desactivado |
+
+:::warning
+El cuerpo de la solicitud puede contener contenido sensible (prompts, claves, etc.). Antes de activar «Registrar solicitud original del usuario» o «Registrar solicitud al upstream», asegúrate de que el entorno local es de confianza.
+:::
+
+## Período de retención
+
+Los registros se depuran según tres tipos independientes de período de retención:
+
+| Tipo | Predeterminado | Forma de depuración |
+|------|------|----------|
+| Solicitud original del usuario | 7 días | Solo se vacía el campo del cuerpo de la solicitud, conservando la fila del registro |
+| Solicitud al upstream | 7 días | Solo se vacía el campo del cuerpo de la solicitud, conservando la fila del registro |
+| Registro | 90 días | Se elimina el registro completo |
+
+Es decir, el cuerpo de la solicitud con más de 7 días se vacía (la información estadística se conserva), y los registros con más de 90 días se eliminan por completo.
+
+## Depuración manual
+
+En **«Configuración» → «Gestión de datos»** puedes ejecutar en cualquier momento la «Depuración de registros caducados» de forma manual, lo que aplica de inmediato las reglas de retención descritas arriba.
+
+## Almacenamiento de datos
+
+Todos los registros se almacenan en la base de datos local `~/.aidog/aidog.db` y no se suben a ningún servidor.

@@ -1,0 +1,50 @@
+---
+title: Ver registros
+---
+
+# Ver registros
+
+La página **«Registros»** registra cada solicitud de proxy que pasa por AiDog, lo que facilita diagnosticar problemas de enrutamiento, conversión de protocolos y respuestas del upstream (servidor de origen).
+
+## Lista de registros
+
+Cada registro muestra la siguiente información:
+
+| Campo | Descripción |
+|------|------|
+| Grupos | Nombre del grupo coincidente |
+| Modelo | Modelo original solicitado por el cliente |
+| Modelo real | Modelo enviado al upstream tras el mapeo de modelos |
+| Protocolo | Protocolo de entrada → protocolo del upstream |
+| Plataformas | Plataforma que procesó realmente la solicitud |
+| Estado | Código de estado HTTP (éxito / fallo) |
+| Duración | Duración total de la solicitud (milisegundos) |
+| Token | Cantidad de tokens de entrada / salida / caché |
+| Hora | Hora en que ocurrió la solicitud |
+
+La lista muestra 50 registros por página y permite paginación.
+
+## Filtrado
+
+Localiza registros rápidamente mediante los filtros de la parte superior:
+
+- **Plataformas**: filtrar por una plataforma específica
+- **Grupos**: filtrar por grupo
+- **Estado**: solo éxito / solo fallo
+- **Rango de tiempo**: todo / última 1 hora / 6 horas / 24 horas / 7 días / 30 días
+- **Modelo**: buscar por nombre del modelo original o del modelo real
+
+## Detalles de la solicitud
+
+Haz clic en cualquier registro para expandir los detalles y ver la cadena completa de la solicitud:
+
+- **Solicitud del usuario**: URL, encabezados de la solicitud y cuerpo de la solicitud originales
+- **Solicitud al upstream**: URL, encabezados de la solicitud y cuerpo de la solicitud convertidos y enviados al upstream
+- **Respuesta del upstream**: código de estado, encabezados de respuesta y cuerpo de respuesta devueltos por el upstream
+- **Respuesta al usuario**: encabezados de respuesta y cuerpo de respuesta finales devueltos al cliente
+
+Los detalles admiten copiarse con un solo clic, lo que facilita pegarlos en tickets de soporte o herramientas de depuración.
+
+:::tip
+El contenido de la «Solicitud del usuario» y la «Solicitud al upstream» registrado en los detalles está controlado por la configuración de registros; de forma predeterminada no se registra el cuerpo de la solicitud. Consulta [Configuración de registros](/logs/log-settings) para más información.
+:::

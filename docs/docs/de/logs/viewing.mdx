@@ -1,0 +1,50 @@
+---
+title: Logs anzeigen
+---
+
+# Logs anzeigen
+
+Die Seite **„Logs"** zeichnet jede Proxy-Anfrage auf, die AiDog durchläuft, und erleichtert so die Fehlersuche bei Routing, Protokollkonvertierung und Upstream-Antworten.
+
+## Log-Liste
+
+Jeder Log-Eintrag zeigt folgende Informationen:
+
+| Feld | Beschreibung |
+|------|------|
+| Gruppe | Name der getroffenen Gruppe |
+| Modell | Das vom Client ursprünglich angefragte Modell |
+| Tatsächliches Modell | Das nach der Modellzuordnung an den Upstream gesendete Modell |
+| Protokoll | Eingehendes Protokoll → Upstream-Protokoll |
+| Plattform | Die Plattform, die die Anfrage tatsächlich verarbeitet hat |
+| Status | HTTP-Statuscode (Erfolg / Fehler) |
+| Dauer | Gesamtdauer der Anfrage (Millisekunden) |
+| Token | Anzahl der Token für Eingabe / Ausgabe / Cache |
+| Zeit | Zeitpunkt der Anfrage |
+
+Die Liste zeigt 50 Einträge pro Seite und unterstützt das Blättern.
+
+## Filtern
+
+Über die Filter am oberen Rand finden Sie Logs schnell:
+
+- **Plattform**: Nach einer bestimmten Plattform filtern
+- **Gruppe**: Nach Gruppe filtern
+- **Status**: Nur Erfolg / Nur Fehler
+- **Zeitraum**: Alle / Letzte 1 Stunde / 6 Stunden / 24 Stunden / 7 Tage / 30 Tage
+- **Modell**: Nach dem ursprünglichen oder dem tatsächlichen Modellnamen suchen
+
+## Anfragedetails
+
+Klicken Sie auf einen beliebigen Log-Eintrag, um die Details aufzuklappen und den vollständigen Anfrageverlauf einzusehen:
+
+- **Benutzeranfrage**: Ursprüngliche Anfrage-URL, Anfrage-Header, Anfragetext
+- **Upstream-Anfrage**: Konvertierte und an den Upstream gesendete URL, Anfrage-Header, Anfragetext
+- **Upstream-Antwort**: Vom Upstream zurückgegebener Statuscode, Antwort-Header, Antworttext
+- **Benutzerantwort**: Die letztlich an den Client zurückgegebenen Antwort-Header und der Antworttext
+
+Die Details lassen sich per Klick kopieren, um sie etwa in ein Ticket oder ein Debugging-Tool einzufügen.
+
+:::tip
+Die in den Details aufgezeichneten Inhalte von „Benutzeranfrage" und „Upstream-Anfrage" werden durch die Log-Einstellungen gesteuert; standardmäßig wird der Anfragetext nicht aufgezeichnet. Siehe [Log-Einstellungen](/logs/log-settings).
+:::
