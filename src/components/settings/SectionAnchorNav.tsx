@@ -11,12 +11,15 @@ export interface SectionAnchorNavProps {
   onJump: (id: string) => void;
   /** sticky top offset (px) — sits below the header */
   top: number;
+  /** callback ref on the sticky root — parent measures actual (possibly multi-row) height */
+  rootRef?: (el: HTMLDivElement | null) => void;
 }
 
-export function SectionAnchorNav({ activeId, onJump, top }: SectionAnchorNavProps) {
+export function SectionAnchorNav({ activeId, onJump, top, rootRef }: SectionAnchorNavProps) {
   const { t } = useTranslation();
   return (
     <div
+      ref={rootRef}
       className="settings-sticky-bar"
       style={{
         position: "sticky",
