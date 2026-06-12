@@ -1,22 +1,16 @@
 /// Proxy 错误消息多语言支持。
 /// 从 DB 读取 app locale，返回对应语言的错误消息。
-
 /// 支持的语言标识
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum Lang {
     ZhCn,
+    #[default]
     EnUs,
     JaJp,
     FrFr,
     DeDe,
     RuRu,
     ArSa,
-}
-
-impl Default for Lang {
-    fn default() -> Self {
-        Self::EnUs
-    }
 }
 
 impl Lang {

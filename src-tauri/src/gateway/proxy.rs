@@ -167,7 +167,7 @@ async fn handle_group_info(
     }
 
     // usage 统计（复用现有 db 查询，只读）
-    let stats = super::db::get_group_usage_stats(&state.db, &group.name).unwrap_or_else(|_| {
+    let stats = super::db::get_group_usage_stats(&state.db, &group.name).unwrap_or(
         super::models::PlatformUsageStats {
             total_requests: 0,
             success_count: 0,
@@ -179,7 +179,7 @@ async fn handle_group_info(
             recent_total: 0,
             total_cost: 0.0,
         }
-    });
+    );
 
     let success_rate = if stats.total_requests > 0 {
         stats.success_count as f64 / stats.total_requests as f64 * 100.0

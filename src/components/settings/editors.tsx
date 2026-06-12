@@ -2614,15 +2614,15 @@ export const DEFAULT_SEGMENTS: StatusLineSegment[] = [
   { id: "d-cwd", type: "cwd", enabled: true, newline: false,
     options: { format: "full", affixPre: "|" } },
   // ── Row 3: coding-or-balance · version ──
-  // coding/balance carry their own trailing ` · ` affix so the separator before
-  // `version` vanishes together with the (mutually exclusive / possibly empty)
-  // group segment, rather than orphaning a leading separator on `version`.
+  // version carries its own leading ` · ` affix; coding/balance are mutually
+  // exclusive and concatenate directly. When both are empty the ` · ` still
+  // prefixes version as a decorative bullet.
   { id: "d-coding", type: "group-coding", enabled: true, newline: true,
-    options: { dynamicColor: true, affixSuf: " · " } },
+    options: { dynamicColor: true } },
   { id: "d-balance", type: "group-balance", enabled: true, newline: false,
-    options: { dynamicColor: true, prefix: "余额 ", affixSuf: " · " } },
+    options: { dynamicColor: true, prefix: "余额 " } },
   { id: "d-version", type: "version", enabled: true, newline: false, color: "#8E8E93",
-    options: { prefix: "v" } },
+    options: { prefix: "v", affixPre: " · " } },
 ];
 
 /**

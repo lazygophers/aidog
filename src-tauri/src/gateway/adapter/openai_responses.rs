@@ -67,7 +67,7 @@ pub fn to_responses(req: &ChatRequest) -> ResponsesRequest {
 ///   - 字符串 → 直接文本
 ///   - 数组（typed parts，如 `input_text` / `output_text` / `text`）→ 拼接各 part 的 `text`
 /// - `instructions` → system（system prompt）
-/// 复杂字段（tools / reasoning / tool 调用回合）暂不转换（TODO），保证基本文本对话不 400。
+///   复杂字段（tools / reasoning / tool 调用回合）暂不转换（TODO），保证基本文本对话不 400。
 pub fn from_responses(body: &Value) -> Option<ChatRequest> {
     let model = body.get("model")?.as_str()?.to_string();
 

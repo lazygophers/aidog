@@ -1425,7 +1425,7 @@ fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> 
         .ok_or("db not initialized")?;
 
     // 从 DB 读取
-    if let Some(val) = db::get_setting(&db, "proxy", "settings")? {
+    if let Some(val) = db::get_setting(db, "proxy", "settings")? {
         let s: ProxySettings = serde_json::from_value(val)
             .map_err(|e| format!("parse proxy settings: {e}"))?;
         return Ok(s);
@@ -1437,7 +1437,7 @@ fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> 
         if let Ok(content) = std::fs::read_to_string(&file_path) {
             if let Ok(s) = serde_json::from_str::<ProxySettings>(&content) {
                 // 迁移到 DB
-                let _ = save_proxy_settings_to_db(&db, &s);
+                let _ = save_proxy_settings_to_db(db, &s);
                 // 删除旧文件
                 let _ = std::fs::remove_file(&file_path);
                 return Ok(s);
@@ -1468,7 +1468,7 @@ fn save_proxy_settings(
         .map(|s| s.inner())
         .ok_or("db not initialized")?;
     let settings = ProxySettings { port, autostart };
-    save_proxy_settings_to_db(&db, &settings)
+    save_proxy_settings_to_db(db, &settings)
 }
 
 // ─── Tray ──────────────────────────────────────────────────

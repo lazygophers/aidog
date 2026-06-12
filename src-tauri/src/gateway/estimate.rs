@@ -124,6 +124,7 @@ pub fn apply_tier_delta(tier: &mut EstTier, tokens: f64) {
 ///
 /// 数据不足（无窗口起止时间戳持久化）时退化为按当前 `est_utilization` 阈值估算：
 ///   >= 80 → Fast；>= 40 → Normal；否则 Busy。
+///
 /// 拿不到利用率（NaN/负）一律 `Normal` 降级。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TierPace {
