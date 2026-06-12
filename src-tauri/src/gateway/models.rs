@@ -760,15 +760,15 @@ pub struct ProxyLogFilter {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyLogSettings {
     /// Master switch: whether to log proxy requests at all
-    #[serde(default)]
+    #[serde(default = "default_true")]
     pub enabled: bool,
 
     /// Whether to record user's original request (headers + body)
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub log_user_request: bool,
 
     /// Whether to record actual upstream request (headers + body)
-    #[serde(default = "default_true")]
+    #[serde(default)]
     pub log_upstream_request: bool,
 
     /// Days to retain user request data (headers, body); 0 = keep forever
@@ -792,9 +792,9 @@ fn default_retention_days() -> u32 { 90 }
 impl Default for ProxyLogSettings {
     fn default() -> Self {
         Self {
-            enabled: false,
-            log_user_request: true,
-            log_upstream_request: true,
+            enabled: true,
+            log_user_request: false,
+            log_upstream_request: false,
             user_request_retention_days: default_user_req_retention(),
             upstream_request_retention_days: default_upstream_req_retention(),
             retention_days: default_retention_days(),
