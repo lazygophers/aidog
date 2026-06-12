@@ -15,6 +15,7 @@ import {
   applyTheme,
   getAvailableThemes,
 } from "../themes";
+import { settingsApi } from "../services/api";
 
 interface Settings {
   locale: Locale;
@@ -53,11 +54,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const { i18n } = useTranslation();
   const availableThemes = getAvailableThemes();
 
-  // 同步 i18n + RTL
+  // 同步 i18n + RTL + 持久化 locale 到 DB（供后端 proxy 错误消息使用）
   useEffect(() => {
     i18n.changeLanguage(settings.locale);
     document.documentElement.dir = isRTL(settings.locale) ? "rtl" : "ltr";
     document.documentElement.lang = settings.locale;
+    settingsApi.set("app", "locale", { locale: settings.locale }).catch(() => {});
   }, [settings.locale, i18n]);
 
   // 同步主题

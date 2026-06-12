@@ -13,8 +13,19 @@ use std::sync::Arc;
 
 use super::adapter::{self, ChatRequest, ChatStreamEvent};
 use super::db::Db;
+use super::i18n::{self, ErrorKey, Lang};
 use super::models::{ClientType, Group, Protocol, ProxyLog, ProxyLogSettings, ProxyTimeoutSettings};
 use super::router::select_platform;
+
+/// 从 DB 读取 app locale，失败则回退英文
+fn get_lang(db: &Arc<Db>) -> Lang {
+    super::db::get_setting(db, "app", "locale")
+        .ok()
+        .flatten()
+        .and_then(|v| v.get("locale").and_then(|s| s.as_str()).map(String::from))
+        .map(|s| Lang::from_locale(&s))
+        .unwrap_or_default()
+}
 
 /// 代理服务器共享状态
 pub struct ProxyState {
@@ -271,10 +282,12 @@ fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettin
     }
     if super::db::upsert_proxy_log(&state.db, &log).is_ok() {
         // 日志写库成功后通知前端三页（Platforms/Groups/Stats）实时刷新统计。
+        // 同时通知托盘刷新今日统计（请求数、Token、费用等）。
         // app handle 为 None（无 GUI 上下文）时安全跳过，不影响代理逻辑。
         if let Some(app) = &state.app {
             use tauri::Emitter;
             let _ = app.emit("proxy-log-updated", log.platform_id);
+            let _ = app.emit("tray-refresh", ());
         }
     }
 }
@@ -403,6 +416,9 @@ async fn handle_proxy(
         deleted_at: 0,
     };
 
+    // ── 读取当前语言（用于错误消息翻译） ──
+    let lang = get_lang(&state.db);
+
     // ── 捕获请求头 ──
     log.request_headers = {
         let mut h = serde_json::Map::new();
@@ -445,7 +461,7 @@ async fn handle_proxy(
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings);
-            return (StatusCode::BAD_REQUEST, format!("read body: {e}")).into_response();
+            return (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::ReadBody))).into_response();
         }
     };
     log.request_body = String::from_utf8_lossy(&bytes).to_string();
@@ -476,7 +492,7 @@ async fn handle_proxy(
                     log.status_code = 404;
                     log.duration_ms = start.elapsed().as_millis() as i32;
                     upsert_log(&state, &log, &log_settings);
-                    return (StatusCode::NOT_FOUND, "no matching group").into_response();
+                    return (StatusCode::NOT_FOUND, i18n::t(lang, ErrorKey::NoMatchingGroup)).into_response();
                 }
             }
         }
@@ -497,7 +513,7 @@ async fn handle_proxy(
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings);
-            return (StatusCode::BAD_REQUEST, format!("parse json: {e}")).into_response();
+            return (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::ParseJson))).into_response();
         }
     };
     let mut chat_req: ChatRequest = match adapter::parse_incoming_request(&log.source_protocol, &req_value) {
@@ -507,7 +523,7 @@ async fn handle_proxy(
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings);
-            return (StatusCode::BAD_REQUEST, "failed to parse request").into_response();
+            return (StatusCode::BAD_REQUEST, i18n::t(lang, ErrorKey::ParseRequest)).into_response();
         }
     };
 
@@ -524,7 +540,7 @@ async fn handle_proxy(
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings);
-            return (StatusCode::BAD_REQUEST, format!("route: {e}")).into_response();
+            return (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
         }
     };
 
@@ -565,16 +581,17 @@ async fn handle_proxy(
     // 平台保持启用，窗口/次日恢复后自动放行。无 manual_budgets（含透传）→ 跳过。
     if let Some(info) = super::manual_budget::evaluate_depletion(&route.platform.manual_budgets, super::db::now()) {
         let recover_hint = match info.kind.as_str() {
-            "daily" => "Budget will reset at local midnight.",
-            "rolling" => "Budget will reset after the rolling window elapses.",
-            "fixed" => "Budget will reset at the next fixed window boundary.",
-            _ => "Total budget exhausted; increase or reset the limit to resume.",
+            "daily" => i18n::t(lang, ErrorKey::BudgetResetDaily),
+            "rolling" => i18n::t(lang, ErrorKey::BudgetResetRolling),
+            "fixed" => i18n::t(lang, ErrorKey::BudgetResetFixed),
+            _ => i18n::t(lang, ErrorKey::BudgetResetTotal),
         };
         let body = serde_json::json!({
             "error": {
                 "type": "manual_budget_exhausted",
                 "message": format!(
-                    "Manual budget exhausted (kind={}, unit={}, amount={}). {}",
+                    "{} (kind={}, unit={}, amount={}). {}",
+                    i18n::t(lang, ErrorKey::BudgetExhausted),
                     info.kind, info.unit, info.amount, recover_hint
                 ),
                 "budget_kind": info.kind,
@@ -626,6 +643,7 @@ async fn handle_proxy(
             bytes,
             &route.platform.base_url,
             start,
+            lang,
         )
         .await;
     }
@@ -678,11 +696,11 @@ async fn handle_proxy(
         Err(e) => {
             log.response_body = format!("upstream error: {e}");
             log.status_code = 502;
-            log.user_response_body = format!("upstream: {e}");
+            log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
             log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings);
-            return (StatusCode::BAD_GATEWAY, format!("upstream: {e}")).into_response();
+            return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
         }
     };
 
@@ -1050,6 +1068,7 @@ async fn handle_passthrough(
     bytes: axum::body::Bytes,
     base_url: &str,
     start: std::time::Instant,
+    lang: Lang,
 ) -> Response {
     // 透传不转换协议，source/target 都标 claude_code
     log.source_protocol = "claude_code".to_string();
@@ -1098,11 +1117,11 @@ async fn handle_passthrough(
         Err(e) => {
             log.response_body = format!("upstream error: {e}");
             log.status_code = 502;
-            log.user_response_body = format!("upstream: {e}");
+            log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
             log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(state, log, log_settings);
-            return (StatusCode::BAD_GATEWAY, format!("upstream: {e}")).into_response();
+            return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
         }
     };
 
