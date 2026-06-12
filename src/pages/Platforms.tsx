@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit } from "../services/api";
 import { getPlatformLogo } from "../assets/platforms";
 import { IconBolt, IconCost, IconCheck, IconClose, IconCoin } from "../components/icons";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
@@ -902,6 +902,73 @@ function utilColor(utilization: number): string {
   return "var(--color-danger)";
 }
 
+// ── 手动预算（无上游 quota 平台）──
+
+/** quota.rs 支持自动余额/配额真查的上游 host 关键字（与后端 query_quota 匹配列表保持一致）。 */
+const QUOTA_SUPPORTED_HOSTS = [
+  "api.kimi.com/coding", "open.bigmodel.cn", "bigmodel.cn", "api.z.ai",
+  "api.minimaxi.com", "api.minimax.io", "api.deepseek.com",
+  "api.stepfun.com", "api.stepfun.ai", "api.siliconflow.cn", "api.siliconflow.com",
+  "openrouter.ai", "api.novita.ai",
+];
+
+/** 平台是否有上游 quota 自动支持（真查余额/coding plan）。
+ *  判据：任一 endpoint 标记 coding_plan，或 base_url 命中 quota.rs 支持 host，或 newapi 平台。
+ *  无自动支持 → 适用手动预算配置。 */
+function hasUpstreamQuotaSupport(platformType: Protocol, baseUrls: string[], hasCodingPlan: boolean): boolean {
+  if (hasCodingPlan) return true;
+  if (platformType === "newapi") return true;
+  return baseUrls.some(u => {
+    const lower = u.toLowerCase();
+    return QUOTA_SUPPORTED_HOSTS.some(h => lower.includes(h));
+  });
+}
+
+/** 生成一条新手动预算的默认值（uuid id + total/usd）。 */
+function newManualBudget(): ManualBudget {
+  const id = (typeof crypto !== "undefined" && crypto.randomUUID)
+    ? crypto.randomUUID().replace(/-/g, "")
+    : Math.random().toString(36).slice(2) + Date.now().toString(36);
+  return { id, kind: "total", unit: "usd", amount: 0, window_hours: null, consumed: 0, window_start_at: null, enabled: true };
+}
+
+/** 手动预算剩余展示数据（取剩余比例最低那条；token 单位尽力折算，缺价显 token）。 */
+interface ManualBudgetDisplay {
+  hasData: boolean;
+  /** 剩余值（usd 单位为 $；token 单位为 token 数）。 */
+  remaining: number;
+  amount: number;
+  unit: ManualBudgetUnit;
+  kind: ManualBudgetKind;
+  /** 剩余占比 0–1，越低越紧。 */
+  ratio: number;
+  depleted: boolean;
+}
+
+/** 从平台 manual_budgets 选「剩余比例最低」那条用于卡片展示。 */
+function computeManualBudgetDisplay(budgets: ManualBudget[] | undefined): ManualBudgetDisplay | null {
+  const enabled = (budgets ?? []).filter(b => b.enabled && b.amount > 0);
+  if (enabled.length === 0) return null;
+  let tightest: ManualBudget | null = null;
+  let minRatio = Infinity;
+  for (const b of enabled) {
+    const rem = b.amount - b.consumed;
+    const ratio = b.amount > 0 ? rem / b.amount : 0;
+    if (ratio < minRatio) { minRatio = ratio; tightest = b; }
+  }
+  if (!tightest) return null;
+  const rem = tightest.amount - tightest.consumed;
+  return {
+    hasData: true,
+    remaining: rem,
+    amount: tightest.amount,
+    unit: tightest.unit,
+    kind: tightest.kind,
+    ratio: Math.max(0, Math.min(1, minRatio === Infinity ? 0 : minRatio)),
+    depleted: rem <= 0,
+  };
+}
+
 /** 编辑页分区卡片：glass-surface 容器 + 标题 + 可选描述 + 内容区，统一视觉层次。 */
 interface FormSectionProps {
   title: string;
@@ -1026,6 +1093,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [extra, setExtra] = useState("");
   const [mockConfig, setMockConfig] = useState<MockConfig>({ ...DEFAULT_MOCK_CONFIG });
   const [newApiConfig, setNewApiConfig] = useState<NewApiConfig>({ ...DEFAULT_NEWAPI_CONFIG });
+  // 手动预算限额（仅无上游 quota 自动支持平台可配；编辑表单态）
+  const [manualBudgets, setManualBudgets] = useState<ManualBudget[]>([]);
 
   const isMock = protocol === "mock";
   // Claude Code 订阅纯透传：客户端自带订阅 OAuth 认证，aidog 原样转发。
@@ -1141,6 +1210,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setShowClaudeConfig(false); setClaudeConfigJson("");
     setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
     setNewApiConfig({ ...DEFAULT_NEWAPI_CONFIG });
+    setManualBudgets([]);
   };
 
   const handleEdit = async (p: Platform) => {
@@ -1162,6 +1232,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setExtra(p.extra ?? "");
     setMockConfig(parseMockConfig(p.extra ?? ""));
     setNewApiConfig(parseNewApiConfig(p.extra ?? ""));
+    setManualBudgets(p.manual_budgets ?? []);
 
     // Load global + platform Claude Code config
     try {
@@ -1245,6 +1316,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       if (isMock) extraPayload = serializeMockConfig(extra, mockConfig);
       if (protocol === "newapi") extraPayload = serializeNewApiConfig(extraPayload, newApiConfig);
       const extraArg = extraPayload ? extraPayload : undefined;
+      // 手动预算：仅无上游 quota 自动支持平台允许；有自动支持 → 一律清空（避免误存）。
+      const supportsQuota = hasUpstreamQuotaSupport(protocol, endpoints.map(ep => ep.base_url).concat(baseUrl), codingPlan);
+      const manualBudgetsPayload: ManualBudget[] = supportsQuota ? [] : manualBudgets;
       let savedId: number | undefined;
       if (editing) {
         await platformApi.update({
@@ -1252,6 +1326,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           extra: extraArg,
           models: modelsPayload, available_models: availablePayload,
           endpoints: endpoints.length > 0 ? endpoints : undefined,
+          manual_budgets: manualBudgetsPayload,
         });
         savedId = editing.id;
       } else {
@@ -1260,6 +1335,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           extra: extraArg,
           models: modelsPayload, available_models: availablePayload,
           endpoints: endpoints.length > 0 ? endpoints : undefined,
+          manual_budgets: manualBudgetsPayload.length > 0 ? manualBudgetsPayload : undefined,
         });
         savedId = created.id;
       }
@@ -1635,6 +1711,100 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           </div>
           </FormSection>
 
+          {/* Manual Budgets — 仅无上游 quota 自动支持平台显示 */}
+          {!isMock && !isPassthrough && !hasUpstreamQuotaSupport(protocol, endpoints.map(ep => ep.base_url), codingPlan) && (
+            <FormSection
+              title={t("platform.manualBudgetTitle", "手动预算")}
+              desc={t("platform.manualBudgetDesc", "该平台无上游额度自动查询，可手动设置一个或多个预算限额，按用量预估扣减；任一耗尽时停止转发（返回 402），窗口/次日恢复后自动放行。")}
+              action={(
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
+                  onClick={() => setManualBudgets([...manualBudgets, newManualBudget()])}
+                >
+                  {t("platform.manualBudgetAdd", "添加限额")}
+                </button>
+              )}
+            >
+              {manualBudgets.length === 0 && (
+                <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "2px 0" }}>
+                  {t("platform.manualBudgetEmpty", "暂无限额，点击「添加限额」开始配置。")}
+                </div>
+              )}
+              {manualBudgets.map((b, idx) => {
+                const update = (patch: Partial<ManualBudget>) =>
+                  setManualBudgets(manualBudgets.map((x, i) => i === idx ? { ...x, ...patch } : x));
+                const needsWindow = b.kind === "rolling" || b.kind === "fixed";
+                return (
+                  <div key={b.id} style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                    <select
+                      className="input"
+                      style={{ width: 110, flexShrink: 0 }}
+                      value={b.kind}
+                      onChange={e => update({ kind: e.target.value as ManualBudgetKind })}
+                    >
+                      <option value="total">{t("platform.manualBudgetKindTotal", "总额")}</option>
+                      <option value="rolling">{t("platform.manualBudgetKindRolling", "滑动窗口")}</option>
+                      <option value="fixed">{t("platform.manualBudgetKindFixed", "固定窗口")}</option>
+                      <option value="daily">{t("platform.manualBudgetKindDaily", "每日")}</option>
+                    </select>
+                    <select
+                      className="input"
+                      style={{ width: 90, flexShrink: 0 }}
+                      value={b.unit}
+                      onChange={e => update({ unit: e.target.value as ManualBudgetUnit })}
+                    >
+                      <option value="usd">$ USD</option>
+                      <option value="token">{t("platform.manualBudgetUnitToken", "Token")}</option>
+                    </select>
+                    <input
+                      className="input"
+                      type="number"
+                      min={0}
+                      step="any"
+                      style={{ width: 100, flexShrink: 0 }}
+                      placeholder={t("platform.manualBudgetAmount", "额度")}
+                      value={b.amount || ""}
+                      onChange={e => update({ amount: parseFloat(e.target.value) || 0 })}
+                    />
+                    {needsWindow && (
+                      <input
+                        className="input"
+                        type="number"
+                        min={0}
+                        step="any"
+                        style={{ width: 110, flexShrink: 0 }}
+                        placeholder={t("platform.manualBudgetWindowHours", "窗口(小时)")}
+                        value={b.window_hours ?? ""}
+                        onChange={e => update({ window_hours: e.target.value === "" ? null : (parseFloat(e.target.value) || 0) })}
+                      />
+                    )}
+                    <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+                      <input
+                        type="checkbox"
+                        checked={b.enabled}
+                        onChange={e => update({ enabled: e.target.checked })}
+                      />
+                      {t("platform.manualBudgetEnabled", "启用")}
+                    </label>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-icon btn-danger"
+                      style={{ flexShrink: 0 }}
+                      title={t("action.delete", "删除")}
+                      onClick={() => setManualBudgets(manualBudgets.filter((_, i) => i !== idx))}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
+                      </svg>
+                    </button>
+                  </div>
+                );
+              })}
+            </FormSection>
+          )}
+
           {/* Models Configuration */}
           <FormSection
             title={t("platform.models")}
@@ -1900,6 +2070,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 const preferReal = !!quotaRealIds[p.id];
                 const quota = computeQuotaDisplay(p, q, preferReal);
                 const showQuota = p.platform_type !== "mock" && p.platform_type !== "claude_code" && quota.hasData;
+                // 手动预算展示（取剩余比例最低那条；缺上游 quota 时才会有配置）
+                const mb = computeManualBudgetDisplay(p.manual_budgets);
                 const u = usageMap[p.id];
                 const total = u ? u.total_input_tokens + u.total_output_tokens : 0;
                 const sr = u && u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
@@ -1980,6 +2152,30 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                             <BalanceBar remaining={quota.balanceRemaining} total={quota.balanceTotal} currency={quota.currency === "USD" ? "$" : quota.currency} />
                             <span style={{ fontSize: 9, fontWeight: 700, color: quota.estimated ? "var(--color-warning)" : "var(--accent)" }}>
                               {quota.estimated ? t("platform.quotaEstimated", "预估") : t("platform.quotaMeasured", "实测")}
+                            </span>
+                          </div>
+                        )}
+                        {/* 手动预算剩余（无上游 quota 平台；取最紧那条，耗尽 danger 标记）*/}
+                        {mb && mb.hasData && (
+                          <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
+                            {mb.unit === "usd" ? (
+                              <BalanceBar remaining={mb.remaining} total={mb.amount} currency="$" />
+                            ) : (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                                <span style={{ fontWeight: 700, fontSize: 12, color: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--text-primary)" }}>
+                                  {formatNumber(Math.max(0, mb.remaining))}
+                                  <span style={{ fontSize: 9, color: "var(--text-tertiary)", marginLeft: 3 }}>/ {formatNumber(mb.amount)} tok</span>
+                                </span>
+                                <div style={{ height: 4, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", overflow: "hidden" }}>
+                                  <div style={{ width: `${mb.ratio * 100}%`, height: "100%", background: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--color-success)", borderRadius: "var(--radius-sm)", transition: "width 0.3s ease" }} />
+                                </div>
+                              </div>
+                            )}
+                            <span style={{ fontSize: 9, fontWeight: 700, color: mb.depleted ? "var(--color-danger)" : "var(--text-tertiary)" }}>
+                              {mb.depleted
+                                ? t("platform.manualBudgetDepleted", "额度耗尽")
+                                : t("platform.manualBudgetLabel", "手动预算")}
+                              {mb.unit === "token" && ` · ${t("platform.manualBudgetTokenApprox", "≈未知$")}`}
                             </span>
                           </div>
                         )}

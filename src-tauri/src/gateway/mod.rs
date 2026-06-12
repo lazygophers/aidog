@@ -1,6 +1,7 @@
 pub mod adapter;
 pub mod db;
 pub mod estimate;
+pub mod manual_budget;
 pub mod models;
 pub mod price_sync;
 pub mod proxy;

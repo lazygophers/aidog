@@ -331,6 +331,31 @@ pub async fn estimate_after_request(
         }
     }
 
+    // 1b. 手动预算扣减（独立于上游 quota 的并行机制；无 manual_budgets 则 no-op）。
+    //     est_cost 走 resolve_price（与按量平台一致，含默认价回退）；token 扣总 token。
+    {
+        let total_tokens = (input_tokens + output_tokens + cache_tokens) as f64;
+        let est_cost = super::db::resolve_price(db, model, platform_type, 0.0, 0.0)
+            .map(|price| {
+                balance_cost(
+                    input_tokens,
+                    output_tokens,
+                    cache_tokens,
+                    price.input_cost_per_token,
+                    price.output_cost_per_token,
+                    price.cache_read_input_token_cost,
+                )
+            })
+            .unwrap_or(0.0);
+        let _ = super::manual_budget::apply_manual_budgets(
+            db,
+            platform_id,
+            est_cost,
+            total_tokens,
+            now(),
+        );
+    }
+
     // 2. 校准判定（短读，锁外 await）
     if let Ok((last_real, count)) = read_estimate_state(db, platform_id) {
         if should_calibrate(now(), last_real, count) {
@@ -363,6 +388,7 @@ mod tests {
                 models: None,
                 available_models: None,
                 endpoints: None,
+                manual_budgets: None,
             },
         )
         .unwrap();

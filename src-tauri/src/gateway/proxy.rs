@@ -425,6 +425,43 @@ async fn handle_proxy(
         .await;
     }
 
+    // ── 手动预算耗尽阻断（转发前，惰性只读判定，不写库）──
+    // 任一 enabled 限额剩余 ≤ 0（含窗口惰性重置后）→ 不发上游，返回 402。
+    // 平台保持启用，窗口/次日恢复后自动放行。无 manual_budgets → 跳过。
+    if let Some(info) = super::manual_budget::evaluate_depletion(&route.platform.manual_budgets, super::db::now()) {
+        let recover_hint = match info.kind.as_str() {
+            "daily" => "Budget will reset at local midnight.",
+            "rolling" => "Budget will reset after the rolling window elapses.",
+            "fixed" => "Budget will reset at the next fixed window boundary.",
+            _ => "Total budget exhausted; increase or reset the limit to resume.",
+        };
+        let body = serde_json::json!({
+            "error": {
+                "type": "manual_budget_exhausted",
+                "message": format!(
+                    "Manual budget exhausted (kind={}, unit={}, amount={}). {}",
+                    info.kind, info.unit, info.amount, recover_hint
+                ),
+                "budget_kind": info.kind,
+                "budget_unit": info.unit,
+                "budget_amount": info.amount,
+            }
+        })
+        .to_string();
+        log.status_code = 402;
+        log.response_body = body.clone();
+        log.user_response_body = body.clone();
+        log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        upsert_log(&state, &log, &log_settings);
+        return (
+            StatusCode::PAYMENT_REQUIRED,
+            [(axum::http::header::CONTENT_TYPE, "application/json")],
+            body,
+        )
+            .into_response();
+    }
+
     // 协议转换：wire format 由 endpoint 协议决定，API path 由平台类型决定
     let platform_protocol = &route.platform.platform_type;
     let (mut req_body, mut api_path) = adapter::convert_request(&chat_req, target_protocol_enum, platform_protocol);
