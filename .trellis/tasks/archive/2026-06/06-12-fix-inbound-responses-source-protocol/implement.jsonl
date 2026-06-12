@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/06-12-settings-codex-config-support/research/codex-aidog-spike.md", "reason": "spike 实测结论 + 根因 + 修复方向"}
+{"file": ".trellis/spec/backend/index.md", "reason": "后端 Rust 规约 — proxy/converter/mock 改动"}
+{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "协议透传/转换约定参考"}

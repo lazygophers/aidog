@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "校验路由/转换/mock 对 openai_responses 正确 + 不回退其他协议"}
