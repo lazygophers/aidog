@@ -12,6 +12,7 @@
   "group.name": "Group Name",
   "group.platforms": "Platforms",
   "group.copyCommand": "Copy launch command",
+  "group.copyCodexCommand": "Copy Codex command",
   "group.nameRule": "Only lowercase letters, digits and hyphens (auto-converted)",
   "group.timeoutDefault": "0 = system default (seconds)",
   "group.toggleDetails": "Toggle details",

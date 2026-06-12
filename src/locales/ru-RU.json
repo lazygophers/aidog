@@ -6,6 +6,8 @@
   "greet.button": "Приветствовать",
   "greet.placeholder": "Введите имя...",
   "group.add": "Добавить группу",
+  "group.copyCommand": "Скопировать команду запуска",
+  "group.copyCodexCommand": "Скопировать команду Codex",
   "group.empty": "Нет групп",
   "group.failover": "Отказоустойчивость",
   "group.loadBalance": "Балансировка",

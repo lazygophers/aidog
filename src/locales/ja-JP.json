@@ -6,6 +6,8 @@
   "greet.button": "挨拶",
   "greet.placeholder": "名前を入力...",
   "group.add": "グループ追加",
+  "group.copyCommand": "起動コマンドをコピー",
+  "group.copyCodexCommand": "Codex コマンドをコピー",
   "group.empty": "グループなし",
   "group.failover": "フェイルオーバー",
   "group.loadBalance": "負荷分散",

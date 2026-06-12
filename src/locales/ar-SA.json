@@ -6,6 +6,8 @@
   "greet.button": "حيّي",
   "greet.placeholder": "أدخل اسماً...",
   "group.add": "إضافة مجموعة",
+  "group.copyCommand": "نسخ أمر التشغيل",
+  "group.copyCodexCommand": "نسخ أمر Codex",
   "group.empty": "لا توجد مجموعات",
   "group.failover": "تجاوز الفشل",
   "group.loadBalance": "توازن الحمل",
