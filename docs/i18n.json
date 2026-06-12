@@ -215,6 +215,42 @@
     "ar": "إعدادات التطبيق",
     "es": "Configuración de la aplicación"
   },
+  "proxySettings": {
+    "zh": "代理配置",
+    "en": "Proxy Settings",
+    "ja": "プロキシ設定",
+    "fr": "Paramètres du proxy",
+    "de": "Proxy-Einstellungen",
+    "ar": "إعدادات الوكيل",
+    "es": "Configuración del proxy"
+  },
+  "claudeCodeSettings": {
+    "zh": "Claude Code",
+    "en": "Claude Code",
+    "ja": "Claude Code",
+    "fr": "Claude Code",
+    "de": "Claude Code",
+    "ar": "Claude Code",
+    "es": "Claude Code"
+  },
+  "codexSettings": {
+    "zh": "Codex",
+    "en": "Codex",
+    "ja": "Codex",
+    "fr": "Codex",
+    "de": "Codex",
+    "ar": "Codex",
+    "es": "Codex"
+  },
+  "modelPricing": {
+    "zh": "模型价格",
+    "en": "Model Pricing",
+    "ja": "モデル価格",
+    "fr": "Tarification des modèles",
+    "de": "Modellpreise",
+    "ar": "أسعار النماذج",
+    "es": "Precios de modelos"
+  },
   "themes": {
     "zh": "主题定制",
     "en": "Themes",

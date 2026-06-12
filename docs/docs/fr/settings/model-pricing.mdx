@@ -1,0 +1,62 @@
+---
+title: Model Pricing
+---
+
+# Model Pricing
+
+Manage all model pricing data in **"Settings" → "Model Pricing"** tab. Pricing data is used to estimate request costs.
+
+## Price Sync
+
+One-click sync of the latest model pricing from pricing sources:
+
+- Click "Sync Now" to fetch latest prices
+- Sync result: added count, updated count, failed count
+- Enable "Auto Sync" to automatically fetch at configured intervals
+
+Auto sync intervals: 1 hour / 6 hours / 12 hours / 24 hours / 7 days
+
+## Fallback Price
+
+For models not listed in the pricing table, a fallback price is used:
+
+- **Input fallback** — Default $3.0 / million tokens
+- **Output fallback** — Default $3.0 / million tokens
+
+Adjustable in the sync settings section.
+
+## Price Table
+
+The price table shows these columns:
+
+| Column | Description |
+|--------|-------------|
+| Model | Model name |
+| Source | LiteLLM (synced) / Manual |
+| Default Platform | Default platform for this model |
+| Input $/M | Input token price (per million tokens) |
+| Output $/M | Output token price |
+| Cache Read $/M | Cache token read price |
+
+Search by model name, filter by source, adjustable page size and jump-to-page.
+
+## Manage Pricing
+
+- Delete a pricing record (end-of-row delete button)
+- Price changes take effect immediately
+
+## Cost Estimation
+
+After each request, AiDog automatically:
+
+1. Extracts token usage (input / output / cache) from the upstream response
+2. Looks up the unit price in the pricing table
+3. Calculates the estimated cost
+
+Pricing fallback order: Custom pricing → Synced pricing → Fallback price
+
+:::tip{title="Note"}
+Estimated costs are for reference only. Actual charges are based on platform billing.
+:::
+
+See [Pricing & Billing](/stats/pricing).

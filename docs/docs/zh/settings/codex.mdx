@@ -1,0 +1,52 @@
+---
+title: Codex
+---
+
+# Codex
+
+在 **「设置」→「Codex」** 标签页中配置 AiDog 与 OpenAI Codex CLI 的集成。
+
+## 配置编辑
+
+直接在 AiDog 中编辑 Codex 的 `~/.codex/config.toml` 设置：
+
+- **Provider** — API 服务商和地址
+- **Model** — 使用的模型名称
+- **其他选项** — Codex 支持的所有配置项
+
+保存后立即写入配置文件，无需手动查找和修改。
+
+## 快速配置
+
+最简配置只需填入代理地址和任意 API Key：
+
+```toml
+[provider]
+name = "openai"
+base_url = "http://127.0.0.1:9876/proxy/v1"
+api_key = "any-value"
+
+[model]
+name = "o3"
+```
+
+## 分组配置
+
+Codex 支持通过 profile 切换不同分组：
+
+1. 在分组卡片上点击「Codex」按钮复制启动命令
+2. 在终端粘贴运行：
+
+```bash
+AIDOG_KEY='<分组名>' codex -p '<分组名>' \
+  --dangerously-bypass-approvals-and-sandbox -a never
+```
+
+AiDog 会根据 `AIDOG_KEY` 环境变量将请求路由到对应分组。
+
+## 注意事项
+
+- Codex 使用 Responses API（`/v1/responses`），AiDog 会自动检测并路由
+- 确保对应的平台已添加到 AiDog
+- 如需模型映射，在平台或分组配置中添加
+- 代理地址中的 `/proxy/v1` 路径前缀不可省略

@@ -1,0 +1,70 @@
+---
+title: Claude Code
+---
+
+# Claude Code
+
+Configure AiDog integration with Claude Code in **"Settings" → "Claude Code"** tab.
+
+## Configuration Editing
+
+Edit all Claude Code settings directly in AiDog:
+
+- **Model** — Specify the model Claude Code uses
+- **Permissions** — File read/write, network access controls
+- **Sandbox** — Code execution sandbox configuration
+- **Plugins** — Claude Code plugin management
+- **Hooks** — Lifecycle hooks (PreToolUse / PostToolUse, etc.)
+- **StatusLine** — Status bar display configuration
+
+All changes are saved immediately to `~/.claude.json`.
+
+## Import from Claude Code
+
+Click "Import from Claude Code" to read the existing Claude Code configuration file and load it into the editor. Ideal for migrating existing configs during initial setup.
+
+## Export to Claude Code
+
+Click "Export to Claude Code" to write the proxy address into Claude Code's configuration file:
+
+```json
+{
+  "apiBaseUrl": "http://127.0.0.1:9876"
+}
+```
+
+After export, all Claude Code requests will be proxied through AiDog.
+
+## Sync Group Settings
+
+Click "Sync Group Settings" to generate independent Claude Code configuration files for each group:
+
+- Saved to `~/.aidog/settings.<group-name>.json`
+- Each config file uses the corresponding group's proxy path
+- Use with the "Claude" one-click copy button on group cards
+
+### Usage
+
+1. Click the "Claude" button on a group card to copy the launch command
+2. Paste in your terminal:
+
+```bash
+claude --brief --dangerously-skip-permissions \
+  --settings ~/.aidog/settings.<group-name>.json
+```
+
+## Manual Configuration
+
+Alternatively, configure via environment variables:
+
+```bash
+export ANTHROPIC_BASE_URL="http://127.0.0.1:9876"
+export ANTHROPIC_API_KEY="any-value"
+```
+
+## Notes
+
+- Claude Code uses the native Anthropic protocol
+- Ensure the target platform supports the Anthropic protocol or has protocol conversion configured
+- AiDog provides a dedicated path for Claude Code
+- Add model mapping in platform or group settings if needed

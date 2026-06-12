@@ -1,0 +1,50 @@
+---
+title: Proxy Settings
+---
+
+# Proxy Settings
+
+Configure the proxy server behavior in **"Settings" → "Proxy Configuration"** tab.
+
+![AiDog — Proxy Settings](/screenshots/settings.png)
+
+## Proxy Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Proxy Port | `9876` | HTTP proxy listening port |
+| Request Timeout | `300s` | Maximum wait time for upstream response |
+| Auto Start | On | Start proxy service automatically when AiDog launches |
+
+Port changes take effect after restarting the proxy service.
+
+## Log Settings
+
+Control log granularity and retention. See [Log Settings](/logs/log-settings).
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Master Switch | On | Disable to stop all logging |
+| Log User Requests | Off | Record original request headers and body from clients |
+| Log Upstream Requests | Off | Record converted request headers and body sent to upstream |
+| User Request Retention | 7 days | Clear request body after expiry, keep stats |
+| Upstream Request Retention | 7 days | Clear request body after expiry, keep stats |
+| Log Retention | 90 days | Delete entire log entries after expiry |
+
+## Data Management
+
+- **Export Platform Config** — Export all platform settings
+- **Export Group Config** — Export all group settings
+- **Export Statistics** — Export usage statistics
+- **Clean Expired Logs** — Immediately clean up based on retention rules
+- **Reset Statistics** — Clear all statistics data
+
+## Start & Stop
+
+The proxy page provides an intuitive status display and controls:
+
+- Running status indicator
+- One-click start/stop button
+- Port configuration input (not editable while running)
+
+See [Proxy Usage](/proxy/usage).

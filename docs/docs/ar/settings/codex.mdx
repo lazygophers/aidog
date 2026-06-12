@@ -1,0 +1,52 @@
+---
+title: Codex
+---
+
+# Codex
+
+Configure AiDog integration with OpenAI Codex CLI in **"Settings" → "Codex"** tab.
+
+## Configuration Editing
+
+Edit Codex's `~/.codex/config.toml` settings directly in AiDog:
+
+- **Provider** — API provider and base URL
+- **Model** — Model name to use
+- **Other options** — All Codex-supported configuration items
+
+Changes are written to the config file immediately — no need to locate and edit files manually.
+
+## Quick Configuration
+
+Minimal configuration only requires the proxy address and any API key:
+
+```toml
+[provider]
+name = "openai"
+base_url = "http://127.0.0.1:9876/proxy/v1"
+api_key = "any-value"
+
+[model]
+name = "o3"
+```
+
+## Group Configuration
+
+Codex supports switching between groups via profiles:
+
+1. Click the "Codex" button on a group card to copy the launch command
+2. Paste in your terminal:
+
+```bash
+AIDOG_KEY='<group-name>' codex -p '<group-name>' \
+  --dangerously-bypass-approvals-and-sandbox -a never
+```
+
+AiDog routes requests to the corresponding group based on the `AIDOG_KEY` environment variable.
+
+## Notes
+
+- Codex uses the Responses API (`/v1/responses`), which AiDog detects and routes automatically
+- Ensure the corresponding platform has been added to AiDog
+- Add model mapping in platform or group settings if needed
+- The `/proxy/v1` path prefix in the proxy address must not be omitted

@@ -1,0 +1,70 @@
+---
+title: Claude Code
+---
+
+# Claude Code
+
+在 **「设置」→「Claude Code」** 标签页中配置 AiDog 与 Claude Code 的集成。
+
+## 配置编辑
+
+直接在 AiDog 中编辑 Claude Code 的所有设置项：
+
+- **模型** — 指定 Claude Code 使用的模型
+- **权限** — 文件读写、网络访问等权限控制
+- **沙箱** — 代码执行沙箱配置
+- **插件** — Claude Code 插件管理
+- **Hooks** — 生命周期钩子（PreToolUse / PostToolUse 等）
+- **StatusLine** — 状态栏显示配置
+
+所有修改实时保存到 `~/.claude.json`。
+
+## 从 Claude Code 导入
+
+点击「从 Claude Code 导入」按钮，AiDog 会读取现有的 Claude Code 配置文件并加载到编辑器中。适合初次设置时迁移现有配置。
+
+## 导出到 Claude Code
+
+点击「导出到 Claude Code」按钮，AiDog 会将代理地址写入 Claude Code 的配置文件：
+
+```json
+{
+  "apiBaseUrl": "http://127.0.0.1:9876"
+}
+```
+
+导出后 Claude Code 的所有请求都会通过 AiDog 代理。
+
+## 同步分组设置
+
+点击「同步分组设置」，AiDog 会为每个分组生成独立的 Claude Code 配置文件：
+
+- 保存到 `~/.aidog/settings.<分组名>.json`
+- 每个配置文件使用对应分组的代理路径
+- 配合分组卡片上的「Claude」一键复制按钮使用
+
+### 使用方式
+
+1. 在分组卡片上点击「Claude」按钮复制启动命令
+2. 在终端粘贴运行：
+
+```bash
+claude --brief --dangerously-skip-permissions \
+  --settings ~/.aidog/settings.<分组名>.json
+```
+
+## 手动配置
+
+也可以通过环境变量配置：
+
+```bash
+export ANTHROPIC_BASE_URL="http://127.0.0.1:9876"
+export ANTHROPIC_API_KEY="any-value"
+```
+
+## 注意事项
+
+- Claude Code 使用 Anthropic 原生协议
+- 确保目标平台支持 Anthropic 协议或已配置协议转换
+- AiDog 为 Claude Code 提供专用路径
+- 如需模型映射，在平台或分组配置中添加
