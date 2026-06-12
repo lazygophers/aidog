@@ -616,6 +616,18 @@ export const statuslineApi = {
     invoke<string>("generate_statusline_script", { scriptType, content }),
 };
 
+// ─── Codex Config API ─────────────────────────────────────
+
+export const codexApi = {
+  /** Read ~/.codex/config.toml (TOML) → JSON. Missing file → {}. */
+  read: () => invoke<Record<string, unknown>>("codex_config_read"),
+  /** Write JSON → ~/.codex/config.toml (TOML). Creates ~/.codex/ if missing. */
+  write: (value: Record<string, unknown>) =>
+    invoke<void>("codex_config_write", { value }),
+  /** Absolute path of ~/.codex/config.toml. */
+  path: () => invoke<string>("codex_config_path"),
+};
+
 // ─── Claude Code Settings Import ──────────────────────────
 
 export const claudeSettingsImportApi = {

@@ -38,6 +38,11 @@ const icons = {
       <path d="M6 6h6M6 9h4M6 12h5" />
     </svg>
   ),
+  codex: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 2L3 10h4l-1 6 7-8h-4l1-6z" />
+    </svg>
+  ),
   stats: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />

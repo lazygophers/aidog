@@ -2100,6 +2100,10 @@ pub fn run() {
             settings_list,
             generate_statusline_script,
             read_claude_code_settings,
+            // Codex Config
+            gateway::codex::codex_config_read,
+            gateway::codex::codex_config_write,
+            gateway::codex::codex_config_path,
             // Statistics
             stats_query,
             model_test,
