@@ -2861,6 +2861,77 @@ export function generateStatusLineScript(segments: StatusLineSegment[], separato
   return lines.join("\n");
 }
 
+/**
+ * Resolved materialization for a statusLine / subagentStatusLine config block.
+ * `scriptContent` is the bash script body to write (builtin mode) or `null`
+ * (custom mode / disabled — nothing to generate). `customCommand` is the
+ * user-supplied native command (custom mode only). Field metadata (padding /
+ * hideVimModeIndicator) is carried so the caller can assemble the native field.
+ */
+export interface StatuslineMaterialization {
+  enabled: boolean;
+  mode: "builtin" | "custom";
+  scriptContent: string | null;
+  customCommand: string;
+  padding: number;
+  hideVimModeIndicator: boolean;
+}
+
+/**
+ * Pure resolver: given a stored `_aidog_statusline` / `_aidog_subagent_statusline`
+ * block and its scriptType, derive everything needed to materialize the native
+ * `statusLine` / `subagentStatusLine` field — applying all default logic
+ * (segments → DEFAULT_SEGMENTS, separator seeding, subagent template selection)
+ * in one authoritative place. No side effects; the caller persists the result.
+ *
+ * Mirrors StatusLinePanel's in-component derivations so the on-save materializer
+ * and the live UI agree byte-for-byte.
+ */
+export function materializeStatusline(
+  stored: Record<string, any> | undefined,
+  scriptType: "statusline" | "subagent",
+): StatuslineMaterialization {
+  const s = (stored ?? {}) as Record<string, any>;
+  const isMain = scriptType === "statusline";
+  const enabled = !!s.enabled;
+  const mode: "builtin" | "custom" = s.mode === "custom" ? "custom" : "builtin";
+  const padding = typeof s.padding === "number" ? s.padding : 2;
+  const hideVimModeIndicator = !!s.hideVimModeIndicator;
+  const customCommand = typeof s.customCommand === "string" ? s.customCommand : "";
+
+  let scriptContent: string | null = null;
+  if (enabled && mode === "builtin") {
+    if (isMain) {
+      const segments: StatusLineSegment[] =
+        (s.segments as StatusLineSegment[] | undefined) ?? DEFAULT_SEGMENTS.map(seg => ({ ...seg }));
+      // Separator default logic (matches StatusLinePanel.seedSeparator):
+      // explicit stored value wins; else seed legacy ` · ` for pre-existing
+      // layouts (stored.segments present) or "" for fresh installs.
+      let separator: string;
+      if (typeof s.separator === "string") {
+        separator = s.separator;
+      } else {
+        const storedSegs = s.segments as StatusLineSegment[] | undefined;
+        const legacy = (storedSegs ?? []).find((seg) => seg.type === "separator");
+        const legacyChar = legacy?.options?.char;
+        if (typeof legacyChar === "string" && legacyChar.length > 0) {
+          separator = legacyChar;
+        } else {
+          separator = storedSegs ? LEGACY_SEPARATOR : DEFAULT_SEPARATOR;
+        }
+      }
+      scriptContent = generateStatusLineScript(segments, separator);
+    } else {
+      const templateId = (s.template as string | undefined) ?? "default";
+      scriptContent =
+        SUBAGENT_TEMPLATES.find(tp => tp.id === templateId)?.generate()
+        ?? SUBAGENT_TEMPLATES[0].generate();
+    }
+  }
+
+  return { enabled, mode, scriptContent, customCommand, padding, hideVimModeIndicator };
+}
+
 /** Mock metric values used to drive autoColor preview (matches bash thresholds). */
 const PREVIEW_METRIC: Record<string, number> = {
   "context-pct": 65,
@@ -3244,11 +3315,16 @@ function StatusLinePanel({
     setSaving(false);
   };
 
-  // Auto-maintain the native `statusLine` / `subagentStatusLine` field whenever the
-  // built-in mode is enabled, so users no longer need to click "generate" by hand.
-  // The effect keys off the *real inputs* (scriptPreview / padding / hideVim / enabled),
-  // NOT the generated path, and skips the write when the resulting value is unchanged —
-  // this keeps `updateField` idempotent so the dirty state never thrashes / loops.
+  // Live-preview convenience only: keep the native `statusLine` / `subagentStatusLine`
+  // draft field roughly in sync while the user edits builtin segments, so the JSON
+  // view reflects changes without a save round-trip. This is NO LONGER the
+  // persistence path — Settings.handleSave → materializeStatuslineFields is the
+  // authoritative, race-free materializer (covers disabled/custom/subagent too,
+  // which this effect deliberately does not touch). The effect keys off the *real
+  // inputs* (scriptPreview / padding / hideVim / enabled), NOT the generated path,
+  // and skips the write when the value is unchanged — keeping `updateField`
+  // idempotent so the dirty state never thrashes / loops. Because the save writes
+  // the same stable command path, the two never conflict.
   const lastWrittenRef = useRef<string>("");
   useEffect(() => {
     if (!enabled || mode !== "builtin") return;
