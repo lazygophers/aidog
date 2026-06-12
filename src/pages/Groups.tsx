@@ -206,10 +206,50 @@ export function Groups() {
     setLoading(false);
   };
 
+  /** 轻量刷新：仅更新 usage stats（本地 DB），用于 proxy-log-updated 实时刷新 */
+  const refreshStats = async () => {
+    try {
+      const [d, p] = await Promise.all([groupDetailApi.list(), platformApi.list()]);
+      const pStatsMap: Record<string, PlatformUsageStats> = {};
+      await Promise.all((p || []).map(async (plat) => {
+        try {
+          const s = await platformApi.usageStats(plat.id);
+          if (s && s.total_requests > 0) pStatsMap[plat.id] = s;
+        } catch { /* ignore */ }
+      }));
+      // Aggregate group stats
+      const statsMap: Record<string, PlatformUsageStats> = {};
+      for (const g of d || []) {
+        let total_requests = 0, success_count = 0;
+        let total_input_tokens = 0, total_output_tokens = 0, total_cache_tokens = 0, total_cost = 0;
+        for (const gp of g.platforms) {
+          const ps = pStatsMap[gp.platform.id];
+          if (ps) {
+            total_requests += ps.total_requests;
+            success_count += ps.success_count;
+            total_input_tokens += ps.total_input_tokens;
+            total_output_tokens += ps.total_output_tokens;
+            total_cache_tokens += ps.total_cache_tokens;
+            total_cost += ps.total_cost;
+          }
+        }
+        if (total_requests > 0) {
+          statsMap[g.group.name] = {
+            total_requests, success_count,
+            total_input_tokens, total_output_tokens, total_cache_tokens,
+            cache_rate: total_input_tokens > 0 ? total_cache_tokens / total_input_tokens * 100 : 0,
+            recent_failures: 0, recent_total: 0, total_cost,
+          };
+        }
+      }
+      setGroupStats(statsMap);
+    } catch { /* ignore */ }
+  };
+
   useEffect(() => { load(); }, []);
 
-  // 请求完成后后端 emit "proxy-log-updated" → debounce 重载聚合统计（实时刷新，无需切页）
-  useEffect(() => onProxyLogUpdated(() => { load(); }), []);
+  // 请求完成后轻量刷新统计（仅本地 DB 查询，不拉 quota HTTP）
+  useEffect(() => onProxyLogUpdated(() => { refreshStats(); }), []);
 
   // ── Edit handlers ──
 

@@ -1149,10 +1149,26 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     });
   };
 
+  /** 轻量刷新：仅更新 usage stats（本地 DB 查询，无外部 HTTP），用于 proxy-log-updated 实时刷新 */
+  const refreshStats = async () => {
+    // 使用当前已加载的 platforms，不重新拉列表
+    try {
+      const list = await platformApi.list();
+      if (list) {
+        list.forEach(async (p) => {
+          try {
+            const s = await platformApi.usageStats(p.id);
+            if (s && s.total_requests > 0) setUsageMap(prev => ({ ...prev, [p.id]: s }));
+          } catch { /* ignore */ }
+        });
+      }
+    } catch { /* ignore */ }
+  };
+
   useEffect(() => { load(); }, []);
 
-  // 请求完成后后端 emit "proxy-log-updated" → debounce 重载统计（实时刷新，无需切页）
-  useEffect(() => onProxyLogUpdated(() => { load(); }), []);
+  // 请求完成后轻量刷新统计（仅本地 DB 查询，不拉 quota HTTP）
+  useEffect(() => onProxyLogUpdated(() => { refreshStats(); }), []);
 
   /** 刷新单个平台 quota（合查 balance + coding_plan） */
   const refreshQuota = async (p: Platform) => {
