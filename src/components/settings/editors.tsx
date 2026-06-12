@@ -1830,9 +1830,25 @@ const SEGMENT_DEF_MAP = new Map(SEGMENT_DEFS.map(d => [d.type, d]));
 
 const DEFAULT_SEGMENTS: StatusLineSegment[] = [
   { id: "s1", type: "model", enabled: true, newline: false, options: {} },
-  { id: "s2", type: "separator", enabled: true, newline: false, options: {} },
   { id: "s3", type: "context-bar", enabled: true, newline: false, options: {} },
 ];
+
+/** Default global item separator (sits between adjacent items on a row). */
+const DEFAULT_SEPARATOR = " · ";
+
+/** Drop legacy manual `separator` segments — superseded by the global separator. */
+function dropLegacySeparators(segments: StatusLineSegment[]): StatusLineSegment[] {
+  return segments.filter(s => s.type !== "separator");
+}
+
+/**
+ * Escape a literal string for safe inclusion inside a bash double-quoted string.
+ * Backslash, double-quote, backtick and `$` must be escaped so the separator is
+ * emitted verbatim and can never trigger expansion/command substitution.
+ */
+function bashEscapeDq(s: string): string {
+  return s.replace(/[\\"`$]/g, m => "\\" + m);
+}
 
 const SUBAGENT_TEMPLATES = [
   { id: "default", name: "默认", generate: () => `#!/usr/bin/env bash\ninput=$(cat)\necho "$input" | jq -r '.tasks[]? | "\\(.name) · \\(.status) · \\(.tokenCount)t" // empty' | head -1` },
@@ -1935,9 +1951,11 @@ function fixedColorBash(body: string, rgb: [number, number, number]): string {
   return `__t="$({ ${body.replace(/\n/g, "; ")}; })"\nprintf '\\033[38;2;${r};${g};${b}m%s\\033[0m' "$__t"`;
 }
 
-function generateStatusLineScript(segments: StatusLineSegment[]): string {
-  const active = segments.filter(s => s.enabled);
+function generateStatusLineScript(segments: StatusLineSegment[], separator: string = ""): string {
+  const active = dropLegacySeparators(segments).filter(s => s.enabled);
   if (active.length === 0) return "#!/usr/bin/env bash\necho ''\n";
+  // Bash literal for the separator (plain text, no ANSI). Empty → no separator.
+  const sepLiteral = separator ? bashEscapeDq(separator) : "";
 
   const lines: string[] = [
     "#!/usr/bin/env bash",
@@ -1953,9 +1971,16 @@ function generateStatusLineScript(segments: StatusLineSegment[]): string {
     const { align, segs } = rows[i];
     lines.push(`# ── row ${i + 1} (${align}) ──`);
     lines.push(`__line${i}=""`);
+    let placed = 0; // count of segments already appended on this row
     for (const seg of segs) {
       const def = SEGMENT_DEF_MAP.get(seg.type);
       if (!def) continue;
+      // Insert the global separator between adjacent items (never before the
+      // first item on the row, never across rows). Plain text, no ANSI.
+      if (placed > 0 && sepLiteral) {
+        lines.push(`__line${i}+="${sepLiteral}"`);
+      }
+      placed++;
       const opts = { ...def.defaultOptions, ...seg.options };
       const body = def.toBash(opts);
       let snippet: string;
@@ -2021,8 +2046,8 @@ function previewColor(seg: StatusLineSegment): string | null {
 }
 
 /** Render a colored, row-grouped, aligned live preview of the segments. */
-function StatusLinePreview({ segments, empty }: { segments: StatusLineSegment[]; empty: string }) {
-  const active = segments.filter(s => s.enabled);
+function StatusLinePreview({ segments, separator, empty }: { segments: StatusLineSegment[]; separator: string; empty: string }) {
+  const active = dropLegacySeparators(segments).filter(s => s.enabled);
   if (active.length === 0) {
     return <span style={{ color: "var(--text-tertiary)" }}>{empty}</span>;
   }
@@ -2034,12 +2059,13 @@ function StatusLinePreview({ segments, empty }: { segments: StatusLineSegment[];
           display: "flex",
           justifyContent: row.align === "center" ? "center" : row.align === "right" ? "flex-end" : "flex-start",
         }}>
-          {row.segs.map(seg => {
+          {row.segs.map((seg, si) => {
             const def = SEGMENT_DEF_MAP.get(seg.type);
             if (!def) return null;
             const color = previewColor(seg);
             return (
               <span key={seg.id} style={color ? { color } : undefined}>
+                {si > 0 && separator ? separator : ""}
                 {def.toPreview({ ...def.defaultOptions, ...seg.options })}
               </span>
             );
@@ -2268,6 +2294,22 @@ function StatusLinePanel({
     : [];
   const subagentTemplateId = !isMain ? (stored.template ?? "default") : "";
 
+  // Global item separator: inserted between adjacent items on every row.
+  // Back-compat: when unset, seed from the first legacy `separator` segment's
+  // char (if any) so existing layouts keep their visible gap; else the default.
+  const seedSeparator = (): string => {
+    const legacy = (stored.segments ?? []).find(
+      (s: StatusLineSegment) => s.type === "separator",
+    );
+    const legacyChar = legacy?.options?.char;
+    return typeof legacyChar === "string" && legacyChar.length > 0
+      ? legacyChar
+      : DEFAULT_SEPARATOR;
+  };
+  const separator: string = isMain
+    ? (typeof stored.separator === "string" ? stored.separator : seedSeparator())
+    : "";
+
   const [showScript, setShowScript] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editSeg, setEditSeg] = useState<StatusLineSegment | null>(null);
@@ -2290,7 +2332,7 @@ function StatusLinePanel({
 
   // Generate script
   const scriptPreview = isMain
-    ? generateStatusLineScript(segments)
+    ? generateStatusLineScript(segments, separator)
     : SUBAGENT_TEMPLATES.find(tp => tp.id === subagentTemplateId)?.generate() ?? SUBAGENT_TEMPLATES[0].generate();
 
 
@@ -2379,7 +2421,7 @@ function StatusLinePanel({
               color: "var(--text-primary)", lineHeight: 1.6,
             }}>
               {isMain
-                ? <StatusLinePreview segments={segments} empty={t("statusline.previewEmpty")} />
+                ? <StatusLinePreview segments={segments} separator={separator} empty={t("statusline.previewEmpty")} />
                 : <span>&lt;subagent statusline&gt;</span>}
             </div>
           </div>
@@ -2548,6 +2590,17 @@ function StatusLinePanel({
                   style={{ width: 60, fontSize: F.body, padding: S.inputPad }}
                   value={padding}
                   onChange={(e) => setStored({ padding: Math.max(0, Number(e.target.value)) })} />
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label style={{ fontSize: F.body, color: "var(--text-secondary)" }}
+                  title={t("statusline.separatorDesc", "自动插入到每行相邻项之间；留空则无分隔符")}>
+                  {t("statusline.separator", "分隔符")}
+                </label>
+                <input className="input" type="text"
+                  style={{ width: 80, fontSize: F.body, padding: S.inputPad, fontFamily: '"SF Mono", "Fira Code", monospace' }}
+                  value={separator}
+                  placeholder={t("statusline.separatorPlaceholder", " · ")}
+                  onChange={(e) => setStored({ separator: e.target.value })} />
               </div>
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: F.body, color: "var(--text-secondary)", cursor: "pointer" }}>
                 <Toggle active={hideVimModeIndicator} onChange={(v) => setStored({ hideVimModeIndicator: v })} />
