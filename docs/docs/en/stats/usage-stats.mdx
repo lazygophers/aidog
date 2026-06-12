@@ -1,0 +1,44 @@
+---
+title: Usage Stats
+---
+
+# Usage Statistics
+
+AiDog automatically tracks usage data for all proxied requests.
+
+## Statistics Page
+
+Go to the **"Statistics"** page for a usage overview.
+
+### Today's Stats
+
+- Total requests
+- Success/failure rate
+- Total token usage (Prompt + Completion)
+- Estimated cost
+
+### Trends
+
+View by day/week/month:
+- Request count trends
+- Token usage trends
+- Cost trends
+
+### Group Statistics
+
+Group card statistics are aggregated from associated platforms (summed on the frontend).
+
+## Dimensions
+
+View statistics by:
+- **By platform** — Per-platform usage
+- **By group** — Per-group usage
+- **By model** — Per-model usage
+- **By time** — Daily/weekly/monthly aggregation
+
+## Data Source
+
+Statistics are aggregated from the `proxy_logs` table:
+- Token usage: Extracted from upstream API responses
+- Estimated cost: Calculated via pricing table + model name (`resolve_price` fallback chain)
+- Request count: Log row aggregation

@@ -1,0 +1,66 @@
+---
+title: プロトコルの種類
+---
+
+# プロトコルの種類
+
+AiDog は複数の AI API プロトコルに対応しており、インバウンドリクエストの検出とアウトバウンドリクエストの変換の両方に使用されます。
+
+## 対応プロトコル
+
+### OpenAI シリーズ
+
+| プロトコル | 説明 | エンドポイント |
+|----------|------|------------|
+| `openai_chat` | Chat Completions API | `/v1/chat/completions` |
+| `openai_completions` | Text Completions API（レガシー） | `/v1/completions` |
+| `openai_responses` | Responses API（Codex 用） | `/v1/responses` |
+
+### Anthropic
+
+| プロトコル | 説明 | エンドポイント |
+|----------|------|------------|
+| `anthropic` | Claude Messages API | `/v1/messages` |
+
+### Google
+
+| プロトコル | 説明 | エンドポイント |
+|----------|------|------------|
+| `gemini` | Gemini Generate Content API | `/v1beta/models/{model}:generateContent` |
+
+### その他
+
+| プロトコル | 説明 |
+|----------|------|
+| `minimax` | MiniMax ネイティブプロトコル |
+| `glm` | 智譜 GLM ネイティブプロトコル |
+
+## 自動検出
+
+AiDog はリクエストパスに基づいてインバウンドプロトコルを自動検出します：
+
+- `/v1/chat/completions` → `openai_chat`
+- `/v1/completions` → `openai_completions`
+- `/v1/responses` → `openai_responses`
+
+同じプロキシアドレスで異なるタイプのクライアントに対応できます。
+
+## プロトコル変換
+
+インバウンドとアウトバウンドのプロトコルは異なっていても構いません。AiDog が自動的に変換を処理します：
+
+1. インバウンドリクエストを解析（検出されたプロトコル）
+2. 内部フォーマットに変換
+3. 対象プラットフォームのアウトバウンドプロトコルに変換
+4. リクエストを送信
+
+例：クライアントが `openai_chat` でリクエスト → AiDog が `anthropic` プロトコルに変換 → Claude に送信。
+
+## プラットフォームプリセット
+
+AiDog には 50 以上のプラットフォームプリセットが内蔵されており、各プリセットには以下が含まれます：
+- デフォルトの Base URL
+- デフォルトのプロトコル
+- 対応モデル一覧
+
+プリセットを選択するとこれらの値が自動入力されます。

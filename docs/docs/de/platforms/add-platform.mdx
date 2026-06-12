@@ -1,0 +1,68 @@
+---
+title: Plattform hinzufügen
+---
+
+# Plattform hinzufügen
+
+Plattformen sind das Kernkonzept von AiDog — jede repräsentiert einen KI-API-Dienst-Endpunkt.
+
+## Schritte zum Hinzufügen
+
+1. Gehen Sie zur Seite **„Plattformen"**
+2. Klicken Sie auf **„+"** oben rechts
+3. Konfiguration ausfüllen:
+
+### Grundeinstellungen
+
+| Feld | Beschreibung | Beispiel |
+|-------|-------------|---------|
+| Name | Anzeigename | `Mein OpenAI` |
+| Base URL | API-Basis-URL (mit Versionspräfix) | `https://api.openai.com/v1` |
+| API Key | Plattform-API-Schlüssel | `sk-...` |
+| Protokoll | Anfrageprotokoll-Typ | `openai_chat` |
+
+### Protokollauswahl
+
+Wählen Sie das zur Zielplattform passende Protokoll. AiDog enthält 50+ Plattform-Voreinstellungen, die das Protokoll automatisch ausfüllen.
+
+Häufige Protokolle:
+- **openai_chat** — OpenAI-kompatible Chat Completions (am universellsten)
+- **openai_completions** — OpenAI Text Completions (Legacy)
+- **openai_responses** — OpenAI Responses API (von Codex verwendet)
+- **anthropic** — Anthropic Claude natives Protokoll
+- **gemini** — Google Gemini natives Protokoll
+
+Siehe [Protokolltypen](/platforms/protocols) für Details.
+
+### Erweiterte Optionen
+
+- **Modellzuordnung** — Angefragte Modellnamen den tatsächlichen Plattform-Modellen zuordnen (siehe [Modellzuordnung](/platforms/model-mapping))
+- **Aktivieren/Deaktivieren** — Plattform pausieren ohne Löschung
+
+## Plattform bearbeiten
+
+Auf eine Plattformkarte klicken, um Details anzuzeigen und Einstellungen zu ändern. Nach Änderungen „Speichern" klicken.
+
+## Plattform löschen
+
+Auf die Löschen-Schaltfläche der Plattformkarte klicken. Zugehörige Protokolle und Statistiken bleiben erhalten.
+
+## FAQ
+
+### Base URL ausfüllen
+
+Die Base URL ist der vollständige Basis-Pfad inklusive Versionspräfix:
+
+| Plattform | Base URL |
+|------------|----------|
+| OpenAI | `https://api.openai.com/v1` |
+| Anthropic | `https://api.anthropic.com/v1` |
+| DeepSeek | `https://api.deepseek.com/v1` |
+
+:::caution{title="Hinweis"}
+Kein `/chat/completions` am Ende der Base URL anhängen. AiDog erledigt das automatisch.
+:::
+
+### API-Key-Sicherheit
+
+API-Schlüssel werden in der lokalen SQLite-Datenbank gespeichert und nie auf einen Server hochgeladen.

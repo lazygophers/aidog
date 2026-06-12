@@ -1,0 +1,236 @@
+{
+  "gettingStarted": {
+    "zh": "开始使用",
+    "en": "Getting Started",
+    "ja": "はじめに",
+    "fr": "Démarrage",
+    "de": "Erste Schritte",
+    "ar": "البدء",
+    "es": "Primeros pasos"
+  },
+  "installation": {
+    "zh": "安装",
+    "en": "Installation",
+    "ja": "インストール",
+    "fr": "Installation",
+    "de": "Installation",
+    "ar": "التثبيت",
+    "es": "Instalación"
+  },
+  "quickStart": {
+    "zh": "快速开始",
+    "en": "Quick Start",
+    "ja": "クイックスタート",
+    "fr": "Démarrage rapide",
+    "de": "Schnellstart",
+    "ar": "البدء السريع",
+    "es": "Inicio rápido"
+  },
+  "platforms": {
+    "zh": "平台管理",
+    "en": "Platforms",
+    "ja": "プラットフォーム",
+    "fr": "Plateformes",
+    "de": "Plattformen",
+    "ar": "المنصات",
+    "es": "Plataformas"
+  },
+  "addPlatform": {
+    "zh": "添加平台",
+    "en": "Add Platform",
+    "ja": "プラットフォームの追加",
+    "fr": "Ajouter une plateforme",
+    "de": "Plattform hinzufügen",
+    "ar": "إضافة منصة",
+    "es": "Agregar plataforma"
+  },
+  "protocols": {
+    "zh": "协议类型",
+    "en": "Protocols",
+    "ja": "プロトコル",
+    "fr": "Protocoles",
+    "de": "Protokolle",
+    "ar": "البروتوكولات",
+    "es": "Protocolos"
+  },
+  "modelMapping": {
+    "zh": "模型映射",
+    "en": "Model Mapping",
+    "ja": "モデルマッピング",
+    "fr": "Mappage de modèles",
+    "de": "Modellzuordnung",
+    "ar": "تعيين النماذج",
+    "es": "Mapeo de modelos"
+  },
+  "groups": {
+    "zh": "分组管理",
+    "en": "Groups",
+    "ja": "グループ",
+    "fr": "Groupes",
+    "de": "Gruppen",
+    "ar": "المجموعات",
+    "es": "Grupos"
+  },
+  "manageGroups": {
+    "zh": "创建与管理",
+    "en": "Create & Manage",
+    "ja": "作成と管理",
+    "fr": "Créer et gérer",
+    "de": "Erstellen und verwalten",
+    "ar": "الإنشاء والإدارة",
+    "es": "Crear y gestionar"
+  },
+  "routingRules": {
+    "zh": "路由规则",
+    "en": "Routing Rules",
+    "ja": "ルーティングルール",
+    "fr": "Règles de routage",
+    "de": "Routing-Regeln",
+    "ar": "قواعد التوجيه",
+    "es": "Reglas de enrutamiento"
+  },
+  "proxy": {
+    "zh": "代理服务",
+    "en": "Proxy",
+    "ja": "プロキシ",
+    "fr": "Proxy",
+    "de": "Proxy",
+    "ar": "الوكيل",
+    "es": "Proxy"
+  },
+  "usage": {
+    "zh": "使用方法",
+    "en": "Usage",
+    "ja": "使い方",
+    "fr": "Utilisation",
+    "de": "Verwendung",
+    "ar": "الاستخدام",
+    "es": "Uso"
+  },
+  "codexIntegration": {
+    "zh": "Codex 集成",
+    "en": "Codex Integration",
+    "ja": "Codex 連携",
+    "fr": "Intégration Codex",
+    "de": "Codex-Integration",
+    "ar": "تكامل Codex",
+    "es": "Integración con Codex"
+  },
+  "logs": {
+    "zh": "日志",
+    "en": "Logs",
+    "ja": "ログ",
+    "fr": "Journaux",
+    "de": "Protokolle",
+    "ar": "السجلات",
+    "es": "Registros"
+  },
+  "viewLogs": {
+    "zh": "查看日志",
+    "en": "View Logs",
+    "ja": "ログの表示",
+    "fr": "Consulter les journaux",
+    "de": "Protokolle anzeigen",
+    "ar": "عرض السجلات",
+    "es": "Ver registros"
+  },
+  "logSettings": {
+    "zh": "日志设置",
+    "en": "Log Settings",
+    "ja": "ログ設定",
+    "fr": "Paramètres des journaux",
+    "de": "Protokolleinstellungen",
+    "ar": "إعدادات السجلات",
+    "es": "Configuración de registros"
+  },
+  "stats": {
+    "zh": "统计",
+    "en": "Statistics",
+    "ja": "統計",
+    "fr": "Statistiques",
+    "de": "Statistiken",
+    "ar": "الإحصائيات",
+    "es": "Estadísticas"
+  },
+  "usageStats": {
+    "zh": "使用统计",
+    "en": "Usage Stats",
+    "ja": "使用統計",
+    "fr": "Statistiques d'utilisation",
+    "de": "Nutzungsstatistiken",
+    "ar": "إحصائيات الاستخدام",
+    "es": "Estadísticas de uso"
+  },
+  "pricing": {
+    "zh": "定价与计费",
+    "en": "Pricing & Billing",
+    "ja": "料金と課金",
+    "fr": "Tarification et facturation",
+    "de": "Preise und Abrechnung",
+    "ar": "التسعير والفوترة",
+    "es": "Precios y facturación"
+  },
+  "balance": {
+    "zh": "余额查询",
+    "en": "Balance Query",
+    "ja": "残高照会",
+    "fr": "Consultation du solde",
+    "de": "Guthabenabfrage",
+    "ar": "استعلام الرصيد",
+    "es": "Consulta de saldo"
+  },
+  "settings": {
+    "zh": "设置",
+    "en": "Settings",
+    "ja": "設定",
+    "fr": "Paramètres",
+    "de": "Einstellungen",
+    "ar": "الإعدادات",
+    "es": "Configuración"
+  },
+  "appSettings": {
+    "zh": "应用设置",
+    "en": "App Settings",
+    "ja": "アプリ設定",
+    "fr": "Paramètres de l'application",
+    "de": "App-Einstellungen",
+    "ar": "إعدادات التطبيق",
+    "es": "Configuración de la aplicación"
+  },
+  "themes": {
+    "zh": "主题定制",
+    "en": "Themes",
+    "ja": "テーマ",
+    "fr": "Thèmes",
+    "de": "Themen",
+    "ar": "السمات",
+    "es": "Temas"
+  },
+  "trayConfig": {
+    "zh": "托盘配置",
+    "en": "Tray Configuration",
+    "ja": "トレイ設定",
+    "fr": "Configuration de la barre d'état",
+    "de": "Tray-Konfiguration",
+    "ar": "تكوين شريط المهام",
+    "es": "Configuración de la bandeja"
+  },
+  "guide": {
+    "zh": "指南",
+    "en": "Guide",
+    "ja": "ガイド",
+    "fr": "Guide",
+    "de": "Leitfaden",
+    "ar": "الدليل",
+    "es": "Guía"
+  },
+  "advancedRouting": {
+    "zh": "高级路由",
+    "en": "Advanced Routing",
+    "ja": "高度なルーティング",
+    "fr": "Routage avancé",
+    "de": "Erweitertes Routing",
+    "ar": "التوجيه المتقدم",
+    "es": "Enrutamiento avanzado"
+  }
+}

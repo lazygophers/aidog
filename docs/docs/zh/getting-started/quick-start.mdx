@@ -1,0 +1,65 @@
+---
+title: 快速开始
+---
+
+# 快速开始
+
+5 分钟上手 AiDog。
+
+## 第一步：添加平台
+
+启动 AiDog 后：
+
+1. 点击左侧导航栏的 **「平台」**
+2. 点击 **「+ 添加平台」**
+3. 填写基本信息：
+   - **名称** — 例如 `My OpenAI`
+   - **Base URL** — API 基础地址，如 `https://api.openai.com/v1`
+   - **API Key** — 你的平台 API Key
+   - **协议** — 选择对应协议（默认 `openai_chat`）
+4. 点击保存
+
+:::tip{title="提示"}
+Base URL 已包含版本前缀（如 `/v1`），无需额外拼接路径。AiDog 会自动追加 `/chat/completions`。
+:::
+
+## 第二步：配置代理
+
+在需要使用 AI API 的应用中，将 API 地址设置为 AiDog 的代理地址：
+
+```
+http://127.0.0.1:7860/v1
+```
+
+API Key 可以填任意值（AiDog 会使用你配置的真实 Key）。
+
+## 第三步：开始使用
+
+现在任何发送到 `http://127.0.0.1:7860` 的请求都会经过 AiDog：
+
+- 请求会被路由到对应平台
+- 用量会被自动记录
+- 费用会被自动估算
+- 日志可在「日志」页面查看
+
+## 验证代理工作
+
+用 curl 测试：
+
+```bash
+curl http://127.0.0.1:7860/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer any-value" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+如果返回正常的 AI 响应，说明代理配置成功！
+
+## 下一步
+
+- [平台协议详解](/platforms/protocols) — 了解支持的协议类型
+- [分组管理](/groups/manage-groups) — 用分组控制路由
+- [Codex 集成](/proxy/codex-integration) — 对接编程助手

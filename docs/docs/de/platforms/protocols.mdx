@@ -1,0 +1,66 @@
+---
+title: Protokolle
+---
+
+# Protokolltypen
+
+AiDog unterstützt mehrere KI-API-Protokolle für eingehende Anfrageerkennung und ausgehende Anfragekonvertierung.
+
+## Unterstützte Protokolle
+
+### OpenAI-Serie
+
+| Protokoll | Beschreibung | Endpunkt |
+|----------|-------------|----------|
+| `openai_chat` | Chat Completions API | `/v1/chat/completions` |
+| `openai_completions` | Text Completions API (Legacy) | `/v1/completions` |
+| `openai_responses` | Responses API (Codex) | `/v1/responses` |
+
+### Anthropic
+
+| Protokoll | Beschreibung | Endpunkt |
+|----------|-------------|----------|
+| `anthropic` | Claude Messages API | `/v1/messages` |
+
+### Google
+
+| Protokoll | Beschreibung | Endpunkt |
+|----------|-------------|----------|
+| `gemini` | Gemini Generate Content API | `/v1beta/models/{model}:generateContent` |
+
+### Weitere
+
+| Protokoll | Beschreibung |
+|----------|-------------|
+| `minimax` | MiniMax natives Protokoll |
+| `glm` | Zhipu GLM natives Protokoll |
+
+## Automatische Erkennung
+
+AiDog erkennt das eingehende Protokoll automatisch anhand des Anfragepfads:
+
+- `/v1/chat/completions` → `openai_chat`
+- `/v1/completions` → `openai_completions`
+- `/v1/responses` → `openai_responses`
+
+So können verschiedene Client-Typen über dieselbe Proxy-Adresse bedient werden.
+
+## Protokollkonvertierung
+
+Eingehende und ausgehende Protokolle können unterschiedlich sein. AiDog übernimmt die Konvertierung automatisch:
+
+1. Eingehende Anfrage analysieren (erkanntes Protokoll)
+2. In internes Format konvertieren
+3. In das Ausgangsprotokoll der Zielplattform transformieren
+4. Anfrage senden
+
+Beispiel: Client sendet `openai_chat` → AiDog konvertiert zu `anthropic`-Protokoll → sendet an Claude.
+
+## Plattform-Voreinstellungen
+
+AiDog enthält 50+ integrierte Plattform-Voreinstellungen, die jeweils Folgendes enthalten:
+- Standard-Base URL
+- Standard-Protokoll
+- Liste unterstützter Modelle
+
+Bei Auswahl einer Voreinstellung werden diese Werte automatisch ausgefüllt.

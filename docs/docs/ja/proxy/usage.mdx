@@ -1,0 +1,83 @@
+---
+title: 使用方法
+---
+
+# プロキシの使用方法
+
+AiDog はローカルで HTTP プロキシサーバーを起動し、AI API リクエストを受信して転送します。
+
+## プロキシアドレス
+
+デフォルトのプロキシアドレス：
+
+```
+http://127.0.0.1:7860
+```
+
+ポート番号は **「設定」** で変更可能です。
+
+## 基本的な使い方
+
+カスタム API アドレスをサポートする AI クライアントを AiDog に向けるだけです：
+
+| クライアント種別 | 設定方法 |
+|-------------|---------------|
+| OpenAI SDK | `base_url` をプロキシアドレスに設定 |
+| curl | プロキシアドレスに直接リクエスト |
+| Web アプリ | API エンドポイントをプロキシに設定 |
+| コーディングアシスタント | API base URL を設定 |
+
+### Python (OpenAI SDK)
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://127.0.0.1:7860/v1",
+    api_key="any-value"  # AiDog が設定済みの実際のキーを使用
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "こんにちは！"}]
+)
+```
+
+### Node.js
+
+```javascript
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  baseURL: 'http://127.0.0.1:7860/v1',
+  apiKey: 'any-value',
+});
+
+const response = await client.chat.completions.create({
+  model: 'gpt-4o',
+  messages: [{ role: 'user', content: 'こんにちは！' }],
+});
+```
+
+### curl
+
+```bash
+curl http://127.0.0.1:7860/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer any-value" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "こんにちは！"}]
+  }'
+```
+
+## ストリーミング
+
+AiDog は SSE (Server-Sent Events) ストリーミングに完全対応しています。クライアントのストリーミングリクエストはアップストリームプラットフォームに透過的に転送されます。
+
+## タイムアウト
+
+プロキシリクエストにはタイムアウト保護があります：
+- デフォルトタイムアウト：300 秒
+- 設定で調整可能
+- タイムアウト時は 504 Gateway Timeout を返却

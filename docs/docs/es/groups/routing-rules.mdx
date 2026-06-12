@@ -1,0 +1,55 @@
+---
+title: Reglas de enrutamiento
+---
+
+# Reglas de enrutamiento
+
+Las reglas de enrutamiento determinan cómo AiDog asocia las solicitudes entrantes con el grupo y plataforma apropiados.
+
+## Flujo de coincidencia
+
+```
+Solicitud entrante → Detectar protocolo → Coincidir grupo → Seleccionar plataforma → Mapear modelo → Reenviar
+```
+
+## Coincidencia de grupo
+
+Las solicitudes se asocian a grupos por prioridad:
+
+1. **Coincidencia por nombre de modelo** — El nombre de modelo solicitado está en la tabla de mapeo de un grupo
+2. **Grupo predeterminado** — Se usa cuando no se encuentra coincidencia
+3. **Primer grupo** — Se usa cuando no hay grupo predeterminado definido
+
+## Selección de plataforma
+
+Dentro de un grupo, las plataformas se seleccionan por estrategia:
+
+1. Verificar si la plataforma está activada
+2. Verificar si la clave API es válida
+3. Seleccionar una plataforma según la estrategia
+4. Enviar la solicitud
+
+Si la plataforma seleccionada devuelve un error (ej. 429 límite de velocidad), AiDog intenta automáticamente la siguiente plataforma (conmutación por error).
+
+## Conmutación por error (failover)
+
+Las plataformas dentro de un grupo están ordenadas. Cuando la plataforma actual falla:
+
+1. Registrar el fallo
+2. Intentar automáticamente la siguiente plataforma
+3. Si todas las plataformas fallan, devolver error al cliente
+
+## Cadena de mapeo de modelos
+
+Orden de resolución de nombres de modelos:
+
+1. **Mapeo a nivel de grupo** — Si el grupo define mapeos
+2. **Mapeo a nivel de plataforma** — Si la plataforma define mapeos
+3. **Valor original** — Usar el nombre de modelo original de la solicitud
+
+```
+Cliente solicita: gpt-4o
+  → Mapeo de grupo: gpt-4o → deepseek-chat
+  → Mapeo de plataforma: (ninguno)
+  → Enviado a plataforma: deepseek-chat
+```

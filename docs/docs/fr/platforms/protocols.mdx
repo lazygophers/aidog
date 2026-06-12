@@ -1,0 +1,66 @@
+---
+title: Protocoles
+---
+
+# Types de protocoles
+
+AiDog prend en charge plusieurs protocoles d'API IA pour la détection des requêtes entrantes et la conversion des requêtes sortantes.
+
+## Protocoles supportés
+
+### Série OpenAI
+
+| Protocole | Description | Endpoint |
+|----------|-------------|----------|
+| `openai_chat` | API Chat Completions | `/v1/chat/completions` |
+| `openai_completions` | API Text Completions (hérité) | `/v1/completions` |
+| `openai_responses` | API Responses (Codex) | `/v1/responses` |
+
+### Anthropic
+
+| Protocole | Description | Endpoint |
+|----------|-------------|----------|
+| `anthropic` | API Claude Messages | `/v1/messages` |
+
+### Google
+
+| Protocole | Description | Endpoint |
+|----------|-------------|----------|
+| `gemini` | API Gemini Generate Content | `/v1beta/models/{model}:generateContent` |
+
+### Autres
+
+| Protocole | Description |
+|----------|-------------|
+| `minimax` | Protocole natif MiniMax |
+| `glm` | Protocole natif Zhipu GLM |
+
+## Détection automatique
+
+AiDog détecte automatiquement le protocole entrant selon le chemin de la requête :
+
+- `/v1/chat/completions` → `openai_chat`
+- `/v1/completions` → `openai_completions`
+- `/v1/responses` → `openai_responses`
+
+Vous pouvez ainsi servir différents types de clients via la même adresse proxy.
+
+## Conversion de protocole
+
+Les protocoles entrants et sortants peuvent différer. AiDog gère automatiquement la conversion :
+
+1. Analyse la requête entrante (protocole détecté)
+2. Convertit au format interne
+3. Transforme vers le protocole sortant de la plateforme cible
+4. Envoie la requête
+
+Exemple : le client envoie `openai_chat` → AiDog convertit en protocole `anthropic` → envoie à Claude.
+
+## Préréglages de plateforme
+
+AiDog inclut plus de 50 préréglages de plateformes intégrés, contenant chacun :
+- Base URL par défaut
+- Protocole par défaut
+- Liste des modèles supportés
+
+Sélectionner un préréglage remplit automatiquement ces valeurs.

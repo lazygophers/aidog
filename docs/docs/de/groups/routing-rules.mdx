@@ -1,0 +1,55 @@
+---
+title: Routing-Regeln
+---
+
+# Routing-Regeln
+
+Routing-Regeln bestimmen, wie AiDog eingehende Anfragen der entsprechenden Gruppe und Plattform zuordnet.
+
+## Zuordnungsfluss
+
+```
+Eingehende Anfrage → Protokoll erkennen → Gruppe zuordnen → Plattform wählen → Modell zuordnen → Weiterleiten
+```
+
+## Gruppenzuordnung
+
+Anfragen werden nach Priorität Gruppen zugeordnet:
+
+1. **Modellnamen-Zuordnung** — Angefragter Modellname ist in der Zuordnungstabelle einer Gruppe
+2. **Standardgruppe** — Wird verwendet, wenn keine Übereinstimmung gefunden wird
+3. **Erste Gruppe** — Wird verwendet, wenn keine Standardgruppe festgelegt ist
+
+## Plattformauswahl
+
+Innerhalb einer Gruppe werden Plattformen nach Strategie ausgewählt:
+
+1. Prüfen, ob die Plattform aktiviert ist
+2. Prüfen, ob der API-Schlüssel gültig ist
+3. Eine Plattform nach Strategie auswählen
+4. Anfrage senden
+
+Wenn die ausgewählte Plattform einen Fehler zurückgibt (z.B. 429 Rate Limit), versucht AiDog automatisch die nächste Plattform (Failover).
+
+## Failover
+
+Plattformen innerhalb einer Gruppe sind geordnet. Wenn die aktuelle Plattform fehlschlägt:
+
+1. Fehler protokollieren
+2. Automatisch die nächste Plattform versuchen
+3. Wenn alle Plattformen fehlschlagen, Fehler an den Client zurückgeben
+
+## Modellzuordnungskette
+
+Auflösungsreihenfolge für Modellnamen:
+
+1. **Zuordnung auf Gruppenebene** — Wenn die Gruppe Zuordnungen definiert
+2. **Zuordnung auf Plattformebene** — Wenn die Plattform Zuordnungen definiert
+3. **Ursprünglicher Wert** — Den ursprünglichen Modellnamen der Anfrage verwenden
+
+```
+Client fragt an: gpt-4o
+  → Gruppenzuordnung: gpt-4o → deepseek-chat
+  → Plattformzuordnung: (keine)
+  → An Plattform gesendet: deepseek-chat
+```

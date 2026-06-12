@@ -1,0 +1,83 @@
+---
+title: الاستخدام
+---
+
+# استخدام الوكيل
+
+يشغل AiDog خادم وكيل HTTP محلي يستقبل ويوجه طلبات API الذكاء الاصطناعي.
+
+## عنوان الوكيل
+
+عنوان الوكيل الافتراضي:
+
+```
+http://127.0.0.1:7860
+```
+
+يمكن تغيير المنفذ في **"الإعدادات"**.
+
+## الاستخدام الأساسي
+
+وجه أي عميل ذكاء اصطناعي يدعم عناوين API مخصصة إلى AiDog:
+
+| نوع العميل | التكوين |
+|-------------|---------------|
+| OpenAI SDK | تعيين `base_url` على عنوان الوكيل |
+| curl | طلب عنوان الوكيل مباشرة |
+| تطبيقات الويب | تعيين نقطة نهاية API على الوكيل |
+| مساعدي البرمجة | تعيين API base URL |
+
+### Python (OpenAI SDK)
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://127.0.0.1:7860/v1",
+    api_key="any-value"
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "مرحبا!"}]
+)
+```
+
+### Node.js
+
+```javascript
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  baseURL: 'http://127.0.0.1:7860/v1',
+  apiKey: 'any-value',
+});
+
+const response = await client.chat.completions.create({
+  model: 'gpt-4o',
+  messages: [{ role: 'user', content: 'مرحبا!' }],
+});
+```
+
+### curl
+
+```bash
+curl http://127.0.0.1:7860/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer any-value" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "مرحبا!"}]
+  }'
+```
+
+## البث
+
+يدعم AiDog بالكامل بث SSE (Server-Sent Events). يتم تمرير طلبات بث العميل بشفافية إلى المنصة upstream.
+
+## المهلة
+
+طلبات الوكيل لها حماية المهلة:
+- المهلة الافتراضية: 300 ثانية
+- قابلة للتكوين في الإعدادات
+- تُرجع 504 Gateway Timeout عند الانتهاء

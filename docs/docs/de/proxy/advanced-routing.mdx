@@ -1,0 +1,65 @@
+---
+title: Erweitertes Routing
+---
+
+# Erweitertes Routing
+
+Meistern Sie AiDogs erweiterte Routing-Fähigkeiten für feingranulare Datenverkehrssteuerung.
+
+## Multi-Plattform-Lastverteilung
+
+Mehrere Plattformen zu einer Gruppe mit verschiedenen Routing-Strategien hinzufügen:
+
+### Sequentiell
+
+Plattformen empfangen Anfragen der Reihe nach. Ideal für Primär/Backup-Szenarien.
+
+### Zufällig
+
+Anfragen werden zufällig auf Plattformen verteilt. Gut für gleichmäßige Verteilung.
+
+### Gewichtet
+
+Anfragen nach Gewichtsverhältnis verteilen. Beispiel:
+
+| Plattform | Gewicht | Erwarteter Traffic |
+|----------|--------|------------------|
+| OpenAI | 70 | ~70% |
+| DeepSeek | 30 | ~30% |
+
+## Failover
+
+Wenn eine Plattform-Anfrage fehlschlägt, versucht AiDog automatisch die nächste Plattform in der Gruppe:
+
+```
+Anfrage → Plattform A (429 Rate Limit)
+        → Plattform B (Erfolg)
+        → Antwort zurückgeben
+```
+
+Failover wird ausgelöst bei:
+- HTTP 429 (Rate Limit)
+- HTTP 5xx (Serverfehler)
+- Verbindungs-Timeout
+| Netzwerkfehlern
+
+## Modell-Aliase
+
+Aliase über Modellzuordnung erstellen:
+
+| Alias | Zugeordnet zu | Zweck |
+|-------|---------|---------|
+| `fast` | `gpt-4o-mini` | Schnelle Antworten |
+| `smart` | `claude-3-opus` | Hohe Qualität |
+| `code` | `deepseek-coder` | Code-Generierung |
+
+Clients verwenden Aliase; AiDog routet zu tatsächlichen Plattformen basierend auf Gruppenkonfiguration.
+
+## Ketten-Routing
+
+Gruppen- und Plattform-Zuordnungen kombinieren:
+
+1. Client fragt Modell `smart` an
+2. Gruppe A ordnet `smart` → `claude-3-opus` zu
+3. Plattform X ordnet `claude-3-opus` → `claude-3-opus-20240229` zu
+4. An Anthropic gesendet

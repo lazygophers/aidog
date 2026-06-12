@@ -1,0 +1,37 @@
+---
+title: Mappage de modèles
+---
+
+# Mappage de modèles
+
+Le mappage de modèles permet de traduire les noms de modèles des requêtes clients vers les noms réels supportés par la plateforme.
+
+## Cas d'utilisation
+
+- Le client demande `gpt-4o`, mais vous souhaitez router vers `deepseek-chat` de DeepSeek
+- Standardiser la nomination des modèles entre plateformes
+- Tests A/B de modèles équivalents sur différentes plateformes
+
+## Configuration
+
+Ajoutez des règles de mappage dans la section « Mappage de modèles » de la plateforme :
+
+| Modèle demandé | Mappé vers |
+|---------------|---------|
+| `gpt-4o` | `deepseek-chat` |
+| `claude-3-opus` | `claude-3-opus-20240229` |
+
+### Règles de mappage
+
+1. **Correspondance exacte** — Ne mappe que lorsque le nom correspond exactement
+2. **Préservation de l'original** — Les noms sans correspondance passent inchangés
+3. **Priorité** — Mappages au niveau plateforme d'abord, puis au niveau groupe
+
+## Utilisation dans les groupes
+
+Le mappage peut être configuré à deux niveaux :
+
+- **Niveau plateforme** — S'applique à toutes les requêtes de cette plateforme
+- **Niveau groupe** — Ne s'applique que dans les règles de routage du groupe
+
+Le mappage au niveau groupe est prioritaire sur celui au niveau plateforme. Voir [Règles de routage](/groups/routing-rules).

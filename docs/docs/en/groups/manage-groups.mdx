@@ -1,0 +1,42 @@
+---
+title: Create & Manage
+---
+
+# Create & Manage Groups
+
+Groups are the routing core of AiDog — organize platforms by purpose and control request routing with rules.
+
+## Creating a Group
+
+1. Go to the **"Groups"** page
+2. Click **"+ Add Group"**
+3. Configure:
+
+| Field | Description |
+|-------|-------------|
+| Name | Group display name |
+| Description | Optional group description |
+| Platforms | Select platforms to include |
+| Routing Strategy | Platform selection order |
+
+### Routing Strategies
+
+- **Sequential** — Try platforms in order
+- **Random** — Randomly select from available platforms
+- **Weighted** — Distribute requests by weight ratio
+
+## Managing Platforms
+
+Within a group, you can:
+- **Drag to reorder** — Adjust priority (sequential strategy)
+- **Enable/Disable** — Temporarily skip a platform
+- **Set weights** — Request ratio for weighted strategy
+- **Model mapping** — Group-level model mapping overrides
+
+## Editing Groups
+
+Click a group card to enter edit mode. Click "Save" after changes.
+
+## Deleting Groups
+
+Deleting a group does not delete its platforms — it only removes the association.
