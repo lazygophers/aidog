@@ -1,0 +1,1 @@
+{"role": "check", "agent": "trellis-check", "files": ["src-tauri/src/gateway/proxy.rs", "src-tauri/src/gateway/i18n.rs", "src/context/AppContext.tsx"], "specs": [".trellis/tasks/06-12-proxy-error-i18n/prd.md"], "acceptance": ["all proxy error messages read locale from DB", "7 languages covered", "structured fields unchanged", "tray refreshes after every request"]}
