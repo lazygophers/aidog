@@ -517,5 +517,17 @@
   "settings.hooks.handler.command": "Commande",
   "settings.hooks.handler.mcp_tool": "Outil MCP",
   "settings.hooks.handler.prompt": "Invite LLM",
-  "settings.hooks.handler.agent": "Validation par agent"
+  "settings.hooks.handler.agent": "Validation par agent",
+  "statusline.seg.group-balance.name": "Solde du groupe",
+  "statusline.seg.group-balance.desc": "Solde restant estimé de la plateforme unique du groupe (groupes mono-plateforme uniquement)",
+  "statusline.seg.group-spent.name": "Dépense du groupe",
+  "statusline.seg.group-spent.desc": "Dépense estimée cumulée du groupe actuel (groupes mono-plateforme uniquement)",
+  "statusline.seg.group-coding.name": "Coding Plan",
+  "statusline.seg.group-coding.desc": "Utilisation des paliers du Coding Plan (groupes mono-plateforme uniquement)",
+  "statusline.seg.group-requests.name": "Requêtes · Réussite",
+  "statusline.seg.group-requests.desc": "Nombre de requêtes · taux de réussite du groupe (groupes mono-plateforme uniquement)",
+  "statusline.seg.group-cache.name": "Taux de cache",
+  "statusline.seg.group-cache.desc": "Taux de succès du cache du groupe (groupes mono-plateforme uniquement)",
+  "statusline.seg.group-tokens.name": "Total Tokens",
+  "statusline.seg.group-tokens.desc": "Total de tokens utilisés par le groupe actuel (groupes mono-plateforme uniquement)"
 }

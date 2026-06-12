@@ -573,5 +573,17 @@
   "settings.hooks.handler.command": "Command",
   "settings.hooks.handler.mcp_tool": "MCP Tool",
   "settings.hooks.handler.prompt": "LLM Prompt",
-  "settings.hooks.handler.agent": "Agent Validation"
+  "settings.hooks.handler.agent": "Agent Validation",
+  "statusline.seg.group-balance.name": "Group Balance",
+  "statusline.seg.group-balance.desc": "Estimated remaining balance of the group's single platform (single-platform groups only)",
+  "statusline.seg.group-spent.name": "Group Spent",
+  "statusline.seg.group-spent.desc": "Cumulative estimated spend of the current group (single-platform groups only)",
+  "statusline.seg.group-coding.name": "Coding Plan",
+  "statusline.seg.group-coding.desc": "Coding Plan tier utilization (single-platform groups only)",
+  "statusline.seg.group-requests.name": "Requests · Success",
+  "statusline.seg.group-requests.desc": "Group request count · success rate (single-platform groups only)",
+  "statusline.seg.group-cache.name": "Cache Rate",
+  "statusline.seg.group-cache.desc": "Group cache hit rate (single-platform groups only)",
+  "statusline.seg.group-tokens.name": "Total Tokens",
+  "statusline.seg.group-tokens.desc": "Total tokens used by the current group (single-platform groups only)"
 }

@@ -692,5 +692,17 @@
   "settings.hooks.handler.command": "命令",
   "settings.hooks.handler.mcp_tool": "MCP 工具",
   "settings.hooks.handler.prompt": "LLM 提示",
-  "settings.hooks.handler.agent": "Agent 验证"
+  "settings.hooks.handler.agent": "Agent 验证",
+  "statusline.seg.group-balance.name": "分组余额",
+  "statusline.seg.group-balance.desc": "当前分组单平台预估剩余余额（仅单平台分组）",
+  "statusline.seg.group-spent.name": "分组花费",
+  "statusline.seg.group-spent.desc": "当前分组累计预估花费（仅单平台分组）",
+  "statusline.seg.group-coding.name": "Coding Plan",
+  "statusline.seg.group-coding.desc": "Coding Plan 各档利用率（仅单平台分组）",
+  "statusline.seg.group-requests.name": "请求·成功率",
+  "statusline.seg.group-requests.desc": "当前分组请求数 · 成功率（仅单平台分组）",
+  "statusline.seg.group-cache.name": "缓存率",
+  "statusline.seg.group-cache.desc": "当前分组缓存命中率（仅单平台分组）",
+  "statusline.seg.group-tokens.name": "总 Tokens",
+  "statusline.seg.group-tokens.desc": "当前分组已使用总 tokens（仅单平台分组）"
 }

@@ -804,6 +804,29 @@ fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
                     "ANTHROPIC_AUTH_TOKEN".to_string(),
                     serde_json::Value::String(group_name.clone()),
                 );
+
+                // 仅单平台分组额外注入 statusline group-info 端点 env：
+                // AIDOG_INFO_URL / AIDOG_GROUP / AIDOG_KEY（该平台 api_key 作鉴权密钥）。
+                // 多平台 / 无平台分组不注入这三个 env，statusline 段据此优雅降级。
+                if let Ok(platforms) = gateway::db::get_group_platforms(db, group.id) {
+                    if platforms.len() == 1 {
+                        env_map.insert(
+                            "AIDOG_INFO_URL".to_string(),
+                            serde_json::Value::String(format!(
+                                "http://127.0.0.1:{}/__aidog/group-info",
+                                port
+                            )),
+                        );
+                        env_map.insert(
+                            "AIDOG_GROUP".to_string(),
+                            serde_json::Value::String(group_name.clone()),
+                        );
+                        env_map.insert(
+                            "AIDOG_KEY".to_string(),
+                            serde_json::Value::String(platforms[0].platform.api_key.clone()),
+                        );
+                    }
+                }
             }
         }
 

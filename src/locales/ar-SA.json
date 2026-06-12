@@ -517,5 +517,17 @@
   "settings.hooks.handler.command": "أمر",
   "settings.hooks.handler.mcp_tool": "أداة MCP",
   "settings.hooks.handler.prompt": "مُوجِّه LLM",
-  "settings.hooks.handler.agent": "تحقّق الوكيل"
+  "settings.hooks.handler.agent": "تحقّق الوكيل",
+  "statusline.seg.group-balance.name": "رصيد المجموعة",
+  "statusline.seg.group-balance.desc": "الرصيد المتبقي المقدّر للمنصة الوحيدة في المجموعة (مجموعات المنصة الواحدة فقط)",
+  "statusline.seg.group-spent.name": "إنفاق المجموعة",
+  "statusline.seg.group-spent.desc": "الإنفاق المقدّر التراكمي للمجموعة الحالية (مجموعات المنصة الواحدة فقط)",
+  "statusline.seg.group-coding.name": "Coding Plan",
+  "statusline.seg.group-coding.desc": "نسبة استخدام مستويات Coding Plan (مجموعات المنصة الواحدة فقط)",
+  "statusline.seg.group-requests.name": "الطلبات · النجاح",
+  "statusline.seg.group-requests.desc": "عدد طلبات المجموعة · معدل النجاح (مجموعات المنصة الواحدة فقط)",
+  "statusline.seg.group-cache.name": "معدل الذاكرة المؤقتة",
+  "statusline.seg.group-cache.desc": "معدل إصابة الذاكرة المؤقتة للمجموعة (مجموعات المنصة الواحدة فقط)",
+  "statusline.seg.group-tokens.name": "إجمالي الرموز",
+  "statusline.seg.group-tokens.desc": "إجمالي الرموز المستخدمة من المجموعة الحالية (مجموعات المنصة الواحدة فقط)"
 }

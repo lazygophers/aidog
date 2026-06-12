@@ -517,5 +517,17 @@
   "settings.hooks.handler.command": "Команда",
   "settings.hooks.handler.mcp_tool": "MCP-инструмент",
   "settings.hooks.handler.prompt": "LLM-промпт",
-  "settings.hooks.handler.agent": "Проверка агентом"
+  "settings.hooks.handler.agent": "Проверка агентом",
+  "statusline.seg.group-balance.name": "Баланс группы",
+  "statusline.seg.group-balance.desc": "Оценочный остаток баланса единственной платформы группы (только группы с одной платформой)",
+  "statusline.seg.group-spent.name": "Расход группы",
+  "statusline.seg.group-spent.desc": "Совокупный оценочный расход текущей группы (только группы с одной платформой)",
+  "statusline.seg.group-coding.name": "Coding Plan",
+  "statusline.seg.group-coding.desc": "Использование уровней Coding Plan (только группы с одной платформой)",
+  "statusline.seg.group-requests.name": "Запросы · Успех",
+  "statusline.seg.group-requests.desc": "Количество запросов · доля успеха группы (только группы с одной платформой)",
+  "statusline.seg.group-cache.name": "Доля кэша",
+  "statusline.seg.group-cache.desc": "Доля попаданий в кэш группы (только группы с одной платформой)",
+  "statusline.seg.group-tokens.name": "Всего токенов",
+  "statusline.seg.group-tokens.desc": "Всего токенов, использованных текущей группой (только группы с одной платформой)"
 }

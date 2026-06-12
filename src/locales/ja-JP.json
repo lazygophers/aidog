@@ -517,5 +517,17 @@
   "settings.hooks.handler.command": "コマンド",
   "settings.hooks.handler.mcp_tool": "MCP ツール",
   "settings.hooks.handler.prompt": "LLM プロンプト",
-  "settings.hooks.handler.agent": "エージェント検証"
+  "settings.hooks.handler.agent": "エージェント検証",
+  "statusline.seg.group-balance.name": "グループ残高",
+  "statusline.seg.group-balance.desc": "グループ単一プラットフォームの推定残高（単一プラットフォームのグループのみ）",
+  "statusline.seg.group-spent.name": "グループ支出",
+  "statusline.seg.group-spent.desc": "現在のグループの累計推定支出（単一プラットフォームのグループのみ）",
+  "statusline.seg.group-coding.name": "Coding Plan",
+  "statusline.seg.group-coding.desc": "Coding Plan 各層の利用率（単一プラットフォームのグループのみ）",
+  "statusline.seg.group-requests.name": "リクエスト·成功率",
+  "statusline.seg.group-requests.desc": "グループのリクエスト数·成功率（単一プラットフォームのグループのみ）",
+  "statusline.seg.group-cache.name": "キャッシュ率",
+  "statusline.seg.group-cache.desc": "グループのキャッシュヒット率（単一プラットフォームのグループのみ）",
+  "statusline.seg.group-tokens.name": "総トークン",
+  "statusline.seg.group-tokens.desc": "現在のグループが使用した総トークン数（単一プラットフォームのグループのみ）"
 }

@@ -1,10 +1,12 @@
 use axum::{
     body::Body,
-    extract::{Request, State as AxumState},
+    extract::{Query, Request, State as AxumState},
     http::StatusCode,
     response::{IntoResponse, Response},
-    Router,
+    routing::get,
+    Json, Router,
 };
+use std::collections::HashMap;
 use futures::StreamExt;
 use reqwest::Client;
 use serde_json::Value;
@@ -34,6 +36,7 @@ pub async fn start_proxy(
     let state = Arc::new(ProxyState { db, app });
 
     let app = Router::new()
+        .route("/__aidog/group-info", get(handle_group_info))
         .fallback(handle_proxy)
         .with_state(state);
 
@@ -59,6 +62,135 @@ pub async fn start_proxy(
     });
 
     Ok((handle, actual_port))
+}
+
+/// `GET /__aidog/group-info` 入参（query）
+#[derive(serde::Deserialize)]
+struct GroupInfoQuery {
+    group: String,
+    #[serde(default)]
+    key: String,
+}
+
+/// statusline 段消费的本地预估信息（只读，不上游真查）
+#[derive(serde::Serialize)]
+struct GroupInfoResp {
+    applicable: bool,
+    balance: f64,
+    /// 累计预估花费（$ / 平台币种），基于 est_cost 聚合
+    spent: f64,
+    coding_plan: Vec<CodingTierResp>,
+    requests: i64,
+    /// 成功率（0-100）
+    success_rate: f64,
+    /// 缓存命中率（0-100）
+    cache_rate: f64,
+    total_tokens: i64,
+    currency: String,
+}
+
+#[derive(serde::Serialize)]
+struct CodingTierResp {
+    name: String,
+    /// 利用率（0-100）
+    utilization: f64,
+}
+
+/// 分组信息端点 — 仅单平台分组返回本地预估值。
+/// 鉴权：query `key` 必须等于该分组单平台 api_key，否则 401。
+/// 多平台 / 无平台分组返回 `{ applicable:false, ... }`（200）。
+/// header `X-Aidog-Key` 亦可携带 key（优先于 query，避免进程列表暴露）。
+async fn handle_group_info(
+    AxumState(state): AxumState<Arc<ProxyState>>,
+    Query(q): Query<GroupInfoQuery>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    let empty = || GroupInfoResp {
+        applicable: false,
+        balance: 0.0,
+        spent: 0.0,
+        coding_plan: Vec::new(),
+        requests: 0,
+        success_rate: 0.0,
+        cache_rate: 0.0,
+        total_tokens: 0,
+        currency: String::new(),
+    };
+
+    // 定位分组
+    let groups = match super::db::list_groups(&state.db) {
+        Ok(g) => g,
+        Err(_) => return (StatusCode::OK, Json(empty())).into_response(),
+    };
+    let group = match groups.iter().find(|g| g.name == q.group) {
+        Some(g) => g,
+        None => return (StatusCode::OK, Json(empty())).into_response(),
+    };
+
+    // 关联平台 —— 恰好 1 个才适用
+    let platforms = match super::db::get_group_platforms(&state.db, group.id) {
+        Ok(p) => p,
+        Err(_) => return (StatusCode::OK, Json(empty())).into_response(),
+    };
+    if platforms.len() != 1 {
+        return (StatusCode::OK, Json(empty())).into_response();
+    }
+    let platform = &platforms[0].platform;
+
+    // 鉴权：header X-Aidog-Key 优先，回退 query key
+    let provided_key = headers
+        .get("x-aidog-key")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or(q.key);
+    if provided_key.is_empty() || provided_key != platform.api_key {
+        return StatusCode::UNAUTHORIZED.into_response();
+    }
+
+    // usage 统计（复用现有 db 查询，只读）
+    let stats = super::db::get_group_usage_stats(&state.db, &group.name).unwrap_or_else(|_| {
+        super::models::PlatformUsageStats {
+            total_requests: 0,
+            success_count: 0,
+            total_input_tokens: 0,
+            total_output_tokens: 0,
+            total_cache_tokens: 0,
+            cache_rate: 0.0,
+            recent_failures: 0,
+            recent_total: 0,
+            total_cost: 0.0,
+        }
+    });
+
+    let success_rate = if stats.total_requests > 0 {
+        stats.success_count as f64 / stats.total_requests as f64 * 100.0
+    } else {
+        0.0
+    };
+    let total_tokens =
+        stats.total_input_tokens + stats.total_output_tokens + stats.total_cache_tokens;
+
+    // coding plan tiers
+    let coding_plan: Vec<CodingTierResp> = super::estimate::EstCodingPlan::from_json(&platform.est_coding_plan)
+        .tiers
+        .into_iter()
+        .map(|t| CodingTierResp { name: t.name, utilization: t.est_utilization })
+        .collect();
+
+    let resp = GroupInfoResp {
+        applicable: true,
+        balance: platform.est_balance_remaining,
+        spent: stats.total_cost,
+        coding_plan,
+        requests: stats.total_requests,
+        success_rate,
+        cache_rate: stats.cache_rate,
+        total_tokens,
+        currency: String::new(),
+    };
+
+    (StatusCode::OK, Json(resp)).into_response()
 }
 
 /// Read proxy log settings from DB
