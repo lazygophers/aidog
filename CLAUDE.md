@@ -10,10 +10,13 @@ Tauri 2.0 + React 19 + TypeScript + Rust + Yarn
 
 ```
 src/                    # React 前端
-  pages/                # 页面组件（Platforms, Groups, Logs, Settings, AppSettings）
+  pages/                # 页面组件（Platforms, Groups, Logs, Settings, AppSettings）— Settings 为编排容器，子组件见 components/settings/
+  components/
+    settings/           # 设置页拆分组件（editors.tsx 全部字段/特殊编辑器 + 令牌 F/S + Header/AnchorNav/UnsavedModal）
+    shared/             # 三页共享展示组件（CompactCard/StatChip/BalanceBar/colorScale）
   services/api.ts       # TS 类型定义 + Tauri invoke 封装
   themes/               # 每主题 light/dark CSS 变量
-  utils/pinyin.ts       # 拼音搜索
+  utils/                # pinyin(拼音搜索) / formatters(统一数值格式化) / navGuard(无路由离页拦截)
 src-tauri/src/
   lib.rs                # Tauri commands（约 50 个）
   gateway/
@@ -46,3 +49,5 @@ src-tauri/src/
 - 7 种语言（zh-CN / en-US / ar-SA / fr-FR / de-DE / ru-RU / ja-JP），阿拉伯语 RTL
 - 主题架构：每主题 light + dark 两组 CSS 变量，位于 `src/themes/`
 - UI 风格偏好：Liquid Glass
+- 无 react-router：导航是 `App.tsx`(侧栏) + `AppSettings.tsx`(tab) 的本地 state；离页拦截走 `utils/navGuard.ts` 注册表，禁原生 confirm / beforeunload（破坏 Tauri）
+- 数值格式化统一走 `utils/formatters.ts`，禁页内重复定义 formatNumber 等
