@@ -15,6 +15,8 @@
   "feedbackSurveyRate": 0,
   "teammateMode": "in-process",
   "includeCoAuthoredBy": false,
+  "_aidog_statusline": { "enabled": true },
+  "_aidog_subagent_statusline": { "enabled": true },
   "attribution": {
     "commit": "",
     "pr": ""
