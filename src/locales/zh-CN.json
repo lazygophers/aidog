@@ -100,6 +100,11 @@
   "platform.selectModel": "选择模型",
   "proxy.autostart": "自动启动",
   "proxy.autostartDesc": "应用启动时自动开启代理服务",
+
+  "proxy.autolaunch": "开机自动启动",
+  "proxy.autolaunchDesc": "系统登录时自动启动 AiDog",
+  "proxy.silentLaunch": "静默启动",
+  "proxy.silentLaunchDesc": "启动时不显示主窗口，仅在系统托盘运行",
   "proxy.configDesc": "将此环境变量设置到 Claude Code 中，即可通过本代理转发请求。",
   "proxy.configExportPath": "写入路径",
   "proxy.configExported": "配置已导出",

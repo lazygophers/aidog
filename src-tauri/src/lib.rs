@@ -345,7 +345,8 @@ async fn proxy_start(
     }
 
     // 保存实际使用的端口到设置
-    save_proxy_settings(&app, actual_port, true)?;
+    let saved = load_proxy_settings(&app).unwrap_or(ProxySettings { port: 9876, autostart: true, silent_launch: false });
+    save_proxy_settings(&app, actual_port, true, saved.silent_launch)?;
 
     // 同步所有分组的 settings 文件（端口可能变了）
     if let Some(db) = app.try_state::<Db>() {
@@ -375,7 +376,7 @@ async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
 
     // 更新设置
     if let Ok(settings) = load_proxy_settings(&app) {
-        save_proxy_settings(&app, settings.port, false)?;
+        save_proxy_settings(&app, settings.port, false, settings.silent_launch)?;
     }
 
     refresh_tray_menu(&app)?;
@@ -397,7 +398,33 @@ fn proxy_get_settings(app: tauri::AppHandle) -> Result<ProxySettings, String> {
 #[tauri::command]
 fn proxy_set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     let current = load_proxy_settings(&app)?;
-    save_proxy_settings(&app, current.port, enabled)?;
+    save_proxy_settings(&app, current.port, enabled, current.silent_launch)?;
+    Ok(())
+}
+
+#[tauri::command]
+fn app_set_autolaunch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    use tauri_plugin_autostart::ManagerExt;
+    let manager = app.autolaunch();
+    if enabled {
+        manager.enable().map_err(|e| format!("enable autolaunch: {e}"))?;
+    } else {
+        manager.disable().map_err(|e| format!("disable autolaunch: {e}"))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn app_get_autolaunch(app: tauri::AppHandle) -> Result<bool, String> {
+    use tauri_plugin_autostart::ManagerExt;
+    let manager = app.autolaunch();
+    manager.is_enabled().map_err(|e| format!("get autolaunch: {e}"))
+}
+
+#[tauri::command]
+fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let current = load_proxy_settings(&app)?;
+    save_proxy_settings(&app, current.port, current.autostart, enabled)?;
     Ok(())
 }
 
@@ -1348,6 +1375,8 @@ fn price_sync_settings_set(db: State<'_, Db>, settings: gateway::models::PriceSy
 struct ProxySettings {
     port: u16,
     autostart: bool,
+    #[serde(default)]
+    silent_launch: bool,
 }
 
 /// 从 DB 读取 proxy settings；首次运行时自动迁移 proxy_settings.json 文件
@@ -1378,7 +1407,7 @@ fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> 
     }
 
     // 默认值
-    Ok(ProxySettings { port: 9876, autostart: true })
+    Ok(ProxySettings { port: 9876, autostart: true, silent_launch: false })
 }
 
 fn save_proxy_settings_to_db(db: &Db, settings: &ProxySettings) -> Result<(), String> {
@@ -1395,11 +1424,12 @@ fn save_proxy_settings(
     app: &tauri::AppHandle,
     port: u16,
     autostart: bool,
+    silent_launch: bool,
 ) -> Result<(), String> {
     let db = app.try_state::<Db>()
         .map(|s| s.inner())
         .ok_or("db not initialized")?;
-    let settings = ProxySettings { port, autostart };
+    let settings = ProxySettings { port, autostart, silent_launch };
     save_proxy_settings_to_db(db, &settings)
 }
 
@@ -1929,6 +1959,10 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_autostart::init(
+            tauri_plugin_autostart::MacosLauncher::LaunchAgent,
+            None,
+        ))
         .setup(|app| {
             // 初始化日志（尽早，在 DB 之前）
             let data_dir = aidog_data_dir().expect("failed to resolve data dir");
@@ -1964,6 +1998,7 @@ pub fn run() {
                         let settings = load_proxy_settings(app).unwrap_or(ProxySettings {
                             port: 9876,
                             autostart: true,
+                            silent_launch: false,
                         });
                         let port = settings.port;
                         tauri::async_runtime::block_on(async {
@@ -2010,6 +2045,13 @@ pub fn run() {
             // 冷启动 est 初始化：tray 平台从未真查（last_real_query_at==0）→ 后台真查对齐 est=真实。
             cold_start_init_tray_estimates(app.handle());
 
+            // 静默启动：隐藏主窗口，仅托盘运行
+            if settings.silent_launch {
+                if let Some(w) = app.get_webview_window("main") {
+                    let _ = w.hide();
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -2044,6 +2086,9 @@ pub fn run() {
             proxy_status,
             proxy_get_settings,
             proxy_set_autostart,
+            app_set_autolaunch,
+            app_get_autolaunch,
+            app_set_silent_launch,
             // Config Export
             export_claude_config,
             sync_group_settings,

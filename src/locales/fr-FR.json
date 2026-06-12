@@ -91,6 +91,11 @@
   "platform.selectModel": "Sélectionner",
   "proxy.autostart": "Démarrage auto",
   "proxy.autostartDesc": "Démarrer le proxy au lancement de l'application",
+
+  "proxy.autolaunch": "Démarrage automatique",
+  "proxy.autolaunchDesc": "Lancer AiDog automatiquement à la connexion",
+  "proxy.silentLaunch": "Démarrage silencieux",
+  "proxy.silentLaunchDesc": "Démarrer masqué dans la barre système sans afficher la fenêtre",
   "proxy.configDesc": "Définissez cette variable pour Claude Code.",
   "proxy.configExportPath": "Écrit dans",
   "proxy.configExported": "Config exportée",

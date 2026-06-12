@@ -91,6 +91,11 @@
   "platform.selectModel": "اختيار",
   "proxy.autostart": "بدء تلقائي",
   "proxy.autostartDesc": "بدء الوكيل تلقائياً عند تشغيل التطبيق",
+
+  "proxy.autolaunch": "تشغيل تلقائي عند تسجيل الدخول",
+  "proxy.autolaunchDesc": "تشغيل AiDog تلقائيًا عند تسجيل الدخول إلى النظام",
+  "proxy.silentLaunch": "تشغيل صامت",
+  "proxy.silentLaunchDesc": "بدء التشغيل مخفياً في شريط النظام دون إظهار النافذة الرئيسية",
   "proxy.configDesc": "قم بتعيين متغير البيئة هذا في Claude Code.",
   "proxy.configExportPath": "كُتب في",
   "proxy.configExported": "تم تصدير التكوين",

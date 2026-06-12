@@ -100,6 +100,11 @@
   "platform.selectModel": "Select model",
   "proxy.autostart": "Auto Start",
   "proxy.autostartDesc": "Start proxy automatically on app launch",
+
+  "proxy.autolaunch": "Auto Start on Login",
+  "proxy.autolaunchDesc": "Launch AiDog automatically when you log in",
+  "proxy.silentLaunch": "Silent Launch",
+  "proxy.silentLaunchDesc": "Start hidden in system tray without showing the main window",
   "proxy.configDesc": "Set this environment variable in Claude Code to route requests through this proxy.",
   "proxy.configExportPath": "Written to",
   "proxy.configExported": "Config exported",

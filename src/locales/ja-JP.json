@@ -91,6 +91,11 @@
   "platform.selectModel": "モデル選択",
   "proxy.autostart": "自動起動",
   "proxy.autostartDesc": "アプリ起動時にプロキシを自動開始",
+
+  "proxy.autolaunch": "ログイン時に自動起動",
+  "proxy.autolaunchDesc": "システムログイン時にAiDogを自動的に起動する",
+  "proxy.silentLaunch": "サイレント起動",
+  "proxy.silentLaunchDesc": "メインウィンドウを表示せず、システムトレイで起動する",
   "proxy.configDesc": "Claude Code にこの環境変数を設定してください。",
   "proxy.configExportPath": "書き込み先",
   "proxy.configExported": "設定をエクスポートしました",

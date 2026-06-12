@@ -20,6 +20,8 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
   const [running, setRunning] = useState(false);
   const [proxyPort, setProxyPort] = useState(9876);
   const [autostart, setAutostart] = useState(false);
+  const [autolaunch, setAutolaunch] = useState(false);
+  const [silentLaunch, setSilentLaunch] = useState(false);
   const [logEnabled, setLogEnabled] = useState(false);
   const [logRetention, setLogRetention] = useState(90);
   const [logUserReq, setLogUserReq] = useState(true);
@@ -38,12 +40,17 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
       try {
         const s = await proxyApi.getSettings();
         setAutostart(s.autostart);
+        setSilentLaunch(s.silent_launch);
         setProxyPort(s.port);
       } catch { /* defaults */ }
       try {
         const s = await proxyApi.status();
         setRunning(s);
       } catch { setRunning(false); }
+      try {
+        const al = await proxyApi.getAutolaunch();
+        setAutolaunch(al);
+      } catch { /* defaults */ }
       try {
         const ls = await proxyLogApi.getSettings();
         setLogEnabled(ls.enabled);
@@ -87,6 +94,20 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
     try {
       await proxyApi.setAutostart(val);
       setAutostart(val);
+    } catch (e: any) { setMessage(e.toString()); }
+  };
+
+  const handleAutolaunchChange = async (val: boolean) => {
+    try {
+      await proxyApi.setAutolaunch(val);
+      setAutolaunch(val);
+    } catch (e: any) { setMessage(e.toString()); }
+  };
+
+  const handleSilentLaunchChange = async (val: boolean) => {
+    try {
+      await proxyApi.setSilentLaunch(val);
+      setSilentLaunch(val);
     } catch (e: any) { setMessage(e.toString()); }
   };
 
@@ -246,6 +267,50 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
               onClick={() => handleAutostartChange(!autostart)}
               role="switch"
               aria-checked={autostart}
+              tabIndex={0}
+            />
+          </div>
+
+          {/* Autolaunch — OS login auto start */}
+          <div className="glass-surface" style={{
+            padding: "16px 20px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.autolaunch")}</div>
+              <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                {t("proxy.autolaunchDesc")}
+              </div>
+            </div>
+            <div
+              className={`toggle ${autolaunch ? "active" : ""}`}
+              onClick={() => handleAutolaunchChange(!autolaunch)}
+              role="switch"
+              aria-checked={autolaunch}
+              tabIndex={0}
+            />
+          </div>
+
+          {/* Silent Launch — start minimized to tray */}
+          <div className="glass-surface" style={{
+            padding: "16px 20px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.silentLaunch")}</div>
+              <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                {t("proxy.silentLaunchDesc")}
+              </div>
+            </div>
+            <div
+              className={`toggle ${silentLaunch ? "active" : ""}`}
+              onClick={() => handleSilentLaunchChange(!silentLaunch)}
+              role="switch"
+              aria-checked={silentLaunch}
               tabIndex={0}
             />
           </div>

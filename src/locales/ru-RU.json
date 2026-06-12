@@ -91,6 +91,11 @@
   "platform.selectModel": "Выбрать",
   "proxy.autostart": "Автозапуск",
   "proxy.autostartDesc": "Запускать прокси при старте приложения",
+
+  "proxy.autolaunch": "Автозапуск при входе",
+  "proxy.autolaunchDesc": "Запускать AiDog автоматически при входе в систему",
+  "proxy.silentLaunch": "Тихий запуск",
+  "proxy.silentLaunchDesc": "Запускать скрытым в системном трее без отображения главного окна",
   "proxy.configDesc": "Установите эту переменную окружения в Claude Code.",
   "proxy.configExportPath": "Записано в",
   "proxy.configExported": "Конфиг экспортирован",

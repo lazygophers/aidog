@@ -231,6 +231,7 @@ export interface GroupDetail {
 export interface ProxySettings {
   port: number;
   autostart: boolean;
+  silent_launch: boolean;
 }
 
 // ─── Platform API ──────────────────────────────────────────
@@ -472,6 +473,11 @@ export const proxyApi = {
   getSettings: () => invoke<ProxySettings>("proxy_get_settings"),
   setAutostart: (enabled: boolean) =>
     invoke<void>("proxy_set_autostart", { enabled }),
+  setAutolaunch: (enabled: boolean) =>
+    invoke<void>("app_set_autolaunch", { enabled }),
+  getAutolaunch: () => invoke<boolean>("app_get_autolaunch"),
+  setSilentLaunch: (enabled: boolean) =>
+    invoke<void>("app_set_silent_launch", { enabled }),
 };
 
 // ─── Claude Code Config Export ─────────────────────────────
