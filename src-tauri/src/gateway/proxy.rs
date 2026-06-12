@@ -195,12 +195,21 @@ async fn handle_group_info(
         })
         .collect();
 
+    // 余额 = max(est_balance_remaining, manual_budgets remaining sum)
+    // manual_budgets 用于人工设定额度的平台（无自动余额查询），取所有 enabled 项的剩余之和。
+    let manual_remaining: f64 = platform.manual_budgets
+        .iter()
+        .filter(|b| b.enabled)
+        .map(super::manual_budget::remaining)
+        .sum::<f64>();
+    let balance = platform.est_balance_remaining.max(manual_remaining);
+
     // 余额可用天数：近 7 天日均花费 = spent_7d / 7；无花费 / 无余额 → null。
     let balance_days_remaining = {
         let spent_7d = super::db::get_group_spent_since(&state.db, &group.name, 7).unwrap_or(0.0);
         let daily = spent_7d / 7.0;
-        if daily > 0.0 && platform.est_balance_remaining > 0.0 {
-            Some(platform.est_balance_remaining / daily)
+        if daily > 0.0 && balance > 0.0 {
+            Some(balance / daily)
         } else {
             None
         }
@@ -208,7 +217,7 @@ async fn handle_group_info(
 
     let resp = GroupInfoResp {
         applicable: true,
-        balance: platform.est_balance_remaining,
+        balance,
         spent: stats.total_cost,
         coding_plan,
         requests: stats.total_requests,
