@@ -1882,7 +1882,10 @@ function aidogFetchPrelude(): string {
 __AIDOG_INFO_FILE=""
 if [ -n "\${ANTHROPIC_BASE_URL:-}" ]; then
   __AIDOG_INFO_FILE="\${TMPDIR:-/tmp}/aidog_info_$$_\${RANDOM:-$$}"
-  __proxy_root="\${ANTHROPIC_BASE_URL%/v*}"
+  # Extract scheme://host:port (strip all path components) so any base_url
+  # suffix (/v1, /proxy, /api/paas/v4, …) is removed.
+  __no_scheme="\${ANTHROPIC_BASE_URL#*://}"
+  __proxy_root="\${ANTHROPIC_BASE_URL%%://*}://\${__no_scheme%%/*}"
   curl -fsS --max-time 1 \\
     -X POST \\
     -H "Authorization: Bearer \${ANTHROPIC_AUTH_TOKEN:-}" \\
@@ -2908,10 +2911,18 @@ export function materializeStatusline(
 
   let scriptContent: string | null = null;
   if (enabled && mode === "builtin") {
-    // main 与 subagent 走同一套段编辑器，仅默认布局不同。
-    const fallback = isMain ? DEFAULT_SEGMENTS : DEFAULT_SUBAGENT_SEGMENTS;
+    if (!isMain) {
+      // Subagent statusline uses JSONL output (per-task overrides):
+      //   stdin:  {tasks: [{id, name, type, status, …}]}
+      //   stdout: {"id":"…","content":"…"} per task
+      // The segment-based bash generator outputs plain text lines — incompatible.
+      // Delegate to the dedicated Python script which handles JSONL correctly.
+      const subagentScript = "python3 ~/persons/lyxamour/ccplugin/scripts/subagent_statusline.py";
+      return { enabled: true, mode: "custom", scriptContent: null, customCommand: subagentScript };
+    }
+    // main statusline — segment-based bash generator.
     const segments: StatusLineSegment[] =
-      (s.segments as StatusLineSegment[] | undefined) ?? fallback.map(seg => ({ ...seg }));
+      (s.segments as StatusLineSegment[] | undefined) ?? DEFAULT_SEGMENTS.map(seg => ({ ...seg }));
     scriptContent = generateStatusLineScript(segments);
   }
 
