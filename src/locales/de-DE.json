@@ -6,6 +6,8 @@
   "greet.button": "Begrüßen",
   "greet.placeholder": "Namen eingeben...",
   "group.add": "Gruppe hinzufügen",
+  "group.copyCommand": "Startbefehl kopieren",
+  "group.copyCodexCommand": "Codex-Befehl kopieren",
   "group.empty": "Keine Gruppen",
   "group.failover": "Failover",
   "group.loadBalance": "Load-Balance",

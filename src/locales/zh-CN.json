@@ -12,6 +12,7 @@
   "group.name": "分组名称",
   "group.platforms": "平台",
   "group.copyCommand": "复制启动命令",
+  "group.copyCodexCommand": "复制 Codex 命令",
   "group.nameRule": "仅允许小写字母、数字和连字符（自动转换）",
   "group.timeoutDefault": "0 = 系统默认（秒）",
   "group.toggleDetails": "展开/收起明细",

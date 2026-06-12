@@ -27,6 +27,93 @@ fn config_path() -> Result<PathBuf, String> {
     Ok(codex_home()?.join("config.toml"))
 }
 
+/// 某分组 profile 文件 `$CODEX_HOME/<group>.config.toml` 绝对路径。
+/// `codex -p <group>` 会把它层叠在用户 config.toml 之上（用户级 → 可含 model_providers）。
+fn profile_path(group: &str) -> Result<PathBuf, String> {
+    Ok(codex_home()?.join(format!("{group}.config.toml")))
+}
+
+/// 生成某分组的 Codex profile TOML 内容。
+///
+/// profile 文件用顶层键（不嵌套 `[profiles.<name>]`），层叠在用户 config 之上。
+/// 注入：`model_provider="aidog"` + `[model_providers.aidog]`（base_url 指向 aidog
+/// 本地代理 `/proxy`，wire_api=responses，env_key=AIDOG_KEY）。
+/// aidog 按 `Authorization: Bearer $AIDOG_KEY`（值=分组名）路由。
+///
+/// TOML 硬约束：标量根键必须在 table 之前 —— `toml` crate 的 Table 序列化器自动满足。
+pub fn build_group_profile_toml(port: u16) -> Result<String, String> {
+    let mut root = toml::map::Map::new();
+    root.insert(
+        "model_provider".to_string(),
+        toml::Value::String("aidog".to_string()),
+    );
+
+    let mut aidog = toml::map::Map::new();
+    aidog.insert(
+        "name".to_string(),
+        toml::Value::String("aidog proxy".to_string()),
+    );
+    aidog.insert(
+        "base_url".to_string(),
+        toml::Value::String(format!("http://127.0.0.1:{port}/proxy")),
+    );
+    aidog.insert(
+        "wire_api".to_string(),
+        toml::Value::String("responses".to_string()),
+    );
+    aidog.insert(
+        "env_key".to_string(),
+        toml::Value::String("AIDOG_KEY".to_string()),
+    );
+
+    let mut providers = toml::map::Map::new();
+    providers.insert("aidog".to_string(), toml::Value::Table(aidog));
+    root.insert(
+        "model_providers".to_string(),
+        toml::Value::Table(providers),
+    );
+
+    toml::to_string_pretty(&toml::Value::Table(root))
+        .map_err(|e| format!("serialize codex profile toml: {e}"))
+}
+
+/// 为单个分组写 `$CODEX_HOME/<group>.config.toml`（仅当内容变化时写）。
+/// 返回写入路径（若发生写入），否则 `None`。`$CODEX_HOME` 不存在则创建。
+pub fn write_group_profile(group: &str, port: u16) -> Result<Option<String>, String> {
+    let dir = codex_home()?;
+    std::fs::create_dir_all(&dir).map_err(|e| format!("create codex home: {e}"))?;
+    let path = profile_path(group)?;
+    let content = build_group_profile_toml(port)?;
+    let existing = std::fs::read_to_string(&path).unwrap_or_default();
+    if existing == content {
+        return Ok(None);
+    }
+    std::fs::write(&path, &content).map_err(|e| format!("write codex profile {group}: {e}"))?;
+    Ok(Some(path.to_string_lossy().to_string()))
+}
+
+/// 清理已删除分组的 profile 文件：移除 `$CODEX_HOME/<name>.config.toml` 中
+/// `<name>` 不在 `keep` 集合内者。`config.toml`（用户级基线）永不清理。
+pub fn cleanup_group_profiles(keep: &std::collections::HashSet<String>) -> Result<(), String> {
+    let dir = codex_home()?;
+    let Ok(entries) = std::fs::read_dir(&dir) else {
+        return Ok(());
+    };
+    for entry in entries.flatten() {
+        let name = entry.file_name().to_string_lossy().to_string();
+        // 仅匹配 `<group>.config.toml`，排除用户级基线 `config.toml`。
+        if name == "config.toml" {
+            continue;
+        }
+        if let Some(group) = name.strip_suffix(".config.toml") {
+            if !group.is_empty() && !keep.contains(group) {
+                let _ = std::fs::remove_file(entry.path());
+            }
+        }
+    }
+    Ok(())
+}
+
 /// 返回 `~/.codex/config.toml` 的绝对路径（字符串），供前端展示。
 #[tauri::command]
 pub fn codex_config_path() -> Result<String, String> {

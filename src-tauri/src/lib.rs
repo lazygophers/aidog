@@ -892,6 +892,15 @@ fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
                 .map_err(|e| format!("write config for {}: {e}", group_name))?;
             written.push(file_path.to_string_lossy().to_string());
         }
+
+        // Codex profile：为该分组生成 `$CODEX_HOME/<group>.config.toml`
+        //（profile 文件 = 用户级层，可含 model_providers）。与 Claude Code
+        // json 生成并行，互不影响。失败仅记录、不中断（Codex 未装也不应阻塞）。
+        match gateway::codex::write_group_profile(group_name, port) {
+            Ok(Some(p)) => written.push(p),
+            Ok(None) => {}
+            Err(e) => eprintln!("codex profile sync for {group_name}: {e}"),
+        }
     }
 
     // Cleanup: remove settings files for deleted groups
@@ -904,6 +913,11 @@ fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
                 }
             }
         }
+    }
+
+    // Cleanup: remove Codex profile files for deleted groups（用户级 config.toml 不动）。
+    if let Err(e) = gateway::codex::cleanup_group_profiles(&group_names) {
+        eprintln!("codex profile cleanup: {e}");
     }
 
     Ok(written)
