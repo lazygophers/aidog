@@ -5,6 +5,7 @@ import {
   statsApi,
   groupDetailApi,
   platformApi,
+  onProxyLogUpdated,
   type StatsResult,
   type StatsQuery,
   type StatsOverview,
@@ -129,6 +130,9 @@ export function Stats() {
   }, [preset, granularity, groupBy, filterGroup, filterModel, filterProtocol]);
 
   useEffect(() => { load(); }, [load]);
+
+  // 请求完成后后端 emit "proxy-log-updated" → debounce 重载（依赖 load，刷新尊重当前时间范围/筛选）
+  useEffect(() => onProxyLogUpdated(() => { load(); }), [load]);
 
   // Load filter options
   useEffect(() => {

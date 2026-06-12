@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { listen } from "@tauri-apps/api/event";
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -792,3 +793,26 @@ export const priceSyncApi = {
   set: (settings: PriceSyncSettings) =>
     invoke<void>("price_sync_settings_set", { settings }),
 };
+
+// ─── Realtime Events ───────────────────────────────────────
+// 后端每条 proxy_log 写库成功后 emit "proxy-log-updated"（payload 为 platform_id）。
+// Platforms / Stats / Groups 三页用此事件实时刷新统计。
+
+/** 后端代理日志更新事件名（后端 emit / 前端 listen 必须一致） */
+export const PROXY_LOG_UPDATED = "proxy-log-updated";
+
+/**
+ * 监听 proxy-log-updated，debounce 合并突发后调 callback。
+ * 返回 cleanup 函数：清 timer + unlisten，供 useEffect cleanup 使用。
+ */
+export function onProxyLogUpdated(callback: () => void, debounceMs = 500): () => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const unlistenPromise = listen(PROXY_LOG_UPDATED, () => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => { callback(); }, debounceMs);
+  });
+  return () => {
+    if (timer) clearTimeout(timer);
+    unlistenPromise.then((un) => un()).catch((e) => console.error(e));
+  };
+}
