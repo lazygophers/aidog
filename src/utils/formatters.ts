@@ -15,19 +15,22 @@ export function formatNumber(n: number): string {
 }
 
 /**
- * 成本数值格式化（不含货币符号），按量级选择小数位：
- * - 0 → "0"
- * - >= 1 → 2 位
- * - >= 0.01 → 3 位
- * - 其余（极小值）→ 5 位
+ * 成本数值格式化（不含货币符号），按量级选择精度：
+ * - 0（或非正 / NaN）→ "0"
+ * - >= 1 → 2 位小数
+ * - >= 0.01 → 3 位小数
+ * - 0 < n < 0.01（极小值）→ 2 位有效数字，极小自动转科学记数（如 `4.5e-7`）
  *
+ * 关键：极小但**非零**的成本绝不被舍成 "0"（旧版 toFixed(5) 会把 4.5e-7 显示成 "0.00000"）。
  * 合并自 Groups.tsx 行内 `u.total_cost.toFixed(...)` 逻辑。
  * 调用方自行拼接 "$" 前缀（与现有 `$${cost}` 用法一致）。
  */
 export function formatCost(n: number): string {
   if (!(n > 0)) return "0";
-  const digits = n >= 1 ? 2 : n >= 0.01 ? 3 : 5;
-  return n.toFixed(digits);
+  if (n >= 1) return n.toFixed(2);
+  if (n >= 0.01) return n.toFixed(3);
+  // 2 位有效数字：0.0034→"0.0034"、0.00000045→"4.5e-7"（JS 在指数 < -6 时自动科学记数）
+  return n.toPrecision(2);
 }
 
 /**
