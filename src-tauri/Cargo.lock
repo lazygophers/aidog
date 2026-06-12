@@ -52,6 +52,7 @@ dependencies = [
  "tauri-plugin-notification",
  "tauri-plugin-opener",
  "tokio",
+ "tokio-rusqlite",
  "toml 0.8.2",
  "tower",
  "tracing",
@@ -4532,6 +4533,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbae76ab933c85776efabc971569dd6119c580d8f5d448769dec1764bf796ef2"
 dependencies = [
  "native-tls",
+ "tokio",
+]
+
+[[package]]
+name = "tokio-rusqlite"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b65501378eb676f400c57991f42cbd0986827ab5c5200c53f206d710fb32a945"
+dependencies = [
+ "crossbeam-channel",
+ "rusqlite",
  "tokio",
 ]
 

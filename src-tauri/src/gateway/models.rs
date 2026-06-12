@@ -494,7 +494,7 @@ pub struct SetGroupPlatforms {
     pub platforms: Vec<GroupPlatformInput>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct GroupPlatformInput {
     pub platform_id: u64,
     pub priority: Option<i32>,
@@ -743,7 +743,7 @@ pub struct ProxyLogSummary {
 }
 
 /// 日志列表筛选条件
-#[derive(Debug, Default, Deserialize)]
+#[derive(Debug, Clone, Default, Deserialize)]
 pub struct ProxyLogFilter {
     pub platform_id: Option<u64>,
     pub group_name: Option<String>,

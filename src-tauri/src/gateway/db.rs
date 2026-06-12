@@ -1,10 +1,16 @@
 use rusqlite::{params, Connection, OptionalExtension, Result as SqlResult};
 use serde::{Deserialize, Serialize};
-use std::sync::Mutex;
+use tokio_rusqlite::Connection as AsyncConnection;
 
 use super::models::*;
 
-pub struct Db(pub Mutex<Connection>);
+/// 异步 SQLite 连接封装。
+///
+/// tokio-rusqlite 内部以单后台线程顺序执行所有 `call` 闭包，天然串行化，
+/// 故无需 `Mutex`。`AsyncConnection` 自身 `Clone + Send + Sync`（内部仅一个 channel sender），
+/// 可直接 `app.manage(Db)` / `State<Db>`，克隆廉价（共享同一后台线程连接）。
+#[derive(Clone)]
+pub struct Db(pub AsyncConnection);
 
 /// 从 JSON 字符串反序列化 models
 fn parse_models(json: &str) -> PlatformModels {
@@ -37,38 +43,50 @@ fn serialize_endpoints(endpoints: &[PlatformEndpoint]) -> String {
 }
 
 impl Db {
-    pub fn new(path: &str) -> Result<Self, String> {
-        let conn = Connection::open(path).map_err(|e| e.to_string())?;
-        conn.execute_batch("PRAGMA journal_mode=WAL; PRAGMA foreign_keys=ON;")
-            .map_err(|e| e.to_string())?;
-        Ok(Self(Mutex::new(conn)))
+    pub async fn new(path: &str) -> Result<Self, String> {
+        let conn = AsyncConnection::open(path).await.map_err(|e| e.to_string())?;
+        // pragma 是 connection 级状态，绑定后台线程那条物理连接，设一次永久生效。
+        // WAL 下 synchronous=NORMAL 安全；单连接模型下 busy_timeout 实际罕触发，设置无害。
+        conn.call(|c| {
+            c.execute_batch(
+                "PRAGMA journal_mode=WAL; \
+                 PRAGMA foreign_keys=ON; \
+                 PRAGMA busy_timeout=5000; \
+                 PRAGMA synchronous=NORMAL;",
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+        Ok(Self(conn))
     }
 
-    pub fn init_tables(&self) -> Result<(), String> {
-        let conn = self.0.lock().map_err(|e| e.to_string())?;
-        conn.execute_batch(include_str!("../../migrations/001_init.sql"))
-            .map_err(|e| e.to_string())?;
-        conn.execute_batch(include_str!("../../migrations/002_log_filter_indexes.sql"))
-            .map_err(|e| e.to_string())?;
-        conn.execute_batch(include_str!("../../migrations/003_model_price.sql"))
-            .map_err(|e| e.to_string())?;
-        // Migration 004: 旧库补预估列（ALTER 无 IF NOT EXISTS → 忽略 duplicate column）
-        let _ = conn.execute("ALTER TABLE platform ADD COLUMN est_balance_remaining REAL NOT NULL DEFAULT 0", []);
-        let _ = conn.execute("ALTER TABLE platform ADD COLUMN est_coding_plan TEXT NOT NULL DEFAULT ''", []);
-        let _ = conn.execute("ALTER TABLE platform ADD COLUMN last_real_query_at INTEGER NOT NULL DEFAULT 0", []);
-        let _ = conn.execute("ALTER TABLE platform ADD COLUMN estimate_count INTEGER NOT NULL DEFAULT 0", []);
-        // Migration 005: tray 展示列（互斥单平台 show_in_tray + balance/coding 二选一 tray_display）
-        let _ = conn.execute("ALTER TABLE platform ADD COLUMN show_in_tray INTEGER NOT NULL DEFAULT 0", []);
-        let _ = conn.execute("ALTER TABLE platform ADD COLUMN tray_display TEXT NOT NULL DEFAULT 'balance'", []);
-        // Migration 006: group 排序权重
-        let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
-        // Migration 007: platform 排序权重
-        let _ = conn.execute("ALTER TABLE platform ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
-        // Migration 008: proxy_log 预估花费列
-        let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN est_cost REAL NOT NULL DEFAULT 0", []);
-        // Migration 009: platform 手动预算列（无上游 quota 平台手动限额 + 耗尽阻断）
-        let _ = conn.execute("ALTER TABLE platform ADD COLUMN manual_budgets TEXT NOT NULL DEFAULT '[]'", []);
-        Ok(())
+    pub async fn init_tables(&self) -> Result<(), String> {
+        self.0
+            .call(|conn| {
+                conn.execute_batch(include_str!("../../migrations/001_init.sql"))?;
+                conn.execute_batch(include_str!("../../migrations/002_log_filter_indexes.sql"))?;
+                conn.execute_batch(include_str!("../../migrations/003_model_price.sql"))?;
+                // Migration 004: 旧库补预估列（ALTER 无 IF NOT EXISTS → 忽略 duplicate column）
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN est_balance_remaining REAL NOT NULL DEFAULT 0", []);
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN est_coding_plan TEXT NOT NULL DEFAULT ''", []);
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN last_real_query_at INTEGER NOT NULL DEFAULT 0", []);
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN estimate_count INTEGER NOT NULL DEFAULT 0", []);
+                // Migration 005: tray 展示列（互斥单平台 show_in_tray + balance/coding 二选一 tray_display）
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN show_in_tray INTEGER NOT NULL DEFAULT 0", []);
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN tray_display TEXT NOT NULL DEFAULT 'balance'", []);
+                // Migration 006: group 排序权重
+                let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
+                // Migration 007: platform 排序权重
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
+                // Migration 008: proxy_log 预估花费列
+                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN est_cost REAL NOT NULL DEFAULT 0", []);
+                // Migration 009: platform 手动预算列（无上游 quota 平台手动限额 + 耗尽阻断）
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN manual_budgets TEXT NOT NULL DEFAULT '[]'", []);
+                Ok(())
+            })
+            .await
+            .map_err(|e| e.to_string())
     }
 }
 
@@ -126,7 +144,7 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
     })
 }
 
-pub fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, String> {
+pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, String> {
     let ts = now();
     let platform_type_str = serde_json::to_string(&input.platform_type).unwrap();
     // If name is empty, auto-generate: {platform_type}-{random8}
@@ -144,13 +162,23 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, S
     let manual_budgets = input.manual_budgets.unwrap_or_default();
     let manual_budgets_str = super::models::serialize_manual_budgets(&manual_budgets);
 
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-        params![input.name, platform_type_str, input.base_url, input.api_key, input.extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str],
-    )
-    .map_err(|e| format!("create platform: {e}"))?;
-    let id = conn.last_insert_rowid() as u64;
+    let id = db
+        .0
+        .call({
+            let name = input.name.clone();
+            let base_url = input.base_url.clone();
+            let api_key = input.api_key.clone();
+            let extra = input.extra.clone();
+            move |conn| {
+                conn.execute(
+                    "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                    params![name, platform_type_str, base_url, api_key, extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str],
+                )?;
+                Ok(conn.last_insert_rowid() as u64)
+            }
+        })
+        .await
+        .map_err(|e| format!("create platform: {e}"))?;
 
     Ok(Platform {
         id,
@@ -177,32 +205,31 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, S
     })
 }
 
-pub fn list_platforms(db: &Db) -> Result<Vec<Platform>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE deleted_at = 0 ORDER BY sort_order, created_at");
-    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map([], row_to_platform)
-        .map_err(|e| e.to_string())?;
-
-    rows.collect::<SqlResult<Vec<_>>>().map_err(|e| e.to_string())
+pub async fn list_platforms(db: &Db) -> Result<Vec<Platform>, String> {
+    db.0
+        .call(|conn| {
+            let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE deleted_at = 0 ORDER BY sort_order, created_at");
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt.query_map([], row_to_platform)?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
-pub fn get_platform(db: &Db, id: u64) -> Result<Option<Platform>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE id = ?1 AND deleted_at = 0");
-    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-
-    let result = stmt
-        .query_row(params![id as i64], row_to_platform)
-        .optional()
-        .map_err(|e| e.to_string())?;
-
-    Ok(result)
+pub async fn get_platform(db: &Db, id: u64) -> Result<Option<Platform>, String> {
+    db.0
+        .call(move |conn| {
+            let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE id = ?1 AND deleted_at = 0");
+            let mut stmt = conn.prepare(&sql)?;
+            Ok(stmt.query_row(params![id as i64], row_to_platform).optional()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
-pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, String> {
-    let existing = get_platform(db, input.id)?.ok_or("platform not found")?;
+pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, String> {
+    let existing = get_platform(db, input.id).await?.ok_or("platform not found")?;
 
     // 手动预算：编辑表单只提供配置（kind/unit/amount/window_hours/enabled），
     // consumed/window_start_at 由系统维护——按 id 对齐既有项，保留运行时累计值，
@@ -241,25 +268,38 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
     let available_str = serialize_available_models(&updated.available_models);
     let endpoints_str = serialize_endpoints(&updated.endpoints);
     let manual_budgets_str = super::models::serialize_manual_budgets(&updated.manual_budgets);
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11 WHERE id=?12",
-        params![
-            updated.name,
-            platform_type_str,
-            updated.base_url,
-            updated.api_key,
-            updated.extra,
-            models_str,
-            available_str,
-            endpoints_str,
-            updated.enabled as i64,
-            updated.updated_at,
-            manual_budgets_str,
-            updated.id as i64,
-        ],
-    )
-    .map_err(|e| format!("update platform: {e}"))?;
+    db.0
+        .call({
+            let name = updated.name.clone();
+            let base_url = updated.base_url.clone();
+            let api_key = updated.api_key.clone();
+            let extra = updated.extra.clone();
+            let enabled = updated.enabled as i64;
+            let updated_at = updated.updated_at;
+            let id = updated.id as i64;
+            move |conn| {
+                conn.execute(
+                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11 WHERE id=?12",
+                    params![
+                        name,
+                        platform_type_str,
+                        base_url,
+                        api_key,
+                        extra,
+                        models_str,
+                        available_str,
+                        endpoints_str,
+                        enabled,
+                        updated_at,
+                        manual_budgets_str,
+                        id,
+                    ],
+                )?;
+                Ok(())
+            }
+        })
+        .await
+        .map_err(|e| format!("update platform: {e}"))?;
 
     Ok(updated)
 }
@@ -268,84 +308,96 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
 /// 直写 est_balance/est_coding_plan（不校准、不重置基线）。
 /// 已被 estimate::calibrate_from_quota 取代（真查须严格对齐 est=真实 + 重置拟合基线），保留备用。
 #[allow(dead_code)]
-pub fn update_platform_quota(db: &Db, id: u64, balance: f64, coding_plan_json: &str) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE platform SET est_balance_remaining = ?1, est_coding_plan = ?2 WHERE id = ?3",
-        params![balance, coding_plan_json, id as i64],
-    )
-    .map_err(|e| format!("update platform quota: {e}"))?;
-    Ok(())
+pub async fn update_platform_quota(db: &Db, id: u64, balance: f64, coding_plan_json: &str) -> Result<(), String> {
+    let coding_plan_json = coding_plan_json.to_string();
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                "UPDATE platform SET est_balance_remaining = ?1, est_coding_plan = ?2 WHERE id = ?3",
+                params![balance, coding_plan_json, id as i64],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("update platform quota: {e}"))
 }
 
-pub fn delete_platform(db: &Db, id: u64) -> Result<(), String> {
+pub async fn delete_platform(db: &Db, id: u64) -> Result<(), String> {
     // 删除关联的自动分组
-    let conn_inner = db.0.lock().map_err(|e| e.to_string())?;
-    let auto_group_ids: Vec<i64> = conn_inner
-        .prepare("SELECT id FROM \"group\" WHERE auto_from_platform = ?1 AND deleted_at = 0")
-        .map_err(|e| e.to_string())?
-        .query_map(params![id.to_string()], |row| row.get(0))
-        .map_err(|e| e.to_string())?
-        .filter_map(|r| r.ok())
-        .collect();
-    drop(conn_inner);
+    let auto_group_ids: Vec<i64> = db
+        .0
+        .call(move |conn| {
+            Ok(conn.prepare("SELECT id FROM \"group\" WHERE auto_from_platform = ?1 AND deleted_at = 0")?
+                .query_map(params![id.to_string()], |row| row.get(0))?
+                .collect::<SqlResult<Vec<i64>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())?;
 
     for gid in &auto_group_ids {
-        force_delete_group(db, *gid as u64)?;
+        force_delete_group(db, *gid as u64).await?;
     }
 
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute("UPDATE platform SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])
-        .map_err(|e| format!("delete platform: {e}"))?;
-    Ok(())
+    db.0
+        .call(move |conn| {
+            conn.execute("UPDATE platform SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("delete platform: {e}"))
 }
 
 // ─── Tray 展示（互斥单平台）─────────────────────────────────
 
 /// 互斥设置 tray 展示平台：单事务先清所有 show_in_tray，再置选中平台为 1。
 /// `tray_display`: "balance" | "coding"。
-pub fn set_tray_platform(db: &Db, platform_id: u64, tray_display: &str) -> Result<(), String> {
-    let display = if tray_display == "coding" { "coding" } else { "balance" };
+pub async fn set_tray_platform(db: &Db, platform_id: u64, tray_display: &str) -> Result<(), String> {
+    let display = if tray_display == "coding" { "coding" } else { "balance" }.to_string();
     let ts = now();
-    let mut conn = db.0.lock().map_err(|e| e.to_string())?;
-    let tx = conn.transaction().map_err(|e| e.to_string())?;
-    tx.execute("UPDATE platform SET show_in_tray = 0, updated_at = ?1 WHERE show_in_tray = 1", params![ts])
-        .map_err(|e| format!("clear tray: {e}"))?;
-    tx.execute(
-        "UPDATE platform SET show_in_tray = 1, tray_display = ?1, updated_at = ?2 WHERE id = ?3 AND deleted_at = 0",
-        params![display, ts, platform_id as i64],
-    )
-    .map_err(|e| format!("set tray: {e}"))?;
-    tx.commit().map_err(|e| e.to_string())?;
-    Ok(())
+    db.0
+        .call(move |conn| {
+            let tx = conn.transaction()?;
+            tx.execute("UPDATE platform SET show_in_tray = 0, updated_at = ?1 WHERE show_in_tray = 1", params![ts])?;
+            tx.execute(
+                "UPDATE platform SET show_in_tray = 1, tray_display = ?1, updated_at = ?2 WHERE id = ?3 AND deleted_at = 0",
+                params![display, ts, platform_id as i64],
+            )?;
+            tx.commit()?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("set tray: {e}"))
 }
 
 /// 清空所有 tray 展示（关闭）。
-pub fn clear_tray(db: &Db) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute("UPDATE platform SET show_in_tray = 0, updated_at = ?1 WHERE show_in_tray = 1", params![now()])
-        .map_err(|e| format!("clear tray: {e}"))?;
-    Ok(())
+pub async fn clear_tray(db: &Db) -> Result<(), String> {
+    db.0
+        .call(move |conn| {
+            conn.execute("UPDATE platform SET show_in_tray = 0, updated_at = ?1 WHERE show_in_tray = 1", params![now()])?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("clear tray: {e}"))
 }
 
 /// 取当前 tray 展示平台（show_in_tray = 1），无则 None。
-pub fn get_tray_platform(db: &Db) -> Result<Option<Platform>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE show_in_tray = 1 AND deleted_at = 0 LIMIT 1");
-    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-    let result = stmt
-        .query_row([], row_to_platform)
-        .optional()
-        .map_err(|e| e.to_string())?;
-    Ok(result)
+pub async fn get_tray_platform(db: &Db) -> Result<Option<Platform>, String> {
+    db.0
+        .call(|conn| {
+            let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE show_in_tray = 1 AND deleted_at = 0 LIMIT 1");
+            let mut stmt = conn.prepare(&sql)?;
+            Ok(stmt.query_row([], row_to_platform).optional()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
 // ─── Tray Config (settings: scope="tray", key="config") ────
 
 /// 读取 TrayConfig。无配置时（首次/升级）从旧 `show_in_tray=1` 平台迁移生成默认配置并持久化。
 /// 返回 None 仅当迁移后仍无任何 enabled 平台（即旧配置也为空）。
-pub fn get_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
-    if let Some(v) = get_setting(db, "tray", "config")? {
+pub async fn get_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
+    if let Some(v) = get_setting(db, "tray", "config").await? {
         if !v.is_null() {
             // 旧全局 layout(single_line/two_line) → 各 item line_mode 迁移：
             // 解析前先抓顶层 layout，若旧配置含该字段则映射到所有 item（two_line→"two" / 其他→"single"）。
@@ -364,14 +416,14 @@ pub fn get_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
         }
     }
     // 迁移：无 tray config → 从旧 show_in_tray=1 平台生成默认。
-    let migrated = migrate_tray_config(db)?;
+    let migrated = migrate_tray_config(db).await?;
     Ok(migrated)
 }
 
 /// 从旧 `show_in_tray=1` 平台生成默认 TrayConfig 并存入 settings。
 /// 无旧平台 → 存空配置（避免每次启动重复迁移），返回空配置。
-fn migrate_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
-    let legacy = get_tray_platform(db)?;
+async fn migrate_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
+    let legacy = get_tray_platform(db).await?;
     let mut cfg = TrayConfig::default();
     if let Some(p) = legacy {
         let display = if p.tray_display == "coding" { "coding" } else { "balance" };
@@ -391,23 +443,24 @@ decimals: None,
             order: 0,
         });
     }
-    set_tray_config(db, &cfg)?;
+    set_tray_config(db, &cfg).await?;
     Ok(Some(cfg))
 }
 
 /// 写入 TrayConfig 到 settings。
-pub fn set_tray_config(db: &Db, cfg: &TrayConfig) -> Result<(), String> {
+pub async fn set_tray_config(db: &Db, cfg: &TrayConfig) -> Result<(), String> {
     let value = serde_json::to_value(cfg).map_err(|e| format!("serialize tray config: {e}"))?;
     set_setting(db, SetSettingInput {
         scope: "tray".to_string(),
         key: "config".to_string(),
         value,
     })
+    .await
 }
 
 /// 今日（本地时区 00:00 起）累计 token 总量（input + output），未删除日志。
 #[cfg(test)]
-pub fn today_token_total(db: &Db) -> Result<i64, String> {
+pub async fn today_token_total(db: &Db) -> Result<i64, String> {
     use chrono::{Local, TimeZone};
     let today = Local::now().date_naive();
     let start_dt = today.and_hms_opt(0, 0, 0).ok_or("invalid local midnight")?;
@@ -417,15 +470,16 @@ pub fn today_token_total(db: &Db) -> Result<i64, String> {
         .ok_or("ambiguous local midnight")?;
     let start_ms = start_local.timestamp_millis();
 
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let total: i64 = conn
-        .query_row(
-            "SELECT COALESCE(SUM(input_tokens + output_tokens), 0) FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
-            params![start_ms],
-            |row| row.get(0),
-        )
-        .map_err(|e| format!("today token total: {e}"))?;
-    Ok(total)
+    db.0
+        .call(move |conn| {
+            conn.query_row(
+                "SELECT COALESCE(SUM(input_tokens + output_tokens), 0) FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
+                params![start_ms],
+                |row| row.get(0),
+            )
+        })
+        .await
+        .map_err(|e| format!("today token total: {e}"))
 }
 
 /// 今日统计摘要（供托盘预览使用）
@@ -442,7 +496,7 @@ pub struct TodayStats {
 }
 
 /// 获取今日统计（本地时区 00:00 起，未删除日志）
-pub fn today_stats(db: &Db) -> Result<TodayStats, String> {
+pub async fn today_stats(db: &Db) -> Result<TodayStats, String> {
     use chrono::{Local, TimeZone};
     let today = Local::now().date_naive();
     let start_dt = today.and_hms_opt(0, 0, 0).ok_or("invalid local midnight")?;
@@ -452,42 +506,44 @@ pub fn today_stats(db: &Db) -> Result<TodayStats, String> {
         .ok_or("ambiguous local midnight")?;
     let start_ms = start_local.timestamp_millis();
 
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    db.0
+        .call(move |conn| {
+            // 基础统计
+            let (tokens, cache_tokens, input_tokens, total_requests): (i64, i64, i64, i64) = conn
+                .query_row(
+                    "SELECT COALESCE(SUM(input_tokens + output_tokens), 0), \
+                     COALESCE(SUM(cache_tokens), 0), \
+                     COALESCE(SUM(input_tokens), 0), \
+                     COUNT(*) \
+                     FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
+                    params![start_ms],
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                )?;
 
-    // 基础统计
-    let (tokens, cache_tokens, input_tokens, total_requests): (i64, i64, i64, i64) = conn
-        .query_row(
-            "SELECT COALESCE(SUM(input_tokens + output_tokens), 0), \
-             COALESCE(SUM(cache_tokens), 0), \
-             COALESCE(SUM(input_tokens), 0), \
-             COUNT(*) \
-             FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
-            params![start_ms],
-            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
-        )
-        .map_err(|e| format!("today stats: {e}"))?;
+            let cache_rate = if input_tokens > 0 {
+                cache_tokens as f64 / input_tokens as f64 * 100.0
+            } else {
+                0.0
+            };
 
-    let cache_rate = if input_tokens > 0 {
-        cache_tokens as f64 / input_tokens as f64 * 100.0
-    } else {
-        0.0
-    };
+            // 计算花费：直接使用持久化的 est_cost
+            let cost: f64 = conn
+                .query_row(
+                    "SELECT COALESCE(SUM(est_cost), 0.0) FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
+                    params![start_ms],
+                    |row| row.get(0),
+                )
+                .unwrap_or(0.0);
 
-    // 计算花费：直接使用持久化的 est_cost
-    let cost: f64 = conn
-        .query_row(
-            "SELECT COALESCE(SUM(est_cost), 0.0) FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
-            params![start_ms],
-            |row| row.get(0),
-        )
-        .unwrap_or(0.0);
-
-    Ok(TodayStats {
-        tokens,
-        cache_rate,
-        cost,
-        total_requests,
-    })
+            Ok(TodayStats {
+                tokens,
+                cache_rate,
+                cost,
+                total_requests,
+            })
+        })
+        .await
+        .map_err(|e| format!("today stats: {e}"))
 }
 
 /// 根据 model_price 定价计算单次请求预估花费（$）
@@ -501,7 +557,7 @@ pub fn today_stats(db: &Db) -> Result<TodayStats, String> {
 ///
 /// `platform_type` 传入平台主类型的 serde 裸名（如 `"deepseek"`）以启用 pricing override；
 /// 传 `""` 时 override 不命中，但回退链仍保证非 0。
-pub fn calc_est_cost(
+pub async fn calc_est_cost(
     db: &Db,
     model_name: &str,
     platform_type: &str,
@@ -509,7 +565,7 @@ pub fn calc_est_cost(
     output_tokens: i32,
     cache_tokens: i32,
 ) -> f64 {
-    let settings = super::price_sync::get_sync_settings(db);
+    let settings = super::price_sync::get_sync_settings(db).await;
     let rp = resolve_price(
         db,
         model_name,
@@ -517,6 +573,7 @@ pub fn calc_est_cost(
         settings.fallback_input_price,
         settings.fallback_output_price,
     )
+    .await
     .unwrap_or_else(|_| super::models::ResolvedPrice {
         // 安全默认：直接用 fallback 默认价（$/M → $/token），保证非 0、不 panic
         input_cost_per_token: settings.fallback_input_price / 1_000_000.0,
@@ -565,19 +622,31 @@ fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
     })
 }
 
-pub fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> {
+pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> {
     let ts = now();
     let routing_str = serde_json::to_string(&input.routing_mode).unwrap();
     let source_protocol = input.source_protocol.unwrap_or_else(|| "anthropic".to_string());
     let mappings_str = serialize_mappings(&input.model_mappings);
 
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT INTO \"group\" (name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-        params![input.name, input.path, routing_str, input.auto_from_platform, ts, ts, input.request_timeout_secs as i64, input.connect_timeout_secs as i64, source_protocol, mappings_str],
-    )
-    .map_err(|e| format!("create group: {e}"))?;
-    let id = conn.last_insert_rowid() as u64;
+    let id = db
+        .0
+        .call({
+            let name = input.name.clone();
+            let path = input.path.clone();
+            let auto_from_platform = input.auto_from_platform.clone();
+            let request_timeout_secs = input.request_timeout_secs as i64;
+            let connect_timeout_secs = input.connect_timeout_secs as i64;
+            let source_protocol = source_protocol.clone();
+            move |conn| {
+                conn.execute(
+                    "INSERT INTO \"group\" (name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                    params![name, path, routing_str, auto_from_platform, ts, ts, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str],
+                )?;
+                Ok(conn.last_insert_rowid() as u64)
+            }
+        })
+        .await
+        .map_err(|e| format!("create group: {e}"))?;
 
     Ok(Group {
         id,
@@ -597,57 +666,62 @@ pub fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> {
 }
 
 /// 批量更新 group 的 sort_order：接收有序 id 列表，按序赋值 1, 2, 3, …
-pub fn reorder_groups(db: &Db, ordered_ids: &[u64]) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    for (i, &id) in ordered_ids.iter().enumerate() {
-        conn.execute(
-            "UPDATE \"group\" SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
-            params![(i + 1) as i64, now(), id as i64],
-        ).map_err(|e| format!("reorder group {id}: {e}"))?;
-    }
-    Ok(())
+pub async fn reorder_groups(db: &Db, ordered_ids: &[u64]) -> Result<(), String> {
+    let ordered_ids = ordered_ids.to_vec();
+    db.0
+        .call(move |conn| {
+            for (i, &id) in ordered_ids.iter().enumerate() {
+                conn.execute(
+                    "UPDATE \"group\" SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
+                    params![(i + 1) as i64, now(), id as i64],
+                )?;
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("reorder group: {e}"))
 }
 
 /// 批量更新 platform 的 sort_order
-pub fn reorder_platforms(db: &Db, ordered_ids: &[u64]) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    for (i, &id) in ordered_ids.iter().enumerate() {
-        conn.execute(
-            "UPDATE platform SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
-            params![(i + 1) as i64, now(), id as i64],
-        ).map_err(|e| format!("reorder platform {id}: {e}"))?;
-    }
-    Ok(())
+pub async fn reorder_platforms(db: &Db, ordered_ids: &[u64]) -> Result<(), String> {
+    let ordered_ids = ordered_ids.to_vec();
+    db.0
+        .call(move |conn| {
+            for (i, &id) in ordered_ids.iter().enumerate() {
+                conn.execute(
+                    "UPDATE platform SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
+                    params![(i + 1) as i64, now(), id as i64],
+                )?;
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("reorder platform: {e}"))
 }
 
-pub fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE deleted_at = 0 ORDER BY sort_order, created_at"))
-        .map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map([], row_to_group)
-        .map_err(|e| e.to_string())?;
-
-    rows.collect::<SqlResult<Vec<_>>>().map_err(|e| e.to_string())
+pub async fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
+    db.0
+        .call(|conn| {
+            let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE deleted_at = 0 ORDER BY sort_order, created_at"))?;
+            let rows = stmt.query_map([], row_to_group)?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
-pub fn get_group(db: &Db, id: u64) -> Result<Option<Group>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE id = ?1 AND deleted_at = 0"))
-        .map_err(|e| e.to_string())?;
-
-    let result = stmt
-        .query_row(params![id as i64], row_to_group)
-        .optional()
-        .map_err(|e| e.to_string())?;
-
-    Ok(result)
+pub async fn get_group(db: &Db, id: u64) -> Result<Option<Group>, String> {
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE id = ?1 AND deleted_at = 0"))?;
+            Ok(stmt.query_row(params![id as i64], row_to_group).optional()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
-pub fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> {
-    let existing = get_group(db, input.id)?.ok_or("group not found")?;
+pub async fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> {
+    let existing = get_group(db, input.id).await?.ok_or("group not found")?;
 
     let updated = Group {
         name: input.name.unwrap_or(existing.name),
@@ -663,65 +737,81 @@ pub fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> {
 
     let routing_str = serde_json::to_string(&updated.routing_mode).unwrap();
     let mappings_str = serialize_mappings(&updated.model_mappings);
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE \"group\" SET name=?1, path=?2, routing_mode=?3, updated_at=?4, request_timeout_secs=?5, connect_timeout_secs=?6, source_protocol=?7, model_mappings=?8 WHERE id=?9",
-        params![updated.name, updated.path, routing_str, updated.updated_at, updated.request_timeout_secs as i64, updated.connect_timeout_secs as i64, updated.source_protocol, mappings_str, updated.id as i64],
-    )
-    .map_err(|e| format!("update group: {e}"))?;
+    db.0
+        .call({
+            let name = updated.name.clone();
+            let path = updated.path.clone();
+            let updated_at = updated.updated_at;
+            let request_timeout_secs = updated.request_timeout_secs as i64;
+            let connect_timeout_secs = updated.connect_timeout_secs as i64;
+            let source_protocol = updated.source_protocol.clone();
+            let id = updated.id as i64;
+            move |conn| {
+                conn.execute(
+                    "UPDATE \"group\" SET name=?1, path=?2, routing_mode=?3, updated_at=?4, request_timeout_secs=?5, connect_timeout_secs=?6, source_protocol=?7, model_mappings=?8 WHERE id=?9",
+                    params![name, path, routing_str, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, id],
+                )?;
+                Ok(())
+            }
+        })
+        .await
+        .map_err(|e| format!("update group: {e}"))?;
 
     Ok(updated)
 }
 
-pub fn delete_group(db: &Db, id: u64) -> Result<(), String> {
+pub async fn delete_group(db: &Db, id: u64) -> Result<(), String> {
     // 检查是否为自动分组
-    let group = get_group(db, id)?.ok_or("group not found")?;
+    let group = get_group(db, id).await?.ok_or("group not found")?;
     if !group.auto_from_platform.is_empty() {
         return Err("auto-created group cannot be deleted manually".to_string());
     }
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute("UPDATE \"group\" SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])
-        .map_err(|e| format!("delete group: {e}"))?;
-    Ok(())
+    force_delete_group(db, id).await
 }
 
 /// 强制删除分组（含自动分组），仅供平台删除时内部调用
-pub fn force_delete_group(db: &Db, id: u64) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute("UPDATE \"group\" SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])
-        .map_err(|e| format!("delete group: {e}"))?;
-    Ok(())
+pub async fn force_delete_group(db: &Db, id: u64) -> Result<(), String> {
+    db.0
+        .call(move |conn| {
+            conn.execute("UPDATE \"group\" SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("delete group: {e}"))
 }
 
 // ─── GroupPlatform 关联 ────────────────────────────────────
 
-pub fn set_group_platforms(
+pub async fn set_group_platforms(
     db: &Db,
     group_id: u64,
     platforms: &[GroupPlatformInput],
 ) -> Result<(), String> {
     let ts = now();
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    // 物理清除旧关联后重建（关联表无需软删保留）
-    conn.execute(
-        "DELETE FROM group_platform WHERE group_id = ?1",
-        params![group_id as i64],
-    )
-    .map_err(|e| e.to_string())?;
+    let platforms = platforms.to_vec();
+    db.0
+        .call(move |conn| {
+            // 物理清除旧关联后重建（关联表无需软删保留）
+            conn.execute(
+                "DELETE FROM group_platform WHERE group_id = ?1",
+                params![group_id as i64],
+            )?;
 
-    for p in platforms {
-        conn.execute(
-            "INSERT INTO group_platform (group_id, platform_id, priority, weight, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-            params![group_id as i64, p.platform_id as i64, p.priority.unwrap_or(0), p.weight.unwrap_or(1), ts, ts],
-        )
-        .map_err(|e| format!("insert group platform: {e}"))?;
-    }
-
-    Ok(())
+            for p in &platforms {
+                conn.execute(
+                    "INSERT INTO group_platform (group_id, platform_id, priority, weight, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                    params![group_id as i64, p.platform_id as i64, p.priority.unwrap_or(0), p.weight.unwrap_or(1), ts, ts],
+                )?;
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("set group platforms: {e}"))
 }
 
-pub fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlatformDetail>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
+pub async fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlatformDetail>, String> {
+    db.0
+        .call(move |conn| {
     let mut stmt = conn
         .prepare(
             &format!(
@@ -729,8 +819,7 @@ pub fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlatformDe
                  FROM group_platform gp JOIN platform p ON gp.platform_id = p.id \
                  WHERE gp.group_id = ?1 AND gp.deleted_at = 0 AND p.deleted_at = 0 ORDER BY gp.priority"
             ),
-        )
-        .map_err(|e| e.to_string())?;
+        )?;
 
     let rows = stmt
         .query_map(params![group_id as i64], |row| {
@@ -766,20 +855,22 @@ pub fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlatformDe
                 priority: row.get(0)?,
                 weight: row.get(1)?,
             })
-        })
-        .map_err(|e| e.to_string())?;
+        })?;
 
-    rows.collect::<SqlResult<Vec<_>>>().map_err(|e| e.to_string())
+    Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
 // ─── 聚合查询 ──────────────────────────────────────────────
 
-pub fn get_group_detail(db: &Db, id: u64) -> Result<Option<GroupDetail>, String> {
-    let group = match get_group(db, id)? {
+pub async fn get_group_detail(db: &Db, id: u64) -> Result<Option<GroupDetail>, String> {
+    let group = match get_group(db, id).await? {
         Some(g) => g,
         None => return Ok(None),
     };
-    let platforms = get_group_platforms(db, id)?;
+    let platforms = get_group_platforms(db, id).await?;
     // GroupDetail 同时携带 group（含其 model_mappings）与独立的 model_mappings 副本，
     // 二者均被消费方读取（见测试 r4_group_detail_mappings_from_group_field），故须 clone 而非 move。
     let model_mappings = group.model_mappings.clone();
@@ -791,11 +882,11 @@ pub fn get_group_detail(db: &Db, id: u64) -> Result<Option<GroupDetail>, String>
     }))
 }
 
-pub fn list_group_details(db: &Db) -> Result<Vec<GroupDetail>, String> {
-    let groups = list_groups(db)?;
+pub async fn list_group_details(db: &Db) -> Result<Vec<GroupDetail>, String> {
+    let groups = list_groups(db).await?;
     let mut details = Vec::with_capacity(groups.len());
     for g in groups {
-        let platforms = get_group_platforms(db, g.id)?;
+        let platforms = get_group_platforms(db, g.id).await?;
         let model_mappings = g.model_mappings.clone();
         details.push(GroupDetail {
             group: g,
@@ -808,58 +899,69 @@ pub fn list_group_details(db: &Db) -> Result<Vec<GroupDetail>, String> {
 
 // ─── Settings CRUD ─────────────────────────────────────────
 
-pub fn get_setting(
+pub async fn get_setting(
     db: &Db,
     scope: &str,
     key: &str,
 ) -> Result<Option<serde_json::Value>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare("SELECT value FROM setting WHERE scope = ?1 AND key = ?2 AND deleted_at = 0")
-        .map_err(|e| e.to_string())?;
-    let result = stmt
-        .query_row(params![scope, key], |row| {
-            let v: String = row.get(0)?;
-            Ok(serde_json::from_str(&v).unwrap_or(serde_json::Value::Null))
+    let scope = scope.to_string();
+    let key = key.to_string();
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare("SELECT value FROM setting WHERE scope = ?1 AND key = ?2 AND deleted_at = 0")?;
+            stmt.query_row(params![scope, key], |row| {
+                let v: String = row.get(0)?;
+                Ok(serde_json::from_str(&v).unwrap_or(serde_json::Value::Null))
+            })
+            .optional()
+            .map_err(tokio_rusqlite::Error::from)
         })
-        .optional()
-        .map_err(|e| e.to_string())?;
-    Ok(result)
+        .await
+        .map_err(|e| e.to_string())
 }
 
-pub fn set_setting(db: &Db, input: SetSettingInput) -> Result<(), String> {
+pub async fn set_setting(db: &Db, input: SetSettingInput) -> Result<(), String> {
     let ts = now();
     let value_str =
         serde_json::to_string(&input.value).map_err(|e| format!("serialize setting: {e}"))?;
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT INTO setting (scope, key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)
-         ON CONFLICT(scope, key) DO UPDATE SET value = ?3, updated_at = ?4, deleted_at = 0",
-        params![input.scope, input.key, value_str, ts],
-    )
-    .map_err(|e| format!("upsert setting: {e}"))?;
-    Ok(())
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                "INSERT INTO setting (scope, key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)
+                 ON CONFLICT(scope, key) DO UPDATE SET value = ?3, updated_at = ?4, deleted_at = 0",
+                params![input.scope, input.key, value_str, ts],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("upsert setting: {e}"))
 }
 
-pub fn delete_setting(db: &Db, scope: &str, key: &str) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE setting SET deleted_at = ?1 WHERE scope = ?2 AND key = ?3",
-        params![now(), scope, key],
-    )
-    .map_err(|e| format!("delete setting: {e}"))?;
-    Ok(())
+pub async fn delete_setting(db: &Db, scope: &str, key: &str) -> Result<(), String> {
+    let scope = scope.to_string();
+    let key = key.to_string();
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                "UPDATE setting SET deleted_at = ?1 WHERE scope = ?2 AND key = ?3",
+                params![now(), scope, key],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("delete setting: {e}"))
 }
 
-pub fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare("SELECT key FROM setting WHERE scope = ?1 AND deleted_at = 0 ORDER BY key")
-        .map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map(params![scope], |row| row.get(0))
-        .map_err(|e| e.to_string())?;
-    rows.collect::<SqlResult<Vec<_>>>().map_err(|e| e.to_string())
+pub async fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
+    let scope = scope.to_string();
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare("SELECT key FROM setting WHERE scope = ?1 AND deleted_at = 0 ORDER BY key")?;
+            let rows = stmt.query_map(params![scope], |row| row.get(0))?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
 // ─── ProxyLog CRUD ─────────────────────────────────────────
@@ -902,28 +1004,33 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
 }
 
 /// Upsert (INSERT OR REPLACE) a proxy log entry — used for incremental logging
-pub fn upsert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27)"),
-        params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.created_at, log.updated_at, log.deleted_at],
-    ).map_err(|e| format!("upsert proxy log: {e}"))?;
-    Ok(())
+pub async fn upsert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<(), String> {
+    let log = log.clone();
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27)"),
+                params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.created_at, log.updated_at, log.deleted_at],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("upsert proxy log: {e}"))
 }
 
-pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::models::ProxyLogSummary>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at
-             FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
-        )
-        .map_err(|e| e.to_string())?;
-    let rows = stmt
-        .query_map(params![limit, offset], row_to_proxy_log_summary)
-        .map_err(|e| e.to_string())?;
-    rows.collect::<SqlResult<Vec<_>>>().map_err(|e| e.to_string())
+pub async fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::models::ProxyLogSummary>, String> {
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at
+                 FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
+            )?;
+            let rows = stmt.query_map(params![limit, offset], row_to_proxy_log_summary)?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Summary row mapper (column order must match SELECT)
@@ -945,37 +1052,44 @@ fn row_to_proxy_log_summary(row: &rusqlite::Row) -> SqlResult<super::models::Pro
     })
 }
 
-pub fn filtered_list_proxy_logs(
+pub async fn filtered_list_proxy_logs(
     db: &Db,
     filter: &super::models::ProxyLogFilter,
     limit: u32,
     offset: u32,
 ) -> Result<Vec<super::models::ProxyLogSummary>, String> {
-    let (where_sql, mut p) = build_filter_where(filter);
-    p.push(Box::new(limit));
-    p.push(Box::new(offset));
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let sql = format!(
-        "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at \
-         FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?"
-    );
-    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
-    let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
-    let rows = stmt
-        .query_map(refs.as_slice(), row_to_proxy_log_summary)
-        .map_err(|e| e.to_string())?;
-    rows.collect::<SqlResult<Vec<_>>>().map_err(|e| e.to_string())
+    let filter = filter.clone();
+    db.0
+        .call(move |conn| {
+            let (where_sql, mut p) = build_filter_where(&filter);
+            p.push(Box::new(limit));
+            p.push(Box::new(offset));
+            let sql = format!(
+                "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at \
+                 FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            );
+            let mut stmt = conn.prepare(&sql)?;
+            let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+            let rows = stmt.query_map(refs.as_slice(), row_to_proxy_log_summary)?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
-pub fn filtered_count_proxy_logs(
+pub async fn filtered_count_proxy_logs(
     db: &Db,
     filter: &super::models::ProxyLogFilter,
 ) -> Result<u32, String> {
-    let (where_sql, p) = build_filter_where(filter);
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
-    let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
-    conn.query_row(&sql, refs.as_slice(), |row| row.get(0))
+    let filter = filter.clone();
+    db.0
+        .call(move |conn| {
+            let (where_sql, p) = build_filter_where(&filter);
+            let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
+            let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
+            Ok(conn.query_row(&sql, refs.as_slice(), |row| row.get(0))?)
+        })
+        .await
         .map_err(|e| e.to_string())
 }
 
@@ -1030,61 +1144,79 @@ fn build_filter_where(filter: &super::models::ProxyLogFilter) -> (String, Vec<Bo
     (where_sql, p)
 }
 
-pub fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn
-        .prepare(&format!(
-            "SELECT {PROXY_LOG_COLUMNS} FROM proxy_log WHERE id = ?1 AND deleted_at = 0"
-        ))
-        .map_err(|e| e.to_string())?;
-    stmt.query_row(params![id], row_to_proxy_log)
-        .optional()
+pub async fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog>, String> {
+    let id = id.to_string();
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare(&format!(
+                "SELECT {PROXY_LOG_COLUMNS} FROM proxy_log WHERE id = ?1 AND deleted_at = 0"
+            ))?;
+            Ok(stmt.query_row(params![id], row_to_proxy_log).optional()?)
+        })
+        .await
         .map_err(|e| e.to_string())
 }
 
-pub fn clear_proxy_logs(db: &Db) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute("UPDATE proxy_log SET deleted_at = ?1 WHERE deleted_at = 0", params![now()])
-        .map_err(|e| format!("clear proxy logs: {e}"))?;
-    Ok(())
+pub async fn clear_proxy_logs(db: &Db) -> Result<(), String> {
+    db.0
+        .call(move |conn| {
+            conn.execute("UPDATE proxy_log SET deleted_at = ?1 WHERE deleted_at = 0", params![now()])?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("clear proxy logs: {e}"))
 }
 
 /// Delete logs older than N days. Pass 0 to skip.
-pub fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> Result<(), String> {
+pub async fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> Result<(), String> {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute("UPDATE proxy_log SET deleted_at = ?1 WHERE created_at < ?2 AND deleted_at = 0", params![now(), cutoff])
-        .map_err(|e| format!("cleanup proxy logs: {e}"))?;
-    Ok(())
+    db.0
+        .call(move |conn| {
+            conn.execute("UPDATE proxy_log SET deleted_at = ?1 WHERE created_at < ?2 AND deleted_at = 0", params![now(), cutoff])?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("cleanup proxy logs: {e}"))
 }
 
 /// Clear user request fields (headers, body, user response) for logs older than retention_days.
 /// Does NOT delete the log row — keeps token stats and metadata.
-pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
+pub async fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE proxy_log SET request_headers = '', request_body = '', user_response_headers = '', user_response_body = '' WHERE created_at < ?1 AND (request_headers != '' OR request_body != '')",
-        params![cutoff],
-    ).map_err(|e| format!("cleanup user request fields: {e}"))?;
-    Ok(())
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                "UPDATE proxy_log SET request_headers = '', request_body = '', user_response_headers = '', user_response_body = '' WHERE created_at < ?1 AND (request_headers != '' OR request_body != '')",
+                params![cutoff],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("cleanup user request fields: {e}"))
 }
 
 /// Clear upstream request fields (headers, body, response headers) for logs older than retention_days.
 /// Does NOT delete the log row — keeps token stats and metadata.
-pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
+pub async fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE proxy_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '' WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '')",
-        params![cutoff],
-    ).map_err(|e| format!("cleanup upstream request fields: {e}"))?;
-    Ok(())
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                "UPDATE proxy_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '' WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '')",
+                params![cutoff],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("cleanup upstream request fields: {e}"))
 }
 
-pub fn count_proxy_logs(db: &Db) -> Result<u32, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.query_row("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0", [], |row| row.get(0))
+pub async fn count_proxy_logs(db: &Db) -> Result<u32, String> {
+    db.0
+        .call(move |conn| {
+            Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0", [], |row| row.get(0))?)
+        })
+        .await
         .map_err(|e| e.to_string())
 }
 
@@ -1138,19 +1270,26 @@ fn usage_stats(
     })
 }
 
-pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> Result<super::models::PlatformUsageStats, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    // platform_id 现为整数；自动分组日志可能未带 platform_id（=0），通过 group.auto_from_platform（存十进制字符串）回溯
-    let where_clause = "deleted_at = 0 AND (platform_id = ?1 OR (platform_id = 0 AND group_name IN (SELECT name FROM \"group\" WHERE auto_from_platform = ?2 AND deleted_at = 0)))";
-    let pid = platform_id as i64;
-    let pid_str = platform_id.to_string();
-    usage_stats(&conn, where_clause, &[&pid, &pid_str])
+pub async fn get_platform_usage_stats(db: &Db, platform_id: u64) -> Result<super::models::PlatformUsageStats, String> {
+    db.0
+        .call(move |conn| {
+            // platform_id 现为整数；自动分组日志可能未带 platform_id（=0），通过 group.auto_from_platform（存十进制字符串）回溯
+            let where_clause = "deleted_at = 0 AND (platform_id = ?1 OR (platform_id = 0 AND group_name IN (SELECT name FROM \"group\" WHERE auto_from_platform = ?2 AND deleted_at = 0)))";
+            let pid = platform_id as i64;
+            let pid_str = platform_id.to_string();
+            Ok(usage_stats(conn, where_clause, &[&pid, &pid_str])?)
+        })
+        .await
         .map_err(|e| format!("platform usage stats: {e}"))
 }
 
-pub fn get_group_usage_stats(db: &Db, group_name: &str) -> Result<super::models::PlatformUsageStats, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    usage_stats(&conn, "group_name = ?1 AND deleted_at = 0", &[&group_name])
+pub async fn get_group_usage_stats(db: &Db, group_name: &str) -> Result<super::models::PlatformUsageStats, String> {
+    let group_name = group_name.to_string();
+    db.0
+        .call(move |conn| {
+            Ok(usage_stats(conn, "group_name = ?1 AND deleted_at = 0", &[&group_name])?)
+        })
+        .await
         .map_err(|e| format!("group usage stats: {e}"))
 }
 
@@ -1158,20 +1297,23 @@ pub fn get_group_usage_stats(db: &Db, group_name: &str) -> Result<super::models:
 ///
 /// 用于 statusline group-info 端点推算「余额可用天数」：日均花费 = spent / N。
 /// 短持锁（仅一次聚合查询），不跨 await；window_days <= 0 时按 7 天兜底。
-pub fn get_group_spent_since(db: &Db, group_name: &str, window_days: i64) -> Result<f64, String> {
+pub async fn get_group_spent_since(db: &Db, group_name: &str, window_days: i64) -> Result<f64, String> {
     let days = if window_days > 0 { window_days } else { 7 };
     let start_ms =
         (chrono::Utc::now() - chrono::Duration::days(days)).timestamp_millis();
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let spent: f64 = conn
-        .query_row(
-            "SELECT COALESCE(SUM(est_cost), 0.0) FROM proxy_log \
-             WHERE group_name = ?1 AND created_at >= ?2 AND deleted_at = 0",
-            params![group_name, start_ms],
-            |row| row.get(0),
-        )
-        .map_err(|e| format!("group spent since: {e}"))?;
-    Ok(spent)
+    let group_name = group_name.to_string();
+    db.0
+        .call(move |conn| {
+            let spent: f64 = conn.query_row(
+                "SELECT COALESCE(SUM(est_cost), 0.0) FROM proxy_log \
+                 WHERE group_name = ?1 AND created_at >= ?2 AND deleted_at = 0",
+                params![group_name, start_ms],
+                |row| row.get(0),
+            )?;
+            Ok(spent)
+        })
+        .await
+        .map_err(|e| format!("group spent since: {e}"))
 }
 
 struct QueryParams {
@@ -1195,9 +1337,18 @@ impl QueryParams {
     }
 }
 
-pub fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
+pub async fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
+    let query = query.clone();
+    db.0
+        .call(move |conn| {
+            query_stats_inner(conn, &query)
+                .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+        })
+        .await
+        .map_err(|e| e.to_string())
+}
 
+fn query_stats_inner(conn: &Connection, query: &StatsQuery) -> Result<StatsResult, String> {
     let end = query.end.unwrap_or_else(|| chrono::Utc::now().timestamp_millis());
     let start = query.start.unwrap_or_else(|| {
         (chrono::Utc::now() - chrono::Duration::days(7)).timestamp_millis()
@@ -1368,80 +1519,101 @@ fn price_data_to_summary(mp: &super::models::ModelPrice) -> super::models::Model
     }
 }
 
-pub fn list_model_prices(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::models::ModelPriceSummary>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let mut stmt = conn.prepare(
-        &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 ORDER BY model_name LIMIT ?1 OFFSET ?2")
-    ).map_err(|e| e.to_string())?;
-    let rows = stmt.query_map(params![limit, offset], row_to_model_price)
-        .map_err(|e| e.to_string())?;
-    let mut result = Vec::new();
-    for r in rows {
-        let mp = r.map_err(|e| e.to_string())?;
-        result.push(price_data_to_summary(&mp));
-    }
-    Ok(result)
+pub async fn list_model_prices(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::models::ModelPriceSummary>, String> {
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare(
+                &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 ORDER BY model_name LIMIT ?1 OFFSET ?2")
+            )?;
+            let rows = stmt.query_map(params![limit, offset], row_to_model_price)?;
+            let mut result = Vec::new();
+            for r in rows {
+                result.push(price_data_to_summary(&r?));
+            }
+            Ok(result)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
-pub fn count_model_prices(db: &Db) -> Result<u32, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.query_row("SELECT COUNT(*) FROM model_price WHERE deleted_at = 0", [], |row| row.get(0))
+pub async fn count_model_prices(db: &Db) -> Result<u32, String> {
+    db.0
+        .call(move |conn| {
+            Ok(conn.query_row("SELECT COUNT(*) FROM model_price WHERE deleted_at = 0", [], |row| row.get(0))?)
+        })
+        .await
         .map_err(|e| e.to_string())
 }
 
 /// 获取指定模型的最新价格记录（优先 manual > litellm）
-pub fn get_model_price(db: &Db, model_name: &str) -> Result<Option<super::models::ModelPrice>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    // 优先取 manual 记录
-    let mut stmt = conn.prepare(
-        &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE model_name = ?1 AND source = 'manual' AND deleted_at = 0")
-    ).map_err(|e| e.to_string())?;
-    if let Some(mp) = stmt.query_row(params![model_name], row_to_model_price).optional().map_err(|e| e.to_string())? {
-        return Ok(Some(mp));
-    }
-    // 回退到 litellm
-    let mut stmt2 = conn.prepare(
-        &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE model_name = ?1 AND source = 'litellm' AND deleted_at = 0")
-    ).map_err(|e| e.to_string())?;
-    stmt2.query_row(params![model_name], row_to_model_price).optional().map_err(|e| e.to_string())
+pub async fn get_model_price(db: &Db, model_name: &str) -> Result<Option<super::models::ModelPrice>, String> {
+    let model_name = model_name.to_string();
+    db.0
+        .call(move |conn| {
+            // 优先取 manual 记录
+            let mut stmt = conn.prepare(
+                &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE model_name = ?1 AND source = 'manual' AND deleted_at = 0")
+            )?;
+            if let Some(mp) = stmt.query_row(params![model_name], row_to_model_price).optional()? {
+                return Ok(Some(mp));
+            }
+            // 回退到 litellm
+            let mut stmt2 = conn.prepare(
+                &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE model_name = ?1 AND source = 'litellm' AND deleted_at = 0")
+            )?;
+            Ok(stmt2.query_row(params![model_name], row_to_model_price).optional()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Upsert a model price record (INSERT OR REPLACE by model_name + source)
-pub fn upsert_model_price(
+pub async fn upsert_model_price(
     db: &Db,
     model_name: &str,
     source: &str,
     price_data: &str,
 ) -> Result<(), String> {
     let ts = now();
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "INSERT INTO model_price (model_name, source, price_data, created_at, updated_at, deleted_at)
-         VALUES (?1, ?2, ?3, ?4, ?4, 0)
-         ON CONFLICT(model_name, source) DO UPDATE SET price_data = ?3, updated_at = ?4, deleted_at = 0",
-        params![model_name, source, price_data, ts],
-    ).map_err(|e| format!("upsert model price: {e}"))?;
-    Ok(())
+    let model_name = model_name.to_string();
+    let source = source.to_string();
+    let price_data = price_data.to_string();
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                "INSERT INTO model_price (model_name, source, price_data, created_at, updated_at, deleted_at)
+                 VALUES (?1, ?2, ?3, ?4, ?4, 0)
+                 ON CONFLICT(model_name, source) DO UPDATE SET price_data = ?3, updated_at = ?4, deleted_at = 0",
+                params![model_name, source, price_data, ts],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("upsert model price: {e}"))
 }
 
 /// Delete a model price by name (soft delete all sources)
-pub fn delete_model_price(db: &Db, model_name: &str) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute("UPDATE model_price SET deleted_at = ?1 WHERE model_name = ?2 AND deleted_at = 0", params![now(), model_name])
-        .map_err(|e| format!("delete model price: {e}"))?;
-    Ok(())
+pub async fn delete_model_price(db: &Db, model_name: &str) -> Result<(), String> {
+    let model_name = model_name.to_string();
+    db.0
+        .call(move |conn| {
+            conn.execute("UPDATE model_price SET deleted_at = ?1 WHERE model_name = ?2 AND deleted_at = 0", params![now(), model_name])?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("delete model price: {e}"))
 }
 
 /// 解析价格：model_name + platform_type → ResolvedPrice
 /// 优先级: pricing[platform_type] > top_level > default_platform pricing > fallback settings
-pub fn resolve_price(
+pub async fn resolve_price(
     db: &Db,
     model_name: &str,
     platform_type: &str,
     fallback_input: f64,
     fallback_output: f64,
 ) -> Result<super::models::ResolvedPrice, String> {
-    let mp = get_model_price(db, model_name)?;
+    let mp = get_model_price(db, model_name).await?;
     let pd: serde_json::Value = match &mp {
         Some(m) => serde_json::from_str(&m.price_data).unwrap_or_default(),
         None => serde_json::Value::Null,
@@ -1502,31 +1674,38 @@ pub fn resolve_price(
 }
 
 /// 搜索模型价格
-pub fn search_model_prices(db: &Db, query: &str, limit: u32) -> Result<Vec<super::models::ModelPriceSummary>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
+pub async fn search_model_prices(db: &Db, query: &str, limit: u32) -> Result<Vec<super::models::ModelPriceSummary>, String> {
     let pattern = format!("%{query}%");
-    let mut stmt = conn.prepare(
-        &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 AND model_name LIKE ?1 ORDER BY model_name LIMIT ?2")
-    ).map_err(|e| e.to_string())?;
-    let rows = stmt.query_map(params![pattern, limit], row_to_model_price)
-        .map_err(|e| e.to_string())?;
-    let mut result = Vec::new();
-    for r in rows {
-        let mp = r.map_err(|e| e.to_string())?;
-        result.push(price_data_to_summary(&mp));
-    }
-    Ok(result)
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare(
+                &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 AND model_name LIKE ?1 ORDER BY model_name LIMIT ?2")
+            )?;
+            let rows = stmt.query_map(params![pattern, limit], row_to_model_price)?;
+            let mut result = Vec::new();
+            for r in rows {
+                result.push(price_data_to_summary(&r?));
+            }
+            Ok(result)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Filtered list: optional query (LIKE model_name), optional source, limit, offset.
-pub fn filtered_list_model_prices(
+pub async fn filtered_list_model_prices(
     db: &Db,
     query: Option<&str>,
     source: Option<&str>,
     limit: u32,
     offset: u32,
 ) -> Result<Vec<super::models::ModelPriceSummary>, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let query = query.map(|s| s.to_string());
+    let source = source.map(|s| s.to_string());
+    db.0
+        .call(move |conn| {
+            let query = query.as_deref();
+            let source = source.as_deref();
     let mut where_parts = vec!["deleted_at = 0".to_string()];
     let mut param_idx = 1;
     let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
@@ -1554,25 +1733,31 @@ pub fn filtered_list_model_prices(
     params.push(Box::new(limit));
     params.push(Box::new(offset));
 
-    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let mut stmt = conn.prepare(&sql)?;
     let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    let rows = stmt.query_map(param_refs.as_slice(), row_to_model_price)
-        .map_err(|e| e.to_string())?;
+    let rows = stmt.query_map(param_refs.as_slice(), row_to_model_price)?;
     let mut result = Vec::new();
     for r in rows {
-        let mp = r.map_err(|e| e.to_string())?;
-        result.push(price_data_to_summary(&mp));
+        result.push(price_data_to_summary(&r?));
     }
     Ok(result)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// Count matching model prices with optional filters.
-pub fn filtered_count_model_prices(
+pub async fn filtered_count_model_prices(
     db: &Db,
     query: Option<&str>,
     source: Option<&str>,
 ) -> Result<u32, String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let query = query.map(|s| s.to_string());
+    let source = source.map(|s| s.to_string());
+    db.0
+        .call(move |conn| {
+            let query = query.as_deref();
+            let source = source.as_deref();
     let mut where_parts = vec!["deleted_at = 0".to_string()];
     let mut param_idx = 1;
     let mut params: Vec<Box<dyn rusqlite::types::ToSql>> = Vec::new();
@@ -1594,7 +1779,9 @@ pub fn filtered_count_model_prices(
     let where_sql = where_parts.join(" AND ");
     let sql = format!("SELECT COUNT(*) FROM model_price WHERE {where_sql}");
     let param_refs: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-    conn.query_row(&sql, param_refs.as_slice(), |row| row.get(0))
+    Ok(conn.query_row(&sql, param_refs.as_slice(), |row| row.get(0))?)
+        })
+        .await
         .map_err(|e| e.to_string())
 }
 
