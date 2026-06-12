@@ -206,7 +206,7 @@ export function Groups() {
     setLoading(false);
   };
 
-  /** 轻量刷新：仅更新 usage stats（本地 DB），用于 proxy-log-updated 实时刷新 */
+  /** 轻量刷新：更新 platforms（含 est_balance_remaining）+ usage stats + group 聚合，不拉 quota HTTP */
   const refreshStats = async () => {
     try {
       const [d, p] = await Promise.all([groupDetailApi.list(), platformApi.list()]);
@@ -217,12 +217,18 @@ export function Groups() {
           if (s && s.total_requests > 0) pStatsMap[plat.id] = s;
         } catch { /* ignore */ }
       }));
-      // Aggregate group stats
+      // Aggregate group stats + balance
       const statsMap: Record<string, PlatformUsageStats> = {};
+      const balanceMap: Record<number, number> = {};
+      const platById = new Map((p || []).map(pp => [pp.id, pp]));
       for (const g of d || []) {
         let total_requests = 0, success_count = 0;
         let total_input_tokens = 0, total_output_tokens = 0, total_cache_tokens = 0, total_cost = 0;
+        let balance = 0;
         for (const gp of g.platforms) {
+          const plat = platById.get(gp.platform.id);
+          const est = plat?.est_balance_remaining;
+          if (typeof est === "number" && est > 0) balance += est;
           const ps = pStatsMap[gp.platform.id];
           if (ps) {
             total_requests += ps.total_requests;
@@ -241,8 +247,10 @@ export function Groups() {
             recent_failures: 0, recent_total: 0, total_cost,
           };
         }
+        if (balance > 0) balanceMap[g.group.id] = balance;
       }
       setGroupStats(statsMap);
+      setGroupBalance(balanceMap);
     } catch { /* ignore */ }
   };
 

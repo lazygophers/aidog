@@ -1149,12 +1149,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     });
   };
 
-  /** 轻量刷新：仅更新 usage stats（本地 DB 查询，无外部 HTTP），用于 proxy-log-updated 实时刷新 */
+  /** 轻量刷新：更新平台列表（含 est_balance/est_coding_plan）+ usage stats，不拉 quota HTTP */
   const refreshStats = async () => {
-    // 使用当前已加载的 platforms，不重新拉列表
     try {
       const list = await platformApi.list();
       if (list) {
+        setPlatforms(list);
         list.forEach(async (p) => {
           try {
             const s = await platformApi.usageStats(p.id);
