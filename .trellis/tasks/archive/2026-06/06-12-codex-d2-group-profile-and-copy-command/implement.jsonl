@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/archive/2026-06/06-12-settings-codex-config-support/research/codex-config.md", "reason": "Codex config.toml/profile schema(权威)"}
+{"file": ".trellis/tasks/archive/2026-06/06-12-settings-codex-config-support/research/codex-cli.md", "reason": "codex CLI 参数 + 复制命令 bypass"}
+{"file": ".trellis/spec/backend/index.md", "reason": "lib.rs 分组生成 profile 文件"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "Groups 复制命令 UI + i18n"}
