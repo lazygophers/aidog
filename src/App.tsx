@@ -6,7 +6,6 @@ import { Proxy } from "./pages/Proxy";
 import { AppSettings } from "./pages/AppSettings";
 import { Logs } from "./pages/Logs";
 import { Stats } from "./pages/Stats";
-import { CodexSettings } from "./pages/CodexSettings";
 import { proxyLogApi } from "./services/api";
 import { requestNavigation } from "./utils/navGuard";
 
@@ -15,7 +14,6 @@ const BASE_NAV: NavItem[] = [
   { id: "platforms", icon: "platforms", labelKey: "nav.platforms" },
   { id: "groups", icon: "groups", labelKey: "nav.groups" },
   { id: "stats", icon: "stats", labelKey: "nav.stats" },
-  { id: "codex", icon: "codex", labelKey: "nav.codex" },
   { id: "settings", icon: "settings", labelKey: "nav.settings" },
 ];
 
@@ -75,7 +73,6 @@ function App() {
           {effectiveNav === "settings" && <AppSettings onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} />}
           {effectiveNav === "logs" && <Logs />}
           {effectiveNav === "stats" && <Stats />}
-          {effectiveNav === "codex" && <CodexSettings />}
         </div>
       </main>
     </div>
