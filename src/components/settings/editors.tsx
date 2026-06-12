@@ -2019,12 +2019,12 @@ echo -n "$__bar $__pct%"`;
     type: "separator",
     name: "分隔符",
     icon: "advanced",
-    desc: "视觉分隔符",
-    defaultOptions: { char: " · " },
-    toBash: (o) => `echo -n "${o.char || " · "}"`,
-    toPreview: (o) => o.char || " · ",
+    desc: "视觉分隔符（可插入到任意段之间）",
+    defaultOptions: { char: "·" },
+    toBash: (o) => `echo -n "${bashEscapeDq(typeof o.char === "string" ? o.char : "·")}"`,
+    toPreview: (o) => (typeof o.char === "string" ? o.char : "·"),
     fields: [
-      { key: "char", label: "分隔符字符", type: "string", placeholder: " · " },
+      { key: "char", label: "分隔符字符", type: "string", placeholder: "·" },
     ],
   },
   {
@@ -2564,7 +2564,7 @@ const SEGMENT_DEF_MAP = new Map(SEGMENT_DEFS.map(d => [d.type, d]));
  * i18n: `statusline.segCat.<id>`.
  */
 const SEGMENT_CATEGORIES: { id: string; label: string; types: SegmentType[] }[] = [
-  { id: "common", label: "常用", types: ["model", "context-bar", "context-pct", "git", "cost", "rate-limits", "effort", "vim"] },
+  { id: "common", label: "常用", types: ["model", "context-bar", "context-pct", "git", "cost", "rate-limits", "effort", "vim", "separator"] },
   { id: "cost", label: "成本 / 执行", types: ["cost-usd", "session-duration", "api-duration", "lines-changed"] },
   { id: "context", label: "上下文", types: ["context-tokens", "context-max", "context-remaining", "context-cache"] },
   { id: "rate", label: "速率限制", types: ["rate-limit-5h", "rate-limit-7d"] },
@@ -2579,24 +2579,31 @@ const SEGMENT_CATEGORIES: { id: string; label: string; types: SegmentType[] }[] 
  * Built-in default 3-line layout (PRD). Applied only when no `segments` exist
  * (first run) or on explicit reset — existing user layouts are never overwritten.
  *
- * Mixed in-row separators (`·` row1/3, `|` row2, `[cost]` hugging, conditional
- * `·worktree`) ride on per-segment reserved affix options (`affixPre`/`affixSuf`),
- * with the global separator set empty (DEFAULT_SEPARATOR = "").
+ * Separators are now explicit `separator` segments inserted between stable items
+ * (`·` row1/3). Conditional separators that must vanish when their neighbour
+ * degrades to empty (`[cost]·`, `·worktree`, `coding · `/`balance · ` group
+ * segments, `|pwd`) stay on per-segment reserved affix options (`affixPre` /
+ * `affixSuf`) so an empty body leaves no orphaned separator char.
  *
  * Colors are fixed hex per PRD: model 蓝 / tokens 紫 / cost 灰 / ctx·cache 绿 /
  * branch 黄 / version 灰. Row 3 coding/balance self-color dynamically (no fixed
- * `color`) via group*DynBash.
+ * `color`) via group*DynBash. Separator segments inherit no color (terminal default).
  */
 export const DEFAULT_SEGMENTS: StatusLineSegment[] = [
   // ── Row 1: model · tokens[cost]·ctx%·缓存 X% ──
   { id: "d-model", type: "model", enabled: true, newline: false, color: "#4A9EFF",
-    options: { format: "short", affixSuf: " · " } },
+    options: { format: "short" } },
+  { id: "d-sep1", type: "separator", enabled: true, newline: false,
+    options: { char: " · " } },
   { id: "d-tokens", type: "context-tokens", enabled: true, newline: false, color: "#BF5AF2",
     options: { mode: "sum", abbrev: true } },
+  // cost hugs brackets and trails its own `·` so it disappears cleanly when empty.
   { id: "d-cost", type: "cost-usd", enabled: true, newline: false, color: "#8E8E93",
     options: { prefix: "$", affixPre: "[", affixSuf: "]·" } },
   { id: "d-ctx", type: "context-pct", enabled: true, newline: false, color: "#34C759",
-    options: { affixSuf: "·" } },
+    options: {} },
+  { id: "d-sep2", type: "separator", enabled: true, newline: false,
+    options: { char: "·" } },
   { id: "d-cache", type: "context-cache", enabled: true, newline: false, color: "#34C759",
     options: { mode: "hitrate", prefix: "缓存 " } },
   // ── Row 2: branch[·worktree]|pwd ──
@@ -2607,6 +2614,9 @@ export const DEFAULT_SEGMENTS: StatusLineSegment[] = [
   { id: "d-cwd", type: "cwd", enabled: true, newline: false,
     options: { format: "full", affixPre: "|" } },
   // ── Row 3: coding-or-balance · version ──
+  // coding/balance carry their own trailing ` · ` affix so the separator before
+  // `version` vanishes together with the (mutually exclusive / possibly empty)
+  // group segment, rather than orphaning a leading separator on `version`.
   { id: "d-coding", type: "group-coding", enabled: true, newline: true,
     options: { dynamicColor: true, affixSuf: " · " } },
   { id: "d-balance", type: "group-balance", enabled: true, newline: false,
@@ -2616,23 +2626,37 @@ export const DEFAULT_SEGMENTS: StatusLineSegment[] = [
 ];
 
 /**
- * Legacy global item separator. Kept as the back-compat seed for pre-existing
- * layouts (stored.segments present) that never persisted an explicit separator —
- * those layouts assumed a ` · ` gap and must keep it.
+ * Built-in default SubagentStatusLine layout. Subagent now shares the exact same
+ * segment editor as the main statusline (no templates) — this is its first-run /
+ * reset default. Renders a single line:
+ *
+ *   [Agent·●]<子代理名>·<ctx%>·<tokens>·<时长>
+ *   e.g. [Agent·●]reviewer·48%·96K·6m40s
+ *
+ * `[Agent·●]` is a literal prefix (separator segment) hugging the name directly;
+ * the name falls back `.agent.name → .session_name → "subagent"` so it never
+ * disappears. Remaining metrics are `·`-separated and degrade to empty when the
+ * underlying field is absent (leaving an orphan `·` only in the degenerate case,
+ * acceptable per PRD readability tradeoff).
  */
-const LEGACY_SEPARATOR = " · ";
-
-/**
- * Built-in default 3-line layout separator. Empty: all in-row separators are
- * carried by per-segment affixes so `·`/`|`/`[cost]` mix freely. Used only when
- * no `segments` are stored (fresh install / explicit reset).
- */
-const DEFAULT_SEPARATOR = "";
-
-/** Drop legacy manual `separator` segments — superseded by the global separator. */
-function dropLegacySeparators(segments: StatusLineSegment[]): StatusLineSegment[] {
-  return segments.filter(s => s.type !== "separator");
-}
+export const DEFAULT_SUBAGENT_SEGMENTS: StatusLineSegment[] = [
+  { id: "sa-prefix", type: "separator", enabled: true, newline: false, color: "#8E8E93",
+    options: { char: "[Agent·●]" } },
+  { id: "sa-name", type: "custom", enabled: true, newline: false, color: "#4A9EFF",
+    options: { expr: ".agent.name // .session_name // \"subagent\"" } },
+  { id: "sa-sep1", type: "separator", enabled: true, newline: false,
+    options: { char: "·" } },
+  { id: "sa-ctx", type: "context-pct", enabled: true, newline: false, color: "#34C759",
+    options: {} },
+  { id: "sa-sep2", type: "separator", enabled: true, newline: false,
+    options: { char: "·" } },
+  { id: "sa-tokens", type: "context-tokens", enabled: true, newline: false, color: "#BF5AF2",
+    options: { mode: "sum", abbrev: true } },
+  { id: "sa-sep3", type: "separator", enabled: true, newline: false,
+    options: { char: "·" } },
+  { id: "sa-dur", type: "session-duration", enabled: true, newline: false, color: "#8E8E93",
+    options: { format: "human" } },
+];
 
 /**
  * Escape a literal string for safe inclusion inside a bash double-quoted string.
@@ -2642,12 +2666,6 @@ function dropLegacySeparators(segments: StatusLineSegment[]): StatusLineSegment[
 function bashEscapeDq(s: string): string {
   return s.replace(/[\\"`$]/g, m => "\\" + m);
 }
-
-const SUBAGENT_TEMPLATES = [
-  { id: "default", name: "默认", generate: () => `#!/usr/bin/env bash\ninput=$(cat)\necho "$input" | jq -r '.tasks[]? | "\\(.name) · \\(.status) · \\(.tokenCount)t" // empty' | head -1` },
-  { id: "compact", name: "紧凑", generate: () => `#!/usr/bin/env bash\ninput=$(cat)\necho "$input" | jq -r '.tasks[]? | .name' | head -1` },
-  { id: "detailed", name: "详细", generate: () => `#!/usr/bin/env bash\ninput=$(cat)\necho "$input" | jq -r '.tasks[]? | "\\(.name) \\(.description // "") \\(.tokenCount)t"' | head -1` },
-];
 
 // ── Available data fields reference ──
 
@@ -2784,17 +2802,21 @@ function fixedColorBash(body: string, rgb: [number, number, number]): string {
   return `__t="$({\n${body}\n})"\nprintf '\\033[38;2;${r};${g};${b}m%s\\033[0m' "$__t"`;
 }
 
-export function generateStatusLineScript(segments: StatusLineSegment[], separator: string = ""): string {
-  const active = dropLegacySeparators(segments).filter(s => s.enabled);
+export function generateStatusLineScript(segments: StatusLineSegment[]): string {
+  const active = segments.filter(s => s.enabled);
   if (active.length === 0) return "#!/usr/bin/env bash\necho ''\n";
-  // Bash literal for the separator (plain text, no ANSI). Empty → no separator.
-  const sepLiteral = separator ? bashEscapeDq(separator) : "";
 
   const lines: string[] = [
     "#!/usr/bin/env bash",
     "# Generated by aidog — do not edit manually",
     "input=$(cat)",
     `__cols=$(echo "$input" | jq -r '.terminal.width // 0')`,
+    // aidog group-info wiring: positional args take precedence, env is the
+    // fallback. Claude Code does not forward settings `env` into the statusLine
+    // child process, so the group `command` passes url/group/key as args; a
+    // plain shell invocation (main settings) leaves all three empty → group
+    // segments degrade to empty output gracefully.
+    `AIDOG_INFO_URL="\${1:-\${AIDOG_INFO_URL:-}}"; AIDOG_GROUP="\${2:-\${AIDOG_GROUP:-}}"; AIDOG_KEY="\${3:-\${AIDOG_KEY:-}}"`,
     "",
   ];
 
@@ -2827,16 +2849,10 @@ export function generateStatusLineScript(segments: StatusLineSegment[], separato
       }
       // Each segment runs in its own subshell; its full (possibly ANSI-wrapped)
       // output is captured as one unit so word-splitting never severs color codes.
-      // The global separator is inserted only when BOTH the row already has
-      // content AND this segment produced non-empty output — so segments that
-      // degrade to empty (group-* without env, effort/vim when absent) never
-      // leave an orphaned separator.
+      // Separators are now explicit `separator` segments inserted between items;
+      // any segment (incl. separator) that degrades to empty simply appends "".
       lines.push(`__seg="$(\n${snippet}\n)"`);
-      if (sepLiteral) {
-        lines.push(`if [ -n "$__seg" ]; then [ -n "$__line${i}" ] && __line${i}+="${sepLiteral}"; __line${i}+="$__seg"; fi`);
-      } else {
-        lines.push(`__line${i}+="$__seg"`);
-      }
+      lines.push(`__line${i}+="$__seg"`);
     }
     if (align === "center" || align === "right") {
       // Strip ANSI for visible-width measurement, then pad with printf.
@@ -2865,8 +2881,8 @@ export function generateStatusLineScript(segments: StatusLineSegment[], separato
  * Resolved materialization for a statusLine / subagentStatusLine config block.
  * `scriptContent` is the bash script body to write (builtin mode) or `null`
  * (custom mode / disabled — nothing to generate). `customCommand` is the
- * user-supplied native command (custom mode only). Field metadata (padding /
- * hideVimModeIndicator) is carried so the caller can assemble the native field.
+ * user-supplied native command (custom mode only). `padding` is carried so the
+ * caller can assemble the native field.
  */
 export interface StatuslineMaterialization {
   enabled: boolean;
@@ -2874,14 +2890,13 @@ export interface StatuslineMaterialization {
   scriptContent: string | null;
   customCommand: string;
   padding: number;
-  hideVimModeIndicator: boolean;
 }
 
 /**
  * Pure resolver: given a stored `_aidog_statusline` / `_aidog_subagent_statusline`
  * block and its scriptType, derive everything needed to materialize the native
  * `statusLine` / `subagentStatusLine` field — applying all default logic
- * (segments → DEFAULT_SEGMENTS, separator seeding, subagent template selection)
+ * (segments → DEFAULT_SEGMENTS, subagent template selection)
  * in one authoritative place. No side effects; the caller persists the result.
  *
  * Mirrors StatusLinePanel's in-component derivations so the on-save materializer
@@ -2896,40 +2911,18 @@ export function materializeStatusline(
   const enabled = !!s.enabled;
   const mode: "builtin" | "custom" = s.mode === "custom" ? "custom" : "builtin";
   const padding = typeof s.padding === "number" ? s.padding : 2;
-  const hideVimModeIndicator = !!s.hideVimModeIndicator;
   const customCommand = typeof s.customCommand === "string" ? s.customCommand : "";
 
   let scriptContent: string | null = null;
   if (enabled && mode === "builtin") {
-    if (isMain) {
-      const segments: StatusLineSegment[] =
-        (s.segments as StatusLineSegment[] | undefined) ?? DEFAULT_SEGMENTS.map(seg => ({ ...seg }));
-      // Separator default logic (matches StatusLinePanel.seedSeparator):
-      // explicit stored value wins; else seed legacy ` · ` for pre-existing
-      // layouts (stored.segments present) or "" for fresh installs.
-      let separator: string;
-      if (typeof s.separator === "string") {
-        separator = s.separator;
-      } else {
-        const storedSegs = s.segments as StatusLineSegment[] | undefined;
-        const legacy = (storedSegs ?? []).find((seg) => seg.type === "separator");
-        const legacyChar = legacy?.options?.char;
-        if (typeof legacyChar === "string" && legacyChar.length > 0) {
-          separator = legacyChar;
-        } else {
-          separator = storedSegs ? LEGACY_SEPARATOR : DEFAULT_SEPARATOR;
-        }
-      }
-      scriptContent = generateStatusLineScript(segments, separator);
-    } else {
-      const templateId = (s.template as string | undefined) ?? "default";
-      scriptContent =
-        SUBAGENT_TEMPLATES.find(tp => tp.id === templateId)?.generate()
-        ?? SUBAGENT_TEMPLATES[0].generate();
-    }
+    // main 与 subagent 走同一套段编辑器，仅默认布局不同。
+    const fallback = isMain ? DEFAULT_SEGMENTS : DEFAULT_SUBAGENT_SEGMENTS;
+    const segments: StatusLineSegment[] =
+      (s.segments as StatusLineSegment[] | undefined) ?? fallback.map(seg => ({ ...seg }));
+    scriptContent = generateStatusLineScript(segments);
   }
 
-  return { enabled, mode, scriptContent, customCommand, padding, hideVimModeIndicator };
+  return { enabled, mode, scriptContent, customCommand, padding };
 }
 
 /** Mock metric values used to drive autoColor preview (matches bash thresholds). */
@@ -2977,8 +2970,8 @@ function previewColor(seg: StatusLineSegment): string | null {
 }
 
 /** Render a colored, row-grouped, aligned live preview of the segments. */
-function StatusLinePreview({ segments, separator, empty }: { segments: StatusLineSegment[]; separator: string; empty: string }) {
-  const active = dropLegacySeparators(segments).filter(s => s.enabled);
+function StatusLinePreview({ segments, empty }: { segments: StatusLineSegment[]; empty: string }) {
+  const active = segments.filter(s => s.enabled);
   if (active.length === 0) {
     return <span style={{ color: "var(--text-tertiary)" }}>{empty}</span>;
   }
@@ -2990,7 +2983,7 @@ function StatusLinePreview({ segments, separator, empty }: { segments: StatusLin
           display: "flex",
           justifyContent: row.align === "center" ? "center" : row.align === "right" ? "flex-end" : "flex-start",
         }}>
-          {row.segs.map((seg, si) => {
+          {row.segs.map((seg) => {
             const def = SEGMENT_DEF_MAP.get(seg.type);
             if (!def) return null;
             const color = previewColor(seg);
@@ -2999,7 +2992,6 @@ function StatusLinePreview({ segments, separator, empty }: { segments: StatusLin
             const affixSuf = typeof opts.affixSuf === "string" ? opts.affixSuf : "";
             return (
               <span key={seg.id} style={color ? { color } : undefined}>
-                {si > 0 && separator ? separator : ""}
                 {affixPre}{def.toPreview(opts)}{affixSuf}
               </span>
             );
@@ -3220,35 +3212,16 @@ function StatusLinePanel({
   const stored = (config[aidogKey] ?? {}) as Record<string, any>;
   const enabled = !!stored.enabled;
   const padding = stored.padding ?? 2;
-  const hideVimModeIndicator = !!stored.hideVimModeIndicator;
   // Generation mode: "builtin" → aidog structured segments; "custom" → user-supplied
   // native statusLine command (no aidog script generated). Back-compat: default builtin.
   const mode: "builtin" | "custom" = stored.mode === "custom" ? "custom" : "builtin";
   const customCommand: string = typeof stored.customCommand === "string" ? stored.customCommand : "";
 
-  // Segments for main statusline, template ID for subagent
-  const segments: StatusLineSegment[] = isMain
-    ? (stored.segments ?? DEFAULT_SEGMENTS.map(s => ({ ...s })))
-    : [];
-  const subagentTemplateId = !isMain ? (stored.template ?? "default") : "";
-
-  // Global item separator: inserted between adjacent items on every row.
-  // Back-compat: when unset, seed from the first legacy `separator` segment's
-  // char (if any) so existing layouts keep their visible gap; else the default.
-  const seedSeparator = (): string => {
-    const storedSegs = stored.segments as StatusLineSegment[] | undefined;
-    const legacy = (storedSegs ?? []).find(
-      (s: StatusLineSegment) => s.type === "separator",
-    );
-    const legacyChar = legacy?.options?.char;
-    if (typeof legacyChar === "string" && legacyChar.length > 0) return legacyChar;
-    // Fresh install (no stored segments) → built-in default layout (empty sep,
-    // affix-carried separators). Pre-existing layouts keep the legacy ` · ` gap.
-    return storedSegs ? LEGACY_SEPARATOR : DEFAULT_SEPARATOR;
-  };
-  const separator: string = isMain
-    ? (typeof stored.separator === "string" ? stored.separator : seedSeparator())
-    : "";
+  // Segments — main and subagent share the same editor; only the first-run /
+  // reset default layout differs.
+  const defaultSegments = isMain ? DEFAULT_SEGMENTS : DEFAULT_SUBAGENT_SEGMENTS;
+  const segments: StatusLineSegment[] =
+    stored.segments ?? defaultSegments.map(s => ({ ...s }));
 
   const [showScript, setShowScript] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -3296,9 +3269,7 @@ function StatusLinePanel({
   };
 
   // Generate script
-  const scriptPreview = isMain
-    ? generateStatusLineScript(segments, separator)
-    : SUBAGENT_TEMPLATES.find(tp => tp.id === subagentTemplateId)?.generate() ?? SUBAGENT_TEMPLATES[0].generate();
+  const scriptPreview = generateStatusLineScript(segments);
 
 
   const handleSave = async () => {
@@ -3307,7 +3278,6 @@ function StatusLinePanel({
       const path = await statuslineApi.generate(scriptType, scriptPreview);
       const value: Record<string, any> = { type: "command", command: path };
       if (isMain && padding > 0) value.padding = padding;
-      if (isMain && hideVimModeIndicator) value.hideVimModeIndicator = true;
       updateField(fieldName, value);
     } catch (e: any) {
       console.error("generate_statusline_script:", e);
@@ -3335,7 +3305,6 @@ function StatusLinePanel({
         if (cancelled) return;
         const value: Record<string, any> = { type: "command", command: path };
         if (isMain && padding > 0) value.padding = padding;
-        if (isMain && hideVimModeIndicator) value.hideVimModeIndicator = true;
         const signature = JSON.stringify(value);
         // Skip when the field already holds this exact value → no spurious dirty.
         const current = config[fieldName];
@@ -3350,9 +3319,9 @@ function StatusLinePanel({
       cancelled = true;
       clearTimeout(timer);
     };
-    // Depends on real inputs only (scriptPreview captures segments/separator/template).
+    // Depends on real inputs only (scriptPreview captures segments/template).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, mode, scriptPreview, padding, hideVimModeIndicator, scriptType, isMain, fieldName]);
+  }, [enabled, mode, scriptPreview, padding, scriptType, isMain, fieldName]);
 
   // Apply custom mode: write the native Claude Code statusLine command directly,
   // bypassing aidog script generation. Empty command clears the field.
@@ -3363,7 +3332,7 @@ function StatusLinePanel({
       return;
     }
     const value: Record<string, any> = { type: "command", command: cmd };
-    if (isMain && padding > 0) value.padding = padding;
+    if (padding > 0) value.padding = padding;
     updateField(fieldName, value);
   };
 
@@ -3398,8 +3367,7 @@ function StatusLinePanel({
   // separator). Explicit user action only — never auto-applied over a saved layout.
   const resetToDefaultLayout = () => {
     setStored({
-      segments: DEFAULT_SEGMENTS.map(s => ({ ...s, options: { ...s.options } })),
-      separator: DEFAULT_SEPARATOR,
+      segments: defaultSegments.map(s => ({ ...s, options: { ...s.options } })),
     });
   };
 
@@ -3471,22 +3439,32 @@ function StatusLinePanel({
       {enabled && mode === "custom" && (
         <div style={{
           padding: "12px 16px", background: "var(--bg-surface)", borderRadius: "var(--radius-md)",
-          border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10,
+          border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 12,
         }}>
-          <Hint>{t("statusline.customDesc", "填写原生 statusLine 脚本路径或命令，写入 settings 的 command 字段，不生成 aidog 脚本")}</Hint>
-          <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
-            value={customCommand}
-            placeholder={t("statusline.customPlaceholder", "~/.claude/my-statusline.sh 或 inline 命令")}
-            onChange={(e) => setStored({ customCommand: e.target.value })} />
-          {isMain && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <label style={{ fontSize: F.body, color: "var(--text-secondary)" }}>{t("statusline.hPadding", "水平间距")}</label>
-              <input className="input" type="number" min={0} max={20}
-                style={{ width: 60, fontSize: F.body, padding: S.inputPad }}
-                value={padding}
-                onChange={(e) => setStored({ padding: Math.max(0, Number(e.target.value)) })} />
-            </div>
-          )}
+          <Hint>{t("statusline.customDesc", "按原生 statusLine 格式分字段填写，写入 settings 的 command 字段，不生成 aidog 脚本")}</Hint>
+          {/* type — 固定 command，只读展示 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.customType", "类型")}</label>
+            <input className="input" readOnly value="command"
+              style={{ fontSize: F.body, padding: S.inputPad, width: 140, opacity: 0.7, fontFamily: '"SF Mono", "Fira Code", monospace' }} />
+          </div>
+          {/* command — 脚本路径 / 命令 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.customCommand", "命令 / 脚本路径")}</label>
+            <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+              value={customCommand}
+              placeholder={t("statusline.customPlaceholder", "~/.claude/my-statusline.sh 或 inline 命令")}
+              onChange={(e) => setStored({ customCommand: e.target.value })} />
+            <Hint>{t("statusline.customCommandDesc", "支持绝对路径、~ 路径或内联命令")}</Hint>
+          </div>
+          {/* padding — 内边距 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.customPadding", "内边距")}</label>
+            <input className="input" type="number" min={0} max={20}
+              style={{ width: 100, fontSize: F.body, padding: S.inputPad }}
+              value={padding}
+              onChange={(e) => setStored({ padding: Math.max(0, Number(e.target.value)) })} />
+          </div>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button className="btn btn-primary" style={{ fontSize: F.body, padding: S.btnPad }}
               onClick={handleApplyCustom}>
@@ -3508,15 +3486,12 @@ function StatusLinePanel({
               fontFamily: '"SF Mono", "Fira Code", monospace', fontSize: F.body,
               color: "var(--text-primary)", lineHeight: 1.6,
             }}>
-              {isMain
-                ? <StatusLinePreview segments={segments} separator={separator} empty={t("statusline.previewEmpty")} />
-                : <span>&lt;subagent statusline&gt;</span>}
+              <StatusLinePreview segments={segments} empty={t("statusline.previewEmpty")} />
             </div>
           </div>
 
-          {isMain ? (
-            /* ── Main: Drag-sortable segment list ── */
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {/* ── Drag-sortable segment list (shared by main & subagent) ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <SortableList
                 items={segments}
                 onReorder={updateSegments}
@@ -3645,7 +3620,7 @@ function StatusLinePanel({
                         }}>{t(`statusline.segCat.${cat.id}`, cat.label)}</div>
                         {cat.types.map(type => {
                           const d = SEGMENT_DEF_MAP.get(type);
-                          if (!d || d.type === "separator") return null;
+                          if (!d) return null;
                           return (
                             <button key={d.type} type="button" style={{
                               display: "block", width: "100%", textAlign: "left",
@@ -3666,28 +3641,7 @@ function StatusLinePanel({
                   </div>
                 )}
               </div>
-            </div>
-          ) : (
-            /* ── Subagent: Template selector ── */
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {SUBAGENT_TEMPLATES.map(tp => {
-                const active = tp.id === subagentTemplateId;
-                return (
-                  <button key={tp.id} type="button"
-                    style={{
-                      padding: "6px 14px", fontSize: F.body, fontWeight: active ? 600 : 400,
-                      color: active ? "var(--accent)" : "var(--text-secondary)",
-                      background: active ? "var(--accent-subtle, rgba(0,122,255,0.1))" : "transparent",
-                      border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
-                      borderRadius: "var(--radius-sm)", cursor: "pointer",
-                    }}
-                    onClick={() => setStored({ template: tp.id })}>
-                    {t(`statusline.tmpl.${tp.id}`, tp.name)}
-                  </button>
-                );
-              })}
-            </div>
-          )}
+          </div>
 
           {/* Options row */}
           {isMain && (
@@ -3702,21 +3656,6 @@ function StatusLinePanel({
                   value={padding}
                   onChange={(e) => setStored({ padding: Math.max(0, Number(e.target.value)) })} />
               </div>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <label style={{ fontSize: F.body, color: "var(--text-secondary)" }}
-                  title={t("statusline.separatorDesc", "自动插入到每行相邻项之间；留空则无分隔符")}>
-                  {t("statusline.separator", "分隔符")}
-                </label>
-                <input className="input" type="text"
-                  style={{ width: 80, fontSize: F.body, padding: S.inputPad, fontFamily: '"SF Mono", "Fira Code", monospace' }}
-                  value={separator}
-                  placeholder={t("statusline.separatorPlaceholder", " · ")}
-                  onChange={(e) => setStored({ separator: e.target.value })} />
-              </div>
-              <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: F.body, color: "var(--text-secondary)", cursor: "pointer" }}>
-                <Toggle active={hideVimModeIndicator} onChange={(v) => setStored({ hideVimModeIndicator: v })} />
-                {t("statusline.hideVimIndicator", "隐藏 Vim 模式指示器")}
-              </label>
             </div>
           )}
 
