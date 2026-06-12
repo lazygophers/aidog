@@ -2214,19 +2214,21 @@ echo -n "$__bar $__pct%"`;
   },
   {
     type: "context-cache",
-    name: "缓存 Tokens",
+    name: "缓存率",
     icon: "core",
     desc: "缓存写入/读取 token，或缓存命中率 %（≤4 位小数）",
     defaultOptions: { abbrev: true, mode: "tokens", prefix: "缓存 " },
     toBash: (o) => {
-      // 命中率模式：cache_read / (input + cache_read) × 100，printf 控小数位 ≤4；current_usage==null 降级空。
+      // 命中率模式：cache_read / (input + cache_read) × 100，printf 控小数位 ≤4；current_usage==null 降级 0%。
       if (o.mode === "hitrate") {
         const pfx = bashEscapeDq(o.prefix ?? "缓存 ");
         return `__cu=$(echo "$input" | jq -r '.context_window.current_usage')
-[ -z "$__cu" ] || [ "$__cu" = "null" ] && exit 0
-__rate=$(echo "$input" | jq -r '.context_window.current_usage | (.cache_read_input_tokens // 0) as $r | (.input_tokens // 0) as $i | if ($i + $r) > 0 then ($r / ($i + $r) * 100) else 0 end')
-[ -z "$__rate" ] && exit 0
-echo -n "${pfx}$(printf '%.4f' "$__rate" | sed 's/0*$//; s/\\.$//')%"`;
+if [ -z "$__cu" ] || [ "$__cu" = "null" ]; then
+  __rate=0
+else
+  __rate=$(echo "$input" | jq -r '.context_window.current_usage | (.cache_read_input_tokens // 0) as $r | (.input_tokens // 0) as $i | if ($i + $r) > 0 then ($r / ($i + $r) * 100) else 0 end')
+fi
+echo -n "${pfx}$(printf '%.4f' "\${__rate:-0}" | sed 's/0*$//; s/\\\\\\.$//')%"`;
       }
       const fmt = o.abbrev
         ? `if . >= 1000000 then ((. / 100000 | round) / 10 | tostring) + "M" elif . >= 1000 then ((. / 100 | round) / 10 | tostring) + "K" else tostring end`
@@ -2602,10 +2604,8 @@ export const DEFAULT_SEGMENTS: StatusLineSegment[] = [
     options: { prefix: "$", affixPre: "[", affixSuf: "]·" } },
   { id: "d-ctx", type: "context-pct", enabled: true, newline: false, color: "#34C759",
     options: {} },
-  { id: "d-sep2", type: "separator", enabled: true, newline: false,
-    options: { char: "·" } },
   { id: "d-cache", type: "context-cache", enabled: true, newline: false, color: "#34C759",
-    options: { mode: "hitrate", prefix: "缓存 " } },
+    options: { mode: "hitrate", prefix: "缓存 ", affixPre: "·" } },
   // ── Row 2: branch[·worktree]|pwd ──
   { id: "d-branch", type: "git-branch", enabled: true, newline: true, color: "#FFD60A",
     options: {} },
@@ -2889,7 +2889,6 @@ export interface StatuslineMaterialization {
   mode: "builtin" | "custom";
   scriptContent: string | null;
   customCommand: string;
-  padding: number;
 }
 
 /**
@@ -2910,8 +2909,7 @@ export function materializeStatusline(
   const isMain = scriptType === "statusline";
   const enabled = !!s.enabled;
   const mode: "builtin" | "custom" = s.mode === "custom" ? "custom" : "builtin";
-  const padding = typeof s.padding === "number" ? s.padding : 2;
-  const customCommand = typeof s.customCommand === "string" ? s.customCommand : "";
+    const customCommand = typeof s.customCommand === "string" ? s.customCommand : "";
 
   let scriptContent: string | null = null;
   if (enabled && mode === "builtin") {
@@ -2922,7 +2920,7 @@ export function materializeStatusline(
     scriptContent = generateStatusLineScript(segments);
   }
 
-  return { enabled, mode, scriptContent, customCommand, padding };
+  return { enabled, mode, scriptContent, customCommand };
 }
 
 /** Mock metric values used to drive autoColor preview (matches bash thresholds). */
@@ -3211,7 +3209,6 @@ function StatusLinePanel({
 
   const stored = (config[aidogKey] ?? {}) as Record<string, any>;
   const enabled = !!stored.enabled;
-  const padding = stored.padding ?? 2;
   // Generation mode: "builtin" → aidog structured segments; "custom" → user-supplied
   // native statusLine command (no aidog script generated). Back-compat: default builtin.
   const mode: "builtin" | "custom" = stored.mode === "custom" ? "custom" : "builtin";
@@ -3277,7 +3274,6 @@ function StatusLinePanel({
     try {
       const path = await statuslineApi.generate(scriptType, scriptPreview);
       const value: Record<string, any> = { type: "command", command: path };
-      if (isMain && padding > 0) value.padding = padding;
       updateField(fieldName, value);
     } catch (e: any) {
       console.error("generate_statusline_script:", e);
@@ -3304,7 +3300,7 @@ function StatusLinePanel({
         const path = await statuslineApi.generate(scriptType, scriptPreview);
         if (cancelled) return;
         const value: Record<string, any> = { type: "command", command: path };
-        if (isMain && padding > 0) value.padding = padding;
+  
         const signature = JSON.stringify(value);
         // Skip when the field already holds this exact value → no spurious dirty.
         const current = config[fieldName];
@@ -3321,7 +3317,7 @@ function StatusLinePanel({
     };
     // Depends on real inputs only (scriptPreview captures segments/template).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, mode, scriptPreview, padding, scriptType, isMain, fieldName]);
+  }, [enabled, mode, scriptPreview, scriptType, isMain, fieldName]);
 
   // Apply custom mode: write the native Claude Code statusLine command directly,
   // bypassing aidog script generation. Empty command clears the field.
@@ -3332,7 +3328,6 @@ function StatusLinePanel({
       return;
     }
     const value: Record<string, any> = { type: "command", command: cmd };
-    if (padding > 0) value.padding = padding;
     updateField(fieldName, value);
   };
 
@@ -3456,14 +3451,6 @@ function StatusLinePanel({
               placeholder={t("statusline.customPlaceholder", "~/.claude/my-statusline.sh 或 inline 命令")}
               onChange={(e) => setStored({ customCommand: e.target.value })} />
             <Hint>{t("statusline.customCommandDesc", "支持绝对路径、~ 路径或内联命令")}</Hint>
-          </div>
-          {/* padding — 内边距 */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            <label style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("statusline.customPadding", "内边距")}</label>
-            <input className="input" type="number" min={0} max={20}
-              style={{ width: 100, fontSize: F.body, padding: S.inputPad }}
-              value={padding}
-              onChange={(e) => setStored({ padding: Math.max(0, Number(e.target.value)) })} />
           </div>
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button className="btn btn-primary" style={{ fontSize: F.body, padding: S.btnPad }}
@@ -3643,21 +3630,6 @@ function StatusLinePanel({
               </div>
           </div>
 
-          {/* Options row */}
-          {isMain && (
-            <div style={{
-              padding: "10px 16px", background: "var(--bg-glass)", borderRadius: "var(--radius-md)",
-              display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center",
-            }}>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <label style={{ fontSize: F.body, color: "var(--text-secondary)" }}>{t("statusline.hPadding", "水平间距")}</label>
-                <input className="input" type="number" min={0} max={20}
-                  style={{ width: 60, fontSize: F.body, padding: S.inputPad }}
-                  value={padding}
-                  onChange={(e) => setStored({ padding: Math.max(0, Number(e.target.value)) })} />
-              </div>
-            </div>
-          )}
 
           {/* Script preview (collapsible) */}
           <div style={{

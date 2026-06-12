@@ -59,7 +59,7 @@ async function materializeStatuslineFields(
     { aidogKey: "_aidog_subagent_statusline", fieldName: "subagentStatusLine", scriptType: "subagent", isMain: false },
   ];
 
-  for (const { aidogKey, fieldName, scriptType, isMain } of targets) {
+  for (const { aidogKey, fieldName, scriptType } of targets) {
     const stored = next[aidogKey] as Record<string, any> | undefined;
     const m = materializeStatusline(stored, scriptType);
 
@@ -77,7 +77,6 @@ async function materializeStatuslineFields(
         continue;
       }
       const value: Record<string, any> = { type: "command", command: cmd };
-      if (m.padding > 0) value.padding = m.padding;
       next[fieldName] = value;
       continue;
     }
@@ -87,7 +86,6 @@ async function materializeStatuslineFields(
       try {
         const path = await statuslineApi.generate(scriptType, m.scriptContent);
         const value: Record<string, any> = { type: "command", command: path };
-        if (isMain && m.padding > 0) value.padding = m.padding;
         next[fieldName] = value;
       } catch (e) {
         // Never block the save — leave the existing field value as-is.
