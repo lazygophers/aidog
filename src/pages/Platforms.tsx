@@ -904,26 +904,6 @@ function utilColor(utilization: number): string {
 
 // ── 手动预算（无上游 quota 平台）──
 
-/** quota.rs 支持自动余额/配额真查的上游 host 关键字（与后端 query_quota 匹配列表保持一致）。 */
-const QUOTA_SUPPORTED_HOSTS = [
-  "api.kimi.com/coding", "open.bigmodel.cn", "bigmodel.cn", "api.z.ai",
-  "api.minimaxi.com", "api.minimax.io", "api.deepseek.com",
-  "api.stepfun.com", "api.stepfun.ai", "api.siliconflow.cn", "api.siliconflow.com",
-  "openrouter.ai", "api.novita.ai",
-];
-
-/** 平台是否有上游 quota 自动支持（真查余额/coding plan）。
- *  判据：任一 endpoint 标记 coding_plan，或 base_url 命中 quota.rs 支持 host，或 newapi 平台。
- *  无自动支持 → 适用手动预算配置。 */
-function hasUpstreamQuotaSupport(platformType: Protocol, baseUrls: string[], hasCodingPlan: boolean): boolean {
-  if (hasCodingPlan) return true;
-  if (platformType === "newapi") return true;
-  return baseUrls.some(u => {
-    const lower = u.toLowerCase();
-    return QUOTA_SUPPORTED_HOSTS.some(h => lower.includes(h));
-  });
-}
-
 /** 生成一条新手动预算的默认值（uuid id + total/usd）。 */
 function newManualBudget(): ManualBudget {
   const id = (typeof crypto !== "undefined" && crypto.randomUUID)
@@ -1316,9 +1296,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       if (isMock) extraPayload = serializeMockConfig(extra, mockConfig);
       if (protocol === "newapi") extraPayload = serializeNewApiConfig(extraPayload, newApiConfig);
       const extraArg = extraPayload ? extraPayload : undefined;
-      // 手动预算：仅无上游 quota 自动支持平台允许；有自动支持 → 一律清空（避免误存）。
-      const supportsQuota = hasUpstreamQuotaSupport(protocol, endpoints.map(ep => ep.base_url).concat(baseUrl), codingPlan);
-      const manualBudgetsPayload: ManualBudget[] = supportsQuota ? [] : manualBudgets;
+      // 手动预算：所有平台可设（含 mock / 有上游配额支持的平台），仅透传订阅强制清空。
+      const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
       let savedId: number | undefined;
       if (editing) {
         await platformApi.update({
@@ -1711,8 +1690,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           </div>
           </FormSection>
 
-          {/* Manual Budgets — 仅无上游 quota 自动支持平台显示 */}
-          {!isMock && !isPassthrough && !hasUpstreamQuotaSupport(protocol, endpoints.map(ep => ep.base_url), codingPlan) && (
+          {/* Manual Budgets — 所有平台可设（含 mock / 有上游配额支持的平台），仅透传订阅不需要 */}
+          {!isPassthrough && (
             <FormSection
               title={t("platform.manualBudgetTitle", "手动预算")}
               desc={t("platform.manualBudgetDesc", "该平台无上游额度自动查询，可手动设置一个或多个预算限额，按用量预估扣减；任一耗尽时停止转发（返回 402），窗口/次日恢复后自动放行。")}
