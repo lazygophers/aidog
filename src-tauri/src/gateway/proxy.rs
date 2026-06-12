@@ -195,7 +195,8 @@ async fn handle_group_info(
         .collect();
 
     // 追加 manual budgets 为 coding_plan tiers（让 statusline 显示各窗口预算利用率）
-    for b in platform.manual_budgets.iter().filter(|b| b.enabled) {
+    // 只追加窗口类预算（rolling/fixed/daily），"total" 由 balance 段单独展示。
+    for b in platform.manual_budgets.iter().filter(|b| b.enabled && b.kind != "total") {
         let util = if b.amount > 0.0 {
             (b.consumed / b.amount * 100.0).min(100.0)
         } else {

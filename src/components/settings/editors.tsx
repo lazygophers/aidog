@@ -1809,12 +1809,13 @@ printf '\\033[38;2;%sm%s\\033[0m' "$__c" "$__txt"`;
  */
 function groupBalanceDynBash(prefix: string): string {
   const pfx = bashEscapeDq(prefix);
+  // 余额段始终展示（不再与 coding_plan 互斥）——窗口预算由 coding 段展示，
+  // 余额由 balance 段展示，两者可共存。
   return `${GROUP_GUARD}
-__n=$(cat "$__gi" | jq -r '(.coding_plan // []) | length')
-[ "$__n" != "0" ] && [ -n "$__n" ] && exit 0
 __bal=$(cat "$__gi" | jq -r '.balance // 0 | (. * 100 | round) / 100')
-[ -z "$__bal" ] && exit 0
-__txt="${pfx}$(printf '%.2f' "$__bal")"
+__bal=$(printf '%.2f' "$__bal")
+[ "$__bal" = "0.00" ] && exit 0
+__txt="${pfx}$__bal"
 __days=$(cat "$__gi" | jq -r '.balance_days_remaining // empty')
 if [ -z "$__days" ] || [ "$__days" = "null" ]; then
   __c="${ANSI_GREEN}"
