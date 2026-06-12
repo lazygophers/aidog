@@ -1,0 +1,22 @@
+[
+  {
+    "text": "البدء السريع",
+    "link": "/ar/getting-started/quick-start",
+    "activeMatch": "/ar/getting-started"
+  },
+  {
+    "text": "المنصات",
+    "link": "/ar/platforms/add-platform",
+    "activeMatch": "/ar/platforms"
+  },
+  {
+    "text": "المجموعات",
+    "link": "/ar/groups/manage-groups",
+    "activeMatch": "/ar/groups"
+  },
+  {
+    "text": "الإحصائيات",
+    "link": "/ar/stats/usage-stats",
+    "activeMatch": "/ar/stats"
+  }
+]

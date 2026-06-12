@@ -1,0 +1,88 @@
+/**
+ * AiDog 文档站品牌主题
+ * 继承自 app src/themes/liquidGlass.ts —— iOS 蓝 #007AFF + Liquid Glass 质感
+ * 仅覆盖 CSS 变量 + 少量 BEM，随 Rspress 升级保持可维护
+ */
+
+/* ── 品牌色（iOS 蓝家族）────────────────────────────── */
+:root {
+  --rp-c-brand: #007aff;
+  --rp-c-brand-light: #339dff;
+  --rp-c-brand-lighter: #b8dcff;
+  --rp-c-brand-dark: #0066d6;
+  --rp-c-brand-darker: #0052ac;
+  --rp-c-brand-tint: rgba(0, 122, 255, 0.1);
+
+  /* 首页 hero 标题渐变：蓝 → 青（避开默认紫色 slop） */
+  --rp-home-hero-secondary-color: #34c8e8;
+  --rp-home-hero-name-color: transparent;
+
+  /* 圆角对齐 app（sm10 / md14 / lg20） */
+  --rp-radius: 14px;
+  --rp-radius-small: 10px;
+  --rp-radius-large: 20px;
+}
+
+.dark {
+  --rp-c-brand: #4a9eff;
+  --rp-c-brand-light: #6bb3ff;
+  --rp-c-brand-lighter: #9ccaff;
+  --rp-c-brand-dark: #6bb3ff;
+  --rp-c-brand-darker: #4a9eff;
+  --rp-c-brand-tint: rgba(74, 158, 255, 0.12);
+  --rp-home-hero-secondary-color: #5ad6f0;
+}
+
+/* ── 首页背景：明亮 Stripe 式柔光晕（light）─────────── */
+:root {
+  --rp-home-background-bg:
+    radial-gradient(circle at 18% 22%, rgba(0, 122, 255, 0.1), transparent 42%),
+    radial-gradient(circle at 82% 8%, rgba(52, 200, 232, 0.1), transparent 40%),
+    radial-gradient(circle at 50% 100%, rgba(0, 122, 255, 0.05), transparent 55%),
+    #ffffff;
+}
+.dark {
+  --rp-home-background-bg:
+    radial-gradient(circle at 18% 22%, rgba(74, 158, 255, 0.14), transparent 42%),
+    radial-gradient(circle at 82% 8%, rgba(90, 214, 240, 0.1), transparent 40%),
+    radial-gradient(circle at 50% 100%, rgba(74, 158, 255, 0.06), transparent 55%),
+    #0a0a0c;
+}
+
+/* ── Liquid Glass 质感：导航栏毛玻璃 ─────────────────── */
+.rp-nav {
+  backdrop-filter: saturate(1.8) blur(20px);
+  -webkit-backdrop-filter: saturate(1.8) blur(20px);
+  background: rgba(255, 255, 255, 0.72);
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+}
+.dark .rp-nav {
+  background: rgba(20, 20, 24, 0.6);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+}
+
+/* ── feature 卡片：玻璃面 + 悬浮微抬升 ───────────────── */
+:root {
+  --rp-home-feature-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.9), rgba(248, 250, 252, 0.6));
+}
+.dark {
+  --rp-home-feature-bg: linear-gradient(135deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0.02));
+}
+.rp-home-feature-card,
+.rspress-home-feature-card {
+  transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    box-shadow 250ms cubic-bezier(0.4, 0, 0.2, 1),
+    border-color 250ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+.rp-home-feature-card:hover,
+.rspress-home-feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(0, 122, 255, 0.12), 0 4px 12px rgba(0, 0, 0, 0.06);
+  border-color: rgba(0, 122, 255, 0.3);
+}
+
+/* ── hero 主按钮：品牌色 + 微光 ──────────────────────── */
+.rp-nav-menu__item--active,
+.rspress-nav-menu-group-content a:hover {
+  color: var(--rp-c-brand);
+}

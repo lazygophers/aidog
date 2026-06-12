@@ -1,35 +1,66 @@
 ---
-title: AiDog — Proxy de passerelle API IA
+pageType: home
+
+hero:
+  name: AiDog
+  text: Gérez vos passerelles d'API d'IA de façon unifiée
+  tagline: Agrégation multi-plateformes · Routage intelligent · Statistiques d'utilisation — une application de bureau multiplateforme pour gérer les clés, les requêtes et les dépenses de toutes vos plateformes d'IA
+  actions:
+    - theme: brand
+      text: Démarrage rapide
+      link: /fr/getting-started/quick-start
+    - theme: alt
+      text: GitHub
+      link: https://github.com/lazygophers/aidog
+
+features:
+  - title: Agrégation multi-plateformes
+    details: Gérez de façon unifiée les clés d'API et les points de terminaison de plus de 50 plateformes telles qu'OpenAI, Anthropic, Gemini, DeepSeek, Tongyi Qianwen.
+    icon: 🧩
+    link: /fr/platforms/add-platform
+  - title: Routage intelligent
+    details: Selon les règles de groupes et de correspondance de modèles, chaque requête est automatiquement redirigée vers la plateforme la plus adaptée.
+    icon: 🧭
+    link: /fr/groups/routing-rules
+  - title: Statistiques d'utilisation
+    details: Suivez en temps réel l'utilisation des jetons, estimez le coût des appels et consultez le solde de chaque plateforme.
+    icon: 📊
+    link: /fr/stats/usage-stats
+  - title: Conversion multi-protocoles
+    details: Conversion mutuelle entre les protocoles natifs OpenAI Chat / Completions / Responses, Anthropic et Gemini.
+    icon: 🔌
+    link: /fr/platforms/protocols
+  - title: Intégration de Codex
+    details: Prise en charge native des assistants de programmation tels qu'OpenAI Codex et Claude Code, avec connexion en un clic.
+    icon: ⚡
+    link: /fr/proxy/codex-integration
+  - title: Système de journalisation
+    details: Trois niveaux de granularité d'enregistrement, des stratégies de conservation configurables et un suivi clair du parcours des requêtes.
+    icon: 📑
+    link: /fr/logs/viewing
+  - title: Personnalisation des thèmes
+    details: Plusieurs thèmes tels que Liquid Glass, Nord et Dracula, avec mode clair et sombre.
+    icon: 🎨
+    link: /fr/settings/themes
+  - title: Barre d'état système
+    details: Présent en permanence dans la barre d'état système, affichant en temps réel le solde et l'état du proxy.
+    icon: 🖥️
+    link: /fr/settings/tray
 ---
 
-# AiDog
+## Prise en main en trois étapes
 
-AiDog est une application de bureau multiplateforme (macOS / Windows / Linux) qui agit comme un **proxy de passerelle API IA**, vous aidant à gérer les clés API de plusieurs plateformes IA, à router intelligemment les requêtes et à suivre l'utilisation et les coûts.
+1. **Ajouter une plateforme** — saisissez la clé d'API et le point de terminaison d'une plateforme d'IA
+2. **Définir l'adresse du proxy** — pointez votre client vers le proxy local d'AiDog
+3. **Commencer à utiliser** — les requêtes sont automatiquement routées, mesurées et enregistrées
 
-## Fonctionnalités principales
+→ [Guide d'installation](/fr/getting-started/installation) · [Démarrage rapide](/fr/getting-started/quick-start)
 
-- **Agrégation multiplateforme** — Gérez les API d'OpenAI, Anthropic, Gemini, DeepSeek, Qwen et plus de 50 plateformes
-- **Routage intelligent** — Sélection automatique des plateformes via groupes et règles de mappage de modèles
-- **Analytique d'utilisation** — Suivi en temps réel des tokens, estimation des coûts, consultation des soldes
-- **Système de journaux** — 3 niveaux de granularité d'enregistrement, politiques de rétention configurables
-- **Intégration Codex** — Support natif d'OpenAI Codex / Claude Code et autres assistants de codage
-- **Multi-protocole** — Protocoles natifs OpenAI Chat/Completions/Responses, Anthropic, Gemini
-- **Personnalisation des thèmes** — Liquid Glass, Nord, Dracula et plus
-- **Barre d'état système** — Affichage persistant du solde et du statut
-
-## Démarrage rapide
-
-```
-Télécharger → Lancer → Ajouter la première plateforme → Configurer l'adresse proxy → Commencer
-```
-
-→ [Guide d'installation](/getting-started/installation)
-
-## Stack technique
+## Pile technique
 
 | Couche | Technologie |
 |---|---|
-| Bureau | Tauri 2.0 |
+| Framework de bureau | Tauri 2.0 |
 | Frontend | React 19 + TypeScript |
 | Backend | Rust + Axum |
 | Base de données | SQLite |

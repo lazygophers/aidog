@@ -1,0 +1,22 @@
+[
+  {
+    "text": "クイックスタート",
+    "link": "/ja/getting-started/quick-start",
+    "activeMatch": "/ja/getting-started"
+  },
+  {
+    "text": "プラットフォーム",
+    "link": "/ja/platforms/add-platform",
+    "activeMatch": "/ja/platforms"
+  },
+  {
+    "text": "グループ",
+    "link": "/ja/groups/manage-groups",
+    "activeMatch": "/ja/groups"
+  },
+  {
+    "text": "統計",
+    "link": "/ja/stats/usage-stats",
+    "activeMatch": "/ja/stats"
+  }
+]

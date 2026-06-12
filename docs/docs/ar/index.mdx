@@ -1,36 +1,67 @@
 ---
-title: AiDog — بوابة وكيل API للذكاء الاصطناعي
+pageType: home
+
+hero:
+  name: AiDog
+  text: إدارة موحّدة لبوابة واجهات الذكاء الاصطناعي الخاصة بك
+  tagline: تجميع متعدد المنصات · توجيه ذكي · إحصاءات الاستخدام —— تطبيق سطح مكتب متعدد المنصات لإدارة مفاتيح وطلبات ونفقات جميع منصات الذكاء الاصطناعي
+  actions:
+    - theme: brand
+      text: البدء السريع
+      link: /ar/getting-started/quick-start
+    - theme: alt
+      text: GitHub
+      link: https://github.com/lazygophers/aidog
+
+features:
+  - title: تجميع متعدد المنصات
+    details: إدارة موحّدة لمفاتيح ونقاط نهاية واجهات أكثر من 50 منصة مثل OpenAI وAnthropic وGemini وDeepSeek وTongyi Qianwen.
+    icon: 🧩
+    link: /ar/platforms/add-platform
+  - title: توجيه ذكي
+    details: وفقًا لقواعد المجموعات وتعيين النماذج، يُوجَّه كل طلب تلقائيًا إلى أفضل منصة.
+    icon: 🧭
+    link: /ar/groups/routing-rules
+  - title: إحصاءات الاستخدام
+    details: تتبّع استخدام التوكنات في الوقت الفعلي، وتقدير تكلفة الاستدعاءات، والاستعلام عن أرصدة كل منصة.
+    icon: 📊
+    link: /ar/stats/usage-stats
+  - title: تحويل متعدد البروتوكولات
+    details: تحويل متبادل بين البروتوكولات الأصلية OpenAI Chat / Completions / Responses وAnthropic وGemini.
+    icon: 🔌
+    link: /ar/platforms/protocols
+  - title: تكامل Codex
+    details: دعم أصلي لمساعدي البرمجة مثل OpenAI Codex وClaude Code، مع اتصال بنقرة واحدة.
+    icon: ⚡
+    link: /ar/proxy/codex-integration
+  - title: نظام السجلات
+    details: ثلاثة مستويات لدقة التسجيل، وسياسات احتفاظ قابلة للتهيئة، مع مسار طلبات واضح للعيان.
+    icon: 📑
+    link: /ar/logs/viewing
+  - title: تخصيص السمات
+    details: سمات متعددة مثل Liquid Glass وNord وDracula، مع وضعين فاتح وداكن.
+    icon: 🎨
+    link: /ar/settings/themes
+  - title: علبة النظام
+    details: مقيمة في علبة النظام، وتعرض الرصيد وحالة الوكيل في الوقت الفعلي.
+    icon: 🖥️
+    link: /ar/settings/tray
 ---
 
-# AiDog
+## ثلاث خطوات للبدء
 
-AiDog هو تطبيق سطح مكتب متعدد المنصات (macOS / Windows / Linux) يعمل كـ **بوابة وكيل API للذكاء الاصطناعي**، يساعدك في إدارة مفاتيح API لمنصات ذكاء اصطناعي متعددة، وتوجيه الطلبات بذكاء، وتتبع الاستخدام والتكاليف.
+1. **إضافة منصة** —— أدخِل مفتاح API ونقطة النهاية لإحدى منصات الذكاء الاصطناعي
+2. **ضبط عنوان الوكيل** —— وجِّه عميلك إلى وكيل AiDog المحلي
+3. **ابدأ الاستخدام** —— يتم توجيه الطلبات وقياسها وتسجيلها تلقائيًا
 
-## الميزات الأساسية
+→ [دليل التثبيت](/ar/getting-started/installation) · [البدء السريع](/ar/getting-started/quick-start)
 
-- **تجميع متعدد المنصات** — إدارة واجهات برمجة تطبيقات OpenAI و Anthropic و Gemini و DeepSeek و Qwen وأكثر من 50 منصة
-- **التوجيه الذكي** — اختيار تلقائي للمنصة عبر المجموعات وقواعد تعيين النماذج
-- **تحليلات الاستخدام** — تتبع الرموز في الوقت الفعلي، تقدير التكاليف، استعلام الأرصدة
-- **نظام السجلات** — 3 مستويات من دقة التسجيل، سياسات احتفاظ قابلة للتكوين
-- **تكامل Codex** — دعم أصلي لـ OpenAI Codex / Claude Code ومساعدي البرمجة الآخرين
-- **متعدد البروتوكولات** — بروتوكولات OpenAI Chat/Completions/Responses و Anthropic و Gemini الأصلية
-- **تخصيص السمات** — Liquid Glass و Nord و Dracula والمزيد
-- **شريط النظام** — عرض مستمر للرصيد والحالة
-
-## البدء السريع
-
-```
-تنزيل ← تشغيل ← إضافة أول منصة ← تعيين عنوان الوكيل ← بدء الاستخدام
-```
-
-→ [دليل التثبيت](/getting-started/installation)
-
-## التقنيات المستخدمة
+## المكدّس التقني
 
 | الطبقة | التقنية |
 |---|---|
-| سطح المكتب | Tauri 2.0 |
+| إطار سطح المكتب | Tauri 2.0 |
 | الواجهة الأمامية | React 19 + TypeScript |
-| الواجهة الخلفية | Rust + Axum |
+| الخلفية | Rust + Axum |
 | قاعدة البيانات | SQLite |
 | البناء | Vite + Yarn |
