@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit } from "../services/api";
 import { getPlatformLogo } from "../assets/platforms";
 import { IconBolt, IconCost, IconCheck, IconClose, IconCoin } from "../components/icons";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
@@ -909,7 +909,7 @@ function newManualBudget(): ManualBudget {
   const id = (typeof crypto !== "undefined" && crypto.randomUUID)
     ? crypto.randomUUID().replace(/-/g, "")
     : Math.random().toString(36).slice(2) + Date.now().toString(36);
-  return { id, kind: "total", unit: "usd", amount: 0, window_hours: null, consumed: 0, window_start_at: null, enabled: true };
+  return { id, kind: "total", unit: "usd", amount: 0, window_hours: null, window_unit: "hour", consumed: 0, window_start_at: null, enabled: true };
 }
 
 /** 手动预算剩余展示数据（取剩余比例最低那条；token 单位尽力折算，缺价显 token）。 */
@@ -1849,13 +1849,22 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 const update = (patch: Partial<ManualBudget>) =>
                   setManualBudgets(manualBudgets.map((x, i) => i === idx ? { ...x, ...patch } : x));
                 const needsWindow = b.kind === "rolling" || b.kind === "fixed";
+                const onKindChange = (kind: ManualBudgetKind) => {
+                  const willNeedWindow = kind === "rolling" || kind === "fixed";
+                  // 切到 rolling/fixed 且尚无窗口配置 → 给合理默认（7 天）
+                  if (willNeedWindow && (b.window_hours == null || b.window_hours <= 0)) {
+                    update({ kind, window_hours: 7, window_unit: "day" });
+                  } else {
+                    update({ kind });
+                  }
+                };
                 return (
                   <div key={b.id} style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
                     <select
                       className="input"
                       style={{ width: 110, flexShrink: 0 }}
                       value={b.kind}
-                      onChange={e => update({ kind: e.target.value as ManualBudgetKind })}
+                      onChange={e => onKindChange(e.target.value as ManualBudgetKind)}
                     >
                       <option value="total">{t("platform.manualBudgetKindTotal", "总额")}</option>
                       <option value="rolling">{t("platform.manualBudgetKindRolling", "滑动窗口")}</option>
@@ -1882,16 +1891,30 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                       onChange={e => update({ amount: parseFloat(e.target.value) || 0 })}
                     />
                     {needsWindow && (
-                      <input
-                        className="input"
-                        type="number"
-                        min={0}
-                        step="any"
-                        style={{ width: 110, flexShrink: 0 }}
-                        placeholder={t("platform.manualBudgetWindowHours", "窗口(小时)")}
-                        value={b.window_hours ?? ""}
-                        onChange={e => update({ window_hours: e.target.value === "" ? null : (parseFloat(e.target.value) || 0) })}
-                      />
+                      <>
+                        <input
+                          className="input"
+                          type="number"
+                          min={0}
+                          step="any"
+                          style={{ width: 80, flexShrink: 0 }}
+                          placeholder={t("platform.manualBudgetWindow", "窗口")}
+                          value={b.window_hours ?? ""}
+                          onChange={e => update({ window_hours: e.target.value === "" ? null : (parseFloat(e.target.value) || 0) })}
+                        />
+                        <select
+                          className="input"
+                          style={{ width: 90, flexShrink: 0 }}
+                          value={b.window_unit ?? "hour"}
+                          onChange={e => update({ window_unit: e.target.value as WindowUnit })}
+                        >
+                          <option value="minute">{t("platform.windowUnitMinute", "分钟")}</option>
+                          <option value="hour">{t("platform.windowUnitHour", "小时")}</option>
+                          <option value="day">{t("platform.windowUnitDay", "天")}</option>
+                          <option value="week">{t("platform.windowUnitWeek", "周")}</option>
+                          <option value="month">{t("platform.windowUnitMonth", "月")}</option>
+                        </select>
+                      </>
                     )}
                     <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
                       <input

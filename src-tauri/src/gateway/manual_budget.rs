@@ -19,9 +19,20 @@ use chrono::{Local, TimeZone, Timelike};
 use rusqlite::params;
 
 use super::db::Db;
-use super::models::{parse_manual_budgets, serialize_manual_budgets, ManualBudget};
+use super::models::{parse_manual_budgets, serialize_manual_budgets, ManualBudget, WindowUnit};
 
-const MS_PER_HOUR: f64 = 3_600_000.0;
+/// 窗口数值 + 单位 → 毫秒时长（纯函数，锁安全）。
+/// month 固定按 30 天换算（无歧义需求）。负值/0 由调用方判定（返回非正值表示「无窗口」）。
+fn window_ms(value: f64, unit: WindowUnit) -> f64 {
+    let unit_ms = match unit {
+        WindowUnit::Minute => 60_000.0,
+        WindowUnit::Hour => 3_600_000.0,
+        WindowUnit::Day => 86_400_000.0,
+        WindowUnit::Week => 604_800_000.0,
+        WindowUnit::Month => 2_592_000_000.0, // 30 天
+    };
+    value * unit_ms
+}
 
 /// 本地自然日 00:00 的毫秒戳（包含 now_ms 的那一天）
 fn local_day_start_ms(now_ms: i64) -> i64 {
@@ -40,14 +51,14 @@ fn local_day_start_ms(now_ms: i64) -> i64 {
     }
 }
 
-/// fixed 窗口：now_ms 所在「本地日 00:00 + k×window_hours」段的起点毫秒戳。
-/// window_hours <= 0 时退化为当日 00:00（不分段）。
-fn fixed_segment_start_ms(now_ms: i64, window_hours: f64) -> i64 {
+/// fixed 窗口：now_ms 所在「本地日 00:00 + k×窗口时长」段的起点毫秒戳。
+/// 窗口时长 <= 0 时退化为当日 00:00（不分段）。
+fn fixed_segment_start_ms(now_ms: i64, win_ms_f: f64) -> i64 {
     let day_start = local_day_start_ms(now_ms);
-    if window_hours <= 0.0 {
+    if win_ms_f <= 0.0 {
         return day_start;
     }
-    let seg_ms = (window_hours * MS_PER_HOUR) as i64;
+    let seg_ms = win_ms_f as i64;
     if seg_ms <= 0 {
         return day_start;
     }
@@ -62,7 +73,7 @@ fn fixed_segment_start_ms(now_ms: i64, window_hours: f64) -> i64 {
 pub fn maybe_reset(budget: &mut ManualBudget, now_ms: i64) {
     match budget.kind.as_str() {
         "rolling" => {
-            let win_ms = (budget.window_hours.unwrap_or(0.0) * MS_PER_HOUR) as i64;
+            let win_ms = window_ms(budget.window_hours.unwrap_or(0.0), budget.window_unit) as i64;
             match budget.window_start_at {
                 None => budget.window_start_at = Some(now_ms),
                 Some(start) => {
@@ -74,7 +85,10 @@ pub fn maybe_reset(budget: &mut ManualBudget, now_ms: i64) {
             }
         }
         "fixed" => {
-            let seg_start = fixed_segment_start_ms(now_ms, budget.window_hours.unwrap_or(0.0));
+            let seg_start = fixed_segment_start_ms(
+                now_ms,
+                window_ms(budget.window_hours.unwrap_or(0.0), budget.window_unit),
+            );
             match budget.window_start_at {
                 None => budget.window_start_at = Some(seg_start),
                 Some(start) => {
@@ -193,6 +207,7 @@ mod tests {
             unit: unit.into(),
             amount,
             window_hours,
+            window_unit: WindowUnit::Hour,
             consumed: 0.0,
             window_start_at: None,
             enabled: true,
@@ -312,5 +327,63 @@ mod tests {
         assert!(evaluate_depletion(&[b.clone()], t0 + 3_600_000).is_some());
         // 窗口到期（+5h）→ 惰性重置判定 → 放行
         assert!(evaluate_depletion(&[b], t0 + 5 * 3_600_000).is_none());
+    }
+
+    // ── window_ms 各单位换算表 ──
+    #[test]
+    fn window_ms_conversion_table() {
+        assert!((window_ms(1.0, WindowUnit::Minute) - 60_000.0).abs() < 1e-6);
+        assert!((window_ms(1.0, WindowUnit::Hour) - 3_600_000.0).abs() < 1e-6);
+        assert!((window_ms(1.0, WindowUnit::Day) - 86_400_000.0).abs() < 1e-6);
+        assert!((window_ms(1.0, WindowUnit::Week) - 604_800_000.0).abs() < 1e-6);
+        assert!((window_ms(1.0, WindowUnit::Month) - 2_592_000_000.0).abs() < 1e-6, "month=30d");
+        // 复合数值：7 天、90 分钟
+        assert!((window_ms(7.0, WindowUnit::Day) - 604_800_000.0).abs() < 1e-6, "7d == 1week");
+        assert!((window_ms(90.0, WindowUnit::Minute) - 5_400_000.0).abs() < 1e-6, "90min");
+    }
+
+    // ── 向后兼容：旧 JSON {window_hours:2} 无 window_unit → 解析为 2 小时窗口 ──
+    #[test]
+    fn legacy_json_defaults_to_hour() {
+        let json = r#"[{"id":"b1","kind":"rolling","unit":"usd","amount":10,"window_hours":2}]"#;
+        let budgets = parse_manual_budgets(json);
+        assert_eq!(budgets.len(), 1);
+        let b = &budgets[0];
+        assert_eq!(b.window_unit, WindowUnit::Hour, "缺 window_unit → 默认 hour");
+        assert_eq!(b.window_hours, Some(2.0));
+        // 行为不变：2 小时窗口
+        let mut bb = b.clone();
+        let t0 = 1_700_000_000_000;
+        apply_one(&mut bb, 8.0, 0.0, t0); // 首用
+        apply_one(&mut bb, 1.0, 0.0, t0 + 1 * 3_600_000); // 1h 后未到期 → 累加
+        assert!((bb.consumed - 9.0).abs() < 1e-9);
+        apply_one(&mut bb, 2.0, 0.0, t0 + 2 * 3_600_000); // 2h 后到期 → 重置
+        assert!((bb.consumed - 2.0).abs() < 1e-9, "2h 后应重置, got {}", bb.consumed);
+    }
+
+    // ── rolling 以「天」为单位：7 天窗口 ──
+    #[test]
+    fn rolling_day_unit_7days() {
+        let mut b = mk("rolling", "usd", 10.0, Some(7.0));
+        b.window_unit = WindowUnit::Day;
+        let t0 = 1_700_000_000_000;
+        apply_one(&mut b, 8.0, 0.0, t0); // 首用
+        apply_one(&mut b, 1.0, 0.0, t0 + 6 * 86_400_000); // 6 天后未到期 → 累加
+        assert!((b.consumed - 9.0).abs() < 1e-9);
+        apply_one(&mut b, 2.0, 0.0, t0 + 7 * 86_400_000); // 7 天后到期 → 重置
+        assert!((b.consumed - 2.0).abs() < 1e-9, "7 天后应重置, got {}", b.consumed);
+    }
+
+    // ── rolling 以「分钟」为单位：90 分钟窗口 ──
+    #[test]
+    fn rolling_minute_unit_90min() {
+        let mut b = mk("rolling", "usd", 10.0, Some(90.0));
+        b.window_unit = WindowUnit::Minute;
+        let t0 = 1_700_000_000_000;
+        apply_one(&mut b, 8.0, 0.0, t0); // 首用
+        apply_one(&mut b, 1.0, 0.0, t0 + 60 * 60_000); // 60 分钟后未到期 → 累加
+        assert!((b.consumed - 9.0).abs() < 1e-9);
+        apply_one(&mut b, 2.0, 0.0, t0 + 90 * 60_000); // 90 分钟后到期 → 重置
+        assert!((b.consumed - 2.0).abs() < 1e-9, "90 分钟后应重置, got {}", b.consumed);
     }
 }

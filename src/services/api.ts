@@ -129,6 +129,8 @@ export function serializeNewApiConfig(extra: string, cfg: NewApiConfig): string 
 export type ManualBudgetKind = "total" | "rolling" | "fixed" | "daily";
 /** 手动预算计量单位。 */
 export type ManualBudgetUnit = "usd" | "token";
+/** 窗口时长单位（仅 rolling/fixed）。month 固定按 30 天换算。 */
+export type WindowUnit = "minute" | "hour" | "day" | "week" | "month";
 
 /** 手动预算限额（仅无上游 quota 自动支持平台开放）。
  *  consumed / window_start_at 由系统维护（请求驱动），编辑表单只设配置字段。 */
@@ -137,8 +139,11 @@ export interface ManualBudget {
   kind: ManualBudgetKind;
   unit: ManualBudgetUnit;
   amount: number;
-  /** 窗口时长（小时），仅 rolling/fixed。 */
+  /** 窗口数值（该 window_unit 下的数量），仅 rolling/fixed。
+   *  历史字段名保留为 window_hours（不改名以最小化迁移），实际含义为窗口数值。 */
   window_hours?: number | null;
+  /** 窗口时长单位（minute/hour/day/week/month），旧数据缺失 → 默认 hour。 */
+  window_unit?: WindowUnit;
   /** 当前窗口已消耗（系统维护，只读）。 */
   consumed: number;
   /** 当前窗口起始毫秒戳（系统维护，只读）。 */
