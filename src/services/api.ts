@@ -125,6 +125,27 @@ export function serializeNewApiConfig(extra: string, cfg: NewApiConfig): string 
   return JSON.stringify(obj);
 }
 
+/** 手动预算限额种类。 */
+export type ManualBudgetKind = "total" | "rolling" | "fixed" | "daily";
+/** 手动预算计量单位。 */
+export type ManualBudgetUnit = "usd" | "token";
+
+/** 手动预算限额（仅无上游 quota 自动支持平台开放）。
+ *  consumed / window_start_at 由系统维护（请求驱动），编辑表单只设配置字段。 */
+export interface ManualBudget {
+  id: string;
+  kind: ManualBudgetKind;
+  unit: ManualBudgetUnit;
+  amount: number;
+  /** 窗口时长（小时），仅 rolling/fixed。 */
+  window_hours?: number | null;
+  /** 当前窗口已消耗（系统维护，只读）。 */
+  consumed: number;
+  /** 当前窗口起始毫秒戳（系统维护，只读）。 */
+  window_start_at?: number | null;
+  enabled: boolean;
+}
+
 export interface Platform {
   id: number;
   name: string;
@@ -151,6 +172,8 @@ export interface Platform {
   show_in_tray: boolean;
   /** 托盘展示内容："balance" | "coding" */
   tray_display: string;
+  /** 手动预算限额列表（无上游 quota 平台；请求驱动扣减 + 耗尽阻断）。 */
+  manual_budgets: ManualBudget[];
 }
 
 export interface Group {
@@ -263,6 +286,7 @@ export const platformApi = {
     models?: PlatformModels;
     available_models?: string[];
     endpoints?: PlatformEndpoint[];
+    manual_budgets?: ManualBudget[];
   }) => invoke<Platform>("platform_create", { input }),
 
   list: () => invoke<Platform[]>("platform_list"),
@@ -280,6 +304,7 @@ export const platformApi = {
     available_models?: string[];
     endpoints?: PlatformEndpoint[];
     enabled?: boolean;
+    manual_budgets?: ManualBudget[];
   }) => invoke<Platform>("platform_update", { input }),
 
   delete: (id: number) => invoke<void>("platform_delete", { id }),

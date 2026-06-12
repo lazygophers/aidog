@@ -66,6 +66,8 @@ impl Db {
         let _ = conn.execute("ALTER TABLE platform ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0", []);
         // Migration 008: proxy_log 预估花费列
         let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN est_cost REAL NOT NULL DEFAULT 0", []);
+        // Migration 009: platform 手动预算列（无上游 quota 平台手动限额 + 耗尽阻断）
+        let _ = conn.execute("ALTER TABLE platform ADD COLUMN manual_budgets TEXT NOT NULL DEFAULT '[]'", []);
         Ok(())
     }
 }
@@ -87,11 +89,11 @@ fn retention_cutoff(days: u32) -> Option<i64> {
 
 /// SELECT 列序
 const PLATFORM_COLUMNS: &str =
-    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order";
+    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets";
 
 /// 同 PLATFORM_COLUMNS，但每列加 `p.` 限定，用于与其他表 JOIN 时消除同名列歧义（如 created_at/updated_at）
 const PLATFORM_COLUMNS_PREFIXED: &str =
-    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display, p.sort_order";
+    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display, p.sort_order, p.manual_budgets";
 
 /// 从查询行构造 Platform
 fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -120,6 +122,7 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         show_in_tray: row.get::<_, i64>(16)? == 1,
         tray_display: row.get(17)?,
         sort_order: row.get::<_, i64>(18)?,
+        manual_budgets: super::models::parse_manual_budgets(&row.get::<_, String>(19)?),
     })
 }
 
@@ -138,11 +141,13 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, S
     let available_str = serialize_available_models(&available_models);
     let endpoints = input.endpoints.unwrap_or_default();
     let endpoints_str = serialize_endpoints(&endpoints);
+    let manual_budgets = input.manual_budgets.unwrap_or_default();
+    let manual_budgets_str = super::models::serialize_manual_budgets(&manual_budgets);
 
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-        params![input.name, platform_type_str, input.base_url, input.api_key, input.extra, models_str, available_str, endpoints_str, true as i64, ts, ts],
+        "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+        params![input.name, platform_type_str, input.base_url, input.api_key, input.extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str],
     )
     .map_err(|e| format!("create platform: {e}"))?;
     let id = conn.last_insert_rowid() as u64;
@@ -168,6 +173,7 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, S
         show_in_tray: false,
         tray_display: "balance".to_string(),
         sort_order: 0,
+        manual_budgets,
     })
 }
 
@@ -198,6 +204,23 @@ pub fn get_platform(db: &Db, id: u64) -> Result<Option<Platform>, String> {
 pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, String> {
     let existing = get_platform(db, input.id)?.ok_or("platform not found")?;
 
+    // 手动预算：编辑表单只提供配置（kind/unit/amount/window_hours/enabled），
+    // consumed/window_start_at 由系统维护——按 id 对齐既有项，保留运行时累计值，
+    // 避免每次保存清零已用额度。新增项（id 无匹配）保留传入 consumed（默认 0）。
+    let manual_budgets = match input.manual_budgets {
+        Some(incoming) => incoming
+            .into_iter()
+            .map(|mut b| {
+                if let Some(prev) = existing.manual_budgets.iter().find(|p| p.id == b.id) {
+                    b.consumed = prev.consumed;
+                    b.window_start_at = prev.window_start_at;
+                }
+                b
+            })
+            .collect(),
+        None => existing.manual_budgets.clone(),
+    };
+
     let updated = Platform {
         name: input.name.unwrap_or(existing.name),
         platform_type: input.platform_type.unwrap_or(existing.platform_type),
@@ -208,6 +231,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
         available_models: input.available_models.unwrap_or(existing.available_models),
         endpoints: input.endpoints.unwrap_or(existing.endpoints),
         enabled: input.enabled.unwrap_or(existing.enabled),
+        manual_budgets,
         updated_at: now(),
         ..existing
     };
@@ -216,9 +240,10 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
     let models_str = serialize_models(&updated.models);
     let available_str = serialize_available_models(&updated.available_models);
     let endpoints_str = serialize_endpoints(&updated.endpoints);
+    let manual_budgets_str = super::models::serialize_manual_budgets(&updated.manual_budgets);
     let conn = db.0.lock().map_err(|e| e.to_string())?;
     conn.execute(
-        "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10 WHERE id=?11",
+        "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11 WHERE id=?12",
         params![
             updated.name,
             platform_type_str,
@@ -230,6 +255,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, Strin
             endpoints_str,
             updated.enabled as i64,
             updated.updated_at,
+            manual_budgets_str,
             updated.id as i64,
         ],
     )
@@ -734,7 +760,8 @@ pub fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlatformDe
                     estimate_count: row.get(17)?,
                     show_in_tray: row.get::<_, i64>(18)? == 1,
                     tray_display: row.get(19)?,
-                    sort_order: 0,
+                    sort_order: row.get::<_, i64>(20)?,
+                    manual_budgets: super::models::parse_manual_budgets(&row.get::<_, String>(21)?),
                 },
                 priority: row.get(0)?,
                 weight: row.get(1)?,
@@ -1573,6 +1600,7 @@ mod tests {
             models: None,
             available_models: None,
             endpoints: None,
+            manual_budgets: None,
         }
     }
 
