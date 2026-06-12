@@ -24,7 +24,7 @@ src-tauri/src/
       converter.rs      # convert_request / parse_sse / parse_incoming_request
     db.rs               # SQLite CRUD + settings + usage stats + cleanup
     models.rs           # 所有 Rust 数据模型（Protocol 枚举 53 变体）
-    proxy.rs            # Axum 代理服务器（渐进式日志、超时级联、log settings 感知）
+    proxy.rs            # Axum 代理服务器（渐进式日志、超时级联、log settings 感知、POST /api/group-info）
     quota.rs            # 平台余额 & Coding Plan 配额查询（DeepSeek/StepFun/SiliconFlow/OpenRouter/Novita + Kimi/GLM/MiniMax + NewAPI）
     router.rs           # 分组匹配 + 模型映射 + 平台选择
 ```
@@ -43,6 +43,12 @@ src-tauri/src/
 
 ### Group 统计
 - Group 卡片的 usage stats 由关联 platforms 的 stats 聚合而来（前端求和），不独立查 proxy_logs
+
+### Local API
+- 所有 API 端点以 `/api/` 开头，仅允许 POST 方法
+- `POST /api/group-info`：Authorization Bearer `<group_name>` 鉴权，localhost-only
+- statusline bash 脚本通过 `ANTHROPIC_BASE_URL`（推导代理根 URL）+ `ANTHROPIC_AUTH_TOKEN`（= group_name）调用端点
+- `settings.{group}.json` 禁止包含 `_aidog_statusline` / `_aidog_subagent_statusline`（`do_sync_group_settings` 会 strip）
 
 ## UI / i18n
 

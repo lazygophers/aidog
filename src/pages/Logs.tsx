@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   proxyLogApi,
@@ -11,6 +11,7 @@ import {
   type GroupDetail,
 } from "../services/api";
 import { IconClose } from "../components/icons";
+import { usePolling } from "../hooks/usePolling";
 
 const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
 const PAGE_SIZE = 50;
@@ -170,15 +171,9 @@ export function Logs() {
   // Reset offset when filter changes
   useEffect(() => { setOffset(0); }, [hasFilter, activeFilter]);
 
-  // Auto-refresh every 3s on list view
-  const mountedRef = useRef(true);
-  useEffect(() => {
-    mountedRef.current = true;
-    const id = setInterval(() => {
-      if (mountedRef.current && !detail) load(true);
-    }, 3000);
-    return () => { mountedRef.current = false; clearInterval(id); };
-  }, [load, detail]);
+  // Auto-refresh every 3s on list view（页面不可见时暂停）
+  const refreshList = useCallback(() => { load(true); }, [load]);
+  usePolling(refreshList, 3000, !detail);
 
   const handleClear = async () => {
     if (!confirm(t("logs.clearConfirm", "确认清除所有日志？此操作不可撤销。"))) return;
@@ -205,16 +200,14 @@ export function Logs() {
     } catch (e) { console.error(e); }
   };
 
-  // Auto-refresh detail every 2s while viewing
-  useEffect(() => {
+  // Auto-refresh detail every 2s while viewing（页面不可见时暂停）
+  const refreshDetail = useCallback(() => {
     if (!detail) return;
-    const id = setInterval(() => {
-      proxyLogApi.get(detail.id)
-        .then(d => { if (d) setDetail(d); })
-        .catch(() => {});
-    }, 2000);
-    return () => clearInterval(id);
-  }, [detail?.id]);
+    proxyLogApi.get(detail.id)
+      .then(d => { if (d) setDetail(d); })
+      .catch(() => {});
+  }, [detail]);
+  usePolling(refreshDetail, 2000, !!detail);
 
   // Build platform lookup — must run before any conditional return to keep hook order stable
   const platformMap = useMemo(() => {

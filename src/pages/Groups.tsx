@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useReducer } from "react";
 import { useTranslation } from "react-i18next";
 import {
   groupDetailApi, groupApi, platformApi, onProxyLogUpdated,
@@ -22,6 +22,60 @@ interface SortablePlatform {
 interface GroupRow {
   id: string;
   detail: GroupDetail;
+}
+
+/** 分组编辑表单态（原 8 个 useState 合并为单 reducer，减少分散 setState） */
+interface EditState {
+  target: GroupDetail | null;
+  name: string;
+  path: string;
+  mode: RoutingMode;
+  platformIds: number[];
+  mappings: ModelMapping[];
+  reqTimeout: number;
+  connTimeout: number;
+}
+
+const EMPTY_EDIT: EditState = {
+  target: null,
+  name: "",
+  path: "",
+  mode: "failover",
+  platformIds: [],
+  mappings: [],
+  reqTimeout: 0,
+  connTimeout: 0,
+};
+
+type EditAction =
+  | { type: "open"; detail: GroupDetail }
+  | { type: "reset" }
+  | { type: "patch"; patch: Partial<EditState> };
+
+function editReducer(state: EditState, action: EditAction): EditState {
+  switch (action.type) {
+    case "open":
+      return {
+        target: action.detail,
+        name: action.detail.group.name,
+        path: action.detail.group.path,
+        mode: action.detail.group.routing_mode,
+        platformIds: action.detail.platforms.map(gp => gp.platform.id),
+        mappings: action.detail.model_mappings.map(m => ({
+          source_model: m.source_model,
+          target_platform_id: m.target_platform_id,
+          target_model: m.target_model,
+          request_timeout_secs: m.request_timeout_secs,
+          connect_timeout_secs: m.connect_timeout_secs,
+        })),
+        reqTimeout: action.detail.group.request_timeout_secs,
+        connTimeout: action.detail.group.connect_timeout_secs,
+      };
+    case "reset":
+      return EMPTY_EDIT;
+    case "patch":
+      return { ...state, ...action.patch };
+  }
 }
 
 /** Extract all non-empty model names (deduplicated) */
@@ -118,15 +172,18 @@ export function Groups() {
   const [groupBalance, setGroupBalance] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
 
-  // Edit mode
-  const [editTarget, setEditTarget] = useState<GroupDetail | null>(null);
-  const [editName, setEditName] = useState("");
-  const [editPath, setEditPath] = useState("");
-  const [editMode, setEditMode] = useState<RoutingMode>("failover");
-  const [editPlatformIds, setEditPlatformIds] = useState<number[]>([]);
-  const [editMappings, setEditMappings] = useState<ModelMapping[]>([]);
-  const [editReqTimeout, setEditReqTimeout] = useState(0);
-  const [editConnTimeout, setEditConnTimeout] = useState(0);
+  // Edit mode（8 字段合并为单 reducer）
+  const [edit, dispatchEdit] = useReducer(editReducer, EMPTY_EDIT);
+  const {
+    target: editTarget,
+    name: editName,
+    path: editPath,
+    mode: editMode,
+    platformIds: editPlatformIds,
+    mappings: editMappings,
+    reqTimeout: editReqTimeout,
+    connTimeout: editConnTimeout,
+  } = edit;
 
   // ── Drag reorder for group list (via shared SortableList @dnd-kit) ──
   const handleReorderGroups = (next: GroupRow[]) => {
@@ -138,7 +195,7 @@ export function Groups() {
   // ── Drag reorder for selected platforms (order = routing priority) ──
   // SortableList yields the fully reordered rows; map back to platform ids to persist on save.
   const handleReorderPlatforms = (next: SortablePlatform[]) => {
-    setEditPlatformIds(next.map(row => row.platformId));
+    dispatchEdit({ type: "patch", patch: { platformIds: next.map(row => row.platformId) } });
   };
 
   // Create mode
@@ -262,31 +319,11 @@ export function Groups() {
   // ── Edit handlers ──
 
   const openEdit = (detail: GroupDetail) => {
-    setEditTarget(detail);
-    setEditName(detail.group.name);
-    setEditPath(detail.group.path);
-    setEditMode(detail.group.routing_mode);
-    setEditPlatformIds(detail.platforms.map(gp => gp.platform.id));
-    setEditMappings(detail.model_mappings.map(m => ({
-      source_model: m.source_model,
-      target_platform_id: m.target_platform_id,
-      target_model: m.target_model,
-      request_timeout_secs: m.request_timeout_secs,
-      connect_timeout_secs: m.connect_timeout_secs,
-    })));
-    setEditReqTimeout(detail.group.request_timeout_secs);
-    setEditConnTimeout(detail.group.connect_timeout_secs);
+    dispatchEdit({ type: "open", detail });
   };
 
   const cancelEdit = () => {
-    setEditTarget(null);
-    setEditName("");
-    setEditPath("");
-    setEditMode("failover");
-    setEditPlatformIds([]);
-    setEditMappings([]);
-    setEditReqTimeout(0);
-    setEditConnTimeout(0);
+    dispatchEdit({ type: "reset" });
   };
 
   const saveEdit = async () => {
@@ -402,21 +439,21 @@ export function Groups() {
           <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.name", "名称")}</span>
             <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
-              value={editName} onChange={e => setEditName(e.target.value)} />
+              value={editName} onChange={e => dispatchEdit({ type: "patch", patch: { name: e.target.value } })} />
           </div>
 
           {/* Path */}
           <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>Path</span>
             <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
-              value={editPath} onChange={e => setEditPath(e.target.value)} />
+              value={editPath} onChange={e => dispatchEdit({ type: "patch", patch: { path: e.target.value } })} />
           </div>
 
           {/* Routing mode */}
           <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
             <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.routingMode", "路由模式")}</span>
             <select className="input" style={{ fontSize: F.body, padding: S.inputPad }}
-              value={editMode} onChange={e => setEditMode(e.target.value as RoutingMode)}>
+              value={editMode} onChange={e => dispatchEdit({ type: "patch", patch: { mode: e.target.value as RoutingMode } })}>
               <option value="failover">{t("group.failover")}</option>
               <option value="load_balance">{t("group.loadBalance")}</option>
             </select>
@@ -427,10 +464,10 @@ export function Groups() {
             <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.timeout", "超时")}</span>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
               <input className="input" type="number" min={0} placeholder={t("group.reqTimeout", "请求(s)")}
-                value={editReqTimeout || ""} onChange={e => setEditReqTimeout(Math.max(0, Number(e.target.value)))}
+                value={editReqTimeout || ""} onChange={e => dispatchEdit({ type: "patch", patch: { reqTimeout: Math.max(0, Number(e.target.value)) } })}
                 style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
               <input className="input" type="number" min={0} placeholder={t("group.connTimeout", "连接(s)")}
-                value={editConnTimeout || ""} onChange={e => setEditConnTimeout(Math.max(0, Number(e.target.value)))}
+                value={editConnTimeout || ""} onChange={e => dispatchEdit({ type: "patch", patch: { connTimeout: Math.max(0, Number(e.target.value)) } })}
                 style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
               <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("group.timeoutDefault", "0 = 系统默认（秒）")}</span>
             </div>
@@ -498,7 +535,7 @@ export function Groups() {
                       onClick={() => {
                         const ids = [...editPlatformIds];
                         [ids[i - 1], ids[i]] = [ids[i], ids[i - 1]];
-                        setEditPlatformIds(ids);
+                        dispatchEdit({ type: "patch", patch: { platformIds: ids } });
                       }}>
                       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                         <path d="M5 2v6M2 5l3-3 3 3" />
@@ -509,13 +546,13 @@ export function Groups() {
                       onClick={() => {
                         const ids = [...editPlatformIds];
                         [ids[i], ids[i + 1]] = [ids[i + 1], ids[i]];
-                        setEditPlatformIds(ids);
+                        dispatchEdit({ type: "patch", patch: { platformIds: ids } });
                       }}>
                       <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                         <path d="M5 8V2M2 5l3 3 3-3" />
                       </svg>
                     </button>
-                    <button type="button" onClick={() => setEditPlatformIds(editPlatformIds.filter(id => id !== pid))} style={{
+                    <button type="button" onClick={() => dispatchEdit({ type: "patch", patch: { platformIds: editPlatformIds.filter(id => id !== pid) } })} style={{
                       background: "none", border: "none", cursor: "pointer",
                       color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
                     }}><IconClose size={12} /></button>
@@ -531,7 +568,7 @@ export function Groups() {
                 onChange={e => {
                   const pid = Number(e.target.value);
                   if (e.target.value && !editPlatformIds.includes(pid)) {
-                    setEditPlatformIds([...editPlatformIds, pid]);
+                    dispatchEdit({ type: "patch", patch: { platformIds: [...editPlatformIds, pid] } });
                   }
                   e.target.value = "";
                 }}>
@@ -567,7 +604,7 @@ export function Groups() {
                     onChange={e => {
                       const ms = [...editMappings];
                       ms[i] = { ...ms[i], source_model: e.target.value };
-                      setEditMappings(ms);
+                      dispatchEdit({ type: "patch", patch: { mappings: ms } });
                     }} />
                   <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="var(--text-tertiary)" strokeWidth="1.5" strokeLinecap="round">
                     <path d="M2 6h8M8 4l2 2-2 2" />
@@ -577,7 +614,7 @@ export function Groups() {
                     onChange={e => {
                       const ms = [...editMappings];
                       ms[i] = { ...ms[i], target_platform_id: e.target.value === "" ? 0 : Number(e.target.value), target_model: "" };
-                      setEditMappings(ms);
+                      dispatchEdit({ type: "patch", patch: { mappings: ms } });
                     }}>
                     <option value="">{t("mapping.targetPlatform", "目标平台")}</option>
                     {platforms.filter(p => p.enabled).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
@@ -588,7 +625,7 @@ export function Groups() {
                       onChange={e => {
                         const ms = [...editMappings];
                         ms[i] = { ...ms[i], target_model: e.target.value };
-                        setEditMappings(ms);
+                        dispatchEdit({ type: "patch", patch: { mappings: ms } });
                       }}>
                       <option value="">{t("mapping.target", "目标模型")}</option>
                       {models.map(m2 => <option key={m2} value={m2}>{m2}</option>)}
@@ -600,10 +637,10 @@ export function Groups() {
                       onChange={e => {
                         const ms = [...editMappings];
                         ms[i] = { ...ms[i], target_model: e.target.value };
-                        setEditMappings(ms);
+                        dispatchEdit({ type: "patch", patch: { mappings: ms } });
                       }} />
                   )}
-                  <button type="button" onClick={() => setEditMappings(editMappings.filter((_, j) => j !== i))} style={{
+                  <button type="button" onClick={() => dispatchEdit({ type: "patch", patch: { mappings: editMappings.filter((_, j) => j !== i) } })} style={{
                     background: "none", border: "none", cursor: "pointer",
                     color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1, flexShrink: 0,
                   }}><IconClose size={12} /></button>
@@ -612,7 +649,7 @@ export function Groups() {
             })}
 
             <button type="button" className="btn btn-ghost" style={{ fontSize: F.hint, padding: "6px 12px", alignSelf: "flex-start" }}
-              onClick={() => setEditMappings([...editMappings, { source_model: "", target_platform_id: 0, target_model: "", request_timeout_secs: 0, connect_timeout_secs: 0 }])}>
+              onClick={() => dispatchEdit({ type: "patch", patch: { mappings: [...editMappings, { source_model: "", target_platform_id: 0, target_model: "", request_timeout_secs: 0, connect_timeout_secs: 0 }] } })}>
               + {t("mapping.add", "添加映射")}
             </button>
           </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, Fragment } from "react";
+import { useState, useEffect, useMemo, useCallback, Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import {
   platformApi,
@@ -10,6 +10,7 @@ import {
   type TodayStats,
 } from "../services/api";
 import { SortableList } from "../components/SortableList";
+import { usePolling } from "../hooks/usePolling";
 
 const PRESET_COLORS: { value: string; cssVar: string }[] = [
   { value: "follow", cssVar: "var(--text-primary)" },
@@ -158,12 +159,10 @@ export function TrayConfigTab() {
     })();
   }, []);
 
-  useEffect(() => {
-    const timer = setInterval(async () => {
-      try { setTodayStats(await trayConfigApi.todayStats()); } catch { /* */ }
-    }, 30_000);
-    return () => clearInterval(timer);
+  const refreshStats = useCallback(async () => {
+    try { setTodayStats(await trayConfigApi.todayStats()); } catch { /* */ }
   }, []);
+  usePolling(refreshStats, 30_000);
 
   const persist = async (next: TrayConfig) => {
     setConfig(next);
