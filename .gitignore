@@ -12,6 +12,17 @@ dist
 dist-ssr
 *.local
 
+# Docs build output (Rspress)
+doc_build/
+
+# Rust build
+/src-tauri/target/
+
+# Secrets / env
+.env
+.env.*
+!.env.example
+
 # Yarn 4 (Berry)
 .pnp.*
 .yarn/*
