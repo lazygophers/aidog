@@ -180,7 +180,7 @@ async fn handle_group_info(
         stats.total_input_tokens + stats.total_output_tokens + stats.total_cache_tokens;
 
     // coding plan tiers（补 pace + reset_at）
-    let coding_plan: Vec<CodingTierResp> = super::estimate::EstCodingPlan::from_json(&platform.est_coding_plan)
+    let mut coding_plan: Vec<CodingTierResp> = super::estimate::EstCodingPlan::from_json(&platform.est_coding_plan)
         .tiers
         .into_iter()
         .map(|t| {
@@ -189,20 +189,50 @@ async fn handle_group_info(
                 name: t.name,
                 utilization: t.est_utilization,
                 pace,
-                // 无窗口起止时间戳持久化 → 暂无可靠 reset 来源，置 null（前端红色时降级不显 reset）。
                 reset_at: None,
             }
         })
         .collect();
 
-    // 余额 = max(est_balance_remaining, manual_budgets remaining sum)
-    // manual_budgets 用于人工设定额度的平台（无自动余额查询），取所有 enabled 项的剩余之和。
-    let manual_remaining: f64 = platform.manual_budgets
+    // 追加 manual budgets 为 coding_plan tiers（让 statusline 显示各窗口预算利用率）
+    for b in platform.manual_budgets.iter().filter(|b| b.enabled) {
+        let util = if b.amount > 0.0 {
+            (b.consumed / b.amount * 100.0).min(100.0)
+        } else {
+            0.0
+        };
+        let label = match b.kind.as_str() {
+            "total" => "total".to_string(),
+            _ => {
+                let w = b.window_hours.unwrap_or(1.0);
+                let short = match b.window_unit {
+                    super::models::WindowUnit::Minute => "m",
+                    super::models::WindowUnit::Hour => "h",
+                    super::models::WindowUnit::Day => "d",
+                    super::models::WindowUnit::Week => "w",
+                    super::models::WindowUnit::Month => "mo",
+                };
+                let w_int = w.fract() == 0.0;
+                if w_int { format!("{}{}", w as i64, short) } else { format!("{}{}", w, short) }
+            }
+        };
+        let pace = if util > 80.0 { "fast" } else if util > 50.0 { "normal" } else { "busy" }.to_string();
+        coding_plan.push(CodingTierResp {
+            name: label,
+            utilization: util,
+            pace,
+            reset_at: None,
+        });
+    }
+
+    // 余额 = max(est_balance_remaining, manual "total" budget remaining)
+    // 只取 kind="total" 的手动预算作为余额来源；rolling/fixed/daily 是窗口限速，不是余额。
+    let manual_total_remaining: f64 = platform.manual_budgets
         .iter()
-        .filter(|b| b.enabled)
+        .filter(|b| b.enabled && b.kind == "total")
         .map(super::manual_budget::remaining)
         .sum::<f64>();
-    let balance = platform.est_balance_remaining.max(manual_remaining);
+    let balance = platform.est_balance_remaining.max(manual_total_remaining);
 
     // 余额可用天数：近 7 天日均花费 = spent_7d / 7；无花费 / 无余额 → null。
     let balance_days_remaining = {
