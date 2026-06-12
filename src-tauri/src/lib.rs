@@ -1418,19 +1418,45 @@ struct ProxySettings {
     autostart: bool,
 }
 
-fn settings_path(_app: &tauri::AppHandle) -> Result<std::path::PathBuf, String> {
-    Ok(aidog_data_dir()?.join("proxy_settings.json"))
+/// 从 DB 读取 proxy settings；首次运行时自动迁移 proxy_settings.json 文件
+fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> {
+    let db = app.try_state::<Db>()
+        .map(|s| s.inner())
+        .ok_or("db not initialized")?;
+
+    // 从 DB 读取
+    if let Some(val) = db::get_setting(&db, "proxy", "settings")? {
+        let s: ProxySettings = serde_json::from_value(val)
+            .map_err(|e| format!("parse proxy settings: {e}"))?;
+        return Ok(s);
+    }
+
+    // DB 无记录：尝试从旧文件迁移
+    let file_path = aidog_data_dir()?.join("proxy_settings.json");
+    if file_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&file_path) {
+            if let Ok(s) = serde_json::from_str::<ProxySettings>(&content) {
+                // 迁移到 DB
+                let _ = save_proxy_settings_to_db(&db, &s);
+                // 删除旧文件
+                let _ = std::fs::remove_file(&file_path);
+                return Ok(s);
+            }
+        }
+    }
+
+    // 默认值
+    Ok(ProxySettings { port: 9876, autostart: true })
 }
 
-fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> {
-    let path = settings_path(app)?;
-    if path.exists() {
-        let content = std::fs::read_to_string(&path)
-            .map_err(|e| format!("read settings: {e}"))?;
-        serde_json::from_str(&content).map_err(|e| format!("parse settings: {e}"))
-    } else {
-        Ok(ProxySettings { port: 9876, autostart: true })
-    }
+fn save_proxy_settings_to_db(db: &Db, settings: &ProxySettings) -> Result<(), String> {
+    let value = serde_json::to_value(settings)
+        .map_err(|e| format!("serialize proxy settings: {e}"))?;
+    db::set_setting(db, gateway::models::SetSettingInput {
+        scope: "proxy".to_string(),
+        key: "settings".to_string(),
+        value,
+    })
 }
 
 fn save_proxy_settings(
@@ -1438,13 +1464,11 @@ fn save_proxy_settings(
     port: u16,
     autostart: bool,
 ) -> Result<(), String> {
-    let path = settings_path(app)?;
+    let db = app.try_state::<Db>()
+        .map(|s| s.inner())
+        .ok_or("db not initialized")?;
     let settings = ProxySettings { port, autostart };
-    let content = serde_json::to_string_pretty(&settings)
-        .map_err(|e| format!("serialize settings: {e}"))?;
-    std::fs::write(&path, content)
-        .map_err(|e| format!("write settings: {e}"))?;
-    Ok(())
+    save_proxy_settings_to_db(&db, &settings)
 }
 
 // ─── Tray ──────────────────────────────────────────────────
