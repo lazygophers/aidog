@@ -87,6 +87,9 @@ struct GroupInfoResp {
     cache_rate: f64,
     total_tokens: i64,
     currency: String,
+    /// 余额可用天数 = balance / 近 7 天日均花费；无花费 / 无余额 → null。
+    /// statusline 余额段据此上色（<1 红 / <3 黄 / 否则绿）。
+    balance_days_remaining: Option<f64>,
 }
 
 #[derive(serde::Serialize)]
@@ -94,6 +97,10 @@ struct CodingTierResp {
     name: String,
     /// 利用率（0-100）
     utilization: f64,
+    /// 预期消耗速率分级："fast" | "normal" | "busy"（statusline 第 3 行动态色用）。
+    pace: String,
+    /// 预期重置 unix 秒；无可靠来源时 null（statusline 红色时择机展示）。
+    reset_at: Option<i64>,
 }
 
 /// 分组信息端点 — 仅单平台分组返回本地预估值。
@@ -115,6 +122,7 @@ async fn handle_group_info(
         cache_rate: 0.0,
         total_tokens: 0,
         currency: String::new(),
+        balance_days_remaining: None,
     };
 
     // 定位分组
@@ -171,12 +179,32 @@ async fn handle_group_info(
     let total_tokens =
         stats.total_input_tokens + stats.total_output_tokens + stats.total_cache_tokens;
 
-    // coding plan tiers
+    // coding plan tiers（补 pace + reset_at）
     let coding_plan: Vec<CodingTierResp> = super::estimate::EstCodingPlan::from_json(&platform.est_coding_plan)
         .tiers
         .into_iter()
-        .map(|t| CodingTierResp { name: t.name, utilization: t.est_utilization })
+        .map(|t| {
+            let pace = super::estimate::tier_pace(&t).as_str().to_string();
+            CodingTierResp {
+                name: t.name,
+                utilization: t.est_utilization,
+                pace,
+                // 无窗口起止时间戳持久化 → 暂无可靠 reset 来源，置 null（前端红色时降级不显 reset）。
+                reset_at: None,
+            }
+        })
         .collect();
+
+    // 余额可用天数：近 7 天日均花费 = spent_7d / 7；无花费 / 无余额 → null。
+    let balance_days_remaining = {
+        let spent_7d = super::db::get_group_spent_since(&state.db, &group.name, 7).unwrap_or(0.0);
+        let daily = spent_7d / 7.0;
+        if daily > 0.0 && platform.est_balance_remaining > 0.0 {
+            Some(platform.est_balance_remaining / daily)
+        } else {
+            None
+        }
+    };
 
     let resp = GroupInfoResp {
         applicable: true,
@@ -188,6 +216,7 @@ async fn handle_group_info(
         cache_rate: stats.cache_rate,
         total_tokens,
         currency: String::new(),
+        balance_days_remaining,
     };
 
     (StatusCode::OK, Json(resp)).into_response()

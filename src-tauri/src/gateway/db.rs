@@ -1154,6 +1154,26 @@ pub fn get_group_usage_stats(db: &Db, group_name: &str) -> Result<super::models:
         .map_err(|e| format!("group usage stats: {e}"))
 }
 
+/// 近 N 天该分组的预估花费合计（只读，复用持久化 est_cost）。
+///
+/// 用于 statusline group-info 端点推算「余额可用天数」：日均花费 = spent / N。
+/// 短持锁（仅一次聚合查询），不跨 await；window_days <= 0 时按 7 天兜底。
+pub fn get_group_spent_since(db: &Db, group_name: &str, window_days: i64) -> Result<f64, String> {
+    let days = if window_days > 0 { window_days } else { 7 };
+    let start_ms =
+        (chrono::Utc::now() - chrono::Duration::days(days)).timestamp_millis();
+    let conn = db.0.lock().map_err(|e| e.to_string())?;
+    let spent: f64 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(est_cost), 0.0) FROM proxy_log \
+             WHERE group_name = ?1 AND created_at >= ?2 AND deleted_at = 0",
+            params![group_name, start_ms],
+            |row| row.get(0),
+        )
+        .map_err(|e| format!("group spent since: {e}"))?;
+    Ok(spent)
+}
+
 struct QueryParams {
     start: i64,
     end: i64,
