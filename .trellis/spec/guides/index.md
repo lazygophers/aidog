@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-09
+updated: 2026-06-12
 rewrite-version: 1
 supersedes:
   - guides/index.md (v0 descriptive)
@@ -26,9 +26,8 @@ mode: optimize
 
 ## Pre-Change Checklist (MUST)
 
-改任何 `src/` 文件前必须执行:
+改任何 `src/` 文件前必须先读对应 guide 再动手:
 
-1. `grep -rE '<关键词>' src/` — 查已有实现，命中则复用
-2. 确认改动不破坏 Tauri command 契约（字段名 / 类型 / 返回值）
-3. 新增 public 函数 / 组件必须有对应类型定义
-4. 新增 UI 文案必须走 i18n `t()` 函数，禁硬编码字符串
+- 写新函数 / 组件前 → [Code Reuse Rules](./code-reuse-rules.md) (grep 查已有实现)
+- 跨 Rust↔TS 边界 → [Cross-Layer Rules](./cross-layer-rules.md) (契约 / 字段名 / 类型)
+- 新增 UI / 改前端模式 → [Frontend Conventions](../frontend/conventions.md) (组件 / 状态 / API / 类型 / i18n)

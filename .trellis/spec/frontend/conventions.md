@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-09
+updated: 2026-06-12
 rewrite-version: 1
 supersedes:
   - component-guidelines.md
@@ -54,13 +54,10 @@ mode: optimize
 
 ## API Layer (MUST)
 
-- 调用 Tauri 后端必须走 `invoke<T>(command, args)` 包装函数
+- invoke 契约 (泛型标注 / 集中 api.ts / 字段名 snake_case / 新 command 必同步前端) 见 [Cross-Layer Rules](../guides/cross-layer-rules.md#taurireact-boundary-must)，本节不重复
 - API namespace 必须按 resource 拆分 (`platformApi` / `groupApi` / `mappingApi` / `proxyApi` / `configApi`)
 - 入参类型必须用独立 `interface` 定义，禁 inline `{ [key]: string }`
-- 返回值必须标注泛型 (`invoke<Platform>(...)`)
 - 错误处理: `try/catch` 包裹，`catch` 至少 `console.error`，禁静默丢弃
-- 所有 `invoke` 调用必须集中在 `src/services/api.ts`，组件禁直接调用 `invoke`
-- 验证: `grep -rn 'invoke(' src/ | grep -v 'services/api.ts' | grep -v 'vite-env'` 必须 0 行
 
 ## Type Safety (MUST)
 
