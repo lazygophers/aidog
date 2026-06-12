@@ -77,7 +77,7 @@ async function materializeStatuslineFields(
         continue;
       }
       const value: Record<string, any> = { type: "command", command: cmd };
-      if (isMain && m.padding > 0) value.padding = m.padding;
+      if (m.padding > 0) value.padding = m.padding;
       next[fieldName] = value;
       continue;
     }
@@ -88,7 +88,6 @@ async function materializeStatuslineFields(
         const path = await statuslineApi.generate(scriptType, m.scriptContent);
         const value: Record<string, any> = { type: "command", command: path };
         if (isMain && m.padding > 0) value.padding = m.padding;
-        if (isMain && m.hideVimModeIndicator) value.hideVimModeIndicator = true;
         next[fieldName] = value;
       } catch (e) {
         // Never block the save — leave the existing field value as-is.
