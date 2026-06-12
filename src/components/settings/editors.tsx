@@ -1677,6 +1677,7 @@ type SegmentType =
   | "rate-limit-5h"          // rate_limits.five_hour
   | "rate-limit-7d"          // rate_limits.seven_day
   // Git
+  | "git-branch"             // git -C <cwd> branch --show-current（脚本内跑 git）
   | "git-host"               // workspace.repo.host
   | "git-owner"              // workspace.repo.owner
   | "git-repo"               // workspace.repo.name
@@ -1756,6 +1757,77 @@ __val=$(cat "$__gi" | jq ${jqExpr} 2>/dev/null)
 echo -n "${pfx}$__val"`;
 }
 
+/** ANSI truecolor reset/red/amber/green triples shared by dynamic group segments. */
+const ANSI_RED = "255;69;58";    // #FF453A
+const ANSI_AMBER = "255;214;10"; // #FFD60A
+const ANSI_GREEN = "52;199;89";  // #34C759
+
+/**
+ * Prelude that all group segments share: degrade-to-empty guards + applicable
+ * check, leaving the cached payload readable via `$__gi`.
+ */
+const GROUP_GUARD = `[ -z "\${AIDOG_INFO_URL:-}" ] && exit 0
+__gi="\${__AIDOG_INFO_FILE:-}"
+[ -z "$__gi" ] || [ ! -s "$__gi" ] && exit 0
+cat "$__gi" | jq -e '.applicable == true' >/dev/null 2>&1 || exit 0`;
+
+/**
+ * coding-plan 段（第 3 行动态色）：仅当端点含 coding_plan tiers 时展示，按各档最快
+ * pace 上色——fast→红 / normal→黄 / busy→绿。红色（fast）时若有 reset_at 额外拼接
+ * 人类可读重置时间。无 tiers → 降级空（余额平台由 group-balance 段接管）。
+ * 直接输出 ANSI truecolor（不经 fixedColorBash），故段 color 应留空。
+ */
+function groupCodingDynBash(): string {
+  return `${GROUP_GUARD}
+__n=$(cat "$__gi" | jq -r '(.coding_plan // []) | length')
+[ "$__n" = "0" ] || [ -z "$__n" ] && exit 0
+__txt=$(cat "$__gi" | jq -r '(.coding_plan // []) | map((.name | .[0:2]) + ":" + ((.utilization // 0) | round | tostring) + "%") | join(" ")')
+[ -z "$__txt" ] && exit 0
+__pace=$(cat "$__gi" | jq -r 'if any(.coding_plan[]?; .pace == "fast") then "fast" elif any(.coding_plan[]?; .pace == "normal") then "normal" else "busy" end')
+if [ "$__pace" = "fast" ]; then
+  __c="${ANSI_RED}"
+  __rs=$(cat "$__gi" | jq -r '[.coding_plan[]? | select(.pace == "fast") | .reset_at // empty] | min // empty')
+  if [ -n "$__rs" ] && [ "$__rs" != "null" ]; then
+    __now=$(date +%s); __d=$((__rs - __now))
+    if [ "$__d" -gt 0 ]; then
+      __h=$((__d / 3600)); __m=$(((__d % 3600) / 60))
+      __txt="$__txt (reset \${__h}h\${__m}m)"
+    fi
+  fi
+elif [ "$__pace" = "normal" ]; then
+  __c="${ANSI_AMBER}"
+else
+  __c="${ANSI_GREEN}"
+fi
+printf '\\033[38;2;%sm%s\\033[0m' "$__c" "$__txt"`;
+}
+
+/**
+ * 余额段（第 3 行动态色）：仅当端点无 coding_plan tiers（即余额平台）时展示，按
+ * balance_days_remaining 上色——<1 天→红 / <3 天→黄 / 否则绿（含 null → 默认绿）。
+ * coding 平台由 group-coding 段接管，此处降级空。直接输出 ANSI truecolor。
+ */
+function groupBalanceDynBash(prefix: string): string {
+  const pfx = bashEscapeDq(prefix);
+  return `${GROUP_GUARD}
+__n=$(cat "$__gi" | jq -r '(.coding_plan // []) | length')
+[ "$__n" != "0" ] && [ -n "$__n" ] && exit 0
+__bal=$(cat "$__gi" | jq -r '.balance // 0 | (. * 100 | round) / 100')
+[ -z "$__bal" ] && exit 0
+__txt="${pfx}$(printf '%.2f' "$__bal")"
+__days=$(cat "$__gi" | jq -r '.balance_days_remaining // empty')
+if [ -z "$__days" ] || [ "$__days" = "null" ]; then
+  __c="${ANSI_GREEN}"
+else
+  __lt1=$(awk -v d="$__days" 'BEGIN{print (d < 1) ? 1 : 0}')
+  __lt3=$(awk -v d="$__days" 'BEGIN{print (d < 3) ? 1 : 0}')
+  if [ "$__lt1" = "1" ]; then __c="${ANSI_RED}"
+  elif [ "$__lt3" = "1" ]; then __c="${ANSI_AMBER}"
+  else __c="${ANSI_GREEN}"; fi
+fi
+printf '\\033[38;2;%sm%s\\033[0m' "$__c" "$__txt"`;
+}
+
 /**
  * Build a bash snippet for an atomic statusline segment that extracts a single
  * value from the stdin JSON (`$input`) and degrades to empty output when the
@@ -1772,6 +1844,31 @@ function atomSegBash(jqExpr: string, prefix = ""): string {
   return `__val=$(echo "$input" | jq ${jqExpr} 2>/dev/null)
 [ -z "$__val" ] && exit 0
 echo -n "${pfx}$__val"`;
+}
+
+/**
+ * Wrap a segment body with a literal prefix / suffix that only appears when the
+ * body produced non-empty output. Enables mixed in-row separators (`·` vs `|`,
+ * `[cost]` hugging, conditional `·worktree`) without a global separator: the
+ * affixes are part of the same empty-degrading, color-wrapped unit, so a segment
+ * that exits empty leaves no orphaned separator char.
+ *
+ * `affixPre` / `affixSuf` are reserved option keys consumed here (not by the
+ * segment's own `toBash`), kept distinct from user-facing `prefix` labels.
+ */
+function wrapAffix(body: string, affixPre: string, affixSuf: string): string {
+  if (!affixPre && !affixSuf) return body;
+  const pre = bashEscapeDq(affixPre);
+  const suf = bashEscapeDq(affixSuf);
+  // Real newlines (not `;`-collapsed) so multi-line bodies with `case`/`if`
+  // control structures stay valid inside the `{ …; }` group. Brace `${__base}`
+  // so an immediately-following multibyte affix (e.g. `·`) can't be swallowed
+  // into the variable name under a UTF-8 locale (bash name-parsing quirk).
+  return `__base="$({
+${body}
+})"
+[ -z "$__base" ] && exit 0
+printf '%s' "${pre}\${__base}${suf}"`;
 }
 
 /**
@@ -1934,12 +2031,15 @@ echo -n "$__bar $__pct%"`;
     type: "group-balance",
     name: "分组余额",
     icon: "bolt",
-    desc: "当前分组单平台预估剩余余额（仅单平台分组）",
-    defaultOptions: { prefix: "余额 " },
-    toBash: (o) => groupSegBash(`'.balance // 0 | (. * 100 | round) / 100' | awk '{printf "%.2f", $0}'`, o.prefix ?? "余额 "),
+    desc: "当前分组单平台预估剩余余额（动态色：<1天红 / <3天黄 / 否则绿）",
+    defaultOptions: { prefix: "余额 ", dynamicColor: false },
+    toBash: (o) => o.dynamicColor
+      ? groupBalanceDynBash(o.prefix ?? "余额 ")
+      : groupSegBash(`'.balance // 0 | (. * 100 | round) / 100' | awk '{printf "%.2f", $0}'`, o.prefix ?? "余额 "),
     toPreview: (o) => `${o.prefix ?? "余额 "}48.20`,
     fields: [
       { key: "prefix", label: "前缀", type: "string", placeholder: "余额 " },
+      { key: "dynamicColor", label: "动态色 (按可用天数)", type: "select", options: ["false", "true"] },
     ],
   },
   {
@@ -1958,11 +2058,15 @@ echo -n "$__bar $__pct%"`;
     type: "group-coding",
     name: "Coding Plan",
     icon: "permissions",
-    desc: "Coding Plan 各档利用率（仅单平台分组）",
-    defaultOptions: {},
-    toBash: () => groupSegBash(`-r '(.coding_plan // []) | map((.name | .[0:2]) + ":" + ((.utilization // 0) | round | tostring) + "%") | join(" ")'`, ""),
+    desc: "Coding Plan 各档利用率（动态色：fast红 / normal黄 / busy绿，红时显重置）",
+    defaultOptions: { dynamicColor: false },
+    toBash: (o) => o.dynamicColor
+      ? groupCodingDynBash()
+      : groupSegBash(`-r '(.coding_plan // []) | map((.name | .[0:2]) + ":" + ((.utilization // 0) | round | tostring) + "%") | join(" ")'`, ""),
     toPreview: () => "fi:23% we:41%",
-    fields: [],
+    fields: [
+      { key: "dynamicColor", label: "动态色 (按 pace)", type: "select", options: ["false", "true"] },
+    ],
   },
   {
     type: "group-requests",
@@ -2060,18 +2164,27 @@ echo -n "$__bar $__pct%"`;
     type: "context-tokens",
     name: "上下文 Tokens",
     icon: "core",
-    desc: "context_window.total_input/output_tokens — 输入/输出 token",
-    defaultOptions: { abbrev: true },
+    desc: "输入/输出 token，或 session 合计（total_input + total_output）",
+    defaultOptions: { abbrev: true, mode: "split" },
     toBash: (o) => {
       const fmt = o.abbrev
         ? `if . >= 1000000 then ((. / 100000 | round) / 10 | tostring) + "M" elif . >= 1000 then ((. / 100 | round) / 10 | tostring) + "K" else tostring end`
         : `tostring`;
+      // sum 模式：当前 session tokens = total_input + total_output（PRD 第 1 行紫色段）。
+      if (o.mode === "sum") {
+        return atomSegBash(
+          `-r 'if .context_window == null then empty else (((.context_window.total_input_tokens // 0) + (.context_window.total_output_tokens // 0)) | ${fmt}) end'`,
+        );
+      }
       return atomSegBash(
         `-r '((.context_window.total_input_tokens // empty) | ${fmt}) as $i | ((.context_window.total_output_tokens // 0) | ${fmt}) as $o | $i + "/" + $o'`,
       );
     },
-    toPreview: (o) => o.abbrev ? "89.5K/12.4K" : "89500/12400",
+    toPreview: (o) => o.mode === "sum"
+      ? (o.abbrev ? "101.9K" : "101900")
+      : (o.abbrev ? "89.5K/12.4K" : "89500/12400"),
     fields: [
+      { key: "mode", label: "模式", type: "select", options: ["split", "sum"] },
       { key: "abbrev", label: "缩写 (K/M)", type: "select", options: ["true", "false"] },
     ],
   },
@@ -2103,9 +2216,18 @@ echo -n "$__bar $__pct%"`;
     type: "context-cache",
     name: "缓存 Tokens",
     icon: "core",
-    desc: "current_usage.cache_creation/read_input_tokens — 缓存写入/读取",
-    defaultOptions: { abbrev: true },
+    desc: "缓存写入/读取 token，或缓存命中率 %（≤4 位小数）",
+    defaultOptions: { abbrev: true, mode: "tokens", prefix: "缓存 " },
     toBash: (o) => {
+      // 命中率模式：cache_read / (input + cache_read) × 100，printf 控小数位 ≤4；current_usage==null 降级空。
+      if (o.mode === "hitrate") {
+        const pfx = bashEscapeDq(o.prefix ?? "缓存 ");
+        return `__cu=$(echo "$input" | jq -r '.context_window.current_usage')
+[ -z "$__cu" ] || [ "$__cu" = "null" ] && exit 0
+__rate=$(echo "$input" | jq -r '.context_window.current_usage | (.cache_read_input_tokens // 0) as $r | (.input_tokens // 0) as $i | if ($i + $r) > 0 then ($r / ($i + $r) * 100) else 0 end')
+[ -z "$__rate" ] && exit 0
+echo -n "${pfx}$(printf '%.4f' "$__rate" | sed 's/0*$//; s/\\.$//')%"`;
+      }
       const fmt = o.abbrev
         ? `if . >= 1000000 then ((. / 100000 | round) / 10 | tostring) + "M" elif . >= 1000 then ((. / 100 | round) / 10 | tostring) + "K" else tostring end`
         : `tostring`;
@@ -2113,9 +2235,13 @@ echo -n "$__bar $__pct%"`;
         `-r 'if .context_window.current_usage == null then empty else ((.context_window.current_usage.cache_creation_input_tokens // 0) | ${fmt}) as $w | ((.context_window.current_usage.cache_read_input_tokens // 0) | ${fmt}) as $r | "w" + $w + " r" + $r end'`,
       );
     },
-    toPreview: (o) => o.abbrev ? "w20K r12.1K" : "w20000 r12100",
+    toPreview: (o) => o.mode === "hitrate"
+      ? `${o.prefix ?? "缓存 "}13.3578%`
+      : (o.abbrev ? "w20K r12.1K" : "w20000 r12100"),
     fields: [
+      { key: "mode", label: "模式", type: "select", options: ["tokens", "hitrate"] },
       { key: "abbrev", label: "缩写 (K/M)", type: "select", options: ["true", "false"] },
+      { key: "prefix", label: "命中率前缀", type: "string", placeholder: "缓存 " },
     ],
   },
   // Rate limits (per window)
@@ -2148,6 +2274,20 @@ echo -n "$__bar $__pct%"`;
     ],
   },
   // Git
+  {
+    type: "git-branch",
+    name: "Git 分支",
+    icon: "folder",
+    desc: "脚本内 git branch --show-current（非 git / 无分支降级空）",
+    defaultOptions: {},
+    // cwd 取自 workspace.current_dir，回退 .cwd，再回退当前目录；非 git 仓库 / 游离 HEAD → 空输出降级。
+    toBash: () => `__cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // "."')
+__b=$(git -C "$__cwd" branch --show-current 2>/dev/null)
+[ -z "$__b" ] && exit 0
+echo -n "$__b"`,
+    toPreview: () => "main",
+    fields: [],
+  },
   {
     type: "git-host",
     name: "Git 主机",
@@ -2428,20 +2568,66 @@ const SEGMENT_CATEGORIES: { id: string; label: string; types: SegmentType[] }[] 
   { id: "cost", label: "成本 / 执行", types: ["cost-usd", "session-duration", "api-duration", "lines-changed"] },
   { id: "context", label: "上下文", types: ["context-tokens", "context-max", "context-remaining", "context-cache"] },
   { id: "rate", label: "速率限制", types: ["rate-limit-5h", "rate-limit-7d"] },
-  { id: "git", label: "Git", types: ["git-host", "git-owner", "git-repo", "git-repo-full", "git-worktree"] },
+  { id: "git", label: "Git", types: ["git-branch", "git-host", "git-owner", "git-repo", "git-repo-full", "git-worktree"] },
   { id: "session", label: "目录 / 会话", types: ["cwd", "project-dir", "added-dirs", "session-id", "session-name", "transcript-path"] },
   { id: "worktree", label: "Worktree", types: ["worktree-name", "worktree-branch", "worktree-original-branch"] },
   { id: "pr", label: "Pull Request", types: ["pr-number", "pr-url", "pr-state"] },
   { id: "other", label: "其他", types: ["version", "output-style", "thinking", "token-warn", "agent", "custom"] },
 ];
 
-const DEFAULT_SEGMENTS: StatusLineSegment[] = [
-  { id: "s1", type: "model", enabled: true, newline: false, options: {} },
-  { id: "s3", type: "context-bar", enabled: true, newline: false, options: {} },
+/**
+ * Built-in default 3-line layout (PRD). Applied only when no `segments` exist
+ * (first run) or on explicit reset — existing user layouts are never overwritten.
+ *
+ * Mixed in-row separators (`·` row1/3, `|` row2, `[cost]` hugging, conditional
+ * `·worktree`) ride on per-segment reserved affix options (`affixPre`/`affixSuf`),
+ * with the global separator set empty (DEFAULT_SEPARATOR = "").
+ *
+ * Colors are fixed hex per PRD: model 蓝 / tokens 紫 / cost 灰 / ctx·cache 绿 /
+ * branch 黄 / version 灰. Row 3 coding/balance self-color dynamically (no fixed
+ * `color`) via group*DynBash.
+ */
+export const DEFAULT_SEGMENTS: StatusLineSegment[] = [
+  // ── Row 1: model · tokens[cost]·ctx%·缓存 X% ──
+  { id: "d-model", type: "model", enabled: true, newline: false, color: "#4A9EFF",
+    options: { format: "short", affixSuf: " · " } },
+  { id: "d-tokens", type: "context-tokens", enabled: true, newline: false, color: "#BF5AF2",
+    options: { mode: "sum", abbrev: true } },
+  { id: "d-cost", type: "cost-usd", enabled: true, newline: false, color: "#8E8E93",
+    options: { prefix: "$", affixPre: "[", affixSuf: "]·" } },
+  { id: "d-ctx", type: "context-pct", enabled: true, newline: false, color: "#34C759",
+    options: { affixSuf: "·" } },
+  { id: "d-cache", type: "context-cache", enabled: true, newline: false, color: "#34C759",
+    options: { mode: "hitrate", prefix: "缓存 " } },
+  // ── Row 2: branch[·worktree]|pwd ──
+  { id: "d-branch", type: "git-branch", enabled: true, newline: true, color: "#FFD60A",
+    options: {} },
+  { id: "d-worktree", type: "worktree-name", enabled: true, newline: false,
+    options: { affixPre: "·" } },
+  { id: "d-cwd", type: "cwd", enabled: true, newline: false,
+    options: { format: "full", affixPre: "|" } },
+  // ── Row 3: coding-or-balance · version ──
+  { id: "d-coding", type: "group-coding", enabled: true, newline: true,
+    options: { dynamicColor: true, affixSuf: " · " } },
+  { id: "d-balance", type: "group-balance", enabled: true, newline: false,
+    options: { dynamicColor: true, prefix: "余额 ", affixSuf: " · " } },
+  { id: "d-version", type: "version", enabled: true, newline: false, color: "#8E8E93",
+    options: { prefix: "v" } },
 ];
 
-/** Default global item separator (sits between adjacent items on a row). */
-const DEFAULT_SEPARATOR = " · ";
+/**
+ * Legacy global item separator. Kept as the back-compat seed for pre-existing
+ * layouts (stored.segments present) that never persisted an explicit separator —
+ * those layouts assumed a ` · ` gap and must keep it.
+ */
+const LEGACY_SEPARATOR = " · ";
+
+/**
+ * Built-in default 3-line layout separator. Empty: all in-row separators are
+ * carried by per-segment affixes so `·`/`|`/`[cost]` mix freely. Used only when
+ * no `segments` are stored (fresh install / explicit reset).
+ */
+const DEFAULT_SEPARATOR = "";
 
 /** Drop legacy manual `separator` segments — superseded by the global separator. */
 function dropLegacySeparators(segments: StatusLineSegment[]): StatusLineSegment[] {
@@ -2589,16 +2775,16 @@ function autoColorBash(type: SegmentType, body: string): string {
   }
   // Capture the segment's stdout (body is one or more `echo -n` lines), then
   // emit it wrapped in ANSI truecolor. `{ … ; }` groups multi-line bodies.
-  return `__t="$({ ${body.replace(/\n/g, "; ")}; })"\n${metric}\n${thresholds}\nprintf '\\033[38;2;%sm%s\\033[0m' "$__c" "$__t"`;
+  return `__t="$({\n${body}\n})"\n${metric}\n${thresholds}\nprintf '\\033[38;2;%sm%s\\033[0m' "$__c" "$__t"`;
 }
 
 /** Wrap an `echo -n "..."` snippet with fixed-color ANSI truecolor. */
 function fixedColorBash(body: string, rgb: [number, number, number]): string {
   const [r, g, b] = rgb;
-  return `__t="$({ ${body.replace(/\n/g, "; ")}; })"\nprintf '\\033[38;2;${r};${g};${b}m%s\\033[0m' "$__t"`;
+  return `__t="$({\n${body}\n})"\nprintf '\\033[38;2;${r};${g};${b}m%s\\033[0m' "$__t"`;
 }
 
-function generateStatusLineScript(segments: StatusLineSegment[], separator: string = ""): string {
+export function generateStatusLineScript(segments: StatusLineSegment[], separator: string = ""): string {
   const active = dropLegacySeparators(segments).filter(s => s.enabled);
   if (active.length === 0) return "#!/usr/bin/env bash\necho ''\n";
   // Bash literal for the separator (plain text, no ANSI). Empty → no separator.
@@ -2628,7 +2814,10 @@ function generateStatusLineScript(segments: StatusLineSegment[], separator: stri
       const def = SEGMENT_DEF_MAP.get(seg.type);
       if (!def) continue;
       const opts = { ...def.defaultOptions, ...seg.options };
-      const body = def.toBash(opts);
+      // Reserved affix options drive mixed in-row separators (see wrapAffix).
+      const affixPre = typeof opts.affixPre === "string" ? opts.affixPre : "";
+      const affixSuf = typeof opts.affixSuf === "string" ? opts.affixSuf : "";
+      const body = wrapAffix(def.toBash(opts), affixPre, affixSuf);
       let snippet: string;
       if (seg.autoColor && VALUE_COLORABLE.has(seg.type)) {
         snippet = autoColorBash(seg.type, body);
@@ -2734,10 +2923,13 @@ function StatusLinePreview({ segments, separator, empty }: { segments: StatusLin
             const def = SEGMENT_DEF_MAP.get(seg.type);
             if (!def) return null;
             const color = previewColor(seg);
+            const opts = { ...def.defaultOptions, ...seg.options };
+            const affixPre = typeof opts.affixPre === "string" ? opts.affixPre : "";
+            const affixSuf = typeof opts.affixSuf === "string" ? opts.affixSuf : "";
             return (
               <span key={seg.id} style={color ? { color } : undefined}>
                 {si > 0 && separator ? separator : ""}
-                {def.toPreview({ ...def.defaultOptions, ...seg.options })}
+                {affixPre}{def.toPreview(opts)}{affixSuf}
               </span>
             );
           })}
@@ -2973,13 +3165,15 @@ function StatusLinePanel({
   // Back-compat: when unset, seed from the first legacy `separator` segment's
   // char (if any) so existing layouts keep their visible gap; else the default.
   const seedSeparator = (): string => {
-    const legacy = (stored.segments ?? []).find(
+    const storedSegs = stored.segments as StatusLineSegment[] | undefined;
+    const legacy = (storedSegs ?? []).find(
       (s: StatusLineSegment) => s.type === "separator",
     );
     const legacyChar = legacy?.options?.char;
-    return typeof legacyChar === "string" && legacyChar.length > 0
-      ? legacyChar
-      : DEFAULT_SEPARATOR;
+    if (typeof legacyChar === "string" && legacyChar.length > 0) return legacyChar;
+    // Fresh install (no stored segments) → built-in default layout (empty sep,
+    // affix-carried separators). Pre-existing layouts keep the legacy ` · ` gap.
+    return storedSegs ? LEGACY_SEPARATOR : DEFAULT_SEPARATOR;
   };
   const separator: string = isMain
     ? (typeof stored.separator === "string" ? stored.separator : seedSeparator())
@@ -3088,6 +3282,15 @@ function StatusLinePanel({
   // Add a brand-new row: append a model segment that starts a new line.
   const addRow = () => {
     addSegment("model", segments.length > 0);
+  };
+
+  // Restore the built-in default 3-line layout (segments + empty affix-carried
+  // separator). Explicit user action only — never auto-applied over a saved layout.
+  const resetToDefaultLayout = () => {
+    setStored({
+      segments: DEFAULT_SEGMENTS.map(s => ({ ...s, options: { ...s.options } })),
+      separator: DEFAULT_SEPARATOR,
+    });
   };
 
   // Toggle alignment on the row that owns the given segment (set on its leader).
@@ -3303,6 +3506,11 @@ function StatusLinePanel({
 
               {/* Add segment / row */}
               <div style={{ position: "relative", display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
+                <button className="btn btn-ghost" style={{ fontSize: F.body, padding: "6px 14px", marginRight: "auto", color: "var(--text-tertiary)" }}
+                  onClick={resetToDefaultLayout}
+                  title={t("statusline.resetLayoutHint", "恢复内置默认 3 行布局")}>
+                  {t("statusline.resetLayout", "恢复默认布局")}
+                </button>
                 <button className="btn btn-ghost" style={{ fontSize: F.body, padding: "6px 14px" }}
                   onClick={addRow}>
                   {t("statusline.addRow")}

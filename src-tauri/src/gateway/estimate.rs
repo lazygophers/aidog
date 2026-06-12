@@ -115,6 +115,48 @@ pub fn apply_tier_delta(tier: &mut EstTier, tokens: f64) {
     // 冷启动（无 coef）：不预估，est_utilization 保持真值不动
 }
 
+/// 单 tier 的预期消耗速率分级（statusline 第 3 行动态色用）。
+///
+/// 语义：以「窗口内利用率随时间的预期推进」判定该档配额耗尽的快慢——
+///   - `Fast`：利用率已偏高 / 预期快于配额时间线（接近耗尽）→ 上游标红。
+///   - `Normal`：接近时间线 → 标黄。
+///   - `Busy`：利用率低 / 慢于时间线（仍宽裕）→ 标绿。
+///
+/// 数据不足（无窗口起止时间戳持久化）时退化为按当前 `est_utilization` 阈值估算：
+///   >= 80 → Fast；>= 40 → Normal；否则 Busy。
+/// 拿不到利用率（NaN/负）一律 `Normal` 降级。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TierPace {
+    Fast,
+    Normal,
+    Busy,
+}
+
+impl TierPace {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TierPace::Fast => "fast",
+            TierPace::Normal => "normal",
+            TierPace::Busy => "busy",
+        }
+    }
+}
+
+/// 由 tier 利用率估算 pace。无可靠窗口时间线时按利用率阈值降级。
+pub fn tier_pace(tier: &EstTier) -> TierPace {
+    let util = tier.est_utilization;
+    if !util.is_finite() || util < 0.0 {
+        return TierPace::Normal;
+    }
+    if util >= 80.0 {
+        TierPace::Fast
+    } else if util >= 40.0 {
+        TierPace::Normal
+    } else {
+        TierPace::Busy
+    }
+}
+
 /// 真查校准：用上游真值覆盖某 tier，并（方案 B）尝试拟合 coef。
 ///   - has_base（Kimi）：直接记 limit + est_utilization = 真值。
 ///   - 方案 B：拟合 `coef = (util_real - util_at_last_real) / tokens_since_real`，
