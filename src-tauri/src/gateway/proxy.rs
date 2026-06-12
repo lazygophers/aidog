@@ -530,13 +530,21 @@ async fn handle_proxy(
 
     let actual_model = route.target_model;
 
-    // 尝试匹配端点：按 source_protocol 查找平台是否支持对应协议的端点
-    let (target_protocol_enum, target_base_url, client_type, coding_plan) = route.platform.endpoints
+    // 尝试匹配端点：按 source_protocol 查找平台是否支持对应协议的端点。
+    // 先精确匹配；openai_responses 源（Codex）若无 Responses 端点，回退到 openai 端点
+    // （普通 chat/completions 平台），出站经 to_openai 转换。
+    let ep_proto = |ep: &super::models::PlatformEndpoint| format!("{:?}", ep.protocol).to_lowercase();
+    let matched_ep = route.platform.endpoints
         .iter()
-        .find(|ep| {
-            let ep_str = format!("{:?}", ep.protocol).to_lowercase();
-            ep_str == source_protocol
-        })
+        .find(|ep| ep_proto(ep) == source_protocol)
+        .or_else(|| {
+            if source_protocol == "openai_responses" {
+                route.platform.endpoints.iter().find(|ep| ep_proto(ep) == "openai")
+            } else {
+                None
+            }
+        });
+    let (target_protocol_enum, target_base_url, client_type, coding_plan) = matched_ep
         .map(|ep| (&ep.protocol, ep.base_url.clone(), ep.client_type.clone(), ep.coding_plan))
         .unwrap_or((&route.platform.platform_type, route.platform.base_url.clone(), ClientType::Default, false));
 
@@ -1326,7 +1334,8 @@ fn replace_model_in_json(bytes: &[u8], original_model: &str) -> Vec<u8> {
 
 /// 根据请求路径自动推断入站 AI 协议格式
 /// - /v1/messages → anthropic
-/// - /v1/chat/completions, /v1/completions, /v1/responses, /models, /images, /audio → openai
+/// - /v1/responses → openai_responses（Codex，body 用 input）
+/// - /v1/chat/completions, /v1/completions, /models, /images, /audio → openai
 /// - /v1beta/models/... → gemini
 ///   回退到 anthropic
 fn detect_source_protocol(path: &str) -> String {
@@ -1341,9 +1350,12 @@ fn detect_source_protocol(path: &str) -> String {
 
     if api_path.starts_with("/v1/messages") {
         "anthropic".to_string()
+    } else if api_path.starts_with("/v1/responses") {
+        // OpenAI Responses API（Codex 等）用 `input` 而非 `messages`，
+        // 必须单独派发到 openai_responses 入站解析，不能与 chat/completions 同组。
+        "openai_responses".to_string()
     } else if api_path.starts_with("/v1/chat/completions")
         || api_path.starts_with("/v1/completions")
-        || api_path.starts_with("/v1/responses")
         || api_path.starts_with("/v1/embeddings")
         || api_path.starts_with("/v1/images")
         || api_path.starts_with("/v1/audio")
