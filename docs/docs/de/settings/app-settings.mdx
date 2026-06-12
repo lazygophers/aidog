@@ -1,0 +1,59 @@
+---
+title: Anwendungseinstellungen
+---
+
+# Anwendungseinstellungen
+
+Konfigurieren Sie das globale Verhalten von AiDog auf der Seite **„Einstellungen"**.
+
+## Proxy-Einstellungen
+
+| Einstellung | Standard | Beschreibung |
+|---------|---------|-------------|
+| Proxy-Port | `7860` | HTTP-Proxy-Listen-Port |
+| Anfrage-Timeout | `300s` | Upstream-Anfrage-Timeout |
+
+## Protokolleinstellungen
+
+Siehe [Protokolleinstellungen](/logs/log-settings) für Details.
+
+## Datenverwaltung
+
+### Daten exportieren
+
+- Plattformkonfiguration exportieren (JSON)
+- Gruppenkonfiguration exportieren (JSON)
+- Statistiken exportieren (CSV)
+
+### Daten bereinigen
+
+- Abgelaufene Protokolle bereinigen
+- Statistiken zurücksetzen
+
+## Oberflächeneinstellungen
+
+### Sprache
+
+7 Oberflächensprachen unterstützt:
+- 简体中文 (zh-CN)
+- English (en-US)
+- العربية (ar-SA)
+- Français (fr-FR)
+- Deutsch (de-DE)
+- Русский (ru-RU)
+- 日本語 (ja-JP)
+
+### Themes
+
+Siehe [Themes](/settings/themes) für Details.
+
+## Datenspeicherung
+
+Alle Daten werden lokal gespeichert:
+
+| Daten | Pfad |
+|------|------|
+| Datenbank | `~/.aidog/aidog.db` |
+| Konfiguration | `~/.aidog/config.json` |
+
+Daten verlassen nie Ihr Gerät und werden nie auf einen Server hochgeladen.

@@ -1,0 +1,36 @@
+---
+title: AiDog — Proxy de puerta de enlace API de IA
+---
+
+# AiDog
+
+AiDog es una aplicación de escritorio multiplataforma (macOS / Windows / Linux) que actúa como **proxy de puerta de enlace API de IA**, ayudándote a gestionar claves API de múltiples plataformas de IA, enrutar solicitudes inteligentemente y rastrear el uso y los costos.
+
+## Funciones principales
+
+- **Agregación multiplataforma** — Gestión de APIs de OpenAI, Anthropic, Gemini, DeepSeek, Qwen y más de 50 plataformas
+- **Enrutamiento inteligente** — Selección automática de plataforma mediante grupos y reglas de mapeo de modelos
+- **Analíticas de uso** — Seguimiento de tokens en tiempo real, estimación de costos, consulta de saldos
+- **Sistema de registros** — 3 niveles de granularidad de registro, políticas de retención configurables
+- **Integración con Codex** — Soporte nativo para OpenAI Codex / Claude Code y otros asistentes de codificación
+- **Multiprotocolo** — Protocolos nativos OpenAI Chat/Completions/Responses, Anthropic, Gemini
+- **Personalización de temas** — Liquid Glass, Nord, Dracula y más
+- **Bandeja del sistema** — Visualización persistente de saldo y estado
+
+## Inicio rápido
+
+```
+Descargar → Iniciar → Agregar primera plataforma → Configurar dirección del proxy → Comenzar
+```
+
+→ [Guía de instalación](/getting-started/installation)
+
+## Stack tecnológico
+
+| Capa | Tecnología |
+|---|---|
+| Escritorio | Tauri 2.0 |
+| Frontend | React 19 + TypeScript |
+| Backend | Rust + Axum |
+| Base de datos | SQLite |
+| Build | Vite + Yarn |

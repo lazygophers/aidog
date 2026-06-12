@@ -1,0 +1,69 @@
+---
+title: Add Platform
+---
+
+# Add Platform
+
+Platforms are the core concept in AiDog — each represents an AI API service endpoint.
+
+## Adding Steps
+
+1. Go to the **"Platforms"** page
+2. Click the **"+"** button in the top right
+3. Fill in the configuration:
+
+### Basic Configuration
+
+| Field | Description | Example |
+|-------|-------------|---------|
+| Name | Display name | `My OpenAI` |
+| Base URL | API base URL (with version prefix) | `https://api.openai.com/v1` |
+| API Key | Platform API key | `sk-...` |
+| Protocol | Request protocol type | `openai_chat` |
+
+### Protocol Selection
+
+Select the protocol matching your target platform. AiDog includes 50+ platform presets that auto-fill the protocol.
+
+Common protocols:
+- **openai_chat** — OpenAI-compatible Chat Completions (most universal)
+- **openai_completions** — OpenAI Text Completions (legacy)
+- **openai_responses** — OpenAI Responses API (used by Codex)
+- **anthropic** — Anthropic Claude native protocol
+- **gemini** — Google Gemini native protocol
+
+See [Protocol Types](/platforms/protocols) for details.
+
+### Advanced Options
+
+- **Model mapping** — Map requested model names to actual platform models (see [Model Mapping](/platforms/model-mapping))
+- **Enable/Disable** — Pause a platform without deleting it
+
+## Editing Platforms
+
+Click a platform card to view details and modify settings. Click "Save" after changes.
+
+## Deleting Platforms
+
+Click the delete button on the platform card. Related logs and statistics are preserved.
+
+## FAQ
+
+### How to fill Base URL?
+
+The Base URL is the complete base path including the version prefix:
+
+| Platform | Base URL |
+|----------|----------|
+| OpenAI | `https://api.openai.com/v1` |
+| Anthropic | `https://api.anthropic.com/v1` |
+| DeepSeek | `https://api.deepseek.com/v1` |
+| Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+
+:::caution{title="Note"}
+Do not append `/chat/completions` to the Base URL. AiDog handles this automatically.
+:::
+
+### API Key Security
+
+API keys are stored in the local SQLite database and never uploaded to any server.

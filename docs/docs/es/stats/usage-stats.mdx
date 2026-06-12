@@ -1,0 +1,44 @@
+---
+title: Estadísticas de uso
+---
+
+# Estadísticas de uso
+
+AiDog rastrea automáticamente los datos de uso de todas las solicitudes del proxy.
+
+## Página de estadísticas
+
+Ve a la página **"Estadísticas"** para ver un resumen del uso.
+
+### Estadísticas de hoy
+
+- Total de solicitudes
+- Tasa de éxito/fallo
+- Uso total de tokens (Prompt + Completion)
+- Costo estimado
+
+### Tendencias
+
+Ver por día/semana/mes:
+- Tendencia de cantidad de solicitudes
+- Tendencia de uso de tokens
+- Tendencia de costos
+
+### Estadísticas de grupos
+
+Las estadísticas de las tarjetas de grupo se agregan desde las plataformas asociadas (sumadas en el frontend).
+
+## Dimensiones
+
+Ver estadísticas por:
+- **Por plataforma** — Uso por plataforma
+- **Por grupo** — Uso por grupo
+- **Por modelo** — Uso por modelo
+- **Por período** — Agregación diaria/semanal/mensual
+
+## Fuente de datos
+
+Las estadísticas se agregan desde la tabla `proxy_logs`:
+- Uso de tokens: Extraído de respuestas API upstream
+- Costo estimado: Calculado vía tabla de precios + nombre del modelo (cadena de respaldo `resolve_price`)
+- Conteo de solicitudes: Agregación de filas de registro

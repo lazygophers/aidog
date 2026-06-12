@@ -1,0 +1,55 @@
+---
+title: Règles de routage
+---
+
+# Règles de routage
+
+Les règles de routage déterminent comment AiDog fait correspondre les requêtes entrantes au groupe et à la plateforme appropriés.
+
+## Flux de correspondance
+
+```
+Requête entrante → Détection protocole → Correspondance groupe → Sélection plateforme → Mappage modèle → Transfert
+```
+
+## Correspondance de groupe
+
+Les requêtes sont associées aux groupes par priorité :
+
+1. **Correspondance par nom de modèle** — Le nom de modèle demandé est dans la table de mappage d'un groupe
+2. **Groupe par défaut** — Utilisé quand aucune correspondance n'est trouvée
+3. **Premier groupe** — Utilisé quand aucun groupe par défaut n'est défini
+
+## Sélection de plateforme
+
+Dans un groupe, les plateformes sont sélectionnées par stratégie :
+
+1. Vérifie si la plateforme est activée
+2. Vérifie si la clé API est valide
+3. Sélectionne une plateforme selon la stratégie
+4. Envoie la requête
+
+Si la plateforme sélectionnée retourne une erreur (ex. : 429 limite de débit), AiDog essaie automatiquement la plateforme suivante (basculement).
+
+## Basculement (failover)
+
+Les plateformes dans un groupe sont ordonnées. Quand la plateforme actuelle échoue :
+
+1. Journalise l'échec
+2. Essaie automatiquement la plateforme suivante
+3. Si toutes les plateformes échouent, retourne une erreur au client
+
+## Chaîne de mappage de modèles
+
+Ordre de résolution des noms de modèles :
+
+1. **Mappage au niveau groupe** — Si le groupe définit des mappages
+2. **Mappage au niveau plateforme** — Si la plateforme définit des mappages
+3. **Valeur originale** — Utilise le nom de modèle original de la requête
+
+```
+Client demande : gpt-4o
+  → Mappage groupe : gpt-4o → deepseek-chat
+  → Mappage plateforme : (aucun)
+  → Envoyé à la plateforme : deepseek-chat
+```

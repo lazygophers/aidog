@@ -1,0 +1,68 @@
+---
+title: プラットフォームの追加
+---
+
+# プラットフォームの追加
+
+プラットフォームは AiDog の中核概念です — 各プラットフォームは AI API サービスの接続先を表します。
+
+## 追加手順
+
+1. **「プラットフォーム」** ページに移動
+2. 右上の **「+」** ボタンをクリック
+3. 設定を入力：
+
+### 基本設定
+
+| 項目 | 説明 | 例 |
+|------|------|-----|
+| 名前 | 表示名 | `My OpenAI` |
+| Base URL | API ベース URL（バージョンプレフィックス付き） | `https://api.openai.com/v1` |
+| API Key | プラットフォームの API キー | `sk-...` |
+| プロトコル | リクエストプロトコルタイプ | `openai_chat` |
+
+### プロトコル選択
+
+対象プラットフォームに一致するプロトコルを選択します。AiDog には 50 以上のプラットフォームプリセットが内蔵されており、選択するとプロトコルが自動入力されます。
+
+主なプロトコル：
+- **openai_chat** — OpenAI 互換 Chat Completions（最も汎用的）
+- **openai_completions** — OpenAI Text Completions（レガシー）
+- **openai_responses** — OpenAI Responses API（Codex 用）
+- **anthropic** — Anthropic Claude ネイティブプロトコル
+- **gemini** — Google Gemini ネイティブプロトコル
+
+詳細は [プロトコルの種類](/platforms/protocols) を参照。
+
+### 詳細オプション
+
+- **モデルマッピング** — リクエストのモデル名をプラットフォームの実際のモデル名にマッピング（[モデルマッピング](/platforms/model-mapping)参照）
+- **有効/無効** — プラットフォームを削除せずに一時停止
+
+## プラットフォームの編集
+
+プラットフォームカードをクリックして詳細を表示し、設定を変更。変更後「保存」をクリック。
+
+## プラットフォームの削除
+
+プラットフォームカード右上の削除ボタンをクリック。関連ログと統計データは保持されます。
+
+## よくある質問
+
+### Base URL の入力方法
+
+Base URL はバージョンプレフィックスを含む完全なベースパスです：
+
+| プラットフォーム | Base URL |
+|----------|----------|
+| OpenAI | `https://api.openai.com/v1` |
+| Anthropic | `https://api.anthropic.com/v1` |
+| DeepSeek | `https://api.deepseek.com/v1` |
+
+:::caution{title="注意"}
+Base URL の末尾に `/chat/completions` を追加しないでください。AiDog が自動的に処理します。
+:::
+
+### API キーのセキュリティ
+
+API キーはローカルの SQLite データベースに保存され、外部サーバーにアップロードされることはありません。

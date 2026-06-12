@@ -1,0 +1,14 @@
+{
+  "name": "aidog-docs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "rspress dev",
+    "build": "rspress build",
+    "preview": "rspress preview"
+  },
+  "dependencies": {
+    "rspress": "^2.0.14",
+    "@rspress/core": "^2.0.14"
+  }
+}

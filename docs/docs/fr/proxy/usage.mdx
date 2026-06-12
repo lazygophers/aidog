@@ -1,0 +1,83 @@
+---
+title: Utilisation
+---
+
+# Utilisation du proxy
+
+AiDog exécute un serveur proxy HTTP local qui reçoit et transmet les requêtes d'API IA.
+
+## Adresse du proxy
+
+Adresse proxy par défaut :
+
+```
+http://127.0.0.1:7860
+```
+
+Le port peut être modifié dans **« Paramètres »**.
+
+## Utilisation de base
+
+Pointez tout client IA supportant les adresses API personnalisées vers AiDog :
+
+| Type de client | Configuration |
+|-------------|---------------|
+| SDK OpenAI | Définir `base_url` sur l'adresse proxy |
+| curl | Requêter directement l'adresse proxy |
+| Applications web | Définir l'endpoint API sur le proxy |
+| Assistants de codage | Définir l'URL de base de l'API |
+
+### Python (SDK OpenAI)
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://127.0.0.1:7860/v1",
+    api_key="any-value"  # AiDog utilise votre vraie clé configurée
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Bonjour !"}]
+)
+```
+
+### Node.js
+
+```javascript
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  baseURL: 'http://127.0.0.1:7860/v1',
+  apiKey: 'any-value',
+});
+
+const response = await client.chat.completions.create({
+  model: 'gpt-4o',
+  messages: [{ role: 'user', content: 'Bonjour !' }],
+});
+```
+
+### curl
+
+```bash
+curl http://127.0.0.1:7860/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer any-value" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Bonjour !"}]
+  }'
+```
+
+## Streaming
+
+AiDog supporte entièrement le streaming SSE (Server-Sent Events). Les requêtes streaming des clients sont transparentement transmises à la plateforme amont.
+
+## Timeout
+
+Les requêtes proxy ont une protection de timeout :
+- Timeout par défaut : 300 secondes
+- Configurable dans les paramètres
+- Retourne 504 Gateway Timeout à l'expiration

@@ -1,0 +1,63 @@
+---
+title: Schnellstart
+---
+
+# Schnellstart
+
+Starten Sie mit AiDog in 5 Minuten.
+
+## Schritt 1: Plattform hinzufügen
+
+1. Klicken Sie auf **„Plattformen"** in der Seitenleiste
+2. Klicken Sie auf **„+ Hinzufügen"**
+3. Füllen Sie die Details aus:
+   - **Name** — z.B. `Mein OpenAI`
+   - **Base URL** — API-Basis-URL, z.B. `https://api.openai.com/v1`
+   - **API Key** — Ihr Plattform-API-Schlüssel
+   - **Protokoll** — Passendes Protokoll wählen (Standard: `openai_chat`)
+4. Auf Speichern klicken
+
+:::tip{title="Hinweis"}
+Die Base URL enthält bereits das Versionspräfix (z.B. `/v1`). AiDog hängt automatisch `/chat/completions` an.
+:::
+
+## Schritt 2: Proxy konfigurieren
+
+Setzen Sie den API-Endpunkt in Ihrem KI-Client auf die Proxy-Adresse von AiDog:
+
+```
+http://127.0.0.1:7860/v1
+```
+
+Der API-Key kann ein beliebiger Wert sein (AiDog verwendet Ihren konfigurierten echten Schlüssel).
+
+## Schritt 3: Nutzung starten
+
+Alle Anfragen an `http://127.0.0.1:7860` werden nun über AiDog geroutet:
+
+- Anfragen werden an die passende Plattform geroutet
+- Nutzung wird automatisch aufgezeichnet
+- Kosten werden automatisch geschätzt
+- Protokolle sind auf der „Protokolle"-Seite einsehbar
+
+## Funktionsprüfung
+
+Testen Sie mit curl:
+
+```bash
+curl http://127.0.0.1:7860/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer any-value" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Hallo!"}]
+  }'
+```
+
+Wenn Sie eine normale KI-Antwort erhalten, funktioniert der Proxy!
+
+## Nächste Schritte
+
+- [Protokolltypen](/platforms/protocols) — Unterstützte Protokolle verstehen
+- [Gruppenverwaltung](/groups/manage-groups) — Routing mit Gruppen steuern
+- [Codex-Integration](/proxy/codex-integration) — Programmierassistenten verbinden

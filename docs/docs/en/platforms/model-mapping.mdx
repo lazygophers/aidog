@@ -1,0 +1,37 @@
+---
+title: Model Mapping
+---
+
+# Model Mapping
+
+Model mapping allows you to translate model names from client requests to the actual model names supported by the platform.
+
+## Use Cases
+
+- Client requests `gpt-4o`, but you want to route to DeepSeek's `deepseek-chat`
+- Standardize model naming across platforms
+- A/B test equivalent models across platforms
+
+## Configuration
+
+Add mapping rules in the platform's "Model Mapping" section:
+
+| Request Model | Maps To |
+|---------------|---------|
+| `gpt-4o` | `deepseek-chat` |
+| `claude-3-opus` | `claude-3-opus-20240229` |
+
+### Mapping Rules
+
+1. **Exact match** — Only maps when the model name matches exactly
+2. **Preserve original** — Unmatched model names pass through unchanged
+3. **Priority** — Platform-level mappings apply first, then group-level mappings
+
+## Using in Groups
+
+Model mapping can be configured at two levels:
+
+- **Platform level** — Applies to all requests on that platform
+- **Group level** — Only applies within that group's routing rules
+
+Group-level mappings take precedence over platform-level mappings. See [Routing Rules](/groups/routing-rules).

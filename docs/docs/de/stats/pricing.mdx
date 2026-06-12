@@ -1,0 +1,39 @@
+---
+title: Preise und Abrechnung
+---
+
+# Preise und Abrechnung
+
+AiDog schätzt Anfragenkosten automatisch basierend auf Modellpreis-Tabellen.
+
+## Kostenschätzung
+
+Nach jeder Anfrage führt AiDog Folgendes durch:
+1. Token-Nutzung aus der Upstream-Antwort extrahieren
+2. Einheitspreis des Modells in der Preis-Tabelle nachschlagen
+3. `Kosten = Prompt-Tokens × Eingabepreis + Completion-Tokens × Ausgabepreis` berechnen
+
+## Preisquellen
+
+AiDog enthält integrierte Preisdaten und unterstützt:
+- **Integrierte Preise** — Offizielle Preise für Hauptmodelle
+- **Benutzerdefinierte Preise** — Manuelles Setzen von Preisen für bestimmte Modelle
+- **Preissynchronisation** — Automatisches Abrufen aktueller Preise von Plattformen
+
+## Geschätztes-Kosten-Feld
+
+Das `est_cost`-Feld jedes Protokolleintrags speichert die geschätzten Kosten:
+- Verwendet die `resolve_price`-Fallback-Kette, um sicherzustellen, dass immer ein Preis verfügbar ist
+- Fallback-Reihenfolge: Benutzerdefinierte Preise → Integrierte Preise → Standardpreis
+| Frontend verwendet `SUM(est_cost)` für Tages-/Monatskosten-Aggregation
+
+:::tip{title="Hinweis"}
+Geschätzte Kosten sind nur Richtwerte. Tatsächliche Kosten basieren auf der Plattformabrechnung.
+:::
+
+## Kosten einsehen
+
+Auf der Seite **„Statistiken"**, Tab „Preise":
+- Preise für jedes Modell einsehen
+- Benutzerdefinierte Preise bearbeiten
+| Preissynchronisation auslösen

@@ -1,0 +1,39 @@
+---
+title: Tarification et facturation
+---
+
+# Tarification et facturation
+
+AiDog estime automatiquement les coûts des requêtes basé sur les tables de tarification des modèles.
+
+## Estimation des coûts
+
+Après chaque requête, AiDog :
+1. Extrait l'utilisation des tokens de la réponse amont
+2. Recherche le prix unitaire du modèle dans la table de tarification
+3. Calcule `Coût = Tokens Prompt × Prix entrée + Tokens Completion × Prix sortie`
+
+## Sources de tarification
+
+AiDog inclut des données de tarification intégrées et supporte :
+- **Tarification intégrée** — Prix officiels des modèles principaux
+- **Tarification personnalisée** — Définir manuellement les prix pour des modèles spécifiques
+- **Synchronisation des prix** — Récupérer automatiquement les derniers prix depuis les plateformes
+
+## Champ de coût estimé
+
+Le champ `est_cost` de chaque entrée de journal enregistre le coût estimé :
+- Utilise la chaîne de repli `resolve_price` pour garantir qu'un prix est toujours disponible
+- Ordre de repli : Tarification personnalisée → Tarification intégrée → Prix par défaut
+- Le frontend utilise `SUM(est_cost)` pour agréger les coûts quotidiens/mensuels
+
+:::tip{title="Note"}
+Les coûts estimés sont donnés à titre indicatif uniquement. Les coûts réels sont basés sur la facturation de la plateforme.
+:::
+
+## Consultation des coûts
+
+Dans la page **« Statistiques »**, onglet « Tarification » :
+- Consultez la tarification de chaque modèle
+- Modifiez la tarification personnalisée
+- Déclenchez la synchronisation des prix

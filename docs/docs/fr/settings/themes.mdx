@@ -1,0 +1,41 @@
+---
+title: Thèmes
+---
+
+# Thèmes
+
+AiDog propose plusieurs thèmes intégrés, chacun avec des modes Light et Dark.
+
+## Thèmes intégrés
+
+| Thème | Style |
+|-------|-------|
+| Liquid Glass | Glassmorphisme, translucidité |
+| Nord | Tons bleus arctiques, calme |
+| Dracula | Thème sombre, palette populaire |
+| Catppuccin | Couleurs chaleureuses, doux pour les yeux |
+| Solarized | Palette scientifique classique |
+
+## Changer de thème
+
+Sélectionnez un thème dans **« Paramètres »** → « Thèmes ».
+
+### Mode Light/Dark
+
+Chaque thème supporte les modes Light et Dark, suivant les paramètres système ou basculant manuellement.
+
+## Architecture des thèmes
+
+Les thèmes sont implémentés via un système de variables CSS :
+- Chaque thème fournit un jeu de variables CSS light + dark
+- Les fichiers de variables se trouvent dans le répertoire `src/themes/`
+- Le changement de thème remplace le jeu de variables CSS
+
+### Thèmes personnalisés
+
+Pour créer un thème personnalisé :
+
+1. Copiez un fichier de thème existant comme modèle
+2. Modifiez les valeurs des variables CSS
+3. Enregistrez le nouveau thème dans `src/themes/index.ts`
+4. Recompilez l'application

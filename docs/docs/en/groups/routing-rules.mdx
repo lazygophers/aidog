@@ -1,0 +1,55 @@
+---
+title: Routing Rules
+---
+
+# Routing Rules
+
+Routing rules determine how AiDog matches inbound requests to the appropriate group and platform.
+
+## Matching Flow
+
+```
+Inbound Request → Detect Protocol → Match Group → Select Platform → Map Model → Forward
+```
+
+## Group Matching
+
+Requests are matched to groups by priority:
+
+1. **Model name match** — Request model name is in a group's model mapping table
+2. **Default group** — Used when no match is found
+3. **First group** — Used when no default group is set
+
+## Platform Selection
+
+Within a group, platforms are selected by strategy:
+
+1. Check if the platform is enabled
+2. Check if the API key is valid
+3. Select one platform by strategy
+4. Send the request
+
+If the selected platform returns an error (e.g. 429 rate limit), AiDog automatically tries the next platform (failover).
+
+## Failover
+
+Platforms within a group are ordered. When the current platform fails:
+
+1. Log the failure
+2. Automatically try the next platform
+3. If all platforms fail, return an error to the client
+
+## Model Mapping Chain
+
+Model name resolution order:
+
+1. **Group-level mapping** — If the group defines model mappings
+2. **Platform-level mapping** — If the platform defines model mappings
+3. **Original value** — Use the original model name from the request
+
+```
+Client requests: gpt-4o
+  → Group mapping: gpt-4o → deepseek-chat
+  → Platform mapping: (none)
+  → Sent to platform: deepseek-chat
+```

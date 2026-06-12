@@ -1,0 +1,68 @@
+---
+title: Agregar plataforma
+---
+
+# Agregar plataforma
+
+Las plataformas son el concepto central de AiDog — cada una representa un punto de acceso a un servicio de API de IA.
+
+## Pasos para agregar
+
+1. Ve a la página **"Plataformas"**
+2. Haz clic en el botón **"+"** en la esquina superior derecha
+3. Completa la configuración:
+
+### Configuración básica
+
+| Campo | Descripción | Ejemplo |
+|-------|-------------|---------|
+| Nombre | Nombre para mostrar | `Mi OpenAI` |
+| Base URL | URL base del API (con prefijo de versión) | `https://api.openai.com/v1` |
+| API Key | Clave API de la plataforma | `sk-...` |
+| Protocolo | Tipo de protocolo de solicitud | `openai_chat` |
+
+### Selección de protocolo
+
+Selecciona el protocolo que coincida con tu plataforma destino. AiDog incluye más de 50 preajustes de plataforma que completan automáticamente el protocolo.
+
+Protocolos comunes:
+- **openai_chat** — Chat Completions compatible con OpenAI (el más universal)
+- **openai_completions** — Text Completions de OpenAI (heredado)
+- **openai_responses** — Responses API de OpenAI (usado por Codex)
+- **anthropic** — Protocolo nativo de Anthropic Claude
+- **gemini** — Protocolo nativo de Google Gemini
+
+Ver [Tipos de protocolos](/platforms/protocols) para más detalles.
+
+### Opciones avanzadas
+
+- **Mapeo de modelos** — Mapear nombres de modelos solicitados a los modelos reales de la plataforma (ver [Mapeo de modelos](/platforms/model-mapping))
+- **Activar/Desactivar** — Pausar una plataforma sin eliminarla
+
+## Editar plataforma
+
+Haz clic en una tarjeta de plataforma para ver detalles y modificar configuración. Haz clic en "Guardar" después de los cambios.
+
+## Eliminar plataforma
+
+Haz clic en el botón de eliminar en la tarjeta de plataforma. Los registros y estadísticas relacionados se conservan.
+
+## Preguntas frecuentes
+
+### Cómo completar la Base URL
+
+La Base URL es la ruta base completa incluyendo el prefijo de versión:
+
+| Plataforma | Base URL |
+|------------|----------|
+| OpenAI | `https://api.openai.com/v1` |
+| Anthropic | `https://api.anthropic.com/v1` |
+| DeepSeek | `https://api.deepseek.com/v1` |
+
+:::caution{title="Nota"}
+No agregues `/chat/completions` al final de la Base URL. AiDog lo gestiona automáticamente.
+:::
+
+### Seguridad de la clave API
+
+Las claves API se almacenan en la base de datos SQLite local y nunca se suben a ningún servidor.

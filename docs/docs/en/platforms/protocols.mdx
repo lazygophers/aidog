@@ -1,0 +1,66 @@
+---
+title: Protocols
+---
+
+# Protocol Types
+
+AiDog supports multiple AI API protocols for both inbound request detection and outbound request conversion.
+
+## Supported Protocols
+
+### OpenAI Series
+
+| Protocol | Description | Endpoint |
+|----------|-------------|----------|
+| `openai_chat` | Chat Completions API | `/v1/chat/completions` |
+| `openai_completions` | Text Completions API (legacy) | `/v1/completions` |
+| `openai_responses` | Responses API (Codex) | `/v1/responses` |
+
+### Anthropic
+
+| Protocol | Description | Endpoint |
+|----------|-------------|----------|
+| `anthropic` | Claude Messages API | `/v1/messages` |
+
+### Google
+
+| Protocol | Description | Endpoint |
+|----------|-------------|----------|
+| `gemini` | Gemini Generate Content API | `/v1beta/models/{model}:generateContent` |
+
+### Others
+
+| Protocol | Description |
+|----------|-------------|
+| `minimax` | MiniMax native protocol |
+| `glm` | Zhipu GLM native protocol |
+
+## Auto-Detection
+
+AiDog automatically detects the inbound protocol based on the request path:
+
+- `/v1/chat/completions` → `openai_chat`
+- `/v1/completions` → `openai_completions`
+- `/v1/responses` → `openai_responses`
+
+This means you can serve different client types through the same proxy address.
+
+## Protocol Conversion
+
+Inbound and outbound protocols can differ. AiDog automatically handles conversion:
+
+1. Parse inbound request (detected protocol)
+2. Convert to internal format
+3. Transform to target platform's outbound protocol
+4. Send the request
+
+Example: Client sends `openai_chat` → AiDog converts to `anthropic` protocol → sends to Claude.
+
+## Platform Presets
+
+AiDog includes 50+ built-in platform presets, each containing:
+- Default Base URL
+- Default protocol
+- Supported model list
+
+Selecting a preset auto-fills these values.

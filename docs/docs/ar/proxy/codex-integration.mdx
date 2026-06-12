@@ -1,0 +1,55 @@
+---
+title: تكامل Codex
+---
+
+# تكامل Codex
+
+يدعم AiDog أصلياً OpenAI Codex CLI و Claude Code ومساعدي البرمجة بالذكاء الاصطناعي الآخرين.
+
+## OpenAI Codex
+
+### التكوين
+
+في ملف تكوين Codex `~/.codex/config.toml`:
+
+```toml
+[provider]
+name = "openai"
+base_url = "http://127.0.0.1:7860/v1"
+api_key = "any-value"
+
+[model]
+name = "o3"
+```
+
+### ملاحظات
+
+- يستخدم Codex **Responses API** (`/v1/responses`). يكشف AiDog ويوجه تلقائياً.
+- تأكد من تفعيل بروتوكول `openai_responses` على المنصة المستهدفة.
+- أضف تعيينات نماذج على مستوى المنصة أو المجموعة حسب الحاجة.
+
+## Claude Code
+
+### التكوين
+
+تعيين متغيرات البيئة:
+
+```bash
+export ANTHROPIC_BASE_URL="http://127.0.0.1:7860"
+export ANTHROPIC_API_KEY="any-value"
+```
+
+أو تكوين API base URL في إعدادات Claude Code.
+
+### ملاحظات
+
+- يستخدم Claude Code **البروتوكول الأصلي لـ Anthropic**
+- تأكد من أن المنصة المستهدفة تدعم بروتوكول Anthropic أو تكوين تحويل البروتوكول
+
+## مساعدون آخرون
+
+أي أداة تدعم عناوين API مخصصة يمكنها استخدام AiDog كوكيل:
+
+1. تعيين API base URL إلى `http://127.0.0.1:7860`
+2. تعيين مفتاح API إلى أي قيمة
+3. التأكد من أن AiDog لديه منصة وبروتوكول مطابقان مكوّنان

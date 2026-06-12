@@ -1,0 +1,39 @@
+---
+title: Pricing & Billing
+---
+
+# Pricing & Billing
+
+AiDog automatically estimates request costs based on model pricing tables.
+
+## Cost Estimation
+
+After each request, AiDog:
+1. Extracts token usage from the upstream response
+2. Looks up the model's unit price in the pricing table
+3. Calculates `Cost = Prompt Tokens × Input Price + Completion Tokens × Output Price`
+
+## Pricing Sources
+
+AiDog includes built-in pricing data and supports:
+- **Built-in pricing** — Official pricing for mainstream models
+- **Custom pricing** — Manually set prices for specific models
+- **Price sync** — Automatically fetch latest pricing from platforms
+
+## Estimated Cost Field
+
+Each log entry's `est_cost` field records the estimated cost:
+- Uses the `resolve_price` fallback chain to ensure a price is always available
+- Fallback order: Custom pricing → Built-in pricing → Default price
+- Frontend uses `SUM(est_cost)` to aggregate daily/monthly costs
+
+:::tip{title="Note"}
+Estimated costs are for reference only. Actual costs are based on platform billing.
+:::
+
+## Viewing Costs
+
+In the **"Statistics"** page, "Pricing" tab:
+- View pricing for each model
+- Edit custom pricing
+- Trigger price sync

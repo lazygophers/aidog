@@ -1,0 +1,65 @@
+---
+title: インストール
+---
+
+# インストール
+
+## 動作環境
+
+| OS | 最低バージョン |
+|------|---------|
+| macOS | 12.0 (Monterey) 以上 |
+| Windows | Windows 10 以上 |
+| Linux | x86_64 / aarch64、WebKit2GTK が必要 |
+
+## ダウンロードとインストール
+
+### macOS
+
+1. [GitHub Releases](https://github.com/lazygophers/aidog/releases) から `.dmg` ファイルをダウンロード
+2. ダブルクリックで開き、AiDog をアプリケーションフォルダにドラッグ
+3. 初回起動時は、アプリを右クリック → 「開く」を選択（Gatekeeper を回避）
+
+### Windows
+
+1. [GitHub Releases](https://github.com/lazygophers/aidog/releases) から `.msi` インストーラーをダウンロード
+2. ダブルクリックでインストーラーを実行
+3. 画面の指示に従ってインストールを完了
+
+### Linux
+
+1. [GitHub Releases](https://github.com/lazygophers/aidog/releases) から `.deb` または `.AppImage` をダウンロード
+2. DEB パッケージ：
+   ```bash
+   sudo dpkg -i aidog_0.1.0_amd64.deb
+   ```
+3. AppImage：
+   ```bash
+   chmod +x aidog_0.1.0_amd64.AppImage
+   ./aidog_0.1.0_amd64.AppImage
+   ```
+
+## 初回起動
+
+インストール後、AiDog を起動すると：
+
+1. ローカルプロキシサーバーを起動（デフォルト: `http://127.0.0.1:7860`）
+2. ローカル SQLite データベースを作成（`~/.aidog/aidog.db`）
+3. メイン画面を表示し、最初のプラットフォームの追加をガイド
+
+## ソースからビルド
+
+```bash
+git clone https://github.com/lazygophers/aidog.git
+cd aidog
+yarn install
+yarn tauri dev      # 開発モード
+yarn tauri build    # プロダクションビルド
+```
+
+### 前提条件
+
+- Node.js >= 18
+- Yarn 4.x
+- Rust toolchain (rustup)
+- Tauri CLI (`cargo install tauri-cli`)

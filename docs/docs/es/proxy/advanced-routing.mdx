@@ -1,0 +1,65 @@
+---
+title: Enrutamiento avanzado
+---
+
+# Enrutamiento avanzado
+
+Domina las capacidades de enrutamiento avanzado de AiDog para un control preciso del tráfico.
+
+## Balanceo de carga multiplataforma
+
+Agrega múltiples plataformas a un grupo con diferentes estrategias de enrutamiento:
+
+### Secuencial
+
+Las plataformas reciben solicitudes en orden. Ideal para escenarios principal/respaldo.
+
+### Aleatorio
+
+Las solicitudes se distribuyen aleatoriamente entre plataformas. Bueno para distribución uniforme.
+
+### Ponderado
+
+Distribuir solicitudes por ratio de pesos. Ejemplo:
+
+| Plataforma | Peso | Tráfico esperado |
+|----------|--------|------------------|
+| OpenAI | 70 | ~70% |
+| DeepSeek | 30 | ~30% |
+
+## Conmutación por error
+
+Cuando una solicitud de plataforma falla, AiDog intenta automáticamente la siguiente plataforma del grupo:
+
+```
+Solicitud → Plataforma A (429 Límite de velocidad)
+          → Plataforma B (Éxito)
+          → Devolver respuesta
+```
+
+La conmutación se activa en:
+- HTTP 429 (Límite de velocidad)
+- HTTP 5xx (Error del servidor)
+- Timeout de conexión
+- Errores de red
+
+## Alias de modelos
+
+Crea alias mediante el mapeo de modelos:
+
+| Alias | Mapeado a | Propósito |
+|-------|---------|---------|
+| `fast` | `gpt-4o-mini` | Respuestas rápidas |
+| `smart` | `claude-3-opus` | Alta calidad |
+| `code` | `deepseek-coder` | Generación de código |
+
+Los clientes usan alias; AiDog enruta a las plataformas reales según la configuración del grupo.
+
+## Enrutamiento en cadena
+
+Combina mapeos de grupo y plataforma:
+
+1. El cliente solicita el modelo `smart`
+2. El grupo A mapea `smart` → `claude-3-opus`
+3. La plataforma X mapea `claude-3-opus` → `claude-3-opus-20240229`
+4. Enviado a Anthropic

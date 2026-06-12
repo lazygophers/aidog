@@ -1,0 +1,65 @@
+---
+title: Routage avancé
+---
+
+# Routage avancé
+
+Maîtrisez les capacités de routage avancé d'AiDog pour un contrôle précis du trafic.
+
+## Équilibrage de charge multiplateforme
+
+Ajoutez plusieurs plateformes à un groupe avec différentes stratégies de routage :
+
+### Séquentiel
+
+Les plateformes reçoivent les requêtes dans l'ordre. Idéal pour les scénarios principal/de secours.
+
+### Aléatoire
+
+Les requêtes sont distribuées aléatoirement entre les plateformes. Idéal pour une distribution uniforme.
+
+### Pondéré
+
+Distribuez les requêtes par ratio de poids. Exemple :
+
+| Plateforme | Poids | Trafic attendu |
+|----------|--------|------------------|
+| OpenAI | 70 | ~70% |
+| DeepSeek | 30 | ~30% |
+
+## Basculement
+
+Quand une requête de plateforme échoue, AiDog essaie automatiquement la plateforme suivante du groupe :
+
+```
+Requête → Plateforme A (429 Limite de débit)
+        → Plateforme B (Succès)
+        → Retour de la réponse
+```
+
+Le basculement se déclenche sur :
+- HTTP 429 (Limite de débit)
+- HTTP 5xx (Erreur serveur)
+- Timeout de connexion
+- Erreurs réseau
+
+## Alias de modèles
+
+Créez des alias via le mappage de modèles :
+
+| Alias | Mappé vers | Objectif |
+|-------|---------|---------|
+| `fast` | `gpt-4o-mini` | Réponses rapides |
+| `smart` | `claude-3-opus` | Haute qualité |
+| `code` | `deepseek-coder` | Génération de code |
+
+Les clients utilisent les alias ; AiDog route vers les plateformes réelles selon la configuration du groupe.
+
+## Routage en chaîne
+
+Combinez les mappages de groupe et de plateforme :
+
+1. Le client demande le modèle `smart`
+2. Le groupe A mappe `smart` → `claude-3-opus`
+3. La plateforme X mappe `claude-3-opus` → `claude-3-opus-20240229`
+4. Envoyé à Anthropic

@@ -1,0 +1,42 @@
+---
+title: Créer et gérer
+---
+
+# Créer et gérer les groupes
+
+Les groupes sont le cœur du routage d'AiDog — organisez les plateformes par usage et contrôlez le routage avec des règles.
+
+## Créer un groupe
+
+1. Allez à la page **« Groupes »**
+2. Cliquez sur **« + Ajouter un groupe »**
+3. Configurez :
+
+| Champ | Description |
+|-------|-------------|
+| Nom | Nom d'affichage du groupe |
+| Description | Description optionnelle |
+| Plateformes | Sélectionnez les plateformes à inclure |
+| Stratégie de routage | Ordre de sélection des plateformes |
+
+### Stratégies de routage
+
+- **Séquentiel** — Essaye les plateformes dans l'ordre
+- **Aléatoire** — Sélectionne aléatoirement parmi les plateformes disponibles
+- **Pondéré** — Distribue les requêtes selon le ratio de poids
+
+## Gestion des plateformes
+
+Dans un groupe, vous pouvez :
+- **Glisser pour réorganiser** — Ajuster la priorité (stratégie séquentielle)
+- **Activer/Désactiver** — Ignorer temporairement une plateforme
+- **Définir les poids** — Ratio de requêtes pour la stratégie pondérée
+- **Mappage de modèles** — Remplacement du mappage au niveau du groupe
+
+## Modifier un groupe
+
+Cliquez sur une carte de groupe pour entrer en mode édition. Cliquez sur « Enregistrer » après les modifications.
+
+## Supprimer un groupe
+
+Supprimer un groupe ne supprime pas ses plateformes — seule l'association est retirée.

@@ -1,0 +1,55 @@
+---
+title: Codex 集成
+---
+
+# Codex 集成
+
+AiDog 原生支持 OpenAI Codex CLI 和 Claude Code 等编程助手。
+
+## OpenAI Codex
+
+### 配置
+
+在 Codex 的配置文件 `~/.codex/config.toml` 中设置：
+
+```toml
+[provider]
+name = "openai"
+base_url = "http://127.0.0.1:7860/v1"
+api_key = "any-value"
+
+[model]
+name = "o3"
+```
+
+### 注意事项
+
+- Codex 使用 **Responses API**（`/v1/responses`），AiDog 会自动检测并路由
+- 确保对应的平台在 AiDog 中启用了 `openai_responses` 协议
+- 如需模型映射，在平台或分组配置中添加
+
+## Claude Code
+
+### 配置
+
+设置环境变量：
+
+```bash
+export ANTHROPIC_BASE_URL="http://127.0.0.1:7860"
+export ANTHROPIC_API_KEY="any-value"
+```
+
+或在 Claude Code 的设置中配置 API base URL。
+
+### 注意事项
+
+- Claude Code 使用 **Anthropic 原生协议**
+- 确保目标平台支持 Anthropic 协议或配置协议转换
+
+## 其他编程助手
+
+任何支持自定义 API 地址的工具都可以通过 AiDog 代理：
+
+1. 将 API base URL 设为 `http://127.0.0.1:7860`
+2. API Key 填任意值
+3. 确保 AiDog 中有匹配的平台和协议

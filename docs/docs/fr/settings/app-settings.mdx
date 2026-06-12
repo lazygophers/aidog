@@ -1,0 +1,59 @@
+---
+title: Paramètres de l'application
+---
+
+# Paramètres de l'application
+
+Configurez le comportement global d'AiDog dans la page **« Paramètres »**.
+
+## Paramètres du proxy
+
+| Paramètre | Défaut | Description |
+|---------|---------|-------------|
+| Port du proxy | `7860` | Port d'écoute du proxy HTTP |
+| Timeout des requêtes | `300s` | Timeout des requêtes amont |
+
+## Paramètres des journaux
+
+Voir [Paramètres des journaux](/logs/log-settings) pour plus de détails.
+
+## Gestion des données
+
+### Exporter les données
+
+- Exporter la config des plateformes (JSON)
+- Exporter la config des groupes (JSON)
+- Exporter les statistiques (CSV)
+
+### Nettoyer les données
+
+- Nettoyer les journaux expirés
+- Réinitialiser les statistiques
+
+## Paramètres de l'interface
+
+### Langue
+
+7 langues d'interface supportées :
+- 简体中文 (zh-CN)
+- English (en-US)
+- العربية (ar-SA)
+- Français (fr-FR)
+- Deutsch (de-DE)
+- Русский (ru-RU)
+- 日本語 (ja-JP)
+
+### Thèmes
+
+Voir [Thèmes](/settings/themes) pour plus de détails.
+
+## Stockage des données
+
+Toutes les données sont stockées localement :
+
+| Données | Chemin |
+|------|------|
+| Base de données | `~/.aidog/aidog.db` |
+| Configuration | `~/.aidog/config.json` |
+
+Les données ne quittent jamais votre machine et ne sont jamais téléchargées vers un serveur.

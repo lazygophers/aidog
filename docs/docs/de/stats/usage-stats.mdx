@@ -1,0 +1,44 @@
+---
+title: Nutzungsstatistiken
+---
+
+# Nutzungsstatistiken
+
+AiDog verfolgt automatisch Nutzungsdaten für alle Proxy-Anfragen.
+
+## Statistikseite
+
+Gehen Sie zur Seite **„Statistiken"** für eine Nutzungsübersicht.
+
+### Heutige Statistiken
+
+- Gesamtanfragen
+| Erfolgs-/Fehlerrate
+- Gesamte Token-Nutzung (Prompt + Completion)
+- Geschätzte Kosten
+
+### Trends
+
+Ansicht nach Tag/Woche/Monat:
+- Anfragezahl-Trends
+- Token-Nutzungs-Trends
+- Kosten-Trends
+
+### Gruppenstatistiken
+
+Gruppenkarten-Statistiken werden aus zugehörigen Plattformen aggregiert (Frontend-Summierung).
+
+## Dimensionen
+
+Statistiken anzeigen nach:
+- **Nach Plattform** — Nutzung pro Plattform
+- **Nach Gruppe** — Nutzung pro Gruppe
+- **Nach Modell** — Nutzung pro Modell
+- **Nach Zeit** — Tages-/Wochen-/Monatsaggregation
+
+## Datenquelle
+
+Statistiken werden aus der Tabelle `proxy_logs` aggregiert:
+- Token-Nutzung: Aus Upstream-API-Antworten extrahiert
+- Geschätzte Kosten: Über Preis-Tabelle + Modellname (`resolve_price`-Fallback-Kette) berechnet
+- Anfragezahl: Protokollzeilen-Aggregation

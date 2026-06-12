@@ -1,0 +1,83 @@
+---
+title: 使用方法
+---
+
+# 使用方法
+
+AiDog 启动后会在本地运行一个 HTTP 代理服务器，接收并转发 AI API 请求。
+
+## 代理地址
+
+默认代理地址：
+
+```
+http://127.0.0.1:7860
+```
+
+可在 **「设置」** 中修改端口号。
+
+## 基本用法
+
+将任何支持自定义 API 地址的客户端指向 AiDog：
+
+| 客户端类型 | 配置方式 |
+|-----------|---------|
+| OpenAI SDK | 设置 `base_url` 为代理地址 |
+| curl | 请求代理地址 |
+| Web 应用 | API endpoint 指向代理地址 |
+| 编程助手 | 设置 API base URL |
+
+### Python (OpenAI SDK)
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://127.0.0.1:7860/v1",
+    api_key="any-value"  # AiDog 会使用配置的真实 Key
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+```
+
+### Node.js
+
+```javascript
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  baseURL: 'http://127.0.0.1:7860/v1',
+  apiKey: 'any-value',
+});
+
+const response = await client.chat.completions.create({
+  model: 'gpt-4o',
+  messages: [{ role: 'user', content: 'Hello!' }],
+});
+```
+
+### curl
+
+```bash
+curl http://127.0.0.1:7860/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer any-value" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+## 流式响应
+
+AiDog 完整支持 SSE (Server-Sent Events) 流式响应。客户端的流式请求会透传到上游平台。
+
+## 超时
+
+代理请求有超时保护：
+- 默认超时 300 秒
+- 可在设置中调整
+- 超时后返回 504 Gateway Timeout

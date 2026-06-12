@@ -1,0 +1,69 @@
+---
+title: 添加平台
+---
+
+# 添加平台
+
+平台是 AiDog 的核心概念 — 每个平台代表一个 AI API 服务商的接入点。
+
+## 添加步骤
+
+1. 进入 **「平台」** 页面
+2. 点击右上角 **「+」** 按钮
+3. 填写配置项：
+
+### 基本配置
+
+| 字段 | 说明 | 示例 |
+|------|------|------|
+| 名称 | 平台显示名称 | `My OpenAI` |
+| Base URL | API 基础地址（含版本前缀） | `https://api.openai.com/v1` |
+| API Key | 平台的 API Key | `sk-...` |
+| 协议 | 请求协议类型 | `openai_chat` |
+
+### 协议选择
+
+选择与目标平台匹配的协议。AiDog 内置 50+ 平台预设，选择对应平台会自动填充协议。
+
+常见协议：
+- **openai_chat** — OpenAI 兼容的 Chat Completions（最通用）
+- **openai_completions** — OpenAI Text Completions（旧版）
+- **openai_responses** — OpenAI Responses API（Codex 使用）
+- **anthropic** — Anthropic Claude 原生协议
+- **gemini** — Google Gemini 原生协议
+
+详见 [协议类型](/platforms/protocols)。
+
+### 高级选项
+
+- **模型映射** — 将请求中的模型名映射到平台实际模型（详见 [模型映射](/platforms/model-mapping)）
+- **启用/禁用** — 暂停某平台而不删除
+
+## 编辑平台
+
+点击平台卡片进入详情，可修改所有配置项。修改后点击「保存」。
+
+## 删除平台
+
+点击平台卡片右上角的删除按钮。删除后相关日志和统计数据会保留。
+
+## 常见问题
+
+### Base URL 怎么填？
+
+Base URL 是 API 服务的完整基础路径，包含版本前缀：
+
+| 平台 | Base URL |
+|------|----------|
+| OpenAI | `https://api.openai.com/v1` |
+| Anthropic | `https://api.anthropic.com/v1` |
+| DeepSeek | `https://api.deepseek.com/v1` |
+| 通义千问 | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
+
+:::caution{title="注意"}
+不要在 Base URL 末尾加 `/chat/completions`，AiDog 会自动拼接。
+:::
+
+### API Key 安全
+
+API Key 存储在本地 SQLite 数据库中，不会上传到任何服务器。

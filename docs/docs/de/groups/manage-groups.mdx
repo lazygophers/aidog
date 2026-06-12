@@ -1,0 +1,42 @@
+---
+title: Erstellen und verwalten
+---
+
+# Erstellen und Verwalten von Gruppen
+
+Gruppen sind der Routing-Kern von AiDog — organisieren Sie Plattformen nach Zweck und steuern Sie das Anfrage-Routing mit Regeln.
+
+## Gruppe erstellen
+
+1. Gehen Sie zur Seite **„Gruppen"**
+2. Klicken Sie auf **„+ Gruppe hinzufügen"**
+3. Konfigurieren:
+
+| Feld | Beschreibung |
+|-------|-------------|
+| Name | Anzeigename der Gruppe |
+| Beschreibung | Optionale Gruppenbeschreibung |
+| Plattformen | Plattformen zum Einschließen auswählen |
+| Routing-Strategie | Plattformauswahlreihenfolge |
+
+### Routing-Strategien
+
+- **Sequentiell** — Plattformen der Reihe nach versuchen
+- **Zufällig** — Zufällige Auswahl aus verfügbaren Plattformen
+- **Gewichtet** — Anfragen nach Gewichtsverhältnis verteilen
+
+## Plattformen verwalten
+
+Innerhalb einer Gruppe können Sie:
+- **Ziehen zum Neuordnen** — Priorität anpassen (sequentielle Strategie)
+- **Aktivieren/Deaktivieren** — Plattform temporär überspringen
+- **Gewichte setzen** — Anfrageverhältnis bei gewichteter Strategie
+- **Modellzuordnung** — Gruppen-Level-Modellzuordnung überschreiben
+
+## Gruppe bearbeiten
+
+Auf eine Gruppenkarte klicken, um in den Bearbeitungsmodus zu gelangen. Nach Änderungen „Speichern" klicken.
+
+## Gruppe löschen
+
+Das Löschen einer Gruppe löscht nicht deren Plattformen — nur die Zuordnung wird entfernt.

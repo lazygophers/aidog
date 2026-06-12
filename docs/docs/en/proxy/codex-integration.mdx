@@ -1,0 +1,55 @@
+---
+title: Codex Integration
+---
+
+# Codex Integration
+
+AiDog natively supports OpenAI Codex CLI, Claude Code, and other AI coding assistants.
+
+## OpenAI Codex
+
+### Configuration
+
+Set the following in Codex's config file `~/.codex/config.toml`:
+
+```toml
+[provider]
+name = "openai"
+base_url = "http://127.0.0.1:7860/v1"
+api_key = "any-value"
+
+[model]
+name = "o3"
+```
+
+### Notes
+
+- Codex uses the **Responses API** (`/v1/responses`). AiDog detects and routes automatically.
+- Ensure the target platform has `openai_responses` protocol enabled.
+- Add model mappings at the platform or group level as needed.
+
+## Claude Code
+
+### Configuration
+
+Set environment variables:
+
+```bash
+export ANTHROPIC_BASE_URL="http://127.0.0.1:7860"
+export ANTHROPIC_API_KEY="any-value"
+```
+
+Or configure the API base URL in Claude Code's settings.
+
+### Notes
+
+- Claude Code uses the **Anthropic native protocol**
+- Ensure the target platform supports the Anthropic protocol or configure protocol conversion
+
+## Other Assistants
+
+Any tool that supports custom API addresses can use AiDog as a proxy:
+
+1. Set the API base URL to `http://127.0.0.1:7860`
+2. Set the API key to any value
+3. Ensure AiDog has a matching platform and protocol configured

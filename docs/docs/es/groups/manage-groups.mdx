@@ -1,0 +1,42 @@
+---
+title: Crear y gestionar
+---
+
+# Crear y gestionar grupos
+
+Los grupos son el núcleo de enrutamiento de AiDog — organiza plataformas por propósito y controla el enrutamiento de solicitudes con reglas.
+
+## Crear un grupo
+
+1. Ve a la página **"Grupos"**
+2. Haz clic en **"+ Agregar grupo"**
+3. Configura:
+
+| Campo | Descripción |
+|-------|-------------|
+| Nombre | Nombre para mostrar del grupo |
+| Descripción | Descripción opcional del grupo |
+| Plataformas | Selecciona plataformas para incluir |
+| Estrategia de enrutamiento | Orden de selección de plataformas |
+
+### Estrategias de enrutamiento
+
+- **Secuencial** — Probar plataformas en orden
+- **Aleatorio** — Selección aleatoria entre plataformas disponibles
+- **Ponderado** — Distribuir solicitudes por ratio de pesos
+
+## Gestión de plataformas
+
+Dentro de un grupo, puedes:
+- **Arrastrar para reordenar** — Ajustar prioridad (estrategia secuencial)
+- **Activar/Desactivar** — Omitir temporalmente una plataforma
+- **Establecer pesos** — Ratio de solicitudes para estrategia ponderada
+- **Mapeo de modelos** — Sobrescribir mapeo a nivel de grupo
+
+## Editar grupo
+
+Haz clic en una tarjeta de grupo para entrar en modo edición. Haz clic en "Guardar" después de los cambios.
+
+## Eliminar grupo
+
+Eliminar un grupo no elimina sus plataformas — solo se elimina la asociación.

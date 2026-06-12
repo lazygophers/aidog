@@ -1,0 +1,65 @@
+---
+title: Advanced Routing
+---
+
+# Advanced Routing
+
+Master AiDog's advanced routing capabilities for fine-grained traffic control.
+
+## Multi-Platform Load Balancing
+
+Add multiple platforms to a group with different routing strategies:
+
+### Sequential
+
+Platforms receive requests in order. Ideal for primary/backup scenarios.
+
+### Random
+
+Requests are randomly distributed across platforms. Good for even distribution.
+
+### Weighted
+
+Distribute requests by weight ratio. Example:
+
+| Platform | Weight | Expected Traffic |
+|----------|--------|------------------|
+| OpenAI | 70 | ~70% |
+| DeepSeek | 30 | ~30% |
+
+## Failover
+
+When a platform request fails, AiDog automatically tries the next platform in the group:
+
+```
+Request → Platform A (429 Rate Limit)
+        → Platform B (Success)
+        → Return response
+```
+
+Failover triggers on:
+- HTTP 429 (Rate Limit)
+- HTTP 5xx (Server Error)
+- Connection timeout
+- Network errors
+
+## Model Aliases
+
+Create aliases via model mapping:
+
+| Alias | Maps To | Purpose |
+|-------|---------|---------|
+| `fast` | `gpt-4o-mini` | Quick responses |
+| `smart` | `claude-3-opus` | High quality |
+| `code` | `deepseek-coder` | Code generation |
+
+Clients use aliases; AiDog routes to actual platforms based on group configuration.
+
+## Chained Routing
+
+Combine group and platform mappings:
+
+1. Client requests model `smart`
+2. Group A maps `smart` → `claude-3-opus`
+3. Platform X maps `claude-3-opus` → `claude-3-opus-20240229`
+4. Sent to Anthropic
