@@ -13,7 +13,8 @@
   "spinnerTipsEnabled": true,
   "terminalProgressBarEnabled": true,
   "feedbackSurveyRate": 0,
-  "teammateMode": "auto",
+  "teammateMode": "in-process",
+  "includeCoAuthoredBy": false,
   "attribution": {
     "commit": "",
     "pr": ""
@@ -57,7 +58,11 @@
   },
   "env": {
     "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC": "1",
-    "CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY": "10",
+    "CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY": "3",
+    "CLAUDE_CODE_FORK_SUBAGENT": "1",
+    "CLAUDE_CODE_HIDE_CWD": "1",
+    "CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE": "1",
+    "CLAUDE_CODE_PLUGIN_PREFER_HTTPS": "1",
     "BASH_MAX_OUTPUT_LENGTH": "10240",
     "CLAUDE_AUTOCOMPACT_PCT_OVERRIDE": "80",
     "CLAUDE_AUTO_BACKGROUND_TASKS": "1",
