@@ -7,7 +7,7 @@ use axum::{
     Json, Router,
 };
 use futures::StreamExt;
-use reqwest::Client;
+use reqwest::Client; // used in tests
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -698,11 +698,10 @@ async fn handle_proxy(
     // ── 解析超时：模型 > 分组 > 系统 ──
     let system_timeout = get_system_timeout(&state.db);
     let (req_timeout, conn_timeout) = resolve_timeout(&route.mapping, &group, &system_timeout);
-    let client = Client::builder()
-        .timeout(std::time::Duration::from_secs(req_timeout))
-        .connect_timeout(std::time::Duration::from_secs(conn_timeout))
-        .build()
-        .unwrap_or_else(|_| Client::new());
+    let client = super::http_client::build_http_client(
+        &state.db, req_timeout, conn_timeout,
+        Some(&route.platform.extra), None,
+    );
 
     // ── 构建上游请求头（用于日志记录） ──
     let upstream_headers = build_upstream_headers(&client_type, target_protocol_enum, &route.platform.api_key);
@@ -1112,11 +1111,10 @@ async fn handle_passthrough(
     let system_timeout = get_system_timeout(&state.db);
     let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 300 };
     let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
-    let client = Client::builder()
-        .timeout(std::time::Duration::from_secs(req_timeout))
-        .connect_timeout(std::time::Duration::from_secs(conn_timeout))
-        .build()
-        .unwrap_or_else(|_| Client::new());
+    let client = super::http_client::build_http_client(
+        &state.db, req_timeout, conn_timeout,
+        None, None,
+    );
 
     // 原样转发 header，剔除 hop-by-hop（Host / Content-Length 由 reqwest 按目标 URL + body 重设）
     let fwd_headers = passthrough_headers(&orig_headers);

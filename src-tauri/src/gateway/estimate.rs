@@ -333,7 +333,7 @@ async fn run_calibration(
     is_coding_plan: bool,
 ) {
     // 锁外 async 真查
-    let quota = super::quota::query_quota(base_url, api_key).await;
+    let quota = super::quota::query_quota(Some(db), base_url, api_key).await;
     // 失败时 calibrate_from_quota 自身 early-return（保留预估值，不重置计数/时间，下次请求再试）。
     calibrate_from_quota(db, platform_id, &quota, is_coding_plan);
 }

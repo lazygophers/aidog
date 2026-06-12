@@ -5,6 +5,7 @@ use gateway::db::{self, Db};
 use gateway::models::*;
 use tauri::State;
 use serde_json::Value;
+use std::sync::Arc;
 
 // ─── Helpers ───────────────────────────────────────────────
 
@@ -428,6 +429,31 @@ fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Result<(), Str
     Ok(())
 }
 
+// ─── Proxy Client Settings (upstream HTTP proxy) ─────────────
+
+#[tauri::command]
+fn proxy_client_get_settings(app: tauri::AppHandle) -> Result<gateway::models::ProxyClientSettings, String> {
+    let db = app.try_state::<Db>()
+        .map(|s| s.inner())
+        .ok_or("db not initialized")?;
+    let settings = gateway::http_client::load_proxy_client_settings(&Arc::new(db.clone()));
+    Ok(settings)
+}
+
+#[tauri::command]
+fn proxy_client_set_settings(app: tauri::AppHandle, settings: gateway::models::ProxyClientSettings) -> Result<(), String> {
+    let db = app.try_state::<Db>()
+        .map(|s| s.inner())
+        .ok_or("db not initialized")?;
+    let value = serde_json::to_value(&settings)
+        .map_err(|e| format!("serialize proxy client settings: {e}"))?;
+    db::set_setting(db, gateway::models::SetSettingInput {
+        scope: "proxy".to_string(),
+        key: "proxy_client".to_string(),
+        value,
+    })
+}
+
 // ─── Platform Model Fetch ──────────────────────────────────
 
 #[tauri::command]
@@ -435,8 +461,10 @@ async fn platform_fetch_models(
     protocol: Protocol,
     base_url: String,
     api_key: String,
+    db: State<'_, Db>,
 ) -> Result<Vec<String>, String> {
-    let client = reqwest::Client::new();
+    let db_arc = Arc::new(db.inner().clone());
+    let client = gateway::http_client::build_http_client_system(&db_arc, 30, 10);
     let base = base_url.trim_end_matches('/');
 
     // Mock / Claude Code 透传平台无真实上游模型列表，不拉取模型
@@ -575,10 +603,10 @@ async fn model_test(
     // ── 使用与 proxy 相同的客户端 header 模拟逻辑 ──
     let upstream_headers = gateway::proxy::build_upstream_headers(&client_type, &target_protocol, &platform.api_key);
 
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-        .unwrap_or_else(|_| reqwest::Client::new());
+    let db_arc = Arc::new(db.inner().clone());
+    let client = gateway::http_client::build_http_client(
+        &db_arc, 30, 10, Some(&platform.extra), None,
+    );
 
     let start = std::time::Instant::now();
     let request_id = uuid::Uuid::new_v4().simple().to_string();
@@ -1001,7 +1029,7 @@ async fn platform_query_quota(
     base_url: String, api_key: String,
     platform_id: Option<u64>, db: State<'_, Db>,
 ) -> Result<PlatformQuota, String> {
-    let q = gateway::quota::query_quota(&base_url, &api_key).await;
+    let q = gateway::quota::query_quota(Some(&Arc::new(db.inner().clone())), &base_url, &api_key).await;
     if q.success {
         persist_quota_to_db(&db, platform_id, &q);
     }
@@ -1014,7 +1042,7 @@ async fn platform_query_quota_newapi(
     base_url: String, api_key: String, extra: String,
     platform_id: Option<u64>, db: State<'_, Db>,
 ) -> Result<PlatformQuota, String> {
-    let q = gateway::quota::query_quota_newapi(&base_url, &api_key, &extra).await;
+    let q = gateway::quota::query_quota_newapi(Some(&Arc::new(db.inner().clone())), &base_url, &api_key, &extra).await;
     if q.success {
         persist_quota_to_db(&db, platform_id, &q);
     }
@@ -1057,9 +1085,9 @@ fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
             let is_newapi = matches!(p.platform_type, gateway::models::Protocol::NewApi);
             // 锁外 async 真查
             let q = if is_newapi {
-                gateway::quota::query_quota_newapi(&p.base_url, &p.api_key, &p.extra).await
+                gateway::quota::query_quota_newapi(Some(&db), &p.base_url, &p.api_key, &p.extra).await
             } else {
-                gateway::quota::query_quota(&p.base_url, &p.api_key).await
+                gateway::quota::query_quota(Some(&db), &p.base_url, &p.api_key).await
             };
             if !q.success {
                 return; // 失败保留，下次再试（不重置 last_real_query_at）
@@ -2089,6 +2117,9 @@ pub fn run() {
             app_set_autolaunch,
             app_get_autolaunch,
             app_set_silent_launch,
+            // Proxy Client Settings
+            proxy_client_get_settings,
+            proxy_client_set_settings,
             // Config Export
             export_claude_config,
             sync_group_settings,

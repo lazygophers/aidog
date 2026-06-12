@@ -824,6 +824,67 @@ impl Default for ProxyTimeoutSettings {
     }
 }
 
+// ─── Proxy Client Settings (upstream HTTP proxy) ──────────
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyClientSettings {
+    #[serde(default)]
+    pub enabled: bool,
+    /// "socks5" | "http" | "https"
+    #[serde(default = "default_proxy_type")]
+    pub proxy_type: String,
+    #[serde(default = "default_proxy_host")]
+    pub host: String,
+    #[serde(default = "default_proxy_port")]
+    pub port: u16,
+    #[serde(default)]
+    pub username: String,
+    #[serde(default)]
+    pub password: String,
+    /// SOCKS5 时 DNS 走代理解析 (socks5h vs socks5)
+    #[serde(default = "default_true")]
+    pub dns_over_proxy: bool,
+}
+
+fn default_proxy_type() -> String { "socks5".to_string() }
+fn default_proxy_host() -> String { "127.0.0.1".to_string() }
+fn default_proxy_port() -> u16 { 7890 }
+
+impl Default for ProxyClientSettings {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            proxy_type: default_proxy_type(),
+            host: default_proxy_host(),
+            port: default_proxy_port(),
+            username: String::new(),
+            password: String::new(),
+            dns_over_proxy: true,
+        }
+    }
+}
+
+impl ProxyClientSettings {
+    /// Build a reqwest::Proxy from settings. Returns None if not enabled.
+    pub fn to_reqwest_proxy(&self) -> Option<reqwest::Proxy> {
+        if !self.enabled { return None; }
+        let scheme = match self.proxy_type.as_str() {
+            "socks5" if self.dns_over_proxy => "socks5h",
+            "socks5" => "socks5",
+            "https" => "https",
+            _ => "http",
+        };
+        let url = format!("{}://{}:{}", scheme, self.host, self.port);
+        let mut proxy = reqwest::Proxy::all(&url)
+            .map_err(|e| { tracing::warn!("invalid proxy URL {}: {e}", url); e })
+            .ok()?;
+        if !self.username.is_empty() {
+            proxy = proxy.basic_auth(&self.username, &self.password);
+        }
+        Some(proxy)
+    }
+}
+
 // ─── Statistics ───────────────────────────────────────────
 
 #[derive(Debug, Deserialize)]

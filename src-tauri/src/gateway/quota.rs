@@ -7,7 +7,10 @@
 //! 对于无法实时获取的平台，前端可通过 proxy_logs 估算用量。
 
 use serde::{Deserialize, Serialize};
+use std::sync::Arc;
 use std::time::Duration;
+
+use super::db::Db;
 
 // ── 公共类型 ──────────────────────────────────────────────
 
@@ -89,18 +92,21 @@ fn err_quota(msg: &str) -> PlatformQuota {
     PlatformQuota { success: false, error: Some(msg.to_string()), queried_at: now_millis(), balance: None, coding_plan: None, newapi_user_id: None }
 }
 
-fn http_client() -> reqwest::Client {
-    reqwest::Client::builder()
-        .timeout(Duration::from_secs(10))
-        .build()
-        .unwrap_or_default()
+fn http_client(db: Option<&Arc<Db>>) -> reqwest::Client {
+    match db {
+        Some(db) => super::http_client::build_http_client_system(db, 10, 5),
+        None => reqwest::Client::builder()
+            .timeout(Duration::from_secs(10))
+            .build()
+            .unwrap_or_default(),
+    }
 }
 
 // ── 余额查询: DeepSeek ───────────────────────────────────
 // GET https://api.deepseek.com/user/balance
 
-async fn query_deepseek_balance(api_key: &str) -> PlatformQuota {
-    let resp = match http_client()
+async fn query_deepseek_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
+    let resp = match http_client(db)
         .get("https://api.deepseek.com/user/balance")
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -133,8 +139,8 @@ async fn query_deepseek_balance(api_key: &str) -> PlatformQuota {
 // ── 余额查询: StepFun ────────────────────────────────────
 // GET https://api.stepfun.com/v1/accounts
 
-async fn query_stepfun_balance(api_key: &str) -> PlatformQuota {
-    let resp = match http_client()
+async fn query_stepfun_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
+    let resp = match http_client(db)
         .get("https://api.stepfun.com/v1/accounts")
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -159,10 +165,10 @@ async fn query_stepfun_balance(api_key: &str) -> PlatformQuota {
 // ── 余额查询: SiliconFlow ────────────────────────────────
 // GET https://api.siliconflow.cn/v1/user/info
 
-async fn query_siliconflow_balance(api_key: &str, is_cn: bool) -> PlatformQuota {
+async fn query_siliconflow_balance(db: Option<&Arc<Db>>, api_key: &str, is_cn: bool) -> PlatformQuota {
     let domain = if is_cn { "api.siliconflow.cn" } else { "api.siliconflow.com" };
     let url = format!("https://{domain}/v1/user/info");
-    let resp = match http_client()
+    let resp = match http_client(db)
         .get(&url)
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -192,8 +198,8 @@ async fn query_siliconflow_balance(api_key: &str, is_cn: bool) -> PlatformQuota 
 // ── 余额查询: OpenRouter ─────────────────────────────────
 // GET https://openrouter.ai/api/v1/credits
 
-async fn query_openrouter_balance(api_key: &str) -> PlatformQuota {
-    let resp = match http_client()
+async fn query_openrouter_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
+    let resp = match http_client(db)
         .get("https://openrouter.ai/api/v1/credits")
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -224,8 +230,8 @@ async fn query_openrouter_balance(api_key: &str) -> PlatformQuota {
 // ── 余额查询: Novita AI ──────────────────────────────────
 // GET https://api.novita.ai/v3/user/balance
 
-async fn query_novita_balance(api_key: &str) -> PlatformQuota {
-    let resp = match http_client()
+async fn query_novita_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
+    let resp = match http_client(db)
         .get("https://api.novita.ai/v3/user/balance")
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -251,8 +257,8 @@ async fn query_novita_balance(api_key: &str) -> PlatformQuota {
 // ── Coding Plan: Kimi ─────────────────────────────────────
 // GET https://api.kimi.com/coding/v1/usages
 
-async fn query_kimi_coding_plan(api_key: &str) -> PlatformQuota {
-    let resp = match http_client()
+async fn query_kimi_coding_plan(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
+    let resp = match http_client(db)
         .get("https://api.kimi.com/coding/v1/usages")
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -304,14 +310,14 @@ async fn query_kimi_coding_plan(api_key: &str) -> PlatformQuota {
 // ── Coding Plan: GLM (智谱) ──────────────────────────────
 // GET {base}/api/monitor/usage/quota/limit
 
-async fn query_zhipu_coding_plan(base_url: &str, api_key: &str) -> PlatformQuota {
+async fn query_zhipu_coding_plan(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) -> PlatformQuota {
     let base = if base_url.to_lowercase().contains("bigmodel.cn") {
         "https://open.bigmodel.cn"
     } else {
         "https://api.z.ai"
     };
     let url = format!("{base}/api/monitor/usage/quota/limit");
-    let resp = match http_client()
+    let resp = match http_client(db)
         .get(&url)
         .header("Authorization", api_key) // 智谱不加 Bearer
         .header("Content-Type", "application/json")
@@ -363,10 +369,10 @@ async fn query_zhipu_coding_plan(base_url: &str, api_key: &str) -> PlatformQuota
 // ── Coding Plan: MiniMax ─────────────────────────────────
 // GET https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains
 
-async fn query_minimax_coding_plan(api_key: &str, is_cn: bool) -> PlatformQuota {
+async fn query_minimax_coding_plan(db: Option<&Arc<Db>>, api_key: &str, is_cn: bool) -> PlatformQuota {
     let domain = if is_cn { "api.minimaxi.com" } else { "api.minimax.io" };
     let url = format!("https://{domain}/v1/api/openplatform/coding_plan/remains");
-    let resp = match http_client()
+    let resp = match http_client(db)
         .get(&url)
         .header("Authorization", format!("Bearer {api_key}"))
         .header("Content-Type", "application/json")
@@ -418,7 +424,7 @@ async fn query_minimax_coding_plan(api_key: &str, is_cn: bool) -> PlatformQuota 
 // ── 公开入口 ──────────────────────────────────────────────
 
 /// 根据 base_url 自动检测平台并查询余额或 Coding Plan 配额
-pub async fn query_quota(base_url: &str, api_key: &str) -> PlatformQuota {
+pub async fn query_quota(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) -> PlatformQuota {
     if api_key.trim().is_empty() {
         return err_quota("API key is empty");
     }
@@ -426,41 +432,41 @@ pub async fn query_quota(base_url: &str, api_key: &str) -> PlatformQuota {
 
     // Coding Plan 查询 (优先检测，这些平台通常同时有 Coding Plan)
     if url.contains("api.kimi.com/coding") {
-        return query_kimi_coding_plan(api_key).await;
+        return query_kimi_coding_plan(db, api_key).await;
     }
     if url.contains("open.bigmodel.cn") || url.contains("bigmodel.cn") {
         // GLM 可能同时返回 coding plan
-        let quota = query_zhipu_coding_plan(base_url, api_key).await;
+        let quota = query_zhipu_coding_plan(db, base_url, api_key).await;
         return quota;
     }
     if url.contains("api.z.ai") {
-        return query_zhipu_coding_plan(base_url, api_key).await;
+        return query_zhipu_coding_plan(db, base_url, api_key).await;
     }
     if url.contains("api.minimaxi.com") {
-        return query_minimax_coding_plan(api_key, true).await;
+        return query_minimax_coding_plan(db, api_key, true).await;
     }
     if url.contains("api.minimax.io") {
-        return query_minimax_coding_plan(api_key, false).await;
+        return query_minimax_coding_plan(db, api_key, false).await;
     }
 
     // 余额查询
     if url.contains("api.deepseek.com") {
-        return query_deepseek_balance(api_key).await;
+        return query_deepseek_balance(db, api_key).await;
     }
     if url.contains("api.stepfun.com") || url.contains("api.stepfun.ai") {
-        return query_stepfun_balance(api_key).await;
+        return query_stepfun_balance(db, api_key).await;
     }
     if url.contains("api.siliconflow.cn") {
-        return query_siliconflow_balance(api_key, true).await;
+        return query_siliconflow_balance(db, api_key, true).await;
     }
     if url.contains("api.siliconflow.com") {
-        return query_siliconflow_balance(api_key, false).await;
+        return query_siliconflow_balance(db, api_key, false).await;
     }
     if url.contains("openrouter.ai") {
-        return query_openrouter_balance(api_key).await;
+        return query_openrouter_balance(db, api_key).await;
     }
     if url.contains("api.novita.ai") {
-        return query_novita_balance(api_key).await;
+        return query_novita_balance(db, api_key).await;
     }
 
     // 不支持的平台
@@ -501,10 +507,10 @@ pub fn parse_newapi_extra(extra: &str) -> Option<(String, String)> {
 /// Step 1: 用 api_key 查询 token 使用情况
 /// GET {instance_root}/api/usage/token/
 /// Response: { data: { unlimited_quota, total_granted, total_used, total_available } }
-async fn query_token_usage(base_url: &str, api_key: &str) -> Result<(bool, f64, f64, f64), String> {
+async fn query_token_usage(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) -> Result<(bool, f64, f64, f64), String> {
     let root = newapi_instance_root(base_url);
     let url = format!("{}/api/usage/token/", root);
-    let resp = http_client()
+    let resp = http_client(db)
         .get(&url)
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -522,9 +528,9 @@ async fn query_token_usage(base_url: &str, api_key: &str) -> Result<(bool, f64, 
 }
 
 /// Step 2a: unlimited token → 查用户余额 GET /api/user/self
-async fn query_newapi_user_balance(balance_base_url: &str, balance_api_key: &str) -> PlatformQuota {
+async fn query_newapi_user_balance(db: Option<&Arc<Db>>, balance_base_url: &str, balance_api_key: &str) -> PlatformQuota {
     let url = format!("{}/api/user/self", balance_base_url.trim_end_matches('/'));
-    let resp = match http_client()
+    let resp = match http_client(db)
         .get(&url)
         .header("Authorization", format!("Bearer {balance_api_key}"))
         .header("Content-Type", "application/json")
@@ -577,13 +583,13 @@ async fn query_newapi_user_balance(balance_base_url: &str, balance_api_key: &str
 /// base_url: 平台 OpenAI base_url (如 https://instance.com/v1)
 /// api_key:  平台主 API key (用于 token usage 查询)
 /// extra:    platform.extra JSON (含 balance_base_url + balance_api_key)
-pub async fn query_quota_newapi(base_url: &str, api_key: &str, extra: &str) -> PlatformQuota {
+pub async fn query_quota_newapi(db: Option<&Arc<Db>>, base_url: &str, api_key: &str, extra: &str) -> PlatformQuota {
     if api_key.trim().is_empty() {
         return err_quota("New API: api_key required for token usage query");
     }
 
     // Step 1: 查询 token 使用情况
-    let (unlimited, total_granted, total_used, total_available) = match query_token_usage(base_url, api_key).await {
+    let (unlimited, total_granted, total_used, total_available) = match query_token_usage(db, base_url, api_key).await {
         Ok(info) => info,
         Err(e) => return err_quota(&format!("Token usage: {e}")),
     };
@@ -595,7 +601,7 @@ pub async fn query_quota_newapi(base_url: &str, api_key: &str, extra: &str) -> P
                 if balance_base_url.is_empty() {
                     return err_quota("New API: unlimited token requires balance_base_url");
                 }
-                query_newapi_user_balance(&balance_base_url, &balance_api_key).await
+                query_newapi_user_balance(db, &balance_base_url, &balance_api_key).await
             }
             None => err_quota("New API: unlimited token requires balance_api_key in config"),
         }

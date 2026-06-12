@@ -2,6 +2,7 @@ pub mod adapter;
 pub mod codex;
 pub mod db;
 pub mod estimate;
+pub mod http_client;
 pub mod i18n;
 pub mod manual_budget;
 pub mod models;

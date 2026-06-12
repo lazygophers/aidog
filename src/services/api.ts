@@ -234,6 +234,16 @@ export interface ProxySettings {
   silent_launch: boolean;
 }
 
+export interface ProxyClientSettings {
+  enabled: boolean;
+  proxy_type: string; // "socks5" | "http" | "https"
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+  dns_over_proxy: boolean;
+}
+
 // ─── Platform API ──────────────────────────────────────────
 
 export interface PlatformUsageStats {
@@ -478,6 +488,9 @@ export const proxyApi = {
   getAutolaunch: () => invoke<boolean>("app_get_autolaunch"),
   setSilentLaunch: (enabled: boolean) =>
     invoke<void>("app_set_silent_launch", { enabled }),
+  getProxyClientSettings: () => invoke<ProxyClientSettings>("proxy_client_get_settings"),
+  setProxyClientSettings: (settings: ProxyClientSettings) =>
+    invoke<void>("proxy_client_set_settings", { settings }),
 };
 
 // ─── Claude Code Config Export ─────────────────────────────

@@ -2,6 +2,7 @@
 
 use super::db::Db;
 use super::models::PriceSyncResult;
+use std::sync::Arc;
 
 /// LiteLLM public price table URL
 const LITELLM_PRICE_URL: &str =
@@ -9,7 +10,8 @@ const LITELLM_PRICE_URL: &str =
 
 /// Fetch and parse the LiteLLM price table, then upsert all entries.
 pub async fn sync_litellm_prices(db: &Db) -> Result<PriceSyncResult, String> {
-    let json_str = fetch_price_table().await?;
+    let db_arc = Arc::new(db.clone());
+    let json_str = fetch_price_table(Some(&db_arc)).await?;
     let table: serde_json::Map<String, serde_json::Value> =
         serde_json::from_str(&json_str).map_err(|e| format!("parse litellm json: {e}"))?;
 
@@ -57,11 +59,14 @@ pub async fn sync_litellm_prices(db: &Db) -> Result<PriceSyncResult, String> {
     Ok(PriceSyncResult { added, updated, unchanged, failed, total })
 }
 
-async fn fetch_price_table() -> Result<String, String> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(30))
-        .build()
-        .map_err(|e| format!("build http client: {e}"))?;
+async fn fetch_price_table(db: Option<&Arc<Db>>) -> Result<String, String> {
+    let client = match db {
+        Some(db) => super::http_client::build_http_client_system(db, 30, 10),
+        None => reqwest::Client::builder()
+            .timeout(std::time::Duration::from_secs(30))
+            .build()
+            .map_err(|e| format!("build http client: {e}"))?,
+    };
 
     let resp = client.get(LITELLM_PRICE_URL)
         .send()
