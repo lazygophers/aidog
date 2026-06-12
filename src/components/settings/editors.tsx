@@ -1781,7 +1781,7 @@ function groupCodingDynBash(): string {
   return `${GROUP_GUARD}
 __n=$(cat "$__gi" | jq -r '(.coding_plan // []) | length')
 [ "$__n" = "0" ] || [ -z "$__n" ] && exit 0
-__txt=$(cat "$__gi" | jq -r '(.coding_plan // []) | map((.name | .[0:2]) + ":" + ((.utilization // 0) | round | tostring) + "%") | join(" ")')
+__txt=$(cat "$__gi" | jq -r '(.coding_plan // []) | map((if .name == "five_hour" then "5h" elif (.name == "seven_day" or .name == "weekly_limit") then "7d" else .name end) + " " + ((.utilization // 0) | round | tostring) + "%") | join("·")')
 [ -z "$__txt" ] && exit 0
 __pace=$(cat "$__gi" | jq -r 'if any(.coding_plan[]?; .pace == "fast") then "fast" elif any(.coding_plan[]?; .pace == "normal") then "normal" else "busy" end')
 if [ "$__pace" = "fast" ]; then
@@ -2062,8 +2062,8 @@ echo -n "$__bar $__pct%"`;
     defaultOptions: { dynamicColor: false },
     toBash: (o) => o.dynamicColor
       ? groupCodingDynBash()
-      : groupSegBash(`-r '(.coding_plan // []) | map((.name | .[0:2]) + ":" + ((.utilization // 0) | round | tostring) + "%") | join(" ")'`, ""),
-    toPreview: () => "fi:23% we:41%",
+      : groupSegBash(`-r '(.coding_plan // []) | map((if .name == "five_hour" then "5h" elif (.name == "seven_day" or .name == "weekly_limit") then "7d" else .name end) + " " + ((.utilization // 0) | round | tostring) + "%") | join("·")'`, ""),
+    toPreview: () => "5h 23%·7d 41%",
     fields: [
       { key: "dynamicColor", label: "动态色 (按 pace)", type: "select", options: ["false", "true"] },
     ],
