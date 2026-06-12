@@ -940,26 +940,26 @@ function PermissionsEditor({ perms, updateField, t }: {
         >
           <option value="">—</option>
           {PERMISSION_MODES.map(m => (
-            <option key={m.value} value={m.value}>{m.desc} — {m.hint}</option>
+            <option key={m.value} value={m.value}>{t(`settings.perm.mode_${m.value}`, m.desc)} — {t(`settings.perm.mode_${m.value}_desc`, m.hint)}</option>
           ))}
         </select>
       </FieldRow>
       <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.6, paddingLeft: 92 }}>
-        规则优先级: <span style={{ color: MODE_COLORS.deny, fontWeight: 600 }}>deny</span> →{" "}
+        {t("settings.perm.priorityLabel", "规则优先级")}: <span style={{ color: MODE_COLORS.deny, fontWeight: 600 }}>deny</span> →{" "}
         <span style={{ color: MODE_COLORS.ask, fontWeight: 600 }}>ask</span> →{" "}
-        <span style={{ color: MODE_COLORS.allow, fontWeight: 600 }}>allow</span>。第一个匹配的规则生效。
+        <span style={{ color: MODE_COLORS.allow, fontWeight: 600 }}>allow</span>{t("settings.perm.priorityNote", "。第一个匹配的规则生效。")}
       </div>
 
       {/* ── Safety Toggles ── */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <FieldRow label="禁用绕过模式" icon={<SectionIcon name="bolt" size={14} />}>
+        <FieldRow label={t("settings.perm.disableBypass", "禁用绕过模式")} icon={<SectionIcon name="bolt" size={14} />}>
           <div
             className={`toggle${perms.disableBypassPermissionsMode ? " active" : ""}`}
             onClick={() => updatePermKey("disableBypassPermissionsMode", perms.disableBypassPermissionsMode ? undefined : "disable")}
           />
           <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>disableBypassPermissionsMode</span>
         </FieldRow>
-        <FieldRow label="禁用自动模式" icon={<SectionIcon name="bolt" size={14} />}>
+        <FieldRow label={t("settings.perm.disableAuto", "禁用自动模式")} icon={<SectionIcon name="bolt" size={14} />}>
           <div
             className={`toggle${perms.disableAutoMode ? " active" : ""}`}
             onClick={() => updatePermKey("disableAutoMode", perms.disableAutoMode ? undefined : "disable")}
@@ -984,7 +984,7 @@ function PermissionsEditor({ perms, updateField, t }: {
               }}
               onClick={() => setActiveToolGroup(g.tool)}
             >
-              {g.label}
+              {t(`settings.perm.toolLabel_${g.tool}`, g.label)}
               {count > 0 && (
                 <span style={{
                   fontSize: 10, padding: "1px 5px", borderRadius: 8,
@@ -1003,7 +1003,7 @@ function PermissionsEditor({ perms, updateField, t }: {
         padding: "8px 12px", background: "var(--bg-glass)", borderRadius: "var(--radius-sm)",
         fontFamily: '"SF Mono", "Fira Code", monospace',
       }}>
-        <span style={{ fontWeight: 600, color: "var(--accent)" }}>{toolGroup.label}</span>: {toolGroup.syntax}
+        <span style={{ fontWeight: 600, color: "var(--accent)" }}>{t(`settings.perm.toolLabel_${toolGroup.tool}`, toolGroup.label)}</span>: {t(`settings.perm.syntax_${toolGroup.tool}`, toolGroup.syntax)}
       </div>
 
       {/* ── Rules for Active Group ── */}
@@ -1011,7 +1011,7 @@ function PermissionsEditor({ perms, updateField, t }: {
         const groupRules = grouped.get(activeToolGroup) ?? [];
         if (groupRules.length === 0) return (
           <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "12px 0", textAlign: "center" }}>
-            暂无 {toolGroup.label} 规则。使用下方输入框添加。
+            {t("settings.perm.noRulesPrefix", "暂无")} {t(`settings.perm.toolLabel_${toolGroup.tool}`, toolGroup.label)} {t("settings.perm.noRulesSuffix", "规则。使用下方输入框添加。")}
           </div>
         );
         return (
@@ -1071,7 +1071,7 @@ function PermissionsEditor({ perms, updateField, t }: {
               color: showTemplates ? "var(--accent)" : "var(--text-tertiary)",
             }}
             onClick={() => setShowTemplates(!showTemplates)}
-            title="规则模板"
+            title={t("settings.perm.ruleTemplates", "规则模板")}
           >
             <SectionIcon name="bolt" size={14} />
           </button>
@@ -1088,9 +1088,9 @@ function PermissionsEditor({ perms, updateField, t }: {
                 {TOOL_GROUPS.map(g => (
                   <div key={g.tool} style={{ marginBottom: 8 }}>
                     <div style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)", marginBottom: 4, display: "flex", alignItems: "center", gap: 4 }}>
-                      {g.label}
+                      {t(`settings.perm.toolLabel_${g.tool}`, g.label)}
                       <span style={{ fontSize: 10, color: "var(--text-tertiary)", fontWeight: 400, fontFamily: '"SF Mono", "Fira Code", monospace' }}>
-                        {g.syntax}
+                        {t(`settings.perm.syntax_${g.tool}`, g.syntax)}
                       </span>
                     </div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
@@ -1134,7 +1134,7 @@ function PermissionsEditor({ perms, updateField, t }: {
           display: "flex", flexDirection: "column", gap: 4,
         }}>
           <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 4, display: "flex", gap: 12 }}>
-            <span>共 {rules.length} 条规则</span>
+            <span>{t("settings.perm.totalRulesPrefix", "共")} {rules.length} {t("settings.perm.totalRulesSuffix", "条规则")}</span>
             <span style={{ color: MODE_COLORS.deny, display: "inline-flex", alignItems: "center", gap: 4 }}><IconClose size={12} /> deny: {rules.filter(r => r.mode === "deny").length}</span>
             <span style={{ color: MODE_COLORS.ask }}>? ask: {rules.filter(r => r.mode === "ask").length}</span>
             <span style={{ color: MODE_COLORS.allow, display: "inline-flex", alignItems: "center", gap: 4 }}><IconCheck size={12} /> allow: {rules.filter(r => r.mode === "allow").length}</span>
@@ -1262,6 +1262,7 @@ function PathList({
   onChange: (v: string[]) => void;
   placeholder?: string;
 }) {
+  const { t } = useTranslation();
   const [draft, setDraft] = useState<string | undefined>(undefined);
   const draftStr = draft ?? "";
   const add = () => {
@@ -1294,7 +1295,7 @@ function PathList({
             value={draft}
             onChange={setDraft}
             pathType="directory"
-            placeholder={placeholder ?? "选择目录或输入路径…"}
+            placeholder={placeholder ?? t("settings.editor.dirOrPathPh", "选择目录或输入路径…")}
           />
         </div>
         <button type="button" disabled={!draftStr.trim()} onClick={add}
@@ -1333,6 +1334,7 @@ function SandboxEditor({
   sandboxValue: Record<string, any> | undefined;
   updateField: (field: string, value: any) => void;
 }) {
+  const { t } = useTranslation();
   const sb = sandboxValue ?? {};
   const fs = sb.filesystem ?? {};
   const net = sb.network ?? {};
@@ -1396,15 +1398,15 @@ function SandboxEditor({
         <Toggle active={enabled} onChange={(v) => sync({ enabled: v })} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: F.label, fontWeight: 600, color: "var(--text-primary)" }}>
-            启用沙箱
+            {t("settings.sandbox.enable", "启用沙箱")}
           </div>
-          <Hint>Bash 命令及其子进程的文件系统和网络隔离 (Seatbelt / bubblewrap)</Hint>
+          <Hint>{t("settings.sandbox.enableDesc", "Bash 命令及其子进程的文件系统和网络隔离 (Seatbelt / bubblewrap)")}</Hint>
         </div>
         {enabled && (
           <span style={{
             fontSize: F.small, fontWeight: 600, color: "#34c759",
             padding: "2px 8px", background: "rgba(52,199,89,0.12)", borderRadius: "var(--radius-sm)",
-          }}>● 已启用</span>
+          }}>● {t("settings.sandbox.enabled", "已启用")}</span>
         )}
       </div>
 
@@ -1413,8 +1415,7 @@ function SandboxEditor({
           fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.6,
           padding: "10px 14px", background: "var(--bg-glass)", borderRadius: "var(--radius-sm)",
         }}>
-          启用后，Claude 运行的每个 Bash 命令将被限制在指定的文件系统和网络边界内。
-          macOS 使用 Seatbelt，Linux/WSL2 使用 bubblewrap。不支持原生 Windows。
+          {t("settings.sandbox.disabledHint", "启用后，Claude 运行的每个 Bash 命令将被限制在指定的文件系统和网络边界内。macOS 使用 Seatbelt，Linux/WSL2 使用 bubblewrap。不支持原生 Windows。")}
         </div>
       )}
 
@@ -1427,41 +1428,41 @@ function SandboxEditor({
           }}>
             <SubHeading>
               <SvgIcon d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" size={15} />
-              文件系统隔离
+              {t("settings.sandbox.fsIsolation", "文件系统隔离")}
             </SubHeading>
             <Hint>
-              默认：可读整个文件系统，仅可写当前工作目录。路径前缀：/（绝对）、~/（主目录）、./（项目相对）
+              {t("settings.sandbox.fsIsolationDesc", "默认：可读整个文件系统，仅可写当前工作目录。路径前缀：/（绝对）、~/（主目录）、./（项目相对）")}
             </Hint>
 
-            <FieldRow label="允许写入">
+            <FieldRow label={t("settings.sandbox.allowWrite", "允许写入")}>
               <PathList
                 items={fs.allowWrite ?? []}
                 onChange={(v) => setFsArray("allowWrite", v)}
-                placeholder="如 ~/.kube, /tmp/build"
+                placeholder={t("settings.sandbox.allowWritePh", "如 ~/.kube, /tmp/build")}
               />
             </FieldRow>
 
-            <FieldRow label="拒绝写入">
+            <FieldRow label={t("settings.sandbox.denyWrite", "拒绝写入")}>
               <PathList
                 items={fs.denyWrite ?? []}
                 onChange={(v) => setFsArray("denyWrite", v)}
-                placeholder="如 ~/.bashrc, /etc"
+                placeholder={t("settings.sandbox.denyWritePh", "如 ~/.bashrc, /etc")}
               />
             </FieldRow>
 
-            <FieldRow label="允许读取">
+            <FieldRow label={t("settings.sandbox.allowRead", "允许读取")}>
               <PathList
                 items={fs.allowRead ?? []}
                 onChange={(v) => setFsArray("allowRead", v)}
-                placeholder="如 .（项目目录）"
+                placeholder={t("settings.sandbox.allowReadPh", "如 .（项目目录）")}
               />
             </FieldRow>
 
-            <FieldRow label="拒绝读取">
+            <FieldRow label={t("settings.sandbox.denyRead", "拒绝读取")}>
               <PathList
                 items={fs.denyRead ?? []}
                 onChange={(v) => setFsArray("denyRead", v)}
-                placeholder="如 ~/（阻止读主目录）, ~/.ssh"
+                placeholder={t("settings.sandbox.denyReadPh", "如 ~/（阻止读主目录）, ~/.ssh")}
               />
             </FieldRow>
           </div>
@@ -1473,46 +1474,46 @@ function SandboxEditor({
           }}>
             <SubHeading>
               <SvgIcon d="M12 2a10 10 0 100 20 10 10 0 000-20zM2 12h20M12 2a15 15 0 014 10 15 15 0 01-4 10 15 15 0 01-4-10A15 15 0 0112 2z" size={15} />
-              网络隔离
+              {t("settings.sandbox.netIsolation", "网络隔离")}
             </SubHeading>
             <Hint>
-              默认：无预允许域名。命令首次需要新域名时提示批准。设置 allowedDomains 可预授权域名。
+              {t("settings.sandbox.netIsolationDesc", "默认：无预允许域名。命令首次需要新域名时提示批准。设置 allowedDomains 可预授权域名。")}
             </Hint>
 
-            <FieldRow label="允许域名">
+            <FieldRow label={t("settings.sandbox.allowedDomains", "允许域名")}>
               <TagList
                 items={net.allowedDomains ?? []}
                 onChange={(v) => setNetArray("allowedDomains", v)}
-                placeholder="如 api.anthropic.com, *.github.com"
+                placeholder={t("settings.sandbox.allowedDomainsPh", "如 api.anthropic.com, *.github.com")}
               />
             </FieldRow>
 
-            <FieldRow label="拒绝域名">
+            <FieldRow label={t("settings.sandbox.deniedDomains", "拒绝域名")}>
               <TagList
                 items={net.deniedDomains ?? []}
                 onChange={(v) => setNetArray("deniedDomains", v)}
-                placeholder="即使 allowedDomains 通配符允许，也会被阻止"
+                placeholder={t("settings.sandbox.deniedDomainsPh", "即使 allowedDomains 通配符允许，也会被阻止")}
               />
             </FieldRow>
 
             <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-              <FieldRow label="HTTP 代理">
+              <FieldRow label={t("settings.sandbox.httpProxy", "HTTP 代理")}>
                 <input
                   className="input"
                   type="number"
                   value={net.httpProxyPort ?? ""}
                   onChange={(e) => setNetPort("httpProxyPort", e.target.value)}
-                  placeholder="端口"
+                  placeholder={t("settings.sandbox.port", "端口")}
                   style={{ width: 100, fontSize: F.hint, padding: "6px 10px" }}
                 />
               </FieldRow>
-              <FieldRow label="SOCKS 代理">
+              <FieldRow label={t("settings.sandbox.socksProxy", "SOCKS 代理")}>
                 <input
                   className="input"
                   type="number"
                   value={net.socksProxyPort ?? ""}
                   onChange={(e) => setNetPort("socksProxyPort", e.target.value)}
-                  placeholder="端口"
+                  placeholder={t("settings.sandbox.port", "端口")}
                   style={{ width: 100, fontSize: F.hint, padding: "6px 10px" }}
                 />
               </FieldRow>
@@ -1526,42 +1527,42 @@ function SandboxEditor({
           }}>
             <SubHeading>
               <SvgIcon d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10zM9 12l2 2 4-4" size={15} />
-              安全与策略
+              {t("settings.sandbox.safety", "安全与策略")}
             </SubHeading>
 
-            <FieldRow label="不可用时报错">
+            <FieldRow label={t("settings.sandbox.failIfUnavailable", "不可用时报错")}>
               <Toggle active={!!sb.failIfUnavailable} onChange={(v) => toggleSb("failIfUnavailable", v)} />
-              <Hint>缺少依赖时阻止启动而非回退到非沙箱执行</Hint>
+              <Hint>{t("settings.sandbox.failIfUnavailableDesc", "缺少依赖时阻止启动而非回退到非沙箱执行")}</Hint>
             </FieldRow>
 
-            <FieldRow label="禁止逃逸">
+            <FieldRow label={t("settings.sandbox.noEscape", "禁止逃逸")}>
               <Toggle active={sb.allowUnsandboxedCommands === false} onChange={(v) => sync({ allowUnsandboxedCommands: !v })} />
-              <Hint>禁用 dangerouslyDisableSandbox 逃生舱，所有命令必须沙箱化</Hint>
+              <Hint>{t("settings.sandbox.noEscapeDesc", "禁用 dangerouslyDisableSandbox 逃生舱，所有命令必须沙箱化")}</Hint>
             </FieldRow>
 
-            <FieldRow label="锁定域名">
+            <FieldRow label={t("settings.sandbox.lockDomains", "锁定域名")}>
               <Toggle active={!!net.allowManagedDomainsOnly} onChange={(v) => sync({ network: { ...net, allowManagedDomainsOnly: v } })} />
-              <Hint>仅尊重托管设置的 allowedDomains，忽略本地配置</Hint>
+              <Hint>{t("settings.sandbox.lockDomainsDesc", "仅尊重托管设置的 allowedDomains，忽略本地配置")}</Hint>
             </FieldRow>
 
-            <FieldRow label="锁定读取路径">
+            <FieldRow label={t("settings.sandbox.lockReadPaths", "锁定读取路径")}>
               <Toggle active={!!sb.allowManagedReadPathsOnly} onChange={(v) => toggleSb("allowManagedReadPathsOnly", v)} />
-              <Hint>仅尊重托管设置的 allowRead，忽略本地配置</Hint>
+              <Hint>{t("settings.sandbox.lockReadPathsDesc", "仅尊重托管设置的 allowRead，忽略本地配置")}</Hint>
             </FieldRow>
 
-            <FieldRow label="弱网络隔离">
+            <FieldRow label={t("settings.sandbox.weakNet", "弱网络隔离")}>
               <Toggle active={!!sb.enableWeakerNetworkIsolation} onChange={(v) => toggleSb("enableWeakerNetworkIsolation", v)} />
-              <Hint>MITM 代理 + 自定义 CA 场景下启用</Hint>
+              <Hint>{t("settings.sandbox.weakNetDesc", "MITM 代理 + 自定义 CA 场景下启用")}</Hint>
             </FieldRow>
 
-            <FieldRow label="弱嵌套沙箱">
+            <FieldRow label={t("settings.sandbox.weakNested", "弱嵌套沙箱")}>
               <Toggle active={!!sb.enableWeakerNestedSandbox} onChange={(v) => toggleSb("enableWeakerNestedSandbox", v)} />
-              <Hint>无特权容器内运行时启用（绑定挂载 /proc 而非新建）</Hint>
+              <Hint>{t("settings.sandbox.weakNestedDesc", "无特权容器内运行时启用（绑定挂载 /proc 而非新建）")}</Hint>
             </FieldRow>
 
-            <FieldRow label="Unix 套接字">
+            <FieldRow label={t("settings.sandbox.unixSockets", "Unix 套接字")}>
               <Toggle active={!!sb.allowUnixSockets} onChange={(v) => toggleSb("allowUnixSockets", v)} />
-              <Hint>允许 Unix 域套接字访问（注意：Docker socket 等可能绕过沙箱）</Hint>
+              <Hint>{t("settings.sandbox.unixSocketsDesc", "允许 Unix 域套接字访问（注意：Docker socket 等可能绕过沙箱）")}</Hint>
             </FieldRow>
           </div>
 
@@ -1572,15 +1573,15 @@ function SandboxEditor({
           }}>
             <SubHeading>
               <SvgIcon d="M18 6L6 18M6 6l12 12" size={15} />
-              排除命令
+              {t("settings.sandbox.excludedCommands", "排除命令")}
             </SubHeading>
             <Hint>
-              列出的命令在沙箱外运行（如 docker, gh, terraform 等与沙箱不兼容的工具）
+              {t("settings.sandbox.excludedCommandsDesc", "列出的命令在沙箱外运行（如 docker, gh, terraform 等与沙箱不兼容的工具）")}
             </Hint>
             <TagList
               items={sb.excludedCommands ?? []}
               onChange={setExcludedCommands}
-              placeholder="如 docker, gh, terraform, watchman"
+              placeholder={t("settings.sandbox.excludedCommandsPh", "如 docker, gh, terraform, watchman")}
             />
           </div>
         </>
@@ -1842,29 +1843,29 @@ const SUBAGENT_TEMPLATES = [
 // ── Available data fields reference ──
 
 const STATUSLINE_DATA_FIELDS = [
-  { group: "模型", fields: [
+  { id: "model", group: "模型", fields: [
     { key: "model.id", desc: "模型标识符" },
     { key: "model.display_name", desc: "模型显示名称" },
   ]},
-  { group: "工作区", fields: [
+  { id: "workspace", group: "工作区", fields: [
     { key: "workspace.current_dir", desc: "当前工作目录" },
     { key: "workspace.project_dir", desc: "项目启动目录" },
     { key: "workspace.repo.owner/name", desc: "Git 仓库标识" },
   ]},
-  { group: "成本", fields: [
+  { id: "cost", group: "成本", fields: [
     { key: "cost.total_cost_usd", desc: "累计预估成本 ($)" },
     { key: "cost.total_duration_ms", desc: "总持续时间 (ms)" },
     { key: "cost.total_api_duration_ms", desc: "API 等待时间 (ms)" },
   ]},
-  { group: "上下文窗口", fields: [
+  { id: "contextWindow", group: "上下文窗口", fields: [
     { key: "context_window.used_percentage", desc: "已使用百分比" },
     { key: "context_window.context_window_size", desc: "最大窗口大小" },
   ]},
-  { group: "速率限制", fields: [
+  { id: "rateLimits", group: "速率限制", fields: [
     { key: "rate_limits.five_hour.used_percentage", desc: "5小时窗口使用 %" },
     { key: "rate_limits.seven_day.used_percentage", desc: "7天窗口使用 %" },
   ]},
-  { group: "其他", fields: [
+  { id: "other", group: "其他", fields: [
     { key: "effort.level", desc: "推理工作量" },
     { key: "vim.mode", desc: "Vim 模式" },
     { key: "session_id", desc: "会话 ID" },
@@ -2092,13 +2093,13 @@ function SegmentEditModal({
         onClick={(e) => e.stopPropagation()}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
           <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)" }}>
-            {def.name}
+            {t(`statusline.seg.${def.type}.name`, def.name)}
           </div>
           <button type="button" className="btn btn-ghost btn-icon"
             style={{ width: 28, height: 28, fontSize: F.body }}
             onClick={onClose}>×</button>
         </div>
-        <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 16 }}>{def.desc}</div>
+        <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 16 }}>{t(`statusline.seg.${def.type}.desc`, def.desc)}</div>
 
         {/* Newline toggle */}
         <label style={{
@@ -2179,7 +2180,7 @@ function SegmentEditModal({
             {def.fields.map(f => (
               <div key={f.key} style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <label style={{ fontSize: F.body, color: "var(--text-secondary)", minWidth: 100, flexShrink: 0 }}>
-                  {f.label}
+                  {t(`statusline.seg.${def.type}.field.${f.key}`, f.label)}
                 </label>
                 {f.type === "select" ? (
                   <select className="input" style={{ fontSize: F.body, padding: S.inputPad, flex: 1 }}
@@ -2351,17 +2352,17 @@ function StatusLinePanel({
         <Toggle active={enabled} onChange={handleToggle} />
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: F.label, fontWeight: 600, color: "var(--text-primary)" }}>
-            {isMain ? "使用内置状态栏" : "使用内置子代理状态栏"}
+            {isMain ? t("statusline.useBuiltin", "使用内置状态栏") : t("statusline.useBuiltinSubagent", "使用内置子代理状态栏")}
           </div>
           <Hint>{isMain
-            ? "开启后 aidog 生成脚本到 ~/.aidog/aidog-statusline.sh"
-            : "开启后 aidog 生成脚本到 ~/.aidog/aidog-subagent-statusline.sh"}</Hint>
+            ? t("statusline.builtinDesc", "开启后 aidog 生成脚本到 ~/.aidog/aidog-statusline.sh")
+            : t("statusline.builtinSubagentDesc", "开启后 aidog 生成脚本到 ~/.aidog/aidog-subagent-statusline.sh")}</Hint>
         </div>
         {enabled && (
           <span style={{
             fontSize: F.small, fontWeight: 600, color: "#34c759",
             padding: "2px 8px", background: "rgba(52,199,89,0.12)", borderRadius: "var(--radius-sm)",
-          }}>● 已启用</span>
+          }}>● {t("statusline.enabled", "已启用")}</span>
         )}
       </div>
 
@@ -2431,7 +2432,7 @@ function StatusLinePanel({
                           userSelect: "none", touchAction: "none",
                           padding: "0 2px", lineHeight: 1,
                         }}
-                        title="拖动排序"
+                        title={t("statusline.dragSort", "拖动排序")}
                       ><IconMenu size={15} /></span>
                       {/* Toggle */}
                       <Toggle active={seg.enabled} onChange={(v) => {
@@ -2440,7 +2441,7 @@ function StatusLinePanel({
                       }} />
                       {/* Name */}
                       <span style={{ fontSize: F.body, fontWeight: 600, color: "var(--text-primary)", flexShrink: 0 }}>
-                        {def.name}
+                        {t(`statusline.seg.${def.type}.name`, def.name)}
                       </span>
                       {/* Inline preview (colored) */}
                       <span style={{
@@ -2505,8 +2506,8 @@ function StatusLinePanel({
                         onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-glass)"; }}
                         onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
                         onClick={() => addSegment(d.type)}>
-                        <span style={{ fontWeight: 500 }}>{d.name}</span>
-                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginLeft: 8 }}>{d.desc}</span>
+                        <span style={{ fontWeight: 500 }}>{t(`statusline.seg.${d.type}.name`, d.name)}</span>
+                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginLeft: 8 }}>{t(`statusline.seg.${d.type}.desc`, d.desc)}</span>
                       </button>
                     ))}
                   </div>
@@ -2528,7 +2529,7 @@ function StatusLinePanel({
                       borderRadius: "var(--radius-sm)", cursor: "pointer",
                     }}
                     onClick={() => setStored({ template: tp.id })}>
-                    {tp.name}
+                    {t(`statusline.tmpl.${tp.id}`, tp.name)}
                   </button>
                 );
               })}
@@ -2542,7 +2543,7 @@ function StatusLinePanel({
               display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center",
             }}>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <label style={{ fontSize: F.body, color: "var(--text-secondary)" }}>水平间距</label>
+                <label style={{ fontSize: F.body, color: "var(--text-secondary)" }}>{t("statusline.hPadding", "水平间距")}</label>
                 <input className="input" type="number" min={0} max={20}
                   style={{ width: 60, fontSize: F.body, padding: S.inputPad }}
                   value={padding}
@@ -2550,7 +2551,7 @@ function StatusLinePanel({
               </div>
               <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: F.body, color: "var(--text-secondary)", cursor: "pointer" }}>
                 <Toggle active={hideVimModeIndicator} onChange={(v) => setStored({ hideVimModeIndicator: v })} />
-                隐藏 Vim 模式指示器
+                {t("statusline.hideVimIndicator", "隐藏 Vim 模式指示器")}
               </label>
             </div>
           )}
@@ -2564,7 +2565,7 @@ function StatusLinePanel({
               onClick={() => setShowScript(!showScript)}>
               <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={{ transform: showScript ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 150ms", display: "inline-block" }}>▶</span>
-                脚本预览
+                {t("statusline.scriptPreview", "脚本预览")}
               </span>
               <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontFamily: '"SF Mono", "Fira Code", monospace' }}>
                 ~/.aidog/aidog-{scriptType === "subagent" ? "subagent-" : ""}statusline.sh
@@ -2587,7 +2588,7 @@ function StatusLinePanel({
           <div style={{ display: "flex", justifyContent: "flex-end" }}>
             <button className="btn btn-primary" style={{ fontSize: F.body, padding: S.btnPad }}
               onClick={handleSave} disabled={saving}>
-              {saving ? "生成中…" : "应用并生成脚本"}
+              {saving ? t("statusline.generating", "生成中…") : t("statusline.applyGenerate", "应用并生成脚本")}
             </button>
           </div>
         </>
@@ -2659,7 +2660,7 @@ export function StatusLineSection({
           key: "fileSuggestion",
           label: "File Suggestion",
           type: "string",
-          description: "自定义文件建议脚本路径",
+          description: t("statusline.fileSuggestionDesc", "自定义文件建议脚本路径"),
           pathType: "file",
         };
         return (
@@ -2680,15 +2681,15 @@ export function StatusLineSection({
           style={{ fontSize: F.body, padding: "4px 8px", display: "flex", alignItems: "center", gap: 4, width: "100%", justifyContent: "flex-start" }}
           onClick={() => setShowDataRef(!showDataRef)}>
           <span style={{ transform: showDataRef ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 150ms", display: "inline-block" }}>▶</span>
-          可用数据字段参考
+          {t("statusline.dataFieldsRef", "可用数据字段参考")}
         </button>
         {showDataRef && (
           <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 12 }}>
-            <Hint>Claude Code 通过 stdin 注入以下 JSON 字段，可在脚本中用 jq 提取</Hint>
+            <Hint>{t("statusline.dataFieldsHint", "Claude Code 通过 stdin 注入以下 JSON 字段，可在脚本中用 jq 提取")}</Hint>
             {STATUSLINE_DATA_FIELDS.map(group => (
-              <div key={group.group}>
+              <div key={group.id}>
                 <div style={{ fontSize: F.label, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
-                  {group.group}
+                  {t(`statusline.dataGroup.${group.id}`, group.group)}
                 </div>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   {group.fields.map(f => (
@@ -2794,6 +2795,7 @@ export function ImportDiffModal({
   onApply: (selectedPaths: Set<string>) => void;
   onClose: () => void;
 }) {
+  const { t } = useTranslation();
   // All leaf paths (the actual selectable units).
   const allLeafPaths = useMemo(() => {
     const out: string[] = [];
@@ -2842,7 +2844,7 @@ export function ImportDiffModal({
   };
 
   const formatValue = (v: any): string => {
-    if (v === undefined) return "(无)";
+    if (v === undefined) return t("settings.editor.none", "(无)");
     if (typeof v === "object") return JSON.stringify(v, null, 2);
     return String(v);
   };
@@ -2863,7 +2865,7 @@ export function ImportDiffModal({
     const labelColor = changeType === "added" ? "#34c759"
       : changeType === "removed" ? "#ff453a"
       : "var(--accent)";
-    const label = changeType === "added" ? "新增" : changeType === "removed" ? "删除" : "变更";
+    const label = changeType === "added" ? t("settings.editor.diffAdded", "新增") : changeType === "removed" ? t("settings.editor.diffRemoved", "删除") : t("settings.editor.diffChanged", "变更");
     return (
       <div key={d.path} style={{
         margin: nested ? "4px 0 4px 28px" : "4px 12px",
@@ -2889,7 +2891,7 @@ export function ImportDiffModal({
         {isSelected && (
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 8, marginLeft: 36 }}>
             <div>
-              <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>当前</div>
+              <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>{t("settings.editor.diffCurrent", "当前")}</div>
               <pre style={{
                 fontFamily: '"SF Mono", "Fira Code", monospace',
                 fontSize: F.hint, lineHeight: 1.5,
@@ -2900,7 +2902,7 @@ export function ImportDiffModal({
               }}>{formatValue(d.current)}</pre>
             </div>
             <div>
-              <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>导入</div>
+              <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginBottom: 2 }}>{t("settings.editor.diffIncoming", "导入")}</div>
               <pre style={{
                 fontFamily: '"SF Mono", "Fira Code", monospace',
                 fontSize: F.hint, lineHeight: 1.5,
@@ -2935,12 +2937,12 @@ export function ImportDiffModal({
           display: "flex", justifyContent: "space-between", alignItems: "center",
         }}>
           <div style={{ fontSize: F.title, fontWeight: 600, color: "var(--text-primary)" }}>
-            从 Claude Code 导入配置
+            {t("settings.editor.importTitle", "从 Claude Code 导入配置")}
           </div>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <button className="btn btn-ghost" style={{ fontSize: F.hint, padding: "4px 10px" }}
               onClick={toggleAll}>
-              {selected.size === allLeafPaths.length ? "取消全选" : "全选"}
+              {selected.size === allLeafPaths.length ? t("settings.editor.deselectAll", "取消全选") : t("settings.editor.selectAll", "全选")}
             </button>
             <button type="button" className="btn btn-ghost btn-icon"
               style={{ width: 28, height: 28, fontSize: F.body }}
@@ -2979,7 +2981,7 @@ export function ImportDiffModal({
                     padding: "1px 6px",
                     background: state === "partial" ? "rgba(255,159,10,0.12)" : "rgba(0,122,255,0.12)",
                     borderRadius: "var(--radius-sm)",
-                  }}>{state === "partial" ? "部分" : "对象"}</span>
+                  }}>{state === "partial" ? t("settings.editor.diffPartial", "部分") : t("settings.editor.diffObject", "对象")}</span>
                 </div>
                 <div style={{ marginTop: 6 }}>
                   {node.children.map(child => renderLeaf(child, true))}
@@ -2995,15 +2997,15 @@ export function ImportDiffModal({
           display: "flex", justifyContent: "space-between", alignItems: "center",
         }}>
           <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
-            已选 {selected.size}/{allLeafPaths.length} 项
+            {t("settings.editor.selectedPrefix", "已选")} {selected.size}/{allLeafPaths.length} {t("settings.editor.selectedSuffix", "项")}
           </span>
           <div style={{ display: "flex", gap: 8 }}>
             <button className="btn btn-ghost" style={{ fontSize: F.body, padding: S.btnPad }}
-              onClick={onClose}>取消</button>
+              onClick={onClose}>{t("action.cancel", "取消")}</button>
             <button className="btn btn-primary" style={{ fontSize: F.body, padding: S.btnPad }}
               disabled={selected.size === 0}
               onClick={() => onApply(selected)}>
-              导入选中 ({selected.size})
+              {t("settings.editor.importSelected", "导入选中")} ({selected.size})
             </button>
           </div>
         </div>
@@ -3074,6 +3076,7 @@ function MarketplaceSourceEditor({
   onChange: (s: Record<string, any>) => void;
   compact?: boolean;
 }) {
+  const { t } = useTranslation();
   const srcType = (source.source ?? "github") as SourceType;
   const fields = SOURCE_FIELDS[srcType] ?? [];
   const setField = (key: string, val: string | boolean) => {
@@ -3117,7 +3120,7 @@ function MarketplaceSourceEditor({
         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
           <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: compact ? 50 : 80, flexShrink: 0, whiteSpace: "nowrap" }}>skipLfs</span>
           <Toggle active={!!source.skipLfs} onChange={(v) => setField("skipLfs", v)} />
-          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>跳过 LFS 下载</span>
+          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.plugins.skipLfs", "跳过 LFS 下载")}</span>
         </div>
       )}
 
@@ -3179,7 +3182,7 @@ function MarketplaceSourceEditor({
       <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
         <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: compact ? 50 : 80, flexShrink: 0, whiteSpace: "nowrap" }}>auto</span>
         <Toggle active={!!source.autoUpdate} onChange={(v) => setField("autoUpdate", v)} />
-        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>启动时自动刷新</span>
+        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.plugins.autoRefresh", "启动时自动刷新")}</span>
       </div>
     </div>
   );
@@ -3193,6 +3196,7 @@ function PluginsEditor({
   config: Record<string, any>;
   updateField: (field: string, value: any) => void;
 }) {
+  const { t } = useTranslation();
   const enabledPlugins = (config.enabledPlugins ?? {}) as Record<string, boolean>;
   const extraMarketplaces = (config.extraKnownMarketplaces ?? {}) as Record<string, any>;
 
@@ -3245,7 +3249,7 @@ function PluginsEditor({
           <SvgIcon d={ICON_PATHS.plugins} size={14} style={{ opacity: 0.6 }} />
           Enabled Plugins
         </SubHeading>
-        <Hint>格式: plugin-name@marketplace → 启用/禁用</Hint>
+        <Hint>{t("settings.plugins.enabledHint", "格式: plugin-name@marketplace → 启用/禁用")}</Hint>
         <div style={{ display: "flex", flexDirection: "column", gap: 4, marginTop: 8 }}>
           {pluginEntries.map(([key, val]) => (
             <div key={key} style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -3285,7 +3289,7 @@ function PluginsEditor({
           <SvgIcon d="M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2Z" size={14} style={{ opacity: 0.6 }} />
           Extra Marketplaces
         </SubHeading>
-        <Hint>命名市场源定义（github / git / directory / settings）</Hint>
+        <Hint>{t("settings.plugins.marketplacesHint", "命名市场源定义（github / git / directory / settings）")}</Hint>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 8 }}>
           {mktEntries.map(([name, mktConfig]) => (
             <div key={name} style={{
@@ -3311,7 +3315,7 @@ function PluginsEditor({
               <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
                 <span style={{ fontSize: F.hint, color: "var(--text-secondary)", minWidth: 80, flexShrink: 0, whiteSpace: "nowrap" }}>Path</span>
                 <input className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
-                  placeholder="本地安装路径（留空自动管理）"
+                  placeholder={t("settings.plugins.localPathPh", "本地安装路径（留空自动管理）")}
                   value={mktConfig.path ?? ""}
                   onChange={(e) => updateMarketplace(name, { ...mktConfig, path: e.target.value || undefined })}
                 />
@@ -3542,10 +3546,10 @@ export function HooksSection({
             if (e.target.value) addMatcherGroup(e.target.value);
           }}
         >
-          <option value="">+ 添加 Hook 事件…</option>
+          <option value="">{t("settings.hooks.addEvent", "+ 添加 Hook 事件…")}</option>
           {HOOK_EVENTS.map(ev => (
             <option key={ev.id} value={ev.id}>
-              {ev.id} — {ev.desc}
+              {ev.id} — {t(`settings.hooks.event.${ev.id}.desc`, ev.desc)}
             </option>
           ))}
         </select>
@@ -3554,8 +3558,8 @@ export function HooksSection({
       {/* Hint */}
       {totalHooks === 0 && (
         <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-          Hooks 在 Claude Code 生命周期的特定点自动执行命令/HTTP请求/LLM提示。
-          <br />选择事件类型开始配置。
+          {t("settings.hooks.introLine1", "Hooks 在 Claude Code 生命周期的特定点自动执行命令/HTTP请求/LLM提示。")}
+          <br />{t("settings.hooks.introLine2", "选择事件类型开始配置。")}
         </div>
       )}
 
@@ -3593,7 +3597,7 @@ export function HooksSection({
               </span>
               {eventMeta && (
                 <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>
-                  — {eventMeta.desc}
+                  — {t(`settings.hooks.event.${eventMeta.id}.desc`, eventMeta.desc)}
                 </span>
               )}
               <span style={{
@@ -3611,7 +3615,7 @@ export function HooksSection({
                   delete updated[eventId];
                   syncHooks(updated);
                 }}
-                title="删除此事件所有 hooks"
+                title={t("settings.hooks.deleteEvent", "删除此事件所有 hooks")}
               >
                 ×
               </button>
@@ -3642,7 +3646,7 @@ export function HooksSection({
                 {/* Matcher: tag chips or freeform input */}
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0, fontWeight: 500 }}>
-                    匹配器
+                    {t("settings.hooks.matcher", "匹配器")}
                   </span>
                   {eventMeta && eventMeta.matcherOptions.length > 0 ? (
                     <>
@@ -3672,7 +3676,7 @@ export function HooksSection({
                       {/* Selected indicator */}
                       {matcherTags.length > 0 && !matcherTags.every(t => eventMeta.matcherOptions.includes(t)) && (
                         <span style={{ fontSize: F.hint, color: "var(--accent)" }}>
-                          + 自定义: {matcherTags.filter(t => !eventMeta.matcherOptions.includes(t)).join(", ")}
+                          {t("settings.hooks.customMatcher", "+ 自定义")}: {matcherTags.filter(t => !eventMeta.matcherOptions.includes(t)).join(", ")}
                         </span>
                       )}
                     </>
@@ -3680,19 +3684,19 @@ export function HooksSection({
                     <input
                       className="input"
                       style={{ ...inputStyle, flex: 1 }}
-                      placeholder={eventMeta?.id === "FileChanged" ? "文件名，如 .envrc|.env" : "工具名称或正则，多个用 | 分隔"}
+                      placeholder={eventMeta?.id === "FileChanged" ? t("settings.hooks.matcherFilePh", "文件名，如 .envrc|.env") : t("settings.hooks.matcherToolPh", "工具名称或正则，多个用 | 分隔")}
                       value={group.matcher}
                       onChange={(e) => updateMatcher(eventId, gi, e.target.value)}
                     />
                   ) : (
-                    <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>匹配所有</span>
+                    <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.hooks.matchAll", "匹配所有")}</span>
                   )}
                   <button
                     type="button"
                     className="btn btn-ghost btn-icon"
                     style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)" }}
                     onClick={() => removeMatcherGroup(eventId, gi)}
-                    title="删除此匹配器组"
+                    title={t("settings.hooks.deleteMatcherGroup", "删除此匹配器组")}
                   >
                     ×
                   </button>
@@ -3720,7 +3724,7 @@ export function HooksSection({
                         background: "var(--bg-glass)", color: "var(--accent)", border: "1px solid var(--border)",
                         flexShrink: 0,
                       }}>
-                        {HANDLER_LABELS[handler.type]}
+                        {t(`settings.hooks.handler.${handler.type}`, HANDLER_LABELS[handler.type])}
                       </span>
                       <select
                         className="input"
@@ -3729,7 +3733,7 @@ export function HooksSection({
                         onChange={(e) => updateHandler(eventId, gi, hi, { type: e.target.value as HandlerType })}
                       >
                         {HANDLER_TYPES.map(ht => (
-                          <option key={ht} value={ht}>{HANDLER_LABELS[ht]}</option>
+                          <option key={ht} value={ht}>{t(`settings.hooks.handler.${ht}`, HANDLER_LABELS[ht])}</option>
                         ))}
                       </select>
                       <button
@@ -3737,7 +3741,7 @@ export function HooksSection({
                         className="btn btn-ghost btn-icon"
                         style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)", marginLeft: "auto" }}
                         onClick={() => removeHandler(eventId, gi, hi)}
-                        title="删除此处理器"
+                        title={t("settings.hooks.deleteHandler", "删除此处理器")}
                       >
                         ×
                       </button>
@@ -3746,7 +3750,7 @@ export function HooksSection({
                     {/* Command — textarea + shell selector on own row */}
                     {handler.type === "command" && (
                       <>
-                        <FieldRow label="命令" icon={<SectionIcon name="bolt" size={13} />}>
+                        <FieldRow label={t("settings.hooks.fieldCommand", "命令")} icon={<SectionIcon name="bolt" size={13} />}>
                           <textarea
                             className="input"
                             style={{
@@ -3754,7 +3758,7 @@ export function HooksSection({
                               fontFamily: '"SF Mono", "Fira Code", monospace', lineHeight: 1.5,
                               minHeight: 56, resize: "vertical",
                             }}
-                            placeholder="命令或脚本路径，如 ./scripts/check.sh&#10;支持多行命令，每行独立执行"
+                            placeholder={t("settings.hooks.commandPh", "命令或脚本路径，如 ./scripts/check.sh&#10;支持多行命令，每行独立执行")}
                             value={handler.command ?? ""}
                             onChange={(e) => updateHandler(eventId, gi, hi, { command: e.target.value || undefined })}
                           />
@@ -3778,7 +3782,7 @@ export function HooksSection({
                         <input
                           className="input"
                           style={{ ...inputStyle, flex: 1 }}
-                          placeholder="HTTP URL，如 http://localhost:8080/hooks/pre-tool-use"
+                          placeholder={t("settings.hooks.urlPh", "HTTP URL，如 http://localhost:8080/hooks/pre-tool-use")}
                           value={handler.url ?? ""}
                           onChange={(e) => updateHandler(eventId, gi, hi, { url: e.target.value || undefined })}
                         />
@@ -3787,20 +3791,20 @@ export function HooksSection({
                     {/* MCP Tool — server + tool each on own row */}
                     {handler.type === "mcp_tool" && (
                       <>
-                        <FieldRow label="服务器" icon={<SectionIcon name="network" size={13} />}>
+                        <FieldRow label={t("settings.hooks.fieldServer", "服务器")} icon={<SectionIcon name="network" size={13} />}>
                           <input
                             className="input"
                             style={{ ...inputStyle, flex: 1 }}
-                            placeholder="MCP 服务器名称"
+                            placeholder={t("settings.hooks.serverPh", "MCP 服务器名称")}
                             value={handler.server ?? ""}
                             onChange={(e) => updateHandler(eventId, gi, hi, { server: e.target.value || undefined })}
                           />
                         </FieldRow>
-                        <FieldRow label="工具" icon={<SectionIcon name="advanced" size={13} />}>
+                        <FieldRow label={t("settings.hooks.fieldTool", "工具")} icon={<SectionIcon name="advanced" size={13} />}>
                           <input
                             className="input"
                             style={{ ...inputStyle, flex: 1 }}
-                            placeholder="工具名称"
+                            placeholder={t("settings.hooks.toolPh", "工具名称")}
                             value={handler.tool ?? ""}
                             onChange={(e) => updateHandler(eventId, gi, hi, { tool: e.target.value || undefined })}
                           />
@@ -3809,7 +3813,7 @@ export function HooksSection({
                     )}
                     {/* Prompt / Agent — textarea */}
                     {(handler.type === "prompt" || handler.type === "agent") && (
-                      <FieldRow label="提示" icon={<SectionIcon name="behavior" size={13} />}>
+                      <FieldRow label={t("settings.hooks.fieldPrompt", "提示")} icon={<SectionIcon name="behavior" size={13} />}>
                         <textarea
                           className="input"
                           style={{
@@ -3817,7 +3821,7 @@ export function HooksSection({
                             fontFamily: '"SF Mono", "Fira Code", monospace', lineHeight: 1.5,
                             minHeight: 56, resize: "vertical",
                           }}
-                          placeholder="提示文本，用 $ARGUMENTS 插入 hook 输入数据&#10;支持多行提示内容"
+                          placeholder={t("settings.hooks.promptPh", "提示文本，用 $ARGUMENTS 插入 hook 输入数据&#10;支持多行提示内容")}
                           value={handler.prompt ?? ""}
                           onChange={(e) => updateHandler(eventId, gi, hi, { prompt: e.target.value || undefined })}
                         />
@@ -3826,11 +3830,11 @@ export function HooksSection({
 
                     {/* ── Auxiliary options, each on its own row ── */}
                     {eventMeta?.hasMatcher && (
-                      <FieldRow label="条件 if" icon={<SectionIcon name="permissions" size={13} />}>
+                      <FieldRow label={t("settings.hooks.fieldIf", "条件 if")} icon={<SectionIcon name="permissions" size={13} />}>
                         <input
                           className="input"
                           style={{ ...inputStyle, flex: 1, fontSize: F.hint }}
-                          placeholder="匹配条件，如 Bash(rm *)"
+                          placeholder={t("settings.hooks.ifPh", "匹配条件，如 Bash(rm *)")}
                           value={handler["if"] ?? ""}
                           onChange={(e) => {
                             const patch: Partial<HookHandler> = {};
@@ -3841,7 +3845,7 @@ export function HooksSection({
                         />
                       </FieldRow>
                     )}
-                    <FieldRow label="超时" icon={<SectionIcon name="status" size={13} />}>
+                    <FieldRow label={t("settings.hooks.fieldTimeout", "超时")} icon={<SectionIcon name="status" size={13} />}>
                       <input
                         className="input"
                         style={{ ...inputStyle, width: 80, fontSize: F.hint }}
@@ -3850,21 +3854,21 @@ export function HooksSection({
                         value={handler.timeout ?? ""}
                         onChange={(e) => updateHandler(eventId, gi, hi, { timeout: e.target.value ? Number(e.target.value) : undefined })}
                       />
-                      <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>秒</span>
+                      <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.hooks.seconds", "秒")}</span>
                     </FieldRow>
                     {handler.type === "command" && (
                       <FieldRow label="async" icon={<SectionIcon name="ui" size={13} />}>
                         <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: F.hint, color: "var(--text-tertiary)", cursor: "pointer" }}>
                           <Toggle active={!!handler.async} onChange={(v) => updateHandler(eventId, gi, hi, { async: v || undefined })} />
-                          后台运行（不阻塞主流程）
+                          {t("settings.hooks.asyncDesc", "后台运行（不阻塞主流程）")}
                         </label>
                       </FieldRow>
                     )}
-                    <FieldRow label="状态" icon={<SectionIcon name="status" size={13} />}>
+                    <FieldRow label={t("settings.hooks.fieldStatus", "状态")} icon={<SectionIcon name="status" size={13} />}>
                       <input
                         className="input"
                         style={{ ...inputStyle, flex: 1, fontSize: F.hint }}
-                        placeholder="运行时显示的状态消息"
+                        placeholder={t("settings.hooks.statusPh", "运行时显示的状态消息")}
                         value={handler.statusMessage ?? ""}
                         onChange={(e) => updateHandler(eventId, gi, hi, { statusMessage: e.target.value || undefined })}
                       />
@@ -3879,7 +3883,7 @@ export function HooksSection({
                   style={{ fontSize: F.hint, padding: "6px 14px", alignSelf: "flex-start", marginLeft: 72 }}
                   onClick={() => addHandler(eventId, gi)}
                 >
-                  + 处理器
+                  {t("settings.hooks.addHandler", "+ 处理器")}
                 </button>
               </div>
             );
@@ -3894,7 +3898,7 @@ export function HooksSection({
                 style={{ fontSize: F.hint, padding: "6px 14px", alignSelf: "flex-start" }}
                 onClick={() => addMatcherGroup(eventId)}
               >
-                + 匹配器组
+                {t("settings.hooks.addMatcherGroup", "+ 匹配器组")}
               </button>
             )}
           </div>
@@ -3911,7 +3915,7 @@ export function HooksSectionInline(props: {
   t: ReturnType<typeof useTranslation>["t"];
 }) {
   // Reuse same logic but render flat — extract hooks data from props
-  const { hooksValue, updateField } = props;
+  const { hooksValue, updateField, t } = props;
   const hooks: HooksConfig = hooksValue ?? {};
   const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
 
@@ -3994,17 +3998,17 @@ export function HooksSectionInline(props: {
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <select className="input" style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 200 }} value=""
           onChange={(e) => { if (e.target.value) addMatcherGroup(e.target.value); }}>
-          <option value="">+ 添加 Hook 事件…</option>
+          <option value="">{t("settings.hooks.addEvent", "+ 添加 Hook 事件…")}</option>
           {HOOK_EVENTS.map(ev => (
-            <option key={ev.id} value={ev.id}>{ev.id} — {ev.desc}</option>
+            <option key={ev.id} value={ev.id}>{ev.id} — {t(`settings.hooks.event.${ev.id}.desc`, ev.desc)}</option>
           ))}
         </select>
       </div>
 
       {totalHooks === 0 && (
         <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
-          Hooks 在 Claude Code 生命周期的特定点自动执行命令/HTTP请求/LLM提示。
-          <br />选择事件类型开始配置。
+          {t("settings.hooks.introLine1", "Hooks 在 Claude Code 生命周期的特定点自动执行命令/HTTP请求/LLM提示。")}
+          <br />{t("settings.hooks.introLine2", "选择事件类型开始配置。")}
         </div>
       )}
 
@@ -4026,14 +4030,14 @@ export function HooksSectionInline(props: {
                 transition: "transform 0.2s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}
                 onClick={() => setExpandedEvent(isExpanded ? null : eventId)}>▶</span>
               <span style={{ fontSize: 16, fontWeight: 600, color: "var(--accent)" }}>{eventId}</span>
-              {eventMeta && <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>— {eventMeta.desc}</span>}
+              {eventMeta && <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>— {t(`settings.hooks.event.${eventMeta.id}.desc`, eventMeta.desc)}</span>}
               <span style={{ fontSize: 12, fontWeight: 600, padding: "2px 10px", borderRadius: 10,
                 background: "var(--accent-subtle)", color: "var(--accent)", marginLeft: "auto" }}>
                 {count} handler{count !== 1 ? "s" : ""}
               </span>
               <button type="button" className="btn btn-ghost btn-icon"
                 style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)" }}
-                onClick={() => { const u = { ...hooks }; delete u[eventId]; syncHooks(u); }} title="删除">×
+                onClick={() => { const u = { ...hooks }; delete u[eventId]; syncHooks(u); }} title={t("action.delete", "删除")}>×
               </button>
             </div>
 
@@ -4047,7 +4051,7 @@ export function HooksSectionInline(props: {
               return (
                 <div key={gi} style={{ borderLeft: "3px solid var(--accent)", paddingLeft: 16, display: "flex", flexDirection: "column", gap: 12 }}>
                   <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0, fontWeight: 500 }}>匹配器</span>
+                    <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", flexShrink: 0, fontWeight: 500 }}>{t("settings.hooks.matcher", "匹配器")}</span>
                     {eventMeta && eventMeta.matcherOptions.length > 0 ? (
                       <>
                         {eventMeta.matcherOptions.map(opt => {
@@ -4065,14 +4069,14 @@ export function HooksSectionInline(props: {
                       </>
                     ) : eventMeta?.matcherFreeform ? (
                       <input className="input" style={{ ...inputStyle, flex: 1 }}
-                        placeholder={eventMeta?.id === "FileChanged" ? "文件名，如 .envrc|.env" : "工具名称或正则，多个用 | 分隔"}
+                        placeholder={eventMeta?.id === "FileChanged" ? t("settings.hooks.matcherFilePh", "文件名，如 .envrc|.env") : t("settings.hooks.matcherToolPh", "工具名称或正则，多个用 | 分隔")}
                         value={group.matcher} onChange={(e) => updateMatcher(eventId, gi, e.target.value)} />
                     ) : (
-                      <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>匹配所有</span>
+                      <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.hooks.matchAll", "匹配所有")}</span>
                     )}
                     <button type="button" className="btn btn-ghost btn-icon"
                       style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)" }}
-                      onClick={() => removeMatcherGroup(eventId, gi)} title="删除">×
+                      onClick={() => removeMatcherGroup(eventId, gi)} title={t("action.delete", "删除")}>×
                     </button>
                   </div>
 
@@ -4086,21 +4090,21 @@ export function HooksSectionInline(props: {
                       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                         <span style={{ fontSize: 13, fontWeight: 600, padding: "3px 10px", borderRadius: 6,
                           background: "var(--bg-glass)", color: "var(--accent)", border: "1px solid var(--border)", flexShrink: 0 }}>
-                          {HANDLER_LABELS[handler.type]}
+                          {t(`settings.hooks.handler.${handler.type}`, HANDLER_LABELS[handler.type])}
                         </span>
                         <select className="input" style={{ ...inputStyle, width: 130, flexShrink: 0 }}
                           value={handler.type} onChange={(e) => updateHandler(eventId, gi, hi, { type: e.target.value as HandlerType })}>
-                          {HANDLER_TYPES.map(ht => <option key={ht} value={ht}>{HANDLER_LABELS[ht]}</option>)}
+                          {HANDLER_TYPES.map(ht => <option key={ht} value={ht}>{t(`settings.hooks.handler.${ht}`, HANDLER_LABELS[ht])}</option>)}
                         </select>
                         <button type="button" className="btn btn-ghost btn-icon"
                           style={{ width: 26, height: 26, minWidth: 26, fontSize: 14, padding: 0, color: "var(--text-tertiary)", marginLeft: "auto" }}
-                          onClick={() => removeHandler(eventId, gi, hi)} title="删除">×
+                          onClick={() => removeHandler(eventId, gi, hi)} title={t("action.delete", "删除")}>×
                         </button>
                       </div>
 
                       {handler.type === "command" && (
                         <>
-                          <FieldRow label="命令" icon={<SectionIcon name="bolt" size={13} />}>
+                          <FieldRow label={t("settings.hooks.fieldCommand", "命令")} icon={<SectionIcon name="bolt" size={13} />}>
                             <textarea
                               className="input"
                               style={{
@@ -4108,7 +4112,7 @@ export function HooksSectionInline(props: {
                                 fontFamily: '"SF Mono", "Fira Code", monospace', lineHeight: 1.5,
                                 minHeight: 56, resize: "vertical",
                               }}
-                              placeholder="命令或脚本路径，如 ./scripts/check.sh&#10;支持多行命令，每行独立执行"
+                              placeholder={t("settings.hooks.commandPh", "命令或脚本路径，如 ./scripts/check.sh&#10;支持多行命令，每行独立执行")}
                               value={handler.command ?? ""}
                               onChange={(e) => updateHandler(eventId, gi, hi, { command: e.target.value || undefined })}
                             />
@@ -4123,24 +4127,24 @@ export function HooksSectionInline(props: {
                       )}
                       {handler.type === "http" && (
                         <FieldRow label="URL" icon={<SectionIcon name="network" size={13} />}>
-                          <input className="input" style={{ ...inputStyle, flex: 1 }} placeholder="HTTP URL，如 http://localhost:8080/hooks/pre-tool-use"
+                          <input className="input" style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.urlPh", "HTTP URL，如 http://localhost:8080/hooks/pre-tool-use")}
                             value={handler.url ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { url: e.target.value || undefined })} />
                         </FieldRow>
                       )}
                       {handler.type === "mcp_tool" && (
                         <>
-                          <FieldRow label="服务器" icon={<SectionIcon name="network" size={13} />}>
-                            <input className="input" style={{ ...inputStyle, flex: 1 }} placeholder="MCP 服务器名称"
+                          <FieldRow label={t("settings.hooks.fieldServer", "服务器")} icon={<SectionIcon name="network" size={13} />}>
+                            <input className="input" style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.serverPh", "MCP 服务器名称")}
                               value={handler.server ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { server: e.target.value || undefined })} />
                           </FieldRow>
-                          <FieldRow label="工具" icon={<SectionIcon name="advanced" size={13} />}>
-                            <input className="input" style={{ ...inputStyle, flex: 1 }} placeholder="工具名称"
+                          <FieldRow label={t("settings.hooks.fieldTool", "工具")} icon={<SectionIcon name="advanced" size={13} />}>
+                            <input className="input" style={{ ...inputStyle, flex: 1 }} placeholder={t("settings.hooks.toolPh", "工具名称")}
                               value={handler.tool ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { tool: e.target.value || undefined })} />
                           </FieldRow>
                         </>
                       )}
                       {(handler.type === "prompt" || handler.type === "agent") && (
-                        <FieldRow label="提示" icon={<SectionIcon name="behavior" size={13} />}>
+                        <FieldRow label={t("settings.hooks.fieldPrompt", "提示")} icon={<SectionIcon name="behavior" size={13} />}>
                           <textarea
                             className="input"
                             style={{
@@ -4148,7 +4152,7 @@ export function HooksSectionInline(props: {
                               fontFamily: '"SF Mono", "Fira Code", monospace', lineHeight: 1.5,
                               minHeight: 56, resize: "vertical",
                             }}
-                            placeholder="提示文本，用 $ARGUMENTS 插入 hook 输入数据&#10;支持多行提示内容"
+                            placeholder={t("settings.hooks.promptPh", "提示文本，用 $ARGUMENTS 插入 hook 输入数据&#10;支持多行提示内容")}
                             value={handler.prompt ?? ""}
                             onChange={(e) => updateHandler(eventId, gi, hi, { prompt: e.target.value || undefined })}
                           />
@@ -4156,8 +4160,8 @@ export function HooksSectionInline(props: {
                       )}
 
                       {eventMeta?.hasMatcher && (
-                        <FieldRow label="条件 if" icon={<SectionIcon name="permissions" size={13} />}>
-                          <input className="input" style={{ ...inputStyle, flex: 1, fontSize: F.hint }} placeholder="匹配条件，如 Bash(rm *)"
+                        <FieldRow label={t("settings.hooks.fieldIf", "条件 if")} icon={<SectionIcon name="permissions" size={13} />}>
+                          <input className="input" style={{ ...inputStyle, flex: 1, fontSize: F.hint }} placeholder={t("settings.hooks.ifPh", "匹配条件，如 Bash(rm *)")}
                             value={handler["if"] ?? ""} onChange={(e) => {
                               const patch: Partial<HookHandler> = {};
                               if (e.target.value) (patch as any)["if"] = e.target.value;
@@ -4166,22 +4170,22 @@ export function HooksSectionInline(props: {
                             }} />
                         </FieldRow>
                       )}
-                      <FieldRow label="超时" icon={<SectionIcon name="status" size={13} />}>
+                      <FieldRow label={t("settings.hooks.fieldTimeout", "超时")} icon={<SectionIcon name="status" size={13} />}>
                         <input className="input" style={{ ...inputStyle, width: 80, fontSize: F.hint }} type="number" placeholder="600"
                           value={handler.timeout ?? ""} onChange={(e) => updateHandler(eventId, gi, hi, { timeout: e.target.value ? Number(e.target.value) : undefined })} />
-                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>秒</span>
+                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("settings.hooks.seconds", "秒")}</span>
                       </FieldRow>
                       {handler.type === "command" && (
                         <FieldRow label="async" icon={<SectionIcon name="ui" size={13} />}>
                           <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: F.hint, color: "var(--text-tertiary)", cursor: "pointer" }}>
                             <Toggle active={!!handler.async} onChange={(v) => updateHandler(eventId, gi, hi, { async: v || undefined })} />
-                            后台运行（不阻塞主流程）
+                            {t("settings.hooks.asyncDesc", "后台运行（不阻塞主流程）")}
                           </label>
                         </FieldRow>
                       )}
-                      <FieldRow label="状态" icon={<SectionIcon name="status" size={13} />}>
+                      <FieldRow label={t("settings.hooks.fieldStatus", "状态")} icon={<SectionIcon name="status" size={13} />}>
                         <input className="input" style={{ ...inputStyle, flex: 1, fontSize: F.hint }}
-                          placeholder="运行时显示的状态消息" value={handler.statusMessage ?? ""}
+                          placeholder={t("settings.hooks.statusPh", "运行时显示的状态消息")} value={handler.statusMessage ?? ""}
                           onChange={(e) => updateHandler(eventId, gi, hi, { statusMessage: e.target.value || undefined })} />
                       </FieldRow>
                     </div>
@@ -4189,7 +4193,7 @@ export function HooksSectionInline(props: {
 
                   <button type="button" className="btn btn-ghost"
                     style={{ fontSize: F.hint, padding: "6px 14px", alignSelf: "flex-start", marginLeft: 72 }}
-                    onClick={() => addHandler(eventId, gi)}>+ 处理器</button>
+                    onClick={() => addHandler(eventId, gi)}>{t("settings.hooks.addHandler", "+ 处理器")}</button>
                 </div>
               );
             })}
@@ -4197,7 +4201,7 @@ export function HooksSectionInline(props: {
             {isExpanded && (
               <button type="button" className="btn btn-ghost"
                 style={{ fontSize: F.hint, padding: "6px 14px", alignSelf: "flex-start" }}
-                onClick={() => addMatcherGroup(eventId)}>+ 匹配器组</button>
+                onClick={() => addMatcherGroup(eventId)}>{t("settings.hooks.addMatcherGroup", "+ 匹配器组")}</button>
             )}
           </div>
         );
@@ -4226,6 +4230,7 @@ function PathInput({
   pathType: "file" | "directory";
   placeholder?: string;
 }) {
+  const { t } = useTranslation();
   const [suggestions, setSuggestions] = useState<PathSuggestion[]>([]);
   const [showSugg, setShowSugg] = useState(false);
   const [hlIdx, setHlIdx] = useState(-1);
@@ -4238,7 +4243,7 @@ function PathInput({
       setShowSugg(false);
       return;
     }
-    const t = setTimeout(async () => {
+    const timeoutId = setTimeout(async () => {
       try {
         let result: PathSuggestion[] = [];
         if ((window as any).__TAURI_INTERNALS__) {
@@ -4253,7 +4258,7 @@ function PathInput({
         setShowSugg(false);
       }
     }, 150);
-    setTimer(t);
+    setTimer(timeoutId);
   }, [timer]);
 
   const pick = async () => {
@@ -4261,7 +4266,7 @@ function PathInput({
       const selected = await open({
         directory: pathType === "directory",
         multiple: false,
-        title: pathType === "directory" ? "选择目录" : "选择文件",
+        title: pathType === "directory" ? t("settings.editor.chooseDir", "选择目录") : t("settings.editor.chooseFile", "选择文件"),
       });
       if (selected) onChange(selected);
     } catch {
@@ -4288,9 +4293,9 @@ function PathInput({
     const diffDays = Math.floor(diffMs / 86400000);
     if (diffDays === 0) {
       const diffH = Math.floor(diffMs / 3600000);
-      return diffH === 0 ? "刚刚" : `${diffH}小时前`;
+      return diffH === 0 ? t("settings.editor.justNow", "刚刚") : `${diffH}${t("settings.editor.hoursAgo", "小时前")}`;
     }
-    if (diffDays < 30) return `${diffDays}天前`;
+    if (diffDays < 30) return `${diffDays}${t("settings.editor.daysAgo", "天前")}`;
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   };
 
@@ -4300,7 +4305,7 @@ function PathInput({
         <input
           className="input"
           style={{ flex: 1, fontSize: F.body, padding: S.inputPad, minWidth: 0 }}
-          placeholder={placeholder ?? (pathType === "directory" ? "选择目录或直接输入路径…" : "选择文件或直接输入路径…")}
+          placeholder={placeholder ?? (pathType === "directory" ? t("settings.editor.dirOrInputPh", "选择目录或直接输入路径…") : t("settings.editor.fileOrInputPh", "选择文件或直接输入路径…"))}
           value={value ?? ""}
           onChange={(e) => {
             const v = e.target.value || undefined;
@@ -4337,7 +4342,7 @@ function PathInput({
           className="btn btn-ghost"
           style={{ fontSize: F.body, padding: S.inputPad, flexShrink: 0 }}
           onClick={pick}
-          title={pathType === "directory" ? "选择目录" : "选择文件"}
+          title={pathType === "directory" ? t("settings.editor.chooseDir", "选择目录") : t("settings.editor.chooseFile", "选择文件")}
         >
           <SectionIcon name="folder" size={15} />
         </button>
@@ -4401,8 +4406,8 @@ function PathInput({
       {!value && !showSugg && (
         <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.4 }}>
           {pathType === "directory"
-            ? "输入 ~/ 浏览主目录，支持 Tab 补全"
-            : "输入路径浏览文件，如 ~/ 或 ./"}
+            ? t("settings.editor.dirHint", "输入 ~/ 浏览主目录，支持 Tab 补全")
+            : t("settings.editor.fileHint", "输入路径浏览文件，如 ~/ 或 ./")}
         </span>
       )}
     </div>
