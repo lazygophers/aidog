@@ -19,7 +19,7 @@ export function formatNumber(n: number): string {
  * - 0（或非正 / NaN）→ "0"
  * - >= 1 → 2 位小数
  * - >= 0.01 → 3 位小数
- * - 0 < n < 0.01（极小值）→ 2 位有效数字，极小自动转科学记数（如 `4.5e-7`）
+ * - 0 < n < 0.01（极小值）→ 定点小数展示 2 位有效数字（如 `0.00000045`），**不用科学记数**
  *
  * 关键：极小但**非零**的成本绝不被舍成 "0"（旧版 toFixed(5) 会把 4.5e-7 显示成 "0.00000"）。
  * 合并自 Groups.tsx 行内 `u.total_cost.toFixed(...)` 逻辑。
@@ -29,8 +29,10 @@ export function formatCost(n: number): string {
   if (!(n > 0)) return "0";
   if (n >= 1) return n.toFixed(2);
   if (n >= 0.01) return n.toFixed(3);
-  // 2 位有效数字：0.0034→"0.0034"、0.00000045→"4.5e-7"（JS 在指数 < -6 时自动科学记数）
-  return n.toPrecision(2);
+  // 定点小数（非科学记数）展示 2 位有效数字：0.00000045→"0.00000045"、0.0034→"0.0034"
+  // 小数位 = 保 2 位有效数字所需，下限 5、上限 12（防极小值串过长）
+  const decimals = Math.min(12, Math.max(5, -Math.floor(Math.log10(n)) + 1));
+  return n.toFixed(decimals);
 }
 
 /**
