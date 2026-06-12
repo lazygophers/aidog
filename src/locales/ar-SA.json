@@ -33,6 +33,7 @@
   "page.platforms": "إدارة المنصات",
   "page.proxy": "لوحة الوكيل",
   "platform.add": "إضافة منصة",
+  "platform.usageLabel": "المُستخدَم",
   "platform.sectionBasic": "المعلومات الأساسية",
   "platform.sectionAuth": "المصادقة",
   "platform.sectionSpecial": "إعداد خاص",

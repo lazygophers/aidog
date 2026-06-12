@@ -46,6 +46,7 @@
   "platform.dragReorder": "Drag to reorder",
   "settings.claudeConfigToggle": "Config Override",
   "platform.quotaLabel": "Quota",
+  "platform.usageLabel": "Used",
   "platform.quotaRefresh": "Refresh quota",
   "platform.quotaEmpty": "No data",
   "platform.quotaNoKey": "Missing API Key",
