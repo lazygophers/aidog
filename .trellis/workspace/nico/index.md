@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 14
-- **Last Active**: 2026-06-11
+- **Total Sessions**: 15
+- **Last Active**: 2026-06-12
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~497 | Active |
+| `journal-1.md` | ~532 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 15 | 2026-06-12 | 文档站 UX 优化（首页/主题/导航/截图） | `34c6d61`, `d52e109`, `228e66f` | `master` |
 | 14 | 2026-06-11 | tray 对齐/格式/预估对齐真实 | `3aa182b`
 `bd12491`, `bd12491` | `master` |
 | 13 | 2026-06-11 | tray 多平台两行列对齐 | `38528e5`

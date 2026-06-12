@@ -495,3 +495,38 @@ bd12491` | (see git log) |
 ### Next Steps
 
 - None - task complete
+
+
+## Session 15: 文档站 UX 优化（首页/主题/导航/截图）
+
+**Date**: 2026-06-12
+**Task**: 文档站 UX 优化（首页/主题/导航/截图）
+**Branch**: `master`
+
+### Summary
+
+Rspress 文档站升级：iOS 蓝品牌主题(globalStyles CSS 变量)+7 语言 pageType:home hero/feature 布局+7 语言 _nav.json 顶部导航+3 张空态截图嵌入关键内页(7 语言)。内置全文搜索已启用。与并行会话的 master(模型测试页/内容完善)冲突 merge：index 取 home 布局，内容文件取 master+重嵌图。build EXIT=0,141 html,验证 zh/en 内页+ar RTL 首页。worktree 合并回 master。
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `34c6d61` | (see git log) |
+| `d52e109` | (see git log) |
+| `228e66f` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
