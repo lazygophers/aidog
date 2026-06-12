@@ -1634,6 +1634,9 @@ interface StatusLineSegment {
 /** Segment types whose value can drive automatic semantic coloring. */
 const VALUE_COLORABLE: Set<SegmentType> = new Set([
   "context-pct", "context-bar", "cost", "rate-limits",
+  // Atomic value-class segments
+  "cost-usd", "context-remaining", "rate-limit-5h", "rate-limit-7d",
+  "session-duration", "api-duration",
 ]);
 
 /** Parse "#RRGGBB" / "#RGB" → [r,g,b] (0–255) or null when invalid. */
@@ -1659,6 +1662,48 @@ type SegmentType =
   | "effort"         // Effort level
   | "vim"            // Vim mode
   | "separator"      // Visual separator (· or |)
+  // ── Atomic segments (one per raw statusline input field) ──
+  // Cost / execution
+  | "cost-usd"               // cost.total_cost_usd
+  | "session-duration"       // cost.total_duration_ms
+  | "api-duration"           // cost.total_api_duration_ms
+  | "lines-changed"          // cost.total_lines_added / removed
+  // Context window
+  | "context-tokens"         // context_window.total_input/output_tokens
+  | "context-max"            // context_window.context_window_size
+  | "context-remaining"      // context_window.remaining_percentage
+  | "context-cache"          // context_window.current_usage.cache_*_tokens
+  // Rate limits (per window)
+  | "rate-limit-5h"          // rate_limits.five_hour
+  | "rate-limit-7d"          // rate_limits.seven_day
+  // Git
+  | "git-host"               // workspace.repo.host
+  | "git-owner"              // workspace.repo.owner
+  | "git-repo"               // workspace.repo.name
+  | "git-repo-full"          // owner/name
+  | "git-worktree"           // workspace.git_worktree
+  // Directory / session
+  | "cwd"                    // workspace.current_dir
+  | "project-dir"            // workspace.project_dir
+  | "added-dirs"             // workspace.added_dirs
+  | "session-id"             // session_id
+  | "session-name"           // session_name
+  | "transcript-path"        // transcript_path
+  // Worktree
+  | "worktree-name"          // worktree.name
+  | "worktree-branch"        // worktree.branch
+  | "worktree-original-branch" // worktree.original_branch
+  // PR
+  | "pr-number"              // pr.number
+  | "pr-url"                 // pr.url
+  | "pr-state"               // pr.review_state
+  // Other single fields
+  | "version"                // version
+  | "output-style"           // output_style.name
+  | "thinking"               // thinking.enabled
+  | "token-warn"             // exceeds_200k_tokens
+  | "agent"                  // agent.name
+  // aidog group segments
   | "group-balance"  // aidog group: 预估余额
   | "group-spent"    // aidog group: 累计预估花费
   | "group-coding"   // aidog group: coding plan 利用率
@@ -1707,6 +1752,24 @@ __gi="\${__AIDOG_INFO_FILE:-}"
 [ -z "$__gi" ] || [ ! -s "$__gi" ] && exit 0
 echo "$(cat "$__gi")" | jq -e '.applicable == true' >/dev/null 2>&1 || exit 0
 __val=$(cat "$__gi" | jq ${jqExpr} 2>/dev/null)
+[ -z "$__val" ] && exit 0
+echo -n "${pfx}$__val"`;
+}
+
+/**
+ * Build a bash snippet for an atomic statusline segment that extracts a single
+ * value from the stdin JSON (`$input`) and degrades to empty output when the
+ * field is absent / null.
+ *
+ *  - `jqExpr` is passed verbatim to `jq` (may begin with flags like `-r`); it
+ *    must use `// empty` (or equivalent) so missing fields yield no output.
+ *  - On empty extraction the segment prints nothing — the generator's
+ *    non-empty-only separator logic then leaves no orphaned separator.
+ *  - `prefix` is a literal label prepended only when the value is non-empty.
+ */
+function atomSegBash(jqExpr: string, prefix = ""): string {
+  const pfx = bashEscapeDq(prefix);
+  return `__val=$(echo "$input" | jq ${jqExpr} 2>/dev/null)
 [ -z "$__val" ] && exit 0
 echo -n "${pfx}$__val"`;
 }
@@ -1935,6 +1998,410 @@ echo -n "$__bar $__pct%"`;
       { key: "prefix", label: "前缀", type: "string", placeholder: "" },
     ],
   },
+  // ── Atomic segments: one per raw statusline input field ──
+  // Cost / execution
+  {
+    type: "cost-usd",
+    name: "成本 ($)",
+    icon: "bolt",
+    desc: "cost.total_cost_usd — 累计预估成本",
+    defaultOptions: { prefix: "$" },
+    toBash: (o) => atomSegBash(
+      `-r '(.cost.total_cost_usd // empty) | (. * 100 | round) / 100 | tostring'`,
+      o.prefix ?? "$",
+    ),
+    toPreview: (o) => `${o.prefix ?? "$"}0.12`,
+    fields: [
+      { key: "prefix", label: "前缀", type: "string", placeholder: "$" },
+    ],
+  },
+  {
+    type: "session-duration",
+    name: "会话耗时",
+    icon: "status",
+    desc: "cost.total_duration_ms — 会话总耗时",
+    defaultOptions: { format: "human" },
+    toBash: (o) => o.format === "ms"
+      ? atomSegBash(`-r '(.cost.total_duration_ms // empty) | tostring + "ms"'`)
+      : atomSegBash(`-r '(.cost.total_duration_ms // empty) | (. / 1000) as $s | if $s >= 60 then ((($s / 60) | floor) | tostring) + "m" + (($s % 60 | round) | tostring) + "s" else ($s | round | tostring) + "s" end'`),
+    toPreview: (o) => o.format === "ms" ? "285000ms" : "4m45s",
+    fields: [
+      { key: "format", label: "格式", type: "select", options: ["human", "ms"] },
+    ],
+  },
+  {
+    type: "api-duration",
+    name: "API 耗时",
+    icon: "status",
+    desc: "cost.total_api_duration_ms — API 等待时间",
+    defaultOptions: { format: "human" },
+    toBash: (o) => o.format === "ms"
+      ? atomSegBash(`-r '(.cost.total_api_duration_ms // empty) | tostring + "ms"'`)
+      : atomSegBash(`-r '(.cost.total_api_duration_ms // empty) | (. / 1000) as $s | if $s >= 60 then ((($s / 60) | floor) | tostring) + "m" + (($s % 60 | round) | tostring) + "s" else ($s | round | tostring) + "s" end'`),
+    toPreview: (o) => o.format === "ms" ? "15300ms" : "15s",
+    fields: [
+      { key: "format", label: "格式", type: "select", options: ["human", "ms"] },
+    ],
+  },
+  {
+    type: "lines-changed",
+    name: "代码变更",
+    icon: "core",
+    desc: "cost.total_lines_added / removed — 新增/删除行",
+    defaultOptions: {},
+    toBash: () => atomSegBash(
+      `-r '"+" + ((.cost.total_lines_added // 0) | tostring) + " -" + ((.cost.total_lines_removed // 0) | tostring)'`,
+    ),
+    toPreview: () => "+412 -87",
+    fields: [],
+  },
+  // Context window
+  {
+    type: "context-tokens",
+    name: "上下文 Tokens",
+    icon: "core",
+    desc: "context_window.total_input/output_tokens — 输入/输出 token",
+    defaultOptions: { abbrev: true },
+    toBash: (o) => {
+      const fmt = o.abbrev
+        ? `if . >= 1000000 then ((. / 100000 | round) / 10 | tostring) + "M" elif . >= 1000 then ((. / 100 | round) / 10 | tostring) + "K" else tostring end`
+        : `tostring`;
+      return atomSegBash(
+        `-r '((.context_window.total_input_tokens // empty) | ${fmt}) as $i | ((.context_window.total_output_tokens // 0) | ${fmt}) as $o | $i + "/" + $o'`,
+      );
+    },
+    toPreview: (o) => o.abbrev ? "89.5K/12.4K" : "89500/12400",
+    fields: [
+      { key: "abbrev", label: "缩写 (K/M)", type: "select", options: ["true", "false"] },
+    ],
+  },
+  {
+    type: "context-max",
+    name: "上下文容量",
+    icon: "status",
+    desc: "context_window.context_window_size — 最大窗口",
+    defaultOptions: { abbrev: true },
+    toBash: (o) => o.abbrev
+      ? atomSegBash(`-r '(.context_window.context_window_size // empty) | if . >= 1000000 then ((. / 100000 | round) / 10 | tostring) + "M" elif . >= 1000 then ((. / 1000 | round) | tostring) + "K" else tostring end'`)
+      : atomSegBash(`-r '(.context_window.context_window_size // empty) | tostring'`),
+    toPreview: (o) => o.abbrev ? "200K" : "200000",
+    fields: [
+      { key: "abbrev", label: "缩写 (K/M)", type: "select", options: ["true", "false"] },
+    ],
+  },
+  {
+    type: "context-remaining",
+    name: "上下文剩余",
+    icon: "status",
+    desc: "context_window.remaining_percentage — 剩余百分比",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '(.context_window.remaining_percentage // empty) | round | tostring + "%"'`),
+    toPreview: () => "49%",
+    fields: [],
+  },
+  {
+    type: "context-cache",
+    name: "缓存 Tokens",
+    icon: "core",
+    desc: "current_usage.cache_creation/read_input_tokens — 缓存写入/读取",
+    defaultOptions: { abbrev: true },
+    toBash: (o) => {
+      const fmt = o.abbrev
+        ? `if . >= 1000000 then ((. / 100000 | round) / 10 | tostring) + "M" elif . >= 1000 then ((. / 100 | round) / 10 | tostring) + "K" else tostring end`
+        : `tostring`;
+      return atomSegBash(
+        `-r 'if .context_window.current_usage == null then empty else ((.context_window.current_usage.cache_creation_input_tokens // 0) | ${fmt}) as $w | ((.context_window.current_usage.cache_read_input_tokens // 0) | ${fmt}) as $r | "w" + $w + " r" + $r end'`,
+      );
+    },
+    toPreview: (o) => o.abbrev ? "w20K r12.1K" : "w20000 r12100",
+    fields: [
+      { key: "abbrev", label: "缩写 (K/M)", type: "select", options: ["true", "false"] },
+    ],
+  },
+  // Rate limits (per window)
+  {
+    type: "rate-limit-5h",
+    name: "限制 5h",
+    icon: "permissions",
+    desc: "rate_limits.five_hour — 5 小时窗口使用率",
+    defaultOptions: { showReset: false },
+    toBash: (o) => o.showReset
+      ? atomSegBash(`-r 'if .rate_limits.five_hour.used_percentage == null then empty else "5h:" + ((.rate_limits.five_hour.used_percentage) | round | tostring) + "%" + (if .rate_limits.five_hour.resets_at then " (" + (((.rate_limits.five_hour.resets_at - now) / 60 | floor) | tostring) + "m)" else "" end) end'`)
+      : atomSegBash(`-r '(.rate_limits.five_hour.used_percentage // empty) | round | "5h:" + tostring + "%"'`),
+    toPreview: (o) => o.showReset ? "5h:34% (128m)" : "5h:34%",
+    fields: [
+      { key: "showReset", label: "显示剩余重置时间", type: "select", options: ["false", "true"] },
+    ],
+  },
+  {
+    type: "rate-limit-7d",
+    name: "限制 7d",
+    icon: "permissions",
+    desc: "rate_limits.seven_day — 7 天窗口使用率",
+    defaultOptions: { showReset: false },
+    toBash: (o) => o.showReset
+      ? atomSegBash(`-r 'if .rate_limits.seven_day.used_percentage == null then empty else "7d:" + ((.rate_limits.seven_day.used_percentage) | round | tostring) + "%" + (if .rate_limits.seven_day.resets_at then " (" + (((.rate_limits.seven_day.resets_at - now) / 3600 | floor) | tostring) + "h)" else "" end) end'`)
+      : atomSegBash(`-r '(.rate_limits.seven_day.used_percentage // empty) | round | "7d:" + tostring + "%"'`),
+    toPreview: (o) => o.showReset ? "7d:62% (40h)" : "7d:62%",
+    fields: [
+      { key: "showReset", label: "显示剩余重置时间", type: "select", options: ["false", "true"] },
+    ],
+  },
+  // Git
+  {
+    type: "git-host",
+    name: "Git 主机",
+    icon: "folder",
+    desc: "workspace.repo.host — Git 仓库主机",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '.workspace.repo.host // empty'`),
+    toPreview: () => "github.com",
+    fields: [],
+  },
+  {
+    type: "git-owner",
+    name: "Git 所有者",
+    icon: "folder",
+    desc: "workspace.repo.owner — 仓库所有者",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '.workspace.repo.owner // empty'`),
+    toPreview: () => "anthropics",
+    fields: [],
+  },
+  {
+    type: "git-repo",
+    name: "Git 仓库",
+    icon: "folder",
+    desc: "workspace.repo.name — 仓库名",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '.workspace.repo.name // empty'`),
+    toPreview: () => "claude-code",
+    fields: [],
+  },
+  {
+    type: "git-repo-full",
+    name: "Git 全名",
+    icon: "folder",
+    desc: "owner/name — 仓库完整标识",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r 'if .workspace.repo.name then ((.workspace.repo.owner // "") + "/" + .workspace.repo.name) else empty end'`),
+    toPreview: () => "anthropics/claude-code",
+    fields: [],
+  },
+  {
+    type: "git-worktree",
+    name: "Git Worktree",
+    icon: "folder",
+    desc: "workspace.git_worktree — Git worktree 名称",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '.workspace.git_worktree // empty'`),
+    toPreview: () => "feature-xyz",
+    fields: [],
+  },
+  // Directory / session
+  {
+    type: "cwd",
+    name: "工作目录",
+    icon: "folder",
+    desc: "workspace.current_dir — 当前工作目录",
+    defaultOptions: { format: "basename" },
+    toBash: (o) => o.format === "full"
+      ? atomSegBash(`-r '.workspace.current_dir // empty'`)
+      : atomSegBash(`-r '(.workspace.current_dir // empty) | split("/") | last'`),
+    toPreview: (o) => o.format === "full" ? "/Users/luoxin/persons/aidog" : "aidog",
+    fields: [
+      { key: "format", label: "格式", type: "select", options: ["basename", "full"] },
+    ],
+  },
+  {
+    type: "project-dir",
+    name: "项目目录",
+    icon: "folder",
+    desc: "workspace.project_dir — 项目启动目录",
+    defaultOptions: { format: "basename" },
+    toBash: (o) => o.format === "full"
+      ? atomSegBash(`-r '.workspace.project_dir // empty'`)
+      : atomSegBash(`-r '(.workspace.project_dir // empty) | split("/") | last'`),
+    toPreview: (o) => o.format === "full" ? "/Users/luoxin/persons/aidog" : "aidog",
+    fields: [
+      { key: "format", label: "格式", type: "select", options: ["basename", "full"] },
+    ],
+  },
+  {
+    type: "added-dirs",
+    name: "附加目录",
+    icon: "folder",
+    desc: "workspace.added_dirs — /add-dir 添加的目录",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '(.workspace.added_dirs // []) | if length == 0 then empty else map(split("/") | last) | join(",") end'`),
+    toPreview: () => "shared,web",
+    fields: [],
+  },
+  {
+    type: "session-id",
+    name: "会话 ID",
+    icon: "core",
+    desc: "session_id — 会话标识符",
+    defaultOptions: { truncate: true },
+    toBash: (o) => o.truncate
+      ? atomSegBash(`-r '(.session_id // empty) | .[0:8]'`)
+      : atomSegBash(`-r '.session_id // empty'`),
+    toPreview: (o) => o.truncate ? "abc123xy" : "abc123xyz789",
+    fields: [
+      { key: "truncate", label: "截断 (前8位)", type: "select", options: ["true", "false"] },
+    ],
+  },
+  {
+    type: "session-name",
+    name: "会话名称",
+    icon: "core",
+    desc: "session_name — 自定义会话名（未设置时隐藏）",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '.session_name // empty'`),
+    toPreview: () => "statusline-atoms",
+    fields: [],
+  },
+  {
+    type: "transcript-path",
+    name: "记录路径",
+    icon: "folder",
+    desc: "transcript_path — 会话记录文件",
+    defaultOptions: { format: "basename" },
+    toBash: (o) => o.format === "full"
+      ? atomSegBash(`-r '.transcript_path // empty'`)
+      : atomSegBash(`-r '(.transcript_path // empty) | split("/") | last'`),
+    toPreview: (o) => o.format === "full" ? "/Users/luoxin/.claude/session.jsonl" : "session.jsonl",
+    fields: [
+      { key: "format", label: "格式", type: "select", options: ["basename", "full"] },
+    ],
+  },
+  // Worktree
+  {
+    type: "worktree-name",
+    name: "Worktree 名",
+    icon: "folder",
+    desc: "worktree.name — Worktree 标识",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '.worktree.name // empty'`),
+    toPreview: () => "feature-xyz",
+    fields: [],
+  },
+  {
+    type: "worktree-branch",
+    name: "Worktree 分支",
+    icon: "folder",
+    desc: "worktree.branch — 当前工作分支",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '.worktree.branch // empty'`),
+    toPreview: () => "feat/atoms",
+    fields: [],
+  },
+  {
+    type: "worktree-original-branch",
+    name: "Worktree 源分支",
+    icon: "folder",
+    desc: "worktree.original_branch — 回源分支",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '.worktree.original_branch // empty'`),
+    toPreview: () => "main",
+    fields: [],
+  },
+  // PR
+  {
+    type: "pr-number",
+    name: "PR 编号",
+    icon: "status",
+    desc: "pr.number — 开放 PR 编号",
+    defaultOptions: { prefix: "#" },
+    toBash: (o) => atomSegBash(`-r '(.pr.number // empty) | tostring'`, o.prefix ?? "#"),
+    toPreview: (o) => `${o.prefix ?? "#"}123`,
+    fields: [
+      { key: "prefix", label: "前缀", type: "string", placeholder: "#" },
+    ],
+  },
+  {
+    type: "pr-url",
+    name: "PR 链接",
+    icon: "status",
+    desc: "pr.url — PR 链接",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '.pr.url // empty'`),
+    toPreview: () => "https://github.com/o/r/pull/123",
+    fields: [],
+  },
+  {
+    type: "pr-state",
+    name: "PR 状态",
+    icon: "status",
+    desc: "pr.review_state — PR 审查状态",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '.pr.review_state // empty'`),
+    toPreview: () => "approved",
+    fields: [],
+  },
+  // Other single fields
+  {
+    type: "version",
+    name: "CC 版本",
+    icon: "core",
+    desc: "version — Claude Code 版本",
+    defaultOptions: { prefix: "v" },
+    toBash: (o) => atomSegBash(`-r '.version // empty'`, o.prefix ?? "v"),
+    toPreview: (o) => `${o.prefix ?? "v"}2.1.90`,
+    fields: [
+      { key: "prefix", label: "前缀", type: "string", placeholder: "v" },
+    ],
+  },
+  {
+    type: "output-style",
+    name: "输出风格",
+    icon: "ui",
+    desc: "output_style.name — 当前输出风格",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '.output_style.name // empty'`),
+    toPreview: () => "default",
+    fields: [],
+  },
+  {
+    type: "thinking",
+    name: "思考模式",
+    icon: "behavior",
+    desc: "thinking.enabled — 扩展思考开启时显示",
+    defaultOptions: { label: "thinking" },
+    toBash: (o) => {
+      const label = bashEscapeDq(o.label ?? "thinking");
+      return atomSegBash(`-r 'if .thinking.enabled == true then "${label}" else empty end'`);
+    },
+    toPreview: (o) => o.label ?? "thinking",
+    fields: [
+      { key: "label", label: "文案", type: "string", placeholder: "thinking" },
+    ],
+  },
+  {
+    type: "token-warn",
+    name: "Token 警示",
+    icon: "permissions",
+    desc: "exceeds_200k_tokens — 超 200k 时警示",
+    defaultOptions: { label: "⚠200k" },
+    toBash: (o) => {
+      const label = bashEscapeDq(o.label ?? "⚠200k");
+      return atomSegBash(`-r 'if .exceeds_200k_tokens == true then "${label}" else empty end'`);
+    },
+    toPreview: (o) => o.label ?? "⚠200k",
+    fields: [
+      { key: "label", label: "文案", type: "string", placeholder: "⚠200k" },
+    ],
+  },
+  {
+    type: "agent",
+    name: "Agent 名称",
+    icon: "team",
+    desc: "agent.name — agent 名称（未配置时隐藏）",
+    defaultOptions: {},
+    toBash: () => atomSegBash(`-r '.agent.name // empty'`),
+    toPreview: () => "reviewer",
+    fields: [],
+  },
   {
     type: "custom",
     name: "自定义",
@@ -1950,6 +2417,23 @@ echo -n "$__bar $__pct%"`;
 ];
 
 const SEGMENT_DEF_MAP = new Map(SEGMENT_DEFS.map(d => [d.type, d]));
+
+/**
+ * Ordered segment categories for the add-segment picker. Each entry lists the
+ * segment types under that group; the picker renders a labeled header per group.
+ * i18n: `statusline.segCat.<id>`.
+ */
+const SEGMENT_CATEGORIES: { id: string; label: string; types: SegmentType[] }[] = [
+  { id: "common", label: "常用", types: ["model", "context-bar", "context-pct", "git", "cost", "rate-limits", "effort", "vim"] },
+  { id: "cost", label: "成本 / 执行", types: ["cost-usd", "session-duration", "api-duration", "lines-changed"] },
+  { id: "context", label: "上下文", types: ["context-tokens", "context-max", "context-remaining", "context-cache"] },
+  { id: "rate", label: "速率限制", types: ["rate-limit-5h", "rate-limit-7d"] },
+  { id: "git", label: "Git", types: ["git-host", "git-owner", "git-repo", "git-repo-full", "git-worktree"] },
+  { id: "session", label: "目录 / 会话", types: ["cwd", "project-dir", "added-dirs", "session-id", "session-name", "transcript-path"] },
+  { id: "worktree", label: "Worktree", types: ["worktree-name", "worktree-branch", "worktree-original-branch"] },
+  { id: "pr", label: "Pull Request", types: ["pr-number", "pr-url", "pr-state"] },
+  { id: "other", label: "其他", types: ["version", "output-style", "thinking", "token-warn", "agent", "custom"] },
+];
 
 const DEFAULT_SEGMENTS: StatusLineSegment[] = [
   { id: "s1", type: "model", enabled: true, newline: false, options: {} },
@@ -2028,6 +2512,28 @@ function groupRows(segments: StatusLineSegment[]): { align: RowAlign; segs: Stat
   return rows;
 }
 
+/**
+ * Re-derive `newline` flags so the row model stays self-consistent after any
+ * structural mutation (drag-reorder, delete, enable-toggle).
+ *
+ * The row model is *derived* from `newline`: a row break is any segment with
+ * `newline === true`, plus the implicit break before the first segment. Drag
+ * reordering moves items in the flat array without touching `newline`, which can
+ * leave the new first segment carrying `newline: true` (a redundant leading
+ * break) or strand a row break inside the array in a way that silently merges
+ * rows. Both make "this row" ambiguous and break per-row delete.
+ *
+ * Invariant enforced here: the first segment never carries `newline: true`
+ * (its row break is implicit). All other `newline` flags are preserved, so the
+ * visible row count and membership are stable across reorders.
+ */
+function normalizeSegments(segments: StatusLineSegment[]): StatusLineSegment[] {
+  if (segments.length === 0) return segments;
+  return segments.map((s, i) =>
+    i === 0 ? (s.newline ? { ...s, newline: false } : s) : s,
+  );
+}
+
 /** True when the segment starts a row (first active segment, or newline=true). */
 function isRowLeaderSeg(segments: StatusLineSegment[], id: string): boolean {
   const active = segments.filter(s => s.enabled);
@@ -2049,19 +2555,37 @@ function autoColorBash(type: SegmentType, body: string): string {
   // Extract a numeric metric for the threshold; per type.
   let metric: string;
   let thresholds: string; // bash if/elif producing __r __g __b
+  // Percentage-style thresholds: >80 red, >60 amber, else green.
+  const pctThresholds =
+    `if [ "$__m" -gt 80 ]; then __c="255;69;58"; elif [ "$__m" -gt 60 ]; then __c="255;159;10"; else __c="52;199;89"; fi`;
   if (type === "context-pct" || type === "context-bar") {
     metric = `__m=$(echo "$input" | jq -r '(.context_window.used_percentage // 0) | round')`;
+    thresholds = pctThresholds;
+  } else if (type === "context-remaining") {
+    // Inverted: low remaining is bad.
+    metric = `__m=$(echo "$input" | jq -r '(.context_window.remaining_percentage // 100) | round')`;
     thresholds =
-      `if [ "$__m" -gt 80 ]; then __c="255;69;58"; elif [ "$__m" -gt 60 ]; then __c="255;159;10"; else __c="52;199;89"; fi`;
-  } else if (type === "cost") {
+      `if [ "$__m" -lt 20 ]; then __c="255;69;58"; elif [ "$__m" -lt 40 ]; then __c="255;159;10"; else __c="52;199;89"; fi`;
+  } else if (type === "cost" || type === "cost-usd") {
     // cents
     metric = `__m=$(echo "$input" | jq -r '((.cost.total_cost_usd // 0) * 100) | round')`;
     thresholds =
       `if [ "$__m" -gt 1000 ]; then __c="255;69;58"; elif [ "$__m" -gt 100 ]; then __c="255;159;10"; else __c="52;199;89"; fi`;
+  } else if (type === "rate-limit-5h") {
+    metric = `__m=$(echo "$input" | jq -r '(.rate_limits.five_hour.used_percentage // 0) | round')`;
+    thresholds = pctThresholds;
+  } else if (type === "rate-limit-7d") {
+    metric = `__m=$(echo "$input" | jq -r '(.rate_limits.seven_day.used_percentage // 0) | round')`;
+    thresholds = pctThresholds;
+  } else if (type === "session-duration" || type === "api-duration") {
+    // Seconds: >300s red, >60s amber, else green.
+    const field = type === "api-duration" ? "total_api_duration_ms" : "total_duration_ms";
+    metric = `__m=$(echo "$input" | jq -r '((.cost.${field} // 0) / 1000) | round')`;
+    thresholds =
+      `if [ "$__m" -gt 300 ]; then __c="255;69;58"; elif [ "$__m" -gt 60 ]; then __c="255;159;10"; else __c="52;199;89"; fi`;
   } else { // rate-limits — use the higher of 5h/7d
     metric = `__m=$(echo "$input" | jq -r '[(.rate_limits.five_hour.used_percentage // 0), (.rate_limits.seven_day.used_percentage // 0)] | max | round')`;
-    thresholds =
-      `if [ "$__m" -gt 80 ]; then __c="255;69;58"; elif [ "$__m" -gt 60 ]; then __c="255;159;10"; else __c="52;199;89"; fi`;
+    thresholds = pctThresholds;
   }
   // Capture the segment's stdout (body is one or more `echo -n` lines), then
   // emit it wrapped in ANSI truecolor. `{ … ; }` groups multi-line bodies.
@@ -2153,15 +2677,31 @@ const PREVIEW_METRIC: Record<string, number> = {
   "context-pct": 65,
   "context-bar": 65,
   "cost": 12,          // cents
+  "cost-usd": 12,      // cents
   "rate-limits": 41,
+  "rate-limit-5h": 34,
+  "rate-limit-7d": 62,
+  "context-remaining": 49,
+  "session-duration": 285, // seconds
+  "api-duration": 15,      // seconds
 };
 
 /** Map a mock metric to the same semantic color the bash thresholds produce. */
 function autoColorPreviewHex(type: SegmentType): string {
   const m = PREVIEW_METRIC[type] ?? 0;
-  if (type === "cost") {
+  if (type === "cost" || type === "cost-usd") {
     if (m > 1000) return "#ff453a";
     if (m > 100) return "#ff9f0a";
+    return "#34c759";
+  }
+  if (type === "context-remaining") {
+    if (m < 20) return "#ff453a";
+    if (m < 40) return "#ff9f0a";
+    return "#34c759";
+  }
+  if (type === "session-duration" || type === "api-duration") {
+    if (m > 300) return "#ff453a";
+    if (m > 60) return "#ff9f0a";
     return "#34c759";
   }
   if (m > 80) return "#ff453a";
@@ -2418,6 +2958,10 @@ function StatusLinePanel({
   const enabled = !!stored.enabled;
   const padding = stored.padding ?? 2;
   const hideVimModeIndicator = !!stored.hideVimModeIndicator;
+  // Generation mode: "builtin" → aidog structured segments; "custom" → user-supplied
+  // native statusLine command (no aidog script generated). Back-compat: default builtin.
+  const mode: "builtin" | "custom" = stored.mode === "custom" ? "custom" : "builtin";
+  const customCommand: string = typeof stored.customCommand === "string" ? stored.customCommand : "";
 
   // Segments for main statusline, template ID for subagent
   const segments: StatusLineSegment[] = isMain
@@ -2459,7 +3003,32 @@ function StatusLinePanel({
     }
   };
 
-  const updateSegments = (next: StatusLineSegment[]) => setStored({ segments: next });
+  const updateSegments = (next: StatusLineSegment[]) => setStored({ segments: normalizeSegments(next) });
+
+  /**
+   * Delete an entire row by its leader segment id. Resolves the row membership
+   * from the *current* derived grouping (over ALL segments, enabled or not, so
+   * the visual row and the deleted set always match), then removes exactly those
+   * segment ids. Fixes the bug where, after dragging a segment into another row,
+   * deleting "that row" removed the wrong segment set and dropped moved content.
+   */
+  const deleteRow = (leaderId: string) => {
+    // Derive rows over the full segment list (matches the rendered grouping,
+    // which keys off `newline` regardless of enabled state).
+    const rows: StatusLineSegment[][] = [];
+    let cur: StatusLineSegment[] | null = null;
+    for (const seg of segments) {
+      if (cur === null || (seg.newline && cur.length > 0)) {
+        cur = [];
+        rows.push(cur);
+      }
+      cur.push(seg);
+    }
+    const row = rows.find(r => r.some(s => s.id === leaderId));
+    if (!row) return;
+    const ids = new Set(row.map(s => s.id));
+    updateSegments(segments.filter(s => !ids.has(s.id)));
+  };
 
   // Generate script
   const scriptPreview = isMain
@@ -2479,6 +3048,27 @@ function StatusLinePanel({
       console.error("generate_statusline_script:", e);
     }
     setSaving(false);
+  };
+
+  // Apply custom mode: write the native Claude Code statusLine command directly,
+  // bypassing aidog script generation. Empty command clears the field.
+  const handleApplyCustom = () => {
+    const cmd = customCommand.trim();
+    if (!cmd) {
+      updateField(fieldName, undefined);
+      return;
+    }
+    const value: Record<string, any> = { type: "command", command: cmd };
+    if (isMain && padding > 0) value.padding = padding;
+    updateField(fieldName, value);
+  };
+
+  // Switch generation mode. Clears the live native field so the two modes never
+  // leave a stale config behind (user re-applies in the newly selected mode).
+  const switchMode = (next: "builtin" | "custom") => {
+    if (next === mode) return;
+    updateField(fieldName, undefined);
+    setStored({ mode: next });
   };
 
   const addSegment = (type: SegmentType, newline = false) => {
@@ -2541,6 +3131,60 @@ function StatusLinePanel({
 
       {enabled && (
         <>
+          {/* Mode selector: builtin structured segments vs custom native command */}
+          <div style={{ display: "flex", gap: 6 }}>
+            {(["builtin", "custom"] as const).map(m => {
+              const active = mode === m;
+              return (
+                <button key={m} type="button"
+                  style={{
+                    flex: 1, padding: "8px 12px", fontSize: F.body, fontWeight: active ? 600 : 400,
+                    color: active ? "var(--accent)" : "var(--text-secondary)",
+                    background: active ? "var(--accent-subtle, rgba(0,122,255,0.1))" : "transparent",
+                    border: `1px solid ${active ? "var(--accent)" : "var(--border)"}`,
+                    borderRadius: "var(--radius-sm)", cursor: "pointer",
+                  }}
+                  onClick={() => switchMode(m)}>
+                  {m === "builtin"
+                    ? t("statusline.modeBuiltin", "内置结构化")
+                    : t("statusline.modeCustom", "自定义脚本")}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {enabled && mode === "custom" && (
+        <div style={{
+          padding: "12px 16px", background: "var(--bg-surface)", borderRadius: "var(--radius-md)",
+          border: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10,
+        }}>
+          <Hint>{t("statusline.customDesc", "填写原生 statusLine 脚本路径或命令，写入 settings 的 command 字段，不生成 aidog 脚本")}</Hint>
+          <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+            value={customCommand}
+            placeholder={t("statusline.customPlaceholder", "~/.claude/my-statusline.sh 或 inline 命令")}
+            onChange={(e) => setStored({ customCommand: e.target.value })} />
+          {isMain && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label style={{ fontSize: F.body, color: "var(--text-secondary)" }}>{t("statusline.hPadding", "水平间距")}</label>
+              <input className="input" type="number" min={0} max={20}
+                style={{ width: 60, fontSize: F.body, padding: S.inputPad }}
+                value={padding}
+                onChange={(e) => setStored({ padding: Math.max(0, Number(e.target.value)) })} />
+            </div>
+          )}
+          <div style={{ display: "flex", justifyContent: "flex-end" }}>
+            <button className="btn btn-primary" style={{ fontSize: F.body, padding: S.btnPad }}
+              onClick={handleApplyCustom}>
+              {t("statusline.applyCustom", "应用自定义脚本")}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {enabled && mode === "builtin" && (
+        <>
           {/* Preview */}
           <div style={{
             padding: "12px 16px", background: "var(--bg-surface)", borderRadius: "var(--radius-md)",
@@ -2582,6 +3226,12 @@ function StatusLinePanel({
                           onClick={() => cycleRowAlign(seg.id)}
                           title={t("statusline.rowAlign")}>
                           {t(`statusline.align.${seg.align ?? "left"}`)}
+                        </button>
+                        <button type="button" className="btn btn-ghost"
+                          style={{ fontSize: F.hint, padding: "2px 8px", color: "var(--text-tertiary)" }}
+                          onClick={() => deleteRow(seg.id)}
+                          title={t("statusline.deleteRow", "删除整行")}>
+                          {t("statusline.deleteRow", "删除整行")}
                         </button>
                       </div>
                     )}
@@ -2666,22 +3316,34 @@ function StatusLinePanel({
                     position: "absolute", bottom: "100%", right: 0, zIndex: 100,
                     background: "var(--bg-surface)", border: "1px solid var(--border)",
                     borderRadius: "var(--radius-md)", padding: 4,
-                    maxHeight: 320, overflow: "auto", minWidth: 240,
+                    maxHeight: 360, overflow: "auto", minWidth: 280,
                     boxShadow: "0 8px 32px rgba(0,0,0,0.2)",
                   }}>
-                    {SEGMENT_DEFS.filter(d => d.type !== "separator").map(d => (
-                      <button key={d.type} type="button" style={{
-                        display: "block", width: "100%", textAlign: "left",
-                        padding: "6px 12px", fontSize: F.body,
-                        background: "transparent", border: "none", borderRadius: "var(--radius-sm)",
-                        cursor: "pointer", color: "var(--text-primary)",
-                      }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-glass)"; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
-                        onClick={() => addSegment(d.type)}>
-                        <span style={{ fontWeight: 500 }}>{t(`statusline.seg.${d.type}.name`, d.name)}</span>
-                        <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginLeft: 8 }}>{t(`statusline.seg.${d.type}.desc`, d.desc)}</span>
-                      </button>
+                    {SEGMENT_CATEGORIES.map(cat => (
+                      <div key={cat.id}>
+                        <div style={{
+                          padding: "6px 12px 2px", fontSize: F.small, fontWeight: 600,
+                          color: "var(--text-tertiary)", textTransform: "uppercase", letterSpacing: 0.4,
+                        }}>{t(`statusline.segCat.${cat.id}`, cat.label)}</div>
+                        {cat.types.map(type => {
+                          const d = SEGMENT_DEF_MAP.get(type);
+                          if (!d || d.type === "separator") return null;
+                          return (
+                            <button key={d.type} type="button" style={{
+                              display: "block", width: "100%", textAlign: "left",
+                              padding: "6px 12px", fontSize: F.body,
+                              background: "transparent", border: "none", borderRadius: "var(--radius-sm)",
+                              cursor: "pointer", color: "var(--text-primary)",
+                            }}
+                              onMouseEnter={(e) => { e.currentTarget.style.background = "var(--bg-glass)"; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.background = "transparent"; }}
+                              onClick={() => addSegment(d.type)}>
+                              <span style={{ fontWeight: 500 }}>{t(`statusline.seg.${d.type}.name`, d.name)}</span>
+                              <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginLeft: 8 }}>{t(`statusline.seg.${d.type}.desc`, d.desc)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
                     ))}
                   </div>
                 )}
