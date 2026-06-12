@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/06-12-settings-codex-config-support/research/codex-config.md", "reason": "Codex config.toml 完整 schema + 推荐默认 + provider 机制(权威)"}
+{"file": ".trellis/tasks/06-12-settings-codex-config-support/research/codex-aidog-spike.md", "reason": "provider 指向 aidog 的确切 base_url/wire_api + 链路结论"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "新 schema/tab/页 前端规约 + i18n"}
+{"file": ".trellis/spec/backend/index.md", "reason": "lib.rs Tauri command + TOML 读写"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Codex 配置 Rust↔TS 契约"}
