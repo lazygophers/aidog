@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Sidebar, type NavItem } from "./components/Sidebar";
 import { Platforms } from "./pages/Platforms";
 import { Groups } from "./pages/Groups";
-import { Proxy } from "./pages/Proxy";
 import { AppSettings } from "./pages/AppSettings";
 import { Logs } from "./pages/Logs";
 import { Stats } from "./pages/Stats";
@@ -10,17 +9,15 @@ import { proxyLogApi } from "./services/api";
 import { requestNavigation } from "./utils/navGuard";
 
 const BASE_NAV: NavItem[] = [
-  { id: "proxy", icon: "proxy", labelKey: "nav.proxy" },
   { id: "platforms", icon: "platforms", labelKey: "nav.platforms" },
   { id: "groups", icon: "groups", labelKey: "nav.groups" },
   { id: "stats", icon: "stats", labelKey: "nav.stats" },
+  { id: "logs", icon: "logs", labelKey: "nav.logs" },
   { id: "settings", icon: "settings", labelKey: "nav.settings" },
 ];
 
-const LOG_NAV_ITEM: NavItem = { id: "logs", icon: "logs", labelKey: "nav.logs" };
-
 function App() {
-  const [activeNav, setActiveNav] = useState("proxy");
+  const [activeNav, setActiveNav] = useState("platforms");
   const [logEnabled, setLogEnabled] = useState(false);
 
   useEffect(() => {
@@ -42,11 +39,12 @@ function App() {
     });
   };
 
+  // 隐藏 logs 菜单（日志关闭时）
   const navItems = logEnabled
-    ? [BASE_NAV[0], LOG_NAV_ITEM, ...BASE_NAV.slice(1)]
-    : BASE_NAV;
+    ? BASE_NAV
+    : BASE_NAV.filter(n => n.id !== "logs");
 
-  const effectiveNav = activeNav === "logs" && !logEnabled ? "proxy" : activeNav;
+  const effectiveNav = activeNav === "logs" && !logEnabled ? "platforms" : activeNav;
 
   return (
     <div style={{
@@ -67,7 +65,6 @@ function App() {
         padding: "24px 32px",
       }}>
         <div className="animate-fade-in" key={effectiveNav}>
-          {effectiveNav === "proxy" && <Proxy />}
           {effectiveNav === "platforms" && <Platforms />}
           {effectiveNav === "groups" && <Groups />}
           {effectiveNav === "settings" && <AppSettings onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} />}

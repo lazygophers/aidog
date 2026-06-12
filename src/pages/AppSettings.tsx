@@ -7,16 +7,18 @@ import { PricingTab } from "./PricingTab";
 import { TrayConfigTab } from "./TrayConfigTab";
 import { requestNavigation } from "../utils/navGuard";
 
-type Tab = "proxy" | "claude" | "codex" | "pricing" | "tray";
+type Tab = "system" | "claude" | "codex" | "pricing" | "tray";
 
 export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (enabled: boolean) => void }) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>("proxy");
+  const [tab, setTab] = useState<Tab>("system");
   // Switching tabs may be intercepted by a dirty page (e.g. Claude Code Settings).
   const switchTab = (next: Tab) => {
     if (next === tab) return;
     requestNavigation(() => setTab(next));
   };
+  const [running, setRunning] = useState(false);
+  const [proxyPort, setProxyPort] = useState(9876);
   const [autostart, setAutostart] = useState(false);
   const [logEnabled, setLogEnabled] = useState(false);
   const [logRetention, setLogRetention] = useState(90);
@@ -36,7 +38,12 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
       try {
         const s = await proxyApi.getSettings();
         setAutostart(s.autostart);
+        setProxyPort(s.port);
       } catch { /* defaults */ }
+      try {
+        const s = await proxyApi.status();
+        setRunning(s);
+      } catch { setRunning(false); }
       try {
         const ls = await proxyLogApi.getSettings();
         setLogEnabled(ls.enabled);
@@ -59,6 +66,22 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
       } catch { /* defaults */ }
     })();
   }, []);
+
+  const handleProxyStart = async () => {
+    try {
+      const msg = await proxyApi.start(proxyPort);
+      setRunning(true);
+      setMessage(msg);
+    } catch (e: any) { setMessage(e.toString()); }
+  };
+
+  const handleProxyStop = async () => {
+    try {
+      await proxyApi.stop();
+      setRunning(false);
+      setMessage(t("proxy.stopped"));
+    } catch (e: any) { setMessage(e.toString()); }
+  };
 
   const handleAutostartChange = async (val: boolean) => {
     try {
@@ -114,7 +137,7 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Tab bar */}
       <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--border)" }}>
-        {(["proxy", "claude", "codex", "pricing", "tray"] as Tab[]).map((id) => (
+        {(["system", "claude", "codex", "pricing", "tray"] as Tab[]).map((id) => (
           <button
             key={id}
             className="btn btn-ghost"
@@ -128,8 +151,8 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
             }}
             onClick={() => switchTab(id)}
           >
-            {id === "proxy"
-              ? t("appSettings.proxyTab", "代理配置")
+            {id === "system"
+              ? t("appSettings.systemTab", "系统设置")
               : id === "claude"
                 ? t("appSettings.claudeTab", "Claude Code")
                 : id === "codex"
@@ -145,8 +168,66 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
         <PricingTab />
       ) : tab === "tray" ? (
         <TrayConfigTab />
-      ) : tab === "proxy" ? (
+      ) : tab === "system" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
+          {/* Proxy Status */}
+          <div
+            className={`glass glass-highlight ${running ? "" : ""}`}
+            style={{
+              padding: "24px 20px",
+              display: "flex",
+              alignItems: "center",
+              gap: 20,
+              ...(running ? { animation: running ? "pulseGlow 3s ease-in-out infinite" : undefined } : {}),
+            }}
+          >
+            <div style={{
+              width: 44, height: 44, borderRadius: 22,
+              flexShrink: 0,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              background: running
+                ? "linear-gradient(135deg, rgba(52,199,89,0.2), rgba(52,199,89,0.05))"
+                : "var(--bg-glass)",
+              border: `1px solid ${running ? "rgba(52,199,89,0.2)" : "var(--border)"}`,
+              transition: "all 400ms ease",
+            }}>
+              <span className={`status-dot ${running ? "status-dot-active" : "status-dot-inactive"}`}
+                style={{ width: 16, height: 16 }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 700 }}>
+                {running ? t("proxy.running") : t("proxy.stopped")}
+              </div>
+              {running && (
+                <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 2 }}>
+                  localhost:{proxyPort}
+                </div>
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                {t("proxy.port")}
+              </label>
+              <input
+                className="input"
+                type="number"
+                value={proxyPort}
+                onChange={(e) => setProxyPort(Number(e.target.value))}
+                disabled={running}
+                style={{ width: 80 }}
+              />
+              {!running ? (
+                <button className="btn btn-primary" onClick={handleProxyStart}>
+                  {t("proxy.start")}
+                </button>
+              ) : (
+                <button className="btn btn-danger" onClick={handleProxyStop}>
+                  {t("proxy.stop")}
+                </button>
+              )}
+            </div>
+          </div>
+
           {/* Autostart */}
           <div className="glass-surface" style={{
             padding: "16px 20px",

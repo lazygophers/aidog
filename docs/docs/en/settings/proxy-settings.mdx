@@ -1,22 +1,36 @@
 ---
-title: Proxy Settings
+title: System Settings
 ---
 
-# Proxy Settings
+# System Settings
 
-Configure the proxy server behavior in **"Settings" → "Proxy Configuration"** tab.
+Manage proxy service and app configuration in **"Settings" → "System Settings"** tab.
 
-![AiDog — Proxy Settings](/screenshots/settings.png)
+![AiDog — System Settings](/screenshots/settings.png)
 
-## Proxy Settings
+## Proxy Service
+
+The status bar at the top provides intuitive proxy status display and controls:
+
+- Running status indicator (green = running)
+- Port configuration input (not editable while running)
+- One-click start/stop button
 
 | Setting | Default | Description |
 |---------|---------|-------------|
 | Proxy Port | `9876` | HTTP proxy listening port |
-| Request Timeout | `300s` | Maximum wait time for upstream response |
 | Auto Start | On | Start proxy service automatically when AiDog launches |
 
 Port changes take effect after restarting the proxy service.
+
+## Timeout Settings
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| Request Timeout | `300s` | Maximum wait time for upstream response |
+| Connect Timeout | `10s` | Maximum wait time for connection establishment |
+
+System default timeouts; group and model levels can override.
 
 ## Log Settings
 
@@ -31,6 +45,16 @@ Control log granularity and retention. See [Log Settings](/logs/log-settings).
 | Upstream Request Retention | 7 days | Clear request body after expiry, keep stats |
 | Log Retention | 90 days | Delete entire log entries after expiry |
 
+## Application Log
+
+Console logs are always output; settings below only affect log files.
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| File Logging | On | Write logs to file |
+| Log Level | `INFO` | TRACE / DEBUG / INFO / WARN / ERROR |
+| Retention | `3 hours` | Auto-cleanup after expiry |
+
 ## Data Management
 
 - **Export Platform Config** — Export all platform settings
@@ -38,13 +62,3 @@ Control log granularity and retention. See [Log Settings](/logs/log-settings).
 - **Export Statistics** — Export usage statistics
 - **Clean Expired Logs** — Immediately clean up based on retention rules
 - **Reset Statistics** — Clear all statistics data
-
-## Start & Stop
-
-The proxy page provides an intuitive status display and controls:
-
-- Running status indicator
-- One-click start/stop button
-- Port configuration input (not editable while running)
-
-See [Proxy Usage](/proxy/usage).

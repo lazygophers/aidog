@@ -135,18 +135,26 @@ export function Stats() {
   useEffect(() => onProxyLogUpdated(() => { load(); }), [load]);
 
   // Load filter options
-  useEffect(() => {
+  const loadFilterOptions = useCallback(() => {
     groupDetailApi.list().then(setGroups).catch(() => {});
     platformApi.list().then(setPlatforms).catch(() => {});
   }, []);
 
+  useEffect(() => { loadFilterOptions(); }, [loadFilterOptions]);
+
+  // 请求完成后同步刷新筛选选项（平台/分组列表可能已变）
+  useEffect(() => onProxyLogUpdated(() => { loadFilterOptions(); }), [loadFilterOptions]);
+
   // 维度 / 筛选变化时重置分页
   useEffect(() => { setPage(0); }, [groupBy, filterGroup, filterModel, filterProtocol, preset]);
 
-  // Collect unique models from groups
+  // Collect unique models from groups (model_mappings) + platform available_models
   const allModels = useMemo(
-    () => Array.from(new Set(groups.flatMap(g => g.model_mappings.map(m => m.target_model)))).sort(),
-    [groups],
+    () => Array.from(new Set([
+      ...groups.flatMap(g => g.model_mappings.map(m => m.target_model)),
+      ...platforms.flatMap(p => p.available_models || []),
+    ])).sort(),
+    [groups, platforms],
   );
   const allProtocols = useMemo(
     () => Array.from(new Set(platforms.map(p => p.platform_type))).sort(),
