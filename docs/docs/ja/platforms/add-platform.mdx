@@ -1,5 +1,5 @@
 ---
-title: プラットフォームの追加
+title: プラットフォームを追加
 ---
 
 # Add Platform
@@ -8,13 +8,12 @@ Platforms are the core concept in AiDog — each represents an AI API service en
 
 ![AiDog — Add Platform](/screenshots/add-platform.png)
 
-
 ## Adding Steps
 
 1. Go to the **"Platforms"** page
 2. Click the **"+"** button in the top right
-3. Select a platform preset (or fill in manually)
-4. Fill in the configuration and click Save
+3. Select a platform from the preset list (or fill in manually)
+4. Enter your API Key and click Save
 
 :::tip{title="Auto Group"}
 After saving a platform, AiDog automatically creates a group for it, so you can start using it right away without manual configuration.
@@ -27,86 +26,90 @@ After saving a platform, AiDog automatically creates a group for it, so you can 
 | Name | Display name | `My OpenAI` |
 | Base URL | API base URL (with version prefix) | `https://api.openai.com/v1` |
 | API Key | Platform API key | `sk-...` |
-| Protocol | Request protocol type | `openai_chat` |
 
 ### Platform Presets
 
-AiDog includes 50+ built-in platform presets. Selecting a preset auto-fills the Base URL and protocol.
+AiDog includes 50+ built-in platform presets (OpenAI, Anthropic, Gemini, DeepSeek, Qwen, and more). Selecting a preset auto-fills all configuration fields — just enter your API Key.
 
-### Protocol Selection
+Some presets are marked with "Coding Plan" — they automatically configure quota queries.
 
-Select the protocol matching your target platform. Common protocols:
+## Passthrough Mode
 
-- **openai_chat** — OpenAI-compatible Chat Completions (most universal)
-- **openai_responses** — OpenAI Responses API (used by Codex)
-- **anthropic** — Anthropic Claude native protocol
-- **gemini** — Google Gemini native protocol
-- **mock** — Simulated platform for testing, does not send real requests
+Some platform types support "passthrough" mode: AiDog forwards client request headers and body as-is, without any protocol conversion or authentication injection.
 
-See [Protocol Types](/platforms/protocols) for details.
+- **Upstream URL** — Enter the platform root URL (e.g. `https://api.anthropic.com`), without version prefix
+- **API Key** — Optional in passthrough mode; the client can carry its own authentication
 
-## Endpoints
+Ideal for scenarios where client-side authentication (e.g. OAuth subscriptions) must be preserved.
 
-Each platform can have multiple endpoints, each with its own protocol and Base URL:
+## Multiple Endpoints
 
-| Field | Description |
-|-------|-------------|
-| Protocol | Outbound protocol for this endpoint |
-| Base URL | API address for this endpoint |
-| Client Type | Request header emulation method (affects compatibility with some platforms) |
-| Coding Plan | Whether this endpoint supports Coding Plan quota queries |
+Each platform can have multiple endpoints, each with its own address and interface type. AiDog automatically selects the matching endpoint based on the client request.
 
-For example, a platform can have both `openai_chat` and `openai_responses` endpoints. AiDog automatically matches the appropriate endpoint based on the inbound protocol.
+For example, the same platform can support both the chat interface and the coding assistant interface.
 
 ## Model Configuration
 
-### Model Slots
+### Default Models
 
-Each platform supports 5 model slots for quick assignment of commonly used models:
-
-| Slot | Purpose |
-|------|---------|
-| **default** | Default model, used for testing and when no model is specified |
-| **sonnet** | Sonnet-tier model (e.g. `claude-3-5-sonnet`) |
-| **opus** | Opus-tier model (e.g. `claude-3-opus`) |
-| **haiku** | Haiku-tier model (e.g. `claude-3-haiku`) |
-| **gpt** | GPT-series model (e.g. `gpt-4o`) |
+In the platform settings, specify which model to use by default for different types of requests. AiDog automatically matches the most suitable model based on the requested model name.
 
 ### Fetch Model List
 
-When editing a platform, click the "Fetch Models" button next to the model input. AiDog will automatically retrieve the list of available models from the platform API.
+Click the "Fetch Models" button to automatically retrieve available models from the platform.
 
 ### Model Mapping
 
-In the "Model Mapping" section, you can map requested model names to the actual model names supported by the platform. See [Model Mapping](/platforms/model-mapping).
+Map requested model names to the actual model names supported by the platform. See [Model Mapping](/platforms/model-mapping).
+
+## Balance Query Configuration
+
+For platforms using the NewAPI system, configure separate balance queries:
+
+- **Query URL** — Separate from the API URL
+- **Query Token** — Obtained from the dashboard (different from API Key)
+- **User ID** — Optional
+
+See [Balance & Quotas](/stats/balance).
+
+## Manual Budget
+
+For platforms without automatic balance queries, set manual budget limits:
+
+- **Total** — Overall spending limit
+- **Rolling Window** — Spending limit within a rolling time window
+- **Fixed Window** — Spending limit that resets on a fixed schedule
+- **Daily** — Daily spending limit
+
+When depleted, AiDog stops forwarding to that platform and automatically fails over. See [Balance & Quotas](/stats/balance).
 
 ## Model Testing
 
-After saving a platform, you can test its connectivity:
+After saving a platform, test its connectivity:
 
 1. Click the "Test" button on the platform card
-2. Choose a test mode: Quick (default model) / Batch (multiple models) / Custom (specify model and prompt)
+2. Choose a test mode: Quick / Batch / Custom
 3. View results: response time, token count, success or failure
 
 See [Model Testing](/platforms/model-testing).
 
+## Platform List
+
+The Platforms page displays all added platform cards, each showing:
+
+- Platform name and logo
+- Health status indicator (green/yellow/red)
+- Balance or quota utilization
+- Today's request count and success rate
+
+Supports pinyin search to quickly locate a platform.
+
 ## Other Operations
 
-### Enable/Disable
-
-Pause a platform without deleting it. Disabled platforms are excluded from routing.
-
-### Editing Platforms
-
-Click a platform card to view details and modify settings. Click "Save" after changes.
-
-### Deleting Platforms
-
-Click the delete button on the platform card. Related logs and statistics are preserved.
-
-### Drag to Reorder
-
-Drag platform cards in the list to adjust their display order.
+- **Enable/Disable** — Pause a platform without deleting it
+- **Edit** — Click a platform card to view details and modify settings
+- **Delete** — Click the delete button. Related logs and statistics are preserved
+- **Drag to Reorder** — Drag cards in the list to adjust display order
 
 ## FAQ
 
@@ -127,8 +130,4 @@ Do not append `/chat/completions` to the Base URL. AiDog handles this automatica
 
 ### API Key Security
 
-API keys are stored in the local database and never uploaded to any server.
-
-### What is the Mock platform?
-
-Mock platforms simulate AI responses without sending real requests. Useful for offline work or debugging. You can customize response content, status codes, delays, token counts, and even simulate rate limits and timeouts.
+API keys are stored locally and never uploaded to any server.

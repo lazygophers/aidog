@@ -19,7 +19,7 @@ title: 快速开始
    - **名称** — 例如 `My OpenAI`
    - **Base URL** — API 基础地址，如 `https://api.openai.com/v1`
    - **API Key** — 你的平台 API Key
-   - **协议** — 选择对应协议（默认 `openai_chat`）
+   
 4. 点击保存
 
 :::tip{title="提示"}
@@ -31,14 +31,14 @@ Base URL 已包含版本前缀（如 `/v1`），无需额外拼接路径。AiDog
 在需要使用 AI API 的应用中，将 API 地址设置为 AiDog 的代理地址：
 
 ```
-http://127.0.0.1:7860/v1
+http://127.0.0.1:9876/proxy/v1
 ```
 
 API Key 可以填任意值（AiDog 会使用你配置的真实 Key）。
 
 ## 第三步：开始使用
 
-现在任何发送到 `http://127.0.0.1:7860` 的请求都会经过 AiDog：
+现在任何发送到 `http://127.0.0.1:9876` 的请求都会经过 AiDog：
 
 - 请求会被路由到对应平台
 - 用量会被自动记录
@@ -50,7 +50,7 @@ API Key 可以填任意值（AiDog 会使用你配置的真实 Key）。
 用 curl 测试：
 
 ```bash
-curl http://127.0.0.1:7860/v1/chat/completions \
+curl http://127.0.0.1:9876/proxy/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer any-value" \
   -d '{

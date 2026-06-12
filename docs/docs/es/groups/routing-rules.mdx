@@ -9,7 +9,7 @@ Routing rules determine how AiDog matches inbound requests to the appropriate gr
 ## Matching Flow
 
 ```
-Inbound Request → Detect Protocol → Match Group → Select Platform → Map Model → Forward
+Inbound Request → Detect Interface → Match Group → Select Platform → Map Model → Forward
 ```
 
 ## Group Matching
@@ -21,41 +21,23 @@ Requests are matched to groups by priority:
 3. **Default group** — Used when no match is found
 4. **First group** — Used when no default group is set
 
-## Source Protocol Filtering
-
-Groups can filter by source protocol, only processing requests of a specified inbound protocol. For example:
-
-- Set source protocol to `anthropic` → Only Anthropic-protocol requests are routed to this group
-- Leave unset → Accept requests from all protocols
-
 ## Platform Selection
 
 Within a group, platforms are selected by routing mode:
 
 ### Failover Mode
 
-1. Select the first enabled platform
-2. Send the request
-3. If it fails (429 rate limit, 5xx error, timeout, network error), try the next one automatically
-4. If all platforms fail, return an error to the client
+Select the first available platform. If it fails, try the next one automatically. If all platforms fail, return an error.
 
 ### Load Balance Mode
 
-1. Randomly select an enabled platform by weight
-2. Send the request
-3. Failover also applies on failure
+Randomly select a platform by weight. Failover also applies on failure.
 
 ## Failover
 
-Platforms within a group are ordered. When the current platform fails:
-
-1. Log the failure
-2. Automatically try the next platform
-3. If all platforms fail, return an error to the client
-
-Failover is triggered by:
-- HTTP 429 (Rate Limit)
-- HTTP 5xx (Server Error)
+Automatic failover is triggered by:
+- Rate limiting (429)
+- Server error (5xx)
 - Connection timeout
 - Network error
 

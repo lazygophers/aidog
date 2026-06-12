@@ -1,76 +1,40 @@
 ---
-title: 协议类型
+title: 支持的平台与接口
 ---
 
-# 协议类型
+# 支持的平台与接口
 
-AiDog 支持多种 AI API 协议，作为入站请求的识别方式和出站请求的转换目标。
+AiDog 支持丰富的 AI 平台和接口类型，并自动处理不同平台间的协议转换。
 
-## 支持的协议
+## 支持的平台
 
-### OpenAI 系列
+AiDog 内置 50+ 平台预设，涵盖主流 AI 服务：
 
-| 协议 | 说明 | 端点 |
-|------|------|------|
-| `openai_chat` | Chat Completions API | `/v1/chat/completions` |
-| `openai_completions` | Text Completions API（旧版） | `/v1/completions` |
-| `openai_responses` | Responses API（Codex 使用） | `/v1/responses` |
+| 平台类型 | 示例 |
+|----------|------|
+| 国际平台 | OpenAI、Anthropic、Google Gemini、Mistral |
+| 国内平台 | DeepSeek、通义千问、智谱 GLM、Kimi、MiniMax |
+| 聚合平台 | OpenRouter、SiliconFlow、Novita |
 
-### Anthropic
+选择平台预设后，所有配置自动填充，无需手动选择接口类型。
 
-| 协议 | 说明 | 端点 |
-|------|------|------|
-| `anthropic` | Claude Messages API | `/v1/messages` |
+## 接口自动识别
 
-### Google
+AiDog 会根据客户端请求自动识别接口类型，无需手动配置：
 
-| 协议 | 说明 | 端点 |
-|------|------|------|
-| `gemini` | Gemini Generate Content API | `/v1beta/models/{model}:generateContent` |
-
-### 国内平台
-
-| 协议 | 说明 |
-|------|------|
-| `glm` / `glm_en` | 智谱 GLM 原生协议 |
-| `kimi` | Kimi（月之暗面）原生协议 |
-| `minimax` / `minimax_en` | MiniMax 原生协议 |
-| `bailian` | 阿里百炼原生协议 |
-
-### 工具 / 测试
-
-| 协议 | 说明 |
-|------|------|
-| `mock` | 模拟平台，不发送真实请求，用于开发测试 |
-| `claude_code` | Claude Code 透传模式 |
-
-## 协议自动检测
-
-AiDog 会根据请求路径和内容自动检测入站协议：
-
-- `/v1/chat/completions` → `openai_chat`
-- `/v1/completions` → `openai_completions`
-- `/v1/responses` → `openai_responses`
-- `/claude/v1/messages` → `anthropic`（Claude Code 专用路径）
+- 对话接口 — 最常用的 AI 对话请求
+- 编程助手接口 — Codex、Claude Code 等编程工具使用的接口
+- 文本补全接口 — 旧版文本补全请求
 
 这意味着你可以用同一个代理地址同时服务不同类型的客户端。
 
-## 协议转换
+## 协议自动转换
 
-入站和出站协议可以不同。AiDog 会自动进行协议转换：
+如果你的客户端使用一种格式发请求，但目标平台使用另一种格式，AiDog 会自动转换。例如：
 
-1. 解析入站请求（根据检测到的协议）
-2. 统一为内部格式
-3. 转换为目标平台的出站协议
-4. 发送请求
+- 客户端用 OpenAI 格式发请求 → 自动转换为 Anthropic 格式发到 Claude
+- 编程助手用专用接口 → 自动转换为对应平台的格式
 
-例如：客户端用 `openai_chat` 发送请求 → AiDog 转换为 `anthropic` 协议发送到 Claude。
+## 模拟测试平台
 
-## 平台预设
-
-AiDog 内置 50+ 平台预设，每个预设包含：
-- 默认 Base URL
-- 默认协议
-- 推荐的端点配置
-
-选择预设后这些值会自动填充。
+AiDog 提供模拟平台，不发送真实请求，用于开发测试。可自定义响应内容、状态码、延迟等参数。

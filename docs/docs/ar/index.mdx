@@ -3,65 +3,65 @@ pageType: home
 
 hero:
   name: AiDog
-  text: إدارة موحّدة لبوابة واجهات الذكاء الاصطناعي الخاصة بك
-  tagline: تجميع متعدد المنصات · توجيه ذكي · إحصاءات الاستخدام —— تطبيق سطح مكتب متعدد المنصات لإدارة مفاتيح وطلبات ونفقات جميع منصات الذكاء الاصطناعي
+  text: Manage all your AI API gateways in one place
+  tagline: Multi-platform aggregation · Smart routing · Usage stats —— a cross-platform desktop app that manages the keys, requests, and spending of all your AI platforms
   actions:
     - theme: brand
-      text: البدء السريع
-      link: /ar/getting-started/quick-start
+      text: Quick Start
+      link: /en/getting-started/quick-start
     - theme: alt
       text: GitHub
       link: https://github.com/lazygophers/aidog
 
 features:
-  - title: تجميع متعدد المنصات
-    details: إدارة موحّدة لمفاتيح ونقاط نهاية واجهات أكثر من 50 منصة مثل OpenAI وAnthropic وGemini وDeepSeek وTongyi Qianwen.
+  - title: Multi-platform aggregation
+    details: Manage API keys and endpoints for 50+ platforms such as OpenAI, Anthropic, Gemini, DeepSeek, and Qwen in one place.
     icon: 🧩
-    link: /ar/platforms/add-platform
-  - title: توجيه ذكي
-    details: وفقًا لقواعد المجموعات وتعيين النماذج، يُوجَّه كل طلب تلقائيًا إلى أفضل منصة.
+    link: /en/platforms/add-platform
+  - title: Smart routing
+    details: Automatically forward each request to the best platform based on group and model mapping rules.
     icon: 🧭
-    link: /ar/groups/routing-rules
-  - title: إحصاءات الاستخدام
-    details: تتبّع استخدام التوكنات في الوقت الفعلي، وتقدير تكلفة الاستدعاءات، والاستعلام عن أرصدة كل منصة.
+    link: /en/groups/routing-rules
+  - title: Usage stats
+    details: Track token usage in real time, estimate call costs, and query the balance of each platform.
     icon: 📊
-    link: /ar/stats/usage-stats
-  - title: تحويل متعدد البروتوكولات
-    details: تحويل متبادل بين البروتوكولات الأصلية OpenAI Chat / Completions / Responses وAnthropic وGemini.
+    link: /en/stats/usage-stats
+  - title: Multi-protocol conversion
+    details: Convert between OpenAI Chat / Completions / Responses, Anthropic, and Gemini native protocols.
     icon: 🔌
-    link: /ar/platforms/protocols
-  - title: تكامل Codex
-    details: دعم أصلي لمساعدي البرمجة مثل OpenAI Codex وClaude Code، مع اتصال بنقرة واحدة.
+    link: /en/platforms/protocols
+  - title: Codex integration
+    details: Native support for coding assistants like OpenAI Codex and Claude Code, with one-click setup.
     icon: ⚡
-    link: /ar/proxy/codex-integration
-  - title: نظام السجلات
-    details: ثلاثة مستويات لدقة التسجيل، وسياسات احتفاظ قابلة للتهيئة، مع مسار طلبات واضح للعيان.
+    link: /en/proxy/codex-integration
+  - title: Logging system
+    details: Three levels of logging granularity and configurable retention policies make the request chain crystal clear.
     icon: 📑
-    link: /ar/logs/viewing
-  - title: تخصيص السمات
-    details: سمات متعددة مثل Liquid Glass وNord وDracula، مع وضعين فاتح وداكن.
+    link: /en/logs/viewing
+  - title: Theme customization
+    details: Multiple themes such as Liquid Glass, Nord, and Dracula, with both light and dark modes.
     icon: 🎨
-    link: /ar/settings/themes
-  - title: علبة النظام
-    details: مقيمة في علبة النظام، وتعرض الرصيد وحالة الوكيل في الوقت الفعلي.
+    link: /en/settings/themes
+  - title: System tray
+    details: Lives in the system tray, showing balance and proxy status in real time.
     icon: 🖥️
-    link: /ar/settings/tray
+    link: /en/settings/tray
 ---
 
-## ثلاث خطوات للبدء
+## Three steps to get started
 
-1. **إضافة منصة** —— أدخِل مفتاح API ونقطة النهاية لإحدى منصات الذكاء الاصطناعي
-2. **ضبط عنوان الوكيل** —— وجِّه عميلك إلى وكيل AiDog المحلي
-3. **ابدأ الاستخدام** —— يتم توجيه الطلبات وقياسها وتسجيلها تلقائيًا
+1. **Add a platform** —— enter the API key and endpoint of an AI platform
+2. **Set the proxy address** —— point your client to the AiDog local proxy
+3. **Start using it** —— requests are automatically routed, metered, and logged
 
-→ [دليل التثبيت](/ar/getting-started/installation) · [البدء السريع](/ar/getting-started/quick-start)
+→ [Installation Guide](/en/getting-started/installation) · [Quick Start](/en/getting-started/quick-start)
 
-## المكدّس التقني
+## Tech stack
 
-| الطبقة | التقنية |
+| Layer | Technology |
 |---|---|
-| إطار سطح المكتب | Tauri 2.0 |
-| الواجهة الأمامية | React 19 + TypeScript |
-| الخلفية | Rust + Axum |
-| قاعدة البيانات | SQLite |
-| البناء | Vite + Yarn |
+| Desktop framework | Tauri 2.0 |
+| Frontend | React 19 + TypeScript |
+| Backend | Rust + Axum |
+| Database | SQLite |
+| Build | Vite + Yarn |

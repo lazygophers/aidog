@@ -29,14 +29,14 @@ The Base URL already includes the version prefix (e.g. `/v1`). AiDog automatical
 In your AI client, set the API endpoint to AiDog's proxy address:
 
 ```
-http://127.0.0.1:7860/v1
+http://127.0.0.1:9876/proxy/v1
 ```
 
 The API Key can be any value (AiDog uses your configured real key).
 
 ## Step 3: Start Using
 
-All requests sent to `http://127.0.0.1:7860` are now routed through AiDog:
+All requests sent to `http://127.0.0.1:9876` are now routed through AiDog:
 
 - Requests are routed to the matching platform
 - Usage is automatically recorded
@@ -48,7 +48,7 @@ All requests sent to `http://127.0.0.1:7860` are now routed through AiDog:
 Test with curl:
 
 ```bash
-curl http://127.0.0.1:7860/v1/chat/completions \
+curl http://127.0.0.1:9876/proxy/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer any-value" \
   -d '{

@@ -10,22 +10,15 @@ Groups are the routing core of AiDog — organize platforms by purpose and contr
 
 1. Go to the **"Groups"** page
 2. Click **"+ Add Group"**
-3. Configure:
-
-| Field | Description |
-|-------|-------------|
-| Name | Group display name |
-| Path | Routing match path, e.g. `/claude`, `/openai` |
-| Routing Mode | Failover or Load Balance |
-| Platforms | Select platforms to include |
+3. Enter a name and path
+4. Select platforms to include
+5. Choose a routing mode
 
 :::tip{title="Auto Group"}
 When you add a platform, AiDog automatically creates a corresponding group. You can also create more groups manually.
 :::
 
 ## Routing Modes
-
-Groups support two routing modes:
 
 ### Failover
 
@@ -46,16 +39,14 @@ Requests are distributed across platforms by weight. Ideal for multi-platform tr
 | OpenAI | 70 | ~70% |
 | DeepSeek | 30 | ~30% |
 
-## Group-Level Timeout
+## Timeout Settings
 
 Each group can independently set timeout values, overriding global settings:
 
-| Setting | Description |
-|---------|-------------|
-| Request Timeout | Maximum time to wait for an upstream response |
-| Connect Timeout | Maximum time to establish a connection |
+- **Request Timeout** — Maximum time to wait for an upstream response
+- **Connect Timeout** — Maximum time to establish a connection
 
-Set to 0 to use the global timeout settings.
+Leave empty to use global timeout settings.
 
 ## Managing Platforms
 
@@ -63,16 +54,27 @@ Within a group, you can:
 - **Drag to reorder** — Adjust priority (determines primary/backup order in failover mode)
 - **Enable/Disable** — Temporarily skip a platform
 - **Set weights** — Request ratio for load balance mode
-- **Model mapping** — Group-level model mapping, takes precedence over platform-level mappings
+- **Model mapping** — Group-level model mapping, takes precedence over platform-level
 
-## Editing Groups
+## One-Click Launch Commands
 
-Click a group card to enter edit mode. Click "Save" after changes.
+Each group card provides two one-click copy buttons:
 
-## Deleting Groups
+- **Claude** — Copies the Claude Code launch command for this group, including the settings file path
+- **Codex** — Copies the Codex launch command for this group, including the profile
 
-Deleting a group does not delete its platforms — it only removes the association.
+Paste the command in your terminal to immediately use the group's routing.
 
-## Drag to Reorder
+## Health Status
 
-Drag group cards in the list to adjust their display order.
+Group cards display health status indicators for their associated platforms:
+
+- 🟢 All successful — Green
+- 🟡 Some failures — Yellow
+- 🔴 All failed — Red
+
+## Edit & Delete
+
+- Click a group card to enter edit mode. Click "Save" after changes
+- Deleting a group does not delete its platforms — it only removes the association
+- Drag group cards in the list to adjust display order

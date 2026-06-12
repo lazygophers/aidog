@@ -4,54 +4,69 @@ title: Precios y facturación
 
 # Pricing & Billing
 
-AiDog automatically estimates request costs based on model pricing tables.
+AiDog automatically estimates the cost of each request based on the model pricing table. Manage all pricing data in **"Settings" → "Model Pricing"** tab.
 
 ## Cost Estimation
 
-After each request, AiDog:
-1. Extracts token usage from the upstream response
-2. Looks up the model's unit price in the pricing table
-3. Calculates `Cost = Prompt Tokens × Input Price + Completion Tokens × Output Price`
+After each request, AiDog automatically:
+
+1. Extracts token usage (input / output / cache) from the upstream response
+2. Looks up the unit price in the pricing table
+3. Calculates the estimated cost
+
+Pricing fallback order: Custom pricing → Synced pricing → Fallback price
 
 :::tip{title="Note"}
-Estimated costs are for reference only. Actual costs are based on platform billing.
+Estimated costs are for reference only. Actual charges are based on platform billing.
 :::
-
-## Pricing Sources
-
-AiDog supports multiple pricing data sources:
-
-- **Built-in pricing** — Official pricing for mainstream models
-- **Custom pricing** — Manually set prices for specific models, takes priority over built-in pricing
-- **Auto-sync** — Automatically fetch the latest model pricing from pricing sources
-
-Pricing fallback order: Custom pricing → Built-in pricing → Default price
 
 ## Pricing Management Page
 
-Manage all model pricing in **"Settings" → "Model Pricing"**:
+### Price Sync
+
+AiDog supports one-click sync of the latest model pricing data:
+
+- Click "Sync Now" to fetch the latest prices
+- Sync result shows: added count, updated count, failed count
+- Enable "Auto Sync" to automatically fetch at a configured interval
+
+Auto sync intervals: 1 hour / 6 hours / 12 hours / 24 hours / 7 days
+
+### Fallback Price
+
+For models not listed in the pricing table, a fallback price is used:
+
+- **Input fallback** — Default $3.0 / million tokens
+- **Output fallback** — Default $3.0 / million tokens
+
+Adjustable in the sync settings section of the "Model Pricing" page.
 
 ### Browse & Search
 
+The price table shows these columns:
+
+| Column | Description |
+|--------|-------------|
+| Model | Model name |
+| Source | LiteLLM (synced) / Manual |
+| Default Platform | Default platform for this model |
+| Input $/M | Input token price (per million tokens) |
+| Output $/M | Output token price |
+| Cache Read $/M | Cache token read price |
+
 - Search by model name
-- Filter by pricing source (Built-in / Custom / Synced)
-- Paginated browsing of all pricing records
+- Filter by source (LiteLLM / Manual)
+- Paginated with adjustable page size and jump-to-page
 
-### Edit Custom Pricing
+### Manage Pricing
 
-- Add custom unit prices for any model
-- Set input token price and output token price separately
-- Edit or delete existing custom pricing
+- **Delete** — Remove a pricing record (click the delete button at end of row)
+- Price changes take effect immediately for subsequent requests
 
-### Price Sync
+## View Costs
 
-- Configure pricing sync sources
-- One-click sync of latest pricing data
-- View sync results
+View cost-related data on the **"Statistics"** page:
 
-## Viewing Costs
-
-In the **"Statistics"** page:
-- Today/this week/this month estimated costs
-- Cost distribution by platform, group, and model
-- Cost trend charts
+- "Estimated Cost" in the overview cards (with period comparison)
+- "Estimated Cost" column in the dimension ranking table
+- Cost details in trend chart tooltips

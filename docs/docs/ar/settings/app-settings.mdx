@@ -8,16 +8,15 @@ Configure AiDog's global behavior in the **"Settings"** page. It contains 5 tabs
 
 ![AiDog — Settings](/screenshots/settings.png)
 
-
 ## Proxy
 
 ### Proxy Settings
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| Proxy port | `7860` | HTTP proxy listen port |
+| Proxy port | `9876` | HTTP proxy listen port |
 | Request timeout | `300s` | Upstream request timeout |
-| Auto-start | Off | Automatically start proxy when AiDog launches |
+| Auto-start | On | Automatically start proxy when AiDog launches |
 
 ### Log Settings
 
@@ -25,25 +24,25 @@ Control logging granularity and retention. See [Log Settings](/logs/log-settings
 
 ### Data Management
 
-- Export platform config (JSON)
-- Export group config (JSON)
-- Export statistics (CSV)
+- Export platform config
+- Export group config
+- Export statistics
 - Clean expired logs
 - Reset statistics
 
 ## Claude Code
 
-Edit Claude Code settings including model, permissions, sandbox, plugins, hooks, and StatusLine.
+Edit Claude Code settings including model, permissions, sandbox, plugins, and more.
 
-- **Import from Claude Code** — Read existing Claude Code configuration into AiDog
+- **Import from Claude Code** — Read existing configuration into AiDog
 - **Export to Claude Code** — Write proxy address to Claude Code config file
-- **Sync Group Settings** — Generate independent Claude Code config files for each group
+- **Sync Group Settings** — Generate independent config files for each group
 
 See [Codex Integration](/proxy/codex-integration).
 
 ## Codex
 
-Edit Codex settings in `~/.codex/config.toml` directly, without manually locating config files.
+Edit Codex settings directly in AiDog, without manually locating config files.
 
 See [Codex Integration](/proxy/codex-integration).
 
@@ -55,29 +54,16 @@ Browse, search, and manage all model pricing data. See [Pricing & Billing](/stat
 
 Configure tray display content and format. See [Tray Configuration](/settings/tray).
 
-## Interface Settings
+## Interface
 
 ### Language
 
-7 interface languages supported:
-- 简体中文 (zh-CN)
-- English (en-US)
-- العربية (ar-SA)
-- Français (fr-FR)
-- Deutsch (de-DE)
-- Русский (ru-RU)
-- 日本語 (ja-JP)
+7 interface languages supported: 简体中文, English, العربية, Français, Deutsch, Русский, 日本語
 
 ### Themes
 
 See [Themes](/settings/themes).
 
-## Data Storage
+## Data Security
 
-All data is stored locally:
-
-| Data | Path |
-|------|------|
-| Database | `~/.aidog/aidog.db` |
-
-Data never leaves your machine and is never uploaded to any server.
+All data is stored locally. It never leaves your machine and is never uploaded to any server.

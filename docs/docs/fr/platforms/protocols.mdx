@@ -2,75 +2,39 @@
 title: Protocoles
 ---
 
-# Protocol Types
+# Supported Platforms & Interfaces
 
-AiDog supports multiple AI API protocols for both inbound request detection and outbound request conversion.
+AiDog supports a wide range of AI platforms and interface types, automatically handling protocol conversion between different platforms.
 
-## Supported Protocols
+## Supported Platforms
 
-### OpenAI Series
+AiDog includes 50+ built-in platform presets covering major AI services:
 
-| Protocol | Description | Endpoint |
-|----------|-------------|----------|
-| `openai_chat` | Chat Completions API | `/v1/chat/completions` |
-| `openai_completions` | Text Completions API (legacy) | `/v1/completions` |
-| `openai_responses` | Responses API (Codex) | `/v1/responses` |
+| Category | Examples |
+|----------|----------|
+| International | OpenAI, Anthropic, Google Gemini, Mistral |
+| Chinese | DeepSeek, Qwen, Zhipu GLM, Kimi, MiniMax |
+| Aggregators | OpenRouter, SiliconFlow, Novita |
 
-### Anthropic
+Select a platform preset and all configuration is auto-filled — no need to manually choose an interface type.
 
-| Protocol | Description | Endpoint |
-|----------|-------------|----------|
-| `anthropic` | Claude Messages API | `/v1/messages` |
+## Automatic Interface Detection
 
-### Google
+AiDog automatically detects the interface type from client requests — no manual configuration needed:
 
-| Protocol | Description | Endpoint |
-|----------|-------------|----------|
-| `gemini` | Gemini Generate Content API | `/v1beta/models/{model}:generateContent` |
+- **Chat interface** — The most common AI chat requests
+- **Coding assistant interface** — Used by tools like Codex, Claude Code
+- **Text completion interface** — Legacy text completion requests
 
-### Chinese Platforms
+This means you can serve different types of clients through the same proxy address.
 
-| Protocol | Description |
-|----------|-------------|
-| `glm` / `glm_en` | Zhipu GLM native protocol |
-| `kimi` | Kimi (Moonshot) native protocol |
-| `minimax` / `minimax_en` | MiniMax native protocol |
-| `bailian` | Alibaba Bailian native protocol |
+## Automatic Protocol Conversion
 
-### Tools / Testing
+If your client sends requests in one format but the target platform uses another, AiDog converts automatically. For example:
 
-| Protocol | Description |
-|----------|-------------|
-| `mock` | Simulated platform, no real requests, for development and testing |
-| `claude_code` | Claude Code passthrough mode |
+- Client sends OpenAI format → Automatically converted to Anthropic format for Claude
+- Coding assistant uses its own interface → Automatically converted to the platform's format
 
-## Auto-Detection
+## Mock Platform
 
-AiDog automatically detects the inbound protocol based on the request path:
-
-- `/v1/chat/completions` → `openai_chat`
-- `/v1/completions` → `openai_completions`
-- `/v1/responses` → `openai_responses`
-- `/claude/v1/messages` → `anthropic` (Claude Code dedicated path)
-
-This means you can serve different client types through the same proxy address.
-
-## Protocol Conversion
-
-Inbound and outbound protocols can differ. AiDog automatically handles conversion:
-
-1. Parse inbound request (detected protocol)
-2. Convert to internal format
-3. Transform to target platform's outbound protocol
-4. Send the request
-
-Example: Client sends `openai_chat` → AiDog converts to `anthropic` protocol → sends to Claude.
-
-## Platform Presets
-
-AiDog includes 50+ built-in platform presets, each containing:
-- Default Base URL
-- Default protocol
-- Recommended endpoint configuration
-
-Selecting a preset auto-fills these values.
+AiDog provides a mock platform that simulates AI responses without sending real requests. You can customize response content, status codes, delays, and more.

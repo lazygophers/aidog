@@ -15,7 +15,7 @@ Set the following in Codex's config file `~/.codex/config.toml`:
 ```toml
 [provider]
 name = "openai"
-base_url = "http://127.0.0.1:7860/v1"
+base_url = "http://127.0.0.1:9876/proxy/v1"
 api_key = "any-value"
 
 [model]
@@ -47,7 +47,7 @@ In AiDog's **"Settings" → "Claude Code"** tab, click "Export Config". AiDog au
 You can also set environment variables:
 
 ```bash
-export ANTHROPIC_BASE_URL="http://127.0.0.1:7860"
+export ANTHROPIC_BASE_URL="http://127.0.0.1:9876"
 export ANTHROPIC_API_KEY="any-value"
 ```
 
@@ -70,6 +70,6 @@ AiDog provides a dedicated settings editor in **"Settings" → "Claude Code"**:
 
 Any tool that supports custom API addresses can use AiDog as a proxy:
 
-1. Set the API base URL to `http://127.0.0.1:7860`
+1. Set the API base URL to `http://127.0.0.1:9876`
 2. Set the API key to any value
 3. Ensure AiDog has a matching platform and protocol configured

@@ -4,42 +4,67 @@ title: Tray Configuration
 
 # Tray Configuration
 
-AiDog supports system tray persistence, running in the background and displaying key status information.
+AiDog runs in the system tray, displaying key status information in the menu bar/taskbar. Configure display items and styles in **"Settings" → "System Tray"**.
 
-## System Tray
+## Tray Behavior
 
-Closing the main window keeps AiDog running in the system tray, maintaining proxy availability.
+After closing the main window, AiDog continues running in the system tray to keep the proxy service available. Right-click the tray icon to show/hide the main window, start/stop the proxy, or quit the app.
 
-### Tray Information
+## Live Preview
 
-The tray icon can display:
-- Proxy service status (running/stopped)
-- Account balance
-- Today's usage overview
+The top of the configuration page shows a simulated menu bar preview. All changes are reflected instantly. The preview also shows current line usage (max 2 lines) and warns if exceeded.
 
-### Tray Menu
+## Display Item Types
 
-Right-click the tray icon to:
-- Show/hide main window
-- Start/stop proxy
-- Quit the application
+Click "Add Display Item" to add any of these content types:
 
-## Tray Customization
+### Platform Balance / Quota
 
-Configure tray settings in **"Settings"** → "Tray":
+Select an enabled platform to show its balance or Coding Plan quota:
 
-### Display Content
+| Display Mode | Description |
+|--------------|-------------|
+| Balance | Account balance (e.g. `$12.50`) |
+| Quota | Coding Plan remaining percentage (e.g. `85%`) |
 
-Choose which information to show in the tray:
-- Balance information
-- Today's request count
-- Today's token count
-- Today's estimated cost
+### Today's Statistics
 
-### Status Line Format
+Show today's aggregated data, with 4 available metrics:
 
-Configure status line display format with custom separators and display order.
+| Metric | Description |
+|--------|-------------|
+| Tokens | Today's total token usage |
+| Cache% | Today's cache hit rate |
+| Cost$ | Today's estimated cost |
+| Requests | Today's total request count |
 
-## Auto-Start
+### Separators
 
-Configure AiDog to automatically start with the system (minimized to tray).
+Insert separators between display items. Six preset styles (`|`, `·`, `—`, `/`, `»`, space) plus custom characters.
+
+## Item Customization
+
+Expand any display item to adjust these properties:
+
+| Property | Description |
+|----------|-------------|
+| Display | Balance / Quota (platform items only) |
+| Metric | Tokens / Cache% / Cost$ / Requests (today stats items only) |
+| Label | Custom display name (leave empty for default) |
+| Decimals | Number of decimal places for values |
+| Line Mode | Single (label + value on same line) / Two-line (label top, value bottom) |
+| Alignment | Left / Center / Right |
+| Value Row Alignment | Independent alignment for the second line in two-line mode |
+| Color | Follow system / Preset (red/green/orange) / Custom |
+
+### Color Warning
+
+When choosing a custom color, AiDog warns if the color may not be clearly visible under certain menu bar themes.
+
+## Drag to Reorder
+
+Display items support drag-and-drop reordering. Disabled items do not appear in the preview.
+
+## Auto-start on Boot
+
+Configure AiDog to auto-start with the system in **"Settings" → "Proxy Configuration"**.

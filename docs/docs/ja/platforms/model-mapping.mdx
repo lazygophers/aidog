@@ -10,7 +10,7 @@ Model mapping allows you to translate model names from client requests to the ac
 
 - Client requests `gpt-4o`, but you want to route to DeepSeek's `deepseek-chat`
 - Standardize model naming across platforms
-- Simplify model selection with aliases (e.g. `fast` → `gpt-4o-mini`)
+- Simplify model selection with aliases
 
 ## Configuration
 
@@ -21,11 +21,11 @@ Add mapping rules in the platform or group's "Model Mapping" section:
 | `gpt-4o` | `deepseek-chat` |
 | `claude-3-opus` | `claude-3-opus-20240229` |
 
-### Mapping Rules
+### Rules
 
-1. **Exact match** — Only maps when the model name matches exactly
-2. **Preserve original** — Unmatched model names pass through unchanged
-3. **Priority** — Group-level mappings take precedence over platform-level mappings
+- **Exact match** — Only maps when the model name matches exactly
+- **Preserve original** — Unmatched model names pass through unchanged
+- **Group priority** — Group-level mappings take precedence over platform-level mappings
 
 ## Two-Level Mapping
 
@@ -34,25 +34,14 @@ Model mapping can be configured at two levels:
 - **Platform level** — Applies to all requests on that platform
 - **Group level** — Only applies within that group's routing rules
 
-Group-level mappings take precedence over platform-level mappings. See [Routing Rules](/groups/routing-rules).
+See [Routing Rules](/groups/routing-rules).
 
-## Model Alias Example
+## Alias Example
 
-Use model mapping to create an alias system. Clients only need short aliases:
+Use model mapping to create short aliases. Clients only need to use the alias:
 
 | Alias | Target | Purpose |
 |-------|--------|---------|
 | `fast` | `gpt-4o-mini` | Fast responses |
 | `smart` | `claude-3-opus` | High quality |
 | `code` | `deepseek-coder` | Code generation |
-
-## Chain Mapping
-
-Model mappings can cascade across groups and platforms:
-
-1. Client requests model `smart`
-2. Group mapping: `smart` → `claude-3-opus`
-3. Platform mapping: `claude-3-opus` → `claude-3-opus-20240229`
-4. Sent to Anthropic
-
-See [Advanced Routing](/proxy/advanced-routing).

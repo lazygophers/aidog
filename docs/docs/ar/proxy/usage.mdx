@@ -11,7 +11,7 @@ AiDog runs a local HTTP proxy server that receives and forwards AI API requests.
 Default proxy address:
 
 ```
-http://127.0.0.1:7860
+http://127.0.0.1:9876
 ```
 
 The port can be changed in **"Settings" → "Proxy"**.
@@ -37,7 +37,7 @@ Point any AI client that supports custom API addresses to AiDog:
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://127.0.0.1:7860/v1",
+    base_url="http://127.0.0.1:9876/proxy/v1",
     api_key="any-value"  # AiDog uses your configured real key
 )
 
@@ -53,7 +53,7 @@ response = client.chat.completions.create(
 import OpenAI from 'openai';
 
 const client = new OpenAI({
-  baseURL: 'http://127.0.0.1:7860/v1',
+  baseURL: 'http://127.0.0.1:9876/proxy/v1',
   apiKey: 'any-value',
 });
 
@@ -66,7 +66,7 @@ const response = await client.chat.completions.create({
 ### curl
 
 ```bash
-curl http://127.0.0.1:7860/v1/chat/completions \
+curl http://127.0.0.1:9876/proxy/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer any-value" \
   -d '{

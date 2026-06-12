@@ -11,7 +11,7 @@ AiDog 启动后会在本地运行一个 HTTP 代理服务器，接收并转发 A
 默认代理地址：
 
 ```
-http://127.0.0.1:7860
+http://127.0.0.1:9876
 ```
 
 可在 **「设置」→「代理配置」** 中修改端口号。
@@ -37,7 +37,7 @@ http://127.0.0.1:7860
 from openai import OpenAI
 
 client = OpenAI(
-    base_url="http://127.0.0.1:7860/v1",
+    base_url="http://127.0.0.1:9876/proxy/v1",
     api_key="any-value"  # AiDog 会使用配置的真实 Key
 )
 
@@ -53,7 +53,7 @@ response = client.chat.completions.create(
 import OpenAI from 'openai';
 
 const client = new OpenAI({
-  baseURL: 'http://127.0.0.1:7860/v1',
+  baseURL: 'http://127.0.0.1:9876/proxy/v1',
   apiKey: 'any-value',
 });
 
@@ -66,7 +66,7 @@ const response = await client.chat.completions.create({
 ### curl
 
 ```bash
-curl http://127.0.0.1:7860/v1/chat/completions \
+curl http://127.0.0.1:9876/proxy/v1/chat/completions \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer any-value" \
   -d '{

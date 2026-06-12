@@ -1,12 +1,14 @@
 ---
-title: Guthabenabfrage
+title: Guthaben und Kontingente
 ---
 
-# Balance Query
+# Balance & Quotas
 
-AiDog can query account balances and Coding Plan quotas for supported platforms.
+AiDog helps you track account balances and coding plan quotas across platforms, giving you full visibility into your spending.
 
-## Auto-Query Platforms
+## Automatic Balance Query
+
+AiDog automatically queries account balances for these platforms:
 
 | Platform | Query Content |
 |----------|---------------|
@@ -16,39 +18,47 @@ AiDog can query account balances and Coding Plan quotas for supported platforms.
 | SiliconFlow | Account balance |
 | OpenRouter | Account balance / usage |
 | Novita | Account balance |
-| Kimi | Account balance |
+| Kimi (Moonshot) | Account balance |
 | GLM (Zhipu) | Account balance |
 | MiniMax | Account balance |
 
-## Viewing Balances
-
-Balance information is displayed in:
-
-1. **Platform cards** — Real-time balance per platform
-2. **Group cards** — Aggregated balance across group platforms
-3. **System tray** — Balance status display
-
-## Refreshing
-
 Balance data refreshes automatically on a schedule. You can also manually click the refresh button.
 
-## Coding Plan
+## Coding Plan Quotas
 
-Some platforms provide Coding Plan quota information (e.g. OpenAI Plus/Team/Enterprise plans), which AiDog queries and displays alongside balance data.
+Some platforms offer coding plans, such as OpenAI Plus/Team/Enterprise, Zhipu Coding Plan, Kimi Code Plan, etc.
+
+AiDog queries and displays coding plan quota information:
+
+- Tier names
+- Current utilization rate
+- Remaining percentage
+
+Platform presets marked with "Coding Plan" automatically configure quota queries.
+
+## NewAPI Balance Query
+
+For platforms using the NewAPI system (e.g. self-hosted API aggregators), AiDog supports separate balance query configuration:
+
+- **Query URL** — Separate from the API URL
+- **Query Token** — Obtained from the dashboard (different from the API Key)
+- **User ID** — Optional
+
+Fill in these details in the platform's "Balance Query Configuration" section.
 
 ## Manual Budget
 
-For platforms that don't support automatic balance queries, AiDog provides a manual budget feature:
+For platforms that don't support automatic balance queries, AiDog provides manual budget limits.
 
-### Configuration
+### Setup
 
-Set up a manual budget in the platform configuration. Supported types:
+In the platform's "Manual Budget" section, click "Add Limit":
 
 | Type | Description |
 |------|-------------|
-| Total | Set an overall spending limit |
+| Total | Overall spending limit |
 | Rolling Window | Spending limit within a rolling time window |
-| Fixed Period | Spending limit that resets on a fixed schedule |
+| Fixed Window | Spending limit that resets on a fixed schedule |
 | Daily | Daily spending limit |
 
 ### Budget Units
@@ -58,6 +68,25 @@ Set up a manual budget in the platform configuration. Supported types:
 
 ### Window Duration
 
-Rolling window and fixed period support multiple time units: minute, hour, day, week, month.
+Rolling window and fixed window support multiple time granularities: minute, hour, day, week, month.
 
-Budget consumption is automatically tracked by AiDog based on proxied requests. When the limit is reached, the platform is marked as out of balance.
+### When Budget is Depleted
+
+When any budget limit is depleted, AiDog stops forwarding requests to that platform (returns 402 error) and automatically triggers failover to other platforms in the group. Forwarding resumes when the window resets.
+
+## Where to See Balances
+
+Balance information is displayed in multiple locations:
+
+- **Platform cards** — Real-time balance and quota utilization per platform
+- **Group cards** — Aggregated balance across group platforms
+- **System tray** — Configurable balance status display
+
+## Statistics Page
+
+On the **"Statistics"** page, view data by platform, group, or model:
+
+- Today's request count and success rate
+- Token usage (input / output / cache)
+- Estimated cost
+- Usage trend charts (daily / weekly / monthly)

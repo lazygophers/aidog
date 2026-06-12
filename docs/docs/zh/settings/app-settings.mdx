@@ -8,16 +8,15 @@ title: 应用设置
 
 ![AiDog — Settings](/screenshots/settings.png)
 
-
 ## 代理配置
 
 ### 代理设置
 
 | 设置项 | 默认值 | 说明 |
 |--------|--------|------|
-| 代理端口 | `7860` | HTTP 代理监听端口 |
+| 代理端口 | `9876` | HTTP 代理监听端口 |
 | 请求超时 | `300s` | 上游请求超时时间 |
-| 自动启动 | 关闭 | AiDog 启动时自动运行代理服务 |
+| 自动启动 | 开启 | AiDog 启动时自动运行代理服务 |
 
 ### 日志设置
 
@@ -25,25 +24,25 @@ title: 应用设置
 
 ### 数据管理
 
-- 导出平台配置（JSON）
-- 导出分组配置（JSON）
-- 导出统计数据（CSV）
+- 导出平台配置
+- 导出分组配置
+- 导出统计数据
 - 清理过期日志
 - 重置统计数据
 
 ## Claude Code
 
-编辑 Claude Code 的各项配置，包括模型、权限、沙箱、插件、Hooks 和 StatusLine 等。
+编辑 Claude Code 的各项配置，包括模型、权限、沙箱、插件等。
 
-- **从 Claude Code 导入** — 读取现有 Claude Code 配置到 AiDog
+- **从 Claude Code 导入** — 读取现有配置到 AiDog
 - **导出到 Claude Code** — 将代理地址写入 Claude Code 配置文件
-- **同步分组设置** — 为每个分组生成独立的 Claude Code 配置文件
+- **同步分组设置** — 为每个分组生成独立的配置文件
 
 详见 [Codex 集成](/proxy/codex-integration)。
 
 ## Codex
 
-直接编辑 `~/.codex/config.toml` 中的 Codex 设置，无需手动查找配置文件。
+直接在 AiDog 中编辑 Codex 设置，无需手动查找配置文件。
 
 详见 [Codex 集成](/proxy/codex-integration)。
 
@@ -59,25 +58,12 @@ title: 应用设置
 
 ### 语言
 
-支持 7 种界面语言：
-- 简体中文 (zh-CN)
-- English (en-US)
-- العربية (ar-SA)
-- Français (fr-FR)
-- Deutsch (de-DE)
-- Русский (ru-RU)
-- 日本語 (ja-JP)
+支持 7 种界面语言：简体中文、English、العربية、Français、Deutsch、Русский、日本語
 
 ### 主题
 
 详见 [主题定制](/settings/themes)。
 
-## 数据存储
+## 数据安全
 
-所有数据存储在本地：
-
-| 数据 | 路径 |
-|------|------|
-| 数据库 | `~/.aidog/aidog.db` |
-
-数据不离开本机，不上传任何服务器。
+所有数据存储在本地，不离开本机，不上传任何服务器。

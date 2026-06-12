@@ -45,13 +45,13 @@
     "es": "Agregar plataforma"
   },
   "protocols": {
-    "zh": "协议类型",
-    "en": "Protocols",
-    "ja": "プロトコル",
-    "fr": "Protocoles",
-    "de": "Protokolle",
-    "ar": "البروتوكولات",
-    "es": "Protocolos"
+    "zh": "支持的平台与接口",
+    "en": "Platforms & Interfaces",
+    "ja": "プラットフォームとインターフェース",
+    "fr": "Plateformes et interfaces",
+    "de": "Plattformen und Schnittstellen",
+    "ar": "المنصات والواجهات",
+    "es": "Plataformas e interfaces"
   },
   "modelMapping": {
     "zh": "模型映射",
@@ -70,6 +70,15 @@
     "de": "Modelltest",
     "ar": "اختبار النموذج",
     "es": "Prueba de modelo"
+  },
+  "mockPlatform": {
+    "zh": "模拟平台",
+    "en": "Mock Platform",
+    "ja": "モックプラットフォーム",
+    "fr": "Plateforme fictive",
+    "de": "Mock-Plattform",
+    "ar": "منصة محاكاة",
+    "es": "Plataforma de simulación"
   },
   "groups": {
     "zh": "分组管理",
@@ -180,13 +189,13 @@
     "es": "Precios y facturación"
   },
   "balance": {
-    "zh": "余额查询",
-    "en": "Balance Query",
-    "ja": "残高照会",
-    "fr": "Consultation du solde",
-    "de": "Guthabenabfrage",
-    "ar": "استعلام الرصيد",
-    "es": "Consulta de saldo"
+    "zh": "余额与配额",
+    "en": "Balance & Quotas",
+    "ja": "残高とクォータ",
+    "fr": "Solde et quotas",
+    "de": "Guthaben und Kontingente",
+    "ar": "الرصيد والحصص",
+    "es": "Saldo y cuotas"
   },
   "settings": {
     "zh": "设置",

@@ -3,65 +3,65 @@ pageType: home
 
 hero:
   name: AiDog
-  text: Gestiona de forma unificada tu pasarela de API de IA
-  tagline: Agregación multiplataforma · Enrutamiento inteligente · Estadísticas de uso —— una aplicación de escritorio multiplataforma para gestionar las claves, solicitudes y gastos de todas tus plataformas de IA
+  text: Manage all your AI API gateways in one place
+  tagline: Multi-platform aggregation · Smart routing · Usage stats —— a cross-platform desktop app that manages the keys, requests, and spending of all your AI platforms
   actions:
     - theme: brand
-      text: Inicio rápido
-      link: /es/getting-started/quick-start
+      text: Quick Start
+      link: /en/getting-started/quick-start
     - theme: alt
       text: GitHub
       link: https://github.com/lazygophers/aidog
 
 features:
-  - title: Agregación multiplataforma
-    details: Gestiona de forma unificada las claves de API y los puntos de conexión de más de 50 plataformas como OpenAI, Anthropic, Gemini, DeepSeek, Tongyi Qianwen, entre otras.
+  - title: Multi-platform aggregation
+    details: Manage API keys and endpoints for 50+ platforms such as OpenAI, Anthropic, Gemini, DeepSeek, and Qwen in one place.
     icon: 🧩
-    link: /es/platforms/add-platform
-  - title: Enrutamiento inteligente
-    details: Según las reglas de grupos y de mapeo de modelos, reenvía automáticamente cada solicitud a la plataforma óptima.
+    link: /en/platforms/add-platform
+  - title: Smart routing
+    details: Automatically forward each request to the best platform based on group and model mapping rules.
     icon: 🧭
-    link: /es/groups/routing-rules
-  - title: Estadísticas de uso
-    details: Rastrea en tiempo real el uso de tokens, estima el costo de las llamadas y consulta el saldo de cada plataforma.
+    link: /en/groups/routing-rules
+  - title: Usage stats
+    details: Track token usage in real time, estimate call costs, and query the balance of each platform.
     icon: 📊
-    link: /es/stats/usage-stats
-  - title: Conversión multiprotocolo
-    details: Conversión nativa entre los protocolos OpenAI Chat / Completions / Responses, Anthropic y Gemini.
+    link: /en/stats/usage-stats
+  - title: Multi-protocol conversion
+    details: Convert between OpenAI Chat / Completions / Responses, Anthropic, and Gemini native protocols.
     icon: 🔌
-    link: /es/platforms/protocols
-  - title: Integración con Codex
-    details: Compatibilidad nativa con asistentes de programación como OpenAI Codex y Claude Code, con integración en un clic.
+    link: /en/platforms/protocols
+  - title: Codex integration
+    details: Native support for coding assistants like OpenAI Codex and Claude Code, with one-click setup.
     icon: ⚡
-    link: /es/proxy/codex-integration
-  - title: Sistema de registros
-    details: Tres niveles de granularidad de registro y políticas de retención configurables; la cadena de solicitudes es clara de un vistazo.
+    link: /en/proxy/codex-integration
+  - title: Logging system
+    details: Three levels of logging granularity and configurable retention policies make the request chain crystal clear.
     icon: 📑
-    link: /es/logs/viewing
-  - title: Personalización de temas
-    details: Múltiples temas como Liquid Glass, Nord y Dracula, con modos claro y oscuro.
+    link: /en/logs/viewing
+  - title: Theme customization
+    details: Multiple themes such as Liquid Glass, Nord, and Dracula, with both light and dark modes.
     icon: 🎨
-    link: /es/settings/themes
-  - title: Bandeja del sistema
-    details: Permanece en la bandeja del sistema y muestra en tiempo real el saldo y el estado del proxy.
+    link: /en/settings/themes
+  - title: System tray
+    details: Lives in the system tray, showing balance and proxy status in real time.
     icon: 🖥️
-    link: /es/settings/tray
+    link: /en/settings/tray
 ---
 
-## Primeros pasos en tres pasos
+## Three steps to get started
 
-1. **Agregar una plataforma** —— introduce la clave de API y el punto de conexión de una plataforma de IA
-2. **Configurar la dirección del proxy** —— apunta tu cliente al proxy local de AiDog
-3. **Comenzar a usar** —— las solicitudes se enrutan, miden y registran automáticamente
+1. **Add a platform** —— enter the API key and endpoint of an AI platform
+2. **Set the proxy address** —— point your client to the AiDog local proxy
+3. **Start using it** —— requests are automatically routed, metered, and logged
 
-→ [Guía de instalación](/es/getting-started/installation) · [Inicio rápido](/es/getting-started/quick-start)
+→ [Installation Guide](/en/getting-started/installation) · [Quick Start](/en/getting-started/quick-start)
 
-## Pila tecnológica
+## Tech stack
 
-| Capa | Tecnología |
+| Layer | Technology |
 |---|---|
-| Framework de escritorio | Tauri 2.0 |
+| Desktop framework | Tauri 2.0 |
 | Frontend | React 19 + TypeScript |
 | Backend | Rust + Axum |
-| Base de datos | SQLite |
-| Construcción | Vite + Yarn |
+| Database | SQLite |
+| Build | Vite + Yarn |

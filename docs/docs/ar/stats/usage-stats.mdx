@@ -4,44 +4,82 @@ title: إحصائيات الاستخدام
 
 # Usage Statistics
 
-AiDog automatically tracks usage data for all proxied requests.
+The **"Statistics"** page provides a usage overview, trend analysis, and dimension rankings for all proxied requests.
 
-## Statistics Page
+## Time Range
 
-Go to the **"Statistics"** page for a usage overview.
+Three time presets are available at the top:
 
-### Today's Stats
+| Preset | Range |
+|--------|-------|
+| Today | From midnight today |
+| Last 7 days | Past 7 days |
+| Last 30 days | Past 30 days |
 
-- Total requests
-- Success/failure rate
-- Total token usage (Prompt + Completion)
-- Estimated cost
+All metrics and charts refresh automatically when a preset is selected.
 
-### Trends
+## Overview Cards
 
-View by day/week/month:
-- Request count trends
-- Token usage trends
-- Cost trends
+Eight core metrics are displayed at the top, each showing a period-over-period comparison:
 
-### Group Statistics
+| Metric | Description |
+|--------|-------------|
+| Total Requests | Total request count in the period |
+| Success Rate | Percentage of successful requests (color-coded) |
+| Input Tokens | Total input tokens |
+| Output Tokens | Total output tokens |
+| Cache Tokens | Total cache hit tokens |
+| Cache Rate | Cache tokens as a percentage of input tokens |
+| Avg Latency | Average response time in milliseconds |
+| Estimated Cost | Estimated cost based on pricing table |
 
-Group card statistics are aggregated from their associated platforms.
+Comparison arrows: green up = positive change (e.g. higher success rate), red up = negative change (e.g. higher cost).
 
-## Dimensions
+## Filters
 
-View statistics by:
-- **By platform** — Per-platform usage
-- **By group** — Per-group usage
-- **By model** — Per-model usage
-- **By time** — Daily/weekly/monthly aggregation
+Next to the time presets, refine data with these filters:
 
-## Data Source
+- **Granularity**: Daily / Hourly
+- **Group by**: Platform / Model / Group
+- **Group**: Filter by group name (searchable)
+- **Model**: Filter by model name (searchable)
+- **Platform type**: Filter by platform type (searchable)
 
-- Token usage: Extracted directly from upstream API responses
-- Estimated cost: Calculated automatically based on model pricing tables
-- Request count: Aggregated from proxy log records
+Data reloads automatically when filters change.
+
+## Trend Chart
+
+A bar chart below the overview cards shows request volume trends:
+
+- X-axis buckets by selected granularity (daily/hourly)
+- Bar height represents request count
+- Color gradient reflects error ratio (more red = more failures)
+- Hover to see tooltip: requests, successes, errors, avg latency, estimated cost
+
+## Dimension Ranking Table
+
+Below the chart, a table shows rankings by the current dimension (platform/model/group):
+
+| Column | Description |
+|--------|-------------|
+| Name | Platform / model / group name |
+| Requests | Total requests for this dimension |
+| Success | Successful request count (color-coded for health) |
+| Input | Input token count |
+| Output | Output token count |
+| Cache | Cache token count |
+| Avg Latency | Average response time |
+| Estimated Cost | Estimated cost (color-coded for spending level) |
+
+### Sorting & Pagination
+
+- Click any column header to sort (click again to toggle ascending/descending)
+- 50 rows per page with pagination controls at the bottom
+
+## Real-time Refresh
+
+Statistics auto-refresh as new requests arrive — no manual action needed.
 
 :::tip{title="Note"}
-Estimated costs are based on built-in pricing tables and are for reference only. Actual costs are based on platform billing.
+Estimated costs are calculated from the pricing table and are for reference only. Actual charges are based on platform billing.
 :::
