@@ -37,10 +37,10 @@ pub async fn sync_litellm_prices(db: &Db) -> Result<PriceSyncResult, String> {
         };
 
         // Check if data changed
-        let existing = super::db::get_model_price(db, model_name).ok().flatten();
+        let existing = super::db::get_model_price(db, model_name).await.ok().flatten();
         let is_new = existing.is_none() || existing.as_ref().map(|e| e.source.as_str()) != Some("litellm");
 
-        match super::db::upsert_model_price(db, model_name, "litellm", &price_json) {
+        match super::db::upsert_model_price(db, model_name, "litellm", &price_json).await {
             Ok(()) => {
                 if is_new { added += 1; } else { updated += 1; }
             }
@@ -49,19 +49,19 @@ pub async fn sync_litellm_prices(db: &Db) -> Result<PriceSyncResult, String> {
     }
 
     // Update last_sync_at in settings
-    let sync_settings = get_sync_settings(db);
+    let sync_settings = get_sync_settings(db).await;
     let updated_settings = super::models::PriceSyncSettings {
         last_sync_at: super::db::now(),
         ..sync_settings
     };
-    save_sync_settings(db, &updated_settings);
+    save_sync_settings(db, &updated_settings).await;
 
     Ok(PriceSyncResult { added, updated, unchanged, failed, total })
 }
 
 async fn fetch_price_table(db: Option<&Arc<Db>>) -> Result<String, String> {
     let client = match db {
-        Some(db) => super::http_client::build_http_client_system(db, 30, 10),
+        Some(db) => super::http_client::build_http_client_system(db, 30, 10).await,
         None => reqwest::Client::builder()
             .timeout(std::time::Duration::from_secs(30))
             .build()
@@ -81,8 +81,9 @@ async fn fetch_price_table(db: Option<&Arc<Db>>) -> Result<String, String> {
 }
 
 /// Read sync settings from DB
-pub fn get_sync_settings(db: &Db) -> super::models::PriceSyncSettings {
+pub async fn get_sync_settings(db: &Db) -> super::models::PriceSyncSettings {
     super::db::get_setting(db, "pricing", "sync")
+        .await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
@@ -90,7 +91,7 @@ pub fn get_sync_settings(db: &Db) -> super::models::PriceSyncSettings {
 }
 
 /// Save sync settings to DB
-pub fn save_sync_settings(db: &Db, settings: &super::models::PriceSyncSettings) {
+pub async fn save_sync_settings(db: &Db, settings: &super::models::PriceSyncSettings) {
     let value = match serde_json::to_value(settings) {
         Ok(v) => v,
         Err(_) => return,
@@ -99,14 +100,15 @@ pub fn save_sync_settings(db: &Db, settings: &super::models::PriceSyncSettings) 
         scope: "pricing".into(),
         key: "sync".into(),
         value,
-    });
+    })
+    .await;
 }
 
 /// Check if auto sync is due and run it if needed.
 /// Called periodically from the proxy loop or on startup.
 #[allow(dead_code)]
 pub async fn maybe_auto_sync(db: &Db) -> Result<Option<PriceSyncResult>, String> {
-    let settings = get_sync_settings(db);
+    let settings = get_sync_settings(db).await;
     if !settings.auto_sync_enabled {
         return Ok(None);
     }

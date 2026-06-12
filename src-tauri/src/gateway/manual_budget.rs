@@ -166,34 +166,35 @@ pub fn apply_one(budget: &mut ManualBudget, est_cost: f64, total_tokens: f64, no
 
 /// DB 集成：同一持锁临界区 SELECT manual_budgets → 各 enabled 限额扣减 → UPDATE 回写。
 /// 禁持锁跨 .await（本函数全同步）。无限额 → 跳过不写。
-pub fn apply_manual_budgets(
+pub async fn apply_manual_budgets(
     db: &Db,
     platform_id: u64,
     est_cost: f64,
     total_tokens: f64,
     now_ms: i64,
 ) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let json: String = conn
-        .query_row(
-            "SELECT manual_budgets FROM platform WHERE id = ?1",
-            params![platform_id as i64],
-            |r| r.get(0),
-        )
-        .map_err(|e| e.to_string())?;
-    let mut budgets = parse_manual_budgets(&json);
-    if budgets.is_empty() {
-        return Ok(());
-    }
-    for b in budgets.iter_mut() {
-        apply_one(b, est_cost, total_tokens, now_ms);
-    }
-    conn.execute(
-        "UPDATE platform SET manual_budgets = ?1 WHERE id = ?2",
-        params![serialize_manual_budgets(&budgets), platform_id as i64],
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(())
+    db.0
+        .call(move |conn| {
+            let json: String = conn.query_row(
+                "SELECT manual_budgets FROM platform WHERE id = ?1",
+                params![platform_id as i64],
+                |r| r.get(0),
+            )?;
+            let mut budgets = parse_manual_budgets(&json);
+            if budgets.is_empty() {
+                return Ok(());
+            }
+            for b in budgets.iter_mut() {
+                apply_one(b, est_cost, total_tokens, now_ms);
+            }
+            conn.execute(
+                "UPDATE platform SET manual_budgets = ?1 WHERE id = ?2",
+                params![serialize_manual_budgets(&budgets), platform_id as i64],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
 #[cfg(test)]

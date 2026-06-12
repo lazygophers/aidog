@@ -206,66 +206,77 @@ pub fn calibrate_tier(
 // ── DB 集成 ─────────────────────────────────────────────────
 
 /// 读取平台校准状态（短持锁）
-pub fn read_estimate_state(db: &Db, platform_id: u64) -> Result<(i64, i64), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.query_row(
-        "SELECT last_real_query_at, estimate_count FROM platform WHERE id = ?1",
-        params![platform_id as i64],
-        |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
-    )
-    .map_err(|e| e.to_string())
+pub async fn read_estimate_state(db: &Db, platform_id: u64) -> Result<(i64, i64), String> {
+    db.0
+        .call(move |conn| {
+            Ok(conn.query_row(
+                "SELECT last_real_query_at, estimate_count FROM platform WHERE id = ?1",
+                params![platform_id as i64],
+                |r| Ok((r.get::<_, i64>(0)?, r.get::<_, i64>(1)?)),
+            )?)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
-/// 余额原子自减 + estimate_count+1（单条 SQL，持锁原子，无 read-modify-write 间隙）
-pub fn apply_balance_delta(db: &Db, platform_id: u64, cost: f64) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE platform SET est_balance_remaining = est_balance_remaining - ?1, estimate_count = estimate_count + 1 WHERE id = ?2",
-        params![cost, platform_id as i64],
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(())
+/// 余额原子自减 + estimate_count+1（单条 SQL，闭包原子，无 read-modify-write 间隙）
+pub async fn apply_balance_delta(db: &Db, platform_id: u64, cost: f64) -> Result<(), String> {
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                "UPDATE platform SET est_balance_remaining = est_balance_remaining - ?1, estimate_count = estimate_count + 1 WHERE id = ?2",
+                params![cost, platform_id as i64],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
-/// coding plan 预估：一次持锁内 SELECT→修改→UPDATE（read-modify-write 串行，避免并发覆盖）。
+/// coding plan 预估：一次闭包内 SELECT→修改→UPDATE（read-modify-write 串行，避免并发覆盖）。
 /// 同时 estimate_count+1。
-pub fn apply_coding_plan_delta(db: &Db, platform_id: u64, tokens: f64) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    let json: String = conn
-        .query_row(
-            "SELECT est_coding_plan FROM platform WHERE id = ?1",
-            params![platform_id as i64],
-            |r| r.get(0),
-        )
-        .map_err(|e| e.to_string())?;
-    let mut plan = EstCodingPlan::from_json(&json);
-    for tier in plan.tiers.iter_mut() {
-        apply_tier_delta(tier, tokens);
-    }
-    conn.execute(
-        "UPDATE platform SET est_coding_plan = ?1, estimate_count = estimate_count + 1 WHERE id = ?2",
-        params![plan.to_json(), platform_id as i64],
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(())
+pub async fn apply_coding_plan_delta(db: &Db, platform_id: u64, tokens: f64) -> Result<(), String> {
+    db.0
+        .call(move |conn| {
+            let json: String = conn.query_row(
+                "SELECT est_coding_plan FROM platform WHERE id = ?1",
+                params![platform_id as i64],
+                |r| r.get(0),
+            )?;
+            let mut plan = EstCodingPlan::from_json(&json);
+            for tier in plan.tiers.iter_mut() {
+                apply_tier_delta(tier, tokens);
+            }
+            conn.execute(
+                "UPDATE platform SET est_coding_plan = ?1, estimate_count = estimate_count + 1 WHERE id = ?2",
+                params![plan.to_json(), platform_id as i64],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
-/// 校准覆盖（短持锁写）：用真值覆盖 est_balance_remaining + est_coding_plan，
-/// 重置 last_real_query_at + estimate_count。coding plan 在锁外已拟合好。
-pub fn write_real_quota(
+/// 校准覆盖（短写）：用真值覆盖 est_balance_remaining + est_coding_plan，
+/// 重置 last_real_query_at + estimate_count。coding plan 在闭包外已拟合好。
+pub async fn write_real_quota(
     db: &Db,
     platform_id: u64,
     est_balance: f64,
     est_coding_plan_json: &str,
     now_ms: i64,
 ) -> Result<(), String> {
-    let conn = db.0.lock().map_err(|e| e.to_string())?;
-    conn.execute(
-        "UPDATE platform SET est_balance_remaining = ?1, est_coding_plan = ?2, last_real_query_at = ?3, estimate_count = 0 WHERE id = ?4",
-        params![est_balance, est_coding_plan_json, now_ms, platform_id as i64],
-    )
-    .map_err(|e| e.to_string())?;
-    Ok(())
+    let est_coding_plan_json = est_coding_plan_json.to_string();
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                "UPDATE platform SET est_balance_remaining = ?1, est_coding_plan = ?2, last_real_query_at = ?3, estimate_count = 0 WHERE id = ?4",
+                params![est_balance, est_coding_plan_json, now_ms, platform_id as i64],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
 /// 根据真查结果 + 上一窗口预估状态，构造校准后的 est_coding_plan JSON（纯计算 + 一次短读拿 prev）。
@@ -296,20 +307,23 @@ pub fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota)
 /// 供 GUI 手动真查 + 冷启动初始化复用——确保真查发生时 est 立即严格对齐真实，
 /// 避免 raw CodingPlanInfo JSON 直写 est_coding_plan（字段 utilization≠est_utilization）导致 est 显 0/偏差。
 /// 一次短读拿 prev coding plan（用于拟合）→ 锁外纯计算 → write_real_quota 短持锁覆盖。
-pub fn calibrate_from_quota(db: &Db, platform_id: u64, quota: &PlatformQuota, is_coding_plan: bool) {
+pub async fn calibrate_from_quota(db: &Db, platform_id: u64, quota: &PlatformQuota, is_coding_plan: bool) {
     if !quota.success {
         return;
     }
-    let prev_json: String = match db.0.lock() {
-        Ok(conn) => conn
-            .query_row(
-                "SELECT est_coding_plan FROM platform WHERE id = ?1",
-                params![platform_id as i64],
-                |r| r.get(0),
-            )
-            .unwrap_or_default(),
-        Err(_) => String::new(),
-    };
+    let prev_json: String = db
+        .0
+        .call(move |conn| {
+            Ok(conn
+                .query_row(
+                    "SELECT est_coding_plan FROM platform WHERE id = ?1",
+                    params![platform_id as i64],
+                    |r| r.get(0),
+                )
+                .unwrap_or_default())
+        })
+        .await
+        .unwrap_or_default();
     let prev = EstCodingPlan::from_json(&prev_json);
     let est_balance = if is_coding_plan {
         0.0
@@ -321,7 +335,7 @@ pub fn calibrate_from_quota(db: &Db, platform_id: u64, quota: &PlatformQuota, is
     } else {
         String::new()
     };
-    let _ = write_real_quota(db, platform_id, est_balance, &coding_json, now());
+    let _ = write_real_quota(db, platform_id, est_balance, &coding_json, now()).await;
 }
 
 /// 后台校准编排：锁外 await query_quota → 锁内覆盖。失败保留预估（不重置）。
@@ -332,10 +346,11 @@ async fn run_calibration(
     api_key: &str,
     is_coding_plan: bool,
 ) {
-    // 锁外 async 真查
-    let quota = super::quota::query_quota(Some(db), base_url, api_key).await;
+    // 锁外 async 真查（构造 Arc<Db> 供 http_client 读系统代理设置）
+    let db_arc = std::sync::Arc::new(db.clone());
+    let quota = super::quota::query_quota(Some(&db_arc), base_url, api_key).await;
     // 失败时 calibrate_from_quota 自身 early-return（保留预估值，不重置计数/时间，下次请求再试）。
-    calibrate_from_quota(db, platform_id, &quota, is_coding_plan);
+    calibrate_from_quota(db, platform_id, &quota, is_coding_plan).await;
 }
 
 /// 单次请求后的预估入口（在 proxy 后台 tokio::spawn 中调用）。
@@ -358,10 +373,10 @@ pub async fn estimate_after_request(
     // 1. 增量预估
     if is_coding_plan {
         let total = (input_tokens + output_tokens + cache_tokens) as f64;
-        let _ = apply_coding_plan_delta(db, platform_id, total);
+        let _ = apply_coding_plan_delta(db, platform_id, total).await;
     } else {
         // 按量平台扣金额
-        if let Ok(price) = super::db::resolve_price(db, model, platform_type, 0.0, 0.0) {
+        if let Ok(price) = super::db::resolve_price(db, model, platform_type, 0.0, 0.0).await {
             let cost = balance_cost(
                 input_tokens,
                 output_tokens,
@@ -370,7 +385,7 @@ pub async fn estimate_after_request(
                 price.output_cost_per_token,
                 price.cache_read_input_token_cost,
             );
-            let _ = apply_balance_delta(db, platform_id, cost);
+            let _ = apply_balance_delta(db, platform_id, cost).await;
         }
     }
 
@@ -379,6 +394,7 @@ pub async fn estimate_after_request(
     {
         let total_tokens = (input_tokens + output_tokens + cache_tokens) as f64;
         let est_cost = super::db::resolve_price(db, model, platform_type, 0.0, 0.0)
+            .await
             .map(|price| {
                 balance_cost(
                     input_tokens,
@@ -396,11 +412,12 @@ pub async fn estimate_after_request(
             est_cost,
             total_tokens,
             now(),
-        );
+        )
+        .await;
     }
 
     // 2. 校准判定（短读，锁外 await）
-    if let Ok((last_real, count)) = read_estimate_state(db, platform_id) {
+    if let Ok((last_real, count)) = read_estimate_state(db, platform_id).await {
         if should_calibrate(now(), last_real, count) {
             run_calibration(db, platform_id, base_url, api_key, is_coding_plan).await;
         }
@@ -413,13 +430,13 @@ mod tests {
     use crate::gateway::models::*;
     use crate::gateway::quota::{CodingPlanInfo, QuotaTier};
 
-    fn mem_db() -> Db {
-        let db = Db::new(":memory:").unwrap();
-        db.init_tables().unwrap();
+    async fn mem_db() -> Db {
+        let db = Db::new(":memory:").await.unwrap();
+        db.init_tables().await.unwrap();
         db
     }
 
-    fn mk_platform(db: &Db, coding: bool) -> u64 {
+    async fn mk_platform(db: &Db, coding: bool) -> u64 {
         let p = super::super::db::create_platform(
             db,
             CreatePlatform {
@@ -434,29 +451,30 @@ mod tests {
                 manual_budgets: None,
             },
         )
+        .await
         .unwrap();
         p.id
     }
 
     // ── 余额原子自减 + cost 计算 ──
-    #[test]
-    fn balance_atomic_decrement() {
-        let db = mem_db();
-        let id = mk_platform(&db, false);
+    #[tokio::test]
+    async fn balance_atomic_decrement() {
+        let db = mem_db().await;
+        let id = mk_platform(&db, false).await;
         // 先设个初始余额
-        write_real_quota(&db, id, 100.0, "", now()).unwrap();
+        write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
 
         let cost = balance_cost(1000, 500, 200, 0.001, 0.002, 0.0005);
         assert!((cost - (1.0 + 1.0 + 0.1)).abs() < 1e-9, "cost = {cost}");
 
-        apply_balance_delta(&db, id, cost).unwrap();
-        let p = super::super::db::get_platform(&db, id).unwrap().unwrap();
+        apply_balance_delta(&db, id, cost).await.unwrap();
+        let p = super::super::db::get_platform(&db, id).await.unwrap().unwrap();
         assert!((p.est_balance_remaining - (100.0 - cost)).abs() < 1e-9);
         assert_eq!(p.estimate_count, 1);
 
         // 再扣一次，验证累加自减 + count
-        apply_balance_delta(&db, id, cost).unwrap();
-        let p2 = super::super::db::get_platform(&db, id).unwrap().unwrap();
+        apply_balance_delta(&db, id, cost).await.unwrap();
+        let p2 = super::super::db::get_platform(&db, id).await.unwrap().unwrap();
         assert!((p2.est_balance_remaining - (100.0 - 2.0 * cost)).abs() < 1e-9);
         assert_eq!(p2.estimate_count, 2);
     }
@@ -579,10 +597,10 @@ mod tests {
     }
 
     // ── coding plan delta read-modify-write 持久化 ──
-    #[test]
-    fn coding_plan_delta_persists() {
-        let db = mem_db();
-        let id = mk_platform(&db, true);
+    #[tokio::test]
+    async fn coding_plan_delta_persists() {
+        let db = mem_db().await;
+        let id = mk_platform(&db, true).await;
         // 初始化一个 Kimi tier（has_base）
         let plan = EstCodingPlan {
             tiers: vec![EstTier {
@@ -596,24 +614,24 @@ mod tests {
             }],
             level: None,
         };
-        write_real_quota(&db, id, 0.0, &plan.to_json(), now()).unwrap();
+        write_real_quota(&db, id, 0.0, &plan.to_json(), now()).await.unwrap();
 
-        apply_coding_plan_delta(&db, id, 1000.0).unwrap(); // +10%
-        let p = super::super::db::get_platform(&db, id).unwrap().unwrap();
+        apply_coding_plan_delta(&db, id, 1000.0).await.unwrap(); // +10%
+        let p = super::super::db::get_platform(&db, id).await.unwrap().unwrap();
         let stored = EstCodingPlan::from_json(&p.est_coding_plan);
         assert!((stored.tiers[0].est_utilization - 10.0).abs() < 1e-9, "got {}", stored.tiers[0].est_utilization);
         assert_eq!(p.estimate_count, 1);
     }
 
     // ── 校准覆盖重置 count/time + Kimi 基数写入（端到端经 build_calibrated_coding_plan）──
-    #[test]
-    fn calibration_overwrite_resets() {
-        let db = mem_db();
-        let id = mk_platform(&db, true);
+    #[tokio::test]
+    async fn calibration_overwrite_resets() {
+        let db = mem_db().await;
+        let id = mk_platform(&db, true).await;
         // 先制造预估次数
-        write_real_quota(&db, id, 0.0, "", 0).unwrap();
-        apply_balance_delta(&db, id, 1.0).unwrap();
-        let before = super::super::db::get_platform(&db, id).unwrap().unwrap();
+        write_real_quota(&db, id, 0.0, "", 0).await.unwrap();
+        apply_balance_delta(&db, id, 1.0).await.unwrap();
+        let before = super::super::db::get_platform(&db, id).await.unwrap().unwrap();
         assert_eq!(before.estimate_count, 1);
 
         // 模拟真查 coding plan（Kimi 带 limit）
@@ -636,9 +654,9 @@ mod tests {
         };
         let prev = EstCodingPlan::from_json(&before.est_coding_plan);
         let calibrated = build_calibrated_coding_plan(&prev, &quota);
-        write_real_quota(&db, id, 0.0, &calibrated.to_json(), now()).unwrap();
+        write_real_quota(&db, id, 0.0, &calibrated.to_json(), now()).await.unwrap();
 
-        let after = super::super::db::get_platform(&db, id).unwrap().unwrap();
+        let after = super::super::db::get_platform(&db, id).await.unwrap().unwrap();
         assert_eq!(after.estimate_count, 0, "校准应重置 count");
         assert!(after.last_real_query_at > 0);
         let stored = EstCodingPlan::from_json(&after.est_coding_plan);
@@ -648,10 +666,10 @@ mod tests {
     }
 
     // ── 真查校准入口 calibrate_from_quota：est 严格对齐真实 + 重置基线/计数（coding plan）──
-    #[test]
-    fn calibrate_from_quota_aligns_coding_plan() {
-        let db = mem_db();
-        let id = mk_platform(&db, true);
+    #[tokio::test]
+    async fn calibrate_from_quota_aligns_coding_plan() {
+        let db = mem_db().await;
+        let id = mk_platform(&db, true).await;
         // 制造预估漂移：先初始化方案 B tier（非 has_base），再累积 token 让 est 偏离真值。
         let drift = EstCodingPlan {
             tiers: vec![EstTier {
@@ -665,8 +683,8 @@ mod tests {
             }],
             level: None,
         };
-        write_real_quota(&db, id, 0.0, &drift.to_json(), 0).unwrap();
-        apply_balance_delta(&db, id, 1.0).unwrap(); // count=1
+        write_real_quota(&db, id, 0.0, &drift.to_json(), 0).await.unwrap();
+        apply_balance_delta(&db, id, 1.0).await.unwrap(); // count=1
 
         // 真查得 util_real=55%（GLM 方案 B，无 limit）
         let quota = PlatformQuota {
@@ -686,9 +704,9 @@ mod tests {
             }),
             newapi_user_id: None,
         };
-        calibrate_from_quota(&db, id, &quota, true);
+        calibrate_from_quota(&db, id, &quota, true).await;
 
-        let after = super::super::db::get_platform(&db, id).unwrap().unwrap();
+        let after = super::super::db::get_platform(&db, id).await.unwrap().unwrap();
         assert_eq!(after.estimate_count, 0, "校准重置 count");
         assert!(after.last_real_query_at > 0, "校准记 last_real_query_at");
         let stored = EstCodingPlan::from_json(&after.est_coding_plan);
@@ -702,13 +720,13 @@ mod tests {
     }
 
     // ── calibrate_from_quota：余额平台 est_balance 严格对齐真实 ──
-    #[test]
-    fn calibrate_from_quota_aligns_balance() {
-        let db = mem_db();
-        let id = mk_platform(&db, false);
+    #[tokio::test]
+    async fn calibrate_from_quota_aligns_balance() {
+        let db = mem_db().await;
+        let id = mk_platform(&db, false).await;
         // 制造漂移：est 余额扣到很低
-        write_real_quota(&db, id, 3.5, "", 0).unwrap();
-        apply_balance_delta(&db, id, 1.0).unwrap();
+        write_real_quota(&db, id, 3.5, "", 0).await.unwrap();
+        apply_balance_delta(&db, id, 1.0).await.unwrap();
 
         let quota = PlatformQuota {
             success: true,
@@ -724,21 +742,21 @@ mod tests {
             coding_plan: None,
             newapi_user_id: None,
         };
-        calibrate_from_quota(&db, id, &quota, false);
+        calibrate_from_quota(&db, id, &quota, false).await;
 
-        let after = super::super::db::get_platform(&db, id).unwrap().unwrap();
+        let after = super::super::db::get_platform(&db, id).await.unwrap().unwrap();
         assert!((after.est_balance_remaining - 99.9).abs() < 1e-9, "est_balance 应=真实 99.9，got {}", after.est_balance_remaining);
         assert_eq!(after.estimate_count, 0);
         assert!(after.last_real_query_at > 0);
     }
 
     // ── 真查失败不重置（保留预估）──
-    #[test]
-    fn calibrate_from_quota_failure_preserves() {
-        let db = mem_db();
-        let id = mk_platform(&db, false);
-        write_real_quota(&db, id, 50.0, "", 12345).unwrap();
-        apply_balance_delta(&db, id, 1.0).unwrap();
+    #[tokio::test]
+    async fn calibrate_from_quota_failure_preserves() {
+        let db = mem_db().await;
+        let id = mk_platform(&db, false).await;
+        write_real_quota(&db, id, 50.0, "", 12345).await.unwrap();
+        apply_balance_delta(&db, id, 1.0).await.unwrap();
 
         let quota = PlatformQuota {
             success: false,
@@ -748,9 +766,9 @@ mod tests {
             coding_plan: None,
             newapi_user_id: None,
         };
-        calibrate_from_quota(&db, id, &quota, false);
+        calibrate_from_quota(&db, id, &quota, false).await;
 
-        let after = super::super::db::get_platform(&db, id).unwrap().unwrap();
+        let after = super::super::db::get_platform(&db, id).await.unwrap().unwrap();
         // 不重置：count 保留、last_real_query_at 保留、est 不变
         assert_eq!(after.estimate_count, 1, "失败不应重置 count");
         assert_eq!(after.last_real_query_at, 12345, "失败不应改 last_real_query_at");

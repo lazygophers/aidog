@@ -10,7 +10,7 @@ pub struct RouteResult {
 }
 
 /// 根据分组路由规则选择平台
-pub fn select_platform(
+pub async fn select_platform(
     db: &db::Db,
     group: &Group,
     source_model: &str,
@@ -26,7 +26,7 @@ pub fn select_platform(
     };
 
     // 2. 获取分组中的平台列表
-    let group_platforms = db::get_group_platforms(db, group.id)?;
+    let group_platforms = db::get_group_platforms(db, group.id).await?;
     if group_platforms.is_empty() {
         return Err("group has no platforms".to_string());
     }

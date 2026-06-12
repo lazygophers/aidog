@@ -92,9 +92,9 @@ fn err_quota(msg: &str) -> PlatformQuota {
     PlatformQuota { success: false, error: Some(msg.to_string()), queried_at: now_millis(), balance: None, coding_plan: None, newapi_user_id: None }
 }
 
-fn http_client(db: Option<&Arc<Db>>) -> reqwest::Client {
+async fn http_client(db: Option<&Arc<Db>>) -> reqwest::Client {
     match db {
-        Some(db) => super::http_client::build_http_client_system(db, 10, 5),
+        Some(db) => super::http_client::build_http_client_system(db, 10, 5).await,
         None => reqwest::Client::builder()
             .timeout(Duration::from_secs(10))
             .build()
@@ -106,7 +106,7 @@ fn http_client(db: Option<&Arc<Db>>) -> reqwest::Client {
 // GET https://api.deepseek.com/user/balance
 
 async fn query_deepseek_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
-    let resp = match http_client(db)
+    let resp = match http_client(db).await
         .get("https://api.deepseek.com/user/balance")
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -140,7 +140,7 @@ async fn query_deepseek_balance(db: Option<&Arc<Db>>, api_key: &str) -> Platform
 // GET https://api.stepfun.com/v1/accounts
 
 async fn query_stepfun_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
-    let resp = match http_client(db)
+    let resp = match http_client(db).await
         .get("https://api.stepfun.com/v1/accounts")
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -168,7 +168,7 @@ async fn query_stepfun_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQ
 async fn query_siliconflow_balance(db: Option<&Arc<Db>>, api_key: &str, is_cn: bool) -> PlatformQuota {
     let domain = if is_cn { "api.siliconflow.cn" } else { "api.siliconflow.com" };
     let url = format!("https://{domain}/v1/user/info");
-    let resp = match http_client(db)
+    let resp = match http_client(db).await
         .get(&url)
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -199,7 +199,7 @@ async fn query_siliconflow_balance(db: Option<&Arc<Db>>, api_key: &str, is_cn: b
 // GET https://openrouter.ai/api/v1/credits
 
 async fn query_openrouter_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
-    let resp = match http_client(db)
+    let resp = match http_client(db).await
         .get("https://openrouter.ai/api/v1/credits")
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -231,7 +231,7 @@ async fn query_openrouter_balance(db: Option<&Arc<Db>>, api_key: &str) -> Platfo
 // GET https://api.novita.ai/v3/user/balance
 
 async fn query_novita_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
-    let resp = match http_client(db)
+    let resp = match http_client(db).await
         .get("https://api.novita.ai/v3/user/balance")
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -258,7 +258,7 @@ async fn query_novita_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQu
 // GET https://api.kimi.com/coding/v1/usages
 
 async fn query_kimi_coding_plan(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
-    let resp = match http_client(db)
+    let resp = match http_client(db).await
         .get("https://api.kimi.com/coding/v1/usages")
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -317,7 +317,7 @@ async fn query_zhipu_coding_plan(db: Option<&Arc<Db>>, base_url: &str, api_key: 
         "https://api.z.ai"
     };
     let url = format!("{base}/api/monitor/usage/quota/limit");
-    let resp = match http_client(db)
+    let resp = match http_client(db).await
         .get(&url)
         .header("Authorization", api_key) // 智谱不加 Bearer
         .header("Content-Type", "application/json")
@@ -372,7 +372,7 @@ async fn query_zhipu_coding_plan(db: Option<&Arc<Db>>, base_url: &str, api_key: 
 async fn query_minimax_coding_plan(db: Option<&Arc<Db>>, api_key: &str, is_cn: bool) -> PlatformQuota {
     let domain = if is_cn { "api.minimaxi.com" } else { "api.minimax.io" };
     let url = format!("https://{domain}/v1/api/openplatform/coding_plan/remains");
-    let resp = match http_client(db)
+    let resp = match http_client(db).await
         .get(&url)
         .header("Authorization", format!("Bearer {api_key}"))
         .header("Content-Type", "application/json")
@@ -510,7 +510,7 @@ pub fn parse_newapi_extra(extra: &str) -> Option<(String, String)> {
 async fn query_token_usage(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) -> Result<(bool, f64, f64, f64), String> {
     let root = newapi_instance_root(base_url);
     let url = format!("{}/api/usage/token/", root);
-    let resp = http_client(db)
+    let resp = http_client(db).await
         .get(&url)
         .header("Authorization", format!("Bearer {api_key}"))
         .send().await
@@ -530,7 +530,7 @@ async fn query_token_usage(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) 
 /// Step 2a: unlimited token → 查用户余额 GET /api/user/self
 async fn query_newapi_user_balance(db: Option<&Arc<Db>>, balance_base_url: &str, balance_api_key: &str) -> PlatformQuota {
     let url = format!("{}/api/user/self", balance_base_url.trim_end_matches('/'));
-    let resp = match http_client(db)
+    let resp = match http_client(db).await
         .get(&url)
         .header("Authorization", format!("Bearer {balance_api_key}"))
         .header("Content-Type", "application/json")

@@ -57,13 +57,13 @@ fn validate_group_name(name: &str) -> Result<(), String> {
 }
 
 /// 为所有平台确保存在关联的自动分组（一个平台一个，相互独立）
-fn ensure_platform_groups(db: &Db) {
-    let platforms = match db::list_platforms(db) {
+async fn ensure_platform_groups(db: &Db) {
+    let platforms = match db::list_platforms(db).await {
         Ok(p) => p,
         Err(e) => { tracing::error!("ensure_platform_groups: list_platforms failed: {e}"); return; }
     };
     // 一次性取出已有分组的 auto_from_platform 集合，避免循环内重复全表查询（N+1）
-    let mut existing_auto: std::collections::HashSet<String> = db::list_groups(db)
+    let mut existing_auto: std::collections::HashSet<String> = db::list_groups(db).await
         .unwrap_or_default()
         .into_iter()
         .map(|g| g.auto_from_platform)
@@ -87,7 +87,7 @@ fn ensure_platform_groups(db: &Db) {
             connect_timeout_secs: 0,
             source_protocol: None,
             model_mappings: Vec::new(),
-        }) {
+        }).await {
             Ok(g) => g,
             Err(e) => { tracing::error!("ensure_platform_groups: create_group failed for {}: {e}", platform.name); continue; }
         };
@@ -97,7 +97,7 @@ fn ensure_platform_groups(db: &Db) {
             platform_id: platform.id,
             priority: Some(0),
             weight: Some(1),
-        }]) {
+        }]).await {
             tracing::error!("ensure_platform_groups: set_group_platforms failed for {}: {e}", platform.name);
         }
         tracing::info!("ensure_platform_groups: created group '{}' path='{}' for platform '{}'", group_name, group_path, platform.name);
@@ -107,8 +107,8 @@ fn ensure_platform_groups(db: &Db) {
 // ─── Platform Commands ─────────────────────────────────────
 
 #[tauri::command]
-fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
-    let platform = db::create_platform(&db, input)?;
+async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
+    let platform = db::create_platform(&db, input).await?;
 
     // 自动创建分组，path 按 protocol + 平台 ID 生成
     let protocol_str = format!("{:?}", platform.platform_type).to_lowercase();
@@ -127,7 +127,7 @@ fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform,
             source_protocol: None,
             model_mappings: Vec::new(),
         },
-    )?;
+    ).await?;
 
     // 将平台关联到自动分组
     db::set_group_platforms(
@@ -138,26 +138,26 @@ fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform,
             priority: Some(0),
             weight: Some(1),
         }],
-    )?;
+    ).await?;
 
     Ok(platform)
 }
 
 #[tauri::command]
-fn platform_list(db: State<'_, Db>) -> Result<Vec<Platform>, String> {
-    db::list_platforms(&db)
+async fn platform_list(db: State<'_, Db>) -> Result<Vec<Platform>, String> {
+    db::list_platforms(&db).await
 }
 
 #[tauri::command]
-fn platform_get(id: u64, db: State<'_, Db>) -> Result<Option<Platform>, String> {
-    db::get_platform(&db, id)
+async fn platform_get(id: u64, db: State<'_, Db>) -> Result<Option<Platform>, String> {
+    db::get_platform(&db, id).await
 }
 
 #[tauri::command]
-fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
-    let platform = db::update_platform(&db, input)?;
+async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
+    let platform = db::update_platform(&db, input).await?;
     // 确保该平台有关联分组，若无则自动创建
-    let groups = db::list_groups(&db).unwrap_or_default();
+    let groups = db::list_groups(&db).await.unwrap_or_default();
     let platform_id_str = platform.id.to_string();
     let exists = groups.iter().any(|g| g.auto_from_platform == platform_id_str);
     if !exists {
@@ -173,27 +173,27 @@ fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Platform,
             connect_timeout_secs: 0,
             source_protocol: None,
             model_mappings: Vec::new(),
-        }) {
+        }).await {
             let _ = db::set_group_platforms(&db, group.id, &[GroupPlatformInput {
                 platform_id: platform.id,
                 priority: Some(0),
                 weight: Some(1),
-            }]);
+            }]).await;
         }
     }
     Ok(platform)
 }
 
 #[tauri::command]
-fn platform_delete(id: u64, db: State<'_, Db>) -> Result<(), String> {
-    db::delete_platform(&db, id)
+async fn platform_delete(id: u64, db: State<'_, Db>) -> Result<(), String> {
+    db::delete_platform(&db, id).await
 }
 
 /// 设置 / 清除托盘展示平台（互斥单平台）。
 /// enabled=true → 设 platform_id 为唯一展示平台（tray_display: "balance"|"coding"）；
 /// enabled=false → 清空所有。改后刷新托盘。
 #[tauri::command]
-fn platform_set_tray(
+async fn platform_set_tray(
     platform_id: u64,
     tray_display: String,
     enabled: bool,
@@ -201,9 +201,9 @@ fn platform_set_tray(
     app: tauri::AppHandle,
 ) -> Result<(), String> {
     if enabled {
-        db::set_tray_platform(&db, platform_id, &tray_display)?;
+        db::set_tray_platform(&db, platform_id, &tray_display).await?;
     } else {
-        db::clear_tray(&db)?;
+        db::clear_tray(&db).await?;
     }
     refresh_tray_menu(&app)?;
     Ok(())
@@ -211,66 +211,66 @@ fn platform_set_tray(
 
 /// 读取托盘配置。无配置时（首次/升级）从旧 show_in_tray 平台迁移生成默认。
 #[tauri::command]
-fn tray_config_get(db: State<'_, Db>) -> Result<TrayConfig, String> {
-    Ok(db::get_tray_config(&db)?.unwrap_or_default())
+async fn tray_config_get(db: State<'_, Db>) -> Result<TrayConfig, String> {
+    Ok(db::get_tray_config(&db).await?.unwrap_or_default())
 }
 
 /// 保存托盘配置并刷新托盘渲染。
 #[tauri::command]
-fn tray_config_set(
+async fn tray_config_set(
     config: TrayConfig,
     db: State<'_, Db>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    db::set_tray_config(&db, &config)?;
+    db::set_tray_config(&db, &config).await?;
     refresh_tray_menu(&app)?;
     Ok(())
 }
 
 /// 获取今日统计摘要（供前端预览使用）
 #[tauri::command]
-fn tray_today_stats(db: State<'_, Db>) -> Result<db::TodayStats, String> {
-    db::today_stats(&db)
+async fn tray_today_stats(db: State<'_, Db>) -> Result<db::TodayStats, String> {
+    db::today_stats(&db).await
 }
 
 // ─── Group Commands ────────────────────────────────────────
 
 #[tauri::command]
-fn group_create(mut input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+async fn group_create(mut input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
     // Auto-slugify and validate group name
     input.name = slugify(&input.name);
     validate_group_name(&input.name)?;
-    let result = db::create_group(&db, input)?;
+    let result = db::create_group(&db, input).await?;
     try_sync_settings(&app, &db);
     Ok(result)
 }
 
 #[tauri::command]
-fn group_list(db: State<'_, Db>) -> Result<Vec<Group>, String> {
-    db::list_groups(&db)
+async fn group_list(db: State<'_, Db>) -> Result<Vec<Group>, String> {
+    db::list_groups(&db).await
 }
 
 #[tauri::command]
-fn group_get(id: u64, db: State<'_, Db>) -> Result<Option<Group>, String> {
-    db::get_group(&db, id)
+async fn group_get(id: u64, db: State<'_, Db>) -> Result<Option<Group>, String> {
+    db::get_group(&db, id).await
 }
 
 #[tauri::command]
-fn group_update(mut input: UpdateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+async fn group_update(mut input: UpdateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
     // Auto-slugify and validate if name is being updated
     if let Some(ref name) = input.name {
         let slug = slugify(name);
         validate_group_name(&slug)?;
         input.name = Some(slug);
     }
-    let result = db::update_group(&db, input)?;
+    let result = db::update_group(&db, input).await?;
     try_sync_settings(&app, &db);
     Ok(result)
 }
 
 #[tauri::command]
-fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
-    db::delete_group(&db, id)?;
+async fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
+    db::delete_group(&db, id).await?;
     try_sync_settings(&app, &db);
     Ok(())
 }
@@ -278,35 +278,35 @@ fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(),
 // ─── GroupPlatform Commands ────────────────────────────────
 
 #[tauri::command]
-fn group_set_platforms(input: SetGroupPlatforms, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
-    db::set_group_platforms(&db, input.group_id, &input.platforms)?;
+async fn group_set_platforms(input: SetGroupPlatforms, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
+    db::set_group_platforms(&db, input.group_id, &input.platforms).await?;
     try_sync_settings(&app, &db);
     Ok(())
 }
 
 #[tauri::command]
-fn group_get_platforms(
+async fn group_get_platforms(
     group_id: u64,
     db: State<'_, Db>,
 ) -> Result<Vec<GroupPlatformDetail>, String> {
-    db::get_group_platforms(&db, group_id)
+    db::get_group_platforms(&db, group_id).await
 }
 
 // ─── Aggregate ─────────────────────────────────────────────
 
 #[tauri::command]
-fn group_detail(id: u64, db: State<'_, Db>) -> Result<Option<GroupDetail>, String> {
-    db::get_group_detail(&db, id)
+async fn group_detail(id: u64, db: State<'_, Db>) -> Result<Option<GroupDetail>, String> {
+    db::get_group_detail(&db, id).await
 }
 
 #[tauri::command]
-fn group_detail_list(db: State<'_, Db>) -> Result<Vec<GroupDetail>, String> {
-    db::list_group_details(&db)
+async fn group_detail_list(db: State<'_, Db>) -> Result<Vec<GroupDetail>, String> {
+    db::list_group_details(&db).await
 }
 
 #[tauri::command]
-fn group_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
-    db::reorder_groups(&db, &ordered_ids)?;
+async fn group_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
+    db::reorder_groups(&db, &ordered_ids).await?;
     try_sync_settings(&app, &db);
     Ok(())
 }
@@ -335,7 +335,7 @@ async fn proxy_start(
 
     // 获取 DB 的路径并克隆一份连接
     let db_path = aidog_data_dir()?.join("aidog.db");
-    let proxy_db = Db::new(db_path.to_str().unwrap_or(""))?;
+    let proxy_db = Db::new(db_path.to_str().unwrap_or("")).await?;
     let proxy_db = std::sync::Arc::new(proxy_db);
 
     let (proxy_handle, actual_port) = gateway::proxy::start_proxy(proxy_db, port, Some(app.clone())).await?;
@@ -346,12 +346,12 @@ async fn proxy_start(
     }
 
     // 保存实际使用的端口到设置
-    let saved = load_proxy_settings(&app).unwrap_or(ProxySettings { port: 9876, autostart: true, silent_launch: false });
-    save_proxy_settings(&app, actual_port, true, saved.silent_launch)?;
+    let saved = load_proxy_settings(&app).await.unwrap_or(ProxySettings { port: 9876, autostart: true, silent_launch: false });
+    save_proxy_settings(&app, actual_port, true, saved.silent_launch).await?;
 
     // 同步所有分组的 settings 文件（端口可能变了）
     if let Some(db) = app.try_state::<Db>() {
-        let _ = do_sync_group_settings(&db, actual_port);
+        let _ = do_sync_group_settings(&db, actual_port).await;
     }
 
     // 更新托盘菜单
@@ -376,8 +376,8 @@ async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
     }
 
     // 更新设置
-    if let Ok(settings) = load_proxy_settings(&app) {
-        save_proxy_settings(&app, settings.port, false, settings.silent_launch)?;
+    if let Ok(settings) = load_proxy_settings(&app).await {
+        save_proxy_settings(&app, settings.port, false, settings.silent_launch).await?;
     }
 
     refresh_tray_menu(&app)?;
@@ -392,14 +392,14 @@ fn proxy_status(app: tauri::AppHandle) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn proxy_get_settings(app: tauri::AppHandle) -> Result<ProxySettings, String> {
-    load_proxy_settings(&app)
+async fn proxy_get_settings(app: tauri::AppHandle) -> Result<ProxySettings, String> {
+    load_proxy_settings(&app).await
 }
 
 #[tauri::command]
-fn proxy_set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
-    let current = load_proxy_settings(&app)?;
-    save_proxy_settings(&app, current.port, enabled, current.silent_launch)?;
+async fn proxy_set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let current = load_proxy_settings(&app).await?;
+    save_proxy_settings(&app, current.port, enabled, current.silent_launch).await?;
     Ok(())
 }
 
@@ -423,25 +423,25 @@ fn app_get_autolaunch(app: tauri::AppHandle) -> Result<bool, String> {
 }
 
 #[tauri::command]
-fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
-    let current = load_proxy_settings(&app)?;
-    save_proxy_settings(&app, current.port, current.autostart, enabled)?;
+async fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    let current = load_proxy_settings(&app).await?;
+    save_proxy_settings(&app, current.port, current.autostart, enabled).await?;
     Ok(())
 }
 
 // ─── Proxy Client Settings (upstream HTTP proxy) ─────────────
 
 #[tauri::command]
-fn proxy_client_get_settings(app: tauri::AppHandle) -> Result<gateway::models::ProxyClientSettings, String> {
+async fn proxy_client_get_settings(app: tauri::AppHandle) -> Result<gateway::models::ProxyClientSettings, String> {
     let db = app.try_state::<Db>()
-        .map(|s| s.inner())
+        .map(|s| s.inner().clone())
         .ok_or("db not initialized")?;
-    let settings = gateway::http_client::load_proxy_client_settings(&Arc::new(db.clone()));
+    let settings = gateway::http_client::load_proxy_client_settings(&Arc::new(db)).await;
     Ok(settings)
 }
 
 #[tauri::command]
-fn proxy_client_set_settings(app: tauri::AppHandle, settings: gateway::models::ProxyClientSettings) -> Result<(), String> {
+async fn proxy_client_set_settings(app: tauri::AppHandle, settings: gateway::models::ProxyClientSettings) -> Result<(), String> {
     let db = app.try_state::<Db>()
         .map(|s| s.inner())
         .ok_or("db not initialized")?;
@@ -451,7 +451,7 @@ fn proxy_client_set_settings(app: tauri::AppHandle, settings: gateway::models::P
         scope: "proxy".to_string(),
         key: "proxy_client".to_string(),
         value,
-    })
+    }).await
 }
 
 // ─── Platform Model Fetch ──────────────────────────────────
@@ -464,7 +464,7 @@ async fn platform_fetch_models(
     db: State<'_, Db>,
 ) -> Result<Vec<String>, String> {
     let db_arc = Arc::new(db.inner().clone());
-    let client = gateway::http_client::build_http_client_system(&db_arc, 30, 10);
+    let client = gateway::http_client::build_http_client_system(&db_arc, 30, 10).await;
     let base = base_url.trim_end_matches('/');
 
     // Mock / Claude Code 透传平台无真实上游模型列表，不拉取模型
@@ -547,7 +547,7 @@ async fn stats_query(
     db: State<'_, Db>,
     query: StatsQuery,
 ) -> Result<StatsResult, String> {
-    db::query_stats(&db, &query)
+    db::query_stats(&db, &query).await
 }
 
 // ─── Model Testing ─────────────────────────────────────────
@@ -557,7 +557,7 @@ async fn model_test(
     db: State<'_, Db>,
     req: ModelTestRequest,
 ) -> Result<ModelTestResult, String> {
-    let platform = db::get_platform(&db, req.platform_id)?
+    let platform = db::get_platform(&db, req.platform_id).await?
         .ok_or("platform not found")?;
 
     let model = req.model.clone().or(platform.models.default.clone())
@@ -606,7 +606,7 @@ async fn model_test(
     let db_arc = Arc::new(db.inner().clone());
     let client = gateway::http_client::build_http_client(
         &db_arc, 30, 10, Some(&platform.extra), None,
-    );
+    ).await;
 
     let start = std::time::Instant::now();
     let request_id = uuid::Uuid::new_v4().simple().to_string();
@@ -670,7 +670,7 @@ async fn model_test(
             };
             let _ = db::upsert_proxy_log(&db, &make_log(
                 &format!("upstream error: {e}"), 0, 502, "", &format!("upstream error: {e}"), 0, 0,
-            ));
+            )).await;
             return Ok(result);
         }
     };
@@ -706,7 +706,7 @@ async fn model_test(
         let _ = db::upsert_proxy_log(&db, &make_log(
             &body, upstream_status_code, upstream_status_code,
             &upstream_resp_headers, &body, 0, 0,
-        ));
+        )).await;
         return Ok(result);
     }
 
@@ -728,7 +728,7 @@ async fn model_test(
     let _ = db::upsert_proxy_log(&db, &make_log(
         &body, upstream_status_code, 200,
         &upstream_resp_headers, &body, in_tok, out_tok,
-    ));
+    )).await;
 
     Ok(result)
 }
@@ -806,15 +806,17 @@ fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String, Str
 
 /// Helper: attempt sync, log errors but don't propagate
 fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
-    if let Ok(settings) = load_proxy_settings(app) {
-        let _ = do_sync_group_settings(db, settings.port);
-    }
+    tauri::async_runtime::block_on(async {
+        if let Ok(settings) = load_proxy_settings(app).await {
+            let _ = do_sync_group_settings(db, settings.port).await;
+        }
+    });
 }
 
 /// 为所有分组生成 settings.{group_name}.json 配置文件到 ~/.aidog/ 目录
 /// 核心逻辑：可被多个触发点调用
-fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
-    let groups = gateway::db::list_groups(db)?;
+async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
+    let groups = gateway::db::list_groups(db).await?;
 
     let aidog_dir = dirs::home_dir()
         .ok_or("cannot resolve home directory")?
@@ -826,7 +828,7 @@ fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
 
     // Load base claude code config from app settings (scope=global, key=claude_code)
     // Fallback to compiled-in defaults when DB has no config
-    let base_config: serde_json::Value = gateway::db::get_setting(db, "global", "claude_code")
+    let base_config: serde_json::Value = gateway::db::get_setting(db, "global", "claude_code").await
         .ok()
         .flatten()
         .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
@@ -912,9 +914,9 @@ fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
 
 /// Tauri command — manual sync from UI
 #[tauri::command]
-fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Result<Vec<String>, String> {
-    let proxy_settings = load_proxy_settings(&app)?;
-    do_sync_group_settings(&db, proxy_settings.port)
+async fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Result<Vec<String>, String> {
+    let proxy_settings = load_proxy_settings(&app).await?;
+    do_sync_group_settings(&db, proxy_settings.port).await
 }
 
 // ─── Proxy Log Commands ────────────────────────────────────
@@ -922,56 +924,56 @@ fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Result<Vec<S
 use gateway::models::{ProxyLog, ProxyLogSummary, ProxyLogSettings, ProxyLogFilter};
 
 #[tauri::command]
-fn proxy_log_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
-    gateway::db::list_proxy_logs(&db, limit, offset)
+async fn proxy_log_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
+    gateway::db::list_proxy_logs(&db, limit, offset).await
 }
 
 #[tauri::command]
-fn proxy_log_list_filtered(
+async fn proxy_log_list_filtered(
     db: State<'_, Db>,
     filter: ProxyLogFilter,
     limit: u32,
     offset: u32,
 ) -> Result<Vec<ProxyLogSummary>, String> {
-    gateway::db::filtered_list_proxy_logs(&db, &filter, limit, offset)
+    gateway::db::filtered_list_proxy_logs(&db, &filter, limit, offset).await
 }
 
 #[tauri::command]
-fn proxy_log_count_filtered(
+async fn proxy_log_count_filtered(
     db: State<'_, Db>,
     filter: ProxyLogFilter,
 ) -> Result<u32, String> {
-    gateway::db::filtered_count_proxy_logs(&db, &filter)
+    gateway::db::filtered_count_proxy_logs(&db, &filter).await
 }
 
 #[tauri::command]
-fn proxy_log_get(id: String, db: State<'_, Db>) -> Result<Option<ProxyLog>, String> {
-    gateway::db::get_proxy_log(&db, &id)
+async fn proxy_log_get(id: String, db: State<'_, Db>) -> Result<Option<ProxyLog>, String> {
+    gateway::db::get_proxy_log(&db, &id).await
 }
 
 #[tauri::command]
-fn proxy_log_clear(db: State<'_, Db>) -> Result<(), String> {
-    gateway::db::clear_proxy_logs(&db)
+async fn proxy_log_clear(db: State<'_, Db>) -> Result<(), String> {
+    gateway::db::clear_proxy_logs(&db).await
 }
 
 #[tauri::command]
-fn proxy_log_count(db: State<'_, Db>) -> Result<u32, String> {
-    gateway::db::count_proxy_logs(&db)
+async fn proxy_log_count(db: State<'_, Db>) -> Result<u32, String> {
+    gateway::db::count_proxy_logs(&db).await
 }
 
 #[tauri::command]
-fn platform_usage_stats(platform_id: u64, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
-    gateway::db::get_platform_usage_stats(&db, platform_id)
+async fn platform_usage_stats(platform_id: u64, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
+    gateway::db::get_platform_usage_stats(&db, platform_id).await
 }
 
 #[tauri::command]
-fn group_usage_stats(group_name: String, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
-    gateway::db::get_group_usage_stats(&db, &group_name)
+async fn group_usage_stats(group_name: String, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
+    gateway::db::get_group_usage_stats(&db, &group_name).await
 }
 
 #[tauri::command]
-fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSettings, String> {
-    let val = gateway::db::get_setting(&db, "proxy", "logging")
+async fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSettings, String> {
+    let val = gateway::db::get_setting(&db, "proxy", "logging").await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
@@ -980,20 +982,20 @@ fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSettings, String>
 }
 
 #[tauri::command]
-fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSettings) -> Result<(), String> {
+async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSettings) -> Result<(), String> {
     let value = serde_json::to_value(&settings)
         .map_err(|e| format!("serialize log settings: {e}"))?;
     gateway::db::set_setting(&db, gateway::models::SetSettingInput {
         scope: "proxy".into(),
         key: "logging".into(),
         value,
-    })?;
+    }).await?;
     // Run field-level cleanup for user/upstream request data
-    let _ = gateway::db::cleanup_user_request_fields(&db, settings.user_request_retention_days);
-    let _ = gateway::db::cleanup_upstream_request_fields(&db, settings.upstream_request_retention_days);
+    let _ = gateway::db::cleanup_user_request_fields(&db, settings.user_request_retention_days).await;
+    let _ = gateway::db::cleanup_upstream_request_fields(&db, settings.upstream_request_retention_days).await;
     // Delete entire log rows older than overall retention
     if settings.retention_days > 0 {
-        let _ = gateway::db::cleanup_proxy_logs(&db, settings.retention_days);
+        let _ = gateway::db::cleanup_proxy_logs(&db, settings.retention_days).await;
     }
     Ok(())
 }
@@ -1003,8 +1005,8 @@ fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSettings) -> Resu
 use gateway::models::ProxyTimeoutSettings;
 
 #[tauri::command]
-fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings, String> {
-    Ok(gateway::db::get_setting(&db, "proxy", "timeout")
+async fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings, String> {
+    Ok(gateway::db::get_setting(&db, "proxy", "timeout").await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
@@ -1012,12 +1014,12 @@ fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings, String> 
 }
 
 #[tauri::command]
-fn proxy_timeout_set(db: State<'_, Db>, settings: ProxyTimeoutSettings) -> Result<(), String> {
+async fn proxy_timeout_set(db: State<'_, Db>, settings: ProxyTimeoutSettings) -> Result<(), String> {
     gateway::db::set_setting(&db, SetSettingInput {
         scope: "proxy".to_string(),
         key: "timeout".to_string(),
         value: serde_json::to_value(&settings).map_err(|e| format!("serialize: {e}"))?,
-    })
+    }).await
 }
 
 // ─── Platform Quota (Balance & Coding Plan) ────────────────
@@ -1031,7 +1033,7 @@ async fn platform_query_quota(
 ) -> Result<PlatformQuota, String> {
     let q = gateway::quota::query_quota(Some(&Arc::new(db.inner().clone())), &base_url, &api_key).await;
     if q.success {
-        persist_quota_to_db(&db, platform_id, &q);
+        persist_quota_to_db(&db, platform_id, &q).await;
     }
     Ok(q)
 }
@@ -1044,7 +1046,7 @@ async fn platform_query_quota_newapi(
 ) -> Result<PlatformQuota, String> {
     let q = gateway::quota::query_quota_newapi(Some(&Arc::new(db.inner().clone())), &base_url, &api_key, &extra).await;
     if q.success {
-        persist_quota_to_db(&db, platform_id, &q);
+        persist_quota_to_db(&db, platform_id, &q).await;
     }
     Ok(q)
 }
@@ -1055,24 +1057,24 @@ async fn platform_query_quota_newapi(
 /// 并重置 last_real_query_at + estimate_count。
 /// 这修复了旧路径直写 raw CodingPlanInfo JSON（字段 utilization≠est_utilization）→ tray est 显 0/偏差大的根因，
 /// 同时保证「真查发生时 est 立即对齐真实」。
-fn persist_quota_to_db(db: &Db, platform_id: Option<u64>, q: &PlatformQuota) {
+async fn persist_quota_to_db(db: &Db, platform_id: Option<u64>, q: &PlatformQuota) {
     let Some(pid) = platform_id else { return };
     let is_coding_plan = q.coding_plan.is_some();
-    gateway::estimate::calibrate_from_quota(db, pid, q, is_coding_plan);
+    gateway::estimate::calibrate_from_quota(db, pid, q, is_coding_plan).await;
 }
 
 /// 冷启动 est 初始化：对 tray 中启用、且从未真查过（last_real_query_at==0）的平台，
 /// 后台触发一次真查并校准对齐 est=真实。避免冷启动 tray 显 0/旧偏差大。
 /// 不阻塞：每平台 spawn 独立 async（锁外 await 真查，calibrate_from_quota 短持锁写）。
 /// 真查完成后发 tray-refresh，让主线程刷新托盘显示。
-fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
+async fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
     let Some(db_state) = app.try_state::<Db>() else { return };
-    let Ok(Some(config)) = db::get_tray_config(&db_state) else { return };
+    let Ok(Some(config)) = db::get_tray_config(&db_state).await else { return };
     // 收集 tray 启用、platform 类型、且 last_real_query_at==0 的平台
     let mut targets: Vec<gateway::models::Platform> = Vec::new();
     for item in config.items.iter().filter(|i| i.enabled && i.item_type == "platform") {
         let Some(pid) = item.platform_id else { continue };
-        if let Ok(Some(p)) = db::get_platform(&db_state, pid) {
+        if let Ok(Some(p)) = db::get_platform(&db_state, pid).await {
             if p.last_real_query_at == 0 {
                 targets.push(p);
             }
@@ -1082,18 +1084,19 @@ fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
         let handle = app.clone();
         tauri::async_runtime::spawn(async move {
             let Some(db) = handle.try_state::<Db>() else { return };
+            let db_arc = Arc::new(db.inner().clone());
             let is_newapi = matches!(p.platform_type, gateway::models::Protocol::NewApi);
             // 锁外 async 真查
             let q = if is_newapi {
-                gateway::quota::query_quota_newapi(Some(&db), &p.base_url, &p.api_key, &p.extra).await
+                gateway::quota::query_quota_newapi(Some(&db_arc), &p.base_url, &p.api_key, &p.extra).await
             } else {
-                gateway::quota::query_quota(Some(&db), &p.base_url, &p.api_key).await
+                gateway::quota::query_quota(Some(&db_arc), &p.base_url, &p.api_key).await
             };
             if !q.success {
                 return; // 失败保留，下次再试（不重置 last_real_query_at）
             }
             let is_coding_plan = q.coding_plan.is_some();
-            gateway::estimate::calibrate_from_quota(&db, p.id, &q, is_coding_plan);
+            gateway::estimate::calibrate_from_quota(&db, p.id, &q, is_coding_plan).await;
             use tauri::Emitter;
             let _ = handle.emit("tray-refresh", ());
         });
@@ -1101,8 +1104,8 @@ fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
 }
 
 #[tauri::command]
-fn platform_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>) -> Result<(), String> {
-    db::reorder_platforms(&db, &ordered_ids)
+async fn platform_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>) -> Result<(), String> {
+    db::reorder_platforms(&db, &ordered_ids).await
 }
 
 // ─── Path Autocomplete ─────────────────────────────────────
@@ -1204,30 +1207,30 @@ fn fs_autocomplete(input: String) -> Result<Vec<PathEntry>, String> {
 use gateway::models::SetSettingInput;
 
 #[tauri::command]
-fn settings_get(
+async fn settings_get(
     scope: String,
     key: String,
     db: State<'_, Db>,
 ) -> Result<Option<serde_json::Value>, String> {
-    db::get_setting(&db, &scope, &key)
+    db::get_setting(&db, &scope, &key).await
 }
 
 #[tauri::command]
-fn settings_set(input: SetSettingInput, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
-    db::set_setting(&db, input)?;
+async fn settings_set(input: SetSettingInput, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
+    db::set_setting(&db, input).await?;
     // Auto-sync group settings files when claude code config changes
     try_sync_settings(&app, &db);
     Ok(())
 }
 
 #[tauri::command]
-fn settings_delete(scope: String, key: String, db: State<'_, Db>) -> Result<(), String> {
-    db::delete_setting(&db, &scope, &key)
+async fn settings_delete(scope: String, key: String, db: State<'_, Db>) -> Result<(), String> {
+    db::delete_setting(&db, &scope, &key).await
 }
 
 #[tauri::command]
-fn settings_list(scope: String, db: State<'_, Db>) -> Result<Vec<String>, String> {
-    db::list_setting_keys(&db, &scope)
+async fn settings_list(scope: String, db: State<'_, Db>) -> Result<Vec<String>, String> {
+    db::list_setting_keys(&db, &scope).await
 }
 
 // ─── StatusLine Script Generation ──────────────────────────
@@ -1279,8 +1282,8 @@ fn read_claude_code_settings() -> Result<serde_json::Value, String> {
 }
 
 /// Load app log settings from DB (must be called after init_tables)
-fn load_app_log_settings_from_db(db: &Db) -> logging::AppLogSettings {
-    db::get_setting(db, "app", "logging")
+async fn load_app_log_settings_from_db(db: &Db) -> logging::AppLogSettings {
+    db::get_setting(db, "app", "logging").await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
@@ -1305,14 +1308,14 @@ fn load_app_log_settings() -> logging::AppLogSettings {
 }
 
 #[tauri::command]
-fn app_log_settings_get(db: State<'_, Db>) -> Result<logging::AppLogSettings, String> {
-    Ok(load_app_log_settings_from_db(&db))
+async fn app_log_settings_get(db: State<'_, Db>) -> Result<logging::AppLogSettings, String> {
+    Ok(load_app_log_settings_from_db(&db).await)
 }
 
 #[tauri::command]
-fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, Db>) -> Result<(), String> {
+async fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, Db>) -> Result<(), String> {
     let value = serde_json::to_value(&settings).map_err(|e| e.to_string())?;
-    db::set_setting(&db, SetSettingInput { scope: "app".to_string(), key: "logging".to_string(), value })?;
+    db::set_setting(&db, SetSettingInput { scope: "app".to_string(), key: "logging".to_string(), value }).await?;
     // Also persist to file so it's available before DB init on next startup
     if let Some(dir) = dirs::home_dir() {
         let path = dir.join(".aidog").join("log_settings.json");
@@ -1324,63 +1327,63 @@ fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, Db>) ->
 // ─── Model Price Commands ──────────────────────────────────
 
 #[tauri::command]
-fn model_price_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
-    gateway::db::list_model_prices(&db, limit, offset)
+async fn model_price_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
+    gateway::db::list_model_prices(&db, limit, offset).await
 }
 
 #[tauri::command]
-fn model_price_count(db: State<'_, Db>) -> Result<u32, String> {
-    gateway::db::count_model_prices(&db)
+async fn model_price_count(db: State<'_, Db>) -> Result<u32, String> {
+    gateway::db::count_model_prices(&db).await
 }
 
 #[tauri::command]
-fn model_price_search(db: State<'_, Db>, query: String, limit: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
-    gateway::db::search_model_prices(&db, &query, limit)
+async fn model_price_search(db: State<'_, Db>, query: String, limit: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
+    gateway::db::search_model_prices(&db, &query, limit).await
 }
 
 #[tauri::command]
-fn model_price_list_filtered(
+async fn model_price_list_filtered(
     db: State<'_, Db>,
     query: Option<String>,
     source: Option<String>,
     limit: u32,
     offset: u32,
 ) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
-    gateway::db::filtered_list_model_prices(&db, query.as_deref(), source.as_deref(), limit, offset)
+    gateway::db::filtered_list_model_prices(&db, query.as_deref(), source.as_deref(), limit, offset).await
 }
 
 #[tauri::command]
-fn model_price_count_filtered(
+async fn model_price_count_filtered(
     db: State<'_, Db>,
     query: Option<String>,
     source: Option<String>,
 ) -> Result<u32, String> {
-    gateway::db::filtered_count_model_prices(&db, query.as_deref(), source.as_deref())
+    gateway::db::filtered_count_model_prices(&db, query.as_deref(), source.as_deref()).await
 }
 
 #[tauri::command]
-fn model_price_delete(db: State<'_, Db>, model_name: String) -> Result<(), String> {
-    gateway::db::delete_model_price(&db, &model_name)
+async fn model_price_delete(db: State<'_, Db>, model_name: String) -> Result<(), String> {
+    gateway::db::delete_model_price(&db, &model_name).await
 }
 
 #[tauri::command]
-fn model_price_upsert(
+async fn model_price_upsert(
     db: State<'_, Db>,
     model_name: String,
     source: String,
     price_data: String,
 ) -> Result<(), String> {
-    gateway::db::upsert_model_price(&db, &model_name, &source, &price_data)
+    gateway::db::upsert_model_price(&db, &model_name, &source, &price_data).await
 }
 
 #[tauri::command]
-fn model_price_resolve(
+async fn model_price_resolve(
     db: State<'_, Db>,
     model_name: String,
     platform_type: String,
 ) -> Result<gateway::models::ResolvedPrice, String> {
-    let settings = gateway::price_sync::get_sync_settings(&db);
-    gateway::db::resolve_price(&db, &model_name, &platform_type, settings.fallback_input_price, settings.fallback_output_price)
+    let settings = gateway::price_sync::get_sync_settings(&db).await;
+    gateway::db::resolve_price(&db, &model_name, &platform_type, settings.fallback_input_price, settings.fallback_output_price).await
 }
 
 #[tauri::command]
@@ -1389,13 +1392,13 @@ async fn model_price_sync(db: State<'_, Db>) -> Result<gateway::models::PriceSyn
 }
 
 #[tauri::command]
-fn price_sync_settings_get(db: State<'_, Db>) -> Result<gateway::models::PriceSyncSettings, String> {
-    Ok(gateway::price_sync::get_sync_settings(&db))
+async fn price_sync_settings_get(db: State<'_, Db>) -> Result<gateway::models::PriceSyncSettings, String> {
+    Ok(gateway::price_sync::get_sync_settings(&db).await)
 }
 
 #[tauri::command]
-fn price_sync_settings_set(db: State<'_, Db>, settings: gateway::models::PriceSyncSettings) -> Result<(), String> {
-    gateway::price_sync::save_sync_settings(&db, &settings);
+async fn price_sync_settings_set(db: State<'_, Db>, settings: gateway::models::PriceSyncSettings) -> Result<(), String> {
+    gateway::price_sync::save_sync_settings(&db, &settings).await;
     Ok(())
 }
 
@@ -1408,13 +1411,13 @@ struct ProxySettings {
 }
 
 /// 从 DB 读取 proxy settings；首次运行时自动迁移 proxy_settings.json 文件
-fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> {
+async fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> {
     let db = app.try_state::<Db>()
         .map(|s| s.inner())
         .ok_or("db not initialized")?;
 
     // 从 DB 读取
-    if let Some(val) = db::get_setting(db, "proxy", "settings")? {
+    if let Some(val) = db::get_setting(db, "proxy", "settings").await? {
         let s: ProxySettings = serde_json::from_value(val)
             .map_err(|e| format!("parse proxy settings: {e}"))?;
         return Ok(s);
@@ -1426,7 +1429,7 @@ fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> 
         if let Ok(content) = std::fs::read_to_string(&file_path) {
             if let Ok(s) = serde_json::from_str::<ProxySettings>(&content) {
                 // 迁移到 DB
-                let _ = save_proxy_settings_to_db(db, &s);
+                let _ = save_proxy_settings_to_db(db, &s).await;
                 // 删除旧文件
                 let _ = std::fs::remove_file(&file_path);
                 return Ok(s);
@@ -1438,17 +1441,17 @@ fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, String> 
     Ok(ProxySettings { port: 9876, autostart: true, silent_launch: false })
 }
 
-fn save_proxy_settings_to_db(db: &Db, settings: &ProxySettings) -> Result<(), String> {
+async fn save_proxy_settings_to_db(db: &Db, settings: &ProxySettings) -> Result<(), String> {
     let value = serde_json::to_value(settings)
         .map_err(|e| format!("serialize proxy settings: {e}"))?;
     db::set_setting(db, gateway::models::SetSettingInput {
         scope: "proxy".to_string(),
         key: "settings".to_string(),
         value,
-    })
+    }).await
 }
 
-fn save_proxy_settings(
+async fn save_proxy_settings(
     app: &tauri::AppHandle,
     port: u16,
     autostart: bool,
@@ -1458,7 +1461,7 @@ fn save_proxy_settings(
         .map(|s| s.inner())
         .ok_or("db not initialized")?;
     let settings = ProxySettings { port, autostart, silent_launch };
-    save_proxy_settings_to_db(db, &settings)
+    save_proxy_settings_to_db(db, &settings).await
 }
 
 // ─── Tray ──────────────────────────────────────────────────
@@ -1517,10 +1520,10 @@ fn platform_item_parts(platform: &Platform, display: &str) -> (String, String) {
 /// 从托盘配置生成有序渲染布局（已按 order 排序、跳过 disabled、跳过取数失败项）。
 /// separator items 不生成列，而是作为相邻数据列之间的间隙。
 /// gaps[i] = columns[i] 与 columns[i+1] 之间的间隙；None = 默认空白。
-fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
+async fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
     let empty = TrayLayout { columns: Vec::new(), gaps: Vec::new() };
     let Some(db) = app.try_state::<Db>() else { return empty; };
-    let Ok(Some(config)) = db::get_tray_config(&db) else { return empty; };
+    let Ok(Some(config)) = db::get_tray_config(&db).await else { return empty; };
     let mut items: Vec<&TrayItem> = config.items.iter().filter(|i| i.enabled).collect();
     items.sort_by_key(|i| i.order);
 
@@ -1543,11 +1546,11 @@ fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
         let (name, value) = match item.item_type.as_str() {
             "platform" => {
                 let Some(pid) = item.platform_id else { continue };
-                let Ok(Some(platform)) = db::get_platform(&db, pid) else { continue };
+                let Ok(Some(platform)) = db::get_platform(&db, pid).await else { continue };
                 platform_item_parts(&platform, &item.display)
             }
             "today_usage" => {
-                let stats = db::today_stats(&db).unwrap_or(db::TodayStats {
+                let stats = db::today_stats(&db).await.unwrap_or(db::TodayStats {
                     tokens: 0, cache_rate: 0.0, cost: 0.0, total_requests: 0,
                 });
                 let metric = item.metric.as_deref().unwrap_or("tokens");
@@ -1583,9 +1586,9 @@ fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
 }
 
 /// 托盘配置的分隔符（多 item 横排间隔）。
-fn tray_separator(app: &tauri::AppHandle) -> String {
+async fn tray_separator(app: &tauri::AppHandle) -> String {
     if let Some(db) = app.try_state::<Db>() {
-        if let Ok(Some(config)) = db::get_tray_config(&db) {
+        if let Ok(Some(config)) = db::get_tray_config(&db).await {
             return config.separator;
         }
     }
@@ -1596,11 +1599,11 @@ fn default_separator_str() -> String { "  ".to_string() }
 
 /// 菜单内 quota 项的纯文字概要（无颜色/字号，separator 拼接；每列横排 "名 值"）。
 fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
-    let layout = tray_layout(app);
+    let layout = tauri::async_runtime::block_on(tray_layout(app));
     if layout.columns.is_empty() {
         return None;
     }
-    let default_sep = tray_separator(app);
+    let default_sep = tauri::async_runtime::block_on(tray_separator(app));
     let mut texts: Vec<String> = Vec::new();
     for (i, col) in layout.columns.iter().enumerate() {
         if i > 0 {
@@ -1619,7 +1622,7 @@ fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wr
         h.is_some()
     };
 
-    let settings = load_proxy_settings(app)?;
+    let settings = tauri::async_runtime::block_on(load_proxy_settings(app))?;
     let status_text = if running {
         format!("● Proxy Running :{}", settings.port)
     } else {
@@ -1953,13 +1956,13 @@ fn refresh_tray_menu(app: &tauri::AppHandle) -> Result<(), String> {
     // 非 macOS 平台仅 menu item 降级（不调 set_title / set_icon）。
     #[cfg(target_os = "macos")]
     {
-        let layout = tray_layout(app);
+        let layout = tauri::async_runtime::block_on(tray_layout(app));
         if layout.columns.is_empty() {
             tray.set_icon(app.default_window_icon().cloned())
                 .map_err(|e| e.to_string())?;
             tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
         } else {
-            let separator = tray_separator(app);
+            let separator = tauri::async_runtime::block_on(tray_separator(app));
             tray.set_icon(None).map_err(|e| e.to_string())?;
             // 兜底文字：各列 "名 值"，间隙用 separator
             let fallback_text = layout.columns
@@ -2000,10 +2003,13 @@ pub fn run() {
 
             // 在 data dir 创建 SQLite
             let db_path = data_dir.join("aidog.db");
-            let db = Db::new(db_path.to_str().unwrap()).expect("failed to open database");
-            db.init_tables().expect("failed to init tables");
-            // 为所有平台确保存在关联分组（一个平台一个）
-            ensure_platform_groups(&db);
+            let db = tauri::async_runtime::block_on(async {
+                let db = Db::new(db_path.to_str().unwrap()).await.expect("failed to open database");
+                db.init_tables().await.expect("failed to init tables");
+                // 为所有平台确保存在关联分组（一个平台一个）
+                ensure_platform_groups(&db).await;
+                db
+            });
             app.manage(db);
 
             // 启动时同步所有 settings 文件（检查不一致并更新）
@@ -2023,7 +2029,7 @@ pub fn run() {
                 .tooltip("AiDog — AI API Gateway")
                 .on_menu_event(|app, event| match event.id().as_ref() {
                     "proxy_start" => {
-                        let settings = load_proxy_settings(app).unwrap_or(ProxySettings {
+                        let settings = tauri::async_runtime::block_on(load_proxy_settings(app)).unwrap_or(ProxySettings {
                             port: 9876,
                             autostart: true,
                             silent_launch: false,
@@ -2061,7 +2067,7 @@ pub fn run() {
             }
 
             // 自动启动代理
-            let settings = load_proxy_settings(app.handle())?;
+            let settings = tauri::async_runtime::block_on(load_proxy_settings(app.handle()))?;
             if settings.autostart {
                 let port = settings.port;
                 let handle = app.handle().clone();
@@ -2071,7 +2077,12 @@ pub fn run() {
             }
 
             // 冷启动 est 初始化：tray 平台从未真查（last_real_query_at==0）→ 后台真查对齐 est=真实。
-            cold_start_init_tray_estimates(app.handle());
+            {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    cold_start_init_tray_estimates(&handle).await;
+                });
+            }
 
             // 静默启动：隐藏主窗口，仅托盘运行
             if settings.silent_launch {

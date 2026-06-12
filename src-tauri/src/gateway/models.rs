@@ -887,7 +887,7 @@ impl ProxyClientSettings {
 
 // ─── Statistics ───────────────────────────────────────────
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct StatsQuery {
     pub start: Option<i64>,
     pub end: Option<i64>,

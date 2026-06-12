@@ -472,11 +472,11 @@ pub async fn today_token_total(db: &Db) -> Result<i64, String> {
 
     db.0
         .call(move |conn| {
-            conn.query_row(
+            Ok(conn.query_row(
                 "SELECT COALESCE(SUM(input_tokens + output_tokens), 0) FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
                 params![start_ms],
                 |row| row.get(0),
-            )
+            )?)
         })
         .await
         .map_err(|e| format!("today token total: {e}"))
@@ -1791,9 +1791,9 @@ mod tests {
     use super::*;
 
     /// 创建一个初始化好的内存库
-    fn test_db() -> Db {
-        let db = Db::new(":memory:").expect("open memory db");
-        db.init_tables().expect("init tables");
+    async fn test_db() -> Db {
+        let db = Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
         db
     }
 
@@ -1858,8 +1858,8 @@ mod tests {
 
     /// endpoints 反序列化容错：DB 中含未知 client_type（如旧数据 "anthropic"）的
     /// endpoint 数组应仍能完整解析，而非因单个未知枚举值整体失败 → 空 Vec → 前端丢失。
-    #[test]
-    fn endpoints_with_unknown_client_type_still_parse() {
+    #[tokio::test]
+    async fn endpoints_with_unknown_client_type_still_parse() {
         let json = r#"[{"protocol":"openai","base_url":"https://x/v1","client_type":"codex_tui","coding_plan":false},{"protocol":"anthropic","base_url":"https://x/anthropic","client_type":"anthropic","coding_plan":false}]"#;
         let parsed = parse_endpoints(json);
         assert_eq!(parsed.len(), 2, "未知 client_type 不应导致整个数组解析失败");
@@ -1867,7 +1867,7 @@ mod tests {
         assert_eq!(parsed[1].protocol, Protocol::Anthropic);
 
         // 端到端：写入 DB 后 list_platforms 应带回 endpoints
-        let db = test_db();
+        let db = test_db().await;
         let mut input = sample_platform("p1");
         input.endpoints = Some(vec![PlatformEndpoint {
             protocol: Protocol::OpenAI,
@@ -1875,24 +1875,23 @@ mod tests {
             client_type: ClientType::CodexTui,
             coding_plan: true,
         }]);
-        create_platform(&db, input).unwrap();
-        let listed = list_platforms(&db).unwrap();
+        create_platform(&db, input).await.unwrap();
+        let listed = list_platforms(&db).await.unwrap();
         assert_eq!(listed[0].endpoints.len(), 1, "list_platforms 应返回 endpoints");
     }
 
     // ── R2 单数表名 + "group" 转义：init_tables 成功间接验证 DDL ──
-    #[test]
-    fn r2_singular_table_names_and_group_escaped() {
+    #[tokio::test]
+    async fn r2_singular_table_names_and_group_escaped() {
         // init_tables() 已在 test_db 中执行；进一步断言单数表名存在、复数不存在
-        let db = test_db();
-        let conn = db.0.lock().unwrap();
-        let names: Vec<String> = conn
-            .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
-            .unwrap()
-            .query_map([], |r| r.get(0))
-            .unwrap()
-            .filter_map(|r| r.ok())
-            .collect();
+        let db = test_db().await;
+        let names: Vec<String> = db.0.call(|conn| {
+            Ok(conn
+                .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?
+                .query_map([], |r| r.get(0))?
+                .filter_map(|r| r.ok())
+                .collect())
+        }).await.unwrap();
         assert!(names.contains(&"platform".to_string()));
         assert!(names.contains(&"group".to_string()));
         assert!(names.contains(&"group_platform".to_string()));
@@ -1905,11 +1904,11 @@ mod tests {
     }
 
     // ── R7 / D1 主键自增 uint64 ──
-    #[test]
-    fn r7_platform_pk_autoincrement_u64() {
-        let db = test_db();
-        let p1 = create_platform(&db, sample_platform("p1")).unwrap();
-        let p2 = create_platform(&db, sample_platform("p2")).unwrap();
+    #[tokio::test]
+    async fn r7_platform_pk_autoincrement_u64() {
+        let db = test_db().await;
+        let p1 = create_platform(&db, sample_platform("p1")).await.unwrap();
+        let p2 = create_platform(&db, sample_platform("p2")).await.unwrap();
         assert!(p1.id >= 1, "first id should be >= 1, got {}", p1.id);
         assert_eq!(p2.id, p1.id + 1, "id should auto-increment");
         // 类型为 u64（编译期保证），运行期断言 >0
@@ -1918,11 +1917,11 @@ mod tests {
     }
 
     // ── R1 / R9 毫秒级时间戳 ──
-    #[test]
-    fn r1_timestamps_are_millis() {
-        let db = test_db();
+    #[tokio::test]
+    async fn r1_timestamps_are_millis() {
+        let db = test_db().await;
         let before = chrono::Utc::now().timestamp_millis();
-        let p = create_platform(&db, sample_platform("ts")).unwrap();
+        let p = create_platform(&db, sample_platform("ts")).await.unwrap();
         let after = chrono::Utc::now().timestamp_millis();
         // 毫秒级：> 1e12（2001 年之后），且落在 before..=after 区间
         assert!(p.created_at > 1_000_000_000_000, "created_at not ms-level: {}", p.created_at);
@@ -1932,79 +1931,77 @@ mod tests {
     }
 
     // ── R9 软删除：delete 后 deleted_at>0；list 不含；get 返回 None ──
-    #[test]
-    fn r9_soft_delete_platform() {
-        let db = test_db();
-        let p = create_platform(&db, sample_platform("del")).unwrap();
-        assert_eq!(list_platforms(&db).unwrap().len(), 1);
+    #[tokio::test]
+    async fn r9_soft_delete_platform() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("del")).await.unwrap();
+        assert_eq!(list_platforms(&db).await.unwrap().len(), 1);
 
-        delete_platform(&db, p.id).unwrap();
+        delete_platform(&db, p.id).await.unwrap();
 
         // list 不返回已删行
-        assert_eq!(list_platforms(&db).unwrap().len(), 0);
+        assert_eq!(list_platforms(&db).await.unwrap().len(), 0);
         // get 返回 None
-        assert!(get_platform(&db, p.id).unwrap().is_none());
+        assert!(get_platform(&db, p.id).await.unwrap().is_none());
 
         // 行仍存在且 deleted_at > 0（物理保留）
-        let conn = db.0.lock().unwrap();
-        let deleted_at: i64 = conn
-            .query_row("SELECT deleted_at FROM platform WHERE id = ?1", params![p.id as i64], |r| r.get(0))
-            .unwrap();
+        let pid = p.id as i64;
+        let deleted_at: i64 = db.0.call(move |conn| {
+            Ok(conn.query_row("SELECT deleted_at FROM platform WHERE id = ?1", params![pid], |r| r.get(0))?)
+        }).await.unwrap();
         assert!(deleted_at > 0, "deleted_at should be set, got {deleted_at}");
     }
 
     // ── R10 禁 NULL：未提供 extra 时为空串而非 NULL ──
-    #[test]
-    fn r10_no_null_defaults() {
-        let db = test_db();
-        let p = create_platform(&db, sample_platform("nn")).unwrap();
+    #[tokio::test]
+    async fn r10_no_null_defaults() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("nn")).await.unwrap();
         assert_eq!(p.extra, "");
 
-        let g = create_group(&db, sample_group("g", "/g", vec![])).unwrap();
+        let g = create_group(&db, sample_group("g", "/g", vec![])).await.unwrap();
         assert_eq!(g.auto_from_platform, "");
         assert_eq!(g.model_mappings.len(), 0);
 
         // 直接断言列值非 NULL
-        let conn = db.0.lock().unwrap();
-        let null_count: i64 = conn
-            .query_row(
+        let (null_count, g_null): (i64, i64) = db.0.call(|conn| {
+            let null_count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM platform WHERE extra IS NULL OR base_url IS NULL OR api_key IS NULL",
                 [],
                 |r| r.get(0),
-            )
-            .unwrap();
-        assert_eq!(null_count, 0, "no platform column should be NULL");
-        let g_null: i64 = conn
-            .query_row(
+            )?;
+            let g_null: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM \"group\" WHERE auto_from_platform IS NULL OR model_mappings IS NULL OR source_protocol IS NULL",
                 [],
                 |r| r.get(0),
-            )
-            .unwrap();
+            )?;
+            Ok((null_count, g_null))
+        }).await.unwrap();
+        assert_eq!(null_count, 0, "no platform column should be NULL");
         assert_eq!(g_null, 0, "no group column should be NULL");
     }
 
     // ── R3 platform_type 列（protocol 改名）往返 ──
-    #[test]
-    fn r3_platform_type_roundtrip() {
-        let db = test_db();
+    #[tokio::test]
+    async fn r3_platform_type_roundtrip() {
+        let db = test_db().await;
         let mut input = sample_platform("pt");
         input.platform_type = Protocol::Glm;
-        let p = create_platform(&db, input).unwrap();
-        let fetched = get_platform(&db, p.id).unwrap().unwrap();
+        let p = create_platform(&db, input).await.unwrap();
+        let fetched = get_platform(&db, p.id).await.unwrap().unwrap();
         assert_eq!(fetched.platform_type, Protocol::Glm);
         // 列名为 platform_type（间接：能写入该列即证明列存在）
-        let conn = db.0.lock().unwrap();
-        let stored: String = conn
-            .query_row("SELECT platform_type FROM platform WHERE id = ?1", params![p.id as i64], |r| r.get(0))
-            .unwrap();
+        let pid = p.id as i64;
+        let stored: String = db.0.call(move |conn| {
+            Ok(conn.query_row("SELECT platform_type FROM platform WHERE id = ?1", params![pid], |r| r.get(0))?)
+        }).await.unwrap();
         assert_eq!(stored, "\"glm\"");
     }
 
     // ── R4 / D4 model_mappings 内联 JSON 往返 ──
-    #[test]
-    fn r4_group_model_mappings_inline_roundtrip() {
-        let db = test_db();
+    #[tokio::test]
+    async fn r4_group_model_mappings_inline_roundtrip() {
+        let db = test_db().await;
         let mappings = vec![
             ModelMapping {
                 source_model: "claude-sonnet-4".to_string(),
@@ -2021,9 +2018,9 @@ mod tests {
                 connect_timeout_secs: 0,
             },
         ];
-        let g = create_group(&db, sample_group("mm", "/mm", mappings)).unwrap();
+        let g = create_group(&db, sample_group("mm", "/mm", mappings)).await.unwrap();
 
-        let fetched = get_group(&db, g.id).unwrap().unwrap();
+        let fetched = get_group(&db, g.id).await.unwrap().unwrap();
         assert_eq!(fetched.model_mappings.len(), 2);
         assert_eq!(fetched.model_mappings[0].source_model, "claude-sonnet-4");
         // target_platform_id 为 u64
@@ -2035,9 +2032,9 @@ mod tests {
     }
 
     // ── R4 model_mappings 来自 group 字段（get_group_detail）──
-    #[test]
-    fn r4_group_detail_mappings_from_group_field() {
-        let db = test_db();
+    #[tokio::test]
+    async fn r4_group_detail_mappings_from_group_field() {
+        let db = test_db().await;
         let mappings = vec![ModelMapping {
             source_model: "src".to_string(),
             target_platform_id: 3,
@@ -2045,9 +2042,9 @@ mod tests {
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
         }];
-        let g = create_group(&db, sample_group("d", "/d", mappings)).unwrap();
+        let g = create_group(&db, sample_group("d", "/d", mappings)).await.unwrap();
         // 该分组无关联平台 → get_group_platforms join 为空，规避遗留 BUG-1（见任务遗留）
-        let detail = get_group_detail(&db, g.id).unwrap().unwrap();
+        let detail = get_group_detail(&db, g.id).await.unwrap().unwrap();
         // detail.model_mappings 来自 group 内联字段（逐字段一致）
         assert_eq!(detail.model_mappings.len(), 1);
         assert_eq!(detail.model_mappings.len(), detail.group.model_mappings.len());
@@ -2057,9 +2054,9 @@ mod tests {
     }
 
     // ── R8 proxy_log 主键 TEXT hex32（无连字符），软删 + retention ──
-    #[test]
-    fn r8_proxy_log_uuid_no_hyphen_and_retention() {
-        let db = test_db();
+    #[tokio::test]
+    async fn r8_proxy_log_uuid_no_hyphen_and_retention() {
+        let db = test_db().await;
         // hex32 无连字符 id（模拟生产生成方式 uuid simple）
         let new_id = uuid::Uuid::new_v4().simple().to_string();
         assert_eq!(new_id.len(), 32, "simple uuid should be 32 hex chars");
@@ -2067,33 +2064,33 @@ mod tests {
 
         let now_ms = chrono::Utc::now().timestamp_millis();
         // 一条最近日志
-        upsert_proxy_log(&db, &sample_log(&new_id, "g", now_ms)).unwrap();
+        upsert_proxy_log(&db, &sample_log(&new_id, "g", now_ms)).await.unwrap();
         // 一条很旧的日志（100 天前）
         let old_id = uuid::Uuid::new_v4().simple().to_string();
         let old_ms = now_ms - 100 * 86_400_000;
-        upsert_proxy_log(&db, &sample_log(&old_id, "g", old_ms)).unwrap();
+        upsert_proxy_log(&db, &sample_log(&old_id, "g", old_ms)).await.unwrap();
 
-        assert_eq!(count_proxy_logs(&db).unwrap(), 2);
+        assert_eq!(count_proxy_logs(&db).await.unwrap(), 2);
 
         // retention 30 天：旧日志被软删
-        cleanup_proxy_logs(&db, 30).unwrap();
-        assert_eq!(count_proxy_logs(&db).unwrap(), 1);
-        assert!(get_proxy_log(&db, &old_id).unwrap().is_none());
-        assert!(get_proxy_log(&db, &new_id).unwrap().is_some());
+        cleanup_proxy_logs(&db, 30).await.unwrap();
+        assert_eq!(count_proxy_logs(&db).await.unwrap(), 1);
+        assert!(get_proxy_log(&db, &old_id).await.unwrap().is_none());
+        assert!(get_proxy_log(&db, &new_id).await.unwrap().is_some());
 
         // proxy_log 主键存储原样 TEXT
-        let fetched = get_proxy_log(&db, &new_id).unwrap().unwrap();
+        let fetched = get_proxy_log(&db, &new_id).await.unwrap().unwrap();
         assert_eq!(fetched.id, new_id);
         assert!(fetched.created_at > 1_000_000_000_000);
     }
 
     // ── D3 复合唯一约束：group_platform 加代理主键 + UNIQUE(group_id, platform_id) ──
-    #[test]
-    fn d3_group_platform_proxy_pk_and_unique() {
-        let db = test_db();
-        let p1 = create_platform(&db, sample_platform("a")).unwrap();
-        let p2 = create_platform(&db, sample_platform("b")).unwrap();
-        let g = create_group(&db, sample_group("g", "/g", vec![])).unwrap();
+    #[tokio::test]
+    async fn d3_group_platform_proxy_pk_and_unique() {
+        let db = test_db().await;
+        let p1 = create_platform(&db, sample_platform("a")).await.unwrap();
+        let p2 = create_platform(&db, sample_platform("b")).await.unwrap();
+        let g = create_group(&db, sample_group("g", "/g", vec![])).await.unwrap();
 
         set_group_platforms(
             &db,
@@ -2102,49 +2099,48 @@ mod tests {
                 GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1) },
                 GroupPlatformInput { platform_id: p2.id, priority: Some(1), weight: Some(2) },
             ],
-        )
+        ).await
         .unwrap();
 
-        let details = get_group_platforms(&db, g.id).unwrap();
+        let details = get_group_platforms(&db, g.id).await.unwrap();
         assert_eq!(details.len(), 2);
 
         // 代理主键 id 存在且自增
-        let conn = db.0.lock().unwrap();
-        let ids: Vec<i64> = conn
-            .prepare("SELECT id FROM group_platform ORDER BY id")
-            .unwrap()
-            .query_map([], |r| r.get(0))
-            .unwrap()
-            .filter_map(|r| r.ok())
-            .collect();
+        let ids: Vec<i64> = db.0.call(|conn| {
+            Ok(conn
+                .prepare("SELECT id FROM group_platform ORDER BY id")?
+                .query_map([], |r| r.get(0))?
+                .filter_map(|r| r.ok())
+                .collect())
+        }).await.unwrap();
         assert_eq!(ids.len(), 2);
         assert!(ids[0] >= 1 && ids[1] > ids[0]);
     }
 
     // ── setting 软删除 + upsert ──
-    #[test]
-    fn setting_upsert_and_soft_delete() {
-        let db = test_db();
+    #[tokio::test]
+    async fn setting_upsert_and_soft_delete() {
+        let db = test_db().await;
         set_setting(&db, SetSettingInput {
             scope: "proxy".to_string(),
             key: "logging".to_string(),
             value: serde_json::json!({"enabled": true}),
-        }).unwrap();
-        assert_eq!(list_setting_keys(&db, "proxy").unwrap(), vec!["logging".to_string()]);
-        let v = get_setting(&db, "proxy", "logging").unwrap().unwrap();
+        }).await.unwrap();
+        assert_eq!(list_setting_keys(&db, "proxy").await.unwrap(), vec!["logging".to_string()]);
+        let v = get_setting(&db, "proxy", "logging").await.unwrap().unwrap();
         assert_eq!(v["enabled"], serde_json::json!(true));
 
-        delete_setting(&db, "proxy", "logging").unwrap();
-        assert!(get_setting(&db, "proxy", "logging").unwrap().is_none());
-        assert_eq!(list_setting_keys(&db, "proxy").unwrap().len(), 0);
+        delete_setting(&db, "proxy", "logging").await.unwrap();
+        assert!(get_setting(&db, "proxy", "logging").await.unwrap().is_none());
+        assert_eq!(list_setting_keys(&db, "proxy").await.unwrap().len(), 0);
     }
 
     // ─── Tray Config ───────────────────────────────────────
 
     /// TrayConfig serde 往返：写入后读回各字段一致（separator/items 颜色三态/字号/line_mode/排序）。
-    #[test]
-    fn tray_config_serde_roundtrip() {
-        let db = test_db();
+    #[tokio::test]
+    async fn tray_config_serde_roundtrip() {
+        let db = test_db().await;
         let cfg = TrayConfig {
             separator: " | ".to_string(),
             items: vec![
@@ -2180,8 +2176,8 @@ decimals: None,
                 },
             ],
         };
-        set_tray_config(&db, &cfg).unwrap();
-        let got = get_tray_config(&db).unwrap().expect("config present");
+        set_tray_config(&db, &cfg).await.unwrap();
+        let got = get_tray_config(&db).await.unwrap().expect("config present");
         assert_eq!(got.separator, " | ");
         assert_eq!(got.items.len(), 2);
         assert_eq!(got.items[0].item_type, "platform");
@@ -2202,24 +2198,24 @@ decimals: None,
     }
 
     /// 迁移：无 tray config 且无旧 show_in_tray 平台 → 生成空配置并持久化（避免重复迁移）。
-    #[test]
-    fn tray_config_migrate_empty() {
-        let db = test_db();
+    #[tokio::test]
+    async fn tray_config_migrate_empty() {
+        let db = test_db().await;
         // 首次读取触发迁移；无旧平台 → 空 items。
-        let cfg = get_tray_config(&db).unwrap().expect("migrated config");
+        let cfg = get_tray_config(&db).await.unwrap().expect("migrated config");
         assert_eq!(cfg.items.len(), 0);
         // 已持久化：settings 中应存在 tray/config。
-        assert!(get_setting(&db, "tray", "config").unwrap().is_some());
+        assert!(get_setting(&db, "tray", "config").await.unwrap().is_some());
     }
 
     /// 迁移：旧 show_in_tray=1 平台 → 生成默认 platform item（保留 tray_display）。
-    #[test]
-    fn tray_config_migrate_from_legacy_platform() {
-        let db = test_db();
-        let p = create_platform(&db, sample_platform("legacy")).unwrap();
-        set_tray_platform(&db, p.id, "coding").unwrap();
+    #[tokio::test]
+    async fn tray_config_migrate_from_legacy_platform() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("legacy")).await.unwrap();
+        set_tray_platform(&db, p.id, "coding").await.unwrap();
 
-        let cfg = get_tray_config(&db).unwrap().expect("migrated config");
+        let cfg = get_tray_config(&db).await.unwrap().expect("migrated config");
         assert_eq!(cfg.items.len(), 1, "应从旧平台生成 1 个 platform item");
         let item = &cfg.items[0];
         assert_eq!(item.item_type, "platform");
@@ -2229,9 +2225,9 @@ decimals: None,
     }
 
     /// 迁移：旧全局 layout=two_line → 各 item line_mode="two"；缺 line_mode 字段时按 serde default "single"。
-    #[test]
-    fn tray_config_migrate_legacy_layout() {
-        let db = test_db();
+    #[tokio::test]
+    async fn tray_config_migrate_legacy_layout() {
+        let db = test_db().await;
         // 模拟旧版本写入：含全局 layout 字段，item 无 line_mode 字段。
         let legacy = serde_json::json!({
             "layout": "two_line",
@@ -2246,17 +2242,17 @@ decimals: None,
             scope: "tray".to_string(),
             key: "config".to_string(),
             value: legacy,
-        }).unwrap();
+        }).await.unwrap();
 
-        let cfg = get_tray_config(&db).unwrap().expect("config present");
+        let cfg = get_tray_config(&db).await.unwrap().expect("config present");
         assert_eq!(cfg.items.len(), 1);
         // 旧全局 two_line → item line_mode="two"。
         assert_eq!(cfg.items[0].line_mode, "two");
     }
 
     /// serde default：缺 line_mode 字段 → "two"（default_line_mode）。
-    #[test]
-    fn tray_item_line_mode_serde_default() {
+    #[tokio::test]
+    async fn tray_item_line_mode_serde_default() {
         let raw = serde_json::json!({
             "item_type": "platform", "platform_id": 1, "display": "balance",
             "color": { "mode": "follow", "value": "" }, "font_size": 9.0,
@@ -2267,18 +2263,69 @@ decimals: None,
     }
 
     /// today_token_total：仅统计今日（本地 0 点起）未删除日志的 input+output。
-    #[test]
-    fn today_token_total_sums_today_only() {
+    #[tokio::test]
+    async fn today_token_total_sums_today_only() {
         use chrono::{Local, Duration};
-        let db = test_db();
+        let db = test_db().await;
         let now_ms = now();
         // 今日两条：(10+20) + (10+20) = 60
-        upsert_proxy_log(&db, &sample_log("a", "g", now_ms)).unwrap();
-        upsert_proxy_log(&db, &sample_log("b", "g", now_ms)).unwrap();
+        upsert_proxy_log(&db, &sample_log("a", "g", now_ms)).await.unwrap();
+        upsert_proxy_log(&db, &sample_log("b", "g", now_ms)).await.unwrap();
         // 昨日一条：不计入。
         let yesterday_ms = (Local::now() - Duration::days(1)).timestamp_millis();
-        upsert_proxy_log(&db, &sample_log("c", "g", yesterday_ms)).unwrap();
+        upsert_proxy_log(&db, &sample_log("c", "g", yesterday_ms)).await.unwrap();
 
-        assert_eq!(today_token_total(&db).unwrap(), 60);
+        assert_eq!(today_token_total(&db).await.unwrap(), 60);
+    }
+
+    // ── S1 async DB：增删改查全路径（内存库，验证 tokio-rusqlite 闭包往返）──
+    #[tokio::test]
+    async fn s1_async_platform_crud_roundtrip() {
+        let db = test_db().await;
+        // create
+        let mut input = sample_platform("crud");
+        input.base_url = "https://crud.example/v1".to_string();
+        let created = create_platform(&db, input).await.unwrap();
+        assert!(created.id >= 1);
+
+        // read (list + get)
+        assert_eq!(list_platforms(&db).await.unwrap().len(), 1);
+        let got = get_platform(&db, created.id).await.unwrap().unwrap();
+        assert_eq!(got.base_url, "https://crud.example/v1");
+
+        // update
+        let updated = update_platform(&db, UpdatePlatform {
+            id: created.id,
+            name: None,
+            platform_type: None,
+            base_url: Some("https://crud.example/v2".to_string()),
+            api_key: None,
+            extra: None,
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            manual_budgets: None,
+        }).await.unwrap();
+        assert_eq!(updated.base_url, "https://crud.example/v2");
+        assert_eq!(get_platform(&db, created.id).await.unwrap().unwrap().base_url, "https://crud.example/v2");
+
+        // delete（软删）→ list 不含、get None
+        delete_platform(&db, created.id).await.unwrap();
+        assert_eq!(list_platforms(&db).await.unwrap().len(), 0);
+        assert!(get_platform(&db, created.id).await.unwrap().is_none());
+    }
+
+    // ── S1 async DB：OptionalExtension 路径（query_row().optional() 在闭包内）──
+    #[tokio::test]
+    async fn s1_async_optional_extension_returns_none_for_missing() {
+        let db = test_db().await;
+        // 不存在的 id → get_platform 走 query_row().optional() 返回 None（非 Err）
+        assert!(get_platform(&db, 99_999).await.unwrap().is_none());
+        // 存在则返回 Some
+        let p = create_platform(&db, sample_platform("opt")).await.unwrap();
+        assert!(get_platform(&db, p.id).await.unwrap().is_some());
+        // get_setting 同样走 optional()：缺键 None
+        assert!(get_setting(&db, "nope", "nope").await.unwrap().is_none());
     }
 }

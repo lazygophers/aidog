@@ -7,7 +7,6 @@ use axum::{
     Json, Router,
 };
 use futures::StreamExt;
-use reqwest::Client; // used in tests
 use serde_json::Value;
 use std::sync::Arc;
 
@@ -18,8 +17,9 @@ use super::models::{ClientType, Group, Protocol, ProxyLog, ProxyLogSettings, Pro
 use super::router::select_platform;
 
 /// 从 DB 读取 app locale，失败则回退英文
-fn get_lang(db: &Arc<Db>) -> Lang {
+async fn get_lang(db: &Arc<Db>) -> Lang {
     super::db::get_setting(db, "app", "locale")
+        .await
         .ok()
         .flatten()
         .and_then(|v| v.get("locale").and_then(|s| s.as_str()).map(String::from))
@@ -137,7 +137,7 @@ async fn handle_group_info(
     };
 
     // 定位分组
-    let groups = match super::db::list_groups(&state.db) {
+    let groups = match super::db::list_groups(&state.db).await {
         Ok(g) => g,
         Err(_) => return (StatusCode::OK, Json(empty())).into_response(),
     };
@@ -147,7 +147,7 @@ async fn handle_group_info(
     };
 
     // 关联平台 —— 恰好 1 个才适用
-    let platforms = match super::db::get_group_platforms(&state.db, group.id) {
+    let platforms = match super::db::get_group_platforms(&state.db, group.id).await {
         Ok(p) => p,
         Err(_) => return (StatusCode::OK, Json(empty())).into_response(),
     };
@@ -157,7 +157,7 @@ async fn handle_group_info(
     let platform = &platforms[0].platform;
 
     // usage 统计（复用现有 db 查询，只读）
-    let stats = super::db::get_group_usage_stats(&state.db, &group.name).unwrap_or(
+    let stats = super::db::get_group_usage_stats(&state.db, &group.name).await.unwrap_or(
         super::models::PlatformUsageStats {
             total_requests: 0,
             success_count: 0,
@@ -237,7 +237,7 @@ async fn handle_group_info(
 
     // 余额可用天数：近 7 天日均花费 = spent_7d / 7；无花费 / 无余额 → null。
     let balance_days_remaining = {
-        let spent_7d = super::db::get_group_spent_since(&state.db, &group.name, 7).unwrap_or(0.0);
+        let spent_7d = super::db::get_group_spent_since(&state.db, &group.name, 7).await.unwrap_or(0.0);
         let daily = spent_7d / 7.0;
         if daily > 0.0 && balance > 0.0 {
             Some(balance / daily)
@@ -263,8 +263,9 @@ async fn handle_group_info(
 }
 
 /// Read proxy log settings from DB
-fn get_log_settings(db: &Db) -> ProxyLogSettings {
+async fn get_log_settings(db: &Db) -> ProxyLogSettings {
     super::db::get_setting(db, "proxy", "logging")
+        .await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
@@ -274,7 +275,7 @@ fn get_log_settings(db: &Db) -> ProxyLogSettings {
 /// Upsert a proxy log entry; silently ignore errors.
 /// Respects ProxyLogSettings: if logging disabled, does nothing;
 /// if user/upstream recording disabled, clears those fields before writing.
-fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettings) {
+async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettings) {
     if !settings.enabled {
         return;
     }
@@ -297,6 +298,7 @@ fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettin
         // best-effort 取平台主类型的 serde 裸名（如 "deepseek"）以启用 pricing[platform_type] override；
         // 拿不到则传 ""，calc_est_cost 的 fallback 回退链仍保证非 0。
         let platform_type = super::db::get_platform(&state.db, log.platform_id)
+            .await
             .ok()
             .flatten()
             .map(|p| serde_json::to_string(&p.platform_type).unwrap_or_default().trim_matches('"').to_string())
@@ -308,9 +310,10 @@ fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettin
             log.input_tokens,
             log.output_tokens,
             log.cache_tokens,
-        );
+        )
+        .await;
     }
-    if super::db::upsert_proxy_log(&state.db, &log).is_ok() {
+    if super::db::upsert_proxy_log(&state.db, &log).await.is_ok() {
         // 日志写库成功后通知前端三页（Platforms/Groups/Stats）实时刷新统计。
         // 同时通知托盘刷新今日统计（请求数、Token、费用等）。
         // app handle 为 None（无 GUI 上下文）时安全跳过，不影响代理逻辑。
@@ -372,8 +375,9 @@ fn spawn_estimate(
 }
 
 /// Read system-level timeout settings from DB
-fn get_system_timeout(db: &Db) -> ProxyTimeoutSettings {
+async fn get_system_timeout(db: &Db) -> ProxyTimeoutSettings {
     super::db::get_setting(db, "proxy", "timeout")
+        .await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
@@ -413,7 +417,7 @@ async fn handle_proxy(
     let created_at = super::db::now();
 
     // Load log settings once per request
-    let log_settings = get_log_settings(&state.db);
+    let log_settings = get_log_settings(&state.db).await;
 
     // ── 初始化日志条目 ──
     let mut log = ProxyLog {
@@ -447,7 +451,7 @@ async fn handle_proxy(
     };
 
     // ── 读取当前语言（用于错误消息翻译） ──
-    let lang = get_lang(&state.db);
+    let lang = get_lang(&state.db).await;
 
     // ── 捕获请求头 ──
     log.request_headers = {
@@ -490,7 +494,7 @@ async fn handle_proxy(
             log.response_body = format!("read body error: {e}");
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(&state, &log, &log_settings);
+            upsert_log(&state, &log, &log_settings).await;
             return (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::ReadBody))).into_response();
         }
     };
@@ -504,24 +508,24 @@ async fn handle_proxy(
     log.model = raw_model.clone();
 
     // Upsert #1: request received
-    upsert_log(&state, &log, &log_settings);
+    upsert_log(&state, &log, &log_settings).await;
 
     // ── 查找分组 ──
     let group = {
-        match resolve_group(&state.db, auth_header.as_deref(), &path) {
+        match resolve_group(&state.db, auth_header.as_deref(), &path).await {
             Some(g) => g,
             None => {
                 if let Some(ref token) = auth_header {
                     log.response_body = format!("no matching group for token '{}' or path '{}'", token, path);
                     log.status_code = 404;
                     log.duration_ms = start.elapsed().as_millis() as i32;
-                    upsert_log(&state, &log, &log_settings);
+                    upsert_log(&state, &log, &log_settings).await;
                     return (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
                 } else {
                     log.response_body = "no matching group".to_string();
                     log.status_code = 404;
                     log.duration_ms = start.elapsed().as_millis() as i32;
-                    upsert_log(&state, &log, &log_settings);
+                    upsert_log(&state, &log, &log_settings).await;
                     return (StatusCode::NOT_FOUND, i18n::t(lang, ErrorKey::NoMatchingGroup)).into_response();
                 }
             }
@@ -533,7 +537,7 @@ async fn handle_proxy(
     // Auto-detect source_protocol from request path (group no longer restricts inbound protocol)
     let source_protocol = detect_source_protocol(&path);
     log.source_protocol = source_protocol.clone();
-    upsert_log(&state, &log, &log_settings);
+    upsert_log(&state, &log, &log_settings).await;
 
     // ── 解析 ChatRequest（按入站协议解析） ──
     let req_value: serde_json::Value = match serde_json::from_slice(&bytes) {
@@ -542,7 +546,7 @@ async fn handle_proxy(
             log.response_body = format!("parse request json error: {e}");
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(&state, &log, &log_settings);
+            upsert_log(&state, &log, &log_settings).await;
             return (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::ParseJson))).into_response();
         }
     };
@@ -552,7 +556,7 @@ async fn handle_proxy(
             log.response_body = "failed to parse request for protocol".to_string();
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(&state, &log, &log_settings);
+            upsert_log(&state, &log, &log_settings).await;
             return (StatusCode::BAD_REQUEST, i18n::t(lang, ErrorKey::ParseRequest)).into_response();
         }
     };
@@ -562,14 +566,14 @@ async fn handle_proxy(
     log.model = requested_model.clone();
 
     // ── 路由选择平台 + 模型映射 ──
-    let route = select_platform(&state.db, &group, &chat_req.model);
+    let route = select_platform(&state.db, &group, &chat_req.model).await;
     let route = match route {
         Ok(r) => r,
         Err(e) => {
             log.response_body = format!("route error: {e}");
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(&state, &log, &log_settings);
+            upsert_log(&state, &log, &log_settings).await;
             return (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
         }
     };
@@ -601,7 +605,7 @@ async fn handle_proxy(
     log.actual_model = actual_model.clone();
     log.target_protocol = target_protocol.clone();
     log.platform_id = route.platform.id;
-    upsert_log(&state, &log, &log_settings);
+    upsert_log(&state, &log, &log_settings).await;
 
     // 替换模型名
     chat_req.model = actual_model.clone();
@@ -635,7 +639,7 @@ async fn handle_proxy(
         log.user_response_body = body.clone();
         log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
         log.duration_ms = start.elapsed().as_millis() as i32;
-        upsert_log(&state, &log, &log_settings);
+        upsert_log(&state, &log, &log_settings).await;
         return (
             StatusCode::PAYMENT_REQUIRED,
             [(axum::http::header::CONTENT_TYPE, "application/json")],
@@ -696,12 +700,12 @@ async fn handle_proxy(
     log.upstream_request_url = url.clone();
 
     // ── 解析超时：模型 > 分组 > 系统 ──
-    let system_timeout = get_system_timeout(&state.db);
+    let system_timeout = get_system_timeout(&state.db).await;
     let (req_timeout, conn_timeout) = resolve_timeout(&route.mapping, &group, &system_timeout);
     let client = super::http_client::build_http_client(
         &state.db, req_timeout, conn_timeout,
         Some(&route.platform.extra), None,
-    );
+    ).await;
 
     // ── 构建上游请求头（用于日志记录） ──
     let upstream_headers = build_upstream_headers(&client_type, target_protocol_enum, &route.platform.api_key);
@@ -728,7 +732,7 @@ async fn handle_proxy(
             log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
             log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(&state, &log, &log_settings);
+            upsert_log(&state, &log, &log_settings).await;
             return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
         }
     };
@@ -754,7 +758,7 @@ async fn handle_proxy(
         log.user_response_body = body.clone();
         log.user_response_headers = log.upstream_response_headers.clone();
         log.duration_ms = start.elapsed().as_millis() as i32;
-        upsert_log(&state, &log, &log_settings);
+        upsert_log(&state, &log, &log_settings).await;
         return (StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY), body)
             .into_response();
     }
@@ -781,7 +785,7 @@ async fn handle_proxy(
         log.user_response_body = String::from_utf8_lossy(&body).to_string();
         log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
 
-        upsert_log(&state, &log, &log_settings);
+        upsert_log(&state, &log, &log_settings).await;
 
         // ── 请求驱动预估（后台，不阻塞响应）──
         spawn_estimate(
@@ -869,7 +873,12 @@ async fn handle_proxy(
                         final_log.cache_tokens = done_cache.load(std::sync::atomic::Ordering::Relaxed);
                         final_log.status_code = 200;
                         final_log.duration_ms = done_start.elapsed().as_millis() as i32;
-                        upsert_log(&done_state, &final_log, &done_settings);
+                        // 同步 stream 闭包内不可 await → fire-and-forget spawn 异步回写日志。
+                        let upsert_state = done_state.clone();
+                        let upsert_settings = done_settings.clone();
+                        tokio::spawn(async move {
+                            upsert_log(&upsert_state, &final_log, &upsert_settings).await;
+                        });
 
                         spawn_estimate(
                             &est_state,
@@ -937,7 +946,7 @@ async fn handle_proxy(
     log.input_tokens = tokens_acc.load(std::sync::atomic::Ordering::Relaxed);
     log.output_tokens = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
     log.cache_tokens = tokens_cache.load(std::sync::atomic::Ordering::Relaxed);
-    upsert_log(&state, &log, &log_settings);
+    upsert_log(&state, &log, &log_settings).await;
 
     (
         StatusCode::OK,
@@ -990,7 +999,7 @@ async fn handle_mock(
             log.response_body = body_str.clone();
             log.user_response_body = body_str.clone();
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
-            upsert_log(&state, &log, &log_settings);
+            upsert_log(&state, &log, &log_settings).await;
             return (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response();
         }
         "rate_limit_429" => {
@@ -1001,7 +1010,7 @@ async fn handle_mock(
             log.response_body = body_str.clone();
             log.user_response_body = body_str.clone();
             log.user_response_headers = r#"{"content-type":"application/json","retry-after":"5"}"#.to_string();
-            upsert_log(&state, &log, &log_settings);
+            upsert_log(&state, &log, &log_settings).await;
             return (
                 StatusCode::TOO_MANY_REQUESTS,
                 [
@@ -1022,7 +1031,7 @@ async fn handle_mock(
             log.response_body = body_str.clone();
             log.user_response_body = body_str.clone();
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
-            upsert_log(&state, &log, &log_settings);
+            upsert_log(&state, &log, &log_settings).await;
             return (StatusCode::GATEWAY_TIMEOUT, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str)
                 .into_response();
         }
@@ -1032,8 +1041,8 @@ async fn handle_mock(
     // 手动预算扣减（mock 也按用量预估扣减，与上游平台一致；仅成功路径，错误模式上方已 return）
     let mb_total = (log.input_tokens + log.output_tokens + log.cache_tokens) as f64;
     if mb_total > 0.0 {
-        let est = super::db::calc_est_cost(&state.db, &log.actual_model, "mock", log.input_tokens, log.output_tokens, log.cache_tokens);
-        let _ = super::manual_budget::apply_manual_budgets(&state.db, log.platform_id, est, mb_total, super::db::now());
+        let est = super::db::calc_est_cost(&state.db, &log.actual_model, "mock", log.input_tokens, log.output_tokens, log.cache_tokens).await;
+        let _ = super::manual_budget::apply_manual_budgets(&state.db, log.platform_id, est, mb_total, super::db::now()).await;
     }
 
     // stream_override 优先于请求 is_stream
@@ -1056,7 +1065,7 @@ async fn handle_mock(
         log.response_body = "[mock stream]".to_string();
         log.user_response_body = "[mock stream]".to_string();
         log.user_response_headers = r#"{"content-type":"text/event-stream","cache-control":"no-cache","connection":"keep-alive"}"#.to_string();
-        upsert_log(&state, &log, &log_settings);
+        upsert_log(&state, &log, &log_settings).await;
 
         return (
             StatusCode::OK,
@@ -1079,7 +1088,7 @@ async fn handle_mock(
     log.response_body = body_str.clone();
     log.user_response_body = body_str.clone();
     log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
-    upsert_log(&state, &log, &log_settings);
+    upsert_log(&state, &log, &log_settings).await;
 
     (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response()
 }
@@ -1108,13 +1117,13 @@ async fn handle_passthrough(
     log.upstream_request_url = url.clone();
 
     // 解析超时（系统级；透传无 group/model mapping 覆盖）
-    let system_timeout = get_system_timeout(&state.db);
+    let system_timeout = get_system_timeout(&state.db).await;
     let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 300 };
     let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
     let client = super::http_client::build_http_client(
         &state.db, req_timeout, conn_timeout,
         None, None,
-    );
+    ).await;
 
     // 原样转发 header，剔除 hop-by-hop（Host / Content-Length 由 reqwest 按目标 URL + body 重设）
     let fwd_headers = passthrough_headers(&orig_headers);
@@ -1148,7 +1157,7 @@ async fn handle_passthrough(
             log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
             log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(state, log, log_settings);
+            upsert_log(state, log, log_settings).await;
             return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
         }
     };
@@ -1212,7 +1221,7 @@ async fn handle_passthrough(
         log.cache_tokens = cache_tokens;
         log.user_response_body = resp_str;
         log.user_response_headers = log.upstream_response_headers.clone();
-        upsert_log(state, log, log_settings);
+        upsert_log(state, log, log_settings).await;
 
         let mut response = (resp_status, body.to_vec()).into_response();
         *response.headers_mut() = resp_header_map;
@@ -1257,7 +1266,7 @@ async fn handle_passthrough(
     log.input_tokens = tokens_in.load(std::sync::atomic::Ordering::Relaxed);
     log.output_tokens = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
     log.cache_tokens = tokens_cache.load(std::sync::atomic::Ordering::Relaxed);
-    upsert_log(state, log, log_settings);
+    upsert_log(state, log, log_settings).await;
 
     let mut response = (resp_status, body).into_response();
     *response.headers_mut() = resp_header_map;
@@ -1419,8 +1428,8 @@ fn detect_source_protocol(path: &str) -> String {
 /// 在已取出的分组列表中按 group name 精确匹配，匹配不到再按 path 前缀匹配。
 /// 单次 list_groups → 同一 Vec 上跑两种匹配，避免热路径重复全表读 + 重复 mappings JSON 解析。
 /// 行为等价于原「先 name 后 path」优先级。
-fn resolve_group(db: &Db, name: Option<&str>, request_path: &str) -> Option<Group> {
-    let groups = super::db::list_groups(db).ok()?;
+async fn resolve_group(db: &Db, name: Option<&str>, request_path: &str) -> Option<Group> {
+    let groups = super::db::list_groups(db).await.ok()?;
     if let Some(name) = name {
         if let Some(idx) = groups.iter().position(|g| g.name == name) {
             return groups.into_iter().nth(idx);

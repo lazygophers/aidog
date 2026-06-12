@@ -5,8 +5,9 @@ use std::sync::Arc;
 use std::time::Duration;
 
 /// Load system proxy client settings from DB.
-pub fn load_proxy_client_settings(db: &Arc<Db>) -> ProxyClientSettings {
+pub async fn load_proxy_client_settings(db: &Arc<Db>) -> ProxyClientSettings {
     super::db::get_setting(db, "proxy", "proxy_client")
+        .await
         .ok()
         .flatten()
         .and_then(|v| serde_json::from_value(v).ok())
@@ -29,14 +30,14 @@ pub fn platform_proxy_enabled(extra: &str) -> Option<bool> {
 /// - `None` = check system proxy + platform `proxy_enabled`
 /// - `Some(true)` = always use system proxy if configured
 /// - `Some(false)` = never use proxy
-pub fn build_http_client(
+pub async fn build_http_client(
     db: &Arc<Db>,
     timeout_secs: u64,
     conn_timeout_secs: u64,
     platform_extra: Option<&str>,
     force_proxy: Option<bool>,
 ) -> reqwest::Client {
-    let settings = load_proxy_client_settings(db);
+    let settings = load_proxy_client_settings(db).await;
 
     let use_proxy = match force_proxy {
         Some(v) => v && settings.enabled,
@@ -65,10 +66,10 @@ pub fn build_http_client(
 }
 
 /// Convenience: build client without platform context (always follows system proxy).
-pub fn build_http_client_system(
+pub async fn build_http_client_system(
     db: &Arc<Db>,
     timeout_secs: u64,
     conn_timeout_secs: u64,
 ) -> reqwest::Client {
-    build_http_client(db, timeout_secs, conn_timeout_secs, None, None)
+    build_http_client(db, timeout_secs, conn_timeout_secs, None, None).await
 }
