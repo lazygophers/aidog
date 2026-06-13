@@ -178,6 +178,13 @@ impl Db {
                 // Migration 015: 内置预设中间件规则 seed（C4）。
                 // is_builtin=1 默认 enabled；幂等——按 (name, is_builtin=1) 唯一判定，已存在跳过（尊重用户禁用状态，不重新启用）。
                 seed_builtin_middleware_rules(conn)?;
+                // Migration 016: Platform 级熔断配置列（GA — group 智能调度与熔断器）。
+                // 0 = 继承全局 SchedulingBreakerSettings 默认（settings scope=scheduling）。
+                // 熔断与 auto_disabled 解耦：熔断临时(5xx/超时自动恢复)，状态在内存(scheduling.rs)不持久化；
+                // 本 3 列仅持久化阈值配置，运行态 BreakerState 不落库。
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_failure_threshold INTEGER NOT NULL DEFAULT 0", []);
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_open_secs INTEGER NOT NULL DEFAULT 0", []);
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_half_open_max INTEGER NOT NULL DEFAULT 0", []);
                 Ok(())
             })
             .await
@@ -373,11 +380,11 @@ fn retention_cutoff(days: u32) -> Option<i64> {
 
 /// SELECT 列序
 const PLATFORM_COLUMNS: &str =
-    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes";
+    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, breaker_failure_threshold, breaker_open_secs, breaker_half_open_max";
 
 /// 同 PLATFORM_COLUMNS，但每列加 `p.` 限定，用于与其他表 JOIN 时消除同名列歧义（如 created_at/updated_at）
 const PLATFORM_COLUMNS_PREFIXED: &str =
-    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display, p.sort_order, p.manual_budgets, p.status, p.auto_disabled_until, p.auto_disable_strikes";
+    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display, p.sort_order, p.manual_budgets, p.status, p.auto_disabled_until, p.auto_disable_strikes, p.breaker_failure_threshold, p.breaker_open_secs, p.breaker_half_open_max";
 
 /// 从查询行构造 Platform
 fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -410,6 +417,9 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         status: super::models::PlatformStatus::from_db_str(&row.get::<_, String>(20)?),
         auto_disabled_until: row.get::<_, i64>(21)?,
         auto_disable_strikes: row.get::<_, i64>(22)?,
+        breaker_failure_threshold: row.get::<_, i64>(23)? as u32,
+        breaker_open_secs: row.get::<_, i64>(24)? as u64,
+        breaker_half_open_max: row.get::<_, i64>(25)? as u32,
         balance_level: String::new(),
     })
 }
@@ -475,6 +485,9 @@ pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platf
         status: super::models::PlatformStatus::Enabled,
         auto_disabled_until: 0,
         auto_disable_strikes: 0,
+        breaker_failure_threshold: 0,
+        breaker_open_secs: 0,
+        breaker_half_open_max: 0,
         balance_level: String::new(),
     })
 }
@@ -569,6 +582,9 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
         status: new_status,
         auto_disabled_until,
         auto_disable_strikes,
+        breaker_failure_threshold: input.breaker_failure_threshold.unwrap_or(existing.breaker_failure_threshold),
+        breaker_open_secs: input.breaker_open_secs.unwrap_or(existing.breaker_open_secs),
+        breaker_half_open_max: input.breaker_half_open_max.unwrap_or(existing.breaker_half_open_max),
         manual_budgets,
         updated_at: now(),
         ..existing
@@ -589,11 +605,14 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
             let status_str = updated.status.as_db_str().to_string();
             let auto_disabled_until = updated.auto_disabled_until;
             let auto_disable_strikes = updated.auto_disable_strikes;
+            let breaker_failure_threshold = updated.breaker_failure_threshold as i64;
+            let breaker_open_secs = updated.breaker_open_secs as i64;
+            let breaker_half_open_max = updated.breaker_half_open_max as i64;
             let updated_at = updated.updated_at;
             let id = updated.id as i64;
             move |conn| {
                 conn.execute(
-                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14 WHERE id=?15",
+                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14, breaker_failure_threshold=?15, breaker_open_secs=?16, breaker_half_open_max=?17 WHERE id=?18",
                     params![
                         name,
                         platform_type_str,
@@ -609,6 +628,9 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
                         status_str,
                         auto_disabled_until,
                         auto_disable_strikes,
+                        breaker_failure_threshold,
+                        breaker_open_secs,
+                        breaker_half_open_max,
                         id,
                     ],
                 )?;
@@ -1354,6 +1376,9 @@ pub async fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlat
                     status: super::models::PlatformStatus::from_db_str(&row.get::<_, String>(22)?),
                     auto_disabled_until: row.get::<_, i64>(23)?,
                     auto_disable_strikes: row.get::<_, i64>(24)?,
+                    breaker_failure_threshold: row.get::<_, i64>(25)? as u32,
+                    breaker_open_secs: row.get::<_, i64>(26)? as u64,
+                    breaker_half_open_max: row.get::<_, i64>(27)? as u32,
                     balance_level: String::new(),
                 },
                 priority: row.get(0)?,
@@ -1631,6 +1656,15 @@ pub async fn get_middleware_settings(db: &Db) -> super::models::MiddlewareSettin
     match get_setting(db, "middleware", "settings").await {
         Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
         _ => super::models::MiddlewareSettings::default(),
+    }
+}
+
+/// 全局调度 + 熔断默认设置（settings scope=`scheduling`, key=`settings`）。
+/// 缺省 / 解析失败 → 默认值（5/1800/2，enabled=true，load_balance）。
+pub async fn get_scheduling_settings(db: &Db) -> super::models::SchedulingBreakerSettings {
+    match get_setting(db, "scheduling", "settings").await {
+        Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
+        _ => super::models::SchedulingBreakerSettings::default(),
     }
 }
 
@@ -3114,6 +3148,9 @@ decimals: None,
             enabled: None,
             status: None,
             manual_budgets: None,
+            breaker_failure_threshold: None,
+            breaker_open_secs: None,
+            breaker_half_open_max: None,
         }).await.unwrap();
         assert_eq!(updated.base_url, "https://crud.example/v2");
         assert_eq!(get_platform(&db, created.id).await.unwrap().unwrap().base_url, "https://crud.example/v2");
@@ -3172,6 +3209,7 @@ decimals: None,
             id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
             extra: None, models: None, available_models: None, endpoints: None,
             enabled: None, status: Some(PlatformStatus::Disabled), manual_budgets: None,
+            breaker_failure_threshold: None, breaker_open_secs: None, breaker_half_open_max: None,
         }).await.unwrap();
         assert_eq!(upd.status, PlatformStatus::Disabled);
         assert!(!upd.enabled);
@@ -3197,6 +3235,7 @@ decimals: None,
             api_key: Some("sk-new-key".to_string()),
             extra: None, models: None, available_models: None, endpoints: None,
             enabled: None, status: None, manual_budgets: None,
+            breaker_failure_threshold: None, breaker_open_secs: None, breaker_half_open_max: None,
         }).await.unwrap();
         assert_eq!(upd.status, PlatformStatus::Enabled, "改 api_key 立即恢复");
         assert_eq!(upd.auto_disable_strikes, 0);

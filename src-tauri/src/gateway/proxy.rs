@@ -16,7 +16,7 @@ use super::db::Db;
 use super::i18n::{self, ErrorKey, Lang};
 use super::middleware::{InboundOutcome, MiddlewareEngine};
 use super::models::{ClientType, Group, Protocol, ProxyAttempt, ProxyLog, ProxyLogSettings, ProxyTimeoutSettings};
-use super::router::{select_candidates, RouteResult};
+use super::router::{select_candidates_ctx, RouteResult, ScheduleCtx};
 
 /// 从 DB 读取 app locale，失败则回退英文
 async fn get_lang(db: &Arc<Db>) -> Lang {
@@ -39,6 +39,10 @@ pub struct ProxyState {
     pub app: Option<tauri::AppHandle>,
     /// 中间件规则引擎单例（与 lib.rs app.manage 的同一 Arc，C2/C3 入站/出站执行用）。
     pub middleware: Arc<MiddlewareEngine>,
+    /// 调度器状态（per-platform 熔断 + 延迟 EMA + 在途计数，内存）。
+    pub scheduler: Arc<super::scheduling::SchedulerState>,
+    /// Sticky session 绑定表（内存 LRU + TTL）。
+    pub sticky: Arc<super::scheduling::StickyTable>,
 }
 
 /// 启动代理服务器，返回 shutdown handle
@@ -48,7 +52,13 @@ pub async fn start_proxy(
     app: Option<tauri::AppHandle>,
     middleware: Arc<MiddlewareEngine>,
 ) -> Result<(tokio::task::JoinHandle<()>, u16), String> {
-    let state = Arc::new(ProxyState { db, app, middleware });
+    let state = Arc::new(ProxyState {
+        db,
+        app,
+        middleware,
+        scheduler: Arc::new(super::scheduling::SchedulerState::new()),
+        sticky: Arc::new(super::scheduling::StickyTable::new()),
+    });
 
     let app = Router::new()
         .route("/api/group-info", post(handle_group_info))
@@ -700,7 +710,26 @@ async fn handle_proxy_inner(
     }
 
     // ── 路由选择有序候选平台列表（失败逐个重试）──
-    let candidate_set = match select_candidates(&state.db, &group, &chat_req.model).await {
+    // 调度上下文：scheduler(熔断+延迟+在途) / sticky(粘性绑定) / scheduling settings。
+    let sched_settings = super::db::get_scheduling_settings(&state.db).await;
+    // Sticky session 键：aidog 无 session_id 概念（见 design.md），用 group_name + 客户端稳定标识。
+    // 稳定标识优先取 x-session-id / session_id header，缺省回退 user-agent；再缺省仅用 group_name。
+    let sticky_key = {
+        let client_id = orig_headers
+            .get("x-session-id")
+            .or_else(|| orig_headers.get("session_id"))
+            .or_else(|| orig_headers.get("user-agent"))
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or("");
+        Some(format!("{}|{}", group.name, client_id))
+    };
+    let sched_ctx = ScheduleCtx {
+        scheduler: &state.scheduler,
+        sticky: &state.sticky,
+        settings: &sched_settings,
+        sticky_key,
+    };
+    let candidate_set = match select_candidates_ctx(&state.db, &group, &chat_req.model, Some(&sched_ctx)).await {
         Ok(c) => c,
         Err(e) => {
             tracing::warn!(group = %group.name, model = %chat_req.model, error = %e, "route failed");
@@ -950,10 +979,19 @@ async fn handle_proxy_inner(
     tracing::info!(method = "POST", url = %url, "upstream request");
     tracing::debug!(method = "POST", url = %url, body = %req_body_str, "upstream request body");
 
+    // ── 熔断指标：本次 forward 尝试前在途 +1；解析本平台有效阈值 ──
+    let breaker_th = {
+        let (ft, os, hom) = sched_settings.effective_thresholds(&route.platform);
+        super::scheduling::BreakerThresholds { failure_threshold: ft, open_secs: os, half_open_max: hom }
+    };
+    state.scheduler.inc_inflight(route.platform.id);
+
     let resp = match req_builder.send().await {
         Ok(r) => r,
         Err(e) => {
             // 连接失败 / 超时 → 可重试，换下个候选；候选耗尽则返回 502。
+            // 熔断：连接失败 / 超时计一次失败（in-flight -1 + breaker fail 计数）。
+            state.scheduler.record_failure(route.platform.id, &breaker_th, super::db::now());
             tracing::error!(url = %url, platform = %route.platform.name, error = %e, duration_ms = start.elapsed().as_millis() as i64, "upstream request failed (502)");
             attempts.push(ProxyAttempt {
                 platform_id: route.platform.id,
@@ -1009,6 +1047,14 @@ async fn handle_proxy_inner(
             duration_ms: attempt_start.elapsed().as_millis() as i64,
             ts: attempt_ts,
         });
+
+        // ── 熔断计数：5xx 或 429 计一次失败；401/403/其他客户端 4xx 不计熔断（仅 inflight-1）。
+        //   熔断与 auto_disabled 解耦：401/403 走下方 auto_disabled，不参与熔断。──
+        if code >= 500 || code == 429 {
+            state.scheduler.record_failure(route.platform.id, &breaker_th, super::db::now());
+        } else {
+            state.scheduler.record_ignored(route.platform.id);
+        }
 
         // ── 401/403：上游鉴权失败 → 自动禁用平台（指数退避），换下个候选 ──
         if code == 401 || code == 403 {
@@ -1070,12 +1116,16 @@ async fn handle_proxy_inner(
     }
 
     // ── 2xx：成功。若该平台曾 auto_disabled（试探成功）则恢复 enabled 清退避。──
+    let attempt_latency_ms = attempt_start.elapsed().as_millis() as i64;
+    // 熔断指标：成功 → 更新延迟 EMA + breaker Closed/HalfOpen→Closed + inflight-1。
+    // 注意流式此处为首字节(TTFB)延迟（headers 已到）；作为延迟近似用于 LeastLatency。
+    state.scheduler.record_success(route.platform.id, attempt_latency_ms);
     attempts.push(ProxyAttempt {
         platform_id: route.platform.id,
         platform_name: route.platform.name.clone(),
         status_code: status.as_u16() as i32,
         error: String::new(),
-        duration_ms: attempt_start.elapsed().as_millis() as i64,
+        duration_ms: attempt_latency_ms,
         ts: attempt_ts,
     });
     if route.platform.status == super::models::PlatformStatus::AutoDisabled {

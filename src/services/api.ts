@@ -25,7 +25,16 @@ export type Protocol =
   | "claude_code"
   // ── 测试 ──
   | "mock";
-export type RoutingMode = "load_balance" | "failover";
+/** 路由 / 调度策略。
+ *  load_balance: 加权随机；failover: priority 升序；
+ *  health_aware: 熔断摘除后健康集加权随机；least_latency: 延迟 EMA 升序；
+ *  sticky: session 键绑定平台，失效/熔断回退加权随机。 */
+export type RoutingMode =
+  | "load_balance"
+  | "failover"
+  | "health_aware"
+  | "least_latency"
+  | "sticky";
 
 /** 平台三态状态：enabled(用户启用) / disabled(用户手动禁用) / auto_disabled(401/403 自动禁用) */
 export type PlatformStatus = "enabled" | "disabled" | "auto_disabled";
@@ -172,6 +181,12 @@ export interface Platform {
   auto_disabled_until: number;
   /** 连续自动禁用次数（指数退避指数）；恢复 enabled 时清零 */
   auto_disable_strikes: number;
+  /** 熔断失败阈值（连续失败达此数 → Open）；0 = 继承全局 SchedulingBreakerSettings 默认。 */
+  breaker_failure_threshold: number;
+  /** 熔断 Open 持续秒数（之后转 HalfOpen 探测）；0 = 继承全局默认。 */
+  breaker_open_secs: number;
+  /** HalfOpen 允许的最大探测请求数；0 = 继承全局默认。 */
+  breaker_half_open_max: number;
   created_at: number;
   updated_at: number;
   deleted_at: number;
@@ -339,6 +354,10 @@ export const platformApi = {
      *  置 enabled 会清空退避状态（手动恢复）。 */
     status?: PlatformStatus;
     manual_budgets?: ManualBudget[];
+    /** 熔断阈值覆盖（0=继承全局默认）；省略=保留既有值。 */
+    breaker_failure_threshold?: number;
+    breaker_open_secs?: number;
+    breaker_half_open_max?: number;
   }) => invoke<Platform>("platform_update", { input }),
 
   delete: (id: number) => invoke<void>("platform_delete", { id }),
@@ -817,6 +836,32 @@ export const middlewareApi = {
   /** 保存中间件总设置。 */
   setSettings: (settings: MiddlewareSettings) =>
     invoke<void>("middleware_settings_set", { settings }),
+};
+
+// ─── Scheduling & Breaker Settings ─────────────────────────
+// 字段名与 Rust serde（src-tauri/src/gateway/models.rs SchedulingBreakerSettings）一致。
+// Platform 的 breaker_* 字段为 0 时继承本结构对应默认值（5/1800/2）。
+
+/** 全局调度 + 熔断默认设置（settings scope=scheduling）。 */
+export interface SchedulingBreakerSettings {
+  /** 全局默认调度策略（Group routing_mode 覆盖之）。 */
+  default_routing_mode: RoutingMode;
+  /** 全局默认熔断失败阈值（default 5）。 */
+  breaker_failure_threshold: number;
+  /** 全局默认 Open 持续秒数（default 1800）。 */
+  breaker_open_secs: number;
+  /** 全局默认 HalfOpen 最大探测数（default 2）。 */
+  breaker_half_open_max: number;
+  /** 熔断总开关（default true；false = 旁路熔断）。 */
+  enabled: boolean;
+}
+
+export const schedulingApi = {
+  /** 读取全局调度+熔断设置（无配置 → 默认 5/1800/2，load_balance，enabled=true）。 */
+  getSettings: () => invoke<SchedulingBreakerSettings>("scheduling_settings_get"),
+  /** 保存全局调度+熔断设置。 */
+  setSettings: (settings: SchedulingBreakerSettings) =>
+    invoke<void>("scheduling_settings_set", { settings }),
 };
 
 // ─── Settings API ──────────────────────────────────────────

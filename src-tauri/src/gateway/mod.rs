@@ -11,4 +11,5 @@ pub mod price_sync;
 pub mod proxy;
 pub mod quota;
 pub mod router;
+pub mod scheduling;
 pub mod usage_color;
