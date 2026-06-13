@@ -1095,6 +1095,7 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
         if let Some(obj) = config.as_object_mut() {
             obj.remove("_aidog_statusline");
             obj.remove("_aidog_subagent_statusline");
+            obj.remove(gateway::hooks::MARKER_HOOKS);
         }
 
         let file_path = aidog_dir.join(format!("settings.{}.json", group_name));
@@ -1726,6 +1727,140 @@ fn generate_statusline_script(
         std::fs::set_permissions(&path, perms).map_err(|e| { tracing::error!(command = "generate_statusline_script", error = %e, "chmod script failed"); format!("chmod script: {e}") })?;
     }
     Ok(path.to_string_lossy().to_string())
+}
+
+// ─── Notification Hook Integration (N2) ────────────────────
+
+/// 生成两个 hook 脚本到 ~/.aidog/（complete + waiting），chmod 755，返回绝对路径。
+fn generate_hook_scripts() -> Result<gateway::hooks::ScriptPaths, String> {
+    let aidog_dir = aidog_data_dir()?;
+    let write_script = |filename: &str, notif_type: &str| -> Result<String, String> {
+        let path = aidog_dir.join(filename);
+        let content = gateway::hooks::build_hook_script(notif_type);
+        std::fs::write(&path, &content).map_err(|e| format!("write hook script {filename}: {e}"))?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&path)
+                .map_err(|e| format!("stat hook script {filename}: {e}"))?
+                .permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&path, perms)
+                .map_err(|e| format!("chmod hook script {filename}: {e}"))?;
+        }
+        Ok(path.to_string_lossy().to_string())
+    };
+    Ok(gateway::hooks::ScriptPaths {
+        complete: write_script(gateway::hooks::SCRIPT_COMPLETE, "task_complete")?,
+        waiting: write_script(gateway::hooks::SCRIPT_WAITING, "waiting_input")?,
+    })
+}
+
+/// 把内置默认模板物化进 NotificationSettings.per_type[task_complete/waiting_input]（仅在缺失/空时填）。
+/// 用户已自定义模板则不覆盖。
+async fn seed_default_templates(db: &Db) -> Result<(), String> {
+    use gateway::models::{NotifType, TypeSetting};
+    let mut settings = gateway::db::get_notification_settings(db).await;
+    let mut changed = false;
+    for t in [NotifType::TaskComplete, NotifType::WaitingInput] {
+        let key = t.as_str().to_string();
+        let entry = settings.per_type.entry(key).or_insert_with(TypeSetting::default);
+        if entry.template.trim().is_empty() {
+            entry.template = t.default_template().to_string();
+            changed = true;
+        }
+    }
+    if changed {
+        gateway::db::set_setting(db, SetSettingInput {
+            scope: "notification".to_string(),
+            key: "settings".to_string(),
+            value: serde_json::to_value(&settings).map_err(|e| format!("serialize notification settings: {e}"))?,
+        }).await?;
+    }
+    Ok(())
+}
+
+/// 一键注入通知 hook。
+/// - `client="claude_code"`：把 hooks.Stop/Notification 注入基线 `claude_code` 配置，
+///   re-sync 物化到所有 `settings.{group}.json`（与 statusLine 同机制）。
+/// - `client="codex"`：把 `notify=[<complete 脚本>]` 注入 `~/.codex/config.toml`。
+/// 同时物化内置默认模板。`group` 入参用于 API 对称（Claude Code hooks 走基线对全分组生效）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn inject_hooks(
+    app: tauri::AppHandle,
+    db: State<'_, Db>,
+    group: String,
+    client: String,
+) -> Result<(), String> {
+    tracing::debug!(command = "inject_hooks", group = %group, client = %client, "command invoked");
+    let hook_client = gateway::hooks::HookClient::from_str(&client)?;
+    let scripts = generate_hook_scripts()?;
+    seed_default_templates(&db).await?;
+
+    match hook_client {
+        gateway::hooks::HookClient::ClaudeCode => {
+            // 读基线 claude_code 配置（无则用编译内默认）注入 hooks，回写 + re-sync。
+            let mut config = gateway::db::get_setting(&db, "global", "claude_code").await
+                .ok().flatten()
+                .filter(|v| v.is_object())
+                .unwrap_or_else(|| serde_json::from_str(include_str!("../defaults/settings.json"))
+                    .unwrap_or(serde_json::Value::Object(Default::default())));
+            gateway::hooks::inject_claude_code_hooks(&mut config, &scripts);
+            gateway::db::set_setting(&db, SetSettingInput {
+                scope: "global".to_string(),
+                key: "claude_code".to_string(),
+                value: config,
+            }).await?;
+            let port = load_proxy_settings(&app).await?.port;
+            do_sync_group_settings(&db, port).await
+                .map_err(|e| { tracing::error!(command = "inject_hooks", error = %e, "re-sync after inject failed"); e })?;
+        }
+        gateway::hooks::HookClient::Codex => {
+            let mut config = gateway::codex::codex_config_read()?;
+            gateway::hooks::inject_codex_notify(&mut config, &scripts.complete);
+            gateway::codex::codex_config_write(config)?;
+        }
+    }
+    Ok(())
+}
+
+/// 一键移除通知 hook（strip）。client 同 inject_hooks。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn remove_hooks(
+    app: tauri::AppHandle,
+    db: State<'_, Db>,
+    group: String,
+    client: String,
+) -> Result<(), String> {
+    tracing::debug!(command = "remove_hooks", group = %group, client = %client, "command invoked");
+    let hook_client = gateway::hooks::HookClient::from_str(&client)?;
+    match hook_client {
+        gateway::hooks::HookClient::ClaudeCode => {
+            let Some(mut config) = gateway::db::get_setting(&db, "global", "claude_code").await
+                .ok().flatten().filter(|v| v.is_object()) else {
+                // 无基线配置 → 无 aidog hook 可清，re-sync 即可（settings 文件 strip 已生效）。
+                let port = load_proxy_settings(&app).await?.port;
+                return do_sync_group_settings(&db, port).await.map(|_| ());
+            };
+            gateway::hooks::remove_claude_code_hooks(&mut config);
+            gateway::db::set_setting(&db, SetSettingInput {
+                scope: "global".to_string(),
+                key: "claude_code".to_string(),
+                value: config,
+            }).await?;
+            let port = load_proxy_settings(&app).await?.port;
+            do_sync_group_settings(&db, port).await
+                .map_err(|e| { tracing::error!(command = "remove_hooks", error = %e, "re-sync after remove failed"); e })?;
+        }
+        gateway::hooks::HookClient::Codex => {
+            let mut config = gateway::codex::codex_config_read()?;
+            gateway::hooks::remove_codex_notify(&mut config);
+            gateway::codex::codex_config_write(config)?;
+        }
+    }
+    Ok(())
 }
 
 // ─── Settings Persistence ──────────────────────────────────
@@ -2740,6 +2875,9 @@ pub fn run() {
             notification_mark_read,
             notification_clear,
             notification_test,
+            // Notification Hook Integration (N2)
+            inject_hooks,
+            remove_hooks,
             // App Logging
             app_log_settings_get,
             app_log_settings_set,

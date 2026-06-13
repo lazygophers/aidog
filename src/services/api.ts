@@ -941,7 +941,21 @@ export const notificationApi = {
   /** 测试通知（走分发逻辑，含弹窗/TTS）。 */
   testNotify: (notifType: NotifType | string, content?: string) =>
     invoke<NotifyDispatchResult>("notification_test", { notifType, content }),
+  /**
+   * 一键注入通知 hook（N2）。
+   * - client="claude_code"：把 hooks.Stop/Notification 注入基线配置并 re-sync 到所有 settings.{group}.json。
+   * - client="codex"：把 notify=[complete 脚本] 注入 ~/.codex/config.toml。
+   * 同时物化内置默认模板（task_complete/waiting_input）。group 用于 API 对称。
+   */
+  injectHooks: (group: string, client: HookClient) =>
+    invoke<void>("inject_hooks", { group, client }),
+  /** 一键移除通知 hook（strip）。client 同 injectHooks。 */
+  removeHooks: (group: string, client: HookClient) =>
+    invoke<void>("remove_hooks", { group, client }),
 };
+
+/** hook 注入客户端类型（N2）。 */
+export type HookClient = "claude_code" | "codex";
 
 /** 收件箱未读数变化事件名（后端 emit / 前端 listen 必须一致）。 */
 export const NOTIF_INBOX_UPDATED = "notif-inbox-updated";
