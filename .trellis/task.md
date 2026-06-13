@@ -22,7 +22,7 @@
 | mw-outbound-breaker | 中间件 C3 出站规则执行 + 熔断器 + 流式逐块 | — | 已完成 | 收尾 | 100% | — |
 | mw-builtin-presets | 中间件 C4 内置预设规则集 (密钥/邮箱/手机 + 默认 error_rules) | — | 已完成 | 收尾 | 100% | — |
 | mw-frontend-ui | 中间件 C5 前端 UI + i18n (AppSettings tab + group/platform 嵌入) | — | 已完成 | 收尾 | 100% | — |
-| group-scheduling-breaker | Group 智能调度与熔断器 (组内配置 + 默认值) | — | 规划中 | 规划 | 0% | — |
+| group-scheduling-breaker | Group 智能调度与熔断器 (组内配置 + 默认值) | — | 已完成 | 收尾 | 100% | — |
 | gsb-backend | GSB 后端 熔断器+智能调度+指标+集成+契约 | — | 已完成 | 收尾 | 100% | — |
 | gsb-frontend | GSB 前端 Platform/Group/全局 UI + i18n | — | 已完成 | 收尾 | 100% | — |
 | system-notification | 系统通知模块 (TTS播报/弹窗/收件箱 + Codex&ClaudeCode hook 快捷入口) | — | 规划中 | 规划 | 0% | — |
