@@ -12,3 +12,4 @@
 | coding-plan-reset-countdown | Coding plan 展示重置倒计时 | — | 已完成 | 收尾 | 100% | — |
 | list-item-height-relayout | 增加平台/分组列表 item 高度并重排布局 | — | 已完成 | 收尾 | 100% | — |
 | swap-window-dimensions | 对调默认窗口长宽 | — | 已完成 | 收尾 | 100% | — |
+| logo-prompt-design | AiDog APP logo 提示词设计 | — | 已完成 | 收尾 | 100% | — |
