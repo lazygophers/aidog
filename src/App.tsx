@@ -3,7 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Sidebar, type NavItem } from "./components/Sidebar";
 import { Platforms } from "./pages/Platforms";
 import { Groups } from "./pages/Groups";
-import { AppSettings } from "./pages/AppSettings";
+import { AppSettings, type Tab } from "./pages/AppSettings";
 import { Logs } from "./pages/Logs";
 import { Stats } from "./pages/Stats";
 import { Notifications } from "./pages/Notifications";
@@ -21,7 +21,22 @@ const BASE_NAV: NavItem[] = [
   { id: "stats", icon: "stats", labelKey: "nav.stats" },
   { id: "logs", icon: "logs", labelKey: "nav.logs" },
   { id: "notifications", icon: "notifications", labelKey: "nav.notifications" },
-  { id: "settings", icon: "settings", labelKey: "nav.settings" },
+  {
+    id: "settings",
+    icon: "settings",
+    labelKey: "nav.settings",
+    children: [
+      { id: "settings/system", labelKey: "appSettings.systemTab", group: "nav.settingsGroup.general" },
+      { id: "settings/claude", labelKey: "appSettings.claudeTab", group: "nav.settingsGroup.integration" },
+      { id: "settings/codex", labelKey: "appSettings.codexTab", group: "nav.settingsGroup.integration" },
+      { id: "settings/middleware", labelKey: "appSettings.middlewareTab", group: "nav.settingsGroup.rules" },
+      { id: "settings/scheduling", labelKey: "appSettings.schedulingTab", group: "nav.settingsGroup.rules" },
+      { id: "settings/notifications", labelKey: "appSettings.notificationsTab", group: "nav.settingsGroup.notification" },
+      { id: "settings/pricing", labelKey: "appSettings.pricingTab", group: "nav.settingsGroup.config" },
+      { id: "settings/tray", labelKey: "appSettings.trayTab", group: "nav.settingsGroup.config" },
+      { id: "settings/popover", labelKey: "appSettings.popoverTab", group: "nav.settingsGroup.config" },
+    ],
+  },
 ];
 
 function App() {
@@ -82,7 +97,9 @@ function App() {
     : BASE_NAV.filter(n => n.id !== "logs")
   ).map(n => n.id === "notifications" ? { ...n, badge: unread } : n);
 
-  const effectiveNav = activeNav === "logs" && !logEnabled ? "platforms" : activeNav;
+  const effectiveNav = activeNav === "logs" && !logEnabled ? "platforms" : activeNav.split("/")[0];
+  // settings 子页：activeNav 形如 "settings/system"；裸 "settings" 回退 system。
+  const settingsTab: Tab = activeNav.startsWith("settings/") ? (activeNav.slice(9) as Tab) : "system";
 
   return (
     <div style={{
@@ -105,7 +122,7 @@ function App() {
         <div className="animate-fade-in" key={effectiveNav}>
           {effectiveNav === "platforms" && <Platforms />}
           {effectiveNav === "groups" && <Groups />}
-          {effectiveNav === "settings" && <AppSettings onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} />}
+          {effectiveNav === "settings" && <AppSettings tab={settingsTab} onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} />}
           {effectiveNav === "logs" && <Logs />}
           {effectiveNav === "stats" && <Stats />}
           {effectiveNav === "notifications" && <Notifications />}

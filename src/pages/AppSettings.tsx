@@ -9,18 +9,11 @@ import { PopoverConfigTab } from "./PopoverConfigTab";
 import { MiddlewareSettingsTab } from "../components/settings/MiddlewareRules";
 import { SchedulingSettingsTab } from "../components/settings/SchedulingSettings";
 import { NotificationSettingsTab } from "../components/settings/NotificationSettings";
-import { requestNavigation } from "../utils/navGuard";
 
-type Tab = "system" | "claude" | "codex" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover";
+export type Tab = "system" | "claude" | "codex" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover";
 
-export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (enabled: boolean) => void }) {
+export function AppSettings({ tab, onLogSettingsChanged }: { tab: Tab; onLogSettingsChanged?: (enabled: boolean) => void }) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>("system");
-  // Switching tabs may be intercepted by a dirty page (e.g. Claude Code Settings).
-  const switchTab = (next: Tab) => {
-    if (next === tab) return;
-    requestNavigation(() => setTab(next));
-  };
   const [running, setRunning] = useState(false);
   const [proxyPort, setProxyPort] = useState(9876);
   const [autostart, setAutostart] = useState(false);
@@ -176,43 +169,6 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-      {/* Tab bar */}
-      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--border)" }}>
-        {(["system", "claude", "codex", "middleware", "scheduling", "notifications", "pricing", "tray", "popover"] as Tab[]).map((id) => (
-          <button
-            key={id}
-            className="btn btn-ghost"
-            style={{
-              padding: "10px 16px",
-              fontSize: 13,
-              fontWeight: tab === id ? 600 : 400,
-              color: tab === id ? "var(--accent)" : "var(--text-secondary)",
-              borderBottom: tab === id ? "2px solid var(--accent)" : "2px solid transparent",
-              borderRadius: 0,
-            }}
-            onClick={() => switchTab(id)}
-          >
-            {id === "system"
-              ? t("appSettings.systemTab", "系统设置")
-              : id === "claude"
-                ? t("appSettings.claudeTab", "Claude Code")
-                : id === "codex"
-                  ? t("appSettings.codexTab", "Codex")
-                  : id === "middleware"
-                    ? t("appSettings.middlewareTab", "中间件")
-                    : id === "scheduling"
-                      ? t("appSettings.schedulingTab", "调度熔断")
-                      : id === "notifications"
-                        ? t("appSettings.notificationsTab", "系统通知")
-                        : id === "pricing"
-                          ? t("appSettings.pricingTab", "模型价格")
-                          : id === "tray"
-                            ? t("appSettings.trayTab", "系统托盘")
-                            : t("appSettings.popoverTab", "浮窗")}
-          </button>
-        ))}
-      </div>
-
       {tab === "pricing" ? (
         <PricingTab />
       ) : tab === "tray" ? (

@@ -74,12 +74,22 @@ const icons = {
 
 // ── Types ──
 
+/** 折叠子菜单项（如 settings 下的子页）。id 用 "<parent>/<sub>" 复合形式。 */
+export interface NavChild {
+  id: string;
+  labelKey: string;
+  /** 分组标题 i18n key；相邻同 group 的子项归为一节。 */
+  group: string;
+}
+
 export interface NavItem {
   id: string;
   icon: string;
   labelKey: string;
   /** 可选未读 badge 计数（> 0 时显示）。 */
   badge?: number;
+  /** 可选折叠子菜单；存在时该项渲染为可展开分组。 */
+  children?: NavChild[];
 }
 
 interface SidebarProps {
@@ -177,6 +187,8 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
   } = useApp();
   const [themeOpen, setThemeOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
+  // 折叠子菜单展开态：用户 toggle 覆盖；未覆盖时 active 所在组自动展开。
+  const [expandedNav, setExpandedNav] = useState<Record<string, boolean>>({});
 
   return (
     <aside
@@ -211,54 +223,126 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
       {/* Navigation */}
       <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
         {navItems.map((item) => {
-          const isActive = item.id === activeId;
+          const topId = activeId.split("/")[0];
+          const isActive = item.id === topId;
+          const hasChildren = !!item.children && item.children.length > 0;
+          const inThis = activeId.startsWith(item.id + "/");
+          const expanded = expandedNav[item.id] ?? (inThis ? true : false);
           return (
-            <button
-              key={item.id}
-              className="btn btn-ghost"
-              style={{
-                justifyContent: "flex-start",
-                gap: 10,
-                padding: "10px 12px",
-                fontWeight: isActive ? 600 : 400,
-                color: isActive
-                  ? "var(--accent)"
-                  : "var(--text-secondary)",
-                background: isActive ? "var(--accent-subtle)" : "transparent",
-                borderRadius: "var(--radius-sm)",
-                fontSize: 13,
-              }}
-              onClick={() => onNavigate(item.id)}
-            >
-              <span style={{
-                display: "flex",
-                alignItems: "center",
-                opacity: isActive ? 1 : 0.6,
-                transition: "opacity 200ms",
-              }}>
-                {(icons as Record<string, React.ReactNode>)[item.icon]}
-              </span>
-              <span style={{ flex: 1, textAlign: "start" }}>{t(item.labelKey)}</span>
-              {item.badge != null && item.badge > 0 && (
-                <span
-                  style={{
-                    fontSize: 10,
-                    fontWeight: 700,
-                    minWidth: 16,
-                    height: 16,
-                    padding: "0 5px",
-                    borderRadius: 999,
-                    background: "var(--accent)",
-                    color: "#fff",
-                    display: "inline-flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  {item.badge > 99 ? "99+" : item.badge}
+            <div key={item.id} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <button
+                className="btn btn-ghost"
+                style={{
+                  justifyContent: "flex-start",
+                  gap: 10,
+                  padding: "10px 12px",
+                  fontWeight: isActive ? 600 : 400,
+                  color: isActive
+                    ? "var(--accent)"
+                    : "var(--text-secondary)",
+                  background: isActive ? "var(--accent-subtle)" : "transparent",
+                  borderRadius: "var(--radius-sm)",
+                  fontSize: 13,
+                }}
+                onClick={() => {
+                  if (hasChildren) {
+                    if (!inThis) {
+                      onNavigate(item.children![0].id);
+                      setExpandedNav((e) => ({ ...e, [item.id]: true }));
+                    } else {
+                      setExpandedNav((e) => ({ ...e, [item.id]: !expanded }));
+                    }
+                  } else {
+                    onNavigate(item.id);
+                  }
+                }}
+              >
+                <span style={{
+                  display: "flex",
+                  alignItems: "center",
+                  opacity: isActive ? 1 : 0.6,
+                  transition: "opacity 200ms",
+                }}>
+                  {(icons as Record<string, React.ReactNode>)[item.icon]}
                 </span>
+                <span style={{ flex: 1, textAlign: "start" }}>{t(item.labelKey)}</span>
+                {hasChildren && (
+                  <span style={{
+                    opacity: 0.4,
+                    transform: expanded ? "rotate(180deg)" : "none",
+                    transition: "transform 200ms",
+                    display: "inline-flex",
+                  }}>{icons.chevron}</span>
+                )}
+                {item.badge != null && item.badge > 0 && (
+                  <span
+                    style={{
+                      fontSize: 10,
+                      fontWeight: 700,
+                      minWidth: 16,
+                      height: 16,
+                      padding: "0 5px",
+                      borderRadius: 999,
+                      background: "var(--accent)",
+                      color: "#fff",
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    {item.badge > 99 ? "99+" : item.badge}
+                  </span>
+                )}
+              </button>
+              {hasChildren && expanded && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, paddingLeft: 12 }}>
+                  {(() => {
+                    const groups: { key: string; items: NavChild[] }[] = [];
+                    for (const c of item.children!) {
+                      const last = groups[groups.length - 1];
+                      if (last && last.key === c.group) last.items.push(c);
+                      else groups.push({ key: c.group, items: [c] });
+                    }
+                    return groups.map((g) => (
+                      <div key={g.key} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                        <div style={{
+                          fontSize: 10,
+                          fontWeight: 600,
+                          color: "var(--text-secondary)",
+                          opacity: 0.6,
+                          letterSpacing: "0.3px",
+                          padding: "6px 10px 2px",
+                        }}>
+                          {t(g.key)}
+                        </div>
+                        {g.items.map((c) => {
+                          const childActive = activeId === c.id;
+                          return (
+                            <button
+                              key={c.id}
+                              className="btn btn-ghost"
+                              style={{
+                                justifyContent: "flex-start",
+                                padding: "7px 10px 7px 26px",
+                                fontWeight: childActive ? 600 : 400,
+                                fontSize: 12.5,
+                                color: childActive ? "var(--accent)" : "var(--text-secondary)",
+                                background: childActive ? "var(--accent-subtle)" : "transparent",
+                                borderRadius: "var(--radius-sm)",
+                                borderLeft: childActive ? "2px solid var(--accent)" : "2px solid transparent",
+                              }}
+                              onClick={() => onNavigate(c.id)}
+                            >
+                              {t(c.labelKey)}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ));
+                  })()}
+                </div>
               )}
-            </button>
+            </div>
           );
         })}
       </nav>
