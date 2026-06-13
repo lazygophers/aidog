@@ -1,4 +1,4 @@
-/* Popover 专用样式 — 不透明实色背景（窗口 transparent=false） */
+/* Popover 专用样式 — 透明窗口 + 不透明圆角本体（圆角外透明，无白底） */
 
 html, body, #root {
   height: 100%;
@@ -6,7 +6,7 @@ html, body, #root {
   margin: 0;
   padding: 0;
   overflow: hidden;
-  background: var(--bg);
+  background: transparent;
 }
 
 .popover-root {
