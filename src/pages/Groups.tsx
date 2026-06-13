@@ -1,5 +1,6 @@
 import { useState, useEffect, useReducer } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   groupDetailApi, groupApi, groupUsageApi, platformApi, onProxyLogUpdated,
   type GroupDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
@@ -13,6 +14,33 @@ import { getPlatformLogo, getFaviconUrl } from "../assets/platforms";
 import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
+
+/** 全部调度策略（与 api.ts RoutingMode 契约对齐，禁裸 string）。 */
+const ROUTING_MODES: RoutingMode[] = ["failover", "load_balance", "health_aware", "least_latency", "sticky"];
+
+/** 策略短名（i18n，缺键回退默认中文）。 */
+function routingModeLabel(t: TFunction, mode: RoutingMode): string {
+  const map: Record<RoutingMode, string> = {
+    failover: t("group.failover", "故障转移"),
+    load_balance: t("group.loadBalance", "负载均衡"),
+    health_aware: t("group.routingMode.health_aware", "健康感知"),
+    least_latency: t("group.routingMode.least_latency", "最低延迟"),
+    sticky: t("group.routingMode.sticky", "会话粘性"),
+  };
+  return map[mode] ?? mode;
+}
+
+/** 策略说明（下拉旁提示）。 */
+function routingModeDesc(t: TFunction, mode: RoutingMode): string {
+  const map: Record<RoutingMode, string> = {
+    failover: t("group.routingModeDesc.failover", "按优先级升序选平台，失败逐个回退。"),
+    load_balance: t("group.routingModeDesc.load_balance", "在可用平台间加权随机分流。"),
+    health_aware: t("group.routingModeDesc.health_aware", "摘除熔断平台后，在健康平台间加权随机。"),
+    least_latency: t("group.routingModeDesc.least_latency", "按各平台延迟均值升序优先选最快平台。"),
+    sticky: t("group.routingModeDesc.sticky", "同会话绑定同一平台，失效/熔断后回退加权随机。"),
+  };
+  return map[mode] ?? "";
+}
 
 /** Group 图标：仅关联 1 个平台时跟随该平台 logo（与 Platforms 页一致），否则回退 path 文字框。 */
 function GroupIcon({ gps, group }: { gps: GroupDetail["platforms"]; group: GroupDetail["group"] }) {
@@ -439,13 +467,17 @@ export function Groups() {
           </div>
 
           {/* Routing mode */}
-          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.routingMode", "路由模式")}</span>
-            <select className="input" style={{ fontSize: F.body, padding: S.inputPad }}
-              value={editMode} onChange={e => dispatchEdit({ type: "patch", patch: { mode: e.target.value as RoutingMode } })}>
-              <option value="failover">{t("group.failover")}</option>
-              <option value="load_balance">{t("group.loadBalance")}</option>
-            </select>
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "start", gap: 12 }}>
+            <span style={{ fontSize: F.hint, color: "var(--text-secondary)", paddingTop: 6 }}>{t("group.routingMode", "路由模式")}</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 0 }}>
+              <select className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+                value={editMode} onChange={e => dispatchEdit({ type: "patch", patch: { mode: e.target.value as RoutingMode } })}>
+                {ROUTING_MODES.map(m => (
+                  <option key={m} value={m}>{routingModeLabel(t, m)}</option>
+                ))}
+              </select>
+              <span style={{ fontSize: F.small, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{routingModeDesc(t, editMode)}</span>
+            </div>
           </div>
 
           {/* Timeout */}
@@ -700,9 +732,11 @@ export function Groups() {
           <input className="input" placeholder="Path (e.g. /claude)" value={cPath}
             onChange={(e) => setCPath(e.target.value)} />
           <select className="input" value={cMode} onChange={(e) => setCMode(e.target.value as RoutingMode)}>
-            <option value="failover">{t("group.failover")}</option>
-            <option value="load_balance">{t("group.loadBalance")}</option>
+            {ROUTING_MODES.map(m => (
+              <option key={m} value={m}>{routingModeLabel(t, m)}</option>
+            ))}
           </select>
+          <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: -4 }}>{routingModeDesc(t, cMode)}</div>
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button className="btn" onClick={() => setShowCreate(false)}>{t("action.cancel")}</button>
             <button className="btn btn-primary" onClick={handleCreateGroup}
@@ -764,7 +798,7 @@ export function Groups() {
                   <div className="text-secondary" style={{ fontSize: 12, display: "flex", gap: 8, marginTop: 1, alignItems: "center", flexWrap: "wrap" }}>
                     <span>{group.path}</span>
                     <span className="badge badge-muted" style={{ padding: "0 6px" }}>
-                      {group.routing_mode === "failover" ? t("group.failover") : t("group.loadBalance")}
+                      {routingModeLabel(t, group.routing_mode)}
                     </span>
                     {gps.length > 0 && (
                       <span className="text-tertiary">{gps.length} {t("group.platforms", "平台")}</span>
