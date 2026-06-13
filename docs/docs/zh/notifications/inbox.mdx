@@ -1,0 +1,34 @@
+---
+title: 收件箱
+---
+
+# 收件箱
+
+收件箱存储历史通知（弹窗类与 InboxOnly 通知均落库），便于事后回看与管理。通知中心页（`Notifications`）展示。
+
+## 通知结构（`Notification`）
+
+| 字段 | 说明 |
+| --- | --- |
+| `id` | 通知 ID |
+| `notif_type` | 类型字面量（task_complete / waiting_input / error / custom） |
+| `title` | 标题 |
+| `body` | 正文 |
+| `read` | 已读标记 |
+| `created_at` | 创建时间 |
+
+## 操作
+
+| 操作 | 命令 | 说明 |
+| --- | --- | --- |
+| 列表 | `notification_inbox_list` | 拉取最近通知（可限条数） |
+| 未读数 | `notification_inbox_unread` | 未读计数（用于角标） |
+| 标记已读 | `notification_mark_read` | 标记单条或全部已读 |
+| 清空 | `notification_clear` | 清空收件箱 |
+
+## 前端
+
+- **通知中心页**（侧栏）：列表 + 未读角标 + 标记已读 + 清空
+- **设置页**：通知开关与按类型配置（见 [通知配置](/zh/notifications/configuration)）
+
+→ 回到 [系统通知概览](/zh/notifications)

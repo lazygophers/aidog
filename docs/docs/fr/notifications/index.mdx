@@ -1,0 +1,55 @@
+---
+title: Notifications système
+---
+
+# Notifications système
+
+AiDog intègre un module de notifications qui vous alerte sur les événements clés des assistants de code comme Claude Code / OpenAI Codex (tâche terminée, attente d'entrée, erreur) via quatre canaux — **TTS / popup bureau / son / boîte de réception** — pour rester au courant du proxy même loin de l'écran.
+
+## Fonctionnement
+
+1. L'assistant appelle l'endpoint local `POST /api/notify` via un script hook au déclenchement d'événement
+2. AiDog distribue selon le type (`NotifType`) et les canaux configurés (`Channels`)
+3. Le TTS lit, une notification système apparaît, un son joue, et c'est écrit dans la boîte de réception (consultable)
+
+## Types de notification
+
+Quatre `NotifType` :
+
+| Type | Littéral | Déclencheur |
+| --- | --- | --- |
+| TaskComplete | `task_complete` | Tâche terminée |
+| WaitingInput | `waiting_input` | Attente d'entrée utilisateur |
+| Error | `error` | Erreur survenue |
+| Custom | `custom` | Personnalisé |
+
+Chaque type se configure indépendamment : lecture ou non, canaux.
+
+## Canaux et formes
+
+La forme de distribution (`NotifForm`) décide des canaux actifs :
+
+| Forme | Canaux |
+| --- | --- |
+| Full | TTS + popup + son + boîte |
+| PopupOnly | popup + boîte |
+| InboxOnly | boîte |
+| SoundOnly | son |
+
+> Les notifications de type popup sont persistées dans la boîte pour relecture.
+
+## Backends TTS
+
+Trois `TtsBackend` :
+
+| Backend | Description |
+| --- | --- |
+| CrossPlatform | Multiplateforme (défaut) |
+| MacSay | `say` natif macOS |
+| WebSpeech | API Web Speech du navigateur |
+
+## Pour aller plus loin
+
+- [Configuration](/fr/notifications/configuration) — interrupteur maître / TTS / réglages par type
+- [Intégration Hook](/fr/notifications/hooks) — injection en un clic Claude Code / Codex
+- [Boîte de réception](/fr/notifications/inbox) — historique et gestion

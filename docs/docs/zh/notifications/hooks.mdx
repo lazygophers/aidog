@@ -1,0 +1,56 @@
+---
+title: Hook 集成
+---
+
+# Hook 集成
+
+通知由编程助手的 **hook** 触发。AiDog 生成 hook 脚本并一键注入 Claude Code / Codex 配置，事件发生时脚本调用本地端点 `POST /api/notify`。
+
+## 支持的客户端
+
+`HookClient`：
+
+| 客户端 | 配置位置 |
+| --- | --- |
+| Claude Code | `settings.json` 的 `hooks` 字段 |
+| Codex | Codex 配置（notify 字段） |
+
+## 一键注入
+
+设置页 → 通知 → Hook 集成，提供：
+
+- **生成脚本**（`generate_hook_scripts`）— 按通知类型生成 hook 脚本，写入本地路径（`ScriptPaths`）
+- **注入**（`inject_hooks`）— 把脚本路径写入 Claude Code `settings.json` 的事件 hook，或 Codex notify 配置
+- **移除**（`remove_hooks`）— 清理已注入的 hook（仅移除 AiDog 自己写入的项，`is_aidog_command` 判定）
+
+无需手动编辑配置文件。
+
+## 工作流程
+
+```
+编程助手事件（任务完成/等待输入/出错）
+   ↓ 触发 hook
+hook 脚本 → POST /api/notify
+   ↓
+AiDog dispatch（按 NotifType + Channels）
+   ↓
+TTS / 弹窗 / 提示音 / 收件箱
+```
+
+## 手动调用端点
+
+也可不依赖 hook，直接调用端点测试：
+
+```bash
+curl http://127.0.0.1:9876/api/notify \
+  -H "Content-Type: application/json" \
+  -d '{"type": "task_complete", "title": "完成", "body": "任务已结束"}'
+```
+
+> 端点 `POST /api/notify` 仅 localhost，与代理同端口（默认 9876）。
+
+## 移除注入
+
+停用通知时，用「移除 hook」清理 Claude Code / Codex 配置中的 AiDog hook 项，恢复原始配置。
+
+→ 下一步：[收件箱](/zh/notifications/inbox)

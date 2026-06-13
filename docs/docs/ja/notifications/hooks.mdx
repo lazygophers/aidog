@@ -1,0 +1,56 @@
+---
+title: Hook 連携
+---
+
+# Hook 連携
+
+通知はプログラミングアシスタントの **hook** でトリガされます。AiDog が hook スクリプトを生成し Claude Code / Codex 設定へワンクリック注入、イベント発生時にスクリプトがローカル端点 `POST /api/notify` を呼びます。
+
+## 対応クライアント
+
+`HookClient`：
+
+| クライアント | 設定場所 |
+| --- | --- |
+| Claude Code | `settings.json` の `hooks` フィールド |
+| Codex | Codex 設定（notify フィールド） |
+
+## ワンクリック注入
+
+設定ページ → 通知 → Hook 連携で提供：
+
+- **スクリプト生成**（`generate_hook_scripts`）— 通知タイプ別に hook スクリプトを生成、ローカルパス（`ScriptPaths`）へ書き込み
+- **注入**（`inject_hooks`）— スクリプトパスを Claude Code `settings.json` イベント hook、または Codex notify 設定へ書き込み
+- **削除**（`remove_hooks`）— 注入済み hook をクリーン（AiDog 自身の項目のみ、`is_aidog_command` で判定）
+
+設定ファイルの手動編集不要。
+
+## ワークフロー
+
+```
+アシスタントイベント（タスク完了/入力待ち/エラー）
+   ↓ hook 発火
+hook スクリプト → POST /api/notify
+   ↓
+AiDog ディスパッチ（NotifType + Channels 別）
+   ↓
+TTS / ポップアップ / サウンド / 受信箱
+```
+
+## 端点の手動呼び出し
+
+hook なしで端点を直接呼んでテストも可能：
+
+```bash
+curl http://127.0.0.1:9876/api/notify \
+  -H "Content-Type: application/json" \
+  -d '{"type": "task_complete", "title": "完了", "body": "タスク終了"}'
+```
+
+> 端点 `POST /api/notify` は localhost のみ、プロキシと同ポート（デフォルト 9876）。
+
+## 注入の削除
+
+通知無効化時、「hook 削除」で Claude Code / Codex 設定から AiDog hook 項目をクリーン、元の設定へ復元。
+
+→ 次へ：[受信箱](/ja/notifications/inbox)

@@ -1,0 +1,55 @@
+---
+title: システム通知
+---
+
+# システム通知
+
+AiDog はシステム通知モジュールを内蔵し、Claude Code / OpenAI Codex 等のプログラミングアシスタントの主要イベント（タスク完了、入力待ち、エラー）を**TTS 音声 / デスクトップポップアップ / サウンド / 受信箱**の 4 チャネルで通知します。画面から離れていてもプロキシ状態を把握可能。
+
+## 仕組み
+
+1. アシスタントがイベント発生時に hook スクリプトでローカル端点 `POST /api/notify` を呼ぶ
+2. AiDog が通知タイプ（`NotifType`）と設定チャネル（`Channels`）でディスパッチ
+3. TTS 朗読、システム通知ポップアップ、サウンド再生、受信箱へ書き込み（後で確認可）
+
+## 通知タイプ
+
+4 種の `NotifType`：
+
+| タイプ | リテラル | トリガ |
+| --- | --- | --- |
+| TaskComplete | `task_complete` | タスク完了 |
+| WaitingInput | `waiting_input` | ユーザー入力待ち |
+| Error | `error` | エラー発生 |
+| Custom | `custom` | カスタム |
+
+各タイプごとに播報有無・チャネルを個別設定可能。
+
+## チャネルとフォーム
+
+ディスパッチフォーム（`NotifForm`）が有効チャネルを決定：
+
+| フォーム | チャネル |
+| --- | --- |
+| Full | TTS + ポップアップ + サウンド + 受信箱 |
+| PopupOnly | ポップアップ + 受信箱 |
+| InboxOnly | 受信箱 |
+| SoundOnly | サウンド |
+
+> ポップアップ系通知は受信箱に保存され、後で確認可能。
+
+## TTS バックエンド
+
+3 種の `TtsBackend`：
+
+| バックエンド | 説明 |
+| --- | --- |
+| CrossPlatform | クロスプラットフォーム（デフォルト） |
+| MacSay | macOS ネイティブ `say` |
+| WebSpeech | ブラウザ Web Speech API |
+
+## さらに読む
+
+- [通知設定](/ja/notifications/configuration) — マスタースイッチ / TTS / タイプ別設定
+- [Hook 連携](/ja/notifications/hooks) — Claude Code / Codex ワンクリック注入
+- [受信箱](/ja/notifications/inbox) — 通知履歴の確認と管理

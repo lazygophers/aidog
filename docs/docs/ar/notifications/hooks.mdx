@@ -1,0 +1,56 @@
+---
+title: تكامل Hook
+---
+
+# تكامل Hook
+
+تُطلَق الإشعارات عبر **hooks** المساعدات. يُنشئ AiDog سكربتات hook ويحقنها بنقرة واحدة في تكوين Claude Code / Codex؛ عند الحدث يستدعي السكربت النقطة المحلية `POST /api/notify`.
+
+## العملاء المدعومون
+
+`HookClient`:
+
+| العميل | موقع التكوين |
+| --- | --- |
+| Claude Code | حقل `hooks` في `settings.json` |
+| Codex | تكوين Codex (حقل notify) |
+
+## الحقن بنقرة واحدة
+
+يوفر الإعدادات → الإشعارات → تكامل Hook:
+
+- **توليد السكربتات** (`generate_hook_scripts`) — سكربتات hook لكل نوع، تُكتب محليًا (`ScriptPaths`)
+- **الحقن** (`inject_hooks`) — كتابة المسارات في hooks أحداث Claude Code `settings.json`، أو تكوين notify لـ Codex
+- **الإزالة** (`remove_hooks`) — تنظيف hooks المحقونة (مدخلات AiDog فقط، عبر `is_aidog_command`)
+
+لا حاجة لتحرير التكوين يدويًا.
+
+## التدفق
+
+```
+حدث المساعد (مهمة منجزة / انتظار إدخال / خطأ)
+   ↓ إطلاق hook
+سكربت hook → POST /api/notify
+   ↓
+AiDog يوزّع (حسب NotifType + Channels)
+   ↓
+TTS / منبثقة / صوت / صندوق
+```
+
+## استدعاء النقطة يدويًا
+
+يمكن استدعاء النقطة مباشرة بدون hook للاختبار:
+
+```bash
+curl http://127.0.0.1:9876/api/notify \
+  -H "Content-Type: application/json" \
+  -d '{"type": "task_complete", "title": "تم", "body": "اكتملت المهمة"}'
+```
+
+> النقطة `POST /api/notify` محلية فقط (localhost)، نفس منفذ البروكسي (افتراضي 9876).
+
+## إزالة الحقن
+
+عند تعطيل الإشعارات، ينظّف «إزالة hooks» مدخلات AiDog من تكوين Claude Code / Codex ويستعيد التكوين الأصلي.
+
+→ التالي: [صندوق الوارد](/ar/notifications/inbox)

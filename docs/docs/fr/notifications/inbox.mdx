@@ -1,0 +1,34 @@
+---
+title: Boîte de réception
+---
+
+# Boîte de réception
+
+La boîte de réception persiste les notifications historisées (popup et InboxOnly toutes deux sauvées), consultables et gérables. Affichée sur la page Notifications.
+
+## Structure (`Notification`)
+
+| Champ | Description |
+| --- | --- |
+| `id` | ID notification |
+| `notif_type` | littéral type (task_complete / waiting_input / error / custom) |
+| `title` | titre |
+| `body` | corps |
+| `read` | flag lu |
+| `created_at` | heure création |
+
+## Opérations
+
+| Opération | Commande | Description |
+| --- | --- | --- |
+| Liste | `notification_inbox_list` | notifications récentes (limite possible) |
+| Non lus | `notification_inbox_unread` | compte non lus (badge) |
+| Marquer lu | `notification_mark_read` | une ou toutes |
+| Vider | `notification_clear` | vider la boîte |
+
+## Frontend
+
+- **Page Notifications** (sidebar) : liste + badge non lus + marquer lu + vider
+- **Page paramètres** : interrupteurs et config par type (voir [Configuration](/fr/notifications/configuration))
+
+→ Retour : [Aperçu notifications](/fr/notifications)

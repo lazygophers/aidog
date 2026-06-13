@@ -1,0 +1,34 @@
+---
+title: Posteingang
+---
+
+# Posteingang
+
+Der Posteingang speichert historisierte Benachrichtigungen (Popup- und InboxOnly-Benachrichtigungen beide gespeichert), einsehbar und verwaltbar. Angezeigt auf der Benachrichtigungsseite.
+
+## Struktur (`Notification`)
+
+| Feld | Beschreibung |
+| --- | --- |
+| `id` | Benachrichtigungs-ID |
+| `notif_type` | Typ-Literal (task_complete / waiting_input / error / custom) |
+| `title` | Titel |
+| `body` | Body |
+| `read` | Gelesen-Flag |
+| `created_at` | Erstellzeit |
+
+## Operationen
+
+| Operation | Befehl | Beschreibung |
+| --- | --- | --- |
+| Liste | `notification_inbox_list` | letzte Benachrichtigungen (Limit möglich) |
+| Ungelesene | `notification_inbox_unread` | Ungelesen-Zähler (Badge) |
+| Als gelesen | `notification_mark_read` | einzelne oder alle |
+| Leeren | `notification_clear` | Posteingang leeren |
+
+## Frontend
+
+- **Benachrichtigungsseite** (Seitenleiste): Liste + Ungelesen-Badge + als gelesen + leeren
+- **Einstellungsseite**: Schalter und Typ-Konfiguration (siehe [Konfiguration](/de/notifications/configuration))
+
+→ Zurück: [Benachrichtigungsübersicht](/de/notifications)

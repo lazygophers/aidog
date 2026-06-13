@@ -1,0 +1,34 @@
+---
+title: 受信箱
+---
+
+# 受信箱
+
+受信箱は履歴通知を保存（ポップアップ系と InboxOnly 通知は両方保存）、後で確認・管理可能。通知ページ（`Notifications`）に表示。
+
+## 通知構造（`Notification`）
+
+| フィールド | 説明 |
+| --- | --- |
+| `id` | 通知 ID |
+| `notif_type` | タイプリテラル（task_complete / waiting_input / error / custom） |
+| `title` | タイトル |
+| `body` | 本文 |
+| `read` | 既読フラグ |
+| `created_at` | 作成時刻 |
+
+## 操作
+
+| 操作 | コマンド | 説明 |
+| --- | --- | --- |
+| 一覧 | `notification_inbox_list` | 最近の通知を取得（件数制限可） |
+| 未読数 | `notification_inbox_unread` | 未読カウント（バッジ用） |
+| 既読化 | `notification_mark_read` | 単一または全件を既読 |
+| クリア | `notification_clear` | 受信箱をクリア |
+
+## フロントエンド
+
+- **通知ページ**（サイドバー）：一覧 + 未読バッジ + 既読化 + クリア
+- **設定ページ**：通知スイッチとタイプ別設定（[通知設定](/ja/notifications/configuration) 参照）
+
+→ 戻る：[システム通知概要](/ja/notifications)
