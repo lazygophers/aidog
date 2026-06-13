@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, Fragment } from "react";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import {
   platformApi,
   trayConfigApi,
@@ -88,15 +89,15 @@ function isRiskyHex(hex: string): boolean {
 }
 
 /** 计算单个展示项的预览文本（与后端 tray_segments 对齐） */
-function computeItemText(item: TrayItem, platform: Platform | undefined, todayStats: TodayStats | null): { label: string; value: string } {
+function computeItemText(item: TrayItem, platform: Platform | undefined, todayStats: TodayStats | null, t: TFunction): { label: string; value: string } {
   if (item.item_type === "today_usage") {
     const s = todayStats ?? { tokens: 0, cache_rate: 0, cost: 0, total_requests: 0 };
     const auto = (() => {
       switch (item.metric || "tokens") {
-        case "cache_rate": return { label: "Cache", value: `${s.cache_rate.toFixed(0)}%` };
-        case "cost": return { label: "花费", value: `$${trimZeros(s.cost.toFixed(item.decimals ?? 5))}` };
-        case "requests": return { label: "请求", value: `${s.total_requests}` };
-        default: return { label: "今日", value: `${s.tokens} tok` };
+        case "cache_rate": return { label: t("tray.metric.cache_rate", "Cache"), value: `${s.cache_rate.toFixed(0)}%` };
+        case "cost": return { label: t("tray.metric.cost", "花费"), value: `$${trimZeros(s.cost.toFixed(item.decimals ?? 5))}` };
+        case "requests": return { label: t("tray.metric.requests", "请求"), value: `${s.total_requests}` };
+        default: return { label: t("tray.metric.today", "今日"), value: `${s.tokens} tok` };
       }
     })();
     return { label: item.label || auto.label, value: auto.value };
@@ -113,6 +114,17 @@ function computeItemText(item: TrayItem, platform: Platform | undefined, todaySt
   const autoLabel = platform.name;
   const autoValue = isCoding ? `${Math.max(0, 100 - util).toFixed(0)}%` : `$${trimZeros(platform.est_balance_remaining.toFixed(2))}`;
   return { label: item.label || autoLabel, value: autoValue };
+}
+
+function makeMetricLabel(t: TFunction) {
+  return (metric: string) => {
+    switch (metric) {
+      case "cache_rate": return t("tray.metric.cache_rate", "Cache%");
+      case "cost": return t("tray.metric.cost", "花费$");
+      case "requests": return t("tray.metric.requests", "请求");
+      default: return t("tray.metric.tokens", "Tokens");
+    }
+  };
 }
 
 interface Column { item: TrayItem; label: string; value: string; isTwo: boolean; align: string; alignRow2: string }
@@ -134,6 +146,7 @@ interface ColRow extends Column { id: string; colIndex: number }
 
 export function TrayConfigTab() {
   const { t } = useTranslation();
+  const metricLabel = makeMetricLabel(t);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [config, setConfig] = useState<TrayConfig>({ separator: "  ", items: [] });
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null);
@@ -215,7 +228,7 @@ export function TrayConfigTab() {
         pendingSepIdx = null;
         const p = item.item_type === "platform" && item.platform_id
           ? platforms.find((pp) => pp.id === item.platform_id) : undefined;
-        const { label, value } = computeItemText(item, p, todayStats);
+        const { label, value } = computeItemText(item, p, todayStats, t);
         columns.push({
           item, label, value, isTwo: item.line_mode === "two",
           align: item.align, alignRow2: item.align_row2 || item.align,
@@ -520,7 +533,7 @@ export function TrayConfigTab() {
             ? t("tray.separatorItem", "分隔符")
             : isPlatform
               ? item.display === "coding" ? t("tray.displayCoding", "Coding") : t("tray.displayBalance", "余额")
-              : TODAY_METRICS.find((m) => m.value === (item.metric || "tokens"))?.label ?? "Tokens";
+              : metricLabel(item.metric || "tokens");
 
           return (
             <Fragment>
@@ -548,7 +561,7 @@ export function TrayConfigTab() {
                       ? `${t("tray.separatorItem", "分隔符")} "${item.display || "·"}"`
                       : isPlatform
                         ? platformName(item.platform_id)
-                        : `${t("tray.todayUsage", "今日消耗")} (${TODAY_METRICS.find((m) => m.value === (item.metric || "tokens"))?.label ?? "Tokens"})`}
+                        : `${t("tray.todayUsage", "今日消耗")} (${metricLabel(item.metric || "tokens")})`}
                   </span>
                   <span className="badge badge-muted" style={{ fontSize: 10 }}>{summary}</span>
                   {item.line_mode === "two" && <span className="badge badge-accent" style={{ fontSize: 10 }}>{t("tray.lineModeTwo", "两行")}</span>}
@@ -573,10 +586,10 @@ export function TrayConfigTab() {
                       {PRESET_SEPARATORS.map((s) => (
                         <button key={s.value} className="btn btn-ghost"
                           style={{ padding: "3px 10px", fontSize: 13, borderRadius: 0, minWidth: 28, background: item.display === s.value ? "var(--accent)" : "transparent", color: item.display === s.value ? "#fff" : "var(--text-secondary)" }}
-                          onClick={() => updateItem(i, { display: s.value })}>{s.label}</button>
+                          onClick={() => updateItem(i, { display: s.value })}>{s.value === " " ? t("tray.sep.space", "空格") : s.label}</button>
                       ))}
                     </div>
-                    <input className="input" type="text" value={item.display} placeholder="自定义"
+                    <input className="input" type="text" value={item.display} placeholder={t("tray.custom", "自定义")}
                       onChange={(e) => updateItem(i, { display: e.target.value })} style={{ width: 60, fontSize: 12, padding: "3px 8px" }} />
                   </div>
                 )}
@@ -605,7 +618,7 @@ export function TrayConfigTab() {
                           {TODAY_METRICS.map((m) => (
                             <button key={m.value} className="btn btn-ghost"
                               style={{ padding: "3px 8px", fontSize: 11, borderRadius: 0, background: (item.metric || "tokens") === m.value ? "var(--accent)" : "transparent", color: (item.metric || "tokens") === m.value ? "#fff" : "var(--text-secondary)" }}
-                              onClick={() => updateItem(i, { metric: m.value })}>{m.label}</button>
+                              onClick={() => updateItem(i, { metric: m.value })}>{metricLabel(m.value)}</button>
                           ))}
                         </div>
                       </div>
@@ -705,19 +718,19 @@ export function TrayConfigTab() {
             }}>
               {availablePlatforms.length > 0 && (
                 <>
-                  <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 12px 2px", fontWeight: 600, letterSpacing: 0.5 }}>平台</div>
+                  <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 12px 2px", fontWeight: 600, letterSpacing: 0.5 }}>{t("tray.catPlatform", "平台")}</div>
                   {availablePlatforms.map((p) => (
                     <button key={p.id} className="btn btn-ghost" style={{ justifyContent: "flex-start", fontSize: 12, padding: "8px 12px" }} onClick={() => addPlatform(p.id)}>{p.name}</button>
                   ))}
                 </>
               )}
-              <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 12px 2px", fontWeight: 600, letterSpacing: 0.5, borderTop: "1px solid var(--border)", marginTop: 4 }}>今日统计</div>
+              <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 12px 2px", fontWeight: 600, letterSpacing: 0.5, borderTop: "1px solid var(--border)", marginTop: 4 }}>{t("tray.todayStats", "今日统计")}</div>
               {TODAY_METRICS.map((m) => (
                 <button key={m.value} className="btn btn-ghost" style={{ justifyContent: "flex-start", fontSize: 12, padding: "8px 12px" }} onClick={() => addTodayUsage(m.value)}>
-                  {t("tray.todayUsage", "今日消耗")} — {m.label}
+                  {t("tray.todayUsage", "今日消耗")} — {metricLabel(m.value)}
                 </button>
               ))}
-              <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 12px 2px", fontWeight: 600, letterSpacing: 0.5, borderTop: "1px solid var(--border)", marginTop: 4 }}>分隔符</div>
+              <div style={{ fontSize: 10, color: "var(--text-tertiary)", padding: "4px 12px 2px", fontWeight: 600, letterSpacing: 0.5, borderTop: "1px solid var(--border)", marginTop: 4 }}>{t("tray.separatorChar", "分隔符")}</div>
               <div style={{ display: "flex", gap: 2, padding: "4px 8px" }}>
                 {PRESET_SEPARATORS.map((s) => (
                   <button key={s.value} className="btn btn-ghost"
@@ -727,7 +740,7 @@ export function TrayConfigTab() {
                       persist({ ...config, items: withOrders(items) });
                       setShowAddMenu(false);
                     }}
-                  >{s.label}</button>
+                  >{s.value === " " ? t("tray.sep.space", "空格") : s.label}</button>
                 ))}
               </div>
             </div>
