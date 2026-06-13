@@ -1837,6 +1837,17 @@ const CATPPUCCIN_RED = "243;139;168";
 const CATPPUCCIN_SUBTLE = "108;112;134";
 
 /**
+ * PATH 兜底前奏：Claude Code 通过最小化环境（常仅 `/usr/bin:/bin`）spawn
+ * statusline 命令，Homebrew/local 安装的 `jq`（`/opt/homebrew/bin`、
+ * `/usr/local/bin`、`~/.local/bin` 等）不在该 PATH 上 → 全部 `jq` 调用
+ * `command not found` → 脚本零行输出（exit 0）→ Claude Code 回退默认渲染。
+ * 这正是子代理状态行“失败回退默认行”的根因（python 参考无 jq 依赖故幸免）。
+ * 故在脚本头部把常见二进制目录补进 PATH，使 jq 无论何种 spawn 环境都可定位。
+ */
+const PATH_PRELUDE =
+  'export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:/opt/local/bin:$PATH"';
+
+/**
  * 子代理徽章段：`[{type_label}·{status_symbol}·{model}]`，移植 ccplugin
  * subagent_statusline.py 的 `_STATUS_MAP` / `_status_seg` / type_label / model_label
  * 语义。
@@ -2002,7 +2013,12 @@ echo -n "$__bar $__pct%"`;
     icon: "status",
     desc: "仅百分比数字",
     defaultOptions: { suffix: "%" },
-    toBash: () => `echo -n "$(echo "$input" | jq -r '(.context_window.used_percentage // 0) | round')%"`,
+    // `degradeZero` (subagent default): emit nothing when ctx% is absent/0 so the
+    // `affixPre` separator also drops — mirrors ccplugin which omits ctx for tasks
+    // with no real context data. Main statusline omits the flag → always `0%`.
+    toBash: (o) => o.degradeZero
+      ? atomSegBash(`-r '(.context_window.used_percentage // 0) | round | if . > 0 then tostring + "%" else empty end'`)
+      : `echo -n "$(echo "$input" | jq -r '(.context_window.used_percentage // 0) | round')%"`,
     toPreview: () => "65%",
     fields: [],
   },
@@ -2187,7 +2203,7 @@ echo -n "$__bar $__pct%"`;
     defaultOptions: { format: "human" },
     toBash: (o) => o.format === "ms"
       ? atomSegBash(`-r '(.cost.total_duration_ms // empty) | tostring + "ms"'`)
-      : atomSegBash(`-r '(.cost.total_duration_ms // empty) | (. / 1000) as $s | if $s >= 60 then ((($s / 60) | floor) | tostring) + "m" + (($s % 60 | round) | tostring) + "s" else ($s | round | tostring) + "s" end'`),
+      : atomSegBash(`-r '(.cost.total_duration_ms // empty) | (. / 1000 | floor) as $s | def pad2: (. | tostring) | if length < 2 then "0" + . else . end; if $s >= 3600 then (($s / 3600 | floor) | tostring) + "h" + ((($s % 3600) / 60 | floor) | pad2) + "m" elif $s >= 60 then (($s / 60 | floor) | tostring) + "m" + (($s % 60) | pad2) + "s" else ($s | tostring) + "s" end'`),
     toPreview: (o) => o.format === "ms" ? "285000ms" : "4m45s",
     fields: [
       { key: "format", label: "格式", type: "select", options: ["human", "ms"] },
@@ -2201,7 +2217,7 @@ echo -n "$__bar $__pct%"`;
     defaultOptions: { format: "human" },
     toBash: (o) => o.format === "ms"
       ? atomSegBash(`-r '(.cost.total_api_duration_ms // empty) | tostring + "ms"'`)
-      : atomSegBash(`-r '(.cost.total_api_duration_ms // empty) | (. / 1000) as $s | if $s >= 60 then ((($s / 60) | floor) | tostring) + "m" + (($s % 60 | round) | tostring) + "s" else ($s | round | tostring) + "s" end'`),
+      : atomSegBash(`-r '(.cost.total_api_duration_ms // empty) | (. / 1000 | floor) as $s | def pad2: (. | tostring) | if length < 2 then "0" + . else . end; if $s >= 3600 then (($s / 3600 | floor) | tostring) + "h" + ((($s % 3600) / 60 | floor) | pad2) + "m" elif $s >= 60 then (($s / 60 | floor) | tostring) + "m" + (($s % 60) | pad2) + "s" else ($s | tostring) + "s" end'`),
     toPreview: (o) => o.format === "ms" ? "15300ms" : "15s",
     fields: [
       { key: "format", label: "格式", type: "select", options: ["human", "ms"] },
@@ -2231,9 +2247,11 @@ echo -n "$__bar $__pct%"`;
         ? `if . >= 1000000 then ((. / 100000 | round) / 10 | tostring) + "M" elif . >= 1000 then ((. / 100 | round) / 10 | tostring) + "K" else tostring end`
         : `tostring`;
       // sum 模式：当前 session tokens = total_input + total_output（PRD 第 1 行紫色段）。
+      // 合计为 0（无 token 数据）时降级为空——对齐 ccplugin `if tok_n > 0`，
+      // 避免子代理 pending 任务显示噪声 `·0`。
       if (o.mode === "sum") {
         return atomSegBash(
-          `-r 'if .context_window == null then empty else (((.context_window.total_input_tokens // 0) + (.context_window.total_output_tokens // 0)) | ${fmt}) end'`,
+          `-r 'if .context_window == null then empty else (((.context_window.total_input_tokens // 0) + (.context_window.total_output_tokens // 0)) | if . > 0 then (${fmt}) else empty end) end'`,
         );
       }
       return atomSegBash(
@@ -2717,18 +2735,17 @@ export const DEFAULT_SUBAGENT_SEGMENTS: StatusLineSegment[] = [
     options: {} },
   { id: "sa-name", type: "custom", enabled: true, newline: false, color: "#4A9EFF",
     options: { expr: ".label // .name // .id // \"?\"" } },
-  { id: "sa-sep1", type: "separator", enabled: true, newline: false,
-    options: { char: "·" } },
+  // Metric segments carry their own leading `·` via `affixPre` instead of
+  // standalone `separator` segments: an empty metric (no token / no duration /
+  // no ctx) then degrades to nothing AND drops its separator — matching
+  // ccplugin subagent_statusline.py which omits zero/absent metrics rather than
+  // emitting `0%` / `0` with orphaned `·` separators.
   { id: "sa-ctx", type: "context-pct", enabled: true, newline: false, color: "#34C759",
-    options: {} },
-  { id: "sa-sep2", type: "separator", enabled: true, newline: false,
-    options: { char: "·" } },
+    options: { suffix: "%", degradeZero: true, affixPre: "·" } },
   { id: "sa-tokens", type: "context-tokens", enabled: true, newline: false, color: "#BF5AF2",
-    options: { mode: "sum", abbrev: true } },
-  { id: "sa-sep3", type: "separator", enabled: true, newline: false,
-    options: { char: "·" } },
+    options: { mode: "sum", abbrev: true, affixPre: "·" } },
   { id: "sa-dur", type: "session-duration", enabled: true, newline: false, color: "#8E8E93",
-    options: { format: "human" } },
+    options: { format: "human", affixPre: "·" } },
 ];
 
 /**
@@ -2887,6 +2904,7 @@ export function generateStatusLineScript(segments: StatusLineSegment[]): string 
   const lines: string[] = [
     "#!/usr/bin/env bash",
     "# Generated by aidog — do not edit manually",
+    PATH_PRELUDE,
     "input=$(cat)",
     `__cols=$(echo "$input" | jq -r '.terminal.width // 0')`,
     "",
@@ -2999,6 +3017,7 @@ export function generateSubagentStatusLineScript(segments: StatusLineSegment[]):
   const lines: string[] = [
     "#!/usr/bin/env bash",
     "# Generated by aidog — do not edit manually (SubagentStatusLine)",
+    PATH_PRELUDE,
     "__payload=$(cat)",
     "__now=$(date +%s)",
     // Top-level fallbacks (model / context_window) extracted once.
