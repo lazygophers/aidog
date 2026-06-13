@@ -24,10 +24,11 @@
 | mw-frontend-ui | 中间件 C5 前端 UI + i18n (AppSettings tab + group/platform 嵌入) | — | 已完成 | 收尾 | 100% | — |
 | group-scheduling-breaker | Group 智能调度与熔断器 (组内配置 + 默认值) | — | 规划中 | 规划 | 0% | — |
 | gsb-backend | GSB 后端 熔断器+智能调度+指标+集成+契约 | — | 已完成 | 收尾 | 100% | — |
-| gsb-frontend | GSB 前端 Platform/Group/全局 UI + i18n | — | 规划中 | 规划 | 0% | — |
+| gsb-frontend | GSB 前端 Platform/Group/全局 UI + i18n | — | 已完成 | 收尾 | 100% | — |
 | system-notification | 系统通知模块 (TTS播报/弹窗/收件箱 + Codex&ClaudeCode hook 快捷入口) | — | 规划中 | 规划 | 0% | — |
-| notif-backend | 通知 N1 后端核心 (服务/TTS/弹窗/收件箱/端点/契约) | — | 规划中 | 规划 | 0% | — |
+| notif-backend | 通知 N1 后端核心 (服务/TTS/弹窗/收件箱/端点/契约) | — | in_progress | exec | 15 | — |
 | notif-hooks | 通知 N2 hook 集成 (脚本生成 + 一键注入 ClaudeCode/Codex) | — | 规划中 | 规划 | 0% | — |
 | notif-frontend | 通知 N3 前端 (设置 UI + 通知中心 + i18n) | — | 规划中 | 规划 | 0% | — |
 | subagent-statusline-dynamic | SubagentStatusLine 首段动态化 (type·status·model 驱动, 替代固定 [Agent·●]) | — | 已完成 | 收尾 | 100% | — |
 | subagent-statusline-name | SubagentStatusLine name 段 fallback 对齐 (.label//.name//.id//'?') | — | 已完成 | 收尾 | 100% | — |
+| subagent-statusline-debug | 修复 SubagentStatusLine 真实输入失败 (模拟真实 Claude Code stdin 测正确性) | — | in_progress | exec | 15 | — |
