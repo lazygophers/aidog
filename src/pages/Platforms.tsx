@@ -1154,7 +1154,9 @@ const PlatformCard = memo(function PlatformCard({
                     onToggle={hasDetail ? (next) => actions.onToggleExpanded(p.id, next) : undefined}
                     toggleLabel={t("platform.toggleDetail", "展开/收起明细")}
                     header={(
-                      <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+                        {/* ── 行 1：身份 + 快操作 ── */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
                         {/* 拖拽把手 */}
                         <div
                           className={`drag-handle-inline${isDragging ? " is-active" : ""}`}
@@ -1169,11 +1171,11 @@ const PlatformCard = memo(function PlatformCard({
                         {/* Logo + 健康点 */}
                         <div style={{ position: "relative", flexShrink: 0 }}>
                           <div style={{
-                            width: 34, height: 34, borderRadius: "var(--radius-sm)",
+                            width: 36, height: 36, borderRadius: "var(--radius-sm)",
                             display: "flex", alignItems: "center", justifyContent: "center",
                             background: (logoSvg || favicon) ? "transparent" : `${color}15`,
                             border: `1px solid ${color}30`,
-                            color: color, fontSize: 11, fontWeight: 700, overflow: "hidden",
+                            color: color, fontSize: 12, fontWeight: 700, overflow: "hidden",
                           }}>
                             {logoSvg
                               ? <img src={logoSvg} alt={p.platform_type} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
@@ -1196,7 +1198,7 @@ const PlatformCard = memo(function PlatformCard({
                           )}
                         </div>
                         {/* 名称 + 协议·base_url */}
-                        <div style={{ minWidth: 0, width: 180, flexShrink: 0 }}>
+                        <div style={{ minWidth: 0, flex: 1 }}>
                           <div style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
                           <div className="text-secondary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {p.platform_type.toUpperCase()} · {getBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
@@ -1221,68 +1223,6 @@ const PlatformCard = memo(function PlatformCard({
                             </div>
                           )}
                         </div>
-                        {/* 余额（直显，缺值不渲染）。颜色按后端 balance_level（使用速率）；
-                            neutral（无消费数据）→ undefined 回退现有 total 占比色。 */}
-                        {showQuota && quota.balanceRemaining != null && (() => {
-                          const balColor = usageLevelToColor(p.balance_level);
-                          return (
-                            <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
-                              <BalanceBar remaining={quota.balanceRemaining} total={quota.balanceTotal} currency={quota.currency === "USD" ? "$" : quota.currency} level={balColor === "neutral" ? undefined : balColor} />
-                            </div>
-                          );
-                        })()}
-                        {/* 手动预算剩余（无上游 quota 平台；取最紧那条，耗尽 danger 标记）*/}
-                        {mb && mb.hasData && (
-                          <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
-                            {mb.unit === "usd" ? (
-                              <BalanceBar remaining={mb.remaining} total={mb.amount} currency="$" />
-                            ) : (
-                              <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-                                <span style={{ fontWeight: 700, fontSize: 12, color: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--text-primary)" }}>
-                                  {formatNumber(Math.max(0, mb.remaining))}
-                                  <span style={{ fontSize: 9, color: "var(--text-tertiary)", marginLeft: 3 }}>/ {formatNumber(mb.amount)} tok</span>
-                                </span>
-                                <div style={{ height: 4, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", overflow: "hidden" }}>
-                                  <div style={{ width: `${mb.ratio * 100}%`, height: "100%", background: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--color-success)", borderRadius: "var(--radius-sm)", transition: "width 0.3s ease" }} />
-                                </div>
-                              </div>
-                            )}
-                            <span style={{ fontSize: 9, fontWeight: 700, color: mb.depleted ? "var(--color-danger)" : "var(--text-tertiary)" }}>
-                              {mb.depleted
-                                ? t("platform.manualBudgetDepleted", "额度耗尽")
-                                : t("platform.manualBudgetLabel", "手动预算")}
-                              {mb.unit === "token" && ` · ${t("platform.manualBudgetTokenApprox", "≈未知$")}`}
-                            </span>
-                          </div>
-                        )}
-                        {/* Coding plan tiers（无余额时在 header 展示最紧急 tier） */}
-                        {showQuota && quota.balanceRemaining == null && quota.tiers.length > 0 && (
-                          <div style={{ flexShrink: 0, display: "flex", gap: 4, flexWrap: "wrap", maxWidth: 260 }}>
-                            {quota.tiers.map(tier => {
-                              const isMcp = tier.name === "mcp_monthly";
-                              const value = isMcp && tier.limit != null
-                                ? `${tier.remaining ?? 0}/${tier.limit}`
-                                : `${tier.remainPct.toFixed(0)}%`;
-                              const tierColor = levelColor(tier.level);
-                              const countdown = formatResetCountdown(tier.resetsAt);
-                              return (
-                                <span key={tier.name} style={{
-                                  display: "inline-flex", alignItems: "center", gap: 3,
-                                  padding: "2px 6px", borderRadius: "var(--radius-sm)",
-                                  fontSize: 10, fontWeight: 600,
-                                  background: tier.level === "neutral" ? "var(--bg-glass)" : levelBg(tier.level),
-                                  color: tierColor,
-                                }}>
-                                  <span style={{ fontSize: 11, fontWeight: 700 }}>{value}</span>
-                                  <span style={{ fontSize: 9, opacity: 0.7 }}>{tierLabel(tier.name)}</span>
-                                  {countdown && <span style={{ fontSize: 8, opacity: 0.6 }}>·{countdown}</span>}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {/* 已使用统计已移至下拉展开区，此处留白把快操作推到右侧 */}
-                        <div style={{ flex: 1, minWidth: 0 }} />
                         {/* 快操作 */}
                         <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
                           {showQuota && (
@@ -1346,6 +1286,72 @@ const PlatformCard = memo(function PlatformCard({
                             </svg>
                           </button>
                         </div>
+                        </div>
+                        {/* ── 行 2：余额 / 预算 / coding tiers ── */}
+                        {showQuota && (quota.balanceRemaining != null || (mb && mb.hasData) || (quota.balanceRemaining == null && quota.tiers.length > 0)) && (
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingLeft: 24 }}>
+                        {/* 余额（直显，缺值不渲染）。颜色按后端 balance_level（使用速率）；
+                            neutral（无消费数据）→ undefined 回退现有 total 占比色。 */}
+                        {quota.balanceRemaining != null && (() => {
+                          const balColor = usageLevelToColor(p.balance_level);
+                          return (
+                            <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
+                              <BalanceBar remaining={quota.balanceRemaining} total={quota.balanceTotal} currency={quota.currency === "USD" ? "$" : quota.currency} level={balColor === "neutral" ? undefined : balColor} />
+                            </div>
+                          );
+                        })()}
+                        {/* 手动预算剩余（无上游 quota 平台；取最紧那条，耗尽 danger 标记）*/}
+                        {mb && mb.hasData && (
+                          <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
+                            {mb.unit === "usd" ? (
+                              <BalanceBar remaining={mb.remaining} total={mb.amount} currency="$" />
+                            ) : (
+                              <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
+                                <span style={{ fontWeight: 700, fontSize: 12, color: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--text-primary)" }}>
+                                  {formatNumber(Math.max(0, mb.remaining))}
+                                  <span style={{ fontSize: 9, color: "var(--text-tertiary)", marginLeft: 3 }}>/ {formatNumber(mb.amount)} tok</span>
+                                </span>
+                                <div style={{ height: 4, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", overflow: "hidden" }}>
+                                  <div style={{ width: `${mb.ratio * 100}%`, height: "100%", background: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--color-success)", borderRadius: "var(--radius-sm)", transition: "width 0.3s ease" }} />
+                                </div>
+                              </div>
+                            )}
+                            <span style={{ fontSize: 9, fontWeight: 700, color: mb.depleted ? "var(--color-danger)" : "var(--text-tertiary)" }}>
+                              {mb.depleted
+                                ? t("platform.manualBudgetDepleted", "额度耗尽")
+                                : t("platform.manualBudgetLabel", "手动预算")}
+                              {mb.unit === "token" && ` · ${t("platform.manualBudgetTokenApprox", "≈未知$")}`}
+                            </span>
+                          </div>
+                        )}
+                        {/* Coding plan tiers（无余额时展示最紧急 tier） */}
+                        {quota.balanceRemaining == null && quota.tiers.length > 0 && (
+                          <div style={{ flexShrink: 0, display: "flex", gap: 4, flexWrap: "wrap", maxWidth: 260 }}>
+                            {quota.tiers.map(tier => {
+                              const isMcp = tier.name === "mcp_monthly";
+                              const value = isMcp && tier.limit != null
+                                ? `${tier.remaining ?? 0}/${tier.limit}`
+                                : `${tier.remainPct.toFixed(0)}%`;
+                              const tierColor = levelColor(tier.level);
+                              const countdown = formatResetCountdown(tier.resetsAt);
+                              return (
+                                <span key={tier.name} style={{
+                                  display: "inline-flex", alignItems: "center", gap: 3,
+                                  padding: "2px 6px", borderRadius: "var(--radius-sm)",
+                                  fontSize: 10, fontWeight: 600,
+                                  background: tier.level === "neutral" ? "var(--bg-glass)" : levelBg(tier.level),
+                                  color: tierColor,
+                                }}>
+                                  <span style={{ fontSize: 11, fontWeight: 700 }}>{value}</span>
+                                  <span style={{ fontSize: 9, opacity: 0.7 }}>{tierLabel(tier.name)}</span>
+                                  {countdown && <span style={{ fontSize: 8, opacity: 0.6 }}>·{countdown}</span>}
+                                </span>
+                              );
+                            })}
+                          </div>
+                        )}
+                          </div>
+                        )}
                       </div>
                     )}
                   >

@@ -53,7 +53,7 @@ export function CompactCard({
       style={{
         display: "flex",
         flexDirection: "column",
-        padding: 12,
+        padding: 16,
         borderRadius: "var(--radius-md)",
         ...style,
       }}

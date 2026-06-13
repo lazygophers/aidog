@@ -723,7 +723,9 @@ export function Groups() {
             const sRate = u ? calcSuccessRate(u.success_count, u.total_requests) : 0;
 
             const header = (
-              <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
+                {/* ── 行 1：身份 + 快操作 ── */}
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                 {/* Drag handle */}
                 <span
                   ref={handle.ref}
@@ -759,6 +761,26 @@ export function Groups() {
                     )}
                   </div>
                 </div>
+                {/* Quick actions */}
+                <CopyButton text={buildClaudeCommand(group.name)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} size={14} />
+                <CopyButton text={buildCodexCommand(group.name)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
+                <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </button>
+                {!group.auto_from_platform && (
+                  <button className="btn btn-ghost btn-icon btn-danger" onClick={(e) => { e.stopPropagation(); handleDeleteGroup(group.id); }}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
+                    </svg>
+                  </button>
+                )}
+                </div>
+                {/* ── 行 2：统计 + 余额 ── */}
+                {(u || balance != null) && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingLeft: 26 }}>
                 {/* Aggregate stats chips */}
                 {u && (
                   <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
@@ -776,21 +798,7 @@ export function Groups() {
                     <BalanceBar remaining={balance} showTotal={false} />
                   </div>
                 )}
-                {/* Quick actions */}
-                <CopyButton text={buildClaudeCommand(group.name)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} size={14} />
-                <CopyButton text={buildCodexCommand(group.name)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
-                <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                </button>
-                {!group.auto_from_platform && (
-                  <button className="btn btn-ghost btn-icon btn-danger" onClick={(e) => { e.stopPropagation(); handleDeleteGroup(group.id); }}>
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
-                    </svg>
-                  </button>
+                  </div>
                 )}
               </div>
             );
