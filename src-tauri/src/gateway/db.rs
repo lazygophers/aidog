@@ -693,6 +693,121 @@ pub async fn today_stats(db: &Db) -> Result<TodayStats, String> {
         .map_err(|e| format!("today stats: {e}"))
 }
 
+/// 单平台当日使用统计（供 popover「各平台当日」展示）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TodayPlatformStat {
+    /// 归属平台 id（platform_id=0 自动分组日志已回溯到源平台）。
+    pub platform_id: u64,
+    /// 平台名（回溯失败 / 平台已删则为空，前端归「未知平台」）。
+    pub platform_name: String,
+    /// 当日 token 总量（input + output）。
+    pub tokens: i64,
+    /// 当日预估花费（$）。
+    pub cost: f64,
+    /// 当日请求数。
+    pub requests: i64,
+}
+
+/// 各平台当日使用（本地时区 00:00 起，未删除日志），只返回有用量（已用）的平台。
+///
+/// platform_id=0 的自动分组日志经 `group.auto_from_platform` 回溯到源平台后归并，
+/// 回溯不到（auto 分组已删 / 非 auto 分组的 platform_id=0）则归 platform_id=0（前端显「未知平台」）。
+/// 平台名 JOIN platform 表（含已软删平台，名仍可显示；查不到则空字符串）。
+pub async fn today_platform_stats(db: &Db) -> Result<Vec<TodayPlatformStat>, String> {
+    use chrono::{Local, TimeZone};
+    let today = Local::now().date_naive();
+    let start_dt = today.and_hms_opt(0, 0, 0).ok_or("invalid local midnight")?;
+    let start_local = Local
+        .from_local_datetime(&start_dt)
+        .single()
+        .ok_or("ambiguous local midnight")?;
+    let start_ms = start_local.timestamp_millis();
+
+    db.0
+        .call(move |conn| {
+            // 有效平台 id = COALESCE(自动分组回溯, 原 platform_id)。
+            // 自动分组日志 platform_id=0，通过 group_name → "group".auto_from_platform（十进制字符串）回溯。
+            // GROUP BY 该有效 id，天然只含当日有日志（已用）的平台。
+            let sql = "
+                SELECT eff_pid,
+                       COALESCE(SUM(input_tokens + output_tokens), 0) AS tokens,
+                       COALESCE(SUM(est_cost), 0.0) AS cost,
+                       COUNT(*) AS reqs
+                FROM (
+                    SELECT
+                        CASE WHEN platform_id = 0 THEN COALESCE(
+                            (SELECT CAST(g.auto_from_platform AS INTEGER)
+                             FROM \"group\" g
+                             WHERE g.name = proxy_log.group_name
+                               AND g.auto_from_platform != ''
+                               AND g.deleted_at = 0
+                             LIMIT 1), 0)
+                        ELSE platform_id END AS eff_pid,
+                        input_tokens, output_tokens, est_cost
+                    FROM proxy_log
+                    WHERE created_at >= ?1 AND deleted_at = 0
+                )
+                GROUP BY eff_pid
+                ORDER BY cost DESC, tokens DESC";
+            let mut stmt = conn.prepare(sql)?;
+            let rows = stmt
+                .query_map(params![start_ms], |row| {
+                    let pid: i64 = row.get(0)?;
+                    Ok((pid, row.get::<_, i64>(1)?, row.get::<_, f64>(2)?, row.get::<_, i64>(3)?))
+                })?
+                .collect::<SqlResult<Vec<_>>>()?;
+
+            // 平台名映射（含软删平台，名仍可显示）。
+            let mut name_stmt = conn.prepare("SELECT id, name FROM platform")?;
+            let names: std::collections::HashMap<i64, String> = name_stmt
+                .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))?
+                .collect::<SqlResult<Vec<_>>>()?
+                .into_iter()
+                .collect();
+
+            Ok(rows
+                .into_iter()
+                .map(|(pid, tokens, cost, reqs)| TodayPlatformStat {
+                    platform_id: pid.max(0) as u64,
+                    platform_name: names.get(&pid).cloned().unwrap_or_default(),
+                    tokens,
+                    cost,
+                    requests: reqs,
+                })
+                .collect())
+        })
+        .await
+        .map_err(|e| format!("today platform stats: {e}"))
+}
+
+// ─── Popover Config (settings: scope="popover", key="config") ─
+
+/// 读取 PopoverConfig。无配置 / 损坏 → 默认配置（不持久化，按需懒生成）。
+pub async fn get_popover_config(db: &Db) -> Result<super::models::PopoverConfig, String> {
+    if let Some(v) = get_setting(db, "popover", "config").await? {
+        if !v.is_null() {
+            let cfg: super::models::PopoverConfig =
+                serde_json::from_value(v).unwrap_or_else(|e| {
+                    tracing::warn!(error = %e, "popover config JSON is corrupt, falling back to default");
+                    super::models::PopoverConfig::default()
+                });
+            return Ok(cfg);
+        }
+    }
+    Ok(super::models::PopoverConfig::default())
+}
+
+/// 写入 PopoverConfig 到 settings。
+pub async fn set_popover_config(db: &Db, cfg: &super::models::PopoverConfig) -> Result<(), String> {
+    let value = serde_json::to_value(cfg).map_err(|e| format!("serialize popover config: {e}"))?;
+    set_setting(db, SetSettingInput {
+        scope: "popover".to_string(),
+        key: "config".to_string(),
+        value,
+    })
+    .await
+}
+
 /// 根据 model_price 定价计算单次请求预估花费（$）
 ///
 /// 复用 `resolve_price` 的回退链（pricing[platform_type] > top_level >
@@ -2525,6 +2640,49 @@ decimals: None,
         upsert_proxy_log(&db, &sample_log("c", "g", yesterday_ms)).await.unwrap();
 
         assert_eq!(today_token_total(&db).await.unwrap(), 60);
+    }
+
+    /// today_platform_stats：按平台分组今日用量；platform_id=0 自动分组日志经
+    /// group.auto_from_platform 回溯到源平台后归并；只返回有用量的平台；昨日日志不计。
+    #[tokio::test]
+    async fn today_platform_stats_groups_and_retraces() {
+        use chrono::{Local, Duration};
+        let db = test_db().await;
+        let now_ms = now();
+
+        // 平台 1（源平台），平台 2（无用量，不应出现）。
+        let p1 = create_platform(&db, sample_platform("p-one")).await.unwrap();
+        let _p2 = create_platform(&db, sample_platform("p-two")).await.unwrap();
+
+        // 自动分组：auto_from_platform = p1.id 的十进制字符串。
+        let mut g = sample_group("autog", "/a", vec![]);
+        g.auto_from_platform = p1.id.to_string();
+        let group = create_group(&db, g).await.unwrap();
+
+        // 直连 p1 的日志（platform_id = p1.id），10+20 = 30 tok。
+        let mut direct = sample_log("d1", "autog", now_ms);
+        direct.platform_id = p1.id;
+        upsert_proxy_log(&db, &direct).await.unwrap();
+
+        // 自动分组日志（platform_id=0），回溯到 p1。10+20 = 30 tok。
+        let mut auto = sample_log("a1", &group.name, now_ms);
+        auto.platform_id = 0;
+        upsert_proxy_log(&db, &auto).await.unwrap();
+
+        // 昨日日志：不计入。
+        let yesterday_ms = (Local::now() - Duration::days(1)).timestamp_millis();
+        let mut old = sample_log("o1", "autog", yesterday_ms);
+        old.platform_id = p1.id;
+        upsert_proxy_log(&db, &old).await.unwrap();
+
+        let stats = today_platform_stats(&db).await.unwrap();
+        // 只 p1 有今日用量（direct + auto 归并），p2 无用量不出现。
+        assert_eq!(stats.len(), 1, "仅有用量的平台出现");
+        let s = &stats[0];
+        assert_eq!(s.platform_id, p1.id);
+        assert_eq!(s.platform_name, "p-one");
+        assert_eq!(s.tokens, 60, "direct(30) + auto retrace(30) 归并");
+        assert_eq!(s.requests, 2);
     }
 
     // ── S1 async DB：增删改查全路径（内存库，验证 tokio-rusqlite 闭包往返）──

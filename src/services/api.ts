@@ -441,6 +441,57 @@ export const trayConfigApi = {
   todayStats: () => invoke<TodayStats>("tray_today_stats"),
 };
 
+// ─── Popover Config API ────────────────────────────────────
+// 字段名与 Rust serde（src-tauri/src/gateway/models.rs PopoverConfig/PopoverItem）保持 snake_case 一致。
+
+/** Popover 浮窗预定义指标集 item type。
+ * - "today_cost"       今日已用金额
+ * - "today_cache_rate" 今日缓存率
+ * - "today_tokens"     今日 token 总量
+ * - "platform_today"   各平台当日使用（只含已用，列表）
+ * - "proxy_status"     代理状态行
+ * - "platform_balance" 平台余额 / coding 列（来自 tray 配置）
+ */
+export type PopoverItemType =
+  | "today_cost"
+  | "today_cache_rate"
+  | "today_tokens"
+  | "platform_today"
+  | "proxy_status"
+  | "platform_balance";
+
+/** Popover 浮窗单个展示项（预定义指标集内组合）。 */
+export interface PopoverItem {
+  /** 稳定 id（前端生成，拖拽 key 用）。 */
+  id: string;
+  item_type: PopoverItemType;
+  visible: boolean;
+  order: number;
+}
+
+/** Popover 浮窗整体配置（存 settings: scope="popover", key="config"）。 */
+export interface PopoverConfig {
+  items: PopoverItem[];
+}
+
+/** 单平台当日使用（popover「各平台当日」+ 设置预览）。 */
+export interface TodayPlatformStat {
+  platform_id: number;
+  platform_name: string;
+  tokens: number;
+  cost: number;
+  requests: number;
+}
+
+export const popoverConfigApi = {
+  /** 读取 popover 配置（无配置 → 默认）。 */
+  get: () => invoke<PopoverConfig>("popover_config_get"),
+  /** 保存 popover 配置。 */
+  set: (config: PopoverConfig) => invoke<void>("popover_config_set", { config }),
+  /** 各平台当日使用（设置页预览）。 */
+  platformToday: () => invoke<TodayPlatformStat[]>("popover_platform_today"),
+};
+
 // ─── Group API ─────────────────────────────────────────────
 
 export const groupApi = {
