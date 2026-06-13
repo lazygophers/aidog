@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo, memo } from "react";
 import { useTranslation } from "react-i18next";
 import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit } from "../services/api";
 import { getPlatformLogo } from "../assets/platforms";
-import { IconBolt, IconCost, IconCheck, IconClose, IconCoin } from "../components/icons";
+import { IconBolt, IconCost, IconCheck, IconClose, IconCoin, IconClock } from "../components/icons";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
 import { formatNumber, formatCost, formatPercent } from "../utils/formatters";
 
@@ -1349,10 +1349,18 @@ const PlatformCard = memo(function PlatformCard({
                                   ? `${tier.remaining ?? 0}/${tier.limit}`
                                   : `${tier.remainPct.toFixed(0)}%`;
                                 return (
-                                  <StatChip key={tier.name} icon={<IconCoin size={13} />}
-                                    value={value}
-                                    label={tierLabel(tier.name) + (countdown ? ` · ${countdown}` : "")}
-                                    color={utilColor(tier.utilization)} />
+                                  <div key={tier.name} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                                    <StatChip icon={<IconCoin size={13} />}
+                                      value={value}
+                                      label={tierLabel(tier.name)}
+                                      color={utilColor(tier.utilization)} />
+                                    {countdown && (
+                                      <span className="text-tertiary" style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 600, paddingLeft: 2 }}>
+                                        <IconClock size={11} />
+                                        {t("platform.resetIn", "重置 {{countdown}}", { countdown })}
+                                      </span>
+                                    )}
+                                  </div>
                                 );
                               })}
                             </div>

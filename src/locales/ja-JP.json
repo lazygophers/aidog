@@ -47,6 +47,7 @@
   "page.platforms": "プラットフォーム管理",
   "page.proxy": "プロキシコンソール",
   "platform.add": "追加",
+  "platform.resetIn": "{{countdown}} 後にリセット",
   "platform.usageLabel": "使用済み",
   "platform.sectionBasic": "基本情報",
   "platform.sectionAuth": "認証",

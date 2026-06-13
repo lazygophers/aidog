@@ -51,6 +51,7 @@
   "page.platforms": "AI 平台管理",
   "page.proxy": "代理服务控制台",
   "platform.add": "添加平台",
+  "platform.resetIn": "重置 {{countdown}}",
   "platform.sectionBasic": "基础信息",
   "platform.sectionAuth": "认证",
   "platform.manualBudgetTitle": "手动预算",
