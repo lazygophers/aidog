@@ -472,7 +472,7 @@ export function Logs() {
                   <ThCell>{t("logs.duration")}</ThCell>
                   <ThCell>{t("logs.inputTokens")}</ThCell>
                   <ThCell>{t("logs.outputTokens")}</ThCell>
-                  <ThCell>{""}</ThCell>
+                  <ThCell sticky>{""}</ThCell>
                 </tr>
               </thead>
               <tbody>
@@ -511,7 +511,7 @@ export function Logs() {
                     <TdCell>{log.duration_ms}ms</TdCell>
                     <TdCell>{log.input_tokens || "-"}</TdCell>
                     <TdCell>{log.output_tokens || "-"}</TdCell>
-                    <TdCell>
+                    <TdCell sticky>
                       <button
                         className="btn btn-ghost btn-icon"
                         style={{ padding: 2 }}
@@ -787,20 +787,32 @@ function RequestSectionContent({
   );
 }
 
-function ThCell({ children }: { children: React.ReactNode }) {
+function ThCell({ children, sticky }: { children: React.ReactNode; sticky?: boolean }) {
   return (
     <th style={{
       padding: "10px 14px", textAlign: "left", fontWeight: 600,
       color: "var(--text-secondary)", whiteSpace: "nowrap", fontSize: F.small,
+      ...(sticky ? {
+        position: "sticky" as const, right: 0, zIndex: 2,
+        background: "var(--bg-surface)",
+        boxShadow: "-4px 0 8px -4px var(--shadow-color, rgba(0,0,0,0.08))",
+      } : {}),
     }}>
       {children}
     </th>
   );
 }
 
-function TdCell({ children }: { children: React.ReactNode }) {
+function TdCell({ children, sticky }: { children: React.ReactNode; sticky?: boolean }) {
   return (
-    <td style={{ padding: "10px 14px", whiteSpace: "nowrap" }}>
+    <td style={{
+      padding: "10px 14px", whiteSpace: "nowrap",
+      ...(sticky ? {
+        position: "sticky" as const, right: 0, zIndex: 2,
+        background: "var(--bg-surface)",
+        boxShadow: "-4px 0 8px -4px var(--shadow-color, rgba(0,0,0,0.08))",
+      } : {}),
+    }}>
       {children}
     </td>
   );
