@@ -45,6 +45,22 @@ fn provider_api_path(_protocol: &Protocol) -> String {
     "/chat/completions".to_string()
 }
 
+/// 同协议透传时的出站 API 路径：与 `convert_request` 对各 wire 协议产出的 path 保持一致，
+/// 但**不转换 body**（透传保留原始请求体结构）。
+///
+/// - `wire_protocol`: 出站 wire 协议（= 入站协议，因为透传仅在精确同协议时触发）
+/// - `model`: 用于 Gemini path 中的模型段（其余协议忽略）
+/// - `platform_protocol`: 平台类型，决定 OpenAI-compatible 平台的 chat path 后缀
+pub fn passthrough_api_path(wire_protocol: &Protocol, model: &str, platform_protocol: &Protocol) -> String {
+    match wire_protocol {
+        Protocol::Anthropic => "/v1/messages".to_string(),
+        Protocol::Gemini => format!("/v1beta/models/{}:streamGenerateContent", model),
+        Protocol::OpenAIResponses => "/v1/responses".to_string(),
+        Protocol::OpenAICompletions => "/v1/completions".to_string(),
+        _ => provider_api_path(platform_protocol),
+    }
+}
+
 /// 将目标协议的 SSE event data 解析为统一的 ChatStreamEvent。
 /// SSE 响应格式由 wire protocol（endpoint 协议）决定。
 pub fn parse_sse(data: &Value, wire_protocol: &Protocol) -> Option<ChatStreamEvent> {
@@ -161,5 +177,46 @@ pub fn to_anthropic_sse(event: &ChatStreamEvent) -> Option<String> {
             })
         )),
         ChatStreamEvent::Usage { .. } => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── 透传 path 与 convert_request 各 wire 协议产出一致（不转 body）──
+    #[test]
+    fn passthrough_path_matches_convert_request() {
+        let wires = [
+            Protocol::Anthropic,
+            Protocol::Gemini,
+            Protocol::OpenAIResponses,
+            Protocol::OpenAICompletions,
+            Protocol::OpenAI,
+        ];
+        let req = ChatRequest {
+            model: "gpt-4o".to_string(),
+            messages: vec![],
+            system: None,
+            max_tokens: None,
+            temperature: None,
+            top_p: None,
+            stream: None,
+            tools: None,
+            tool_choice: None,
+            extra: None,
+        };
+        for wire in wires {
+            let (_body, conv_path) = convert_request(&req, &wire, &Protocol::OpenAI);
+            let pass_path = passthrough_api_path(&wire, &req.model, &Protocol::OpenAI);
+            assert_eq!(conv_path, pass_path, "path mismatch for {:?}", wire);
+        }
+    }
+
+    // ── Gemini path 含模型名 ──
+    #[test]
+    fn passthrough_path_gemini_embeds_model() {
+        let path = passthrough_api_path(&Protocol::Gemini, "gemini-2.0-flash", &Protocol::Gemini);
+        assert_eq!(path, "/v1beta/models/gemini-2.0-flash:streamGenerateContent");
     }
 }
