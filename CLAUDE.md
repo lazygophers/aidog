@@ -42,7 +42,8 @@ src-tauri/src/
 - retention 清理只清空字段（UPDATE SET=''），不删行；retention_days 删整行
 
 ### Group 统计
-- Group 卡片的 usage stats 由关联 platforms 的 stats 聚合而来（前端求和），不独立查 proxy_logs
+- Group 卡片的 usage stats 按 `proxy_log.group_name` 聚合（后端 `get_group_usage_stats` db.rs:1320 + command `group_usage_stats` lib.rs:1155 + api `groupUsageApi.stats`），只含本分组请求，被多 group 共享的平台不重复计入。前端 Groups.tsx `fetchGroupStats` 对每个 group 调一次。
+- balance（余额）维持平台级：关联 platforms 的 `est_balance_remaining` 求和，无 per-group 概念，不按 group_name 拆。
 
 ### Local API
 - 所有 API 端点以 `/api/` 开头，仅允许 POST 方法
