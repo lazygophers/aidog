@@ -137,12 +137,36 @@ pub enum Protocol {
 }
 
 /// 路由模式
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]
 pub enum RoutingMode {
     #[serde(rename = "load_balance")]
     LoadBalance,
     #[serde(rename = "failover")]
     Failover,
+    /// 健康集加权随机：准入门摘除熔断 Open 平台后，在健康平台中按 weight 加权随机。
+    #[serde(rename = "health_aware")]
+    HealthAware,
+    /// 最小延迟：按 per-platform 延迟 EMA 升序。
+    #[serde(rename = "least_latency")]
+    LeastLatency,
+    /// 粘性会话：session 键绑定平台（若健康），否则回退加权随机并写绑定。
+    #[serde(rename = "sticky")]
+    Sticky,
+}
+
+impl RoutingMode {
+    /// 从 settings 默认字面量解析；未知 → LoadBalance（向后兼容）。
+    /// 供 SchedulingBreakerSettings::default_mode 与 GB 创建 Group 时取全局默认用。
+    #[allow(dead_code)]
+    pub fn from_str_or_default(s: &str) -> Self {
+        match s {
+            "failover" => RoutingMode::Failover,
+            "health_aware" => RoutingMode::HealthAware,
+            "least_latency" => RoutingMode::LeastLatency,
+            "sticky" => RoutingMode::Sticky,
+            _ => RoutingMode::LoadBalance,
+        }
+    }
 }
 
 /// 平台状态三态：用户启用 / 用户手动禁用 / 401-403 自动禁用。
@@ -408,6 +432,15 @@ pub struct Platform {
     /// 连续自动禁用次数（指数退避指数）；恢复 enabled 时清零
     #[serde(default)]
     pub auto_disable_strikes: i64,
+    /// 熔断器失败阈值（连续失败达此数 → Open）；0 = 继承全局 SchedulingBreakerSettings 默认。
+    #[serde(default)]
+    pub breaker_failure_threshold: u32,
+    /// 熔断 Open 持续秒数（之后转 HalfOpen 探测）；0 = 继承全局默认。
+    #[serde(default)]
+    pub breaker_open_secs: u64,
+    /// HalfOpen 允许的最大探测请求数；0 = 继承全局默认。
+    #[serde(default)]
+    pub breaker_half_open_max: u32,
     pub created_at: i64,
     pub updated_at: i64,
     #[serde(default)]
@@ -477,6 +510,10 @@ pub struct UpdatePlatform {
     /// 注意：禁止前端直接置 auto_disabled（仅系统 401/403 联动设置）；置 enabled 会清空退避状态。
     pub status: Option<PlatformStatus>,
     pub manual_budgets: Option<Vec<ManualBudget>>,
+    /// 熔断阈值覆盖（0=继承全局默认）；None=不变保留既有值。
+    pub breaker_failure_threshold: Option<u32>,
+    pub breaker_open_secs: Option<u64>,
+    pub breaker_half_open_max: Option<u32>,
 }
 
 // ─── Group ─────────────────────────────────────────────────
@@ -1529,6 +1566,76 @@ impl MiddlewareSettings {
             .get(rule_type.as_str())
             .copied()
             .unwrap_or(true)
+    }
+}
+
+// ─── Scheduling & Breaker Settings ─────────────────────────
+
+/// 全局调度 + 熔断默认设置（settings KV scope=`scheduling`, key=`settings`）。
+/// Platform 的 breaker_* 字段为 0 时继承本结构对应默认值。
+/// `enabled=false` 时熔断总开关旁路（候选过滤不踢任何 Open 平台）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SchedulingBreakerSettings {
+    /// 全局默认调度策略字面量（与 RoutingMode serde rename 对齐）；Group routing_mode 覆盖之。
+    #[serde(default = "default_routing_mode_str")]
+    pub default_routing_mode: String,
+    /// 全局默认熔断失败阈值（连续失败达此数 → Open）。
+    #[serde(default = "default_breaker_failure_threshold")]
+    pub breaker_failure_threshold: u32,
+    /// 全局默认 Open 持续秒数。
+    #[serde(default = "default_breaker_open_secs")]
+    pub breaker_open_secs: u64,
+    /// 全局默认 HalfOpen 最大探测数。
+    #[serde(default = "default_breaker_half_open_max")]
+    pub breaker_half_open_max: u32,
+    /// 熔断总开关。
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+}
+
+fn default_routing_mode_str() -> String { "load_balance".to_string() }
+fn default_breaker_failure_threshold() -> u32 { 5 }
+fn default_breaker_open_secs() -> u64 { 1800 }
+fn default_breaker_half_open_max() -> u32 { 2 }
+
+impl Default for SchedulingBreakerSettings {
+    fn default() -> Self {
+        Self {
+            default_routing_mode: default_routing_mode_str(),
+            breaker_failure_threshold: default_breaker_failure_threshold(),
+            breaker_open_secs: default_breaker_open_secs(),
+            breaker_half_open_max: default_breaker_half_open_max(),
+            enabled: true,
+        }
+    }
+}
+
+impl SchedulingBreakerSettings {
+    /// 解析某平台的有效熔断阈值：平台字段非 0 用之，否则全局默认。
+    /// 返回 (failure_threshold, open_secs, half_open_max)。
+    pub fn effective_thresholds(&self, platform: &Platform) -> (u32, u64, u32) {
+        let ft = if platform.breaker_failure_threshold > 0 {
+            platform.breaker_failure_threshold
+        } else {
+            self.breaker_failure_threshold
+        };
+        let os = if platform.breaker_open_secs > 0 {
+            platform.breaker_open_secs
+        } else {
+            self.breaker_open_secs
+        };
+        let hom = if platform.breaker_half_open_max > 0 {
+            platform.breaker_half_open_max
+        } else {
+            self.breaker_half_open_max
+        };
+        (ft.max(1), os.max(1), hom.max(1))
+    }
+
+    /// 全局默认调度策略解析为 RoutingMode（GB 创建 Group 时取初值）。
+    #[allow(dead_code)]
+    pub fn default_mode(&self) -> RoutingMode {
+        RoutingMode::from_str_or_default(&self.default_routing_mode)
     }
 }
 

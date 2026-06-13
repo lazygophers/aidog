@@ -1,5 +1,6 @@
 use super::db;
 use super::models::*;
+use super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 
 /// 路由结果
 pub struct RouteResult {
@@ -36,10 +37,31 @@ fn candidate_state(platform: &Platform, now_ms: i64) -> Option<bool> {
 ///
 /// 过滤：status==Enabled 优先纳入；auto_disabled 且已过退避试探时间的平台排在**末尾**惰性试探。
 /// 显式 model_mapping 命中时，映射目标平台排在候选首位（最高优先），其余候选作为 failover 后备。
+/// 无调度上下文重载（保持旧调用兼容，如测试 / 内部）：用默认（无熔断指标，仅 auto_disabled 过滤）。
+#[allow(dead_code)]
 pub async fn select_candidates(
     db: &db::Db,
     group: &Group,
     source_model: &str,
+) -> Result<CandidateSet, String> {
+    select_candidates_ctx(db, group, source_model, None).await
+}
+
+/// 调度上下文（proxy 持有；scheduler 为 per-platform 健康/熔断指标，sticky 为粘性绑定表）。
+pub struct ScheduleCtx<'a> {
+    pub scheduler: &'a SchedulerState,
+    pub sticky: &'a StickyTable,
+    pub settings: &'a SchedulingBreakerSettings,
+    /// Sticky 模式 session 键（group_name + 客户端稳定标识，调用侧拼接）。
+    pub sticky_key: Option<String>,
+}
+
+/// 带调度上下文的候选选取。`ctx=None` 时退化为无熔断 / 无指标的旧行为（仅 auto_disabled 过滤）。
+pub async fn select_candidates_ctx(
+    db: &db::Db,
+    group: &Group,
+    source_model: &str,
+    ctx: Option<&ScheduleCtx<'_>>,
 ) -> Result<CandidateSet, String> {
     let mapping = group.model_mappings.iter().find(|m| m.source_model == source_model);
     let mapped_target_model = mapping.map(|m| m.target_model.clone());
@@ -52,12 +74,34 @@ pub async fn select_candidates(
 
     let now_ms = db::now();
 
-    // 1. 拆分为「正常候选(enabled)」与「试探候选(auto_disabled 过期)」两组，分别保持模式排序，
-    //    最终正常组在前、试探组在后。
+    // 有效调度策略：Group routing_mode 即为最终策略；旧 settings 中全局默认仅在无 ctx 时不参与。
+    // （Group 总是携带 routing_mode；全局默认 default_routing_mode 是 GB 写 Group 时的初值来源。）
+    let effective_mode = group.routing_mode;
+    let breaker_enabled = ctx.map(|c| c.settings.enabled).unwrap_or(false);
+
+    // 1. 拆分候选：先按 auto_disabled 三态分桶（enabled / 过期试探）。
+    //    再叠加熔断准入门：[熔断 Open] ∪ [auto_disabled 未到期] 取并集踢出。
+    //    HalfOpen 平台限量放行（计入 active）。二者状态独立判定，互不改写。
     let mut active: Vec<&GroupPlatformDetail> = Vec::new();
     let mut probe: Vec<&GroupPlatformDetail> = Vec::new();
     for gp in &group_platforms {
-        match candidate_state(&gp.platform, now_ms) {
+        // auto_disabled 维度（DB 持久态）
+        let auto_state = candidate_state(&gp.platform, now_ms);
+        if auto_state.is_none() {
+            continue; // 用户手动 disabled / auto_disabled 未到退避 → 跳过
+        }
+        // 熔断维度（内存态）：仅在有 ctx 且总开关开时判定
+        if let Some(c) = ctx {
+            if breaker_enabled {
+                let (ft, os, hom) = c.settings.effective_thresholds(&gp.platform);
+                let th = BreakerThresholds { failure_threshold: ft, open_secs: os, half_open_max: hom };
+                match c.scheduler.admission(gp.platform.id, &th, now_ms, true) {
+                    Admission::Reject => continue, // 熔断 Open / HalfOpen 名额满 → 踢出
+                    Admission::Probe | Admission::Allow => {}
+                }
+            }
+        }
+        match auto_state {
             Some(false) => active.push(gp),
             Some(true) => probe.push(gp),
             None => {}
@@ -65,14 +109,26 @@ pub async fn select_candidates(
     }
 
     // 2. 按路由模式排序两组
-    match group.routing_mode {
+    match effective_mode {
         RoutingMode::Failover => {
             active.sort_by_key(|gp| gp.priority);
             probe.sort_by_key(|gp| gp.priority);
         }
-        RoutingMode::LoadBalance => {
+        // LoadBalance / HealthAware：健康集加权随机（准入门已摘 Open，等价加权随机 on 健康集）
+        RoutingMode::LoadBalance | RoutingMode::HealthAware => {
             order_load_balance(&mut active, now_ms);
             order_load_balance(&mut probe, now_ms);
+        }
+        // LeastLatency：按延迟 EMA 升序（无样本视为最大，排末尾）
+        RoutingMode::LeastLatency => {
+            order_least_latency(&mut active, ctx);
+            order_least_latency(&mut probe, ctx);
+        }
+        // Sticky：绑定平台若健康提到首位，否则回退加权随机 + 写绑定
+        RoutingMode::Sticky => {
+            order_load_balance(&mut active, now_ms);
+            order_load_balance(&mut probe, now_ms);
+            apply_sticky(&mut active, ctx, now_ms);
         }
     }
 
@@ -95,7 +151,7 @@ pub async fn select_candidates(
     }
 
     if ordered.is_empty() {
-        return Err("no available platform (all disabled or backing off)".to_string());
+        return Err("no available platform (all disabled, backing off, or circuit-broken)".to_string());
     }
 
     // 5. 为每个候选解析目标模型
@@ -152,6 +208,36 @@ fn order_load_balance(platforms: &mut Vec<&GroupPlatformDetail>, seed: i64) {
     }
 }
 
+/// LeastLatency 排序：按 per-platform 延迟 EMA 升序；无样本（None）视为最大排末尾。
+/// 无 ctx（无指标）时退化为不变序（保持入参顺序）。
+fn order_least_latency(platforms: &mut [&GroupPlatformDetail], ctx: Option<&ScheduleCtx<'_>>) {
+    let Some(c) = ctx else { return };
+    platforms.sort_by(|a, b| {
+        let la = c.scheduler.latency_ema(a.platform.id).unwrap_or(f64::MAX);
+        let lb = c.scheduler.latency_ema(b.platform.id).unwrap_or(f64::MAX);
+        la.partial_cmp(&lb).unwrap_or(std::cmp::Ordering::Equal)
+    });
+}
+
+/// Sticky：若 session 键命中已绑定平台且该平台仍在健康候选集中，提到首位；
+/// 否则把当前首选（加权随机已定）写为新绑定。失效 / 熔断的旧绑定自然回退（不在集中即重绑）。
+fn apply_sticky(platforms: &mut [&GroupPlatformDetail], ctx: Option<&ScheduleCtx<'_>>, now_ms: i64) {
+    let Some(c) = ctx else { return };
+    let Some(ref key) = c.sticky_key else { return };
+    if platforms.is_empty() {
+        return;
+    }
+    if let Some(bound_id) = c.sticky.get(key, now_ms) {
+        if let Some(pos) = platforms.iter().position(|gp| gp.platform.id == bound_id) {
+            platforms.swap(0, pos);
+            return; // 绑定健康，维持
+        }
+        // 绑定平台已失效 / 熔断 / 不在集 → 落到重绑（用新首选）
+    }
+    // 写 / 重写绑定为当前首选平台
+    c.sticky.put(key.clone(), platforms[0].platform.id, now_ms);
+}
+
 /// 根据分组路由规则选择平台
 #[allow(dead_code)]
 pub async fn select_platform(
@@ -198,7 +284,9 @@ pub async fn select_platform(
     // 4. 根据路由模式选择平台
     let platform = match group.routing_mode {
         RoutingMode::Failover => select_failover(&group_platforms),
-        RoutingMode::LoadBalance => select_load_balance(&group_platforms),
+        // LoadBalance / HealthAware / LeastLatency / Sticky 在此简化路径均按加权随机
+        // （本 fn 已 deprecated，仅 select_candidates_ctx 实现完整策略；保留编译）。
+        _ => select_load_balance(&group_platforms),
     }?;
 
     // 5. 无显式映射时，按平台 PlatformModels 自动匹配模型
@@ -311,6 +399,9 @@ mod tests {
             status,
             auto_disabled_until: until,
             auto_disable_strikes: 0,
+            breaker_failure_threshold: 0,
+            breaker_open_secs: 0,
+            breaker_half_open_max: 0,
             created_at: 0,
             updated_at: 0,
             deleted_at: 0,
@@ -324,6 +415,106 @@ mod tests {
             manual_budgets: vec![],
             balance_level: String::new(),
         }
+    }
+
+    fn mk_platform_id(id: u64) -> Platform {
+        let mut p = mk_platform(PlatformStatus::Enabled, 0);
+        p.id = id;
+        p
+    }
+
+    fn mk_gp(id: u64, weight: i32, priority: i32) -> GroupPlatformDetail {
+        GroupPlatformDetail { platform: mk_platform_id(id), priority, weight }
+    }
+
+    fn mk_settings() -> SchedulingBreakerSettings {
+        SchedulingBreakerSettings::default()
+    }
+
+    #[test]
+    fn least_latency_orders_by_ema_ascending() {
+        let sched = SchedulerState::new();
+        // p1 EMA=300, p2 EMA=100, p3 无样本(MAX)
+        sched.inc_inflight(1); sched.record_success(1, 300);
+        sched.inc_inflight(2); sched.record_success(2, 100);
+        let sticky = StickyTable::new();
+        let settings = mk_settings();
+        let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+        let gp1 = mk_gp(1, 1, 0);
+        let gp2 = mk_gp(2, 1, 0);
+        let gp3 = mk_gp(3, 1, 0);
+        let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3];
+        order_least_latency(&mut v, Some(&ctx));
+        // 升序: p2(100) < p1(300) < p3(MAX)
+        assert_eq!(v[0].platform.id, 2);
+        assert_eq!(v[1].platform.id, 1);
+        assert_eq!(v[2].platform.id, 3);
+    }
+
+    #[test]
+    fn breaker_union_autodisabled_admission() {
+        // 验证熔断 ∪ auto_disabled 取并集：分别独立判定。
+        let sched = SchedulerState::new();
+        let now = db::now();
+        let th = BreakerThresholds { failure_threshold: 1, open_secs: 1800, half_open_max: 2 };
+        // p1 熔断 Open
+        sched.inc_inflight(1);
+        sched.record_failure(1, &th, now);
+        assert_eq!(sched.admission(1, &th, now, true), Admission::Reject);
+        // p2 健康
+        assert_eq!(sched.admission(2, &th, now, true), Admission::Allow);
+        // auto_disabled 维度独立：candidate_state 判定（不被熔断改写）
+        let p_auto = mk_platform(PlatformStatus::AutoDisabled, now + 5000);
+        assert_eq!(candidate_state(&p_auto, now), None); // auto_disabled 未到期 → 排除
+        // 熔断状态不影响 candidate_state（auto_disabled 维度）
+        let p_enabled = mk_platform_id(1);
+        assert_eq!(candidate_state(&p_enabled, now), Some(false)); // 仍 enabled（熔断不改 DB status）
+    }
+
+    #[test]
+    fn breaker_does_not_overwrite_autodisabled() {
+        // 熔断与 auto_disabled 状态互不覆盖：record_failure 只动内存 breaker，不动 platform.status。
+        let sched = SchedulerState::new();
+        let now = db::now();
+        let th = BreakerThresholds { failure_threshold: 1, open_secs: 1800, half_open_max: 2 };
+        sched.inc_inflight(1);
+        sched.record_failure(1, &th, now);
+        // platform.status 仍是 Enabled（熔断不写 DB 三态）
+        let p = mk_platform_id(1);
+        assert_eq!(p.status, PlatformStatus::Enabled);
+        // 内存 breaker 是 Open
+        assert!(matches!(sched.breaker_state(1), super::super::scheduling::BreakerState::Open { .. }));
+    }
+
+    #[test]
+    fn sticky_binds_then_falls_back() {
+        let sched = SchedulerState::new();
+        let sticky = StickyTable::new();
+        let settings = mk_settings();
+        let now = db::now();
+        let ctx = ScheduleCtx {
+            scheduler: &sched, sticky: &sticky, settings: &settings,
+            sticky_key: Some("grpA|client1".to_string()),
+        };
+        let gp1 = mk_gp(1, 1, 0);
+        let gp2 = mk_gp(2, 1, 0);
+
+        // 首次：无绑定 → 写绑定为首选 p1
+        let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2];
+        apply_sticky(&mut v, Some(&ctx), now);
+        assert_eq!(sticky.get("grpA|client1", now), Some(1));
+
+        // 再次：绑定 p1 健康（在集中），无论入参顺序如何，p1 提首位
+        let mut v2: Vec<&GroupPlatformDetail> = vec![&gp2, &gp1];
+        apply_sticky(&mut v2, Some(&ctx), now);
+        assert_eq!(v2[0].platform.id, 1);
+
+        // 绑定平台 p1 不在候选集（熔断/失效）→ 回退首选并重绑 p2
+        let gp3 = mk_gp(3, 1, 0);
+        let mut v3: Vec<&GroupPlatformDetail> = vec![&gp2, &gp3];
+        apply_sticky(&mut v3, Some(&ctx), now);
+        assert_eq!(sticky.get("grpA|client1", now), Some(2)); // 重绑为新首选
     }
 
     #[test]

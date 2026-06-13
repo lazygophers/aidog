@@ -1371,6 +1371,30 @@ async fn middleware_settings_set(
         .map_err(|e| { tracing::error!(command = "middleware_settings_set", error = %e, "persist middleware settings failed"); e })
 }
 
+// ─── Scheduling & Breaker Settings ─────────────────────────
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn scheduling_settings_get(db: State<'_, Db>) -> Result<SchedulingBreakerSettings, String> {
+    tracing::debug!(command = "scheduling_settings_get", "command invoked");
+    Ok(gateway::db::get_scheduling_settings(&db).await)
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn scheduling_settings_set(
+    db: State<'_, Db>,
+    settings: SchedulingBreakerSettings,
+) -> Result<(), String> {
+    tracing::debug!(command = "scheduling_settings_set", "command invoked");
+    gateway::db::set_setting(&db, SetSettingInput {
+        scope: "scheduling".to_string(),
+        key: "settings".to_string(),
+        value: serde_json::to_value(&settings).map_err(|e| format!("serialize scheduling settings: {e}"))?,
+    }).await
+        .map_err(|e| { tracing::error!(command = "scheduling_settings_set", error = %e, "persist scheduling settings failed"); e })
+}
+
 // ─── Platform Quota (Balance & Coding Plan) ────────────────
 
 use gateway::quota::PlatformQuota;
@@ -2634,6 +2658,8 @@ pub fn run() {
             middleware_delete_rule,
             middleware_settings_get,
             middleware_settings_set,
+            scheduling_settings_get,
+            scheduling_settings_set,
             // App Logging
             app_log_settings_get,
             app_log_settings_set,
