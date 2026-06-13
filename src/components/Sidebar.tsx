@@ -48,6 +48,12 @@ const icons = {
       <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
     </svg>
   ),
+  notifications: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 2a5 5 0 00-5 5c0 4-1.5 5-1.5 5h13S14 11 14 7a5 5 0 00-5-5z" />
+      <path d="M7.5 15a1.5 1.5 0 003 0" />
+    </svg>
+  ),
   chevron: (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 4.5L6 7.5L9 4.5" />
@@ -72,6 +78,8 @@ export interface NavItem {
   id: string;
   icon: string;
   labelKey: string;
+  /** 可选未读 badge 计数（> 0 时显示）。 */
+  badge?: number;
 }
 
 interface SidebarProps {
@@ -230,7 +238,26 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
               }}>
                 {(icons as Record<string, React.ReactNode>)[item.icon]}
               </span>
-              <span>{t(item.labelKey)}</span>
+              <span style={{ flex: 1, textAlign: "start" }}>{t(item.labelKey)}</span>
+              {item.badge != null && item.badge > 0 && (
+                <span
+                  style={{
+                    fontSize: 10,
+                    fontWeight: 700,
+                    minWidth: 16,
+                    height: 16,
+                    padding: "0 5px",
+                    borderRadius: 999,
+                    background: "var(--accent)",
+                    color: "#fff",
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  {item.badge > 99 ? "99+" : item.badge}
+                </span>
+              )}
             </button>
           );
         })}
