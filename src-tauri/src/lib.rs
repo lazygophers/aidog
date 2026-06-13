@@ -261,6 +261,46 @@ async fn tray_today_stats(db: State<'_, Db>) -> Result<db::TodayStats, String> {
     db::today_stats(&db).await
 }
 
+// ─── Popover ────────────────────────────────────────────────
+
+/// Popover 弹窗单条数据（tray 列 → 序列化给前端）。
+#[derive(serde::Serialize)]
+struct PopoverEntry {
+    name: String,
+    value: String,
+    color: TrayColor,
+}
+
+/// Popover 弹窗全部数据：tray 列 + 今日统计 + 代理状态。
+#[derive(serde::Serialize)]
+struct PopoverData {
+    entries: Vec<PopoverEntry>,
+    today_stats: db::TodayStats,
+    proxy_running: bool,
+    proxy_port: u16,
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn popover_data(db: State<'_, Db>, app: tauri::AppHandle) -> Result<PopoverData, String> {
+    tracing::debug!(command = "popover_data", "command invoked");
+    let layout = tray_layout(&app).await;
+    let entries: Vec<PopoverEntry> = layout.columns.into_iter().map(|c| PopoverEntry {
+        name: c.name,
+        value: c.value,
+        color: c.color,
+    }).collect();
+    let today_stats = db::today_stats(&db).await?;
+    let proxy_running = {
+        let handle = app.try_state::<ProxyHandle>();
+        handle.map(|h| h.0.lock().map(|g| g.is_some()).unwrap_or(false)).unwrap_or(false)
+    };
+    let settings = load_proxy_settings(&app).await.unwrap_or(ProxySettings {
+        port: 9876, autostart: false, silent_launch: false,
+    });
+    Ok(PopoverData { entries, today_stats, proxy_running, proxy_port: settings.port })
+}
+
 // ─── Group Commands ────────────────────────────────────────
 
 #[tauri::command]
@@ -2235,12 +2275,39 @@ pub fn run() {
                 .show_menu_on_left_click(false)
                 .on_tray_icon_event(|tray, event| {
                     use tauri::tray::MouseButton;
-                    if let tauri::tray::TrayIconEvent::Click { button, .. } = event {
-                        if button == MouseButton::Left {
-                            if let Some(w) = tray.app_handle().get_webview_window("main") {
-                                let _ = w.show();
-                                let _ = w.set_focus();
-                            }
+                    if let tauri::tray::TrayIconEvent::Click { button, rect, .. } = event {
+                        if button != MouseButton::Left { return; }
+                        let app = tray.app_handle().clone();
+                        // 切换：已打开则关闭
+                        if let Some(w) = app.get_webview_window("popover") {
+                            let _ = w.destroy();
+                            return;
+                        }
+                        // 定位：居中于 tray 图标正下方
+                        let (rx, ry) = match rect.position {
+                            tauri::Position::Physical(p) => (p.x as f64, p.y as f64),
+                            tauri::Position::Logical(p) => (p.x, p.y),
+                        };
+                        let (rw, rh) = match rect.size {
+                            tauri::Size::Physical(s) => (s.width as f64, s.height as f64),
+                            tauri::Size::Logical(s) => (s.width, s.height),
+                        };
+                        let pw = 300.0;
+                        let x = rx + rw / 2.0 - pw / 2.0;
+                        let y = ry + rh;
+                        if let Err(e) = tauri::webview::WebviewWindowBuilder::new(
+                            &app, "popover",
+                            tauri::WebviewUrl::App("popover.html".into()),
+                        )
+                        .inner_size(pw, 420.0)
+                        .position(x, y)
+                        .decorations(false)
+                        .always_on_top(true)
+                        .skip_taskbar(true)
+                        .focused(true)
+                        .build()
+                        {
+                            tracing::error!(error = %e, "create popover failed");
                         }
                     }
                 })
@@ -2329,6 +2396,7 @@ pub fn run() {
             tray_config_get,
             tray_config_set,
             tray_today_stats,
+            popover_data,
             // Group
             group_create,
             group_list,
