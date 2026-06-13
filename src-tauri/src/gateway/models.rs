@@ -734,6 +734,67 @@ impl Default for TrayConfig {
     }
 }
 
+// ─── Popover Config (KV: scope="popover", key="config") ────
+
+/// Popover 浮窗单个展示项。
+/// `item_type` ∈ 预定义指标集：
+/// - "today_cost"       今日已用金额
+/// - "today_cache_rate" 今日缓存率
+/// - "today_tokens"     今日 token 总量
+/// - "platform_today"   各平台当日使用（只含已用，列表）
+/// - "proxy_status"     代理状态行
+/// - "platform_balance" 平台余额 / coding 列（复用 tray 列）
+///
+/// 预定义指标集内自由组合增删 / 排序 / 显隐；不接受用户输入任意数据源。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PopoverItem {
+    /// 稳定 id（前端生成，便于拖拽 key），后端仅透传持久化。
+    #[serde(default)]
+    pub id: String,
+    #[serde(default = "default_popover_item_type")]
+    pub item_type: String,
+    #[serde(default = "default_true")]
+    pub visible: bool,
+    #[serde(default)]
+    pub order: i32,
+}
+
+fn default_popover_item_type() -> String { "today_cost".to_string() }
+
+/// Popover 浮窗整体配置（存 settings: scope="popover", key="config"）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PopoverConfig {
+    #[serde(default)]
+    pub items: Vec<PopoverItem>,
+}
+
+impl Default for PopoverConfig {
+    /// 默认：今日金额 / 缓存率 / token / 各平台当日 + 代理状态 + 平台余额列。
+    /// 前 4 项为 prd 默认可见，proxy_status / platform_balance 默认可见（沿用现有 popover 展示）。
+    fn default() -> Self {
+        let types = [
+            "proxy_status",
+            "platform_balance",
+            "today_cost",
+            "today_cache_rate",
+            "today_tokens",
+            "platform_today",
+        ];
+        Self {
+            items: types
+                .iter()
+                .enumerate()
+                .map(|(i, t)| PopoverItem {
+                    id: format!("popover-{t}"),
+                    item_type: t.to_string(),
+                    visible: true,
+                    order: i as i32,
+                })
+                .collect(),
+        }
+    }
+}
+
 // ─── ProxyLog ──────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

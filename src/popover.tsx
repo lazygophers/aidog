@@ -2,10 +2,12 @@ import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
-import type { TodayStats } from "./services/api";
+import { useTranslation } from "react-i18next";
+import type { TodayStats, PopoverConfig, PopoverItem, TodayPlatformStat } from "./services/api";
 import { applyTheme } from "./themes";
 import type { ThemeName, ThemeMode } from "./themes/types";
 import { formatNumber, formatCostUsd, formatPercent } from "./utils/formatters";
+import i18n, { ensureLocaleLoaded, type Locale } from "./locales";
 import "./styles/popover.css";
 
 // ─── Types ──────────────────────────────────────────────────
@@ -22,29 +24,28 @@ interface PopoverEntry {
 }
 
 interface PopoverData {
+  config: PopoverConfig;
   entries: PopoverEntry[];
   today_stats: TodayStats;
+  platform_today: TodayPlatformStat[];
   proxy_running: boolean;
   proxy_port: number;
 }
 
-// ─── Theme ──────────────────────────────────────────────────
+// ─── Theme + Locale ─────────────────────────────────────────
 
 interface Settings {
+  locale?: Locale;
   themeName: ThemeName;
   themeMode: ThemeMode;
 }
 
-function loadTheme() {
+function loadSettings(): Settings {
   try {
     const raw = localStorage.getItem("aidog-settings");
-    if (raw) {
-      const s = JSON.parse(raw) as Settings;
-      applyTheme(s.themeName, s.themeMode);
-      return;
-    }
+    if (raw) return JSON.parse(raw) as Settings;
   } catch { /* ignore */ }
-  applyTheme("liquidGlass", "light");
+  return { themeName: "liquidGlass", themeMode: "light" };
 }
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -65,13 +66,103 @@ function resolveColor(color: TrayColor): string {
   return "var(--text-primary)";
 }
 
+// ─── Item renderers ─────────────────────────────────────────
+
+function ProxyStatus({ data }: { data: PopoverData }) {
+  return (
+    <div className="popover-header">
+      <span
+        className="popover-status-dot"
+        style={{ background: data.proxy_running ? "var(--status-success, #34c759)" : "var(--text-tertiary)" }}
+      />
+      <span className="popover-header-text">
+        {data.proxy_running ? `Running :${data.proxy_port}` : "Stopped"}
+      </span>
+    </div>
+  );
+}
+
+function PlatformBalance({ data }: { data: PopoverData }) {
+  if (data.entries.length === 0) return null;
+  return (
+    <div className="popover-section">
+      {data.entries.map((e, i) => (
+        <div className="popover-entry" key={i}>
+          <span className="popover-entry-dot" style={{ background: resolveColor(e.color) }} />
+          <span className="popover-entry-name">{e.name}</span>
+          <span className="popover-entry-value" style={{ color: resolveColor(e.color) }}>
+            {e.value}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MetricRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="popover-section">
+      <div className="popover-metric-row">
+        <span className="popover-metric-label">{label}</span>
+        <span className="popover-metric-value">{value}</span>
+      </div>
+    </div>
+  );
+}
+
+function PlatformToday({ data }: { data: PopoverData }) {
+  const { t } = useTranslation();
+  return (
+    <div className="popover-section">
+      <div className="popover-stats-title">{t("popover.platformToday", "各平台今日")}</div>
+      {data.platform_today.length === 0 ? (
+        <div className="popover-empty">{t("popover.noUsageToday", "今日暂无用量")}</div>
+      ) : (
+        data.platform_today.map((p) => (
+          <div className="popover-platform-row" key={p.platform_id}>
+            <span className="popover-platform-name">
+              {p.platform_name || t("popover.unknownPlatform", "未知平台")}
+            </span>
+            <span className="popover-platform-value">{formatCostUsd(p.cost)}</span>
+            <span className="popover-platform-sub">{formatNumber(p.tokens)} tok</span>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
+
+function renderItem(item: PopoverItem, data: PopoverData, t: (k: string, d: string) => string): React.ReactNode {
+  switch (item.item_type) {
+    case "proxy_status":
+      return <ProxyStatus key={item.id} data={data} />;
+    case "platform_balance":
+      return <PlatformBalance key={item.id} data={data} />;
+    case "today_cost":
+      return <MetricRow key={item.id} label={t("popover.todayCost", "今日金额")} value={formatCostUsd(data.today_stats.cost)} />;
+    case "today_cache_rate":
+      return <MetricRow key={item.id} label={t("popover.todayCacheRate", "今日缓存率")} value={formatPercent(data.today_stats.cache_rate, 0)} />;
+    case "today_tokens":
+      return <MetricRow key={item.id} label={t("popover.todayTokens", "今日 Token")} value={formatNumber(data.today_stats.tokens)} />;
+    case "platform_today":
+      return <PlatformToday key={item.id} data={data} />;
+    default:
+      return null;
+  }
+}
+
 // ─── Component ──────────────────────────────────────────────
 
 function Popover() {
+  const { t } = useTranslation();
   const [data, setData] = useState<PopoverData | null>(null);
 
   useEffect(() => {
-    loadTheme();
+    const s = loadSettings();
+    applyTheme(s.themeName ?? "liquidGlass", s.themeMode ?? "light");
+    if (s.locale) {
+      ensureLocaleLoaded(s.locale).then(() => i18n.changeLanguage(s.locale)).catch(() => {});
+    }
     invoke<PopoverData>("popover_data")
       .then(setData)
       .catch(console.error);
@@ -87,59 +178,16 @@ function Popover() {
   }, []);
 
   if (!data) {
-    return <div className="popover-root popover-loading">Loading…</div>;
+    return <div className="popover-root popover-loading">{t("common.loading", "加载中...")}</div>;
   }
+
+  const visibleItems = data.config.items
+    .filter((i) => i.visible)
+    .sort((a, b) => a.order - b.order);
 
   return (
     <div className="popover-root">
-      {/* Header: proxy status */}
-      <div className="popover-header">
-        <span
-          className="popover-status-dot"
-          style={{ background: data.proxy_running ? "var(--status-success, #34c759)" : "var(--text-tertiary)" }}
-        />
-        <span className="popover-header-text">
-          {data.proxy_running ? `Running :${data.proxy_port}` : "Stopped"}
-        </span>
-      </div>
-
-      {/* Platform entries */}
-      {data.entries.length > 0 && (
-        <div className="popover-section">
-          {data.entries.map((e, i) => (
-            <div className="popover-entry" key={i}>
-              <span className="popover-entry-dot" style={{ background: resolveColor(e.color) }} />
-              <span className="popover-entry-name">{e.name}</span>
-              <span className="popover-entry-value" style={{ color: resolveColor(e.color) }}>
-                {e.value}
-              </span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Today stats */}
-      <div className="popover-section">
-        <div className="popover-stats-title">Today</div>
-        <div className="popover-stats-grid">
-          <div className="popover-stat">
-            <span className="popover-stat-value">{formatNumber(data.today_stats.tokens)}</span>
-            <span className="popover-stat-label">tokens</span>
-          </div>
-          <div className="popover-stat">
-            <span className="popover-stat-value">{formatCostUsd(data.today_stats.cost)}</span>
-            <span className="popover-stat-label">cost</span>
-          </div>
-          <div className="popover-stat">
-            <span className="popover-stat-value">{formatPercent(data.today_stats.cache_rate, 0)}</span>
-            <span className="popover-stat-label">cache</span>
-          </div>
-          <div className="popover-stat">
-            <span className="popover-stat-value">{formatNumber(data.today_stats.total_requests)}</span>
-            <span className="popover-stat-label">reqs</span>
-          </div>
-        </div>
-      </div>
+      {visibleItems.map((item) => renderItem(item, data, t))}
     </div>
   );
 }
