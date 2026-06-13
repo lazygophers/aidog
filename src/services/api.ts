@@ -704,6 +704,121 @@ export const proxyTimeoutApi = {
     invoke<void>("proxy_timeout_set", { settings }),
 };
 
+// ─── Middleware Rule Engine API (C1 契约冻结点) ─────────────
+// 字段名与 Rust serde（src-tauri/src/gateway/models.rs MiddlewareRule/MiddlewareSettings
+// + 枚举 RuleType/RuleScope/MatchType/RuleAction）严格 snake_case 一致。
+// 契约由 C1 冻结，C5(UI) 仅消费不改。设计见 design.md。
+// 注：熔断器已移出中间件层（归 group 独立 task），MiddlewareSettings 不含 breaker。
+
+/** 规则类型（8 类中间件能力）。 */
+export type RuleType =
+  | "request_filter"
+  | "sensitive_word"
+  | "redaction"
+  | "content_filter"
+  | "dynamic_injection"
+  | "response_override"
+  | "rectifier"
+  | "error_rule";
+
+/** 规则作用域（三级，就近覆盖：platform > group > global）。 */
+export type RuleScope = "global" | "group" | "platform";
+
+/** 匹配方式。 */
+export type MatchType = "regex" | "contains" | "exact";
+
+/** 命中动作。 */
+export type RuleAction =
+  | "mask"
+  | "block"
+  | "warn"
+  | "inject"
+  | "override"
+  | "classify";
+
+/** 单条中间件规则（对应 middleware_rule 表一行）。
+ * config 为 type-specific JSON 字符串（按 rule_type 形状，见 design.md），前端按类型解析。 */
+export interface MiddlewareRule {
+  id: number;
+  name: string;
+  description: string;
+  rule_type: RuleType;
+  scope: RuleScope;
+  /** group_name | platform_id(字符串) | ''(global) */
+  scope_ref: string;
+  match_type: MatchType;
+  /** 匹配模式 / 目标 path / header 名 */
+  pattern: string;
+  action: RuleAction;
+  /** type-specific JSON 字符串，默认 "{}" */
+  config: string;
+  /** 越小越先 */
+  priority: number;
+  enabled: boolean;
+  is_builtin: boolean;
+  created_at: number;
+  updated_at: number;
+}
+
+/** 创建规则入参（不含 id / 时间戳，后端生成）。 */
+export interface CreateMiddlewareRule {
+  name: string;
+  description?: string;
+  rule_type: RuleType;
+  scope?: RuleScope;
+  scope_ref?: string;
+  match_type?: MatchType;
+  pattern?: string;
+  action?: RuleAction;
+  config?: string;
+  priority?: number;
+  enabled?: boolean;
+  is_builtin?: boolean;
+}
+
+/** 更新规则入参（全量覆盖，id 必填）。 */
+export interface UpdateMiddlewareRule {
+  id: number;
+  name: string;
+  description?: string;
+  rule_type: RuleType;
+  scope?: RuleScope;
+  scope_ref?: string;
+  match_type?: MatchType;
+  pattern?: string;
+  action?: RuleAction;
+  config?: string;
+  priority?: number;
+  enabled?: boolean;
+  is_builtin?: boolean;
+}
+
+/** 中间件总设置（settings KV: scope="middleware" key="settings"）。
+ * enabled 总开关（OFF = 全旁路）；type_toggles 按 rule_type 子开关（缺省键视为 true）。 */
+export interface MiddlewareSettings {
+  enabled: boolean;
+  /** key = rule_type，缺省键视为 true */
+  type_toggles: Record<string, boolean>;
+}
+
+export const middlewareApi = {
+  /** 列出全部规则（后端按 priority 升序、id 升序）。 */
+  listRules: () => invoke<MiddlewareRule[]>("middleware_list_rules"),
+  /** 创建规则，返回新规则；后端写库后自动 reload 引擎缓存。 */
+  createRule: (input: CreateMiddlewareRule) =>
+    invoke<MiddlewareRule>("middleware_create_rule", { input }),
+  /** 全量更新规则，返回更新后规则；写库后自动 reload。 */
+  updateRule: (input: UpdateMiddlewareRule) =>
+    invoke<MiddlewareRule>("middleware_update_rule", { input }),
+  /** 删除规则；写库后自动 reload。 */
+  deleteRule: (id: number) => invoke<void>("middleware_delete_rule", { id }),
+  /** 读取中间件总设置（无配置 → 默认 enabled=true）。 */
+  getSettings: () => invoke<MiddlewareSettings>("middleware_settings_get"),
+  /** 保存中间件总设置。 */
+  setSettings: (settings: MiddlewareSettings) =>
+    invoke<void>("middleware_settings_set", { settings }),
+};
+
 // ─── Settings API ──────────────────────────────────────────
 
 export const settingsApi = {

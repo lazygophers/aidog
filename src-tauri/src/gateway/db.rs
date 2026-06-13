@@ -148,6 +148,28 @@ impl Db {
                         }
                     }
                 }
+                // Migration 013: 中间件规则引擎基座（C1）。单表 middleware_rule，
+                // 8 类规则 + 三级作用域就近覆盖；schema 严格按 design.md。
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS middleware_rule (
+                       id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                       name         TEXT NOT NULL,
+                       description  TEXT NOT NULL DEFAULT '',
+                       rule_type    TEXT NOT NULL,
+                       scope        TEXT NOT NULL DEFAULT 'global',
+                       scope_ref    TEXT NOT NULL DEFAULT '',
+                       match_type   TEXT NOT NULL DEFAULT 'contains',
+                       pattern      TEXT NOT NULL DEFAULT '',
+                       action       TEXT NOT NULL DEFAULT 'warn',
+                       config       TEXT NOT NULL DEFAULT '{}',
+                       priority     INTEGER NOT NULL DEFAULT 0,
+                       enabled      INTEGER NOT NULL DEFAULT 1,
+                       is_builtin   INTEGER NOT NULL DEFAULT 0,
+                       created_at   INTEGER NOT NULL,
+                       updated_at   INTEGER NOT NULL
+                     );
+                     CREATE INDEX IF NOT EXISTS idx_mw_rule_lookup ON middleware_rule(enabled, rule_type, scope);",
+                )?;
                 Ok(())
             })
             .await
@@ -1268,6 +1290,160 @@ pub async fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, Stri
         })
         .await
         .map_err(|e| e.to_string())
+}
+
+// ─── Middleware Rule CRUD (C1 基座) ────────────────────────
+
+use super::models::{
+    CreateMiddlewareRule, MatchType, MiddlewareRule, RuleAction, RuleScope, RuleType,
+    UpdateMiddlewareRule,
+};
+
+/// middleware_rule 全列序（INSERT 列子集 + SELECT 共用，与表定义列序一致）。
+const MIDDLEWARE_RULE_COLUMNS: &str =
+    "id, name, description, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at";
+
+/// 从查询行构造 MiddlewareRule。未知 rule_type 不会出现在结果（行被 list 过滤前已按 from_db_str 处理）。
+/// 此处 rule_type 用 from_db_str → 未知值兜底为 RequestFilter 会误导，故 list 时遇未知直接跳过（见 list_middleware_rules）。
+fn row_to_middleware_rule(row: &rusqlite::Row) -> SqlResult<MiddlewareRule> {
+    let rule_type_str: String = row.get(3)?;
+    let scope_str: String = row.get(4)?;
+    let match_type_str: String = row.get(6)?;
+    let action_str: String = row.get(8)?;
+    Ok(MiddlewareRule {
+        id: row.get(0)?,
+        name: row.get(1)?,
+        description: row.get(2)?,
+        // 未知 rule_type 极少（仅手改 DB）；兜底为 RequestFilter 不影响引擎（引擎按 from_db_str 分桶时同样会跳过未知）。
+        rule_type: RuleType::from_db_str(&rule_type_str).unwrap_or(RuleType::RequestFilter),
+        scope: RuleScope::from_db_str(&scope_str),
+        scope_ref: row.get(5)?,
+        match_type: MatchType::from_db_str(&match_type_str),
+        pattern: row.get(7)?,
+        action: RuleAction::from_db_str(&action_str),
+        config: row.get(9)?,
+        priority: row.get(10)?,
+        enabled: row.get::<_, i64>(11)? == 1,
+        is_builtin: row.get::<_, i64>(12)? == 1,
+        created_at: row.get(13)?,
+        updated_at: row.get(14)?,
+    })
+}
+
+/// 列出全部中间件规则（按 priority 升序，再 id 升序）。引擎 reload 与前端列表共用。
+pub async fn list_middleware_rules(db: &Db) -> Result<Vec<MiddlewareRule>, String> {
+    let sql = format!(
+        "SELECT {MIDDLEWARE_RULE_COLUMNS} FROM middleware_rule ORDER BY priority ASC, id ASC"
+    );
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare(&sql)?;
+            let rows = stmt.query_map([], row_to_middleware_rule)?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+}
+
+pub async fn create_middleware_rule(
+    db: &Db,
+    input: CreateMiddlewareRule,
+) -> Result<MiddlewareRule, String> {
+    let ts = now();
+    let rule_type = input.rule_type.as_str().to_string();
+    let scope = input.scope.as_str().to_string();
+    let match_type = input.match_type.as_str().to_string();
+    let action = input.action.as_str().to_string();
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                "INSERT INTO middleware_rule
+                   (name, description, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)",
+                params![
+                    input.name,
+                    input.description,
+                    rule_type,
+                    scope,
+                    input.scope_ref,
+                    match_type,
+                    input.pattern,
+                    action,
+                    input.config,
+                    input.priority,
+                    if input.enabled { 1 } else { 0 },
+                    if input.is_builtin { 1 } else { 0 },
+                    ts,
+                ],
+            )?;
+            let id = conn.last_insert_rowid();
+            let mut stmt = conn.prepare(
+                "SELECT id, name, description, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at FROM middleware_rule WHERE id = ?1",
+            )?;
+            stmt.query_row(params![id], row_to_middleware_rule)
+                .map_err(tokio_rusqlite::Error::from)
+        })
+        .await
+        .map_err(|e| format!("create middleware rule: {e}"))
+}
+
+pub async fn update_middleware_rule(
+    db: &Db,
+    input: UpdateMiddlewareRule,
+) -> Result<MiddlewareRule, String> {
+    let ts = now();
+    let rule_type = input.rule_type.as_str().to_string();
+    let scope = input.scope.as_str().to_string();
+    let match_type = input.match_type.as_str().to_string();
+    let action = input.action.as_str().to_string();
+    db.0
+        .call(move |conn| {
+            let affected = conn.execute(
+                "UPDATE middleware_rule SET
+                   name = ?2, description = ?3, rule_type = ?4, scope = ?5, scope_ref = ?6,
+                   match_type = ?7, pattern = ?8, action = ?9, config = ?10, priority = ?11,
+                   enabled = ?12, is_builtin = ?13, updated_at = ?14
+                 WHERE id = ?1",
+                params![
+                    input.id,
+                    input.name,
+                    input.description,
+                    rule_type,
+                    scope,
+                    input.scope_ref,
+                    match_type,
+                    input.pattern,
+                    action,
+                    input.config,
+                    input.priority,
+                    if input.enabled { 1 } else { 0 },
+                    if input.is_builtin { 1 } else { 0 },
+                    ts,
+                ],
+            )?;
+            if affected == 0 {
+                return Err(tokio_rusqlite::Error::Other(
+                    format!("middleware rule {} not found", input.id).into(),
+                ));
+            }
+            let mut stmt = conn.prepare(
+                "SELECT id, name, description, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at FROM middleware_rule WHERE id = ?1",
+            )?;
+            stmt.query_row(params![input.id], row_to_middleware_rule)
+                .map_err(tokio_rusqlite::Error::from)
+        })
+        .await
+        .map_err(|e| format!("update middleware rule: {e}"))
+}
+
+pub async fn delete_middleware_rule(db: &Db, id: i64) -> Result<(), String> {
+    db.0
+        .call(move |conn| {
+            conn.execute("DELETE FROM middleware_rule WHERE id = ?1", params![id])?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("delete middleware rule: {e}"))
 }
 
 // ─── ProxyLog CRUD ─────────────────────────────────────────
