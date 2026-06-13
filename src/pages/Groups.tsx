@@ -1,7 +1,7 @@
 import { useState, useEffect, useReducer } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  groupDetailApi, groupApi, platformApi, onProxyLogUpdated,
+  groupDetailApi, groupApi, groupUsageApi, platformApi, onProxyLogUpdated,
   type GroupDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
   type ModelMapping,
 } from "../services/api";
@@ -197,12 +197,41 @@ function CopyButton({ text, title, label, size = 14 }: { text: string; title?: s
   );
 }
 
+/**
+ * 拉取每个 group 的使用统计 + 余额。
+ * - usage stats：按 proxy_log.group_name 聚合（`groupUsageApi.stats`），只含本分组请求，共享平台不重复计入。
+ * - balance：关联 platforms 的 est_balance_remaining 求和（平台级属性，无 per-group 概念，维持现状）。
+ * load 与 refreshStats 共用，避免两处求和逻辑重复。
+ */
+async function fetchGroupStats(
+  details: GroupDetail[],
+  platforms: Platform[],
+): Promise<{ statsMap: Record<string, PlatformUsageStats>; balanceMap: Record<number, number> }> {
+  const platById = new Map(platforms.map(pp => [pp.id, pp]));
+  const statsMap: Record<string, PlatformUsageStats> = {};
+  const balanceMap: Record<number, number> = {};
+  await Promise.all(details.map(async (g) => {
+    // usage stats：按 group_name 查 proxy_log
+    try {
+      const s = await groupUsageApi.stats(g.group.name);
+      if (s && s.total_requests > 0) statsMap[g.group.name] = s;
+    } catch { /* ignore */ }
+    // balance：关联平台余额求和（保持平台级语义）
+    let balance = 0;
+    for (const gp of g.platforms) {
+      const est = platById.get(gp.platform.id)?.est_balance_remaining;
+      if (typeof est === "number" && est > 0) balance += est;
+    }
+    if (balance > 0) balanceMap[g.group.id] = balance;
+  }));
+  return { statsMap, balanceMap };
+}
+
 export function Groups() {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [groupStats, setGroupStats] = useState<Record<string, PlatformUsageStats>>({});
-  const [_platformStats, setPlatformStats] = useState<Record<string, PlatformUsageStats>>({});
   // 聚合余额：关联 platforms 的 est_balance_remaining 求和（platformApi.list 已带，无额外 HTTP）。group.id → 余额；缺值不写入。
   const [groupBalance, setGroupBalance] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
@@ -252,47 +281,7 @@ export function Groups() {
       const [d, p] = await Promise.all([groupDetailApi.list(), platformApi.list()]);
       setDetails(d || []);
       setPlatforms(p || []);
-      // Load per-platform usage stats
-      const pStatsMap: Record<string, PlatformUsageStats> = {};
-      await Promise.all((p || []).map(async (plat) => {
-        try {
-          const s = await platformApi.usageStats(plat.id);
-          if (s && s.total_requests > 0) pStatsMap[plat.id] = s;
-        } catch { /* ignore */ }
-      }));
-      setPlatformStats(pStatsMap);
-      // Aggregate group stats + balance from associated platform stats / est_balance_remaining
-      const statsMap: Record<string, PlatformUsageStats> = {};
-      const balanceMap: Record<number, number> = {};
-      const platById = new Map((p || []).map(pp => [pp.id, pp]));
-      for (const g of d || []) {
-        let total_requests = 0, success_count = 0;
-        let total_input_tokens = 0, total_output_tokens = 0, total_cache_tokens = 0, total_cost = 0;
-        let balance = 0;
-        for (const gp of g.platforms) {
-          const plat = platById.get(gp.platform.id);
-          const est = plat?.est_balance_remaining;
-          if (typeof est === "number" && est > 0) balance += est;
-          const ps = pStatsMap[gp.platform.id];
-          if (ps) {
-            total_requests += ps.total_requests;
-            success_count += ps.success_count;
-            total_input_tokens += ps.total_input_tokens;
-            total_output_tokens += ps.total_output_tokens;
-            total_cache_tokens += ps.total_cache_tokens;
-            total_cost += ps.total_cost;
-          }
-        }
-        if (total_requests > 0) {
-          statsMap[g.group.name] = {
-            total_requests, success_count,
-            total_input_tokens, total_output_tokens, total_cache_tokens,
-            cache_rate: total_input_tokens > 0 ? total_cache_tokens / total_input_tokens * 100 : 0,
-            recent_failures: 0, recent_total: 0, total_cost,
-          };
-        }
-        if (balance > 0) balanceMap[g.group.id] = balance;
-      }
+      const { statsMap, balanceMap } = await fetchGroupStats(d || [], p || []);
       setGroupStats(statsMap);
       setGroupBalance(balanceMap);
     } catch (e) { console.error(e); }
@@ -303,45 +292,7 @@ export function Groups() {
   const refreshStats = async () => {
     try {
       const [d, p] = await Promise.all([groupDetailApi.list(), platformApi.list()]);
-      const pStatsMap: Record<string, PlatformUsageStats> = {};
-      await Promise.all((p || []).map(async (plat) => {
-        try {
-          const s = await platformApi.usageStats(plat.id);
-          if (s && s.total_requests > 0) pStatsMap[plat.id] = s;
-        } catch { /* ignore */ }
-      }));
-      // Aggregate group stats + balance
-      const statsMap: Record<string, PlatformUsageStats> = {};
-      const balanceMap: Record<number, number> = {};
-      const platById = new Map((p || []).map(pp => [pp.id, pp]));
-      for (const g of d || []) {
-        let total_requests = 0, success_count = 0;
-        let total_input_tokens = 0, total_output_tokens = 0, total_cache_tokens = 0, total_cost = 0;
-        let balance = 0;
-        for (const gp of g.platforms) {
-          const plat = platById.get(gp.platform.id);
-          const est = plat?.est_balance_remaining;
-          if (typeof est === "number" && est > 0) balance += est;
-          const ps = pStatsMap[gp.platform.id];
-          if (ps) {
-            total_requests += ps.total_requests;
-            success_count += ps.success_count;
-            total_input_tokens += ps.total_input_tokens;
-            total_output_tokens += ps.total_output_tokens;
-            total_cache_tokens += ps.total_cache_tokens;
-            total_cost += ps.total_cost;
-          }
-        }
-        if (total_requests > 0) {
-          statsMap[g.group.name] = {
-            total_requests, success_count,
-            total_input_tokens, total_output_tokens, total_cache_tokens,
-            cache_rate: total_input_tokens > 0 ? total_cache_tokens / total_input_tokens * 100 : 0,
-            recent_failures: 0, recent_total: 0, total_cost,
-          };
-        }
-        if (balance > 0) balanceMap[g.group.id] = balance;
-      }
+      const { statsMap, balanceMap } = await fetchGroupStats(d || [], p || []);
       setGroupStats(statsMap);
       setGroupBalance(balanceMap);
     } catch { /* ignore */ }
