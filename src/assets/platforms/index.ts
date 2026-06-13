@@ -5,7 +5,7 @@
  * Aliases allow multiple Protocol values to share one SVG.
  */
 
-import type { Protocol } from "../../services/api";
+import type { Protocol, Platform } from "../../services/api";
 
 // ── Aliases: secondary protocol → primary SVG filename ──────
 const ALIASES: Partial<Record<Protocol, string>> = {
@@ -45,4 +45,19 @@ export function getPlatformLogo(protocol: Protocol): string | undefined {
 /** Check whether a logo exists for the given protocol */
 export function hasPlatformLogo(protocol: Protocol): boolean {
   return getPlatformLogo(protocol) !== undefined;
+}
+
+/** 从 base_url 提取 origin，用于 favicon 回退 */
+export function extractOrigin(baseUrl: string): string | null {
+  try {
+    return new URL(baseUrl).origin;
+  } catch { return null; }
+}
+
+/** 从 platform 的 endpoints/base_url 推导 favicon URL */
+export function getFaviconUrl(p: Platform): string | null {
+  const eps = p.endpoints ?? [];
+  const baseUrl = eps[0]?.base_url || p.base_url;
+  const origin = extractOrigin(baseUrl);
+  return origin ? `${origin}/favicon.ico` : null;
 }

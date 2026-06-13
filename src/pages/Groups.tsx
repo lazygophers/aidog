@@ -9,8 +9,40 @@ import { SortableList } from "../components/SortableList";
 import { IconClose, IconCheck, IconBolt, IconCost } from "../components/icons";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../utils/formatters";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
+import { getPlatformLogo, getFaviconUrl } from "../assets/platforms";
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
+
+/** Group 图标：仅关联 1 个平台时跟随该平台 logo（与 Platforms 页一致），否则回退 path 文字框。 */
+function GroupIcon({ gps, group }: { gps: GroupDetail["platforms"]; group: GroupDetail["group"] }) {
+  const [favFailed, setFavFailed] = useState(false);
+  const single = gps.length === 1 ? gps[0].platform : null;
+  const logo = single ? getPlatformLogo(single.platform_type) : undefined;
+  const favicon = single && !logo && !favFailed ? getFaviconUrl(single) : null;
+  const box = {
+    width: 32, height: 32, borderRadius: "var(--radius-sm)", flexShrink: 0,
+    display: "flex", alignItems: "center", justifyContent: "center",
+  } as const;
+  if (single && (logo || favicon)) {
+    return (
+      <div style={{ ...box, background: "transparent" }}>
+        <img src={(logo || favicon) as string} alt={single.name}
+          onError={() => { if (favicon) setFavFailed(true); }}
+          style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
+      </div>
+    );
+  }
+  return (
+    <div style={{
+      ...box,
+      background: group.auto_from_platform ? "var(--bg-glass)" : "var(--accent-subtle)",
+      color: group.auto_from_platform ? "var(--text-secondary)" : "var(--accent)",
+      fontSize: 13, fontWeight: 700,
+    }}>
+      {group.path.slice(0, 3)}
+    </div>
+  );
+}
 
 /** Row model for the sortable selected-platforms list (stable string id for @dnd-kit). */
 interface SortablePlatform {
@@ -736,16 +768,8 @@ export function Groups() {
                 >
                   <svg width="14" height="20" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
                 </span>
-                {/* Group icon */}
-                <div style={{
-                  width: 32, height: 32, borderRadius: "var(--radius-sm)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  background: group.auto_from_platform ? "var(--bg-glass)" : "var(--accent-subtle)",
-                  color: group.auto_from_platform ? "var(--text-secondary)" : "var(--accent)",
-                  fontSize: 13, fontWeight: 700, flexShrink: 0,
-                }}>
-                  {group.path.slice(0, 3)}
-                </div>
+                {/* Group icon：单平台跟随平台 logo */}
+                <GroupIcon gps={gps} group={group} />
                 {/* Name + path + routing + platform count */}
                 <div
                   style={{ flex: 1, minWidth: 0, cursor: "pointer" }}

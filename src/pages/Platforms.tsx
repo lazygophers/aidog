@@ -1,26 +1,11 @@
 import React, { useState, useEffect, useRef, useMemo, memo } from "react";
 import { useTranslation } from "react-i18next";
 import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit } from "../services/api";
-import { getPlatformLogo } from "../assets/platforms";
+import { getPlatformLogo, getFaviconUrl } from "../assets/platforms";
 import { IconBolt, IconCost, IconCheck, IconClose, IconCoin, IconClock } from "../components/icons";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel, levelColor, levelBg, codingTierLevel, cycleMsForTier, usageLevelToColor, type ColorLevel } from "../components/shared";
 import { formatNumber, formatCost, formatPercent } from "../utils/formatters";
 
-/** 从 base_url 提取 origin，用于 favicon 回退 */
-function extractOrigin(baseUrl: string): string | null {
-  try {
-    const u = new URL(baseUrl);
-    return u.origin;
-  } catch { return null; }
-}
-
-/** 从 platform 的 endpoints/base_url 推导 favicon URL */
-function getFaviconUrl(p: Platform): string | null {
-  const eps = p.endpoints ?? [];
-  const baseUrl = eps[0]?.base_url || p.base_url;
-  const origin = extractOrigin(baseUrl);
-  return origin ? `${origin}/favicon.ico` : null;
-}
 import { ModelTestPanel } from "./ModelTestPanel";
 import { pinyinMatch } from "../utils/pinyin";
 
