@@ -1,0 +1,8 @@
+{"file": ".trellis/tasks/06-13-proxy-log-streaming-support/prd.md", "reason": "改造点 A-E + 决策(全补/完整body/is_stream列/Drop兑底)唯一事实源"}
+{"file": ".trellis/tasks/06-13-proxy-log-streaming-support/research/01-log-flow.md", "reason": "渐进式日志 7 阶段 + 流式/非流式分支判定 file:line"}
+{"file": ".trellis/tasks/06-13-proxy-log-streaming-support/research/02-streaming-gap.md", "reason": "逐项缺口对比 + 各分支问题定位"}
+{"file": ".trellis/tasks/06-13-proxy-log-streaming-support/research/03-data-model.md", "reason": "ProxyLog 27 字段 + upsert 写入链路 4 处 + SSE 解析现状"}
+{"file": ".trellis/tasks/06-13-proxy-log-streaming-support/research/04-fix-points.md", "reason": "改造点 A-F + 3 方案 + 6 类风险(零阻塞/截断/Drop)"}
+{"file": ".trellis/spec/backend/index.md", "reason": "后端 spec 索引 + checklist"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "is_stream 列 Rust↔TS 契约一致"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用 accumulate_sse_usage / upsert_proxy_log, 禁重复"}
