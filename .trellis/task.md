@@ -37,3 +37,4 @@
 | docs-mw-zh-en | middleware docs zh+en (独立章节) | — | 已完成 | 收尾 | 100% | — |
 | docs-breaker-zh-en | breaker/scheduling docs zh+en (入 groups) | — | 已完成 | 收尾 | 100% | — |
 | docs-notif-blocked | notif docs (blocked, 等 system-notification 完成) | — | 已完成 | 收尾 | 100% | — |
+| settings-submenu-nav | 设置 tab 重构为侧栏子菜单 | — | 已完成 | 收尾 | 100% | — |
