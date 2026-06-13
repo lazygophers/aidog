@@ -116,6 +116,38 @@ impl Db {
                 // proxy_log 每次尝试快照（JSON 数组）+ 重试次数
                 let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN attempts TEXT NOT NULL DEFAULT '[]'", []);
                 let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0", []);
+                // Migration 012: Kimi Code Plan endpoint client_type 修正（codex_tui→claude_code）
+                // 根因：Platforms.tsx 预设曾把 kimi coding openai endpoint 配为 codex_tui，
+                // 但 Kimi coding 上游拒绝 Codex（只接 Kimi CLI/Claude Code/Roo Code/Kilo Code）。
+                // 扫描已有 kimi 平台 endpoints JSON，修正该 endpoint 身份。幂等：仅改 codex_tui，已 claude_code 不动。
+                if let Ok(mut stmt) = conn.prepare("SELECT id, endpoints FROM platform WHERE platform_type = 'kimi'") {
+                    let rows: Vec<(i64, String)> = stmt
+                        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
+                        .ok()
+                        .map(|iter| iter.filter_map(Result::ok).collect())
+                        .unwrap_or_default();
+                    for (id, endpoints_json) in rows {
+                        let mut eps = parse_endpoints(&endpoints_json);
+                        let mut changed = false;
+                        for ep in &mut eps {
+                            if ep.protocol == Protocol::OpenAI
+                                && ep.coding_plan
+                                && ep.client_type == ClientType::CodexTui
+                            {
+                                ep.client_type = ClientType::ClaudeCode;
+                                changed = true;
+                            }
+                        }
+                        if changed {
+                            let new_json = serialize_endpoints(&eps);
+                            let _ = conn.execute(
+                                "UPDATE platform SET endpoints = ?1 WHERE id = ?2",
+                                params![new_json, id],
+                            );
+                            tracing::info!(platform_id = id, "migration 012: kimi coding endpoint client_type codex_tui→claude_code");
+                        }
+                    }
+                }
                 Ok(())
             })
             .await
