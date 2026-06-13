@@ -10,7 +10,7 @@ Agregación multiplataforma · Enrutamiento inteligente · Analítica de uso —
 [![GitHub Release](https://img.shields.io/github/v/release/lazygophers/aidog?logo=github)](https://github.com/lazygophers/aidog/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#license)
 
-[简体中文](README.md) · [English](README.en.md) · [Français](README.fr.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · `Español`
+[简体中文](README.md) · [English](README.en.md) · [Français](README.fr.md) · [Deutsch](README.de.md) · [Русский](README.ru.md) · [العربية](README.ar.md) · [Español](README.es.md) · [日本語](README.ja.md)
 
 </div>
 
@@ -29,7 +29,7 @@ AiDog es una pasarela de API de IA de escritorio basada en Tauri que unifica la 
 - **Registro de solicitudes** — tres niveles de granularidad (solicitud original del usuario / solicitud ascendente / resumen), cada uno con su conmutador y retención
 - **Motor de reglas middleware** — reglas entrantes/salientes: normalización, sobrescritura, redacción, inyección, filtrado de palabras sensibles, detección de errores
 - **Integración de asistentes de código** — soporte nativo con un clic para Claude Code, OpenAI Codex y otros asistentes
-- **i18n y temas** — 7 idiomas (incl. árabe RTL), Liquid Glass y otros temas con modos claro/oscuro
+- **i18n y temas** — 8 idiomas (incl. árabe RTL), Liquid Glass y otros temas con modos claro/oscuro
 
 ## 🚀 Inicio rápido
 
@@ -100,9 +100,11 @@ Sitio de docs completo: <https://lazygophers.github.io/aidog>
 | 简体中文 | [README.md](README.md) |
 | English | [README.en.md](README.en.md) |
 | Français | [README.fr.md](README.fr.md) |
+| Deutsch | [README.de.md](README.de.md) |
 | Русский | [README.ru.md](README.ru.md) |
 | العربية | [README.ar.md](README.ar.md) |
 | Español | [README.es.md](README.es.md) |
+| 日本語 | [README.ja.md](README.ja.md) |
 
 ## IDE recomendado
 

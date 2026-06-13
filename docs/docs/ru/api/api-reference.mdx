@@ -4,29 +4,29 @@ title: Справочник API
 
 # Справочник API
 
-AiDog предоставляет локальный HTTP API для запроса информации о группах. Все конечные точки доступны **только на localhost** (`127.0.0.1`) и не требуют внешнего сетевого доступа.
+AiDog предоставляет локальный HTTP API для запроса информации о группе. Все эндпоинты **только localhost** (`127.0.0.1`) и не требуют внешнего сетевого доступа.
 
 ## POST /api/group-info
 
-Query estimated group information (balance, coding plan utilization, request statistics, etc.). Only **single-platform groups** return applicable data; multi-platform or no-platform groups return `applicable: false`.
+Запрос оценочной информации о группе (баланс, утилизация coding-плана, статистика запросов и т.д.). Только **группы с одной платформой** возвращают применимые данные; многоплатформенные группы или группы без платформ возвращают `applicable: false`.
 
-### Authentication
+### Аутентификация
 
 ```
 Authorization: Bearer <group_name>
 ```
 
-The `group_name` is the name of the group configured in AiDog. This is the same value as the `ANTHROPIC_AUTH_TOKEN` environment variable used by Claude Code.
+`group_name` — имя группы, настроенной в AiDog. То же значение, что переменная окружения `ANTHROPIC_AUTH_TOKEN` для Claude Code.
 
-### Request
+### Запрос
 
-- **Method**: POST
+- **Метод**: POST
 - **URL**: `http://127.0.0.1:<port>/api/group-info`
-- **Headers**: `Authorization: Bearer <group_name>`
+- **Заголовки**: `Authorization: Bearer <group_name>`
 
-### Response (200 OK)
+### Ответ (200 OK)
 
-#### Single-platform group:
+#### Группа с одной платформой:
 
 ```json
 {
@@ -56,7 +56,7 @@ The `group_name` is the name of the group configured in AiDog. This is the same 
 }
 ```
 
-#### Multi-platform / no-platform group:
+#### Многоплатформенная / без платформ:
 
 ```json
 {
@@ -73,36 +73,36 @@ The `group_name` is the name of the group configured in AiDog. This is the same 
 }
 ```
 
-### Response Fields
+### Поля ответа
 
-| Field | Type | Description |
+| Поле | Тип | Описание |
 |-------|------|-------------|
-| `applicable` | boolean | Whether this is a single-platform group with available data |
-| `balance` | number | Estimated remaining balance |
-| `spent` | number | Cumulative estimated spending |
-| `coding_plan` | array | Coding Plan tiers (Claude etc.); empty for balance-based platforms |
-| `coding_plan[].name` | string | Tier name (5h, 7d, etc.) |
-| `coding_plan[].utilization` | number | Utilization percentage (0-100) |
-| `coding_plan[].pace` | string | Burn rate: `fast`, `normal`, or `busy` |
-| `coding_plan[].reset_at` | number\|null | Reset timestamp (Unix seconds) |
-| `requests` | number | Total request count |
-| `success_rate` | number | Success rate (0-100) |
-| `cache_rate` | number | Cache hit rate (0-100) |
-| `total_tokens` | number | Total tokens consumed |
-| `currency` | string | Currency unit |
-| `balance_days_remaining` | number\|null | Estimated days of balance remaining (null if incalculable) |
+| `applicable` | boolean | Является ли группа одноплатформенной с доступными данными |
+| `balance` | number | Оценочный остаток баланса |
+| `spent` | number | Накопленные оценочные расходы |
+| `coding_plan` | array | Уровни Coding Plan (Claude и др.); пусто для платформ на основе баланса |
+| `coding_plan[].name` | string | Имя уровня (5h, 7d и т.д.) |
+| `coding_plan[].utilization` | number | Утилизация в процентах (0-100) |
+| `coding_plan[].pace` | string | Темп расхода: `fast`, `normal` или `busy` |
+| `coding_plan[].reset_at` | number\|null | Timestamp сброса (Unix секунды) |
+| `requests` | number | Общее число запросов |
+| `success_rate` | number | Успешность (0-100) |
+| `cache_rate` | number | Доля попадания в кэш (0-100) |
+| `total_tokens` | number | Всего потрачено токенов |
+| `currency` | string | Единица валюты |
+| `balance_days_remaining` | number\|null | Оценка дней до исчерпания баланса (null если невычислимо) |
 
-### Error Responses
+### Ошибки
 
-| Status | Condition |
+| Статус | Условие |
 |--------|-----------|
-| 401 | Missing or invalid `Authorization` header |
-| 200 | Group not found → `applicable: false` |
+| 401 | Отсутствует или недействителен заголовок `Authorization` |
+| 200 | Группа не найдена → `applicable: false` |
 
-### Example
+### Пример
 
 ```bash
-curl -X POST \\
-  -H "Authorization: Bearer my-group" \\
+curl -X POST \
+  -H "Authorization: Bearer my-group" \
   http://127.0.0.1:9876/api/group-info
 ```

@@ -34,6 +34,7 @@
   "lang.ja-JP": "日本語",
   "lang.label": "Language",
   "lang.ru-RU": "Русский",
+  "lang.es-ES": "Español",
   "lang.zh-CN": "简体中文",
   "mapping.add": "Add Model Mapping",
   "mapping.source": "Source model (e.g. claude-sonnet-4-6)",

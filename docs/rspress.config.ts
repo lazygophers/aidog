@@ -52,6 +52,12 @@ export default defineConfig({
       title: 'AiDog',
       description: 'Proxy de puerta de enlace API de IA — Agregación multiplataforma, enrutamiento inteligente, análisis de uso',
     },
+    {
+      lang: 'ru',
+      label: 'Русский',
+      title: 'AiDog',
+      description: 'Прокси-шлюз API ИИ — Мультиплатформенная агрегация, умная маршрутизация, аналитика использования',
+    },
   ],
   themeConfig: {
     socialLinks: [

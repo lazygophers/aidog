@@ -1,0 +1,87 @@
+---
+title: Использование
+---
+
+# Использование прокси
+
+AiDog запускает локальный HTTP-прокси, принимающий и перенаправляющий AI API-запросы.
+
+## Адрес прокси
+
+Адрес по умолчанию:
+
+```
+http://127.0.0.1:9876
+```
+
+Порт можно изменить в **«Настройки» → «Прокси»**.
+
+## Автозапуск
+
+Включите «Автозапуск прокси» в настройках. При включении прокси запускается автоматически при старте AiDog.
+
+## Базовое использование
+
+Укажите любому AI-клиенту, поддерживающему пользовательские API-адреса, на AiDog:
+
+| Тип клиента | Конфигурация |
+|-------------|---------------|
+| OpenAI SDK | Установить `base_url` на адрес прокси |
+| curl | Запросить адрес прокси напрямую |
+| Веб-приложения | Указать API-эндпоинт на прокси |
+| Ассистенты кода | Указать базовый URL API |
+
+### Python (OpenAI SDK)
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="http://127.0.0.1:9876/proxy/v1",
+    api_key="any-value"  # AiDog использует ваш настроенный реальный ключ
+)
+
+response = client.chat.completions.create(
+    model="gpt-4o",
+    messages=[{"role": "user", "content": "Hello!"}]
+)
+```
+
+### Node.js
+
+```javascript
+import OpenAI from 'openai';
+
+const client = new OpenAI({
+  baseURL: 'http://127.0.0.1:9876/proxy/v1',
+  apiKey: 'any-value',
+});
+
+const response = await client.chat.completions.create({
+  model: 'gpt-4o',
+  messages: [{ role: 'user', content: 'Hello!' }],
+});
+```
+
+### curl
+
+```bash
+curl http://127.0.0.1:9876/proxy/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer any-value" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+## Стриминг
+
+AiDog полностью поддерживает SSE (Server-Sent Events) стриминг. Клиентские стрим-запросы прозрачно перенаправляются upstream-платформе.
+
+## Тайм-аут
+
+Прокси-запросы защищены тайм-аутом:
+- Тайм-аут по умолчанию: 300 секунд
+- Настраивается глобально или для группы
+- Возвращает 504 Gateway Timeout по истечении

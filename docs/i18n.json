@@ -6,7 +6,8 @@
     "fr": "Démarrage",
     "de": "Erste Schritte",
     "ar": "البدء",
-    "es": "Primeros pasos"
+    "es": "Primeros pasos",
+    "ru": "Начало работы"
   },
   "installation": {
     "zh": "安装",
@@ -15,7 +16,8 @@
     "fr": "Installation",
     "de": "Installation",
     "ar": "التثبيت",
-    "es": "Instalación"
+    "es": "Instalación",
+    "ru": "Установка"
   },
   "quickStart": {
     "zh": "快速开始",
@@ -24,7 +26,8 @@
     "fr": "Démarrage rapide",
     "de": "Schnellstart",
     "ar": "البدء السريع",
-    "es": "Inicio rápido"
+    "es": "Inicio rápido",
+    "ru": "Быстрый старт"
   },
   "platforms": {
     "zh": "平台管理",
@@ -33,7 +36,8 @@
     "fr": "Plateformes",
     "de": "Plattformen",
     "ar": "المنصات",
-    "es": "Plataformas"
+    "es": "Plataformas",
+    "ru": "Платформы"
   },
   "addPlatform": {
     "zh": "添加平台",
@@ -42,7 +46,8 @@
     "fr": "Ajouter une plateforme",
     "de": "Plattform hinzufügen",
     "ar": "إضافة منصة",
-    "es": "Agregar plataforma"
+    "es": "Agregar plataforma",
+    "ru": "Добавить платформу"
   },
   "protocols": {
     "zh": "支持的平台与接口",
@@ -51,7 +56,8 @@
     "fr": "Plateformes et interfaces",
     "de": "Plattformen und Schnittstellen",
     "ar": "المنصات والواجهات",
-    "es": "Plataformas e interfaces"
+    "es": "Plataformas e interfaces",
+    "ru": "Платформы и интерфейсы"
   },
   "modelMapping": {
     "zh": "模型映射",
@@ -60,7 +66,8 @@
     "fr": "Mappage de modèles",
     "de": "Modellzuordnung",
     "ar": "تعيين النماذج",
-    "es": "Mapeo de modelos"
+    "es": "Mapeo de modelos",
+    "ru": "Маппинг моделей"
   },
   "modelTesting": {
     "zh": "模型测试",
@@ -69,7 +76,8 @@
     "fr": "Test de modèle",
     "de": "Modelltest",
     "ar": "اختبار النموذج",
-    "es": "Prueba de modelo"
+    "es": "Prueba de modelo",
+    "ru": "Тестирование моделей"
   },
   "mockPlatform": {
     "zh": "模拟平台",
@@ -78,7 +86,8 @@
     "fr": "Plateforme fictive",
     "de": "Mock-Plattform",
     "ar": "منصة محاكاة",
-    "es": "Plataforma de simulación"
+    "es": "Plataforma de simulación",
+    "ru": "Платформа-заглушка"
   },
   "groups": {
     "zh": "分组管理",
@@ -87,7 +96,8 @@
     "fr": "Groupes",
     "de": "Gruppen",
     "ar": "المجموعات",
-    "es": "Grupos"
+    "es": "Grupos",
+    "ru": "Группы"
   },
   "manageGroups": {
     "zh": "创建与管理",
@@ -96,7 +106,8 @@
     "fr": "Créer et gérer",
     "de": "Erstellen und verwalten",
     "ar": "الإنشاء والإدارة",
-    "es": "Crear y gestionar"
+    "es": "Crear y gestionar",
+    "ru": "Создание и управление"
   },
   "routingRules": {
     "zh": "路由规则",
@@ -105,7 +116,8 @@
     "fr": "Règles de routage",
     "de": "Routing-Regeln",
     "ar": "قواعد التوجيه",
-    "es": "Reglas de enrutamiento"
+    "es": "Reglas de enrutamiento",
+    "ru": "Правила маршрутизации"
   },
   "proxy": {
     "zh": "代理服务",
@@ -114,7 +126,8 @@
     "fr": "Proxy",
     "de": "Proxy",
     "ar": "الوكيل",
-    "es": "Proxy"
+    "es": "Proxy",
+    "ru": "Прокси"
   },
   "usage": {
     "zh": "使用方法",
@@ -123,7 +136,8 @@
     "fr": "Utilisation",
     "de": "Verwendung",
     "ar": "الاستخدام",
-    "es": "Uso"
+    "es": "Uso",
+    "ru": "Использование"
   },
   "codexIntegration": {
     "zh": "Codex 集成",
@@ -132,7 +146,8 @@
     "fr": "Intégration Codex",
     "de": "Codex-Integration",
     "ar": "تكامل Codex",
-    "es": "Integración con Codex"
+    "es": "Integración con Codex",
+    "ru": "Интеграция Codex"
   },
   "logs": {
     "zh": "日志",
@@ -141,7 +156,8 @@
     "fr": "Journaux",
     "de": "Protokolle",
     "ar": "السجلات",
-    "es": "Registros"
+    "es": "Registros",
+    "ru": "Журналы"
   },
   "viewLogs": {
     "zh": "查看日志",
@@ -150,7 +166,8 @@
     "fr": "Consulter les journaux",
     "de": "Protokolle anzeigen",
     "ar": "عرض السجلات",
-    "es": "Ver registros"
+    "es": "Ver registros",
+    "ru": "Просмотр журналов"
   },
   "logSettings": {
     "zh": "日志设置",
@@ -159,7 +176,8 @@
     "fr": "Paramètres des journaux",
     "de": "Protokolleinstellungen",
     "ar": "إعدادات السجلات",
-    "es": "Configuración de registros"
+    "es": "Configuración de registros",
+    "ru": "Настройки журналирования"
   },
   "stats": {
     "zh": "统计",
@@ -168,7 +186,8 @@
     "fr": "Statistiques",
     "de": "Statistiken",
     "ar": "الإحصائيات",
-    "es": "Estadísticas"
+    "es": "Estadísticas",
+    "ru": "Статистика"
   },
   "usageStats": {
     "zh": "使用统计",
@@ -177,7 +196,8 @@
     "fr": "Statistiques d'utilisation",
     "de": "Nutzungsstatistiken",
     "ar": "إحصائيات الاستخدام",
-    "es": "Estadísticas de uso"
+    "es": "Estadísticas de uso",
+    "ru": "Статистика использования"
   },
   "pricing": {
     "zh": "定价与计费",
@@ -186,7 +206,8 @@
     "fr": "Tarification et facturation",
     "de": "Preise und Abrechnung",
     "ar": "التسعير والفوترة",
-    "es": "Precios y facturación"
+    "es": "Precios y facturación",
+    "ru": "Тарифы и биллинг"
   },
   "balance": {
     "zh": "余额与配额",
@@ -195,7 +216,8 @@
     "fr": "Solde et quotas",
     "de": "Guthaben und Kontingente",
     "ar": "الرصيد والحصص",
-    "es": "Saldo y cuotas"
+    "es": "Saldo y cuotas",
+    "ru": "Баланс и квоты"
   },
   "settings": {
     "zh": "设置",
@@ -204,7 +226,8 @@
     "fr": "Paramètres",
     "de": "Einstellungen",
     "ar": "الإعدادات",
-    "es": "Configuración"
+    "es": "Configuración",
+    "ru": "Настройки"
   },
   "middleware": {
     "zh": "中间件",
@@ -213,7 +236,8 @@
     "fr": "Middleware",
     "de": "Middleware",
     "ar": "البرمجيات الوسيطة",
-    "es": "Middleware"
+    "es": "Middleware",
+    "ru": "Промежуточное ПО"
   },
   "notifications": {
     "zh": "通知",
@@ -222,7 +246,8 @@
     "fr": "Notifications",
     "de": "Benachrichtigungen",
     "ar": "الإشعارات",
-    "es": "Notificaciones"
+    "es": "Notificaciones",
+    "ru": "Уведомления"
   },
   "appSettings": {
     "zh": "应用设置",
@@ -231,7 +256,8 @@
     "fr": "Paramètres de l'application",
     "de": "App-Einstellungen",
     "ar": "إعدادات التطبيق",
-    "es": "Configuración de la aplicación"
+    "es": "Configuración de la aplicación",
+    "ru": "Настройки приложения"
   },
   "proxySettings": {
     "zh": "代理配置",
@@ -240,7 +266,8 @@
     "fr": "Paramètres du proxy",
     "de": "Proxy-Einstellungen",
     "ar": "إعدادات الوكيل",
-    "es": "Configuración del proxy"
+    "es": "Configuración del proxy",
+    "ru": "Настройки прокси"
   },
   "claudeCodeSettings": {
     "zh": "Claude Code",
@@ -249,7 +276,8 @@
     "fr": "Claude Code",
     "de": "Claude Code",
     "ar": "Claude Code",
-    "es": "Claude Code"
+    "es": "Claude Code",
+    "ru": "Claude Code"
   },
   "codexSettings": {
     "zh": "Codex",
@@ -258,7 +286,8 @@
     "fr": "Codex",
     "de": "Codex",
     "ar": "Codex",
-    "es": "Codex"
+    "es": "Codex",
+    "ru": "Codex"
   },
   "modelPricing": {
     "zh": "模型价格",
@@ -267,7 +296,8 @@
     "fr": "Tarification des modèles",
     "de": "Modellpreise",
     "ar": "أسعار النماذج",
-    "es": "Precios de modelos"
+    "es": "Precios de modelos",
+    "ru": "Цены моделей"
   },
   "themes": {
     "zh": "主题定制",
@@ -276,7 +306,8 @@
     "fr": "Thèmes",
     "de": "Themen",
     "ar": "السمات",
-    "es": "Temas"
+    "es": "Temas",
+    "ru": "Темы"
   },
   "trayConfig": {
     "zh": "托盘配置",
@@ -285,7 +316,8 @@
     "fr": "Configuration de la barre d'état",
     "de": "Tray-Konfiguration",
     "ar": "تكوين شريط المهام",
-    "es": "Configuración de la bandeja"
+    "es": "Configuración de la bandeja",
+    "ru": "Конфигурация трея"
   },
   "guide": {
     "zh": "指南",
@@ -294,7 +326,8 @@
     "fr": "Guide",
     "de": "Leitfaden",
     "ar": "الدليل",
-    "es": "Guía"
+    "es": "Guía",
+    "ru": "Руководство"
   },
   "advancedRouting": {
     "zh": "高级路由",
@@ -303,6 +336,7 @@
     "fr": "Routage avancé",
     "de": "Erweitertes Routing",
     "ar": "التوجيه المتقدم",
-    "es": "Enrutamiento avanzado"
+    "es": "Enrutamiento avanzado",
+    "ru": "Расширенная маршрутизация"
   }
 }

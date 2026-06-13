@@ -34,6 +34,7 @@
   "lang.ja-JP": "日本語",
   "lang.label": "语言",
   "lang.ru-RU": "Русский",
+  "lang.es-ES": "Español",
   "lang.zh-CN": "简体中文",
   "mapping.add": "添加模型映射",
   "mapping.source": "源模型名 (如 claude-sonnet-4-6)",
