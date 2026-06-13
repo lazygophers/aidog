@@ -1704,6 +1704,7 @@ type SegmentType =
   | "thinking"               // thinking.enabled
   | "token-warn"             // exceeds_200k_tokens
   | "agent"                  // agent.name
+  | "agent-badge"            // 子代理徽章 [type·status·model]（动态符号/色）
   // aidog group segments
   | "group-balance"  // aidog group: 预估余额
   | "group-spent"    // aidog group: 累计预估花费
@@ -1822,6 +1823,65 @@ if [ "$__lvl" = "red" ]; then __c="${ANSI_RED}"
 elif [ "$__lvl" = "yellow" ]; then __c="${ANSI_AMBER}"
 else __c="${ANSI_GREEN}"; fi
 printf '\\033[38;2;%sm%s\\033[0m' "$__c" "$__txt"`;
+}
+
+// ── Sub-agent badge (catppuccin) ──
+// Catppuccin Mocha truecolor triples — kept verbatim from ccplugin
+// subagent_statusline.py `_STATUS_MAP` / badge structure so the aidog-generated
+// bash renders the badge identically.
+const CATPPUCCIN_MAUVE = "203;166;247";
+const CATPPUCCIN_BLUE = "137;180;250";
+const CATPPUCCIN_YELLOW = "249;226;175";
+const CATPPUCCIN_GREEN = "166;227;161";
+const CATPPUCCIN_RED = "243;139;168";
+const CATPPUCCIN_SUBTLE = "108;112;134";
+
+/**
+ * 子代理徽章段：`[{type_label}·{status_symbol}·{model}]`，移植 ccplugin
+ * subagent_statusline.py 的 `_STATUS_MAP` / `_status_seg` / type_label / model_label
+ * 语义。
+ *
+ *  - type 取 `.type`，空 → 整段省略（exit 0），对齐 python `if type_:` 守卫。
+ *  - type_label：`local_agent → Agent`，否则原样（python 同名映射）。
+ *  - status → 符号 + 颜色（catppuccin）经 bash `if/elif` 映射：
+ *      running/in_progress=● 黄, pending/queued=○ subtle, completed/succeeded/success=● 绿,
+ *      failed/error=● 红, cancelled/canceled=◌ subtle, 其余=◆ 蓝（默认）。
+ *  - model：task 级 `.model`(对象取 display_name//id，或字符串) 优先，回退顶层
+ *    `.model.display_name // .model.id`（对齐 python model_label）。空则不渲染 `·model`。
+ *  - 各片段自带 catppuccin truecolor（多色 + 动态状态色无法走 fixedColorBash），
+ *    故该段 `color` 应留空；类似 group*DynBash 直接 printf ANSI。
+ *
+ * bash 3.2（macOS 默认）无法在 `$(…)` 命令替换内解析 `case … esac`——每段都被
+ * 生成器包成 `__seg="$(…)"`，故 status→符号/色映射改用纯 `if/elif`（与
+ * group*DynBash 同一约束）；type_label 的小写归一同样用 `[ … = … ]` 而非 case。
+ */
+function agentBadgeBash(): string {
+  return `__type=$(echo "$input" | jq -r '.type // ""')
+[ -z "$__type" ] && exit 0
+__tl="$__type"
+[ "$(echo "$__type" | tr '[:upper:]' '[:lower:]')" = "local_agent" ] && __tl="Agent"
+__status=$(echo "$input" | jq -r '.status // ""' | tr '[:upper:]' '[:lower:]')
+if [ "$__status" = "running" ] || [ "$__status" = "in_progress" ]; then
+  __sym="●"; __sc="${CATPPUCCIN_YELLOW}"
+elif [ "$__status" = "pending" ] || [ "$__status" = "queued" ]; then
+  __sym="○"; __sc="${CATPPUCCIN_SUBTLE}"
+elif [ "$__status" = "completed" ] || [ "$__status" = "succeeded" ] || [ "$__status" = "success" ]; then
+  __sym="●"; __sc="${CATPPUCCIN_GREEN}"
+elif [ "$__status" = "failed" ] || [ "$__status" = "error" ]; then
+  __sym="●"; __sc="${CATPPUCCIN_RED}"
+elif [ "$__status" = "cancelled" ] || [ "$__status" = "canceled" ]; then
+  __sym="◌"; __sc="${CATPPUCCIN_SUBTLE}"
+else
+  __sym="◆"; __sc="${CATPPUCCIN_BLUE}"
+fi
+__model=$(echo "$input" | jq -r '
+  (.model | if type == "object" then (.display_name // .id) elif type == "string" then . else null end)
+  // (.model.display_name // .model.id)
+  // ""')
+printf '\\033[38;2;${CATPPUCCIN_MAUVE}m[%s\\033[0m' "$__tl"
+printf '\\033[1m\\033[38;2;%sm·%s\\033[0m' "$__sc" "$__sym"
+[ -n "$__model" ] && printf '\\033[38;2;${CATPPUCCIN_BLUE}m·%s\\033[0m' "$__model"
+printf '\\033[1m\\033[38;2;${CATPPUCCIN_MAUVE}m]\\033[0m'`;
 }
 
 /**
@@ -2545,6 +2605,18 @@ echo -n "$__b"`,
     fields: [],
   },
   {
+    type: "agent-badge",
+    name: "子代理徽章",
+    icon: "team",
+    desc: "[type·状态·模型] — 子代理任务徽章（type 空时隐藏，状态符号/色动态）",
+    defaultOptions: {},
+    // Self-colors via embedded catppuccin truecolor (multi-color + dynamic
+    // status色), so leave the segment `color` empty — do not wrap in fixedColorBash.
+    toBash: () => agentBadgeBash(),
+    toPreview: () => "[Agent·●·Opus]",
+    fields: [],
+  },
+  {
     type: "custom",
     name: "自定义",
     icon: "bolt",
@@ -2574,7 +2646,7 @@ const SEGMENT_CATEGORIES: { id: string; label: string; types: SegmentType[] }[] 
   { id: "session", label: "目录 / 会话", types: ["cwd", "project-dir", "added-dirs", "session-id", "session-name", "transcript-path"] },
   { id: "worktree", label: "Worktree", types: ["worktree-name", "worktree-branch", "worktree-original-branch"] },
   { id: "pr", label: "Pull Request", types: ["pr-number", "pr-url", "pr-state"] },
-  { id: "other", label: "其他", types: ["version", "output-style", "thinking", "token-warn", "agent", "custom"] },
+  { id: "other", label: "其他", types: ["version", "output-style", "thinking", "token-warn", "agent", "agent-badge", "custom"] },
 ];
 
 /**
@@ -2630,18 +2702,19 @@ export const DEFAULT_SEGMENTS: StatusLineSegment[] = [
  * segment editor as the main statusline (no templates) — this is its first-run /
  * reset default. Renders a single line:
  *
- *   [Agent·●]<子代理名>·<ctx%>·<tokens>·<时长>
- *   e.g. [Agent·●]reviewer·48%·96K·6m40s
+ *   [<type>·<状态符号>·<model>]<子代理名>·<ctx%>·<tokens>·<时长>
+ *   e.g. [Agent·●·Opus]reviewer·48%·96K·6m40s
  *
- * `[Agent·●]` is a literal prefix (separator segment) hugging the name directly;
- * the name falls back `.agent.name → .session_name → "subagent"` so it never
- * disappears. Remaining metrics are `·`-separated and degrade to empty when the
- * underlying field is absent (leaving an orphan `·` only in the degenerate case,
- * acceptable per PRD readability tradeoff).
+ * The leading badge is now the dynamic `agent-badge` segment (移植自 ccplugin
+ * subagent_statusline.py)：type_label(`local_agent→Agent`) + status 符号/色(`_STATUS_MAP`)
+ * + model(task 级优先回退顶层)；`.type` 为空时整段隐藏。它取代了旧的字面量
+ * `[Agent·●]` 分隔符，故首段随 type/status/model 变化而非恒定。徽章自带 catppuccin
+ * 颜色（无 `color` 字段）。其后 name 仍走 `.agent.name → .session_name → "subagent"`
+ * 兜底，剩余指标 `·`-分隔且字段缺失时降级为空。
  */
 export const DEFAULT_SUBAGENT_SEGMENTS: StatusLineSegment[] = [
-  { id: "sa-prefix", type: "separator", enabled: true, newline: false, color: "#8E8E93",
-    options: { char: "[Agent·●]" } },
+  { id: "sa-badge", type: "agent-badge", enabled: true, newline: false,
+    options: {} },
   { id: "sa-name", type: "custom", enabled: true, newline: false, color: "#4A9EFF",
     options: { expr: ".agent.name // .session_name // \"subagent\"" } },
   { id: "sa-sep1", type: "separator", enabled: true, newline: false,
@@ -2697,6 +2770,11 @@ const STATUSLINE_DATA_FIELDS = [
     { key: "vim.mode", desc: "Vim 模式" },
     { key: "session_id", desc: "会话 ID" },
     { key: "version", desc: "Claude Code 版本" },
+  ]},
+  { id: "subagent", group: "子代理任务", fields: [
+    { key: "type", desc: "任务类型（如 local_agent；空则隐藏徽章）" },
+    { key: "status", desc: "任务状态（running/pending/completed/failed/cancelled）" },
+    { key: "agent.name", desc: "子代理名称" },
   ]},
 ];
 
@@ -2826,28 +2904,11 @@ export function generateStatusLineScript(segments: StatusLineSegment[]): string 
     const { align, segs } = rows[i];
     lines.push(`# ── row ${i + 1} (${align}) ──`);
     lines.push(`__line${i}=""`);
-    for (const seg of segs) {
-      const def = SEGMENT_DEF_MAP.get(seg.type);
-      if (!def) continue;
-      const opts = { ...def.defaultOptions, ...seg.options };
-      // Reserved affix options drive mixed in-row separators (see wrapAffix).
-      const affixPre = typeof opts.affixPre === "string" ? opts.affixPre : "";
-      const affixSuf = typeof opts.affixSuf === "string" ? opts.affixSuf : "";
-      const body = wrapAffix(def.toBash(opts), affixPre, affixSuf);
-      let snippet: string;
-      if (seg.autoColor && VALUE_COLORABLE.has(seg.type)) {
-        snippet = autoColorBash(seg.type, body);
-      } else {
-        const rgb = hexToRgb(seg.color);
-        snippet = rgb ? fixedColorBash(body, rgb) : body;
-      }
-      // Each segment runs in its own subshell; its full (possibly ANSI-wrapped)
-      // output is captured as one unit so word-splitting never severs color codes.
-      // Separators are now explicit `separator` segments inserted between items;
-      // any segment (incl. separator) that degrades to empty simply appends "".
-      lines.push(`__seg="$(\n${snippet}\n)"`);
-      lines.push(`__line${i}+="$__seg"`);
-    }
+    // Each segment runs in its own subshell; its full (possibly ANSI-wrapped)
+    // output is captured as one unit so word-splitting never severs color codes.
+    // Separators are now explicit `separator` segments inserted between items;
+    // any segment (incl. separator) that degrades to empty simply appends "".
+    lines.push(...emitRowSegments(segs, `__line${i}`));
     if (align === "center" || align === "right") {
       // Strip ANSI for visible-width measurement, then pad with printf.
       lines.push(`__vis${i}=$(printf '%s' "$__line${i}" | sed 's/\\x1b\\[[0-9;]*m//g')`);
@@ -2867,6 +2928,113 @@ export function generateStatusLineScript(segments: StatusLineSegment[]): string 
     }
     if (i < rows.length - 1) lines.push("");
   }
+
+  return lines.join("\n");
+}
+
+/**
+ * Build the per-segment bash snippet array shared by the main and subagent
+ * generators: each segment renders in its own `$(…)` subshell, capturing its
+ * (possibly ANSI-wrapped) output as one word-split-safe unit. Returns the list
+ * of `__seg=…` / `__line+=…` lines for the given row segments, appending to the
+ * named accumulator variable.
+ */
+function emitRowSegments(segs: StatusLineSegment[], acc: string): string[] {
+  const out: string[] = [];
+  for (const seg of segs) {
+    const def = SEGMENT_DEF_MAP.get(seg.type);
+    if (!def) continue;
+    const opts = { ...def.defaultOptions, ...seg.options };
+    const affixPre = typeof opts.affixPre === "string" ? opts.affixPre : "";
+    const affixSuf = typeof opts.affixSuf === "string" ? opts.affixSuf : "";
+    const body = wrapAffix(def.toBash(opts), affixPre, affixSuf);
+    let snippet: string;
+    if (seg.autoColor && VALUE_COLORABLE.has(seg.type)) {
+      snippet = autoColorBash(seg.type, body);
+    } else {
+      const rgb = hexToRgb(seg.color);
+      snippet = rgb ? fixedColorBash(body, rgb) : body;
+    }
+    out.push(`__seg="$(\n${snippet}\n)"`);
+    out.push(`${acc}+="$__seg"`);
+  }
+  return out;
+}
+
+/**
+ * Generate the SubagentStatusLine bash script (native — no external python).
+ *
+ * Contract (Claude Code 子代理状态行 spec + ccplugin subagent_statusline.py):
+ *   stdin:  {columns, tasks:[{id,name,label,type,status,model,startTime,
+ *                            tokenCount,context_window,...}], model, context_window}
+ *   stdout: one JSONL line per task — {"id":"<task id>","content":"<row>"}
+ *           (content carries ANSI). Tasks without an id are skipped.
+ *
+ * Each task object is rendered with the *same* segment snippets as the main
+ * generator, but `$input` is rebound per task to a normalized task object so the
+ * existing segment jq paths resolve against task-scoped fields. Normalization
+ * (jq, mirrors render_row field-取法) does, per task:
+ *   - `.model`        fallback → top-level `.model` (task-level model 优先回退顶层)
+ *   - `.context_window` fallback → top-level `.context_window`
+ *   - `.tokenCount`   → synthesized into context_window.total_input_tokens when
+ *                       the task carries no context_window token fields, so the
+ *                       `context-tokens` segment reflects task token usage.
+ *   - `.cost.total_duration_ms` ← (now - startTime)*1000 when startTime present,
+ *                       so the `session-duration` segment shows task elapsed time.
+ *   - `.agent.name` / `.session_name` ← `.label // .name // .id` so the default
+ *                       name segment (custom `.agent.name // .session_name`) shows
+ *                       the task name.
+ * The agent-badge segment reads `.type`/`.status`/`.model` directly off the task.
+ *
+ * Single-row only (subagent rows are one line); multi-row segment layouts collapse
+ * to the first row's segments. bash 3.2 safe (no `case` in `$(…)`).
+ */
+export function generateSubagentStatusLineScript(segments: StatusLineSegment[]): string {
+  const active = segments.filter(s => s.enabled);
+  if (active.length === 0) return "#!/usr/bin/env bash\n:\n";
+
+  // Subagent rows are single-line; flatten any newline-induced rows into one.
+  const segs = active;
+
+  const lines: string[] = [
+    "#!/usr/bin/env bash",
+    "# Generated by aidog — do not edit manually (SubagentStatusLine)",
+    "__payload=$(cat)",
+    "__now=$(date +%s)",
+    // Top-level fallbacks (model / context_window) extracted once.
+    `__top=$(echo "$__payload" | jq -c '{model: (.model // null), context_window: (.context_window // null)}')`,
+    "",
+    // Iterate tasks: emit each normalized task object as one compact JSON line.
+    // `jq -c '.tasks[]?'` tolerates a missing / non-array `tasks`.
+    `echo "$__payload" | jq -c '.tasks[]? | select(.id != null)' | while IFS= read -r __task; do`,
+    "  __id=$(echo \"$__task\" | jq -r '.id')",
+    "  [ -z \"$__id\" ] && continue",
+    // Normalize the task object so existing segment jq paths resolve task-scoped.
+    "  input=$(echo \"$__task\" | jq -c --argjson top \"$__top\" --argjson now \"$__now\" '",
+    "    . as $t",
+    "    | (.model // $top.model) as $m",
+    "    | (.context_window // $top.context_window) as $cw",
+    "    | .model = $m",
+    "    | .context_window = $cw",
+    "    | (if (.context_window == null) and ((.tokenCount // 0) > 0)",
+    "        then .context_window = {total_input_tokens: .tokenCount, total_output_tokens: 0}",
+    "        elif (.context_window != null) and ((.context_window.total_input_tokens // 0) == 0) and ((.tokenCount // 0) > 0)",
+    "        then .context_window.total_input_tokens = .tokenCount",
+    "        else . end)",
+    "    | (if (.startTime != null)",
+    "        then (.startTime | if type == \"number\" then (if . > 10000000000 then ./1000 else . end) else (try (fromdateiso8601) catch null) end) as $st",
+    "        | (if $st != null and ($now - $st) > 0 then .cost = ((.cost // {}) + {total_duration_ms: (($now - $st) * 1000)}) else . end)",
+    "        else . end)",
+    "    | .agent = ((.agent // {}) + {name: ((.agent.name) // .label // .name // (.id|tostring))})",
+    "    | .session_name = (.session_name // .label // .name // (.id|tostring))",
+    "  ')",
+    "  __content=\"\"",
+    ...emitRowSegments(segs, "__content").map(l => "  " + l),
+    // Emit JSONL with jq doing the JSON-string escaping of the ANSI content.
+    // `-Rrs` slurps the whole (ANSI-bearing) line as one raw string.
+    "  printf '%s' \"$__content\" | jq -Rrs --arg id \"$__id\" '{id: $id, content: .}' -c",
+    "done",
+  ];
 
   return lines.join("\n");
 }
@@ -2908,13 +3076,19 @@ export function materializeStatusline(
   let scriptContent: string | null = null;
   if (enabled && mode === "builtin") {
     if (!isMain) {
-      // Subagent statusline uses JSONL output (per-task overrides):
+      // Subagent statusline — native bash generator emitting per-task JSONL
       //   stdin:  {tasks: [{id, name, type, status, …}]}
       //   stdout: {"id":"…","content":"…"} per task
-      // The segment-based bash generator outputs plain text lines — incompatible.
-      // Delegate to the dedicated Python script which handles JSONL correctly.
-      const subagentScript = "python3 ~/persons/lyxamour/ccplugin/scripts/subagent_statusline.py";
-      return { enabled: true, mode: "custom", scriptContent: null, customCommand: subagentScript };
+      // (no external dependency; the old python delegation was a non-distributable
+      //  dev-machine path).
+      const segments: StatusLineSegment[] =
+        (s.segments as StatusLineSegment[] | undefined) ?? DEFAULT_SUBAGENT_SEGMENTS.map(seg => ({ ...seg }));
+      return {
+        enabled: true,
+        mode: "builtin",
+        scriptContent: generateSubagentStatusLineScript(segments),
+        customCommand,
+      };
     }
     // main statusline — segment-based bash generator.
     const segments: StatusLineSegment[] =
