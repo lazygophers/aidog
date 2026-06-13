@@ -1212,9 +1212,6 @@ const PlatformCard = memo(function PlatformCard({
                         {showQuota && quota.balanceRemaining != null && (
                           <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
                             <BalanceBar remaining={quota.balanceRemaining} total={quota.balanceTotal} currency={quota.currency === "USD" ? "$" : quota.currency} />
-                            <span style={{ fontSize: 9, fontWeight: 700, color: quota.estimated ? "var(--color-warning)" : "var(--accent)" }}>
-                              {quota.estimated ? t("platform.quotaEstimated", "预估") : t("platform.quotaMeasured", "实测")}
-                            </span>
                           </div>
                         )}
                         {/* 手动预算剩余（无上游 quota 平台；取最紧那条，耗尽 danger 标记）*/}
@@ -1262,9 +1259,6 @@ const PlatformCard = memo(function PlatformCard({
                                 </span>
                               );
                             })}
-                            <span style={{ fontSize: 9, fontWeight: 700, color: quota.estimated ? "var(--color-warning)" : "var(--accent)", alignSelf: "center" }}>
-                              {quota.estimated ? t("platform.quotaEstimated", "预估") : t("platform.quotaMeasured", "实测")}
-                            </span>
                           </div>
                         )}
                         {/* 已使用统计已移至下拉展开区，此处留白把快操作推到右侧 */}
@@ -1301,8 +1295,8 @@ const PlatformCard = memo(function PlatformCard({
                               onClick={(e) => { e.stopPropagation(); actions.onQuickTest(p); }}
                               title={t("platform.quickTest", "快速测试默认模型")}
                             >
-                              <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M7 1l1.5 3.5L12 6l-3.5 1.5L7 11l-1.5-3.5L2 6l3.5-1.5L7 1z" />
+                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                                <path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z"/>
                               </svg>
                               {testing ? "..." : t("platform.quickTest", "快速测试")}
                             </button>
