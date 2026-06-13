@@ -39,3 +39,4 @@
 | docs-notif-blocked | notif docs (blocked, 等 system-notification 完成) | — | 已完成 | 收尾 | 100% | — |
 | settings-submenu-nav | 设置 tab 重构为侧栏子菜单 | — | 已完成 | 收尾 | 100% | — |
 | i18n-locale-unify | i18n 多端 locale 统一 + 缺失补全 | — | 已完成 | 收尾 | 100% | — |
+| i18n-frontend-hardcoded | 前端 tsx 硬编码中文 i18n 化 | — | 已完成 | 收尾 | 100% | — |
