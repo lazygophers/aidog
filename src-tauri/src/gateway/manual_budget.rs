@@ -34,6 +34,20 @@ fn window_ms(value: f64, unit: WindowUnit) -> f64 {
     value * unit_ms
 }
 
+/// 公开：某预算窗口的毫秒时长（rolling/fixed/daily）；total / 无窗口 → None。
+/// 供 group-info 算「使用速率配色」level（remain = window_start_at + dur - now）。
+pub fn window_duration_ms(budget: &ManualBudget) -> Option<i64> {
+    if budget.kind == "total" {
+        return None;
+    }
+    let dur = window_ms(budget.window_hours.unwrap_or(0.0), budget.window_unit);
+    if dur > 0.0 {
+        Some(dur as i64)
+    } else {
+        None
+    }
+}
+
 /// 本地自然日 00:00 的毫秒戳（包含 now_ms 的那一天）
 fn local_day_start_ms(now_ms: i64) -> i64 {
     let dt = Local.timestamp_millis_opt(now_ms).single();

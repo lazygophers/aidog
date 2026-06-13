@@ -97,9 +97,12 @@ struct GroupInfoResp {
     cache_rate: f64,
     total_tokens: i64,
     currency: String,
-    /// 余额可用天数 = balance / 近 7 天日均花费；无花费 / 无余额 → null。
+    /// 余额可用天数 = balance / 动态窗口日均花费；无花费 / 无余额 → null。
     /// statusline 余额段据此上色（<1 红 / <3 黄 / 否则绿）。
     balance_days_remaining: Option<f64>,
+    /// 余额使用速率配色级别（usage_color 唯一阈值源）："red"|"yellow"|"green"|"neutral"。
+    /// statusline / 前端只消费此 level 不重算阈值。
+    balance_level: String,
 }
 
 #[derive(serde::Serialize)]
@@ -107,8 +110,11 @@ struct CodingTierResp {
     name: String,
     /// 利用率（0-100）
     utilization: f64,
-    /// 预期消耗速率分级："fast" | "normal" | "busy"（statusline 第 3 行动态色用）。
+    /// 预期消耗速率分级："fast" | "normal" | "busy"（旧字段，保留兼容；新配色走 level）。
     pace: String,
+    /// 使用速率配色级别（usage_color 唯一阈值源）："red"|"yellow"|"green"|"neutral"。
+    /// statusline / 前端只消费此 level 不重算阈值。
+    level: String,
     /// 预期重置 unix 秒；无可靠来源时 null（statusline 红色时择机展示）。
     reset_at: Option<i64>,
 }
@@ -141,6 +147,7 @@ async fn handle_group_info_inner(
         total_tokens: 0,
         currency: String::new(),
         balance_days_remaining: None,
+        balance_level: super::usage_color::UsageLevel::Neutral.as_str().to_string(),
     };
 
     // 从 Authorization: Bearer <token> 提取 group_name
@@ -206,17 +213,25 @@ async fn handle_group_info_inner(
     let total_tokens =
         stats.total_input_tokens + stats.total_output_tokens + stats.total_cache_tokens;
 
-    // coding plan tiers（补 pace + reset_at）
+    // coding plan tiers（补 pace + level + reset_at）
+    // level 走 usage_color（按 window_start + cycle 推算剩余可用时间%）；
+    // reset_at = window_start + cycle（预估侧推算的本周期重置点，无 window_start 时 None）。
+    let now_ms = super::db::now();
     let mut coding_plan: Vec<CodingTierResp> = super::estimate::EstCodingPlan::from_json(&platform.est_coding_plan)
         .tiers
         .into_iter()
         .map(|t| {
             let pace = super::estimate::tier_pace(&t).as_str().to_string();
+            let level = super::estimate::tier_usage_level(&t, now_ms).as_str().to_string();
+            let reset_at = super::usage_color::cycle_ms_for_tier(&t.name)
+                .filter(|_| t.window_start > 0)
+                .map(|cycle| (t.window_start + cycle) / 1000);
             CodingTierResp {
                 name: t.name,
                 utilization: t.est_utilization,
                 pace,
-                reset_at: None,
+                level,
+                reset_at,
             }
         })
         .collect();
@@ -245,10 +260,26 @@ async fn handle_group_info_inner(
             }
         };
         let pace = if util > 80.0 { "fast" } else if util > 50.0 { "normal" } else { "busy" }.to_string();
+        // level 走 usage_color：按窗口剩余时间 + 利用率算剩余可用时间%。
+        // 窗口预算的 cycle = window_duration_ms，remain = window_start_at + dur - now；
+        // 无窗口起点 / total 类 → 中性。
+        let level = {
+            let dur = super::manual_budget::window_duration_ms(b);
+            match (dur, b.window_start_at) {
+                (Some(dur), Some(start)) => {
+                    let remain = start + dur - now_ms;
+                    super::usage_color::coding_tier_level(util, Some(remain), Some(dur))
+                }
+                _ => super::usage_color::UsageLevel::Neutral,
+            }
+        }
+        .as_str()
+        .to_string();
         coding_plan.push(CodingTierResp {
             name: label,
             utilization: util,
             pace,
+            level,
             reset_at: None,
         });
     }
@@ -262,16 +293,16 @@ async fn handle_group_info_inner(
         .sum::<f64>();
     let balance = platform.est_balance_remaining.max(manual_total_remaining);
 
-    // 余额可用天数：近 7 天日均花费 = spent_7d / 7；无花费 / 无余额 → null。
+    // 余额可用天数：动态窗口日速率（rate_per_hour，prd B）→ days = (balance / rate_per_hour) / 24。
+    // 无用量数据 / 无余额 → null（配色中性，不报警）。
     let balance_days_remaining = {
-        let spent_7d = super::db::get_group_spent_since(&state.db, &group.name, 7).await.unwrap_or(0.0);
-        let daily = spent_7d / 7.0;
-        if daily > 0.0 && balance > 0.0 {
-            Some(balance / daily)
-        } else {
-            None
+        let rate_per_hour = super::db::get_group_hourly_rate(&state.db, &group.name).await.unwrap_or(None);
+        match rate_per_hour {
+            Some(rate) if rate > 0.0 && balance > 0.0 => Some((balance / rate) / 24.0),
+            _ => None,
         }
     };
+    let balance_level = super::usage_color::balance_level(balance_days_remaining).as_str().to_string();
 
     let resp = GroupInfoResp {
         applicable: true,
@@ -284,6 +315,7 @@ async fn handle_group_info_inner(
         total_tokens,
         currency: String::new(),
         balance_days_remaining,
+        balance_level,
     };
 
     (StatusCode::OK, Json(resp)).into_response()

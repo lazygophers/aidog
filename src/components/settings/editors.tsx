@@ -1772,9 +1772,10 @@ __gi="\${__AIDOG_INFO_FILE:-}"
 cat "$__gi" | jq -e '.applicable == true' >/dev/null 2>&1 || exit 0`;
 
 /**
- * coding-plan 段（第 3 行动态色）：仅当端点含 coding_plan tiers 时展示，按各档最快
- * pace 上色——fast→红 / normal→黄 / busy→绿。红色（fast）时若有 reset_at 额外拼接
- * 人类可读重置时间。无 tiers → 降级空（余额平台由 group-balance 段接管）。
+ * coding-plan 段（第 3 行动态色）：仅当端点含 coding_plan tiers 时展示，按各档最严重
+ * level 上色——red→红 / yellow→黄 / green→绿 / neutral→无色（默认绿）。level 由后端
+ * 按「使用速率（剩余可用时间%）」算（usage_color 唯一阈值源），statusline 只消费不重算。
+ * 红色（red）时若有 reset_at 额外拼接人类可读重置时间。无 tiers → 降级空。
  * 直接输出 ANSI truecolor（不经 fixedColorBash），故段 color 应留空。
  */
 function groupCodingDynBash(): string {
@@ -1783,10 +1784,10 @@ __n=$(cat "$__gi" | jq -r '(.coding_plan // []) | length')
 [ "$__n" = "0" ] || [ -z "$__n" ] && exit 0
 __txt=$(cat "$__gi" | jq -r '(.coding_plan // []) | map((if .name == "five_hour" then "5h" elif (.name == "seven_day" or .name == "weekly_limit") then "7d" else .name end) + " " + ((.utilization // 0) | round | tostring) + "%") | join("·")')
 [ -z "$__txt" ] && exit 0
-__pace=$(cat "$__gi" | jq -r 'if any(.coding_plan[]?; .pace == "fast") then "fast" elif any(.coding_plan[]?; .pace == "normal") then "normal" else "busy" end')
-if [ "$__pace" = "fast" ]; then
+__lvl=$(cat "$__gi" | jq -r 'if any(.coding_plan[]?; .level == "red") then "red" elif any(.coding_plan[]?; .level == "yellow") then "yellow" elif any(.coding_plan[]?; .level == "green") then "green" else "neutral" end')
+if [ "$__lvl" = "red" ]; then
   __c="${ANSI_RED}"
-  __rs=$(cat "$__gi" | jq -r '[.coding_plan[]? | select(.pace == "fast") | .reset_at // empty] | min // empty')
+  __rs=$(cat "$__gi" | jq -r '[.coding_plan[]? | select(.level == "red") | .reset_at // empty] | min // empty')
   if [ -n "$__rs" ] && [ "$__rs" != "null" ]; then
     __now=$(date +%s); __d=$((__rs - __now))
     if [ "$__d" -gt 0 ]; then
@@ -1794,7 +1795,7 @@ if [ "$__pace" = "fast" ]; then
       __txt="$__txt (reset \${__h}h\${__m}m)"
     fi
   fi
-elif [ "$__pace" = "normal" ]; then
+elif [ "$__lvl" = "yellow" ]; then
   __c="${ANSI_AMBER}"
 else
   __c="${ANSI_GREEN}"
@@ -1803,9 +1804,9 @@ printf '\\033[38;2;%sm%s\\033[0m' "$__c" "$__txt"`;
 }
 
 /**
- * 余额段（第 3 行动态色）：仅当端点无 coding_plan tiers（即余额平台）时展示，按
- * balance_days_remaining 上色——<1 天→红 / <3 天→黄 / 否则绿（含 null → 默认绿）。
- * coding 平台由 group-coding 段接管，此处降级空。直接输出 ANSI truecolor。
+ * 余额段（第 3 行动态色）：余额平台展示，按后端 balance_level 上色——red→红 / yellow→黄
+ * / green / neutral→绿（默认）。level 由后端按「剩余可用天数（动态窗口日速率）」算
+ * （usage_color 唯一阈值源），statusline 只消费不重算阈值。直接输出 ANSI truecolor。
  */
 function groupBalanceDynBash(prefix: string): string {
   const pfx = bashEscapeDq(prefix);
@@ -1816,16 +1817,10 @@ __bal=$(cat "$__gi" | jq -r '.balance // 0 | (. * 100 | round) / 100')
 __bal=$(printf '%g' "$__bal")
 [ "$__bal" = "0" ] || [ "$__bal" = "0.0" ] && exit 0
 __txt="${pfx}$__bal"
-__days=$(cat "$__gi" | jq -r '.balance_days_remaining // empty')
-if [ -z "$__days" ] || [ "$__days" = "null" ]; then
-  __c="${ANSI_GREEN}"
-else
-  __lt1=$(awk -v d="$__days" 'BEGIN{print (d < 1) ? 1 : 0}')
-  __lt3=$(awk -v d="$__days" 'BEGIN{print (d < 3) ? 1 : 0}')
-  if [ "$__lt1" = "1" ]; then __c="${ANSI_RED}"
-  elif [ "$__lt3" = "1" ]; then __c="${ANSI_AMBER}"
-  else __c="${ANSI_GREEN}"; fi
-fi
+__lvl=$(cat "$__gi" | jq -r '.balance_level // "neutral"')
+if [ "$__lvl" = "red" ]; then __c="${ANSI_RED}"
+elif [ "$__lvl" = "yellow" ]; then __c="${ANSI_AMBER}"
+else __c="${ANSI_GREEN}"; fi
 printf '\\033[38;2;%sm%s\\033[0m' "$__c" "$__txt"`;
 }
 

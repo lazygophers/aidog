@@ -179,6 +179,9 @@ export interface Platform {
   tray_display: string;
   /** 手动预算限额列表（无上游 quota 平台；请求驱动扣减 + 耗尽阻断）。 */
   manual_budgets: ManualBudget[];
+  /** 余额使用速率配色级别（后端 platform_list 按动态窗口日速率算 days_remaining 填充，只读）。
+   *  "red"|"yellow"|"green"|"neutral"；空串 = 无数据 → 前端退中性。前端只消费不重算阈值。 */
+  balance_level?: string;
 }
 
 export interface Group {

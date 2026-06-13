@@ -159,6 +159,7 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         tray_display: row.get(17)?,
         sort_order: row.get::<_, i64>(18)?,
         manual_budgets: super::models::parse_manual_budgets(&row.get::<_, String>(19)?),
+        balance_level: String::new(),
     })
 }
 
@@ -220,6 +221,7 @@ pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platf
         tray_display: "balance".to_string(),
         sort_order: 0,
         manual_budgets,
+        balance_level: String::new(),
     })
 }
 
@@ -875,6 +877,7 @@ pub async fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlat
                     tray_display: row.get(19)?,
                     sort_order: row.get::<_, i64>(20)?,
                     manual_budgets: super::models::parse_manual_budgets(&row.get::<_, String>(21)?),
+                    balance_level: String::new(),
                 },
                 priority: row.get(0)?,
                 weight: row.get(1)?,
@@ -1320,27 +1323,81 @@ pub async fn get_group_usage_stats(db: &Db, group_name: &str) -> Result<super::m
         .map_err(|e| format!("group usage stats: {e}"))
 }
 
-/// 近 N 天该分组的预估花费合计（只读，复用持久化 est_cost）。
+/// 动态窗口日速率公共常量。
+const RATE_MIN_SPAN_MS: i64 = 5 * 60 * 1000; // 5min
+const RATE_MAX_SPAN_MS: i64 = 7 * 24 * 60 * 60 * 1000; // 7d
+
+/// 动态窗口日用量速率核心（同步，锁内调用）。
 ///
-/// 用于 statusline group-info 端点推算「余额可用天数」：日均花费 = spent / N。
-/// 短持锁（仅一次聚合查询），不跨 await；window_days <= 0 时按 7 天兜底。
-pub async fn get_group_spent_since(db: &Db, group_name: &str, window_days: i64) -> Result<f64, String> {
-    let days = if window_days > 0 { window_days } else { 7 };
-    let start_ms =
-        (chrono::Utc::now() - chrono::Duration::days(days)).timestamp_millis();
+/// 算法（prd B）：`?1` = window_start（now-7d），`scope_sql` 为附加维度过滤（group / platform），
+/// `scope_params` 从 `?3` 起绑定。span = clamp(now - 最早有效 est_cost 数据时间, 5min, 7d)，
+/// `rate_per_hour = SUM(est_cost in span) / span_hours`。无任何用量 → None。
+fn hourly_rate_inner(
+    conn: &Connection,
+    now_ms: i64,
+    window_start: i64,
+    scope_sql: &str,
+    scope_params: &[&dyn rusqlite::types::ToSql],
+) -> SqlResult<Option<f64>> {
+    let mut binds: Vec<&dyn rusqlite::types::ToSql> = vec![&window_start];
+    binds.extend_from_slice(scope_params);
+    // 7d 窗口内最早一条有 est_cost(>0) 数据的时间。
+    let earliest_sql = format!(
+        "SELECT MIN(created_at) FROM proxy_log \
+         WHERE created_at >= ?1 AND deleted_at = 0 AND est_cost > 0 AND ({scope_sql})"
+    );
+    let earliest: Option<i64> = conn
+        .query_row(&earliest_sql, binds.as_slice(), |row| row.get(0))
+        .optional()?
+        .flatten();
+    let earliest = match earliest {
+        Some(e) => e,
+        None => return Ok(None), // 无任何用量 → None
+    };
+    let total_sql = format!(
+        "SELECT COALESCE(SUM(est_cost), 0.0) FROM proxy_log \
+         WHERE created_at >= ?1 AND deleted_at = 0 AND ({scope_sql})"
+    );
+    let total: f64 = conn.query_row(&total_sql, binds.as_slice(), |row| row.get(0))?;
+    if total <= 0.0 {
+        return Ok(None);
+    }
+    // span = clamp(now - earliest, 5min, 7d)
+    let span_ms = (now_ms - earliest).clamp(RATE_MIN_SPAN_MS, RATE_MAX_SPAN_MS);
+    let span_hours = span_ms as f64 / 3_600_000.0;
+    Ok(Some(total / span_hours))
+}
+
+/// 分组动态窗口日用量速率（$ / 小时），供 statusline 余额「剩余可用天数」配色。
+/// 无任何用量 → None（配色侧视作中性 / 不报警）。短持锁，不跨 await。
+pub async fn get_group_hourly_rate(db: &Db, group_name: &str) -> Result<Option<f64>, String> {
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    let window_start = now_ms - RATE_MAX_SPAN_MS;
     let group_name = group_name.to_string();
     db.0
         .call(move |conn| {
-            let spent: f64 = conn.query_row(
-                "SELECT COALESCE(SUM(est_cost), 0.0) FROM proxy_log \
-                 WHERE group_name = ?1 AND created_at >= ?2 AND deleted_at = 0",
-                params![group_name, start_ms],
-                |row| row.get(0),
-            )?;
-            Ok(spent)
+            Ok(hourly_rate_inner(conn, now_ms, window_start, "group_name = ?2", &[&group_name])?)
         })
         .await
-        .map_err(|e| format!("group spent since: {e}"))
+        .map_err(|e| format!("group hourly rate: {e}"))
+}
+
+/// 单平台动态窗口日用量速率（$ / 小时），供 Platforms 列表页余额按速率配色。
+///
+/// platform 维度过滤同 `get_platform_usage_stats`：自动分组日志可能 platform_id=0，
+/// 经 group.auto_from_platform 回溯。无任何用量 → None（前端退中性）。短持锁，不跨 await。
+pub async fn get_platform_hourly_rate(db: &Db, platform_id: u64) -> Result<Option<f64>, String> {
+    let now_ms = chrono::Utc::now().timestamp_millis();
+    let window_start = now_ms - RATE_MAX_SPAN_MS;
+    db.0
+        .call(move |conn| {
+            let pid = platform_id as i64;
+            let pid_str = platform_id.to_string();
+            let scope = "platform_id = ?2 OR (platform_id = 0 AND group_name IN (SELECT name FROM \"group\" WHERE auto_from_platform = ?3 AND deleted_at = 0))";
+            Ok(hourly_rate_inner(conn, now_ms, window_start, scope, &[&pid, &pid_str])?)
+        })
+        .await
+        .map_err(|e| format!("platform hourly rate: {e}"))
 }
 
 struct QueryParams {
@@ -1905,6 +1962,32 @@ mod tests {
         create_platform(&db, input).await.unwrap();
         let listed = list_platforms(&db).await.unwrap();
         assert_eq!(listed[0].endpoints.len(), 1, "list_platforms 应返回 endpoints");
+    }
+
+    // ── 单平台动态窗口日速率：按 platform_id 过滤 est_cost，span clamp 5min..7d ──
+    #[tokio::test]
+    async fn platform_hourly_rate_filters_by_platform() {
+        let db = test_db().await;
+        let now_ms = now();
+        // platform 1：2h 前一条 est_cost=4.0；platform 2：另一条 est_cost=99（不应计入 p1）。
+        let mut l1 = sample_log("r1", "g", now_ms - 2 * 3_600_000);
+        l1.platform_id = 1;
+        l1.est_cost = 4.0;
+        let mut l2 = sample_log("r2", "g", now_ms - 1_000);
+        l2.platform_id = 2;
+        l2.est_cost = 99.0;
+        upsert_proxy_log(&db, &l1).await.unwrap();
+        upsert_proxy_log(&db, &l2).await.unwrap();
+
+        // p1：span = clamp(now_internal - earliest, 5min, 7d) ≈ 2h → rate ≈ 4.0 / 2 = 2.0 $/h。
+        // 容差放宽：查询内部 now 与测试 now 间有毫秒级时钟差 → span 略大于 2h（rate 略小于 2.0）。
+        let rate = get_platform_hourly_rate(&db, 1).await.unwrap();
+        assert!(rate.is_some());
+        assert!((rate.unwrap() - 2.0).abs() < 0.01, "p1 rate = {rate:?}");
+
+        // 无任何用量的平台 → None。
+        let none = get_platform_hourly_rate(&db, 999).await.unwrap();
+        assert!(none.is_none(), "无用量平台应 None，got {none:?}");
     }
 
     // ── R2 单数表名 + "group" 转义：init_tables 成功间接验证 DDL ──
