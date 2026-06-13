@@ -6,7 +6,7 @@ import type { TodayStats } from "./services/api";
 import { applyTheme } from "./themes";
 import type { ThemeName, ThemeMode } from "./themes/types";
 import { formatNumber, formatCostUsd, formatPercent } from "./utils/formatters";
-import "./styles/globals.css";
+import "./styles/popover.css";
 
 // ─── Types ──────────────────────────────────────────────────
 
