@@ -170,6 +170,11 @@ impl Db {
                      );
                      CREATE INDEX IF NOT EXISTS idx_mw_rule_lookup ON middleware_rule(enabled, rule_type, scope);",
                 )?;
+                // Migration 014: proxy_log 中间件拦截审计列（C2 入站 block）。
+                // blocked_by = 命中规则标识（rule_type#id name）；blocked_reason = 人读拦截原因。
+                // 空值表示未被拦截。拦截类请求不计费（est_cost 仍为 0），但写完整审计行。
+                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN blocked_by TEXT NOT NULL DEFAULT ''", []);
+                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN blocked_reason TEXT NOT NULL DEFAULT ''", []);
                 Ok(())
             })
             .await
@@ -1446,11 +1451,20 @@ pub async fn delete_middleware_rule(db: &Db, id: i64) -> Result<(), String> {
         .map_err(|e| format!("delete middleware rule: {e}"))
 }
 
+/// 读取中间件总设置（settings scope="middleware" key="settings"）。
+/// 无记录或解析失败 → Default（总开关 ON，各类型默认启用）。C2/C3 执行层调用。
+pub async fn get_middleware_settings(db: &Db) -> super::models::MiddlewareSettings {
+    match get_setting(db, "middleware", "settings").await {
+        Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
+        _ => super::models::MiddlewareSettings::default(),
+    }
+}
+
 // ─── ProxyLog CRUD ─────────────────────────────────────────
 
 /// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
 const PROXY_LOG_COLUMNS: &str =
-    "id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, attempts, retry_count, created_at, updated_at, deleted_at";
+    "id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at";
 
 /// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
 fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
@@ -1482,9 +1496,11 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
         is_stream: row.get::<_, i64>(24)? == 1,
         attempts: super::models::parse_attempts(&row.get::<_, String>(25)?),
         retry_count: row.get(26)?,
-        created_at: row.get(27)?,
-        updated_at: row.get(28)?,
-        deleted_at: row.get(29)?,
+        blocked_by: row.get(27)?,
+        blocked_reason: row.get(28)?,
+        created_at: row.get(29)?,
+        updated_at: row.get(30)?,
+        deleted_at: row.get(31)?,
     })
 }
 
@@ -1496,8 +1512,8 @@ pub async fn upsert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<
             let attempts_str = super::models::serialize_attempts(&log.attempts);
             conn.execute(
                 &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30)"),
-                params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.created_at, log.updated_at, log.deleted_at],
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32)"),
+                params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at],
             )?;
             Ok(())
         })
@@ -2396,6 +2412,8 @@ mod tests {
             is_stream: false,
             attempts: Vec::new(),
             retry_count: 0,
+            blocked_by: String::new(),
+            blocked_reason: String::new(),
             created_at,
             updated_at: created_at,
             deleted_at: 0,

@@ -856,6 +856,12 @@ pub struct ProxyLog {
     /// 重试次数 = attempts.len()-1（0 表示一次成功，无重试）
     #[serde(default)]
     pub retry_count: i32,
+    /// 被中间件拦截时的规则标识（rule_type/规则名/id 拼接，空表示未被拦截）。C2 入站 block 写入。
+    #[serde(default)]
+    pub blocked_by: String,
+    /// 拦截原因（命中模式 / 规则描述等人读说明，空表示未被拦截）。
+    #[serde(default)]
+    pub blocked_reason: String,
     pub created_at: i64,
     #[serde(default)]
     pub updated_at: i64,
@@ -1514,8 +1520,7 @@ impl Default for MiddlewareSettings {
 
 impl MiddlewareSettings {
     /// 指定 rule_type 是否启用：总开关关 → 全 false；否则查 type_toggles，缺省 true。
-    /// C2/C3 执行层判定调用；C1 先行，lib 层暂无调用方（单测已覆盖）。
-    #[allow(dead_code)]
+    /// C2/C3 执行层判定调用。
     pub fn type_enabled(&self, rule_type: RuleType) -> bool {
         if !self.enabled {
             return false;

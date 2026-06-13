@@ -14,6 +14,7 @@ use std::sync::Arc;
 use super::adapter::{self, ChatRequest, ChatStreamEvent};
 use super::db::Db;
 use super::i18n::{self, ErrorKey, Lang};
+use super::middleware::{InboundOutcome, MiddlewareEngine};
 use super::models::{ClientType, Group, Protocol, ProxyAttempt, ProxyLog, ProxyLogSettings, ProxyTimeoutSettings};
 use super::router::{select_candidates, RouteResult};
 
@@ -36,6 +37,8 @@ pub struct ProxyState {
     /// 可选 AppHandle：预估更新后 emit "tray-refresh" 事件让主线程刷新托盘。
     /// 后台 spawn 不直接操作 tray（线程安全），改 emit 事件由主线程 setup 监听刷新。
     pub app: Option<tauri::AppHandle>,
+    /// 中间件规则引擎单例（与 lib.rs app.manage 的同一 Arc，C2/C3 入站/出站执行用）。
+    pub middleware: Arc<MiddlewareEngine>,
 }
 
 /// 启动代理服务器，返回 shutdown handle
@@ -43,8 +46,9 @@ pub async fn start_proxy(
     db: Arc<Db>,
     port: u16,
     app: Option<tauri::AppHandle>,
+    middleware: Arc<MiddlewareEngine>,
 ) -> Result<(tokio::task::JoinHandle<()>, u16), String> {
-    let state = Arc::new(ProxyState { db, app });
+    let state = Arc::new(ProxyState { db, app, middleware });
 
     let app = Router::new()
         .route("/api/group-info", post(handle_group_info))
@@ -384,6 +388,45 @@ async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLog
     }
 }
 
+/// 中间件入站拦截：写审计日志（blocked_by/blocked_reason，不计费）并立即返回 403。
+/// 参照现有 parse 错误返回模式；body 为结构化 JSON，便于客户端识别拦截。
+#[allow(clippy::too_many_arguments)]
+async fn block_inbound(
+    state: &Arc<ProxyState>,
+    mut log: ProxyLog,
+    log_settings: &ProxyLogSettings,
+    lang: Lang,
+    blocked_by: String,
+    blocked_reason: String,
+    start: std::time::Instant,
+) -> Response {
+    let body = serde_json::json!({
+        "error": {
+            "type": "middleware_blocked",
+            "message": i18n::t(lang, ErrorKey::MiddlewareBlocked),
+            "blocked_by": blocked_by,
+            "blocked_reason": blocked_reason,
+        }
+    })
+    .to_string();
+    tracing::warn!(blocked_by = %blocked_by, reason = %blocked_reason, "middleware inbound: request blocked (403)");
+    log.status_code = 403;
+    log.blocked_by = blocked_by;
+    log.blocked_reason = blocked_reason;
+    log.response_body = body.clone();
+    log.user_response_body = body.clone();
+    log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    // est_cost 保持 0（不计费）；不调用 spawn_estimate。
+    upsert_log(state, &log, log_settings).await;
+    (
+        StatusCode::FORBIDDEN,
+        [(axum::http::header::CONTENT_TYPE, "application/json")],
+        body,
+    )
+        .into_response()
+}
+
 /// 在后台 tokio::spawn 中执行请求驱动的 quota 预估（不阻塞响应）。
 /// 余额平台扣金额 / coding plan 平台更新利用率，并按阈值触发真查校准。
 /// platform_type 传入 serde rename 裸名（如 "deepseek"），供 resolve_price 查 pricing key。
@@ -519,6 +562,8 @@ async fn handle_proxy_inner(
         is_stream: false,
         attempts: Vec::new(),
         retry_count: 0,
+        blocked_by: String::new(),
+        blocked_reason: String::new(),
         created_at,
         updated_at: created_at,
         deleted_at: 0,
@@ -641,6 +686,18 @@ async fn handle_proxy_inner(
     log.is_stream = is_stream;
     let requested_model = if chat_req.model.is_empty() { raw_model } else { chat_req.model.clone() };
     log.model = requested_model.clone();
+
+    // ── 中间件入站规则（global/group 层，路由前）──
+    // settings 读取 fail-open（异常 → Default 总开关 ON）；apply 内单条规则异常不阻断主链路。
+    // 顺序：request_filter→sensitive_word→redaction→content_filter→dynamic_injection。
+    {
+        let mw_settings = super::db::get_middleware_settings(&state.db).await;
+        if let InboundOutcome::Blocked { blocked_by, blocked_reason } =
+            state.middleware.apply_inbound(&mw_settings, &mut chat_req, Some(&group.name))
+        {
+            return block_inbound(&state, log, &log_settings, lang, blocked_by, blocked_reason, start).await;
+        }
+    }
 
     // ── 路由选择有序候选平台列表（失败逐个重试）──
     let candidate_set = match select_candidates(&state.db, &group, &chat_req.model).await {
@@ -767,6 +824,20 @@ async fn handle_proxy_inner(
 
     // 替换模型名
     chat_req.model = actual_model.clone();
+
+    // ── 中间件入站规则（platform 层，候选选定后、convert_request 前）──
+    // 仅应用 platform 作用域规则（global/group 已在路由前应用，避免重复）。
+    // block 在 forward 前返回，对透传/转换分支均生效；mask/inject 改写 chat_req，
+    // 转换分支(convert_request 读 chat_req)生效，同协议透传分支(用 req_value 原体)不生效（已知限制，见 report）。
+    {
+        let mw_settings = super::db::get_middleware_settings(&state.db).await;
+        if let InboundOutcome::Blocked { blocked_by, blocked_reason } =
+            state.middleware.apply_inbound_platform(&mw_settings, &mut chat_req, route.platform.id as i64)
+        {
+            log.platform_id = route.platform.id;
+            return block_inbound(&state, log, &log_settings, lang, blocked_by, blocked_reason, start).await;
+        }
+    }
 
     // ── 手动预算耗尽阻断（mock / 上游平台均适用，转发前惰性只读判定，不写库）──
     // 任一 enabled 限额剩余 ≤ 0（含窗口惰性重置后）→ 不发上游/不出 mock，返回 402。
