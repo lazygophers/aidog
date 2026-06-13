@@ -50,7 +50,7 @@ if not groot:
     sys.exit(0)
 
 name = f"{pkg}-{tid}" if pkg else (tid if service == "." else f"{service.replace(os.sep,'-')}-{tid}")
-wt = os.path.join(groot, ".worktrees", name)
+wt = os.path.join(groot, ".trellis", "worktrees", name)
 br = f"trellisx-{name}"
 
 if action == "start":
