@@ -940,7 +940,8 @@ function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, preferRe
             ? tier.window_start + cycleMs - Date.now()
             : null;
           const level = codingTierLevel(tier.est_utilization, remainMs, cycleMs);
-          return { name: tier.name, remainPct: tierRemain(tier.est_utilization), utilization: tier.est_utilization, resetsAt: null, limit, remaining, level };
+          const resetsAt = remainMs != null ? new Date(Date.now() + remainMs).toISOString() : null;
+          return { name: tier.name, remainPct: tierRemain(tier.est_utilization), utilization: tier.est_utilization, resetsAt, limit, remaining, level };
         })
       : [];
     return {
@@ -1263,6 +1264,7 @@ const PlatformCard = memo(function PlatformCard({
                                 ? `${tier.remaining ?? 0}/${tier.limit}`
                                 : `${tier.remainPct.toFixed(0)}%`;
                               const tierColor = levelColor(tier.level);
+                              const countdown = formatResetCountdown(tier.resetsAt);
                               return (
                                 <span key={tier.name} style={{
                                   display: "inline-flex", alignItems: "center", gap: 3,
@@ -1273,6 +1275,7 @@ const PlatformCard = memo(function PlatformCard({
                                 }}>
                                   <span style={{ fontSize: 11, fontWeight: 700 }}>{value}</span>
                                   <span style={{ fontSize: 9, opacity: 0.7 }}>{tierLabel(tier.name)}</span>
+                                  {countdown && <span style={{ fontSize: 8, opacity: 0.6 }}>·{countdown}</span>}
                                 </span>
                               );
                             })}
