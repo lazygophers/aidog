@@ -677,6 +677,16 @@ async fn handle_proxy_inner(
     let target_protocol = format!("{:?}", target_protocol_enum).to_lowercase();
     let needs_model_remap = actual_model != requested_model;
 
+    // ── 同协议透传判定 ──
+    // 平台**显式声明**了与入站协议精确相同的端点 → 逻辑透传：跳过 convert_request 有损格式转换，
+    // 用客户端原始请求体（仅 patch model 字段）出站；响应侧同样跳过 parse_sse→to_client_sse 格式转换。
+    // 鉴权 / URL / coding_plan / usage 提取等旁路改写仍全部保留。
+    // 注意：openai_responses→openai 的跨协议回退命中时 target_protocol != source_protocol，
+    // 不算透传，仍走 convert_request（必须真转换）。
+    let same_protocol_passthrough = matched_ep
+        .map(|ep| ep_proto(ep) == source_protocol)
+        .unwrap_or(false);
+
     // Upsert #3: route resolved
     log.actual_model = actual_model.clone();
     log.target_protocol = target_protocol.clone();
@@ -771,9 +781,23 @@ async fn handle_proxy_inner(
         .await;
     }
 
-    // 协议转换：wire format 由 endpoint 协议决定，API path 由平台类型决定
+    // 协议转换 / 同协议透传：
+    // - 透传分支（同协议）：用客户端原始请求体，仅 patch model 字段，跳过 messages/tools 结构转换；
+    //   path 由 wire 协议决定（passthrough_api_path，与 convert_request 一致但不转 body）。
+    // - 转换分支：wire format 由 endpoint 协议决定，API path 由平台类型决定。
     let platform_protocol = &route.platform.platform_type;
-    let (mut req_body, mut api_path) = adapter::convert_request(&chat_req, target_protocol_enum, platform_protocol);
+    let (mut req_body, mut api_path) = if same_protocol_passthrough {
+        let mut body = req_value.clone();
+        // model remap：透传下仍必须替换路由模型名（请求体 model 字段）
+        if let Some(obj) = body.as_object_mut() {
+            obj.insert("model".to_string(), Value::String(actual_model.clone()));
+        }
+        let path = adapter::passthrough_api_path(target_protocol_enum, &actual_model, platform_protocol);
+        tracing::debug!(protocol = %target_protocol, "same-protocol passthrough: skip request format conversion");
+        (body, path)
+    } else {
+        adapter::convert_request(&chat_req, target_protocol_enum, platform_protocol)
+    };
 
     // Coding Plan 特殊处理：注入平台特有字段 + 覆盖 API 路径
     if coding_plan {
@@ -913,6 +937,8 @@ async fn handle_proxy_inner(
     }
 
     // 流式：转换 SSE 格式为 Anthropic 格式返回
+    // 同协议透传时（passthrough_response），下方闭包内原样 relay 上游 SSE，仅提取 usage。
+    let passthrough_response = same_protocol_passthrough;
     let protocol = target_protocol_enum.clone();
     let client_protocol = source_protocol.clone();
     let model_for_sse = requested_model.clone();
@@ -974,43 +1000,61 @@ async fn handle_proxy_inner(
         }
 
         let text = String::from_utf8_lossy(&chunk);
-        let mut output = String::new();
 
-        for line in text.lines() {
-            if let Some(data) = line.strip_prefix("data: ") {
-                if data.trim() == "[DONE]" {
-                    output.push_str(&adapter::to_client_sse(&ChatStreamEvent::Stop {
-                        finish_reason: Some("end_turn".to_string()),
-                    }, &client_protocol, &model_for_sse).unwrap_or_default());
-                    continue;
+        // ── 同协议透传：跳过 parse_sse→to_client_sse 格式转换，原样 relay 上游 SSE 字节。
+        // usage 提取仍保留（accumulate_sse_usage），est_cost / 统计不丢。
+        // 注意：透传下不改写响应 model 字段（保持上游原文，与请求体 model=actual_model 一致）。──
+        let out_bytes = if passthrough_response {
+            for line in text.lines() {
+                if let Some(data) = line.strip_prefix("data: ") {
+                    let data = data.trim();
+                    if data == "[DONE]" {
+                        continue;
+                    }
+                    if let Ok(json) = serde_json::from_str::<Value>(data) {
+                        accumulate_sse_usage(&json, &guard.agg.tokens_in, &guard.agg.tokens_out, &guard.agg.tokens_cache);
+                    }
                 }
+            }
+            chunk.clone()
+        } else {
+            let mut output = String::new();
+            for line in text.lines() {
+                if let Some(data) = line.strip_prefix("data: ") {
+                    if data.trim() == "[DONE]" {
+                        output.push_str(&adapter::to_client_sse(&ChatStreamEvent::Stop {
+                            finish_reason: Some("end_turn".to_string()),
+                        }, &client_protocol, &model_for_sse).unwrap_or_default());
+                        continue;
+                    }
 
-                if let Ok(json) = serde_json::from_str::<Value>(data) {
-                    // token 累计：复用 accumulate_sse_usage（含 Anthropic message.usage 兜底，修复主分支漏读 input_tokens）
-                    accumulate_sse_usage(&json, &guard.agg.tokens_in, &guard.agg.tokens_out, &guard.agg.tokens_cache);
+                    if let Ok(json) = serde_json::from_str::<Value>(data) {
+                        // token 累计：复用 accumulate_sse_usage（含 Anthropic message.usage 兜底，修复主分支漏读 input_tokens）
+                        accumulate_sse_usage(&json, &guard.agg.tokens_in, &guard.agg.tokens_out, &guard.agg.tokens_cache);
 
-                    if let Some(event) = adapter::parse_sse(&json, &protocol) {
-                        let event = if !model_for_response.is_empty() {
-                            match event {
-                                ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {
-                                    id,
-                                    model: model_for_response.clone(),
-                                },
-                                other => other,
+                        if let Some(event) = adapter::parse_sse(&json, &protocol) {
+                            let event = if !model_for_response.is_empty() {
+                                match event {
+                                    ChatStreamEvent::Start { id, model: _ } => ChatStreamEvent::Start {
+                                        id,
+                                        model: model_for_response.clone(),
+                                    },
+                                    other => other,
+                                }
+                            } else {
+                                event
+                            };
+                            if let Some(sse) = adapter::to_client_sse(&event, &client_protocol, &model_for_sse) {
+                                output.push_str(&sse);
                             }
-                        } else {
-                            event
-                        };
-                        if let Some(sse) = adapter::to_client_sse(&event, &client_protocol, &model_for_sse) {
-                            output.push_str(&sse);
                         }
                     }
                 }
             }
-        }
+            Bytes::from(output)
+        };
 
-        // 旁路累积转换后下发客户端的 SSE（受 log_user_request 开关控制）
-        let out_bytes = Bytes::from(output);
+        // 旁路累积下发客户端的 SSE（受 log_user_request 开关控制）
         if record_client_body && !out_bytes.is_empty() {
             if let Ok(mut cl) = guard.agg.client_body.lock() {
                 cl.push(out_bytes.clone());
@@ -2199,5 +2243,58 @@ mod tests {
         accumulate_sse_usage(&oai, &i, &o, &c);
         assert_eq!(i.load(Relaxed), 20);
         assert_eq!(o.load(Relaxed), 7);
+    }
+
+    // ── 同协议透传判定：仅端点协议精确等于入站协议才透传 ──
+    // 精确匹配 → 透传；openai_responses→openai 跨协议回退 → 不透传（必须真转换）。
+    #[test]
+    fn same_protocol_passthrough_condition() {
+        // 入站 anthropic + 平台显式 anthropic 端点 → 透传
+        let source = "anthropic";
+        let matched: Option<super::Protocol> = Some(super::Protocol::Anthropic);
+        let pass = matched
+            .as_ref()
+            .map(|p| format!("{:?}", p).to_lowercase() == source)
+            .unwrap_or(false);
+        assert!(pass, "exact-protocol endpoint must passthrough");
+
+        // 入站 openai_responses 回退到 openai 端点 → 跨协议，不透传
+        let source = "openai_responses";
+        let matched: Option<super::Protocol> = Some(super::Protocol::OpenAI);
+        let pass = matched
+            .as_ref()
+            .map(|p| format!("{:?}", p).to_lowercase() == source)
+            .unwrap_or(false);
+        assert!(!pass, "openai_responses→openai fallback must NOT passthrough (needs conversion)");
+
+        // 无匹配端点 → 不透传（走 convert_request 转 platform_type）
+        let matched: Option<super::Protocol> = None;
+        let pass = matched
+            .as_ref()
+            .map(|p| format!("{:?}", p).to_lowercase() == "openai")
+            .unwrap_or(false);
+        assert!(!pass, "no matched endpoint must NOT passthrough");
+    }
+
+    // ── 透传 model remap：仅 patch model 字段，messages/tools 结构原样保留 ──
+    #[test]
+    fn passthrough_patches_model_only() {
+        let orig = serde_json::json!({
+            "model": "claude-sonnet-4",
+            "messages": [{"role": "user", "content": "hi"}],
+            "tools": [{"name": "calc"}],
+            "max_tokens": 100
+        });
+        let actual_model = "claude-3-5-sonnet-20241022";
+        let mut body = orig.clone();
+        if let Some(obj) = body.as_object_mut() {
+            obj.insert("model".to_string(), Value::String(actual_model.to_string()));
+        }
+        // model 已替换
+        assert_eq!(body.get("model").and_then(|v| v.as_str()), Some(actual_model));
+        // messages / tools / 其余字段结构原样（未经 from_*→to_* 往返）
+        assert_eq!(body.get("messages"), orig.get("messages"));
+        assert_eq!(body.get("tools"), orig.get("tools"));
+        assert_eq!(body.get("max_tokens"), orig.get("max_tokens"));
     }
 }
