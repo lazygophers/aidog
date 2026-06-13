@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "验证 i18n key / 组件复用 / 类型一致"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "确认无重复实现 formatResetCountdown"}
