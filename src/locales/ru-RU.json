@@ -47,6 +47,7 @@
   "page.platforms": "Управление платформами",
   "page.proxy": "Консоль прокси",
   "platform.add": "Добавить",
+  "platform.resetIn": "Сброс через {{countdown}}",
   "platform.usageLabel": "Использовано",
   "platform.sectionBasic": "Основное",
   "platform.sectionAuth": "Аутентификация",

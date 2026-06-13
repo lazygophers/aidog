@@ -47,6 +47,7 @@
   "page.platforms": "Gestion des plateformes",
   "page.proxy": "Console Proxy",
   "platform.add": "Ajouter",
+  "platform.resetIn": "Réinitialisation dans {{countdown}}",
   "platform.usageLabel": "Utilisé",
   "platform.sectionBasic": "Informations de base",
   "platform.sectionAuth": "Authentification",

@@ -51,6 +51,7 @@
   "page.platforms": "AI Platform Management",
   "page.proxy": "Proxy Console",
   "platform.add": "Add Platform",
+  "platform.resetIn": "Resets in {{countdown}}",
   "platform.sectionBasic": "Basic Info",
   "platform.sectionAuth": "Authentication",
   "platform.manualBudgetTitle": "Manual Budget",
