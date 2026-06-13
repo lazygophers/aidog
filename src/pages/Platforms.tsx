@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, memo } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings } from "../services/api";
 import { getPlatformLogo, getFaviconUrl } from "../assets/platforms";
 import { IconBolt, IconCost, IconCheck, IconClose, IconCoin, IconClock } from "../components/icons";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel, levelColor, levelBg, codingTierLevel, cycleMsForTier, usageLevelToColor, type ColorLevel } from "../components/shared";
@@ -1544,6 +1544,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [newApiConfig, setNewApiConfig] = useState<NewApiConfig>({ ...DEFAULT_NEWAPI_CONFIG });
   // 手动预算限额（仅无上游 quota 自动支持平台可配；编辑表单态）
   const [manualBudgets, setManualBudgets] = useState<ManualBudget[]>([]);
+  // 熔断阈值覆盖（0/空 = 继承全局默认；编辑表单态）。空字符串表示继承。
+  const [breakerFailureThreshold, setBreakerFailureThreshold] = useState<string>("");
+  const [breakerOpenSecs, setBreakerOpenSecs] = useState<string>("");
+  const [breakerHalfOpenMax, setBreakerHalfOpenMax] = useState<string>("");
+  // 全局调度+熔断默认（用于展示「继承默认 N」），只读消费。
+  const [breakerDefaults, setBreakerDefaults] = useState<SchedulingBreakerSettings | null>(null);
 
   const isMock = protocol === "mock";
   // Claude Code 订阅纯透传：客户端自带订阅 OAuth 认证，aidog 原样转发。
@@ -1633,6 +1639,17 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
   useEffect(() => { load(); }, []);
 
+  // 全局调度+熔断默认（展示「继承默认 N」用），读失败不阻断编辑。
+  useEffect(() => {
+    (async () => {
+      try {
+        setBreakerDefaults(await schedulingApi.getSettings());
+      } catch (e) {
+        console.error("get scheduling settings failed", e);
+      }
+    })();
+  }, []);
+
   // 请求完成后轻量刷新统计（仅本地 DB 查询，不拉 quota HTTP）
   useEffect(() => onProxyLogUpdated(() => { refreshStats(); }), []);
 
@@ -1677,6 +1694,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setExtra(""); setMockConfig({ ...DEFAULT_MOCK_CONFIG });
     setNewApiConfig({ ...DEFAULT_NEWAPI_CONFIG });
     setManualBudgets([]);
+    setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
   };
 
   const handleEdit = async (p: Platform) => {
@@ -1699,6 +1717,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setMockConfig(parseMockConfig(p.extra ?? ""));
     setNewApiConfig(parseNewApiConfig(p.extra ?? ""));
     setManualBudgets(p.manual_budgets ?? []);
+    // 熔断覆盖：0 = 继承 → 显示空
+    setBreakerFailureThreshold(p.breaker_failure_threshold > 0 ? String(p.breaker_failure_threshold) : "");
+    setBreakerOpenSecs(p.breaker_open_secs > 0 ? String(p.breaker_open_secs) : "");
+    setBreakerHalfOpenMax(p.breaker_half_open_max > 0 ? String(p.breaker_half_open_max) : "");
 
     // Load global + platform Claude Code config
     try {
@@ -1784,6 +1806,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       const extraArg = extraPayload ? extraPayload : undefined;
       // 手动预算：所有平台可设（含 mock / 有上游配额支持的平台），仅透传订阅强制清空。
       const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
+      // 熔断覆盖：空 = 继承（写 0）；负值钳为 0。
+      const toBreakerNum = (s: string) => Math.max(0, Math.floor(Number(s) || 0));
       let savedId: number | undefined;
       if (editing) {
         await platformApi.update({
@@ -1792,6 +1816,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           models: modelsPayload, available_models: availablePayload,
           endpoints: endpoints.length > 0 ? endpoints : undefined,
           manual_budgets: manualBudgetsPayload,
+          breaker_failure_threshold: toBreakerNum(breakerFailureThreshold),
+          breaker_open_secs: toBreakerNum(breakerOpenSecs),
+          breaker_half_open_max: toBreakerNum(breakerHalfOpenMax),
         });
         savedId = editing.id;
       } else {
@@ -2468,6 +2495,38 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   </div>
                 );
               })}
+            </FormSection>
+          )}
+
+          {/* Circuit Breaker 熔断覆盖（仅编辑态可配；空 = 继承全局默认） */}
+          {editing && !isPassthrough && (
+            <FormSection
+              title={t("platform.breakerTitle", "熔断阈值")}
+              desc={t("platform.breakerDesc", "连续失败达阈值后临时摘除该平台，冷却后半开探测恢复。留空 = 继承系统设置的全局默认值。")}
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: "10px 12px" }}>
+                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerFailureThreshold", "失败阈值")}</span>
+                <input
+                  className="input" type="number" min={0} style={{ width: 140 }}
+                  placeholder={breakerDefaults ? t("platform.breakerInherit", "继承默认 {{n}}").replace("{{n}}", String(breakerDefaults.breaker_failure_threshold)) : t("platform.breakerInheritGeneric", "继承默认")}
+                  value={breakerFailureThreshold}
+                  onChange={e => setBreakerFailureThreshold(e.target.value)}
+                />
+                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerOpenSecs", "熔断时长(秒)")}</span>
+                <input
+                  className="input" type="number" min={0} style={{ width: 140 }}
+                  placeholder={breakerDefaults ? t("platform.breakerInherit", "继承默认 {{n}}").replace("{{n}}", String(breakerDefaults.breaker_open_secs)) : t("platform.breakerInheritGeneric", "继承默认")}
+                  value={breakerOpenSecs}
+                  onChange={e => setBreakerOpenSecs(e.target.value)}
+                />
+                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("platform.breakerHalfOpenMax", "半开探测数")}</span>
+                <input
+                  className="input" type="number" min={0} style={{ width: 140 }}
+                  placeholder={breakerDefaults ? t("platform.breakerInherit", "继承默认 {{n}}").replace("{{n}}", String(breakerDefaults.breaker_half_open_max)) : t("platform.breakerInheritGeneric", "继承默认")}
+                  value={breakerHalfOpenMax}
+                  onChange={e => setBreakerHalfOpenMax(e.target.value)}
+                />
+              </div>
             </FormSection>
           )}
 
