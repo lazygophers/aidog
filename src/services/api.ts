@@ -520,6 +520,7 @@ export interface ProxyLogSummary {
   input_tokens: number;
   output_tokens: number;
   cache_tokens: number;
+  is_stream: boolean;
   created_at: number;
 }
 
@@ -547,6 +548,8 @@ export interface ProxyLogDetail {
   input_tokens: number;
   output_tokens: number;
   cache_tokens: number;
+  est_cost: number;
+  is_stream: boolean;
   created_at: number;
   updated_at: number;
   deleted_at: number;

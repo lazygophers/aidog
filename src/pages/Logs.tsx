@@ -120,7 +120,11 @@ export function Logs() {
       fj(d.user_response_headers || "{}"),
       ``,
       `### Response Body`,
-      d.user_response_body === "[stream]" ? "(streaming)" : fj(d.user_response_body || d.response_body),
+      (d.user_response_body && d.user_response_body !== "[stream]")
+        ? fj(d.user_response_body)
+        : (d.response_body && d.response_body !== "[stream]")
+          ? fj(d.response_body)
+          : "(streaming, not captured)",
       ``,
       `## Upstream Request (Proxy → Platform)`,
       `- URL: ${d.upstream_request_url || "-"}`,
@@ -135,7 +139,7 @@ export function Logs() {
       fj(d.upstream_response_headers || "{}"),
       ``,
       `### Response Body`,
-      d.response_body === "[stream]" ? "(streaming)" : fj(d.response_body),
+      (d.response_body && d.response_body !== "[stream]") ? fj(d.response_body) : "(streaming, not captured)",
     ];
     try {
       await navigator.clipboard.writeText(lines.join("\n"));
@@ -225,17 +229,16 @@ export function Logs() {
       ? safeParseJson(detail.upstream_request_body)
       : null;
     const upstreamRespHeaders = safeParseJson(detail.upstream_response_headers || "{}");
-    const upstreamRespBody = detail.response_body === "[stream]"
+    // 流式日志现已聚合真实 SSE 内容；仅当仍为 "[stream]" 占位（日志开关关闭 / 内容未捕获）才显示提示。
+    const upstreamRespBody = detail.response_body === "[stream]" || !detail.response_body
       ? t("logs.streamResponse", "(流式响应，内容未记录)")
       : safeParseJson(detail.response_body);
     const userRespHeaders = safeParseJson(detail.user_response_headers || "{}");
-    const userRespBody = detail.user_response_body === "[stream]" || !detail.user_response_body
-      ? detail.user_response_body === "[stream]"
-        ? t("logs.streamResponse", "(流式响应，内容未记录)")
-        : detail.response_body === "[stream]"
-          ? t("logs.streamResponse", "(流式响应，内容未记录)")
-          : safeParseJson(detail.response_body)
-      : safeParseJson(detail.user_response_body);
+    const userRespBody = detail.user_response_body && detail.user_response_body !== "[stream]"
+      ? safeParseJson(detail.user_response_body)
+      : detail.response_body && detail.response_body !== "[stream]"
+        ? safeParseJson(detail.response_body)
+        : t("logs.streamResponse", "(流式响应，内容未记录)");
 
     return (
       <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
@@ -275,6 +278,7 @@ export function Logs() {
           <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={detail.source_protocol || "-"} />
           <MetaItem label={t("logs.targetProtocol", "请求格式")} value={detail.target_protocol || "-"} />
           <MetaItem label={t("logs.status", "状态")} value={`${detail.status_code}`} highlight={detail.status_code === 200 ? "ok" : "err"} />
+          <MetaItem label={t("logs.stream", "传输")} value={detail.is_stream ? t("logs.streaming", "流式") : t("logs.nonStreaming", "非流式")} />
           <MetaItem label={t("logs.duration", "耗时")} value={`${detail.duration_ms} ms`} />
           <MetaItem label={t("logs.inputTokens", "输入 Token")} value={`${detail.input_tokens}`} />
           <MetaItem label={t("logs.outputTokens", "输出 Token")} value={`${detail.output_tokens}`} />
@@ -439,7 +443,14 @@ export function Logs() {
                     <TdCell>{new Date(log.created_at).toLocaleString()}</TdCell>
                     <TdCell><span className="badge badge-accent" style={{ fontSize: 11 }}>{log.group_name}</span></TdCell>
                     <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{platformMap.get(log.platform_id) || "-"}</span></TdCell>
-                    <TdCell><span style={{ fontWeight: 500, fontSize: F.small }}>{log.model || "-"}</span></TdCell>
+                    <TdCell>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontWeight: 500, fontSize: F.small }}>{log.model || "-"}</span>
+                        {log.is_stream && (
+                          <span className="badge" style={{ fontSize: 10, padding: "1px 5px", background: "var(--accent-soft, rgba(0,122,255,0.12))", color: "var(--accent, #007aff)" }} title={t("logs.streaming", "流式")}>SSE</span>
+                        )}
+                      </span>
+                    </TdCell>
                     <TdCell><span style={{ fontWeight: 500, fontSize: F.small }}>{log.actual_model || "-"}</span></TdCell>
                     <TdCell>
                       <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)" }}>

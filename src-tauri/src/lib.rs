@@ -801,6 +801,7 @@ async fn model_test(
             output_tokens: out_tok,
             cache_tokens: 0,
             est_cost: 0.0,
+            is_stream: false,
             created_at,
             updated_at: created_at,
             deleted_at: 0,
