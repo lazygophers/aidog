@@ -2,7 +2,7 @@
 //!
 //! 移植自 cc-switch，支持:
 //!   - 余额查询: DeepSeek, StepFun, SiliconFlow, OpenRouter, Novita
-//!   - Coding Plan: Kimi, GLM (智谱), MiniMax
+//!   - Coding Plan: Kimi, GLM (智谱)
 //!
 //! 对于无法实时获取的平台，前端可通过 proxy_logs 估算用量。
 
@@ -365,62 +365,6 @@ async fn query_zhipu_coding_plan(db: Option<&Arc<Db>>, base_url: &str, api_key: 
         newapi_user_id: None,
     }
 }
-
-// ── Coding Plan: MiniMax ─────────────────────────────────
-// GET https://api.minimaxi.com/v1/api/openplatform/coding_plan/remains
-
-async fn query_minimax_coding_plan(db: Option<&Arc<Db>>, api_key: &str, is_cn: bool) -> PlatformQuota {
-    let domain = if is_cn { "api.minimaxi.com" } else { "api.minimax.io" };
-    let url = format!("https://{domain}/v1/api/openplatform/coding_plan/remains");
-    let resp = match http_client(db).await
-        .get(&url)
-        .header("Authorization", format!("Bearer {api_key}"))
-        .header("Content-Type", "application/json")
-        .send().await
-    {
-        Ok(r) => r,
-        Err(e) => return err_quota(&format!("Network: {e}")),
-    };
-    let status = resp.status();
-    if !status.is_success() { return err_quota(&format!("HTTP {status}")); }
-    let body: serde_json::Value = match resp.json().await {
-        Ok(v) => v,
-        Err(e) => return err_quota(&format!("Parse: {e}")),
-    };
-    if let Some(base_resp) = body.get("base_resp") {
-        let code = base_resp.get("status_code").and_then(|v| v.as_i64()).unwrap_or(-1);
-        if code != 0 {
-            let msg = base_resp.get("status_msg").and_then(|v| v.as_str()).unwrap_or("Unknown");
-            return err_quota(&format!("API error (code {code}): {msg}"));
-        }
-    }
-    let mut tiers = Vec::new();
-    if let Some(model_remains) = body.get("model_remains").and_then(|v| v.as_array()) {
-        let item = model_remains.iter().find(|i| {
-            i.get("model_name").and_then(|v| v.as_str()).map(|s| s == "general").unwrap_or(false)
-        });
-        if let Some(item) = item {
-            // 5h 桶
-            if let Some(remain_pct) = item.get("current_interval_remaining_percent").and_then(|v| v.as_f64()) {
-                let resets_at = item.get("end_time").and_then(|v| v.as_i64()).and_then(millis_to_iso8601);
-                tiers.push(QuotaTier { name: "five_hour".into(), utilization: 100.0 - remain_pct, resets_at, limit: None, remaining: None });
-            }
-            // 周桶 (仅 status=1)
-            if item.get("current_weekly_status").and_then(|v| v.as_i64()) == Some(1) {
-                if let Some(remain_pct) = item.get("current_weekly_remaining_percent").and_then(|v| v.as_f64()) {
-                    let resets_at = item.get("weekly_end_time").and_then(|v| v.as_i64()).and_then(millis_to_iso8601);
-                    tiers.push(QuotaTier { name: "weekly_limit".into(), utilization: 100.0 - remain_pct, resets_at, limit: None, remaining: None });
-                }
-            }
-        }
-    }
-    PlatformQuota {
-        success: true, error: None, queried_at: now_millis(), balance: None,
-        coding_plan: Some(CodingPlanInfo { tiers, level: None }),
-        newapi_user_id: None,
-    }
-}
-
 // ── 公开入口 ──────────────────────────────────────────────
 
 /// 根据 base_url 自动检测平台并查询余额或 Coding Plan 配额
@@ -441,12 +385,6 @@ pub async fn query_quota(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) ->
     }
     if url.contains("api.z.ai") {
         return query_zhipu_coding_plan(db, base_url, api_key).await;
-    }
-    if url.contains("api.minimaxi.com") {
-        return query_minimax_coding_plan(db, api_key, true).await;
-    }
-    if url.contains("api.minimax.io") {
-        return query_minimax_coding_plan(db, api_key, false).await;
     }
 
     // 余额查询

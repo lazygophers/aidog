@@ -187,7 +187,7 @@ function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Platform
       { protocol: "anthropic", base_url: "https://api.z.ai/api/anthropic", client_type: "claude_code" },
     ],
     kimi: [
-      { protocol: "openai", base_url: cp ? "https://api.kimi.com/coding/" : "https://api.moonshot.cn/v1", client_type: "codex_tui", coding_plan: cp },
+      { protocol: "openai", base_url: cp ? "https://api.kimi.com/coding/v1" : "https://api.moonshot.cn/v1", client_type: "codex_tui", coding_plan: cp },
       { protocol: "anthropic", base_url: "https://api.moonshot.cn/anthropic", client_type: "claude_code" },
     ],
     minimax: [
