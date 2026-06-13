@@ -26,6 +26,9 @@ export type Protocol =
   // ── 测试 ──
   | "mock";
 export type RoutingMode = "load_balance" | "failover";
+
+/** 平台三态状态：enabled(用户启用) / disabled(用户手动禁用) / auto_disabled(401/403 自动禁用) */
+export type PlatformStatus = "enabled" | "disabled" | "auto_disabled";
 export type ClientType =
   | "default"
   | "claude_code" | "claude_code_vscode" | "claude_code_sdk_ts" | "claude_code_sdk_py" | "claude_code_gh_action"
@@ -161,7 +164,14 @@ export interface Platform {
   models: PlatformModels;
   available_models: string[];
   endpoints: PlatformEndpoint[];
+  /** 旧布尔启用位（向后兼容）；新逻辑用 status 三态。`status==enabled → true`。 */
   enabled: boolean;
+  /** 三态状态：enabled / disabled(用户手动) / auto_disabled(401/403 自动) */
+  status: PlatformStatus;
+  /** auto_disabled 下次试探时间（毫秒 unix 时间戳）；退避用，0 = 立即可试探 */
+  auto_disabled_until: number;
+  /** 连续自动禁用次数（指数退避指数）；恢复 enabled 时清零 */
+  auto_disable_strikes: number;
   created_at: number;
   updated_at: number;
   deleted_at: number;
@@ -198,6 +208,8 @@ export interface Group {
   request_timeout_secs: number;
   connect_timeout_secs: number;
   source_protocol: string;
+  /** 分组级最大重试次数：失败后最多再换几个候选平台（0 = 不重试，只试 1 次） */
+  max_retries: number;
   /** 内联模型映射数组 */
   model_mappings: ModelMapping[];
 }
@@ -323,6 +335,9 @@ export const platformApi = {
     available_models?: string[];
     endpoints?: PlatformEndpoint[];
     enabled?: boolean;
+    /** 三态切换：仅可置 enabled / disabled（auto_disabled 仅系统 401/403 联动设置）。
+     *  置 enabled 会清空退避状态（手动恢复）。 */
+    status?: PlatformStatus;
     manual_budgets?: ManualBudget[];
   }) => invoke<Platform>("platform_update", { input }),
 
@@ -447,6 +462,8 @@ export const groupApi = {
     request_timeout_secs?: number;
     connect_timeout_secs?: number;
     source_protocol?: string;
+    /** 分组级最大重试次数（0 = 不重试） */
+    max_retries?: number;
     model_mappings?: ModelMapping[];
   }) => invoke<Group>("group_update", { input }),
 
@@ -507,6 +524,19 @@ export const configApi = {
 
 // ─── Proxy Log Types ───────────────────────────────────────
 
+/** 单次平台尝试快照（proxy_log.attempts JSON 数组元素）。 */
+export interface ProxyAttempt {
+  platform_id: number;
+  platform_name: string;
+  /** 上游 HTTP 状态码；连接失败 / 超时为 0 */
+  status_code: number;
+  /** 错误描述（连接失败 / 超时 / 上游错误体摘要）；成功为空串 */
+  error: string;
+  duration_ms: number;
+  /** 本次尝试发起时间（毫秒 unix 时间戳） */
+  ts: number;
+}
+
 export interface ProxyLogSummary {
   id: string;
   group_name: string;
@@ -521,6 +551,8 @@ export interface ProxyLogSummary {
   output_tokens: number;
   cache_tokens: number;
   is_stream: boolean;
+  /** 重试次数（>0 时列表显示重试徽标） */
+  retry_count: number;
   created_at: number;
 }
 
@@ -550,6 +582,10 @@ export interface ProxyLogDetail {
   cache_tokens: number;
   est_cost: number;
   is_stream: boolean;
+  /** 每次平台尝试快照（时序列表）；单平台一次成功时长度 1 */
+  attempts: ProxyAttempt[];
+  /** 重试次数 = attempts.length - 1（0 表示一次成功） */
+  retry_count: number;
   created_at: number;
   updated_at: number;
   deleted_at: number;

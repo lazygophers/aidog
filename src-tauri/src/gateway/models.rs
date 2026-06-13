@@ -145,6 +145,65 @@ pub enum RoutingMode {
     Failover,
 }
 
+/// 平台状态三态：用户启用 / 用户手动禁用 / 401-403 自动禁用。
+/// 自动禁用与手动禁用必须区分——自动恢复（退避试探 / 改 api_key）只作用于 auto_disabled，
+/// 绝不误开用户主动关闭的平台。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq, Default)]
+pub enum PlatformStatus {
+    #[serde(rename = "enabled")]
+    #[default]
+    Enabled,
+    #[serde(rename = "disabled")]
+    Disabled,
+    #[serde(rename = "auto_disabled")]
+    AutoDisabled,
+}
+
+impl PlatformStatus {
+    /// DB 文本值（与 `serde(rename)` 一致）
+    pub fn as_db_str(&self) -> &'static str {
+        match self {
+            PlatformStatus::Enabled => "enabled",
+            PlatformStatus::Disabled => "disabled",
+            PlatformStatus::AutoDisabled => "auto_disabled",
+        }
+    }
+
+    /// 从 DB 文本解析；未知值回退 Enabled（向后兼容旧库 / 脏数据）。
+    pub fn from_db_str(s: &str) -> Self {
+        match s {
+            "disabled" => PlatformStatus::Disabled,
+            "auto_disabled" => PlatformStatus::AutoDisabled,
+            _ => PlatformStatus::Enabled,
+        }
+    }
+}
+
+/// proxy_log.attempts JSON 数组元素：每次平台尝试的快照。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ProxyAttempt {
+    pub platform_id: u64,
+    pub platform_name: String,
+    /// 上游返回的 HTTP 状态码；连接失败 / 超时为 0
+    pub status_code: i32,
+    /// 错误描述（连接失败 / 超时 / 上游错误体摘要）；成功为空串
+    #[serde(default)]
+    pub error: String,
+    pub duration_ms: i64,
+    /// 本次尝试发起时间（毫秒 unix 时间戳）
+    pub ts: i64,
+}
+
+/// 序列化 attempts 列（出错回退空数组）
+pub fn serialize_attempts(items: &[ProxyAttempt]) -> String {
+    serde_json::to_string(items).unwrap_or_else(|_| "[]".to_string())
+}
+
+/// 解析 attempts 列（出错回退空数组）
+pub fn parse_attempts(s: &str) -> Vec<ProxyAttempt> {
+    serde_json::from_str(s).unwrap_or_default()
+}
+
 // ─── Platform Models ───────────────────────────────────────
 
 /// 平台模型配置：5 个固定槽位
@@ -337,7 +396,18 @@ pub struct Platform {
     /// 额外协议端点：每种协议对应不同的 base_url
     #[serde(default)]
     pub endpoints: Vec<PlatformEndpoint>,
+    /// 旧布尔启用位，保留向后兼容（旧读者 / 旧前端）。写入端从 status 同步：
+    /// `status==Enabled → true`，否则 false。新逻辑（router 过滤 / 前端三态）走 status。
     pub enabled: bool,
+    /// 三态状态：enabled / disabled(用户手动) / auto_disabled(401/403 自动)
+    #[serde(default)]
+    pub status: PlatformStatus,
+    /// auto_disabled 下次试探时间（毫秒 unix 时间戳）；退避用，0 = 立即可试探
+    #[serde(default)]
+    pub auto_disabled_until: i64,
+    /// 连续自动禁用次数（指数退避指数）；恢复 enabled 时清零
+    #[serde(default)]
+    pub auto_disable_strikes: i64,
     pub created_at: i64,
     pub updated_at: i64,
     #[serde(default)]
@@ -403,6 +473,9 @@ pub struct UpdatePlatform {
     pub available_models: Option<Vec<String>>,
     pub endpoints: Option<Vec<PlatformEndpoint>>,
     pub enabled: Option<bool>,
+    /// 前端三态切换：显式置 enabled / disabled。
+    /// 注意：禁止前端直接置 auto_disabled（仅系统 401/403 联动设置）；置 enabled 会清空退避状态。
+    pub status: Option<PlatformStatus>,
     pub manual_budgets: Option<Vec<ManualBudget>>,
 }
 
@@ -432,12 +505,16 @@ pub struct Group {
     /// 排序权重（越小越靠前），0 = 按 created_at 排序
     #[serde(default)]
     pub sort_order: i64,
+    /// 分组级最大重试次数：失败后最多再换几个候选平台（0 = 不重试，只试 1 次）
+    #[serde(default = "default_max_retries")]
+    pub max_retries: u32,
     /// 模型映射（内联 JSON 数组）
     #[serde(default)]
     pub model_mappings: Vec<ModelMapping>,
 }
 
 fn default_source_protocol() -> String { "anthropic".to_string() }
+fn default_max_retries() -> u32 { 2 }
 
 #[derive(Debug, Deserialize)]
 pub struct CreateGroup {
@@ -452,6 +529,8 @@ pub struct CreateGroup {
     pub connect_timeout_secs: u64,
     #[serde(default = "default_source_protocol_opt")]
     pub source_protocol: Option<String>,
+    #[serde(default = "default_max_retries")]
+    pub max_retries: u32,
     #[serde(default)]
     pub model_mappings: Vec<ModelMapping>,
 }
@@ -470,6 +549,9 @@ pub struct UpdateGroup {
     pub connect_timeout_secs: u64,
     #[serde(default)]
     pub source_protocol: Option<String>,
+    /// 分组级最大重试次数；None = 不变（保留既有值）
+    #[serde(default)]
+    pub max_retries: Option<u32>,
     #[serde(default)]
     pub model_mappings: Vec<ModelMapping>,
 }
@@ -707,6 +789,12 @@ pub struct ProxyLog {
     /// 是否为流式（SSE）请求；流式日志的 body 为聚合的真实 SSE 内容（非 "[stream]" 哨兵）
     #[serde(default)]
     pub is_stream: bool,
+    /// 每次平台尝试快照（JSON 数组列）；单平台一次成功时长度 1
+    #[serde(default)]
+    pub attempts: Vec<ProxyAttempt>,
+    /// 重试次数 = attempts.len()-1（0 表示一次成功，无重试）
+    #[serde(default)]
+    pub retry_count: i32,
     pub created_at: i64,
     #[serde(default)]
     pub updated_at: i64,
@@ -750,6 +838,9 @@ pub struct ProxyLogSummary {
     /// 是否为流式（SSE）请求；列表展示流式标记
     #[serde(default)]
     pub is_stream: bool,
+    /// 重试次数（retry_count>0 时列表显示重试徽标）
+    #[serde(default)]
+    pub retry_count: i32,
     pub created_at: i64,
 }
 

@@ -286,6 +286,47 @@ export function Logs() {
           <MetaItem label={t("logs.time", "时间")} value={new Date(detail.created_at).toLocaleString()} />
         </div>
 
+        {/* ── 平台尝试时序（多平台重试时展示每次尝试：平台/状态码/耗时/错误）── */}
+        {detail.attempts && detail.attempts.length > 1 && (
+          <div className="glass-surface" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ fontSize: F.body, fontWeight: 600 }}>{t("logs.attempts", "尝试记录")}</span>
+              <span className="badge" style={{ fontSize: 10, padding: "1px 6px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" }}>
+                {t("logs.attemptCount", "{{n}} 次").replace("{{n}}", String(detail.attempts.length))}
+              </span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {detail.attempts.map((a, i) => {
+                const ok = a.status_code >= 200 && a.status_code < 300;
+                return (
+                  <div key={i} style={{
+                    display: "grid", gridTemplateColumns: "24px 1fr auto auto", alignItems: "center", gap: 10,
+                    padding: "6px 10px", borderRadius: 8,
+                    background: ok ? "color-mix(in srgb, var(--color-success) 8%, transparent)" : "color-mix(in srgb, var(--color-danger) 8%, transparent)",
+                    border: `1px solid ${ok ? "color-mix(in srgb, var(--color-success) 25%, transparent)" : "color-mix(in srgb, var(--color-danger) 25%, transparent)"}`,
+                  }}>
+                    <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontFamily: "monospace" }}>#{i + 1}</span>
+                    <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
+                      <span style={{ fontSize: F.small, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {a.platform_name || platformMap.get(a.platform_id) || `#${a.platform_id}`}
+                      </span>
+                      {a.error && (
+                        <span style={{ fontSize: 10, color: "var(--color-danger)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.error}>
+                          {a.error}
+                        </span>
+                      )}
+                    </span>
+                    <span style={{ fontSize: F.small, fontWeight: 600, color: ok ? "var(--color-success)" : "var(--color-danger)" }}>
+                      {a.status_code === 0 ? t("logs.connFailed", "连接失败") : a.status_code}
+                    </span>
+                    <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{a.duration_ms}ms</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* ── 用户请求 / 上游请求 Tab ── */}
         <RequestTabs
           userTab={{
@@ -442,7 +483,17 @@ export function Logs() {
                     style={{ cursor: "pointer", borderBottom: "1px solid var(--border)" }}>
                     <TdCell>{new Date(log.created_at).toLocaleString()}</TdCell>
                     <TdCell><span className="badge badge-accent" style={{ fontSize: 11 }}>{log.group_name}</span></TdCell>
-                    <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{platformMap.get(log.platform_id) || "-"}</span></TdCell>
+                    <TdCell>
+                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{platformMap.get(log.platform_id) || "-"}</span>
+                        {log.retry_count > 0 && (
+                          <span className="badge" style={{ fontSize: 10, padding: "1px 5px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" }}
+                            title={t("logs.retriedHint", "经过 {{n}} 次重试").replace("{{n}}", String(log.retry_count))}>
+                            ↻{log.retry_count}
+                          </span>
+                        )}
+                      </span>
+                    </TdCell>
                     <TdCell>
                       <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                         <span style={{ fontWeight: 500, fontSize: F.small }}>{log.model || "-"}</span>

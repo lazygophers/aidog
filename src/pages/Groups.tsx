@@ -66,6 +66,7 @@ interface EditState {
   mappings: ModelMapping[];
   reqTimeout: number;
   connTimeout: number;
+  maxRetries: number;
 }
 
 const EMPTY_EDIT: EditState = {
@@ -77,6 +78,7 @@ const EMPTY_EDIT: EditState = {
   mappings: [],
   reqTimeout: 0,
   connTimeout: 0,
+  maxRetries: 2,
 };
 
 type EditAction =
@@ -102,6 +104,7 @@ function editReducer(state: EditState, action: EditAction): EditState {
         })),
         reqTimeout: action.detail.group.request_timeout_secs,
         connTimeout: action.detail.group.connect_timeout_secs,
+        maxRetries: action.detail.group.max_retries,
       };
     case "reset":
       return EMPTY_EDIT;
@@ -215,6 +218,7 @@ export function Groups() {
     mappings: editMappings,
     reqTimeout: editReqTimeout,
     connTimeout: editConnTimeout,
+    maxRetries: editMaxRetries,
   } = edit;
 
   // ── Drag reorder for group list (via shared SortableList @dnd-kit) ──
@@ -369,6 +373,7 @@ export function Groups() {
         routing_mode: editMode,
         request_timeout_secs: editReqTimeout,
         connect_timeout_secs: editConnTimeout,
+        max_retries: editMaxRetries,
         model_mappings: editMappings,
       });
 
@@ -502,6 +507,18 @@ export function Groups() {
                 value={editConnTimeout || ""} onChange={e => dispatchEdit({ type: "patch", patch: { connTimeout: Math.max(0, Number(e.target.value)) } })}
                 style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
               <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("group.timeoutDefault", "0 = 系统默认（秒）")}</span>
+            </div>
+          </div>
+
+          {/* Max retries（多平台失败逐个重试上限） */}
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.maxRetries", "最大重试")}</span>
+            <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+              <input className="input" type="number" min={0} max={10}
+                value={editMaxRetries}
+                onChange={e => dispatchEdit({ type: "patch", patch: { maxRetries: Math.max(0, Number(e.target.value)) } })}
+                style={{ width: 80, fontSize: F.body, padding: S.inputPad }} />
+              <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("group.maxRetriesHint", "0 = 不重试，只试 1 个平台")}</span>
             </div>
           </div>
 

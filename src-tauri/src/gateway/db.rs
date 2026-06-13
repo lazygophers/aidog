@@ -103,6 +103,19 @@ impl Db {
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN manual_budgets TEXT NOT NULL DEFAULT '[]'", []);
                 // Migration 010: proxy_log 流式标记列（流式 SSE 请求显式标记，替代 response_body=="[stream]" 哨兵）
                 let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN is_stream INTEGER NOT NULL DEFAULT 0", []);
+                // Migration 011: 多平台重试 + 401/403 自动禁用 + 尝试记录（见 migrations/007_retry_failover.sql）
+                // platform 三态 status + 退避字段；enabled 列保留向后兼容（写入端从 status 同步）
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN status TEXT NOT NULL DEFAULT 'enabled'", []);
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN auto_disabled_until INTEGER NOT NULL DEFAULT 0", []);
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN auto_disable_strikes INTEGER NOT NULL DEFAULT 0", []);
+                // 数据迁移：旧 enabled=0 → status='disabled'（幂等：仅作用于仍为默认 'enabled' 的行，
+                // 绝不覆盖 auto_disabled，避免重启误判用户禁用 vs 自动禁用）
+                let _ = conn.execute("UPDATE platform SET status = 'disabled' WHERE enabled = 0 AND status = 'enabled'", []);
+                // group 分组级最大重试次数
+                let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN max_retries INTEGER NOT NULL DEFAULT 2", []);
+                // proxy_log 每次尝试快照（JSON 数组）+ 重试次数
+                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN attempts TEXT NOT NULL DEFAULT '[]'", []);
+                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN retry_count INTEGER NOT NULL DEFAULT 0", []);
                 Ok(())
             })
             .await
@@ -127,11 +140,11 @@ fn retention_cutoff(days: u32) -> Option<i64> {
 
 /// SELECT 列序
 const PLATFORM_COLUMNS: &str =
-    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets";
+    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes";
 
 /// 同 PLATFORM_COLUMNS，但每列加 `p.` 限定，用于与其他表 JOIN 时消除同名列歧义（如 created_at/updated_at）
 const PLATFORM_COLUMNS_PREFIXED: &str =
-    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display, p.sort_order, p.manual_budgets";
+    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display, p.sort_order, p.manual_budgets, p.status, p.auto_disabled_until, p.auto_disable_strikes";
 
 /// 从查询行构造 Platform
 fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -161,6 +174,9 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         tray_display: row.get(17)?,
         sort_order: row.get::<_, i64>(18)?,
         manual_budgets: super::models::parse_manual_budgets(&row.get::<_, String>(19)?),
+        status: super::models::PlatformStatus::from_db_str(&row.get::<_, String>(20)?),
+        auto_disabled_until: row.get::<_, i64>(21)?,
+        auto_disable_strikes: row.get::<_, i64>(22)?,
         balance_level: String::new(),
     })
 }
@@ -223,6 +239,9 @@ pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platf
         tray_display: "balance".to_string(),
         sort_order: 0,
         manual_budgets,
+        status: super::models::PlatformStatus::Enabled,
+        auto_disabled_until: 0,
+        auto_disable_strikes: 0,
         balance_level: String::new(),
     })
 }
@@ -270,6 +289,39 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
         None => existing.manual_budgets.clone(),
     };
 
+    // ── 三态 status 解析（优先级：显式 status > 旧 enabled 兼容入参 > 既有值）──
+    // 前端三态切换走 status；旧前端 / 旧调用仍可只传 enabled（true→Enabled, false→Disabled）。
+    // 禁止从前端入参置 AutoDisabled（仅系统 401/403 联动 set_platform_auto_disabled 设置）。
+    use super::models::PlatformStatus;
+    let mut new_status = match input.status {
+        Some(PlatformStatus::AutoDisabled) => existing.status, // 拒绝外部置自动禁用，保持原状
+        Some(s) => s,
+        None => match input.enabled {
+            Some(true) => PlatformStatus::Enabled,
+            Some(false) => PlatformStatus::Disabled,
+            None => existing.status,
+        },
+    };
+    let mut auto_disabled_until = existing.auto_disabled_until;
+    let mut auto_disable_strikes = existing.auto_disable_strikes;
+
+    // 手动重新启用 auto_disabled / disabled 平台 → 清退避状态
+    if new_status == PlatformStatus::Enabled {
+        auto_disabled_until = 0;
+        auto_disable_strikes = 0;
+    }
+
+    // ── 改 api_key 自恢复：当前 auto_disabled 且 api_key 变化 → 立即恢复 enabled 清退避 ──
+    let new_api_key = input.api_key.clone().unwrap_or_else(|| existing.api_key.clone());
+    if existing.status == PlatformStatus::AutoDisabled
+        && new_api_key != existing.api_key
+        && new_status == PlatformStatus::AutoDisabled
+    {
+        new_status = PlatformStatus::Enabled;
+        auto_disabled_until = 0;
+        auto_disable_strikes = 0;
+    }
+
     let updated = Platform {
         name: input.name.unwrap_or(existing.name),
         platform_type: input.platform_type.unwrap_or(existing.platform_type),
@@ -279,7 +331,11 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
         models: input.models.unwrap_or(existing.models),
         available_models: input.available_models.unwrap_or(existing.available_models),
         endpoints: input.endpoints.unwrap_or(existing.endpoints),
-        enabled: input.enabled.unwrap_or(existing.enabled),
+        // enabled 列从 status 同步（向后兼容）：仅 Enabled → true
+        enabled: new_status == PlatformStatus::Enabled,
+        status: new_status,
+        auto_disabled_until,
+        auto_disable_strikes,
         manual_budgets,
         updated_at: now(),
         ..existing
@@ -297,11 +353,14 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
             let api_key = updated.api_key.clone();
             let extra = updated.extra.clone();
             let enabled = updated.enabled as i64;
+            let status_str = updated.status.as_db_str().to_string();
+            let auto_disabled_until = updated.auto_disabled_until;
+            let auto_disable_strikes = updated.auto_disable_strikes;
             let updated_at = updated.updated_at;
             let id = updated.id as i64;
             move |conn| {
                 conn.execute(
-                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11 WHERE id=?12",
+                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14 WHERE id=?15",
                     params![
                         name,
                         platform_type_str,
@@ -314,6 +373,9 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
                         enabled,
                         updated_at,
                         manual_budgets_str,
+                        status_str,
+                        auto_disabled_until,
+                        auto_disable_strikes,
                         id,
                     ],
                 )?;
@@ -324,6 +386,63 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
         .map_err(|e| format!("update platform: {e}"))?;
 
     Ok(updated)
+}
+
+/// 自动禁用退避基础时长（1 小时，毫秒）；第 n 次禁用退避 = BASE * 2^(strikes-1)。
+const AUTO_DISABLE_BASE_MS: i64 = 60 * 60 * 1000;
+/// 退避指数上限（防溢出 / 过长）：strikes 超过此值后退避封顶。
+const AUTO_DISABLE_MAX_STRIKES: i64 = 12; // 2^11 h ≈ 85 天封顶
+
+/// 401/403 触发：将平台标记 auto_disabled，strikes++，按指数退避计算下次试探时间。
+/// 仅在当前非用户手动 disabled 时生效（不覆盖用户主动关闭的平台）。
+/// 返回更新后的退避截止时间戳（毫秒），供日志记录。
+pub async fn set_platform_auto_disabled(db: &Db, id: u64) -> Result<i64, String> {
+    let ts = now();
+    db.0
+        .call(move |conn| {
+            // 读当前状态 + strikes（仅对 enabled / auto_disabled 生效，跳过用户 disabled）
+            let row: Option<(String, i64)> = conn
+                .query_row(
+                    "SELECT status, auto_disable_strikes FROM platform WHERE id = ?1 AND deleted_at = 0",
+                    params![id as i64],
+                    |r| Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?)),
+                )
+                .optional()?;
+            let (status, strikes) = match row {
+                Some(v) => v,
+                None => return Ok(0i64),
+            };
+            // 用户手动禁用 → 不动（避免 401/403 把用户禁用平台改成自动禁用语义）
+            if status == "disabled" {
+                return Ok(0i64);
+            }
+            let new_strikes = (strikes + 1).min(AUTO_DISABLE_MAX_STRIKES);
+            let backoff = AUTO_DISABLE_BASE_MS.saturating_mul(1i64 << (new_strikes - 1).max(0));
+            let until = ts + backoff;
+            conn.execute(
+                "UPDATE platform SET status='auto_disabled', enabled=0, auto_disable_strikes=?1, auto_disabled_until=?2, updated_at=?3 WHERE id=?4",
+                params![new_strikes, until, ts, id as i64],
+            )?;
+            Ok(until)
+        })
+        .await
+        .map_err(|e| format!("set platform auto-disabled: {e}"))
+}
+
+/// 2xx 成功：若平台当前为 auto_disabled（试探成功），恢复 enabled 并清退避状态。
+/// 用户手动 disabled / 已 enabled 平台不动。
+pub async fn recover_platform_auto_disabled(db: &Db, id: u64) -> Result<(), String> {
+    let ts = now();
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                "UPDATE platform SET status='enabled', enabled=1, auto_disable_strikes=0, auto_disabled_until=0, updated_at=?1 WHERE id=?2 AND status='auto_disabled'",
+                params![ts, id as i64],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("recover platform auto-disabled: {e}"))
 }
 
 /// 将 quota 查询结果写回 platform 表（余额 + coding plan JSON）。
@@ -628,7 +747,7 @@ fn parse_mappings(json: &str) -> Vec<ModelMapping> {
 
 /// Group SELECT 列序
 const GROUP_COLUMNS: &str =
-    "id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order";
+    "id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order, max_retries";
 
 fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
     let routing_str: String = row.get(3)?;
@@ -647,6 +766,7 @@ fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
         model_mappings: parse_mappings(&mappings_str),
         deleted_at: 0,
         sort_order: row.get::<_, i64>(11)?,
+        max_retries: row.get::<_, i64>(12)? as u32,
     })
 }
 
@@ -665,10 +785,11 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
             let request_timeout_secs = input.request_timeout_secs as i64;
             let connect_timeout_secs = input.connect_timeout_secs as i64;
             let source_protocol = source_protocol.clone();
+            let max_retries = input.max_retries as i64;
             move |conn| {
                 conn.execute(
-                    "INSERT INTO \"group\" (name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-                    params![name, path, routing_str, auto_from_platform, ts, ts, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str],
+                    "INSERT INTO \"group\" (name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, max_retries) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                    params![name, path, routing_str, auto_from_platform, ts, ts, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, max_retries],
                 )?;
                 Ok(conn.last_insert_rowid() as u64)
             }
@@ -690,6 +811,7 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
         model_mappings: input.model_mappings,
         deleted_at: 0,
         sort_order: 0,
+        max_retries: input.max_retries,
     })
 }
 
@@ -758,6 +880,7 @@ pub async fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> 
         request_timeout_secs: if input.request_timeout_secs > 0 { input.request_timeout_secs } else { existing.request_timeout_secs },
         connect_timeout_secs: if input.connect_timeout_secs > 0 { input.connect_timeout_secs } else { existing.connect_timeout_secs },
         source_protocol: input.source_protocol.unwrap_or(existing.source_protocol),
+        max_retries: input.max_retries.unwrap_or(existing.max_retries),
         model_mappings: input.model_mappings,
         updated_at: now(),
         ..existing
@@ -773,11 +896,12 @@ pub async fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> 
             let request_timeout_secs = updated.request_timeout_secs as i64;
             let connect_timeout_secs = updated.connect_timeout_secs as i64;
             let source_protocol = updated.source_protocol.clone();
+            let max_retries = updated.max_retries as i64;
             let id = updated.id as i64;
             move |conn| {
                 conn.execute(
-                    "UPDATE \"group\" SET name=?1, path=?2, routing_mode=?3, updated_at=?4, request_timeout_secs=?5, connect_timeout_secs=?6, source_protocol=?7, model_mappings=?8 WHERE id=?9",
-                    params![name, path, routing_str, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, id],
+                    "UPDATE \"group\" SET name=?1, path=?2, routing_mode=?3, updated_at=?4, request_timeout_secs=?5, connect_timeout_secs=?6, source_protocol=?7, model_mappings=?8, max_retries=?9 WHERE id=?10",
+                    params![name, path, routing_str, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, max_retries, id],
                 )?;
                 Ok(())
             }
@@ -879,6 +1003,9 @@ pub async fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlat
                     tray_display: row.get(19)?,
                     sort_order: row.get::<_, i64>(20)?,
                     manual_budgets: super::models::parse_manual_budgets(&row.get::<_, String>(21)?),
+                    status: super::models::PlatformStatus::from_db_str(&row.get::<_, String>(22)?),
+                    auto_disabled_until: row.get::<_, i64>(23)?,
+                    auto_disable_strikes: row.get::<_, i64>(24)?,
                     balance_level: String::new(),
                 },
                 priority: row.get(0)?,
@@ -1000,7 +1127,7 @@ pub async fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, Stri
 
 /// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
 const PROXY_LOG_COLUMNS: &str =
-    "id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, created_at, updated_at, deleted_at";
+    "id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, attempts, retry_count, created_at, updated_at, deleted_at";
 
 /// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
 fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
@@ -1030,9 +1157,11 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
         cache_tokens: row.get(22)?,
         est_cost: row.get(23)?,
         is_stream: row.get::<_, i64>(24)? == 1,
-        created_at: row.get(25)?,
-        updated_at: row.get(26)?,
-        deleted_at: row.get(27)?,
+        attempts: super::models::parse_attempts(&row.get::<_, String>(25)?),
+        retry_count: row.get(26)?,
+        created_at: row.get(27)?,
+        updated_at: row.get(28)?,
+        deleted_at: row.get(29)?,
     })
 }
 
@@ -1041,10 +1170,11 @@ pub async fn upsert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<
     let log = log.clone();
     db.0
         .call(move |conn| {
+            let attempts_str = super::models::serialize_attempts(&log.attempts);
             conn.execute(
                 &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28)"),
-                params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.is_stream as i64, log.created_at, log.updated_at, log.deleted_at],
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30)"),
+                params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.created_at, log.updated_at, log.deleted_at],
             )?;
             Ok(())
         })
@@ -1056,7 +1186,7 @@ pub async fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<sup
     db.0
         .call(move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, created_at
+                "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at
                  FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
             )?;
             let rows = stmt.query_map(params![limit, offset], row_to_proxy_log_summary)?;
@@ -1082,7 +1212,8 @@ fn row_to_proxy_log_summary(row: &rusqlite::Row) -> SqlResult<super::models::Pro
         output_tokens: row.get(10)?,
         cache_tokens: row.get(11)?,
         is_stream: row.get::<_, i64>(12)? == 1,
-        created_at: row.get(13)?,
+        retry_count: row.get(13)?,
+        created_at: row.get(14)?,
     })
 }
 
@@ -1099,7 +1230,7 @@ pub async fn filtered_list_proxy_logs(
             p.push(Box::new(limit));
             p.push(Box::new(offset));
             let sql = format!(
-                "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, created_at \
+                "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at \
                  FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?"
             );
             let mut stmt = conn.prepare(&sql)?;
@@ -1908,6 +2039,7 @@ mod tests {
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
             source_protocol: None,
+            max_retries: 2,
             model_mappings: mappings,
         }
     }
@@ -1939,6 +2071,8 @@ mod tests {
             cache_tokens: 0,
             est_cost: 0.0,
             is_stream: false,
+            attempts: Vec::new(),
+            retry_count: 0,
             created_at,
             updated_at: created_at,
             deleted_at: 0,
@@ -2420,6 +2554,7 @@ decimals: None,
             available_models: None,
             endpoints: None,
             enabled: None,
+            status: None,
             manual_budgets: None,
         }).await.unwrap();
         assert_eq!(updated.base_url, "https://crud.example/v2");
@@ -2429,6 +2564,129 @@ decimals: None,
         delete_platform(&db, created.id).await.unwrap();
         assert_eq!(list_platforms(&db).await.unwrap().len(), 0);
         assert!(get_platform(&db, created.id).await.unwrap().is_none());
+    }
+
+    /// 401/403 自动禁用：状态变 auto_disabled，strikes 递增，退避指数 1h/2h/4h。
+    #[tokio::test]
+    async fn auto_disable_exponential_backoff() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("ad")).await.unwrap();
+        assert_eq!(p.status, PlatformStatus::Enabled);
+
+        let base = 60 * 60 * 1000i64;
+        // 第 1 次：strikes=1, 退避 1h
+        let t0 = now();
+        let until1 = set_platform_auto_disabled(&db, p.id).await.unwrap();
+        let g1 = get_platform(&db, p.id).await.unwrap().unwrap();
+        assert_eq!(g1.status, PlatformStatus::AutoDisabled);
+        assert!(!g1.enabled, "auto_disabled 平台 enabled 列同步为 false");
+        assert_eq!(g1.auto_disable_strikes, 1);
+        assert!(until1 >= t0 + base && until1 <= now() + base + 1000, "first backoff ~1h");
+
+        // 第 2 次：strikes=2, 退避 2h
+        set_platform_auto_disabled(&db, p.id).await.unwrap();
+        let g2 = get_platform(&db, p.id).await.unwrap().unwrap();
+        assert_eq!(g2.auto_disable_strikes, 2);
+        assert!(g2.auto_disabled_until - now() >= 2 * base - 2000, "second backoff ~2h");
+
+        // 第 3 次：strikes=3, 退避 4h
+        set_platform_auto_disabled(&db, p.id).await.unwrap();
+        let g3 = get_platform(&db, p.id).await.unwrap().unwrap();
+        assert_eq!(g3.auto_disable_strikes, 3);
+        assert!(g3.auto_disabled_until - now() >= 4 * base - 2000, "third backoff ~4h");
+
+        // 2xx 恢复：清状态
+        recover_platform_auto_disabled(&db, p.id).await.unwrap();
+        let g4 = get_platform(&db, p.id).await.unwrap().unwrap();
+        assert_eq!(g4.status, PlatformStatus::Enabled);
+        assert!(g4.enabled);
+        assert_eq!(g4.auto_disable_strikes, 0);
+        assert_eq!(g4.auto_disabled_until, 0);
+    }
+
+    /// 用户手动 disabled 平台不受 401/403 自动禁用影响（区分手动 vs 自动）。
+    #[tokio::test]
+    async fn auto_disable_skips_user_disabled() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("ud")).await.unwrap();
+        // 用户手动禁用
+        let upd = update_platform(&db, UpdatePlatform {
+            id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: None, models: None, available_models: None, endpoints: None,
+            enabled: None, status: Some(PlatformStatus::Disabled), manual_budgets: None,
+        }).await.unwrap();
+        assert_eq!(upd.status, PlatformStatus::Disabled);
+        assert!(!upd.enabled);
+
+        // 401/403 触发不应改成 auto_disabled
+        let until = set_platform_auto_disabled(&db, p.id).await.unwrap();
+        assert_eq!(until, 0, "user-disabled 平台不进入退避");
+        let g = get_platform(&db, p.id).await.unwrap().unwrap();
+        assert_eq!(g.status, PlatformStatus::Disabled, "保持用户手动禁用");
+    }
+
+    /// 改 api_key 自恢复：auto_disabled 平台改 api_key → 立即恢复 enabled 清退避。
+    #[tokio::test]
+    async fn api_key_change_recovers_auto_disabled() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("rk")).await.unwrap();
+        set_platform_auto_disabled(&db, p.id).await.unwrap();
+        assert_eq!(get_platform(&db, p.id).await.unwrap().unwrap().status, PlatformStatus::AutoDisabled);
+
+        // 改 api_key（不显式传 status）
+        let upd = update_platform(&db, UpdatePlatform {
+            id: p.id, name: None, platform_type: None, base_url: None,
+            api_key: Some("sk-new-key".to_string()),
+            extra: None, models: None, available_models: None, endpoints: None,
+            enabled: None, status: None, manual_budgets: None,
+        }).await.unwrap();
+        assert_eq!(upd.status, PlatformStatus::Enabled, "改 api_key 立即恢复");
+        assert_eq!(upd.auto_disable_strikes, 0);
+        assert_eq!(upd.auto_disabled_until, 0);
+    }
+
+    /// group max_retries 持久化往返
+    #[tokio::test]
+    async fn group_max_retries_roundtrip() {
+        let db = test_db().await;
+        let mut input = sample_group("mr", "/mr", vec![]);
+        input.max_retries = 5;
+        let g = create_group(&db, input).await.unwrap();
+        assert_eq!(g.max_retries, 5);
+        let fetched = get_group(&db, g.id).await.unwrap().unwrap();
+        assert_eq!(fetched.max_retries, 5);
+
+        let upd = update_group(&db, UpdateGroup {
+            id: g.id, name: None, path: None, routing_mode: None,
+            request_timeout_secs: 0, connect_timeout_secs: 0, source_protocol: None,
+            max_retries: Some(0), model_mappings: vec![],
+        }).await.unwrap();
+        assert_eq!(upd.max_retries, 0);
+        assert_eq!(get_group(&db, g.id).await.unwrap().unwrap().max_retries, 0);
+    }
+
+    /// proxy_log attempts JSON 列往返
+    #[tokio::test]
+    async fn proxy_log_attempts_roundtrip() {
+        let db = test_db().await;
+        let mut log = sample_log("attlog", "g", now());
+        log.attempts = vec![
+            super::super::models::ProxyAttempt {
+                platform_id: 1, platform_name: "p1".into(), status_code: 503,
+                error: "boom".into(), duration_ms: 12, ts: now(),
+            },
+            super::super::models::ProxyAttempt {
+                platform_id: 2, platform_name: "p2".into(), status_code: 200,
+                error: String::new(), duration_ms: 34, ts: now(),
+            },
+        ];
+        log.retry_count = 1;
+        upsert_proxy_log(&db, &log).await.unwrap();
+        let fetched = get_proxy_log(&db, "attlog").await.unwrap().unwrap();
+        assert_eq!(fetched.attempts.len(), 2);
+        assert_eq!(fetched.attempts[0].status_code, 503);
+        assert_eq!(fetched.attempts[1].platform_name, "p2");
+        assert_eq!(fetched.retry_count, 1);
     }
 
     // ── S1 async DB：OptionalExtension 路径（query_row().optional() 在闭包内）──

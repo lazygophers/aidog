@@ -14,8 +14,8 @@ use std::sync::Arc;
 use super::adapter::{self, ChatRequest, ChatStreamEvent};
 use super::db::Db;
 use super::i18n::{self, ErrorKey, Lang};
-use super::models::{ClientType, Group, Protocol, ProxyLog, ProxyLogSettings, ProxyTimeoutSettings};
-use super::router::select_platform;
+use super::models::{ClientType, Group, Protocol, ProxyAttempt, ProxyLog, ProxyLogSettings, ProxyTimeoutSettings};
+use super::router::{select_candidates, RouteResult};
 
 /// 从 DB 读取 app locale，失败则回退英文
 async fn get_lang(db: &Arc<Db>) -> Lang {
@@ -517,6 +517,8 @@ async fn handle_proxy_inner(
         cache_tokens: 0,
         est_cost: 0.0,
         is_stream: false,
+        attempts: Vec::new(),
+        retry_count: 0,
         created_at,
         updated_at: created_at,
         deleted_at: 0,
@@ -640,10 +642,9 @@ async fn handle_proxy_inner(
     let requested_model = if chat_req.model.is_empty() { raw_model } else { chat_req.model.clone() };
     log.model = requested_model.clone();
 
-    // ── 路由选择平台 + 模型映射 ──
-    let route = select_platform(&state.db, &group, &chat_req.model).await;
-    let route = match route {
-        Ok(r) => r,
+    // ── 路由选择有序候选平台列表（失败逐个重试）──
+    let candidate_set = match select_candidates(&state.db, &group, &chat_req.model).await {
+        Ok(c) => c,
         Err(e) => {
             tracing::warn!(group = %group.name, model = %chat_req.model, error = %e, "route failed");
             log.response_body = format!("route error: {e}");
@@ -654,7 +655,71 @@ async fn handle_proxy_inner(
         }
     };
 
-    let actual_model = route.target_model;
+    let candidates: Vec<RouteResult> = candidate_set.candidates;
+
+    // ── Mock / ClaudeCode 透传：不参与重试（非目标），仅按首选候选终态处理。
+    // 二者本地生成 / 1:1 relay，无候选切换语义；放在重试循环外避免 move-in-loop 与无意义重试。──
+    {
+        let first = &candidates[0];
+        if matches!(first.platform.platform_type, Protocol::Mock) {
+            log.actual_model = first.target_model.clone();
+            log.platform_id = first.platform.id;
+            log.target_protocol = format!("{:?}", first.platform.platform_type).to_lowercase();
+            chat_req.model = first.target_model.clone();
+            tracing::info!(platform = %first.platform.name, "mock platform intercept, generating local response");
+            return handle_mock(
+                state,
+                log,
+                log_settings,
+                &first.platform.extra,
+                &chat_req,
+                &req_value,
+                &source_protocol,
+                &requested_model,
+                is_stream,
+                start,
+            )
+            .await;
+        }
+        if matches!(first.platform.platform_type, Protocol::ClaudeCode) {
+            log.platform_id = first.platform.id;
+            tracing::info!(platform = %first.platform.name, base_url = %first.platform.base_url, "claude-code passthrough intercept (1:1 relay)");
+            let base_url = first.platform.base_url.clone();
+            return handle_passthrough(
+                &state,
+                &mut log,
+                &log_settings,
+                orig_method,
+                orig_uri,
+                orig_headers,
+                bytes,
+                &base_url,
+                start,
+                lang,
+            )
+            .await;
+        }
+    }
+
+    // ── 重试编排：遍历候选，逐个 forward。
+    //   2xx → 成功（曾 auto_disabled 则恢复 enabled），进入下游成功处理直接 return。
+    //   401/403 → 标记平台 auto_disabled（指数退避），换下个候选。
+    //   其他错误(5xx/超时/连接失败) → 换下个候选。
+    //   每次尝试均 record 进 attempts；超过 max_retries 或候选耗尽 → 返回最后一次错误。
+    let max_retries = group.max_retries as usize;
+    let mut attempts: Vec<ProxyAttempt> = Vec::new();
+    let candidate_total = candidates.len();
+
+    for (attempt_idx, route) in candidates.into_iter().enumerate() {
+        // 超过最大重试次数（attempt_idx 从 0 起；max_retries=2 → 最多 3 次尝试 idx 0/1/2）
+        if attempt_idx > max_retries {
+            break;
+        }
+        let attempt_start = std::time::Instant::now();
+        let attempt_ts = super::db::now();
+        let is_last_candidate = attempt_idx + 1 >= candidate_total || attempt_idx >= max_retries;
+
+    let actual_model = route.target_model.clone();
 
     // 尝试匹配端点：按 source_protocol 查找平台是否支持对应协议的端点。
     // 先精确匹配；openai_responses 源（Codex）若无 Responses 端点，回退到 openai 端点
@@ -732,10 +797,21 @@ async fn handle_proxy_inner(
             "manual budget exhausted, blocking request (402)"
         );
         log.status_code = 402;
+        log.platform_id = route.platform.id;
         log.response_body = body.clone();
         log.user_response_body = body.clone();
         log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
         log.duration_ms = start.elapsed().as_millis() as i32;
+        attempts.push(ProxyAttempt {
+            platform_id: route.platform.id,
+            platform_name: route.platform.name.clone(),
+            status_code: 402,
+            error: "manual budget exhausted".to_string(),
+            duration_ms: attempt_start.elapsed().as_millis() as i64,
+            ts: attempt_ts,
+        });
+        log.retry_count = (attempts.len() as i32 - 1).max(0);
+        log.attempts = std::mem::take(&mut attempts);
         upsert_log(&state, &log, &log_settings).await;
         return (
             StatusCode::PAYMENT_REQUIRED,
@@ -743,42 +819,6 @@ async fn handle_proxy_inner(
             body,
         )
             .into_response();
-    }
-
-    // ── Mock 平台拦截：不发真实上游，本地生成可控假响应 ──
-    if matches!(route.platform.platform_type, Protocol::Mock) {
-        tracing::info!(platform = %route.platform.name, "mock platform intercept, generating local response");
-        return handle_mock(
-            state,
-            log,
-            log_settings,
-            &route.platform.extra,
-            &chat_req,
-            &req_value,
-            &source_protocol,
-            &requested_model,
-            is_stream,
-            start,
-        )
-        .await;
-    }
-
-    // ── Claude Code 纯透传拦截：bypass 所有转换，1:1 relay 客户端原始请求到 base_url ──
-    if matches!(route.platform.platform_type, Protocol::ClaudeCode) {
-        tracing::info!(platform = %route.platform.name, base_url = %route.platform.base_url, "claude-code passthrough intercept (1:1 relay)");
-        return handle_passthrough(
-            &state,
-            &mut log,
-            &log_settings,
-            orig_method,
-            orig_uri,
-            orig_headers,
-            bytes,
-            &route.platform.base_url,
-            start,
-            lang,
-        )
-        .await;
     }
 
     // 协议转换 / 同协议透传：
@@ -842,12 +882,27 @@ async fn handle_proxy_inner(
     let resp = match req_builder.send().await {
         Ok(r) => r,
         Err(e) => {
+            // 连接失败 / 超时 → 可重试，换下个候选；候选耗尽则返回 502。
             tracing::error!(url = %url, platform = %route.platform.name, error = %e, duration_ms = start.elapsed().as_millis() as i64, "upstream request failed (502)");
+            attempts.push(ProxyAttempt {
+                platform_id: route.platform.id,
+                platform_name: route.platform.name.clone(),
+                status_code: 0,
+                error: format!("upstream error: {e}"),
+                duration_ms: attempt_start.elapsed().as_millis() as i64,
+                ts: attempt_ts,
+            });
+            if !is_last_candidate {
+                continue;
+            }
+            log.platform_id = route.platform.id;
             log.response_body = format!("upstream error: {e}");
             log.status_code = 502;
             log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
             log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
+            log.retry_count = (attempts.len() as i32 - 1).max(0);
+            log.attempts = std::mem::take(&mut attempts);
             upsert_log(&state, &log, &log_settings).await;
             return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
         }
@@ -869,20 +924,69 @@ async fn handle_proxy_inner(
     if !status.is_success() {
         let body = resp.text().await.unwrap_or_default();
         let duration_ms = start.elapsed().as_millis() as i64;
+        let code = status.as_u16();
         tracing::warn!(
-            url = %url, platform = %route.platform.name, status = status.as_u16(),
+            url = %url, platform = %route.platform.name, status = code,
             duration_ms, "upstream returned non-success status"
         );
-        tracing::debug!(url = %url, status = status.as_u16(), body = %body, "upstream error response body");
+        tracing::debug!(url = %url, status = code, body = %body, "upstream error response body");
+        attempts.push(ProxyAttempt {
+            platform_id: route.platform.id,
+            platform_name: route.platform.name.clone(),
+            status_code: code as i32,
+            error: truncate_attempt_error(&body),
+            duration_ms: attempt_start.elapsed().as_millis() as i64,
+            ts: attempt_ts,
+        });
+
+        // ── 401/403：上游鉴权失败 → 自动禁用平台（指数退避），换下个候选 ──
+        if code == 401 || code == 403 {
+            match super::db::set_platform_auto_disabled(&state.db, route.platform.id).await {
+                Ok(until) if until > 0 => tracing::warn!(
+                    platform = %route.platform.name, platform_id = route.platform.id, status = code,
+                    auto_disabled_until = until, "platform auto-disabled (401/403)"
+                ),
+                Ok(_) => {} // 用户手动 disabled，不动
+                Err(e) => tracing::error!(platform_id = route.platform.id, error = %e, "auto-disable platform failed"),
+            }
+        }
+
+        // 非 2xx → 可重试，换下个候选；候选耗尽 / 超 max_retries 则返回最后一次错误。
+        if !is_last_candidate {
+            continue;
+        }
+        log.platform_id = route.platform.id;
         log.response_body = body.clone();
-        log.status_code = status.as_u16() as i32;
+        log.status_code = code as i32;
         log.user_response_body = body.clone();
         log.user_response_headers = log.upstream_response_headers.clone();
         log.duration_ms = duration_ms as i32;
+        log.retry_count = (attempts.len() as i32 - 1).max(0);
+        log.attempts = std::mem::take(&mut attempts);
         upsert_log(&state, &log, &log_settings).await;
-        return (StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY), body)
+        return (StatusCode::from_u16(code).unwrap_or(StatusCode::BAD_GATEWAY), body)
             .into_response();
     }
+
+    // ── 2xx：成功。若该平台曾 auto_disabled（试探成功）则恢复 enabled 清退避。──
+    attempts.push(ProxyAttempt {
+        platform_id: route.platform.id,
+        platform_name: route.platform.name.clone(),
+        status_code: status.as_u16() as i32,
+        error: String::new(),
+        duration_ms: attempt_start.elapsed().as_millis() as i64,
+        ts: attempt_ts,
+    });
+    if route.platform.status == super::models::PlatformStatus::AutoDisabled {
+        if let Err(e) = super::db::recover_platform_auto_disabled(&state.db, route.platform.id).await {
+            tracing::error!(platform_id = route.platform.id, error = %e, "recover auto-disabled platform failed");
+        } else {
+            tracing::info!(platform = %route.platform.name, platform_id = route.platform.id, "platform recovered from auto-disabled (2xx)");
+        }
+    }
+    log.platform_id = route.platform.id;
+    log.retry_count = (attempts.len() as i32 - 1).max(0);
+    log.attempts = std::mem::take(&mut attempts);
 
     // 非流式：直接透传 JSON
     if !is_stream {
@@ -1078,7 +1182,7 @@ async fn handle_proxy_inner(
     log.duration_ms = start.elapsed().as_millis() as i32;
     upsert_log(&state, &log, &log_settings).await;
 
-    (
+    return (
         StatusCode::OK,
         [
             (axum::http::header::CONTENT_TYPE, "text/event-stream"),
@@ -1087,7 +1191,33 @@ async fn handle_proxy_inner(
         ],
         body,
     )
-        .into_response()
+        .into_response();
+    } // ── end retry loop (for candidate) ──
+
+    // 候选耗尽 / 全部超 max_retries 且未在循环内 return（理论不可达：循环内每条路径均 return 或 continue，
+    // 仅 attempt_idx > max_retries 的 break 会落到这里）。返回 503 + 已记录的 attempts。
+    log.status_code = 503;
+    let err_body = format!("{}: all candidates exhausted", i18n::t(lang, ErrorKey::Upstream));
+    log.response_body = "all candidates exhausted".to_string();
+    log.user_response_body = err_body.clone();
+    log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    log.retry_count = (attempts.len() as i32 - 1).max(0);
+    log.attempts = std::mem::take(&mut attempts);
+    upsert_log(&state, &log, &log_settings).await;
+    (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response()
+}
+
+/// 截断 attempt error 字段（上游错误体可能很大，attempts JSON 列只存摘要）
+fn truncate_attempt_error(body: &str) -> String {
+    const MAX: usize = 500;
+    if body.len() <= MAX {
+        body.to_string()
+    } else {
+        let mut s: String = body.chars().take(MAX).collect();
+        s.push('…');
+        s
+    }
 }
 
 /// Mock 平台请求处理：本地生成可控假响应（非流式 JSON / 流式 SSE），填假 token 进 log。

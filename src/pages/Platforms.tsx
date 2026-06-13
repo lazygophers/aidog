@@ -1200,6 +1200,25 @@ const PlatformCard = memo(function PlatformCard({
                           <div className="text-secondary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                             {p.platform_type.toUpperCase()} · {getBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
                           </div>
+                          {p.status === "auto_disabled" && (
+                            <div
+                              style={{
+                                marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
+                                fontSize: 10, fontWeight: 600, color: "var(--color-warning)",
+                                background: "color-mix(in srgb, var(--color-warning) 14%, transparent)",
+                                border: "1px solid color-mix(in srgb, var(--color-warning) 35%, transparent)",
+                                borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
+                              }}
+                              title={t("platform.autoDisabledHint", "401/403 自动禁用，下次试探时间 {{time}}")
+                                .replace("{{time}}", p.auto_disabled_until > 0 ? new Date(p.auto_disabled_until).toLocaleString() : "-")}
+                            >
+                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 9v4" /><path d="M12 17h.01" />
+                                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                              </svg>
+                              {t("platform.autoDisabled", "自动禁用")}
+                            </div>
+                          )}
                         </div>
                         {/* 余额（直显，缺值不渲染）。颜色按后端 balance_level（使用速率）；
                             neutral（无消费数据）→ undefined 回退现有 total 占比色。 */}
@@ -1280,10 +1299,14 @@ const PlatformCard = memo(function PlatformCard({
                             </button>
                           )}
                           <div
-                            className={`toggle ${p.enabled ? "active" : ""}`}
+                            className={`toggle ${p.status === "enabled" ? "active" : ""}`}
                             style={{ cursor: "pointer" }}
                             onClick={(e) => { e.stopPropagation(); actions.onToggleEnabled(p); }}
-                            title={p.enabled ? "Disable" : "Enable"}
+                            title={p.status === "enabled"
+                              ? t("platform.disable", "禁用")
+                              : p.status === "auto_disabled"
+                                ? t("platform.reenable", "重新启用")
+                                : t("platform.enable", "启用")}
                           />
                           <div style={{ display: "inline-flex", fontSize: 11 }}>
                             <button
@@ -1804,7 +1827,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
   const handleToggle = async (p: Platform) => {
     try {
-      await platformApi.update({ id: p.id, enabled: !p.enabled });
+      // 三态切换：enabled → disabled；disabled / auto_disabled → enabled（恢复并清退避）。
+      const nextStatus = p.status === "enabled" ? "disabled" : "enabled";
+      await platformApi.update({ id: p.id, status: nextStatus });
       load();
     } catch (e) { console.error(e); }
   };
