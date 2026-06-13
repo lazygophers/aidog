@@ -530,3 +530,36 @@ Rspress 文档站升级：iOS 蓝品牌主题(globalStyles CSS 变量)+7 语言 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 16: 后端全链路日志覆盖 + per-request trace-id
+
+**Date**: 2026-06-13
+**Task**: 后端全链路日志覆盖 + per-request trace-id
+**Branch**: `master`
+
+### Summary
+
+5 组并行补齐后端日志盲区(lib 69命令/db静默点/proxy bind+resolve+mock/quota平台标识/后台模块) + trace-id span(复用ProxyLog主键, instrument跨await, 子调用继承); cargo check 0 warning; trellis-check 8/8 PASS; 已合回 master
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `3734a8e` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
