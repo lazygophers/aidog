@@ -33,7 +33,7 @@
 
 | 局限 | 位置 | 后果 |
 |---|---|---|
-| content 全降维成纯文本 | `anthropic.rs parse_anthropic_content`、`gemini.rs parse_gemini_request` 只抽 `text` | tool_use/image/thinking block 全丢 |
+| content 全降维成纯文本 | anthropic 入站走 `ChatRequest` 直接反序列化(非 `anthropic.rs` parse)；`gemini.rs from_gemini` 只抽 `text` | ✅ 入站 parse 已容错(2026-06-13): 未知 block(thinking/image/…)降 `ContentBlock::Unknown` 原样保留, 不再整请求 400; 转换到目标协议时 Unknown 降级, thinking 双向转换仍属阶段 E |
 | 工具调用没接 | `anthropic.rs parse_anthropic_message` 写死 `tool_calls: None`；各 serialize 不输出 tools | 不能用 function calling |
 | 入站没读 max_tokens/temperature | anthropic/gemini 的 parse 没提取 | 出站只能给默认值，客户端设置丢失 |
 | 流式只有文本 delta | `ChatStreamEvent` 仅 TextDelta | 工具/思考的流式无法透传 |
@@ -178,3 +178,4 @@ A(地基) → B(测试) → C(入站参数，练手) → D(工具，核心) → 
 
 ## 进度日志
 - 2026-06-13 创建本计划。现状：5 协议「纯文本对话」双向骨架已完成；工具/thinking/多模态/富流式/入站参数待补。
+- 2026-06-13 `ContentBlock` 加 `Unknown(Value)` 兜底 + 手写 ser/de；anthropic 入站 parse 容错(未知 block 原样保留, 不再整请求 400) + `tool_result.content` 容错 String/array；`parse_incoming_request` 改返回 `Result` 暴露 serde error 到 proxy 日志。修复 Claude Code(claude-opus-4-8 + `?beta=true`)入站 400 "failed to parse request for protocol"。thinking/image 强类型变体 + signature 透传仍属阶段 E/G。

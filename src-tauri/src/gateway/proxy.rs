@@ -627,9 +627,9 @@ async fn handle_proxy_inner(
         }
     };
     let mut chat_req: ChatRequest = match adapter::parse_incoming_request(&log.source_protocol, &req_value) {
-        Some(r) => r,
-        None => {
-            log.response_body = "failed to parse request for protocol".to_string();
+        Ok(r) => r,
+        Err(e) => {
+            log.response_body = format!("failed to parse request for protocol ({}): {e}", log.source_protocol);
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;

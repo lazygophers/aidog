@@ -72,15 +72,18 @@ pub fn parse_sse(data: &Value, wire_protocol: &Protocol) -> Option<ChatStreamEve
     }
 }
 
-/// 将入站请求按源协议解析为内部 ChatRequest（支持所有 AI 请求协议）
-pub fn parse_incoming_request(source_protocol: &str, body: &Value) -> Option<ChatRequest> {
+/// 将入站请求按源协议解析为内部 ChatRequest（支持所有 AI 请求协议）。
+///
+/// 返回 `Err(String)` 携带解析失败原因(serde 错误细节等)，供上层记录到日志便于诊断。
+pub fn parse_incoming_request(source_protocol: &str, body: &Value) -> Result<ChatRequest, String> {
     match source_protocol {
-        "openai" => super::openai::from_openai(body),
-        "openai_responses" => super::openai_responses::from_responses(body),
-        "openai_completions" => super::openai_completions::from_completions(body),
-        "gemini" => super::gemini::from_gemini(body),
-        // Anthropic / 默认: ChatRequest 结构已兼容 Anthropic 格式，直接反序列化
-        _ => serde_json::from_value(body.clone()).ok(),
+        "openai" => super::openai::from_openai(body).ok_or_else(|| "openai from_openai returned None".to_string()),
+        "openai_responses" => super::openai_responses::from_responses(body).ok_or_else(|| "openai_responses from_responses returned None".to_string()),
+        "openai_completions" => super::openai_completions::from_completions(body).ok_or_else(|| "openai_completions from_completions returned None".to_string()),
+        "gemini" => super::gemini::from_gemini(body).ok_or_else(|| "gemini from_gemini returned None".to_string()),
+        // Anthropic / 默认: ChatRequest 结构已兼容 Anthropic 格式，直接反序列化;
+        // ContentBlock 已对未知类型(thinking/image/…)降级 Unknown, 失败时返回 serde 错误细节供诊断。
+        _ => serde_json::from_value(body.clone()).map_err(|e| e.to_string()),
     }
 }
 
@@ -183,6 +186,7 @@ pub fn to_anthropic_sse(event: &ChatStreamEvent) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gateway::adapter::types::{ContentBlock, MessageContent};
 
     // ── 透传 path 与 convert_request 各 wire 协议产出一致（不转 body）──
     #[test]
@@ -218,5 +222,67 @@ mod tests {
     fn passthrough_path_gemini_embeds_model() {
         let path = passthrough_api_path(&Protocol::Gemini, "gemini-2.0-flash", &Protocol::Gemini);
         assert_eq!(path, "/v1beta/models/gemini-2.0-flash:streamGenerateContent");
+    }
+
+    // ── Anthropic 入站含未知 block(thinking/image) 不再 400，降级 Unknown ──
+    #[test]
+    fn anthropic_parse_tolerates_unknown_blocks() {
+        let body = serde_json::json!({
+            "model": "claude-opus-4-8",
+            "messages": [{
+                "role": "user",
+                "content": [
+                    { "type": "thinking", "thinking": "...", "signature": "sig" },
+                    { "type": "text", "text": "hi" }
+                ]
+            }]
+        });
+        let req = parse_incoming_request("anthropic", &body).expect("anthropic parse should succeed");
+        assert_eq!(req.model, "claude-opus-4-8");
+        let blocks = match &req.messages[0].content {
+            MessageContent::Blocks(b) => b,
+            _ => panic!("expected blocks"),
+        };
+        assert!(blocks.iter().any(|b| matches!(b, ContentBlock::Unknown(_))), "thinking 应降级 Unknown");
+        assert!(blocks.iter().any(|b| matches!(b, ContentBlock::Text { .. })), "text block 应保留");
+    }
+
+    // ── tool_result.content 为 array(Anthropic 富格式) 容错抽取文本 ──
+    #[test]
+    fn anthropic_parse_tool_result_array_content() {
+        let body = serde_json::json!({
+            "model": "claude-opus-4-8",
+            "messages": [{
+                "role": "user",
+                "content": [
+                    { "type": "tool_result", "tool_use_id": "t1", "content": [
+                        { "type": "text", "text": "result chunk" }
+                    ]}
+                ]
+            }]
+        });
+        let req = parse_incoming_request("anthropic", &body).expect("tool_result array content parse");
+        match &req.messages[0].content {
+            MessageContent::Blocks(b) => match &b[0] {
+                ContentBlock::ToolResult { tool_use_id, content } => {
+                    assert_eq!(tool_use_id, "t1");
+                    assert_eq!(content, "result chunk");
+                }
+                _ => panic!("expected ToolResult"),
+            },
+            _ => panic!("expected blocks"),
+        }
+    }
+
+    // ── 纯文本 anthropic 请求回归不受影响 ──
+    #[test]
+    fn anthropic_parse_plain_text_unchanged() {
+        let body = serde_json::json!({
+            "model": "claude-opus-4-8",
+            "messages": [{ "role": "user", "content": "hello" }]
+        });
+        let req = parse_incoming_request("anthropic", &body).expect("plain parse");
+        assert_eq!(req.model, "claude-opus-4-8");
+        assert!(matches!(req.messages[0].content, MessageContent::Text(_)));
     }
 }

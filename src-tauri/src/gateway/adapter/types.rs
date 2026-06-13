@@ -55,24 +55,116 @@ pub enum MessageContent {
     Blocks(Vec<ContentBlock>),
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "type")]
+/// 消息内容块。
+///
+/// 已知类型(text/tool_use/tool_result)走强类型；未覆盖类型(thinking/image/…)
+/// 降级为 [`ContentBlock::Unknown`] 原样保留，避免 Anthropic 真实请求因个别 block
+/// 类型缺失导致整条 [`ChatRequest`] 反序列化失败(→ 400 "failed to parse request")。
+/// `Unknown` 透传/诊断时保留原值；转换到目标协议时由各 converter 决定降级策略。
+#[derive(Debug, Clone)]
 pub enum ContentBlock {
-    #[serde(rename = "text")]
     Text {
         text: String,
     },
-    #[serde(rename = "tool_use")]
     ToolUse {
         id: String,
         name: String,
         input: serde_json::Value,
     },
-    #[serde(rename = "tool_result")]
     ToolResult {
         tool_use_id: String,
         content: String,
     },
+    /// 未覆盖的 block 类型，原样保留(透传/诊断用)。
+    Unknown(serde_json::Value),
+}
+
+impl<'de> Deserialize<'de> for ContentBlock {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let v = serde_json::Value::deserialize(deserializer)?;
+        let ty = v.get("type").and_then(|t| t.as_str()).unwrap_or("");
+        // 已知类型走强类型解析；任一字段缺失/类型不符 → 降级 Unknown 原样保留
+        let parsed: Result<ContentBlock, ()> = match ty {
+            "text" => {
+                #[derive(Deserialize)]
+                struct T {
+                    text: String,
+                }
+                serde_json::from_value::<T>(v.clone())
+                    .map(|t| ContentBlock::Text { text: t.text })
+                    .map_err(|_| ())
+            }
+            "tool_use" => {
+                #[derive(Deserialize)]
+                struct TU {
+                    id: String,
+                    name: String,
+                    input: serde_json::Value,
+                }
+                serde_json::from_value::<TU>(v.clone())
+                    .map(|tu| ContentBlock::ToolUse {
+                        id: tu.id,
+                        name: tu.name,
+                        input: tu.input,
+                    })
+                    .map_err(|_| ())
+            }
+            "tool_result" => {
+                #[derive(Deserialize)]
+                struct TR {
+                    tool_use_id: String,
+                    #[serde(default)]
+                    content: serde_json::Value,
+                }
+                serde_json::from_value::<TR>(v.clone())
+                    .map(|tr| {
+                        // content 容错: string 原样; array 抽 text 拼接; 其他转字符串
+                        let content = match tr.content {
+                            serde_json::Value::String(s) => s,
+                            serde_json::Value::Array(arr) => arr
+                                .iter()
+                                .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
+                                .collect::<Vec<_>>()
+                                .join(""),
+                            serde_json::Value::Null => String::new(),
+                            other => other.to_string(),
+                        };
+                        ContentBlock::ToolResult {
+                            tool_use_id: tr.tool_use_id,
+                            content,
+                        }
+                    })
+                    .map_err(|_| ())
+            }
+            _ => Err(()),
+        };
+        Ok(parsed.unwrap_or(ContentBlock::Unknown(v)))
+    }
+}
+
+impl Serialize for ContentBlock {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // Unknown 原样输出(含原始 type 与全部字段)；已知类型按 Anthropic block 结构序列化
+        let v = match self {
+            ContentBlock::Unknown(v) => v.clone(),
+            ContentBlock::Text { text } => {
+                serde_json::json!({ "type": "text", "text": text })
+            }
+            ContentBlock::ToolUse { id, name, input } => {
+                serde_json::json!({ "type": "tool_use", "id": id, "name": name, "input": input })
+            }
+            ContentBlock::ToolResult { tool_use_id, content } => {
+                serde_json::json!({ "type": "tool_result", "tool_use_id": tool_use_id, "content": content })
+            }
+        };
+        v.serialize(serializer)
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

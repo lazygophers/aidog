@@ -118,6 +118,12 @@ pub fn to_gemini(req: &ChatRequest) -> GeminiRequest {
                             response: serde_json::json!({ "result": content }),
                         }),
                     },
+                    // 未覆盖 block(thinking/image/…): 尝试取 text，否则空 part(保留消息位)
+                    ContentBlock::Unknown(v) => GeminiPart {
+                        text: v.get("text").and_then(|t| t.as_str()).map(|s| s.to_string()),
+                        function_call: None,
+                        function_response: None,
+                    },
                 }).collect()
             }
         };

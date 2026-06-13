@@ -374,7 +374,7 @@ mod tests {
         let mut bb = b.clone();
         let t0 = 1_700_000_000_000;
         apply_one(&mut bb, 8.0, 0.0, t0); // 首用
-        apply_one(&mut bb, 1.0, 0.0, t0 + 1 * 3_600_000); // 1h 后未到期 → 累加
+        apply_one(&mut bb, 1.0, 0.0, t0 + 3_600_000); // 1h 后未到期 → 累加
         assert!((bb.consumed - 9.0).abs() < 1e-9);
         apply_one(&mut bb, 2.0, 0.0, t0 + 2 * 3_600_000); // 2h 后到期 → 重置
         assert!((bb.consumed - 2.0).abs() < 1e-9, "2h 后应重置, got {}", bb.consumed);

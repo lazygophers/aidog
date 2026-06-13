@@ -42,10 +42,9 @@ pub async fn build_http_client(
     let use_proxy = match force_proxy {
         Some(v) => v && settings.enabled,
         None => {
-            let platform_ok = match platform_extra.and_then(|e| platform_proxy_enabled(e)) {
-                Some(v) => v,
-                None => true, // field missing → follow system
-            };
+            let platform_ok = platform_extra
+                .and_then(platform_proxy_enabled)
+                .unwrap_or(true); // field missing → follow system
             settings.enabled && platform_ok
         }
     };
