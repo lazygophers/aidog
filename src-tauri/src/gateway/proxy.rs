@@ -538,6 +538,7 @@ async fn handle_proxy(
     // Auto-detect source_protocol from request path (group no longer restricts inbound protocol)
     let source_protocol = detect_source_protocol(&path);
     log.source_protocol = source_protocol.clone();
+    tracing::info!(group = %group.name, source_protocol = %source_protocol, model = %log.model, "group resolved");
     upsert_log(&state, &log, &log_settings).await;
 
     // ── 解析 ChatRequest（按入站协议解析） ──
@@ -571,6 +572,7 @@ async fn handle_proxy(
     let route = match route {
         Ok(r) => r,
         Err(e) => {
+            tracing::warn!(group = %group.name, model = %chat_req.model, error = %e, "route failed");
             log.response_body = format!("route error: {e}");
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
@@ -606,6 +608,13 @@ async fn handle_proxy(
     log.actual_model = actual_model.clone();
     log.target_protocol = target_protocol.clone();
     log.platform_id = route.platform.id;
+    tracing::info!(
+        platform = %route.platform.name, platform_id = route.platform.id,
+        requested_model = %requested_model, actual_model = %actual_model,
+        source_protocol = %source_protocol, target_protocol = %target_protocol,
+        coding_plan, stream = is_stream, remap = needs_model_remap,
+        "request routed to upstream"
+    );
     upsert_log(&state, &log, &log_settings).await;
 
     // 替换模型名
@@ -635,6 +644,10 @@ async fn handle_proxy(
             }
         })
         .to_string();
+        tracing::warn!(
+            platform = %route.platform.name, kind = %info.kind, unit = %info.unit, amount = info.amount,
+            "manual budget exhausted, blocking request (402)"
+        );
         log.status_code = 402;
         log.response_body = body.clone();
         log.user_response_body = body.clone();
@@ -651,6 +664,7 @@ async fn handle_proxy(
 
     // ── Mock 平台拦截：不发真实上游，本地生成可控假响应 ──
     if matches!(route.platform.platform_type, Protocol::Mock) {
+        tracing::info!(platform = %route.platform.name, "mock platform intercept, generating local response");
         return handle_mock(
             state,
             log,
@@ -668,6 +682,7 @@ async fn handle_proxy(
 
     // ── Claude Code 纯透传拦截：bypass 所有转换，1:1 relay 客户端原始请求到 base_url ──
     if matches!(route.platform.platform_type, Protocol::ClaudeCode) {
+        tracing::info!(platform = %route.platform.name, base_url = %route.platform.base_url, "claude-code passthrough intercept (1:1 relay)");
         return handle_passthrough(
             &state,
             &mut log,
@@ -730,6 +745,7 @@ async fn handle_proxy(
     let resp = match req_builder.send().await {
         Ok(r) => r,
         Err(e) => {
+            tracing::error!(url = %url, platform = %route.platform.name, error = %e, duration_ms = start.elapsed().as_millis() as i64, "upstream request failed (502)");
             log.response_body = format!("upstream error: {e}");
             log.status_code = 502;
             log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
@@ -755,12 +771,17 @@ async fn handle_proxy(
 
     if !status.is_success() {
         let body = resp.text().await.unwrap_or_default();
+        let duration_ms = start.elapsed().as_millis() as i64;
+        tracing::warn!(
+            url = %url, platform = %route.platform.name, status = status.as_u16(),
+            duration_ms, "upstream returned non-success status"
+        );
+        tracing::debug!(url = %url, status = status.as_u16(), body = %body, "upstream error response body");
         log.response_body = body.clone();
         log.status_code = status.as_u16() as i32;
-        status.as_u16() as i32;
         log.user_response_body = body.clone();
         log.user_response_headers = log.upstream_response_headers.clone();
-        log.duration_ms = start.elapsed().as_millis() as i32;
+        log.duration_ms = duration_ms as i32;
         upsert_log(&state, &log, &log_settings).await;
         return (StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY), body)
             .into_response();

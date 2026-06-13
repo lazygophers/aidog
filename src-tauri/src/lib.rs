@@ -1034,6 +1034,7 @@ async fn platform_query_quota(
     platform_id: Option<u64>, db: State<'_, Db>,
 ) -> Result<PlatformQuota, String> {
     let q = gateway::quota::query_quota(Some(&Arc::new(db.inner().clone())), &base_url, &api_key).await;
+    tracing::info!(platform_id = ?platform_id, success = q.success, tiers = ?q.coding_plan.as_ref().map(|c| c.tiers.len()), "quota query result");
     if q.success {
         persist_quota_to_db(&db, platform_id, &q).await;
     }

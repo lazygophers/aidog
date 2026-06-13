@@ -34,12 +34,21 @@ pub async fn select_platform(
     // 3. 如果有指定目标平台，优先使用
     if target_platform_id != 0 {
         if let Some(gp) = group_platforms.iter().find(|gp| gp.platform.id == target_platform_id) {
+            tracing::info!(
+                group = %group.name, source_model = %source_model, target_model = %target_model,
+                platform = %gp.platform.name, platform_id = gp.platform.id,
+                strategy = "explicit-mapping", "route selected"
+            );
             return Ok(RouteResult {
                 platform: gp.platform.clone(),
                 target_model,
                 mapping: mapping.cloned(),
             });
         }
+        tracing::warn!(
+            group = %group.name, target_platform_id,
+            "mapped target platform not in group, falling back to routing mode"
+        );
     }
 
     // 4. 根据路由模式选择平台
@@ -54,6 +63,14 @@ pub async fn select_platform(
     } else {
         target_model
     };
+
+    tracing::info!(
+        group = %group.name, source_model = %source_model, target_model = %target_model,
+        platform = %platform.name, platform_id = platform.id,
+        mode = ?group.routing_mode,
+        strategy = if mapping.is_some() { "mapping+mode" } else { "auto-match" },
+        "route selected"
+    );
 
     Ok(RouteResult {
         platform,

@@ -335,7 +335,8 @@ pub async fn calibrate_from_quota(db: &Db, platform_id: u64, quota: &PlatformQuo
     } else {
         String::new()
     };
-    let _ = write_real_quota(db, platform_id, est_balance, &coding_json, now()).await;
+    let result = write_real_quota(db, platform_id, est_balance, &coding_json, now()).await;
+    tracing::info!(platform_id, is_coding_plan, coding_json_len = coding_json.len(), result = ?result, "calibrate_from_quota done");
 }
 
 /// 后台校准编排：锁外 await query_quota → 锁内覆盖。失败保留预估（不重置）。
