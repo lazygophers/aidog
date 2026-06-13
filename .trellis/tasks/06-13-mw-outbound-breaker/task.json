@@ -3,7 +3,7 @@
   "name": "mw-outbound-breaker",
   "title": "中间件 C3 出站规则执行 + 熔断器 + 流式逐块",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
