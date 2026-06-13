@@ -86,6 +86,7 @@ async fn ensure_platform_groups(db: &Db) {
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
             source_protocol: None,
+            max_retries: 2,
             model_mappings: Vec::new(),
         }).await {
             Ok(g) => g,
@@ -128,6 +129,7 @@ async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Pla
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
             source_protocol: None,
+            max_retries: 2,
             model_mappings: Vec::new(),
         },
     ).await
@@ -202,6 +204,7 @@ async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Pla
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
             source_protocol: None,
+            max_retries: 2,
             model_mappings: Vec::new(),
         }).await {
             if let Err(e) = db::set_group_platforms(&db, group.id, &[GroupPlatformInput {
@@ -802,6 +805,8 @@ async fn model_test(
             cache_tokens: 0,
             est_cost: 0.0,
             is_stream: false,
+            attempts: Vec::new(),
+            retry_count: 0,
             created_at,
             updated_at: created_at,
             deleted_at: 0,
