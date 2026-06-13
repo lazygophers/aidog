@@ -24,7 +24,10 @@
 ## Deliverable 矩阵
 | ID | 交付物 | 类型 | 独立验收 | 优先级 |
 | --- | --- | --- | --- | --- |
-| D1 | DEFAULT_SUBAGENT_SEGMENTS 首段动态化 + 必要的段类型/生成支持 | diff | yarn build；生成脚本首段随 type/status/model 变化（样例 payload 验证）| P0 |
+| D1 | DEFAULT_SUBAGENT_SEGMENTS 首段动态化 + agent-badge 段类型/生成支持 | diff | yarn build；生成脚本首段随 type/status/model 变化（样例 payload 验证）| P0 |
+| D2 | materializer 原生化：子代理 builtin 走原生 segment→bash 生成器（处理 {tasks:[...]} 数组 + 逐任务 JSONL 输出），去除硬编码委派外部 ccplugin python | diff | yarn build；生成的 bash 读 {tasks:[...]} 输出逐任务 JSONL `{id,content}`；不再引用 ccplugin python 路径 | P0 |
+
+> D2 背景：materializeStatusline（editors.tsx:2994）子代理 builtin 原硬编码 `python3 ~/persons/lyxamour/ccplugin/scripts/subagent_statusline.py`（dev 本机路径，无法分发）。D2 改为原生 bash 生成，彻底自包含。子代理契约：stdin `{columns, tasks:[{id,name,type,status,model,...}], model, context_window}` → stdout 每任务一行 `{"id","content"}`。段 jq expr 需对每个 task 对象求值（非顶层），需 per-task 生成路径。
 
 ## Requirements
 - R1 首段从字面量 `[Agent·●]` 改为动态：`[{type_label}·{status_symbol}·{model}]`，与 ccplugin 语义一致（type 空则不渲染 badge）。
