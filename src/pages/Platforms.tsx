@@ -554,6 +554,7 @@ interface EstCodingTier {
   util_at_last_real: number;
   tokens_since_real: number;
   has_base: boolean;
+  limit?: number;
 }
 interface EstCodingPlan {
   tiers: EstCodingTier[];
@@ -943,7 +944,11 @@ function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, preferRe
 
   if (hasEst && !preferReal) {
     const tiers = estCoding
-      ? estCoding.tiers.map(tier => ({ name: tier.name, remainPct: tierRemain(tier.est_utilization), utilization: tier.est_utilization, resetsAt: null, limit: null, remaining: null }))
+      ? estCoding.tiers.map(tier => {
+          const limit = tier.limit ?? null;
+          const remaining = limit != null ? Math.round(limit * tierRemain(tier.est_utilization) / 100) : null;
+          return { name: tier.name, remainPct: tierRemain(tier.est_utilization), utilization: tier.est_utilization, resetsAt: null, limit, remaining };
+        })
       : [];
     return {
       estimated: true,
@@ -1127,8 +1132,7 @@ const PlatformCard = memo(function PlatformCard({
   const configuredModels = allModelValues(p.models);
   const quota = computeQuotaDisplay(p, q, preferReal);
   const showQuota = p.platform_type !== "mock" && p.platform_type !== "claude_code" && quota.hasData;
-  const mb = computeManualBudgetDisplay(p.manual_budgets);
-  const total = u ? u.total_input_tokens + u.total_output_tokens : 0;
+  const mb = computeManualBudgetDisplay(p.manual_budgets);  const total = u ? u.total_input_tokens + u.total_output_tokens : 0;
   const sr = u && u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
   const hasDetail = !!u || (p.endpoints && p.endpoints.length > 0) || configuredModels.length > 0 || quota.tiers.length > 0;
   const health = manual
@@ -1234,6 +1238,32 @@ const PlatformCard = memo(function PlatformCard({
                                 ? t("platform.manualBudgetDepleted", "额度耗尽")
                                 : t("platform.manualBudgetLabel", "手动预算")}
                               {mb.unit === "token" && ` · ${t("platform.manualBudgetTokenApprox", "≈未知$")}`}
+                            </span>
+                          </div>
+                        )}
+                        {/* Coding plan tiers（无余额时在 header 展示最紧急 tier） */}
+                        {showQuota && quota.balanceRemaining == null && quota.tiers.length > 0 && (
+                          <div style={{ flexShrink: 0, display: "flex", gap: 4, flexWrap: "wrap", maxWidth: 260 }}>
+                            {quota.tiers.map(tier => {
+                              const isMcp = tier.name === "mcp_monthly";
+                              const value = isMcp && tier.limit != null
+                                ? `${tier.remaining ?? 0}/${tier.limit}`
+                                : `${tier.remainPct.toFixed(0)}%`;
+                              return (
+                                <span key={tier.name} style={{
+                                  display: "inline-flex", alignItems: "center", gap: 3,
+                                  padding: "2px 6px", borderRadius: "var(--radius-sm)",
+                                  fontSize: 10, fontWeight: 600,
+                                  background: `${utilColor(tier.utilization)}15`,
+                                  color: utilColor(tier.utilization),
+                                }}>
+                                  <span style={{ fontSize: 11, fontWeight: 700 }}>{value}</span>
+                                  <span style={{ fontSize: 9, opacity: 0.7 }}>{tierLabel(tier.name)}</span>
+                                </span>
+                              );
+                            })}
+                            <span style={{ fontSize: 9, fontWeight: 700, color: quota.estimated ? "var(--color-warning)" : "var(--accent)", alignSelf: "center" }}>
+                              {quota.estimated ? t("platform.quotaEstimated", "预估") : t("platform.quotaMeasured", "实测")}
                             </span>
                           </div>
                         )}
