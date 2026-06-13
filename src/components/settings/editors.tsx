@@ -2716,7 +2716,7 @@ export const DEFAULT_SUBAGENT_SEGMENTS: StatusLineSegment[] = [
   { id: "sa-badge", type: "agent-badge", enabled: true, newline: false,
     options: {} },
   { id: "sa-name", type: "custom", enabled: true, newline: false, color: "#4A9EFF",
-    options: { expr: ".agent.name // .session_name // \"subagent\"" } },
+    options: { expr: ".label // .name // .id // \"?\"" } },
   { id: "sa-sep1", type: "separator", enabled: true, newline: false,
     options: { char: "·" } },
   { id: "sa-ctx", type: "context-pct", enabled: true, newline: false, color: "#34C759",
