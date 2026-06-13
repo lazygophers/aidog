@@ -1022,20 +1022,50 @@ async fn handle_proxy_inner(
             }
         }
 
-        // 非 2xx → 可重试，换下个候选；候选耗尽 / 超 max_retries 则返回最后一次错误。
-        if !is_last_candidate {
+        // ── 中间件 error_rule 分类（出站）：按规则将上游错误分类为 retryable/non-retryable。
+        //   non-retryable → 立即返回不换候选（用 override_status/body 若有）。
+        //   retryable     → 走默认重试语义（换下个候选）。
+        //   无命中        → 默认重试语义不变（is_last_candidate 决定）。
+        //   熔断器不在本树：此处只产标记驱动现有重试循环，不引入任何熔断状态。──
+        let err_class = {
+            let mw_settings = super::db::get_middleware_settings(&state.db).await;
+            state.middleware.classify_error(
+                &mw_settings, code, &body,
+                Some(&group.name), Some(route.platform.id as i64),
+            )
+        };
+        let non_retryable = err_class.as_ref().map(|c| !c.retryable).unwrap_or(false);
+        if let Some(ref c) = err_class {
+            tracing::info!(
+                matched_by = %c.matched_by, category = %c.category, retryable = c.retryable,
+                status = code, "middleware error_rule classified upstream error"
+            );
+        }
+
+        // 非 2xx + retryable（或无命中）→ 换下个候选；候选耗尽 / 超 max_retries 则返回最后一次错误。
+        // non-retryable → 跳过 continue，立即返回（不换候选）。
+        if !non_retryable && !is_last_candidate {
             continue;
         }
+
+        // ── 应用 error_rule override_status/body（若有）回客户端 ──
+        let (out_code, out_body) = match err_class {
+            Some(c) => (
+                c.override_status.unwrap_or(code),
+                c.override_body.unwrap_or_else(|| body.clone()),
+            ),
+            None => (code, body.clone()),
+        };
         log.platform_id = route.platform.id;
         log.response_body = body.clone();
-        log.status_code = code as i32;
-        log.user_response_body = body.clone();
+        log.status_code = out_code as i32;
+        log.user_response_body = out_body.clone();
         log.user_response_headers = log.upstream_response_headers.clone();
         log.duration_ms = duration_ms as i32;
         log.retry_count = (attempts.len() as i32 - 1).max(0);
         log.attempts = std::mem::take(&mut attempts);
         upsert_log(&state, &log, &log_settings).await;
-        return (StatusCode::from_u16(code).unwrap_or(StatusCode::BAD_GATEWAY), body)
+        return (StatusCode::from_u16(out_code).unwrap_or(StatusCode::BAD_GATEWAY), out_body)
             .into_response();
     }
 
@@ -1077,6 +1107,19 @@ async fn handle_proxy_inner(
             replace_model_in_json(&body, &requested_model)
         } else {
             body.to_vec()
+        };
+
+        // ── 中间件出站规则（非流式 2xx）：response_override/redaction/content_filter 改写 body。
+        //   在 usage 提取后改写（脱敏不影响计费/统计）；与入站脱敏幂等。
+        //   总开关/子开关 OFF 时为 no-op。error_rule 不在此（仅非 2xx 路径分类）。──
+        let body = {
+            let mut s = String::from_utf8_lossy(&body).to_string();
+            let mw_settings = super::db::get_middleware_settings(&state.db).await;
+            state.middleware.apply_outbound(
+                &mw_settings, &mut s,
+                Some(&group.name), Some(route.platform.id as i64),
+            );
+            s.into_bytes()
         };
         log.user_response_body = String::from_utf8_lossy(&body).to_string();
         log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
@@ -1122,6 +1165,15 @@ async fn handle_proxy_inner(
     } else {
         String::new()
     };
+
+    // ── 中间件出站流式逐块改写上下文：在构建 stream 闭包前读取 settings（闭包在 req span 外轮询，
+    //   不可再 await DB）。引擎 Arc clone 进闭包，每 chunk 文本应用 mask/override/sensitive。
+    //   error 已由上游 HTTP 状态码在 forward 后判定（非 2xx 不会走到这里，故流式无需再判 error）。──
+    let mw_engine = state.middleware.clone();
+    let mw_settings = super::db::get_middleware_settings(&state.db).await;
+    let mw_active = mw_settings.enabled;
+    let mw_group = group.name.clone();
+    let mw_platform_id = route.platform.id as i64;
 
     // ── 旁路聚合器：累积 token + 上游 SSE 原文 + 转换后下发客户端的 SSE。
     // 闭包内对其加同步锁是短临界区（push），禁持锁跨 await（闭包本身同步，不 await）。──
@@ -1227,6 +1279,23 @@ async fn handle_proxy_inner(
                 }
             }
             Bytes::from(output)
+        };
+
+        // ── 中间件出站流式逐块改写：对下发客户端的 chunk 文本应用 mask/override/sensitive。
+        //   逐块正则替换；跨 chunk 边界的密钥/敏感词可能漏匹配（已知限制，滑窗后续）。
+        //   总开关 OFF 时跳过。在记录 client_body 前改写，确保审计与下发一致（脱敏后版本）。──
+        let out_bytes = if mw_active && !out_bytes.is_empty() {
+            let original = String::from_utf8_lossy(&out_bytes);
+            let rewritten = mw_engine.apply_outbound_stream_chunk(
+                &mw_settings, &original, Some(&mw_group), Some(mw_platform_id),
+            );
+            if rewritten == original.as_ref() {
+                out_bytes
+            } else {
+                Bytes::from(rewritten)
+            }
+        } else {
+            out_bytes
         };
 
         // 旁路累积下发客户端的 SSE（受 log_user_request 开关控制）
