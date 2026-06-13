@@ -2226,7 +2226,7 @@ pub fn redact_key(key: &str) -> String {
 
 /// 为 Coding Plan 端点注入平台特有字段
 /// - Kimi Code Plan: 注入 prompt_cache_key（必填，用 group + model hash 作会话标识）
-fn inject_coding_plan_fields(body: &mut Value, protocol: &super::models::Protocol) {
+pub fn inject_coding_plan_fields(body: &mut Value, protocol: &super::models::Protocol) {
     match protocol {
         super::models::Protocol::Kimi => {
             // Kimi Code Plan 要求 prompt_cache_key 以提升缓存命中率
@@ -2255,7 +2255,7 @@ fn inject_coding_plan_fields(body: &mut Value, protocol: &super::models::Protoco
 }
 
 /// Coding Plan 的 API 路径覆盖（当前各平台 base_url 已区分 coding/normal，api_path 无需变更）
-fn override_coding_plan_path(_api_path: &mut String, _protocol: &super::models::Protocol) {
+pub fn override_coding_plan_path(_api_path: &mut String, _protocol: &super::models::Protocol) {
     // 预留：后续若有平台需 coding plan 专用 api_path 可在此扩展
 }
 

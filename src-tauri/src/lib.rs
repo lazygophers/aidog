@@ -789,14 +789,21 @@ async fn model_test(
     };
 
     // 优先使用 endpoint 匹配（同 proxy 逻辑），回退到平台主配置
-    let (target_protocol, target_base_url, client_type) = if !platform.endpoints.is_empty() {
-        let ep = &platform.endpoints[0];
-        (ep.protocol.clone(), ep.base_url.clone(), ep.client_type.clone())
+    // model-test 优先选 coding_plan endpoint（测试 coding 端点更有意义），否则取第一个
+    let (target_protocol, target_base_url, client_type, coding_plan) = if !platform.endpoints.is_empty() {
+        let ep = platform.endpoints.iter().find(|ep| ep.coding_plan)
+            .unwrap_or(&platform.endpoints[0]);
+        (ep.protocol.clone(), ep.base_url.clone(), ep.client_type.clone(), ep.coding_plan)
     } else {
-        (platform.platform_type.clone(), platform.base_url.clone(), ClientType::default())
+        (platform.platform_type.clone(), platform.base_url.clone(), ClientType::default(), false)
     };
 
-    let (req_body, api_path) = gateway::adapter::convert_request(&chat_req, &target_protocol, &platform.platform_type);
+    let (mut req_body, mut api_path) = gateway::adapter::convert_request(&chat_req, &target_protocol, &platform.platform_type);
+    // coding plan 注入（与 proxy.rs 对齐）
+    if coding_plan {
+        gateway::proxy::inject_coding_plan_fields(&mut req_body, &target_protocol);
+        gateway::proxy::override_coding_plan_path(&mut api_path, &target_protocol);
+    }
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
     let base_url = target_base_url.trim_end_matches('/');
     let url = format!("{}{}", base_url, api_path);
