@@ -54,6 +54,8 @@ pub enum ErrorKey {
     BudgetResetTotal,
     /// 上游错误
     Upstream,
+    /// 中间件入站拦截
+    MiddlewareBlocked,
 }
 
 /// 返回翻译后的错误消息
@@ -82,6 +84,7 @@ fn t_en(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetResetFixed => "Budget will reset at the next fixed window boundary.",
         ErrorKey::BudgetResetTotal => "Total budget exhausted; increase or reset the limit to resume.",
         ErrorKey::Upstream => "upstream",
+        ErrorKey::MiddlewareBlocked => "Request blocked by a middleware rule",
     }
 }
 
@@ -98,6 +101,7 @@ fn t_zh(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetResetFixed => "预算将在下一个固定窗口边界重置。",
         ErrorKey::BudgetResetTotal => "总预算已耗尽，请增加或重置限额以恢复。",
         ErrorKey::Upstream => "上游",
+        ErrorKey::MiddlewareBlocked => "请求被中间件规则拦截",
     }
 }
 
@@ -114,6 +118,7 @@ fn t_ja(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetResetFixed => "予算は次の固定ウィンドウ境界でリセットされます。",
         ErrorKey::BudgetResetTotal => "総予算を使い切りました。制限を増やすかリセットしてください。",
         ErrorKey::Upstream => "アップストリーム",
+        ErrorKey::MiddlewareBlocked => "リクエストはミドルウェアルールによってブロックされました",
     }
 }
 
@@ -130,6 +135,7 @@ fn t_fr(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetResetFixed => "Le budget sera réinitialisé à la prochaine limite de fenêtre fixe.",
         ErrorKey::BudgetResetTotal => "Budget total épuisé ; augmentez ou réinitialisez la limite.",
         ErrorKey::Upstream => "amont",
+        ErrorKey::MiddlewareBlocked => "Requête bloquée par une règle de middleware",
     }
 }
 
@@ -146,6 +152,7 @@ fn t_de(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetResetFixed => "Das Budget wird an der nächsten festen Fenstergrenze zurückgesetzt.",
         ErrorKey::BudgetResetTotal => "Gesamtbudget aufgebraucht; erhöhen oder setzen Sie das Limit zurück.",
         ErrorKey::Upstream => "Upstream",
+        ErrorKey::MiddlewareBlocked => "Anfrage durch eine Middleware-Regel blockiert",
     }
 }
 
@@ -162,6 +169,7 @@ fn t_ru(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetResetFixed => "Бюджет будет сброшен на следующей границе фиксированного окна.",
         ErrorKey::BudgetResetTotal => "Общий бюджет исчерпан; увеличьте или сбросьте лимит.",
         ErrorKey::Upstream => "вышестоящий",
+        ErrorKey::MiddlewareBlocked => "Запрос заблокирован правилом промежуточного слоя",
     }
 }
 
@@ -178,5 +186,6 @@ fn t_ar(key: ErrorKey) -> &'static str {
         ErrorKey::BudgetResetFixed => "سيتم إعادة تعيين الميزانية عند حدود النافذة الثابتة التالية.",
         ErrorKey::BudgetResetTotal => "تم استنفاد الميزانية الإجمالية؛ قم بزيادة الحد أو إعادة تعيينه.",
         ErrorKey::Upstream => "المنبع",
+        ErrorKey::MiddlewareBlocked => "تم حظر الطلب بواسطة قاعدة الوسيط",
     }
 }

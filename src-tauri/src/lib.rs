@@ -504,7 +504,9 @@ async fn proxy_start(
         .map_err(|e| { tracing::error!(command = "proxy_start", error = %e, "open proxy db failed"); e })?;
     let proxy_db = std::sync::Arc::new(proxy_db);
 
-    let (proxy_handle, actual_port) = gateway::proxy::start_proxy(proxy_db, port, Some(app.clone())).await
+    // 复用 setup 阶段 app.manage 的同一 MiddlewareEngine 单例（CRUD reload 与代理消费同源）。
+    let middleware = app.state::<Arc<MiddlewareEngine>>().inner().clone();
+    let (proxy_handle, actual_port) = gateway::proxy::start_proxy(proxy_db, port, Some(app.clone()), middleware).await
         .map_err(|e| { tracing::error!(command = "proxy_start", port, error = %e, "start_proxy failed"); e })?;
 
     {
@@ -860,6 +862,8 @@ async fn model_test(
             is_stream: false,
             attempts: Vec::new(),
             retry_count: 0,
+            blocked_by: String::new(),
+            blocked_reason: String::new(),
             created_at,
             updated_at: created_at,
             deleted_at: 0,
