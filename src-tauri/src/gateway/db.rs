@@ -101,6 +101,8 @@ impl Db {
                 let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN est_cost REAL NOT NULL DEFAULT 0", []);
                 // Migration 009: platform 手动预算列（无上游 quota 平台手动限额 + 耗尽阻断）
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN manual_budgets TEXT NOT NULL DEFAULT '[]'", []);
+                // Migration 010: proxy_log 流式标记列（流式 SSE 请求显式标记，替代 response_body=="[stream]" 哨兵）
+                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN is_stream INTEGER NOT NULL DEFAULT 0", []);
                 Ok(())
             })
             .await
@@ -998,7 +1000,7 @@ pub async fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, Stri
 
 /// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
 const PROXY_LOG_COLUMNS: &str =
-    "id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, created_at, updated_at, deleted_at";
+    "id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, created_at, updated_at, deleted_at";
 
 /// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
 fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
@@ -1027,9 +1029,10 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
         output_tokens: row.get(21)?,
         cache_tokens: row.get(22)?,
         est_cost: row.get(23)?,
-        created_at: row.get(24)?,
-        updated_at: row.get(25)?,
-        deleted_at: row.get(26)?,
+        is_stream: row.get::<_, i64>(24)? == 1,
+        created_at: row.get(25)?,
+        updated_at: row.get(26)?,
+        deleted_at: row.get(27)?,
     })
 }
 
@@ -1040,8 +1043,8 @@ pub async fn upsert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<
         .call(move |conn| {
             conn.execute(
                 &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27)"),
-                params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.created_at, log.updated_at, log.deleted_at],
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28)"),
+                params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.is_stream as i64, log.created_at, log.updated_at, log.deleted_at],
             )?;
             Ok(())
         })
@@ -1053,7 +1056,7 @@ pub async fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<sup
     db.0
         .call(move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at
+                "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, created_at
                  FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
             )?;
             let rows = stmt.query_map(params![limit, offset], row_to_proxy_log_summary)?;
@@ -1078,7 +1081,8 @@ fn row_to_proxy_log_summary(row: &rusqlite::Row) -> SqlResult<super::models::Pro
         input_tokens: row.get(9)?,
         output_tokens: row.get(10)?,
         cache_tokens: row.get(11)?,
-        created_at: row.get(12)?,
+        is_stream: row.get::<_, i64>(12)? == 1,
+        created_at: row.get(13)?,
     })
 }
 
@@ -1095,7 +1099,7 @@ pub async fn filtered_list_proxy_logs(
             p.push(Box::new(limit));
             p.push(Box::new(offset));
             let sql = format!(
-                "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, created_at \
+                "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, created_at \
                  FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?"
             );
             let mut stmt = conn.prepare(&sql)?;
@@ -1934,6 +1938,7 @@ mod tests {
             output_tokens: 20,
             cache_tokens: 0,
             est_cost: 0.0,
+            is_stream: false,
             created_at,
             updated_at: created_at,
             deleted_at: 0,

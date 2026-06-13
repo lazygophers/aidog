@@ -1,5 +1,5 @@
 use axum::{
-    body::Body,
+    body::{Body, Bytes},
     extract::{Request, State as AxumState},
     http::StatusCode,
     response::{IntoResponse, Response},
@@ -516,6 +516,7 @@ async fn handle_proxy_inner(
         output_tokens: 0,
         cache_tokens: 0,
         est_cost: 0.0,
+        is_stream: false,
         created_at,
         updated_at: created_at,
         deleted_at: 0,
@@ -635,6 +636,7 @@ async fn handle_proxy_inner(
     };
 
     let is_stream = chat_req.stream.unwrap_or(false);
+    log.is_stream = is_stream;
     let requested_model = if chat_req.model.is_empty() { raw_model } else { chat_req.model.clone() };
     log.model = requested_model.clone();
 
@@ -912,9 +914,6 @@ async fn handle_proxy_inner(
 
     // 流式：转换 SSE 格式为 Anthropic 格式返回
     let protocol = target_protocol_enum.clone();
-    let tokens_acc = Arc::new(std::sync::atomic::AtomicI32::new(0));
-    let tokens_out = Arc::new(std::sync::atomic::AtomicI32::new(0));
-    let tokens_cache = Arc::new(std::sync::atomic::AtomicI32::new(0));
     let client_protocol = source_protocol.clone();
     let model_for_sse = requested_model.clone();
     let model_for_response = if needs_model_remap {
@@ -922,46 +921,57 @@ async fn handle_proxy_inner(
     } else {
         String::new()
     };
-    let acc_in = tokens_acc.clone();
-    let acc_out = tokens_out.clone();
-    let acc_cache = tokens_cache.clone();
 
-    // ── 流式预估：token 仅在流被消费完（[DONE]）才确定，故在闭包内 [DONE] 处触发 ──
-    let est_state = state.clone();
-    let est_platform_id = route.platform.id;
-    let est_platform_type = route.platform.platform_type.clone();
-    let est_base_url = route.platform.base_url.clone();
-    let est_api_key = route.platform.api_key.clone();
-    let est_model = actual_model.clone();
-    let est_coding_plan = coding_plan;
-    let est_in = tokens_acc.clone();
-    let est_out = tokens_out.clone();
-    let est_cache = tokens_cache.clone();
+    // ── 旁路聚合器：累积 token + 上游 SSE 原文 + 转换后下发客户端的 SSE。
+    // 闭包内对其加同步锁是短临界区（push），禁持锁跨 await（闭包本身同步，不 await）。──
+    let agg = Arc::new(StreamAggregator::new());
     let est_fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
 
-    // ── 流式日志最终 token 回写：upsert 在返回 stream 前发生（:641），此时 token 仍为 0；
-    // token 仅在流被消费完（[DONE]）才累加完整，故 clone log/state/settings 进闭包，
-    // 在 [DONE] 处用最终 token 再次 upsert（INSERT OR REPLACE，同 log.id 覆盖）。──
-    let done_log = log.clone();
-    let done_state = state.clone();
-    let done_settings = log_settings.clone();
-    let done_start = start;
-    let done_in = tokens_acc.clone();
-    let done_out = tokens_out.clone();
-    let done_cache = tokens_cache.clone();
-
-    // 流闭包由 axum 在 req span 外轮询（Response 返回后），故此处捕获当前 req span，
-    // clone 进闭包供 [DONE] 处的后台 spawn 链回原请求 trace_id（闭包内 Span::current() 已非 req span）。
+    // 闭包由 axum 在 req span 外轮询（Response 返回后），故此处捕获当前 req span 链回 trace_id。
     let req_span = tracing::Span::current();
 
+    // ── body 记录受 ProxyLogSettings 开关控制：仅相应开关开启才聚合，零开关时不耗内存。
+    // response_body(上游) 受 master(enabled) 控制；user_response_body 受 log_user_request 控制。──
+    let record_upstream_body = log_settings.enabled;
+    let record_client_body = log_settings.enabled && log_settings.log_user_request;
+
+    // ── 最终回写 guard：[DONE] 正常结束 或 客户端断连 Drop 时回写聚合 token/body（幂等）。──
+    let guard = StreamLogGuard {
+        agg: agg.clone(),
+        est_fired: est_fired.clone(),
+        log: log.clone(),
+        state: state.clone(),
+        settings: log_settings.clone(),
+        start,
+        record_upstream_body,
+        record_client_body,
+        req_span: req_span.clone(),
+        est: Some(StreamEstCtx {
+            platform_id: route.platform.id,
+            platform_type: route.platform.platform_type.clone(),
+            base_url: route.platform.base_url.clone(),
+            api_key: route.platform.api_key.clone(),
+            model: actual_model.clone(),
+            coding_plan,
+        }),
+    };
+
+    // guard 被 move 进闭包，随 stream 生命周期存活；stream 被 Drop（含客户端断连）时 guard.drop 触发兜底 flush。
     let stream = resp.bytes_stream().map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
             Err(e) => {
                 tracing::warn!(error = %e, "SSE upstream stream chunk error");
-                return Ok::<_, std::io::Error>(format!("event: error\ndata: {{\"error\":\"{e}\"}}\n\n"));
+                return Ok::<_, std::io::Error>(Bytes::from(format!("event: error\ndata: {{\"error\":\"{e}\"}}\n\n")));
             }
         };
+
+        // 旁路累积上游响应原文（受 master 开关控制；锁为同步短临界区）
+        if record_upstream_body {
+            if let Ok(mut up) = guard.agg.upstream_body.lock() {
+                up.push(chunk.clone());
+            }
+        }
 
         let text = String::from_utf8_lossy(&chunk);
         let mut output = String::new();
@@ -972,60 +982,12 @@ async fn handle_proxy_inner(
                     output.push_str(&adapter::to_client_sse(&ChatStreamEvent::Stop {
                         finish_reason: Some("end_turn".to_string()),
                     }, &client_protocol, &model_for_sse).unwrap_or_default());
-                    // 流终止：token 已累加完整 → 回写日志最终 token + 后台预估（仅触发一次）
-                    if !est_fired.swap(true, std::sync::atomic::Ordering::Relaxed) {
-                        // 用最终 token 覆盖日志（提前 :641 upsert 时 token 仍为 0）
-                        let mut final_log = done_log.clone();
-                        final_log.input_tokens = done_in.load(std::sync::atomic::Ordering::Relaxed);
-                        final_log.output_tokens = done_out.load(std::sync::atomic::Ordering::Relaxed);
-                        final_log.cache_tokens = done_cache.load(std::sync::atomic::Ordering::Relaxed);
-                        final_log.status_code = 200;
-                        final_log.duration_ms = done_start.elapsed().as_millis() as i32;
-                        tracing::info!(
-                            platform_id = final_log.platform_id, model = %final_log.actual_model,
-                            status = 200, stream = true, duration_ms = final_log.duration_ms,
-                            input_tokens = final_log.input_tokens, output_tokens = final_log.output_tokens,
-                            cache_tokens = final_log.cache_tokens, "request completed"
-                        );
-                        // 同步 stream 闭包内不可 await → fire-and-forget spawn 异步回写日志。
-                        let upsert_state = done_state.clone();
-                        let upsert_settings = done_settings.clone();
-                        tokio::spawn(async move {
-                            upsert_log(&upsert_state, &final_log, &upsert_settings).await;
-                        }.instrument(req_span.clone()));
-
-                        spawn_estimate(
-                            &est_state,
-                            est_platform_id,
-                            &est_platform_type,
-                            est_base_url.clone(),
-                            est_api_key.clone(),
-                            est_model.clone(),
-                            est_in.load(std::sync::atomic::Ordering::Relaxed),
-                            est_out.load(std::sync::atomic::Ordering::Relaxed),
-                            est_cache.load(std::sync::atomic::Ordering::Relaxed),
-                            est_coding_plan,
-                            req_span.clone(),
-                        );
-                    }
                     continue;
                 }
 
                 if let Ok(json) = serde_json::from_str::<Value>(data) {
-                    if let Some(usage) = json.get("usage") {
-                        if let Some(i) = usage.get("prompt_tokens").and_then(|v| v.as_i64()) {
-                            acc_in.store(i as i32, std::sync::atomic::Ordering::Relaxed);
-                        }
-                        if let Some(o) = usage.get("completion_tokens").and_then(|v| v.as_i64()).or_else(|| usage.get("output_tokens").and_then(|v| v.as_i64())) {
-                            acc_out.store(o as i32, std::sync::atomic::Ordering::Relaxed);
-                        }
-                        if let Some(c) = usage.get("cache_read_input_tokens").and_then(|v| v.as_i64())
-                            .or_else(|| usage.get("prompt_tokens_details").and_then(|d| d.get("cached_tokens")).and_then(|v| v.as_i64()))
-                            .or_else(|| usage.get("cache_tokens").and_then(|v| v.as_i64()))
-                        {
-                            acc_cache.store(c as i32, std::sync::atomic::Ordering::Relaxed);
-                        }
-                    }
+                    // token 累计：复用 accumulate_sse_usage（含 Anthropic message.usage 兜底，修复主分支漏读 input_tokens）
+                    accumulate_sse_usage(&json, &guard.agg.tokens_in, &guard.agg.tokens_out, &guard.agg.tokens_cache);
 
                     if let Some(event) = adapter::parse_sse(&json, &protocol) {
                         let event = if !model_for_response.is_empty() {
@@ -1047,20 +1009,29 @@ async fn handle_proxy_inner(
             }
         }
 
-        Ok(output)
+        // 旁路累积转换后下发客户端的 SSE（受 log_user_request 开关控制）
+        let out_bytes = Bytes::from(output);
+        if record_client_body && !out_bytes.is_empty() {
+            if let Ok(mut cl) = guard.agg.client_body.lock() {
+                cl.push(out_bytes.clone());
+            }
+        }
+        // 正常结束：本 chunk 含 [DONE] 即触发 flush（token 已累加完整）；否则由断连 Drop 兜底。
+        // flush 幂等（est_fired 守卫），[DONE] 与 Drop 二者只生效一次。flush 内仅 tokio::spawn，不阻塞转发。
+        guard.flush_if_done(&text);
+
+        Ok(out_bytes)
     });
 
     let body = Body::from_stream(stream);
 
-    // Upsert final: stream complete
+    // Upsert（返回 stream 前的占位）：标记流进行中，token=0、body 占位；
+    // 最终态由 guard.flush（[DONE] 或断连 Drop）覆盖。
     log.status_code = 200;
     log.response_body = "[stream]".to_string();
     log.user_response_body = "[stream]".to_string();
     log.user_response_headers = r#"{"content-type":"text/event-stream","cache-control":"no-cache","connection":"keep-alive"}"#.to_string();
     log.duration_ms = start.elapsed().as_millis() as i32;
-    log.input_tokens = tokens_acc.load(std::sync::atomic::Ordering::Relaxed);
-    log.output_tokens = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
-    log.cache_tokens = tokens_cache.load(std::sync::atomic::Ordering::Relaxed);
     upsert_log(&state, &log, &log_settings).await;
 
     (
@@ -1350,20 +1321,57 @@ async fn handle_passthrough(
         return response;
     }
 
-    // ── 流式：原样透传 SSE bytes，不解析不转换；尽力累计 token ──
-    let tokens_in = Arc::new(std::sync::atomic::AtomicI32::new(0));
-    let tokens_out = Arc::new(std::sync::atomic::AtomicI32::new(0));
-    let tokens_cache = Arc::new(std::sync::atomic::AtomicI32::new(0));
-    let acc_in = tokens_in.clone();
-    let acc_out = tokens_out.clone();
-    let acc_cache = tokens_cache.clone();
+    // ── 流式：原样透传 SSE bytes，不解析不转换；旁路累计 token + 聚合 body，[DONE]/断连回写 ──
+    log.is_stream = true;
+    log.status_code = status.as_u16() as i32;
 
+    let agg = Arc::new(StreamAggregator::new());
+    let est_fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let req_span = tracing::Span::current();
+
+    // 透传原样 relay：response_body == user_response_body == 上游 SSE 原文。
+    // response_body 受 master(enabled) 控制；user_response_body 受 log_user_request 控制。
+    let record_upstream_body = log_settings.enabled;
+    let record_client_body = log_settings.enabled && log_settings.log_user_request;
+
+    // 透传分支无协议转换 → user_response_body 复用 upstream 原文（不单独聚合 client_body）。
+    let guard = StreamLogGuard {
+        agg: agg.clone(),
+        est_fired: est_fired.clone(),
+        log: log.clone(),
+        state: state.clone(),
+        settings: log_settings.clone(),
+        start,
+        record_upstream_body,
+        // 透传 user_response_body 由 flush 中从 upstream_body 复制（见下方 finalize），此处 client_body 不聚合
+        record_client_body: false,
+        req_span: req_span.clone(),
+        // 透传分支历史上不做请求驱动预估，保持现状
+        est: None,
+    };
+    // flush 后由 guard 写 response_body；透传需 user_response_body 同步 = response_body。
+    // 复用 record_client_body 语义：透传时把 upstream 聚合内容也写入 user_response_body。
+    let passthrough_user_body = record_client_body;
+
+    // guard 被 move 进闭包；stream 被 Drop（含客户端断连）时 guard.drop 触发兜底 flush。
     let stream = resp.bytes_stream().map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
             Err(e) => return Err(std::io::Error::other(e.to_string())),
         };
-        // 尽力从 SSE data 累计 usage（Anthropic / OpenAI 兼容字段），不改写 chunk
+        // 旁路累积上游 SSE 原文（受 master 开关控制）
+        if record_upstream_body {
+            if let Ok(mut up) = guard.agg.upstream_body.lock() {
+                up.push(chunk.clone());
+            }
+        }
+        // 透传 user_response_body == upstream 原文：受 log_user_request 控制时同步聚合到 client_body
+        if passthrough_user_body {
+            if let Ok(mut cl) = guard.agg.client_body.lock() {
+                cl.push(chunk.clone());
+            }
+        }
+        // 尽力从 SSE data 累计 usage（Anthropic / OpenAI 兼容字段，含 message.usage 兜底），不改写 chunk
         let text = String::from_utf8_lossy(&chunk);
         for line in text.lines() {
             if let Some(data) = line.strip_prefix("data: ") {
@@ -1371,23 +1379,21 @@ async fn handle_passthrough(
                     continue;
                 }
                 if let Ok(json) = serde_json::from_str::<Value>(data) {
-                    accumulate_sse_usage(&json, &acc_in, &acc_out, &acc_cache);
+                    accumulate_sse_usage(&json, &guard.agg.tokens_in, &guard.agg.tokens_out, &guard.agg.tokens_cache);
                 }
             }
         }
+        guard.flush_if_done(&text);
         Ok::<_, std::io::Error>(chunk)
     });
 
     let body = Body::from_stream(stream);
 
-    log.status_code = status.as_u16() as i32;
+    // 返回 stream 前的占位 upsert：标记流进行中，最终态由 guard.flush（[DONE]/断连）覆盖。
     log.duration_ms = start.elapsed().as_millis() as i32;
     log.response_body = "[stream]".to_string();
     log.user_response_body = "[stream]".to_string();
     log.user_response_headers = log.upstream_response_headers.clone();
-    log.input_tokens = tokens_in.load(std::sync::atomic::Ordering::Relaxed);
-    log.output_tokens = tokens_out.load(std::sync::atomic::Ordering::Relaxed);
-    log.cache_tokens = tokens_cache.load(std::sync::atomic::Ordering::Relaxed);
     upsert_log(state, log, log_settings).await;
 
     let mut response = (resp_status, body).into_response();
@@ -1422,6 +1428,168 @@ fn passthrough_headers(orig: &axum::http::HeaderMap) -> reqwest::header::HeaderM
         }
     }
     out
+}
+
+/// 聚合 SSE body 的上限（字节）。完整记录但防物理崩溃：超限截断 + 标记，禁 panic / OOM。
+/// SQLite 单值上限 ~1GB；取 512MB 为安全上限（拼接 + UTF-8 lossy 仍有余量）。
+const STREAM_BODY_MAX_BYTES: usize = 512 * 1024 * 1024;
+
+/// 把聚合的 SSE chunk（Vec<Bytes>）拼接为字符串，超上限则截断并加标记。
+/// 旁路累积零阻塞转发，此处一次性拼接（仅 flush 时调用，非 chunk 热路径）。
+fn join_stream_body(chunks: &[Bytes]) -> String {
+    let total: usize = chunks.iter().map(|c| c.len()).sum();
+    if total > STREAM_BODY_MAX_BYTES {
+        let mut buf: Vec<u8> = Vec::with_capacity(STREAM_BODY_MAX_BYTES);
+        for c in chunks {
+            if buf.len() >= STREAM_BODY_MAX_BYTES {
+                break;
+            }
+            let remaining = STREAM_BODY_MAX_BYTES - buf.len();
+            let take = remaining.min(c.len());
+            buf.extend_from_slice(&c[..take]);
+        }
+        let mut s = String::from_utf8_lossy(&buf).into_owned();
+        s.push_str("\n[truncated: stream body exceeded size limit]");
+        s
+    } else {
+        let mut buf: Vec<u8> = Vec::with_capacity(total);
+        for c in chunks {
+            buf.extend_from_slice(c);
+        }
+        String::from_utf8_lossy(&buf).into_owned()
+    }
+}
+
+/// 流式日志聚合状态：旁路累积 token + 上游响应原文 + 转换后下发客户端的 SSE。
+/// 闭包内对其加锁是同步短临界区（push），**禁持锁跨 await**。
+struct StreamAggregator {
+    upstream_body: std::sync::Mutex<Vec<Bytes>>,
+    client_body: std::sync::Mutex<Vec<Bytes>>,
+    tokens_in: std::sync::atomic::AtomicI32,
+    tokens_out: std::sync::atomic::AtomicI32,
+    tokens_cache: std::sync::atomic::AtomicI32,
+}
+
+impl StreamAggregator {
+    fn new() -> Self {
+        Self {
+            upstream_body: std::sync::Mutex::new(Vec::new()),
+            client_body: std::sync::Mutex::new(Vec::new()),
+            tokens_in: std::sync::atomic::AtomicI32::new(0),
+            tokens_out: std::sync::atomic::AtomicI32::new(0),
+            tokens_cache: std::sync::atomic::AtomicI32::new(0),
+        }
+    }
+}
+
+/// 流式日志最终回写 guard：[DONE] 正常结束 或 客户端断连 Drop 时，
+/// 用聚合的 token + body 回写日志（INSERT OR REPLACE 覆盖返回前的占位 upsert）。
+/// flush 幂等（est_fired 守卫），[DONE] 与 Drop 只触发一次。
+/// Drop 内不可 await → 用 tokio::spawn fire-and-forget 落库 + 后台预估。
+struct StreamLogGuard {
+    agg: Arc<StreamAggregator>,
+    est_fired: Arc<std::sync::atomic::AtomicBool>,
+    // 日志回写上下文
+    log: ProxyLog,
+    state: Arc<ProxyState>,
+    settings: ProxyLogSettings,
+    start: std::time::Instant,
+    record_upstream_body: bool,
+    record_client_body: bool,
+    req_span: tracing::Span,
+    // 后台预估上下文（None = 不做预估，如透传分支）
+    est: Option<StreamEstCtx>,
+}
+
+/// 流式 flush 时触发的后台预估上下文。
+struct StreamEstCtx {
+    platform_id: u64,
+    platform_type: Protocol,
+    base_url: String,
+    api_key: String,
+    model: String,
+    coding_plan: bool,
+}
+
+impl StreamLogGuard {
+    /// 若 chunk 文本含 SSE 终止标记（`data: [DONE]`）则触发 flush。
+    /// 正常结束走此路径回写（token 已累加完整）；未命中则由 Drop 兜底。
+    fn flush_if_done(&self, text: &str) {
+        for line in text.lines() {
+            if let Some(data) = line.strip_prefix("data: ") {
+                if data.trim() == "[DONE]" {
+                    self.flush();
+                    return;
+                }
+            }
+        }
+    }
+
+    /// 用聚合结果回写日志 + 触发后台预估。幂等：仅首次调用生效。
+    fn flush(&self) {
+        use std::sync::atomic::Ordering::Relaxed;
+        if self.est_fired.swap(true, Relaxed) {
+            return;
+        }
+        let input_tokens = self.agg.tokens_in.load(Relaxed);
+        let output_tokens = self.agg.tokens_out.load(Relaxed);
+        let cache_tokens = self.agg.tokens_cache.load(Relaxed);
+
+        let mut final_log = self.log.clone();
+        final_log.input_tokens = input_tokens;
+        final_log.output_tokens = output_tokens;
+        final_log.cache_tokens = cache_tokens;
+        final_log.status_code = 200;
+        final_log.duration_ms = self.start.elapsed().as_millis() as i32;
+        // 聚合真实 SSE 内容写入 body（受 record 开关控制；upsert_log 仍按 settings 二次过滤）
+        if self.record_upstream_body {
+            if let Ok(chunks) = self.agg.upstream_body.lock() {
+                final_log.response_body = join_stream_body(&chunks);
+            }
+        }
+        if self.record_client_body {
+            if let Ok(chunks) = self.agg.client_body.lock() {
+                final_log.user_response_body = join_stream_body(&chunks);
+            }
+        }
+
+        tracing::info!(
+            platform_id = final_log.platform_id, model = %final_log.actual_model,
+            status = 200, stream = true, duration_ms = final_log.duration_ms,
+            input_tokens, output_tokens, cache_tokens, "stream request completed (flush)"
+        );
+
+        let upsert_state = self.state.clone();
+        let upsert_settings = self.settings.clone();
+        let span = self.req_span.clone();
+        tokio::spawn(async move {
+            upsert_log(&upsert_state, &final_log, &upsert_settings).await;
+        }.instrument(span));
+
+        if let Some(est) = &self.est {
+            spawn_estimate(
+                &self.state,
+                est.platform_id,
+                &est.platform_type,
+                est.base_url.clone(),
+                est.api_key.clone(),
+                est.model.clone(),
+                input_tokens,
+                output_tokens,
+                cache_tokens,
+                est.coding_plan,
+                self.req_span.clone(),
+            );
+        }
+    }
+}
+
+impl Drop for StreamLogGuard {
+    fn drop(&mut self) {
+        // 客户端断连 / 上游无 [DONE] → flush 未触发，此处兜底回写已聚合数据。
+        // Drop 内不可 async；flush 内部用 tokio::spawn 落库（Drop 发生在 runtime 任务上下文中）。
+        self.flush();
+    }
 }
 
 /// 从 SSE event JSON 尽力累计 usage（Anthropic / OpenAI 兼容字段）
