@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/06-13-group-multi-platform-retry-failover/prd.md", "reason": "对照数据模型/编排/验收逐条"}
+{"file": ".trellis/tasks/06-13-group-multi-platform-retry-failover/research/04-fix-points.md", "reason": "验风险点(流式重试/迁移兼容/状态区分)守住"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "契约一致验证"}
+{"file": ".trellis/spec/backend/index.md", "reason": "迁移/URL/后端规约合规"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "三态展示/i18n/类型合规"}
