@@ -14,4 +14,4 @@
 | swap-window-dimensions | 对调默认窗口长宽 | — | 已完成 | 收尾 | 100% | — |
 | logo-prompt-design | AiDog APP logo 提示词设计 | — | 已完成 | 收尾 | 100% | — |
 | kimi-coding-client-type-fix | 修复 Kimi Code Plan 预设 client_type (codex_tui→claude_code) | — | 已完成 | 收尾 | 100% | — |
-| request-id-copy-button | 请求详情 Request ID 独立复制按钮 | — | 进行中 | 规划 | 0% | — |
+| request-id-copy-button | 请求详情 Request ID 独立复制按钮 | — | 已完成 | 收尾 | 100% | — |
