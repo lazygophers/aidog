@@ -107,6 +107,7 @@ async fn ensure_platform_groups(db: &Db) {
 // ─── Platform Commands ─────────────────────────────────────
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
     tracing::debug!(command = "platform_create", name = %input.name, "command invoked");
     let platform = db::create_platform(&db, input).await
@@ -148,18 +149,21 @@ async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Pla
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_list(db: State<'_, Db>) -> Result<Vec<Platform>, String> {
     tracing::debug!(command = "platform_list", "command invoked");
     db::list_platforms(&db).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_get(id: u64, db: State<'_, Db>) -> Result<Option<Platform>, String> {
     tracing::debug!(command = "platform_get", id, "command invoked");
     db::get_platform(&db, id).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
     tracing::debug!(command = "platform_update", id = input.id, "command invoked");
     let platform = db::update_platform(&db, input).await
@@ -195,6 +199,7 @@ async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Pla
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_delete(id: u64, db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "platform_delete", id, "command invoked");
     db::delete_platform(&db, id).await
@@ -205,6 +210,7 @@ async fn platform_delete(id: u64, db: State<'_, Db>) -> Result<(), String> {
 /// enabled=true → 设 platform_id 为唯一展示平台（tray_display: "balance"|"coding"）；
 /// enabled=false → 清空所有。改后刷新托盘。
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_set_tray(
     platform_id: u64,
     tray_display: String,
@@ -226,6 +232,7 @@ async fn platform_set_tray(
 
 /// 读取托盘配置。无配置时（首次/升级）从旧 show_in_tray 平台迁移生成默认。
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn tray_config_get(db: State<'_, Db>) -> Result<TrayConfig, String> {
     tracing::debug!(command = "tray_config_get", "command invoked");
     Ok(db::get_tray_config(&db).await?.unwrap_or_default())
@@ -233,6 +240,7 @@ async fn tray_config_get(db: State<'_, Db>) -> Result<TrayConfig, String> {
 
 /// 保存托盘配置并刷新托盘渲染。
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn tray_config_set(
     config: TrayConfig,
     db: State<'_, Db>,
@@ -247,6 +255,7 @@ async fn tray_config_set(
 
 /// 获取今日统计摘要（供前端预览使用）
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn tray_today_stats(db: State<'_, Db>) -> Result<db::TodayStats, String> {
     tracing::debug!(command = "tray_today_stats", "command invoked");
     db::today_stats(&db).await
@@ -255,6 +264,7 @@ async fn tray_today_stats(db: State<'_, Db>) -> Result<db::TodayStats, String> {
 // ─── Group Commands ────────────────────────────────────────
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn group_create(mut input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
     tracing::debug!(command = "group_create", name = %input.name, path = %input.path, "command invoked");
     // Auto-slugify and validate group name
@@ -268,18 +278,21 @@ async fn group_create(mut input: CreateGroup, db: State<'_, Db>, app: tauri::App
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn group_list(db: State<'_, Db>) -> Result<Vec<Group>, String> {
     tracing::debug!(command = "group_list", "command invoked");
     db::list_groups(&db).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn group_get(id: u64, db: State<'_, Db>) -> Result<Option<Group>, String> {
     tracing::debug!(command = "group_get", id, "command invoked");
     db::get_group(&db, id).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn group_update(mut input: UpdateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
     tracing::debug!(command = "group_update", id = input.id, "command invoked");
     // Auto-slugify and validate if name is being updated
@@ -296,6 +309,7 @@ async fn group_update(mut input: UpdateGroup, db: State<'_, Db>, app: tauri::App
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     tracing::debug!(command = "group_delete", id, "command invoked");
     db::delete_group(&db, id).await
@@ -307,6 +321,7 @@ async fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> Resu
 // ─── GroupPlatform Commands ────────────────────────────────
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn group_set_platforms(input: SetGroupPlatforms, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     tracing::debug!(command = "group_set_platforms", group_id = input.group_id, count = input.platforms.len(), "command invoked");
     db::set_group_platforms(&db, input.group_id, &input.platforms).await
@@ -316,6 +331,7 @@ async fn group_set_platforms(input: SetGroupPlatforms, db: State<'_, Db>, app: t
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn group_get_platforms(
     group_id: u64,
     db: State<'_, Db>,
@@ -327,18 +343,21 @@ async fn group_get_platforms(
 // ─── Aggregate ─────────────────────────────────────────────
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn group_detail(id: u64, db: State<'_, Db>) -> Result<Option<GroupDetail>, String> {
     tracing::debug!(command = "group_detail", id, "command invoked");
     db::get_group_detail(&db, id).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn group_detail_list(db: State<'_, Db>) -> Result<Vec<GroupDetail>, String> {
     tracing::debug!(command = "group_detail_list", "command invoked");
     db::list_group_details(&db).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn group_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     tracing::debug!(command = "group_reorder", count = ordered_ids.len(), "command invoked");
     db::reorder_groups(&db, &ordered_ids).await
@@ -356,6 +375,7 @@ use tokio::task::JoinHandle;
 struct ProxyHandle(StdMutex<Option<JoinHandle<()>>>);
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_start(
     port: u16,
     app: tauri::AppHandle,
@@ -409,6 +429,7 @@ async fn proxy_start(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
     tracing::debug!(command = "proxy_stop", "command invoked");
     let handle = app.state::<ProxyHandle>();
@@ -431,6 +452,7 @@ async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 fn proxy_status(app: tauri::AppHandle) -> Result<bool, String> {
     tracing::debug!(command = "proxy_status", "command invoked");
     let handle = app.state::<ProxyHandle>();
@@ -439,12 +461,14 @@ fn proxy_status(app: tauri::AppHandle) -> Result<bool, String> {
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_get_settings(app: tauri::AppHandle) -> Result<ProxySettings, String> {
     tracing::debug!(command = "proxy_get_settings", "command invoked");
     load_proxy_settings(&app).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "proxy_set_autostart", enabled, "command invoked");
     let current = load_proxy_settings(&app).await?;
@@ -454,6 +478,7 @@ async fn proxy_set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(),
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 fn app_set_autolaunch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "app_set_autolaunch", enabled, "command invoked");
     use tauri_plugin_autostart::ManagerExt;
@@ -467,6 +492,7 @@ fn app_set_autolaunch(app: tauri::AppHandle, enabled: bool) -> Result<(), String
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 fn app_get_autolaunch(app: tauri::AppHandle) -> Result<bool, String> {
     tracing::debug!(command = "app_get_autolaunch", "command invoked");
     use tauri_plugin_autostart::ManagerExt;
@@ -475,6 +501,7 @@ fn app_get_autolaunch(app: tauri::AppHandle) -> Result<bool, String> {
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "app_set_silent_launch", enabled, "command invoked");
     let current = load_proxy_settings(&app).await?;
@@ -486,6 +513,7 @@ async fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Result<(
 // ─── Proxy Client Settings (upstream HTTP proxy) ─────────────
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_client_get_settings(app: tauri::AppHandle) -> Result<gateway::models::ProxyClientSettings, String> {
     tracing::debug!(command = "proxy_client_get_settings", "command invoked");
     let db = app.try_state::<Db>()
@@ -496,6 +524,7 @@ async fn proxy_client_get_settings(app: tauri::AppHandle) -> Result<gateway::mod
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_client_set_settings(app: tauri::AppHandle, settings: gateway::models::ProxyClientSettings) -> Result<(), String> {
     tracing::debug!(command = "proxy_client_set_settings", "command invoked");
     let db = app.try_state::<Db>()
@@ -514,6 +543,7 @@ async fn proxy_client_set_settings(app: tauri::AppHandle, settings: gateway::mod
 // ─── Platform Model Fetch ──────────────────────────────────
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_fetch_models(
     protocol: Protocol,
     base_url: String,
@@ -603,6 +633,7 @@ async fn platform_fetch_models(
 // ─── Statistics ─────────────────────────────────────────────
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn stats_query(
     db: State<'_, Db>,
     query: StatsQuery,
@@ -614,6 +645,7 @@ async fn stats_query(
 // ─── Model Testing ─────────────────────────────────────────
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_test(
     db: State<'_, Db>,
     req: ModelTestRequest,
@@ -845,6 +877,7 @@ fn extract_test_usage(v: &Value, protocol: &Protocol) -> (i32, i32) {
 // ─── Claude Code Config Export ─────────────────────────────
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String, String> {
     tracing::debug!(command = "export_claude_config", port, "command invoked");
     let base_url = format!("http://localhost:{}/claude/v1/messages", port);
@@ -989,6 +1022,7 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
 
 /// Tauri command — manual sync from UI
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Result<Vec<String>, String> {
     tracing::debug!(command = "sync_group_settings", "command invoked");
     let proxy_settings = load_proxy_settings(&app).await?;
@@ -1001,12 +1035,14 @@ async fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Result
 use gateway::models::{ProxyLog, ProxyLogSummary, ProxyLogSettings, ProxyLogFilter};
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_log_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
     tracing::debug!(command = "proxy_log_list", limit, offset, "command invoked");
     gateway::db::list_proxy_logs(&db, limit, offset).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_log_list_filtered(
     db: State<'_, Db>,
     filter: ProxyLogFilter,
@@ -1018,6 +1054,7 @@ async fn proxy_log_list_filtered(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_log_count_filtered(
     db: State<'_, Db>,
     filter: ProxyLogFilter,
@@ -1027,36 +1064,42 @@ async fn proxy_log_count_filtered(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_log_get(id: String, db: State<'_, Db>) -> Result<Option<ProxyLog>, String> {
     tracing::debug!(command = "proxy_log_get", id = %id, "command invoked");
     gateway::db::get_proxy_log(&db, &id).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_log_clear(db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "proxy_log_clear", "command invoked");
     gateway::db::clear_proxy_logs(&db).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_log_count(db: State<'_, Db>) -> Result<u32, String> {
     tracing::debug!(command = "proxy_log_count", "command invoked");
     gateway::db::count_proxy_logs(&db).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_usage_stats(platform_id: u64, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
     tracing::debug!(command = "platform_usage_stats", platform_id, "command invoked");
     gateway::db::get_platform_usage_stats(&db, platform_id).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn group_usage_stats(group_name: String, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
     tracing::debug!(command = "group_usage_stats", group_name = %group_name, "command invoked");
     gateway::db::get_group_usage_stats(&db, &group_name).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSettings, String> {
     tracing::debug!(command = "proxy_log_settings_get", "command invoked");
     let val = gateway::db::get_setting(&db, "proxy", "logging").await
@@ -1068,6 +1111,7 @@ async fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSettings, S
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSettings) -> Result<(), String> {
     tracing::debug!(command = "proxy_log_settings_set", "command invoked");
     let value = serde_json::to_value(&settings)
@@ -1099,6 +1143,7 @@ async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSettings) -
 use gateway::models::ProxyTimeoutSettings;
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings, String> {
     tracing::debug!(command = "proxy_timeout_get", "command invoked");
     Ok(gateway::db::get_setting(&db, "proxy", "timeout").await
@@ -1109,6 +1154,7 @@ async fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings, St
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_timeout_set(db: State<'_, Db>, settings: ProxyTimeoutSettings) -> Result<(), String> {
     tracing::debug!(command = "proxy_timeout_set", "command invoked");
     gateway::db::set_setting(&db, SetSettingInput {
@@ -1124,6 +1170,7 @@ async fn proxy_timeout_set(db: State<'_, Db>, settings: ProxyTimeoutSettings) ->
 use gateway::quota::PlatformQuota;
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_query_quota(
     base_url: String, api_key: String,
     platform_id: Option<u64>, db: State<'_, Db>,
@@ -1139,6 +1186,7 @@ async fn platform_query_quota(
 
 /// New API 专用余额查询（两步：先查 token quota 类型，再按需查用户余额）
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_query_quota_newapi(
     base_url: String, api_key: String, extra: String,
     platform_id: Option<u64>, db: State<'_, Db>,
@@ -1205,6 +1253,7 @@ async fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "platform_reorder", count = ordered_ids.len(), "command invoked");
     db::reorder_platforms(&db, &ordered_ids).await
@@ -1238,6 +1287,7 @@ fn expand_path(input: &str) -> std::path::PathBuf {
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 fn fs_autocomplete(input: String) -> Result<Vec<PathEntry>, String> {
     tracing::debug!(command = "fs_autocomplete", "command invoked");
     let path = expand_path(input.trim());
@@ -1311,6 +1361,7 @@ fn fs_autocomplete(input: String) -> Result<Vec<PathEntry>, String> {
 use gateway::models::SetSettingInput;
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn settings_get(
     scope: String,
     key: String,
@@ -1321,6 +1372,7 @@ async fn settings_get(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn settings_set(input: SetSettingInput, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     tracing::debug!(command = "settings_set", scope = %input.scope, key = %input.key, "command invoked");
     db::set_setting(&db, input).await
@@ -1331,6 +1383,7 @@ async fn settings_set(input: SetSettingInput, db: State<'_, Db>, app: tauri::App
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn settings_delete(scope: String, key: String, db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "settings_delete", scope = %scope, key = %key, "command invoked");
     db::delete_setting(&db, &scope, &key).await
@@ -1338,6 +1391,7 @@ async fn settings_delete(scope: String, key: String, db: State<'_, Db>) -> Resul
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn settings_list(scope: String, db: State<'_, Db>) -> Result<Vec<String>, String> {
     tracing::debug!(command = "settings_list", scope = %scope, "command invoked");
     db::list_setting_keys(&db, &scope).await
@@ -1348,6 +1402,7 @@ async fn settings_list(scope: String, db: State<'_, Db>) -> Result<Vec<String>, 
 /// Generate statusline script file in ~/.aidog/ and return absolute path.
 /// `script_type`: "statusline" | "subagent"
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 fn generate_statusline_script(
     script_type: String,
     content: String,
@@ -1382,6 +1437,7 @@ fn aidog_data_dir() -> Result<std::path::PathBuf, String> {
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 fn read_claude_code_settings() -> Result<serde_json::Value, String> {
     tracing::debug!(command = "read_claude_code_settings", "command invoked");
     let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
@@ -1421,12 +1477,14 @@ fn load_app_log_settings() -> logging::AppLogSettings {
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn app_log_settings_get(db: State<'_, Db>) -> Result<logging::AppLogSettings, String> {
     tracing::debug!(command = "app_log_settings_get", "command invoked");
     Ok(load_app_log_settings_from_db(&db).await)
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "app_log_settings_set", "command invoked");
     let value = serde_json::to_value(&settings).map_err(|e| e.to_string())?;
@@ -1445,24 +1503,28 @@ async fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, D
 // ─── Model Price Commands ──────────────────────────────────
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_price_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
     tracing::debug!(command = "model_price_list", limit, offset, "command invoked");
     gateway::db::list_model_prices(&db, limit, offset).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_price_count(db: State<'_, Db>) -> Result<u32, String> {
     tracing::debug!(command = "model_price_count", "command invoked");
     gateway::db::count_model_prices(&db).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_price_search(db: State<'_, Db>, query: String, limit: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
     tracing::debug!(command = "model_price_search", query = %query, limit, "command invoked");
     gateway::db::search_model_prices(&db, &query, limit).await
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_price_list_filtered(
     db: State<'_, Db>,
     query: Option<String>,
@@ -1475,6 +1537,7 @@ async fn model_price_list_filtered(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_price_count_filtered(
     db: State<'_, Db>,
     query: Option<String>,
@@ -1485,6 +1548,7 @@ async fn model_price_count_filtered(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_price_delete(db: State<'_, Db>, model_name: String) -> Result<(), String> {
     tracing::debug!(command = "model_price_delete", model_name = %model_name, "command invoked");
     gateway::db::delete_model_price(&db, &model_name).await
@@ -1492,6 +1556,7 @@ async fn model_price_delete(db: State<'_, Db>, model_name: String) -> Result<(),
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_price_upsert(
     db: State<'_, Db>,
     model_name: String,
@@ -1504,6 +1569,7 @@ async fn model_price_upsert(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_price_resolve(
     db: State<'_, Db>,
     model_name: String,
@@ -1515,6 +1581,7 @@ async fn model_price_resolve(
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_price_sync(db: State<'_, Db>) -> Result<gateway::models::PriceSyncResult, String> {
     tracing::debug!(command = "model_price_sync", "command invoked");
     gateway::price_sync::sync_litellm_prices(&db).await
@@ -1522,12 +1589,14 @@ async fn model_price_sync(db: State<'_, Db>) -> Result<gateway::models::PriceSyn
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn price_sync_settings_get(db: State<'_, Db>) -> Result<gateway::models::PriceSyncSettings, String> {
     tracing::debug!(command = "price_sync_settings_get", "command invoked");
     Ok(gateway::price_sync::get_sync_settings(&db).await)
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn price_sync_settings_set(db: State<'_, Db>, settings: gateway::models::PriceSyncSettings) -> Result<(), String> {
     tracing::debug!(command = "price_sync_settings_set", "command invoked");
     gateway::price_sync::save_sync_settings(&db, &settings).await;

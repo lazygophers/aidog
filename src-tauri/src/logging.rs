@@ -85,6 +85,12 @@ pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) {
     }
 }
 
+/// 生成 8 位短 trace id（链路追踪），用于 tracing span 的 trace_id 字段。
+/// 全后端统一经此函数取 id，禁各处自造。span 内 .await 的下游调用自动继承该字段。
+pub fn new_trace_id() -> String {
+    uuid::Uuid::new_v4().simple().to_string()[..8].to_string()
+}
+
 fn max_files_from_retention(hours: u32) -> usize {
     if hours == 0 { 72 } else { hours as usize } // 0 = keep up to 72 files (~3 days) as fallback
 }

@@ -8,6 +8,7 @@ use axum::{
 };
 use futures::StreamExt;
 use serde_json::Value;
+use tracing::Instrument;
 use std::sync::Arc;
 
 use super::adapter::{self, ChatRequest, ChatStreamEvent};
@@ -116,6 +117,16 @@ struct CodingTierResp {
 /// 鉴权：`Authorization: Bearer <group_name>`，localhost-only 端点。
 /// 多平台 / 无平台分组返回 `{ applicable:false, ... }`（200）。
 async fn handle_group_info(
+    state: AxumState<Arc<ProxyState>>,
+    headers: axum::http::HeaderMap,
+) -> Response {
+    // 每次 group-info 调用生成独立 trace id（statusline 周期拉取，无上游请求关联），
+    // span 内所有日志自动带 group_info{trace_id=xxxxxxxx} 前缀。
+    let span = tracing::info_span!("group_info", trace_id = %crate::logging::new_trace_id());
+    handle_group_info_inner(state, headers).instrument(span).await
+}
+
+async fn handle_group_info_inner(
     AxumState(state): AxumState<Arc<ProxyState>>,
     headers: axum::http::HeaderMap,
 ) -> Response {
@@ -356,6 +367,7 @@ fn spawn_estimate(
     output_tokens: i32,
     cache_tokens: i32,
     is_coding_plan: bool,
+    span: tracing::Span,
 ) {
     // 无 token（请求失败 / 无 usage）则跳过
     if input_tokens <= 0 && output_tokens <= 0 && cache_tokens <= 0 {
@@ -387,7 +399,7 @@ fn spawn_estimate(
             use tauri::Emitter;
             let _ = app.emit("tray-refresh", ());
         }
-    });
+    }.instrument(span));
 }
 
 /// Read system-level timeout settings from DB
@@ -428,11 +440,10 @@ async fn handle_proxy(
     state: AxumState<Arc<ProxyState>>,
     req: Request,
 ) -> Response {
-    use tracing::Instrument;
     // 每请求生成 trace id（复用为 ProxyLog 主键）, 建 span → 该请求生命周期内所有日志
     // 自动携带 req{id=xxxxxxxx} 前缀（含 mock/passthrough 子调用, fmt 默认渲染当前 span）。
     let request_id = uuid::Uuid::new_v4().simple().to_string();
-    let span = tracing::info_span!("req", id = %&request_id[..8]);
+    let span = tracing::info_span!("req", trace_id = %&request_id[..8]);
     handle_proxy_inner(state, req, request_id).instrument(span).await
 }
 
@@ -856,6 +867,7 @@ async fn handle_proxy_inner(
             output_tokens,
             cache_tokens,
             coding_plan,
+            tracing::Span::current(),
         );
 
         return (
@@ -906,6 +918,10 @@ async fn handle_proxy_inner(
     let done_out = tokens_out.clone();
     let done_cache = tokens_cache.clone();
 
+    // 流闭包由 axum 在 req span 外轮询（Response 返回后），故此处捕获当前 req span，
+    // clone 进闭包供 [DONE] 处的后台 spawn 链回原请求 trace_id（闭包内 Span::current() 已非 req span）。
+    let req_span = tracing::Span::current();
+
     let stream = resp.bytes_stream().map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
@@ -944,7 +960,7 @@ async fn handle_proxy_inner(
                         let upsert_settings = done_settings.clone();
                         tokio::spawn(async move {
                             upsert_log(&upsert_state, &final_log, &upsert_settings).await;
-                        });
+                        }.instrument(req_span.clone()));
 
                         spawn_estimate(
                             &est_state,
@@ -957,6 +973,7 @@ async fn handle_proxy_inner(
                             est_out.load(std::sync::atomic::Ordering::Relaxed),
                             est_cache.load(std::sync::atomic::Ordering::Relaxed),
                             est_coding_plan,
+                            req_span.clone(),
                         );
                     }
                     continue;
