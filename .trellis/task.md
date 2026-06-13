@@ -15,3 +15,4 @@
 | logo-prompt-design | AiDog APP logo 提示词设计 | — | 已完成 | 收尾 | 100% | — |
 | kimi-coding-client-type-fix | 修复 Kimi Code Plan 预设 client_type (codex_tui→claude_code) | — | 已完成 | 收尾 | 100% | — |
 | request-id-copy-button | 请求详情 Request ID 独立复制按钮 | — | 已完成 | 收尾 | 100% | — |
+| anthropic-inbound-parse-fail | 修复 anthropic 入站请求解析失败 (ContentBlock 未覆盖类型致 400) | — | 已完成 | 收尾 | 100% | — |
