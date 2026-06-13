@@ -1,0 +1,9 @@
+{"file": ".trellis/tasks/06-13-tray-popover-customizable-stats/prd.md", "reason": "数据结构/后端/前端/配置驱动 唯一事实源"}
+{"file": ".trellis/tasks/06-13-tray-popover-customizable-stats/research/01-popover-current.md", "reason": "popover.tsx/popover_data/窗口创建 现状 file:line"}
+{"file": ".trellis/tasks/06-13-tray-popover-customizable-stats/research/02-today-stats-source.md", "reason": "today_stats 复用 + today_platform_stats 需新增"}
+{"file": ".trellis/tasks/06-13-tray-popover-customizable-stats/research/03-settings-customize.md", "reason": "TrayConfig/TrayConfigTab 范式 + settings 持久化"}
+{"file": ".trellis/tasks/06-13-tray-popover-customizable-stats/research/04-fix-points.md", "reason": "8 改造点 + platform_id 回溯 + tray wip 衔接风险"}
+{"file": ".trellis/spec/backend/index.md", "reason": "后端 query/command/迁移约定"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/拖拽/类型/i18n"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "PopoverConfig Rust↔TS 契约"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用 TrayConfigTab 拖拽范式 + today_stats, 禁重复"}
