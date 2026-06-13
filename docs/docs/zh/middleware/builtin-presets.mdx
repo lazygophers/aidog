@@ -1,0 +1,39 @@
+---
+title: 内置预设
+---
+
+# 内置预设
+
+AiDog 内置一组开箱即用的中间件规则（`is_builtin = 1`），默认启用。内置规则**不可删除**，但可禁用或调整参数。
+
+## 内置脱敏检测器
+
+引擎内置三组正则检测器，配合 `redaction` / `sensitive_word` 规则使用：
+
+| 检测器 | 模式 | 说明 |
+| --- | --- | --- |
+| API Key | `BUILTIN_SECRET_PATTERN` | 常见 AI 平台密钥格式（`sk-...` 等） |
+| 邮箱 | `[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}` | 标准邮箱 |
+| 手机号 | （内置手机号模式） | 各地区手机号 |
+
+命中后按规则的 `replacement`（默认 `***`）替换。
+
+## 默认 error_rules
+
+内置一组默认错误分类规则（`error_rule` + `is_builtin = 1`），覆盖常见上游错误：
+
+- **429 Too Many Requests** → 可重试
+- **5xx 服务端错误** → 可重试 + 计入熔断
+- **401 / 403 鉴权失败** → 触发平台 auto_disabled（见 [平台重试与故障转移](/zh/platforms/protocols)）
+
+## 内置规则管理
+
+- **幂等**：按 `(name, is_builtin=1)` 唯一判定，已存在则跳过 seed
+- **尊重用户状态**：用户禁用的内置规则不会被重新启用
+- **可见性**：前端 UI 中内置规则带标记，与自定义规则区分
+
+## 自定义规则
+
+在内置规则之外，可任意添加自定义规则（`is_builtin = 0`）。参见 [配置与作用域](/zh/middleware/configuration)。
+
+→ 下一步：[配置与作用域](/zh/middleware/configuration)

@@ -1,0 +1,62 @@
+---
+title: 入站规则
+---
+
+# 入站规则
+
+入站规则在**请求到达上游平台之前**执行，作用于请求体（messages、system、model 等字段）。引擎按固定顺序应用 5 种入站规则：
+
+```
+RequestFilter → SensitiveWord → Redaction → ContentFilter → DynamicInjection
+```
+
+## request_filter — 请求字段过滤
+
+按字段值过滤请求。典型用途：**model 白/黑名单**。
+
+- `match_type`：匹配方式
+- `pattern`：字段值模式（如模型名 `gpt-4o`）
+- `action`：`warn`（记录）/ `block`（拦截请求）
+
+例：禁止调用某模型 → 命中即 `block`，请求被拦截，记入审计日志（`proxy_log.blocked_by`）。
+
+## sensitive_word — 敏感词拦截
+
+`pattern` 即敏感词本身（非正则）。命中后按 `action` 处理：
+
+- `block`：拦截请求
+- `mask`：替换为占位符
+
+内置检测器覆盖常见密钥模式（见 [内置预设](/zh/middleware/builtin-presets)）。
+
+## redaction — 脱敏
+
+对请求文本中的敏感信息做替换。配合内置正则（API Key、邮箱、手机号）或自定义 `pattern`：
+
+- `config.replacement`：替换文本（默认 `***`）
+- 命中敏感片段 → 替换后继续转发
+
+## content_filter — 内容过滤
+
+按正则匹配请求内容，命中可拦截或改写。适合屏蔽特定主题或注入安全策略。
+
+## dynamic_injection — 动态注入
+
+向请求动态注入内容，三种注入点（`config` 指定）：
+
+- **system**：注入 system message（如身份约束、安全策略）
+- **header**：注入 / 覆写 HTTP header
+- **body**：注入 / 覆写请求体字段
+
+例：所有请求自动追加一条 system 提示 → 配置 `dynamic_injection` + `config.inject = system`。
+
+## 拦截审计
+
+`action = block` 的命中会写入 `proxy_log`：
+
+- `blocked_by`：命中规则标识（`rule_type#id name`）
+- `blocked_reason`：人读拦截原因
+
+被拦截请求**不计费**（`est_cost = 0`），但保留完整审计行。
+
+→ 下一步：[出站规则](/zh/middleware/outbound-rules)

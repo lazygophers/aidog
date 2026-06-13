@@ -1,0 +1,46 @@
+---
+title: Outbound Rules
+---
+
+# Outbound Rules
+
+Outbound rules execute **after the response returns from upstream, before forwarding to the client**. The engine applies 3 outbound rule types in a fixed order:
+
+```
+ResponseOverride → Rectifier → ErrorRule
+```
+
+## response_override — Response Override
+
+Rewrites successful response bodies. Matches response text by `pattern`; on match, replaces with content specified in `config`. Useful for unifying field formats or masking sensitive fragments in responses.
+
+## rectifier — Rectifier
+
+Fixes format defects in upstream responses, covering:
+
+- **SSE stream fix**: patch missing `data:` prefixes, event boundaries
+- **JSON fix**: repair truncation / illegal escapes
+- **Encoding fix**: unify character encoding
+- **Missing-field fix**: fill in required fields
+
+Used to compat with upstream platforms that return non-standard responses.
+
+## error_rule — Error Classification
+
+Classifies upstream error responses (non-2xx):
+
+- **Retry**: judged retryable (e.g. 429 / 503) → triggers cross-platform failover retry
+- **Circuit break**: judged a platform fault → counted toward circuit-breaker failures (see [Scheduling & Circuit Breaking](/en/groups/scheduling))
+- **Status-code override**: maps upstream status code to a client-visible code
+
+`config` can specify `retry` / `circuit_break` / `status_override` rules. A default set of `error_rules` is built in (see [Built-in Presets](/en/middleware/builtin-presets)).
+
+## Per-Chunk Streaming
+
+For SSE streaming responses, the engine applies outbound rules **per chunk** (`rewrite_chunk_text`) without buffering the whole response:
+
+- Each SSE chunk is processed as it arrives
+- Streaming semantics preserved; the client receives tokens in real time
+- Regex size limited (DFA ≤ 1 MiB) to prevent ReDoS
+
+→ Next: [Built-in Presets](/en/middleware/builtin-presets)

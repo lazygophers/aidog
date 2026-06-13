@@ -1,0 +1,58 @@
+---
+title: 中间件规则引擎
+---
+
+# 中间件规则引擎
+
+AiDog 内置可配置的请求/响应中间件规则引擎，在代理转发链路的**入站**（请求进入）与**出站**（响应返回）两个阶段执行规则：整流、覆写、脱敏、注入、敏感词过滤、错误检测与熔断。所有规则可图形化配置，无需写代码。
+
+## 架构
+
+| 特性 | 说明 |
+| --- | --- |
+| 单表存储 | 所有规则存于 SQLite `middleware_rule` 表 |
+| Engine 单例 | `MiddlewareEngine` 启动时编译规则为正则，请求时按优先级匹配 |
+| 双向挂载 | 入站（改写请求体）+ 出站（改写响应体 / SSE 流） |
+| 三级就近覆盖 | `global` → `group` → `platform`，后者覆盖前者同名规则 |
+| 流式逐块 | SSE 响应按 chunk 逐块应用规则，不破坏流 |
+| 内置预设 | 密钥 / 邮箱 / 手机号脱敏 + 默认错误分类规则 |
+
+## 规则类型
+
+引擎定义 8 种 `RuleType`，按执行阶段分组：
+
+| 类型 | 阶段 | 作用 |
+| --- | --- | --- |
+| `request_filter` | 入站 | 请求字段过滤（如 model 白/黑名单） |
+| `sensitive_word` | 入站 | 敏感词拦截（pattern 即词） |
+| `redaction` | 入站 | 字段值脱敏替换 |
+| `content_filter` | 入站 | 内容过滤 |
+| `dynamic_injection` | 入站 | 动态注入（system / header / body） |
+| `response_override` | 出站 | 响应体覆写 |
+| `rectifier` | 出站 | 矫正器（SSE / JSON / 编码 / 字段缺省修复） |
+| `error_rule` | 出站 | 错误分类（重试 / 熔断 / 状态码覆写） |
+
+## 规则字段
+
+每条规则（`middleware_rule` 表）字段：
+
+| 字段 | 说明 |
+| --- | --- |
+| `name` / `description` | 名称与描述 |
+| `rule_type` | 规则类型（见上表） |
+| `scope` | 作用域：`global` / `group` / `platform` |
+| `scope_ref` | 作用域引用（group / platform 名，global 时为空） |
+| `match_type` | 匹配方式（如 `contains` / `regex`） |
+| `pattern` | 匹配模式 |
+| `action` | 命中动作（如 `warn` / `block` / `mask` / `inject`） |
+| `config` | JSON 扩展配置 |
+| `priority` | 优先级（数值大者先执行） |
+| `enabled` | 启用开关 |
+| `is_builtin` | 是否内置预设（不可删除，可禁用） |
+
+## 进一步阅读
+
+- [入站规则](/zh/middleware/inbound-rules) — 请求阶段的 5 种规则
+- [出站规则](/zh/middleware/outbound-rules) — 响应阶段的 3 种规则 + 流式处理
+- [内置预设](/zh/middleware/builtin-presets) — 开箱即用的脱敏与错误分类
+- [配置与作用域](/zh/middleware/configuration) — 三级就近覆盖 + 前端 UI

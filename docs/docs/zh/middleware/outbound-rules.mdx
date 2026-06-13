@@ -1,0 +1,46 @@
+---
+title: 出站规则
+---
+
+# 出站规则
+
+出站规则在**响应从上游返回后、转发给客户端之前**执行。引擎按固定顺序应用 3 种出站规则：
+
+```
+ResponseOverride → Rectifier → ErrorRule
+```
+
+## response_override — 响应覆写
+
+改写成功响应体。按 `pattern` 匹配响应文本，命中后替换为 `config` 指定内容。适合统一字段格式或屏蔽响应中的敏感片段。
+
+## rectifier — 矫正器
+
+修复上游响应的格式缺陷，覆盖：
+
+- **SSE 流修复**：补全缺失的 `data:` 前缀、事件边界
+- **JSON 修复**：修复截断 / 非法转义
+- **编码修复**：统一字符编码
+- **字段缺省修复**：补全缺失的必需字段
+
+用于兼容返回不规范响应的上游平台。
+
+## error_rule — 错误分类
+
+对上游错误响应（非 2xx）分类处理：
+
+- **重试**：判定为可重试错误（如 429 / 503）→ 触发平台间故障转移重试
+- **熔断**：判定为平台故障 → 记入熔断器失败计数（见 [调度与熔断](/zh/groups/scheduling)）
+- **状态码覆写**：将上游状态码映射为客户端可见的码
+
+`config` 可指定 `retry` / `circuit_break` / `status_override` 规则。默认内置一组 `error_rules`（见 [内置预设](/zh/middleware/builtin-presets)）。
+
+## 流式逐块处理
+
+对 SSE 流式响应，引擎**逐 chunk 应用**出站规则（`rewrite_chunk_text`），无需缓冲整个响应：
+
+- 每个 SSE chunk 到达即过规则
+- 不破坏流式语义，客户端实时收到 token
+- 正则匹配限定大小（DFA ≤ 1 MiB），防 ReDoS
+
+→ 下一步：[内置预设](/zh/middleware/builtin-presets)

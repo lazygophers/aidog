@@ -1,0 +1,39 @@
+---
+title: Préréglages intégrés
+---
+
+# Préréglages intégrés
+
+AiDog fournit un jeu de règles middleware prêtes à l'emploi (`is_builtin = 1`), activées par défaut. Les règles intégrées **ne peuvent pas être supprimées**, mais peuvent être désactivées ou ajustées.
+
+## Détecteurs de caviardage intégrés
+
+Le moteur embarque trois détecteurs regex, utilisés avec `redaction` / `sensitive_word` :
+
+| Détecteur | Motif | Description |
+| --- | --- | --- |
+| Clé API | `BUILTIN_SECRET_PATTERN` | Formats de clé courants (`sk-...`, etc.) |
+| Email | `[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}` | Email standard |
+| Téléphone | (motif téléphone intégré) | Numéros régionaux |
+
+Au match, remplacé selon le `replacement` de la règle (défaut `***`).
+
+## error_rules par défaut
+
+Un jeu de classification d'erreurs par défaut (`error_rule` + `is_builtin = 1`) couvre les erreurs amont courantes :
+
+- **429 Too Many Requests** → retentable
+- **5xx erreur serveur** → retentable + compte disjonction
+- **401 / 403 échec auth** → déclenche auto_disabled (voir [Retry & Failover plateforme](/fr/platforms/protocols))
+
+## Gestion des règles intégrées
+
+- **Idempotent** : unique par `(name, is_builtin=1)` ; seeding ignoré si présent
+- **Respecte l'utilisateur** : une règle intégrée désactivée n'est pas réactivée
+- **Visibilité** : les règles intégrées sont marquées dans l'UI
+
+## Règles personnalisées
+
+Au-delà des intégrées, ajoutez toute règle personnalisée (`is_builtin = 0`). Voir [Configuration et portée](/fr/middleware/configuration).
+
+→ Suite : [Configuration et portée](/fr/middleware/configuration)

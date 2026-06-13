@@ -1,0 +1,58 @@
+---
+title: Middleware-Regelengine
+---
+
+# Middleware-Regelengine
+
+AiDog liefert eine konfigurierbare Request/Response-Middleware-Regelengine, die Regeln in zwei Stufen der Proxy-Forwarding-Kette ausführt — **Inbound** (eingehender Request) und **Outbound** (zurückkommende Response): Normalisierung, Override, Redaktion, Injection, Sensitiv-Wort-Filter, Fehlererkennung und Circuit-Breaking. Alles per UI konfigurierbar, kein Code.
+
+## Architektur
+
+| Merkmal | Beschreibung |
+| --- | --- |
+| Einzelne Tabelle | Alle Regeln in SQLite-Tabelle `middleware_rule` |
+| Engine-Singleton | `MiddlewareEngine` kompiliert Regeln beim Start zu Regex, matcht pro Request nach Priorität |
+| Bidirektional | Inbound (Request-Body) + Outbound (Response-Body / SSE-Stream) |
+| Drei-Stufen-Override | `global` → `group` → `platform`; spätere übersteuern gleichnamige Regeln |
+| Chunk-Streaming | SSE-Antworten chunkweise verarbeitet, ohne Pufferung |
+| Eingebaute Presets | API-Key-/E-Mail-/Telefon-Redaktion + Standard-Fehlerklassifikation |
+
+## Regeltypen
+
+8 `RuleType`s, nach Ausführungsstufe gruppiert:
+
+| Typ | Stufe | Zweck |
+| --- | --- | --- |
+| `request_filter` | Inbound | Request-Feldfilter (z. B. Model-Allow/Deny-Liste) |
+| `sensitive_word` | Inbound | Sensitiv-Wort-Block (pattern = Wort) |
+| `redaction` | Inbound | Feldwert-Redaktion |
+| `content_filter` | Inbound | Inhaltsfilter |
+| `dynamic_injection` | Inbound | Dynamische Injection (system / header / body) |
+| `response_override` | Outbound | Response-Body-Override |
+| `rectifier` | Outbound | Gleichrichter (SSE / JSON / Encoding / fehlendes Feld) |
+| `error_rule` | Outbound | Fehlerklassifikation (Retry / Circuit-Break / Status-Override) |
+
+## Regelfelder
+
+Jede Regel (Tabelle `middleware_rule`):
+
+| Feld | Beschreibung |
+| --- | --- |
+| `name` / `description` | Name und Beschreibung |
+| `rule_type` | Regeltyp (siehe Tabelle) |
+| `scope` | Geltung: `global` / `group` / `platform` |
+| `scope_ref` | Referenz (group/platform-Name; bei global leer) |
+| `match_type` | Match-Methode (`contains` / `regex` etc.) |
+| `pattern` | Match-Muster |
+| `action` | Aktion bei Match (`warn` / `block` / `mask` / `inject` etc.) |
+| `config` | JSON-Erweiterungskonfig |
+| `priority` | Priorität (höher zuerst) |
+| `enabled` | Aktiv |
+| `is_builtin` | Eingebautes Preset (nicht löschbar, deaktivierbar) |
+
+## Weiterlesen
+
+- [Inbound-Regeln](/de/middleware/inbound-rules) — 5 Typen in der Request-Stufe
+- [Outbound-Regeln](/de/middleware/outbound-rules) — 3 Typen in der Response-Stufe + Streaming
+- [Eingebaute Presets](/de/middleware/builtin-presets) — fertige Redaktion & Fehlerklassifikation
+- [Konfig & Geltung](/de/middleware/configuration) — Drei-Stufen-Override + UI

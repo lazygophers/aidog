@@ -1,0 +1,58 @@
+---
+title: Motor de reglas middleware
+---
+
+# Motor de reglas middleware
+
+AiDog incluye un motor configurable de reglas middleware para peticiones/respuestas, que ejecuta reglas en dos etapas de la cadena de proxy — **entrante** (petición que entra) y **saliente** (respuesta que retorna): normalización, sobrescritura, redacción, inyección, filtrado de palabras sensibles, detección de errores y disyuntor. Todo configurable por UI, sin código.
+
+## Arquitectura
+
+| Característica | Descripción |
+| --- | --- |
+| Almacenamiento mono-tabla | Todas las reglas en la tabla SQLite `middleware_rule` |
+| Singleton Engine | `MiddlewareEngine` compila reglas a regex al iniciar, coincide por prioridad por petición |
+| Montaje bidireccional | Entrante (cuerpo de petición) + saliente (cuerpo de respuesta / flujo SSE) |
+| Cobertura de tres niveles | `global` → `group` → `platform`; los posteriores sobrescriben reglas del mismo nombre |
+| Streaming por chunk | Respuestas SSE procesadas chunk a chunk sin búfer |
+| Presets integrados | Redacción de clave API/email/teléfono + reglas de error por defecto |
+
+## Tipos de reglas
+
+8 `RuleType`, agrupados por etapa:
+
+| Tipo | Etapa | Propósito |
+| --- | --- | --- |
+| `request_filter` | Entrante | Filtrado de campo (ej. lista model permitida/denegada) |
+| `sensitive_word` | Entrante | Bloqueo de palabra sensible (pattern = la palabra) |
+| `redaction` | Entrante | Redacción de valor de campo |
+| `content_filter` | Entrante | Filtrado de contenido |
+| `dynamic_injection` | Entrante | Inyección dinámica (system / header / body) |
+| `response_override` | Saliente | Sobrescritura de cuerpo de respuesta |
+| `rectifier` | Saliente | Rectificador (SSE / JSON / codificación / campo ausente) |
+| `error_rule` | Saliente | Clasificación de error (retry / disyuntor / status override) |
+
+## Campos de regla
+
+Cada regla (tabla `middleware_rule`):
+
+| Campo | Descripción |
+| --- | --- |
+| `name` / `description` | Nombre y descripción |
+| `rule_type` | Tipo de regla (ver tabla) |
+| `scope` | Ámbito: `global` / `group` / `platform` |
+| `scope_ref` | Referencia (nombre group/platform; vacío para global) |
+| `match_type` | Método de coincidencia (`contains` / `regex` etc.) |
+| `pattern` | Patrón de coincidencia |
+| `action` | Acción al coincidir (`warn` / `block` / `mask` / `inject` etc.) |
+| `config` | Config JSON ampliada |
+| `priority` | Prioridad (mayor primero) |
+| `enabled` | Activada |
+| `is_builtin` | Preset integrado (no eliminable, desactivable) |
+
+## Más lectura
+
+- [Reglas entrantes](/es/middleware/inbound-rules) — 5 tipos en etapa de petición
+- [Reglas salientes](/es/middleware/outbound-rules) — 3 tipos en etapa de respuesta + streaming
+- [Presets integrados](/es/middleware/builtin-presets) — redacción y clasificación listas
+- [Configuración y ámbito](/es/middleware/configuration) — cobertura de tres niveles + UI

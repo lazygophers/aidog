@@ -1,0 +1,50 @@
+---
+title: Configuración y ámbito
+---
+
+# Configuración y ámbito
+
+## Cobertura de tres niveles
+
+Las reglas se estratifican por `scope`; en ejecución, **los posteriores sobrescriben a los anteriores**:
+
+```
+global (por defecto global) → group (nivel grupo) → platform (nivel plataforma)
+```
+
+| scope | scope_ref | Aplica a |
+| --- | --- | --- |
+| `global` | vacío | Todas las peticiones |
+| `group` | nombre del grupo | Peticiones bajo ese grupo |
+| `platform` | nombre de plataforma | Peticiones reenviadas a esa plataforma |
+
+Dentro de un mismo `rule_type`, un ámbito más específico sobrescribe a uno más general. Ejemplo: prohibir un modelo globalmente pero permitirlo en una plataforma → la regla de plataforma sobrescribe a la global.
+
+## UI frontend
+
+Puntos de entrada de configuración middleware:
+
+1. **Por defecto global**: página de Ajustes → pestaña Middleware (`AppSettings`)
+2. **Nivel grupo**: incrustado en la página de edición del grupo
+3. **Nivel plataforma**: incrustado en la página de edición de la plataforma
+
+Cada uno permite ver/añadir/editar/desactivar/eliminar; el ámbito se vincula automáticamente al contexto actual.
+
+## Editor de reglas
+
+Cada regla puede configurar:
+
+- **Tipo** (`rule_type`): uno de 8
+- **Coincidencia** (`match_type` + `pattern`): contains / regex etc.
+- **Acción** (`action`): warn / block / mask / inject etc.
+- **Config ampliada** (`config`): JSON, dependiente del tipo
+- **Prioridad** (`priority`): mayor primero
+- **Activada** (`enabled`)
+
+## Rendimiento y seguridad
+
+- Regex compiladas al iniciar y en caché; coste cero por petición
+- Límite de tamaño DFA ≤ 1 MiB (`REGEX_DFA_SIZE_LIMIT`), previene ReDoS
+- Límite de fuente regex ≤ 1 MiB (`REGEX_SIZE_LIMIT`)
+
+→ Volver: [Resumen de middleware](/es/middleware)

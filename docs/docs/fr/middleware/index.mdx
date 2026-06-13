@@ -1,0 +1,58 @@
+---
+title: Moteur de règles middleware
+---
+
+# Moteur de règles middleware
+
+AiDog intègre un moteur de règles middleware configurable pour les requêtes/réponses, exécutant des règles à deux étapes de la chaîne de proxy — **entrantes** (requête entrante) et **sortantes** (réponse retournée) : normalisation, surcharge, caviardage, injection, filtrage de mots sensibles, détection d'erreurs et disjonction. Toutes configurables via l'UI, sans code.
+
+## Architecture
+
+| Caractéristique | Description |
+| --- | --- |
+| Stockage mono-table | Toutes les règles dans la table SQLite `middleware_rule` |
+| Singleton Engine | `MiddlewareEngine` compile les règles en regex au démarrage, matche par priorité par requête |
+| Montage bidirectionnel | Entrant (réécrit le corps requête) + sortant (réécrit le corps réponse / flux SSE) |
+| Couverture à trois niveaux | `global` → `group` → `platform` ; les niveaux suivants surchargent les règles nommées identiques |
+| Streaming par chunk | Les réponses SSE sont traitées chunk par chunk sans tampon |
+| Préréglages intégrés | Caviardage clé API / email / téléphone + règles de classification d'erreurs par défaut |
+
+## Types de règles
+
+Le moteur définit 8 `RuleType`, groupés par étape d'exécution :
+
+| Type | Étape | Rôle |
+| --- | --- | --- |
+| `request_filter` | Entrant | Filtrage de champ de requête (ex. liste modèle autorisée/refusée) |
+| `sensitive_word` | Entrant | Blocage de mot sensible (pattern = le mot) |
+| `redaction` | Entrant | Caviardage de valeur de champ |
+| `content_filter` | Entrant | Filtrage de contenu |
+| `dynamic_injection` | Entrant | Injection dynamique (system / header / body) |
+| `response_override` | Sortant | Surcharge du corps de réponse |
+| `rectifier` | Sortant | Rectifieur (SSE / JSON / encodage / champ manquant) |
+| `error_rule` | Sortant | Classification d'erreur (retry / disjonction / surcharge code statut) |
+
+## Champs de règle
+
+Chaque règle (table `middleware_rule`) :
+
+| Champ | Description |
+| --- | --- |
+| `name` / `description` | Nom et description |
+| `rule_type` | Type de règle (voir tableau) |
+| `scope` | Portée : `global` / `group` / `platform` |
+| `scope_ref` | Référence de portée (nom group/platform ; vide pour global) |
+| `match_type` | Méthode de match (`contains` / `regex`, etc.) |
+| `pattern` | Modèle de match |
+| `action` | Action au match (`warn` / `block` / `mask` / `inject`, etc.) |
+| `config` | Configuration JSON étendue |
+| `priority` | Priorité (plus élevé = exécuté en premier) |
+| `enabled` | Activation |
+| `is_builtin` | Préréglage intégré (non supprimable, désactivable) |
+
+## Pour aller plus loin
+
+- [Règles entrantes](/fr/middleware/inbound-rules) — 5 types à l'étape requête
+- [Règles sortantes](/fr/middleware/outbound-rules) — 3 types à l'étape réponse + streaming
+- [Préréglages intégrés](/fr/middleware/builtin-presets) — caviardage et classification prêts à l'emploi
+- [Configuration et portée](/fr/middleware/configuration) — couverture à trois niveaux + UI

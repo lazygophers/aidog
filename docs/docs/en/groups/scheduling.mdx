@@ -1,0 +1,78 @@
+---
+title: Scheduling & Circuit Breaking
+---
+
+# Scheduling & Circuit Breaking
+
+AiDog provides **smart scheduling** and a **platform-level circuit breaker** for multiple platforms within a group, layering health awareness and automatic protection on top of failover / load-balance routing.
+
+## Smart Scheduling
+
+The scheduler (`SchedulerState`) maintains real-time health metrics per platform:
+
+| Metric | Description |
+| --- | --- |
+| Latency EMA | Exponential moving average latency (α = 0.3, ~last 6 samples) |
+| In-flight | Current in-progress request count (inflight) |
+| Consecutive failures | Circuit-breaker failure count |
+| Breaker state | Current state of the tri-state machine |
+
+When selecting a platform, health metrics are combined to sort — preferring low-latency, low-in-flight, healthy platforms.
+
+## Circuit-Breaker Tri-State Machine
+
+Each platform independently maintains a breaker state (`BreakerState`):
+
+```
+Closed ──failures reach threshold──▶ Open ──timeout──▶ HalfOpen ──probe success──▶ Closed
+                                                         └─probe failure──▶ Open
+```
+
+| State | Field | Behavior |
+| --- | --- | --- |
+| **Closed** | `fails` | Normal pass-through; records consecutive failures |
+| **Open** | `until_ms` | Breaker open; filtered out of candidates (`Admission = Reject`) |
+| **HalfOpen** | `probes` | Half-open probing; limited pass-through (`Admission = Probe`) |
+
+### Threshold config (`BreakerThresholds`)
+
+| Param | Description |
+| --- | --- |
+| `failure_threshold` | Consecutive failures to trigger the breaker |
+| `open_secs` | Breaker open duration (seconds) |
+| `half_open_max` | Max probe requests while half-open |
+
+## Admission
+
+When selecting candidate platforms, the scheduler returns a tri-state admission result:
+
+- **Allow** — normal pass-through
+- **Reject** — platform breaker Open; removed from candidates
+- **Probe** — half-open pass-through (limited probe)
+
+## Decoupled from auto_disabled
+
+The breaker (`BreakerState`) and platform auto-disable (`auto_disabled`, triggered by auth failure) filter as a **union**:
+
+- Breaker Open platform → temporarily removed (recoverable)
+- auto_disabled platform → persistently disabled (needs manual / auth recovery)
+- Either hit → not routed
+
+The two mechanisms are decoupled: circuit breaking is health-aware temporary protection; auto_disabled is a persistent auth-failure state.
+
+## Sticky Session
+
+The scheduler has a built-in sticky session table (`StickyTable`):
+
+- Requests with the same session key bind to the same platform (keeping context consistent)
+- In-memory LRU + TTL eviction
+- TTL: 30 minutes of inactivity
+- Capacity cap: 4096 entries
+
+## Configuration Entry Points
+
+- **Platform-level**: configure breaker thresholds in the platform edit page
+- **Group-level**: select a scheduling strategy in the group edit page
+- **Global default**: configure default thresholds in the settings page
+
+→ Routing basics: [Routing Rules](/en/groups/routing-rules) · [Platform Retry & Failover](/en/platforms/protocols)

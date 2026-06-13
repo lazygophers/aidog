@@ -1,0 +1,50 @@
+---
+title: Konfig & Geltung
+---
+
+# Konfig & Geltung
+
+## Drei-Stufen-Override
+
+Regeln sind nach `scope` geschichtet; zur Ausführung **übersteuern spätere vorherige**:
+
+```
+global (Global-Default) → group (Gruppen-Ebene) → platform (Plattform-Ebene)
+```
+
+| scope | scope_ref | Gilt für |
+| --- | --- | --- |
+| `global` | leer | Alle Requests |
+| `group` | Gruppenname | Requests unter dieser Gruppe |
+| `platform` | Plattformname | Requests an diese Plattform |
+
+Innerhalb eines `rule_type` übersteuert ein spezifischerer Scope einen allgemeineren. Beispiel: ein Modell global verbieten, aber auf einer Plattform erlauben → Plattform-Regel übersteuert globale.
+
+## Frontend-UI
+
+Konfig-Einstiegspunkte:
+
+1. **Global-Default**: Einstellungen → Middleware-Tab (`AppSettings`)
+2. **Gruppen-Ebene** in der Gruppen-Edit-Seite eingebettet
+3. **Plattform-Ebene** in der Plattform-Edit-Seite eingebettet
+
+Jede erlaubt anzeigen/hinzufügen/bearbeiten/deaktivieren/löschen; Scope wird automatisch an den Kontext gebunden.
+
+## Regel-Editor
+
+Pro Regel konfigurierbar:
+
+- **Typ** (`rule_type`): einer von 8
+- **Match** (`match_type` + `pattern`): contains / regex etc.
+- **Aktion** (`action`): warn / block / mask / inject etc.
+- **Erweiterung** (`config`): JSON, typabhängig
+- **Priorität** (`priority`): höher zuerst
+- **Aktiv** (`enabled`)
+
+## Performance & Sicherheit
+
+- Regex beim Start kompiliert und gecacht; kein Compile-Kosten pro Request
+- DFA-Größenlimit ≤ 1 MiB (`REGEX_DFA_SIZE_LIMIT`), verhindert ReDoS
+- Regex-Quelllimit ≤ 1 MiB (`REGEX_SIZE_LIMIT`)
+
+→ Zurück: [Middleware-Übersicht](/de/middleware)

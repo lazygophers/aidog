@@ -1,0 +1,39 @@
+---
+title: Presets integrados
+---
+
+# Presets integrados
+
+AiDog incluye un conjunto de reglas middleware listas para usar (`is_builtin = 1`), activadas por defecto. Las reglas integradas **no se pueden eliminar**, pero sí desactivar o ajustar.
+
+## Detectores de redacción integrados
+
+El motor tiene tres detectores regex integrados, usados con `redaction` / `sensitive_word`:
+
+| Detector | Patrón | Descripción |
+| --- | --- | --- |
+| Clave API | `BUILTIN_SECRET_PATTERN` | Formatos de clave comunes (`sk-...` etc.) |
+| Email | `[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}` | Email estándar |
+| Teléfono | (patrón teléfono integrado) | Números regionales |
+
+Al coincidir, se reemplaza según el `replacement` de la regla (por defecto `***`).
+
+## error_rules por defecto
+
+Un conjunto por defecto de clasificación de errores (`error_rule` + `is_builtin = 1`) cubre errores ascendentes comunes:
+
+- **429 Too Many Requests** → reintentable
+- **5xx error de servidor** → reintentable + cuenta al disyuntor
+- **401 / 403 fallo de auth** → dispara auto_disabled (ver [Retry y Failover de plataforma](/es/platforms/protocols))
+
+## Gestión de reglas integradas
+
+- **Idempotente**: única por `(name, is_builtin=1)`; seeding omitido si existe
+- **Respeta al usuario**: una regla integrada desactivada no se reactiva
+- **Visibilidad**: las reglas integradas se marcan en la UI
+
+## Reglas personalizadas
+
+Más allá de las integradas, añade cualquier regla personalizada (`is_builtin = 0`). Ver [Configuración y ámbito](/es/middleware/configuration).
+
+→ Siguiente: [Configuración y ámbito](/es/middleware/configuration)

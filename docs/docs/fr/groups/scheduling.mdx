@@ -1,0 +1,78 @@
+---
+title: Planification et disjonction
+---
+
+# Planification et disjonction
+
+AiDog fournit une **planification intelligente** et un **disjoncteur au niveau plateforme** pour les multiples plateformes d'un groupe, superposant la conscience de santé et la protection automatique au routage failover/load-balance.
+
+## Planification intelligente
+
+Le planificateur (`SchedulerState`) maintient des métriques de santé en temps réel par plateforme :
+
+| Métrique | Description |
+| --- | --- |
+| Latence EMA | Moyenne mobile exponentielle (α = 0.3, ~6 derniers échantillons) |
+| En vol | Requêtes en cours (inflight) |
+| Échecs consécutifs | Compteur d'échecs du disjoncteur |
+| État du disjoncteur | État courant de la machine tri-état |
+
+À la sélection, les métriques sont combinées — préférence pour faible latence, peu en vol, sain.
+
+## Machine tri-état du disjoncteur
+
+Chaque plateforme maintient indépendamment un état (`BreakerState`) :
+
+```
+Closed ──échecs atteignent seuil──▶ Open ──timeout──▶ HalfOpen ──sonde succès──▶ Closed
+                                                     └─sonde échec──▶ Open
+```
+
+| État | Champ | Comportement |
+| --- | --- | --- |
+| **Closed** | `fails` | Passage normal ; enregistre les échecs consécutifs |
+| **Open** | `until_ms` | Disjoncteur ouvert ; retiré des candidats (`Admission = Reject`) |
+| **HalfOpen** | `probes` | Sonde demi-ouverte ; passage limité (`Admission = Probe`) |
+
+### Config des seuils (`BreakerThresholds`)
+
+| Param | Description |
+| --- | --- |
+| `failure_threshold` | Échecs consécutifs pour déclencher |
+| `open_secs` | Durée d'ouverture (secondes) |
+| `half_open_max` | Max de sondes en demi-ouvert |
+
+## Admission
+
+Le planificateur renvoie un résultat tri-état :
+
+- **Allow** — passage normal
+- **Reject** — disjoncteur Open ; retiré
+- **Probe** — passage demi-ouvert (limité)
+
+## Découplé d'auto_disabled
+
+Le disjoncteur (`BreakerState`) et l'auto-disable (`auto_disabled`, échec auth) filtrent en **union** :
+
+- Open → temporairement retiré (récupérable)
+- auto_disabled → durablement désactivé (récupération manuelle/auth)
+- L'un ou l'autre → non routé
+
+Découplés : la disjonction est une protection temporaire sensible à la santé ; auto_disabled est un état persistant d'échec auth.
+
+## Session sticky
+
+Table de session sticky intégrée (`StickyTable`) :
+
+- Même clé de session → même plateforme (cohérence du contexte)
+- LRU en mémoire + éviction TTL
+- TTL : 30 min d'inactivité
+- Capacité : 4096 entrées
+
+## Points de configuration
+
+- **Niveau plateforme** : seuils dans l'édition plateforme
+- **Niveau groupe** : stratégie dans l'édition groupe
+- **Défaut global** : seuils dans les paramètres
+
+→ Bases du routage : [Règles de routage](/fr/groups/routing-rules) · [Retry & Failover plateforme](/fr/platforms/protocols)

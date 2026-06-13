@@ -1,0 +1,62 @@
+---
+title: Reglas entrantes
+---
+
+# Reglas entrantes
+
+Las reglas entrantes se ejecutan **antes de que la petición llegue a la plataforma ascendente**, sobre el cuerpo de la petición (messages, system, model, etc.). El motor aplica 5 tipos entrantes en orden fijo:
+
+```
+RequestFilter → SensitiveWord → Redaction → ContentFilter → DynamicInjection
+```
+
+## request_filter — Filtrado de campo
+
+Filtra peticiones por valor de campo. Uso típico: **lista model permitida/denegada**.
+
+- `match_type`: método de coincidencia
+- `pattern`: patrón de valor (ej. `gpt-4o`)
+- `action`: `warn` (registrar) / `block` (rechazar petición)
+
+Ejemplo: prohibir un modelo → `block` al coincidir; petición rechazada y registrada (`proxy_log.blocked_by`).
+
+## sensitive_word — Bloqueo de palabra sensible
+
+`pattern` es la palabra misma (no regex). Al coincidir aplica `action`:
+
+- `block`: rechazar petición
+- `mask`: reemplazar por marcador
+
+Los detectores integrados cubren patrones de secreto comunes (ver [Presets integrados](/es/middleware/builtin-presets)).
+
+## redaction — Redacción
+
+Reemplaza información sensible en el texto. Se usa con regex integradas (clave API, email, teléfono) o `pattern` personalizado:
+
+- `config.replacement`: texto de reemplazo (por defecto `***`)
+- fragmento sensible coincidido → reemplazado y reenviado
+
+## content_filter — Filtrado de contenido
+
+Coincide contenido de petición por regex; al coincidir, bloquea o reescribe. Útil para bloquear temas o inyectar políticas de seguridad.
+
+## dynamic_injection — Inyección dinámica
+
+Inyecta contenido dinámicamente. Tres puntos de inyección (`config`):
+
+- **system**: inyectar mensaje system (identidad, política de seguridad)
+- **header**: inyectar/sobrescribir cabeceras HTTP
+- **body**: inyectar/sobrescribir campos del cuerpo
+
+Ejemplo: añadir un prompt system a cada petición → `dynamic_injection` + `config.inject = system`.
+
+## Auditoría de bloqueo
+
+Las coincidencias `action = block` se escriben en `proxy_log`:
+
+- `blocked_by`: identificador de regla (`rule_type#id name`)
+- `blocked_reason`: razón legible
+
+Las peticiones bloqueadas **no se facturan** (`est_cost = 0`) pero conservan la fila de auditoría completa.
+
+→ Siguiente: [Reglas salientes](/es/middleware/outbound-rules)
