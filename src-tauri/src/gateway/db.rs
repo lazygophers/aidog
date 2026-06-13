@@ -185,6 +185,20 @@ impl Db {
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_failure_threshold INTEGER NOT NULL DEFAULT 0", []);
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_open_secs INTEGER NOT NULL DEFAULT 0", []);
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_half_open_max INTEGER NOT NULL DEFAULT 0", []);
+                // Migration 017: 系统通知收件箱表（N1 — 系统通知模块）。
+                // notify(type) → InboxOnly/PopupOnly/Full 落库一行；前端通知中心 list/markRead/clear 消费。
+                // 设置（NotificationSettings）走 settings KV scope=notification，不在此表。
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS notification (
+                       id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                       notif_type  TEXT NOT NULL,
+                       title       TEXT NOT NULL DEFAULT '',
+                       body        TEXT NOT NULL DEFAULT '',
+                       read        INTEGER NOT NULL DEFAULT 0,
+                       created_at  INTEGER NOT NULL
+                     );
+                     CREATE INDEX IF NOT EXISTS idx_notif_read ON notification(read, created_at);",
+                )?;
                 Ok(())
             })
             .await
@@ -1666,6 +1680,101 @@ pub async fn get_scheduling_settings(db: &Db) -> super::models::SchedulingBreake
         Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
         _ => super::models::SchedulingBreakerSettings::default(),
     }
+}
+
+// ─── Notification（N1 — 系统通知模块）──────────────────────
+
+/// 通知设置（settings scope=`notification`, key=`settings`）。缺省 / 解析失败 → 默认（全开 CrossPlatform）。
+pub async fn get_notification_settings(db: &Db) -> super::models::NotificationSettings {
+    match get_setting(db, "notification", "settings").await {
+        Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
+        _ => super::models::NotificationSettings::default(),
+    }
+}
+
+/// 插入收件箱通知，返回新行 id。
+pub async fn insert_notification(
+    db: &Db,
+    notif_type: &str,
+    title: &str,
+    body: &str,
+) -> Result<i64, String> {
+    let notif_type = notif_type.to_string();
+    let title = title.to_string();
+    let body = body.to_string();
+    let ts = now();
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                "INSERT INTO notification (notif_type, title, body, read, created_at) VALUES (?1, ?2, ?3, 0, ?4)",
+                params![notif_type, title, body, ts],
+            )?;
+            Ok(conn.last_insert_rowid())
+        })
+        .await
+        .map_err(|e| format!("insert notification: {e}"))
+}
+
+/// 列收件箱（按 created_at 倒序），limit 上限。
+pub async fn list_notifications(
+    db: &Db,
+    limit: i64,
+) -> Result<Vec<super::models::Notification>, String> {
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT id, notif_type, title, body, read, created_at FROM notification ORDER BY created_at DESC, id DESC LIMIT ?1",
+            )?;
+            let rows = stmt.query_map(params![limit], |row| {
+                Ok(super::models::Notification {
+                    id: row.get(0)?,
+                    notif_type: row.get(1)?,
+                    title: row.get(2)?,
+                    body: row.get(3)?,
+                    read: row.get::<_, i64>(4)? != 0,
+                    created_at: row.get(5)?,
+                })
+            })?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// 统计未读数。
+pub async fn count_unread_notifications(db: &Db) -> Result<i64, String> {
+    db.0
+        .call(|conn| {
+            conn.query_row("SELECT COUNT(*) FROM notification WHERE read = 0", [], |r| r.get(0))
+                .map_err(tokio_rusqlite::Error::from)
+        })
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// 标记已读：id=None 标全部已读，否则标单条。
+pub async fn mark_notification_read(db: &Db, id: Option<i64>) -> Result<(), String> {
+    db.0
+        .call(move |conn| {
+            match id {
+                Some(id) => conn.execute("UPDATE notification SET read = 1 WHERE id = ?1", params![id])?,
+                None => conn.execute("UPDATE notification SET read = 1 WHERE read = 0", [])?,
+            };
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("mark notification read: {e}"))
+}
+
+/// 清空收件箱（删全部行）。
+pub async fn clear_notifications(db: &Db) -> Result<(), String> {
+    db.0
+        .call(|conn| {
+            conn.execute("DELETE FROM notification", [])?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("clear notifications: {e}"))
 }
 
 // ─── ProxyLog CRUD ─────────────────────────────────────────
@@ -3427,5 +3536,61 @@ decimals: None,
         // 仍只有一条（未重复插入）
         let count = after.iter().filter(|r| r.name == "内置·密钥脱敏").count();
         assert_eq!(count, 1, "禁用的内置规则不应被重复 seed");
+    }
+
+    // ── Notification 收件箱 CRUD（N1）──
+    #[tokio::test]
+    async fn notification_inbox_crud() {
+        let db = test_db().await;
+        // 空库
+        assert_eq!(count_unread_notifications(&db).await.unwrap(), 0);
+        assert!(list_notifications(&db, 50).await.unwrap().is_empty());
+
+        let id1 = insert_notification(&db, "task_complete", "任务完成", "项目 X 完成").await.unwrap();
+        let id2 = insert_notification(&db, "error", "出错", "构建失败").await.unwrap();
+        assert!(id2 > id1);
+
+        let list = list_notifications(&db, 50).await.unwrap();
+        assert_eq!(list.len(), 2);
+        // 倒序：最新在前
+        assert_eq!(list[0].id, id2);
+        assert!(!list[0].read);
+        assert_eq!(list[0].notif_type, "error");
+        assert_eq!(list[1].title, "任务完成");
+        assert_eq!(count_unread_notifications(&db).await.unwrap(), 2);
+
+        // 标单条已读
+        mark_notification_read(&db, Some(id1)).await.unwrap();
+        assert_eq!(count_unread_notifications(&db).await.unwrap(), 1);
+
+        // 标全部已读
+        mark_notification_read(&db, None).await.unwrap();
+        assert_eq!(count_unread_notifications(&db).await.unwrap(), 0);
+        assert!(list_notifications(&db, 50).await.unwrap().iter().all(|n| n.read));
+
+        // limit 生效
+        for i in 0..5 {
+            insert_notification(&db, "custom", &format!("t{i}"), "b").await.unwrap();
+        }
+        assert_eq!(list_notifications(&db, 3).await.unwrap().len(), 3);
+
+        // 清空
+        clear_notifications(&db).await.unwrap();
+        assert!(list_notifications(&db, 50).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn notification_settings_default_when_absent() {
+        let db = test_db().await;
+        let s = get_notification_settings(&db).await;
+        assert!(s.enabled && s.tts_enabled);
+        // 写入后读回
+        set_setting(&db, SetSettingInput {
+            scope: "notification".into(),
+            key: "settings".into(),
+            value: serde_json::json!({"enabled": false, "tts_enabled": false}),
+        }).await.unwrap();
+        let s2 = get_notification_settings(&db).await;
+        assert!(!s2.enabled && !s2.tts_enabled);
     }
 }

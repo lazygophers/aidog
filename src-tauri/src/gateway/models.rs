@@ -1639,6 +1639,136 @@ impl SchedulingBreakerSettings {
     }
 }
 
+// ─── Notification（系统通知模块 N1）───────────────────────────
+
+/// 通知类型枚举（serde snake_case；custom 为用户自定义类型占位）。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum NotifType {
+    TaskComplete,
+    WaitingInput,
+    Error,
+    Custom,
+}
+
+impl NotifType {
+    /// 用于 per_type HashMap key / DB notif_type 列的字面量（与 serde snake_case 对齐）。
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            NotifType::TaskComplete => "task_complete",
+            NotifType::WaitingInput => "waiting_input",
+            NotifType::Error => "error",
+            NotifType::Custom => "custom",
+        }
+    }
+
+    /// 从字面量解析；未知 → Custom（端点收到任意 type 字符串都可分发）。
+    pub fn from_str_or_custom(s: &str) -> Self {
+        match s {
+            "task_complete" => NotifType::TaskComplete,
+            "waiting_input" => NotifType::WaitingInput,
+            "error" => NotifType::Error,
+            _ => NotifType::Custom,
+        }
+    }
+}
+
+/// 呈现形态：完整播报 / 仅弹窗 / 仅收件箱 / 仅提示音。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum NotifForm {
+    PopupOnly,
+    InboxOnly,
+    SoundOnly,
+    #[default]
+    Full,
+}
+
+/// TTS 后端：跨平台 tts crate（默认）/ macOS `say` 命令 / 前端 WebSpeech。
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[serde(rename_all = "snake_case")]
+pub enum TtsBackend {
+    #[default]
+    CrossPlatform,
+    MacSay,
+    WebSpeech,
+}
+
+/// 单类型通知配置（per_type 值）。template 含变量占位（{project}/{status}/...）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TypeSetting {
+    /// 本类型是否 TTS 播报（与全局 tts_enabled 取与）。
+    #[serde(default = "default_true")]
+    pub tts: bool,
+    /// 本类型是否弹窗。
+    #[serde(default = "default_true")]
+    pub popup: bool,
+    /// 呈现形态。
+    #[serde(default)]
+    pub form: NotifForm,
+    /// 模板（body 文本，含变量占位）。
+    #[serde(default)]
+    pub template: String,
+}
+
+impl Default for TypeSetting {
+    fn default() -> Self {
+        Self {
+            tts: true,
+            popup: true,
+            form: NotifForm::Full,
+            template: String::new(),
+        }
+    }
+}
+
+/// 通知设置（settings KV scope=`notification`, key=`settings`）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NotificationSettings {
+    /// 总开关（OFF 时全部分发旁路）。default true。
+    #[serde(default = "default_true")]
+    pub enabled: bool,
+    /// TTS 总开关。default true。
+    #[serde(default = "default_true")]
+    pub tts_enabled: bool,
+    /// TTS 后端。default CrossPlatform。
+    #[serde(default)]
+    pub tts_backend: TtsBackend,
+    /// 按类型配置（key = NotifType 字面量）。缺省键视为全 true + Full。
+    #[serde(default)]
+    pub per_type: std::collections::HashMap<String, TypeSetting>,
+}
+
+impl Default for NotificationSettings {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            tts_enabled: true,
+            tts_backend: TtsBackend::default(),
+            per_type: std::collections::HashMap::new(),
+        }
+    }
+}
+
+impl NotificationSettings {
+    /// 取某类型有效配置：per_type 缺省时返回默认（全 true + Full）。
+    pub fn type_setting(&self, t: NotifType) -> TypeSetting {
+        self.per_type.get(t.as_str()).cloned().unwrap_or_default()
+    }
+}
+
+/// 收件箱通知项（notification 表行）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Notification {
+    pub id: i64,
+    pub notif_type: String,
+    pub title: String,
+    pub body: String,
+    /// 已读标记（0/1 → bool）。
+    pub read: bool,
+    pub created_at: i64,
+}
+
 #[cfg(test)]
 mod middleware_model_tests {
     use super::*;
@@ -1739,5 +1869,67 @@ mod middleware_model_tests {
         // 空对象 → enabled default true
         let s2: MiddlewareSettings = serde_json::from_str("{}").unwrap();
         assert!(s2.enabled);
+    }
+
+    #[test]
+    fn notif_type_serde_snake_case_roundtrip() {
+        for (variant, lit) in [
+            (NotifType::TaskComplete, "\"task_complete\""),
+            (NotifType::WaitingInput, "\"waiting_input\""),
+            (NotifType::Error, "\"error\""),
+            (NotifType::Custom, "\"custom\""),
+        ] {
+            assert_eq!(serde_json::to_string(&variant).unwrap(), lit);
+            let back: NotifType = serde_json::from_str(lit).unwrap();
+            assert_eq!(back, variant);
+            assert_eq!(format!("\"{}\"", variant.as_str()), lit);
+        }
+        assert_eq!(NotifType::from_str_or_custom("waiting_input"), NotifType::WaitingInput);
+        assert_eq!(NotifType::from_str_or_custom("unknown_xyz"), NotifType::Custom);
+    }
+
+    #[test]
+    fn notif_form_and_backend_serde() {
+        assert_eq!(serde_json::to_string(&NotifForm::PopupOnly).unwrap(), "\"popup_only\"");
+        assert_eq!(serde_json::to_string(&NotifForm::InboxOnly).unwrap(), "\"inbox_only\"");
+        assert_eq!(serde_json::to_string(&NotifForm::SoundOnly).unwrap(), "\"sound_only\"");
+        assert_eq!(serde_json::to_string(&NotifForm::Full).unwrap(), "\"full\"");
+        assert_eq!(NotifForm::default(), NotifForm::Full);
+        assert_eq!(serde_json::to_string(&TtsBackend::CrossPlatform).unwrap(), "\"cross_platform\"");
+        assert_eq!(serde_json::to_string(&TtsBackend::MacSay).unwrap(), "\"mac_say\"");
+        assert_eq!(serde_json::to_string(&TtsBackend::WebSpeech).unwrap(), "\"web_speech\"");
+        assert_eq!(TtsBackend::default(), TtsBackend::CrossPlatform);
+    }
+
+    #[test]
+    fn notification_settings_default_and_partial() {
+        let s = NotificationSettings::default();
+        assert!(s.enabled);
+        assert!(s.tts_enabled);
+        assert_eq!(s.tts_backend, TtsBackend::CrossPlatform);
+        assert!(s.per_type.is_empty());
+        // 缺省类型 → 全 true + Full
+        let ts = s.type_setting(NotifType::Error);
+        assert!(ts.tts && ts.popup);
+        assert_eq!(ts.form, NotifForm::Full);
+
+        // 部分 JSON 填默认
+        let p: NotificationSettings = serde_json::from_str("{\"enabled\":false}").unwrap();
+        assert!(!p.enabled);
+        assert!(p.tts_enabled);
+        assert_eq!(p.tts_backend, TtsBackend::CrossPlatform);
+
+        // per_type 显式覆盖往返
+        let mut s2 = NotificationSettings::default();
+        s2.per_type.insert(
+            NotifType::TaskComplete.as_str().into(),
+            TypeSetting { tts: false, popup: true, form: NotifForm::InboxOnly, template: "{project} done".into() },
+        );
+        let json = serde_json::to_string(&s2).unwrap();
+        let back: NotificationSettings = serde_json::from_str(&json).unwrap();
+        let got = back.type_setting(NotifType::TaskComplete);
+        assert!(!got.tts);
+        assert_eq!(got.form, NotifForm::InboxOnly);
+        assert_eq!(got.template, "{project} done");
     }
 }

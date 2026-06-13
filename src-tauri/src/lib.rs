@@ -1395,6 +1395,78 @@ async fn scheduling_settings_set(
         .map_err(|e| { tracing::error!(command = "scheduling_settings_set", error = %e, "persist scheduling settings failed"); e })
 }
 
+// ─── Notification（N1 — 系统通知模块）─────────────────────
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn notification_settings_get(db: State<'_, Db>) -> Result<NotificationSettings, String> {
+    tracing::debug!(command = "notification_settings_get", "command invoked");
+    Ok(gateway::db::get_notification_settings(&db).await)
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn notification_settings_set(
+    db: State<'_, Db>,
+    settings: NotificationSettings,
+) -> Result<(), String> {
+    tracing::debug!(command = "notification_settings_set", "command invoked");
+    gateway::db::set_setting(&db, SetSettingInput {
+        scope: "notification".to_string(),
+        key: "settings".to_string(),
+        value: serde_json::to_value(&settings).map_err(|e| format!("serialize notification settings: {e}"))?,
+    }).await
+        .map_err(|e| { tracing::error!(command = "notification_settings_set", error = %e, "persist notification settings failed"); e })
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn notification_inbox_list(db: State<'_, Db>, limit: Option<i64>) -> Result<Vec<Notification>, String> {
+    tracing::debug!(command = "notification_inbox_list", "command invoked");
+    gateway::db::list_notifications(&db, limit.unwrap_or(100)).await
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn notification_inbox_unread(db: State<'_, Db>) -> Result<i64, String> {
+    tracing::debug!(command = "notification_inbox_unread", "command invoked");
+    gateway::db::count_unread_notifications(&db).await
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn notification_mark_read(db: State<'_, Db>, id: Option<i64>) -> Result<(), String> {
+    tracing::debug!(command = "notification_mark_read", id = ?id, "command invoked");
+    gateway::db::mark_notification_read(&db, id).await
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn notification_clear(db: State<'_, Db>) -> Result<(), String> {
+    tracing::debug!(command = "notification_clear", "command invoked");
+    gateway::db::clear_notifications(&db).await
+}
+
+/// 测试通知：直接走分发逻辑（前端设置页"测试"按钮），不经 /api/notify 端点。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn notification_test(
+    db: State<'_, Db>,
+    app: tauri::AppHandle,
+    notif_type: String,
+    content: Option<String>,
+) -> Result<gateway::notification::DispatchResult, String> {
+    tracing::debug!(command = "notification_test", notif_type = %notif_type, "command invoked");
+    let mut vars = std::collections::HashMap::new();
+    vars.insert("project".to_string(), "aidog".to_string());
+    vars.insert("status".to_string(), "test".to_string());
+    vars.insert("time".to_string(), chrono::Local::now().format("%H:%M:%S").to_string());
+    vars.insert("session".to_string(), "test-session".to_string());
+    vars.insert("group".to_string(), "test".to_string());
+    let db_arc = std::sync::Arc::new(db.inner().clone());
+    Ok(gateway::notification::dispatch(&db_arc, Some(&app), &notif_type, content.as_deref(), &vars).await)
+}
+
 // ─── Platform Quota (Balance & Coding Plan) ────────────────
 
 use gateway::quota::PlatformQuota;
@@ -2660,6 +2732,14 @@ pub fn run() {
             middleware_settings_set,
             scheduling_settings_get,
             scheduling_settings_set,
+            // Notification (N1)
+            notification_settings_get,
+            notification_settings_set,
+            notification_inbox_list,
+            notification_inbox_unread,
+            notification_mark_read,
+            notification_clear,
+            notification_test,
             // App Logging
             app_log_settings_get,
             app_log_settings_set,
