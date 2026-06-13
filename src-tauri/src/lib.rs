@@ -2293,32 +2293,40 @@ pub fn run() {
                 .tooltip("AiDog — AI API Gateway")
                 .show_menu_on_left_click(false)
                 .on_tray_icon_event(|tray, event| {
-                    use tauri::tray::MouseButton;
-                    if let tauri::tray::TrayIconEvent::Click { button, rect, .. } = event {
-                        if button != MouseButton::Left { return; }
+                    use tauri::tray::{MouseButton, MouseButtonState};
+                    if let tauri::tray::TrayIconEvent::Click { button, button_state, rect, .. } = event {
+                        // 只响应 Down，忽略 Up（否则 Down 创建 → Up 立刻销毁）
+                        if button != MouseButton::Left || button_state != MouseButtonState::Down { return; }
                         let app = tray.app_handle().clone();
+                        tracing::info!(button = ?button, "tray click → toggle popover");
                         // 切换：已打开则关闭
                         if let Some(w) = app.get_webview_window("popover") {
                             let _ = w.destroy();
                             return;
                         }
                         // 定位：居中于 tray 图标正下方
+                        // rect 坐标为 Physical 像素，position() 接受 Logical 坐标，需除以 scale factor
+                        let scale = app.get_webview_window("main")
+                            .and_then(|w| w.scale_factor().ok())
+                            .unwrap_or(2.0);
                         let (rx, ry) = match rect.position {
-                            tauri::Position::Physical(p) => (p.x as f64, p.y as f64),
+                            tauri::Position::Physical(p) => (p.x as f64 / scale, p.y as f64 / scale),
                             tauri::Position::Logical(p) => (p.x, p.y),
                         };
                         let (rw, rh) = match rect.size {
-                            tauri::Size::Physical(s) => (s.width as f64, s.height as f64),
+                            tauri::Size::Physical(s) => (s.width as f64 / scale, s.height as f64 / scale),
                             tauri::Size::Logical(s) => (s.width, s.height),
                         };
                         let pw = 300.0;
+                        let ph = 420.0;
                         let x = rx + rw / 2.0 - pw / 2.0;
                         let y = ry + rh;
+                        tracing::info!(x, y, pw, ph, scale, "popover position");
                         if let Err(e) = tauri::webview::WebviewWindowBuilder::new(
                             &app, "popover",
                             tauri::WebviewUrl::App("popover.html".into()),
                         )
-                        .inner_size(pw, 420.0)
+                        .inner_size(pw, ph)
                         .position(x, y)
                         .decorations(false)
                         .transparent(true)
@@ -2328,6 +2336,8 @@ pub fn run() {
                         .build()
                         {
                             tracing::error!(error = %e, "create popover failed");
+                        } else {
+                            tracing::info!("popover window created successfully");
                         }
                     }
                 })
