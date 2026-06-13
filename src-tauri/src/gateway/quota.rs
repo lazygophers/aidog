@@ -102,25 +102,37 @@ async fn http_client(db: Option<&Arc<Db>>) -> reqwest::Client {
     }
 }
 
+/// 统一 quota 出站 GET: 记录请求 path (info 级) + 响应体 (debug 级), 返回解析后的 JSON。
+/// headers 原样设置 (调用方决定是否加 Bearer 前缀)。
+/// 错误前缀保持与各 func 原行为一致: Network / HTTP {status} / Parse。
+async fn quota_get_json(
+    db: Option<&Arc<Db>>,
+    url: &str,
+    headers: &[(&str, String)],
+) -> Result<serde_json::Value, String> {
+    tracing::info!(url = %url, "quota outbound request");
+    let mut rb = http_client(db).await.get(url);
+    for (k, v) in headers {
+        rb = rb.header(*k, v);
+    }
+    let resp = rb.send().await.map_err(|e| format!("Network: {e}"))?;
+    let status = resp.status();
+    if !status.is_success() {
+        return Err(format!("HTTP {status}"));
+    }
+    let text = resp.text().await.map_err(|e| format!("Parse: {e}"))?;
+    tracing::debug!(url = %url, body = %text, "quota response body");
+    serde_json::from_str(&text).map_err(|e| format!("Parse: {e}"))
+}
+
 // ── 余额查询: DeepSeek ───────────────────────────────────
 // GET https://api.deepseek.com/user/balance
 
 async fn query_deepseek_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
-    let resp = match http_client(db).await
-        .get("https://api.deepseek.com/user/balance")
-        .header("Authorization", format!("Bearer {api_key}"))
-        .send().await
-    {
-        Ok(r) => r,
-        Err(e) => return err_quota(&format!("Network: {e}")),
-    };
-    let status = resp.status();
-    if !status.is_success() {
-        return err_quota(&format!("HTTP {status}"));
-    }
-    let body: serde_json::Value = match resp.json().await {
+    let body = match quota_get_json(db, "https://api.deepseek.com/user/balance",
+        &[("Authorization", format!("Bearer {api_key}"))]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&format!("Parse: {e}")),
+        Err(e) => return err_quota(&e),
     };
     let is_available = body.get("is_available").and_then(|v| v.as_bool()).unwrap_or(true);
     let mut remaining = 0.0_f64;
@@ -140,19 +152,10 @@ async fn query_deepseek_balance(db: Option<&Arc<Db>>, api_key: &str) -> Platform
 // GET https://api.stepfun.com/v1/accounts
 
 async fn query_stepfun_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
-    let resp = match http_client(db).await
-        .get("https://api.stepfun.com/v1/accounts")
-        .header("Authorization", format!("Bearer {api_key}"))
-        .send().await
-    {
-        Ok(r) => r,
-        Err(e) => return err_quota(&format!("Network: {e}")),
-    };
-    let status = resp.status();
-    if !status.is_success() { return err_quota(&format!("HTTP {status}")); }
-    let body: serde_json::Value = match resp.json().await {
+    let body = match quota_get_json(db, "https://api.stepfun.com/v1/accounts",
+        &[("Authorization", format!("Bearer {api_key}"))]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&format!("Parse: {e}")),
+        Err(e) => return err_quota(&e),
     };
     let balance = parse_f64_field(&body, "balance").unwrap_or(0.0);
     PlatformQuota {
@@ -168,19 +171,10 @@ async fn query_stepfun_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQ
 async fn query_siliconflow_balance(db: Option<&Arc<Db>>, api_key: &str, is_cn: bool) -> PlatformQuota {
     let domain = if is_cn { "api.siliconflow.cn" } else { "api.siliconflow.com" };
     let url = format!("https://{domain}/v1/user/info");
-    let resp = match http_client(db).await
-        .get(&url)
-        .header("Authorization", format!("Bearer {api_key}"))
-        .send().await
-    {
-        Ok(r) => r,
-        Err(e) => return err_quota(&format!("Network: {e}")),
-    };
-    let status = resp.status();
-    if !status.is_success() { return err_quota(&format!("HTTP {status}")); }
-    let body: serde_json::Value = match resp.json().await {
+    let body = match quota_get_json(db, &url,
+        &[("Authorization", format!("Bearer {api_key}"))]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&format!("Parse: {e}")),
+        Err(e) => return err_quota(&e),
     };
     let data = match body.get("data") {
         Some(d) => d,
@@ -199,19 +193,10 @@ async fn query_siliconflow_balance(db: Option<&Arc<Db>>, api_key: &str, is_cn: b
 // GET https://openrouter.ai/api/v1/credits
 
 async fn query_openrouter_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
-    let resp = match http_client(db).await
-        .get("https://openrouter.ai/api/v1/credits")
-        .header("Authorization", format!("Bearer {api_key}"))
-        .send().await
-    {
-        Ok(r) => r,
-        Err(e) => return err_quota(&format!("Network: {e}")),
-    };
-    let status = resp.status();
-    if !status.is_success() { return err_quota(&format!("HTTP {status}")); }
-    let body: serde_json::Value = match resp.json().await {
+    let body = match quota_get_json(db, "https://openrouter.ai/api/v1/credits",
+        &[("Authorization", format!("Bearer {api_key}"))]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&format!("Parse: {e}")),
+        Err(e) => return err_quota(&e),
     };
     let data = body.get("data").unwrap_or(&body);
     let total_credits = parse_f64_field(data, "total_credits").unwrap_or(0.0);
@@ -231,19 +216,10 @@ async fn query_openrouter_balance(db: Option<&Arc<Db>>, api_key: &str) -> Platfo
 // GET https://api.novita.ai/v3/user/balance
 
 async fn query_novita_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
-    let resp = match http_client(db).await
-        .get("https://api.novita.ai/v3/user/balance")
-        .header("Authorization", format!("Bearer {api_key}"))
-        .send().await
-    {
-        Ok(r) => r,
-        Err(e) => return err_quota(&format!("Network: {e}")),
-    };
-    let status = resp.status();
-    if !status.is_success() { return err_quota(&format!("HTTP {status}")); }
-    let body: serde_json::Value = match resp.json().await {
+    let body = match quota_get_json(db, "https://api.novita.ai/v3/user/balance",
+        &[("Authorization", format!("Bearer {api_key}"))]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&format!("Parse: {e}")),
+        Err(e) => return err_quota(&e),
     };
     // Novita 金额单位 0.0001 USD
     let available = parse_f64_field(&body, "availableBalance").unwrap_or(0.0) / 10000.0;
@@ -258,19 +234,10 @@ async fn query_novita_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQu
 // GET https://api.kimi.com/coding/v1/usages
 
 async fn query_kimi_coding_plan(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQuota {
-    let resp = match http_client(db).await
-        .get("https://api.kimi.com/coding/v1/usages")
-        .header("Authorization", format!("Bearer {api_key}"))
-        .send().await
-    {
-        Ok(r) => r,
-        Err(e) => return err_quota(&format!("Network: {e}")),
-    };
-    let status = resp.status();
-    if !status.is_success() { return err_quota(&format!("HTTP {status}")); }
-    let body: serde_json::Value = match resp.json().await {
+    let body = match quota_get_json(db, "https://api.kimi.com/coding/v1/usages",
+        &[("Authorization", format!("Bearer {api_key}"))]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&format!("Parse: {e}")),
+        Err(e) => return err_quota(&e),
     };
     let mut tiers = Vec::new();
     // 5h 窗口
@@ -317,20 +284,12 @@ async fn query_zhipu_coding_plan(db: Option<&Arc<Db>>, base_url: &str, api_key: 
         "https://api.z.ai"
     };
     let url = format!("{base}/api/monitor/usage/quota/limit");
-    let resp = match http_client(db).await
-        .get(&url)
-        .header("Authorization", api_key) // 智谱不加 Bearer
-        .header("Content-Type", "application/json")
-        .send().await
-    {
-        Ok(r) => r,
-        Err(e) => return err_quota(&format!("Network: {e}")),
-    };
-    let status = resp.status();
-    if !status.is_success() { return err_quota(&format!("HTTP {status}")); }
-    let body: serde_json::Value = match resp.json().await {
+    let body = match quota_get_json(db, &url, &[
+        ("Authorization", api_key.to_string()), // 智谱不加 Bearer
+        ("Content-Type", "application/json".to_string()),
+    ]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&format!("Parse: {e}")),
+        Err(e) => return err_quota(&e),
     };
     if body.get("success").and_then(|v| v.as_bool()) == Some(false) {
         let msg = body.get("msg").and_then(|v| v.as_str()).unwrap_or("Unknown");
@@ -484,15 +443,8 @@ pub fn parse_newapi_extra(extra: &str) -> Option<(String, String)> {
 async fn query_token_usage(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) -> Result<(bool, f64, f64, f64), String> {
     let root = newapi_instance_root(base_url);
     let url = format!("{}/api/usage/token/", root);
-    let resp = http_client(db).await
-        .get(&url)
-        .header("Authorization", format!("Bearer {api_key}"))
-        .send().await
-        .map_err(|e| format!("Network: {e}"))?;
-    let status = resp.status();
-    if !status.is_success() { return Err(format!("HTTP {status}")); }
-    let body: serde_json::Value = resp.json().await
-        .map_err(|e| format!("Parse: {e}"))?;
+    let body = quota_get_json(db, &url,
+        &[("Authorization", format!("Bearer {api_key}"))]).await?;
     let data = body.get("data").ok_or("Missing data field")?;
     let unlimited = data.get("unlimited_quota").and_then(|v| v.as_bool()).unwrap_or(false);
     let total_granted = parse_f64_field(data, "total_granted").unwrap_or(0.0);
@@ -504,20 +456,12 @@ async fn query_token_usage(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) 
 /// Step 2a: unlimited token → 查用户余额 GET /api/user/self
 async fn query_newapi_user_balance(db: Option<&Arc<Db>>, balance_base_url: &str, balance_api_key: &str) -> PlatformQuota {
     let url = format!("{}/api/user/self", balance_base_url.trim_end_matches('/'));
-    let resp = match http_client(db).await
-        .get(&url)
-        .header("Authorization", format!("Bearer {balance_api_key}"))
-        .header("Content-Type", "application/json")
-        .send().await
-    {
-        Ok(r) => r,
-        Err(e) => return err_quota(&format!("Network: {e}")),
-    };
-    let status = resp.status();
-    if !status.is_success() { return err_quota(&format!("HTTP {status}")); }
-    let body: serde_json::Value = match resp.json().await {
+    let body = match quota_get_json(db, &url, &[
+        ("Authorization", format!("Bearer {balance_api_key}")),
+        ("Content-Type", "application/json".to_string()),
+    ]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&format!("Parse: {e}")),
+        Err(e) => return err_quota(&e),
     };
     if body.get("success").and_then(|v| v.as_bool()) != Some(true) {
         let msg = body.get("message").and_then(|v| v.as_str()).unwrap_or("Query failed");

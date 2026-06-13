@@ -499,6 +499,7 @@ async fn handle_proxy(
         }
     };
     log.request_body = String::from_utf8_lossy(&bytes).to_string();
+    tracing::debug!(path = %path, body = %log.request_body, "inbound request body");
 
     // Best-effort model extraction
     let raw_model = serde_json::from_slice::<Value>(&bytes)
@@ -723,6 +724,8 @@ async fn handle_proxy(
         upstream_headers.into_iter().map(|(k, v)| (k, Value::String(v))).collect()
     ).to_string();
     log.upstream_request_body = format_pretty_json(&req_body_str);
+    tracing::info!(url = %url, "upstream request");
+    tracing::debug!(url = %url, body = %req_body_str, "upstream request body");
 
     let resp = match req_builder.send().await {
         Ok(r) => r,
@@ -1141,6 +1144,8 @@ async fn handle_passthrough(
         Value::Object(h).to_string()
     };
     log.upstream_request_body = String::from_utf8_lossy(&bytes).to_string();
+    tracing::info!(url = %url, "passthrough upstream request");
+    tracing::debug!(url = %url, body = %log.upstream_request_body, "passthrough upstream request body");
 
     let method = match reqwest::Method::from_bytes(orig_method.as_str().as_bytes()) {
         Ok(m) => m,

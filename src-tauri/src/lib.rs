@@ -476,20 +476,21 @@ async fn platform_fetch_models(
         Protocol::Mock | Protocol::ClaudeCode => unreachable!(),
         Protocol::Anthropic => {
             let url = format!("{base}/v1/models");
-            client
+            tracing::info!(url = %url, "fetch models request");
+            let resp = client
                 .get(&url)
                 .header("x-api-key", &api_key)
                 .header("anthropic-version", "2023-06-01")
                 .send()
                 .await
-                .map_err(|e| format!("fetch models: {e}"))?
-                .json()
-                .await
-                .map_err(|e| format!("parse response: {e}"))?
+                .map_err(|e| format!("fetch models: {e}"))?;
+            let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
+            tracing::debug!(url = %url, body = %body, "fetch models response body");
+            serde_json::from_str::<Value>(&body).map_err(|e| format!("parse response: {e}"))?
         }
         Protocol::Bailian => {
             let url = format!("{base}/compatible-mode/v1/models");
-            tracing::info!("fetch models: {url}");
+            tracing::info!(url = %url, "fetch models request");
             let resp = client
                 .get(&url)
                 .header("Authorization", format!("Bearer {api_key}"))
@@ -501,7 +502,8 @@ async fn platform_fetch_models(
                 })?;
             let status = resp.status();
             let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
-            tracing::info!("fetch models response status={status}, body_len={}", body.len());
+            tracing::info!(url = %url, %status, "fetch models response status");
+            tracing::debug!(url = %url, body = %body, "fetch models response body");
             serde_json::from_str::<Value>(&body)
                 .map_err(|e| {
                     tracing::error!("parse response failed: {e}, body={}", &body[..body.len().min(500)]);
@@ -510,16 +512,16 @@ async fn platform_fetch_models(
         }
         Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::GlmEn | Protocol::Kimi | Protocol::MiniMax | Protocol::MiniMaxEn | Protocol::Gemini | Protocol::OpenAIResponses | Protocol::OpenAICompletions | Protocol::BailianCoding | Protocol::DeepSeek | Protocol::StepFun | Protocol::StepFunEn | Protocol::Doubao | Protocol::DoubaoSeed | Protocol::BytePlus | Protocol::QianFan | Protocol::XiaomiMimo | Protocol::BaiLing | Protocol::Longcat | Protocol::OpenRouter | Protocol::SiliconFlow | Protocol::SiliconFlowEn | Protocol::AiHubMix | Protocol::DmxApi | Protocol::ModelScope | Protocol::ShengSuanYun | Protocol::AtlasCloud | Protocol::Novita | Protocol::TheRouter | Protocol::CherryIn | Protocol::PackyCode | Protocol::Cubence | Protocol::AiGoCode | Protocol::RightCode | Protocol::AiCodeMirror | Protocol::Nvidia | Protocol::Pateway | Protocol::CcSub | Protocol::ApiKeyFun | Protocol::ApiNebula | Protocol::SudoCode | Protocol::ClaudeApi | Protocol::ClaudeCN | Protocol::RunApi | Protocol::RelaxyCode | Protocol::CrazyRouter | Protocol::SssAiCode | Protocol::Compshare | Protocol::CompshareCoding | Protocol::Micu | Protocol::CTok | Protocol::EFlowCode | Protocol::LemonData | Protocol::PipeLlm | Protocol::OpenCode | Protocol::NewApi => {
             let url = format!("{base}/models");
-            tracing::info!("fetch models: {url}");
-            client
+            tracing::info!(url = %url, "fetch models request");
+            let resp = client
                 .get(&url)
                 .header("Authorization", format!("Bearer {api_key}"))
                 .send()
                 .await
-                .map_err(|e| format!("fetch models: {e}"))?
-                .json()
-                .await
-                .map_err(|e| format!("parse response: {e}"))?
+                .map_err(|e| format!("fetch models: {e}"))?;
+            let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
+            tracing::debug!(url = %url, body = %body, "fetch models response body");
+            serde_json::from_str::<Value>(&body).map_err(|e| format!("parse response: {e}"))?
         }
     };
 
@@ -655,6 +657,8 @@ async fn model_test(
         }
     };
 
+    tracing::info!(url = %url, "model test request");
+    tracing::debug!(url = %url, body = %req_body_str, "model test request body");
     let resp = match req_builder.send().await {
         Ok(r) => r,
         Err(e) => {
