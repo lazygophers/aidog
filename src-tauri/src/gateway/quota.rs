@@ -341,24 +341,60 @@ async fn query_zhipu_coding_plan(db: Option<&Arc<Db>>, base_url: &str, api_key: 
         None => return err_quota("Missing data field"),
     };
     let level = data.get("level").and_then(|v| v.as_str()).map(String::from);
-    // 解析 TOKENS_LIMIT 条目
-    let mut raw_limits: Vec<(Option<i64>, f64, Option<String>)> = Vec::new();
+    let mut tiers = Vec::new();
     if let Some(limits) = data.get("limits").and_then(|v| v.as_array()) {
+        // Phase 1: 按 unit 字段分类 TOKENS_LIMIT（unit=3→5h, unit=6→weekly）
+        type Entry = (Option<i64>, f64, Option<String>);
+        let mut five_hour: Option<Entry> = None;
+        let mut weekly: Option<Entry> = None;
+        let mut unclassified: Vec<Entry> = Vec::new();
+
         for item in limits {
             let limit_type = item.get("type").and_then(|v| v.as_str()).unwrap_or("");
-            if !limit_type.eq_ignore_ascii_case("TOKENS_LIMIT") { continue; }
             let pct = item.get("percentage").and_then(|v| v.as_f64()).unwrap_or(0.0);
             let reset_ms = item.get("nextResetTime").and_then(|v| v.as_i64());
             let reset_iso = reset_ms.and_then(millis_to_iso8601);
-            raw_limits.push((reset_ms, pct, reset_iso));
+
+            if limit_type.eq_ignore_ascii_case("TOKENS_LIMIT") {
+                let entry = (reset_ms, pct, reset_iso);
+                match item.get("unit").and_then(|v| v.as_i64()) {
+                    Some(3) if five_hour.is_none() => five_hour = Some(entry),
+                    Some(6) if weekly.is_none() => weekly = Some(entry),
+                    _ => unclassified.push(entry),
+                }
+            } else if limit_type.eq_ignore_ascii_case("TIME_LIMIT") {
+                // MCP 月用量（绝对量）
+                let total = parse_f64_field(item, "usage").unwrap_or(0.0);
+                let used = parse_f64_field(item, "currentValue").unwrap_or(0.0);
+                let remaining = parse_f64_field(item, "remaining").unwrap_or(0.0);
+                let utilization = if total > 0.0 { (used / total) * 100.0 } else { 0.0 };
+                tiers.push(QuotaTier {
+                    name: "mcp_monthly".into(),
+                    utilization,
+                    resets_at: reset_iso,
+                    limit: if total > 0.0 { Some(total) } else { None },
+                    remaining: if remaining > 0.0 { Some(remaining) } else { None },
+                });
+            }
+        }
+
+        // 未分类条目按 reset 升序填入空槽（兜底启发式）
+        unclassified.sort_by_key(|(reset, _, _)| (reset.is_some(), reset.unwrap_or(i64::MIN)));
+        for entry in unclassified {
+            if five_hour.is_none() { five_hour = Some(entry); }
+            else if weekly.is_none() { weekly = Some(entry); }
+        }
+
+        // 按固定顺序输出 token tiers
+        if let Some((_, pct, resets_at)) = five_hour {
+            tiers.insert(0, QuotaTier { name: "five_hour".into(), utilization: pct, resets_at, limit: None, remaining: None });
+        }
+        if let Some((_, pct, resets_at)) = weekly {
+            // 插入到 five_hour 之后、mcp_monthly 之前
+            let pos = tiers.iter().position(|t| t.name == "mcp_monthly").unwrap_or(tiers.len());
+            tiers.insert(pos, QuotaTier { name: "weekly_limit".into(), utilization: pct, resets_at, limit: None, remaining: None });
         }
     }
-    raw_limits.sort_by_key(|(reset, _, _)| (reset.is_some(), reset.unwrap_or(i64::MIN)));
-    let tiers: Vec<QuotaTier> = raw_limits.into_iter().enumerate().filter_map(|(idx, (_, pct, resets_at))| {
-        let name = match idx { 0 => "five_hour", 1 => "weekly_limit", _ => return None };
-        // GLM 上游仅给百分比，无绝对基数 → 方案 B 拟合
-        Some(QuotaTier { name: name.into(), utilization: pct, resets_at, limit: None, remaining: None })
-    }).collect();
     PlatformQuota {
         success: true, error: None, queried_at: now_millis(), balance: None,
         coding_plan: Some(CodingPlanInfo { tiers, level }),

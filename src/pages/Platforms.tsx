@@ -929,7 +929,7 @@ interface QuotaDisplay {
   balanceTotal: number | null;
   currency: string;
   /** coding plan 各档剩余百分比（0–100，越高越充足）。 */
-  tiers: { name: string; remainPct: number; utilization: number }[];
+  tiers: { name: string; remainPct: number; utilization: number; resetsAt: string | null; limit: number | null; remaining: number | null }[];
   /** 是否有任意配额数据（余额或 coding plan）。 */
   hasData: boolean;
 }
@@ -943,7 +943,7 @@ function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, preferRe
 
   if (hasEst && !preferReal) {
     const tiers = estCoding
-      ? estCoding.tiers.map(tier => ({ name: tier.name, remainPct: tierRemain(tier.est_utilization), utilization: tier.est_utilization }))
+      ? estCoding.tiers.map(tier => ({ name: tier.name, remainPct: tierRemain(tier.est_utilization), utilization: tier.est_utilization, resetsAt: null, limit: null, remaining: null }))
       : [];
     return {
       estimated: true,
@@ -956,7 +956,7 @@ function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, preferRe
   }
   if (q) {
     const tiers = q.coding_plan
-      ? q.coding_plan.tiers.map(tier => ({ name: tier.name, remainPct: tierRemain(tier.utilization), utilization: tier.utilization }))
+      ? q.coding_plan.tiers.map(tier => ({ name: tier.name, remainPct: tierRemain(tier.utilization), utilization: tier.utilization, resetsAt: tier.resets_at, limit: tier.limit, remaining: tier.remaining }))
       : [];
     return {
       estimated: false,
@@ -972,7 +972,25 @@ function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, preferRe
 
 /** coding plan 档名 → 简短标签 */
 function tierLabel(name: string): string {
-  return name === "five_hour" ? "5h" : "week";
+  if (name === "five_hour") return "5h";
+  if (name === "weekly_limit") return "week";
+  if (name === "mcp_monthly") return "MCP";
+  return name;
+}
+
+/** ISO 8601 或 millis → 剩余时间人类可读字符串 */
+function formatResetCountdown(resetsAt: string | null): string {
+  if (!resetsAt) return "";
+  const ts = new Date(resetsAt).getTime();
+  if (isNaN(ts)) return "";
+  const diffMs = ts - Date.now();
+  if (diffMs <= 0) return "";
+  const diffMin = Math.ceil(diffMs / 60000);
+  const diffHours = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  if (diffDays > 0) return `${diffDays}d ${diffHours % 24}h`;
+  if (diffHours > 0) return `${diffHours}h ${diffMin % 60}m`;
+  return `${diffMin}m`;
 }
 
 /** 配额剩余百分比 → 语义色（越低越危险） */
@@ -1301,9 +1319,18 @@ const PlatformCard = memo(function PlatformCard({
                           <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                             <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.quotaLabel", "额度")}</span>
                             <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              {quota.tiers.map(tier => (
-                                <StatChip key={tier.name} icon={<IconCoin size={13} />} value={`${tier.remainPct.toFixed(0)}%`} label={tierLabel(tier.name)} color={utilColor(tier.utilization)} />
-                              ))}
+                              {quota.tiers.map(tier => {
+                                const countdown = formatResetCountdown(tier.resetsAt);
+                                const value = tier.name === "mcp_monthly" && tier.limit != null
+                                  ? `${tier.remaining ?? 0}/${tier.limit}`
+                                  : `${tier.remainPct.toFixed(0)}%`;
+                                return (
+                                  <StatChip key={tier.name} icon={<IconCoin size={13} />}
+                                    value={value}
+                                    label={tierLabel(tier.name) + (countdown ? ` · ${countdown}` : "")}
+                                    color={utilColor(tier.utilization)} />
+                                );
+                              })}
                             </div>
                           </div>
                         )}

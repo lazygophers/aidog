@@ -748,9 +748,13 @@ export const modelTestApi = {
 // ─── Platform Quota Types & API ────────────────────────────
 
 export interface QuotaTier {
-  name: string;          // "five_hour" | "weekly_limit"
+  name: string;          // "five_hour" | "weekly_limit" | "mcp_monthly"
   utilization: number;   // 0-100
   resets_at: string | null;
+  /** 绝对上限（token 数 / 调用次数），仅部分平台有值 */
+  limit: number | null;
+  /** 绝对剩余量（token 数 / 调用次数），仅部分平台有值 */
+  remaining: number | null;
 }
 
 export interface BalanceInfo {
