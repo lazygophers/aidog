@@ -13,3 +13,4 @@
 | list-item-height-relayout | 增加平台/分组列表 item 高度并重排布局 | — | 已完成 | 收尾 | 100% | — |
 | swap-window-dimensions | 对调默认窗口长宽 | — | 已完成 | 收尾 | 100% | — |
 | logo-prompt-design | AiDog APP logo 提示词设计 | — | 已完成 | 收尾 | 100% | — |
+| kimi-coding-client-type-fix | 修复 Kimi Code Plan 预设 client_type (codex_tui→claude_code) | — | 已完成 | 收尾 | 100% | — |
