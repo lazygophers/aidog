@@ -75,9 +75,10 @@ elif action == "archive":
                                capture_output=True, text=True, timeout=10)
         n = ahead.stdout.strip()
         if n and n != "0":                    # br 有未 merge 回主分支的 commit
-            main_st = subprocess.run(["git", "-C", groot, "status", "--porcelain"],
+            # 只看 tracked 改动 (M/A/D); untracked (如新 task 目录 ??) 不影响 merge 安全, 不算脏
+            main_st = subprocess.run(["git", "-C", groot, "status", "--porcelain", "--untracked-files=no"],
                                      capture_output=True, text=True, timeout=10)
-            if main_st.stdout.strip():        # 主工作区脏 → 无法安全 merge, 保留分支待人工
+            if main_st.stdout.strip():        # 主工作区有 tracked 未提交改动 → 无法安全 merge, 保留分支待人工
                 print(f"trellisx: 主工作区有未提交改动, 无法自动 merge 分支 {br}。"
                       f"保留 worktree+分支, 请人工: git merge --no-ff {br} 后再 archive。", file=sys.stderr)
                 sys.exit(0)
