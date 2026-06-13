@@ -809,6 +809,11 @@ async fn handle_proxy(
         log.user_response_body = String::from_utf8_lossy(&body).to_string();
         log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
 
+        tracing::info!(
+            platform = %route.platform.name, model = %actual_model, status = 200, stream = false,
+            duration_ms = log.duration_ms, input_tokens, output_tokens, cache_tokens,
+            "request completed"
+        );
         upsert_log(&state, &log, &log_settings).await;
 
         // ── 请求驱动预估（后台，不阻塞响应）──
@@ -897,6 +902,12 @@ async fn handle_proxy(
                         final_log.cache_tokens = done_cache.load(std::sync::atomic::Ordering::Relaxed);
                         final_log.status_code = 200;
                         final_log.duration_ms = done_start.elapsed().as_millis() as i32;
+                        tracing::info!(
+                            platform_id = final_log.platform_id, model = %final_log.actual_model,
+                            status = 200, stream = true, duration_ms = final_log.duration_ms,
+                            input_tokens = final_log.input_tokens, output_tokens = final_log.output_tokens,
+                            cache_tokens = final_log.cache_tokens, "request completed"
+                        );
                         // 同步 stream 闭包内不可 await → fire-and-forget spawn 异步回写日志。
                         let upsert_state = done_state.clone();
                         let upsert_settings = done_settings.clone();
@@ -1178,6 +1189,7 @@ async fn handle_passthrough(
     let resp = match req_builder.send().await {
         Ok(r) => r,
         Err(e) => {
+            tracing::error!(url = %url, error = %e, duration_ms = start.elapsed().as_millis() as i64, "passthrough upstream request failed (502)");
             log.response_body = format!("upstream error: {e}");
             log.status_code = 502;
             log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
@@ -1190,6 +1202,7 @@ async fn handle_passthrough(
 
     let status = resp.status();
     log.upstream_status_code = status.as_u16() as i32;
+    tracing::info!(url = %url, status = status.as_u16(), duration_ms = start.elapsed().as_millis() as i64, "passthrough upstream responded");
 
     // 捕获上游响应头（原样照搬给客户端）
     let mut resp_header_map = axum::http::HeaderMap::new();
