@@ -109,11 +109,11 @@ Phase 3: 收尾   → 沉淀经验 + 收尾
 **B 创建任务** — 任何实现 / 代码变更 / 构建 / 重构工作。入口序列：(1) `python3 ./.trellis/scripts/task.py create "<title>"` 创建任务 (status=planning, 面包屑切换到 [workflow-state:planning] 进入头脑风暴 + jsonl 阶段指引) → (2) 加载 `trellis-brainstorm` skill 与用户讨论需求并迭代 prd.md → (3) prd 完成且 jsonl 已策划后，运行 `task.py start <task-dir>` 切换到 [workflow-state:in_progress] 进入实施骨架。**"看起来很小" 不是把 B 降级为 A 或 C 的理由**。
 **C 内联变更** (仅当前轮，B 的逃生舱) — 用户**当前消息**必须包含以下之一："skip trellis" / "no task" / "just do it" / "don't create a task" / "跳过 trellis" / "别走流程" / "小修一下" / "直接改" / "先别建任务" → 简短确认 ("ok, 跳过 trellis 流程")，然后内联处理。**没有看到这些短语时，不得自行内联**；不要编造用户从未说过的覆盖指令。
 <!-- trellisx:start:no_task -->
-trellisx 倾向 (强化上方原生判定, 不替换): 本项目偏好更多使用 Trellis task。
-- 涉及代码改动 / 多步骤 / 跨文件 的请求 → **倾向建 task** (而非直接 inline 处理)。
-- 边界模糊 (拿不准该不该建 task, 或 simple 还是 complex) → **MUST 主动用 AskUserQuestion 问用户** "本轮是否创建 Trellis task?", 禁默认跳过 / 禁自行替用户决定。
-- 仅纯问答 / 查询 / 单行琐改 可不建 (仍可问)。
-原生的「先分类 + 征得同意才建」不变 — 只是倾向更偏建 task, 且不确定时必问。
+trellisx 规约 (强化上方原生判定, 不替换): 本项目愿景 = 除极简任务外, 一律走 Trellis task 执行。
+- 涉及代码改动 / 多步骤 / 跨文件 的请求 → **默认创建 task** (不是"倾向建", 是默认就建; 仅用户明确拒绝才 inline)。建议直接用 AskUserQuestion 征得同意并进入 planning, 而非自行 inline。
+- 边界模糊 (拿不准该不该建, 或 simple 还是 complex) → **MUST 主动用 AskUserQuestion 问用户** "本轮是否创建 Trellis task?", 禁默认跳过 / 禁自行替用户决定。
+- 仅极简任务 (纯问答 / 查询 / 单行琐改 / 纯解释说明) 可不建。
+原生的「先分类 + 征得同意才建」不变 — 但默认倾向从"可建可不建"上调为"默认建, 除非极简或用户拒绝"。
 <!-- trellisx:end:no_task -->
 [/workflow-state:no_task]
 
@@ -164,7 +164,8 @@ Phase 1.3 jsonl 策划在 inline dispatch 模式下**跳过** — 主会话在 P
 1. **强制 worktree** (两种模式都守): 本 task 全部源码改动 MUST 落在 worktree (git 根/子仓 .worktrees/<worktree>, trellis 生命周期 hook 已自动建)。**禁在主工作区写源码** — 写盘 file_path 必须是 worktree 路径。
 2. **多交付并行模式** (本请求拆了 parent + child tasks): 每个 child MUST 派 sub-agent (isolation:worktree) 或 agent-team 成员执行, **main 禁直接写源码** (只拆分/派发/收集/合并/协调)。无依赖的 child MUST 在同一条回复里一次性发起多个 agent 调用 (真并行), 禁逐个串行派。严格按 PRD 调度图依赖 + 并行组执行, 禁跳步。
 3. **单一交付轻量模式** (单 task 未拆 child): main 可在 worktree 内直接 edit 实施, 无需派 agent。仍守第 1 条 (写盘路径在 worktree)。
-4. 收每个 agent 返回立即回传用户进度; task archive 时 worktree 干净则自动销毁。
+4. **强制闭环 (plan→exec→check→finish)**: 实施完成后 MUST 走完整闭环 —— `trellis-check` 质量验证 → 通过后提交 (Phase 3.4) → `task.py archive` 归档收尾。**check 未过 → 修复重检, 禁跳到 finish; 未 archive = 流程未闭环, 禁宣告 Done / 禁结束本轮**。不要做完 check 就停在 in_progress, 必须主动推进到 archive。
+5. 收每个 agent 返回立即回传用户进度; task archive 时 worktree 干净则自动销毁。
 <!-- trellisx:end:in_progress -->
 [/workflow-state:in_progress]
 
