@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { platformApi, settingsApi, modelTestApi, quotaApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit } from "../services/api";
 import { getPlatformLogo } from "../assets/platforms";
 import { IconBolt, IconCost, IconCheck, IconClose, IconCoin, IconClock } from "../components/icons";
-import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
+import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel, levelColor, levelBg, codingTierLevel, cycleMsForTier, usageLevelToColor, type ColorLevel } from "../components/shared";
 import { formatNumber, formatCost, formatPercent } from "../utils/formatters";
 
 /** 从 base_url 提取 origin，用于 favicon 回退 */
@@ -555,6 +555,8 @@ interface EstCodingTier {
   tokens_since_real: number;
   has_base: boolean;
   limit?: number;
+  /** 本周期起点 unix ms（系统维护）；0/缺失 = 无可靠周期起点 → 配色中性。 */
+  window_start?: number;
 }
 interface EstCodingPlan {
   tiers: EstCodingTier[];
@@ -929,8 +931,8 @@ interface QuotaDisplay {
   balanceRemaining: number | null;
   balanceTotal: number | null;
   currency: string;
-  /** coding plan 各档剩余百分比（0–100，越高越充足）。 */
-  tiers: { name: string; remainPct: number; utilization: number; resetsAt: string | null; limit: number | null; remaining: number | null }[];
+  /** coding plan 各档剩余百分比（0–100，越高越充足）。level 按使用速率算（usageColor，唯一阈值源）。 */
+  tiers: { name: string; remainPct: number; utilization: number; resetsAt: string | null; limit: number | null; remaining: number | null; level: ColorLevel }[];
   /** 是否有任意配额数据（余额或 coding plan）。 */
   hasData: boolean;
 }
@@ -947,7 +949,13 @@ function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, preferRe
       ? estCoding.tiers.map(tier => {
           const limit = tier.limit ?? null;
           const remaining = limit != null ? Math.round(limit * tierRemain(tier.est_utilization) / 100) : null;
-          return { name: tier.name, remainPct: tierRemain(tier.est_utilization), utilization: tier.est_utilization, resetsAt: null, limit, remaining };
+          // 预估侧：remain = window_start + cycle - now（无 window_start → null → 中性）。
+          const cycleMs = cycleMsForTier(tier.name);
+          const remainMs = tier.window_start && tier.window_start > 0 && cycleMs != null
+            ? tier.window_start + cycleMs - Date.now()
+            : null;
+          const level = codingTierLevel(tier.est_utilization, remainMs, cycleMs);
+          return { name: tier.name, remainPct: tierRemain(tier.est_utilization), utilization: tier.est_utilization, resetsAt: null, limit, remaining, level };
         })
       : [];
     return {
@@ -961,7 +969,14 @@ function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, preferRe
   }
   if (q) {
     const tiers = q.coding_plan
-      ? q.coding_plan.tiers.map(tier => ({ name: tier.name, remainPct: tierRemain(tier.utilization), utilization: tier.utilization, resetsAt: tier.resets_at, limit: tier.limit, remaining: tier.remaining }))
+      ? q.coding_plan.tiers.map(tier => {
+          // 真查侧：remain = resets_at - now（无 resets_at → null → 中性）。
+          const cycleMs = cycleMsForTier(tier.name);
+          const resetsMs = tier.resets_at ? new Date(tier.resets_at).getTime() : NaN;
+          const remainMs = Number.isFinite(resetsMs) && cycleMs != null ? resetsMs - Date.now() : null;
+          const level = codingTierLevel(tier.utilization, remainMs, cycleMs);
+          return { name: tier.name, remainPct: tierRemain(tier.utilization), utilization: tier.utilization, resetsAt: tier.resets_at, limit: tier.limit, remaining: tier.remaining, level };
+        })
       : [];
     return {
       estimated: false,
@@ -996,13 +1011,6 @@ function formatResetCountdown(resetsAt: string | null): string {
   if (diffDays > 0) return `${diffDays}d ${diffHours % 24}h`;
   if (diffHours > 0) return `${diffHours}h ${diffMin % 60}m`;
   return `${diffMin}m`;
-}
-
-/** 配额剩余百分比 → 语义色（越低越危险） */
-function utilColor(utilization: number): string {
-  if (utilization < 50) return "var(--color-success)";
-  if (utilization < 80) return "var(--color-warning)";
-  return "var(--color-danger)";
 }
 
 // ── 手动预算（无上游 quota 平台）──
@@ -1208,12 +1216,16 @@ const PlatformCard = memo(function PlatformCard({
                             {p.platform_type.toUpperCase()} · {getBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
                           </div>
                         </div>
-                        {/* 余额（直显，缺值不渲染） */}
-                        {showQuota && quota.balanceRemaining != null && (
-                          <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
-                            <BalanceBar remaining={quota.balanceRemaining} total={quota.balanceTotal} currency={quota.currency === "USD" ? "$" : quota.currency} />
-                          </div>
-                        )}
+                        {/* 余额（直显，缺值不渲染）。颜色按后端 balance_level（使用速率）；
+                            neutral（无消费数据）→ undefined 回退现有 total 占比色。 */}
+                        {showQuota && quota.balanceRemaining != null && (() => {
+                          const balColor = usageLevelToColor(p.balance_level);
+                          return (
+                            <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
+                              <BalanceBar remaining={quota.balanceRemaining} total={quota.balanceTotal} currency={quota.currency === "USD" ? "$" : quota.currency} level={balColor === "neutral" ? undefined : balColor} />
+                            </div>
+                          );
+                        })()}
                         {/* 手动预算剩余（无上游 quota 平台；取最紧那条，耗尽 danger 标记）*/}
                         {mb && mb.hasData && (
                           <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
@@ -1246,13 +1258,14 @@ const PlatformCard = memo(function PlatformCard({
                               const value = isMcp && tier.limit != null
                                 ? `${tier.remaining ?? 0}/${tier.limit}`
                                 : `${tier.remainPct.toFixed(0)}%`;
+                              const tierColor = levelColor(tier.level);
                               return (
                                 <span key={tier.name} style={{
                                   display: "inline-flex", alignItems: "center", gap: 3,
                                   padding: "2px 6px", borderRadius: "var(--radius-sm)",
                                   fontSize: 10, fontWeight: 600,
-                                  background: `${utilColor(tier.utilization)}15`,
-                                  color: utilColor(tier.utilization),
+                                  background: tier.level === "neutral" ? "var(--bg-glass)" : levelBg(tier.level),
+                                  color: tierColor,
                                 }}>
                                   <span style={{ fontSize: 11, fontWeight: 700 }}>{value}</span>
                                   <span style={{ fontSize: 9, opacity: 0.7 }}>{tierLabel(tier.name)}</span>
@@ -1353,7 +1366,7 @@ const PlatformCard = memo(function PlatformCard({
                                     <StatChip icon={<IconCoin size={13} />}
                                       value={value}
                                       label={tierLabel(tier.name)}
-                                      color={utilColor(tier.utilization)} />
+                                      level={tier.level} />
                                     {countdown && (
                                       <span className="text-tertiary" style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 600, paddingLeft: 2 }}>
                                         <IconClock size={11} />

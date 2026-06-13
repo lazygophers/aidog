@@ -366,6 +366,11 @@ pub struct Platform {
     /// 手动预算限额列表（仅无上游 quota 自动支持平台；请求驱动扣减 + 耗尽阻断）
     #[serde(default)]
     pub manual_budgets: Vec<ManualBudget>,
+    /// 余额使用速率配色级别（非 DB 列；`platform_list` 按动态窗口日速率算 days_remaining 后填充）。
+    /// "red"|"yellow"|"green"|"neutral"，前端列表页余额只消费此 level 不重算阈值（usage_color 唯一源）。
+    /// 缺省空串 → 前端退中性。`skip_deserializing` 避免从前端入参反序列化。
+    #[serde(default, skip_deserializing)]
+    pub balance_level: String,
 }
 
 #[derive(Debug, Deserialize)]

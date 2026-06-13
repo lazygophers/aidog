@@ -53,6 +53,11 @@ pub struct EstTier {
     /// 绝对配额上限（仅 has_base 时有意义）
     #[serde(default)]
     pub limit: f64,
+    /// 本周期起点（unix ms）。真查拿到 resets_at 时落地 `window_start = resets_at - cycle`，
+    /// 之后预估侧用 `window_start + cycle` 推算 remain（无 resets_at 时也能算「剩余可用时间%」配色）。
+    /// 0 / 缺失 = 无可靠周期起点 → 配色退中性（usage_color，不静默走旧利用率阈值）。
+    #[serde(default)]
+    pub window_start: i64,
 }
 
 impl EstCodingPlan {
@@ -158,6 +163,22 @@ pub fn tier_pace(tier: &EstTier) -> TierPace {
     }
 }
 
+/// 由预估 tier 算「使用速率配色」级别（usage_color，唯一阈值源）。
+///
+/// remain = window_start + cycle - now（预估侧）。无 window_start（0）/ 未知 name（无周期）
+/// → 配色中性，不静默走旧利用率阈值（不误报）。
+pub fn tier_usage_level(tier: &EstTier, now_ms: i64) -> super::usage_color::UsageLevel {
+    let cycle = match super::usage_color::cycle_ms_for_tier(&tier.name) {
+        Some(c) => c,
+        None => return super::usage_color::UsageLevel::Neutral,
+    };
+    if tier.window_start <= 0 {
+        return super::usage_color::UsageLevel::Neutral;
+    }
+    let remain = tier.window_start + cycle - now_ms;
+    super::usage_color::coding_tier_level(tier.est_utilization, Some(remain), Some(cycle))
+}
+
 /// 真查校准：用上游真值覆盖某 tier，并（方案 B）尝试拟合 coef。
 ///   - has_base（Kimi）：直接记 limit + est_utilization = 真值。
 ///   - 方案 B：拟合 `coef = (util_real - util_at_last_real) / tokens_since_real`，
@@ -170,7 +191,12 @@ pub fn calibrate_tier(
     util_real: f64,
     has_base: bool,
     limit: Option<f64>,
+    resets_at: Option<&str>,
+    now_ms: i64,
 ) -> EstTier {
+    // window_start 推算：真查若给 resets_at 且 name 有已知周期 → window_start = resets_at - cycle；
+    // 否则保留 prev.window_start（首次真查无 resets_at 时退 0 → 配色中性，不误报）。
+    let window_start = derive_window_start(name, resets_at, now_ms).unwrap_or(prev.window_start);
     if has_base {
         return EstTier {
             name: name.to_string(),
@@ -180,6 +206,7 @@ pub fn calibrate_tier(
             tokens_since_real: 0.0,
             has_base: true,
             limit: limit.unwrap_or(0.0),
+            window_start,
         };
     }
     // 方案 B 拟合
@@ -200,7 +227,33 @@ pub fn calibrate_tier(
         tokens_since_real: 0.0,
         has_base: false,
         limit: 0.0,
+        window_start,
     }
+}
+
+/// 由真查 resets_at（ISO8601 或 millis 字符串）+ tier name 已知周期推算本周期起点（unix ms）。
+/// 无 resets_at / 解析失败 / 未知 name → None（保留旧 window_start）。
+fn derive_window_start(name: &str, resets_at: Option<&str>, now_ms: i64) -> Option<i64> {
+    let raw = resets_at?;
+    let cycle = super::usage_color::cycle_ms_for_tier(name)?;
+    let resets_ms = parse_resets_to_ms(raw)?;
+    let start = resets_ms - cycle;
+    // 防御：reset 早于 now 太多 / 异常 → 仍落地（remain 会算成负，配色侧 clamp）。
+    let _ = now_ms;
+    Some(start)
+}
+
+/// 解析 resets_at：先按 ISO8601，再按裸 millis 数字。
+fn parse_resets_to_ms(raw: &str) -> Option<i64> {
+    let raw = raw.trim();
+    if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(raw) {
+        return Some(dt.timestamp_millis());
+    }
+    if let Ok(ms) = raw.parse::<i64>() {
+        // 启发式：>1e12 视作 ms，否则视作秒。
+        return Some(if ms > 1_000_000_000_000 { ms } else { ms * 1000 });
+    }
+    None
 }
 
 // ── DB 集成 ─────────────────────────────────────────────────
@@ -296,7 +349,7 @@ pub fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota)
                 .find(|p| p.name == t.name)
                 .cloned()
                 .unwrap_or_default();
-            calibrate_tier(&prev_tier, &t.name, t.utilization, has_base, t.limit)
+            calibrate_tier(&prev_tier, &t.name, t.utilization, has_base, t.limit, t.resets_at.as_deref(), now())
         })
         .collect();
     EstCodingPlan { tiers, level: cp.level.clone() }
@@ -492,6 +545,7 @@ mod tests {
             tokens_since_real: 0.0,
             has_base: true,
             limit: 10_000.0,
+            window_start: 0,
         };
         apply_tier_delta(&mut tier, 1000.0); // 1000 × (100/10000) = 10%
         assert!((tier.est_utilization - 50.0).abs() < 1e-9, "got {}", tier.est_utilization);
@@ -511,6 +565,7 @@ mod tests {
             tokens_since_real: 0.0,
             has_base: false,
             limit: 0.0,
+            window_start: 0,
         };
         apply_tier_delta(&mut tier, 50_000.0); // 40 + 50000×0.0001 = 45
         assert!((tier.est_utilization - 45.0).abs() < 1e-9, "got {}", tier.est_utilization);
@@ -528,6 +583,7 @@ mod tests {
             tokens_since_real: 0.0,
             has_base: false,
             limit: 0.0,
+            window_start: 0,
         };
         apply_tier_delta(&mut tier, 50_000.0);
         assert!((tier.est_utilization - 40.0).abs() < 1e-9, "冷启动不应预估，got {}", tier.est_utilization);
@@ -546,9 +602,10 @@ mod tests {
             tokens_since_real: 50_000.0,
             has_base: false,
             limit: 0.0,
+            window_start: 0,
         };
         // 真查得 util_real = 50% → coef = (50-40)/50000 = 0.0002
-        let cal = calibrate_tier(&prev, "five_hour", 50.0, false, None);
+        let cal = calibrate_tier(&prev, "five_hour", 50.0, false, None, None, now());
         assert!((cal.coef_per_token - 0.0002).abs() < 1e-12, "coef = {}", cal.coef_per_token);
         assert!((cal.est_utilization - 50.0).abs() < 1e-9);
         assert!((cal.util_at_last_real - 50.0).abs() < 1e-9);
@@ -566,9 +623,10 @@ mod tests {
             tokens_since_real: 30_000.0,
             has_base: false,
             limit: 0.0,
+            window_start: 0,
         };
         // 窗口 reset，真值跌到 5%（< 80）→ 丢弃本窗口样本，coef 保留旧值
-        let cal = calibrate_tier(&prev, "five_hour", 5.0, false, None);
+        let cal = calibrate_tier(&prev, "five_hour", 5.0, false, None, None, now());
         assert!((cal.coef_per_token - 0.0003).abs() < 1e-12, "reset 应保留旧 coef，got {}", cal.coef_per_token);
         assert!((cal.est_utilization - 5.0).abs() < 1e-9);
         assert!((cal.util_at_last_real - 5.0).abs() < 1e-9);
@@ -579,7 +637,7 @@ mod tests {
     #[test]
     fn calibrate_kimi_records_base() {
         let prev = EstTier::default();
-        let cal = calibrate_tier(&prev, "five_hour", 30.0, true, Some(20_000.0));
+        let cal = calibrate_tier(&prev, "five_hour", 30.0, true, Some(20_000.0), None, now());
         assert!(cal.has_base);
         assert!((cal.limit - 20_000.0).abs() < 1e-9);
         assert!((cal.est_utilization - 30.0).abs() < 1e-9);
@@ -613,6 +671,7 @@ mod tests {
                 tokens_since_real: 0.0,
                 has_base: true,
                 limit: 10_000.0,
+                window_start: 0,
             }],
             level: None,
         };
@@ -682,6 +741,7 @@ mod tests {
                 tokens_since_real: 480_000.0,
                 has_base: false,
                 limit: 0.0,
+                window_start: 0,
             }],
             level: None,
         };

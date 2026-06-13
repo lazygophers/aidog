@@ -152,7 +152,25 @@ async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Pla
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_list(db: State<'_, Db>) -> Result<Vec<Platform>, String> {
     tracing::debug!(command = "platform_list", "command invoked");
-    db::list_platforms(&db).await
+    let mut platforms = db::list_platforms(&db).await?;
+    // 列表页余额按使用速率配色：per-platform 动态窗口日速率 → days_remaining → balance_level。
+    // 阈值走 usage_color::balance_level（唯一源，不漂移）；无用量数据 → neutral（前端退中性）。
+    for p in platforms.iter_mut() {
+        // 余额 = max(est_balance_remaining, manual "total" 预算剩余)，与 group-info 一致。
+        let manual_total_remaining: f64 = p
+            .manual_budgets
+            .iter()
+            .filter(|b| b.enabled && b.kind == "total")
+            .map(gateway::manual_budget::remaining)
+            .sum();
+        let balance = p.est_balance_remaining.max(manual_total_remaining);
+        let days_remaining = match db::get_platform_hourly_rate(&db, p.id).await {
+            Ok(Some(rate)) if rate > 0.0 && balance > 0.0 => Some((balance / rate) / 24.0),
+            _ => None,
+        };
+        p.balance_level = gateway::usage_color::balance_level(days_remaining).as_str().to_string();
+    }
+    Ok(platforms)
 }
 
 #[tauri::command]
