@@ -864,6 +864,90 @@ export const schedulingApi = {
     invoke<void>("scheduling_settings_set", { settings }),
 };
 
+// ─── Notification（N1 — 系统通知模块；契约冻结，N3 消费）────
+// 字段名与 Rust serde（src-tauri/src/gateway/models.rs / notification.rs）一致。
+
+/** 通知类型（serde snake_case；custom = 用户自定义类型）。 */
+export type NotifType = "task_complete" | "waiting_input" | "error" | "custom";
+
+/** 呈现形态：完整播报 / 仅弹窗 / 仅收件箱 / 仅提示音。 */
+export type NotifForm = "popup_only" | "inbox_only" | "sound_only" | "full";
+
+/** TTS 后端：跨平台 tts crate（默认）/ macOS `say` / 前端 WebSpeech。 */
+export type TtsBackend = "cross_platform" | "mac_say" | "web_speech";
+
+/** 单类型通知配置。template 含变量占位（{project}/{status}/{time}/{session}/{group}）。 */
+export interface TypeSetting {
+  /** 本类型是否 TTS 播报（与全局 tts_enabled 取与）。 */
+  tts: boolean;
+  /** 本类型是否弹窗。 */
+  popup: boolean;
+  /** 呈现形态。 */
+  form: NotifForm;
+  /** 模板（body 文本，含变量占位）。 */
+  template: string;
+}
+
+/** 通知设置（settings scope=notification）。 */
+export interface NotificationSettings {
+  /** 总开关（OFF 时全部分发旁路；default true）。 */
+  enabled: boolean;
+  /** TTS 总开关（default true）。 */
+  tts_enabled: boolean;
+  /** TTS 后端（default cross_platform）。 */
+  tts_backend: TtsBackend;
+  /** 按类型配置（key = NotifType 字面量；缺省键视为全 true + full）。 */
+  per_type: Record<string, TypeSetting>;
+}
+
+/** 收件箱通知项（notification 表行）。 */
+export interface Notification {
+  id: number;
+  notif_type: string;
+  title: string;
+  body: string;
+  read: boolean;
+  created_at: number;
+}
+
+/** 分发结果（testNotify / 端点返回）。 */
+export interface NotifyDispatchResult {
+  dispatched: boolean;
+  title: string;
+  body: string;
+  tts: boolean;
+  popup: boolean;
+  sound: boolean;
+  inbox: boolean;
+  inbox_id: number | null;
+}
+
+export const notificationApi = {
+  /** 读取通知设置（无配置 → 默认全开 cross_platform）。 */
+  getSettings: () => invoke<NotificationSettings>("notification_settings_get"),
+  /** 保存通知设置。 */
+  setSettings: (settings: NotificationSettings) =>
+    invoke<void>("notification_settings_set", { settings }),
+  /** 列收件箱（倒序；limit 默认 100）。 */
+  listInbox: (limit?: number) =>
+    invoke<Notification[]>("notification_inbox_list", { limit }),
+  /** 未读数。 */
+  unreadCount: () => invoke<number>("notification_inbox_unread"),
+  /** 标记已读：id 省略 → 全部已读。 */
+  markRead: (id?: number) =>
+    invoke<void>("notification_mark_read", { id }),
+  /** 清空收件箱。 */
+  clearInbox: () => invoke<void>("notification_clear"),
+  /** 测试通知（走分发逻辑，含弹窗/TTS）。 */
+  testNotify: (notifType: NotifType | string, content?: string) =>
+    invoke<NotifyDispatchResult>("notification_test", { notifType, content }),
+};
+
+/** 收件箱未读数变化事件名（后端 emit / 前端 listen 必须一致）。 */
+export const NOTIF_INBOX_UPDATED = "notif-inbox-updated";
+/** WebSpeech 播报请求事件名（payload = 文本；前端 webview SpeechSynthesis 朗读）。 */
+export const NOTIF_SPEAK = "notif-speak";
+
 // ─── Settings API ──────────────────────────────────────────
 
 export const settingsApi = {

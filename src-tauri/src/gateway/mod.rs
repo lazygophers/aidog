@@ -7,6 +7,7 @@ pub mod i18n;
 pub mod manual_budget;
 pub mod middleware;
 pub mod models;
+pub mod notification;
 pub mod price_sync;
 pub mod proxy;
 pub mod quota;

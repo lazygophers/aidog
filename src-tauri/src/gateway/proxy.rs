@@ -62,6 +62,7 @@ pub async fn start_proxy(
 
     let app = Router::new()
         .route("/api/group-info", post(handle_group_info))
+        .route("/api/notify", post(handle_notify))
         .fallback(handle_proxy)
         .with_state(state);
 
@@ -333,6 +334,95 @@ async fn handle_group_info_inner(
     };
 
     (StatusCode::OK, Json(resp)).into_response()
+}
+
+// ─── /api/notify（N1 — 系统通知端点）────────────────────────
+
+/// 通知端点请求体：`{type, content?, vars?}`。
+#[derive(serde::Deserialize)]
+struct NotifyReq {
+    #[serde(rename = "type")]
+    notif_type: String,
+    #[serde(default)]
+    content: Option<String>,
+    #[serde(default)]
+    vars: std::collections::HashMap<String, String>,
+}
+
+/// 通知端点 — localhost-only，鉴权 `Authorization: Bearer <group_name>`（仿 /api/group-info）。
+/// hook 脚本调用此端点触发通知。body `{type, content?, vars?}`。
+/// 鉴权用的 group_name 校验存在性，并作为 `{group}` 变量回填（脚本未显式带 group 时）。
+async fn handle_notify(
+    state: AxumState<Arc<ProxyState>>,
+    headers: axum::http::HeaderMap,
+    body: Bytes,
+) -> Response {
+    let span = tracing::info_span!("notify", trace_id = %crate::logging::new_trace_id());
+    handle_notify_inner(state, headers, body).instrument(span).await
+}
+
+async fn handle_notify_inner(
+    AxumState(state): AxumState<Arc<ProxyState>>,
+    headers: axum::http::HeaderMap,
+    body: Bytes,
+) -> Response {
+    // Bearer group_name 鉴权
+    let group_name = headers
+        .get("authorization")
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(|s| s.trim().to_string());
+    let group_name = match group_name {
+        Some(n) if !n.is_empty() => n,
+        _ => return StatusCode::UNAUTHORIZED.into_response(),
+    };
+    // 校验分组存在（防任意 token 触发；不存在则拒绝）
+    match super::db::list_groups(&state.db).await {
+        Ok(groups) if groups.iter().any(|g| g.name == group_name) => {}
+        Ok(_) => {
+            tracing::debug!(group = %group_name, "notify: group not found, reject");
+            return StatusCode::UNAUTHORIZED.into_response();
+        }
+        Err(e) => {
+            tracing::warn!(error = %e, "notify: list_groups failed");
+            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+        }
+    }
+
+    let req: NotifyReq = match serde_json::from_slice(&body) {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(error = %e, "notify: invalid body");
+            return (StatusCode::BAD_REQUEST, format!("invalid body: {e}")).into_response();
+        }
+    };
+
+    // 注入内置变量：{group} 默认取鉴权 group；{time} 默认当前本地时间（脚本可覆盖）。
+    let mut vars = req.vars;
+    vars.entry("group".to_string()).or_insert_with(|| group_name.clone());
+    vars.entry("time".to_string()).or_insert_with(|| {
+        chrono::Local::now().format("%H:%M:%S").to_string()
+    });
+
+    let result = super::notification::dispatch(
+        &state.db,
+        state.app.as_ref(),
+        &req.notif_type,
+        req.content.as_deref(),
+        &vars,
+    )
+    .await;
+
+    tracing::debug!(
+        notif_type = %req.notif_type,
+        dispatched = result.dispatched,
+        inbox = result.inbox,
+        popup = result.popup,
+        tts = result.tts,
+        "notify dispatched"
+    );
+
+    (StatusCode::OK, Json(result)).into_response()
 }
 
 /// Read proxy log settings from DB
