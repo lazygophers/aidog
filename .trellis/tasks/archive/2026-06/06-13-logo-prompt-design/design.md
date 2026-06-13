@@ -1,160 +1,108 @@
-# AiDog Logo 提示词设计（v2 · 无犬意象）
+# AiDog Logo 提示词设计（v3 · 扁平负空间）
 
-> 产出：可直接用于图像生成工具的 logo 提示词。所有风格关键词均映射自 `globals.css` / `liquidGlass.ts`，非臆造。
-> v2 变更：去除犬/动物意象，改用抽象几何隐喻（棱镜折射 / 字母标 / 网关门户）表达「协议转换 + 平台聚合 + 路由」。
+> **v3 变更**：推翻 v1/v2 的 Liquid Glass（棱镜/字母标/门户）方向。logo 走 **扁平纯色 · 无透明 · 无光晕 · 无阴影 · 无 3D · 无狗**，独立于 UI 的 Liquid Glass 风格。用户选定方向：**负空间禅意派（原研哉 / Kenya Hara · Muji）**。
 
 ---
 
-## 一、设计依据（代码提取）
+## 一、设计依据
 
 | 维度 | 值 | 来源 |
 |---|---|---|
-| 设计语言 | Liquid Glass（Apple Vision Pro / macOS Tahoe） | `liquidGlass.ts:3-9` |
-| 质感 | 多层半透明毛玻璃 + 内发光折射边缘 + 深度阴影 + 渐变 accent | `liquidGlass.ts:5-9` |
-| 主色 | accent `#4A9EFF`(dark) / `#007AFF`(light)，渐变至 `#6BB3FF` | `liquidGlass.ts:49-50` |
-| 背景 | 极深近黑 `#0a0a0c`(dark) / `#f0f0f3`(light) | `liquidGlass.ts:41,15` |
-| 玻璃参数 | backdrop blur 24px · saturate 1.6–1.8 | `liquidGlass.ts:57,31-32` |
-| 圆角 | squircle，radius-lg 20px / xl 28px | `liquidGlass.ts:36-37` |
-| 折射高光 | inset 顶部 1px 亮线 `rgba(255,255,255,0.08)` | `globals.css:95` |
-| 渐变方向 | 135° 对角 | `globals.css:201` |
-| 语义色 | success `#34c759` 绿 / accent 蓝 / danger 红 | `globals.css:25-30,154` |
+| 设计哲学 | 扁平纯色负空间极简（Kenya Hara / Muji） | 用户选定方向 3 |
+| 形体 | 单一实心几何块 + 精确切口负空间 | 负空间禅意核心手法 |
+| 主色 | `#4A9EFF`（品牌 accent，纯色填充） | `liquidGlass.ts:49` |
+| 背景 | `#f0f0f3`（浅底，light bg-base） | `liquidGlass.ts:15` |
+| 质感 | **纯扁平**：零渐变 / 零阴影 / 零光晕 / 零透明 / 零 3D | 用户硬约束 |
+| 圆角 | squircle（app icon 标准） | Tauri icon 规范 |
+
+> **风格解耦说明**：logo 扁平 ≠ UI 扁平。UI 仍 Liquid Glass（`globals.css`）。app icon 与 UI 风格解耦是常见做法。仅保留品牌色 `#4A9EFF` 维持视觉连贯。
 
 ---
 
-## 二、APP 定位与视觉隐喻（无犬）
+## 二、APP 定位 + 隐喻（无狗）
 
-- **名**：AiDog
-- **功能**：AI API 网关/代理 — 多协议（OpenAI/Anthropic/Gemini）转换 + 平台聚合 + 分组路由 + 余额/配额监控
-- **平台**：Tauri 桌面 app（macOS tray + 窗口），需 16px→1024px 全尺寸可辨识
-
-**视觉隐喻映射**（用抽象几何表达功能，不依赖具象动物）：
-
-| 功能 | 抽象隐喻 |
-|---|---|
-| 协议转换 | **棱镜折射** — 光（AI 请求）经玻璃棱镜折射成光谱（多协议输出） |
-| 多平台聚合 | 多束光/数据流汇聚为一个发光节点；多层玻璃叠合 |
-| 网关/路由 | 门户/拱门（gateway 入口）；分支节点 |
-| 智能内核 | 发光光核 / 渐变蓝辐射 |
+- **AiDog**：AI API 网关/代理（协议转换 + 平台聚合 + 分组路由 + 配额监控）
+- **隐喻**：网关 → 形体被精确切口，负空间形成「门 / 通道」 → 象征 AI 请求穿越的网关
+- 全抽象几何，零犬关联
 
 ---
 
-## 三、Logo 概念方向（3 选 1，主推 A）
+## 三、选定方向 · 负空间禅意（Kenya Hara）
 
-### A. 玻璃棱镜/折射光核（主推）⭐
-一块多面液态玻璃棱镜，蓝色光束射入折射出内部光辉。
-- 语义：光=AI请求流量，棱镜=AiDog网关，折射光谱=协议转换。三层含义自洽。
-- 材质天然 Liquid Glass，风格零违和。
-- 风险：三视图稍复杂，需控制几何简洁度。
-
-### B. 字母标 "A"
-AiDog 首字母几何化，渐变玻璃。
-- 优点：品牌识别最直接、最简洁、app icon 最安全的形式。
-- 风险：概念深度弱于 A。
-
-### C. 网关门户/拱门
-拱形门户，玻璃质感，内部蓝光。
-- 语义：gateway 入口 / 路由枢纽。
-- 风险：易和「门/窗」app 撞概念。
+- **主体**：一块纯色 `#4A9EFF` 实心圆角方块
+- **负空间**：正中精确切出竖向网关开口（高窄圆角缝隙），形成通道意象
+- **哲学**：Muji 式留白，少即是多，概念由负空间承载
+- **气质**：安静、克制、概念性、优雅
 
 ---
 
-## 四、主提示词（方案 A · 玻璃棱镜）
+## 四、主提示词
 
-### 4.1 Midjourney v6（推荐）
+### 4.1 Midjourney v6
 
 ```
-A minimalist premium app icon, an abstract geometric glass prism viewed at a subtle three-quarter angle, crafted from translucent frosted liquid glass with deep internal refraction, a focused beam of electric blue light entering one facet and refracting into a soft luminous gradient inside, core color transitioning from #4A9EFF to #6BB3FF, gentle inner light emission, layered semi-transparent glass panels with real depth and parallax, bright refractive highlight line along the top edge, Apple Vision Pro Liquid Glass aesthetic, volumetric soft shadows, deep near-black background #0a0a0c, clean elegant silhouette readable at small sizes, centered composition, rounded squircle canvas, no text no letters no words, 3D octane render, cinematic volumetric lighting, ultra detailed, modern premium --ar 1:1 --style raw --v 6
+Flat minimalist app icon, a single solid geometric form — a rounded square filled in pure flat solid color #4A9EFF — with a precise clean vertical gateway aperture cut through its center forming negative space that reads as a passage or gateway, symbolizing an AI gateway that requests pass through, solid flat light gray background #f0f0f3, maximum negative space and breathing room, Kenya Hara Muji-inspired minimalism, absolutely no gradients no shadows no glow no transparency no 3D effects, crisp hard vector edges, conceptual elegant quiet, centered, squircle canvas, flat vector design --ar 1:1 --style raw --v 6
 ```
 
 ### 4.2 DALL·E 3 / 自然语言版
 
 ```
-Design a minimalist premium macOS app icon on a 1:1 rounded-square (squircle) canvas. The subject is an abstract geometric glass prism seen at a subtle three-quarter angle, made entirely of translucent frosted liquid glass — the Apple Vision Pro "Liquid Glass" material — with multiple layered semi-transparent panels giving real depth. A focused beam of electric-blue light enters one facet and refracts into a soft luminous gradient inside the glass, the color transitioning smoothly from #4A9EFF to #6BB3FF. A bright refractive highlight runs along the top edge. The background is a deep near-black (#0a0a0c) with soft volumetric shadows. The silhouette must be clean and recognizable even at 16×16 pixels. No text, no letters, no animals. High-end 3D render with cinematic soft lighting, elegant and modern.
+Design a flat minimalist app icon on a 1:1 rounded-square (squircle) canvas. The subject is a single solid rounded square filled in one pure flat color #4A9EFF. Cut precisely through its center is a clean vertical gateway aperture — a tall narrow rounded opening — forming negative space that reads as a gateway or passage, symbolizing an AI gateway that requests pass through. The background is a solid flat light gray #f0f0f3. Use maximum negative space and breathing room, in the spirit of Kenya Hara and Muji minimalism. Absolutely no gradients, no shadows, no glow, no transparency, no 3D effects — pure flat solid color blocks with crisp hard vector edges. Must be recognizable even at 16×16 pixels. Elegant, conceptual, quiet.
 ```
 
-### 4.3 中文释义（供校对意图）
+### 4.3 中文释义（校对意图）
 
-> 一枚极简高端的 macOS 应用图标，正方形圆角（squircle）画布。主体是一块抽象几何玻璃棱镜，呈微侧三分之二视角，整体由半透明磨砂液态玻璃（Apple Vision Pro「液态玻璃」材质）构成，多层半透明玻璃片叠加出真实纵深。一束聚焦的电蓝色光从一面射入，在玻璃内部折射成柔和发光的渐变，颜色从 `#4A9EFF` 平滑过渡到 `#6BB3FF`。顶部边缘有一道明亮的折射高光线。背景为极深近黑（`#0a0a0c`），下方投出柔和体积阴影。轮廓须干净、16×16 像素也能辨识。无文字、无字母、无动物。高端 3D 渲染，电影感柔光，优雅现代。
+> 一枚扁平极简的 app 图标。主体是一块纯色 `#4A9EFF` 实心圆角方块，其正中精确切出一道竖向网关开口（高窄圆角缝隙），形成负空间——读作一扇门/通道，象征 AI 请求穿越的网关。背景为纯色浅灰 `#f0f0f3`。大量留白，原研哉/Muji 式极简。绝对无渐变、无阴影、无光晕、无透明、无 3D——纯色块、硬边矢量。16×16 也能辨识。优雅、克制、安静。
 
 ---
 
-## 五、变体提示词
-
-### 5.1 方案 B — 字母标 "A"（Midjourney）
+## 五、Negative Prompt
 
 ```
-A minimalist premium app icon, a bold geometric lettermark of the letter "A", crafted from translucent frosted liquid glass with a glowing electric blue gradient core #4A9EFF to #6BB3FF, inner light emission, refractive top highlight, Apple Vision Pro Liquid Glass aesthetic, layered glass depth, deep near-black background #0a0a0c, soft volumetric shadows, clean confident silhouette, centered, squircle canvas, no other text, 3D octane render, elegant modern --ar 1:1 --style raw --v 6
+gradient, shadow, glow, transparency, glass, blur, 3D, depth, reflection, bevel, emboss, texture, noise, grain, dog, animal, canine, mascot, face, text, letters, words, busy, cluttered, multiple colors, photographic, realistic, skeuomorphic
 ```
 
-### 5.2 方案 C — 网关门户（Midjourney）
-
-```
-A minimalist premium app icon, an abstract arched gateway portal, crafted from translucent frosted liquid glass, glowing electric blue gradient light radiating from within the opening #4A9EFF to #6BB3FF, inner light emission, refractive edge highlights, Apple Vision Pro Liquid Glass aesthetic, layered semi-transparent glass depth, deep near-black background #0a0a0c, volumetric soft shadows, clean elegant silhouette readable at small sizes, centered, squircle canvas, no text, 3D octane render, modern premium --ar 1:1 --style raw --v 6
-```
-
-### 5.3 浅色背景变体（适配 light 主题 dock）
-
-主提示词中把 `deep near-black background #0a0a0c` 替换为：
-```
-soft light gray background #f0f0f3, glass panels in cool white tones, same blue glowing core
-```
+> 重点排除 gradient/shadow/glow/transparency/3D（锁死扁平）+ dog/animal（锁死无犬）+ 多色（锁死单色块）。
 
 ---
 
-## 六、Negative Prompt（强化排除动物/文字）
+## 六、尺寸 / 适配
 
+### 6.1 主图标
+1024×1024 生成 → `yarn tauri icon logo-1024.png` 自动产出全套（`icon.png / icon.icns / icon.ico / 32x32 / 128x128 / Square* / StoreLogo`）到 `src-tauri/icons/`。
+
+### 6.2 深底变体（dark dock）
+主提示词替换：
 ```
-text, words, letters, typography, watermark, signature, dog, animal, canine, pet, mascot character, face, eyes, busy background, photorealistic, cluttered, low contrast, flat 2d colors, multiple subjects, human figure, harsh sharp edges, square corners, gradient background mesh, noise, grain, cartoon outline
+background #0a0a0c, the rounded square form filled in solid white #ffffff
 ```
 
-> 已加入 `dog, animal, canine, pet, mascot character, face, eyes` —— 确保不出任何动物/具象角色，结果锁定在抽象几何。
+### 6.3 macOS Tray
+负空间 logo 本身极简单色，**直接做单色 template**：
+```
+Monochrome silhouette app icon template, single rounded square with vertical gateway aperture cut-out, flat solid white shape on transparent background, no gradients no effects, high contrast stencil style, suitable for macOS menu bar --ar 1:1 --style raw --v 6
+```
+`.set_template_image(true)` 让系统按主题反色。16px 清晰。
 
 ---
 
-## 七、使用建议
+## 七、迭代关键词（微调）
 
-### 7.1 推荐工具与参数
-| 工具 | 推荐配置 |
+| 想要的效果 | 替换/加入 |
 |---|---|
-| **Midjourney v6** | `--ar 1:1 --style raw --v 6`（--style raw 减少艺术滤镜，更贴近描述） |
-| **DALL·E 3** | 用 4.2 自然语言版 |
-| **Ideogram** | 字母标方案 B 的首选（文字/字母渲染强） |
-
-### 7.2 生成后处理
-1. 选定方案后，用放大工具（Topaz / Real-ESRGAN）放大到 **1024×1024**。
-2. 用 Tauri 官方命令生成全套图标：
-   ```bash
-   yarn tauri icon path/to/logo-1024.png
-   ```
-   自动产出 `icon.png / icon.icns / icon.ico / 32x32 / 128x128 / Square* / StoreLogo` 到 `src-tauri/icons/`。
-3. 替换后 `yarn tauri build` 验证打包图标。
-
-### 7.3 macOS Tray 单独适配（重要）
-tray 图标在 16–22px 显示，液态玻璃质感在该尺寸会糊成一团。**建议额外生成一版单色剪影**：
-```
-A monochrome silhouette app icon template, single abstract prism shape, flat solid white shape on transparent background, minimal clean vector, no gradients no glass no 3D, high contrast, stencil style, suitable for macOS menu bar --ar 1:1 --style raw --v 6
-```
-macOS tray 自动按系统主题反色，故用单色 template 图标（`.set_template_image(true)`）。
-
-### 7.4 风格自检（对照 prd 验收）
-- [ ] 主色含 `#4A9EFF`→`#6BB3FF` 渐变
-- [ ] 玻璃通透、有折射高光、有纵深
-- [ ] 16×16 缩放后轮廓仍可辨识
-- [ ] 深底（`#0a0a0c`）与浅底（`#f0f0f3`）均不违和
-- [ ] 无文字字母、无动物犬类
-- [ ] squircle 圆角，非直角
+| 深底版 | `background #0a0a0c, form in solid white #ffffff` |
+| 开口变形 | `horizontal aperture` / `circular aperture` / `keyhole cut-out` |
+| 形体变形 | `solid circle` / `solid hexagon`（替 rounded square） |
+| 更克制 | `more negative space, thinner aperture, smaller form` |
+| 双色（克制） | 形体 `#4A9EFF`，开口边缘描一道 `#6BB3FF`（仍扁平无光） |
+| 更概念 | `the aperture forms a subtle secondary shape, optical illusion negative space` |
 
 ---
 
-## 八、迭代关键词（微调用）
+## 八、与 v1/v2 的关系
 
-效果不满意时，按方向替换关键词：
+- **v1**（已废弃）：犬徽 + Liquid Glass — 用户否决「不要狗头」
+- **v2**（已废弃）：棱镜/字母标/门户 + Liquid Glass — 用户否决「不要透明、不要光晕、要扁平」+「完全重新设计」
+- **v3**（当前）：扁平负空间禅意 — 满足全部硬约束（扁平/无透明/无光晕/无狗）
 
-| 想要的效果 | 加入/替换 |
-|---|---|
-| 更通透 | `higher translucency, more subsurface scattering, thinner glass` |
-| 更深邃 | `darker background #050507, deeper shadows, stronger rim light` |
-| 更极简 | `fewer glass layers, single emblem, more negative space, fewer facets` |
-| 更科技 | `circuit pattern faintly visible inside glass, holographic edge, data stream lines` |
-| 棱镜太复杂→更简洁 | `single triangular prism, fewer facets, flatter geometry` |
-| 想要聚合感 | `multiple light beams converging into one glowing glass node` |
+历史 prompt 不再可用，以 v3 为准。
