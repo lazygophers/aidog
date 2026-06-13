@@ -10,6 +10,7 @@ import { IconClose, IconCheck, IconBolt, IconCost } from "../components/icons";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../utils/formatters";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
 import { getPlatformLogo, getFaviconUrl } from "../assets/platforms";
+import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
 
@@ -653,6 +654,15 @@ export function Groups() {
               + {t("mapping.add", "添加映射")}
             </button>
           </div>
+        </div>
+
+        {/* Middleware rules (group scope) */}
+        <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
+          <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("middleware.groupRules", "分组中间件规则")}</div>
+          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: -8 }}>
+            {t("middleware.groupRulesHint", "仅本分组生效，就近覆盖全局同类型规则")}
+          </div>
+          <MiddlewareRulesPanel scope="group" scopeRef={editTarget.group.name} embedded />
         </div>
       </div>
     );

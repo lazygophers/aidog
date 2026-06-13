@@ -7,6 +7,7 @@ import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel, levelCo
 import { formatNumber, formatCost, formatPercent } from "../utils/formatters";
 
 import { ModelTestPanel } from "./ModelTestPanel";
+import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
 import { pinyinMatch } from "../utils/pinyin";
 
 /** 支持的协议选项（含 coding plan 变体） */
@@ -2530,6 +2531,16 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   })()}
                 </div>
               )}
+            </FormSection>
+          )}
+
+          {/* Middleware rules (platform scope) — 需已有 platform_id */}
+          {editing && (
+            <FormSection
+              title={t("middleware.platformRules", "平台中间件规则")}
+              desc={t("middleware.platformRulesHint", "仅本平台生效，就近覆盖分组 / 全局同类型规则")}
+            >
+              <MiddlewareRulesPanel scope="platform" scopeRef={String(editing.id)} embedded />
             </FormSection>
           )}
 
