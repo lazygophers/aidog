@@ -33,7 +33,7 @@
 | subagent-statusline-name | SubagentStatusLine name 段 fallback 对齐 (.label//.name//.id//'?') | — | 已完成 | 收尾 | 100% | — |
 | subagent-statusline-debug | 修复 SubagentStatusLine 真实输入失败 (模拟真实 Claude Code stdin 测正确性) | — | 已完成 | 收尾 | 100% | — |
 | docs-readme-i18n | 优化 README/docs + 文档地址引入 + README 多语言 | — | 已完成 | 收尾 | 100% | — |
-| docs-new-features-i18n | 新功能 docs 补全 (middleware/熔断/通知) × 7 语言 | — | 进行中 | 规划 | 0% | — |
+| docs-new-features-i18n | 新功能 docs 补全 (middleware/熔断/通知) × 7 语言 | — | 已完成 | 收尾 | 100% | — |
 | docs-mw-zh-en | middleware docs zh+en (独立章节) | — | 已完成 | 收尾 | 100% | — |
 | docs-breaker-zh-en | breaker/scheduling docs zh+en (入 groups) | — | 已完成 | 收尾 | 100% | — |
-| docs-notif-blocked | notif docs (blocked, 等 system-notification 完成) | — | 规划中 | 规划 | 0% | — |
+| docs-notif-blocked | notif docs (blocked, 等 system-notification 完成) | — | 已完成 | 收尾 | 100% | — |
