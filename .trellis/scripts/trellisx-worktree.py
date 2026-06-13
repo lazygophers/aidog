@@ -67,10 +67,34 @@ elif action == "archive":
         st = subprocess.run(["git", "-C", wt, "status", "--porcelain"],
                             capture_output=True, text=True, timeout=10)
         if st.stdout.strip():                 # 脏 → 保留, 不丢改动
-            print(f"trellisx: worktree {wt} 有未合并改动, 保留 (先合并再 git worktree remove)。", file=sys.stderr)
-        else:
-            subprocess.run(["git", "-C", groot, "worktree", "remove", wt, "--force"],
-                           capture_output=True, timeout=15)
-            subprocess.run(["git", "-C", groot, "branch", "-D", br],
-                           capture_output=True, timeout=10)
-            print(f"trellisx: worktree 已销毁 {wt}", file=sys.stderr)
+            print(f"trellisx: worktree {wt} 有未提交改动, 保留 (先在 worktree 内 commit 再 archive)。", file=sys.stderr)
+            sys.exit(0)
+
+        # worktree 干净。销毁前必须先把分支 commit merge 回主分支, 否则 branch -D 后 commit 悬空丢失。
+        ahead = subprocess.run(["git", "-C", groot, "rev-list", "--count", f"HEAD..{br}"],
+                               capture_output=True, text=True, timeout=10)
+        n = ahead.stdout.strip()
+        if n and n != "0":                    # br 有未 merge 回主分支的 commit
+            main_st = subprocess.run(["git", "-C", groot, "status", "--porcelain"],
+                                     capture_output=True, text=True, timeout=10)
+            if main_st.stdout.strip():        # 主工作区脏 → 无法安全 merge, 保留分支待人工
+                print(f"trellisx: 主工作区有未提交改动, 无法自动 merge 分支 {br}。"
+                      f"保留 worktree+分支, 请人工: git merge --no-ff {br} 后再 archive。", file=sys.stderr)
+                sys.exit(0)
+            mg = subprocess.run(["git", "-C", groot, "merge", "--no-ff", br,
+                                 "-m", f"merge: {name} (trellisx archive)"],
+                                capture_output=True, text=True, timeout=30)
+            if mg.returncode != 0:            # 冲突 → abort, 保留分支待人工
+                subprocess.run(["git", "-C", groot, "merge", "--abort"],
+                               capture_output=True, timeout=10)
+                print(f"trellisx: 分支 {br} merge 冲突已 abort。保留 worktree+分支, "
+                      f"请人工解决: git merge --no-ff {br}。", file=sys.stderr)
+                sys.exit(0)
+            print(f"trellisx: 分支 {br} 已 merge 回主分支。", file=sys.stderr)
+
+        # 已 merge (或无新 commit) → 安全销毁
+        subprocess.run(["git", "-C", groot, "worktree", "remove", wt, "--force"],
+                       capture_output=True, timeout=15)
+        subprocess.run(["git", "-C", groot, "branch", "-D", br],
+                       capture_output=True, timeout=10)
+        print(f"trellisx: worktree 已销毁 {wt}", file=sys.stderr)
