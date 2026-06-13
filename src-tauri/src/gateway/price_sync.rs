@@ -9,6 +9,10 @@ const LITELLM_PRICE_URL: &str =
     "https://raw.githubusercontent.com/BerriAI/litellm/main/model_prices_and_context_window.json";
 
 /// Fetch and parse the LiteLLM price table, then upsert all entries.
+///
+/// 后台周期同步的每轮入口：建独立 trace_id span（非请求触发），本轮所有日志
+/// 自动带 price_sync{trace_id=xxxxxxxx} 前缀，可按 id grep 出完整一轮同步。
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn sync_litellm_prices(db: &Db) -> Result<PriceSyncResult, String> {
     tracing::info!("litellm price sync started");
     let db_arc = Arc::new(db.clone());
