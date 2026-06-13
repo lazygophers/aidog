@@ -34,6 +34,7 @@ export function Logs() {
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<ProxyLogDetail | null>(null);
   const [copied, setCopied] = useState(false);
+  const [copiedId, setCopiedId] = useState(false);
 
   // ── Filter state ──
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -268,6 +269,22 @@ export function Logs() {
         <div className="glass-surface" style={{ padding: "12px 20", display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontWeight: 600 }}>{t("logs.requestId", "请求 ID")}</span>
           <span style={{ fontSize: F.hint, fontFamily: "monospace", color: "var(--text-primary)" }}>{detail.id}</span>
+          <button
+            className="btn btn-ghost btn-icon"
+            style={{ marginLeft: "auto" }}
+            onClick={async () => {
+              await navigator.clipboard.writeText(`request_id=${detail.id}`);
+              setCopiedId(true);
+              setTimeout(() => setCopiedId(false), 2000);
+            }}
+            title={t("logs.copyRequestId", "复制请求 ID")}
+          >
+            {copiedId ? (
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="var(--color-success, #34c759)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
+            ) : (
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
+            )}
+          </button>
         </div>
 
         {/* Meta grid */}
