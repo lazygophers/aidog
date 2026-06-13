@@ -241,7 +241,7 @@ async fn group_create(mut input: CreateGroup, db: State<'_, Db>, app: tauri::App
     input.name = slugify(&input.name);
     validate_group_name(&input.name)?;
     let result = db::create_group(&db, input).await?;
-    try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db).await;
     Ok(result)
 }
 
@@ -264,14 +264,14 @@ async fn group_update(mut input: UpdateGroup, db: State<'_, Db>, app: tauri::App
         input.name = Some(slug);
     }
     let result = db::update_group(&db, input).await?;
-    try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db).await;
     Ok(result)
 }
 
 #[tauri::command]
 async fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     db::delete_group(&db, id).await?;
-    try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db).await;
     Ok(())
 }
 
@@ -280,7 +280,7 @@ async fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> Resu
 #[tauri::command]
 async fn group_set_platforms(input: SetGroupPlatforms, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     db::set_group_platforms(&db, input.group_id, &input.platforms).await?;
-    try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db).await;
     Ok(())
 }
 
@@ -307,7 +307,7 @@ async fn group_detail_list(db: State<'_, Db>) -> Result<Vec<GroupDetail>, String
 #[tauri::command]
 async fn group_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     db::reorder_groups(&db, &ordered_ids).await?;
-    try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db).await;
     Ok(())
 }
 
@@ -805,12 +805,10 @@ fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String, Str
 }
 
 /// Helper: attempt sync, log errors but don't propagate
-fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
-    tauri::async_runtime::block_on(async {
-        if let Ok(settings) = load_proxy_settings(app).await {
-            let _ = do_sync_group_settings(db, settings.port).await;
-        }
-    });
+async fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
+    if let Ok(settings) = load_proxy_settings(app).await {
+        let _ = do_sync_group_settings(db, settings.port).await;
+    }
 }
 
 /// 为所有分组生成 settings.{group_name}.json 配置文件到 ~/.aidog/ 目录
@@ -1219,7 +1217,7 @@ async fn settings_get(
 async fn settings_set(input: SetSettingInput, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
     db::set_setting(&db, input).await?;
     // Auto-sync group settings files when claude code config changes
-    try_sync_settings(&app, &db);
+    try_sync_settings(&app, &db).await;
     Ok(())
 }
 
@@ -2016,7 +2014,7 @@ pub fn run() {
             {
                 let handle = app.handle();
                 let db_state = app.state::<Db>();
-                try_sync_settings(handle, &db_state);
+                tauri::async_runtime::block_on(try_sync_settings(handle, &db_state));
             }
 
             app.manage(ProxyHandle(StdMutex::new(None)));
