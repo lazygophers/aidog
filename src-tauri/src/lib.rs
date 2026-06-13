@@ -2380,7 +2380,7 @@ pub fn run() {
                         .inner_size(pw, ph)
                         .position(x, y)
                         .decorations(false)
-                        .transparent(true)
+                        .transparent(false)
                         .always_on_top(true)
                         .skip_taskbar(true)
                         .focused(true)
