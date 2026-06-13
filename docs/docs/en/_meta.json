@@ -6,5 +6,6 @@
   { "type": "dir", "name": "middleware", "label": "middleware" },
   { "type": "dir", "name": "logs", "label": "logs" },
   { "type": "dir", "name": "stats", "label": "stats" },
+  { "type": "dir", "name": "notifications", "label": "notifications" },
   { "type": "dir", "name": "settings", "label": "settings" }
 ]

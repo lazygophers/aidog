@@ -1,0 +1,42 @@
+---
+title: Configuration des notifications
+---
+
+# Configuration des notifications
+
+Les réglages (`NotificationSettings`) sont dans Paramètres → Notifications. Contrôlent l'interrupteur maître, le TTS, les canaux par type.
+
+## Interrupteurs globaux
+
+| Champ | Défaut | Description |
+| --- | --- | --- |
+| `enabled` | true | Interrupteur maître. Off = toute distribution contournée |
+| `tts_enabled` | true | TTS maître. ET logique avec `tts` par type (les deux on pour parler) |
+| `tts_backend` | CrossPlatform | Backend TTS (CrossPlatform / MacSay / WebSpeech) |
+
+## Config par type (per_type)
+
+`per_type` est une map `NotifType → TypeSetting` ; chaque type configuré indépendamment :
+
+| Champ | Description |
+| --- | --- |
+| `tts` | Ce type parle-t-il (ET avec `tts_enabled` global) |
+| `form` | Forme de distribution (Full / PopupOnly / InboxOnly / SoundOnly) |
+
+Les clés manquantes sont traitées comme tous-canaux + Full.
+
+## Variables de modèle
+
+Les modèles titre/corps supportent des variables, substituées à la distribution (`substitute_vars`) :
+
+- `{project}` — nom du projet
+- `{status}` — statut
+- autres variables de contexte
+
+Exemple : modèle `{project} · {status}` → rempli à la distribution.
+
+## Notification de test
+
+La page paramètres a un bouton « Tester » (`notification_test`) qui distribue une notification de test selon la config actuelle pour vérifier les canaux.
+
+→ Suite : [Intégration Hook](/fr/notifications/hooks)

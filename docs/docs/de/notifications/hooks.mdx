@@ -1,0 +1,56 @@
+---
+title: Hook-Integration
+---
+
+# Hook-Integration
+
+Benachrichtigungen werden durch **Hooks** der Assistenten ausgelöst. AiDog generiert Hook-Skripte und injiziert sie per Klick in die Claude Code / Codex-Konfiguration; bei Ereignis ruft das Skript den lokalen Endpunkt `POST /api/notify` auf.
+
+## Unterstützte Clients
+
+`HookClient`:
+
+| Client | Konfig-Ort |
+| --- | --- |
+| Claude Code | `hooks`-Feld in `settings.json` |
+| Codex | Codex-Konfiguration (notify-Feld) |
+
+## Ein-Klick-Injection
+
+Einstellungen → Benachrichtigungen → Hook-Integration bietet:
+
+- **Skripte generieren** (`generate_hook_scripts`) — Hook-Skripte pro Typ, lokal geschrieben (`ScriptPaths`)
+- **Injizieren** (`inject_hooks`) — Pfade in Claude Code `settings.json` Ereignis-Hooks oder Codex notify-Konfiguration schreiben
+- **Entfernen** (`remove_hooks`) — injizierte Hooks aufräumen (nur AiDog-Einträge, via `is_aidog_command`)
+
+Keine manuelle Konfig-Bearbeitung nötig.
+
+## Ablauf
+
+```
+Assistenten-Ereignis (Aufgabe fertig / Eingabe erwartet / Fehler)
+   ↓ Hook feuert
+Hook-Skript → POST /api/notify
+   ↓
+AiDog verteilt (nach NotifType + Channels)
+   ↓
+TTS / Popup / Ton / Posteingang
+```
+
+## Endpunkt manuell aufrufen
+
+Sie können den Endpunkt auch direkt ohne Hook testen:
+
+```bash
+curl http://127.0.0.1:9876/api/notify \
+  -H "Content-Type: application/json" \
+  -d '{"type": "task_complete", "title": "Fertig", "body": "Aufgabe beendet"}'
+```
+
+> Endpunkt `POST /api/notify` ist localhost-only, gleicher Port wie Proxy (Standard 9876).
+
+## Injection entfernen
+
+Beim Deaktivieren der Benachrichtigungen räumt „Hooks entfernen" die AiDog-Einträge aus der Claude Code / Codex-Konfiguration auf und stellt die Originalkonfiguration wieder her.
+
+→ Weiter: [Posteingang](/de/notifications/inbox)

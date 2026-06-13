@@ -1,0 +1,34 @@
+---
+title: Bandeja de entrada
+---
+
+# Bandeja de entrada
+
+La bandeja persiste las notificaciones historizadas (popup e InboxOnly ambas guardadas), revisables y gestionables. Se muestra en la página de Notificaciones.
+
+## Estructura (`Notification`)
+
+| Campo | Descripción |
+| --- | --- |
+| `id` | ID de notificación |
+| `notif_type` | literal de tipo (task_complete / waiting_input / error / custom) |
+| `title` | título |
+| `body` | cuerpo |
+| `read` | flag leído |
+| `created_at` | hora de creación |
+
+## Operaciones
+
+| Operación | Comando | Descripción |
+| --- | --- | --- |
+| Lista | `notification_inbox_list` | notificaciones recientes (límite posible) |
+| No leídos | `notification_inbox_unread` | contador no leídos (badge) |
+| Marcar leído | `notification_mark_read` | uno o todos |
+| Vaciar | `notification_clear` | vaciar la bandeja |
+
+## Frontend
+
+- **Página de Notificaciones** (barra lateral): lista + badge no leídos + marcar leído + vaciar
+- **Página de ajustes**: interruptores y configuración por tipo (ver [Configuración](/es/notifications/configuration))
+
+→ Volver: [Resumen de notificaciones](/es/notifications)

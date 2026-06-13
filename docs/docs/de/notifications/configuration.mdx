@@ -1,0 +1,42 @@
+---
+title: Benachrichtigungskonfiguration
+---
+
+# Benachrichtigungskonfiguration
+
+Die Einstellungen (`NotificationSettings`) liegen unter Einstellungen → Benachrichtigungen. Steuern Hauptschalter, TTS, Kanäle pro Typ.
+
+## Globale Schalter
+
+| Feld | Standard | Beschreibung |
+| --- | --- | --- |
+| `enabled` | true | Hauptschalter. Aus = gesamte Verteilung umgangen |
+| `tts_enabled` | true | TTS-Hauptschalter. UND mit Typ-`tts` (beide an zum Vorlesen) |
+| `tts_backend` | CrossPlatform | TTS-Backend (CrossPlatform / MacSay / WebSpeech) |
+
+## Pro-Typ-Konfiguration (per_type)
+
+`per_type` ist eine Map `NotifType → TypeSetting`; jeder Typ unabhängig:
+
+| Feld | Beschreibung |
+| --- | --- |
+| `tts` | wird dieser Typ vorgelesen (UND mit globalem `tts_enabled`) |
+| `form` | Verteilform (Full / PopupOnly / InboxOnly / SoundOnly) |
+
+Fehlende Schlüssel werden als alle-Kanäle + Full behandelt.
+
+## Vorlagevariablen
+
+Titel-/Body-Vorlagen unterstützen Variablen, die bei der Verteilung ersetzt werden (`substitute_vars`):
+
+- `{project}` — Projektname
+- `{status}` — Status
+- weitere Kontextvariablen
+
+Beispiel: Vorlage `{project} · {status}` → wird bei Verteilung gefüllt.
+
+## Testbenachrichtigung
+
+Die Einstellungsseite hat einen Test-Button (`notification_test`), der nach aktueller Konfiguration eine Testbenachrichtigung verteilt, um die Kanäle zu prüfen.
+
+→ Weiter: [Hook-Integration](/de/notifications/hooks)

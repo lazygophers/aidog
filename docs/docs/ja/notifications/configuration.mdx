@@ -1,0 +1,42 @@
+---
+title: 通知設定
+---
+
+# 通知設定
+
+通知設定（`NotificationSettings`）は設定ページ → 通知にあります。マスタースイッチ、TTS、タイプ別チャネルを制御。
+
+## グローバルスイッチ
+
+| フィールド | デフォルト | 説明 |
+| --- | --- | --- |
+| `enabled` | true | マスタースイッチ。OFF で全ディスパッチ bypass |
+| `tts_enabled` | true | TTS マスタースイッチ。タイプ別 `tts` と AND（両方 ON で播報） |
+| `tts_backend` | CrossPlatform | TTS バックエンド（CrossPlatform / MacSay / WebSpeech） |
+
+## タイプ別設定（per_type）
+
+`per_type` は `NotifType → TypeSetting` マップ、各タイプを独立設定：
+
+| フィールド | 説明 |
+| --- | --- |
+| `tts` | 本タイプを TTS 播報するか（グローバル `tts_enabled` と AND） |
+| `form` | ディスパッチフォーム（Full / PopupOnly / InboxOnly / SoundOnly） |
+
+欠損キーは全チャネル有効 + Full として扱われます。
+
+## テンプレート変数
+
+タイトル/本文テンプレートは変数プレースホルダをサポート、ディスパッチ時に置換（`substitute_vars`）：
+
+- `{project}` — プロジェクト名
+- `{status}` — ステータス
+- その他コンテキスト変数
+
+例：タイトルテンプレート `{project} · {status}` → ディスパッチ時に実際の値を埋める。
+
+## テスト通知
+
+設定ページに「テスト通知」ボタン（`notification_test` コマンド）があり、現在の設定でテスト通知をディスパッチしチャネルを検証。
+
+→ 次へ：[Hook 連携](/ja/notifications/hooks)

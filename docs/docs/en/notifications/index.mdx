@@ -1,0 +1,55 @@
+---
+title: System Notifications
+---
+
+# System Notifications
+
+AiDog has a built-in notification module that alerts you on key events of coding assistants like Claude Code / OpenAI Codex (task complete, waiting for input, error) via four channels — **TTS speech / desktop popup / sound / inbox** — so you can stay aware of proxy status even away from the screen.
+
+## How It Works
+
+1. The coding assistant calls the local endpoint `POST /api/notify` via a hook script on event trigger
+2. AiDog dispatches by notification type (`NotifType`) and configured channels (`Channels`)
+3. TTS reads aloud, a system notification pops up, a sound plays, and it's written to the inbox (reviewable)
+
+## Notification Types
+
+Four `NotifType`s:
+
+| Type | Literal | Trigger |
+| --- | --- | --- |
+| TaskComplete | `task_complete` | Task completed |
+| WaitingInput | `waiting_input` | Waiting for user input |
+| Error | `error` | Error occurred |
+| Custom | `custom` | Custom |
+
+Each type can be independently configured: whether to speak, which channels.
+
+## Channels & Forms
+
+The dispatch form (`NotifForm`) decides which channels are enabled:
+
+| Form | Channels |
+| --- | --- |
+| Full | TTS + popup + sound + inbox |
+| PopupOnly | popup + inbox |
+| InboxOnly | inbox |
+| SoundOnly | sound |
+
+> Popup-type notifications are persisted to the inbox for later review.
+
+## TTS Backends
+
+Three `TtsBackend`s:
+
+| Backend | Description |
+| --- | --- |
+| CrossPlatform | Cross-platform (default) |
+| MacSay | macOS native `say` |
+| WebSpeech | Browser Web Speech API |
+
+## Further Reading
+
+- [Configuration](/en/notifications/configuration) — master switch / TTS / per-type settings
+- [Hook Integration](/en/notifications/hooks) — one-click injection for Claude Code / Codex
+- [Inbox](/en/notifications/inbox) — notification history & management

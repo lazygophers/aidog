@@ -1,0 +1,42 @@
+---
+title: 通知配置
+---
+
+# 通知配置
+
+通知设置（`NotificationSettings`）位于设置页 → 通知。控制总开关、TTS、按类型通道。
+
+## 全局开关
+
+| 字段 | 默认 | 说明 |
+| --- | --- | --- |
+| `enabled` | true | 总开关。关闭后全部分发旁路 |
+| `tts_enabled` | true | TTS 总开关。与按类型 `tts` 取与（两者都开才播报） |
+| `tts_backend` | CrossPlatform | TTS 后端（CrossPlatform / MacSay / WebSpeech） |
+
+## 按类型配置（per_type）
+
+`per_type` 是 `NotifType → TypeSetting` 映射，每种通知类型独立配置：
+
+| 字段 | 说明 |
+| --- | --- |
+| `tts` | 本类型是否 TTS 播报（与全局 `tts_enabled` 取与） |
+| `form` | 派发形态（Full / PopupOnly / InboxOnly / SoundOnly） |
+
+缺省键视为全通道启用 + Full。
+
+## 模板变量
+
+通知标题/正文模板支持变量占位，派发时替换（`substitute_vars`）：
+
+- `{project}` — 项目名
+- `{status}` — 状态
+- 其他上下文变量
+
+例：标题模板 `{project} · {status}` → 派发时填入实际值。
+
+## 测试通知
+
+设置页提供「测试通知」按钮（`notification_test` 命令），按当前配置派发一条测试通知，验证通道是否工作。
+
+→ 下一步：[Hook 集成](/zh/notifications/hooks)

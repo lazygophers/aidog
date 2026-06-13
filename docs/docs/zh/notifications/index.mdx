@@ -1,0 +1,55 @@
+---
+title: 系统通知
+---
+
+# 系统通知
+
+AiDog 内置系统通知模块，在 Claude Code / OpenAI Codex 等编程助手的关键事件（任务完成、等待输入、出错）时，通过 **TTS 语音播报 / 桌面弹窗 / 提示音 / 收件箱** 四个通道通知你——离开屏幕也能感知代理状态。
+
+## 工作原理
+
+1. 编程助手通过 hook 脚本在事件触发时调用本地端点 `POST /api/notify`
+2. AiDog 按通知类型（`NotifType`）与配置的通道（`Channels`）派发
+3. TTS 朗读、弹出系统通知、播放提示音、写入收件箱（可回看）
+
+## 通知类型
+
+四种 `NotifType`：
+
+| 类型 | 字面量 | 触发场景 |
+| --- | --- | --- |
+| TaskComplete | `task_complete` | 任务完成 |
+| WaitingInput | `waiting_input` | 等待用户输入 |
+| Error | `error` | 出错 |
+| Custom | `custom` | 自定义 |
+
+每种类型可单独配置是否播报、用哪些通道。
+
+## 通道与形态
+
+派发形态（`NotifForm`）决定启用哪些通道：
+
+| 形态 | 通道 |
+| --- | --- |
+| Full | TTS + 弹窗 + 提示音 + 收件箱 |
+| PopupOnly | 弹窗 + 收件箱 |
+| InboxOnly | 收件箱 |
+| SoundOnly | 提示音 |
+
+> 弹窗类通知会落库到收件箱，便于事后回看。
+
+## TTS 后端
+
+三种 `TtsBackend`：
+
+| 后端 | 说明 |
+| --- | --- |
+| CrossPlatform | 跨平台（默认） |
+| MacSay | macOS 原生 `say` |
+| WebSpeech | 浏览器 Web Speech API |
+
+## 进一步阅读
+
+- [通知配置](/zh/notifications/configuration) — 总开关 / TTS / 按类型设置
+- [Hook 集成](/zh/notifications/hooks) — Claude Code / Codex 一键注入
+- [收件箱](/zh/notifications/inbox) — 通知历史查看与管理

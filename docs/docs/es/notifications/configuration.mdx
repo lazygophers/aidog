@@ -1,0 +1,42 @@
+---
+title: Configuración de notificaciones
+---
+
+# Configuración de notificaciones
+
+Los ajustes (`NotificationSettings`) están en Ajustes → Notificaciones. Controlan el interruptor maestro, el TTS y los canales por tipo.
+
+## Interruptores globales
+
+| Campo | Predeterminado | Descripción |
+| --- | --- | --- |
+| `enabled` | true | Interruptor maestro. Off = toda distribución omitida |
+| `tts_enabled` | true | TTS maestro. AND con `tts` por tipo (ambos on para leer) |
+| `tts_backend` | CrossPlatform | Backend TTS (CrossPlatform / MacSay / WebSpeech) |
+
+## Configuración por tipo (per_type)
+
+`per_type` es un mapa `NotifType → TypeSetting`; cada tipo se configura de forma independiente:
+
+| Campo | Descripción |
+| --- | --- |
+| `tts` | ¿se lee este tipo en voz alta? (AND con `tts_enabled` global) |
+| `form` | Forma de distribución (Full / PopupOnly / InboxOnly / SoundOnly) |
+
+Las claves faltantes se tratan como todos los canales + Full.
+
+## Variables de plantilla
+
+Las plantillas título/cuerpo soportan variables, sustituidas en la distribución (`substitute_vars`):
+
+- `{project}` — nombre del proyecto
+- `{status}` — estado
+- otras variables de contexto
+
+Ejemplo: plantilla `{project} · {status}` → se rellena al distribuir.
+
+## Notificación de prueba
+
+La página de ajustes tiene un botón «Probar» (`notification_test`) que distribuye una notificación de prueba según la configuración actual para verificar los canales.
+
+→ Siguiente: [Integración Hook](/es/notifications/hooks)

@@ -215,6 +215,15 @@
     "ar": "البرمجيات الوسيطة",
     "es": "Middleware"
   },
+  "notifications": {
+    "zh": "通知",
+    "en": "Notifications",
+    "ja": "通知",
+    "fr": "Notifications",
+    "de": "Benachrichtigungen",
+    "ar": "الإشعارات",
+    "es": "Notificaciones"
+  },
   "appSettings": {
     "zh": "应用设置",
     "en": "App Settings",

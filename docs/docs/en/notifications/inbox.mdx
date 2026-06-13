@@ -1,0 +1,34 @@
+---
+title: Inbox
+---
+
+# Inbox
+
+The inbox stores historical notifications (both popup-type and InboxOnly notifications are persisted) for later review and management. Shown on the Notifications page (`Notifications`).
+
+## Notification Structure (`Notification`)
+
+| Field | Description |
+| --- | --- |
+| `id` | Notification ID |
+| `notif_type` | Type literal (task_complete / waiting_input / error / custom) |
+| `title` | Title |
+| `body` | Body |
+| `read` | Read flag |
+| `created_at` | Creation time |
+
+## Operations
+
+| Operation | Command | Description |
+| --- | --- | --- |
+| List | `notification_inbox_list` | Fetch recent notifications (limitable) |
+| Unread count | `notification_inbox_unread` | Unread count (for badge) |
+| Mark read | `notification_mark_read` | Mark one or all as read |
+| Clear | `notification_clear` | Clear the inbox |
+
+## Frontend
+
+- **Notifications page** (sidebar): list + unread badge + mark read + clear
+- **Settings page**: notification switches and per-type config (see [Configuration](/en/notifications/configuration))
+
+→ Back to [Notifications Overview](/en/notifications)
