@@ -205,7 +205,7 @@ async fn platform_set_tray(
     } else {
         db::clear_tray(&db).await?;
     }
-    refresh_tray_menu(&app)?;
+    refresh_tray_menu(&app).await?;
     Ok(())
 }
 
@@ -223,7 +223,7 @@ async fn tray_config_set(
     app: tauri::AppHandle,
 ) -> Result<(), String> {
     db::set_tray_config(&db, &config).await?;
-    refresh_tray_menu(&app)?;
+    refresh_tray_menu(&app).await?;
     Ok(())
 }
 
@@ -355,7 +355,7 @@ async fn proxy_start(
     }
 
     // 更新托盘菜单
-    refresh_tray_menu(&app)?;
+    refresh_tray_menu(&app).await?;
 
     let msg = if actual_port != port {
         format!("proxy started on port {} ({} was occupied)", actual_port, port)
@@ -380,7 +380,7 @@ async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
         save_proxy_settings(&app, settings.port, false, settings.silent_launch).await?;
     }
 
-    refresh_tray_menu(&app)?;
+    refresh_tray_menu(&app).await?;
     Ok(())
 }
 
@@ -476,7 +476,7 @@ async fn platform_fetch_models(
         Protocol::Mock | Protocol::ClaudeCode => unreachable!(),
         Protocol::Anthropic => {
             let url = format!("{base}/v1/models");
-            tracing::info!(url = %url, "fetch models request");
+            tracing::info!(method = "GET", url = %url, "fetch models request");
             let resp = client
                 .get(&url)
                 .header("x-api-key", &api_key)
@@ -490,7 +490,7 @@ async fn platform_fetch_models(
         }
         Protocol::Bailian => {
             let url = format!("{base}/compatible-mode/v1/models");
-            tracing::info!(url = %url, "fetch models request");
+            tracing::info!(method = "GET", url = %url, "fetch models request");
             let resp = client
                 .get(&url)
                 .header("Authorization", format!("Bearer {api_key}"))
@@ -512,7 +512,7 @@ async fn platform_fetch_models(
         }
         Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::GlmEn | Protocol::Kimi | Protocol::MiniMax | Protocol::MiniMaxEn | Protocol::Gemini | Protocol::OpenAIResponses | Protocol::OpenAICompletions | Protocol::BailianCoding | Protocol::DeepSeek | Protocol::StepFun | Protocol::StepFunEn | Protocol::Doubao | Protocol::DoubaoSeed | Protocol::BytePlus | Protocol::QianFan | Protocol::XiaomiMimo | Protocol::BaiLing | Protocol::Longcat | Protocol::OpenRouter | Protocol::SiliconFlow | Protocol::SiliconFlowEn | Protocol::AiHubMix | Protocol::DmxApi | Protocol::ModelScope | Protocol::ShengSuanYun | Protocol::AtlasCloud | Protocol::Novita | Protocol::TheRouter | Protocol::CherryIn | Protocol::PackyCode | Protocol::Cubence | Protocol::AiGoCode | Protocol::RightCode | Protocol::AiCodeMirror | Protocol::Nvidia | Protocol::Pateway | Protocol::CcSub | Protocol::ApiKeyFun | Protocol::ApiNebula | Protocol::SudoCode | Protocol::ClaudeApi | Protocol::ClaudeCN | Protocol::RunApi | Protocol::RelaxyCode | Protocol::CrazyRouter | Protocol::SssAiCode | Protocol::Compshare | Protocol::CompshareCoding | Protocol::Micu | Protocol::CTok | Protocol::EFlowCode | Protocol::LemonData | Protocol::PipeLlm | Protocol::OpenCode | Protocol::NewApi => {
             let url = format!("{base}/models");
-            tracing::info!(url = %url, "fetch models request");
+            tracing::info!(method = "GET", url = %url, "fetch models request");
             let resp = client
                 .get(&url)
                 .header("Authorization", format!("Bearer {api_key}"))
@@ -1600,12 +1600,12 @@ async fn tray_separator(app: &tauri::AppHandle) -> String {
 fn default_separator_str() -> String { "  ".to_string() }
 
 /// 菜单内 quota 项的纯文字概要（无颜色/字号，separator 拼接；每列横排 "名 值"）。
-fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
-    let layout = tauri::async_runtime::block_on(tray_layout(app));
+async fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
+    let layout = tray_layout(app).await;
     if layout.columns.is_empty() {
         return None;
     }
-    let default_sep = tauri::async_runtime::block_on(tray_separator(app));
+    let default_sep = tray_separator(app).await;
     let mut texts: Vec<String> = Vec::new();
     for (i, col) in layout.columns.iter().enumerate() {
         if i > 0 {
@@ -1617,14 +1617,14 @@ fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
     Some(texts.join(&default_sep))
 }
 
-fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wry>, String> {
+async fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wry>, String> {
     let running = {
         let handle = app.state::<ProxyHandle>();
         let h = handle.0.lock().map_err(|e| e.to_string())?;
         h.is_some()
     };
 
-    let settings = tauri::async_runtime::block_on(load_proxy_settings(app))?;
+    let settings = load_proxy_settings(app).await?;
     let status_text = if running {
         format!("● Proxy Running :{}", settings.port)
     } else {
@@ -1638,7 +1638,7 @@ fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wr
         .item(&MenuItemBuilder::with_id("status", status_text).enabled(false).build(app).map_err(|e| e.to_string())?);
 
     // tray quota 详情项（选定平台余额 / coding%）
-    if let Some(quota_text) = tray_quota_text(app) {
+    if let Some(quota_text) = tray_quota_text(app).await {
         builder = builder
             .item(&MenuItemBuilder::with_id("tray_quota", quota_text).enabled(false).build(app).map_err(|e| e.to_string())?);
     }
@@ -1950,21 +1950,21 @@ fn set_tray_attributed_title(
     .map_err(|e| e.to_string())?
 }
 
-fn refresh_tray_menu(app: &tauri::AppHandle) -> Result<(), String> {
+async fn refresh_tray_menu(app: &tauri::AppHandle) -> Result<(), String> {
     let tray = app.tray_by_id("main").ok_or("tray not found")?;
-    let menu = build_tray_menu(app)?;
+    let menu = build_tray_menu(app).await?;
     tray.set_menu(Some(menu)).map_err(|e| e.to_string())?;
     // macOS 菜单栏：有 quota 值时隐藏 logo + 两行小字 title；无值时恢复 logo + 清 title。
     // 非 macOS 平台仅 menu item 降级（不调 set_title / set_icon）。
     #[cfg(target_os = "macos")]
     {
-        let layout = tauri::async_runtime::block_on(tray_layout(app));
+        let layout = tray_layout(app).await;
         if layout.columns.is_empty() {
             tray.set_icon(app.default_window_icon().cloned())
                 .map_err(|e| e.to_string())?;
             tray.set_title(None::<&str>).map_err(|e| e.to_string())?;
         } else {
-            let separator = tauri::async_runtime::block_on(tray_separator(app));
+            let separator = tray_separator(app).await;
             tray.set_icon(None).map_err(|e| e.to_string())?;
             // 兜底文字：各列 "名 值"，间隙用 separator
             let fallback_text = layout.columns
@@ -2024,7 +2024,7 @@ pub fn run() {
             app.manage(ProxyHandle(StdMutex::new(None)));
 
             // 系统托盘
-            let menu = build_tray_menu(app.handle())?;
+            let menu = tauri::async_runtime::block_on(build_tray_menu(app.handle()))?;
             TrayIconBuilder::with_id("main")
                 .icon(app.default_window_icon().cloned().unwrap())
                 .menu(&menu)
@@ -2064,7 +2064,7 @@ pub fn run() {
                 use tauri::Listener;
                 let handle = app.handle().clone();
                 app.listen("tray-refresh", move |_| {
-                    let _ = refresh_tray_menu(&handle);
+                    let _ = tauri::async_runtime::block_on(refresh_tray_menu(&handle));
                 });
             }
 
