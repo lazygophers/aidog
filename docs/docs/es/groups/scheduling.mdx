@@ -1,0 +1,78 @@
+---
+title: Planificación y disyuntor
+---
+
+# Planificación y disyuntor
+
+AiDog proporciona **planificación inteligente** y un **disyuntor a nivel de plataforma** para múltiples plataformas de un grupo, superponiendo conciencia de salud y protección automática sobre el enrutamiento failover/load-balance.
+
+## Planificación inteligente
+
+El planificador (`SchedulerState`) mantiene métricas de salud en tiempo real por plataforma:
+
+| Métrica | Descripción |
+| --- | --- |
+| Latencia EMA | Media móvil exponencial (α = 0.3, ~6 últimas muestras) |
+| En vuelo | Peticiones en curso (inflight) |
+| Fallos consecutivos | Contador de fallos del disyuntor |
+| Estado del disyuntor | Estado actual de la máquina tri-estado |
+
+En la selección, las métricas se combinan — preferencia por baja latencia, poco en vuelo, sano.
+
+## Máquina tri-estado del disyuntor
+
+Cada plataforma mantiene independientemente un estado (`BreakerState`):
+
+```
+Closed ──fallos alcanzan umbral──▶ Open ──timeout──▶ HalfOpen ──sonda éxito──▶ Closed
+                                                    └─sonda fallo──▶ Open
+```
+
+| Estado | Campo | Comportamiento |
+| --- | --- | --- |
+| **Closed** | `fails` | Paso normal; registra fallos consecutivos |
+| **Open** | `until_ms` | Disyuntor abierto; retirado de candidatos (`Admission = Reject`) |
+| **HalfOpen** | `probes` | Sonda semiabierta; paso limitado (`Admission = Probe`) |
+
+### Config de umbrales (`BreakerThresholds`)
+
+| Parámetro | Descripción |
+| --- | --- |
+| `failure_threshold` | Fallos para disparar el disyuntor |
+| `open_secs` | Duración abierta (segundos) |
+| `half_open_max` | Máx. sondas en semiabierto |
+
+## Admisión
+
+El planificador devuelve un resultado tri-estado:
+
+- **Allow** — paso normal
+- **Reject** — disyuntor Open de la plataforma; retirado
+- **Probe** — paso semiabierto (limitado)
+
+## Desacoplado de auto_disabled
+
+El disyuntor (`BreakerState`) y el auto-disable (`auto_disabled`, fallo de auth) filtran como **unión**:
+
+- Open → temporalmente retirado (recuperable)
+- auto_disabled → persistentemente desactivado (recuperación manual/auth)
+- Uno de los dos → no enrutado
+
+Desacoplados: el disyuntor es protección temporal consciente de la salud; auto_disabled es un estado persistente de fallo de auth.
+
+## Sesión sticky
+
+Tabla de sesión sticky integrada (`StickyTable`):
+
+- Misma clave de sesión → misma plataforma (consistencia de contexto)
+- LRU en memoria + expiración TTL
+- TTL: 30 min de inactividad
+- Capacidad: 4096 entradas
+
+## Puntos de configuración
+
+- **Nivel plataforma**: umbrales del disyuntor en la edición de plataforma
+- **Nivel grupo**: estrategia en la edición de grupo
+- **Por defecto global**: umbrales en los ajustes
+
+→ Bases de enrutamiento: [Reglas de enrutamiento](/es/groups/routing-rules) · [Retry y Failover de plataforma](/es/platforms/protocols)

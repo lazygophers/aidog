@@ -206,6 +206,15 @@
     "ar": "الإعدادات",
     "es": "Configuración"
   },
+  "middleware": {
+    "zh": "中间件",
+    "en": "Middleware",
+    "ja": "ミドルウェア",
+    "fr": "Middleware",
+    "de": "Middleware",
+    "ar": "البرمجيات الوسيطة",
+    "es": "Middleware"
+  },
   "appSettings": {
     "zh": "应用设置",
     "en": "App Settings",

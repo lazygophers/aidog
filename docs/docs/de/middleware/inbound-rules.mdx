@@ -1,0 +1,62 @@
+---
+title: Inbound-Regeln
+---
+
+# Inbound-Regeln
+
+Inbound-Regeln laufen **bevor der Request die Upstream-Plattform erreicht**, auf den Request-Body (messages, system, model etc.). Die Engine wendet 5 Inbound-Typen in fester Reihenfolge an:
+
+```
+RequestFilter → SensitiveWord → Redaction → ContentFilter → DynamicInjection
+```
+
+## request_filter — Feldfilter
+
+Filtert Requests nach Feldwert. Typisch: **Model-Allow/Deny-Liste**.
+
+- `match_type`: Match-Methode
+- `pattern`: Feldwert-Muster (z. B. `gpt-4o`)
+- `action`: `warn` (loggen) / `block` (ablehnen)
+
+Beispiel: Modell verbieten → `block` bei Match; Request abgelehnt und ins Audit-Log (`proxy_log.blocked_by`).
+
+## sensitive_word — Sensitiv-Wort-Block
+
+`pattern` ist das Wort selbst (keine Regex). Bei Match gilt `action`:
+
+- `block`: Request ablehnen
+- `mask`: durch Platzhalter ersetzen
+
+Eingebaute Detektoren decken gängige Secret-Muster ab (siehe [Eingebaute Presets](/de/middleware/builtin-presets)).
+
+## redaction — Redaktion
+
+Ersetzt sensible Informationen. Mit eingebauten Regex (API-Key, E-Mail, Telefon) oder eigenem `pattern`:
+
+- `config.replacement`: Ersatztext (Standard `***`)
+- sensibles Fragment → ersetzt, dann weitergeleitet
+
+## content_filter — Inhaltsfilter
+
+Matcht Request-Inhalt per Regex; bei Match blockieren oder umschreiben. Nützlich für Themen-Sperren oder Safety-Policies.
+
+## dynamic_injection — Dynamische Injection
+
+Injiziert dynamisch Inhalte. Drei Injectionspunkte (`config`):
+
+- **system**: system-Message injizieren (Identität, Safety-Policy)
+- **header**: HTTP-Header injizieren/überschreiben
+- **body**: Request-Body-Felder injizieren/überschreiben
+
+Beispiel: jedem Request einen system-Prompt anhängen → `dynamic_injection` + `config.inject = system`.
+
+## Block-Audit
+
+`action = block`-Matches werden in `proxy_log` geschrieben:
+
+- `blocked_by`: Regel-ID (`rule_type#id name`)
+- `blocked_reason`: lesbarer Grund
+
+Blockierte Requests werden **nicht abgerechnet** (`est_cost = 0`), behalten aber die volle Audit-Zeile.
+
+→ Weiter: [Outbound-Regeln](/de/middleware/outbound-rules)

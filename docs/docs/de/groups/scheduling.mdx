@@ -1,0 +1,78 @@
+---
+title: Scheduling & Circuit-Breaking
+---
+
+# Scheduling & Circuit-Breaking
+
+AiDog bietet **intelligentes Scheduling** und einen **plattformbezogenen Circuit-Breaker** für mehrere Plattformen einer Gruppe und legt Gesundheitsbewusstsein und automatischen Schutz über Failover/Load-Balance-Routing.
+
+## Intelligentes Scheduling
+
+Der Scheduler (`SchedulerState`) pflegt Echtzeit-Gesundheitsmetriken pro Plattform:
+
+| Metrik | Beschreibung |
+| --- | --- |
+| Latenz-EMA | Exponentiell gleitender Mittelwert (α = 0.3, ~letzte 6 Samples) |
+| In-flight | Aktuell offene Requests (inflight) |
+| Aufeinanderfolgende Fehler | Breaker-Fehlerzähler |
+| Breaker-Zustand | Aktueller Zustand der Tri-State-Maschine |
+
+Bei der Auswahl werden Metriken kombiniert — bevorzugt niedrige Latenz, wenig In-flight, gesund.
+
+## Circuit-Breaker Tri-State-Maschine
+
+Jede Plattform pflegt unabhängig einen Zustand (`BreakerState`):
+
+```
+Closed ──Fehler erreichen Schwellen──▶ Open ──Timeout──▶ HalfOpen ──Sonde Erfolg──▶ Closed
+                                                       └─Sonde Misserfolg──▶ Open
+```
+
+| Zustand | Feld | Verhalten |
+| --- | --- | --- |
+| **Closed** | `fails` | Normaler Durchlauf; zählt aufeinanderfolgende Fehler |
+| **Open** | `until_ms` | Breaker offen; aus Kandidaten entfernt (`Admission = Reject`) |
+| **HalfOpen** | `probes` | Halb-offene Sonde; limitierter Durchlauf (`Admission = Probe`) |
+
+### Schwellen-Konfig (`BreakerThresholds`)
+
+| Param | Beschreibung |
+| --- | --- |
+| `failure_threshold` | Fehler für Trigger |
+| `open_secs` | Offen-Dauer (Sekunden) |
+| `half_open_max` | Max Sonden im Halb-Offen |
+
+## Admission
+
+Der Scheduler liefert ein Tri-State-Ergebnis:
+
+- **Allow** — normal
+- **Reject** — Breaker Open; entfernt
+- **Probe** — Halb-Offen (limitiert)
+
+## Entkoppelt von auto_disabled
+
+Breaker (`BreakerState`) und Auto-Disable (`auto_disabled`, Auth-Fehler) filtern als **Union**:
+
+- Open → temporär entfernt (erholbar)
+- auto_disabled → dauerhaft deaktiviert (manuell/Auth)
+- Eines von beiden → nicht geroutet
+
+Entkoppelt: Circuit-Break ist temporärer Gesundheitsschutz; auto_disabled ist persistenter Auth-Fehler-Zustand.
+
+## Sticky Session
+
+Eingebaute Sticky-Session-Tabelle (`StickyTable`):
+
+- Gleicher Session-Key → gleiche Plattform (Kontext-Konsistenz)
+- In-Memory-LRU + TTL-Verdrängung
+- TTL: 30 Min Inaktivität
+- Kapazität: 4096 Einträge
+
+## Konfig-Einstiegspunkte
+
+- **Plattform-Ebene**: Breaker-Schwellen im Plattform-Edit
+- **Gruppen-Ebene**: Strategie im Gruppen-Edit
+- **Global-Default**: Schwellen in den Einstellungen
+
+→ Routing-Basics: [Routing-Regeln](/de/groups/routing-rules) · [Plattform-Retry & Failover](/de/platforms/protocols)

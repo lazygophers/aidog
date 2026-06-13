@@ -1,0 +1,62 @@
+---
+title: Règles entrantes
+---
+
+# Règles entrantes
+
+Les règles entrantes s'exécutent **avant que la requête n'atteigne la plateforme amont**, sur le corps de requête (messages, system, model, etc.). Le moteur applique 5 types entrants dans un ordre fixe :
+
+```
+RequestFilter → SensitiveWord → Redaction → ContentFilter → DynamicInjection
+```
+
+## request_filter — Filtrage de champ
+
+Filtre les requêtes par valeur de champ. Usage typique : **liste modèle autorisée/refusée**.
+
+- `match_type` : méthode de match
+- `pattern` : motif de valeur (ex. `gpt-4o`)
+- `action` : `warn` (journal) / `block` (rejeter)
+
+Exemple : interdire un modèle → `block` au match ; requête rejetée et journalisée (`proxy_log.blocked_by`).
+
+## sensitive_word — Blocage de mot sensible
+
+`pattern` est le mot lui-même (pas une regex). Au match, l'`action` s'applique :
+
+- `block` : rejeter la requête
+- `mask` : remplacer par un marqueur
+
+Les détecteurs intégrés couvrent les motifs de secret courants (voir [Préréglages intégrés](/fr/middleware/builtin-presets)).
+
+## redaction — Caviardage
+
+Remplace les informations sensibles dans le texte. S'utilise avec les regex intégrées (clé API, email, téléphone) ou un `pattern` personnalisé :
+
+- `config.replacement` : texte de remplacement (défaut `***`)
+- fragment sensible capturé → remplacé puis transféré
+
+## content_filter — Filtrage de contenu
+
+Matche le contenu par regex ; au match, bloque ou réécrit. Utile pour bloquer des sujets ou injecter des politiques de sécurité.
+
+## dynamic_injection — Injection dynamique
+
+Injecte dynamiquement du contenu. Trois points d'injection (`config`) :
+
+- **system** : injecte un message system (identité, politique de sécurité)
+- **header** : injecte/surchage les en-têtes HTTP
+- **body** : injecte/surchage les champs du corps
+
+Exemple : ajouter un prompt system à chaque requête → `dynamic_injection` + `config.inject = system`.
+
+## Audit de blocage
+
+Les matches `action = block` sont écrits dans `proxy_log` :
+
+- `blocked_by` : identifiant de règle (`rule_type#id name`)
+- `blocked_reason` : raison lisible
+
+Les requêtes bloquées **ne sont pas facturées** (`est_cost = 0`) mais conservent la ligne d'audit complète.
+
+→ Suite : [Règles sortantes](/fr/middleware/outbound-rules)

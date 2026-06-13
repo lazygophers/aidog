@@ -1,0 +1,58 @@
+---
+title: Middleware Rule Engine
+---
+
+# Middleware Rule Engine
+
+AiDog ships a configurable request/response middleware rule engine that runs rules at two stages of the proxy forwarding chain — **inbound** (request entering) and **outbound** (response returning): normalization, override, redaction, injection, sensitive-word filtering, error detection, and circuit breaking. All rules are configurable via UI — no code required.
+
+## Architecture
+
+| Feature | Description |
+| --- | --- |
+| Single-table storage | All rules stored in SQLite `middleware_rule` table |
+| Engine singleton | `MiddlewareEngine` compiles rules to regex at startup, matches by priority per request |
+| Bidirectional mounting | Inbound (rewrite request body) + outbound (rewrite response body / SSE stream) |
+| Three-tier override | `global` → `group` → `platform`; later scopes override earlier same-named rules |
+| Per-chunk streaming | SSE responses processed chunk by chunk without buffering |
+| Built-in presets | API key / email / phone redaction + default error classification rules |
+
+## Rule Types
+
+The engine defines 8 `RuleType`s, grouped by execution stage:
+
+| Type | Stage | Purpose |
+| --- | --- | --- |
+| `request_filter` | Inbound | Request field filtering (e.g. model allow/deny list) |
+| `sensitive_word` | Inbound | Sensitive-word blocking (pattern is the word) |
+| `redaction` | Inbound | Field value redaction |
+| `content_filter` | Inbound | Content filtering |
+| `dynamic_injection` | Inbound | Dynamic injection (system / header / body) |
+| `response_override` | Outbound | Response body override |
+| `rectifier` | Outbound | Rectifier (SSE / JSON / encoding / missing-field fix) |
+| `error_rule` | Outbound | Error classification (retry / circuit-break / status-code override) |
+
+## Rule Fields
+
+Each rule (`middleware_rule` table) field:
+
+| Field | Description |
+| --- | --- |
+| `name` / `description` | Name and description |
+| `rule_type` | Rule type (see table above) |
+| `scope` | Scope: `global` / `group` / `platform` |
+| `scope_ref` | Scope reference (group / platform name; empty for global) |
+| `match_type` | Match method (e.g. `contains` / `regex`) |
+| `pattern` | Match pattern |
+| `action` | Action on match (e.g. `warn` / `block` / `mask` / `inject`) |
+| `config` | JSON extension config |
+| `priority` | Priority (higher runs first) |
+| `enabled` | Enable toggle |
+| `is_builtin` | Built-in preset (cannot delete, can disable) |
+
+## Further Reading
+
+- [Inbound Rules](/en/middleware/inbound-rules) — 5 rule types at request stage
+- [Outbound Rules](/en/middleware/outbound-rules) — 3 rule types at response stage + streaming
+- [Built-in Presets](/en/middleware/builtin-presets) — out-of-the-box redaction & error classification
+- [Configuration & Scope](/en/middleware/configuration) — three-tier override + frontend UI

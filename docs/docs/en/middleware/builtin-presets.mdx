@@ -1,0 +1,39 @@
+---
+title: Built-in Presets
+---
+
+# Built-in Presets
+
+AiDog ships a set of out-of-the-box middleware rules (`is_builtin = 1`), enabled by default. Built-in rules **cannot be deleted**, but can be disabled or have their parameters adjusted.
+
+## Built-in Redaction Detectors
+
+The engine has three built-in regex detectors, used with `redaction` / `sensitive_word` rules:
+
+| Detector | Pattern | Description |
+| --- | --- | --- |
+| API Key | `BUILTIN_SECRET_PATTERN` | Common AI platform key formats (`sk-...`, etc.) |
+| Email | `[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}` | Standard email |
+| Phone | (built-in phone pattern) | Regional phone numbers |
+
+On match, replaced per the rule's `replacement` (default `***`).
+
+## Default error_rules
+
+A default set of error classification rules (`error_rule` + `is_builtin = 1`) covers common upstream errors:
+
+- **429 Too Many Requests** → retryable
+- **5xx server error** → retryable + counts toward circuit breaking
+- **401 / 403 auth failure** → triggers platform auto_disabled (see [Platform Retry & Failover](/en/platforms/protocols))
+
+## Built-in Rule Management
+
+- **Idempotent**: unique by `(name, is_builtin=1)`; seeding skipped if already present
+- **Respects user state**: a user-disabled built-in rule is not re-enabled
+- **Visibility**: built-in rules are marked in the UI to distinguish from custom rules
+
+## Custom Rules
+
+Beyond built-in rules, you can add any custom rule (`is_builtin = 0`). See [Configuration & Scope](/en/middleware/configuration).
+
+→ Next: [Configuration & Scope](/en/middleware/configuration)

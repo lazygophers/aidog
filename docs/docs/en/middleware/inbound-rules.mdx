@@ -1,0 +1,62 @@
+---
+title: Inbound Rules
+---
+
+# Inbound Rules
+
+Inbound rules execute **before the request reaches the upstream platform**, acting on the request body (messages, system, model, etc.). The engine applies 5 inbound rule types in a fixed order:
+
+```
+RequestFilter → SensitiveWord → Redaction → ContentFilter → DynamicInjection
+```
+
+## request_filter — Request Field Filtering
+
+Filter requests by field value. Typical use: **model allow/deny list**.
+
+- `match_type`: match method
+- `pattern`: field value pattern (e.g. model name `gpt-4o`)
+- `action`: `warn` (log) / `block` (reject request)
+
+Example: forbid a model → `block` on match; the request is rejected and recorded in the audit log (`proxy_log.blocked_by`).
+
+## sensitive_word — Sensitive-Word Blocking
+
+`pattern` is the sensitive word itself (not regex). On match, the `action` applies:
+
+- `block`: reject the request
+- `mask`: replace with a placeholder
+
+Built-in detectors cover common secret patterns (see [Built-in Presets](/en/middleware/builtin-presets)).
+
+## redaction — Redaction
+
+Replace sensitive information in request text. Pairs with built-in regexes (API key, email, phone) or custom `pattern`:
+
+- `config.replacement`: replacement text (default `***`)
+- matched sensitive fragment → replaced, then forwarded
+
+## content_filter — Content Filtering
+
+Match request content by regex; on match, block or rewrite. Useful for blocking specific topics or injecting safety policies.
+
+## dynamic_injection — Dynamic Injection
+
+Dynamically inject content into the request. Three injection points (specified in `config`):
+
+- **system**: inject a system message (e.g. identity constraint, safety policy)
+- **header**: inject / override HTTP headers
+- **body**: inject / override request body fields
+
+Example: auto-append a system prompt to every request → configure `dynamic_injection` + `config.inject = system`.
+
+## Block Audit
+
+Matches with `action = block` are written to `proxy_log`:
+
+- `blocked_by`: matched rule identifier (`rule_type#id name`)
+- `blocked_reason`: human-readable block reason
+
+Blocked requests are **not billed** (`est_cost = 0`) but retain the full audit row.
+
+→ Next: [Outbound Rules](/en/middleware/outbound-rules)

@@ -1,0 +1,46 @@
+---
+title: Reglas salientes
+---
+
+# Reglas salientes
+
+Las reglas salientes se ejecutan **tras el retorno de la respuesta ascendente, antes de reenviar al cliente**. El motor aplica 3 tipos salientes en orden fijo:
+
+```
+ResponseOverride → Rectifier → ErrorRule
+```
+
+## response_override — Sobrescritura de respuesta
+
+Reescribe cuerpos de respuesta exitosos. Coincide texto por `pattern`; al coincidir, reemplaza por el contenido de `config`. Útil para unificar formatos de campo o enmascarar fragmentos sensibles.
+
+## rectifier — Rectificador
+
+Corrige defectos de formato en respuestas ascendentes:
+
+- **Flujo SSE**: completa prefijos `data:` ausentes, límites de evento
+- **JSON**: repara truncamiento / escapes ilegales
+- **Codificación**: unifica la codificación
+- **Campo ausente**: completa campos requeridos
+
+Para compatibilidad con plataformas no estándar.
+
+## error_rule — Clasificación de error
+
+Clasifica respuestas de error ascendentes (no 2xx):
+
+- **Reintento**: juzgada reintentable (429 / 503) → dispara failover entre plataformas
+- **Disyuntor**: juzgada fallo de plataforma → cuenta hacia fallos del disyuntor (ver [Planificación y disyuntor](/es/groups/scheduling))
+- **Status override**: mapea el código ascendente a uno visible para el cliente
+
+`config` puede especificar `retry` / `circuit_break` / `status_override`. Un conjunto por defecto de `error_rules` está integrado (ver [Presets integrados](/es/middleware/builtin-presets)).
+
+## Streaming por chunk
+
+Para respuestas SSE, el motor aplica reglas salientes **por chunk** (`rewrite_chunk_text`) sin almacenar toda la respuesta:
+
+- Cada chunk SSE se procesa al llegar
+- Se preserva la semántica de streaming; el cliente recibe tokens en tiempo real
+- Tamaño de regex limitado (DFA ≤ 1 MiB), previene ReDoS
+
+→ Siguiente: [Presets integrados](/es/middleware/builtin-presets)

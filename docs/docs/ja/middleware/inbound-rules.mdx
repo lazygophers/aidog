@@ -1,0 +1,62 @@
+---
+title: インバウンドルール
+---
+
+# インバウンドルール
+
+インバウンドルールは**リクエストが上游プラットフォームに到達する前**に実行され、リクエストボディ（messages, system, model 等）に作用します。Engine は 5 種のインバウンドルールを固定順で適用：
+
+```
+RequestFilter → SensitiveWord → Redaction → ContentFilter → DynamicInjection
+```
+
+## request_filter — リクエストフィールドフィルタ
+
+フィールド値でリクエストをフィルタ。典型的用途：**model 許可/拒否リスト**。
+
+- `match_type`：マッチ方式
+- `pattern`：フィールド値パターン（例：モデル名 `gpt-4o`）
+- `action`：`warn`（記録）/ `block`（リクエスト拒否）
+
+例：あるモデルを禁止 → マッチで `block`、リクエストは拒否され監査ログ（`proxy_log.blocked_by`）に記録。
+
+## sensitive_word — センシティブワードブロック
+
+`pattern` がセンシティブワードそのもの（正規表現ではない）。マッチ時 `action` を適用：
+
+- `block`：リクエスト拒否
+- `mask`：プレースホルダへ置換
+
+組み込み検出器が一般的なシークレットパターンをカバー（[組み込みプリセット](/ja/middleware/builtin-presets) 参照）。
+
+## redaction — マスキング
+
+リクエストテキスト内の機密情報を置換。組み込み正規表現（API キー、メール、電話）またはカスタム `pattern` と併用：
+
+- `config.replacement`：置換テキスト（デフォルト `***`）
+- 機密断片をマッチ → 置換して転送
+
+## content_filter — コンテンツフィルタ
+
+正規表現でリクエスト内容をマッチ、ヒットでブロックまたは書き換え。特定トピックの遮断やセキュリティポリシー注入に適。
+
+## dynamic_injection — 動的注入
+
+リクエストへ動的にコンテンツを注入。3 つの注入ポイント（`config` で指定）：
+
+- **system**：system メッセージを注入（例：アイデンティティ制約、セキュリティポリシー）
+- **header**：HTTP ヘッダーを注入/上書き
+- **body**：リクエストボディフィールドを注入/上書き
+
+例：全リクエストへ system プロンプトを自動追加 → `dynamic_injection` + `config.inject = system`。
+
+## ブロック監査
+
+`action = block` のマッチは `proxy_log` に書き込まれます：
+
+- `blocked_by`：マッチしたルール識別子（`rule_type#id name`）
+- `blocked_reason`：人間可読のブロック理由
+
+ブロックされたリクエストは**課金されません**（`est_cost = 0`）、ただし完全な監査行を保持。
+
+→ 次へ：[アウトバウンドルール](/ja/middleware/outbound-rules)

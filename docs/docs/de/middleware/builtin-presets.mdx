@@ -1,0 +1,39 @@
+---
+title: Eingebaute Presets
+---
+
+# Eingebaute Presets
+
+AiDog liefert einsatzbereite Middleware-Regeln (`is_builtin = 1`), standardmäßig aktiviert. Eingebaute Regeln **können nicht gelöscht**, aber deaktiviert oder angepasst werden.
+
+## Eingebaute Redaktions-Detektoren
+
+Die Engine hat drei eingebaute Regex-Detektoren, genutzt mit `redaction` / `sensitive_word`:
+
+| Detektor | Muster | Beschreibung |
+| --- | --- | --- |
+| API-Key | `BUILTIN_SECRET_PATTERN` | Gängige Plattform-Key-Formate (`sk-...` etc.) |
+| E-Mail | `[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}` | Standard-E-Mail |
+| Telefon | (eingebautes Telefon-Muster) | Regionale Telefonnummern |
+
+Bei Match ersetzt gemäß `replacement` (Standard `***`).
+
+## Standard error_rules
+
+Ein Standard-Set (`error_rule` + `is_builtin = 1`) deckt gängige Upstream-Fehler:
+
+- **429 Too Many Requests** → wiederholbar
+- **5xx Serverfehler** → wiederholbar + zählt zum Circuit-Break
+- **401 / 403 Auth-Fehler** → triggert auto_disabled (siehe [Plattform-Retry & Failover](/de/platforms/protocols))
+
+## Verwaltung eingebauter Regeln
+
+- **Idempotent**: eindeutig nach `(name, is_builtin=1)`; Seeding übersprungen falls vorhanden
+- **Respektiert Nutzer**: eine deaktivierte eingebaute Regel wird nicht reaktiviert
+- **Sichtbarkeit**: eingebaute Regeln sind in der UI markiert
+
+## Eigene Regeln
+
+Zusätzlich beliebige eigene Regeln hinzufügen (`is_builtin = 0`). Siehe [Konfig & Geltung](/de/middleware/configuration).
+
+→ Weiter: [Konfig & Geltung](/de/middleware/configuration)

@@ -1,0 +1,46 @@
+---
+title: Règles sortantes
+---
+
+# Règles sortantes
+
+Les règles sortantes s'exécutent **après le retour de la réponse amont, avant transfert au client**. Le moteur applique 3 types sortants dans un ordre fixe :
+
+```
+ResponseOverride → Rectifier → ErrorRule
+```
+
+## response_override — Surcharge de réponse
+
+Réécrit les corps de réponse réussis. Matche le texte par `pattern` ; au match, remplace par le contenu de `config`. Utile pour unifier les formats ou masquer des fragments sensibles.
+
+## rectifier — Rectifieur
+
+Corrige les défauts de format des réponses amont :
+
+- **Flux SSE** : complète les préfixes `data:` manquants, les bornes d'événement
+- **JSON** : répare troncatures / échappements illégaux
+- **Encodage** : unifie l'encodage
+- **Champ manquant** : complète les champs requis
+
+Pour la compat avec les plateformes amont non standards.
+
+## error_rule — Classification d'erreur
+
+Classifie les réponses d'erreur amont (non 2xx) :
+
+- **Retry** : jugée retentable (429 / 503) → déclenche le failover inter-plateformes
+- **Disjonction** : jugée panne plateforme → comptée dans les échecs du disjoncteur (voir [Planification et disjonction](/fr/groups/scheduling))
+- **Surcharge de code** : mappe le code amont vers un code visible client
+
+`config` peut spécifier `retry` / `circuit_break` / `status_override`. Un jeu d'`error_rules` par défaut est intégré (voir [Préréglages intégrés](/fr/middleware/builtin-presets)).
+
+## Streaming par chunk
+
+Pour les réponses SSE, le moteur applique les règles sortantes **par chunk** (`rewrite_chunk_text`) sans tamponner toute la réponse :
+
+- Chaque chunk SSE traité à l'arrivée
+- Sémantique de streaming préservée ; le client reçoit les tokens en temps réel
+- Taille regex limitée (DFA ≤ 1 MiB), prévient le ReDoS
+
+→ Suite : [Préréglages intégrés](/fr/middleware/builtin-presets)
