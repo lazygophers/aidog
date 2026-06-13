@@ -32,20 +32,28 @@ impl Default for AppLogSettings {
 
 /// Initialize logging: dev → console only; release → console + optional file
 pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) {
-    let env_filter = EnvFilter::try_from_default_env()
+    // Dev 模式: 无论用户配置如何, 控制台永远 debug 级 (仍允许 RUST_LOG 覆盖以便更细粒度调试)。
+    // Release 模式: 遵循用户 settings.level。
+    let console_filter = if cfg!(debug_assertions) {
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("debug"))
+    } else {
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&settings.level))
+    };
+    // 文件层始终遵循用户配置 (release-only)。
+    let file_filter = EnvFilter::try_from_default_env()
         .unwrap_or_else(|_| EnvFilter::new(&settings.level));
 
     let console_layer = tracing_subscriber::fmt::layer()
         .with_target(false)
         .with_thread_ids(false)
         .with_file(false)
-        .with_filter(env_filter.clone());
+        .with_filter(console_filter);
 
     if cfg!(debug_assertions) {
-        // Dev mode: console only
+        // Dev mode: console only (forced debug)
         let subscriber = Registry::default().with(console_layer);
         let _ = tracing::subscriber::set_global_default(subscriber);
-        tracing::info!("logging initialized (dev mode, console only)");
+        tracing::info!("logging initialized (dev mode, console only, forced debug)");
     } else if settings.file_enabled {
         // Release mode: console + file
         let log_dir = data_dir.join("logs");
@@ -62,7 +70,7 @@ pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) {
         let file_layer = tracing_subscriber::fmt::layer()
             .with_ansi(false)
             .with_writer(file_appender)
-            .with_filter(env_filter);
+            .with_filter(file_filter);
 
         let subscriber = Registry::default()
             .with(console_layer)

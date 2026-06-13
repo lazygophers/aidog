@@ -657,8 +657,8 @@ async fn model_test(
         }
     };
 
-    tracing::info!(url = %url, "model test request");
-    tracing::debug!(url = %url, body = %req_body_str, "model test request body");
+    tracing::info!(method = "POST", url = %url, "model test request");
+    tracing::debug!(method = "POST", url = %url, body = %req_body_str, "model test request body");
     let resp = match req_builder.send().await {
         Ok(r) => r,
         Err(e) => {

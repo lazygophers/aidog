@@ -110,7 +110,7 @@ async fn quota_get_json(
     url: &str,
     headers: &[(&str, String)],
 ) -> Result<serde_json::Value, String> {
-    tracing::info!(url = %url, "quota outbound request");
+    tracing::info!(method = "GET", url = %url, "quota outbound request");
     let mut rb = http_client(db).await.get(url);
     for (k, v) in headers {
         rb = rb.header(*k, v);
