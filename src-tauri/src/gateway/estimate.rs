@@ -309,6 +309,7 @@ pub fn build_calibrated_coding_plan(prev: &EstCodingPlan, quota: &PlatformQuota)
 /// 一次短读拿 prev coding plan（用于拟合）→ 锁外纯计算 → write_real_quota 短持锁覆盖。
 pub async fn calibrate_from_quota(db: &Db, platform_id: u64, quota: &PlatformQuota, is_coding_plan: bool) {
     if !quota.success {
+        tracing::warn!(platform_id, is_coding_plan, error = ?quota.error, "calibrate_from_quota skipped: upstream quota query failed, keeping estimates");
         return;
     }
     let prev_json: String = db

@@ -89,6 +89,13 @@ fn parse_f64_field(obj: &serde_json::Value, field: &str) -> Option<f64> {
 }
 
 fn err_quota(msg: &str) -> PlatformQuota {
+    tracing::warn!(error = %msg, "quota query failed");
+    PlatformQuota { success: false, error: Some(msg.to_string()), queried_at: now_millis(), balance: None, coding_plan: None, newapi_user_id: None }
+}
+
+/// 同 err_quota，但附带平台标识，供排障定位是哪个平台查询失败。
+fn err_quota_platform(platform: &str, msg: &str) -> PlatformQuota {
+    tracing::warn!(platform = %platform, error = %msg, "quota query failed");
     PlatformQuota { success: false, error: Some(msg.to_string()), queried_at: now_millis(), balance: None, coding_plan: None, newapi_user_id: None }
 }
 
@@ -132,7 +139,7 @@ async fn query_deepseek_balance(db: Option<&Arc<Db>>, api_key: &str) -> Platform
     let body = match quota_get_json(db, "https://api.deepseek.com/user/balance",
         &[("Authorization", format!("Bearer {api_key}"))]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&e),
+        Err(e) => return err_quota_platform("deepseek", &e),
     };
     let is_available = body.get("is_available").and_then(|v| v.as_bool()).unwrap_or(true);
     let mut remaining = 0.0_f64;
@@ -155,7 +162,7 @@ async fn query_stepfun_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQ
     let body = match quota_get_json(db, "https://api.stepfun.com/v1/accounts",
         &[("Authorization", format!("Bearer {api_key}"))]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&e),
+        Err(e) => return err_quota_platform("stepfun", &e),
     };
     let balance = parse_f64_field(&body, "balance").unwrap_or(0.0);
     PlatformQuota {
@@ -174,11 +181,11 @@ async fn query_siliconflow_balance(db: Option<&Arc<Db>>, api_key: &str, is_cn: b
     let body = match quota_get_json(db, &url,
         &[("Authorization", format!("Bearer {api_key}"))]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&e),
+        Err(e) => return err_quota_platform("siliconflow", &e),
     };
     let data = match body.get("data") {
         Some(d) => d,
-        None => return err_quota("Missing data field"),
+        None => return err_quota_platform("siliconflow", "Missing data field"),
     };
     let total = parse_f64_field(data, "totalBalance").unwrap_or(0.0);
     let unit = if is_cn { "CNY" } else { "USD" };
@@ -196,7 +203,7 @@ async fn query_openrouter_balance(db: Option<&Arc<Db>>, api_key: &str) -> Platfo
     let body = match quota_get_json(db, "https://openrouter.ai/api/v1/credits",
         &[("Authorization", format!("Bearer {api_key}"))]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&e),
+        Err(e) => return err_quota_platform("openrouter", &e),
     };
     let data = body.get("data").unwrap_or(&body);
     let total_credits = parse_f64_field(data, "total_credits").unwrap_or(0.0);
@@ -219,7 +226,7 @@ async fn query_novita_balance(db: Option<&Arc<Db>>, api_key: &str) -> PlatformQu
     let body = match quota_get_json(db, "https://api.novita.ai/v3/user/balance",
         &[("Authorization", format!("Bearer {api_key}"))]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&e),
+        Err(e) => return err_quota_platform("novita", &e),
     };
     // Novita 金额单位 0.0001 USD
     let available = parse_f64_field(&body, "availableBalance").unwrap_or(0.0) / 10000.0;
@@ -237,7 +244,7 @@ async fn query_kimi_coding_plan(db: Option<&Arc<Db>>, api_key: &str) -> Platform
     let body = match quota_get_json(db, "https://api.kimi.com/coding/v1/usages",
         &[("Authorization", format!("Bearer {api_key}"))]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&e),
+        Err(e) => return err_quota_platform("kimi", &e),
     };
     let mut tiers = Vec::new();
     // 5h 窗口
@@ -289,15 +296,15 @@ async fn query_zhipu_coding_plan(db: Option<&Arc<Db>>, base_url: &str, api_key: 
         ("Content-Type", "application/json".to_string()),
     ]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&e),
+        Err(e) => return err_quota_platform("zhipu", &e),
     };
     if body.get("success").and_then(|v| v.as_bool()) == Some(false) {
         let msg = body.get("msg").and_then(|v| v.as_str()).unwrap_or("Unknown");
-        return err_quota(msg);
+        return err_quota_platform("zhipu", msg);
     }
     let data = match body.get("data") {
         Some(d) => d,
-        None => return err_quota("Missing data field"),
+        None => return err_quota_platform("zhipu", "Missing data field"),
     };
     let level = data.get("level").and_then(|v| v.as_str()).map(String::from);
     let mut tiers = Vec::new();
@@ -461,15 +468,15 @@ async fn query_newapi_user_balance(db: Option<&Arc<Db>>, balance_base_url: &str,
         ("Content-Type", "application/json".to_string()),
     ]).await {
         Ok(v) => v,
-        Err(e) => return err_quota(&e),
+        Err(e) => return err_quota_platform("newapi", &e),
     };
     if body.get("success").and_then(|v| v.as_bool()) != Some(true) {
         let msg = body.get("message").and_then(|v| v.as_str()).unwrap_or("Query failed");
-        return err_quota(msg);
+        return err_quota_platform("newapi", msg);
     }
     let data = match body.get("data") {
         Some(d) => d,
-        None => return err_quota("Missing data field"),
+        None => return err_quota_platform("newapi", "Missing data field"),
     };
 
     let user_id = data.get("id").and_then(|v| {
@@ -509,7 +516,7 @@ pub async fn query_quota_newapi(db: Option<&Arc<Db>>, base_url: &str, api_key: &
     // Step 1: 查询 token 使用情况
     let (unlimited, total_granted, total_used, total_available) = match query_token_usage(db, base_url, api_key).await {
         Ok(info) => info,
-        Err(e) => return err_quota(&format!("Token usage: {e}")),
+        Err(e) => return err_quota_platform("newapi", &format!("Token usage: {e}")),
     };
 
     if unlimited {
@@ -517,11 +524,11 @@ pub async fn query_quota_newapi(db: Option<&Arc<Db>>, base_url: &str, api_key: &
         match parse_newapi_extra(extra) {
             Some((balance_base_url, balance_api_key)) => {
                 if balance_base_url.is_empty() {
-                    return err_quota("New API: unlimited token requires balance_base_url");
+                    return err_quota_platform("newapi", "New API: unlimited token requires balance_base_url");
                 }
                 query_newapi_user_balance(db, &balance_base_url, &balance_api_key).await
             }
-            None => err_quota("New API: unlimited token requires balance_api_key in config"),
+            None => err_quota_platform("newapi", "New API: unlimited token requires balance_api_key in config"),
         }
     } else {
         // Step 2b: 有限额 → 直接用 token 配额

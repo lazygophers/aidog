@@ -78,6 +78,7 @@ pub fn maybe_reset(budget: &mut ManualBudget, now_ms: i64) {
                 None => budget.window_start_at = Some(now_ms),
                 Some(start) => {
                     if win_ms > 0 && now_ms - start >= win_ms {
+                        tracing::debug!(kind = "rolling", unit = %budget.unit, amount = budget.amount, "manual budget window reset");
                         budget.consumed = 0.0;
                         budget.window_start_at = Some(now_ms);
                     }
@@ -93,6 +94,7 @@ pub fn maybe_reset(budget: &mut ManualBudget, now_ms: i64) {
                 None => budget.window_start_at = Some(seg_start),
                 Some(start) => {
                     if seg_start > start {
+                        tracing::debug!(kind = "fixed", unit = %budget.unit, amount = budget.amount, "manual budget window reset");
                         budget.consumed = 0.0;
                         budget.window_start_at = Some(seg_start);
                     }
@@ -105,6 +107,7 @@ pub fn maybe_reset(budget: &mut ManualBudget, now_ms: i64) {
                 None => budget.window_start_at = Some(day_start),
                 Some(start) => {
                     if day_start > start {
+                        tracing::debug!(kind = "daily", unit = %budget.unit, amount = budget.amount, "manual budget window reset");
                         budget.consumed = 0.0;
                         budget.window_start_at = Some(day_start);
                     }
@@ -144,6 +147,7 @@ pub fn evaluate_depletion(budgets: &[ManualBudget], now_ms: i64) -> Option<Deple
         let mut cloned = b.clone();
         maybe_reset(&mut cloned, now_ms);
         if is_depleted(&cloned) {
+            tracing::debug!(kind = %cloned.kind, unit = %cloned.unit, amount = cloned.amount, consumed = cloned.consumed, "manual budget depleted, blocking request");
             return Some(DepletionInfo {
                 kind: cloned.kind.clone(),
                 unit: cloned.unit.clone(),

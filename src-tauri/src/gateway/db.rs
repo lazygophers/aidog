@@ -14,32 +14,50 @@ pub struct Db(pub AsyncConnection);
 
 /// 从 JSON 字符串反序列化 models
 fn parse_models(json: &str) -> PlatformModels {
-    serde_json::from_str(json).unwrap_or_default()
+    serde_json::from_str(json).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "parse platform models failed, using default (stored JSON corrupt?)");
+        PlatformModels::default()
+    })
 }
 
 /// 将 models 序列化为 JSON 字符串
 fn serialize_models(models: &PlatformModels) -> String {
-    serde_json::to_string(models).unwrap_or_else(|_| "{}".to_string())
+    serde_json::to_string(models).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "serialize platform models failed, persisting empty object");
+        "{}".to_string()
+    })
 }
 
 /// 从 JSON 字符串反序列化可用模型列表
 fn parse_available_models(json: &str) -> Vec<String> {
-    serde_json::from_str(json).unwrap_or_default()
+    serde_json::from_str(json).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "parse available_models failed, using empty list (stored JSON corrupt?)");
+        Vec::new()
+    })
 }
 
 /// 将可用模型列表序列化为 JSON 字符串
 fn serialize_available_models(models: &[String]) -> String {
-    serde_json::to_string(models).unwrap_or_else(|_| "[]".to_string())
+    serde_json::to_string(models).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "serialize available_models failed, persisting empty array");
+        "[]".to_string()
+    })
 }
 
 /// 从 JSON 字符串反序列化协议端点列表
 fn parse_endpoints(json: &str) -> Vec<PlatformEndpoint> {
-    serde_json::from_str(json).unwrap_or_default()
+    serde_json::from_str(json).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "parse platform endpoints failed, using empty list (stored JSON corrupt?)");
+        Vec::new()
+    })
 }
 
 /// 将协议端点列表序列化为 JSON 字符串
 fn serialize_endpoints(endpoints: &[PlatformEndpoint]) -> String {
-    serde_json::to_string(endpoints).unwrap_or_else(|_| "[]".to_string())
+    serde_json::to_string(endpoints).unwrap_or_else(|e| {
+        tracing::warn!(error = %e, "serialize platform endpoints failed, persisting empty array");
+        "[]".to_string()
+    })
 }
 
 impl Db {
@@ -406,7 +424,10 @@ pub async fn get_tray_config(db: &Db) -> Result<Option<TrayConfig>, String> {
                 .and_then(|l| l.as_str())
                 .map(|l| if l == "two_line" { "two" } else { "single" }.to_string());
             // 容错解析：损坏配置回退默认空（避免整条链 panic）。layout 为未知字段，serde 默认忽略。
-            let mut cfg: TrayConfig = serde_json::from_value(v).unwrap_or_default();
+            let mut cfg: TrayConfig = serde_json::from_value(v).unwrap_or_else(|e| {
+                tracing::warn!(error = %e, "tray config JSON is corrupt, falling back to empty default");
+                TrayConfig::default()
+            });
             if let Some(lm) = legacy_line_mode {
                 for item in &mut cfg.items {
                     item.line_mode = lm.clone();
@@ -533,7 +554,10 @@ pub async fn today_stats(db: &Db) -> Result<TodayStats, String> {
                     params![start_ms],
                     |row| row.get(0),
                 )
-                .unwrap_or(0.0);
+                .unwrap_or_else(|e| {
+                    tracing::warn!(error = %e, "today cost sum query failed, reporting cost=0.0");
+                    0.0
+                });
 
             Ok(TodayStats {
                 tokens,
@@ -911,7 +935,10 @@ pub async fn get_setting(
             let mut stmt = conn.prepare("SELECT value FROM setting WHERE scope = ?1 AND key = ?2 AND deleted_at = 0")?;
             stmt.query_row(params![scope, key], |row| {
                 let v: String = row.get(0)?;
-                Ok(serde_json::from_str(&v).unwrap_or(serde_json::Value::Null))
+                Ok(serde_json::from_str(&v).unwrap_or_else(|e| {
+                    tracing::warn!(scope = %scope, key = %key, error = %e, "stored setting value is not valid JSON, returning Null");
+                    serde_json::Value::Null
+                }))
             })
             .optional()
             .map_err(tokio_rusqlite::Error::from)

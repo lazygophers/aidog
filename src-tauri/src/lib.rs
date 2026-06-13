@@ -108,7 +108,9 @@ async fn ensure_platform_groups(db: &Db) {
 
 #[tauri::command]
 async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
-    let platform = db::create_platform(&db, input).await?;
+    tracing::debug!(command = "platform_create", name = %input.name, "command invoked");
+    let platform = db::create_platform(&db, input).await
+        .map_err(|e| { tracing::error!(command = "platform_create", error = %e, "create platform failed"); e })?;
 
     // 自动创建分组，path 按 protocol + 平台 ID 生成
     let protocol_str = format!("{:?}", platform.platform_type).to_lowercase();
@@ -127,7 +129,8 @@ async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Pla
             source_protocol: None,
             model_mappings: Vec::new(),
         },
-    ).await?;
+    ).await
+        .map_err(|e| { tracing::error!(command = "platform_create", platform_id = platform.id, error = %e, "auto-create group failed"); e })?;
 
     // 将平台关联到自动分组
     db::set_group_platforms(
@@ -138,24 +141,29 @@ async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Pla
             priority: Some(0),
             weight: Some(1),
         }],
-    ).await?;
+    ).await
+        .map_err(|e| { tracing::error!(command = "platform_create", platform_id = platform.id, error = %e, "set_group_platforms failed"); e })?;
 
     Ok(platform)
 }
 
 #[tauri::command]
 async fn platform_list(db: State<'_, Db>) -> Result<Vec<Platform>, String> {
+    tracing::debug!(command = "platform_list", "command invoked");
     db::list_platforms(&db).await
 }
 
 #[tauri::command]
 async fn platform_get(id: u64, db: State<'_, Db>) -> Result<Option<Platform>, String> {
+    tracing::debug!(command = "platform_get", id, "command invoked");
     db::get_platform(&db, id).await
 }
 
 #[tauri::command]
 async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
-    let platform = db::update_platform(&db, input).await?;
+    tracing::debug!(command = "platform_update", id = input.id, "command invoked");
+    let platform = db::update_platform(&db, input).await
+        .map_err(|e| { tracing::error!(command = "platform_update", error = %e, "update platform failed"); e })?;
     // 确保该平台有关联分组，若无则自动创建
     let groups = db::list_groups(&db).await.unwrap_or_default();
     let platform_id_str = platform.id.to_string();
@@ -174,11 +182,13 @@ async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Pla
             source_protocol: None,
             model_mappings: Vec::new(),
         }).await {
-            let _ = db::set_group_platforms(&db, group.id, &[GroupPlatformInput {
+            if let Err(e) = db::set_group_platforms(&db, group.id, &[GroupPlatformInput {
                 platform_id: platform.id,
                 priority: Some(0),
                 weight: Some(1),
-            }]).await;
+            }]).await {
+                tracing::warn!(command = "platform_update", platform_id = platform.id, error = %e, "auto-create group: set_group_platforms failed");
+            }
         }
     }
     Ok(platform)
@@ -186,7 +196,9 @@ async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Pla
 
 #[tauri::command]
 async fn platform_delete(id: u64, db: State<'_, Db>) -> Result<(), String> {
+    tracing::debug!(command = "platform_delete", id, "command invoked");
     db::delete_platform(&db, id).await
+        .map_err(|e| { tracing::error!(command = "platform_delete", id, error = %e, "delete platform failed"); e })
 }
 
 /// 设置 / 清除托盘展示平台（互斥单平台）。
@@ -200,10 +212,13 @@ async fn platform_set_tray(
     db: State<'_, Db>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
+    tracing::debug!(command = "platform_set_tray", platform_id, tray_display = %tray_display, enabled, "command invoked");
     if enabled {
-        db::set_tray_platform(&db, platform_id, &tray_display).await?;
+        db::set_tray_platform(&db, platform_id, &tray_display).await
+            .map_err(|e| { tracing::error!(command = "platform_set_tray", platform_id, error = %e, "set_tray_platform failed"); e })?;
     } else {
-        db::clear_tray(&db).await?;
+        db::clear_tray(&db).await
+            .map_err(|e| { tracing::error!(command = "platform_set_tray", error = %e, "clear_tray failed"); e })?;
     }
     refresh_tray_menu(&app).await?;
     Ok(())
@@ -212,6 +227,7 @@ async fn platform_set_tray(
 /// 读取托盘配置。无配置时（首次/升级）从旧 show_in_tray 平台迁移生成默认。
 #[tauri::command]
 async fn tray_config_get(db: State<'_, Db>) -> Result<TrayConfig, String> {
+    tracing::debug!(command = "tray_config_get", "command invoked");
     Ok(db::get_tray_config(&db).await?.unwrap_or_default())
 }
 
@@ -222,7 +238,9 @@ async fn tray_config_set(
     db: State<'_, Db>,
     app: tauri::AppHandle,
 ) -> Result<(), String> {
-    db::set_tray_config(&db, &config).await?;
+    tracing::debug!(command = "tray_config_set", "command invoked");
+    db::set_tray_config(&db, &config).await
+        .map_err(|e| { tracing::error!(command = "tray_config_set", error = %e, "set_tray_config failed"); e })?;
     refresh_tray_menu(&app).await?;
     Ok(())
 }
@@ -230,6 +248,7 @@ async fn tray_config_set(
 /// 获取今日统计摘要（供前端预览使用）
 #[tauri::command]
 async fn tray_today_stats(db: State<'_, Db>) -> Result<db::TodayStats, String> {
+    tracing::debug!(command = "tray_today_stats", "command invoked");
     db::today_stats(&db).await
 }
 
@@ -237,40 +256,50 @@ async fn tray_today_stats(db: State<'_, Db>) -> Result<db::TodayStats, String> {
 
 #[tauri::command]
 async fn group_create(mut input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+    tracing::debug!(command = "group_create", name = %input.name, path = %input.path, "command invoked");
     // Auto-slugify and validate group name
     input.name = slugify(&input.name);
-    validate_group_name(&input.name)?;
-    let result = db::create_group(&db, input).await?;
+    validate_group_name(&input.name)
+        .map_err(|e| { tracing::warn!(command = "group_create", error = %e, "invalid group name"); e })?;
+    let result = db::create_group(&db, input).await
+        .map_err(|e| { tracing::error!(command = "group_create", error = %e, "create group failed"); e })?;
     try_sync_settings(&app, &db).await;
     Ok(result)
 }
 
 #[tauri::command]
 async fn group_list(db: State<'_, Db>) -> Result<Vec<Group>, String> {
+    tracing::debug!(command = "group_list", "command invoked");
     db::list_groups(&db).await
 }
 
 #[tauri::command]
 async fn group_get(id: u64, db: State<'_, Db>) -> Result<Option<Group>, String> {
+    tracing::debug!(command = "group_get", id, "command invoked");
     db::get_group(&db, id).await
 }
 
 #[tauri::command]
 async fn group_update(mut input: UpdateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+    tracing::debug!(command = "group_update", id = input.id, "command invoked");
     // Auto-slugify and validate if name is being updated
     if let Some(ref name) = input.name {
         let slug = slugify(name);
-        validate_group_name(&slug)?;
+        validate_group_name(&slug)
+            .map_err(|e| { tracing::warn!(command = "group_update", error = %e, "invalid group name"); e })?;
         input.name = Some(slug);
     }
-    let result = db::update_group(&db, input).await?;
+    let result = db::update_group(&db, input).await
+        .map_err(|e| { tracing::error!(command = "group_update", error = %e, "update group failed"); e })?;
     try_sync_settings(&app, &db).await;
     Ok(result)
 }
 
 #[tauri::command]
 async fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
-    db::delete_group(&db, id).await?;
+    tracing::debug!(command = "group_delete", id, "command invoked");
+    db::delete_group(&db, id).await
+        .map_err(|e| { tracing::error!(command = "group_delete", id, error = %e, "delete group failed"); e })?;
     try_sync_settings(&app, &db).await;
     Ok(())
 }
@@ -279,7 +308,9 @@ async fn group_delete(id: u64, db: State<'_, Db>, app: tauri::AppHandle) -> Resu
 
 #[tauri::command]
 async fn group_set_platforms(input: SetGroupPlatforms, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
-    db::set_group_platforms(&db, input.group_id, &input.platforms).await?;
+    tracing::debug!(command = "group_set_platforms", group_id = input.group_id, count = input.platforms.len(), "command invoked");
+    db::set_group_platforms(&db, input.group_id, &input.platforms).await
+        .map_err(|e| { tracing::error!(command = "group_set_platforms", group_id = input.group_id, error = %e, "set_group_platforms failed"); e })?;
     try_sync_settings(&app, &db).await;
     Ok(())
 }
@@ -289,6 +320,7 @@ async fn group_get_platforms(
     group_id: u64,
     db: State<'_, Db>,
 ) -> Result<Vec<GroupPlatformDetail>, String> {
+    tracing::debug!(command = "group_get_platforms", group_id, "command invoked");
     db::get_group_platforms(&db, group_id).await
 }
 
@@ -296,17 +328,21 @@ async fn group_get_platforms(
 
 #[tauri::command]
 async fn group_detail(id: u64, db: State<'_, Db>) -> Result<Option<GroupDetail>, String> {
+    tracing::debug!(command = "group_detail", id, "command invoked");
     db::get_group_detail(&db, id).await
 }
 
 #[tauri::command]
 async fn group_detail_list(db: State<'_, Db>) -> Result<Vec<GroupDetail>, String> {
+    tracing::debug!(command = "group_detail_list", "command invoked");
     db::list_group_details(&db).await
 }
 
 #[tauri::command]
 async fn group_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
-    db::reorder_groups(&db, &ordered_ids).await?;
+    tracing::debug!(command = "group_reorder", count = ordered_ids.len(), "command invoked");
+    db::reorder_groups(&db, &ordered_ids).await
+        .map_err(|e| { tracing::error!(command = "group_reorder", error = %e, "reorder groups failed"); e })?;
     try_sync_settings(&app, &db).await;
     Ok(())
 }
@@ -324,21 +360,25 @@ async fn proxy_start(
     port: u16,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
+    tracing::debug!(command = "proxy_start", port, "command invoked");
     // 检查是否已运行
     let handle = app.state::<ProxyHandle>();
     {
         let h = handle.0.lock().map_err(|e| e.to_string())?;
         if h.is_some() {
+            tracing::warn!(command = "proxy_start", "proxy already running");
             return Err("proxy already running".to_string());
         }
     }
 
     // 获取 DB 的路径并克隆一份连接
     let db_path = aidog_data_dir()?.join("aidog.db");
-    let proxy_db = Db::new(db_path.to_str().unwrap_or("")).await?;
+    let proxy_db = Db::new(db_path.to_str().unwrap_or("")).await
+        .map_err(|e| { tracing::error!(command = "proxy_start", error = %e, "open proxy db failed"); e })?;
     let proxy_db = std::sync::Arc::new(proxy_db);
 
-    let (proxy_handle, actual_port) = gateway::proxy::start_proxy(proxy_db, port, Some(app.clone())).await?;
+    let (proxy_handle, actual_port) = gateway::proxy::start_proxy(proxy_db, port, Some(app.clone())).await
+        .map_err(|e| { tracing::error!(command = "proxy_start", port, error = %e, "start_proxy failed"); e })?;
 
     {
         let mut h = handle.0.lock().map_err(|e| e.to_string())?;
@@ -351,7 +391,9 @@ async fn proxy_start(
 
     // 同步所有分组的 settings 文件（端口可能变了）
     if let Some(db) = app.try_state::<Db>() {
-        let _ = do_sync_group_settings(&db, actual_port).await;
+        if let Err(e) = do_sync_group_settings(&db, actual_port).await {
+            tracing::warn!(command = "proxy_start", port = actual_port, error = %e, "sync group settings after start failed");
+        }
     }
 
     // 更新托盘菜单
@@ -362,11 +404,13 @@ async fn proxy_start(
     } else {
         format!("proxy started on port {}", actual_port)
     };
+    tracing::info!(command = "proxy_start", port = actual_port, "proxy started");
     Ok(msg)
 }
 
 #[tauri::command]
 async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
+    tracing::debug!(command = "proxy_stop", "command invoked");
     let handle = app.state::<ProxyHandle>();
     {
         let mut h = handle.0.lock().map_err(|e| e.to_string())?;
@@ -377,15 +421,18 @@ async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
 
     // 更新设置
     if let Ok(settings) = load_proxy_settings(&app).await {
-        save_proxy_settings(&app, settings.port, false, settings.silent_launch).await?;
+        save_proxy_settings(&app, settings.port, false, settings.silent_launch).await
+            .map_err(|e| { tracing::error!(command = "proxy_stop", error = %e, "persist proxy settings failed"); e })?;
     }
 
     refresh_tray_menu(&app).await?;
+    tracing::info!(command = "proxy_stop", "proxy stopped");
     Ok(())
 }
 
 #[tauri::command]
 fn proxy_status(app: tauri::AppHandle) -> Result<bool, String> {
+    tracing::debug!(command = "proxy_status", "command invoked");
     let handle = app.state::<ProxyHandle>();
     let h = handle.0.lock().map_err(|e| e.to_string())?;
     Ok(h.is_some())
@@ -393,39 +440,46 @@ fn proxy_status(app: tauri::AppHandle) -> Result<bool, String> {
 
 #[tauri::command]
 async fn proxy_get_settings(app: tauri::AppHandle) -> Result<ProxySettings, String> {
+    tracing::debug!(command = "proxy_get_settings", "command invoked");
     load_proxy_settings(&app).await
 }
 
 #[tauri::command]
 async fn proxy_set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    tracing::debug!(command = "proxy_set_autostart", enabled, "command invoked");
     let current = load_proxy_settings(&app).await?;
-    save_proxy_settings(&app, current.port, enabled, current.silent_launch).await?;
+    save_proxy_settings(&app, current.port, enabled, current.silent_launch).await
+        .map_err(|e| { tracing::error!(command = "proxy_set_autostart", error = %e, "persist proxy settings failed"); e })?;
     Ok(())
 }
 
 #[tauri::command]
 fn app_set_autolaunch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    tracing::debug!(command = "app_set_autolaunch", enabled, "command invoked");
     use tauri_plugin_autostart::ManagerExt;
     let manager = app.autolaunch();
     if enabled {
-        manager.enable().map_err(|e| format!("enable autolaunch: {e}"))?;
+        manager.enable().map_err(|e| { tracing::error!(command = "app_set_autolaunch", error = %e, "enable autolaunch failed"); format!("enable autolaunch: {e}") })?;
     } else {
-        manager.disable().map_err(|e| format!("disable autolaunch: {e}"))?;
+        manager.disable().map_err(|e| { tracing::error!(command = "app_set_autolaunch", error = %e, "disable autolaunch failed"); format!("disable autolaunch: {e}") })?;
     }
     Ok(())
 }
 
 #[tauri::command]
 fn app_get_autolaunch(app: tauri::AppHandle) -> Result<bool, String> {
+    tracing::debug!(command = "app_get_autolaunch", "command invoked");
     use tauri_plugin_autostart::ManagerExt;
     let manager = app.autolaunch();
-    manager.is_enabled().map_err(|e| format!("get autolaunch: {e}"))
+    manager.is_enabled().map_err(|e| { tracing::warn!(command = "app_get_autolaunch", error = %e, "get autolaunch failed"); format!("get autolaunch: {e}") })
 }
 
 #[tauri::command]
 async fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    tracing::debug!(command = "app_set_silent_launch", enabled, "command invoked");
     let current = load_proxy_settings(&app).await?;
-    save_proxy_settings(&app, current.port, current.autostart, enabled).await?;
+    save_proxy_settings(&app, current.port, current.autostart, enabled).await
+        .map_err(|e| { tracing::error!(command = "app_set_silent_launch", error = %e, "persist proxy settings failed"); e })?;
     Ok(())
 }
 
@@ -433,18 +487,20 @@ async fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Result<(
 
 #[tauri::command]
 async fn proxy_client_get_settings(app: tauri::AppHandle) -> Result<gateway::models::ProxyClientSettings, String> {
+    tracing::debug!(command = "proxy_client_get_settings", "command invoked");
     let db = app.try_state::<Db>()
         .map(|s| s.inner().clone())
-        .ok_or("db not initialized")?;
+        .ok_or_else(|| { tracing::error!(command = "proxy_client_get_settings", "db not initialized"); "db not initialized".to_string() })?;
     let settings = gateway::http_client::load_proxy_client_settings(&Arc::new(db)).await;
     Ok(settings)
 }
 
 #[tauri::command]
 async fn proxy_client_set_settings(app: tauri::AppHandle, settings: gateway::models::ProxyClientSettings) -> Result<(), String> {
+    tracing::debug!(command = "proxy_client_set_settings", "command invoked");
     let db = app.try_state::<Db>()
         .map(|s| s.inner())
-        .ok_or("db not initialized")?;
+        .ok_or_else(|| { tracing::error!(command = "proxy_client_set_settings", "db not initialized"); "db not initialized".to_string() })?;
     let value = serde_json::to_value(&settings)
         .map_err(|e| format!("serialize proxy client settings: {e}"))?;
     db::set_setting(db, gateway::models::SetSettingInput {
@@ -452,6 +508,7 @@ async fn proxy_client_set_settings(app: tauri::AppHandle, settings: gateway::mod
         key: "proxy_client".to_string(),
         value,
     }).await
+        .map_err(|e| { tracing::error!(command = "proxy_client_set_settings", error = %e, "persist proxy client settings failed"); e })
 }
 
 // ─── Platform Model Fetch ──────────────────────────────────
@@ -463,6 +520,7 @@ async fn platform_fetch_models(
     api_key: String,
     db: State<'_, Db>,
 ) -> Result<Vec<String>, String> {
+    tracing::debug!(command = "platform_fetch_models", protocol = ?protocol, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
     let db_arc = Arc::new(db.inner().clone());
     let client = gateway::http_client::build_http_client_system(&db_arc, 30, 10).await;
     let base = base_url.trim_end_matches('/');
@@ -549,6 +607,7 @@ async fn stats_query(
     db: State<'_, Db>,
     query: StatsQuery,
 ) -> Result<StatsResult, String> {
+    tracing::debug!(command = "stats_query", "command invoked");
     db::query_stats(&db, &query).await
 }
 
@@ -559,11 +618,12 @@ async fn model_test(
     db: State<'_, Db>,
     req: ModelTestRequest,
 ) -> Result<ModelTestResult, String> {
+    tracing::debug!(command = "model_test", platform_id = req.platform_id, "command invoked");
     let platform = db::get_platform(&db, req.platform_id).await?
-        .ok_or("platform not found")?;
+        .ok_or_else(|| { tracing::warn!(command = "model_test", platform_id = req.platform_id, "platform not found"); "platform not found".to_string() })?;
 
     let model = req.model.clone().or(platform.models.default.clone())
-        .ok_or("no model specified and no default model configured")?;
+        .ok_or_else(|| { tracing::warn!(command = "model_test", platform_id = req.platform_id, "no model specified and no default model configured"); "no model specified and no default model configured".to_string() })?;
 
     let prompt = req.prompt.clone().unwrap_or_else(|| {
         let idx = std::time::SystemTime::now()
@@ -672,9 +732,12 @@ async fn model_test(
                 output_tokens: 0,
                 error: format!("request failed: {e}"),
             };
-            let _ = db::upsert_proxy_log(&db, &make_log(
+            tracing::warn!(command = "model_test", platform_id = platform.id, error = %e, "model test request failed");
+            if let Err(le) = db::upsert_proxy_log(&db, &make_log(
                 &format!("upstream error: {e}"), 0, 502, "", &format!("upstream error: {e}"), 0, 0,
-            )).await;
+            )).await {
+                tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");
+            }
             return Ok(result);
         }
     };
@@ -707,10 +770,13 @@ async fn model_test(
             output_tokens: 0,
             error: format!("HTTP {}", status),
         };
-        let _ = db::upsert_proxy_log(&db, &make_log(
+        tracing::warn!(command = "model_test", platform_id = platform.id, %status, "model test non-success upstream status");
+        if let Err(le) = db::upsert_proxy_log(&db, &make_log(
             &body, upstream_status_code, upstream_status_code,
             &upstream_resp_headers, &body, 0, 0,
-        )).await;
+        )).await {
+            tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");
+        }
         return Ok(result);
     }
 
@@ -729,10 +795,12 @@ async fn model_test(
         error: String::new(),
     };
 
-    let _ = db::upsert_proxy_log(&db, &make_log(
+    if let Err(le) = db::upsert_proxy_log(&db, &make_log(
         &body, upstream_status_code, 200,
         &upstream_resp_headers, &body, in_tok, out_tok,
-    )).await;
+    )).await {
+        tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");
+    }
 
     Ok(result)
 }
@@ -778,6 +846,7 @@ fn extract_test_usage(v: &Value, protocol: &Protocol) -> (i32, i32) {
 
 #[tauri::command]
 fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String, String> {
+    tracing::debug!(command = "export_claude_config", port, "command invoked");
     let base_url = format!("http://localhost:{}/claude/v1/messages", port);
     let config_path = dirs::home_dir()
         .ok_or("cannot resolve home directory")?
@@ -803,7 +872,7 @@ fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String, Str
     let content = serde_json::to_string_pretty(&config)
         .map_err(|e| format!("serialize config: {e}"))?;
     std::fs::write(&config_path, content)
-        .map_err(|e| format!("write config: {e}"))?;
+        .map_err(|e| { tracing::error!(command = "export_claude_config", error = %e, "write .claude.json failed"); format!("write config: {e}") })?;
 
     Ok(config_path.to_string_lossy().to_string())
 }
@@ -811,7 +880,9 @@ fn export_claude_config(port: u16, _app: tauri::AppHandle) -> Result<String, Str
 /// Helper: attempt sync, log errors but don't propagate
 async fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
     if let Ok(settings) = load_proxy_settings(app).await {
-        let _ = do_sync_group_settings(db, settings.port).await;
+        if let Err(e) = do_sync_group_settings(db, settings.port).await {
+            tracing::warn!(port = settings.port, error = %e, "sync group settings failed");
+        }
     }
 }
 
@@ -890,7 +961,7 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
         match gateway::codex::write_group_profile(group_name, port) {
             Ok(Some(p)) => written.push(p),
             Ok(None) => {}
-            Err(e) => eprintln!("codex profile sync for {group_name}: {e}"),
+            Err(e) => tracing::warn!(group = %group_name, error = %e, "codex profile sync failed"),
         }
     }
 
@@ -900,7 +971,9 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
             let name = entry.file_name().to_string_lossy().to_string();
             if let Some(group_name) = name.strip_prefix("settings.").and_then(|s| s.strip_suffix(".json")) {
                 if !group_names.contains(group_name) {
-                    let _ = std::fs::remove_file(entry.path());
+                    if let Err(e) = std::fs::remove_file(entry.path()) {
+                        tracing::debug!(group = %group_name, error = %e, "remove stale settings file failed");
+                    }
                 }
             }
         }
@@ -908,7 +981,7 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
 
     // Cleanup: remove Codex profile files for deleted groups（用户级 config.toml 不动）。
     if let Err(e) = gateway::codex::cleanup_group_profiles(&group_names) {
-        eprintln!("codex profile cleanup: {e}");
+        tracing::warn!(error = %e, "codex profile cleanup failed");
     }
 
     Ok(written)
@@ -917,8 +990,10 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
 /// Tauri command — manual sync from UI
 #[tauri::command]
 async fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Result<Vec<String>, String> {
+    tracing::debug!(command = "sync_group_settings", "command invoked");
     let proxy_settings = load_proxy_settings(&app).await?;
     do_sync_group_settings(&db, proxy_settings.port).await
+        .map_err(|e| { tracing::error!(command = "sync_group_settings", error = %e, "sync group settings failed"); e })
 }
 
 // ─── Proxy Log Commands ────────────────────────────────────
@@ -927,6 +1002,7 @@ use gateway::models::{ProxyLog, ProxyLogSummary, ProxyLogSettings, ProxyLogFilte
 
 #[tauri::command]
 async fn proxy_log_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<ProxyLogSummary>, String> {
+    tracing::debug!(command = "proxy_log_list", limit, offset, "command invoked");
     gateway::db::list_proxy_logs(&db, limit, offset).await
 }
 
@@ -937,6 +1013,7 @@ async fn proxy_log_list_filtered(
     limit: u32,
     offset: u32,
 ) -> Result<Vec<ProxyLogSummary>, String> {
+    tracing::debug!(command = "proxy_log_list_filtered", limit, offset, "command invoked");
     gateway::db::filtered_list_proxy_logs(&db, &filter, limit, offset).await
 }
 
@@ -945,36 +1022,43 @@ async fn proxy_log_count_filtered(
     db: State<'_, Db>,
     filter: ProxyLogFilter,
 ) -> Result<u32, String> {
+    tracing::debug!(command = "proxy_log_count_filtered", "command invoked");
     gateway::db::filtered_count_proxy_logs(&db, &filter).await
 }
 
 #[tauri::command]
 async fn proxy_log_get(id: String, db: State<'_, Db>) -> Result<Option<ProxyLog>, String> {
+    tracing::debug!(command = "proxy_log_get", id = %id, "command invoked");
     gateway::db::get_proxy_log(&db, &id).await
 }
 
 #[tauri::command]
 async fn proxy_log_clear(db: State<'_, Db>) -> Result<(), String> {
+    tracing::debug!(command = "proxy_log_clear", "command invoked");
     gateway::db::clear_proxy_logs(&db).await
 }
 
 #[tauri::command]
 async fn proxy_log_count(db: State<'_, Db>) -> Result<u32, String> {
+    tracing::debug!(command = "proxy_log_count", "command invoked");
     gateway::db::count_proxy_logs(&db).await
 }
 
 #[tauri::command]
 async fn platform_usage_stats(platform_id: u64, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
+    tracing::debug!(command = "platform_usage_stats", platform_id, "command invoked");
     gateway::db::get_platform_usage_stats(&db, platform_id).await
 }
 
 #[tauri::command]
 async fn group_usage_stats(group_name: String, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
+    tracing::debug!(command = "group_usage_stats", group_name = %group_name, "command invoked");
     gateway::db::get_group_usage_stats(&db, &group_name).await
 }
 
 #[tauri::command]
 async fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSettings, String> {
+    tracing::debug!(command = "proxy_log_settings_get", "command invoked");
     let val = gateway::db::get_setting(&db, "proxy", "logging").await
         .ok()
         .flatten()
@@ -985,19 +1069,27 @@ async fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSettings, S
 
 #[tauri::command]
 async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSettings) -> Result<(), String> {
+    tracing::debug!(command = "proxy_log_settings_set", "command invoked");
     let value = serde_json::to_value(&settings)
         .map_err(|e| format!("serialize log settings: {e}"))?;
     gateway::db::set_setting(&db, gateway::models::SetSettingInput {
         scope: "proxy".into(),
         key: "logging".into(),
         value,
-    }).await?;
+    }).await
+        .map_err(|e| { tracing::error!(command = "proxy_log_settings_set", error = %e, "persist log settings failed"); e })?;
     // Run field-level cleanup for user/upstream request data
-    let _ = gateway::db::cleanup_user_request_fields(&db, settings.user_request_retention_days).await;
-    let _ = gateway::db::cleanup_upstream_request_fields(&db, settings.upstream_request_retention_days).await;
+    if let Err(e) = gateway::db::cleanup_user_request_fields(&db, settings.user_request_retention_days).await {
+        tracing::warn!(command = "proxy_log_settings_set", error = %e, "cleanup user_request fields failed");
+    }
+    if let Err(e) = gateway::db::cleanup_upstream_request_fields(&db, settings.upstream_request_retention_days).await {
+        tracing::warn!(command = "proxy_log_settings_set", error = %e, "cleanup upstream_request fields failed");
+    }
     // Delete entire log rows older than overall retention
     if settings.retention_days > 0 {
-        let _ = gateway::db::cleanup_proxy_logs(&db, settings.retention_days).await;
+        if let Err(e) = gateway::db::cleanup_proxy_logs(&db, settings.retention_days).await {
+            tracing::warn!(command = "proxy_log_settings_set", error = %e, "cleanup proxy_logs failed");
+        }
     }
     Ok(())
 }
@@ -1008,6 +1100,7 @@ use gateway::models::ProxyTimeoutSettings;
 
 #[tauri::command]
 async fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings, String> {
+    tracing::debug!(command = "proxy_timeout_get", "command invoked");
     Ok(gateway::db::get_setting(&db, "proxy", "timeout").await
         .ok()
         .flatten()
@@ -1017,11 +1110,13 @@ async fn proxy_timeout_get(db: State<'_, Db>) -> Result<ProxyTimeoutSettings, St
 
 #[tauri::command]
 async fn proxy_timeout_set(db: State<'_, Db>, settings: ProxyTimeoutSettings) -> Result<(), String> {
+    tracing::debug!(command = "proxy_timeout_set", "command invoked");
     gateway::db::set_setting(&db, SetSettingInput {
         scope: "proxy".to_string(),
         key: "timeout".to_string(),
         value: serde_json::to_value(&settings).map_err(|e| format!("serialize: {e}"))?,
     }).await
+        .map_err(|e| { tracing::error!(command = "proxy_timeout_set", error = %e, "persist timeout settings failed"); e })
 }
 
 // ─── Platform Quota (Balance & Coding Plan) ────────────────
@@ -1033,6 +1128,7 @@ async fn platform_query_quota(
     base_url: String, api_key: String,
     platform_id: Option<u64>, db: State<'_, Db>,
 ) -> Result<PlatformQuota, String> {
+    tracing::debug!(command = "platform_query_quota", platform_id = ?platform_id, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
     let q = gateway::quota::query_quota(Some(&Arc::new(db.inner().clone())), &base_url, &api_key).await;
     tracing::info!(platform_id = ?platform_id, success = q.success, tiers = ?q.coding_plan.as_ref().map(|c| c.tiers.len()), "quota query result");
     if q.success {
@@ -1047,7 +1143,9 @@ async fn platform_query_quota_newapi(
     base_url: String, api_key: String, extra: String,
     platform_id: Option<u64>, db: State<'_, Db>,
 ) -> Result<PlatformQuota, String> {
+    tracing::debug!(command = "platform_query_quota_newapi", platform_id = ?platform_id, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
     let q = gateway::quota::query_quota_newapi(Some(&Arc::new(db.inner().clone())), &base_url, &api_key, &extra).await;
+    tracing::info!(command = "platform_query_quota_newapi", platform_id = ?platform_id, success = q.success, "quota query result");
     if q.success {
         persist_quota_to_db(&db, platform_id, &q).await;
     }
@@ -1108,7 +1206,9 @@ async fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
 
 #[tauri::command]
 async fn platform_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>) -> Result<(), String> {
+    tracing::debug!(command = "platform_reorder", count = ordered_ids.len(), "command invoked");
     db::reorder_platforms(&db, &ordered_ids).await
+        .map_err(|e| { tracing::error!(command = "platform_reorder", error = %e, "reorder platforms failed"); e })
 }
 
 // ─── Path Autocomplete ─────────────────────────────────────
@@ -1139,6 +1239,7 @@ fn expand_path(input: &str) -> std::path::PathBuf {
 
 #[tauri::command]
 fn fs_autocomplete(input: String) -> Result<Vec<PathEntry>, String> {
+    tracing::debug!(command = "fs_autocomplete", "command invoked");
     let path = expand_path(input.trim());
 
     // Determine parent dir and prefix filter
@@ -1160,7 +1261,7 @@ fn fs_autocomplete(input: String) -> Result<Vec<PathEntry>, String> {
     }
 
     let entries: Vec<PathEntry> = std::fs::read_dir(&parent)
-        .map_err(|e| e.to_string())?
+        .map_err(|e| { tracing::warn!(command = "fs_autocomplete", error = %e, "read_dir failed"); e.to_string() })?
         .filter_map(|entry| {
             let entry = entry.ok()?;
             let name = entry.file_name().to_string_lossy().to_string();
@@ -1215,12 +1316,15 @@ async fn settings_get(
     key: String,
     db: State<'_, Db>,
 ) -> Result<Option<serde_json::Value>, String> {
+    tracing::debug!(command = "settings_get", scope = %scope, key = %key, "command invoked");
     db::get_setting(&db, &scope, &key).await
 }
 
 #[tauri::command]
 async fn settings_set(input: SetSettingInput, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
-    db::set_setting(&db, input).await?;
+    tracing::debug!(command = "settings_set", scope = %input.scope, key = %input.key, "command invoked");
+    db::set_setting(&db, input).await
+        .map_err(|e| { tracing::error!(command = "settings_set", error = %e, "persist setting failed"); e })?;
     // Auto-sync group settings files when claude code config changes
     try_sync_settings(&app, &db).await;
     Ok(())
@@ -1228,11 +1332,14 @@ async fn settings_set(input: SetSettingInput, db: State<'_, Db>, app: tauri::App
 
 #[tauri::command]
 async fn settings_delete(scope: String, key: String, db: State<'_, Db>) -> Result<(), String> {
+    tracing::debug!(command = "settings_delete", scope = %scope, key = %key, "command invoked");
     db::delete_setting(&db, &scope, &key).await
+        .map_err(|e| { tracing::error!(command = "settings_delete", error = %e, "delete setting failed"); e })
 }
 
 #[tauri::command]
 async fn settings_list(scope: String, db: State<'_, Db>) -> Result<Vec<String>, String> {
+    tracing::debug!(command = "settings_list", scope = %scope, "command invoked");
     db::list_setting_keys(&db, &scope).await
 }
 
@@ -1245,6 +1352,7 @@ fn generate_statusline_script(
     script_type: String,
     content: String,
 ) -> Result<String, String> {
+    tracing::debug!(command = "generate_statusline_script", script_type = %script_type, "command invoked");
     let aidog_dir = aidog_data_dir()?;
     let filename = if script_type == "subagent" {
         "aidog-subagent-statusline.sh"
@@ -1252,13 +1360,13 @@ fn generate_statusline_script(
         "aidog-statusline.sh"
     };
     let path = aidog_dir.join(filename);
-    std::fs::write(&path, &content).map_err(|e| format!("write script: {e}"))?;
+    std::fs::write(&path, &content).map_err(|e| { tracing::error!(command = "generate_statusline_script", error = %e, "write script failed"); format!("write script: {e}") })?;
     #[cfg(unix)]
     {
         use std::os::unix::fs::PermissionsExt;
-        let mut perms = std::fs::metadata(&path).map_err(|e| format!("stat script: {e}"))?.permissions();
+        let mut perms = std::fs::metadata(&path).map_err(|e| { tracing::error!(command = "generate_statusline_script", error = %e, "stat script failed"); format!("stat script: {e}") })?.permissions();
         perms.set_mode(0o755);
-        std::fs::set_permissions(&path, perms).map_err(|e| format!("chmod script: {e}"))?;
+        std::fs::set_permissions(&path, perms).map_err(|e| { tracing::error!(command = "generate_statusline_script", error = %e, "chmod script failed"); format!("chmod script: {e}") })?;
     }
     Ok(path.to_string_lossy().to_string())
 }
@@ -1275,13 +1383,15 @@ fn aidog_data_dir() -> Result<std::path::PathBuf, String> {
 
 #[tauri::command]
 fn read_claude_code_settings() -> Result<serde_json::Value, String> {
+    tracing::debug!(command = "read_claude_code_settings", "command invoked");
     let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
     let path = home.join(".claude").join("settings.json");
     if !path.exists() {
+        tracing::warn!(command = "read_claude_code_settings", "~/.claude/settings.json not found");
         return Err("~/.claude/settings.json not found".into());
     }
-    let content = std::fs::read_to_string(&path).map_err(|e| format!("read settings: {e}"))?;
-    serde_json::from_str(&content).map_err(|e| format!("parse settings: {e}"))
+    let content = std::fs::read_to_string(&path).map_err(|e| { tracing::warn!(command = "read_claude_code_settings", error = %e, "read settings failed"); format!("read settings: {e}") })?;
+    serde_json::from_str(&content).map_err(|e| { tracing::warn!(command = "read_claude_code_settings", error = %e, "parse settings failed"); format!("parse settings: {e}") })
 }
 
 /// Load app log settings from DB (must be called after init_tables)
@@ -1312,17 +1422,22 @@ fn load_app_log_settings() -> logging::AppLogSettings {
 
 #[tauri::command]
 async fn app_log_settings_get(db: State<'_, Db>) -> Result<logging::AppLogSettings, String> {
+    tracing::debug!(command = "app_log_settings_get", "command invoked");
     Ok(load_app_log_settings_from_db(&db).await)
 }
 
 #[tauri::command]
 async fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, Db>) -> Result<(), String> {
+    tracing::debug!(command = "app_log_settings_set", "command invoked");
     let value = serde_json::to_value(&settings).map_err(|e| e.to_string())?;
-    db::set_setting(&db, SetSettingInput { scope: "app".to_string(), key: "logging".to_string(), value }).await?;
+    db::set_setting(&db, SetSettingInput { scope: "app".to_string(), key: "logging".to_string(), value }).await
+        .map_err(|e| { tracing::error!(command = "app_log_settings_set", error = %e, "persist log settings failed"); e })?;
     // Also persist to file so it's available before DB init on next startup
     if let Some(dir) = dirs::home_dir() {
         let path = dir.join(".aidog").join("log_settings.json");
-        let _ = std::fs::write(&path, serde_json::to_string_pretty(&settings).unwrap_or_default());
+        if let Err(e) = std::fs::write(&path, serde_json::to_string_pretty(&settings).unwrap_or_default()) {
+            tracing::warn!(command = "app_log_settings_set", error = %e, "write log_settings.json failed");
+        }
     }
     Ok(())
 }
@@ -1331,16 +1446,19 @@ async fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, D
 
 #[tauri::command]
 async fn model_price_list(db: State<'_, Db>, limit: u32, offset: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
+    tracing::debug!(command = "model_price_list", limit, offset, "command invoked");
     gateway::db::list_model_prices(&db, limit, offset).await
 }
 
 #[tauri::command]
 async fn model_price_count(db: State<'_, Db>) -> Result<u32, String> {
+    tracing::debug!(command = "model_price_count", "command invoked");
     gateway::db::count_model_prices(&db).await
 }
 
 #[tauri::command]
 async fn model_price_search(db: State<'_, Db>, query: String, limit: u32) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
+    tracing::debug!(command = "model_price_search", query = %query, limit, "command invoked");
     gateway::db::search_model_prices(&db, &query, limit).await
 }
 
@@ -1352,6 +1470,7 @@ async fn model_price_list_filtered(
     limit: u32,
     offset: u32,
 ) -> Result<Vec<gateway::models::ModelPriceSummary>, String> {
+    tracing::debug!(command = "model_price_list_filtered", limit, offset, "command invoked");
     gateway::db::filtered_list_model_prices(&db, query.as_deref(), source.as_deref(), limit, offset).await
 }
 
@@ -1361,12 +1480,15 @@ async fn model_price_count_filtered(
     query: Option<String>,
     source: Option<String>,
 ) -> Result<u32, String> {
+    tracing::debug!(command = "model_price_count_filtered", "command invoked");
     gateway::db::filtered_count_model_prices(&db, query.as_deref(), source.as_deref()).await
 }
 
 #[tauri::command]
 async fn model_price_delete(db: State<'_, Db>, model_name: String) -> Result<(), String> {
+    tracing::debug!(command = "model_price_delete", model_name = %model_name, "command invoked");
     gateway::db::delete_model_price(&db, &model_name).await
+        .map_err(|e| { tracing::error!(command = "model_price_delete", model_name = %model_name, error = %e, "delete model price failed"); e })
 }
 
 #[tauri::command]
@@ -1376,7 +1498,9 @@ async fn model_price_upsert(
     source: String,
     price_data: String,
 ) -> Result<(), String> {
+    tracing::debug!(command = "model_price_upsert", model_name = %model_name, source = %source, "command invoked");
     gateway::db::upsert_model_price(&db, &model_name, &source, &price_data).await
+        .map_err(|e| { tracing::error!(command = "model_price_upsert", model_name = %model_name, error = %e, "upsert model price failed"); e })
 }
 
 #[tauri::command]
@@ -1385,22 +1509,27 @@ async fn model_price_resolve(
     model_name: String,
     platform_type: String,
 ) -> Result<gateway::models::ResolvedPrice, String> {
+    tracing::debug!(command = "model_price_resolve", model_name = %model_name, platform_type = %platform_type, "command invoked");
     let settings = gateway::price_sync::get_sync_settings(&db).await;
     gateway::db::resolve_price(&db, &model_name, &platform_type, settings.fallback_input_price, settings.fallback_output_price).await
 }
 
 #[tauri::command]
 async fn model_price_sync(db: State<'_, Db>) -> Result<gateway::models::PriceSyncResult, String> {
+    tracing::debug!(command = "model_price_sync", "command invoked");
     gateway::price_sync::sync_litellm_prices(&db).await
+        .map_err(|e| { tracing::error!(command = "model_price_sync", error = %e, "model price sync failed"); e })
 }
 
 #[tauri::command]
 async fn price_sync_settings_get(db: State<'_, Db>) -> Result<gateway::models::PriceSyncSettings, String> {
+    tracing::debug!(command = "price_sync_settings_get", "command invoked");
     Ok(gateway::price_sync::get_sync_settings(&db).await)
 }
 
 #[tauri::command]
 async fn price_sync_settings_set(db: State<'_, Db>, settings: gateway::models::PriceSyncSettings) -> Result<(), String> {
+    tracing::debug!(command = "price_sync_settings_set", "command invoked");
     gateway::price_sync::save_sync_settings(&db, &settings).await;
     Ok(())
 }
@@ -1432,9 +1561,13 @@ async fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxySettings, St
         if let Ok(content) = std::fs::read_to_string(&file_path) {
             if let Ok(s) = serde_json::from_str::<ProxySettings>(&content) {
                 // 迁移到 DB
-                let _ = save_proxy_settings_to_db(db, &s).await;
+                if let Err(e) = save_proxy_settings_to_db(db, &s).await {
+                    tracing::warn!(error = %e, "migrate proxy_settings.json to db failed");
+                }
                 // 删除旧文件
-                let _ = std::fs::remove_file(&file_path);
+                if let Err(e) = std::fs::remove_file(&file_path) {
+                    tracing::debug!(error = %e, "remove migrated proxy_settings.json failed");
+                }
                 return Ok(s);
             }
         }
@@ -2039,12 +2172,16 @@ pub fn run() {
                         });
                         let port = settings.port;
                         tauri::async_runtime::block_on(async {
-                            let _ = proxy_start(port, app.clone()).await;
+                            if let Err(e) = proxy_start(port, app.clone()).await {
+                                tracing::error!(port, error = %e, "tray: proxy start failed");
+                            }
                         });
                     }
                     "proxy_stop" => {
                         tauri::async_runtime::block_on(async {
-                            let _ = proxy_stop(app.clone()).await;
+                            if let Err(e) = proxy_stop(app.clone()).await {
+                                tracing::error!(error = %e, "tray: proxy stop failed");
+                            }
                         });
                     }
                     "show" => {
@@ -2075,7 +2212,9 @@ pub fn run() {
                 let port = settings.port;
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    let _ = proxy_start(port, handle).await;
+                    if let Err(e) = proxy_start(port, handle).await {
+                        tracing::error!(port, error = %e, "autostart: proxy start failed");
+                    }
                 });
             }
 

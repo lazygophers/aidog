@@ -57,15 +57,22 @@ pub async fn start_proxy(
         match tokio::net::TcpListener::bind(addr).await {
             Ok(l) => break l,
             Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
+                tracing::warn!(port = actual_port, "proxy bind port in use, trying next");
                 actual_port += 1;
                 if actual_port > port + 100 {
+                    tracing::error!(start = port, end = port + 101, "proxy bind failed: no available port in range");
                     return Err(format!("no available port in range {}..{}", port, port + 101));
                 }
                 continue;
             }
-            Err(e) => return Err(format!("bind failed: {e}")),
+            Err(e) => {
+                tracing::error!(port = actual_port, error = %e, "proxy bind failed");
+                return Err(format!("bind failed: {e}"));
+            }
         }
     };
+
+    tracing::info!(port = actual_port, "proxy server bound, starting");
 
     let handle = tokio::spawn(async move {
         axum::serve(listener, app).await.ok();
@@ -139,17 +146,26 @@ async fn handle_group_info(
     // 定位分组
     let groups = match super::db::list_groups(&state.db).await {
         Ok(g) => g,
-        Err(_) => return (StatusCode::OK, Json(empty())).into_response(),
+        Err(e) => {
+            tracing::warn!(error = %e, "group-info: list_groups failed, returning not-applicable");
+            return (StatusCode::OK, Json(empty())).into_response();
+        }
     };
     let group = match groups.iter().find(|g| g.name == group_name) {
         Some(g) => g,
-        None => return (StatusCode::OK, Json(empty())).into_response(),
+        None => {
+            tracing::debug!(group = %group_name, "group-info: group not found, not-applicable");
+            return (StatusCode::OK, Json(empty())).into_response();
+        }
     };
 
     // 关联平台 —— 恰好 1 个才适用
     let platforms = match super::db::get_group_platforms(&state.db, group.id).await {
         Ok(p) => p,
-        Err(_) => return (StatusCode::OK, Json(empty())).into_response(),
+        Err(e) => {
+            tracing::warn!(group = %group_name, error = %e, "group-info: get_group_platforms failed, not-applicable");
+            return (StatusCode::OK, Json(empty())).into_response();
+        }
     };
     if platforms.len() != 1 {
         return (StatusCode::OK, Json(empty())).into_response();
@@ -409,11 +425,23 @@ fn resolve_timeout(
 
 /// 主代理处理函数 — 渐进式日志：每个阶段即时 upsert，用 request_id 串联
 async fn handle_proxy(
-    AxumState(state): AxumState<Arc<ProxyState>>,
+    state: AxumState<Arc<ProxyState>>,
     req: Request,
 ) -> Response {
-    let start = std::time::Instant::now();
+    use tracing::Instrument;
+    // 每请求生成 trace id（复用为 ProxyLog 主键）, 建 span → 该请求生命周期内所有日志
+    // 自动携带 req{id=xxxxxxxx} 前缀（含 mock/passthrough 子调用, fmt 默认渲染当前 span）。
     let request_id = uuid::Uuid::new_v4().simple().to_string();
+    let span = tracing::info_span!("req", id = %&request_id[..8]);
+    handle_proxy_inner(state, req, request_id).instrument(span).await
+}
+
+async fn handle_proxy_inner(
+    AxumState(state): AxumState<Arc<ProxyState>>,
+    req: Request,
+    request_id: String,
+) -> Response {
+    let start = std::time::Instant::now();
     let created_at = super::db::now();
 
     // Load log settings once per request
@@ -881,7 +909,10 @@ async fn handle_proxy(
     let stream = resp.bytes_stream().map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
-            Err(e) => return Ok::<_, std::io::Error>(format!("event: error\ndata: {{\"error\":\"{e}\"}}\n\n")),
+            Err(e) => {
+                tracing::warn!(error = %e, "SSE upstream stream chunk error");
+                return Ok::<_, std::io::Error>(format!("event: error\ndata: {{\"error\":\"{e}\"}}\n\n"));
+            }
         };
 
         let text = String::from_utf8_lossy(&chunk);
@@ -1026,6 +1057,7 @@ async fn handle_mock(
     // ── 错误 / 超时模拟 ──
     match cfg.error_mode.as_str() {
         "http_error" => {
+            tracing::warn!(platform_id = log.platform_id, status = cfg.status_code, "mock error_mode=http_error");
             let body = mock::build_error_body(source_protocol, cfg.status_code, "mock http_error");
             let body_str = serde_json::to_string(&body).unwrap_or_default();
             let status = StatusCode::from_u16(cfg.status_code).unwrap_or(StatusCode::INTERNAL_SERVER_ERROR);
@@ -1038,6 +1070,7 @@ async fn handle_mock(
             return (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response();
         }
         "rate_limit_429" => {
+            tracing::warn!(platform_id = log.platform_id, "mock error_mode=rate_limit_429 (429)");
             let body = mock::build_error_body(source_protocol, 429, "mock rate limit");
             let body_str = serde_json::to_string(&body).unwrap_or_default();
             log.status_code = 429;
@@ -1057,6 +1090,7 @@ async fn handle_mock(
                 .into_response();
         }
         "timeout" => {
+            tracing::warn!(platform_id = log.platform_id, "mock error_mode=timeout (will sleep then 504)");
             // sleep 上限保护，不真 hang 连接
             tokio::time::sleep(std::time::Duration::from_secs(600)).await;
             let body = mock::build_error_body(source_protocol, 504, "mock timeout");
@@ -1468,13 +1502,30 @@ fn detect_source_protocol(path: &str) -> String {
 /// 单次 list_groups → 同一 Vec 上跑两种匹配，避免热路径重复全表读 + 重复 mappings JSON 解析。
 /// 行为等价于原「先 name 后 path」优先级。
 async fn resolve_group(db: &Db, name: Option<&str>, request_path: &str) -> Option<Group> {
-    let groups = super::db::list_groups(db).await.ok()?;
+    let groups = match super::db::list_groups(db).await {
+        Ok(g) => g,
+        Err(e) => {
+            tracing::warn!(error = %e, "resolve_group: list_groups failed");
+            return None;
+        }
+    };
     if let Some(name) = name {
         if let Some(idx) = groups.iter().position(|g| g.name == name) {
             return groups.into_iter().nth(idx);
         }
+        tracing::warn!(token = %name, "resolve_group: token did not match any group name, falling back to path match");
     }
-    groups.into_iter().find(|g| request_path.starts_with(&g.path))
+    let group_count = groups.len();
+    match groups.into_iter().find(|g| request_path.starts_with(&g.path)) {
+        Some(g) => Some(g),
+        None => {
+            tracing::warn!(
+                path = %request_path, group_count,
+                "resolve_group: no group matched token or path prefix"
+            );
+            None
+        }
+    }
 }
 
 // ─── 客户端模拟 Header ────────────────────────────────────────

@@ -10,10 +10,22 @@ const LITELLM_PRICE_URL: &str =
 
 /// Fetch and parse the LiteLLM price table, then upsert all entries.
 pub async fn sync_litellm_prices(db: &Db) -> Result<PriceSyncResult, String> {
+    tracing::info!("litellm price sync started");
     let db_arc = Arc::new(db.clone());
-    let json_str = fetch_price_table(Some(&db_arc)).await?;
-    let table: serde_json::Map<String, serde_json::Value> =
-        serde_json::from_str(&json_str).map_err(|e| format!("parse litellm json: {e}"))?;
+    let json_str = match fetch_price_table(Some(&db_arc)).await {
+        Ok(s) => s,
+        Err(e) => {
+            tracing::error!(error = %e, "litellm price sync: fetch failed");
+            return Err(e);
+        }
+    };
+    let table: serde_json::Map<String, serde_json::Value> = match serde_json::from_str(&json_str) {
+        Ok(t) => t,
+        Err(e) => {
+            tracing::error!(error = %e, "litellm price sync: parse json failed");
+            return Err(format!("parse litellm json: {e}"));
+        }
+    };
 
     let mut added = 0u32;
     let mut updated = 0u32;
@@ -56,6 +68,7 @@ pub async fn sync_litellm_prices(db: &Db) -> Result<PriceSyncResult, String> {
     };
     save_sync_settings(db, &updated_settings).await;
 
+    tracing::info!(added, updated, unchanged, failed, total, "litellm price sync completed");
     Ok(PriceSyncResult { added, updated, unchanged, failed, total })
 }
 
@@ -74,10 +87,15 @@ async fn fetch_price_table(db: Option<&Arc<Db>>) -> Result<String, String> {
         .map_err(|e| format!("fetch litellm prices: {e}"))?;
 
     if !resp.status().is_success() {
-        return Err(format!("litellm returned status {}", resp.status()));
+        let status = resp.status();
+        tracing::warn!(%status, "litellm price fetch: non-success status");
+        return Err(format!("litellm returned status {status}"));
     }
 
-    resp.text().await.map_err(|e| format!("read litellm response: {e}"))
+    resp.text().await.map_err(|e| {
+        tracing::warn!(error = %e, "litellm price fetch: read response body failed");
+        format!("read litellm response: {e}")
+    })
 }
 
 /// Read sync settings from DB
@@ -94,14 +112,20 @@ pub async fn get_sync_settings(db: &Db) -> super::models::PriceSyncSettings {
 pub async fn save_sync_settings(db: &Db, settings: &super::models::PriceSyncSettings) {
     let value = match serde_json::to_value(settings) {
         Ok(v) => v,
-        Err(_) => return,
+        Err(e) => {
+            tracing::warn!(error = %e, "save price sync settings: serialize failed");
+            return;
+        }
     };
-    let _ = super::db::set_setting(db, super::models::SetSettingInput {
+    if let Err(e) = super::db::set_setting(db, super::models::SetSettingInput {
         scope: "pricing".into(),
         key: "sync".into(),
         value,
     })
-    .await;
+    .await
+    {
+        tracing::warn!(error = %e, "save price sync settings: db write failed");
+    }
 }
 
 /// Check if auto sync is due and run it if needed.

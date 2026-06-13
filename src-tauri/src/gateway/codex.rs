@@ -88,7 +88,11 @@ pub fn write_group_profile(group: &str, port: u16) -> Result<Option<String>, Str
     if existing == content {
         return Ok(None);
     }
-    std::fs::write(&path, &content).map_err(|e| format!("write codex profile {group}: {e}"))?;
+    std::fs::write(&path, &content).map_err(|e| {
+        tracing::error!(group, path = %path.display(), error = %e, "write codex group profile failed");
+        format!("write codex profile {group}: {e}")
+    })?;
+    tracing::info!(group, path = %path.display(), "codex group profile written");
     Ok(Some(path.to_string_lossy().to_string()))
 }
 
@@ -107,7 +111,11 @@ pub fn cleanup_group_profiles(keep: &std::collections::HashSet<String>) -> Resul
         }
         if let Some(group) = name.strip_suffix(".config.toml") {
             if !group.is_empty() && !keep.contains(group) {
-                let _ = std::fs::remove_file(entry.path());
+                if let Err(e) = std::fs::remove_file(entry.path()) {
+                    tracing::warn!(group, path = %entry.path().display(), error = %e, "cleanup codex profile: remove failed");
+                } else {
+                    tracing::debug!(group, "cleanup codex profile: removed stale profile");
+                }
             }
         }
     }
@@ -128,15 +136,22 @@ pub fn codex_config_read() -> Result<serde_json::Value, String> {
     if !path.exists() {
         return Ok(serde_json::Value::Object(serde_json::Map::new()));
     }
-    let content = std::fs::read_to_string(&path).map_err(|e| format!("read config.toml: {e}"))?;
+    let content = std::fs::read_to_string(&path).map_err(|e| {
+        tracing::warn!(path = %path.display(), error = %e, "codex_config_read: read file failed");
+        format!("read config.toml: {e}")
+    })?;
     if content.trim().is_empty() {
         return Ok(serde_json::Value::Object(serde_json::Map::new()));
     }
-    let toml_value: toml::Value =
-        toml::from_str(&content).map_err(|e| format!("parse config.toml: {e}"))?;
+    let toml_value: toml::Value = toml::from_str(&content).map_err(|e| {
+        tracing::warn!(path = %path.display(), error = %e, "codex_config_read: parse toml failed");
+        format!("parse config.toml: {e}")
+    })?;
     // toml::Value → serde_json::Value（serde 桥接，类型一一对应）。
-    let json_value =
-        serde_json::to_value(&toml_value).map_err(|e| format!("toml→json: {e}"))?;
+    let json_value = serde_json::to_value(&toml_value).map_err(|e| {
+        tracing::warn!(error = %e, "codex_config_read: toml→json failed");
+        format!("toml→json: {e}")
+    })?;
     Ok(json_value)
 }
 
@@ -151,15 +166,27 @@ pub fn codex_config_write(value: serde_json::Value) -> Result<(), String> {
     // serde_json::Value → toml::Value。toml::Value 不支持 null，
     // 写入前剔除值为 null 的键（前端清空字段时表现为删除）。
     let cleaned = strip_nulls(value);
-    let toml_value: toml::Value =
-        serde_json::from_value(cleaned).map_err(|e| format!("json→toml: {e}"))?;
+    let toml_value: toml::Value = serde_json::from_value(cleaned).map_err(|e| {
+        tracing::warn!(error = %e, "codex_config_write: json→toml failed");
+        format!("json→toml: {e}")
+    })?;
     // Table 序列化器自动把标量排在 table 之前，满足 TOML 根键约束。
-    let toml_str = toml::to_string_pretty(&toml_value).map_err(|e| format!("serialize toml: {e}"))?;
+    let toml_str = toml::to_string_pretty(&toml_value).map_err(|e| {
+        tracing::error!(error = %e, "codex_config_write: serialize toml failed");
+        format!("serialize toml: {e}")
+    })?;
 
     let dir = codex_home()?;
-    std::fs::create_dir_all(&dir).map_err(|e| format!("create ~/.codex: {e}"))?;
+    std::fs::create_dir_all(&dir).map_err(|e| {
+        tracing::error!(dir = %dir.display(), error = %e, "codex_config_write: create dir failed");
+        format!("create ~/.codex: {e}")
+    })?;
     let path = dir.join("config.toml");
-    std::fs::write(&path, toml_str).map_err(|e| format!("write config.toml: {e}"))?;
+    std::fs::write(&path, toml_str).map_err(|e| {
+        tracing::error!(path = %path.display(), error = %e, "codex_config_write: write file failed");
+        format!("write config.toml: {e}")
+    })?;
+    tracing::info!(path = %path.display(), "codex config written");
     Ok(())
 }
 
