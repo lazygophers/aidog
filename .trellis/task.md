@@ -25,10 +25,15 @@
 | group-scheduling-breaker | Group 智能调度与熔断器 (组内配置 + 默认值) | — | 已完成 | 收尾 | 100% | — |
 | gsb-backend | GSB 后端 熔断器+智能调度+指标+集成+契约 | — | 已完成 | 收尾 | 100% | — |
 | gsb-frontend | GSB 前端 Platform/Group/全局 UI + i18n | — | 已完成 | 收尾 | 100% | — |
-| system-notification | 系统通知模块 (TTS播报/弹窗/收件箱 + Codex&ClaudeCode hook 快捷入口) | — | 规划中 | 规划 | 0% | — |
-| notif-backend | 通知 N1 后端核心 (服务/TTS/弹窗/收件箱/端点/契约) | — | in_progress | exec | 15 | — |
-| notif-hooks | 通知 N2 hook 集成 (脚本生成 + 一键注入 ClaudeCode/Codex) | — | 规划中 | 规划 | 0% | — |
-| notif-frontend | 通知 N3 前端 (设置 UI + 通知中心 + i18n) | — | 规划中 | 规划 | 0% | — |
+| system-notification | 系统通知模块 (TTS播报/弹窗/收件箱 + Codex&ClaudeCode hook 快捷入口) | — | 已完成 | 收尾 | 100% | — |
+| notif-backend | 通知 N1 后端核心 (服务/TTS/弹窗/收件箱/端点/契约) | — | 已完成 | 收尾 | 100% | — |
+| notif-hooks | 通知 N2 hook 集成 (脚本生成 + 一键注入 ClaudeCode/Codex) | — | 已完成 | 收尾 | 100% | — |
+| notif-frontend | 通知 N3 前端 (设置 UI + 通知中心 + i18n) | — | 已完成 | 收尾 | 100% | — |
 | subagent-statusline-dynamic | SubagentStatusLine 首段动态化 (type·status·model 驱动, 替代固定 [Agent·●]) | — | 已完成 | 收尾 | 100% | — |
 | subagent-statusline-name | SubagentStatusLine name 段 fallback 对齐 (.label//.name//.id//'?') | — | 已完成 | 收尾 | 100% | — |
-| subagent-statusline-debug | 修复 SubagentStatusLine 真实输入失败 (模拟真实 Claude Code stdin 测正确性) | — | in_progress | exec | 15 | — |
+| subagent-statusline-debug | 修复 SubagentStatusLine 真实输入失败 (模拟真实 Claude Code stdin 测正确性) | — | 已完成 | 收尾 | 100% | — |
+| docs-readme-i18n | 优化 README/docs + 文档地址引入 + README 多语言 | — | 已完成 | 收尾 | 100% | — |
+| docs-new-features-i18n | 新功能 docs 补全 (middleware/熔断/通知) × 7 语言 | — | 进行中 | 规划 | 0% | — |
+| docs-mw-zh-en | middleware docs zh+en (独立章节) | — | 已完成 | 收尾 | 100% | — |
+| docs-breaker-zh-en | breaker/scheduling docs zh+en (入 groups) | — | 已完成 | 收尾 | 100% | — |
+| docs-notif-blocked | notif docs (blocked, 等 system-notification 完成) | — | 规划中 | 规划 | 0% | — |
