@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/06-14-theme-palette-concrete/prd.md", "reason": "验收标准清单 (build 通过 / grep 清零 / 12 palette / 8 locale key / 迁移映射)"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端 check 清单: i18n check 脚本 + CSS 变量一致性"}
