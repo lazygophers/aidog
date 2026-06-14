@@ -38,6 +38,10 @@ export function Skills() {
   const [message, setMessage] = useState<string | null>(null);
   // 一键卸载二次确认 modal（破坏性操作，禁 native confirm）。
   const [confirmUninstall, setConfirmUninstall] = useState(false);
+  // 对齐配置 modal：使 to agent 的启用配置与 from 完全一致。
+  const [alignOpen, setAlignOpen] = useState(false);
+  const [alignFrom, setAlignFrom] = useState<SkillAgent>("claude");
+  const [alignTo, setAlignTo] = useState<SkillAgent>("codex");
 
   // 当前 scope 对象（供 API 调用）。
   const scope: SkillScope =
@@ -191,6 +195,37 @@ export function Skills() {
     }
   };
 
+  // 对齐配置：使 to 的启用配置与 from 完全一致。
+  const handleAlign = async () => {
+    if (alignFrom === alignTo) return;
+    setAlignOpen(false);
+    if (!writeReady || scopeInvalid || busyKey !== null) return;
+    setBusyKey("__align__");
+    setMessage(null);
+    try {
+      const res = await skillsApi.alignAgents(alignFrom, alignTo, scope);
+      if (res.success) {
+        // stdout 形如 "aligned N changes (...)"；N=0 视为 noop。
+        const m = res.stdout.match(/aligned (\d+) changes/);
+        const n = m ? Number(m[1]) : 0;
+        setMessage(
+          n === 0
+            ? t("skills.alignNoop", "两 agent 配置已一致，无需对齐")
+            : t("skills.alignDone", "已对齐 {{count}} 项变更", { count: n }),
+        );
+        await loadInstalled();
+      } else {
+        const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "操作失败");
+        setMessage(err);
+      }
+    } catch (e) {
+      console.error("align failed", e);
+      setMessage(String(e));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       {/* Header */}
@@ -212,6 +247,14 @@ export function Skills() {
             onClick={() => setConfirmUninstall(true)}
           >
             {busyKey === "__uninstall__" ? t("skills.uninstalling", "卸载中…") : t("skills.uninstallAll", "卸载全部")}
+          </button>
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: 12 }}
+            disabled={!writeReady || scopeInvalid || busyKey !== null || installed.length === 0}
+            onClick={() => setAlignOpen(true)}
+          >
+            {busyKey === "__align__" ? t("skills.aligning", "对齐中…") : t("skills.alignTitle", "对齐配置")}
           </button>
         </div>
       </div>
@@ -417,6 +460,76 @@ export function Skills() {
               </button>
               <button className="btn btn-danger" style={{ fontSize: 13 }} onClick={handleUninstallAll}>
                 {t("skills.uninstallAll", "卸载全部")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 对齐配置 modal：使 to 与 from 启用配置一致 */}
+      {alignOpen && (
+        <div
+          onClick={() => setAlignOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.4)",
+            animation: "fadeIn 150ms ease both",
+          }}
+        >
+          <div
+            className="glass-elevated"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 400,
+              padding: 24,
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 700 }}>{t("skills.alignTitle", "对齐配置")}</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                <span style={{ minWidth: 72 }} className="text-secondary">{t("skills.alignFrom", "源 agent")}</span>
+                <select className="input" style={{ flex: 1 }} value={alignFrom} onChange={(e) => setAlignFrom(e.target.value as SkillAgent)}>
+                  {AGENTS.map((a) => (
+                    <option key={a} value={a}>{t(`skills.agent.${a}`, a)}</option>
+                  ))}
+                </select>
+              </label>
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+                <span style={{ minWidth: 72 }} className="text-secondary">{t("skills.alignTo", "目标 agent")}</span>
+                <select className="input" style={{ flex: 1 }} value={alignTo} onChange={(e) => setAlignTo(e.target.value as SkillAgent)}>
+                  {AGENTS.map((a) => (
+                    <option key={a} value={a}>{t(`skills.agent.${a}`, a)}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              {alignFrom === alignTo
+                ? t("skills.alignSameAgent", "源与目标不能相同")
+                : t("skills.alignConfirm", "将使 {{to}} 的启用配置与 {{from}} 完全一致（启用 {{from}} 已启用的、关闭 {{from}} 未启用的）。", {
+                    from: t(`skills.agent.${alignFrom}`, alignFrom),
+                    to: t(`skills.agent.${alignTo}`, alignTo),
+                  })}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setAlignOpen(false)}>
+                {t("action.cancel", "取消")}
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ fontSize: 13 }}
+                disabled={alignFrom === alignTo}
+                onClick={handleAlign}
+              >
+                {t("skills.alignTitle", "对齐配置")}
               </button>
             </div>
           </div>
