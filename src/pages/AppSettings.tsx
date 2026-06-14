@@ -58,6 +58,11 @@ export function AppSettings({ tab, onLogSettingsChanged }: { tab: Tab; onLogSett
       try {
         const al = await proxyApi.getAutolaunch();
         setAutolaunch(al);
+        // silentLaunch 仅在 autolaunch (开机自启) 生效时有意义; autolaunch off 时强制 false 并持久化
+        if (!al) {
+          setSilentLaunch(false);
+          try { await proxyApi.setSilentLaunch(false); } catch { /* ignore */ }
+        }
       } catch { /* defaults */ }
       try {
         const ls = await proxyLogApi.getSettings();
@@ -113,6 +118,13 @@ export function AppSettings({ tab, onLogSettingsChanged }: { tab: Tab; onLogSett
     try {
       await proxyApi.setAutolaunch(val);
       setAutolaunch(val);
+      // 关闭开机自启时, 同步关闭并持久化静默启动 (UI 也会随之隐藏)
+      if (!val && silentLaunch) {
+        try {
+          await proxyApi.setSilentLaunch(false);
+          setSilentLaunch(false);
+        } catch { /* ignore */ }
+      }
     } catch (e: any) { setMessage(e.toString()); }
   };
 
@@ -292,7 +304,8 @@ export function AppSettings({ tab, onLogSettingsChanged }: { tab: Tab; onLogSett
             />
           </div>
 
-          {/* Silent Launch — start minimized to tray */}
+          {/* Silent Launch — start minimized to tray; 仅在 autolaunch (开机自启) 开启时展示 */}
+          {autolaunch && (
           <div className="glass-surface" style={{
             padding: "16px 20px",
             display: "flex",
@@ -313,6 +326,7 @@ export function AppSettings({ tab, onLogSettingsChanged }: { tab: Tab; onLogSett
               tabIndex={0}
             />
           </div>
+          )}
 
           {/* Upstream Proxy */}
           <div className="glass-surface" style={{
