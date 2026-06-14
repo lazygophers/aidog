@@ -1,7 +1,7 @@
 {
-  "id": "platform-smart-paste",
-  "name": "platform-smart-paste",
-  "title": "平台添加智能识别: 剪贴板粘贴解析 base_url/平台/apikey(base64自动解码)",
+  "id": "readme-redesign",
+  "name": "readme-redesign",
+  "title": "README 重写: 安装/使用详化 + 功能核对 + 视觉重设计",
   "description": "",
   "status": "in_progress",
   "dev_type": null,

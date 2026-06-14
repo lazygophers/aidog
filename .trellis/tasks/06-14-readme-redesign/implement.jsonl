@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/06-14-readme-redesign/prd.md", "reason": "本任务 PRD: 结构 + 视觉规约 + 内容锚点 + 验收"}
+{"file": "docs/docs/zh/getting-started/installation.mdx", "reason": "安装权威源 (系统要求/3平台步骤/源码构建)"}
+{"file": "docs/docs/zh/getting-started/quick-start.mdx", "reason": "快速上手权威源 (3步 + curl)"}
+{"file": "docs/docs/zh/proxy/codex-integration.mdx", "reason": "客户端接入权威 (Codex config.toml + Claude Code env)"}
+{"file": "docs/docs/zh/settings/claude-code.mdx", "reason": "Claude Code 集成权威 (导出 ~/.claude.json + settings tab)"}

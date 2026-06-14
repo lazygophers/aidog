@@ -1,25 +1,18 @@
 #!/usr/bin/env python3
 # trellisx worktree lifecycle — 由 .trellis/config.yaml hooks 调用
 # 用法: trellisx-worktree.py start|archive   (trellis 传 TASK_JSON_PATH env)
+# 路径/分支/命名约定见公共模块 trellisx_wt.py (单一真值, 与 trellisx-finish.py 共用)。
 import json, os, subprocess, sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import trellisx_wt  # noqa: E402
 
 action = sys.argv[1] if len(sys.argv) > 1 else ""
 tj = os.environ.get("TASK_JSON_PATH", "")
 if not tj or not os.path.isfile(tj):
     sys.exit(0)
 
-
-# task.json 形如 <troot>/.trellis/tasks/<tid>/task.json → 上溯定位 .trellis 父
-def trellis_root(p):
-    cur = os.path.dirname(os.path.abspath(p))
-    while cur != os.path.dirname(cur):
-        if os.path.basename(cur) == ".trellis":
-            return os.path.dirname(cur)
-        cur = os.path.dirname(cur)
-    return None
-
-
-troot = trellis_root(tj)
+troot = trellisx_wt.trellis_root(tj)
 if not troot:
     sys.exit(0)
 
@@ -30,33 +23,12 @@ except Exception:
     sys.exit(0)
 pkg = (meta.get("package") or meta.get("scope") or "").strip()
 
-
-def git_top(d):  # d 所在 git 仓库根, 非 git → None
-    r = subprocess.run(["git", "-C", d, "rev-parse", "--show-toplevel"],
-                       capture_output=True, text=True, timeout=10)
-    return r.stdout.strip() if r.returncode == 0 and r.stdout.strip() else None
-
-
-def resolve_repo():  # → (git根, service相对路径) | (None, None)
-    g = git_top(troot)
-    if g:                                    # 布局 1/2: .trellis 在 git 内
-        return g, os.path.relpath(troot, g)
-    if pkg:                                  # 布局 3: 子仓在 troot/<pkg>
-        sub = os.path.join(troot, pkg)
-        g = git_top(sub)
-        if g:
-            return g, "."
-    return None, None
-
-
-groot, service = resolve_repo()
+groot, service = trellisx_wt.resolve_repo(troot, pkg)
 if not groot:
     print(f"trellisx: 未能为 task {tid} 定位 git 仓库 (多子仓布局需先 task.py set-scope <子仓>)。worktree 跳过。", file=sys.stderr)
     sys.exit(0)
 
-name = f"{pkg}-{tid}" if pkg else (tid if service == "." else f"{service.replace(os.sep, '-')}-{tid}")
-wt = os.path.join(groot, ".worktrees", name)
-br = f"trellisx-{name}"
+name, wt, br = trellisx_wt.worktree_paths(groot, tid, pkg, service)
 
 if action == "start":
     if not os.path.isdir(wt):
