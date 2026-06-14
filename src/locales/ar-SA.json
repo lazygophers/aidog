@@ -1348,5 +1348,20 @@
   "tray.todayUsage": "استخدام اليوم",
   "tray.twoLine": "سطران",
   "unit.days": "أيام",
-  "unit.sec": "ثانية"
+  "unit.sec": "ثانية",
+  "nav.about": "حول",
+  "about.title": "حول",
+  "about.subtitle": "معلومات الإصدار وروابط المشروع",
+  "about.appVersion": "إصدار التطبيق",
+  "about.tauriVersion": "إصدار Tauri",
+  "about.os": "نظام التشغيل",
+  "about.arch": "المعمارية",
+  "about.profile": "ملف البناء",
+  "about.gitCommit": "Git Commit",
+  "about.buildTime": "وقت البناء",
+  "about.githubTitle": "GitHub",
+  "about.repo": "المستودع",
+  "about.releases": "الإصدارات",
+  "about.issues": "المشكلات",
+  "about.reportIssue": "الإبلاغ عن مشكلة"
 }

@@ -1326,5 +1326,20 @@
   "tray.todayUsage": "今日消耗",
   "tray.twoLine": "两行",
   "unit.days": "天",
-  "unit.sec": "秒"
+  "unit.sec": "秒",
+  "nav.about": "关于",
+  "about.title": "关于",
+  "about.subtitle": "版本信息与项目链接",
+  "about.appVersion": "应用版本",
+  "about.tauriVersion": "Tauri 版本",
+  "about.os": "操作系统",
+  "about.arch": "架构",
+  "about.profile": "构建配置",
+  "about.gitCommit": "Git Commit",
+  "about.buildTime": "构建时间",
+  "about.githubTitle": "GitHub",
+  "about.repo": "代码仓库",
+  "about.releases": "版本发布",
+  "about.issues": "问题列表",
+  "about.reportIssue": "反馈问题"
 }
