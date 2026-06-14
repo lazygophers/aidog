@@ -1220,5 +1220,8 @@
   "tray.todayUsage": "今日消耗",
   "tray.twoLine": "两行",
   "unit.days": "天",
-  "unit.sec": "秒"
+  "unit.sec": "秒",
+  "skills.uninstall": "卸载",
+  "skills.uninstallConfirm": "将删除 skill {{name}} 及其在所有 agent 的启用配置，不可恢复。确认？",
+  "skills.uninstallDone": "已卸载"
 }

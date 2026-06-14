@@ -1220,5 +1220,8 @@
   "tray.todayUsage": "Today's Usage",
   "tray.twoLine": "Two lines",
   "unit.days": "days",
-  "unit.sec": "sec"
+  "unit.sec": "sec",
+  "skills.uninstall": "Uninstall",
+  "skills.uninstallConfirm": "This will remove skill {{name}} and its enabled config for all agents. This cannot be undone. Confirm?",
+  "skills.uninstallDone": "Uninstalled"
 }

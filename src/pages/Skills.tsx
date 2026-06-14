@@ -38,6 +38,8 @@ export function Skills() {
   const [message, setMessage] = useState<string | null>(null);
   // 一键卸载二次确认 modal（破坏性操作，禁 native confirm）。
   const [confirmUninstall, setConfirmUninstall] = useState(false);
+  // 单条卸载目标（破坏性，二次确认）。
+  const [uninstallTarget, setUninstallTarget] = useState<SkillInfo | null>(null);
   // 对齐配置 modal：使 to agent 的启用配置与 from 完全一致。
   const [alignOpen, setAlignOpen] = useState(false);
   const [alignFrom, setAlignFrom] = useState<SkillAgent>("claude");
@@ -189,6 +191,24 @@ export function Skills() {
       await applyResult(res, "skills.uninstallAllDone");
     } catch (e) {
       console.error("uninstall all failed", e);
+      setMessage(String(e));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  // 卸载单一 skill（破坏性，二次确认）：删规范存储 + 所有 agent 启用配置。
+  const handleUninstallSingle = async () => {
+    const target = uninstallTarget;
+    setUninstallTarget(null);
+    if (!target || !writeReady || scopeInvalid || busyKey !== null) return;
+    setBusyKey(`__uninstall_single_${target.name}__`);
+    setMessage(null);
+    try {
+      const res = await skillsApi.uninstall(target.name, scope);
+      await applyResult(res, "skills.uninstallDone");
+    } catch (e) {
+      console.error("uninstall single failed", e);
       setMessage(String(e));
     } finally {
       setBusyKey(null);
@@ -459,6 +479,18 @@ export function Skills() {
                     );
                   })}
                 </div>
+                {/* 单条卸载（破坏性，二次确认） */}
+                <button
+                  className="btn btn-danger"
+                  style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
+                  disabled={!writeReady || busyKey !== null}
+                  onClick={() => setUninstallTarget(skill)}
+                  title={t("skills.uninstall", "卸载")}
+                >
+                  {busyKey === `__uninstall_single_${skill.name}__`
+                    ? t("skills.uninstalling", "卸载中…")
+                    : t("skills.uninstall", "卸载")}
+                </button>
               </div>
             ))}
           </div>
@@ -501,6 +533,48 @@ export function Skills() {
               </button>
               <button className="btn btn-danger" style={{ fontSize: 13 }} onClick={handleUninstallAll}>
                 {t("skills.uninstallAll", "卸载全部")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 单条卸载二次确认 modal（破坏性，禁 native confirm） */}
+      {uninstallTarget && (
+        <div
+          onClick={() => setUninstallTarget(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.4)",
+            animation: "fadeIn 150ms ease both",
+          }}
+        >
+          <div
+            className="glass-elevated"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 380,
+              padding: 24,
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 700 }}>{t("skills.uninstall", "卸载")}</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              {t("skills.uninstallConfirm", "将删除 skill {{name}} 及其在所有 agent 的启用配置，不可恢复。确认？", { name: uninstallTarget.name })}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setUninstallTarget(null)}>
+                {t("action.cancel", "取消")}
+              </button>
+              <button className="btn btn-danger" style={{ fontSize: 13 }} onClick={handleUninstallSingle}>
+                {t("skills.uninstall", "卸载")}
               </button>
             </div>
           </div>

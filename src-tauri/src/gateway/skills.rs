@@ -496,6 +496,34 @@ pub fn uninstall_all(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpRes
     run_npx_in_scope(&args, scope, proxy_url)
 }
 
+/// 构造单一 skill 卸载 args：`remove -s <name> [-g] -y`。
+/// 不带 `-a` = 删规范存储 + 所有 agent symlink（对齐 `--all` 但限定单个 skill）。
+fn uninstall_args(name: &str, scope: &SkillScope) -> Vec<String> {
+    let mut args = vec![
+        "remove".to_string(),
+        "-s".to_string(),
+        name.to_string(),
+    ];
+    apply_scope(&mut args, scope);
+    args.push("-y".to_string());
+    args
+}
+
+/// 卸载单一 skill：`npx skills remove -s <name> [-g] -y`（破坏性，前端二次确认）。
+/// 删规范存储目录 + 所有 agent 的启用配置（symlink / 锁文件项）。
+pub fn uninstall(name: &str, scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
+    let name = name.trim();
+    if name.is_empty() {
+        return SkillsOpResult {
+            success: false,
+            stdout: String::new(),
+            stderr: "skill name is empty".to_string(),
+        };
+    }
+    let args = uninstall_args(name, scope);
+    run_npx_in_scope(&args, scope, proxy_url)
+}
+
 /// 对齐决策：以 source 启用态决定 target 应做何操作。
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum AlignAction {
@@ -728,6 +756,30 @@ mod tests {
             },
         );
         assert!(!args.contains(&"-g".to_string()));
+    }
+
+    #[test]
+    fn uninstall_args_global() {
+        let args = uninstall_args("my-skill", &SkillScope::Global);
+        assert_eq!(args[0], "remove");
+        assert_eq!(args[1], "-s");
+        assert_eq!(args[2], "my-skill");
+        assert!(args.contains(&"-g".to_string()));
+        assert!(args.contains(&"-y".to_string()));
+        // 不带 -a（对齐 --all，删规范存储 + 所有 agent symlink）。
+        assert!(!args.iter().any(|a| a == "-a"));
+    }
+
+    #[test]
+    fn uninstall_args_project_no_g() {
+        let args = uninstall_args(
+            "my-skill",
+            &SkillScope::Project {
+                path: "/tmp".to_string(),
+            },
+        );
+        assert!(!args.contains(&"-g".to_string()));
+        assert!(args.contains(&"-y".to_string()));
     }
 
     #[test]

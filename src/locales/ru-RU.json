@@ -1242,5 +1242,8 @@
   "tray.todayUsage": "Использование сегодня",
   "tray.twoLine": "Две строки",
   "unit.days": "дней",
-  "unit.sec": "сек"
+  "unit.sec": "сек",
+  "skills.uninstall": "Удалить",
+  "skills.uninstallConfirm": "Будут удалены skill {{name}} и его конфигурация включения для всех agents. Отмена невозможна. Подтвердить?",
+  "skills.uninstallDone": "Удалён"
 }

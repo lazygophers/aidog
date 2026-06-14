@@ -1220,5 +1220,8 @@
   "tray.todayUsage": "Uso de hoy",
   "tray.twoLine": "Dos líneas",
   "unit.days": "días",
-  "unit.sec": "s"
+  "unit.sec": "s",
+  "skills.uninstall": "Desinstalar",
+  "skills.uninstallConfirm": "Se eliminará skill {{name}} y su configuración habilitada para todos los agents. No reversible. ¿Confirmar?",
+  "skills.uninstallDone": "Desinstalado"
 }

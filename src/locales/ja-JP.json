@@ -1242,5 +1242,8 @@
   "tray.todayUsage": "今日の使用量",
   "tray.twoLine": "2行",
   "unit.days": "日",
-  "unit.sec": "秒"
+  "unit.sec": "秒",
+  "skills.uninstall": "アンインストール",
+  "skills.uninstallConfirm": "skill {{name}} と全 agent の有効化設定を削除します。元に戻せません。確認しますか？",
+  "skills.uninstallDone": "アンインストール済み"
 }
