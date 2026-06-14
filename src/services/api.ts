@@ -1290,6 +1290,8 @@ export interface SkillInfo {
   scope: SkillScope;
   installed_path: string | null;
   description: string | null;
+  /** 来源 owner/repo（锁文件 source）。第三方/手动 symlink skill → null。 */
+  source: string | null;
 }
 
 /** catalog 条目（可装 skill）。 */
@@ -1355,6 +1357,19 @@ export const skillsApi = {
   /** 为某 agent 启用当前 scope 全部已装 skills（只增不减）。 */
   enableAll: (agent: SkillAgent, scope: SkillScope) =>
     invoke<SkillsOpResult>("skills_enable_all", { agent, scope }),
+  /** 组级 agent 批量：对某 source 组（groupSource=null = 「其他」组）内所有 skill 统一启用/禁用某 agent。 */
+  setGroupAgent: (
+    groupSource: string | null,
+    agent: SkillAgent,
+    enable: boolean,
+    scope: SkillScope,
+  ) =>
+    invoke<SkillsOpResult>("skills_set_group_agent", {
+      groupSource,
+      agent,
+      enable,
+      scope,
+    }),
 };
 
 // ─── 导入导出子系统 ───────────────────────────────────────
