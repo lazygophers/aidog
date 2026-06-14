@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
-import { statuslineApi } from "../../services/api";
+import { statuslineApi, notificationApi, type NotifyHooksFragment } from "../../services/api";
 import {
   ENV_VAR_DEFS,
   ENV_VAR_GROUP_ORDER,
@@ -3205,6 +3205,136 @@ type MatcherGroup = {
 
 export type HooksConfig = Record<string, MatcherGroup[]>;
 
+// ─── notify hook 快捷注入/移除（Hooks 区按钮共享逻辑）──────────────
+// 与后端 gateway::hooks 识别约定一致：按命令串含脚本文件名识别 aidog notify 项。
+const AIDOG_NOTIFY_MARKERS = ["aidog-notify-complete", "aidog-notify-waiting"];
+
+/** 判断一个 handler 是否为 aidog notify 命令（按 command 串含脚本文件名识别）。 */
+function isAidogNotifyHandler(h: HookHandler): boolean {
+  const cmd = h.command ?? "";
+  return AIDOG_NOTIFY_MARKERS.some((m) => cmd.includes(m));
+}
+
+/** hooksValue 中是否已存在 aidog notify 注入项。 */
+function hasNotifyHooks(hooks: HooksConfig | undefined): boolean {
+  if (!hooks) return false;
+  return Object.values(hooks).some((groups) =>
+    groups.some((g) => g.hooks.some(isAidogNotifyHandler)),
+  );
+}
+
+/**
+ * 把后端 notify hook 片段并入当前 hooksValue。
+ * - 先剥除现有 aidog notify 项（避免重复，幂等）。
+ * - 再把片段中每个 event 的 aidog handler 追加为独立 matcher 组（matcher 空 = 匹配所有）。
+ */
+function mergeNotifyHooks(
+  current: HooksConfig | undefined,
+  fragment: NotifyHooksFragment,
+): HooksConfig {
+  const merged: HooksConfig = stripNotifyHooks(current) ?? {};
+  for (const [event, groups] of Object.entries(fragment)) {
+    for (const g of groups) {
+      const handlers: HookHandler[] = (g.hooks ?? [])
+        .filter((h) => isAidogNotifyHandler(h as HookHandler))
+        .map((h) => ({ type: (h.type as HandlerType) ?? "command", command: h.command }));
+      if (handlers.length === 0) continue;
+      const existing = merged[event] ?? [];
+      merged[event] = [...existing, { matcher: "", hooks: handlers }];
+    }
+  }
+  return merged;
+}
+
+/**
+ * 从 hooksValue 移除所有 aidog notify 项，保留用户其它 hook。
+ * 空 handler 组 / 空 event 一并清理；全清后返回 undefined（与 syncHooks 一致）。
+ */
+function stripNotifyHooks(current: HooksConfig | undefined): HooksConfig | undefined {
+  if (!current) return undefined;
+  const cleaned: HooksConfig = {};
+  for (const [event, groups] of Object.entries(current)) {
+    const keptGroups = groups
+      .map((g) => ({ ...g, hooks: g.hooks.filter((h) => !isAidogNotifyHandler(h)) }))
+      .filter((g) => g.hooks.length > 0);
+    if (keptGroups.length > 0) cleaned[event] = keptGroups;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
+
+/** Hooks 区「注入/移除通知 hook」快捷条（注入态切换 + busy 防并发 + 失败提示）。 */
+function NotifyHookQuickBar(props: {
+  hooksValue: HooksConfig | undefined;
+  updateField: (field: string, value: any) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const { hooksValue, updateField, t } = props;
+  const injected = hasNotifyHooks(hooksValue);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>("");
+
+  const handleInject = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const fragment = await notificationApi.buildNotifyHooksFragment();
+      const merged = mergeNotifyHooks(hooksValue, fragment);
+      updateField("hooks", merged);
+      updateField("_aidog_hooks", { enabled: true });
+    } catch (e) {
+      console.error("buildNotifyHooksFragment failed", e);
+      setError(t("settings.hooksNotifyError", "操作失败，请重试"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemove = () => {
+    if (busy) return;
+    const cleaned = stripNotifyHooks(hooksValue);
+    updateField("hooks", cleaned);
+    updateField("_aidog_hooks", { enabled: false });
+    setError("");
+  };
+
+  return (
+    <div className="glass-surface" style={{
+      borderRadius: "var(--radius-md)", padding: "12px 16px",
+      display: "flex", flexDirection: "column", gap: 8,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 200 }}>
+          <span style={{ fontSize: F.body, fontWeight: 600, color: "var(--text-primary)" }}>
+            {t("settings.hooksQuickTitle", "通知 hook")}
+          </span>
+          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+            {injected
+              ? t("settings.hooksNotifyInjected", "已注入 Claude Code 完成/等待通知 hook，保存后对全部分组生效。")
+              : t("settings.hooksQuickDesc", "一键填入 Claude Code 完成/等待通知 hook，保存后对全部分组与 Codex 生效。")}
+          </span>
+        </div>
+        {injected ? (
+          <button type="button" className="btn btn-ghost" disabled={busy}
+            style={{ fontSize: F.body, padding: "6px 14px", flexShrink: 0 }}
+            onClick={handleRemove}>
+            {t("notif.hookRemove", "移除")}
+          </button>
+        ) : (
+          <button type="button" className="btn btn-primary" disabled={busy}
+            style={{ fontSize: F.body, padding: "6px 14px", flexShrink: 0 }}
+            onClick={handleInject}>
+            {busy ? t("settings.hooksNotifyBusy", "处理中…") : t("settings.hooksNotifyInject", "注入通知 hook")}
+          </button>
+        )}
+      </div>
+      {error && (
+        <span style={{ fontSize: F.hint, color: "var(--danger)" }}>{error}</span>
+      )}
+    </div>
+  );
+}
+
 /** Reusable field-row with inline label for handler cards */
 function FieldRow({ label, icon, children }: {
   label: string; icon?: React.ReactNode; children: React.ReactNode;
@@ -3773,6 +3903,9 @@ export function HooksSectionInline(props: {
   // Render the same JSX as HooksSection but without <Section> wrapper
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
+      {/* Notify hook quick inject/remove */}
+      <NotifyHookQuickBar hooksValue={hooksValue} updateField={updateField} t={t} />
+
       {/* Event selector */}
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <select className="input" style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 200 }} value=""

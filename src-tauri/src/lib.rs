@@ -2309,6 +2309,25 @@ async fn set_default_hooks_enabled(
     Ok(())
 }
 
+/// 构造通知 hook 片段供前端 Hooks 编辑器并入草稿（只读式）。
+/// - 确保 notify 脚本已落盘 `~/.aidog/scripts/`（`generate_hook_scripts`）。
+/// - 在空对象上走 `inject_claude_code_hooks`，取出其 `hooks` 子对象
+///   （`{Stop:[...], Notification:[...]}`）返回。
+/// **不写 DB、不 sync**：物化由用户正常保存触发既有链路。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn build_notify_hooks_fragment(db: State<'_, Db>) -> Result<serde_json::Value, String> {
+    tracing::debug!(command = "build_notify_hooks_fragment", "command invoked");
+    let invoker = resolve_script_invoker(&db).await;
+    let scripts = generate_hook_scripts(invoker)?;
+    let mut config = serde_json::json!({});
+    gateway::hooks::inject_claude_code_hooks(&mut config, &scripts);
+    Ok(config
+        .get("hooks")
+        .cloned()
+        .unwrap_or_else(|| serde_json::Value::Object(Default::default())))
+}
+
 // ─── Settings Persistence ──────────────────────────────────
 
 /// 统一数据目录：~/.aidog/
@@ -3449,6 +3468,7 @@ pub fn run() {
             remove_hooks,
             get_default_hooks_enabled,
             set_default_hooks_enabled,
+            build_notify_hooks_fragment,
             // 脚本执行器（uv / python3）
             check_uv,
             install_uv,

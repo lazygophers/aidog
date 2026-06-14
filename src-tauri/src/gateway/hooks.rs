@@ -429,6 +429,31 @@ mod tests {
     }
 
     #[test]
+    fn notify_hooks_fragment_shape() {
+        // 复刻 build_notify_hooks_fragment 取片段逻辑：空对象 inject 后取 hooks 子对象。
+        let mut cfg = json!({});
+        let scripts = ScriptPaths {
+            complete: "/u/.aidog/scripts/aidog-notify-complete.py".into(),
+            waiting: "/u/.aidog/scripts/aidog-notify-waiting.py".into(),
+        };
+        inject_claude_code_hooks(&mut cfg, &scripts);
+        let fragment = cfg.get("hooks").cloned().unwrap();
+        // 片段含 Stop / Notification，且不含 _aidog_hooks 标记（标记在外层 config）。
+        assert!(fragment.get("Stop").is_some());
+        assert!(fragment.get("Notification").is_some());
+        assert!(fragment.get(MARKER_HOOKS).is_none());
+        assert_eq!(
+            fragment["Stop"][0]["hooks"][0]["command"],
+            "/u/.aidog/scripts/aidog-notify-complete.py"
+        );
+        assert_eq!(
+            fragment["Notification"][0]["hooks"][0]["command"],
+            "/u/.aidog/scripts/aidog-notify-waiting.py"
+        );
+        assert_eq!(fragment["Stop"][0]["hooks"][0]["type"], "command");
+    }
+
+    #[test]
     fn codex_notify_inject_and_remove() {
         let mut cfg = json!({ "model_provider": "aidog" });
         inject_codex_notify(&mut cfg, "/a/aidog-notify-complete.sh");

@@ -913,6 +913,20 @@ export interface Notification {
   created_at: number;
 }
 
+/** notify hook 片段中单个 handler（CC hooks schema：type=command + 脚本命令串）。 */
+export interface NotifyHookHandler {
+  type: string;
+  command: string;
+}
+
+/** notify hook 片段中单个匹配组（backend inject 产出无 matcher 字段，匹配所有）。 */
+export interface NotifyHookGroup {
+  hooks: NotifyHookHandler[];
+}
+
+/** `build_notify_hooks_fragment` 返回的 CC hooks 子对象（`{Stop:[...], Notification:[...]}`）。 */
+export type NotifyHooksFragment = Record<string, NotifyHookGroup[]>;
+
 /** 分发结果（testNotify / 端点返回）。 */
 export interface NotifyDispatchResult {
   dispatched: boolean;
@@ -953,6 +967,13 @@ export const notificationApi = {
   /** 读取「默认为所有分组注入通知 hook」总开关（基线 _aidog_hooks.enabled）。 */
   getDefaultHooksEnabled: () =>
     invoke<boolean>("get_default_hooks_enabled"),
+  /**
+   * 构造通知 hook 片段供 Hooks 编辑器并入草稿（只读式：确保 notify 脚本落盘，
+   * 但不写 DB、不 sync）。返回 `{Stop:[...], Notification:[...]}` 形状的 CC hooks 子对象。
+   * 前端把它并入草稿 config.hooks，由用户正常保存触发既有 sync 物化。
+   */
+  buildNotifyHooksFragment: () =>
+    invoke<NotifyHooksFragment>("build_notify_hooks_fragment"),
   /**
    * 设置「默认为所有分组注入通知 hook」总开关：开=全分组注入 CC hooks + Codex notify，
    * 关=全移除。写基线 _aidog_hooks.enabled 并 re-sync 物化。
