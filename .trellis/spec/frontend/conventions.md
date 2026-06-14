@@ -22,6 +22,8 @@ mode: optimize
 
 ## Directory Structure (MUST)
 
+> 违反代价: 文件放错层 → 后续 agent 按约定 grep 找不到 → 重复造同名文件 / import 路径混乱。
+
 - 新页面必须放 `src/pages/<PascalCase>.tsx`
 - 共享组件放 `src/components/`，禁嵌套 >1 层子目录
 - 主题文件放 `src/themes/<name>.ts`，必须导出 `ThemeDefinition`
@@ -31,6 +33,8 @@ mode: optimize
 - 验证: `find src -type f -name '*.tsx' -o -name '*.ts' | sort` 必须与上述结构一致
 
 ## Component Patterns (MUST)
+
+> 违反代价: 引入 CSS Modules / CSS-in-JS → 样式系统割裂、主题切换失效；index 作 key → 列表重排时状态错位。
 
 - 页面组件必须 `export function <PascalCase>()`，用 named export
 - 共享组件同理: `export function <PascalCase>(props: <Name>Props)`
@@ -44,6 +48,8 @@ mode: optimize
 
 ## State Management (MUST)
 
+> 违反代价: 新建 store / 绕过 AppContext 读写 localStorage → 状态双源不一致、持久化漏写、主题/语言切换不生效。
+
 - 全局设置（locale / theme / mode）必须走 `AppContext` + `useApp()` hook
 - 禁新建全局 store / Zustand / Redux — 扩展 `AppContext` 即可
 - 组件本地状态（表单 / loading / 编辑态）用 `useState`，禁提升到全局
@@ -54,12 +60,16 @@ mode: optimize
 
 ## API Layer (MUST)
 
+> 违反代价: invoke 散落各文件 / 静默丢错 → 后端 command 改名时编译期不报、运行时静默失败难排查。
+
 - invoke 契约 (泛型标注 / 集中 api.ts / 字段名 snake_case / 新 command 必同步前端) 见 [Cross-Layer Rules](../guides/cross-layer-rules.md#taurireact-boundary-must)，本节不重复
 - API namespace 必须按 resource 拆分 (`platformApi` / `groupApi` / `mappingApi` / `proxyApi` / `configApi`)
 - 入参类型必须用独立 `interface` 定义，禁 inline `{ [key]: string }`
 - 错误处理: `try/catch` 包裹，`catch` 至少 `console.error`，禁静默丢弃
 
 ## Type Safety (MUST)
+
+> 违反代价: 用 `any` / `string` 代替 union → 后端字段改动编译期不报错、运行时崩；漏同步 interface → 前后端字段静默错位。
 
 - 可枚举字符串类型必须用 union type (`"anthropic" | "openai" | "glm" | "kimi"`)，禁用 `string`
 - 共享类型必须定义在 `src/services/api.ts`（业务）或 `src/themes/types.ts`（主题）
@@ -70,6 +80,8 @@ mode: optimize
 - 验证: `grep -rn 'any' src/ --include='*.ts' --include='*.tsx'` 必须 0 行
 
 ## Hooks (MUST)
+
+> 违反代价: 不用 `use` 前缀 → React lint 规则失效、依赖检查漏报；≥2 组件复用却不提取 → 逻辑分叉、bug fix 不传播。
 
 - 自定义 hook 必须以 `use` 前缀命名，放 `src/hooks/` 或组件文件内
 - 获取全局设置必须用 `useApp()`，禁直接 `useContext(AppContext)`
