@@ -48,3 +48,5 @@
 | i18n-labelkey-blindspot | i18n labelKey 盲区修复: t(变量) 路径 key 缺失 + check-i18n D 检查 | — | 已完成 | 收尾 | 100% | — |
 | menu-scroll-support | 菜单容器滚动支持: 高度不足时显示滚动条 | — | 已完成 | 收尾 | 100% | — |
 | skills-unified-toggle | Skills 列表重构 (统一不分agent + per-item启用切换 + 总计样式) | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-skills-unified-toggle |
+| fix-skills-enable | 修复 skills enable 失败 (path 替代锁文件 source + 前端弹错) | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-fix-skills-enable |
+| import-export | 导入导出功能（加密单文件 + 自动化导入） | — | 进行中 | 规划 | 0% | — |
