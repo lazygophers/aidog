@@ -938,6 +938,7 @@
   "skills.updated": "Успешно обновлено",
   "skills.updating": "Обновление…",
   "skills.refreshing": "Обновление…",
+"skills.refresh": "Обновить",
   "stats": {
     "inputTokens": "Входные токены",
     "outputTokens": "Выходные токены",

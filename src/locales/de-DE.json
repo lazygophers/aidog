@@ -938,6 +938,7 @@
   "skills.updated": "Erfolgreich aktualisiert",
   "skills.updating": "Aktualisiere…",
   "skills.refreshing": "Aktualisiere…",
+"skills.refresh": "Aktualisieren",
   "stats": {
     "inputTokens": "Eingabe-Tokens",
     "outputTokens": "Ausgabe-Tokens",

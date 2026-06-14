@@ -938,6 +938,7 @@
   "skills.updated": "更新しました",
   "skills.updating": "更新中…",
   "skills.refreshing": "更新中…",
+"skills.refresh": "更新",
   "stats": {
     "inputTokens": "入力トークン",
     "outputTokens": "出力トークン",
