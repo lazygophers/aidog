@@ -901,6 +901,56 @@ async fn model_test(
         }
     };
 
+    // ── Mock 平台：本地生成响应（不发真实 HTTP），与 proxy handle_mock 对齐。
+    //   model_test 入站协议固定 "test"；mock build_response 对未知协议走默认 Anthropic 格式。
+    //   response_preview 直接取 cfg.response_text（mock 配置的响应文本），无需解析响应体。
+    if matches!(target_protocol, Protocol::Mock) {
+        let cfg = gateway::adapter::mock::resolve_mock_config(&platform.extra, &chat_req, &req_body);
+        if cfg.delay_ms > 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(cfg.delay_ms)).await;
+        }
+        let source_proto_str = "test";
+        let (success, status_code, resp_body, err_msg, in_tok, out_tok, preview): (bool, u16, String, String, i32, i32, String) = match cfg.error_mode.as_str() {
+            "http_error" => {
+                let body = gateway::adapter::mock::build_error_body(source_proto_str, cfg.status_code, "mock http_error");
+                let body_str = serde_json::to_string(&body).unwrap_or_default();
+                (false, cfg.status_code, body_str, format!("mock http_error (status {})", cfg.status_code), 0, 0, String::new())
+            }
+            "rate_limit_429" => {
+                let body = gateway::adapter::mock::build_error_body(source_proto_str, 429, "mock rate limit");
+                let body_str = serde_json::to_string(&body).unwrap_or_default();
+                (false, 429, body_str, "mock rate_limit_429".to_string(), 0, 0, String::new())
+            }
+            "timeout" => {
+                // model_test 不真 hang（proxy 里 sleep 600s 是为让客户端超时）；直接返回 504。
+                let body = gateway::adapter::mock::build_error_body(source_proto_str, 504, "mock timeout");
+                let body_str = serde_json::to_string(&body).unwrap_or_default();
+                (false, 504, body_str, "mock timeout".to_string(), 0, 0, String::new())
+            }
+            _ => {
+                let body = gateway::adapter::mock::build_response(&cfg, source_proto_str, &model);
+                let body_str = serde_json::to_string(&body).unwrap_or_default();
+                (true, 200, body_str, String::new(), cfg.input_tokens, cfg.output_tokens, cfg.response_text.clone())
+            }
+        };
+        let duration_ms = start.elapsed().as_millis() as i32;
+        let log_entry = make_log(&resp_body, status_code as i32, status_code as i32, r#"{"content-type":"application/json"}"#, &resp_body, in_tok, out_tok);
+        if let Err(le) = db::upsert_proxy_log(&db, log_entry).await {
+            tracing::warn!(command = "model_test", platform_id = platform.id, error = %le, "persist mock test log failed");
+        }
+        tracing::info!(command = "model_test", platform_id = platform.id, mock = true, success, status = status_code, "model test mock response");
+        return Ok(ModelTestResult {
+            success,
+            model: model.clone(),
+            prompt_preview: truncate_str(&prompt, 100),
+            response_preview: preview,
+            duration_ms,
+            input_tokens: in_tok,
+            output_tokens: out_tok,
+            error: err_msg,
+        });
+    }
+
     tracing::info!(method = "POST", url = %url, "model test request");
     tracing::debug!(method = "POST", url = %url, body = %req_body_str, "model test request body");
     let resp = match req_builder.send().await {
