@@ -230,7 +230,7 @@
   "importExport.scope.groupPlatform": "Liens Groupe↔Plateforme",
   "importExport.scope.modelPrice": "Table des prix des modèles",
   "importExport.scope.platform": "Plateformes",
-  "importExport.scope.setting": "Paramètres globaux du proxy",
+  "importExport.scope.setting": "Paramètres globaux (thème/langue/proxy/notification, etc.)",
   "importExport.scope.skills": "Skills (installation npx + état activé)",
   "importExport.skip": "Ignorer",
   "importExport.sourceMachine": "Machine source",

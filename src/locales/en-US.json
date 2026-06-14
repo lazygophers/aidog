@@ -230,7 +230,7 @@
   "importExport.scope.groupPlatform": "Group↔Platform links",
   "importExport.scope.modelPrice": "Model price table",
   "importExport.scope.platform": "Platforms",
-  "importExport.scope.setting": "Proxy global settings",
+  "importExport.scope.setting": "Global settings (theme/language/proxy/notification, etc.)",
   "importExport.scope.skills": "Skills (npx install + enable state)",
   "importExport.skip": "Skip",
   "importExport.sourceMachine": "Source machine",

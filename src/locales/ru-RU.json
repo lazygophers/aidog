@@ -230,7 +230,7 @@
   "importExport.scope.groupPlatform": "Связи Группа↔Платформа",
   "importExport.scope.modelPrice": "Таблица цен моделей",
   "importExport.scope.platform": "Платформы",
-  "importExport.scope.setting": "Глобальные настройки прокси",
+  "importExport.scope.setting": "Глобальные настройки (тема/язык/прокси/уведомления)",
   "importExport.scope.skills": "Skills (установка npx + состояние включения)",
   "importExport.skip": "Пропустить",
   "importExport.sourceMachine": "Исходная машина",
