@@ -113,7 +113,12 @@ export function Skills() {
     try {
       const res = enabled
         ? await skillsApi.disable(skill.name, agent, scope)
-        : await skillsApi.enable(skill.name, agent, scope);
+        : await skillsApi.enable(
+            skill.name,
+            skill.installed_path ?? "",
+            agent,
+            scope,
+          );
       await applyResult(res, enabled ? "skills.disabled" : "skills.enabled");
     } catch (e) {
       console.error("toggle failed", e);

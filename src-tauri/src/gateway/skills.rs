@@ -3,23 +3,22 @@
 //! **全 npx 化**：list / enable / disable / update 全部 shell out `npx skills`，
 //! 禁手动 fs 扫描 / 删除（复用 Vercel Labs 官方生态，单一事实源）。
 //! - 列表：`npx skills list --json [-g]` → 统一一条/skill，`agents[]` 含显示名（"Claude Code"/"Codex"）= 该 agent 已启用。
-//! - 启用：从锁文件 `.agents/.skill-lock.json` 读 `skills[<name>].source` → `npx skills add <source> -s <name> -a <slug> [-g] -y`。
+//! - 启用：用 skill 本地 path（list json `path`）作 add package → `npx skills add <path> -a <slug> [-g] -y`（对所有 skill 通用，不依赖锁文件 source）。
 //! - 关闭：`npx skills remove -s <name> -a <slug> [-g] -y`。
 //! - 更新：`npx skills update [-g] -y`。
 //!
-//! 锁文件仅作**只读元数据**喂给 npx 命令（取 source），所有变更操作仍是 npx，不违反"全 npx"约束。
+//! 所有变更操作均 shell out npx，不违反"全 npx"约束。
 //!
 //! shell out 模式参考 `gateway/notification.rs`（`std::process::Command`）。
 //!
 //! Scope 语义：
-//! - `Global` → 用户级全局，命令带 `-g`，读 `~/.agents/.skill-lock.json`。
-//! - `Project { path }` → 项目级，命令在项目目录内执行（不带 `-g`），读 `<path>/.agents/.skill-lock.json`。
+//! - `Global` → 用户级全局，命令带 `-g`。
+//! - `Project { path }` → 项目级，命令在项目目录内执行（不带 `-g`）。
 //!
 //! Agent 语义：target agent 决定 `-a <slug>` 参数（claude → `claude-code`、codex → `codex`）
 //! 与 list json `agents[]` 显示名映射（claude → "Claude Code"、codex → "Codex"）。
 
 use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
 use std::process::Command;
 
 /// 安装目标 scope。`Global` = 用户级全局；`Project` = 指定项目目录。
@@ -33,26 +32,6 @@ pub enum SkillScope {
 }
 
 impl SkillScope {
-    /// scope 对应的锁文件基目录。Global → home；Project → 项目根。
-    /// 锁文件为 `<base>/.agents/.skill-lock.json`。
-    fn base_dir(&self) -> Option<PathBuf> {
-        match self {
-            SkillScope::Global => dirs_home(),
-            SkillScope::Project { path } => {
-                let p = path.trim();
-                if p.is_empty() {
-                    None
-                } else {
-                    Some(PathBuf::from(p))
-                }
-            }
-        }
-    }
-
-    /// scope 对应的锁文件路径 `<base>/.agents/.skill-lock.json`。
-    fn lock_file(&self) -> Option<PathBuf> {
-        Some(self.base_dir()?.join(".agents").join(".skill-lock.json"))
-    }
 }
 
 /// 目标 agent。决定 `--agent` 参数与本地配置目录名。
@@ -101,8 +80,6 @@ pub struct SkillsEnv {
 pub struct SkillInfo {
     /// skill 名。
     pub name: String,
-    /// 来源（owner/repo），从锁文件 source 读不到时为 null。
-    pub source: Option<String>,
     /// 已在哪些目标 agent（claude/codex 子集）启用 —— 从 list json `agents[]` 显示名映射。
     pub enabled_agents: Vec<SkillAgent>,
     /// 所属 scope。
@@ -135,13 +112,6 @@ pub struct SkillsOpResult {
     pub stdout: String,
     /// 合并的 stderr。
     pub stderr: String,
-}
-
-/// home 目录。封装便于 scope 复用。
-fn dirs_home() -> Option<PathBuf> {
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
 }
 
 /// 探测 npx / node 可用性。任一探测失败均不 panic，对应字段降级。
@@ -223,7 +193,6 @@ fn parse_list_json(stdout: &str, scope: &SkillScope) -> Vec<SkillInfo> {
                 .map(|s| s.to_string());
             Some(SkillInfo {
                 name,
-                source: None,
                 enabled_agents,
                 scope: scope.clone(),
                 installed_path,
@@ -233,19 +202,6 @@ fn parse_list_json(stdout: &str, scope: &SkillScope) -> Vec<SkillInfo> {
         .collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));
     out
-}
-
-/// 从 scope 对应锁文件读 `skills[<name>].source`（enable 需要）。读不到 → None。
-fn read_skill_source(name: &str, scope: &SkillScope) -> Option<String> {
-    let lock = scope.lock_file()?;
-    let content = std::fs::read_to_string(&lock).ok()?;
-    let raw: serde_json::Value = serde_json::from_str(&content).ok()?;
-    raw.get("skills")?
-        .get(name)?
-        .get("source")?
-        .as_str()
-        .filter(|s| !s.is_empty())
-        .map(|s| s.to_string())
 }
 
 /// catalog 抓取地址（skills.sh 的 JSON 索引）。
@@ -401,14 +357,13 @@ fn run_npx(extra_args: &[String]) -> SkillsOpResult {
     }
 }
 
-/// 构造 enable（启用）命令 args：`add <source> -s <name> -a <slug> [-g] -y`。
-/// 抽出便于单测断言（不真跑 npx）。
-fn enable_args(name: &str, source: &str, agent: SkillAgent, scope: &SkillScope) -> Vec<String> {
+/// 构造 enable（启用）命令 args：`add <path> -a <slug> [-g] -y`。
+/// 用 skill 本地 path 作 add package（list json `path`），对所有 skill 通用，不依赖锁文件 source。
+/// 单 skill 目录 add 无需 `-s <name>`。抽出便于单测断言（不真跑 npx）。
+fn enable_args(path: &str, agent: SkillAgent, scope: &SkillScope) -> Vec<String> {
     let mut args = vec![
         "add".to_string(),
-        source.to_string(),
-        "-s".to_string(),
-        name.to_string(),
+        path.to_string(),
         "-a".to_string(),
         agent.cli_slug().to_string(),
     ];
@@ -431,9 +386,9 @@ fn disable_args(name: &str, agent: SkillAgent, scope: &SkillScope) -> Vec<String
     args
 }
 
-/// 为某 agent 启用 skill：从锁文件取 source → `npx skills add <source> -s <name> -a <slug> [-g] -y`。
-/// source 缺失 → 明确错误。Project scope 在项目目录内执行（不带 `-g`）。
-pub fn enable(name: &str, agent: SkillAgent, scope: &SkillScope) -> SkillsOpResult {
+/// 为某 agent 启用 skill：用 skill 本地 path 作 add package → `npx skills add <path> -a <slug> [-g] -y`。
+/// path 为空 → 明确错误。Project scope 在项目目录内执行（不带 `-g`）。
+pub fn enable(name: &str, path: &str, agent: SkillAgent, scope: &SkillScope) -> SkillsOpResult {
     let name = name.trim();
     if name.is_empty() {
         return SkillsOpResult {
@@ -442,14 +397,15 @@ pub fn enable(name: &str, agent: SkillAgent, scope: &SkillScope) -> SkillsOpResu
             stderr: "skill name is empty".to_string(),
         };
     }
-    let Some(source) = read_skill_source(name, scope) else {
+    let path = path.trim();
+    if path.is_empty() {
         return SkillsOpResult {
             success: false,
             stdout: String::new(),
-            stderr: format!("cannot resolve source for skill '{name}' from .skill-lock.json"),
+            stderr: format!("skill '{name}' has no installed path; cannot enable"),
         };
-    };
-    let args = enable_args(name, &source, agent, scope);
+    }
+    let args = enable_args(path, agent, scope);
     run_npx_in_scope(&args, scope)
 }
 
@@ -516,22 +472,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn scope_base_dir_project_empty_is_none() {
-        let s = SkillScope::Project {
-            path: "   ".to_string(),
-        };
-        assert!(s.base_dir().is_none());
-    }
-
-    #[test]
-    fn scope_base_dir_project_path() {
-        let s = SkillScope::Project {
-            path: "/tmp/proj".to_string(),
-        };
-        assert_eq!(s.base_dir(), Some(PathBuf::from("/tmp/proj")));
-    }
-
-    #[test]
     fn agent_slug_and_display() {
         // 关键修正：claude slug 必须 "claude-code"（旧值 "claude" 是错的）。
         assert_eq!(SkillAgent::Claude.cli_slug(), "claude-code");
@@ -592,23 +532,25 @@ mod tests {
 
     #[test]
     fn enable_args_global_claude() {
-        let args = enable_args("foo", "owner/repo", SkillAgent::Claude, &SkillScope::Global);
+        // path 作 add package，无 -s；global 带 -g。
+        let args = enable_args("/p/foo", SkillAgent::Claude, &SkillScope::Global);
         assert_eq!(
             args,
-            vec!["add", "owner/repo", "-s", "foo", "-a", "claude-code", "-g", "-y"]
+            vec!["add", "/p/foo", "-a", "claude-code", "-g", "-y"]
         );
+        assert!(!args.contains(&"-s".to_string()));
     }
 
     #[test]
     fn enable_args_project_codex_no_g() {
         let args = enable_args(
-            "bar",
-            "a/b",
+            "/p/bar",
             SkillAgent::Codex,
             &SkillScope::Project { path: "/proj".to_string() },
         );
-        assert_eq!(args, vec!["add", "a/b", "-s", "bar", "-a", "codex", "-y"]);
+        assert_eq!(args, vec!["add", "/p/bar", "-a", "codex", "-y"]);
         assert!(!args.contains(&"-g".to_string()));
+        assert!(!args.contains(&"-s".to_string()));
     }
 
     #[test]
@@ -629,29 +571,23 @@ mod tests {
     }
 
     #[test]
-    fn enable_missing_source_fails() {
-        // 不存在的 scope 锁文件 → source 解析失败 → 明确错误，不真跑 npx。
-        let s = SkillScope::Project {
-            path: "/nonexistent/path/xyz123".to_string(),
-        };
-        let r = enable("whatever", SkillAgent::Claude, &s);
+    fn enable_empty_path_fails() {
+        // path 为空 → 明确错误，不真跑 npx。
+        let r = enable("whatever", "   ", SkillAgent::Claude, &SkillScope::Global);
         assert!(!r.success);
-        assert!(r.stderr.contains("cannot resolve source"));
+        assert!(r.stderr.contains("no installed path"));
+    }
+
+    #[test]
+    fn enable_empty_name_fails() {
+        let r = enable("  ", "/p/foo", SkillAgent::Claude, &SkillScope::Global);
+        assert!(!r.success);
     }
 
     #[test]
     fn disable_empty_name_fails() {
         let r = disable("  ", SkillAgent::Claude, &SkillScope::Global);
         assert!(!r.success);
-    }
-
-    #[test]
-    fn lock_file_path() {
-        let p = SkillScope::Project {
-            path: "/proj".to_string(),
-        }
-        .lock_file();
-        assert_eq!(p, Some(PathBuf::from("/proj/.agents/.skill-lock.json")));
     }
 
     #[test]

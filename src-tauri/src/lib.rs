@@ -1484,16 +1484,18 @@ async fn skills_list_installed(scope: SkillScope) -> Result<Vec<SkillInfo>, Stri
     Ok(gateway::skills::list_installed(&scope))
 }
 
-/// 为某 agent 启用 skill（shell out `npx skills add <source> -s -a -y`）。
+/// 为某 agent 启用 skill（shell out `npx skills add <path> -a <slug> [-g] -y`）。
+/// `path` = skill 本地安装路径（前端传 `SkillInfo.installed_path`），不依赖锁文件 source。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn skills_enable(
     name: String,
+    path: String,
     agent: SkillAgent,
     scope: SkillScope,
 ) -> Result<SkillsOpResult, String> {
     tracing::debug!(command = "skills_enable", name = %name, "command invoked");
-    Ok(gateway::skills::enable(&name, agent, &scope))
+    Ok(gateway::skills::enable(&name, &path, agent, &scope))
 }
 
 /// 为某 agent 关闭 skill（shell out `npx skills remove -s -a -y`）。
