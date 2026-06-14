@@ -180,7 +180,7 @@ export function CodexSettings() {
           <SectionIcon name="bolt" size={14} /> {t("settings.loadRecommended", "加载推荐配置")}
         </button>
 
-        {toast && <span style={{ fontSize: F.body, color: "#34c759" }}>{toast}</span>}
+        {toast && <span style={{ fontSize: F.body, color: "var(--color-success)" }}>{toast}</span>}
         {!toast && (
           <span
             style={{
@@ -188,7 +188,7 @@ export function CodexSettings() {
               alignItems: "center",
               gap: 6,
               fontSize: F.hint,
-              color: dirty ? "#ff9f0a" : "var(--text-tertiary)",
+              color: dirty ? "var(--color-warning)" : "var(--text-tertiary)",
             }}
           >
             <span
@@ -196,7 +196,7 @@ export function CodexSettings() {
                 width: 7,
                 height: 7,
                 borderRadius: "50%",
-                background: dirty ? "#ff9f0a" : "var(--text-tertiary)",
+                background: dirty ? "var(--color-warning)" : "var(--text-tertiary)",
                 opacity: dirty ? 1 : 0.5,
                 flexShrink: 0,
               }}
@@ -237,7 +237,7 @@ export function CodexSettings() {
             spellCheck={false}
           />
           {saveError && (
-            <div style={{ fontSize: F.body, color: "#ff453a", marginTop: 12, wordBreak: "break-all" }}>
+            <div style={{ fontSize: F.body, color: "var(--color-danger)", marginTop: 12, wordBreak: "break-all" }}>
               {saveError}
             </div>
           )}
@@ -261,7 +261,7 @@ export function CodexSettings() {
               </div>
             ))}
             {saveError && (
-              <div style={{ fontSize: F.body, color: "#ff453a", wordBreak: "break-all", padding: "0 4px" }}>
+              <div style={{ fontSize: F.body, color: "var(--color-danger)", wordBreak: "break-all", padding: "0 4px" }}>
                 {saveError}
               </div>
             )}

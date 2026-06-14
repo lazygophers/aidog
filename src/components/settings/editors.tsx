@@ -317,7 +317,7 @@ function JsonEditor({
         }}
       />
       {error && (
-        <span style={{ fontSize: F.small, color: "#ff453a" }}>{error}</span>
+        <span style={{ fontSize: F.small, color: "var(--color-danger)" }}>{error}</span>
       )}
     </div>
   );
@@ -775,9 +775,9 @@ function StringListEditor({
 type RuleMode = "allow" | "ask" | "deny";
 
 const MODE_COLORS: Record<RuleMode, string> = {
-  allow: "#34c759",
-  ask: "#ff9f0a",
-  deny: "#ff453a",
+  allow: "var(--color-success)",
+  ask: "var(--color-warning)",
+  deny: "var(--color-danger)",
 };
 
 const PERMISSION_MODES: { value: string; desc: string; hint: string }[] = [
@@ -1421,8 +1421,8 @@ function SandboxEditor({
         </div>
         {enabled && (
           <span style={{
-            fontSize: F.small, fontWeight: 600, color: "#34c759",
-            padding: "2px 8px", background: "rgba(52,199,89,0.12)", borderRadius: "var(--radius-sm)",
+            fontSize: F.small, fontWeight: 600, color: "var(--color-success)",
+            padding: "2px 8px", background: "color-mix(in srgb, var(--color-success) 12%, transparent)", borderRadius: "var(--radius-sm)",
           }}>● {t("settings.sandbox.enabled", "已启用")}</span>
         )}
       </div>
@@ -1639,23 +1639,23 @@ export function SandboxSectionInline({ sandboxValue, updateField }: {
 function autoColorPreviewHex(type: SegmentType): string {
   const m = PREVIEW_METRIC[type] ?? 0;
   if (type === "cost" || type === "cost-usd") {
-    if (m > 1000) return "#ff453a";
-    if (m > 100) return "#ff9f0a";
-    return "#34c759";
+    if (m > 1000) return "var(--color-danger)";
+    if (m > 100) return "var(--color-warning)";
+    return "var(--color-success)";
   }
   if (type === "context-remaining") {
-    if (m < 20) return "#ff453a";
-    if (m < 40) return "#ff9f0a";
-    return "#34c759";
+    if (m < 20) return "var(--color-danger)";
+    if (m < 40) return "var(--color-warning)";
+    return "var(--color-success)";
   }
   if (type === "session-duration" || type === "api-duration") {
-    if (m > 300) return "#ff453a";
-    if (m > 60) return "#ff9f0a";
-    return "#34c759";
+    if (m > 300) return "var(--color-danger)";
+    if (m > 60) return "var(--color-warning)";
+    return "var(--color-success)";
   }
-  if (m > 80) return "#ff453a";
-  if (m > 60) return "#ff9f0a";
-  return "#34c759";
+  if (m > 80) return "var(--color-danger)";
+  if (m > 60) return "var(--color-warning)";
+  return "var(--color-success)";
 }
 
 /** Resolve the preview color for a segment (fixed hex or autoColor), or null. */
@@ -2097,8 +2097,8 @@ function StatusLinePanel({
         </div>
         {enabled && (
           <span style={{
-            fontSize: F.small, fontWeight: 600, color: "#34c759",
-            padding: "2px 8px", background: "rgba(52,199,89,0.12)", borderRadius: "var(--radius-sm)",
+            fontSize: F.small, fontWeight: 600, color: "var(--color-success)",
+            padding: "2px 8px", background: "color-mix(in srgb, var(--color-success) 12%, transparent)", borderRadius: "var(--radius-sm)",
           }}>● {t("statusline.enabled", "已启用")}</span>
         )}
       </div>
@@ -2632,11 +2632,11 @@ export function ImportDiffModal({
   const renderLeaf = (d: DiffNode, nested: boolean) => {
     const changeType = getChangeType(d);
     const isSelected = selected.has(d.path);
-    const bgColor = changeType === "added" ? "rgba(52,199,89,0.06)"
-      : changeType === "removed" ? "rgba(255,69,58,0.06)"
+    const bgColor = changeType === "added" ? "color-mix(in srgb, var(--color-success) 6%, transparent)"
+      : changeType === "removed" ? "color-mix(in srgb, var(--color-danger) 6%, transparent)"
       : "var(--bg-glass)";
-    const labelColor = changeType === "added" ? "#34c759"
-      : changeType === "removed" ? "#ff453a"
+    const labelColor = changeType === "added" ? "var(--color-success)"
+      : changeType === "removed" ? "var(--color-danger)"
       : "var(--accent)";
     const label = changeType === "added" ? t("settings.editor.diffAdded", "新增") : changeType === "removed" ? t("settings.editor.diffRemoved", "删除") : t("settings.editor.diffChanged", "变更");
     return (
@@ -2756,9 +2756,9 @@ export function ImportDiffModal({
                   }}>{node.label}</span>
                   <span style={{
                     fontSize: F.hint, fontWeight: 600,
-                    color: state === "partial" ? "#ff9f0a" : "var(--accent)",
+                    color: state === "partial" ? "var(--color-warning)" : "var(--accent)",
                     padding: "1px 6px",
-                    background: state === "partial" ? "rgba(255,159,10,0.12)" : "rgba(0,122,255,0.12)",
+                    background: state === "partial" ? "color-mix(in srgb, var(--color-warning) 12%, transparent)" : "var(--accent-subtle)",
                     borderRadius: "var(--radius-sm)",
                   }}>{state === "partial" ? t("settings.editor.diffPartial", "部分") : t("settings.editor.diffObject", "对象")}</span>
                 </div>

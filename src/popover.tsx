@@ -54,7 +54,7 @@ function resolveColor(color: TrayColor): string {
   if (color.mode === "preset") {
     const map: Record<string, string> = {
       red: "var(--status-error, #ff3b30)",
-      green: "var(--status-success, #34c759)",
+      green: "var(--status-success, var(--color-success))",
       orange: "var(--status-warning, #ff9500)",
     };
     return map[color.value] || "var(--text-primary)";
@@ -73,7 +73,7 @@ function ProxyStatus({ data }: { data: PopoverData }) {
     <div className="popover-header">
       <span
         className="popover-status-dot"
-        style={{ background: data.proxy_running ? "var(--status-success, #34c759)" : "var(--text-tertiary)" }}
+        style={{ background: data.proxy_running ? "var(--status-success, var(--color-success))" : "var(--text-tertiary)" }}
       />
       <span className="popover-header-text">
         {data.proxy_running ? `Running :${data.proxy_port}` : "Stopped"}

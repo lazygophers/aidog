@@ -22,7 +22,7 @@ const INLINE_FLEX_STYLE: React.CSSProperties = { display: "inline-flex", alignIt
 const PLATFORM_NAME_STYLE: React.CSSProperties = { fontSize: F.small, color: "var(--text-secondary)" };
 const RETRY_BADGE_STYLE: React.CSSProperties = { fontSize: 10, padding: "1px 5px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" };
 const MODEL_NAME_STYLE: React.CSSProperties = { fontWeight: 500, fontSize: F.small };
-const SSE_BADGE_STYLE: React.CSSProperties = { fontSize: 10, padding: "1px 5px", background: "var(--accent-soft, rgba(0,122,255,0.12))", color: "var(--accent, #007aff)" };
+const SSE_BADGE_STYLE: React.CSSProperties = { fontSize: 10, padding: "1px 5px", background: "var(--accent-subtle)", color: "var(--accent, #007aff)" };
 const ACTION_BTN_STYLE: React.CSSProperties = { padding: 2 };
 const GROUP_BADGE_STYLE: React.CSSProperties = { fontSize: 11 };
 
@@ -273,7 +273,7 @@ export function Logs() {
           </button>
           <button className="btn btn-ghost btn-icon" onClick={() => copyDetail(detail)} title={t("logs.copyAll", "复制完整信息")}>
             {copied ? (
-              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="var(--color-success, #34c759)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="var(--color-success, var(--color-success))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
             ) : (
               <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
             )}
@@ -298,7 +298,7 @@ export function Logs() {
             title={t("logs.copyRequestId", "复制请求 ID")}
           >
             {copiedId ? (
-              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="var(--color-success, #34c759)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="var(--color-success, var(--color-success))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
             ) : (
               <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
             )}
@@ -588,7 +588,7 @@ const LogRow = memo(function LogRow({ log, platformName, onOpen, onCopy, t }: Lo
       </TdCell>
       <TdCell><span style={MODEL_NAME_STYLE}>{log.actual_model || "-"}</span></TdCell>
       <TdCell>
-        <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)" }}>
+        <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success, var(--color-success))" : "var(--color-danger, #ff3b30)" }}>
           {log.status_code}
         </span>
       </TdCell>
@@ -712,7 +712,7 @@ function MetaItem({ label, value, highlight }: { label: string; value: string; h
       <div style={{ fontSize: F.small, color: "var(--text-tertiary)", marginBottom: 2 }}>{label}</div>
       <div style={{
         fontSize: F.body, fontWeight: 600,
-        color: highlight === "ok" ? "var(--color-success, #34c759)" : highlight === "err" ? "var(--color-danger, #ff3b30)" : "var(--text-primary)",
+        color: highlight === "ok" ? "var(--color-success, var(--color-success))" : highlight === "err" ? "var(--color-danger, #ff3b30)" : "var(--text-primary)",
       }}>
         {value}
       </div>
@@ -758,7 +758,7 @@ function RequestTabs({
               {item.statusCode != null && item.statusCode > 0 && (
                 <span style={{
                   fontSize: F.small, fontWeight: 600,
-                  color: item.statusCode >= 200 && item.statusCode < 300 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)",
+                  color: item.statusCode >= 200 && item.statusCode < 300 ? "var(--color-success, var(--color-success))" : "var(--color-danger, #ff3b30)",
                 }}>
                   {item.statusCode}
                 </span>

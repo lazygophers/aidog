@@ -304,7 +304,7 @@ function RuleForm({ rule, fixedScope, fixedScopeRef, onSave, onCancel }: RuleFor
           </div>
         )}
         {configError && (
-          <div style={{ fontSize: 11, color: "#ff453a", wordBreak: "break-all" }}>
+          <div style={{ fontSize: 11, color: "var(--color-danger)", wordBreak: "break-all" }}>
             {configError}
           </div>
         )}

@@ -151,8 +151,8 @@ body {
 }
 
 .status-dot-active {
-  background: #34c759;
-  box-shadow: 0 0 8px rgba(52, 199, 89, 0.5);
+  background: var(--color-success);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--color-success) 50%, transparent);
   animation: statusPulse 2s ease-in-out infinite;
 }
 
@@ -210,13 +210,13 @@ body {
 }
 
 .btn-danger {
-  color: #ff453a;
-  border-color: rgba(255, 69, 58, 0.2);
+  color: var(--color-danger);
+  border-color: color-mix(in srgb, var(--color-danger) 25%, transparent);
 }
 
 .btn-danger:hover {
-  background: rgba(255, 69, 58, 0.1);
-  border-color: rgba(255, 69, 58, 0.3);
+  background: color-mix(in srgb, var(--color-danger) 12%, transparent);
+  border-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
 }
 
 .btn-ghost {
@@ -233,6 +233,12 @@ body {
   border-radius: var(--radius-sm);
   min-width: 32px;
   height: 32px;
+}
+
+/* ── Checkbox: accent-color 跟主题 accent ── */
+input[type="checkbox"] {
+  accent-color: var(--accent);
+  cursor: pointer;
 }
 
 /* ── Inputs ── */
