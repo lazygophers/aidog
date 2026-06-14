@@ -1914,6 +1914,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     onFaviconFailed: (id) => actionsRef.current.setFaviconFailed(prev => new Set(prev).add(id)),
   }), []);
 
+  // 列表头部「启用 / 总数」派生值：仅随 platforms 变化，避免每次轮询/拖拽重渲染时重扫全列表
+  const enabledCount = useMemo(() => platforms.filter(p => p.enabled).length, [platforms]);
+
   // ── Edit / Add form (full page, no list) ──
   if (showForm) {
     return (
@@ -2622,7 +2625,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
         <div>
           <div className="section-title">{t("page.platforms")}</div>
           <div className="section-desc">
-            {platforms.length > 0 ? `${platforms.filter(p => p.enabled).length} / ${platforms.length} active` : t("platform.empty")}
+            {platforms.length > 0 ? `${enabledCount} / ${platforms.length} active` : t("platform.empty")}
           </div>
         </div>
         <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
