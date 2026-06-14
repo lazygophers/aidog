@@ -14,7 +14,7 @@
   font-size: 15px;
   line-height: 1.5;
   color: var(--text-primary);
-  background: var(--bg-base);
+  background: var(--app-bg-overlay, none), var(--bg-base);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
@@ -41,7 +41,7 @@ body,
 }
 
 body {
-  background: var(--bg-base);
+  background: var(--app-bg-overlay, none), var(--bg-base);
   transition: background 400ms ease, color 400ms ease;
 }
 

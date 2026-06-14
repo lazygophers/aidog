@@ -20,6 +20,7 @@ export const liquidGlass: StyleDefinition = {
     "--shadow-md": "0 4px 12px rgba(var(--shadow-rgb), 0.06), 0 1px 4px rgba(var(--shadow-rgb), 0.04)",
     "--shadow-lg": "0 12px 40px rgba(var(--shadow-rgb), 0.08), 0 4px 12px rgba(var(--shadow-rgb), 0.04)",
     "--transition": "250ms cubic-bezier(0.4, 0, 0.2, 1)",
+    "--app-bg-overlay": "none",
   },
   dark: {
     "--radius-sm": "10px",
@@ -33,5 +34,6 @@ export const liquidGlass: StyleDefinition = {
     "--shadow-md": "0 4px 12px rgba(var(--shadow-rgb), 0.4), 0 1px 4px rgba(var(--shadow-rgb), 0.3)",
     "--shadow-lg": "0 12px 40px rgba(var(--shadow-rgb), 0.5), 0 4px 12px rgba(var(--shadow-rgb), 0.3)",
     "--transition": "250ms cubic-bezier(0.4, 0, 0.2, 1)",
+    "--app-bg-overlay": "none",
   },
 };

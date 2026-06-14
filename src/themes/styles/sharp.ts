@@ -19,6 +19,7 @@ export const sharp: StyleDefinition = {
     "--shadow-md": "3px 3px 0 rgba(var(--shadow-rgb), 0.85)",
     "--shadow-lg": "5px 5px 0 rgba(var(--shadow-rgb), 0.85)",
     "--transition": "100ms linear",
+    "--app-bg-overlay": "none",
   },
   dark: {
     "--radius-sm": "0px",
@@ -32,5 +33,6 @@ export const sharp: StyleDefinition = {
     "--shadow-md": "3px 3px 0 rgba(var(--shadow-rgb), 0.85)",
     "--shadow-lg": "5px 5px 0 rgba(var(--shadow-rgb), 0.85)",
     "--transition": "100ms linear",
+    "--app-bg-overlay": "none",
   },
 };
