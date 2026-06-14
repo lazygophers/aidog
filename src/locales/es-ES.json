@@ -1361,5 +1361,13 @@
   "skills.install.installFailed": "Error de instalación",
   "skills.install.noResults": "Sin resultados",
   "skills.install.emptyHint": "Escribe una palabra clave para buscar skills instalables",
-  "skills.install.loadFailed": "Error al cargar"
+  "skills.install.loadFailed": "Error al cargar",
+  "skills.detail.view": "Ver detalles",
+  "skills.detail.files": "Archivos",
+  "skills.detail.binary": "Archivo binario, sin vista previa",
+  "skills.detail.loadFailed": "Error al cargar",
+  "skills.detail.readFailed": "Error al leer",
+  "skills.detail.truncated": "Archivo demasiado grande, truncado",
+  "skills.detail.noSkillMd": "Sin SKILL.md",
+  "skills.detail.empty": "Vacío"
 }

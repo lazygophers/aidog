@@ -19,6 +19,7 @@ import {
   type SkillsOpResult,
 } from "../services/api";
 import { SkillInstallView } from "./SkillInstallView";
+import { SkillDetailView } from "./SkillDetailView";
 import claudeIcon from "../assets/platforms/claude_code.svg";
 import codexIcon from "../assets/platforms/openai.svg";
 
@@ -33,6 +34,7 @@ export function Skills() {
   const [projectPath, setProjectPath] = useState("");
   // 子视图：list = 已装列表（默认）；install = 搜索安装页（按钮切换 + 返回）。
   const [subView, setSubView] = useState<"list" | "install">("list");
+  const [detailTarget, setDetailTarget] = useState<SkillInfo | null>(null);
 
   const [installed, setInstalled] = useState<SkillInfo[]>([]);
   // 冷启动加载态（仅无缓存命中时显整页 loading）。
@@ -734,7 +736,15 @@ export function Skills() {
                           style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "center" }}
                         >
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: 600 }}>{skill.name}</div>
+                            <button
+                            type="button"
+                            className="btn btn-ghost"
+                            title={t("skills.detail.view", "查看详情")}
+                            style={{ fontSize: 13, fontWeight: 600, padding: 0, cursor: "pointer" }}
+                            onClick={() => setDetailTarget(skill)}
+                          >
+                            {skill.name}
+                          </button>
                             {skill.description?.trim() && (
                               <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>{skill.description}</div>
                             )}
@@ -1021,6 +1031,12 @@ export function Skills() {
             </div>
           </div>
         </div>,
+        document.body,
+      )}
+
+      {/* 已装 skill 详情 modal（只读） */}
+      {detailTarget && createPortal(
+        <SkillDetailView skill={detailTarget} onClose={() => setDetailTarget(null)} />,
         document.body,
       )}
     </div>

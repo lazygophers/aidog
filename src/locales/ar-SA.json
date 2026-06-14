@@ -1383,5 +1383,13 @@
   "skills.install.installFailed": "فشل التثبيت",
   "skills.install.noResults": "لا نتائج",
   "skills.install.emptyHint": "اكتب كلمة لبدء البحث عن المهارات القابلة للتثبيت",
-  "skills.install.loadFailed": "فشل التحميل"
+  "skills.install.loadFailed": "فشل التحميل",
+  "skills.detail.view": "عرض التفاصيل",
+  "skills.detail.files": "الملفات",
+  "skills.detail.binary": "ملف ثنائي، لا يمكن المعاينة",
+  "skills.detail.loadFailed": "فشل التحميل",
+  "skills.detail.readFailed": "فشل القراءة",
+  "skills.detail.truncated": "الملف كبير جدًا، تم الاقتطاع",
+  "skills.detail.noSkillMd": "لا يوجد SKILL.md",
+  "skills.detail.empty": "فارغ"
 }

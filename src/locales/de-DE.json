@@ -1383,5 +1383,13 @@
   "skills.install.installFailed": "Installation fehlgeschlagen",
   "skills.install.noResults": "Keine Ergebnisse",
   "skills.install.emptyHint": "Schlüsselwort eingeben, um installierbare Skills zu suchen",
-  "skills.install.loadFailed": "Laden fehlgeschlagen"
+  "skills.install.loadFailed": "Laden fehlgeschlagen",
+  "skills.detail.view": "Details anzeigen",
+  "skills.detail.files": "Dateien",
+  "skills.detail.binary": "Binärdatei, keine Vorschau",
+  "skills.detail.loadFailed": "Laden fehlgeschlagen",
+  "skills.detail.readFailed": "Lesen fehlgeschlagen",
+  "skills.detail.truncated": "Datei zu groß, abgeschnitten",
+  "skills.detail.noSkillMd": "Kein SKILL.md",
+  "skills.detail.empty": "Leer"
 }

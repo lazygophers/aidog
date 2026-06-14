@@ -1383,5 +1383,13 @@
   "skills.install.installFailed": "インストール失敗",
   "skills.install.noResults": "結果なし",
   "skills.install.emptyHint": "キーワードを入力してインストール可能な skills を検索",
-  "skills.install.loadFailed": "読み込み失敗"
+  "skills.install.loadFailed": "読み込み失敗",
+  "skills.detail.view": "詳細を表示",
+  "skills.detail.files": "ファイル",
+  "skills.detail.binary": "バイナリファイル、プレビュー不可",
+  "skills.detail.loadFailed": "読み込み失敗",
+  "skills.detail.readFailed": "読み取り失敗",
+  "skills.detail.truncated": "ファイルが大きすぎます、切り詰めました",
+  "skills.detail.noSkillMd": "SKILL.md なし",
+  "skills.detail.empty": "空"
 }
