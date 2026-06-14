@@ -937,6 +937,7 @@
   "skills.aligning": "Синхронизация…",
   "skills.updated": "Успешно обновлено",
   "skills.updating": "Обновление…",
+  "skills.refreshing": "Обновление…",
   "stats": {
     "inputTokens": "Входные токены",
     "outputTokens": "Выходные токены",

@@ -20,7 +20,9 @@
 
 use super::models::ProxyClientSettings;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::process::Command;
+use std::sync::{Mutex, OnceLock};
 
 /// 安装目标 scope。`Global` = 用户级全局；`Project` = 指定项目目录。
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -33,6 +35,14 @@ pub enum SkillScope {
 }
 
 impl SkillScope {
+    /// 缓存键：`Global` → `"global"`；`Project{path}` → `"project:<path>"`。
+    /// 不同项目 path 不串；trim 后比较（与命令 cwd 一致）。
+    fn cache_key(&self) -> String {
+        match self {
+            SkillScope::Global => "global".to_string(),
+            SkillScope::Project { path } => format!("project:{}", path.trim()),
+        }
+    }
 }
 
 /// 目标 agent。决定 `--agent` 参数与本地配置目录名。
@@ -115,8 +125,17 @@ pub struct SkillsOpResult {
     pub stderr: String,
 }
 
-/// 探测 npx / node 可用性。任一探测失败均不 panic，对应字段降级。
+/// 进程内 env 探测缓存：node/npx 可用性一会话不变，仅首次真探测。
+static ENV_CACHE: OnceLock<SkillsEnv> = OnceLock::new();
+
+/// 探测 npx / node 可用性（进程内缓存，仅首次 spawn 子进程）。
+/// 后续调用直接返回缓存值，开页 0 子进程。
 pub fn check_env() -> SkillsEnv {
+    ENV_CACHE.get_or_init(probe_env).clone()
+}
+
+/// 真探测 npx / node 可用性（spawn 子进程）。任一探测失败均不 panic，对应字段降级。
+fn probe_env() -> SkillsEnv {
     let node_version = Command::new("node")
         .arg("--version")
         .output()
@@ -138,11 +157,14 @@ pub fn check_env() -> SkillsEnv {
     }
 }
 
-/// 列指定 scope 下已装 skills（统一一条/skill，不分 agent）。
+/// 列指定 scope 下已装 skills（统一一条/skill，不分 agent）。**直跑 npx**（无缓存）。
 ///
 /// 走 `npx skills list --json [-g]`，解析 `[{name, path, scope, agents:[...]}]`。
 /// `agents[]` 含某 agent 显示名 = 该 agent 已启用 → 映射为 `enabled_agents`（仅 claude/codex）。
 /// Project scope 在项目目录内执行（不带 `-g`）。命令失败 / 解析失败 → 返回空 vec（不 panic）。
+///
+/// 注：SWR 链路用 [`list_cached`]（即时缓存）+ [`list_refresh`]（强制刷新）；
+/// 内部聚合算子（`align_agents` / `enable_all`）仍走本函数取实时态。
 pub fn list_installed(scope: &SkillScope, proxy_url: Option<&str>) -> Vec<SkillInfo> {
     let mut args = vec!["list".to_string(), "--json".to_string()];
     apply_scope(&mut args, scope);
@@ -151,6 +173,153 @@ pub fn list_installed(scope: &SkillScope, proxy_url: Option<&str>) -> Vec<SkillI
         return Vec::new();
     }
     parse_list_json(&res.stdout, scope)
+}
+
+// ─── SWR 缓存（list 提速）─────────────────────────────────────
+//
+// 双层：进程内 `SKILLS_CACHE`（首访从磁盘 lazy load）+ 磁盘 `~/.aidog/skills-cache.json`。
+// - `list_cached(scope)` → 立即返回缓存（命中即 0 子进程）；冷启动无缓存 → 空 + stale=true。
+// - `list_refresh(scope)` → 强制跑 npx、更新内存+磁盘、返回 fresh（stale=false）。
+// - 写操作后 `invalidate(scope)` 失效对应 scope（内存 + 磁盘），下次 refresh 重填。
+// 容错：磁盘损坏 / 缺失 → 当冷启动（空缓存）。原子写（temp + rename）防半文件。
+
+/// list 缓存返回：数据 + 是否为陈旧/冷启动（true = 调用方应触发 refresh）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedSkills {
+    /// 缓存的 skill 列表（冷启动为空）。
+    pub items: Vec<SkillInfo>,
+    /// true = 无缓存命中（冷启动），调用方应显加载态 + 强制 refresh。
+    pub stale: bool,
+}
+
+/// 单 scope 的磁盘缓存条目。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ScopeCacheEntry {
+    /// 写入时刻（毫秒 Unix 戳，仅诊断用，不做 TTL 过期）。
+    cached_at: i64,
+    items: Vec<SkillInfo>,
+}
+
+/// 磁盘缓存根结构（`~/.aidog/skills-cache.json`）。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct SkillsCacheFile {
+    /// per-scope（key = `SkillScope::cache_key`）。
+    #[serde(default)]
+    scopes: HashMap<String, ScopeCacheEntry>,
+}
+
+/// 进程内缓存（首访从磁盘 lazy load，之后内存为准 + 写时同步落盘）。
+static SKILLS_CACHE: OnceLock<Mutex<SkillsCacheFile>> = OnceLock::new();
+
+/// 磁盘缓存文件路径：`~/.aidog/skills-cache.json`。
+/// home 不可解析 → None（降级为纯内存缓存，不落盘）。
+fn cache_file_path() -> Option<std::path::PathBuf> {
+    let home = dirs::home_dir()?;
+    let dir = home.join(".aidog");
+    // best-effort 建目录；失败仍返回路径（写时再失败即降级）。
+    let _ = std::fs::create_dir_all(&dir);
+    Some(dir.join("skills-cache.json"))
+}
+
+/// 从磁盘读缓存文件。缺失 / 损坏 / 解析失败 → 默认空（当冷启动）。
+fn load_cache_from_disk() -> SkillsCacheFile {
+    let Some(p) = cache_file_path() else {
+        return SkillsCacheFile::default();
+    };
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return SkillsCacheFile::default();
+    };
+    serde_json::from_str(&text).unwrap_or_default()
+}
+
+/// 原子落盘：写临时文件 → rename 覆盖，防并发/中断产生半文件。
+/// 任一步失败仅记日志（缓存以内存为准，落盘是优化非必需）。
+fn persist_cache_to_disk(cache: &SkillsCacheFile) {
+    let Some(p) = cache_file_path() else {
+        return;
+    };
+    let Ok(json) = serde_json::to_string(cache) else {
+        return;
+    };
+    // 同目录临时文件（确保 rename 在同一文件系统，原子生效）。
+    let tmp = p.with_extension("json.tmp");
+    if std::fs::write(&tmp, json.as_bytes()).is_err() {
+        return;
+    }
+    if let Err(e) = std::fs::rename(&tmp, &p) {
+        tracing::warn!(error = %e, "skills cache atomic write failed");
+        let _ = std::fs::remove_file(&tmp);
+    }
+}
+
+/// 取进程内缓存（首访从磁盘 load）。
+fn cache_store() -> &'static Mutex<SkillsCacheFile> {
+    SKILLS_CACHE.get_or_init(|| Mutex::new(load_cache_from_disk()))
+}
+
+/// 立即返回缓存（内存→磁盘，命中即 0 子进程）；无缓存返回空 + stale=true。
+///
+/// SWR 的 "stale" 半：调用方应立即渲染 `items`，再后台 `list_refresh`。
+pub fn list_cached(scope: &SkillScope) -> CachedSkills {
+    let key = scope.cache_key();
+    let guard = match cache_store().lock() {
+        Ok(g) => g,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    match guard.scopes.get(&key) {
+        Some(entry) => CachedSkills {
+            items: entry.items.clone(),
+            stale: false,
+        },
+        None => CachedSkills {
+            items: Vec::new(),
+            stale: true,
+        },
+    }
+}
+
+/// 强制跑 npx 取最新，更新内存+磁盘缓存，返回 fresh（stale=false）。
+///
+/// SWR 的 "revalidate" 半。npx 失败 → 返回空 fresh（不污染已有缓存？这里仍写空覆盖，
+/// 与直跑 `list_installed` 失败语义一致：上游列表真为空 vs 命令失败不可区分，保持简单）。
+pub fn list_refresh(scope: &SkillScope, proxy_url: Option<&str>) -> CachedSkills {
+    let items = list_installed(scope, proxy_url);
+    write_cache(scope, items.clone());
+    CachedSkills { items, stale: false }
+}
+
+/// 写入某 scope 缓存（内存 + 落盘）。
+fn write_cache(scope: &SkillScope, items: Vec<SkillInfo>) {
+    let key = scope.cache_key();
+    let snapshot = {
+        let mut guard = match cache_store().lock() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        guard.scopes.insert(
+            key,
+            ScopeCacheEntry {
+                cached_at: chrono::Utc::now().timestamp_millis(),
+                items,
+            },
+        );
+        guard.clone()
+    };
+    persist_cache_to_disk(&snapshot);
+}
+
+/// 失效某 scope 缓存（内存 + 落盘）。写操作成功后调用，下次 refresh 重填。
+pub fn invalidate(scope: &SkillScope) {
+    let key = scope.cache_key();
+    let snapshot = {
+        let mut guard = match cache_store().lock() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        guard.scopes.remove(&key);
+        guard.clone()
+    };
+    persist_cache_to_disk(&snapshot);
 }
 
 /// 解析 `npx skills list --json` 输出为 `Vec<SkillInfo>`。
@@ -1071,6 +1240,56 @@ mod tests {
         assert_eq!(out[0].name, "Foo");
         assert_eq!(out[1].id, "bar/baz");
         assert_eq!(out[1].name, "Baz");
+    }
+
+    #[test]
+    fn cache_key_global_and_project_distinct() {
+        assert_eq!(SkillScope::Global.cache_key(), "global");
+        let p = SkillScope::Project { path: "/proj/a".to_string() };
+        assert_eq!(p.cache_key(), "project:/proj/a");
+        // 不同项目 path 不串。
+        let q = SkillScope::Project { path: "/proj/b".to_string() };
+        assert_ne!(p.cache_key(), q.cache_key());
+        // global ≠ 任意 project。
+        assert_ne!(SkillScope::Global.cache_key(), p.cache_key());
+    }
+
+    #[test]
+    fn cache_key_trims_project_path() {
+        let p = SkillScope::Project { path: "  /proj/a  ".to_string() };
+        assert_eq!(p.cache_key(), "project:/proj/a");
+    }
+
+    #[test]
+    fn cache_file_roundtrip_serde() {
+        // 缓存文件结构可序列化/反序列化往返。
+        let mut file = SkillsCacheFile::default();
+        file.scopes.insert(
+            "global".to_string(),
+            ScopeCacheEntry {
+                cached_at: 123,
+                items: vec![SkillInfo {
+                    name: "foo".to_string(),
+                    enabled_agents: vec![SkillAgent::Claude],
+                    scope: SkillScope::Global,
+                    installed_path: Some("/p/foo".to_string()),
+                    description: None,
+                }],
+            },
+        );
+        let json = serde_json::to_string(&file).unwrap();
+        let back: SkillsCacheFile = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.scopes.len(), 1);
+        let entry = back.scopes.get("global").unwrap();
+        assert_eq!(entry.cached_at, 123);
+        assert_eq!(entry.items[0].name, "foo");
+    }
+
+    #[test]
+    fn cache_file_corrupt_json_defaults_empty() {
+        // 损坏 JSON → 默认空（当冷启动），不 panic。
+        let back: SkillsCacheFile = serde_json::from_str("not json {{{").unwrap_or_default();
+        assert!(back.scopes.is_empty());
     }
 
     #[test]

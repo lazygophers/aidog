@@ -1307,6 +1307,16 @@ export interface SkillsOpResult {
   stderr: string;
 }
 
+/**
+ * SWR list 缓存返回（后端 `skills_list_installed` / `skills_list_refresh`）。
+ * - items：缓存/最新 skill 列表。
+ * - stale：true = 无缓存命中（冷启动），前端应显加载态并强制 refresh。
+ */
+export interface CachedSkills {
+  items: SkillInfo[];
+  stale: boolean;
+}
+
 export const skillsApi = {
   /** 探测 npx / node 环境。 */
   checkEnv: () => invoke<SkillsEnv>("skills_check_env"),
@@ -1315,9 +1325,15 @@ export const skillsApi = {
   /** 搜索 catalog。 */
   search: (keyword: string) =>
     invoke<CatalogEntry[]>("skills_search", { keyword }),
-  /** 列指定 scope 下已装 skills（统一一条/skill，走 npx list --json）。 */
+  /**
+   * 列指定 scope 下已装 skills —— **立即返回缓存**（命中即 0 子进程）。
+   * 冷启动返回 `{ items: [], stale: true }`，调用方据此显加载态 + 触发 refresh。
+   */
   listInstalled: (scope: SkillScope) =>
-    invoke<SkillInfo[]>("skills_list_installed", { scope }),
+    invoke<CachedSkills>("skills_list_installed", { scope }),
+  /** 强制跑 npx 刷新缓存并返回 fresh（SWR revalidate 半）。 */
+  listRefresh: (scope: SkillScope) =>
+    invoke<CachedSkills>("skills_list_refresh", { scope }),
   /** 为某 agent 启用 skill（npx add，用 skill 本地 path 作 add package）。 */
   enable: (name: string, path: string, agent: SkillAgent, scope: SkillScope) =>
     invoke<SkillsOpResult>("skills_enable", { name, path, agent, scope }),

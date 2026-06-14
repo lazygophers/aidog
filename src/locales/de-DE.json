@@ -937,6 +937,7 @@
   "skills.aligning": "Abgleich…",
   "skills.updated": "Erfolgreich aktualisiert",
   "skills.updating": "Aktualisiere…",
+  "skills.refreshing": "Aktualisiere…",
   "stats": {
     "inputTokens": "Eingabe-Tokens",
     "outputTokens": "Ausgabe-Tokens",

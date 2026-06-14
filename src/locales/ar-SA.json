@@ -937,6 +937,7 @@
   "skills.aligning": "جارٍ المحاذاة…",
   "skills.updated": "تم التحديث بنجاح",
   "skills.updating": "جارٍ التحديث…",
+  "skills.refreshing": "جارٍ التحديث…",
   "stats": {
     "inputTokens": "رموز الإدخال",
     "outputTokens": "رموز الإخراج",
