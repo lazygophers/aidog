@@ -1500,62 +1500,79 @@ async fn skills_check_env() -> Result<SkillsEnv, String> {
     Ok(gateway::skills::check_env())
 }
 
-/// 浏览 catalog（HTTP 抓 skills.sh，回退 npx find）。
+/// 读取上游代理设置并构造 npx/npm 用代理 URL（enabled → Some，否则 None）。
+/// 所有 skills npx / catalog 抓取命令复用此值注入代理，使 skill 下载/查询尊重上游代理。
+async fn skills_proxy_url(db: &State<'_, Db>) -> Option<String> {
+    let db_arc = Arc::new(db.inner().clone());
+    let settings = gateway::http_client::load_proxy_client_settings(&db_arc).await;
+    gateway::skills::proxy_env_url(&settings)
+}
+
+/// 浏览 catalog（HTTP 抓 skills.sh，回退 npx find）。尊重上游代理。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn skills_browse_catalog() -> Result<Vec<CatalogEntry>, String> {
+async fn skills_browse_catalog(db: State<'_, Db>) -> Result<Vec<CatalogEntry>, String> {
     tracing::debug!(command = "skills_browse_catalog", "command invoked");
-    Ok(gateway::skills::browse_catalog().await)
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::browse_catalog(proxy.as_deref()).await)
 }
 
-/// 搜索 catalog。
+/// 搜索 catalog。尊重上游代理。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn skills_search(keyword: String) -> Result<Vec<CatalogEntry>, String> {
+async fn skills_search(db: State<'_, Db>, keyword: String) -> Result<Vec<CatalogEntry>, String> {
     tracing::debug!(command = "skills_search", keyword = %keyword, "command invoked");
-    Ok(gateway::skills::search(&keyword).await)
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::search(&keyword, proxy.as_deref()).await)
 }
 
-/// 列指定 scope 下已装 skills（统一一条/skill，走 `npx skills list --json`）。
+/// 列指定 scope 下已装 skills（统一一条/skill，走 `npx skills list --json`）。尊重上游代理。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn skills_list_installed(scope: SkillScope) -> Result<Vec<SkillInfo>, String> {
+async fn skills_list_installed(db: State<'_, Db>, scope: SkillScope) -> Result<Vec<SkillInfo>, String> {
     tracing::debug!(command = "skills_list_installed", "command invoked");
-    Ok(gateway::skills::list_installed(&scope))
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::list_installed(&scope, proxy.as_deref()))
 }
 
 /// 为某 agent 启用 skill（shell out `npx skills add <path> -a <slug> [-g] -y`）。
 /// `path` = skill 本地安装路径（前端传 `SkillInfo.installed_path`），不依赖锁文件 source。
+/// 启用可能触发 skill 下载 → 尊重上游代理。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn skills_enable(
+    db: State<'_, Db>,
     name: String,
     path: String,
     agent: SkillAgent,
     scope: SkillScope,
 ) -> Result<SkillsOpResult, String> {
     tracing::debug!(command = "skills_enable", name = %name, "command invoked");
-    Ok(gateway::skills::enable(&name, &path, agent, &scope))
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::enable(&name, &path, agent, &scope, proxy.as_deref()))
 }
 
-/// 为某 agent 关闭 skill（shell out `npx skills remove -s -a -y`）。
+/// 为某 agent 关闭 skill（shell out `npx skills remove -s -a -y`）。尊重上游代理。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn skills_disable(
+    db: State<'_, Db>,
     name: String,
     agent: SkillAgent,
     scope: SkillScope,
 ) -> Result<SkillsOpResult, String> {
     tracing::debug!(command = "skills_disable", name = %name, "command invoked");
-    Ok(gateway::skills::disable(&name, agent, &scope))
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::disable(&name, agent, &scope, proxy.as_deref()))
 }
 
-/// 更新已装 skills（shell out `npx skills update`）。
+/// 更新已装 skills（shell out `npx skills update`）。尊重上游代理（拉取更新）。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn skills_update(scope: SkillScope) -> Result<SkillsOpResult, String> {
+async fn skills_update(db: State<'_, Db>, scope: SkillScope) -> Result<SkillsOpResult, String> {
     tracing::debug!(command = "skills_update", "command invoked");
-    Ok(gateway::skills::update(&scope))
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::update(&scope, proxy.as_deref()))
 }
 
 // ─── 导入导出子系统 ───────────────────────────────────────

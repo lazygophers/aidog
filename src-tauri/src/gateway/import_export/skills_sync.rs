@@ -38,7 +38,8 @@ pub struct AgentState {
 /// （绑定特定项目路径），留待后续按需扩展。
 pub fn export_skills() -> Vec<SkillExportEntry> {
     let scope = SkillScope::Global;
-    let installed = skills::list_installed(&scope);
+    // 导出仅列本机已装 skills（list 不联网），无需经上游代理 → None。
+    let installed = skills::list_installed(&scope, None);
     installed
         .into_iter()
         .filter_map(|info| {
