@@ -124,6 +124,8 @@ Use runtime hooks inside slot components — import from `@rspress/core/runtime`
 
 Copy a built-in component's source for full replacement. Only use when wrap/slots cannot achieve the customization.
 
+> 🔴 **CHECKPOINT — before ejecting**: ejection forks built-in source into the repo and must be re-reconciled on every Rspress upgrade. Confirm with the user that Levels 1–3 (CSS variables, BEM overrides, Layout slots/`components` slot) genuinely cannot meet the requirement before running `rspress eject`. State which lighter level was tried and why it fell short.
+
 ```bash
 rspress eject           # list available components
 rspress eject DocFooter # eject to theme/components/DocFooter/
@@ -227,10 +229,10 @@ Fine-grained: set `navbar: false`, `sidebar: false`, `outline: false`, `footer: 
 
 ## Common Pitfalls
 
-- **Circular import**: Using `@rspress/core/theme` instead of `@rspress/core/theme-original` in `theme/` files — causes infinite loop.
-- **Eject over-use**: Ejecting when a Layout slot or CSS variable would suffice — creates upgrade burden.
-- **Missing re-export**: Forgetting `export * from '@rspress/core/theme-original'` in `theme/index.tsx` — breaks all un-overridden components.
-- **v1 imports**: Using `rspress/theme` or `@rspress/theme-default` — these are v1 paths. v2 uses `@rspress/core/theme-original`.
+- **Circular import**: Using `@rspress/core/theme` instead of `@rspress/core/theme-original` in `theme/` files — causes infinite loop. → 修复: globally replace the import path with `@rspress/core/theme-original` in all `theme/` files (leave `docs/` MDX as `@rspress/core/theme`), then restart `rspress dev`.
+- **Eject over-use**: Ejecting when a Layout slot or CSS variable would suffice — creates upgrade burden. → 修复: delete the ejected component from `theme/components/` and its named re-export in `theme/index.tsx`, then re-solve via Level 1–3.
+- **Missing re-export**: Forgetting `export * from '@rspress/core/theme-original'` in `theme/index.tsx` — breaks all un-overridden components. → 修复: add `export * from '@rspress/core/theme-original';` as the base line, and keep any named overrides *after* it so they take precedence.
+- **v1 imports**: Using `rspress/theme` or `@rspress/theme-default` — these are v1 paths. → 修复: replace with `@rspress/core/theme-original` (theme files) / `@rspress/core/theme` (MDX); confirm the installed version is v2.
 
 ## Reference
 

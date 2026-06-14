@@ -66,6 +66,8 @@ Solidify insights into the system:
 - [ ] Create feature ticket for root fix
 - [ ] Update check guidelines if needed
 
+> **If no spec/guide file is a natural home for the insight → create a new guide rather than dropping it.** An insight with no obvious target file is still worth capturing; pick the closest layer and register the new file in its `index.md`.
+
 ---
 
 ## Output Format
@@ -122,9 +124,22 @@ Three levels of insight:
    - If it's a cross-layer issue → update `cross-layer-thinking-guide.md`
    - If it's a code reuse issue → update `code-reuse-thinking-guide.md`
    - If it's domain-specific → update `backend/*.md` or `frontend/*.md`
+   - **If the matching thinking-guide does not exist → create it** and register it in the parent `index.md` so future tasks can find it. Do not drop the insight just because no target file exists yet.
 
 2. **Sync templates** - After updating `.trellis/spec/`, sync to `src/templates/markdown/spec/`
+   - **If `src/templates/markdown/spec/` does not exist in this project → skip the sync and emit a one-line warning** (`spec template path absent, sync skipped`). The spec update under `.trellis/spec/` is still valid; the missing template path is not a failure.
+
+> 🔴 **CHECKPOINT — before you commit**
+> Confirm the spec/guide files actually changed on disk (`git diff --stat .trellis/spec/`). The commit's primary payload is the updated spec, not the analysis text. If the diff is empty, the analysis never landed — go back to step 1.
 
 3. **Commit the spec updates** - This is the primary output, not just the analysis text
 
 > **The analysis is worthless if it stays in chat. The value is in the updated specs.**
+
+---
+
+## Anti-Patterns
+
+- **Do NOT just list TODOs and stop.** A checklist of "files to update" is not the deliverable. Open each file and write the change.
+- **Do NOT leave the analysis in chat.** If the insight is not committed under `.trellis/spec/`, the next session will repeat the bug. Land it on disk.
+- **Do NOT skip the prevention mechanism.** A bug analysis without a concrete prevention step (doc / type / test / check) only documents the failure; it does not break the loop.

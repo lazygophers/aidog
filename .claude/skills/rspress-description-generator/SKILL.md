@@ -75,7 +75,20 @@ description: 'API reference for Rspress configuration: plugins, themes, and buil
 
 ## Step 4 — Batch processing
 
+> 🔴 **CHECKPOINT — before writing any files**: batch frontmatter edits touch many files at once and are easy to get wrong in bulk. First output a list of the files to be modified plus a preview of the generated `description` for each (a table is fine). Get the user's confirmation, then write to disk. Do not write before this confirmation.
+
 For sites with many files, use parallel agent calls to process independent files simultaneously. Group by directory (e.g., all files in `guide/`, then all in `api/`) to maintain focus and consistency within each section.
+
+When delegating a directory to a sub-agent, give it a self-contained prompt:
+
+```text
+目标: 为 <dir>/ 下所有缺 description 的 .md/.mdx 生成并插入 description frontmatter。
+已知: 描述语言须匹配文档内容; home 页用 hero.text/tagline; 50–160 字符; 不以 "This page"/"Learn about" 开头; 纯文本无 markdown。
+范围: 仅 <dir>/, 跳过 _meta.json/_nav.json/shared/ 与已有非空 description 的文件。
+输出: 待改文件清单 + 每个的 description 预览, 等确认再写盘。
+验收: 重新 glob 该目录无遗漏缺 description 的页面。
+失败处理: 文件无 frontmatter 则新建块; 含特殊 YAML 字符则双引号包裹。
+```
 
 After processing all files, do a quick scan to ensure no files were missed — re-glob and check for any remaining files without `description`.
 

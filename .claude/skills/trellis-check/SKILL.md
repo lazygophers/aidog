@@ -34,6 +34,10 @@ Read the specific guideline files referenced — the index is a pointer, not the
 
 Run the project's lint, type-check, and test commands. Fix any failures before proceeding.
 
+**If a check fails:**
+- **Test is flaky** (intermittent pass/fail) → rerun up to 3 times. If it still fails on the 3rd run, mark it as a real failure and STOP — do not assume flakiness past 3 retries.
+- **Linter reports a false positive** (e.g. clippy mis-flags) → you MUST add an inline suppression (`#[allow(...)]` / equivalent) WITH a comment stating the reason. Never silence a check globally or without justification.
+
 ## Step 4: Review Against Checklist
 
 ### Code Quality
@@ -87,6 +91,17 @@ Skip this step if your change is confined to a single layer.
 
 ---
 
+> 🔴 **CHECKPOINT (before Step 6):** If ANY check is still red (lint / type / test / cross-layer), you are FORBIDDEN from declaring the check passed. A red check is a blocking failure — fix it or escalate the blocker; never report "passed with known issues".
+
 ## Step 6: Report and Fix
 
 Report violations found and fix them directly. Re-run project checks after fixes.
+
+**If a fix re-breaks another check** (whack-a-mole): stop patching blindly. Re-read the relevant spec (Step 2) to find the root contract, then fix once at the source instead of chasing symptoms.
+
+### Do Not
+
+- ❌ Do not run `git commit --no-verify` or otherwise bypass pre-commit checks.
+- ❌ Do not comment out, `skip`, or delete a failing test to make the suite "green".
+- ❌ Do not use `as any` / `@ts-ignore` / unexplained `unwrap()` to dodge type or safety errors.
+- ❌ Do not declare the check passed while any check is red (see CHECKPOINT above).
