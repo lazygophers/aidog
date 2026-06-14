@@ -118,23 +118,30 @@ pub struct DispatchResult {
     pub inbox_id: Option<i64>,
 }
 
-/// 渲染 title/body：title 用类型默认名（前端可覆盖），body 用 template（空则用 content）。
-/// 返回 (title, body)。
+/// 渲染 title/body：
+/// - **title 字段语义 = 项目名**（取 `vars["project"]`，hook 脚本注入的 cwd basename）。
+///   无 project（vars 未带或值空）→ 空字符串，前端 fallback 到类型 i18n 标签。
+///   弹窗标题在 dispatch 内若 title 空则用 default_title 兜底。
+/// - body 优先 template（替换变量），template 空时用 content（也替换变量），
+///   都空 → default_title（substitute vars 后）作兜底。
 fn render(
     notif_type: NotifType,
     template: &str,
     content: Option<&str>,
     vars: &HashMap<String, String>,
 ) -> (String, String) {
-    let title = default_title(notif_type).to_string();
-    // body 优先 template（替换变量），template 空时用 content（也替换变量），都空 → title。
+    let title = vars
+        .get("project")
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_default();
     let raw_body = if !template.is_empty() {
         template
     } else {
         content.unwrap_or_default()
     };
     let body = if raw_body.is_empty() {
-        substitute_vars(&title, vars)
+        substitute_vars(default_title(notif_type), vars)
     } else {
         substitute_vars(raw_body, vars)
     };
@@ -198,10 +205,15 @@ pub async fn dispatch(
         }
     }
 
-    // 弹窗
+    // 弹窗：title 空（无 project 注入）时退化到类型默认名，避免空标题弹窗
     if do_popup {
         if let Some(app) = app {
-            show_popup(app, &title, &body);
+            let popup_title = if title.is_empty() {
+                default_title(notif_type)
+            } else {
+                title.as_str()
+            };
+            show_popup(app, popup_title, &body);
         }
     }
 
@@ -350,16 +362,48 @@ mod tests {
     #[test]
     fn render_template_priority() {
         let v = vars(&[("project", "aidog")]);
-        // template 优先
+        // template 优先；title 现取 vars["project"]
         let (title, body) = render(NotifType::TaskComplete, "{project} 完成", Some("ignored"), &v);
-        assert_eq!(title, "Task Complete");
+        assert_eq!(title, "aidog");
         assert_eq!(body, "aidog 完成");
         // template 空 → content
         let (_, body2) = render(NotifType::Error, "", Some("构建失败 {project}"), &v);
         assert_eq!(body2, "构建失败 aidog");
-        // 都空 → title
+        // 都空 → default_title 兜底 body
         let (_, body3) = render(NotifType::Custom, "", None, &v);
         assert_eq!(body3, "Notification");
+    }
+
+    #[test]
+    fn render_title_is_project_name() {
+        // 有 project：title = project（不是 default_title）
+        let v = vars(&[("project", "aidog")]);
+        let (title, _) = render(NotifType::Error, "", None, &v);
+        assert_eq!(title, "aidog");
+
+        // project 含周围空白 → trim
+        let v2 = vars(&[("project", "  myproj  ")]);
+        let (title2, _) = render(NotifType::Custom, "", None, &v2);
+        assert_eq!(title2, "myproj");
+    }
+
+    #[test]
+    fn render_title_empty_when_no_project() {
+        // vars 无 project → title 空字符串（前端 fallback typeLabel；弹窗 dispatch 内 fallback default_title）
+        let v = HashMap::new();
+        let (title, body) = render(NotifType::TaskComplete, "", None, &v);
+        assert_eq!(title, "");
+        assert_eq!(body, "Task Complete"); // body 兜底 default_title
+
+        // project 值为空字符串 → 视同无
+        let v2 = vars(&[("project", "")]);
+        let (title2, _) = render(NotifType::Error, "", None, &v2);
+        assert_eq!(title2, "");
+
+        // project 仅空白 → trim 后空 → 视同无
+        let v3 = vars(&[("project", "   ")]);
+        let (title3, _) = render(NotifType::Error, "", None, &v3);
+        assert_eq!(title3, "");
     }
 
     // ── 分发集成（无 app handle → 仅落库，验证按 form 选通道）──

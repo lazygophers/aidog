@@ -194,8 +194,8 @@ mod tests {
     #[test]
     fn coding_depleted_is_red() {
         // 配额耗尽（util≥100）→ Red，绕过 pace。weekly 剩 2d（elapsed≈0.71）按 pace 会判绿。
-        let cycle = 7 * 24 * 3600_000; // weekly ms
-        let remain = 2 * 24 * 3600_000; // 剩 2d
+        let cycle = 7 * 24 * 3_600_000; // weekly ms
+        let remain = 2 * 24 * 3_600_000; // 剩 2d
         assert_eq!(coding_tier_level(100.0, Some(remain), Some(cycle)), UsageLevel::Red);
         // 上溢（异常但不可用）也红
         assert_eq!(coding_tier_level(150.0, Some(remain), Some(cycle)), UsageLevel::Red);
