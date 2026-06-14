@@ -9,6 +9,7 @@ import { formatNumber, formatCost, formatPercent } from "../utils/formatters";
 import { ModelTestPanel } from "./ModelTestPanel";
 import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
 import { pinyinMatch } from "../utils/pinyin";
+import { SmartPasteModal, type SmartPasteApplyResult } from "../components/platforms/SmartPasteModal";
 
 /** 支持的协议选项（含 coding plan 变体） */
 type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[] };
@@ -1517,6 +1518,7 @@ export function Platforms() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Platform | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showPaste, setShowPaste] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -1586,6 +1588,31 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     }
     setProtocol(newProtocol);
     setCodingPlan(cp);
+  };
+
+  /** 智能识别弹窗确认后，将解析结果填入添加表单。 */
+  const applyPaste = (r: SmartPasteApplyResult) => {
+    // 匹配到内置平台 → 走协议切换（设置 name + 默认 endpoints + client_type）。
+    // 未匹配 → 不改平台选择（保持当前 protocol/endpoints），仅填 base_url/apiKey。
+    if (r.platform) {
+      handleProtocolChange(r.platform.value as Protocol);
+    }
+    if (r.baseUrl) {
+      const epProto: Protocol = r.baseUrlProtocol === "unknown" ? "openai" : r.baseUrlProtocol;
+      setEndpoints((prev) => {
+        const eps = [...prev];
+        let idx = eps.findIndex((e) => e.protocol === epProto);
+        if (idx < 0 && eps.length > 0) idx = 0; // 无同协议端点则覆盖首个
+        if (idx >= 0) {
+          eps[idx] = { ...eps[idx], base_url: r.baseUrl };
+        } else {
+          eps.push({ protocol: epProto, base_url: r.baseUrl, client_type: defaultClientForProtocol(epProto) });
+        }
+        return eps;
+      });
+    }
+    if (r.apiKey) setApiKey(r.apiKey);
+    setShowPaste(false);
   };
 
   const load = async () => {
@@ -1935,6 +1962,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
+            {!editing && (
+              <button className="btn" onClick={() => setShowPaste(true)}>
+                {t("platform.paste.title", "智能识别")}
+              </button>
+            )}
             <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
             <button className="btn btn-primary" onClick={handleSave}
               disabled={!name || (isPassthrough ? endpoints.length === 0 : (!isMock && (endpoints.length === 0 || !apiKey)))}>
@@ -1942,6 +1974,14 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             </button>
           </div>
         </div>
+
+        {showPaste && (
+          <SmartPasteModal
+            presets={PROTOCOLS}
+            onApply={applyPaste}
+            onClose={() => setShowPaste(false)}
+          />
+        )}
 
         <div className="animate-fade-in" style={{
           display: "flex",
