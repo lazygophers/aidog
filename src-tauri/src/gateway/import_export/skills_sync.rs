@@ -42,7 +42,9 @@ pub fn export_skills() -> Vec<SkillExportEntry> {
     installed
         .into_iter()
         .filter_map(|info| {
-            let source = info.source?;
+            // fix-skills-enable 后 SkillInfo 无 source 字段，改用 installed_path
+            // 作 npx add package（本地路径；跨机迁移受限，仅同机备份/恢复保证可用）。
+            let source = info.installed_path?;
             if source.is_empty() {
                 return None;
             }
