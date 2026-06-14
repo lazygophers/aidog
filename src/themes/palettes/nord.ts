@@ -1,16 +1,15 @@
-import type { ThemeDefinition } from "./types";
+import type { PaletteDefinition } from "../types";
 
 /**
- * Nord 主题
- * 北极蓝调色板，冷色系低对比度，护眼舒适
+ * Nord 调色板
+ * 北极蓝调色板，冷色系低对比度。
  */
-export const nord: ThemeDefinition = {
-  name: "nord",
-  label: "theme.nord",
+export const nord: PaletteDefinition = {
+  id: "nord",
+  label: "theme.color.nord",
   light: {
     "--bg-base": "#eceff4",
     "--bg-elevated": "#e5e9f0",
-
     "--bg-floating": "#e5e9f0",
     "--bg-glass": "rgba(236, 239, 244, 0.85)",
     "--bg-glass-hover": "rgba(229, 233, 240, 0.95)",
@@ -25,22 +24,12 @@ export const nord: ThemeDefinition = {
     "--danger": "#bf616a",
     "--border": "rgba(76, 86, 106, 0.15)",
     "--border-focus": "rgba(94, 129, 172, 0.5)",
-    "--shadow-sm": "0 1px 2px rgba(46, 52, 64, 0.06)",
-    "--shadow-md": "0 4px 16px rgba(46, 52, 64, 0.08)",
-    "--shadow-lg": "0 8px 32px rgba(46, 52, 64, 0.1)",
-    "--glass-blur": "16px",
-    "--glass-saturate": "1.4",
-    "--glass-border": "1px solid rgba(76, 86, 106, 0.12)",
-    "--radius-sm": "6px",
-    "--radius-md": "10px",
-    "--radius-lg": "14px",
-    "--radius-xl": "20px",
-    "--transition": "180ms cubic-bezier(0.4, 0, 0.2, 1)",
+    "--shadow-rgb": "46, 52, 64",
+    "--glass-edge": "rgba(76, 86, 106, 0.12)",
   },
   dark: {
     "--bg-base": "#2e3440",
     "--bg-elevated": "#3b4252",
-
     "--bg-floating": "#3b4252",
     "--bg-glass": "rgba(59, 66, 82, 0.8)",
     "--bg-glass-hover": "rgba(67, 76, 94, 0.9)",
@@ -55,16 +44,7 @@ export const nord: ThemeDefinition = {
     "--danger": "#bf616a",
     "--border": "rgba(216, 222, 233, 0.08)",
     "--border-focus": "rgba(136, 192, 208, 0.4)",
-    "--shadow-sm": "0 1px 2px rgba(0, 0, 0, 0.2)",
-    "--shadow-md": "0 4px 16px rgba(0, 0, 0, 0.25)",
-    "--shadow-lg": "0 8px 32px rgba(0, 0, 0, 0.35)",
-    "--glass-blur": "16px",
-    "--glass-saturate": "1.3",
-    "--glass-border": "1px solid rgba(216, 222, 233, 0.06)",
-    "--radius-sm": "6px",
-    "--radius-md": "10px",
-    "--radius-lg": "14px",
-    "--radius-xl": "20px",
-    "--transition": "180ms cubic-bezier(0.4, 0, 0.2, 1)",
+    "--shadow-rgb": "0, 0, 0",
+    "--glass-edge": "rgba(216, 222, 233, 0.06)",
   },
 };
