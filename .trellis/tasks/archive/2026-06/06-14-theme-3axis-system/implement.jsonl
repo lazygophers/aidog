@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "改 themes/AppContext/Sidebar/popover + i18n —— 组件/状态/类型/i18n/无 any 强制规则"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "style/palette 统一模块模板，结构变量归 style 禁逐文件复制"}
