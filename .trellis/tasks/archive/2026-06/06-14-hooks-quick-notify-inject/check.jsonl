@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验前端：组件/状态/类型/i18n 全覆盖/无 any"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校验 Rust↔TS 契约对齐"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "校验复用 syncHooks、无重复逻辑"}
+{"file": ".trellis/spec/backend/index.md", "reason": "校验 command 注册 + clippy + 单测"}
