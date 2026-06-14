@@ -1361,5 +1361,13 @@
   "skills.install.installFailed": "Installation failed",
   "skills.install.noResults": "No results",
   "skills.install.emptyHint": "Type a keyword to search for installable skills",
-  "skills.install.loadFailed": "Failed to load"
+  "skills.install.loadFailed": "Failed to load",
+  "skills.detail.view": "View Details",
+  "skills.detail.files": "Files",
+  "skills.detail.binary": "Binary file, cannot preview",
+  "skills.detail.loadFailed": "Failed to load",
+  "skills.detail.readFailed": "Failed to read",
+  "skills.detail.truncated": "File too large, truncated",
+  "skills.detail.noSkillMd": "No SKILL.md",
+  "skills.detail.empty": "Empty"
 }

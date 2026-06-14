@@ -1613,6 +1613,25 @@ async fn skills_install(
     Ok(res)
 }
 
+/// 列已装 skill 目录文件树（详情视图浏览，只读）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skill_detail(installed_path: String) -> Result<gateway::skills::SkillDetail, String> {
+    tracing::debug!(command = "skill_detail", path = %installed_path, "command invoked");
+    gateway::skills::detail(&installed_path)
+}
+
+/// 读 skill 内单文件（只读浏览）。带路径遍历防护 + 二进制检测 + 大小上限。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skill_read_file(
+    installed_path: String,
+    rel: String,
+) -> Result<gateway::skills::SkillFileContent, String> {
+    tracing::debug!(command = "skill_read_file", path = %installed_path, rel = %rel, "command invoked");
+    gateway::skills::read_file(&installed_path, &rel)
+}
+
 /// 为某 agent 关闭 skill（shell out `npx skills remove -s -a -y`）。尊重上游代理。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
@@ -3545,6 +3564,8 @@ pub fn run() {
             skills_list_refresh,
             skills_enable,
             skills_install,
+            skill_detail,
+            skill_read_file,
             skills_disable,
             skills_update,
             skills_uninstall_all,

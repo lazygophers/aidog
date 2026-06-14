@@ -1330,6 +1330,26 @@ export interface SkillsOpResult {
   stderr: string;
 }
 
+/** skill 详情：文件列表（只读浏览）。 */
+export interface SkillFile {
+  rel_path: string;
+  size: number;
+  is_text: boolean;
+}
+
+export interface SkillDetail {
+  skill_name: string;
+  root: string;
+  files: SkillFile[];
+}
+
+/** 单文件读取结果（带路径遍历防护 + 二进制检测 + 大小上限）。 */
+export interface SkillFileContent {
+  content: string | null;
+  truncated: boolean;
+  size: number;
+}
+
 /**
  * SWR list 缓存返回（后端 `skills_list_installed` / `skills_list_refresh`）。
  * - items：缓存/最新 skill 列表。
@@ -1354,6 +1374,12 @@ export const skillsApi = {
    */
   install: (id: string, agents: SkillAgent[], scope: SkillScope) =>
     invoke<SkillsOpResult>("skills_install", { id, agents, scope }),
+  /** 列已装 skill 目录文件树（详情视图，只读）。 */
+  detail: (installedPath: string) =>
+    invoke<SkillDetail>("skill_detail", { installedPath }),
+  /** 读 skill 内单文件（只读，带路径遍历防护）。 */
+  readFile: (installedPath: string, rel: string) =>
+    invoke<SkillFileContent>("skill_read_file", { installedPath, rel }),
   /**
    * 列指定 scope 下已装 skills —— **立即返回缓存**（命中即 0 子进程）。
    * 冷启动返回 `{ items: [], stale: true }`，调用方据此显加载态 + 触发 refresh。

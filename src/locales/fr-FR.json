@@ -1383,5 +1383,13 @@
   "skills.install.installFailed": "Échec de l'installation",
   "skills.install.noResults": "Aucun résultat",
   "skills.install.emptyHint": "Saisissez un mot-clé pour rechercher des skills installables",
-  "skills.install.loadFailed": "Échec du chargement"
+  "skills.install.loadFailed": "Échec du chargement",
+  "skills.detail.view": "Voir les détails",
+  "skills.detail.files": "Fichiers",
+  "skills.detail.binary": "Fichier binaire, aperçu impossible",
+  "skills.detail.loadFailed": "Échec du chargement",
+  "skills.detail.readFailed": "Échec de la lecture",
+  "skills.detail.truncated": "Fichier trop volumineux, tronqué",
+  "skills.detail.noSkillMd": "Aucun SKILL.md",
+  "skills.detail.empty": "Vide"
 }

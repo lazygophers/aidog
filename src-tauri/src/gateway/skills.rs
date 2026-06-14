@@ -130,6 +130,43 @@ pub struct SkillsOpResult {
     pub stderr: String,
 }
 
+/// skill 详情视图：文件列表（只读浏览）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillFile {
+    /// 相对 skill 根的路径（`/` 分隔，跨平台统一）。
+    pub rel_path: String,
+    /// 字节数。
+    pub size: u64,
+    /// 启发式判定为文本文件（首块无 NUL）。
+    pub is_text: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillDetail {
+    /// skill 名（目录 basename）。
+    pub skill_name: String,
+    /// canonicalized skill 根绝对路径。
+    pub root: String,
+    /// 文件列表（SKILL.md 置首，其余按路径字母序）。
+    pub files: Vec<SkillFile>,
+}
+
+/// 单文件读取结果。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillFileContent {
+    /// 文本内容；二进制/读失败 → None。
+    pub content: Option<String>,
+    /// 超 MAX_READ_BYTES（512 KB）截断。
+    pub truncated: bool,
+    /// 原始字节数。
+    pub size: u64,
+}
+
+/// 单文件读取上限（512 KB）；超出截断。
+const MAX_READ_BYTES: usize = 512 * 1024;
+/// 二进制检测：读取前 N 字节判断是否含 NUL。
+const BINARY_SNIFF_BYTES: usize = 8192;
+
 /// 进程内 env 探测缓存：node/npx 可用性一会话不变，仅首次真探测。
 static ENV_CACHE: OnceLock<SkillsEnv> = OnceLock::new();
 
@@ -1110,6 +1147,151 @@ fn plan_align_action(from_on: bool, to_on: bool) -> AlignAction {
     }
 }
 
+/// 列 skill 目录文件树（递归，相对路径），供详情视图浏览。
+///
+/// 安全: `installed_path` canonicalize 后须存在且为目录。文件遍历仅限该目录子树。
+/// 跳过 `.git/` 目录（避免列版本控制元数据）；其他 dotfile（`.env.example`）保留。
+pub fn detail(installed_path: &str) -> Result<SkillDetail, String> {
+    let root = PathBuf::from(installed_path.trim());
+    let canon = root
+        .canonicalize()
+        .map_err(|e| format!("skill path not found: {e}"))?;
+    if !canon.is_dir() {
+        return Err(format!("skill path is not a directory: {}", canon.display()));
+    }
+    let skill_name = canon
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let mut files: Vec<SkillFile> = Vec::new();
+    collect_files(&canon, &canon, &mut files)?;
+
+    // SKILL.md 置首，其余按 rel_path 字母序。
+    files.sort_by(|a, b| {
+        let a_skill = a.rel_path == "SKILL.md";
+        let b_skill = b.rel_path == "SKILL.md";
+        b_skill
+            .cmp(&a_skill)
+            .then_with(|| a.rel_path.cmp(&b.rel_path))
+    });
+
+    Ok(SkillDetail {
+        skill_name,
+        root: canon.to_string_lossy().to_string(),
+        files,
+    })
+}
+
+/// 递归收集文件（相对 base 的路径）。跳过 `.git/` 子目录。
+fn collect_files(base: &PathBuf, dir: &PathBuf, out: &mut Vec<SkillFile>) -> Result<(), String> {
+    let entries = fs::read_dir(dir).map_err(|e| format!("read_dir failed: {e}"))?;
+    for ent in entries.flatten() {
+        let name = ent.file_name();
+        let name_str = name.to_string_lossy();
+        let path = ent.path();
+        if path.is_dir() {
+            // 跳过 .git 版本控制目录。
+            if name_str == ".git" {
+                continue;
+            }
+            collect_files(base, &path, out)?;
+        } else if path.is_file() {
+            let rel = path
+                .strip_prefix(base)
+                .map_err(|e| format!("strip_prefix failed: {e}"))?
+                .to_string_lossy()
+                .replace('\\', "/");
+            let meta = ent.metadata().map_err(|e| format!("metadata failed: {e}"))?;
+            let size = meta.len();
+            let is_text = sniff_text(&path).unwrap_or(false);
+            out.push(SkillFile {
+                rel_path: rel,
+                size,
+                is_text,
+            });
+        }
+    }
+    Ok(())
+}
+
+/// 启发式: 读首 BINARY_SNIFF_BYTES 字节，无 NUL → text。
+fn sniff_text(path: &PathBuf) -> Result<bool, String> {
+    let mut f = fs::File::open(path).map_err(|e| format!("open failed: {e}"))?;
+    use std::io::Read;
+    let mut buf = vec![0u8; BINARY_SNIFF_BYTES];
+    let n = f.read(&mut buf).map_err(|e| format!("read failed: {e}"))?;
+    Ok(!buf[..n].contains(&0u8))
+}
+
+/// 读 skill 内单文件（只读浏览）。
+///
+/// 安全（路径遍历防护，见 [[pathbuf-starts-with-traversal]]）:
+/// 1. `installed_path` canonicalize 得 skill 根
+/// 2. `rel` 标准化校验: 拒含 `..` 段 / 以 `/` 或 Windows 盘符开头
+/// 3. 拼接后 canonicalize，断言 `starts_with(skill_root)`
+/// 4. 必须是文件（非目录/符号链接逃逸）
+pub fn read_file(installed_path: &str, rel: &str) -> Result<SkillFileContent, String> {
+    let rel = rel.trim().replace('\\', "/");
+    if rel.is_empty() {
+        return Err("empty file path".to_string());
+    }
+    // 拒绝对路径与 `..` 遍历。
+    if rel.starts_with('/') || rel.len() >= 2 && rel.as_bytes()[1] == b':' {
+        return Err("absolute path not allowed".to_string());
+    }
+    for seg in rel.split('/') {
+        if seg == ".." {
+            return Err("path traversal not allowed".to_string());
+        }
+    }
+
+    let root = PathBuf::from(installed_path.trim())
+        .canonicalize()
+        .map_err(|e| format!("skill path not found: {e}"))?;
+    if !root.is_dir() {
+        return Err("skill path is not a directory".to_string());
+    }
+
+    let target = root.join(&rel);
+    let canon = target
+        .canonicalize()
+        .map_err(|e| format!("file not found: {e}"))?;
+    if !canon.starts_with(&root) {
+        return Err("path escapes skill directory".to_string());
+    }
+    if !canon.is_file() {
+        return Err("not a file".to_string());
+    }
+
+    let meta = fs::metadata(&canon).map_err(|e| format!("metadata failed: {e}"))?;
+    let size = meta.len();
+
+    // 二进制检测：非文本 → 不返回内容。
+    if !sniff_text(&canon).unwrap_or(false) {
+        return Ok(SkillFileContent {
+            content: None,
+            truncated: false,
+            size,
+        });
+    }
+
+    let bytes = fs::read(&canon).map_err(|e| format!("read failed: {e}"))?;
+    let (content, truncated) = if bytes.len() > MAX_READ_BYTES {
+        (
+            String::from_utf8_lossy(&bytes[..MAX_READ_BYTES]).to_string(),
+            true,
+        )
+    } else {
+        (String::from_utf8_lossy(&bytes).to_string(), false)
+    };
+    Ok(SkillFileContent {
+        content: Some(content),
+        truncated,
+        size,
+    })
+}
+
 /// 使 `to` 的启用配置与 `from` 完全一致（逐 skill 比对 → enable/disable 凑齐）。
 /// `from == to` → noop。逐 skill shell out `npx skills enable/disable`，N 小可接受。
 pub fn align_agents(
@@ -1546,6 +1728,41 @@ mod tests {
         assert_eq!(out.len(), 2);
         assert_eq!(out[1].id, "owner/repo@skill-b");
         assert!(out[1].repo_url.is_none());
+    }
+
+    #[test]
+    fn read_file_rejects_traversal() {
+        let tmp = std::env::temp_dir().join("aidog_skill_read_test");
+        let _ = std::fs::create_dir_all(&tmp);
+        let _ = std::fs::write(tmp.join("SKILL.md"), "# skill\n");
+        let path = tmp.to_string_lossy().to_string();
+        // `..` 段 → 拒。
+        assert!(read_file(&path, "../etc/passwd").is_err());
+        assert!(read_file(&path, "sub/../../etc/passwd").is_err());
+        // 绝对路径 → 拒。
+        assert!(read_file(&path, "/etc/passwd").is_err());
+        // 空 → 拒。
+        assert!(read_file(&path, "").is_err());
+        // 正常相对文件 → 成功。
+        let r = read_file(&path, "SKILL.md").unwrap();
+        assert_eq!(r.content.as_deref(), Some("# skill\n"));
+        assert!(!r.truncated);
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn detail_lists_files_skill_md_first() {
+        let tmp = std::env::temp_dir().join("aidog_skill_detail_test");
+        let _ = std::fs::remove_dir_all(&tmp);
+        let _ = std::fs::create_dir_all(tmp.join("references"));
+        std::fs::write(tmp.join("SKILL.md"), "# t\n").unwrap();
+        std::fs::write(tmp.join("README.md"), "readme").unwrap();
+        std::fs::write(tmp.join("references/x.md"), "x").unwrap();
+        let d = detail(&tmp.to_string_lossy()).unwrap();
+        assert_eq!(d.files[0].rel_path, "SKILL.md");
+        assert!(d.files.iter().any(|f| f.rel_path == "references/x.md"));
+        assert!(d.files.iter().any(|f| f.rel_path == "README.md"));
+        let _ = std::fs::remove_dir_all(&tmp);
     }
 
     #[test]

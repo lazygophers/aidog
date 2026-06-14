@@ -1383,5 +1383,13 @@
   "skills.install.installFailed": "Ошибка установки",
   "skills.install.noResults": "Нет результатов",
   "skills.install.emptyHint": "Введите ключевое слово для поиска skills",
-  "skills.install.loadFailed": "Ошибка загрузки"
+  "skills.install.loadFailed": "Ошибка загрузки",
+  "skills.detail.view": "Подробности",
+  "skills.detail.files": "Файлы",
+  "skills.detail.binary": "Бинарный файл, предпросмотр невозможен",
+  "skills.detail.loadFailed": "Ошибка загрузки",
+  "skills.detail.readFailed": "Ошибка чтения",
+  "skills.detail.truncated": "Файл слишком большой, обрезан",
+  "skills.detail.noSkillMd": "Нет SKILL.md",
+  "skills.detail.empty": "Пусто"
 }

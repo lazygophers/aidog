@@ -1361,5 +1361,13 @@
   "skills.install.installFailed": "安装失败",
   "skills.install.noResults": "无结果",
   "skills.install.emptyHint": "输入关键字开始搜索可安装的 skills",
-  "skills.install.loadFailed": "加载失败"
+  "skills.install.loadFailed": "加载失败",
+  "skills.detail.view": "查看详情",
+  "skills.detail.files": "文件",
+  "skills.detail.binary": "二进制文件，无法预览",
+  "skills.detail.loadFailed": "加载失败",
+  "skills.detail.readFailed": "读取失败",
+  "skills.detail.truncated": "文件过大，已截断",
+  "skills.detail.noSkillMd": "无 SKILL.md",
+  "skills.detail.empty": "空"
 }
