@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "改 themes/palettes/styles/globals.css/i18n — 组件/状态/类型/i18n/无 any"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "palette/style 统一模块模板，多 token 按家族规律加，禁无规律硬编码"}
