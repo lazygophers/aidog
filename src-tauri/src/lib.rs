@@ -1599,6 +1599,19 @@ async fn skills_align_agents(
     Ok(gateway::skills::align_agents(from, to, &scope, proxy.as_deref()))
 }
 
+/// 为某 agent 启用当前 scope 全部已装 skills（只增不减）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_enable_all(
+    db: State<'_, Db>,
+    agent: SkillAgent,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_enable_all", "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::enable_all(agent, &scope, proxy.as_deref()))
+}
+
 // ─── 导入导出子系统 ───────────────────────────────────────
 
 /// 导出：收集各 scope 数据 → 加密 → 写入用户选择路径。
@@ -3276,6 +3289,7 @@ pub fn run() {
             skills_update,
             skills_uninstall_all,
             skills_align_agents,
+            skills_enable_all,
             // 导入导出子系统
             export_to_file,
             import_read_file,
