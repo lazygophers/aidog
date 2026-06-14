@@ -1,0 +1,8 @@
+# Transient build artifacts + the bash-original extraction used only to
+# (re)generate the authentic golden once. Golden fixtures themselves ARE checked in.
+.tmp/
+.bash-orig.ts
+__pycache__/
+# Bootstrap-only: regenerates golden from the original bash generators; depends on
+# .bash-orig.ts (re-extract from git history per README if a golden refresh is needed).
+emit-bash.mjs

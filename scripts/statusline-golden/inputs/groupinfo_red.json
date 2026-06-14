@@ -1,0 +1,1 @@
+{"applicable": true, "balance": 0.5, "balance_level": "red", "spent": 99.99, "requests": 5, "success_rate": 40, "cache_rate": 0, "total_tokens": 500, "coding_plan": [{"name": "five_hour", "utilization": 98.0, "level": "red", "reset_at": 9999999999}, {"name": "weekly_limit", "utilization": 75.0, "level": "yellow", "reset_at": 9999999999}]}

@@ -990,7 +990,12 @@ export const settingsApi = {
 // ─── StatusLine Script Generation ──────────────────────────
 
 export const statuslineApi = {
-  /** Generate statusline script in ~/.aidog/scripts/ and return absolute path */
+  /**
+   * Generate the statusline Python script in ~/.aidog/scripts/ and return the
+   * **command string** to invoke it (`uv run --script <path>` or `python3 <path>`,
+   * per the resolved ScriptInvoker). Write this verbatim into the native
+   * `statusLine.command` / `subagentStatusLine.command` field.
+   */
   generate: (scriptType: string, content: string) =>
     invoke<string>("generate_statusline_script", { scriptType, content }),
 };

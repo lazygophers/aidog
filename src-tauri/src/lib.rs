@@ -1875,27 +1875,32 @@ async fn settings_list(scope: String, db: State<'_, Db>) -> Result<Vec<String>, 
 
 // ─── StatusLine Script Generation ──────────────────────────
 
-/// Generate statusline script file in ~/.aidog/scripts/ and return absolute path.
+/// Generate statusline script file in ~/.aidog/scripts/ and return the **command
+/// string** to invoke it (`uv run --script <path>` or `python3 <path>`).
 /// `script_type`: "statusline" | "subagent"
 ///
-/// statusline 脚本为纯 shell（jq/sed/printf/date 渲染 ANSI），无 Python 受益且需逐字节
-/// 保持输出契约，故保留 bash（`.sh` + bash shebang，command=裸路径）。脚本随通知 hook
-/// 一起迁移到 ~/.aidog/scripts/，旧版 ~/.aidog/*.sh 一并清理。
+/// statusline 脚本现为 Python（PEP723，stdlib only；`content` 由前端 statusline-gen
+/// 拼成，内嵌渲染引擎，输出与旧 bash 逐字节一致——见 scripts/statusline-golden 回归）。
+/// 写 `aidog-statusline.py` / `aidog-subagent-statusline.py`，复用 ScriptInvoker
+/// 决定 command 串（与通知 hook 同机制）。迁移清理旧版 `.sh`（scripts/ 下 + ~/.aidog/ 根）。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-fn generate_statusline_script(
+async fn generate_statusline_script(
     script_type: String,
     content: String,
+    db: State<'_, Db>,
 ) -> Result<String, String> {
     tracing::debug!(command = "generate_statusline_script", script_type = %script_type, "command invoked");
     let scripts_dir = aidog_scripts_dir()?;
-    let filename = if script_type == "subagent" {
-        "aidog-subagent-statusline.sh"
+    let (filename, legacy_sh) = if script_type == "subagent" {
+        ("aidog-subagent-statusline.py", "aidog-subagent-statusline.sh")
     } else {
-        "aidog-statusline.sh"
+        ("aidog-statusline.py", "aidog-statusline.sh")
     };
-    // 迁移清理：删除 ~/.aidog/ 根下旧版同名脚本。
+    // 迁移清理：删除旧版 bash 脚本（~/.aidog/ 根 + scripts/ 下）。
     cleanup_legacy_root_script(filename);
+    cleanup_legacy_root_script(legacy_sh);
+    cleanup_legacy_scripts_dir_file(&scripts_dir, legacy_sh);
     let path = scripts_dir.join(filename);
     std::fs::write(&path, &content).map_err(|e| { tracing::error!(command = "generate_statusline_script", error = %e, "write script failed"); format!("write script: {e}") })?;
     #[cfg(unix)]
@@ -1905,7 +1910,8 @@ fn generate_statusline_script(
         perms.set_mode(0o755);
         std::fs::set_permissions(&path, perms).map_err(|e| { tracing::error!(command = "generate_statusline_script", error = %e, "chmod script failed"); format!("chmod script: {e}") })?;
     }
-    Ok(path.to_string_lossy().to_string())
+    let invoker = resolve_script_invoker(&db).await;
+    Ok(invoker.command_for(&path.to_string_lossy()))
 }
 
 // ─── Notification Hook Integration (N2) ────────────────────
@@ -2134,6 +2140,17 @@ fn cleanup_legacy_root_script(filename: &str) {
             if let Err(e) = std::fs::remove_file(&legacy) {
                 tracing::warn!(file = %filename, error = %e, "cleanup legacy ~/.aidog script failed");
             }
+        }
+    }
+}
+
+/// 删除 ~/.aidog/scripts/ 下遗留的旧脚本文件（statusline 由 .sh 迁 .py，清理同目录旧 .sh）。
+/// best-effort：删除失败仅记录，不阻断。
+fn cleanup_legacy_scripts_dir_file(scripts_dir: &std::path::Path, filename: &str) {
+    let legacy = scripts_dir.join(filename);
+    if legacy.exists() {
+        if let Err(e) = std::fs::remove_file(&legacy) {
+            tracing::warn!(file = %filename, error = %e, "cleanup legacy scripts/ .sh failed");
         }
     }
 }
