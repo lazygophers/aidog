@@ -4,7 +4,7 @@
 // 写操作 shell out npx skills（install/remove/update）。
 //
 // scope 默认 Global（用户级全局 -g），可选 Project（选某项目目录）。
-// agent 默认 Claude，可切 Codex/Cursor。
+// agent 默认 Claude，可切 Codex（SVG 图标行切换，激活/未激活态可视区分）。
 // npx/node 缺失 → 顶部提示条引导装 node，不阻塞整页。
 
 import { useState, useEffect, useCallback } from "react";
@@ -19,8 +19,11 @@ import {
   type CatalogEntry,
   type SkillsOpResult,
 } from "../services/api";
+import claudeIcon from "../assets/platforms/claude_code.svg";
+import codexIcon from "../assets/platforms/openai.svg";
 
-const AGENTS: SkillAgent[] = ["claude", "codex", "cursor"];
+const AGENTS: SkillAgent[] = ["claude", "codex"];
+const AGENT_ICONS: Record<SkillAgent, string> = { claude: claudeIcon, codex: codexIcon };
 
 export function Skills() {
   const { t } = useTranslation();
@@ -232,19 +235,42 @@ export function Skills() {
             </select>
           </label>
 
-          <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
             <span className="text-secondary">{t("skills.agent", "Agent")}</span>
-            <select
-              className="input"
-              style={{ width: "auto" }}
-              value={agent}
-              onChange={(e) => setAgent(e.target.value as SkillAgent)}
-            >
-              {AGENTS.map((a) => (
-                <option key={a} value={a}>{t(`skills.agent.${a}`, a)}</option>
-              ))}
-            </select>
-          </label>
+            <div style={{ display: "flex", gap: 8 }}>
+              {AGENTS.map((a) => {
+                const active = agent === a;
+                const label = t(`skills.agent.${a}`, a);
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    className="glass"
+                    title={label}
+                    aria-label={label}
+                    aria-pressed={active}
+                    onClick={() => setAgent(a)}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      width: 38,
+                      height: 38,
+                      padding: 0,
+                      cursor: "pointer",
+                      borderRadius: 10,
+                      border: active ? "1.5px solid var(--accent)" : "1px solid transparent",
+                      background: active ? "var(--accent-soft, rgba(255,255,255,0.08))" : "transparent",
+                      opacity: active ? 1 : 0.45,
+                      transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
+                    }}
+                  >
+                    <img src={AGENT_ICONS[a]} alt={label} style={{ width: 22, height: 22 }} />
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
 
         {scopeKind === "project" && (

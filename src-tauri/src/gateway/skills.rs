@@ -49,7 +49,6 @@ impl SkillScope {
 pub enum SkillAgent {
     Claude,
     Codex,
-    Cursor,
 }
 
 impl SkillAgent {
@@ -58,7 +57,6 @@ impl SkillAgent {
         match self {
             SkillAgent::Claude => "claude",
             SkillAgent::Codex => "codex",
-            SkillAgent::Cursor => "cursor",
         }
     }
 
@@ -67,7 +65,6 @@ impl SkillAgent {
         match self {
             SkillAgent::Claude => ".claude",
             SkillAgent::Codex => ".codex",
-            SkillAgent::Cursor => ".cursor",
         }
     }
 }
@@ -521,7 +518,7 @@ mod tests {
         assert_eq!(SkillAgent::Claude.cli_name(), "claude");
         assert_eq!(SkillAgent::Claude.config_dir(), ".claude");
         assert_eq!(SkillAgent::Codex.config_dir(), ".codex");
-        assert_eq!(SkillAgent::Cursor.cli_name(), "cursor");
+        assert_eq!(SkillAgent::Codex.cli_name(), "codex");
     }
 
     #[test]
