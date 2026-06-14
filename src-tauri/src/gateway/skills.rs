@@ -101,6 +101,8 @@ pub struct SkillInfo {
     pub installed_path: Option<String>,
     /// 简介（list json 暂无，预留；读不到为 null）。
     pub description: Option<String>,
+    /// 来源 owner/repo（锁文件 `source` 字段）。第三方/手动 symlink skill（锁文件无条目）→ None。
+    pub source: Option<String>,
 }
 
 /// catalog 条目（可装 skill）。
@@ -174,7 +176,9 @@ pub fn list_installed(scope: &SkillScope, proxy_url: Option<&str>) -> Vec<SkillI
     if !res.success {
         return Vec::new();
     }
-    parse_list_json(&res.stdout, scope)
+    let mut items = parse_list_json(&res.stdout, scope);
+    enrich_with_sources(&mut items, scope);
+    items
 }
 
 // ─── SWR 缓存（list 提速）─────────────────────────────────────
@@ -370,6 +374,7 @@ fn parse_list_json(stdout: &str, scope: &SkillScope) -> Vec<SkillInfo> {
                 scope: scope.clone(),
                 installed_path,
                 description,
+                source: None,
             })
         })
         .collect();
@@ -407,6 +412,67 @@ fn read_skill_description(skill_path: &str) -> Option<String> {
     let p = std::path::Path::new(skill_path).join("SKILL.md");
     let content = std::fs::read_to_string(p).ok()?;
     parse_skill_description_from_frontmatter(&content)
+}
+
+/// 锁文件路径：global → `~/.agents/.skill-lock.json`；project → `<path>/.agents/.skill-lock.json`。
+/// home 不可解析（global）→ None。
+fn lock_file_path(scope: &SkillScope) -> Option<std::path::PathBuf> {
+    match scope {
+        SkillScope::Global => {
+            dirs::home_dir().map(|h| h.join(".agents").join(".skill-lock.json"))
+        }
+        SkillScope::Project { path } => Some(
+            std::path::Path::new(path)
+                .join(".agents")
+                .join(".skill-lock.json"),
+        ),
+    }
+}
+
+/// 读锁文件 `skills` map → `name → source`（owner/repo）。
+/// 文件缺失 / 损坏 / 无 skills 对象 → 空 map（等价所有 skill source=None，归「其他」组）。
+/// source 空 → 不入 map（同样归 None）。
+fn read_skill_sources(scope: &SkillScope) -> HashMap<String, String> {
+    let Some(p) = lock_file_path(scope) else {
+        return HashMap::new();
+    };
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return HashMap::new();
+    };
+    parse_skill_sources_json(&text)
+}
+
+/// 纯逻辑：解析锁文件文本 → `name → source` map（供单测，不耦合 fs）。
+/// 损坏 JSON / 无 skills 对象 / source 空 → 不入 map。
+fn parse_skill_sources_json(text: &str) -> HashMap<String, String> {
+    let Ok(raw) = serde_json::from_str::<serde_json::Value>(text) else {
+        return HashMap::new();
+    };
+    let Some(skills) = raw.get("skills").and_then(|v| v.as_object()) else {
+        return HashMap::new();
+    };
+    skills
+        .iter()
+        .filter_map(|(name, meta)| {
+            let src = meta.get("source").and_then(|v| v.as_str())?;
+            if src.trim().is_empty() {
+                return None;
+            }
+            Some((name.clone(), src.to_string()))
+        })
+        .collect()
+}
+
+/// 用锁文件 source map 填充已解析 items 的 `source` 字段（就地修改）。
+/// 命中 → Some(owner/repo)；未命中（第三方/手动 symlink）→ None。
+fn enrich_with_sources(items: &mut [SkillInfo], scope: &SkillScope) {
+    let sources = read_skill_sources(scope);
+    if sources.is_empty() {
+        return;
+    }
+    for s in items.iter_mut() {
+        s.source = sources.get(&s.name).cloned();
+    }
 }
 
 /// catalog 抓取地址（skills.sh 的 JSON 索引）。
@@ -649,6 +715,80 @@ pub fn disable(
     }
     let args = disable_args(name, agent, scope);
     run_npx_in_scope(&args, scope, proxy_url)
+}
+
+/// 组级 agent 批量：对某 source 组（`group_source=None` = 「其他」组，匹配 source=None 的 skill）
+/// 内所有 skill 统一启用/禁用某 agent。仅对需变更的 skill 跑 npx（已处目标态跳过）。
+/// 完成后 invalidate(scope)。返回汇总（stdout "ok/total"，stderr 聚合失败明细）。
+pub fn set_group_agent(
+    group_source: Option<&str>,
+    agent: SkillAgent,
+    should_enable: bool,
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
+    let items = list_installed(scope, proxy_url);
+    let targets: Vec<&SkillInfo> = items
+        .iter()
+        .filter(|s| match (group_source, &s.source) {
+            (Some(g), Some(src)) => src == g,
+            (None, None) => true,
+            _ => false,
+        })
+        .collect();
+    if targets.is_empty() {
+        return SkillsOpResult {
+            success: true,
+            stdout: "no skills in group".to_string(),
+            stderr: String::new(),
+        };
+    }
+    let mut ok: u32 = 0;
+    let mut skipped: u32 = 0;
+    let mut fail: u32 = 0;
+    let mut errs: Vec<String> = Vec::new();
+    for s in &targets {
+        let already = s.enabled_agents.contains(&agent);
+        let should_act = if should_enable { !already } else { already };
+        if !should_act {
+            skipped += 1;
+            continue;
+        }
+        let res = if should_enable {
+            enable(
+                &s.name,
+                s.installed_path.as_deref().unwrap_or(""),
+                agent,
+                scope,
+                proxy_url,
+            )
+        } else {
+            disable(&s.name, agent, scope, proxy_url)
+        };
+        if res.success {
+            ok += 1;
+        } else {
+            fail += 1;
+            let detail = if res.stderr.trim().is_empty() {
+                res.stdout.trim()
+            } else {
+                res.stderr.trim()
+            };
+            errs.push(format!("{}: {}", s.name, detail));
+        }
+    }
+    invalidate(scope);
+    SkillsOpResult {
+        success: fail == 0,
+        stdout: format!(
+            "{}/{} updated, {} skipped, {} failed",
+            ok,
+            targets.len(),
+            skipped,
+            fail
+        ),
+        stderr: errs.join("\n"),
+    }
 }
 
 /// 更新已装 skills：`npx skills update [-g] -y`。
@@ -1075,6 +1215,28 @@ mod tests {
     }
 
     #[test]
+    fn parse_skill_sources_json_handles_cases() {
+        // 正常：foo 有 source，bar 空 source 不入，baz 无 source 字段不入。
+        let m = parse_skill_sources_json(
+            r#"{"version":1,"skills":{"foo":{"source":"owner/repo","sourceType":"github"},"bar":{"source":"   "},"baz":{"sourceType":"github"}}}"#,
+        );
+        assert_eq!(m.len(), 1);
+        assert_eq!(m.get("foo").map(String::as_str), Some("owner/repo"));
+
+        // 损坏 JSON → 空。
+        assert!(parse_skill_sources_json("not json {{{").is_empty());
+        // 无 skills 对象 → 空。
+        assert!(parse_skill_sources_json(r#"{"version":1}"#).is_empty());
+        // 多条合法 source。
+        let m2 = parse_skill_sources_json(
+            r#"{"skills":{"a":{"source":"x/y"},"b":{"source":"p/q"}}}"#,
+        );
+        assert_eq!(m2.len(), 2);
+        assert_eq!(m2.get("a").map(String::as_str), Some("x/y"));
+        assert_eq!(m2.get("b").map(String::as_str), Some("p/q"));
+    }
+
+    #[test]
     fn parse_list_json_maps_enabled_agents() {
         let stdout = r#"[
             {"name":"alpha","path":"/p/alpha","scope":"global","agents":["Claude Code","Codex","Zed"]},
@@ -1394,6 +1556,7 @@ mod tests {
                     scope: SkillScope::Global,
                     installed_path: Some("/p/foo".to_string()),
                     description: None,
+                    source: None,
                 }],
             },
         );

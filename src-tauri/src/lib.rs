@@ -1581,6 +1581,34 @@ async fn skills_disable(
     Ok(res)
 }
 
+/// 组级 agent 批量：对某 source 组（group_source=None = 「其他」组）内所有 skill
+/// 统一启用/禁用某 agent。内部已 invalidate。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_set_group_agent(
+    db: State<'_, Db>,
+    group_source: Option<String>,
+    agent: SkillAgent,
+    enable: bool,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(
+        command = "skills_set_group_agent",
+        group_source = ?group_source,
+        agent = ?agent,
+        enable,
+        "command invoked"
+    );
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::set_group_agent(
+        group_source.as_deref(),
+        agent,
+        enable,
+        &scope,
+        proxy.as_deref(),
+    ))
+}
+
 /// 更新已装 skills（shell out `npx skills update`）。尊重上游代理（拉取更新）。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
@@ -3363,6 +3391,7 @@ pub fn run() {
             skills_uninstall,
             skills_align_agents,
             skills_enable_all,
+            skills_set_group_agent,
             // 导入导出子系统
             export_to_file,
             import_read_file,
