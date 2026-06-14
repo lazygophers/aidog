@@ -273,10 +273,14 @@ pub fn list_cached(scope: &SkillScope) -> CachedSkills {
         Err(poisoned) => poisoned.into_inner(),
     };
     match guard.scopes.get(&key) {
-        Some(entry) => CachedSkills {
-            items: entry.items.clone(),
-            stale: false,
-        },
+        Some(entry) => {
+            // 向后兼容：旧缓存 items 无 source 字段（source-grouping task 前写入）。
+            // 命中缓存后 enrich_with_sources 读锁文件补 source（0 npx，cheap）。
+            // 旧 None + 锁文件有 → 补；已有 source → 幂等重赋；第三方 symlink → 保持 None。
+            let mut items = entry.items.clone();
+            enrich_with_sources(&mut items, scope);
+            CachedSkills { items, stale: false }
+        }
         None => CachedSkills {
             items: Vec::new(),
             stale: true,
