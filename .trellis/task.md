@@ -18,3 +18,5 @@
 | dependabot-1-glib-eval | 评估 dependabot 安全警报 #1: glib GHSA-wrw7-89jp-8q8g (tauri 上游阻塞) | — | 已完成 | 收尾 | 100% | — |
 | skills-catalog-install | Skills 页新增「搜索安装」子视图: catalog 搜索 + 选 agent 安装 | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-15-skills-catalog-install |
 | notify-project-name | 通知中心展示项目名: cwd basename 作为 project 注入 inbox/popup | — | 已完成 | 收尾 | 100% | — |
+| skill-detail-view | 已装 skill 详情查看: SKILL.md 渲染 + 关联文件浏览 (只读) | — | 进行中 | exec | 10% | .trellis/worktrees/06-15-skill-detail-view |
+| notify-ux | 通知模块易用性增强: 每类型默认模板 + 一键注入 hook 到所有分组 | — | 已完成 | 收尾 | 100% | — |
