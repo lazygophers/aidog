@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/状态改动须遵约定"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "改前查已有实现"}
