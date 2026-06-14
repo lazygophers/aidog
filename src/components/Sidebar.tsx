@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useApp } from "../context/AppContext";
 import { ALL_LOCALES } from "../locales";
-import type { ThemeName } from "../themes";
+import type { ThemeStyle, ThemeColor } from "../themes";
 import { IconPalette, IconGlobe } from "./icons";
 
 // ── SVG Icons ──
@@ -193,11 +193,13 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
   const { t } = useTranslation();
   const {
     locale, setLocale,
-    themeName, setThemeName,
+    themeStyle, setThemeStyle,
+    themeColor, setThemeColor,
     themeMode, toggleMode,
-    availableThemes,
+    availableStyles, availableColors,
   } = useApp();
-  const [themeOpen, setThemeOpen] = useState(false);
+  const [styleOpen, setStyleOpen] = useState(false);
+  const [colorOpen, setColorOpen] = useState(false);
   const [langOpen, setLangOpen] = useState(false);
   // 折叠子菜单展开态：用户 toggle 覆盖；未覆盖时 active 所在组自动展开。
   const [expandedNav, setExpandedNav] = useState<Record<string, boolean>>({});
@@ -374,11 +376,11 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         paddingTop: 12,
         borderTop: "1px solid var(--border)",
       }}>
-        {/* Theme row: picker fills row, dark/light button inside */}
+        {/* Style row: structure picker fills row, dark/light toggle inline */}
         <div style={{ position: "relative", width: "100%" }}>
           <Dropdown
-            open={themeOpen}
-            onToggle={() => setThemeOpen((v) => !v)}
+            open={styleOpen}
+            onToggle={() => setStyleOpen((v) => !v)}
             trigger={
               <button className="btn btn-ghost" style={{
                 width: "100%",
@@ -387,7 +389,7 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                 padding: "7px 10px",
                 color: "var(--text-secondary)",
               }}>
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><IconPalette size={14} /> {t(`theme.${themeName}`)}</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><IconPalette size={14} /> {t(`theme.style.${themeStyle}`)}</span>
                 <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
                   {/* Dark/Light toggle inline */}
                   <span
@@ -402,20 +404,61 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
               </button>
             }
           >
-            {availableThemes.map((th) => (
+            {availableStyles.map((st) => (
               <DropdownItem
-                key={th.name}
-                active={th.name === themeName}
+                key={st.id}
+                active={st.id === themeStyle}
                 onClick={() => {
-                  setThemeName(th.name as ThemeName);
-                  setThemeOpen(false);
+                  setThemeStyle(st.id as ThemeStyle);
+                  setStyleOpen(false);
                 }}
               >
-                {t(th.label)}
+                {t(st.label)}
               </DropdownItem>
             ))}
           </Dropdown>
         </div>
+
+        {/* Color (palette) picker */}
+        <Dropdown
+          open={colorOpen}
+          onToggle={() => setColorOpen((v) => !v)}
+          trigger={
+            <button className="btn btn-ghost" style={{
+              width: "100%",
+              justifyContent: "space-between",
+              fontSize: 12,
+              padding: "7px 10px",
+              color: "var(--text-secondary)",
+            }}>
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                <span style={{
+                  width: 12,
+                  height: 12,
+                  borderRadius: "50%",
+                  background: "var(--accent)",
+                  flexShrink: 0,
+                  boxShadow: "0 0 0 1px var(--border)",
+                }} />
+                {t(`theme.color.${themeColor}`)}
+              </span>
+              <span style={{ opacity: 0.4 }}>{icons.chevron}</span>
+            </button>
+          }
+        >
+          {availableColors.map((c) => (
+            <DropdownItem
+              key={c.id}
+              active={c.id === themeColor}
+              onClick={() => {
+                setThemeColor(c.id as ThemeColor);
+                setColorOpen(false);
+              }}
+            >
+              {t(c.label)}
+            </DropdownItem>
+          ))}
+        </Dropdown>
 
         {/* Language Picker */}
         <Dropdown

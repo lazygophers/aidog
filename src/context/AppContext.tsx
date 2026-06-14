@@ -12,38 +12,85 @@ import type { Locale } from "../locales";
 import { isRTL, ensureLocaleLoaded } from "../locales";
 import {
   type ThemeMode,
-  type ThemeName,
+  type ThemeStyle,
+  type ThemeColor,
   applyTheme,
-  getAvailableThemes,
+  getAvailableStyles,
+  getAvailableColors,
+  DEFAULT_STYLE,
+  DEFAULT_COLOR,
+  DEFAULT_MODE,
 } from "../themes";
 import { settingsApi } from "../services/api";
 
 interface Settings {
   locale: Locale;
-  themeName: ThemeName;
+  themeStyle: ThemeStyle;
+  themeColor: ThemeColor;
   themeMode: ThemeMode;
 }
 
 interface AppContextValue extends Settings {
   setLocale: (locale: Locale) => void;
-  setThemeName: (name: ThemeName) => void;
+  setThemeStyle: (style: ThemeStyle) => void;
+  setThemeColor: (color: ThemeColor) => void;
   setThemeMode: (mode: ThemeMode) => void;
   toggleMode: () => void;
-  availableThemes: ReturnType<typeof getAvailableThemes>;
+  availableStyles: ReturnType<typeof getAvailableStyles>;
+  availableColors: ReturnType<typeof getAvailableColors>;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
 
 const STORAGE_KEY = "aidog-settings";
 
+/** 旧 themeName → 新 {style,color} 迁移映射。 */
+const LEGACY_THEME_MAP: Record<string, { style: ThemeStyle; color: ThemeColor }> = {
+  liquidGlass: { style: "liquidGlass", color: "appleBlue" },
+  nord: { style: "flat", color: "nord" },
+  dracula: { style: "flat", color: "dracula" },
+  catppuccin: { style: "flat", color: "catppuccin" },
+  solarized: { style: "flat", color: "solarized" },
+};
+
+interface RawSettings {
+  locale?: Locale;
+  themeStyle?: ThemeStyle;
+  themeColor?: ThemeColor;
+  themeMode?: ThemeMode;
+  /** 旧字段，迁移用。 */
+  themeName?: string;
+}
+
+/**
+ * 读取并迁移设置。
+ * 优先用新字段；否则按旧 themeName 迁移；未知旧值回退默认，不白屏。
+ */
 function loadSettings(): Settings {
+  let raw: RawSettings = {};
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) return JSON.parse(raw) as Settings;
+    const s = localStorage.getItem(STORAGE_KEY);
+    if (s) raw = JSON.parse(s) as RawSettings;
   } catch {
     // ignore
   }
-  return { locale: "zh-CN", themeName: "liquidGlass", themeMode: "light" };
+
+  const locale: Locale = raw.locale ?? "zh-CN";
+  const themeMode: ThemeMode = raw.themeMode ?? DEFAULT_MODE;
+
+  // 已是新结构
+  if (raw.themeStyle && raw.themeColor) {
+    return { locale, themeStyle: raw.themeStyle, themeColor: raw.themeColor, themeMode };
+  }
+
+  // 旧结构迁移
+  const migrated = raw.themeName ? LEGACY_THEME_MAP[raw.themeName] : undefined;
+  return {
+    locale,
+    themeStyle: migrated?.style ?? DEFAULT_STYLE,
+    themeColor: migrated?.color ?? DEFAULT_COLOR,
+    themeMode,
+  };
 }
 
 function saveSettings(s: Settings) {
@@ -53,10 +100,17 @@ function saveSettings(s: Settings) {
 export function AppProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(loadSettings);
   const { i18n } = useTranslation();
-  const availableThemes = useMemo(() => getAvailableThemes(), []);
+  const availableStyles = useMemo(() => getAvailableStyles(), []);
+  const availableColors = useMemo(() => getAvailableColors(), []);
+
+  // 启动即把迁移后的新结构写回 localStorage（旧 themeName 用户升级一次性物化）
+  useEffect(() => {
+    saveSettings(settings);
+    // 仅启动跑一次
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 同步 i18n + RTL + 持久化 locale 到 DB（供后端 proxy 错误消息使用）
-  // 按需 locale 先 ensureLocaleLoaded 注入 bundle 再 changeLanguage，避免缺资源回退闪烁
   useEffect(() => {
     let cancelled = false;
     ensureLocaleLoaded(settings.locale).then(() => {
@@ -68,10 +122,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [settings.locale, i18n]);
 
-  // 同步主题
+  // 同步主题（3 轴）
   useEffect(() => {
-    applyTheme(settings.themeName, settings.themeMode);
-  }, [settings.themeName, settings.themeMode]);
+    applyTheme(settings.themeStyle, settings.themeColor, settings.themeMode);
+  }, [settings.themeStyle, settings.themeColor, settings.themeMode]);
 
   const update = useCallback(
     (patch: Partial<Settings>) => {
@@ -94,8 +148,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const setLocale = useCallback((locale: Locale) => update({ locale }), [update]);
-  const setThemeName = useCallback(
-    (themeName: ThemeName) => update({ themeName }),
+  const setThemeStyle = useCallback(
+    (themeStyle: ThemeStyle) => update({ themeStyle }),
+    [update],
+  );
+  const setThemeColor = useCallback(
+    (themeColor: ThemeColor) => update({ themeColor }),
     [update],
   );
   const setThemeMode = useCallback(
@@ -107,12 +165,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     () => ({
       ...settings,
       setLocale,
-      setThemeName,
+      setThemeStyle,
+      setThemeColor,
       setThemeMode,
       toggleMode,
-      availableThemes,
+      availableStyles,
+      availableColors,
     }),
-    [settings, setLocale, setThemeName, setThemeMode, toggleMode, availableThemes],
+    [settings, setLocale, setThemeStyle, setThemeColor, setThemeMode, toggleMode, availableStyles, availableColors],
   );
 
   return <AppContext.Provider value={value}>{children}</AppContext.Provider>;

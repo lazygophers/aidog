@@ -1,16 +1,15 @@
-import type { ThemeDefinition } from "./types";
+import type { PaletteDefinition } from "../types";
 
 /**
- * Solarized 主题
- * 经典科学配色，柔和暖黄基底，护眼首选
+ * Solarized 调色板
+ * 经典科学配色，柔和暖黄基底。
  */
-export const solarized: ThemeDefinition = {
-  name: "solarized",
-  label: "theme.solarized",
+export const solarized: PaletteDefinition = {
+  id: "solarized",
+  label: "theme.color.solarized",
   light: {
     "--bg-base": "#fdf6e3",
     "--bg-elevated": "#eee8d5",
-
     "--bg-floating": "#eee8d5",
     "--bg-glass": "rgba(253, 246, 227, 0.9)",
     "--bg-glass-hover": "rgba(238, 232, 213, 0.95)",
@@ -25,22 +24,12 @@ export const solarized: ThemeDefinition = {
     "--danger": "#dc322f",
     "--border": "rgba(7, 54, 66, 0.1)",
     "--border-focus": "rgba(38, 139, 210, 0.4)",
-    "--shadow-sm": "0 1px 2px rgba(7, 54, 66, 0.06)",
-    "--shadow-md": "0 4px 16px rgba(7, 54, 66, 0.08)",
-    "--shadow-lg": "0 8px 32px rgba(7, 54, 66, 0.1)",
-    "--glass-blur": "14px",
-    "--glass-saturate": "1.3",
-    "--glass-border": "1px solid rgba(7, 54, 66, 0.08)",
-    "--radius-sm": "4px",
-    "--radius-md": "8px",
-    "--radius-lg": "12px",
-    "--radius-xl": "16px",
-    "--transition": "200ms cubic-bezier(0.4, 0, 0.2, 1)",
+    "--shadow-rgb": "7, 54, 66",
+    "--glass-edge": "rgba(7, 54, 66, 0.08)",
   },
   dark: {
     "--bg-base": "#002b36",
     "--bg-elevated": "#073642",
-
     "--bg-floating": "#073642",
     "--bg-glass": "rgba(0, 43, 54, 0.88)",
     "--bg-glass-hover": "rgba(7, 54, 66, 0.94)",
@@ -55,16 +44,7 @@ export const solarized: ThemeDefinition = {
     "--danger": "#dc322f",
     "--border": "rgba(253, 246, 227, 0.06)",
     "--border-focus": "rgba(181, 137, 0, 0.4)",
-    "--shadow-sm": "0 1px 2px rgba(0, 0, 0, 0.3)",
-    "--shadow-md": "0 4px 16px rgba(0, 0, 0, 0.35)",
-    "--shadow-lg": "0 8px 32px rgba(0, 0, 0, 0.45)",
-    "--glass-blur": "14px",
-    "--glass-saturate": "1.2",
-    "--glass-border": "1px solid rgba(253, 246, 227, 0.05)",
-    "--radius-sm": "4px",
-    "--radius-md": "8px",
-    "--radius-lg": "12px",
-    "--radius-xl": "16px",
-    "--transition": "200ms cubic-bezier(0.4, 0, 0.2, 1)",
+    "--shadow-rgb": "0, 0, 0",
+    "--glass-edge": "rgba(253, 246, 227, 0.05)",
   },
 };

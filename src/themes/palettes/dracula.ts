@@ -1,16 +1,15 @@
-import type { ThemeDefinition } from "./types";
+import type { PaletteDefinition } from "../types";
 
 /**
- * Dracula 主题
- * 经典暗色系，高饱和度，赛博朋克感
+ * Dracula 调色板
+ * 经典暗色系，高饱和度。
  */
-export const dracula: ThemeDefinition = {
-  name: "dracula",
-  label: "theme.dracula",
+export const dracula: PaletteDefinition = {
+  id: "dracula",
+  label: "theme.color.dracula",
   light: {
     "--bg-base": "#f8f8f2",
     "--bg-elevated": "#eeeef0",
-
     "--bg-floating": "#eeeef0",
     "--bg-glass": "rgba(248, 248, 242, 0.88)",
     "--bg-glass-hover": "rgba(238, 238, 240, 0.95)",
@@ -25,22 +24,12 @@ export const dracula: ThemeDefinition = {
     "--danger": "#ff5555",
     "--border": "rgba(40, 42, 54, 0.1)",
     "--border-focus": "rgba(189, 147, 249, 0.5)",
-    "--shadow-sm": "0 1px 2px rgba(40, 42, 54, 0.06)",
-    "--shadow-md": "0 4px 16px rgba(40, 42, 54, 0.08)",
-    "--shadow-lg": "0 8px 32px rgba(40, 42, 54, 0.1)",
-    "--glass-blur": "14px",
-    "--glass-saturate": "1.5",
-    "--glass-border": "1px solid rgba(40, 42, 54, 0.08)",
-    "--radius-sm": "6px",
-    "--radius-md": "10px",
-    "--radius-lg": "14px",
-    "--radius-xl": "20px",
-    "--transition": "180ms cubic-bezier(0.4, 0, 0.2, 1)",
+    "--shadow-rgb": "40, 42, 54",
+    "--glass-edge": "rgba(40, 42, 54, 0.08)",
   },
   dark: {
     "--bg-base": "#282a36",
     "--bg-elevated": "#343746",
-
     "--bg-floating": "#343746",
     "--bg-glass": "rgba(40, 42, 54, 0.85)",
     "--bg-glass-hover": "rgba(52, 55, 70, 0.92)",
@@ -55,16 +44,7 @@ export const dracula: ThemeDefinition = {
     "--danger": "#ff5555",
     "--border": "rgba(248, 248, 242, 0.08)",
     "--border-focus": "rgba(255, 121, 198, 0.4)",
-    "--shadow-sm": "0 1px 2px rgba(0, 0, 0, 0.3)",
-    "--shadow-md": "0 4px 16px rgba(0, 0, 0, 0.35)",
-    "--shadow-lg": "0 8px 32px rgba(0, 0, 0, 0.45)",
-    "--glass-blur": "14px",
-    "--glass-saturate": "1.4",
-    "--glass-border": "1px solid rgba(248, 248, 242, 0.06)",
-    "--radius-sm": "6px",
-    "--radius-md": "10px",
-    "--radius-lg": "14px",
-    "--radius-xl": "20px",
-    "--transition": "180ms cubic-bezier(0.4, 0, 0.2, 1)",
+    "--shadow-rgb": "0, 0, 0",
+    "--glass-edge": "rgba(248, 248, 242, 0.06)",
   },
 };
