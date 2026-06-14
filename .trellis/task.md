@@ -40,3 +40,6 @@
 | settings-submenu-nav | 设置 tab 重构为侧栏子菜单 | — | 已完成 | 收尾 | 100% | — |
 | i18n-locale-unify | i18n 多端 locale 统一 + 缺失补全 | — | 已完成 | 收尾 | 100% | — |
 | i18n-frontend-hardcoded | 前端 tsx 硬编码中文 i18n 化 | — | 已完成 | 收尾 | 100% | — |
+| coding-tier-depleted-red | 修复 coding plan 配额耗尽(util≥100)配色应为红 | — | 已完成 | 收尾 | 100% | — |
+| skills-management | 基于 npx skills 的 skills 管理模块 | 顶层 Skills 页, 混合(读原生+写shell npx), 浏览/搜/装/列/卸/更新 | 进行中 | 执行 | 10% | .trellis/worktrees/06-14-skills-management |
+| i18n-coverage-hardening | i18n 全覆盖硬化: 修复 settings 等裸 key + 自动检查脚本 + spec 规则 | — | 规划中 | 规划 | 0% | — |
