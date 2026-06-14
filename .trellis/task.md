@@ -50,4 +50,10 @@
 | skills-unified-toggle | Skills 列表重构 (统一不分agent + per-item启用切换 + 总计样式) | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-skills-unified-toggle |
 | fix-skills-enable | 修复 skills enable 失败 (path 替代锁文件 source + 前端弹错) | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-fix-skills-enable |
 | import-export | 导入导出功能（加密单文件 + 自动化导入） | AES-256-GCM 容器 + 7 scope + 逐项冲突 + skills 自动安装 | 已完成 | 收尾 | 100% | — |
-| notif-hook-default-inject | Claude Code 默认设置补通知 hook 注入 + 快捷创建 | — | 规划中 | 规划 | 0% | — |
+| notif-hook-default-inject | Claude Code 默认设置补通知 hook 注入 + 快捷创建 | — | 进行中 | 检查 | 70% | .trellis/worktrees/06-14-notif-hook-default-inject |
+| menu-submenu-collapse | 修复侧栏子菜单展开后无法收起 | — | 已完成 | 收尾 | 100% | — |
+| hooks-event-collapse | 修复 Claude Code hooks 单个事件无法收起 | — | 已完成 | 收尾 | 100% | — |
+| fix-lint-skills-sync | 修复 make lint: skills_sync 引用过时 source 字段 | — | 已完成 | 收尾 | 100% | — |
+| scripts-py-uv | 生成脚本 sh→python+uv(PEP723) + 移到 ~/.aidog/scripts/ | 全部 .sh 转 py + uv run/python3 + ~/.aidog/scripts/ + uv 缺失 UI 询问; **串行待 notif-hook 合并** | 进行中 | 规划(待前置) | 0% | .trellis/worktrees/06-14-scripts-py-uv |
+| skills-toggle-ux | Skills 启用/关闭乐观更新 (去全列表刷新闪烁) | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-skills-toggle-ux |
+| show-version | 页面展示版本信息 | — | 进行中 | 规划 | 0% | — |
