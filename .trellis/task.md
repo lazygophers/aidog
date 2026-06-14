@@ -76,3 +76,5 @@
 | skills-uninstall-result-log | skills_uninstall 加 result debug log 定位 | — | 已完成 | 收尾 | 100% | — |
 | skills-load-swr-cache | skills 页加载提速 SWR 缓存 | — | 已完成 | 收尾 | 100% | — |
 | skills-uninstall-fs-fallback | uninstall fs 兜底删第三方 symlink skill | — | 已完成 | 收尾 | 100% | — |
+| skills-open-no-auto-refresh | skills 开页纯缓存不自动刷新 | — | 已完成 | 收尾 | 100% | — |
+| skills-source-grouping | skills 按 owner/repo 来源层级分组展示 | — | 已完成 | 收尾 | 100% | — |
