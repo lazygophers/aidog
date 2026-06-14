@@ -1672,13 +1672,14 @@ impl NotifType {
         }
     }
 
-    /// 内置默认模板（N2 一键注入时为 task_complete/waiting_input 物化，用户可改）。
-    /// 其他类型返回空字符串（无内置模板，body 退化为 content/title）。
+    /// 内置默认模板（每类型均有；render 在 setting.template 空且 vars 含项目名时兜底使用）。
+    /// 用户在设置页留空 template → 自动展示本默认。无项目名注入时 render 回退到 default_title。
     pub fn default_template(&self) -> &'static str {
         match self {
             NotifType::TaskComplete => "{project} 完成",
             NotifType::WaitingInput => "{project} 等待用户输入",
-            _ => "",
+            NotifType::Error => "{project} 出错",
+            NotifType::Custom => "{project} 通知",
         }
     }
 }

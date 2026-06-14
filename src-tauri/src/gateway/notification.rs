@@ -122,14 +122,19 @@ pub struct DispatchResult {
 /// - **title 字段语义 = 项目名**（取 `vars["project"]`，hook 脚本注入的 cwd basename）。
 ///   无 project（vars 未带或值空）→ 空字符串，前端 fallback 到类型 i18n 标签。
 ///   弹窗标题在 dispatch 内若 title 空则用 default_title 兜底。
-/// - body 优先 template（替换变量），template 空时用 content（也替换变量），
-///   都空 → default_title（substitute vars 后）作兜底。
+/// - body 兜底链：setting.template > content > default_template (vars 含 project 时) > default_title。
+///   含 project 时优先用 default_template（如「aidog 完成」）；无 project 时退化为类型默认名
+///   （如「Task Complete」），避免 `{project}` 字面残留。
 fn render(
     notif_type: NotifType,
     template: &str,
     content: Option<&str>,
     vars: &HashMap<String, String>,
 ) -> (String, String) {
+    let has_project = vars
+        .get("project")
+        .map(|s| !s.trim().is_empty())
+        .unwrap_or(false);
     let title = vars
         .get("project")
         .map(|s| s.trim().to_string())
@@ -141,7 +146,13 @@ fn render(
         content.unwrap_or_default()
     };
     let body = if raw_body.is_empty() {
-        substitute_vars(default_title(notif_type), vars)
+        let dt = notif_type.default_template();
+        let fallback = if !dt.is_empty() && has_project {
+            dt
+        } else {
+            default_title(notif_type)
+        };
+        substitute_vars(fallback, vars)
     } else {
         substitute_vars(raw_body, vars)
     };
@@ -369,9 +380,37 @@ mod tests {
         // template 空 → content
         let (_, body2) = render(NotifType::Error, "", Some("构建失败 {project}"), &v);
         assert_eq!(body2, "构建失败 aidog");
-        // 都空 → default_title 兜底 body
+        // 都空 + 有 project → default_template 兜底（custom = "{project} 通知"）
         let (_, body3) = render(NotifType::Custom, "", None, &v);
-        assert_eq!(body3, "Notification");
+        assert_eq!(body3, "aidog 通知");
+    }
+
+    #[test]
+    fn render_body_uses_default_template_when_project_present() {
+        let v = vars(&[("project", "aidog")]);
+        // 4 类型 default_template 兜底
+        let (_, b1) = render(NotifType::TaskComplete, "", None, &v);
+        assert_eq!(b1, "aidog 完成");
+        let (_, b2) = render(NotifType::WaitingInput, "", None, &v);
+        assert_eq!(b2, "aidog 等待用户输入");
+        let (_, b3) = render(NotifType::Error, "", None, &v);
+        assert_eq!(b3, "aidog 出错");
+        let (_, b4) = render(NotifType::Custom, "", None, &v);
+        assert_eq!(b4, "aidog 通知");
+    }
+
+    #[test]
+    fn render_body_falls_back_to_default_title_when_no_project() {
+        // 无 project → 退化 default_title（避免字面 `{project}`）
+        let v = HashMap::new();
+        assert_eq!(render(NotifType::TaskComplete, "", None, &v).1, "Task Complete");
+        assert_eq!(render(NotifType::WaitingInput, "", None, &v).1, "Waiting for Input");
+        assert_eq!(render(NotifType::Error, "", None, &v).1, "Error");
+        assert_eq!(render(NotifType::Custom, "", None, &v).1, "Notification");
+
+        // project 仅空白也按无 project 处理
+        let v_blank = vars(&[("project", "   ")]);
+        assert_eq!(render(NotifType::Error, "", None, &v_blank).1, "Error");
     }
 
     #[test]
