@@ -10,6 +10,8 @@ export const catppuccin: ThemeDefinition = {
   light: {
     "--bg-base": "#eff1f5",
     "--bg-elevated": "#e6e9ef",
+
+    "--bg-floating": "#e6e9ef",
     "--bg-glass": "rgba(239, 241, 245, 0.88)",
     "--bg-glass-hover": "rgba(230, 233, 239, 0.95)",
     "--bg-surface": "#ffffff",
@@ -38,6 +40,8 @@ export const catppuccin: ThemeDefinition = {
   dark: {
     "--bg-base": "#1e1e2e",
     "--bg-elevated": "#262637",
+
+    "--bg-floating": "#262637",
     "--bg-glass": "rgba(30, 30, 46, 0.85)",
     "--bg-glass-hover": "rgba(38, 38, 55, 0.92)",
     "--bg-surface": "#313244",

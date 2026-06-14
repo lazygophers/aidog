@@ -114,7 +114,7 @@ body {
 }
 
 .glass-elevated {
-  background: var(--bg-elevated);
+  background: var(--bg-floating);
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: var(--radius-xl);
   backdrop-filter: blur(calc(var(--glass-blur) + 10px))
@@ -361,7 +361,7 @@ select.input {
   border-radius: var(--radius-md);
   font-size: 13px;
   border: 1px solid var(--border);
-  background: var(--bg-elevated);
+  background: var(--bg-floating);
   backdrop-filter: blur(20px);
   box-shadow: var(--shadow-lg);
   animation: fadeIn 300ms ease both;

@@ -14,6 +14,8 @@ export const liquidGlass: ThemeDefinition = {
   light: {
     "--bg-base": "#f0f0f3",
     "--bg-elevated": "rgba(255, 255, 255, 0.82)",
+
+    "--bg-floating": "#ffffff",
     "--bg-glass": "rgba(255, 255, 255, 0.55)",
     "--bg-glass-hover": "rgba(255, 255, 255, 0.72)",
     "--bg-surface": "rgba(255, 255, 255, 0.88)",
@@ -42,6 +44,8 @@ export const liquidGlass: ThemeDefinition = {
   dark: {
     "--bg-base": "#0a0a0c",
     "--bg-elevated": "rgba(30, 30, 34, 0.8)",
+
+    "--bg-floating": "#1e1e22",
     "--bg-glass": "rgba(44, 44, 50, 0.4)",
     "--bg-glass-hover": "rgba(55, 55, 62, 0.55)",
     "--bg-surface": "rgba(28, 28, 32, 0.85)",

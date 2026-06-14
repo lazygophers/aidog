@@ -97,7 +97,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100,
       display: "flex", alignItems: "center", justifyContent: "center",
     }} onClick={onClose}>
-      <div className="glass-surface" style={{
+      <div className="glass-elevated" style={{
         width: 560, maxHeight: "80vh", overflow: "auto", padding: 24,
         borderRadius: 16, display: "flex", flexDirection: "column", gap: 16,
       }} onClick={e => e.stopPropagation()}>

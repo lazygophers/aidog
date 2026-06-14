@@ -887,7 +887,7 @@ const modalOverlay: React.CSSProperties = {
 };
 
 const modalBody: React.CSSProperties = {
-  background: "var(--bg-elevated)",
+  background: "var(--bg-floating)",
   border: "1px solid var(--border)",
   borderRadius: 12,
   padding: 20,
