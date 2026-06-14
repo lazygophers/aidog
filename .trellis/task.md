@@ -12,3 +12,4 @@
 | about-module | 关于模块: 展示完整版本信息 + GitHub 信息 | — | completed | finish | 100 | .trellis/worktrees/06-14-about-module |
 | docs-api-i18n | docs/api 多语言适配 | — | 规划中 | 规划 | 0% | — |
 | version-cicd-updater | .version 唯一版本源 + 发布 CICD + 自动更新对接 | — | completed | finish | 100 | .trellis/worktrees/06-14-version-cicd-updater |
+| license-agpl3 | 开源协议改为 AGPL-3.0 | — | completed | finish | 100 | .trellis/worktrees/06-14-license-agpl3 |
