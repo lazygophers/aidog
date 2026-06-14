@@ -11,7 +11,9 @@
     "tauri": "tauri",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:statusline-runtime": "node scripts/build-statusline-runtime.mjs --check",
-    "test:statusline-golden": "node scripts/statusline-golden/build.mjs check"
+    "test:statusline-golden": "node scripts/statusline-golden/build.mjs check",
+    "version:sync": "node scripts/sync-version.mjs",
+    "version:check": "node scripts/sync-version.mjs --check"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -22,6 +24,8 @@
     "@tauri-apps/plugin-fs": "^2.5.1",
     "@tauri-apps/plugin-notification": "^2.3.3",
     "@tauri-apps/plugin-opener": "^2",
+    "@tauri-apps/plugin-process": "^2",
+    "@tauri-apps/plugin-updater": "^2",
     "clsx": "^2.1.1",
     "i18next": "^26.3.1",
     "pinyin-pro": "^3.28.1",

@@ -45,3 +45,7 @@ doc_build/
 .cache
 .venv
 .worktrees/
+
+# Tauri updater signing private key (never commit)
+*.key
+.tauri-signing*

@@ -210,6 +210,33 @@ yarn tauri build
 
 **前置依赖** — Node.js ≥ 18、Yarn 4.x、Rust toolchain（rustup）、Tauri CLI、各平台系统依赖（见 [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)）。
 
+## 发布与版本管理
+
+**版本唯一可信源 = 根目录 `.version`**（单行 semver，如 `0.1.0`）。所有 manifest（`package.json` / `src-tauri/Cargo.toml` / `src-tauri/tauri.conf.json` / `docs/package.json`）由脚本从 `.version` 同步：
+
+```bash
+node scripts/sync-version.mjs          # 写入各 manifest（= yarn version:sync）
+node scripts/sync-version.mjs --check  # 校验一致性，CI 用（= yarn version:check）
+```
+
+**发版流程**：改 `.version` → `yarn version:sync` → 提交推送 master。`.version` 变更触发两条 CI：
+
+- `.github/workflows/release.yml` — macOS(arm64+x64) + Windows(x64) 多平台构建 + minisign 签名 + 发布 GitHub Release（tag `v<version>`）+ 生成 updater `latest.json`。
+- `.github/workflows/deploy-docs.yml` — 重新部署文档站点。
+
+**自动更新**：客户端「关于」页「检查更新」→ 命中 `releases/latest/download/latest.json` → 下载安装并重启。
+
+**首次配置（仓库维护者一次性）** — 生成 updater 签名密钥并配 GitHub Secrets：
+
+```bash
+yarn tauri signer generate -w ~/.tauri/aidog_updater.key
+# 公钥 → src-tauri/tauri.conf.json 的 plugins.updater.pubkey（已内置）
+# 私钥（~/.tauri/aidog_updater.key 内容）→ GitHub Secret: TAURI_SIGNING_PRIVATE_KEY
+# 密钥密码（如有）→ GitHub Secret: TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+```
+
+> ⚠️ 私钥**绝不入库**（`.gitignore` 已忽略 `*.key`）。pubkey 公开安全。
+
 ## 技术栈
 
 | 层 | 技术 |
