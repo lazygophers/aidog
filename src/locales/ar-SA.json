@@ -922,6 +922,10 @@
   "skills.toggling": "…",
   "skills.total": "إجمالي المثبت",
   "skills.updateAll": "تحديث الكل",
+  "skills.uninstallAll": "إلغاء تثبيت الكل",
+  "skills.uninstallAllConfirm": "سيؤدي هذا إلى حذف جميع المهارات الـ {{count}} عبر جميع المنصات في النطاق الحالي. لا يمكن التراجع. متابعة؟",
+  "skills.uninstallAllDone": "تم إلغاء تثبيت جميع المهارات",
+  "skills.uninstalling": "جارٍ إلغاء التثبيت…",
   "skills.updated": "تم التحديث بنجاح",
   "skills.updating": "جارٍ التحديث…",
   "stats": {

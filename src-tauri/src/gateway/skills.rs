@@ -488,6 +488,14 @@ pub fn update(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
     run_npx_in_scope(&args, scope, proxy_url)
 }
 
+/// 一键卸载当前 scope 下所有平台所有 skills：`npx skills remove --all [-g]`。
+/// `--all` = `--skill '*' --agent '*' -y`（删规范存储 + 所有 agent symlink）。
+pub fn uninstall_all(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
+    let mut args = vec!["remove".to_string(), "--all".to_string()];
+    apply_scope(&mut args, scope);
+    run_npx_in_scope(&args, scope, proxy_url)
+}
+
 /// 按 scope 追加 `-g`（仅 Global）。
 fn apply_scope(args: &mut Vec<String>, scope: &SkillScope) {
     if matches!(scope, SkillScope::Global) {

@@ -922,6 +922,10 @@
   "skills.toggling": "…",
   "skills.total": "インストール合計",
   "skills.updateAll": "すべて更新",
+  "skills.uninstallAll": "すべてアンインストール",
+  "skills.uninstallAllConfirm": "現在のスコープのすべてのプラットフォームの全 {{count}} 個のスキルを削除します。元に戻せません。続行しますか？",
+  "skills.uninstallAllDone": "すべてのスキルをアンインストールしました",
+  "skills.uninstalling": "アンインストール中…",
   "skills.updated": "更新しました",
   "skills.updating": "更新中…",
   "stats": {

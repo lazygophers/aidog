@@ -900,6 +900,10 @@
   "skills.toggling": "…",
   "skills.total": "Total instalado",
   "skills.updateAll": "Actualizar todo",
+  "skills.uninstallAll": "Desinstalar todo",
+  "skills.uninstallAllConfirm": "Esto eliminará las {{count}} habilidades en todas las plataformas del ámbito actual. No se puede deshacer. ¿Continuar?",
+  "skills.uninstallAllDone": "Se han desinstalado todas las habilidades",
+  "skills.uninstalling": "Desinstalando…",
   "skills.updated": "Actualizado correctamente",
   "skills.updating": "Actualizando…",
   "stats": {

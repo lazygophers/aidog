@@ -900,6 +900,10 @@
   "skills.toggling": "…",
   "skills.total": "Total installed",
   "skills.updateAll": "Update All",
+  "skills.uninstallAll": "Uninstall All",
+  "skills.uninstallAllConfirm": "This will remove all {{count}} skills across all platforms in the current scope. This cannot be undone. Continue?",
+  "skills.uninstallAllDone": "All skills uninstalled",
+  "skills.uninstalling": "Uninstalling…",
   "skills.updated": "Updated successfully",
   "skills.updating": "Updating…",
   "stats": {

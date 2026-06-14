@@ -900,6 +900,10 @@
   "skills.toggling": "…",
   "skills.total": "已安装总计",
   "skills.updateAll": "更新全部",
+  "skills.uninstallAll": "卸载全部",
+  "skills.uninstallAllConfirm": "将删除当前范围下所有平台的全部 {{count}} 个 skills，不可恢复。确认？",
+  "skills.uninstallAllDone": "已卸载全部 skills",
+  "skills.uninstalling": "卸载中…",
   "skills.updated": "更新成功",
   "skills.updating": "更新中…",
   "stats": {

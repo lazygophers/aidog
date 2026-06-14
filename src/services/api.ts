@@ -1326,6 +1326,9 @@ export const skillsApi = {
   /** 更新已装 skills。 */
   update: (scope: SkillScope) =>
     invoke<SkillsOpResult>("skills_update", { scope }),
+  /** 一键卸载当前 scope 所有平台所有 skills（破坏性）。 */
+  uninstallAll: (scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_uninstall_all", { scope }),
 };
 
 // ─── 导入导出子系统 ───────────────────────────────────────
