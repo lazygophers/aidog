@@ -1,9 +1,11 @@
 //! 通知 hook 集成（N2 — 系统通知模块）。
 //!
 //! 职责：
-//! - 生成 hook 脚本到 `~/.aidog/`：`aidog-notify-complete.sh`（POST type=task_complete）、
-//!   `aidog-notify-waiting.sh`（type=waiting_input）。脚本用 `ANTHROPIC_BASE_URL` 推导
+//! - 生成 hook 脚本到 `~/.aidog/scripts/`：`aidog-notify-complete.py`（POST type=task_complete）、
+//!   `aidog-notify-waiting.py`（type=waiting_input）。脚本用 `ANTHROPIC_BASE_URL` 推导
 //!   `/api/notify` 端点 + `ANTHROPIC_AUTH_TOKEN`（=group_name）Bearer 鉴权，project=cwd basename。
+//!   脚本为 Python（stdlib `urllib`/`json`/`os`，无第三方依赖），含 PEP723 内联依赖头，
+//!   由 `uv run --script`（uv 可用）或 `python3`（fallback）执行（执行器写进 command 串）。
 //! - Claude Code 一键注入：把 `hooks.Stop`（任务完成）+ `hooks.Notification`（等待输入）
 //!   注入到 `claude_code` 基线配置（与 statusLine 一样经 `do_sync_group_settings` 物化到
 //!   每分组 `settings.{group}.json`）。strip 内部标记 `_aidog_hooks`（防回写污染，仿
@@ -34,15 +36,20 @@ impl HookClient {
     }
 }
 
-/// 任务完成 hook 脚本文件名。
-pub const SCRIPT_COMPLETE: &str = "aidog-notify-complete.sh";
-/// 等待输入 hook 脚本文件名。
-pub const SCRIPT_WAITING: &str = "aidog-notify-waiting.sh";
+/// 任务完成 hook 脚本文件名（Python + PEP723，uv run / python3 执行）。
+pub const SCRIPT_COMPLETE: &str = "aidog-notify-complete.py";
+/// 等待输入 hook 脚本文件名（Python + PEP723，uv run / python3 执行）。
+pub const SCRIPT_WAITING: &str = "aidog-notify-waiting.py";
+
+/// 旧版 bash hook 脚本文件名（迁移清理用，写新脚本时删除）。
+pub const LEGACY_SCRIPT_COMPLETE: &str = "aidog-notify-complete.sh";
+/// 旧版 bash hook 脚本文件名（迁移清理用，写新脚本时删除）。
+pub const LEGACY_SCRIPT_WAITING: &str = "aidog-notify-waiting.sh";
 
 /// Claude Code 内部标记键（UI 状态；禁止写入 settings.{group}.json）。
 pub const MARKER_HOOKS: &str = "_aidog_hooks";
 
-/// 生成 hook 脚本内容（bash）。
+/// 生成 hook 脚本内容（Python + PEP723，stdlib only）。
 ///
 /// 脚本从 `ANTHROPIC_BASE_URL` 推导 `/api/notify` 端点（strip 末尾 `/proxy` 与版本前缀），
 /// `ANTHROPIC_AUTH_TOKEN`（=group_name）作 Bearer，project=cwd basename 作 `{project}` 变量。
@@ -50,38 +57,67 @@ pub const MARKER_HOOKS: &str = "_aidog_hooks";
 ///
 /// 脚本对 Claude Code（hooks.Stop/Notification，从 stdin 收 JSON，cwd=项目目录）与
 /// Codex（notify，从 `$1` 收 JSON）都安全：仅用 cwd basename 作 project，不解析 stdin/参数。
+///
+/// PEP723 内联依赖头（`# /// script` … `# ///`，deps 现为空列表，预留第三方依赖隔离）。
+/// shebang 是 fallback；实际由 command 串里的 `uv run --script` / `python3` 执行，故 shebang
+/// 用 `python3` 以保证无 uv 环境下直接执行也可用。任何异常静默吞掉（通知非关键路径）。
 pub fn build_hook_script(notif_type: &str) -> String {
     format!(
-        r#"#!/usr/bin/env bash
+        r#"#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.8"
+# dependencies = []
+# ///
 # aidog notification hook — auto-generated. Do not edit.
 # 触发 aidog 系统通知（POST /api/notify）。
 # Claude Code: hooks.Stop / hooks.Notification 调用（stdin 为事件 JSON，忽略）。
 # Codex: notify 调用（$1 为事件 JSON，忽略）。
-set -eu
+import json
+import os
+import sys
+import urllib.request
 
-base="${{ANTHROPIC_BASE_URL:-}}"
-token="${{ANTHROPIC_AUTH_TOKEN:-}}"
-if [ -z "$base" ] || [ -z "$token" ]; then
-  exit 0
-fi
 
-# 从 base_url 推导代理根：去掉末尾 /proxy 及版本前缀（/v1 等），再拼 /api/notify。
-root="$base"
-root="${{root%/}}"
-root="${{root%/proxy}}"
-root="${{root%/v1}}"
-root="${{root%/api/paas/v4}}"
-url="$root/api/notify"
+def main() -> None:
+    base = os.environ.get("ANTHROPIC_BASE_URL", "")
+    token = os.environ.get("ANTHROPIC_AUTH_TOKEN", "")
+    if not base or not token:
+        return
 
-project="$(basename "$(pwd)")"
+    # 从 base_url 推导代理根：依次去掉末尾 /proxy 及版本前缀（/v1 等），再拼 /api/notify。
+    # 顺序剥离（镜像旧 bash root%/proxy → root%/v1 → root%/api/paas/v4）。
+    root = base.rstrip("/")
+    for suffix in ("/proxy", "/v1", "/api/paas/v4"):
+        if root.endswith(suffix):
+            root = root[: -len(suffix)]
+    url = root + "/api/notify"
 
-body="$(printf '{{"type":"%s","vars":{{"project":"%s"}}}}' "{notif_type}" "$project")"
+    project = os.path.basename(os.getcwd())
+    body = json.dumps(
+        {{"type": "{notif_type}", "vars": {{"project": project}}}}
+    ).encode("utf-8")
 
-curl -sS -m 5 -X POST "$url" \
-  -H "Authorization: Bearer $token" \
-  -H "Content-Type: application/json" \
-  -d "$body" >/dev/null 2>&1 || true
-exit 0
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={{
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json",
+        }},
+    )
+    try:
+        urllib.request.urlopen(req, timeout=5).read()
+    except Exception:
+        pass
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        pass
+    sys.exit(0)
 "#
     )
 }
@@ -185,11 +221,20 @@ fn remove_event_hook(hooks: &mut serde_json::Map<String, Value>, event: &str) {
     }
 }
 
+/// 判断命令串是否指向 aidog notify 脚本（含当前 `.py` 与旧版 `.sh` 文件名，
+/// 以便移除时也能清掉历史 bash 注入；command 串可能为 `uv run <path>` / `python3 <path>` / 裸路径）。
+fn references_aidog_script(cmd: &str) -> bool {
+    cmd.contains(SCRIPT_COMPLETE)
+        || cmd.contains(SCRIPT_WAITING)
+        || cmd.contains(LEGACY_SCRIPT_COMPLETE)
+        || cmd.contains(LEGACY_SCRIPT_WAITING)
+}
+
 /// 判断一个 hook 命令项是否为 aidog notify 脚本（按命令字符串含脚本文件名识别）。
 fn is_aidog_command(h: &Value) -> bool {
     h.get("command")
         .and_then(|c| c.as_str())
-        .map(|c| c.contains(SCRIPT_COMPLETE) || c.contains(SCRIPT_WAITING))
+        .map(references_aidog_script)
         .unwrap_or(false)
 }
 
@@ -212,7 +257,7 @@ pub fn remove_codex_notify(config: &mut Value) {
         .map(|a| {
             a.iter().any(|v| {
                 v.as_str()
-                    .map(|s| s.contains(SCRIPT_COMPLETE) || s.contains(SCRIPT_WAITING))
+                    .map(references_aidog_script)
                     .unwrap_or(false)
             })
         })
@@ -240,10 +285,41 @@ mod tests {
         assert!(s.contains("/api/notify"));
         assert!(s.contains("ANTHROPIC_BASE_URL"));
         assert!(s.contains("ANTHROPIC_AUTH_TOKEN"));
-        assert!(s.contains("Bearer $token"));
-        assert!(s.contains(r#""type":"%s""#));
-        assert!(s.contains("task_complete"));
-        assert!(s.contains("basename"));
+        // Python urllib POST 用 "Bearer " + token，不再是 bash 的 $token。
+        assert!(s.contains(r#""Bearer " + token"#));
+        assert!(s.contains(r#""type": "task_complete""#));
+        // project = cwd basename（Python os.path.basename）。
+        assert!(s.contains("os.path.basename(os.getcwd())"));
+    }
+
+    #[test]
+    fn script_is_python_with_pep723_header() {
+        let s = build_hook_script("waiting_input");
+        // PEP723 内联依赖头（deps 空列表，预留）。
+        assert!(s.contains("# /// script"));
+        assert!(s.contains("# dependencies = []"));
+        assert!(s.contains("# ///"));
+        // stdlib only — 无第三方依赖、无 curl。
+        assert!(s.contains("import urllib.request"));
+        assert!(!s.contains("curl"));
+        // shebang python3（fallback；实际执行器在 command 串）。
+        assert!(s.starts_with("#!/usr/bin/env python3"));
+        assert!(s.contains(r#""type": "waiting_input""#));
+    }
+
+    #[test]
+    fn remove_strips_legacy_sh_command() {
+        // 旧版 bash `.sh` 注入也应被识别并移除（迁移兼容）。
+        let mut cfg = json!({
+            "hooks": {
+                "Stop": [ { "hooks": [
+                    { "type": "command", "command": "/a/aidog-notify-complete.sh" }
+                ] } ]
+            },
+            "_aidog_hooks": { "enabled": true }
+        });
+        remove_claude_code_hooks(&mut cfg);
+        assert!(cfg["hooks"].get("Stop").is_none());
     }
 
     #[test]

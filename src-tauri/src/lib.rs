@@ -1072,7 +1072,8 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
     // 全局 config.toml 一次性注入/移除 notify。脚本只生成一次（循环外）。
     let hooks_enabled = gateway::hooks::hooks_marker_enabled(&base_config);
     let hook_scripts = if hooks_enabled {
-        match generate_hook_scripts() {
+        let invoker = resolve_script_invoker(db).await;
+        match generate_hook_scripts(invoker) {
             Ok(s) => Some(s),
             Err(e) => {
                 tracing::warn!(error = %e, "generate hook scripts for default inject failed");
@@ -1857,8 +1858,12 @@ async fn settings_list(scope: String, db: State<'_, Db>) -> Result<Vec<String>, 
 
 // ─── StatusLine Script Generation ──────────────────────────
 
-/// Generate statusline script file in ~/.aidog/ and return absolute path.
+/// Generate statusline script file in ~/.aidog/scripts/ and return absolute path.
 /// `script_type`: "statusline" | "subagent"
+///
+/// statusline 脚本为纯 shell（jq/sed/printf/date 渲染 ANSI），无 Python 受益且需逐字节
+/// 保持输出契约，故保留 bash（`.sh` + bash shebang，command=裸路径）。脚本随通知 hook
+/// 一起迁移到 ~/.aidog/scripts/，旧版 ~/.aidog/*.sh 一并清理。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 fn generate_statusline_script(
@@ -1866,13 +1871,15 @@ fn generate_statusline_script(
     content: String,
 ) -> Result<String, String> {
     tracing::debug!(command = "generate_statusline_script", script_type = %script_type, "command invoked");
-    let aidog_dir = aidog_data_dir()?;
+    let scripts_dir = aidog_scripts_dir()?;
     let filename = if script_type == "subagent" {
         "aidog-subagent-statusline.sh"
     } else {
         "aidog-statusline.sh"
     };
-    let path = aidog_dir.join(filename);
+    // 迁移清理：删除 ~/.aidog/ 根下旧版同名脚本。
+    cleanup_legacy_root_script(filename);
+    let path = scripts_dir.join(filename);
     std::fs::write(&path, &content).map_err(|e| { tracing::error!(command = "generate_statusline_script", error = %e, "write script failed"); format!("write script: {e}") })?;
     #[cfg(unix)]
     {
@@ -1886,11 +1893,15 @@ fn generate_statusline_script(
 
 // ─── Notification Hook Integration (N2) ────────────────────
 
-/// 生成两个 hook 脚本到 ~/.aidog/（complete + waiting），chmod 755，返回绝对路径。
-fn generate_hook_scripts() -> Result<gateway::hooks::ScriptPaths, String> {
-    let aidog_dir = aidog_data_dir()?;
-    let write_script = |filename: &str, notif_type: &str| -> Result<String, String> {
-        let path = aidog_dir.join(filename);
+/// 生成两个 Python hook 脚本到 ~/.aidog/scripts/（complete + waiting），chmod 755，
+/// 清理旧版 ~/.aidog/*.sh，返回各自的 **command 串**（`uv run --script <path>` 或
+/// `python3 <path>`，由 `invoker` 决定）。command 串直接写进 CC hooks / Codex notify。
+fn generate_hook_scripts(
+    invoker: gateway::scripts::ScriptInvoker,
+) -> Result<gateway::hooks::ScriptPaths, String> {
+    let scripts_dir = aidog_scripts_dir()?;
+    let write_script = |filename: &str, legacy: &str, notif_type: &str| -> Result<String, String> {
+        let path = scripts_dir.join(filename);
         let content = gateway::hooks::build_hook_script(notif_type);
         std::fs::write(&path, &content).map_err(|e| format!("write hook script {filename}: {e}"))?;
         #[cfg(unix)]
@@ -1903,11 +1914,21 @@ fn generate_hook_scripts() -> Result<gateway::hooks::ScriptPaths, String> {
             std::fs::set_permissions(&path, perms)
                 .map_err(|e| format!("chmod hook script {filename}: {e}"))?;
         }
-        Ok(path.to_string_lossy().to_string())
+        // 迁移清理：删除 ~/.aidog/ 根下旧版 bash 脚本（避免残留）。
+        cleanup_legacy_root_script(legacy);
+        Ok(invoker.command_for(&path.to_string_lossy()))
     };
     Ok(gateway::hooks::ScriptPaths {
-        complete: write_script(gateway::hooks::SCRIPT_COMPLETE, "task_complete")?,
-        waiting: write_script(gateway::hooks::SCRIPT_WAITING, "waiting_input")?,
+        complete: write_script(
+            gateway::hooks::SCRIPT_COMPLETE,
+            gateway::hooks::LEGACY_SCRIPT_COMPLETE,
+            "task_complete",
+        )?,
+        waiting: write_script(
+            gateway::hooks::SCRIPT_WAITING,
+            gateway::hooks::LEGACY_SCRIPT_WAITING,
+            "waiting_input",
+        )?,
     })
 }
 
@@ -1950,7 +1971,8 @@ async fn inject_hooks(
 ) -> Result<(), String> {
     tracing::debug!(command = "inject_hooks", group = %group, client = %client, "command invoked");
     let hook_client = gateway::hooks::HookClient::from_str(&client)?;
-    let scripts = generate_hook_scripts()?;
+    let invoker = resolve_script_invoker(&db).await;
+    let scripts = generate_hook_scripts(invoker)?;
     seed_default_templates(&db).await?;
 
     match hook_client {
@@ -2077,6 +2099,120 @@ fn aidog_data_dir() -> Result<std::path::PathBuf, String> {
     let dir = home.join(".aidog");
     std::fs::create_dir_all(&dir).map_err(|e| format!("create ~/.aidog: {e}"))?;
     Ok(dir)
+}
+
+/// 生成脚本目录：~/.aidog/scripts/（hook / statusline 脚本统一存放，不再 ~/.aidog/ 根）。
+fn aidog_scripts_dir() -> Result<std::path::PathBuf, String> {
+    let dir = aidog_data_dir()?.join("scripts");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("create ~/.aidog/scripts: {e}"))?;
+    Ok(dir)
+}
+
+/// 删除 ~/.aidog/ 根下遗留的旧脚本文件（迁移到 scripts/ 后清理，避免残留 stale 路径）。
+/// best-effort：删除失败仅记录，不阻断。
+fn cleanup_legacy_root_script(filename: &str) {
+    if let Ok(root) = aidog_data_dir() {
+        let legacy = root.join(filename);
+        if legacy.exists() {
+            if let Err(e) = std::fs::remove_file(&legacy) {
+                tracing::warn!(file = %filename, error = %e, "cleanup legacy ~/.aidog script failed");
+            }
+        }
+    }
+}
+
+// ─── uv / python3 执行器探测与安装（R2/R4） ────────────────
+
+/// 探测 uv 是否可用（`uv --version` 成功退出）。无副作用，仅读环境。
+fn detect_uv() -> bool {
+    std::process::Command::new("uv")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// 解析当前应使用的脚本执行器。
+///
+/// 优先用户持久化选择（`app/script_executor` = "uv" | "python3"）；未持久化时按 live
+/// 探测（uv 可用 → uv，否则 python3）。生成脚本 command 串时调用，保证 hook / statusline /
+/// codex 一致。
+async fn resolve_script_invoker(db: &Db) -> gateway::scripts::ScriptInvoker {
+    use gateway::scripts::ScriptInvoker;
+    if let Ok(Some(v)) = db::get_setting(db, "app", "script_executor").await {
+        if let Some(s) = v.as_str() {
+            return ScriptInvoker::from_setting(Some(s));
+        }
+    }
+    ScriptInvoker::from_uv_available(detect_uv())
+}
+
+/// 检测 uv 可用性（前端 uv 询问 modal 用）。返回 `true` 表示 uv 已安装。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+fn check_uv() -> Result<bool, String> {
+    tracing::debug!(command = "check_uv", "command invoked");
+    Ok(detect_uv())
+}
+
+/// 持久化用户的脚本执行器选择（"uv" | "python3"），供后续脚本生成读取，避免每次询问。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn set_script_executor(executor: String, db: State<'_, Db>) -> Result<(), String> {
+    tracing::debug!(command = "set_script_executor", executor = %executor, "command invoked");
+    // 经 ScriptInvoker 规范化（"uv" → uv，其余 → python3），保证存库值与解析一致。
+    let normalized = gateway::scripts::ScriptInvoker::from_setting(Some(&executor)).as_setting();
+    db::set_setting(&db, SetSettingInput {
+        scope: "app".to_string(),
+        key: "script_executor".to_string(),
+        value: serde_json::Value::String(normalized.to_string()),
+    }).await
+}
+
+/// 自动安装 uv（用户在 modal 选择「是」后调用）。
+///
+/// 走官方安装脚本 `curl -LsSf https://astral.sh/uv/install.sh | sh`（Unix）。
+/// 成功后持久化选择为 "uv"。Windows 暂不支持自动安装（返回错误，由前端引导手动）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn install_uv(db: State<'_, Db>) -> Result<bool, String> {
+    tracing::debug!(command = "install_uv", "command invoked");
+    if detect_uv() {
+        // 已安装 → 直接记录选择。
+        db::set_setting(&db, SetSettingInput {
+            scope: "app".to_string(),
+            key: "script_executor".to_string(),
+            value: serde_json::Value::String("uv".to_string()),
+        }).await?;
+        return Ok(true);
+    }
+
+    #[cfg(unix)]
+    {
+        let output = std::process::Command::new("sh")
+            .arg("-c")
+            .arg("curl -LsSf https://astral.sh/uv/install.sh | sh")
+            .output()
+            .map_err(|e| { tracing::error!(command = "install_uv", error = %e, "spawn uv installer failed"); format!("spawn uv installer: {e}") })?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            tracing::error!(command = "install_uv", stderr = %stderr, "uv install script failed");
+            return Err(format!("uv install failed: {}", stderr.trim()));
+        }
+        // 官方脚本装到 ~/.local/bin（或 ~/.cargo/bin）；detect_uv 依赖 PATH，可能本进程
+        // PATH 未含安装目录 → 这里以「脚本退出成功」为准记录选择，运行时 hook 由用户 shell PATH 解析 uv。
+        db::set_setting(&db, SetSettingInput {
+            scope: "app".to_string(),
+            key: "script_executor".to_string(),
+            value: serde_json::Value::String("uv".to_string()),
+        }).await?;
+        Ok(true)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = &db;
+        Err("auto-install uv is only supported on Unix; please install uv manually".to_string())
+    }
 }
 
 #[tauri::command]
@@ -3086,6 +3222,10 @@ pub fn run() {
             remove_hooks,
             get_default_hooks_enabled,
             set_default_hooks_enabled,
+            // 脚本执行器（uv / python3）
+            check_uv,
+            install_uv,
+            set_script_executor,
             // Skills 管理
             skills_check_env,
             skills_browse_catalog,
