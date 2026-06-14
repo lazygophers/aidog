@@ -1254,13 +1254,14 @@ export interface SkillsEnv {
   node_version: string | null;
 }
 
-/** 已装 skill（原生扫描产出）。 */
+/** 已装 skill（`npx skills list --json` 解析，统一一条/skill，不分 agent）。 */
 export interface SkillInfo {
   name: string;
   source: string | null;
-  agent: SkillAgent;
+  /** 已在哪些目标 agent（claude/codex 子集）启用。 */
+  enabled_agents: SkillAgent[];
   scope: SkillScope;
-  installed_path: string;
+  installed_path: string | null;
   description: string | null;
 }
 
@@ -1287,16 +1288,16 @@ export const skillsApi = {
   /** 搜索 catalog。 */
   search: (keyword: string) =>
     invoke<CatalogEntry[]>("skills_search", { keyword }),
-  /** 列指定 scope + agent 下已装 skills。 */
-  listInstalled: (scope: SkillScope, agent: SkillAgent) =>
-    invoke<SkillInfo[]>("skills_list_installed", { scope, agent }),
-  /** 安装 skill。 */
-  install: (id: string, agent: SkillAgent, scope: SkillScope) =>
-    invoke<SkillsOpResult>("skills_install", { id, agent, scope }),
-  /** 卸载 skill（原生删目录）。 */
-  remove: (name: string, agent: SkillAgent, scope: SkillScope) =>
-    invoke<SkillsOpResult>("skills_remove", { name, agent, scope }),
+  /** 列指定 scope 下已装 skills（统一一条/skill，走 npx list --json）。 */
+  listInstalled: (scope: SkillScope) =>
+    invoke<SkillInfo[]>("skills_list_installed", { scope }),
+  /** 为某 agent 启用 skill（npx add）。 */
+  enable: (name: string, agent: SkillAgent, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_enable", { name, agent, scope }),
+  /** 为某 agent 关闭 skill（npx remove）。 */
+  disable: (name: string, agent: SkillAgent, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_disable", { name, agent, scope }),
   /** 更新已装 skills。 */
-  update: (agent: SkillAgent, scope: SkillScope) =>
-    invoke<SkillsOpResult>("skills_update", { agent, scope }),
+  update: (scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_update", { scope }),
 };

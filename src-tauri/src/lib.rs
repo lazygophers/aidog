@@ -1476,47 +1476,44 @@ async fn skills_search(keyword: String) -> Result<Vec<CatalogEntry>, String> {
     Ok(gateway::skills::search(&keyword).await)
 }
 
-/// 原生扫描指定 scope + agent 下已装 skills。
+/// 列指定 scope 下已装 skills（统一一条/skill，走 `npx skills list --json`）。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn skills_list_installed(
-    scope: SkillScope,
-    agent: SkillAgent,
-) -> Result<Vec<SkillInfo>, String> {
+async fn skills_list_installed(scope: SkillScope) -> Result<Vec<SkillInfo>, String> {
     tracing::debug!(command = "skills_list_installed", "command invoked");
-    Ok(gateway::skills::scan_installed(&scope, agent))
+    Ok(gateway::skills::list_installed(&scope))
 }
 
-/// 安装 skill（shell out `npx skills add`）。
+/// 为某 agent 启用 skill（shell out `npx skills add <source> -s -a -y`）。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn skills_install(
-    id: String,
-    agent: SkillAgent,
-    scope: SkillScope,
-) -> Result<SkillsOpResult, String> {
-    tracing::debug!(command = "skills_install", id = %id, "command invoked");
-    Ok(gateway::skills::install(&id, agent, &scope))
-}
-
-/// 卸载 skill（原生删目录）。
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn skills_remove(
+async fn skills_enable(
     name: String,
     agent: SkillAgent,
     scope: SkillScope,
 ) -> Result<SkillsOpResult, String> {
-    tracing::debug!(command = "skills_remove", name = %name, "command invoked");
-    Ok(gateway::skills::remove(&name, agent, &scope))
+    tracing::debug!(command = "skills_enable", name = %name, "command invoked");
+    Ok(gateway::skills::enable(&name, agent, &scope))
+}
+
+/// 为某 agent 关闭 skill（shell out `npx skills remove -s -a -y`）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_disable(
+    name: String,
+    agent: SkillAgent,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_disable", name = %name, "command invoked");
+    Ok(gateway::skills::disable(&name, agent, &scope))
 }
 
 /// 更新已装 skills（shell out `npx skills update`）。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn skills_update(agent: SkillAgent, scope: SkillScope) -> Result<SkillsOpResult, String> {
+async fn skills_update(scope: SkillScope) -> Result<SkillsOpResult, String> {
     tracing::debug!(command = "skills_update", "command invoked");
-    Ok(gateway::skills::update(agent, &scope))
+    Ok(gateway::skills::update(&scope))
 }
 
 /// 测试通知：直接走分发逻辑（前端设置页"测试"按钮），不经 /api/notify 端点。
@@ -2954,8 +2951,8 @@ pub fn run() {
             skills_browse_catalog,
             skills_search,
             skills_list_installed,
-            skills_install,
-            skills_remove,
+            skills_enable,
+            skills_disable,
             skills_update,
             // App Logging
             app_log_settings_get,

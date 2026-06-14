@@ -1,9 +1,9 @@
 // ─── Skills 管理页 ──────────────────────────────────────────
-// 顶层侧栏入口。GUI 内列已装 / 卸载 / 更新 agent skills。
-// 读操作走原生（skillsApi.listInstalled/checkEnv），写操作 shell out npx skills（remove/update）。
+// 顶层侧栏入口。统一已装列表（一条/skill，不分 agent）。
+// 每行右侧展示 claude/codex 图标：在 enabled_agents 内=启用样式，否则=未启用样式，可点切换。
+// 所有操作（list/enable/disable/update）全走后端 npx skills（无手动 fs）。
 //
 // scope 默认 Global（用户级全局 -g），可选 Project（选某项目目录）。
-// agent 默认 Claude，可切 Codex（SVG 图标行切换，激活/未激活态可视区分，兼做统计）。
 // npx/node 缺失 → 顶部提示条引导装 node，不阻塞整页。
 
 import { useState, useEffect, useCallback } from "react";
@@ -27,17 +27,14 @@ export function Skills() {
   const { t } = useTranslation();
 
   const [env, setEnv] = useState<SkillsEnv | null>(null);
-  const [agent, setAgent] = useState<SkillAgent>("claude");
   const [scopeKind, setScopeKind] = useState<"global" | "project">("global");
   const [projectPath, setProjectPath] = useState("");
 
   const [installed, setInstalled] = useState<SkillInfo[]>([]);
   const [installedLoading, setInstalledLoading] = useState(false);
 
-  // 每 agent 已装数（当前 scope）。
-  const [counts, setCounts] = useState<Record<SkillAgent, number>>({ claude: 0, codex: 0 });
-
-  const [busyId, setBusyId] = useState<string | null>(null);
+  // 切换中标识："<name>::<agent>" 或 "__update__"；非 null 时禁并发。
+  const [busyKey, setBusyKey] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   // 当前 scope 对象（供 API 调用）。
@@ -54,7 +51,7 @@ export function Skills() {
     skillsApi.checkEnv().then(setEnv).catch((e) => console.error("check env failed", e));
   }, []);
 
-  // 列已装（scope/agent 变化时刷新）。
+  // 列已装（scope 变化时刷新）。
   const loadInstalled = useCallback(async () => {
     if (scopeInvalid) {
       setInstalled([]);
@@ -62,7 +59,7 @@ export function Skills() {
     }
     setInstalledLoading(true);
     try {
-      const list = await skillsApi.listInstalled(scope, agent);
+      const list = await skillsApi.listInstalled(scope);
       setInstalled(list);
     } catch (e) {
       console.error("list installed failed", e);
@@ -70,33 +67,18 @@ export function Skills() {
       setInstalledLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopeKind, projectPath, agent]);
+  }, [scopeKind, projectPath]);
 
   useEffect(() => {
     loadInstalled();
   }, [loadInstalled]);
 
-  // 统计：当前 scope 下每 agent 已装数（claude + codex 并行）。
-  const loadCounts = useCallback(async () => {
-    if (scopeInvalid) {
-      setCounts({ claude: 0, codex: 0 });
-      return;
-    }
-    try {
-      const [claudeList, codexList] = await Promise.all([
-        skillsApi.listInstalled(scope, "claude"),
-        skillsApi.listInstalled(scope, "codex"),
-      ]);
-      setCounts({ claude: claudeList.length, codex: codexList.length });
-    } catch (e) {
-      console.error("load counts failed", e);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scopeKind, projectPath]);
-
-  useEffect(() => {
-    loadCounts();
-  }, [loadCounts]);
+  // 统计：总计 + 每 agent 启用数（从已装列表派生，随列表刷新）。
+  const total = installed.length;
+  const agentCounts: Record<SkillAgent, number> = {
+    claude: installed.filter((s) => s.enabled_agents.includes("claude")).length,
+    codex: installed.filter((s) => s.enabled_agents.includes("codex")).length,
+  };
 
   const pickProjectDir = async () => {
     try {
@@ -116,40 +98,43 @@ export function Skills() {
     if (res.success) {
       setMessage(t(okKey, "操作成功"));
       await loadInstalled();
-      await loadCounts();
     } else {
       const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "操作失败");
       setMessage(err);
     }
   };
 
-  const handleRemove = async (name: string) => {
-    if (scopeInvalid) return;
-    setBusyId(name);
+  // 切换某 skill 在某 agent 的启用态：已启用→disable，未启用→enable。
+  const handleToggle = async (skill: SkillInfo, agent: SkillAgent) => {
+    if (!writeReady || scopeInvalid || busyKey !== null) return;
+    const enabled = skill.enabled_agents.includes(agent);
+    setBusyKey(`${skill.name}::${agent}`);
     setMessage(null);
     try {
-      const res = await skillsApi.remove(name, agent, scope);
-      await applyResult(res, "skills.removed");
+      const res = enabled
+        ? await skillsApi.disable(skill.name, agent, scope)
+        : await skillsApi.enable(skill.name, agent, scope);
+      await applyResult(res, enabled ? "skills.disabled" : "skills.enabled");
     } catch (e) {
-      console.error("remove failed", e);
+      console.error("toggle failed", e);
       setMessage(String(e));
     } finally {
-      setBusyId(null);
+      setBusyKey(null);
     }
   };
 
   const handleUpdate = async () => {
-    if (!writeReady || scopeInvalid) return;
-    setBusyId("__update__");
+    if (!writeReady || scopeInvalid || busyKey !== null) return;
+    setBusyKey("__update__");
     setMessage(null);
     try {
-      const res = await skillsApi.update(agent, scope);
+      const res = await skillsApi.update(scope);
       await applyResult(res, "skills.updated");
     } catch (e) {
       console.error("update failed", e);
       setMessage(String(e));
     } finally {
-      setBusyId(null);
+      setBusyKey(null);
     }
   };
 
@@ -161,10 +146,10 @@ export function Skills() {
         <button
           className="btn btn-ghost"
           style={{ fontSize: 12 }}
-          disabled={!writeReady || scopeInvalid || busyId !== null}
+          disabled={!writeReady || scopeInvalid || busyKey !== null}
           onClick={handleUpdate}
         >
-          {busyId === "__update__" ? t("skills.updating", "更新中…") : t("skills.updateAll", "更新全部")}
+          {busyKey === "__update__" ? t("skills.updating", "更新中…") : t("skills.updateAll", "更新全部")}
         </button>
       </div>
 
@@ -193,7 +178,7 @@ export function Skills() {
         </div>
       )}
 
-      {/* scope 筛选（仅 scope） */}
+      {/* scope 筛选 */}
       <div className="glass-surface" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
@@ -226,52 +211,41 @@ export function Skills() {
         )}
       </div>
 
-      {/* agent 图标 + 统计行（统计/切换区，独立于筛选） */}
+      {/* 总计统计卡（醒目大数字 + 每 agent 启用数） */}
       <div
-        className="glass-surface"
-        style={{ padding: 16, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}
+        className="glass-elevated"
+        style={{
+          padding: "20px 24px",
+          display: "flex",
+          alignItems: "center",
+          gap: 28,
+          flexWrap: "wrap",
+        }}
       >
-        <div style={{ fontSize: 13, fontWeight: 600 }}>
-          {t("skills.total", "已安装总计")}
-          <span style={{ marginInlineStart: 6, color: "var(--accent)", fontWeight: 700 }}>
-            {counts.claude + counts.codex}
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <span style={{ fontSize: 40, fontWeight: 800, lineHeight: 1, color: "var(--accent)" }}>
+            {total}
+          </span>
+          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+            {t("skills.total", "已安装总计")}
           </span>
         </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          {AGENTS.map((a) => {
-            const active = agent === a;
-            const label = t(`skills.agent.${a}`, a);
-            return (
-              <button
-                key={a}
-                type="button"
-                className="glass"
-                title={label}
-                aria-label={label}
-                aria-pressed={active}
-                onClick={() => setAgent(a)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  padding: "6px 12px",
-                  cursor: "pointer",
-                  borderRadius: 10,
-                  border: active ? "1.5px solid var(--accent)" : "1px solid transparent",
-                  background: active ? "var(--accent-soft, rgba(255,255,255,0.08))" : "transparent",
-                  opacity: active ? 1 : 0.5,
-                  transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
-                }}
-              >
-                <img src={AGENT_ICONS[a]} alt={label} style={{ width: 20, height: 20 }} />
-                <span style={{ fontSize: 13, fontWeight: 600 }}>{counts[a]}</span>
-              </button>
-            );
-          })}
+        <div style={{ display: "flex", gap: 20 }}>
+          {AGENTS.map((a) => (
+            <div key={a} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <img src={AGENT_ICONS[a]} alt={t(`skills.agent.${a}`, a)} style={{ width: 22, height: 22 }} />
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                <span style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.1 }}>{agentCounts[a]}</span>
+                <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                  {t(`skills.agent.${a}`, a)}
+                </span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 
-      {/* 已装列表 */}
+      {/* 已装列表（统一一条/skill） */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>{t("skills.installedTitle", "已安装")}</h3>
         {installedLoading ? (
@@ -284,27 +258,60 @@ export function Skills() {
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {installed.map((skill) => (
               <div
-                key={skill.installed_path}
+                key={skill.name}
                 className="glass-surface"
-                style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}
+                style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "center" }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>{skill.name}</div>
                   {skill.description && (
                     <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>{skill.description}</div>
                   )}
-                  <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 4, wordBreak: "break-all" }}>
-                    {skill.installed_path}
-                  </div>
                 </div>
-                <button
-                  className="btn btn-ghost"
-                  style={{ fontSize: 11, padding: "4px 10px", whiteSpace: "nowrap" }}
-                  disabled={busyId !== null}
-                  onClick={() => handleRemove(skill.name)}
-                >
-                  {busyId === skill.name ? t("skills.removing", "卸载中…") : t("skills.remove", "卸载")}
-                </button>
+                {/* 右侧 agent 启用切换 */}
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                  {AGENTS.map((a) => {
+                    const enabled = skill.enabled_agents.includes(a);
+                    const busy = busyKey === `${skill.name}::${a}`;
+                    const label = t(`skills.agent.${a}`, a);
+                    const aria = enabled
+                      ? t("skills.disableAgent", "关闭 {{agent}}", { agent: label })
+                      : t("skills.enableAgent", "启用 {{agent}}", { agent: label });
+                    return (
+                      <button
+                        key={a}
+                        type="button"
+                        className="glass"
+                        title={aria}
+                        aria-label={aria}
+                        aria-pressed={enabled}
+                        disabled={!writeReady || busyKey !== null}
+                        onClick={() => handleToggle(skill, a)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "5px 10px",
+                          cursor: writeReady && busyKey === null ? "pointer" : "default",
+                          borderRadius: 10,
+                          border: enabled ? "1.5px solid var(--accent)" : "1px solid var(--border, rgba(255,255,255,0.12))",
+                          background: enabled ? "var(--accent-soft, rgba(255,255,255,0.10))" : "transparent",
+                          opacity: enabled ? 1 : 0.45,
+                          transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
+                        }}
+                      >
+                        <img
+                          src={AGENT_ICONS[a]}
+                          alt={label}
+                          style={{ width: 18, height: 18, filter: enabled ? "none" : "grayscale(1)" }}
+                        />
+                        <span style={{ fontSize: 11, fontWeight: 600 }}>
+                          {busy ? t("skills.toggling", "…") : enabled ? t("skills.on", "启用") : t("skills.off", "未启用")}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
             ))}
           </div>
