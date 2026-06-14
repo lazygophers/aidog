@@ -282,4 +282,6 @@ yarn tauri signer generate -w ~/.tauri/aidog_updater.key
 
 ## License
 
-MIT
+[GNU AGPL-3.0-or-later](LICENSE) © AiDog
+
+本项目以 GNU Affero 通用公共许可证 v3 或更高版本授权。若你修改本软件并通过网络提供服务，须向用户公开对应源码。
