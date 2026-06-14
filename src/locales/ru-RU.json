@@ -7,6 +7,7 @@
   "action.remove": "Удалить",
   "action.save": "Сохранить",
   "app.title": "AiDog",
+  "app.version": "Версия",
   "appLog.desc": "Логи консоли выводятся всегда; настройки ниже влияют только на файлы логов",
   "appLog.level": "Уровень логирования",
   "appLog.retention": "Хранение",

@@ -7,6 +7,7 @@
   "action.remove": "削除",
   "action.save": "保存",
   "app.title": "AiDog",
+  "app.version": "バージョン",
   "appLog.desc": "コンソールログは常に出力されます。以下の設定はログファイルのみに影響します",
   "appLog.level": "ログレベル",
   "appLog.retention": "保持期間",

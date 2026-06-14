@@ -7,6 +7,7 @@
   "action.remove": "Remove",
   "action.save": "Save",
   "app.title": "AiDog",
+  "app.version": "Version",
   "appLog.desc": "Console logs are always output; settings below only affect log files",
   "appLog.level": "Log Level",
   "appLog.retention": "Retention",

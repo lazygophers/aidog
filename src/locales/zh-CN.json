@@ -7,6 +7,7 @@
   "action.remove": "Remove",
   "action.save": "保存",
   "app.title": "AiDog",
+  "app.version": "版本",
   "appLog.desc": "控制台日志始终输出；以下设置仅影响日志文件",
   "appLog.level": "日志级别",
   "appLog.retention": "保留时长",

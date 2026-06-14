@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { getVersion } from "@tauri-apps/api/app";
 import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings } from "../services/api";
 import { Settings } from "./Settings";
 import { CodexSettings } from "./CodexSettings";
@@ -32,10 +33,15 @@ export function AppSettings({ tab, onLogSettingsChanged }: { tab: Tab; onLogSett
   const [logLevel, setLogLevel] = useState("info");
   const [logRetHours, setLogRetHours] = useState(3);
   const [message, setMessage] = useState("");
+  const [appVersion, setAppVersion] = useState("");
   const [proxyClient, setProxyClient] = useState<ProxyClientSettings>({
     enabled: false, proxy_type: "socks5", host: "127.0.0.1", port: 7890,
     username: "", password: "", dns_over_proxy: true,
   });
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion(""));
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -646,6 +652,23 @@ export function AppSettings({ tab, onLogSettingsChanged }: { tab: Tab; onLogSett
           </div>
 
           {message && <div className="toast">{message}</div>}
+
+          {/* App version — 只读展示, 单一事实源 = tauri.conf.json (经 getVersion API) */}
+          {appVersion && (
+            <div className="glass-surface" style={{
+              padding: "16px 20px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{t("app.version")}</div>
+              <div style={{
+                fontSize: 13,
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                color: "var(--text-secondary)",
+              }}>v{appVersion}</div>
+            </div>
+          )}
         </div>
       ) : tab === "codex" ? (
         <CodexSettings />
