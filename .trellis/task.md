@@ -54,8 +54,9 @@
 | menu-submenu-collapse | 修复侧栏子菜单展开后无法收起 | — | 已完成 | 收尾 | 100% | — |
 | hooks-event-collapse | 修复 Claude Code hooks 单个事件无法收起 | — | 已完成 | 收尾 | 100% | — |
 | fix-lint-skills-sync | 修复 make lint: skills_sync 引用过时 source 字段 | — | 已完成 | 收尾 | 100% | — |
-| scripts-py-uv | 生成脚本 sh→python+uv(PEP723) + 移到 ~/.aidog/scripts/ | 全部 .sh 转 py + uv run/python3 + ~/.aidog/scripts/ + uv 缺失 UI 询问 | 进行中 | 执行 | 10% | .trellis/worktrees/06-14-scripts-py-uv |
+| scripts-py-uv | 生成脚本 sh→python+uv(PEP723) + 移到 ~/.aidog/scripts/ | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-scripts-py-uv |
 | skills-toggle-ux | Skills 启用/关闭乐观更新 (去全列表刷新闪烁) | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-skills-toggle-ux |
 | show-version | 页面展示版本信息 | — | 已完成 | 收尾 | 100% | — |
 | skills-npx-proxy | npx skills 走 aidog 上游代理 | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-skills-npx-proxy |
 | remove-installed-title | Skills 页移除已安装标题 card | — | 已完成 | 收尾 | 100% | — |
+| skills-show-desc | Skills 展示每条 desc 字段 | — | 规划中 | 规划 | 0% | — |
