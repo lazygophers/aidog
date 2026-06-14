@@ -64,4 +64,15 @@
 | skills-uninstall-all | Skills 一键卸载所有平台所有 skills | — | 已完成 | 收尾 | 100% | — |
 | skills-align-agents | Skills 对齐两 agent 配置快捷方式 | — | 已完成 | 收尾 | 100% | — |
 | skills-enable-all | Skills 一键全启用某 agent | — | 已完成 | 收尾 | 100% | — |
-| notif-no-read-state | 通知去已读未读/完成即结束 | — | 进行中 | 规划 | 0% | — |
+| notif-no-read-state | 通知去已读未读/完成即结束 | — | 已完成 | 收尾 | 100% | — |
+| skills-uninstall-single | Skills 单一 skill 卸载功能 | — | 已完成 | 收尾 | 100% | — |
+| deep-perf-optimization | 深度性能优化 | — | 已完成 | 收尾 | 100% | — |
+| fix-skills-uninstall-noop | 修复单一 skill 卸载无反应 | — | 已完成 | 收尾 | 100% | — |
+| perf-backend-hotpath | perf 后端热路径+数据层(问题1/2/3/6) | — | 已完成 | 收尾 | 100% | — |
+| perf-frontend-memo | perf 前端 memo(问题4/5) | — | 已完成 | 收尾 | 100% | — |
+| fix-skills-modal-portal | Skills modal Portal 化修复定位 | — | 已完成 | 收尾 | 100% | — |
+| fix-skills-uninstall-agent-arg | 修复单一 skill 卸载命令缺 -a 参数 | — | 已完成 | 收尾 | 100% | — |
+| revert-uninstall-agent-wildcard | 回滚 uninstall_args -a 通配 (无效参数) | — | 已完成 | 收尾 | 100% | — |
+| skills-uninstall-result-log | skills_uninstall 加 result debug log 定位 | — | 已完成 | 收尾 | 100% | — |
+| skills-load-swr-cache | skills 页加载提速 SWR 缓存 | — | 已完成 | 收尾 | 100% | — |
+| skills-uninstall-fs-fallback | uninstall fs 兜底删第三方 symlink skill | — | 进行中 | 规划 | 0% | — |

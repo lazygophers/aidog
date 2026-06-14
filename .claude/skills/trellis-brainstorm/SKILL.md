@@ -5,7 +5,7 @@ description: "Guides collaborative requirements discovery before implementation.
 
 # Brainstorm - Requirements Discovery (AI Coding Enhanced)
 
-**CoreRule**: Interview me relentlessly about every aspect of this plan until we reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
+**CoreRule**: Interview the user about each aspect of this plan until you reach a shared understanding. Walk down each branch of the design tree, resolving dependencies between decisions one-by-one. For each question, provide your recommended answer.
 
 Ask the questions one at a time.
 
@@ -33,7 +33,7 @@ Triggered from /trellis:start when the user describes a development task, especi
 
 ---
 
-## Core Principles (Non-negotiable)
+## Core Principles (required)
 
 1. **Task-first (capture early)**
    Always ensure a task exists at the start so the user's ideas are recorded immediately.
@@ -72,6 +72,8 @@ TASK_DIR=$(python3 ./.trellis/scripts/task.py create "brainstorm: <short goal>" 
 
 Use a slug without a date prefix. `task.py create` adds the `MM-DD-`
 directory prefix automatically.
+
+> **If `task.py create` fails** (script missing, non-Trellis project, slug collision): do not silently proceed without a task home. Retry once with a different slug; if it still fails, tell the user the task directory could not be created and capture the PRD draft inline in the conversation so their input is not lost.
 
 Create/seed `prd.md` immediately with what you know:
 
@@ -243,6 +245,8 @@ Each `trellis-research` sub-agent should:
 3. Map conventions onto our repo constraints
 4. Write findings to `{TASK_DIR}/research/<topic>.md`
 
+> **If a `trellis-research` sub-agent returns no file** (empty result, missing `research/<topic>.md`, or an error — outside the Codex case above): do not fabricate findings. Either re-dispatch the sub-agent with a tighter topic, or fall back to a single inline research pass and write `research/<topic>.md` yourself. Proceed to approaches only once at least one topic has persisted findings.
+
 Main agent then reads the persisted files and produces **2–3 feasible approaches** in PRD.
 
 ### Research output format (PRD)
@@ -394,6 +398,8 @@ Based on current information, here are 2–3 feasible approaches:
 
 Which direction do you prefer?
 ```
+
+> **If the user rejects all proposed approaches**: treat the rejection as new constraint signal, not a dead end. Ask one question to surface what disqualifies them (cost, scope, a hard requirement you missed), record that constraint in PRD, then derive a fresh set of approaches that honors it. Do not loop back with the same options.
 
 Record the outcome in PRD as an ADR-lite section:
 

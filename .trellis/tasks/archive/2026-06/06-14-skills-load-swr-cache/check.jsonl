@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "缓存层模式参考(写时失效), 后端约定"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "新命令拆分跨 Rust↔TS, 字段/类型契约"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "Skills.tsx SWR 流程/状态/i18n 约定"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "缓存/持久化前 grep 已有(如刚做的 DbCache/aidog_scripts_dir)"}

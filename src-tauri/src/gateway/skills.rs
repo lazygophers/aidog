@@ -21,6 +21,8 @@
 use super::models::ProxyClientSettings;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
 use std::process::Command;
 use std::sync::{Mutex, OnceLock};
 
@@ -682,6 +684,11 @@ fn uninstall_args(name: &str, scope: &SkillScope) -> Vec<String> {
 
 /// 卸载单一 skill：`npx skills remove -s <name> [-g] -y`（破坏性，前端二次确认）。
 /// 删规范存储目录 + 所有 agent 的启用配置（symlink / 锁文件项）。
+///
+/// **fs 兜底**：第三方/手动 symlink skill（如 understand-*，非 npx 装、不在锁文件）
+/// npx remove 返回 "No matching skills found"（exit 0 但没删）。检测到此输出 → fs 兜底
+/// 删规范存储 symlink + 各 agent 目录 symlink（用户决策 A，突破"全 npx"约束，对称于
+/// enable 用 path 绕锁文件）。
 pub fn uninstall(name: &str, scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
     let name = name.trim();
     if name.is_empty() {
@@ -692,7 +699,104 @@ pub fn uninstall(name: &str, scope: &SkillScope, proxy_url: Option<&str>) -> Ski
         };
     }
     let args = uninstall_args(name, scope);
-    run_npx_in_scope(&args, scope, proxy_url)
+    let res = run_npx_in_scope(&args, scope, proxy_url);
+    // 检测 npx 不认该 skill（第三方/手动 symlink，非锁文件注册）→ fs 兜底删。
+    let no_match = res
+        .stdout
+        .contains("No matching skills found")
+        || res.stderr.contains("No matching skills found");
+    if no_match {
+        let (removed, errs) = fs_fallback_remove(name, scope);
+        let success = !removed.is_empty() && errs.is_empty();
+        return SkillsOpResult {
+            success,
+            stdout: format!(
+                "fs fallback removed {} path(s): [{}]",
+                removed.len(),
+                removed.join(", ")
+            ),
+            stderr: if errs.is_empty() {
+                String::new()
+            } else {
+                format!("fs fallback errors: {}", errs.join("; "))
+            },
+        };
+    }
+    res
+}
+
+/// 校验 skill name 安全（防路径遍历：禁 `..` / `/` / `\` / 空 / `.`）。
+fn is_safe_skill_name(name: &str) -> bool {
+    !name.is_empty()
+        && name != "."
+        && name != ".."
+        && !name.contains('/')
+        && !name.contains('\\')
+        && !name.contains("..")
+}
+
+/// 删除单个路径（symlink → remove_file 不跟随；目录 → remove_dir_all；不存在 → skip）。
+/// 返回 Some(()) 表示删成功，None 表示不存在，Some(Err) 转 errs。
+fn remove_path(p: &PathBuf, removed: &mut Vec<String>, errs: &mut Vec<String>) {
+    let meta = match fs::symlink_metadata(p) {
+        Ok(m) => m,
+        Err(_) => return, // 不存在 → skip
+    };
+    let r = if meta.is_dir() && !meta.file_type().is_symlink() {
+        fs::remove_dir_all(p)
+    } else {
+        fs::remove_file(p) // symlink 或文件：不跟随 symlink target
+    };
+    match r {
+        Ok(()) => removed.push(p.display().to_string()),
+        Err(e) => errs.push(format!("remove {}: {e}", p.display())),
+    }
+}
+
+/// fs 兜底删第三方/手动 symlink skill。返回 (已删路径, 错误)。
+///
+/// - **规范存储**：global `~/.agents/skills/<name>`，project `<project>/.agents/skills/<name>`。
+/// - **各 agent symlink**（仅 global）：扫 `~/` 下 `.` 开头目录（.claude/.codex/.trae-cn/...），
+///   若 `<dir>/skills/<name>` 存在则删。不硬编码 agent 列表，通配扫。
+///
+/// 安全：name 经 `is_safe_skill_name` 校验，防路径遍历。
+fn fs_fallback_remove(name: &str, scope: &SkillScope) -> (Vec<String>, Vec<String>) {
+    let mut removed: Vec<String> = Vec::new();
+    let mut errs: Vec<String> = Vec::new();
+
+    if !is_safe_skill_name(name) {
+        return (removed, vec![format!("unsafe skill name: '{name}'")]);
+    }
+
+    match scope {
+        SkillScope::Global => {
+            if let Some(home) = dirs::home_dir() {
+                // 规范存储
+                let canon = home.join(".agents").join("skills").join(name);
+                remove_path(&canon, &mut removed, &mut errs);
+                // 各 agent 目录（home 下 . 开头目录，排除 .agents 本身）
+                if let Ok(entries) = fs::read_dir(&home) {
+                    for e in entries.flatten() {
+                        let s = e.file_name();
+                        let dir_name = s.to_string_lossy();
+                        if !dir_name.starts_with('.') || dir_name == ".agents" {
+                            continue;
+                        }
+                        let agent_skill = home.join(dir_name.as_ref()).join("skills").join(name);
+                        remove_path(&agent_skill, &mut removed, &mut errs);
+                    }
+                }
+            } else {
+                errs.push("cannot resolve home directory".to_string());
+            }
+        }
+        SkillScope::Project { path } => {
+            let canon = PathBuf::from(path).join(".agents").join("skills").join(name);
+            remove_path(&canon, &mut removed, &mut errs);
+        }
+    }
+
+    (removed, errs)
 }
 
 /// 对齐决策：以 source 启用态决定 target 应做何操作。
@@ -952,6 +1056,22 @@ mod tests {
         assert!(!args.contains(&"-g".to_string()));
         assert!(args.contains(&"-y".to_string()));
         assert!(!args.iter().any(|a| a == "-a"));
+    }
+
+    #[test]
+    fn is_safe_skill_name_rejects_traversal() {
+        // 合法
+        assert!(is_safe_skill_name("understand-onboard"));
+        assert!(is_safe_skill_name("my_skill"));
+        assert!(is_safe_skill_name("a"));
+        // 路径遍历 / 非法
+        assert!(!is_safe_skill_name(""));
+        assert!(!is_safe_skill_name("."));
+        assert!(!is_safe_skill_name(".."));
+        assert!(!is_safe_skill_name("../etc"));
+        assert!(!is_safe_skill_name("foo/bar"));
+        assert!(!is_safe_skill_name("foo\\bar"));
+        assert!(!is_safe_skill_name("a..b"));
     }
 
     #[test]

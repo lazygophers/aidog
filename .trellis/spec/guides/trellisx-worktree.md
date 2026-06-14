@@ -16,16 +16,25 @@ mode: optimize
 ## worktree 隔离
 
 - task.py create/start 后由平台 hook (.claude/hooks/trellisx-worktree.py) 自动建 worktree 于 `.trellis/worktrees/<task>`, branch `trellisx-<task>`
-- 全部源码改动**必须**落 worktree 内, 主工作区保持干净
+- 🔴 全部源码改动**必须**落 worktree 内, 主工作区保持干净
 - main 可直接写源码 (trellis inline), 但目标路径必须在 worktree (写绝对路径或 EnterWorktree 切入)
 - 复杂 / 并行 subtask → 派 sub-agent (isolation:worktree) 或 agent-team 成员
-- task archive 时 worktree 干净 → hook 自动销毁 (worktree remove + branch -D); 脏 → 警告先合并
+- 🔴 task archive 时 worktree 干净 → hook 自动销毁 (worktree remove + branch -D); **脏 (有未合并提交) → 必须先 `merge --no-ff` 合并回主分支再 archive** —— 未合并就 archive = worktree 分支被直接销毁, 该分支上全部提交永久丢失 (不可恢复)
 
 ## subtask 拆分 + 异步并行
 
-- task 拆 >= 2 subtask, 每 subtask 独立文件 `.trellis/tasks/<task>/subtask/<id>-<slug>.md`
+- 🔴 拆分判定按**独立可验收交付数**: 多交付 → 拆 parent + child (各独立文件 `.trellis/tasks/<task>/subtask/<id>-<slug>.md`); 单一交付 → 单 task 不强制拆。**禁为凑数把单交付硬拆成 1 个 subtask**
 - PRD mermaid 调度图显式标并行组 (无依赖 subtask 同批同时跑), 有依赖标依赖箭头
 - 拆分目标 = 最大化可并行 subtask 数, 缩短关键路径
 - 执行硬规: 无依赖 subtask **同一条回复一次性发多个 sub-agent 调用** (Claude Code 同消息多 Agent tool = 真并行); **禁逐个串行派** (串行 = 各 subtask 耗时叠加)
 - 有依赖 subtask 等上游 done 再派下游; 收到各 agent 返回立即回传用户进度
 - parent-child 用 trellis 原生 `task.py add-subtask`
+
+## 反模式 (禁)
+
+| 反模式 | 后果 |
+| --- | --- |
+| 🔴 在主工作区写源码 (file_path 非 worktree 路径) | 污染主工作区, 隔离失效 |
+| 🔴 worktree 脏 (有未合并提交) 就 archive | 分支被销毁, 提交永久丢失, 不可恢复 |
+| 无依赖 subtask 逐个串行派 sub-agent | 各 subtask 耗时叠加, 关键路径被拉长 (应同一回复一次性并发) |
+| 单一交付硬拆成 1 个 subtask 凑数 | 徒增编排开销, 无并行收益 |
