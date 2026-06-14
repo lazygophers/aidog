@@ -150,6 +150,13 @@ export function Skills() {
     loadInstalled();
   }, [loadInstalled]);
 
+  // 操作结果消息自动消失（4s），避免遮屏。
+  useEffect(() => {
+    if (!message) return;
+    const id = setTimeout(() => setMessage(null), 4000);
+    return () => clearTimeout(id);
+  }, [message]);
+
   // 统计：总计 + 每 agent 启用数（从已装列表派生，随列表刷新）。
   const total = installed.length;
   const agentCounts: Record<SkillAgent, number> = {
@@ -458,14 +465,52 @@ export function Skills() {
         </div>
       )}
 
-      {/* 操作结果消息 */}
-      {message && (
+      {/* 操作结果消息（portal 到 document.body：脱离 Skills 页 transform 祖先，fixed 始终相对 viewport 顶部居中；4s 自动消失） */}
+      {message && createPortal(
         <div
-          className="glass-surface"
-          style={{ padding: "10px 14px", fontSize: 12, whiteSpace: "pre-wrap", wordBreak: "break-word" }}
+          style={{
+            position: "fixed",
+            top: 16,
+            left: "50%",
+            transform: "translateX(-50%)",
+            zIndex: 300,
+            maxWidth: "calc(100vw - 32px)",
+            animation: "fadeIn 150ms ease both",
+          }}
         >
-          {message}
-        </div>
+          <div
+            className="glass-elevated"
+            style={{
+              padding: "10px 16px",
+              fontSize: 12,
+              whiteSpace: "pre-wrap",
+              wordBreak: "break-word",
+              display: "flex",
+              alignItems: "center",
+              gap: 12,
+              boxShadow: "0 8px 24px rgba(0,0,0,0.18)",
+            }}
+          >
+            <span style={{ flex: 1 }}>{message}</span>
+            <button
+              type="button"
+              onClick={() => setMessage(null)}
+              aria-label={t("action.dismiss", "关闭")}
+              style={{
+                background: "transparent",
+                border: "none",
+                color: "var(--text-secondary)",
+                cursor: "pointer",
+                fontSize: 14,
+                padding: 0,
+                lineHeight: 1,
+              }}
+            >
+              ✕
+            </button>
+          </div>
+        </div>,
+        document.body,
       )}
 
       {/* 统计 + scope 筛选 (合并单卡: 左统计 右筛选右对齐) */}
@@ -675,7 +720,7 @@ export function Skills() {
                         >
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <div style={{ fontSize: 13, fontWeight: 600 }}>{skill.name}</div>
-                            {skill.description && (
+                            {skill.description?.trim() && (
                               <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>{skill.description}</div>
                             )}
                           </div>
