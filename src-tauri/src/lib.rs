@@ -1771,6 +1771,18 @@ async fn mcp_delete(db: State<'_, Db>, name: String) -> Result<(), String> {
     gateway::mcp::delete_server(&db, &name).await
 }
 
+/// 编辑 MCP：全字段更新（含改名/transport 切换）+ 同步 enabled agent 配置。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_update(
+    db: State<'_, Db>,
+    old_name: String,
+    payload: gateway::mcp::McpUpdatePayload,
+) -> Result<gateway::mcp::McpServerInfo, String> {
+    tracing::debug!(command = "mcp_update", old = %old_name, "command invoked");
+    gateway::mcp::update_server(&db, &old_name, payload).await
+}
+
 // ─── 导入导出子系统 ───────────────────────────────────────
 
 /// 导出：收集各 scope 数据 → 加密 → 写入用户选择路径。
@@ -3474,6 +3486,7 @@ pub fn run() {
             mcp_import,
             mcp_set_agent,
             mcp_delete,
+            mcp_update,
             // 导入导出子系统
             export_to_file,
             import_read_file,

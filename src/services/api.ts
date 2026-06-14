@@ -1433,6 +1433,17 @@ export interface McpImportReport {
   skipped: string[];
 }
 
+/** 编辑 MCP 入参。env/headers 未改的敏感值前端传 "***"，后端 merge 旧 DB 明文。 */
+export interface McpUpdatePayload {
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  url: string;
+  headers: Record<string, string>;
+}
+
 export const mcpApi = {
   /** 列出 DB 中所有 MCP（env/headers 脱敏）。 */
   list: () => invoke<McpServerInfo[]>("mcp_list"),
@@ -1444,6 +1455,9 @@ export const mcpApi = {
   /** per-agent 启用/禁用（同步写/删 agent 配置）。 */
   setAgent: (name: string, agent: McpAgentSlug, enabled: boolean) =>
     invoke<void>("mcp_set_agent", { name, agent, enabled }),
+  /** 编辑（全字段 + 改名 + transport 切换，同步 agent 配置）。 */
+  update: (oldName: string, payload: McpUpdatePayload) =>
+    invoke<McpServerInfo>("mcp_update", { oldName, payload }),
   /** 删除（DB + 所有 enabled agent 配置，破坏性）。 */
   delete: (name: string) => invoke<void>("mcp_delete", { name }),
 };
