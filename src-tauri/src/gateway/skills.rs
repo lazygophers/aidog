@@ -795,6 +795,60 @@ pub fn set_group_agent(
     }
 }
 
+/// 组级卸载：对某 source 组（`group_source=None` = 「其他」组）内所有 skill 逐个卸载。
+/// 复用 `uninstall`（含 npx remove + fs 兜底删第三方 symlink）。完成后 invalidate(scope)。
+/// 返回汇总（stdout "ok/total skipped failed"，stderr 聚合失败明细）。
+pub fn uninstall_group(
+    group_source: Option<&str>,
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
+    let items = list_installed(scope, proxy_url);
+    let targets: Vec<&SkillInfo> = items
+        .iter()
+        .filter(|s| match (group_source, &s.source) {
+            (Some(g), Some(src)) => src == g,
+            (None, None) => true,
+            _ => false,
+        })
+        .collect();
+    if targets.is_empty() {
+        return SkillsOpResult {
+            success: true,
+            stdout: "no skills in group".to_string(),
+            stderr: String::new(),
+        };
+    }
+    let mut ok: u32 = 0;
+    let mut fail: u32 = 0;
+    let mut errs: Vec<String> = Vec::new();
+    for s in &targets {
+        let res = uninstall(&s.name, scope, proxy_url);
+        if res.success {
+            ok += 1;
+        } else {
+            fail += 1;
+            let detail = if res.stderr.trim().is_empty() {
+                res.stdout.trim()
+            } else {
+                res.stderr.trim()
+            };
+            errs.push(format!("{}: {}", s.name, detail));
+        }
+    }
+    invalidate(scope);
+    SkillsOpResult {
+        success: fail == 0,
+        stdout: format!(
+            "{}/{} uninstalled, {} failed",
+            ok,
+            targets.len(),
+            fail
+        ),
+        stderr: errs.join("\n"),
+    }
+}
+
 /// 更新已装 skills：`npx skills update [-g] -y`。
 pub fn update(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
     let mut args = vec!["update".to_string()];

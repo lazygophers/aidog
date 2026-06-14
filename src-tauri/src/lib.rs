@@ -1661,6 +1661,28 @@ async fn skills_uninstall(
     Ok(result)
 }
 
+/// 组级卸载：卸载某 source 分组（groupSource=null = 「其他」组）内所有 skill。
+/// 破坏性，前端二次确认。内部已 invalidate。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_uninstall_group(
+    db: State<'_, Db>,
+    group_source: Option<String>,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(
+        command = "skills_uninstall_group",
+        group_source = ?group_source,
+        "command invoked"
+    );
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::uninstall_group(
+        group_source.as_deref(),
+        &scope,
+        proxy.as_deref(),
+    ))
+}
+
 /// 对齐两 agent 的 skills 启用配置（使 `to` 与 `from` 完全一致）。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
@@ -3389,6 +3411,7 @@ pub fn run() {
             skills_update,
             skills_uninstall_all,
             skills_uninstall,
+            skills_uninstall_group,
             skills_align_agents,
             skills_enable_all,
             skills_set_group_agent,

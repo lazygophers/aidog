@@ -919,6 +919,8 @@
   "skills.uninstallAllDone": "Se han desinstalado todas las habilidades",
   "skills.uninstallConfirm": "Se eliminará skill {{name}} y su configuración habilitada para todos los agents. No reversible. ¿Confirmar?",
   "skills.uninstallDone": "Desinstalado",
+  "skills.uninstallGroup": "Desinstalar grupo",
+  "skills.uninstallGroupConfirm": "Se desinstalarán {{count}} skill(s) bajo {{group}} y se eliminará su configuración de activación en todos los agentes. Irreversible. ¿Confirmar?",
   "skills.uninstalling": "Desinstalando…",
   "skills.updateAll": "Actualizar todo",
   "skills.updated": "Actualizado correctamente",

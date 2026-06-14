@@ -941,6 +941,8 @@
   "skills.uninstallAllDone": "すべてのスキルをアンインストールしました",
   "skills.uninstallConfirm": "skill {{name}} と全 agent の有効化設定を削除します。元に戻せません。確認しますか？",
   "skills.uninstallDone": "アンインストール済み",
+  "skills.uninstallGroup": "グループを一括アンインストール",
+  "skills.uninstallGroupConfirm": "{{group}} 配下 {{count}} 個の skill と全 agent の有効化設定を削除します。元に戻せません。実行しますか？",
   "skills.uninstalling": "アンインストール中…",
   "skills.updateAll": "すべて更新",
   "skills.updated": "更新しました",
