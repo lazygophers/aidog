@@ -1363,5 +1363,11 @@
   "about.repo": "Dépôt",
   "about.releases": "Versions",
   "about.issues": "Problèmes",
-  "about.reportIssue": "Signaler un problème"
+  "about.reportIssue": "Signaler un problème",
+  "about.updateTitle": "Mise à jour",
+  "about.checkUpdate": "Vérifier les mises à jour",
+  "about.checking": "Vérification…",
+  "about.downloading": "Téléchargement v{{version}}",
+  "about.upToDate": "Déjà à jour",
+  "about.updateError": "Échec de la vérification"
 }

@@ -1363,5 +1363,11 @@
   "about.repo": "Repository",
   "about.releases": "Releases",
   "about.issues": "Issues",
-  "about.reportIssue": "Problem melden"
+  "about.reportIssue": "Problem melden",
+  "about.updateTitle": "Software-Update",
+  "about.checkUpdate": "Nach Updates suchen",
+  "about.checking": "Wird geprüft…",
+  "about.downloading": "Lädt v{{version}}",
+  "about.upToDate": "Bereits aktuell",
+  "about.updateError": "Update-Prüfung fehlgeschlagen"
 }

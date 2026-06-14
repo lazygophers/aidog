@@ -5,8 +5,12 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
+import { check } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
 import { aboutApi, type AboutInfo } from "../services/api";
 import { IconGlobe } from "../components/icons";
+
+type UpdateState = "idle" | "checking" | "downloading" | "uptodate" | "error";
 
 const GITHUB_REPO = "https://github.com/lazygophers/aidog";
 const GITHUB_LINKS = {
@@ -19,10 +23,50 @@ const GITHUB_LINKS = {
 export function About() {
   const { t } = useTranslation();
   const [info, setInfo] = useState<AboutInfo | null>(null);
+  const [updState, setUpdState] = useState<UpdateState>("idle");
+  const [updMsg, setUpdMsg] = useState("");
+  const [newVersion, setNewVersion] = useState("");
 
   useEffect(() => {
     aboutApi.info().then(setInfo).catch(() => setInfo(null));
   }, []);
+
+  // 检查更新：check → 有则下载安装并重启；无则提示最新；失败兜底不崩。
+  const handleCheckUpdate = async () => {
+    setUpdState("checking");
+    setUpdMsg("");
+    setNewVersion("");
+    try {
+      const upd = await check();
+      if (upd) {
+        setNewVersion(upd.version);
+        setUpdState("downloading");
+        await upd.downloadAndInstall();
+        await relaunch(); // 安装完成后重启应用
+      } else {
+        setUpdState("uptodate");
+      }
+    } catch (e) {
+      setUpdState("error");
+      setUpdMsg(String(e));
+    }
+  };
+
+  const updBusy = updState === "checking" || updState === "downloading";
+  const updStatusText = (() => {
+    switch (updState) {
+      case "checking":
+        return t("about.checking", "检查中…");
+      case "downloading":
+        return t("about.downloading", "下载中：v{{version}}").replace("{{version}}", newVersion);
+      case "uptodate":
+        return t("about.upToDate", "已是最新版本");
+      case "error":
+        return `${t("about.updateError", "检查更新失败")}: ${updMsg}`;
+      default:
+        return "";
+    }
+  })();
 
   const buildTimeText = (() => {
     if (!info?.build_time) return "—";
@@ -95,6 +139,28 @@ export function About() {
             </div>
           ))
         )}
+      </div>
+
+      {/* 检查更新 */}
+      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>
+            {t("about.updateTitle", "软件更新")}
+          </div>
+          {updStatusText && (
+            <div style={{ fontSize: 12, color: updState === "error" ? "var(--color-danger)" : "var(--text-secondary)", wordBreak: "break-all" }}>
+              {updStatusText}
+            </div>
+          )}
+        </div>
+        <button
+          className="btn btn-primary"
+          style={{ fontSize: 13, padding: "6px 14px" }}
+          disabled={updBusy}
+          onClick={handleCheckUpdate}
+        >
+          {updBusy ? t("about.checking", "检查中…") : t("about.checkUpdate", "检查更新")}
+        </button>
       </div>
 
       {/* GitHub 链接 */}

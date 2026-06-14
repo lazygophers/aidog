@@ -1341,5 +1341,11 @@
   "about.repo": "Repository",
   "about.releases": "Releases",
   "about.issues": "Issues",
-  "about.reportIssue": "Report Issue"
+  "about.reportIssue": "Report Issue",
+  "about.updateTitle": "Software Update",
+  "about.checkUpdate": "Check for Updates",
+  "about.checking": "Checking…",
+  "about.downloading": "Downloading v{{version}}",
+  "about.upToDate": "Already up to date",
+  "about.updateError": "Update check failed"
 }

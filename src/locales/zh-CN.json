@@ -1341,5 +1341,11 @@
   "about.repo": "代码仓库",
   "about.releases": "版本发布",
   "about.issues": "问题列表",
-  "about.reportIssue": "反馈问题"
+  "about.reportIssue": "反馈问题",
+  "about.updateTitle": "软件更新",
+  "about.checkUpdate": "检查更新",
+  "about.checking": "检查中…",
+  "about.downloading": "下载中：v{{version}}",
+  "about.upToDate": "已是最新版本",
+  "about.updateError": "检查更新失败"
 }

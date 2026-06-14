@@ -1363,5 +1363,11 @@
   "about.repo": "المستودع",
   "about.releases": "الإصدارات",
   "about.issues": "المشكلات",
-  "about.reportIssue": "الإبلاغ عن مشكلة"
+  "about.reportIssue": "الإبلاغ عن مشكلة",
+  "about.updateTitle": "تحديث البرنامج",
+  "about.checkUpdate": "التحقق من التحديثات",
+  "about.checking": "جارٍ التحقق…",
+  "about.downloading": "جارٍ تنزيل v{{version}}",
+  "about.upToDate": "أحدث إصدار بالفعل",
+  "about.updateError": "فشل التحقق من التحديث"
 }

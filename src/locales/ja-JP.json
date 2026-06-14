@@ -1363,5 +1363,11 @@
   "about.repo": "リポジトリ",
   "about.releases": "リリース",
   "about.issues": "Issue 一覧",
-  "about.reportIssue": "問題を報告"
+  "about.reportIssue": "問題を報告",
+  "about.updateTitle": "ソフトウェア更新",
+  "about.checkUpdate": "更新を確認",
+  "about.checking": "確認中…",
+  "about.downloading": "ダウンロード中：v{{version}}",
+  "about.upToDate": "最新版です",
+  "about.updateError": "更新の確認に失敗"
 }

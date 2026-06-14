@@ -1363,5 +1363,11 @@
   "about.repo": "Репозиторий",
   "about.releases": "Релизы",
   "about.issues": "Issues",
-  "about.reportIssue": "Сообщить о проблеме"
+  "about.reportIssue": "Сообщить о проблеме",
+  "about.updateTitle": "Обновление ПО",
+  "about.checkUpdate": "Проверить обновления",
+  "about.checking": "Проверка…",
+  "about.downloading": "Загрузка v{{version}}",
+  "about.upToDate": "Уже актуально",
+  "about.updateError": "Ошибка проверки обновлений"
 }

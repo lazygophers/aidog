@@ -1341,5 +1341,11 @@
   "about.repo": "Repositorio",
   "about.releases": "Versiones",
   "about.issues": "Issues",
-  "about.reportIssue": "Reportar problema"
+  "about.reportIssue": "Reportar problema",
+  "about.updateTitle": "Actualización",
+  "about.checkUpdate": "Buscar actualizaciones",
+  "about.checking": "Comprobando…",
+  "about.downloading": "Descargando v{{version}}",
+  "about.upToDate": "Ya está actualizado",
+  "about.updateError": "Error al buscar actualizaciones"
 }
