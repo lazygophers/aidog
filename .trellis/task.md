@@ -44,3 +44,5 @@
 | skills-management | 基于 npx skills 的 skills 管理模块 | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-skills-management |
 | i18n-coverage-hardening | i18n 全覆盖硬化: 修复 settings 等裸 key + 自动检查脚本 + spec 规则 | — | 已完成 | 收尾 | 100% | — |
 | skills-ui-refine | Skills 模块 UI 修订 (agent 图标化 + scope 默认全局) | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-skills-ui-refine |
+| skills-list-layout | Skills 页布局修正 (列表=已装/catalog仅搜索出/agent移出筛选) | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-skills-list-layout |
+| i18n-labelkey-blindspot | i18n labelKey 盲区修复: t(变量) 路径 key 缺失 + check-i18n D 检查 | — | 进行中 | 规划 | 0% | — |
