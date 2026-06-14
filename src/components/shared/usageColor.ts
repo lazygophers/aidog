@@ -91,6 +91,8 @@ export function codingTierLevel(
 ): ColorLevel {
   if (!Number.isFinite(utilization) || utilization < 0) return "neutral";
   if (remainMs == null || cycleMs == null || cycleMs <= 0) return "neutral";
+  // 配额已耗尽（util≥100，剩余=0）→ danger。pace 算法衡量「撑到周期末」，耗尽后无意义（对齐 usage_color.rs）。
+  if (utilization >= 100) return "danger";
   return colorFromCodingRemainPct(codingRemainPct(utilization, remainMs, cycleMs));
 }
 
