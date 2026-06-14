@@ -191,7 +191,8 @@ fn parse_list_json(stdout: &str, scope: &SkillScope) -> Vec<SkillInfo> {
                 .get("description")
                 .and_then(|v| v.as_str())
                 .filter(|s| !s.is_empty())
-                .map(|s| s.to_string());
+                .map(|s| s.to_string())
+                .or_else(|| installed_path.as_deref().and_then(read_skill_description));
             Some(SkillInfo {
                 name,
                 enabled_agents,
@@ -203,6 +204,38 @@ fn parse_list_json(stdout: &str, scope: &SkillScope) -> Vec<SkillInfo> {
         .collect();
     out.sort_by(|a, b| a.name.cmp(&b.name));
     out
+}
+
+/// 从 SKILL.md 文本 frontmatter 解析 `description:` 单行值。
+/// 规则: 首行 `---` 起, 到下一个 `---` 止; 行 `description: <value>`, 去首尾引号 (单/双)。
+/// 无 frontmatter / 无 description 行 / 空值 → None。多行折叠 (`>-`) 不支持。
+fn parse_skill_description_from_frontmatter(content: &str) -> Option<String> {
+    let mut lines = content.lines();
+    let first = lines.next()?;
+    if first.trim() != "---" {
+        return None;
+    }
+    for line in lines {
+        let t = line.trim();
+        if t == "---" {
+            break;
+        }
+        if let Some(rest) = t.strip_prefix("description:") {
+            let v = rest.trim().trim_matches('"').trim_matches('\'');
+            if !v.is_empty() {
+                return Some(v.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// 读 `<skill_path>/SKILL.md` frontmatter 的 description 字段。
+/// 文件缺失 / 读失败 → None。
+fn read_skill_description(skill_path: &str) -> Option<String> {
+    let p = std::path::Path::new(skill_path).join("SKILL.md");
+    let content = std::fs::read_to_string(p).ok()?;
+    parse_skill_description_from_frontmatter(&content)
 }
 
 /// catalog 抓取地址（skills.sh 的 JSON 索引）。
@@ -611,6 +644,58 @@ mod tests {
         let out = parse_list_json(stdout, &SkillScope::Global);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].enabled_agents, vec![SkillAgent::Claude]);
+    }
+
+    #[test]
+    fn frontmatter_description_plain() {
+        let md = "---\nname: foo\ndescription: A great skill for stuff.\n---\nbody\n";
+        assert_eq!(
+            parse_skill_description_from_frontmatter(md).as_deref(),
+            Some("A great skill for stuff.")
+        );
+    }
+
+    #[test]
+    fn frontmatter_description_quoted() {
+        let md = "---\nname: foo\ndescription: \"Quoted desc\"\n---\n";
+        assert_eq!(
+            parse_skill_description_from_frontmatter(md).as_deref(),
+            Some("Quoted desc")
+        );
+    }
+
+    #[test]
+    fn frontmatter_description_single_quoted() {
+        let md = "---\ndescription: 'single'\n---\n";
+        assert_eq!(
+            parse_skill_description_from_frontmatter(md).as_deref(),
+            Some("single")
+        );
+    }
+
+    #[test]
+    fn frontmatter_no_frontmatter() {
+        let md = "just plain markdown\nno frontmatter\n";
+        assert!(parse_skill_description_from_frontmatter(md).is_none());
+    }
+
+    #[test]
+    fn frontmatter_no_description_field() {
+        let md = "---\nname: foo\n---\nbody\n";
+        assert!(parse_skill_description_from_frontmatter(md).is_none());
+    }
+
+    #[test]
+    fn frontmatter_empty_description() {
+        let md = "---\ndescription: \"\"\n---\n";
+        assert!(parse_skill_description_from_frontmatter(md).is_none());
+    }
+
+    #[test]
+    fn frontmatter_desc_only_inside_frontmatter() {
+        // description 行在正文 (非 frontmatter) 不应被解析。
+        let md = "---\nname: foo\n---\ndescription: fake in body\n";
+        assert!(parse_skill_description_from_frontmatter(md).is_none());
     }
 
     #[test]
