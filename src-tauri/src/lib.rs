@@ -886,7 +886,7 @@ async fn model_test(
                 error: format!("request failed: {e}"),
             };
             tracing::warn!(command = "model_test", platform_id = platform.id, error = %e, "model test request failed");
-            if let Err(le) = db::upsert_proxy_log(&db, &make_log(
+            if let Err(le) = db::upsert_proxy_log(&db, make_log(
                 &format!("upstream error: {e}"), 0, 502, "", &format!("upstream error: {e}"), 0, 0,
             )).await {
                 tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");
@@ -924,7 +924,7 @@ async fn model_test(
             error: format!("HTTP {}", status),
         };
         tracing::warn!(command = "model_test", platform_id = platform.id, %status, "model test non-success upstream status");
-        if let Err(le) = db::upsert_proxy_log(&db, &make_log(
+        if let Err(le) = db::upsert_proxy_log(&db, make_log(
             &body, upstream_status_code, upstream_status_code,
             &upstream_resp_headers, &body, 0, 0,
         )).await {
@@ -948,7 +948,7 @@ async fn model_test(
         error: String::new(),
     };
 
-    if let Err(le) = db::upsert_proxy_log(&db, &make_log(
+    if let Err(le) = db::upsert_proxy_log(&db, make_log(
         &body, upstream_status_code, 200,
         &upstream_resp_headers, &body, in_tok, out_tok,
     )).await {
@@ -1259,6 +1259,13 @@ async fn platform_usage_stats(platform_id: u64, db: State<'_, Db>) -> Result<gat
 async fn group_usage_stats(group_name: String, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
     tracing::debug!(command = "group_usage_stats", group_name = %group_name, "command invoked");
     gateway::db::get_group_usage_stats(&db, &group_name).await
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn all_group_usage_stats(db: State<'_, Db>) -> Result<std::collections::HashMap<String, gateway::models::PlatformUsageStats>, String> {
+    tracing::debug!(command = "all_group_usage_stats", "command invoked");
+    gateway::db::get_all_group_usage_stats(&db).await
 }
 
 #[tauri::command]
@@ -3330,6 +3337,7 @@ pub fn run() {
             // Platform Usage
             platform_usage_stats,
             group_usage_stats,
+            all_group_usage_stats,
             // Platform Quota
             platform_query_quota,
             platform_query_quota_newapi,

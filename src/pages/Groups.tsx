@@ -228,7 +228,7 @@ function CopyButton({ text, title, label, size = 14 }: { text: string; title?: s
 
 /**
  * 拉取每个 group 的使用统计 + 余额。
- * - usage stats：按 proxy_log.group_name 聚合（`groupUsageApi.stats`），只含本分组请求，共享平台不重复计入。
+ * - usage stats：按 proxy_log.group_name 聚合（`groupUsageApi.statsAll` 单次批量），只含本分组请求，共享平台不重复计入。
  * - balance：关联 platforms 的 est_balance_remaining 求和（平台级属性，无 per-group 概念，维持现状）。
  * load 与 refreshStats 共用，避免两处求和逻辑重复。
  */
@@ -239,20 +239,24 @@ async function fetchGroupStats(
   const platById = new Map(platforms.map(pp => [pp.id, pp]));
   const statsMap: Record<string, PlatformUsageStats> = {};
   const balanceMap: Record<number, number> = {};
-  await Promise.all(details.map(async (g) => {
-    // usage stats：按 group_name 查 proxy_log
-    try {
-      const s = await groupUsageApi.stats(g.group.name);
+  // usage stats：单次批量 invoke（后端 GROUP BY group_name），消除逐 group N+1 往返。
+  // 返回 map 仅含有日志的 group；total_requests > 0 时纳入。
+  try {
+    const all = await groupUsageApi.statsAll();
+    for (const g of details) {
+      const s = all[g.group.name];
       if (s && s.total_requests > 0) statsMap[g.group.name] = s;
-    } catch { /* ignore */ }
-    // balance：关联平台余额求和（保持平台级语义）
+    }
+  } catch { /* ignore */ }
+  // balance：关联平台余额求和（保持平台级语义，无 HTTP）。
+  for (const g of details) {
     let balance = 0;
     for (const gp of g.platforms) {
       const est = platById.get(gp.platform.id)?.est_balance_remaining;
       if (typeof est === "number" && est > 0) balance += est;
     }
     if (balance > 0) balanceMap[g.group.id] = balance;
-  }));
+  }
   return { statsMap, balanceMap };
 }
 
