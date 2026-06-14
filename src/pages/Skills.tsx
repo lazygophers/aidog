@@ -7,6 +7,7 @@
 // npx/node 缺失 → 顶部提示条引导装 node，不阻塞整页。
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
@@ -498,7 +499,8 @@ export function Skills() {
       </div>
 
       {/* 一键卸载二次确认 modal（破坏性，禁 native confirm） */}
-      {confirmUninstall && (
+      {/* createPortal 到 document.body：脱离 Skills 页 transform 祖先，fixed 始终相对 viewport 居中 */}
+      {confirmUninstall && createPortal(
         <div
           onClick={() => setConfirmUninstall(false)}
           style={{
@@ -536,11 +538,12 @@ export function Skills() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* 单条卸载二次确认 modal（破坏性，禁 native confirm） */}
-      {uninstallTarget && (
+      {uninstallTarget && createPortal(
         <div
           onClick={() => setUninstallTarget(null)}
           style={{
@@ -578,11 +581,12 @@ export function Skills() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       {/* 对齐配置 modal：使 to 与 from 启用配置一致 */}
-      {alignOpen && (
+      {alignOpen && createPortal(
         <div
           onClick={() => setAlignOpen(false)}
           style={{
@@ -648,7 +652,8 @@ export function Skills() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
