@@ -42,7 +42,8 @@ pub fn export_skills() -> Vec<SkillExportEntry> {
     installed
         .into_iter()
         .filter_map(|info| {
-            let source = info.source?;
+            // skills 重构后（3525117）以 installed_path 作 npx add package，不再有独立 source。
+            let source = info.installed_path?;
             if source.is_empty() {
                 return None;
             }

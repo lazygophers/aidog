@@ -952,6 +952,15 @@ export const notificationApi = {
   /** 一键移除通知 hook（strip）。client 同 injectHooks。 */
   removeHooks: (group: string, client: HookClient) =>
     invoke<void>("remove_hooks", { group, client }),
+  /** 读取「默认为所有分组注入通知 hook」总开关（基线 _aidog_hooks.enabled）。 */
+  getDefaultHooksEnabled: () =>
+    invoke<boolean>("get_default_hooks_enabled"),
+  /**
+   * 设置「默认为所有分组注入通知 hook」总开关：开=全分组注入 CC hooks + Codex notify，
+   * 关=全移除。写基线 _aidog_hooks.enabled 并 re-sync 物化。
+   */
+  setDefaultHooksEnabled: (enabled: boolean) =>
+    invoke<void>("set_default_hooks_enabled", { enabled }),
 };
 
 /** hook 注入客户端类型（N2）。 */

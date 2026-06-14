@@ -92,6 +92,16 @@ pub struct ScriptPaths {
     pub waiting: String,
 }
 
+/// 读取基线配置中 `_aidog_hooks.enabled` 标记（缺失/非布尔时返回 false）。
+/// 用于 `do_sync_group_settings` 决定是否默认物化通知 hook。
+pub fn hooks_marker_enabled(config: &Value) -> bool {
+    config
+        .get(MARKER_HOOKS)
+        .and_then(|m| m.get("enabled"))
+        .and_then(|e| e.as_bool())
+        .unwrap_or(false)
+}
+
 /// 注入 Claude Code hooks 到基线配置（`claude_code` 全局 setting）。
 ///
 /// - `hooks.Stop` → 任务完成脚本（complete）。
@@ -351,6 +361,18 @@ mod tests {
         assert_eq!(cfg["model_provider"], "aidog");
         remove_codex_notify(&mut cfg);
         assert!(cfg.get("notify").is_none());
+    }
+
+    #[test]
+    fn marker_enabled_parsing() {
+        assert!(hooks_marker_enabled(&json!({ "_aidog_hooks": { "enabled": true } })));
+        assert!(!hooks_marker_enabled(&json!({ "_aidog_hooks": { "enabled": false } })));
+        // marker 缺失 → false
+        assert!(!hooks_marker_enabled(&json!({})));
+        // enabled 非布尔 → false
+        assert!(!hooks_marker_enabled(&json!({ "_aidog_hooks": { "enabled": "yes" } })));
+        // marker 非对象 → false
+        assert!(!hooks_marker_enabled(&json!({ "_aidog_hooks": true })));
     }
 
     #[test]
