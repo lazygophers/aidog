@@ -1347,5 +1347,19 @@
   "about.checking": "Checking…",
   "about.downloading": "Downloading v{{version}}",
   "about.upToDate": "Already up to date",
-  "about.updateError": "Update check failed"
+  "about.updateError": "Update check failed",
+  "skills.install.addBtn": "+ Add",
+  "skills.install.title": "Add Skills",
+  "skills.install.back": "← Back",
+  "skills.install.searchPlaceholder": "Search skills by keyword (e.g. git, docs, deploy)",
+  "skills.install.searching": "Searching…",
+  "skills.install.selectAgent": "Install to",
+  "skills.install.install": "Install",
+  "skills.install.installing": "Installing…",
+  "skills.install.installed": "Installed",
+  "skills.install.installSuccess": "Installed {{name}}",
+  "skills.install.installFailed": "Installation failed",
+  "skills.install.noResults": "No results",
+  "skills.install.emptyHint": "Type a keyword to search for installable skills",
+  "skills.install.loadFailed": "Failed to load"
 }

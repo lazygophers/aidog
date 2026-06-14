@@ -18,6 +18,7 @@ import {
   type SkillInfo,
   type SkillsOpResult,
 } from "../services/api";
+import { SkillInstallView } from "./SkillInstallView";
 import claudeIcon from "../assets/platforms/claude_code.svg";
 import codexIcon from "../assets/platforms/openai.svg";
 
@@ -30,6 +31,8 @@ export function Skills() {
   const [env, setEnv] = useState<SkillsEnv | null>(null);
   const [scopeKind, setScopeKind] = useState<"global" | "project">("global");
   const [projectPath, setProjectPath] = useState("");
+  // 子视图：list = 已装列表（默认）；install = 搜索安装页（按钮切换 + 返回）。
+  const [subView, setSubView] = useState<"list" | "install">("list");
 
   const [installed, setInstalled] = useState<SkillInfo[]>([]);
   // 冷启动加载态（仅无缓存命中时显整页 loading）。
@@ -415,6 +418,15 @@ export function Skills() {
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button
+            className="btn btn-primary"
+            style={{ fontSize: 12 }}
+            disabled={!writeReady || scopeInvalid || busyKey !== null}
+            onClick={() => setSubView("install")}
+            title={t("skills.install.addBtn", "添加 Skills")}
+          >
+            {t("skills.install.addBtn", "+ 添加")}
+          </button>
+          <button
             className="btn btn-ghost"
             style={{ fontSize: 12 }}
             disabled={scopeInvalid || busyKey !== null || refreshing}
@@ -450,6 +462,9 @@ export function Skills() {
         </div>
       </div>
 
+      {/* 子视图: list = 已装列表 (默认); install = 搜索安装页 */}
+      {subView === "list" && (
+      <>
       {/* 环境缺失提示条 */}
       {env && !env.npx_available && (
         <div
@@ -790,6 +805,19 @@ export function Skills() {
           </div>
         )}
       </div>
+      </>
+      )}
+
+      {/* 搜索安装子视图 */}
+      {subView === "install" && (
+        <SkillInstallView
+          scope={scope}
+          installedNames={new Set(installed.map((s) => s.name))}
+          writeReady={writeReady}
+          onBack={() => setSubView("list")}
+          onInstalled={refreshInstalled}
+        />
+      )}
 
       {/* 一键卸载二次确认 modal（破坏性，禁 native confirm） */}
       {/* createPortal 到 document.body：脱离 Skills 页 transform 祖先，fixed 始终相对 viewport 居中 */}

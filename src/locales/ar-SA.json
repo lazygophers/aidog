@@ -1369,5 +1369,19 @@
   "about.checking": "جارٍ التحقق…",
   "about.downloading": "جارٍ تنزيل v{{version}}",
   "about.upToDate": "أحدث إصدار بالفعل",
-  "about.updateError": "فشل التحقق من التحديث"
+  "about.updateError": "فشل التحقق من التحديث",
+  "skills.install.addBtn": "+ إضافة",
+  "skills.install.title": "إضافة Skills",
+  "skills.install.back": "← رجوع",
+  "skills.install.searchPlaceholder": "ابحث عن المهارات بالكلمة (مثل git، docs، deploy)",
+  "skills.install.searching": "جارٍ البحث…",
+  "skills.install.selectAgent": "التثبيت على",
+  "skills.install.install": "تثبيت",
+  "skills.install.installing": "جارٍ التثبيت…",
+  "skills.install.installed": "مثبّت",
+  "skills.install.installSuccess": "تم تثبيت {{name}}",
+  "skills.install.installFailed": "فشل التثبيت",
+  "skills.install.noResults": "لا نتائج",
+  "skills.install.emptyHint": "اكتب كلمة لبدء البحث عن المهارات القابلة للتثبيت",
+  "skills.install.loadFailed": "فشل التحميل"
 }

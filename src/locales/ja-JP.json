@@ -1369,5 +1369,19 @@
   "about.checking": "確認中…",
   "about.downloading": "ダウンロード中：v{{version}}",
   "about.upToDate": "最新版です",
-  "about.updateError": "更新の確認に失敗"
+  "about.updateError": "更新の確認に失敗",
+  "skills.install.addBtn": "+ 追加",
+  "skills.install.title": "Skills を追加",
+  "skills.install.back": "← 戻る",
+  "skills.install.searchPlaceholder": "キーワードで skills を検索（例: git、docs、deploy）",
+  "skills.install.searching": "検索中…",
+  "skills.install.selectAgent": "インストール先",
+  "skills.install.install": "インストール",
+  "skills.install.installing": "インストール中…",
+  "skills.install.installed": "インストール済み",
+  "skills.install.installSuccess": "{{name}} をインストールしました",
+  "skills.install.installFailed": "インストール失敗",
+  "skills.install.noResults": "結果なし",
+  "skills.install.emptyHint": "キーワードを入力してインストール可能な skills を検索",
+  "skills.install.loadFailed": "読み込み失敗"
 }

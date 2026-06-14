@@ -1369,5 +1369,19 @@
   "about.checking": "Wird geprüft…",
   "about.downloading": "Lädt v{{version}}",
   "about.upToDate": "Bereits aktuell",
-  "about.updateError": "Update-Prüfung fehlgeschlagen"
+  "about.updateError": "Update-Prüfung fehlgeschlagen",
+  "skills.install.addBtn": "+ Hinzufügen",
+  "skills.install.title": "Skills hinzufügen",
+  "skills.install.back": "← Zurück",
+  "skills.install.searchPlaceholder": "Skills nach Schlüsselwort suchen (z. B. git, docs, deploy)",
+  "skills.install.searching": "Suche…",
+  "skills.install.selectAgent": "Installieren nach",
+  "skills.install.install": "Installieren",
+  "skills.install.installing": "Installation…",
+  "skills.install.installed": "Installiert",
+  "skills.install.installSuccess": "{{name}} installiert",
+  "skills.install.installFailed": "Installation fehlgeschlagen",
+  "skills.install.noResults": "Keine Ergebnisse",
+  "skills.install.emptyHint": "Schlüsselwort eingeben, um installierbare Skills zu suchen",
+  "skills.install.loadFailed": "Laden fehlgeschlagen"
 }
