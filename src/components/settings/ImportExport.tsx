@@ -157,7 +157,7 @@ export function ImportExportTab() {
         <button onClick={handleExport} disabled={exporting} className="btn-primary">
           {exporting ? t("importExport.exporting", "导出中…") : t("importExport.exportBtn", "选择路径并导出")}
         </button>
-        {exportMsg && <div className="toast" style={{ background: "var(--color-success, #2ea04360)" }}>{exportMsg}</div>}
+        {exportMsg && <div className="toast" style={{ background: "var(--bg-elevated)", borderColor: "var(--success)", color: "var(--success)" }}>{exportMsg}</div>}
       </section>
 
       {/* 导入区 */}
@@ -216,7 +216,7 @@ export function ImportExportTab() {
         {report && <ReportView report={report} t={t} scopeLabel={(s: string) => scopeLabel(t, s)} />}
       </section>
 
-      {error && <div className="toast" style={{ background: "var(--color-danger, #da363360)" }}>{error}</div>}
+      {error && <div className="toast" style={{ background: "var(--bg-elevated)", borderColor: "var(--danger)", color: "var(--danger)" }}>{error}</div>}
     </div>
   );
 }
@@ -236,7 +236,7 @@ function ConflictRow({
 }) {
   const isRename = current.kind === "rename";
   return (
-    <div style={{ padding: 10, border: "1px solid var(--color-border, #333)", borderRadius: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+    <div style={{ padding: 10, border: "1px solid var(--border)", borderRadius: 8, display: "flex", flexDirection: "column", gap: 6 }}>
       <div style={{ fontWeight: 600 }}>
         [{scopeLabel}] {item.key}
       </div>
@@ -297,11 +297,11 @@ function ReportView({
       ))}
       {report.errors.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 2, marginTop: 6 }}>
-          <strong style={{ color: "var(--color-danger, #f85149)" }}>
+          <strong style={{ color: "var(--danger)" }}>
             {t("importExport.errors", "错误（{{n}}）", { n: report.errors.length })}
           </strong>
           {report.errors.map((e, i) => (
-            <div key={i} style={{ fontSize: 12, color: "var(--color-danger, #f85149)" }}>
+            <div key={i} style={{ fontSize: 12, color: "var(--danger)" }}>
               {e}
             </div>
           ))}
