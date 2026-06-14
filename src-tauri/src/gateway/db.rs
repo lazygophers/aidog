@@ -248,6 +248,24 @@ impl Db {
                      WHERE deleted_at = 0",
                     [],
                 );
+                // Migration 020: MCP 管理模块。集中存 MCP server 配置 + per-agent 启用态。
+                // enabled_agents = 逗号分隔 agent slug（claude-code/codex）。
+                // env_json/headers_json 含敏感值（token/key/secret），前端展示经 mcp.rs::mask_env 脱敏。
+                conn.execute_batch(
+                    "CREATE TABLE IF NOT EXISTS mcp_server (
+                       id             INTEGER PRIMARY KEY AUTOINCREMENT,
+                       name           TEXT NOT NULL UNIQUE,
+                       transport      TEXT NOT NULL DEFAULT 'stdio',
+                       command        TEXT NOT NULL DEFAULT '',
+                       args_json      TEXT NOT NULL DEFAULT '[]',
+                       env_json       TEXT NOT NULL DEFAULT '{}',
+                       url            TEXT NOT NULL DEFAULT '',
+                       headers_json   TEXT NOT NULL DEFAULT '{}',
+                       enabled_agents TEXT NOT NULL DEFAULT '',
+                       created_at     INTEGER NOT NULL,
+                       updated_at     INTEGER NOT NULL
+                     );",
+                )?;
                 Ok(())
             })
             .await
@@ -2996,6 +3014,148 @@ pub async fn filtered_count_model_prices(
         })
         .await
         .map_err(|e| e.to_string())
+}
+
+// ─── MCP server CRUD ───────────────────────────────────────
+// 集中存 MCP server 配置（migration 020）。行结构见 super::mcp::McpServerRow。
+// env_json/headers_json 含原始敏感值，调用方负责脱敏后再返前端。
+
+pub async fn list_mcp_servers(db: &Db) -> Result<Vec<super::mcp::McpServerRow>, String> {
+    db.0.call(move |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, name, transport, command, args_json, env_json, url, headers_json, \
+             enabled_agents, created_at, updated_at FROM mcp_server ORDER BY name",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok(super::mcp::McpServerRow {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                transport: r.get(2)?,
+                command: r.get(3)?,
+                args_json: r.get(4)?,
+                env_json: r.get(5)?,
+                url: r.get(6)?,
+                headers_json: r.get(7)?,
+                enabled_agents: r.get(8)?,
+                created_at: r.get(9)?,
+                updated_at: r.get(10)?,
+            })
+        })?;
+        let mut out = vec![];
+        for r in rows {
+            out.push(r?);
+        }
+        Ok(out)
+    })
+    .await
+    .map_err(|e| format!("list mcp servers: {e}"))
+}
+
+pub async fn get_mcp_server(
+    db: &Db,
+    name: &str,
+) -> Result<Option<super::mcp::McpServerRow>, String> {
+    let name = name.to_string();
+    db.0.call(move |conn| {
+        let mut stmt = conn.prepare(
+            "SELECT id, name, transport, command, args_json, env_json, url, headers_json, \
+             enabled_agents, created_at, updated_at FROM mcp_server WHERE name = ?1",
+        )?;
+        let mut rows = stmt.query_map(params![name], |r| {
+            Ok(super::mcp::McpServerRow {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                transport: r.get(2)?,
+                command: r.get(3)?,
+                args_json: r.get(4)?,
+                env_json: r.get(5)?,
+                url: r.get(6)?,
+                headers_json: r.get(7)?,
+                enabled_agents: r.get(8)?,
+                created_at: r.get(9)?,
+                updated_at: r.get(10)?,
+            })
+        })?;
+        match rows.next() {
+            Some(r) => Ok(Some(r?)),
+            None => Ok(None),
+        }
+    })
+    .await
+    .map_err(|e| format!("get mcp server: {e}"))
+}
+
+/// INSERT 或 UPDATE（按 name 唯一冲突）。created_at 仅首次写入生效（UPDATE 不覆盖）。
+pub async fn upsert_mcp_server(db: &Db, row: &super::mcp::McpServerRow) -> Result<(), String> {
+    let row = row.clone();
+    db.0.call(move |conn| {
+        conn.execute(
+            "INSERT INTO mcp_server \
+             (name, transport, command, args_json, env_json, url, headers_json, enabled_agents, created_at, updated_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10) \
+             ON CONFLICT(name) DO UPDATE SET \
+               transport=excluded.transport, command=excluded.command, args_json=excluded.args_json, \
+               env_json=excluded.env_json, url=excluded.url, headers_json=excluded.headers_json, \
+               enabled_agents=excluded.enabled_agents, updated_at=excluded.updated_at",
+            params![
+                row.name,
+                row.transport,
+                row.command,
+                row.args_json,
+                row.env_json,
+                row.url,
+                row.headers_json,
+                row.enabled_agents,
+                row.created_at,
+                row.updated_at
+            ],
+        )?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("upsert mcp server: {e}"))
+}
+
+pub async fn delete_mcp_server(db: &Db, name: &str) -> Result<(), String> {
+    let name = name.to_string();
+    db.0.call(move |conn| {
+        conn.execute("DELETE FROM mcp_server WHERE name = ?1", params![name])?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("delete mcp server: {e}"))
+}
+
+pub async fn set_mcp_server_enabled_agents(
+    db: &Db,
+    name: &str,
+    agents_csv: &str,
+) -> Result<(), String> {
+    let name = name.to_string();
+    let csv = agents_csv.to_string();
+    db.0.call(move |conn| {
+        conn.execute(
+            "UPDATE mcp_server SET enabled_agents = ?1, updated_at = ?2 WHERE name = ?3",
+            params![csv, now(), name],
+        )?;
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("set mcp enabled agents: {e}"))
+}
+
+pub async fn list_mcp_server_names(db: &Db) -> Result<Vec<String>, String> {
+    db.0.call(move |conn| {
+        let mut stmt = conn.prepare("SELECT name FROM mcp_server")?;
+        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
+        let mut out = vec![];
+        for r in rows {
+            out.push(r?);
+        }
+        Ok(out)
+    })
+    .await
+    .map_err(|e| format!("list mcp server names: {e}"))
 }
 
 // ─── Tests: DB Schema v2 规范固化 ──────────────────────────

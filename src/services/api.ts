@@ -1375,6 +1375,79 @@ export const skillsApi = {
     }),
 };
 
+// ─── MCP 管理 ─────────────────────────────────────────────
+
+/** 受管 agent slug（对齐后端 mcp.rs::McpAgent，注意 claude-code 非 "claude"）。 */
+export type McpAgentSlug = "claude-code" | "codex";
+
+/** MCP 传输类型。 */
+export type McpTransport = "stdio" | "http" | "sse";
+
+/**
+ * DB 中 MCP server（列表用）。env/headers 已脱敏（敏感值 → "***"）。
+ * 后端 McpServerInfo serde camelCase。
+ */
+export interface McpServerInfo {
+  id: number;
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args: string[];
+  /** 脱敏后。 */
+  env: Record<string, string>;
+  url: string;
+  /** 脱敏后。 */
+  headers: Record<string, string>;
+  enabledAgents: McpAgentSlug[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** 扫描结果项（claude.json + codex config.toml 去重合并）。 */
+export interface McpScanItem {
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  url: string;
+  headers: Record<string, string>;
+  foundInAgents: McpAgentSlug[];
+  alreadyImported: boolean;
+}
+
+/** 导入项。env/headers 前端传脱敏值，后端优先从 agent 配置取原值。 */
+export interface McpImportPayload {
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  url: string;
+  headers: Record<string, string>;
+  sourceAgent: McpAgentSlug;
+}
+
+export interface McpImportReport {
+  imported: string[];
+  skipped: string[];
+}
+
+export const mcpApi = {
+  /** 列出 DB 中所有 MCP（env/headers 脱敏）。 */
+  list: () => invoke<McpServerInfo[]>("mcp_list"),
+  /** 扫描 Claude Code + Codex 配置去重合并。 */
+  scan: () => invoke<McpScanItem[]>("mcp_scan"),
+  /** 批量导入（enabled = source agent）。 */
+  import: (items: McpImportPayload[]) =>
+    invoke<McpImportReport>("mcp_import", { items }),
+  /** per-agent 启用/禁用（同步写/删 agent 配置）。 */
+  setAgent: (name: string, agent: McpAgentSlug, enabled: boolean) =>
+    invoke<void>("mcp_set_agent", { name, agent, enabled }),
+  /** 删除（DB + 所有 enabled agent 配置，破坏性）。 */
+  delete: (name: string) => invoke<void>("mcp_delete", { name }),
+};
+
 // ─── 导入导出子系统 ───────────────────────────────────────
 
 export type ImportExportScope =

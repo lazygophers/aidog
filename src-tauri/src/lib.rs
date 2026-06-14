@@ -1718,6 +1718,59 @@ async fn skills_enable_all(
     Ok(res)
 }
 
+// ─── MCP 管理 ─────────────────────────────────────────────
+
+/// 列出 DB 中所有 MCP server（env/headers 已脱敏）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_list(db: State<'_, Db>) -> Result<Vec<gateway::mcp::McpServerInfo>, String> {
+    tracing::debug!(command = "mcp_list", "command invoked");
+    let rows = gateway::db::list_mcp_servers(&db).await?;
+    Ok(rows.into_iter().map(gateway::mcp::McpServerInfo::from).collect())
+}
+
+/// 扫描 Claude Code + Codex 配置的所有 MCP，去重合并（env/headers 已脱敏）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_scan(db: State<'_, Db>) -> Result<Vec<gateway::mcp::McpScanItem>, String> {
+    tracing::debug!(command = "mcp_scan", "command invoked");
+    gateway::mcp::scan_all(&db).await
+}
+
+/// 批量导入 MCP（从 agent 配置取原值入 DB，enabled = source agent）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_import(
+    db: State<'_, Db>,
+    items: Vec<gateway::mcp::McpImportPayload>,
+) -> Result<gateway::mcp::ImportReport, String> {
+    tracing::debug!(command = "mcp_import", count = items.len(), "command invoked");
+    gateway::mcp::import_items(&db, items).await
+}
+
+/// per-agent 启用/禁用：改 DB enabled_agents + 同步写/删 agent 配置。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_set_agent(
+    db: State<'_, Db>,
+    name: String,
+    agent: String,
+    enabled: bool,
+) -> Result<(), String> {
+    tracing::debug!(command = "mcp_set_agent", name = %name, agent = %agent, enabled, "command invoked");
+    let agent = gateway::mcp::McpAgent::from_slug(&agent)
+        .ok_or_else(|| format!("unknown agent slug: {agent}"))?;
+    gateway::mcp::set_agent_enabled(&db, &name, agent, enabled).await
+}
+
+/// 删除 MCP：DB + 所有 enabled agent 配置（破坏性，前端二次确认）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_delete(db: State<'_, Db>, name: String) -> Result<(), String> {
+    tracing::debug!(command = "mcp_delete", name = %name, "command invoked");
+    gateway::mcp::delete_server(&db, &name).await
+}
+
 // ─── 导入导出子系统 ───────────────────────────────────────
 
 /// 导出：收集各 scope 数据 → 加密 → 写入用户选择路径。
@@ -3415,6 +3468,12 @@ pub fn run() {
             skills_align_agents,
             skills_enable_all,
             skills_set_group_agent,
+            // MCP 管理
+            mcp_list,
+            mcp_scan,
+            mcp_import,
+            mcp_set_agent,
+            mcp_delete,
             // 导入导出子系统
             export_to_file,
             import_read_file,
