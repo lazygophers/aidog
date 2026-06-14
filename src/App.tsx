@@ -8,6 +8,7 @@ import { Logs } from "./pages/Logs";
 import { Stats } from "./pages/Stats";
 import { Notifications } from "./pages/Notifications";
 import { Skills } from "./pages/Skills";
+import { Mcp } from "./pages/Mcp";
 import {
   proxyLogApi,
   NOTIF_SPEAK,
@@ -21,6 +22,7 @@ const BASE_NAV: NavItem[] = [
   { id: "logs", icon: "logs", labelKey: "nav.logs" },
   { id: "notifications", icon: "notifications", labelKey: "nav.notifications" },
   { id: "skills", icon: "skills", labelKey: "nav.skills" },
+  { id: "mcp", icon: "mcp", labelKey: "nav.mcp" },
   {
     id: "settings",
     icon: "settings",
@@ -115,6 +117,7 @@ function App() {
           {effectiveNav === "stats" && <Stats />}
           {effectiveNav === "notifications" && <Notifications />}
           {effectiveNav === "skills" && <Skills />}
+        {effectiveNav === "mcp" && <Mcp />}
         </div>
       </main>
     </div>

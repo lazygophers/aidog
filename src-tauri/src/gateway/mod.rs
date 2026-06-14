@@ -18,3 +18,4 @@ pub mod scripts;
 pub mod skills;
 pub mod usage_color;
 pub mod import_export;
+pub mod mcp;
