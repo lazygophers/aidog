@@ -1,10 +1,9 @@
 // ─── Skills 管理页 ──────────────────────────────────────────
-// 顶层侧栏入口。GUI 内浏览/搜索/安装/列已装/卸载/更新 agent skills。
-// 混合方案：读操作走原生（skillsApi.browseCatalog/search/listInstalled/checkEnv），
-// 写操作 shell out npx skills（install/remove/update）。
+// 顶层侧栏入口。GUI 内列已装 / 卸载 / 更新 agent skills。
+// 读操作走原生（skillsApi.listInstalled/checkEnv），写操作 shell out npx skills（remove/update）。
 //
 // scope 默认 Global（用户级全局 -g），可选 Project（选某项目目录）。
-// agent 默认 Claude，可切 Codex（SVG 图标行切换，激活/未激活态可视区分）。
+// agent 默认 Claude，可切 Codex（SVG 图标行切换，激活/未激活态可视区分，兼做统计）。
 // npx/node 缺失 → 顶部提示条引导装 node，不阻塞整页。
 
 import { useState, useEffect, useCallback } from "react";
@@ -16,7 +15,6 @@ import {
   type SkillScope,
   type SkillsEnv,
   type SkillInfo,
-  type CatalogEntry,
   type SkillsOpResult,
 } from "../services/api";
 import claudeIcon from "../assets/platforms/claude_code.svg";
@@ -33,12 +31,11 @@ export function Skills() {
   const [scopeKind, setScopeKind] = useState<"global" | "project">("global");
   const [projectPath, setProjectPath] = useState("");
 
-  const [catalog, setCatalog] = useState<CatalogEntry[]>([]);
-  const [catalogLoading, setCatalogLoading] = useState(false);
-  const [keyword, setKeyword] = useState("");
-
   const [installed, setInstalled] = useState<SkillInfo[]>([]);
   const [installedLoading, setInstalledLoading] = useState(false);
+
+  // 每 agent 已装数（当前 scope）。
+  const [counts, setCounts] = useState<Record<SkillAgent, number>>({ claude: 0, codex: 0 });
 
   const [busyId, setBusyId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -56,23 +53,6 @@ export function Skills() {
   useEffect(() => {
     skillsApi.checkEnv().then(setEnv).catch((e) => console.error("check env failed", e));
   }, []);
-
-  // 浏览 catalog（进页一次）。
-  const loadCatalog = useCallback(async () => {
-    setCatalogLoading(true);
-    try {
-      const list = await skillsApi.browseCatalog();
-      setCatalog(list);
-    } catch (e) {
-      console.error("browse catalog failed", e);
-    } finally {
-      setCatalogLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    loadCatalog();
-  }, [loadCatalog]);
 
   // 列已装（scope/agent 变化时刷新）。
   const loadInstalled = useCallback(async () => {
@@ -96,19 +76,27 @@ export function Skills() {
     loadInstalled();
   }, [loadInstalled]);
 
-  const handleSearch = async () => {
-    setCatalogLoading(true);
-    try {
-      const list = keyword.trim()
-        ? await skillsApi.search(keyword.trim())
-        : await skillsApi.browseCatalog();
-      setCatalog(list);
-    } catch (e) {
-      console.error("search failed", e);
-    } finally {
-      setCatalogLoading(false);
+  // 统计：当前 scope 下每 agent 已装数（claude + codex 并行）。
+  const loadCounts = useCallback(async () => {
+    if (scopeInvalid) {
+      setCounts({ claude: 0, codex: 0 });
+      return;
     }
-  };
+    try {
+      const [claudeList, codexList] = await Promise.all([
+        skillsApi.listInstalled(scope, "claude"),
+        skillsApi.listInstalled(scope, "codex"),
+      ]);
+      setCounts({ claude: claudeList.length, codex: codexList.length });
+    } catch (e) {
+      console.error("load counts failed", e);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKind, projectPath]);
+
+  useEffect(() => {
+    loadCounts();
+  }, [loadCounts]);
 
   const pickProjectDir = async () => {
     try {
@@ -128,24 +116,10 @@ export function Skills() {
     if (res.success) {
       setMessage(t(okKey, "操作成功"));
       await loadInstalled();
+      await loadCounts();
     } else {
       const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "操作失败");
       setMessage(err);
-    }
-  };
-
-  const handleInstall = async (id: string) => {
-    if (!writeReady || scopeInvalid) return;
-    setBusyId(id);
-    setMessage(null);
-    try {
-      const res = await skillsApi.install(id, agent, scope);
-      await applyResult(res, "skills.installed");
-    } catch (e) {
-      console.error("install failed", e);
-      setMessage(String(e));
-    } finally {
-      setBusyId(null);
     }
   };
 
@@ -219,7 +193,7 @@ export function Skills() {
         </div>
       )}
 
-      {/* scope + agent 选择 */}
+      {/* scope 筛选（仅 scope） */}
       <div className="glass-surface" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
@@ -234,43 +208,6 @@ export function Skills() {
               <option value="project">{t("skills.scopeProject", "项目级")}</option>
             </select>
           </label>
-
-          <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
-            <span className="text-secondary">{t("skills.agent", "Agent")}</span>
-            <div style={{ display: "flex", gap: 8 }}>
-              {AGENTS.map((a) => {
-                const active = agent === a;
-                const label = t(`skills.agent.${a}`, a);
-                return (
-                  <button
-                    key={a}
-                    type="button"
-                    className="glass"
-                    title={label}
-                    aria-label={label}
-                    aria-pressed={active}
-                    onClick={() => setAgent(a)}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      width: 38,
-                      height: 38,
-                      padding: 0,
-                      cursor: "pointer",
-                      borderRadius: 10,
-                      border: active ? "1.5px solid var(--accent)" : "1px solid transparent",
-                      background: active ? "var(--accent-soft, rgba(255,255,255,0.08))" : "transparent",
-                      opacity: active ? 1 : 0.45,
-                      transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
-                    }}
-                  >
-                    <img src={AGENT_ICONS[a]} alt={label} style={{ width: 22, height: 22 }} />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
         </div>
 
         {scopeKind === "project" && (
@@ -289,55 +226,49 @@ export function Skills() {
         )}
       </div>
 
-      {/* catalog 浏览 / 搜索 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <div style={{ display: "flex", gap: 8 }}>
-          <input
-            className="input"
-            style={{ flex: 1 }}
-            placeholder={t("skills.searchPlaceholder", "搜索 skills…")}
-            value={keyword}
-            onChange={(e) => setKeyword(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") handleSearch(); }}
-          />
-          <button className="btn btn-primary" style={{ fontSize: 12 }} onClick={handleSearch}>
-            {t("skills.search", "搜索")}
-          </button>
+      {/* agent 图标 + 统计行（统计/切换区，独立于筛选） */}
+      <div
+        className="glass-surface"
+        style={{ padding: 16, display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}
+      >
+        <div style={{ fontSize: 13, fontWeight: 600 }}>
+          {t("skills.total", "已安装总计")}
+          <span style={{ marginInlineStart: 6, color: "var(--accent)", fontWeight: 700 }}>
+            {counts.claude + counts.codex}
+          </span>
         </div>
-
-        {catalogLoading ? (
-          <div className="text-secondary" style={{ padding: 12 }}>{t("status.loading", "加载中…")}</div>
-        ) : catalog.length === 0 ? (
-          <div className="glass-surface text-secondary" style={{ padding: "24px 16px", textAlign: "center", fontSize: 13 }}>
-            {t("skills.catalogEmpty", "没有可显示的 skills")}
-          </div>
-        ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {catalog.map((entry) => (
-              <div
-                key={entry.id}
-                className="glass-surface"
-                style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "flex-start" }}
+        <div style={{ display: "flex", gap: 10 }}>
+          {AGENTS.map((a) => {
+            const active = agent === a;
+            const label = t(`skills.agent.${a}`, a);
+            return (
+              <button
+                key={a}
+                type="button"
+                className="glass"
+                title={label}
+                aria-label={label}
+                aria-pressed={active}
+                onClick={() => setAgent(a)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  padding: "6px 12px",
+                  cursor: "pointer",
+                  borderRadius: 10,
+                  border: active ? "1.5px solid var(--accent)" : "1px solid transparent",
+                  background: active ? "var(--accent-soft, rgba(255,255,255,0.08))" : "transparent",
+                  opacity: active ? 1 : 0.5,
+                  transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
+                }}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>{entry.name}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-tertiary)", marginTop: 2 }}>{entry.id}</div>
-                  {entry.description && (
-                    <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>{entry.description}</div>
-                  )}
-                </div>
-                <button
-                  className="btn btn-primary"
-                  style={{ fontSize: 11, padding: "4px 10px", whiteSpace: "nowrap" }}
-                  disabled={!writeReady || scopeInvalid || busyId !== null}
-                  onClick={() => handleInstall(entry.id)}
-                >
-                  {busyId === entry.id ? t("skills.installing", "安装中…") : t("skills.install", "安装")}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
+                <img src={AGENT_ICONS[a]} alt={label} style={{ width: 20, height: 20 }} />
+                <span style={{ fontSize: 13, fontWeight: 600 }}>{counts[a]}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* 已装列表 */}
