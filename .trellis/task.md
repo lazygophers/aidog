@@ -60,6 +60,8 @@
 | skills-npx-proxy | npx skills 走 aidog 上游代理 | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-skills-npx-proxy |
 | remove-installed-title | Skills 页移除已安装标题 card | — | 已完成 | 收尾 | 100% | — |
 | skills-show-desc | Skills 展示每条 desc 字段 | — | 已完成 | 收尾 | 100% | — |
-| statusline-py-uv | statusline 脚本 sh→python (golden-output 回归) | statusline+subagent 转 Python 字节级一致(golden 回归); 复用 ScriptInvoker; 高风险 | 进行中 | 执行 | 10% | .trellis/worktrees/06-14-statusline-py-uv |
+| statusline-py-uv | statusline 脚本 sh→python (golden-output 回归) | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-statusline-py-uv |
 | skills-uninstall-all | Skills 一键卸载所有平台所有 skills | — | 已完成 | 收尾 | 100% | — |
-| skills-align-agents | Skills 对齐两 agent 配置快捷方式 | — | 进行中 | 规划 | 0% | — |
+| skills-align-agents | Skills 对齐两 agent 配置快捷方式 | — | 已完成 | 收尾 | 100% | — |
+| skills-enable-all | Skills 一键全启用某 agent | — | 已完成 | 收尾 | 100% | — |
+| notif-no-read-state | 通知去已读未读/完成即结束 | — | 进行中 | 规划 | 0% | — |
