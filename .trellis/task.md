@@ -88,3 +88,5 @@
 | load-recommended-hooks | 修复加载推荐配置时通知 hooks 未自动添加/更新 | — | 已完成 | 收尾 | 100 | — |
 | hooks-quick-notify-inject | Hooks 区加快速注入/移除通知 hook 入口 (编辑器可见) | — | 已完成 | 收尾 | 100 | — |
 | popup-opaque-bg | 弹窗本体背景 100% 不透明 | — | 已完成 | 收尾 | 100% | — |
+| theme-name-i18n | 主题名多语言 i18n | — | 已完成 | 收尾 | 100% | — |
+| theme-3axis-system | 主题系统 3 轴化 (style × color × dark/light) + 4 style + 12 palette | — | 规划中 | 规划 | 0% | — |
