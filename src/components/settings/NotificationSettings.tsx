@@ -59,6 +59,8 @@ export function NotificationSettingsTab() {
   const [groups, setGroups] = useState<Group[]>([]);
   const [hookGroup, setHookGroup] = useState("");
   const [hookBusy, setHookBusy] = useState(false);
+  const [defaultHooks, setDefaultHooks] = useState(false);
+  const [defaultHooksBusy, setDefaultHooksBusy] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -74,6 +76,12 @@ export function NotificationSettingsTab() {
         if (gs.length > 0) setHookGroup(gs[0].name);
       } catch (e) {
         console.error("load groups failed", e);
+      }
+      try {
+        const enabled = await notificationApi.getDefaultHooksEnabled();
+        setDefaultHooks(enabled);
+      } catch (e) {
+        console.error("load default hooks state failed", e);
       }
       setLoading(false);
     })();
@@ -109,6 +117,23 @@ export function NotificationSettingsTab() {
       console.error("test notify failed", e);
       setMessage(String(e));
     }
+  };
+
+  const handleToggleDefaultHooks = async () => {
+    const next = !defaultHooks;
+    setDefaultHooksBusy(true);
+    setDefaultHooks(next);
+    try {
+      await notificationApi.setDefaultHooksEnabled(next);
+      setMessage(next
+        ? t("notif.defaultHooksOn", "已为所有分组注入通知 hook")
+        : t("notif.defaultHooksOff", "已移除所有分组的通知 hook"));
+    } catch (e) {
+      console.error("set default hooks failed", e);
+      setDefaultHooks(!next);
+      setMessage(String(e));
+    }
+    setDefaultHooksBusy(false);
   };
 
   const handleInject = async (client: HookClient, remove: boolean) => {
@@ -284,6 +309,27 @@ export function NotificationSettingsTab() {
             </div>
           );
         })}
+      </div>
+
+      {/* 默认注入总开关：控制基线 _aidog_hooks.enabled，全分组生效 */}
+      <div
+        className="glass-surface"
+        style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+      >
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.defaultHooksTitle", "默认为所有分组注入通知 Hook")}</div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {t("notif.defaultHooksDesc", "开启后所有分组自动带 Claude Code hooks 与 Codex notify，无需逐个手动注入")}
+          </div>
+        </div>
+        <div
+          className={`toggle ${defaultHooks ? "active" : ""}`}
+          onClick={() => { if (!defaultHooksBusy) handleToggleDefaultHooks(); }}
+          role="switch"
+          aria-checked={defaultHooks}
+          aria-label={t("notif.defaultHooksTitle", "默认为所有分组注入通知 Hook")}
+          tabIndex={0}
+        />
       </div>
 
       {/* 一键注入 hook */}

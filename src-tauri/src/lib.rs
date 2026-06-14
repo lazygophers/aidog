@@ -1067,6 +1067,22 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
     // Collect current group names for cleanup
     let group_names: std::collections::HashSet<String> = groups.iter().map(|g| g.name.clone()).collect();
 
+    // 默认通知 hook 物化（镜像 statusLine）：marker `_aidog_hooks.enabled` 为 true 时，
+    // 为每个分组 config 注入 hooks.Stop/Notification（strip marker 之前），并对 Codex
+    // 全局 config.toml 一次性注入/移除 notify。脚本只生成一次（循环外）。
+    let hooks_enabled = gateway::hooks::hooks_marker_enabled(&base_config);
+    let hook_scripts = if hooks_enabled {
+        match generate_hook_scripts() {
+            Ok(s) => Some(s),
+            Err(e) => {
+                tracing::warn!(error = %e, "generate hook scripts for default inject failed");
+                None
+            }
+        }
+    } else {
+        None
+    };
+
     let mut written = Vec::new();
 
     for group in &groups {
@@ -1089,6 +1105,11 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
                     serde_json::Value::String(group_name.clone()),
                 );
             }
+        }
+
+        // 默认通知 hook 物化：marker 开启时为本组 config 注入 CC hooks（strip marker 之前）。
+        if let Some(scripts) = &hook_scripts {
+            gateway::hooks::inject_claude_code_hooks(&mut config, scripts);
         }
 
         // Strip internal aidog UI state — not real Claude Code fields.
@@ -1118,6 +1139,25 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
             Ok(None) => {}
             Err(e) => tracing::warn!(group = %group_name, error = %e, "codex profile sync failed"),
         }
+    }
+
+    // Codex notify（全局 config.toml，非 per-group）：marker 开启时一次性注入指向
+    // complete 脚本的 notify；关闭时移除 aidog notify。Codex 未装/读写失败仅记录、不中断。
+    match gateway::codex::codex_config_read() {
+        Ok(mut config) => {
+            match (&hook_scripts, hooks_enabled) {
+                (Some(scripts), true) => {
+                    gateway::hooks::inject_codex_notify(&mut config, &scripts.complete);
+                }
+                _ => {
+                    gateway::hooks::remove_codex_notify(&mut config);
+                }
+            }
+            if let Err(e) = gateway::codex::codex_config_write(config) {
+                tracing::warn!(error = %e, "codex notify sync write failed");
+            }
+        }
+        Err(e) => tracing::warn!(error = %e, "codex notify sync read failed"),
     }
 
     // Cleanup: remove settings files for deleted groups
@@ -1975,6 +2015,57 @@ async fn remove_hooks(
             gateway::codex::codex_config_write(config)?;
         }
     }
+    Ok(())
+}
+
+/// 读取「默认为所有分组注入通知 hook」总开关状态（基线 `claude_code._aidog_hooks.enabled`）。
+/// 无基线配置时回退编译内默认（defaults/settings.json 默认开）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn get_default_hooks_enabled(db: State<'_, Db>) -> Result<bool, String> {
+    tracing::debug!(command = "get_default_hooks_enabled", "command invoked");
+    let config = gateway::db::get_setting(&db, "global", "claude_code").await
+        .ok().flatten()
+        .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
+        .unwrap_or_else(|| serde_json::from_str(include_str!("../defaults/settings.json"))
+            .unwrap_or(serde_json::Value::Object(Default::default())));
+    Ok(gateway::hooks::hooks_marker_enabled(&config))
+}
+
+/// 设置「默认为所有分组注入通知 hook」总开关：写基线 `claude_code._aidog_hooks.enabled`，
+/// re-sync 物化（开=全分组 CC hooks + Codex notify；关=全移除）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn set_default_hooks_enabled(
+    app: tauri::AppHandle,
+    db: State<'_, Db>,
+    enabled: bool,
+) -> Result<(), String> {
+    tracing::debug!(command = "set_default_hooks_enabled", enabled, "command invoked");
+    // 读基线 claude_code 配置（无则用编译内默认），设置 marker，回写。
+    let mut config = gateway::db::get_setting(&db, "global", "claude_code").await
+        .ok().flatten()
+        .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
+        .unwrap_or_else(|| serde_json::from_str(include_str!("../defaults/settings.json"))
+            .unwrap_or(serde_json::Value::Object(Default::default())));
+    if let Some(obj) = config.as_object_mut() {
+        obj.insert(
+            gateway::hooks::MARKER_HOOKS.to_string(),
+            serde_json::json!({ "enabled": enabled }),
+        );
+    }
+    gateway::db::set_setting(&db, SetSettingInput {
+        scope: "global".to_string(),
+        key: "claude_code".to_string(),
+        value: config,
+    }).await?;
+    // 开启时确保默认模板已物化（与 inject_hooks 行为一致）。
+    if enabled {
+        seed_default_templates(&db).await?;
+    }
+    let port = load_proxy_settings(&app).await?.port;
+    do_sync_group_settings(&db, port).await
+        .map_err(|e| { tracing::error!(command = "set_default_hooks_enabled", error = %e, "re-sync after set default hooks failed"); e })?;
     Ok(())
 }
 
@@ -2993,6 +3084,8 @@ pub fn run() {
             // Notification Hook Integration (N2)
             inject_hooks,
             remove_hooks,
+            get_default_hooks_enabled,
+            set_default_hooks_enabled,
             // Skills 管理
             skills_check_env,
             skills_browse_catalog,

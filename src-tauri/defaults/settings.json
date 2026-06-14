@@ -17,6 +17,7 @@
   "includeCoAuthoredBy": false,
   "_aidog_statusline": { "enabled": true },
   "_aidog_subagent_statusline": { "enabled": true },
+  "_aidog_hooks": { "enabled": true },
   "attribution": {
     "commit": "",
     "pr": ""
