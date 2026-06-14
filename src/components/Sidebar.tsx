@@ -54,6 +54,11 @@ const icons = {
       <path d="M7.5 15a1.5 1.5 0 003 0" />
     </svg>
   ),
+  skills: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9 1.5l2 4.5 4.5.5-3.4 3 1 4.5L9 13.5 4.9 16l1-4.5L2.5 6.5 7 6z" />
+    </svg>
+  ),
   chevron: (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 4.5L6 7.5L9 4.5" />

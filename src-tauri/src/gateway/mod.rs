@@ -14,4 +14,5 @@ pub mod proxy;
 pub mod quota;
 pub mod router;
 pub mod scheduling;
+pub mod skills;
 pub mod usage_color;

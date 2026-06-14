@@ -7,6 +7,7 @@ import { AppSettings, type Tab } from "./pages/AppSettings";
 import { Logs } from "./pages/Logs";
 import { Stats } from "./pages/Stats";
 import { Notifications } from "./pages/Notifications";
+import { Skills } from "./pages/Skills";
 import {
   proxyLogApi,
   notificationApi,
@@ -21,6 +22,7 @@ const BASE_NAV: NavItem[] = [
   { id: "stats", icon: "stats", labelKey: "nav.stats" },
   { id: "logs", icon: "logs", labelKey: "nav.logs" },
   { id: "notifications", icon: "notifications", labelKey: "nav.notifications" },
+  { id: "skills", icon: "skills", labelKey: "nav.skills" },
   {
     id: "settings",
     icon: "settings",
@@ -126,6 +128,7 @@ function App() {
           {effectiveNav === "logs" && <Logs />}
           {effectiveNav === "stats" && <Stats />}
           {effectiveNav === "notifications" && <Notifications />}
+          {effectiveNav === "skills" && <Skills />}
         </div>
       </main>
     </div>
