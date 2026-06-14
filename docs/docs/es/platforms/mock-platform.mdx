@@ -1,52 +1,52 @@
 ---
-title: Mock Platform
+title: Plataforma Mock
 ---
 
-# Mock Platform
+# Plataforma Mock
 
-Mock platforms do not send real AI requests — they return pre-configured responses. Ideal for development, debugging, testing routing rules, and verifying client integrations.
+Las plataformas mock no envían peticiones IA reales — devuelven respuestas preconfiguradas. Ideales para desarrollo, depuración, prueba de reglas de enrutamiento y verificación de integraciones de cliente.
 
-## Creating a Mock Platform
+## Crear una plataforma mock
 
-1. Go to the **"Platforms"** page
-2. Click the **"+"** button
-3. Select **"Mock"** from the platform type list
-4. No API Key or Base URL required
-5. Click Save
+1. Ve a la página **«Plataformas»**
+2. Haz clic en **«+»**
+3. Selecciona **«Mock»** en la lista de tipos de plataforma
+4. No se necesita API Key ni Base URL
+5. Guardar
 
-After saving, AiDog automatically creates a corresponding group. Point your client to that group's path to use the mock.
+Tras guardar, AiDog crea automáticamente un grupo correspondiente. Apunta tu cliente a la ruta de ese grupo para usar el mock.
 
-## Response Configuration
+## Configuración de respuesta
 
-Mock platforms allow you to customize the following response parameters:
+Personaliza los parámetros:
 
-| Parameter | Description | Default |
+| Parámetro | Descripción | Por defecto |
 |-----------|-------------|---------|
-| Response Text | Simulated response text | `Hello from mock` |
-| Status Code | HTTP status code | `200` |
-| Response Delay | Simulated delay in milliseconds | `0` |
-| Input Tokens | Simulated input token count | `10` |
-| Output Tokens | Simulated output token count | `20` |
-| Cache Tokens | Simulated cache hit tokens | `0` |
-| Finish Reason | Simulated finish reason (e.g. stop) | `stop` |
-| Streaming | Whether to return as stream (follow request, or force on/off) | Follow request |
+| Texto de respuesta | Texto simulado | `Hello from mock` |
+| Código de estado | Código HTTP | `200` |
+| Retardo de respuesta | Retardo simulado en ms | `0` |
+| Tokens de entrada | Tokens de entrada simulados | `10` |
+| Tokens de salida | Tokens de salida simulados | `20` |
+| Tokens de caché | Tokens de caché simulados | `0` |
+| Razón de fin | Razón de fin simulada (p. ej. stop) | `stop` |
+| Streaming | Devolver como stream (seguir petición o forzar) | Seguir petición |
 
-## Error Simulation
+## Simulación de errores
 
-Mock platforms support simulating various error scenarios:
+Soporta varios escenarios:
 
-| Error Mode | Description |
+| Modo de error | Descripción |
 |------------|-------------|
-| No Error | Return normal response |
-| HTTP Error | Return a specified HTTP error status code |
-| Rate Limit (429) | Simulate platform rate limiting |
-| Timeout | Simulate request timeout |
+| Sin error | Devuelve respuesta normal |
+| Error HTTP | Devuelve un código de error HTTP |
+| Rate Limit (429) | Simula limitación de tasa |
+| Timeout | Simula timeout de petición |
 
-Use this to test client error handling or AiDog's failover behavior.
+Útil para probar el manejo de errores del cliente o el comportamiento de failover de AiDog.
 
-## Use Cases
+## Casos de uso
 
-- **Development** — Test client integration without real API keys
-- **Routing Tests** — Verify group matching and model mapping rules
-- **Failover Testing** — Simulate errors to observe automatic platform switching
-- **Performance Testing** — Set delays to test client behavior under slow responses
+- **Desarrollo** — Probar integración del cliente sin API keys reales
+- **Pruebas de enrutamiento** — Verificar reglas de coincidencia de grupo y mapeo
+- **Prueba de failover** — Simular errores para observar conmutación automática
+- **Prueba de rendimiento** — Configurar retardos para probar bajo respuestas lentas

@@ -1,133 +1,133 @@
 ---
-title: Agregar plataforma
+title: Añadir Plataforma
 ---
 
-# Add Platform
+# Añadir Plataforma
 
-Platforms are the core concept in AiDog — each represents an AI API service endpoint.
+Las plataformas son el concepto central en AiDog — cada una representa un endpoint de servicio de AI API.
 
-![AiDog — Add Platform](/screenshots/add-platform.png)
+![AiDog — Añadir Plataforma](/screenshots/add-platform.png)
 
-## Adding Steps
+## Pasos para añadir
 
-1. Go to the **"Platforms"** page
-2. Click the **"+"** button in the top right
-3. Select a platform from the preset list (or fill in manually)
-4. Enter your API Key and click Save
+1. Ve a la página **«Plataformas»**
+2. Pulsa el botón **«+»** arriba a la derecha
+3. Selecciona una plataforma de la lista de presets (o rellena manualmente)
+4. Introduce tu API Key y pulsa Guardar
 
-:::tip{title="Auto Group"}
-After saving a platform, AiDog automatically creates a group for it, so you can start using it right away without manual configuration.
+:::tip{title="Grupo automático"}
+Tras guardar una plataforma, AiDog crea automáticamente un grupo para ella, por lo que puedes empezar a usarla de inmediato sin configuración manual.
 :::
 
-## Basic Configuration
+## Configuración básica
 
-| Field | Description | Example |
+| Campo | Descripción | Ejemplo |
 |-------|-------------|---------|
-| Name | Display name | `My OpenAI` |
-| Base URL | API base URL (with version prefix) | `https://api.openai.com/v1` |
-| API Key | Platform API key | `sk-...` |
+| Nombre | Nombre a mostrar | `Mi OpenAI` |
+| URL Base | URL base de la API (con prefijo de versión) | `https://api.openai.com/v1` |
+| API Key | Clave API de la plataforma | `sk-...` |
 
-### Platform Presets
+### Presets de plataforma
 
-AiDog includes 50+ built-in platform presets (OpenAI, Anthropic, Gemini, DeepSeek, Qwen, and more). Selecting a preset auto-fills all configuration fields — just enter your API Key.
+AiDog incluye 50+ presets de plataforma integrados (OpenAI, Anthropic, Gemini, DeepSeek, Qwen y más). Seleccionar un preset autorellena todos los campos de configuración — solo introduce tu API Key.
 
-Some presets are marked with "Coding Plan" — they automatically configure quota queries.
+Algunos presets están marcados con «Coding Plan» — configuran automáticamente consultas de cuota.
 
-## Passthrough Mode
+## Modo passthrough
 
-Some platform types support "passthrough" mode: AiDog forwards client request headers and body as-is, without any protocol conversion or authentication injection.
+Algunos tipos de plataforma soportan el modo «passthrough»: AiDog reenvía las cabeceras y cuerpo de la petición del cliente tal cual, sin conversión de protocolo ni inyección de autenticación.
 
-- **Upstream URL** — Enter the platform root URL (e.g. `https://api.anthropic.com`), without version prefix
-- **API Key** — Optional in passthrough mode; the client can carry its own authentication
+- **URL upstream** — Introduce la URL raíz de la plataforma (p. ej. `https://api.anthropic.com`), sin prefijo de versión
+- **API Key** — Opcional en modo passthrough; el cliente puede llevar su propia autenticación
 
-Ideal for scenarios where client-side authentication (e.g. OAuth subscriptions) must be preserved.
+Ideal para escenarios donde la autenticación del lado del cliente (p. ej. suscripciones OAuth) debe preservarse.
 
-## Multiple Endpoints
+## Múltiples endpoints
 
-Each platform can have multiple endpoints, each with its own address and interface type. AiDog automatically selects the matching endpoint based on the client request.
+Cada plataforma puede tener múltiples endpoints, cada uno con su propia dirección y tipo de interfaz. AiDog selecciona automáticamente el endpoint coincidente según la petición del cliente.
 
-For example, the same platform can support both the chat interface and the coding assistant interface.
+Por ejemplo, la misma plataforma puede soportar tanto la interfaz de chat como la interfaz de asistente de codificación.
 
-## Model Configuration
+## Configuración de modelos
 
-### Default Models
+### Modelos por defecto
 
-In the platform settings, specify which model to use by default for different types of requests. AiDog automatically matches the most suitable model based on the requested model name.
+En los ajustes de la plataforma, especifica qué modelo usar por defecto para diferentes tipos de peticiones. AiDog empareja automáticamente el modelo más adecuado según el nombre de modelo solicitado.
 
-### Fetch Model List
+### Obtener lista de modelos
 
-Click the "Fetch Models" button to automatically retrieve available models from the platform.
+Pulsa el botón «Obtener modelos» para recuperar automáticamente los modelos disponibles de la plataforma.
 
-### Model Mapping
+### Mapeo de modelos
 
-Map requested model names to the actual model names supported by the platform. See [Model Mapping](/platforms/model-mapping).
+Mapea los nombres de modelos solicitados a los nombres reales soportados por la plataforma. Consulta [Mapeo de modelos](/es/platforms/model-mapping).
 
-## Balance Query Configuration
+## Configuración de consulta de saldo
 
-For platforms using the NewAPI system, configure separate balance queries:
+Para plataformas que usan el sistema NewAPI, configura consultas de saldo separadas:
 
-- **Query URL** — Separate from the API URL
-- **Query Token** — Obtained from the dashboard (different from API Key)
-- **User ID** — Optional
+- **URL de consulta** — Separada de la URL de API
+- **Token de consulta** — Obtenido del panel (diferente de la API Key)
+- **User ID** — Opcional
 
-See [Balance & Quotas](/stats/balance).
+Consulta [Saldo y Cuotas](/es/stats/balance).
 
-## Manual Budget
+## Presupuesto manual
 
-For platforms without automatic balance queries, set manual budget limits:
+Para plataformas sin consulta automática de saldo, establece límites de presupuesto manual:
 
-- **Total** — Overall spending limit
-- **Rolling Window** — Spending limit within a rolling time window
-- **Fixed Window** — Spending limit that resets on a fixed schedule
-- **Daily** — Daily spending limit
+- **Total** — Límite global de gasto
+- **Ventana móvil** — Límite en una ventana temporal móvil
+- **Ventana fija** — Límite que se reinicia según un calendario fijo
+- **Diario** — Límite de gasto diario
 
-When depleted, AiDog stops forwarding to that platform and automatically fails over. See [Balance & Quotas](/stats/balance).
+Cuando se agota, AiDog deja de reenviar a esa plataforma y hace failover automáticamente. Consulta [Saldo y Cuotas](/es/stats/balance).
 
-## Model Testing
+## Prueba de modelo
 
-After saving a platform, test its connectivity:
+Tras guardar una plataforma, prueba su conectividad:
 
-1. Click the "Test" button on the platform card
-2. Choose a test mode: Quick / Batch / Custom
-3. View results: response time, token count, success or failure
+1. Pulsa el botón «Probar» en la tarjeta de la plataforma
+2. Elige un modo de prueba: Rápido / Lote / Personalizado
+3. Visualiza los resultados: tiempo de respuesta, número de tokens, éxito o fallo
 
-See [Model Testing](/platforms/model-testing).
+Consulta [Prueba de modelos](/es/platforms/model-testing).
 
-## Platform List
+## Lista de plataformas
 
-The Platforms page displays all added platform cards, each showing:
+La página Plataformas muestra todas las tarjetas de plataforma añadidas, cada una mostrando:
 
-- Platform name and logo
-- Health status indicator (green/yellow/red)
-- Balance or quota utilization
-- Today's request count and success rate
+- Nombre y logotipo de la plataforma
+- Indicador de estado de salud (verde/amarillo/rojo)
+- Saldo o utilización de cuota
+- Número de peticiones de hoy y tasa de éxito
 
-Supports pinyin search to quickly locate a platform.
+Soporta búsqueda por pinyin para localizar rápidamente una plataforma.
 
-## Other Operations
+## Otras operaciones
 
-- **Enable/Disable** — Pause a platform without deleting it
-- **Edit** — Click a platform card to view details and modify settings
-- **Delete** — Click the delete button. Related logs and statistics are preserved
-- **Drag to Reorder** — Drag cards in the list to adjust display order
+- **Habilitar/Deshabilitar** — Pausar una plataforma sin eliminarla
+- **Editar** — Pulsa una tarjeta de plataforma para ver detalles y modificar ajustes
+- **Eliminar** — Pulsa el botón eliminar. Los logs y estadísticas relacionados se conservan
+- **Arrastrar para reordenar** — Arrastra las tarjetas en la lista para ajustar el orden de visualización
 
 ## FAQ
 
-### How to fill Base URL?
+### ¿Cómo rellenar la URL Base?
 
-The Base URL is the complete base path including the version prefix:
+La URL Base es la ruta base completa incluyendo el prefijo de versión:
 
-| Platform | Base URL |
+| Plataforma | URL Base |
 |----------|----------|
 | OpenAI | `https://api.openai.com/v1` |
 | Anthropic | `https://api.anthropic.com/v1` |
 | DeepSeek | `https://api.deepseek.com/v1` |
 | Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 
-:::caution{title="Note"}
-Do not append `/chat/completions` to the Base URL. AiDog handles this automatically.
+:::caution{title="Nota"}
+No añadas `/chat/completions` a la URL Base. AiDog lo maneja automáticamente.
 :::
 
-### API Key Security
+### Seguridad de la API Key
 
-API keys are stored locally and never uploaded to any server.
+Las claves API se almacenan localmente y nunca se suben a ningún servidor.

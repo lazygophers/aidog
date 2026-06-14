@@ -2,91 +2,91 @@
 title: الرصيد والحصص
 ---
 
-# Balance & Quotas
+# الرصيد والحصص
 
-AiDog helps you track account balances and coding plan quotas across platforms, giving you full visibility into your spending.
+يتتبع AiDog أرصدة الحسابات وحصص coding plan عبر المنصات، مانحًا إياك رؤية كاملة لإنفاقك.
 
-## Automatic Balance Query
+## الاستعلام التلقائي عن الرصيد
 
-AiDog automatically queries account balances for these platforms:
+يستعلم AiDog تلقائيًا عن الأرصدة لهذه المنصات:
 
-| Platform | Query Content |
+| المنصة | المحتوى المُستعلم |
 |----------|---------------|
-| OpenAI | Account balance |
-| DeepSeek | Account balance |
-| StepFun | Account balance |
-| SiliconFlow | Account balance |
-| OpenRouter | Account balance / usage |
-| Novita | Account balance |
-| Kimi (Moonshot) | Account balance |
-| GLM (Zhipu) | Account balance |
-| MiniMax | Account balance |
+| OpenAI | رصيد الحساب |
+| DeepSeek | رصيد الحساب |
+| StepFun | رصيد الحساب |
+| SiliconFlow | رصيد الحساب |
+| OpenRouter | الرصيد / الاستخدام |
+| Novita | رصيد الحساب |
+| Kimi (Moonshot) | رصيد الحساب |
+| GLM (Zhipu) | رصيد الحساب |
+| MiniMax | رصيد الحساب |
 
-Balance data refreshes automatically on a schedule. You can also manually click the refresh button.
+تُحدَّث بيانات الرصيد تلقائيًا وفق جدول. كما يمكنك النقر يدويًا على زر التحديث.
 
-## Coding Plan Quotas
+## حصص Coding Plan
 
-Some platforms offer coding plans, such as OpenAI Plus/Team/Enterprise, Zhipu Coding Plan, Kimi Code Plan, etc.
+بعض المنصات تقدم خطط coding، مثل OpenAI Plus/Team/Enterprise، Zhipu Coding Plan، Kimi Code Plan، إلخ.
 
-AiDog queries and displays coding plan quota information:
+يستعلم AiDog ويعرض معلومات الحصة:
 
-- Tier names
-- Current utilization rate
-- Remaining percentage
+- أسماء المستويات
+- معدل الاستخدام الحالي
+- النسبة المتبقية
 
-Platform presets marked with "Coding Plan" automatically configure quota queries.
+المُعدّات المُعلّمة بـ«Coding Plan» تُهيّئ استعلامات الحصة تلقائيًا.
 
-## NewAPI Balance Query
+## استعلام رصيد NewAPI
 
-For platforms using the NewAPI system (e.g. self-hosted API aggregators), AiDog supports separate balance query configuration:
+للمنصات التي تستخدم نظام NewAPI (مثل مجمعات API المستضافة ذاتيًا)، يدعم AiDog تكوين استعلام رصيد منفصل:
 
-- **Query URL** — Separate from the API URL
-- **Query Token** — Obtained from the dashboard (different from the API Key)
-- **User ID** — Optional
+- **رابط الاستعلام** — منفصل عن رابط API
+- **رمز الاستعلام** — يُؤخذ من لوحة التحكم (مختلف عن مفتاح API)
+- **User ID** — اختياري
 
-Fill in these details in the platform's "Balance Query Configuration" section.
+املأ هذه التفاصيل في قسم «تكوين استعلام الرصيد» الخاص بالمنصة.
 
-## Manual Budget
+## الميزانية اليدوية
 
-For platforms that don't support automatic balance queries, AiDog provides manual budget limits.
+للمنصات التي لا تدعم الاستعلام التلقائي عن الرصيد، يوفر AiDog حدود ميزانية يدوية.
 
-### Setup
+### الإعداد
 
-In the platform's "Manual Budget" section, click "Add Limit":
+في قسم «الميزانية اليدوية» الخاص بالمنصة، انقر «إضافة حد»:
 
-| Type | Description |
+| النوع | الوصف |
 |------|-------------|
-| Total | Overall spending limit |
-| Rolling Window | Spending limit within a rolling time window |
-| Fixed Window | Spending limit that resets on a fixed schedule |
-| Daily | Daily spending limit |
+| الإجمالي | حد الإنفاق الكلي |
+| نافذة متدحرجة | حد الإنفاق ضمن نافذة زمنية متدحرجة |
+| نافذة ثابتة | حد إنفاق يُعاد تعيينه وفق جدول ثابت |
+| يومي | حد الإنفاق اليومي |
 
-### Budget Units
+### وحدات الميزانية
 
-- **USD** — Measured by cost
-- **Tokens** — Measured by token count
+- **USD** — يُقاس بالتكلفة
+- **Tokens** — يُقاس بعدد التوكنز
 
-### Window Duration
+### مدة النافذة
 
-Rolling window and fixed window support multiple time granularities: minute, hour, day, week, month.
+النافذة المتدحرجة والثابتة تدعم عدة مستويات زمنية: دقيقة، ساعة، يوم، أسبوع، شهر.
 
-### When Budget is Depleted
+### عند استنزاف الميزانية
 
-When any budget limit is depleted, AiDog stops forwarding requests to that platform (returns 402 error) and automatically triggers failover to other platforms in the group. Forwarding resumes when the window resets.
+عند بلوغ أي حد، يوقف AiDog تمرير الطلبات لتلك المنصة (يُعيد خطأ 402) ويُطلق تلقائيًا الفشل للمنصات الأخرى في المجموعة. يستأنف التمرير عند إعادة تعيين النافذة.
 
-## Where to See Balances
+## أين تُرى الأرصدة
 
-Balance information is displayed in multiple locations:
+تُعرض معلومات الرصيد في عدة مواضع:
 
-- **Platform cards** — Real-time balance and quota utilization per platform
-- **Group cards** — Aggregated balance across group platforms
-- **System tray** — Configurable balance status display
+- **بطاقات المنصات** — رصيد لحظي واستخدام حصة لكل منصة
+- **بطاقات المجموعات** — رصيد مُجمّع لمنصات المجموعة
+- **شريط النظام** — عرض قابل للتكوين لحالة الرصيد
 
-## Statistics Page
+## صفحة الإحصاءات
 
-On the **"Statistics"** page, view data by platform, group, or model:
+في صفحة **«الإحصاءات»**، اعرض البيانات حسب المنصة أو المجموعة أو النموذج:
 
-- Today's request count and success rate
-- Token usage (input / output / cache)
-- Estimated cost
-- Usage trend charts (daily / weekly / monthly)
+- عدد طلبات اليوم ومعدل النجاح
+- استخدام التوكنز (إدخال / إخراج / كاش)
+- التكلفة التقديرية
+- مخططات اتجاه الاستخدام (يومي / أسبوعي / شهري)

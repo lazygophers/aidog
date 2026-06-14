@@ -1,47 +1,47 @@
 ---
-title: Modellzuordnung
+title: Modell-Mapping
 ---
 
-# Model Mapping
+# Modell-Mapping
 
-Model mapping allows you to translate model names from client requests to the actual model names supported by the platform.
+Das Modell-Mapping übersetzt Modellnamen aus Client-Anfragen in die von der Plattform tatsächlich unterstützten Namen.
 
-## Use Cases
+## Anwendungsfälle
 
-- Client requests `gpt-4o`, but you want to route to DeepSeek's `deepseek-chat`
-- Standardize model naming across platforms
-- Simplify model selection with aliases
+- Client fordert `gpt-4o`, soll aber zu DeepSeeks `deepseek-chat` geroutet werden
+- Einheitliche Modellnamen über Plattformen hinweg
+- Auswahl über Aliase vereinfachen
 
-## Configuration
+## Konfiguration
 
-Add mapping rules in the platform or group's "Model Mapping" section:
+Fügen Sie Mapping-Regeln im Abschnitt „Modell-Mapping" der Plattform oder Gruppe hinzu:
 
-| Request Model | Maps To |
+| Angefordertes Modell | Mappt auf |
 |---------------|---------|
 | `gpt-4o` | `deepseek-chat` |
 | `claude-3-opus` | `claude-3-opus-20240229` |
 
-### Rules
+### Regeln
 
-- **Exact match** — Only maps when the model name matches exactly
-- **Preserve original** — Unmatched model names pass through unchanged
-- **Group priority** — Group-level mappings take precedence over platform-level mappings
+- **Exakte Übereinstimmung** — Mappt nur bei exakt passendem Namen
+- **Original erhalten** — Nicht passende Namen bleiben unverändert
+- **Gruppenpriorität** — Gruppen-Mappings haben Vorrang vor Plattform-Mappings
 
-## Two-Level Mapping
+## Zweistufiges Mapping
 
-Model mapping can be configured at two levels:
+Zwei Ebenen:
 
-- **Platform level** — Applies to all requests on that platform
-- **Group level** — Only applies within that group's routing rules
+- **Plattformebene** — Gilt für alle Anfragen dieser Plattform
+- **Gruppenebene** — Gilt nur innerhalb der Routing-Regeln der Gruppe
 
-See [Routing Rules](/groups/routing-rules).
+Siehe [Routing-Regeln](/de/groups/routing-rules).
 
-## Alias Example
+## Alias-Beispiel
 
-Use model mapping to create short aliases. Clients only need to use the alias:
+Erzeugen Sie kurze Aliase; Clients nutzen nur den Alias:
 
-| Alias | Target | Purpose |
+| Alias | Ziel | Zweck |
 |-------|--------|---------|
-| `fast` | `gpt-4o-mini` | Fast responses |
-| `smart` | `claude-3-opus` | High quality |
-| `code` | `deepseek-coder` | Code generation |
+| `fast` | `gpt-4o-mini` | Schnelle Antworten |
+| `smart` | `claude-3-opus` | Hohe Qualität |
+| `code` | `deepseek-coder` | Code-Erzeugung |

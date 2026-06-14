@@ -1,47 +1,47 @@
 ---
-title: تعيين النماذج
+title: ربط النماذج
 ---
 
-# Model Mapping
+# ربط النماذج
 
-Model mapping allows you to translate model names from client requests to the actual model names supported by the platform.
+يسمح ربط النماذج بترجمة أسماء النماذج من طلبات العميل إلى الأسماء الفعلية التي تدعمها المنصة.
 
-## Use Cases
+## حالات الاستخدام
 
-- Client requests `gpt-4o`, but you want to route to DeepSeek's `deepseek-chat`
-- Standardize model naming across platforms
-- Simplify model selection with aliases
+- العميل يطلب `gpt-4o`، لكنك تريد التوجيه إلى `deepseek-chat` من DeepSeek
+- توحيد تسمية النماذج عبر المنصات
+- تبسيط الاختيار عبر الأسماء المستعارة
 
-## Configuration
+## الإعداد
 
-Add mapping rules in the platform or group's "Model Mapping" section:
+أضف قواعد في قسم «ربط النماذج» للمنصة أو المجموعة:
 
-| Request Model | Maps To |
+| النموذج المطلوب | يُربط بـ |
 |---------------|---------|
 | `gpt-4o` | `deepseek-chat` |
 | `claude-3-opus` | `claude-3-opus-20240229` |
 
-### Rules
+### القواعد
 
-- **Exact match** — Only maps when the model name matches exactly
-- **Preserve original** — Unmatched model names pass through unchanged
-- **Group priority** — Group-level mappings take precedence over platform-level mappings
+- **تطابق تام** — يربط فقط عند تطابق الاسم تمامًا
+- **الحفاظ على الأصل** — الأسماء غير المطابقة تمر كما هي
+- **أولوية المجموعة** — ربط مستوى المجموعة له الأولوية على مستوى المنصة
 
-## Two-Level Mapping
+## ربط ثنائي المستوى
 
-Model mapping can be configured at two levels:
+قابل للإعداد على مستويين:
 
-- **Platform level** — Applies to all requests on that platform
-- **Group level** — Only applies within that group's routing rules
+- **مستوى المنصة** — يطبّق على كل طلبات تلك المنصة
+- **مستوى المجموعة** — يطبّق فقط ضمن قواعد توجيه المجموعة
 
-See [Routing Rules](/groups/routing-rules).
+راجع [قواعد التوجيه](/ar/groups/routing-rules).
 
-## Alias Example
+## مثال الاسم المستعار
 
-Use model mapping to create short aliases. Clients only need to use the alias:
+أنشئ أسماء مستعارة قصيرة؛ يحتاج العملاء فقط لاستخدام الاسم المستعار:
 
-| Alias | Target | Purpose |
+| الاسم المستعار | الهدف | الغرض |
 |-------|--------|---------|
-| `fast` | `gpt-4o-mini` | Fast responses |
-| `smart` | `claude-3-opus` | High quality |
-| `code` | `deepseek-coder` | Code generation |
+| `fast` | `gpt-4o-mini` | استجابات سريعة |
+| `smart` | `claude-3-opus` | جودة عالية |
+| `code` | `deepseek-coder` | توليد الكود |

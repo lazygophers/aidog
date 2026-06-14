@@ -1,62 +1,62 @@
 ---
-title: Model Pricing
+title: Modellpreise
 ---
 
-# Model Pricing
+# Modellpreise
 
-Manage all model pricing data in **"Settings" → "Model Pricing"** tab. Pricing data is used to estimate request costs.
+Alle Modellpreisdaten unter **„Einstellungen" → „Modellpreise"** verwalten. Preisdaten dienen der Kostenschätzung von Anfragen.
 
-## Price Sync
+## Preissynchronisation
 
-One-click sync of the latest model pricing from pricing sources:
+Ein-Klick-Sync der neuesten Preise aus Preisquellen:
 
-- Click "Sync Now" to fetch latest prices
-- Sync result: added count, updated count, failed count
-- Enable "Auto Sync" to automatically fetch at configured intervals
+- Auf „Jetzt synchronisieren" klicken, um neueste Preise abzurufen
+- Sync-Ergebnis: hinzugefügt, aktualisiert, fehlgeschlagen
+- „Auto-Sync" aktivieren, um in konfigurierten Intervallen abzurufen
 
-Auto sync intervals: 1 hour / 6 hours / 12 hours / 24 hours / 7 days
+Auto-Sync-Intervalle: 1 Stunde / 6 Stunden / 12 Stunden / 24 Stunden / 7 Tage
 
-## Fallback Price
+## Fallback-Preis
 
-For models not listed in the pricing table, a fallback price is used:
+Für Modelle ohne Tabelleneintrag wird ein Fallback-Preis verwendet:
 
-- **Input fallback** — Default $3.0 / million tokens
-- **Output fallback** — Default $3.0 / million tokens
+- **Eingabe-Fallback** — Standard $3.0 / Million Tokens
+- **Ausgabe-Fallback** — Standard $3.0 / Million Tokens
 
-Adjustable in the sync settings section.
+Anpassbar im Sync-Abschnitt.
 
-## Price Table
+## Preistabelle
 
-The price table shows these columns:
+Die Tabelle zeigt diese Spalten:
 
-| Column | Description |
+| Spalte | Beschreibung |
 |--------|-------------|
-| Model | Model name |
-| Source | LiteLLM (synced) / Manual |
-| Default Platform | Default platform for this model |
-| Input $/M | Input token price (per million tokens) |
-| Output $/M | Output token price |
-| Cache Read $/M | Cache token read price |
+| Modell | Modellname |
+| Quelle | LiteLLM (synchronisiert) / Manuell |
+| Standardplattform | Standardplattform für dieses Modell |
+| Eingabe $/M | Eingabe-Token-Preis (pro Million Tokens) |
+| Ausgabe $/M | Ausgabe-Token-Preis |
+| Cache-Lesen $/M | Cache-Token-Lesepreis |
 
-Search by model name, filter by source, adjustable page size and jump-to-page.
+Suche nach Modellname, Filter nach Quelle, anpassbare Seitengröße und Seitensprung.
 
-## Manage Pricing
+## Preise verwalten
 
-- Delete a pricing record (end-of-row delete button)
-- Price changes take effect immediately
+- Preiseintrag löschen (Lösch-Button am Zeilenende)
+- Preisänderungen greifen sofort
 
-## Cost Estimation
+## Kostenschätzung
 
-After each request, AiDog automatically:
+Nach jeder Anfrage führt AiDog automatisch aus:
 
-1. Extracts token usage (input / output / cache) from the upstream response
-2. Looks up the unit price in the pricing table
-3. Calculates the estimated cost
+1. Token-Nutzung (Eingabe / Ausgabe / Cache) aus der Upstream-Antwort extrahieren
+2. Einzelpreis in der Preistabelle suchen
+3. Geschätzte Kosten berechnen
 
-Pricing fallback order: Custom pricing → Synced pricing → Fallback price
+Preis-Fallback-Reihenfolge: Benutzerdefinierter Preis → Synchronisierter Preis → Fallback-Preis
 
-:::tip{title="Note"}
-Estimated costs are for reference only. Actual charges are based on platform billing.
+:::tip{title="Hinweis"}
+Geschätzte Kosten dienen nur als Referenz. Tatsätzliche Abrechnung basiert auf der Plattformabrechnung.
 :::
 
-See [Pricing & Billing](/stats/pricing).
+Siehe [Preise & Abrechnung](/de/stats/pricing).

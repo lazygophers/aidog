@@ -2,79 +2,80 @@
 title: 作成と管理
 ---
 
-# Create & Manage Groups
+# グループの作成と管理
 
-Groups are the routing core of AiDog — organize platforms by purpose and control request routing with rules.
+グループは AiDog のルーティングコア — プラットフォームを用途で整理し、ルールでルーティングを制御します。
 
-## Creating a Group
+## グループ作成
 
-1. Go to the **"Groups"** page
-2. Click **"+ Add Group"**
-3. Enter a name and path
-4. Select platforms to include
-5. Choose a routing mode
+1. **「グループ」** ページへ
+2. **「+ グループ追加」** をクリック
+3. 名前とパスを入力
+4. 含めるプラットフォームを選択
+5. ルーティングモードを選択
 
-:::tip{title="Auto Group"}
-When you add a platform, AiDog automatically creates a corresponding group. You can also create more groups manually.
+:::tip{title="自動グループ"}
+プラットフォーム追加時、AiDog が対応グループを自動作成。手動でさらにグループ作成も可能。
 :::
 
-## Routing Modes
+## ルーティングモード
 
-### Failover
+### フェイルオーバー
 
-The default mode. Platforms are used in order. When the current platform fails, the next one is tried automatically. Ideal for primary/backup setups.
+デフォルトモード。プラットフォームを順序通り使用。現行が失敗すると次を自動試行。プライマリ/バックアップ構成に最適。
 
 ```
-Request → Platform A (primary) → Success → Return
-                ↓ (failed)
-         Platform B (backup) → Success → Return
+リクエスト → プラットフォーム A (プライマリ) → 成功 → 返却
+                ↓ (失敗)
+         プラットフォーム B (バックアップ) → 成功 → 返却
 ```
 
-### Load Balance
+### ロードバランス
 
-Requests are distributed across platforms by weight. Ideal for multi-platform traffic splitting.
+リクエストを重み付きで分散。マルチプラットフォームのトラヒック分割に最適。
 
-| Platform | Weight | Expected Traffic |
+| プラットフォーム | 重み | 期待トラヒック |
 |----------|--------|-----------------|
 | OpenAI | 70 | ~70% |
 | DeepSeek | 30 | ~30% |
 
-## Timeout Settings
+## タイムアウト設定
 
-Each group can independently set timeout values, overriding global settings:
+各グループはタイムアウトを個別に設定でき、グローバル設定を上書き:
 
-- **Request Timeout** — Maximum time to wait for an upstream response
-- **Connect Timeout** — Maximum time to establish a connection
+- **リクエストタイムアウト** — 上流応答の最大待機時間
+- **接続タイムアウト** — 接続確立の最大時間
 
-Leave empty to use global timeout settings.
+空欄でグローバルタイムアウト使用。
 
-## Managing Platforms
+## プラットフォーム管理
 
-Within a group, you can:
-- **Drag to reorder** — Adjust priority (determines primary/backup order in failover mode)
-- **Enable/Disable** — Temporarily skip a platform
-- **Set weights** — Request ratio for load balance mode
-- **Model mapping** — Group-level model mapping, takes precedence over platform-level
+グループ内で:
 
-## One-Click Launch Commands
+- **ドラッグで並び替え** — 優先度調整 (フェイルオーバーでプライマリ/バックアップ順を決定)
+- **有効化/無効化** — プラットフォームを一時スキップ
+- **重み設定** — ロードバランスのリクエスト比
+- **モデルマッピング** — グループレベル、プラットフォームより優先
 
-Each group card provides two one-click copy buttons:
+## ワンクリック起動コマンド
 
-- **Claude** — Copies the Claude Code launch command for this group, including the settings file path
-- **Codex** — Copies the Codex launch command for this group, including the profile
+各グループカードに2つのワンクリックコピーボタン:
 
-Paste the command in your terminal to immediately use the group's routing.
+- **Claude** — このグループの Claude Code 起動コマンド (設定ファイルパス含む) をコピー
+- **Codex** — このグループの Codex 起動コマンド (プロファイル含む) をコピー
 
-## Health Status
+ターミナルに貼り付け、即座にグループのルーティングを使用。
 
-Group cards display health status indicators for their associated platforms:
+## ヘルスステータス
 
-- 🟢 All successful — Green
-- 🟡 Some failures — Yellow
-- 🔴 All failed — Red
+グループカードは関連プラットフォームの状態を表示:
 
-## Edit & Delete
+- 🟢 全成功 — 緑
+- 🟡 一部失敗 — 黄
+- 🔴 全失敗 — 赤
 
-- Click a group card to enter edit mode. Click "Save" after changes
-- Deleting a group does not delete its platforms — it only removes the association
-- Drag group cards in the list to adjust display order
+## 編集と削除
+
+- グループカードをクリックで編集モード。「保存」で反映
+- グループ削除はプラットフォームを削除しない — 関連付けのみ削除
+- リスト内のカードをドラッグで並び替え

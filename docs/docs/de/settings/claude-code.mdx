@@ -4,28 +4,28 @@ title: Claude Code
 
 # Claude Code
 
-Configure AiDog integration with Claude Code in **"Settings" → "Claude Code"** tab.
+Konfigurieren Sie die AiDog-Integration mit Claude Code im Tab **„Einstellungen" → „Claude Code"**.
 
-## Configuration Editing
+## Konfigurationsbearbeitung
 
-Edit all Claude Code settings directly in AiDog:
+Alle Claude-Code-Einstellungen direkt in AiDog bearbeiten:
 
-- **Model** — Specify the model Claude Code uses
-- **Permissions** — File read/write, network access controls
-- **Sandbox** — Code execution sandbox configuration
-- **Plugins** — Claude Code plugin management
-- **Hooks** — Lifecycle hooks (PreToolUse / PostToolUse, etc.)
-- **StatusLine** — Status bar display configuration
+- **Modell** — Gibt das von Claude Code genutzte Modell an
+- **Berechtigungen** — Datei-Lese-/Schreib-, Netzwerkzugriff-Steuerung
+- **Sandbox** — Code-Ausführungs-Sandbox-Konfiguration
+- **Plugins** — Claude-Code-Plugin-Verwaltung
+- **Hooks** — Lifecycle-Hooks (PreToolUse / PostToolUse usw.)
+- **StatusLine** — Konfiguration der Statusleisten-Anzeige
 
-All changes are saved immediately to `~/.claude.json`.
+Alle Änderungen werden sofort in `~/.claude.json` gespeichert.
 
-## Import from Claude Code
+## Aus Claude Code importieren
 
-Click "Import from Claude Code" to read the existing Claude Code configuration file and load it into the editor. Ideal for migrating existing configs during initial setup.
+Auf „Aus Claude Code importieren" klicken, um die bestehende Claude-Code-Konfigurationsdatei zu lesen und in den Editor zu laden. Ideal, um bestehende Configs bei der Ersteinrichtung zu migrieren.
 
-## Export to Claude Code
+## Nach Claude Code exportieren
 
-Click "Export to Claude Code" to write the proxy address into Claude Code's configuration file:
+Auf „Nach Claude Code exportieren" klicken, um die Proxy-Adresse in Claude-Codes Konfigurationsdatei zu schreiben:
 
 ```json
 {
@@ -33,38 +33,38 @@ Click "Export to Claude Code" to write the proxy address into Claude Code's conf
 }
 ```
 
-After export, all Claude Code requests will be proxied through AiDog.
+Nach dem Export werden alle Claude-Code-Anfragen über AiDog proxied.
 
-## Sync Group Settings
+## Gruppeneinstellungen synchronisieren
 
-Click "Sync Group Settings" to generate independent Claude Code configuration files for each group:
+Auf „Gruppeneinstellungen synchronisieren" klicken, um unabhängige Claude-Code-Konfigurationsdateien für jede Gruppe zu erzeugen:
 
-- Saved to `~/.aidog/settings.<group-name>.json`
-- Each config file uses the corresponding group's proxy path
-- Use with the "Claude" one-click copy button on group cards
+- Gespeichert unter `~/.aidog/settings.<gruppen-name>.json`
+- Jede Config-Datei nutzt den Proxy-Pfad der entsprechenden Gruppe
+- Zusammen mit der „Claude"-Kopier-Schaltfläche auf Gruppenkarten verwenden
 
-### Usage
+### Verwendung
 
-1. Click the "Claude" button on a group card to copy the launch command
-2. Paste in your terminal:
+1. Auf die „Claude"-Schaltfläche einer Gruppenkarte klicken, um den Startbefehl zu kopieren
+2. Im Terminal einfügen:
 
 ```bash
 claude --brief --dangerously-skip-permissions \
-  --settings ~/.aidog/settings.<group-name>.json
+  --settings ~/.aidog/settings.<gruppen-name>.json
 ```
 
-## Manual Configuration
+## Manuelle Konfiguration
 
-Alternatively, configure via environment variables:
+Alternativ über Umgebungsvariablen konfigurieren:
 
 ```bash
 export ANTHROPIC_BASE_URL="http://127.0.0.1:9876"
 export ANTHROPIC_API_KEY="any-value"
 ```
 
-## Notes
+## Hinweise
 
-- Claude Code uses the native Anthropic protocol
-- Ensure the target platform supports the Anthropic protocol or has protocol conversion configured
-- AiDog provides a dedicated path for Claude Code
-- Add model mapping in platform or group settings if needed
+- Claude Code nutzt das native Anthropic-Protokoll
+- Stellen Sie sicher, dass die Zielplattform das Anthropic-Protokoll unterstützt oder eine Protokollkonvertierung konfiguriert ist
+- AiDog stellt einen dedizierten Pfad für Claude Code bereit
+- Falls nötig, Model-Mapping in Plattform- oder Gruppeneinstellungen hinzufügen

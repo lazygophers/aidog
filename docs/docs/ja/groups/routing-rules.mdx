@@ -2,56 +2,57 @@
 title: ルーティングルール
 ---
 
-# Routing Rules
+# ルーティングルール
 
-Routing rules determine how AiDog matches inbound requests to the appropriate group and platform.
+ルーティングルールは、AiDog が受信リクエストを適切なグループとプラットフォームにマッチさせる方法を決定します。
 
-## Matching Flow
-
-```
-Inbound Request → Detect Interface → Match Group → Select Platform → Map Model → Forward
-```
-
-## Group Matching
-
-Requests are matched to groups by priority:
-
-1. **Path match** — Request path matches the group's configured path prefix
-2. **Model name match** — Request model name is in a group's model mapping table
-3. **Default group** — Used when no match is found
-4. **First group** — Used when no default group is set
-
-## Platform Selection
-
-Within a group, platforms are selected by routing mode:
-
-### Failover Mode
-
-Select the first available platform. If it fails, try the next one automatically. If all platforms fail, return an error.
-
-### Load Balance Mode
-
-Randomly select a platform by weight. Failover also applies on failure.
-
-## Failover
-
-Automatic failover is triggered by:
-- Rate limiting (429)
-- Server error (5xx)
-- Connection timeout
-- Network error
-
-## Model Mapping Chain
-
-Model name resolution order:
-
-1. **Group-level mapping** — If the group defines model mappings
-2. **Platform-level mapping** — If the platform defines model mappings
-3. **Original value** — Use the original model name from the request
+## マッチングフロー
 
 ```
-Client requests: gpt-4o
-  → Group mapping: gpt-4o → deepseek-chat
-  → Platform mapping: (none)
-  → Sent to platform: deepseek-chat
+受信リクエスト → インターフェース検出 → グループマッチ → プラットフォーム選択 → モデルマッピング → 転送
+```
+
+## グループマッチング
+
+リクエストは優先度順にグループへマッチ:
+
+1. **パスマッチ** — リクエストパスがグループの設定パスプレフィックスに一致
+2. **モデル名マッチ** — リクエストモデル名がいずれかのグループのマッピングテーブルにある
+3. **デフォルトグループ** — マッチしない場合に使用
+4. **最初のグループ** — デフォルトグループ未設定時に使用
+
+## プラットフォーム選択
+
+グループ内ではルーティングモードで選択:
+
+### フェイルオーバーモード
+
+最初の利用可能プラットフォームを選択。失敗時、次を自動試行。全プラットフォーム失敗時はエラーを返す。
+
+### ロードバランシングモード
+
+重み付きランダムでプラットフォーム選択。失敗時もフェイルオーバー適用。
+
+## フェイルオーバー
+
+以下により自動フェイルオーバー発動:
+
+- レート制限 (429)
+- サーバーエラー (5xx)
+- 接続タイムアウト
+- ネットワークエラー
+
+## モデルマッピングチェーン
+
+モデル名の解決順:
+
+1. **グループレベルマッピング** — グループがマッピングを定義している場合
+2. **プラットフォームレベルマッピング** — プラットフォームがマッピングを定義している場合
+3. **オリジナル値** — リクエストの元モデル名を使用
+
+```
+クライアント要求: gpt-4o
+  → グループマッピング: gpt-4o → deepseek-chat
+  → プラットフォームマッピング: (なし)
+  → プラットフォームへ送信: deepseek-chat
 ```

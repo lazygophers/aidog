@@ -4,21 +4,21 @@ title: Codex
 
 # Codex
 
-Configure AiDog integration with OpenAI Codex CLI in **"Settings" → "Codex"** tab.
+اضبط تكامل AiDog مع OpenAI Codex CLI في تبويب **«الإعدادات» → «Codex»**.
 
-## Configuration Editing
+## تحرير الإعداد
 
-Edit Codex's `~/.codex/config.toml` settings directly in AiDog:
+حرّر إعدادات Codex في `~/.codex/config.toml` مباشرة في AiDog:
 
-- **Provider** — API provider and base URL
-- **Model** — Model name to use
-- **Other options** — All Codex-supported configuration items
+- **Provider** — مزود API وعنوان URL الأساسي
+- **النموذج** — اسم النموذج المراد استخدامه
+- **خيارات أخرى** — كل عناصر الإعداد التي يدعمها Codex
 
-Changes are written to the config file immediately — no need to locate and edit files manually.
+تُكتب التغييرات فورًا في ملف الإعداد — لا حاجة للبحث عن الملفات وتحريرها يدويًا.
 
-## Quick Configuration
+## الإعداد السريع
 
-Minimal configuration only requires the proxy address and any API key:
+الإعداد الأدنى يتطلب عنوان البروكسي وأي مفتاح API:
 
 ```toml
 [provider]
@@ -30,23 +30,23 @@ api_key = "any-value"
 name = "o3"
 ```
 
-## Group Configuration
+## إعداد المجموعة
 
-Codex supports switching between groups via profiles:
+يدعم Codex التبديل بين المجموعات عبر الملفات الشخصية:
 
-1. Click the "Codex" button on a group card to copy the launch command
-2. Paste in your terminal:
+1. انقر زر «Codex» على بطاقة مجموعة لنسخ أمر التشغيل
+2. الصق في طرفيتك:
 
 ```bash
 AIDOG_KEY='<group-name>' codex -p '<group-name>' \
   --dangerously-bypass-approvals-and-sandbox -a never
 ```
 
-AiDog routes requests to the corresponding group based on the `AIDOG_KEY` environment variable.
+يوجّه AiDog الطلبات إلى المجموعة المقابلة بناءً على متغير البيئة `AIDOG_KEY`.
 
-## Notes
+## ملاحظات
 
-- Codex uses the Responses API (`/v1/responses`), which AiDog detects and routes automatically
-- Ensure the corresponding platform has been added to AiDog
-- Add model mapping in platform or group settings if needed
-- The `/proxy/v1` path prefix in the proxy address must not be omitted
+- يستخدم Codex واجهة Responses API (`/v1/responses`)، التي يكتشفها AiDog ويوجّهها تلقائيًا
+- تأكد أن المنصة المقابلة قد أُضيفت إلى AiDog
+- أضف تحويل النماذج في إعدادات المنصة أو المجموعة عند الحاجة
+- بادئة المسار `/proxy/v1` في عنوان البروكسي لا يجوز حذفها

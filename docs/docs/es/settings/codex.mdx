@@ -4,21 +4,21 @@ title: Codex
 
 # Codex
 
-Configure AiDog integration with OpenAI Codex CLI in **"Settings" → "Codex"** tab.
+Configura la integración de AiDog con OpenAI Codex CLI en la pestaña **«Ajustes» → «Codex»**.
 
-## Configuration Editing
+## Edición de configuración
 
-Edit Codex's `~/.codex/config.toml` settings directly in AiDog:
+Edita los ajustes de Codex en `~/.codex/config.toml` directamente en AiDog:
 
-- **Provider** — API provider and base URL
-- **Model** — Model name to use
-- **Other options** — All Codex-supported configuration items
+- **Provider** — Proveedor de API y URL base
+- **Modelo** — Nombre del modelo a usar
+- **Otras opciones** — Todos los elementos de configuración soportados por Codex
 
-Changes are written to the config file immediately — no need to locate and edit files manually.
+Los cambios se escriben inmediatamente en el archivo de configuración — sin necesidad de localizar y editar archivos manualmente.
 
-## Quick Configuration
+## Configuración rápida
 
-Minimal configuration only requires the proxy address and any API key:
+Una configuración mínima solo requiere la dirección proxy y cualquier API key:
 
 ```toml
 [provider]
@@ -30,23 +30,23 @@ api_key = "any-value"
 name = "o3"
 ```
 
-## Group Configuration
+## Configuración de grupo
 
-Codex supports switching between groups via profiles:
+Codex soporta el cambio entre grupos mediante perfiles:
 
-1. Click the "Codex" button on a group card to copy the launch command
-2. Paste in your terminal:
+1. Pulsa el botón «Codex» en una tarjeta de grupo para copiar el comando de inicio
+2. Pega en tu terminal:
 
 ```bash
 AIDOG_KEY='<group-name>' codex -p '<group-name>' \
   --dangerously-bypass-approvals-and-sandbox -a never
 ```
 
-AiDog routes requests to the corresponding group based on the `AIDOG_KEY` environment variable.
+AiDog enruta las peticiones al grupo correspondiente según la variable de entorno `AIDOG_KEY`.
 
-## Notes
+## Notas
 
-- Codex uses the Responses API (`/v1/responses`), which AiDog detects and routes automatically
-- Ensure the corresponding platform has been added to AiDog
-- Add model mapping in platform or group settings if needed
-- The `/proxy/v1` path prefix in the proxy address must not be omitted
+- Codex usa la API Responses (`/v1/responses`), que AiDog detecta y enruta automáticamente
+- Asegúrate de que la plataforma correspondiente se haya añadido a AiDog
+- Añade mapeo de modelos en ajustes de plataforma o grupo si es necesario
+- El prefijo de ruta `/proxy/v1` en la dirección proxy no debe omitirse

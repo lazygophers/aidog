@@ -1,40 +1,40 @@
 ---
-title: Supported Platforms & Interfaces
+title: 対応プラットフォームとインターフェース
 ---
 
-# Supported Platforms & Interfaces
+# 対応プラットフォームとインターフェース
 
-AiDog supports a wide range of AI platforms and interface types, automatically handling protocol conversion between different platforms.
+AiDog は幅広い AI プラットフォームとインターフェースタイプをサポートし、異なるプラットフォーム間のプロトコル変換を自動処理します。
 
-## Supported Platforms
+## 対応プラットフォーム
 
-AiDog includes 50+ built-in platform presets covering major AI services:
+AiDog は主要 AI サービスをカバーする 50以上の内蔵プラットフォームプリセットを含みます:
 
-| Category | Examples |
+| カテゴリ | 例 |
 |----------|----------|
-| International | OpenAI, Anthropic, Google Gemini, Mistral |
-| Chinese | DeepSeek, Qwen, Zhipu GLM, Kimi, MiniMax |
-| Aggregators | OpenRouter, SiliconFlow, Novita |
+| 国際 | OpenAI、Anthropic、Google Gemini、Mistral |
+| 中国 | DeepSeek、Qwen、Zhipu GLM、Kimi、MiniMax |
+| アグリゲータ | OpenRouter、SiliconFlow、Novita |
 
-Select a platform preset and all configuration is auto-filled — no need to manually choose an interface type.
+プラットフォームプリセットを選択すると全設定が自動入力 — インターフェースタイプを手動選択する必要なし。
 
-## Automatic Interface Detection
+## インターフェース自動検出
 
-AiDog automatically detects the interface type from client requests — no manual configuration needed:
+AiDog はクライアントリクエストからインターフェースタイプを自動検出 — 手動設定不要:
 
-- **Chat interface** — The most common AI chat requests
-- **Coding assistant interface** — Used by tools like Codex, Claude Code
-- **Text completion interface** — Legacy text completion requests
+- **チャットインターフェース** — 最も一般的な AI チャットリクエスト
+- **コーディングアシスタントインターフェース** — Codex、Claude Code などのツールが使用
+- **テキスト補完インターフェース** — レガシーテキスト補完リクエスト
 
-This means you can serve different types of clients through the same proxy address.
+つまり、同じプロキシアドレス経由で異なるタイプのクライアントにサービス提供可能。
 
-## Automatic Protocol Conversion
+## プロトコル自動変換
 
-If your client sends requests in one format but the target platform uses another, AiDog converts automatically. For example:
+クライアントが一方のフォーマットでリクエストを送信し、対象プラットフォームが別のフォーマットを使用する場合、AiDog が自動変換。例:
 
-- Client sends OpenAI format → Automatically converted to Anthropic format for Claude
-- Coding assistant uses its own interface → Automatically converted to the platform's format
+- クライアントが OpenAI フォーマット送信 → Claude 用に Anthropic フォーマットへ自動変換
+- コーディングアシスタントが独自インターフェース使用 → プラットフォームのフォーマットへ自動変換
 
-## Mock Platform
+## モックプラットフォーム
 
-AiDog provides a mock platform that simulates AI responses without sending real requests. You can customize response content, status codes, delays, and more.
+AiDog は実際のリクエストを送信せずに AI レスポンスをシミュレートするモックプラットフォームを提供。レスポンス内容、ステータスコード、遅延などをカスタマイズ可能。

@@ -1,40 +1,40 @@
 ---
-title: Supported Platforms & Interfaces
+title: Plateformes & interfaces supportées
 ---
 
-# Supported Platforms & Interfaces
+# Plateformes & interfaces supportées
 
-AiDog supports a wide range of AI platforms and interface types, automatically handling protocol conversion between different platforms.
+AiDog supporte un large éventail de plateformes AI et types d'interface, gérant automatiquement la conversion de protocole entre plateformes.
 
-## Supported Platforms
+## Plateformes supportées
 
-AiDog includes 50+ built-in platform presets covering major AI services:
+AiDog inclut 50+ presets de plateforme intégrés couvrant les principaux services AI :
 
-| Category | Examples |
+| Catégorie | Exemples |
 |----------|----------|
-| International | OpenAI, Anthropic, Google Gemini, Mistral |
-| Chinese | DeepSeek, Qwen, Zhipu GLM, Kimi, MiniMax |
-| Aggregators | OpenRouter, SiliconFlow, Novita |
+| Internationales | OpenAI, Anthropic, Google Gemini, Mistral |
+| Chinoises | DeepSeek, Qwen, Zhipu GLM, Kimi, MiniMax |
+| Agrégateurs | OpenRouter, SiliconFlow, Novita |
 
-Select a platform preset and all configuration is auto-filled — no need to manually choose an interface type.
+Sélectionner un preset de plateforme et toute la configuration est auto-remplie — pas besoin de choisir manuellement un type d'interface.
 
-## Automatic Interface Detection
+## Détection automatique d'interface
 
-AiDog automatically detects the interface type from client requests — no manual configuration needed:
+AiDog détecte automatiquement le type d'interface depuis les requêtes client — aucune configuration manuelle nécessaire :
 
-- **Chat interface** — The most common AI chat requests
-- **Coding assistant interface** — Used by tools like Codex, Claude Code
-- **Text completion interface** — Legacy text completion requests
+- **Interface chat** — Les requêtes de chat AI les plus courantes
+- **Interface assistant de codage** — Utilisée par des outils comme Codex, Claude Code
+- **Interface de complétion de texte** — Requêtes de complétion de texte héritées
 
-This means you can serve different types of clients through the same proxy address.
+Cela signifie que vous pouvez servir différents types de clients via la même adresse proxy.
 
-## Automatic Protocol Conversion
+## Conversion automatique de protocole
 
-If your client sends requests in one format but the target platform uses another, AiDog converts automatically. For example:
+Si votre client envoie des requêtes dans un format mais que la plateforme cible en utilise un autre, AiDog convertit automatiquement. Par exemple :
 
-- Client sends OpenAI format → Automatically converted to Anthropic format for Claude
-- Coding assistant uses its own interface → Automatically converted to the platform's format
+- Le client envoie le format OpenAI → Automatiquement converti au format Anthropic pour Claude
+- L'assistant de codage utilise sa propre interface → Automatiquement converti au format de la plateforme
 
-## Mock Platform
+## Plateforme mock
 
-AiDog provides a mock platform that simulates AI responses without sending real requests. You can customize response content, status codes, delays, and more.
+AiDog fournit une plateforme mock qui simule des réponses AI sans envoyer de vraies requêtes. Vous pouvez personnaliser le contenu des réponses, codes de statut, délais, et plus.

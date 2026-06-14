@@ -1,72 +1,72 @@
 ---
-title: التسعير والفواتير
+title: التسعير والفوترة
 ---
 
-# Pricing & Billing
+# التسعير والفوترة
 
-AiDog automatically estimates the cost of each request based on the model pricing table. Manage all pricing data in **"Settings" → "Model Pricing"** tab.
+يُقدّر AiDog تلقائيًا تكلفة كل طلب بناءً على جدول أسعار النماذج. أدر كل بيانات التسعير في **«الإعدادات» → «أسعار النماذج»**.
 
-## Cost Estimation
+## تقدير التكلفة
 
-After each request, AiDog automatically:
+بعد كل طلب، يقوم AiDog تلقائيًا بـ:
 
-1. Extracts token usage (input / output / cache) from the upstream response
-2. Looks up the unit price in the pricing table
-3. Calculates the estimated cost
+1. استخراج استخدام التوكنز (إدخال / إخراج / كاش) من استجابة المنبع
+2. البحث عن السعر الفردي في جدول الأسعار
+3. حساب التكلفة التقديرية
 
-Pricing fallback order: Custom pricing → Synced pricing → Fallback price
+ترتيب الرجوع للأسعار: سعر مخصص → سعر مُزامن → سعر رجوع
 
-:::tip{title="Note"}
-Estimated costs are for reference only. Actual charges are based on platform billing.
+:::tip{title="ملاحظة"}
+التكاليف التقديرية للاسترشاد فقط. الفوترة الفعلية تعتمد على فوترة المنصة.
 :::
 
-## Pricing Management Page
+## صفحة إدارة الأسعار
 
-### Price Sync
+### مزامنة الأسعار
 
-AiDog supports one-click sync of the latest model pricing data:
+يدعم AiDog مزامنة بنقرة واحدة لبيانات أسعار النماذج الأحدث:
 
-- Click "Sync Now" to fetch the latest prices
-- Sync result shows: added count, updated count, failed count
-- Enable "Auto Sync" to automatically fetch at a configured interval
+- انقر «زامن الآن» لجلب أحدث الأسعار
+- تُظهر النتيجة: المُضافة، المُحدّثة، الفاشلة
+- فعّل «المزامنة التلقائية» للجلب في فترة مُهيّأة
 
-Auto sync intervals: 1 hour / 6 hours / 12 hours / 24 hours / 7 days
+فترات المزامنة التلقائية: 1 ساعة / 6 ساعات / 12 ساعة / 24 ساعة / 7 أيام
 
-### Fallback Price
+### سعر الرجوع
 
-For models not listed in the pricing table, a fallback price is used:
+للنماذج غير المُدرجة في الجدول، يُستخدم سعر رجوع:
 
-- **Input fallback** — Default $3.0 / million tokens
-- **Output fallback** — Default $3.0 / million tokens
+- **رجوع الإدخال** — افتراضي $3.0 / مليون توكن
+- **رجوع الإخراج** — افتراضي $3.0 / مليون توكن
 
-Adjustable in the sync settings section of the "Model Pricing" page.
+قابل للتعديل في قسم المزامنة بصفحة «أسعار النماذج».
 
-### Browse & Search
+### التصفح والبحث
 
-The price table shows these columns:
+يُظهر جدول الأسعار هذه الأعمدة:
 
-| Column | Description |
+| العمود | الوصف |
 |--------|-------------|
-| Model | Model name |
-| Source | LiteLLM (synced) / Manual |
-| Default Platform | Default platform for this model |
-| Input $/M | Input token price (per million tokens) |
-| Output $/M | Output token price |
-| Cache Read $/M | Cache token read price |
+| النموذج | اسم النموذج |
+| المصدر | LiteLLM (مُزامن) / يدوي |
+| المنصة الافتراضية | المنصة الافتراضية لهذا النموذج |
+| الإدخال $/M | سعر توكن الإدخال (لكل مليون) |
+| الإخراج $/M | سعر توكن الإخراج |
+| قراءة الكاش $/M | سعر قراءة توكن الكاش |
 
-- Search by model name
-- Filter by source (LiteLLM / Manual)
-- Paginated with adjustable page size and jump-to-page
+- بحث باسم النموذج
+- تصفية حسب المصدر (LiteLLM / يدوي)
+- ترقيم صفحات بحجم قابل للتعديل وقفز للصفحة
 
-### Manage Pricing
+### إدارة الأسعار
 
-- **Delete** — Remove a pricing record (click the delete button at end of row)
-- Price changes take effect immediately for subsequent requests
+- **حذف** — إزالة سجل سعر (زر الحذف في نهاية الصف)
+- تسري تغييرات الأسعار فورًا على الطلبات اللاحقة
 
-## View Costs
+## عرض التكاليف
 
-View cost-related data on the **"Statistics"** page:
+اعرض بيانات التكلفة في صفحة **«الإحصاءات»**:
 
-- "Estimated Cost" in the overview cards (with period comparison)
-- "Estimated Cost" column in the dimension ranking table
-- Cost details in trend chart tooltips
+- «التكلفة التقديرية» في بطاقات النظرة العامة (مع مقارنة الفترة)
+- عمود «التكلفة التقديرية» في جدول ترتيب الأبعاد
+- تفاصيل التكلفة في تلميحات مخطط الاتجاه

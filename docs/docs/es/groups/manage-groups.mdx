@@ -2,79 +2,80 @@
 title: Crear y gestionar
 ---
 
-# Create & Manage Groups
+# Crear y gestionar grupos
 
-Groups are the routing core of AiDog — organize platforms by purpose and control request routing with rules.
+Los grupos son el núcleo de enrutamiento de AiDog — organiza las plataformas por propósito y controla el enrutamiento con reglas.
 
-## Creating a Group
+## Crear un grupo
 
-1. Go to the **"Groups"** page
-2. Click **"+ Add Group"**
-3. Enter a name and path
-4. Select platforms to include
-5. Choose a routing mode
+1. Ve a la página **«Grupos»**
+2. Haz clic en **«+ Añadir grupo»**
+3. Introduce nombre y ruta
+4. Selecciona plataformas
+5. Elige modo de enrutamiento
 
-:::tip{title="Auto Group"}
-When you add a platform, AiDog automatically creates a corresponding group. You can also create more groups manually.
+:::tip{title="Grupo auto"}
+Al añadir una plataforma, AiDog crea automáticamente un grupo correspondiente. También puedes crear grupos manualmente.
 :::
 
-## Routing Modes
+## Modos de enrutamiento
 
 ### Failover
 
-The default mode. Platforms are used in order. When the current platform fails, the next one is tried automatically. Ideal for primary/backup setups.
+Modo por defecto. Las plataformas se usan en orden. Si la actual falla, prueba la siguiente automáticamente. Ideal para configuraciones primario/backup.
 
 ```
-Request → Platform A (primary) → Success → Return
-                ↓ (failed)
-         Platform B (backup) → Success → Return
+Petición → Plataforma A (primaria) → Éxito → Devolver
+                ↓ (falla)
+         Plataforma B (backup) → Éxito → Devolver
 ```
 
 ### Load Balance
 
-Requests are distributed across platforms by weight. Ideal for multi-platform traffic splitting.
+Las peticiones se distribuyen por peso. Ideal para dividir tráfico multiplataforma.
 
-| Platform | Weight | Expected Traffic |
+| Plataforma | Peso | Tráfico esperado |
 |----------|--------|-----------------|
 | OpenAI | 70 | ~70% |
 | DeepSeek | 30 | ~30% |
 
-## Timeout Settings
+## Ajustes de timeout
 
-Each group can independently set timeout values, overriding global settings:
+Cada grupo puede definir timeouts independientes, anulando los globales:
 
-- **Request Timeout** — Maximum time to wait for an upstream response
-- **Connect Timeout** — Maximum time to establish a connection
+- **Timeout de petición** — Tiempo máximo para respuesta upstream
+- **Timeout de conexión** — Tiempo máximo para establecer conexión
 
-Leave empty to use global timeout settings.
+Vacío para usar timeouts globales.
 
-## Managing Platforms
+## Gestión de plataformas
 
-Within a group, you can:
-- **Drag to reorder** — Adjust priority (determines primary/backup order in failover mode)
-- **Enable/Disable** — Temporarily skip a platform
-- **Set weights** — Request ratio for load balance mode
-- **Model mapping** — Group-level model mapping, takes precedence over platform-level
+En un grupo:
 
-## One-Click Launch Commands
+- **Arrastrar para reordenar** — Ajusta prioridad (determina orden primario/backup en failover)
+- **Activar/Desactivar** — Saltar temporalmente una plataforma
+- **Definir pesos** — Ratio de peticiones en load balance
+- **Mapeo de modelo** — Mapeo a nivel de grupo, prioridad sobre plataforma
 
-Each group card provides two one-click copy buttons:
+## Comandos de inicio en un clic
 
-- **Claude** — Copies the Claude Code launch command for this group, including the settings file path
-- **Codex** — Copies the Codex launch command for this group, including the profile
+Cada tarjeta de grupo ofrece dos botones de copia:
 
-Paste the command in your terminal to immediately use the group's routing.
+- **Claude** — Copia el comando de inicio de Claude Code para este grupo, con ruta del archivo de ajustes
+- **Codex** — Copia el comando de inicio de Codex, con el perfil
 
-## Health Status
+Pega el comando en tu terminal para usar el enrutamiento del grupo.
 
-Group cards display health status indicators for their associated platforms:
+## Estado de salud
 
-- 🟢 All successful — Green
-- 🟡 Some failures — Yellow
-- 🔴 All failed — Red
+Las tarjetas de grupo muestran indicadores para sus plataformas:
 
-## Edit & Delete
+- 🟢 Todos con éxito — Verde
+- 🟡 Algunos fallos — Amarillo
+- 🔴 Todos fallidos — Rojo
 
-- Click a group card to enter edit mode. Click "Save" after changes
-- Deleting a group does not delete its platforms — it only removes the association
-- Drag group cards in the list to adjust display order
+## Editar y eliminar
+
+- Haz clic en una tarjeta para entrar en modo edición. «Guardar» tras cambios
+- Eliminar un grupo no elimina sus plataformas — solo quita la asociación
+- Arrastra las tarjetas para reordenar

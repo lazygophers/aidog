@@ -2,62 +2,63 @@
 title: 高度なルーティング
 ---
 
-# Advanced Routing
+# 高度なルーティング
 
-Master AiDog's advanced routing capabilities for fine-grained traffic control.
+AiDog の高度なルーティング機能を使いこなし、きめ細かいトラヒック制御を実現。
 
-## Multi-Platform Aggregation
+## マルチプラットフォーム集約
 
-Add multiple platforms to a group with different routing modes. See [Create & Manage](/groups/manage-groups).
+複数プラットフォームを異なるルーティングモードでグループに追加。[作成と管理](/ja/groups/manage-groups) 参照。
 
-## Failover
+## フェイルオーバー
 
-When a platform request fails, AiDog automatically tries the next platform in the group:
+プラットフォーム失敗時、AiDog はグループ内の次を自動試行:
 
 ```
-Request → Platform A (429 Rate Limit)
-        → Platform B (Success)
-        → Return response
+リクエスト → プラットフォーム A (429 Rate Limit)
+        → プラットフォーム B (成功)
+        → レスポンス返却
 ```
 
-Failover triggers on:
+フェイルオーバー発動条件:
+
 - HTTP 429 (Rate Limit)
-- HTTP 5xx (Server Error)
-- Connection timeout
-- Network errors
+- HTTP 5xx (サーバーエラー)
+- 接続タイムアウト
+- ネットワークエラー
 
-## Load Balancing
+## ロードバランシング
 
-Distribute requests across multiple platforms by weight. Example:
+リクエストを重み付きでプラットフォーム間に分散。例:
 
-| Platform | Weight | Expected Traffic |
+| プラットフォーム | 重み | 期待トラヒック |
 |----------|--------|------------------|
 | OpenAI | 70 | ~70% |
 | DeepSeek | 30 | ~30% |
 
-## Model Aliases
+## モデルエイリアス
 
-Create aliases via model mapping:
+モデルマッピングでエイリアス作成:
 
-| Alias | Maps To | Purpose |
+| エイリアス | マップ先 | 用途 |
 |-------|---------|---------|
-| `fast` | `gpt-4o-mini` | Quick responses |
-| `smart` | `claude-3-opus` | High quality |
-| `code` | `deepseek-coder` | Code generation |
+| `fast` | `gpt-4o-mini` | 高速応答 |
+| `smart` | `claude-3-opus` | 高品質 |
+| `code` | `deepseek-coder` | コード生成 |
 
-Clients use aliases; AiDog routes to actual platforms based on group configuration.
+クライアントはエイリアス使用; AiDog はグループ設定に基づき実際のプラットフォームへルーティング。
 
-## Chained Routing
+## チェーンルーティング
 
-Combine group and platform mappings for multi-layer transformation:
+グループとプラットフォームのマッピングを組み合わせ多層変換:
 
-1. Client requests model `smart`
-2. Group A maps `smart` → `claude-3-opus`
-3. Platform X maps `claude-3-opus` → `claude-3-opus-20240229`
-4. Sent to Anthropic
+1. クライアントが `smart` を要求
+2. グループ A が `smart` → `claude-3-opus` にマップ
+3. プラットフォーム X が `claude-3-opus` → `claude-3-opus-20240229` にマップ
+4. Anthropic へ送信
 
-## Group-Level Timeout
+## グループレベルタイムアウト
 
-Each group can independently set request timeout and connect timeout, overriding global defaults. Useful when certain slower models need longer wait times.
+各グループはリクエストタイムアウトと接続タイムアウトを個別に設定でき、グローバルデフォルトを上書き。遅いモデルが長い待機時間を必要とする場合に有用。
 
-See [Create & Manage](/groups/manage-groups).
+[作成と管理](/ja/groups/manage-groups) 参照。

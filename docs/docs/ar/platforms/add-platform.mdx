@@ -2,132 +2,132 @@
 title: إضافة منصة
 ---
 
-# Add Platform
+# إضافة منصة
 
-Platforms are the core concept in AiDog — each represents an AI API service endpoint.
+المنصات هي المفهوم الأساسي في AiDog — كل منها يمثل نقطة نهاية لخدمة AI API.
 
-![AiDog — Add Platform](/screenshots/add-platform.png)
+![AiDog — إضافة منصة](/screenshots/add-platform.png)
 
-## Adding Steps
+## خطوات الإضافة
 
-1. Go to the **"Platforms"** page
-2. Click the **"+"** button in the top right
-3. Select a platform from the preset list (or fill in manually)
-4. Enter your API Key and click Save
+1. اذهب إلى صفحة **«المنصات»**
+2. انقر زر **«+**» في الأعلى يمينًا
+3. اختر منصة من قائمة المُعدّات (أو املأ يدويًا)
+4. أدخل مفتاح API وانقر حفظ
 
-:::tip{title="Auto Group"}
-After saving a platform, AiDog automatically creates a group for it, so you can start using it right away without manual configuration.
+:::tip{title="مجموعة تلقائية"}
+بعد حفظ منصة، يُنشئ AiDog تلقائيًا مجموعة لها، فتستطيع استخدامها فورًا دون إعداد يدوي.
 :::
 
-## Basic Configuration
+## الإعداد الأساسي
 
-| Field | Description | Example |
+| الحقل | الوصف | مثال |
 |-------|-------------|---------|
-| Name | Display name | `My OpenAI` |
-| Base URL | API base URL (with version prefix) | `https://api.openai.com/v1` |
-| API Key | Platform API key | `sk-...` |
+| الاسم | اسم العرض | `OpenAI الخاص بي` |
+| عنوان URL الأساسي | عنوان URL الأساسي للـ API (مع بادئة الإصدار) | `https://api.openai.com/v1` |
+| مفتاح API | مفتاح API الخاص بالمنصة | `sk-...` |
 
-### Platform Presets
+### مُعدّات المنصة
 
-AiDog includes 50+ built-in platform presets (OpenAI, Anthropic, Gemini, DeepSeek, Qwen, and more). Selecting a preset auto-fills all configuration fields — just enter your API Key.
+يضم AiDog أكثر من 50 مُعدّ منصة مدمج (OpenAI، Anthropic، Gemini، DeepSeek، Qwen، والمزيد). اختيار مُعدّ يملأ كل حقول الإعداد تلقائيًا — فقط أدخل مفتاح API.
 
-Some presets are marked with "Coding Plan" — they automatically configure quota queries.
+بعض المُعدّات مُعلّمة بـ«Coding Plan» — تُهيّئ استعلامات الحصة تلقائيًا.
 
-## Passthrough Mode
+## وضع المرور المباشر
 
-Some platform types support "passthrough" mode: AiDog forwards client request headers and body as-is, without any protocol conversion or authentication injection.
+بعض أنواع المنصات تدعم وضع «المرور المباشر»: يمرّر AiDog ترويسات طلب العميل ونصه كما هي، دون أي تحويل بروتوكول أو حقن مصادقة.
 
-- **Upstream URL** — Enter the platform root URL (e.g. `https://api.anthropic.com`), without version prefix
-- **API Key** — Optional in passthrough mode; the client can carry its own authentication
+- **عنوان المنبع** — أدخل عنوان URL الجذري للمنصة (مثل `https://api.anthropic.com`)، دون بادئة الإصدار
+- **مفتاح API** — اختياري في وضع المرور المباشر؛ يمكن للعميل حمل مصادقته الخاصة
 
-Ideal for scenarios where client-side authentication (e.g. OAuth subscriptions) must be preserved.
+مثالي للسيناريوهات التي يجب فيها الحفاظ على مصادقة العميل (مثل اشتراكات OAuth).
 
-## Multiple Endpoints
+## نقاط نهاية متعددة
 
-Each platform can have multiple endpoints, each with its own address and interface type. AiDog automatically selects the matching endpoint based on the client request.
+يمكن أن يكون لكل منصة نقاط نهاية متعددة، لكل منها عنوانها ونوع واجهتها. يختار AiDog تلقائيًا نقطة النهاية المطابقة بناءً على طلب العميل.
 
-For example, the same platform can support both the chat interface and the coding assistant interface.
+على سبيل المثال، يمكن للمنصة نفسها دعم واجهة الدردشة وواجهة مساعد البرمجة.
 
-## Model Configuration
+## إعداد النماذج
 
-### Default Models
+### النماذج الافتراضية
 
-In the platform settings, specify which model to use by default for different types of requests. AiDog automatically matches the most suitable model based on the requested model name.
+في إعدادات المنصة، حدد أي نموذج يُستخدم افتراضيًا لأنواع الطلبات المختلفة. يطابق AiDog تلقائيًا النموذج الأنسب بناءً على اسم النموذج المطلوب.
 
-### Fetch Model List
+### جلب قائمة النماذج
 
-Click the "Fetch Models" button to automatically retrieve available models from the platform.
+انقر زر «جلب النماذج» للحصول تلقائيًا على النماذج المتاحة من المنصة.
 
-### Model Mapping
+### تحويل النماذج
 
-Map requested model names to the actual model names supported by the platform. See [Model Mapping](/platforms/model-mapping).
+حوّل أسماء النماذج المطلوبة إلى أسماء النماذج الفعلية المدعومة من المنصة. راجع [تحويل النماذج](/ar/platforms/model-mapping).
 
-## Balance Query Configuration
+## تكوين استعلام الرصيد
 
-For platforms using the NewAPI system, configure separate balance queries:
+للمنصات التي تستخدم نظام NewAPI، اضبط استعلامات رصيد منفصلة:
 
-- **Query URL** — Separate from the API URL
-- **Query Token** — Obtained from the dashboard (different from API Key)
-- **User ID** — Optional
+- **عنوان الاستعلام** — منفصل عن عنوان API
+- **رمز الاستعلام** — يُؤخذ من لوحة التحكم (مختلف عن مفتاح API)
+- **User ID** — اختياري
 
-See [Balance & Quotas](/stats/balance).
+راجع [الرصيد والحصص](/ar/stats/balance).
 
-## Manual Budget
+## الميزانية اليدوية
 
-For platforms without automatic balance queries, set manual budget limits:
+للمنصات التي لا تدعم الاستعلام التلقائي عن الرصيد، اضبط حدود ميزانية يدوية:
 
-- **Total** — Overall spending limit
-- **Rolling Window** — Spending limit within a rolling time window
-- **Fixed Window** — Spending limit that resets on a fixed schedule
-- **Daily** — Daily spending limit
+- **الإجمالي** — حد الإنفاق الكلي
+- **نافذة متدحرجة** — حد الإنفاق ضمن نافذة زمنية متدحرجة
+- **نافذة ثابتة** — حد إنفاق يُعاد تعيينه وفق جدول ثابت
+- **يومي** — حد الإنفاق اليومي
 
-When depleted, AiDog stops forwarding to that platform and automatically fails over. See [Balance & Quotas](/stats/balance).
+عند الاستنزاف، يوقف AiDog التمرير إلى تلك المنصة ويفشل تلقائيًا. راجع [الرصيد والحصص](/ar/stats/balance).
 
-## Model Testing
+## اختبار النموذج
 
-After saving a platform, test its connectivity:
+بعد حفظ منصة، اختبر اتصالها:
 
-1. Click the "Test" button on the platform card
-2. Choose a test mode: Quick / Batch / Custom
-3. View results: response time, token count, success or failure
+1. انقر زر «اختبار» على بطاقة المنصة
+2. اختر وضع اختبار: سريع / دفعة / مخصص
+3. اعرض النتائج: زمن الاستجابة، عدد التوكنز، نجاح أو فشل
 
-See [Model Testing](/platforms/model-testing).
+راجع [اختبار النموذج](/ar/platforms/model-testing).
 
-## Platform List
+## قائمة المنصات
 
-The Platforms page displays all added platform cards, each showing:
+تعرض صفحة المنصات كل بطاقات المنصات المُضافة، كلٌ يُظهر:
 
-- Platform name and logo
-- Health status indicator (green/yellow/red)
-- Balance or quota utilization
-- Today's request count and success rate
+- اسم المنصة وشعارها
+- مؤشر حالة الصحة (أخضر/أصفر/أحمر)
+- الرصيد أو استخدام الحصة
+- عدد طلبات اليوم ومعدل النجاح
 
-Supports pinyin search to quickly locate a platform.
+تدعم البحث بالبينين لتحديد موقع منصة بسرعة.
 
-## Other Operations
+## عمليات أخرى
 
-- **Enable/Disable** — Pause a platform without deleting it
-- **Edit** — Click a platform card to view details and modify settings
-- **Delete** — Click the delete button. Related logs and statistics are preserved
-- **Drag to Reorder** — Drag cards in the list to adjust display order
+- **تفعيل/تعطيل** — إيقاف منصة مؤقتًا دون حذفها
+- **تحرير** — انقر بطاقة منصة لعرض التفاصيل وتعديل الإعدادات
+- **حذف** — انقر زر الحذف. تُحفظ السجلّات والإحصاءات المرتبطة
+- **السحب لإعادة الترتيب** — اسحب البطاقات في القائمة لضبط ترتيب العرض
 
-## FAQ
+## الأسئلة الشائعة
 
-### How to fill Base URL?
+### كيف أملأ عنوان URL الأساسي؟
 
-The Base URL is the complete base path including the version prefix:
+عنوان URL الأساسي هو مسار الأساس الكامل متضمنًا بادئة الإصدار:
 
-| Platform | Base URL |
+| المنصة | عنوان URL الأساسي |
 |----------|----------|
 | OpenAI | `https://api.openai.com/v1` |
 | Anthropic | `https://api.anthropic.com/v1` |
 | DeepSeek | `https://api.deepseek.com/v1` |
 | Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 
-:::caution{title="Note"}
-Do not append `/chat/completions` to the Base URL. AiDog handles this automatically.
+:::caution{title="ملاحظة"}
+لا تُلحق `/chat/completions` بعنوان URL الأساسي. يتولى AiDog ذلك تلقائيًا.
 :::
 
-### API Key Security
+### أمان مفتاح API
 
-API keys are stored locally and never uploaded to any server.
+تُخزَّن مفاتيح API محليًا ولا تُرفع أبدًا إلى أي خادم.

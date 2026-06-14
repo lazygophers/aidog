@@ -2,69 +2,69 @@
 title: トレイ設定
 ---
 
-# Tray Configuration
+# トレイ設定
 
-AiDog runs in the system tray, displaying key status information in the menu bar/taskbar. Configure display items and styles in **"Settings" → "System Tray"**.
+AiDog はシステムトレイで動作し、メニューバー/タスクバーに主要なステータス情報を表示します。**「設定」→「システムトレイ」**で表示項目とスタイルを設定します。
 
-## Tray Behavior
+## トレイ挙動
 
-After closing the main window, AiDog continues running in the system tray to keep the proxy service available. Right-click the tray icon to show/hide the main window, start/stop the proxy, or quit the app.
+メインウィンドウを閉じても、AiDog はシステムトレイで動作を続け、プロキシサービスを利用可能に保ちます。トレイアイコンを右クリックしてメインウィンドウの表示/非表示、プロキシの開始/停止、アプリ終了。
 
-## Live Preview
+## ライブプレビュー
 
-The top of the configuration page shows a simulated menu bar preview. All changes are reflected instantly. The preview also shows current line usage (max 2 lines) and warns if exceeded.
+設定ページ上部にシミュレートされたメニューバープレビューを表示。すべての変更が即座に反映されます。プレビューは現在の行使用量 (最大2行) も表示し、超過時に警告します。
 
-## Display Item Types
+## 表示項目タイプ
 
-Click "Add Display Item" to add any of these content types:
+「表示項目を追加」をクリックして以下のコンテンツタイプを追加:
 
-### Platform Balance / Quota
+### プラットフォーム残高/クォータ
 
-Select an enabled platform to show its balance or Coding Plan quota:
+有効なプラットフォームを選択して残高または Coding Plan クォータを表示:
 
-| Display Mode | Description |
+| 表示モード | 説明 |
 |--------------|-------------|
-| Balance | Account balance (e.g. `$12.50`) |
-| Quota | Coding Plan remaining percentage (e.g. `85%`) |
+| 残高 | アカウント残高 (例: `$12.50`) |
+| クォータ | Coding Plan 残りパーセンテージ (例: `85%`) |
 
-### Today's Statistics
+### 今日の統計
 
-Show today's aggregated data, with 4 available metrics:
+今日の集計データを表示、4つのメトリクスが利用可能:
 
-| Metric | Description |
+| メトリクス | 説明 |
 |--------|-------------|
-| Tokens | Today's total token usage |
-| Cache% | Today's cache hit rate |
-| Cost$ | Today's estimated cost |
-| Requests | Today's total request count |
+| トークン | 今日の総トークン使用量 |
+| キャッシュ率 | 今日のキャッシュヒット率 |
+| コスト | 今日の推定コスト |
+| リクエスト | 今日の総リクエスト数 |
 
-### Separators
+### セパレータ
 
-Insert separators between display items. Six preset styles (`|`, `·`, `—`, `/`, `»`, space) plus custom characters.
+表示項目間にセパレータを挿入。6つのプリセットスタイル (`|`、`·`、`—`、`/`、`»`、スペース) とカスタム文字。
 
-## Item Customization
+## 項目カスタマイズ
 
-Expand any display item to adjust these properties:
+任意の表示項目を展開して以下のプロパティを調整:
 
-| Property | Description |
+| プロパティ | 説明 |
 |----------|-------------|
-| Display | Balance / Quota (platform items only) |
-| Metric | Tokens / Cache% / Cost$ / Requests (today stats items only) |
-| Label | Custom display name (leave empty for default) |
-| Decimals | Number of decimal places for values |
-| Line Mode | Single (label + value on same line) / Two-line (label top, value bottom) |
-| Alignment | Left / Center / Right |
-| Value Row Alignment | Independent alignment for the second line in two-line mode |
-| Color | Follow system / Preset (red/green/orange) / Custom |
+| 表示 | 残高 / クォータ (プラットフォーム項目のみ) |
+| メトリクス | トークン / キャッシュ率 / コスト / リクエスト (今日の統計項目のみ) |
+| ラベル | カスタム表示名 (空欄でデフォルト) |
+| 小数点 | 値の小数点以下桁数 |
+| 行モード | 単一行 (ラベル + 値が同じ行) / 二行 (ラベル上、値下) |
+| 配置 | 左 / 中央 / 右 |
+| 値行配置 | 二行モードの2行目の独立配置 |
+| 色 | システムに従う / プリセット (赤/緑/オレンジ) / カスタム |
 
-### Color Warning
+### 色の警告
 
-When choosing a custom color, AiDog warns if the color may not be clearly visible under certain menu bar themes.
+カスタム色選択時、AiDog は一部のメニューバーテーマで色が明確に見えない可能性がある場合に警告します。
 
-## Drag to Reorder
+## ドラッグで並べ替え
 
-Display items support drag-and-drop reordering. Disabled items do not appear in the preview.
+表示項目はドラッグ&ドロップでの並べ替えをサポート。無効化された項目はプレビューに表示されません。
 
-## Auto-start on Boot
+## 起動時自動開始
 
-Configure AiDog to auto-start with the system in **"Settings" → "Proxy Configuration"**.
+**「設定」→「プロキシ設定」**でシステムとともに AiDog を自動起動するよう設定。

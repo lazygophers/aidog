@@ -2,69 +2,69 @@
 title: Tray-Konfiguration
 ---
 
-# Tray Configuration
+# Tray-Konfiguration
 
-AiDog runs in the system tray, displaying key status information in the menu bar/taskbar. Configure display items and styles in **"Settings" → "System Tray"**.
+AiDog läuft im System-Tray und zeigt wichtige Statusinformationen in der Menüleiste/Taskleiste. Anzeige-Items und Stile unter **„Einstellungen" → „System-Tray"** konfigurieren.
 
-## Tray Behavior
+## Tray-Verhalten
 
-After closing the main window, AiDog continues running in the system tray to keep the proxy service available. Right-click the tray icon to show/hide the main window, start/stop the proxy, or quit the app.
+Nach dem Schließen des Hauptfensters läuft AiDog im System-Tray weiter, um den Proxy-Dienst verfügbar zu halten. Rechtsklick auf das Tray-Icon, um das Hauptfenster ein-/auszublenden, den Proxy zu starten/stoppen oder die App zu beenden.
 
-## Live Preview
+## Live-Vorschau
 
-The top of the configuration page shows a simulated menu bar preview. All changes are reflected instantly. The preview also shows current line usage (max 2 lines) and warns if exceeded.
+Oben auf der Konfigurationsseite wird eine simulierte Menüleisten-Vorschau gezeigt. Alle Änderungen werden sofort reflektiert. Die Vorschau zeigt auch die aktuelle Zeilennutzung (max. 2 Zeilen) und warnt bei Überschreitung.
 
-## Display Item Types
+## Anzeige-Item-Typen
 
-Click "Add Display Item" to add any of these content types:
+Auf „Anzeige-Item hinzufügen" klicken, um einen dieser Inhaltstypen hinzuzufügen:
 
-### Platform Balance / Quota
+### Plattform-Guthaben/Kontingent
 
-Select an enabled platform to show its balance or Coding Plan quota:
+Eine aktivierte Plattform auswählen, um Guthaben oder Coding-Plan-Kontingent zu zeigen:
 
-| Display Mode | Description |
+| Anzeigemodus | Beschreibung |
 |--------------|-------------|
-| Balance | Account balance (e.g. `$12.50`) |
-| Quota | Coding Plan remaining percentage (e.g. `85%`) |
+| Guthaben | Kontoguthaben (z. B. `$12.50`) |
+| Kontingent | Verbleibender Coding-Plan-Prozentsatz (z. B. `85%`) |
 
-### Today's Statistics
+### Heutige Statistiken
 
-Show today's aggregated data, with 4 available metrics:
+Heutige aggregierte Daten anzeigen, mit 4 verfügbaren Metriken:
 
-| Metric | Description |
+| Metrik | Beschreibung |
 |--------|-------------|
-| Tokens | Today's total token usage |
-| Cache% | Today's cache hit rate |
-| Cost$ | Today's estimated cost |
-| Requests | Today's total request count |
+| Tokens | Heutige Gesamt-Token-Nutzung |
+| Cache% | Heutige Cache-Trefferrate |
+| Cost$ | Heutige geschätzte Kosten |
+| Requests | Heutige Gesamt-Anfragezahl |
 
-### Separators
+### Trennzeichen
 
-Insert separators between display items. Six preset styles (`|`, `·`, `—`, `/`, `»`, space) plus custom characters.
+Trennzeichen zwischen Anzeige-Items einfügen. Sechs Preset-Stile (`|`, `·`, `—`, `/`, `»`, Leerzeichen) plus eigene Zeichen.
 
-## Item Customization
+## Item-Anpassung
 
-Expand any display item to adjust these properties:
+Jedes Anzeige-Item aufklappen, um diese Eigenschaften anzupassen:
 
-| Property | Description |
+| Eigenschaft | Beschreibung |
 |----------|-------------|
-| Display | Balance / Quota (platform items only) |
-| Metric | Tokens / Cache% / Cost$ / Requests (today stats items only) |
-| Label | Custom display name (leave empty for default) |
-| Decimals | Number of decimal places for values |
-| Line Mode | Single (label + value on same line) / Two-line (label top, value bottom) |
-| Alignment | Left / Center / Right |
-| Value Row Alignment | Independent alignment for the second line in two-line mode |
-| Color | Follow system / Preset (red/green/orange) / Custom |
+| Anzeige | Guthaben / Kontingent (nur Plattform-Items) |
+| Metrik | Tokens / Cache% / Cost$ / Requests (nur heutige Statistiken) |
+| Label | Eigener Anzeigename (leer für Standard) |
+| Dezimalen | Anzahl Dezimalstellen für Werte |
+| Zeilenmodus | Einzeilig (Label + Wert gleiche Zeile) / Zweizeilig (Label oben, Wert unten) |
+| Ausrichtung | Links / Mitte / Rechts |
+| Wertzeilen-Ausrichtung | Unabhängige Ausrichtung für die zweite Zeile im Zweizeilenmodus |
+| Farbe | System folgen / Preset (rot/grün/orange) / Benutzerdefiniert |
 
-### Color Warning
+### Farbwarnung
 
-When choosing a custom color, AiDog warns if the color may not be clearly visible under certain menu bar themes.
+Bei Wahl einer benutzerdefinierten Farbe warnt AiDog, wenn die Farbe unter bestimmten Menüleisten-Themen möglicherweise schlecht sichtbar ist.
 
-## Drag to Reorder
+## Drag zum Sortieren
 
-Display items support drag-and-drop reordering. Disabled items do not appear in the preview.
+Anzeige-Items unterstützen Drag-and-Drop-Sortierung. Deaktivierte Items erscheinen nicht in der Vorschau.
 
-## Auto-start on Boot
+## Autostart beim Boot
 
-Configure AiDog to auto-start with the system in **"Settings" → "Proxy Configuration"**.
+AiDog unter **„Einstellungen" → „Proxy-Konfiguration"** so konfigurieren, dass es mit dem System startet.

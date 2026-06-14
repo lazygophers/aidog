@@ -1,50 +1,50 @@
 ---
-title: Consulter les journaux
+title: Consulter les logs
 ---
 
-# Viewing Logs
+# Consulter les logs
 
-The **Logs** page records every proxy request that passes through AiDog, making it easy to troubleshoot routing, protocol conversion, and upstream response issues.
+La page **Logs** enregistre chaque requête proxy passant par AiDog, facilitant le diagnostic de routage, conversion de protocole et réponses amont.
 
-## Log List
+## Liste des logs
 
-Each log entry shows the following information:
+Chaque entrée affiche :
 
-| Field | Description |
+| Champ | Description |
 |------|------|
-| Group | Name of the matched group |
-| Model | Original model requested by the client |
-| Actual Model | Model sent to the upstream after model mapping |
-| Protocol | Inbound protocol → upstream protocol |
-| Platform | Platform that actually handled the request |
-| Status | HTTP status code (success / failure) |
-| Duration | Total request duration (milliseconds) |
-| Token | Number of input / output / cache tokens |
-| Time | When the request occurred |
+| Groupe | Nom du groupe correspondant |
+| Modèle | Modèle original demandé par le client |
+| Modèle réel | Modèle envoyé à l'amont après mapping |
+| Protocole | Protocole entrant → protocole amont |
+| Plateforme | Plateforme ayant traité la requête |
+| Statut | Code HTTP statut (succès / échec) |
+| Durée | Durée totale de la requête (millisecondes) |
+| Tokens | Nombre de tokens entrée / sortie / cache |
+| Heure | Moment de la requête |
 
-The list shows 50 entries per page with pagination support.
+La liste affiche 50 entrées par page avec pagination.
 
-## Filtering
+## Filtrage
 
-Use the filters at the top to quickly locate logs:
+Utilisez les filtres en haut pour localiser rapidement les logs :
 
-- **Platform**: filter by a specific platform
-- **Group**: filter by group
-- **Status**: success only / failure only
-- **Time range**: all / last 1 hour / 6 hours / 24 hours / 7 days / 30 days
-- **Model**: search by original or actual model name
+- **Plateforme** : filtrer par plateforme spécifique
+- **Groupe** : filtrer par groupe
+- **Statut** : succès uniquement / échec uniquement
+- **Plage de temps** : tout / 1 heure / 6 heures / 24 heures / 7 jours / 30 jours
+- **Modèle** : recherche par nom de modèle original ou réel
 
-## Request Details
+## Détails de la requête
 
-Click any log entry to expand its details and view the complete request chain:
+Cliquez une entrée pour déplier les détails et voir la chaîne complète :
 
-- **User request**: original request URL, request headers, request body
-- **Upstream request**: the converted URL, request headers, and request body sent to the upstream
-- **Upstream response**: status code, response headers, and response body returned by the upstream
-- **User response**: the final response headers and response body returned to the client
+- **Requête utilisateur** : URL, en-têtes et corps originaux
+- **Requête amont** : URL convertie, en-têtes et corps envoyés à l'amont
+- **Réponse amont** : code statut, en-têtes et corps renvoyés par l'amont
+- **Réponse utilisateur** : en-têtes et corps finaux renvoyés au client
 
-Details support one-click copy, making it easy to paste into a support ticket or debugging tool.
+Les détails supportent la copie en un clic, pour coller dans un ticket ou outil de debug.
 
 :::tip
-The "User request" and "Upstream request" content recorded in the details is controlled by the log settings. By default, the request body is not recorded. See [Log Settings](/logs/log-settings) for more.
+Le contenu de « Requête utilisateur » et « Requête amont » est contrôlé par les réglages de logs. Par défaut, le corps n'est pas enregistré. Voir [Réglages des logs](/fr/logs/log-settings).
 :::
