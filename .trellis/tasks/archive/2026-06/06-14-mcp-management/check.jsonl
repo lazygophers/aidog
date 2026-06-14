@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/guides/trellisx-conventions.md", "reason": "check 闭环判定标准"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校验 Rust↔TS 契约一致性"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "主题变量/硬编码色值检查 + i18n 全覆盖"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "migration 幂等 + CRUD 约定校验"}

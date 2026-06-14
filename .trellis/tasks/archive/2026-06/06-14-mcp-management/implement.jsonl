@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/guides/trellisx-conventions.md", "reason": "5 步流程 + check 闭环 + 分工表"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Rust↔TS 契约字段名/类型对齐 (McpServerInfo/McpScanItem/mcpApi)"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "migration 020 mcp_server 建表 + CRUD 约定"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "顶页组件 + 主题 CSS 变量 + i18n + 乐观更新约定"}
