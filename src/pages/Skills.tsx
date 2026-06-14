@@ -226,6 +226,38 @@ export function Skills() {
     }
   };
 
+  // 为某 agent 启用全部已装 skills（只增不减，非破坏性）。
+  const handleEnableAll = async (agent: SkillAgent) => {
+    if (!writeReady || scopeInvalid || busyKey !== null) return;
+    setBusyKey(`__enableall_${agent}__`);
+    setMessage(null);
+    try {
+      const res = await skillsApi.enableAll(agent, scope);
+      if (res.success) {
+        // stdout 形如 "enabled N skills"；N=0 视为 noop。
+        const m = res.stdout.match(/enabled (\d+) skills/);
+        const n = m ? Number(m[1]) : 0;
+        setMessage(
+          n === 0
+            ? t("skills.enableAllNoop", "{{agent}} 已全部启用", { agent: t(`skills.agent.${agent}`, agent) })
+            : t("skills.enableAllDone", "已为 {{agent}} 启用 {{count}} 项", {
+                agent: t(`skills.agent.${agent}`, agent),
+                count: n,
+              }),
+        );
+        await loadInstalled();
+      } else {
+        const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "操作失败");
+        setMessage(err);
+      }
+    } catch (e) {
+      console.error("enable all failed", e);
+      setMessage(String(e));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       {/* Header */}
@@ -316,6 +348,15 @@ export function Skills() {
                     {t(`skills.agent.${a}`, a)}
                   </span>
                 </div>
+                <button
+                  className="btn btn-ghost"
+                  style={{ fontSize: 11, padding: "3px 8px" }}
+                  disabled={!writeReady || scopeInvalid || busyKey !== null || installed.length === 0 || agentCounts[a] === installed.length}
+                  onClick={() => handleEnableAll(a)}
+                  title={t("skills.enableAll", "全部启用")}
+                >
+                  {busyKey === `__enableall_${a}__` ? t("skills.enabling", "启用中…") : t("skills.enableAll", "全部启用")}
+                </button>
               </div>
             ))}
           </div>

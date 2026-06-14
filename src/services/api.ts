@@ -1332,6 +1332,9 @@ export const skillsApi = {
   /** 对齐两 agent 的 skills 启用配置（使 to 与 from 完全一致）。 */
   alignAgents: (from: SkillAgent, to: SkillAgent, scope: SkillScope) =>
     invoke<SkillsOpResult>("skills_align_agents", { from, to, scope }),
+  /** 为某 agent 启用当前 scope 全部已装 skills（只增不减）。 */
+  enableAll: (agent: SkillAgent, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_enable_all", { agent, scope }),
 };
 
 // ─── 导入导出子系统 ───────────────────────────────────────

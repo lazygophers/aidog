@@ -578,6 +578,31 @@ pub fn align_agents(
     }
 }
 
+/// 为某 agent 启用当前 scope 下全部已装 skills（只增不减，非破坏性）。
+/// 逐 skill：agent 未启用则 `enable()`，已启用跳过。
+pub fn enable_all(agent: SkillAgent, scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
+    let skills = list_installed(scope, proxy_url);
+    let mut enabled_n = 0usize;
+    let mut errs: Vec<String> = Vec::new();
+    for s in &skills {
+        if s.enabled_agents.contains(&agent) {
+            continue;
+        }
+        let path = s.installed_path.as_deref().unwrap_or("");
+        let r = enable(&s.name, path, agent, scope, proxy_url);
+        if r.success {
+            enabled_n += 1;
+        } else {
+            errs.push(format!("enable {} on {}: {}", s.name, agent.cli_slug(), r.stderr.trim()));
+        }
+    }
+    SkillsOpResult {
+        success: errs.is_empty(),
+        stdout: format!("enabled {enabled_n} skills"),
+        stderr: errs.join("; "),
+    }
+}
+
 /// 按 scope 追加 `-g`（仅 Global）。
 fn apply_scope(args: &mut Vec<String>, scope: &SkillScope) {
     if matches!(scope, SkillScope::Global) {
