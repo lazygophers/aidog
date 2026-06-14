@@ -52,12 +52,16 @@ export function Skills() {
   }, []);
 
   // 列已装（scope 变化时刷新）。
+  // 不先清空列表：保留旧数据直到新数据到，避免整页闪烁；仅首屏（空列表）显示 loading。
   const loadInstalled = useCallback(async () => {
     if (scopeInvalid) {
       setInstalled([]);
       return;
     }
-    setInstalledLoading(true);
+    setInstalled((prev) => {
+      if (prev.length === 0) setInstalledLoading(true);
+      return prev;
+    });
     try {
       const list = await skillsApi.listInstalled(scope);
       setInstalled(list);
@@ -105,11 +109,28 @@ export function Skills() {
   };
 
   // 切换某 skill 在某 agent 的启用态：已启用→disable，未启用→enable。
+  // 乐观更新：立即翻转本地状态（counts 派生自动跟随），失败回滚 + 弹错；成功保留乐观态，不全量重载。
   const handleToggle = async (skill: SkillInfo, agent: SkillAgent) => {
     if (!writeReady || scopeInvalid || busyKey !== null) return;
     const enabled = skill.enabled_agents.includes(agent);
     setBusyKey(`${skill.name}::${agent}`);
     setMessage(null);
+
+    // 乐观翻转：保存回滚快照 → 立即更新 UI。
+    const prev = installed;
+    setInstalled((list) =>
+      list.map((s) =>
+        s.name === skill.name
+          ? {
+              ...s,
+              enabled_agents: enabled
+                ? s.enabled_agents.filter((a) => a !== agent)
+                : [...s.enabled_agents, agent],
+            }
+          : s,
+      ),
+    );
+
     try {
       const res = enabled
         ? await skillsApi.disable(skill.name, agent, scope)
@@ -119,9 +140,17 @@ export function Skills() {
             agent,
             scope,
           );
-      await applyResult(res, enabled ? "skills.disabled" : "skills.enabled");
+      if (res.success) {
+        setMessage(t(enabled ? "skills.disabled" : "skills.enabled", "操作成功"));
+      } else {
+        // 后端失败：回滚乐观改动 + 弹错。
+        setInstalled(prev);
+        const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "操作失败");
+        setMessage(err);
+      }
     } catch (e) {
       console.error("toggle failed", e);
+      setInstalled(prev);
       setMessage(String(e));
     } finally {
       setBusyKey(null);
