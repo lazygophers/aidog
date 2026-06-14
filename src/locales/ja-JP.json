@@ -1348,5 +1348,20 @@
   "tray.todayUsage": "今日の使用量",
   "tray.twoLine": "2行",
   "unit.days": "日",
-  "unit.sec": "秒"
+  "unit.sec": "秒",
+  "nav.about": "情報",
+  "about.title": "情報",
+  "about.subtitle": "バージョン情報とプロジェクトリンク",
+  "about.appVersion": "アプリバージョン",
+  "about.tauriVersion": "Tauri バージョン",
+  "about.os": "OS",
+  "about.arch": "アーキテクチャ",
+  "about.profile": "ビルド構成",
+  "about.gitCommit": "Git Commit",
+  "about.buildTime": "ビルド時刻",
+  "about.githubTitle": "GitHub",
+  "about.repo": "リポジトリ",
+  "about.releases": "リリース",
+  "about.issues": "Issue 一覧",
+  "about.reportIssue": "問題を報告"
 }

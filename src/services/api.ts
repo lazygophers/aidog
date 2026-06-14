@@ -1546,3 +1546,24 @@ export const importExportApi = {
   apply: (path: string, decisions: ConflictDecision[]) =>
     invoke<ImportReport>("import_apply", { path, decisions }),
 };
+
+// ─── About / 版本信息 ───────────────────────────────────────
+
+/** 关于页版本信息（字段 snake_case，与后端 AboutInfo 对齐）。 */
+export interface AboutInfo {
+  app_version: string;
+  tauri_version: string;
+  os: string;
+  arch: string;
+  family: string;
+  profile: string;
+  /** git 短 commit（无 git 时 "unknown"）。 */
+  git_commit: string;
+  /** 构建时间 epoch 秒字符串（前端格式化）。 */
+  build_time: string;
+}
+
+export const aboutApi = {
+  /** 读取应用 / 运行时 / 系统 / 构建版本信息。 */
+  info: () => invoke<AboutInfo>("about_info"),
+};

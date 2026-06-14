@@ -1326,5 +1326,20 @@
   "tray.todayUsage": "Today's Usage",
   "tray.twoLine": "Two lines",
   "unit.days": "days",
-  "unit.sec": "sec"
+  "unit.sec": "sec",
+  "nav.about": "About",
+  "about.title": "About",
+  "about.subtitle": "Version info and project links",
+  "about.appVersion": "App Version",
+  "about.tauriVersion": "Tauri Version",
+  "about.os": "OS",
+  "about.arch": "Architecture",
+  "about.profile": "Build Profile",
+  "about.gitCommit": "Git Commit",
+  "about.buildTime": "Build Time",
+  "about.githubTitle": "GitHub",
+  "about.repo": "Repository",
+  "about.releases": "Releases",
+  "about.issues": "Issues",
+  "about.reportIssue": "Report Issue"
 }

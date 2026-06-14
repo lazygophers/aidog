@@ -9,6 +9,7 @@ import { Stats } from "./pages/Stats";
 import { Notifications } from "./pages/Notifications";
 import { Skills } from "./pages/Skills";
 import { Mcp } from "./pages/Mcp";
+import { About } from "./pages/About";
 import {
   proxyLogApi,
   NOTIF_SPEAK,
@@ -40,6 +41,7 @@ const BASE_NAV: NavItem[] = [
       { id: "settings/importexport", labelKey: "appSettings.importExportTab", group: "nav.settingsGroup.config" },
     ],
   },
+  { id: "about", icon: "about", labelKey: "nav.about" },
 ];
 
 function App() {
@@ -118,6 +120,7 @@ function App() {
           {effectiveNav === "notifications" && <Notifications />}
           {effectiveNav === "skills" && <Skills />}
         {effectiveNav === "mcp" && <Mcp />}
+          {effectiveNav === "about" && <About />}
         </div>
       </main>
     </div>

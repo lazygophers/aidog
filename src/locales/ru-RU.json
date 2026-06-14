@@ -1348,5 +1348,20 @@
   "tray.todayUsage": "Использование сегодня",
   "tray.twoLine": "Две строки",
   "unit.days": "дней",
-  "unit.sec": "сек"
+  "unit.sec": "сек",
+  "nav.about": "О программе",
+  "about.title": "О программе",
+  "about.subtitle": "Информация о версии и ссылки проекта",
+  "about.appVersion": "Версия приложения",
+  "about.tauriVersion": "Версия Tauri",
+  "about.os": "ОС",
+  "about.arch": "Архитектура",
+  "about.profile": "Профиль сборки",
+  "about.gitCommit": "Git Commit",
+  "about.buildTime": "Время сборки",
+  "about.githubTitle": "GitHub",
+  "about.repo": "Репозиторий",
+  "about.releases": "Релизы",
+  "about.issues": "Issues",
+  "about.reportIssue": "Сообщить о проблеме"
 }

@@ -66,6 +66,13 @@ const icons = {
       <path d="M7.75 5.25h2.5a2 2 0 0 1 2 2v2.75" />
     </svg>
   ),
+  about: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="9" cy="9" r="7" />
+      <path d="M9 8v4.5" />
+      <path d="M9 5.5h.01" />
+    </svg>
+  ),
   chevron: (
     <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 4.5L6 7.5L9 4.5" />
