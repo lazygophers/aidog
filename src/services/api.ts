@@ -1232,3 +1232,71 @@ export function onProxyLogUpdated(callback: () => void, debounceMs = 500): () =>
     unlistenPromise.then((un) => un()).catch((e) => console.error(e));
   };
 }
+
+// ─── Skills API ────────────────────────────────────────────
+// 字段名严格 snake_case，与 Rust gateway/skills.rs 模型一一对齐（cross-layer-rules）。
+
+/** 目标 agent（决定 --agent 参数 + 本地配置目录）。 */
+export type SkillAgent = "claude" | "codex" | "cursor";
+
+/**
+ * 安装 scope（Rust 端 #[serde(tag = "kind")] 内部 tag 枚举）。
+ * - global：用户级全局（npx skills add -g）。
+ * - project：项目级，path 为项目根目录。
+ */
+export type SkillScope =
+  | { kind: "global" }
+  | { kind: "project"; path: string };
+
+/** npx/node 环境探测结果。 */
+export interface SkillsEnv {
+  npx_available: boolean;
+  node_version: string | null;
+}
+
+/** 已装 skill（原生扫描产出）。 */
+export interface SkillInfo {
+  name: string;
+  source: string | null;
+  agent: SkillAgent;
+  scope: SkillScope;
+  installed_path: string;
+  description: string | null;
+}
+
+/** catalog 条目（可装 skill）。 */
+export interface CatalogEntry {
+  id: string;
+  name: string;
+  description: string | null;
+  repo_url: string | null;
+}
+
+/** 写操作（install/update/remove）结果。 */
+export interface SkillsOpResult {
+  success: boolean;
+  stdout: string;
+  stderr: string;
+}
+
+export const skillsApi = {
+  /** 探测 npx / node 环境。 */
+  checkEnv: () => invoke<SkillsEnv>("skills_check_env"),
+  /** 浏览 catalog（HTTP 抓 skills.sh，回退 npx find）。 */
+  browseCatalog: () => invoke<CatalogEntry[]>("skills_browse_catalog"),
+  /** 搜索 catalog。 */
+  search: (keyword: string) =>
+    invoke<CatalogEntry[]>("skills_search", { keyword }),
+  /** 列指定 scope + agent 下已装 skills。 */
+  listInstalled: (scope: SkillScope, agent: SkillAgent) =>
+    invoke<SkillInfo[]>("skills_list_installed", { scope, agent }),
+  /** 安装 skill。 */
+  install: (id: string, agent: SkillAgent, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_install", { id, agent, scope }),
+  /** 卸载 skill（原生删目录）。 */
+  remove: (name: string, agent: SkillAgent, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_remove", { name, agent, scope }),
+  /** 更新已装 skills。 */
+  update: (agent: SkillAgent, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_update", { agent, scope }),
+};
