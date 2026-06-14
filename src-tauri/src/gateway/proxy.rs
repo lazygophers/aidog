@@ -43,6 +43,11 @@ pub struct ProxyState {
     pub scheduler: Arc<super::scheduling::SchedulerState>,
     /// Sticky session 绑定表（内存 LRU + TTL）。
     pub sticky: Arc<super::scheduling::StickyTable>,
+    /// 渐进式日志的 per-id 已落库列快照（in-flight 请求各 1 份）。
+    /// 首节点 INSERT 后存快照；后续节点与快照 diff，仅 UPDATE 变化列；终态写入后移除。
+    /// 用 Mutex<HashMap> 而非线程局部：流式 guard 在独立 task/Drop 路径写终态，
+    /// 须与 handler 主链路共享同一 id 的快照才能正确 diff。
+    pub log_snapshots: std::sync::Mutex<std::collections::HashMap<String, super::db::ProxyLogColumns>>,
 }
 
 /// 启动代理服务器，返回 shutdown handle
@@ -58,6 +63,7 @@ pub async fn start_proxy(
         middleware,
         scheduler: Arc::new(super::scheduling::SchedulerState::new()),
         sticky: Arc::new(super::scheduling::StickyTable::new()),
+        log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
     });
 
     let app = Router::new()
@@ -442,21 +448,13 @@ async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLog
     if !settings.enabled {
         return;
     }
-    let mut log = log.clone();
-    // Clear fields based on recording switches
-    if !settings.log_user_request {
-        log.request_headers = String::new();
-        log.request_body = String::new();
-        log.user_response_headers = String::new();
-        log.user_response_body = String::new();
-    }
-    if !settings.log_upstream_request {
-        log.upstream_request_headers = String::new();
-        log.upstream_request_body = String::new();
-        log.upstream_response_headers = String::new();
-    }
-    // Calculate est_cost from model_price if tokens are present
-    if log.est_cost == 0.0 && (log.input_tokens > 0 || log.output_tokens > 0) {
+    // 按 settings 就地脱敏构造入库列快照（仅克隆受影响 String 字段，不再 clone 整 ProxyLog 结构）。
+    let strip_user = !settings.log_user_request;
+    let strip_upstream = !settings.log_upstream_request;
+    let mut cols = super::db::ProxyLogColumns::from_log(log, strip_user, strip_upstream);
+
+    // Calculate est_cost from model_price if tokens are present（语义同旧路径，作用于列快照）
+    if cols.est_cost == 0.0 && (cols.input_tokens > 0 || cols.output_tokens > 0) {
         let model_name = if log.actual_model.is_empty() { &log.model } else { &log.actual_model };
         // best-effort 取平台主类型的 serde 裸名（如 "deepseek"）以启用 pricing[platform_type] override；
         // 拿不到则传 ""，calc_est_cost 的 fallback 回退链仍保证非 0。
@@ -466,26 +464,69 @@ async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLog
             .flatten()
             .map(|p| serde_json::to_string(&p.platform_type).unwrap_or_default().trim_matches('"').to_string())
             .unwrap_or_default();
-        log.est_cost = super::db::calc_est_cost(
+        cols.est_cost = super::db::calc_est_cost(
             &state.db,
             model_name,
             &platform_type,
-            log.input_tokens,
-            log.output_tokens,
-            log.cache_tokens,
+            cols.input_tokens,
+            cols.output_tokens,
+            cols.cache_tokens,
         )
         .await;
     }
-    if super::db::upsert_proxy_log(&state.db, &log).await.is_ok() {
+
+    let id = cols.id.clone();
+    let platform_id = log.platform_id;
+    // 终态判定：有真实 HTTP 状态(status!=0)。唯一例外是流式占位写（response_body=="[stream]"，
+    // 终态由 guard.flush 后显式 remove，不在此误删以免 guard 再 INSERT 撞主键）。
+    // 覆盖流式请求在占位前就出错(如 502)的分支，避免快照泄漏。
+    let is_terminal = cols.status_code != 0 && cols.response_body != "[stream]";
+
+    // 取上一快照决定 INSERT(首节点) 还是 部分列 UPDATE(后续节点)。
+    let prev = {
+        let map = state.log_snapshots.lock().unwrap();
+        map.get(&id).cloned()
+    };
+    let write_ok = match prev {
+        None => {
+            // 首节点：建行。成功后存快照供后续 diff。
+            let ok = super::db::insert_proxy_log_columns(&state.db, cols.clone()).await.is_ok();
+            if ok {
+                state.log_snapshots.lock().unwrap().insert(id.clone(), cols);
+            }
+            ok
+        }
+        Some(prev) => {
+            // 后续节点：仅 UPDATE 变化列；成功后刷新快照。
+            let ok = super::db::update_proxy_log_columns(&state.db, cols.clone(), &prev).await.is_ok();
+            if ok {
+                state.log_snapshots.lock().unwrap().insert(id.clone(), cols);
+            }
+            ok
+        }
+    };
+
+    // 终态写完移除快照，防 in-flight map 无限增长（流式占位写除外，由 guard 显式移除）。
+    if is_terminal {
+        remove_log_snapshot(state, &id);
+    }
+
+    if write_ok {
         // 日志写库成功后通知前端三页（Platforms/Groups/Stats）实时刷新统计。
         // 同时通知托盘刷新今日统计（请求数、Token、费用等）。
         // app handle 为 None（无 GUI 上下文）时安全跳过，不影响代理逻辑。
         if let Some(app) = &state.app {
             use tauri::Emitter;
-            let _ = app.emit("proxy-log-updated", log.platform_id);
+            let _ = app.emit("proxy-log-updated", platform_id);
             let _ = app.emit("tray-refresh", ());
         }
     }
+}
+
+/// 移除某请求 id 的列快照（终态写入后调用，防止 in-flight 快照 map 无限增长）。
+/// 流式 guard 终态 flush / 非流式终态返回前调用。重复调用安全（不存在即 no-op）。
+fn remove_log_snapshot(state: &Arc<ProxyState>, id: &str) {
+    state.log_snapshots.lock().unwrap().remove(id);
 }
 
 /// 中间件入站拦截：写审计日志（blocked_by/blocked_reason，不计费）并立即返回 403。
@@ -2017,7 +2058,10 @@ impl StreamLogGuard {
         let upsert_settings = self.settings.clone();
         let span = self.req_span.clone();
         tokio::spawn(async move {
+            let id = final_log.id.clone();
             upsert_log(&upsert_state, &final_log, &upsert_settings).await;
+            // 流式终态：移除 in-flight 列快照，防 map 无限增长。
+            remove_log_snapshot(&upsert_state, &id);
         }.instrument(span));
 
         if let Some(est) = &self.est {

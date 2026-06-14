@@ -1,8 +1,24 @@
 use rusqlite::{params, Connection, OptionalExtension, Result as SqlResult};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::{Arc, RwLock};
 use tokio_rusqlite::Connection as AsyncConnection;
 
 use super::models::*;
+
+/// 进程内热路径缓存（随 Db 实例生命周期，clone 共享同一份）。
+///
+/// 为什么挂在 `Db` 内而非全局 static：cargo test 单进程多线程跑，每个 test 各开一个
+/// `:memory:` Db；全局缓存会跨 test 串味（test A 写 proxy/logging，test B 读到脏值）。
+/// 内嵌 `Arc<RwLock<..>>` 保证「每个 Db 实例独立缓存 + clone 共享」两个性质同时成立。
+#[derive(Default)]
+struct DbCache {
+    /// setting 表 (scope,key)→JSON 值缓存。`None` 槽位表示「已查过且不存在」，
+    /// 用 `Option<Option<Value>>`：外层 = 是否缓存，内层 = 行是否存在。
+    settings: RwLock<HashMap<(String, String), Option<serde_json::Value>>>,
+    /// list_groups() 结果缓存（resolve_group 热路径用），写 group 表时整体失效。
+    groups: RwLock<Option<Vec<Group>>>,
+}
 
 /// 异步 SQLite 连接封装。
 ///
@@ -10,7 +26,7 @@ use super::models::*;
 /// 故无需 `Mutex`。`AsyncConnection` 自身 `Clone + Send + Sync`（内部仅一个 channel sender），
 /// 可直接 `app.manage(Db)` / `State<Db>`，克隆廉价（共享同一后台线程连接）。
 #[derive(Clone)]
-pub struct Db(pub AsyncConnection);
+pub struct Db(pub AsyncConnection, Arc<DbCache>);
 
 /// 从 JSON 字符串反序列化 models
 fn parse_models(json: &str) -> PlatformModels {
@@ -76,7 +92,29 @@ impl Db {
         })
         .await
         .map_err(|e| e.to_string())?;
-        Ok(Self(conn))
+        Ok(Self(conn, Arc::new(DbCache::default())))
+    }
+
+    /// 失效全部 setting 缓存槽（写入端粗粒度失效，settings 写入低频，无需按 key 精修）。
+    fn invalidate_settings_cache(&self) {
+        if let Ok(mut g) = self.1.settings.write() {
+            g.clear();
+        }
+    }
+
+    /// 失效 list_groups 缓存（任意 group 表写入后调用）。
+    fn invalidate_groups_cache(&self) {
+        if let Ok(mut g) = self.1.groups.write() {
+            *g = None;
+        }
+    }
+
+    /// 同时失效 setting + group 两类热路径缓存。
+    /// 供绕过 set_setting/group 函数直接写表的路径（如 import_export 事务批量写入）调用，
+    /// 防止 setting/group 表被旁路改写后缓存仍返回旧值。
+    pub fn invalidate_hot_caches(&self) {
+        self.invalidate_settings_cache();
+        self.invalidate_groups_cache();
     }
 
     pub async fn init_tables(&self) -> Result<(), String> {
@@ -201,6 +239,15 @@ impl Db {
                 // 旧装库（017 建表含 read）走 DROP；新装无 read 列，DROP COLUMN 报错被吞。
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_notif_read", []);
                 let _ = conn.execute("ALTER TABLE notification DROP COLUMN read", []);
+                // Migration 019: usage stats 覆盖索引（问题3 数据层优化）。
+                // today/group/platform stats 聚合走 created_at 范围扫 + SUM(est_cost/tokens)；
+                // 此覆盖索引让计费聚合无需回表（index-only scan），命中 deleted_at=0 部分索引。
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_stats \
+                     ON proxy_log(created_at, est_cost, input_tokens, output_tokens, cache_tokens, status_code) \
+                     WHERE deleted_at = 0",
+                    [],
+                );
                 Ok(())
             })
             .await
@@ -1182,6 +1229,7 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
         })
         .await
         .map_err(|e| format!("create group: {e}"))?;
+    db.invalidate_groups_cache();
 
     Ok(Group {
         id,
@@ -1215,7 +1263,9 @@ pub async fn reorder_groups(db: &Db, ordered_ids: &[u64]) -> Result<(), String> 
             Ok(())
         })
         .await
-        .map_err(|e| format!("reorder group: {e}"))
+        .map_err(|e| format!("reorder group: {e}"))?;
+    db.invalidate_groups_cache();
+    Ok(())
 }
 
 /// 批量更新 platform 的 sort_order
@@ -1236,14 +1286,24 @@ pub async fn reorder_platforms(db: &Db, ordered_ids: &[u64]) -> Result<(), Strin
 }
 
 pub async fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
-    db.0
+    if let Ok(g) = db.1.groups.read() {
+        if let Some(cached) = g.as_ref() {
+            return Ok(cached.clone());
+        }
+    }
+    let groups = db
+        .0
         .call(|conn| {
             let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE deleted_at = 0 ORDER BY sort_order, created_at"))?;
             let rows = stmt.query_map([], row_to_group)?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
         })
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    if let Ok(mut g) = db.1.groups.write() {
+        *g = Some(groups.clone());
+    }
+    Ok(groups)
 }
 
 pub async fn get_group(db: &Db, id: u64) -> Result<Option<Group>, String> {
@@ -1294,6 +1354,7 @@ pub async fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> 
         })
         .await
         .map_err(|e| format!("update group: {e}"))?;
+    db.invalidate_groups_cache();
 
     Ok(updated)
 }
@@ -1315,7 +1376,9 @@ pub async fn force_delete_group(db: &Db, id: u64) -> Result<(), String> {
             Ok(())
         })
         .await
-        .map_err(|e| format!("delete group: {e}"))
+        .map_err(|e| format!("delete group: {e}"))?;
+    db.invalidate_groups_cache();
+    Ok(())
 }
 
 // ─── GroupPlatform 关联 ────────────────────────────────────
@@ -1449,23 +1512,41 @@ pub async fn get_setting(
     scope: &str,
     key: &str,
 ) -> Result<Option<serde_json::Value>, String> {
+    // 缓存命中：热路径（log_settings/lang/sync_settings 每请求多次读）走内存，绕过后台线程往返。
+    {
+        let cache_key = (scope.to_string(), key.to_string());
+        if let Ok(g) = db.1.settings.read() {
+            if let Some(hit) = g.get(&cache_key) {
+                return Ok(hit.clone());
+            }
+        }
+    }
     let scope = scope.to_string();
     let key = key.to_string();
-    db.0
-        .call(move |conn| {
-            let mut stmt = conn.prepare("SELECT value FROM setting WHERE scope = ?1 AND key = ?2 AND deleted_at = 0")?;
-            stmt.query_row(params![scope, key], |row| {
-                let v: String = row.get(0)?;
-                Ok(serde_json::from_str(&v).unwrap_or_else(|e| {
-                    tracing::warn!(scope = %scope, key = %key, error = %e, "stored setting value is not valid JSON, returning Null");
-                    serde_json::Value::Null
-                }))
-            })
-            .optional()
-            .map_err(tokio_rusqlite::Error::from)
+    let result = db
+        .0
+        .call({
+            let scope = scope.clone();
+            let key = key.clone();
+            move |conn| {
+                let mut stmt = conn.prepare("SELECT value FROM setting WHERE scope = ?1 AND key = ?2 AND deleted_at = 0")?;
+                stmt.query_row(params![scope, key], |row| {
+                    let v: String = row.get(0)?;
+                    Ok(serde_json::from_str(&v).unwrap_or_else(|e| {
+                        tracing::warn!(scope = %scope, key = %key, error = %e, "stored setting value is not valid JSON, returning Null");
+                        serde_json::Value::Null
+                    }))
+                })
+                .optional()
+                .map_err(tokio_rusqlite::Error::from)
+            }
         })
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    if let Ok(mut g) = db.1.settings.write() {
+        g.insert((scope, key), result.clone());
+    }
+    Ok(result)
 }
 
 pub async fn set_setting(db: &Db, input: SetSettingInput) -> Result<(), String> {
@@ -1482,7 +1563,9 @@ pub async fn set_setting(db: &Db, input: SetSettingInput) -> Result<(), String> 
             Ok(())
         })
         .await
-        .map_err(|e| format!("upsert setting: {e}"))
+        .map_err(|e| format!("upsert setting: {e}"))?;
+    db.invalidate_settings_cache();
+    Ok(())
 }
 
 pub async fn delete_setting(db: &Db, scope: &str, key: &str) -> Result<(), String> {
@@ -1497,7 +1580,9 @@ pub async fn delete_setting(db: &Db, scope: &str, key: &str) -> Result<(), Strin
             Ok(())
         })
         .await
-        .map_err(|e| format!("delete setting: {e}"))
+        .map_err(|e| format!("delete setting: {e}"))?;
+    db.invalidate_settings_cache();
+    Ok(())
 }
 
 pub async fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
@@ -1834,9 +1919,10 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
     })
 }
 
-/// Upsert (INSERT OR REPLACE) a proxy log entry — used for incremental logging
-pub async fn upsert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<(), String> {
-    let log = log.clone();
+/// Upsert (INSERT OR REPLACE) a proxy log entry — used for incremental logging.
+/// 取 owned `ProxyLog`：调用方（upsert_log）已为脱敏 clone 一份，此处接管所有权
+/// 直接 move 进后台线程闭包，消除原先「调用方 clone + 本函数再 clone」的双重全量复制。
+pub async fn upsert_proxy_log(db: &Db, log: super::models::ProxyLog) -> Result<(), String> {
     db.0
         .call(move |conn| {
             let attempts_str = super::models::serialize_attempts(&log.attempts);
@@ -1849,6 +1935,179 @@ pub async fn upsert_proxy_log(db: &Db, log: &super::models::ProxyLog) -> Result<
         })
         .await
         .map_err(|e| format!("upsert proxy log: {e}"))
+}
+
+/// 渐进式日志的「DB 就绪列快照」：32 列已转成入库类型（脱敏已在构造时就地应用）。
+///
+/// 用途：替代每节点全列 INSERT OR REPLACE 重写。构造一次 → 首节点 INSERT 建行，
+/// 后续节点与上一快照逐列 diff，仅 UPDATE 变化列。配合 upsert_log 的按需脱敏，
+/// 彻底消除 proxy.rs 每次写都 `log.clone()` 整结构的开销。
+///
+/// 字段顺序与值语义须与 `PROXY_LOG_COLUMNS` / `upsert_proxy_log` 完全一致（字段完整性红线）。
+#[derive(Clone, PartialEq)]
+pub struct ProxyLogColumns {
+    pub id: String,
+    pub group_name: String,
+    pub model: String,
+    pub actual_model: String,
+    pub source_protocol: String,
+    pub target_protocol: String,
+    pub platform_id: i64,
+    pub request_headers: String,
+    pub request_body: String,
+    pub upstream_request_headers: String,
+    pub upstream_request_body: String,
+    pub response_body: String,
+    pub request_url: String,
+    pub upstream_request_url: String,
+    pub upstream_response_headers: String,
+    pub upstream_status_code: i32,
+    pub user_response_headers: String,
+    pub user_response_body: String,
+    pub status_code: i32,
+    pub duration_ms: i32,
+    pub input_tokens: i32,
+    pub output_tokens: i32,
+    pub cache_tokens: i32,
+    pub est_cost: f64,
+    pub is_stream: i64,
+    pub attempts: String,
+    pub retry_count: i32,
+    pub blocked_by: String,
+    pub blocked_reason: String,
+    pub created_at: i64,
+    pub updated_at: i64,
+    pub deleted_at: i64,
+}
+
+impl ProxyLogColumns {
+    /// 由 `ProxyLog` 构造入库列快照。`strip_user` / `strip_upstream` 为 true 时
+    /// 对应字段就地清空（等价旧 upsert_log 的脱敏）；attempts 在此序列化一次。
+    /// 仅克隆 String 字段（入库本就需 owned 值），不克隆整 ProxyLog 结构。
+    pub fn from_log(log: &super::models::ProxyLog, strip_user: bool, strip_upstream: bool) -> Self {
+        let empty = String::new;
+        ProxyLogColumns {
+            id: log.id.clone(),
+            group_name: log.group_name.clone(),
+            model: log.model.clone(),
+            actual_model: log.actual_model.clone(),
+            source_protocol: log.source_protocol.clone(),
+            target_protocol: log.target_protocol.clone(),
+            platform_id: log.platform_id as i64,
+            request_headers: if strip_user { empty() } else { log.request_headers.clone() },
+            request_body: if strip_user { empty() } else { log.request_body.clone() },
+            upstream_request_headers: if strip_upstream { empty() } else { log.upstream_request_headers.clone() },
+            upstream_request_body: if strip_upstream { empty() } else { log.upstream_request_body.clone() },
+            response_body: log.response_body.clone(),
+            request_url: log.request_url.clone(),
+            upstream_request_url: log.upstream_request_url.clone(),
+            upstream_response_headers: if strip_upstream { empty() } else { log.upstream_response_headers.clone() },
+            upstream_status_code: log.upstream_status_code,
+            user_response_headers: if strip_user { empty() } else { log.user_response_headers.clone() },
+            user_response_body: if strip_user { empty() } else { log.user_response_body.clone() },
+            status_code: log.status_code,
+            duration_ms: log.duration_ms,
+            input_tokens: log.input_tokens,
+            output_tokens: log.output_tokens,
+            cache_tokens: log.cache_tokens,
+            est_cost: log.est_cost,
+            is_stream: log.is_stream as i64,
+            attempts: super::models::serialize_attempts(&log.attempts),
+            retry_count: log.retry_count,
+            blocked_by: log.blocked_by.clone(),
+            blocked_reason: log.blocked_reason.clone(),
+            created_at: log.created_at,
+            updated_at: log.updated_at,
+            deleted_at: log.deleted_at,
+        }
+    }
+
+    /// 与上一快照 `old` 逐列对比，返回 (列名, 绑定值) 的变化集。id 主键不在内（用于 WHERE）。
+    fn changed_since(&self, old: &ProxyLogColumns) -> Vec<(&'static str, Box<dyn rusqlite::types::ToSql + Send>)> {
+        let mut out: Vec<(&'static str, Box<dyn rusqlite::types::ToSql + Send>)> = Vec::new();
+        macro_rules! diff {
+            ($col:literal, $field:ident) => {
+                if self.$field != old.$field {
+                    out.push(($col, Box::new(self.$field.clone())));
+                }
+            };
+        }
+        diff!("group_name", group_name);
+        diff!("model", model);
+        diff!("actual_model", actual_model);
+        diff!("source_protocol", source_protocol);
+        diff!("target_protocol", target_protocol);
+        diff!("platform_id", platform_id);
+        diff!("request_headers", request_headers);
+        diff!("request_body", request_body);
+        diff!("upstream_request_headers", upstream_request_headers);
+        diff!("upstream_request_body", upstream_request_body);
+        diff!("response_body", response_body);
+        diff!("request_url", request_url);
+        diff!("upstream_request_url", upstream_request_url);
+        diff!("upstream_response_headers", upstream_response_headers);
+        diff!("upstream_status_code", upstream_status_code);
+        diff!("user_response_headers", user_response_headers);
+        diff!("user_response_body", user_response_body);
+        diff!("status_code", status_code);
+        diff!("duration_ms", duration_ms);
+        diff!("input_tokens", input_tokens);
+        diff!("output_tokens", output_tokens);
+        diff!("cache_tokens", cache_tokens);
+        diff!("est_cost", est_cost);
+        diff!("is_stream", is_stream);
+        diff!("attempts", attempts);
+        diff!("retry_count", retry_count);
+        diff!("blocked_by", blocked_by);
+        diff!("blocked_reason", blocked_reason);
+        diff!("created_at", created_at);
+        diff!("updated_at", updated_at);
+        diff!("deleted_at", deleted_at);
+        out
+    }
+}
+
+/// 渐进式日志首节点：INSERT 建行（非 REPLACE，行不应已存在）。失败上抛。
+pub async fn insert_proxy_log_columns(db: &Db, cols: ProxyLogColumns) -> Result<(), String> {
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                &format!("INSERT INTO proxy_log ({PROXY_LOG_COLUMNS})
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32)"),
+                params![cols.id, cols.group_name, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("insert proxy log: {e}"))
+}
+
+/// 渐进式日志后续节点：仅 UPDATE 相对 `prev` 变化的列。无变化则 no-op（不发 SQL）。
+/// 若目标行不存在（理论不应，节点1 必先 INSERT），UPDATE 影响 0 行，静默（与旧 REPLACE
+/// 的「不存在则建行」语义偏离已由 upsert_log 的快照存在性保证：有快照 ⇒ 已 INSERT 过）。
+pub async fn update_proxy_log_columns(db: &Db, new: ProxyLogColumns, prev: &ProxyLogColumns) -> Result<(), String> {
+    let changed = new.changed_since(prev);
+    if changed.is_empty() {
+        return Ok(());
+    }
+    let id = new.id.clone();
+    db.0
+        .call(move |conn| {
+            let set_sql: String = changed
+                .iter()
+                .enumerate()
+                .map(|(i, (col, _))| format!("{col} = ?{}", i + 1))
+                .collect::<Vec<_>>()
+                .join(", ");
+            let id_idx = changed.len() + 1;
+            let sql = format!("UPDATE proxy_log SET {set_sql} WHERE id = ?{id_idx}");
+            let mut binds: Vec<&dyn rusqlite::types::ToSql> = changed.iter().map(|(_, v)| v.as_ref() as &dyn rusqlite::types::ToSql).collect();
+            binds.push(&id);
+            conn.execute(&sql, binds.as_slice())?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("update proxy log: {e}"))
 }
 
 pub async fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::models::ProxyLogSummary>, String> {
@@ -2125,6 +2384,58 @@ pub async fn get_group_usage_stats(db: &Db, group_name: &str) -> Result<super::m
         })
         .await
         .map_err(|e| format!("group usage stats: {e}"))
+}
+
+/// 批量：单查 `GROUP BY group_name` 返回所有 group → 聚合 map（问题6 N+1 消除）。
+/// 替代前端逐 group 调 `get_group_usage_stats`（N 次往返 → 1 次）。
+/// `GROUP BY group_name` 天然满足 CLAUDE.md「共享平台不重复计入」：日志按 group_name 归属，
+/// 同一平台被多 group 共享时各 group 只统计经本 group 进来的请求，无重复。
+/// recent_failures/recent_total/cache_rate 不在批量结果内（Groups 页不渲染，避免每组 5 行子查询）。
+pub async fn get_all_group_usage_stats(
+    db: &Db,
+) -> Result<std::collections::HashMap<String, super::models::PlatformUsageStats>, String> {
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT group_name, COUNT(*), \
+                 SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
+                 SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), \
+                 COALESCE(SUM(est_cost), 0.0) \
+                 FROM proxy_log WHERE deleted_at = 0 AND group_name <> '' \
+                 GROUP BY group_name",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                let group_name: String = row.get(0)?;
+                let total: i64 = row.get(1).unwrap_or(0);
+                let success: i64 = row.get(2).unwrap_or(0);
+                let inp: i64 = row.get(3).unwrap_or(0);
+                let out: i64 = row.get(4).unwrap_or(0);
+                let cache: i64 = row.get(5).unwrap_or(0);
+                let cost: f64 = row.get(6).unwrap_or(0.0);
+                Ok((
+                    group_name,
+                    super::models::PlatformUsageStats {
+                        total_requests: total,
+                        success_count: success,
+                        total_input_tokens: inp,
+                        total_output_tokens: out,
+                        total_cache_tokens: cache,
+                        cache_rate: if inp > 0 { cache as f64 / inp as f64 * 100.0 } else { 0.0 },
+                        recent_failures: 0,
+                        recent_total: 0,
+                        total_cost: cost,
+                    },
+                ))
+            })?;
+            let mut map = std::collections::HashMap::new();
+            for r in rows {
+                let (name, stats) = r?;
+                map.insert(name, stats);
+            }
+            Ok(map)
+        })
+        .await
+        .map_err(|e| format!("all group usage stats: {e}"))
 }
 
 /// 动态窗口日速率公共常量。
@@ -2800,8 +3111,8 @@ mod tests {
         let mut l2 = sample_log("r2", "g", now_ms - 1_000);
         l2.platform_id = 2;
         l2.est_cost = 99.0;
-        upsert_proxy_log(&db, &l1).await.unwrap();
-        upsert_proxy_log(&db, &l2).await.unwrap();
+        upsert_proxy_log(&db, l1).await.unwrap();
+        upsert_proxy_log(&db, l2).await.unwrap();
 
         // p1：span = clamp(now_internal - earliest, 5min, 7d) ≈ 2h → rate ≈ 4.0 / 2 = 2.0 $/h。
         // 容差放宽：查询内部 now 与测试 now 间有毫秒级时钟差 → span 略大于 2h（rate 略小于 2.0）。
@@ -2998,11 +3309,11 @@ mod tests {
 
         let now_ms = chrono::Utc::now().timestamp_millis();
         // 一条最近日志
-        upsert_proxy_log(&db, &sample_log(&new_id, "g", now_ms)).await.unwrap();
+        upsert_proxy_log(&db, sample_log(&new_id, "g", now_ms)).await.unwrap();
         // 一条很旧的日志（100 天前）
         let old_id = uuid::Uuid::new_v4().simple().to_string();
         let old_ms = now_ms - 100 * 86_400_000;
-        upsert_proxy_log(&db, &sample_log(&old_id, "g", old_ms)).await.unwrap();
+        upsert_proxy_log(&db, sample_log(&old_id, "g", old_ms)).await.unwrap();
 
         assert_eq!(count_proxy_logs(&db).await.unwrap(), 2);
 
@@ -3203,11 +3514,11 @@ decimals: None,
         let db = test_db().await;
         let now_ms = now();
         // 今日两条：(10+20) + (10+20) = 60
-        upsert_proxy_log(&db, &sample_log("a", "g", now_ms)).await.unwrap();
-        upsert_proxy_log(&db, &sample_log("b", "g", now_ms)).await.unwrap();
+        upsert_proxy_log(&db, sample_log("a", "g", now_ms)).await.unwrap();
+        upsert_proxy_log(&db, sample_log("b", "g", now_ms)).await.unwrap();
         // 昨日一条：不计入。
         let yesterday_ms = (Local::now() - Duration::days(1)).timestamp_millis();
-        upsert_proxy_log(&db, &sample_log("c", "g", yesterday_ms)).await.unwrap();
+        upsert_proxy_log(&db, sample_log("c", "g", yesterday_ms)).await.unwrap();
 
         assert_eq!(today_token_total(&db).await.unwrap(), 60);
     }
@@ -3232,18 +3543,18 @@ decimals: None,
         // 直连 p1 的日志（platform_id = p1.id），10+20 = 30 tok。
         let mut direct = sample_log("d1", "autog", now_ms);
         direct.platform_id = p1.id;
-        upsert_proxy_log(&db, &direct).await.unwrap();
+        upsert_proxy_log(&db, direct).await.unwrap();
 
         // 自动分组日志（platform_id=0），回溯到 p1。10+20 = 30 tok。
         let mut auto = sample_log("a1", &group.name, now_ms);
         auto.platform_id = 0;
-        upsert_proxy_log(&db, &auto).await.unwrap();
+        upsert_proxy_log(&db, auto).await.unwrap();
 
         // 昨日日志：不计入。
         let yesterday_ms = (Local::now() - Duration::days(1)).timestamp_millis();
         let mut old = sample_log("o1", "autog", yesterday_ms);
         old.platform_id = p1.id;
-        upsert_proxy_log(&db, &old).await.unwrap();
+        upsert_proxy_log(&db, old).await.unwrap();
 
         let stats = today_platform_stats(&db).await.unwrap();
         // 只 p1 有今日用量（direct + auto 归并），p2 无用量不出现。
@@ -3253,6 +3564,78 @@ decimals: None,
         assert_eq!(s.platform_name, "p-one");
         assert_eq!(s.tokens, 60, "direct(30) + auto retrace(30) 归并");
         assert_eq!(s.requests, 2);
+    }
+
+    /// 批量 group stats（问题6）：单查 GROUP BY group_name 返回所有 group 聚合，
+    /// 与逐 group get_group_usage_stats 数值一致；不同 group 互不串味；空 group_name 不出现。
+    #[tokio::test]
+    async fn all_group_usage_stats_matches_per_group() {
+        let db = test_db().await;
+        let now_ms = now();
+        // group "ga"：2 条成功（各 10+20 tok）；group "gb"：1 条成功。
+        upsert_proxy_log(&db, sample_log("a1", "ga", now_ms)).await.unwrap();
+        upsert_proxy_log(&db, sample_log("a2", "ga", now_ms)).await.unwrap();
+        upsert_proxy_log(&db, sample_log("b1", "gb", now_ms)).await.unwrap();
+        // 空 group_name 的日志（未匹配分组场景）：批量结果中不应出现。
+        upsert_proxy_log(&db, sample_log("e1", "", now_ms)).await.unwrap();
+
+        let all = get_all_group_usage_stats(&db).await.unwrap();
+        assert_eq!(all.len(), 2, "仅 ga/gb 两个非空 group");
+        assert!(!all.contains_key(""), "空 group_name 不计入");
+
+        // 与逐 group 查询数值逐字段一致。
+        for name in ["ga", "gb"] {
+            let single = get_group_usage_stats(&db, name).await.unwrap();
+            let batch = all.get(name).expect("group in batch");
+            assert_eq!(batch.total_requests, single.total_requests, "{name} requests");
+            assert_eq!(batch.success_count, single.success_count, "{name} success");
+            assert_eq!(batch.total_input_tokens, single.total_input_tokens, "{name} input");
+            assert_eq!(batch.total_output_tokens, single.total_output_tokens, "{name} output");
+            assert_eq!(batch.total_cache_tokens, single.total_cache_tokens, "{name} cache");
+        }
+        assert_eq!(all["ga"].total_requests, 2);
+        assert_eq!(all["gb"].total_requests, 1);
+    }
+
+    /// 缓存正确性（问题2）：setting 写后读返回新值（失效生效）；
+    /// group 写后 list_groups 返回新集合（不返回陈旧缓存）。
+    #[tokio::test]
+    async fn hot_cache_invalidates_on_write() {
+        let db = test_db().await;
+        // ── setting 缓存 ──
+        // 先读（不存在 → 缓存 None 槽），再写，再读必须见新值。
+        assert!(get_setting(&db, "proxy", "logging").await.unwrap().is_none());
+        set_setting(&db, SetSettingInput {
+            scope: "proxy".into(),
+            key: "logging".into(),
+            value: serde_json::json!({"enabled": true}),
+        }).await.unwrap();
+        let v = get_setting(&db, "proxy", "logging").await.unwrap();
+        assert_eq!(v, Some(serde_json::json!({"enabled": true})), "写后读见新值（缓存已失效）");
+        // 改值再读。
+        set_setting(&db, SetSettingInput {
+            scope: "proxy".into(),
+            key: "logging".into(),
+            value: serde_json::json!({"enabled": false}),
+        }).await.unwrap();
+        assert_eq!(
+            get_setting(&db, "proxy", "logging").await.unwrap(),
+            Some(serde_json::json!({"enabled": false})),
+        );
+        // delete 后读为 None。
+        delete_setting(&db, "proxy", "logging").await.unwrap();
+        assert!(get_setting(&db, "proxy", "logging").await.unwrap().is_none());
+
+        // ── group 缓存 ──
+        assert_eq!(list_groups(&db).await.unwrap().len(), 0);
+        let g = create_group(&db, sample_group("gc", "/gc", vec![])).await.unwrap();
+        // 缓存失效 → list_groups 见新建 group。
+        let groups = list_groups(&db).await.unwrap();
+        assert_eq!(groups.len(), 1);
+        assert_eq!(groups[0].name, "gc");
+        // 删除后 list_groups 不再含该 group。
+        force_delete_group(&db, g.id).await.unwrap();
+        assert_eq!(list_groups(&db).await.unwrap().len(), 0);
     }
 
     // ── S1 async DB：增删改查全路径（内存库，验证 tokio-rusqlite 闭包往返）──
@@ -3414,12 +3797,135 @@ decimals: None,
             },
         ];
         log.retry_count = 1;
-        upsert_proxy_log(&db, &log).await.unwrap();
+        upsert_proxy_log(&db, log).await.unwrap();
         let fetched = get_proxy_log(&db, "attlog").await.unwrap().unwrap();
         assert_eq!(fetched.attempts.len(), 2);
         assert_eq!(fetched.attempts[0].status_code, 503);
         assert_eq!(fetched.attempts[1].platform_name, "p2");
         assert_eq!(fetched.retry_count, 1);
+    }
+
+    /// 字段完整性红线：渐进式「首节点 INSERT + 后续节点部分列 UPDATE」累积写入后，
+    /// proxy_log 整行所有列必须与旧「全列 INSERT OR REPLACE 终态」等价。
+    /// 含 strip(脱敏)、token、est_cost、attempts、is_stream、blocked_* 等全字段覆盖。
+    #[tokio::test]
+    async fn progressive_columns_equals_full_replace() {
+        let db = test_db().await;
+        let now_ms = now();
+
+        // 构造一条完整请求的「终态」ProxyLog（含全字段非默认值，验证无字段丢失）。
+        let mut final_log = sample_log("prog", "grp", now_ms);
+        final_log.actual_model = "deepseek-chat".into();
+        final_log.request_headers = "{\"x\":\"1\"}".into();
+        final_log.request_body = "{\"q\":\"hi\"}".into();
+        final_log.upstream_request_headers = "{\"auth\":\"r\"}".into();
+        final_log.upstream_request_body = "{\"m\":\"x\"}".into();
+        final_log.response_body = "{\"ok\":true}".into();
+        final_log.request_url = "http://localhost/v1/messages".into();
+        final_log.upstream_request_url = "https://up/chat/completions".into();
+        final_log.upstream_response_headers = "{\"ct\":\"json\"}".into();
+        final_log.upstream_status_code = 200;
+        final_log.user_response_headers = "{\"ct\":\"json\"}".into();
+        final_log.user_response_body = "{\"ok\":true}".into();
+        final_log.status_code = 200;
+        final_log.duration_ms = 321;
+        final_log.input_tokens = 111;
+        final_log.output_tokens = 222;
+        final_log.cache_tokens = 33;
+        final_log.est_cost = 0.0042;
+        final_log.is_stream = true;
+        final_log.attempts = vec![super::super::models::ProxyAttempt {
+            platform_id: 1, platform_name: "p1".into(), status_code: 200,
+            error: String::new(), duration_ms: 99, ts: now_ms,
+        }];
+        final_log.retry_count = 0;
+        final_log.blocked_by = String::new();
+        final_log.blocked_reason = String::new();
+
+        // 旧路径：直接全列 REPLACE 终态。
+        let mut old_log = final_log.clone();
+        old_log.id = "old".into();
+        upsert_proxy_log(&db, old_log).await.unwrap();
+        let old_row = get_proxy_log(&db, "old").await.unwrap().unwrap();
+
+        // 新路径：模拟节点序列（每节点带「本阶段新增字段」，其余沿用上次）。
+        // 节点1：请求建立（id/group/model/protocols/url，无 token/响应）。
+        let mut n1 = sample_log("prog", "grp", now_ms);
+        n1.model = final_log.model.clone();
+        n1.source_protocol = final_log.source_protocol.clone();
+        n1.target_protocol = final_log.target_protocol.clone();
+        n1.actual_model = final_log.actual_model.clone();
+        n1.request_headers = final_log.request_headers.clone();
+        n1.request_body = final_log.request_body.clone();
+        n1.request_url = final_log.request_url.clone();
+        n1.status_code = 0;
+        n1.duration_ms = 0;
+        n1.input_tokens = 0;
+        n1.output_tokens = 0;
+        n1.cache_tokens = 0;
+        n1.upstream_status_code = 0;
+        n1.response_body = String::new();
+        n1.user_response_body = String::new();
+        n1.user_response_headers = String::new();
+        n1.is_stream = false;
+        let c1 = ProxyLogColumns::from_log(&n1, false, false);
+        insert_proxy_log_columns(&db, c1.clone()).await.unwrap();
+
+        // 节点2：上游请求/响应头（upstream_* 字段）。
+        let mut n2 = n1.clone();
+        n2.upstream_request_headers = final_log.upstream_request_headers.clone();
+        n2.upstream_request_body = final_log.upstream_request_body.clone();
+        n2.upstream_request_url = final_log.upstream_request_url.clone();
+        n2.upstream_response_headers = final_log.upstream_response_headers.clone();
+        n2.upstream_status_code = final_log.upstream_status_code;
+        n2.is_stream = final_log.is_stream;
+        let c2 = ProxyLogColumns::from_log(&n2, false, false);
+        update_proxy_log_columns(&db, c2.clone(), &c1).await.unwrap();
+
+        // 节点3：终态（token/est_cost/状态/body/attempts）。
+        let c3 = ProxyLogColumns::from_log(&final_log, false, false);
+        update_proxy_log_columns(&db, c3, &c2).await.unwrap();
+
+        let new_row = get_proxy_log(&db, "prog").await.unwrap().unwrap();
+
+        // 全列等价比对：序列化后比 JSON（覆盖所有字段，id 除外）。
+        let mut a = serde_json::to_value(&old_row).unwrap();
+        let mut b = serde_json::to_value(&new_row).unwrap();
+        a.as_object_mut().unwrap().remove("id");
+        b.as_object_mut().unwrap().remove("id");
+        assert_eq!(a, b, "渐进式累积写入整行字段须与全列 REPLACE 终态完全等价");
+    }
+
+    /// strip(脱敏) 等价性：log_user_request/log_upstream_request 关时，渐进路径
+    /// 落库的脱敏字段须与旧路径(upsert_log 内 strip 后 REPLACE)一致(均清空对应列)。
+    #[tokio::test]
+    async fn progressive_columns_strip_equivalence() {
+        let db = test_db().await;
+        let now_ms = now();
+        let mut log = sample_log("strip", "grp", now_ms);
+        log.request_headers = "secret-h".into();
+        log.request_body = "secret-b".into();
+        log.user_response_headers = "ur-h".into();
+        log.user_response_body = "ur-b".into();
+        log.upstream_request_headers = "up-rh".into();
+        log.upstream_request_body = "up-rb".into();
+        log.upstream_response_headers = "up-resp-h".into();
+
+        // strip_user=true, strip_upstream=true → 对应 7 列清空。
+        let cols = ProxyLogColumns::from_log(&log, true, true);
+        insert_proxy_log_columns(&db, cols).await.unwrap();
+        let row = get_proxy_log(&db, "strip").await.unwrap().unwrap();
+
+        assert!(row.request_headers.is_empty());
+        assert!(row.request_body.is_empty());
+        assert!(row.user_response_headers.is_empty());
+        assert!(row.user_response_body.is_empty());
+        assert!(row.upstream_request_headers.is_empty());
+        assert!(row.upstream_request_body.is_empty());
+        assert!(row.upstream_response_headers.is_empty());
+        // 非脱敏字段保留。
+        assert_eq!(row.group_name, "grp");
+        assert_eq!(row.model, "claude-sonnet-4");
     }
 
     // ── S1 async DB：OptionalExtension 路径（query_row().optional() 在闭包内）──

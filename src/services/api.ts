@@ -394,6 +394,10 @@ export const trayApi = {
 export const groupUsageApi = {
   stats: (groupName: string) =>
     invoke<PlatformUsageStats>("group_usage_stats", { groupName }),
+  // 批量：单次 invoke 返回所有 group → 聚合 map（group_name → stats），消除前端逐 group N+1 往返。
+  // 后端 GROUP BY group_name，共享平台不重复计入。
+  statsAll: () =>
+    invoke<Record<string, PlatformUsageStats>>("all_group_usage_stats"),
 };
 
 // ─── Tray Config API ───────────────────────────────────────

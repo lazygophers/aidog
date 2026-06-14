@@ -217,6 +217,9 @@ pub async fn apply(
 
     // 2. group → platform → group_platform → setting → model_price（db 事务内）。
     apply_db(&payload, &dec, db, &mut report).await?;
+    // 事务内直写 setting/group 表，绕过了 set_setting/group 函数的缓存失效钩子，
+    // 故导入完成后显式失效 setting + group 两类热路径缓存，避免代理读到旧配置/分组。
+    db.invalidate_hot_caches();
 
     // 3. skills 自动化（npx）。
     if !payload.skills.is_empty() {
