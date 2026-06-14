@@ -82,3 +82,4 @@
 | skills-uninstall-group | 组级卸载: 卸载整个分组的 skills | — | 已完成 | 收尾 | 100% | — |
 | skills-uninstall-case-insensitive | fs_fallback_remove 大小写不敏感匹配 skill 名 | — | 已完成 | 收尾 | 100% | — |
 | import-export-theme | 导入导出 UI 适配主题 | — | 已完成 | 收尾 | 100% | — |
+| mcp-management | MCP 管理模块 (per-agent 启用切换 + 导入平台 MCP + 删除) | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-mcp-management |
