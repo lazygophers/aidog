@@ -1257,7 +1257,6 @@ export interface SkillsEnv {
 /** 已装 skill（`npx skills list --json` 解析，统一一条/skill，不分 agent）。 */
 export interface SkillInfo {
   name: string;
-  source: string | null;
   /** 已在哪些目标 agent（claude/codex 子集）启用。 */
   enabled_agents: SkillAgent[];
   scope: SkillScope;
@@ -1291,9 +1290,9 @@ export const skillsApi = {
   /** 列指定 scope 下已装 skills（统一一条/skill，走 npx list --json）。 */
   listInstalled: (scope: SkillScope) =>
     invoke<SkillInfo[]>("skills_list_installed", { scope }),
-  /** 为某 agent 启用 skill（npx add）。 */
-  enable: (name: string, agent: SkillAgent, scope: SkillScope) =>
-    invoke<SkillsOpResult>("skills_enable", { name, agent, scope }),
+  /** 为某 agent 启用 skill（npx add，用 skill 本地 path 作 add package）。 */
+  enable: (name: string, path: string, agent: SkillAgent, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_enable", { name, path, agent, scope }),
   /** 为某 agent 关闭 skill（npx remove）。 */
   disable: (name: string, agent: SkillAgent, scope: SkillScope) =>
     invoke<SkillsOpResult>("skills_disable", { name, agent, scope }),
