@@ -12,6 +12,16 @@
 use std::path::PathBuf;
 
 /// 解析 `~/.codex` 根目录（遵循 `CODEX_HOME` 环境变量，默认 `~/.codex`）。
+/// 导入导出用：codex home 公开访问器。
+pub fn codex_home_public() -> Result<PathBuf, String> {
+    codex_home()
+}
+
+/// 导入导出用：group profile 路径公开访问器。
+pub fn profile_path_public(group: &str) -> Result<PathBuf, String> {
+    profile_path(group)
+}
+
 fn codex_home() -> Result<PathBuf, String> {
     if let Ok(custom) = std::env::var("CODEX_HOME") {
         if !custom.trim().is_empty() {

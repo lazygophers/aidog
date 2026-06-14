@@ -9,8 +9,9 @@ import { PopoverConfigTab } from "./PopoverConfigTab";
 import { MiddlewareSettingsTab } from "../components/settings/MiddlewareRules";
 import { SchedulingSettingsTab } from "../components/settings/SchedulingSettings";
 import { NotificationSettingsTab } from "../components/settings/NotificationSettings";
+import { ImportExportTab } from "../components/settings/ImportExport";
 
-export type Tab = "system" | "claude" | "codex" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover";
+export type Tab = "system" | "claude" | "codex" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport";
 
 export function AppSettings({ tab, onLogSettingsChanged }: { tab: Tab; onLogSettingsChanged?: (enabled: boolean) => void }) {
   const { t } = useTranslation();
@@ -648,6 +649,8 @@ export function AppSettings({ tab, onLogSettingsChanged }: { tab: Tab; onLogSett
         </div>
       ) : tab === "codex" ? (
         <CodexSettings />
+      ) : tab === "importexport" ? (
+        <ImportExportTab />
       ) : (
         <Settings />
       )}

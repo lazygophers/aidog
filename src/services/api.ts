@@ -1301,3 +1301,67 @@ export const skillsApi = {
   update: (scope: SkillScope) =>
     invoke<SkillsOpResult>("skills_update", { scope }),
 };
+
+// ─── 导入导出子系统 ───────────────────────────────────────
+
+export type ImportExportScope =
+  | "platform"
+  | "group"
+  | "group_platform"
+  | "setting"
+  | "codex"
+  | "claude_code"
+  | "model_price"
+  | "skills";
+
+export interface ImportExportManifest {
+  format_version: number;
+  aidog_version: string;
+  created_at: string;
+  source_machine: string;
+  scopes: string[];
+  checksum: string;
+}
+
+export type ImportDecision =
+  | { kind: "overwrite" }
+  | { kind: "skip" }
+  | { kind: "rename"; new_key: string };
+
+export interface ConflictItem {
+  scope: string;
+  key: string;
+  existing_summary: string;
+  incoming_summary: string;
+}
+
+export interface ConflictDecision {
+  scope: string;
+  key: string;
+  decision: ImportDecision;
+}
+
+export interface ImportPreview {
+  manifest: ImportExportManifest;
+  scopes: string[];
+  conflicts: ConflictItem[];
+  counts: Record<string, number>;
+}
+
+export interface ImportReport {
+  applied: Record<string, number>;
+  skipped: Record<string, number>;
+  errors: string[];
+}
+
+export const importExportApi = {
+  /** 导出勾选范围到用户选择的文件。 */
+  exportToFile: (scopes: ImportExportScope[], path: string) =>
+    invoke<void>("export_to_file", { scopes, path }),
+  /** 读文件 → 解密 → 冲突预览。 */
+  readPreview: (path: string) =>
+    invoke<ImportPreview>("import_read_file", { path }),
+  /** 按决策应用导入。 */
+  apply: (path: string, decisions: ConflictDecision[]) =>
+    invoke<ImportReport>("import_apply", { path, decisions }),
+};
