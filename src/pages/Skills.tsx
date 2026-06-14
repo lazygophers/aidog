@@ -48,6 +48,12 @@ export function Skills() {
   const [alignOpen, setAlignOpen] = useState(false);
   const [alignFrom, setAlignFrom] = useState<SkillAgent>("claude");
   const [alignTo, setAlignTo] = useState<SkillAgent>("codex");
+  // 组级卸载目标（破坏性，二次确认）。
+  const [uninstallGroupTarget, setUninstallGroupTarget] = useState<{
+    source: string | null;
+    label: string;
+    count: number;
+  } | null>(null);
 
   // 当前 scope 对象（供 API 调用）。
   const scope: SkillScope =
@@ -269,6 +275,24 @@ export function Skills() {
       await applyResult(res, "skills.uninstallDone");
     } catch (e) {
       console.error("uninstall single failed", e);
+      setMessage(String(e));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  // 组级卸载（破坏性，二次确认 modal 已过）：卸载某 source 组内所有 skill。
+  const handleUninstallGroup = async () => {
+    const target = uninstallGroupTarget;
+    setUninstallGroupTarget(null);
+    if (!target || !writeReady || scopeInvalid || busyKey !== null) return;
+    setBusyKey(`__uninstall_group_${target.source ?? "__other__"}__`);
+    setMessage(null);
+    try {
+      const res = await skillsApi.uninstallGroup(target.source, scope);
+      await applyResult(res, "skills.uninstallDone");
+    } catch (e) {
+      console.error("uninstall group failed", e);
       setMessage(String(e));
     } finally {
       setBusyKey(null);
@@ -621,6 +645,24 @@ export function Skills() {
                         );
                       })}
                     </div>
+                    {/* 组级卸载（破坏性，二次确认） */}
+                    <button
+                      className="btn btn-danger"
+                      style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
+                      disabled={!writeReady || busyKey !== null}
+                      onClick={() =>
+                        setUninstallGroupTarget({
+                          source: group.source,
+                          label: groupLabel,
+                          count: group.skills.length,
+                        })
+                      }
+                      title={t("skills.uninstallGroup", "卸载整组")}
+                    >
+                      {busyKey === `__uninstall_group_${groupKey}__`
+                        ? t("skills.uninstalling", "卸载中…")
+                        : t("skills.uninstallGroup", "卸载整组")}
+                    </button>
                   </div>
                   {/* 组内行（折叠时隐藏） */}
                   {!collapsed && (
@@ -784,6 +826,53 @@ export function Skills() {
               </button>
               <button className="btn btn-danger" style={{ fontSize: 13 }} onClick={handleUninstallSingle}>
                 {t("skills.uninstall", "卸载")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* 组级卸载二次确认 modal（破坏性，禁 native confirm） */}
+      {uninstallGroupTarget && createPortal(
+        <div
+          onClick={() => setUninstallGroupTarget(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.4)",
+            animation: "fadeIn 150ms ease both",
+          }}
+        >
+          <div
+            className="glass-elevated"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 420,
+              padding: 24,
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 700 }}>{t("skills.uninstallGroup", "卸载整组")}</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              {t(
+                "skills.uninstallGroupConfirm",
+                "将卸载 {{group}} 下 {{count}} 个 skill 及其在所有 agent 的启用配置，不可恢复。确认？",
+                { group: uninstallGroupTarget.label, count: uninstallGroupTarget.count },
+              )}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setUninstallGroupTarget(null)}>
+                {t("action.cancel", "取消")}
+              </button>
+              <button className="btn btn-danger" style={{ fontSize: 13 }} onClick={handleUninstallGroup}>
+                {t("skills.uninstallGroup", "卸载整组")}
               </button>
             </div>
           </div>

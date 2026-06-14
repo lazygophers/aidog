@@ -941,6 +941,8 @@
   "skills.uninstallAllDone": "تم إلغاء تثبيت جميع المهارات",
   "skills.uninstallConfirm": "سيتم حذف skill {{name}} وإعداد التفعيل لجميع الـ agents. لا يمكن التراجع. تأكيد؟",
   "skills.uninstallDone": "تم إلغاء التثبيت",
+  "skills.uninstallGroup": "إلغاء تثبيت المجموعة",
+  "skills.uninstallGroupConfirm": "سيتم إلغاء تثبيت {{count}} مهارة تحت {{group}} وحذف إعداد التفعيل على جميع الوكلاء. لا يمكن التراجع. تأكيد؟",
   "skills.uninstalling": "جارٍ إلغاء التثبيت…",
   "skills.updateAll": "تحديث الكل",
   "skills.updated": "تم التحديث بنجاح",

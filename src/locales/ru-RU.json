@@ -941,6 +941,8 @@
   "skills.uninstallAllDone": "Все навыки удалены",
   "skills.uninstallConfirm": "Будут удалены skill {{name}} и его конфигурация включения для всех agents. Отмена невозможна. Подтвердить?",
   "skills.uninstallDone": "Удалён",
+  "skills.uninstallGroup": "Удалить группу",
+  "skills.uninstallGroupConfirm": "Будут удалены {{count}} skill(ов) в {{group}} и их настройки включения для всех агентов. Необратимо. Подтвердить?",
   "skills.uninstalling": "Удаление…",
   "skills.updateAll": "Обновить все",
   "skills.updated": "Успешно обновлено",

@@ -919,6 +919,8 @@
   "skills.uninstallAllDone": "已卸载全部 skills",
   "skills.uninstallConfirm": "将删除 skill {{name}} 及其在所有 agent 的启用配置，不可恢复。确认？",
   "skills.uninstallDone": "已卸载",
+  "skills.uninstallGroup": "卸载整组",
+  "skills.uninstallGroupConfirm": "将卸载 {{group}} 下 {{count}} 个 skill 及其在所有 agent 的启用配置，不可恢复。确认？",
   "skills.uninstalling": "卸载中…",
   "skills.updateAll": "更新全部",
   "skills.updated": "更新成功",

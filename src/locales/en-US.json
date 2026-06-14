@@ -919,6 +919,8 @@
   "skills.uninstallAllDone": "All skills uninstalled",
   "skills.uninstallConfirm": "This will remove skill {{name}} and its enabled config for all agents. This cannot be undone. Confirm?",
   "skills.uninstallDone": "Uninstalled",
+  "skills.uninstallGroup": "Uninstall group",
+  "skills.uninstallGroupConfirm": "This will uninstall {{count}} skill(s) under {{group}} and remove their enable config on all agents. Irreversible. Confirm?",
   "skills.uninstalling": "Uninstalling…",
   "skills.updateAll": "Update All",
   "skills.updated": "Updated successfully",

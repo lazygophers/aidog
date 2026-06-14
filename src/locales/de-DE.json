@@ -941,6 +941,8 @@
   "skills.uninstallAllDone": "Alle Skills wurden deinstalliert",
   "skills.uninstallConfirm": "Skill {{name}} und seine Aktivierungskonfiguration für alle Agents werden gelöscht. Nicht rückgängig machbar. Bestätigen?",
   "skills.uninstallDone": "Deinstalliert",
+  "skills.uninstallGroup": "Gruppe deinstallieren",
+  "skills.uninstallGroupConfirm": "Deinstalliert {{count}} Skill(s) unter {{group}} und entfernt deren Aktivierungskonfiguration auf allen Agents. Unumkehrbar. Bestätigen?",
   "skills.uninstalling": "Deinstallation…",
   "skills.updateAll": "Alle aktualisieren",
   "skills.updated": "Erfolgreich aktualisiert",
