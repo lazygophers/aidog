@@ -5,4 +5,4 @@
 
 | ID | 名称 | 描述 | 状态 | 阶段 | 进度 | worktree |
 | --- | --- | --- | --- | --- | --- | --- |
-| theme-3axis-system | 主题系统 3 轴化 (style × color × dark/light) + 4 style + 12 palette | — | in_progress | exec | stage1 (4 style + 5/12 palette) | .trellis/worktrees/06-14-theme-3axis-system |
+| _（无活跃任务）_ | — | — | — | — | — | — |
