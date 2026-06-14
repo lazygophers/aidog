@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { settingsApi, claudeSettingsImportApi, configApi, statuslineApi } from "../services/api";
 import { registerNavGuard } from "../utils/navGuard";
+import { deepMerge } from "../utils/deepMerge";
 import { UnsavedChangesModal } from "../components/settings/UnsavedChangesModal";
 import { SECTIONS, RECOMMENDED_CONFIG } from "../services/claude-settings-schema";
 import {
@@ -213,7 +214,7 @@ export function Settings() {
   }, [mode, editJson, config, t]);
 
   const handleLoadRecommended = () => {
-    const merged = { ...RECOMMENDED_CONFIG, ...config };
+    const merged = deepMerge(config, RECOMMENDED_CONFIG);
     setConfig(merged);
     setEditJson(JSON.stringify(merged, null, 2));
     setToast(t("settings.loadedRecommended"));

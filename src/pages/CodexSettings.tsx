@@ -11,6 +11,7 @@ import {
   CODEX_SECTIONS,
   CODEX_RECOMMENDED_CONFIG,
 } from "../services/codex-settings-schema";
+import { deepMerge } from "../utils/deepMerge";
 
 // Order-insensitive serialization for dirty tracking (mirrors Settings.tsx).
 function stableStringify(value: unknown): string {
@@ -101,7 +102,7 @@ export function CodexSettings() {
   }, [mode, editJson, config, t]);
 
   const handleLoadRecommended = () => {
-    const merged = { ...CODEX_RECOMMENDED_CONFIG, ...config };
+    const merged = deepMerge(config, CODEX_RECOMMENDED_CONFIG);
     setConfig(merged);
     setEditJson(JSON.stringify(merged, null, 2));
     setToast(t("settings.loadedRecommended", "已加载推荐配置"));
