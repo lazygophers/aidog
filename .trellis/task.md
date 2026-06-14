@@ -10,6 +10,11 @@
 | readme-redesign | README 重写: 安装/使用详化 + 功能核对 + 视觉重设计 | — | 已完成 | 收尾 | 100% | — |
 | readme-7lang-sync | README 同步 7 语言 | — | 已完成 | 收尾 | 100% | — |
 | about-module | 关于模块: 展示完整版本信息 + GitHub 信息 | — | completed | finish | 100 | .trellis/worktrees/06-14-about-module |
-| docs-api-i18n | docs/api 多语言适配 | — | 规划中 | 规划 | 0% | — |
+| docs-api-i18n | docs/api 多语言适配 | — | 已完成 | 收尾 | 100% | — |
 | version-cicd-updater | .version 唯一版本源 + 发布 CICD + 自动更新对接 | — | completed | finish | 100 | .trellis/worktrees/06-14-version-cicd-updater |
 | license-agpl3 | 开源协议改为 AGPL-3.0 | — | completed | finish | 100 | .trellis/worktrees/06-14-license-agpl3 |
+| silent-launch-depends-autolaunch | silent-launch 依赖 autolaunch: autolaunch off 时隐藏并默认关闭 | — | 已完成 | 收尾 | 100% | — |
+| dependabot-3-esbuild | 修复 dependabot 安全警报 #3: esbuild 0.27.7 → 0.28.1 (GHSA-gv7w-rqvm-qjhr) | — | 已完成 | 收尾 | 100% | — |
+| dependabot-1-glib-eval | 评估 dependabot 安全警报 #1: glib GHSA-wrw7-89jp-8q8g (tauri 上游阻塞) | — | 已完成 | 收尾 | 100% | — |
+| skills-catalog-install | Skills 页新增「搜索安装」子视图: catalog 搜索 + 选 agent 安装 | — | 进行中 | exec | 10% | .trellis/worktrees/06-15-skills-catalog-install |
+| notify-project-name | 通知中心展示项目名: cwd basename 作为 project 注入 inbox/popup | — | 已完成 | 收尾 | 100% | — |
