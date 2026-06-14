@@ -7,6 +7,7 @@
   "action.remove": "إزالة",
   "action.save": "حفظ",
   "app.title": "AiDog",
+  "app.version": "الإصدار",
   "appLog.desc": "تتم طباعة سجلات وحدة التحكم دائمًا؛ الإعدادات أدناه تؤثر فقط على ملفات السجل",
   "appLog.level": "مستوى السجل",
   "appLog.retention": "الاحتفاظ",
