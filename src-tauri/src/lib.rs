@@ -1588,7 +1588,17 @@ async fn skills_uninstall(
 ) -> Result<SkillsOpResult, String> {
     tracing::debug!(command = "skills_uninstall", "command invoked");
     let proxy = skills_proxy_url(&db).await;
-    Ok(gateway::skills::uninstall(&name, &scope, proxy.as_deref()))
+    let result = gateway::skills::uninstall(&name, &scope, proxy.as_deref());
+    tracing::debug!(
+        command = "skills_uninstall",
+        name = %name,
+        scope = ?scope,
+        success = result.success,
+        stdout = %result.stdout.trim(),
+        stderr = %result.stderr.trim(),
+        "npx remove result",
+    );
+    Ok(result)
 }
 
 /// 对齐两 agent 的 skills 启用配置（使 `to` 与 `from` 完全一致）。
