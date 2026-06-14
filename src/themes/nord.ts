@@ -10,6 +10,8 @@ export const nord: ThemeDefinition = {
   light: {
     "--bg-base": "#eceff4",
     "--bg-elevated": "#e5e9f0",
+
+    "--bg-floating": "#e5e9f0",
     "--bg-glass": "rgba(236, 239, 244, 0.85)",
     "--bg-glass-hover": "rgba(229, 233, 240, 0.95)",
     "--bg-surface": "#f5f7fa",
@@ -38,6 +40,8 @@ export const nord: ThemeDefinition = {
   dark: {
     "--bg-base": "#2e3440",
     "--bg-elevated": "#3b4252",
+
+    "--bg-floating": "#3b4252",
     "--bg-glass": "rgba(59, 66, 82, 0.8)",
     "--bg-glass-hover": "rgba(67, 76, 94, 0.9)",
     "--bg-surface": "#434c5e",

@@ -10,6 +10,8 @@ export const solarized: ThemeDefinition = {
   light: {
     "--bg-base": "#fdf6e3",
     "--bg-elevated": "#eee8d5",
+
+    "--bg-floating": "#eee8d5",
     "--bg-glass": "rgba(253, 246, 227, 0.9)",
     "--bg-glass-hover": "rgba(238, 232, 213, 0.95)",
     "--bg-surface": "#faf5e8",
@@ -38,6 +40,8 @@ export const solarized: ThemeDefinition = {
   dark: {
     "--bg-base": "#002b36",
     "--bg-elevated": "#073642",
+
+    "--bg-floating": "#073642",
     "--bg-glass": "rgba(0, 43, 54, 0.88)",
     "--bg-glass-hover": "rgba(7, 54, 66, 0.94)",
     "--bg-surface": "#0a3a47",

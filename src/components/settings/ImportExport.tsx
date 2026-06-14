@@ -157,7 +157,7 @@ export function ImportExportTab() {
         <button onClick={handleExport} disabled={exporting} className="btn-primary">
           {exporting ? t("importExport.exporting", "导出中…") : t("importExport.exportBtn", "选择路径并导出")}
         </button>
-        {exportMsg && <div className="toast" style={{ background: "var(--bg-elevated)", borderColor: "var(--success)", color: "var(--success)" }}>{exportMsg}</div>}
+        {exportMsg && <div className="toast" style={{ background: "var(--bg-floating)", borderColor: "var(--success)", color: "var(--success)" }}>{exportMsg}</div>}
       </section>
 
       {/* 导入区 */}
@@ -216,7 +216,7 @@ export function ImportExportTab() {
         {report && <ReportView report={report} t={t} scopeLabel={(s: string) => scopeLabel(t, s)} />}
       </section>
 
-      {error && <div className="toast" style={{ background: "var(--bg-elevated)", borderColor: "var(--danger)", color: "var(--danger)" }}>{error}</div>}
+      {error && <div className="toast" style={{ background: "var(--bg-floating)", borderColor: "var(--danger)", color: "var(--danger)" }}>{error}</div>}
     </div>
   );
 }

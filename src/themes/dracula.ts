@@ -10,6 +10,8 @@ export const dracula: ThemeDefinition = {
   light: {
     "--bg-base": "#f8f8f2",
     "--bg-elevated": "#eeeef0",
+
+    "--bg-floating": "#eeeef0",
     "--bg-glass": "rgba(248, 248, 242, 0.88)",
     "--bg-glass-hover": "rgba(238, 238, 240, 0.95)",
     "--bg-surface": "#ffffff",
@@ -38,6 +40,8 @@ export const dracula: ThemeDefinition = {
   dark: {
     "--bg-base": "#282a36",
     "--bg-elevated": "#343746",
+
+    "--bg-floating": "#343746",
     "--bg-glass": "rgba(40, 42, 54, 0.85)",
     "--bg-glass-hover": "rgba(52, 55, 70, 0.92)",
     "--bg-surface": "#44475a",
