@@ -496,6 +496,88 @@ pub fn uninstall_all(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpRes
     run_npx_in_scope(&args, scope, proxy_url)
 }
 
+/// 对齐决策：以 source 启用态决定 target 应做何操作。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AlignAction {
+    /// source 启用 + target 未启用 → target 需 enable。
+    Enable,
+    /// source 未启用 + target 启用 → target 需 disable。
+    Disable,
+    /// 其余（两者一致）→ 不变。
+    Keep,
+}
+
+fn plan_align_action(from_on: bool, to_on: bool) -> AlignAction {
+    match (from_on, to_on) {
+        (true, false) => AlignAction::Enable,
+        (false, true) => AlignAction::Disable,
+        _ => AlignAction::Keep,
+    }
+}
+
+/// 使 `to` 的启用配置与 `from` 完全一致（逐 skill 比对 → enable/disable 凑齐）。
+/// `from == to` → noop。逐 skill shell out `npx skills enable/disable`，N 小可接受。
+pub fn align_agents(
+    from: SkillAgent,
+    to: SkillAgent,
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
+    if from == to {
+        return SkillsOpResult {
+            success: true,
+            stdout: "noop: source equals target".to_string(),
+            stderr: String::new(),
+        };
+    }
+    let skills = list_installed(scope, proxy_url);
+    let mut enabled_n = 0usize;
+    let mut disabled_n = 0usize;
+    let mut errs: Vec<String> = Vec::new();
+    for s in &skills {
+        let from_on = s.enabled_agents.contains(&from);
+        let to_on = s.enabled_agents.contains(&to);
+        match plan_align_action(from_on, to_on) {
+            AlignAction::Enable => {
+                let path = s.installed_path.as_deref().unwrap_or("");
+                let r = enable(&s.name, path, to, scope, proxy_url);
+                if r.success {
+                    enabled_n += 1;
+                } else {
+                    errs.push(format!(
+                        "enable {} on {}: {}",
+                        s.name,
+                        to.cli_slug(),
+                        r.stderr.trim()
+                    ));
+                }
+            }
+            AlignAction::Disable => {
+                let r = disable(&s.name, to, scope, proxy_url);
+                if r.success {
+                    disabled_n += 1;
+                } else {
+                    errs.push(format!(
+                        "disable {} on {}: {}",
+                        s.name,
+                        to.cli_slug(),
+                        r.stderr.trim()
+                    ));
+                }
+            }
+            AlignAction::Keep => {}
+        }
+    }
+    let total = enabled_n + disabled_n;
+    SkillsOpResult {
+        success: errs.is_empty(),
+        stdout: format!(
+            "aligned {total} changes ({enabled_n} enabled, {disabled_n} disabled)"
+        ),
+        stderr: errs.join("; "),
+    }
+}
+
 /// 按 scope 追加 `-g`（仅 Global）。
 fn apply_scope(args: &mut Vec<String>, scope: &SkillScope) {
     if matches!(scope, SkillScope::Global) {
@@ -704,6 +786,14 @@ mod tests {
         // description 行在正文 (非 frontmatter) 不应被解析。
         let md = "---\nname: foo\n---\ndescription: fake in body\n";
         assert!(parse_skill_description_from_frontmatter(md).is_none());
+    }
+
+    #[test]
+    fn plan_align_action_matrix() {
+        assert_eq!(plan_align_action(true, false), AlignAction::Enable);
+        assert_eq!(plan_align_action(false, true), AlignAction::Disable);
+        assert_eq!(plan_align_action(true, true), AlignAction::Keep);
+        assert_eq!(plan_align_action(false, false), AlignAction::Keep);
     }
 
     #[test]

@@ -1585,6 +1585,20 @@ async fn skills_uninstall_all(db: State<'_, Db>, scope: SkillScope) -> Result<Sk
     Ok(gateway::skills::uninstall_all(&scope, proxy.as_deref()))
 }
 
+/// 对齐两 agent 的 skills 启用配置（使 `to` 与 `from` 完全一致）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_align_agents(
+    db: State<'_, Db>,
+    from: SkillAgent,
+    to: SkillAgent,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_align_agents", "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::align_agents(from, to, &scope, proxy.as_deref()))
+}
+
 // ─── 导入导出子系统 ───────────────────────────────────────
 
 /// 导出：收集各 scope 数据 → 加密 → 写入用户选择路径。
@@ -3261,6 +3275,7 @@ pub fn run() {
             skills_disable,
             skills_update,
             skills_uninstall_all,
+            skills_align_agents,
             // 导入导出子系统
             export_to_file,
             import_read_file,

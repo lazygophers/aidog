@@ -1329,6 +1329,9 @@ export const skillsApi = {
   /** 一键卸载当前 scope 所有平台所有 skills（破坏性）。 */
   uninstallAll: (scope: SkillScope) =>
     invoke<SkillsOpResult>("skills_uninstall_all", { scope }),
+  /** 对齐两 agent 的 skills 启用配置（使 to 与 from 完全一致）。 */
+  alignAgents: (from: SkillAgent, to: SkillAgent, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_align_agents", { from, to, scope }),
 };
 
 // ─── 导入导出子系统 ───────────────────────────────────────
