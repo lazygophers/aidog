@@ -16,5 +16,5 @@
 | silent-launch-depends-autolaunch | silent-launch 依赖 autolaunch: autolaunch off 时隐藏并默认关闭 | — | 已完成 | 收尾 | 100% | — |
 | dependabot-3-esbuild | 修复 dependabot 安全警报 #3: esbuild 0.27.7 → 0.28.1 (GHSA-gv7w-rqvm-qjhr) | — | 已完成 | 收尾 | 100% | — |
 | dependabot-1-glib-eval | 评估 dependabot 安全警报 #1: glib GHSA-wrw7-89jp-8q8g (tauri 上游阻塞) | — | 已完成 | 收尾 | 100% | — |
-| skills-catalog-install | Skills 页新增「搜索安装」子视图: catalog 搜索 + 选 agent 安装 | — | 进行中 | exec | 10% | .trellis/worktrees/06-15-skills-catalog-install |
+| skills-catalog-install | Skills 页新增「搜索安装」子视图: catalog 搜索 + 选 agent 安装 | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-15-skills-catalog-install |
 | notify-project-name | 通知中心展示项目名: cwd basename 作为 project 注入 inbox/popup | — | 已完成 | 收尾 | 100% | — |
