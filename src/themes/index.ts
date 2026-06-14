@@ -8,6 +8,13 @@ import { nord } from "./palettes/nord";
 import { dracula } from "./palettes/dracula";
 import { catppuccin } from "./palettes/catppuccin";
 import { solarized } from "./palettes/solarized";
+import { rosePine } from "./palettes/rosePine";
+import { tokyoNight } from "./palettes/tokyoNight";
+import { gruvbox } from "./palettes/gruvbox";
+import { morandi } from "./palettes/morandi";
+import { monet } from "./palettes/monet";
+import { wafu } from "./palettes/wafu";
+import { guofeng } from "./palettes/guofeng";
 
 import {
   type ThemeMode,
@@ -47,6 +54,13 @@ const paletteMap: Partial<Record<ThemeColor, PaletteDefinition>> = {
   dracula,
   catppuccin,
   solarized,
+  rosePine,
+  tokyoNight,
+  gruvbox,
+  morandi,
+  monet,
+  wafu,
+  guofeng,
 };
 
 /** 默认轴值（迁移失败 / 未注册时回退）。 */
