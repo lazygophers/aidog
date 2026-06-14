@@ -14,8 +14,6 @@ use std::sync::Arc;
 use super::db::Db;
 use super::models::{NotifForm, NotifType, TtsBackend};
 
-/// 前端事件名：收件箱未读数变化（前端通知中心 badge 监听刷新）。
-pub const NOTIF_INBOX_UPDATED: &str = "notif-inbox-updated";
 /// 前端事件名：WebSpeech 后端播报请求（payload = 文本，前端 webview SpeechSynthesis 朗读）。
 pub const NOTIF_SPEAK: &str = "notif-speak";
 
@@ -195,11 +193,6 @@ pub async fn dispatch(
         match super::db::insert_notification(db, notif_type.as_str(), &title, &body).await {
             Ok(id) => {
                 inbox_id = Some(id);
-                if let Some(app) = app {
-                    let unread = super::db::count_unread_notifications(db).await.unwrap_or(0);
-                    use tauri::Emitter;
-                    let _ = app.emit(NOTIF_INBOX_UPDATED, unread);
-                }
             }
             Err(e) => tracing::warn!(error = %e, "notify: insert inbox failed"),
         }
@@ -412,7 +405,8 @@ mod tests {
         set_form(&db, "error", "inbox_only", true).await;
         let r = dispatch(&db, None, "error", Some("oops"), &HashMap::new()).await;
         assert!(r.dispatched && r.inbox && !r.popup && !r.sound);
-        assert_eq!(super::super::db::count_unread_notifications(&db).await.unwrap(), 1);
+        let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+        assert_eq!(list.len(), 1);
     }
 
     #[tokio::test]

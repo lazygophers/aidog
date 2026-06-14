@@ -1470,20 +1470,6 @@ async fn notification_inbox_list(db: State<'_, Db>, limit: Option<i64>) -> Resul
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn notification_inbox_unread(db: State<'_, Db>) -> Result<i64, String> {
-    tracing::debug!(command = "notification_inbox_unread", "command invoked");
-    gateway::db::count_unread_notifications(&db).await
-}
-
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn notification_mark_read(db: State<'_, Db>, id: Option<i64>) -> Result<(), String> {
-    tracing::debug!(command = "notification_mark_read", id = ?id, "command invoked");
-    gateway::db::mark_notification_read(&db, id).await
-}
-
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn notification_clear(db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "notification_clear", "command invoked");
     gateway::db::clear_notifications(&db).await
@@ -3266,8 +3252,6 @@ pub fn run() {
             notification_settings_get,
             notification_settings_set,
             notification_inbox_list,
-            notification_inbox_unread,
-            notification_mark_read,
             notification_clear,
             notification_test,
             // Notification Hook Integration (N2)
