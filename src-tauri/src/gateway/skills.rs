@@ -966,22 +966,35 @@ fn fs_fallback_remove(name: &str, scope: &SkillScope) -> (Vec<String>, Vec<Strin
         return (removed, vec![format!("unsafe skill name: '{name}'")]);
     }
 
+    // case-insensitive 匹配：`npx skills list` 返 name 小写化，
+    // 但磁盘目录保留原大小写（如 cc-switch 管的 `SkillAnything`）。
+    // 列目录条目，to_lowercase() == name.to_lowercase() 即匹配删除。
+    let name_lc = name.to_lowercase();
+    let remove_in = |dir: &std::path::Path, removed: &mut Vec<String>, errs: &mut Vec<String>| {
+        let Ok(entries) = fs::read_dir(dir) else {
+            return;
+        };
+        for e in entries.flatten() {
+            if e.file_name().to_string_lossy().to_lowercase() == name_lc {
+                remove_path(&e.path(), removed, errs);
+            }
+        }
+    };
+
     match scope {
         SkillScope::Global => {
             if let Some(home) = dirs::home_dir() {
                 // 规范存储
-                let canon = home.join(".agents").join("skills").join(name);
-                remove_path(&canon, &mut removed, &mut errs);
+                remove_in(&home.join(".agents").join("skills"), &mut removed, &mut errs);
                 // 各 agent 目录（home 下 . 开头目录，排除 .agents 本身）
                 if let Ok(entries) = fs::read_dir(&home) {
                     for e in entries.flatten() {
-                        let s = e.file_name();
-                        let dir_name = s.to_string_lossy();
-                        if !dir_name.starts_with('.') || dir_name == ".agents" {
+                        let dir_name = e.file_name();
+                        let dn = dir_name.to_string_lossy();
+                        if !dn.starts_with('.') || dn == ".agents" {
                             continue;
                         }
-                        let agent_skill = home.join(dir_name.as_ref()).join("skills").join(name);
-                        remove_path(&agent_skill, &mut removed, &mut errs);
+                        remove_in(&home.join(dn.as_ref()).join("skills"), &mut removed, &mut errs);
                     }
                 }
             } else {
@@ -989,8 +1002,11 @@ fn fs_fallback_remove(name: &str, scope: &SkillScope) -> (Vec<String>, Vec<Strin
             }
         }
         SkillScope::Project { path } => {
-            let canon = PathBuf::from(path).join(".agents").join("skills").join(name);
-            remove_path(&canon, &mut removed, &mut errs);
+            remove_in(
+                &PathBuf::from(path).join(".agents").join("skills"),
+                &mut removed,
+                &mut errs,
+            );
         }
     }
 
