@@ -1369,5 +1369,19 @@
   "about.checking": "Vérification…",
   "about.downloading": "Téléchargement v{{version}}",
   "about.upToDate": "Déjà à jour",
-  "about.updateError": "Échec de la vérification"
+  "about.updateError": "Échec de la vérification",
+  "skills.install.addBtn": "+ Ajouter",
+  "skills.install.title": "Ajouter des Skills",
+  "skills.install.back": "← Retour",
+  "skills.install.searchPlaceholder": "Rechercher des skills par mot-clé (ex. git, docs, deploy)",
+  "skills.install.searching": "Recherche…",
+  "skills.install.selectAgent": "Installer sur",
+  "skills.install.install": "Installer",
+  "skills.install.installing": "Installation…",
+  "skills.install.installed": "Installé",
+  "skills.install.installSuccess": "{{name}} installé",
+  "skills.install.installFailed": "Échec de l'installation",
+  "skills.install.noResults": "Aucun résultat",
+  "skills.install.emptyHint": "Saisissez un mot-clé pour rechercher des skills installables",
+  "skills.install.loadFailed": "Échec du chargement"
 }

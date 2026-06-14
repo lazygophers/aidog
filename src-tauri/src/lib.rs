@@ -1594,6 +1594,25 @@ async fn skills_enable(
     Ok(res)
 }
 
+/// 从 catalog 安装 skill 到多个 agent（shell out `npx skills add <id> -a <slug> -y`）。
+/// `id` = `owner/repo@skill`（CatalogEntry.id）。尊重上游代理。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_install(
+    db: State<'_, Db>,
+    id: String,
+    agents: Vec<SkillAgent>,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_install", id = %id, agents = ?agents, "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    let res = gateway::skills::install(&id, &agents, &scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
+}
+
 /// 为某 agent 关闭 skill（shell out `npx skills remove -s -a -y`）。尊重上游代理。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
@@ -3525,6 +3544,7 @@ pub fn run() {
             skills_list_installed,
             skills_list_refresh,
             skills_enable,
+            skills_install,
             skills_disable,
             skills_update,
             skills_uninstall_all,

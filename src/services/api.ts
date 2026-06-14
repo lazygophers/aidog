@@ -1343,11 +1343,17 @@ export interface CachedSkills {
 export const skillsApi = {
   /** 探测 npx / node 环境。 */
   checkEnv: () => invoke<SkillsEnv>("skills_check_env"),
-  /** 浏览 catalog（HTTP 抓 skills.sh，回退 npx find）。 */
+  /** 浏览 catalog（skills.sh HTTP 端点当前 404，恒返回空；前端用 search）。 */
   browseCatalog: () => invoke<CatalogEntry[]>("skills_browse_catalog"),
-  /** 搜索 catalog。 */
+  /** 搜索 catalog（`npx skills find <kw>`，id = `owner/repo@skill`）。 */
   search: (keyword: string) =>
     invoke<CatalogEntry[]>("skills_search", { keyword }),
+  /**
+   * 从 catalog 安装 skill 到多个 agent（`npx skills add <id> -a <slug> [-g] -y`）。
+   * id = CatalogEntry.id（`owner/repo@skill`，含子 skill 选取，无需 -s）。
+   */
+  install: (id: string, agents: SkillAgent[], scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_install", { id, agents, scope }),
   /**
    * 列指定 scope 下已装 skills —— **立即返回缓存**（命中即 0 子进程）。
    * 冷启动返回 `{ items: [], stale: true }`，调用方据此显加载态 + 触发 refresh。

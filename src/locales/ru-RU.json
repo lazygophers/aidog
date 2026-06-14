@@ -1369,5 +1369,19 @@
   "about.checking": "Проверка…",
   "about.downloading": "Загрузка v{{version}}",
   "about.upToDate": "Уже актуально",
-  "about.updateError": "Ошибка проверки обновлений"
+  "about.updateError": "Ошибка проверки обновлений",
+  "skills.install.addBtn": "+ Добавить",
+  "skills.install.title": "Добавить Skills",
+  "skills.install.back": "← Назад",
+  "skills.install.searchPlaceholder": "Искать skills по ключевому слову (напр. git, docs, deploy)",
+  "skills.install.searching": "Поиск…",
+  "skills.install.selectAgent": "Установить в",
+  "skills.install.install": "Установить",
+  "skills.install.installing": "Установка…",
+  "skills.install.installed": "Установлено",
+  "skills.install.installSuccess": "{{name}} установлен",
+  "skills.install.installFailed": "Ошибка установки",
+  "skills.install.noResults": "Нет результатов",
+  "skills.install.emptyHint": "Введите ключевое слово для поиска skills",
+  "skills.install.loadFailed": "Ошибка загрузки"
 }

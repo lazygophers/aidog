@@ -19,6 +19,7 @@
 //! 与 list json `agents[]` 显示名映射（claude → "Claude Code"、codex → "Codex"）。
 
 use super::models::ProxyClientSettings;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
@@ -479,67 +480,38 @@ fn enrich_with_sources(items: &mut [SkillInfo], scope: &SkillScope) {
     }
 }
 
-/// catalog 抓取地址（skills.sh 的 JSON 索引）。
+/// catalog 抓取地址（skills.sh 的 JSON 索引，当前 404 不可用；HTTP 抓取路径已下线，
+/// 保留常量 + parse_catalog_json 待端点恢复时复用）。
+#[allow(dead_code)]
 const CATALOG_URL: &str = "https://skills.sh/api/skills";
 
-/// 浏览 catalog：优先 HTTP 抓 skills.sh，失败回退 `npx skills find`（空 kw 列全部）。
-pub async fn browse_catalog(proxy_url: Option<&str>) -> Vec<CatalogEntry> {
-    if let Some(list) = fetch_catalog_http(proxy_url).await {
-        if !list.is_empty() {
-            return list;
-        }
-    }
-    // 回退：npx find 无关键词。
-    npx_find("", proxy_url)
+/// 浏览 catalog。
+///
+/// skills.sh `/api/skills` 端点当前 404（HTTP 抓取不可用）；`npx skills find` 无关键词时
+/// 只回显帮助文本不返回结果。故 browse 恒返回空 —— 前端「搜索安装」页为搜索驱动，不提供 browse。
+pub async fn browse_catalog(_proxy_url: Option<&str>) -> Vec<CatalogEntry> {
+    // skills.sh /api/skills 当前 404；npx find 无关键词无结果 → browse 不可用，恒空。
+    Vec::new()
 }
 
-/// 搜索 catalog：HTTP 抓后本地按 kw 过滤；HTTP 空则走 `npx skills find <kw>`。
+/// 搜索 catalog：`npx skills find <kw>` 解析（skills.sh HTTP 端点当前 404，唯一可用源）。
+///
+/// find 输出（ANSI 剥离后）每条占两行：
+/// ```text
+/// owner/repo@skill   217.7K installs
+/// └ https://skills.sh/owner/repo/skill
+/// ```
+/// `id` = `owner/repo@skill`（即 `npx skills add` 的 source 形态，`@skill` 已选定子 skill，
+/// 安装时无需 `-s`）；`name` = `@` 后的 skill 名；`repo_url` = skills.sh 详情页；`description`
+/// = 安装计数（前端展示用）。
 pub async fn search(kw: &str, proxy_url: Option<&str>) -> Vec<CatalogEntry> {
-    let kw_lower = kw.trim().to_lowercase();
-    if let Some(list) = fetch_catalog_http(proxy_url).await {
-        if !list.is_empty() {
-            if kw_lower.is_empty() {
-                return list;
-            }
-            return list
-                .into_iter()
-                .filter(|e| {
-                    e.id.to_lowercase().contains(&kw_lower)
-                        || e.name.to_lowercase().contains(&kw_lower)
-                        || e
-                            .description
-                            .as_deref()
-                            .map(|d| d.to_lowercase().contains(&kw_lower))
-                            .unwrap_or(false)
-                })
-                .collect();
-        }
-    }
     npx_find(kw, proxy_url)
 }
 
-/// HTTP 抓 skills.sh catalog JSON。失败（网络 / 解析）返回 None。
-/// `proxy_url` 为 `Some` 时经上游代理抓取（与 npx 子进程一致尊重代理）。
-async fn fetch_catalog_http(proxy_url: Option<&str>) -> Option<Vec<CatalogEntry>> {
-    let mut builder =
-        reqwest::Client::builder().timeout(std::time::Duration::from_secs(10));
-    if let Some(url) = proxy_url {
-        if let Ok(proxy) = reqwest::Proxy::all(url) {
-            builder = builder.proxy(proxy);
-        }
-    }
-    let client = builder.build().ok()?;
-    let resp = client.get(CATALOG_URL).send().await.ok()?;
-    if !resp.status().is_success() {
-        return None;
-    }
-    let raw: serde_json::Value = resp.json().await.ok()?;
-    Some(parse_catalog_json(&raw))
-}
-
-/// 解析 skills.sh 返回的 JSON 到 CatalogEntry 列表。
+/// 解析 skills.sh 返回的 JSON 到 CatalogEntry 列表（端点恢复时复用；当前仅测试调用）。
 ///
 /// 容错：接受 `{ "skills": [...] }` 或裸数组；每项尽量从常见字段名提取。
+#[allow(dead_code)]
 fn parse_catalog_json(raw: &serde_json::Value) -> Vec<CatalogEntry> {
     let arr = raw
         .get("skills")
@@ -588,38 +560,74 @@ fn parse_catalog_json(raw: &serde_json::Value) -> Vec<CatalogEntry> {
         .collect()
 }
 
-/// `npx skills find <kw>` 回退：解析 stdout 每行为一个条目（best-effort）。
+/// `npx skills find <kw>`：解析输出为 CatalogEntry 列表。
+///
+/// find 为交互式命令，关闭 stdin + 带关键词时非交互打印结果。输出含 ANSI 颜色码与 spinner
+/// 残留，须先剥离。每条结果两行：`owner/repo@skill  <N> installs` + `└ https://skills.sh/...`。
+/// 空关键词时 find 只回显帮助（无结果）→ 返回空。
 fn npx_find(kw: &str, proxy_url: Option<&str>) -> Vec<CatalogEntry> {
-    let mut args = vec!["--yes", "skills", "find"];
     let kw = kw.trim();
-    if !kw.is_empty() {
-        args.push(kw);
+    if kw.is_empty() {
+        return Vec::new();
     }
     let mut cmd = Command::new("npx");
-    cmd.args(&args);
+    cmd.args(["--yes", "skills", "find", kw]);
+    cmd.stdin(std::process::Stdio::null());
     apply_proxy_env(&mut cmd, proxy_url);
     let output = match cmd.output() {
         Ok(o) => o,
         Err(_) => return Vec::new(),
     };
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    stdout
-        .lines()
-        .map(|l| l.trim())
-        .filter(|l| !l.is_empty())
-        // 过滤明显的 npm 噪声行。
-        .filter(|l| !l.starts_with("npm") && !l.starts_with('>'))
-        .map(|l| {
-            // 取首 token 作 id（owner/repo），整行作 name。
-            let id = l.split_whitespace().next().unwrap_or(l).to_string();
-            CatalogEntry {
+    let raw = String::from_utf8_lossy(&output.stdout);
+    parse_find_output(&raw)
+}
+
+/// 解析 `npx skills find` 的 stdout（已含 ANSI / spinner 残留）为 CatalogEntry。
+fn parse_find_output(raw: &str) -> Vec<CatalogEntry> {
+    // 剥离 ANSI 转义序列（颜色 / 光标控制）。
+    static ANSI_RE: OnceLock<Regex> = OnceLock::new();
+    let ansi_re = ANSI_RE.get_or_init(|| Regex::new(r"\x1b\[[0-9;?]*[A-Za-z]").unwrap());
+    let clean: String = ansi_re.replace_all(raw, "").to_string();
+
+    // id 行：`owner/repo@skill   <count> installs`（owner/repo 与 @skill 间无空格）。
+    static ID_RE: OnceLock<Regex> = OnceLock::new();
+    let id_re = ID_RE.get_or_init(|| {
+        Regex::new(r"([A-Za-z0-9._-]+/[A-Za-z0-9._-]+@[A-Za-z0-9._-]+)\s+(.+)").unwrap()
+    });
+    // URL 行：`└ https://skills.sh/owner/repo/skill`（前缀可能是 └ / └─ / 空格）。
+    static URL_RE: OnceLock<Regex> = OnceLock::new();
+    let url_re = URL_RE.get_or_init(|| Regex::new(r"https://skills\.sh/\S+").unwrap());
+
+    let mut out = Vec::new();
+    let mut pending: Option<(String, String)> = None; // (id, installs)
+    let flush = |pending: &mut Option<(String, String)>, url: Option<&str>, out: &mut Vec<CatalogEntry>| {
+        if let Some((id, installs)) = pending.take() {
+            let name = id.split('@').next_back().unwrap_or(&id).to_string();
+            out.push(CatalogEntry {
                 id,
-                name: l.to_string(),
-                description: None,
-                repo_url: None,
+                name,
+                description: Some(installs),
+                repo_url: url.map(|s| s.to_string()),
+            });
+        }
+    };
+    for line in clean.lines() {
+        let line = line.trim();
+        if let Some(caps) = id_re.captures(line) {
+            // 新 id 行：先提交上一条（无 URL）。
+            flush(&mut pending, None, &mut out);
+            let id = caps[1].to_string();
+            let installs = caps[2].trim().to_string();
+            pending = Some((id, installs));
+        } else if pending.is_some() {
+            if let Some(m) = url_re.find(line) {
+                flush(&mut pending, Some(m.as_str()), &mut out);
             }
-        })
-        .collect()
+        }
+    }
+    // 收尾：最后一条若无 URL 行也提交。
+    flush(&mut pending, None, &mut out);
+    out
 }
 
 /// 封装 `npx skills <args...>`，捕获 stdout/stderr/退出码。
@@ -700,6 +708,76 @@ pub fn enable(
     }
     let args = enable_args(path, agent, scope);
     run_npx_in_scope(&args, scope, proxy_url)
+}
+
+/// 从 catalog 安装 skill（`npx skills add <id> -a <slug> [-g] -y`，逐 agent 合并）。
+///
+/// `id` = CatalogEntry.id，形如 `owner/repo@skill`（`@skill` 已选定子 skill，无需 `-s`）。
+/// 多 agent 逐个 `run_npx_in_scope`；任一失败 → success=false，stderr 聚合全部失败明细。
+/// 成功后调用方负责 `invalidate(scope)`。
+pub fn install(
+    id: &str,
+    agents: &[SkillAgent],
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
+    let id = id.trim();
+    if id.is_empty() {
+        return SkillsOpResult {
+            success: false,
+            stdout: String::new(),
+            stderr: "skill id is empty".to_string(),
+        };
+    }
+    if agents.is_empty() {
+        return SkillsOpResult {
+            success: false,
+            stdout: String::new(),
+            stderr: "no agent selected".to_string(),
+        };
+    }
+    let mut success = true;
+    let mut stdout = String::new();
+    let mut stderr = String::new();
+    for agent in agents {
+        let args = install_args(id, *agent, scope);
+        let res = run_npx_in_scope(&args, scope, proxy_url);
+        if !res.success {
+            success = false;
+            if !stderr.is_empty() {
+                stderr.push_str("\n---\n");
+            }
+            stderr.push_str(&format!(
+                "[{}] {}",
+                agent.cli_slug(),
+                res.stderr.trim()
+            ));
+        }
+        if !res.stdout.trim().is_empty() {
+            if !stdout.is_empty() {
+                stdout.push_str("\n---\n");
+            }
+            stdout.push_str(&format!("[{}] {}", agent.cli_slug(), res.stdout.trim()));
+        }
+    }
+    SkillsOpResult {
+        success,
+        stdout,
+        stderr,
+    }
+}
+
+/// `npx skills add <id> -a <slug> [-g] -y` 参数构造。`id` 含 `@skill`，无需 `-s`。
+fn install_args(id: &str, agent: SkillAgent, scope: &SkillScope) -> Vec<String> {
+    let mut args = vec![
+        "add".to_string(),
+        id.to_string(),
+        "-a".to_string(),
+        agent.cli_slug().to_string(),
+    ];
+    apply_scope(&mut args, scope);
+    args.push("-y".to_string());
+    args
 }
 
 /// 为某 agent 关闭 skill：`npx skills remove -s <name> -a <slug> [-g] -y`。
@@ -1410,6 +1488,64 @@ mod tests {
             vec!["add", "/p/foo", "-a", "claude-code", "-g", "-y"]
         );
         assert!(!args.contains(&"-s".to_string()));
+    }
+
+    #[test]
+    fn install_args_global_claude() {
+        // id 含 @skill，无 -s；global 带 -g。
+        let args = install_args("vercel-labs/skills@foo", SkillAgent::Claude, &SkillScope::Global);
+        assert_eq!(
+            args,
+            vec!["add", "vercel-labs/skills@foo", "-a", "claude-code", "-g", "-y"]
+        );
+        assert!(!args.contains(&"-s".to_string()));
+    }
+
+    #[test]
+    fn install_args_project_codex_no_g() {
+        let args = install_args(
+            "xixu-me/skills@github-actions-docs",
+            SkillAgent::Codex,
+            &SkillScope::Project { path: "/proj".to_string() },
+        );
+        assert_eq!(
+            args,
+            vec!["add", "xixu-me/skills@github-actions-docs", "-a", "codex", "-y"]
+        );
+    }
+
+    #[test]
+    fn parse_find_output_basic() {
+        // 模拟 `npx skills find` 输出（含 ANSI 码 + URL 行配对）。
+        let raw = "\x1b[38;5;102mInstall with\x1b[0m npx skills add <owner/repo@skill>\n\n\x1b[38;5;145mxixu-me/skills@github-actions-docs\x1b[0m \x1b[36m217.7K installs\x1b[0m\n\x1b[38;5;102m└ https://skills.sh/xixu-me/skills/github-actions-docs\x1b[0m\n\ngithub/awesome-copilot@git-commit\x1b[0m \x1b[36m35.3K installs\x1b[0m\n└ https://skills.sh/github/awesome-copilot/git-commit\x1b[0m\n";
+        let out = parse_find_output(raw);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].id, "xixu-me/skills@github-actions-docs");
+        assert_eq!(out[0].name, "github-actions-docs");
+        assert_eq!(out[0].description.as_deref(), Some("217.7K installs"));
+        assert_eq!(
+            out[0].repo_url.as_deref(),
+            Some("https://skills.sh/xixu-me/skills/github-actions-docs")
+        );
+        assert_eq!(out[1].id, "github/awesome-copilot@git-commit");
+        assert_eq!(out[1].name, "git-commit");
+        assert_eq!(out[1].repo_url.as_deref(), Some("https://skills.sh/github/awesome-copilot/git-commit"));
+    }
+
+    #[test]
+    fn parse_find_output_empty() {
+        assert!(parse_find_output("").is_empty());
+        assert!(parse_find_output("Install with npx skills add <owner/repo@skill>\n\n").is_empty());
+    }
+
+    #[test]
+    fn parse_find_output_no_url_line() {
+        // 最后一条缺 URL 行也应提交。
+        let raw = "owner/repo@skill-a  10 installs\n└ https://skills.sh/owner/repo/skill-a\nowner/repo@skill-b  5 installs\n";
+        let out = parse_find_output(raw);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[1].id, "owner/repo@skill-b");
+        assert!(out[1].repo_url.is_none());
     }
 
     #[test]

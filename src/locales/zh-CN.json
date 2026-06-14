@@ -1347,5 +1347,19 @@
   "about.checking": "检查中…",
   "about.downloading": "下载中：v{{version}}",
   "about.upToDate": "已是最新版本",
-  "about.updateError": "检查更新失败"
+  "about.updateError": "检查更新失败",
+  "skills.install.addBtn": "+ 添加",
+  "skills.install.title": "添加 Skills",
+  "skills.install.back": "← 返回",
+  "skills.install.searchPlaceholder": "输入关键字搜索 skills（如 git、docs、deploy）",
+  "skills.install.searching": "搜索中…",
+  "skills.install.selectAgent": "安装到",
+  "skills.install.install": "安装",
+  "skills.install.installing": "安装中…",
+  "skills.install.installed": "已装",
+  "skills.install.installSuccess": "已安装 {{name}}",
+  "skills.install.installFailed": "安装失败",
+  "skills.install.noResults": "无结果",
+  "skills.install.emptyHint": "输入关键字开始搜索可安装的 skills",
+  "skills.install.loadFailed": "加载失败"
 }
