@@ -230,7 +230,7 @@
   "importExport.scope.groupPlatform": "روابط المجموعة↔المنصة",
   "importExport.scope.modelPrice": "جدول أسعار النماذج",
   "importExport.scope.platform": "المنصات",
-  "importExport.scope.setting": "إعدادات الوكيل العامة",
+  "importExport.scope.setting": "الإعدادات العامة (المظهر/اللغة/البروكسي/الإشعارات)",
   "importExport.scope.skills": "المهارات (تثبيت npx + حالة التمكين)",
   "importExport.skip": "تخطي",
   "importExport.sourceMachine": "الجهاز المصدر",

@@ -230,7 +230,7 @@
   "importExport.scope.groupPlatform": "分组↔平台关联",
   "importExport.scope.modelPrice": "模型价格表",
   "importExport.scope.platform": "平台",
-  "importExport.scope.setting": "代理全局设置",
+  "importExport.scope.setting": "全局设置（主题/语言/代理/通知等）",
   "importExport.scope.skills": "Skills（npx 安装 + 启用状态）",
   "importExport.skip": "跳过",
   "importExport.sourceMachine": "来源机器",

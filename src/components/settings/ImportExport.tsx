@@ -15,12 +15,13 @@ import {
   type ImportPreview,
   type ImportReport,
 } from "../../services/api";
+import { useApp } from "../../context/AppContext";
 
 const ALL_SCOPES: { id: ImportExportScope; labelKey: string; defaultLabel: string }[] = [
   { id: "platform", labelKey: "importExport.scope.platform", defaultLabel: "平台" },
   { id: "group", labelKey: "importExport.scope.group", defaultLabel: "分组" },
   { id: "group_platform", labelKey: "importExport.scope.groupPlatform", defaultLabel: "分组↔平台关联" },
-  { id: "setting", labelKey: "importExport.scope.setting", defaultLabel: "代理全局设置" },
+  { id: "setting", labelKey: "importExport.scope.setting", defaultLabel: "全局设置（主题/语言/代理/通知等）" },
   { id: "codex", labelKey: "importExport.scope.codex", defaultLabel: "Codex 设置" },
   { id: "claude_code", labelKey: "importExport.scope.claudeCode", defaultLabel: "Claude Code 设置" },
   { id: "model_price", labelKey: "importExport.scope.modelPrice", defaultLabel: "模型价格表" },
@@ -35,6 +36,7 @@ function scopeLabel(t: TFunction, scope: string): string {
 
 export function ImportExportTab() {
   const { t } = useTranslation();
+  const { reloadFromDB } = useApp();
   const [scopes, setScopes] = useState<Set<ImportExportScope>>(
     new Set<ImportExportScope>(["platform", "group", "group_platform", "setting"]),
   );
@@ -127,6 +129,8 @@ export function ImportExportTab() {
       const r = await importExportApi.apply(importPath, ds);
       setReport(r);
       setPreview(null);
+      // 应用后从 DB 重读主题/语言偏好（导入 setting scope 含 theme/locale 时即时生效）
+      await reloadFromDB().catch(() => {});
     } catch (e) {
       setError(String(e));
     } finally {

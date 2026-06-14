@@ -230,7 +230,7 @@
   "importExport.scope.groupPlatform": "グループ↔プラットフォーム関連付け",
   "importExport.scope.modelPrice": "モデル価格表",
   "importExport.scope.platform": "プラットフォーム",
-  "importExport.scope.setting": "プロキシグローバル設定",
+  "importExport.scope.setting": "グローバル設定（テーマ/言語/プロキシ/通知など）",
   "importExport.scope.skills": "Skills (npx インストール + 有効状態)",
   "importExport.skip": "スキップ",
   "importExport.sourceMachine": "送信元マシン",
