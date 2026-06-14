@@ -16,10 +16,10 @@ import { solarized } from "./palettes/solarized";
 import { rosePine } from "./palettes/rosePine";
 import { tokyoNight } from "./palettes/tokyoNight";
 import { gruvbox } from "./palettes/gruvbox";
-import { morandi } from "./palettes/morandi";
-import { monet } from "./palettes/monet";
-import { wafu } from "./palettes/wafu";
-import { guofeng } from "./palettes/guofeng";
+import { oneDark } from "./palettes/oneDark";
+import { material } from "./palettes/material";
+import { github } from "./palettes/github";
+import { nightOwl } from "./palettes/nightOwl";
 
 import {
   type ThemeMode,
@@ -54,9 +54,7 @@ const styleMap: Record<ThemeStyle, StyleDefinition> = {
 };
 
 /**
- * Palette 注册表（色彩轴）。
- * 阶段 2 在此追加 rosePine/tokyoNight/gruvbox/morandi/monet/wafu/guofeng
- * （同步补 ThemeColor 联合 + i18n theme.color.* label）。
+ * Palette 注册表（色彩轴）。12 个均为业界知名命名色板。
  */
 const paletteMap: Partial<Record<ThemeColor, PaletteDefinition>> = {
   appleBlue,
@@ -67,10 +65,10 @@ const paletteMap: Partial<Record<ThemeColor, PaletteDefinition>> = {
   rosePine,
   tokyoNight,
   gruvbox,
-  morandi,
-  monet,
-  wafu,
-  guofeng,
+  oneDark,
+  material,
+  github,
+  nightOwl,
 };
 
 /** 默认轴值（迁移失败 / 未注册时回退）。 */
