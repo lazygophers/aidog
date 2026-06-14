@@ -9,6 +9,7 @@ import type { TFunction } from "i18next";
 import {
   notificationApi,
   groupApi,
+  scriptExecutorApi,
   type NotificationSettings as NotifSettings,
   type TypeSetting,
   type NotifType,
@@ -61,6 +62,11 @@ export function NotificationSettingsTab() {
   const [hookBusy, setHookBusy] = useState(false);
   const [defaultHooks, setDefaultHooks] = useState(false);
   const [defaultHooksBusy, setDefaultHooksBusy] = useState(false);
+  // uv 询问 modal：通知 hook 脚本为 Python（uv run --script / python3 执行）。注入前若 uv
+  // 缺失且未持久化选择，弹此 modal 让用户「自动装 uv」或「用 python3」。resolver 在用户
+  // 选择后兑现，门控 gate 继续注入。
+  const [uvModal, setUvModal] = useState<{ resolve: (ok: boolean) => void } | null>(null);
+  const [uvInstalling, setUvInstalling] = useState(false);
 
   useEffect(() => {
     (async () => {
@@ -119,8 +125,57 @@ export function NotificationSettingsTab() {
     }
   };
 
+  // 注入前确保脚本执行器就绪：uv 可用 → 直接放行；否则弹 modal。返回 false 表示用户取消注入。
+  const ensureExecutorReady = async (): Promise<boolean> => {
+    try {
+      const ok = await scriptExecutorApi.checkUv();
+      if (ok) return true;
+    } catch (e) {
+      console.error("check uv failed", e);
+    }
+    // uv 缺失 → 弹 modal 等用户选择。
+    return new Promise<boolean>((resolve) => setUvModal({ resolve }));
+  };
+
+  const handleUvInstall = async () => {
+    if (!uvModal) return;
+    setUvInstalling(true);
+    try {
+      await scriptExecutorApi.installUv();
+      setMessage(t("notif.uvInstalled", "uv 安装完成"));
+      uvModal.resolve(true);
+    } catch (e) {
+      console.error("install uv failed", e);
+      setMessage(t("notif.uvInstallFailed", "uv 安装失败，将使用 python3"));
+      // 安装失败 → 退回 python3 仍可生成脚本。
+      try { await scriptExecutorApi.setExecutor("python3"); } catch { /* best-effort */ }
+      uvModal.resolve(true);
+    }
+    setUvInstalling(false);
+    setUvModal(null);
+  };
+
+  const handleUvUsePython = async () => {
+    if (!uvModal) return;
+    try {
+      await scriptExecutorApi.setExecutor("python3");
+    } catch (e) {
+      console.error("set python3 executor failed", e);
+    }
+    uvModal.resolve(true);
+    setUvModal(null);
+  };
+
+  const handleUvCancel = () => {
+    if (!uvModal) return;
+    uvModal.resolve(false);
+    setUvModal(null);
+  };
+
   const handleToggleDefaultHooks = async () => {
     const next = !defaultHooks;
+    // 开启会为全分组生成 Python hook 脚本 → 先确保执行器就绪。
+    if (next && !(await ensureExecutorReady())) return;
     setDefaultHooksBusy(true);
     setDefaultHooks(next);
     try {
@@ -141,6 +196,8 @@ export function NotificationSettingsTab() {
       setMessage(t("notif.hookNoGroup", "请先选择分组"));
       return;
     }
+    // 注入会生成 Python hook 脚本 → 先确保执行器就绪（移除无需）。
+    if (!remove && !(await ensureExecutorReady())) return;
     setHookBusy(true);
     try {
       if (remove) {
@@ -384,6 +441,52 @@ export function NotificationSettingsTab() {
       )}
       {message && (
         <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>{message}</div>
+      )}
+
+      {/* uv 询问 modal：通知 hook 脚本为 Python，uv 缺失时让用户选自动安装或回退 python3 */}
+      {uvModal && (
+        <div
+          style={{
+            position: "fixed", inset: 0, zIndex: 1000,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0,0,0,0.45)",
+          }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="glass-elevated" style={{ maxWidth: 420, padding: "20px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+            <div style={{ fontSize: 15, fontWeight: 600 }}>{t("notif.uvModalTitle", "未检测到 uv")}</div>
+            <div className="text-secondary" style={{ fontSize: 13, lineHeight: 1.5 }}>
+              {t("notif.uvModalDesc", "通知 hook 脚本为 Python（PEP723），推荐用 uv 运行以隔离依赖。是否自动安装 uv？否则将使用系统 python3。")}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: "6px 12px" }}
+                onClick={handleUvCancel}
+                disabled={uvInstalling}
+              >
+                {t("notif.uvModalCancel", "取消")}
+              </button>
+              <button
+                className="btn btn-ghost"
+                style={{ fontSize: 12, padding: "6px 12px" }}
+                onClick={handleUvUsePython}
+                disabled={uvInstalling}
+              >
+                {t("notif.uvModalUsePython", "用 python3")}
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ fontSize: 12, padding: "6px 12px" }}
+                onClick={handleUvInstall}
+                disabled={uvInstalling}
+              >
+                {uvInstalling ? t("notif.uvModalInstalling", "安装中…") : t("notif.uvModalInstall", "自动安装 uv")}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
