@@ -251,11 +251,12 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                 }}
                 onClick={() => {
                   if (hasChildren) {
-                    if (!inThis) {
+                    // header 点击始终 toggle 展开；仅「展开 + 未在组内」时跳首个 child。
+                    // 修复：group 已展开但 activeId 不在组内时，点击应收起而非重新展开+跳转。
+                    const willExpand = !expanded;
+                    setExpandedNav((e) => ({ ...e, [item.id]: willExpand }));
+                    if (willExpand && !inThis) {
                       onNavigate(item.children![0].id);
-                      setExpandedNav((e) => ({ ...e, [item.id]: true }));
-                    } else {
-                      setExpandedNav((e) => ({ ...e, [item.id]: !expanded }));
                     }
                   } else {
                     onNavigate(item.id);
