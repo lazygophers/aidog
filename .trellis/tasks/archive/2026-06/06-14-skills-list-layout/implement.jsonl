@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "Skills.tsx 重排布局/状态/i18n/类型合规"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用 shared 组件/formatters, 禁重造"}
