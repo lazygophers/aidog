@@ -1237,7 +1237,7 @@ export function onProxyLogUpdated(callback: () => void, debounceMs = 500): () =>
 // 字段名严格 snake_case，与 Rust gateway/skills.rs 模型一一对齐（cross-layer-rules）。
 
 /** 目标 agent（决定 --agent 参数 + 本地配置目录）。 */
-export type SkillAgent = "claude" | "codex" | "cursor";
+export type SkillAgent = "claude" | "codex";
 
 /**
  * 安装 scope（Rust 端 #[serde(tag = "kind")] 内部 tag 枚举）。

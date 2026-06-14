@@ -1013,7 +1013,6 @@
   "skills.agent": "الوكيل",
   "skills.agent.claude": "Claude Code",
   "skills.agent.codex": "Codex",
-  "skills.agent.cursor": "Cursor",
   "skills.projectPathPlaceholder": "المسار المطلق لدليل المشروع",
   "skills.browse": "تصفح…",
   "skills.chooseProjectDir": "اختر دليل المشروع",

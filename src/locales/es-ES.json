@@ -1010,7 +1010,6 @@
   "skills.agent": "Agente",
   "skills.agent.claude": "Claude Code",
   "skills.agent.codex": "Codex",
-  "skills.agent.cursor": "Cursor",
   "skills.projectPathPlaceholder": "Ruta absoluta del directorio del proyecto",
   "skills.browse": "Examinar…",
   "skills.chooseProjectDir": "Elegir directorio del proyecto",

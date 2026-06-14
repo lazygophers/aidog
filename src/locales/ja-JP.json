@@ -1013,7 +1013,6 @@
   "skills.agent": "エージェント",
   "skills.agent.claude": "Claude Code",
   "skills.agent.codex": "Codex",
-  "skills.agent.cursor": "Cursor",
   "skills.projectPathPlaceholder": "プロジェクトディレクトリの絶対パス",
   "skills.browse": "参照…",
   "skills.chooseProjectDir": "プロジェクトディレクトリを選択",

@@ -1130,7 +1130,6 @@
   "skills.agent": "Agent",
   "skills.agent.claude": "Claude Code",
   "skills.agent.codex": "Codex",
-  "skills.agent.cursor": "Cursor",
   "skills.projectPathPlaceholder": "项目目录绝对路径",
   "skills.browse": "浏览…",
   "skills.chooseProjectDir": "选择项目目录",
