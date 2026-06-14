@@ -212,9 +212,45 @@ export function Skills() {
         </div>
       )}
 
-      {/* scope 筛选 */}
-      <div className="glass-surface" style={{ padding: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-        <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "center" }}>
+      {/* 统计 + scope 筛选 (合并单卡: 左统计 右筛选右对齐) */}
+      <div
+        className="glass-elevated"
+        style={{
+          padding: "20px 24px",
+          display: "flex",
+          alignItems: "center",
+          gap: 28,
+          flexWrap: "wrap",
+          justifyContent: "space-between",
+        }}
+      >
+        {/* 左: 统计 */}
+        <div style={{ display: "flex", alignItems: "center", gap: 28, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+            <span style={{ fontSize: 40, fontWeight: 800, lineHeight: 1, color: "var(--accent)" }}>
+              {total}
+            </span>
+            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              {t("skills.total", "已安装总计")}
+            </span>
+          </div>
+          <div style={{ display: "flex", gap: 20 }}>
+            {AGENTS.map((a) => (
+              <div key={a} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <img src={AGENT_ICONS[a]} alt={t(`skills.agent.${a}`, a)} style={{ width: 22, height: 22 }} />
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <span style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.1 }}>{agentCounts[a]}</span>
+                  <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+                    {t(`skills.agent.${a}`, a)}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 右: scope 筛选 (右对齐) */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
           <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13 }}>
             <span className="text-secondary">{t("skills.scope", "范围")}</span>
             <select
@@ -227,61 +263,25 @@ export function Skills() {
               <option value="project">{t("skills.scopeProject", "项目级")}</option>
             </select>
           </label>
-        </div>
-
-        {scopeKind === "project" && (
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input
-              className="input"
-              style={{ flex: 1 }}
-              placeholder={t("skills.projectPathPlaceholder", "项目目录绝对路径")}
-              value={projectPath}
-              onChange={(e) => setProjectPath(e.target.value)}
-            />
-            <button className="btn" style={{ fontSize: 12 }} onClick={pickProjectDir}>
-              {t("skills.browse", "浏览…")}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* 总计统计卡（醒目大数字 + 每 agent 启用数） */}
-      <div
-        className="glass-elevated"
-        style={{
-          padding: "20px 24px",
-          display: "flex",
-          alignItems: "center",
-          gap: 28,
-          flexWrap: "wrap",
-        }}
-      >
-        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <span style={{ fontSize: 40, fontWeight: 800, lineHeight: 1, color: "var(--accent)" }}>
-            {total}
-          </span>
-          <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-            {t("skills.total", "已安装总计")}
-          </span>
-        </div>
-        <div style={{ display: "flex", gap: 20 }}>
-          {AGENTS.map((a) => (
-            <div key={a} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <img src={AGENT_ICONS[a]} alt={t(`skills.agent.${a}`, a)} style={{ width: 22, height: 22 }} />
-              <div style={{ display: "flex", flexDirection: "column" }}>
-                <span style={{ fontSize: 18, fontWeight: 700, lineHeight: 1.1 }}>{agentCounts[a]}</span>
-                <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                  {t(`skills.agent.${a}`, a)}
-                </span>
-              </div>
+          {scopeKind === "project" && (
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                className="input"
+                style={{ flex: 1 }}
+                placeholder={t("skills.projectPathPlaceholder", "项目目录绝对路径")}
+                value={projectPath}
+                onChange={(e) => setProjectPath(e.target.value)}
+              />
+              <button className="btn" style={{ fontSize: 12 }} onClick={pickProjectDir}>
+                {t("skills.browse", "浏览…")}
+              </button>
             </div>
-          ))}
+          )}
         </div>
       </div>
 
       {/* 已装列表（统一一条/skill） */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        <h3 style={{ fontSize: 14, fontWeight: 700, margin: 0 }}>{t("skills.installedTitle", "已安装")}</h3>
         {installedLoading ? (
           <div className="text-secondary" style={{ padding: 12 }}>{t("status.loading", "加载中…")}</div>
         ) : installed.length === 0 ? (
@@ -328,8 +328,8 @@ export function Skills() {
                           padding: "5px 10px",
                           cursor: writeReady && busyKey === null ? "pointer" : "default",
                           borderRadius: 10,
-                          border: enabled ? "1.5px solid var(--accent)" : "1px solid var(--border, rgba(255,255,255,0.12))",
-                          background: enabled ? "var(--accent-soft, rgba(255,255,255,0.10))" : "transparent",
+                          border: enabled ? "1.5px solid var(--accent)" : "1px solid var(--border)",
+                          background: enabled ? "var(--accent-subtle)" : "transparent",
                           opacity: enabled ? 1 : 0.45,
                           transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
                         }}
