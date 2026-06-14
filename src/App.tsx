@@ -10,8 +10,6 @@ import { Notifications } from "./pages/Notifications";
 import { Skills } from "./pages/Skills";
 import {
   proxyLogApi,
-  notificationApi,
-  NOTIF_INBOX_UPDATED,
   NOTIF_SPEAK,
 } from "./services/api";
 import { requestNavigation } from "./utils/navGuard";
@@ -45,24 +43,11 @@ const BASE_NAV: NavItem[] = [
 function App() {
   const [activeNav, setActiveNav] = useState("platforms");
   const [logEnabled, setLogEnabled] = useState(false);
-  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     proxyLogApi.getSettings()
       .then(s => setLogEnabled(s.enabled))
       .catch(() => {});
-  }, []);
-
-  // 收件箱未读计数：初始拉取 + listen 实时刷新。
-  useEffect(() => {
-    const refreshUnread = () => {
-      notificationApi.unreadCount()
-        .then(setUnread)
-        .catch(() => {});
-    };
-    refreshUnread();
-    const unlistenPromise = listen(NOTIF_INBOX_UPDATED, () => { refreshUnread(); });
-    return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
   }, []);
 
   // WebSpeech 播报：tts_backend=web_speech 时后端 emit NOTIF_SPEAK（payload=文本），前端朗读。
@@ -98,7 +83,7 @@ function App() {
   const navItems = (logEnabled
     ? BASE_NAV
     : BASE_NAV.filter(n => n.id !== "logs")
-  ).map(n => n.id === "notifications" ? { ...n, badge: unread } : n);
+  );
 
   const effectiveNav = activeNav === "logs" && !logEnabled ? "platforms" : activeNav.split("/")[0];
   // settings 子页：activeNav 形如 "settings/system"；裸 "settings" 回退 system。

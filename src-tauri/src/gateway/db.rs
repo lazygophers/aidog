@@ -186,7 +186,7 @@ impl Db {
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_open_secs INTEGER NOT NULL DEFAULT 0", []);
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN breaker_half_open_max INTEGER NOT NULL DEFAULT 0", []);
                 // Migration 017: 系统通知收件箱表（N1 — 系统通知模块）。
-                // notify(type) → InboxOnly/PopupOnly/Full 落库一行；前端通知中心 list/markRead/clear 消费。
+                // notify(type) → InboxOnly/PopupOnly/Full 落库一行；前端通知中心 list/clear 消费。
                 // 设置（NotificationSettings）走 settings KV scope=notification，不在此表。
                 conn.execute_batch(
                     "CREATE TABLE IF NOT EXISTS notification (
@@ -194,11 +194,13 @@ impl Db {
                        notif_type  TEXT NOT NULL,
                        title       TEXT NOT NULL DEFAULT '',
                        body        TEXT NOT NULL DEFAULT '',
-                       read        INTEGER NOT NULL DEFAULT 0,
                        created_at  INTEGER NOT NULL
-                     );
-                     CREATE INDEX IF NOT EXISTS idx_notif_read ON notification(read, created_at);",
+                     );",
                 )?;
+                // Migration 018: 去 read 列 + idx_notif_read 索引（通知完成即结束，无已读未读）。
+                // 旧装库（017 建表含 read）走 DROP；新装无 read 列，DROP COLUMN 报错被吞。
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_notif_read", []);
+                let _ = conn.execute("ALTER TABLE notification DROP COLUMN read", []);
                 Ok(())
             })
             .await
@@ -1743,7 +1745,7 @@ pub async fn insert_notification(
     db.0
         .call(move |conn| {
             conn.execute(
-                "INSERT INTO notification (notif_type, title, body, read, created_at) VALUES (?1, ?2, ?3, 0, ?4)",
+                "INSERT INTO notification (notif_type, title, body, created_at) VALUES (?1, ?2, ?3, ?4)",
                 params![notif_type, title, body, ts],
             )?;
             Ok(conn.last_insert_rowid())
@@ -1760,7 +1762,7 @@ pub async fn list_notifications(
     db.0
         .call(move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, notif_type, title, body, read, created_at FROM notification ORDER BY created_at DESC, id DESC LIMIT ?1",
+                "SELECT id, notif_type, title, body, created_at FROM notification ORDER BY created_at DESC, id DESC LIMIT ?1",
             )?;
             let rows = stmt.query_map(params![limit], |row| {
                 Ok(super::models::Notification {
@@ -1768,39 +1770,13 @@ pub async fn list_notifications(
                     notif_type: row.get(1)?,
                     title: row.get(2)?,
                     body: row.get(3)?,
-                    read: row.get::<_, i64>(4)? != 0,
-                    created_at: row.get(5)?,
+                    created_at: row.get(4)?,
                 })
             })?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
         })
         .await
         .map_err(|e| e.to_string())
-}
-
-/// 统计未读数。
-pub async fn count_unread_notifications(db: &Db) -> Result<i64, String> {
-    db.0
-        .call(|conn| {
-            conn.query_row("SELECT COUNT(*) FROM notification WHERE read = 0", [], |r| r.get(0))
-                .map_err(tokio_rusqlite::Error::from)
-        })
-        .await
-        .map_err(|e| e.to_string())
-}
-
-/// 标记已读：id=None 标全部已读，否则标单条。
-pub async fn mark_notification_read(db: &Db, id: Option<i64>) -> Result<(), String> {
-    db.0
-        .call(move |conn| {
-            match id {
-                Some(id) => conn.execute("UPDATE notification SET read = 1 WHERE id = ?1", params![id])?,
-                None => conn.execute("UPDATE notification SET read = 1 WHERE read = 0", [])?,
-            };
-            Ok(())
-        })
-        .await
-        .map_err(|e| format!("mark notification read: {e}"))
 }
 
 /// 清空收件箱（删全部行）。
@@ -3594,7 +3570,6 @@ decimals: None,
     async fn notification_inbox_crud() {
         let db = test_db().await;
         // 空库
-        assert_eq!(count_unread_notifications(&db).await.unwrap(), 0);
         assert!(list_notifications(&db, 50).await.unwrap().is_empty());
 
         let id1 = insert_notification(&db, "task_complete", "任务完成", "项目 X 完成").await.unwrap();
@@ -3605,19 +3580,8 @@ decimals: None,
         assert_eq!(list.len(), 2);
         // 倒序：最新在前
         assert_eq!(list[0].id, id2);
-        assert!(!list[0].read);
         assert_eq!(list[0].notif_type, "error");
         assert_eq!(list[1].title, "任务完成");
-        assert_eq!(count_unread_notifications(&db).await.unwrap(), 2);
-
-        // 标单条已读
-        mark_notification_read(&db, Some(id1)).await.unwrap();
-        assert_eq!(count_unread_notifications(&db).await.unwrap(), 1);
-
-        // 标全部已读
-        mark_notification_read(&db, None).await.unwrap();
-        assert_eq!(count_unread_notifications(&db).await.unwrap(), 0);
-        assert!(list_notifications(&db, 50).await.unwrap().iter().all(|n| n.read));
 
         // limit 生效
         for i in 0..5 {

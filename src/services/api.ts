@@ -906,7 +906,6 @@ export interface Notification {
   notif_type: string;
   title: string;
   body: string;
-  read: boolean;
   created_at: number;
 }
 
@@ -931,11 +930,6 @@ export const notificationApi = {
   /** 列收件箱（倒序；limit 默认 100）。 */
   listInbox: (limit?: number) =>
     invoke<Notification[]>("notification_inbox_list", { limit }),
-  /** 未读数。 */
-  unreadCount: () => invoke<number>("notification_inbox_unread"),
-  /** 标记已读：id 省略 → 全部已读。 */
-  markRead: (id?: number) =>
-    invoke<void>("notification_mark_read", { id }),
   /** 清空收件箱。 */
   clearInbox: () => invoke<void>("notification_clear"),
   /** 测试通知（走分发逻辑，含弹窗/TTS）。 */
@@ -966,8 +960,6 @@ export const notificationApi = {
 /** hook 注入客户端类型（N2）。 */
 export type HookClient = "claude_code" | "codex";
 
-/** 收件箱未读数变化事件名（后端 emit / 前端 listen 必须一致）。 */
-export const NOTIF_INBOX_UPDATED = "notif-inbox-updated";
 /** WebSpeech 播报请求事件名（payload = 文本；前端 webview SpeechSynthesis 朗读）。 */
 export const NOTIF_SPEAK = "notif-speak";
 

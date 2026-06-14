@@ -1774,8 +1774,6 @@ pub struct Notification {
     pub notif_type: String,
     pub title: String,
     pub body: String,
-    /// 已读标记（0/1 → bool）。
-    pub read: bool,
     pub created_at: i64,
 }
 
