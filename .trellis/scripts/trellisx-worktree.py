@@ -71,11 +71,19 @@ elif action == "archive":
     if os.path.isdir(wt):
         st = subprocess.run(["git", "-C", wt, "status", "--porcelain"],
                             capture_output=True, text=True, timeout=10)
-        if st.stdout.strip():                 # 脏 → 保留, 不丢改动
-            print(f"trellisx: worktree {wt} 有未合并改动, 保留 (先合并再 git worktree remove)。", file=sys.stderr)
+        if st.stdout.strip():                 # 工作树脏 → 保留, 不丢未提交改动
+            print(f"trellisx: worktree {wt} 有未提交改动, 保留 (先提交/合并再归档)。", file=sys.stderr)
         else:
-            subprocess.run(["git", "-C", groot, "worktree", "remove", wt, "--force"],
-                           capture_output=True, timeout=15)
-            subprocess.run(["git", "-C", groot, "branch", "-D", br],
-                           capture_output=True, timeout=10)
-            print(f"trellisx: worktree 已销毁 {wt}", file=sys.stderr)
+            # 工作树干净, 但分支 br 可能有未合并回主分支的提交 → 检查后再销毁, 防 branch -D 丢提交。
+            # merge-base --is-ancestor br HEAD: br 全部提交可达自 groot HEAD (= 已合并) → 0; 否则非 0。
+            merged = subprocess.run(["git", "-C", groot, "merge-base", "--is-ancestor", br, "HEAD"],
+                                    capture_output=True, timeout=10)
+            if merged.returncode != 0:        # 有提交未合并 → 保留 worktree+分支, 禁丢
+                print(f"trellisx: 分支 {br} 有未合并回主分支的提交, 保留 worktree+分支 "
+                      f"(先 `git -C {groot} merge --no-ff {br}` 再归档)。", file=sys.stderr)
+            else:
+                subprocess.run(["git", "-C", groot, "worktree", "remove", wt, "--force"],
+                               capture_output=True, timeout=15)
+                subprocess.run(["git", "-C", groot, "branch", "-d", br],   # -d 安全删, 已确认合并
+                               capture_output=True, timeout=10)
+                print(f"trellisx: worktree 已销毁 {wt} (分支已合并回主分支)", file=sys.stderr)
