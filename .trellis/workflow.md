@@ -167,7 +167,8 @@ Phase 1.3 jsonl 策划在 inline dispatch 模式下**跳过** — 主会话在 P
 1. **强制 worktree** (两种模式都守): 本 task 全部源码改动 MUST 落在 worktree (git 根/子仓 .worktrees/<worktree>, trellis 生命周期 hook 已自动建)。**禁在主工作区写源码** — 写盘 file_path 必须是 worktree 路径。
 2. **多交付并行模式** (本请求拆了 parent + child tasks): 每个 child MUST 派 sub-agent (isolation:worktree) 或 agent-team 成员执行, **main 禁直接写源码** (只拆分/派发/收集/合并/协调)。无依赖的 child MUST 在同一条回复里一次性发起多个 agent 调用 (真并行), 禁逐个串行派。严格按 PRD 调度图依赖 + 并行组执行, 禁跳步。
 3. **单一交付轻量模式** (单 task 未拆 child): main 可在 worktree 内直接 edit 实施, 无需派 agent。仍守第 1 条 (写盘路径在 worktree)。
-4. **强制闭环 (plan→exec→check→finish)**: 实施完成后 MUST 走完整闭环 —— `trellis-check` 质量验证 → 通过后提交 (Phase 3.4) → `task.py archive` 归档收尾。**check 未过 → 修复重检, 禁跳到 finish; 未 archive = 流程未闭环, 禁宣告 Done / 禁结束本轮**。不要做完 check 就停在 in_progress, 必须主动推进到 archive。
+4. **自动闭环收尾 (check 通过后全自动推进, 不停在「提醒」)**: `trellis-check` 通过后, AI **自动执行整条收尾序列**, 不把收尾降级为"提醒用户运行 /finish-work" —— 收尾是 AI 的动作, 不是给用户的 TODO。自动序列: **Phase 3.4 提交** (保留原生「批量提交一次性确认」门: AI 出批量提交计划→用户一次确认→提交; 被拒退手动, 不绕过此门) → **`/trellis:finish-work`** (归档 task + 记录会话) → **`task.py archive`**。**禁只提醒不执行**; check 未过 → 修复重检, 禁跳 finish; 未 archive = 流程未闭环, 禁宣告 Done / 禁结束本轮。
+   > 注: 收尾序列 AI 自动跑, 仅 3.4 提交保留用户一次确认 (尊重「禁主动 commit 等明确指令」)。其余步骤 (finish-work / archive / journal) 零额外询问, 自动完成。
 5. **及时维护 task.md 看板**: start / 阶段推进 (exec→check→finish) / archive 后, MUST 用 `trellisx-workspace` 更新 `.trellis/task.md` 看板行 (状态/阶段/进度/worktree)。看板滞后于实际 = 流程缺陷。
 6. 收每个 agent 返回立即回传用户进度; task archive 时 worktree 干净则自动销毁。
 <!-- trellisx:end:in_progress -->
