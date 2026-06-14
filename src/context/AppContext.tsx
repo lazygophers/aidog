@@ -58,6 +58,19 @@ const LEGACY_THEME_MAP: Record<string, { style: ThemeStyle; color: ThemeColor }>
   solarized: { style: "flat", color: "solarized" },
 };
 
+/** 废弃 palette id → 替换 palette id 迁移映射（morandi/monet/wafu/guofeng 移除）。 */
+const DEPRECATED_PALETTE_MIGRATION: Record<string, ThemeColor> = {
+  morandi: "oneDark",
+  monet: "material",
+  wafu: "github",
+  guofeng: "nightOwl",
+};
+
+/** 迁移废弃 palette id 到当前有效 id；非废弃原样返回。 */
+function migratePaletteColor(color: string): ThemeColor {
+  return (DEPRECATED_PALETTE_MIGRATION[color] ?? color) as ThemeColor;
+}
+
 interface RawSettings {
   locale?: Locale;
   themeStyle?: ThemeStyle;
@@ -84,7 +97,12 @@ function loadSettingsFromStorage(): Settings {
 
   // 已是新结构
   if (raw.themeStyle && raw.themeColor) {
-    return { locale, themeStyle: raw.themeStyle, themeColor: raw.themeColor, themeMode };
+    return {
+      locale,
+      themeStyle: raw.themeStyle,
+      themeColor: migratePaletteColor(raw.themeColor),
+      themeMode,
+    };
   }
 
   // 旧结构迁移
@@ -115,7 +133,7 @@ async function loadSettingsFromDB(): Promise<Partial<Settings>> {
       typeof themeRow.mode === "string"
     ) {
       partial.themeStyle = themeRow.style as ThemeStyle;
-      partial.themeColor = themeRow.color as ThemeColor;
+      partial.themeColor = migratePaletteColor(themeRow.color);
       partial.themeMode = themeRow.mode as ThemeMode;
     }
     if (localeRow && typeof localeRow.locale === "string") {

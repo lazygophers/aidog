@@ -12,7 +12,7 @@ export type ThemeStyle =
   | "bento"
   | "sketchy";
 
-/** 调色板轴：color 决定全部色彩变量 + shadow-rgb/glass-edge。12 个全列，阶段 2 加文件即用。 */
+/** 调色板轴：color 决定全部色彩变量 + shadow-rgb/glass-edge。12 个均为业界知名命名色板。 */
 export type ThemeColor =
   | "appleBlue"
   | "nord"
@@ -22,10 +22,10 @@ export type ThemeColor =
   | "rosePine"
   | "tokyoNight"
   | "gruvbox"
-  | "morandi"
-  | "monet"
-  | "wafu"
-  | "guofeng";
+  | "oneDark"
+  | "material"
+  | "github"
+  | "nightOwl";
 
 /** Style 定义：仅结构变量（radius/blur/saturate/glass-border/shadow/transition）。 */
 export interface StyleDefinition {
