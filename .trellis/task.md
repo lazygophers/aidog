@@ -84,3 +84,6 @@
 | import-export-theme | 导入导出 UI 适配主题 | — | 已完成 | 收尾 | 100% | — |
 | mcp-management | MCP 管理模块 (per-agent 启用切换 + 导入平台 MCP + 删除) | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-14-mcp-management |
 | logo-transparent-icon-swap-css-theme | Logo 背景透明 + 换图标 + CSS 主题适配补齐 | — | 已完成 | 收尾 | 100% | — |
+| mcp-edit | MCP 编辑功能 | — | 已完成 | 收尾 | 100% | — |
+| load-recommended-hooks | 修复加载推荐配置时通知 hooks 未自动添加/更新 | — | 已完成 | 收尾 | 100 | — |
+| hooks-quick-notify-inject | Hooks 区加快速注入/移除通知 hook 入口 (编辑器可见) | — | in_progress | exec | 10 | .trellis/worktrees/06-14-hooks-quick-notify-inject |
