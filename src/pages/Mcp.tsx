@@ -16,6 +16,8 @@ import {
   type McpScanItem,
   type McpAgentSlug,
   type McpImportPayload,
+  type McpUpdatePayload,
+  type McpTransport,
 } from "../services/api";
 import claudeIcon from "../assets/platforms/claude_code.svg";
 import codexIcon from "../assets/platforms/openai.svg";
@@ -69,6 +71,26 @@ export function Mcp() {
 
   // 删除确认 modal
   const [deleteTarget, setDeleteTarget] = useState<McpServerInfo | null>(null);
+
+  // 编辑 modal
+  const [editTarget, setEditTarget] = useState<McpServerInfo | null>(null);
+  const [editForm, setEditForm] = useState<{
+    name: string;
+    transport: McpTransport;
+    command: string;
+    argsText: string;
+    envRows: { k: string; v: string }[];
+    url: string;
+    headersRows: { k: string; v: string }[];
+  }>({
+    name: "",
+    transport: "stdio",
+    command: "",
+    argsText: "",
+    envRows: [],
+    url: "",
+    headersRows: [],
+  });
 
   const refresh = useCallback(async () => {
     try {
@@ -218,6 +240,58 @@ export function Mcp() {
     });
   };
 
+  // ─── 编辑 ───
+  const openEdit = (srv: McpServerInfo) => {
+    setEditTarget(srv);
+    setEditForm({
+      name: srv.name,
+      transport: srv.transport,
+      command: srv.command,
+      argsText: srv.args.join("\n"),
+      envRows: Object.entries(srv.env).map(([k, v]) => ({ k, v })),
+      url: srv.url,
+      headersRows: Object.entries(srv.headers).map(([k, v]) => ({ k, v })),
+    });
+    setMessage(null);
+  };
+
+  const handleEditSave = async () => {
+    if (!editTarget) return;
+    const f = editForm;
+    if (!f.name.trim()) {
+      setMessage({ kind: "err", text: t("mcp.nameRequired", "name 必填") });
+      return;
+    }
+    setBusyKey(`edit::${editTarget.name}`);
+    setMessage(null);
+    const payload: McpUpdatePayload = {
+      name: f.name.trim(),
+      transport: f.transport,
+      command: f.command,
+      args: f.argsText
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean),
+      env: Object.fromEntries(
+        f.envRows.filter((r) => r.k.trim()).map((r) => [r.k.trim(), r.v]),
+      ),
+      url: f.url,
+      headers: Object.fromEntries(
+        f.headersRows.filter((r) => r.k.trim()).map((r) => [r.k.trim(), r.v]),
+      ),
+    };
+    try {
+      await mcpApi.update(editTarget.name, payload);
+      await refresh();
+      setEditTarget(null);
+      setMessage({ kind: "ok", text: t("mcp.saved", "已保存") });
+    } catch (e) {
+      setMessage({ kind: "err", text: String(e) });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 920 }}>
       {/* 顶栏 */}
@@ -280,6 +354,7 @@ export function Mcp() {
               srv={srv}
               busyKey={busyKey}
               onToggle={handleToggle}
+              onEdit={() => openEdit(srv)}
               onDelete={() => setDeleteTarget(srv)}
             />
           ))}
@@ -432,6 +507,92 @@ export function Mcp() {
           </div>,
           document.body,
         )}
+
+      {/* 编辑 modal */}
+      {editTarget &&
+        createPortal(
+          <div style={modalOverlay} onClick={() => busyKey === null && setEditTarget(null)}>
+            <div style={modalBody} onClick={(e) => e.stopPropagation()}>
+              <h2 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>
+                {t("mcp.editTitle", "编辑 MCP")}
+              </h2>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10, overflow: "auto", paddingRight: 4 }}>
+                <label style={fieldLabel}>
+                  <span>{t("mcp.field.name", "名称")}</span>
+                  <input
+                    style={inputStyle}
+                    value={editForm.name}
+                    onChange={(e) => setEditForm((f) => ({ ...f, name: e.target.value }))}
+                  />
+                </label>
+                <label style={fieldLabel}>
+                  <span>{t("mcp.field.transport", "传输")}</span>
+                  <select
+                    style={inputStyle}
+                    value={editForm.transport}
+                    onChange={(e) => setEditForm((f) => ({ ...f, transport: e.target.value as McpTransport }))}
+                  >
+                    <option value="stdio">stdio</option>
+                    <option value="http">http</option>
+                    <option value="sse">sse</option>
+                  </select>
+                </label>
+                {editForm.transport === "stdio" ? (
+                  <>
+                    <label style={fieldLabel}>
+                      <span>{t("mcp.field.command", "命令")}</span>
+                      <input
+                        style={inputStyle}
+                        value={editForm.command}
+                        placeholder="npx"
+                        onChange={(e) => setEditForm((f) => ({ ...f, command: e.target.value }))}
+                      />
+                    </label>
+                    <label style={fieldLabel}>
+                      <span>{t("mcp.field.args", "参数（每行一个）")}</span>
+                      <textarea
+                        style={{ ...inputStyle, minHeight: 64, fontFamily: "var(--font-mono)" }}
+                        value={editForm.argsText}
+                        onChange={(e) => setEditForm((f) => ({ ...f, argsText: e.target.value }))}
+                      />
+                    </label>
+                    <KVRows
+                      label={t("mcp.field.env", "环境变量")}
+                      rows={editForm.envRows}
+                      onChange={(envRows) => setEditForm((f) => ({ ...f, envRows }))}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <label style={fieldLabel}>
+                      <span>{t("mcp.field.url", "URL")}</span>
+                      <input
+                        style={inputStyle}
+                        value={editForm.url}
+                        placeholder="https://..."
+                        onChange={(e) => setEditForm((f) => ({ ...f, url: e.target.value }))}
+                      />
+                    </label>
+                    <KVRows
+                      label={t("mcp.field.headers", "请求头")}
+                      rows={editForm.headersRows}
+                      onChange={(headersRows) => setEditForm((f) => ({ ...f, headersRows }))}
+                    />
+                  </>
+                )}
+              </div>
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+                <button onClick={() => setEditTarget(null)} disabled={busyKey !== null} style={btnGhost}>
+                  {t("common.cancel", "取消")}
+                </button>
+                <button onClick={handleEditSave} disabled={busyKey !== null} style={btnPrimary}>
+                  {busyKey !== null ? t("mcp.saving", "保存中…") : t("mcp.save", "保存")}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }
@@ -442,11 +603,13 @@ function McpRow({
   srv,
   busyKey,
   onToggle,
+  onEdit,
   onDelete,
 }: {
   srv: McpServerInfo;
   busyKey: string | null;
   onToggle: (s: McpServerInfo, a: McpAgentSlug) => void;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   const { t } = useTranslation();
@@ -550,6 +713,31 @@ function McpRow({
           );
         })}
 
+        {/* 编辑 */}
+        <button
+          title={t("mcp.edit", "编辑")}
+          onClick={onEdit}
+          disabled={busyKey?.startsWith(`edit::${srv.name}`)}
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 8,
+            border: "1px solid var(--border)",
+            background: "transparent",
+            cursor: "pointer",
+            color: "var(--text-secondary)",
+            padding: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9.5 2.5l3 3L5 13H2v-3z" />
+            <path d="M8 4l3 3" />
+          </svg>
+        </button>
+
         {/* 删除 */}
         <button
           title={t("common.delete", "删除")}
@@ -596,6 +784,61 @@ function TransportBadge({ transport }: { transport: string }) {
     >
       {t(`mcp.transport.${transport}`, transport)}
     </span>
+  );
+}
+
+// ─── 动态键值行（env / headers 编辑）───
+
+function KVRows({
+  label,
+  rows,
+  onChange,
+}: {
+  label: string;
+  rows: { k: string; v: string }[];
+  onChange: (rows: { k: string; v: string }[]) => void;
+}) {
+  const { t } = useTranslation();
+  const update = (i: number, patch: Partial<{ k: string; v: string }>) =>
+    onChange(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+        {label}
+        <span style={{ color: "var(--text-tertiary)", marginLeft: 6, fontSize: 11 }}>
+          ({t("mcp.maskedHint", "未改值填 *** 保持原密钥")})
+        </span>
+      </span>
+      {rows.map((r, i) => (
+        <div key={i} style={{ display: "flex", gap: 6 }}>
+          <input
+            style={{ ...inputStyle, flex: 1 }}
+            value={r.k}
+            placeholder="KEY"
+            onChange={(e) => update(i, { k: e.target.value })}
+          />
+          <input
+            style={{ ...inputStyle, flex: 1.4, fontFamily: "var(--font-mono, monospace)" }}
+            value={r.v}
+            placeholder="***"
+            onChange={(e) => update(i, { v: e.target.value })}
+          />
+          <button
+            onClick={() => onChange(rows.filter((_, idx) => idx !== i))}
+            style={{ ...btnGhost, padding: "6px 10px" }}
+            title={t("common.delete", "删除")}
+          >
+            ×
+          </button>
+        </div>
+      ))}
+      <button
+        onClick={() => onChange([...rows, { k: "", v: "" }])}
+        style={{ ...btnGhost, alignSelf: "flex-start", padding: "5px 10px", fontSize: 12 }}
+      >
+        + {t("mcp.addRow", "添加")}
+      </button>
+    </div>
   );
 }
 
@@ -653,4 +896,22 @@ const modalBody: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   boxShadow: "0 8px 32px rgba(0,0,0,0.3)",
+};
+
+const fieldLabel: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  gap: 4,
+  fontSize: 12,
+  color: "var(--text-secondary)",
+};
+
+const inputStyle: React.CSSProperties = {
+  padding: "6px 10px",
+  borderRadius: 8,
+  border: "1px solid var(--border)",
+  background: "var(--bg)",
+  color: "var(--text-primary)",
+  fontSize: 13,
+  outline: "none",
 };

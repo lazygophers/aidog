@@ -761,6 +761,135 @@ pub async fn delete_server(db: &Db, name: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// 编辑 MCP 的入参（camelCase，前端直传）。
+/// env/headers 中未改的敏感值由前端以 "***" 占位传回，后端 merge 旧 DB 明文。
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct McpUpdatePayload {
+    pub name: String,
+    pub transport: String,
+    pub command: String,
+    pub args: Vec<String>,
+    pub env: BTreeMap<String, String>,
+    pub url: String,
+    pub headers: BTreeMap<String, String>,
+}
+
+/// 脱敏 merge：incoming 中值为 "***" 的 key → 取 old 明文；其余用新值。
+/// 前端编辑表单初始用脱敏值，用户未改的字段提交 "***"，此处还原。
+fn merge_masked(
+    incoming: BTreeMap<String, String>,
+    old: &BTreeMap<String, String>,
+) -> BTreeMap<String, String> {
+    incoming
+        .into_iter()
+        .map(|(k, v)| {
+            if v.as_str() == "***" {
+                (k.clone(), old.get(&k).cloned().unwrap_or(v))
+            } else {
+                (k, v)
+            }
+        })
+        .collect()
+}
+
+/// 编辑 MCP：全字段更新（含改名 / transport 切换）+ 同步 enabled agent 配置。
+/// - env/headers 脱敏 merge（***→旧 DB 明文）
+/// - transport 切换后不支持的 enabled agent 自动移除（agent 配置 remove）
+/// - 改名：旧 name agent 配置 remove + DB 旧名删行
+/// - upsert 新 row（保留 id/created_at；改名时新行 created_at 沿用旧值）
+pub async fn update_server(
+    db: &Db,
+    old_name: &str,
+    payload: McpUpdatePayload,
+) -> Result<McpServerInfo, String> {
+    let old = super::db::get_mcp_server(db, old_name)
+        .await?
+        .ok_or_else(|| format!("mcp server not found: {old_name}"))?;
+
+    let new_transport = McpTransport::parse(&payload.transport);
+
+    let env = merge_masked(payload.env, &old.env_map());
+    let headers = merge_masked(payload.headers, &old.headers_map());
+
+    let cfg = McpConfigRaw {
+        transport: new_transport,
+        command: payload.command.clone(),
+        args: payload.args.clone(),
+        env: env.clone(),
+        url: payload.url.clone(),
+        headers: headers.clone(),
+    };
+
+    // transport 兼容重算：不支持的 enabled agent 移除。
+    let enabled = old.enabled_set();
+    let kept: Vec<McpAgent> = enabled
+        .iter()
+        .copied()
+        .filter(|a| new_transport.supported_by(*a))
+        .collect();
+    let dropped: Vec<McpAgent> = enabled
+        .into_iter()
+        .filter(|a| !new_transport.supported_by(*a))
+        .collect();
+
+    // dropped: 旧 name 配置 remove。
+    for agent in &dropped {
+        if let Err(e) = backend_for(*agent).remove(old_name) {
+            tracing::warn!(
+                agent = agent.slug(),
+                error = %e,
+                "mcp update: remove dropped agent config failed"
+            );
+        }
+    }
+    // kept: 改名则先 remove 旧 name，再 write 新 name 新 cfg。
+    for agent in &kept {
+        let be = backend_for(*agent);
+        if payload.name != old.name {
+            if let Err(e) = be.remove(old_name) {
+                tracing::warn!(
+                    agent = agent.slug(),
+                    error = %e,
+                    "mcp update: remove old-name agent config failed"
+                );
+            }
+        }
+        be.write(&payload.name, &cfg)
+            .map_err(|e| format!("write {} config: {e}", agent.slug()))?;
+    }
+
+    // DB：改名删旧 + upsert 新。
+    if payload.name != old.name {
+        super::db::delete_mcp_server(db, old_name).await?;
+    }
+    let enabled_csv = kept
+        .iter()
+        .map(|a| a.slug())
+        .collect::<Vec<_>>()
+        .join(",");
+    let now = super::db::now();
+    let row = McpServerRow {
+        id: old.id,
+        name: payload.name,
+        transport: new_transport.as_str().to_string(),
+        command: cfg.command,
+        args_json: serde_json::to_string(&cfg.args).unwrap_or_else(|_| "[]".into()),
+        env_json: serde_json::to_string(&env).unwrap_or_else(|_| "{}".into()),
+        url: cfg.url,
+        headers_json: serde_json::to_string(&headers).unwrap_or_else(|_| "{}".into()),
+        enabled_agents: enabled_csv,
+        created_at: old.created_at,
+        updated_at: now,
+    };
+    super::db::upsert_mcp_server(db, &row).await?;
+
+    super::db::get_mcp_server(db, &row.name)
+        .await?
+        .map(McpServerInfo::from)
+        .ok_or_else(|| format!("mcp update: row vanished after upsert: {}", row.name))
+}
+
 // ─── Tests ─────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -937,5 +1066,31 @@ ALL_PROXY = "http://127.0.0.1:7890"
         let info = McpServerInfo::from(row);
         assert_eq!(info.env.get("API_KEY").unwrap(), "***");
         assert_eq!(info.env.get("DEBUG").unwrap(), "1");
+    }
+
+    #[test]
+    fn merge_masked_keeps_old_secret_for_placeholder() {
+        let mut old = BTreeMap::new();
+        old.insert("API_KEY".into(), "sk-real".into());
+        old.insert("DEBUG".into(), "0".into());
+        // 前端未改 API_KEY（*** 占位），改 DEBUG，加 NEW_VAR，删（不传）无
+        let mut incoming = BTreeMap::new();
+        incoming.insert("API_KEY".into(), "***".into());
+        incoming.insert("DEBUG".into(), "1".into());
+        incoming.insert("NEW_VAR".into(), "x".into());
+        let merged = merge_masked(incoming, &old);
+        assert_eq!(merged.get("API_KEY").unwrap(), "sk-real"); // *** → 旧明文
+        assert_eq!(merged.get("DEBUG").unwrap(), "1"); // 新值
+        assert_eq!(merged.get("NEW_VAR").unwrap(), "x"); // 新 key
+    }
+
+    #[test]
+    fn merge_masked_placeholder_without_old_falls_back() {
+        // *** 但旧 DB 无该 key → 保留 ***（不应发生，但兜底不 panic）
+        let old = BTreeMap::new();
+        let mut incoming = BTreeMap::new();
+        incoming.insert("X".into(), "***".into());
+        let merged = merge_masked(incoming, &old);
+        assert_eq!(merged.get("X").unwrap(), "***");
     }
 }
