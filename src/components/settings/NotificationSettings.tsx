@@ -1,29 +1,26 @@
 // ─── 系统通知设置面板（AppSettings「通知」tab；N3）────────────
 // 消费 N1/N2 冻结的 services/api.ts 契约（notificationApi + 类型），只读不改。
 // 提供：总开关 + TTS 总开关 + TTS 后端选择 + 按类型 {tts,popup,form,template} 编辑 +
-//       变量提示 + 测试通知 + Claude Code / Codex 一键注入/移除 hook。
+//       变量提示 + 测试通知 + 「默认为所有分组注入通知 Hook」总开关（_aidog_hooks.enabled）。
+// 单 group 注入按钮已删（API 仍保留: notificationApi.injectHooks/removeHooks），统一走总开关。
 
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
   notificationApi,
-  groupApi,
   scriptExecutorApi,
   type NotificationSettings as NotifSettings,
   type TypeSetting,
   type NotifType,
   type NotifForm,
   type TtsBackend,
-  type HookClient,
-  type Group,
 } from "../../services/api";
 
 // 与 api.ts 契约对齐（禁裸 string）。
 const NOTIF_TYPES: NotifType[] = ["task_complete", "waiting_input", "error", "custom"];
 const NOTIF_FORMS: NotifForm[] = ["full", "popup_only", "inbox_only", "sound_only"];
 const TTS_BACKENDS: TtsBackend[] = ["cross_platform", "mac_say", "web_speech"];
-const HOOK_CLIENTS: HookClient[] = ["claude_code", "codex"];
 const TEMPLATE_VARS = ["{project}", "{status}", "{time}", "{session}", "{group}"];
 
 const DEFAULT_TYPE_SETTING: TypeSetting = { tts: true, popup: true, form: "full", template: "" };
@@ -47,19 +44,12 @@ function ttsBackendLabel(t: TFunction, b: TtsBackend): string {
   return t(`notif.ttsBackend.${b}`, b);
 }
 
-function hookClientLabel(t: TFunction, c: HookClient): string {
-  return t(`notif.hookClient.${c}`, c);
-}
-
 export function NotificationSettingsTab() {
   const { t } = useTranslation();
   const [settings, setSettings] = useState<NotifSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
-  const [groups, setGroups] = useState<Group[]>([]);
-  const [hookGroup, setHookGroup] = useState("");
-  const [hookBusy, setHookBusy] = useState(false);
   const [defaultHooks, setDefaultHooks] = useState(false);
   const [defaultHooksBusy, setDefaultHooksBusy] = useState(false);
   // uv 询问 modal：通知 hook 脚本为 Python（uv run --script / python3 执行）。注入前若 uv
@@ -75,13 +65,6 @@ export function NotificationSettingsTab() {
         setSettings(s);
       } catch (e) {
         console.error("load notification settings failed", e);
-      }
-      try {
-        const gs = await groupApi.list();
-        setGroups(gs);
-        if (gs.length > 0) setHookGroup(gs[0].name);
-      } catch (e) {
-        console.error("load groups failed", e);
       }
       try {
         const enabled = await notificationApi.getDefaultHooksEnabled();
@@ -189,29 +172,6 @@ export function NotificationSettingsTab() {
       setMessage(String(e));
     }
     setDefaultHooksBusy(false);
-  };
-
-  const handleInject = async (client: HookClient, remove: boolean) => {
-    if (!hookGroup) {
-      setMessage(t("notif.hookNoGroup", "请先选择分组"));
-      return;
-    }
-    // 注入会生成 Python hook 脚本 → 先确保执行器就绪（移除无需）。
-    if (!remove && !(await ensureExecutorReady())) return;
-    setHookBusy(true);
-    try {
-      if (remove) {
-        await notificationApi.removeHooks(hookGroup, client);
-        setMessage(t("notif.hookRemoved", "已移除通知 hook"));
-      } else {
-        await notificationApi.injectHooks(hookGroup, client);
-        setMessage(t("notif.hookInjected", "已注入通知 hook"));
-      }
-    } catch (e) {
-      console.error("hook op failed", e);
-      setMessage(String(e));
-    }
-    setHookBusy(false);
   };
 
   if (loading) {
@@ -387,53 +347,6 @@ export function NotificationSettingsTab() {
           aria-label={t("notif.defaultHooksTitle", "默认为所有分组注入通知 Hook")}
           tabIndex={0}
         />
-      </div>
-
-      {/* 一键注入 hook */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.hookTitle", "一键注入通知 Hook")}</div>
-          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-            {t("notif.hookDesc", "把通知 hook 注入 Claude Code / Codex 配置；任务完成与等待输入时触发通知")}
-          </div>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
-            {t("notif.hookGroup", "分组")}
-          </label>
-          <select
-            className="input"
-            style={{ maxWidth: 200, padding: "4px 8px", fontSize: 12 }}
-            value={hookGroup}
-            onChange={(e) => setHookGroup(e.target.value)}
-          >
-            {groups.length === 0 && <option value="">{t("notif.hookNoGroupOpt", "无可用分组")}</option>}
-            {groups.map((g) => (
-              <option key={g.id} value={g.name}>{g.name}</option>
-            ))}
-          </select>
-        </div>
-        {HOOK_CLIENTS.map((client) => (
-          <div key={client} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <span style={{ fontSize: 12, fontWeight: 600, minWidth: 96 }}>{hookClientLabel(t, client)}</span>
-            <button
-              className="btn btn-primary"
-              style={{ fontSize: 12, padding: "5px 12px" }}
-              disabled={hookBusy || !hookGroup}
-              onClick={() => handleInject(client, false)}
-            >
-              {t("notif.hookInject", "注入")}
-            </button>
-            <button
-              className="btn btn-ghost"
-              style={{ fontSize: 12, padding: "5px 12px" }}
-              disabled={hookBusy || !hookGroup}
-              onClick={() => handleInject(client, true)}
-            >
-              {t("notif.hookRemove", "移除")}
-            </button>
-          </div>
-        ))}
       </div>
 
       {error && (
