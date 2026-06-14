@@ -8,6 +8,9 @@
  *   B. locale 间对齐 — 8 locale key 集合必须等于并集 (任一 locale 缺并集 key → 该 locale 切换时 fallback)。
  *   C. 动态模板清单 — 输出所有 t(`prefix${var}`) 模板 + 基准 locale(en-US) 匹配 key 数,
  *      供人工审计变量取值是否全覆盖 (动态模板无法全自动展开)。
+ *   D. labelKey/group 属性字面量覆盖 — t(变量) 路径 (t(item.labelKey)/t(g.key)) 数据源,
+ *      扫 NAV_ITEMS/sections 配置的 labelKey/group 字面量, 每 key 必须 8 locale 存在。
+ *      (A/B/C 都要求 t( 后跟引号/反引号, t(变量) 完全漏扫 → D 堵此盲区)。
  *
  * 用法: node scripts/check-i18n.mjs
  * 退出码: 0 = 零缺失; 非 0 = 有缺失 (check 阶段 fail)。
@@ -71,12 +74,34 @@ for (const l of LOCALES) {
   if (miss.length > 0) alignMissing.push({ locale: l, count: miss.length, sample: miss.slice(0, 8) });
 }
 
+// ── D. labelKey/group 属性字面量覆盖 (t(变量) 盲区) ──────
+// t(item.labelKey)/t(g.key)/t(section.labelKey) 数据源 = NAV_ITEMS/sections 配置。
+// staticRe/dynRe 都要求 t( 后跟引号/反引号, t(变量) 完全漏扫 → 扫属性字面量堵盲区。
+const propRe = /\b(?:labelKey|group)\s*:\s*["']([a-zA-Z][a-zA-Z0-9_]*(?:\.[a-zA-Z0-9_]+)+)["']/g;
+const propKeys = new Map(); // key -> Set<file>
+for (const f of files) {
+  const src = readFileSync(f, 'utf8');
+  let m;
+  while ((m = propRe.exec(src))) {
+    const k = m[1];
+    // 排除品牌/非 i18n: 首字符大写 (APIKEY.FUN / CTok.ai 等 Platforms 预设 label)
+    if (/^[A-Z]/.test(k)) continue;
+    if (!propKeys.has(k)) propKeys.set(k, new Set());
+    propKeys.get(k).add(f);
+  }
+}
+const propMissing = []; // {key, miss, files}
+for (const [k, fileSet] of propKeys) {
+  const miss = LOCALES.filter(l => !localeSet[l].has(k));
+  if (miss.length > 0) propMissing.push({ key: k, miss, files: [...fileSet] });
+}
+
 // ── 输出 ──────────────────────────────────────────────
 let problems = 0;
 const log = s => console.log(s);
 
 log(`\n# i18n 检查报告`);
-log(`扫描 ${files.length} 文件 | ${staticKeys.size} 静态 key | ${dynTemplates.size} 动态模板 | ${union.size} locale 并集 key\n`);
+log(`扫描 ${files.length} 文件 | ${staticKeys.size} 静态 key | ${dynTemplates.size} 动态模板 | ${propKeys.size} 属性字面量 key | ${union.size} locale 并集 key\n`);
 
 // A
 log(`## A. t() 静态 key 缺失: ${staticMissing.length}`);
@@ -99,6 +124,14 @@ for (const [tpl, fileSet] of [...dynTemplates].sort()) {
   const prefix = tpl.split('${')[0];
   const covered = [...localeSet[BASE]].filter(k => k.startsWith(prefix)).length;
   log(`  t(\`${tpl}\`) → ${BASE} 匹配 ${covered} key  ← ${[...fileSet][0]}`);
+}
+
+// D
+log(`\n## D. labelKey/group 属性字面量缺失 (t(变量) 盲区): ${propMissing.length}`);
+for (const { key, miss, files } of propMissing.sort((a, b) => a.key.localeCompare(b.key))) {
+  const scope = miss.length === LOCALES.length ? '全缺' : `[${miss.join(',')}]`;
+  log(`  🔴 ${key} 缺${scope}  ← ${files[0]}${files.length > 1 ? ` +${files.length - 1}` : ''}`);
+  problems++;
 }
 
 log(`\n${problems === 0 ? '✅ 零缺失' : `❌ ${problems} 处缺失 (见上)`}\n`);

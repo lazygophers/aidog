@@ -84,7 +84,8 @@ mode: optimize
 - 支持语言：zh-CN / en-US / ar-SA / fr-FR / de-DE / ru-RU / ja-JP / es-ES（8 locale，ar-SA 走 RTL）
 - 新增 `t("key")` 时该 key **必须 8 locale 同步补全**——只补 zh-CN 或部分 locale 会导致其他 locale 显示裸 key（如 `env.CLAUDE_CODE_MAX_OUTPUT_TOKENS`）。这是反复出现的高频遗漏，**新增任一 key 必须 grep 全部 8 个 locale 文件确认存在**
 - 动态模板 `t(\`prefix.${var}\`)` 必须枚举所有变量取值，每个值对应 key 8 locale 全补；变量取值新增时同步补 key
+- **t(变量) 路径**（第三类，最易漏）: `t(item.labelKey)` / `t(section.labelKey)` / `t(g.key)` / `t(m.labelKey)` — i18n key 作为对象属性字面量定义、运行时变量传入 `t()`。数据源 = 配置数组（`App.tsx` NAV_ITEMS / Settings sections / Platforms MODES 等）的 `labelKey` / `group` 属性。**新增配置项时该属性值的 key 必须 8 locale 同步补全**（只改配置不补 locale → 菜单/tab 显示裸 key，如 `appSettings.systemTab`）。这是 `App.tsx` NAV_ITEMS 加 tab 时反复遗漏的高频点
 - 翻译约定：品牌（AiDog/Claude Code/Anthropic）/协议名/技术常量（env key 名如 `ANTHROPIC_API_KEY`）保留原文不译；插值 `{{var}}` 保留；仅 label/desc 本地化
 - 仿函数场景（非组件内）用纯函数 `TFunction` 参数模式注入 `t`，禁直接 import 全局实例
-- **check 前必须跑 `node scripts/check-i18n.mjs`，exit 0（零缺失）才可 finish**。脚本检查三类：(A) `t()` 静态 key 8 locale 覆盖 (B) locale 间 key 集合对齐（并集 = 每个 locale）(C) 动态模板清单人工审计
+- **check 前必须跑 `node scripts/check-i18n.mjs`，exit 0（零缺失）才可 finish**。脚本检查四类：(A) `t()` 静态 key 8 locale 覆盖 (B) locale 间 key 集合对齐（并集 = 每个 locale）(C) 动态模板清单人工审计 (D) `labelKey`/`group` 属性字面量覆盖（堵 t(变量) 盲区）
 - 验证: `node scripts/check-i18n.mjs` exit 0；新 key 落地后 `git diff src/locales/` 应见 8 文件同步改动
