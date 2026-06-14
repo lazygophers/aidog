@@ -8,3 +8,5 @@
 | _（无活跃任务）_ | — | — | — | — | — | — |
 | platform-smart-paste | 平台添加智能识别: 剪贴板粘贴解析 base_url/平台/apikey(base64自动解码) | — | completed | finish | 100 | .trellis/worktrees/06-14-platform-smart-paste |
 | readme-redesign | README 重写: 安装/使用详化 + 功能核对 + 视觉重设计 | — | 已完成 | 收尾 | 100% | — |
+| readme-7lang-sync | README 同步 7 语言 | — | 规划中 | 规划 | 0% | — |
+| about-module | 关于模块: 展示完整版本信息 + GitHub 信息 | — | completed | finish | 100 | .trellis/worktrees/06-14-about-module |
