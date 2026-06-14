@@ -81,3 +81,4 @@
 | skills-source-cache-enrich | skills_list_installed 缓存命中后 enrich source 向后兼容 | — | 已完成 | 收尾 | 100% | — |
 | skills-uninstall-group | 组级卸载: 卸载整个分组的 skills | — | 已完成 | 收尾 | 100% | — |
 | skills-uninstall-case-insensitive | fs_fallback_remove 大小写不敏感匹配 skill 名 | — | 已完成 | 收尾 | 100% | — |
+| import-export-theme | 导入导出 UI 适配主题 | — | 已完成 | 收尾 | 100% | — |
