@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useApp } from "../context/AppContext";
 import { ALL_LOCALES } from "../locales";
 import type { ThemeName } from "../themes";
-import { IconPaw, IconPalette, IconGlobe } from "./icons";
+import { IconPalette, IconGlobe } from "./icons";
 
 // ── SVG Icons ──
 
@@ -225,10 +225,16 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         alignItems: "center",
         gap: 8,
       }}>
-        <span style={{
-          display: "inline-flex",
-          filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))",
-        }}><IconPaw size={22} /></span>
+        <img
+          src="/logo.svg"
+          alt="logo"
+          style={{
+            width: 28,
+            height: 28,
+            flexShrink: 0,
+            filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.1))",
+          }}
+        />
         <span>{t("app.title")}</span>
       </div>
 

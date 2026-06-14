@@ -15,9 +15,9 @@ import { usePolling } from "../hooks/usePolling";
 
 const PRESET_COLORS: { value: string; cssVar: string }[] = [
   { value: "follow", cssVar: "var(--text-primary)" },
-  { value: "red", cssVar: "#ff453a" },
+  { value: "red", cssVar: "var(--color-danger)" },
   { value: "green", cssVar: "#32d74b" },
-  { value: "orange", cssVar: "#ff9f0a" },
+  { value: "orange", cssVar: "var(--color-warning)" },
 ];
 
 /** 去除尾部多余的零：0.111000 → 0.111, 10.10100 → 10.101, 0.000 → 0 */
@@ -310,10 +310,10 @@ export function TrayConfigTab() {
           <div style={{ fontSize: 13, fontWeight: 600 }}>{t("tray.preview", "实时预览")}</div>
           <div style={{
             display: "flex", alignItems: "center", gap: 6, fontSize: 11,
-            color: layout.overBudget ? "#ff9f0a" : layout.totalLines === 2 ? "var(--accent)" : "var(--text-secondary)",
+            color: layout.overBudget ? "var(--color-warning)" : layout.totalLines === 2 ? "var(--accent)" : "var(--text-secondary)",
           }}>
             <span style={{ fontWeight: 600 }}>{t("tray.lineBudget", "行数")} {layout.totalLines}/2</span>
-            {layout.overBudget && <span style={{ color: "#ff9f0a" }}>{t("tray.overBudgetHint", "超限")}</span>}
+            {layout.overBudget && <span style={{ color: "var(--color-warning)" }}>{t("tray.overBudgetHint", "超限")}</span>}
           </div>
         </div>
 
@@ -574,7 +574,7 @@ export function TrayConfigTab() {
                     role="switch" aria-checked={item.enabled} tabIndex={0} style={{ width: 32, height: 18, flexShrink: 0 }}
                   />
                   <button className="btn btn-ghost btn-icon"
-                    style={{ fontSize: 12, color: "var(--danger, #ff453a)", width: 24, height: 24, padding: 0, flexShrink: 0 }}
+                    style={{ fontSize: 12, color: "var(--danger, var(--color-danger))", width: 24, height: 24, padding: 0, flexShrink: 0 }}
                     onClick={(e) => { e.stopPropagation(); removeItem(i); }}>×</button>
                 </div>
 
@@ -691,7 +691,7 @@ export function TrayConfigTab() {
                   </div>
                 )}
                 {isExpanded && riskyHex && (
-                  <div style={{ fontSize: 11, color: "var(--warning, #ff9f0a)", marginTop: 6 }}>
+                  <div style={{ fontSize: 11, color: "var(--warning, var(--color-warning))", marginTop: 6 }}>
                     {t("tray.colorWarning", "该颜色在部分菜单栏主题下可能不清晰")}
                   </div>
                 )}

@@ -206,9 +206,9 @@ export function AppSettings({ tab, onLogSettingsChanged }: { tab: Tab; onLogSett
               flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
               background: running
-                ? "linear-gradient(135deg, rgba(52,199,89,0.2), rgba(52,199,89,0.05))"
+                ? "linear-gradient(135deg, color-mix(in srgb, var(--color-success) 20%, transparent), color-mix(in srgb, var(--color-success) 5%, transparent))"
                 : "var(--bg-glass)",
-              border: `1px solid ${running ? "rgba(52,199,89,0.2)" : "var(--border)"}`,
+              border: `1px solid ${running ? "color-mix(in srgb, var(--color-success) 20%, transparent)" : "var(--border)"}`,
               transition: "all 400ms ease",
             }}>
               <span className={`status-dot ${running ? "status-dot-active" : "status-dot-inactive"}`}

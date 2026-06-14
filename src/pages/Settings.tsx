@@ -571,7 +571,7 @@ export function Settings() {
               spellCheck={false}
             />
             {saveError && (
-              <div style={{ fontSize: F.body, color: "#ff453a", marginTop: 12, wordBreak: "break-all" }}>
+              <div style={{ fontSize: F.body, color: "var(--color-danger)", marginTop: 12, wordBreak: "break-all" }}>
                 {saveError}
               </div>
             )}

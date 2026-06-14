@@ -84,7 +84,7 @@ export function UnsavedChangesModal({
           </button>
           <button
             className="btn btn-ghost"
-            style={{ fontSize: F.body, padding: S.btnPad, color: "#ff453a" }}
+            style={{ fontSize: F.body, padding: S.btnPad, color: "var(--color-danger)" }}
             onClick={onDiscard}
             disabled={saving}
           >

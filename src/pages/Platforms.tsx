@@ -130,7 +130,7 @@ function defaultClientForProtocol(protocol: Protocol): ClientType {
  * 来源：各平台官方文档 */
 type HealthStatus = "healthy" | "warning" | "error" | "unknown";
 const HEALTH_COLORS: Record<HealthStatus, string> = {
-  healthy: "var(--color-success, #34c759)",
+  healthy: "var(--color-success, var(--color-success))",
   warning: "var(--color-warning, #ff9500)",
   error: "var(--color-danger, #ff3b30)",
   unknown: "transparent",
@@ -783,8 +783,8 @@ function SearchableProtocolSelect({
                   {p.codingPlan && (
                     <span style={{
                       marginLeft: 6, padding: "1px 5px", borderRadius: "var(--radius-sm)",
-                      background: "var(--color-success, #34c759)20",
-                      color: "var(--color-success, #34c759)",
+                      background: "var(--color-success, var(--color-success))20",
+                      color: "var(--color-success, var(--color-success))",
                       fontSize: 10, fontWeight: 600,
                     }}>
                       Code
@@ -2173,9 +2173,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     width: 28, height: 28, minWidth: 28,
                     padding: 0,
                     fontSize: 11, fontWeight: 700,
-                    color: ep.coding_plan ? "var(--color-success, #34c759)" : "var(--text-tertiary)",
-                    background: ep.coding_plan ? "var(--color-success, #34c759)15" : "transparent",
-                    border: `1px solid ${ep.coding_plan ? "var(--color-success, #34c759)40" : "var(--border)"}`,
+                    color: ep.coding_plan ? "var(--color-success, var(--color-success))" : "var(--text-tertiary)",
+                    background: ep.coding_plan ? "var(--color-success, var(--color-success))15" : "transparent",
+                    border: `1px solid ${ep.coding_plan ? "var(--color-success, var(--color-success))40" : "var(--border)"}`,
                     borderRadius: "var(--radius-sm)",
                   }}
                   title={ep.coding_plan ? "Coding Plan ON" : "Coding Plan"}
