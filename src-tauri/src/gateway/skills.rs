@@ -496,13 +496,16 @@ pub fn uninstall_all(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpRes
     run_npx_in_scope(&args, scope, proxy_url)
 }
 
-/// 构造单一 skill 卸载 args：`remove -s <name> [-g] -y`。
-/// 不带 `-a` = 删规范存储 + 所有 agent symlink（对齐 `--all` 但限定单个 skill）。
+/// 构造单一 skill 卸载 args：`remove -s <name> -a '*' [-g] -y`。
+/// `-a '*'` 必需 —— npx skills remove 不带 `-a` 时非交互模式 noop（不知删哪个 agent）。
+/// `-a '*'` = 所有 agent，等效 `--all` 但限定单个 skill（删规范存储 + 所有 agent symlink）。
 fn uninstall_args(name: &str, scope: &SkillScope) -> Vec<String> {
     let mut args = vec![
         "remove".to_string(),
         "-s".to_string(),
         name.to_string(),
+        "-a".to_string(),
+        "*".to_string(),
     ];
     apply_scope(&mut args, scope);
     args.push("-y".to_string());
@@ -764,10 +767,11 @@ mod tests {
         assert_eq!(args[0], "remove");
         assert_eq!(args[1], "-s");
         assert_eq!(args[2], "my-skill");
+        // -a '*' 必需：不带 -a 时 npx 非交互 noop。
+        let a_idx = args.iter().position(|a| a == "-a").expect("missing -a");
+        assert_eq!(args[a_idx + 1], "*");
         assert!(args.contains(&"-g".to_string()));
         assert!(args.contains(&"-y".to_string()));
-        // 不带 -a（对齐 --all，删规范存储 + 所有 agent symlink）。
-        assert!(!args.iter().any(|a| a == "-a"));
     }
 
     #[test]
@@ -780,6 +784,9 @@ mod tests {
         );
         assert!(!args.contains(&"-g".to_string()));
         assert!(args.contains(&"-y".to_string()));
+        // project 也须 -a '*'。
+        let a_idx = args.iter().position(|a| a == "-a").expect("missing -a");
+        assert_eq!(args[a_idx + 1], "*");
     }
 
     #[test]
