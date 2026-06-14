@@ -18,6 +18,7 @@
 //! Agent 语义：target agent 决定 `-a <slug>` 参数（claude → `claude-code`、codex → `codex`）
 //! 与 list json `agents[]` 显示名映射（claude → "Claude Code"、codex → "Codex"）。
 
+use super::models::ProxyClientSettings;
 use serde::{Deserialize, Serialize};
 use std::process::Command;
 
@@ -142,10 +143,10 @@ pub fn check_env() -> SkillsEnv {
 /// 走 `npx skills list --json [-g]`，解析 `[{name, path, scope, agents:[...]}]`。
 /// `agents[]` 含某 agent 显示名 = 该 agent 已启用 → 映射为 `enabled_agents`（仅 claude/codex）。
 /// Project scope 在项目目录内执行（不带 `-g`）。命令失败 / 解析失败 → 返回空 vec（不 panic）。
-pub fn list_installed(scope: &SkillScope) -> Vec<SkillInfo> {
+pub fn list_installed(scope: &SkillScope, proxy_url: Option<&str>) -> Vec<SkillInfo> {
     let mut args = vec!["list".to_string(), "--json".to_string()];
     apply_scope(&mut args, scope);
-    let res = run_npx_in_scope(&args, scope);
+    let res = run_npx_in_scope(&args, scope, proxy_url);
     if !res.success {
         return Vec::new();
     }
@@ -208,20 +209,20 @@ fn parse_list_json(stdout: &str, scope: &SkillScope) -> Vec<SkillInfo> {
 const CATALOG_URL: &str = "https://skills.sh/api/skills";
 
 /// 浏览 catalog：优先 HTTP 抓 skills.sh，失败回退 `npx skills find`（空 kw 列全部）。
-pub async fn browse_catalog() -> Vec<CatalogEntry> {
-    if let Some(list) = fetch_catalog_http().await {
+pub async fn browse_catalog(proxy_url: Option<&str>) -> Vec<CatalogEntry> {
+    if let Some(list) = fetch_catalog_http(proxy_url).await {
         if !list.is_empty() {
             return list;
         }
     }
     // 回退：npx find 无关键词。
-    npx_find("")
+    npx_find("", proxy_url)
 }
 
 /// 搜索 catalog：HTTP 抓后本地按 kw 过滤；HTTP 空则走 `npx skills find <kw>`。
-pub async fn search(kw: &str) -> Vec<CatalogEntry> {
+pub async fn search(kw: &str, proxy_url: Option<&str>) -> Vec<CatalogEntry> {
     let kw_lower = kw.trim().to_lowercase();
-    if let Some(list) = fetch_catalog_http().await {
+    if let Some(list) = fetch_catalog_http(proxy_url).await {
         if !list.is_empty() {
             if kw_lower.is_empty() {
                 return list;
@@ -240,15 +241,20 @@ pub async fn search(kw: &str) -> Vec<CatalogEntry> {
                 .collect();
         }
     }
-    npx_find(kw)
+    npx_find(kw, proxy_url)
 }
 
 /// HTTP 抓 skills.sh catalog JSON。失败（网络 / 解析）返回 None。
-async fn fetch_catalog_http() -> Option<Vec<CatalogEntry>> {
-    let client = reqwest::Client::builder()
-        .timeout(std::time::Duration::from_secs(10))
-        .build()
-        .ok()?;
+/// `proxy_url` 为 `Some` 时经上游代理抓取（与 npx 子进程一致尊重代理）。
+async fn fetch_catalog_http(proxy_url: Option<&str>) -> Option<Vec<CatalogEntry>> {
+    let mut builder =
+        reqwest::Client::builder().timeout(std::time::Duration::from_secs(10));
+    if let Some(url) = proxy_url {
+        if let Ok(proxy) = reqwest::Proxy::all(url) {
+            builder = builder.proxy(proxy);
+        }
+    }
+    let client = builder.build().ok()?;
     let resp = client.get(CATALOG_URL).send().await.ok()?;
     if !resp.status().is_success() {
         return None;
@@ -309,13 +315,16 @@ fn parse_catalog_json(raw: &serde_json::Value) -> Vec<CatalogEntry> {
 }
 
 /// `npx skills find <kw>` 回退：解析 stdout 每行为一个条目（best-effort）。
-fn npx_find(kw: &str) -> Vec<CatalogEntry> {
+fn npx_find(kw: &str, proxy_url: Option<&str>) -> Vec<CatalogEntry> {
     let mut args = vec!["--yes", "skills", "find"];
     let kw = kw.trim();
     if !kw.is_empty() {
         args.push(kw);
     }
-    let output = match Command::new("npx").args(&args).output() {
+    let mut cmd = Command::new("npx");
+    cmd.args(&args);
+    apply_proxy_env(&mut cmd, proxy_url);
+    let output = match cmd.output() {
         Ok(o) => o,
         Err(_) => return Vec::new(),
     };
@@ -340,10 +349,14 @@ fn npx_find(kw: &str) -> Vec<CatalogEntry> {
 }
 
 /// 封装 `npx skills <args...>`，捕获 stdout/stderr/退出码。
-fn run_npx(extra_args: &[String]) -> SkillsOpResult {
+/// `proxy_url` 为 `Some` 时注入代理 env（见 `apply_proxy_env`），`None` 直连。
+fn run_npx(extra_args: &[String], proxy_url: Option<&str>) -> SkillsOpResult {
     let mut args: Vec<String> = vec!["--yes".to_string(), "skills".to_string()];
     args.extend(extra_args.iter().cloned());
-    match Command::new("npx").args(&args).output() {
+    let mut cmd = Command::new("npx");
+    cmd.args(&args);
+    apply_proxy_env(&mut cmd, proxy_url);
+    match cmd.output() {
         Ok(o) => SkillsOpResult {
             success: o.status.success(),
             stdout: String::from_utf8_lossy(&o.stdout).to_string(),
@@ -388,7 +401,13 @@ fn disable_args(name: &str, agent: SkillAgent, scope: &SkillScope) -> Vec<String
 
 /// 为某 agent 启用 skill：用 skill 本地 path 作 add package → `npx skills add <path> -a <slug> [-g] -y`。
 /// path 为空 → 明确错误。Project scope 在项目目录内执行（不带 `-g`）。
-pub fn enable(name: &str, path: &str, agent: SkillAgent, scope: &SkillScope) -> SkillsOpResult {
+pub fn enable(
+    name: &str,
+    path: &str,
+    agent: SkillAgent,
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
     let name = name.trim();
     if name.is_empty() {
         return SkillsOpResult {
@@ -406,11 +425,16 @@ pub fn enable(name: &str, path: &str, agent: SkillAgent, scope: &SkillScope) -> 
         };
     }
     let args = enable_args(path, agent, scope);
-    run_npx_in_scope(&args, scope)
+    run_npx_in_scope(&args, scope, proxy_url)
 }
 
 /// 为某 agent 关闭 skill：`npx skills remove -s <name> -a <slug> [-g] -y`。
-pub fn disable(name: &str, agent: SkillAgent, scope: &SkillScope) -> SkillsOpResult {
+pub fn disable(
+    name: &str,
+    agent: SkillAgent,
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
     let name = name.trim();
     if name.is_empty() {
         return SkillsOpResult {
@@ -420,15 +444,15 @@ pub fn disable(name: &str, agent: SkillAgent, scope: &SkillScope) -> SkillsOpRes
         };
     }
     let args = disable_args(name, agent, scope);
-    run_npx_in_scope(&args, scope)
+    run_npx_in_scope(&args, scope, proxy_url)
 }
 
 /// 更新已装 skills：`npx skills update [-g] -y`。
-pub fn update(scope: &SkillScope) -> SkillsOpResult {
+pub fn update(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
     let mut args = vec!["update".to_string()];
     apply_scope(&mut args, scope);
     args.push("-y".to_string());
-    run_npx_in_scope(&args, scope)
+    run_npx_in_scope(&args, scope, proxy_url)
 }
 
 /// 按 scope 追加 `-g`（仅 Global）。
@@ -438,8 +462,64 @@ fn apply_scope(args: &mut Vec<String>, scope: &SkillScope) {
     }
 }
 
+/// 由上游代理设置构造 npm/npx 用的代理 URL。
+///
+/// - 未启用（`enabled == false`）→ `None`（保持直连，不注入 env）。
+/// - 启用 → `Some("{scheme}://[user:pass@]host:port")`。
+/// - scheme：`socks5` 且 `dns_over_proxy` → `socks5h`（DNS 走代理）；否则按 proxy_type
+///   映射（`socks5`/`https`/其余 → `http`），与 `ProxyClientSettings::to_reqwest_proxy` 一致。
+///
+/// ⚠️ socks5 限制：npm/npx 原生对 socks5 支持有限，依赖底层（如 undici / global-agent）的
+/// `ALL_PROXY` 识别，未必所有 npm 版本生效；http/https 代理走 `HTTP_PROXY`/`HTTPS_PROXY` 最稳。
+///
+/// ⚠️ 认证编码：user/pass 原样嵌入 URL，不做 percent-encode。若凭证含 `@` `:` `/` 等保留字符，
+/// 生成的 URL 可能被 npm/node 解析歧义（同 npm 自身约定：env 代理 URL 的凭证需调用方自行编码）。
+/// 与 `to_reqwest_proxy`（用 `proxy.basic_auth` 内部处理）的差异仅在此边界场景显现。
+pub fn proxy_env_url(settings: &ProxyClientSettings) -> Option<String> {
+    if !settings.enabled {
+        return None;
+    }
+    let scheme = match settings.proxy_type.as_str() {
+        "socks5" if settings.dns_over_proxy => "socks5h",
+        "socks5" => "socks5",
+        "https" => "https",
+        _ => "http",
+    };
+    let auth = if settings.username.is_empty() {
+        String::new()
+    } else {
+        format!("{}:{}@", settings.username, settings.password)
+    };
+    Some(format!(
+        "{}://{}{}:{}",
+        scheme, auth, settings.host, settings.port
+    ))
+}
+
+/// 为 npx `Command` 注入代理 env（若 `proxy_url` 为 `Some`）。
+///
+/// 设大小写两组 `HTTP_PROXY`/`HTTPS_PROXY`（兼容不同 npm/node 读法）；socks5(h) 时额外设
+/// `ALL_PROXY`（npm 对 socks5 仅经此识别）。`None` → 不注入，保持直连行为不变。
+fn apply_proxy_env(cmd: &mut Command, proxy_url: Option<&str>) {
+    let Some(url) = proxy_url else {
+        return;
+    };
+    cmd.env("HTTP_PROXY", url)
+        .env("HTTPS_PROXY", url)
+        .env("http_proxy", url)
+        .env("https_proxy", url);
+    if url.starts_with("socks5") {
+        cmd.env("ALL_PROXY", url).env("all_proxy", url);
+    }
+}
+
 /// 在 scope 对应的 cwd 执行 npx：Project → 项目目录；Global → 默认 cwd。
-fn run_npx_in_scope(extra_args: &[String], scope: &SkillScope) -> SkillsOpResult {
+/// `proxy_url` 为 `Some` 时给 npx 子进程注入代理 env（突破网络限制），`None` 直连。
+fn run_npx_in_scope(
+    extra_args: &[String],
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
     if let SkillScope::Project { path } = scope {
         let p = path.trim();
         if p.is_empty() {
@@ -451,7 +531,10 @@ fn run_npx_in_scope(extra_args: &[String], scope: &SkillScope) -> SkillsOpResult
         }
         let mut full: Vec<String> = vec!["--yes".to_string(), "skills".to_string()];
         full.extend(extra_args.iter().cloned());
-        return match Command::new("npx").args(&full).current_dir(p).output() {
+        let mut cmd = Command::new("npx");
+        cmd.args(&full).current_dir(p);
+        apply_proxy_env(&mut cmd, proxy_url);
+        return match cmd.output() {
             Ok(o) => SkillsOpResult {
                 success: o.status.success(),
                 stdout: String::from_utf8_lossy(&o.stdout).to_string(),
@@ -464,7 +547,7 @@ fn run_npx_in_scope(extra_args: &[String], scope: &SkillScope) -> SkillsOpResult
             },
         };
     }
-    run_npx(extra_args)
+    run_npx(extra_args, proxy_url)
 }
 
 #[cfg(test)]
@@ -573,21 +656,142 @@ mod tests {
     #[test]
     fn enable_empty_path_fails() {
         // path 为空 → 明确错误，不真跑 npx。
-        let r = enable("whatever", "   ", SkillAgent::Claude, &SkillScope::Global);
+        let r = enable("whatever", "   ", SkillAgent::Claude, &SkillScope::Global, None);
         assert!(!r.success);
         assert!(r.stderr.contains("no installed path"));
     }
 
     #[test]
     fn enable_empty_name_fails() {
-        let r = enable("  ", "/p/foo", SkillAgent::Claude, &SkillScope::Global);
+        let r = enable("  ", "/p/foo", SkillAgent::Claude, &SkillScope::Global, None);
         assert!(!r.success);
     }
 
     #[test]
     fn disable_empty_name_fails() {
-        let r = disable("  ", SkillAgent::Claude, &SkillScope::Global);
+        let r = disable("  ", SkillAgent::Claude, &SkillScope::Global, None);
         assert!(!r.success);
+    }
+
+    // ── 代理 URL 构造 ──
+
+    fn proxy_settings(
+        enabled: bool,
+        ty: &str,
+        user: &str,
+        pass: &str,
+        dns_over_proxy: bool,
+    ) -> ProxyClientSettings {
+        ProxyClientSettings {
+            enabled,
+            proxy_type: ty.to_string(),
+            host: "1.2.3.4".to_string(),
+            port: 7890,
+            username: user.to_string(),
+            password: pass.to_string(),
+            dns_over_proxy,
+        }
+    }
+
+    #[test]
+    fn proxy_env_url_disabled_is_none() {
+        let s = proxy_settings(false, "http", "", "", true);
+        assert_eq!(proxy_env_url(&s), None);
+    }
+
+    #[test]
+    fn proxy_env_url_http_no_auth() {
+        let s = proxy_settings(true, "http", "", "", true);
+        assert_eq!(proxy_env_url(&s).as_deref(), Some("http://1.2.3.4:7890"));
+    }
+
+    #[test]
+    fn proxy_env_url_https_with_auth() {
+        let s = proxy_settings(true, "https", "u", "p", true);
+        assert_eq!(
+            proxy_env_url(&s).as_deref(),
+            Some("https://u:p@1.2.3.4:7890")
+        );
+    }
+
+    #[test]
+    fn proxy_env_url_socks5_dns_over_proxy_is_socks5h() {
+        let s = proxy_settings(true, "socks5", "", "", true);
+        assert_eq!(proxy_env_url(&s).as_deref(), Some("socks5h://1.2.3.4:7890"));
+    }
+
+    #[test]
+    fn proxy_env_url_socks5_no_dns_is_socks5() {
+        let s = proxy_settings(true, "socks5", "", "", false);
+        assert_eq!(proxy_env_url(&s).as_deref(), Some("socks5://1.2.3.4:7890"));
+    }
+
+    #[test]
+    fn proxy_env_url_socks5_with_auth() {
+        let s = proxy_settings(true, "socks5", "u", "p", false);
+        assert_eq!(
+            proxy_env_url(&s).as_deref(),
+            Some("socks5://u:p@1.2.3.4:7890")
+        );
+    }
+
+    #[test]
+    fn proxy_env_url_unknown_type_falls_back_http() {
+        let s = proxy_settings(true, "weird", "", "", true);
+        assert_eq!(proxy_env_url(&s).as_deref(), Some("http://1.2.3.4:7890"));
+    }
+
+    // ── env 注入（构造 Command 断言 env，不真跑 npx）──
+
+    fn env_of<'a>(cmd: &'a Command, key: &str) -> Option<&'a std::ffi::OsStr> {
+        cmd.get_envs()
+            .find(|(k, _)| *k == std::ffi::OsStr::new(key))
+            .and_then(|(_, v)| v)
+    }
+
+    #[test]
+    fn apply_proxy_env_none_injects_nothing() {
+        let mut cmd = Command::new("npx");
+        apply_proxy_env(&mut cmd, None);
+        assert_eq!(cmd.get_envs().count(), 0);
+    }
+
+    #[test]
+    fn apply_proxy_env_http_sets_http_https_not_all() {
+        let mut cmd = Command::new("npx");
+        apply_proxy_env(&mut cmd, Some("http://1.2.3.4:7890"));
+        assert_eq!(
+            env_of(&cmd, "HTTP_PROXY"),
+            Some(std::ffi::OsStr::new("http://1.2.3.4:7890"))
+        );
+        assert_eq!(
+            env_of(&cmd, "HTTPS_PROXY"),
+            Some(std::ffi::OsStr::new("http://1.2.3.4:7890"))
+        );
+        assert_eq!(
+            env_of(&cmd, "http_proxy"),
+            Some(std::ffi::OsStr::new("http://1.2.3.4:7890"))
+        );
+        // 非 socks5 → 不设 ALL_PROXY。
+        assert_eq!(env_of(&cmd, "ALL_PROXY"), None);
+    }
+
+    #[test]
+    fn apply_proxy_env_socks5_also_sets_all_proxy() {
+        let mut cmd = Command::new("npx");
+        apply_proxy_env(&mut cmd, Some("socks5h://1.2.3.4:7890"));
+        assert_eq!(
+            env_of(&cmd, "ALL_PROXY"),
+            Some(std::ffi::OsStr::new("socks5h://1.2.3.4:7890"))
+        );
+        assert_eq!(
+            env_of(&cmd, "all_proxy"),
+            Some(std::ffi::OsStr::new("socks5h://1.2.3.4:7890"))
+        );
+        assert_eq!(
+            env_of(&cmd, "HTTP_PROXY"),
+            Some(std::ffi::OsStr::new("socks5h://1.2.3.4:7890"))
+        );
     }
 
     #[test]
