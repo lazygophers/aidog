@@ -1,72 +1,72 @@
 ---
-title: Precios y facturación
+title: Precios y Facturación
 ---
 
-# Pricing & Billing
+# Precios y Facturación
 
-AiDog automatically estimates the cost of each request based on the model pricing table. Manage all pricing data in **"Settings" → "Model Pricing"** tab.
+AiDog estima automáticamente el coste de cada petición según la tabla de precios de modelos. Gestiona todos los datos de precios en **«Ajustes» → «Precios de Modelos»**.
 
-## Cost Estimation
+## Estimación de coste
 
-After each request, AiDog automatically:
+Tras cada petición, AiDog automáticamente:
 
-1. Extracts token usage (input / output / cache) from the upstream response
-2. Looks up the unit price in the pricing table
-3. Calculates the estimated cost
+1. Extrae el uso de tokens (entrada / salida / caché) de la respuesta upstream
+2. Busca el precio unitario en la tabla de precios
+3. Calcula el coste estimado
 
-Pricing fallback order: Custom pricing → Synced pricing → Fallback price
+Orden de fallback de precios: Precio personalizado → Precio sincronizado → Precio de fallback
 
-:::tip{title="Note"}
-Estimated costs are for reference only. Actual charges are based on platform billing.
+:::tip{title="Nota"}
+Los costes estimados son solo de referencia. El cobro real se basa en la facturación de la plataforma.
 :::
 
-## Pricing Management Page
+## Página de gestión de precios
 
-### Price Sync
+### Sincronización de precios
 
-AiDog supports one-click sync of the latest model pricing data:
+AiDog soporta la sincronización con un clic de los últimos datos de precios:
 
-- Click "Sync Now" to fetch the latest prices
-- Sync result shows: added count, updated count, failed count
-- Enable "Auto Sync" to automatically fetch at a configured interval
+- Pulsa «Sincronizar ahora» para obtener los últimos precios
+- El resultado muestra: añadidos, actualizados, fallidos
+- Activa «Auto-sync» para obtener a un intervalo configurado
 
-Auto sync intervals: 1 hour / 6 hours / 12 hours / 24 hours / 7 days
+Intervalos de auto-sync: 1 hora / 6 horas / 12 horas / 24 horas / 7 días
 
-### Fallback Price
+### Precio de fallback
 
-For models not listed in the pricing table, a fallback price is used:
+Para modelos no listados, se usa un precio de fallback:
 
-- **Input fallback** — Default $3.0 / million tokens
-- **Output fallback** — Default $3.0 / million tokens
+- **Fallback de entrada** — Por defecto $3.0 / millón de tokens
+- **Fallback de salida** — Por defecto $3.0 / millón de tokens
 
-Adjustable in the sync settings section of the "Model Pricing" page.
+Ajustable en la sección de sincronización de la página «Precios de Modelos».
 
-### Browse & Search
+### Explorar y buscar
 
-The price table shows these columns:
+La tabla muestra estas columnas:
 
-| Column | Description |
+| Columna | Descripción |
 |--------|-------------|
-| Model | Model name |
-| Source | LiteLLM (synced) / Manual |
-| Default Platform | Default platform for this model |
-| Input $/M | Input token price (per million tokens) |
-| Output $/M | Output token price |
-| Cache Read $/M | Cache token read price |
+| Modelo | Nombre del modelo |
+| Fuente | LiteLLM (sincronizado) / Manual |
+| Plataforma por defecto | Plataforma por defecto para este modelo |
+| Entrada $/M | Precio token entrada (por millón) |
+| Salida $/M | Precio token salida |
+| Lectura caché $/M | Precio lectura token caché |
 
-- Search by model name
-- Filter by source (LiteLLM / Manual)
-- Paginated with adjustable page size and jump-to-page
+- Búsqueda por nombre de modelo
+- Filtro por fuente (LiteLLM / Manual)
+- Paginación con tamaño ajustable y salto de página
 
-### Manage Pricing
+### Gestionar precios
 
-- **Delete** — Remove a pricing record (click the delete button at end of row)
-- Price changes take effect immediately for subsequent requests
+- **Eliminar** — Quitar un registro de precio (botón eliminar al final de la fila)
+- Los cambios de precio surten efecto inmediatamente para peticiones posteriores
 
-## View Costs
+## Ver costes
 
-View cost-related data on the **"Statistics"** page:
+Visualiza datos de coste en la página **«Estadísticas»**:
 
-- "Estimated Cost" in the overview cards (with period comparison)
-- "Estimated Cost" column in the dimension ranking table
-- Cost details in trend chart tooltips
+- «Coste estimado» en las tarjetas de resumen (con comparación de período)
+- Columna «Coste estimado» en la tabla de ranking por dimensión
+- Detalles de coste en los tooltips del gráfico de tendencia

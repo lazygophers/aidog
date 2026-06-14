@@ -4,28 +4,28 @@ title: Claude Code
 
 # Claude Code
 
-Configure AiDog integration with Claude Code in **"Settings" → "Claude Code"** tab.
+اضبط تكامل AiDog مع Claude Code في تبويب **«الإعدادات» → «Claude Code»**.
 
-## Configuration Editing
+## تحرير الإعداد
 
-Edit all Claude Code settings directly in AiDog:
+حرّر كل إعدادات Claude Code مباشرة في AiDog:
 
-- **Model** — Specify the model Claude Code uses
-- **Permissions** — File read/write, network access controls
-- **Sandbox** — Code execution sandbox configuration
-- **Plugins** — Claude Code plugin management
-- **Hooks** — Lifecycle hooks (PreToolUse / PostToolUse, etc.)
-- **StatusLine** — Status bar display configuration
+- **النموذج** — يحدد النموذج الذي يستخدمه Claude Code
+- **الصلاحيات** — تحكمات قراءة/كتابة الملفات، وصول الشبكة
+- **Sandbox** — تكوين sandbox تنفيذ الكود
+- **الإضافات** — إدارة إضافات Claude Code
+- **Hooks** — خطافات دورة الحياة (PreToolUse / PostToolUse، إلخ)
+- **StatusLine** — تكوين عرض شريط الحالة
 
-All changes are saved immediately to `~/.claude.json`.
+تُحفظ كل التغييرات فورًا في `~/.claude.json`.
 
-## Import from Claude Code
+## الاستيراد من Claude Code
 
-Click "Import from Claude Code" to read the existing Claude Code configuration file and load it into the editor. Ideal for migrating existing configs during initial setup.
+انقر «الاستيراد من Claude Code» لقراءة ملف إعداد Claude Code القائم وتحميله في المحرر. مثالي لترحيل الإعدادات القائمة أثناء الإعداد الأولي.
 
-## Export to Claude Code
+## التصدير إلى Claude Code
 
-Click "Export to Claude Code" to write the proxy address into Claude Code's configuration file:
+انقر «التصدير إلى Claude Code» لكتابة عنوان البروكسي في ملف إعداد Claude Code:
 
 ```json
 {
@@ -33,38 +33,38 @@ Click "Export to Claude Code" to write the proxy address into Claude Code's conf
 }
 ```
 
-After export, all Claude Code requests will be proxied through AiDog.
+بعد التصدير، ستُمرّر كل طلبات Claude Code عبر AiDog.
 
-## Sync Group Settings
+## مزامنة إعدادات المجموعة
 
-Click "Sync Group Settings" to generate independent Claude Code configuration files for each group:
+انقر «مزامنة إعدادات المجموعة» لتوليد ملفات إعداد Claude Code مستقلة لكل مجموعة:
 
-- Saved to `~/.aidog/settings.<group-name>.json`
-- Each config file uses the corresponding group's proxy path
-- Use with the "Claude" one-click copy button on group cards
+- تُحفظ في `~/.aidog/settings.<group-name>.json`
+- كل ملف يستخدم مسار بروكسي المجموعة المقابلة
+- استخدم مع زر نسخ «Claude» على بطاقات المجموعات
 
-### Usage
+### الاستخدام
 
-1. Click the "Claude" button on a group card to copy the launch command
-2. Paste in your terminal:
+1. انقر زر «Claude» على بطاقة مجموعة لنسخ أمر التشغيل
+2. الصق في طرفيتك:
 
 ```bash
 claude --brief --dangerously-skip-permissions \
   --settings ~/.aidog/settings.<group-name>.json
 ```
 
-## Manual Configuration
+## الإعداد اليدوي
 
-Alternatively, configure via environment variables:
+بدلاً من ذلك، اضبط عبر متغيرات البيئة:
 
 ```bash
 export ANTHROPIC_BASE_URL="http://127.0.0.1:9876"
 export ANTHROPIC_API_KEY="any-value"
 ```
 
-## Notes
+## ملاحظات
 
-- Claude Code uses the native Anthropic protocol
-- Ensure the target platform supports the Anthropic protocol or has protocol conversion configured
-- AiDog provides a dedicated path for Claude Code
-- Add model mapping in platform or group settings if needed
+- يستخدم Claude Code بروتوكول Anthropic الأصلي
+- تأكد أن المنصة المستهدفة تدعم بروتوكول Anthropic أو لديها تحويل بروتوكول مُهيّأ
+- يوفر AiDog مسارًا مخصصًا لـ Claude Code
+- أضف تحويل النماذج في إعدادات المنصة أو المجموعة عند الحاجة

@@ -1,52 +1,52 @@
 ---
-title: Mock Platform
+title: منصة Mock
 ---
 
-# Mock Platform
+# منصة Mock
 
-Mock platforms do not send real AI requests — they return pre-configured responses. Ideal for development, debugging, testing routing rules, and verifying client integrations.
+منصات mock لا ترسل طلبات AI حقيقية — بل تُرجع استجابات مُعدّة مسبقًا. مثالية للتطوير والتنقيح واختبار قواعد التوجيه والتحقق من تكامل العميل.
 
-## Creating a Mock Platform
+## إنشاء منصة mock
 
-1. Go to the **"Platforms"** page
-2. Click the **"+"** button
-3. Select **"Mock"** from the platform type list
-4. No API Key or Base URL required
-5. Click Save
+1. اذهب إلى صفحة **«المنصات»**
+2. انقر زر **«+»**
+3. اختر **«Mock»** من قائمة أنواع المنصات
+4. لا حاجة لـ API Key أو Base URL
+5. حفظ
 
-After saving, AiDog automatically creates a corresponding group. Point your client to that group's path to use the mock.
+بعد الحفظ، ينشئ AiDog مجموعة مقابلة تلقائيًا. وجّه عميلك إلى مسار تلك المجموعة لاستخدام الـmock.
 
-## Response Configuration
+## إعداد الاستجابة
 
-Mock platforms allow you to customize the following response parameters:
+خصّص معاملات الاستجابة:
 
-| Parameter | Description | Default |
+| المعامل | الوصف | الافتراضي |
 |-----------|-------------|---------|
-| Response Text | Simulated response text | `Hello from mock` |
-| Status Code | HTTP status code | `200` |
-| Response Delay | Simulated delay in milliseconds | `0` |
-| Input Tokens | Simulated input token count | `10` |
-| Output Tokens | Simulated output token count | `20` |
-| Cache Tokens | Simulated cache hit tokens | `0` |
-| Finish Reason | Simulated finish reason (e.g. stop) | `stop` |
-| Streaming | Whether to return as stream (follow request, or force on/off) | Follow request |
+| نص الاستجابة | نص الاستجابة المحاكى | `Hello from mock` |
+| رمز الحالة | رمز حالة HTTP | `200` |
+| تأخير الاستجابة | تأخير محاكى بالميلي ثانية | `0` |
+| توكنز الدخل | عدد توكنز الدخل المحاكى | `10` |
+| توكنز الخرج | عدد توكنز الخرج المحاكى | `20` |
+| توكنز الكاش | توكنز الكاش المحاكاة | `0` |
+| سبب الانتهاء | سبب الانتهاء المحاكى (مثال stop) | `stop` |
+| البث | الإرجاع كتدفق (اتباع الطلب أو فرض تشغيل/إيقاف) | اتباع الطلب |
 
-## Error Simulation
+## محاكاة الأخطاء
 
-Mock platforms support simulating various error scenarios:
+يدعم محاكاة سيناريوهات خطأ متنوعة:
 
-| Error Mode | Description |
+| وضع الخطأ | الوصف |
 |------------|-------------|
-| No Error | Return normal response |
-| HTTP Error | Return a specified HTTP error status code |
-| Rate Limit (429) | Simulate platform rate limiting |
-| Timeout | Simulate request timeout |
+| بلا خطأ | يُرجع استجابة طبيعية |
+| خطأ HTTP | يُرجع رمز حالة خطأ HTTP محدد |
+| Rate Limit (429) | يحاكي تحديد المعدل |
+| انتهاء المهلة | يحاكي انتهاء مهلة الطلب |
 
-Use this to test client error handling or AiDog's failover behavior.
+مفيد لاختبار معالجة أخطاء العميل أو سلوك التبديل عند الفشل في AiDog.
 
-## Use Cases
+## حالات الاستخدام
 
-- **Development** — Test client integration without real API keys
-- **Routing Tests** — Verify group matching and model mapping rules
-- **Failover Testing** — Simulate errors to observe automatic platform switching
-- **Performance Testing** — Set delays to test client behavior under slow responses
+- **التطوير** — اختبر تكامل العميل بدون مفاتيح API حقيقية
+- **اختبارات التوجيه** — تحقق من قواعد مطابقة المجموعات والربط
+- **اختبار التبديل** — حاكِ أخطاءً لمراقبة التبديل التلقائي
+- **اختبار الأداء** — اضبط التأخيرات لاختبار السلوك تحت استجابات بطيئة

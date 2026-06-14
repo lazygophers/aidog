@@ -2,84 +2,84 @@
 title: Nutzungsstatistiken
 ---
 
-# Usage Statistics
+# Nutzungsstatistiken
 
-The **"Statistics"** page provides a usage overview, trend analysis, and dimension rankings for all proxied requests.
+Die **„Statistiken"**-Seite bietet Nutzungsüberblick, Trendanalyse und Dimensions-Rankings für alle Proxy-Anfragen.
 
-## Time Range
+## Zeitraum
 
-Three time presets are available at the top:
+Drei Zeit-Presets oben verfügbar:
 
-| Preset | Range |
+| Preset | Bereich |
 |--------|-------|
-| Today | From midnight today |
-| Last 7 days | Past 7 days |
-| Last 30 days | Past 30 days |
+| Heute | Seit Mitternacht heute |
+| Letzte 7 Tage | Vergangene 7 Tage |
+| Letzte 30 Tage | Vergangene 30 Tage |
 
-All metrics and charts refresh automatically when a preset is selected.
+Alle Metriken und Diagramme aktualisieren sich automatisch bei Auswahl eines Presets.
 
-## Overview Cards
+## Übersichtskarten
 
-Eight core metrics are displayed at the top, each showing a period-over-period comparison:
+Acht Kernmetriken werden oben angezeigt, jeweils mit Periodenvergleich:
 
-| Metric | Description |
+| Metrik | Beschreibung |
 |--------|-------------|
-| Total Requests | Total request count in the period |
-| Success Rate | Percentage of successful requests (color-coded) |
-| Input Tokens | Total input tokens |
-| Output Tokens | Total output tokens |
-| Cache Tokens | Total cache hit tokens |
-| Cache Rate | Cache tokens as a percentage of input tokens |
-| Avg Latency | Average response time in milliseconds |
-| Estimated Cost | Estimated cost based on pricing table |
+| Anfragen gesamt | Gesamtanzahl Anfragen im Zeitraum |
+| Erfolgsquote | Anteil erfolgreicher Anfragen (farbcodiert) |
+| Eingabe-Tokens | Gesamt Eingabe-Tokens |
+| Ausgabe-Tokens | Gesamt Ausgabe-Tokens |
+| Cache-Tokens | Gesamt Cache-Treffer-Tokens |
+| Cache-Rate | Cache-Tokens als Anteil der Eingabe-Tokens |
+| Ø Latenz | Durchschnittliche Antwortzeit in Millisekunden |
+| Geschätzte Kosten | Geschätzte Kosten laut Preistabelle |
 
-Comparison arrows: green up = positive change (e.g. higher success rate), red up = negative change (e.g. higher cost).
+Vergleichspfeile: grün hoch = positive Veränderung (z. B. höhere Erfolgsquote), rot hoch = negative Veränderung (z. B. höhere Kosten).
 
-## Filters
+## Filter
 
-Next to the time presets, refine data with these filters:
+Neben den Zeit-Presets Daten mit diesen Filtern verfeinern:
 
-- **Granularity**: Daily / Hourly
-- **Group by**: Platform / Model / Group
-- **Group**: Filter by group name (searchable)
-- **Model**: Filter by model name (searchable)
-- **Platform type**: Filter by platform type (searchable)
+- **Granularität**: Täglich / Stündlich
+- **Gruppieren nach**: Plattform / Modell / Gruppe
+- **Gruppe**: nach Gruppenname filtern (durchsuchbar)
+- **Modell**: nach Modellname filtern (durchsuchbar)
+- **Plattformtyp**: nach Plattformtyp filtern (durchsuchbar)
 
-Data reloads automatically when filters change.
+Daten laden automatisch neu bei Filteränderung.
 
-## Trend Chart
+## Trenddiagramm
 
-A bar chart below the overview cards shows request volume trends:
+Ein Balkendiagramm unter den Übersichtskarten zeigt Anfragevolumen-Trends:
 
-- X-axis buckets by selected granularity (daily/hourly)
-- Bar height represents request count
-- Color gradient reflects error ratio (more red = more failures)
-- Hover to see tooltip: requests, successes, errors, avg latency, estimated cost
+- X-Achse gruppiert nach gewählter Granularität (Tag/Stunde)
+- Balkenhöhe repräsentiert Anfragezahl
+- Farbverlauf spiegelt Fehlerquote (mehr Rot = mehr Fehler)
+- Hover für Tooltip: Anfragen, Erfolge, Fehler, Ø Latenz, geschätzte Kosten
 
-## Dimension Ranking Table
+## Dimensions-Ranking-Tabelle
 
-Below the chart, a table shows rankings by the current dimension (platform/model/group):
+Unter dem Diagramm eine Tabelle mit Ranking nach aktueller Dimension (Plattform/Modell/Gruppe):
 
-| Column | Description |
+| Spalte | Beschreibung |
 |--------|-------------|
-| Name | Platform / model / group name |
-| Requests | Total requests for this dimension |
-| Success | Successful request count (color-coded for health) |
-| Input | Input token count |
-| Output | Output token count |
-| Cache | Cache token count |
-| Avg Latency | Average response time |
-| Estimated Cost | Estimated cost (color-coded for spending level) |
+| Name | Plattform- / Modell- / Gruppenname |
+| Anfragen | Gesamtanfragen für diese Dimension |
+| Erfolg | Anzahl erfolgreicher Anfragen (farbcodiert für Gesundheit) |
+| Eingabe | Eingabe-Token-Anzahl |
+| Ausgabe | Ausgabe-Token-Anzahl |
+| Cache | Cache-Token-Anzahl |
+| Ø Latenz | Durchschnittliche Antwortzeit |
+| Geschätzte Kosten | Geschätzte Kosten (farbcodiert für Ausgabenniveau) |
 
-### Sorting & Pagination
+### Sortierung & Paginierung
 
-- Click any column header to sort (click again to toggle ascending/descending)
-- 50 rows per page with pagination controls at the bottom
+- Auf einen Spaltenkopf klicken zum Sortieren (erneut klicken für auf-/absteigend)
+- 50 Zeilen pro Seite mit Paginierung unten
 
-## Real-time Refresh
+## Echtzeit-Aktualisierung
 
-Statistics auto-refresh as new requests arrive — no manual action needed.
+Statistiken aktualisieren sich automatisch bei neuen Anfragen — kein manueller Eingriff nötig.
 
-:::tip{title="Note"}
-Estimated costs are calculated from the pricing table and are for reference only. Actual charges are based on platform billing.
+:::tip{title="Hinweis"}
+Geschätzte Kosten werden aus der Preistabelle berechnet und dienen nur als Referenz. Tatsätzliche Abrechnung basiert auf der Plattformabrechnung.
 :::

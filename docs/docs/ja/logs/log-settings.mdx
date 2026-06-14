@@ -2,40 +2,40 @@
 title: ログ設定
 ---
 
-# Log Settings
+# ログ設定
 
-On the **Settings** page you can control the granularity and retention of logging, striking a balance between observability and privacy / disk usage.
+**設定** ページでログの粒度と保持を制御し、可観測性とプライバシー/ディスク使用量のバランスを取れます。
 
-## Recording Levels
+## 記録レベル
 
-Logging has three levels of switches that take effect progressively:
+ログには段階的に有効になる3レベルのスイッチがあります:
 
-| Level | Description | Default |
+| レベル | 説明 | デフォルト |
 |------|------|------|
-| Master switch | When off, no proxy logs are recorded at all | On |
-| Record original user request | Records the original request headers and request body sent by the client | Off |
-| Record upstream request | Records the converted request headers and request body sent to the upstream | Off |
+| マスタースイッチ | オフ時、プロキシログは一切記録されない | オン |
+| 元のユーザーリクエストを記録 | クライアントが送信した元のリクエストヘッダーとボディを記録 | オフ |
+| 上流リクエストを記録 | 上流へ送信された変換後のリクエストヘッダーとボディを記録 | オフ |
 
 :::warning
-The request body may contain sensitive content (prompts, keys, etc.). Make sure your local environment is trusted before enabling "Record original user request" or "Record upstream request".
+リクエストボディには機密内容 (プロンプト、キーなど) が含まれる可能性があります。「元のユーザーリクエストを記録」または「上流リクエストを記録」を有効にする前に、ローカル環境が信頼できることを確認してください。
 :::
 
-## Retention
+## 保持
 
-Logs are cleaned up according to three independent retention periods:
+ログは3つの独立した保持期間に従ってクリーンアップされます:
 
-| Type | Default | Cleanup method |
+| タイプ | デフォルト | クリーンアップ方法 |
 |------|------|----------|
-| Original user request | 7 days | Clears only the request body field, keeps the log row |
-| Upstream request | 7 days | Clears only the request body field, keeps the log row |
-| Log records | 90 days | Deletes the entire log entry |
+| 元のユーザーリクエスト | 7日 | ボディフィールドのみクリア、ログ行は保持 |
+| 上流リクエスト | 7日 | ボディフィールドのみクリア、ログ行は保持 |
+| ログレコード | 90日 | ログエントリ全体を削除 |
 
-In other words, request bodies older than 7 days are cleared (statistics are still retained), and logs older than 90 days are deleted entirely.
+つまり、7日より古いリクエストボディはクリアされ (統計は保持)、90日より古いログは完全に削除されます。
 
-## Manual Cleanup
+## 手動クリーンアップ
 
-In **Settings → Data Management** you can manually trigger "Clean up expired logs" at any time, which immediately applies the retention rules above.
+**設定 → データ管理** で「期限切れログをクリーンアップ」をいつでも手動実行でき、上記の保持ルールを即座に適用します。
 
-## Data Storage
+## データ保存
 
-All logs are stored in the local database `~/.aidog/aidog.db` and are never uploaded to any server.
+すべてのログはローカルデータベース `~/.aidog/aidog.db` に保存され、サーバーへアップロードされません。

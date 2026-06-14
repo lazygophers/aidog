@@ -2,79 +2,80 @@
 title: الإنشاء والإدارة
 ---
 
-# Create & Manage Groups
+# إنشاء وإدارة المجموعات
 
-Groups are the routing core of AiDog — organize platforms by purpose and control request routing with rules.
+المجموعات هي جوهر توجيه AiDog — نظّم المنصات حسب الغرض وتحكّم في التوجيه بقواعد.
 
-## Creating a Group
+## إنشاء مجموعة
 
-1. Go to the **"Groups"** page
-2. Click **"+ Add Group"**
-3. Enter a name and path
-4. Select platforms to include
-5. Choose a routing mode
+1. اذهب إلى صفحة **«المجموعات»**
+2. انقر **«+ إضافة مجموعة»**
+3. أدخل اسمًا ومسارًا
+4. اختر المنصات لتضمينها
+5. اختر وضع التوجيه
 
-:::tip{title="Auto Group"}
-When you add a platform, AiDog automatically creates a corresponding group. You can also create more groups manually.
+:::tip{title="مجموعة تلقائية"}
+عند إضافة منصة، ينشئ AiDog مجموعة مقابلة تلقائيًا. يمكنك أيضًا إنشاء مجموعات يدويًا.
 :::
 
-## Routing Modes
+## أوضاع التوجيه
 
-### Failover
+### التبديل عند الفشل
 
-The default mode. Platforms are used in order. When the current platform fails, the next one is tried automatically. Ideal for primary/backup setups.
+الوضع الافتراضي. تُستخدم المنصات بالترتيب. عند فشل الحالية، تُجرّب التالية تلقائيًا. مثالي لإعداد رئيسي/احتياطي.
 
 ```
-Request → Platform A (primary) → Success → Return
-                ↓ (failed)
-         Platform B (backup) → Success → Return
+طلب → المنصة A (رئيسية) → نجاح → إرجاع
+                ↓ (فشل)
+         المنصة B (احتياطية) → نجاح → إرجاع
 ```
 
-### Load Balance
+### موازنة الحمل
 
-Requests are distributed across platforms by weight. Ideal for multi-platform traffic splitting.
+تُوزَّع الطلبات بين المنصات حسب الوزن. مثالية لتقسيم حركة المنصات المتعددة.
 
-| Platform | Weight | Expected Traffic |
+| المنصة | الوزن | الحركة المتوقعة |
 |----------|--------|-----------------|
 | OpenAI | 70 | ~70% |
 | DeepSeek | 30 | ~30% |
 
-## Timeout Settings
+## إعدادات المهلة
 
-Each group can independently set timeout values, overriding global settings:
+كل مجموعة يمكنها ضبط مهلاتها بشكل مستقل، متجاوزة الإعدادات العامة:
 
-- **Request Timeout** — Maximum time to wait for an upstream response
-- **Connect Timeout** — Maximum time to establish a connection
+- **مهلة الطلب** — أقصى وقت لانتظار استجابة المنبع
+- **مهلة الاتصال** — أقصى وقت لإقامة الاتصال
 
-Leave empty to use global timeout settings.
+اتركه فارغًا لاستخدام المهلات العامة.
 
-## Managing Platforms
+## إدارة المنصات
 
-Within a group, you can:
-- **Drag to reorder** — Adjust priority (determines primary/backup order in failover mode)
-- **Enable/Disable** — Temporarily skip a platform
-- **Set weights** — Request ratio for load balance mode
-- **Model mapping** — Group-level model mapping, takes precedence over platform-level
+داخل مجموعة:
 
-## One-Click Launch Commands
+- **اسحب لإعادة الترتيب** — اضبط الأولوية (يحدد ترتيب رئيسي/احتياطي في وضع الفشل)
+- **تفعيل/تعطيل** — تخطَّ منصة مؤقتًا
+- **ضبط الأوزان** — نسبة الطلبات لموازنة الحمل
+- **ربط النماذج** — ربط مستوى المجموعة، له الأولوية على المنصة
 
-Each group card provides two one-click copy buttons:
+## أوامر تشغيل بنقرة واحدة
 
-- **Claude** — Copies the Claude Code launch command for this group, including the settings file path
-- **Codex** — Copies the Codex launch command for this group, including the profile
+كل بطاقة مجموعة توفر زرّي نسخ:
 
-Paste the command in your terminal to immediately use the group's routing.
+- **Claude** — ينسخ أمر تشغيل Claude Code لهذه المجموعة مع مسار ملف الإعدادات
+- **Codex** — ينسخ أمر تشغيل Codex مع الملف الشخصي
 
-## Health Status
+الصق الأمر في طرفيتك لاستخدام توجيه المجموعة فورًا.
 
-Group cards display health status indicators for their associated platforms:
+## حالة الصحة
 
-- 🟢 All successful — Green
-- 🟡 Some failures — Yellow
-- 🔴 All failed — Red
+بطاقات المجموعة تعرض مؤشرات حالة لمنصاتها المرتبطة:
 
-## Edit & Delete
+- 🟢 كلها ناجحة — أخضر
+- 🟡 بعض الفشل — أصفر
+- 🔴 كلها فاشلة — أحمر
 
-- Click a group card to enter edit mode. Click "Save" after changes
-- Deleting a group does not delete its platforms — it only removes the association
-- Drag group cards in the list to adjust display order
+## التحرير والحذف
+
+- انقر بطاقة مجموعة للدخول لوضع التحرير. انقر «حفظ» بعد التغييرات
+- حذف مجموعة لا يحذف منصاتها — يزيل الارتباط فقط
+- اسحب بطاقات المجموعة في القائمة لإعادة الترتيب

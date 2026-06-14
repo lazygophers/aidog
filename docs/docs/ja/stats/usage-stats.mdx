@@ -2,84 +2,84 @@
 title: 使用統計
 ---
 
-# Usage Statistics
+# 使用統計
 
-The **"Statistics"** page provides a usage overview, trend analysis, and dimension rankings for all proxied requests.
+**「統計」** ページはすべてのプロキシリクエストの使用概況、トレンド分析、次元別ランキングを提供します。
 
-## Time Range
+## 時間範囲
 
-Three time presets are available at the top:
+上部に3つの時間プリセットがあります:
 
-| Preset | Range |
+| プリセット | 範囲 |
 |--------|-------|
-| Today | From midnight today |
-| Last 7 days | Past 7 days |
-| Last 30 days | Past 30 days |
+| 今日 | 今日の午前0時から |
+| 過去7日 | 過去7日間 |
+| 過去30日 | 過去30日間 |
 
-All metrics and charts refresh automatically when a preset is selected.
+プリセット選択時にすべてのメトリクスとグラフが自動更新されます。
 
-## Overview Cards
+## 概要カード
 
-Eight core metrics are displayed at the top, each showing a period-over-period comparison:
+上部に8つのコアメトリクスを表示、各々に期間比較付き:
 
-| Metric | Description |
+| メトリクス | 説明 |
 |--------|-------------|
-| Total Requests | Total request count in the period |
-| Success Rate | Percentage of successful requests (color-coded) |
-| Input Tokens | Total input tokens |
-| Output Tokens | Total output tokens |
-| Cache Tokens | Total cache hit tokens |
-| Cache Rate | Cache tokens as a percentage of input tokens |
-| Avg Latency | Average response time in milliseconds |
-| Estimated Cost | Estimated cost based on pricing table |
+| 総リクエスト数 | 期間中の総リクエスト数 |
+| 成功率 | 成功リクエストの割合 (色分け) |
+| 入力トークン | 総入力トークン |
+| 出力トークン | 総出力トークン |
+| キャッシュトークン | 総キャッシュヒットトークン |
+| キャッシュ率 | 入力トークンに対するキャッシュトークンの割合 |
+| 平均レイテンシ | 平均応答時間 (ミリ秒) |
+| 推定コスト | 価格表に基づく推定コスト |
 
-Comparison arrows: green up = positive change (e.g. higher success rate), red up = negative change (e.g. higher cost).
+比較矢印: 緑上向き = ポジティブ変化 (例: 成功率向上)、赤上向き = ネガティブ変化 (例: コスト増加)。
 
-## Filters
+## フィルタ
 
-Next to the time presets, refine data with these filters:
+時間プリセットの隣で、以下のフィルタでデータを絞り込み:
 
-- **Granularity**: Daily / Hourly
-- **Group by**: Platform / Model / Group
-- **Group**: Filter by group name (searchable)
-- **Model**: Filter by model name (searchable)
-- **Platform type**: Filter by platform type (searchable)
+- **粒度**: 日次 / 時間別
+- **グループ化**: プラットフォーム / モデル / グループ
+- **グループ**: グループ名で絞り込み (検索可)
+- **モデル**: モデル名で絞り込み (検索可)
+- **プラットフォームタイプ**: プラットフォームタイプで絞り込み (検索可)
 
-Data reloads automatically when filters change.
+フィルタ変更時にデータが自動リロードされます。
 
-## Trend Chart
+## トレンドグラフ
 
-A bar chart below the overview cards shows request volume trends:
+概要カードの下の棒グラフがリクエスト量トレンドを表示:
 
-- X-axis buckets by selected granularity (daily/hourly)
-- Bar height represents request count
-- Color gradient reflects error ratio (more red = more failures)
-- Hover to see tooltip: requests, successes, errors, avg latency, estimated cost
+- X軸は選択粒度 (日/時間) でバケット化
+- 棒の高さがリクエスト数を表す
+- 色グラデーションがエラー率を反映 (赤いほど失敗多い)
+- ホバーでツールチップ: リクエスト数、成功、エラー、平均レイテンシ、推定コスト
 
-## Dimension Ranking Table
+## 次元ランキング表
 
-Below the chart, a table shows rankings by the current dimension (platform/model/group):
+グラフの下に、現在の次元 (プラットフォーム/モデル/グループ) でランキングする表:
 
-| Column | Description |
+| 列 | 説明 |
 |--------|-------------|
-| Name | Platform / model / group name |
-| Requests | Total requests for this dimension |
-| Success | Successful request count (color-coded for health) |
-| Input | Input token count |
-| Output | Output token count |
-| Cache | Cache token count |
-| Avg Latency | Average response time |
-| Estimated Cost | Estimated cost (color-coded for spending level) |
+| 名前 | プラットフォーム / モデル / グループ名 |
+| リクエスト | この次元の総リクエスト数 |
+| 成功 | 成功リクエスト数 (健全性で色分け) |
+| 入力 | 入力トークン数 |
+| 出力 | 出力トークン数 |
+| キャッシュ | キャッシュトークン数 |
+| 平均レイテンシ | 平均応答時間 |
+| 推定コスト | 推定コスト (支出レベルで色分け) |
 
-### Sorting & Pagination
+### ソートとページネーション
 
-- Click any column header to sort (click again to toggle ascending/descending)
-- 50 rows per page with pagination controls at the bottom
+- 列ヘッダーをクリックでソート (再度クリックで昇順/降順切り替え)
+- ページあたり50行、下部にページネーションコントロール
 
-## Real-time Refresh
+## リアルタイム更新
 
-Statistics auto-refresh as new requests arrive — no manual action needed.
+新規リクエスト到着時に統計が自動更新 — 手動操作不要。
 
-:::tip{title="Note"}
-Estimated costs are calculated from the pricing table and are for reference only. Actual charges are based on platform billing.
+:::tip{title="注意"}
+推定コストは価格表から算出され、参考用です。実際の請求はプラットフォーム請求に基づきます。
 :::

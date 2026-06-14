@@ -4,29 +4,29 @@ title: API リファレンス
 
 # API リファレンス
 
-AiDog はグループ情報を照会するためのローカル HTTP API を提供します。すべてのエンドポイントは **localhost のみ** (`127.0.0.1`) で、外部ネットワークアクセスは不要です。
+AiDog はグループ情報を照会するためのローカル HTTP API を提供します。すべてのエンドポイントは **localhost 専用**（`127.0.0.1`）で、外部ネットワークアクセスは不要です。
 
 ## POST /api/group-info
 
-Query estimated group information (balance, coding plan utilization, request statistics, etc.). Only **single-platform groups** return applicable data; multi-platform or no-platform groups return `applicable: false`.
+グループの推定情報（残高、Coding Plan 使用率、リクエスト統計など）を照会します。**単一プラットフォームグループ**のみ適用可能なデータを返します; マルチプラットフォームまたはプラットフォームなしのグループは `applicable: false` を返します。
 
-### Authentication
+### 認証
 
 ```
 Authorization: Bearer <group_name>
 ```
 
-The `group_name` is the name of the group configured in AiDog. This is the same value as the `ANTHROPIC_AUTH_TOKEN` environment variable used by Claude Code.
+`group_name` は AiDog で設定したグループ名です。Claude Code が使用する `ANTHROPIC_AUTH_TOKEN` 環境変数と同じ値です。
 
-### Request
+### リクエスト
 
-- **Method**: POST
+- **メソッド**: POST
 - **URL**: `http://127.0.0.1:<port>/api/group-info`
-- **Headers**: `Authorization: Bearer <group_name>`
+- **ヘッダー**: `Authorization: Bearer <group_name>`
 
-### Response (200 OK)
+### レスポンス (200 OK)
 
-#### Single-platform group:
+#### 単一プラットフォームグループ:
 
 ```json
 {
@@ -56,7 +56,7 @@ The `group_name` is the name of the group configured in AiDog. This is the same 
 }
 ```
 
-#### Multi-platform / no-platform group:
+#### マルチプラットフォーム / プラットフォームなしグループ:
 
 ```json
 {
@@ -73,33 +73,33 @@ The `group_name` is the name of the group configured in AiDog. This is the same 
 }
 ```
 
-### Response Fields
+### レスポンスフィールド
 
-| Field | Type | Description |
+| フィールド | 型 | 説明 |
 |-------|------|-------------|
-| `applicable` | boolean | Whether this is a single-platform group with available data |
-| `balance` | number | Estimated remaining balance |
-| `spent` | number | Cumulative estimated spending |
-| `coding_plan` | array | Coding Plan tiers (Claude etc.); empty for balance-based platforms |
-| `coding_plan[].name` | string | Tier name (5h, 7d, etc.) |
-| `coding_plan[].utilization` | number | Utilization percentage (0-100) |
-| `coding_plan[].pace` | string | Burn rate: `fast`, `normal`, or `busy` |
-| `coding_plan[].reset_at` | number\|null | Reset timestamp (Unix seconds) |
-| `requests` | number | Total request count |
-| `success_rate` | number | Success rate (0-100) |
-| `cache_rate` | number | Cache hit rate (0-100) |
-| `total_tokens` | number | Total tokens consumed |
-| `currency` | string | Currency unit |
-| `balance_days_remaining` | number\|null | Estimated days of balance remaining (null if incalculable) |
+| `applicable` | boolean | 利用可能なデータを持つ単一プラットフォームグループかどうか |
+| `balance` | number | 推定残高 |
+| `spent` | number | 累計推定消費 |
+| `coding_plan` | array | Coding Plan ティア（Claude など）; 残高ベースのプラットフォームでは空 |
+| `coding_plan[].name` | string | ティア名（5h、7d など） |
+| `coding_plan[].utilization` | number | 使用率パーセンテージ (0-100) |
+| `coding_plan[].pace` | string | 消費レート: `fast`、`normal`、`busy` |
+| `coding_plan[].reset_at` | number\|null | リセットタイムスタンプ（Unix 秒） |
+| `requests` | number | 総リクエスト数 |
+| `success_rate` | number | 成功率 (0-100) |
+| `cache_rate` | number | キャッシュヒット率 (0-100) |
+| `total_tokens` | number | 総消費トークン数 |
+| `currency` | string | 通貨単位 |
+| `balance_days_remaining` | number\|null | 残高の推定残日数（算出不可の場合 null） |
 
-### Error Responses
+### エラーレスポンス
 
-| Status | Condition |
+| ステータス | 条件 |
 |--------|-----------|
-| 401 | Missing or invalid `Authorization` header |
-| 200 | Group not found → `applicable: false` |
+| 401 | `Authorization` ヘッダー欠落または無効 |
+| 200 | グループ未検出 → `applicable: false` |
 
-### Example
+### 例
 
 ```bash
 curl -X POST \\

@@ -1,44 +1,44 @@
 ---
-title: اختبار النموذج
+title: اختبار النماذج
 ---
 
-# Model Testing
+# اختبار النماذج
 
-AiDog provides a built-in model testing feature to verify platform connectivity and model availability without external tools.
+يوفر AiDog ميزة اختبار نماذج مدمجة للتحقق من اتصال المنصة وتوفر النماذج دون أدوات خارجية.
 
-## How to Use
+## الاستخدام
 
-On the **"Platforms"** page, click the "Test" button on a platform card to open the model testing panel.
+في صفحة **«المنصات»**، انقر زر «اختبار» على بطاقة منصة لفتح لوحة الاختبار.
 
-## Test Modes
+## أوضاع الاختبار
 
-| Mode | Description |
+| الوضع | الوصف |
 |------|-------------|
-| **Quick Test** | Send a short request using the platform's default model for fast connectivity check |
-| **Single Model** | Test a specific model |
-| **Batch Test** | Test multiple models sequentially to verify availability |
-| **Random Test** | Test all available models on the platform one by one |
-| **Custom Test** | Choose a model and enter a custom prompt and max token count |
+| **اختبار سريع** | يرسل طلبًا قصيرًا بالنموذج الافتراضي للمنصة لفحص الاتصال السريع |
+| **نموذج واحد** | يختبر نموذجًا محددًا |
+| **اختبار دفعي** | يختبر عدة نماذج بالتسلسل للتحقق من التوفر |
+| **اختبار عشوائي** | يختبر كل النماذج المتاحة في المنصة واحدًا تلو الآخر |
+| **اختبار مخصص** | اختر نموذجًا وأدخل prompt مخصص وحد أقصى للتوكنز |
 
-## Test Results
+## نتائج الاختبار
 
-Each test result shows:
+تُظهر كل نتيجة:
 
-- **Model Name** — The model used for testing
-- **Status** — Success or failure
-- **Response Time** — Total time from sending the request to receiving the full response
-- **Token Usage** — Input and output token counts
-- **Response Content** — The text returned by the model (collapsible)
+- **اسم النموذج** — النموذج المستخدم في الاختبار
+- **الحالة** — نجاح أو فشل
+- **زمن الاستجابة** — الزمن الكلي من الإرسال حتى الاستلام الكامل
+- **استخدام التوكنز** — أعداد توكنز الدخل/الخرج
+- **محتوى الاستجابة** — النص المُرجع (قابل للطي)
 
-## Use Cases
+## حالات الاستخدام
 
-- **After adding a platform** — Verify that the API Key and Base URL are configured correctly
-- **After changing endpoints** — Confirm the new endpoint works properly
-- **After model mapping** — Ensure the mapped target model is available on the platform
-- **Troubleshooting** — When proxied requests fail, test the corresponding platform first
+- **بعد إضافة منصة** — تحقق من صحة API Key و Base URL
+- **بعد تغيير endpoints** — تأكد أن الـendpoint الجديد يعمل
+- **بعد ربط النموذج** — تأكد أن النموذج الهدف متوفر
+- **استكشاف الأعطال** — عند فشل الطلبات المُوكّلة، اختبر المنصة المعنية أولاً
 
-## Notes
+## ملاحظات
 
-- Testing uses the platform's configured API Key and endpoint, which consumes actual tokens
-- Mock platform tests do not send real requests
-- Batch and random modes test multiple models sequentially and take longer
+- الاختبار يستخدم API Key و endpoint المنصة المُعدّين، ويستهلك توكنز حقيقية
+- اختبارات منصة mock لا ترسل طلبات حقيقية
+- أوضاع الدفعي والعشوائي تختبر عدة نماذج بالتسلسل وتستغرق وقتًا أطول

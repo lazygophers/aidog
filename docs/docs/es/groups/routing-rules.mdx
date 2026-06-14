@@ -2,56 +2,57 @@
 title: Reglas de enrutamiento
 ---
 
-# Routing Rules
+# Reglas de enrutamiento
 
-Routing rules determine how AiDog matches inbound requests to the appropriate group and platform.
+Las reglas de enrutamiento determinan cómo AiDog asocia las peticiones entrantes al grupo y plataforma adecuados.
 
-## Matching Flow
+## Flujo de coincidencia
 
 ```
-Inbound Request → Detect Interface → Match Group → Select Platform → Map Model → Forward
+Petición entrante → Detectar interfaz → Coincidir grupo → Seleccionar plataforma → Mapear modelo → Reenviar
 ```
 
-## Group Matching
+## Coincidencia de grupo
 
-Requests are matched to groups by priority:
+Las peticiones se asignan a grupos por prioridad:
 
-1. **Path match** — Request path matches the group's configured path prefix
-2. **Model name match** — Request model name is in a group's model mapping table
-3. **Default group** — Used when no match is found
-4. **First group** — Used when no default group is set
+1. **Coincidencia de ruta** — La ruta de la petición coincide con el prefijo de ruta configurado del grupo
+2. **Coincidencia de nombre de modelo** — El modelo está en la tabla de mapeo de un grupo
+3. **Grupo por defecto** — Se usa sin coincidencia
+4. **Primer grupo** — Se usa sin grupo por defecto
 
-## Platform Selection
+## Selección de plataforma
 
-Within a group, platforms are selected by routing mode:
+Dentro de un grupo, las plataformas se seleccionan por modo de enrutamiento:
 
-### Failover Mode
+### Modo Failover
 
-Select the first available platform. If it fails, try the next one automatically. If all platforms fail, return an error.
+Selecciona la primera plataforma disponible. Si falla, prueba la siguiente automáticamente. Si todas fallan, devuelve error.
 
-### Load Balance Mode
+### Modo Load Balance
 
-Randomly select a platform by weight. Failover also applies on failure.
+Selecciona una plataforma aleatoriamente por peso. El failover también aplica al fallar.
 
 ## Failover
 
-Automatic failover is triggered by:
-- Rate limiting (429)
-- Server error (5xx)
-- Connection timeout
-- Network error
+El failover automático se activa por:
 
-## Model Mapping Chain
+- Limitación de tasa (429)
+- Error de servidor (5xx)
+- Timeout de conexión
+- Error de red
 
-Model name resolution order:
+## Cadena de mapeo de modelo
 
-1. **Group-level mapping** — If the group defines model mappings
-2. **Platform-level mapping** — If the platform defines model mappings
-3. **Original value** — Use the original model name from the request
+Orden de resolución del nombre de modelo:
+
+1. **Mapeo a nivel de grupo** — Si el grupo define mapeos
+2. **Mapeo a nivel de plataforma** — Si la plataforma define mapeos
+3. **Valor original** — Usa el nombre de modelo original de la petición
 
 ```
-Client requests: gpt-4o
-  → Group mapping: gpt-4o → deepseek-chat
-  → Platform mapping: (none)
-  → Sent to platform: deepseek-chat
+Cliente pide: gpt-4o
+  → Mapeo de grupo: gpt-4o → deepseek-chat
+  → Mapeo de plataforma: (ninguno)
+  → Enviado a plataforma: deepseek-chat
 ```

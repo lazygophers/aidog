@@ -1,72 +1,72 @@
 ---
-title: 価格と課金
+title: 料金と請求
 ---
 
-# Pricing & Billing
+# 料金と請求
 
-AiDog automatically estimates the cost of each request based on the model pricing table. Manage all pricing data in **"Settings" → "Model Pricing"** tab.
+AiDog はモデル価格表に基づき各リクエストのコストを自動推定します。すべての価格データは **「設定」→「モデル価格」** タブで管理します。
 
-## Cost Estimation
+## コスト推定
 
-After each request, AiDog automatically:
+各リクエスト後、AiDog は自動的に:
 
-1. Extracts token usage (input / output / cache) from the upstream response
-2. Looks up the unit price in the pricing table
-3. Calculates the estimated cost
+1. 上流レスポンスからトークン使用量 (入力 / 出力 / キャッシュ) を抽出
+2. 価格表で単価を検索
+3. 推定コストを計算
 
-Pricing fallback order: Custom pricing → Synced pricing → Fallback price
+価格フォールバック順: カスタム価格 → 同期価格 → フォールバック価格
 
-:::tip{title="Note"}
-Estimated costs are for reference only. Actual charges are based on platform billing.
+:::tip{title="注意"}
+推定コストは参考用です。実際の請求はプラットフォーム請求に基づきます。
 :::
 
-## Pricing Management Page
+## 価格管理ページ
 
-### Price Sync
+### 価格同期
 
-AiDog supports one-click sync of the latest model pricing data:
+AiDog は最新モデル価格データのワンクリック同期をサポートします:
 
-- Click "Sync Now" to fetch the latest prices
-- Sync result shows: added count, updated count, failed count
-- Enable "Auto Sync" to automatically fetch at a configured interval
+- 「今すぐ同期」をクリックして最新価格を取得
+- 同期結果に表示: 追加数、更新数、失敗数
+- 「自動同期」を有効化すると設定間隔で自動取得
 
-Auto sync intervals: 1 hour / 6 hours / 12 hours / 24 hours / 7 days
+自動同期間隔: 1時間 / 6時間 / 12時間 / 24時間 / 7日
 
-### Fallback Price
+### フォールバック価格
 
-For models not listed in the pricing table, a fallback price is used:
+価格表に載らないモデルにはフォールバック価格を使用:
 
-- **Input fallback** — Default $3.0 / million tokens
-- **Output fallback** — Default $3.0 / million tokens
+- **入力フォールバック** — デフォルト $3.0 / 百万トークン
+- **出力フォールバック** — デフォルト $3.0 / 百万トークン
 
-Adjustable in the sync settings section of the "Model Pricing" page.
+「モデル価格」ページの同期セクションで調整可能。
 
-### Browse & Search
+### 閲覧と検索
 
-The price table shows these columns:
+価格表は以下の列を表示:
 
-| Column | Description |
+| 列 | 説明 |
 |--------|-------------|
-| Model | Model name |
-| Source | LiteLLM (synced) / Manual |
-| Default Platform | Default platform for this model |
-| Input $/M | Input token price (per million tokens) |
-| Output $/M | Output token price |
-| Cache Read $/M | Cache token read price |
+| モデル | モデル名 |
+| ソース | LiteLLM (同期) / 手動 |
+| デフォルトプラットフォーム | このモデルのデフォルトプラットフォーム |
+| 入力 $/M | 入力トークン価格 (百万トークンあたり) |
+| 出力 $/M | 出力トークン価格 |
+| キャッシュ読取 $/M | キャッシュトークン読取価格 |
 
-- Search by model name
-- Filter by source (LiteLLM / Manual)
-- Paginated with adjustable page size and jump-to-page
+- モデル名で検索
+- ソースで絞り込み (LiteLLM / 手動)
+- ページサイズ調整とページジャンプ付きページネーション
 
-### Manage Pricing
+### 価格管理
 
-- **Delete** — Remove a pricing record (click the delete button at end of row)
-- Price changes take effect immediately for subsequent requests
+- **削除** — 価格レコードを削除 (行末の削除ボタン)
+- 価格変更は以降のリクエストに即座に反映
 
-## View Costs
+## コスト確認
 
-View cost-related data on the **"Statistics"** page:
+**「統計」** ページでコスト関連データを確認:
 
-- "Estimated Cost" in the overview cards (with period comparison)
-- "Estimated Cost" column in the dimension ranking table
-- Cost details in trend chart tooltips
+- 概要カードの「推定コスト」 (期間比較付き)
+- 次元ランキング表の「推定コスト」列
+- トレンドグラフのツールチップ内コスト詳細

@@ -8,25 +8,25 @@ AiDog 提供本地 HTTP API 用于查询分组信息。所有端点仅限 **loca
 
 ## POST /api/group-info
 
-Query estimated group information (balance, coding plan utilization, request statistics, etc.). Only **single-platform groups** return applicable data; multi-platform or no-platform groups return `applicable: false`.
+查询分组的估算信息（余额、Coding Plan 使用率、请求统计等）。仅**单平台分组**返回可用数据；多平台或无平台分组返回 `applicable: false`。
 
-### Authentication
+### 鉴权
 
 ```
 Authorization: Bearer <group_name>
 ```
 
-The `group_name` is the name of the group configured in AiDog. This is the same value as the `ANTHROPIC_AUTH_TOKEN` environment variable used by Claude Code.
+`group_name` 是你在 AiDog 中配置的分组名称，与 Claude Code 使用的 `ANTHROPIC_AUTH_TOKEN` 环境变量值相同。
 
-### Request
+### 请求
 
-- **Method**: POST
-- **URL**: `http://127.0.0.1:<port>/api/group-info`
-- **Headers**: `Authorization: Bearer <group_name>`
+- **方法**：POST
+- **URL**：`http://127.0.0.1:<port>/api/group-info`
+- **请求头**：`Authorization: Bearer <group_name>`
 
-### Response (200 OK)
+### 响应 (200 OK)
 
-#### Single-platform group:
+#### 单平台分组：
 
 ```json
 {
@@ -56,7 +56,7 @@ The `group_name` is the name of the group configured in AiDog. This is the same 
 }
 ```
 
-#### Multi-platform / no-platform group:
+#### 多平台 / 无平台分组：
 
 ```json
 {
@@ -73,33 +73,33 @@ The `group_name` is the name of the group configured in AiDog. This is the same 
 }
 ```
 
-### Response Fields
+### 响应字段
 
-| Field | Type | Description |
+| 字段 | 类型 | 说明 |
 |-------|------|-------------|
-| `applicable` | boolean | Whether this is a single-platform group with available data |
-| `balance` | number | Estimated remaining balance |
-| `spent` | number | Cumulative estimated spending |
-| `coding_plan` | array | Coding Plan tiers (Claude etc.); empty for balance-based platforms |
-| `coding_plan[].name` | string | Tier name (5h, 7d, etc.) |
-| `coding_plan[].utilization` | number | Utilization percentage (0-100) |
-| `coding_plan[].pace` | string | Burn rate: `fast`, `normal`, or `busy` |
-| `coding_plan[].reset_at` | number\|null | Reset timestamp (Unix seconds) |
-| `requests` | number | Total request count |
-| `success_rate` | number | Success rate (0-100) |
-| `cache_rate` | number | Cache hit rate (0-100) |
-| `total_tokens` | number | Total tokens consumed |
-| `currency` | string | Currency unit |
-| `balance_days_remaining` | number\|null | Estimated days of balance remaining (null if incalculable) |
+| `applicable` | boolean | 是否为有可用数据的单平台分组 |
+| `balance` | number | 估算剩余余额 |
+| `spent` | number | 累计估算消费 |
+| `coding_plan` | array | Coding Plan 档位（Claude 等）；按余额计费的平台为空 |
+| `coding_plan[].name` | string | 档位名（5h、7d 等） |
+| `coding_plan[].utilization` | number | 使用率百分比 (0-100) |
+| `coding_plan[].pace` | string | 消耗速率：`fast`、`normal` 或 `busy` |
+| `coding_plan[].reset_at` | number\|null | 重置时间戳（Unix 秒） |
+| `requests` | number | 总请求数 |
+| `success_rate` | number | 成功率 (0-100) |
+| `cache_rate` | number | 缓存命中率 (0-100) |
+| `total_tokens` | number | 总消耗 token 数 |
+| `currency` | string | 货币单位 |
+| `balance_days_remaining` | number\|null | 余额预计剩余天数（无法计算时为 null） |
 
-### Error Responses
+### 错误响应
 
-| Status | Condition |
+| 状态码 | 条件 |
 |--------|-----------|
-| 401 | Missing or invalid `Authorization` header |
-| 200 | Group not found → `applicable: false` |
+| 401 | 缺失或无效的 `Authorization` 请求头 |
+| 200 | 分组未找到 → `applicable: false` |
 
-### Example
+### 示例
 
 ```bash
 curl -X POST \\

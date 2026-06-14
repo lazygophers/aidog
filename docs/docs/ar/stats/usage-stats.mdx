@@ -1,85 +1,85 @@
 ---
-title: إحصائيات الاستخدام
+title: إحصاءات الاستخدام
 ---
 
-# Usage Statistics
+# إحصاءات الاستخدام
 
-The **"Statistics"** page provides a usage overview, trend analysis, and dimension rankings for all proxied requests.
+توفر صفحة **«الإحصاءات»** نظرة عامة على الاستخدام وتحليل الاتجاه وترتيب الأبعاد لكل طلبات البروكسي.
 
-## Time Range
+## النطاق الزمني
 
-Three time presets are available at the top:
+ثلاثة إعدادات مسبقة زمنية في الأعلى:
 
-| Preset | Range |
+| الإعداد المسبق | النطاق |
 |--------|-------|
-| Today | From midnight today |
-| Last 7 days | Past 7 days |
-| Last 30 days | Past 30 days |
+| اليوم | منذ منتصف الليل اليوم |
+| آخر 7 أيام | الـ 7 أيام الماضية |
+| آخر 30 يومًا | الـ 30 يومًا الماضية |
 
-All metrics and charts refresh automatically when a preset is selected.
+تتحدّث كل المقاييس والمخططات تلقائيًا عند اختيار إعداد مسبق.
 
-## Overview Cards
+## بطاقات النظرة العامة
 
-Eight core metrics are displayed at the top, each showing a period-over-period comparison:
+تُعرض ثمانية مقاييس أساسية في الأعلى، كلٌ بمقارنة فترة:
 
-| Metric | Description |
+| المقياس | الوصف |
 |--------|-------------|
-| Total Requests | Total request count in the period |
-| Success Rate | Percentage of successful requests (color-coded) |
-| Input Tokens | Total input tokens |
-| Output Tokens | Total output tokens |
-| Cache Tokens | Total cache hit tokens |
-| Cache Rate | Cache tokens as a percentage of input tokens |
-| Avg Latency | Average response time in milliseconds |
-| Estimated Cost | Estimated cost based on pricing table |
+| إجمالي الطلبات | العدد الكلي للطلبات في الفترة |
+| معدل النجاح | نسبة الطلبات الناجحة (مُرمّز لونيًا) |
+| توكنز الإدخال | إجمالي توكنز الإدخال |
+| توكنز الإخراج | إجمالي توكنز الإخراج |
+| توكنز الكاش | إجمالي توكنز إصابة الكاش |
+| معدل الكاش | توكنز الكاش كنسبة من توكنز الإدخال |
+| متوسط الكمون | متوسط زمن الاستجابة بالمللي ثانية |
+| التكلفة التقديرية | التكلفة التقديرية وفق جدول الأسعار |
 
-Comparison arrows: green up = positive change (e.g. higher success rate), red up = negative change (e.g. higher cost).
+أسهم المقارنة: أخضر لأعلى = تغيّر إيجابي (مثل معدل نجاح أعلى)، أحمر لأعلى = تغيّر سلبي (مثل تكلفة أعلى).
 
-## Filters
+## المرشحات
 
-Next to the time presets, refine data with these filters:
+بجانب الإعدادات الزمنية المسبقة، حدّد البيانات بهذه المرشحات:
 
-- **Granularity**: Daily / Hourly
-- **Group by**: Platform / Model / Group
-- **Group**: Filter by group name (searchable)
-- **Model**: Filter by model name (searchable)
-- **Platform type**: Filter by platform type (searchable)
+- **الحدة**: يومي / بالساعة
+- **التجميع حسب**: المنصة / النموذج / المجموعة
+- **المجموعة**: تصفية حسب اسم المجموعة (قابل للبحث)
+- **النموذج**: تصفية حسب اسم النموذج (قابل للبحث)
+- **نوع المنصة**: تصفية حسب نوع المنصة (قابل للبحث)
 
-Data reloads automatically when filters change.
+تُعاد تحميل البيانات تلقائيًا عند تغيير المرشحات.
 
-## Trend Chart
+## مخطط الاتجاه
 
-A bar chart below the overview cards shows request volume trends:
+مخطط أعمدة أسفل بطاقات النظرة العامة يُظهر اتجاهات حجم الطلبات:
 
-- X-axis buckets by selected granularity (daily/hourly)
-- Bar height represents request count
-- Color gradient reflects error ratio (more red = more failures)
-- Hover to see tooltip: requests, successes, errors, avg latency, estimated cost
+- المحور السيني مجمّع حسب الحدة المختارة (يوم/ساعة)
+- ارتفاع العمود يمثل عدد الطلبات
+- تدرّج اللون يعكس نسبة الأخطاء (أكثر حمرة = مزيد من الفشل)
+- مرّر الفأرة للتلميح: الطلبات، النجاحات، الأخطاء، متوسط الكمون، التكلفة التقديرية
 
-## Dimension Ranking Table
+## جدول ترتيب الأبعاد
 
-Below the chart, a table shows rankings by the current dimension (platform/model/group):
+أسفل المخطط، يُظهر جدول الترتيب حسب البُعد الحالي (المنصة/النموذج/المجموعة):
 
-| Column | Description |
+| العمود | الوصف |
 |--------|-------------|
-| Name | Platform / model / group name |
-| Requests | Total requests for this dimension |
-| Success | Successful request count (color-coded for health) |
-| Input | Input token count |
-| Output | Output token count |
-| Cache | Cache token count |
-| Avg Latency | Average response time |
-| Estimated Cost | Estimated cost (color-coded for spending level) |
+| الاسم | اسم المنصة / النموذج / المجموعة |
+| الطلبات | إجمالي الطلبات لهذا البُعد |
+| النجاح | عدد الطلبات الناجحة (مُرمّز لونيًا للصحة) |
+| الإدخال | عدد توكنز الإدخال |
+| الإخراج | عدد توكنز الإخراج |
+| الكاش | عدد توكنز الكاش |
+| متوسط الكمون | متوسط زمن الاستجابة |
+| التكلفة التقديرية | التكلفة التقديرية (مُرمّزة لونيًا لمستوى الإنفاق) |
 
-### Sorting & Pagination
+### الترتيب والترقيم
 
-- Click any column header to sort (click again to toggle ascending/descending)
-- 50 rows per page with pagination controls at the bottom
+- انقر رأس أي عمود للترتيب (انقر مجددًا للتبديل تصاعدي/تنازلي)
+- 50 صفًا لكل صفحة مع عناصر الترقيم في الأسفل
 
-## Real-time Refresh
+## التحديث اللحظي
 
-Statistics auto-refresh as new requests arrive — no manual action needed.
+تتحدّث الإحصاءات تلقائيًا عند وصول طلبات جديدة — لا حاجة لفعل يدوي.
 
-:::tip{title="Note"}
-Estimated costs are calculated from the pricing table and are for reference only. Actual charges are based on platform billing.
+:::tip{title="ملاحظة"}
+تُحسب التكاليف التقديرية من جدول الأسعار وهي للاسترشاد فقط. الفوترة الفعلية تعتمد على فوترة المنصة.
 :::

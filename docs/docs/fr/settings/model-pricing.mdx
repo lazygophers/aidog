@@ -1,62 +1,62 @@
 ---
-title: Model Pricing
+title: Tarifs des modèles
 ---
 
-# Model Pricing
+# Tarifs des modèles
 
-Manage all model pricing data in **"Settings" → "Model Pricing"** tab. Pricing data is used to estimate request costs.
+Gérez toutes les données tarifaires des modèles dans l'onglet **« Réglages » → « Tarifs des modèles »**. Les données tarifaires servent à estimer les coûts des requêtes.
 
-## Price Sync
+## Synchronisation des prix
 
-One-click sync of the latest model pricing from pricing sources:
+Synchronisation en un clic des derniers prix depuis les sources tarifaires :
 
-- Click "Sync Now" to fetch latest prices
-- Sync result: added count, updated count, failed count
-- Enable "Auto Sync" to automatically fetch at configured intervals
+- Cliquez « Synchroniser maintenant » pour récupérer les derniers prix
+- Résultat de sync : ajoutés, mis à jour, échoués
+- Activez « Synchronisation auto » pour récupérer à intervalles configurés
 
-Auto sync intervals: 1 hour / 6 hours / 12 hours / 24 hours / 7 days
+Intervalles auto : 1 heure / 6 heures / 12 heures / 24 heures / 7 jours
 
-## Fallback Price
+## Prix de repli
 
-For models not listed in the pricing table, a fallback price is used:
+Pour les modèles absents de la table, un prix de repli s'applique :
 
-- **Input fallback** — Default $3.0 / million tokens
-- **Output fallback** — Default $3.0 / million tokens
+- **Repli entrée** — Défaut $3.0 / million de tokens
+- **Repli sortie** — Défaut $3.0 / million de tokens
 
-Adjustable in the sync settings section.
+Ajustable dans la section synchronisation.
 
-## Price Table
+## Table des prix
 
-The price table shows these columns:
+La table affiche ces colonnes :
 
-| Column | Description |
+| Colonne | Description |
 |--------|-------------|
-| Model | Model name |
-| Source | LiteLLM (synced) / Manual |
-| Default Platform | Default platform for this model |
-| Input $/M | Input token price (per million tokens) |
-| Output $/M | Output token price |
-| Cache Read $/M | Cache token read price |
+| Modèle | Nom du modèle |
+| Source | LiteLLM (synchronisé) / Manuel |
+| Plateforme par défaut | Plateforme par défaut pour ce modèle |
+| Entrée $/M | Prix token entrée (par million) |
+| Sortie $/M | Prix token sortie |
+| Lecture cache $/M | Prix lecture token cache |
 
-Search by model name, filter by source, adjustable page size and jump-to-page.
+Recherche par nom de modèle, filtre par source, taille de page ajustable et saut de page.
 
-## Manage Pricing
+## Gérer les tarifs
 
-- Delete a pricing record (end-of-row delete button)
-- Price changes take effect immediately
+- Supprimer un enregistrement tarifaire (bouton supprimer en fin de ligne)
+- Les changements de prix prennent effet immédiatement
 
-## Cost Estimation
+## Estimation du coût
 
-After each request, AiDog automatically:
+Après chaque requête, AiDog automatiquement :
 
-1. Extracts token usage (input / output / cache) from the upstream response
-2. Looks up the unit price in the pricing table
-3. Calculates the estimated cost
+1. Extrait l'utilisation de tokens (entrée / sortie / cache) de la réponse amont
+2. Recherche le prix unitaire dans la table tarifaire
+3. Calcule le coût estimé
 
-Pricing fallback order: Custom pricing → Synced pricing → Fallback price
+Ordre de repli tarifaire : Tarif personnalisé → Tarif synchronisé → Prix de repli
 
 :::tip{title="Note"}
-Estimated costs are for reference only. Actual charges are based on platform billing.
+Les coûts estimés sont fournis à titre indicatif. La facturation réelle se base sur la facturation de la plateforme.
 :::
 
-See [Pricing & Billing](/stats/pricing).
+Voir [Tarifs & Facturation](/fr/stats/pricing).

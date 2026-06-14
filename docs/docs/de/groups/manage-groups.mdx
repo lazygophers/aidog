@@ -1,80 +1,81 @@
 ---
-title: Erstellen und verwalten
+title: Erstellen & verwalten
 ---
 
-# Create & Manage Groups
+# Gruppen erstellen & verwalten
 
-Groups are the routing core of AiDog — organize platforms by purpose and control request routing with rules.
+Gruppen sind AiDogs Routing-Kern — organisieren Sie Plattformen nach Zweck und steuern Sie das Routing per Regeln.
 
-## Creating a Group
+## Gruppe erstellen
 
-1. Go to the **"Groups"** page
-2. Click **"+ Add Group"**
-3. Enter a name and path
-4. Select platforms to include
-5. Choose a routing mode
+1. Gehen Sie zur **„Gruppen"**-Seite
+2. Klicken Sie **„+ Gruppe hinzufügen"**
+3. Name und Pfad eingeben
+4. Plattformen auswählen
+5. Routing-Modus wählen
 
-:::tip{title="Auto Group"}
-When you add a platform, AiDog automatically creates a corresponding group. You can also create more groups manually.
+:::tip{title="Auto-Gruppe"}
+Beim Hinzufügen einer Plattform erzeugt AiDog automatisch eine entsprechende Gruppe. Weitere Gruppen können manuell erstellt werden.
 :::
 
-## Routing Modes
+## Routing-Modi
 
 ### Failover
 
-The default mode. Platforms are used in order. When the current platform fails, the next one is tried automatically. Ideal for primary/backup setups.
+Standardmodus. Plattformen werden der Reihe nach genutzt. Bei Fehler wird automatisch die nächste versucht. Ideal für Primär/Backup-Setups.
 
 ```
-Request → Platform A (primary) → Success → Return
-                ↓ (failed)
-         Platform B (backup) → Success → Return
+Anfrage → Plattform A (primär) → Erfolg → Rückgabe
+                ↓ (fehlgeschlagen)
+         Plattform B (Backup) → Erfolg → Rückgabe
 ```
 
 ### Load Balance
 
-Requests are distributed across platforms by weight. Ideal for multi-platform traffic splitting.
+Anfragen werden gewichtet verteilt. Ideal für Multi-Plattform-Traffic-Splitting.
 
-| Platform | Weight | Expected Traffic |
+| Plattform | Gewicht | Erwarteter Traffic |
 |----------|--------|-----------------|
 | OpenAI | 70 | ~70% |
 | DeepSeek | 30 | ~30% |
 
-## Timeout Settings
+## Timeout-Einstellungen
 
-Each group can independently set timeout values, overriding global settings:
+Jede Gruppe kann unabhängig Timeouts setzen und globale Einstellungen überschreiben:
 
-- **Request Timeout** — Maximum time to wait for an upstream response
-- **Connect Timeout** — Maximum time to establish a connection
+- **Anfrage-Timeout** — Max. Wartezeit auf Upstream-Antwort
+- **Verbindungs-Timeout** — Max. Zeit zum Verbindungsaufbau
 
-Leave empty to use global timeout settings.
+Leer lassen für globale Timeouts.
 
-## Managing Platforms
+## Plattformverwaltung
 
-Within a group, you can:
-- **Drag to reorder** — Adjust priority (determines primary/backup order in failover mode)
-- **Enable/Disable** — Temporarily skip a platform
-- **Set weights** — Request ratio for load balance mode
-- **Model mapping** — Group-level model mapping, takes precedence over platform-level
+In einer Gruppe:
 
-## One-Click Launch Commands
+- **Drag & Drop** — Priorität anpassen (bestimmt Primär/Backup-Reihenfolge im Failover)
+- **Aktivieren/Deaktivieren** — Plattform temporär überspringen
+- **Gewichte setzen** — Anfrage-Verhältnis für Load Balance
+- **Modell-Mapping** — Gruppen-Mapping, Vorrang vor Plattform
 
-Each group card provides two one-click copy buttons:
+## Ein-Klick-Startbefehle
 
-- **Claude** — Copies the Claude Code launch command for this group, including the settings file path
-- **Codex** — Copies the Codex launch command for this group, including the profile
+Jede Gruppenkarte bietet zwei Ein-Klick-Kopierbuttons:
 
-Paste the command in your terminal to immediately use the group's routing.
+- **Claude** — Kopiert den Claude-Code-Startbefehl für diese Gruppe inkl. Einstellungsdateipfad
+- **Codex** — Kopiert den Codex-Startbefehl inkl. Profil
 
-## Health Status
+Im Terminal einfügen, um das Gruppen-Routing sofort zu nutzen.
 
-Group cards display health status indicators for their associated platforms:
+## Gesundheitsstatus
 
-- 🟢 All successful — Green
-- 🟡 Some failures — Yellow
-- 🔴 All failed — Red
+Gruppenkarten zeigen Statusindikatoren für verknüpfte Plattformen:
 
-## Edit & Delete
+- 🟢 Alle erfolgreich — Grün
+- 🟡 Teilweise fehlgeschlagen — Gelb
+- 🔴 Alle fehlgeschlagen — Rot
 
-- Click a group card to enter edit mode. Click "Save" after changes
-- Deleting a group does not delete its platforms — it only removes the association
-- Drag group cards in the list to adjust display order
+## Bearbeiten & löschen
+
+- Karte klicken für Edit-Modus; nach Änderungen «Speichern»
+- Löschen entfernt nur die Verknüpfung, nicht die Plattformen
+- Karten per Drag in der Liste umsortieren

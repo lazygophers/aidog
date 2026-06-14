@@ -1,70 +1,70 @@
 ---
-title: تكوين شريط النظام
+title: تكوين الشريط
 ---
 
-# Tray Configuration
+# تكوين الشريط
 
-AiDog runs in the system tray, displaying key status information in the menu bar/taskbar. Configure display items and styles in **"Settings" → "System Tray"**.
+يعمل AiDog في شريط النظام، عارضًا معلومات الحالة الأساسية في شريط القوائم/شريط المهام. اضبط عناصر العرض والأنماط في **«الإعدادات» → «شريط النظام»**.
 
-## Tray Behavior
+## سلوك الشريط
 
-After closing the main window, AiDog continues running in the system tray to keep the proxy service available. Right-click the tray icon to show/hide the main window, start/stop the proxy, or quit the app.
+بعد إغلاق النافذة الرئيسية، يواصل AiDog العمل في شريط النظام لإبقاء خدمة البروكسي متاحة. انقر بزر الفأرة الأيمن على أيقونة الشريط لإظهار/إخفاء النافذة الرئيسية، أو بدء/إيقاف البروكسي، أو إنهاء التطبيق.
 
-## Live Preview
+## المعاينة المباشرة
 
-The top of the configuration page shows a simulated menu bar preview. All changes are reflected instantly. The preview also shows current line usage (max 2 lines) and warns if exceeded.
+يُظهر أعلى صفحة التكوين معاينة محاكاة لشريط القوائم. كل التغييرات تنعكس فورًا. تُظهر المعاينة أيضًا استخدام السطر الحالي (حد أقصى سطرين) وتحذّر عند التجاوز.
 
-## Display Item Types
+## أنواع عناصر العرض
 
-Click "Add Display Item" to add any of these content types:
+انقر «إضافة عنصر عرض» لإضافة أي من هذه الأنواع:
 
-### Platform Balance / Quota
+### رصيد/حصة المنصة
 
-Select an enabled platform to show its balance or Coding Plan quota:
+اختر منصة مُفعّلة لعرض رصيدها أو حصة Coding Plan:
 
-| Display Mode | Description |
+| وضع العرض | الوصف |
 |--------------|-------------|
-| Balance | Account balance (e.g. `$12.50`) |
-| Quota | Coding Plan remaining percentage (e.g. `85%`) |
+| الرصيد | رصيد الحساب (مثل `$12.50`) |
+| الحصة | النسبة المتبقية لـ Coding Plan (مثل `85%`) |
 
-### Today's Statistics
+### إحصاءات اليوم
 
-Show today's aggregated data, with 4 available metrics:
+اعرض بيانات اليوم المُجمّعة، مع 4 مقاييس متاحة:
 
-| Metric | Description |
+| المقياس | الوصف |
 |--------|-------------|
-| Tokens | Today's total token usage |
-| Cache% | Today's cache hit rate |
-| Cost$ | Today's estimated cost |
-| Requests | Today's total request count |
+| التوكنز | إجمالي استخدام التوكنز اليوم |
+| Cache% | معدل إصابة الكاش اليوم |
+| Cost$ | التكلفة التقديرية اليوم |
+| الطلبات | إجمالي عدد طلبات اليوم |
 
-### Separators
+### الفواصل
 
-Insert separators between display items. Six preset styles (`|`, `·`, `—`, `/`, `»`, space) plus custom characters.
+أدرج فواصل بين عناصر العرض. ستة أنماط مُسبقة (`|`، `·`، `—`، `/`، `»`، مسافة) بالإضافة إلى أحرف مخصصة.
 
-## Item Customization
+## تخصيص العناصر
 
-Expand any display item to adjust these properties:
+وسّع أي عنصر عرض لضبط هذه الخصائص:
 
-| Property | Description |
+| الخاصية | الوصف |
 |----------|-------------|
-| Display | Balance / Quota (platform items only) |
-| Metric | Tokens / Cache% / Cost$ / Requests (today stats items only) |
-| Label | Custom display name (leave empty for default) |
-| Decimals | Number of decimal places for values |
-| Line Mode | Single (label + value on same line) / Two-line (label top, value bottom) |
-| Alignment | Left / Center / Right |
-| Value Row Alignment | Independent alignment for the second line in two-line mode |
-| Color | Follow system / Preset (red/green/orange) / Custom |
+| العرض | الرصيد / الحصة (عناصر المنصة فقط) |
+| المقياس | التوكنز / Cache% / Cost$ / الطلبات (إحصاءات اليوم فقط) |
+| التسمية | اسم عرض مخصص (فارغ للافتراضي) |
+| المنازل العشرية | عدد المنازل العشرية للقيم |
+| وضع السطر | مفرد (تسمية + قيمة في نفس السطر) / سطرين (تسمية أعلى، قيمة أسفل) |
+| المحاذاة | يسار / وسط / يمين |
+| محاذاة سطر القيمة | محاذاة مستقلة للسطر الثاني في وضع السطرين |
+| اللون | اتباع النظام / مُسبق (أحمر/أخضر/برتقالي) / مخصص |
 
-### Color Warning
+### تحذير اللون
 
-When choosing a custom color, AiDog warns if the color may not be clearly visible under certain menu bar themes.
+عند اختيار لون مخصص، يحذّر AiDog إن كان اللون قد لا يكون واضحًا تحت بعض سمات شريط القوائم.
 
-## Drag to Reorder
+## السحب لإعادة الترتيب
 
-Display items support drag-and-drop reordering. Disabled items do not appear in the preview.
+تدعم عناصر العرض إعادة الترتيب بالسحب والإفلات. العناصر المُعطّلة لا تظهر في المعاينة.
 
-## Auto-start on Boot
+## البدء التلقائي عند الإقلاع
 
-Configure AiDog to auto-start with the system in **"Settings" → "Proxy Configuration"**.
+اضبط AiDog للبدء تلقائيًا مع النظام في **«الإعدادات» → «تكوين البروكسي»**.

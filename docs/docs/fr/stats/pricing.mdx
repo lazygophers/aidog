@@ -1,72 +1,72 @@
 ---
-title: Tarification et facturation
+title: Tarifs & Facturation
 ---
 
-# Pricing & Billing
+# Tarifs & Facturation
 
-AiDog automatically estimates the cost of each request based on the model pricing table. Manage all pricing data in **"Settings" → "Model Pricing"** tab.
+AiDog estime automatiquement le coût de chaque requête selon la table de tarifs des modèles. Gérez toutes les données tarifaires dans l'onglet **« Réglages » → « Tarifs des modèles »**.
 
-## Cost Estimation
+## Estimation du coût
 
-After each request, AiDog automatically:
+Après chaque requête, AiDog automatiquement :
 
-1. Extracts token usage (input / output / cache) from the upstream response
-2. Looks up the unit price in the pricing table
-3. Calculates the estimated cost
+1. Extrait l'utilisation de tokens (entrée / sortie / cache) de la réponse amont
+2. Recherche le prix unitaire dans la table tarifaire
+3. Calcule le coût estimé
 
-Pricing fallback order: Custom pricing → Synced pricing → Fallback price
+Ordre de repli tarifaire : Tarif personnalisé → Tarif synchronisé → Prix de repli
 
 :::tip{title="Note"}
-Estimated costs are for reference only. Actual charges are based on platform billing.
+Les coûts estimés sont fournis à titre indicatif. La facturation réelle se base sur la facturation de la plateforme.
 :::
 
-## Pricing Management Page
+## Page de gestion des tarifs
 
-### Price Sync
+### Synchronisation des prix
 
-AiDog supports one-click sync of the latest model pricing data:
+AiDog supporte la synchronisation en un clic des dernières données tarifaires :
 
-- Click "Sync Now" to fetch the latest prices
-- Sync result shows: added count, updated count, failed count
-- Enable "Auto Sync" to automatically fetch at a configured interval
+- Cliquez « Synchroniser maintenant » pour récupérer les derniers prix
+- Le résultat affiche : ajoutés, mis à jour, échoués
+- Activez « Synchronisation auto » pour récupérer à intervalle configuré
 
-Auto sync intervals: 1 hour / 6 hours / 12 hours / 24 hours / 7 days
+Intervalles auto : 1 heure / 6 heures / 12 heures / 24 heures / 7 jours
 
-### Fallback Price
+### Prix de repli
 
-For models not listed in the pricing table, a fallback price is used:
+Pour les modèles absents de la table, un prix de repli s'applique :
 
-- **Input fallback** — Default $3.0 / million tokens
-- **Output fallback** — Default $3.0 / million tokens
+- **Repli entrée** — Défaut $3.0 / million de tokens
+- **Repli sortie** — Défaut $3.0 / million de tokens
 
-Adjustable in the sync settings section of the "Model Pricing" page.
+Ajustable dans la section synchronisation de la page « Tarifs des modèles ».
 
-### Browse & Search
+### Parcourir & Rechercher
 
-The price table shows these columns:
+La table affiche ces colonnes :
 
-| Column | Description |
+| Colonne | Description |
 |--------|-------------|
-| Model | Model name |
-| Source | LiteLLM (synced) / Manual |
-| Default Platform | Default platform for this model |
-| Input $/M | Input token price (per million tokens) |
-| Output $/M | Output token price |
-| Cache Read $/M | Cache token read price |
+| Modèle | Nom du modèle |
+| Source | LiteLLM (synchronisé) / Manuel |
+| Plateforme par défaut | Plateforme par défaut pour ce modèle |
+| Entrée $/M | Prix token entrée (par million) |
+| Sortie $/M | Prix token sortie |
+| Lecture cache $/M | Prix lecture token cache |
 
-- Search by model name
-- Filter by source (LiteLLM / Manual)
-- Paginated with adjustable page size and jump-to-page
+- Recherche par nom de modèle
+- Filtre par source (LiteLLM / Manuel)
+- Pagination avec taille de page ajustable et saut de page
 
-### Manage Pricing
+### Gérer les tarifs
 
-- **Delete** — Remove a pricing record (click the delete button at end of row)
-- Price changes take effect immediately for subsequent requests
+- **Supprimer** — Retirer un enregistrement (bouton en fin de ligne)
+- Les changements de prix prennent effet immédiatement pour les requêtes suivantes
 
-## View Costs
+## Voir les coûts
 
-View cost-related data on the **"Statistics"** page:
+Consultez les données de coût sur la page **« Statistiques »** :
 
-- "Estimated Cost" in the overview cards (with period comparison)
-- "Estimated Cost" column in the dimension ranking table
-- Cost details in trend chart tooltips
+- « Coût estimé » dans les cartes d'aperçu (avec comparaison de période)
+- Colonne « Coût estimé » dans le tableau de classement par dimension
+- Détails de coût dans les infobulles du graphique de tendance

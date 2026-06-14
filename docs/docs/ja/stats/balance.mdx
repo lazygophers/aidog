@@ -2,91 +2,91 @@
 title: 残高とクォータ
 ---
 
-# Balance & Quotas
+# 残高とクォータ
 
-AiDog helps you track account balances and coding plan quotas across platforms, giving you full visibility into your spending.
+AiDog はプラットフォーム全体のアカウント残高と coding plan クォータを追跡し、支出を完全に可視化します。
 
-## Automatic Balance Query
+## 自動残高照会
 
-AiDog automatically queries account balances for these platforms:
+AiDog は以下プラットフォームの残高を自動照会します:
 
-| Platform | Query Content |
+| プラットフォーム | 照会内容 |
 |----------|---------------|
-| OpenAI | Account balance |
-| DeepSeek | Account balance |
-| StepFun | Account balance |
-| SiliconFlow | Account balance |
-| OpenRouter | Account balance / usage |
-| Novita | Account balance |
-| Kimi (Moonshot) | Account balance |
-| GLM (Zhipu) | Account balance |
-| MiniMax | Account balance |
+| OpenAI | アカウント残高 |
+| DeepSeek | アカウント残高 |
+| StepFun | アカウント残高 |
+| SiliconFlow | アカウント残高 |
+| OpenRouter | 残高 / 使用量 |
+| Novita | アカウント残高 |
+| Kimi (Moonshot) | アカウント残高 |
+| GLM (Zhipu) | アカウント残高 |
+| MiniMax | アカウント残高 |
 
-Balance data refreshes automatically on a schedule. You can also manually click the refresh button.
+残高データはスケジュールで自動更新されます。手動で更新ボタンをクリックすることも可能。
 
-## Coding Plan Quotas
+## Coding Plan クォータ
 
-Some platforms offer coding plans, such as OpenAI Plus/Team/Enterprise, Zhipu Coding Plan, Kimi Code Plan, etc.
+一部プラットフォームは coding plan を提供します (OpenAI Plus/Team/Enterprise、Zhipu Coding Plan、Kimi Code Plan など)。
 
-AiDog queries and displays coding plan quota information:
+AiDog はクォータ情報を照会・表示します:
 
-- Tier names
-- Current utilization rate
-- Remaining percentage
+- ティア名
+- 現在の使用率
+- 残りパーセンテージ
 
-Platform presets marked with "Coding Plan" automatically configure quota queries.
+「Coding Plan」マーク付きのプラットフォームプリセットはクォータ照会を自動設定します。
 
-## NewAPI Balance Query
+## NewAPI 残高照会
 
-For platforms using the NewAPI system (e.g. self-hosted API aggregators), AiDog supports separate balance query configuration:
+NewAPI システムを使用するプラットフォーム (自己ホスト型 API アグリゲータなど) では、AiDog は別個の残高照会設定をサポートします:
 
-- **Query URL** — Separate from the API URL
-- **Query Token** — Obtained from the dashboard (different from the API Key)
-- **User ID** — Optional
+- **照会 URL** — API URL とは別
+- **照会トークン** — ダッシュボードから取得 (API Key とは別)
+- **User ID** — 任意
 
-Fill in these details in the platform's "Balance Query Configuration" section.
+プラットフォームの「残高照会設定」セクションに入力します。
 
-## Manual Budget
+## 手動予算
 
-For platforms that don't support automatic balance queries, AiDog provides manual budget limits.
+自動残高照会をサポートしないプラットフォーム向けに、AiDog は手動予算リミットを提供します。
 
-### Setup
+### 設定
 
-In the platform's "Manual Budget" section, click "Add Limit":
+プラットフォームの「手動予算」セクションで「リミット追加」をクリック:
 
-| Type | Description |
+| タイプ | 説明 |
 |------|-------------|
-| Total | Overall spending limit |
-| Rolling Window | Spending limit within a rolling time window |
-| Fixed Window | Spending limit that resets on a fixed schedule |
-| Daily | Daily spending limit |
+| 合計 | 全体的な支出上限 |
+| ローリングウィンドウ | ローリング時間ウィンドウ内の支出上限 |
+| 固定ウィンドウ | 固定スケジュールでリセットされる支出上限 |
+| 日次 | 日次支出上限 |
 
-### Budget Units
+### 予算単位
 
-- **USD** — Measured by cost
-- **Tokens** — Measured by token count
+- **USD** — コストで測定
+- **Tokens** — トークン数で測定
 
-### Window Duration
+### ウィンドウ期間
 
-Rolling window and fixed window support multiple time granularities: minute, hour, day, week, month.
+ローリングウィンドウと固定ウィンドウは複数の時間粒度をサポート: 分、時間、日、週、月。
 
-### When Budget is Depleted
+### 予算枯渇時
 
-When any budget limit is depleted, AiDog stops forwarding requests to that platform (returns 402 error) and automatically triggers failover to other platforms in the group. Forwarding resumes when the window resets.
+いずれかのリミットに達すると、AiDog は該当プラットフォームへのリクエスト転送を停止し (402 エラーを返す)、グループ内の他プラットフォームへ自動フェイルオーバーします。ウィンドウリセット時に転送が再開されます。
 
-## Where to See Balances
+## 残高確認場所
 
-Balance information is displayed in multiple locations:
+残高情報は複数の場所に表示されます:
 
-- **Platform cards** — Real-time balance and quota utilization per platform
-- **Group cards** — Aggregated balance across group platforms
-- **System tray** — Configurable balance status display
+- **プラットフォームカード** — プラットフォームごとのリアルタイム残高とクォータ使用率
+- **グループカード** — グループプラットフォームの集計残高
+- **システムトレイ** — 設定可能な残高ステータス表示
 
-## Statistics Page
+## 統計ページ
 
-On the **"Statistics"** page, view data by platform, group, or model:
+**「統計」** ページで、プラットフォーム/グループ/モデルごとにデータを確認:
 
-- Today's request count and success rate
-- Token usage (input / output / cache)
-- Estimated cost
-- Usage trend charts (daily / weekly / monthly)
+- 本日のリクエスト数と成功率
+- トークン使用量 (入力 / 出力 / キャッシュ)
+- 推定コスト
+- 使用トレンドグラフ (日次 / 週次 / 月次)

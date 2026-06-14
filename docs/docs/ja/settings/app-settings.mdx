@@ -2,68 +2,68 @@
 title: アプリ設定
 ---
 
-# App Settings
+# アプリ設定
 
-Configure AiDog's global behavior in the **"Settings"** page. It contains 5 tabs: Proxy, Claude Code, Codex, Model Pricing, and System Tray.
+**「設定」** ページで AiDog のグローバル挙動を設定します。5つのタブ: プロキシ、Claude Code、Codex、モデル価格、システムトレイ。
 
-![AiDog — Settings](/screenshots/settings.png)
+![AiDog — 設定](/screenshots/settings.png)
 
-## Proxy
+## プロキシ
 
-### Proxy Settings
+### プロキシ設定
 
-| Setting | Default | Description |
+| 設定 | デフォルト | 説明 |
 |---------|---------|-------------|
-| Proxy port | `9876` | HTTP proxy listen port |
-| Request timeout | `300s` | Upstream request timeout |
-| Auto-start | On | Automatically start proxy when AiDog launches |
+| プロキシポート | `9876` | HTTPプロキシリッスンポート |
+| リクエストタイムアウト | `300s` | 上流リクエストタイムアウト |
+| 自動起動 | オン | AiDog 起動時にプロキシを自動開始 |
 
-### Log Settings
+### ログ設定
 
-Control logging granularity and retention. See [Log Settings](/logs/log-settings).
+ログの粒度と保持を制御。[ログ設定](/ja/logs/log-settings) 参照。
 
-### Data Management
+### データ管理
 
-- Export platform config
-- Export group config
-- Export statistics
-- Clean expired logs
-- Reset statistics
+- プラットフォーム設定をエクスポート
+- グループ設定をエクスポート
+- 統計をエクスポート
+- 期限切れログをクリーンアップ
+- 統計をリセット
 
 ## Claude Code
 
-Edit Claude Code settings including model, permissions, sandbox, plugins, and more.
+モデル、権限、サンドボックス、プラグインなどを含む Claude Code 設定を編集。
 
-- **Import from Claude Code** — Read existing configuration into AiDog
-- **Export to Claude Code** — Write proxy address to Claude Code config file
-- **Sync Group Settings** — Generate independent config files for each group
+- **Claude Code からインポート** — 既存設定を AiDog に読み込み
+- **Claude Code へエクスポート** — プロキシアドレスを Claude Code 設定ファイルに書き込み
+- **グループ設定を同期** — 各グループの独立設定ファイルを生成
 
-See [Codex Integration](/proxy/codex-integration).
+[Codex 統合](/ja/proxy/codex-integration) 参照。
 
 ## Codex
 
-Edit Codex settings directly in AiDog, without manually locating config files.
+Codex 設定を AiDog 内で直接編集、設定ファイルを手動で探す必要なし。
 
-See [Codex Integration](/proxy/codex-integration).
+[Codex 統合](/ja/proxy/codex-integration) 参照。
 
-## Model Pricing
+## モデル価格
 
-Browse, search, and manage all model pricing data. See [Pricing & Billing](/stats/pricing).
+すべてのモデル価格データを閲覧・検索・管理。[料金と請求](/ja/stats/pricing) 参照。
 
-## System Tray
+## システムトレイ
 
-Configure tray display content and format. See [Tray Configuration](/settings/tray).
+トレイ表示内容と書式を設定。[トレイ設定](/ja/settings/tray) 参照。
 
-## Interface
+## インターフェース
 
-### Language
+### 言語
 
-7 interface languages supported: 简体中文, English, العربية, Français, Deutsch, Русский, 日本語
+7つのインターフェース言語対応: 简体中文, English, العربية, Français, Deutsch, Русский, 日本語
 
-### Themes
+### テーマ
 
-See [Themes](/settings/themes).
+[テーマ](/ja/settings/themes) 参照。
 
-## Data Security
+## データセキュリティ
 
-All data is stored locally. It never leaves your machine and is never uploaded to any server.
+すべてのデータはローカルに保存されます。デバイスから出ることなく、サーバーへアップロードされません。

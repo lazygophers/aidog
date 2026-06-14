@@ -1,41 +1,41 @@
 ---
-title: Protokolleinstellungen
+title: Log-Einstellungen
 ---
 
-# Log Settings
+# Log-Einstellungen
 
-On the **Settings** page you can control the granularity and retention of logging, striking a balance between observability and privacy / disk usage.
+Auf der **Einstellungen**-Seite steuern Sie Granularität und Aufbewahrung von Logs — eine Balance zwischen Observability und Datenschutz / Speicherplatz.
 
-## Recording Levels
+## Aufzeichnungsstufen
 
-Logging has three levels of switches that take effect progressively:
+Logging hat drei Stufen von Schaltern, die schrittweise greifen:
 
-| Level | Description | Default |
+| Stufe | Beschreibung | Standard |
 |------|------|------|
-| Master switch | When off, no proxy logs are recorded at all | On |
-| Record original user request | Records the original request headers and request body sent by the client | Off |
-| Record upstream request | Records the converted request headers and request body sent to the upstream | Off |
+| Hauptschalter | Wenn aus, werden gar keine Proxy-Logs aufgezeichnet | An |
+| Original-Nutzeranfrage aufzeichnen | Zeichnet Original-Anfrage-Header und -Body des Clients auf | Aus |
+| Upstream-Anfrage aufzeichnen | Zeichnet konvertierte Anfrage-Header und -Body für den Upstream auf | Aus |
 
 :::warning
-The request body may contain sensitive content (prompts, keys, etc.). Make sure your local environment is trusted before enabling "Record original user request" or "Record upstream request".
+Der Anfrage-Body kann sensible Inhalte enthalten (Prompts, Keys usw.). Stellen Sie sicher, dass Ihre lokale Umgebung vertrauenswürdig ist, bevor Sie „Original-Nutzeranfrage aufzeichnen" oder „Upstream-Anfrage aufzeichnen" aktivieren.
 :::
 
-## Retention
+## Aufbewahrung
 
-Logs are cleaned up according to three independent retention periods:
+Logs werden nach drei unabhängigen Aufbewahrungsfristen bereinigt:
 
-| Type | Default | Cleanup method |
+| Typ | Standard | Bereinigungsmethode |
 |------|------|----------|
-| Original user request | 7 days | Clears only the request body field, keeps the log row |
-| Upstream request | 7 days | Clears only the request body field, keeps the log row |
-| Log records | 90 days | Deletes the entire log entry |
+| Original-Nutzeranfrage | 7 Tage | Leert nur das Body-Feld, behält die Log-Zeile |
+| Upstream-Anfrage | 7 Tage | Leert nur das Body-Feld, behält die Log-Zeile |
+| Log-Einträge | 90 Tage | Löscht den gesamten Eintrag |
 
-In other words, request bodies older than 7 days are cleared (statistics are still retained), and logs older than 90 days are deleted entirely.
+Anders gesagt: Anfrage-Bodies älter als 7 Tage werden geleert (Statistiken bleiben erhalten), Logs älter als 90 Tage werden ganz gelöscht.
 
-## Manual Cleanup
+## Manuelles Bereinigen
 
-In **Settings → Data Management** you can manually trigger "Clean up expired logs" at any time, which immediately applies the retention rules above.
+Unter **Einstellungen → Datenverwaltung** können Sie jederzeit manuell „Abgelaufene Logs bereinigen" auslösen, was die obigen Aufbewahrungsregeln sofort anwendet.
 
-## Data Storage
+## Datenspeicherung
 
-All logs are stored in the local database `~/.aidog/aidog.db` and are never uploaded to any server.
+Alle Logs werden in der lokalen Datenbank `~/.aidog/aidog.db` gespeichert und nie auf einen Server hochgeladen.

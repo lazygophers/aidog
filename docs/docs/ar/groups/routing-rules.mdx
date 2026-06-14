@@ -2,56 +2,57 @@
 title: قواعد التوجيه
 ---
 
-# Routing Rules
+# قواعد التوجيه
 
-Routing rules determine how AiDog matches inbound requests to the appropriate group and platform.
+تحدد قواعد التوجيه كيف يطابق AiDog الطلبات الواردة بالمجموعة والمنصة المناسبتين.
 
-## Matching Flow
-
-```
-Inbound Request → Detect Interface → Match Group → Select Platform → Map Model → Forward
-```
-
-## Group Matching
-
-Requests are matched to groups by priority:
-
-1. **Path match** — Request path matches the group's configured path prefix
-2. **Model name match** — Request model name is in a group's model mapping table
-3. **Default group** — Used when no match is found
-4. **First group** — Used when no default group is set
-
-## Platform Selection
-
-Within a group, platforms are selected by routing mode:
-
-### Failover Mode
-
-Select the first available platform. If it fails, try the next one automatically. If all platforms fail, return an error.
-
-### Load Balance Mode
-
-Randomly select a platform by weight. Failover also applies on failure.
-
-## Failover
-
-Automatic failover is triggered by:
-- Rate limiting (429)
-- Server error (5xx)
-- Connection timeout
-- Network error
-
-## Model Mapping Chain
-
-Model name resolution order:
-
-1. **Group-level mapping** — If the group defines model mappings
-2. **Platform-level mapping** — If the platform defines model mappings
-3. **Original value** — Use the original model name from the request
+## تدفق المطابقة
 
 ```
-Client requests: gpt-4o
-  → Group mapping: gpt-4o → deepseek-chat
-  → Platform mapping: (none)
-  → Sent to platform: deepseek-chat
+طلب وارد → كشف الواجهة → مطابقة المجموعة → اختيار المنصة → ربط النموذج → التحويل
+```
+
+## مطابقة المجموعة
+
+تُطابَق الطلبات بالمجموعات حسب الأولوية:
+
+1. **مطابقة المسار** — مسار الطلب يطابق بادئة مسار المجموعة المُعدّة
+2. **مطابقة اسم النموذج** — اسم النموذج في جدول ربط مجموعة
+3. **المجموعة الافتراضية** — تُستخدم عند عدم وجود تطابق
+4. **المجموعة الأولى** — تُستخدم عند عدم وجود مجموعة افتراضية
+
+## اختيار المنصة
+
+داخل المجموعة، تُختار المنصات حسب وضع التوجيه:
+
+### وضع التبديل عند الفشل
+
+يختار أول منصة متاحة. عند الفشل، يجرب التالي تلقائيًا. إذا فشلت كل المنصات، يُرجع خطأً.
+
+### وضع موازنة الحمل
+
+يختار منصة عشوائيًا حسب الوزن. التبديل عند الفشل يُطبّق أيضًا.
+
+## التبديل عند الفشل
+
+يُطلَق التبديل التلقائي بـ:
+
+- تحديد المعدل (429)
+- خطأ الخادم (5xx)
+- انتهاء مهلة الاتصال
+- خطأ الشبكة
+
+## سلسلة ربط النموذج
+
+ترتيب حل اسم النموذج:
+
+1. **ربط مستوى المجموعة** — إذا عرّفت المجموعة روابط
+2. **ربط مستوى المنصة** — إذا عرّفت المنصة روابط
+3. **القيمة الأصلية** — استخدم اسم النموذج الأصلي من الطلب
+
+```
+العميل يطلب: gpt-4o
+  → ربط المجموعة: gpt-4o → deepseek-chat
+  → ربط المنصة: (لا شيء)
+  → أُرسل إلى المنصة: deepseek-chat
 ```

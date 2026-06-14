@@ -2,56 +2,57 @@
 title: Routing-Regeln
 ---
 
-# Routing Rules
+# Routing-Regeln
 
-Routing rules determine how AiDog matches inbound requests to the appropriate group and platform.
+Routing-Regeln bestimmen, wie AiDog eingehende Anfragen der passenden Gruppe und Plattform zuordnet.
 
-## Matching Flow
+## Matching-Fluss
 
 ```
-Inbound Request → Detect Interface → Match Group → Select Platform → Map Model → Forward
+Eingehende Anfrage → Schnittstelle erkennen → Gruppe matchen → Plattform wählen → Modell mappen → Weiterleiten
 ```
 
-## Group Matching
+## Gruppen-Matching
 
-Requests are matched to groups by priority:
+Anfragen werden nach Priorität Gruppen zugeordnet:
 
-1. **Path match** — Request path matches the group's configured path prefix
-2. **Model name match** — Request model name is in a group's model mapping table
-3. **Default group** — Used when no match is found
-4. **First group** — Used when no default group is set
+1. **Pfad-Match** — Anfragepfad passt zum konfigurierten Pfad-Präfix der Gruppe
+2. **Modellnamen-Match** — Modellname steht in der Mapping-Tabelle einer Gruppe
+3. **Standardgruppe** — Ohne Match verwendet
+4. **Erste Gruppe** — Ohne Standardgruppe verwendet
 
-## Platform Selection
+## Plattformauswahl
 
-Within a group, platforms are selected by routing mode:
+Innerhalb einer Gruppe erfolgt die Auswahl nach Routing-Modus:
 
-### Failover Mode
+### Failover-Modus
 
-Select the first available platform. If it fails, try the next one automatically. If all platforms fail, return an error.
+Wählt die erste verfügbare Plattform. Bei Fehler automatisch die nächste. Wenn alle fehlschlagen, Fehler zurück.
 
-### Load Balance Mode
+### Load-Balance-Modus
 
-Randomly select a platform by weight. Failover also applies on failure.
+Wählt gewichtet zufällig eine Plattform. Failover gilt auch bei Fehler.
 
 ## Failover
 
-Automatic failover is triggered by:
-- Rate limiting (429)
-- Server error (5xx)
-- Connection timeout
-- Network error
+Automatisches Failover wird ausgelöst durch:
 
-## Model Mapping Chain
+- Ratenlimitierung (429)
+- Serverfehler (5xx)
+- Verbindungs-Timeout
+- Netzwerkfehler
 
-Model name resolution order:
+## Modell-Mapping-Kette
 
-1. **Group-level mapping** — If the group defines model mappings
-2. **Platform-level mapping** — If the platform defines model mappings
-3. **Original value** — Use the original model name from the request
+Auflösungsreihenfolge des Modellnamens:
+
+1. **Gruppen-Mapping** — Falls die Gruppe Mappings definiert
+2. **Plattform-Mapping** — Falls die Plattform Mappings definiert
+3. **Originalwert** — Verwendet den Originalnamen der Anfrage
 
 ```
-Client requests: gpt-4o
-  → Group mapping: gpt-4o → deepseek-chat
-  → Platform mapping: (none)
-  → Sent to platform: deepseek-chat
+Client fordert: gpt-4o
+  → Gruppen-Mapping: gpt-4o → deepseek-chat
+  → Plattform-Mapping: (keins)
+  → An Plattform gesendet: deepseek-chat
 ```

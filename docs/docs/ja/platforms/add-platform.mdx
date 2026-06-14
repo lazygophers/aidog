@@ -1,133 +1,133 @@
 ---
-title: プラットフォームを追加
+title: プラットフォーム追加
 ---
 
-# Add Platform
+# プラットフォーム追加
 
-Platforms are the core concept in AiDog — each represents an AI API service endpoint.
+プラットフォームは AiDog の中核概念です — 各々が AI API サービスエンドポイントを表します。
 
-![AiDog — Add Platform](/screenshots/add-platform.png)
+![AiDog — プラットフォーム追加](/screenshots/add-platform.png)
 
-## Adding Steps
+## 追加手順
 
-1. Go to the **"Platforms"** page
-2. Click the **"+"** button in the top right
-3. Select a platform from the preset list (or fill in manually)
-4. Enter your API Key and click Save
+1. **「プラットフォーム」** ページへ移動
+2. 右上の **「+」** ボタンをクリック
+3. プリセットリストから選択 (または手動入力)
+4. API Key を入力し保存をクリック
 
-:::tip{title="Auto Group"}
-After saving a platform, AiDog automatically creates a group for it, so you can start using it right away without manual configuration.
+:::tip{title="自動グループ"}
+プラットフォーム保存後、AiDog は自動的にグループを作成するので、手動設定なしで即使用可能。
 :::
 
-## Basic Configuration
+## 基本設定
 
-| Field | Description | Example |
+| フィールド | 説明 | 例 |
 |-------|-------------|---------|
-| Name | Display name | `My OpenAI` |
-| Base URL | API base URL (with version prefix) | `https://api.openai.com/v1` |
-| API Key | Platform API key | `sk-...` |
+| 名前 | 表示名 | `My OpenAI` |
+| ベース URL | API ベース URL (バージョンプレフィックス付き) | `https://api.openai.com/v1` |
+| API Key | プラットフォーム API キー | `sk-...` |
 
-### Platform Presets
+### プラットフォームプリセット
 
-AiDog includes 50+ built-in platform presets (OpenAI, Anthropic, Gemini, DeepSeek, Qwen, and more). Selecting a preset auto-fills all configuration fields — just enter your API Key.
+AiDog は 50以上の内蔵プラットフォームプリセット (OpenAI、Anthropic、Gemini、DeepSeek、Qwen など) を含みます。プリセット選択で全設定フィールドを自動入力 — API Key を入力するだけ。
 
-Some presets are marked with "Coding Plan" — they automatically configure quota queries.
+一部プリセットは「Coding Plan」マーク付き — クォータ照会を自動設定。
 
-## Passthrough Mode
+## パススルーモード
 
-Some platform types support "passthrough" mode: AiDog forwards client request headers and body as-is, without any protocol conversion or authentication injection.
+一部プラットフォームタイプは「パススルー」モードをサポート: AiDog はプロトコル変換や認証注入なしでクライアントリクエストヘッダーとボディをそのまま転送。
 
-- **Upstream URL** — Enter the platform root URL (e.g. `https://api.anthropic.com`), without version prefix
-- **API Key** — Optional in passthrough mode; the client can carry its own authentication
+- **上流 URL** — プラットフォームルート URL (例: `https://api.anthropic.com`) を入力、バージョンプレフィックスなし
+- **API Key** — パススルーモードでは任意; クライアントが独自認証を持ち運び可能
 
-Ideal for scenarios where client-side authentication (e.g. OAuth subscriptions) must be preserved.
+クライアント側認証 (例: OAuth サブスクリプション) を保持する必要があるシナリオに最適。
 
-## Multiple Endpoints
+## 複数エンドポイント
 
-Each platform can have multiple endpoints, each with its own address and interface type. AiDog automatically selects the matching endpoint based on the client request.
+各プラットフォームは複数エンドポイントを持て、各々に独自アドレスとインターフェースタイプ。AiDog はクライアントリクエストに基づきマッチするエンドポイントを自動選択。
 
-For example, the same platform can support both the chat interface and the coding assistant interface.
+例えば同じプラットフォームがチャットインターフェースとコーディングアシスタントインターフェースの両方をサポート可能。
 
-## Model Configuration
+## モデル設定
 
-### Default Models
+### デフォルトモデル
 
-In the platform settings, specify which model to use by default for different types of requests. AiDog automatically matches the most suitable model based on the requested model name.
+プラットフォーム設定で、異なるリクエストタイプにデフォルトで使用するモデルを指定。AiDog は要求モデル名に基づき最適モデルを自動マッチ。
 
-### Fetch Model List
+### モデルリスト取得
 
-Click the "Fetch Models" button to automatically retrieve available models from the platform.
+「モデル取得」ボタンをクリックしてプラットフォームから利用可能モデルを自動取得。
 
-### Model Mapping
+### モデルマッピング
 
-Map requested model names to the actual model names supported by the platform. See [Model Mapping](/platforms/model-mapping).
+要求モデル名をプラットフォームがサポートする実際のモデル名にマップ。[モデルマッピング](/ja/platforms/model-mapping) 参照。
 
-## Balance Query Configuration
+## 残高照会設定
 
-For platforms using the NewAPI system, configure separate balance queries:
+NewAPI システムを使用するプラットフォーム向けに別個の残高照会を設定:
 
-- **Query URL** — Separate from the API URL
-- **Query Token** — Obtained from the dashboard (different from API Key)
-- **User ID** — Optional
+- **照会 URL** — API URL とは別
+- **照会トークン** — ダッシュボードから取得 (API Key とは別)
+- **User ID** — 任意
 
-See [Balance & Quotas](/stats/balance).
+[残高とクォータ](/ja/stats/balance) 参照。
 
-## Manual Budget
+## 手動予算
 
-For platforms without automatic balance queries, set manual budget limits:
+自動残高照会なしのプラットフォーム向けに手動予算リミットを設定:
 
-- **Total** — Overall spending limit
-- **Rolling Window** — Spending limit within a rolling time window
-- **Fixed Window** — Spending limit that resets on a fixed schedule
-- **Daily** — Daily spending limit
+- **合計** — 全体的な支出上限
+- **ローリングウィンドウ** — ローリング時間ウィンドウ内の支出上限
+- **固定ウィンドウ** — 固定スケジュールでリセットされる支出上限
+- **日次** — 日次支出上限
 
-When depleted, AiDog stops forwarding to that platform and automatically fails over. See [Balance & Quotas](/stats/balance).
+枯渇時、AiDog は該当プラットフォームへの転送を停止し自動フェイルオーバー。[残高とクォータ](/ja/stats/balance) 参照。
 
-## Model Testing
+## モデルテスト
 
-After saving a platform, test its connectivity:
+プラットフォーム保存後、接続性をテスト:
 
-1. Click the "Test" button on the platform card
-2. Choose a test mode: Quick / Batch / Custom
-3. View results: response time, token count, success or failure
+1. プラットフォームカードの「テスト」ボタンをクリック
+2. テストモードを選択: クイック / バッチ / カスタム
+3. 結果を確認: 応答時間、トークン数、成功/失敗
 
-See [Model Testing](/platforms/model-testing).
+[モデルテスト](/ja/platforms/model-testing) 参照。
 
-## Platform List
+## プラットフォーム一覧
 
-The Platforms page displays all added platform cards, each showing:
+プラットフォームページは追加された全プラットフォームカードを表示、各々:
 
-- Platform name and logo
-- Health status indicator (green/yellow/red)
-- Balance or quota utilization
-- Today's request count and success rate
+- プラットフォーム名とロゴ
+- ヘルスステータスインジケータ (緑/黄/赤)
+- 残高またはクォータ使用率
+- 本日のリクエスト数と成功率
 
-Supports pinyin search to quickly locate a platform.
+プラットフォームを素早く特定するピンイン検索をサポート。
 
-## Other Operations
+## その他の操作
 
-- **Enable/Disable** — Pause a platform without deleting it
-- **Edit** — Click a platform card to view details and modify settings
-- **Delete** — Click the delete button. Related logs and statistics are preserved
-- **Drag to Reorder** — Drag cards in the list to adjust display order
+- **有効化/無効化** — 削除せずにプラットフォームを一時停止
+- **編集** — プラットフォームカードをクリックして詳細を表示し設定を変更
+- **削除** — 削除ボタンをクリック。関連ログと統計は保持
+- **ドラッグで並べ替え** — リスト内のカードをドラッグして表示順序を調整
 
 ## FAQ
 
-### How to fill Base URL?
+### ベース URL の入力方法?
 
-The Base URL is the complete base path including the version prefix:
+ベース URL はバージョンプレフィックスを含む完全なベースパス:
 
-| Platform | Base URL |
+| プラットフォーム | ベース URL |
 |----------|----------|
 | OpenAI | `https://api.openai.com/v1` |
 | Anthropic | `https://api.anthropic.com/v1` |
 | DeepSeek | `https://api.deepseek.com/v1` |
 | Qwen | `https://dashscope.aliyuncs.com/compatible-mode/v1` |
 
-:::caution{title="Note"}
-Do not append `/chat/completions` to the Base URL. AiDog handles this automatically.
+:::caution{title="注意"}
+ベース URL に `/chat/completions` を追加しないでください。AiDog が自動処理します。
 :::
 
-### API Key Security
+### API Key セキュリティ
 
-API keys are stored locally and never uploaded to any server.
+API キーはローカルに保存され、サーバーへアップロードされません。
