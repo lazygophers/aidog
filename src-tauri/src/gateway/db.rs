@@ -1510,6 +1510,43 @@ pub async fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, Stri
         .map_err(|e| e.to_string())
 }
 
+/// 导入导出用：列出全部未删除 setting 原始行（scope, key, value_json）。
+pub async fn list_all_settings_raw(db: &Db) -> Result<Vec<(String, String, String)>, String> {
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT scope, key, value FROM setting WHERE deleted_at = 0 ORDER BY scope, key",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, row.get::<_, String>(2)?))
+            })?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// 导入导出用：列出 group→platform 全部关联（按名称解析，跨机迁移友好）。
+pub async fn list_all_group_platform_pairs(
+    db: &Db,
+) -> Result<Vec<(String, String)>, String> {
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT g.name, p.name FROM group_platform gp
+                 JOIN \"group\" g ON g.id = gp.group_id
+                 JOIN platform p ON p.id = gp.platform_id
+                 WHERE gp.deleted_at = 0 ORDER BY g.name, p.name",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+}
+
 // ─── Middleware Rule CRUD (C1 基座) ────────────────────────
 
 use super::models::{
@@ -2392,6 +2429,20 @@ fn price_data_to_summary(mp: &super::models::ModelPrice) -> super::models::Model
         cache_read_price: cache_read.map(|v| v * 1_000_000.0),
         updated_at: mp.updated_at,
     }
+}
+
+/// 导入导出用：全部 model_price 完整行（含 price_data 原始 JSON）。
+pub async fn list_all_model_prices_full(db: &Db) -> Result<Vec<super::models::ModelPrice>, String> {
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare(&format!(
+                "SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 ORDER BY model_name"
+            ))?;
+            let rows = stmt.query_map([], row_to_model_price)?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
 }
 
 pub async fn list_model_prices(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::models::ModelPriceSummary>, String> {

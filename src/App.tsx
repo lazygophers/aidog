@@ -37,6 +37,7 @@ const BASE_NAV: NavItem[] = [
       { id: "settings/pricing", labelKey: "appSettings.pricingTab", group: "nav.settingsGroup.config" },
       { id: "settings/tray", labelKey: "appSettings.trayTab", group: "nav.settingsGroup.config" },
       { id: "settings/popover", labelKey: "appSettings.popoverTab", group: "nav.settingsGroup.config" },
+      { id: "settings/importexport", labelKey: "appSettings.importExportTab", group: "nav.settingsGroup.config" },
     ],
   },
 ];

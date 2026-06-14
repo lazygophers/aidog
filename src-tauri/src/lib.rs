@@ -1518,6 +1518,51 @@ async fn skills_update(scope: SkillScope) -> Result<SkillsOpResult, String> {
     Ok(gateway::skills::update(&scope))
 }
 
+// ─── 导入导出子系统 ───────────────────────────────────────
+
+/// 导出：收集各 scope 数据 → 加密 → 写入用户选择路径。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn export_to_file(
+    db: State<'_, Db>,
+    scopes: Vec<String>,
+    path: String,
+) -> Result<(), String> {
+    tracing::debug!(command = "export_to_file", scopes = ?scopes, path = %path, "command invoked");
+    let mut payload = gateway::import_export::collect::collect(&db, &scopes).await?;
+    let bytes = payload.serialize_with_checksum()?;
+    let encrypted = gateway::import_export::encrypt(&bytes)?;
+    std::fs::write(&path, &encrypted).map_err(|e| format!("write export file: {e}"))?;
+    Ok(())
+}
+
+/// 导入预览：读文件 → 解密 → 校验 → 扫描冲突，返回前端弹窗所需信息。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn import_read_file(
+    db: State<'_, Db>,
+    path: String,
+) -> Result<gateway::import_export::ImportPreview, String> {
+    tracing::debug!(command = "import_read_file", path = %path, "command invoked");
+    let bytes = std::fs::read(&path).map_err(|e| format!("read import file: {e}"))?;
+    gateway::import_export::apply::preview(&bytes, &db).await
+}
+
+/// 导入应用：按用户决策写入 db + 文件 + skills。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn import_apply(
+    db: State<'_, Db>,
+    path: String,
+    decisions: Vec<gateway::import_export::ConflictDecision>,
+) -> Result<gateway::import_export::ImportReport, String> {
+    tracing::debug!(command = "import_apply", path = %path, decisions = decisions.len(), "command invoked");
+    let bytes = std::fs::read(&path).map_err(|e| format!("read import file: {e}"))?;
+    let plain = gateway::import_export::decrypt(&bytes)?;
+    let payload = gateway::import_export::Payload::from_bytes_verified(&plain)?;
+    gateway::import_export::apply::apply(payload, &decisions, &db).await
+}
+
 /// 测试通知：直接走分发逻辑（前端设置页"测试"按钮），不经 /api/notify 端点。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
@@ -2956,6 +3001,10 @@ pub fn run() {
             skills_enable,
             skills_disable,
             skills_update,
+            // 导入导出子系统
+            export_to_file,
+            import_read_file,
+            import_apply,
             // App Logging
             app_log_settings_get,
             app_log_settings_set,
