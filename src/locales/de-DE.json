@@ -1242,5 +1242,8 @@
   "tray.todayUsage": "Heutige Nutzung",
   "tray.twoLine": "Zweizeilig",
   "unit.days": "Tage",
-  "unit.sec": "Sek."
+  "unit.sec": "Sek.",
+  "skills.uninstall": "Deinstallieren",
+  "skills.uninstallConfirm": "Skill {{name}} und seine Aktivierungskonfiguration für alle Agents werden gelöscht. Nicht rückgängig machbar. Bestätigen?",
+  "skills.uninstallDone": "Deinstalliert"
 }

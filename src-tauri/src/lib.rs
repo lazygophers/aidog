@@ -1571,6 +1571,19 @@ async fn skills_uninstall_all(db: State<'_, Db>, scope: SkillScope) -> Result<Sk
     Ok(gateway::skills::uninstall_all(&scope, proxy.as_deref()))
 }
 
+/// 卸载单一 skill（破坏性，前端二次确认）：删规范存储 + 所有 agent 启用配置。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_uninstall(
+    db: State<'_, Db>,
+    name: String,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_uninstall", "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::uninstall(&name, &scope, proxy.as_deref()))
+}
+
 /// 对齐两 agent 的 skills 启用配置（使 `to` 与 `from` 完全一致）。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
@@ -3289,6 +3302,7 @@ pub fn run() {
             skills_disable,
             skills_update,
             skills_uninstall_all,
+            skills_uninstall,
             skills_align_agents,
             skills_enable_all,
             // 导入导出子系统

@@ -1242,5 +1242,8 @@
   "tray.todayUsage": "استخدام اليوم",
   "tray.twoLine": "سطران",
   "unit.days": "أيام",
-  "unit.sec": "ثانية"
+  "unit.sec": "ثانية",
+  "skills.uninstall": "إلغاء التثبيت",
+  "skills.uninstallConfirm": "سيتم حذف skill {{name}} وإعداد التفعيل لجميع الـ agents. لا يمكن التراجع. تأكيد؟",
+  "skills.uninstallDone": "تم إلغاء التثبيت"
 }
