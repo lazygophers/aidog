@@ -82,35 +82,35 @@ export function Skills() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeKind, projectPath]);
 
-  // SWR 开页/切 scope：先读缓存即时渲染（命中即 0 子进程），再后台 refresh。
-  // 冷启动（无缓存命中 stale）才显整页 loading；命中则瞬间显缓存 + 静默刷新。
+  // 开页/切 scope：纯缓存渲染（命中即 0 子进程，无自动 refresh、无 spinner、无列表跳变）。
+  // 仅冷启动（无缓存命中 stale，或缓存读取失败）才跑一次 listRefresh 填充并落盘（显整页 loading）。
+  // 命中缓存绝不自动跑 npx；用户需最新态时走显式「刷新」按钮（refreshInstalled）。
   const loadInstalled = useCallback(async () => {
     if (scopeInvalid) {
       setInstalled([]);
       return;
     }
-    let cold = false;
     try {
       const cached = await skillsApi.listInstalled(scope);
-      if (cached.stale) {
-        // 冷启动：无缓存 → 显加载态等 refresh。
-        cold = true;
-        setInstalledLoading(true);
-      } else {
-        // 命中缓存：瞬间渲染。
+      if (!cached.stale) {
+        // 命中缓存：瞬间渲染，结束（不自动 refresh）。
         setInstalled(cached.items);
+        return;
       }
+      // 冷启动：无缓存 → 落到下方 refresh 填充。
     } catch (e) {
       console.error("list installed (cache) failed", e);
+      // 缓存读取失败也兜底走 refresh。
     }
-    // 后台 revalidate（不阻塞首屏）。
+    // 冷启动 / 缓存失败：显加载态，跑一次 refresh 填充并落盘。
+    setInstalledLoading(true);
     try {
       const res = await skillsApi.listRefresh(scope);
       setInstalled(res.items);
     } catch (e) {
       console.error("list installed (refresh) failed", e);
     } finally {
-      if (cold) setInstalledLoading(false);
+      setInstalledLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeKind, projectPath]);
@@ -326,6 +326,15 @@ export function Skills() {
           )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: 12 }}
+            disabled={scopeInvalid || busyKey !== null || refreshing}
+            onClick={refreshInstalled}
+            title={t("skills.refresh", "刷新")}
+          >
+            {refreshing ? t("skills.refreshing", "刷新中…") : t("skills.refresh", "刷新")}
+          </button>
           <button
             className="btn btn-ghost"
             style={{ fontSize: 12 }}

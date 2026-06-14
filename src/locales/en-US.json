@@ -916,6 +916,7 @@
   "skills.updated": "Updated successfully",
   "skills.updating": "Updating…",
   "skills.refreshing": "Refreshing…",
+"skills.refresh": "Refresh",
   "stats": {
     "inputTokens": "Input Tokens",
     "outputTokens": "Output Tokens",

@@ -938,6 +938,7 @@
   "skills.updated": "تم التحديث بنجاح",
   "skills.updating": "جارٍ التحديث…",
   "skills.refreshing": "جارٍ التحديث…",
+"skills.refresh": "تحديث",
   "stats": {
     "inputTokens": "رموز الإدخال",
     "outputTokens": "رموز الإخراج",
