@@ -4731,7 +4731,7 @@ export function HooksSection({
   t: ReturnType<typeof useTranslation>["t"];
 }) {
   const hooks: HooksConfig = hooksValue ?? {};
-  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [userToggles, setUserToggles] = useState<Record<string, boolean>>({});
 
   // Count total hooks for badge
   const totalHooks = Object.values(hooks).reduce((sum, groups) => sum + groups.reduce((s, g) => s + g.hooks.length, 0), 0);
@@ -4750,7 +4750,7 @@ export function HooksSection({
     const existing = updated[eventId] ?? [];
     updated[eventId] = [...existing, { matcher: "", hooks: [{ type: "command" as HandlerType, command: "" }] }];
     syncHooks(updated);
-    setExpandedEvent(eventId);
+    setUserToggles((prev) => ({ ...prev, [eventId]: true }));
   };
 
   const removeMatcherGroup = (eventId: string, groupIdx: number) => {
@@ -4842,7 +4842,7 @@ export function HooksSection({
       {/* Configured events */}
       {Object.entries(hooks).map(([eventId, groups]) => {
         const eventMeta = HOOK_EVENTS.find(e => e.id === eventId);
-        const isExpanded = expandedEvent === eventId || groups.length > 0;
+        const isExpanded = eventId in userToggles ? userToggles[eventId] : groups.length > 0;
         const count = eventHookCount(eventId);
 
         return (
@@ -4864,7 +4864,7 @@ export function HooksSection({
                 style={{ cursor: "pointer", userSelect: "none", fontSize: F.small, color: "var(--text-tertiary)",
                   transition: "transform 0.2s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)"
                 }}
-                onClick={() => setExpandedEvent(isExpanded ? null : eventId)}
+                onClick={() => setUserToggles((prev) => ({ ...prev, [eventId]: !isExpanded }))}
               >
                 ▶
               </span>
@@ -5193,7 +5193,7 @@ export function HooksSectionInline(props: {
   // Reuse same logic but render flat — extract hooks data from props
   const { hooksValue, updateField, t } = props;
   const hooks: HooksConfig = hooksValue ?? {};
-  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [userToggles, setUserToggles] = useState<Record<string, boolean>>({});
 
   const totalHooks = Object.values(hooks).reduce((sum, groups) => sum + groups.reduce((s, g) => s + g.hooks.length, 0), 0);
 
@@ -5211,7 +5211,7 @@ export function HooksSectionInline(props: {
     const existing = updated[eventId] ?? [];
     updated[eventId] = [...existing, { matcher: "", hooks: [{ type: "command" as HandlerType, command: "" }] }];
     syncHooks(updated);
-    setExpandedEvent(eventId);
+    setUserToggles((prev) => ({ ...prev, [eventId]: true }));
   };
 
   const removeMatcherGroup = (eventId: string, groupIdx: number) => {
@@ -5291,7 +5291,7 @@ export function HooksSectionInline(props: {
       {/* Reuse exact same event rendering as HooksSection — copy the JSX */}
       {Object.entries(hooks).map(([eventId, groups]) => {
         const eventMeta = HOOK_EVENTS.find(e => e.id === eventId);
-        const isExpanded = expandedEvent === eventId || groups.length > 0;
+        const isExpanded = eventId in userToggles ? userToggles[eventId] : groups.length > 0;
         const count = eventHookCount(eventId);
 
         return (
@@ -5304,7 +5304,7 @@ export function HooksSectionInline(props: {
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ cursor: "pointer", userSelect: "none", fontSize: F.small, color: "var(--text-tertiary)",
                 transition: "transform 0.2s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}
-                onClick={() => setExpandedEvent(isExpanded ? null : eventId)}>▶</span>
+                onClick={() => setUserToggles((prev) => ({ ...prev, [eventId]: !isExpanded }))}>▶</span>
               <span style={{ fontSize: 16, fontWeight: 600, color: "var(--accent)" }}>{eventId}</span>
               {eventMeta && <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>— {t(`settings.hooks.event.${eventMeta.id}.desc`, eventMeta.desc)}</span>}
               <span style={{ fontSize: 12, fontWeight: 600, padding: "2px 10px", borderRadius: 10,
