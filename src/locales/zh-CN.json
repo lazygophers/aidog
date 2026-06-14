@@ -915,6 +915,7 @@
   "skills.aligning": "对齐中…",
   "skills.updated": "更新成功",
   "skills.updating": "更新中…",
+  "skills.refreshing": "刷新中…",
   "stats": {
     "inputTokens": "输入 Token",
     "outputTokens": "输出 Token",

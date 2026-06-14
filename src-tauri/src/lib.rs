@@ -1484,7 +1484,9 @@ async fn notification_clear(db: State<'_, Db>) -> Result<(), String> {
 
 // ─── Skills 管理 ───────────────────────────────────────────
 
-use gateway::skills::{CatalogEntry, SkillAgent, SkillInfo, SkillScope, SkillsEnv, SkillsOpResult};
+use gateway::skills::{
+    CachedSkills, CatalogEntry, SkillAgent, SkillScope, SkillsEnv, SkillsOpResult,
+};
 
 /// 探测 npx / node 环境（写操作前置）。
 #[tauri::command]
@@ -1520,13 +1522,24 @@ async fn skills_search(db: State<'_, Db>, keyword: String) -> Result<Vec<Catalog
     Ok(gateway::skills::search(&keyword, proxy.as_deref()).await)
 }
 
-/// 列指定 scope 下已装 skills（统一一条/skill，走 `npx skills list --json`）。尊重上游代理。
+/// 列指定 scope 下已装 skills —— **立即返回缓存**（内存→磁盘，命中即 0 子进程）。
+/// 冷启动（无缓存）返回空 + `stale=true`，前端据此显加载态并触发 `skills_list_refresh`。
+/// SWR 的 "stale" 半：不跑 npx，开页瞬间渲染。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn skills_list_installed(db: State<'_, Db>, scope: SkillScope) -> Result<Vec<SkillInfo>, String> {
+async fn skills_list_installed(scope: SkillScope) -> Result<CachedSkills, String> {
     tracing::debug!(command = "skills_list_installed", "command invoked");
+    Ok(gateway::skills::list_cached(&scope))
+}
+
+/// 强制跑 `npx skills list --json`、更新内存+磁盘缓存、返回 fresh（`stale=false`）。尊重上游代理。
+/// SWR 的 "revalidate" 半：前端后台调用，完成后更新列表。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_list_refresh(db: State<'_, Db>, scope: SkillScope) -> Result<CachedSkills, String> {
+    tracing::debug!(command = "skills_list_refresh", "command invoked");
     let proxy = skills_proxy_url(&db).await;
-    Ok(gateway::skills::list_installed(&scope, proxy.as_deref()))
+    Ok(gateway::skills::list_refresh(&scope, proxy.as_deref()))
 }
 
 /// 为某 agent 启用 skill（shell out `npx skills add <path> -a <slug> [-g] -y`）。
@@ -1543,7 +1556,11 @@ async fn skills_enable(
 ) -> Result<SkillsOpResult, String> {
     tracing::debug!(command = "skills_enable", name = %name, "command invoked");
     let proxy = skills_proxy_url(&db).await;
-    Ok(gateway::skills::enable(&name, &path, agent, &scope, proxy.as_deref()))
+    let res = gateway::skills::enable(&name, &path, agent, &scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
 }
 
 /// 为某 agent 关闭 skill（shell out `npx skills remove -s -a -y`）。尊重上游代理。
@@ -1557,7 +1574,11 @@ async fn skills_disable(
 ) -> Result<SkillsOpResult, String> {
     tracing::debug!(command = "skills_disable", name = %name, "command invoked");
     let proxy = skills_proxy_url(&db).await;
-    Ok(gateway::skills::disable(&name, agent, &scope, proxy.as_deref()))
+    let res = gateway::skills::disable(&name, agent, &scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
 }
 
 /// 更新已装 skills（shell out `npx skills update`）。尊重上游代理（拉取更新）。
@@ -1566,7 +1587,11 @@ async fn skills_disable(
 async fn skills_update(db: State<'_, Db>, scope: SkillScope) -> Result<SkillsOpResult, String> {
     tracing::debug!(command = "skills_update", "command invoked");
     let proxy = skills_proxy_url(&db).await;
-    Ok(gateway::skills::update(&scope, proxy.as_deref()))
+    let res = gateway::skills::update(&scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
 }
 
 /// 一键卸载当前 scope 下所有平台所有 skills（破坏性，前端二次确认）。
@@ -1575,7 +1600,11 @@ async fn skills_update(db: State<'_, Db>, scope: SkillScope) -> Result<SkillsOpR
 async fn skills_uninstall_all(db: State<'_, Db>, scope: SkillScope) -> Result<SkillsOpResult, String> {
     tracing::debug!(command = "skills_uninstall_all", "command invoked");
     let proxy = skills_proxy_url(&db).await;
-    Ok(gateway::skills::uninstall_all(&scope, proxy.as_deref()))
+    let res = gateway::skills::uninstall_all(&scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
 }
 
 /// 卸载单一 skill（破坏性，前端二次确认）：删规范存储 + 所有 agent 启用配置。
@@ -1598,6 +1627,9 @@ async fn skills_uninstall(
         stderr = %result.stderr.trim(),
         "npx remove result",
     );
+    if result.success {
+        gateway::skills::invalidate(&scope);
+    }
     Ok(result)
 }
 
@@ -1612,7 +1644,11 @@ async fn skills_align_agents(
 ) -> Result<SkillsOpResult, String> {
     tracing::debug!(command = "skills_align_agents", "command invoked");
     let proxy = skills_proxy_url(&db).await;
-    Ok(gateway::skills::align_agents(from, to, &scope, proxy.as_deref()))
+    let res = gateway::skills::align_agents(from, to, &scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
 }
 
 /// 为某 agent 启用当前 scope 全部已装 skills（只增不减）。
@@ -1625,7 +1661,11 @@ async fn skills_enable_all(
 ) -> Result<SkillsOpResult, String> {
     tracing::debug!(command = "skills_enable_all", "command invoked");
     let proxy = skills_proxy_url(&db).await;
-    Ok(gateway::skills::enable_all(agent, &scope, proxy.as_deref()))
+    let res = gateway::skills::enable_all(agent, &scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
 }
 
 // ─── 导入导出子系统 ───────────────────────────────────────
@@ -3315,6 +3355,7 @@ pub fn run() {
             skills_browse_catalog,
             skills_search,
             skills_list_installed,
+            skills_list_refresh,
             skills_enable,
             skills_disable,
             skills_update,

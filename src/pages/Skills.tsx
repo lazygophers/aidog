@@ -32,7 +32,10 @@ export function Skills() {
   const [projectPath, setProjectPath] = useState("");
 
   const [installed, setInstalled] = useState<SkillInfo[]>([]);
+  // 冷启动加载态（仅无缓存命中时显整页 loading）。
   const [installedLoading, setInstalledLoading] = useState(false);
+  // 后台刷新态（SWR revalidate 中，显小"刷新中"指示，不阻塞列表）。
+  const [refreshing, setRefreshing] = useState(false);
 
   // 切换中标识："<name>::<agent>" 或 "__update__" / "__uninstall__"；非 null 时禁并发。
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -60,24 +63,54 @@ export function Skills() {
     skillsApi.checkEnv().then(setEnv).catch((e) => console.error("check env failed", e));
   }, []);
 
-  // 列已装（scope 变化时刷新）。
-  // 不先清空列表：保留旧数据直到新数据到，避免整页闪烁；仅首屏（空列表）显示 loading。
+  // SWR 后台刷新：强制跑 npx 取最新、更新缓存与列表（写操作后 + scope 切换 revalidate 调用）。
+  // 不阻塞列表，仅置 refreshing 指示。
+  const refreshInstalled = useCallback(async () => {
+    if (scopeInvalid) {
+      setInstalled([]);
+      return;
+    }
+    setRefreshing(true);
+    try {
+      const res = await skillsApi.listRefresh(scope);
+      setInstalled(res.items);
+    } catch (e) {
+      console.error("refresh installed failed", e);
+    } finally {
+      setRefreshing(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeKind, projectPath]);
+
+  // SWR 开页/切 scope：先读缓存即时渲染（命中即 0 子进程），再后台 refresh。
+  // 冷启动（无缓存命中 stale）才显整页 loading；命中则瞬间显缓存 + 静默刷新。
   const loadInstalled = useCallback(async () => {
     if (scopeInvalid) {
       setInstalled([]);
       return;
     }
-    setInstalled((prev) => {
-      if (prev.length === 0) setInstalledLoading(true);
-      return prev;
-    });
+    let cold = false;
     try {
-      const list = await skillsApi.listInstalled(scope);
-      setInstalled(list);
+      const cached = await skillsApi.listInstalled(scope);
+      if (cached.stale) {
+        // 冷启动：无缓存 → 显加载态等 refresh。
+        cold = true;
+        setInstalledLoading(true);
+      } else {
+        // 命中缓存：瞬间渲染。
+        setInstalled(cached.items);
+      }
     } catch (e) {
-      console.error("list installed failed", e);
+      console.error("list installed (cache) failed", e);
+    }
+    // 后台 revalidate（不阻塞首屏）。
+    try {
+      const res = await skillsApi.listRefresh(scope);
+      setInstalled(res.items);
+    } catch (e) {
+      console.error("list installed (refresh) failed", e);
     } finally {
-      setInstalledLoading(false);
+      if (cold) setInstalledLoading(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeKind, projectPath]);
@@ -110,7 +143,8 @@ export function Skills() {
   const applyResult = async (res: SkillsOpResult, okKey: string) => {
     if (res.success) {
       setMessage(t(okKey, "操作成功"));
-      await loadInstalled();
+      // 写后缓存已失效（后端），强制 refresh 取真实态。
+      await refreshInstalled();
     } else {
       const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "操作失败");
       setMessage(err);
@@ -234,7 +268,7 @@ export function Skills() {
             ? t("skills.alignNoop", "两 agent 配置已一致，无需对齐")
             : t("skills.alignDone", "已对齐 {{count}} 项变更", { count: n }),
         );
-        await loadInstalled();
+        await refreshInstalled();
       } else {
         const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "操作失败");
         setMessage(err);
@@ -266,7 +300,7 @@ export function Skills() {
                 count: n,
               }),
         );
-        await loadInstalled();
+        await refreshInstalled();
       } else {
         const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "操作失败");
         setMessage(err);
@@ -283,7 +317,14 @@ export function Skills() {
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t("skills.title", "Skills")}</h2>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t("skills.title", "Skills")}</h2>
+          {refreshing && !installedLoading && (
+            <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              {t("skills.refreshing", "刷新中…")}
+            </span>
+          )}
+        </div>
         <div style={{ display: "flex", gap: 8 }}>
           <button
             className="btn btn-ghost"

@@ -915,6 +915,7 @@
   "skills.aligning": "Aligning…",
   "skills.updated": "Updated successfully",
   "skills.updating": "Updating…",
+  "skills.refreshing": "Refreshing…",
   "stats": {
     "inputTokens": "Input Tokens",
     "outputTokens": "Output Tokens",
