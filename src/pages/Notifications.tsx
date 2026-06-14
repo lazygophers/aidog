@@ -80,7 +80,11 @@ export function Notifications() {
             >
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 2 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{item.title || notifTypeLabel(item.notif_type, t)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>
+                    {item.title
+                      ? `${item.title} · ${notifTypeLabel(item.notif_type, t)}`
+                      : notifTypeLabel(item.notif_type, t)}
+                  </span>
                   <span
                     style={{
                       fontSize: 10,
