@@ -15,13 +15,13 @@ import {
   PluginsSectionInline,
   HooksSectionInline,
   StatusLineSection,
-  materializeStatusline,
   ImportDiffModal,
   buildImportDiffTree,
   isPlainObject,
   type DiffNode,
   type HooksConfig,
 } from "../components/settings/editors";
+import { materializeStatusline } from "../components/settings/statusline-gen";
 import { SettingsHeader } from "../components/settings/SettingsHeader";
 import { SectionAnchorNav } from "../components/settings/SectionAnchorNav";
 
@@ -46,8 +46,9 @@ function stableStringify(value: any): string {
 //   • disabled            → delete the native field
 //   • enabled + custom    → field = { type:"command", command:<customCommand> }
 //                           (empty command → delete the field)
-//   • enabled + builtin   → generate the bash script (writes the .sh file via
-//                           statuslineApi.generate) → field.command = <path>
+//   • enabled + builtin   → generate the Python script (writes the .py file via
+//                           statuslineApi.generate) → field.command = <invoker cmd>
+//                           (`uv run --script <path>` | `python3 <path>`)
 // Returns a NEW config object; the source is never mutated. Best-effort: a
 // generate() failure logs and leaves that field untouched, never blocks save.
 async function materializeStatuslineFields(
@@ -81,11 +82,12 @@ async function materializeStatuslineFields(
       continue;
     }
 
-    // Builtin → generate the script file, point the field at the returned path.
+    // Builtin → generate the script file, point the field at the returned
+    // invoker command string (`uv run --script <path>` | `python3 <path>`).
     if (m.scriptContent != null) {
       try {
-        const path = await statuslineApi.generate(scriptType, m.scriptContent);
-        const value: Record<string, any> = { type: "command", command: path };
+        const command = await statuslineApi.generate(scriptType, m.scriptContent);
+        const value: Record<string, any> = { type: "command", command };
         next[fieldName] = value;
       } catch (e) {
         // Never block the save — leave the existing field value as-is.
