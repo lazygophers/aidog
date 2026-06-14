@@ -922,6 +922,10 @@
   "skills.toggling": "…",
   "skills.total": "Insgesamt installiert",
   "skills.updateAll": "Alle aktualisieren",
+  "skills.uninstallAll": "Alle deinstallieren",
+  "skills.uninstallAllConfirm": "Dadurch werden alle {{count}} Skills auf allen Plattformen des aktuellen Bereichs gelöscht. Nicht rückgängig zu machen. Fortfahren?",
+  "skills.uninstallAllDone": "Alle Skills wurden deinstalliert",
+  "skills.uninstalling": "Deinstallation…",
   "skills.updated": "Erfolgreich aktualisiert",
   "skills.updating": "Aktualisiere…",
   "stats": {

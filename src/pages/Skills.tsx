@@ -33,9 +33,11 @@ export function Skills() {
   const [installed, setInstalled] = useState<SkillInfo[]>([]);
   const [installedLoading, setInstalledLoading] = useState(false);
 
-  // 切换中标识："<name>::<agent>" 或 "__update__"；非 null 时禁并发。
+  // 切换中标识："<name>::<agent>" 或 "__update__" / "__uninstall__"；非 null 时禁并发。
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  // 一键卸载二次确认 modal（破坏性操作，禁 native confirm）。
+  const [confirmUninstall, setConfirmUninstall] = useState(false);
 
   // 当前 scope 对象（供 API 调用）。
   const scope: SkillScope =
@@ -172,19 +174,46 @@ export function Skills() {
     }
   };
 
+  // 一键卸载当前 scope 所有平台所有 skills（破坏性，需二次确认）。
+  const handleUninstallAll = async () => {
+    setConfirmUninstall(false);
+    if (!writeReady || scopeInvalid || busyKey !== null) return;
+    setBusyKey("__uninstall__");
+    setMessage(null);
+    try {
+      const res = await skillsApi.uninstallAll(scope);
+      await applyResult(res, "skills.uninstallAllDone");
+    } catch (e) {
+      console.error("uninstall all failed", e);
+      setMessage(String(e));
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t("skills.title", "Skills")}</h2>
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: 12 }}
-          disabled={!writeReady || scopeInvalid || busyKey !== null}
-          onClick={handleUpdate}
-        >
-          {busyKey === "__update__" ? t("skills.updating", "更新中…") : t("skills.updateAll", "更新全部")}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: 12 }}
+            disabled={!writeReady || scopeInvalid || busyKey !== null}
+            onClick={handleUpdate}
+          >
+            {busyKey === "__update__" ? t("skills.updating", "更新中…") : t("skills.updateAll", "更新全部")}
+          </button>
+          <button
+            className="btn btn-danger"
+            style={{ fontSize: 12 }}
+            disabled={!writeReady || scopeInvalid || busyKey !== null || installed.length === 0}
+            onClick={() => setConfirmUninstall(true)}
+          >
+            {busyKey === "__uninstall__" ? t("skills.uninstalling", "卸载中…") : t("skills.uninstallAll", "卸载全部")}
+          </button>
+        </div>
       </div>
 
       {/* 环境缺失提示条 */}
@@ -351,6 +380,48 @@ export function Skills() {
           </div>
         )}
       </div>
+
+      {/* 一键卸载二次确认 modal（破坏性，禁 native confirm） */}
+      {confirmUninstall && (
+        <div
+          onClick={() => setConfirmUninstall(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.4)",
+            animation: "fadeIn 150ms ease both",
+          }}
+        >
+          <div
+            className="glass-elevated"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              maxWidth: 380,
+              padding: 24,
+              display: "flex",
+              flexDirection: "column",
+              gap: 16,
+            }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 700 }}>{t("skills.uninstallAll", "卸载全部")}</div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              {t("skills.uninstallAllConfirm", "将删除当前范围下所有平台的全部 {{count}} 个 skills，不可恢复。确认？", { count: installed.length })}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setConfirmUninstall(false)}>
+                {t("action.cancel", "取消")}
+              </button>
+              <button className="btn btn-danger" style={{ fontSize: 13 }} onClick={handleUninstallAll}>
+                {t("skills.uninstallAll", "卸载全部")}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1576,6 +1576,15 @@ async fn skills_update(db: State<'_, Db>, scope: SkillScope) -> Result<SkillsOpR
     Ok(gateway::skills::update(&scope, proxy.as_deref()))
 }
 
+/// 一键卸载当前 scope 下所有平台所有 skills（破坏性，前端二次确认）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_uninstall_all(db: State<'_, Db>, scope: SkillScope) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_uninstall_all", "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::uninstall_all(&scope, proxy.as_deref()))
+}
+
 // ─── 导入导出子系统 ───────────────────────────────────────
 
 /// 导出：收集各 scope 数据 → 加密 → 写入用户选择路径。
@@ -3251,6 +3260,7 @@ pub fn run() {
             skills_enable,
             skills_disable,
             skills_update,
+            skills_uninstall_all,
             // 导入导出子系统
             export_to_file,
             import_read_file,

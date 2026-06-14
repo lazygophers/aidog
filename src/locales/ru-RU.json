@@ -922,6 +922,10 @@
   "skills.toggling": "…",
   "skills.total": "Всего установлено",
   "skills.updateAll": "Обновить все",
+  "skills.uninstallAll": "Удалить все",
+  "skills.uninstallAllConfirm": "Будут удалены все {{count}} навыков на всех платформах в текущей области. Это необратимо. Продолжить?",
+  "skills.uninstallAllDone": "Все навыки удалены",
+  "skills.uninstalling": "Удаление…",
   "skills.updated": "Успешно обновлено",
   "skills.updating": "Обновление…",
   "stats": {
