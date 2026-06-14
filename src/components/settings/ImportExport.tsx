@@ -212,7 +212,7 @@ export function ImportExportTab() {
           onClick={handleExport}
           disabled={exporting || selectedCount === 0}
           className="btn btn-primary"
-          style={{ alignSelf: "flex-start" }}
+          style={{ alignSelf: "flex-end" }}
         >
           {exporting
             ? t("importExport.exporting", "导出中…")
@@ -279,7 +279,7 @@ export function ImportExportTab() {
               </div>
             )}
 
-            <button onClick={handleApply} disabled={importing} className="btn btn-primary" style={{ alignSelf: "flex-start" }}>
+            <button onClick={handleApply} disabled={importing} className="btn btn-primary" style={{ alignSelf: "flex-end" }}>
               {importing
                 ? t("importExport.applying", "导入中…")
                 : t("importExport.applyBtn", "应用导入")}
