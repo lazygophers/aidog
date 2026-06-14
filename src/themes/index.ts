@@ -72,8 +72,8 @@ const paletteMap: Partial<Record<ThemeColor, PaletteDefinition>> = {
 };
 
 /** 默认轴值（迁移失败 / 未注册时回退）。 */
-export const DEFAULT_STYLE: ThemeStyle = "sketchy";
-export const DEFAULT_COLOR: ThemeColor = "appleBlue";
+export const DEFAULT_STYLE: ThemeStyle = "aurora";
+export const DEFAULT_COLOR: ThemeColor = "gruvbox";
 export const DEFAULT_MODE: ThemeMode = "dark";
 
 /** 获取所有可用 style（结构轴）。 */
