@@ -86,4 +86,5 @@
 | logo-transparent-icon-swap-css-theme | Logo 背景透明 + 换图标 + CSS 主题适配补齐 | — | 已完成 | 收尾 | 100% | — |
 | mcp-edit | MCP 编辑功能 | — | 已完成 | 收尾 | 100% | — |
 | load-recommended-hooks | 修复加载推荐配置时通知 hooks 未自动添加/更新 | — | 已完成 | 收尾 | 100 | — |
-| hooks-quick-notify-inject | Hooks 区加快速注入/移除通知 hook 入口 (编辑器可见) | — | in_progress | exec | 10 | .trellis/worktrees/06-14-hooks-quick-notify-inject |
+| hooks-quick-notify-inject | Hooks 区加快速注入/移除通知 hook 入口 (编辑器可见) | — | 已完成 | 收尾 | 100 | — |
+| popup-opaque-bg | 弹窗本体背景 100% 不透明 | — | 已完成 | 收尾 | 100% | — |
