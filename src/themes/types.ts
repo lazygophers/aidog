@@ -1,7 +1,16 @@
 export type ThemeMode = "light" | "dark";
 
 /** 结构/材质轴：style 决定圆角 / 模糊 / 阴影形态 / 过渡。 */
-export type ThemeStyle = "liquidGlass" | "flat" | "soft" | "sharp";
+export type ThemeStyle =
+  | "liquidGlass"
+  | "flat"
+  | "soft"
+  | "sharp"
+  | "aurora"
+  | "paper"
+  | "terminal"
+  | "bento"
+  | "sketchy";
 
 /** 调色板轴：color 决定全部色彩变量 + shadow-rgb/glass-edge。12 个全列，阶段 2 加文件即用。 */
 export type ThemeColor =

@@ -2,6 +2,11 @@ import { liquidGlass } from "./styles/liquidGlass";
 import { flat } from "./styles/flat";
 import { soft } from "./styles/soft";
 import { sharp } from "./styles/sharp";
+import { aurora } from "./styles/aurora";
+import { paper } from "./styles/paper";
+import { terminal } from "./styles/terminal";
+import { bento } from "./styles/bento";
+import { sketchy } from "./styles/sketchy";
 
 import { appleBlue } from "./palettes/appleBlue";
 import { nord } from "./palettes/nord";
@@ -41,6 +46,11 @@ const styleMap: Record<ThemeStyle, StyleDefinition> = {
   flat,
   soft,
   sharp,
+  aurora,
+  paper,
+  terminal,
+  bento,
+  sketchy,
 };
 
 /**

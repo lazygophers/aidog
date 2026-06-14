@@ -19,6 +19,7 @@ export const flat: StyleDefinition = {
     "--shadow-md": "0 1px 2px rgba(var(--shadow-rgb), 0.06)",
     "--shadow-lg": "0 2px 4px rgba(var(--shadow-rgb), 0.08)",
     "--transition": "150ms ease",
+    "--app-bg-overlay": "none",
   },
   dark: {
     "--radius-sm": "6px",
@@ -32,5 +33,6 @@ export const flat: StyleDefinition = {
     "--shadow-md": "0 1px 2px rgba(var(--shadow-rgb), 0.25)",
     "--shadow-lg": "0 2px 4px rgba(var(--shadow-rgb), 0.3)",
     "--transition": "150ms ease",
+    "--app-bg-overlay": "none",
   },
 };

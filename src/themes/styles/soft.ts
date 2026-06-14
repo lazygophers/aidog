@@ -19,6 +19,7 @@ export const soft: StyleDefinition = {
     "--shadow-md": "6px 6px 14px rgba(var(--shadow-rgb), 0.10), -6px -6px 14px rgba(255, 255, 255, 0.04)",
     "--shadow-lg": "10px 10px 24px rgba(var(--shadow-rgb), 0.12), -10px -10px 24px rgba(255, 255, 255, 0.05)",
     "--transition": "200ms ease",
+    "--app-bg-overlay": "none",
   },
   dark: {
     "--radius-sm": "12px",
@@ -32,5 +33,6 @@ export const soft: StyleDefinition = {
     "--shadow-md": "6px 6px 14px rgba(var(--shadow-rgb), 0.45), -6px -6px 14px rgba(255, 255, 255, 0.04)",
     "--shadow-lg": "10px 10px 24px rgba(var(--shadow-rgb), 0.5), -10px -10px 24px rgba(255, 255, 255, 0.05)",
     "--transition": "200ms ease",
+    "--app-bg-overlay": "none",
   },
 };
