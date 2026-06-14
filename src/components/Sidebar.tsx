@@ -225,8 +225,8 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
         <span>{t("app.title")}</span>
       </div>
 
-      {/* Navigation */}
-      <nav style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+      {/* Navigation — 纵向滚动: 窗口矮/分组展开多时 nav 项溢出可滚 (minHeight:0 是 flex 子项 overflow 生效关键) */}
+      <nav style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 2, overflowY: "auto" }}>
         {navItems.map((item) => {
           const topId = activeId.split("/")[0];
           const isActive = item.id === topId;
