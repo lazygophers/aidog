@@ -13,6 +13,7 @@ import {
   type Platform,
 } from "../services/api";
 import { formatNumber, formatCost, successRate } from "../utils/formatters";
+import { smoothPath } from "../utils/chart";
 import {
   successRateLevel,
   costLevel,
@@ -55,6 +56,16 @@ function delta(cur: number, prev: number): number | null {
   return ((cur - prev) / prev) * 100;
 }
 
+// ── 粒度可读标注（趋势图右上角；auto 降级时加「（自动）」后缀让用户知情） ──
+function granLabel(g: StatsQuery["granularity"], auto: boolean, t: TFunction): string {
+  const base =
+    g === "minute" ? t("stats.granMinute", "1 分钟")
+      : g === "5min" ? t("stats.gran5min", "5 分钟")
+        : g === "hourly" ? t("stats.granHourly", "小时")
+          : t("stats.granDaily", "天");
+  return auto ? t("stats.granAuto", "{{g}}（自动）", { g: base }) : base;
+}
+
 // ── 小箭头 SVG（环比方向 / 排序指示），就地渲染避免改动 shared icons ──
 function ArrowUp({ size = 11, color = "currentColor" }: { size?: number; color?: string }) {
   return (
@@ -88,6 +99,8 @@ export function Stats() {
   const [loading, setLoading] = useState(true);
   const [preset, setPreset] = useState<TimePreset>("today");
   const [granularity, setGranularity] = useState<"daily" | "hourly">("hourly");
+  // 自动降级实际生效的粒度（auto 时 ≠ 用户所选 granularity），用于趋势图渲染 + UI 标注
+  const [effectiveGran, setEffectiveGran] = useState<StatsQuery["granularity"]>("hourly");
   // 切 preset 联动粒度：today→hourly（24 点），7d/30d→daily；手动 select 仍可覆盖
   const changePreset = (p: TimePreset) => {
     setPreset(p);
@@ -126,8 +139,29 @@ export function Stats() {
         statsApi.query({ ...base, start: range.start, end: range.end }),
         statsApi.query({ ...base, start: prevR.start, end: prevR.end }).catch(() => null),
       ]);
-      setData(result);
       setPrevOverview(prev?.overview ?? null);
+
+      // ── 自动降级粒度 ──
+      // 仅在用户选「按小时」且短范围（≤24h，即 today preset）时生效；7d/30d 长范围绝不降到 minute（防桶爆炸）。
+      // 拉到 hourly 后数非空桶（total_requests>0），过稀疏 → 重查更细粒度让走势可读。
+      const spanMs = range.end - range.start;
+      const H24 = 24 * 60 * 60 * 1000;
+      const H2 = 2 * 60 * 60 * 1000;
+      const nonEmpty = result.buckets.filter(b => b.total_requests > 0).length;
+      let finalResult = result;
+      let finalGran: StatsQuery["granularity"] = granularity;
+      if (granularity === "hourly" && spanMs <= H24 && nonEmpty < 4) {
+        // 范围极短（≤2h）直接上 minute；否则先 5min，5min 仍稀疏且范围允许再降 minute
+        if (spanMs <= H2) {
+          const r = await statsApi.query({ ...base, granularity: "minute", start: range.start, end: range.end }).catch(() => null);
+          if (r) { finalResult = r; finalGran = "minute"; }
+        } else {
+          const r5 = await statsApi.query({ ...base, granularity: "5min", start: range.start, end: range.end }).catch(() => null);
+          if (r5) { finalResult = r5; finalGran = "5min"; }
+        }
+      }
+      setData(finalResult);
+      setEffectiveGran(finalGran);
     } catch (e) {
       console.error(e);
     }
@@ -340,61 +374,103 @@ export function Stats() {
             />
           </div>
 
-          {/* Trend chart（hover tooltip） */}
+          {/* Trend chart（平滑曲线 + hover tooltip） */}
           {buckets.length > 0 && (
             <div className="glass-surface" style={{ padding: "16px 20px" }}>
-              <div style={{ fontSize: F.label, fontWeight: 600, marginBottom: 12 }}>{t("stats.requestTrend", "请求趋势")}</div>
-              <div
-                ref={chartRef}
-                style={{ position: "relative", display: "flex", alignItems: "flex-end", gap: 2, height: 120 }}
-                onMouseLeave={() => setHoverIdx(null)}
-              >
-                {buckets.map((b, i) => {
-                  const h = Math.max(2, (b.total_requests / maxReq) * 100);
-                  const errRatio = b.total_requests > 0 ? b.error_count / b.total_requests : 0;
-                  const active = hoverIdx === i;
-                  return (
-                    <div
-                      key={i}
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        display: "flex",
-                        flexDirection: "column",
-                        alignItems: "center",
-                        gap: 2,
-                        cursor: "default",
-                      }}
-                      onMouseEnter={() => setHoverIdx(i)}
-                    >
-                      <div style={{ fontSize: 9, color: "var(--text-tertiary)" }}>{b.total_requests > 0 ? formatNumber(b.total_requests) : ""}</div>
-                      <div style={{
-                        width: "100%",
-                        height: `${h}%`,
-                        borderRadius: 3,
-                        background: `linear-gradient(to top, var(--accent), color-mix(in srgb, var(--accent) ${Math.round(errRatio * 100)}%, var(--danger)))`,
-                        opacity: active ? 1 : 0.8,
-                        outline: active ? "1px solid var(--accent)" : "none",
-                        transition: "height 0.3s, opacity 0.15s",
-                      }} />
-                      {buckets.length <= 24 && (
-                        <div style={{ fontSize: 8, color: "var(--text-tertiary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", maxWidth: "100%" }}>
-                          {b.time_bucket.slice(-5)}
-                        </div>
+              <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+                <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("stats.requestTrend", "请求趋势")}</div>
+                <div style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
+                  {t("stats.granularityLabel", "粒度")}：{granLabel(effectiveGran, effectiveGran !== granularity, t)}
+                </div>
+              </div>
+              {(() => {
+                // SVG 曲线图：viewBox 固定坐标系，preserveAspectRatio=none 横向拉满，纵向固定高
+                const W = 1000;
+                const Hsvg = 100;
+                const PAD_T = 8;
+                const n = buckets.length;
+                const plotH = Hsvg - PAD_T;
+                const xAt = (i: number) => (n > 1 ? (i / (n - 1)) * W : W / 2);
+                const yAt = (v: number) => PAD_T + (maxReq > 0 ? 1 - v / maxReq : 1) * plotH;
+                const pts = buckets.map((b, i) => ({ x: xAt(i), y: yAt(b.total_requests) }));
+                const linePath = smoothPath(pts, PAD_T, Hsvg);
+                const areaPath = n > 0 ? `${linePath} L ${pts[n - 1].x.toFixed(1)},${Hsvg} L ${pts[0].x.toFixed(1)},${Hsvg} Z` : "";
+                const peakIdx = buckets.reduce((mi, b, i) => (b.total_requests > buckets[mi].total_requests ? i : mi), 0);
+                // x 轴标注密度：桶多时稀疏取样，避免重叠（≤12 全标，否则每 ~ceil(n/8) 标一个）
+                const step = n <= 12 ? 1 : Math.ceil(n / 8);
+                return (
+                  <div ref={chartRef} style={{ display: "flex", flexDirection: "column", gap: 2 }} onMouseLeave={() => setHoverIdx(null)}>
+                    <div style={{ position: "relative" }}>
+                      <svg viewBox={`0 0 ${W} ${Hsvg}`} preserveAspectRatio="none" style={{ width: "100%", height: 120, display: "block", overflow: "visible" }}>
+                        <defs>
+                          <linearGradient id="statsTrendArea" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.28" />
+                            <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
+                          </linearGradient>
+                        </defs>
+                        <path d={areaPath} fill="url(#statsTrendArea)" />
+                        <path
+                          d={linePath}
+                          fill="none"
+                          stroke="var(--accent)"
+                          strokeWidth={2}
+                          strokeLinejoin="round"
+                          strokeLinecap="round"
+                          vectorEffect="non-scaling-stroke"
+                        />
+                        {/* hover 命中区（每桶一竖条，透明） */}
+                        {pts.map((p, i) => (
+                          <rect
+                            key={i}
+                            x={(p.x - W / (n * 2)).toFixed(1)}
+                            y={0}
+                            width={(W / n).toFixed(1)}
+                            height={Hsvg}
+                            fill="transparent"
+                            onMouseEnter={() => setHoverIdx(i)}
+                          />
+                        ))}
+                        {/* hover 高亮点 */}
+                        {hoverIdx !== null && pts[hoverIdx] && (
+                          <circle cx={pts[hoverIdx].x.toFixed(1)} cy={pts[hoverIdx].y.toFixed(1)} r={3.5} fill="var(--accent)" vectorEffect="non-scaling-stroke" />
+                        )}
+                        {/* 峰值点高亮（克制，单点） */}
+                        {maxReq > 1 && hoverIdx === null && (
+                          <circle cx={pts[peakIdx].x.toFixed(1)} cy={pts[peakIdx].y.toFixed(1)} r={3.5} fill="var(--accent)" vectorEffect="non-scaling-stroke" />
+                        )}
+                      </svg>
+                      {/* hover tooltip（绝对定位 glass-elevated） */}
+                      {hoverIdx !== null && buckets[hoverIdx] && (
+                        <ChartTooltip
+                          bucket={buckets[hoverIdx]}
+                          pos={hoverIdx / Math.max(1, buckets.length - 1)}
+                          t={t}
+                        />
                       )}
                     </div>
-                  );
-                })}
-
-                {/* hover tooltip（绝对定位 glass-elevated） */}
-                {hoverIdx !== null && buckets[hoverIdx] && (
-                  <ChartTooltip
-                    bucket={buckets[hoverIdx]}
-                    pos={hoverIdx / Math.max(1, buckets.length - 1)}
-                    t={t}
-                  />
-                )}
-              </div>
+                    {/* x 轴标注：minute/5min/hourly 显 HH:MM，daily 显 MM-DD（time_bucket 尾 5 字符） */}
+                    <div style={{ position: "relative", height: 12 }}>
+                      {buckets.map((b, i) =>
+                        i % step === 0 ? (
+                          <span
+                            key={i}
+                            style={{
+                              position: "absolute",
+                              left: `${(xAt(i) / W) * 100}%`,
+                              transform: "translateX(-50%)",
+                              fontSize: 8,
+                              color: "var(--text-tertiary)",
+                              whiteSpace: "nowrap",
+                            }}
+                          >
+                            {b.time_bucket.slice(-5)}
+                          </span>
+                        ) : null,
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 

@@ -2554,6 +2554,23 @@ impl QueryParams {
     }
 }
 
+/// 时间分桶 SQL 表达式（select 列）。粒度决定分桶宽度：
+/// - `minute` → 每分钟一桶 `%Y-%m-%d %H:%M:00`
+/// - `5min`   → 每 5 分钟一桶；strftime 无原生 floor，先把 epoch 秒整除 300 再 *300 向下取整到 5min 边界
+/// - `hourly` → 每小时一桶 `%Y-%m-%d %H:00`
+/// - 其余（含 `daily`/None）→ 每天一桶 `%Y-%m-%d`
+fn bucket_time_expr(granularity: Option<&str>) -> String {
+    match granularity {
+        Some("minute") => "strftime('%Y-%m-%d %H:%M:00', created_at/1000, 'unixepoch')".to_string(),
+        // epoch 秒 floor 到 300s 边界后再格式化为分钟（桶 key 形如 "2026-06-16 10:05"）
+        Some("5min") => {
+            "strftime('%Y-%m-%d %H:%M', (created_at/1000/300)*300, 'unixepoch')".to_string()
+        }
+        Some("hourly") => "strftime('%Y-%m-%d %H:00', created_at/1000, 'unixepoch')".to_string(),
+        _ => "strftime('%Y-%m-%d', created_at/1000, 'unixepoch')".to_string(),
+    }
+}
+
 pub async fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
     let query = query.clone();
     db.0
@@ -2604,10 +2621,7 @@ ELSE proxy_log.platform_id END";
     }
     let where_sql = where_parts.join(" AND ");
 
-    let time_fmt = match query.granularity.as_deref() {
-        Some("hourly") => "%Y-%m-%d %H:00",
-        _ => "%Y-%m-%d",
-    };
+    let bucket_expr = bucket_time_expr(query.granularity.as_deref());
 
     // ── Overview ──
     let overview_sql = format!(
@@ -2642,7 +2656,7 @@ ELSE proxy_log.platform_id END";
 
     // ── Time buckets ──
     let bucket_sql = format!(
-        "SELECT strftime('{time_fmt}', created_at/1000, 'unixepoch'), COUNT(*), \
+        "SELECT {bucket_expr}, COUNT(*), \
          SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
          SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END), \
          SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), \
@@ -3300,6 +3314,47 @@ mod tests {
         let q2 = StatsQuery { start: None, end: None, granularity: None, group_by: None, filter_group: None, filter_model: Some("glm-4-plus".into()), filter_platform: None };
         let s2 = query_stats(&db, &q2).await.expect("query_stats filtered");
         assert!(s2.available_models.contains(&"gpt-4o".to_string()), "filter_model shrank available_models: {:?}", s2.available_models);
+    }
+
+    /// 分钟 / 5 分钟分桶：合成同一小时内不同分钟的日志，断言分桶宽度正确。
+    /// minute → 每分钟一桶；5min → floor 到 5 分钟边界一桶；hourly → 全部归一桶。
+    #[tokio::test]
+    async fn stats_minute_and_5min_buckets() {
+        let db = test_db().await;
+        // 固定基准：2026-06-16 10:00:00 UTC（毫秒）
+        let base = chrono::DateTime::parse_from_rfc3339("2026-06-16T10:00:00Z")
+            .unwrap()
+            .timestamp_millis();
+        // 6 条日志，分布在 10:00 / 10:01 / 10:03 / 10:06 / 10:12 / 10:14
+        let offsets_min = [0i64, 1, 3, 6, 12, 14];
+        for (i, m) in offsets_min.iter().enumerate() {
+            let ts = base + m * 60_000;
+            let lg = sample_log(&format!("b{i}"), "g1", ts);
+            insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false))
+                .await
+                .unwrap();
+        }
+        let start = base - 60_000;
+        let end = base + 20 * 60_000;
+
+        // minute：6 个不同分钟 → 6 桶
+        let q_min = StatsQuery { start: Some(start), end: Some(end), granularity: Some("minute".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: None };
+        let r_min = query_stats(&db, &q_min).await.expect("minute stats");
+        assert_eq!(r_min.buckets.len(), 6, "minute 应 6 桶: {:?}", r_min.buckets.iter().map(|b| &b.time_bucket).collect::<Vec<_>>());
+
+        // 5min：分钟落入 [00-04]→2(00,01,03), [05-09]→1(06), [10-14]→2(12,14) → 3 桶
+        let q_5 = StatsQuery { start: Some(start), end: Some(end), granularity: Some("5min".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: None };
+        let r_5 = query_stats(&db, &q_5).await.expect("5min stats");
+        assert_eq!(r_5.buckets.len(), 3, "5min 应 3 桶: {:?}", r_5.buckets.iter().map(|b| &b.time_bucket).collect::<Vec<_>>());
+        // 第一桶（10:00）应聚合 3 条请求
+        let first = &r_5.buckets[0];
+        assert_eq!(first.total_requests, 3, "5min 首桶应聚 3 条: {first:?}");
+
+        // hourly：全在 10 点 → 1 桶
+        let q_h = StatsQuery { start: Some(start), end: Some(end), granularity: Some("hourly".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: None };
+        let r_h = query_stats(&db, &q_h).await.expect("hourly stats");
+        assert_eq!(r_h.buckets.len(), 1, "hourly 应 1 桶: {:?}", r_h.buckets.iter().map(|b| &b.time_bucket).collect::<Vec<_>>());
+        assert_eq!(r_h.buckets[0].total_requests, 6, "hourly 桶应聚 6 条");
     }
 
     fn sample_platform(name: &str) -> CreatePlatform {

@@ -1456,5 +1456,11 @@
   "updater.releaseNotes": "Notes de version",
   "updater.updateFailed": "Échec de la mise à jour",
   "updater.updateNow": "Mettre à jour maintenant",
-  "updater.updating": "Mise à jour…"
+  "updater.updating": "Mise à jour…",
+  "stats.granularityLabel": "Granularité",
+  "stats.granMinute": "1 min",
+  "stats.gran5min": "5 min",
+  "stats.granHourly": "Horaire",
+  "stats.granDaily": "Quotidien",
+  "stats.granAuto": "{{g}} (auto)"
 }

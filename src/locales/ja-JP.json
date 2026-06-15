@@ -1456,5 +1456,11 @@
   "updater.releaseNotes": "更新内容",
   "updater.updateFailed": "更新に失敗しました",
   "updater.updateNow": "今すぐ更新",
-  "updater.updating": "更新中…"
+  "updater.updating": "更新中…",
+  "stats.granularityLabel": "粒度",
+  "stats.granMinute": "1 分",
+  "stats.gran5min": "5 分",
+  "stats.granHourly": "時間",
+  "stats.granDaily": "日",
+  "stats.granAuto": "{{g}}（自動）"
 }
