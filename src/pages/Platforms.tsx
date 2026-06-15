@@ -364,6 +364,36 @@ function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Platform
   return (base[protocol] || []).map(ep => ({ ...ep }));
 }
 
+/** 主流平台预设默认模型（按 PlatformModels 槽位语义归类）。
+ *  与 getDefaultEndpoints 同址同模式：纯前端预设，落 CreatePlatform.models。
+ *  仅覆盖主流平台，其余留空（向后兼容，未覆盖平台 models 保持全空）。
+ *  模型名取各平台当前主力型号；不确定的不硬填（避免过时/编造）。 */
+function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Partial<Record<ModelSlot, string>> {
+  // 默认模型截至 2026-06 核对官方发布说明；上游模型迭代月级，过时由 fetchModels 拉取覆盖；维护说明见 .claude/skills/aidog-add-platform/references/default-model.md
+  const cp = !!codingPlan;
+  const presets: Partial<Record<Protocol, Partial<Record<ModelSlot, string>>>> = {
+    // ── 官方 ──
+    anthropic: { opus: "claude-opus-4-8", sonnet: "claude-sonnet-4-6", haiku: "claude-haiku-4-5-20251001" },
+    openai: { gpt: "gpt-5.5" },
+    codex: { gpt: "gpt-5.5-codex" }, // TODO 核对 codex 变体确切 API id，截至2026-06 未从官方 docs 确认
+    // gemini: 槽位语义不匹配（无 opus/sonnet/gpt 对应），留空待用户填或拉取
+
+    // ── 国内官方 ──
+    // glm-4.6 将 2026-07-09 弃用，后继 glm-5.2；保留 4.6 因 coding plan 仍广用，到期前替换
+    glm: { default: "glm-4.6" },
+    glm_en: { default: "glm-4.6" },
+    // kimi-k2 原系列 2026-05-25 已停用
+    kimi: { default: cp ? "kimi-k2.7-code" : "kimi-k2.6" },
+    minimax: { default: "MiniMax-M2.7" },
+    minimax_en: { default: "MiniMax-M2.7" },
+    // 百炼（通义千问）；qwen3-max 已被 qwen3.7-max(2026-05-20) 取代
+    bailian: { default: "qwen3.7-max" },
+    // deepseek-chat 将 2026-07-24 弃用，v4-flash 为后继
+    deepseek: { default: "deepseek-v4-flash" },
+  };
+  return { ...(presets[protocol] || {}) };
+}
+
 const PROTOCOL_LABELS: Record<Protocol, string> = {
   // ── AI 请求协议 ──
   openai: "OpenAI",
@@ -1125,7 +1155,14 @@ const PlatformCard = memo(function PlatformCard({
 }: PlatformCardProps) {
   const { t } = useTranslation();
   const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
-  const configuredModels = allModelValues(p.models);
+  // 已配置模型；若全空且无上游可用模型列表，回退展示该平台预设默认模型。
+  const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
+  const configuredModels = (() => {
+    const explicit = allModelValues(p.models);
+    if (explicit.length > 0) return explicit;
+    if ((p.available_models?.length ?? 0) > 0) return explicit;
+    return allModelValues(getDefaultModels(p.platform_type, hasCodingEndpoint));
+  })();
   const quota = computeQuotaDisplay(p, q, preferReal);
   const showQuota = p.platform_type !== "mock" && p.platform_type !== "claude_code" && quota.hasData;
   const mb = computeManualBudgetDisplay(p.manual_budgets);  const total = u ? u.total_input_tokens + u.total_output_tokens : 0;
@@ -1578,6 +1615,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     } else {
       setEndpoints([]);
     }
+    // Auto-fill 默认模型预设（与 endpoints 同步随协议切换）。
+    // 仅填预设有值的槽位，其余保持空；未覆盖平台返回空对象 = 不改动。
+    const defaultModels = getDefaultModels(newProtocol, cp);
+    setModels({
+      default: "", sonnet: "", opus: "", haiku: "", gpt: "",
+      ...defaultModels,
+    });
     // 切到 mock 时用当前 extra 初始化 mock 配置编辑器
     if (newProtocol === "mock") {
       setMockConfig(parseMockConfig(extra));
