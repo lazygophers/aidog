@@ -22,3 +22,4 @@
 | notify-ux | 通知模块易用性增强: 每类型默认模板 + 一键注入 hook 到所有分组 | — | 已完成 | 收尾 | 100% | — |
 | notify-test-buttons | 通知设置加独立 TTS/弹窗测试按钮 (与类型测试解耦) | — | 已完成 | 收尾 | 100% | — |
 | fix-model-test-mock | 修复 model_test 对 Mock 平台返回 builder error (502) | — | 已完成 | 收尾 | 100% | — |
+| notify-mac-system | macOS 通知默认走系统通知 (osascript display notification 替代 tauri-plugin) | — | 已完成 | 收尾 | 100% | — |
