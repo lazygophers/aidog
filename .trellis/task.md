@@ -59,6 +59,8 @@
 | mcp-add-entry | MCP 主动添加入口 (手动新建 server) | — | 已完成 | 收尾 | 100% | — |
 | home-trend-line | 首页请求趋势改曲线图(SVG 折线/面积替柱状) | — | 已完成 | 收尾 | 100% | — |
 | home-trend-24h | 首页请求趋势改最近24小时(滚动窗口+文案) | — | 已完成 | 收尾 | 100% | — |
-| mcp-enabled-not-effective | MCP 配置启用后未生效 | — | 进行中 | 规划 | 0% | — |
+| mcp-enabled-not-effective | MCP 配置启用后未生效 | — | 已完成 | 收尾 | 100% | — |
 | home-trend-smooth | 首页趋势曲线改平滑(Catmull-Rom 贝塞尔, 替直折线) | — | 已完成 | 收尾 | 100% | — |
 | stats-model-filter-only-recorded | 使用统计模型筛选仅含有记录的模型 | — | 已完成 | 收尾 | 100% | — |
+| stats-trend-curve-granularity | Stats 请求趋势改曲线+分钟/5分钟粒度自动降级 | — | 已完成 | 收尾 | 100% | — |
+| menu-ia-redesign | 菜单与导航信息架构重构 | — | 规划中 | 规划 | 0% | — |
