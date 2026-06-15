@@ -232,6 +232,20 @@ export function Mcp() {
     }
   };
 
+  const handleResync = async () => {
+    if (busyKey !== null) return;
+    setBusyKey("resync");
+    setMessage(null);
+    try {
+      const n = await mcpApi.resync();
+      setMessage({ kind: "ok", text: t("mcp.resyncDone", "已重新同步 {{n}} 项", { n }) });
+    } catch (e) {
+      setMessage({ kind: "err", text: String(e) });
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
   const toggleSelect = (name: string) => {
     setSelected((prev) => {
       const next = new Set(prev);
@@ -333,6 +347,14 @@ export function Mcp() {
           style={btnGhost}
         >
           {t("mcp.add", "添加 MCP")}
+        </button>
+        <button
+          onClick={handleResync}
+          disabled={busyKey !== null}
+          style={btnGhost}
+          title={t("mcp.resyncHint", "从 aidog 数据库重写所有已启用 agent 的配置文件，修复被外部工具污染的条目")}
+        >
+          {t("mcp.resync", "重新同步")}
         </button>
         <button
           onClick={openScan}

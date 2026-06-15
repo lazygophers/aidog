@@ -801,6 +801,31 @@ pub async fn delete_server(db: &Db, name: &str) -> Result<(), String> {
     Ok(())
 }
 
+/// 重新同步：遍历所有 MCP server，对每个 enabled agent 从 DB 全量重写 agent 配置文件。
+/// 修复 agent 配置文件被外部（CLI / app / 手动）污染导致的失效（如 env:null 致 Claude Code 跳过 server）。
+/// aidog 的 write 恒为全量 replace（build_claude_entry 重建 entry），所以重写 = 用 DB 干净值覆盖文件。
+/// 返回成功重写的 (agent, name) 数量；单条失败记 warn 不中断（best-effort）。
+pub async fn resync_all(db: &Db) -> Result<usize, String> {
+    let rows = super::db::list_mcp_servers(db).await?;
+    let mut count = 0usize;
+    for row in rows {
+        for agent in row.enabled_set() {
+            let be = backend_for(agent);
+            let cfg = row.to_raw_cfg();
+            match be.write(&row.name, &cfg) {
+                Ok(()) => count += 1,
+                Err(e) => tracing::warn!(
+                    agent = agent.slug(),
+                    server = %row.name,
+                    error = %e,
+                    "mcp resync: write agent config failed"
+                ),
+            }
+        }
+    }
+    Ok(count)
+}
+
 /// 编辑 MCP 的入参（camelCase，前端直传）。
 /// env/headers 中未改的敏感值由前端以 "***" 占位传回，后端 merge 旧 DB 明文。
 #[derive(Debug, Clone, Deserialize)]

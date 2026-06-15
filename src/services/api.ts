@@ -1549,6 +1549,8 @@ export const mcpApi = {
     invoke<McpServerInfo>("mcp_add", { payload }),
   /** 删除（DB + 所有 enabled agent 配置，破坏性）。 */
   delete: (name: string) => invoke<void>("mcp_delete", { name }),
+  /** 重新同步全部：从 DB 全量重写所有 enabled agent 配置（修复外部污染如 env:null）。 */
+  resync: () => invoke<number>("mcp_resync"),
 };
 
 // ─── 导入导出子系统 ───────────────────────────────────────

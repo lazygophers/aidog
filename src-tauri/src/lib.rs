@@ -1887,6 +1887,15 @@ async fn mcp_update(
     gateway::mcp::update_server(&db, &old_name, payload).await
 }
 
+/// 重新同步全部：从 DB 全量重写所有 enabled agent 的 MCP 配置文件，
+/// 修复外部污染（如 env:null 致 Claude Code 跳过 server）。返回重写条数。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_resync(db: State<'_, Db>) -> Result<usize, String> {
+    tracing::debug!(command = "mcp_resync", "command invoked");
+    gateway::mcp::resync_all(&db).await
+}
+
 // ─── 导入导出子系统 ───────────────────────────────────────
 
 /// 导出：收集各 scope 数据 → 加密 → 写入用户选择路径。
@@ -3700,6 +3709,7 @@ pub fn run() {
             mcp_delete,
             mcp_update,
             mcp_add,
+            mcp_resync,
             // 导入导出子系统
             export_to_file,
             import_read_file,
