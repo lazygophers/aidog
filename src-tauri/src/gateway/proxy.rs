@@ -808,6 +808,13 @@ async fn handle_proxy_inner(
     tracing::info!(group = %group.name, source_protocol = %source_protocol, model = %log.model, "group resolved");
     upsert_log(&state, &log, &log_settings).await;
 
+    // ── 模型列表端点分流（必须在 parse_incoming_request 之前）──
+    // GET /v1/models | /models（openai/anthropic 同名）空 body，不能进 chat 解析（EOF 400）。
+    // 命中 → 走 handle_models_passthrough：选分组首个启用平台，relay 上游模型列表。
+    if orig_method == axum::http::Method::GET && is_models_endpoint(&path) {
+        return handle_models_passthrough(&state, &mut log, &log_settings, &group, start, lang).await;
+    }
+
     // ── 解析 ChatRequest（按入站协议解析） ──
     let req_value: serde_json::Value = match serde_json::from_slice(&bytes) {
         Ok(v) => v,
@@ -1903,6 +1910,103 @@ async fn handle_passthrough(
     response
 }
 
+/// 模型列表端点 relay：选分组首个启用平台，按平台协议拉上游 /models 并原样 relay status + body。
+/// 不做 model mapping / 重试 / 转换（模型列表无此语义，取第一个可用平台即可）。
+/// 鉴权注入平台凭证（非客户端 group token，上游不认）；URL 遵 url-construction-rule。
+async fn handle_models_passthrough(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    log_settings: &ProxyLogSettings,
+    group: &Group,
+    start: std::time::Instant,
+    lang: Lang,
+) -> Response {
+    // 选分组首个启用平台（endpoint 优先取首个端点协议/URL，否则平台主配置）。
+    let group_platforms = match super::db::get_group_platforms(&state.db, group.id).await {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(group = %group.name, error = %e, "models: get_group_platforms failed");
+            log.response_body = format!("group platforms error: {e}");
+            log.status_code = 503;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(state, log, log_settings).await;
+            return (StatusCode::SERVICE_UNAVAILABLE, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
+        }
+    };
+    let platform = match group_platforms.iter().find(|gp| gp.platform.enabled) {
+        Some(gp) => gp.platform.clone(),
+        None => {
+            tracing::warn!(group = %group.name, "models: no enabled platform in group");
+            log.response_body = "no enabled platform for models endpoint".to_string();
+            log.status_code = 503;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(state, log, log_settings).await;
+            return (StatusCode::SERVICE_UNAVAILABLE, i18n::t(lang, ErrorKey::Route)).into_response();
+        }
+    };
+
+    // endpoint 优先（首个端点协议/URL），否则平台主配置。api_key 始终取平台凭证。
+    let (protocol, base_url) = if let Some(ep) = platform.endpoints.first() {
+        (ep.protocol.clone(), ep.base_url.clone())
+    } else {
+        (platform.platform_type.clone(), platform.base_url.clone())
+    };
+    let url = build_models_url(&protocol, &base_url);
+
+    log.platform_id = platform.id;
+    log.target_protocol = format!("{:?}", protocol).to_lowercase();
+    log.upstream_request_url = url.clone();
+    log.upstream_request_headers = r#"{"authorization":"[REDACTED]"}"#.to_string();
+
+    let system_timeout = get_system_timeout(&state.db).await;
+    let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 60 };
+    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
+    let client = super::http_client::build_http_client(&state.db, req_timeout, conn_timeout, None, None).await;
+
+    let rb = apply_models_auth(client.get(&url), &protocol, &platform.api_key);
+    tracing::info!(group = %group.name, platform = %platform.name, url = %url, "models endpoint upstream request");
+
+    let resp = match rb.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::error!(url = %url, error = %e, "models endpoint upstream request failed (502)");
+            log.response_body = format!("upstream error: {e}");
+            log.status_code = 502;
+            log.upstream_status_code = 0;
+            log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(state, log, log_settings).await;
+            return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+        }
+    };
+
+    let status = resp.status();
+    log.upstream_status_code = status.as_u16() as i32;
+    let content_type = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/json")
+        .to_string();
+    let body = resp.bytes().await.unwrap_or_default();
+    let body_str = String::from_utf8_lossy(&body).to_string();
+
+    log.status_code = status.as_u16() as i32;
+    log.response_body = body_str.clone();
+    log.user_response_body = body_str;
+    log.user_response_headers = format!(r#"{{"content-type":"{}"}}"#, content_type);
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    tracing::info!(url = %url, status = status.as_u16(), "models endpoint upstream responded");
+    upsert_log(state, log, log_settings).await;
+
+    let resp_status = StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    let mut response = (resp_status, body.to_vec()).into_response();
+    if let Ok(hv) = axum::http::HeaderValue::from_str(&content_type) {
+        response.headers_mut().insert(axum::http::header::CONTENT_TYPE, hv);
+    }
+    response
+}
+
 /// 透传目标 URL 拼接：base_url(去尾斜杠) + 客户端原始 path(+query)
 fn build_passthrough_url(base_url: &str, uri: &axum::http::Uri) -> String {
     let base = base_url.trim_end_matches('/');
@@ -1911,6 +2015,47 @@ fn build_passthrough_url(base_url: &str, uri: &axum::http::Uri) -> String {
         .map(|pq| pq.as_str())
         .unwrap_or_else(|| uri.path());
     format!("{}{}", base, pq)
+}
+
+/// 判定请求 path（已含 group/proxy 前缀）是否为模型列表端点。
+/// strip 任意前缀后尾段为 `/v1/models` | `/models`（openai/anthropic 同名）→ true。
+/// gemini `/v1beta/models` 本期不在代理 relay 范围（标 TODO，见 prd 失败处理）。
+fn is_models_endpoint(path: &str) -> bool {
+    let p = path.trim_end_matches('/');
+    // gemini /v1beta/models 本期不在代理 relay 范围（鉴权/响应格式不同），显式排除。
+    if p.contains("/v1beta/") {
+        return false;
+    }
+    p.ends_with("/v1/models") || p.ends_with("/models")
+}
+
+/// 按平台协议构造上游模型列表端点 URL（遵 url-construction-rule：base_url 已含版本前缀，仅 trim 尾 `/` + 端点后缀，禁额外拼版本）。
+/// 三类后缀：Anthropic → `/v1/models`（base_url 通常不含 /v1）；Bailian → `/compatible-mode/v1/models`；
+/// 其余 OpenAI 兼容（含 glm `.../api/paas/v4`、openai `.../v1`）→ `/models`。
+/// 与 lib.rs `platform_fetch_models` 单一事实源，避免按协议拉 /models 的 URL 构造重复腐化。
+pub fn build_models_url(protocol: &Protocol, base_url: &str) -> String {
+    let base = base_url.trim_end_matches('/');
+    match protocol {
+        Protocol::Anthropic => format!("{base}/v1/models"),
+        Protocol::Bailian => format!("{base}/compatible-mode/v1/models"),
+        _ => format!("{base}/models"),
+    }
+}
+
+/// 按平台协议给上游模型列表请求注入鉴权头（平台凭证，非客户端 group token）。
+/// Anthropic → `x-api-key` + `anthropic-version`；其余 OpenAI 兼容 → `Authorization: Bearer`。
+/// 与 lib.rs `platform_fetch_models` 鉴权风格对齐。
+pub fn apply_models_auth(
+    rb: reqwest::RequestBuilder,
+    protocol: &Protocol,
+    api_key: &str,
+) -> reqwest::RequestBuilder {
+    match protocol {
+        Protocol::Anthropic => rb
+            .header("x-api-key", api_key)
+            .header("anthropic-version", "2023-06-01"),
+        _ => rb.header("Authorization", format!("Bearer {api_key}")),
+    }
 }
 
 /// 构建透传转发 header：原样保留客户端全部 header（含 Authorization OAuth），
@@ -2678,6 +2823,74 @@ mod tests {
         assert!(!body.contains("convert_request"), "passthrough must bypass convert_request");
         assert!(!body.contains("build_upstream_headers"), "passthrough must bypass build_upstream_headers");
         assert!(!body.contains("apply_client_headers"), "passthrough must bypass apply_client_headers");
+    }
+
+    // ── 模型列表端点识别：strip 任意前缀后尾段 /v1/models | /models ──
+    #[test]
+    fn models_endpoint_detection() {
+        assert!(is_models_endpoint("/proxy/v1/models"));
+        assert!(is_models_endpoint("/glm-coding-plan-auto/v1/models"));
+        assert!(is_models_endpoint("/v1/models"));
+        assert!(is_models_endpoint("/models"));
+        assert!(is_models_endpoint("/proxy/models"));
+        assert!(is_models_endpoint("/v1/models/")); // 容尾斜杠
+        // chat / messages / responses 不命中
+        assert!(!is_models_endpoint("/v1/chat/completions"));
+        assert!(!is_models_endpoint("/v1/messages"));
+        assert!(!is_models_endpoint("/v1/responses"));
+        // 子路径 /v1/models/<id> 不当模型列表（尾段非 models）
+        assert!(!is_models_endpoint("/v1/models/gpt-4"));
+        // gemini /v1beta/models 本期不命中（标 TODO）
+        assert!(!is_models_endpoint("/v1beta/models"));
+    }
+
+    // ── 模型列表 URL 构造（遵 url-construction-rule：base_url 已含前缀，仅 trim + 后缀）──
+    #[test]
+    fn models_url_construction() {
+        // glm openai 协议端点（base_url 含 /api/paas/v4）→ + /models
+        assert_eq!(
+            build_models_url(&super::Protocol::Glm, "https://open.bigmodel.cn/api/paas/v4"),
+            "https://open.bigmodel.cn/api/paas/v4/models"
+        );
+        // openai（base_url 含 /v1）→ + /models（禁额外拼 /v1）
+        assert_eq!(
+            build_models_url(&super::Protocol::OpenAI, "https://api.openai.com/v1"),
+            "https://api.openai.com/v1/models"
+        );
+        // 尾斜杠 trim
+        assert_eq!(
+            build_models_url(&super::Protocol::OpenAI, "https://api.openai.com/v1/"),
+            "https://api.openai.com/v1/models"
+        );
+        // anthropic（base_url 为 host 根）→ /v1/models
+        assert_eq!(
+            build_models_url(&super::Protocol::Anthropic, "https://api.anthropic.com"),
+            "https://api.anthropic.com/v1/models"
+        );
+        // bailian → /compatible-mode/v1/models
+        assert_eq!(
+            build_models_url(&super::Protocol::Bailian, "https://dashscope.aliyuncs.com"),
+            "https://dashscope.aliyuncs.com/compatible-mode/v1/models"
+        );
+    }
+
+    // ── 模型列表鉴权按协议分流：anthropic x-api-key vs openai Bearer ──
+    #[test]
+    fn models_auth_by_protocol() {
+        let client = reqwest::Client::new();
+        // anthropic → x-api-key + anthropic-version，无 authorization
+        let req = apply_models_auth(client.get("http://x/v1/models"), &super::Protocol::Anthropic, "sk-ant")
+            .build()
+            .unwrap();
+        assert_eq!(req.headers().get("x-api-key").and_then(|v| v.to_str().ok()), Some("sk-ant"));
+        assert_eq!(req.headers().get("anthropic-version").and_then(|v| v.to_str().ok()), Some("2023-06-01"));
+        assert!(req.headers().get("authorization").is_none());
+        // openai 兼容 → Authorization Bearer，无 x-api-key
+        let req = apply_models_auth(client.get("http://x/models"), &super::Protocol::Glm, "sk-glm")
+            .build()
+            .unwrap();
+        assert_eq!(req.headers().get("authorization").and_then(|v| v.to_str().ok()), Some("Bearer sk-glm"));
+        assert!(req.headers().get("x-api-key").is_none());
     }
 
     // ── SSE usage 累计（Anthropic message.usage + OpenAI 顶层 usage）──

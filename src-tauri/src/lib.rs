@@ -693,65 +693,32 @@ async fn platform_fetch_models(
     tracing::debug!(command = "platform_fetch_models", protocol = ?protocol, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
     let db_arc = Arc::new(db.inner().clone());
     let client = gateway::http_client::build_http_client_system(&db_arc, 30, 10).await;
-    let base = base_url.trim_end_matches('/');
 
     // Mock / Claude Code 透传平台无真实上游模型列表，不拉取模型
     if matches!(protocol, Protocol::Mock | Protocol::ClaudeCode) {
         return Ok(Vec::new());
     }
 
-    let resp: Value = match protocol {
-        Protocol::Mock | Protocol::ClaudeCode => unreachable!(),
-        Protocol::Anthropic => {
-            let url = format!("{base}/v1/models");
-            tracing::info!(method = "GET", url = %url, "fetch models request");
-            let resp = client
-                .get(&url)
-                .header("x-api-key", &api_key)
-                .header("anthropic-version", "2023-06-01")
-                .send()
-                .await
-                .map_err(|e| format!("fetch models: {e}"))?;
-            let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
-            tracing::debug!(url = %url, body = %body, "fetch models response body");
-            serde_json::from_str::<Value>(&body).map_err(|e| format!("parse response: {e}"))?
-        }
-        Protocol::Bailian => {
-            let url = format!("{base}/compatible-mode/v1/models");
-            tracing::info!(method = "GET", url = %url, "fetch models request");
-            let resp = client
-                .get(&url)
-                .header("Authorization", format!("Bearer {api_key}"))
-                .send()
-                .await
-                .map_err(|e| {
-                    tracing::error!("fetch models request failed: {e}");
-                    format!("fetch models: {e}")
-                })?;
-            let status = resp.status();
-            let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
-            tracing::info!(url = %url, %status, "fetch models response status");
-            tracing::debug!(url = %url, body = %body, "fetch models response body");
-            serde_json::from_str::<Value>(&body)
-                .map_err(|e| {
-                    tracing::error!("parse response failed: {e}, body={}", &body[..body.len().min(500)]);
-                    format!("parse response: {e}")
-                })?
-        }
-        Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::GlmEn | Protocol::Kimi | Protocol::MiniMax | Protocol::MiniMaxEn | Protocol::Gemini | Protocol::OpenAIResponses | Protocol::OpenAICompletions | Protocol::BailianCoding | Protocol::DeepSeek | Protocol::StepFun | Protocol::StepFunEn | Protocol::Doubao | Protocol::DoubaoSeed | Protocol::BytePlus | Protocol::QianFan | Protocol::XiaomiMimo | Protocol::BaiLing | Protocol::Longcat | Protocol::OpenRouter | Protocol::SiliconFlow | Protocol::SiliconFlowEn | Protocol::AiHubMix | Protocol::DmxApi | Protocol::ModelScope | Protocol::ShengSuanYun | Protocol::AtlasCloud | Protocol::Novita | Protocol::TheRouter | Protocol::CherryIn | Protocol::PackyCode | Protocol::Cubence | Protocol::AiGoCode | Protocol::RightCode | Protocol::AiCodeMirror | Protocol::Nvidia | Protocol::Pateway | Protocol::CcSub | Protocol::ApiKeyFun | Protocol::ApiNebula | Protocol::SudoCode | Protocol::ClaudeApi | Protocol::ClaudeCN | Protocol::RunApi | Protocol::RelaxyCode | Protocol::CrazyRouter | Protocol::SssAiCode | Protocol::Compshare | Protocol::CompshareCoding | Protocol::Micu | Protocol::CTok | Protocol::EFlowCode | Protocol::LemonData | Protocol::PipeLlm | Protocol::OpenCode | Protocol::NewApi => {
-            let url = format!("{base}/models");
-            tracing::info!(method = "GET", url = %url, "fetch models request");
-            let resp = client
-                .get(&url)
-                .header("Authorization", format!("Bearer {api_key}"))
-                .send()
-                .await
-                .map_err(|e| format!("fetch models: {e}"))?;
-            let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
-            tracing::debug!(url = %url, body = %body, "fetch models response body");
-            serde_json::from_str::<Value>(&body).map_err(|e| format!("parse response: {e}"))?
-        }
-    };
+    // URL + 鉴权与 proxy.rs models 端点 relay 单一事实源（build_models_url / apply_models_auth）。
+    let url = gateway::proxy::build_models_url(&protocol, &base_url);
+    let rb = gateway::proxy::apply_models_auth(client.get(&url), &protocol, &api_key);
+    tracing::info!(method = "GET", url = %url, "fetch models request");
+    let resp = rb
+        .send()
+        .await
+        .map_err(|e| {
+            tracing::error!("fetch models request failed: {e}");
+            format!("fetch models: {e}")
+        })?;
+    let status = resp.status();
+    let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
+    tracing::info!(url = %url, %status, "fetch models response status");
+    tracing::debug!(url = %url, body = %body, "fetch models response body");
+    let resp: Value = serde_json::from_str::<Value>(&body)
+        .map_err(|e| {
+            tracing::error!("parse response failed: {e}, body={}", &body[..body.len().min(500)]);
+            format!("parse response: {e}")
+        })?;
 
     // 解析 {"data": [{"id": "..."}, ...]} 格式
     let models = resp
