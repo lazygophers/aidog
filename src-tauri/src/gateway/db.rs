@@ -2538,7 +2538,7 @@ struct QueryParams {
     end: i64,
     filter_group: Option<String>,
     filter_model: Option<String>,
-    filter_protocol: Option<String>,
+    filter_platform: Option<String>,
 }
 
 impl QueryParams {
@@ -2549,7 +2549,7 @@ impl QueryParams {
         ];
         if let Some(ref v) = self.filter_group { p.push(Box::new(v.clone())); }
         if let Some(ref v) = self.filter_model { p.push(Box::new(v.clone())); }
-        if let Some(ref v) = self.filter_protocol { p.push(Box::new(v.clone())); }
+        if let Some(ref v) = self.filter_platform { p.push(Box::new(v.clone())); }
         p
     }
 }
@@ -2576,8 +2576,16 @@ fn query_stats_inner(conn: &Connection, query: &StatsQuery) -> Result<StatsResul
         end,
         filter_group: query.filter_group.clone(),
         filter_model: query.filter_model.clone(),
-        filter_protocol: query.filter_protocol.clone(),
+        filter_platform: query.filter_platform.clone(),
     };
+
+    // 有效 platform_id 表达式：原 platform_id，auto 分组（platform_id=0）经
+    // group.auto_from_platform 回溯到源平台（与 get_platform_usage_stats 同语义）。
+    const EFF_PID: &str = "\
+CASE WHEN platform_id = 0 THEN COALESCE(\
+(SELECT CAST(g.auto_from_platform AS INTEGER) FROM \"group\" g \
+ WHERE g.name = proxy_log.group_name AND g.auto_from_platform != '' AND g.deleted_at = 0 LIMIT 1), 0)\
+ELSE platform_id END";
 
     // Build WHERE clause
     let mut where_parts = vec!["created_at >= ?1".to_string(), "created_at <= ?2".to_string()];
@@ -2588,9 +2596,10 @@ fn query_stats_inner(conn: &Connection, query: &StatsQuery) -> Result<StatsResul
         let idx = 3 + qp.filter_group.is_some() as usize;
         where_parts.push(format!("(model = ?{idx} OR actual_model = ?{idx})"));
     }
-    if qp.filter_protocol.is_some() {
+    if qp.filter_platform.is_some() {
         let idx = 3 + qp.filter_group.is_some() as usize + qp.filter_model.is_some() as usize;
-        where_parts.push(format!("target_protocol = ?{idx}"));
+        // value = platform_id 十进制字符串；按有效平台 id（含 auto 分组回溯）匹配
+        where_parts.push(format!("({EFF_PID}) = CAST(?{idx} AS INTEGER)"));
     }
     let where_sql = where_parts.join(" AND ");
 
@@ -2660,19 +2669,29 @@ fn query_stats_inner(conn: &Connection, query: &StatsQuery) -> Result<StatsResul
 
     // ── Dimension breakdown ──
     let dimension_data = if let Some(ref gb) = query.group_by {
-        let dim_col = match gb.as_str() {
-            "platform" => "target_protocol",
-            "model" => "actual_model",
-            "group" => "group_name",
-            _ => "target_protocol",
+        // platform 维度按有效 platform_id（含 auto 分组回溯）聚合，JOIN platform 取真名
+        let dim_sql = if gb == "platform" {
+            format!(
+                "SELECT COALESCE(p.name, '未知'), COUNT(*), \
+                 SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
+                 SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), \
+                 COALESCE(SUM(est_cost), 0.0) \
+                 FROM proxy_log LEFT JOIN platform p ON p.id = ({EFF_PID}) \
+                 WHERE deleted_at = 0 AND {where_sql} GROUP BY ({EFF_PID}) ORDER BY 2 DESC LIMIT 50"
+            )
+        } else {
+            let dim_col = match gb.as_str() {
+                "model" => "actual_model",
+                _ => "group_name",
+            };
+            format!(
+                "SELECT {dim_col}, COUNT(*), \
+                 SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
+                 SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), \
+                 COALESCE(SUM(est_cost), 0.0) \
+                 FROM proxy_log WHERE deleted_at = 0 AND {where_sql} GROUP BY 1 ORDER BY 2 DESC LIMIT 50"
+            )
         };
-        let dim_sql = format!(
-            "SELECT {dim_col}, COUNT(*), \
-             SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
-             SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), \
-             COALESCE(SUM(est_cost), 0.0) \
-             FROM proxy_log WHERE deleted_at = 0 AND {where_sql} GROUP BY 1 ORDER BY 2 DESC LIMIT 50"
-        );
         let p = qp.to_sql_params();
         let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
         conn.prepare(&dim_sql)

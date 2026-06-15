@@ -91,7 +91,7 @@ export function Stats() {
   const [groupBy, setGroupBy] = useState<"platform" | "model" | "group">("platform");
   const [filterGroup, setFilterGroup] = useState("");
   const [filterModel, setFilterModel] = useState("");
-  const [filterProtocol, setFilterProtocol] = useState("");
+  const [filterPlatform, setFilterPlatform] = useState("");
   const [groups, setGroups] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
 
@@ -113,7 +113,7 @@ export function Stats() {
         group_by: groupBy,
         filter_group: filterGroup || undefined,
         filter_model: filterModel || undefined,
-        filter_protocol: filterProtocol || undefined,
+        filter_platform: filterPlatform || undefined,
       };
       const prevR = previousRange(range.start, range.end);
       // 当前周期 + 上一等长周期并行查询（上一周期仅用 overview 做环比）
@@ -127,7 +127,7 @@ export function Stats() {
       console.error(e);
     }
     setLoading(false);
-  }, [preset, granularity, groupBy, filterGroup, filterModel, filterProtocol]);
+  }, [preset, granularity, groupBy, filterGroup, filterModel, filterPlatform]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -146,7 +146,7 @@ export function Stats() {
   useEffect(() => onProxyLogUpdated(() => { loadFilterOptions(); }), [loadFilterOptions]);
 
   // 维度 / 筛选变化时重置分页
-  useEffect(() => { setPage(0); }, [groupBy, filterGroup, filterModel, filterProtocol, preset]);
+  useEffect(() => { setPage(0); }, [groupBy, filterGroup, filterModel, filterPlatform, preset]);
 
   // Collect unique models from groups (model_mappings) + platform available_models
   const allModels = useMemo(
@@ -156,8 +156,8 @@ export function Stats() {
     ])).sort(),
     [groups, platforms],
   );
-  const allProtocols = useMemo(
-    () => Array.from(new Set(platforms.map(p => p.platform_type))).sort(),
+  const allPlatforms = useMemo(
+    () => platforms.map(p => ({ value: String(p.id), label: p.name })),
     [platforms],
   );
 
@@ -264,11 +264,11 @@ export function Stats() {
         {/* Filter: protocol（带搜索） */}
         <SearchableFilter
           width={140}
-          value={filterProtocol}
-          onChange={setFilterProtocol}
+          value={filterPlatform}
+          onChange={setFilterPlatform}
           allLabel={t("stats.allPlatforms", "全部平台")}
           searchPlaceholder={t("stats.searchPlatform", "搜索平台...")}
-          options={allProtocols.map(p => ({ value: p, label: p }))}
+          options={allPlatforms}
           emptyLabel={t("stats.noMatch", "无匹配")}
         />
       </div>

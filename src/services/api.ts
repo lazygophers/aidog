@@ -1104,7 +1104,7 @@ export interface StatsQuery {
   group_by?: "platform" | "model" | "group";
   filter_group?: string;
   filter_model?: string;
-  filter_protocol?: string;
+  filter_platform?: string;
 }
 
 export interface StatsOverview {

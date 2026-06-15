@@ -1101,7 +1101,7 @@ pub struct StatsQuery {
     pub group_by: Option<String>,
     pub filter_group: Option<String>,
     pub filter_model: Option<String>,
-    pub filter_protocol: Option<String>,
+    pub filter_platform: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

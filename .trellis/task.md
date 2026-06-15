@@ -45,5 +45,6 @@
 | groups-copy-baseurl-apikey | Groups 列表页加复制代理 base_url + 每 item 复制 api_key(group_name) | — | 已完成 | 收尾 | 100% | — |
 | proxy-support-models-endpoint | 代理支持 /v1/models 模型列表端点（透传到分组所选平台上游） | — | 已完成 | 收尾 | 100% | — |
 | daily-update-check | 每日检测更新并提醒用户（tauri updater 前端对接） | — | 已完成 | 收尾 | 100% | — |
-| responses-api-endpoints | 核查并支持 Responses API 全端点(create 转换 + get/cancel/compact 透传) | — | 规划中 | 规划 | 0% | — |
-| stats-model-filter-size | 使用统计模型下拉筛选 item 过窄不可读 | — | 进行中 | 规划 | 0% | — |
+| responses-api-endpoints | 核查并支持 Responses API 全端点(create 转换 + get/cancel/compact 透传) | — | 已完成 | 收尾 | 100% | — |
+| stats-model-filter-size | 使用统计模型下拉筛选 item 过窄不可读 | — | 已完成 | 收尾 | 100% | — |
+| stats-platform-filter-mismatch | 使用统计平台筛选语义错配筛空 | — | 进行中 | 规划 | 0% | — |
