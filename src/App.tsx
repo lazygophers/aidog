@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { Sidebar, type NavItem } from "./components/Sidebar";
+import { Home } from "./pages/Home";
 import { Platforms } from "./pages/Platforms";
 import { Groups } from "./pages/Groups";
 import { AppSettings, type Tab } from "./pages/AppSettings";
@@ -21,6 +22,7 @@ import type { Update } from "@tauri-apps/plugin-updater";
 import { requestNavigation } from "./utils/navGuard";
 
 const BASE_NAV: NavItem[] = [
+  { id: "home", icon: "home", labelKey: "nav.home" },
   { id: "platforms", icon: "platforms", labelKey: "nav.platforms" },
   { id: "groups", icon: "groups", labelKey: "nav.groups" },
   { id: "stats", icon: "stats", labelKey: "nav.stats" },
@@ -49,7 +51,7 @@ const BASE_NAV: NavItem[] = [
 ];
 
 function App() {
-  const [activeNav, setActiveNav] = useState("platforms");
+  const [activeNav, setActiveNav] = useState("home");
   const [logEnabled, setLogEnabled] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
@@ -137,6 +139,7 @@ function App() {
         padding: "24px 32px",
       }}>
         <div className="animate-fade-in" key={effectiveNav}>
+          {effectiveNav === "home" && <Home onNavigate={handleNavigate} />}
           {effectiveNav === "platforms" && <Platforms />}
           {effectiveNav === "groups" && <Groups />}
           {effectiveNav === "settings" && <AppSettings tab={settingsTab} onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}

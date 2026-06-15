@@ -8,6 +8,13 @@ import { IconPalette, IconGlobe } from "./icons";
 // ── SVG Icons ──
 
 const icons = {
+  home: (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M2.5 8 9 2.5 15.5 8" />
+      <path d="M4 7v8h10V7" />
+      <path d="M7 15v-4h4v4" />
+    </svg>
+  ),
   proxy: (
     <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M3 9h12M7 5l-4 4 4 4M13 5l4 4-4 4" />

@@ -664,25 +664,25 @@ function SearchableFilter({ width, value, onChange, allLabel, searchPlaceholder,
             position: "absolute",
             top: "calc(100% + 4px)",
             left: 0,
-            width: Math.max(width, 240),
+            width: Math.max(width, 320),
             zIndex: 20,
             borderRadius: "var(--radius-sm)",
-            padding: 6,
+            padding: 8,
             display: "flex",
             flexDirection: "column",
-            gap: 4,
-            maxHeight: 280,
+            gap: 6,
+            maxHeight: 320,
           }}
         >
           <input
             className="input"
             autoFocus
-            style={{ fontSize: 12 }}
+            style={{ fontSize: 13 }}
             placeholder={searchPlaceholder}
             value={search}
             onChange={e => setSearch(e.target.value)}
           />
-          <div style={{ overflowY: "auto", maxHeight: 220, display: "flex", flexDirection: "column", gap: 1 }}>
+          <div style={{ overflowY: "auto", maxHeight: 250, display: "flex", flexDirection: "column", gap: 2 }}>
             <FilterOption label={allLabel} active={value === ""} onClick={() => { onChange(""); setOpen(false); setSearch(""); }} />
             {filtered.length === 0 ? (
               <div style={{ fontSize: 12, color: "var(--text-tertiary)", padding: "6px 8px" }}>{emptyLabel}</div>
@@ -715,10 +715,11 @@ function FilterOption({ label, active, onClick }: { label: string; active: boole
         background: active ? "var(--bg-glass)" : "transparent",
         color: active ? "var(--accent)" : "var(--text-primary)",
         fontWeight: active ? 600 : 400,
-        padding: "8px 10px",
+        padding: "10px 12px",
         borderRadius: "var(--radius-sm)",
         cursor: "pointer",
-        fontSize: 13,
+        fontSize: 14,
+        lineHeight: 1.4,
         overflow: "hidden",
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",

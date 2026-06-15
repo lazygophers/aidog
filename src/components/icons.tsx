@@ -111,6 +111,40 @@ export const IconGlobe = ({ size, color, strokeWidth, style }: IconProps) => (
   </svg>
 );
 
+/** 🏠 首页 / 仪表盘 */
+export const IconHome = ({ size, color, strokeWidth, style }: IconProps) => (
+  <svg {...base(size, color, strokeWidth, style)}>
+    <path d="M3 10.5 12 3l9 7.5" />
+    <path d="M5 9.5V20h14V9.5" />
+    <path d="M9.5 20v-6h5v6" />
+  </svg>
+);
+
+/** ▦ 平台（四宫格，对齐 Sidebar platforms 语义） */
+export const IconPlatforms = ({ size, color, strokeWidth, style }: IconProps) => (
+  <svg {...base(size, color, strokeWidth, style)}>
+    <rect x="3" y="3" width="7" height="7" rx="1.5" />
+    <rect x="14" y="3" width="7" height="7" rx="1.5" />
+    <rect x="3" y="14" width="7" height="7" rx="1.5" />
+    <rect x="14" y="14" width="7" height="7" rx="1.5" />
+  </svg>
+);
+
+/** 📊 统计（柱状，对齐 Sidebar stats 语义） */
+export const IconStats = ({ size, color, strokeWidth, style }: IconProps) => (
+  <svg {...base(size, color, strokeWidth, style)}>
+    <path d="M4 20V10M10 20V4M16 20V13M22 20H2" />
+  </svg>
+);
+
+/** 🗒 日志（文档行，对齐 Sidebar logs 语义） */
+export const IconLogs = ({ size, color, strokeWidth, style }: IconProps) => (
+  <svg {...base(size, color, strokeWidth, style)}>
+    <rect x="4" y="3" width="16" height="18" rx="1.5" />
+    <path d="M8 8h8M8 12h6M8 16h7" />
+  </svg>
+);
+
 /** 🐕 应用 Logo（爪印） */
 export const IconPaw = ({ size, color, style }: IconProps) => (
   <svg
