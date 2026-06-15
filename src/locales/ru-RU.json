@@ -1451,5 +1451,7 @@
   "updater.updateNow": "Обновить сейчас",
   "updater.later": "Позже",
   "updater.updating": "Обновление…",
-  "updater.updateFailed": "Ошибка обновления"
+  "updater.updateFailed": "Ошибка обновления",
+  "mcp.add": "Добавить MCP",
+  "mcp.addTitle": "Добавить сервер MCP"
 }

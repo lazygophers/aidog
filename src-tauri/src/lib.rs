@@ -1864,6 +1864,17 @@ async fn mcp_delete(db: State<'_, Db>, name: String) -> Result<(), String> {
     gateway::mcp::delete_server(&db, &name).await
 }
 
+/// 手动添加 MCP：校验 name 唯一 → 入库（enabled 空，不写 agent 配置）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_add(
+    db: State<'_, Db>,
+    payload: gateway::mcp::McpUpdatePayload,
+) -> Result<gateway::mcp::McpServerInfo, String> {
+    tracing::debug!(command = "mcp_add", name = %payload.name, "command invoked");
+    gateway::mcp::add_server(&db, payload).await
+}
+
 /// 编辑 MCP：全字段更新（含改名/transport 切换）+ 同步 enabled agent 配置。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
@@ -3688,6 +3699,7 @@ pub fn run() {
             mcp_set_agent,
             mcp_delete,
             mcp_update,
+            mcp_add,
             // 导入导出子系统
             export_to_file,
             import_read_file,

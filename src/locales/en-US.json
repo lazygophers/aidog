@@ -1429,5 +1429,7 @@
   "updater.updateNow": "Update now",
   "updater.later": "Later",
   "updater.updating": "Updating…",
-  "updater.updateFailed": "Update failed"
+  "updater.updateFailed": "Update failed",
+  "mcp.add": "Add MCP",
+  "mcp.addTitle": "Add MCP Server"
 }

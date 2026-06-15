@@ -1543,6 +1543,9 @@ export const mcpApi = {
   /** 编辑（全字段 + 改名 + transport 切换，同步 agent 配置）。 */
   update: (oldName: string, payload: McpUpdatePayload) =>
     invoke<McpServerInfo>("mcp_update", { oldName, payload }),
+  /** 手动添加（enabled 空，不写 agent 配置；后续 setAgent 启用）。 */
+  add: (payload: McpUpdatePayload) =>
+    invoke<McpServerInfo>("mcp_add", { payload }),
   /** 删除（DB + 所有 enabled agent 配置，破坏性）。 */
   delete: (name: string) => invoke<void>("mcp_delete", { name }),
 };

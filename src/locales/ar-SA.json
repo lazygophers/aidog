@@ -1451,5 +1451,7 @@
   "updater.updateNow": "التحديث الآن",
   "updater.later": "لاحقًا",
   "updater.updating": "جارٍ التحديث…",
-  "updater.updateFailed": "فشل التحديث"
+  "updater.updateFailed": "فشل التحديث",
+  "mcp.add": "إضافة MCP",
+  "mcp.addTitle": "إضافة خادم MCP"
 }

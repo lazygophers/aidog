@@ -74,6 +74,7 @@ export function Mcp() {
 
   // 编辑 modal
   const [editTarget, setEditTarget] = useState<McpServerInfo | null>(null);
+  const [editOpen, setEditOpen] = useState(false);
   const [editForm, setEditForm] = useState<{
     name: string;
     transport: McpTransport;
@@ -253,16 +254,34 @@ export function Mcp() {
       headersRows: Object.entries(srv.headers).map(([k, v]) => ({ k, v })),
     });
     setMessage(null);
+    setEditOpen(true);
+  };
+
+  // ─── 添加（空表单）───
+  const openAdd = () => {
+    setEditTarget(null);
+    setEditForm({
+      name: "",
+      transport: "stdio",
+      command: "",
+      argsText: "",
+      envRows: [],
+      url: "",
+      headersRows: [],
+    });
+    setMessage(null);
+    setEditOpen(true);
   };
 
   const handleEditSave = async () => {
-    if (!editTarget) return;
+    if (!editOpen) return;
     const f = editForm;
     if (!f.name.trim()) {
       setMessage({ kind: "err", text: t("mcp.nameRequired", "name 必填") });
       return;
     }
-    setBusyKey(`edit::${editTarget.name}`);
+    const isAdd = editTarget === null;
+    setBusyKey(isAdd ? "add::" : `edit::${editTarget.name}`);
     setMessage(null);
     const payload: McpUpdatePayload = {
       name: f.name.trim(),
@@ -281,9 +300,14 @@ export function Mcp() {
       ),
     };
     try {
-      await mcpApi.update(editTarget.name, payload);
+      if (isAdd) {
+        await mcpApi.add(payload);
+      } else {
+        await mcpApi.update(editTarget!.name, payload);
+      }
       await refresh();
       setEditTarget(null);
+      setEditOpen(false);
       setMessage({ kind: "ok", text: t("mcp.saved", "已保存") });
     } catch (e) {
       setMessage({ kind: "err", text: String(e) });
@@ -303,6 +327,13 @@ export function Mcp() {
           {t("mcp.subtitle", { count: servers.length, defaultValue: `${servers.length}` })}
         </span>
         <div style={{ flex: 1 }} />
+        <button
+          onClick={openAdd}
+          disabled={busyKey !== null}
+          style={btnGhost}
+        >
+          {t("mcp.add", "添加 MCP")}
+        </button>
         <button
           onClick={openScan}
           disabled={busyKey !== null}
@@ -508,13 +539,15 @@ export function Mcp() {
           document.body,
         )}
 
-      {/* 编辑 modal */}
-      {editTarget &&
+      {/* 编辑/添加 modal（editTarget=null = 添加模式） */}
+      {editOpen &&
         createPortal(
-          <div style={modalOverlay} onClick={() => busyKey === null && setEditTarget(null)}>
+          <div style={modalOverlay} onClick={() => busyKey === null && (setEditTarget(null), setEditOpen(false))}>
             <div style={modalBody} onClick={(e) => e.stopPropagation()}>
               <h2 style={{ margin: "0 0 12px", fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>
-                {t("mcp.editTitle", "编辑 MCP")}
+                {editTarget === null
+                  ? t("mcp.addTitle", "添加 MCP")
+                  : t("mcp.editTitle", "编辑 MCP")}
               </h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 10, overflow: "auto", paddingRight: 4 }}>
                 <label style={fieldLabel}>
@@ -582,7 +615,7 @@ export function Mcp() {
                 )}
               </div>
               <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
-                <button onClick={() => setEditTarget(null)} disabled={busyKey !== null} style={btnGhost}>
+                <button onClick={() => { setEditTarget(null); setEditOpen(false); }} disabled={busyKey !== null} style={btnGhost}>
                   {t("common.cancel", "取消")}
                 </button>
                 <button onClick={handleEditSave} disabled={busyKey !== null} style={btnPrimary}>

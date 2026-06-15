@@ -742,6 +742,46 @@ pub async fn set_agent_enabled(
     Ok(())
 }
 
+/// 手动添加：校验 name 非空/不重复 → upsert（enabled_agents 空，不写任何 agent 配置）。
+/// 用户添加后通过 set_agent_enabled 逐 agent 启用（那时才写配置）。
+pub async fn add_server(db: &Db, payload: McpUpdatePayload) -> Result<McpServerInfo, String> {
+    let name = payload.name.trim().to_string();
+    if name.is_empty() {
+        return Err("name is required".into());
+    }
+    if super::db::get_mcp_server(db, &name).await?.is_some() {
+        return Err(format!("mcp server already exists: {name}"));
+    }
+    let transport = McpTransport::parse(&payload.transport);
+    let cfg = McpConfigRaw {
+        transport,
+        command: payload.command,
+        args: payload.args,
+        env: payload.env,
+        url: payload.url,
+        headers: payload.headers,
+    };
+    let now = super::db::now();
+    let row = McpServerRow {
+        id: 0,
+        name: name.clone(),
+        transport: transport.as_str().to_string(),
+        command: cfg.command,
+        args_json: serde_json::to_string(&cfg.args).unwrap_or_else(|_| "[]".into()),
+        env_json: serde_json::to_string(&cfg.env).unwrap_or_else(|_| "{}".into()),
+        url: cfg.url,
+        headers_json: serde_json::to_string(&cfg.headers).unwrap_or_else(|_| "{}".into()),
+        enabled_agents: String::new(),
+        created_at: now,
+        updated_at: now,
+    };
+    super::db::upsert_mcp_server(db, &row).await?;
+    super::db::get_mcp_server(db, &name)
+        .await?
+        .map(McpServerInfo::from)
+        .ok_or_else(|| format!("mcp server not found after insert: {name}"))
+}
+
 /// 删除：从所有 enabled agent 配置移除 + DB 删行。
 pub async fn delete_server(db: &Db, name: &str) -> Result<(), String> {
     let row = super::db::get_mcp_server(db, name).await?;

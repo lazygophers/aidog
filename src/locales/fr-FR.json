@@ -1451,5 +1451,7 @@
   "updater.updateNow": "Mettre à jour maintenant",
   "updater.later": "Plus tard",
   "updater.updating": "Mise à jour…",
-  "updater.updateFailed": "Échec de la mise à jour"
+  "updater.updateFailed": "Échec de la mise à jour",
+  "mcp.add": "Ajouter MCP",
+  "mcp.addTitle": "Ajouter un serveur MCP"
 }
