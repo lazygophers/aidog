@@ -5,12 +5,13 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
-import { check } from "@tauri-apps/plugin-updater";
-import { relaunch } from "@tauri-apps/plugin-process";
+import type { Update } from "@tauri-apps/plugin-updater";
 import { aboutApi, type AboutInfo } from "../services/api";
+import { checkForUpdateManual } from "../services/updater";
+import { UpdatePromptModal } from "../components/UpdatePromptModal";
 import { IconGlobe } from "../components/icons";
 
-type UpdateState = "idle" | "checking" | "downloading" | "uptodate" | "error";
+type UpdateState = "idle" | "checking" | "uptodate" | "error";
 
 const GITHUB_REPO = "https://github.com/lazygophers/aidog";
 const GITHUB_LINKS = {
@@ -25,24 +26,23 @@ export function About() {
   const [info, setInfo] = useState<AboutInfo | null>(null);
   const [updState, setUpdState] = useState<UpdateState>("idle");
   const [updMsg, setUpdMsg] = useState("");
-  const [newVersion, setNewVersion] = useState("");
+  const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
 
   useEffect(() => {
     aboutApi.info().then(setInfo).catch(() => setInfo(null));
   }, []);
 
-  // 检查更新：check → 有则下载安装并重启；无则提示最新；失败兜底不崩。
+  // 手动检查更新：忽略节流强制 check → 有则弹提醒 modal (立即更新/稍后)；
+  // 无则提示已是最新；失败提示 (手动检查可见错误，区分静默的自动检查)。
   const handleCheckUpdate = async () => {
     setUpdState("checking");
     setUpdMsg("");
-    setNewVersion("");
+    setPendingUpdate(null);
     try {
-      const upd = await check();
+      const upd = await checkForUpdateManual();
       if (upd) {
-        setNewVersion(upd.version);
-        setUpdState("downloading");
-        await upd.downloadAndInstall();
-        await relaunch(); // 安装完成后重启应用
+        setUpdState("idle");
+        setPendingUpdate(upd);
       } else {
         setUpdState("uptodate");
       }
@@ -52,13 +52,11 @@ export function About() {
     }
   };
 
-  const updBusy = updState === "checking" || updState === "downloading";
+  const updBusy = updState === "checking";
   const updStatusText = (() => {
     switch (updState) {
       case "checking":
         return t("about.checking", "检查中…");
-      case "downloading":
-        return t("about.downloading", "下载中：v{{version}}").replace("{{version}}", newVersion);
       case "uptodate":
         return t("about.upToDate", "已是最新版本");
       case "error":
@@ -185,6 +183,13 @@ export function About() {
           {GITHUB_REPO}
         </div>
       </div>
+
+      {pendingUpdate && (
+        <UpdatePromptModal
+          update={pendingUpdate}
+          onClose={() => setPendingUpdate(null)}
+        />
+      )}
     </div>
   );
 }

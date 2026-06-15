@@ -1393,5 +1393,11 @@
   "notif.eventListTitle": "逐 Hook 事件触发",
   "notif.eventListDesc": "为每个 Claude Code hook 事件单独配置：是否触发、走哪种通知类型、可选自定义文案（留空用类型模板）。默认仅精选若干事件启用。",
   "notif.eventTypeLabel": "通知类型",
-  "notif.eventTemplatePlaceholder": "留空用所选类型的模板"
+  "notif.eventTemplatePlaceholder": "留空用所选类型的模板",
+  "updater.foundTitle": "发现新版本",
+  "updater.releaseNotes": "更新内容",
+  "updater.updateNow": "立即更新",
+  "updater.later": "稍后",
+  "updater.updating": "更新中…",
+  "updater.updateFailed": "更新失败"
 }

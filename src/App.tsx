@@ -10,11 +10,14 @@ import { Notifications } from "./pages/Notifications";
 import { Skills } from "./pages/Skills";
 import { Mcp } from "./pages/Mcp";
 import { About } from "./pages/About";
+import { UpdatePromptModal } from "./components/UpdatePromptModal";
 import {
   proxyLogApi,
   notificationApi,
   NOTIF_SPEAK,
 } from "./services/api";
+import { checkForUpdateDailyThrottled } from "./services/updater";
+import type { Update } from "@tauri-apps/plugin-updater";
 import { requestNavigation } from "./utils/navGuard";
 
 const BASE_NAV: NavItem[] = [
@@ -49,6 +52,7 @@ function App() {
   const [activeNav, setActiveNav] = useState("platforms");
   const [logEnabled, setLogEnabled] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(true);
+  const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
 
   useEffect(() => {
     proxyLogApi.getSettings()
@@ -77,6 +81,14 @@ function App() {
     };
     const unlistenPromise = listen<string>(NOTIF_SPEAK, (e) => { speak(e.payload); });
     return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
+  }, []);
+
+  // 每日检测更新：启动调节流检查 (24h)，有更新弹自定义提醒 modal。
+  // dev/未签名/无网络失败已在 service 内 catch 静默，不打扰。
+  useEffect(() => {
+    checkForUpdateDailyThrottled()
+      .then((upd) => { if (upd) setPendingUpdate(upd); })
+      .catch(() => {});
   }, []);
 
   const handleNavigate = (id: string) => {
@@ -136,6 +148,12 @@ function App() {
           {effectiveNav === "about" && <About />}
         </div>
       </main>
+      {pendingUpdate && (
+        <UpdatePromptModal
+          update={pendingUpdate}
+          onClose={() => setPendingUpdate(null)}
+        />
+      )}
     </div>
   );
 }

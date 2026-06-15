@@ -1415,5 +1415,11 @@
   "notif.eventListTitle": "مشغّلات أحداث Hook الفردية",
   "notif.eventListDesc": "اضبط كل حدث hook في Claude Code على حدة: هل يُطلق إشعارًا، ونوع الإشعار، ونص مخصص اختياري (اتركه فارغًا لاستخدام قالب النوع). يتم تفعيل مجموعة مختارة فقط افتراضيًا.",
   "notif.eventTypeLabel": "نوع الإشعار",
-  "notif.eventTemplatePlaceholder": "اتركه فارغًا لاستخدام قالب النوع المحدد"
+  "notif.eventTemplatePlaceholder": "اتركه فارغًا لاستخدام قالب النوع المحدد",
+  "updater.foundTitle": "يتوفر إصدار جديد",
+  "updater.releaseNotes": "ملاحظات الإصدار",
+  "updater.updateNow": "التحديث الآن",
+  "updater.later": "لاحقًا",
+  "updater.updating": "جارٍ التحديث…",
+  "updater.updateFailed": "فشل التحديث"
 }

@@ -1415,5 +1415,11 @@
   "notif.eventListTitle": "Auslöser pro Hook-Ereignis",
   "notif.eventListDesc": "Konfiguriere jedes Claude-Code-Hook-Ereignis einzeln: ob ausgelöst wird, welcher Benachrichtigungstyp und ein optionaler eigener Text (leer lassen, um die Vorlage des Typs zu verwenden). Standardmäßig ist nur eine Auswahl aktiviert.",
   "notif.eventTypeLabel": "Benachrichtigungstyp",
-  "notif.eventTemplatePlaceholder": "Leer lassen, um die Vorlage des gewählten Typs zu verwenden"
+  "notif.eventTemplatePlaceholder": "Leer lassen, um die Vorlage des gewählten Typs zu verwenden",
+  "updater.foundTitle": "Neue Version verfügbar",
+  "updater.releaseNotes": "Versionshinweise",
+  "updater.updateNow": "Jetzt aktualisieren",
+  "updater.later": "Später",
+  "updater.updating": "Wird aktualisiert…",
+  "updater.updateFailed": "Aktualisierung fehlgeschlagen"
 }

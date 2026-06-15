@@ -1415,5 +1415,11 @@
   "notif.eventListTitle": "Триггеры по событиям Hook",
   "notif.eventListDesc": "Настройте каждое событие hook в Claude Code отдельно: срабатывать ли, какой тип уведомления и необязательный собственный текст (оставьте пустым, чтобы использовать шаблон типа). По умолчанию включён только избранный набор.",
   "notif.eventTypeLabel": "Тип уведомления",
-  "notif.eventTemplatePlaceholder": "Оставьте пустым, чтобы использовать шаблон выбранного типа"
+  "notif.eventTemplatePlaceholder": "Оставьте пустым, чтобы использовать шаблон выбранного типа",
+  "updater.foundTitle": "Доступна новая версия",
+  "updater.releaseNotes": "Что нового",
+  "updater.updateNow": "Обновить сейчас",
+  "updater.later": "Позже",
+  "updater.updating": "Обновление…",
+  "updater.updateFailed": "Ошибка обновления"
 }

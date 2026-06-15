@@ -1415,5 +1415,11 @@
   "notif.eventListTitle": "Déclencheurs par événement Hook",
   "notif.eventListDesc": "Configurez chaque événement hook de Claude Code individuellement : déclenchement ou non, type de notification et message personnalisé facultatif (laisser vide pour utiliser le modèle du type). Seule une sélection est activée par défaut.",
   "notif.eventTypeLabel": "Type de notification",
-  "notif.eventTemplatePlaceholder": "Laisser vide pour utiliser le modèle du type sélectionné"
+  "notif.eventTemplatePlaceholder": "Laisser vide pour utiliser le modèle du type sélectionné",
+  "updater.foundTitle": "Nouvelle version disponible",
+  "updater.releaseNotes": "Notes de version",
+  "updater.updateNow": "Mettre à jour maintenant",
+  "updater.later": "Plus tard",
+  "updater.updating": "Mise à jour…",
+  "updater.updateFailed": "Échec de la mise à jour"
 }

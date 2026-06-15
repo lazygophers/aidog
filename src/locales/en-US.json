@@ -1393,5 +1393,11 @@
   "notif.eventListTitle": "Per-Hook Event Triggers",
   "notif.eventListDesc": "Configure each Claude Code hook event individually: whether to trigger, which notification type, and an optional custom message (leave blank to use the type's template). Only a curated set is enabled by default.",
   "notif.eventTypeLabel": "Notification type",
-  "notif.eventTemplatePlaceholder": "Leave blank to use the selected type's template"
+  "notif.eventTemplatePlaceholder": "Leave blank to use the selected type's template",
+  "updater.foundTitle": "New version available",
+  "updater.releaseNotes": "Release notes",
+  "updater.updateNow": "Update now",
+  "updater.later": "Later",
+  "updater.updating": "Updating…",
+  "updater.updateFailed": "Update failed"
 }

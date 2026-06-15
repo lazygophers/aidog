@@ -1393,5 +1393,11 @@
   "notif.eventListTitle": "Disparadores por evento de Hook",
   "notif.eventListDesc": "Configura cada evento de hook de Claude Code por separado: si se dispara, qué tipo de notificación y un texto personalizado opcional (déjalo vacío para usar la plantilla del tipo). De forma predeterminada solo se activa un conjunto seleccionado.",
   "notif.eventTypeLabel": "Tipo de notificación",
-  "notif.eventTemplatePlaceholder": "Déjalo vacío para usar la plantilla del tipo seleccionado"
+  "notif.eventTemplatePlaceholder": "Déjalo vacío para usar la plantilla del tipo seleccionado",
+  "updater.foundTitle": "Nueva versión disponible",
+  "updater.releaseNotes": "Notas de la versión",
+  "updater.updateNow": "Actualizar ahora",
+  "updater.later": "Más tarde",
+  "updater.updating": "Actualizando…",
+  "updater.updateFailed": "Error al actualizar"
 }
