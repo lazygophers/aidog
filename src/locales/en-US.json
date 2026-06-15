@@ -1369,5 +1369,10 @@
   "skills.detail.readFailed": "Failed to read",
   "skills.detail.truncated": "File too large, truncated",
   "skills.detail.noSkillMd": "No SKILL.md",
-  "skills.detail.empty": "Empty"
+  "skills.detail.empty": "Empty",
+  "notif.testBeepTip": "Test system beep only",
+  "notif.testPopupBody": "Test popup",
+  "notif.testPopupTip": "Test system popup only",
+  "notif.testTtsContent": "test announcement",
+  "notif.testTtsTip": "Test voice only"
 }

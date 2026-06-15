@@ -108,6 +108,33 @@ export function NotificationSettingsTab() {
     }
   };
 
+  // 独立通道测试：绕过 dispatch 直接触发某通道，便于诊断（语音后端 / 弹窗权限 / 系统提示音）。
+  const handleTestTts = async (type: NotifType) => {
+    try {
+      const text = `${notifTypeLabel(t, type)} ${t("notif.testTtsContent", "测试播报")}`;
+      await notificationApi.testTts(text);
+    } catch (e) {
+      console.error("test tts failed", e);
+      setMessage(String(e));
+    }
+  };
+  const handleTestPopup = async (type: NotifType) => {
+    try {
+      await notificationApi.testPopup(notifTypeLabel(t, type), t("notif.testPopupBody", "测试弹窗"));
+    } catch (e) {
+      console.error("test popup failed", e);
+      setMessage(String(e));
+    }
+  };
+  const handleTestBeep = async () => {
+    try {
+      await notificationApi.testBeep();
+    } catch (e) {
+      console.error("test beep failed", e);
+      setMessage(String(e));
+    }
+  };
+
   // 注入前确保脚本执行器就绪：uv 可用 → 直接放行；否则弹 modal。返回 false 表示用户取消注入。
   const ensureExecutorReady = async (): Promise<boolean> => {
     try {
@@ -265,16 +292,48 @@ export function NotificationSettingsTab() {
           const ts = typeSetting(type);
           return (
             <div key={type} className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <div style={{ fontSize: 13, fontWeight: 600 }}>{notifTypeLabel(t, type)}</div>
-                <button
-                  className="btn btn-ghost"
-                  style={{ fontSize: 12, padding: "4px 10px" }}
-                  onClick={() => handleTest(type)}
-                  disabled={!settings.enabled}
-                >
-                  {t("notif.test", "测试")}
-                </button>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: 12, padding: "4px 8px" }}
+                    onClick={() => handleTestTts(type)}
+                    disabled={!settings.enabled}
+                    title={t("notif.testTtsTip", "仅测语音播报")}
+                    aria-label={t("notif.testTtsTip", "仅测语音播报")}
+                  >
+                    🔊
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: 12, padding: "4px 8px" }}
+                    onClick={() => handleTestPopup(type)}
+                    disabled={!settings.enabled}
+                    title={t("notif.testPopupTip", "仅测系统弹窗")}
+                    aria-label={t("notif.testPopupTip", "仅测系统弹窗")}
+                  >
+                    🪟
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: 12, padding: "4px 8px" }}
+                    onClick={handleTestBeep}
+                    disabled={!settings.enabled}
+                    title={t("notif.testBeepTip", "仅测系统提示音")}
+                    aria-label={t("notif.testBeepTip", "仅测系统提示音")}
+                  >
+                    🔔
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: 12, padding: "4px 10px" }}
+                    onClick={() => handleTest(type)}
+                    disabled={!settings.enabled}
+                  >
+                    {t("notif.test", "测试")}
+                  </button>
+                </div>
               </div>
 
               <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>

@@ -250,7 +250,7 @@ pub async fn dispatch(
 }
 
 /// 弹窗（tauri_plugin_notification）。失败仅记日志。
-fn show_popup(app: &tauri::AppHandle, title: &str, body: &str) {
+pub(crate) fn show_popup(app: &tauri::AppHandle, title: &str, body: &str) {
     use tauri_plugin_notification::NotificationExt;
     if let Err(e) = app.notification().builder().title(title).body(body).show() {
         tracing::warn!(error = %e, "notify: popup show failed");
@@ -262,7 +262,7 @@ fn show_popup(app: &tauri::AppHandle, title: &str, body: &str) {
 ///   speak 为非阻塞触发，线程随即退出，平台 backend 自行排播）。
 /// - MacSay：std::process `say`（macOS only；其他平台退化为 CrossPlatform）。
 /// - WebSpeech：emit 事件给前端 webview，由 N3 webview SpeechSynthesis 朗读。
-fn speak(app: Option<&tauri::AppHandle>, backend: TtsBackend, text: &str) {
+pub(crate) fn speak(app: Option<&tauri::AppHandle>, backend: TtsBackend, text: &str) {
     match backend {
         TtsBackend::WebSpeech => {
             if let Some(app) = app {
@@ -308,6 +308,48 @@ fn speak_cross_platform(text: &str) {
             std::thread::sleep(std::time::Duration::from_millis(200));
         }
         Err(e) => tracing::warn!(error = %e, "notify: tts backend init failed"),
+    });
+}
+
+/// 跨平台系统提示音（独立通道，绕过弹窗 / TTS）。
+/// - macOS: `afplay /System/Library/Sounds/Pop.aiff`
+/// - Windows: PowerShell `[console]::Beep(800, 200)`
+/// - Linux: `paplay <freedesktop bell>`，缺则 stdout `\a`
+///
+/// spawn 后立即返回；失败仅记日志，不阻塞调用方。
+pub(crate) fn play_beep() {
+    std::thread::spawn(|| {
+        #[cfg(target_os = "macos")]
+        {
+            const SOUND: &str = "/System/Library/Sounds/Pop.aiff";
+            if let Err(e) = std::process::Command::new("afplay").arg(SOUND).status() {
+                tracing::warn!(error = %e, "notify: afplay beep failed");
+            }
+        }
+        #[cfg(target_os = "windows")]
+        {
+            if let Err(e) = std::process::Command::new("powershell")
+                .args(["-NoProfile", "-Command", "[console]::Beep(800, 200)"])
+                .status()
+            {
+                tracing::warn!(error = %e, "notify: powershell beep failed");
+            }
+        }
+        #[cfg(target_os = "linux")]
+        {
+            const BELL: &str = "/usr/share/sounds/freedesktop/stereo/bell.oga";
+            let bell_exists = std::path::Path::new(BELL).exists();
+            if bell_exists {
+                if let Err(e) = std::process::Command::new("paplay").arg(BELL).status() {
+                    tracing::warn!(error = %e, "notify: paplay beep failed");
+                }
+            } else {
+                // 兜底: 终端响铃
+                print!("\x07");
+                use std::io::Write;
+                let _ = std::io::stdout().flush();
+            }
+        }
     });
 }
 

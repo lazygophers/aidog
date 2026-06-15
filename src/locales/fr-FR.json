@@ -1391,5 +1391,10 @@
   "skills.detail.readFailed": "Échec de la lecture",
   "skills.detail.truncated": "Fichier trop volumineux, tronqué",
   "skills.detail.noSkillMd": "Aucun SKILL.md",
-  "skills.detail.empty": "Vide"
+  "skills.detail.empty": "Vide",
+  "notif.testBeepTip": "Tester uniquement le bip système",
+  "notif.testPopupBody": "Popup de test",
+  "notif.testPopupTip": "Tester uniquement la popup système",
+  "notif.testTtsContent": "annonce test",
+  "notif.testTtsTip": "Tester uniquement la voix"
 }

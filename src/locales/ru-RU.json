@@ -1391,5 +1391,10 @@
   "skills.detail.readFailed": "Ошибка чтения",
   "skills.detail.truncated": "Файл слишком большой, обрезан",
   "skills.detail.noSkillMd": "Нет SKILL.md",
-  "skills.detail.empty": "Пусто"
+  "skills.detail.empty": "Пусто",
+  "notif.testBeepTip": "Только системный звук",
+  "notif.testPopupBody": "Тестовое окно",
+  "notif.testPopupTip": "Только системное окно",
+  "notif.testTtsContent": "тестовое объявление",
+  "notif.testTtsTip": "Только голос"
 }

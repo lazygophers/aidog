@@ -1967,6 +1967,43 @@ async fn notification_test(
     Ok(gateway::notification::dispatch(&db_arc, Some(&app), &notif_type, content.as_deref(), &vars).await)
 }
 
+/// 仅测 TTS 通道（绕过 dispatch，按当前 settings.tts_backend 播报 text）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn notification_test_tts(
+    db: State<'_, Db>,
+    app: tauri::AppHandle,
+    text: String,
+) -> Result<(), String> {
+    tracing::debug!(command = "notification_test_tts", "command invoked");
+    let db_arc = std::sync::Arc::new(db.inner().clone());
+    let settings = gateway::db::get_notification_settings(&db_arc).await;
+    gateway::notification::speak(Some(&app), settings.tts_backend, &text);
+    Ok(())
+}
+
+/// 仅测系统弹窗通道（绕过 dispatch，直接调 tauri-plugin-notification）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn notification_test_popup(
+    app: tauri::AppHandle,
+    title: String,
+    body: String,
+) -> Result<(), String> {
+    tracing::debug!(command = "notification_test_popup", "command invoked");
+    gateway::notification::show_popup(&app, &title, &body);
+    Ok(())
+}
+
+/// 仅测系统提示音通道（跨平台 spawn system beep）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn notification_test_beep() -> Result<(), String> {
+    tracing::debug!(command = "notification_test_beep", "command invoked");
+    gateway::notification::play_beep();
+    Ok(())
+}
+
 // ─── Platform Quota (Balance & Coding Plan) ────────────────
 
 use gateway::quota::PlatformQuota;
@@ -3596,6 +3633,9 @@ pub fn run() {
             notification_inbox_list,
             notification_clear,
             notification_test,
+            notification_test_tts,
+            notification_test_popup,
+            notification_test_beep,
             // Notification Hook Integration (N2)
             inject_hooks,
             remove_hooks,

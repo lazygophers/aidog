@@ -1391,5 +1391,10 @@
   "skills.detail.readFailed": "読み取り失敗",
   "skills.detail.truncated": "ファイルが大きすぎます、切り詰めました",
   "skills.detail.noSkillMd": "SKILL.md なし",
-  "skills.detail.empty": "空"
+  "skills.detail.empty": "空",
+  "notif.testBeepTip": "システム通知音のみテスト",
+  "notif.testPopupBody": "テストポップアップ",
+  "notif.testPopupTip": "システムポップアップのみテスト",
+  "notif.testTtsContent": "テスト読み上げ",
+  "notif.testTtsTip": "音声のみテスト"
 }

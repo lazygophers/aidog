@@ -953,6 +953,15 @@ export const notificationApi = {
   /** 测试通知（走分发逻辑，含弹窗/TTS）。 */
   testNotify: (notifType: NotifType | string, content?: string) =>
     invoke<NotifyDispatchResult>("notification_test", { notifType, content }),
+  /** 仅测 TTS 通道：按当前 settings.tts_backend 播报 text，不走 dispatch。 */
+  testTts: (text: string) =>
+    invoke<void>("notification_test_tts", { text }),
+  /** 仅测系统弹窗通道：直接调 tauri-plugin-notification，不走 dispatch。 */
+  testPopup: (title: string, body: string) =>
+    invoke<void>("notification_test_popup", { title, body }),
+  /** 仅测系统提示音通道：跨平台 spawn beep（macOS afplay / Windows powershell / Linux paplay）。 */
+  testBeep: () =>
+    invoke<void>("notification_test_beep"),
   /**
    * 一键注入通知 hook（N2）。
    * - client="claude_code"：把 hooks.Stop/Notification 注入基线配置并 re-sync 到所有 settings.{group}.json。

@@ -1391,5 +1391,10 @@
   "skills.detail.readFailed": "Lesen fehlgeschlagen",
   "skills.detail.truncated": "Datei zu groß, abgeschnitten",
   "skills.detail.noSkillMd": "Kein SKILL.md",
-  "skills.detail.empty": "Leer"
+  "skills.detail.empty": "Leer",
+  "notif.testBeepTip": "Nur Systemton testen",
+  "notif.testPopupBody": "Test-Popup",
+  "notif.testPopupTip": "Nur System-Popup testen",
+  "notif.testTtsContent": "Testansage",
+  "notif.testTtsTip": "Nur Sprache testen"
 }

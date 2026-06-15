@@ -1391,5 +1391,10 @@
   "skills.detail.readFailed": "فشل القراءة",
   "skills.detail.truncated": "الملف كبير جدًا، تم الاقتطاع",
   "skills.detail.noSkillMd": "لا يوجد SKILL.md",
-  "skills.detail.empty": "فارغ"
+  "skills.detail.empty": "فارغ",
+  "notif.testBeepTip": "اختبار صوت النظام فقط",
+  "notif.testPopupBody": "نافذة منبثقة تجريبية",
+  "notif.testPopupTip": "اختبار النافذة المنبثقة فقط",
+  "notif.testTtsContent": "إعلان تجريبي",
+  "notif.testTtsTip": "اختبار الصوت فقط"
 }

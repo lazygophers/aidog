@@ -1369,5 +1369,10 @@
   "skills.detail.readFailed": "读取失败",
   "skills.detail.truncated": "文件过大，已截断",
   "skills.detail.noSkillMd": "无 SKILL.md",
-  "skills.detail.empty": "空"
+  "skills.detail.empty": "空",
+  "notif.testBeepTip": "仅测系统提示音",
+  "notif.testPopupBody": "测试弹窗",
+  "notif.testPopupTip": "仅测系统弹窗",
+  "notif.testTtsContent": "测试播报",
+  "notif.testTtsTip": "仅测语音播报"
 }

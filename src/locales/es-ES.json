@@ -1369,5 +1369,10 @@
   "skills.detail.readFailed": "Error al leer",
   "skills.detail.truncated": "Archivo demasiado grande, truncado",
   "skills.detail.noSkillMd": "Sin SKILL.md",
-  "skills.detail.empty": "Vacío"
+  "skills.detail.empty": "Vacío",
+  "notif.testBeepTip": "Probar solo el sonido del sistema",
+  "notif.testPopupBody": "Popup de prueba",
+  "notif.testPopupTip": "Probar solo la ventana emergente",
+  "notif.testTtsContent": "anuncio de prueba",
+  "notif.testTtsTip": "Probar solo voz"
 }
