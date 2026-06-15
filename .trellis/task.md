@@ -24,5 +24,6 @@
 | fix-model-test-mock | 修复 model_test 对 Mock 平台返回 builder error (502) | — | 已完成 | 收尾 | 100% | — |
 | notify-mac-system | macOS 通知默认走系统通知 (osascript display notification 替代 tauri-plugin) | — | 已完成 | 收尾 | 100% | — |
 | subagent-statusline-fix | subagent statusline 展示修复 (诊断+定位) | — | 已完成 | 收尾 | 100% | — |
-| readme-badges | README + docs 添加 LINUX DO 社区徽章及常见 GitHub 徽章 | — | 进行中 | 规划 | 0% | — |
+| readme-badges | README + docs 添加 LINUX DO 社区徽章及常见 GitHub 徽章 | — | 已完成 | 收尾 | 100% | — |
 | skills-catalog-mismatch | Skills 搜索结果与 npx skills ls --json 不一致诊断+修复 | — | 已完成 | 收尾 | 100% | — |
+| readme-badges | README+docs 添加 LINUX DO 社区徽章及常见 GitHub 徽章 (8 语言) | — | 已完成 | 收尾 | 100% | — |
