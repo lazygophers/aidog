@@ -175,7 +175,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
         )}
       </div>
 
-      {/* 3. 请求趋势 · 今日（hourly 柱状图，单 accent + 失败叠 danger 语义色） */}
+      {/* 3. 请求趋势 · 今日（hourly 曲线图：单 accent 折线 + 面积填充） */}
       <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.trendTitle", "请求趋势 · 今日")}</div>
@@ -187,35 +187,79 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
           )}
         </div>
         {hasTrend ? (
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 72 }}>
-            {trendBuckets.map((b, i) => {
-              const h = trendPeak > 0 ? (b.total_requests / trendPeak) * 100 : 0;
-              const errRatio = b.total_requests > 0 ? b.error_count / b.total_requests : 0;
-              const hour = b.time_bucket.slice(-5).slice(0, 2); // "HH" 取整点小时
-              return (
-                <div
-                  key={i}
-                  title={`${b.time_bucket.slice(-5)} · ${formatNumber(b.total_requests)}`}
-                  style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%", gap: 3 }}
-                >
-                  <div
-                    style={{
-                      width: "100%",
-                      height: `${Math.max(h, b.total_requests > 0 ? 4 : 0)}%`,
-                      borderRadius: 2,
-                      background: errRatio > 0
-                        ? `linear-gradient(to top, var(--accent), color-mix(in srgb, var(--accent) ${Math.round((1 - errRatio) * 100)}%, var(--danger)))`
-                        : "var(--accent)",
-                      transition: "height 0.3s ease",
-                    }}
+          (() => {
+            // SVG 曲线图：viewBox 固定坐标系，preserveAspectRatio=none 横向拉满容器，纵向固定高
+            const W = 1000;            // viewBox 宽（任意单位，等比映射到容器宽）
+            const H = 80;              // viewBox 高
+            const PAD_T = 6;           // 顶部留白（圆点不被裁）
+            const n = trendBuckets.length;
+            const plotH = H - PAD_T;
+            const xAt = (i: number) => n > 1 ? (i / (n - 1)) * W : W / 2;
+            const yAt = (v: number) => PAD_T + (trendPeak > 0 ? (1 - v / trendPeak) : 1) * plotH;
+            const pts = trendBuckets.map((b, i) => ({ x: xAt(i), y: yAt(b.total_requests), b }));
+            const linePoints = pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" ");
+            const areaPath = `M ${pts[0].x.toFixed(1)},${H} L ${pts.map((p) => `${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(" L ")} L ${pts[n - 1].x.toFixed(1)},${H} Z`;
+            const peakIdx = pts.reduce((mi, p, i) => p.b.total_requests > pts[mi].b.total_requests ? i : mi, 0);
+            return (
+              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+                <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 80, display: "block", overflow: "visible" }}>
+                  <defs>
+                    <linearGradient id="homeTrendArea" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.28" />
+                      <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
+                    </linearGradient>
+                  </defs>
+                  <path d={areaPath} fill="url(#homeTrendArea)" />
+                  <polyline
+                    points={linePoints}
+                    fill="none"
+                    stroke="var(--accent)"
+                    strokeWidth={2}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
                   />
-                  {i % 4 === 0 && (
-                    <span style={{ fontSize: 8, color: "var(--text-tertiary)", textAlign: "center", whiteSpace: "nowrap" }}>{hour}</span>
+                  {/* hover 命中区 + tooltip（每桶一竖条，透明） */}
+                  {pts.map((p, i) => (
+                    <rect
+                      key={i}
+                      x={(p.x - W / (n * 2)).toFixed(1)}
+                      y={0}
+                      width={(W / n).toFixed(1)}
+                      height={H}
+                      fill="transparent"
+                    >
+                      <title>{`${p.b.time_bucket.slice(-5)} · ${formatNumber(p.b.total_requests)}`}</title>
+                    </rect>
+                  ))}
+                  {/* 峰值点高亮（克制，单点） */}
+                  {trendPeak > 0 && (
+                    <circle cx={pts[peakIdx].x.toFixed(1)} cy={pts[peakIdx].y.toFixed(1)} r={3.5} fill="var(--accent)" vectorEffect="non-scaling-stroke" />
+                  )}
+                </svg>
+                {/* x 轴整点小时标注：每 4 桶，与曲线 x 对齐 */}
+                <div style={{ position: "relative", height: 12 }}>
+                  {trendBuckets.map((b, i) =>
+                    i % 4 === 0 ? (
+                      <span
+                        key={i}
+                        style={{
+                          position: "absolute",
+                          left: `${(xAt(i) / W) * 100}%`,
+                          transform: "translateX(-50%)",
+                          fontSize: 8,
+                          color: "var(--text-tertiary)",
+                          whiteSpace: "nowrap",
+                        }}
+                      >
+                        {b.time_bucket.slice(-5).slice(0, 2)}
+                      </span>
+                    ) : null
                   )}
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })()
         ) : (
           <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "4px 0" }}>
             {t("home.trendEmpty", "今日暂无请求")}
