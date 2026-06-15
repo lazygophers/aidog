@@ -48,5 +48,5 @@
 | responses-api-endpoints | 核查并支持 Responses API 全端点(create 转换 + get/cancel/compact 透传) | — | 已完成 | 收尾 | 100% | — |
 | stats-model-filter-size | 使用统计模型下拉筛选 item 过窄不可读 | — | 已完成 | 收尾 | 100% | — |
 | stats-platform-filter-mismatch | 使用统计平台筛选语义错配筛空 | — | 已完成 | 收尾 | 100% | — |
-| home-dashboard | 新增首页总览仪表盘（侧栏首项+默认落地, 复用现有主题/组件） | — | 进行中 | 规划 | 0% | — |
-| stats-model-filter-size-v2 | 模型下拉筛选 item 仍过小 (上次改动力度不足) | — | 进行中 | 规划 | 0% | — |
+| home-dashboard | 新增首页总览仪表盘（侧栏首项+默认落地, 复用现有主题/组件） | — | 已完成 | 收尾 | 100% | — |
+| stats-model-filter-size-v2 | 模型下拉筛选 item 仍过小 (上次改动力度不足) | — | 已完成 | 收尾 | 100% | — |
