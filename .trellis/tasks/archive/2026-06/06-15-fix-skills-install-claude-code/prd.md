@@ -57,6 +57,23 @@ npx skills list --json -g 2>/dev/null | python3 -c "import json,sys;[print(s['na
 - 若 (1) 无文件 → 根因 = install 步骤在打包版 env 下 claude-code 静默失败（codex 成功但 claude-code 步骤 error 被吞）→ 修复方向：install 后端不吞 claude-code 步骤 stderr，前端展示逐 agent 成败
 - 若 (1) 有文件 但 (2) 不含 "Claude Code" → 根因 = 打包版 env 下 list 的 detectInstalledAgents 漏 claude（HOME/CLAUDE_CONFIG_DIR 异常）→ 修复方向：spawn npx 时显式注入 HOME=$(真实 home)
 
-## 状态
-**阻塞**：等用户跑决定性验证。无验证结果不进 exec（避免盲改）。
+## 决策（2026-06-15）
+
+用户授权"赌分支直接改"。cli.mjs 源码证据锁定**分支3**为最可能根因（详见 `research/skills-claude-code-env.md`）：
+
+- claude-code `detectInstalled = existsSync(claudeHome)`，`claudeHome = CLAUDE_CONFIG_DIR || ~/.claude`（cli.mjs:939,1027-1031），**仅依赖 HOME env 无兜底**
+- codex `detectInstalled` 有 `/etc/codex` 兜底（cli.mjs:1087-1093），容错强 → 解释 codex 成功 claude 失败的不对称
+- 打包 GUI env 下 HOME 异常 → claudeHome 解析错 → list agents[] 漏 claude → UI 显示无 claude
+
+## 修复范围
+
+spawn npx 时显式注入 `HOME`（`dirs::home_dir()` getpwuid 解析）+ 透传父 env `CLAUDE_CONFIG_DIR`。覆盖两处 spawn：
+- `run_npx`（skills.rs:791）
+- `run_npx_in_scope`（skills.rs:1562）
+
+新增 `apply_home_env(cmd)` helper（mirror `apply_proxy_env` 模式）+ 单测。
+
+## 验证
+
+dev env 无法复现（env 正常）。打包版重装新 skill 后：`ls ~/.claude/skills/<name>` + `npx skills list --json -g` 应含 Claude Code。单测守护 apply_home_env 行为。
 

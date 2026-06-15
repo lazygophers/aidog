@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/06-15-fix-skills-install-claude-code/research/skills-claude-code-env.md", "reason": "验收基准：apply_home_env 用 dirs::home_dir() 解析 HOME + 透传 CLAUDE_CONFIG_DIR，覆盖 run_npx + run_npx_in_scope 两处 spawn"}
+{"file": ".trellis/spec/guides/trellisx-conventions.md", "reason": "check 闭环：cargo clippy 零 warning + cargo test skills 模块单测通过 + warnings-are-issues 规约"}
