@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/06-15-claude-hook-notify/prd.md", "reason": "权威需求+设计+实现计划 S1-S4，实现必读"}
+{"file": ".trellis/tasks/06-15-claude-hook-notify/research/01-current-hook-injection.md", "reason": "hook 注入全链路 file:line（build_hook_script/inject/ScriptPaths/调用方），泛化基线"}
+{"file": ".trellis/tasks/06-15-claude-hook-notify/research/02-data-model-persistence.md", "reason": "NotificationSettings/DB blob 存储 + per_event 扩展点（零 migration）"}
+{"file": ".trellis/tasks/06-15-claude-hook-notify/research/03-api-notify-payload.md", "reason": "/api/notify NotifyReq + dispatch/render/substitute_vars，vars 透传机制"}
+{"file": ".trellis/tasks/06-15-claude-hook-notify/research/04-frontend-integration.md", "reason": "NotificationSettings.tsx 结构 + 拆 NotificationEventList.tsx 避并行冲突 + api.ts 扩展点"}
+{"file": ".trellis/tasks/06-15-claude-hook-notify/research/05-event-catalog-defaults-and-impact.md", "reason": "全量事件目录+默认映射+Codex 解耦+实现影响清单+风险"}
