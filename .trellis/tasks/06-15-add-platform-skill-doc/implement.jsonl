@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/06-15-aidog-add-platform-skill/research/01-platform-model-presets.md", "reason": "平台数据模型+Protocol枚举+预设触点+协议决策树+死代码adapter警示，skill 路径1/路径2 触点来源"}
+{"file": ".trellis/tasks/06-15-aidog-add-platform-skill/research/02-quota-coding-plan.md", "reason": "余额+coding plan+价格子流程「照着改」骨架模板，skill references/quota-coding-plan.md 来源"}
+{"file": ".trellis/tasks/06-15-aidog-add-platform-skill/research/03-proxy-frontend.md", "reason": "代理coding plan注入+前端UI触点+Rust↔TS跨层契约+client_type陷阱，skill 跨层/前端节来源"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端约定参照，确保 skill 描述的前端触点与项目规范一致"}
