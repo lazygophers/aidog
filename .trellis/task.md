@@ -56,3 +56,5 @@
 | stats-cache-rate-over-100 | 缓存率公式错误可超 100% (cache/input→cache/(input+cache)) | — | 已完成 | 收尾 | 100% | — |
 | home-request-trend | 首页加请求趋势图（今日 hourly buckets 轻量 SVG） | — | 已完成 | 收尾 | 100% | — |
 | stats-trend-chart-missing | 请求趋势图不显示 (query_stats buckets 空/回归未重启诊断) | — | 已完成 | 收尾 | 100% | — |
+| mcp-add-entry | MCP 主动添加入口 (手动新建 server) | — | 进行中 | 规划 | 0% | — |
+| home-trend-line | 首页请求趋势改曲线图(SVG 折线/面积替柱状) | — | 已完成 | 收尾 | 100% | — |
