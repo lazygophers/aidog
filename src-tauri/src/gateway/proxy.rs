@@ -815,6 +815,19 @@ async fn handle_proxy_inner(
         return handle_models_passthrough(&state, &mut log, &log_settings, &group, start, lang).await;
     }
 
+    // ── Responses API 子端点分流（必须在 parse_incoming_request 之前）──
+    // retrieve(GET /v1/responses/{id}) / cancel(POST .../{id}/cancel) / delete(DELETE .../{id})
+    // / compact(POST /v1/responses/compact) / input_items(GET .../{id}/input_items)。
+    // 这些是对某次 create 产生的上游 response 对象的操作，必须原样透传到上游 responses 平台
+    // （body/path 不可经 chat 有损转换；GET/DELETE 空 body 进 chat parse 会 EOF 400）。
+    // create（裸 /v1/responses，无尾段）不被拦，继续走下方 parse + same_protocol_passthrough（已 work）。
+    if is_responses_subendpoint(&path) {
+        return handle_responses_subendpoint(
+            &state, &mut log, &log_settings, &group, &orig_method, &bytes, &path, start, lang,
+        )
+        .await;
+    }
+
     // ── 解析 ChatRequest（按入站协议解析） ──
     let req_value: serde_json::Value = match serde_json::from_slice(&bytes) {
         Ok(v) => v,
@@ -2058,6 +2071,166 @@ pub fn apply_models_auth(
     }
 }
 
+/// 判定请求 path（已含 group/proxy 前缀）是否为 Responses API **子端点**（非 create）。
+/// strip `/proxy`+group 前缀后 api_path 以 `/v1/responses/`（**带尾斜杠 + 后续段**）开头 → true。
+/// 精确放行 create：裸 `/v1/responses`（含末尾单斜杠 `/v1/responses/` 但无后续段）→ false，不拦。
+/// 覆盖：/v1/responses/compact、/v1/responses/{id}、/v1/responses/{id}/cancel、/v1/responses/{id}/input_items。
+/// 与 detect_source_protocol 同款 strip（path.find("/v1/")），无 /v1/ 前缀 → 非 responses 子端点。
+fn is_responses_subendpoint(path: &str) -> bool {
+    let api_path = match path.find("/v1/") {
+        Some(idx) => &path[idx..],
+        None => return false,
+    };
+    // strip 末尾斜杠后，必须严格长于裸 `/v1/responses`（即 `/v1/responses/<seg>...`）才算子端点。
+    // 裸 `/v1/responses` 或 `/v1/responses/`（create，无后续段）→ false。
+    let trimmed = api_path.trim_end_matches('/');
+    trimmed.starts_with("/v1/responses/") && trimmed.len() > "/v1/responses".len()
+}
+
+/// Responses API 子端点透传：选分组首个支持 responses 的平台，原样转发 method/body 到上游 + 平台凭证。
+/// 不做转换 / model mapping / 重试（子端点是对上游 response 对象的操作，无 chat 语义）。
+/// 平台选择：分组首个 enabled 且 endpoint 协议含 OpenAIResponses 的平台；无则回退首个 enabled 平台。
+/// 上游 URL：取该平台 responses 端点 base_url + 子路径（api_path 去 `/v1` 前缀，如 `/responses/{id}/cancel`），
+///   镜像 create same_protocol_passthrough 的 `base_url.trim_end('/') + api_path` 构造，base_url 已含 /v1 禁重复拼。
+/// 鉴权：平台凭证 `Authorization: Bearer <api_key>` + `OpenAI-Beta: responses=experimental`（不透传客户端 group token）。
+/// 已知限制：response_id→platform 无持久映射，多 responses 平台分组下取首个平台，若 create 落到非首个 → 上游可能 404
+///   （单 responses 平台分组安全，Codex 常见场景）。此限制在 prd 失败处理已标注，log 记录真实 status。
+#[allow(clippy::too_many_arguments)]
+async fn handle_responses_subendpoint(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    log_settings: &ProxyLogSettings,
+    group: &Group,
+    orig_method: &axum::http::Method,
+    bytes: &[u8],
+    path: &str,
+    start: std::time::Instant,
+    lang: Lang,
+) -> Response {
+    log.source_protocol = "openai_responses".to_string();
+    log.target_protocol = "openai_responses".to_string();
+
+    // 分组平台列表
+    let group_platforms = match super::db::get_group_platforms(&state.db, group.id).await {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(group = %group.name, error = %e, "responses subendpoint: get_group_platforms failed");
+            log.response_body = format!("group platforms error: {e}");
+            log.status_code = 503;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(state, log, log_settings).await;
+            return (StatusCode::SERVICE_UNAVAILABLE, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
+        }
+    };
+
+    // 平台选择：首个 enabled 且含 OpenAIResponses 端点的平台 → 取其 responses 端点 base_url。
+    // 回退：首个 enabled 平台（取其首个端点或平台主配置 base_url）。
+    let selected = group_platforms.iter().find_map(|gp| {
+        if !gp.platform.enabled {
+            return None;
+        }
+        gp.platform
+            .endpoints
+            .iter()
+            .find(|ep| matches!(ep.protocol, Protocol::OpenAIResponses))
+            .map(|ep| (gp.platform.clone(), ep.base_url.clone()))
+    });
+    let (platform, base_url) = match selected {
+        Some(p) => p,
+        None => {
+            // 回退：首个 enabled 平台
+            match group_platforms.iter().find(|gp| gp.platform.enabled) {
+                Some(gp) => {
+                    let base = gp
+                        .platform
+                        .endpoints
+                        .first()
+                        .map(|ep| ep.base_url.clone())
+                        .unwrap_or_else(|| gp.platform.base_url.clone());
+                    (gp.platform.clone(), base)
+                }
+                None => {
+                    tracing::warn!(group = %group.name, "responses subendpoint: no enabled platform in group");
+                    log.response_body = "no responses-capable or enabled platform for responses subendpoint".to_string();
+                    log.status_code = 503;
+                    log.duration_ms = start.elapsed().as_millis() as i32;
+                    upsert_log(state, log, log_settings).await;
+                    return (StatusCode::SERVICE_UNAVAILABLE, i18n::t(lang, ErrorKey::Route)).into_response();
+                }
+            }
+        }
+    };
+
+    // 上游子路径：api_path（strip /proxy+group 前缀，同 detect_source_protocol）去 `/v1` 前缀。
+    // base_url 已含版本前缀（如 .../v1）→ 子路径只保留 `/responses/...`，禁重复拼 /v1（url-construction-rule）。
+    let api_path = match path.find("/v1/") {
+        Some(idx) => &path[idx..],
+        None => path,
+    };
+    let sub_path = api_path.strip_prefix("/v1").unwrap_or(api_path);
+    let url = format!("{}{}", base_url.trim_end_matches('/'), sub_path);
+
+    log.platform_id = platform.id;
+    log.upstream_request_url = url.clone();
+    log.upstream_request_headers = r#"{"authorization":"[REDACTED]","openai-beta":"responses=experimental"}"#.to_string();
+
+    let system_timeout = get_system_timeout(&state.db).await;
+    let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 60 };
+    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
+    let client = super::http_client::build_http_client(&state.db, req_timeout, conn_timeout, Some(&platform.extra), None).await;
+
+    // 保留原始 method + 原样转发 body（GET/DELETE 无 body；POST cancel/compact 原样）。
+    let mut rb = client
+        .request(orig_method.clone(), &url)
+        .header("Authorization", format!("Bearer {}", platform.api_key))
+        .header("OpenAI-Beta", "responses=experimental");
+    if !bytes.is_empty() {
+        rb = rb.header("Content-Type", "application/json").body(bytes.to_vec());
+        log.upstream_request_body = String::from_utf8_lossy(bytes).to_string();
+    }
+    tracing::info!(group = %group.name, platform = %platform.name, method = %orig_method, url = %url, "responses subendpoint upstream request");
+
+    let resp = match rb.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::error!(url = %url, error = %e, "responses subendpoint upstream request failed (502)");
+            log.response_body = format!("upstream error: {e}");
+            log.status_code = 502;
+            log.upstream_status_code = 0;
+            log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(state, log, log_settings).await;
+            return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+        }
+    };
+
+    let status = resp.status();
+    log.upstream_status_code = status.as_u16() as i32;
+    let content_type = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/json")
+        .to_string();
+    let body = resp.bytes().await.unwrap_or_default();
+    let body_str = String::from_utf8_lossy(&body).to_string();
+
+    log.status_code = status.as_u16() as i32;
+    log.response_body = body_str.clone();
+    log.user_response_body = body_str;
+    log.user_response_headers = format!(r#"{{"content-type":"{}"}}"#, content_type);
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    tracing::info!(url = %url, status = status.as_u16(), "responses subendpoint upstream responded");
+    upsert_log(state, log, log_settings).await;
+
+    let resp_status = StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    let mut response = (resp_status, body.to_vec()).into_response();
+    if let Ok(hv) = axum::http::HeaderValue::from_str(&content_type) {
+        response.headers_mut().insert(axum::http::header::CONTENT_TYPE, hv);
+    }
+    response
+}
+
 /// 构建透传转发 header：原样保留客户端全部 header（含 Authorization OAuth），
 /// 仅剔除 hop-by-hop（Host / Content-Length，由 reqwest 按目标 URL + body 重设）。
 fn passthrough_headers(orig: &axum::http::HeaderMap) -> reqwest::header::HeaderMap {
@@ -2917,6 +3090,58 @@ mod tests {
         accumulate_sse_usage(&oai, &i, &o, &c);
         assert_eq!(i.load(Relaxed), 20);
         assert_eq!(o.load(Relaxed), 7);
+    }
+
+    // ── Responses API 子端点识别：精确放行 create，拦所有子端点 ──
+    #[test]
+    fn responses_subendpoint_detection() {
+        use super::is_responses_subendpoint;
+        // create（裸 /v1/responses，无尾段）→ false（关键回归：不被新分流拦）
+        assert!(!is_responses_subendpoint("/proxy/v1/responses"), "create bare path must NOT be subendpoint");
+        assert!(!is_responses_subendpoint("/proxy/v1/responses/"), "create with trailing slash must NOT be subendpoint");
+        assert!(!is_responses_subendpoint("/v1/responses"), "create (no proxy prefix) must NOT be subendpoint");
+        // 子端点 → true
+        assert!(is_responses_subendpoint("/proxy/v1/responses/resp_123"), "retrieve must be subendpoint");
+        assert!(is_responses_subendpoint("/proxy/v1/responses/resp_123/cancel"), "cancel must be subendpoint");
+        assert!(is_responses_subendpoint("/proxy/v1/responses/resp_123/input_items"), "input_items must be subendpoint");
+        assert!(is_responses_subendpoint("/proxy/v1/responses/compact"), "compact must be subendpoint");
+        assert!(is_responses_subendpoint("/v1/responses/resp_123"), "subendpoint without proxy prefix must be true");
+        // 无 /v1/ 前缀 / 非 responses → false
+        assert!(!is_responses_subendpoint("/proxy/v1/chat/completions"), "chat must NOT be subendpoint");
+        assert!(!is_responses_subendpoint("/proxy/responses/resp_123"), "missing /v1/ prefix must NOT be subendpoint");
+        assert!(!is_responses_subendpoint("/v1/messages"), "anthropic must NOT be subendpoint");
+    }
+
+    // ── 子端点上游 URL 构造：base_url(含 /v1) + 子路径(去 /v1)，禁重复拼版本 ──
+    #[test]
+    fn responses_subendpoint_url_construction() {
+        // 镜像 handle_responses_subendpoint 的 URL 拼接逻辑
+        let build = |base_url: &str, path: &str| -> String {
+            let api_path = match path.find("/v1/") {
+                Some(idx) => &path[idx..],
+                None => path,
+            };
+            let sub_path = api_path.strip_prefix("/v1").unwrap_or(api_path);
+            format!("{}{}", base_url.trim_end_matches('/'), sub_path)
+        };
+        // openai 标准 base_url 含 /v1 → 不重复拼
+        assert_eq!(
+            build("https://api.openai.com/v1", "/proxy/v1/responses/resp_abc/cancel"),
+            "https://api.openai.com/v1/responses/resp_abc/cancel"
+        );
+        assert_eq!(
+            build("https://api.openai.com/v1", "/proxy/v1/responses/resp_abc"),
+            "https://api.openai.com/v1/responses/resp_abc"
+        );
+        assert_eq!(
+            build("https://api.openai.com/v1", "/proxy/v1/responses/compact"),
+            "https://api.openai.com/v1/responses/compact"
+        );
+        // base_url 末尾带斜杠 → trim 后正确
+        assert_eq!(
+            build("https://api.openai.com/v1/", "/proxy/v1/responses/resp_abc/input_items"),
+            "https://api.openai.com/v1/responses/resp_abc/input_items"
+        );
     }
 
     // ── 同协议透传判定：仅端点协议精确等于入站协议才透传 ──
