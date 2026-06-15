@@ -1,72 +1,23 @@
 // ─── 系统通知设置面板（AppSettings「通知」tab；N3）────────────
 // 消费 N1/N2 冻结的 services/api.ts 契约（notificationApi + 类型），只读不改。
-// 提供：总开关 + TTS 总开关 + TTS 后端选择 + 按类型 {tts,popup,form,template} 编辑 +
-//       变量提示 + 测试通知 + 「默认为所有分组注入通知 Hook」总开关（_aidog_hooks.enabled）。
-// 单 group 注入按钮已删（API 仍保留: notificationApi.injectHooks/removeHooks），统一走总开关。
+// 提供：总开关 + TTS 总开关 + TTS 后端选择 + 通道独立测试按钮 +
+//       「默认为所有分组注入通知 Hook」总开关（_aidog_hooks.enabled）+ 逐 Hook 事件触发（NotificationEventList）。
+// 「按类型配置」已移除（仅保留逐 Hook 事件触发）；单 group 注入按钮已删（API 仍保留: injectHooks/removeHooks）。
 
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   notificationApi,
   scriptExecutorApi,
   type NotificationSettings as NotifSettings,
-  type TypeSetting,
   type EventSetting,
-  type NotifType,
-  type NotifForm,
   type TtsBackend,
 } from "../../services/api";
 import { NotificationEventList } from "./NotificationEventList";
 
 // 与 api.ts 契约对齐（禁裸 string）。
-const NOTIF_TYPES: NotifType[] = ["task_complete", "waiting_input", "error"];
-const NOTIF_FORMS: NotifForm[] = ["full", "popup_only", "inbox_only", "sound_only"];
 const TTS_BACKENDS: TtsBackend[] = ["cross_platform", "mac_say", "web_speech"];
-const TEMPLATE_VARS = ["{project}", "{status}", "{time}", "{session}", "{group}"];
-
-/**
- * 每个通知类型的多条不可变预设模板（快捷选择用）。
- * 约定：
- *  - `[0]` 是该类型默认模板，**跨层镜像**后端 `src-tauri/src/gateway/models.rs`
- *    的 `NotifType::default_template`，改 `[0]` 务必同步后端 default_template。
- *  - 全部 zh 硬编码（非 i18n），变量仅用 TEMPLATE_VARS 合法占位。
- *  - 预设是 const，点选只把文本复制进可编辑 template，编辑不回写预设。
- */
-const NOTIF_TEMPLATE_PRESETS: Record<NotifType, string[]> = {
-  task_complete: [
-    "{project} 完成", // [0] 默认（镜像后端 default_template）
-    "✅ {project} 任务已完成",
-    "{project} 已完成 · 状态 {status}",
-    "{project} 全部任务跑完，详见日志",
-  ],
-  waiting_input: [
-    "{project} 等待用户输入", // [0] 默认（镜像后端 default_template）
-    "⌛ {project} 需要你确认",
-    "{project} 暂停 · 等待 {status}",
-    "{project} 卡在交互步骤，请回到终端",
-  ],
-  error: [
-    "{project} 出错", // [0] 默认（镜像后端 default_template）
-    "❌ {project} 执行失败",
-    "{project} 报错 · {status}",
-    "{project} 运行中断，请查看日志",
-  ],
-};
-
-/**
- * 内置默认模板（用户留空 template 时后端 render 兜底使用）。
- * 单一事实源 = 各类型预设 `[0]`（见 NOTIF_TEMPLATE_PRESETS 跨层镜像注释）。
- * 仅作 placeholder 灰字展示「留空效果」，不实际提交。
- */
-const NOTIF_DEFAULT_TEMPLATES: Record<NotifType, string> = {
-  task_complete: NOTIF_TEMPLATE_PRESETS.task_complete[0],
-  waiting_input: NOTIF_TEMPLATE_PRESETS.waiting_input[0],
-  error: NOTIF_TEMPLATE_PRESETS.error[0],
-};
-
-const DEFAULT_TYPE_SETTING: TypeSetting = { tts: true, popup: true, form: "full", template: "" };
 
 // macOS 检测：webview UA 含 "Macintosh"。不引 @tauri-apps/plugin-os 依赖，纯前端判定。
 // 仅 macOS 显示「打开系统通知设置」引导（Windows/Linux 通知一般默认可用，避免误导）。
@@ -84,15 +35,7 @@ const DEFAULT_SETTINGS: NotifSettings = {
   per_event: {},
 };
 
-function notifTypeLabel(t: TFunction, type: NotifType): string {
-  return t(`notif.type.${type}`, type);
-}
-
-function notifFormLabel(t: TFunction, form: NotifForm): string {
-  return t(`notif.form.${form}`, form);
-}
-
-function ttsBackendLabel(t: TFunction, b: TtsBackend): string {
+function ttsBackendLabel(t: ReturnType<typeof useTranslation>["t"], b: TtsBackend): string {
   return t(`notif.ttsBackend.${b}`, b);
 }
 
@@ -111,8 +54,6 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
   // 选择后兑现，门控 gate 继续注入。
   const [uvModal, setUvModal] = useState<{ resolve: (ok: boolean) => void } | null>(null);
   const [uvInstalling, setUvInstalling] = useState(false);
-  // 模板预设 combobox：记录当前展开下拉的类型（null = 全收起）。点击外部收起。
-  const [openPreset, setOpenPreset] = useState<NotifType | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -162,31 +103,6 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
     }, 200);
   };
 
-  // 预设下拉「点击外部收起」：仅在有下拉展开时挂载 document listener，effect cleanup 必移除避免泄漏。
-  // 容器带 data-preset-combobox，点击落在容器内不收起（让选项 onClick 先生效）。
-  useEffect(() => {
-    if (openPreset === null) return;
-    const onDocClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement | null;
-      if (target && target.closest("[data-preset-combobox]")) return;
-      setOpenPreset(null);
-    };
-    document.addEventListener("mousedown", onDocClick);
-    return () => document.removeEventListener("mousedown", onDocClick);
-  }, [openPreset]);
-
-  const typeSetting = (type: NotifType): TypeSetting =>
-    settings.per_type[type] ?? DEFAULT_TYPE_SETTING;
-
-  const updateType = (type: NotifType, partial: Partial<TypeSetting>) =>
-    persist(prev => ({
-      ...prev,
-      per_type: {
-        ...prev.per_type,
-        [type]: { ...(prev.per_type[type] ?? DEFAULT_TYPE_SETTING), ...partial },
-      },
-    }));
-
   // N2：逐事件配置更新（写 settings.per_event[event]）。组件传完整 EventSetting（含展示态兜底）。
   const updateEvent = (event: string, setting: EventSetting) =>
     persist(prev => ({
@@ -194,9 +110,9 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
       per_event: { ...(prev.per_event ?? {}), [event]: setting },
     }));
 
-  const handleTest = async (type: NotifType) => {
+  const handleTest = async () => {
     try {
-      await notificationApi.testNotify(type);
+      await notificationApi.testNotify("task_complete");
       setMessage(t("notif.testSent", "测试通知已发送"));
     } catch (e) {
       console.error("test notify failed", e);
@@ -205,18 +121,17 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
   };
 
   // 独立通道测试：绕过 dispatch 直接触发某通道，便于诊断（语音后端 / 弹窗权限 / 系统提示音）。
-  const handleTestTts = async (type: NotifType) => {
+  const handleTestTts = async () => {
     try {
-      const text = `${notifTypeLabel(t, type)} ${t("notif.testTtsContent", "测试播报")}`;
-      await notificationApi.testTts(text);
+      await notificationApi.testTts(t("notif.testTtsContent", "测试播报"));
     } catch (e) {
       console.error("test tts failed", e);
       setMessage(String(e));
     }
   };
-  const handleTestPopup = async (type: NotifType) => {
+  const handleTestPopup = async () => {
     try {
-      await notificationApi.testPopup(notifTypeLabel(t, type), t("notif.testPopupBody", "测试弹窗"));
+      await notificationApi.testPopup(t("notif.testPopupTitle", "测试通知"), t("notif.testPopupBody", "测试弹窗"));
     } catch (e) {
       console.error("test popup failed", e);
       setMessage(String(e));
@@ -400,202 +315,49 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         )}
       </div>
 
-      {/* 变量提示 */}
-      <div className="glass-surface" style={{ padding: "12px 20px", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-        <span style={{ fontSize: 12, fontWeight: 600 }}>{t("notif.varsHint", "可用变量")}</span>
-        {TEMPLATE_VARS.map((v) => (
-          <code
-            key={v}
-            style={{
-              fontSize: 11,
-              padding: "2px 6px",
-              borderRadius: "var(--radius-sm)",
-              background: "var(--accent-subtle)",
-              color: "var(--accent)",
-            }}
-          >
-            {v}
-          </code>
-        ))}
+      {/* 通道独立测试：绕过 dispatch 直接触发某通道，便于诊断（语音后端 / 弹窗权限 / 系统提示音 / 端到端） */}
+      <div
+        className="glass-surface"
+        style={{ padding: "12px 20px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", opacity: settings.enabled ? 1 : 0.55 }}
+      >
+        <span style={{ fontSize: 12, fontWeight: 600 }}>{t("notif.testChannels", "通道测试")}</span>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: 12, padding: "4px 10px" }}
+          onClick={handleTestTts}
+          disabled={!settings.enabled}
+          title={t("notif.testTtsTip", "仅测语音播报")}
+        >
+          🔊 {t("notif.testTtsLabel", "语音")}
+        </button>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: 12, padding: "4px 10px" }}
+          onClick={handleTestPopup}
+          disabled={!settings.enabled}
+          title={t("notif.testPopupTip", "仅测系统弹窗")}
+        >
+          🪟 {t("notif.testPopupLabel", "弹窗")}
+        </button>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: 12, padding: "4px 10px" }}
+          onClick={handleTestBeep}
+          disabled={!settings.enabled}
+          title={t("notif.testBeepTip", "仅测系统提示音")}
+        >
+          🔔 {t("notif.testBeepLabel", "提示音")}
+        </button>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: 12, padding: "4px 10px" }}
+          onClick={handleTest}
+          disabled={!settings.enabled}
+        >
+          {t("notif.test", "测试")}
+        </button>
       </div>
 
-      {/* 按类型配置 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}>
-        {NOTIF_TYPES.map((type) => {
-          const ts = typeSetting(type);
-          return (
-            <div key={type} className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                <div style={{ fontSize: 13, fontWeight: 600 }}>{notifTypeLabel(t, type)}</div>
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: 12, padding: "4px 8px" }}
-                    onClick={() => handleTestTts(type)}
-                    disabled={!settings.enabled}
-                    title={t("notif.testTtsTip", "仅测语音播报")}
-                    aria-label={t("notif.testTtsTip", "仅测语音播报")}
-                  >
-                    🔊
-                  </button>
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: 12, padding: "4px 8px" }}
-                    onClick={() => handleTestPopup(type)}
-                    disabled={!settings.enabled}
-                    title={t("notif.testPopupTip", "仅测系统弹窗")}
-                    aria-label={t("notif.testPopupTip", "仅测系统弹窗")}
-                  >
-                    🪟
-                  </button>
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: 12, padding: "4px 8px" }}
-                    onClick={handleTestBeep}
-                    disabled={!settings.enabled}
-                    title={t("notif.testBeepTip", "仅测系统提示音")}
-                    aria-label={t("notif.testBeepTip", "仅测系统提示音")}
-                  >
-                    🔔
-                  </button>
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: 12, padding: "4px 10px" }}
-                    onClick={() => handleTest(type)}
-                    disabled={!settings.enabled}
-                  >
-                    {t("notif.test", "测试")}
-                  </button>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center" }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.fieldTts", "语音")}</span>
-                  <div
-                    className={`toggle ${ts.tts ? "active" : ""}`}
-                    onClick={() => updateType(type, { tts: !ts.tts })}
-                    role="switch"
-                    aria-checked={ts.tts}
-                    tabIndex={0}
-                  />
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.fieldPopup", "弹窗")}</span>
-                  <div
-                    className={`toggle ${ts.popup ? "active" : ""}`}
-                    onClick={() => updateType(type, { popup: !ts.popup })}
-                    role="switch"
-                    aria-checked={ts.popup}
-                    tabIndex={0}
-                  />
-                </div>
-                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                  <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.fieldForm", "呈现形式")}</span>
-                  <select
-                    className="input"
-                    style={{ maxWidth: 160, padding: "4px 8px", fontSize: 12 }}
-                    value={ts.form}
-                    onChange={(e) => updateType(type, { form: e.target.value as NotifForm })}
-                  >
-                    {NOTIF_FORMS.map((f) => (
-                      <option key={f} value={f}>{notifFormLabel(t, f)}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.fieldTemplate", "模板")}</label>
-                {/* 可编辑 combobox：textarea 显示并可改原始 template（编辑不污染不可变预设），右上角 ▾
-                    触发展开绝对定位预设面板；点选项把预设文本复制进 template 并收起，点击外部收起
-                    （见 openPreset 的 document mousedown listener，effect cleanup 移除）。
-                    预设文本 zh 硬编码直显，免新 i18n key。 */}
-                <div data-preset-combobox style={{ position: "relative" }}>
-                  <textarea
-                    className="input"
-                    style={{ fontSize: 12, fontFamily: "var(--font-mono, monospace)", minHeight: 48, resize: "vertical", width: "100%", boxSizing: "border-box", paddingRight: 34 }}
-                    value={ts.template}
-                    placeholder={NOTIF_DEFAULT_TEMPLATES[type]}
-                    onChange={(e) => updateType(type, { template: e.target.value })}
-                    // 禁空 → 清空即回退默认预设：失焦时若空/纯空白回填 [0]。
-                    // 用 onBlur 而非 onChange，避免编辑中途暂时清空被打断。
-                    // updateType 走 functional update（基于 ref 最新态），不会被未决 debounce 旧值覆盖。
-                    onBlur={(e) => {
-                      if (e.target.value.trim() === "") {
-                        updateType(type, { template: NOTIF_TEMPLATE_PRESETS[type][0] });
-                      }
-                    }}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    style={{ position: "absolute", top: 4, right: 4, padding: "2px 6px", fontSize: 12, lineHeight: 1 }}
-                    onClick={() => setOpenPreset(openPreset === type ? null : type)}
-                    title="选择预设模板"
-                    aria-label="选择预设模板"
-                    aria-expanded={openPreset === type}
-                  >
-                    ▾
-                  </button>
-                  {openPreset === type && (
-                    <div
-                      role="listbox"
-                      style={{
-                        position: "absolute",
-                        top: "100%",
-                        right: 0,
-                        marginTop: 4,
-                        minWidth: 240,
-                        maxWidth: "100%",
-                        zIndex: 20,
-                        background: "var(--bg-floating)",
-                        border: "1px solid var(--border)",
-                        borderRadius: "var(--radius-md)",
-                        boxShadow: "var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.18))",
-                        padding: 4,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 2,
-                      }}
-                    >
-                      {NOTIF_TEMPLATE_PRESETS[type].map((preset, i) => {
-                        const active = ts.template === preset;
-                        return (
-                          <button
-                            key={i}
-                            type="button"
-                            role="option"
-                            aria-selected={active}
-                            className="btn btn-ghost"
-                            style={{
-                              justifyContent: "flex-start",
-                              textAlign: "left",
-                              fontSize: 12,
-                              padding: "5px 8px",
-                              background: active ? "var(--accent-subtle)" : undefined,
-                              color: active ? "var(--accent)" : undefined,
-                            }}
-                            onClick={() => {
-                              updateType(type, { template: preset });
-                              setOpenPreset(null);
-                            }}
-                            title={preset}
-                          >
-                            <span style={{ display: "block", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                              {preset}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
 
       {/* 默认注入总开关：控制基线 _aidog_hooks.enabled，全分组生效 */}
       <div

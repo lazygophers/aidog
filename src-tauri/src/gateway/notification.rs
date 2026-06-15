@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::db::Db;
-use super::models::{NotifForm, NotifType, TtsBackend};
+use super::models::{default_template_for_event, NotifForm, NotifType, TtsBackend};
 
 /// 前端事件名：WebSpeech 后端播报请求（payload = 文本，前端 webview SpeechSynthesis 朗读）。
 pub const NOTIF_SPEAK: &str = "notif-speak";
@@ -22,6 +22,20 @@ pub const NOTIF_SPEAK: &str = "notif-speak";
 /// 不依赖正则：线性扫描，遇 `{` 找配对 `}`，取键查 vars。
 /// 键含非占位字符（空格等）或缺失 → 整段 `{...}` 原样保留。
 pub fn substitute_vars(template: &str, vars: &HashMap<String, String>) -> String {
+    substitute_vars_impl(template, vars, false)
+}
+
+/// 同 `substitute_vars`，但缺失占位 → **替换为空串**（不保留 `{x}` 字面）。
+///
+/// 用于 event 路径：每事件默认模板用其专属入参（`{tool_name}` 等），但脚本通用透传时
+/// 该事件实际 stdin 可能缺该可选字段；为避免残留裸 `{x}` 难看，event 路径采用「缺失→空串」。
+/// type 路径仍用 `substitute_vars`（保留未知占位，与历史一致）。
+pub fn substitute_vars_fill_empty(template: &str, vars: &HashMap<String, String>) -> String {
+    substitute_vars_impl(template, vars, true)
+}
+
+/// 占位替换核心。`fill_empty=true` 时缺失/未知占位替换为空串，否则保留原文。
+fn substitute_vars_impl(template: &str, vars: &HashMap<String, String>, fill_empty: bool) -> String {
     let mut out = String::with_capacity(template.len());
     let bytes = template.as_bytes();
     let mut i = 0;
@@ -36,12 +50,13 @@ pub fn substitute_vars(template: &str, vars: &HashMap<String, String>) -> String
                 if valid {
                     if let Some(v) = vars.get(key) {
                         out.push_str(v);
-                    } else {
+                    } else if !fill_empty {
                         // 未知占位保留原文
                         out.push('{');
                         out.push_str(key);
                         out.push('}');
                     }
+                    // fill_empty 且缺失 → 不输出任何内容（替换为空串）
                     i = i + 1 + rel + 1;
                     continue;
                 }
@@ -183,11 +198,15 @@ fn default_title(t: NotifType) -> &'static str {
 ///
 /// `app` 为可选 AppHandle（无头测试 / 端点未带 app 时为 None，则跳过 popup/sound/emit，仅落库）。
 ///
-/// `event`（N2 hook 事件通知）：
-/// - 存在且 `settings.per_event[event]` 命中且 `enabled` → notif_type = es.notif_type；
-///   通道/tts/popup 仍取 `type_setting(notif_type)`（复用类型通道配置）；body 模板优先
-///   `es.template`（非空），否则回退类型模板 → default_template（沿用兜底链）。
-/// - 不存在 / 未命中 / 未启用 → 维持现有按 `type_str` 路径（向后兼容，未知 type → TaskComplete）。
+/// `event`（N2 hook 事件通知 — 逐事件自含路径）：
+/// - 存在且 `settings.per_event[event]` 命中且 `enabled` → **完全自含**，不经 notif_type/per_type/form：
+///   - 通道：`do_tts = settings.tts_enabled && es.tts`；`do_popup = es.popup`；inbox **恒落库**（历史）；
+///     sound 跟随 popup（弹窗自带系统音）。
+///   - body：`es.template` 非空用之，否则 `default_template_for_event(event)`，再否则类型 default 兜底（防空）。
+///     event 路径占位用 `substitute_vars_fill_empty`（缺失专属字段 → 空串，不残留裸 `{x}`）。
+///   - 标题：`vars["project"]` 非空用之，否则事件名，否则 "Notification"。
+/// - 不存在 / 未命中 / 未启用 / 无 event（Codex / 裸 type）→ 维持现有按 `type_str` 类型路径
+///   （向后兼容，不破坏 Codex；未知 type → TaskComplete）。
 pub async fn dispatch(
     db: &Arc<Db>,
     app: Option<&tauri::AppHandle>,
@@ -198,22 +217,90 @@ pub async fn dispatch(
 ) -> DispatchResult {
     let settings = super::db::get_notification_settings(db).await;
 
-    // event 优先：命中 per_event 且 enabled → 用 es.notif_type + es.template（覆盖类型模板）。
-    // event_template 为 Some 表示走 per-event 文案优先链；None 表示走类型路径。
-    let (notif_type, event_template): (NotifType, Option<String>) = match event
+    // event 路径：命中 per_event 且 enabled → 自含分发。
+    if let Some(es) = event
         .and_then(|e| settings.event_setting(e))
         .filter(|es| es.enabled)
     {
-        Some(es) => (es.notif_type, Some(es.template.clone())),
-        None => (NotifType::from_str_or_default(type_str), None),
-    };
-    let setting = settings.type_setting(notif_type);
+        let event_name = event.unwrap_or_default();
 
-    // body 模板优先级：per-event 非空 template > 类型 template（render 内再回退 default）。
-    let template = match event_template {
-        Some(ref t) if !t.trim().is_empty() => t.as_str(),
-        _ => setting.template.as_str(),
-    };
+        // body 模板：es.template 非空 > default_template_for_event > 类型 default（防空兜底）。
+        let raw_body = if !es.template.trim().is_empty() {
+            es.template.clone()
+        } else {
+            let dft = default_template_for_event(event_name);
+            if !dft.is_empty() {
+                dft.to_string()
+            } else {
+                NotifType::TaskComplete.default_template().to_string()
+            }
+        };
+        // 缺失专属字段 → 空串（不残留裸占位）；无 project 注入品牌兜底。
+        let mut bvars = vars.clone();
+        if bvars.get("project").map(|s| s.trim().is_empty()).unwrap_or(true) {
+            bvars.insert("project".to_string(), BRAND_FALLBACK.to_string());
+        }
+        let body = substitute_vars_fill_empty(&raw_body, &bvars);
+
+        // 标题：vars.project 非空 > 事件名 > "Notification"。
+        let title = vars
+            .get("project")
+            .map(|s| s.trim().to_string())
+            .filter(|s| !s.is_empty())
+            .or_else(|| (!event_name.is_empty()).then(|| event_name.to_string()))
+            .unwrap_or_else(|| "Notification".to_string());
+
+        // 总开关 OFF → 旁路。
+        if !settings.enabled {
+            return DispatchResult {
+                dispatched: false,
+                title,
+                body,
+                tts: false,
+                popup: false,
+                sound: false,
+                inbox: false,
+                inbox_id: None,
+            };
+        }
+
+        let do_tts = settings.tts_enabled && es.tts;
+        let do_popup = es.popup;
+
+        // inbox 恒落库（历史）。event 路径 inbox 用事件名作 notif_type 列（便于回看来源）。
+        let mut inbox_id = None;
+        match super::db::insert_notification(db, event_name, &title, &body).await {
+            Ok(id) => inbox_id = Some(id),
+            Err(e) => tracing::warn!(error = %e, "notify: insert inbox failed"),
+        }
+
+        if do_popup {
+            if let Some(app) = app {
+                show_popup(app, &title, &body);
+            }
+        }
+        if do_tts {
+            let speak_text = if body.is_empty() { title.clone() } else { body.clone() };
+            speak(app, settings.tts_backend, &speak_text);
+        }
+
+        return DispatchResult {
+            dispatched: true,
+            title,
+            body,
+            tts: do_tts,
+            popup: do_popup,
+            // event 路径 sound 跟随 popup（弹窗自带系统音）。
+            sound: do_popup,
+            inbox: true,
+            inbox_id,
+        };
+    }
+
+    // 类型路径（无 event / 未命中 / 未启用）：向后兼容 + Codex。
+    let notif_type = NotifType::from_str_or_default(type_str);
+    let setting = settings.type_setting(notif_type);
+    let template = setting.template.as_str();
 
     // 总开关 OFF → 旁路
     if !settings.enabled {
@@ -640,43 +727,77 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dispatch_event_resolves_per_event_type_and_template() {
+    async fn dispatch_event_uses_custom_template_and_direct_channels() {
         let db = mem_db().await;
-        // SubagentStop 启用 → 走 error 类型 + per-event 自定义文案 {agent_type}。
+        // SubagentStop 启用 + 自定义文案 {agent_type}；tts 关、popup 关 → 仅 inbox。
         set_notif_settings(&db, serde_json::json!({
             "enabled": true,
             "tts_enabled": true,
             "tts_backend": "cross_platform",
-            "per_type": { "error": { "tts": true, "popup": true, "form": "inbox_only", "template": "类型模板" } },
             "per_event": {
-                "SubagentStop": { "enabled": true, "notif_type": "error", "template": "{project} 子代理 {agent_type} 结束" }
+                "SubagentStop": { "enabled": true, "tts": false, "popup": false, "template": "{project} 子代理 {agent_type} 结束" }
             }
         })).await;
         let v = vars(&[("project", "aidog"), ("agent_type", "reviewer")]);
         let r = dispatch(&db, None, Some("SubagentStop"), "ignored_type", None, &v).await;
         assert!(r.dispatched);
-        // notif_type 取 per_event（error），form 取类型配置（inbox_only）→ 仅 inbox。
-        assert!(r.inbox && !r.popup && !r.sound);
-        // body 用 per-event template（覆盖类型模板）。
+        // 通道直接取 EventSetting：tts/popup 都关 → 仅 inbox（恒落库），sound 跟随 popup。
+        assert!(r.inbox && !r.popup && !r.sound && !r.tts);
         assert_eq!(r.body, "aidog 子代理 reviewer 结束");
         let list = super::super::db::list_notifications(&db, 10).await.unwrap();
-        assert_eq!(list[0].notif_type, "error");
+        // inbox 列用事件名（来源标识）。
+        assert_eq!(list[0].notif_type, "SubagentStop");
     }
 
     #[tokio::test]
-    async fn dispatch_event_empty_template_falls_back_to_type_template() {
+    async fn dispatch_event_tts_popup_directly_controlled() {
+        let db = mem_db().await;
+        // popup 开、tts 开（全局 tts_enabled 开）→ tts/popup 直控生效，sound 跟随 popup。
+        set_notif_settings(&db, serde_json::json!({
+            "enabled": true,
+            "tts_enabled": true,
+            "per_event": { "Stop": { "enabled": true, "tts": true, "popup": true } }
+        })).await;
+        let v = vars(&[("project", "aidog")]);
+        // 无 app handle → popup/tts 不实际触发，但 DispatchResult 标志反映 es.tts/es.popup 决策。
+        let r = dispatch(&db, None, Some("Stop"), "", None, &v).await;
+        assert!(r.dispatched && r.tts && r.popup && r.sound && r.inbox);
+        // 全局 tts_enabled 关 → do_tts 必关，即使 es.tts 开。
+        set_notif_settings(&db, serde_json::json!({
+            "enabled": true,
+            "tts_enabled": false,
+            "per_event": { "Stop": { "enabled": true, "tts": true, "popup": true } }
+        })).await;
+        let r2 = dispatch(&db, None, Some("Stop"), "", None, &v).await;
+        assert!(!r2.tts && r2.popup);
+    }
+
+    #[tokio::test]
+    async fn dispatch_event_empty_template_falls_back_to_event_default() {
         let db = mem_db().await;
         set_notif_settings(&db, serde_json::json!({
             "enabled": true,
-            "per_type": { "waiting_input": { "form": "inbox_only", "template": "{project} 类型模板" } },
-            "per_event": {
-                "PermissionRequest": { "enabled": true, "notif_type": "waiting_input", "template": "" }
-            }
+            "per_event": { "PermissionRequest": { "enabled": true, "template": "" } }
+        })).await;
+        let v = vars(&[("project", "aidog"), ("tool_name", "Bash")]);
+        let r = dispatch(&db, None, Some("PermissionRequest"), "ignored", None, &v).await;
+        // template 空 → default_template_for_event(PermissionRequest)，用专属入参 {tool_name}。
+        assert_eq!(r.body, "aidog 请求授权：Bash");
+    }
+
+    #[tokio::test]
+    async fn dispatch_event_missing_field_filled_empty_no_residual_placeholder() {
+        let db = mem_db().await;
+        // PermissionRequest 默认模板含 {tool_name}，但本次 vars 未提供 → 缺失替换为空串，
+        // 不残留裸 {tool_name}（event 路径 fill_empty 策略）。
+        set_notif_settings(&db, serde_json::json!({
+            "enabled": true,
+            "per_event": { "PermissionRequest": { "enabled": true } }
         })).await;
         let v = vars(&[("project", "aidog")]);
-        let r = dispatch(&db, None, Some("PermissionRequest"), "ignored", None, &v).await;
-        // per-event template 空 → 回退类型模板。
-        assert_eq!(r.body, "aidog 类型模板");
+        let r = dispatch(&db, None, Some("PermissionRequest"), "", None, &v).await;
+        assert!(!r.body.contains("{tool_name}"), "残留裸占位: {}", r.body);
+        assert_eq!(r.body, "aidog 请求授权：");
     }
 
     #[tokio::test]
@@ -685,12 +806,10 @@ mod tests {
         set_notif_settings(&db, serde_json::json!({
             "enabled": true,
             "per_type": { "task_complete": { "form": "inbox_only", "template": "{project} 完成" } },
-            "per_event": {
-                "Stop": { "enabled": false, "notif_type": "error", "template": "x" }
-            }
+            "per_event": { "Stop": { "enabled": false, "template": "x" } }
         })).await;
         let v = vars(&[("project", "aidog")]);
-        // 事件未启用 → 走 type_str 路径（task_complete）。
+        // 事件未启用 → 走 type_str 类型路径（task_complete），向后兼容/Codex 不破坏。
         let r = dispatch(&db, None, Some("Stop"), "task_complete", None, &v).await;
         assert_eq!(r.body, "aidog 完成");
         let list = super::super::db::list_notifications(&db, 10).await.unwrap();
@@ -698,19 +817,20 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dispatch_event_unmatched_falls_back_to_default_template() {
+    async fn dispatch_no_event_uses_type_path_codex_regression() {
         let db = mem_db().await;
-        // 事件命中 enabled 但无自定义 template 且无类型模板 → render default_template 兜底（非空）。
+        // Codex 路径：complete 脚本 POST type=task_complete，无 event → 走类型路径不受影响。
         set_notif_settings(&db, serde_json::json!({
             "enabled": true,
-            "per_event": {
-                "Notification": { "enabled": true, "notif_type": "waiting_input" }
-            }
+            "per_type": { "task_complete": { "form": "full", "template": "{project} 完成" } },
+            "per_event": { "Stop": { "enabled": true, "template": "事件路径不应命中" } }
         })).await;
         let v = vars(&[("project", "aidog")]);
-        let r = dispatch(&db, None, Some("Notification"), "", None, &v).await;
-        // default_template(waiting_input) 兜底，body 永不空。
-        assert_eq!(r.body, "aidog 等待用户输入");
-        assert!(!r.body.is_empty());
+        // event=None（Codex 不传 event）→ 类型路径，per_event[Stop] 不命中。
+        let r = dispatch(&db, None, None, "task_complete", None, &v).await;
+        assert!(r.dispatched);
+        assert_eq!(r.body, "aidog 完成");
+        let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+        assert_eq!(list[0].notif_type, "task_complete");
     }
 }

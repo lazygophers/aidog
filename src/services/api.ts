@@ -893,15 +893,18 @@ export interface TypeSetting {
 }
 
 /**
- * 单事件触发配置（per_event 值；N2 hook 事件通知）。
+ * 单事件触发配置（per_event 值；N2 hook 事件通知 — 逐事件自含）。
  * 镜像后端 `src-tauri/src/gateway/models.rs` 的 `EventSetting`。
+ * 已删 `notif_type`：每事件独立 tts/popup 通道 + 专属默认模板（见 NotificationEventList EVENT_CATALOG）。
  */
 export interface EventSetting {
   /** 是否启用该事件（注入 hook + 触发通知）。 */
   enabled: boolean;
-  /** 复用的通知类型（决定 tts/popup/form 通道 + 模板回退链）。 */
-  notif_type: NotifType;
-  /** 可选 per-event 自定义文案（空则回退类型模板 / default_template）。 */
+  /** 该事件是否 TTS 播报（与全局 tts_enabled 取与；缺省 true）。 */
+  tts: boolean;
+  /** 该事件是否弹窗（缺省 true）。 */
+  popup: boolean;
+  /** 可选 per-event 自定义文案（空则回退该事件专属默认模板）。 */
   template: string;
 }
 
