@@ -20,4 +20,5 @@
 | notify-project-name | 通知中心展示项目名: cwd basename 作为 project 注入 inbox/popup | — | 已完成 | 收尾 | 100% | — |
 | skill-detail-view | 已装 skill 详情查看: SKILL.md 渲染 + 关联文件浏览 (只读) | — | 已完成 | 收尾 | 100% | .trellis/worktrees/06-15-skill-detail-view |
 | notify-ux | 通知模块易用性增强: 每类型默认模板 + 一键注入 hook 到所有分组 | — | 已完成 | 收尾 | 100% | — |
-| notify-test-buttons | 通知设置加独立 TTS/弹窗测试按钮 (与类型测试解耦) | — | 规划中 | 规划 | 0% | — |
+| notify-test-buttons | 通知设置加独立 TTS/弹窗测试按钮 (与类型测试解耦) | — | 已完成 | 收尾 | 100% | — |
+| fix-model-test-mock | 修复 model_test 对 Mock 平台返回 builder error (502) | — | 已完成 | 收尾 | 100% | — |
