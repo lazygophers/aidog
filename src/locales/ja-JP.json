@@ -450,6 +450,7 @@
   "notif.defaultHooksTitle": "すべてのグループにデフォルトで通知 Hook を注入",
   "notif.fieldForm": "形式",
   "notif.fieldPopup": "ポップアップ",
+  "notif.fieldSound": "通知音",
   "notif.fieldTemplate": "テンプレート",
   "notif.fieldTts": "音声",
   "notif.form.full": "フル",

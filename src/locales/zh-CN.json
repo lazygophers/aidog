@@ -428,6 +428,7 @@
   "notif.defaultHooksTitle": "默认为所有分组注入通知 Hook",
   "notif.fieldForm": "呈现形式",
   "notif.fieldPopup": "弹窗",
+  "notif.fieldSound": "提示音",
   "notif.fieldTemplate": "模板",
   "notif.fieldTts": "语音",
   "notif.form.full": "完整播报",

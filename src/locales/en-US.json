@@ -428,6 +428,7 @@
   "notif.defaultHooksTitle": "Inject Notification Hooks for All Groups by Default",
   "notif.fieldForm": "Form",
   "notif.fieldPopup": "Popup",
+  "notif.fieldSound": "Sound",
   "notif.fieldTemplate": "Template",
   "notif.fieldTts": "Voice",
   "notif.form.full": "Full",

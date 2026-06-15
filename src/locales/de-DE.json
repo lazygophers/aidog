@@ -450,6 +450,7 @@
   "notif.defaultHooksTitle": "Benachrichtigungs-Hooks standardmäßig für alle Gruppen injizieren",
   "notif.fieldForm": "Form",
   "notif.fieldPopup": "Popup",
+  "notif.fieldSound": "Ton",
   "notif.fieldTemplate": "Vorlage",
   "notif.fieldTts": "Stimme",
   "notif.form.full": "Vollständig",

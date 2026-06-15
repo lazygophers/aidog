@@ -428,6 +428,7 @@
   "notif.defaultHooksTitle": "Inyectar hooks de notificación para todos los grupos por defecto",
   "notif.fieldForm": "Forma",
   "notif.fieldPopup": "Popup",
+  "notif.fieldSound": "Sonido",
   "notif.fieldTemplate": "Plantilla",
   "notif.fieldTts": "Voz",
   "notif.form.full": "Completo",

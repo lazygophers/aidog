@@ -200,8 +200,8 @@ fn default_title(t: NotifType) -> &'static str {
 ///
 /// `event`（N2 hook 事件通知 — 逐事件自含路径）：
 /// - 存在且 `settings.per_event[event]` 命中且 `enabled` → **完全自含**，不经 notif_type/per_type/form：
-///   - 通道：`do_tts = settings.tts_enabled && es.tts`；`do_popup = es.popup`；inbox **恒落库**（历史）；
-///     sound 跟随 popup（弹窗自带系统音）。
+///   - 通道：`do_tts = settings.tts_enabled && es.tts`；`do_popup = es.popup`；`do_sound = es.sound`
+///     （独立 `play_beep`，不再跟随 popup）；inbox **恒落库**（历史）。
 ///   - body：`es.template` 非空用之，否则 `default_template_for_event(event)`，再否则类型 default 兜底（防空）。
 ///     event 路径占位用 `substitute_vars_fill_empty`（缺失专属字段 → 空串，不残留裸 `{x}`）。
 ///   - 标题：`vars["project"]` 非空用之，否则事件名，否则 "Notification"。
@@ -266,6 +266,7 @@ pub async fn dispatch(
 
         let do_tts = settings.tts_enabled && es.tts;
         let do_popup = es.popup;
+        let do_sound = es.sound;
 
         // inbox 恒落库（历史）。event 路径 inbox 用事件名作 notif_type 列（便于回看来源）。
         let mut inbox_id = None;
@@ -283,6 +284,10 @@ pub async fn dispatch(
             let speak_text = if body.is_empty() { title.clone() } else { body.clone() };
             speak(app, settings.tts_backend, &speak_text);
         }
+        // event 路径 sound 为独立开关（不再跟随 popup）。无头测试 app=None 时跳过实际播音。
+        if do_sound && app.is_some() {
+            play_beep();
+        }
 
         return DispatchResult {
             dispatched: true,
@@ -290,8 +295,7 @@ pub async fn dispatch(
             body,
             tts: do_tts,
             popup: do_popup,
-            // event 路径 sound 跟随 popup（弹窗自带系统音）。
-            sound: do_popup,
+            sound: do_sound,
             inbox: true,
             inbox_id,
         };
@@ -729,19 +733,19 @@ mod tests {
     #[tokio::test]
     async fn dispatch_event_uses_custom_template_and_direct_channels() {
         let db = mem_db().await;
-        // SubagentStop 启用 + 自定义文案 {agent_type}；tts 关、popup 关 → 仅 inbox。
+        // SubagentStop 启用 + 自定义文案 {agent_type}；tts/popup/sound 全关 → 仅 inbox。
         set_notif_settings(&db, serde_json::json!({
             "enabled": true,
             "tts_enabled": true,
             "tts_backend": "cross_platform",
             "per_event": {
-                "SubagentStop": { "enabled": true, "tts": false, "popup": false, "template": "{project} 子代理 {agent_type} 结束" }
+                "SubagentStop": { "enabled": true, "tts": false, "popup": false, "sound": false, "template": "{project} 子代理 {agent_type} 结束" }
             }
         })).await;
         let v = vars(&[("project", "aidog"), ("agent_type", "reviewer")]);
         let r = dispatch(&db, None, Some("SubagentStop"), "ignored_type", None, &v).await;
         assert!(r.dispatched);
-        // 通道直接取 EventSetting：tts/popup 都关 → 仅 inbox（恒落库），sound 跟随 popup。
+        // 通道直接取 EventSetting：tts/popup/sound 都关 → 仅 inbox（恒落库）。
         assert!(r.inbox && !r.popup && !r.sound && !r.tts);
         assert_eq!(r.body, "aidog 子代理 reviewer 结束");
         let list = super::super::db::list_notifications(&db, 10).await.unwrap();
@@ -752,14 +756,15 @@ mod tests {
     #[tokio::test]
     async fn dispatch_event_tts_popup_directly_controlled() {
         let db = mem_db().await;
-        // popup 开、tts 开（全局 tts_enabled 开）→ tts/popup 直控生效，sound 跟随 popup。
+        // popup 开、tts 开（全局 tts_enabled 开）→ tts/popup 直控生效，sound 默认 true（向后兼容）。
         set_notif_settings(&db, serde_json::json!({
             "enabled": true,
             "tts_enabled": true,
             "per_event": { "Stop": { "enabled": true, "tts": true, "popup": true } }
         })).await;
         let v = vars(&[("project", "aidog")]);
-        // 无 app handle → popup/tts 不实际触发，但 DispatchResult 标志反映 es.tts/es.popup 决策。
+        // 无 app handle → popup/tts/sound 不实际触发，但 DispatchResult 标志反映决策。
+        // per_event[Stop] 未给 sound → serde default_true → r.sound 仍为 true（旧配置向后兼容）。
         let r = dispatch(&db, None, Some("Stop"), "", None, &v).await;
         assert!(r.dispatched && r.tts && r.popup && r.sound && r.inbox);
         // 全局 tts_enabled 关 → do_tts 必关，即使 es.tts 开。
@@ -770,6 +775,39 @@ mod tests {
         })).await;
         let r2 = dispatch(&db, None, Some("Stop"), "", None, &v).await;
         assert!(!r2.tts && r2.popup);
+    }
+
+    #[tokio::test]
+    async fn dispatch_event_sound_independent_of_popup() {
+        let db = mem_db().await;
+        let v = vars(&[("project", "aidog")]);
+        // sound 开、popup 关 → sound 独立于 popup（不再跟随）。
+        set_notif_settings(&db, serde_json::json!({
+            "enabled": true,
+            "per_event": { "Stop": { "enabled": true, "popup": false, "sound": true } }
+        })).await;
+        let r = dispatch(&db, None, Some("Stop"), "", None, &v).await;
+        assert!(!r.popup && r.sound, "sound 应独立于 popup: {:?}", r);
+        // sound 关、popup 开 → sound 关，不跟随 popup。
+        set_notif_settings(&db, serde_json::json!({
+            "enabled": true,
+            "per_event": { "Stop": { "enabled": true, "popup": true, "sound": false } }
+        })).await;
+        let r2 = dispatch(&db, None, Some("Stop"), "", None, &v).await;
+        assert!(r2.popup && !r2.sound, "sound 关时不应跟随 popup: {:?}", r2);
+    }
+
+    #[test]
+    fn event_setting_sound_backward_compat_defaults_true() {
+        // 旧 per_event 配置无 sound 字段 → 反序列化默认 true（向后兼容）。
+        let es: crate::gateway::models::EventSetting =
+            serde_json::from_value(serde_json::json!({ "enabled": true })).unwrap();
+        assert!(es.sound, "旧配置无 sound 应默认 true");
+        // roundtrip 保留 sound。
+        let es2 = crate::gateway::models::EventSetting { sound: false, ..es };
+        let json = serde_json::to_string(&es2).unwrap();
+        let back: crate::gateway::models::EventSetting = serde_json::from_str(&json).unwrap();
+        assert!(!back.sound, "roundtrip 应保留 sound=false");
     }
 
     #[tokio::test]

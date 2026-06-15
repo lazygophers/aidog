@@ -1752,6 +1752,9 @@ pub struct EventSetting {
     /// 该事件是否弹窗。
     #[serde(default = "default_true")]
     pub popup: bool,
+    /// 该事件是否播提示音（独立通道 `play_beep`，不再跟随弹窗）。旧配置无 sound → 默认 true（向后兼容）。
+    #[serde(default = "default_true")]
+    pub sound: bool,
     /// 可选 per-event 自定义文案（空则回退 `default_template_for_event` / 类型 default_template）。
     #[serde(default)]
     pub template: String,
@@ -1763,6 +1766,7 @@ impl Default for EventSetting {
             enabled: false,
             tts: true,
             popup: true,
+            sound: true,
             template: String::new(),
         }
     }

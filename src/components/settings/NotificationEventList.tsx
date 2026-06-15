@@ -111,6 +111,7 @@ function effectiveSetting(perEvent: Record<string, EventSetting>, event: string)
     enabled: DEFAULT_ON_EVENTS.includes(event),
     tts: true,
     popup: true,
+    sound: true,
     template: "",
   };
 }
@@ -203,6 +204,18 @@ export function NotificationEventList({ perEvent, disabled, onUpdate }: Props) {
                     role="switch"
                     aria-checked={es.popup}
                     aria-label={`${event} ${t("notif.fieldPopup", "弹窗")}`}
+                    style={es.enabled ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
+                    tabIndex={disabled || !es.enabled ? -1 : 0}
+                  />
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.fieldSound", "提示音")}</span>
+                  <div
+                    className={`toggle ${es.sound !== false ? "active" : ""}`}
+                    onClick={() => { if (!disabled && es.enabled) update(event, { sound: es.sound === false }); }}
+                    role="switch"
+                    aria-checked={es.sound !== false}
+                    aria-label={`${event} ${t("notif.fieldSound", "提示音")}`}
                     style={es.enabled ? undefined : { opacity: 0.5, cursor: "not-allowed" }}
                     tabIndex={disabled || !es.enabled ? -1 : 0}
                   />

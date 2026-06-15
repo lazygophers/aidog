@@ -450,6 +450,7 @@
   "notif.defaultHooksTitle": "حقن خطافات الإشعارات لجميع المجموعات افتراضيًا",
   "notif.fieldForm": "الشكل",
   "notif.fieldPopup": "منبثق",
+  "notif.fieldSound": "تنبيه صوتي",
   "notif.fieldTemplate": "القالب",
   "notif.fieldTts": "صوت",
   "notif.form.full": "كامل",

@@ -904,6 +904,8 @@ export interface EventSetting {
   tts: boolean;
   /** 该事件是否弹窗（缺省 true）。 */
   popup: boolean;
+  /** 该事件是否播提示音（独立通道，不跟随弹窗；缺省 true）。 */
+  sound: boolean;
   /** 可选 per-event 自定义文案（空则回退该事件专属默认模板）。 */
   template: string;
 }

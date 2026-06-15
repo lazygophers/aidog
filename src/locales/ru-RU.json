@@ -450,6 +450,7 @@
   "notif.defaultHooksTitle": "Внедрять хуки уведомлений для всех групп по умолчанию",
   "notif.fieldForm": "Форма",
   "notif.fieldPopup": "Всплывающее",
+  "notif.fieldSound": "Звук",
   "notif.fieldTemplate": "Шаблон",
   "notif.fieldTts": "Голос",
   "notif.form.full": "Полное",
