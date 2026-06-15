@@ -255,6 +255,11 @@ pub async fn dispatch(
 /// 注意（macOS）：插件走 UserNotifications framework，要求 app **已签名 + 用户授权**，
 /// dev / 未签名场景可能被系统静默吞掉（看不到弹窗）。打包发布版需正确签名才稳定弹出。
 ///
+/// 治本：macOS 打包 **必须签名 + 公证**（codesign + notarytool），bundle 注册后系统
+/// 才会默认授予通知权限并稳定投递；缺签名/公证时即使用户未显式拒绝，通知也可能被静默
+/// 丢弃。运行期补救见前端通知设置页「打开系统通知设置」引导按钮（仅 macOS），以及
+/// 启动时的 request_permission（lib.rs setup）。
+///
 /// 失败仅记日志，不阻塞调用方。
 pub(crate) fn show_popup(app: &tauri::AppHandle, title: &str, body: &str) {
     use tauri_plugin_notification::NotificationExt;

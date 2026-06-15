@@ -48,6 +48,10 @@ Three `TtsBackend`s:
 | MacSay | macOS native `say` |
 | WebSpeech | Browser Web Speech API |
 
+## macOS Permission Note
+
+On macOS, desktop popups go through the system UserNotifications framework, which requires the app to be **signed + notarized** and granted permission. Unsigned / dev builds may have notifications silently dropped. The release build is signed and notarized so the system grants notification permission by default. If you still don't see popups, open the notification settings page and use **Open notification settings** to allow AiDog in System Settings.
+
 ## Further Reading
 
 - [Configuration](/en/notifications/configuration) — master switch / TTS / per-type settings

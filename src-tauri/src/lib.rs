@@ -3433,6 +3433,17 @@ pub fn run() {
 
             app.manage(ProxyHandle(StdMutex::new(None)));
 
+            // 通知授权（①）：启动时请求一次系统通知权限。
+            // desktop 上 tauri-plugin-notification 为 no-op 返回 Granted（无害）；
+            // mobile 会真实弹原生授权框。失败仅 warn，不 panic、不阻塞启动。
+            {
+                use tauri_plugin_notification::NotificationExt;
+                match app.notification().request_permission() {
+                    Ok(state) => tracing::info!("notify: request_permission state={:?}", state),
+                    Err(e) => tracing::warn!(error = %e, "notify: request_permission failed"),
+                }
+            }
+
             // 系统托盘
             let menu = tauri::async_runtime::block_on(build_tray_menu(app.handle()))?;
             TrayIconBuilder::with_id("main")

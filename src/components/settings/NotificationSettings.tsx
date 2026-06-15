@@ -7,6 +7,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
+import { openUrl } from "@tauri-apps/plugin-opener";
 import {
   notificationApi,
   scriptExecutorApi,
@@ -24,6 +25,14 @@ const TTS_BACKENDS: TtsBackend[] = ["cross_platform", "mac_say", "web_speech"];
 const TEMPLATE_VARS = ["{project}", "{status}", "{time}", "{session}", "{group}"];
 
 const DEFAULT_TYPE_SETTING: TypeSetting = { tts: true, popup: true, form: "full", template: "" };
+
+// macOS 检测：webview UA 含 "Macintosh"。不引 @tauri-apps/plugin-os 依赖，纯前端判定。
+// 仅 macOS 显示「打开系统通知设置」引导（Windows/Linux 通知一般默认可用，避免误导）。
+const IS_MACOS = typeof navigator !== "undefined" && /Macintosh|Mac OS X/.test(navigator.userAgent);
+// Ventura/13+ 新「系统设置」通知面板。
+const MACOS_NOTIF_SETTINGS_URL = "x-apple.systempreferences:com.apple.Notifications-Settings.extension";
+// 旧「系统偏好设置」通知面板（fallback）。
+const MACOS_NOTIF_SETTINGS_URL_LEGACY = "x-apple.systempreferences:com.apple.preference.notifications";
 
 const DEFAULT_SETTINGS: NotifSettings = {
   enabled: true,
@@ -204,6 +213,21 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
     setUvModal(null);
   };
 
+  // 打开 macOS 系统通知设置面板。新 scheme 失败时回退旧 scheme。
+  const handleOpenNotifSettings = async () => {
+    try {
+      await openUrl(MACOS_NOTIF_SETTINGS_URL);
+    } catch (e) {
+      console.error("open notification settings (new scheme) failed", e);
+      try {
+        await openUrl(MACOS_NOTIF_SETTINGS_URL_LEGACY);
+      } catch (e2) {
+        console.error("open notification settings (legacy scheme) failed", e2);
+        setMessage(String(e2));
+      }
+    }
+  };
+
   const handleToggleDefaultHooks = async () => {
     const next = !defaultHooks;
     // 开启会为全分组生成 Python hook 脚本 → 先确保执行器就绪。
@@ -252,6 +276,28 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           tabIndex={0}
         />
       </div>
+
+      {/* macOS 授权引导：通知静默不出现时，一键打开系统通知设置允许 aidog。仅 macOS 显示。 */}
+      {IS_MACOS && (
+        <div
+          className="glass-surface"
+          style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}
+        >
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.permGuideTitle", "没收到系统通知？")}</div>
+            <div className="text-secondary" style={{ fontSize: 12, marginTop: 2, lineHeight: 1.5 }}>
+              {t("notif.permGuideDesc", "可能需在系统设置中允许 aidog 发送通知。")}
+            </div>
+          </div>
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: 12, padding: "6px 12px", whiteSpace: "nowrap" }}
+            onClick={handleOpenNotifSettings}
+          >
+            {t("notif.permGuideButton", "打开系统通知设置")}
+          </button>
+        </div>
+      )}
 
       {/* TTS 总开关 + 后端 */}
       <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, opacity: settings.enabled ? 1 : 0.55 }}>
