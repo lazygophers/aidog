@@ -483,7 +483,6 @@
   "notif.ttsBackendLabel": "محرك النطق",
   "notif.ttsToggle": "الإعلانات الصوتية",
   "notif.ttsToggleDesc": "قراءة محتوى الإشعار حسب النوع عند التفعيل",
-  "notif.type.custom": "مخصص",
   "notif.type.error": "خطأ",
   "notif.type.task_complete": "اكتملت المهمة",
   "notif.type.waiting_input": "بانتظار الإدخال",

@@ -4251,7 +4251,7 @@ decimals: None,
 
         // limit 生效
         for i in 0..5 {
-            insert_notification(&db, "custom", &format!("t{i}"), "b").await.unwrap();
+            insert_notification(&db, "task_complete", &format!("t{i}"), "b").await.unwrap();
         }
         assert_eq!(list_notifications(&db, 3).await.unwrap().len(), 3);
 

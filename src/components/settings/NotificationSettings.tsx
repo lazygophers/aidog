@@ -19,7 +19,7 @@ import {
 } from "../../services/api";
 
 // 与 api.ts 契约对齐（禁裸 string）。
-const NOTIF_TYPES: NotifType[] = ["task_complete", "waiting_input", "error", "custom"];
+const NOTIF_TYPES: NotifType[] = ["task_complete", "waiting_input", "error"];
 const NOTIF_FORMS: NotifForm[] = ["full", "popup_only", "inbox_only", "sound_only"];
 const TTS_BACKENDS: TtsBackend[] = ["cross_platform", "mac_say", "web_speech"];
 const TEMPLATE_VARS = ["{project}", "{status}", "{time}", "{session}", "{group}"];
@@ -34,7 +34,6 @@ const NOTIF_DEFAULT_TEMPLATES: Record<NotifType, string> = {
   task_complete: "{project} 完成",
   waiting_input: "{project} 等待用户输入",
   error: "{project} 出错",
-  custom: "{project} 通知",
 };
 
 const DEFAULT_TYPE_SETTING: TypeSetting = { tts: true, popup: true, form: "full", template: "" };

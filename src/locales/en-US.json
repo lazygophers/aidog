@@ -461,7 +461,6 @@
   "notif.ttsBackendLabel": "TTS Backend",
   "notif.ttsToggle": "Voice Announcements",
   "notif.ttsToggleDesc": "Read out notification content per type when enabled",
-  "notif.type.custom": "Custom",
   "notif.type.error": "Error",
   "notif.type.task_complete": "Task Complete",
   "notif.type.waiting_input": "Waiting for Input",

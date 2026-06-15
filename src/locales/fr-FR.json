@@ -483,7 +483,6 @@
   "notif.ttsBackendLabel": "Moteur TTS",
   "notif.ttsToggle": "Annonces vocales",
   "notif.ttsToggleDesc": "Lire le contenu des notifications par type lorsque activé",
-  "notif.type.custom": "Personnalisé",
   "notif.type.error": "Erreur",
   "notif.type.task_complete": "Tâche terminée",
   "notif.type.waiting_input": "En attente de saisie",

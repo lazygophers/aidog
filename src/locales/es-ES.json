@@ -461,7 +461,6 @@
   "notif.ttsBackendLabel": "Backend TTS",
   "notif.ttsToggle": "Anuncios de voz",
   "notif.ttsToggleDesc": "Leer en voz alta el contenido de notificación por tipo cuando está activado",
-  "notif.type.custom": "Personalizado",
   "notif.type.error": "Error",
   "notif.type.task_complete": "Tarea completada",
   "notif.type.waiting_input": "Esperando entrada",

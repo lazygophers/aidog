@@ -871,8 +871,8 @@ export const schedulingApi = {
 // ─── Notification（N1 — 系统通知模块；契约冻结，N3 消费）────
 // 字段名与 Rust serde（src-tauri/src/gateway/models.rs / notification.rs）一致。
 
-/** 通知类型（serde snake_case；custom = 用户自定义类型）。 */
-export type NotifType = "task_complete" | "waiting_input" | "error" | "custom";
+/** 通知类型（serde snake_case）。3 类型：task_complete / waiting_input / error。 */
+export type NotifType = "task_complete" | "waiting_input" | "error";
 
 /** 呈现形态：完整播报 / 仅弹窗 / 仅收件箱 / 仅提示音。 */
 export type NotifForm = "popup_only" | "inbox_only" | "sound_only" | "full";

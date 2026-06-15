@@ -148,7 +148,7 @@ fn render(
     let body = if raw_body.is_empty() {
         let dt = notif_type.default_template();
         if dt.is_empty() {
-            // default_template 理论空（Custom 等）时最末兜底，避免空串。
+            // default_template 理论空时最末兜底，避免空串。
             substitute_vars(default_title(notif_type), vars)
         } else {
             // 无 project 时注入品牌兜底名，杜绝 `{project}` 字面残留。
@@ -176,7 +176,6 @@ fn default_title(t: NotifType) -> &'static str {
         NotifType::TaskComplete => "Task Complete",
         NotifType::WaitingInput => "Waiting for Input",
         NotifType::Error => "Error",
-        NotifType::Custom => "Notification",
     }
 }
 
@@ -191,7 +190,7 @@ pub async fn dispatch(
     vars: &HashMap<String, String>,
 ) -> DispatchResult {
     let settings = super::db::get_notification_settings(db).await;
-    let notif_type = NotifType::from_str_or_custom(type_str);
+    let notif_type = NotifType::from_str_or_default(type_str);
     let setting = settings.type_setting(notif_type);
 
     // 总开关 OFF → 旁路
@@ -462,23 +461,21 @@ mod tests {
         // template 空 → content
         let (_, body2) = render(NotifType::Error, "", Some("构建失败 {project}"), &v);
         assert_eq!(body2, "构建失败 aidog");
-        // 都空 + 有 project → default_template 兜底（custom = "{project} 通知"）
-        let (_, body3) = render(NotifType::Custom, "", None, &v);
-        assert_eq!(body3, "aidog 通知");
+        // 都空 + 有 project → default_template 兜底
+        let (_, body3) = render(NotifType::WaitingInput, "", None, &v);
+        assert_eq!(body3, "aidog 等待用户输入");
     }
 
     #[test]
     fn render_body_uses_default_template_when_project_present() {
         let v = vars(&[("project", "aidog")]);
-        // 4 类型 default_template 兜底
+        // 3 类型 default_template 兜底
         let (_, b1) = render(NotifType::TaskComplete, "", None, &v);
         assert_eq!(b1, "aidog 完成");
         let (_, b2) = render(NotifType::WaitingInput, "", None, &v);
         assert_eq!(b2, "aidog 等待用户输入");
         let (_, b3) = render(NotifType::Error, "", None, &v);
         assert_eq!(b3, "aidog 出错");
-        let (_, b4) = render(NotifType::Custom, "", None, &v);
-        assert_eq!(b4, "aidog 通知");
     }
 
     #[test]
@@ -490,7 +487,6 @@ mod tests {
             (NotifType::TaskComplete, "aidog 完成"),
             (NotifType::WaitingInput, "aidog 等待用户输入"),
             (NotifType::Error, "aidog 出错"),
-            (NotifType::Custom, "aidog 通知"),
         ] {
             let body = render(t, "", None, &v).1;
             assert_eq!(body, expect);
@@ -512,7 +508,7 @@ mod tests {
 
         // project 含周围空白 → trim
         let v2 = vars(&[("project", "  myproj  ")]);
-        let (title2, _) = render(NotifType::Custom, "", None, &v2);
+        let (title2, _) = render(NotifType::WaitingInput, "", None, &v2);
         assert_eq!(title2, "myproj");
     }
 
@@ -602,13 +598,13 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn dispatch_unknown_type_as_custom_full() {
+    async fn dispatch_unknown_type_as_task_complete() {
         let db = mem_db().await;
         // 不配 per_type → 默认 Full + 全 true
         let r = dispatch(&db, None, "my_custom_type", Some("hi"), &HashMap::new()).await;
         assert!(r.dispatched && r.inbox);
         let list = super::super::db::list_notifications(&db, 10).await.unwrap();
-        // 落库 type 记原始字符串映射后的 custom
-        assert_eq!(list[0].notif_type, "custom");
+        // 未知 type 兜底到 task_complete（通知不丢）
+        assert_eq!(list[0].notif_type, "task_complete");
     }
 }

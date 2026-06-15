@@ -483,7 +483,6 @@
   "notif.ttsBackendLabel": "TTS-Backend",
   "notif.ttsToggle": "Sprachansagen",
   "notif.ttsToggleDesc": "Benachrichtigungsinhalt je Typ vorlesen, wenn aktiviert",
-  "notif.type.custom": "Benutzerdefiniert",
   "notif.type.error": "Fehler",
   "notif.type.task_complete": "Aufgabe abgeschlossen",
   "notif.type.waiting_input": "Warte auf Eingabe",

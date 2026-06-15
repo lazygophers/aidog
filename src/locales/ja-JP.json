@@ -483,7 +483,6 @@
   "notif.ttsBackendLabel": "TTS バックエンド",
   "notif.ttsToggle": "音声アナウンス",
   "notif.ttsToggleDesc": "有効にするとタイプ別に通知内容を読み上げます",
-  "notif.type.custom": "カスタム",
   "notif.type.error": "エラー",
   "notif.type.task_complete": "タスク完了",
   "notif.type.waiting_input": "入力待ち",

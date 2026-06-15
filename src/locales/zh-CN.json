@@ -461,7 +461,6 @@
   "notif.ttsBackendLabel": "播报后端",
   "notif.ttsToggle": "语音播报",
   "notif.ttsToggleDesc": "启用后按类型配置朗读通知内容",
-  "notif.type.custom": "自定义",
   "notif.type.error": "错误",
   "notif.type.task_complete": "任务完成",
   "notif.type.waiting_input": "等待输入",

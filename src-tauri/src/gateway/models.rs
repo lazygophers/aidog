@@ -1641,14 +1641,13 @@ impl SchedulingBreakerSettings {
 
 // ─── Notification（系统通知模块 N1）───────────────────────────
 
-/// 通知类型枚举（serde snake_case；custom 为用户自定义类型占位）。
+/// 通知类型枚举（serde snake_case）。3 类型：task_complete / waiting_input / error。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NotifType {
     TaskComplete,
     WaitingInput,
     Error,
-    Custom,
 }
 
 impl NotifType {
@@ -1658,17 +1657,16 @@ impl NotifType {
             NotifType::TaskComplete => "task_complete",
             NotifType::WaitingInput => "waiting_input",
             NotifType::Error => "error",
-            NotifType::Custom => "custom",
         }
     }
 
-    /// 从字面量解析；未知 → Custom（端点收到任意 type 字符串都可分发）。
-    pub fn from_str_or_custom(s: &str) -> Self {
+    /// 从字面量解析；未知/空 → TaskComplete（端点收到任意 type 字符串都可分发，通知不丢）。
+    pub fn from_str_or_default(s: &str) -> Self {
         match s {
             "task_complete" => NotifType::TaskComplete,
             "waiting_input" => NotifType::WaitingInput,
             "error" => NotifType::Error,
-            _ => NotifType::Custom,
+            _ => NotifType::TaskComplete,
         }
     }
 
@@ -1681,7 +1679,6 @@ impl NotifType {
             NotifType::TaskComplete => "{project} 完成",
             NotifType::WaitingInput => "{project} 等待用户输入",
             NotifType::Error => "{project} 出错",
-            NotifType::Custom => "{project} 通知",
         }
     }
 }
@@ -1888,15 +1885,14 @@ mod middleware_model_tests {
             (NotifType::TaskComplete, "\"task_complete\""),
             (NotifType::WaitingInput, "\"waiting_input\""),
             (NotifType::Error, "\"error\""),
-            (NotifType::Custom, "\"custom\""),
         ] {
             assert_eq!(serde_json::to_string(&variant).unwrap(), lit);
             let back: NotifType = serde_json::from_str(lit).unwrap();
             assert_eq!(back, variant);
             assert_eq!(format!("\"{}\"", variant.as_str()), lit);
         }
-        assert_eq!(NotifType::from_str_or_custom("waiting_input"), NotifType::WaitingInput);
-        assert_eq!(NotifType::from_str_or_custom("unknown_xyz"), NotifType::Custom);
+        assert_eq!(NotifType::from_str_or_default("waiting_input"), NotifType::WaitingInput);
+        assert_eq!(NotifType::from_str_or_default("unknown_xyz"), NotifType::TaskComplete);
     }
 
     #[test]

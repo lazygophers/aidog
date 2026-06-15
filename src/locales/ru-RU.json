@@ -483,7 +483,6 @@
   "notif.ttsBackendLabel": "Движок TTS",
   "notif.ttsToggle": "Голосовые объявления",
   "notif.ttsToggleDesc": "Зачитывать содержимое уведомлений по типу при включении",
-  "notif.type.custom": "Своё",
   "notif.type.error": "Ошибка",
   "notif.type.task_complete": "Задача завершена",
   "notif.type.waiting_input": "Ожидание ввода",
