@@ -1145,6 +1145,7 @@ export interface StatsResult {
   overview: StatsOverview;
   buckets: StatsBucket[];
   dimension_data: DimensionEntry[];
+  available_models: string[];
 }
 
 export const statsApi = {

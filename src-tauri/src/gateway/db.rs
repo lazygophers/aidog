@@ -2716,7 +2716,41 @@ ELSE proxy_log.platform_id END";
         vec![]
     };
 
-    Ok(StatsResult { overview, buckets, dimension_data })
+    // available_models：当前筛选范围（date + group + platform，不含 filter_model）内
+    // 实际有记录的模型名。列表达式与 filter_model 行为一致（actual_model 优先，回退 model），
+    // 使下拉项与筛选语义对齐——选中某项必能命中。
+    let am_where = {
+        let mut parts = vec![
+            "proxy_log.created_at >= ?1".to_string(),
+            "proxy_log.created_at <= ?2".to_string(),
+        ];
+        if qp.filter_group.is_some() {
+            parts.push("proxy_log.group_name = ?3".to_string());
+        }
+        if qp.filter_platform.is_some() {
+            let idx = 3 + qp.filter_group.is_some() as usize;
+            parts.push(format!("({EFF_PID}) = CAST(?{idx} AS INTEGER)"));
+        }
+        parts.join(" AND ")
+    };
+    let am_refs: Vec<&dyn rusqlite::ToSql> = {
+        let mut v: Vec<&dyn rusqlite::ToSql> = vec![&start, &end];
+        if let Some(ref g) = qp.filter_group { v.push(g); }
+        if let Some(ref p) = qp.filter_platform { v.push(p); }
+        v
+    };
+    let available_models: Vec<String> = conn
+        .prepare(&format!(
+            "SELECT DISTINCT CASE WHEN proxy_log.actual_model != '' THEN proxy_log.actual_model ELSE proxy_log.model END AS m \
+             FROM proxy_log WHERE {am_where} ORDER BY m"
+        ))
+        .map_err(|e| e.to_string())?
+        .query_map(am_refs.as_slice(), |row| row.get::<_, String>(0))
+        .map_err(|e| format!("available_models: {e}"))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(StatsResult { overview, buckets, dimension_data, available_models })
 }
 
 // ─── Model Price CRUD ──────────────────────────────────────
@@ -3235,6 +3269,37 @@ mod tests {
         assert!(s.overview.cache_rate <= 100.0, "overview cache_rate > 100: {}", s.overview.cache_rate);
         // buckets 非空（防 query_stats_inner 回归致趋势图无数据）
         assert!(!s.buckets.is_empty(), "buckets empty — trend chart would not render");
+    }
+
+    /// available_models 只含实际有记录的模型（actual_model 优先），不含未请求的。
+    /// 防回归：前端模型筛选项曾派生自配置列表（platform.available_models ∪ group mappings），
+    /// 导致下拉列出从未请求过的模型。
+    #[tokio::test]
+    async fn stats_available_models_only_recorded() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        let mut lg1 = sample_log("m1", "g1", now);
+        lg1.model = "claude-sonnet-4".into();
+        lg1.actual_model = "glm-4-plus".into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg1, false, false)).await.unwrap();
+        let mut lg2 = sample_log("m2", "g1", now);
+        lg2.model = "gpt-4o".into();
+        lg2.actual_model = String::new(); // 回退到 model
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg2, false, false)).await.unwrap();
+
+        let q = StatsQuery { start: None, end: None, granularity: None, group_by: None, filter_group: None, filter_model: None, filter_platform: None };
+        let s = query_stats(&db, &q).await.expect("query_stats");
+        // actual_model 优先 → glm-4-plus；actual_model 空 → 回退 gpt-4o
+        assert!(s.available_models.contains(&"glm-4-plus".to_string()), "missing glm-4-plus: {:?}", s.available_models);
+        assert!(s.available_models.contains(&"gpt-4o".to_string()), "missing gpt-4o: {:?}", s.available_models);
+        // 未请求过的模型不应出现
+        assert!(!s.available_models.iter().any(|m| m == "claude-sonnet-4"), "requested model leaked: {:?}", s.available_models);
+        assert!(!s.available_models.iter().any(|m| m == "never-used-model"), "unrecorded model leaked: {:?}", s.available_models);
+
+        // filter_model 不应收缩 available_models（否则选中后下拉自缩）
+        let q2 = StatsQuery { start: None, end: None, granularity: None, group_by: None, filter_group: None, filter_model: Some("glm-4-plus".into()), filter_platform: None };
+        let s2 = query_stats(&db, &q2).await.expect("query_stats filtered");
+        assert!(s2.available_models.contains(&"gpt-4o".to_string()), "filter_model shrank available_models: {:?}", s2.available_models);
     }
 
     fn sample_platform(name: &str) -> CreatePlatform {

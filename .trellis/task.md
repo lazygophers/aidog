@@ -61,3 +61,4 @@
 | home-trend-24h | 首页请求趋势改最近24小时(滚动窗口+文案) | — | 已完成 | 收尾 | 100% | — |
 | mcp-enabled-not-effective | MCP 配置启用后未生效 | — | 规划中 | 规划 | 0% | — |
 | home-trend-smooth | 首页趋势曲线改平滑(Catmull-Rom 贝塞尔, 替直折线) | — | 已完成 | 收尾 | 100% | — |
+| stats-model-filter-only-recorded | 使用统计模型筛选仅含有记录的模型 | — | 进行中 | 规划 | 0% | — |

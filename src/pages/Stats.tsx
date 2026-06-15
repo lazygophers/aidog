@@ -153,13 +153,10 @@ export function Stats() {
   // 维度 / 筛选变化时重置分页
   useEffect(() => { setPage(0); }, [groupBy, filterGroup, filterModel, filterPlatform, preset]);
 
-  // Collect unique models from groups (model_mappings) + platform available_models
+  // 模型筛选项来自实际 proxy_log 记录（后端 available_models），非配置列表
   const allModels = useMemo(
-    () => Array.from(new Set([
-      ...groups.flatMap(g => g.model_mappings.map(m => m.target_model)),
-      ...platforms.flatMap(p => p.available_models || []),
-    ])).sort(),
-    [groups, platforms],
+    () => (data?.available_models ?? []).slice().sort(),
+    [data],
   );
   const allPlatforms = useMemo(
     () => platforms.map(p => ({ value: String(p.id), label: p.name })),
