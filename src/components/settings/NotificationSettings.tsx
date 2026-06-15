@@ -51,6 +51,8 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [defaultHooks, setDefaultHooks] = useState(false);
+  // 通知总开关关闭时，默认注入 Hook 开关强制 off 且禁用（通知未开则 hook 无意义）。
+  const hooksDisabled = !settings.enabled;
   const [defaultHooksBusy, setDefaultHooksBusy] = useState(false);
   // uv 询问 modal：通知 hook 脚本为 Python（uv run --script / python3 执行）。注入前若 uv
   // 缺失且未持久化选择，弹此 modal 让用户「自动装 uv」或「用 python3」。resolver 在用户
@@ -399,15 +401,18 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.defaultHooksTitle", "默认为所有分组注入通知 Hook")}</div>
           <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
             {t("notif.defaultHooksDesc", "开启后所有分组自动带 Claude Code hooks 与 Codex notify，无需逐个手动注入")}
+            {hooksDisabled && <span style={{ marginLeft: 4 }}>· {t("notif.defaultHooksDisabledHint", "需先开启通知")}</span>}
           </div>
         </div>
         <div
-          className={`toggle ${defaultHooks ? "active" : ""}`}
-          onClick={() => { if (!defaultHooksBusy) handleToggleDefaultHooks(); }}
+          className={`toggle ${defaultHooks && !hooksDisabled ? "active" : ""}`}
+          style={hooksDisabled ? { opacity: 0.5, cursor: "not-allowed" } : undefined}
+          onClick={() => { if (!hooksDisabled && !defaultHooksBusy) handleToggleDefaultHooks(); }}
           role="switch"
-          aria-checked={defaultHooks}
+          aria-checked={defaultHooks && !hooksDisabled}
+          aria-disabled={hooksDisabled}
           aria-label={t("notif.defaultHooksTitle", "默认为所有分组注入通知 Hook")}
-          tabIndex={0}
+          tabIndex={hooksDisabled ? -1 : 0}
         />
       </div>
 

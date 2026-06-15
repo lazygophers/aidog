@@ -1396,5 +1396,6 @@
   "notif.testPopupBody": "Test-Popup",
   "notif.testPopupTip": "Nur System-Popup testen",
   "notif.testTtsContent": "Testansage",
-  "notif.testTtsTip": "Nur Sprache testen"
+  "notif.testTtsTip": "Nur Sprache testen",
+  "notif.defaultHooksDisabledHint": "Benachrichtigungen zuerst aktivieren"
 }
