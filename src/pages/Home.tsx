@@ -11,11 +11,13 @@ import {
   popoverConfigApi,
   groupDetailApi,
   platformApi,
+  statsApi,
   onProxyLogUpdated,
   type TodayStats,
   type TodayPlatformStat,
   type GroupDetail,
   type Platform,
+  type StatsBucket,
 } from "../services/api";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
 import { StatChip, BalanceBar, costLevel, levelColor } from "../components/shared";
@@ -73,10 +75,14 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
   const [platformsToday, setPlatformsToday] = useState<TodayPlatformStat[]>([]);
   const [groups, setGroups] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
+  const [trendBuckets, setTrendBuckets] = useState<StatsBucket[]>([]);
   const [loading, setLoading] = useState(true);
 
   // 并行拉取，各区独立 catch 兜底（单 API 失败该区空态，不整页崩）。
   const load = useCallback(async () => {
+    // 今日 hourly 趋势：本地 0 点→now（镜像 Stats.tsx getTimeRange("today")，口径一致）。
+    const now = new Date();
+    const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
     await Promise.all([
       proxyApi.status().then(setRunning).catch(() => setRunning(null)),
       proxyApi.getSettings().then(s => setPort(s.port)).catch(() => {}),
@@ -84,6 +90,8 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
       popoverConfigApi.platformToday().then(setPlatformsToday).catch(() => setPlatformsToday([])),
       groupDetailApi.list().then(setGroups).catch(() => setGroups([])),
       platformApi.list().then(setPlatforms).catch(() => setPlatforms([])),
+      statsApi.query({ start: dayStart.getTime(), end: now.getTime(), granularity: "hourly" })
+        .then(r => setTrendBuckets(r.buckets)).catch(() => setTrendBuckets([])),
     ]);
     setLoading(false);
   }, []);
@@ -107,6 +115,11 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
     .sort((a, b) => b.cost - a.cost)
     .slice(0, TOP_PLATFORMS);
   const maxPlatformCost = topPlatforms.reduce((m, p) => Math.max(m, p.cost), 0);
+
+  // 今日请求趋势：各小时桶的 total_requests。峰值 / 总请求用于标注 + 柱高归一化。
+  const trendPeak = trendBuckets.reduce((m, b) => Math.max(m, b.total_requests), 0);
+  const trendTotal = trendBuckets.reduce((s, b) => s + b.total_requests, 0);
+  const hasTrend = trendTotal > 0;
 
   const statusColor = running == null
     ? "var(--text-tertiary)"
@@ -162,7 +175,55 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
         )}
       </div>
 
-      {/* 3. 分组 / 平台速览 + 总余额 + 平台今日用量 top N */}
+      {/* 3. 请求趋势 · 今日（hourly 柱状图，单 accent + 失败叠 danger 语义色） */}
+      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.trendTitle", "请求趋势 · 今日")}</div>
+          {hasTrend && (
+            <div style={{ display: "flex", gap: 14, fontSize: F.small, color: "var(--text-tertiary)" }}>
+              <span>{t("home.trendPeak", "峰值")} <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{formatNumber(trendPeak)}</span></span>
+              <span>{t("home.trendTotal", "总请求")} <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{formatNumber(trendTotal)}</span></span>
+            </div>
+          )}
+        </div>
+        {hasTrend ? (
+          <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 72 }}>
+            {trendBuckets.map((b, i) => {
+              const h = trendPeak > 0 ? (b.total_requests / trendPeak) * 100 : 0;
+              const errRatio = b.total_requests > 0 ? b.error_count / b.total_requests : 0;
+              const hour = b.time_bucket.slice(-5).slice(0, 2); // "HH" 取整点小时
+              return (
+                <div
+                  key={i}
+                  title={`${b.time_bucket.slice(-5)} · ${formatNumber(b.total_requests)}`}
+                  style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", justifyContent: "flex-end", height: "100%", gap: 3 }}
+                >
+                  <div
+                    style={{
+                      width: "100%",
+                      height: `${Math.max(h, b.total_requests > 0 ? 4 : 0)}%`,
+                      borderRadius: 2,
+                      background: errRatio > 0
+                        ? `linear-gradient(to top, var(--accent), color-mix(in srgb, var(--accent) ${Math.round((1 - errRatio) * 100)}%, var(--danger)))`
+                        : "var(--accent)",
+                      transition: "height 0.3s ease",
+                    }}
+                  />
+                  {i % 4 === 0 && (
+                    <span style={{ fontSize: 8, color: "var(--text-tertiary)", textAlign: "center", whiteSpace: "nowrap" }}>{hour}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "4px 0" }}>
+            {t("home.trendEmpty", "今日暂无请求")}
+          </div>
+        )}
+      </div>
+
+      {/* 4. 分组 / 平台速览 + 总余额 + 平台今日用量 top N */}
       <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.overviewTitle", "分组 / 平台速览")}</div>
         <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
@@ -212,7 +273,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
         )}
       </div>
 
-      {/* 4. 快捷操作 */}
+      {/* 5. 快捷操作 */}
       <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.quickActions", "快捷操作")}</div>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
