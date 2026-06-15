@@ -10,19 +10,10 @@ Use this skill to create or refresh `.trellis/spec/` guidelines from the real co
 ## Workflow
 
 1. Confirm Trellis is initialized and inspect the current `.trellis/spec/` tree.
-   - **If `.trellis/` is missing → STOP.** Do not scaffold spec files into a non-Trellis project; report that the project must be initialized first.
 2. Analyze the repository architecture with the best available tools: GitNexus, ABCoder, language tooling, and direct source reads.
-   - **If GitNexus / ABCoder are not configured or error out → fall back to language tooling + direct source reads** and record the fallback in task notes. Do not block on the MCP tooling.
 3. Decompose the spec work by package and layer only when that reflects the actual codebase.
-   - **If the codebase has no clear package/layer split → keep a flat spec set** rather than inventing a structure the code does not have.
-
-> 🔴 **CHECKPOINT — before writing any spec file**
-> Confirm the spec boundaries (which packages/layers get their own spec, which stay merged) against the *actual* directory structure. Do not start writing until the decomposition matches the repository. If unsure, list the proposed spec file set in task notes first.
-
 4. Fill or reshape the spec files with concrete patterns, file paths, examples, and anti-patterns from the project.
-   - **If a planned spec file has no source-backed content to put in it → do not create it.** An empty or placeholder spec is worse than no file.
 5. Verify that the final specs are internally consistent and contain no template placeholders.
-   - **If verification finds a placeholder, empty heading, or unbacked rule → fix it before finishing.** Do not ship a spec set that fails its own consistency check; either back the rule with a source reference or delete it.
 
 ## Reference Routing
 
@@ -35,8 +26,8 @@ Use this skill to create or refresh `.trellis/spec/` guidelines from the real co
 
 ## Operating Rules
 
-- Treat templates as starting points, not contracts. Delete, rename, split, or add spec files to match the repository — if a template section has no real counterpart in the code, remove it.
-- Every important recommendation MUST point at a real file or a repeated local pattern. If a rule cannot be backed by a source reference, drop it rather than ship generic advice.
+- Treat templates as starting points, not contracts. Delete, rename, split, or add spec files when the repository calls for it.
+- Prefer source-backed rules over generic advice. Every important recommendation should point at a real file or repeated local pattern.
 - Keep execution single-owner by default. Optional helper agents are an implementation detail, not a requirement or user-visible dependency.
 - Do not write platform-specific instructions unless the target project already standardizes on that platform.
 - Do not leave placeholder text, empty headings, or copied boilerplate in `.trellis/spec/`.

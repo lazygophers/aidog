@@ -88,14 +88,3 @@ max_journal_lines: 2000
 #
 # codex:
 #   dispatch_mode: inline  # or "sub-agent" to dispatch trellis-* sub-agents
-
-# [trellisx] worktree 自动生命周期 + task.md 看板维护 (apply 注入)
-hooks:
-  after_create:
-    - "python3 .trellis/scripts/trellisx-taskmd.py sync create"
-  after_start:
-    - "python3 .trellis/scripts/trellisx-worktree.py start"
-    - "python3 .trellis/scripts/trellisx-taskmd.py sync start"
-  after_archive:
-    - "python3 .trellis/scripts/trellisx-worktree.py archive"
-    - "python3 .trellis/scripts/trellisx-taskmd.py sync archive"

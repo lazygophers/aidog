@@ -22,17 +22,6 @@ Do not assume the user has the Trellis source repository. Do not default to modi
 3. If the user wants to change behavior, read `references/customize-local/overview.md`, then open the specific customization topic.
 4. Before editing, read the actual files in the user project and treat local content as authoritative.
 
-**On conflict:** If a `references/` description contradicts what the local project files actually contain, the local file wins — edit based on the real local content and tell the user the reference may be outdated for their version.
-
-### Minimal End-to-End Example
-
-User asks: "make the check agent also run `cargo clippy`."
-
-1. Read `references/customize-local/change-agents.md` to confirm the entry point.
-2. Open the real local file (e.g. `.claude/agents/trellis-check.md` or the workflow block that defines its steps) — local content is authoritative.
-3. Add the clippy step there; do NOT edit `node_modules` or `.runtime/`.
-4. Report the changed file path to the user.
-
 ## References
 
 ### Local Architecture
@@ -73,9 +62,7 @@ User asks: "make the check agent also run `cargo clippy`."
 - `.trellis/tasks/` stores task PRDs, technical notes, research files, and JSONL context.
 - `.trellis/workspace/` stores developer journals and cross-session memory.
 - Platform settings/config files decide which hooks, agents, skills, commands, prompts, and workflows actually run.
-- `.trellis/.template-hashes.json` and `.trellis/.runtime/` are management/runtime state files.
-
-> 🔴 **STOP — before editing `.trellis/.runtime/` or `.trellis/.template-hashes.json`:** these are Trellis-managed state, not user config. Editing them by hand can desync the install or trigger unwanted regeneration. You MUST confirm with the user the specific intent before touching either, and explain the side effect.
+- `.trellis/.template-hashes.json` and `.trellis/.runtime/` are management/runtime state files. Confirm necessity before editing them.
 
 ## Do Not
 

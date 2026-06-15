@@ -30,8 +30,6 @@ Apply code-spec depth when the change includes any of:
 
 ### Mandatory Output (7 Sections)
 
-> 🔴 **CHECKPOINT:** If this change hit any Mandatory Trigger (infra / cross-layer / schema / API signature) and ANY of the 7 sections below is missing, you are FORBIDDEN from marking the spec update complete. All 7 are required for triggered work — fill them or do not claim done.
-
 For triggered tasks, include all sections below:
 1. Scope / Trigger
 2. Signatures (command/API/DB)
@@ -126,8 +124,6 @@ Before editing, read the current code-spec to:
 ```bash
 cat .trellis/spec/<category>/<file>.md
 ```
-
-**If the target spec file does not exist:** create it under the correct `.trellis/spec/<layer>/` directory (match the layer to the code you changed). When you create a NEW spec file, Step 5 (update `index.md`) becomes mandatory, not optional — an orphaned spec that nothing links to will not be discovered.
 
 ### Step 4: Make the Update
 
