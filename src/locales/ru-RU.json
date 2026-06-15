@@ -1456,5 +1456,11 @@
   "updater.releaseNotes": "Что нового",
   "updater.updateFailed": "Ошибка обновления",
   "updater.updateNow": "Обновить сейчас",
-  "updater.updating": "Обновление…"
+  "updater.updating": "Обновление…",
+  "stats.granularityLabel": "Детализация",
+  "stats.granMinute": "1 мин",
+  "stats.gran5min": "5 мин",
+  "stats.granHourly": "По часам",
+  "stats.granDaily": "По дням",
+  "stats.granAuto": "{{g}} (авто)"
 }

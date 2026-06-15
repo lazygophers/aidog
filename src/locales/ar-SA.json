@@ -1456,5 +1456,11 @@
   "updater.releaseNotes": "ملاحظات الإصدار",
   "updater.updateFailed": "فشل التحديث",
   "updater.updateNow": "التحديث الآن",
-  "updater.updating": "جارٍ التحديث…"
+  "updater.updating": "جارٍ التحديث…",
+  "stats.granularityLabel": "الدقة",
+  "stats.granMinute": "دقيقة واحدة",
+  "stats.gran5min": "5 دقائق",
+  "stats.granHourly": "بالساعة",
+  "stats.granDaily": "يومي",
+  "stats.granAuto": "{{g}} (تلقائي)"
 }

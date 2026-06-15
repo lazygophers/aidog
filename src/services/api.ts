@@ -1100,7 +1100,7 @@ export const appLogApi = {
 export interface StatsQuery {
   start?: number;
   end?: number;
-  granularity?: "hourly" | "daily";
+  granularity?: "hourly" | "daily" | "minute" | "5min";
   group_by?: "platform" | "model" | "group";
   filter_group?: string;
   filter_model?: string;

@@ -1434,5 +1434,11 @@
   "updater.releaseNotes": "Release notes",
   "updater.updateFailed": "Update failed",
   "updater.updateNow": "Update now",
-  "updater.updating": "Updating…"
+  "updater.updating": "Updating…",
+  "stats.granularityLabel": "Granularity",
+  "stats.granMinute": "1 min",
+  "stats.gran5min": "5 min",
+  "stats.granHourly": "Hourly",
+  "stats.granDaily": "Daily",
+  "stats.granAuto": "{{g}} (auto)"
 }
