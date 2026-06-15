@@ -44,7 +44,7 @@ function ttsBackendLabel(t: TFunction, b: TtsBackend): string {
   return t(`notif.ttsBackend.${b}`, b);
 }
 
-export function NotificationSettingsTab() {
+export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged?: (enabled: boolean) => void }) {
   const { t } = useTranslation();
   const [settings, setSettings] = useState<NotifSettings>(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
@@ -77,10 +77,13 @@ export function NotificationSettingsTab() {
   }, []);
 
   const persist = async (next: NotifSettings) => {
+    const prevEnabled = settings.enabled;
     setSettings(next);
     try {
       await notificationApi.setSettings(next);
       setError("");
+      // 总开关变化时通知父组件（用于隐藏/显示侧栏「通知中心」入口）。
+      if (next.enabled !== prevEnabled) onEnabledChanged?.(next.enabled);
     } catch (e) {
       console.error("set notification settings failed", e);
       setError(String(e));

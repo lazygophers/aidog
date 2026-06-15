@@ -12,6 +12,7 @@ import { Mcp } from "./pages/Mcp";
 import { About } from "./pages/About";
 import {
   proxyLogApi,
+  notificationApi,
   NOTIF_SPEAK,
 } from "./services/api";
 import { requestNavigation } from "./utils/navGuard";
@@ -47,10 +48,18 @@ const BASE_NAV: NavItem[] = [
 function App() {
   const [activeNav, setActiveNav] = useState("platforms");
   const [logEnabled, setLogEnabled] = useState(false);
+  const [notifEnabled, setNotifEnabled] = useState(true);
 
   useEffect(() => {
     proxyLogApi.getSettings()
       .then(s => setLogEnabled(s.enabled))
+      .catch(() => {});
+  }, []);
+
+  // 通知总开关 off 时隐藏「通知中心」侧栏入口（仿 logs 隐藏模式）。
+  useEffect(() => {
+    notificationApi.getSettings()
+      .then(s => setNotifEnabled(s.enabled))
       .catch(() => {});
   }, []);
 
@@ -83,13 +92,17 @@ function App() {
     });
   };
 
-  // 隐藏 logs 菜单（日志关闭时）
-  const navItems = (logEnabled
-    ? BASE_NAV
-    : BASE_NAV.filter(n => n.id !== "logs")
-  );
+  // 隐藏菜单：日志关闭去 logs；通知关闭去 notifications。
+  const navItems = BASE_NAV.filter(n => {
+    if (!logEnabled && n.id === "logs") return false;
+    if (!notifEnabled && n.id === "notifications") return false;
+    return true;
+  });
 
-  const effectiveNav = activeNav === "logs" && !logEnabled ? "platforms" : activeNav.split("/")[0];
+  const effectiveNav =
+    activeNav === "logs" && !logEnabled ? "platforms"
+    : activeNav === "notifications" && !notifEnabled ? "platforms"
+    : activeNav.split("/")[0];
   // settings 子页：activeNav 形如 "settings/system"；裸 "settings" 回退 system。
   const settingsTab: Tab = activeNav.startsWith("settings/") ? (activeNav.slice(9) as Tab) : "system";
 
@@ -114,7 +127,7 @@ function App() {
         <div className="animate-fade-in" key={effectiveNav}>
           {effectiveNav === "platforms" && <Platforms />}
           {effectiveNav === "groups" && <Groups />}
-          {effectiveNav === "settings" && <AppSettings tab={settingsTab} onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} />}
+          {effectiveNav === "settings" && <AppSettings tab={settingsTab} onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
           {effectiveNav === "logs" && <Logs />}
           {effectiveNav === "stats" && <Stats />}
           {effectiveNav === "notifications" && <Notifications />}

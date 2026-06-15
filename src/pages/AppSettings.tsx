@@ -14,7 +14,7 @@ import { ImportExportTab } from "../components/settings/ImportExport";
 
 export type Tab = "system" | "claude" | "codex" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport";
 
-export function AppSettings({ tab, onLogSettingsChanged }: { tab: Tab; onLogSettingsChanged?: (enabled: boolean) => void }) {
+export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged }: { tab: Tab; onLogSettingsChanged?: (enabled: boolean) => void; onNotifSettingsChanged?: (enabled: boolean) => void }) {
   const { t } = useTranslation();
   const [running, setRunning] = useState(false);
   const [proxyPort, setProxyPort] = useState(9876);
@@ -199,7 +199,7 @@ export function AppSettings({ tab, onLogSettingsChanged }: { tab: Tab; onLogSett
       ) : tab === "scheduling" ? (
         <SchedulingSettingsTab />
       ) : tab === "notifications" ? (
-        <NotificationSettingsTab />
+        <NotificationSettingsTab onEnabledChanged={onNotifSettingsChanged} />
       ) : tab === "system" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* Proxy Status */}
