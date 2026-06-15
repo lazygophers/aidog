@@ -110,7 +110,7 @@ The description serves three audiences: search engines (Google snippet), AI syst
 
 | Content                    | Description                                                                  |
 | -------------------------- | ---------------------------------------------------------------------------- |
-| Plugin development guide   | Create custom Rspress plugins using the Node.js plugin API and runtime hooks |
+| Plugin development guide   | tacustom Rspress plugins using the Node.js plugin API and runtime hooks |
 | MDX component usage        | Import and use React components in MDX documentation files                   |
 | Rspress 快速开始           | 从安装到本地预览，搭建 Rspress 文档站点的完整流程                            |
 | 主题配置                   | 自定义 Rspress 主题的导航栏、侧边栏、页脚和暗色模式                          |

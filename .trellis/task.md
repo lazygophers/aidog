@@ -27,3 +27,4 @@
 | readme-badges | README + docs 添加 LINUX DO 社区徽章及常见 GitHub 徽章 | — | 已完成 | 收尾 | 100% | — |
 | skills-catalog-mismatch | Skills 搜索结果与 npx skills ls --json 不一致诊断+修复 | — | 已完成 | 收尾 | 100% | — |
 | hide-notify-menu-when-disabled | 通知关闭时隐藏通知中心菜单 | — | 已完成 | 收尾 | 100% | — |
+| disable-default-hooks-when-notif-off | 通知关闭时禁用默认注入通知Hook开关 | — | 进行中 | 规划 | 0% | — |
