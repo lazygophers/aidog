@@ -347,13 +347,31 @@ fn speak_cross_platform(text: &str) {
         Ok(mut t) => {
             if let Err(e) = t.speak(&text, false) {
                 tracing::warn!(error = %e, "notify: tts speak failed");
+                fallback_say(&text);
+            } else {
+                // 给平台 backend 时间起播（speak 非阻塞；过早 drop 可能中断短句）。
+                std::thread::sleep(std::time::Duration::from_millis(200));
             }
-            // 给平台 backend 时间起播（speak 非阻塞；过早 drop 可能中断短句）。
-            std::thread::sleep(std::time::Duration::from_millis(200));
         }
-        Err(e) => tracing::warn!(error = %e, "notify: tts backend init failed"),
+        Err(e) => {
+            tracing::warn!(error = %e, "notify: tts backend init failed, falling back to `say`");
+            fallback_say(&text);
+        }
     });
 }
+
+/// tts crate 失败兜底：macOS 调系统 `say` 命令；其他平台无 say，no-op。
+/// tts crate macOS 后端 (AVFoundation) 在后台线程构造常返回 "Operation failed"，
+/// 此兜底保证 macOS 至少有语音播报。
+#[cfg(target_os = "macos")]
+fn fallback_say(text: &str) {
+    if let Err(e) = std::process::Command::new("say").arg(text).status() {
+        tracing::warn!(error = %e, "notify: fallback `say` command failed");
+    }
+}
+
+#[cfg(not(target_os = "macos"))]
+fn fallback_say(_text: &str) {}
 
 /// 跨平台系统提示音（独立通道，绕过弹窗 / TTS）。
 /// - macOS: `afplay /System/Library/Sounds/Pop.aiff`
