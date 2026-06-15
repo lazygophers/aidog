@@ -531,18 +531,137 @@ pub async fn browse_catalog(_proxy_url: Option<&str>) -> Vec<CatalogEntry> {
     Vec::new()
 }
 
-/// 搜索 catalog：`npx skills find <kw>` 解析（skills.sh HTTP 端点当前 404，唯一可用源）。
+/// 搜索 catalog：双模式。
 ///
-/// find 输出（ANSI 剥离后）每条占两行：
-/// ```text
-/// owner/repo@skill   217.7K installs
-/// └ https://skills.sh/owner/repo/skill
-/// ```
-/// `id` = `owner/repo@skill`（即 `npx skills add` 的 source 形态，`@skill` 已选定子 skill，
-/// 安装时无需 `-s`）；`name` = `@` 后的 skill 名；`repo_url` = skills.sh 详情页；`description`
-/// = 安装计数（前端展示用）。
+/// - **精确 source 形态** (`^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$`)：走 `npx skills add <source> -l -y`
+///   解析仓库**真实可装集** (git clone + scan SKILL.md, 11/11 全量)。skills.sh 索引
+///   (find 走) 仅含被安装过的 skill (6/11), 新仓库 / 新 skill 缺位 → 这条路解决之。
+/// - **其他形态** (普通搜索词 / 含 `@` 后缀 / URL): 走 `npx skills find <kw>` 命中 skills.sh
+///   索引, 仍是关键词搜索唯一可用源。
+///
+/// 两路径统一返回 `Vec<CatalogEntry>`。
 pub async fn search(kw: &str, proxy_url: Option<&str>) -> Vec<CatalogEntry> {
-    npx_find(kw, proxy_url)
+    let kw_trim = kw.trim();
+    if is_exact_source(kw_trim) {
+        npx_list_source(kw_trim, proxy_url)
+    } else {
+        npx_find(kw_trim, proxy_url)
+    }
+}
+
+/// 判断关键词是否为精确 `owner/repo` 形态 (无 `@skill` 后缀, 无 URL 前缀)。
+/// 精确形态走 `npx skills add -l` 拿仓库全量可装集; 其他走 find。
+fn is_exact_source(s: &str) -> bool {
+    static SOURCE_RE: OnceLock<Regex> = OnceLock::new();
+    let re = SOURCE_RE.get_or_init(|| {
+        Regex::new(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$").unwrap()
+    });
+    re.is_match(s)
+}
+
+/// `npx skills add <source> -l -y`：列仓库内全部可装 skill (无视 skills.sh 索引)。
+///
+/// `-l` = list available skills without installing; `-y` = 自动接受 agent / scope prompt
+/// (Agent detected 时非交互打印结果)。关闭 stdin 避免挂起。
+///
+/// 输出含 spinner (◒/◐/◓/◑/●/◇/└) + 框形字符 (│) + ANSI 颜色, 必须先剥离。
+/// 每条 skill 占多行 (ANSI 剥离 + 行首 trim 后):
+/// ```text
+/// │    <skill-name>
+/// │
+/// │      <description>  ← 可能跨行
+/// ```
+fn npx_list_source(source: &str, proxy_url: Option<&str>) -> Vec<CatalogEntry> {
+    if source.is_empty() {
+        return Vec::new();
+    }
+    let mut cmd = Command::new("npx");
+    cmd.args(["--yes", "skills", "add", source, "-l", "-y"]);
+    cmd.stdin(std::process::Stdio::null());
+    apply_proxy_env(&mut cmd, proxy_url);
+    let output = match cmd.output() {
+        Ok(o) => o,
+        Err(_) => return Vec::new(),
+    };
+    let raw = String::from_utf8_lossy(&output.stdout);
+    parse_add_list_output(&raw, source)
+}
+
+/// 解析 `npx skills add <source> -l` 输出为 CatalogEntry。
+///
+/// 状态机:
+/// 1. 剥 ANSI / spinner 残留, 按行扫描;
+/// 2. 标记位 `in_skills_section` = 见到 "Available Skills" 后置 true;
+/// 3. 在 section 内, 行去前导 `│` + 空白 后:
+///    - 空行 → 跳;
+///    - `<skill-name>` 形态 (仅 `[A-Za-z0-9._-]+`, 无空格) → 提交上一条 + 开新 entry;
+///    - 其他文本 → append 到当前 entry 的 description (空格连接, 防跨行 desc 丢)。
+/// 4. 见到 `└` 起首 (footer) → 提交并退出。
+///
+/// 容错: 空输入 / 无 "Available Skills" / 残缺均不崩, 返回已收集到的。
+fn parse_add_list_output(raw: &str, source: &str) -> Vec<CatalogEntry> {
+    static ANSI_RE: OnceLock<Regex> = OnceLock::new();
+    let ansi_re = ANSI_RE.get_or_init(|| Regex::new(r"\x1b\[[0-9;?]*[A-Za-z]").unwrap());
+    let clean: String = ansi_re.replace_all(raw, "").to_string();
+
+    static NAME_RE: OnceLock<Regex> = OnceLock::new();
+    let name_re = NAME_RE.get_or_init(|| Regex::new(r"^[A-Za-z0-9._-]+$").unwrap());
+
+    let repo_url = format!("https://github.com/{source}");
+    let mut out: Vec<CatalogEntry> = Vec::new();
+    let mut current: Option<(String, String)> = None; // (name, desc)
+    let mut in_section = false;
+
+    let flush = |cur: &mut Option<(String, String)>, source: &str, repo_url: &str, out: &mut Vec<CatalogEntry>| {
+        if let Some((name, desc)) = cur.take() {
+            let desc = desc.trim().to_string();
+            out.push(CatalogEntry {
+                id: format!("{source}@{name}"),
+                name,
+                description: if desc.is_empty() { None } else { Some(desc) },
+                repo_url: Some(repo_url.to_string()),
+            });
+        }
+    };
+
+    for line in clean.lines() {
+        // 去前导框形字符 / spinner / 状态符号 + 空白。
+        // 保留 `└` 不剥 (用作 footer 检测)。
+        let stripped = line.trim_start_matches(|c: char| {
+            matches!(c, '│' | '◇' | '●' | '◒' | '◐' | '◓' | '◑' | '⊙' | '◌')
+                || c.is_whitespace()
+        });
+        if !in_section {
+            if stripped.starts_with("Available Skills") {
+                in_section = true;
+            }
+            continue;
+        }
+        // section 内: footer 行 (└ 起首) → 收尾退出。
+        if line.trim_start().starts_with('└') {
+            flush(&mut current, source, &repo_url, &mut out);
+            break;
+        }
+        if stripped.is_empty() {
+            continue;
+        }
+        // 新 skill name 行: 单 token, 仅 [A-Za-z0-9._-], 无空格。
+        if name_re.is_match(stripped) {
+            flush(&mut current, source, &repo_url, &mut out);
+            current = Some((stripped.to_string(), String::new()));
+            continue;
+        }
+        // 其他行 → 追加到 description (空格连接, 防跨行)。
+        if let Some((_, desc)) = current.as_mut() {
+            if !desc.is_empty() {
+                desc.push(' ');
+            }
+            desc.push_str(stripped);
+        }
+    }
+    // 末尾未见 footer 时收尾。
+    flush(&mut current, source, &repo_url, &mut out);
+    out
 }
 
 /// 解析 skills.sh 返回的 JSON 到 CatalogEntry 列表（端点恢复时复用；当前仅测试调用）。
@@ -2000,6 +2119,101 @@ mod tests {
         // 损坏 JSON → 默认空（当冷启动），不 panic。
         let back: SkillsCacheFile = serde_json::from_str("not json {{{").unwrap_or_default();
         assert!(back.scopes.is_empty());
+    }
+
+    #[test]
+    fn is_exact_source_matches_owner_repo() {
+        assert!(is_exact_source("lazygophers/ccplugin"));
+        assert!(is_exact_source("vercel-labs/agent-skills"));
+        assert!(is_exact_source("a.b/c_d"));
+        // 单 token / 含 @ / 空 / URL / 多斜杠 → 否
+        assert!(!is_exact_source("trellis"));
+        assert!(!is_exact_source("lazygophers/ccplugin@hooks"));
+        assert!(!is_exact_source(""));
+        assert!(!is_exact_source("https://github.com/a/b"));
+        assert!(!is_exact_source("a/b/c"));
+        // 含空格 → 否
+        assert!(!is_exact_source("a / b"));
+    }
+
+    #[test]
+    fn parse_add_list_output_full_fixture() {
+        // 真实 `npx skills add lazygophers/ccplugin -l` 输出片段 (ANSI 已剥, spinner 残留保留)。
+        let raw = "\
+│
+●   claude-code_2-1-177_agent  Agent detected — installing non-interactively
+│
+◇  Source: https://github.com/lazygophers/ccplugin.git
+│
+◇  Repository cloned
+│
+◇  Found 11 skills
+
+│
+◇  Available Skills
+│
+│    architecture-design
+│
+│      用「正交分解」方法论做架构设计与评审。把系统正交分解。
+│
+│    perf-optimization
+│
+│      性能优化的跨栈方法论框架。
+│
+│    trellis-before-dev
+│
+│      Discovers and injects project-specific coding guidelines.
+│
+│
+└  Use --skill <name> to install specific skills
+";
+        let out = parse_add_list_output(raw, "lazygophers/ccplugin");
+        assert_eq!(out.len(), 3, "expected 3 skills, got: {:?}", out);
+        assert_eq!(out[0].name, "architecture-design");
+        assert_eq!(out[0].id, "lazygophers/ccplugin@architecture-design");
+        assert_eq!(
+            out[0].repo_url.as_deref(),
+            Some("https://github.com/lazygophers/ccplugin"),
+        );
+        assert!(out[0].description.as_deref().unwrap().contains("正交分解"));
+        assert_eq!(out[1].name, "perf-optimization");
+        assert_eq!(out[2].name, "trellis-before-dev");
+    }
+
+    #[test]
+    fn parse_add_list_output_empty_and_no_section() {
+        // 空输入 → 空
+        assert!(parse_add_list_output("", "a/b").is_empty());
+        // 无 "Available Skills" header → 空 (in_section 未触)
+        assert!(parse_add_list_output("│  some preamble\n│  but no header\n", "a/b").is_empty());
+        // 只有 header 无内容 → 空
+        let raw = "│\n◇  Available Skills\n│\n└  end\n";
+        assert!(parse_add_list_output(raw, "a/b").is_empty());
+    }
+
+    #[test]
+    fn parse_add_list_output_multiline_description() {
+        // description 跨多行 → 应合并 (空格连接)
+        let raw = "\
+◇  Available Skills
+│
+│    skill-a
+│
+│      first line of description
+│      second line continues
+│
+│    skill-b
+│
+│      single line
+│
+└  end
+";
+        let out = parse_add_list_output(raw, "x/y");
+        assert_eq!(out.len(), 2);
+        let desc_a = out[0].description.as_deref().unwrap();
+        assert!(desc_a.contains("first line"));
+        assert!(desc_a.contains("second line"), "got: {}", desc_a);
+        assert_eq!(out[1].description.as_deref(), Some("single line"));
     }
 
     #[test]
