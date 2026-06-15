@@ -657,7 +657,7 @@ function SearchableFilter({ width, value, onChange, allLabel, searchPlaceholder,
     <div ref={ref} style={{ position: "relative", width }}>
       <button
         className="input"
-        style={{ fontSize: 12, width: "100%", textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+        style={{ fontSize: 14, width: "100%", textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
         onClick={() => setOpen(o => !o)}
       >
         {current ? current.label : allLabel}
