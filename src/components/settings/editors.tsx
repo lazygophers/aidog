@@ -26,6 +26,7 @@ import {
   DEFAULT_SEGMENTS,
   DEFAULT_SUBAGENT_SEGMENTS,
   generateStatusLineScript,
+  generateSubagentStatusLineScript,
   groupRows,
   normalizeSegments,
   isRowLeaderSeg,
@@ -1963,8 +1964,11 @@ function StatusLinePanel({
     updateSegments(segments.filter(s => !ids.has(s.id)));
   };
 
-  // Generate script
-  const scriptPreview = generateStatusLineScript(segments);
+  // Generate script — 必须按 scriptType 分流, 否则 subagent 文件会被写入主脚本内容
+  // (Claude Code 期望 subagent 输出每任务一行 JSONL, 写错→输出乱→CC 回退默认 `◯ <type> <desc> <dur>`)
+  const scriptPreview = scriptType === "subagent"
+    ? generateSubagentStatusLineScript(segments)
+    : generateStatusLineScript(segments);
 
 
   const handleSave = async () => {
