@@ -54,5 +54,5 @@
 | stats-trend-hourly-by-preset | 请求趋势按 preset 联动 granularity (today→hourly) | — | 已完成 | 收尾 | 100% | — |
 | stats-filter-trigger-fontsize-v4 | 模型筛选触发按钮字号 12 过小 (前3次改错位置) | — | 已完成 | 收尾 | 100% | — |
 | stats-cache-rate-over-100 | 缓存率公式错误可超 100% (cache/input→cache/(input+cache)) | — | 已完成 | 收尾 | 100% | — |
-| home-request-trend | 首页加请求趋势图（今日 hourly buckets 轻量 SVG） | — | 进行中 | 规划 | 0% | — |
-| stats-trend-chart-missing | 请求趋势图不显示 (query_stats buckets 空/回归未重启诊断) | — | 进行中 | 规划 | 0% | — |
+| home-request-trend | 首页加请求趋势图（今日 hourly buckets 轻量 SVG） | — | 已完成 | 收尾 | 100% | — |
+| stats-trend-chart-missing | 请求趋势图不显示 (query_stats buckets 空/回归未重启诊断) | — | 已完成 | 收尾 | 100% | — |
