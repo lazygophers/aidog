@@ -4,7 +4,7 @@
 //       变量提示 + 测试通知 + 「默认为所有分组注入通知 Hook」总开关（_aidog_hooks.enabled）。
 // 单 group 注入按钮已删（API 仍保留: notificationApi.injectHooks/removeHooks），统一走总开关。
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -78,30 +78,47 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
     })();
   }, []);
 
-  const persist = async (next: NotifSettings) => {
-    const prevEnabled = settings.enabled;
+  // settingsRef 始终持最新值，消除闭包 stale（async persist 未完成时新交互拿旧 settings 覆盖）。
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
+  // DB 写防抖定时器（template 连续输入合并为一次持久化）。
+  const persistTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // persist 接收 updater（functional），基于 ref 最新值计算 next，避免闭包竞态覆盖。
+  // 乐观 setSettings 立即刷 UI；DB 写防抖 200ms 合并；失败回滚到写前快照。
+  const persist = async (updater: (prev: NotifSettings) => NotifSettings) => {
+    const prev = settingsRef.current;
+    const next = updater(prev);
+    const prevEnabled = prev.enabled;
     setSettings(next);
-    try {
-      await notificationApi.setSettings(next);
-      setError("");
-      // 总开关变化时通知父组件（用于隐藏/显示侧栏「通知中心」入口）。
-      if (next.enabled !== prevEnabled) onEnabledChanged?.(next.enabled);
-    } catch (e) {
-      console.error("set notification settings failed", e);
-      setError(String(e));
-    }
+    settingsRef.current = next;
+    setError("");
+    if (next.enabled !== prevEnabled) onEnabledChanged?.(next.enabled);
+    if (persistTimer.current) clearTimeout(persistTimer.current);
+    persistTimer.current = setTimeout(async () => {
+      try {
+        await notificationApi.setSettings(settingsRef.current);
+      } catch (e) {
+        console.error("set notification settings failed", e);
+        // 回滚到写前快照，UI 与 DB 一致（防 UI 显示新值但 DB 存旧的"未生效"现象）。
+        setSettings(prev);
+        settingsRef.current = prev;
+        setError(String(e));
+      }
+    }, 200);
   };
 
   const typeSetting = (type: NotifType): TypeSetting =>
     settings.per_type[type] ?? DEFAULT_TYPE_SETTING;
 
-  const updateType = (type: NotifType, partial: Partial<TypeSetting>) => {
-    const current = typeSetting(type);
-    persist({
-      ...settings,
-      per_type: { ...settings.per_type, [type]: { ...current, ...partial } },
-    });
-  };
+  const updateType = (type: NotifType, partial: Partial<TypeSetting>) =>
+    persist(prev => ({
+      ...prev,
+      per_type: {
+        ...prev.per_type,
+        [type]: { ...(prev.per_type[type] ?? DEFAULT_TYPE_SETTING), ...partial },
+      },
+    }));
 
   const handleTest = async (type: NotifType) => {
     try {
@@ -229,7 +246,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         </div>
         <div
           className={`toggle ${settings.enabled ? "active" : ""}`}
-          onClick={() => persist({ ...settings, enabled: !settings.enabled })}
+          onClick={() => persist(prev => ({ ...prev, enabled: !prev.enabled }))}
           role="switch"
           aria-checked={settings.enabled}
           tabIndex={0}
@@ -247,7 +264,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           </div>
           <div
             className={`toggle ${settings.tts_enabled ? "active" : ""}`}
-            onClick={() => persist({ ...settings, tts_enabled: !settings.tts_enabled })}
+            onClick={() => persist(prev => ({ ...prev, tts_enabled: !prev.tts_enabled }))}
             role="switch"
             aria-checked={settings.tts_enabled}
             tabIndex={0}
@@ -262,7 +279,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
               className="input"
               style={{ maxWidth: 220, padding: "4px 8px", fontSize: 12 }}
               value={settings.tts_backend}
-              onChange={(e) => persist({ ...settings, tts_backend: e.target.value as TtsBackend })}
+              onChange={(e) => persist(prev => ({ ...prev, tts_backend: e.target.value as TtsBackend }))}
             >
               {TTS_BACKENDS.map((b) => (
                 <option key={b} value={b}>{ttsBackendLabel(t, b)}</option>
