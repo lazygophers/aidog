@@ -80,9 +80,9 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
 
   // 并行拉取，各区独立 catch 兜底（单 API 失败该区空态，不整页崩）。
   const load = useCallback(async () => {
-    // 今日 hourly 趋势：本地 0 点→now（镜像 Stats.tsx getTimeRange("today")，口径一致）。
+    // 最近 24 小时 hourly 趋势：now-24h → now 滚动窗口（24 桶）。
     const now = new Date();
-    const dayStart = new Date(now); dayStart.setHours(0, 0, 0, 0);
+    const windowStart = now.getTime() - 24 * 3600 * 1000;
     await Promise.all([
       proxyApi.status().then(setRunning).catch(() => setRunning(null)),
       proxyApi.getSettings().then(s => setPort(s.port)).catch(() => {}),
@@ -90,7 +90,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
       popoverConfigApi.platformToday().then(setPlatformsToday).catch(() => setPlatformsToday([])),
       groupDetailApi.list().then(setGroups).catch(() => setGroups([])),
       platformApi.list().then(setPlatforms).catch(() => setPlatforms([])),
-      statsApi.query({ start: dayStart.getTime(), end: now.getTime(), granularity: "hourly" })
+      statsApi.query({ start: windowStart, end: now.getTime(), granularity: "hourly" })
         .then(r => setTrendBuckets(r.buckets)).catch(() => setTrendBuckets([])),
     ]);
     setLoading(false);
@@ -116,7 +116,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
     .slice(0, TOP_PLATFORMS);
   const maxPlatformCost = topPlatforms.reduce((m, p) => Math.max(m, p.cost), 0);
 
-  // 今日请求趋势：各小时桶的 total_requests。峰值 / 总请求用于标注 + 柱高归一化。
+  // 最近 24 小时请求趋势：各小时桶的 total_requests。峰值 / 总请求用于标注 + 柱高归一化。
   const trendPeak = trendBuckets.reduce((m, b) => Math.max(m, b.total_requests), 0);
   const trendTotal = trendBuckets.reduce((s, b) => s + b.total_requests, 0);
   const hasTrend = trendTotal > 0;
