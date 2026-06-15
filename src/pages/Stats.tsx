@@ -677,7 +677,7 @@ function SearchableFilter({ width, value, onChange, allLabel, searchPlaceholder,
           <input
             className="input"
             autoFocus
-            style={{ fontSize: 13 }}
+            style={{ fontSize: 14 }}
             placeholder={searchPlaceholder}
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -715,11 +715,12 @@ function FilterOption({ label, active, onClick }: { label: string; active: boole
         background: active ? "var(--bg-glass)" : "transparent",
         color: active ? "var(--accent)" : "var(--text-primary)",
         fontWeight: active ? 600 : 400,
-        padding: "10px 12px",
+        padding: "11px 14px",
         borderRadius: "var(--radius-sm)",
         cursor: "pointer",
-        fontSize: 14,
-        lineHeight: 1.4,
+        fontFamily: "inherit",
+        fontSize: 15,
+        lineHeight: 1.5,
         overflow: "hidden",
         textOverflow: "ellipsis",
         whiteSpace: "nowrap",

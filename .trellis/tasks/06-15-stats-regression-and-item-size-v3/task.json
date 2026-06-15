@@ -1,7 +1,7 @@
 {
-  "id": "stats-model-filter-size-v2",
-  "name": "stats-model-filter-size-v2",
-  "title": "模型下拉筛选 item 仍过小 (上次改动力度不足)",
+  "id": "stats-regression-and-item-size-v3",
+  "name": "stats-regression-and-item-size-v3",
+  "title": "stats 回归修复(ambiguous col) + 模型筛选 item 尺寸 v3",
   "description": "",
   "status": "in_progress",
   "dev_type": null,

@@ -2582,19 +2582,20 @@ fn query_stats_inner(conn: &Connection, query: &StatsQuery) -> Result<StatsResul
     // 有效 platform_id 表达式：原 platform_id，auto 分组（platform_id=0）经
     // group.auto_from_platform 回溯到源平台（与 get_platform_usage_stats 同语义）。
     const EFF_PID: &str = "\
-CASE WHEN platform_id = 0 THEN COALESCE(\
+CASE WHEN proxy_log.platform_id = 0 THEN COALESCE(\
 (SELECT CAST(g.auto_from_platform AS INTEGER) FROM \"group\" g \
  WHERE g.name = proxy_log.group_name AND g.auto_from_platform != '' AND g.deleted_at = 0 LIMIT 1), 0)\
-ELSE platform_id END";
+ELSE proxy_log.platform_id END";
 
-    // Build WHERE clause
-    let mut where_parts = vec!["created_at >= ?1".to_string(), "created_at <= ?2".to_string()];
+    // Build WHERE clause（列名一律 proxy_log. 前缀：dimension platform 分支 LEFT JOIN platform 后，
+    // deleted_at / created_at 等列两表皆有，裸列名会触发 ambiguous column 错误）
+    let mut where_parts = vec!["proxy_log.created_at >= ?1".to_string(), "proxy_log.created_at <= ?2".to_string()];
     if qp.filter_group.is_some() {
-        where_parts.push("group_name = ?3".to_string());
+        where_parts.push("proxy_log.group_name = ?3".to_string());
     }
     if qp.filter_model.is_some() {
         let idx = 3 + qp.filter_group.is_some() as usize;
-        where_parts.push(format!("(model = ?{idx} OR actual_model = ?{idx})"));
+        where_parts.push(format!("(proxy_log.model = ?{idx} OR proxy_log.actual_model = ?{idx})"));
     }
     if qp.filter_platform.is_some() {
         let idx = 3 + qp.filter_group.is_some() as usize + qp.filter_model.is_some() as usize;
@@ -2677,7 +2678,7 @@ ELSE platform_id END";
                  SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), \
                  COALESCE(SUM(est_cost), 0.0) \
                  FROM proxy_log LEFT JOIN platform p ON p.id = ({EFF_PID}) \
-                 WHERE deleted_at = 0 AND {where_sql} GROUP BY ({EFF_PID}) ORDER BY 2 DESC LIMIT 50"
+                 WHERE proxy_log.deleted_at = 0 AND {where_sql} GROUP BY ({EFF_PID}) ORDER BY 2 DESC LIMIT 50"
             )
         } else {
             let dim_col = match gb.as_str() {
@@ -3187,6 +3188,27 @@ mod tests {
         let db = Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
         db
+    }
+
+    #[tokio::test]
+    async fn query_stats_platform_dim_and_filter() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("P1")).await.unwrap();
+        let now = chrono::Utc::now().timestamp_millis();
+        let mut lg = sample_log("l1", "g1", now);
+        lg.platform_id = p.id;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false)).await.unwrap();
+        let q = StatsQuery { start: None, end: None, granularity: Some("daily".into()), group_by: Some("platform".into()), filter_group: None, filter_model: None, filter_platform: None };
+        let r = query_stats(&db, &q).await;
+        println!("NO-FILTER platform dim: {:?}", r.as_ref().err());
+        assert!(r.is_ok(), "no-filter platform dim failed: {:?}", r.err());
+        let q2 = StatsQuery { start: None, end: None, granularity: Some("daily".into()), group_by: Some("platform".into()), filter_group: None, filter_model: None, filter_platform: Some(p.id.to_string()) };
+        let r2 = query_stats(&db, &q2).await;
+        println!("PLATFORM-FILTER: {:?}", r2.as_ref().err());
+        assert!(r2.is_ok(), "platform filter failed: {:?}", r2.err());
+        let res = r2.unwrap();
+        println!("overview total_requests = {}", res.overview.total_requests);
+        println!("dim entries = {}", res.dimension_data.len());
     }
 
     fn sample_platform(name: &str) -> CreatePlatform {
@@ -4294,3 +4316,4 @@ decimals: None,
         assert!(!s2.enabled && !s2.tts_enabled);
     }
 }
+
