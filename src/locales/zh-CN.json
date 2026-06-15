@@ -1374,5 +1374,6 @@
   "notif.testPopupBody": "测试弹窗",
   "notif.testPopupTip": "仅测系统弹窗",
   "notif.testTtsContent": "测试播报",
-  "notif.testTtsTip": "仅测语音播报"
+  "notif.testTtsTip": "仅测语音播报",
+  "notif.defaultHooksDisabledHint": "需先开启通知"
 }

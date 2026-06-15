@@ -1396,5 +1396,6 @@
   "notif.testPopupBody": "نافذة منبثقة تجريبية",
   "notif.testPopupTip": "اختبار النافذة المنبثقة فقط",
   "notif.testTtsContent": "إعلان تجريبي",
-  "notif.testTtsTip": "اختبار الصوت فقط"
+  "notif.testTtsTip": "اختبار الصوت فقط",
+  "notif.defaultHooksDisabledHint": "فعّل الإشعارات أولاً"
 }
