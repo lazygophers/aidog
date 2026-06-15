@@ -3233,6 +3233,8 @@ mod tests {
         let s = query_stats(&db, &q).await.expect("query_stats");
         println!("overview cache_rate = {}", s.overview.cache_rate);
         assert!(s.overview.cache_rate <= 100.0, "overview cache_rate > 100: {}", s.overview.cache_rate);
+        // buckets 非空（防 query_stats_inner 回归致趋势图无数据）
+        assert!(!s.buckets.is_empty(), "buckets empty — trend chart would not render");
     }
 
     fn sample_platform(name: &str) -> CreatePlatform {
