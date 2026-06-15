@@ -2555,13 +2555,13 @@ impl QueryParams {
 }
 
 /// 时间分桶 SQL 表达式（select 列）。粒度决定分桶宽度：
-/// - `minute` → 每分钟一桶 `%Y-%m-%d %H:%M:00`
+/// - `minute` → 每分钟一桶 `%Y-%m-%d %H:%M`（不带秒：前端 x 轴标注取末 5 字符须为 HH:MM）
 /// - `5min`   → 每 5 分钟一桶；strftime 无原生 floor，先把 epoch 秒整除 300 再 *300 向下取整到 5min 边界
 /// - `hourly` → 每小时一桶 `%Y-%m-%d %H:00`
 /// - 其余（含 `daily`/None）→ 每天一桶 `%Y-%m-%d`
 fn bucket_time_expr(granularity: Option<&str>) -> String {
     match granularity {
-        Some("minute") => "strftime('%Y-%m-%d %H:%M:00', created_at/1000, 'unixepoch')".to_string(),
+        Some("minute") => "strftime('%Y-%m-%d %H:%M', created_at/1000, 'unixepoch')".to_string(),
         // epoch 秒 floor 到 300s 边界后再格式化为分钟（桶 key 形如 "2026-06-16 10:05"）
         Some("5min") => {
             "strftime('%Y-%m-%d %H:%M', (created_at/1000/300)*300, 'unixepoch')".to_string()
