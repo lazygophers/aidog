@@ -1,7 +1,7 @@
 {
-  "id": "fix-notif-template-stale",
-  "name": "fix-notif-template-stale",
-  "title": "通知文案变更未及时生效",
+  "id": "stats-model-filter-size",
+  "name": "stats-model-filter-size",
+  "title": "使用统计模型下拉筛选 item 过窄不可读",
   "description": "",
   "status": "in_progress",
   "dev_type": null,

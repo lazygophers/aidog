@@ -1,9 +1,9 @@
 {
-  "id": "fix-notif-template-stale",
-  "name": "fix-notif-template-stale",
-  "title": "通知文案变更未及时生效",
+  "id": "responses-api-endpoints",
+  "name": "responses-api-endpoints",
+  "title": "核查并支持 Responses API 全端点(create 转换 + get/cancel/compact 透传)",
   "description": "",
-  "status": "in_progress",
+  "status": "planning",
   "dev_type": null,
   "scope": null,
   "package": null,

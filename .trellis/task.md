@@ -33,4 +33,17 @@
 | huashu-nuwa-desc-empty | huashu-nuwa desc空不显示分隔符 | — | 已完成 | 收尾 | 100% | — |
 | fix-model-test-mock | Mock 平台 model_test 走本地生成响应 (补 Mock 分支, 不再 502) | — | 已完成 | 收尾 | 100% | — |
 | fix-notif-template-stale | 通知文案变更未及时生效 | — | 规划中 | 规划 | 0% | — |
+| fix-notif-no-popup | 通知 notification_test 命令无系统弹窗 (osascript 绝对路径根治) | — | 已完成 | 收尾 | 100% | — |
 | fix-skills-install-claude-code | skills 安装 claude code 未生效 (spawn npx 注入 HOME) | — | 已完成 | 收尾 | 100% | — |
+| notif-perm-guidance | macOS 通知授权分层引导: 启动 request_permission + 设置页深链系统通知 + 签名公证文档 | — | 已完成 | 收尾 | 100% | — |
+| notif-empty-show-template | 通知模板为空时展示默认模板而非空/英文兜底（后端 render + 前端预览） | — | 已完成 | 收尾 | 100% | — |
+| remove-notif-custom | 移除通知 Custom 类型（4→3，未知入站 type 兜底 task_complete） | — | 已完成 | 收尾 | 100% | — |
+| notif-template-presets | 通知模板多预设快捷选择（不可变预设 + 手选可改不污染 + 禁空内容） | — | 已完成 | 收尾 | 100% | — |
+| claude-hook-notify | claude code hook 事件通知：可配置多事件触发系统通知 | — | 已完成 | 收尾 | 100% | — |
+| notif-per-hook-only | 通知模块重构：移除按类型配置，仅保留逐 Hook 事件（每事件独立 启用/TTS/弹窗/专属模板+专属入参） | — | 已完成 | 收尾 | 100% | — |
+| notif-hook-sound-toggle | 逐 Hook 事件加提示音(sound)独立开关 | — | 已完成 | 收尾 | 100% | — |
+| groups-copy-baseurl-apikey | Groups 列表页加复制代理 base_url + 每 item 复制 api_key(group_name) | — | 已完成 | 收尾 | 100% | — |
+| proxy-support-models-endpoint | 代理支持 /v1/models 模型列表端点（透传到分组所选平台上游） | — | 已完成 | 收尾 | 100% | — |
+| daily-update-check | 每日检测更新并提醒用户（tauri updater 前端对接） | — | 已完成 | 收尾 | 100% | — |
+| responses-api-endpoints | 核查并支持 Responses API 全端点(create 转换 + get/cancel/compact 透传) | — | 规划中 | 规划 | 0% | — |
+| stats-model-filter-size | 使用统计模型下拉筛选 item 过窄不可读 | — | 进行中 | 规划 | 0% | — |
