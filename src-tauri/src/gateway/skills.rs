@@ -793,6 +793,7 @@ fn run_npx(extra_args: &[String], proxy_url: Option<&str>) -> SkillsOpResult {
     args.extend(extra_args.iter().cloned());
     let mut cmd = Command::new("npx");
     cmd.args(&args);
+    apply_home_env(&mut cmd);
     apply_proxy_env(&mut cmd, proxy_url);
     match cmd.output() {
         Ok(o) => SkillsOpResult {
@@ -1557,6 +1558,41 @@ fn apply_proxy_env(cmd: &mut Command, proxy_url: Option<&str>) {
     }
 }
 
+/// 解析 spawn npx 子进程所需的 home 相关 env。
+///
+/// skills CLI 的 claude-code agent 检测依赖 `claudeHome = CLAUDE_CONFIG_DIR || ~/.claude`
+/// （仅看 `HOME` env，无 getpwuid 兜底），codex 则有 `/etc/codex` 兜底容错更强。
+/// 打包版 GUI（launchd 启动）env 极简，`HOME` 可能缺失或异常 → claude-code 漏检 → list
+/// `agents[]` 不含 Claude Code → UI 显示该 skill 未启用 claude。
+///
+/// 修复：用 `dirs::home_dir()`（getpwuid 解析）显式注入 `HOME`，比继承父 env 可靠；
+/// `CLAUDE_CONFIG_DIR` 若父 env 已设则透传（保留用户自定义配置目录），未设不强制注入。
+///
+/// 返回 `(HOME 值, 可选 CLAUDE_CONFIG_DIR)`，纯函数便于单测。
+fn resolve_home_env() -> (Option<String>, Option<String>) {
+    let home = dirs::home_dir()
+        .map(|h| h.to_string_lossy().into_owned())
+        .or_else(|| std::env::var("HOME").ok().filter(|h| !h.is_empty()));
+    let claude_config = std::env::var("CLAUDE_CONFIG_DIR")
+        .ok()
+        .filter(|v| !v.trim().is_empty());
+    (home, claude_config)
+}
+
+/// 给 npx 子进程注入 home 相关 env（见 `resolve_home_env`）。
+/// `dirs::home_dir()` 返 None（极罕见）时静默跳过 + warn 日志，不阻断 install 流程。
+fn apply_home_env(cmd: &mut Command) {
+    let (home, claude_config) = resolve_home_env();
+    if let Some(h) = home {
+        cmd.env("HOME", h);
+    } else {
+        tracing::warn!("apply_home_env: dirs::home_dir() 返 None 且 HOME env 缺失，skills claude-code 检测可能漏");
+    }
+    if let Some(c) = claude_config {
+        cmd.env("CLAUDE_CONFIG_DIR", c);
+    }
+}
+
 /// 在 scope 对应的 cwd 执行 npx：Project → 项目目录；Global → 默认 cwd。
 /// `proxy_url` 为 `Some` 时给 npx 子进程注入代理 env（突破网络限制），`None` 直连。
 fn run_npx_in_scope(
@@ -1577,6 +1613,7 @@ fn run_npx_in_scope(
         full.extend(extra_args.iter().cloned());
         let mut cmd = Command::new("npx");
         cmd.args(&full).current_dir(p);
+        apply_home_env(&mut cmd);
         apply_proxy_env(&mut cmd, proxy_url);
         return match cmd.output() {
             Ok(o) => SkillsOpResult {
@@ -2052,6 +2089,26 @@ mod tests {
             env_of(&cmd, "HTTP_PROXY"),
             Some(std::ffi::OsStr::new("socks5h://1.2.3.4:7890"))
         );
+    }
+
+    #[test]
+    fn resolve_home_env_returns_dirs_home() {
+        let (home, _) = resolve_home_env();
+        // 测试环境总有可解析的 home（dirs::home_dir 或 HOME env）。
+        let expected = dirs::home_dir()
+            .map(|h| h.to_string_lossy().into_owned())
+            .or_else(|| std::env::var("HOME").ok().filter(|h| !h.is_empty()));
+        assert_eq!(home, expected);
+    }
+
+    #[test]
+    fn apply_home_env_sets_home_on_command() {
+        let mut cmd = Command::new("npx");
+        apply_home_env(&mut cmd);
+        let (home, _) = resolve_home_env();
+        if let Some(h) = home {
+            assert_eq!(env_of(&cmd, "HOME"), Some(std::ffi::OsStr::new(&h)));
+        }
     }
 
     #[test]
