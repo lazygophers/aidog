@@ -268,11 +268,26 @@ pub(crate) fn show_popup(app: &tauri::AppHandle, title: &str, body: &str) {
                 osascript_escape(&body),
                 osascript_escape(&title),
             );
-            if let Err(e) = std::process::Command::new("osascript")
+            // 用绝对路径 `/usr/bin/osascript`，不依赖 PATH 解析：
+            // 从 Finder/Dock 启动的 `.app` 由 launchd 拉起，继承的是受限 GUI PATH，
+            // 常不含 `/usr/bin`，`Command::new("osascript")` 会 NotFound（spawn 失败）→ 无弹窗。
+            // `cargo dev` 继承 shell PATH 故能跑，导致「dev 有、打包无」。绝对路径根治。
+            match std::process::Command::new("/usr/bin/osascript")
                 .args(["-e", &script])
-                .status()
+                .output()
             {
-                tracing::warn!(error = %e, "notify: osascript display notification failed");
+                Ok(out) if !out.status.success() => {
+                    // osascript 退出非 0（如 -1743 未授权通知）：surface stderr 便于诊断。
+                    tracing::warn!(
+                        code = ?out.status.code(),
+                        stderr = %String::from_utf8_lossy(&out.stderr).trim(),
+                        "notify: osascript display notification non-zero exit"
+                    );
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    tracing::warn!(error = %e, "notify: osascript display notification spawn failed");
+                }
             }
         });
     }
