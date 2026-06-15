@@ -60,3 +60,4 @@
 | home-trend-line | 首页请求趋势改曲线图(SVG 折线/面积替柱状) | — | 已完成 | 收尾 | 100% | — |
 | home-trend-24h | 首页请求趋势改最近24小时(滚动窗口+文案) | — | 已完成 | 收尾 | 100% | — |
 | mcp-enabled-not-effective | MCP 配置启用后未生效 | — | 规划中 | 规划 | 0% | — |
+| home-trend-smooth | 首页趋势曲线改平滑(Catmull-Rom 贝塞尔, 替直折线) | — | 已完成 | 收尾 | 100% | — |
