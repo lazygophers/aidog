@@ -1,7 +1,7 @@
 {
-  "id": "stats-regression-and-item-size-v3",
-  "name": "stats-regression-and-item-size-v3",
-  "title": "stats 回归修复(ambiguous col) + 模型筛选 item 尺寸 v3",
+  "id": "stats-trend-hourly-by-preset",
+  "name": "stats-trend-hourly-by-preset",
+  "title": "请求趋势按 preset 联动 granularity (today→hourly)",
   "description": "",
   "status": "in_progress",
   "dev_type": null,

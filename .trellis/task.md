@@ -50,4 +50,5 @@
 | stats-platform-filter-mismatch | 使用统计平台筛选语义错配筛空 | — | 已完成 | 收尾 | 100% | — |
 | home-dashboard | 新增首页总览仪表盘（侧栏首项+默认落地, 复用现有主题/组件） | — | 已完成 | 收尾 | 100% | — |
 | stats-model-filter-size-v2 | 模型下拉筛选 item 仍过小 (上次改动力度不足) | — | 已完成 | 收尾 | 100% | — |
-| stats-regression-and-item-size-v3 | stats 回归修复(ambiguous col) + 模型筛选 item 尺寸 v3 | — | 进行中 | 规划 | 0% | — |
+| stats-regression-and-item-size-v3 | stats 回归修复(ambiguous col) + 模型筛选 item 尺寸 v3 | — | 已完成 | 收尾 | 100% | — |
+| stats-trend-hourly-by-preset | 请求趋势按 preset 联动 granularity (today→hourly) | — | 进行中 | 规划 | 0% | — |

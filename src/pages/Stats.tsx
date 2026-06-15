@@ -87,7 +87,12 @@ export function Stats() {
   const [prevOverview, setPrevOverview] = useState<StatsOverview | null>(null);
   const [loading, setLoading] = useState(true);
   const [preset, setPreset] = useState<TimePreset>("today");
-  const [granularity, setGranularity] = useState<"daily" | "hourly">("daily");
+  const [granularity, setGranularity] = useState<"daily" | "hourly">("hourly");
+  // 切 preset 联动粒度：today→hourly（24 点），7d/30d→daily；手动 select 仍可覆盖
+  const changePreset = (p: TimePreset) => {
+    setPreset(p);
+    setGranularity(p === "today" ? "hourly" : "daily");
+  };
   const [groupBy, setGroupBy] = useState<"platform" | "model" | "group">("platform");
   const [filterGroup, setFilterGroup] = useState("");
   const [filterModel, setFilterModel] = useState("");
@@ -219,7 +224,7 @@ export function Stats() {
               key={p}
               className={preset === p ? "btn-active" : "btn"}
               style={{ fontSize: 12, padding: "4px 10px" }}
-              onClick={() => setPreset(p)}
+              onClick={() => changePreset(p)}
             >
               {t(`stats.${p}`, p === "today" ? "今天" : p === "7d" ? "近 7 天" : "近 30 天")}
             </button>
