@@ -249,71 +249,18 @@ pub async fn dispatch(
     }
 }
 
-/// 系统弹窗：
-/// - **macOS**: `osascript -e 'display notification "..." with title "..."'`。
-///   优于 tauri-plugin-notification —— 后者要求 app 已签名 + 用户授权，
-///   dev/未签名场景常被吞；osascript 走系统 AppleScript，0 签名要求、直进通知中心。
-/// - **其他平台**: `tauri-plugin-notification`（Windows WinRT / Linux freedesktop）。
+/// 系统弹窗：全平台统一走 `tauri-plugin-notification`
+/// （macOS UserNotifications / Windows WinRT toast / Linux freedesktop）。
+///
+/// 注意（macOS）：插件走 UserNotifications framework，要求 app **已签名 + 用户授权**，
+/// dev / 未签名场景可能被系统静默吞掉（看不到弹窗）。打包发布版需正确签名才稳定弹出。
 ///
 /// 失败仅记日志，不阻塞调用方。
 pub(crate) fn show_popup(app: &tauri::AppHandle, title: &str, body: &str) {
-    #[cfg(target_os = "macos")]
-    {
-        let _ = app; // 跨平台签名一致；mac 走 osascript 不用 AppHandle
-        let title = title.to_string();
-        let body = body.to_string();
-        std::thread::spawn(move || {
-            let script = format!(
-                "display notification \"{}\" with title \"{}\"",
-                osascript_escape(&body),
-                osascript_escape(&title),
-            );
-            // 用绝对路径 `/usr/bin/osascript`，不依赖 PATH 解析：
-            // 从 Finder/Dock 启动的 `.app` 由 launchd 拉起，继承的是受限 GUI PATH，
-            // 常不含 `/usr/bin`，`Command::new("osascript")` 会 NotFound（spawn 失败）→ 无弹窗。
-            // `cargo dev` 继承 shell PATH 故能跑，导致「dev 有、打包无」。绝对路径根治。
-            match std::process::Command::new("/usr/bin/osascript")
-                .args(["-e", &script])
-                .output()
-            {
-                Ok(out) if !out.status.success() => {
-                    // osascript 退出非 0（如 -1743 未授权通知）：surface stderr 便于诊断。
-                    tracing::warn!(
-                        code = ?out.status.code(),
-                        stderr = %String::from_utf8_lossy(&out.stderr).trim(),
-                        "notify: osascript display notification non-zero exit"
-                    );
-                }
-                Ok(_) => {}
-                Err(e) => {
-                    tracing::warn!(error = %e, "notify: osascript display notification spawn failed");
-                }
-            }
-        });
+    use tauri_plugin_notification::NotificationExt;
+    if let Err(e) = app.notification().builder().title(title).body(body).show() {
+        tracing::warn!(error = %e, "notify: popup show failed");
     }
-    #[cfg(not(target_os = "macos"))]
-    {
-        use tauri_plugin_notification::NotificationExt;
-        if let Err(e) = app.notification().builder().title(title).body(body).show() {
-            tracing::warn!(error = %e, "notify: popup show failed");
-        }
-    }
-}
-
-/// 转义 AppleScript 字符串字面量内的 `\` 和 `"`，防止 osascript 语法注入 / 解析错误。
-/// AppleScript 字符串与 C 一致：`\\` → 反斜杠，`\"` → 双引号。其他控制字符按原样
-/// （换行实际会被 AppleScript 当成内容；通知中心会折行展示）。
-#[cfg(any(target_os = "macos", test))]
-fn osascript_escape(s: &str) -> String {
-    let mut out = String::with_capacity(s.len());
-    for ch in s.chars() {
-        match ch {
-            '\\' => out.push_str("\\\\"),
-            '"' => out.push_str("\\\""),
-            _ => out.push(ch),
-        }
-    }
-    out
 }
 
 /// TTS 播报：按后端分发。
@@ -487,16 +434,6 @@ mod tests {
             channels_for_form(NotifForm::SoundOnly),
             Channels { tts: false, popup: false, sound: true, inbox: false }
         );
-    }
-
-    #[test]
-    fn osascript_escape_backslash_and_quote() {
-        assert_eq!(osascript_escape(r#"a"b\c"#), r#"a\"b\\c"#);
-        assert_eq!(osascript_escape("plain"), "plain");
-        // 中文 + 多字节 → 原样
-        assert_eq!(osascript_escape("项目 完成"), "项目 完成");
-        // 嵌套引号: \"a\\b\" → 转义后 \\\"a\\\\b\\\"
-        assert_eq!(osascript_escape(r#""a\b""#), r#"\"a\\b\""#);
     }
 
     #[test]
