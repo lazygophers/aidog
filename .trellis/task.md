@@ -32,3 +32,5 @@
 | fix-tts-backend-init | 修复TTS后端初始化失败 | — | 已完成 | 收尾 | 100% | — |
 | huashu-nuwa-desc-empty | huashu-nuwa desc空不显示分隔符 | — | 已完成 | 收尾 | 100% | — |
 | fix-model-test-mock | Mock 平台 model_test 走本地生成响应 (补 Mock 分支, 不再 502) | — | 已完成 | 收尾 | 100% | — |
+| fix-notif-template-stale | 通知文案变更未及时生效 | — | 规划中 | 规划 | 0% | — |
+| fix-skills-install-claude-code | skills 安装 claude code 未生效 | — | 规划中 | 规划 | 0% | — |
