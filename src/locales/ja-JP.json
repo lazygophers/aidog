@@ -1397,5 +1397,6 @@
   "notif.testPopupTip": "システムポップアップのみテスト",
   "notif.testTtsContent": "テスト読み上げ",
   "notif.testTtsTip": "音声のみテスト",
-  "notif.defaultHooksDisabledHint": "先に通知を有効にしてください"
+  "notif.defaultHooksDisabledHint": "先に通知を有効にしてください",
+  "notifications.goSettings": "通知設定"
 }

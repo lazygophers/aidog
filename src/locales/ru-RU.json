@@ -1397,5 +1397,6 @@
   "notif.testPopupTip": "Только системное окно",
   "notif.testTtsContent": "тестовое объявление",
   "notif.testTtsTip": "Только голос",
-  "notif.defaultHooksDisabledHint": "Сначала включите уведомления"
+  "notif.defaultHooksDisabledHint": "Сначала включите уведомления",
+  "notifications.goSettings": "Настройки уведомлений"
 }
