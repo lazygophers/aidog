@@ -153,6 +153,15 @@ Phase 3: Finish  → distill lessons + wrap-up
 No active task. **A Direct answer** — pure Q&A / explanation / lookup / chat; no file writes + one-line answer + repo reads ≤ 2 files → AI judges, no override needed.
 **B Create a task** — any implementation / code change / build / refactor work. Entry sequence: (1) `python3 ./.trellis/scripts/task.py create "<title>"` to create the task (status=planning, breadcrumb switches to [workflow-state:planning] for brainstorm + jsonl phase guidance) → (2) load `trellis-brainstorm` skill to discuss requirements with the user and iterate on prd.md → (3) once prd is done and jsonl is curated, run `task.py start <task-dir>` to enter [workflow-state:in_progress] for the implementation skeleton. **"It looks small" is NOT grounds for downgrading B to A or C**.
 **C Inline change** (per-turn only, escape hatch for B) — the user's CURRENT message MUST contain one of: "skip trellis" / "no task" / "just do it" / "don't create a task" / "跳过 trellis" / "别走流程" / "小修一下" / "直接改" / "先别建任务" → briefly acknowledge ("ok, skipping trellis flow this turn"), then inline. **Without seeing one of these phrases you must NOT inline on your own**; do not invent an override the user never said.
+
+<!-- trellisx:start:no_task -->
+trellisx 规约（强化原生判定，不切断建 task 路径）：本项目愿景 = 除极简任务外，一律走 Trellis task 执行。
+- 涉及代码改动 / 多步骤 / 跨文件 的请求 → **默认创建 task**（不是"倾向建"，是默认就建；仅用户明确拒绝才 inline）。建议直接用 AskUserQuestion 征得同意并进入 planning，而非自行 inline。
+- 边界模糊（拿不准该不该建，或 simple 还是 complex）→ **MUST 主动用 AskUserQuestion 问用户**"本轮是否创建 Trellis task?"，禁默认跳过 / 禁自行替用户决定。
+- 仅极简任务（纯问答 / 查询 / 单行琐改 / 纯解释说明）可不建。
+- 判断"新建 task"还是"并入现有 task"时，读 `.trellis/task.md` 看板对照现有任务（id/名称/描述/状态）辅助判断。
+原生的「先分类 + 征得同意才建」不变 — 但默认倾向从"可建可不建"上调为"默认建，除非极简或用户拒绝"。
+<!-- trellisx:end:no_task -->
 [/workflow-state:no_task]
 
 ### Phase 1: Plan
@@ -169,6 +178,18 @@ No active task. **A Direct answer** — pure Q&A / explanation / lookup / chat; 
 Load the `trellis-brainstorm` skill and iterate on prd.md with the user.
 Phase 1.3 (required, once): before `task.py start`, you MUST curate `implement.jsonl` and `check.jsonl` — list the spec / research files sub-agents need so they get the right context injected. You may skip only if the jsonl already has agent-curated entries (the seed `_example` row alone doesn't count).
 Then run `task.py start <task-dir>` to flip status to in_progress.
+
+<!-- trellisx:start:planning -->
+trellisx 规划规约（启用判定跟随 trellis 原生 parent/child 语义，不看数量）：
+
+判定：本请求是否含**多个独立可验收交付**（各自可独立 plan/implement/check/archive）？
+- **是（多交付）** → 拆为 parent + child tasks（trellis 原生 `task.py create --parent`）。每个 child 独立 worktree；PRD MUST 含 mermaid 调度图显式标并行组 + 依赖箭头；child 间依赖写进 child 自己的 prd.md/implement.md（非树位置隐含）。**执行统一由 `trellis-implement` 入口调度**（main 派 trellis-implement，由其对各 subtask 派专用 subagent 并行执行），main 不直接派 subtask agent。
+- **否（单一交付）** → 轻量单 task inline，**不强制拆 subtask**。仍走单 worktree 隔离。
+
+拆分目的 = 让独立可验收交付各自隔离 + 最大化并行，缩短关键路径；不是为凑数量。详见 trellisx-orchestrate skill。
+
+task 创建后，用 `trellisx-workspace` 及时更新 `.trellis/task.md` 看板表（新增/更新该任务行）。
+<!-- trellisx:end:planning -->
 [/workflow-state:planning]
 
 <!-- Per-turn breadcrumb: shown throughout Phase 1 when codex.dispatch_mode=inline.
@@ -201,6 +222,28 @@ Then run `task.py start <task-dir>` to flip status to in_progress.
 **Sub-agent self-exemption**: if you are already running as `trellis-implement`, implement directly from the loaded task context and do NOT spawn another `trellis-implement`; if you are already running as `trellis-check`, review/fix directly and do NOT spawn another `trellis-check`. The default dispatch rule applies to the main session only.
 **Sub-agent dispatch protocol (all platforms, all sub-agents)**: When you spawn `trellis-implement` / `trellis-check` / `trellis-research`, your dispatch prompt **MUST** start with one line: `Active task: <task path from \`task.py current\`>`. No exceptions. On class-2 platforms (codex / copilot / gemini / qoder) the sub-agent depends on this line because there is no hook to inject task context. On class-1 platforms (claude / cursor / opencode / kiro / codebuddy / droid) the line is normally redundant — the hook injects context directly — but it serves as a critical fallback when the hook fails (Windows + Claude Code PreToolUse silent skip, `--continue` resume, fork distribution, hooks disabled, etc.). For `trellis-research`, the line tells the sub-agent which `{task_dir}/research/` to write into.
 **Inline override** (per-turn only, escape hatch for sub-agent dispatch): the user's CURRENT message MUST explicitly contain one of: "do it inline" / "no sub-agent" / "你直接改" / "别派 sub-agent" / "main session 写就行" / "不用 sub-agent". **Without seeing one of these phrases you must NOT inline on your own**; do not invent an override the user never said.
+
+<!-- trellisx:start:in_progress -->
+⛔ trellisx 执行硬规（本 task 必守，违反即流程错误）：
+
+1. **强制 worktree**（两种模式都守）：本 task 全部源码改动 MUST 落在 worktree（git 根/子仓 .worktrees/<worktree>，trellis 生命周期 hook 已自动建）。**禁在主工作区写源码** — 写盘 file_path 必须是 worktree 路径。
+2. **实施派发模型（main → trellis-implement → 专用 subagent）**：进入实施，main **派一个 `trellis-implement` 子代理**执行实施阶段，**main 禁直接派 subtask agent、禁直接写源码**（只派 implement/check + 进度回传 + 合并）。`trellis-implement` 读 `implement.md`，**对每个 subtask 派专用 subagent（isolation:worktree）**；无依赖的 subtask MUST 在同一条回复里一次性发起多个 subagent 调用（真并行），禁逐个串行；严格按 implement.md / PRD 调度图依赖 + 并行组执行。trellis-implement 收拢全部 subtask 产物 → 交 `trellis-check`。循环：planning → trellis-implement → trellis-check → finish。
+3. **轻量模式**（单 subtask）：main 仍**派 `trellis-implement`**，由其在 worktree 内**内联直做**（无需再派 subagent），保持 planning → implement → check → finish 循环一致。**main 不绕过 implement 自己写源码**（仍守第 1 条：写盘路径在 worktree）。
+4. **强制闭环收尾（check 通过后跑 `trellisx-finish.py`，不停在「提醒」）**：`trellis-check` 通过后，AI **强制调用** `python3 .trellis/scripts/trellisx-finish.py [--message "<提交消息>"]` 一键收尾，不把收尾降级为"提醒用户运行 /finish-work" —— **finish 与 worktree 删除是必须的，非可选**。脚本按序自动执行（失败任一步非 0 退出，停下不静默继续）：
+   ① **worktree 内提交** —— `git add -A` + `git commit`（消息由 AI 经 `--message` 传入，缺省 `chore(task): <tid> 收尾提交`），落到 `trellisx-<name>` 分支。
+   ② **合并回主分支** —— `git merge --no-ff trellisx-<name>`；**合并冲突 → 脚本自动 `merge --abort` + 报冲突文件清单 + 非 0 退出**，AI 停下转手动，禁强解。**未合并就 archive = 分支被销毁丢提交**（见 `trellisx-worktree.py` 教训，故脚本先合并）。
+   ③ **archive** —— `task.py archive <tid>` 归档 + 触发 hook 销毁**已合并**的 worktree + 删分支。
+   - **commit 强制（owner 授权）**：本项目 owner 已显式要求 trellisx 流程**强制提交收尾**，脚本直接 commit 不再逐次等用户确认。AI 调用前用一行展示提交意图（消息 + 文件范围），但不阻塞等待。此为 owner 对自有注入流程的设计授权，覆盖默认「禁主动 commit」。
+   - **check 未过** → 修复重检，禁跑 finish 脚本；**未 archive = 流程未闭环，禁宣告 Done / 禁结束本轮**。
+   - 会话 journal 按需：脚本不含 journal，需要记录会话则收尾后另跑 `/trellis:finish-work`（可选）。
+5. **及时维护 task.md 看板**：start / 阶段推进（exec→check→finish）/ archive 后，MUST 用 `trellisx-workspace` 更新 `.trellis/task.md` 看板行（状态/阶段/进度/worktree）。看板滞后于实际 = 流程缺陷。
+6. 收每个 agent 返回立即回传用户进度；task archive 时 worktree 干净则自动销毁。
+7. **任务中途修正路由（执行中收到用户新指令）**：本 task 已在跑（agent/member 已派发）时收到新指令，coordinator 先判归属：
+   - **属当前任务**（修正 / 补充 / 细化已派交付）→ ⛔ 禁 main 自己直接改源码、禁开新 task。按序：① 先改对应**真值文档**（`prd.md` / `design.md` / `implement.md` 受影响条款，标锚点）→ ② 对**仍在跑**的目标 agent/member 用 `SendMessage` 下发修正（引用改后 PRD 锚点，令其就地纠偏，不等跑完返工）。**先改文档再通知**（PRD 是真值，agent 复读以对齐）。
+   - **独立新任务**（与当前交付无关）→ 走 no_task 强推 task（新建 / 排队），不打断当前 agent。
+   - **判不准** → 🔴 用 AskUserQuestion 让用户裁定「并入当前任务 / 另起新任务」，禁擅自二选一。
+   兜底：目标 agent 已完成 / workflow 模式无法中途 SendMessage → 改在 check 阶段按新 PRD 纠正，或停掉重派一个修正 agent；inline 单交付（无 running agent）→ main 改 PRD 后就地调整执行，跳过 SendMessage。
+<!-- trellisx:end:in_progress -->
 [/workflow-state:in_progress]
 
 <!-- Per-turn breadcrumb: shown while status='in_progress' when
@@ -212,6 +255,10 @@ Then run `task.py start <task-dir>` to flip status to in_progress.
 **Flow** (inline mode): main session loads `trellis-before-dev` → main session edits code → main session loads `trellis-check` → run lint / type-check / tests → fix → `trellis-update-spec` → commit (Phase 3.4) → `/trellis:finish-work`.
 **Main-session default (inline dispatch_mode)**: the main agent edits code directly. Do NOT dispatch `trellis-implement` / `trellis-check` sub-agents. Load the `trellis-before-dev` skill before writing code; load the `trellis-check` skill before reporting completion.
 Phase 3.4 commit (required, once): after `trellis-update-spec`, or whenever implementation is verifiably complete, the main agent **drives the commit** — state the commit plan in user-facing text, then run `git commit` — BEFORE suggesting `/trellis:finish-work`. `/finish-work` refuses to run on a dirty working tree (paths outside `.trellis/workspace/` and `.trellis/tasks/`).
+
+<!-- trellisx:start:in_progress_inline -->
+trellisx（增量）：inline 模式 main 直接 edit，但源码目标路径必须在 worktree（.worktrees/<worktree>）内。
+<!-- trellisx:end:in_progress_inline -->
 [/workflow-state:in_progress-inline]
 
 ### Phase 3: Finish
@@ -626,7 +673,15 @@ The AI drives a batched commit of this task's code changes so `/finish-work` can
 
 #### 3.5 Wrap-up reminder
 
-After the above, remind the user they can run `/finish-work` to wrap up (archive the task, record the session).
+<!-- trellisx:start:finish_force -->
+⛔ **强制收尾（不是提醒）**：check 通过后，AI **必须**运行
+`python3 .trellis/scripts/trellisx-finish.py [--message "<提交消息>"]` 一键收尾
+（提交 worktree → 合并回主分支 → archive → 销毁 worktree）。
+**finish 与 worktree 删除是必须的，非可选，非「提醒用户去做」。**
+- 合并冲突 → 脚本 abort + 报冲突 + 非 0 退出 → 转手动，禁强解。
+- check 未过禁跑脚本；未 archive = 流程未闭环，禁宣告 Done。
+- commit 为 owner 授权的强制动作（脚本直接提交）；需会话 journal 另跑 `/trellis:finish-work`。
+<!-- trellisx:end:finish_force -->
 
 ---
 
