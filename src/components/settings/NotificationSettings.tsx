@@ -25,15 +25,43 @@ const TTS_BACKENDS: TtsBackend[] = ["cross_platform", "mac_say", "web_speech"];
 const TEMPLATE_VARS = ["{project}", "{status}", "{time}", "{session}", "{group}"];
 
 /**
+ * 每个通知类型的多条不可变预设模板（快捷选择用）。
+ * 约定：
+ *  - `[0]` 是该类型默认模板，**跨层镜像**后端 `src-tauri/src/gateway/models.rs`
+ *    的 `NotifType::default_template`，改 `[0]` 务必同步后端 default_template。
+ *  - 全部 zh 硬编码（非 i18n），变量仅用 TEMPLATE_VARS 合法占位。
+ *  - 预设是 const，点选只把文本复制进可编辑 template，编辑不回写预设。
+ */
+const NOTIF_TEMPLATE_PRESETS: Record<NotifType, string[]> = {
+  task_complete: [
+    "{project} 完成", // [0] 默认（镜像后端 default_template）
+    "✅ {project} 任务已完成",
+    "{project} 已完成 · 状态 {status}",
+    "{project} 全部任务跑完，详见日志",
+  ],
+  waiting_input: [
+    "{project} 等待用户输入", // [0] 默认（镜像后端 default_template）
+    "⌛ {project} 需要你确认",
+    "{project} 暂停 · 等待 {status}",
+    "{project} 卡在交互步骤，请回到终端",
+  ],
+  error: [
+    "{project} 出错", // [0] 默认（镜像后端 default_template）
+    "❌ {project} 执行失败",
+    "{project} 报错 · {status}",
+    "{project} 运行中断，请查看日志",
+  ],
+};
+
+/**
  * 内置默认模板（用户留空 template 时后端 render 兜底使用）。
- * **跨层镜像**：逐字镜像后端 `src-tauri/src/gateway/models.rs` 的
- * `NotifType::default_template`，改此处务必同步后端（zh 硬编码，非 i18n）。
+ * 单一事实源 = 各类型预设 `[0]`（见 NOTIF_TEMPLATE_PRESETS 跨层镜像注释）。
  * 仅作 placeholder 灰字展示「留空效果」，不实际提交。
  */
 const NOTIF_DEFAULT_TEMPLATES: Record<NotifType, string> = {
-  task_complete: "{project} 完成",
-  waiting_input: "{project} 等待用户输入",
-  error: "{project} 出错",
+  task_complete: NOTIF_TEMPLATE_PRESETS.task_complete[0],
+  waiting_input: NOTIF_TEMPLATE_PRESETS.waiting_input[0],
+  error: NOTIF_TEMPLATE_PRESETS.error[0],
 };
 
 const DEFAULT_TYPE_SETTING: TypeSetting = { tts: true, popup: true, form: "full", template: "" };
@@ -80,6 +108,8 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
   // 选择后兑现，门控 gate 继续注入。
   const [uvModal, setUvModal] = useState<{ resolve: (ok: boolean) => void } | null>(null);
   const [uvInstalling, setUvInstalling] = useState(false);
+  // 模板预设 combobox：记录当前展开下拉的类型（null = 全收起）。点击外部收起。
+  const [openPreset, setOpenPreset] = useState<NotifType | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -128,6 +158,19 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
       }
     }, 200);
   };
+
+  // 预设下拉「点击外部收起」：仅在有下拉展开时挂载 document listener，effect cleanup 必移除避免泄漏。
+  // 容器带 data-preset-combobox，点击落在容器内不收起（让选项 onClick 先生效）。
+  useEffect(() => {
+    if (openPreset === null) return;
+    const onDocClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target && target.closest("[data-preset-combobox]")) return;
+      setOpenPreset(null);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    return () => document.removeEventListener("mousedown", onDocClick);
+  }, [openPreset]);
 
   const typeSetting = (type: NotifType): TypeSetting =>
     settings.per_type[type] ?? DEFAULT_TYPE_SETTING;
@@ -454,13 +497,90 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
 
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                 <label style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.fieldTemplate", "模板")}</label>
-                <textarea
-                  className="input"
-                  style={{ fontSize: 12, fontFamily: "var(--font-mono, monospace)", minHeight: 48, resize: "vertical" }}
-                  value={ts.template}
-                  placeholder={NOTIF_DEFAULT_TEMPLATES[type]}
-                  onChange={(e) => updateType(type, { template: e.target.value })}
-                />
+                {/* 可编辑 combobox：textarea 显示并可改原始 template（编辑不污染不可变预设），右上角 ▾
+                    触发展开绝对定位预设面板；点选项把预设文本复制进 template 并收起，点击外部收起
+                    （见 openPreset 的 document mousedown listener，effect cleanup 移除）。
+                    预设文本 zh 硬编码直显，免新 i18n key。 */}
+                <div data-preset-combobox style={{ position: "relative" }}>
+                  <textarea
+                    className="input"
+                    style={{ fontSize: 12, fontFamily: "var(--font-mono, monospace)", minHeight: 48, resize: "vertical", width: "100%", boxSizing: "border-box", paddingRight: 34 }}
+                    value={ts.template}
+                    placeholder={NOTIF_DEFAULT_TEMPLATES[type]}
+                    onChange={(e) => updateType(type, { template: e.target.value })}
+                    // 禁空 → 清空即回退默认预设：失焦时若空/纯空白回填 [0]。
+                    // 用 onBlur 而非 onChange，避免编辑中途暂时清空被打断。
+                    // updateType 走 functional update（基于 ref 最新态），不会被未决 debounce 旧值覆盖。
+                    onBlur={(e) => {
+                      if (e.target.value.trim() === "") {
+                        updateType(type, { template: NOTIF_TEMPLATE_PRESETS[type][0] });
+                      }
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ position: "absolute", top: 4, right: 4, padding: "2px 6px", fontSize: 12, lineHeight: 1 }}
+                    onClick={() => setOpenPreset(openPreset === type ? null : type)}
+                    title="选择预设模板"
+                    aria-label="选择预设模板"
+                    aria-expanded={openPreset === type}
+                  >
+                    ▾
+                  </button>
+                  {openPreset === type && (
+                    <div
+                      role="listbox"
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        right: 0,
+                        marginTop: 4,
+                        minWidth: 240,
+                        maxWidth: "100%",
+                        zIndex: 20,
+                        background: "var(--bg-floating)",
+                        border: "1px solid var(--border)",
+                        borderRadius: "var(--radius-md)",
+                        boxShadow: "var(--shadow-lg, 0 8px 24px rgba(0,0,0,0.18))",
+                        padding: 4,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 2,
+                      }}
+                    >
+                      {NOTIF_TEMPLATE_PRESETS[type].map((preset, i) => {
+                        const active = ts.template === preset;
+                        return (
+                          <button
+                            key={i}
+                            type="button"
+                            role="option"
+                            aria-selected={active}
+                            className="btn btn-ghost"
+                            style={{
+                              justifyContent: "flex-start",
+                              textAlign: "left",
+                              fontSize: 12,
+                              padding: "5px 8px",
+                              background: active ? "var(--accent-subtle)" : undefined,
+                              color: active ? "var(--accent)" : undefined,
+                            }}
+                            onClick={() => {
+                              updateType(type, { template: preset });
+                              setOpenPreset(null);
+                            }}
+                            title={preset}
+                          >
+                            <span style={{ display: "block", maxWidth: 280, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {preset}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           );
