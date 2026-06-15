@@ -2,7 +2,7 @@ import { useState, useEffect, useReducer } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
-  groupDetailApi, groupApi, groupUsageApi, platformApi, onProxyLogUpdated,
+  groupDetailApi, groupApi, groupUsageApi, platformApi, proxyApi, onProxyLogUpdated,
   type GroupDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
   type ModelMapping,
 } from "../services/api";
@@ -268,6 +268,9 @@ export function Groups() {
   // 聚合余额：关联 platforms 的 est_balance_remaining 求和（platformApi.list 已带，无额外 HTTP）。group.id → 余额；缺值不写入。
   const [groupBalance, setGroupBalance] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
+  // 代理端口（proxy_get_settings），构造页面级 base_url；取失败兜底 7890。
+  const [proxyPort, setProxyPort] = useState(7890);
+  const proxyBaseUrl = `http://127.0.0.1:${proxyPort}/proxy`;
 
   // Edit mode（8 字段合并为单 reducer）
   const [edit, dispatchEdit] = useReducer(editReducer, EMPTY_EDIT);
@@ -332,6 +335,13 @@ export function Groups() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // 取代理端口构造 base_url；失败保持兜底 7890。
+  useEffect(() => {
+    proxyApi.getSettings()
+      .then(s => { if (s?.port) setProxyPort(s.port); })
+      .catch(() => { /* 兜底 7890 */ });
+  }, []);
 
   // 请求完成后轻量刷新统计（仅本地 DB 查询，不拉 quota HTTP）
   useEffect(() => onProxyLogUpdated(() => { refreshStats(); }), []);
@@ -445,6 +455,7 @@ export function Groups() {
             <div style={{ fontSize: F.title, fontWeight: 700 }}>{editName || t("group.edit")}</div>
             <div className="text-secondary" style={{ fontSize: F.hint, marginTop: 2 }}>#{editTarget.group.id}</div>
           </div>
+          <CopyButton text={editName} label={t("group.apiKey", "API Key")} title={t("group.copyApiKeyTitle", "复制 API Key（= 分组名）")} />
           <CopyButton text={buildClaudeCommand(editName)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} />
           <CopyButton text={buildCodexCommand(editName)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} />
           <button className="btn" onClick={cancelEdit}>{t("action.cancel")}</button>
@@ -715,9 +726,20 @@ export function Groups() {
             {details.length > 0 ? `${details.length} ${t("nav.groups").toLowerCase()}` : t("group.empty")}
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          + {t("group.add")}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* 代理 base_url：只读小字 + 复制按钮 */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <code style={{
+              fontSize: 12, color: "var(--text-secondary)", background: "var(--bg-glass)",
+              padding: "4px 8px", borderRadius: "var(--radius-sm)", whiteSpace: "nowrap",
+            }}>{proxyBaseUrl}</code>
+            <CopyButton text={proxyBaseUrl} label={t("group.copyBaseUrl", "复制代理地址")}
+              title={t("group.copyBaseUrlTitle", "复制代理 base_url")} />
+          </div>
+          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+            + {t("group.add")}
+          </button>
+        </div>
       </div>
 
       {/* Create Group Form */}
@@ -810,6 +832,7 @@ export function Groups() {
                   </div>
                 </div>
                 {/* Quick actions */}
+                <CopyButton text={group.name} title={t("group.copyApiKeyTitle", "复制 API Key（= 分组名）")} size={14} />
                 <CopyButton text={buildClaudeCommand(group.name)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} size={14} />
                 <CopyButton text={buildCodexCommand(group.name)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
                 <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
