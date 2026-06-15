@@ -24,6 +24,19 @@ const NOTIF_FORMS: NotifForm[] = ["full", "popup_only", "inbox_only", "sound_onl
 const TTS_BACKENDS: TtsBackend[] = ["cross_platform", "mac_say", "web_speech"];
 const TEMPLATE_VARS = ["{project}", "{status}", "{time}", "{session}", "{group}"];
 
+/**
+ * 内置默认模板（用户留空 template 时后端 render 兜底使用）。
+ * **跨层镜像**：逐字镜像后端 `src-tauri/src/gateway/models.rs` 的
+ * `NotifType::default_template`，改此处务必同步后端（zh 硬编码，非 i18n）。
+ * 仅作 placeholder 灰字展示「留空效果」，不实际提交。
+ */
+const NOTIF_DEFAULT_TEMPLATES: Record<NotifType, string> = {
+  task_complete: "{project} 完成",
+  waiting_input: "{project} 等待用户输入",
+  error: "{project} 出错",
+  custom: "{project} 通知",
+};
+
 const DEFAULT_TYPE_SETTING: TypeSetting = { tts: true, popup: true, form: "full", template: "" };
 
 // macOS 检测：webview UA 含 "Macintosh"。不引 @tauri-apps/plugin-os 依赖，纯前端判定。
@@ -446,7 +459,7 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
                   className="input"
                   style={{ fontSize: 12, fontFamily: "var(--font-mono, monospace)", minHeight: 48, resize: "vertical" }}
                   value={ts.template}
-                  placeholder={t("notif.templatePlaceholder", "留空使用内置默认模板")}
+                  placeholder={NOTIF_DEFAULT_TEMPLATES[type]}
                   onChange={(e) => updateType(type, { template: e.target.value })}
                 />
               </div>

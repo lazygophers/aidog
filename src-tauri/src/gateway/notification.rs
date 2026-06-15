@@ -118,23 +118,23 @@ pub struct DispatchResult {
     pub inbox_id: Option<i64>,
 }
 
+/// 无 project 时，default_template 渲染用的品牌兜底名（避免 `{project}` 字面泄漏）。
+/// render 为纯函数无 AppHandle，用常量最简且稳定（不取 product_name）。
+const BRAND_FALLBACK: &str = "aidog";
+
 /// 渲染 title/body：
 /// - **title 字段语义 = 项目名**（取 `vars["project"]`，hook 脚本注入的 cwd basename）。
 ///   无 project（vars 未带或值空）→ 空字符串，前端 fallback 到类型 i18n 标签。
 ///   弹窗标题在 dispatch 内若 title 空则用 default_title 兜底。
-/// - body 兜底链：setting.template > content > default_template (vars 含 project 时) > default_title。
-///   含 project 时优先用 default_template（如「aidog 完成」）；无 project 时退化为类型默认名
-///   （如「Task Complete」），避免 `{project}` 字面残留。
+/// - body 兜底链：setting.template > content > default_template > default_title（末位兜底）。
+///   template+content 都空时无论有无 project 都渲染 default_template；无 project 时给 `{project}`
+///   注入品牌兜底名（`aidog`），故得「aidog 完成」而非空串 / `{project}` 字面 / 英文退化。
 fn render(
     notif_type: NotifType,
     template: &str,
     content: Option<&str>,
     vars: &HashMap<String, String>,
 ) -> (String, String) {
-    let has_project = vars
-        .get("project")
-        .map(|s| !s.trim().is_empty())
-        .unwrap_or(false);
     let title = vars
         .get("project")
         .map(|s| s.trim().to_string())
@@ -147,12 +147,23 @@ fn render(
     };
     let body = if raw_body.is_empty() {
         let dt = notif_type.default_template();
-        let fallback = if !dt.is_empty() && has_project {
-            dt
+        if dt.is_empty() {
+            // default_template 理论空（Custom 等）时最末兜底，避免空串。
+            substitute_vars(default_title(notif_type), vars)
         } else {
-            default_title(notif_type)
-        };
-        substitute_vars(fallback, vars)
+            // 无 project 时注入品牌兜底名，杜绝 `{project}` 字面残留。
+            let has_project = vars
+                .get("project")
+                .map(|s| !s.trim().is_empty())
+                .unwrap_or(false);
+            if has_project {
+                substitute_vars(dt, vars)
+            } else {
+                let mut vars2 = vars.clone();
+                vars2.insert("project".to_string(), BRAND_FALLBACK.to_string());
+                substitute_vars(dt, &vars2)
+            }
+        }
     } else {
         substitute_vars(raw_body, vars)
     };
@@ -471,17 +482,25 @@ mod tests {
     }
 
     #[test]
-    fn render_body_falls_back_to_default_title_when_no_project() {
-        // 无 project → 退化 default_title（避免字面 `{project}`）
+    fn render_body_uses_default_template_with_brand_fallback_when_no_project() {
+        // 无 project 空模板 → 仍渲染 default_template，`{project}` 用品牌兜底 "aidog"
+        // 核心新行为：不再退化到英文 default_title，也不泄漏 `{project}` 字面。
         let v = HashMap::new();
-        assert_eq!(render(NotifType::TaskComplete, "", None, &v).1, "Task Complete");
-        assert_eq!(render(NotifType::WaitingInput, "", None, &v).1, "Waiting for Input");
-        assert_eq!(render(NotifType::Error, "", None, &v).1, "Error");
-        assert_eq!(render(NotifType::Custom, "", None, &v).1, "Notification");
+        for (t, expect) in [
+            (NotifType::TaskComplete, "aidog 完成"),
+            (NotifType::WaitingInput, "aidog 等待用户输入"),
+            (NotifType::Error, "aidog 出错"),
+            (NotifType::Custom, "aidog 通知"),
+        ] {
+            let body = render(t, "", None, &v).1;
+            assert_eq!(body, expect);
+            assert!(!body.contains("{project}"), "残留 {{project}} 字面: {body}");
+            assert_ne!(body, default_title(t), "不应退化到英文 default_title");
+        }
 
-        // project 仅空白也按无 project 处理
+        // project 仅空白也按无 project 处理 → 品牌兜底
         let v_blank = vars(&[("project", "   ")]);
-        assert_eq!(render(NotifType::Error, "", None, &v_blank).1, "Error");
+        assert_eq!(render(NotifType::Error, "", None, &v_blank).1, "aidog 出错");
     }
 
     #[test]
@@ -503,7 +522,7 @@ mod tests {
         let v = HashMap::new();
         let (title, body) = render(NotifType::TaskComplete, "", None, &v);
         assert_eq!(title, "");
-        assert_eq!(body, "Task Complete"); // body 兜底 default_title
+        assert_eq!(body, "aidog 完成"); // body 用 default_template + 品牌兜底
 
         // project 值为空字符串 → 视同无
         let v2 = vars(&[("project", "")]);
