@@ -13,7 +13,7 @@ function notifTypeLabel(type: string, t: (k: string, f: string) => string): stri
   return t(`notif.type.${type}`, type);
 }
 
-export function Notifications() {
+export function Notifications({ onNavigate }: { onNavigate?: (id: string) => void }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,14 +48,25 @@ export function Notifications() {
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t("notif.inboxTitle", "通知中心")}</h2>
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: 12 }}
-          disabled={items.length === 0}
-          onClick={handleClear}
-        >
-          {t("notif.clear", "清空")}
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {onNavigate && (
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: 12 }}
+              onClick={() => onNavigate("settings/notifications")}
+            >
+              {t("notifications.goSettings", "通知设置")}
+            </button>
+          )}
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: 12 }}
+            disabled={items.length === 0}
+            onClick={handleClear}
+          >
+            {t("notif.clear", "清空")}
+          </button>
+        </div>
       </div>
 
       {loading ? (

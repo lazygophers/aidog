@@ -1375,5 +1375,6 @@
   "notif.testPopupTip": "Probar solo la ventana emergente",
   "notif.testTtsContent": "anuncio de prueba",
   "notif.testTtsTip": "Probar solo voz",
-  "notif.defaultHooksDisabledHint": "Habilita las notificaciones primero"
+  "notif.defaultHooksDisabledHint": "Habilita las notificaciones primero",
+  "notifications.goSettings": "Ajustes de notificaciones"
 }

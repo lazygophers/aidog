@@ -1397,5 +1397,6 @@
   "notif.testPopupTip": "اختبار النافذة المنبثقة فقط",
   "notif.testTtsContent": "إعلان تجريبي",
   "notif.testTtsTip": "اختبار الصوت فقط",
-  "notif.defaultHooksDisabledHint": "فعّل الإشعارات أولاً"
+  "notif.defaultHooksDisabledHint": "فعّل الإشعارات أولاً",
+  "notifications.goSettings": "إعدادات الإشعارات"
 }

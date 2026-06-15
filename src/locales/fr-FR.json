@@ -1397,5 +1397,6 @@
   "notif.testPopupTip": "Tester uniquement la popup système",
   "notif.testTtsContent": "annonce test",
   "notif.testTtsTip": "Tester uniquement la voix",
-  "notif.defaultHooksDisabledHint": "Activez d'abord les notifications"
+  "notif.defaultHooksDisabledHint": "Activez d'abord les notifications",
+  "notifications.goSettings": "Paramètres de notification"
 }
