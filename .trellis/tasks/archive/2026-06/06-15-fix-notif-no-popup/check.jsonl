@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "检查后端约定遵守 + cargo build/clippy(零warning)/test 门禁"}
+{"file": "prd.md", "reason": "核对根因证据充分 + 弹窗确实出现 + 不破坏其余通道与 osascript_escape 防注入"}
