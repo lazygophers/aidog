@@ -52,4 +52,5 @@
 | stats-model-filter-size-v2 | 模型下拉筛选 item 仍过小 (上次改动力度不足) | — | 已完成 | 收尾 | 100% | — |
 | stats-regression-and-item-size-v3 | stats 回归修复(ambiguous col) + 模型筛选 item 尺寸 v3 | — | 已完成 | 收尾 | 100% | — |
 | stats-trend-hourly-by-preset | 请求趋势按 preset 联动 granularity (today→hourly) | — | 已完成 | 收尾 | 100% | — |
-| stats-filter-trigger-fontsize-v4 | 模型筛选触发按钮字号 12 过小 (前3次改错位置) | — | 进行中 | 规划 | 0% | — |
+| stats-filter-trigger-fontsize-v4 | 模型筛选触发按钮字号 12 过小 (前3次改错位置) | — | 已完成 | 收尾 | 100% | — |
+| stats-cache-rate-over-100 | 缓存率公式错误可超 100% (cache/input→cache/(input+cache)) | — | 进行中 | 规划 | 0% | — |

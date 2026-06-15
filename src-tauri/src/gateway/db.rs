@@ -1000,8 +1000,8 @@ pub async fn today_stats(db: &Db) -> Result<TodayStats, String> {
                     |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
                 )?;
 
-            let cache_rate = if input_tokens > 0 {
-                cache_tokens as f64 / input_tokens as f64 * 100.0
+            let cache_rate = if input_tokens + cache_tokens > 0 {
+                cache_tokens as f64 / (input_tokens + cache_tokens) as f64 * 100.0
             } else {
                 0.0
             };
@@ -2358,7 +2358,7 @@ fn usage_stats(
                 total_input_tokens: inp,
                 total_output_tokens: out,
                 total_cache_tokens: cache,
-                cache_rate: if inp > 0 { cache as f64 / inp as f64 * 100.0 } else { 0.0 },
+                cache_rate: if inp + cache > 0 { cache as f64 / (inp + cache) as f64 * 100.0 } else { 0.0 },
                 recent_failures: 0,
                 recent_total: 0,
                 total_cost: cost,
@@ -2438,7 +2438,7 @@ pub async fn get_all_group_usage_stats(
                         total_input_tokens: inp,
                         total_output_tokens: out,
                         total_cache_tokens: cache,
-                        cache_rate: if inp > 0 { cache as f64 / inp as f64 * 100.0 } else { 0.0 },
+                        cache_rate: if inp + cache > 0 { cache as f64 / (inp + cache) as f64 * 100.0 } else { 0.0 },
                         recent_failures: 0,
                         recent_total: 0,
                         total_cost: cost,
@@ -2632,7 +2632,8 @@ ELSE proxy_log.platform_id END";
                 total_cache_tokens: row.get(4).unwrap_or(0),
                 cache_rate: {
                     let inp: i64 = row.get(2).unwrap_or(0);
-                    if inp > 0 { row.get::<_, i64>(4).unwrap_or(0) as f64 / inp as f64 * 100.0 } else { 0.0 }
+                    let cache: i64 = row.get(4).unwrap_or(0);
+                    if inp + cache > 0 { cache as f64 / (inp + cache) as f64 * 100.0 } else { 0.0 }
                 },
                 avg_duration_ms: row.get(5).unwrap_or(0.0),
                 total_cost: row.get(6).unwrap_or(0.0),
@@ -3209,6 +3210,29 @@ mod tests {
         let res = r2.unwrap();
         println!("overview total_requests = {}", res.overview.total_requests);
         println!("dim entries = {}", res.dimension_data.len());
+    }
+
+    /// cache_rate 必须 ≤100%：cache_tokens=9900（命中缓存）+ input_tokens=100（新输入），
+    /// 旧公式 cache/input=9900% 错误；新公式 cache/(input+cache)≈99%。
+    #[tokio::test]
+    async fn cache_rate_never_exceeds_100() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        let mut lg = sample_log("c1", "g1", now);
+        lg.input_tokens = 100;
+        lg.cache_tokens = 9900;
+        lg.output_tokens = 50;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false)).await.unwrap();
+
+        let ts = today_stats(&db).await.expect("today_stats");
+        println!("today cache_rate = {}", ts.cache_rate);
+        assert!(ts.cache_rate <= 100.0, "today cache_rate > 100: {}", ts.cache_rate);
+        assert!(ts.cache_rate > 98.0 && ts.cache_rate < 100.0, "today cache_rate expected ~99: {}", ts.cache_rate);
+
+        let q = StatsQuery { start: None, end: None, granularity: None, group_by: None, filter_group: None, filter_model: None, filter_platform: None };
+        let s = query_stats(&db, &q).await.expect("query_stats");
+        println!("overview cache_rate = {}", s.overview.cache_rate);
+        assert!(s.overview.cache_rate <= 100.0, "overview cache_rate > 100: {}", s.overview.cache_rate);
     }
 
     fn sample_platform(name: &str) -> CreatePlatform {
