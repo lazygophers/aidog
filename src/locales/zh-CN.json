@@ -1378,5 +1378,9 @@
   "notif.testTtsContent": "测试播报",
   "notif.testTtsTip": "仅测语音播报",
   "notif.defaultHooksDisabledHint": "需先开启通知",
-  "notifications.goSettings": "通知设置"
+  "notifications.goSettings": "通知设置",
+  "notif.eventListTitle": "逐 Hook 事件触发",
+  "notif.eventListDesc": "为每个 Claude Code hook 事件单独配置：是否触发、走哪种通知类型、可选自定义文案（留空用类型模板）。默认仅精选若干事件启用。",
+  "notif.eventTypeLabel": "通知类型",
+  "notif.eventTemplatePlaceholder": "留空用所选类型的模板"
 }

@@ -892,6 +892,19 @@ export interface TypeSetting {
   template: string;
 }
 
+/**
+ * 单事件触发配置（per_event 值；N2 hook 事件通知）。
+ * 镜像后端 `src-tauri/src/gateway/models.rs` 的 `EventSetting`。
+ */
+export interface EventSetting {
+  /** 是否启用该事件（注入 hook + 触发通知）。 */
+  enabled: boolean;
+  /** 复用的通知类型（决定 tts/popup/form 通道 + 模板回退链）。 */
+  notif_type: NotifType;
+  /** 可选 per-event 自定义文案（空则回退类型模板 / default_template）。 */
+  template: string;
+}
+
 /** 通知设置（settings scope=notification）。 */
 export interface NotificationSettings {
   /** 总开关（OFF 时全部分发旁路；default true）。 */
@@ -902,6 +915,11 @@ export interface NotificationSettings {
   tts_backend: TtsBackend;
   /** 按类型配置（key = NotifType 字面量；缺省键视为全 true + full）。 */
   per_type: Record<string, TypeSetting>;
+  /**
+   * 按事件配置（key = CC hook 事件名，见 NotificationEventList.tsx CC_HOOK_EVENTS）。
+   * 旧配置无此字段 → undefined / 空对象（前端按默认目录展示，用户开启才写入）。
+   */
+  per_event?: Record<string, EventSetting>;
 }
 
 /** 收件箱通知项（notification 表行）。 */

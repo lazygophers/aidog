@@ -1400,5 +1400,9 @@
   "notif.testTtsContent": "Testansage",
   "notif.testTtsTip": "Nur Sprache testen",
   "notif.defaultHooksDisabledHint": "Benachrichtigungen zuerst aktivieren",
-  "notifications.goSettings": "Benachrichtigungseinstellungen"
+  "notifications.goSettings": "Benachrichtigungseinstellungen",
+  "notif.eventListTitle": "Auslöser pro Hook-Ereignis",
+  "notif.eventListDesc": "Konfiguriere jedes Claude-Code-Hook-Ereignis einzeln: ob ausgelöst wird, welcher Benachrichtigungstyp und ein optionaler eigener Text (leer lassen, um die Vorlage des Typs zu verwenden). Standardmäßig ist nur eine Auswahl aktiviert.",
+  "notif.eventTypeLabel": "Benachrichtigungstyp",
+  "notif.eventTemplatePlaceholder": "Leer lassen, um die Vorlage des gewählten Typs zu verwenden"
 }

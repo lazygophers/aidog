@@ -1378,5 +1378,9 @@
   "notif.testTtsContent": "test announcement",
   "notif.testTtsTip": "Test voice only",
   "notif.defaultHooksDisabledHint": "Enable notifications first",
-  "notifications.goSettings": "Notification Settings"
+  "notifications.goSettings": "Notification Settings",
+  "notif.eventListTitle": "Per-Hook Event Triggers",
+  "notif.eventListDesc": "Configure each Claude Code hook event individually: whether to trigger, which notification type, and an optional custom message (leave blank to use the type's template). Only a curated set is enabled by default.",
+  "notif.eventTypeLabel": "Notification type",
+  "notif.eventTemplatePlaceholder": "Leave blank to use the selected type's template"
 }

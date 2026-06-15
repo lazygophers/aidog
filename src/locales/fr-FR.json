@@ -1400,5 +1400,9 @@
   "notif.testTtsContent": "annonce test",
   "notif.testTtsTip": "Tester uniquement la voix",
   "notif.defaultHooksDisabledHint": "Activez d'abord les notifications",
-  "notifications.goSettings": "Paramètres de notification"
+  "notifications.goSettings": "Paramètres de notification",
+  "notif.eventListTitle": "Déclencheurs par événement Hook",
+  "notif.eventListDesc": "Configurez chaque événement hook de Claude Code individuellement : déclenchement ou non, type de notification et message personnalisé facultatif (laisser vide pour utiliser le modèle du type). Seule une sélection est activée par défaut.",
+  "notif.eventTypeLabel": "Type de notification",
+  "notif.eventTemplatePlaceholder": "Laisser vide pour utiliser le modèle du type sélectionné"
 }

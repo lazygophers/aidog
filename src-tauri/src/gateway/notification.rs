@@ -182,20 +182,42 @@ fn default_title(t: NotifType) -> &'static str {
 /// 核心分发入口。
 ///
 /// `app` 为可选 AppHandle（无头测试 / 端点未带 app 时为 None，则跳过 popup/sound/emit，仅落库）。
+///
+/// `event`（N2 hook 事件通知）：
+/// - 存在且 `settings.per_event[event]` 命中且 `enabled` → notif_type = es.notif_type；
+///   通道/tts/popup 仍取 `type_setting(notif_type)`（复用类型通道配置）；body 模板优先
+///   `es.template`（非空），否则回退类型模板 → default_template（沿用兜底链）。
+/// - 不存在 / 未命中 / 未启用 → 维持现有按 `type_str` 路径（向后兼容，未知 type → TaskComplete）。
 pub async fn dispatch(
     db: &Arc<Db>,
     app: Option<&tauri::AppHandle>,
+    event: Option<&str>,
     type_str: &str,
     content: Option<&str>,
     vars: &HashMap<String, String>,
 ) -> DispatchResult {
     let settings = super::db::get_notification_settings(db).await;
-    let notif_type = NotifType::from_str_or_default(type_str);
+
+    // event 优先：命中 per_event 且 enabled → 用 es.notif_type + es.template（覆盖类型模板）。
+    // event_template 为 Some 表示走 per-event 文案优先链；None 表示走类型路径。
+    let (notif_type, event_template): (NotifType, Option<String>) = match event
+        .and_then(|e| settings.event_setting(e))
+        .filter(|es| es.enabled)
+    {
+        Some(es) => (es.notif_type, Some(es.template.clone())),
+        None => (NotifType::from_str_or_default(type_str), None),
+    };
     let setting = settings.type_setting(notif_type);
+
+    // body 模板优先级：per-event 非空 template > 类型 template（render 内再回退 default）。
+    let template = match event_template {
+        Some(ref t) if !t.trim().is_empty() => t.as_str(),
+        _ => setting.template.as_str(),
+    };
 
     // 总开关 OFF → 旁路
     if !settings.enabled {
-        let (title, body) = render(notif_type, &setting.template, content, vars);
+        let (title, body) = render(notif_type, template, content, vars);
         return DispatchResult {
             dispatched: false,
             title,
@@ -208,7 +230,7 @@ pub async fn dispatch(
         };
     }
 
-    let (title, body) = render(notif_type, &setting.template, content, vars);
+    let (title, body) = render(notif_type, template, content, vars);
     let ch = channels_for_form(setting.form);
 
     // TTS：通道开 + 本类型 tts + 全局 tts_enabled 才播报
@@ -557,7 +579,7 @@ mod tests {
         let db = mem_db().await;
         set_form(&db, "task_complete", "full", true).await;
         let v = vars(&[("project", "aidog")]);
-        let r = dispatch(&db, None, "task_complete", Some("done {project}"), &v).await;
+        let r = dispatch(&db, None, None, "task_complete", Some("done {project}"), &v).await;
         assert!(r.dispatched);
         assert!(r.inbox);
         assert_eq!(r.body, "done aidog");
@@ -572,7 +594,7 @@ mod tests {
     async fn dispatch_inbox_only() {
         let db = mem_db().await;
         set_form(&db, "error", "inbox_only", true).await;
-        let r = dispatch(&db, None, "error", Some("oops"), &HashMap::new()).await;
+        let r = dispatch(&db, None, None, "error", Some("oops"), &HashMap::new()).await;
         assert!(r.dispatched && r.inbox && !r.popup && !r.sound);
         let list = super::super::db::list_notifications(&db, 10).await.unwrap();
         assert_eq!(list.len(), 1);
@@ -582,7 +604,7 @@ mod tests {
     async fn dispatch_sound_only_no_inbox() {
         let db = mem_db().await;
         set_form(&db, "waiting_input", "sound_only", true).await;
-        let r = dispatch(&db, None, "waiting_input", Some("?"), &HashMap::new()).await;
+        let r = dispatch(&db, None, None, "waiting_input", Some("?"), &HashMap::new()).await;
         assert!(r.dispatched && r.sound && !r.inbox && !r.popup);
         // 不落库
         assert!(super::super::db::list_notifications(&db, 10).await.unwrap().is_empty());
@@ -592,7 +614,7 @@ mod tests {
     async fn dispatch_master_switch_off_bypasses() {
         let db = mem_db().await;
         set_form(&db, "task_complete", "full", false).await; // enabled=false
-        let r = dispatch(&db, None, "task_complete", Some("x"), &HashMap::new()).await;
+        let r = dispatch(&db, None, None, "task_complete", Some("x"), &HashMap::new()).await;
         assert!(!r.dispatched);
         assert!(super::super::db::list_notifications(&db, 10).await.unwrap().is_empty());
     }
@@ -601,10 +623,94 @@ mod tests {
     async fn dispatch_unknown_type_as_task_complete() {
         let db = mem_db().await;
         // 不配 per_type → 默认 Full + 全 true
-        let r = dispatch(&db, None, "my_custom_type", Some("hi"), &HashMap::new()).await;
+        let r = dispatch(&db, None, None, "my_custom_type", Some("hi"), &HashMap::new()).await;
         assert!(r.dispatched && r.inbox);
         let list = super::super::db::list_notifications(&db, 10).await.unwrap();
         // 未知 type 兜底到 task_complete（通知不丢）
         assert_eq!(list[0].notif_type, "task_complete");
+    }
+
+    // ── N2 hook 事件解析（per_event）──
+    async fn set_notif_settings(db: &Arc<Db>, value: serde_json::Value) {
+        super::super::db::set_setting(db, super::super::models::SetSettingInput {
+            scope: "notification".into(),
+            key: "settings".into(),
+            value,
+        }).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn dispatch_event_resolves_per_event_type_and_template() {
+        let db = mem_db().await;
+        // SubagentStop 启用 → 走 error 类型 + per-event 自定义文案 {agent_type}。
+        set_notif_settings(&db, serde_json::json!({
+            "enabled": true,
+            "tts_enabled": true,
+            "tts_backend": "cross_platform",
+            "per_type": { "error": { "tts": true, "popup": true, "form": "inbox_only", "template": "类型模板" } },
+            "per_event": {
+                "SubagentStop": { "enabled": true, "notif_type": "error", "template": "{project} 子代理 {agent_type} 结束" }
+            }
+        })).await;
+        let v = vars(&[("project", "aidog"), ("agent_type", "reviewer")]);
+        let r = dispatch(&db, None, Some("SubagentStop"), "ignored_type", None, &v).await;
+        assert!(r.dispatched);
+        // notif_type 取 per_event（error），form 取类型配置（inbox_only）→ 仅 inbox。
+        assert!(r.inbox && !r.popup && !r.sound);
+        // body 用 per-event template（覆盖类型模板）。
+        assert_eq!(r.body, "aidog 子代理 reviewer 结束");
+        let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+        assert_eq!(list[0].notif_type, "error");
+    }
+
+    #[tokio::test]
+    async fn dispatch_event_empty_template_falls_back_to_type_template() {
+        let db = mem_db().await;
+        set_notif_settings(&db, serde_json::json!({
+            "enabled": true,
+            "per_type": { "waiting_input": { "form": "inbox_only", "template": "{project} 类型模板" } },
+            "per_event": {
+                "PermissionRequest": { "enabled": true, "notif_type": "waiting_input", "template": "" }
+            }
+        })).await;
+        let v = vars(&[("project", "aidog")]);
+        let r = dispatch(&db, None, Some("PermissionRequest"), "ignored", None, &v).await;
+        // per-event template 空 → 回退类型模板。
+        assert_eq!(r.body, "aidog 类型模板");
+    }
+
+    #[tokio::test]
+    async fn dispatch_event_not_enabled_falls_to_type_path() {
+        let db = mem_db().await;
+        set_notif_settings(&db, serde_json::json!({
+            "enabled": true,
+            "per_type": { "task_complete": { "form": "inbox_only", "template": "{project} 完成" } },
+            "per_event": {
+                "Stop": { "enabled": false, "notif_type": "error", "template": "x" }
+            }
+        })).await;
+        let v = vars(&[("project", "aidog")]);
+        // 事件未启用 → 走 type_str 路径（task_complete）。
+        let r = dispatch(&db, None, Some("Stop"), "task_complete", None, &v).await;
+        assert_eq!(r.body, "aidog 完成");
+        let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+        assert_eq!(list[0].notif_type, "task_complete");
+    }
+
+    #[tokio::test]
+    async fn dispatch_event_unmatched_falls_back_to_default_template() {
+        let db = mem_db().await;
+        // 事件命中 enabled 但无自定义 template 且无类型模板 → render default_template 兜底（非空）。
+        set_notif_settings(&db, serde_json::json!({
+            "enabled": true,
+            "per_event": {
+                "Notification": { "enabled": true, "notif_type": "waiting_input" }
+            }
+        })).await;
+        let v = vars(&[("project", "aidog")]);
+        let r = dispatch(&db, None, Some("Notification"), "", None, &v).await;
+        // default_template(waiting_input) 兜底，body 永不空。
+        assert_eq!(r.body, "aidog 等待用户输入");
+        assert!(!r.body.is_empty());
     }
 }

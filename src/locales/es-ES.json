@@ -1378,5 +1378,9 @@
   "notif.testTtsContent": "anuncio de prueba",
   "notif.testTtsTip": "Probar solo voz",
   "notif.defaultHooksDisabledHint": "Habilita las notificaciones primero",
-  "notifications.goSettings": "Ajustes de notificaciones"
+  "notifications.goSettings": "Ajustes de notificaciones",
+  "notif.eventListTitle": "Disparadores por evento de Hook",
+  "notif.eventListDesc": "Configura cada evento de hook de Claude Code por separado: si se dispara, qué tipo de notificación y un texto personalizado opcional (déjalo vacío para usar la plantilla del tipo). De forma predeterminada solo se activa un conjunto seleccionado.",
+  "notif.eventTypeLabel": "Tipo de notificación",
+  "notif.eventTemplatePlaceholder": "Déjalo vacío para usar la plantilla del tipo seleccionado"
 }

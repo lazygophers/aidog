@@ -1164,6 +1164,12 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
     } else {
         None
     };
+    // N2：注入哪些 CC 事件（settings.per_event 中 enabled，回退默认精选集）。每组一致，循环外算一次。
+    let inject_events = if hooks_enabled {
+        enabled_hook_events(db).await
+    } else {
+        Vec::new()
+    };
 
     let mut written = Vec::new();
 
@@ -1190,8 +1196,9 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
         }
 
         // 默认通知 hook 物化：marker 开启时为本组 config 注入 CC hooks（strip marker 之前）。
+        // N2：遍历 inject_events（enabled 事件）注入，每个指向通用脚本 command。
         if let Some(scripts) = &hook_scripts {
-            gateway::hooks::inject_claude_code_hooks(&mut config, scripts);
+            gateway::hooks::inject_claude_code_hooks(&mut config, scripts, &inject_events);
         }
 
         // Strip internal aidog UI state — not real Claude Code fields.
@@ -1964,7 +1971,7 @@ async fn notification_test(
     vars.insert("session".to_string(), "test-session".to_string());
     vars.insert("group".to_string(), "test".to_string());
     let db_arc = std::sync::Arc::new(db.inner().clone());
-    Ok(gateway::notification::dispatch(&db_arc, Some(&app), &notif_type, content.as_deref(), &vars).await)
+    Ok(gateway::notification::dispatch(&db_arc, Some(&app), None, &notif_type, content.as_deref(), &vars).await)
 }
 
 /// 仅测 TTS 通道（绕过 dispatch，按当前 settings.tts_backend 播报 text）。
@@ -2279,43 +2286,73 @@ async fn generate_statusline_script(
 
 // ─── Notification Hook Integration (N2) ────────────────────
 
-/// 生成两个 Python hook 脚本到 ~/.aidog/scripts/（complete + waiting），chmod 755，
-/// 清理旧版 ~/.aidog/*.sh，返回各自的 **command 串**（`uv run --script <path>` 或
-/// `python3 <path>`，由 `invoker` 决定）。command 串直接写进 CC hooks / Codex notify。
+/// 生成 Python hook 脚本到 ~/.aidog/scripts/，chmod 755，清理旧版 ~/.aidog/*.sh，返回各自的
+/// **command 串**（`uv run --script <path>` 或 `python3 <path>`，由 `invoker` 决定）。
+/// - `complete`（task_complete）：**Codex notify 仍用**（agent-turn-complete 语义）。
+/// - `waiting`（waiting_input）：保留兼容。
+/// - `event_notify`（通用 aidog-notify.py）：N2 hook 事件通知，所有 CC 事件共用，读 stdin
+///   取 hook_event_name + 事件字段 POST `{event, vars}`（不传 type，后端按 per_event 解析）。
 fn generate_hook_scripts(
     invoker: gateway::scripts::ScriptInvoker,
 ) -> Result<gateway::hooks::ScriptPaths, String> {
     let scripts_dir = aidog_scripts_dir()?;
-    let write_script = |filename: &str, legacy: &str, notif_type: &str| -> Result<String, String> {
-        let path = scripts_dir.join(filename);
-        let content = gateway::hooks::build_hook_script(notif_type);
-        std::fs::write(&path, &content).map_err(|e| format!("write hook script {filename}: {e}"))?;
+    let chmod755 = |path: &std::path::Path, filename: &str| -> Result<(), String> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(&path)
+            let mut perms = std::fs::metadata(path)
                 .map_err(|e| format!("stat hook script {filename}: {e}"))?
                 .permissions();
             perms.set_mode(0o755);
-            std::fs::set_permissions(&path, perms)
+            std::fs::set_permissions(path, perms)
                 .map_err(|e| format!("chmod hook script {filename}: {e}"))?;
         }
+        #[cfg(not(unix))]
+        let _ = (path, filename);
+        Ok(())
+    };
+    let write_type_script = |filename: &str, legacy: &str, notif_type: &str| -> Result<String, String> {
+        let path = scripts_dir.join(filename);
+        let content = gateway::hooks::build_hook_script(notif_type);
+        std::fs::write(&path, &content).map_err(|e| format!("write hook script {filename}: {e}"))?;
+        chmod755(&path, filename)?;
         // 迁移清理：删除 ~/.aidog/ 根下旧版 bash 脚本（避免残留）。
         cleanup_legacy_root_script(legacy);
         Ok(invoker.command_for(&path.to_string_lossy()))
     };
+    // 通用事件脚本（N2）：读 stdin hook_event_name，无内插 type。
+    let event_path = scripts_dir.join(gateway::hooks::SCRIPT_EVENT_NOTIFY);
+    std::fs::write(&event_path, gateway::hooks::build_event_notify_script())
+        .map_err(|e| format!("write event notify script: {e}"))?;
+    chmod755(&event_path, gateway::hooks::SCRIPT_EVENT_NOTIFY)?;
+    let event_notify = invoker.command_for(&event_path.to_string_lossy());
+
+    // waiting 脚本已并入通用事件脚本（N2），不再生成；仅清理历史 ~/.aidog/*.sh 残留。
+    cleanup_legacy_root_script(gateway::hooks::LEGACY_SCRIPT_WAITING);
+
     Ok(gateway::hooks::ScriptPaths {
-        complete: write_script(
+        complete: write_type_script(
             gateway::hooks::SCRIPT_COMPLETE,
             gateway::hooks::LEGACY_SCRIPT_COMPLETE,
             "task_complete",
         )?,
-        waiting: write_script(
-            gateway::hooks::SCRIPT_WAITING,
-            gateway::hooks::LEGACY_SCRIPT_WAITING,
-            "waiting_input",
-        )?,
+        event_notify,
     })
+}
+
+/// 从 NotificationSettings 解析 enabled 的 CC hook 事件名列表（用于注入遍历）。
+/// per_event 为空（旧配置/未配）时回退默认精选 ON 集，保证总开关开时有事件可注入。
+async fn enabled_hook_events(db: &Db) -> Vec<String> {
+    let settings = gateway::db::get_notification_settings(db).await;
+    if settings.per_event.is_empty() {
+        return gateway::models::DEFAULT_ON_EVENTS.iter().map(|s| s.to_string()).collect();
+    }
+    settings
+        .per_event
+        .iter()
+        .filter(|(_, es)| es.enabled)
+        .map(|(name, _)| name.clone())
+        .collect()
 }
 
 /// 把内置默认模板物化进 NotificationSettings.per_type[task_complete/waiting_input]（仅在缺失/空时填）。
@@ -2369,7 +2406,8 @@ async fn inject_hooks(
                 .filter(|v| v.is_object())
                 .unwrap_or_else(|| serde_json::from_str(include_str!("../defaults/settings.json"))
                     .unwrap_or(serde_json::Value::Object(Default::default())));
-            gateway::hooks::inject_claude_code_hooks(&mut config, &scripts);
+            let events = enabled_hook_events(&db).await;
+            gateway::hooks::inject_claude_code_hooks(&mut config, &scripts, &events);
             gateway::db::set_setting(&db, SetSettingInput {
                 scope: "global".to_string(),
                 key: "claude_code".to_string(),
@@ -2488,8 +2526,9 @@ async fn build_notify_hooks_fragment(db: State<'_, Db>) -> Result<serde_json::Va
     tracing::debug!(command = "build_notify_hooks_fragment", "command invoked");
     let invoker = resolve_script_invoker(&db).await;
     let scripts = generate_hook_scripts(invoker)?;
+    let events = enabled_hook_events(&db).await;
     let mut config = serde_json::json!({});
-    gateway::hooks::inject_claude_code_hooks(&mut config, &scripts);
+    gateway::hooks::inject_claude_code_hooks(&mut config, &scripts, &events);
     Ok(config
         .get("hooks")
         .cloned()

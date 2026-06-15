@@ -1400,5 +1400,9 @@
   "notif.testTtsContent": "тестовое объявление",
   "notif.testTtsTip": "Только голос",
   "notif.defaultHooksDisabledHint": "Сначала включите уведомления",
-  "notifications.goSettings": "Настройки уведомлений"
+  "notifications.goSettings": "Настройки уведомлений",
+  "notif.eventListTitle": "Триггеры по событиям Hook",
+  "notif.eventListDesc": "Настройте каждое событие hook в Claude Code отдельно: срабатывать ли, какой тип уведомления и необязательный собственный текст (оставьте пустым, чтобы использовать шаблон типа). По умолчанию включён только избранный набор.",
+  "notif.eventTypeLabel": "Тип уведомления",
+  "notif.eventTemplatePlaceholder": "Оставьте пустым, чтобы использовать шаблон выбранного типа"
 }

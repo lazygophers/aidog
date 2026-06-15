@@ -344,10 +344,15 @@ async fn handle_group_info_inner(
 
 // ─── /api/notify（N1 — 系统通知端点）────────────────────────
 
-/// 通知端点请求体：`{type, content?, vars?}`。
+/// 通知端点请求体：`{event?, type?, content?, vars?}`。
+/// - `event`（N2）：CC hook 事件名（通用脚本 aidog-notify.py 发；后端按 per_event 解析 type+模板）。
+/// - `type`（兼容旧路径 / Codex complete 脚本）：通知类型字面量，未知 → TaskComplete。
+///   event 命中 per_event 时优先于 type。两者都缺省 → type 空串 → 兜底 TaskComplete。
 #[derive(serde::Deserialize)]
 struct NotifyReq {
-    #[serde(rename = "type")]
+    #[serde(default)]
+    event: Option<String>,
+    #[serde(rename = "type", default)]
     notif_type: String,
     #[serde(default)]
     content: Option<String>,
@@ -413,6 +418,7 @@ async fn handle_notify_inner(
     let result = super::notification::dispatch(
         &state.db,
         state.app.as_ref(),
+        req.event.as_deref(),
         &req.notif_type,
         req.content.as_deref(),
         &vars,
@@ -420,6 +426,7 @@ async fn handle_notify_inner(
     .await;
 
     tracing::debug!(
+        event = ?req.event,
         notif_type = %req.notif_type,
         dispatched = result.dispatched,
         inbox = result.inbox,

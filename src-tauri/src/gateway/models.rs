@@ -1732,6 +1732,111 @@ impl Default for TypeSetting {
     }
 }
 
+/// 单事件触发配置（per_event 值，N2 hook 事件通知）。
+///
+/// key（在 per_event map 里）= Claude Code 官方 hook 事件名（如 `Stop`/`SubagentStop`），
+/// 见 `CC_HOOK_EVENTS` 全量目录。`enabled` 决定该事件是否注入 hook + 触发通知；
+/// `notif_type` 决定走哪套类型通道配置（per_type[notif_type] 的 tts/popup/form）；
+/// `template` 为可选 per-event 自定义文案（空则回退 per_type[notif_type].template，再回退
+/// `notif_type.default_template()`）。全字段 serde default → 向后兼容（旧无 per_event → 空 map）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventSetting {
+    /// 是否启用该事件（注入 hook + 触发通知）。
+    #[serde(default)]
+    pub enabled: bool,
+    /// 复用的通知类型（决定 tts/popup/form 通道 + 模板回退链）。
+    #[serde(default = "default_notif_type")]
+    pub notif_type: NotifType,
+    /// 可选 per-event 自定义文案（空则回退类型模板 / default_template）。
+    #[serde(default)]
+    pub template: String,
+}
+
+fn default_notif_type() -> NotifType {
+    NotifType::TaskComplete
+}
+
+impl Default for EventSetting {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            notif_type: NotifType::TaskComplete,
+            template: String::new(),
+        }
+    }
+}
+
+/// Claude Code 官方 hook 事件全量目录（约 30 个；来源 code.claude.com/docs/zh-CN/hooks）。
+/// UI 列全量，默认仅 `DEFAULT_ON_EVENTS` 精选集 on，其余默认 off。
+/// **跨层镜像**：前端 `src/components/settings/NotificationEventList.tsx` 的 `CC_HOOK_EVENTS`
+/// 逐字镜像此表，改此处务必同步前端。事件名为 CC 官方英文原样，不翻译。
+pub const CC_HOOK_EVENTS: &[&str] = &[
+    "SessionStart",
+    "Setup",
+    "InstructionsLoaded",
+    "UserPromptSubmit",
+    "UserPromptExpansion",
+    "MessageDisplay",
+    "PreToolUse",
+    "PermissionRequest",
+    "PermissionDenied",
+    "PostToolUse",
+    "PostToolUseFailure",
+    "PostToolBatch",
+    "Notification",
+    "SubagentStart",
+    "SubagentStop",
+    "Stop",
+    "StopFailure",
+    "TeammateIdle",
+    "TaskCreated",
+    "TaskCompleted",
+    "ConfigChange",
+    "CwdChanged",
+    "FileChanged",
+    "WorktreeCreate",
+    "WorktreeRemove",
+    "PreCompact",
+    "PostCompact",
+    "Elicitation",
+    "ElicitationResult",
+    "SessionEnd",
+];
+
+/// 默认 ON 精选集（6 个；SessionStart 噪音偏高默认 off 但目录中可手动开）。
+/// **跨层镜像**前端 `DEFAULT_ON_EVENTS`。
+pub const DEFAULT_ON_EVENTS: &[&str] = &[
+    "Stop",
+    "SubagentStop",
+    "Notification",
+    "PermissionRequest",
+    "SessionEnd",
+    "PreCompact",
+];
+
+/// 事件名 → 默认 notif_type 映射规则（实现固化为常量逻辑）。
+///
+/// - 含 Failure/Denied/Error → error
+/// - 含 Notification/Permission/Elicitation → waiting_input
+/// - 其余（含 Stop/Complete/End） → task_complete（兜底）
+///
+/// **跨层镜像**前端 `defaultNotifTypeForEvent`（前端展示层用此映射给默认 type）。
+/// 后端 dispatch 走 per_event 显式 notif_type，故此函数主要作跨层规约源 + 测试断言。
+#[allow(dead_code)]
+pub fn default_notif_type_for_event(event: &str) -> NotifType {
+    if event.contains("Failure") || event.contains("Denied") || event.contains("Error") {
+        NotifType::Error
+    } else if event.contains("Notification")
+        || event.contains("Permission")
+        || event.contains("Elicitation")
+    {
+        NotifType::WaitingInput
+    } else {
+        // Stop/Complete/End 及其余均兜底 task_complete。
+        NotifType::TaskComplete
+    }
+}
+
 /// 通知设置（settings KV scope=`notification`, key=`settings`）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationSettings {
@@ -1747,6 +1852,10 @@ pub struct NotificationSettings {
     /// 按类型配置（key = NotifType 字面量）。缺省键视为全 true + Full。
     #[serde(default)]
     pub per_type: std::collections::HashMap<String, TypeSetting>,
+    /// 按事件配置（key = CC 事件名，见 CC_HOOK_EVENTS）。N2 hook 事件通知。
+    /// 旧配置无此字段 → 空 map（serde default），前端按默认目录展示，用户开启才写入。
+    #[serde(default)]
+    pub per_event: std::collections::HashMap<String, EventSetting>,
 }
 
 impl Default for NotificationSettings {
@@ -1756,6 +1865,7 @@ impl Default for NotificationSettings {
             tts_enabled: true,
             tts_backend: TtsBackend::default(),
             per_type: std::collections::HashMap::new(),
+            per_event: std::collections::HashMap::new(),
         }
     }
 }
@@ -1764,6 +1874,12 @@ impl NotificationSettings {
     /// 取某类型有效配置：per_type 缺省时返回默认（全 true + Full）。
     pub fn type_setting(&self, t: NotifType) -> TypeSetting {
         self.per_type.get(t.as_str()).cloned().unwrap_or_default()
+    }
+
+    /// 取某事件有效配置：per_event 命中且返回引用，否则 None。
+    /// 注：未命中走「展示层默认」（前端兜底默认目录），DB 不硬写默认集。
+    pub fn event_setting(&self, event: &str) -> Option<&EventSetting> {
+        self.per_event.get(event)
     }
 }
 
@@ -1775,6 +1891,75 @@ pub struct Notification {
     pub title: String,
     pub body: String,
     pub created_at: i64,
+}
+
+#[cfg(test)]
+mod notif_event_model_tests {
+    use super::*;
+
+    #[test]
+    fn default_notif_type_mapping() {
+        // Stop/Complete/End → task_complete
+        assert_eq!(default_notif_type_for_event("Stop"), NotifType::TaskComplete);
+        assert_eq!(default_notif_type_for_event("SubagentStop"), NotifType::TaskComplete);
+        assert_eq!(default_notif_type_for_event("SessionEnd"), NotifType::TaskComplete);
+        assert_eq!(default_notif_type_for_event("TaskCompleted"), NotifType::TaskComplete);
+        // Failure/Denied/Error → error（优先于 Stop，StopFailure 命中 error）
+        assert_eq!(default_notif_type_for_event("StopFailure"), NotifType::Error);
+        assert_eq!(default_notif_type_for_event("PostToolUseFailure"), NotifType::Error);
+        assert_eq!(default_notif_type_for_event("PermissionDenied"), NotifType::Error);
+        // Notification/Permission/Elicitation → waiting_input
+        assert_eq!(default_notif_type_for_event("Notification"), NotifType::WaitingInput);
+        assert_eq!(default_notif_type_for_event("PermissionRequest"), NotifType::WaitingInput);
+        assert_eq!(default_notif_type_for_event("Elicitation"), NotifType::WaitingInput);
+        // 其余兜底 → task_complete
+        assert_eq!(default_notif_type_for_event("SessionStart"), NotifType::TaskComplete);
+        assert_eq!(default_notif_type_for_event("PreCompact"), NotifType::TaskComplete);
+    }
+
+    #[test]
+    fn default_on_set_subset_of_catalog() {
+        for e in DEFAULT_ON_EVENTS {
+            assert!(CC_HOOK_EVENTS.contains(e), "default-on event {e} not in catalog");
+        }
+        // SessionStart 在目录但默认 off
+        assert!(CC_HOOK_EVENTS.contains(&"SessionStart"));
+        assert!(!DEFAULT_ON_EVENTS.contains(&"SessionStart"));
+    }
+
+    #[test]
+    fn settings_backward_compat_without_per_event() {
+        // 旧 JSON 无 per_event → 反序列化为空 map，不报错。
+        let json = serde_json::json!({
+            "enabled": true,
+            "tts_enabled": true,
+            "tts_backend": "cross_platform",
+            "per_type": {}
+        });
+        let s: NotificationSettings = serde_json::from_value(json).unwrap();
+        assert!(s.per_event.is_empty());
+        assert!(s.event_setting("Stop").is_none());
+    }
+
+    #[test]
+    fn event_setting_roundtrip() {
+        let json = serde_json::json!({
+            "per_event": {
+                "Stop": { "enabled": true, "notif_type": "task_complete", "template": "{project} done" },
+                "PostToolUseFailure": { "enabled": false, "notif_type": "error" }
+            }
+        });
+        let s: NotificationSettings = serde_json::from_value(json).unwrap();
+        let stop = s.event_setting("Stop").unwrap();
+        assert!(stop.enabled);
+        assert_eq!(stop.notif_type, NotifType::TaskComplete);
+        assert_eq!(stop.template, "{project} done");
+        // template 缺省 → 空串（serde default）
+        let fail = s.event_setting("PostToolUseFailure").unwrap();
+        assert!(!fail.enabled);
+        assert_eq!(fail.notif_type, NotifType::Error);
+        assert_eq!(fail.template, "");
+    }
 }
 
 #[cfg(test)]

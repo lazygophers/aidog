@@ -36,10 +36,13 @@ impl HookClient {
     }
 }
 
-/// 任务完成 hook 脚本文件名（Python + PEP723，uv run / python3 执行）。
+/// 任务完成 hook 脚本文件名（Python + PEP723，uv run / python3 执行；**Codex notify 仍用**）。
 pub const SCRIPT_COMPLETE: &str = "aidog-notify-complete.py";
 /// 等待输入 hook 脚本文件名（Python + PEP723，uv run / python3 执行）。
 pub const SCRIPT_WAITING: &str = "aidog-notify-waiting.py";
+/// 通用事件通知脚本文件名（N2 hook 事件通知）：读 stdin JSON 取 hook_event_name + 事件特有字段，
+/// POST `/api/notify` `{event, vars}`（不传 type，后端按 per_event 解析）。所有 CC 事件共用此脚本。
+pub const SCRIPT_EVENT_NOTIFY: &str = "aidog-notify.py";
 
 /// 旧版 bash hook 脚本文件名（迁移清理用，写新脚本时删除）。
 pub const LEGACY_SCRIPT_COMPLETE: &str = "aidog-notify-complete.sh";
@@ -122,10 +125,124 @@ if __name__ == "__main__":
     )
 }
 
+/// 已知事件特有 stdin 字段名（存在则塞入 vars，缺失跳过；官方 docs 字段，值非字符串则跳过）。
+/// 通用字段 `session_id`(→{session}) 单独处理；project 取 cwd basename。
+/// 实际采用字段：message / agent_type / agent_id / tool_name / reason / source / end_reason / status。
+pub const EVENT_VAR_FIELDS: &[&str] = &[
+    "message",
+    "agent_type",
+    "agent_id",
+    "tool_name",
+    "reason",
+    "source",
+    "end_reason",
+    "status",
+];
+
+/// 生成通用事件通知脚本内容（N2，Python + PEP723，stdlib only）。
+///
+/// 与 `build_hook_script` 不同：本脚本**读 stdin JSON**，取 `hook_event_name`(→ event) +
+/// cwd basename(→ vars.project) + `session_id`(→ vars.session) + 已知事件特有字段
+/// （`EVENT_VAR_FIELDS`，存在且为字符串才塞）入 vars；POST `/api/notify` body
+/// `{"event": <name>, "vars": {...}}`（**不传 type**，后端按 per_event 解析）。
+/// 无命令行传参（event 来自 stdin），绕开 CC command 是否 shell 解析参数的风险。
+/// endpoint/Bearer 推导沿用 `build_hook_script`（ANTHROPIC_BASE_URL 剥后缀 + ANTHROPIC_AUTH_TOKEN）。
+/// 任何异常静默吞掉（通知非关键路径）。
+pub fn build_event_notify_script() -> String {
+    // 已知字段列表内插进脚本（与 EVENT_VAR_FIELDS 保持一致）。
+    let fields_literal = EVENT_VAR_FIELDS
+        .iter()
+        .map(|f| format!("\"{f}\""))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!(
+        r#"#!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.8"
+# dependencies = []
+# ///
+# aidog notification hook (event-aware) — auto-generated. Do not edit.
+# 通用 Claude Code hook 事件通知：读 stdin JSON 取 hook_event_name + 事件字段，POST /api/notify。
+# 后端按 per_event 解析通知类型与模板（本脚本不传 type）。
+import json
+import os
+import sys
+import urllib.request
+
+
+def main() -> None:
+    base = os.environ.get("ANTHROPIC_BASE_URL", "")
+    token = os.environ.get("ANTHROPIC_AUTH_TOKEN", "")
+    if not base or not token:
+        return
+
+    # 从 base_url 推导代理根：依次去掉末尾 /proxy 及版本前缀（/v1 等），再拼 /api/notify。
+    root = base.rstrip("/")
+    for suffix in ("/proxy", "/v1", "/api/paas/v4"):
+        if root.endswith(suffix):
+            root = root[: -len(suffix)]
+    url = root + "/api/notify"
+
+    # 读 stdin 事件 JSON（缺失/非法 → 空 dict，仍用 cwd basename 作 project）。
+    payload = {{}}
+    try:
+        raw = sys.stdin.read()
+        if raw:
+            payload = json.loads(raw)
+    except Exception:
+        payload = {{}}
+    if not isinstance(payload, dict):
+        payload = {{}}
+
+    event = payload.get("hook_event_name")
+    if not isinstance(event, str) or not event:
+        return  # 无事件名无法路由 per_event，静默退出。
+
+    vars_map = {{"project": os.path.basename(os.getcwd())}}
+    session = payload.get("session_id")
+    if isinstance(session, str) and session:
+        vars_map["session"] = session
+    # 已知事件特有字段：存在且为字符串才塞（嵌套对象/缺失跳过）。
+    for field in ({fields_literal},):
+        val = payload.get(field)
+        if isinstance(val, str) and val:
+            vars_map[field] = val
+
+    body = json.dumps({{"event": event, "vars": vars_map}}).encode("utf-8")
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method="POST",
+        headers={{
+            "Authorization": "Bearer " + token,
+            "Content-Type": "application/json",
+        }},
+    )
+    try:
+        urllib.request.urlopen(req, timeout=5).read()
+    except Exception:
+        pass
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception:
+        pass
+    sys.exit(0)
+"#
+    )
+}
+
 /// 已知占位的脚本绝对路径（command 层写文件后传入）。
+/// - `complete`：task_complete 脚本 command（**Codex notify 依赖，勿丢**）。
+/// - `event_notify`：通用事件通知脚本 command（N2，所有 CC 事件共用，按 per_event 注入）。
+///
+/// 注：原 `waiting` 脚本已并入通用事件脚本（N2 单脚本方案），不再注入；
+/// `SCRIPT_WAITING` 常量仍保留供 `references_aidog_script` 清理历史注入。
 pub struct ScriptPaths {
     pub complete: String,
-    pub waiting: String,
+    pub event_notify: String,
 }
 
 /// 读取基线配置中 `_aidog_hooks.enabled` 标记（缺失/非布尔时返回 false）。
@@ -140,16 +257,27 @@ pub fn hooks_marker_enabled(config: &Value) -> bool {
 
 /// 注入 Claude Code hooks 到基线配置（`claude_code` 全局 setting）。
 ///
-/// - `hooks.Stop` → 任务完成脚本（complete）。
-/// - `hooks.Notification` → 等待输入脚本（waiting）。
+/// N2 hook 事件通知：遍历 `enabled_events`（settings.per_event 中 enabled 的事件名）→
+/// 每个 `set_event_hook(event, scripts.event_notify)`（全部指向同一通用脚本 command）。
+/// 先 `remove_claude_code_hooks` 清掉旧 aidog 注入（避免改配置后残留旧事件 hook）。
 ///
 /// 结构遵循 Claude Code hooks schema：
 /// `{ "<Event>": [ { "hooks": [ { "type":"command", "command": "<path>" } ] } ] }`。
 /// 仅覆盖 aidog 注入的命令项（按脚本文件名识别），保留用户其他 hook。
 /// 同时打 `_aidog_hooks` 标记（UI 状态，sync 时 strip）。
-pub fn inject_claude_code_hooks(config: &mut Value, scripts: &ScriptPaths) {
+///
+/// `enabled_events` 为空时仅打 marker、清旧 aidog hook（不注入任何事件）。
+pub fn inject_claude_code_hooks(config: &mut Value, scripts: &ScriptPaths, enabled_events: &[String]) {
+    // 先清掉旧 aidog 注入（全量事件目录遍历），保用户项；随后按 enabled_events 重新注入。
+    // remove 会顺带删 marker，下面再补回。
+    remove_claude_code_hooks(config);
+
     let obj = ensure_object(config);
     obj.insert(MARKER_HOOKS.to_string(), json!({ "enabled": true }));
+
+    if enabled_events.is_empty() {
+        return;
+    }
 
     let hooks = obj
         .entry("hooks".to_string())
@@ -162,17 +290,25 @@ pub fn inject_claude_code_hooks(config: &mut Value, scripts: &ScriptPaths) {
         }
     };
 
-    set_event_hook(hooks_obj, "Stop", &scripts.complete);
-    set_event_hook(hooks_obj, "Notification", &scripts.waiting);
+    for event in enabled_events {
+        set_event_hook(hooks_obj, event, &scripts.event_notify);
+    }
+    // 若清旧后无任何注入（理论不至，enabled 非空），保险删空 hooks。
+    if hooks_obj.is_empty() {
+        obj.remove("hooks");
+    }
 }
 
 /// 移除 Claude Code 中 aidog 注入的 hooks（按命令路径识别），并去掉 `_aidog_hooks` 标记。
 /// 保留用户自定义 hook；清空后空数组的 Event / 空 hooks 对象一并删除。
+///
+/// N2：遍历**全量事件目录** `CC_HOOK_EVENTS` 移除 aidog 项（确保改配置后旧事件 hook 不残留）；
+/// `references_aidog_script` 靠单脚本名 `aidog-notify.py`（+ 旧 complete/waiting/.sh）识别，全匹配。
 pub fn remove_claude_code_hooks(config: &mut Value) {
     let Some(obj) = config.as_object_mut() else { return };
     obj.remove(MARKER_HOOKS);
     let Some(hooks) = obj.get_mut("hooks").and_then(|v| v.as_object_mut()) else { return };
-    for event in ["Stop", "Notification"] {
+    for event in super::models::CC_HOOK_EVENTS {
         remove_event_hook(hooks, event);
     }
     if hooks.is_empty() {
@@ -224,7 +360,9 @@ fn remove_event_hook(hooks: &mut serde_json::Map<String, Value>, event: &str) {
 /// 判断命令串是否指向 aidog notify 脚本（含当前 `.py` 与旧版 `.sh` 文件名，
 /// 以便移除时也能清掉历史 bash 注入；command 串可能为 `uv run <path>` / `python3 <path>` / 裸路径）。
 fn references_aidog_script(cmd: &str) -> bool {
-    cmd.contains(SCRIPT_COMPLETE)
+    // 各脚本名互不为子串（aidog-notify.py / -complete.py / -waiting.py / .sh），任一命中即 true。
+    cmd.contains(SCRIPT_EVENT_NOTIFY)
+        || cmd.contains(SCRIPT_COMPLETE)
         || cmd.contains(SCRIPT_WAITING)
         || cmd.contains(LEGACY_SCRIPT_COMPLETE)
         || cmd.contains(LEGACY_SCRIPT_WAITING)
@@ -279,6 +417,14 @@ fn ensure_object(config: &mut Value) -> &mut serde_json::Map<String, Value> {
 mod tests {
     use super::*;
 
+    /// 测试辅助：构造 ScriptPaths（含 event_notify）。
+    fn test_scripts(complete: &str, event_notify: &str) -> ScriptPaths {
+        ScriptPaths {
+            complete: complete.into(),
+            event_notify: event_notify.into(),
+        }
+    }
+
     #[test]
     fn script_contains_endpoint_and_type() {
         let s = build_hook_script("task_complete");
@@ -290,6 +436,28 @@ mod tests {
         assert!(s.contains(r#""type": "task_complete""#));
         // project = cwd basename（Python os.path.basename）。
         assert!(s.contains("os.path.basename(os.getcwd())"));
+    }
+
+    #[test]
+    fn event_notify_script_reads_stdin_and_posts_event() {
+        let s = build_event_notify_script();
+        assert!(s.contains("/api/notify"));
+        assert!(s.contains("ANTHROPIC_BASE_URL"));
+        assert!(s.contains("ANTHROPIC_AUTH_TOKEN"));
+        // 读 stdin + 取 hook_event_name（不传 type）。
+        assert!(s.contains("sys.stdin.read()"));
+        assert!(s.contains("hook_event_name"));
+        assert!(!s.contains(r#""type":"#));
+        assert!(s.contains(r#""event": event"#));
+        // 已知事件字段内插（采样几个）。
+        assert!(s.contains("message"));
+        assert!(s.contains("agent_type"));
+        assert!(s.contains("tool_name"));
+        assert!(s.contains("session_id"));
+        // PEP723 stdlib only。
+        assert!(s.contains("# /// script"));
+        assert!(s.contains("import urllib.request"));
+        assert!(!s.contains("curl"));
     }
 
     #[test]
@@ -322,35 +490,69 @@ mod tests {
         assert!(cfg["hooks"].get("Stop").is_none());
     }
 
+    /// N2 默认精选事件集（与 models 的 DEFAULT_ON_EVENTS 对齐），便于测试注入遍历。
+    fn enabled_events(events: &[&str]) -> Vec<String> {
+        events.iter().map(|s| s.to_string()).collect()
+    }
+
     #[test]
-    fn inject_claude_code_sets_stop_and_notification() {
+    fn inject_claude_code_sets_enabled_events() {
         let mut cfg = json!({});
-        let scripts = ScriptPaths {
-            complete: "/home/u/.aidog/aidog-notify-complete.sh".into(),
-            waiting: "/home/u/.aidog/aidog-notify-waiting.sh".into(),
-        };
-        inject_claude_code_hooks(&mut cfg, &scripts);
+        let scripts = test_scripts(
+            "/home/u/.aidog/aidog-notify-complete.py",
+            "/home/u/.aidog/scripts/aidog-notify.py",
+        );
+        let events = enabled_events(&["Stop", "Notification", "PermissionRequest"]);
+        inject_claude_code_hooks(&mut cfg, &scripts, &events);
 
         // 标记存在
         assert!(cfg.get(MARKER_HOOKS).is_some());
-        let stop = &cfg["hooks"]["Stop"][0]["hooks"][0];
-        assert_eq!(stop["type"], "command");
-        assert_eq!(stop["command"], "/home/u/.aidog/aidog-notify-complete.sh");
-        let notif = &cfg["hooks"]["Notification"][0]["hooks"][0];
-        assert_eq!(notif["command"], "/home/u/.aidog/aidog-notify-waiting.sh");
+        // 每个启用事件均指向通用脚本 command。
+        for ev in ["Stop", "Notification", "PermissionRequest"] {
+            let h = &cfg["hooks"][ev][0]["hooks"][0];
+            assert_eq!(h["type"], "command");
+            assert_eq!(h["command"], "/home/u/.aidog/scripts/aidog-notify.py");
+        }
+        // 未启用事件不注入。
+        assert!(cfg["hooks"].get("PreToolUse").is_none());
+    }
+
+    #[test]
+    fn inject_empty_events_only_sets_marker() {
+        let mut cfg = json!({});
+        let scripts = test_scripts("/a/c.py", "/a/aidog-notify.py");
+        inject_claude_code_hooks(&mut cfg, &scripts, &[]);
+        assert!(cfg.get(MARKER_HOOKS).is_some());
+        // 无启用事件 → 无 hooks 对象。
+        assert!(cfg.get("hooks").is_none());
     }
 
     #[test]
     fn inject_is_idempotent_no_duplicate() {
         let mut cfg = json!({});
-        let scripts = ScriptPaths {
-            complete: "/a/aidog-notify-complete.sh".into(),
-            waiting: "/a/aidog-notify-waiting.sh".into(),
-        };
-        inject_claude_code_hooks(&mut cfg, &scripts);
-        inject_claude_code_hooks(&mut cfg, &scripts);
+        let scripts = test_scripts("/a/c.py", "/a/aidog-notify.py");
+        let events = enabled_events(&["Stop", "Notification"]);
+        inject_claude_code_hooks(&mut cfg, &scripts, &events);
+        inject_claude_code_hooks(&mut cfg, &scripts, &events);
         assert_eq!(cfg["hooks"]["Stop"].as_array().unwrap().len(), 1);
         assert_eq!(cfg["hooks"]["Notification"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn inject_reconfig_removes_stale_events() {
+        // 改配置：先注入 Stop+Notification，再注入仅 SessionEnd → 旧 aidog 项应被清。
+        let mut cfg = json!({});
+        let scripts = test_scripts("/a/c.py", "/a/aidog-notify.py");
+        inject_claude_code_hooks(&mut cfg, &scripts, &enabled_events(&["Stop", "Notification"]));
+        inject_claude_code_hooks(&mut cfg, &scripts, &enabled_events(&["SessionEnd"]));
+        // 旧 Stop/Notification aidog 项已清。
+        assert!(cfg["hooks"].get("Stop").is_none());
+        assert!(cfg["hooks"].get("Notification").is_none());
+        // 新 SessionEnd 注入。
+        assert_eq!(
+            cfg["hooks"]["SessionEnd"][0]["hooks"][0]["command"],
+            "/a/aidog-notify.py"
+        );
     }
 
     #[test]
@@ -361,11 +563,8 @@ mod tests {
                 "PreToolUse": [ { "hooks": [ { "type": "command", "command": "/x.sh" } ] } ]
             }
         });
-        let scripts = ScriptPaths {
-            complete: "/a/aidog-notify-complete.sh".into(),
-            waiting: "/a/aidog-notify-waiting.sh".into(),
-        };
-        inject_claude_code_hooks(&mut cfg, &scripts);
+        let scripts = test_scripts("/a/c.py", "/a/aidog-notify.py");
+        inject_claude_code_hooks(&mut cfg, &scripts, &enabled_events(&["Stop"]));
         // 用户的 Stop 项保留 + aidog 追加
         let stop = cfg["hooks"]["Stop"].as_array().unwrap();
         assert_eq!(stop.len(), 2);
@@ -379,10 +578,14 @@ mod tests {
             "hooks": {
                 "Stop": [
                     { "hooks": [ { "type": "command", "command": "/usr/bin/my-own.sh" } ] },
-                    { "hooks": [ { "type": "command", "command": "/a/aidog-notify-complete.sh" } ] }
+                    { "hooks": [ { "type": "command", "command": "/a/aidog-notify.py" } ] }
                 ],
                 "Notification": [
-                    { "hooks": [ { "type": "command", "command": "/a/aidog-notify-waiting.sh" } ] }
+                    { "hooks": [ { "type": "command", "command": "/a/aidog-notify.py" } ] }
+                ],
+                // 非默认精选事件也应被全量目录遍历清掉。
+                "SessionEnd": [
+                    { "hooks": [ { "type": "command", "command": "/a/aidog-notify.py" } ] }
                 ]
             },
             "_aidog_hooks": { "enabled": true }
@@ -393,8 +596,9 @@ mod tests {
         let stop = cfg["hooks"]["Stop"].as_array().unwrap();
         assert_eq!(stop.len(), 1);
         assert_eq!(stop[0]["hooks"][0]["command"], "/usr/bin/my-own.sh");
-        // Notification 全是 aidog → 整个 Event 移除
+        // Notification / SessionEnd 全是 aidog → 整个 Event 移除（全量目录遍历）
         assert!(cfg["hooks"].get("Notification").is_none());
+        assert!(cfg["hooks"].get("SessionEnd").is_none());
     }
 
     #[test]
@@ -417,11 +621,8 @@ mod tests {
     #[test]
     fn remove_claude_code_drops_empty_hooks_object() {
         let mut cfg = json!({});
-        let scripts = ScriptPaths {
-            complete: "/a/aidog-notify-complete.sh".into(),
-            waiting: "/a/aidog-notify-waiting.sh".into(),
-        };
-        inject_claude_code_hooks(&mut cfg, &scripts);
+        let scripts = test_scripts("/a/c.py", "/a/aidog-notify.py");
+        inject_claude_code_hooks(&mut cfg, &scripts, &enabled_events(&["Stop", "Notification"]));
         remove_claude_code_hooks(&mut cfg);
         // 没有用户 hook → hooks 对象删除
         assert!(cfg.get("hooks").is_none());
@@ -432,23 +633,24 @@ mod tests {
     fn notify_hooks_fragment_shape() {
         // 复刻 build_notify_hooks_fragment 取片段逻辑：空对象 inject 后取 hooks 子对象。
         let mut cfg = json!({});
-        let scripts = ScriptPaths {
-            complete: "/u/.aidog/scripts/aidog-notify-complete.py".into(),
-            waiting: "/u/.aidog/scripts/aidog-notify-waiting.py".into(),
-        };
-        inject_claude_code_hooks(&mut cfg, &scripts);
+        let scripts = test_scripts(
+            "/u/.aidog/scripts/aidog-notify-complete.py",
+            "/u/.aidog/scripts/aidog-notify.py",
+        );
+        inject_claude_code_hooks(&mut cfg, &scripts, &enabled_events(&["Stop", "Notification"]));
         let fragment = cfg.get("hooks").cloned().unwrap();
         // 片段含 Stop / Notification，且不含 _aidog_hooks 标记（标记在外层 config）。
         assert!(fragment.get("Stop").is_some());
         assert!(fragment.get("Notification").is_some());
         assert!(fragment.get(MARKER_HOOKS).is_none());
+        // 全部事件指向通用事件脚本 command。
         assert_eq!(
             fragment["Stop"][0]["hooks"][0]["command"],
-            "/u/.aidog/scripts/aidog-notify-complete.py"
+            "/u/.aidog/scripts/aidog-notify.py"
         );
         assert_eq!(
             fragment["Notification"][0]["hooks"][0]["command"],
-            "/u/.aidog/scripts/aidog-notify-waiting.py"
+            "/u/.aidog/scripts/aidog-notify.py"
         );
         assert_eq!(fragment["Stop"][0]["hooks"][0]["type"], "command");
     }

@@ -1400,5 +1400,9 @@
   "notif.testTtsContent": "テスト読み上げ",
   "notif.testTtsTip": "音声のみテスト",
   "notif.defaultHooksDisabledHint": "先に通知を有効にしてください",
-  "notifications.goSettings": "通知設定"
+  "notifications.goSettings": "通知設定",
+  "notif.eventListTitle": "Hook イベントごとのトリガー",
+  "notif.eventListDesc": "Claude Code の各 hook イベントを個別に設定します：通知するか、どの通知タイプか、任意のカスタム文（空欄ならタイプのテンプレートを使用）。既定では選定した一部のみ有効です。",
+  "notif.eventTypeLabel": "通知タイプ",
+  "notif.eventTemplatePlaceholder": "空欄にすると選択したタイプのテンプレートを使用します"
 }

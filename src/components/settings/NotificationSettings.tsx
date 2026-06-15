@@ -13,10 +13,12 @@ import {
   scriptExecutorApi,
   type NotificationSettings as NotifSettings,
   type TypeSetting,
+  type EventSetting,
   type NotifType,
   type NotifForm,
   type TtsBackend,
 } from "../../services/api";
+import { NotificationEventList } from "./NotificationEventList";
 
 // 与 api.ts 契约对齐（禁裸 string）。
 const NOTIF_TYPES: NotifType[] = ["task_complete", "waiting_input", "error"];
@@ -79,6 +81,7 @@ const DEFAULT_SETTINGS: NotifSettings = {
   tts_enabled: true,
   tts_backend: "cross_platform",
   per_type: {},
+  per_event: {},
 };
 
 function notifTypeLabel(t: TFunction, type: NotifType): string {
@@ -182,6 +185,13 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         ...prev.per_type,
         [type]: { ...(prev.per_type[type] ?? DEFAULT_TYPE_SETTING), ...partial },
       },
+    }));
+
+  // N2：逐事件配置更新（写 settings.per_event[event]）。组件传完整 EventSetting（含展示态兜底）。
+  const updateEvent = (event: string, setting: EventSetting) =>
+    persist(prev => ({
+      ...prev,
+      per_event: { ...(prev.per_event ?? {}), [event]: setting },
     }));
 
   const handleTest = async (type: NotifType) => {
@@ -610,6 +620,13 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
           tabIndex={hooksDisabled ? -1 : 0}
         />
       </div>
+
+      {/* N2：逐 hook 事件触发配置（仅 claude_code；通知总开关关时禁用整区） */}
+      <NotificationEventList
+        perEvent={settings.per_event}
+        disabled={hooksDisabled}
+        onUpdate={updateEvent}
+      />
 
       {error && (
         <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>{error}</div>

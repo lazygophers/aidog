@@ -1400,5 +1400,9 @@
   "notif.testTtsContent": "إعلان تجريبي",
   "notif.testTtsTip": "اختبار الصوت فقط",
   "notif.defaultHooksDisabledHint": "فعّل الإشعارات أولاً",
-  "notifications.goSettings": "إعدادات الإشعارات"
+  "notifications.goSettings": "إعدادات الإشعارات",
+  "notif.eventListTitle": "مشغّلات أحداث Hook الفردية",
+  "notif.eventListDesc": "اضبط كل حدث hook في Claude Code على حدة: هل يُطلق إشعارًا، ونوع الإشعار، ونص مخصص اختياري (اتركه فارغًا لاستخدام قالب النوع). يتم تفعيل مجموعة مختارة فقط افتراضيًا.",
+  "notif.eventTypeLabel": "نوع الإشعار",
+  "notif.eventTemplatePlaceholder": "اتركه فارغًا لاستخدام قالب النوع المحدد"
 }
