@@ -1,0 +1,96 @@
+name: 🐛 Bug 报告 / Bug Report
+description: 应用崩溃、代理转发失败、请求报错、UI 异常等
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量填全，**截图 / 日志 / 复现步骤**对定位最有帮助。
+        > ⚠️ 贴日志和配置前请**抹掉 API Key、token、余额**等敏感信息。
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: 问题描述
+      description: 发生了什么？你期望的是什么？
+      placeholder: 切换平台后，Claude Code 请求返回 401……
+    validations:
+      required: true
+
+  - type: textarea
+    id: repro
+    attributes:
+      label: 复现步骤
+      description: 一步步怎么触发
+      placeholder: |
+        1. 添加平台 DeepSeek
+        2. 创建分组 X，绑定该平台
+        3. Claude Code 指向代理发请求
+        4. 报错 ……
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: AiDog 版本
+      description: 「关于」页可见，或下载的安装包版本号
+      placeholder: "0.1.0"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 操作系统
+      options:
+        - macOS (Apple Silicon)
+        - macOS (Intel)
+        - Windows 10/11 (x64)
+        - Linux (x86_64)
+        - Linux (aarch64)
+    validations:
+      required: true
+
+  - type: dropdown
+    id: client
+    attributes:
+      label: 接入的客户端
+      description: 通过什么调用代理触发的问题
+      multiple: true
+      options:
+        - Claude Code
+        - OpenAI Codex
+        - 其他 OpenAI 兼容客户端
+        - 其他 Anthropic 兼容客户端
+        - curl / 脚本直连
+        - 仅 AiDog 界面操作（未涉及代理）
+    validations:
+      required: true
+
+  - type: input
+    id: platform-protocol
+    attributes:
+      label: 涉及的上游平台 / 协议
+      description: 哪个平台、什么协议（OpenAI Chat / Responses / Anthropic / Gemini）
+      placeholder: "DeepSeek，OpenAI Chat 协议"
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 请求日志 / 报错信息
+      description: |
+        AiDog「日志」页可查请求链路（已脱敏）。也可附终端报错、控制台输出。
+        粘贴前**再次确认无 Key / token / 余额**。
+      render: shell
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 确认
+      options:
+        - label: 我已确认贴出的日志 / 配置不含 API Key、token 等敏感信息
+          required: true
+        - label: 我已搜过现有 Issue，没有重复
+          required: true
