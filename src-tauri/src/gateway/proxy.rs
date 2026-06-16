@@ -1031,6 +1031,26 @@ async fn handle_proxy_inner(
     // 替换模型名
     chat_req.model = actual_model.clone();
 
+    // ── max_tokens 出站裁剪（convert_request 前）──
+    // 客户端 max_tokens 超过选定模型上限时裁剪到上限；未传 / 模型无上限则不动（Q3 保守）。
+    // 仅作用于 convert_request（读 chat_req）；同协议透传分支用原始 req_value 不受影响
+    // （客户端原生协议，上游自纠；已知限制见 report）。
+    {
+        let model_max = super::db::get_model_max_output_tokens(&state.db, &actual_model)
+            .await
+            .ok()
+            .flatten();
+        let (capped, did_cap) = super::router::cap_max_tokens(chat_req.max_tokens, model_max);
+        if did_cap {
+            tracing::info!(
+                model = %actual_model,
+                requested = ?chat_req.max_tokens, capped_to = ?capped,
+                "max_tokens exceeds model limit, capping"
+            );
+            chat_req.max_tokens = capped;
+        }
+    }
+
     // ── 中间件入站规则（platform 层，候选选定后、convert_request 前）──
     // 仅应用 platform 作用域规则（global/group 已在路由前应用，避免重复）。
     // block 在 forward 前返回，对透传/转换分支均生效；mask/inject 改写 chat_req，

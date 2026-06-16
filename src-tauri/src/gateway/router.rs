@@ -2,6 +2,19 @@ use super::db;
 use super::models::*;
 use super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 
+/// 出站 max_tokens 裁剪（convert_request 前调用）。
+///
+/// 保守策略（Q3）：仅当客户端显式传了 max_tokens **且**超过模型上限时裁剪到上限；
+/// 未传（None）不注入默认值；模型无上限记录（None）不裁剪。
+///
+/// 返回 (裁剪后值, 是否发生裁剪)。
+pub fn cap_max_tokens(req_max: Option<u32>, model_max: Option<i64>) -> (Option<u32>, bool) {
+    match (req_max, model_max) {
+        (Some(req), Some(limit)) if limit > 0 && (req as i64) > limit => (Some(limit as u32), true),
+        _ => (req_max, false),
+    }
+}
+
 /// 路由结果
 pub struct RouteResult {
     pub platform: Platform,
@@ -528,5 +541,21 @@ mod tests {
         assert_eq!(candidate_state(&mk_platform(PlatformStatus::AutoDisabled, now + 5000), now), None);
         // auto_disabled 已过退避时间 → 纳入（末尾试探）
         assert_eq!(candidate_state(&mk_platform(PlatformStatus::AutoDisabled, now - 1), now), Some(true));
+    }
+
+    #[test]
+    fn cap_max_tokens_logic() {
+        // 超限 → 裁剪到上限
+        assert_eq!(cap_max_tokens(Some(100_000), Some(8192)), (Some(8192), true));
+        // 未超限 → 原值不变
+        assert_eq!(cap_max_tokens(Some(4096), Some(8192)), (Some(4096), false));
+        // 恰好等于上限 → 不裁剪
+        assert_eq!(cap_max_tokens(Some(8192), Some(8192)), (Some(8192), false));
+        // 客户端未传 → 不注入（None 透传）
+        assert_eq!(cap_max_tokens(None, Some(8192)), (None, false));
+        // 模型无上限记录 → 不裁剪（即便客户端传了巨大值）
+        assert_eq!(cap_max_tokens(Some(1_000_000), None), (Some(1_000_000), false));
+        // 模型上限为 0（异常数据）→ 视作无限制不裁剪
+        assert_eq!(cap_max_tokens(Some(100_000), Some(0)), (Some(100_000), false));
     }
 }
