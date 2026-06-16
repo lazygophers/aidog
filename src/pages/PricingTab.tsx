@@ -99,13 +99,6 @@ export function PricingTab() {
     } catch (e: any) { setMessage(e.toString()); }
   };
 
-  const handleDelete = async (modelName: string) => {
-    try {
-      await modelPriceApi.delete(modelName);
-      load();
-    } catch (e: any) { setMessage(e.toString()); }
-  };
-
   const clearFilter = () => {
     setFilterQuery("");
     setFilterSource("");
@@ -129,6 +122,13 @@ export function PricingTab() {
     return v.toFixed(2);
   };
 
+  /** token 数 → 千分位 K 展示；null → "-" */
+  const formatTokens = (v: number | null | undefined) => {
+    if (v == null) return "-";
+    if (v >= 1000) return `${(v / 1000).toLocaleString()}K`;
+    return String(v);
+  };
+
   const formatTime = (ts: number) => {
     if (!ts) return "-";
     return new Date(ts).toLocaleString();
@@ -142,7 +142,7 @@ export function PricingTab() {
           <div>
             <div style={{ fontSize: F.body, fontWeight: 600 }}>{t("pricing.syncTitle", "价格同步")}</div>
             <div className="text-secondary" style={{ fontSize: F.small, marginTop: 2 }}>
-              {t("pricing.syncDesc", "从 LiteLLM 同步模型价格表（含各平台价格）")}
+              {t("pricing.syncDesc", "从 GitHub 同步模型价格 + max_tokens（含各平台价格）")}
             </div>
           </div>
           <button className="btn" onClick={handleSync} disabled={syncing} style={{ fontSize: F.hint }}>
@@ -233,7 +233,7 @@ export function PricingTab() {
           style={{ fontSize: F.small, padding: "6px 8px", width: 100 }}
         >
           <option value="">{t("pricing.allSources", "全部来源")}</option>
-          <option value="litellm">LiteLLM</option>
+          <option value="github">GitHub</option>
           <option value="manual">{t("pricing.manual", "手动")}</option>
         </select>
         {hasFilter && (
@@ -249,7 +249,7 @@ export function PricingTab() {
       ) : prices.length === 0 ? (
         <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
           <div className="text-tertiary" style={{ fontSize: F.hint }}>
-            {t("pricing.empty", "暂无价格数据，请点击「立即同步」从 LiteLLM 获取")}
+            {t("pricing.empty", "暂无价格数据，请点击「立即同步」从 GitHub 获取")}
           </div>
         </div>
       ) : (
@@ -264,7 +264,8 @@ export function PricingTab() {
                   <ThCell>{t("pricing.inputPrice", "输入 $/M")}</ThCell>
                   <ThCell>{t("pricing.outputPrice", "输出 $/M")}</ThCell>
                   <ThCell>{t("pricing.cacheReadPrice", "缓存读取 $/M")}</ThCell>
-                  <ThCell>{""}</ThCell>
+                  <ThCell>{t("pricing.contextWindow", "上下文")}</ThCell>
+                  <ThCell>{t("pricing.maxOutput", "最大输出")}</ThCell>
                 </tr>
               </thead>
               <tbody>
@@ -285,16 +286,8 @@ export function PricingTab() {
                     <TdCell>{formatPrice(p.input_price)}</TdCell>
                     <TdCell>{formatPrice(p.output_price)}</TdCell>
                     <TdCell>{formatPrice(p.cache_read_price)}</TdCell>
-                    <TdCell>
-                      <button
-                        className="btn btn-ghost btn-icon"
-                        style={{ padding: 2 }}
-                        title={t("pricing.delete", "删除")}
-                        onClick={() => handleDelete(p.model_name)}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="var(--color-danger, #ff3b30)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 2l10 10M12 2L2 12" /></svg>
-                      </button>
-                    </TdCell>
+                    <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{formatTokens(p.context_window)}</span></TdCell>
+                    <TdCell><span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{formatTokens(p.max_output_tokens)}</span></TdCell>
                   </tr>
                 ))}
               </tbody>

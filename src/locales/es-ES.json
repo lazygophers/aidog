@@ -290,7 +290,6 @@
   "importExport.scope.codex": "Ajustes de Codex",
   "importExport.scope.group": "Grupos",
   "importExport.scope.groupPlatform": "Enlaces Grupo↔Plataforma",
-  "importExport.scope.modelPrice": "Tabla de precios de modelos",
   "importExport.scope.platform": "Plataformas",
   "importExport.scope.setting": "Ajustes globales (tema/idioma/proxy/notificaciones)",
   "importExport.scope.skills": "Skills (instalación npx + estado de activación)",
@@ -298,7 +297,6 @@
   "importExport.scopeDesc.codex": "Configuración de Codex",
   "importExport.scopeDesc.group": "Grupos y estrategia de programación",
   "importExport.scopeDesc.groupPlatform": "Asociaciones grupo-plataforma",
-  "importExport.scopeDesc.modelPrice": "Datos de precios de modelos",
   "importExport.scopeDesc.platform": "Conexiones y credenciales de plataforma",
   "importExport.scopeDesc.setting": "Tema / idioma / proxy / notificaciones",
   "importExport.scopeDesc.skills": "Instalación npx + estado de activación",
@@ -701,7 +699,7 @@
   "pricing.clearFilter": "Limpiar",
   "pricing.defaultPlatform": "Plataforma por defecto",
   "pricing.delete": "Eliminar",
-  "pricing.empty": "Sin datos de precios. Haz clic en \"Sincronizar ahora\" para obtenerlos de LiteLLM",
+  "pricing.empty": "Sin datos de precios. Haz clic en \"Sincronizar ahora\" para obtenerlos de GitHub",
   "pricing.fallback": "Precio de respaldo $/M tokens",
   "pricing.input": "Entrada",
   "pricing.inputPrice": "Entrada $/M",
@@ -713,7 +711,7 @@
   "pricing.outputPrice": "Salida $/M",
   "pricing.searchPlaceholder": "Buscar nombre de modelo...",
   "pricing.source": "Fuente",
-  "pricing.syncDesc": "Sincroniza los precios de modelos desde LiteLLM (incl. precios por plataforma)",
+  "pricing.syncDesc": "Sincroniza precios de modelos + max_tokens desde GitHub (incl. precios por plataforma)",
   "pricing.syncNow": "Sincronizar ahora",
   "pricing.syncResult": "Sincronización completa: +{added} añadidos, ~{updated} actualizados, {failed} fallidos ({total} total)",
   "pricing.syncTitle": "Sincronización de precios",
@@ -1448,5 +1446,7 @@
   "updater.releaseNotes": "Notas de la versión",
   "updater.updateFailed": "Error al actualizar",
   "updater.updateNow": "Actualizar ahora",
-  "updater.updating": "Actualizando…"
+  "updater.updating": "Actualizando…",
+  "pricing.contextWindow": "Contexto",
+  "pricing.maxOutput": "Salida máx."
 }

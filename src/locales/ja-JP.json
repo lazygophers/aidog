@@ -290,7 +290,6 @@
   "importExport.scope.codex": "Codex 設定",
   "importExport.scope.group": "グループ",
   "importExport.scope.groupPlatform": "グループ↔プラットフォーム関連付け",
-  "importExport.scope.modelPrice": "モデル価格表",
   "importExport.scope.platform": "プラットフォーム",
   "importExport.scope.setting": "グローバル設定（テーマ/言語/プロキシ/通知など）",
   "importExport.scope.skills": "Skills (npx インストール + 有効状態)",
@@ -298,7 +297,6 @@
   "importExport.scopeDesc.codex": "Codex 設定",
   "importExport.scopeDesc.group": "グループとスケジューリング戦略",
   "importExport.scopeDesc.groupPlatform": "グループとプラットフォームの関連付け",
-  "importExport.scopeDesc.modelPrice": "モデル価格データ",
   "importExport.scopeDesc.platform": "プラットフォーム接続と認証情報",
   "importExport.scopeDesc.setting": "テーマ / 言語 / プロキシ / 通知など",
   "importExport.scopeDesc.skills": "npx インストール + 有効状態",
@@ -723,7 +721,7 @@
   "pricing.clearFilter": "クリア",
   "pricing.defaultPlatform": "デフォルトプラットフォーム",
   "pricing.delete": "削除",
-  "pricing.empty": "価格データがありません。「今すぐ同期」で LiteLLM から取得してください",
+  "pricing.empty": "価格データがありません。「今すぐ同期」で GitHub から取得してください",
   "pricing.fallback": "フォールバック価格 $/M トークン",
   "pricing.input": "入力",
   "pricing.inputPrice": "入力 $/M",
@@ -735,7 +733,7 @@
   "pricing.outputPrice": "出力 $/M",
   "pricing.searchPlaceholder": "モデル名で検索...",
   "pricing.source": "ソース",
-  "pricing.syncDesc": "LiteLLM からモデル価格表を同期（プラットフォーム別価格含む）",
+  "pricing.syncDesc": "GitHub からモデル価格 + max_tokens を同期（プラットフォーム別価格含む）",
   "pricing.syncNow": "今すぐ同期",
   "pricing.syncResult": "同期完了: +{added} 追加, ~{updated} 更新, {failed} 失敗 (合計 {total})",
   "pricing.syncTitle": "価格同期",
@@ -1470,5 +1468,7 @@
   "updater.releaseNotes": "更新内容",
   "updater.updateFailed": "更新に失敗しました",
   "updater.updateNow": "今すぐ更新",
-  "updater.updating": "更新中…"
+  "updater.updating": "更新中…",
+  "pricing.contextWindow": "コンテキスト",
+  "pricing.maxOutput": "最大出力"
 }

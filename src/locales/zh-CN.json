@@ -290,7 +290,6 @@
   "importExport.scope.codex": "Codex 设置",
   "importExport.scope.group": "分组",
   "importExport.scope.groupPlatform": "分组↔平台关联",
-  "importExport.scope.modelPrice": "模型价格表",
   "importExport.scope.platform": "平台",
   "importExport.scope.setting": "全局设置（主题/语言/代理/通知等）",
   "importExport.scope.skills": "Skills（npx 安装 + 启用状态）",
@@ -298,7 +297,6 @@
   "importExport.scopeDesc.codex": "Codex 配置",
   "importExport.scopeDesc.group": "分组与调度策略",
   "importExport.scopeDesc.groupPlatform": "分组与平台的关联关系",
-  "importExport.scopeDesc.modelPrice": "模型定价数据",
   "importExport.scopeDesc.platform": "平台连接与凭据",
   "importExport.scopeDesc.setting": "主题 / 语言 / 代理 / 通知等",
   "importExport.scopeDesc.skills": "npx 安装 + 启用状态",
@@ -701,7 +699,7 @@
   "pricing.clearFilter": "清除",
   "pricing.defaultPlatform": "默认平台",
   "pricing.delete": "删除",
-  "pricing.empty": "暂无价格数据，请点击「立即同步」从 LiteLLM 获取",
+  "pricing.empty": "暂无价格数据，请点击「立即同步」从 GitHub 获取",
   "pricing.fallback": "兜底价格 $/M tokens",
   "pricing.input": "输入",
   "pricing.inputPrice": "输入 $/M",
@@ -713,7 +711,7 @@
   "pricing.outputPrice": "输出 $/M",
   "pricing.searchPlaceholder": "搜索模型名称...",
   "pricing.source": "来源",
-  "pricing.syncDesc": "从 LiteLLM 同步模型价格表（含各平台价格）",
+  "pricing.syncDesc": "从 GitHub 同步模型价格 + max_tokens（含各平台价格）",
   "pricing.syncNow": "立即同步",
   "pricing.syncResult": "同步完成: +{added} 新增, ~{updated} 更新, {failed} 失败 (共 {total} 模型)",
   "pricing.syncTitle": "价格同步",
@@ -1448,5 +1446,7 @@
   "updater.releaseNotes": "更新内容",
   "updater.updateFailed": "更新失败",
   "updater.updateNow": "立即更新",
-  "updater.updating": "更新中…"
+  "updater.updating": "更新中…",
+  "pricing.contextWindow": "上下文",
+  "pricing.maxOutput": "最大输出"
 }

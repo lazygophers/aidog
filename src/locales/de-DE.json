@@ -290,7 +290,6 @@
   "importExport.scope.codex": "Codex-Einstellungen",
   "importExport.scope.group": "Gruppen",
   "importExport.scope.groupPlatform": "Gruppe↔Plattform-Verknüpfungen",
-  "importExport.scope.modelPrice": "Modellpreistabelle",
   "importExport.scope.platform": "Plattformen",
   "importExport.scope.setting": "Globale Einstellungen (Theme/Sprache/Proxy/Benachrichtigung u.a.)",
   "importExport.scope.skills": "Skills (npx-Installation + Aktivierungsstatus)",
@@ -298,7 +297,6 @@
   "importExport.scopeDesc.codex": "Codex-Konfiguration",
   "importExport.scopeDesc.group": "Gruppen & Scheduling-Strategie",
   "importExport.scopeDesc.groupPlatform": "Gruppen-Plattform-Zuordnungen",
-  "importExport.scopeDesc.modelPrice": "Modell-Preisdaten",
   "importExport.scopeDesc.platform": "Plattformverbindungen & Zugangsdaten",
   "importExport.scopeDesc.setting": "Theme / Sprache / Proxy / Benachrichtigungen",
   "importExport.scopeDesc.skills": "npx-Installation + Aktivierungsstatus",
@@ -723,7 +721,7 @@
   "pricing.clearFilter": "Löschen",
   "pricing.defaultPlatform": "Standard-Plattform",
   "pricing.delete": "Löschen",
-  "pricing.empty": "Keine Preisdaten. Klicken Sie auf \"Jetzt synchronisieren\", um von LiteLLM zu laden",
+  "pricing.empty": "Keine Preisdaten. Klicken Sie auf \"Jetzt synchronisieren\", um von GitHub zu laden",
   "pricing.fallback": "Fallback-Preis $/M Token",
   "pricing.input": "Eingabe",
   "pricing.inputPrice": "Eingabe $/M",
@@ -735,7 +733,7 @@
   "pricing.outputPrice": "Ausgabe $/M",
   "pricing.searchPlaceholder": "Modellname suchen...",
   "pricing.source": "Quelle",
-  "pricing.syncDesc": "Modellpreise von LiteLLM synchronisieren (inkl. plattformspezifischer Preise)",
+  "pricing.syncDesc": "Modellpreise + max_tokens von GitHub synchronisieren (inkl. plattformspezifischer Preise)",
   "pricing.syncNow": "Jetzt synchronisieren",
   "pricing.syncResult": "Sync abgeschlossen: +{added} neu, ~{updated} aktualisiert, {failed} fehlgeschlagen ({total} gesamt)",
   "pricing.syncTitle": "Preis-Sync",
@@ -1470,5 +1468,7 @@
   "updater.releaseNotes": "Versionshinweise",
   "updater.updateFailed": "Aktualisierung fehlgeschlagen",
   "updater.updateNow": "Jetzt aktualisieren",
-  "updater.updating": "Wird aktualisiert…"
+  "updater.updating": "Wird aktualisiert…",
+  "pricing.contextWindow": "Kontext",
+  "pricing.maxOutput": "Max. Ausgabe"
 }

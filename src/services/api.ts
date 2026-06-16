@@ -1233,6 +1233,12 @@ export interface ModelPriceSummary {
   output_price: number | null;
   /** $/M cache read tokens */
   cache_read_price: number | null;
+  /** 最大输入 token（模型固有，平台无关）。null = 未知。 */
+  max_input_tokens?: number | null;
+  /** 最大输出 token（出站裁剪用）。null = 未知/无限制。 */
+  max_output_tokens?: number | null;
+  /** 上下文窗口。null = 未知。 */
+  context_window?: number | null;
   updated_at: number;
 }
 
@@ -1275,10 +1281,6 @@ export const modelPriceApi = {
     invoke<ModelPriceSummary[]>("model_price_list_filtered", { ...filter, limit, offset }),
   countFiltered: (filter: ModelPriceFilter) =>
     invoke<number>("model_price_count_filtered", { ...filter }),
-  delete: (modelName: string) =>
-    invoke<void>("model_price_delete", { modelName }),
-  upsert: (modelName: string, source: string, priceData: string) =>
-    invoke<void>("model_price_upsert", { modelName, source, priceData }),
   resolve: (modelName: string, platformType: string) =>
     invoke<ResolvedPrice>("model_price_resolve", { modelName, platformType }),
   sync: () =>

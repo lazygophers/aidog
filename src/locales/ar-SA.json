@@ -290,7 +290,6 @@
   "importExport.scope.codex": "إعدادات Codex",
   "importExport.scope.group": "المجموعات",
   "importExport.scope.groupPlatform": "روابط المجموعة↔المنصة",
-  "importExport.scope.modelPrice": "جدول أسعار النماذج",
   "importExport.scope.platform": "المنصات",
   "importExport.scope.setting": "الإعدادات العامة (المظهر/اللغة/البروكسي/الإشعارات)",
   "importExport.scope.skills": "المهارات (تثبيت npx + حالة التمكين)",
@@ -298,7 +297,6 @@
   "importExport.scopeDesc.codex": "إعدادات Codex",
   "importExport.scopeDesc.group": "المجموعات واستراتيجية الجدولة",
   "importExport.scopeDesc.groupPlatform": "روابط المجموعة بالمنصّة",
-  "importExport.scopeDesc.modelPrice": "بيانات تسعير النماذج",
   "importExport.scopeDesc.platform": "اتصالات المنصّات وبياناتها",
   "importExport.scopeDesc.setting": "السمة / اللغة / الوكيل / الإشعارات",
   "importExport.scopeDesc.skills": "تثبيت npx + حالة التفعيل",
@@ -723,7 +721,7 @@
   "pricing.clearFilter": "مسح",
   "pricing.defaultPlatform": "المنصة الافتراضية",
   "pricing.delete": "حذف",
-  "pricing.empty": "لا توجد بيانات أسعار بعد. انقر على \"زامن الآن\" للحصول عليها من LiteLLM",
+  "pricing.empty": "لا توجد بيانات أسعار بعد. انقر على \"زامن الآن\" للحصول عليها من GitHub",
   "pricing.fallback": "السعر الاحتياطي $/مليون رمز",
   "pricing.input": "إدخال",
   "pricing.inputPrice": "إدخال $/مليون",
@@ -735,7 +733,7 @@
   "pricing.outputPrice": "إخراج $/مليون",
   "pricing.searchPlaceholder": "ابحث عن اسم النموذج...",
   "pricing.source": "المصدر",
-  "pricing.syncDesc": "مزامنة أسعار النماذج من LiteLLM (تشمل أسعار كل منصة)",
+  "pricing.syncDesc": "مزامنة أسعار النماذج + max_tokens من GitHub (تشمل أسعار كل منصة)",
   "pricing.syncNow": "زامن الآن",
   "pricing.syncResult": "اكتملت المزامنة: +{added} مضاف، ~{updated} محدّث، {failed} فشل (الإجمالي {total})",
   "pricing.syncTitle": "مزامنة الأسعار",
@@ -1470,5 +1468,7 @@
   "updater.releaseNotes": "ملاحظات الإصدار",
   "updater.updateFailed": "فشل التحديث",
   "updater.updateNow": "التحديث الآن",
-  "updater.updating": "جارٍ التحديث…"
+  "updater.updating": "جارٍ التحديث…",
+  "pricing.contextWindow": "السياق",
+  "pricing.maxOutput": "الحد الأقصى للإخراج"
 }

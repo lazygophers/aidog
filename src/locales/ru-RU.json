@@ -290,7 +290,6 @@
   "importExport.scope.codex": "Настройки Codex",
   "importExport.scope.group": "Группы",
   "importExport.scope.groupPlatform": "Связи Группа↔Платформа",
-  "importExport.scope.modelPrice": "Таблица цен моделей",
   "importExport.scope.platform": "Платформы",
   "importExport.scope.setting": "Глобальные настройки (тема/язык/прокси/уведомления)",
   "importExport.scope.skills": "Skills (установка npx + состояние включения)",
@@ -298,7 +297,6 @@
   "importExport.scopeDesc.codex": "Конфигурация Codex",
   "importExport.scopeDesc.group": "Группы и стратегия маршрутизации",
   "importExport.scopeDesc.groupPlatform": "Связи групп и платформ",
-  "importExport.scopeDesc.modelPrice": "Данные о ценах моделей",
   "importExport.scopeDesc.platform": "Подключения и ключи платформ",
   "importExport.scopeDesc.setting": "Тема / язык / прокси / уведомления",
   "importExport.scopeDesc.skills": "Установка npx + состояние включения",
@@ -723,7 +721,7 @@
   "pricing.clearFilter": "Очистить",
   "pricing.defaultPlatform": "Платформа по умолчанию",
   "pricing.delete": "Удалить",
-  "pricing.empty": "Нет данных о ценах. Нажмите «Синхр. сейчас», чтобы загрузить из LiteLLM",
+  "pricing.empty": "Нет данных о ценах. Нажмите «Синхр. сейчас», чтобы загрузить из GitHub",
   "pricing.fallback": "Резервная цена $/млн токенов",
   "pricing.input": "Ввод",
   "pricing.inputPrice": "Ввод $/млн",
@@ -735,7 +733,7 @@
   "pricing.outputPrice": "Вывод $/млн",
   "pricing.searchPlaceholder": "Поиск по имени модели...",
   "pricing.source": "Источник",
-  "pricing.syncDesc": "Синхронизировать цены моделей из LiteLLM (включая цены по платформам)",
+  "pricing.syncDesc": "Синхронизировать цены моделей + max_tokens из GitHub (включая цены по платформам)",
   "pricing.syncNow": "Синхр. сейчас",
   "pricing.syncResult": "Синхронизация завершена: +{added} добавлено, ~{updated} обновлено, {failed} с ошибкой (всего {total})",
   "pricing.syncTitle": "Синхронизация цен",
@@ -1470,5 +1468,7 @@
   "updater.releaseNotes": "Что нового",
   "updater.updateFailed": "Ошибка обновления",
   "updater.updateNow": "Обновить сейчас",
-  "updater.updating": "Обновление…"
+  "updater.updating": "Обновление…",
+  "pricing.contextWindow": "Контекст",
+  "pricing.maxOutput": "Макс. вывод"
 }
