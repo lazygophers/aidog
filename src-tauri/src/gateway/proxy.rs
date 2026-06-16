@@ -1461,8 +1461,14 @@ async fn handle_proxy_inner(
         let chunk = match chunk_result {
             Ok(c) => c,
             Err(e) => {
-                tracing::warn!(error = %e, "SSE upstream stream chunk error");
-                return Ok::<_, std::io::Error>(Bytes::from(format!("event: error\ndata: {{\"error\":\"{e}\"}}\n\n")));
+                // 上游流中途断裂（如 GLM ~60s 截断）：不向客户端报错，仅记日志 +
+                // 按客户端协议合成干净的 Stop 终止事件收尾，已输出内容保留。
+                // （不再注入 `event: error`，避免 CC 显示 "API Error: error decoding response body"。）
+                tracing::warn!(error = %e, "SSE upstream stream chunk error; closing stream gracefully");
+                let stop = adapter::to_client_sse(&ChatStreamEvent::Stop {
+                    finish_reason: Some("end_turn".to_string()),
+                }, &client_protocol, &model_for_sse).unwrap_or_default();
+                return Ok::<_, std::io::Error>(Bytes::from(stop));
             }
         };
 
@@ -1918,7 +1924,14 @@ async fn handle_passthrough(
     let stream = resp.bytes_stream().map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
-            Err(e) => return Err(std::io::Error::other(e.to_string())),
+            Err(e) => {
+                // 上游流中途断裂：不向客户端报错（避免 CC "error decoding response body"），
+                // 仅记日志 + 合成 anthropic message_stop 干净收尾（claude_code relay wire = anthropic）。
+                tracing::warn!(error = %e, "passthrough upstream stream chunk error; closing stream gracefully");
+                return Ok::<_, std::io::Error>(Bytes::from(
+                    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+                ));
+            }
         };
         // 旁路累积上游 SSE 原文（受 master 开关控制）
         if record_upstream_body {
