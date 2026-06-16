@@ -74,3 +74,4 @@
 | release-ci-cache-on-failure | release CI 失败也缓存 (cache-on-failure) | — | 已完成 | 收尾 | 100% | — |
 | updater-pubkey-gitignore | updater 新签名密钥对 (改 pubkey + gitignore) | — | 已完成 | 收尾 | 100% | — |
 | ci-actions-node-24 | CI actions 升级到 Node 24 兼容版 | — | 已完成 | 收尾 | 100% | — |
+| release-v0-1-0 | 优化 release 发布文本 (模板+v0.1.0) | — | 已完成 | 收尾 | 100% | — |
