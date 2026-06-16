@@ -12,6 +12,11 @@ export TAURI_SIGNING_PRIVATE_KEY
 
 ##@ Build
 
+.PHONY: run
+run: ## Start dev server with hot reload (frontend + Rust HMR)
+	@printf "$(GREEN)▶ Starting Tauri dev server...$(RESET)\n"
+	yarn tauri dev
+
 .PHONY: build
 build: ## Build frontend (tsc && vite build)
 	@printf "$(CYAN)▶ Building frontend...$(RESET)\n"
