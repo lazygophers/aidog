@@ -18,5 +18,10 @@
     "text": "Estadísticas",
     "link": "/es/stats/usage-stats",
     "activeMatch": "/es/stats"
+  },
+  {
+    "text": "Referencia de API",
+    "link": "/es/api/api-reference",
+    "activeMatch": "/es/api"
   }
 ]
