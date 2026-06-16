@@ -2910,11 +2910,17 @@ struct TrayColumn {
     name: String,
     value: String,
     color: TrayColor,
+    // 以下 4 字段为 macOS 富文本渲染（set_tray_attributed_title）专属参数；
+    // 非 macOS 走 fallback 纯文本路径不读取，故平台条件 allow(dead_code)。
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     font_size: f64,
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     two_line: bool,
     /// "left" | "center" | "right"
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     align: String,
     /// 两行模式第二行对齐，None = 跟随 align
+    #[cfg_attr(not(target_os = "macos"), allow(dead_code))]
     align_row2: Option<String>,
 }
 
