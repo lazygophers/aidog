@@ -1195,10 +1195,19 @@ pub const TEST_PROMPTS: &[&str] = &[
 pub struct ModelPrice {
     pub id: u64,
     pub model_name: String,
-    /// "litellm" | "manual"
+    /// "github" | "manual"
     pub source: String,
     /// JSON: {input_cost_per_token, output_cost_per_token, cache_read_input_token_cost, pricing: {platform_type: {...}}, default_platform, ...}
     pub price_data: String,
+    /// 最大输入 token（模型固有，平台无关）。NULL = 未知。
+    #[serde(default)]
+    pub max_input_tokens: Option<i64>,
+    /// 最大输出 token（出站裁剪用）。NULL = 未知/无限制。
+    #[serde(default)]
+    pub max_output_tokens: Option<i64>,
+    /// 上下文窗口。NULL = 未知。
+    #[serde(default)]
+    pub context_window: Option<i64>,
     pub created_at: i64,
     pub updated_at: i64,
     #[serde(default)]
@@ -1218,6 +1227,12 @@ pub struct ModelPriceSummary {
     pub output_price: Option<f64>,
     /// $/M cache read tokens
     pub cache_read_price: Option<f64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_input_tokens: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub max_output_tokens: Option<i64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context_window: Option<i64>,
     pub updated_at: i64,
 }
 

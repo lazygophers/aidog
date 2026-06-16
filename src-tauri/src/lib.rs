@@ -2770,27 +2770,6 @@ async fn model_price_count_filtered(
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn model_price_delete(db: State<'_, Db>, model_name: String) -> Result<(), String> {
-    tracing::debug!(command = "model_price_delete", model_name = %model_name, "command invoked");
-    gateway::db::delete_model_price(&db, &model_name).await
-        .map_err(|e| { tracing::error!(command = "model_price_delete", model_name = %model_name, error = %e, "delete model price failed"); e })
-}
-
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn model_price_upsert(
-    db: State<'_, Db>,
-    model_name: String,
-    source: String,
-    price_data: String,
-) -> Result<(), String> {
-    tracing::debug!(command = "model_price_upsert", model_name = %model_name, source = %source, "command invoked");
-    gateway::db::upsert_model_price(&db, &model_name, &source, &price_data).await
-        .map_err(|e| { tracing::error!(command = "model_price_upsert", model_name = %model_name, error = %e, "upsert model price failed"); e })
-}
-
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_price_resolve(
     db: State<'_, Db>,
     model_name: String,
@@ -2805,7 +2784,7 @@ async fn model_price_resolve(
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_price_sync(db: State<'_, Db>) -> Result<gateway::models::PriceSyncResult, String> {
     tracing::debug!(command = "model_price_sync", "command invoked");
-    gateway::price_sync::sync_litellm_prices(&db).await
+    gateway::price_sync::sync_github_prices(&db).await
         .map_err(|e| { tracing::error!(command = "model_price_sync", error = %e, "model price sync failed"); e })
 }
 
@@ -3752,8 +3731,6 @@ pub fn run() {
             model_price_search,
 model_price_list_filtered,
 model_price_count_filtered,
-            model_price_delete,
-            model_price_upsert,
             model_price_resolve,
             model_price_sync,
             price_sync_settings_get,
