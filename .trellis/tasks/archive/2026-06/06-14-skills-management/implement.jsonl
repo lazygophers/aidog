@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "新页 Skills.tsx 必遵的目录结构/组件/状态/API 封装/类型/i18n 强制规则"}
+{"file": ".trellis/spec/backend/index.md", "reason": "后端 gateway/skills.rs + lib.rs command 注册约定入口"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Rust↔TS 契约/字段名/类型对齐 (skills command 入参出参)"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "写新函数/组件前 grep 查已有实现 (shell out 复用 notification.rs 模式)"}

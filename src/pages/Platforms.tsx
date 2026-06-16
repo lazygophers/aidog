@@ -9,6 +9,7 @@ import { formatNumber, formatCost, formatPercent } from "../utils/formatters";
 import { ModelTestPanel } from "./ModelTestPanel";
 import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
 import { pinyinMatch } from "../utils/pinyin";
+import { SmartPasteModal, type SmartPasteApplyResult } from "../components/platforms/SmartPasteModal";
 
 /** 支持的协议选项（含 coding plan 变体） */
 type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[] };
@@ -130,7 +131,7 @@ function defaultClientForProtocol(protocol: Protocol): ClientType {
  * 来源：各平台官方文档 */
 type HealthStatus = "healthy" | "warning" | "error" | "unknown";
 const HEALTH_COLORS: Record<HealthStatus, string> = {
-  healthy: "var(--color-success, #34c759)",
+  healthy: "var(--color-success, var(--color-success))",
   warning: "var(--color-warning, #ff9500)",
   error: "var(--color-danger, #ff3b30)",
   unknown: "transparent",
@@ -361,6 +362,36 @@ function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Platform
     ],
   };
   return (base[protocol] || []).map(ep => ({ ...ep }));
+}
+
+/** 主流平台预设默认模型（按 PlatformModels 槽位语义归类）。
+ *  与 getDefaultEndpoints 同址同模式：纯前端预设，落 CreatePlatform.models。
+ *  仅覆盖主流平台，其余留空（向后兼容，未覆盖平台 models 保持全空）。
+ *  模型名取各平台当前主力型号；不确定的不硬填（避免过时/编造）。 */
+function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Partial<Record<ModelSlot, string>> {
+  // 默认模型截至 2026-06 核对官方发布说明；上游模型迭代月级，过时由 fetchModels 拉取覆盖；维护说明见 .claude/skills/aidog-add-platform/references/default-model.md
+  const cp = !!codingPlan;
+  const presets: Partial<Record<Protocol, Partial<Record<ModelSlot, string>>>> = {
+    // ── 官方 ──
+    anthropic: { opus: "claude-opus-4-8", sonnet: "claude-sonnet-4-6", haiku: "claude-haiku-4-5-20251001" },
+    openai: { gpt: "gpt-5.5" },
+    codex: { gpt: "gpt-5.5-codex" }, // TODO 核对 codex 变体确切 API id，截至2026-06 未从官方 docs 确认
+    // gemini: 槽位语义不匹配（无 opus/sonnet/gpt 对应），留空待用户填或拉取
+
+    // ── 国内官方 ──
+    // glm-4.6 将 2026-07-09 弃用，后继 glm-5.2；保留 4.6 因 coding plan 仍广用，到期前替换
+    glm: { default: "glm-4.6" },
+    glm_en: { default: "glm-4.6" },
+    // kimi-k2 原系列 2026-05-25 已停用
+    kimi: { default: cp ? "kimi-k2.7-code" : "kimi-k2.6" },
+    minimax: { default: "MiniMax-M2.7" },
+    minimax_en: { default: "MiniMax-M2.7" },
+    // 百炼（通义千问）；qwen3-max 已被 qwen3.7-max(2026-05-20) 取代
+    bailian: { default: "qwen3.7-max" },
+    // deepseek-chat 将 2026-07-24 弃用，v4-flash 为后继
+    deepseek: { default: "deepseek-v4-flash" },
+  };
+  return { ...(presets[protocol] || {}) };
 }
 
 const PROTOCOL_LABELS: Record<Protocol, string> = {
@@ -783,8 +814,8 @@ function SearchableProtocolSelect({
                   {p.codingPlan && (
                     <span style={{
                       marginLeft: 6, padding: "1px 5px", borderRadius: "var(--radius-sm)",
-                      background: "var(--color-success, #34c759)20",
-                      color: "var(--color-success, #34c759)",
+                      background: "var(--color-success, var(--color-success))20",
+                      color: "var(--color-success, var(--color-success))",
                       fontSize: 10, fontWeight: 600,
                     }}>
                       Code
@@ -1086,6 +1117,7 @@ interface PlatformCardActions {
   onToggleEnabled: (p: Platform) => void;
   onEdit: (p: Platform) => void;
   onDelete: (id: number) => void;
+  onViewLogs: (p: Platform) => void;
   onQuickTest: (p: Platform) => void;
   onCustomTest: (p: Platform) => void;
   onFaviconFailed: (id: number) => void;
@@ -1124,7 +1156,14 @@ const PlatformCard = memo(function PlatformCard({
 }: PlatformCardProps) {
   const { t } = useTranslation();
   const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
-  const configuredModels = allModelValues(p.models);
+  // 已配置模型；若全空且无上游可用模型列表，回退展示该平台预设默认模型。
+  const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
+  const configuredModels = (() => {
+    const explicit = allModelValues(p.models);
+    if (explicit.length > 0) return explicit;
+    if ((p.available_models?.length ?? 0) > 0) return explicit;
+    return allModelValues(getDefaultModels(p.platform_type, hasCodingEndpoint));
+  })();
   const quota = computeQuotaDisplay(p, q, preferReal);
   const showQuota = p.platform_type !== "mock" && p.platform_type !== "claude_code" && quota.hasData;
   const mb = computeManualBudgetDisplay(p.manual_budgets);  const total = u ? u.total_input_tokens + u.total_output_tokens : 0;
@@ -1276,6 +1315,12 @@ const PlatformCard = memo(function PlatformCard({
                               </svg>
                             </button>
                           </div>
+                          <button className="btn btn-ghost btn-icon" title={t("platform.viewLogs", "查看日志")} onClick={(e) => { e.stopPropagation(); actions.onViewLogs(p); }}>
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M2 2h10v10H2z" />
+                              <path d="M4 5h6M4 7h4M4 9h5" />
+                            </svg>
+                          </button>
                           <button className="btn btn-ghost btn-icon" onClick={(e) => { e.stopPropagation(); actions.onEdit(p); }}>
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M10 2l2 2-7 7H3v-2l7-7z" />
@@ -1429,7 +1474,7 @@ const PlatformCard = memo(function PlatformCard({
   );
 });
 
-export function Platforms() {
+export function Platforms({ onNavigate }: { onNavigate?: (id: string, context?: { platformId?: number; platformName?: string }) => void }) {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   // ── Drag reorder for platform list ──
@@ -1517,6 +1562,7 @@ export function Platforms() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Platform | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [showPaste, setShowPaste] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -1576,6 +1622,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     } else {
       setEndpoints([]);
     }
+    // Auto-fill 默认模型预设（与 endpoints 同步随协议切换）。
+    // 仅填预设有值的槽位，其余保持空；未覆盖平台返回空对象 = 不改动。
+    const defaultModels = getDefaultModels(newProtocol, cp);
+    setModels({
+      default: "", sonnet: "", opus: "", haiku: "", gpt: "",
+      ...defaultModels,
+    });
     // 切到 mock 时用当前 extra 初始化 mock 配置编辑器
     if (newProtocol === "mock") {
       setMockConfig(parseMockConfig(extra));
@@ -1586,6 +1639,31 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     }
     setProtocol(newProtocol);
     setCodingPlan(cp);
+  };
+
+  /** 智能识别弹窗确认后，将解析结果填入添加表单。 */
+  const applyPaste = (r: SmartPasteApplyResult) => {
+    // 匹配到内置平台 → 走协议切换（设置 name + 默认 endpoints + client_type）。
+    // 未匹配 → 不改平台选择（保持当前 protocol/endpoints），仅填 base_url/apiKey。
+    if (r.platform) {
+      handleProtocolChange(r.platform.value as Protocol);
+    }
+    if (r.baseUrl) {
+      const epProto: Protocol = r.baseUrlProtocol === "unknown" ? "openai" : r.baseUrlProtocol;
+      setEndpoints((prev) => {
+        const eps = [...prev];
+        let idx = eps.findIndex((e) => e.protocol === epProto);
+        if (idx < 0 && eps.length > 0) idx = 0; // 无同协议端点则覆盖首个
+        if (idx >= 0) {
+          eps[idx] = { ...eps[idx], base_url: r.baseUrl };
+        } else {
+          eps.push({ protocol: epProto, base_url: r.baseUrl, client_type: defaultClientForProtocol(epProto) });
+        }
+        return eps;
+      });
+    }
+    if (r.apiKey) setApiKey(r.apiKey);
+    setShowPaste(false);
   };
 
   const load = async () => {
@@ -1695,6 +1773,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setNewApiConfig({ ...DEFAULT_NEWAPI_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
+  };
+
+  // 跳转该平台的日志（带 platformId 筛选上下文）。
+  const handleViewLogs = (p: Platform) => {
+    onNavigate?.("logs", { platformId: p.id, platformName: p.name });
   };
 
   const handleEdit = async (p: Platform) => {
@@ -1892,12 +1975,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // 卡片操作集合：用 latest-ref 持有最新闭包，对外暴露稳定引用，保证 PlatformCard memo 生效
   const actionsRef = useRef({
     handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
-    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDelete,
+    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDelete, handleViewLogs,
     handleQuickTest, setTestingPlatform, setFaviconFailed,
   });
   actionsRef.current = {
     handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
-    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDelete,
+    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDelete, handleViewLogs,
     handleQuickTest, setTestingPlatform, setFaviconFailed,
   };
   const cardActions = useMemo<PlatformCardActions>(() => ({
@@ -1909,10 +1992,14 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     onToggleEnabled: (p) => actionsRef.current.handleToggle(p),
     onEdit: (p) => actionsRef.current.handleEdit(p),
     onDelete: (id) => actionsRef.current.handleDelete(id),
+    onViewLogs: (p) => actionsRef.current.handleViewLogs(p),
     onQuickTest: (p) => actionsRef.current.handleQuickTest(p),
     onCustomTest: (p) => actionsRef.current.setTestingPlatform(p),
     onFaviconFailed: (id) => actionsRef.current.setFaviconFailed(prev => new Set(prev).add(id)),
   }), []);
+
+  // 列表头部「启用 / 总数」派生值：仅随 platforms 变化，避免每次轮询/拖拽重渲染时重扫全列表
+  const enabledCount = useMemo(() => platforms.filter(p => p.enabled).length, [platforms]);
 
   // ── Edit / Add form (full page, no list) ──
   if (showForm) {
@@ -1932,6 +2019,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
+            {!editing && (
+              <button className="btn" onClick={() => setShowPaste(true)}>
+                {t("platform.paste.title", "智能识别")}
+              </button>
+            )}
             <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
             <button className="btn btn-primary" onClick={handleSave}
               disabled={!name || (isPassthrough ? endpoints.length === 0 : (!isMock && (endpoints.length === 0 || !apiKey)))}>
@@ -1939,6 +2031,14 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             </button>
           </div>
         </div>
+
+        {showPaste && (
+          <SmartPasteModal
+            presets={PROTOCOLS}
+            onApply={applyPaste}
+            onClose={() => setShowPaste(false)}
+          />
+        )}
 
         <div className="animate-fade-in" style={{
           display: "flex",
@@ -2170,9 +2270,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     width: 28, height: 28, minWidth: 28,
                     padding: 0,
                     fontSize: 11, fontWeight: 700,
-                    color: ep.coding_plan ? "var(--color-success, #34c759)" : "var(--text-tertiary)",
-                    background: ep.coding_plan ? "var(--color-success, #34c759)15" : "transparent",
-                    border: `1px solid ${ep.coding_plan ? "var(--color-success, #34c759)40" : "var(--border)"}`,
+                    color: ep.coding_plan ? "var(--color-success, var(--color-success))" : "var(--text-tertiary)",
+                    background: ep.coding_plan ? "var(--color-success, var(--color-success))15" : "transparent",
+                    border: `1px solid ${ep.coding_plan ? "var(--color-success, var(--color-success))40" : "var(--border)"}`,
                     borderRadius: "var(--radius-sm)",
                   }}
                   title={ep.coding_plan ? "Coding Plan ON" : "Coding Plan"}
@@ -2622,7 +2722,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
         <div>
           <div className="section-title">{t("page.platforms")}</div>
           <div className="section-desc">
-            {platforms.length > 0 ? `${platforms.filter(p => p.enabled).length} / ${platforms.length} active` : t("platform.empty")}
+            {platforms.length > 0 ? `${enabledCount} / ${platforms.length} active` : t("platform.empty")}
           </div>
         </div>
         <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>

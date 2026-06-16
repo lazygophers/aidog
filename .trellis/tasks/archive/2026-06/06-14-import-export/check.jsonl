@@ -1,0 +1,6 @@
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "导入写 platform/group/group_platform/setting/model_price 表必须遵 DB 规范（命名/主键/时间）"}
+{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "claude-code group settings 导出/导入涉及 statusLine/subagent 配置契约"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "新增 encryption/container/collect/apply 模块前须查已有实现（codex.rs/skills.rs/db.rs 可复用）"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Rust commands ↔ TS 类型/字段名/契约一致性（import_apply decisions 等）"}
+{"file": ".trellis/spec/guides/trellisx-conventions.md", "reason": "trellisx 标准 5 步流程 + check 闭环 + 分工表"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端新增 ImportExport 页/Settings tab 须遵组件/状态/API/i18n 约定"}

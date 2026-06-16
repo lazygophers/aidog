@@ -3,65 +3,73 @@ pageType: home
 
 hero:
   name: AiDog
-  text: Manage all your AI API gateways in one place
-  tagline: Multi-platform aggregation · Smart routing · Usage stats —— a cross-platform desktop app that manages the keys, requests, and spending of all your AI platforms
+  text: Gestiona todas tus pasarelas de AI API en un solo lugar
+  tagline: Agregación multi-plataforma · Enrutamiento inteligente · Estadísticas de uso —— una app de escritorio multiplataforma que gestiona las claves, peticiones y gastos de todas tus plataformas AI
   actions:
     - theme: brand
-      text: Quick Start
-      link: /en/getting-started/quick-start
+      text: Inicio rápido
+      link: /es/getting-started/quick-start
     - theme: alt
       text: GitHub
       link: https://github.com/lazygophers/aidog
 
 features:
-  - title: Multi-platform aggregation
-    details: Manage API keys and endpoints for 50+ platforms such as OpenAI, Anthropic, Gemini, DeepSeek, and Qwen in one place.
+  - title: Agregación multi-plataforma
+    details: Gestiona claves API y endpoints para 50+ plataformas como OpenAI, Anthropic, Gemini, DeepSeek y Qwen en un solo lugar.
     icon: 🧩
-    link: /en/platforms/add-platform
-  - title: Smart routing
-    details: Automatically forward each request to the best platform based on group and model mapping rules.
+    link: /es/platforms/add-platform
+  - title: Enrutamiento inteligente
+    details: Reenvía automáticamente cada petición a la mejor plataforma según las reglas de grupo y mapeo de modelo.
     icon: 🧭
-    link: /en/groups/routing-rules
-  - title: Usage stats
-    details: Track token usage in real time, estimate call costs, and query the balance of each platform.
+    link: /es/groups/routing-rules
+  - title: Estadísticas de uso
+    details: Rastrea el uso de tokens en tiempo real, estima los costes de llamada y consulta el saldo de cada plataforma.
     icon: 📊
-    link: /en/stats/usage-stats
-  - title: Multi-protocol conversion
-    details: Convert between OpenAI Chat / Completions / Responses, Anthropic, and Gemini native protocols.
+    link: /es/stats/usage-stats
+  - title: Conversión multi-protocolo
+    details: Convierte entre OpenAI Chat / Completions / Responses, Anthropic y protocolos nativos de Gemini.
     icon: 🔌
-    link: /en/platforms/protocols
-  - title: Codex integration
-    details: Native support for coding assistants like OpenAI Codex and Claude Code, with one-click setup.
+    link: /es/platforms/protocols
+  - title: Integración con Codex
+    details: Soporte nativo para asistentes de codificación como OpenAI Codex y Claude Code, con configuración en un clic.
     icon: ⚡
-    link: /en/proxy/codex-integration
-  - title: Logging system
-    details: Three levels of logging granularity and configurable retention policies make the request chain crystal clear.
+    link: /es/proxy/codex-integration
+  - title: Sistema de logs
+    details: Tres niveles de granularidad de logging y políticas de retención configurables hacen la cadena de peticiones cristalina.
     icon: 📑
-    link: /en/logs/viewing
-  - title: Theme customization
-    details: Multiple themes such as Liquid Glass, Nord, and Dracula, with both light and dark modes.
+    link: /es/logs/viewing
+  - title: Personalización de temas
+    details: Múltiples temas como Liquid Glass, Nord y Dracula, con modos claro y oscuro.
     icon: 🎨
-    link: /en/settings/themes
-  - title: System tray
-    details: Lives in the system tray, showing balance and proxy status in real time.
+    link: /es/settings/themes
+  - title: Bandeja del sistema
+    details: Vive en la bandeja del sistema, mostrando el saldo y el estado del proxy en tiempo real.
     icon: 🖥️
-    link: /en/settings/tray
+    link: /es/settings/tray
 ---
+<div align="center">
 
-## Three steps to get started
+[![LINUX DO](https://ld.xh.do/ld-badge.svg)](https://linux.do)
+[![GitHub Stars](https://img.shields.io/github/stars/lazygophers/aidog?style=social)](https://github.com/lazygophers/aidog/stargazers)
+[![Downloads](https://img.shields.io/github/downloads/lazygophers/aidog/total?logo=github)](https://github.com/lazygophers/aidog/releases)
+[![Last Commit](https://img.shields.io/github/last-commit/lazygophers/aidog?logo=git&logoColor=white)](https://github.com/lazygophers/aidog/commits)
 
-1. **Add a platform** —— enter the API key and endpoint of an AI platform
-2. **Set the proxy address** —— point your client to the AiDog local proxy
-3. **Start using it** —— requests are automatically routed, metered, and logged
+</div>
 
-→ [Installation Guide](/en/getting-started/installation) · [Quick Start](/en/getting-started/quick-start)
+## Tres pasos para empezar
 
-## Tech stack
+1. **Añadir una plataforma** —— introduce la clave API y el endpoint de una plataforma AI
+2. **Establecer la dirección proxy** —— apunta tu cliente al proxy local de AiDog
+3. **Empezar a usarlo** —— las peticiones se enrutan, miden y registran automáticamente
 
-| Layer | Technology |
+→ [Guía de instalación](/es/getting-started/installation) · [Inicio rápido](/es/getting-started/quick-start)
+
+## Stack técnico
+
+| Capa | Tecnología |
 |---|---|
-| Desktop framework | Tauri 2.0 |
+| Framework de escritorio | Tauri 2.0 |
 | Frontend | React 19 + TypeScript |
 | Backend | Rust + Axum |
-| Database | SQLite |
+| Base de datos | SQLite |
 | Build | Vite + Yarn |

@@ -1,62 +1,62 @@
 ---
-title: Model Pricing
+title: أسعار النماذج
 ---
 
-# Model Pricing
+# أسعار النماذج
 
-Manage all model pricing data in **"Settings" → "Model Pricing"** tab. Pricing data is used to estimate request costs.
+أدر كل بيانات أسعار النماذج في تبويب **«الإعدادات» → «أسعار النماذج»**. تُستخدم بيانات الأسعار لتقدير تكاليف الطلبات.
 
-## Price Sync
+## مزامنة الأسعار
 
-One-click sync of the latest model pricing from pricing sources:
+مزامنة بنقرة واحدة لأحدث الأسعار من مصادر التسعير:
 
-- Click "Sync Now" to fetch latest prices
-- Sync result: added count, updated count, failed count
-- Enable "Auto Sync" to automatically fetch at configured intervals
+- انقر «زامن الآن» لجلب أحدث الأسعار
+- نتيجة المزامنة: المُضافة، المُحدّثة، الفاشلة
+- فعّل «المزامنة التلقائية» للجلب في فترات مُهيّأة
 
-Auto sync intervals: 1 hour / 6 hours / 12 hours / 24 hours / 7 days
+فترات المزامنة التلقائية: 1 ساعة / 6 ساعات / 12 ساعة / 24 ساعة / 7 أيام
 
-## Fallback Price
+## سعر الرجوع
 
-For models not listed in the pricing table, a fallback price is used:
+للنماذج غير المُدرجة في الجدول، يُستخدم سعر رجوع:
 
-- **Input fallback** — Default $3.0 / million tokens
-- **Output fallback** — Default $3.0 / million tokens
+- **رجوع الإدخال** — افتراضي $3.0 / مليون توكن
+- **رجوع الإخراج** — افتراضي $3.0 / مليون توكن
 
-Adjustable in the sync settings section.
+قابل للتعديل في قسم المزامنة.
 
-## Price Table
+## جدول الأسعار
 
-The price table shows these columns:
+يُظهر الجدول هذه الأعمدة:
 
-| Column | Description |
+| العمود | الوصف |
 |--------|-------------|
-| Model | Model name |
-| Source | LiteLLM (synced) / Manual |
-| Default Platform | Default platform for this model |
-| Input $/M | Input token price (per million tokens) |
-| Output $/M | Output token price |
-| Cache Read $/M | Cache token read price |
+| النموذج | اسم النموذج |
+| المصدر | LiteLLM (مُزامن) / يدوي |
+| المنصة الافتراضية | المنصة الافتراضية لهذا النموذج |
+| الإدخال $/M | سعر توكن الإدخال (لكل مليون) |
+| الإخراج $/M | سعر توكن الإخراج |
+| قراءة الكاش $/M | سعر قراءة توكن الكاش |
 
-Search by model name, filter by source, adjustable page size and jump-to-page.
+بحث باسم النموذج، تصفية حسب المصدر، حجم صفحة قابل للتعديل وقفز للصفحة.
 
-## Manage Pricing
+## إدارة الأسعار
 
-- Delete a pricing record (end-of-row delete button)
-- Price changes take effect immediately
+- حذف سجل سعر (زر الحذف في نهاية الصف)
+- تسري تغييرات الأسعار فورًا
 
-## Cost Estimation
+## تقدير التكلفة
 
-After each request, AiDog automatically:
+بعد كل طلب، يقوم AiDog تلقائيًا بـ:
 
-1. Extracts token usage (input / output / cache) from the upstream response
-2. Looks up the unit price in the pricing table
-3. Calculates the estimated cost
+1. استخراج استخدام التوكنز (إدخال / إخراج / كاش) من استجابة المنبع
+2. البحث عن السعر الفردي في جدول الأسعار
+3. حساب التكلفة التقديرية
 
-Pricing fallback order: Custom pricing → Synced pricing → Fallback price
+ترتيب الرجوع للأسعار: سعر مخصص → سعر مُزامن → سعر رجوع
 
-:::tip{title="Note"}
-Estimated costs are for reference only. Actual charges are based on platform billing.
+:::tip{title="ملاحظة"}
+التكاليف التقديرية للاسترشاد فقط. الفوترة الفعلية تعتمد على فوترة المنصة.
 :::
 
-See [Pricing & Billing](/stats/pricing).
+راجع [التسعير والفوترة](/ar/stats/pricing).

@@ -1,47 +1,47 @@
 ---
-title: Mappage de modèles
+title: Correspondance de modèles
 ---
 
-# Model Mapping
+# Correspondance de modèles
 
-Model mapping allows you to translate model names from client requests to the actual model names supported by the platform.
+La correspondance de modèles permet de traduire les noms de modèles des requêtes client vers les noms réellement supportés par la plateforme.
 
-## Use Cases
+## Cas d'usage
 
-- Client requests `gpt-4o`, but you want to route to DeepSeek's `deepseek-chat`
-- Standardize model naming across platforms
-- Simplify model selection with aliases
+- Le client demande `gpt-4o`, mais vous voulez router vers `deepseek-chat` de DeepSeek
+- Standardiser le nommage des modèles entre plateformes
+- Simplifier la sélection via des alias
 
 ## Configuration
 
-Add mapping rules in the platform or group's "Model Mapping" section:
+Ajoutez des règles dans la section « Correspondance de modèles » de la plateforme ou du groupe :
 
-| Request Model | Maps To |
+| Modèle demandé | Correspond à |
 |---------------|---------|
 | `gpt-4o` | `deepseek-chat` |
 | `claude-3-opus` | `claude-3-opus-20240229` |
 
-### Rules
+### Règles
 
-- **Exact match** — Only maps when the model name matches exactly
-- **Preserve original** — Unmatched model names pass through unchanged
-- **Group priority** — Group-level mappings take precedence over platform-level mappings
+- **Correspondance exacte** — Ne mappe que si le nom correspond exactement
+- **Préserver l'original** — Les noms non matchés passent inchangés
+- **Priorité du groupe** — Les mappings au niveau du groupe priment sur ceux au niveau plateforme
 
-## Two-Level Mapping
+## Correspondance à deux niveaux
 
-Model mapping can be configured at two levels:
+Configurable à deux niveaux :
 
-- **Platform level** — Applies to all requests on that platform
-- **Group level** — Only applies within that group's routing rules
+- **Niveau plateforme** — S'applique à toutes les requêtes de cette plateforme
+- **Niveau groupe** — S'applique uniquement dans les règles de routage du groupe
 
-See [Routing Rules](/groups/routing-rules).
+Voir [Règles de routage](/fr/groups/routing-rules).
 
-## Alias Example
+## Exemple d'alias
 
-Use model mapping to create short aliases. Clients only need to use the alias:
+Créez des alias courts ; les clients n'ont qu'à utiliser l'alias :
 
-| Alias | Target | Purpose |
+| Alias | Cible | Usage |
 |-------|--------|---------|
-| `fast` | `gpt-4o-mini` | Fast responses |
-| `smart` | `claude-3-opus` | High quality |
-| `code` | `deepseek-coder` | Code generation |
+| `fast` | `gpt-4o-mini` | Réponses rapides |
+| `smart` | `claude-3-opus` | Haute qualité |
+| `code` | `deepseek-coder` | Génération de code |

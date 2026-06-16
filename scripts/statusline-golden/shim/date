@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# Deterministic date shim for golden tests: %s → fixed epoch.
+if [ "$1" = "+%s" ]; then echo 2000000000; exit 0; fi
+exec /bin/date "$@"

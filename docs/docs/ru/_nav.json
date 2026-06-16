@@ -1,32 +1,7 @@
 [
-  {
-    "text": "Quick Start",
-    "link": "/en/getting-started/quick-start",
-    "activeMatch": "/en/getting-started"
-  },
-  {
-    "text": "Platforms",
-    "link": "/en/platforms/add-platform",
-    "activeMatch": "/en/platforms"
-  },
-  {
-    "text": "Groups",
-    "link": "/en/groups/manage-groups",
-    "activeMatch": "/en/groups"
-  },
-  {
-    "text": "Statistics",
-    "link": "/en/stats/usage-stats",
-    "activeMatch": "/en/stats"
-  },
-  {
-    "text": "API Reference",
-    "link": "/en/api/api-reference",
-    "activeMatch": "/en/api"
-  },
-  {
-    "text": "Справочник API",
-    "link": "/ru/api/api-reference",
-    "activeMatch": "/ru/api"
-  }
+  { "text": "Быстрый старт", "link": "/ru/getting-started/quick-start", "activeMatch": "/ru/getting-started" },
+  { "text": "Платформы", "link": "/ru/platforms/add-platform", "activeMatch": "/ru/platforms" },
+  { "text": "Группы", "link": "/ru/groups/manage-groups", "activeMatch": "/ru/groups" },
+  { "text": "Статистика", "link": "/ru/stats/usage-stats", "activeMatch": "/ru/stats" },
+  { "text": "Справочник API", "link": "/ru/api/api-reference", "activeMatch": "/ru/api" }
 ]

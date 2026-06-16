@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 📖 查文档 / Read the docs
+    url: https://lazygophers.github.io/aidog/zh/
+    about: 安装、平台接入、分组路由、协议转换等大多能在文档站找到答案。
+  - name: 💬 提问 / 讨论（Discussions）
+    url: https://github.com/lazygophers/aidog/discussions
+    about: 用法咨询、想法讨论、求助类问题请走 Discussions，不要开 Issue。
+  - name: 🔒 安全漏洞 / Security
+    url: https://github.com/lazygophers/aidog/security/advisories/new
+    about: 涉及凭证泄露、代理越权等安全问题请私密上报，勿公开 Issue。

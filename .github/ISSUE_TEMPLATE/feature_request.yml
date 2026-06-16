@@ -1,0 +1,56 @@
+name: ✨ 功能建议 / Feature Request
+description: 新功能、改进、体验优化
+title: "[Feat] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解决什么问题
+      description: 你的实际场景 / 痛点。描述问题比直接给方案更有用。
+      placeholder: 我同时用 5 个平台，想按时段自动切换默认平台……
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望的方案
+      description: 你设想 AiDog 怎么做（可选）
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: 相关模块
+      multiple: true
+      options:
+        - 网关 / 路由 / 分组
+        - 协议转换
+        - 熔断 / 调度 / 故障转移
+        - 中间件规则引擎
+        - 用量统计 / 余额 / 配额
+        - Claude Code 集成
+        - Codex 集成
+        - MCP / Skills 管理
+        - 系统通知
+        - 主题 / i18n / UI
+        - 导入导出
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 现在你是怎么绕过的
+      description: 当前的替代做法 / 手动 workaround（可选）
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 确认
+      options:
+        - label: 我已搜过现有 Issue 和 Discussions，没有重复
+          required: true

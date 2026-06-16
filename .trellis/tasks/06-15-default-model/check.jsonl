@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/06-15-aidog-add-platform-skill/research/01-platform-model-presets.md", "reason": "核对 getDefaultModels 预填/展示触点与现状链路一致，PlatformModels 字段未错位"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "检查前端约定遵守 + yarn build/check:i18n 门禁"}

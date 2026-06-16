@@ -17,11 +17,11 @@ mode: optimize
 
 ## MUST
 
-- 写新函数前必须 `grep -rE '<关键词>' src/` 查已有实现；命中则复用，禁重写
+- 写新函数前必须 `grep -rE '<关键词>' src/` 查已有实现；命中则复用，禁重写（跳过 grep → 造重复实现，后续 fix 只改一处另一处仍带 bug）
 - 新增平台协议必须扩展 `Protocol` union type + `PROTOCOLS` 数组，禁独立定义
 - 新增主题必须遵循 `ThemeDefinition` 接口并在 `themeMap` 注册
 - 新增 locale 必须加入 `ALL_LOCALES` 数组 + `resources` 对象 + `RTL_LOCALES`（若 RTL）
-- 同一逻辑 ≥ 2 调用点必须提取到共享函数，禁各文件各自实现
+- 同一逻辑 ≥ 2 调用点必须提取到共享函数，禁各文件各自实现（各自实现 → 逻辑分叉，一处改另一处漏，同一 bug 反复出现）
 - 提取共享函数必须放在语义正确的目录:
   - UI 相关 → `src/components/`
   - 数据/业务 → `src/services/`
@@ -39,7 +39,7 @@ mode: optimize
 
 - ≥ 3 处相同逻辑 → 必须 abstract
 - 2 处相同逻辑 → 必须 grep 确认，并在 commit message 说明是否 abstract 及理由
-- 1 处 → 允许 inline，但若长度 >20 行必须标注 `// TODO: 提取` 及理由
+- 1 处 → 仅当 <20 行允许 inline；≥20 行 MUST 抽象，禁以 `// TODO` 拖延（拖延 → TODO 永不还，巨函数累积）
 
 ## After Batch Modifications (MUST)
 

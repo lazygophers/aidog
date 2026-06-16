@@ -114,7 +114,7 @@ export function SettingsHeader({
         <SectionIcon name="folder" size={14} /> {t("settings.importFromClaudeCode", "从 Claude Code 导入")}
       </button>
 
-      {toast && <span style={{ fontSize: F.body, color: "#34c759" }}>{toast}</span>}
+      {toast && <span style={{ fontSize: F.body, color: "var(--color-success)" }}>{toast}</span>}
 
       {/* Dirty / saved status indicator */}
       {!toast && (
@@ -124,7 +124,7 @@ export function SettingsHeader({
             alignItems: "center",
             gap: 6,
             fontSize: F.hint,
-            color: dirty ? "#ff9f0a" : "var(--text-tertiary)",
+            color: dirty ? "var(--color-warning)" : "var(--text-tertiary)",
           }}
         >
           <span
@@ -132,7 +132,7 @@ export function SettingsHeader({
               width: 7,
               height: 7,
               borderRadius: "50%",
-              background: dirty ? "#ff9f0a" : "var(--text-tertiary)",
+              background: dirty ? "var(--color-warning)" : "var(--text-tertiary)",
               opacity: dirty ? 1 : 0.5,
               flexShrink: 0,
             }}

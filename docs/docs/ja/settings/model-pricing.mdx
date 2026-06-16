@@ -1,62 +1,62 @@
 ---
-title: Model Pricing
+title: モデル価格
 ---
 
-# Model Pricing
+# モデル価格
 
-Manage all model pricing data in **"Settings" → "Model Pricing"** tab. Pricing data is used to estimate request costs.
+すべてのモデル価格データを **「設定」→「モデル価格」** タブで管理します。価格データはリクエストコスト推定に使用されます。
 
-## Price Sync
+## 価格同期
 
-One-click sync of the latest model pricing from pricing sources:
+価格ソースから最新価格をワンクリック同期:
 
-- Click "Sync Now" to fetch latest prices
-- Sync result: added count, updated count, failed count
-- Enable "Auto Sync" to automatically fetch at configured intervals
+- 「今すぐ同期」をクリックして最新価格を取得
+- 同期結果: 追加数、更新数、失敗数
+- 「自動同期」を有効化すると設定間隔で自動取得
 
-Auto sync intervals: 1 hour / 6 hours / 12 hours / 24 hours / 7 days
+自動同期間隔: 1時間 / 6時間 / 12時間 / 24時間 / 7日
 
-## Fallback Price
+## フォールバック価格
 
-For models not listed in the pricing table, a fallback price is used:
+価格表に載らないモデルにはフォールバック価格を使用:
 
-- **Input fallback** — Default $3.0 / million tokens
-- **Output fallback** — Default $3.0 / million tokens
+- **入力フォールバック** — デフォルト $3.0 / 百万トークン
+- **出力フォールバック** — デフォルト $3.0 / 百万トークン
 
-Adjustable in the sync settings section.
+同期セクションで調整可能。
 
-## Price Table
+## 価格表
 
-The price table shows these columns:
+表は以下の列を表示:
 
-| Column | Description |
+| 列 | 説明 |
 |--------|-------------|
-| Model | Model name |
-| Source | LiteLLM (synced) / Manual |
-| Default Platform | Default platform for this model |
-| Input $/M | Input token price (per million tokens) |
-| Output $/M | Output token price |
-| Cache Read $/M | Cache token read price |
+| モデル | モデル名 |
+| ソース | LiteLLM (同期) / 手動 |
+| デフォルトプラットフォーム | このモデルのデフォルトプラットフォーム |
+| 入力 $/M | 入力トークン価格 (百万トークンあたり) |
+| 出力 $/M | 出力トークン価格 |
+| キャッシュ読取 $/M | キャッシュトークン読取価格 |
 
-Search by model name, filter by source, adjustable page size and jump-to-page.
+モデル名で検索、ソースで絞り込み、ページサイズ調整とページジャンプ付き。
 
-## Manage Pricing
+## 価格管理
 
-- Delete a pricing record (end-of-row delete button)
-- Price changes take effect immediately
+- 価格レコードを削除 (行末の削除ボタン)
+- 価格変更は即座に反映
 
-## Cost Estimation
+## コスト推定
 
-After each request, AiDog automatically:
+各リクエスト後、AiDog は自動的に:
 
-1. Extracts token usage (input / output / cache) from the upstream response
-2. Looks up the unit price in the pricing table
-3. Calculates the estimated cost
+1. 上流レスポンスからトークン使用量 (入力 / 出力 / キャッシュ) を抽出
+2. 価格表で単価を検索
+3. 推定コストを計算
 
-Pricing fallback order: Custom pricing → Synced pricing → Fallback price
+価格フォールバック順: カスタム価格 → 同期価格 → フォールバック価格
 
-:::tip{title="Note"}
-Estimated costs are for reference only. Actual charges are based on platform billing.
+:::tip{title="注意"}
+推定コストは参考用です。実際の請求はプラットフォーム請求に基づきます。
 :::
 
-See [Pricing & Billing](/stats/pricing).
+[料金と請求](/ja/stats/pricing) 参照。

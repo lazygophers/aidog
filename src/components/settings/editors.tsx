@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
-import { statuslineApi } from "../../services/api";
+import { statuslineApi, notificationApi, type NotifyHooksFragment } from "../../services/api";
 import {
   ENV_VAR_DEFS,
   ENV_VAR_GROUP_ORDER,
@@ -14,6 +14,24 @@ import {
 } from "../../services/claude-settings-schema";
 import { SortableList } from "../SortableList";
 import { IconClose, IconCheck, IconMenu, IconEdit } from "../icons";
+import {
+  type RowAlign,
+  type StatusLineSegment,
+  type SegmentType,
+  VALUE_COLORABLE,
+  hexToRgb,
+  SEGMENT_DEF_MAP,
+  SEGMENT_CATEGORIES,
+  STATUSLINE_DATA_FIELDS,
+  DEFAULT_SEGMENTS,
+  DEFAULT_SUBAGENT_SEGMENTS,
+  generateStatusLineScript,
+  generateSubagentStatusLineScript,
+  groupRows,
+  normalizeSegments,
+  isRowLeaderSeg,
+  PREVIEW_METRIC,
+} from "./statusline-gen";
 
 // ─── Design tokens ───
 
@@ -300,7 +318,7 @@ function JsonEditor({
         }}
       />
       {error && (
-        <span style={{ fontSize: F.small, color: "#ff453a" }}>{error}</span>
+        <span style={{ fontSize: F.small, color: "var(--color-danger)" }}>{error}</span>
       )}
     </div>
   );
@@ -758,9 +776,9 @@ function StringListEditor({
 type RuleMode = "allow" | "ask" | "deny";
 
 const MODE_COLORS: Record<RuleMode, string> = {
-  allow: "#34c759",
-  ask: "#ff9f0a",
-  deny: "#ff453a",
+  allow: "var(--color-success)",
+  ask: "var(--color-warning)",
+  deny: "var(--color-danger)",
 };
 
 const PERMISSION_MODES: { value: string; desc: string; hint: string }[] = [
@@ -1404,8 +1422,8 @@ function SandboxEditor({
         </div>
         {enabled && (
           <span style={{
-            fontSize: F.small, fontWeight: 600, color: "#34c759",
-            padding: "2px 8px", background: "rgba(52,199,89,0.12)", borderRadius: "var(--radius-sm)",
+            fontSize: F.small, fontWeight: 600, color: "var(--color-success)",
+            padding: "2px 8px", background: "color-mix(in srgb, var(--color-success) 12%, transparent)", borderRadius: "var(--radius-sm)",
           }}>● {t("settings.sandbox.enabled", "已启用")}</span>
         )}
       </div>
@@ -1617,1542 +1635,28 @@ export function SandboxSectionInline({ sandboxValue, updateField }: {
 
 // ─── StatusLine Section (structured editor) ────────────────────
 
-/** A single display segment in the statusline */
-type RowAlign = "left" | "center" | "right";
-
-interface StatusLineSegment {
-  id: string;
-  type: SegmentType;
-  enabled: boolean;
-  newline: boolean; // insert line break before this segment (row leader when true)
-  options: Record<string, any>;
-  color?: string;      // fixed hex foreground color, e.g. "#4A9EFF"
-  autoColor?: boolean; // value-class segments: derive color from value via thresholds
-  align?: RowAlign;    // row alignment — only meaningful on the row-leading segment
-}
-
-/** Segment types whose value can drive automatic semantic coloring. */
-const VALUE_COLORABLE: Set<SegmentType> = new Set([
-  "context-pct", "context-bar", "cost", "rate-limits",
-  // Atomic value-class segments
-  "cost-usd", "context-remaining", "rate-limit-5h", "rate-limit-7d",
-  "session-duration", "api-duration",
-]);
-
-/** Parse "#RRGGBB" / "#RGB" → [r,g,b] (0–255) or null when invalid. */
-function hexToRgb(hex?: string): [number, number, number] | null {
-  if (!hex) return null;
-  let h = hex.trim().replace(/^#/, "");
-  if (h.length === 3) h = h.split("").map(c => c + c).join("");
-  if (!/^[0-9a-fA-F]{6}$/.test(h)) return null;
-  return [
-    parseInt(h.slice(0, 2), 16),
-    parseInt(h.slice(2, 4), 16),
-    parseInt(h.slice(4, 6), 16),
-  ];
-}
-
-type SegmentType =
-  | "model"          // Model display name
-  | "context-bar"    // Context window progress bar
-  | "context-pct"    // Context window percentage
-  | "git"            // Git branch + repo
-  | "cost"           // API cost + duration
-  | "rate-limits"    // Rate limit usage
-  | "effort"         // Effort level
-  | "vim"            // Vim mode
-  | "separator"      // Visual separator (· or |)
-  // ── Atomic segments (one per raw statusline input field) ──
-  // Cost / execution
-  | "cost-usd"               // cost.total_cost_usd
-  | "session-duration"       // cost.total_duration_ms
-  | "api-duration"           // cost.total_api_duration_ms
-  | "lines-changed"          // cost.total_lines_added / removed
-  // Context window
-  | "context-tokens"         // context_window.total_input/output_tokens
-  | "context-max"            // context_window.context_window_size
-  | "context-remaining"      // context_window.remaining_percentage
-  | "context-cache"          // context_window.current_usage.cache_*_tokens
-  // Rate limits (per window)
-  | "rate-limit-5h"          // rate_limits.five_hour
-  | "rate-limit-7d"          // rate_limits.seven_day
-  // Git
-  | "git-branch"             // git -C <cwd> branch --show-current（脚本内跑 git）
-  | "git-host"               // workspace.repo.host
-  | "git-owner"              // workspace.repo.owner
-  | "git-repo"               // workspace.repo.name
-  | "git-repo-full"          // owner/name
-  | "git-worktree"           // workspace.git_worktree
-  // Directory / session
-  | "cwd"                    // workspace.current_dir
-  | "project-dir"            // workspace.project_dir
-  | "added-dirs"             // workspace.added_dirs
-  | "session-id"             // session_id
-  | "session-name"           // session_name
-  | "transcript-path"        // transcript_path
-  // Worktree
-  | "worktree-name"          // worktree.name
-  | "worktree-branch"        // worktree.branch
-  | "worktree-original-branch" // worktree.original_branch
-  // PR
-  | "pr-number"              // pr.number
-  | "pr-url"                 // pr.url
-  | "pr-state"               // pr.review_state
-  // Other single fields
-  | "version"                // version
-  | "output-style"           // output_style.name
-  | "thinking"               // thinking.enabled
-  | "token-warn"             // exceeds_200k_tokens
-  | "agent"                  // agent.name
-  | "agent-badge"            // 子代理徽章 [type·status·model]（动态符号/色）
-  // aidog group segments
-  | "group-balance"  // aidog group: 预估余额
-  | "group-spent"    // aidog group: 累计预估花费
-  | "group-coding"   // aidog group: coding plan 利用率
-  | "group-requests" // aidog group: 请求数 · 成功率
-  | "group-cache"    // aidog group: 缓存命中率
-  | "group-tokens"   // aidog group: 已使用总 tokens
-  | "custom";        // Custom jq expression
-
-interface SegmentDef {
-  type: SegmentType;
-  name: string;
-  icon: string;
-  desc: string;
-  defaultOptions: Record<string, any>;
-  /** Generate bash snippet for this segment */
-  toBash: (opts: Record<string, any>) => string;
-  /** Render preview text (static mock) */
-  toPreview: (opts: Record<string, any>) => string;
-  /** Editable fields for the modal */
-  fields: { key: string; label: string; type: "string" | "number" | "select"; options?: string[]; placeholder?: string }[];
-}
-
-/** Segment types that consume the shared aidog group-info endpoint. */
-const GROUP_SEG_TYPES = new Set<SegmentType>([
-  "group-balance", "group-spent", "group-coding",
-  "group-requests", "group-cache", "group-tokens",
-]);
-
-/**
- * Build a bash snippet for an aidog group-info segment.
- *
- * Contract (relies on the script prelude `__aidog_fetch_info` having run once):
- *  - Gracefully degrades to empty output when `$ANTHROPIC_BASE_URL` is unset
- *    (main settings / non-group settings) or the cached payload is missing /
- *    not applicable (multi-platform or no-platform group / unreachable endpoint).
- *  - Reads the cached JSON written by the prelude (`$__AIDOG_INFO_FILE`) so a
- *    row with several group segments only curls the endpoint once.
- *  - `jqExpr` is passed verbatim to `jq` (may begin with flags like `-r`);
- *    it extracts the field(s) for this segment from the cached JSON.
- *  - `prefix` is a literal label prepended when output is non-empty.
- */
-function groupSegBash(jqExpr: string, prefix: string): string {
-  const pfx = bashEscapeDq(prefix);
-  return `[ -z "\${ANTHROPIC_BASE_URL:-}" ] && exit 0
-__gi="\${__AIDOG_INFO_FILE:-}"
-[ -z "$__gi" ] || [ ! -s "$__gi" ] && exit 0
-echo "$(cat "$__gi")" | jq -e '.applicable == true' >/dev/null 2>&1 || exit 0
-__val=$(cat "$__gi" | jq ${jqExpr} 2>/dev/null)
-[ -z "$__val" ] && exit 0
-echo -n "${pfx}$__val"`;
-}
-
-/** ANSI truecolor reset/red/amber/green triples shared by dynamic group segments. */
-const ANSI_RED = "255;69;58";    // #FF453A
-const ANSI_AMBER = "255;214;10"; // #FFD60A
-const ANSI_GREEN = "52;199;89";  // #34C759
-
-/**
- * Prelude that all group segments share: degrade-to-empty guards + applicable
- * check, leaving the cached payload readable via `$__gi`.
- */
-const GROUP_GUARD = `[ -z "\${ANTHROPIC_BASE_URL:-}" ] && exit 0
-__gi="\${__AIDOG_INFO_FILE:-}"
-[ -z "$__gi" ] || [ ! -s "$__gi" ] && exit 0
-cat "$__gi" | jq -e '.applicable == true' >/dev/null 2>&1 || exit 0`;
-
-/**
- * coding-plan 段（第 3 行动态色）：仅当端点含 coding_plan tiers 时展示，按各档最严重
- * level 上色——red→红 / yellow→黄 / green→绿 / neutral→无色（默认绿）。level 由后端
- * 按「使用速率（剩余可用时间%）」算（usage_color 唯一阈值源），statusline 只消费不重算。
- * 红色（red）时若有 reset_at 额外拼接人类可读重置时间。无 tiers → 降级空。
- * 直接输出 ANSI truecolor（不经 fixedColorBash），故段 color 应留空。
- */
-function groupCodingDynBash(): string {
-  return `${GROUP_GUARD}
-__n=$(cat "$__gi" | jq -r '(.coding_plan // []) | length')
-[ "$__n" = "0" ] || [ -z "$__n" ] && exit 0
-__txt=$(cat "$__gi" | jq -r '(.coding_plan // []) | map((if .name == "five_hour" then "5h" elif (.name == "seven_day" or .name == "weekly_limit") then "7d" else .name end) + " " + ((.utilization // 0) | round | tostring) + "%") | join("·")')
-[ -z "$__txt" ] && exit 0
-__lvl=$(cat "$__gi" | jq -r 'if any(.coding_plan[]?; .level == "red") then "red" elif any(.coding_plan[]?; .level == "yellow") then "yellow" elif any(.coding_plan[]?; .level == "green") then "green" else "neutral" end')
-if [ "$__lvl" = "red" ]; then
-  __c="${ANSI_RED}"
-  __rs=$(cat "$__gi" | jq -r '[.coding_plan[]? | select(.level == "red") | .reset_at // empty] | min // empty')
-  if [ -n "$__rs" ] && [ "$__rs" != "null" ]; then
-    __now=$(date +%s); __d=$((__rs - __now))
-    if [ "$__d" -gt 0 ]; then
-      __h=$((__d / 3600)); __m=$(((__d % 3600) / 60))
-      __txt="$__txt (reset \${__h}h\${__m}m)"
-    fi
-  fi
-elif [ "$__lvl" = "yellow" ]; then
-  __c="${ANSI_AMBER}"
-else
-  __c="${ANSI_GREEN}"
-fi
-printf '\\033[38;2;%sm%s\\033[0m' "$__c" "$__txt"`;
-}
-
-/**
- * 余额段（第 3 行动态色）：余额平台展示，按后端 balance_level 上色——red→红 / yellow→黄
- * / green / neutral→绿（默认）。level 由后端按「剩余可用天数（动态窗口日速率）」算
- * （usage_color 唯一阈值源），statusline 只消费不重算阈值。直接输出 ANSI truecolor。
- */
-function groupBalanceDynBash(prefix: string): string {
-  const pfx = bashEscapeDq(prefix);
-  // 余额段始终展示（不再与 coding_plan 互斥）——窗口预算由 coding 段展示，
-  // 余额由 balance 段展示，两者可共存。
-  return `${GROUP_GUARD}
-__bal=$(cat "$__gi" | jq -r '.balance // 0 | (. * 100 | round) / 100')
-__bal=$(printf '%g' "$__bal")
-[ "$__bal" = "0" ] || [ "$__bal" = "0.0" ] && exit 0
-__txt="${pfx}$__bal"
-__lvl=$(cat "$__gi" | jq -r '.balance_level // "neutral"')
-if [ "$__lvl" = "red" ]; then __c="${ANSI_RED}"
-elif [ "$__lvl" = "yellow" ]; then __c="${ANSI_AMBER}"
-else __c="${ANSI_GREEN}"; fi
-printf '\\033[38;2;%sm%s\\033[0m' "$__c" "$__txt"`;
-}
-
-// ── Sub-agent badge (catppuccin) ──
-// Catppuccin Mocha truecolor triples — kept verbatim from ccplugin
-// subagent_statusline.py `_STATUS_MAP` / badge structure so the aidog-generated
-// bash renders the badge identically.
-const CATPPUCCIN_MAUVE = "203;166;247";
-const CATPPUCCIN_BLUE = "137;180;250";
-const CATPPUCCIN_YELLOW = "249;226;175";
-const CATPPUCCIN_GREEN = "166;227;161";
-const CATPPUCCIN_RED = "243;139;168";
-const CATPPUCCIN_SUBTLE = "108;112;134";
-
-/**
- * PATH 兜底前奏：Claude Code 通过最小化环境（常仅 `/usr/bin:/bin`）spawn
- * statusline 命令，Homebrew/local 安装的 `jq`（`/opt/homebrew/bin`、
- * `/usr/local/bin`、`~/.local/bin` 等）不在该 PATH 上 → 全部 `jq` 调用
- * `command not found` → 脚本零行输出（exit 0）→ Claude Code 回退默认渲染。
- * 这正是子代理状态行“失败回退默认行”的根因（python 参考无 jq 依赖故幸免）。
- * 故在脚本头部把常见二进制目录补进 PATH，使 jq 无论何种 spawn 环境都可定位。
- */
-const PATH_PRELUDE =
-  'export PATH="/opt/homebrew/bin:/usr/local/bin:$HOME/.local/bin:/opt/local/bin:$PATH"';
-
-/**
- * 子代理徽章段：`[{type_label}·{status_symbol}·{model}]`，移植 ccplugin
- * subagent_statusline.py 的 `_STATUS_MAP` / `_status_seg` / type_label / model_label
- * 语义。
- *
- *  - type 取 `.type`，空 → 整段省略（exit 0），对齐 python `if type_:` 守卫。
- *  - type_label：`local_agent → Agent`，否则原样（python 同名映射）。
- *  - status → 符号 + 颜色（catppuccin）经 bash `if/elif` 映射：
- *      running/in_progress=● 黄, pending/queued=○ subtle, completed/succeeded/success=● 绿,
- *      failed/error=● 红, cancelled/canceled=◌ subtle, 其余=◆ 蓝（默认）。
- *  - model：task 级 `.model`(对象取 display_name//id，或字符串) 优先，回退顶层
- *    `.model.display_name // .model.id`（对齐 python model_label）。空则不渲染 `·model`。
- *  - 各片段自带 catppuccin truecolor（多色 + 动态状态色无法走 fixedColorBash），
- *    故该段 `color` 应留空；类似 group*DynBash 直接 printf ANSI。
- *
- * bash 3.2（macOS 默认）无法在 `$(…)` 命令替换内解析 `case … esac`——每段都被
- * 生成器包成 `__seg="$(…)"`，故 status→符号/色映射改用纯 `if/elif`（与
- * group*DynBash 同一约束）；type_label 的小写归一同样用 `[ … = … ]` 而非 case。
- */
-function agentBadgeBash(): string {
-  return `__type=$(echo "$input" | jq -r '.type // ""')
-[ -z "$__type" ] && exit 0
-__tl="$__type"
-[ "$(echo "$__type" | tr '[:upper:]' '[:lower:]')" = "local_agent" ] && __tl="Agent"
-__status=$(echo "$input" | jq -r '.status // ""' | tr '[:upper:]' '[:lower:]')
-if [ "$__status" = "running" ] || [ "$__status" = "in_progress" ]; then
-  __sym="●"; __sc="${CATPPUCCIN_YELLOW}"
-elif [ "$__status" = "pending" ] || [ "$__status" = "queued" ]; then
-  __sym="○"; __sc="${CATPPUCCIN_SUBTLE}"
-elif [ "$__status" = "completed" ] || [ "$__status" = "succeeded" ] || [ "$__status" = "success" ]; then
-  __sym="●"; __sc="${CATPPUCCIN_GREEN}"
-elif [ "$__status" = "failed" ] || [ "$__status" = "error" ]; then
-  __sym="●"; __sc="${CATPPUCCIN_RED}"
-elif [ "$__status" = "cancelled" ] || [ "$__status" = "canceled" ]; then
-  __sym="◌"; __sc="${CATPPUCCIN_SUBTLE}"
-else
-  __sym="◆"; __sc="${CATPPUCCIN_BLUE}"
-fi
-__model=$(echo "$input" | jq -r '
-  (.model | if type == "object" then (.display_name // .id) elif type == "string" then . else null end)
-  // (.model.display_name // .model.id)
-  // ""')
-printf '\\033[38;2;${CATPPUCCIN_MAUVE}m[%s\\033[0m' "$__tl"
-printf '\\033[1m\\033[38;2;%sm·%s\\033[0m' "$__sc" "$__sym"
-[ -n "$__model" ] && printf '\\033[38;2;${CATPPUCCIN_BLUE}m·%s\\033[0m' "$__model"
-printf '\\033[1m\\033[38;2;${CATPPUCCIN_MAUVE}m]\\033[0m'`;
-}
-
-/**
- * Build a bash snippet for an atomic statusline segment that extracts a single
- * value from the stdin JSON (`$input`) and degrades to empty output when the
- * field is absent / null.
- *
- *  - `jqExpr` is passed verbatim to `jq` (may begin with flags like `-r`); it
- *    must use `// empty` (or equivalent) so missing fields yield no output.
- *  - On empty extraction the segment prints nothing — the generator's
- *    non-empty-only separator logic then leaves no orphaned separator.
- *  - `prefix` is a literal label prepended only when the value is non-empty.
- */
-function atomSegBash(jqExpr: string, prefix = ""): string {
-  const pfx = bashEscapeDq(prefix);
-  return `__val=$(echo "$input" | jq ${jqExpr} 2>/dev/null)
-[ -z "$__val" ] && exit 0
-echo -n "${pfx}$__val"`;
-}
-
-/**
- * Wrap a segment body with a literal prefix / suffix that only appears when the
- * body produced non-empty output. Enables mixed in-row separators (`·` vs `|`,
- * `[cost]` hugging, conditional `·worktree`) without a global separator: the
- * affixes are part of the same empty-degrading, color-wrapped unit, so a segment
- * that exits empty leaves no orphaned separator char.
- *
- * `affixPre` / `affixSuf` are reserved option keys consumed here (not by the
- * segment's own `toBash`), kept distinct from user-facing `prefix` labels.
- */
-function wrapAffix(body: string, affixPre: string, affixSuf: string): string {
-  if (!affixPre && !affixSuf) return body;
-  const pre = bashEscapeDq(affixPre);
-  const suf = bashEscapeDq(affixSuf);
-  // Real newlines (not `;`-collapsed) so multi-line bodies with `case`/`if`
-  // control structures stay valid inside the `{ …; }` group. Brace `${__base}`
-  // so an immediately-following multibyte affix (e.g. `·`) can't be swallowed
-  // into the variable name under a UTF-8 locale (bash name-parsing quirk).
-  return `__base="$({
-${body}
-})"
-[ -z "$__base" ] && exit 0
-printf '%s' "${pre}\${__base}${suf}"`;
-}
-
-/**
- * Prelude helper: fetch the group-info endpoint at most once per render and
- * cache the payload in a temp file shared by all group segments on the row.
- * Short `--max-time` + silent failure so an unreachable endpoint never stalls
- * the statusline. Emitted only when at least one group segment is active.
- */
-function aidogFetchPrelude(): string {
-  return `# ── aidog group-info (fetched once, shared by group-* segments) ──
-__AIDOG_INFO_FILE=""
-if [ -n "\${ANTHROPIC_BASE_URL:-}" ]; then
-  __AIDOG_INFO_FILE="\${TMPDIR:-/tmp}/aidog_info_$$_\${RANDOM:-$$}"
-  # Extract scheme://host:port (strip all path components) so any base_url
-  # suffix (/v1, /proxy, /api/paas/v4, …) is removed.
-  __no_scheme="\${ANTHROPIC_BASE_URL#*://}"
-  __proxy_root="\${ANTHROPIC_BASE_URL%%://*}://\${__no_scheme%%/*}"
-  curl -fsS --max-time 1 \\
-    -X POST \\
-    -H "Authorization: Bearer \${ANTHROPIC_AUTH_TOKEN:-}" \\
-    "\${__proxy_root}/api/group-info" > "$__AIDOG_INFO_FILE" 2>/dev/null || : > "$__AIDOG_INFO_FILE"
-fi
-`;
-}
-
-const SEGMENT_DEFS: SegmentDef[] = [
-  {
-    type: "model",
-    name: "模型名称",
-    icon: "core",
-    desc: "当前模型显示名称",
-    defaultOptions: { format: "short" },
-    toBash: (o) => {
-      const jq = o.format === "full"
-        ? ".model.id // \"claude\""
-        : ".model.display_name // \"Claude\"";
-      return `echo -n "$(echo "$input" | jq -r '${jq}')"`;
-    },
-    toPreview: (o) => o.format === "full" ? "claude-sonnet-4-6" : "Opus",
-    fields: [
-      { key: "format", label: "格式", type: "select", options: ["short", "full"] },
-    ],
-  },
-  {
-    type: "context-bar",
-    name: "上下文进度条",
-    icon: "status",
-    desc: "10 字符进度条 + 百分比",
-    defaultOptions: { width: 10, filled: "▓", empty: "░" },
-    toBash: (o) => {
-      const w = o.width || 10;
-      return `__pct=$(echo "$input" | jq -r '(.context_window.used_percentage // 0) | round')
-__filled=$((__pct * ${w} / 100))
-__empty=$((${w} - __filled))
-__bar=""
-for ((i=0; i<__filled; i++)); do __bar+="${o.filled || "▓"}"; done
-for ((i=0; i<__empty; i++)); do __bar+="${o.empty || "░"}"; done
-echo -n "$__bar $__pct%"`;
-    },
-    toPreview: (o) => {
-      const w = o.width || 10;
-      const pct = 65;
-      const filled = Math.round(pct * w / 100);
-      return (o.filled || "▓").repeat(filled) + (o.empty || "░").repeat(w - filled) + ` ${pct}%`;
-    },
-    fields: [
-      { key: "width", label: "宽度", type: "number", placeholder: "10" },
-      { key: "filled", label: "填充字符", type: "string", placeholder: "▓" },
-      { key: "empty", label: "空字符", type: "string", placeholder: "░" },
-    ],
-  },
-  {
-    type: "context-pct",
-    name: "上下文百分比",
-    icon: "status",
-    desc: "仅百分比数字",
-    defaultOptions: { suffix: "%" },
-    // `degradeZero` (subagent default): emit nothing when ctx% is absent/0 so the
-    // `affixPre` separator also drops — mirrors ccplugin which omits ctx for tasks
-    // with no real context data. Main statusline omits the flag → always `0%`.
-    toBash: (o) => o.degradeZero
-      ? atomSegBash(`-r '(.context_window.used_percentage // 0) | round | if . > 0 then tostring + "%" else empty end'`)
-      : `echo -n "$(echo "$input" | jq -r '(.context_window.used_percentage // 0) | round')%"`,
-    toPreview: () => "65%",
-    fields: [],
-  },
-  {
-    type: "git",
-    name: "Git 状态",
-    icon: "folder",
-    desc: "分支名 + 仓库名",
-    defaultOptions: { showRepo: false },
-    toBash: (o) => o.showRepo
-      ? `echo -n "$(echo "$input" | jq -r '[.workspace.repo.owner, .workspace.repo.name] | join("/") // "detached"')"`
-      : `echo -n "$(echo "$input" | jq -r '.workspace.repo.name // "detached"')"`,
-    toPreview: (o) => o.showRepo ? "anthropics/claude-code" : "claude-code",
-    fields: [
-      { key: "showRepo", label: "显示完整路径 (owner/name)", type: "select", options: ["false", "true"] },
-    ],
-  },
-  {
-    type: "cost",
-    name: "成本追踪",
-    icon: "bolt",
-    desc: "API 成本 + 持续时间",
-    defaultOptions: { showDuration: true },
-    toBash: (o) => {
-      const lines: string[] = [];
-      lines.push('echo -n "$(echo "$input" | jq -r \'(.cost.total_cost_usd // 0) * 100 | round / 100\' | xargs printf \'\\$%.2f\')"');
-      if (o.showDuration) {
-        lines.push('echo -n " · $(echo "$input" | jq -r \'(.cost.total_duration_ms // 0) / 1000 | round\')s"');
-      }
-      return lines.join("\n");
-    },
-    toPreview: (o) => o.showDuration ? "$0.12 · 155s" : "$0.12",
-    fields: [
-      { key: "showDuration", label: "显示持续时间", type: "select", options: ["true", "false"] },
-    ],
-  },
-  {
-    type: "rate-limits",
-    name: "速率限制",
-    icon: "permissions",
-    desc: "5h / 7d 限制使用百分比",
-    defaultOptions: { windows: "both" },
-    toBash: (o) => {
-      if (o.windows === "5h") return `echo -n "5h:$(echo "$input" | jq -r '(.rate_limits.five_hour.used_percentage // "?")')%"`;
-      if (o.windows === "7d") return `echo -n "7d:$(echo "$input" | jq -r '(.rate_limits.seven_day.used_percentage // "?")')%"`;
-      return `echo -n "5h:$(echo "$input" | jq -r '(.rate_limits.five_hour.used_percentage // "?")')% 7d:$(echo "$input" | jq -r '(.rate_limits.seven_day.used_percentage // "?")')%"`;
-    },
-    toPreview: (o) => o.windows === "5h" ? "5h:23%" : o.windows === "7d" ? "7d:41%" : "5h:23% 7d:41%",
-    fields: [
-      { key: "windows", label: "窗口", type: "select", options: ["both", "5h", "7d"] },
-    ],
-  },
-  {
-    type: "effort",
-    name: "Effort Level",
-    icon: "behavior",
-    desc: "推理工作量等级",
-    defaultOptions: {},
-    toBash: () => `echo -n "$(echo "$input" | jq -r '.effort.level // ""')"`,
-    toPreview: () => "high",
-    fields: [],
-  },
-  {
-    type: "vim",
-    name: "Vim 模式",
-    icon: "ui",
-    desc: "当前 vim 模式",
-    defaultOptions: {},
-    toBash: () => `echo -n "$(echo "$input" | jq -r '.vim.mode // ""')"`,
-    toPreview: () => "NORMAL",
-    fields: [],
-  },
-  {
-    type: "separator",
-    name: "分隔符",
-    icon: "advanced",
-    desc: "视觉分隔符（可插入到任意段之间）",
-    defaultOptions: { char: "·" },
-    toBash: (o) => `echo -n "${bashEscapeDq(typeof o.char === "string" ? o.char : "·")}"`,
-    toPreview: (o) => (typeof o.char === "string" ? o.char : "·"),
-    fields: [
-      { key: "char", label: "分隔符字符", type: "string", placeholder: "·" },
-    ],
-  },
-  {
-    type: "group-balance",
-    name: "分组余额",
-    icon: "bolt",
-    desc: "当前分组单平台预估剩余余额（动态色：<1天红 / <3天黄 / 否则绿）",
-    defaultOptions: { prefix: "余额 ", dynamicColor: false },
-    toBash: (o) => o.dynamicColor
-      ? groupBalanceDynBash(o.prefix ?? "余额 ")
-      : groupSegBash(`'.balance // 0 | (. * 100 | round) / 100' | awk '{printf "%.2f", $0}'`, o.prefix ?? "余额 "),
-    toPreview: (o) => `${o.prefix ?? "余额 "}48.20`,
-    fields: [
-      { key: "prefix", label: "前缀", type: "string", placeholder: "余额 " },
-      { key: "dynamicColor", label: "动态色 (按可用天数)", type: "select", options: ["false", "true"] },
-    ],
-  },
-  {
-    type: "group-spent",
-    name: "分组花费",
-    icon: "bolt",
-    desc: "当前分组累计预估花费（仅单平台分组）",
-    defaultOptions: { prefix: "$" },
-    toBash: (o) => groupSegBash(`'.spent // 0 | (. * 100 | round) / 100' | awk '{printf "%.2f", $0}'`, o.prefix ?? "$"),
-    toPreview: (o) => `${o.prefix ?? "$"}1.23`,
-    fields: [
-      { key: "prefix", label: "前缀", type: "string", placeholder: "$" },
-    ],
-  },
-  {
-    type: "group-coding",
-    name: "Coding Plan",
-    icon: "permissions",
-    desc: "Coding Plan 各档利用率（动态色：fast红 / normal黄 / busy绿，红时显重置）",
-    defaultOptions: { dynamicColor: false },
-    toBash: (o) => o.dynamicColor
-      ? groupCodingDynBash()
-      : groupSegBash(`-r '(.coding_plan // []) | map((if .name == "five_hour" then "5h" elif (.name == "seven_day" or .name == "weekly_limit") then "7d" else .name end) + " " + ((.utilization // 0) | round | tostring) + "%") | join("·")'`, ""),
-    toPreview: () => "5h 23%·7d 41%",
-    fields: [
-      { key: "dynamicColor", label: "动态色 (按 pace)", type: "select", options: ["false", "true"] },
-    ],
-  },
-  {
-    type: "group-requests",
-    name: "请求·成功率",
-    icon: "status",
-    desc: "当前分组请求数 · 成功率（仅单平台分组）",
-    defaultOptions: {},
-    toBash: () => groupSegBash(`-r '"\\(.requests // 0)·\\((.success_rate // 0) | round)%"'`, ""),
-    toPreview: () => "128·99%",
-    fields: [],
-  },
-  {
-    type: "group-cache",
-    name: "缓存率",
-    icon: "status",
-    desc: "当前分组缓存命中率（仅单平台分组）",
-    defaultOptions: { prefix: "缓存 " },
-    toBash: (o) => groupSegBash(`-r '"\\((.cache_rate // 0) | round)%"'`, o.prefix ?? "缓存 "),
-    toPreview: (o) => `${o.prefix ?? "缓存 "}37%`,
-    fields: [
-      { key: "prefix", label: "前缀", type: "string", placeholder: "缓存 " },
-    ],
-  },
-  {
-    type: "group-tokens",
-    name: "总 Tokens",
-    icon: "core",
-    desc: "当前分组已使用总 tokens（仅单平台分组）",
-    defaultOptions: { prefix: "" },
-    toBash: (o) => groupSegBash(`-r '(.total_tokens // 0) | if . >= 1000000 then ((. / 100000 | round) / 10 | tostring) + "M" elif . >= 1000 then ((. / 100 | round) / 10 | tostring) + "K" else tostring end'`, o.prefix ?? ""),
-    toPreview: (o) => `${o.prefix ?? ""}1.2M`,
-    fields: [
-      { key: "prefix", label: "前缀", type: "string", placeholder: "" },
-    ],
-  },
-  // ── Atomic segments: one per raw statusline input field ──
-  // Cost / execution
-  {
-    type: "cost-usd",
-    name: "成本 ($)",
-    icon: "bolt",
-    desc: "cost.total_cost_usd — 累计预估成本",
-    defaultOptions: { prefix: "$" },
-    toBash: (o) => atomSegBash(
-      `-r '(.cost.total_cost_usd // empty) | (. * 100 | round) / 100 | tostring'`,
-      o.prefix ?? "$",
-    ),
-    toPreview: (o) => `${o.prefix ?? "$"}0.12`,
-    fields: [
-      { key: "prefix", label: "前缀", type: "string", placeholder: "$" },
-    ],
-  },
-  {
-    type: "session-duration",
-    name: "会话耗时",
-    icon: "status",
-    desc: "cost.total_duration_ms — 会话总耗时",
-    defaultOptions: { format: "human" },
-    toBash: (o) => o.format === "ms"
-      ? atomSegBash(`-r '(.cost.total_duration_ms // empty) | tostring + "ms"'`)
-      : atomSegBash(`-r '(.cost.total_duration_ms // empty) | (. / 1000 | floor) as $s | def pad2: (. | tostring) | if length < 2 then "0" + . else . end; if $s >= 3600 then (($s / 3600 | floor) | tostring) + "h" + ((($s % 3600) / 60 | floor) | pad2) + "m" elif $s >= 60 then (($s / 60 | floor) | tostring) + "m" + (($s % 60) | pad2) + "s" else ($s | tostring) + "s" end'`),
-    toPreview: (o) => o.format === "ms" ? "285000ms" : "4m45s",
-    fields: [
-      { key: "format", label: "格式", type: "select", options: ["human", "ms"] },
-    ],
-  },
-  {
-    type: "api-duration",
-    name: "API 耗时",
-    icon: "status",
-    desc: "cost.total_api_duration_ms — API 等待时间",
-    defaultOptions: { format: "human" },
-    toBash: (o) => o.format === "ms"
-      ? atomSegBash(`-r '(.cost.total_api_duration_ms // empty) | tostring + "ms"'`)
-      : atomSegBash(`-r '(.cost.total_api_duration_ms // empty) | (. / 1000 | floor) as $s | def pad2: (. | tostring) | if length < 2 then "0" + . else . end; if $s >= 3600 then (($s / 3600 | floor) | tostring) + "h" + ((($s % 3600) / 60 | floor) | pad2) + "m" elif $s >= 60 then (($s / 60 | floor) | tostring) + "m" + (($s % 60) | pad2) + "s" else ($s | tostring) + "s" end'`),
-    toPreview: (o) => o.format === "ms" ? "15300ms" : "15s",
-    fields: [
-      { key: "format", label: "格式", type: "select", options: ["human", "ms"] },
-    ],
-  },
-  {
-    type: "lines-changed",
-    name: "代码变更",
-    icon: "core",
-    desc: "cost.total_lines_added / removed — 新增/删除行",
-    defaultOptions: {},
-    toBash: () => atomSegBash(
-      `-r '"+" + ((.cost.total_lines_added // 0) | tostring) + " -" + ((.cost.total_lines_removed // 0) | tostring)'`,
-    ),
-    toPreview: () => "+412 -87",
-    fields: [],
-  },
-  // Context window
-  {
-    type: "context-tokens",
-    name: "上下文 Tokens",
-    icon: "core",
-    desc: "输入/输出 token，或 session 合计（total_input + total_output）",
-    defaultOptions: { abbrev: true, mode: "split" },
-    toBash: (o) => {
-      const fmt = o.abbrev
-        ? `if . >= 1000000 then ((. / 100000 | round) / 10 | tostring) + "M" elif . >= 1000 then ((. / 100 | round) / 10 | tostring) + "K" else tostring end`
-        : `tostring`;
-      // sum 模式：当前 session tokens = total_input + total_output（PRD 第 1 行紫色段）。
-      // 合计为 0（无 token 数据）时降级为空——对齐 ccplugin `if tok_n > 0`，
-      // 避免子代理 pending 任务显示噪声 `·0`。
-      if (o.mode === "sum") {
-        return atomSegBash(
-          `-r 'if .context_window == null then empty else (((.context_window.total_input_tokens // 0) + (.context_window.total_output_tokens // 0)) | if . > 0 then (${fmt}) else empty end) end'`,
-        );
-      }
-      return atomSegBash(
-        `-r '((.context_window.total_input_tokens // empty) | ${fmt}) as $i | ((.context_window.total_output_tokens // 0) | ${fmt}) as $o | $i + "/" + $o'`,
-      );
-    },
-    toPreview: (o) => o.mode === "sum"
-      ? (o.abbrev ? "101.9K" : "101900")
-      : (o.abbrev ? "89.5K/12.4K" : "89500/12400"),
-    fields: [
-      { key: "mode", label: "模式", type: "select", options: ["split", "sum"] },
-      { key: "abbrev", label: "缩写 (K/M)", type: "select", options: ["true", "false"] },
-    ],
-  },
-  {
-    type: "context-max",
-    name: "上下文容量",
-    icon: "status",
-    desc: "context_window.context_window_size — 最大窗口",
-    defaultOptions: { abbrev: true },
-    toBash: (o) => o.abbrev
-      ? atomSegBash(`-r '(.context_window.context_window_size // empty) | if . >= 1000000 then ((. / 100000 | round) / 10 | tostring) + "M" elif . >= 1000 then ((. / 1000 | round) | tostring) + "K" else tostring end'`)
-      : atomSegBash(`-r '(.context_window.context_window_size // empty) | tostring'`),
-    toPreview: (o) => o.abbrev ? "200K" : "200000",
-    fields: [
-      { key: "abbrev", label: "缩写 (K/M)", type: "select", options: ["true", "false"] },
-    ],
-  },
-  {
-    type: "context-remaining",
-    name: "上下文剩余",
-    icon: "status",
-    desc: "context_window.remaining_percentage — 剩余百分比",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '(.context_window.remaining_percentage // empty) | round | tostring + "%"'`),
-    toPreview: () => "49%",
-    fields: [],
-  },
-  {
-    type: "context-cache",
-    name: "缓存率",
-    icon: "core",
-    desc: "缓存写入/读取 token，或缓存命中率 %（≤4 位小数）",
-    defaultOptions: { abbrev: true, mode: "tokens", prefix: "缓存 " },
-    toBash: (o) => {
-      // 命中率模式：cache_read / (input + cache_read) × 100，printf 控小数位 ≤4；current_usage==null 降级 0%。
-      if (o.mode === "hitrate") {
-        const pfx = bashEscapeDq(o.prefix ?? "缓存 ");
-        return `__cu=$(echo "$input" | jq -r '.context_window.current_usage')
-if [ -z "$__cu" ] || [ "$__cu" = "null" ]; then
-  __rate=0
-else
-  __rate=$(echo "$input" | jq -r '.context_window.current_usage | (.cache_read_input_tokens // 0) as $r | (.input_tokens // 0) as $i | if ($i + $r) > 0 then ($r / ($i + $r) * 100) else 0 end')
-fi
-echo -n "${pfx}$(printf '%.4f' "\${__rate:-0}" | sed 's/0*$//; s/\\\\\\.$//')%"`;
-      }
-      const fmt = o.abbrev
-        ? `if . >= 1000000 then ((. / 100000 | round) / 10 | tostring) + "M" elif . >= 1000 then ((. / 100 | round) / 10 | tostring) + "K" else tostring end`
-        : `tostring`;
-      return atomSegBash(
-        `-r 'if .context_window.current_usage == null then empty else ((.context_window.current_usage.cache_creation_input_tokens // 0) | ${fmt}) as $w | ((.context_window.current_usage.cache_read_input_tokens // 0) | ${fmt}) as $r | "w" + $w + " r" + $r end'`,
-      );
-    },
-    toPreview: (o) => o.mode === "hitrate"
-      ? `${o.prefix ?? "缓存 "}13.3578%`
-      : (o.abbrev ? "w20K r12.1K" : "w20000 r12100"),
-    fields: [
-      { key: "mode", label: "模式", type: "select", options: ["tokens", "hitrate"] },
-      { key: "abbrev", label: "缩写 (K/M)", type: "select", options: ["true", "false"] },
-      { key: "prefix", label: "命中率前缀", type: "string", placeholder: "缓存 " },
-    ],
-  },
-  // Rate limits (per window)
-  {
-    type: "rate-limit-5h",
-    name: "限制 5h",
-    icon: "permissions",
-    desc: "rate_limits.five_hour — 5 小时窗口使用率",
-    defaultOptions: { showReset: false },
-    toBash: (o) => o.showReset
-      ? atomSegBash(`-r 'if .rate_limits.five_hour.used_percentage == null then empty else "5h:" + ((.rate_limits.five_hour.used_percentage) | round | tostring) + "%" + (if .rate_limits.five_hour.resets_at then " (" + (((.rate_limits.five_hour.resets_at - now) / 60 | floor) | tostring) + "m)" else "" end) end'`)
-      : atomSegBash(`-r '(.rate_limits.five_hour.used_percentage // empty) | round | "5h:" + tostring + "%"'`),
-    toPreview: (o) => o.showReset ? "5h:34% (128m)" : "5h:34%",
-    fields: [
-      { key: "showReset", label: "显示剩余重置时间", type: "select", options: ["false", "true"] },
-    ],
-  },
-  {
-    type: "rate-limit-7d",
-    name: "限制 7d",
-    icon: "permissions",
-    desc: "rate_limits.seven_day — 7 天窗口使用率",
-    defaultOptions: { showReset: false },
-    toBash: (o) => o.showReset
-      ? atomSegBash(`-r 'if .rate_limits.seven_day.used_percentage == null then empty else "7d:" + ((.rate_limits.seven_day.used_percentage) | round | tostring) + "%" + (if .rate_limits.seven_day.resets_at then " (" + (((.rate_limits.seven_day.resets_at - now) / 3600 | floor) | tostring) + "h)" else "" end) end'`)
-      : atomSegBash(`-r '(.rate_limits.seven_day.used_percentage // empty) | round | "7d:" + tostring + "%"'`),
-    toPreview: (o) => o.showReset ? "7d:62% (40h)" : "7d:62%",
-    fields: [
-      { key: "showReset", label: "显示剩余重置时间", type: "select", options: ["false", "true"] },
-    ],
-  },
-  // Git
-  {
-    type: "git-branch",
-    name: "Git 分支",
-    icon: "folder",
-    desc: "脚本内 git branch --show-current（非 git / 无分支降级空）",
-    defaultOptions: {},
-    // cwd 取自 workspace.current_dir，回退 .cwd，再回退当前目录；非 git 仓库 / 游离 HEAD → 空输出降级。
-    toBash: () => `__cwd=$(echo "$input" | jq -r '.workspace.current_dir // .cwd // "."')
-__b=$(git -C "$__cwd" branch --show-current 2>/dev/null)
-[ -z "$__b" ] && exit 0
-echo -n "$__b"`,
-    toPreview: () => "main",
-    fields: [],
-  },
-  {
-    type: "git-host",
-    name: "Git 主机",
-    icon: "folder",
-    desc: "workspace.repo.host — Git 仓库主机",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '.workspace.repo.host // empty'`),
-    toPreview: () => "github.com",
-    fields: [],
-  },
-  {
-    type: "git-owner",
-    name: "Git 所有者",
-    icon: "folder",
-    desc: "workspace.repo.owner — 仓库所有者",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '.workspace.repo.owner // empty'`),
-    toPreview: () => "anthropics",
-    fields: [],
-  },
-  {
-    type: "git-repo",
-    name: "Git 仓库",
-    icon: "folder",
-    desc: "workspace.repo.name — 仓库名",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '.workspace.repo.name // empty'`),
-    toPreview: () => "claude-code",
-    fields: [],
-  },
-  {
-    type: "git-repo-full",
-    name: "Git 全名",
-    icon: "folder",
-    desc: "owner/name — 仓库完整标识",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r 'if .workspace.repo.name then ((.workspace.repo.owner // "") + "/" + .workspace.repo.name) else empty end'`),
-    toPreview: () => "anthropics/claude-code",
-    fields: [],
-  },
-  {
-    type: "git-worktree",
-    name: "Git Worktree",
-    icon: "folder",
-    desc: "workspace.git_worktree — Git worktree 名称",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '.workspace.git_worktree // empty'`),
-    toPreview: () => "feature-xyz",
-    fields: [],
-  },
-  // Directory / session
-  {
-    type: "cwd",
-    name: "工作目录",
-    icon: "folder",
-    desc: "workspace.current_dir — 当前工作目录",
-    defaultOptions: { format: "basename" },
-    toBash: (o) => o.format === "full"
-      ? atomSegBash(`-r '.workspace.current_dir // empty'`)
-      : atomSegBash(`-r '(.workspace.current_dir // empty) | split("/") | last'`),
-    toPreview: (o) => o.format === "full" ? "/Users/luoxin/persons/aidog" : "aidog",
-    fields: [
-      { key: "format", label: "格式", type: "select", options: ["basename", "full"] },
-    ],
-  },
-  {
-    type: "project-dir",
-    name: "项目目录",
-    icon: "folder",
-    desc: "workspace.project_dir — 项目启动目录",
-    defaultOptions: { format: "basename" },
-    toBash: (o) => o.format === "full"
-      ? atomSegBash(`-r '.workspace.project_dir // empty'`)
-      : atomSegBash(`-r '(.workspace.project_dir // empty) | split("/") | last'`),
-    toPreview: (o) => o.format === "full" ? "/Users/luoxin/persons/aidog" : "aidog",
-    fields: [
-      { key: "format", label: "格式", type: "select", options: ["basename", "full"] },
-    ],
-  },
-  {
-    type: "added-dirs",
-    name: "附加目录",
-    icon: "folder",
-    desc: "workspace.added_dirs — /add-dir 添加的目录",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '(.workspace.added_dirs // []) | if length == 0 then empty else map(split("/") | last) | join(",") end'`),
-    toPreview: () => "shared,web",
-    fields: [],
-  },
-  {
-    type: "session-id",
-    name: "会话 ID",
-    icon: "core",
-    desc: "session_id — 会话标识符",
-    defaultOptions: { truncate: true },
-    toBash: (o) => o.truncate
-      ? atomSegBash(`-r '(.session_id // empty) | .[0:8]'`)
-      : atomSegBash(`-r '.session_id // empty'`),
-    toPreview: (o) => o.truncate ? "abc123xy" : "abc123xyz789",
-    fields: [
-      { key: "truncate", label: "截断 (前8位)", type: "select", options: ["true", "false"] },
-    ],
-  },
-  {
-    type: "session-name",
-    name: "会话名称",
-    icon: "core",
-    desc: "session_name — 自定义会话名（未设置时隐藏）",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '.session_name // empty'`),
-    toPreview: () => "statusline-atoms",
-    fields: [],
-  },
-  {
-    type: "transcript-path",
-    name: "记录路径",
-    icon: "folder",
-    desc: "transcript_path — 会话记录文件",
-    defaultOptions: { format: "basename" },
-    toBash: (o) => o.format === "full"
-      ? atomSegBash(`-r '.transcript_path // empty'`)
-      : atomSegBash(`-r '(.transcript_path // empty) | split("/") | last'`),
-    toPreview: (o) => o.format === "full" ? "/Users/luoxin/.claude/session.jsonl" : "session.jsonl",
-    fields: [
-      { key: "format", label: "格式", type: "select", options: ["basename", "full"] },
-    ],
-  },
-  // Worktree
-  {
-    type: "worktree-name",
-    name: "Worktree 名",
-    icon: "folder",
-    desc: "worktree.name — Worktree 标识",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '.worktree.name // empty'`),
-    toPreview: () => "feature-xyz",
-    fields: [],
-  },
-  {
-    type: "worktree-branch",
-    name: "Worktree 分支",
-    icon: "folder",
-    desc: "worktree.branch — 当前工作分支",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '.worktree.branch // empty'`),
-    toPreview: () => "feat/atoms",
-    fields: [],
-  },
-  {
-    type: "worktree-original-branch",
-    name: "Worktree 源分支",
-    icon: "folder",
-    desc: "worktree.original_branch — 回源分支",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '.worktree.original_branch // empty'`),
-    toPreview: () => "main",
-    fields: [],
-  },
-  // PR
-  {
-    type: "pr-number",
-    name: "PR 编号",
-    icon: "status",
-    desc: "pr.number — 开放 PR 编号",
-    defaultOptions: { prefix: "#" },
-    toBash: (o) => atomSegBash(`-r '(.pr.number // empty) | tostring'`, o.prefix ?? "#"),
-    toPreview: (o) => `${o.prefix ?? "#"}123`,
-    fields: [
-      { key: "prefix", label: "前缀", type: "string", placeholder: "#" },
-    ],
-  },
-  {
-    type: "pr-url",
-    name: "PR 链接",
-    icon: "status",
-    desc: "pr.url — PR 链接",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '.pr.url // empty'`),
-    toPreview: () => "https://github.com/o/r/pull/123",
-    fields: [],
-  },
-  {
-    type: "pr-state",
-    name: "PR 状态",
-    icon: "status",
-    desc: "pr.review_state — PR 审查状态",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '.pr.review_state // empty'`),
-    toPreview: () => "approved",
-    fields: [],
-  },
-  // Other single fields
-  {
-    type: "version",
-    name: "CC 版本",
-    icon: "core",
-    desc: "version — Claude Code 版本",
-    defaultOptions: { prefix: "v" },
-    toBash: (o) => atomSegBash(`-r '.version // empty'`, o.prefix ?? "v"),
-    toPreview: (o) => `${o.prefix ?? "v"}2.1.90`,
-    fields: [
-      { key: "prefix", label: "前缀", type: "string", placeholder: "v" },
-    ],
-  },
-  {
-    type: "output-style",
-    name: "输出风格",
-    icon: "ui",
-    desc: "output_style.name — 当前输出风格",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '.output_style.name // empty'`),
-    toPreview: () => "default",
-    fields: [],
-  },
-  {
-    type: "thinking",
-    name: "思考模式",
-    icon: "behavior",
-    desc: "thinking.enabled — 扩展思考开启时显示",
-    defaultOptions: { label: "thinking" },
-    toBash: (o) => {
-      const label = bashEscapeDq(o.label ?? "thinking");
-      return atomSegBash(`-r 'if .thinking.enabled == true then "${label}" else empty end'`);
-    },
-    toPreview: (o) => o.label ?? "thinking",
-    fields: [
-      { key: "label", label: "文案", type: "string", placeholder: "thinking" },
-    ],
-  },
-  {
-    type: "token-warn",
-    name: "Token 警示",
-    icon: "permissions",
-    desc: "exceeds_200k_tokens — 超 200k 时警示",
-    defaultOptions: { label: "⚠200k" },
-    toBash: (o) => {
-      const label = bashEscapeDq(o.label ?? "⚠200k");
-      return atomSegBash(`-r 'if .exceeds_200k_tokens == true then "${label}" else empty end'`);
-    },
-    toPreview: (o) => o.label ?? "⚠200k",
-    fields: [
-      { key: "label", label: "文案", type: "string", placeholder: "⚠200k" },
-    ],
-  },
-  {
-    type: "agent",
-    name: "Agent 名称",
-    icon: "team",
-    desc: "agent.name — agent 名称（未配置时隐藏）",
-    defaultOptions: {},
-    toBash: () => atomSegBash(`-r '.agent.name // empty'`),
-    toPreview: () => "reviewer",
-    fields: [],
-  },
-  {
-    type: "agent-badge",
-    name: "子代理徽章",
-    icon: "team",
-    desc: "[type·状态·模型] — 子代理任务徽章（type 空时隐藏，状态符号/色动态）",
-    defaultOptions: {},
-    // Self-colors via embedded catppuccin truecolor (multi-color + dynamic
-    // status色), so leave the segment `color` empty — do not wrap in fixedColorBash.
-    toBash: () => agentBadgeBash(),
-    toPreview: () => "[Agent·●·Opus]",
-    fields: [],
-  },
-  {
-    type: "custom",
-    name: "自定义",
-    icon: "bolt",
-    desc: "自定义 jq 表达式",
-    defaultOptions: { expr: ".model.display_name" },
-    toBash: (o) => `echo -n "$(echo "$input" | jq -r '${o.expr || ".model.display_name"}')"`,
-    toPreview: (o) => `<${o.expr || ".model.display_name"}>`,
-    fields: [
-      { key: "expr", label: "jq 表达式", type: "string", placeholder: ".model.display_name" },
-    ],
-  },
-];
-
-const SEGMENT_DEF_MAP = new Map(SEGMENT_DEFS.map(d => [d.type, d]));
-
-/**
- * Ordered segment categories for the add-segment picker. Each entry lists the
- * segment types under that group; the picker renders a labeled header per group.
- * i18n: `statusline.segCat.<id>`.
- */
-const SEGMENT_CATEGORIES: { id: string; label: string; types: SegmentType[] }[] = [
-  { id: "common", label: "常用", types: ["model", "context-bar", "context-pct", "git", "cost", "rate-limits", "effort", "vim", "separator"] },
-  { id: "cost", label: "成本 / 执行", types: ["cost-usd", "session-duration", "api-duration", "lines-changed"] },
-  { id: "context", label: "上下文", types: ["context-tokens", "context-max", "context-remaining", "context-cache"] },
-  { id: "rate", label: "速率限制", types: ["rate-limit-5h", "rate-limit-7d"] },
-  { id: "git", label: "Git", types: ["git-branch", "git-host", "git-owner", "git-repo", "git-repo-full", "git-worktree"] },
-  { id: "session", label: "目录 / 会话", types: ["cwd", "project-dir", "added-dirs", "session-id", "session-name", "transcript-path"] },
-  { id: "worktree", label: "Worktree", types: ["worktree-name", "worktree-branch", "worktree-original-branch"] },
-  { id: "pr", label: "Pull Request", types: ["pr-number", "pr-url", "pr-state"] },
-  { id: "other", label: "其他", types: ["version", "output-style", "thinking", "token-warn", "agent", "agent-badge", "custom"] },
-];
-
-/**
- * Built-in default 3-line layout (PRD). Applied only when no `segments` exist
- * (first run) or on explicit reset — existing user layouts are never overwritten.
- *
- * Separators are now explicit `separator` segments inserted between stable items
- * (`·` row1/3). Conditional separators that must vanish when their neighbour
- * degrades to empty (`[cost]·`, `·worktree`, `coding · `/`balance · ` group
- * segments, `|pwd`) stay on per-segment reserved affix options (`affixPre` /
- * `affixSuf`) so an empty body leaves no orphaned separator char.
- *
- * Colors are fixed hex per PRD: model 蓝 / tokens 紫 / cost 灰 / ctx·cache 绿 /
- * branch 黄 / version 灰. Row 3 coding/balance self-color dynamically (no fixed
- * `color`) via group*DynBash. Separator segments inherit no color (terminal default).
- */
-export const DEFAULT_SEGMENTS: StatusLineSegment[] = [
-  // ── Row 1: model · tokens[cost]·ctx%·缓存 X% ──
-  { id: "d-model", type: "model", enabled: true, newline: false, color: "#4A9EFF",
-    options: { format: "short" } },
-  { id: "d-sep1", type: "separator", enabled: true, newline: false,
-    options: { char: " · " } },
-  { id: "d-tokens", type: "context-tokens", enabled: true, newline: false, color: "#BF5AF2",
-    options: { mode: "sum", abbrev: true } },
-  // cost hugs brackets and trails its own `·` so it disappears cleanly when empty.
-  { id: "d-cost", type: "cost-usd", enabled: true, newline: false, color: "#8E8E93",
-    options: { prefix: "$", affixPre: "[", affixSuf: "]·" } },
-  { id: "d-ctx", type: "context-pct", enabled: true, newline: false, color: "#34C759",
-    options: {} },
-  { id: "d-cache", type: "context-cache", enabled: true, newline: false, color: "#34C759",
-    options: { mode: "hitrate", prefix: "缓存 ", affixPre: "·" } },
-  // ── Row 2: branch[·worktree]|pwd ──
-  { id: "d-branch", type: "git-branch", enabled: true, newline: true, color: "#FFD60A",
-    options: {} },
-  { id: "d-worktree", type: "worktree-name", enabled: true, newline: false,
-    options: { affixPre: "·" } },
-  { id: "d-cwd", type: "cwd", enabled: true, newline: false,
-    options: { format: "full", affixPre: "|" } },
-  // ── Row 3: coding-or-balance · version ──
-  // version carries its own leading ` · ` affix; coding/balance are mutually
-  // exclusive and concatenate directly. When both are empty the ` · ` still
-  // prefixes version as a decorative bullet.
-  { id: "d-coding", type: "group-coding", enabled: true, newline: true,
-    options: { dynamicColor: true } },
-  { id: "d-balance", type: "group-balance", enabled: true, newline: false,
-    options: { dynamicColor: true, prefix: "$", affixPre: "·" } },
-  { id: "d-version", type: "version", enabled: true, newline: false, color: "#8E8E93",
-    options: { prefix: "v", affixPre: " · " } },
-];
-
-/**
- * Built-in default SubagentStatusLine layout. Subagent now shares the exact same
- * segment editor as the main statusline (no templates) — this is its first-run /
- * reset default. Renders a single line:
- *
- *   [<type>·<状态符号>·<model>]<子代理名>·<ctx%>·<tokens>·<时长>
- *   e.g. [Agent·●·Opus]reviewer·48%·96K·6m40s
- *
- * The leading badge is now the dynamic `agent-badge` segment (移植自 ccplugin
- * subagent_statusline.py)：type_label(`local_agent→Agent`) + status 符号/色(`_STATUS_MAP`)
- * + model(task 级优先回退顶层)；`.type` 为空时整段隐藏。它取代了旧的字面量
- * `[Agent·●]` 分隔符，故首段随 type/status/model 变化而非恒定。徽章自带 catppuccin
- * 颜色（无 `color` 字段）。其后 name 仍走 `.agent.name → .session_name → "subagent"`
- * 兜底，剩余指标 `·`-分隔且字段缺失时降级为空。
- */
-export const DEFAULT_SUBAGENT_SEGMENTS: StatusLineSegment[] = [
-  { id: "sa-badge", type: "agent-badge", enabled: true, newline: false,
-    options: {} },
-  { id: "sa-name", type: "custom", enabled: true, newline: false, color: "#4A9EFF",
-    options: { expr: ".label // .name // .id // \"?\"" } },
-  // Metric segments carry their own leading `·` via `affixPre` instead of
-  // standalone `separator` segments: an empty metric (no token / no duration /
-  // no ctx) then degrades to nothing AND drops its separator — matching
-  // ccplugin subagent_statusline.py which omits zero/absent metrics rather than
-  // emitting `0%` / `0` with orphaned `·` separators.
-  { id: "sa-ctx", type: "context-pct", enabled: true, newline: false, color: "#34C759",
-    options: { suffix: "%", degradeZero: true, affixPre: "·" } },
-  { id: "sa-tokens", type: "context-tokens", enabled: true, newline: false, color: "#BF5AF2",
-    options: { mode: "sum", abbrev: true, affixPre: "·" } },
-  { id: "sa-dur", type: "session-duration", enabled: true, newline: false, color: "#8E8E93",
-    options: { format: "human", affixPre: "·" } },
-];
-
-/**
- * Escape a literal string for safe inclusion inside a bash double-quoted string.
- * Backslash, double-quote, backtick and `$` must be escaped so the separator is
- * emitted verbatim and can never trigger expansion/command substitution.
- */
-function bashEscapeDq(s: string): string {
-  return s.replace(/[\\"`$]/g, m => "\\" + m);
-}
-
-// ── Available data fields reference ──
-
-const STATUSLINE_DATA_FIELDS = [
-  { id: "model", group: "模型", fields: [
-    { key: "model.id", desc: "模型标识符" },
-    { key: "model.display_name", desc: "模型显示名称" },
-  ]},
-  { id: "workspace", group: "工作区", fields: [
-    { key: "workspace.current_dir", desc: "当前工作目录" },
-    { key: "workspace.project_dir", desc: "项目启动目录" },
-    { key: "workspace.repo.owner/name", desc: "Git 仓库标识" },
-  ]},
-  { id: "cost", group: "成本", fields: [
-    { key: "cost.total_cost_usd", desc: "累计预估成本 ($)" },
-    { key: "cost.total_duration_ms", desc: "总持续时间 (ms)" },
-    { key: "cost.total_api_duration_ms", desc: "API 等待时间 (ms)" },
-  ]},
-  { id: "contextWindow", group: "上下文窗口", fields: [
-    { key: "context_window.used_percentage", desc: "已使用百分比" },
-    { key: "context_window.context_window_size", desc: "最大窗口大小" },
-  ]},
-  { id: "rateLimits", group: "速率限制", fields: [
-    { key: "rate_limits.five_hour.used_percentage", desc: "5小时窗口使用 %" },
-    { key: "rate_limits.seven_day.used_percentage", desc: "7天窗口使用 %" },
-  ]},
-  { id: "other", group: "其他", fields: [
-    { key: "effort.level", desc: "推理工作量" },
-    { key: "vim.mode", desc: "Vim 模式" },
-    { key: "session_id", desc: "会话 ID" },
-    { key: "version", desc: "Claude Code 版本" },
-  ]},
-  { id: "subagent", group: "子代理任务", fields: [
-    { key: "type", desc: "任务类型（如 local_agent；空则隐藏徽章）" },
-    { key: "status", desc: "任务状态（running/pending/completed/failed/cancelled）" },
-    { key: "agent.name", desc: "子代理名称" },
-  ]},
-];
-
-// ── Script generation from segments ──
-
-/** Group active segments into rows (split on `newline`). Returns rows with align. */
-function groupRows(segments: StatusLineSegment[]): { align: RowAlign; segs: StatusLineSegment[] }[] {
-  const rows: { align: RowAlign; segs: StatusLineSegment[] }[] = [];
-  let cur: StatusLineSegment[] | null = null;
-  for (const seg of segments) {
-    if (cur === null || (seg.newline && cur.length > 0)) {
-      cur = [];
-      rows.push({ align: seg.align ?? "left", segs: cur });
-    }
-    cur.push(seg);
-  }
-  return rows;
-}
-
-/**
- * Re-derive `newline` flags so the row model stays self-consistent after any
- * structural mutation (drag-reorder, delete, enable-toggle).
- *
- * The row model is *derived* from `newline`: a row break is any segment with
- * `newline === true`, plus the implicit break before the first segment. Drag
- * reordering moves items in the flat array without touching `newline`, which can
- * leave the new first segment carrying `newline: true` (a redundant leading
- * break) or strand a row break inside the array in a way that silently merges
- * rows. Both make "this row" ambiguous and break per-row delete.
- *
- * Invariant enforced here: the first segment never carries `newline: true`
- * (its row break is implicit). All other `newline` flags are preserved, so the
- * visible row count and membership are stable across reorders.
- */
-function normalizeSegments(segments: StatusLineSegment[]): StatusLineSegment[] {
-  if (segments.length === 0) return segments;
-  return segments.map((s, i) =>
-    i === 0 ? (s.newline ? { ...s, newline: false } : s) : s,
-  );
-}
-
-/** True when the segment starts a row (first active segment, or newline=true). */
-function isRowLeaderSeg(segments: StatusLineSegment[], id: string): boolean {
-  const active = segments.filter(s => s.enabled);
-  const idx = active.findIndex(s => s.id === id);
-  if (idx < 0) {
-    // disabled segment — leads if it has explicit newline
-    return !!segments.find(s => s.id === id)?.newline;
-  }
-  return idx === 0 || !!active[idx].newline;
-}
-
-/**
- * Auto-color bash snippet. Computes 38;2;R;G;B from a numeric value held in a
- * shell variable, by thresholds, then echoes the colored text. Self-contained.
- * `valueExpr` is a bash command substitution yielding an integer 0–100 (or cost*100).
- */
-function autoColorBash(type: SegmentType, body: string): string {
-  // body = the plain `echo -n "..."` snippet (single line). We wrap it.
-  // Extract a numeric metric for the threshold; per type.
-  let metric: string;
-  let thresholds: string; // bash if/elif producing __r __g __b
-  // Percentage-style thresholds: >80 red, >60 amber, else green.
-  const pctThresholds =
-    `if [ "$__m" -gt 80 ]; then __c="255;69;58"; elif [ "$__m" -gt 60 ]; then __c="255;159;10"; else __c="52;199;89"; fi`;
-  if (type === "context-pct" || type === "context-bar") {
-    metric = `__m=$(echo "$input" | jq -r '(.context_window.used_percentage // 0) | round')`;
-    thresholds = pctThresholds;
-  } else if (type === "context-remaining") {
-    // Inverted: low remaining is bad.
-    metric = `__m=$(echo "$input" | jq -r '(.context_window.remaining_percentage // 100) | round')`;
-    thresholds =
-      `if [ "$__m" -lt 20 ]; then __c="255;69;58"; elif [ "$__m" -lt 40 ]; then __c="255;159;10"; else __c="52;199;89"; fi`;
-  } else if (type === "cost" || type === "cost-usd") {
-    // cents
-    metric = `__m=$(echo "$input" | jq -r '((.cost.total_cost_usd // 0) * 100) | round')`;
-    thresholds =
-      `if [ "$__m" -gt 1000 ]; then __c="255;69;58"; elif [ "$__m" -gt 100 ]; then __c="255;159;10"; else __c="52;199;89"; fi`;
-  } else if (type === "rate-limit-5h") {
-    metric = `__m=$(echo "$input" | jq -r '(.rate_limits.five_hour.used_percentage // 0) | round')`;
-    thresholds = pctThresholds;
-  } else if (type === "rate-limit-7d") {
-    metric = `__m=$(echo "$input" | jq -r '(.rate_limits.seven_day.used_percentage // 0) | round')`;
-    thresholds = pctThresholds;
-  } else if (type === "session-duration" || type === "api-duration") {
-    // Seconds: >300s red, >60s amber, else green.
-    const field = type === "api-duration" ? "total_api_duration_ms" : "total_duration_ms";
-    metric = `__m=$(echo "$input" | jq -r '((.cost.${field} // 0) / 1000) | round')`;
-    thresholds =
-      `if [ "$__m" -gt 300 ]; then __c="255;69;58"; elif [ "$__m" -gt 60 ]; then __c="255;159;10"; else __c="52;199;89"; fi`;
-  } else { // rate-limits — use the higher of 5h/7d
-    metric = `__m=$(echo "$input" | jq -r '[(.rate_limits.five_hour.used_percentage // 0), (.rate_limits.seven_day.used_percentage // 0)] | max | round')`;
-    thresholds = pctThresholds;
-  }
-  // Capture the segment's stdout (body is one or more `echo -n` lines), then
-  // emit it wrapped in ANSI truecolor. `{ … ; }` groups multi-line bodies.
-  return `__t="$({\n${body}\n})"\n${metric}\n${thresholds}\nprintf '\\033[38;2;%sm%s\\033[0m' "$__c" "$__t"`;
-}
-
-/** Wrap an `echo -n "..."` snippet with fixed-color ANSI truecolor. */
-function fixedColorBash(body: string, rgb: [number, number, number]): string {
-  const [r, g, b] = rgb;
-  return `__t="$({\n${body}\n})"\nprintf '\\033[38;2;${r};${g};${b}m%s\\033[0m' "$__t"`;
-}
-
-export function generateStatusLineScript(segments: StatusLineSegment[]): string {
-  const active = segments.filter(s => s.enabled);
-  if (active.length === 0) return "#!/usr/bin/env bash\necho ''\n";
-
-  const lines: string[] = [
-    "#!/usr/bin/env bash",
-    "# Generated by aidog — do not edit manually",
-    PATH_PRELUDE,
-    "input=$(cat)",
-    `__cols=$(echo "$input" | jq -r '.terminal.width // 0')`,
-    "",
-  ];
-
-  // Fetch the aidog group-info endpoint once (shared by all group-* segments)
-  // before any row renders. Omitted entirely when no group segment is active.
-  if (active.some(s => GROUP_SEG_TYPES.has(s.type))) {
-    lines.push(aidogFetchPrelude());
-  }
-
-  const rows = groupRows(active);
-
-  for (let i = 0; i < rows.length; i++) {
-    const { align, segs } = rows[i];
-    lines.push(`# ── row ${i + 1} (${align}) ──`);
-    lines.push(`__line${i}=""`);
-    // Each segment runs in its own subshell; its full (possibly ANSI-wrapped)
-    // output is captured as one unit so word-splitting never severs color codes.
-    // Separators are now explicit `separator` segments inserted between items;
-    // any segment (incl. separator) that degrades to empty simply appends "".
-    lines.push(...emitRowSegments(segs, `__line${i}`));
-    if (align === "center" || align === "right") {
-      // Strip ANSI for visible-width measurement, then pad with printf.
-      lines.push(`__vis${i}=$(printf '%s' "$__line${i}" | sed 's/\\x1b\\[[0-9;]*m//g')`);
-      lines.push(`__w${i}=\${#__vis${i}}`);
-      lines.push(`if [ "$__cols" -gt 0 ] && [ "$__cols" -gt "$__w${i}" ]; then`);
-      if (align === "center") {
-        lines.push(`  __pad${i}=$(( (__cols - __w${i}) / 2 ))`);
-      } else {
-        lines.push(`  __pad${i}=$(( __cols - __w${i} ))`);
-      }
-      lines.push(`  printf '%*s%s\\n' "$__pad${i}" '' "$__line${i}"`);
-      lines.push(`else`);
-      lines.push(`  printf '%s\\n' "$__line${i}"`);
-      lines.push(`fi`);
-    } else {
-      lines.push(`printf '%s\\n' "$__line${i}"`);
-    }
-    if (i < rows.length - 1) lines.push("");
-  }
-
-  return lines.join("\n");
-}
-
-/**
- * Build the per-segment bash snippet array shared by the main and subagent
- * generators: each segment renders in its own `$(…)` subshell, capturing its
- * (possibly ANSI-wrapped) output as one word-split-safe unit. Returns the list
- * of `__seg=…` / `__line+=…` lines for the given row segments, appending to the
- * named accumulator variable.
- */
-function emitRowSegments(segs: StatusLineSegment[], acc: string): string[] {
-  const out: string[] = [];
-  for (const seg of segs) {
-    const def = SEGMENT_DEF_MAP.get(seg.type);
-    if (!def) continue;
-    const opts = { ...def.defaultOptions, ...seg.options };
-    const affixPre = typeof opts.affixPre === "string" ? opts.affixPre : "";
-    const affixSuf = typeof opts.affixSuf === "string" ? opts.affixSuf : "";
-    const body = wrapAffix(def.toBash(opts), affixPre, affixSuf);
-    let snippet: string;
-    if (seg.autoColor && VALUE_COLORABLE.has(seg.type)) {
-      snippet = autoColorBash(seg.type, body);
-    } else {
-      const rgb = hexToRgb(seg.color);
-      snippet = rgb ? fixedColorBash(body, rgb) : body;
-    }
-    out.push(`__seg="$(\n${snippet}\n)"`);
-    out.push(`${acc}+="$__seg"`);
-  }
-  return out;
-}
-
-/**
- * Generate the SubagentStatusLine bash script (native — no external python).
- *
- * Contract (Claude Code 子代理状态行 spec + ccplugin subagent_statusline.py):
- *   stdin:  {columns, tasks:[{id,name,label,type,status,model,startTime,
- *                            tokenCount,context_window,...}], model, context_window}
- *   stdout: one JSONL line per task — {"id":"<task id>","content":"<row>"}
- *           (content carries ANSI). Tasks without an id are skipped.
- *
- * Each task object is rendered with the *same* segment snippets as the main
- * generator, but `$input` is rebound per task to a normalized task object so the
- * existing segment jq paths resolve against task-scoped fields. Normalization
- * (jq, mirrors render_row field-取法) does, per task:
- *   - `.model`        fallback → top-level `.model` (task-level model 优先回退顶层)
- *   - `.context_window` fallback → top-level `.context_window`
- *   - `.tokenCount`   → synthesized into context_window.total_input_tokens when
- *                       the task carries no context_window token fields, so the
- *                       `context-tokens` segment reflects task token usage.
- *   - `.cost.total_duration_ms` ← (now - startTime)*1000 when startTime present,
- *                       so the `session-duration` segment shows task elapsed time.
- *   - `.agent.name` / `.session_name` ← `.label // .name // .id` so the default
- *                       name segment (custom `.agent.name // .session_name`) shows
- *                       the task name.
- * The agent-badge segment reads `.type`/`.status`/`.model` directly off the task.
- *
- * Single-row only (subagent rows are one line); multi-row segment layouts collapse
- * to the first row's segments. bash 3.2 safe (no `case` in `$(…)`).
- */
-export function generateSubagentStatusLineScript(segments: StatusLineSegment[]): string {
-  const active = segments.filter(s => s.enabled);
-  if (active.length === 0) return "#!/usr/bin/env bash\n:\n";
-
-  // Subagent rows are single-line; flatten any newline-induced rows into one.
-  const segs = active;
-
-  const lines: string[] = [
-    "#!/usr/bin/env bash",
-    "# Generated by aidog — do not edit manually (SubagentStatusLine)",
-    PATH_PRELUDE,
-    "__payload=$(cat)",
-    "__now=$(date +%s)",
-    // Top-level fallbacks (model / context_window) extracted once.
-    `__top=$(echo "$__payload" | jq -c '{model: (.model // null), context_window: (.context_window // null)}')`,
-    "",
-    // Iterate tasks: emit each normalized task object as one compact JSON line.
-    // `jq -c '.tasks[]?'` tolerates a missing / non-array `tasks`.
-    `echo "$__payload" | jq -c '.tasks[]? | select(.id != null)' | while IFS= read -r __task; do`,
-    "  __id=$(echo \"$__task\" | jq -r '.id')",
-    "  [ -z \"$__id\" ] && continue",
-    // Normalize the task object so existing segment jq paths resolve task-scoped.
-    "  input=$(echo \"$__task\" | jq -c --argjson top \"$__top\" --argjson now \"$__now\" '",
-    "    . as $t",
-    "    | (.model // $top.model) as $m",
-    "    | (.context_window // $top.context_window) as $cw",
-    "    | .model = $m",
-    "    | .context_window = $cw",
-    "    | (if (.context_window == null) and ((.tokenCount // 0) > 0)",
-    "        then .context_window = {total_input_tokens: .tokenCount, total_output_tokens: 0}",
-    "        elif (.context_window != null) and ((.context_window.total_input_tokens // 0) == 0) and ((.tokenCount // 0) > 0)",
-    "        then .context_window.total_input_tokens = .tokenCount",
-    "        else . end)",
-    "    | (if (.startTime != null)",
-    "        then (.startTime | if type == \"number\" then (if . > 10000000000 then ./1000 else . end) else (try (fromdateiso8601) catch null) end) as $st",
-    "        | (if $st != null and ($now - $st) > 0 then .cost = ((.cost // {}) + {total_duration_ms: (($now - $st) * 1000)}) else . end)",
-    "        else . end)",
-    "    | .agent = ((.agent // {}) + {name: ((.agent.name) // .label // .name // (.id|tostring))})",
-    "    | .session_name = (.session_name // .label // .name // (.id|tostring))",
-    "  ')",
-    "  __content=\"\"",
-    ...emitRowSegments(segs, "__content").map(l => "  " + l),
-    // Emit JSONL with jq doing the JSON-string escaping of the ANSI content.
-    // `-Rrs` slurps the whole (ANSI-bearing) line as one raw string.
-    "  printf '%s' \"$__content\" | jq -Rrs --arg id \"$__id\" '{id: $id, content: .}' -c",
-    "done",
-  ];
-
-  return lines.join("\n");
-}
-
-/**
- * Resolved materialization for a statusLine / subagentStatusLine config block.
- * `scriptContent` is the bash script body to write (builtin mode) or `null`
- * (custom mode / disabled — nothing to generate). `customCommand` is the
- * user-supplied native command (custom mode only). `padding` is carried so the
- * caller can assemble the native field.
- */
-export interface StatuslineMaterialization {
-  enabled: boolean;
-  mode: "builtin" | "custom";
-  scriptContent: string | null;
-  customCommand: string;
-}
-
-/**
- * Pure resolver: given a stored `_aidog_statusline` / `_aidog_subagent_statusline`
- * block and its scriptType, derive everything needed to materialize the native
- * `statusLine` / `subagentStatusLine` field — applying all default logic
- * (segments → DEFAULT_SEGMENTS, subagent template selection)
- * in one authoritative place. No side effects; the caller persists the result.
- *
- * Mirrors StatusLinePanel's in-component derivations so the on-save materializer
- * and the live UI agree byte-for-byte.
- */
-export function materializeStatusline(
-  stored: Record<string, any> | undefined,
-  scriptType: "statusline" | "subagent",
-): StatuslineMaterialization {
-  const s = (stored ?? {}) as Record<string, any>;
-  const isMain = scriptType === "statusline";
-  const enabled = !!s.enabled;
-  const mode: "builtin" | "custom" = s.mode === "custom" ? "custom" : "builtin";
-    const customCommand = typeof s.customCommand === "string" ? s.customCommand : "";
-
-  let scriptContent: string | null = null;
-  if (enabled && mode === "builtin") {
-    if (!isMain) {
-      // Subagent statusline — native bash generator emitting per-task JSONL
-      //   stdin:  {tasks: [{id, name, type, status, …}]}
-      //   stdout: {"id":"…","content":"…"} per task
-      // (no external dependency; the old python delegation was a non-distributable
-      //  dev-machine path).
-      const segments: StatusLineSegment[] =
-        (s.segments as StatusLineSegment[] | undefined) ?? DEFAULT_SUBAGENT_SEGMENTS.map(seg => ({ ...seg }));
-      return {
-        enabled: true,
-        mode: "builtin",
-        scriptContent: generateSubagentStatusLineScript(segments),
-        customCommand,
-      };
-    }
-    // main statusline — segment-based bash generator.
-    const segments: StatusLineSegment[] =
-      (s.segments as StatusLineSegment[] | undefined) ?? DEFAULT_SEGMENTS.map(seg => ({ ...seg }));
-    scriptContent = generateStatusLineScript(segments);
-  }
-
-  return { enabled, mode, scriptContent, customCommand };
-}
-
-/** Mock metric values used to drive autoColor preview (matches bash thresholds). */
-const PREVIEW_METRIC: Record<string, number> = {
-  "context-pct": 65,
-  "context-bar": 65,
-  "cost": 12,          // cents
-  "cost-usd": 12,      // cents
-  "rate-limits": 41,
-  "rate-limit-5h": 34,
-  "rate-limit-7d": 62,
-  "context-remaining": 49,
-  "session-duration": 285, // seconds
-  "api-duration": 15,      // seconds
-};
 
 /** Map a mock metric to the same semantic color the bash thresholds produce. */
 function autoColorPreviewHex(type: SegmentType): string {
   const m = PREVIEW_METRIC[type] ?? 0;
   if (type === "cost" || type === "cost-usd") {
-    if (m > 1000) return "#ff453a";
-    if (m > 100) return "#ff9f0a";
-    return "#34c759";
+    if (m > 1000) return "var(--color-danger)";
+    if (m > 100) return "var(--color-warning)";
+    return "var(--color-success)";
   }
   if (type === "context-remaining") {
-    if (m < 20) return "#ff453a";
-    if (m < 40) return "#ff9f0a";
-    return "#34c759";
+    if (m < 20) return "var(--color-danger)";
+    if (m < 40) return "var(--color-warning)";
+    return "var(--color-success)";
   }
   if (type === "session-duration" || type === "api-duration") {
-    if (m > 300) return "#ff453a";
-    if (m > 60) return "#ff9f0a";
-    return "#34c759";
+    if (m > 300) return "var(--color-danger)";
+    if (m > 60) return "var(--color-warning)";
+    return "var(--color-success)";
   }
-  if (m > 80) return "#ff453a";
-  if (m > 60) return "#ff9f0a";
-  return "#34c759";
+  if (m > 80) return "var(--color-danger)";
+  if (m > 60) return "var(--color-warning)";
+  return "var(--color-success)";
 }
 
 /** Resolve the preview color for a segment (fixed hex or autoColor), or null. */
@@ -3460,15 +1964,18 @@ function StatusLinePanel({
     updateSegments(segments.filter(s => !ids.has(s.id)));
   };
 
-  // Generate script
-  const scriptPreview = generateStatusLineScript(segments);
+  // Generate script — 必须按 scriptType 分流, 否则 subagent 文件会被写入主脚本内容
+  // (Claude Code 期望 subagent 输出每任务一行 JSONL, 写错→输出乱→CC 回退默认 `◯ <type> <desc> <dur>`)
+  const scriptPreview = scriptType === "subagent"
+    ? generateSubagentStatusLineScript(segments)
+    : generateStatusLineScript(segments);
 
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      const path = await statuslineApi.generate(scriptType, scriptPreview);
-      const value: Record<string, any> = { type: "command", command: path };
+      const command = await statuslineApi.generate(scriptType, scriptPreview);
+      const value: Record<string, any> = { type: "command", command };
       updateField(fieldName, value);
     } catch (e: any) {
       console.error("generate_statusline_script:", e);
@@ -3492,9 +1999,9 @@ function StatusLinePanel({
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const path = await statuslineApi.generate(scriptType, scriptPreview);
+        const command = await statuslineApi.generate(scriptType, scriptPreview);
         if (cancelled) return;
-        const value: Record<string, any> = { type: "command", command: path };
+        const value: Record<string, any> = { type: "command", command };
   
         const signature = JSON.stringify(value);
         // Skip when the field already holds this exact value → no spurious dirty.
@@ -3594,8 +2101,8 @@ function StatusLinePanel({
         </div>
         {enabled && (
           <span style={{
-            fontSize: F.small, fontWeight: 600, color: "#34c759",
-            padding: "2px 8px", background: "rgba(52,199,89,0.12)", borderRadius: "var(--radius-sm)",
+            fontSize: F.small, fontWeight: 600, color: "var(--color-success)",
+            padding: "2px 8px", background: "color-mix(in srgb, var(--color-success) 12%, transparent)", borderRadius: "var(--radius-sm)",
           }}>● {t("statusline.enabled", "已启用")}</span>
         )}
       </div>
@@ -4129,11 +2636,11 @@ export function ImportDiffModal({
   const renderLeaf = (d: DiffNode, nested: boolean) => {
     const changeType = getChangeType(d);
     const isSelected = selected.has(d.path);
-    const bgColor = changeType === "added" ? "rgba(52,199,89,0.06)"
-      : changeType === "removed" ? "rgba(255,69,58,0.06)"
+    const bgColor = changeType === "added" ? "color-mix(in srgb, var(--color-success) 6%, transparent)"
+      : changeType === "removed" ? "color-mix(in srgb, var(--color-danger) 6%, transparent)"
       : "var(--bg-glass)";
-    const labelColor = changeType === "added" ? "#34c759"
-      : changeType === "removed" ? "#ff453a"
+    const labelColor = changeType === "added" ? "var(--color-success)"
+      : changeType === "removed" ? "var(--color-danger)"
       : "var(--accent)";
     const label = changeType === "added" ? t("settings.editor.diffAdded", "新增") : changeType === "removed" ? t("settings.editor.diffRemoved", "删除") : t("settings.editor.diffChanged", "变更");
     return (
@@ -4253,9 +2760,9 @@ export function ImportDiffModal({
                   }}>{node.label}</span>
                   <span style={{
                     fontSize: F.hint, fontWeight: 600,
-                    color: state === "partial" ? "#ff9f0a" : "var(--accent)",
+                    color: state === "partial" ? "var(--color-warning)" : "var(--accent)",
                     padding: "1px 6px",
-                    background: state === "partial" ? "rgba(255,159,10,0.12)" : "rgba(0,122,255,0.12)",
+                    background: state === "partial" ? "color-mix(in srgb, var(--color-warning) 12%, transparent)" : "var(--accent-subtle)",
                     borderRadius: "var(--radius-sm)",
                   }}>{state === "partial" ? t("settings.editor.diffPartial", "部分") : t("settings.editor.diffObject", "对象")}</span>
                 </div>
@@ -4702,6 +3209,136 @@ type MatcherGroup = {
 
 export type HooksConfig = Record<string, MatcherGroup[]>;
 
+// ─── notify hook 快捷注入/移除（Hooks 区按钮共享逻辑）──────────────
+// 与后端 gateway::hooks 识别约定一致：按命令串含脚本文件名识别 aidog notify 项。
+const AIDOG_NOTIFY_MARKERS = ["aidog-notify-complete", "aidog-notify-waiting"];
+
+/** 判断一个 handler 是否为 aidog notify 命令（按 command 串含脚本文件名识别）。 */
+function isAidogNotifyHandler(h: HookHandler): boolean {
+  const cmd = h.command ?? "";
+  return AIDOG_NOTIFY_MARKERS.some((m) => cmd.includes(m));
+}
+
+/** hooksValue 中是否已存在 aidog notify 注入项。 */
+function hasNotifyHooks(hooks: HooksConfig | undefined): boolean {
+  if (!hooks) return false;
+  return Object.values(hooks).some((groups) =>
+    groups.some((g) => g.hooks.some(isAidogNotifyHandler)),
+  );
+}
+
+/**
+ * 把后端 notify hook 片段并入当前 hooksValue。
+ * - 先剥除现有 aidog notify 项（避免重复，幂等）。
+ * - 再把片段中每个 event 的 aidog handler 追加为独立 matcher 组（matcher 空 = 匹配所有）。
+ */
+function mergeNotifyHooks(
+  current: HooksConfig | undefined,
+  fragment: NotifyHooksFragment,
+): HooksConfig {
+  const merged: HooksConfig = stripNotifyHooks(current) ?? {};
+  for (const [event, groups] of Object.entries(fragment)) {
+    for (const g of groups) {
+      const handlers: HookHandler[] = (g.hooks ?? [])
+        .filter((h) => isAidogNotifyHandler(h as HookHandler))
+        .map((h) => ({ type: (h.type as HandlerType) ?? "command", command: h.command }));
+      if (handlers.length === 0) continue;
+      const existing = merged[event] ?? [];
+      merged[event] = [...existing, { matcher: "", hooks: handlers }];
+    }
+  }
+  return merged;
+}
+
+/**
+ * 从 hooksValue 移除所有 aidog notify 项，保留用户其它 hook。
+ * 空 handler 组 / 空 event 一并清理；全清后返回 undefined（与 syncHooks 一致）。
+ */
+function stripNotifyHooks(current: HooksConfig | undefined): HooksConfig | undefined {
+  if (!current) return undefined;
+  const cleaned: HooksConfig = {};
+  for (const [event, groups] of Object.entries(current)) {
+    const keptGroups = groups
+      .map((g) => ({ ...g, hooks: g.hooks.filter((h) => !isAidogNotifyHandler(h)) }))
+      .filter((g) => g.hooks.length > 0);
+    if (keptGroups.length > 0) cleaned[event] = keptGroups;
+  }
+  return Object.keys(cleaned).length > 0 ? cleaned : undefined;
+}
+
+/** Hooks 区「注入/移除通知 hook」快捷条（注入态切换 + busy 防并发 + 失败提示）。 */
+function NotifyHookQuickBar(props: {
+  hooksValue: HooksConfig | undefined;
+  updateField: (field: string, value: any) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}) {
+  const { hooksValue, updateField, t } = props;
+  const injected = hasNotifyHooks(hooksValue);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string>("");
+
+  const handleInject = async () => {
+    if (busy) return;
+    setBusy(true);
+    setError("");
+    try {
+      const fragment = await notificationApi.buildNotifyHooksFragment();
+      const merged = mergeNotifyHooks(hooksValue, fragment);
+      updateField("hooks", merged);
+      updateField("_aidog_hooks", { enabled: true });
+    } catch (e) {
+      console.error("buildNotifyHooksFragment failed", e);
+      setError(t("settings.hooksNotifyError", "操作失败，请重试"));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const handleRemove = () => {
+    if (busy) return;
+    const cleaned = stripNotifyHooks(hooksValue);
+    updateField("hooks", cleaned);
+    updateField("_aidog_hooks", { enabled: false });
+    setError("");
+  };
+
+  return (
+    <div className="glass-surface" style={{
+      borderRadius: "var(--radius-md)", padding: "12px 16px",
+      display: "flex", flexDirection: "column", gap: 8,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1, minWidth: 200 }}>
+          <span style={{ fontSize: F.body, fontWeight: 600, color: "var(--text-primary)" }}>
+            {t("settings.hooksQuickTitle", "通知 hook")}
+          </span>
+          <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+            {injected
+              ? t("settings.hooksNotifyInjected", "已注入 Claude Code 完成/等待通知 hook，保存后对全部分组生效。")
+              : t("settings.hooksQuickDesc", "一键填入 Claude Code 完成/等待通知 hook，保存后对全部分组与 Codex 生效。")}
+          </span>
+        </div>
+        {injected ? (
+          <button type="button" className="btn btn-ghost" disabled={busy}
+            style={{ fontSize: F.body, padding: "6px 14px", flexShrink: 0 }}
+            onClick={handleRemove}>
+            {t("notif.hookRemove", "移除")}
+          </button>
+        ) : (
+          <button type="button" className="btn btn-primary" disabled={busy}
+            style={{ fontSize: F.body, padding: "6px 14px", flexShrink: 0 }}
+            onClick={handleInject}>
+            {busy ? t("settings.hooksNotifyBusy", "处理中…") : t("settings.hooksNotifyInject", "注入通知 hook")}
+          </button>
+        )}
+      </div>
+      {error && (
+        <span style={{ fontSize: F.hint, color: "var(--danger)" }}>{error}</span>
+      )}
+    </div>
+  );
+}
+
 /** Reusable field-row with inline label for handler cards */
 function FieldRow({ label, icon, children }: {
   label: string; icon?: React.ReactNode; children: React.ReactNode;
@@ -4731,7 +3368,7 @@ export function HooksSection({
   t: ReturnType<typeof useTranslation>["t"];
 }) {
   const hooks: HooksConfig = hooksValue ?? {};
-  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [userToggles, setUserToggles] = useState<Record<string, boolean>>({});
 
   // Count total hooks for badge
   const totalHooks = Object.values(hooks).reduce((sum, groups) => sum + groups.reduce((s, g) => s + g.hooks.length, 0), 0);
@@ -4750,7 +3387,7 @@ export function HooksSection({
     const existing = updated[eventId] ?? [];
     updated[eventId] = [...existing, { matcher: "", hooks: [{ type: "command" as HandlerType, command: "" }] }];
     syncHooks(updated);
-    setExpandedEvent(eventId);
+    setUserToggles((prev) => ({ ...prev, [eventId]: true }));
   };
 
   const removeMatcherGroup = (eventId: string, groupIdx: number) => {
@@ -4842,7 +3479,7 @@ export function HooksSection({
       {/* Configured events */}
       {Object.entries(hooks).map(([eventId, groups]) => {
         const eventMeta = HOOK_EVENTS.find(e => e.id === eventId);
-        const isExpanded = expandedEvent === eventId || groups.length > 0;
+        const isExpanded = eventId in userToggles ? userToggles[eventId] : groups.length > 0;
         const count = eventHookCount(eventId);
 
         return (
@@ -4864,7 +3501,7 @@ export function HooksSection({
                 style={{ cursor: "pointer", userSelect: "none", fontSize: F.small, color: "var(--text-tertiary)",
                   transition: "transform 0.2s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)"
                 }}
-                onClick={() => setExpandedEvent(isExpanded ? null : eventId)}
+                onClick={() => setUserToggles((prev) => ({ ...prev, [eventId]: !isExpanded }))}
               >
                 ▶
               </span>
@@ -5193,7 +3830,7 @@ export function HooksSectionInline(props: {
   // Reuse same logic but render flat — extract hooks data from props
   const { hooksValue, updateField, t } = props;
   const hooks: HooksConfig = hooksValue ?? {};
-  const [expandedEvent, setExpandedEvent] = useState<string | null>(null);
+  const [userToggles, setUserToggles] = useState<Record<string, boolean>>({});
 
   const totalHooks = Object.values(hooks).reduce((sum, groups) => sum + groups.reduce((s, g) => s + g.hooks.length, 0), 0);
 
@@ -5211,7 +3848,7 @@ export function HooksSectionInline(props: {
     const existing = updated[eventId] ?? [];
     updated[eventId] = [...existing, { matcher: "", hooks: [{ type: "command" as HandlerType, command: "" }] }];
     syncHooks(updated);
-    setExpandedEvent(eventId);
+    setUserToggles((prev) => ({ ...prev, [eventId]: true }));
   };
 
   const removeMatcherGroup = (eventId: string, groupIdx: number) => {
@@ -5270,6 +3907,9 @@ export function HooksSectionInline(props: {
   // Render the same JSX as HooksSection but without <Section> wrapper
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: S.gap }}>
+      {/* Notify hook quick inject/remove */}
+      <NotifyHookQuickBar hooksValue={hooksValue} updateField={updateField} t={t} />
+
       {/* Event selector */}
       <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
         <select className="input" style={{ fontSize: F.body, padding: S.inputPad, flex: 1, minWidth: 200 }} value=""
@@ -5291,7 +3931,7 @@ export function HooksSectionInline(props: {
       {/* Reuse exact same event rendering as HooksSection — copy the JSX */}
       {Object.entries(hooks).map(([eventId, groups]) => {
         const eventMeta = HOOK_EVENTS.find(e => e.id === eventId);
-        const isExpanded = expandedEvent === eventId || groups.length > 0;
+        const isExpanded = eventId in userToggles ? userToggles[eventId] : groups.length > 0;
         const count = eventHookCount(eventId);
 
         return (
@@ -5304,7 +3944,7 @@ export function HooksSectionInline(props: {
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ cursor: "pointer", userSelect: "none", fontSize: F.small, color: "var(--text-tertiary)",
                 transition: "transform 0.2s", transform: isExpanded ? "rotate(90deg)" : "rotate(0deg)" }}
-                onClick={() => setExpandedEvent(isExpanded ? null : eventId)}>▶</span>
+                onClick={() => setUserToggles((prev) => ({ ...prev, [eventId]: !isExpanded }))}>▶</span>
               <span style={{ fontSize: 16, fontWeight: 600, color: "var(--accent)" }}>{eventId}</span>
               {eventMeta && <span style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>— {t(`settings.hooks.event.${eventMeta.id}.desc`, eventMeta.desc)}</span>}
               <span style={{ fontSize: 12, fontWeight: 600, padding: "2px 10px", borderRadius: 10,

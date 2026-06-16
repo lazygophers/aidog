@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "skills.rs/lib.rs proxy env 注入 + command 约定"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用 load_proxy_client_settings/build_http_client, 禁重造代理逻辑"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "lib.rs↔skills.rs proxy 传参契约"}

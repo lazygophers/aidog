@@ -1,44 +1,44 @@
 ---
-title: Modelltest
+title: Modell-Test
 ---
 
-# Model Testing
+# Modell-Test
 
-AiDog provides a built-in model testing feature to verify platform connectivity and model availability without external tools.
+AiDog bietet einen integrierten Modell-Test, um Plattform-Konnektivität und Modellverfügbarkeit ohne externe Tools zu prüfen.
 
-## How to Use
+## Verwendung
 
-On the **"Platforms"** page, click the "Test" button on a platform card to open the model testing panel.
+Klicken Sie auf der **„Plattformen"**-Seite auf «Test» einer Plattformkarte, um das Test-Panel zu öffnen.
 
-## Test Modes
+## Testmodi
 
-| Mode | Description |
+| Modus | Beschreibung |
 |------|-------------|
-| **Quick Test** | Send a short request using the platform's default model for fast connectivity check |
-| **Single Model** | Test a specific model |
-| **Batch Test** | Test multiple models sequentially to verify availability |
-| **Random Test** | Test all available models on the platform one by one |
-| **Custom Test** | Choose a model and enter a custom prompt and max token count |
+| **Schnelltest** | Sendet eine kurze Anfrage mit dem Standardmodell der Plattform zur schnellen Konnektivitätsprüfung |
+| **Einzelmodell** | Testet ein bestimmtes Modell |
+| **Batch-Test** | Testet mehrere Modelle nacheinander |
+| **Zufallstest** | Testet alle verfügbaren Modelle der Plattform eins nach dem anderen |
+| **Custom-Test** | Modell wählen plus eigenem Prompt und Max-Token-Anzahl |
 
-## Test Results
+## Testergebnisse
 
-Each test result shows:
+Jedes Ergebnis zeigt:
 
-- **Model Name** — The model used for testing
-- **Status** — Success or failure
-- **Response Time** — Total time from sending the request to receiving the full response
-- **Token Usage** — Input and output token counts
-- **Response Content** — The text returned by the model (collapsible)
+- **Modellname** — Das getestete Modell
+- **Status** — Erfolg oder Misserfolg
+- **Antwortzeit** — Gesamtzeit von Senden bis vollständigem Empfang
+- **Token-Verbrauch** — Eingabe-/Ausgabe-Token-Anzahlen
+- **Antwortinhalt** — Vom Modell zurückgegebener Text (einklappbar)
 
-## Use Cases
+## Anwendungsfälle
 
-- **After adding a platform** — Verify that the API Key and Base URL are configured correctly
-- **After changing endpoints** — Confirm the new endpoint works properly
-- **After model mapping** — Ensure the mapped target model is available on the platform
-- **Troubleshooting** — When proxied requests fail, test the corresponding platform first
+- **Nach Plattform-Hinzufügung** — API-Key und Base-URL korrekt?
+- **Nach Endpoint-Änderung** — Neuer Endpoint funktioniert?
+- **Nach Modell-Mapping** — Zielmodell verfügbar?
+- **Fehlerbehebung** — Bei proxidierten Fehlern zuerst Plattform testen
 
-## Notes
+## Hinweise
 
-- Testing uses the platform's configured API Key and endpoint, which consumes actual tokens
-- Mock platform tests do not send real requests
-- Batch and random modes test multiple models sequentially and take longer
+- Der Test nutzt API-Key und Endpoint der Plattform und verbraucht echte Tokens
+- Mock-Plattform-Tests senden keine echten Anfragen
+- Batch- und Zufallsmodi testen mehrere Modelle und dauern länger

@@ -4,29 +4,29 @@ title: API-Referenz
 
 # API-Referenz
 
-AiDog stellt eine lokale HTTP-API zum Abrufen von Gruppeninformationen bereit. Alle Endpunkte sind **nur lokal** (`127.0.0.1`) und erfordern keinen externen Netzwerkzugriff.
+AiDog stellt eine lokale HTTP-API zur Abfrage von Gruppeninformationen bereit. Alle Endpunkte sind **ausschließlich localhost** (`127.0.0.1`) und erfordern keinen externen Netzwerkzugriff.
 
 ## POST /api/group-info
 
-Query estimated group information (balance, coding plan utilization, request statistics, etc.). Only **single-platform groups** return applicable data; multi-platform or no-platform groups return `applicable: false`.
+Fragt geschätzte Gruppeninformationen ab (Guthaben, Coding-Plan-Auslastung, Anfragestatistiken usw.). Nur **Einzelplattform-Gruppen** liefern anwendbare Daten; Mehrplattform- oder plattformlose Gruppen geben `applicable: false` zurück.
 
-### Authentication
+### Authentifizierung
 
 ```
 Authorization: Bearer <group_name>
 ```
 
-The `group_name` is the name of the group configured in AiDog. This is the same value as the `ANTHROPIC_AUTH_TOKEN` environment variable used by Claude Code.
+Der `group_name` ist der in AiDog konfigurierte Gruppenname. Er entspricht dem Wert der von Claude Code verwendeten Umgebungsvariablen `ANTHROPIC_AUTH_TOKEN`.
 
-### Request
+### Anfrage
 
-- **Method**: POST
+- **Methode**: POST
 - **URL**: `http://127.0.0.1:<port>/api/group-info`
-- **Headers**: `Authorization: Bearer <group_name>`
+- **Header**: `Authorization: Bearer <group_name>`
 
-### Response (200 OK)
+### Antwort (200 OK)
 
-#### Single-platform group:
+#### Einzelplattform-Gruppe:
 
 ```json
 {
@@ -56,7 +56,7 @@ The `group_name` is the name of the group configured in AiDog. This is the same 
 }
 ```
 
-#### Multi-platform / no-platform group:
+#### Mehrplattform- / plattformlose Gruppe:
 
 ```json
 {
@@ -73,33 +73,33 @@ The `group_name` is the name of the group configured in AiDog. This is the same 
 }
 ```
 
-### Response Fields
+### Antwortfelder
 
-| Field | Type | Description |
+| Feld | Typ | Beschreibung |
 |-------|------|-------------|
-| `applicable` | boolean | Whether this is a single-platform group with available data |
-| `balance` | number | Estimated remaining balance |
-| `spent` | number | Cumulative estimated spending |
-| `coding_plan` | array | Coding Plan tiers (Claude etc.); empty for balance-based platforms |
-| `coding_plan[].name` | string | Tier name (5h, 7d, etc.) |
-| `coding_plan[].utilization` | number | Utilization percentage (0-100) |
-| `coding_plan[].pace` | string | Burn rate: `fast`, `normal`, or `busy` |
-| `coding_plan[].reset_at` | number\|null | Reset timestamp (Unix seconds) |
-| `requests` | number | Total request count |
-| `success_rate` | number | Success rate (0-100) |
-| `cache_rate` | number | Cache hit rate (0-100) |
-| `total_tokens` | number | Total tokens consumed |
-| `currency` | string | Currency unit |
-| `balance_days_remaining` | number\|null | Estimated days of balance remaining (null if incalculable) |
+| `applicable` | boolean | Ob es sich um eine Einzelplattform-Gruppe mit verfügbaren Daten handelt |
+| `balance` | number | Geschätztes verbleibendes Guthaben |
+| `spent` | number | Kumulierte geschätzte Ausgaben |
+| `coding_plan` | array | Coding-Plan-Stufen (Claude usw.); leer bei guthabenbasierten Plattformen |
+| `coding_plan[].name` | string | Stufenname (5h, 7d usw.) |
+| `coding_plan[].utilization` | number | Auslastungsprozentsatz (0-100) |
+| `coding_plan[].pace` | string | Verbrauchsrate: `fast`, `normal` oder `busy` |
+| `coding_plan[].reset_at` | number\|null | Zurücksetzungs-Zeitstempel (Unix-Sekunden) |
+| `requests` | number | Gesamtanzahl Anfragen |
+| `success_rate` | number | Erfolgsquote (0-100) |
+| `cache_rate` | number | Cache-Trefferrate (0-100) |
+| `total_tokens` | number | Insgesamt verbrauchte Tokens |
+| `currency` | string | Währungseinheit |
+| `balance_days_remaining` | number\|null | Geschätzte verbleibende Guthabentage (null falls nicht berechenbar) |
 
-### Error Responses
+### Fehlerantworten
 
-| Status | Condition |
+| Status | Bedingung |
 |--------|-----------|
-| 401 | Missing or invalid `Authorization` header |
-| 200 | Group not found → `applicable: false` |
+| 401 | Fehlender oder ungültiger `Authorization`-Header |
+| 200 | Gruppe nicht gefunden → `applicable: false` |
 
-### Example
+### Beispiel
 
 ```bash
 curl -X POST \\

@@ -18,3 +18,5 @@ mode: optimize
 ## Index
 
 - [Conventions](./conventions.md) — 目录结构、组件、状态、API、类型、Hook 强制规则（唯一前端 spec 入口）
+
+⚠️ 改前端代码前 MUST 读 conventions.md 全部 MUST 节；❌ 禁跳过直接动手（每条违反代价见各节，漏读 = 引入已被禁止的模式）

@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "重设 ImportExport.tsx — 组件/状态/类型/i18n/无 any"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用 SectionIcon/StatChip/glass 类，禁另造图标/重复 chip"}

@@ -4,21 +4,21 @@ title: Codex
 
 # Codex
 
-Configure AiDog integration with OpenAI Codex CLI in **"Settings" → "Codex"** tab.
+**「設定」→「Codex」** タブで OpenAI Codex CLI との統合を設定します。
 
-## Configuration Editing
+## 設定編集
 
-Edit Codex's `~/.codex/config.toml` settings directly in AiDog:
+Codex の `~/.codex/config.toml` 設定を AiDog 内で直接編集:
 
-- **Provider** — API provider and base URL
-- **Model** — Model name to use
-- **Other options** — All Codex-supported configuration items
+- **Provider** — API プロバイダーとベース URL
+- **モデル** — 使用するモデル名
+- **その他のオプション** — Codex がサポートするすべての設定項目
 
-Changes are written to the config file immediately — no need to locate and edit files manually.
+変更は設定ファイルに即座に書き込まれます — ファイルを手動で探して編集する必要なし。
 
-## Quick Configuration
+## クイック設定
 
-Minimal configuration only requires the proxy address and any API key:
+最小設定はプロキシアドレスと任意の API キーのみ:
 
 ```toml
 [provider]
@@ -30,23 +30,23 @@ api_key = "any-value"
 name = "o3"
 ```
 
-## Group Configuration
+## グループ設定
 
-Codex supports switching between groups via profiles:
+Codex はプロファイル経由でグループ切り替えをサポートします:
 
-1. Click the "Codex" button on a group card to copy the launch command
-2. Paste in your terminal:
+1. グループカードの「Codex」ボタンをクリックして起動コマンドをコピー
+2. ターミナルに貼り付け:
 
 ```bash
 AIDOG_KEY='<group-name>' codex -p '<group-name>' \
   --dangerously-bypass-approvals-and-sandbox -a never
 ```
 
-AiDog routes requests to the corresponding group based on the `AIDOG_KEY` environment variable.
+AiDog は `AIDOG_KEY` 環境変数に基づき対応グループへリクエストをルーティングします。
 
-## Notes
+## 注意
 
-- Codex uses the Responses API (`/v1/responses`), which AiDog detects and routes automatically
-- Ensure the corresponding platform has been added to AiDog
-- Add model mapping in platform or group settings if needed
-- The `/proxy/v1` path prefix in the proxy address must not be omitted
+- Codex は Responses API (`/v1/responses`) を使用、AiDog が自動検出してルーティング
+- 対応プラットフォームが AiDog に追加済みか確認
+- 必要に応じてプラットフォームまたはグループ設定でモデルマッピングを追加
+- プロキシアドレスの `/proxy/v1` パスプレフィックスは省略不可

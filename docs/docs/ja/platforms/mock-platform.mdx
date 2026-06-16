@@ -1,52 +1,52 @@
 ---
-title: Mock Platform
+title: モックプラットフォーム
 ---
 
-# Mock Platform
+# モックプラットフォーム
 
-Mock platforms do not send real AI requests — they return pre-configured responses. Ideal for development, debugging, testing routing rules, and verifying client integrations.
+モックプラットフォームは実際の AI リクエストを送信せず、事前設定されたレスポンスを返します。開発、デバッグ、ルーティングルールのテスト、クライアント統合の検証に最適。
 
-## Creating a Mock Platform
+## モックプラットフォーム作成
 
-1. Go to the **"Platforms"** page
-2. Click the **"+"** button
-3. Select **"Mock"** from the platform type list
-4. No API Key or Base URL required
-5. Click Save
+1. **「プラットフォーム」** ページへ
+2. **「+」** ボタンをクリック
+3. プラットフォームタイプリストから **「Mock」** を選択
+4. API Key も Base URL も不要
+5. 保存
 
-After saving, AiDog automatically creates a corresponding group. Point your client to that group's path to use the mock.
+保存後、AiDog が対応するグループを自動作成。クライアントをそのグループのパスに向けてモックを使用。
 
-## Response Configuration
+## レスポンス設定
 
-Mock platforms allow you to customize the following response parameters:
+レスポンスパラメータをカスタマイズ:
 
-| Parameter | Description | Default |
+| パラメータ | 説明 | デフォルト |
 |-----------|-------------|---------|
-| Response Text | Simulated response text | `Hello from mock` |
-| Status Code | HTTP status code | `200` |
-| Response Delay | Simulated delay in milliseconds | `0` |
-| Input Tokens | Simulated input token count | `10` |
-| Output Tokens | Simulated output token count | `20` |
-| Cache Tokens | Simulated cache hit tokens | `0` |
-| Finish Reason | Simulated finish reason (e.g. stop) | `stop` |
-| Streaming | Whether to return as stream (follow request, or force on/off) | Follow request |
+| レスポンステキスト | シミュレートされた応答テキスト | `Hello from mock` |
+| ステータスコード | HTTP ステータスコード | `200` |
+| レスポンス遅延 | シミュレートされた遅延 (ミリ秒) | `0` |
+| 入力トークン | シミュレート入力トークン数 | `10` |
+| 出力トークン | シミュレート出力トークン数 | `20` |
+| キャッシュトークン | シミュレートキャッシュトークン | `0` |
+| 終了理由 | シミュレート終了理由 (例 stop) | `stop` |
+| ストリーミング | ストリームとして返すか (リクエストに従う / 強制 on/off) | リクエストに従う |
 
-## Error Simulation
+## エラーシミュレーション
 
-Mock platforms support simulating various error scenarios:
+各種エラーシナリオのシミュレーションをサポート:
 
-| Error Mode | Description |
+| エラーモード | 説明 |
 |------------|-------------|
-| No Error | Return normal response |
-| HTTP Error | Return a specified HTTP error status code |
-| Rate Limit (429) | Simulate platform rate limiting |
-| Timeout | Simulate request timeout |
+| エラーなし | 正常応答を返す |
+| HTTPエラー | 指定 HTTP エラーステータスを返す |
+| Rate Limit (429) | レート制限をシミュレート |
+| タイムアウト | リクエストタイムアウトをシミュレート |
 
-Use this to test client error handling or AiDog's failover behavior.
+クライアントのエラー処理や AiDog のフェイルオーバー動作テストに有用。
 
-## Use Cases
+## ユースケース
 
-- **Development** — Test client integration without real API keys
-- **Routing Tests** — Verify group matching and model mapping rules
-- **Failover Testing** — Simulate errors to observe automatic platform switching
-- **Performance Testing** — Set delays to test client behavior under slow responses
+- **開発** — 実 API Key なしでクライアント統合をテスト
+- **ルーティングテスト** — グループマッチングとマッピングルールを検証
+- **フェイルオーバーテスト** — エラーをシミュレートし自動切り替えを観察
+- **パフォーマンステスト** — 遅延を設定し遅い応答下の挙動をテスト

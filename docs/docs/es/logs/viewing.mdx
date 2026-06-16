@@ -1,50 +1,50 @@
 ---
-title: Ver registros
+title: Ver logs
 ---
 
-# Viewing Logs
+# Ver logs
 
-The **Logs** page records every proxy request that passes through AiDog, making it easy to troubleshoot routing, protocol conversion, and upstream response issues.
+La página **Logs** registra cada petición de proxy que pasa por AiDog, facilitando diagnosticar problemas de enrutamiento, conversión de protocolo y respuestas upstream.
 
-## Log List
+## Lista de logs
 
-Each log entry shows the following information:
+Cada entrada muestra:
 
-| Field | Description |
+| Campo | Descripción |
 |------|------|
-| Group | Name of the matched group |
-| Model | Original model requested by the client |
-| Actual Model | Model sent to the upstream after model mapping |
-| Protocol | Inbound protocol → upstream protocol |
-| Platform | Platform that actually handled the request |
-| Status | HTTP status code (success / failure) |
-| Duration | Total request duration (milliseconds) |
-| Token | Number of input / output / cache tokens |
-| Time | When the request occurred |
+| Grupo | Nombre del grupo coincidente |
+| Modelo | Modelo original solicitado por el cliente |
+| Modelo real | Modelo enviado al upstream tras el mapeo |
+| Protocolo | Protocolo entrante → protocolo upstream |
+| Plataforma | Plataforma que procesó realmente la petición |
+| Estado | Código de estado HTTP (éxito / fallo) |
+| Duración | Duración total de la petición (milisegundos) |
+| Tokens | Número de tokens de entrada / salida / caché |
+| Hora | Momento de la petición |
 
-The list shows 50 entries per page with pagination support.
+La lista muestra 50 entradas por página con paginación.
 
-## Filtering
+## Filtrado
 
-Use the filters at the top to quickly locate logs:
+Usa los filtros superiores para localizar logs rápidamente:
 
-- **Platform**: filter by a specific platform
-- **Group**: filter by group
-- **Status**: success only / failure only
-- **Time range**: all / last 1 hour / 6 hours / 24 hours / 7 days / 30 days
-- **Model**: search by original or actual model name
+- **Plataforma**: filtrar por plataforma específica
+- **Grupo**: filtrar por grupo
+- **Estado**: solo éxito / solo fallo
+- **Rango de tiempo**: todo / última 1 hora / 6 horas / 24 horas / 7 días / 30 días
+- **Modelo**: buscar por nombre de modelo original o real
 
-## Request Details
+## Detalles de la petición
 
-Click any log entry to expand its details and view the complete request chain:
+Haz clic en cualquier entrada para expandir sus detalles y ver la cadena completa:
 
-- **User request**: original request URL, request headers, request body
-- **Upstream request**: the converted URL, request headers, and request body sent to the upstream
-- **Upstream response**: status code, response headers, and response body returned by the upstream
-- **User response**: the final response headers and response body returned to the client
+- **Petición de usuario**: URL, cabeceras y cuerpo originales
+- **Petición upstream**: URL convertida, cabeceras y cuerpo enviados al upstream
+- **Respuesta upstream**: código de estado, cabeceras y cuerpo devueltos por el upstream
+- **Respuesta de usuario**: cabeceras y cuerpo finales devueltos al cliente
 
-Details support one-click copy, making it easy to paste into a support ticket or debugging tool.
+Los detalles permiten copiar con un clic, para pegar en un ticket de soporte o herramienta de depuración.
 
 :::tip
-The "User request" and "Upstream request" content recorded in the details is controlled by the log settings. By default, the request body is not recorded. See [Log Settings](/logs/log-settings) for more.
+El contenido de «Petición de usuario» y «Petición upstream» se controla mediante los ajustes de logs. Por defecto, el cuerpo no se registra. Consulta [Ajustes de logs](/es/logs/log-settings).
 :::

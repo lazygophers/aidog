@@ -2,46 +2,46 @@
 title: モデルマッピング
 ---
 
-# Model Mapping
+# モデルマッピング
 
-Model mapping allows you to translate model names from client requests to the actual model names supported by the platform.
+モデルマッピングは、クライアントリクエストのモデル名を、プラットフォームが実際にサポートするモデル名に変換します。
 
-## Use Cases
+## ユースケース
 
-- Client requests `gpt-4o`, but you want to route to DeepSeek's `deepseek-chat`
-- Standardize model naming across platforms
-- Simplify model selection with aliases
+- クライアントが `gpt-4o` を要求するが、DeepSeek の `deepseek-chat` にルーティングしたい
+- プラットフォーム間でモデル名を標準化
+- エイリアスで選択を簡略化
 
-## Configuration
+## 設定
 
-Add mapping rules in the platform or group's "Model Mapping" section:
+プラットフォームまたはグループの「モデルマッピング」セクションにルールを追加:
 
-| Request Model | Maps To |
+| 要求モデル | マップ先 |
 |---------------|---------|
 | `gpt-4o` | `deepseek-chat` |
 | `claude-3-opus` | `claude-3-opus-20240229` |
 
-### Rules
+### ルール
 
-- **Exact match** — Only maps when the model name matches exactly
-- **Preserve original** — Unmatched model names pass through unchanged
-- **Group priority** — Group-level mappings take precedence over platform-level mappings
+- **完全一致** — モデル名が完全一致した場合のみマップ
+- **オリジナル保持** — 一致しない名前はそのまま通過
+- **グループ優先** — グループレベルのマッピングがプラットフォームレベルより優先
 
-## Two-Level Mapping
+## 2レベルマッピング
 
-Model mapping can be configured at two levels:
+2つのレベルで設定可能:
 
-- **Platform level** — Applies to all requests on that platform
-- **Group level** — Only applies within that group's routing rules
+- **プラットフォームレベル** — そのプラットフォームの全リクエストに適用
+- **グループレベル** — そのグループのルーティングルール内のみ適用
 
-See [Routing Rules](/groups/routing-rules).
+[ルーティングルール](/ja/groups/routing-rules) 参照。
 
-## Alias Example
+## エイリアス例
 
-Use model mapping to create short aliases. Clients only need to use the alias:
+短いエイリアスを作成；クライアントはエイリアスを使うだけ:
 
-| Alias | Target | Purpose |
+| エイリアス | ターゲット | 用途 |
 |-------|--------|---------|
-| `fast` | `gpt-4o-mini` | Fast responses |
-| `smart` | `claude-3-opus` | High quality |
-| `code` | `deepseek-coder` | Code generation |
+| `fast` | `gpt-4o-mini` | 高速応答 |
+| `smart` | `claude-3-opus` | 高品質 |
+| `code` | `deepseek-coder` | コード生成 |

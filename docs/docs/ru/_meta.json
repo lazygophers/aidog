@@ -1,0 +1,11 @@
+[
+  { "type": "dir", "name": "getting-started", "label": "gettingStarted" },
+  { "type": "dir", "name": "platforms", "label": "platforms" },
+  { "type": "dir", "name": "groups", "label": "groups" },
+  { "type": "dir", "name": "proxy", "label": "proxy" },
+  { "type": "dir", "name": "middleware", "label": "middleware" },
+  { "type": "dir", "name": "logs", "label": "logs" },
+  { "type": "dir", "name": "stats", "label": "stats" },
+  { "type": "dir", "name": "notifications", "label": "notifications" },
+  { "type": "dir", "name": "settings", "label": "settings" }
+]

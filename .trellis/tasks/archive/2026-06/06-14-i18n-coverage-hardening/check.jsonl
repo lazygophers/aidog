@@ -1,0 +1,2 @@
+{"file":"scripts/check-i18n.mjs","reason":"本任务新增的 i18n 自动检查脚本; check 阶段必跑, exit 0 才过"}
+{"file":".trellis/spec/frontend/conventions.md","reason":"i18n 章节验证清单(8 locale 对齐 / 零裸 key / 脚本 0 报警)"}

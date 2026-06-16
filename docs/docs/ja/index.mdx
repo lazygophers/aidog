@@ -3,65 +3,73 @@ pageType: home
 
 hero:
   name: AiDog
-  text: Manage all your AI API gateways in one place
-  tagline: Multi-platform aggregation · Smart routing · Usage stats —— a cross-platform desktop app that manages the keys, requests, and spending of all your AI platforms
+  text: すべての AI API ゲートウェイを一箇所で管理
+  tagline: マルチプラットフォーム集約 · スマートルーティング · 使用統計 —— すべての AI プラットフォームのキー、リクエスト、支出を管理するクロスプラットフォームデスクトップアプリ
   actions:
     - theme: brand
-      text: Quick Start
-      link: /en/getting-started/quick-start
+      text: クイックスタート
+      link: /ja/getting-started/quick-start
     - theme: alt
       text: GitHub
       link: https://github.com/lazygophers/aidog
 
 features:
-  - title: Multi-platform aggregation
-    details: Manage API keys and endpoints for 50+ platforms such as OpenAI, Anthropic, Gemini, DeepSeek, and Qwen in one place.
+  - title: マルチプラットフォーム集約
+    details: OpenAI、Anthropic、Gemini、DeepSeek、Qwen など 50以上のプラットフォームの API キーとエンドポイントを一箇所で管理。
     icon: 🧩
-    link: /en/platforms/add-platform
-  - title: Smart routing
-    details: Automatically forward each request to the best platform based on group and model mapping rules.
+    link: /ja/platforms/add-platform
+  - title: スマートルーティング
+    details: グループとモデルマッピングルールに基づき各リクエストを最適プラットフォームへ自動転送。
     icon: 🧭
-    link: /en/groups/routing-rules
-  - title: Usage stats
-    details: Track token usage in real time, estimate call costs, and query the balance of each platform.
+    link: /ja/groups/routing-rules
+  - title: 使用統計
+    details: トークン使用量をリアルタイム追跡、呼出コストを推定、各プラットフォームの残高を照会。
     icon: 📊
-    link: /en/stats/usage-stats
-  - title: Multi-protocol conversion
-    details: Convert between OpenAI Chat / Completions / Responses, Anthropic, and Gemini native protocols.
+    link: /ja/stats/usage-stats
+  - title: マルチプロトコル変換
+    details: OpenAI Chat / Completions / Responses、Anthropic、Gemini ネイティブプロトコル間で変換。
     icon: 🔌
-    link: /en/platforms/protocols
-  - title: Codex integration
-    details: Native support for coding assistants like OpenAI Codex and Claude Code, with one-click setup.
+    link: /ja/platforms/protocols
+  - title: Codex 統合
+    details: OpenAI Codex や Claude Code などのコーディングアシスタントをネイティブサポート、ワンクリック設定。
     icon: ⚡
-    link: /en/proxy/codex-integration
-  - title: Logging system
-    details: Three levels of logging granularity and configurable retention policies make the request chain crystal clear.
+    link: /ja/proxy/codex-integration
+  - title: ログシステム
+    details: 3レベルのログ粒度と設定可能な保持ポリシーでリクエストチェーンを明確化。
     icon: 📑
-    link: /en/logs/viewing
-  - title: Theme customization
-    details: Multiple themes such as Liquid Glass, Nord, and Dracula, with both light and dark modes.
+    link: /ja/logs/viewing
+  - title: テーマカスタマイズ
+    details: Liquid Glass、Nord、Dracula など複数テーマ、ライト・ダークモード両対応。
     icon: 🎨
-    link: /en/settings/themes
-  - title: System tray
-    details: Lives in the system tray, showing balance and proxy status in real time.
+    link: /ja/settings/themes
+  - title: システムトレイ
+    details: システムトレイに常駐、残高とプロキシステータスをリアルタイム表示。
     icon: 🖥️
-    link: /en/settings/tray
+    link: /ja/settings/tray
 ---
+<div align="center">
 
-## Three steps to get started
+[![LINUX DO](https://ld.xh.do/ld-badge.svg)](https://linux.do)
+[![GitHub Stars](https://img.shields.io/github/stars/lazygophers/aidog?style=social)](https://github.com/lazygophers/aidog/stargazers)
+[![Downloads](https://img.shields.io/github/downloads/lazygophers/aidog/total?logo=github)](https://github.com/lazygophers/aidog/releases)
+[![Last Commit](https://img.shields.io/github/last-commit/lazygophers/aidog?logo=git&logoColor=white)](https://github.com/lazygophers/aidog/commits)
 
-1. **Add a platform** —— enter the API key and endpoint of an AI platform
-2. **Set the proxy address** —— point your client to the AiDog local proxy
-3. **Start using it** —— requests are automatically routed, metered, and logged
+</div>
 
-→ [Installation Guide](/en/getting-started/installation) · [Quick Start](/en/getting-started/quick-start)
+## 始めるための3ステップ
 
-## Tech stack
+1. **プラットフォーム追加** —— AI プラットフォームの API キーとエンドポイントを入力
+2. **プロキシアドレス設定** —— クライアントを AiDog ローカルプロキシに向ける
+3. **使用開始** —— リクエストが自動的にルーティング、計量、ログ記録
 
-| Layer | Technology |
+→ [インストールガイド](/ja/getting-started/installation) · [クイックスタート](/ja/getting-started/quick-start)
+
+## 技術スタック
+
+| レイヤー | 技術 |
 |---|---|
-| Desktop framework | Tauri 2.0 |
-| Frontend | React 19 + TypeScript |
-| Backend | Rust + Axum |
-| Database | SQLite |
-| Build | Vite + Yarn |
+| デスクトップフレームワーク | Tauri 2.0 |
+| フロントエンド | React 19 + TypeScript |
+| バックエンド | Rust + Axum |
+| データベース | SQLite |
+| ビルド | Vite + Yarn |

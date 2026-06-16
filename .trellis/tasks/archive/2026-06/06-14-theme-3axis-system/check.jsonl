@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验前端：类型/状态/i18n 全覆盖/无 any"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "校验 style/palette 模块化无结构变量重复"}

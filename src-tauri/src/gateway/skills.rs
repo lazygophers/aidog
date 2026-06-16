@@ -1,0 +1,2287 @@
+//! Agent Skills 管理子系统。
+//!
+//! **全 npx 化**：list / enable / disable / update 全部 shell out `npx skills`，
+//! 禁手动 fs 扫描 / 删除（复用 Vercel Labs 官方生态，单一事实源）。
+//! - 列表：`npx skills list --json [-g]` → 统一一条/skill，`agents[]` 含显示名（"Claude Code"/"Codex"）= 该 agent 已启用。
+//! - 启用：用 skill 本地 path（list json `path`）作 add package → `npx skills add <path> -a <slug> [-g] -y`（对所有 skill 通用，不依赖锁文件 source）。
+//! - 关闭：`npx skills remove -s <name> -a <slug> [-g] -y`。
+//! - 更新：`npx skills update [-g] -y`。
+//!
+//! 所有变更操作均 shell out npx，不违反"全 npx"约束。
+//!
+//! shell out 模式参考 `gateway/notification.rs`（`std::process::Command`）。
+//!
+//! Scope 语义：
+//! - `Global` → 用户级全局，命令带 `-g`。
+//! - `Project { path }` → 项目级，命令在项目目录内执行（不带 `-g`）。
+//!
+//! Agent 语义：target agent 决定 `-a <slug>` 参数（claude → `claude-code`、codex → `codex`）
+//! 与 list json `agents[]` 显示名映射（claude → "Claude Code"、codex → "Codex"）。
+
+use super::models::ProxyClientSettings;
+use regex::Regex;
+use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fs;
+use std::path::PathBuf;
+use std::process::Command;
+use std::sync::{Mutex, OnceLock};
+
+/// 安装目标 scope。`Global` = 用户级全局；`Project` = 指定项目目录。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "lowercase")]
+pub enum SkillScope {
+    /// 用户级全局（`-g`）。
+    Global,
+    /// 项目级，path 为项目根目录绝对路径。
+    Project { path: String },
+}
+
+impl SkillScope {
+    /// 缓存键：`Global` → `"global"`；`Project{path}` → `"project:<path>"`。
+    /// 不同项目 path 不串；trim 后比较（与命令 cwd 一致）。
+    fn cache_key(&self) -> String {
+        match self {
+            SkillScope::Global => "global".to_string(),
+            SkillScope::Project { path } => format!("project:{}", path.trim()),
+        }
+    }
+}
+
+/// 目标 agent。决定 `--agent` 参数与本地配置目录名。
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum SkillAgent {
+    Claude,
+    Codex,
+}
+
+impl SkillAgent {
+    /// `npx skills ... -a <slug>` 的 agent slug。
+    /// claude → `claude-code`（修正旧 "claude"）；codex → `codex`。
+    fn cli_slug(self) -> &'static str {
+        match self {
+            SkillAgent::Claude => "claude-code",
+            SkillAgent::Codex => "codex",
+        }
+    }
+
+    /// `npx skills list --json` 的 `agents[]` 显示名。用于解析某 agent 是否启用。
+    fn display_name(self) -> &'static str {
+        match self {
+            SkillAgent::Claude => "Claude Code",
+            SkillAgent::Codex => "Codex",
+        }
+    }
+
+    /// 目标 agent 全集（UI 仅显示 claude/codex 两个）。
+    fn all() -> [SkillAgent; 2] {
+        [SkillAgent::Claude, SkillAgent::Codex]
+    }
+}
+
+/// 环境探测结果。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillsEnv {
+    /// `npx` 是否可用（写操作前置）。
+    pub npx_available: bool,
+    /// `node --version` 输出（如 "v20.11.0"），不可用为 null。
+    pub node_version: Option<String>,
+}
+
+/// 已装 skill 描述（`npx skills list --json` 解析产出，一条/skill，不分 agent）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillInfo {
+    /// skill 名。
+    pub name: String,
+    /// 已在哪些目标 agent（claude/codex 子集）启用 —— 从 list json `agents[]` 显示名映射。
+    pub enabled_agents: Vec<SkillAgent>,
+    /// 所属 scope。
+    pub scope: SkillScope,
+    /// 规范存储路径（list json `path`），读不到为 null。
+    pub installed_path: Option<String>,
+    /// 简介（list json 暂无，预留；读不到为 null）。
+    pub description: Option<String>,
+    /// 来源 owner/repo（锁文件 `source` 字段）。第三方/手动 symlink skill（锁文件无条目）→ None。
+    pub source: Option<String>,
+}
+
+/// catalog 条目（可装 skill）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CatalogEntry {
+    /// 安装标识（owner/repo 或 skill slug）。
+    pub id: String,
+    /// 展示名。
+    pub name: String,
+    /// 简介。
+    pub description: Option<String>,
+    /// 来源仓库 URL。
+    pub repo_url: Option<String>,
+}
+
+/// 写操作（install/update/remove）结果。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillsOpResult {
+    /// 退出码为 0 视为成功。
+    pub success: bool,
+    /// 合并的 stdout。
+    pub stdout: String,
+    /// 合并的 stderr。
+    pub stderr: String,
+}
+
+/// skill 详情视图：文件列表（只读浏览）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillFile {
+    /// 相对 skill 根的路径（`/` 分隔，跨平台统一）。
+    pub rel_path: String,
+    /// 字节数。
+    pub size: u64,
+    /// 启发式判定为文本文件（首块无 NUL）。
+    pub is_text: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillDetail {
+    /// skill 名（目录 basename）。
+    pub skill_name: String,
+    /// canonicalized skill 根绝对路径。
+    pub root: String,
+    /// 文件列表（SKILL.md 置首，其余按路径字母序）。
+    pub files: Vec<SkillFile>,
+}
+
+/// 单文件读取结果。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SkillFileContent {
+    /// 文本内容；二进制/读失败 → None。
+    pub content: Option<String>,
+    /// 超 MAX_READ_BYTES（512 KB）截断。
+    pub truncated: bool,
+    /// 原始字节数。
+    pub size: u64,
+}
+
+/// 单文件读取上限（512 KB）；超出截断。
+const MAX_READ_BYTES: usize = 512 * 1024;
+/// 二进制检测：读取前 N 字节判断是否含 NUL。
+const BINARY_SNIFF_BYTES: usize = 8192;
+
+/// 进程内 env 探测缓存：node/npx 可用性一会话不变，仅首次真探测。
+static ENV_CACHE: OnceLock<SkillsEnv> = OnceLock::new();
+
+/// 探测 npx / node 可用性（进程内缓存，仅首次 spawn 子进程）。
+/// 后续调用直接返回缓存值，开页 0 子进程。
+pub fn check_env() -> SkillsEnv {
+    ENV_CACHE.get_or_init(probe_env).clone()
+}
+
+/// 真探测 npx / node 可用性（spawn 子进程）。任一探测失败均不 panic，对应字段降级。
+fn probe_env() -> SkillsEnv {
+    let node_version = Command::new("node")
+        .arg("--version")
+        .output()
+        .ok()
+        .filter(|o| o.status.success())
+        .map(|o| String::from_utf8_lossy(&o.stdout).trim().to_string())
+        .filter(|s| !s.is_empty());
+
+    // npx 仅探测可执行性（--version 在所有平台稳定）。
+    let npx_available = Command::new("npx")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false);
+
+    SkillsEnv {
+        npx_available,
+        node_version,
+    }
+}
+
+/// 列指定 scope 下已装 skills（统一一条/skill，不分 agent）。**直跑 npx**（无缓存）。
+///
+/// 走 `npx skills list --json [-g]`，解析 `[{name, path, scope, agents:[...]}]`。
+/// `agents[]` 含某 agent 显示名 = 该 agent 已启用 → 映射为 `enabled_agents`（仅 claude/codex）。
+/// Project scope 在项目目录内执行（不带 `-g`）。命令失败 / 解析失败 → 返回空 vec（不 panic）。
+///
+/// 注：SWR 链路用 [`list_cached`]（即时缓存）+ [`list_refresh`]（强制刷新）；
+/// 内部聚合算子（`align_agents` / `enable_all`）仍走本函数取实时态。
+pub fn list_installed(scope: &SkillScope, proxy_url: Option<&str>) -> Vec<SkillInfo> {
+    let mut args = vec!["list".to_string(), "--json".to_string()];
+    apply_scope(&mut args, scope);
+    let res = run_npx_in_scope(&args, scope, proxy_url);
+    if !res.success {
+        return Vec::new();
+    }
+    let mut items = parse_list_json(&res.stdout, scope);
+    enrich_with_sources(&mut items, scope);
+    items
+}
+
+// ─── SWR 缓存（list 提速）─────────────────────────────────────
+//
+// 双层：进程内 `SKILLS_CACHE`（首访从磁盘 lazy load）+ 磁盘 `~/.aidog/skills-cache.json`。
+// - `list_cached(scope)` → 立即返回缓存（命中即 0 子进程）；冷启动无缓存 → 空 + stale=true。
+// - `list_refresh(scope)` → 强制跑 npx、更新内存+磁盘、返回 fresh（stale=false）。
+// - 写操作后 `invalidate(scope)` 失效对应 scope（内存 + 磁盘），下次 refresh 重填。
+// 容错：磁盘损坏 / 缺失 → 当冷启动（空缓存）。原子写（temp + rename）防半文件。
+
+/// list 缓存返回：数据 + 是否为陈旧/冷启动（true = 调用方应触发 refresh）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CachedSkills {
+    /// 缓存的 skill 列表（冷启动为空）。
+    pub items: Vec<SkillInfo>,
+    /// true = 无缓存命中（冷启动），调用方应显加载态 + 强制 refresh。
+    pub stale: bool,
+}
+
+/// 单 scope 的磁盘缓存条目。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct ScopeCacheEntry {
+    /// 写入时刻（毫秒 Unix 戳，仅诊断用，不做 TTL 过期）。
+    cached_at: i64,
+    items: Vec<SkillInfo>,
+}
+
+/// 磁盘缓存根结构（`~/.aidog/skills-cache.json`）。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+struct SkillsCacheFile {
+    /// per-scope（key = `SkillScope::cache_key`）。
+    #[serde(default)]
+    scopes: HashMap<String, ScopeCacheEntry>,
+}
+
+/// 进程内缓存（首访从磁盘 lazy load，之后内存为准 + 写时同步落盘）。
+static SKILLS_CACHE: OnceLock<Mutex<SkillsCacheFile>> = OnceLock::new();
+
+/// 磁盘缓存文件路径：`~/.aidog/skills-cache.json`。
+/// home 不可解析 → None（降级为纯内存缓存，不落盘）。
+fn cache_file_path() -> Option<std::path::PathBuf> {
+    let home = dirs::home_dir()?;
+    let dir = home.join(".aidog");
+    // best-effort 建目录；失败仍返回路径（写时再失败即降级）。
+    let _ = std::fs::create_dir_all(&dir);
+    Some(dir.join("skills-cache.json"))
+}
+
+/// 从磁盘读缓存文件。缺失 / 损坏 / 解析失败 → 默认空（当冷启动）。
+fn load_cache_from_disk() -> SkillsCacheFile {
+    let Some(p) = cache_file_path() else {
+        return SkillsCacheFile::default();
+    };
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return SkillsCacheFile::default();
+    };
+    serde_json::from_str(&text).unwrap_or_default()
+}
+
+/// 原子落盘：写临时文件 → rename 覆盖，防并发/中断产生半文件。
+/// 任一步失败仅记日志（缓存以内存为准，落盘是优化非必需）。
+fn persist_cache_to_disk(cache: &SkillsCacheFile) {
+    let Some(p) = cache_file_path() else {
+        return;
+    };
+    let Ok(json) = serde_json::to_string(cache) else {
+        return;
+    };
+    // 同目录临时文件（确保 rename 在同一文件系统，原子生效）。
+    let tmp = p.with_extension("json.tmp");
+    if std::fs::write(&tmp, json.as_bytes()).is_err() {
+        return;
+    }
+    if let Err(e) = std::fs::rename(&tmp, &p) {
+        tracing::warn!(error = %e, "skills cache atomic write failed");
+        let _ = std::fs::remove_file(&tmp);
+    }
+}
+
+/// 取进程内缓存（首访从磁盘 load）。
+fn cache_store() -> &'static Mutex<SkillsCacheFile> {
+    SKILLS_CACHE.get_or_init(|| Mutex::new(load_cache_from_disk()))
+}
+
+/// 立即返回缓存（内存→磁盘，命中即 0 子进程）；无缓存返回空 + stale=true。
+///
+/// SWR 的 "stale" 半：调用方应立即渲染 `items`，再后台 `list_refresh`。
+pub fn list_cached(scope: &SkillScope) -> CachedSkills {
+    let key = scope.cache_key();
+    let guard = match cache_store().lock() {
+        Ok(g) => g,
+        Err(poisoned) => poisoned.into_inner(),
+    };
+    match guard.scopes.get(&key) {
+        Some(entry) => {
+            // 向后兼容：旧缓存 items 无 source 字段（source-grouping task 前写入）。
+            // 命中缓存后 enrich_with_sources 读锁文件补 source（0 npx，cheap）。
+            // 旧 None + 锁文件有 → 补；已有 source → 幂等重赋；第三方 symlink → 保持 None。
+            let mut items = entry.items.clone();
+            enrich_with_sources(&mut items, scope);
+            CachedSkills { items, stale: false }
+        }
+        None => CachedSkills {
+            items: Vec::new(),
+            stale: true,
+        },
+    }
+}
+
+/// 强制跑 npx 取最新，更新内存+磁盘缓存，返回 fresh（stale=false）。
+///
+/// SWR 的 "revalidate" 半。npx 失败 → 返回空 fresh（不污染已有缓存？这里仍写空覆盖，
+/// 与直跑 `list_installed` 失败语义一致：上游列表真为空 vs 命令失败不可区分，保持简单）。
+pub fn list_refresh(scope: &SkillScope, proxy_url: Option<&str>) -> CachedSkills {
+    let items = list_installed(scope, proxy_url);
+    write_cache(scope, items.clone());
+    CachedSkills { items, stale: false }
+}
+
+/// 写入某 scope 缓存（内存 + 落盘）。
+fn write_cache(scope: &SkillScope, items: Vec<SkillInfo>) {
+    let key = scope.cache_key();
+    let snapshot = {
+        let mut guard = match cache_store().lock() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        guard.scopes.insert(
+            key,
+            ScopeCacheEntry {
+                cached_at: chrono::Utc::now().timestamp_millis(),
+                items,
+            },
+        );
+        guard.clone()
+    };
+    persist_cache_to_disk(&snapshot);
+}
+
+/// 失效某 scope 缓存（内存 + 落盘）。写操作成功后调用，下次 refresh 重填。
+pub fn invalidate(scope: &SkillScope) {
+    let key = scope.cache_key();
+    let snapshot = {
+        let mut guard = match cache_store().lock() {
+            Ok(g) => g,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        guard.scopes.remove(&key);
+        guard.clone()
+    };
+    persist_cache_to_disk(&snapshot);
+}
+
+/// 解析 `npx skills list --json` 输出为 `Vec<SkillInfo>`。
+/// 容错：接受裸数组或 `{ "skills": [...] }`；非法 JSON → 空 vec。
+fn parse_list_json(stdout: &str, scope: &SkillScope) -> Vec<SkillInfo> {
+    let Ok(raw) = serde_json::from_str::<serde_json::Value>(stdout.trim()) else {
+        return Vec::new();
+    };
+    let arr = raw
+        .get("skills")
+        .and_then(|v| v.as_array())
+        .or_else(|| raw.as_array());
+    let Some(items) = arr else {
+        return Vec::new();
+    };
+    let mut out: Vec<SkillInfo> = items
+        .iter()
+        .filter_map(|item| {
+            let name = item.get("name").and_then(|v| v.as_str())?.to_string();
+            if name.is_empty() {
+                return None;
+            }
+            let agent_names: Vec<&str> = item
+                .get("agents")
+                .and_then(|v| v.as_array())
+                .map(|a| a.iter().filter_map(|x| x.as_str()).collect())
+                .unwrap_or_default();
+            // 映射 claude/codex 显示名 → SkillAgent，保持 claude 优先 codex 次序。
+            let enabled_agents: Vec<SkillAgent> = SkillAgent::all()
+                .into_iter()
+                .filter(|a| agent_names.contains(&a.display_name()))
+                .collect();
+            let installed_path = item
+                .get("path")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let description = item
+                .get("description")
+                .and_then(|v| v.as_str())
+                .filter(|s| !s.is_empty())
+                .map(|s| s.to_string())
+                .or_else(|| installed_path.as_deref().and_then(read_skill_description));
+            Some(SkillInfo {
+                name,
+                enabled_agents,
+                scope: scope.clone(),
+                installed_path,
+                description,
+                source: None,
+            })
+        })
+        .collect();
+    out.sort_by(|a, b| a.name.cmp(&b.name));
+    out
+}
+
+/// 从 SKILL.md 文本 frontmatter 解析 `description:` 单行值。
+/// 规则: 首行 `---` 起, 到下一个 `---` 止; 行 `description: <value>`, 去首尾引号 (单/双)。
+/// 无 frontmatter / 无 description 行 / 空值 → None。多行折叠 (`>-`) 不支持。
+fn parse_skill_description_from_frontmatter(content: &str) -> Option<String> {
+    let mut lines = content.lines();
+    let first = lines.next()?;
+    if first.trim() != "---" {
+        return None;
+    }
+    for line in lines {
+        let t = line.trim();
+        if t == "---" {
+            break;
+        }
+        if let Some(rest) = t.strip_prefix("description:") {
+            let v = rest.trim().trim_matches('"').trim_matches('\'');
+            if !v.is_empty() {
+                return Some(v.to_string());
+            }
+        }
+    }
+    None
+}
+
+/// 读 `<skill_path>/SKILL.md` frontmatter 的 description 字段。
+/// 文件缺失 / 读失败 → None。
+fn read_skill_description(skill_path: &str) -> Option<String> {
+    let p = std::path::Path::new(skill_path).join("SKILL.md");
+    let content = std::fs::read_to_string(p).ok()?;
+    parse_skill_description_from_frontmatter(&content)
+}
+
+/// 锁文件路径：global → `~/.agents/.skill-lock.json`；project → `<path>/.agents/.skill-lock.json`。
+/// home 不可解析（global）→ None。
+fn lock_file_path(scope: &SkillScope) -> Option<std::path::PathBuf> {
+    match scope {
+        SkillScope::Global => {
+            dirs::home_dir().map(|h| h.join(".agents").join(".skill-lock.json"))
+        }
+        SkillScope::Project { path } => Some(
+            std::path::Path::new(path)
+                .join(".agents")
+                .join(".skill-lock.json"),
+        ),
+    }
+}
+
+/// 读锁文件 `skills` map → `name → source`（owner/repo）。
+/// 文件缺失 / 损坏 / 无 skills 对象 → 空 map（等价所有 skill source=None，归「其他」组）。
+/// source 空 → 不入 map（同样归 None）。
+fn read_skill_sources(scope: &SkillScope) -> HashMap<String, String> {
+    let Some(p) = lock_file_path(scope) else {
+        return HashMap::new();
+    };
+    let Ok(text) = std::fs::read_to_string(&p) else {
+        return HashMap::new();
+    };
+    parse_skill_sources_json(&text)
+}
+
+/// 纯逻辑：解析锁文件文本 → `name → source` map（供单测，不耦合 fs）。
+/// 损坏 JSON / 无 skills 对象 / source 空 → 不入 map。
+fn parse_skill_sources_json(text: &str) -> HashMap<String, String> {
+    let Ok(raw) = serde_json::from_str::<serde_json::Value>(text) else {
+        return HashMap::new();
+    };
+    let Some(skills) = raw.get("skills").and_then(|v| v.as_object()) else {
+        return HashMap::new();
+    };
+    skills
+        .iter()
+        .filter_map(|(name, meta)| {
+            let src = meta.get("source").and_then(|v| v.as_str())?;
+            if src.trim().is_empty() {
+                return None;
+            }
+            Some((name.clone(), src.to_string()))
+        })
+        .collect()
+}
+
+/// 用锁文件 source map 填充已解析 items 的 `source` 字段（就地修改）。
+/// 命中 → Some(owner/repo)；未命中（第三方/手动 symlink）→ None。
+fn enrich_with_sources(items: &mut [SkillInfo], scope: &SkillScope) {
+    let sources = read_skill_sources(scope);
+    if sources.is_empty() {
+        return;
+    }
+    for s in items.iter_mut() {
+        s.source = sources.get(&s.name).cloned();
+    }
+}
+
+/// catalog 抓取地址（skills.sh 的 JSON 索引，当前 404 不可用；HTTP 抓取路径已下线，
+/// 保留常量 + parse_catalog_json 待端点恢复时复用）。
+#[allow(dead_code)]
+const CATALOG_URL: &str = "https://skills.sh/api/skills";
+
+/// 浏览 catalog。
+///
+/// skills.sh `/api/skills` 端点当前 404（HTTP 抓取不可用）；`npx skills find` 无关键词时
+/// 只回显帮助文本不返回结果。故 browse 恒返回空 —— 前端「搜索安装」页为搜索驱动，不提供 browse。
+pub async fn browse_catalog(_proxy_url: Option<&str>) -> Vec<CatalogEntry> {
+    // skills.sh /api/skills 当前 404；npx find 无关键词无结果 → browse 不可用，恒空。
+    Vec::new()
+}
+
+/// 搜索 catalog：双模式。
+///
+/// - **精确 source 形态** (`^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$`)：走 `npx skills add <source> -l -y`
+///   解析仓库**真实可装集** (git clone + scan SKILL.md, 11/11 全量)。skills.sh 索引
+///   (find 走) 仅含被安装过的 skill (6/11), 新仓库 / 新 skill 缺位 → 这条路解决之。
+/// - **其他形态** (普通搜索词 / 含 `@` 后缀 / URL): 走 `npx skills find <kw>` 命中 skills.sh
+///   索引, 仍是关键词搜索唯一可用源。
+///
+/// 两路径统一返回 `Vec<CatalogEntry>`。
+pub async fn search(kw: &str, proxy_url: Option<&str>) -> Vec<CatalogEntry> {
+    let kw_trim = kw.trim();
+    if is_exact_source(kw_trim) {
+        npx_list_source(kw_trim, proxy_url)
+    } else {
+        npx_find(kw_trim, proxy_url)
+    }
+}
+
+/// 判断关键词是否为精确 `owner/repo` 形态 (无 `@skill` 后缀, 无 URL 前缀)。
+/// 精确形态走 `npx skills add -l` 拿仓库全量可装集; 其他走 find。
+fn is_exact_source(s: &str) -> bool {
+    static SOURCE_RE: OnceLock<Regex> = OnceLock::new();
+    let re = SOURCE_RE.get_or_init(|| {
+        Regex::new(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$").unwrap()
+    });
+    re.is_match(s)
+}
+
+/// `npx skills add <source> -l -y`：列仓库内全部可装 skill (无视 skills.sh 索引)。
+///
+/// `-l` = list available skills without installing; `-y` = 自动接受 agent / scope prompt
+/// (Agent detected 时非交互打印结果)。关闭 stdin 避免挂起。
+///
+/// 输出含 spinner (◒/◐/◓/◑/●/◇/└) + 框形字符 (│) + ANSI 颜色, 必须先剥离。
+/// 每条 skill 占多行 (ANSI 剥离 + 行首 trim 后):
+/// ```text
+/// │    <skill-name>
+/// │
+/// │      <description>  ← 可能跨行
+/// ```
+fn npx_list_source(source: &str, proxy_url: Option<&str>) -> Vec<CatalogEntry> {
+    if source.is_empty() {
+        return Vec::new();
+    }
+    let mut cmd = Command::new("npx");
+    cmd.args(["--yes", "skills", "add", source, "-l", "-y"]);
+    cmd.stdin(std::process::Stdio::null());
+    apply_proxy_env(&mut cmd, proxy_url);
+    let output = match cmd.output() {
+        Ok(o) => o,
+        Err(_) => return Vec::new(),
+    };
+    let raw = String::from_utf8_lossy(&output.stdout);
+    parse_add_list_output(&raw, source)
+}
+
+/// 解析 `npx skills add <source> -l` 输出为 CatalogEntry。
+///
+/// 状态机:
+/// 1. 剥 ANSI / spinner 残留, 按行扫描;
+/// 2. 标记位 `in_skills_section` = 见到 "Available Skills" 后置 true;
+/// 3. 在 section 内, 行去前导 `│` + 空白 后:
+///    - 空行 → 跳;
+///    - `<skill-name>` 形态 (仅 `[A-Za-z0-9._-]+`, 无空格) → 提交上一条 + 开新 entry;
+///    - 其他文本 → append 到当前 entry 的 description (空格连接, 防跨行 desc 丢)。
+/// 4. 见到 `└` 起首 (footer) → 提交并退出。
+///
+/// 容错: 空输入 / 无 "Available Skills" / 残缺均不崩, 返回已收集到的。
+fn parse_add_list_output(raw: &str, source: &str) -> Vec<CatalogEntry> {
+    static ANSI_RE: OnceLock<Regex> = OnceLock::new();
+    let ansi_re = ANSI_RE.get_or_init(|| Regex::new(r"\x1b\[[0-9;?]*[A-Za-z]").unwrap());
+    let clean: String = ansi_re.replace_all(raw, "").to_string();
+
+    static NAME_RE: OnceLock<Regex> = OnceLock::new();
+    let name_re = NAME_RE.get_or_init(|| Regex::new(r"^[A-Za-z0-9._-]+$").unwrap());
+
+    let repo_url = format!("https://github.com/{source}");
+    let mut out: Vec<CatalogEntry> = Vec::new();
+    let mut current: Option<(String, String)> = None; // (name, desc)
+    let mut in_section = false;
+
+    let flush = |cur: &mut Option<(String, String)>, source: &str, repo_url: &str, out: &mut Vec<CatalogEntry>| {
+        if let Some((name, desc)) = cur.take() {
+            let desc = desc.trim().to_string();
+            out.push(CatalogEntry {
+                id: format!("{source}@{name}"),
+                name,
+                description: if desc.is_empty() { None } else { Some(desc) },
+                repo_url: Some(repo_url.to_string()),
+            });
+        }
+    };
+
+    for line in clean.lines() {
+        // 去前导框形字符 / spinner / 状态符号 + 空白。
+        // 保留 `└` 不剥 (用作 footer 检测)。
+        let stripped = line.trim_start_matches(|c: char| {
+            matches!(c, '│' | '◇' | '●' | '◒' | '◐' | '◓' | '◑' | '⊙' | '◌')
+                || c.is_whitespace()
+        });
+        if !in_section {
+            if stripped.starts_with("Available Skills") {
+                in_section = true;
+            }
+            continue;
+        }
+        // section 内: footer 行 (└ 起首) → 收尾退出。
+        if line.trim_start().starts_with('└') {
+            flush(&mut current, source, &repo_url, &mut out);
+            break;
+        }
+        if stripped.is_empty() {
+            continue;
+        }
+        // 新 skill name 行: 单 token, 仅 [A-Za-z0-9._-], 无空格。
+        if name_re.is_match(stripped) {
+            flush(&mut current, source, &repo_url, &mut out);
+            current = Some((stripped.to_string(), String::new()));
+            continue;
+        }
+        // 其他行 → 追加到 description (空格连接, 防跨行)。
+        if let Some((_, desc)) = current.as_mut() {
+            if !desc.is_empty() {
+                desc.push(' ');
+            }
+            desc.push_str(stripped);
+        }
+    }
+    // 末尾未见 footer 时收尾。
+    flush(&mut current, source, &repo_url, &mut out);
+    out
+}
+
+/// 解析 skills.sh 返回的 JSON 到 CatalogEntry 列表（端点恢复时复用；当前仅测试调用）。
+///
+/// 容错：接受 `{ "skills": [...] }` 或裸数组；每项尽量从常见字段名提取。
+#[allow(dead_code)]
+fn parse_catalog_json(raw: &serde_json::Value) -> Vec<CatalogEntry> {
+    let arr = raw
+        .get("skills")
+        .and_then(|v| v.as_array())
+        .or_else(|| raw.as_array());
+    let Some(items) = arr else {
+        return Vec::new();
+    };
+    items
+        .iter()
+        .filter_map(|item| {
+            let id = item
+                .get("id")
+                .or_else(|| item.get("slug"))
+                .or_else(|| item.get("repo"))
+                .or_else(|| item.get("fullName"))
+                .and_then(|v| v.as_str())?
+                .to_string();
+            if id.is_empty() {
+                return None;
+            }
+            let name = item
+                .get("name")
+                .or_else(|| item.get("title"))
+                .and_then(|v| v.as_str())
+                .unwrap_or(&id)
+                .to_string();
+            let description = item
+                .get("description")
+                .or_else(|| item.get("summary"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            let repo_url = item
+                .get("repoUrl")
+                .or_else(|| item.get("url"))
+                .or_else(|| item.get("html_url"))
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            Some(CatalogEntry {
+                id,
+                name,
+                description,
+                repo_url,
+            })
+        })
+        .collect()
+}
+
+/// `npx skills find <kw>`：解析输出为 CatalogEntry 列表。
+///
+/// find 为交互式命令，关闭 stdin + 带关键词时非交互打印结果。输出含 ANSI 颜色码与 spinner
+/// 残留，须先剥离。每条结果两行：`owner/repo@skill  <N> installs` + `└ https://skills.sh/...`。
+/// 空关键词时 find 只回显帮助（无结果）→ 返回空。
+fn npx_find(kw: &str, proxy_url: Option<&str>) -> Vec<CatalogEntry> {
+    let kw = kw.trim();
+    if kw.is_empty() {
+        return Vec::new();
+    }
+    let mut cmd = Command::new("npx");
+    cmd.args(["--yes", "skills", "find", kw]);
+    cmd.stdin(std::process::Stdio::null());
+    apply_proxy_env(&mut cmd, proxy_url);
+    let output = match cmd.output() {
+        Ok(o) => o,
+        Err(_) => return Vec::new(),
+    };
+    let raw = String::from_utf8_lossy(&output.stdout);
+    parse_find_output(&raw)
+}
+
+/// 解析 `npx skills find` 的 stdout（已含 ANSI / spinner 残留）为 CatalogEntry。
+fn parse_find_output(raw: &str) -> Vec<CatalogEntry> {
+    // 剥离 ANSI 转义序列（颜色 / 光标控制）。
+    static ANSI_RE: OnceLock<Regex> = OnceLock::new();
+    let ansi_re = ANSI_RE.get_or_init(|| Regex::new(r"\x1b\[[0-9;?]*[A-Za-z]").unwrap());
+    let clean: String = ansi_re.replace_all(raw, "").to_string();
+
+    // id 行：`owner/repo@skill   <count> installs`（owner/repo 与 @skill 间无空格）。
+    static ID_RE: OnceLock<Regex> = OnceLock::new();
+    let id_re = ID_RE.get_or_init(|| {
+        Regex::new(r"([A-Za-z0-9._-]+/[A-Za-z0-9._-]+@[A-Za-z0-9._-]+)\s+(.+)").unwrap()
+    });
+    // URL 行：`└ https://skills.sh/owner/repo/skill`（前缀可能是 └ / └─ / 空格）。
+    static URL_RE: OnceLock<Regex> = OnceLock::new();
+    let url_re = URL_RE.get_or_init(|| Regex::new(r"https://skills\.sh/\S+").unwrap());
+
+    let mut out = Vec::new();
+    let mut pending: Option<(String, String)> = None; // (id, installs)
+    let flush = |pending: &mut Option<(String, String)>, url: Option<&str>, out: &mut Vec<CatalogEntry>| {
+        if let Some((id, installs)) = pending.take() {
+            let name = id.split('@').next_back().unwrap_or(&id).to_string();
+            out.push(CatalogEntry {
+                id,
+                name,
+                description: Some(installs),
+                repo_url: url.map(|s| s.to_string()),
+            });
+        }
+    };
+    for line in clean.lines() {
+        let line = line.trim();
+        if let Some(caps) = id_re.captures(line) {
+            // 新 id 行：先提交上一条（无 URL）。
+            flush(&mut pending, None, &mut out);
+            let id = caps[1].to_string();
+            let installs = caps[2].trim().to_string();
+            pending = Some((id, installs));
+        } else if pending.is_some() {
+            if let Some(m) = url_re.find(line) {
+                flush(&mut pending, Some(m.as_str()), &mut out);
+            }
+        }
+    }
+    // 收尾：最后一条若无 URL 行也提交。
+    flush(&mut pending, None, &mut out);
+    out
+}
+
+/// 封装 `npx skills <args...>`，捕获 stdout/stderr/退出码。
+/// `proxy_url` 为 `Some` 时注入代理 env（见 `apply_proxy_env`），`None` 直连。
+fn run_npx(extra_args: &[String], proxy_url: Option<&str>) -> SkillsOpResult {
+    let mut args: Vec<String> = vec!["--yes".to_string(), "skills".to_string()];
+    args.extend(extra_args.iter().cloned());
+    let mut cmd = Command::new("npx");
+    cmd.args(&args);
+    apply_home_env(&mut cmd);
+    apply_proxy_env(&mut cmd, proxy_url);
+    match cmd.output() {
+        Ok(o) => SkillsOpResult {
+            success: o.status.success(),
+            stdout: String::from_utf8_lossy(&o.stdout).to_string(),
+            stderr: String::from_utf8_lossy(&o.stderr).to_string(),
+        },
+        Err(e) => SkillsOpResult {
+            success: false,
+            stdout: String::new(),
+            stderr: format!("failed to spawn npx: {e}"),
+        },
+    }
+}
+
+/// 构造 enable（启用）命令 args：`add <path> -a <slug> [-g] -y`。
+/// 用 skill 本地 path 作 add package（list json `path`），对所有 skill 通用，不依赖锁文件 source。
+/// 单 skill 目录 add 无需 `-s <name>`。抽出便于单测断言（不真跑 npx）。
+fn enable_args(path: &str, agent: SkillAgent, scope: &SkillScope) -> Vec<String> {
+    let mut args = vec![
+        "add".to_string(),
+        path.to_string(),
+        "-a".to_string(),
+        agent.cli_slug().to_string(),
+    ];
+    apply_scope(&mut args, scope);
+    args.push("-y".to_string());
+    args
+}
+
+/// 构造 disable（关闭）命令 args：`remove -s <name> -a <slug> [-g] -y`。
+fn disable_args(name: &str, agent: SkillAgent, scope: &SkillScope) -> Vec<String> {
+    let mut args = vec![
+        "remove".to_string(),
+        "-s".to_string(),
+        name.to_string(),
+        "-a".to_string(),
+        agent.cli_slug().to_string(),
+    ];
+    apply_scope(&mut args, scope);
+    args.push("-y".to_string());
+    args
+}
+
+/// 为某 agent 启用 skill：用 skill 本地 path 作 add package → `npx skills add <path> -a <slug> [-g] -y`。
+/// path 为空 → 明确错误。Project scope 在项目目录内执行（不带 `-g`）。
+pub fn enable(
+    name: &str,
+    path: &str,
+    agent: SkillAgent,
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
+    let name = name.trim();
+    if name.is_empty() {
+        return SkillsOpResult {
+            success: false,
+            stdout: String::new(),
+            stderr: "skill name is empty".to_string(),
+        };
+    }
+    let path = path.trim();
+    if path.is_empty() {
+        return SkillsOpResult {
+            success: false,
+            stdout: String::new(),
+            stderr: format!("skill '{name}' has no installed path; cannot enable"),
+        };
+    }
+    let args = enable_args(path, agent, scope);
+    run_npx_in_scope(&args, scope, proxy_url)
+}
+
+/// 从 catalog 安装 skill（`npx skills add <id> -a <slug> [-g] -y`，逐 agent 合并）。
+///
+/// `id` = CatalogEntry.id，形如 `owner/repo@skill`（`@skill` 已选定子 skill，无需 `-s`）。
+/// 多 agent 逐个 `run_npx_in_scope`；任一失败 → success=false，stderr 聚合全部失败明细。
+/// 成功后调用方负责 `invalidate(scope)`。
+pub fn install(
+    id: &str,
+    agents: &[SkillAgent],
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
+    let id = id.trim();
+    if id.is_empty() {
+        return SkillsOpResult {
+            success: false,
+            stdout: String::new(),
+            stderr: "skill id is empty".to_string(),
+        };
+    }
+    if agents.is_empty() {
+        return SkillsOpResult {
+            success: false,
+            stdout: String::new(),
+            stderr: "no agent selected".to_string(),
+        };
+    }
+    let mut success = true;
+    let mut stdout = String::new();
+    let mut stderr = String::new();
+    for agent in agents {
+        let args = install_args(id, *agent, scope);
+        let res = run_npx_in_scope(&args, scope, proxy_url);
+        if !res.success {
+            success = false;
+            if !stderr.is_empty() {
+                stderr.push_str("\n---\n");
+            }
+            stderr.push_str(&format!(
+                "[{}] {}",
+                agent.cli_slug(),
+                res.stderr.trim()
+            ));
+        }
+        if !res.stdout.trim().is_empty() {
+            if !stdout.is_empty() {
+                stdout.push_str("\n---\n");
+            }
+            stdout.push_str(&format!("[{}] {}", agent.cli_slug(), res.stdout.trim()));
+        }
+    }
+    SkillsOpResult {
+        success,
+        stdout,
+        stderr,
+    }
+}
+
+/// `npx skills add <id> -a <slug> [-g] -y` 参数构造。`id` 含 `@skill`，无需 `-s`。
+fn install_args(id: &str, agent: SkillAgent, scope: &SkillScope) -> Vec<String> {
+    let mut args = vec![
+        "add".to_string(),
+        id.to_string(),
+        "-a".to_string(),
+        agent.cli_slug().to_string(),
+    ];
+    apply_scope(&mut args, scope);
+    args.push("-y".to_string());
+    args
+}
+
+/// 为某 agent 关闭 skill：`npx skills remove -s <name> -a <slug> [-g] -y`。
+pub fn disable(
+    name: &str,
+    agent: SkillAgent,
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
+    let name = name.trim();
+    if name.is_empty() {
+        return SkillsOpResult {
+            success: false,
+            stdout: String::new(),
+            stderr: "skill name is empty".to_string(),
+        };
+    }
+    let args = disable_args(name, agent, scope);
+    run_npx_in_scope(&args, scope, proxy_url)
+}
+
+/// 组级 agent 批量：对某 source 组（`group_source=None` = 「其他」组，匹配 source=None 的 skill）
+/// 内所有 skill 统一启用/禁用某 agent。仅对需变更的 skill 跑 npx（已处目标态跳过）。
+/// 完成后 invalidate(scope)。返回汇总（stdout "ok/total"，stderr 聚合失败明细）。
+pub fn set_group_agent(
+    group_source: Option<&str>,
+    agent: SkillAgent,
+    should_enable: bool,
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
+    let items = list_installed(scope, proxy_url);
+    let targets: Vec<&SkillInfo> = items
+        .iter()
+        .filter(|s| match (group_source, &s.source) {
+            (Some(g), Some(src)) => src == g,
+            (None, None) => true,
+            _ => false,
+        })
+        .collect();
+    if targets.is_empty() {
+        return SkillsOpResult {
+            success: true,
+            stdout: "no skills in group".to_string(),
+            stderr: String::new(),
+        };
+    }
+    let mut ok: u32 = 0;
+    let mut skipped: u32 = 0;
+    let mut fail: u32 = 0;
+    let mut errs: Vec<String> = Vec::new();
+    for s in &targets {
+        let already = s.enabled_agents.contains(&agent);
+        let should_act = if should_enable { !already } else { already };
+        if !should_act {
+            skipped += 1;
+            continue;
+        }
+        let res = if should_enable {
+            enable(
+                &s.name,
+                s.installed_path.as_deref().unwrap_or(""),
+                agent,
+                scope,
+                proxy_url,
+            )
+        } else {
+            disable(&s.name, agent, scope, proxy_url)
+        };
+        if res.success {
+            ok += 1;
+        } else {
+            fail += 1;
+            let detail = if res.stderr.trim().is_empty() {
+                res.stdout.trim()
+            } else {
+                res.stderr.trim()
+            };
+            errs.push(format!("{}: {}", s.name, detail));
+        }
+    }
+    invalidate(scope);
+    SkillsOpResult {
+        success: fail == 0,
+        stdout: format!(
+            "{}/{} updated, {} skipped, {} failed",
+            ok,
+            targets.len(),
+            skipped,
+            fail
+        ),
+        stderr: errs.join("\n"),
+    }
+}
+
+/// 组级卸载：对某 source 组（`group_source=None` = 「其他」组）内所有 skill 逐个卸载。
+/// 复用 `uninstall`（含 npx remove + fs 兜底删第三方 symlink）。完成后 invalidate(scope)。
+/// 返回汇总（stdout "ok/total skipped failed"，stderr 聚合失败明细）。
+pub fn uninstall_group(
+    group_source: Option<&str>,
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
+    let items = list_installed(scope, proxy_url);
+    let targets: Vec<&SkillInfo> = items
+        .iter()
+        .filter(|s| match (group_source, &s.source) {
+            (Some(g), Some(src)) => src == g,
+            (None, None) => true,
+            _ => false,
+        })
+        .collect();
+    if targets.is_empty() {
+        return SkillsOpResult {
+            success: true,
+            stdout: "no skills in group".to_string(),
+            stderr: String::new(),
+        };
+    }
+    let mut ok: u32 = 0;
+    let mut fail: u32 = 0;
+    let mut errs: Vec<String> = Vec::new();
+    for s in &targets {
+        let res = uninstall(&s.name, scope, proxy_url);
+        if res.success {
+            ok += 1;
+        } else {
+            fail += 1;
+            let detail = if res.stderr.trim().is_empty() {
+                res.stdout.trim()
+            } else {
+                res.stderr.trim()
+            };
+            errs.push(format!("{}: {}", s.name, detail));
+        }
+    }
+    invalidate(scope);
+    SkillsOpResult {
+        success: fail == 0,
+        stdout: format!(
+            "{}/{} uninstalled, {} failed",
+            ok,
+            targets.len(),
+            fail
+        ),
+        stderr: errs.join("\n"),
+    }
+}
+
+/// 更新已装 skills：`npx skills update [-g] -y`。
+pub fn update(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
+    let mut args = vec!["update".to_string()];
+    apply_scope(&mut args, scope);
+    args.push("-y".to_string());
+    run_npx_in_scope(&args, scope, proxy_url)
+}
+
+/// 一键卸载当前 scope 下所有平台所有 skills：`npx skills remove --all [-g]`。
+/// `--all` = `--skill '*' --agent '*' -y`（删规范存储 + 所有 agent symlink）。
+pub fn uninstall_all(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
+    let mut args = vec!["remove".to_string(), "--all".to_string()];
+    apply_scope(&mut args, scope);
+    run_npx_in_scope(&args, scope, proxy_url)
+}
+
+/// 构造单一 skill 卸载 args：`remove -s <name> [-g] -y`。
+/// **不带 `-a`** = 删该 skill 在所有 agent 的启用配置 + 规范存储（实测验证）。
+/// ⚠️ `-a` 不接受通配（`-a '*'` 报 `Invalid agents: *` exit 1）；仅 `--all` 简写内部展开。
+/// 故单 skill 全卸载只能省略 `-a`，等效 `--all` 但限定单个 skill。
+fn uninstall_args(name: &str, scope: &SkillScope) -> Vec<String> {
+    let mut args = vec![
+        "remove".to_string(),
+        "-s".to_string(),
+        name.to_string(),
+    ];
+    apply_scope(&mut args, scope);
+    args.push("-y".to_string());
+    args
+}
+
+/// 卸载单一 skill：`npx skills remove -s <name> [-g] -y`（破坏性，前端二次确认）。
+/// 删规范存储目录 + 所有 agent 的启用配置（symlink / 锁文件项）。
+///
+/// **fs 兜底**：第三方/手动 symlink skill（如 understand-*，非 npx 装、不在锁文件）
+/// npx remove 返回 "No matching skills found"（exit 0 但没删）。检测到此输出 → fs 兜底
+/// 删规范存储 symlink + 各 agent 目录 symlink（用户决策 A，突破"全 npx"约束，对称于
+/// enable 用 path 绕锁文件）。
+pub fn uninstall(name: &str, scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
+    let name = name.trim();
+    if name.is_empty() {
+        return SkillsOpResult {
+            success: false,
+            stdout: String::new(),
+            stderr: "skill name is empty".to_string(),
+        };
+    }
+    let args = uninstall_args(name, scope);
+    let res = run_npx_in_scope(&args, scope, proxy_url);
+    // 检测 npx 不认该 skill（第三方/手动 symlink，非锁文件注册）→ fs 兜底删。
+    let no_match = res
+        .stdout
+        .contains("No matching skills found")
+        || res.stderr.contains("No matching skills found");
+    if no_match {
+        let (removed, errs) = fs_fallback_remove(name, scope);
+        let success = !removed.is_empty() && errs.is_empty();
+        return SkillsOpResult {
+            success,
+            stdout: format!(
+                "fs fallback removed {} path(s): [{}]",
+                removed.len(),
+                removed.join(", ")
+            ),
+            stderr: if errs.is_empty() {
+                String::new()
+            } else {
+                format!("fs fallback errors: {}", errs.join("; "))
+            },
+        };
+    }
+    res
+}
+
+/// 校验 skill name 安全（防路径遍历：禁 `..` / `/` / `\` / 空 / `.`）。
+fn is_safe_skill_name(name: &str) -> bool {
+    !name.is_empty()
+        && name != "."
+        && name != ".."
+        && !name.contains('/')
+        && !name.contains('\\')
+        && !name.contains("..")
+}
+
+/// 删除单个路径（symlink → remove_file 不跟随；目录 → remove_dir_all；不存在 → skip）。
+/// 返回 Some(()) 表示删成功，None 表示不存在，Some(Err) 转 errs。
+fn remove_path(p: &PathBuf, removed: &mut Vec<String>, errs: &mut Vec<String>) {
+    let meta = match fs::symlink_metadata(p) {
+        Ok(m) => m,
+        Err(_) => return, // 不存在 → skip
+    };
+    let r = if meta.is_dir() && !meta.file_type().is_symlink() {
+        fs::remove_dir_all(p)
+    } else {
+        fs::remove_file(p) // symlink 或文件：不跟随 symlink target
+    };
+    match r {
+        Ok(()) => removed.push(p.display().to_string()),
+        Err(e) => errs.push(format!("remove {}: {e}", p.display())),
+    }
+}
+
+/// fs 兜底删第三方/手动 symlink skill。返回 (已删路径, 错误)。
+///
+/// - **规范存储**：global `~/.agents/skills/<name>`，project `<project>/.agents/skills/<name>`。
+/// - **各 agent symlink**（仅 global）：扫 `~/` 下 `.` 开头目录（.claude/.codex/.trae-cn/...），
+///   若 `<dir>/skills/<name>` 存在则删。不硬编码 agent 列表，通配扫。
+///
+/// 安全：name 经 `is_safe_skill_name` 校验，防路径遍历。
+fn fs_fallback_remove(name: &str, scope: &SkillScope) -> (Vec<String>, Vec<String>) {
+    let mut removed: Vec<String> = Vec::new();
+    let mut errs: Vec<String> = Vec::new();
+
+    if !is_safe_skill_name(name) {
+        return (removed, vec![format!("unsafe skill name: '{name}'")]);
+    }
+
+    // case-insensitive 匹配：`npx skills list` 返 name 小写化，
+    // 但磁盘目录保留原大小写（如 cc-switch 管的 `SkillAnything`）。
+    // 列目录条目，to_lowercase() == name.to_lowercase() 即匹配删除。
+    let name_lc = name.to_lowercase();
+    let remove_in = |dir: &std::path::Path, removed: &mut Vec<String>, errs: &mut Vec<String>| {
+        let Ok(entries) = fs::read_dir(dir) else {
+            return;
+        };
+        for e in entries.flatten() {
+            if e.file_name().to_string_lossy().to_lowercase() == name_lc {
+                remove_path(&e.path(), removed, errs);
+            }
+        }
+    };
+
+    match scope {
+        SkillScope::Global => {
+            if let Some(home) = dirs::home_dir() {
+                // 规范存储
+                remove_in(&home.join(".agents").join("skills"), &mut removed, &mut errs);
+                // 各 agent 目录（home 下 . 开头目录，排除 .agents 本身）
+                if let Ok(entries) = fs::read_dir(&home) {
+                    for e in entries.flatten() {
+                        let dir_name = e.file_name();
+                        let dn = dir_name.to_string_lossy();
+                        if !dn.starts_with('.') || dn == ".agents" {
+                            continue;
+                        }
+                        remove_in(&home.join(dn.as_ref()).join("skills"), &mut removed, &mut errs);
+                    }
+                }
+            } else {
+                errs.push("cannot resolve home directory".to_string());
+            }
+        }
+        SkillScope::Project { path } => {
+            remove_in(
+                &PathBuf::from(path).join(".agents").join("skills"),
+                &mut removed,
+                &mut errs,
+            );
+        }
+    }
+
+    (removed, errs)
+}
+
+/// 对齐决策：以 source 启用态决定 target 应做何操作。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum AlignAction {
+    /// source 启用 + target 未启用 → target 需 enable。
+    Enable,
+    /// source 未启用 + target 启用 → target 需 disable。
+    Disable,
+    /// 其余（两者一致）→ 不变。
+    Keep,
+}
+
+fn plan_align_action(from_on: bool, to_on: bool) -> AlignAction {
+    match (from_on, to_on) {
+        (true, false) => AlignAction::Enable,
+        (false, true) => AlignAction::Disable,
+        _ => AlignAction::Keep,
+    }
+}
+
+/// 列 skill 目录文件树（递归，相对路径），供详情视图浏览。
+///
+/// 安全: `installed_path` canonicalize 后须存在且为目录。文件遍历仅限该目录子树。
+/// 跳过 `.git/` 目录（避免列版本控制元数据）；其他 dotfile（`.env.example`）保留。
+pub fn detail(installed_path: &str) -> Result<SkillDetail, String> {
+    let root = PathBuf::from(installed_path.trim());
+    let canon = root
+        .canonicalize()
+        .map_err(|e| format!("skill path not found: {e}"))?;
+    if !canon.is_dir() {
+        return Err(format!("skill path is not a directory: {}", canon.display()));
+    }
+    let skill_name = canon
+        .file_name()
+        .map(|s| s.to_string_lossy().to_string())
+        .unwrap_or_default();
+
+    let mut files: Vec<SkillFile> = Vec::new();
+    collect_files(&canon, &canon, &mut files)?;
+
+    // SKILL.md 置首，其余按 rel_path 字母序。
+    files.sort_by(|a, b| {
+        let a_skill = a.rel_path == "SKILL.md";
+        let b_skill = b.rel_path == "SKILL.md";
+        b_skill
+            .cmp(&a_skill)
+            .then_with(|| a.rel_path.cmp(&b.rel_path))
+    });
+
+    Ok(SkillDetail {
+        skill_name,
+        root: canon.to_string_lossy().to_string(),
+        files,
+    })
+}
+
+/// 递归收集文件（相对 base 的路径）。跳过 `.git/` 子目录。
+fn collect_files(base: &PathBuf, dir: &PathBuf, out: &mut Vec<SkillFile>) -> Result<(), String> {
+    let entries = fs::read_dir(dir).map_err(|e| format!("read_dir failed: {e}"))?;
+    for ent in entries.flatten() {
+        let name = ent.file_name();
+        let name_str = name.to_string_lossy();
+        let path = ent.path();
+        if path.is_dir() {
+            // 跳过 .git 版本控制目录。
+            if name_str == ".git" {
+                continue;
+            }
+            collect_files(base, &path, out)?;
+        } else if path.is_file() {
+            let rel = path
+                .strip_prefix(base)
+                .map_err(|e| format!("strip_prefix failed: {e}"))?
+                .to_string_lossy()
+                .replace('\\', "/");
+            let meta = ent.metadata().map_err(|e| format!("metadata failed: {e}"))?;
+            let size = meta.len();
+            let is_text = sniff_text(&path).unwrap_or(false);
+            out.push(SkillFile {
+                rel_path: rel,
+                size,
+                is_text,
+            });
+        }
+    }
+    Ok(())
+}
+
+/// 启发式: 读首 BINARY_SNIFF_BYTES 字节，无 NUL → text。
+fn sniff_text(path: &PathBuf) -> Result<bool, String> {
+    let mut f = fs::File::open(path).map_err(|e| format!("open failed: {e}"))?;
+    use std::io::Read;
+    let mut buf = vec![0u8; BINARY_SNIFF_BYTES];
+    let n = f.read(&mut buf).map_err(|e| format!("read failed: {e}"))?;
+    Ok(!buf[..n].contains(&0u8))
+}
+
+/// 读 skill 内单文件（只读浏览）。
+///
+/// 安全（路径遍历防护，见 [[pathbuf-starts-with-traversal]]）:
+/// 1. `installed_path` canonicalize 得 skill 根
+/// 2. `rel` 标准化校验: 拒含 `..` 段 / 以 `/` 或 Windows 盘符开头
+/// 3. 拼接后 canonicalize，断言 `starts_with(skill_root)`
+/// 4. 必须是文件（非目录/符号链接逃逸）
+pub fn read_file(installed_path: &str, rel: &str) -> Result<SkillFileContent, String> {
+    let rel = rel.trim().replace('\\', "/");
+    if rel.is_empty() {
+        return Err("empty file path".to_string());
+    }
+    // 拒绝对路径与 `..` 遍历。
+    if rel.starts_with('/') || rel.len() >= 2 && rel.as_bytes()[1] == b':' {
+        return Err("absolute path not allowed".to_string());
+    }
+    for seg in rel.split('/') {
+        if seg == ".." {
+            return Err("path traversal not allowed".to_string());
+        }
+    }
+
+    let root = PathBuf::from(installed_path.trim())
+        .canonicalize()
+        .map_err(|e| format!("skill path not found: {e}"))?;
+    if !root.is_dir() {
+        return Err("skill path is not a directory".to_string());
+    }
+
+    let target = root.join(&rel);
+    let canon = target
+        .canonicalize()
+        .map_err(|e| format!("file not found: {e}"))?;
+    if !canon.starts_with(&root) {
+        return Err("path escapes skill directory".to_string());
+    }
+    if !canon.is_file() {
+        return Err("not a file".to_string());
+    }
+
+    let meta = fs::metadata(&canon).map_err(|e| format!("metadata failed: {e}"))?;
+    let size = meta.len();
+
+    // 二进制检测：非文本 → 不返回内容。
+    if !sniff_text(&canon).unwrap_or(false) {
+        return Ok(SkillFileContent {
+            content: None,
+            truncated: false,
+            size,
+        });
+    }
+
+    let bytes = fs::read(&canon).map_err(|e| format!("read failed: {e}"))?;
+    let (content, truncated) = if bytes.len() > MAX_READ_BYTES {
+        (
+            String::from_utf8_lossy(&bytes[..MAX_READ_BYTES]).to_string(),
+            true,
+        )
+    } else {
+        (String::from_utf8_lossy(&bytes).to_string(), false)
+    };
+    Ok(SkillFileContent {
+        content: Some(content),
+        truncated,
+        size,
+    })
+}
+
+/// 使 `to` 的启用配置与 `from` 完全一致（逐 skill 比对 → enable/disable 凑齐）。
+/// `from == to` → noop。逐 skill shell out `npx skills enable/disable`，N 小可接受。
+pub fn align_agents(
+    from: SkillAgent,
+    to: SkillAgent,
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
+    if from == to {
+        return SkillsOpResult {
+            success: true,
+            stdout: "noop: source equals target".to_string(),
+            stderr: String::new(),
+        };
+    }
+    let skills = list_installed(scope, proxy_url);
+    let mut enabled_n = 0usize;
+    let mut disabled_n = 0usize;
+    let mut errs: Vec<String> = Vec::new();
+    for s in &skills {
+        let from_on = s.enabled_agents.contains(&from);
+        let to_on = s.enabled_agents.contains(&to);
+        match plan_align_action(from_on, to_on) {
+            AlignAction::Enable => {
+                let path = s.installed_path.as_deref().unwrap_or("");
+                let r = enable(&s.name, path, to, scope, proxy_url);
+                if r.success {
+                    enabled_n += 1;
+                } else {
+                    errs.push(format!(
+                        "enable {} on {}: {}",
+                        s.name,
+                        to.cli_slug(),
+                        r.stderr.trim()
+                    ));
+                }
+            }
+            AlignAction::Disable => {
+                let r = disable(&s.name, to, scope, proxy_url);
+                if r.success {
+                    disabled_n += 1;
+                } else {
+                    errs.push(format!(
+                        "disable {} on {}: {}",
+                        s.name,
+                        to.cli_slug(),
+                        r.stderr.trim()
+                    ));
+                }
+            }
+            AlignAction::Keep => {}
+        }
+    }
+    let total = enabled_n + disabled_n;
+    SkillsOpResult {
+        success: errs.is_empty(),
+        stdout: format!(
+            "aligned {total} changes ({enabled_n} enabled, {disabled_n} disabled)"
+        ),
+        stderr: errs.join("; "),
+    }
+}
+
+/// 为某 agent 启用当前 scope 下全部已装 skills（只增不减，非破坏性）。
+/// 逐 skill：agent 未启用则 `enable()`，已启用跳过。
+pub fn enable_all(agent: SkillAgent, scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
+    let skills = list_installed(scope, proxy_url);
+    let mut enabled_n = 0usize;
+    let mut errs: Vec<String> = Vec::new();
+    for s in &skills {
+        if s.enabled_agents.contains(&agent) {
+            continue;
+        }
+        let path = s.installed_path.as_deref().unwrap_or("");
+        let r = enable(&s.name, path, agent, scope, proxy_url);
+        if r.success {
+            enabled_n += 1;
+        } else {
+            errs.push(format!("enable {} on {}: {}", s.name, agent.cli_slug(), r.stderr.trim()));
+        }
+    }
+    SkillsOpResult {
+        success: errs.is_empty(),
+        stdout: format!("enabled {enabled_n} skills"),
+        stderr: errs.join("; "),
+    }
+}
+
+/// 按 scope 追加 `-g`（仅 Global）。
+fn apply_scope(args: &mut Vec<String>, scope: &SkillScope) {
+    if matches!(scope, SkillScope::Global) {
+        args.push("-g".to_string());
+    }
+}
+
+/// 由上游代理设置构造 npm/npx 用的代理 URL。
+///
+/// - 未启用（`enabled == false`）→ `None`（保持直连，不注入 env）。
+/// - 启用 → `Some("{scheme}://[user:pass@]host:port")`。
+/// - scheme：`socks5` 且 `dns_over_proxy` → `socks5h`（DNS 走代理）；否则按 proxy_type
+///   映射（`socks5`/`https`/其余 → `http`），与 `ProxyClientSettings::to_reqwest_proxy` 一致。
+///
+/// ⚠️ socks5 限制：npm/npx 原生对 socks5 支持有限，依赖底层（如 undici / global-agent）的
+/// `ALL_PROXY` 识别，未必所有 npm 版本生效；http/https 代理走 `HTTP_PROXY`/`HTTPS_PROXY` 最稳。
+///
+/// ⚠️ 认证编码：user/pass 原样嵌入 URL，不做 percent-encode。若凭证含 `@` `:` `/` 等保留字符，
+/// 生成的 URL 可能被 npm/node 解析歧义（同 npm 自身约定：env 代理 URL 的凭证需调用方自行编码）。
+/// 与 `to_reqwest_proxy`（用 `proxy.basic_auth` 内部处理）的差异仅在此边界场景显现。
+pub fn proxy_env_url(settings: &ProxyClientSettings) -> Option<String> {
+    if !settings.enabled {
+        return None;
+    }
+    let scheme = match settings.proxy_type.as_str() {
+        "socks5" if settings.dns_over_proxy => "socks5h",
+        "socks5" => "socks5",
+        "https" => "https",
+        _ => "http",
+    };
+    let auth = if settings.username.is_empty() {
+        String::new()
+    } else {
+        format!("{}:{}@", settings.username, settings.password)
+    };
+    Some(format!(
+        "{}://{}{}:{}",
+        scheme, auth, settings.host, settings.port
+    ))
+}
+
+/// 为 npx `Command` 注入代理 env（若 `proxy_url` 为 `Some`）。
+///
+/// 设大小写两组 `HTTP_PROXY`/`HTTPS_PROXY`（兼容不同 npm/node 读法）；socks5(h) 时额外设
+/// `ALL_PROXY`（npm 对 socks5 仅经此识别）。`None` → 不注入，保持直连行为不变。
+fn apply_proxy_env(cmd: &mut Command, proxy_url: Option<&str>) {
+    let Some(url) = proxy_url else {
+        return;
+    };
+    cmd.env("HTTP_PROXY", url)
+        .env("HTTPS_PROXY", url)
+        .env("http_proxy", url)
+        .env("https_proxy", url);
+    if url.starts_with("socks5") {
+        cmd.env("ALL_PROXY", url).env("all_proxy", url);
+    }
+}
+
+/// 解析 spawn npx 子进程所需的 home 相关 env。
+///
+/// skills CLI 的 claude-code agent 检测依赖 `claudeHome = CLAUDE_CONFIG_DIR || ~/.claude`
+/// （仅看 `HOME` env，无 getpwuid 兜底），codex 则有 `/etc/codex` 兜底容错更强。
+/// 打包版 GUI（launchd 启动）env 极简，`HOME` 可能缺失或异常 → claude-code 漏检 → list
+/// `agents[]` 不含 Claude Code → UI 显示该 skill 未启用 claude。
+///
+/// 修复：用 `dirs::home_dir()`（getpwuid 解析）显式注入 `HOME`，比继承父 env 可靠；
+/// `CLAUDE_CONFIG_DIR` 若父 env 已设则透传（保留用户自定义配置目录），未设不强制注入。
+///
+/// 返回 `(HOME 值, 可选 CLAUDE_CONFIG_DIR)`，纯函数便于单测。
+fn resolve_home_env() -> (Option<String>, Option<String>) {
+    let home = dirs::home_dir()
+        .map(|h| h.to_string_lossy().into_owned())
+        .or_else(|| std::env::var("HOME").ok().filter(|h| !h.is_empty()));
+    let claude_config = std::env::var("CLAUDE_CONFIG_DIR")
+        .ok()
+        .filter(|v| !v.trim().is_empty());
+    (home, claude_config)
+}
+
+/// 给 npx 子进程注入 home 相关 env（见 `resolve_home_env`）。
+/// `dirs::home_dir()` 返 None（极罕见）时静默跳过 + warn 日志，不阻断 install 流程。
+fn apply_home_env(cmd: &mut Command) {
+    let (home, claude_config) = resolve_home_env();
+    if let Some(h) = home {
+        cmd.env("HOME", h);
+    } else {
+        tracing::warn!("apply_home_env: dirs::home_dir() 返 None 且 HOME env 缺失，skills claude-code 检测可能漏");
+    }
+    if let Some(c) = claude_config {
+        cmd.env("CLAUDE_CONFIG_DIR", c);
+    }
+}
+
+/// 在 scope 对应的 cwd 执行 npx：Project → 项目目录；Global → 默认 cwd。
+/// `proxy_url` 为 `Some` 时给 npx 子进程注入代理 env（突破网络限制），`None` 直连。
+fn run_npx_in_scope(
+    extra_args: &[String],
+    scope: &SkillScope,
+    proxy_url: Option<&str>,
+) -> SkillsOpResult {
+    if let SkillScope::Project { path } = scope {
+        let p = path.trim();
+        if p.is_empty() {
+            return SkillsOpResult {
+                success: false,
+                stdout: String::new(),
+                stderr: "project path is empty".to_string(),
+            };
+        }
+        let mut full: Vec<String> = vec!["--yes".to_string(), "skills".to_string()];
+        full.extend(extra_args.iter().cloned());
+        let mut cmd = Command::new("npx");
+        cmd.args(&full).current_dir(p);
+        apply_home_env(&mut cmd);
+        apply_proxy_env(&mut cmd, proxy_url);
+        return match cmd.output() {
+            Ok(o) => SkillsOpResult {
+                success: o.status.success(),
+                stdout: String::from_utf8_lossy(&o.stdout).to_string(),
+                stderr: String::from_utf8_lossy(&o.stderr).to_string(),
+            },
+            Err(e) => SkillsOpResult {
+                success: false,
+                stdout: String::new(),
+                stderr: format!("failed to spawn npx: {e}"),
+            },
+        };
+    }
+    run_npx(extra_args, proxy_url)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn agent_slug_and_display() {
+        // 关键修正：claude slug 必须 "claude-code"（旧值 "claude" 是错的）。
+        assert_eq!(SkillAgent::Claude.cli_slug(), "claude-code");
+        assert_eq!(SkillAgent::Codex.cli_slug(), "codex");
+        assert_eq!(SkillAgent::Claude.display_name(), "Claude Code");
+        assert_eq!(SkillAgent::Codex.display_name(), "Codex");
+    }
+
+    #[test]
+    fn apply_scope_global_adds_g() {
+        let mut args = vec!["add".to_string(), "owner/repo".to_string()];
+        apply_scope(&mut args, &SkillScope::Global);
+        assert!(args.contains(&"-g".to_string()));
+    }
+
+    #[test]
+    fn apply_scope_project_no_g() {
+        let mut args = vec!["add".to_string()];
+        apply_scope(
+            &mut args,
+            &SkillScope::Project {
+                path: "/tmp".to_string(),
+            },
+        );
+        assert!(!args.contains(&"-g".to_string()));
+    }
+
+    #[test]
+    fn uninstall_args_global() {
+        let args = uninstall_args("my-skill", &SkillScope::Global);
+        assert_eq!(args[0], "remove");
+        assert_eq!(args[1], "-s");
+        assert_eq!(args[2], "my-skill");
+        // 不带 -a（实测：删所有 agent；-a '*' 会 invalid exit 1）。
+        assert!(!args.iter().any(|a| a == "-a"));
+        assert!(args.contains(&"-g".to_string()));
+        assert!(args.contains(&"-y".to_string()));
+    }
+
+    #[test]
+    fn uninstall_args_project_no_g() {
+        let args = uninstall_args(
+            "my-skill",
+            &SkillScope::Project {
+                path: "/tmp".to_string(),
+            },
+        );
+        assert!(!args.contains(&"-g".to_string()));
+        assert!(args.contains(&"-y".to_string()));
+        assert!(!args.iter().any(|a| a == "-a"));
+    }
+
+    #[test]
+    fn is_safe_skill_name_rejects_traversal() {
+        // 合法
+        assert!(is_safe_skill_name("understand-onboard"));
+        assert!(is_safe_skill_name("my_skill"));
+        assert!(is_safe_skill_name("a"));
+        // 路径遍历 / 非法
+        assert!(!is_safe_skill_name(""));
+        assert!(!is_safe_skill_name("."));
+        assert!(!is_safe_skill_name(".."));
+        assert!(!is_safe_skill_name("../etc"));
+        assert!(!is_safe_skill_name("foo/bar"));
+        assert!(!is_safe_skill_name("foo\\bar"));
+        assert!(!is_safe_skill_name("a..b"));
+    }
+
+    #[test]
+    fn parse_skill_sources_json_handles_cases() {
+        // 正常：foo 有 source，bar 空 source 不入，baz 无 source 字段不入。
+        let m = parse_skill_sources_json(
+            r#"{"version":1,"skills":{"foo":{"source":"owner/repo","sourceType":"github"},"bar":{"source":"   "},"baz":{"sourceType":"github"}}}"#,
+        );
+        assert_eq!(m.len(), 1);
+        assert_eq!(m.get("foo").map(String::as_str), Some("owner/repo"));
+
+        // 损坏 JSON → 空。
+        assert!(parse_skill_sources_json("not json {{{").is_empty());
+        // 无 skills 对象 → 空。
+        assert!(parse_skill_sources_json(r#"{"version":1}"#).is_empty());
+        // 多条合法 source。
+        let m2 = parse_skill_sources_json(
+            r#"{"skills":{"a":{"source":"x/y"},"b":{"source":"p/q"}}}"#,
+        );
+        assert_eq!(m2.len(), 2);
+        assert_eq!(m2.get("a").map(String::as_str), Some("x/y"));
+        assert_eq!(m2.get("b").map(String::as_str), Some("p/q"));
+    }
+
+    #[test]
+    fn parse_list_json_maps_enabled_agents() {
+        let stdout = r#"[
+            {"name":"alpha","path":"/p/alpha","scope":"global","agents":["Claude Code","Codex","Zed"]},
+            {"name":"beta","path":"/p/beta","scope":"global","agents":["Codex"]},
+            {"name":"gamma","path":"/p/gamma","scope":"global","agents":["Gemini CLI"]}
+        ]"#;
+        let out = parse_list_json(stdout, &SkillScope::Global);
+        assert_eq!(out.len(), 3);
+        // 排序后 alpha/beta/gamma。
+        assert_eq!(out[0].name, "alpha");
+        assert_eq!(out[0].enabled_agents, vec![SkillAgent::Claude, SkillAgent::Codex]);
+        assert_eq!(out[0].installed_path.as_deref(), Some("/p/alpha"));
+        assert_eq!(out[1].enabled_agents, vec![SkillAgent::Codex]);
+        // gamma 无 claude/codex → 空。
+        assert!(out[2].enabled_agents.is_empty());
+    }
+
+    #[test]
+    fn parse_list_json_bad_json_is_empty() {
+        assert!(parse_list_json("not json", &SkillScope::Global).is_empty());
+    }
+
+    #[test]
+    fn parse_list_json_wrapped_object() {
+        let stdout = r#"{"skills":[{"name":"x","agents":["Claude Code"]}]}"#;
+        let out = parse_list_json(stdout, &SkillScope::Global);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].enabled_agents, vec![SkillAgent::Claude]);
+    }
+
+    #[test]
+    fn frontmatter_description_plain() {
+        let md = "---\nname: foo\ndescription: A great skill for stuff.\n---\nbody\n";
+        assert_eq!(
+            parse_skill_description_from_frontmatter(md).as_deref(),
+            Some("A great skill for stuff.")
+        );
+    }
+
+    #[test]
+    fn frontmatter_description_quoted() {
+        let md = "---\nname: foo\ndescription: \"Quoted desc\"\n---\n";
+        assert_eq!(
+            parse_skill_description_from_frontmatter(md).as_deref(),
+            Some("Quoted desc")
+        );
+    }
+
+    #[test]
+    fn frontmatter_description_single_quoted() {
+        let md = "---\ndescription: 'single'\n---\n";
+        assert_eq!(
+            parse_skill_description_from_frontmatter(md).as_deref(),
+            Some("single")
+        );
+    }
+
+    #[test]
+    fn frontmatter_no_frontmatter() {
+        let md = "just plain markdown\nno frontmatter\n";
+        assert!(parse_skill_description_from_frontmatter(md).is_none());
+    }
+
+    #[test]
+    fn frontmatter_no_description_field() {
+        let md = "---\nname: foo\n---\nbody\n";
+        assert!(parse_skill_description_from_frontmatter(md).is_none());
+    }
+
+    #[test]
+    fn frontmatter_empty_description() {
+        let md = "---\ndescription: \"\"\n---\n";
+        assert!(parse_skill_description_from_frontmatter(md).is_none());
+    }
+
+    #[test]
+    fn frontmatter_desc_only_inside_frontmatter() {
+        // description 行在正文 (非 frontmatter) 不应被解析。
+        let md = "---\nname: foo\n---\ndescription: fake in body\n";
+        assert!(parse_skill_description_from_frontmatter(md).is_none());
+    }
+
+    #[test]
+    fn plan_align_action_matrix() {
+        assert_eq!(plan_align_action(true, false), AlignAction::Enable);
+        assert_eq!(plan_align_action(false, true), AlignAction::Disable);
+        assert_eq!(plan_align_action(true, true), AlignAction::Keep);
+        assert_eq!(plan_align_action(false, false), AlignAction::Keep);
+    }
+
+    #[test]
+    fn enable_args_global_claude() {
+        // path 作 add package，无 -s；global 带 -g。
+        let args = enable_args("/p/foo", SkillAgent::Claude, &SkillScope::Global);
+        assert_eq!(
+            args,
+            vec!["add", "/p/foo", "-a", "claude-code", "-g", "-y"]
+        );
+        assert!(!args.contains(&"-s".to_string()));
+    }
+
+    #[test]
+    fn install_args_global_claude() {
+        // id 含 @skill，无 -s；global 带 -g。
+        let args = install_args("vercel-labs/skills@foo", SkillAgent::Claude, &SkillScope::Global);
+        assert_eq!(
+            args,
+            vec!["add", "vercel-labs/skills@foo", "-a", "claude-code", "-g", "-y"]
+        );
+        assert!(!args.contains(&"-s".to_string()));
+    }
+
+    #[test]
+    fn install_args_project_codex_no_g() {
+        let args = install_args(
+            "xixu-me/skills@github-actions-docs",
+            SkillAgent::Codex,
+            &SkillScope::Project { path: "/proj".to_string() },
+        );
+        assert_eq!(
+            args,
+            vec!["add", "xixu-me/skills@github-actions-docs", "-a", "codex", "-y"]
+        );
+    }
+
+    #[test]
+    fn parse_find_output_basic() {
+        // 模拟 `npx skills find` 输出（含 ANSI 码 + URL 行配对）。
+        let raw = "\x1b[38;5;102mInstall with\x1b[0m npx skills add <owner/repo@skill>\n\n\x1b[38;5;145mxixu-me/skills@github-actions-docs\x1b[0m \x1b[36m217.7K installs\x1b[0m\n\x1b[38;5;102m└ https://skills.sh/xixu-me/skills/github-actions-docs\x1b[0m\n\ngithub/awesome-copilot@git-commit\x1b[0m \x1b[36m35.3K installs\x1b[0m\n└ https://skills.sh/github/awesome-copilot/git-commit\x1b[0m\n";
+        let out = parse_find_output(raw);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].id, "xixu-me/skills@github-actions-docs");
+        assert_eq!(out[0].name, "github-actions-docs");
+        assert_eq!(out[0].description.as_deref(), Some("217.7K installs"));
+        assert_eq!(
+            out[0].repo_url.as_deref(),
+            Some("https://skills.sh/xixu-me/skills/github-actions-docs")
+        );
+        assert_eq!(out[1].id, "github/awesome-copilot@git-commit");
+        assert_eq!(out[1].name, "git-commit");
+        assert_eq!(out[1].repo_url.as_deref(), Some("https://skills.sh/github/awesome-copilot/git-commit"));
+    }
+
+    #[test]
+    fn parse_find_output_empty() {
+        assert!(parse_find_output("").is_empty());
+        assert!(parse_find_output("Install with npx skills add <owner/repo@skill>\n\n").is_empty());
+    }
+
+    #[test]
+    fn parse_find_output_no_url_line() {
+        // 最后一条缺 URL 行也应提交。
+        let raw = "owner/repo@skill-a  10 installs\n└ https://skills.sh/owner/repo/skill-a\nowner/repo@skill-b  5 installs\n";
+        let out = parse_find_output(raw);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[1].id, "owner/repo@skill-b");
+        assert!(out[1].repo_url.is_none());
+    }
+
+    #[test]
+    fn read_file_rejects_traversal() {
+        let tmp = std::env::temp_dir().join("aidog_skill_read_test");
+        let _ = std::fs::create_dir_all(&tmp);
+        let _ = std::fs::write(tmp.join("SKILL.md"), "# skill\n");
+        let path = tmp.to_string_lossy().to_string();
+        // `..` 段 → 拒。
+        assert!(read_file(&path, "../etc/passwd").is_err());
+        assert!(read_file(&path, "sub/../../etc/passwd").is_err());
+        // 绝对路径 → 拒。
+        assert!(read_file(&path, "/etc/passwd").is_err());
+        // 空 → 拒。
+        assert!(read_file(&path, "").is_err());
+        // 正常相对文件 → 成功。
+        let r = read_file(&path, "SKILL.md").unwrap();
+        assert_eq!(r.content.as_deref(), Some("# skill\n"));
+        assert!(!r.truncated);
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn detail_lists_files_skill_md_first() {
+        let tmp = std::env::temp_dir().join("aidog_skill_detail_test");
+        let _ = std::fs::remove_dir_all(&tmp);
+        let _ = std::fs::create_dir_all(tmp.join("references"));
+        std::fs::write(tmp.join("SKILL.md"), "# t\n").unwrap();
+        std::fs::write(tmp.join("README.md"), "readme").unwrap();
+        std::fs::write(tmp.join("references/x.md"), "x").unwrap();
+        let d = detail(&tmp.to_string_lossy()).unwrap();
+        assert_eq!(d.files[0].rel_path, "SKILL.md");
+        assert!(d.files.iter().any(|f| f.rel_path == "references/x.md"));
+        assert!(d.files.iter().any(|f| f.rel_path == "README.md"));
+        let _ = std::fs::remove_dir_all(&tmp);
+    }
+
+    #[test]
+    fn enable_args_project_codex_no_g() {
+        let args = enable_args(
+            "/p/bar",
+            SkillAgent::Codex,
+            &SkillScope::Project { path: "/proj".to_string() },
+        );
+        assert_eq!(args, vec!["add", "/p/bar", "-a", "codex", "-y"]);
+        assert!(!args.contains(&"-g".to_string()));
+        assert!(!args.contains(&"-s".to_string()));
+    }
+
+    #[test]
+    fn disable_args_global_claude() {
+        let args = disable_args("foo", SkillAgent::Claude, &SkillScope::Global);
+        assert_eq!(args, vec!["remove", "-s", "foo", "-a", "claude-code", "-g", "-y"]);
+    }
+
+    #[test]
+    fn disable_args_project_no_g() {
+        let args = disable_args(
+            "foo",
+            SkillAgent::Codex,
+            &SkillScope::Project { path: "/proj".to_string() },
+        );
+        assert!(!args.contains(&"-g".to_string()));
+        assert_eq!(args, vec!["remove", "-s", "foo", "-a", "codex", "-y"]);
+    }
+
+    #[test]
+    fn enable_empty_path_fails() {
+        // path 为空 → 明确错误，不真跑 npx。
+        let r = enable("whatever", "   ", SkillAgent::Claude, &SkillScope::Global, None);
+        assert!(!r.success);
+        assert!(r.stderr.contains("no installed path"));
+    }
+
+    #[test]
+    fn enable_empty_name_fails() {
+        let r = enable("  ", "/p/foo", SkillAgent::Claude, &SkillScope::Global, None);
+        assert!(!r.success);
+    }
+
+    #[test]
+    fn disable_empty_name_fails() {
+        let r = disable("  ", SkillAgent::Claude, &SkillScope::Global, None);
+        assert!(!r.success);
+    }
+
+    // ── 代理 URL 构造 ──
+
+    fn proxy_settings(
+        enabled: bool,
+        ty: &str,
+        user: &str,
+        pass: &str,
+        dns_over_proxy: bool,
+    ) -> ProxyClientSettings {
+        ProxyClientSettings {
+            enabled,
+            proxy_type: ty.to_string(),
+            host: "1.2.3.4".to_string(),
+            port: 7890,
+            username: user.to_string(),
+            password: pass.to_string(),
+            dns_over_proxy,
+        }
+    }
+
+    #[test]
+    fn proxy_env_url_disabled_is_none() {
+        let s = proxy_settings(false, "http", "", "", true);
+        assert_eq!(proxy_env_url(&s), None);
+    }
+
+    #[test]
+    fn proxy_env_url_http_no_auth() {
+        let s = proxy_settings(true, "http", "", "", true);
+        assert_eq!(proxy_env_url(&s).as_deref(), Some("http://1.2.3.4:7890"));
+    }
+
+    #[test]
+    fn proxy_env_url_https_with_auth() {
+        let s = proxy_settings(true, "https", "u", "p", true);
+        assert_eq!(
+            proxy_env_url(&s).as_deref(),
+            Some("https://u:p@1.2.3.4:7890")
+        );
+    }
+
+    #[test]
+    fn proxy_env_url_socks5_dns_over_proxy_is_socks5h() {
+        let s = proxy_settings(true, "socks5", "", "", true);
+        assert_eq!(proxy_env_url(&s).as_deref(), Some("socks5h://1.2.3.4:7890"));
+    }
+
+    #[test]
+    fn proxy_env_url_socks5_no_dns_is_socks5() {
+        let s = proxy_settings(true, "socks5", "", "", false);
+        assert_eq!(proxy_env_url(&s).as_deref(), Some("socks5://1.2.3.4:7890"));
+    }
+
+    #[test]
+    fn proxy_env_url_socks5_with_auth() {
+        let s = proxy_settings(true, "socks5", "u", "p", false);
+        assert_eq!(
+            proxy_env_url(&s).as_deref(),
+            Some("socks5://u:p@1.2.3.4:7890")
+        );
+    }
+
+    #[test]
+    fn proxy_env_url_unknown_type_falls_back_http() {
+        let s = proxy_settings(true, "weird", "", "", true);
+        assert_eq!(proxy_env_url(&s).as_deref(), Some("http://1.2.3.4:7890"));
+    }
+
+    // ── env 注入（构造 Command 断言 env，不真跑 npx）──
+
+    fn env_of<'a>(cmd: &'a Command, key: &str) -> Option<&'a std::ffi::OsStr> {
+        cmd.get_envs()
+            .find(|(k, _)| *k == std::ffi::OsStr::new(key))
+            .and_then(|(_, v)| v)
+    }
+
+    #[test]
+    fn apply_proxy_env_none_injects_nothing() {
+        let mut cmd = Command::new("npx");
+        apply_proxy_env(&mut cmd, None);
+        assert_eq!(cmd.get_envs().count(), 0);
+    }
+
+    #[test]
+    fn apply_proxy_env_http_sets_http_https_not_all() {
+        let mut cmd = Command::new("npx");
+        apply_proxy_env(&mut cmd, Some("http://1.2.3.4:7890"));
+        assert_eq!(
+            env_of(&cmd, "HTTP_PROXY"),
+            Some(std::ffi::OsStr::new("http://1.2.3.4:7890"))
+        );
+        assert_eq!(
+            env_of(&cmd, "HTTPS_PROXY"),
+            Some(std::ffi::OsStr::new("http://1.2.3.4:7890"))
+        );
+        assert_eq!(
+            env_of(&cmd, "http_proxy"),
+            Some(std::ffi::OsStr::new("http://1.2.3.4:7890"))
+        );
+        // 非 socks5 → 不设 ALL_PROXY。
+        assert_eq!(env_of(&cmd, "ALL_PROXY"), None);
+    }
+
+    #[test]
+    fn apply_proxy_env_socks5_also_sets_all_proxy() {
+        let mut cmd = Command::new("npx");
+        apply_proxy_env(&mut cmd, Some("socks5h://1.2.3.4:7890"));
+        assert_eq!(
+            env_of(&cmd, "ALL_PROXY"),
+            Some(std::ffi::OsStr::new("socks5h://1.2.3.4:7890"))
+        );
+        assert_eq!(
+            env_of(&cmd, "all_proxy"),
+            Some(std::ffi::OsStr::new("socks5h://1.2.3.4:7890"))
+        );
+        assert_eq!(
+            env_of(&cmd, "HTTP_PROXY"),
+            Some(std::ffi::OsStr::new("socks5h://1.2.3.4:7890"))
+        );
+    }
+
+    #[test]
+    fn resolve_home_env_returns_dirs_home() {
+        let (home, _) = resolve_home_env();
+        // 测试环境总有可解析的 home（dirs::home_dir 或 HOME env）。
+        let expected = dirs::home_dir()
+            .map(|h| h.to_string_lossy().into_owned())
+            .or_else(|| std::env::var("HOME").ok().filter(|h| !h.is_empty()));
+        assert_eq!(home, expected);
+    }
+
+    #[test]
+    fn apply_home_env_sets_home_on_command() {
+        let mut cmd = Command::new("npx");
+        apply_home_env(&mut cmd);
+        let (home, _) = resolve_home_env();
+        if let Some(h) = home {
+            assert_eq!(env_of(&cmd, "HOME"), Some(std::ffi::OsStr::new(&h)));
+        }
+    }
+
+    #[test]
+    fn parse_catalog_wrapped_object() {
+        let raw = serde_json::json!({
+            "skills": [
+                { "id": "vercel-labs/foo", "name": "Foo", "description": "a foo skill" },
+                { "slug": "bar/baz", "title": "Baz" }
+            ]
+        });
+        let out = parse_catalog_json(&raw);
+        assert_eq!(out.len(), 2);
+        assert_eq!(out[0].id, "vercel-labs/foo");
+        assert_eq!(out[0].name, "Foo");
+        assert_eq!(out[1].id, "bar/baz");
+        assert_eq!(out[1].name, "Baz");
+    }
+
+    #[test]
+    fn cache_key_global_and_project_distinct() {
+        assert_eq!(SkillScope::Global.cache_key(), "global");
+        let p = SkillScope::Project { path: "/proj/a".to_string() };
+        assert_eq!(p.cache_key(), "project:/proj/a");
+        // 不同项目 path 不串。
+        let q = SkillScope::Project { path: "/proj/b".to_string() };
+        assert_ne!(p.cache_key(), q.cache_key());
+        // global ≠ 任意 project。
+        assert_ne!(SkillScope::Global.cache_key(), p.cache_key());
+    }
+
+    #[test]
+    fn cache_key_trims_project_path() {
+        let p = SkillScope::Project { path: "  /proj/a  ".to_string() };
+        assert_eq!(p.cache_key(), "project:/proj/a");
+    }
+
+    #[test]
+    fn cache_file_roundtrip_serde() {
+        // 缓存文件结构可序列化/反序列化往返。
+        let mut file = SkillsCacheFile::default();
+        file.scopes.insert(
+            "global".to_string(),
+            ScopeCacheEntry {
+                cached_at: 123,
+                items: vec![SkillInfo {
+                    name: "foo".to_string(),
+                    enabled_agents: vec![SkillAgent::Claude],
+                    scope: SkillScope::Global,
+                    installed_path: Some("/p/foo".to_string()),
+                    description: None,
+                    source: None,
+                }],
+            },
+        );
+        let json = serde_json::to_string(&file).unwrap();
+        let back: SkillsCacheFile = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.scopes.len(), 1);
+        let entry = back.scopes.get("global").unwrap();
+        assert_eq!(entry.cached_at, 123);
+        assert_eq!(entry.items[0].name, "foo");
+    }
+
+    #[test]
+    fn cache_file_corrupt_json_defaults_empty() {
+        // 损坏 JSON → 默认空（当冷启动），不 panic。
+        let back: SkillsCacheFile = serde_json::from_str("not json {{{").unwrap_or_default();
+        assert!(back.scopes.is_empty());
+    }
+
+    #[test]
+    fn is_exact_source_matches_owner_repo() {
+        assert!(is_exact_source("lazygophers/ccplugin"));
+        assert!(is_exact_source("vercel-labs/agent-skills"));
+        assert!(is_exact_source("a.b/c_d"));
+        // 单 token / 含 @ / 空 / URL / 多斜杠 → 否
+        assert!(!is_exact_source("trellis"));
+        assert!(!is_exact_source("lazygophers/ccplugin@hooks"));
+        assert!(!is_exact_source(""));
+        assert!(!is_exact_source("https://github.com/a/b"));
+        assert!(!is_exact_source("a/b/c"));
+        // 含空格 → 否
+        assert!(!is_exact_source("a / b"));
+    }
+
+    #[test]
+    fn parse_add_list_output_full_fixture() {
+        // 真实 `npx skills add lazygophers/ccplugin -l` 输出片段 (ANSI 已剥, spinner 残留保留)。
+        let raw = "\
+│
+●   claude-code_2-1-177_agent  Agent detected — installing non-interactively
+│
+◇  Source: https://github.com/lazygophers/ccplugin.git
+│
+◇  Repository cloned
+│
+◇  Found 11 skills
+
+│
+◇  Available Skills
+│
+│    architecture-design
+│
+│      用「正交分解」方法论做架构设计与评审。把系统正交分解。
+│
+│    perf-optimization
+│
+│      性能优化的跨栈方法论框架。
+│
+│    trellis-before-dev
+│
+│      Discovers and injects project-specific coding guidelines.
+│
+│
+└  Use --skill <name> to install specific skills
+";
+        let out = parse_add_list_output(raw, "lazygophers/ccplugin");
+        assert_eq!(out.len(), 3, "expected 3 skills, got: {:?}", out);
+        assert_eq!(out[0].name, "architecture-design");
+        assert_eq!(out[0].id, "lazygophers/ccplugin@architecture-design");
+        assert_eq!(
+            out[0].repo_url.as_deref(),
+            Some("https://github.com/lazygophers/ccplugin"),
+        );
+        assert!(out[0].description.as_deref().unwrap().contains("正交分解"));
+        assert_eq!(out[1].name, "perf-optimization");
+        assert_eq!(out[2].name, "trellis-before-dev");
+    }
+
+    #[test]
+    fn parse_add_list_output_empty_and_no_section() {
+        // 空输入 → 空
+        assert!(parse_add_list_output("", "a/b").is_empty());
+        // 无 "Available Skills" header → 空 (in_section 未触)
+        assert!(parse_add_list_output("│  some preamble\n│  but no header\n", "a/b").is_empty());
+        // 只有 header 无内容 → 空
+        let raw = "│\n◇  Available Skills\n│\n└  end\n";
+        assert!(parse_add_list_output(raw, "a/b").is_empty());
+    }
+
+    #[test]
+    fn parse_add_list_output_multiline_description() {
+        // description 跨多行 → 应合并 (空格连接)
+        let raw = "\
+◇  Available Skills
+│
+│    skill-a
+│
+│      first line of description
+│      second line continues
+│
+│    skill-b
+│
+│      single line
+│
+└  end
+";
+        let out = parse_add_list_output(raw, "x/y");
+        assert_eq!(out.len(), 2);
+        let desc_a = out[0].description.as_deref().unwrap();
+        assert!(desc_a.contains("first line"));
+        assert!(desc_a.contains("second line"), "got: {}", desc_a);
+        assert_eq!(out[1].description.as_deref(), Some("single line"));
+    }
+
+    #[test]
+    fn parse_catalog_bare_array() {
+        let raw = serde_json::json!([
+            { "repo": "a/b" }
+        ]);
+        let out = parse_catalog_json(&raw);
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].id, "a/b");
+        // name 回退到 id。
+        assert_eq!(out[0].name, "a/b");
+    }
+}

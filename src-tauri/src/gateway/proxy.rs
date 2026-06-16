@@ -43,6 +43,11 @@ pub struct ProxyState {
     pub scheduler: Arc<super::scheduling::SchedulerState>,
     /// Sticky session 绑定表（内存 LRU + TTL）。
     pub sticky: Arc<super::scheduling::StickyTable>,
+    /// 渐进式日志的 per-id 已落库列快照（in-flight 请求各 1 份）。
+    /// 首节点 INSERT 后存快照；后续节点与快照 diff，仅 UPDATE 变化列；终态写入后移除。
+    /// 用 Mutex<HashMap> 而非线程局部：流式 guard 在独立 task/Drop 路径写终态，
+    /// 须与 handler 主链路共享同一 id 的快照才能正确 diff。
+    pub log_snapshots: std::sync::Mutex<std::collections::HashMap<String, super::db::ProxyLogColumns>>,
 }
 
 /// 启动代理服务器，返回 shutdown handle
@@ -58,6 +63,7 @@ pub async fn start_proxy(
         middleware,
         scheduler: Arc::new(super::scheduling::SchedulerState::new()),
         sticky: Arc::new(super::scheduling::StickyTable::new()),
+        log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
     });
 
     let app = Router::new()
@@ -357,10 +363,15 @@ async fn handle_group_info_inner(
 
 // ─── /api/notify（N1 — 系统通知端点）────────────────────────
 
-/// 通知端点请求体：`{type, content?, vars?}`。
+/// 通知端点请求体：`{event?, type?, content?, vars?}`。
+/// - `event`（N2）：CC hook 事件名（通用脚本 aidog-notify.py 发；后端按 per_event 解析 type+模板）。
+/// - `type`（兼容旧路径 / Codex complete 脚本）：通知类型字面量，未知 → TaskComplete。
+///   event 命中 per_event 时优先于 type。两者都缺省 → type 空串 → 兜底 TaskComplete。
 #[derive(serde::Deserialize)]
 struct NotifyReq {
-    #[serde(rename = "type")]
+    #[serde(default)]
+    event: Option<String>,
+    #[serde(rename = "type", default)]
     notif_type: String,
     #[serde(default)]
     content: Option<String>,
@@ -426,6 +437,7 @@ async fn handle_notify_inner(
     let result = super::notification::dispatch(
         &state.db,
         state.app.as_ref(),
+        req.event.as_deref(),
         &req.notif_type,
         req.content.as_deref(),
         &vars,
@@ -433,6 +445,7 @@ async fn handle_notify_inner(
     .await;
 
     tracing::debug!(
+        event = ?req.event,
         notif_type = %req.notif_type,
         dispatched = result.dispatched,
         inbox = result.inbox,
@@ -461,21 +474,13 @@ async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLog
     if !settings.enabled {
         return;
     }
-    let mut log = log.clone();
-    // Clear fields based on recording switches
-    if !settings.log_user_request {
-        log.request_headers = String::new();
-        log.request_body = String::new();
-        log.user_response_headers = String::new();
-        log.user_response_body = String::new();
-    }
-    if !settings.log_upstream_request {
-        log.upstream_request_headers = String::new();
-        log.upstream_request_body = String::new();
-        log.upstream_response_headers = String::new();
-    }
-    // Calculate est_cost from model_price if tokens are present
-    if log.est_cost == 0.0 && (log.input_tokens > 0 || log.output_tokens > 0) {
+    // 按 settings 就地脱敏构造入库列快照（仅克隆受影响 String 字段，不再 clone 整 ProxyLog 结构）。
+    let strip_user = !settings.log_user_request;
+    let strip_upstream = !settings.log_upstream_request;
+    let mut cols = super::db::ProxyLogColumns::from_log(log, strip_user, strip_upstream);
+
+    // Calculate est_cost from model_price if tokens are present（语义同旧路径，作用于列快照）
+    if cols.est_cost == 0.0 && (cols.input_tokens > 0 || cols.output_tokens > 0) {
         let model_name = if log.actual_model.is_empty() { &log.model } else { &log.actual_model };
         // best-effort 取平台主类型的 serde 裸名（如 "deepseek"）以启用 pricing[platform_type] override；
         // 拿不到则传 ""，calc_est_cost 的 fallback 回退链仍保证非 0。
@@ -485,26 +490,69 @@ async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLog
             .flatten()
             .map(|p| serde_json::to_string(&p.platform_type).unwrap_or_default().trim_matches('"').to_string())
             .unwrap_or_default();
-        log.est_cost = super::db::calc_est_cost(
+        cols.est_cost = super::db::calc_est_cost(
             &state.db,
             model_name,
             &platform_type,
-            log.input_tokens,
-            log.output_tokens,
-            log.cache_tokens,
+            cols.input_tokens,
+            cols.output_tokens,
+            cols.cache_tokens,
         )
         .await;
     }
-    if super::db::upsert_proxy_log(&state.db, &log).await.is_ok() {
+
+    let id = cols.id.clone();
+    let platform_id = log.platform_id;
+    // 终态判定：有真实 HTTP 状态(status!=0)。唯一例外是流式占位写（response_body=="[stream]"，
+    // 终态由 guard.flush 后显式 remove，不在此误删以免 guard 再 INSERT 撞主键）。
+    // 覆盖流式请求在占位前就出错(如 502)的分支，避免快照泄漏。
+    let is_terminal = cols.status_code != 0 && cols.response_body != "[stream]";
+
+    // 取上一快照决定 INSERT(首节点) 还是 部分列 UPDATE(后续节点)。
+    let prev = {
+        let map = state.log_snapshots.lock().unwrap();
+        map.get(&id).cloned()
+    };
+    let write_ok = match prev {
+        None => {
+            // 首节点：建行。成功后存快照供后续 diff。
+            let ok = super::db::insert_proxy_log_columns(&state.db, cols.clone()).await.is_ok();
+            if ok {
+                state.log_snapshots.lock().unwrap().insert(id.clone(), cols);
+            }
+            ok
+        }
+        Some(prev) => {
+            // 后续节点：仅 UPDATE 变化列；成功后刷新快照。
+            let ok = super::db::update_proxy_log_columns(&state.db, cols.clone(), &prev).await.is_ok();
+            if ok {
+                state.log_snapshots.lock().unwrap().insert(id.clone(), cols);
+            }
+            ok
+        }
+    };
+
+    // 终态写完移除快照，防 in-flight map 无限增长（流式占位写除外，由 guard 显式移除）。
+    if is_terminal {
+        remove_log_snapshot(state, &id);
+    }
+
+    if write_ok {
         // 日志写库成功后通知前端三页（Platforms/Groups/Stats）实时刷新统计。
         // 同时通知托盘刷新今日统计（请求数、Token、费用等）。
         // app handle 为 None（无 GUI 上下文）时安全跳过，不影响代理逻辑。
         if let Some(app) = &state.app {
             use tauri::Emitter;
-            let _ = app.emit("proxy-log-updated", log.platform_id);
+            let _ = app.emit("proxy-log-updated", platform_id);
             let _ = app.emit("tray-refresh", ());
         }
     }
+}
+
+/// 移除某请求 id 的列快照（终态写入后调用，防止 in-flight 快照 map 无限增长）。
+/// 流式 guard 终态 flush / 非流式终态返回前调用。重复调用安全（不存在即 no-op）。
+fn remove_log_snapshot(state: &Arc<ProxyState>, id: &str) {
+    state.log_snapshots.lock().unwrap().remove(id);
 }
 
 /// 中间件入站拦截：写审计日志（blocked_by/blocked_reason，不计费）并立即返回 403。
@@ -778,6 +826,26 @@ async fn handle_proxy_inner(
     log.source_protocol = source_protocol.clone();
     tracing::info!(group = %group.name, source_protocol = %source_protocol, model = %log.model, "group resolved");
     upsert_log(&state, &log, &log_settings).await;
+
+    // ── 模型列表端点分流（必须在 parse_incoming_request 之前）──
+    // GET /v1/models | /models（openai/anthropic 同名）空 body，不能进 chat 解析（EOF 400）。
+    // 命中 → 走 handle_models_passthrough：选分组首个启用平台，relay 上游模型列表。
+    if orig_method == axum::http::Method::GET && is_models_endpoint(&path) {
+        return handle_models_passthrough(&state, &mut log, &log_settings, &group, start, lang).await;
+    }
+
+    // ── Responses API 子端点分流（必须在 parse_incoming_request 之前）──
+    // retrieve(GET /v1/responses/{id}) / cancel(POST .../{id}/cancel) / delete(DELETE .../{id})
+    // / compact(POST /v1/responses/compact) / input_items(GET .../{id}/input_items)。
+    // 这些是对某次 create 产生的上游 response 对象的操作，必须原样透传到上游 responses 平台
+    // （body/path 不可经 chat 有损转换；GET/DELETE 空 body 进 chat parse 会 EOF 400）。
+    // create（裸 /v1/responses，无尾段）不被拦，继续走下方 parse + same_protocol_passthrough（已 work）。
+    if is_responses_subendpoint(&path) {
+        return handle_responses_subendpoint(
+            &state, &mut log, &log_settings, &group, &orig_method, &bytes, &path, start, lang,
+        )
+        .await;
+    }
 
     // ── 解析 ChatRequest（按入站协议解析） ──
     let req_value: serde_json::Value = match serde_json::from_slice(&bytes) {
@@ -1874,6 +1942,103 @@ async fn handle_passthrough(
     response
 }
 
+/// 模型列表端点 relay：选分组首个启用平台，按平台协议拉上游 /models 并原样 relay status + body。
+/// 不做 model mapping / 重试 / 转换（模型列表无此语义，取第一个可用平台即可）。
+/// 鉴权注入平台凭证（非客户端 group token，上游不认）；URL 遵 url-construction-rule。
+async fn handle_models_passthrough(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    log_settings: &ProxyLogSettings,
+    group: &Group,
+    start: std::time::Instant,
+    lang: Lang,
+) -> Response {
+    // 选分组首个启用平台（endpoint 优先取首个端点协议/URL，否则平台主配置）。
+    let group_platforms = match super::db::get_group_platforms(&state.db, group.id).await {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(group = %group.name, error = %e, "models: get_group_platforms failed");
+            log.response_body = format!("group platforms error: {e}");
+            log.status_code = 503;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(state, log, log_settings).await;
+            return (StatusCode::SERVICE_UNAVAILABLE, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
+        }
+    };
+    let platform = match group_platforms.iter().find(|gp| gp.platform.enabled) {
+        Some(gp) => gp.platform.clone(),
+        None => {
+            tracing::warn!(group = %group.name, "models: no enabled platform in group");
+            log.response_body = "no enabled platform for models endpoint".to_string();
+            log.status_code = 503;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(state, log, log_settings).await;
+            return (StatusCode::SERVICE_UNAVAILABLE, i18n::t(lang, ErrorKey::Route)).into_response();
+        }
+    };
+
+    // endpoint 优先（首个端点协议/URL），否则平台主配置。api_key 始终取平台凭证。
+    let (protocol, base_url) = if let Some(ep) = platform.endpoints.first() {
+        (ep.protocol.clone(), ep.base_url.clone())
+    } else {
+        (platform.platform_type.clone(), platform.base_url.clone())
+    };
+    let url = build_models_url(&protocol, &base_url);
+
+    log.platform_id = platform.id;
+    log.target_protocol = format!("{:?}", protocol).to_lowercase();
+    log.upstream_request_url = url.clone();
+    log.upstream_request_headers = r#"{"authorization":"[REDACTED]"}"#.to_string();
+
+    let system_timeout = get_system_timeout(&state.db).await;
+    let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 60 };
+    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
+    let client = super::http_client::build_http_client(&state.db, req_timeout, conn_timeout, None, None).await;
+
+    let rb = apply_models_auth(client.get(&url), &protocol, &platform.api_key);
+    tracing::info!(group = %group.name, platform = %platform.name, url = %url, "models endpoint upstream request");
+
+    let resp = match rb.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::error!(url = %url, error = %e, "models endpoint upstream request failed (502)");
+            log.response_body = format!("upstream error: {e}");
+            log.status_code = 502;
+            log.upstream_status_code = 0;
+            log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(state, log, log_settings).await;
+            return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+        }
+    };
+
+    let status = resp.status();
+    log.upstream_status_code = status.as_u16() as i32;
+    let content_type = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/json")
+        .to_string();
+    let body = resp.bytes().await.unwrap_or_default();
+    let body_str = String::from_utf8_lossy(&body).to_string();
+
+    log.status_code = status.as_u16() as i32;
+    log.response_body = body_str.clone();
+    log.user_response_body = body_str;
+    log.user_response_headers = format!(r#"{{"content-type":"{}"}}"#, content_type);
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    tracing::info!(url = %url, status = status.as_u16(), "models endpoint upstream responded");
+    upsert_log(state, log, log_settings).await;
+
+    let resp_status = StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    let mut response = (resp_status, body.to_vec()).into_response();
+    if let Ok(hv) = axum::http::HeaderValue::from_str(&content_type) {
+        response.headers_mut().insert(axum::http::header::CONTENT_TYPE, hv);
+    }
+    response
+}
+
 /// 透传目标 URL 拼接：base_url(去尾斜杠) + 客户端原始 path(+query)
 fn build_passthrough_url(base_url: &str, uri: &axum::http::Uri) -> String {
     let base = base_url.trim_end_matches('/');
@@ -1882,6 +2047,207 @@ fn build_passthrough_url(base_url: &str, uri: &axum::http::Uri) -> String {
         .map(|pq| pq.as_str())
         .unwrap_or_else(|| uri.path());
     format!("{}{}", base, pq)
+}
+
+/// 判定请求 path（已含 group/proxy 前缀）是否为模型列表端点。
+/// strip 任意前缀后尾段为 `/v1/models` | `/models`（openai/anthropic 同名）→ true。
+/// gemini `/v1beta/models` 本期不在代理 relay 范围（标 TODO，见 prd 失败处理）。
+fn is_models_endpoint(path: &str) -> bool {
+    let p = path.trim_end_matches('/');
+    // gemini /v1beta/models 本期不在代理 relay 范围（鉴权/响应格式不同），显式排除。
+    if p.contains("/v1beta/") {
+        return false;
+    }
+    p.ends_with("/v1/models") || p.ends_with("/models")
+}
+
+/// 按平台协议构造上游模型列表端点 URL（遵 url-construction-rule：base_url 已含版本前缀，仅 trim 尾 `/` + 端点后缀，禁额外拼版本）。
+/// 三类后缀：Anthropic → `/v1/models`（base_url 通常不含 /v1）；Bailian → `/compatible-mode/v1/models`；
+/// 其余 OpenAI 兼容（含 glm `.../api/paas/v4`、openai `.../v1`）→ `/models`。
+/// 与 lib.rs `platform_fetch_models` 单一事实源，避免按协议拉 /models 的 URL 构造重复腐化。
+pub fn build_models_url(protocol: &Protocol, base_url: &str) -> String {
+    let base = base_url.trim_end_matches('/');
+    match protocol {
+        Protocol::Anthropic => format!("{base}/v1/models"),
+        Protocol::Bailian => format!("{base}/compatible-mode/v1/models"),
+        _ => format!("{base}/models"),
+    }
+}
+
+/// 按平台协议给上游模型列表请求注入鉴权头（平台凭证，非客户端 group token）。
+/// Anthropic → `x-api-key` + `anthropic-version`；其余 OpenAI 兼容 → `Authorization: Bearer`。
+/// 与 lib.rs `platform_fetch_models` 鉴权风格对齐。
+pub fn apply_models_auth(
+    rb: reqwest::RequestBuilder,
+    protocol: &Protocol,
+    api_key: &str,
+) -> reqwest::RequestBuilder {
+    match protocol {
+        Protocol::Anthropic => rb
+            .header("x-api-key", api_key)
+            .header("anthropic-version", "2023-06-01"),
+        _ => rb.header("Authorization", format!("Bearer {api_key}")),
+    }
+}
+
+/// 判定请求 path（已含 group/proxy 前缀）是否为 Responses API **子端点**（非 create）。
+/// strip `/proxy`+group 前缀后 api_path 以 `/v1/responses/`（**带尾斜杠 + 后续段**）开头 → true。
+/// 精确放行 create：裸 `/v1/responses`（含末尾单斜杠 `/v1/responses/` 但无后续段）→ false，不拦。
+/// 覆盖：/v1/responses/compact、/v1/responses/{id}、/v1/responses/{id}/cancel、/v1/responses/{id}/input_items。
+/// 与 detect_source_protocol 同款 strip（path.find("/v1/")），无 /v1/ 前缀 → 非 responses 子端点。
+fn is_responses_subendpoint(path: &str) -> bool {
+    let api_path = match path.find("/v1/") {
+        Some(idx) => &path[idx..],
+        None => return false,
+    };
+    // strip 末尾斜杠后，必须严格长于裸 `/v1/responses`（即 `/v1/responses/<seg>...`）才算子端点。
+    // 裸 `/v1/responses` 或 `/v1/responses/`（create，无后续段）→ false。
+    let trimmed = api_path.trim_end_matches('/');
+    trimmed.starts_with("/v1/responses/") && trimmed.len() > "/v1/responses".len()
+}
+
+/// Responses API 子端点透传：选分组首个支持 responses 的平台，原样转发 method/body 到上游 + 平台凭证。
+/// 不做转换 / model mapping / 重试（子端点是对上游 response 对象的操作，无 chat 语义）。
+/// 平台选择：分组首个 enabled 且 endpoint 协议含 OpenAIResponses 的平台；无则回退首个 enabled 平台。
+/// 上游 URL：取该平台 responses 端点 base_url + 子路径（api_path 去 `/v1` 前缀，如 `/responses/{id}/cancel`），
+///   镜像 create same_protocol_passthrough 的 `base_url.trim_end('/') + api_path` 构造，base_url 已含 /v1 禁重复拼。
+/// 鉴权：平台凭证 `Authorization: Bearer <api_key>` + `OpenAI-Beta: responses=experimental`（不透传客户端 group token）。
+/// 已知限制：response_id→platform 无持久映射，多 responses 平台分组下取首个平台，若 create 落到非首个 → 上游可能 404
+///   （单 responses 平台分组安全，Codex 常见场景）。此限制在 prd 失败处理已标注，log 记录真实 status。
+#[allow(clippy::too_many_arguments)]
+async fn handle_responses_subendpoint(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    log_settings: &ProxyLogSettings,
+    group: &Group,
+    orig_method: &axum::http::Method,
+    bytes: &[u8],
+    path: &str,
+    start: std::time::Instant,
+    lang: Lang,
+) -> Response {
+    log.source_protocol = "openai_responses".to_string();
+    log.target_protocol = "openai_responses".to_string();
+
+    // 分组平台列表
+    let group_platforms = match super::db::get_group_platforms(&state.db, group.id).await {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(group = %group.name, error = %e, "responses subendpoint: get_group_platforms failed");
+            log.response_body = format!("group platforms error: {e}");
+            log.status_code = 503;
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(state, log, log_settings).await;
+            return (StatusCode::SERVICE_UNAVAILABLE, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
+        }
+    };
+
+    // 平台选择：首个 enabled 且含 OpenAIResponses 端点的平台 → 取其 responses 端点 base_url。
+    // 回退：首个 enabled 平台（取其首个端点或平台主配置 base_url）。
+    let selected = group_platforms.iter().find_map(|gp| {
+        if !gp.platform.enabled {
+            return None;
+        }
+        gp.platform
+            .endpoints
+            .iter()
+            .find(|ep| matches!(ep.protocol, Protocol::OpenAIResponses))
+            .map(|ep| (gp.platform.clone(), ep.base_url.clone()))
+    });
+    let (platform, base_url) = match selected {
+        Some(p) => p,
+        None => {
+            // 回退：首个 enabled 平台
+            match group_platforms.iter().find(|gp| gp.platform.enabled) {
+                Some(gp) => {
+                    let base = gp
+                        .platform
+                        .endpoints
+                        .first()
+                        .map(|ep| ep.base_url.clone())
+                        .unwrap_or_else(|| gp.platform.base_url.clone());
+                    (gp.platform.clone(), base)
+                }
+                None => {
+                    tracing::warn!(group = %group.name, "responses subendpoint: no enabled platform in group");
+                    log.response_body = "no responses-capable or enabled platform for responses subendpoint".to_string();
+                    log.status_code = 503;
+                    log.duration_ms = start.elapsed().as_millis() as i32;
+                    upsert_log(state, log, log_settings).await;
+                    return (StatusCode::SERVICE_UNAVAILABLE, i18n::t(lang, ErrorKey::Route)).into_response();
+                }
+            }
+        }
+    };
+
+    // 上游子路径：api_path（strip /proxy+group 前缀，同 detect_source_protocol）去 `/v1` 前缀。
+    // base_url 已含版本前缀（如 .../v1）→ 子路径只保留 `/responses/...`，禁重复拼 /v1（url-construction-rule）。
+    let api_path = match path.find("/v1/") {
+        Some(idx) => &path[idx..],
+        None => path,
+    };
+    let sub_path = api_path.strip_prefix("/v1").unwrap_or(api_path);
+    let url = format!("{}{}", base_url.trim_end_matches('/'), sub_path);
+
+    log.platform_id = platform.id;
+    log.upstream_request_url = url.clone();
+    log.upstream_request_headers = r#"{"authorization":"[REDACTED]","openai-beta":"responses=experimental"}"#.to_string();
+
+    let system_timeout = get_system_timeout(&state.db).await;
+    let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 60 };
+    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
+    let client = super::http_client::build_http_client(&state.db, req_timeout, conn_timeout, Some(&platform.extra), None).await;
+
+    // 保留原始 method + 原样转发 body（GET/DELETE 无 body；POST cancel/compact 原样）。
+    let mut rb = client
+        .request(orig_method.clone(), &url)
+        .header("Authorization", format!("Bearer {}", platform.api_key))
+        .header("OpenAI-Beta", "responses=experimental");
+    if !bytes.is_empty() {
+        rb = rb.header("Content-Type", "application/json").body(bytes.to_vec());
+        log.upstream_request_body = String::from_utf8_lossy(bytes).to_string();
+    }
+    tracing::info!(group = %group.name, platform = %platform.name, method = %orig_method, url = %url, "responses subendpoint upstream request");
+
+    let resp = match rb.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::error!(url = %url, error = %e, "responses subendpoint upstream request failed (502)");
+            log.response_body = format!("upstream error: {e}");
+            log.status_code = 502;
+            log.upstream_status_code = 0;
+            log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(state, log, log_settings).await;
+            return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+        }
+    };
+
+    let status = resp.status();
+    log.upstream_status_code = status.as_u16() as i32;
+    let content_type = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("application/json")
+        .to_string();
+    let body = resp.bytes().await.unwrap_or_default();
+    let body_str = String::from_utf8_lossy(&body).to_string();
+
+    log.status_code = status.as_u16() as i32;
+    log.response_body = body_str.clone();
+    log.user_response_body = body_str;
+    log.user_response_headers = format!(r#"{{"content-type":"{}"}}"#, content_type);
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    tracing::info!(url = %url, status = status.as_u16(), "responses subendpoint upstream responded");
+    upsert_log(state, log, log_settings).await;
+
+    let resp_status = StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+    let mut response = (resp_status, body.to_vec()).into_response();
+    if let Ok(hv) = axum::http::HeaderValue::from_str(&content_type) {
+        response.headers_mut().insert(axum::http::header::CONTENT_TYPE, hv);
+    }
+    response
 }
 
 /// 构建透传转发 header：原样保留客户端全部 header（含 Authorization OAuth），
@@ -2036,7 +2402,10 @@ impl StreamLogGuard {
         let upsert_settings = self.settings.clone();
         let span = self.req_span.clone();
         tokio::spawn(async move {
+            let id = final_log.id.clone();
             upsert_log(&upsert_state, &final_log, &upsert_settings).await;
+            // 流式终态：移除 in-flight 列快照，防 map 无限增长。
+            remove_log_snapshot(&upsert_state, &id);
         }.instrument(span));
 
         if let Some(est) = &self.est {
@@ -2648,6 +3017,74 @@ mod tests {
         assert!(!body.contains("apply_client_headers"), "passthrough must bypass apply_client_headers");
     }
 
+    // ── 模型列表端点识别：strip 任意前缀后尾段 /v1/models | /models ──
+    #[test]
+    fn models_endpoint_detection() {
+        assert!(is_models_endpoint("/proxy/v1/models"));
+        assert!(is_models_endpoint("/glm-coding-plan-auto/v1/models"));
+        assert!(is_models_endpoint("/v1/models"));
+        assert!(is_models_endpoint("/models"));
+        assert!(is_models_endpoint("/proxy/models"));
+        assert!(is_models_endpoint("/v1/models/")); // 容尾斜杠
+        // chat / messages / responses 不命中
+        assert!(!is_models_endpoint("/v1/chat/completions"));
+        assert!(!is_models_endpoint("/v1/messages"));
+        assert!(!is_models_endpoint("/v1/responses"));
+        // 子路径 /v1/models/<id> 不当模型列表（尾段非 models）
+        assert!(!is_models_endpoint("/v1/models/gpt-4"));
+        // gemini /v1beta/models 本期不命中（标 TODO）
+        assert!(!is_models_endpoint("/v1beta/models"));
+    }
+
+    // ── 模型列表 URL 构造（遵 url-construction-rule：base_url 已含前缀，仅 trim + 后缀）──
+    #[test]
+    fn models_url_construction() {
+        // glm openai 协议端点（base_url 含 /api/paas/v4）→ + /models
+        assert_eq!(
+            build_models_url(&super::Protocol::Glm, "https://open.bigmodel.cn/api/paas/v4"),
+            "https://open.bigmodel.cn/api/paas/v4/models"
+        );
+        // openai（base_url 含 /v1）→ + /models（禁额外拼 /v1）
+        assert_eq!(
+            build_models_url(&super::Protocol::OpenAI, "https://api.openai.com/v1"),
+            "https://api.openai.com/v1/models"
+        );
+        // 尾斜杠 trim
+        assert_eq!(
+            build_models_url(&super::Protocol::OpenAI, "https://api.openai.com/v1/"),
+            "https://api.openai.com/v1/models"
+        );
+        // anthropic（base_url 为 host 根）→ /v1/models
+        assert_eq!(
+            build_models_url(&super::Protocol::Anthropic, "https://api.anthropic.com"),
+            "https://api.anthropic.com/v1/models"
+        );
+        // bailian → /compatible-mode/v1/models
+        assert_eq!(
+            build_models_url(&super::Protocol::Bailian, "https://dashscope.aliyuncs.com"),
+            "https://dashscope.aliyuncs.com/compatible-mode/v1/models"
+        );
+    }
+
+    // ── 模型列表鉴权按协议分流：anthropic x-api-key vs openai Bearer ──
+    #[test]
+    fn models_auth_by_protocol() {
+        let client = reqwest::Client::new();
+        // anthropic → x-api-key + anthropic-version，无 authorization
+        let req = apply_models_auth(client.get("http://x/v1/models"), &super::Protocol::Anthropic, "sk-ant")
+            .build()
+            .unwrap();
+        assert_eq!(req.headers().get("x-api-key").and_then(|v| v.to_str().ok()), Some("sk-ant"));
+        assert_eq!(req.headers().get("anthropic-version").and_then(|v| v.to_str().ok()), Some("2023-06-01"));
+        assert!(req.headers().get("authorization").is_none());
+        // openai 兼容 → Authorization Bearer，无 x-api-key
+        let req = apply_models_auth(client.get("http://x/models"), &super::Protocol::Glm, "sk-glm")
+            .build()
+            .unwrap();
+        assert_eq!(req.headers().get("authorization").and_then(|v| v.to_str().ok()), Some("Bearer sk-glm"));
+        assert!(req.headers().get("x-api-key").is_none());
+    }
+
     // ── SSE usage 累计（Anthropic message.usage + OpenAI 顶层 usage）──
     #[test]
     fn accumulate_sse_usage_anthropic_and_openai() {
@@ -2672,6 +3109,58 @@ mod tests {
         accumulate_sse_usage(&oai, &i, &o, &c);
         assert_eq!(i.load(Relaxed), 20);
         assert_eq!(o.load(Relaxed), 7);
+    }
+
+    // ── Responses API 子端点识别：精确放行 create，拦所有子端点 ──
+    #[test]
+    fn responses_subendpoint_detection() {
+        use super::is_responses_subendpoint;
+        // create（裸 /v1/responses，无尾段）→ false（关键回归：不被新分流拦）
+        assert!(!is_responses_subendpoint("/proxy/v1/responses"), "create bare path must NOT be subendpoint");
+        assert!(!is_responses_subendpoint("/proxy/v1/responses/"), "create with trailing slash must NOT be subendpoint");
+        assert!(!is_responses_subendpoint("/v1/responses"), "create (no proxy prefix) must NOT be subendpoint");
+        // 子端点 → true
+        assert!(is_responses_subendpoint("/proxy/v1/responses/resp_123"), "retrieve must be subendpoint");
+        assert!(is_responses_subendpoint("/proxy/v1/responses/resp_123/cancel"), "cancel must be subendpoint");
+        assert!(is_responses_subendpoint("/proxy/v1/responses/resp_123/input_items"), "input_items must be subendpoint");
+        assert!(is_responses_subendpoint("/proxy/v1/responses/compact"), "compact must be subendpoint");
+        assert!(is_responses_subendpoint("/v1/responses/resp_123"), "subendpoint without proxy prefix must be true");
+        // 无 /v1/ 前缀 / 非 responses → false
+        assert!(!is_responses_subendpoint("/proxy/v1/chat/completions"), "chat must NOT be subendpoint");
+        assert!(!is_responses_subendpoint("/proxy/responses/resp_123"), "missing /v1/ prefix must NOT be subendpoint");
+        assert!(!is_responses_subendpoint("/v1/messages"), "anthropic must NOT be subendpoint");
+    }
+
+    // ── 子端点上游 URL 构造：base_url(含 /v1) + 子路径(去 /v1)，禁重复拼版本 ──
+    #[test]
+    fn responses_subendpoint_url_construction() {
+        // 镜像 handle_responses_subendpoint 的 URL 拼接逻辑
+        let build = |base_url: &str, path: &str| -> String {
+            let api_path = match path.find("/v1/") {
+                Some(idx) => &path[idx..],
+                None => path,
+            };
+            let sub_path = api_path.strip_prefix("/v1").unwrap_or(api_path);
+            format!("{}{}", base_url.trim_end_matches('/'), sub_path)
+        };
+        // openai 标准 base_url 含 /v1 → 不重复拼
+        assert_eq!(
+            build("https://api.openai.com/v1", "/proxy/v1/responses/resp_abc/cancel"),
+            "https://api.openai.com/v1/responses/resp_abc/cancel"
+        );
+        assert_eq!(
+            build("https://api.openai.com/v1", "/proxy/v1/responses/resp_abc"),
+            "https://api.openai.com/v1/responses/resp_abc"
+        );
+        assert_eq!(
+            build("https://api.openai.com/v1", "/proxy/v1/responses/compact"),
+            "https://api.openai.com/v1/responses/compact"
+        );
+        // base_url 末尾带斜杠 → trim 后正确
+        assert_eq!(
+            build("https://api.openai.com/v1/", "/proxy/v1/responses/resp_abc/input_items"),
+            "https://api.openai.com/v1/responses/resp_abc/input_items"
+        );
     }
 
     // ── 同协议透传判定：仅端点协议精确等于入站协议才透传 ──

@@ -3,6 +3,7 @@ name = "aidog"
 version = "0.1.0"
 description = "AiDog Desktop App"
 authors = ["you"]
+license = "AGPL-3.0-or-later"
 edition = "2021"
 
 [lib]
@@ -19,6 +20,8 @@ tauri-plugin-notification = "2"
 tauri-plugin-fs = "2"
 tauri-plugin-dialog = "2"
 tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 toml = "0.8"
@@ -40,6 +43,11 @@ regex = "1"
 # 跨平台 TTS 语音播报（CrossPlatform 后端）。macOS=AVSpeechSynthesizer / Windows=WinRT+SAPI / Linux=Speech Dispatcher。
 # MacSay 后端走 std::process `say`，WebSpeech 后端走前端 webview，故 tts crate 仅服务 CrossPlatform。
 tts = "0.26"
+# 导入导出子系统加密容器：AES-256-GCM + SHA256/HMAC + 安全随机。
+aes-gcm = "0.10"
+sha2 = "0.10"
+hmac = "0.12"
+rand = "0.8"
 
 # macOS 托盘小字：直接操作 NSStatusItem button 的 attributedTitle（NSAttributedString + 小号 NSFont）。
 # 版本与 Tauri 2.11 内部依赖对齐（tauri 透传 tray_icon::TrayIcon，其 ns_status_item() 返回 objc2-app-kit NSStatusItem）。

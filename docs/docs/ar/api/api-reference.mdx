@@ -8,25 +8,25 @@ title: مرجع API
 
 ## POST /api/group-info
 
-Query estimated group information (balance, coding plan utilization, request statistics, etc.). Only **single-platform groups** return applicable data; multi-platform or no-platform groups return `applicable: false`.
+استعلم عن المعلومات التقديرية للمجموعة (الرصيد، استخدام Coding Plan، إحصاءات الطلبات، إلخ). فقط **مجموعات المنصة الواحدة** تُرجع بيانات قابلة للتطبيق؛ المجموعات متعددة المنصات أو بلا منصة تُرجع `applicable: false`.
 
-### Authentication
+### المصادقة
 
 ```
 Authorization: Bearer <group_name>
 ```
 
-The `group_name` is the name of the group configured in AiDog. This is the same value as the `ANTHROPIC_AUTH_TOKEN` environment variable used by Claude Code.
+`group_name` هو اسم المجموعة المُعدّ في AiDog. وهو نفس قيمة متغير البيئة `ANTHROPIC_AUTH_TOKEN` الذي يستخدمه Claude Code.
 
-### Request
+### الطلب
 
-- **Method**: POST
+- **الطريقة**: POST
 - **URL**: `http://127.0.0.1:<port>/api/group-info`
-- **Headers**: `Authorization: Bearer <group_name>`
+- **الترويسات**: `Authorization: Bearer <group_name>`
 
-### Response (200 OK)
+### الاستجابة (200 OK)
 
-#### Single-platform group:
+#### مجموعة منصة واحدة:
 
 ```json
 {
@@ -56,7 +56,7 @@ The `group_name` is the name of the group configured in AiDog. This is the same 
 }
 ```
 
-#### Multi-platform / no-platform group:
+#### مجموعة متعددة المنصات / بلا منصة:
 
 ```json
 {
@@ -73,33 +73,33 @@ The `group_name` is the name of the group configured in AiDog. This is the same 
 }
 ```
 
-### Response Fields
+### حقول الاستجابة
 
-| Field | Type | Description |
+| الحقل | النوع | الوصف |
 |-------|------|-------------|
-| `applicable` | boolean | Whether this is a single-platform group with available data |
-| `balance` | number | Estimated remaining balance |
-| `spent` | number | Cumulative estimated spending |
-| `coding_plan` | array | Coding Plan tiers (Claude etc.); empty for balance-based platforms |
-| `coding_plan[].name` | string | Tier name (5h, 7d, etc.) |
-| `coding_plan[].utilization` | number | Utilization percentage (0-100) |
-| `coding_plan[].pace` | string | Burn rate: `fast`, `normal`, or `busy` |
-| `coding_plan[].reset_at` | number\|null | Reset timestamp (Unix seconds) |
-| `requests` | number | Total request count |
-| `success_rate` | number | Success rate (0-100) |
-| `cache_rate` | number | Cache hit rate (0-100) |
-| `total_tokens` | number | Total tokens consumed |
-| `currency` | string | Currency unit |
-| `balance_days_remaining` | number\|null | Estimated days of balance remaining (null if incalculable) |
+| `applicable` | boolean | ما إذا كانت مجموعة منصة واحدة ذات بيانات متاحة |
+| `balance` | number | الرصيد المتبقي التقديري |
+| `spent` | number | الإنفاق التقديري التراكمي |
+| `coding_plan` | array | مستويات Coding Plan (Claude وغيره)؛ فارغ للمنصات القائمة على الرصيد |
+| `coding_plan[].name` | string | اسم المستوى (5h، 7d، إلخ) |
+| `coding_plan[].utilization` | number | نسبة الاستخدام (0-100) |
+| `coding_plan[].pace` | string | معدل الاستهلاك: `fast` أو `normal` أو `busy` |
+| `coding_plan[].reset_at` | number\|null | طابع زمني لإعادة التعيين (ثواني Unix) |
+| `requests` | number | إجمالي عدد الطلبات |
+| `success_rate` | number | معدل النجاح (0-100) |
+| `cache_rate` | number | معدل إصابة الكاش (0-100) |
+| `total_tokens` | number | إجمالي التوكنز المستهلكة |
+| `currency` | string | وحدة العملة |
+| `balance_days_remaining` | number\|null | الأيام التقديرية المتبقية للرصيد (null إذا لا يمكن حسابها) |
 
-### Error Responses
+### استجابات الأخطاء
 
-| Status | Condition |
+| الحالة | الشرط |
 |--------|-----------|
-| 401 | Missing or invalid `Authorization` header |
-| 200 | Group not found → `applicable: false` |
+| 401 | ترويسة `Authorization` مفقودة أو غير صالحة |
+| 200 | المجموعة غير موجودة → `applicable: false` |
 
-### Example
+### مثال
 
 ```bash
 curl -X POST \\

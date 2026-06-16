@@ -3,65 +3,73 @@ pageType: home
 
 hero:
   name: AiDog
-  text: Manage all your AI API gateways in one place
-  tagline: Multi-platform aggregation · Smart routing · Usage stats —— a cross-platform desktop app that manages the keys, requests, and spending of all your AI platforms
+  text: أدر كل بوابات AI API في مكان واحد
+  tagline: تجميع متعدد المنصات · توجيه ذكي · إحصاءات الاستخدام —— تطبيق سطح مكتب متعدد المنصات يدير مفاتيح وطلبات وإنفاق كل منصات AI لديك
   actions:
     - theme: brand
-      text: Quick Start
-      link: /en/getting-started/quick-start
+      text: البدء السريع
+      link: /ar/getting-started/quick-start
     - theme: alt
       text: GitHub
       link: https://github.com/lazygophers/aidog
 
 features:
-  - title: Multi-platform aggregation
-    details: Manage API keys and endpoints for 50+ platforms such as OpenAI, Anthropic, Gemini, DeepSeek, and Qwen in one place.
+  - title: تجميع متعدد المنصات
+    details: أدر مفاتيح API ونقاط النهاية لأكثر من 50 منصة مثل OpenAI وAnthropic وGemini وDeepSeek وQwen في مكان واحد.
     icon: 🧩
-    link: /en/platforms/add-platform
-  - title: Smart routing
-    details: Automatically forward each request to the best platform based on group and model mapping rules.
+    link: /ar/platforms/add-platform
+  - title: توجيه ذكي
+    details: مرّر كل طلب تلقائيًا إلى أفضل منصة بناءً على قواعد المجموعة وتحويل النموذج.
     icon: 🧭
-    link: /en/groups/routing-rules
-  - title: Usage stats
-    details: Track token usage in real time, estimate call costs, and query the balance of each platform.
+    link: /ar/groups/routing-rules
+  - title: إحصاءات الاستخدام
+    details: تتبّع استخدام التوكنز لحظيًا، قدّر تكاليف الاستدعاء، واستعلم عن رصيد كل منصة.
     icon: 📊
-    link: /en/stats/usage-stats
-  - title: Multi-protocol conversion
-    details: Convert between OpenAI Chat / Completions / Responses, Anthropic, and Gemini native protocols.
+    link: /ar/stats/usage-stats
+  - title: تحويل متعدد البروتوكولات
+    details: حوّل بين OpenAI Chat / Completions / Responses، Anthropic، وبروتوكولات Gemini الأصلية.
     icon: 🔌
-    link: /en/platforms/protocols
-  - title: Codex integration
-    details: Native support for coding assistants like OpenAI Codex and Claude Code, with one-click setup.
+    link: /ar/platforms/protocols
+  - title: تكامل Codex
+    details: دعم أصلي لمساعدي البرمجة مثل OpenAI Codex وClaude Code، بإعداد بنقرة واحدة.
     icon: ⚡
-    link: /en/proxy/codex-integration
-  - title: Logging system
-    details: Three levels of logging granularity and configurable retention policies make the request chain crystal clear.
+    link: /ar/proxy/codex-integration
+  - title: نظام السجلّات
+    details: ثلاثة مستويات لدقة التسجيل وسياسات احتفاظ قابلة للتكوين تجعل سلسلة الطلبات واضحة تمامًا.
     icon: 📑
-    link: /en/logs/viewing
-  - title: Theme customization
-    details: Multiple themes such as Liquid Glass, Nord, and Dracula, with both light and dark modes.
+    link: /ar/logs/viewing
+  - title: تخصيص السمات
+    details: سمات متعددة مثل Liquid Glass وNord وDracula، بأوضاع فاتحة وداكنة.
     icon: 🎨
-    link: /en/settings/themes
-  - title: System tray
-    details: Lives in the system tray, showing balance and proxy status in real time.
+    link: /ar/settings/themes
+  - title: شريط النظام
+    details: يعيش في شريط النظام، عارضًا الرصيد وحالة البروكسي لحظيًا.
     icon: 🖥️
-    link: /en/settings/tray
+    link: /ar/settings/tray
 ---
+<div align="center">
 
-## Three steps to get started
+[![LINUX DO](https://ld.xh.do/ld-badge.svg)](https://linux.do)
+[![GitHub Stars](https://img.shields.io/github/stars/lazygophers/aidog?style=social)](https://github.com/lazygophers/aidog/stargazers)
+[![Downloads](https://img.shields.io/github/downloads/lazygophers/aidog/total?logo=github)](https://github.com/lazygophers/aidog/releases)
+[![Last Commit](https://img.shields.io/github/last-commit/lazygophers/aidog?logo=git&logoColor=white)](https://github.com/lazygophers/aidog/commits)
 
-1. **Add a platform** —— enter the API key and endpoint of an AI platform
-2. **Set the proxy address** —— point your client to the AiDog local proxy
-3. **Start using it** —— requests are automatically routed, metered, and logged
+</div>
 
-→ [Installation Guide](/en/getting-started/installation) · [Quick Start](/en/getting-started/quick-start)
+## ثلاث خطوات للبدء
 
-## Tech stack
+1. **إضافة منصة** —— أدخل مفتاح API ونقطة نهاية منصة AI
+2. **ضبط عنوان البروكسي** —— وجّه عميلك إلى بروكسي AiDog المحلي
+3. **ابدأ الاستخدام** —— تُوجَّه الطلبات وتُقاس وتُسجَّل تلقائيًا
 
-| Layer | Technology |
+→ [دليل التثبيت](/ar/getting-started/installation) · [البدء السريع](/ar/getting-started/quick-start)
+
+## حزمة التقنيات
+
+| الطبقة | التقنية |
 |---|---|
-| Desktop framework | Tauri 2.0 |
-| Frontend | React 19 + TypeScript |
-| Backend | Rust + Axum |
-| Database | SQLite |
-| Build | Vite + Yarn |
+| إطار سطح المكتب | Tauri 2.0 |
+| الواجهة الأمامية | React 19 + TypeScript |
+| الواجهة الخلفية | Rust + Axum |
+| قاعدة البيانات | SQLite |
+| البناء | Vite + Yarn |

@@ -4,28 +4,28 @@ title: Claude Code
 
 # Claude Code
 
-Configure AiDog integration with Claude Code in **"Settings" → "Claude Code"** tab.
+**「設定」→「Claude Code」** タブで AiDog と Claude Code の統合を設定します。
 
-## Configuration Editing
+## 設定編集
 
-Edit all Claude Code settings directly in AiDog:
+すべての Claude Code 設定を AiDog 内で直接編集:
 
-- **Model** — Specify the model Claude Code uses
-- **Permissions** — File read/write, network access controls
-- **Sandbox** — Code execution sandbox configuration
-- **Plugins** — Claude Code plugin management
-- **Hooks** — Lifecycle hooks (PreToolUse / PostToolUse, etc.)
-- **StatusLine** — Status bar display configuration
+- **モデル** — Claude Code が使用するモデルを指定
+- **権限** — ファイル読み書き、ネットワークアクセス制御
+- **サンドボックス** — コード実行サンドボックス設定
+- **プラグイン** — Claude Code プラグイン管理
+- **Hooks** — ライフサイクルフック (PreToolUse / PostToolUse など)
+- **StatusLine** — ステータスバー表示設定
 
-All changes are saved immediately to `~/.claude.json`.
+すべての変更は `~/.claude.json` に即座に保存されます。
 
-## Import from Claude Code
+## Claude Code からインポート
 
-Click "Import from Claude Code" to read the existing Claude Code configuration file and load it into the editor. Ideal for migrating existing configs during initial setup.
+「Claude Code からインポート」をクリックして既存の Claude Code 設定ファイルを読み込み、エディタにロードします。初期設定時に既存設定を移行するのに最適。
 
-## Export to Claude Code
+## Claude Code へエクスポート
 
-Click "Export to Claude Code" to write the proxy address into Claude Code's configuration file:
+「Claude Code へエクスポート」をクリックしてプロキシアドレスを Claude Code 設定ファイルに書き込み:
 
 ```json
 {
@@ -33,38 +33,38 @@ Click "Export to Claude Code" to write the proxy address into Claude Code's conf
 }
 ```
 
-After export, all Claude Code requests will be proxied through AiDog.
+エクスポート後、すべての Claude Code リクエストが AiDog 経由でプロキシされます。
 
-## Sync Group Settings
+## グループ設定を同期
 
-Click "Sync Group Settings" to generate independent Claude Code configuration files for each group:
+「グループ設定を同期」をクリックして各グループの独立した Claude Code 設定ファイルを生成:
 
-- Saved to `~/.aidog/settings.<group-name>.json`
-- Each config file uses the corresponding group's proxy path
-- Use with the "Claude" one-click copy button on group cards
+- `~/.aidog/settings.<group-name>.json` に保存
+- 各設定ファイルは対応グループのプロキシパスを使用
+- グループカードの「Claude」コピーボタンと併用
 
-### Usage
+### 使用方法
 
-1. Click the "Claude" button on a group card to copy the launch command
-2. Paste in your terminal:
+1. グループカードの「Claude」ボタンをクリックして起動コマンドをコピー
+2. ターミナルに貼り付け:
 
 ```bash
 claude --brief --dangerously-skip-permissions \
   --settings ~/.aidog/settings.<group-name>.json
 ```
 
-## Manual Configuration
+## 手動設定
 
-Alternatively, configure via environment variables:
+または、環境変数で設定:
 
 ```bash
 export ANTHROPIC_BASE_URL="http://127.0.0.1:9876"
 export ANTHROPIC_API_KEY="any-value"
 ```
 
-## Notes
+## 注意
 
-- Claude Code uses the native Anthropic protocol
-- Ensure the target platform supports the Anthropic protocol or has protocol conversion configured
-- AiDog provides a dedicated path for Claude Code
-- Add model mapping in platform or group settings if needed
+- Claude Code はネイティブ Anthropic プロトコルを使用
+- 対象プラットフォームが Anthropic プロトコルをサポートしているか、プロトコル変換が設定済みか確認
+- AiDog は Claude Code 専用パスを提供
+- 必要に応じてプラットフォームまたはグループ設定でモデルマッピングを追加

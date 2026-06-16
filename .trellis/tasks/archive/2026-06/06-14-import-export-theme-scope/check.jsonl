@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "check 前端模式合规：异步初始化无白屏/闪烁、双写兜底、reloadFromDB 暴露契约、i18n key 8 语言全覆盖"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "check DB setting scope=app key=theme 契约 + 导入导出 collect/apply 通用路径覆盖 theme 行"}

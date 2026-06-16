@@ -1,0 +1,1 @@
+{"model": {"display_name": "M"}, "terminal": {"width": 50}, "context_window": {"context_window_size": 1000, "total_input_tokens": 999, "total_output_tokens": 1000, "used_percentage": 50, "current_usage": {"cache_creation_input_tokens": 999999, "cache_read_input_tokens": 1000000, "input_tokens": 0}}}

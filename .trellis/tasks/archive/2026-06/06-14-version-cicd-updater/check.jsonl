@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "校 i18n/组件规约"}
+{"file": ".trellis/spec/backend/index.md", "reason": "校 cargo clippy/插件注册"}

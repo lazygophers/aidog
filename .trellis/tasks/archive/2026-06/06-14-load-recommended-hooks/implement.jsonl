@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端目录结构/组件/状态/类型/i18n 强制规则 —— 改 Settings.tsx/CodexSettings.tsx + 新增 utils 合并工具前必读"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "deepMerge 工具须单一实现两页复用，禁页内各写一份"}

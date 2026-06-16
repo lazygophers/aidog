@@ -2,7 +2,7 @@ import { useState, useEffect, useReducer } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
-  groupDetailApi, groupApi, groupUsageApi, platformApi, onProxyLogUpdated,
+  groupDetailApi, groupApi, groupUsageApi, platformApi, proxyApi, onProxyLogUpdated,
   type GroupDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
   type ModelMapping,
 } from "../services/api";
@@ -228,7 +228,7 @@ function CopyButton({ text, title, label, size = 14 }: { text: string; title?: s
 
 /**
  * 拉取每个 group 的使用统计 + 余额。
- * - usage stats：按 proxy_log.group_name 聚合（`groupUsageApi.stats`），只含本分组请求，共享平台不重复计入。
+ * - usage stats：按 proxy_log.group_name 聚合（`groupUsageApi.statsAll` 单次批量），只含本分组请求，共享平台不重复计入。
  * - balance：关联 platforms 的 est_balance_remaining 求和（平台级属性，无 per-group 概念，维持现状）。
  * load 与 refreshStats 共用，避免两处求和逻辑重复。
  */
@@ -239,24 +239,28 @@ async function fetchGroupStats(
   const platById = new Map(platforms.map(pp => [pp.id, pp]));
   const statsMap: Record<string, PlatformUsageStats> = {};
   const balanceMap: Record<number, number> = {};
-  await Promise.all(details.map(async (g) => {
-    // usage stats：按 group_name 查 proxy_log
-    try {
-      const s = await groupUsageApi.stats(g.group.name);
+  // usage stats：单次批量 invoke（后端 GROUP BY group_name），消除逐 group N+1 往返。
+  // 返回 map 仅含有日志的 group；total_requests > 0 时纳入。
+  try {
+    const all = await groupUsageApi.statsAll();
+    for (const g of details) {
+      const s = all[g.group.name];
       if (s && s.total_requests > 0) statsMap[g.group.name] = s;
-    } catch { /* ignore */ }
-    // balance：关联平台余额求和（保持平台级语义）
+    }
+  } catch { /* ignore */ }
+  // balance：关联平台余额求和（保持平台级语义，无 HTTP）。
+  for (const g of details) {
     let balance = 0;
     for (const gp of g.platforms) {
       const est = platById.get(gp.platform.id)?.est_balance_remaining;
       if (typeof est === "number" && est > 0) balance += est;
     }
     if (balance > 0) balanceMap[g.group.id] = balance;
-  }));
+  }
   return { statsMap, balanceMap };
 }
 
-export function Groups() {
+export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { groupId?: string; groupName?: string }) => void }) {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -264,6 +268,9 @@ export function Groups() {
   // 聚合余额：关联 platforms 的 est_balance_remaining 求和（platformApi.list 已带，无额外 HTTP）。group.id → 余额；缺值不写入。
   const [groupBalance, setGroupBalance] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
+  // 代理端口（proxy_get_settings），构造页面级 base_url；取失败兜底 7890。
+  const [proxyPort, setProxyPort] = useState(7890);
+  const proxyBaseUrl = `http://127.0.0.1:${proxyPort}/proxy`;
 
   // Edit mode（8 字段合并为单 reducer）
   const [edit, dispatchEdit] = useReducer(editReducer, EMPTY_EDIT);
@@ -328,6 +335,13 @@ export function Groups() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // 取代理端口构造 base_url；失败保持兜底 7890。
+  useEffect(() => {
+    proxyApi.getSettings()
+      .then(s => { if (s?.port) setProxyPort(s.port); })
+      .catch(() => { /* 兜底 7890 */ });
+  }, []);
 
   // 请求完成后轻量刷新统计（仅本地 DB 查询，不拉 quota HTTP）
   useEffect(() => onProxyLogUpdated(() => { refreshStats(); }), []);
@@ -441,6 +455,7 @@ export function Groups() {
             <div style={{ fontSize: F.title, fontWeight: 700 }}>{editName || t("group.edit")}</div>
             <div className="text-secondary" style={{ fontSize: F.hint, marginTop: 2 }}>#{editTarget.group.id}</div>
           </div>
+          <CopyButton text={editName} label={t("group.apiKey", "API Key")} title={t("group.copyApiKeyTitle", "复制 API Key（= 分组名）")} />
           <CopyButton text={buildClaudeCommand(editName)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} />
           <CopyButton text={buildCodexCommand(editName)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} />
           <button className="btn" onClick={cancelEdit}>{t("action.cancel")}</button>
@@ -711,9 +726,20 @@ export function Groups() {
             {details.length > 0 ? `${details.length} ${t("nav.groups").toLowerCase()}` : t("group.empty")}
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-          + {t("group.add")}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* 代理 base_url：只读小字 + 复制按钮 */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <code style={{
+              fontSize: 12, color: "var(--text-secondary)", background: "var(--bg-glass)",
+              padding: "4px 8px", borderRadius: "var(--radius-sm)", whiteSpace: "nowrap",
+            }}>{proxyBaseUrl}</code>
+            <CopyButton text={proxyBaseUrl} label={t("group.copyBaseUrl", "复制代理地址")}
+              title={t("group.copyBaseUrlTitle", "复制代理 base_url")} />
+          </div>
+          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
+            + {t("group.add")}
+          </button>
+        </div>
       </div>
 
       {/* Create Group Form */}
@@ -806,8 +832,14 @@ export function Groups() {
                   </div>
                 </div>
                 {/* Quick actions */}
+                <CopyButton text={group.name} title={t("group.copyApiKeyTitle", "复制 API Key（= 分组名）")} size={14} />
                 <CopyButton text={buildClaudeCommand(group.name)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} size={14} />
                 <CopyButton text={buildCodexCommand(group.name)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
+                <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onNavigate?.("stats", { groupId: String(group.id), groupName: group.name }); }} title={t("group.viewStats", "查看统计")}>
+                  <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
+                  </svg>
+                </button>
                 <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />

@@ -2,62 +2,63 @@
 title: التوجيه المتقدم
 ---
 
-# Advanced Routing
+# التوجيه المتقدم
 
-Master AiDog's advanced routing capabilities for fine-grained traffic control.
+أتقن قدرات التوجيه المتقدم في AiDog للتحكم الدقيق بالحركة.
 
-## Multi-Platform Aggregation
+## تجميع متعدد المنصات
 
-Add multiple platforms to a group with different routing modes. See [Create & Manage](/groups/manage-groups).
+أضف منصات متعددة إلى مجموعة بأوضاع توجيه مختلفة. راجع [الإنشاء والإدارة](/ar/groups/manage-groups).
 
-## Failover
+## التبديل عند الفشل
 
-When a platform request fails, AiDog automatically tries the next platform in the group:
+عند فشل منصة، يجرب AiDog التالية تلقائيًا:
 
 ```
-Request → Platform A (429 Rate Limit)
-        → Platform B (Success)
-        → Return response
+طلب → المنصة A (429 Rate Limit)
+        → المنصة B (نجاح)
+        → إرجاع الاستجابة
 ```
 
-Failover triggers on:
+يُطلَق التبديل عند:
+
 - HTTP 429 (Rate Limit)
-- HTTP 5xx (Server Error)
-- Connection timeout
-- Network errors
+- HTTP 5xx (خطأ الخادم)
+- انتهاء مهلة الاتصال
+- أخطاء الشبكة
 
-## Load Balancing
+## موازنة الحمل
 
-Distribute requests across multiple platforms by weight. Example:
+تُوزَّع الطلبات بين المنصات حسب الوزن. مثال:
 
-| Platform | Weight | Expected Traffic |
+| المنصة | الوزن | الحركة المتوقعة |
 |----------|--------|------------------|
 | OpenAI | 70 | ~70% |
 | DeepSeek | 30 | ~30% |
 
-## Model Aliases
+## أسماء النماذج المستعارة
 
-Create aliases via model mapping:
+أنشئ أسماء مستعارة عبر ربط النماذج:
 
-| Alias | Maps To | Purpose |
+| الاسم المستعار | يُربط بـ | الغرض |
 |-------|---------|---------|
-| `fast` | `gpt-4o-mini` | Quick responses |
-| `smart` | `claude-3-opus` | High quality |
-| `code` | `deepseek-coder` | Code generation |
+| `fast` | `gpt-4o-mini` | استجابات سريعة |
+| `smart` | `claude-3-opus` | جودة عالية |
+| `code` | `deepseek-coder` | توليد الكود |
 
-Clients use aliases; AiDog routes to actual platforms based on group configuration.
+يستخدم العملاء الأسماء المستعارة؛ يوجّه AiDog إلى المنصات الفعلية حسب إعداد المجموعة.
 
-## Chained Routing
+## التوجيه المتسلسل
 
-Combine group and platform mappings for multi-layer transformation:
+ادمج روابط المجموعة والمنصة لتحويل متعدد الطبقات:
 
-1. Client requests model `smart`
-2. Group A maps `smart` → `claude-3-opus`
-3. Platform X maps `claude-3-opus` → `claude-3-opus-20240229`
-4. Sent to Anthropic
+1. العميل يطلب النموذج `smart`
+2. المجموعة A تربط `smart` → `claude-3-opus`
+3. المنصة X تربط `claude-3-opus` → `claude-3-opus-20240229`
+4. أُرسل إلى Anthropic
 
-## Group-Level Timeout
+## المهلة على مستوى المجموعة
 
-Each group can independently set request timeout and connect timeout, overriding global defaults. Useful when certain slower models need longer wait times.
+كل مجموعة يمكنها ضبط مهلة الطلب ومهلة الاتصال بشكل مستقل، متجاوزة الإعدادات العامة. مفيد عندما تحتاج نماذج أبطأ أوقات انتظار أطول.
 
-See [Create & Manage](/groups/manage-groups).
+راجع [الإنشاء والإدارة](/ar/groups/manage-groups).

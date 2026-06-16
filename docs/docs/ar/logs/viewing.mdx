@@ -1,50 +1,50 @@
 ---
-title: عرض السجلات
+title: عرض السجلّات
 ---
 
-# Viewing Logs
+# عرض السجلّات
 
-The **Logs** page records every proxy request that passes through AiDog, making it easy to troubleshoot routing, protocol conversion, and upstream response issues.
+تسجّل صفحة **السجلّات** كل طلب بروكسي يمر عبر AiDog، مما يسهّل تشخيص مشاكل التوجيه وتحويل البروتوكول واستجابات المنبع.
 
-## Log List
+## قائمة السجلّات
 
-Each log entry shows the following information:
+يُظهر كل سجل:
 
-| Field | Description |
+| الحقل | الوصف |
 |------|------|
-| Group | Name of the matched group |
-| Model | Original model requested by the client |
-| Actual Model | Model sent to the upstream after model mapping |
-| Protocol | Inbound protocol → upstream protocol |
-| Platform | Platform that actually handled the request |
-| Status | HTTP status code (success / failure) |
-| Duration | Total request duration (milliseconds) |
-| Token | Number of input / output / cache tokens |
-| Time | When the request occurred |
+| المجموعة | اسم المجموعة المطابقة |
+| النموذج | النموذج الأصلي المطلوب من العميل |
+| النموذج الفعلي | النموذج المرسل للمنبع بعد التحويل |
+| البروتوكول | البروتوكول الداخل → بروتوكول المنبع |
+| المنصة | المنصة التي عالجت الطلب فعليًا |
+| الحالة | رمز حالة HTTP (نجاح / فشل) |
+| المدة | إجمالي مدة الطلب (مللي ثانية) |
+| التوكنز | عدد توكنز الإدخال / الإخراج / الكاش |
+| الوقت | وقت وقوع الطلب |
 
-The list shows 50 entries per page with pagination support.
+تُظهر القائمة 50 إدخالًا لكل صفحة مع ترقيم صفحات.
 
-## Filtering
+## التصفية
 
-Use the filters at the top to quickly locate logs:
+استخدم المرشحات في الأعلى لتحديد موقع السجلّات بسرعة:
 
-- **Platform**: filter by a specific platform
-- **Group**: filter by group
-- **Status**: success only / failure only
-- **Time range**: all / last 1 hour / 6 hours / 24 hours / 7 days / 30 days
-- **Model**: search by original or actual model name
+- **المنصة**: تصفية حسب منصة محددة
+- **المجموعة**: تصفية حسب المجموعة
+- **الحالة**: نجاح فقط / فشل فقط
+- **النطاق الزمني**: الكل / آخر ساعة / 6 ساعات / 24 ساعة / 7 أيام / 30 يومًا
+- **النموذج**: بحث باسم النموذج الأصلي أو الفعلي
 
-## Request Details
+## تفاصيل الطلب
 
-Click any log entry to expand its details and view the complete request chain:
+انقر أي إدخال لتوسيع تفاصيله ورؤية سلسلة الطلب الكاملة:
 
-- **User request**: original request URL, request headers, request body
-- **Upstream request**: the converted URL, request headers, and request body sent to the upstream
-- **Upstream response**: status code, response headers, and response body returned by the upstream
-- **User response**: the final response headers and response body returned to the client
+- **طلب المستخدم**: رابط الطلب الأصلي، الترويسات، ونص الطلب
+- **طلب المنبع**: الرابط المحوّل، الترويسات، ونص الطلب المرسل للمنبع
+- **استجابة المنبع**: رمز الحالة، الترويسات، ونص الاستجابة من المنبع
+- **استجابة المستخدم**: الترويسات والنص النهائي المُعاد للعميل
 
-Details support one-click copy, making it easy to paste into a support ticket or debugging tool.
+تدعم التفاصيل النسخ بنقرة واحدة، للصق في تذكرة دعم أو أداة تصحيح.
 
 :::tip
-The "User request" and "Upstream request" content recorded in the details is controlled by the log settings. By default, the request body is not recorded. See [Log Settings](/logs/log-settings) for more.
+يتحكم إعداد السجلّات في محتوى «طلب المستخدم» و«طلب المنبع». افتراضيًا لا يُسجَّل نص الطلب. راجع [إعدادات السجلّات](/ar/logs/log-settings).
 :::

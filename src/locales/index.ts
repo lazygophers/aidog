@@ -10,7 +10,8 @@ export type Locale =
   | "fr-FR"
   | "de-DE"
   | "ru-RU"
-  | "ja-JP";
+  | "ja-JP"
+  | "es-ES";
 
 export const ALL_LOCALES: Locale[] = [
   "zh-CN",
@@ -20,6 +21,7 @@ export const ALL_LOCALES: Locale[] = [
   "de-DE",
   "ru-RU",
   "ja-JP",
+  "es-ES",
 ];
 
 /** RTL 语言列表 */
@@ -37,6 +39,7 @@ const lazyLoaders: Partial<Record<Locale, () => Promise<{ default: Record<string
   "de-DE": () => import("./de-DE.json"),
   "ru-RU": () => import("./ru-RU.json"),
   "ja-JP": () => import("./ja-JP.json"),
+  "es-ES": () => import("./es-ES.json"),
 };
 
 i18n.use(initReactI18next).init({

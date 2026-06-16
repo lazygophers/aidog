@@ -1,92 +1,92 @@
 ---
-title: Saldo y cuotas
+title: Saldo y Cuotas
 ---
 
-# Balance & Quotas
+# Saldo y Cuotas
 
-AiDog helps you track account balances and coding plan quotas across platforms, giving you full visibility into your spending.
+AiDog rastrea saldos de cuenta y cuotas de coding plan entre plataformas, dándote visibilidad total de tus gastos.
 
-## Automatic Balance Query
+## Consulta automática de saldo
 
-AiDog automatically queries account balances for these platforms:
+AiDog consulta automáticamente saldos para estas plataformas:
 
-| Platform | Query Content |
+| Plataforma | Contenido consultado |
 |----------|---------------|
-| OpenAI | Account balance |
-| DeepSeek | Account balance |
-| StepFun | Account balance |
-| SiliconFlow | Account balance |
-| OpenRouter | Account balance / usage |
-| Novita | Account balance |
-| Kimi (Moonshot) | Account balance |
-| GLM (Zhipu) | Account balance |
-| MiniMax | Account balance |
+| OpenAI | Saldo de cuenta |
+| DeepSeek | Saldo de cuenta |
+| StepFun | Saldo de cuenta |
+| SiliconFlow | Saldo de cuenta |
+| OpenRouter | Saldo / uso |
+| Novita | Saldo de cuenta |
+| Kimi (Moonshot) | Saldo de cuenta |
+| GLM (Zhipu) | Saldo de cuenta |
+| MiniMax | Saldo de cuenta |
 
-Balance data refreshes automatically on a schedule. You can also manually click the refresh button.
+Los datos de saldo se actualizan automáticamente según un calendario. También puedes pulsar el botón de actualización manualmente.
 
-## Coding Plan Quotas
+## Cuotas de Coding Plan
 
-Some platforms offer coding plans, such as OpenAI Plus/Team/Enterprise, Zhipu Coding Plan, Kimi Code Plan, etc.
+Algunas plataformas ofrecen coding plans, como OpenAI Plus/Team/Enterprise, Zhipu Coding Plan, Kimi Code Plan, etc.
 
-AiDog queries and displays coding plan quota information:
+AiDog consulta y muestra información de cuota:
 
-- Tier names
-- Current utilization rate
-- Remaining percentage
+- Nombres de los niveles
+- Tasa de utilización actual
+- Porcentaje restante
 
-Platform presets marked with "Coding Plan" automatically configure quota queries.
+Los presets de plataforma marcados con «Coding Plan» configuran consultas de cuota automáticamente.
 
-## NewAPI Balance Query
+## Consulta de saldo NewAPI
 
-For platforms using the NewAPI system (e.g. self-hosted API aggregators), AiDog supports separate balance query configuration:
+Para plataformas que usan el sistema NewAPI (p. ej. agregadores de API autoalojados), AiDog soporta configuración separada de consulta de saldo:
 
-- **Query URL** — Separate from the API URL
-- **Query Token** — Obtained from the dashboard (different from the API Key)
-- **User ID** — Optional
+- **URL de consulta** — Separada de la URL de API
+- **Token de consulta** — Obtenido del panel (diferente de la API Key)
+- **User ID** — Opcional
 
-Fill in these details in the platform's "Balance Query Configuration" section.
+Rellena estos detalles en la sección «Configuración de consulta de saldo» de la plataforma.
 
-## Manual Budget
+## Presupuesto manual
 
-For platforms that don't support automatic balance queries, AiDog provides manual budget limits.
+Para plataformas que no soportan consulta automática de saldo, AiDog proporciona límites de presupuesto manual.
 
-### Setup
+### Configuración
 
-In the platform's "Manual Budget" section, click "Add Limit":
+En la sección «Presupuesto manual» de la plataforma, pulsa «Añadir límite»:
 
-| Type | Description |
+| Tipo | Descripción |
 |------|-------------|
-| Total | Overall spending limit |
-| Rolling Window | Spending limit within a rolling time window |
-| Fixed Window | Spending limit that resets on a fixed schedule |
-| Daily | Daily spending limit |
+| Total | Límite global de gasto |
+| Ventana móvil | Límite en una ventana temporal móvil |
+| Ventana fija | Límite que se reinicia según un calendario fijo |
+| Diario | Límite de gasto diario |
 
-### Budget Units
+### Unidades de presupuesto
 
-- **USD** — Measured by cost
-- **Tokens** — Measured by token count
+- **USD** — Medido por coste
+- **Tokens** — Medido por número de tokens
 
-### Window Duration
+### Duración de ventana
 
-Rolling window and fixed window support multiple time granularities: minute, hour, day, week, month.
+La ventana móvil y fija soportan varias granularidades: minuto, hora, día, semana, mes.
 
-### When Budget is Depleted
+### Cuando el presupuesto se agota
 
-When any budget limit is depleted, AiDog stops forwarding requests to that platform (returns 402 error) and automatically triggers failover to other platforms in the group. Forwarding resumes when the window resets.
+Cuando se alcanza un límite, AiDog deja de reenviar peticiones a esa plataforma (devuelve error 402) y activa automáticamente failover a otras plataformas del grupo. El reenvío se reanuda al reiniciarse la ventana.
 
-## Where to See Balances
+## Dónde ver los saldos
 
-Balance information is displayed in multiple locations:
+La información de saldo se muestra en varios lugares:
 
-- **Platform cards** — Real-time balance and quota utilization per platform
-- **Group cards** — Aggregated balance across group platforms
-- **System tray** — Configurable balance status display
+- **Tarjetas de plataforma** — Saldo en tiempo real y utilización de cuota por plataforma
+- **Tarjetas de grupo** — Saldo agregado de las plataformas del grupo
+- **Bandeja del sistema** — Visualización configurable del estado de saldo
 
-## Statistics Page
+## Página de Estadísticas
 
-On the **"Statistics"** page, view data by platform, group, or model:
+En la página **«Estadísticas»**, visualiza datos por plataforma, grupo o modelo:
 
-- Today's request count and success rate
-- Token usage (input / output / cache)
-- Estimated cost
-- Usage trend charts (daily / weekly / monthly)
+- Número de peticiones de hoy y tasa de éxito
+- Uso de tokens (entrada / salida / caché)
+- Coste estimado
+- Gráficos de tendencia de uso (diario / semanal / mensual)

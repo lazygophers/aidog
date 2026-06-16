@@ -1,40 +1,40 @@
 ---
-title: Supported Platforms & Interfaces
+title: المنصات والواجهات المدعومة
 ---
 
-# Supported Platforms & Interfaces
+# المنصات والواجهات المدعومة
 
-AiDog supports a wide range of AI platforms and interface types, automatically handling protocol conversion between different platforms.
+يدعم AiDog طيفًا واسعًا من منصات AI وأنواع الواجهات، ويتولى تلقائيًا تحويل البروتوكول بين المنصات المختلفة.
 
-## Supported Platforms
+## المنصات المدعومة
 
-AiDog includes 50+ built-in platform presets covering major AI services:
+يضم AiDog أكثر من 50 مُعدّ منصة مدمج يغطي خدمات AI الرئيسية:
 
-| Category | Examples |
+| الفئة | أمثلة |
 |----------|----------|
-| International | OpenAI, Anthropic, Google Gemini, Mistral |
-| Chinese | DeepSeek, Qwen, Zhipu GLM, Kimi, MiniMax |
-| Aggregators | OpenRouter, SiliconFlow, Novita |
+| دولية | OpenAI، Anthropic، Google Gemini، Mistral |
+| صينية | DeepSeek، Qwen، Zhipu GLM، Kimi، MiniMax |
+| مجمّعات | OpenRouter، SiliconFlow، Novita |
 
-Select a platform preset and all configuration is auto-filled — no need to manually choose an interface type.
+اختر مُعدّ منصة ويُملأ كل الإعداد تلقائيًا — لا حاجة لاختيار نوع الواجهة يدويًا.
 
-## Automatic Interface Detection
+## الكشف التلقائي عن الواجهة
 
-AiDog automatically detects the interface type from client requests — no manual configuration needed:
+يكتشف AiDog نوع الواجهة تلقائيًا من طلبات العميل — لا إعداد يدوي مطلوب:
 
-- **Chat interface** — The most common AI chat requests
-- **Coding assistant interface** — Used by tools like Codex, Claude Code
-- **Text completion interface** — Legacy text completion requests
+- **واجهة الدردشة** — طلبات دردشة AI الأكثر شيوعًا
+- **واجهة مساعد البرمجة** — تُستخدم من أدوات مثل Codex، Claude Code
+- **واجهة إكمال النص** — طلبات إكمال النص القديمة
 
-This means you can serve different types of clients through the same proxy address.
+هذا يعني أنه يمكنك خدمة أنواع مختلفة من العملاء عبر عنوان البروكسي نفسه.
 
-## Automatic Protocol Conversion
+## التحويل التلقائي للبروتوكول
 
-If your client sends requests in one format but the target platform uses another, AiDog converts automatically. For example:
+إذا أرسل عميلك الطلبات بتنسيق بينما تستخدم المنصة المستهدفة تنسيقًا آخر، يحوّل AiDog تلقائيًا. مثلًا:
 
-- Client sends OpenAI format → Automatically converted to Anthropic format for Claude
-- Coding assistant uses its own interface → Automatically converted to the platform's format
+- العميل يرسل تنسيق OpenAI ← يُحوَّل تلقائيًا إلى تنسيق Anthropic لـ Claude
+- مساعد البرمجة يستخدم واجهته الخاصة ← يُحوَّل تلقائيًا إلى تنسيق المنصة
 
-## Mock Platform
+## منصة المحاكاة
 
-AiDog provides a mock platform that simulates AI responses without sending real requests. You can customize response content, status codes, delays, and more.
+يوفر AiDog منصة محاكاة تُحاكي استجابات AI دون إرسال طلبات فعلية. يمكنك تخصيص محتوى الاستجابة، رموز الحالة، التأخيرات، والمزيد.

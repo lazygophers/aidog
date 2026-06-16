@@ -1,0 +1,75 @@
+name: Release
+
+# 触发：根目录 .version 变更（版本唯一可信源）→ 多平台构建 + 签名 + 发布 GitHub Release + 生成 updater latest.json。
+on:
+  push:
+    branches: [master]
+    paths:
+      - ".version"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  read-version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: v
+        run: echo "version=$(tr -d '[:space:]' < .version)" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: read-version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest # macOS Universal（arm64 + x64 合一安装包）
+            args: "--target universal-apple-darwin"
+            target: aarch64-apple-darwin,x86_64-apple-darwin
+          - platform: windows-latest # x64
+            args: ""
+            target: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: ./src-tauri -> target
+
+      - name: Install frontend deps
+        run: yarn install --immutable
+
+      - name: Verify version sync (.version 单一源)
+        run: node scripts/sync-version.mjs --check
+
+      - name: Build & publish (tauri-action)
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: v${{ needs.read-version.outputs.version }}
+          releaseName: AiDog v${{ needs.read-version.outputs.version }}
+          releaseBody: |
+            自动构建发布。下载对应平台安装包；客户端「关于」页可检查更新。
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+          args: ${{ matrix.args }}

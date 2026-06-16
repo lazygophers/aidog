@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/06-15-aidog-add-platform-skill/research/01-platform-model-presets.md", "reason": "抽查 skill 两路径触点 file:line 与 research 一致；不引导改死代码 adapter；无「预设在 db.rs」等已证伪内容"}
+{"file": ".trellis/tasks/06-15-aidog-add-platform-skill/research/02-quota-coding-plan.md", "reason": "核对余额/coding plan 子流程模板准确性 + tier name 约束 caveat"}
+{"file": ".trellis/tasks/06-15-aidog-add-platform-skill/research/03-proxy-frontend.md", "reason": "核对跨层契约/client_type/model-test parity 描述准确"}

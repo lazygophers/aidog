@@ -33,7 +33,9 @@ python3 .claude/skills/aidog-request-inspect/inspect.py <request_id>
 # 不截断 body（看完整请求/响应体）
 python3 .claude/skills/aidog-request-inspect/inspect.py <request_id> --full
 
-# 原始 JSON（机读，不格式化不脱敏 —— 谨慎，含密钥）
+# 原始 JSON（机读，不格式化不脱敏 —— 谨慎，含明文密钥）
+# 🔴 CHECKPOINT：--raw 输出含明文 Authorization / api-key / cookie。执行前必须确认：
+#   仅本地排查、不外传、不贴入任何对外汇报或第三方。默认改用脱敏模式（去掉 --raw）。
 python3 .claude/skills/aidog-request-inspect/inspect.py <request_id> --raw
 
 # 列最近 N 条（默认 10）
@@ -62,6 +64,14 @@ python3 .claude/skills/aidog-request-inspect/inspect.py <request_id> --db /path/
 - **body 截断**：默认 4000 字符，`--full` 看全部。流式响应 body 可能很大。
 - **WAL**：默认只读连接能读到未 checkpoint 的最新行；若读不到刚发生的请求，确认 aidog 在跑 + id 正确。
 - **找不到**：报错提示 id 不存在或已被 retention 清理（aidog 的 retention 会清空字段或删行，见项目 CLAUDE.md「Proxy 日志」）。
+
+## 禁止清单（反模式）
+
+- 🔴 禁把 `--raw` 输出（含明文密钥）贴入对外汇报、issue、PR、聊天、截图或任何第三方/外部渠道。
+- 🔴 禁粘贴任何未脱敏的 `authorization` / `x-api-key` / `x-goog-api-key` / `api-key` / `cookie` 值。
+- 默认用脱敏模式（不带 `--raw`）排查；仅在确需原始密钥比对时才临时本地使用 `--raw`，用后不留存。
+- 禁用本脚本以外的方式直连/写库；脚本为只读（`mode=ro`），禁改写 `proxy_log`。
+- 引用请求详情对外说明时，只引脱敏后的字段（状态码 / 协议 / token / 耗时 / 平台 / 错误信息），不引原始 header 值。
 
 ## 字段速查（proxy_log 关键列）
 

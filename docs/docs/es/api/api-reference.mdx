@@ -1,0 +1,98 @@
+---
+title: Referencia de API
+---
+
+# Referencia de API
+
+AiDog expone una API HTTP local para consultar información de grupo. Todos los endpoints son **solo localhost** (`127.0.0.1`) y no requieren acceso de red externo.
+
+## POST /api/group-info
+
+Consulta información estimada del grupo (saldo, utilización del coding plan, estadísticas de peticiones, etc.). Solo los **grupos de plataforma única** devuelven datos aplicables; los grupos multiplataforma o sin plataforma devuelven `applicable: false`.
+
+### Autenticación
+
+```
+Authorization: Bearer <group_name>
+```
+
+`group_name` es el nombre del grupo configurado en AiDog. Es el mismo valor que la variable de entorno `ANTHROPIC_AUTH_TOKEN` usada por Claude Code.
+
+### Petición
+
+- **Método**: POST
+- **URL**: `http://127.0.0.1:<port>/api/group-info`
+- **Cabeceras**: `Authorization: Bearer <group_name>`
+
+### Respuesta (200 OK)
+
+#### Grupo de plataforma única:
+
+```json
+{
+  "applicable": true,
+  "balance": 48.20,
+  "spent": 1.23,
+  "coding_plan": [
+    { "name": "5h", "utilization": 23, "pace": "fast", "reset_at": null },
+    { "name": "7d", "utilization": 41, "pace": "normal", "reset_at": null }
+  ],
+  "requests": 42,
+  "success_rate": 95.2,
+  "cache_rate": 13.3,
+  "total_tokens": 123456,
+  "currency": "",
+  "balance_days_remaining": 5.2
+}
+```
+
+#### Grupo multiplataforma / sin plataforma:
+
+```json
+{
+  "applicable": false,
+  "balance": 0.0,
+  "spent": 0.0,
+  "coding_plan": [],
+  "requests": 0,
+  "success_rate": 0.0,
+  "cache_rate": 0.0,
+  "total_tokens": 0,
+  "currency": "",
+  "balance_days_remaining": null
+}
+```
+
+### Campos de respuesta
+
+| Campo | Tipo | Descripción |
+|-------|------|-------------|
+| `applicable` | boolean | Si es un grupo de plataforma única con datos disponibles |
+| `balance` | number | Saldo restante estimado |
+| `spent` | number | Gasto estimado acumulado |
+| `coding_plan` | array | Niveles de Coding Plan (Claude etc.); vacío para plataformas basadas en saldo |
+| `coding_plan[].name` | string | Nombre del nivel (5h, 7d, etc.) |
+| `coding_plan[].utilization` | number | Utilización en porcentaje (0-100) |
+| `coding_plan[].pace` | string | Ritmo de consumo: `fast`, `normal` o `busy` |
+| `coding_plan[].reset_at` | number\|null | Marca de tiempo de reinicio (Unix segundos) |
+| `requests` | number | Número total de peticiones |
+| `success_rate` | number | Tasa de éxito (0-100) |
+| `cache_rate` | number | Tasa de acierto de caché (0-100) |
+| `total_tokens` | number | Total de tokens consumidos |
+| `currency` | string | Unidad de moneda |
+| `balance_days_remaining` | number\|null | Días estimados de saldo restante (null si no calculable) |
+
+### Errores
+
+| Estado | Condición |
+|--------|-----------|
+| 401 | Falta o es inválida la cabecera `Authorization` |
+| 200 | Grupo no encontrado → `applicable: false` |
+
+### Ejemplo
+
+```bash
+curl -X POST \
+  -H "Authorization: Bearer my-group" \
+  http://127.0.0.1:9876/api/group-info
+```

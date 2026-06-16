@@ -4,8 +4,8 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTranslation } from "react-i18next";
 import type { TodayStats, PopoverConfig, PopoverItem, TodayPlatformStat } from "./services/api";
-import { applyTheme } from "./themes";
-import type { ThemeName, ThemeMode } from "./themes/types";
+import { applyTheme, DEFAULT_STYLE, DEFAULT_COLOR, DEFAULT_MODE } from "./themes";
+import type { ThemeStyle, ThemeColor, ThemeMode } from "./themes/types";
 import { formatNumber, formatCostUsd, formatPercent } from "./utils/formatters";
 import i18n, { ensureLocaleLoaded, type Locale } from "./locales";
 import "./styles/popover.css";
@@ -36,16 +36,47 @@ interface PopoverData {
 
 interface Settings {
   locale?: Locale;
-  themeName: ThemeName;
+  themeStyle: ThemeStyle;
+  themeColor: ThemeColor;
   themeMode: ThemeMode;
 }
 
+/** 旧 themeName → 新 {style,color} 迁移映射（与 AppContext 保持一致）。 */
+const LEGACY_THEME_MAP: Record<string, { style: ThemeStyle; color: ThemeColor }> = {
+  liquidGlass: { style: "liquidGlass", color: "appleBlue" },
+  nord: { style: "flat", color: "nord" },
+  dracula: { style: "flat", color: "dracula" },
+  catppuccin: { style: "flat", color: "catppuccin" },
+  solarized: { style: "flat", color: "solarized" },
+};
+
+interface RawSettings {
+  locale?: Locale;
+  themeStyle?: ThemeStyle;
+  themeColor?: ThemeColor;
+  themeMode?: ThemeMode;
+  themeName?: string;
+}
+
 function loadSettings(): Settings {
+  let raw: RawSettings = {};
   try {
-    const raw = localStorage.getItem("aidog-settings");
-    if (raw) return JSON.parse(raw) as Settings;
+    const s = localStorage.getItem("aidog-settings");
+    if (s) raw = JSON.parse(s) as RawSettings;
   } catch { /* ignore */ }
-  return { themeName: "liquidGlass", themeMode: "light" };
+
+  const locale = raw.locale;
+  const themeMode: ThemeMode = raw.themeMode ?? DEFAULT_MODE;
+  if (raw.themeStyle && raw.themeColor) {
+    return { locale, themeStyle: raw.themeStyle, themeColor: raw.themeColor, themeMode };
+  }
+  const migrated = raw.themeName ? LEGACY_THEME_MAP[raw.themeName] : undefined;
+  return {
+    locale,
+    themeStyle: migrated?.style ?? DEFAULT_STYLE,
+    themeColor: migrated?.color ?? DEFAULT_COLOR,
+    themeMode,
+  };
 }
 
 // ─── Helpers ────────────────────────────────────────────────
@@ -54,7 +85,7 @@ function resolveColor(color: TrayColor): string {
   if (color.mode === "preset") {
     const map: Record<string, string> = {
       red: "var(--status-error, #ff3b30)",
-      green: "var(--status-success, #34c759)",
+      green: "var(--status-success, var(--color-success))",
       orange: "var(--status-warning, #ff9500)",
     };
     return map[color.value] || "var(--text-primary)";
@@ -73,7 +104,7 @@ function ProxyStatus({ data }: { data: PopoverData }) {
     <div className="popover-header">
       <span
         className="popover-status-dot"
-        style={{ background: data.proxy_running ? "var(--status-success, #34c759)" : "var(--text-tertiary)" }}
+        style={{ background: data.proxy_running ? "var(--status-success, var(--color-success))" : "var(--text-tertiary)" }}
       />
       <span className="popover-header-text">
         {data.proxy_running ? `Running :${data.proxy_port}` : "Stopped"}
@@ -159,7 +190,7 @@ function Popover() {
 
   useEffect(() => {
     const s = loadSettings();
-    applyTheme(s.themeName ?? "liquidGlass", s.themeMode ?? "light");
+    applyTheme(s.themeStyle, s.themeColor, s.themeMode);
     if (s.locale) {
       ensureLocaleLoaded(s.locale).then(() => i18n.changeLanguage(s.locale)).catch(() => {});
     }

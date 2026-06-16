@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, memo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   proxyLogApi,
@@ -16,6 +16,16 @@ import { usePolling } from "../hooks/usePolling";
 const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
 const PAGE_SIZE = 50;
 
+// ── 行内固定 style 提模块级常量（避免每行每次渲染重建对象，且让 LogRow memo 不被 inline 对象击穿）──
+const ROW_STYLE: React.CSSProperties = { cursor: "pointer", borderBottom: "1px solid var(--border)" };
+const INLINE_FLEX_STYLE: React.CSSProperties = { display: "inline-flex", alignItems: "center", gap: 6 };
+const PLATFORM_NAME_STYLE: React.CSSProperties = { fontSize: F.small, color: "var(--text-secondary)" };
+const RETRY_BADGE_STYLE: React.CSSProperties = { fontSize: 10, padding: "1px 5px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" };
+const MODEL_NAME_STYLE: React.CSSProperties = { fontWeight: 500, fontSize: F.small };
+const SSE_BADGE_STYLE: React.CSSProperties = { fontSize: 10, padding: "1px 5px", background: "var(--accent-subtle)", color: "var(--accent, #007aff)" };
+const ACTION_BTN_STYLE: React.CSSProperties = { padding: 2 };
+const GROUP_BADGE_STYLE: React.CSSProperties = { fontSize: 11 };
+
 /** 时间范围预设 */
 type TimePreset = "all" | "1h" | "6h" | "24h" | "7d" | "30d";
 
@@ -26,7 +36,7 @@ function timePresetToRange(preset: TimePreset): { start?: number; end?: number }
   return { start: now - (ms[preset] ?? 0), end: now };
 }
 
-export function Logs() {
+export function Logs({ initialFilter }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupName?: string } }) {
   const { t } = useTranslation();
   const [logs, setLogs] = useState<ProxyLogSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -39,8 +49,8 @@ export function Logs() {
   // ── Filter state ──
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [groups, setGroups] = useState<GroupDetail[]>([]);
-  const [filterPlatform, setFilterPlatform] = useState<string>("");   // platform_id or ""
-  const [filterGroup, setFilterGroup] = useState<string>("");
+  const [filterPlatform, setFilterPlatform] = useState<string>(initialFilter?.platformId ? String(initialFilter.platformId) : "");   // platform_id or ""
+  const [filterGroup, setFilterGroup] = useState<string>(initialFilter?.groupName ?? "");
   const [filterStatus, setFilterStatus] = useState<string>("");       // "" | "success" | "error"
   const [filterTime, setFilterTime] = useState<TimePreset>("all");
   const [filterModelType, setFilterModelType] = useState<"original" | "actual">("actual");
@@ -87,7 +97,7 @@ export function Logs() {
     })();
   }, [filterModelType]);
 
-  const copyDetail = async (d: ProxyLogDetail) => {
+  const copyDetail = useCallback(async (d: ProxyLogDetail) => {
     const fj = (s: string) => {
       try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; }
     };
@@ -147,7 +157,7 @@ export function Logs() {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) { console.error(e); }
-  };
+  }, []);
 
   const load = useCallback(async (silent = false) => {
     if (!silent) setLoading(true);
@@ -198,12 +208,20 @@ export function Logs() {
     setFilterModelType("actual");
   };
 
-  const openDetail = async (id: string) => {
+  const openDetail = useCallback(async (id: string) => {
     try {
       const d = await proxyLogApi.get(id);
       if (d) setDetail(d);
     } catch (e) { console.error(e); }
-  };
+  }, []);
+
+  // 复制单行完整信息（按 id 拉详情后复用 copyDetail）。稳定引用，保 LogRow memo 生效。
+  const copyRow = useCallback(async (id: string) => {
+    try {
+      const d = await proxyLogApi.get(id);
+      if (d) await copyDetail(d);
+    } catch (err) { console.error(err); }
+  }, [copyDetail]);
 
   // Auto-refresh detail every 2s while viewing（页面不可见时暂停）
   const refreshDetail = useCallback(() => {
@@ -255,7 +273,7 @@ export function Logs() {
           </button>
           <button className="btn btn-ghost btn-icon" onClick={() => copyDetail(detail)} title={t("logs.copyAll", "复制完整信息")}>
             {copied ? (
-              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="var(--color-success, #34c759)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="var(--color-success, var(--color-success))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
             ) : (
               <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
             )}
@@ -280,7 +298,7 @@ export function Logs() {
             title={t("logs.copyRequestId", "复制请求 ID")}
           >
             {copiedId ? (
-              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="var(--color-success, #34c759)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
+              <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="var(--color-success, var(--color-success))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
             ) : (
               <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
             )}
@@ -494,57 +512,14 @@ export function Logs() {
               </thead>
               <tbody>
                 {logs.map((log) => (
-                  <tr key={log.id}
-                    className="log-row"
-                    onClick={() => openDetail(log.id)}
-                    style={{ cursor: "pointer", borderBottom: "1px solid var(--border)" }}>
-                    <TdCell>{new Date(log.created_at).toLocaleString()}</TdCell>
-                    <TdCell><span className="badge badge-accent" style={{ fontSize: 11 }}>{log.group_name}</span></TdCell>
-                    <TdCell>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontSize: F.small, color: "var(--text-secondary)" }}>{platformMap.get(log.platform_id) || "-"}</span>
-                        {log.retry_count > 0 && (
-                          <span className="badge" style={{ fontSize: 10, padding: "1px 5px", background: "color-mix(in srgb, var(--color-warning) 16%, transparent)", color: "var(--color-warning)" }}
-                            title={t("logs.retriedHint", "经过 {{n}} 次重试").replace("{{n}}", String(log.retry_count))}>
-                            ↻{log.retry_count}
-                          </span>
-                        )}
-                      </span>
-                    </TdCell>
-                    <TdCell>
-                      <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ fontWeight: 500, fontSize: F.small }}>{log.model || "-"}</span>
-                        {log.is_stream && (
-                          <span className="badge" style={{ fontSize: 10, padding: "1px 5px", background: "var(--accent-soft, rgba(0,122,255,0.12))", color: "var(--accent, #007aff)" }} title={t("logs.streaming", "流式")}>SSE</span>
-                        )}
-                      </span>
-                    </TdCell>
-                    <TdCell><span style={{ fontWeight: 500, fontSize: F.small }}>{log.actual_model || "-"}</span></TdCell>
-                    <TdCell>
-                      <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)" }}>
-                        {log.status_code}
-                      </span>
-                    </TdCell>
-                    <TdCell>{log.duration_ms}ms</TdCell>
-                    <TdCell>{log.input_tokens || "-"}</TdCell>
-                    <TdCell>{log.output_tokens || "-"}</TdCell>
-                    <TdCell sticky>
-                      <button
-                        className="btn btn-ghost btn-icon"
-                        style={{ padding: 2 }}
-                        title={t("logs.copyAll", "复制完整信息")}
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          try {
-                            const d = await proxyLogApi.get(log.id);
-                            if (d) await copyDetail(d);
-                          } catch (err) { console.error(err); }
-                        }}
-                      >
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
-                      </button>
-                    </TdCell>
-                  </tr>
+                  <LogRow
+                    key={log.id}
+                    log={log}
+                    platformName={platformMap.get(log.platform_id) || "-"}
+                    onOpen={openDetail}
+                    onCopy={copyRow}
+                    t={t}
+                  />
                 ))}
               </tbody>
             </table>
@@ -571,6 +546,68 @@ export function Logs() {
 function safeParseJson(str: string): any {
   try { return JSON.parse(str); } catch { return str; }
 }
+
+/**
+ * 日志列表单行。React.memo + 稳定 props（platformName 传字符串、onOpen/onCopy 传 useCallback、style 用模块级常量）
+ * → 父组件因轮询/筛选频繁重渲染时，未变化的行跳过重渲染、不重建行内 style 对象。
+ */
+interface LogRowProps {
+  log: ProxyLogSummary;
+  platformName: string;
+  onOpen: (id: string) => void;
+  onCopy: (id: string) => void;
+  t: ReturnType<typeof useTranslation>["t"];
+}
+
+const LogRow = memo(function LogRow({ log, platformName, onOpen, onCopy, t }: LogRowProps) {
+  return (
+    <tr
+      className="log-row"
+      onClick={() => onOpen(log.id)}
+      style={ROW_STYLE}>
+      <TdCell>{new Date(log.created_at).toLocaleString()}</TdCell>
+      <TdCell><span className="badge badge-accent" style={GROUP_BADGE_STYLE}>{log.group_name}</span></TdCell>
+      <TdCell>
+        <span style={INLINE_FLEX_STYLE}>
+          <span style={PLATFORM_NAME_STYLE}>{platformName}</span>
+          {log.retry_count > 0 && (
+            <span className="badge" style={RETRY_BADGE_STYLE}
+              title={t("logs.retriedHint", "经过 {{n}} 次重试").replace("{{n}}", String(log.retry_count))}>
+              ↻{log.retry_count}
+            </span>
+          )}
+        </span>
+      </TdCell>
+      <TdCell>
+        <span style={INLINE_FLEX_STYLE}>
+          <span style={MODEL_NAME_STYLE}>{log.model || "-"}</span>
+          {log.is_stream && (
+            <span className="badge" style={SSE_BADGE_STYLE} title={t("logs.streaming", "流式")}>SSE</span>
+          )}
+        </span>
+      </TdCell>
+      <TdCell><span style={MODEL_NAME_STYLE}>{log.actual_model || "-"}</span></TdCell>
+      <TdCell>
+        <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success, var(--color-success))" : "var(--color-danger, #ff3b30)" }}>
+          {log.status_code}
+        </span>
+      </TdCell>
+      <TdCell>{log.duration_ms}ms</TdCell>
+      <TdCell>{log.input_tokens || "-"}</TdCell>
+      <TdCell>{log.output_tokens || "-"}</TdCell>
+      <TdCell sticky>
+        <button
+          className="btn btn-ghost btn-icon"
+          style={ACTION_BTN_STYLE}
+          title={t("logs.copyAll", "复制完整信息")}
+          onClick={(e) => { e.stopPropagation(); onCopy(log.id); }}
+        >
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
+        </button>
+      </TdCell>
+    </tr>
+  );
+});
 
 /** 分页导航：首页/上一页/页码按钮/下一页/末页 + 总数 */
 function Pagination({
@@ -675,7 +712,7 @@ function MetaItem({ label, value, highlight }: { label: string; value: string; h
       <div style={{ fontSize: F.small, color: "var(--text-tertiary)", marginBottom: 2 }}>{label}</div>
       <div style={{
         fontSize: F.body, fontWeight: 600,
-        color: highlight === "ok" ? "var(--color-success, #34c759)" : highlight === "err" ? "var(--color-danger, #ff3b30)" : "var(--text-primary)",
+        color: highlight === "ok" ? "var(--color-success, var(--color-success))" : highlight === "err" ? "var(--color-danger, #ff3b30)" : "var(--text-primary)",
       }}>
         {value}
       </div>
@@ -721,7 +758,7 @@ function RequestTabs({
               {item.statusCode != null && item.statusCode > 0 && (
                 <span style={{
                   fontSize: F.small, fontWeight: 600,
-                  color: item.statusCode >= 200 && item.statusCode < 300 ? "var(--color-success, #34c759)" : "var(--color-danger, #ff3b30)",
+                  color: item.statusCode >= 200 && item.statusCode < 300 ? "var(--color-success, var(--color-success))" : "var(--color-danger, #ff3b30)",
                 }}>
                   {item.statusCode}
                 </span>

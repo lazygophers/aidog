@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验布局/i18n/类型 + check-i18n"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校验 enabled_agents/enable/disable 契约一致 + agent slug 正确"}

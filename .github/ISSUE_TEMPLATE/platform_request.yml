@@ -1,0 +1,64 @@
+name: 🌐 新平台支持 / New Platform Support
+description: 申请新增一个 AI 平台预设（Base URL / 协议 / 模型）
+title: "[Platform] 支持 "
+labels: ["platform"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        AiDog 已内置 50+ 平台预设。提交新平台前，请先在「平台」页看是否能用**自定义平台**手动配置成功——
+        多数 OpenAI / Anthropic 兼容平台填个 Base URL + Key 就能跑，未必需要内置预设。
+
+  - type: input
+    id: name
+    attributes:
+      label: 平台名称
+      placeholder: "例：Moonshot Kimi / 火山方舟 / xAI"
+    validations:
+      required: true
+
+  - type: input
+    id: base-url
+    attributes:
+      label: Base URL（含版本前缀）
+      description: 如 `https://api.openai.com/v1`、`https://api.x.ai/v1`。AiDog 会自动追加 `/chat/completions`。
+      placeholder: "https://api.example.com/v1"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: protocol
+    attributes:
+      label: 协议
+      options:
+        - OpenAI Chat Completions
+        - OpenAI Responses
+        - Anthropic Messages
+        - Gemini
+        - 不确定
+    validations:
+      required: true
+
+  - type: input
+    id: docs
+    attributes:
+      label: 官方 API 文档链接
+      description: 鉴权方式、端点、模型列表所在文档，方便核对
+      placeholder: "https://..."
+
+  - type: textarea
+    id: extras
+    attributes:
+      label: 特殊点
+      description: |
+        是否有非标准之处？例如：余额查询接口、Coding Plan 配额接口、
+        特殊鉴权 header、client_type 白名单、必须的 model 名等。
+        如自己手动配置过、踩了坑，请一并说明。
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: 确认
+      options:
+        - label: 我已确认现有平台预设里没有它，且自定义平台无法直接跑通
+          required: true

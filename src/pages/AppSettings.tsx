@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import { getVersion } from "@tauri-apps/api/app";
 import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings } from "../services/api";
 import { Settings } from "./Settings";
 import { CodexSettings } from "./CodexSettings";
@@ -9,18 +10,12 @@ import { PopoverConfigTab } from "./PopoverConfigTab";
 import { MiddlewareSettingsTab } from "../components/settings/MiddlewareRules";
 import { SchedulingSettingsTab } from "../components/settings/SchedulingSettings";
 import { NotificationSettingsTab } from "../components/settings/NotificationSettings";
-import { requestNavigation } from "../utils/navGuard";
+import { ImportExportTab } from "../components/settings/ImportExport";
 
-type Tab = "system" | "claude" | "codex" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover";
+export type Tab = "system" | "claude" | "codex" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport";
 
-export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (enabled: boolean) => void }) {
+export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged }: { tab: Tab; onLogSettingsChanged?: (enabled: boolean) => void; onNotifSettingsChanged?: (enabled: boolean) => void }) {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<Tab>("system");
-  // Switching tabs may be intercepted by a dirty page (e.g. Claude Code Settings).
-  const switchTab = (next: Tab) => {
-    if (next === tab) return;
-    requestNavigation(() => setTab(next));
-  };
   const [running, setRunning] = useState(false);
   const [proxyPort, setProxyPort] = useState(9876);
   const [autostart, setAutostart] = useState(false);
@@ -38,10 +33,15 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
   const [logLevel, setLogLevel] = useState("info");
   const [logRetHours, setLogRetHours] = useState(3);
   const [message, setMessage] = useState("");
+  const [appVersion, setAppVersion] = useState("");
   const [proxyClient, setProxyClient] = useState<ProxyClientSettings>({
     enabled: false, proxy_type: "socks5", host: "127.0.0.1", port: 7890,
     username: "", password: "", dns_over_proxy: true,
   });
+
+  useEffect(() => {
+    getVersion().then(setAppVersion).catch(() => setAppVersion(""));
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -58,6 +58,11 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
       try {
         const al = await proxyApi.getAutolaunch();
         setAutolaunch(al);
+        // silentLaunch 仅在 autolaunch (开机自启) 生效时有意义; autolaunch off 时强制 false 并持久化
+        if (!al) {
+          setSilentLaunch(false);
+          try { await proxyApi.setSilentLaunch(false); } catch { /* ignore */ }
+        }
       } catch { /* defaults */ }
       try {
         const ls = await proxyLogApi.getSettings();
@@ -113,6 +118,13 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
     try {
       await proxyApi.setAutolaunch(val);
       setAutolaunch(val);
+      // 关闭开机自启时, 同步关闭并持久化静默启动 (UI 也会随之隐藏)
+      if (!val && silentLaunch) {
+        try {
+          await proxyApi.setSilentLaunch(false);
+          setSilentLaunch(false);
+        } catch { /* ignore */ }
+      }
     } catch (e: any) { setMessage(e.toString()); }
   };
 
@@ -176,43 +188,6 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-      {/* Tab bar */}
-      <div style={{ display: "flex", gap: 0, borderBottom: "1px solid var(--border)" }}>
-        {(["system", "claude", "codex", "middleware", "scheduling", "notifications", "pricing", "tray", "popover"] as Tab[]).map((id) => (
-          <button
-            key={id}
-            className="btn btn-ghost"
-            style={{
-              padding: "10px 16px",
-              fontSize: 13,
-              fontWeight: tab === id ? 600 : 400,
-              color: tab === id ? "var(--accent)" : "var(--text-secondary)",
-              borderBottom: tab === id ? "2px solid var(--accent)" : "2px solid transparent",
-              borderRadius: 0,
-            }}
-            onClick={() => switchTab(id)}
-          >
-            {id === "system"
-              ? t("appSettings.systemTab", "系统设置")
-              : id === "claude"
-                ? t("appSettings.claudeTab", "Claude Code")
-                : id === "codex"
-                  ? t("appSettings.codexTab", "Codex")
-                  : id === "middleware"
-                    ? t("appSettings.middlewareTab", "中间件")
-                    : id === "scheduling"
-                      ? t("appSettings.schedulingTab", "调度熔断")
-                      : id === "notifications"
-                        ? t("appSettings.notificationsTab", "系统通知")
-                        : id === "pricing"
-                          ? t("appSettings.pricingTab", "模型价格")
-                          : id === "tray"
-                            ? t("appSettings.trayTab", "系统托盘")
-                            : t("appSettings.popoverTab", "浮窗")}
-          </button>
-        ))}
-      </div>
-
       {tab === "pricing" ? (
         <PricingTab />
       ) : tab === "tray" ? (
@@ -224,7 +199,7 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
       ) : tab === "scheduling" ? (
         <SchedulingSettingsTab />
       ) : tab === "notifications" ? (
-        <NotificationSettingsTab />
+        <NotificationSettingsTab onEnabledChanged={onNotifSettingsChanged} />
       ) : tab === "system" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
           {/* Proxy Status */}
@@ -243,9 +218,9 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
               flexShrink: 0,
               display: "flex", alignItems: "center", justifyContent: "center",
               background: running
-                ? "linear-gradient(135deg, rgba(52,199,89,0.2), rgba(52,199,89,0.05))"
+                ? "linear-gradient(135deg, color-mix(in srgb, var(--color-success) 20%, transparent), color-mix(in srgb, var(--color-success) 5%, transparent))"
                 : "var(--bg-glass)",
-              border: `1px solid ${running ? "rgba(52,199,89,0.2)" : "var(--border)"}`,
+              border: `1px solid ${running ? "color-mix(in srgb, var(--color-success) 20%, transparent)" : "var(--border)"}`,
               transition: "all 400ms ease",
             }}>
               <span className={`status-dot ${running ? "status-dot-active" : "status-dot-inactive"}`}
@@ -329,7 +304,8 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
             />
           </div>
 
-          {/* Silent Launch — start minimized to tray */}
+          {/* Silent Launch — start minimized to tray; 仅在 autolaunch (开机自启) 开启时展示 */}
+          {autolaunch && (
           <div className="glass-surface" style={{
             padding: "16px 20px",
             display: "flex",
@@ -350,6 +326,7 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
               tabIndex={0}
             />
           </div>
+          )}
 
           {/* Upstream Proxy */}
           <div className="glass-surface" style={{
@@ -689,9 +666,28 @@ export function AppSettings({ onLogSettingsChanged }: { onLogSettingsChanged?: (
           </div>
 
           {message && <div className="toast">{message}</div>}
+
+          {/* App version — 只读展示, 单一事实源 = tauri.conf.json (经 getVersion API) */}
+          {appVersion && (
+            <div className="glass-surface" style={{
+              padding: "16px 20px",
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{t("app.version")}</div>
+              <div style={{
+                fontSize: 13,
+                fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                color: "var(--text-secondary)",
+              }}>v{appVersion}</div>
+            </div>
+          )}
         </div>
       ) : tab === "codex" ? (
         <CodexSettings />
+      ) : tab === "importexport" ? (
+        <ImportExportTab />
       ) : (
         <Settings />
       )}

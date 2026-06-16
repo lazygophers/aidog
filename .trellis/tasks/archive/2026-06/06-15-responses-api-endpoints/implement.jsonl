@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/06-15-responses-api-endpoints/prd.md", "reason": "需求+设计+官方端点核实+验收"}
+{"file": ".trellis/tasks/06-15-responses-api-endpoints/research/01-current-responses-routing.md", "reason": "逐端点现状 file:line"}
+{"file": ".trellis/tasks/06-15-responses-api-endpoints/research/02-subendpoint-gaps-and-passthrough.md", "reason": "2 障碍 + passthrough 设计"}
+{"file": ".trellis/tasks/06-15-responses-api-endpoints/research/03-impl-impact.md", "reason": "实现影响清单 + 复用建议"}

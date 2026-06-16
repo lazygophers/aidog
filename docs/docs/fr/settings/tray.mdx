@@ -1,70 +1,70 @@
 ---
-title: Configuration de la barre
+title: Configuration de la barre des tâches
 ---
 
-# Tray Configuration
+# Configuration de la barre des tâches
 
-AiDog runs in the system tray, displaying key status information in the menu bar/taskbar. Configure display items and styles in **"Settings" → "System Tray"**.
+AiDog s'exécute dans la barre des tâches système, affichant les informations clés dans la barre des menus. Configurez les éléments d'affichage et styles dans **« Réglages » → « Barre des tâches système »**.
 
-## Tray Behavior
+## Comportement de la barre
 
-After closing the main window, AiDog continues running in the system tray to keep the proxy service available. Right-click the tray icon to show/hide the main window, start/stop the proxy, or quit the app.
+Après fermeture de la fenêtre principale, AiDog continue de tourner dans la barre des tâches pour garder le service proxy disponible. Clic droit sur l'icône de la barre pour afficher/masquer la fenêtre principale, démarrer/arrêter le proxy, ou quitter l'app.
 
-## Live Preview
+## Aperçu en direct
 
-The top of the configuration page shows a simulated menu bar preview. All changes are reflected instantly. The preview also shows current line usage (max 2 lines) and warns if exceeded.
+Le haut de la page de configuration montre un aperçu simulé de la barre des menus. Tous les changements sont reflétés instantanément. L'aperçu montre aussi l'utilisation de ligne courante (max 2 lignes) et avertit si dépassé.
 
-## Display Item Types
+## Types d'éléments d'affichage
 
-Click "Add Display Item" to add any of these content types:
+Cliquez « Ajouter un élément d'affichage » pour ajouter un de ces types :
 
-### Platform Balance / Quota
+### Solde/Quota de plateforme
 
-Select an enabled platform to show its balance or Coding Plan quota:
+Sélectionnez une plateforme activée pour afficher son solde ou quota Coding Plan :
 
-| Display Mode | Description |
+| Mode d'affichage | Description |
 |--------------|-------------|
-| Balance | Account balance (e.g. `$12.50`) |
-| Quota | Coding Plan remaining percentage (e.g. `85%`) |
+| Solde | Solde du compte (ex. `$12.50`) |
+| Quota | Pourcentage restant Coding Plan (ex. `85%`) |
 
-### Today's Statistics
+### Statistiques du jour
 
-Show today's aggregated data, with 4 available metrics:
+Affiche les données agrégées du jour, avec 4 métriques disponibles :
 
-| Metric | Description |
+| Métrique | Description |
 |--------|-------------|
-| Tokens | Today's total token usage |
-| Cache% | Today's cache hit rate |
-| Cost$ | Today's estimated cost |
-| Requests | Today's total request count |
+| Tokens | Utilisation totale de tokens du jour |
+| Cache% | Taux de cache hit du jour |
+| Cost$ | Coût estimé du jour |
+| Requests | Nombre total de requêtes du jour |
 
-### Separators
+### Séparateurs
 
-Insert separators between display items. Six preset styles (`|`, `·`, `—`, `/`, `»`, space) plus custom characters.
+Insérez des séparateurs entre éléments. Six styles prédéfinis (`|`, `·`, `—`, `/`, `»`, espace) plus caractères personnalisés.
 
-## Item Customization
+## Personnalisation des éléments
 
-Expand any display item to adjust these properties:
+Dépliez un élément d'affichage pour ajuster ces propriétés :
 
-| Property | Description |
+| Propriété | Description |
 |----------|-------------|
-| Display | Balance / Quota (platform items only) |
-| Metric | Tokens / Cache% / Cost$ / Requests (today stats items only) |
-| Label | Custom display name (leave empty for default) |
-| Decimals | Number of decimal places for values |
-| Line Mode | Single (label + value on same line) / Two-line (label top, value bottom) |
-| Alignment | Left / Center / Right |
-| Value Row Alignment | Independent alignment for the second line in two-line mode |
-| Color | Follow system / Preset (red/green/orange) / Custom |
+| Affichage | Solde / Quota (éléments plateforme uniquement) |
+| Métrique | Tokens / Cache% / Cost$ / Requests (statistiques du jour uniquement) |
+| Étiquette | Nom d'affichage personnalisé (vide pour défaut) |
+| Décimales | Nombre de décimales pour les valeurs |
+| Mode ligne | Simple (étiquette + valeur même ligne) / Deux lignes (étiquette haut, valeur bas) |
+| Alignement | Gauche / Centre / Droite |
+| Alignement ligne valeur | Alignement indépendant pour la seconde ligne en mode deux lignes |
+| Couleur | Suivre système / Préréglé (rouge/vert/orange) / Personnalisé |
 
-### Color Warning
+### Avertissement couleur
 
-When choosing a custom color, AiDog warns if the color may not be clearly visible under certain menu bar themes.
+En choisissant une couleur personnalisée, AiDog avertit si la couleur peut ne pas être clairement visible sous certains thèmes de barre des menus.
 
-## Drag to Reorder
+## Glisser pour réordonner
 
-Display items support drag-and-drop reordering. Disabled items do not appear in the preview.
+Les éléments d'affichage supportent le réordonnancement par glisser-déposer. Les éléments désactivés n'apparaissent pas dans l'aperçu.
 
-## Auto-start on Boot
+## Démarrage auto au boot
 
-Configure AiDog to auto-start with the system in **"Settings" → "Proxy Configuration"**.
+Configurez AiDog pour démarrer avec le système dans **« Réglages » → « Configuration proxy »**.

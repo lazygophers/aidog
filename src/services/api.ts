@@ -394,6 +394,10 @@ export const trayApi = {
 export const groupUsageApi = {
   stats: (groupName: string) =>
     invoke<PlatformUsageStats>("group_usage_stats", { groupName }),
+  // 批量：单次 invoke 返回所有 group → 聚合 map（group_name → stats），消除前端逐 group N+1 往返。
+  // 后端 GROUP BY group_name，共享平台不重复计入。
+  statsAll: () =>
+    invoke<Record<string, PlatformUsageStats>>("all_group_usage_stats"),
 };
 
 // ─── Tray Config API ───────────────────────────────────────
@@ -867,8 +871,8 @@ export const schedulingApi = {
 // ─── Notification（N1 — 系统通知模块；契约冻结，N3 消费）────
 // 字段名与 Rust serde（src-tauri/src/gateway/models.rs / notification.rs）一致。
 
-/** 通知类型（serde snake_case；custom = 用户自定义类型）。 */
-export type NotifType = "task_complete" | "waiting_input" | "error" | "custom";
+/** 通知类型（serde snake_case）。3 类型：task_complete / waiting_input / error。 */
+export type NotifType = "task_complete" | "waiting_input" | "error";
 
 /** 呈现形态：完整播报 / 仅弹窗 / 仅收件箱 / 仅提示音。 */
 export type NotifForm = "popup_only" | "inbox_only" | "sound_only" | "full";
@@ -888,6 +892,24 @@ export interface TypeSetting {
   template: string;
 }
 
+/**
+ * 单事件触发配置（per_event 值；N2 hook 事件通知 — 逐事件自含）。
+ * 镜像后端 `src-tauri/src/gateway/models.rs` 的 `EventSetting`。
+ * 已删 `notif_type`：每事件独立 tts/popup 通道 + 专属默认模板（见 NotificationEventList EVENT_CATALOG）。
+ */
+export interface EventSetting {
+  /** 是否启用该事件（注入 hook + 触发通知）。 */
+  enabled: boolean;
+  /** 该事件是否 TTS 播报（与全局 tts_enabled 取与；缺省 true）。 */
+  tts: boolean;
+  /** 该事件是否弹窗（缺省 true）。 */
+  popup: boolean;
+  /** 该事件是否播提示音（独立通道，不跟随弹窗；缺省 true）。 */
+  sound: boolean;
+  /** 可选 per-event 自定义文案（空则回退该事件专属默认模板）。 */
+  template: string;
+}
+
 /** 通知设置（settings scope=notification）。 */
 export interface NotificationSettings {
   /** 总开关（OFF 时全部分发旁路；default true）。 */
@@ -898,6 +920,11 @@ export interface NotificationSettings {
   tts_backend: TtsBackend;
   /** 按类型配置（key = NotifType 字面量；缺省键视为全 true + full）。 */
   per_type: Record<string, TypeSetting>;
+  /**
+   * 按事件配置（key = CC hook 事件名，见 NotificationEventList.tsx CC_HOOK_EVENTS）。
+   * 旧配置无此字段 → undefined / 空对象（前端按默认目录展示，用户开启才写入）。
+   */
+  per_event?: Record<string, EventSetting>;
 }
 
 /** 收件箱通知项（notification 表行）。 */
@@ -906,9 +933,22 @@ export interface Notification {
   notif_type: string;
   title: string;
   body: string;
-  read: boolean;
   created_at: number;
 }
+
+/** notify hook 片段中单个 handler（CC hooks schema：type=command + 脚本命令串）。 */
+export interface NotifyHookHandler {
+  type: string;
+  command: string;
+}
+
+/** notify hook 片段中单个匹配组（backend inject 产出无 matcher 字段，匹配所有）。 */
+export interface NotifyHookGroup {
+  hooks: NotifyHookHandler[];
+}
+
+/** `build_notify_hooks_fragment` 返回的 CC hooks 子对象（`{Stop:[...], Notification:[...]}`）。 */
+export type NotifyHooksFragment = Record<string, NotifyHookGroup[]>;
 
 /** 分发结果（testNotify / 端点返回）。 */
 export interface NotifyDispatchResult {
@@ -931,16 +971,20 @@ export const notificationApi = {
   /** 列收件箱（倒序；limit 默认 100）。 */
   listInbox: (limit?: number) =>
     invoke<Notification[]>("notification_inbox_list", { limit }),
-  /** 未读数。 */
-  unreadCount: () => invoke<number>("notification_inbox_unread"),
-  /** 标记已读：id 省略 → 全部已读。 */
-  markRead: (id?: number) =>
-    invoke<void>("notification_mark_read", { id }),
   /** 清空收件箱。 */
   clearInbox: () => invoke<void>("notification_clear"),
   /** 测试通知（走分发逻辑，含弹窗/TTS）。 */
   testNotify: (notifType: NotifType | string, content?: string) =>
     invoke<NotifyDispatchResult>("notification_test", { notifType, content }),
+  /** 仅测 TTS 通道：按当前 settings.tts_backend 播报 text，不走 dispatch。 */
+  testTts: (text: string) =>
+    invoke<void>("notification_test_tts", { text }),
+  /** 仅测系统弹窗通道：直接调 tauri-plugin-notification，不走 dispatch。 */
+  testPopup: (title: string, body: string) =>
+    invoke<void>("notification_test_popup", { title, body }),
+  /** 仅测系统提示音通道：跨平台 spawn beep（macOS afplay / Windows powershell / Linux paplay）。 */
+  testBeep: () =>
+    invoke<void>("notification_test_beep"),
   /**
    * 一键注入通知 hook（N2）。
    * - client="claude_code"：把 hooks.Stop/Notification 注入基线配置并 re-sync 到所有 settings.{group}.json。
@@ -952,13 +996,27 @@ export const notificationApi = {
   /** 一键移除通知 hook（strip）。client 同 injectHooks。 */
   removeHooks: (group: string, client: HookClient) =>
     invoke<void>("remove_hooks", { group, client }),
+  /** 读取「默认为所有分组注入通知 hook」总开关（基线 _aidog_hooks.enabled）。 */
+  getDefaultHooksEnabled: () =>
+    invoke<boolean>("get_default_hooks_enabled"),
+  /**
+   * 构造通知 hook 片段供 Hooks 编辑器并入草稿（只读式：确保 notify 脚本落盘，
+   * 但不写 DB、不 sync）。返回 `{Stop:[...], Notification:[...]}` 形状的 CC hooks 子对象。
+   * 前端把它并入草稿 config.hooks，由用户正常保存触发既有 sync 物化。
+   */
+  buildNotifyHooksFragment: () =>
+    invoke<NotifyHooksFragment>("build_notify_hooks_fragment"),
+  /**
+   * 设置「默认为所有分组注入通知 hook」总开关：开=全分组注入 CC hooks + Codex notify，
+   * 关=全移除。写基线 _aidog_hooks.enabled 并 re-sync 物化。
+   */
+  setDefaultHooksEnabled: (enabled: boolean) =>
+    invoke<void>("set_default_hooks_enabled", { enabled }),
 };
 
 /** hook 注入客户端类型（N2）。 */
 export type HookClient = "claude_code" | "codex";
 
-/** 收件箱未读数变化事件名（后端 emit / 前端 listen 必须一致）。 */
-export const NOTIF_INBOX_UPDATED = "notif-inbox-updated";
 /** WebSpeech 播报请求事件名（payload = 文本；前端 webview SpeechSynthesis 朗读）。 */
 export const NOTIF_SPEAK = "notif-speak";
 
@@ -981,9 +1039,32 @@ export const settingsApi = {
 // ─── StatusLine Script Generation ──────────────────────────
 
 export const statuslineApi = {
-  /** Generate statusline script in ~/.aidog/ and return absolute path */
+  /**
+   * Generate the statusline Python script in ~/.aidog/scripts/ and return the
+   * **command string** to invoke it (`uv run --script <path>` or `python3 <path>`,
+   * per the resolved ScriptInvoker). Write this verbatim into the native
+   * `statusLine.command` / `subagentStatusLine.command` field.
+   */
   generate: (scriptType: string, content: string) =>
     invoke<string>("generate_statusline_script", { scriptType, content }),
+};
+
+// ─── Script Executor (uv / python3) ────────────────────────
+
+/** 脚本执行器选择。"uv" → uv run --script；"python3" → python3。 */
+export type ScriptExecutor = "uv" | "python3";
+
+export const scriptExecutorApi = {
+  /** 检测 uv 是否可用（true=已安装）。 */
+  checkUv: () => invoke<boolean>("check_uv"),
+  /**
+   * 自动安装 uv（官方安装脚本）。成功返回 true 并持久化执行器为 "uv"。
+   * 仅 Unix 支持自动安装；其他平台抛错由前端引导手动安装。
+   */
+  installUv: () => invoke<boolean>("install_uv"),
+  /** 持久化脚本执行器选择，避免每次注入时重复询问。 */
+  setExecutor: (executor: ScriptExecutor) =>
+    invoke<void>("set_script_executor", { executor }),
 };
 
 // ─── Codex Config API ─────────────────────────────────────
@@ -1019,11 +1100,11 @@ export const appLogApi = {
 export interface StatsQuery {
   start?: number;
   end?: number;
-  granularity?: "hourly" | "daily";
+  granularity?: "hourly" | "daily" | "minute" | "5min";
   group_by?: "platform" | "model" | "group";
   filter_group?: string;
   filter_model?: string;
-  filter_protocol?: string;
+  filter_platform?: string;
 }
 
 export interface StatsOverview {
@@ -1064,6 +1145,7 @@ export interface StatsResult {
   overview: StatsOverview;
   buckets: StatsBucket[];
   dimension_data: DimensionEntry[];
+  available_models: string[];
 }
 
 export const statsApi = {
@@ -1232,3 +1314,326 @@ export function onProxyLogUpdated(callback: () => void, debounceMs = 500): () =>
     unlistenPromise.then((un) => un()).catch((e) => console.error(e));
   };
 }
+
+// ─── Skills API ────────────────────────────────────────────
+// 字段名严格 snake_case，与 Rust gateway/skills.rs 模型一一对齐（cross-layer-rules）。
+
+/** 目标 agent（决定 --agent 参数 + 本地配置目录）。 */
+export type SkillAgent = "claude" | "codex";
+
+/**
+ * 安装 scope（Rust 端 #[serde(tag = "kind")] 内部 tag 枚举）。
+ * - global：用户级全局（npx skills add -g）。
+ * - project：项目级，path 为项目根目录。
+ */
+export type SkillScope =
+  | { kind: "global" }
+  | { kind: "project"; path: string };
+
+/** npx/node 环境探测结果。 */
+export interface SkillsEnv {
+  npx_available: boolean;
+  node_version: string | null;
+}
+
+/** 已装 skill（`npx skills list --json` 解析，统一一条/skill，不分 agent）。 */
+export interface SkillInfo {
+  name: string;
+  /** 已在哪些目标 agent（claude/codex 子集）启用。 */
+  enabled_agents: SkillAgent[];
+  scope: SkillScope;
+  installed_path: string | null;
+  description: string | null;
+  /** 来源 owner/repo（锁文件 source）。第三方/手动 symlink skill → null。 */
+  source: string | null;
+}
+
+/** catalog 条目（可装 skill）。 */
+export interface CatalogEntry {
+  id: string;
+  name: string;
+  description: string | null;
+  repo_url: string | null;
+}
+
+/** 写操作（install/update/remove）结果。 */
+export interface SkillsOpResult {
+  success: boolean;
+  stdout: string;
+  stderr: string;
+}
+
+/** skill 详情：文件列表（只读浏览）。 */
+export interface SkillFile {
+  rel_path: string;
+  size: number;
+  is_text: boolean;
+}
+
+export interface SkillDetail {
+  skill_name: string;
+  root: string;
+  files: SkillFile[];
+}
+
+/** 单文件读取结果（带路径遍历防护 + 二进制检测 + 大小上限）。 */
+export interface SkillFileContent {
+  content: string | null;
+  truncated: boolean;
+  size: number;
+}
+
+/**
+ * SWR list 缓存返回（后端 `skills_list_installed` / `skills_list_refresh`）。
+ * - items：缓存/最新 skill 列表。
+ * - stale：true = 无缓存命中（冷启动），前端应显加载态并强制 refresh。
+ */
+export interface CachedSkills {
+  items: SkillInfo[];
+  stale: boolean;
+}
+
+export const skillsApi = {
+  /** 探测 npx / node 环境。 */
+  checkEnv: () => invoke<SkillsEnv>("skills_check_env"),
+  /** 浏览 catalog（skills.sh HTTP 端点当前 404，恒返回空；前端用 search）。 */
+  browseCatalog: () => invoke<CatalogEntry[]>("skills_browse_catalog"),
+  /** 搜索 catalog（`npx skills find <kw>`，id = `owner/repo@skill`）。 */
+  search: (keyword: string) =>
+    invoke<CatalogEntry[]>("skills_search", { keyword }),
+  /**
+   * 从 catalog 安装 skill 到多个 agent（`npx skills add <id> -a <slug> [-g] -y`）。
+   * id = CatalogEntry.id（`owner/repo@skill`，含子 skill 选取，无需 -s）。
+   */
+  install: (id: string, agents: SkillAgent[], scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_install", { id, agents, scope }),
+  /** 列已装 skill 目录文件树（详情视图，只读）。 */
+  detail: (installedPath: string) =>
+    invoke<SkillDetail>("skill_detail", { installedPath }),
+  /** 读 skill 内单文件（只读，带路径遍历防护）。 */
+  readFile: (installedPath: string, rel: string) =>
+    invoke<SkillFileContent>("skill_read_file", { installedPath, rel }),
+  /**
+   * 列指定 scope 下已装 skills —— **立即返回缓存**（命中即 0 子进程）。
+   * 冷启动返回 `{ items: [], stale: true }`，调用方据此显加载态 + 触发 refresh。
+   */
+  listInstalled: (scope: SkillScope) =>
+    invoke<CachedSkills>("skills_list_installed", { scope }),
+  /** 强制跑 npx 刷新缓存并返回 fresh（SWR revalidate 半）。 */
+  listRefresh: (scope: SkillScope) =>
+    invoke<CachedSkills>("skills_list_refresh", { scope }),
+  /** 为某 agent 启用 skill（npx add，用 skill 本地 path 作 add package）。 */
+  enable: (name: string, path: string, agent: SkillAgent, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_enable", { name, path, agent, scope }),
+  /** 为某 agent 关闭 skill（npx remove）。 */
+  disable: (name: string, agent: SkillAgent, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_disable", { name, agent, scope }),
+  /** 更新已装 skills。 */
+  update: (scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_update", { scope }),
+  /** 一键卸载当前 scope 所有平台所有 skills（破坏性）。 */
+  uninstallAll: (scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_uninstall_all", { scope }),
+  /** 卸载单一 skill（破坏性）：删规范存储 + 所有 agent 启用配置。 */
+  uninstall: (name: string, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_uninstall", { name, scope }),
+  /** 组级卸载（破坏性）：卸载某 source 分组（groupSource=null = 「其他」组）内所有 skill。 */
+  uninstallGroup: (groupSource: string | null, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_uninstall_group", { groupSource, scope }),
+  /** 对齐两 agent 的 skills 启用配置（使 to 与 from 完全一致）。 */
+  alignAgents: (from: SkillAgent, to: SkillAgent, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_align_agents", { from, to, scope }),
+  /** 为某 agent 启用当前 scope 全部已装 skills（只增不减）。 */
+  enableAll: (agent: SkillAgent, scope: SkillScope) =>
+    invoke<SkillsOpResult>("skills_enable_all", { agent, scope }),
+  /** 组级 agent 批量：对某 source 组（groupSource=null = 「其他」组）内所有 skill 统一启用/禁用某 agent。 */
+  setGroupAgent: (
+    groupSource: string | null,
+    agent: SkillAgent,
+    enable: boolean,
+    scope: SkillScope,
+  ) =>
+    invoke<SkillsOpResult>("skills_set_group_agent", {
+      groupSource,
+      agent,
+      enable,
+      scope,
+    }),
+};
+
+// ─── MCP 管理 ─────────────────────────────────────────────
+
+/** 受管 agent slug（对齐后端 mcp.rs::McpAgent，注意 claude-code 非 "claude"）。 */
+export type McpAgentSlug = "claude-code" | "codex";
+
+/** MCP 传输类型。 */
+export type McpTransport = "stdio" | "http" | "sse";
+
+/**
+ * DB 中 MCP server（列表用）。env/headers 已脱敏（敏感值 → "***"）。
+ * 后端 McpServerInfo serde camelCase。
+ */
+export interface McpServerInfo {
+  id: number;
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args: string[];
+  /** 脱敏后。 */
+  env: Record<string, string>;
+  url: string;
+  /** 脱敏后。 */
+  headers: Record<string, string>;
+  enabledAgents: McpAgentSlug[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+/** 扫描结果项（claude.json + codex config.toml 去重合并）。 */
+export interface McpScanItem {
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  url: string;
+  headers: Record<string, string>;
+  foundInAgents: McpAgentSlug[];
+  alreadyImported: boolean;
+}
+
+/** 导入项。env/headers 前端传脱敏值，后端优先从 agent 配置取原值。 */
+export interface McpImportPayload {
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  url: string;
+  headers: Record<string, string>;
+  sourceAgent: McpAgentSlug;
+}
+
+export interface McpImportReport {
+  imported: string[];
+  skipped: string[];
+}
+
+/** 编辑 MCP 入参。env/headers 未改的敏感值前端传 "***"，后端 merge 旧 DB 明文。 */
+export interface McpUpdatePayload {
+  name: string;
+  transport: McpTransport;
+  command: string;
+  args: string[];
+  env: Record<string, string>;
+  url: string;
+  headers: Record<string, string>;
+}
+
+export const mcpApi = {
+  /** 列出 DB 中所有 MCP（env/headers 脱敏）。 */
+  list: () => invoke<McpServerInfo[]>("mcp_list"),
+  /** 扫描 Claude Code + Codex 配置去重合并。 */
+  scan: () => invoke<McpScanItem[]>("mcp_scan"),
+  /** 批量导入（enabled = source agent）。 */
+  import: (items: McpImportPayload[]) =>
+    invoke<McpImportReport>("mcp_import", { items }),
+  /** per-agent 启用/禁用（同步写/删 agent 配置）。 */
+  setAgent: (name: string, agent: McpAgentSlug, enabled: boolean) =>
+    invoke<void>("mcp_set_agent", { name, agent, enabled }),
+  /** 编辑（全字段 + 改名 + transport 切换，同步 agent 配置）。 */
+  update: (oldName: string, payload: McpUpdatePayload) =>
+    invoke<McpServerInfo>("mcp_update", { oldName, payload }),
+  /** 手动添加（enabled 空，不写 agent 配置；后续 setAgent 启用）。 */
+  add: (payload: McpUpdatePayload) =>
+    invoke<McpServerInfo>("mcp_add", { payload }),
+  /** 删除（DB + 所有 enabled agent 配置，破坏性）。 */
+  delete: (name: string) => invoke<void>("mcp_delete", { name }),
+  /** 重新同步全部：从 DB 全量重写所有 enabled agent 配置（修复外部污染如 env:null）。 */
+  resync: () => invoke<number>("mcp_resync"),
+};
+
+// ─── 导入导出子系统 ───────────────────────────────────────
+
+export type ImportExportScope =
+  | "platform"
+  | "group"
+  | "group_platform"
+  | "setting"
+  | "codex"
+  | "claude_code"
+  | "model_price"
+  | "skills";
+
+export interface ImportExportManifest {
+  format_version: number;
+  aidog_version: string;
+  created_at: string;
+  source_machine: string;
+  scopes: string[];
+  checksum: string;
+}
+
+export type ImportDecision =
+  | { kind: "overwrite" }
+  | { kind: "skip" }
+  | { kind: "rename"; new_key: string };
+
+export interface ConflictItem {
+  scope: string;
+  key: string;
+  existing_summary: string;
+  incoming_summary: string;
+}
+
+export interface ConflictDecision {
+  scope: string;
+  key: string;
+  decision: ImportDecision;
+}
+
+export interface ImportPreview {
+  manifest: ImportExportManifest;
+  scopes: string[];
+  conflicts: ConflictItem[];
+  counts: Record<string, number>;
+}
+
+export interface ImportReport {
+  applied: Record<string, number>;
+  skipped: Record<string, number>;
+  errors: string[];
+}
+
+export const importExportApi = {
+  /** 导出勾选范围到用户选择的文件。 */
+  exportToFile: (scopes: ImportExportScope[], path: string) =>
+    invoke<void>("export_to_file", { scopes, path }),
+  /** 读文件 → 解密 → 冲突预览。 */
+  readPreview: (path: string) =>
+    invoke<ImportPreview>("import_read_file", { path }),
+  /** 按决策应用导入。 */
+  apply: (path: string, decisions: ConflictDecision[]) =>
+    invoke<ImportReport>("import_apply", { path, decisions }),
+};
+
+// ─── About / 版本信息 ───────────────────────────────────────
+
+/** 关于页版本信息（字段 snake_case，与后端 AboutInfo 对齐）。 */
+export interface AboutInfo {
+  app_version: string;
+  tauri_version: string;
+  os: string;
+  arch: string;
+  family: string;
+  profile: string;
+  /** git 短 commit（无 git 时 "unknown"）。 */
+  git_commit: string;
+  /** 构建时间 epoch 秒字符串（前端格式化）。 */
+  build_time: string;
+}
+
+export const aboutApi = {
+  /** 读取应用 / 运行时 / 系统 / 构建版本信息。 */
+  info: () => invoke<AboutInfo>("about_info"),
+};

@@ -1,13 +1,11 @@
 // ─── 应用内通知中心（收件箱）页（N3）────────────────────────
-// 侧栏入口 → 历史列表 + 未读计数 + 标记已读（单条/全部）+ 清空。
-// listen NOTIF_INBOX_UPDATED 实时刷新。消费 N1 契约（notificationApi / Notification），只读不改。
+// 侧栏入口 → 历史列表 + 清空。通知完成即结束，无已读未读状态。
+// 消费 N1 契约（notificationApi / Notification），只读不改。
 
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import { listen } from "@tauri-apps/api/event";
 import {
   notificationApi,
-  NOTIF_INBOX_UPDATED,
   type Notification,
 } from "../services/api";
 
@@ -15,20 +13,15 @@ function notifTypeLabel(type: string, t: (k: string, f: string) => string): stri
   return t(`notif.type.${type}`, type);
 }
 
-export function Notifications() {
+export function Notifications({ onNavigate }: { onNavigate?: (id: string) => void }) {
   const { t } = useTranslation();
   const [items, setItems] = useState<Notification[]>([]);
-  const [unread, setUnread] = useState(0);
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
-      const [list, count] = await Promise.all([
-        notificationApi.listInbox(),
-        notificationApi.unreadCount(),
-      ]);
+      const list = await notificationApi.listInbox();
       setItems(list);
-      setUnread(count);
     } catch (e) {
       console.error("load inbox failed", e);
     }
@@ -39,18 +32,7 @@ export function Notifications() {
       await refresh();
       setLoading(false);
     })();
-    const unlistenPromise = listen(NOTIF_INBOX_UPDATED, () => { refresh(); });
-    return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
   }, [refresh]);
-
-  const handleMarkRead = async (id?: number) => {
-    try {
-      await notificationApi.markRead(id);
-      await refresh();
-    } catch (e) {
-      console.error("mark read failed", e);
-    }
-  };
 
   const handleClear = async () => {
     try {
@@ -65,32 +47,17 @@ export function Notifications() {
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t("notif.inboxTitle", "通知中心")}</h2>
-          {unread > 0 && (
-            <span
-              style={{
-                fontSize: 11,
-                fontWeight: 700,
-                padding: "2px 8px",
-                borderRadius: 999,
-                background: "var(--accent)",
-                color: "#fff",
-              }}
+        <h2 style={{ fontSize: 18, fontWeight: 700, margin: 0 }}>{t("notif.inboxTitle", "通知中心")}</h2>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {onNavigate && (
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: 12 }}
+              onClick={() => onNavigate("settings/notifications")}
             >
-              {unread} {t("notif.unread", "未读")}
-            </span>
+              {t("notifications.goSettings", "通知设置")}
+            </button>
           )}
-        </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: 12 }}
-            disabled={unread === 0}
-            onClick={() => handleMarkRead()}
-          >
-            {t("notif.markAllRead", "全部标记已读")}
-          </button>
           <button
             className="btn btn-ghost"
             style={{ fontSize: 12 }}
@@ -119,13 +86,16 @@ export function Notifications() {
                 display: "flex",
                 gap: 12,
                 alignItems: "flex-start",
-                opacity: item.read ? 0.6 : 1,
-                borderInlineStart: item.read ? "2px solid transparent" : "2px solid var(--accent)",
+                borderInlineStart: "2px solid var(--accent)",
               }}
             >
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 2 }}>
-                  <span style={{ fontSize: 13, fontWeight: 600 }}>{item.title || notifTypeLabel(item.notif_type, t)}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600 }}>
+                    {item.title
+                      ? `${item.title} · ${notifTypeLabel(item.notif_type, t)}`
+                      : notifTypeLabel(item.notif_type, t)}
+                  </span>
                   <span
                     style={{
                       fontSize: 10,
@@ -147,15 +117,6 @@ export function Notifications() {
                   {new Date(item.created_at).toLocaleString()}
                 </div>
               </div>
-              {!item.read && (
-                <button
-                  className="btn btn-ghost"
-                  style={{ fontSize: 11, padding: "3px 8px", whiteSpace: "nowrap" }}
-                  onClick={() => handleMarkRead(item.id)}
-                >
-                  {t("notif.markRead", "已读")}
-                </button>
-              )}
             </div>
           ))}
         </div>

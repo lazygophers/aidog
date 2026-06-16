@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/trellisx-conventions.md", "reason": "5 步流程 + check 闭环"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "source 字段跨层, enrich 幂等性"}

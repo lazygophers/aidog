@@ -1,9 +1,45 @@
 export type ThemeMode = "light" | "dark";
 
-export type ThemeName = "liquidGlass" | "nord" | "dracula" | "catppuccin" | "solarized";
+/** 结构/材质轴：style 决定圆角 / 模糊 / 阴影形态 / 过渡。 */
+export type ThemeStyle =
+  | "liquidGlass"
+  | "flat"
+  | "soft"
+  | "sharp"
+  | "aurora"
+  | "paper"
+  | "terminal"
+  | "bento"
+  | "sketchy";
 
-export interface ThemeDefinition {
-  name: ThemeName;
+/** 调色板轴：color 决定全部色彩变量 + shadow-rgb/glass-edge。12 个均为业界知名命名色板。 */
+export type ThemeColor =
+  | "appleBlue"
+  | "nord"
+  | "dracula"
+  | "catppuccin"
+  | "solarized"
+  | "rosePine"
+  | "tokyoNight"
+  | "gruvbox"
+  | "oneDark"
+  | "material"
+  | "github"
+  | "nightOwl";
+
+/** Style 定义：仅结构变量（radius/blur/saturate/glass-border/shadow/transition）。 */
+export interface StyleDefinition {
+  id: ThemeStyle;
+  /** i18n key，如 "theme.style.liquidGlass"。 */
+  label: string;
+  light: Record<string, string>;
+  dark: Record<string, string>;
+}
+
+/** Palette 定义：仅色彩变量 + --shadow-rgb + --glass-edge。 */
+export interface PaletteDefinition {
+  id: ThemeColor;
+  /** i18n key，如 "theme.color.appleBlue"。 */
   label: string;
   light: Record<string, string>;
   dark: Record<string, string>;
@@ -20,11 +56,21 @@ export function applyThemeVars(vars: Record<string, string>) {
 }
 
 /**
- * 清除所有主题变量
+ * 清除给定变量集
  */
 export function clearThemeVars(vars: Record<string, string>) {
   const root = document.documentElement;
   for (const key of Object.keys(vars)) {
+    root.style.removeProperty(key);
+  }
+}
+
+/**
+ * 按 key 名清除一组变量（用于 clear 全量已知键并集，避免切换残留）。
+ */
+export function clearThemeKeys(keys: Iterable<string>) {
+  const root = document.documentElement;
+  for (const key of keys) {
     root.style.removeProperty(key);
   }
 }

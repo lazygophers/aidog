@@ -1,0 +1,4 @@
+{"path":".trellis/spec/frontend/conventions.md","why":"i18n (MUST) 现有规则 + 待新增 t(变量) 路径"}
+{"path":"scripts/check-i18n.mjs","why":"现有 A/B/C 检查, 待加 D (labelKey/group 属性)"}
+{"path":"src/App.tsx","why":"NAV_ITEMS labelKey/group 数据源"}
+{"path":"src/components/Sidebar.tsx","why":"t(item.labelKey)/t(g.key) 消费端"}

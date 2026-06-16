@@ -1101,7 +1101,7 @@ pub struct StatsQuery {
     pub group_by: Option<String>,
     pub filter_group: Option<String>,
     pub filter_model: Option<String>,
-    pub filter_protocol: Option<String>,
+    pub filter_platform: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1146,6 +1146,9 @@ pub struct StatsResult {
     pub overview: StatsOverview,
     pub buckets: Vec<StatsBucket>,
     pub dimension_data: Vec<DimensionEntry>,
+    /// 当前筛选范围（日期 + 分组 + 平台，不含 filter_model）内实际有记录的模型名，
+    /// 供前端模型筛选下拉使用（避免列出配置过但无请求的模型）。
+    pub available_models: Vec<String>,
 }
 
 // ─── Model Testing ────────────────────────────────────────
@@ -1641,14 +1644,13 @@ impl SchedulingBreakerSettings {
 
 // ─── Notification（系统通知模块 N1）───────────────────────────
 
-/// 通知类型枚举（serde snake_case；custom 为用户自定义类型占位）。
+/// 通知类型枚举（serde snake_case）。3 类型：task_complete / waiting_input / error。
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum NotifType {
     TaskComplete,
     WaitingInput,
     Error,
-    Custom,
 }
 
 impl NotifType {
@@ -1658,27 +1660,28 @@ impl NotifType {
             NotifType::TaskComplete => "task_complete",
             NotifType::WaitingInput => "waiting_input",
             NotifType::Error => "error",
-            NotifType::Custom => "custom",
         }
     }
 
-    /// 从字面量解析；未知 → Custom（端点收到任意 type 字符串都可分发）。
-    pub fn from_str_or_custom(s: &str) -> Self {
+    /// 从字面量解析；未知/空 → TaskComplete（端点收到任意 type 字符串都可分发，通知不丢）。
+    pub fn from_str_or_default(s: &str) -> Self {
         match s {
             "task_complete" => NotifType::TaskComplete,
             "waiting_input" => NotifType::WaitingInput,
             "error" => NotifType::Error,
-            _ => NotifType::Custom,
+            _ => NotifType::TaskComplete,
         }
     }
 
-    /// 内置默认模板（N2 一键注入时为 task_complete/waiting_input 物化，用户可改）。
-    /// 其他类型返回空字符串（无内置模板，body 退化为 content/title）。
+    /// 内置默认模板（每类型均有；render 在 setting.template 空时兜底使用，无项目名时给
+    /// `{project}` 注入品牌兜底名）。用户在设置页留空 template → 自动展示本默认。
+    /// **跨层镜像**：前端逐字镜像于 `src/components/settings/NotificationSettings.tsx`
+    /// 的 `NOTIF_DEFAULT_TEMPLATES`，改此处务必同步前端（zh 硬编码，非 i18n）。
     pub fn default_template(&self) -> &'static str {
         match self {
             NotifType::TaskComplete => "{project} 完成",
             NotifType::WaitingInput => "{project} 等待用户输入",
-            _ => "",
+            NotifType::Error => "{project} 出错",
         }
     }
 }
@@ -1732,6 +1735,135 @@ impl Default for TypeSetting {
     }
 }
 
+/// 单事件触发配置（per_event 值，N2 hook 事件通知 — 逐事件自含）。
+///
+/// key（在 per_event map 里）= Claude Code 官方 hook 事件名（如 `Stop`/`SubagentStop`），
+/// 见 `CC_HOOK_EVENTS` 全量目录。`enabled` 决定该事件是否注入 hook + 触发通知；
+/// `tts`/`popup` 为该事件独立通道开关（与全局 tts_enabled 取与决定 TTS）；
+/// `template` 为可选 per-event 自定义文案（空则回退 `default_template_for_event(event)`，
+/// 再回退类型 default_template 防空）。全字段 serde default → 向后兼容：
+/// 旧 DB per_event 含 `notif_type`（serde 无 deny_unknown → 反序列化忽略多余字段）；
+/// 旧缺 `tts`/`popup` → serde default true（用户启用事件时两通道默认都开）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EventSetting {
+    /// 是否启用该事件（注入 hook + 触发通知）。
+    #[serde(default)]
+    pub enabled: bool,
+    /// 该事件是否 TTS 播报（与全局 tts_enabled 取与）。
+    #[serde(default = "default_true")]
+    pub tts: bool,
+    /// 该事件是否弹窗。
+    #[serde(default = "default_true")]
+    pub popup: bool,
+    /// 该事件是否播提示音（独立通道 `play_beep`，不再跟随弹窗）。旧配置无 sound → 默认 true（向后兼容）。
+    #[serde(default = "default_true")]
+    pub sound: bool,
+    /// 可选 per-event 自定义文案（空则回退 `default_template_for_event` / 类型 default_template）。
+    #[serde(default)]
+    pub template: String,
+}
+
+impl Default for EventSetting {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            tts: true,
+            popup: true,
+            sound: true,
+            template: String::new(),
+        }
+    }
+}
+
+/// Claude Code 官方 hook 事件全量目录（约 30 个；来源 code.claude.com/docs/zh-CN/hooks）。
+/// UI 列全量，默认仅 `DEFAULT_ON_EVENTS` 精选集 on，其余默认 off。
+/// **跨层镜像**：前端 `src/components/settings/NotificationEventList.tsx` 的 `CC_HOOK_EVENTS`
+/// 逐字镜像此表，改此处务必同步前端。事件名为 CC 官方英文原样，不翻译。
+pub const CC_HOOK_EVENTS: &[&str] = &[
+    "SessionStart",
+    "Setup",
+    "InstructionsLoaded",
+    "UserPromptSubmit",
+    "UserPromptExpansion",
+    "MessageDisplay",
+    "PreToolUse",
+    "PermissionRequest",
+    "PermissionDenied",
+    "PostToolUse",
+    "PostToolUseFailure",
+    "PostToolBatch",
+    "Notification",
+    "SubagentStart",
+    "SubagentStop",
+    "Stop",
+    "StopFailure",
+    "TeammateIdle",
+    "TaskCreated",
+    "TaskCompleted",
+    "ConfigChange",
+    "CwdChanged",
+    "FileChanged",
+    "WorktreeCreate",
+    "WorktreeRemove",
+    "PreCompact",
+    "PostCompact",
+    "Elicitation",
+    "ElicitationResult",
+    "SessionEnd",
+];
+
+/// 默认 ON 精选集（2 个：任务完成 + 等待授权）。
+/// 其余事件（含 SubagentStop/Notification/SessionEnd/PreCompact/SessionStart 等）默认 off，
+/// 目录中可手动开。**跨层镜像**前端 `DEFAULT_ON_EVENTS`。
+pub const DEFAULT_ON_EVENTS: &[&str] = &["Stop", "PermissionRequest"];
+
+/// 事件名 → 该事件**专属独立默认模板**（zh 硬编码，非 i18n）。
+///
+/// 每事件一套模板、用各自专属入参（禁所有事件共用一个统一模板）。通用入参所有事件都有：
+/// `{project}`(项目名)/`{session}`(会话id)。专属入参来源 code.claude.com/docs/zh-CN/hooks
+/// 各事件 stdin 字段。为避免可选字段缺失残留裸 `{x}`，默认模板**只用高确定字段**
+/// （脚本通用透传所有标量字段，确有则填，缺失字段通过 substitute_vars 的 fill_empty 选项
+/// 在 event 路径替换为空串 → 见 notification.rs render_event；故默认模板可放心用专属入参）。
+/// 未命中事件 → 空串（dispatch 兜底到类型 default_template）。
+///
+/// **跨层镜像**：前端 `src/components/settings/NotificationEventList.tsx` 的 `EVENT_CATALOG`
+/// 逐字镜像本表的 defaultTemplate + 专属入参，改此处务必同步前端。
+pub fn default_template_for_event(event: &str) -> &'static str {
+    match event {
+        "SessionStart" => "{project} 会话开始",
+        "Setup" => "{project} 初始化（{trigger}）",
+        "InstructionsLoaded" => "{project} 已加载 {memory_type}",
+        "UserPromptSubmit" => "{project} 收到新指令",
+        "UserPromptExpansion" => "{project} 展开命令 {command_name}",
+        "MessageDisplay" => "{project} 消息更新",
+        "PreToolUse" => "{project} 即将执行 {tool_name}",
+        "PermissionRequest" => "{project} 请求授权：{tool_name}",
+        "PermissionDenied" => "{project} 拒绝 {tool_name}：{reason}",
+        "PostToolUse" => "{project} {tool_name} 完成（{duration_ms}ms）",
+        "PostToolUseFailure" => "{project} {tool_name} 失败：{error}",
+        "PostToolBatch" => "{project} 批量工具完成",
+        "Notification" => "{project}：{message}",
+        "SubagentStart" => "{project} 子代理 {agent_type} 启动",
+        "SubagentStop" => "{project} 子代理 {agent_type} 完成",
+        "Stop" => "{project} 任务完成",
+        "StopFailure" => "{project} 中断：{error_message}",
+        "TeammateIdle" => "{project} 队友 {teammate_id} 空闲",
+        "TaskCreated" => "{project} 新建任务：{task_name}",
+        "TaskCompleted" => "{project} 任务完成：{task_name}",
+        "ConfigChange" => "{project} 配置变更（{config_source}）",
+        "CwdChanged" => "{project} 切换目录：{new_cwd}",
+        "FileChanged" => "{project} 文件变更：{file_path}",
+        "WorktreeCreate" => "{project} 创建 worktree",
+        "WorktreeRemove" => "{project} 移除 worktree",
+        "PreCompact" => "{project} 即将压缩上下文（{compact_reason}）",
+        "PostCompact" => "{project} 压缩完成",
+        "Elicitation" => "{project} {server_name} 请求输入",
+        "ElicitationResult" => "{project} {server_name} 已响应",
+        "SessionEnd" => "{project} 会话结束（{end_reason}）",
+        _ => "",
+    }
+}
+
 /// 通知设置（settings KV scope=`notification`, key=`settings`）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NotificationSettings {
@@ -1747,6 +1879,10 @@ pub struct NotificationSettings {
     /// 按类型配置（key = NotifType 字面量）。缺省键视为全 true + Full。
     #[serde(default)]
     pub per_type: std::collections::HashMap<String, TypeSetting>,
+    /// 按事件配置（key = CC 事件名，见 CC_HOOK_EVENTS）。N2 hook 事件通知。
+    /// 旧配置无此字段 → 空 map（serde default），前端按默认目录展示，用户开启才写入。
+    #[serde(default)]
+    pub per_event: std::collections::HashMap<String, EventSetting>,
 }
 
 impl Default for NotificationSettings {
@@ -1756,6 +1892,7 @@ impl Default for NotificationSettings {
             tts_enabled: true,
             tts_backend: TtsBackend::default(),
             per_type: std::collections::HashMap::new(),
+            per_event: std::collections::HashMap::new(),
         }
     }
 }
@@ -1764,6 +1901,12 @@ impl NotificationSettings {
     /// 取某类型有效配置：per_type 缺省时返回默认（全 true + Full）。
     pub fn type_setting(&self, t: NotifType) -> TypeSetting {
         self.per_type.get(t.as_str()).cloned().unwrap_or_default()
+    }
+
+    /// 取某事件有效配置：per_event 命中且返回引用，否则 None。
+    /// 注：未命中走「展示层默认」（前端兜底默认目录），DB 不硬写默认集。
+    pub fn event_setting(&self, event: &str) -> Option<&EventSetting> {
+        self.per_event.get(event)
     }
 }
 
@@ -1774,9 +1917,107 @@ pub struct Notification {
     pub notif_type: String,
     pub title: String,
     pub body: String,
-    /// 已读标记（0/1 → bool）。
-    pub read: bool,
     pub created_at: i64,
+}
+
+#[cfg(test)]
+mod notif_event_model_tests {
+    use super::*;
+
+    #[test]
+    fn default_template_per_event_independent() {
+        // 每事件模板各自独立、用其专属入参（抽样核对）。
+        assert_eq!(default_template_for_event("Stop"), "{project} 任务完成");
+        assert_eq!(default_template_for_event("SubagentStop"), "{project} 子代理 {agent_type} 完成");
+        assert_eq!(default_template_for_event("Notification"), "{project}：{message}");
+        assert_eq!(default_template_for_event("PostToolUseFailure"), "{project} {tool_name} 失败：{error}");
+        assert_eq!(default_template_for_event("SessionEnd"), "{project} 会话结束（{end_reason}）");
+        // 全量目录每事件都有非空专属默认模板。
+        for e in CC_HOOK_EVENTS {
+            assert!(!default_template_for_event(e).is_empty(), "event {e} missing default template");
+        }
+        // 各事件模板互不相同（无统一模板）。
+        let mut seen = std::collections::HashSet::new();
+        for e in CC_HOOK_EVENTS {
+            let t = default_template_for_event(e);
+            assert!(seen.insert(t), "duplicate default template across events: {t}");
+        }
+        // 未命中事件 → 空串（dispatch 兜底类型 default_template）。
+        assert_eq!(default_template_for_event("UnknownEvent"), "");
+    }
+
+    #[test]
+    fn default_on_set_subset_of_catalog() {
+        for e in DEFAULT_ON_EVENTS {
+            assert!(CC_HOOK_EVENTS.contains(e), "default-on event {e} not in catalog");
+        }
+        // 默认 ON 仅 Stop + PermissionRequest（用户指示精简）。
+        assert_eq!(DEFAULT_ON_EVENTS, &["Stop", "PermissionRequest"]);
+        // 这些事件在目录但默认 off（可手动开）。
+        for e in [
+            "SessionStart",
+            "SubagentStop",
+            "Notification",
+            "SessionEnd",
+            "PreCompact",
+        ] {
+            assert!(CC_HOOK_EVENTS.contains(&e), "event {e} should be in catalog");
+            assert!(!DEFAULT_ON_EVENTS.contains(&e), "event {e} should default off");
+        }
+    }
+
+    #[test]
+    fn settings_backward_compat_without_per_event() {
+        // 旧 JSON 无 per_event → 反序列化为空 map，不报错。
+        let json = serde_json::json!({
+            "enabled": true,
+            "tts_enabled": true,
+            "tts_backend": "cross_platform",
+            "per_type": {}
+        });
+        let s: NotificationSettings = serde_json::from_value(json).unwrap();
+        assert!(s.per_event.is_empty());
+        assert!(s.event_setting("Stop").is_none());
+    }
+
+    #[test]
+    fn event_setting_roundtrip() {
+        let json = serde_json::json!({
+            "per_event": {
+                "Stop": { "enabled": true, "tts": false, "popup": true, "template": "{project} done" },
+                "PostToolUse": { "enabled": false }
+            }
+        });
+        let s: NotificationSettings = serde_json::from_value(json).unwrap();
+        let stop = s.event_setting("Stop").unwrap();
+        assert!(stop.enabled);
+        assert!(!stop.tts);
+        assert!(stop.popup);
+        assert_eq!(stop.template, "{project} done");
+        // tts/popup/template 缺省 → tts/popup default true、template 空串。
+        let pt = s.event_setting("PostToolUse").unwrap();
+        assert!(!pt.enabled);
+        assert!(pt.tts);
+        assert!(pt.popup);
+        assert_eq!(pt.template, "");
+    }
+
+    #[test]
+    fn event_setting_backward_compat_ignores_legacy_notif_type() {
+        // 旧 DB per_event 含 notif_type（已删字段）→ serde 无 deny_unknown 忽略多余字段，
+        // 旧缺 tts/popup → serde default true。不报错。
+        let json = serde_json::json!({
+            "per_event": {
+                "SubagentStop": { "enabled": true, "notif_type": "error", "template": "x" }
+            }
+        });
+        let s: NotificationSettings = serde_json::from_value(json).unwrap();
+        let es = s.event_setting("SubagentStop").unwrap();
+        assert!(es.enabled);
+        assert!(es.tts); // 旧无 → default true
+        assert!(es.popup); // 旧无 → default true
+        assert_eq!(es.template, "x");
+    }
 }
 
 #[cfg(test)]
@@ -1887,15 +2128,14 @@ mod middleware_model_tests {
             (NotifType::TaskComplete, "\"task_complete\""),
             (NotifType::WaitingInput, "\"waiting_input\""),
             (NotifType::Error, "\"error\""),
-            (NotifType::Custom, "\"custom\""),
         ] {
             assert_eq!(serde_json::to_string(&variant).unwrap(), lit);
             let back: NotifType = serde_json::from_str(lit).unwrap();
             assert_eq!(back, variant);
             assert_eq!(format!("\"{}\"", variant.as_str()), lit);
         }
-        assert_eq!(NotifType::from_str_or_custom("waiting_input"), NotifType::WaitingInput);
-        assert_eq!(NotifType::from_str_or_custom("unknown_xyz"), NotifType::Custom);
+        assert_eq!(NotifType::from_str_or_default("waiting_input"), NotifType::WaitingInput);
+        assert_eq!(NotifType::from_str_or_default("unknown_xyz"), NotifType::TaskComplete);
     }
 
     #[test]

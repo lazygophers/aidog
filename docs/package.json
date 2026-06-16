@@ -2,6 +2,7 @@
   "name": "aidog-docs",
   "version": "0.1.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "packageManager": "yarn@4.16.0",
   "scripts": {
     "dev": "rspress dev",

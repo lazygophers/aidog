@@ -105,6 +105,37 @@ async fn ensure_platform_groups(db: &Db) {
     }
 }
 
+// ─── About / Version Info ──────────────────────────────────
+
+/// 关于页版本信息（字段 snake_case，前端 AboutInfo 对齐）。
+#[derive(serde::Serialize)]
+struct AboutInfo {
+    app_version: String,
+    tauri_version: String,
+    os: String,
+    arch: String,
+    family: String,
+    profile: String,
+    /// build.rs 注入的 git 短 commit（无 git 时 "unknown"）
+    git_commit: String,
+    /// build.rs 注入的构建时间（epoch 秒字符串，前端格式化）
+    build_time: String,
+}
+
+#[tauri::command]
+fn about_info() -> AboutInfo {
+    AboutInfo {
+        app_version: env!("CARGO_PKG_VERSION").to_string(),
+        tauri_version: tauri::VERSION.to_string(),
+        os: std::env::consts::OS.to_string(),
+        arch: std::env::consts::ARCH.to_string(),
+        family: std::env::consts::FAMILY.to_string(),
+        profile: if cfg!(debug_assertions) { "debug" } else { "release" }.to_string(),
+        git_commit: env!("AIDOG_GIT_COMMIT").to_string(),
+        build_time: env!("AIDOG_BUILD_TIME").to_string(),
+    }
+}
+
 // ─── Platform Commands ─────────────────────────────────────
 
 #[tauri::command]
@@ -662,65 +693,32 @@ async fn platform_fetch_models(
     tracing::debug!(command = "platform_fetch_models", protocol = ?protocol, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
     let db_arc = Arc::new(db.inner().clone());
     let client = gateway::http_client::build_http_client_system(&db_arc, 30, 10).await;
-    let base = base_url.trim_end_matches('/');
 
     // Mock / Claude Code 透传平台无真实上游模型列表，不拉取模型
     if matches!(protocol, Protocol::Mock | Protocol::ClaudeCode) {
         return Ok(Vec::new());
     }
 
-    let resp: Value = match protocol {
-        Protocol::Mock | Protocol::ClaudeCode => unreachable!(),
-        Protocol::Anthropic => {
-            let url = format!("{base}/v1/models");
-            tracing::info!(method = "GET", url = %url, "fetch models request");
-            let resp = client
-                .get(&url)
-                .header("x-api-key", &api_key)
-                .header("anthropic-version", "2023-06-01")
-                .send()
-                .await
-                .map_err(|e| format!("fetch models: {e}"))?;
-            let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
-            tracing::debug!(url = %url, body = %body, "fetch models response body");
-            serde_json::from_str::<Value>(&body).map_err(|e| format!("parse response: {e}"))?
-        }
-        Protocol::Bailian => {
-            let url = format!("{base}/compatible-mode/v1/models");
-            tracing::info!(method = "GET", url = %url, "fetch models request");
-            let resp = client
-                .get(&url)
-                .header("Authorization", format!("Bearer {api_key}"))
-                .send()
-                .await
-                .map_err(|e| {
-                    tracing::error!("fetch models request failed: {e}");
-                    format!("fetch models: {e}")
-                })?;
-            let status = resp.status();
-            let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
-            tracing::info!(url = %url, %status, "fetch models response status");
-            tracing::debug!(url = %url, body = %body, "fetch models response body");
-            serde_json::from_str::<Value>(&body)
-                .map_err(|e| {
-                    tracing::error!("parse response failed: {e}, body={}", &body[..body.len().min(500)]);
-                    format!("parse response: {e}")
-                })?
-        }
-        Protocol::OpenAI | Protocol::Codex | Protocol::Glm | Protocol::GlmEn | Protocol::Kimi | Protocol::MiniMax | Protocol::MiniMaxEn | Protocol::Gemini | Protocol::OpenAIResponses | Protocol::OpenAICompletions | Protocol::BailianCoding | Protocol::DeepSeek | Protocol::StepFun | Protocol::StepFunEn | Protocol::Doubao | Protocol::DoubaoSeed | Protocol::BytePlus | Protocol::QianFan | Protocol::XiaomiMimo | Protocol::BaiLing | Protocol::Longcat | Protocol::OpenRouter | Protocol::SiliconFlow | Protocol::SiliconFlowEn | Protocol::AiHubMix | Protocol::DmxApi | Protocol::ModelScope | Protocol::ShengSuanYun | Protocol::AtlasCloud | Protocol::Novita | Protocol::TheRouter | Protocol::CherryIn | Protocol::PackyCode | Protocol::Cubence | Protocol::AiGoCode | Protocol::RightCode | Protocol::AiCodeMirror | Protocol::Nvidia | Protocol::Pateway | Protocol::CcSub | Protocol::ApiKeyFun | Protocol::ApiNebula | Protocol::SudoCode | Protocol::ClaudeApi | Protocol::ClaudeCN | Protocol::RunApi | Protocol::RelaxyCode | Protocol::CrazyRouter | Protocol::SssAiCode | Protocol::Compshare | Protocol::CompshareCoding | Protocol::Micu | Protocol::CTok | Protocol::EFlowCode | Protocol::LemonData | Protocol::PipeLlm | Protocol::OpenCode | Protocol::NewApi => {
-            let url = format!("{base}/models");
-            tracing::info!(method = "GET", url = %url, "fetch models request");
-            let resp = client
-                .get(&url)
-                .header("Authorization", format!("Bearer {api_key}"))
-                .send()
-                .await
-                .map_err(|e| format!("fetch models: {e}"))?;
-            let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
-            tracing::debug!(url = %url, body = %body, "fetch models response body");
-            serde_json::from_str::<Value>(&body).map_err(|e| format!("parse response: {e}"))?
-        }
-    };
+    // URL + 鉴权与 proxy.rs models 端点 relay 单一事实源（build_models_url / apply_models_auth）。
+    let url = gateway::proxy::build_models_url(&protocol, &base_url);
+    let rb = gateway::proxy::apply_models_auth(client.get(&url), &protocol, &api_key);
+    tracing::info!(method = "GET", url = %url, "fetch models request");
+    let resp = rb
+        .send()
+        .await
+        .map_err(|e| {
+            tracing::error!("fetch models request failed: {e}");
+            format!("fetch models: {e}")
+        })?;
+    let status = resp.status();
+    let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
+    tracing::info!(url = %url, %status, "fetch models response status");
+    tracing::debug!(url = %url, body = %body, "fetch models response body");
+    let resp: Value = serde_json::from_str::<Value>(&body)
+        .map_err(|e| {
+            tracing::error!("parse response failed: {e}, body={}", &body[..body.len().min(500)]);
+            format!("parse response: {e}")
+        })?;
 
     // 解析 {"data": [{"id": "..."}, ...]} 格式
     let models = resp
@@ -870,6 +868,56 @@ async fn model_test(
         }
     };
 
+    // ── Mock 平台：本地生成响应（不发真实 HTTP），与 proxy handle_mock 对齐。
+    //   model_test 入站协议固定 "test"；mock build_response 对未知协议走默认 Anthropic 格式。
+    //   response_preview 直接取 cfg.response_text（mock 配置的响应文本），无需解析响应体。
+    if matches!(target_protocol, Protocol::Mock) {
+        let cfg = gateway::adapter::mock::resolve_mock_config(&platform.extra, &chat_req, &req_body);
+        if cfg.delay_ms > 0 {
+            tokio::time::sleep(std::time::Duration::from_millis(cfg.delay_ms)).await;
+        }
+        let source_proto_str = "test";
+        let (success, status_code, resp_body, err_msg, in_tok, out_tok, preview): (bool, u16, String, String, i32, i32, String) = match cfg.error_mode.as_str() {
+            "http_error" => {
+                let body = gateway::adapter::mock::build_error_body(source_proto_str, cfg.status_code, "mock http_error");
+                let body_str = serde_json::to_string(&body).unwrap_or_default();
+                (false, cfg.status_code, body_str, format!("mock http_error (status {})", cfg.status_code), 0, 0, String::new())
+            }
+            "rate_limit_429" => {
+                let body = gateway::adapter::mock::build_error_body(source_proto_str, 429, "mock rate limit");
+                let body_str = serde_json::to_string(&body).unwrap_or_default();
+                (false, 429, body_str, "mock rate_limit_429".to_string(), 0, 0, String::new())
+            }
+            "timeout" => {
+                // model_test 不真 hang（proxy 里 sleep 600s 是为让客户端超时）；直接返回 504。
+                let body = gateway::adapter::mock::build_error_body(source_proto_str, 504, "mock timeout");
+                let body_str = serde_json::to_string(&body).unwrap_or_default();
+                (false, 504, body_str, "mock timeout".to_string(), 0, 0, String::new())
+            }
+            _ => {
+                let body = gateway::adapter::mock::build_response(&cfg, source_proto_str, &model);
+                let body_str = serde_json::to_string(&body).unwrap_or_default();
+                (true, 200, body_str, String::new(), cfg.input_tokens, cfg.output_tokens, cfg.response_text.clone())
+            }
+        };
+        let duration_ms = start.elapsed().as_millis() as i32;
+        let log_entry = make_log(&resp_body, status_code as i32, status_code as i32, r#"{"content-type":"application/json"}"#, &resp_body, in_tok, out_tok);
+        if let Err(le) = db::upsert_proxy_log(&db, log_entry).await {
+            tracing::warn!(command = "model_test", platform_id = platform.id, error = %le, "persist mock test log failed");
+        }
+        tracing::info!(command = "model_test", platform_id = platform.id, mock = true, success, status = status_code, "model test mock response");
+        return Ok(ModelTestResult {
+            success,
+            model: model.clone(),
+            prompt_preview: truncate_str(&prompt, 100),
+            response_preview: preview,
+            duration_ms,
+            input_tokens: in_tok,
+            output_tokens: out_tok,
+            error: err_msg,
+        });
+    }
+
     tracing::info!(method = "POST", url = %url, "model test request");
     tracing::debug!(method = "POST", url = %url, body = %req_body_str, "model test request body");
     let resp = match req_builder.send().await {
@@ -886,7 +934,7 @@ async fn model_test(
                 error: format!("request failed: {e}"),
             };
             tracing::warn!(command = "model_test", platform_id = platform.id, error = %e, "model test request failed");
-            if let Err(le) = db::upsert_proxy_log(&db, &make_log(
+            if let Err(le) = db::upsert_proxy_log(&db, make_log(
                 &format!("upstream error: {e}"), 0, 502, "", &format!("upstream error: {e}"), 0, 0,
             )).await {
                 tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");
@@ -924,7 +972,7 @@ async fn model_test(
             error: format!("HTTP {}", status),
         };
         tracing::warn!(command = "model_test", platform_id = platform.id, %status, "model test non-success upstream status");
-        if let Err(le) = db::upsert_proxy_log(&db, &make_log(
+        if let Err(le) = db::upsert_proxy_log(&db, make_log(
             &body, upstream_status_code, upstream_status_code,
             &upstream_resp_headers, &body, 0, 0,
         )).await {
@@ -948,7 +996,7 @@ async fn model_test(
         error: String::new(),
     };
 
-    if let Err(le) = db::upsert_proxy_log(&db, &make_log(
+    if let Err(le) = db::upsert_proxy_log(&db, make_log(
         &body, upstream_status_code, 200,
         &upstream_resp_headers, &body, in_tok, out_tok,
     )).await {
@@ -1067,6 +1115,29 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
     // Collect current group names for cleanup
     let group_names: std::collections::HashSet<String> = groups.iter().map(|g| g.name.clone()).collect();
 
+    // 默认通知 hook 物化（镜像 statusLine）：marker `_aidog_hooks.enabled` 为 true 时，
+    // 为每个分组 config 注入 hooks.Stop/Notification（strip marker 之前），并对 Codex
+    // 全局 config.toml 一次性注入/移除 notify。脚本只生成一次（循环外）。
+    let hooks_enabled = gateway::hooks::hooks_marker_enabled(&base_config);
+    let hook_scripts = if hooks_enabled {
+        let invoker = resolve_script_invoker(db).await;
+        match generate_hook_scripts(invoker) {
+            Ok(s) => Some(s),
+            Err(e) => {
+                tracing::warn!(error = %e, "generate hook scripts for default inject failed");
+                None
+            }
+        }
+    } else {
+        None
+    };
+    // N2：注入哪些 CC 事件（settings.per_event 中 enabled，回退默认精选集）。每组一致，循环外算一次。
+    let inject_events = if hooks_enabled {
+        enabled_hook_events(db).await
+    } else {
+        Vec::new()
+    };
+
     let mut written = Vec::new();
 
     for group in &groups {
@@ -1089,6 +1160,12 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
                     serde_json::Value::String(group_name.clone()),
                 );
             }
+        }
+
+        // 默认通知 hook 物化：marker 开启时为本组 config 注入 CC hooks（strip marker 之前）。
+        // N2：遍历 inject_events（enabled 事件）注入，每个指向通用脚本 command。
+        if let Some(scripts) = &hook_scripts {
+            gateway::hooks::inject_claude_code_hooks(&mut config, scripts, &inject_events);
         }
 
         // Strip internal aidog UI state — not real Claude Code fields.
@@ -1118,6 +1195,25 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
             Ok(None) => {}
             Err(e) => tracing::warn!(group = %group_name, error = %e, "codex profile sync failed"),
         }
+    }
+
+    // Codex notify（全局 config.toml，非 per-group）：marker 开启时一次性注入指向
+    // complete 脚本的 notify；关闭时移除 aidog notify。Codex 未装/读写失败仅记录、不中断。
+    match gateway::codex::codex_config_read() {
+        Ok(mut config) => {
+            match (&hook_scripts, hooks_enabled) {
+                (Some(scripts), true) => {
+                    gateway::hooks::inject_codex_notify(&mut config, &scripts.complete);
+                }
+                _ => {
+                    gateway::hooks::remove_codex_notify(&mut config);
+                }
+            }
+            if let Err(e) = gateway::codex::codex_config_write(config) {
+                tracing::warn!(error = %e, "codex notify sync write failed");
+            }
+        }
+        Err(e) => tracing::warn!(error = %e, "codex notify sync read failed"),
     }
 
     // Cleanup: remove settings files for deleted groups
@@ -1218,6 +1314,13 @@ async fn platform_usage_stats(platform_id: u64, db: State<'_, Db>) -> Result<gat
 async fn group_usage_stats(group_name: String, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
     tracing::debug!(command = "group_usage_stats", group_name = %group_name, "command invoked");
     gateway::db::get_group_usage_stats(&db, &group_name).await
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn all_group_usage_stats(db: State<'_, Db>) -> Result<std::collections::HashMap<String, gateway::models::PlatformUsageStats>, String> {
+    tracing::debug!(command = "all_group_usage_stats", "command invoked");
+    gateway::db::get_all_group_usage_stats(&db).await
 }
 
 #[tauri::command]
@@ -1429,23 +1532,413 @@ async fn notification_inbox_list(db: State<'_, Db>, limit: Option<i64>) -> Resul
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn notification_inbox_unread(db: State<'_, Db>) -> Result<i64, String> {
-    tracing::debug!(command = "notification_inbox_unread", "command invoked");
-    gateway::db::count_unread_notifications(&db).await
-}
-
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn notification_mark_read(db: State<'_, Db>, id: Option<i64>) -> Result<(), String> {
-    tracing::debug!(command = "notification_mark_read", id = ?id, "command invoked");
-    gateway::db::mark_notification_read(&db, id).await
-}
-
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn notification_clear(db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "notification_clear", "command invoked");
     gateway::db::clear_notifications(&db).await
+}
+
+// ─── Skills 管理 ───────────────────────────────────────────
+
+use gateway::skills::{
+    CachedSkills, CatalogEntry, SkillAgent, SkillScope, SkillsEnv, SkillsOpResult,
+};
+
+/// 探测 npx / node 环境（写操作前置）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_check_env() -> Result<SkillsEnv, String> {
+    tracing::debug!(command = "skills_check_env", "command invoked");
+    Ok(gateway::skills::check_env())
+}
+
+/// 读取上游代理设置并构造 npx/npm 用代理 URL（enabled → Some，否则 None）。
+/// 所有 skills npx / catalog 抓取命令复用此值注入代理，使 skill 下载/查询尊重上游代理。
+async fn skills_proxy_url(db: &State<'_, Db>) -> Option<String> {
+    let db_arc = Arc::new(db.inner().clone());
+    let settings = gateway::http_client::load_proxy_client_settings(&db_arc).await;
+    gateway::skills::proxy_env_url(&settings)
+}
+
+/// 浏览 catalog（HTTP 抓 skills.sh，回退 npx find）。尊重上游代理。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_browse_catalog(db: State<'_, Db>) -> Result<Vec<CatalogEntry>, String> {
+    tracing::debug!(command = "skills_browse_catalog", "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::browse_catalog(proxy.as_deref()).await)
+}
+
+/// 搜索 catalog。尊重上游代理。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_search(db: State<'_, Db>, keyword: String) -> Result<Vec<CatalogEntry>, String> {
+    tracing::debug!(command = "skills_search", keyword = %keyword, "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::search(&keyword, proxy.as_deref()).await)
+}
+
+/// 列指定 scope 下已装 skills —— **立即返回缓存**（内存→磁盘，命中即 0 子进程）。
+/// 冷启动（无缓存）返回空 + `stale=true`，前端据此显加载态并触发 `skills_list_refresh`。
+/// SWR 的 "stale" 半：不跑 npx，开页瞬间渲染。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_list_installed(scope: SkillScope) -> Result<CachedSkills, String> {
+    tracing::debug!(command = "skills_list_installed", "command invoked");
+    Ok(gateway::skills::list_cached(&scope))
+}
+
+/// 强制跑 `npx skills list --json`、更新内存+磁盘缓存、返回 fresh（`stale=false`）。尊重上游代理。
+/// SWR 的 "revalidate" 半：前端后台调用，完成后更新列表。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_list_refresh(db: State<'_, Db>, scope: SkillScope) -> Result<CachedSkills, String> {
+    tracing::debug!(command = "skills_list_refresh", "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::list_refresh(&scope, proxy.as_deref()))
+}
+
+/// 为某 agent 启用 skill（shell out `npx skills add <path> -a <slug> [-g] -y`）。
+/// `path` = skill 本地安装路径（前端传 `SkillInfo.installed_path`），不依赖锁文件 source。
+/// 启用可能触发 skill 下载 → 尊重上游代理。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_enable(
+    db: State<'_, Db>,
+    name: String,
+    path: String,
+    agent: SkillAgent,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_enable", name = %name, "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    let res = gateway::skills::enable(&name, &path, agent, &scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
+}
+
+/// 从 catalog 安装 skill 到多个 agent（shell out `npx skills add <id> -a <slug> -y`）。
+/// `id` = `owner/repo@skill`（CatalogEntry.id）。尊重上游代理。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_install(
+    db: State<'_, Db>,
+    id: String,
+    agents: Vec<SkillAgent>,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_install", id = %id, agents = ?agents, "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    let res = gateway::skills::install(&id, &agents, &scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
+}
+
+/// 列已装 skill 目录文件树（详情视图浏览，只读）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skill_detail(installed_path: String) -> Result<gateway::skills::SkillDetail, String> {
+    tracing::debug!(command = "skill_detail", path = %installed_path, "command invoked");
+    gateway::skills::detail(&installed_path)
+}
+
+/// 读 skill 内单文件（只读浏览）。带路径遍历防护 + 二进制检测 + 大小上限。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skill_read_file(
+    installed_path: String,
+    rel: String,
+) -> Result<gateway::skills::SkillFileContent, String> {
+    tracing::debug!(command = "skill_read_file", path = %installed_path, rel = %rel, "command invoked");
+    gateway::skills::read_file(&installed_path, &rel)
+}
+
+/// 为某 agent 关闭 skill（shell out `npx skills remove -s -a -y`）。尊重上游代理。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_disable(
+    db: State<'_, Db>,
+    name: String,
+    agent: SkillAgent,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_disable", name = %name, "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    let res = gateway::skills::disable(&name, agent, &scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
+}
+
+/// 组级 agent 批量：对某 source 组（group_source=None = 「其他」组）内所有 skill
+/// 统一启用/禁用某 agent。内部已 invalidate。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_set_group_agent(
+    db: State<'_, Db>,
+    group_source: Option<String>,
+    agent: SkillAgent,
+    enable: bool,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(
+        command = "skills_set_group_agent",
+        group_source = ?group_source,
+        agent = ?agent,
+        enable,
+        "command invoked"
+    );
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::set_group_agent(
+        group_source.as_deref(),
+        agent,
+        enable,
+        &scope,
+        proxy.as_deref(),
+    ))
+}
+
+/// 更新已装 skills（shell out `npx skills update`）。尊重上游代理（拉取更新）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_update(db: State<'_, Db>, scope: SkillScope) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_update", "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    let res = gateway::skills::update(&scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
+}
+
+/// 一键卸载当前 scope 下所有平台所有 skills（破坏性，前端二次确认）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_uninstall_all(db: State<'_, Db>, scope: SkillScope) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_uninstall_all", "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    let res = gateway::skills::uninstall_all(&scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
+}
+
+/// 卸载单一 skill（破坏性，前端二次确认）：删规范存储 + 所有 agent 启用配置。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_uninstall(
+    db: State<'_, Db>,
+    name: String,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_uninstall", "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    let result = gateway::skills::uninstall(&name, &scope, proxy.as_deref());
+    tracing::debug!(
+        command = "skills_uninstall",
+        name = %name,
+        scope = ?scope,
+        success = result.success,
+        stdout = %result.stdout.trim(),
+        stderr = %result.stderr.trim(),
+        "npx remove result",
+    );
+    if result.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(result)
+}
+
+/// 组级卸载：卸载某 source 分组（groupSource=null = 「其他」组）内所有 skill。
+/// 破坏性，前端二次确认。内部已 invalidate。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_uninstall_group(
+    db: State<'_, Db>,
+    group_source: Option<String>,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(
+        command = "skills_uninstall_group",
+        group_source = ?group_source,
+        "command invoked"
+    );
+    let proxy = skills_proxy_url(&db).await;
+    Ok(gateway::skills::uninstall_group(
+        group_source.as_deref(),
+        &scope,
+        proxy.as_deref(),
+    ))
+}
+
+/// 对齐两 agent 的 skills 启用配置（使 `to` 与 `from` 完全一致）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_align_agents(
+    db: State<'_, Db>,
+    from: SkillAgent,
+    to: SkillAgent,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_align_agents", "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    let res = gateway::skills::align_agents(from, to, &scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
+}
+
+/// 为某 agent 启用当前 scope 全部已装 skills（只增不减）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn skills_enable_all(
+    db: State<'_, Db>,
+    agent: SkillAgent,
+    scope: SkillScope,
+) -> Result<SkillsOpResult, String> {
+    tracing::debug!(command = "skills_enable_all", "command invoked");
+    let proxy = skills_proxy_url(&db).await;
+    let res = gateway::skills::enable_all(agent, &scope, proxy.as_deref());
+    if res.success {
+        gateway::skills::invalidate(&scope);
+    }
+    Ok(res)
+}
+
+// ─── MCP 管理 ─────────────────────────────────────────────
+
+/// 列出 DB 中所有 MCP server（env/headers 已脱敏）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_list(db: State<'_, Db>) -> Result<Vec<gateway::mcp::McpServerInfo>, String> {
+    tracing::debug!(command = "mcp_list", "command invoked");
+    let rows = gateway::db::list_mcp_servers(&db).await?;
+    Ok(rows.into_iter().map(gateway::mcp::McpServerInfo::from).collect())
+}
+
+/// 扫描 Claude Code + Codex 配置的所有 MCP，去重合并（env/headers 已脱敏）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_scan(db: State<'_, Db>) -> Result<Vec<gateway::mcp::McpScanItem>, String> {
+    tracing::debug!(command = "mcp_scan", "command invoked");
+    gateway::mcp::scan_all(&db).await
+}
+
+/// 批量导入 MCP（从 agent 配置取原值入 DB，enabled = source agent）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_import(
+    db: State<'_, Db>,
+    items: Vec<gateway::mcp::McpImportPayload>,
+) -> Result<gateway::mcp::ImportReport, String> {
+    tracing::debug!(command = "mcp_import", count = items.len(), "command invoked");
+    gateway::mcp::import_items(&db, items).await
+}
+
+/// per-agent 启用/禁用：改 DB enabled_agents + 同步写/删 agent 配置。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_set_agent(
+    db: State<'_, Db>,
+    name: String,
+    agent: String,
+    enabled: bool,
+) -> Result<(), String> {
+    tracing::debug!(command = "mcp_set_agent", name = %name, agent = %agent, enabled, "command invoked");
+    let agent = gateway::mcp::McpAgent::from_slug(&agent)
+        .ok_or_else(|| format!("unknown agent slug: {agent}"))?;
+    gateway::mcp::set_agent_enabled(&db, &name, agent, enabled).await
+}
+
+/// 删除 MCP：DB + 所有 enabled agent 配置（破坏性，前端二次确认）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_delete(db: State<'_, Db>, name: String) -> Result<(), String> {
+    tracing::debug!(command = "mcp_delete", name = %name, "command invoked");
+    gateway::mcp::delete_server(&db, &name).await
+}
+
+/// 手动添加 MCP：校验 name 唯一 → 入库（enabled 空，不写 agent 配置）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_add(
+    db: State<'_, Db>,
+    payload: gateway::mcp::McpUpdatePayload,
+) -> Result<gateway::mcp::McpServerInfo, String> {
+    tracing::debug!(command = "mcp_add", name = %payload.name, "command invoked");
+    gateway::mcp::add_server(&db, payload).await
+}
+
+/// 编辑 MCP：全字段更新（含改名/transport 切换）+ 同步 enabled agent 配置。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_update(
+    db: State<'_, Db>,
+    old_name: String,
+    payload: gateway::mcp::McpUpdatePayload,
+) -> Result<gateway::mcp::McpServerInfo, String> {
+    tracing::debug!(command = "mcp_update", old = %old_name, "command invoked");
+    gateway::mcp::update_server(&db, &old_name, payload).await
+}
+
+/// 重新同步全部：从 DB 全量重写所有 enabled agent 的 MCP 配置文件，
+/// 修复外部污染（如 env:null 致 Claude Code 跳过 server）。返回重写条数。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn mcp_resync(db: State<'_, Db>) -> Result<usize, String> {
+    tracing::debug!(command = "mcp_resync", "command invoked");
+    gateway::mcp::resync_all(&db).await
+}
+
+// ─── 导入导出子系统 ───────────────────────────────────────
+
+/// 导出：收集各 scope 数据 → 加密 → 写入用户选择路径。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn export_to_file(
+    db: State<'_, Db>,
+    scopes: Vec<String>,
+    path: String,
+) -> Result<(), String> {
+    tracing::debug!(command = "export_to_file", scopes = ?scopes, path = %path, "command invoked");
+    let mut payload = gateway::import_export::collect::collect(&db, &scopes).await?;
+    let bytes = payload.serialize_with_checksum()?;
+    let encrypted = gateway::import_export::encrypt(&bytes)?;
+    std::fs::write(&path, &encrypted).map_err(|e| format!("write export file: {e}"))?;
+    Ok(())
+}
+
+/// 导入预览：读文件 → 解密 → 校验 → 扫描冲突，返回前端弹窗所需信息。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn import_read_file(
+    db: State<'_, Db>,
+    path: String,
+) -> Result<gateway::import_export::ImportPreview, String> {
+    tracing::debug!(command = "import_read_file", path = %path, "command invoked");
+    let bytes = std::fs::read(&path).map_err(|e| format!("read import file: {e}"))?;
+    gateway::import_export::apply::preview(&bytes, &db).await
+}
+
+/// 导入应用：按用户决策写入 db + 文件 + skills。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn import_apply(
+    db: State<'_, Db>,
+    path: String,
+    decisions: Vec<gateway::import_export::ConflictDecision>,
+) -> Result<gateway::import_export::ImportReport, String> {
+    tracing::debug!(command = "import_apply", path = %path, decisions = decisions.len(), "command invoked");
+    let bytes = std::fs::read(&path).map_err(|e| format!("read import file: {e}"))?;
+    let plain = gateway::import_export::decrypt(&bytes)?;
+    let payload = gateway::import_export::Payload::from_bytes_verified(&plain)?;
+    gateway::import_export::apply::apply(payload, &decisions, &db).await
 }
 
 /// 测试通知：直接走分发逻辑（前端设置页"测试"按钮），不经 /api/notify 端点。
@@ -1465,7 +1958,44 @@ async fn notification_test(
     vars.insert("session".to_string(), "test-session".to_string());
     vars.insert("group".to_string(), "test".to_string());
     let db_arc = std::sync::Arc::new(db.inner().clone());
-    Ok(gateway::notification::dispatch(&db_arc, Some(&app), &notif_type, content.as_deref(), &vars).await)
+    Ok(gateway::notification::dispatch(&db_arc, Some(&app), None, &notif_type, content.as_deref(), &vars).await)
+}
+
+/// 仅测 TTS 通道（绕过 dispatch，按当前 settings.tts_backend 播报 text）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn notification_test_tts(
+    db: State<'_, Db>,
+    app: tauri::AppHandle,
+    text: String,
+) -> Result<(), String> {
+    tracing::debug!(command = "notification_test_tts", "command invoked");
+    let db_arc = std::sync::Arc::new(db.inner().clone());
+    let settings = gateway::db::get_notification_settings(&db_arc).await;
+    gateway::notification::speak(Some(&app), settings.tts_backend, &text);
+    Ok(())
+}
+
+/// 仅测系统弹窗通道（绕过 dispatch，直接调 tauri-plugin-notification）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn notification_test_popup(
+    app: tauri::AppHandle,
+    title: String,
+    body: String,
+) -> Result<(), String> {
+    tracing::debug!(command = "notification_test_popup", "command invoked");
+    gateway::notification::show_popup(&app, &title, &body);
+    Ok(())
+}
+
+/// 仅测系统提示音通道（跨平台 spawn system beep）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn notification_test_beep() -> Result<(), String> {
+    tracing::debug!(command = "notification_test_beep", "command invoked");
+    gateway::notification::play_beep();
+    Ok(())
 }
 
 // ─── Platform Quota (Balance & Coding Plan) ────────────────
@@ -1702,22 +2232,33 @@ async fn settings_list(scope: String, db: State<'_, Db>) -> Result<Vec<String>, 
 
 // ─── StatusLine Script Generation ──────────────────────────
 
-/// Generate statusline script file in ~/.aidog/ and return absolute path.
+/// Generate statusline script file in ~/.aidog/scripts/ and return the **command
+/// string** to invoke it (`uv run --script <path>` or `python3 <path>`).
 /// `script_type`: "statusline" | "subagent"
+///
+/// statusline 脚本现为 Python（PEP723，stdlib only；`content` 由前端 statusline-gen
+/// 拼成，内嵌渲染引擎，输出与旧 bash 逐字节一致——见 scripts/statusline-golden 回归）。
+/// 写 `aidog-statusline.py` / `aidog-subagent-statusline.py`，复用 ScriptInvoker
+/// 决定 command 串（与通知 hook 同机制）。迁移清理旧版 `.sh`（scripts/ 下 + ~/.aidog/ 根）。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-fn generate_statusline_script(
+async fn generate_statusline_script(
     script_type: String,
     content: String,
+    db: State<'_, Db>,
 ) -> Result<String, String> {
     tracing::debug!(command = "generate_statusline_script", script_type = %script_type, "command invoked");
-    let aidog_dir = aidog_data_dir()?;
-    let filename = if script_type == "subagent" {
-        "aidog-subagent-statusline.sh"
+    let scripts_dir = aidog_scripts_dir()?;
+    let (filename, legacy_sh) = if script_type == "subagent" {
+        ("aidog-subagent-statusline.py", "aidog-subagent-statusline.sh")
     } else {
-        "aidog-statusline.sh"
+        ("aidog-statusline.py", "aidog-statusline.sh")
     };
-    let path = aidog_dir.join(filename);
+    // 迁移清理：删除旧版 bash 脚本（~/.aidog/ 根 + scripts/ 下）。
+    cleanup_legacy_root_script(filename);
+    cleanup_legacy_root_script(legacy_sh);
+    cleanup_legacy_scripts_dir_file(&scripts_dir, legacy_sh);
+    let path = scripts_dir.join(filename);
     std::fs::write(&path, &content).map_err(|e| { tracing::error!(command = "generate_statusline_script", error = %e, "write script failed"); format!("write script: {e}") })?;
     #[cfg(unix)]
     {
@@ -1726,34 +2267,79 @@ fn generate_statusline_script(
         perms.set_mode(0o755);
         std::fs::set_permissions(&path, perms).map_err(|e| { tracing::error!(command = "generate_statusline_script", error = %e, "chmod script failed"); format!("chmod script: {e}") })?;
     }
-    Ok(path.to_string_lossy().to_string())
+    let invoker = resolve_script_invoker(&db).await;
+    Ok(invoker.command_for(&path.to_string_lossy()))
 }
 
 // ─── Notification Hook Integration (N2) ────────────────────
 
-/// 生成两个 hook 脚本到 ~/.aidog/（complete + waiting），chmod 755，返回绝对路径。
-fn generate_hook_scripts() -> Result<gateway::hooks::ScriptPaths, String> {
-    let aidog_dir = aidog_data_dir()?;
-    let write_script = |filename: &str, notif_type: &str| -> Result<String, String> {
-        let path = aidog_dir.join(filename);
-        let content = gateway::hooks::build_hook_script(notif_type);
-        std::fs::write(&path, &content).map_err(|e| format!("write hook script {filename}: {e}"))?;
+/// 生成 Python hook 脚本到 ~/.aidog/scripts/，chmod 755，清理旧版 ~/.aidog/*.sh，返回各自的
+/// **command 串**（`uv run --script <path>` 或 `python3 <path>`，由 `invoker` 决定）。
+/// - `complete`（task_complete）：**Codex notify 仍用**（agent-turn-complete 语义）。
+/// - `waiting`（waiting_input）：保留兼容。
+/// - `event_notify`（通用 aidog-notify.py）：N2 hook 事件通知，所有 CC 事件共用，读 stdin
+///   取 hook_event_name + 事件字段 POST `{event, vars}`（不传 type，后端按 per_event 解析）。
+fn generate_hook_scripts(
+    invoker: gateway::scripts::ScriptInvoker,
+) -> Result<gateway::hooks::ScriptPaths, String> {
+    let scripts_dir = aidog_scripts_dir()?;
+    let chmod755 = |path: &std::path::Path, filename: &str| -> Result<(), String> {
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
-            let mut perms = std::fs::metadata(&path)
+            let mut perms = std::fs::metadata(path)
                 .map_err(|e| format!("stat hook script {filename}: {e}"))?
                 .permissions();
             perms.set_mode(0o755);
-            std::fs::set_permissions(&path, perms)
+            std::fs::set_permissions(path, perms)
                 .map_err(|e| format!("chmod hook script {filename}: {e}"))?;
         }
-        Ok(path.to_string_lossy().to_string())
+        #[cfg(not(unix))]
+        let _ = (path, filename);
+        Ok(())
     };
+    let write_type_script = |filename: &str, legacy: &str, notif_type: &str| -> Result<String, String> {
+        let path = scripts_dir.join(filename);
+        let content = gateway::hooks::build_hook_script(notif_type);
+        std::fs::write(&path, &content).map_err(|e| format!("write hook script {filename}: {e}"))?;
+        chmod755(&path, filename)?;
+        // 迁移清理：删除 ~/.aidog/ 根下旧版 bash 脚本（避免残留）。
+        cleanup_legacy_root_script(legacy);
+        Ok(invoker.command_for(&path.to_string_lossy()))
+    };
+    // 通用事件脚本（N2）：读 stdin hook_event_name，无内插 type。
+    let event_path = scripts_dir.join(gateway::hooks::SCRIPT_EVENT_NOTIFY);
+    std::fs::write(&event_path, gateway::hooks::build_event_notify_script())
+        .map_err(|e| format!("write event notify script: {e}"))?;
+    chmod755(&event_path, gateway::hooks::SCRIPT_EVENT_NOTIFY)?;
+    let event_notify = invoker.command_for(&event_path.to_string_lossy());
+
+    // waiting 脚本已并入通用事件脚本（N2），不再生成；仅清理历史 ~/.aidog/*.sh 残留。
+    cleanup_legacy_root_script(gateway::hooks::LEGACY_SCRIPT_WAITING);
+
     Ok(gateway::hooks::ScriptPaths {
-        complete: write_script(gateway::hooks::SCRIPT_COMPLETE, "task_complete")?,
-        waiting: write_script(gateway::hooks::SCRIPT_WAITING, "waiting_input")?,
+        complete: write_type_script(
+            gateway::hooks::SCRIPT_COMPLETE,
+            gateway::hooks::LEGACY_SCRIPT_COMPLETE,
+            "task_complete",
+        )?,
+        event_notify,
     })
+}
+
+/// 从 NotificationSettings 解析 enabled 的 CC hook 事件名列表（用于注入遍历）。
+/// per_event 为空（旧配置/未配）时回退默认精选 ON 集，保证总开关开时有事件可注入。
+async fn enabled_hook_events(db: &Db) -> Vec<String> {
+    let settings = gateway::db::get_notification_settings(db).await;
+    if settings.per_event.is_empty() {
+        return gateway::models::DEFAULT_ON_EVENTS.iter().map(|s| s.to_string()).collect();
+    }
+    settings
+        .per_event
+        .iter()
+        .filter(|(_, es)| es.enabled)
+        .map(|(name, _)| name.clone())
+        .collect()
 }
 
 /// 把内置默认模板物化进 NotificationSettings.per_type[task_complete/waiting_input]（仅在缺失/空时填）。
@@ -1795,7 +2381,8 @@ async fn inject_hooks(
 ) -> Result<(), String> {
     tracing::debug!(command = "inject_hooks", group = %group, client = %client, "command invoked");
     let hook_client = gateway::hooks::HookClient::from_str(&client)?;
-    let scripts = generate_hook_scripts()?;
+    let invoker = resolve_script_invoker(&db).await;
+    let scripts = generate_hook_scripts(invoker)?;
     seed_default_templates(&db).await?;
 
     match hook_client {
@@ -1806,7 +2393,8 @@ async fn inject_hooks(
                 .filter(|v| v.is_object())
                 .unwrap_or_else(|| serde_json::from_str(include_str!("../defaults/settings.json"))
                     .unwrap_or(serde_json::Value::Object(Default::default())));
-            gateway::hooks::inject_claude_code_hooks(&mut config, &scripts);
+            let events = enabled_hook_events(&db).await;
+            gateway::hooks::inject_claude_code_hooks(&mut config, &scripts, &events);
             gateway::db::set_setting(&db, SetSettingInput {
                 scope: "global".to_string(),
                 key: "claude_code".to_string(),
@@ -1863,6 +2451,77 @@ async fn remove_hooks(
     Ok(())
 }
 
+/// 读取「默认为所有分组注入通知 hook」总开关状态（基线 `claude_code._aidog_hooks.enabled`）。
+/// 无基线配置时回退编译内默认（defaults/settings.json 默认开）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn get_default_hooks_enabled(db: State<'_, Db>) -> Result<bool, String> {
+    tracing::debug!(command = "get_default_hooks_enabled", "command invoked");
+    let config = gateway::db::get_setting(&db, "global", "claude_code").await
+        .ok().flatten()
+        .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
+        .unwrap_or_else(|| serde_json::from_str(include_str!("../defaults/settings.json"))
+            .unwrap_or(serde_json::Value::Object(Default::default())));
+    Ok(gateway::hooks::hooks_marker_enabled(&config))
+}
+
+/// 设置「默认为所有分组注入通知 hook」总开关：写基线 `claude_code._aidog_hooks.enabled`，
+/// re-sync 物化（开=全分组 CC hooks + Codex notify；关=全移除）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn set_default_hooks_enabled(
+    app: tauri::AppHandle,
+    db: State<'_, Db>,
+    enabled: bool,
+) -> Result<(), String> {
+    tracing::debug!(command = "set_default_hooks_enabled", enabled, "command invoked");
+    // 读基线 claude_code 配置（无则用编译内默认），设置 marker，回写。
+    let mut config = gateway::db::get_setting(&db, "global", "claude_code").await
+        .ok().flatten()
+        .filter(|v| v.is_object() && v.as_object().is_some_and(|o| !o.is_empty()))
+        .unwrap_or_else(|| serde_json::from_str(include_str!("../defaults/settings.json"))
+            .unwrap_or(serde_json::Value::Object(Default::default())));
+    if let Some(obj) = config.as_object_mut() {
+        obj.insert(
+            gateway::hooks::MARKER_HOOKS.to_string(),
+            serde_json::json!({ "enabled": enabled }),
+        );
+    }
+    gateway::db::set_setting(&db, SetSettingInput {
+        scope: "global".to_string(),
+        key: "claude_code".to_string(),
+        value: config,
+    }).await?;
+    // 开启时确保默认模板已物化（与 inject_hooks 行为一致）。
+    if enabled {
+        seed_default_templates(&db).await?;
+    }
+    let port = load_proxy_settings(&app).await?.port;
+    do_sync_group_settings(&db, port).await
+        .map_err(|e| { tracing::error!(command = "set_default_hooks_enabled", error = %e, "re-sync after set default hooks failed"); e })?;
+    Ok(())
+}
+
+/// 构造通知 hook 片段供前端 Hooks 编辑器并入草稿（只读式）。
+/// - 确保 notify 脚本已落盘 `~/.aidog/scripts/`（`generate_hook_scripts`）。
+/// - 在空对象上走 `inject_claude_code_hooks`，取出其 `hooks` 子对象
+///   （`{Stop:[...], Notification:[...]}`）返回。
+/// **不写 DB、不 sync**：物化由用户正常保存触发既有链路。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn build_notify_hooks_fragment(db: State<'_, Db>) -> Result<serde_json::Value, String> {
+    tracing::debug!(command = "build_notify_hooks_fragment", "command invoked");
+    let invoker = resolve_script_invoker(&db).await;
+    let scripts = generate_hook_scripts(invoker)?;
+    let events = enabled_hook_events(&db).await;
+    let mut config = serde_json::json!({});
+    gateway::hooks::inject_claude_code_hooks(&mut config, &scripts, &events);
+    Ok(config
+        .get("hooks")
+        .cloned()
+        .unwrap_or_else(|| serde_json::Value::Object(Default::default())))
+}
+
 // ─── Settings Persistence ──────────────────────────────────
 
 /// 统一数据目录：~/.aidog/
@@ -1871,6 +2530,131 @@ fn aidog_data_dir() -> Result<std::path::PathBuf, String> {
     let dir = home.join(".aidog");
     std::fs::create_dir_all(&dir).map_err(|e| format!("create ~/.aidog: {e}"))?;
     Ok(dir)
+}
+
+/// 生成脚本目录：~/.aidog/scripts/（hook / statusline 脚本统一存放，不再 ~/.aidog/ 根）。
+fn aidog_scripts_dir() -> Result<std::path::PathBuf, String> {
+    let dir = aidog_data_dir()?.join("scripts");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("create ~/.aidog/scripts: {e}"))?;
+    Ok(dir)
+}
+
+/// 删除 ~/.aidog/ 根下遗留的旧脚本文件（迁移到 scripts/ 后清理，避免残留 stale 路径）。
+/// best-effort：删除失败仅记录，不阻断。
+fn cleanup_legacy_root_script(filename: &str) {
+    if let Ok(root) = aidog_data_dir() {
+        let legacy = root.join(filename);
+        if legacy.exists() {
+            if let Err(e) = std::fs::remove_file(&legacy) {
+                tracing::warn!(file = %filename, error = %e, "cleanup legacy ~/.aidog script failed");
+            }
+        }
+    }
+}
+
+/// 删除 ~/.aidog/scripts/ 下遗留的旧脚本文件（statusline 由 .sh 迁 .py，清理同目录旧 .sh）。
+/// best-effort：删除失败仅记录，不阻断。
+fn cleanup_legacy_scripts_dir_file(scripts_dir: &std::path::Path, filename: &str) {
+    let legacy = scripts_dir.join(filename);
+    if legacy.exists() {
+        if let Err(e) = std::fs::remove_file(&legacy) {
+            tracing::warn!(file = %filename, error = %e, "cleanup legacy scripts/ .sh failed");
+        }
+    }
+}
+
+// ─── uv / python3 执行器探测与安装（R2/R4） ────────────────
+
+/// 探测 uv 是否可用（`uv --version` 成功退出）。无副作用，仅读环境。
+fn detect_uv() -> bool {
+    std::process::Command::new("uv")
+        .arg("--version")
+        .output()
+        .map(|o| o.status.success())
+        .unwrap_or(false)
+}
+
+/// 解析当前应使用的脚本执行器。
+///
+/// 优先用户持久化选择（`app/script_executor` = "uv" | "python3"）；未持久化时按 live
+/// 探测（uv 可用 → uv，否则 python3）。生成脚本 command 串时调用，保证 hook / statusline /
+/// codex 一致。
+async fn resolve_script_invoker(db: &Db) -> gateway::scripts::ScriptInvoker {
+    use gateway::scripts::ScriptInvoker;
+    if let Ok(Some(v)) = db::get_setting(db, "app", "script_executor").await {
+        if let Some(s) = v.as_str() {
+            return ScriptInvoker::from_setting(Some(s));
+        }
+    }
+    ScriptInvoker::from_uv_available(detect_uv())
+}
+
+/// 检测 uv 可用性（前端 uv 询问 modal 用）。返回 `true` 表示 uv 已安装。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+fn check_uv() -> Result<bool, String> {
+    tracing::debug!(command = "check_uv", "command invoked");
+    Ok(detect_uv())
+}
+
+/// 持久化用户的脚本执行器选择（"uv" | "python3"），供后续脚本生成读取，避免每次询问。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn set_script_executor(executor: String, db: State<'_, Db>) -> Result<(), String> {
+    tracing::debug!(command = "set_script_executor", executor = %executor, "command invoked");
+    // 经 ScriptInvoker 规范化（"uv" → uv，其余 → python3），保证存库值与解析一致。
+    let normalized = gateway::scripts::ScriptInvoker::from_setting(Some(&executor)).as_setting();
+    db::set_setting(&db, SetSettingInput {
+        scope: "app".to_string(),
+        key: "script_executor".to_string(),
+        value: serde_json::Value::String(normalized.to_string()),
+    }).await
+}
+
+/// 自动安装 uv（用户在 modal 选择「是」后调用）。
+///
+/// 走官方安装脚本 `curl -LsSf https://astral.sh/uv/install.sh | sh`（Unix）。
+/// 成功后持久化选择为 "uv"。Windows 暂不支持自动安装（返回错误，由前端引导手动）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn install_uv(db: State<'_, Db>) -> Result<bool, String> {
+    tracing::debug!(command = "install_uv", "command invoked");
+    if detect_uv() {
+        // 已安装 → 直接记录选择。
+        db::set_setting(&db, SetSettingInput {
+            scope: "app".to_string(),
+            key: "script_executor".to_string(),
+            value: serde_json::Value::String("uv".to_string()),
+        }).await?;
+        return Ok(true);
+    }
+
+    #[cfg(unix)]
+    {
+        let output = std::process::Command::new("sh")
+            .arg("-c")
+            .arg("curl -LsSf https://astral.sh/uv/install.sh | sh")
+            .output()
+            .map_err(|e| { tracing::error!(command = "install_uv", error = %e, "spawn uv installer failed"); format!("spawn uv installer: {e}") })?;
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            tracing::error!(command = "install_uv", stderr = %stderr, "uv install script failed");
+            return Err(format!("uv install failed: {}", stderr.trim()));
+        }
+        // 官方脚本装到 ~/.local/bin（或 ~/.cargo/bin）；detect_uv 依赖 PATH，可能本进程
+        // PATH 未含安装目录 → 这里以「脚本退出成功」为准记录选择，运行时 hook 由用户 shell PATH 解析 uv。
+        db::set_setting(&db, SetSettingInput {
+            scope: "app".to_string(),
+            key: "script_executor".to_string(),
+            value: serde_json::Value::String("uv".to_string()),
+        }).await?;
+        Ok(true)
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = &db;
+        Err("auto-install uv is only supported on Unix; please install uv manually".to_string())
+    }
 }
 
 #[tauri::command]
@@ -2632,6 +3416,8 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_fs::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_autostart::init(
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
@@ -2672,6 +3458,17 @@ pub fn run() {
             }
 
             app.manage(ProxyHandle(StdMutex::new(None)));
+
+            // 通知授权（①）：启动时请求一次系统通知权限。
+            // desktop 上 tauri-plugin-notification 为 no-op 返回 Granted（无害）；
+            // mobile 会真实弹原生授权框。失败仅 warn，不 panic、不阻塞启动。
+            {
+                use tauri_plugin_notification::NotificationExt;
+                match app.notification().request_permission() {
+                    Ok(state) => tracing::info!("notify: request_permission state={:?}", state),
+                    Err(e) => tracing::warn!(error = %e, "notify: request_permission failed"),
+                }
+            }
 
             // 系统托盘
             let menu = tauri::async_runtime::block_on(build_tray_menu(app.handle()))?;
@@ -2871,13 +3668,52 @@ pub fn run() {
             notification_settings_get,
             notification_settings_set,
             notification_inbox_list,
-            notification_inbox_unread,
-            notification_mark_read,
             notification_clear,
             notification_test,
+            notification_test_tts,
+            notification_test_popup,
+            notification_test_beep,
             // Notification Hook Integration (N2)
             inject_hooks,
             remove_hooks,
+            get_default_hooks_enabled,
+            set_default_hooks_enabled,
+            build_notify_hooks_fragment,
+            // 脚本执行器（uv / python3）
+            check_uv,
+            install_uv,
+            set_script_executor,
+            // Skills 管理
+            skills_check_env,
+            skills_browse_catalog,
+            skills_search,
+            skills_list_installed,
+            skills_list_refresh,
+            skills_enable,
+            skills_install,
+            skill_detail,
+            skill_read_file,
+            skills_disable,
+            skills_update,
+            skills_uninstall_all,
+            skills_uninstall,
+            skills_uninstall_group,
+            skills_align_agents,
+            skills_enable_all,
+            skills_set_group_agent,
+            // MCP 管理
+            mcp_list,
+            mcp_scan,
+            mcp_import,
+            mcp_set_agent,
+            mcp_delete,
+            mcp_update,
+            mcp_add,
+            mcp_resync,
+            // 导入导出子系统
+            export_to_file,
+            import_read_file,
+            import_apply,
             // App Logging
             app_log_settings_get,
             app_log_settings_set,
@@ -2899,6 +3735,7 @@ pub fn run() {
             // Platform Usage
             platform_usage_stats,
             group_usage_stats,
+            all_group_usage_stats,
             // Platform Quota
             platform_query_quota,
             platform_query_quota_newapi,
@@ -2915,6 +3752,8 @@ model_price_count_filtered,
             model_price_sync,
             price_sync_settings_get,
             price_sync_settings_set,
+            // About
+            about_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

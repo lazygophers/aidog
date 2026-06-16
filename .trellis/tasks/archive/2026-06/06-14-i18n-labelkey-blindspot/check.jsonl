@@ -1,0 +1,2 @@
+{"path":".trellis/spec/frontend/conventions.md","why":"i18n 规则验收基线"}
+{"path":"scripts/check-i18n.mjs","why":"D 检查 exit 0 验收"}

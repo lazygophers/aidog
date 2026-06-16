@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "改 editors.tsx HooksSectionInline + api.ts + i18n —— 组件/状态/API/类型/i18n 强制规则"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "新增 build_notify_hooks_fragment 是 Rust↔TS 契约，命令名/返回结构/类型须对齐"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "去重/合并复用 HooksSection 既有 syncHooks/matcher 结构，HooksSection 与 Inline 共享按钮逻辑"}
+{"file": ".trellis/spec/backend/index.md", "reason": "后端新增 Tauri command + 单测约定"}

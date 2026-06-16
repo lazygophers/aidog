@@ -14,8 +14,8 @@ html, body, #root {
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   font-size: 13px;
   color: var(--text-primary);
-  /* elevated 半透明叠在实色 bg-base 上 → 保持 elevated 灰调且 100% 不透明 */
-  background: linear-gradient(var(--bg-elevated), var(--bg-elevated)), var(--bg-base);
+  /* 浮层本体 100% 不透明 (liquidGlass 主题 bg-elevated 半透明, 浮层例外) */
+  background: var(--bg-floating);
   border: var(--glass-border);
   border-radius: var(--radius-lg, 20px);
   box-shadow: var(--shadow-lg);

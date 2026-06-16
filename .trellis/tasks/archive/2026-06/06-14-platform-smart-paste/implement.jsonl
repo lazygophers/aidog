@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "新增 utils 纯函数 + 弹窗组件 + Platforms.tsx 表单接线，须遵组件/状态/类型/i18n MUST 规则"}
+{"file": ".trellis/guides/code-reuse-rules.md", "reason": "新增 parsePlatformPaste util 前 grep 查 base64/url 抽取是否已有实现"}

@@ -25,6 +25,8 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
+    "licenseFile": "../LICENSE",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -32,5 +34,13 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ]
+  },
+  "plugins": {
+    "updater": {
+      "endpoints": [
+        "https://github.com/lazygophers/aidog/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEzNzIzOTUyQ0U0OTA5NEEKUldSS0NVbk9Vamx5RTNkL3VlaXkxelpvNDJkYUQ5OUFYZkJoWm5ZRktDeVFYMTN5WklRN090dUwK"
+    }
   }
 }

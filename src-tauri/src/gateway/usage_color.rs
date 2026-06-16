@@ -72,6 +72,11 @@ pub fn coding_tier_level(utilization: f64, remain_ms: Option<i64>, cycle_ms: Opt
         (Some(r), Some(c)) if c > 0 => (r as f64, c as f64),
         _ => return UsageLevel::Neutral,
     };
+    // 配额已耗尽（util≥100，剩余=0）→ 直接 Red。pace 算法衡量「按当前燃烧速度能否撑到周期末」，
+    // 但配额耗尽后该语义失效（已无可用，撑不撑得到无意义），按时间维度判绿会与现实矛盾。
+    if utilization >= 100.0 {
+        return UsageLevel::Red;
+    }
     let remain_pct = coding_remain_pct(utilization, remain, cycle);
     level_from_coding_remain_pct(remain_pct)
 }
@@ -184,6 +189,18 @@ mod tests {
         assert_eq!(coding_tier_level(50.0, None, Some(1000)), UsageLevel::Neutral);
         assert_eq!(coding_tier_level(50.0, Some(500), None), UsageLevel::Neutral);
         assert_eq!(coding_tier_level(-1.0, Some(500), Some(1000)), UsageLevel::Neutral);
+    }
+
+    #[test]
+    fn coding_depleted_is_red() {
+        // 配额耗尽（util≥100）→ Red，绕过 pace。weekly 剩 2d（elapsed≈0.71）按 pace 会判绿。
+        let cycle = 7 * 24 * 3_600_000; // weekly ms
+        let remain = 2 * 24 * 3_600_000; // 剩 2d
+        assert_eq!(coding_tier_level(100.0, Some(remain), Some(cycle)), UsageLevel::Red);
+        // 上溢（异常但不可用）也红
+        assert_eq!(coding_tier_level(150.0, Some(remain), Some(cycle)), UsageLevel::Red);
+        // 边界：99.9 仍走 pace（非本修复目标）
+        assert_ne!(coding_tier_level(99.9, Some(remain), Some(cycle)), UsageLevel::Red);
     }
 
     #[test]

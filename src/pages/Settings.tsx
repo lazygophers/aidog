@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { settingsApi, claudeSettingsImportApi, configApi, statuslineApi } from "../services/api";
 import { registerNavGuard } from "../utils/navGuard";
+import { deepMerge } from "../utils/deepMerge";
 import { UnsavedChangesModal } from "../components/settings/UnsavedChangesModal";
 import { SECTIONS, RECOMMENDED_CONFIG } from "../services/claude-settings-schema";
 import {
@@ -15,13 +16,13 @@ import {
   PluginsSectionInline,
   HooksSectionInline,
   StatusLineSection,
-  materializeStatusline,
   ImportDiffModal,
   buildImportDiffTree,
   isPlainObject,
   type DiffNode,
   type HooksConfig,
 } from "../components/settings/editors";
+import { materializeStatusline } from "../components/settings/statusline-gen";
 import { SettingsHeader } from "../components/settings/SettingsHeader";
 import { SectionAnchorNav } from "../components/settings/SectionAnchorNav";
 
@@ -46,8 +47,9 @@ function stableStringify(value: any): string {
 //   • disabled            → delete the native field
 //   • enabled + custom    → field = { type:"command", command:<customCommand> }
 //                           (empty command → delete the field)
-//   • enabled + builtin   → generate the bash script (writes the .sh file via
-//                           statuslineApi.generate) → field.command = <path>
+//   • enabled + builtin   → generate the Python script (writes the .py file via
+//                           statuslineApi.generate) → field.command = <invoker cmd>
+//                           (`uv run --script <path>` | `python3 <path>`)
 // Returns a NEW config object; the source is never mutated. Best-effort: a
 // generate() failure logs and leaves that field untouched, never blocks save.
 async function materializeStatuslineFields(
@@ -81,11 +83,12 @@ async function materializeStatuslineFields(
       continue;
     }
 
-    // Builtin → generate the script file, point the field at the returned path.
+    // Builtin → generate the script file, point the field at the returned
+    // invoker command string (`uv run --script <path>` | `python3 <path>`).
     if (m.scriptContent != null) {
       try {
-        const path = await statuslineApi.generate(scriptType, m.scriptContent);
-        const value: Record<string, any> = { type: "command", command: path };
+        const command = await statuslineApi.generate(scriptType, m.scriptContent);
+        const value: Record<string, any> = { type: "command", command };
         next[fieldName] = value;
       } catch (e) {
         // Never block the save — leave the existing field value as-is.
@@ -211,7 +214,7 @@ export function Settings() {
   }, [mode, editJson, config, t]);
 
   const handleLoadRecommended = () => {
-    const merged = { ...RECOMMENDED_CONFIG, ...config };
+    const merged = deepMerge(config, RECOMMENDED_CONFIG);
     setConfig(merged);
     setEditJson(JSON.stringify(merged, null, 2));
     setToast(t("settings.loadedRecommended"));
@@ -569,7 +572,7 @@ export function Settings() {
               spellCheck={false}
             />
             {saveError && (
-              <div style={{ fontSize: F.body, color: "#ff453a", marginTop: 12, wordBreak: "break-all" }}>
+              <div style={{ fontSize: F.body, color: "var(--color-danger)", marginTop: 12, wordBreak: "break-all" }}>
                 {saveError}
               </div>
             )}

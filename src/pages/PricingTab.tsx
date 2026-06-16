@@ -275,7 +275,7 @@ export function PricingTab() {
                       <span className="badge" style={{
                         fontSize: 10,
                         padding: "1px 6px",
-                        background: p.source === "manual" ? "var(--accent-dim, rgba(0,122,255,0.1))" : "var(--bg-secondary)",
+                        background: p.source === "manual" ? "var(--accent-subtle)" : "var(--bg-secondary)",
                         color: p.source === "manual" ? "var(--accent)" : "var(--text-secondary)",
                       }}>
                         {p.source}
