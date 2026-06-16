@@ -185,19 +185,52 @@ fn count_providers_json(json_path: &Path) -> Result<i64, String> {
 
 // ── 读取 ────────────────────────────────────────────────────
 
+/// 若 `path` 指向实存的 cc-switch 数据文件 → 直接定 source_type
+/// （`config.json`→json，否则 sqlite），返回 `(source_type, 文件路径)`。
+/// 缺省 / 指向目录 / 不存在 → `None`，由调用方走 `detect()` 探测。
+///
+/// 抽成纯函数：`read()` 收到的 path 语义是**文件路径**（前端只传
+/// `detect()` 返回的 `.db` / `config.json`），不应再无条件重跑 `detect()`——
+/// 后者把文件路径当目录 join 出 `…/cc-switch.db/cc-switch.db`，必然
+/// `exists()=false`，误报「配置未检测到」。
+fn direct_source_if_file(path: Option<&str>) -> Option<(String, String)> {
+    let raw = path?.trim();
+    if raw.is_empty() {
+        return None;
+    }
+    let p = expand_tilde(&PathBuf::from(raw));
+    if !p.is_file() {
+        return None;
+    }
+    let source_type = match p.file_name().and_then(|n| n.to_str()) {
+        // 与 detect() 的目录探测分类保持一致：config.json → json。
+        Some("config.json") => "json",
+        _ => "sqlite",
+    };
+    Some((source_type.to_string(), p.to_string_lossy().into_owned()))
+}
+
 pub async fn read(
     db: &Db,
     path: Option<String>,
 ) -> Result<CcswitchReadResult, String> {
-    let det = detect(path.clone()).await?;
-    if !det.found {
-        return Err(format!(
-            "cc-switch 配置未检测到（探测路径：{}）",
-            det.path.unwrap_or_default()
-        ));
-    }
-    let path_str = det.path.clone().unwrap_or_default();
-    let providers = match det.source_type.as_str() {
+    // path = 文件路径 → 直读（不重跑 detect，避开文件被当目录的错配）；
+    // 缺省 / 指向目录 / 文件不存在 → 探测后读。
+    let (source_type, path_str) = match direct_source_if_file(path.as_deref()) {
+        Some(direct) => direct,
+        None => {
+            let det = detect(path.clone()).await?;
+            if !det.found {
+                return Err(format!(
+                    "cc-switch 配置未检测到（探测路径：{}）",
+                    det.path.unwrap_or_default()
+                ));
+            }
+            (det.source_type, det.path.unwrap_or_default())
+        }
+    };
+
+    let providers = match source_type.as_str() {
         "sqlite" => read_sqlite(&PathBuf::from(&path_str))?,
         "json" => read_json(&PathBuf::from(&path_str))?,
         _ => Vec::new(),
@@ -207,7 +240,7 @@ pub async fn read(
     let existing_names: Vec<String> = existing.into_iter().map(|p| p.name).collect();
 
     Ok(CcswitchReadResult {
-        source_type: det.source_type,
+        source_type,
         path: path_str,
         providers,
         existing_platform_names: existing_names,
@@ -551,6 +584,60 @@ mod tests {
             parse_toml_kv("base_url = \"https://x.com\" # primary"),
             Some(("base_url".into(), "https://x.com".into()))
         );
+    }
+
+    #[test]
+    fn direct_source_file_path_not_treated_as_dir() {
+        // 回归：read() 收到的 path 是 detect 返回的 .db 文件路径。旧逻辑把它
+        // 当目录 join 出 `…/cc-switch.db/cc-switch.db`，exists()=false 误报
+        // 未检测到。直读路径必须把文件路径识别为 sqlite 源。
+        let dir = std::env::temp_dir().join(format!("aidog_ccsw_direct_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let db_file = dir.join("cc-switch.db");
+        std::fs::write(&db_file, b"").unwrap();
+
+        let got = direct_source_if_file(Some(&db_file.to_string_lossy()));
+        assert_eq!(
+            got,
+            Some(("sqlite".to_string(), db_file.to_string_lossy().into_owned()))
+        );
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn direct_source_classifies_config_json_as_json() {
+        let dir = std::env::temp_dir().join(format!("aidog_ccsw_json_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let json_file = dir.join("config.json");
+        std::fs::write(&json_file, b"{}").unwrap();
+
+        let got = direct_source_if_file(Some(&json_file.to_string_lossy()));
+        assert_eq!(
+            got,
+            Some(("json".to_string(), json_file.to_string_lossy().into_owned()))
+        );
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
+
+    #[test]
+    fn direct_source_returns_none_for_dir_or_missing_or_empty() {
+        // 目录路径 → None（须走 detect 探测目录内文件）。
+        let dir = std::env::temp_dir().join(format!("aidog_ccsw_none_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        assert_eq!(direct_source_if_file(Some(&dir.to_string_lossy())), None);
+
+        // 不存在路径 → None。
+        let missing = dir.join("nope.db");
+        assert_eq!(direct_source_if_file(Some(&missing.to_string_lossy())), None);
+
+        // 缺省 / 空串 → None。
+        assert_eq!(direct_source_if_file(None), None);
+        assert_eq!(direct_source_if_file(Some("")), None);
+        assert_eq!(direct_source_if_file(Some("   ")), None);
+
+        std::fs::remove_dir_all(&dir).ok();
     }
 }
 
