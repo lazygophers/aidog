@@ -71,3 +71,4 @@
 | ci-checkout-node24 | 升级 CI actions/checkout 到 Node 24 兼容版（消除 Node 20 deprecation） | — | 已完成 | 收尾 | 100% | — |
 | tray-column-dead-code | 清除 TrayColumn macOS 专属字段在非 macOS 的 dead_code warning | — | 已完成 | 收尾 | 100% | — |
 | release-ci-github-actions | 优化 release CI 减少 GitHub Actions 计费分钟 | — | 已完成 | 收尾 | 100% | — |
+| release-ci-cache-on-failure | release CI 失败也缓存 (cache-on-failure) | — | 已完成 | 收尾 | 100% | — |
