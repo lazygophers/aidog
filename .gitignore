@@ -50,3 +50,5 @@ doc_build/
 *.key
 .tauri-signing*
 .claude/worktrees/
+__pycache__/
+*.pyc
