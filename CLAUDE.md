@@ -57,8 +57,9 @@ src-tauri/src/
 
 ### Proxy 日志
 - ProxyLogSettings 控制 3 级记录：master switch / 用户原始请求 / 上游请求
+- `*_headers`（元数据，Authorization 已脱敏 `[REDACTED]`）始终入库、不受 log_user_request / log_upstream_request 开关控制；仅 `*_body`（prompt / 响应正文）受开关控制
 - 3 级 retention：user_request_retention_days(7d) / upstream_request_retention_days(7d) / retention_days(90d)
-- retention 清理只清空字段（UPDATE SET=''），不删行；retention_days 删整行
+- retention 清理只清空 `*_body` 字段（UPDATE SET=''），不删行，不清 headers；retention_days 删整行
 
 ### Group 统计
 - Group 卡片的 usage stats 按 `proxy_log.group_name` 聚合（后端 `get_group_usage_stats` in `db.rs` + command `group_usage_stats` in `lib.rs` + api `groupUsageApi.stats`），只含本分组请求，被多 group 共享的平台不重复计入。前端 Groups.tsx `fetchGroupStats` 对每个 group 调一次。

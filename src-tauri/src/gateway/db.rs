@@ -1999,9 +1999,11 @@ pub struct ProxyLogColumns {
 }
 
 impl ProxyLogColumns {
-    /// 由 `ProxyLog` 构造入库列快照。`strip_user` / `strip_upstream` 为 true 时
-    /// 对应字段就地清空（等价旧 upsert_log 的脱敏）；attempts 在此序列化一次。
-    /// 仅克隆 String 字段（入库本就需 owned 值），不克隆整 ProxyLog 结构。
+    /// 由 `ProxyLog` 构造入库列快照。
+    /// `*_headers` 字段（元数据，Authorization 已在上游脱敏为 `[REDACTED]`）始终入库，
+    /// 不受 `log_user_request` / `log_upstream_request` 开关控制；仅 `*_body`（prompt / 响应正文，
+    /// 含敏感内容）受 `strip_user` / `strip_upstream` 控制就地清空。
+    /// attempts 在此序列化一次。仅克隆 String 字段（入库本就需 owned 值），不克隆整 ProxyLog 结构。
     pub fn from_log(log: &super::models::ProxyLog, strip_user: bool, strip_upstream: bool) -> Self {
         let empty = String::new;
         ProxyLogColumns {
@@ -2012,16 +2014,16 @@ impl ProxyLogColumns {
             source_protocol: log.source_protocol.clone(),
             target_protocol: log.target_protocol.clone(),
             platform_id: log.platform_id as i64,
-            request_headers: if strip_user { empty() } else { log.request_headers.clone() },
+            request_headers: log.request_headers.clone(),
             request_body: if strip_user { empty() } else { log.request_body.clone() },
-            upstream_request_headers: if strip_upstream { empty() } else { log.upstream_request_headers.clone() },
+            upstream_request_headers: log.upstream_request_headers.clone(),
             upstream_request_body: if strip_upstream { empty() } else { log.upstream_request_body.clone() },
             response_body: log.response_body.clone(),
             request_url: log.request_url.clone(),
             upstream_request_url: log.upstream_request_url.clone(),
-            upstream_response_headers: if strip_upstream { empty() } else { log.upstream_response_headers.clone() },
+            upstream_response_headers: log.upstream_response_headers.clone(),
             upstream_status_code: log.upstream_status_code,
-            user_response_headers: if strip_user { empty() } else { log.user_response_headers.clone() },
+            user_response_headers: log.user_response_headers.clone(),
             user_response_body: if strip_user { empty() } else { log.user_response_body.clone() },
             status_code: log.status_code,
             duration_ms: log.duration_ms,
@@ -2290,14 +2292,15 @@ pub async fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> Result<(), Stri
         .map_err(|e| format!("cleanup proxy logs: {e}"))
 }
 
-/// Clear user request fields (headers, body, user response) for logs older than retention_days.
+/// Clear user request body fields for logs older than retention_days.
+/// `*_headers`（元数据，已脱敏）始终保留至行级 retention 删除；仅清 `*_body`（prompt / 响应正文）。
 /// Does NOT delete the log row — keeps token stats and metadata.
 pub async fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     db.0
         .call(move |conn| {
             conn.execute(
-                "UPDATE proxy_log SET request_headers = '', request_body = '', user_response_headers = '', user_response_body = '' WHERE created_at < ?1 AND (request_headers != '' OR request_body != '')",
+                "UPDATE proxy_log SET request_body = '', user_response_body = '' WHERE created_at < ?1 AND (request_body != '' OR user_response_body != '')",
                 params![cutoff],
             )?;
             Ok(())
@@ -2306,14 +2309,15 @@ pub async fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> Result
         .map_err(|e| format!("cleanup user request fields: {e}"))
 }
 
-/// Clear upstream request fields (headers, body, response headers) for logs older than retention_days.
+/// Clear upstream request body fields for logs older than retention_days.
+/// `*_headers`（元数据，已脱敏）始终保留至行级 retention 删除；仅清 `*_body`（上游请求 / 响应正文）。
 /// Does NOT delete the log row — keeps token stats and metadata.
 pub async fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     db.0
         .call(move |conn| {
             conn.execute(
-                "UPDATE proxy_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '' WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '')",
+                "UPDATE proxy_log SET upstream_request_body = '' WHERE created_at < ?1 AND upstream_request_body != ''",
                 params![cutoff],
             )?;
             Ok(())
@@ -4243,8 +4247,8 @@ decimals: None,
         assert_eq!(a, b, "渐进式累积写入整行字段须与全列 REPLACE 终态完全等价");
     }
 
-    /// strip(脱敏) 等价性：log_user_request/log_upstream_request 关时，渐进路径
-    /// 落库的脱敏字段须与旧路径(upsert_log 内 strip 后 REPLACE)一致(均清空对应列)。
+    /// strip(脱敏) 等价性：log_user_request/log_upstream_request 关时，仅 `*_body`
+    /// （prompt / 响应正文）被清空；`*_headers`（元数据，auth 已脱敏）始终保留。
     #[tokio::test]
     async fn progressive_columns_strip_equivalence() {
         let db = test_db().await;
@@ -4258,18 +4262,20 @@ decimals: None,
         log.upstream_request_body = "up-rb".into();
         log.upstream_response_headers = "up-resp-h".into();
 
-        // strip_user=true, strip_upstream=true → 对应 7 列清空。
+        // strip_user=true, strip_upstream=true → 仅 3 个 body 列清空，4 个 headers 列保留。
         let cols = ProxyLogColumns::from_log(&log, true, true);
         insert_proxy_log_columns(&db, cols).await.unwrap();
         let row = get_proxy_log(&db, "strip").await.unwrap().unwrap();
 
-        assert!(row.request_headers.is_empty());
+        // headers 始终记录（元数据，auth 已脱敏）。
+        assert_eq!(row.request_headers, "secret-h");
+        assert_eq!(row.user_response_headers, "ur-h");
+        assert_eq!(row.upstream_request_headers, "up-rh");
+        assert_eq!(row.upstream_response_headers, "up-resp-h");
+        // body 受开关控制 → 清空。
         assert!(row.request_body.is_empty());
-        assert!(row.user_response_headers.is_empty());
         assert!(row.user_response_body.is_empty());
-        assert!(row.upstream_request_headers.is_empty());
         assert!(row.upstream_request_body.is_empty());
-        assert!(row.upstream_response_headers.is_empty());
         // 非脱敏字段保留。
         assert_eq!(row.group_name, "grp");
         assert_eq!(row.model, "claude-sonnet-4");
