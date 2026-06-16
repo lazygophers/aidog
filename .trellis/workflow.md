@@ -182,6 +182,8 @@ Then run `task.py start <task-dir>` to flip status to in_progress.
 <!-- trellisx:start:planning -->
 trellisx 规划规约 (启用判定跟随 trellis 原生 parent/child 语义, 不看数量):
 
+⚙️ **规划产出派后台 agent**: 写 `prd.md`/`design.md`/`implement.md` 等实质产出**派 agent** (`run_in_background: true`) 完成 (经 `trellis-brainstorm` + `trellisx-orchestrate`), main 禁亲自写; 需求澄清问题由 agent 在返回标 `需要:`, main 用 `AskUserQuestion` 转达用户。产物评审 (`AskUserQuestion`) 由 main 亲做。
+
 判定: 本请求是否含**多个独立可验收交付** (各自可独立 plan/implement/check/archive)?
 - **是 (多交付)** → 拆为 parent + child tasks (trellis 原生 `task.py create --parent`)。每个 child 独立 worktree; PRD MUST 含 mermaid 调度图显式标并行组 + 依赖箭头; child 间依赖写进 child 自己的 prd.md/implement.md (非树位置隐含)。**执行统一由 `trellis-implement` 入口调度** (main 派 trellis-implement, 由其对各 subtask 派专用 subagent 并行执行), main 不直接派 subtask agent。
 - **否 (单一交付)** → 轻量单 task inline, **不强制拆 subtask**。仍走单 worktree 隔离。
@@ -224,25 +226,26 @@ Then run `task.py start <task-dir>` to flip status to in_progress.
 **Inline override** (per-turn only, escape hatch for sub-agent dispatch): the user's CURRENT message MUST explicitly contain one of: "do it inline" / "no sub-agent" / "你直接改" / "别派 sub-agent" / "main session 写就行" / "不用 sub-agent". **Without seeing one of these phrases you must NOT inline on your own**; do not invent an override the user never said.
 
 <!-- trellisx:start:in_progress -->
-⛔ trellisx 执行硬规（本 task 必守，违反即流程错误）：
+⛔ trellisx 执行硬规 (本 task 必守, 违反即流程错误):
 
-1. **强制 worktree**（两种模式都守）：本 task 全部源码改动 MUST 落在 worktree（git 根/子仓 .worktrees/<worktree>，trellis 生命周期 hook 已自动建）。**禁在主工作区写源码** — 写盘 file_path 必须是 worktree 路径。
-2. **实施派发模型（main → trellis-implement → 专用 subagent）**：进入实施，main **派一个 `trellis-implement` 子代理**执行实施阶段，**main 禁直接派 subtask agent、禁直接写源码**（只派 implement/check + 进度回传 + 合并）。`trellis-implement` 读 `implement.md`，**对每个 subtask 派专用 subagent（isolation:worktree）**；无依赖的 subtask MUST 在同一条回复里一次性发起多个 subagent 调用（真并行），禁逐个串行；严格按 implement.md / PRD 调度图依赖 + 并行组执行。trellis-implement 收拢全部 subtask 产物 → 交 `trellis-check`。循环：planning → trellis-implement → trellis-check → finish。
-3. **轻量模式**（单 subtask）：main 仍**派 `trellis-implement`**，由其在 worktree 内**内联直做**（无需再派 subagent），保持 planning → implement → check → finish 循环一致。**main 不绕过 implement 自己写源码**（仍守第 1 条：写盘路径在 worktree）。
-4. **强制闭环收尾（check 通过后跑 `trellisx-finish.py`，不停在「提醒」）**：`trellis-check` 通过后，AI **强制调用** `python3 .trellis/scripts/trellisx-finish.py [--message "<提交消息>"]` 一键收尾，不把收尾降级为"提醒用户运行 /finish-work" —— **finish 与 worktree 删除是必须的，非可选**。脚本按序自动执行（失败任一步非 0 退出，停下不静默继续）：
-   ① **worktree 内提交** —— `git add -A` + `git commit`（消息由 AI 经 `--message` 传入，缺省 `chore(task): <tid> 收尾提交`），落到 `trellisx-<name>` 分支。
-   ② **合并回主分支** —— `git merge --no-ff trellisx-<name>`；**合并冲突 → 脚本自动 `merge --abort` + 报冲突文件清单 + 非 0 退出**，AI 停下转手动，禁强解。**未合并就 archive = 分支被销毁丢提交**（见 `trellisx-worktree.py` 教训，故脚本先合并）。
-   ③ **archive** —— `task.py archive <tid>` 归档 + 触发 hook 销毁**已合并**的 worktree + 删分支。
-   - **commit 强制（owner 授权）**：本项目 owner 已显式要求 trellisx 流程**强制提交收尾**，脚本直接 commit 不再逐次等用户确认。AI 调用前用一行展示提交意图（消息 + 文件范围），但不阻塞等待。此为 owner 对自有注入流程的设计授权，覆盖默认「禁主动 commit」。
-   - **check 未过** → 修复重检，禁跑 finish 脚本；**未 archive = 流程未闭环，禁宣告 Done / 禁结束本轮**。
-   - 会话 journal 按需：脚本不含 journal，需要记录会话则收尾后另跑 `/trellis:finish-work`（可选）。
-5. **及时维护 task.md 看板**：start / 阶段推进（exec→check→finish）/ archive 后，MUST 用 `trellisx-workspace` 更新 `.trellis/task.md` 看板行（状态/阶段/进度/worktree）。看板滞后于实际 = 流程缺陷。
-6. 收每个 agent 返回立即回传用户进度；task archive 时 worktree 干净则自动销毁。
-7. **任务中途修正路由（执行中收到用户新指令）**：本 task 已在跑（agent/member 已派发）时收到新指令，coordinator 先判归属：
-   - **属当前任务**（修正 / 补充 / 细化已派交付）→ ⛔ 禁 main 自己直接改源码、禁开新 task。按序：① 先改对应**真值文档**（`prd.md` / `design.md` / `implement.md` 受影响条款，标锚点）→ ② 对**仍在跑**的目标 agent/member 用 `SendMessage` 下发修正（引用改后 PRD 锚点，令其就地纠偏，不等跑完返工）。**先改文档再通知**（PRD 是真值，agent 复读以对齐）。
-   - **独立新任务**（与当前交付无关）→ 走 no_task 强推 task（新建 / 排队），不打断当前 agent。
-   - **判不准** → 🔴 用 AskUserQuestion 让用户裁定「并入当前任务 / 另起新任务」，禁擅自二选一。
-   兜底：目标 agent 已完成 / workflow 模式无法中途 SendMessage → 改在 check 阶段按新 PRD 纠正，或停掉重派一个修正 agent；inline 单交付（无 running agent）→ main 改 PRD 后就地调整执行，跳过 SendMessage。
+0. **全程 agent + 后台异步 (最高优先级)**: main **禁直接落地任何实质工作** (写 prd/design/implement、改源码、跑 check、commit/archive) —— 一律派 agent 执行, 且 `run_in_background: true` **真异步** (main 不阻塞, agent 完成回调)。main 只做编排 + 用户交互决策 (`AskUserQuestion` 后台 agent 不能做) + 完成即时回传 + 看板维护。无依赖交付**同一回复一次性派多个后台 agent** (真并行)。每个 dispatch prompt 须 6 字段自包含 (目标/已知含 `Active task:`/范围/输出/验收/失败处理)。
+1. **强制 worktree** (两种模式都守): 本 task 全部源码改动 MUST 落在 worktree (git 根/子仓 .worktrees/<worktree>, trellis 生命周期 hook 已自动建)。**禁在主工作区写源码** — 写盘 file_path 必须是 worktree 路径。
+2. **实施派发模型 (main → trellis-implement → 专用 subagent, 全后台异步)**: 进入实施, main **派一个 `trellis-implement` 子代理** (`run_in_background: true`) 执行实施阶段, **main 禁直接派 subtask agent、禁直接写源码** (只派 implement/check + 进度回传 + 合并)。`trellis-implement` 读 `implement.md`, **对每个 subtask 派专用 subagent (isolation:worktree)**; 无依赖的 subtask MUST 在同一条回复里一次性发起多个 subagent 调用 (真并行), 禁逐个串行; 严格按 implement.md / PRD 调度图依赖 + 并行组执行。trellis-implement 收拢全部 subtask 产物 → 交 `trellis-check`。循环: planning → trellis-implement → trellis-check → finish。
+3. **轻量模式** (单 subtask): main 仍**派 `trellis-implement`** (`run_in_background: true`), 由其在 worktree 内**内联直做** (无需再派 subagent), 保持 planning → implement → check → finish 循环一致。**main 不绕过 implement 自己写源码** (仍守第 1 条: 写盘路径在 worktree)。
+4. **强制自动收尾 (check 通过后跑收尾, 全链自动, 不停在「提醒」)**: `trellis-check` 通过后, AI **强制收尾**, **两路任选其一, 都做全链** (commit→merge→del worktree→archive): ① `python3 .trellis/scripts/task.py finish` → `after_finish` hook 自动跑 `trellisx-finish.py`; ② `/trellis:finish-work` → apply 已注入它**先跑 `trellisx-finish.py` 全链再 journal** (修原生 archive-direct 绕 merge 丢提交)。不把收尾降级为"提醒用户" —— **合并与 worktree 删除是必须的, 非可选**:
+   ① **worktree 内提交** —— `git add -A` + `git commit` (缺省消息 `chore(task): <tid> 收尾提交`), 落到 `trellisx-<name>` 分支。
+   ② **合并回主分支** —— `git merge --no-ff trellisx-<name>`; **合并冲突 → 脚本自动 `merge --abort` + 报冲突文件清单 + 非 0 退出**。hook 失败仅 WARN, `task.py finish` 仍返 0 → AI **MUST 检 finish 输出有无 `trellisx-finish` 冲突告警**, 有则停下转手动, 禁强解 / 禁当成功。**未合并就 archive = 分支被销毁丢提交** (见 `trellisx-worktree.py` 教训, 故脚本先合并)。
+   ③ **archive** —— 链内 `task.py archive <tid>` 归档 + 触发 `after_archive` 销毁**已合并**的 worktree + 删分支。
+   - **commit 强制 (owner 授权)**: 本项目 owner 已显式要求 trellisx 流程**强制提交收尾**, 脚本直接 commit 不逐次等确认。此为 owner 对自有注入流程的设计授权, 覆盖默认「禁主动 commit」。
+   - **check 未过** → 修复重检, 禁跑 finish; **未 archive (worktree 仍在) = 流程未闭环, 禁宣告 Done / 禁结束本轮**。
+   - 手动兜底: 链路异常 → 直接跑 `trellisx-finish.py [--task <tid>]` (幂等可重入)。
+5. **及时维护 task.md 看板**: start / 阶段推进 (exec→check→finish) / archive 后, MUST 用 `trellisx-workspace` 更新 `.trellis/task.md` 看板行 (状态/阶段/进度/worktree)。看板滞后于实际 = 流程缺陷。
+6. 收每个 agent 返回立即回传用户进度; task archive 时 worktree 干净则自动销毁。
+7. **任务中途修正路由 (执行中收到用户新指令)**: 本 task 已在跑 (agent/member 已派发) 时收到新指令, coordinator 先判归属:
+   - **属当前任务** (修正 / 补充 / 细化已派交付) → ⛔ 禁 main 自己直接改源码、禁开新 task。按序: ① 先改对应**真值文档** (`prd.md` / `design.md` / `implement.md` 受影响条款, 标锚点) → ② 对**仍在跑**的目标 agent/member 用 `SendMessage` 下发修正 (引用改后 PRD 锚点, 令其就地纠偏, 不等跑完返工)。**先改文档再通知** (PRD 是真值, agent 复读以对齐)。
+   - **独立新任务** (与当前交付无关) → 走 no_task 强推 task (新建 / 排队), 不打断当前 agent。
+   - **判不准** → 🔴 用 AskUserQuestion 让用户裁定「并入当前任务 / 另起新任务」, 禁擅自二选一。
+   兜底: 目标 agent 已完成 / workflow 模式无法中途 SendMessage → 改在 check 阶段按新 PRD 纠正, 或停掉重派一个修正 agent; inline 单交付 (无 running agent) → main 改 PRD 后就地调整执行, 跳过 SendMessage。
 <!-- trellisx:end:in_progress -->
 [/workflow-state:in_progress]
 

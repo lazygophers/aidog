@@ -81,3 +81,4 @@
 | pricing-frontend | 前端 PricingTab 改造: 移除手动编辑/删除 + 加 max_tokens/context 列 + 文案 GitHub + api.ts + i18n 7 语言 | — | 已完成 | 收尾 | 100% | — |
 | max-tokens-cap | max_tokens 入站 parse(anthropic/gemini) + router 转换前裁剪(仅超上限裁, 未传不注入) | — | 已完成 | 收尾 | 100% | — |
 | blackhole | 熔断候选空回退透传(单平台不blackhole) | — | 已完成 | 收尾 | 100% | — |
+| stream-error-graceful-passthrough | stream-error-graceful-passthrough | — | 进行中 | 规划 | 0% | — |
