@@ -2905,7 +2905,6 @@ pub async fn upsert_model_price(
 
 /// 取模型最大输出 token（出站裁剪用）。列优先，NULL 时回退 price_data JSON。
 /// 返回 None = 未知/无限制（不裁剪）。
-#[allow(dead_code)] // 消费方: router.rs max_tokens 裁剪 (PR5)
 pub async fn get_model_max_output_tokens(db: &Db, model_name: &str) -> Result<Option<i64>, String> {
     let mp = get_model_price(db, model_name).await?;
     if let Some(m) = mp {
