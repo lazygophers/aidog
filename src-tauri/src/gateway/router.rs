@@ -97,6 +97,11 @@ pub async fn select_candidates_ctx(
     //    HalfOpen 平台限量放行（计入 active）。二者状态独立判定，互不改写。
     let mut active: Vec<&GroupPlatformDetail> = Vec::new();
     let mut probe: Vec<&GroupPlatformDetail> = Vec::new();
+    // 仅被「熔断」踢出的候选（区别于 auto_disabled / 手动 disabled 踢出的）暂存于此，
+    // 携带其 auto_state 以便回退时正确分桶。用于「候选全被熔断踢空 → 回退透传」：
+    // 熔断语义是在多个健康平台间择优摘坏，无可切目标时（单平台分组 / 多平台全坏）
+    // 不应制造空候选 blackhole（否则丢失上游真实 429/5xx + retry-after，客户端无法退避）。
+    let mut breaker_rejected: Vec<(&GroupPlatformDetail, Option<bool>)> = Vec::new();
     for gp in &group_platforms {
         // auto_disabled 维度（DB 持久态）
         let auto_state = candidate_state(&gp.platform, now_ms);
@@ -109,7 +114,11 @@ pub async fn select_candidates_ctx(
                 let (ft, os, hom) = c.settings.effective_thresholds(&gp.platform);
                 let th = BreakerThresholds { failure_threshold: ft, open_secs: os, half_open_max: hom };
                 match c.scheduler.admission(gp.platform.id, &th, now_ms, true) {
-                    Admission::Reject => continue, // 熔断 Open / HalfOpen 名额满 → 踢出
+                    Admission::Reject => {
+                        // 熔断 Open / HalfOpen 名额满 → 暂踢出，留作全空回退候选
+                        breaker_rejected.push((gp, auto_state));
+                        continue;
+                    }
                     Admission::Probe | Admission::Allow => {}
                 }
             }
@@ -118,6 +127,23 @@ pub async fn select_candidates_ctx(
             Some(false) => active.push(gp),
             Some(true) => probe.push(gp),
             None => {}
+        }
+    }
+
+    // ── 候选全被熔断踢空 → 回退透传 ──
+    // 仅当熔断维度踢空（active+probe 皆空）且确有被熔断踢出的候选时回退；
+    // 若空因 auto_disabled / 手动 disabled，则不回退（保持原 Err，下游返回路由错误）。
+    if active.is_empty() && probe.is_empty() && !breaker_rejected.is_empty() {
+        tracing::warn!(
+            group = %group.name, rejected = breaker_rejected.len(),
+            "all candidates circuit-broken; bypassing breaker to passthrough real upstream status"
+        );
+        for (gp, st) in breaker_rejected {
+            match st {
+                Some(false) => active.push(gp),
+                Some(true) => probe.push(gp),
+                None => {}
+            }
         }
     }
 
@@ -557,5 +583,60 @@ mod tests {
         assert_eq!(cap_max_tokens(Some(1_000_000), None), (Some(1_000_000), false));
         // 模型上限为 0（异常数据）→ 视作无限制不裁剪
         assert_eq!(cap_max_tokens(Some(100_000), Some(0)), (Some(100_000), false));
+    }
+
+    /// 单平台分组、唯一平台被熔断 Open 踢出 → 候选不应踢空 blackhole，
+    /// 而应回退忽略熔断重新纳入该平台，把上游真实状态码透传给客户端。
+    #[tokio::test]
+    async fn breaker_empty_falls_back_to_passthrough() {
+        let db = db::Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
+
+        // 建唯一平台 + 单平台分组关联
+        let p = db::create_platform(&db, CreatePlatform {
+            name: "GLM".into(),
+            platform_type: Protocol::Anthropic,
+            base_url: "https://example.invalid".into(),
+            api_key: "k".into(),
+            extra: String::new(),
+            models: None, available_models: None, endpoints: None, manual_budgets: None,
+        }).await.expect("create platform");
+        let g = db::create_group(&db, CreateGroup {
+            name: "single".into(), path: "single".into(),
+            routing_mode: RoutingMode::Failover,
+            auto_from_platform: String::new(),
+            request_timeout_secs: 0, connect_timeout_secs: 0,
+            source_protocol: Some("anthropic".into()),
+            max_retries: 2, model_mappings: vec![],
+        }).await.expect("create group");
+        db::set_group_platforms(&db, g.id, &[GroupPlatformInput {
+            platform_id: p.id, priority: Some(0), weight: Some(1),
+        }]).await.expect("set group platforms");
+
+        // 把唯一平台熔断 Open
+        let sched = SchedulerState::new();
+        let now = db::now();
+        let th = BreakerThresholds { failure_threshold: 1, open_secs: 1800, half_open_max: 2 };
+        sched.inc_inflight(p.id);
+        sched.record_failure(p.id, &th, now);
+        assert_eq!(sched.admission(p.id, &th, now, true), Admission::Reject);
+
+        let sticky = StickyTable::new();
+        let mut settings = SchedulingBreakerSettings::default();
+        settings.enabled = true; // 总开关开，否则熔断维度不参与
+        let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+        // 熔断踢空 → 回退：仍应返回该平台作为候选（而非 Err blackhole）
+        let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await;
+        let set = res.expect("breaker-empty must fall back to passthrough, not Err");
+        assert_eq!(set.candidates.len(), 1);
+        assert_eq!(set.candidates[0].platform.id, p.id);
+
+        // 对照：熔断总开关关 → 平台直接是健康候选（非回退路径），同样应有候选
+        let mut settings_off = SchedulingBreakerSettings::default();
+        settings_off.enabled = false;
+        let ctx_off = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings_off, sticky_key: None };
+        let set_off = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx_off)).await.expect("ok");
+        assert_eq!(set_off.candidates.len(), 1);
     }
 }
