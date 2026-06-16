@@ -91,6 +91,7 @@ const ICON_PATHS: Record<string, string> = {
   folder: "M3 7v10a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-6l-2-2H5a2 2 0 0 0-2 2Z",
   file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z M14 2v6h6",
   bolt: "M13 2L3 14h9l-1 8 10-12h-9l1-8Z",
+  backup: "M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9Z M12 7v5l3 2 M4.5 6.5h-2v2 M19.5 17.5h2v-2",
 };
 
 /** Render named SVG icon (16×16 by default) */

@@ -1619,6 +1619,39 @@ export const importExportApi = {
     invoke<ImportReport>("import_apply", { path, decisions }),
 };
 
+// ─── 定时备份 ───────────────────────────────────────────────
+
+/** 定时备份设置（字段 snake_case，与后端 BackupSettings 对齐）。 */
+export interface BackupSettings {
+  enabled: boolean;
+  /** 间隔小时，≥1。 */
+  interval_hours: number;
+  /** 保留天数，1..=90。 */
+  retention_days: number;
+  /** 上次成功备份 epoch 毫秒（0=从未），后端写。 */
+  last_backup_at: number;
+  /** 上次错误信息（空=成功），后端写。 */
+  last_backup_error: string;
+}
+
+/** 立即备份结果。 */
+export interface BackupResult {
+  ok: boolean;
+  path?: string;
+  error?: string;
+  timestamp: number;
+}
+
+export const backupApi = {
+  /** 读取定时备份设置（缺省/解析失败 → 后端默认）。 */
+  get: () => invoke<BackupSettings>("backup_settings_get"),
+  /** 写入设置（后端会 clamp 非法值，返回规范化后的值）。 */
+  set: (settings: BackupSettings) =>
+    invoke<BackupSettings>("backup_settings_set", { settings }),
+  /** 立即触发一次备份（忽略 throttle）。 */
+  runNow: () => invoke<BackupResult>("backup_run_now"),
+};
+
 // ─── About / 版本信息 ───────────────────────────────────────
 
 /** 关于页版本信息（字段 snake_case，与后端 AboutInfo 对齐）。 */

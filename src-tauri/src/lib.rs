@@ -1914,6 +1914,47 @@ async fn export_to_file(
     Ok(())
 }
 
+/// 读取定时备份设置 (缺省/解析失败 → 默认)。
+#[tauri::command]
+async fn backup_settings_get(db: State<'_, Db>) -> Result<gateway::backup::BackupSettings, String> {
+    tracing::debug!(command = "backup_settings_get", "command invoked");
+    Ok(gateway::backup::BackupSettings::load(&db).await.sanitized())
+}
+
+/// 写入定时备份设置 (前端勾选/改间隔/改保留天数)。
+#[tauri::command]
+async fn backup_settings_set(
+    db: State<'_, Db>,
+    settings: gateway::backup::BackupSettings,
+) -> Result<gateway::backup::BackupSettings, String> {
+    tracing::debug!(command = "backup_settings_set", "command invoked");
+    let sanitized = settings.sanitized();
+    sanitized.save(&db).await?;
+    Ok(sanitized)
+}
+
+/// 立即触发一次备份 (忽略 throttle; 失败返回 error, 前端 toast)。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn backup_run_now(db: State<'_, Db>) -> Result<gateway::backup::BackupResult, String> {
+    tracing::debug!(command = "backup_run_now", "command invoked");
+    let ts = chrono::Utc::now().timestamp_millis();
+    match gateway::backup::run_backup(&db).await {
+        Ok(path) => Ok(gateway::backup::BackupResult {
+            ok: true,
+            path: Some(path.to_string_lossy().to_string()),
+            error: None,
+            timestamp: ts,
+        }),
+        Err(e) => Ok(gateway::backup::BackupResult {
+            ok: false,
+            path: None,
+            error: Some(e),
+            timestamp: ts,
+        }),
+    }
+}
+
 /// 导入预览：读文件 → 解密 → 校验 → 扫描冲突，返回前端弹窗所需信息。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
@@ -3444,6 +3485,9 @@ pub fn run() {
 
             app.manage(ProxyHandle(StdMutex::new(None)));
 
+            // 定时备份调度器 (spawn_scheduler 内部 spawn 常驻 loop, 启动首次检查补「关机错过」)。
+            gateway::backup::spawn_scheduler(app.handle().clone());
+
             // 通知授权（①）：启动时请求一次系统通知权限。
             // desktop 上 tauri-plugin-notification 为 no-op 返回 Granted（无害）；
             // mobile 会真实弹原生授权框。失败仅 warn，不 panic、不阻塞启动。
@@ -3697,6 +3741,9 @@ pub fn run() {
             mcp_resync,
             // 导入导出子系统
             export_to_file,
+            backup_settings_get,
+            backup_settings_set,
+            backup_run_now,
             import_read_file,
             import_apply,
             // App Logging
