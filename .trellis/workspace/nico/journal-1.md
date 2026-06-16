@@ -598,3 +598,42 @@ Rspress 文档站升级：iOS 蓝品牌主题(globalStyles CSS 变量)+7 语言 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 18: 添加平台时选择分组（不建/加入指定）
+
+**Date**: 2026-06-17
+**Task**: platform-add-group-option
+**Branch**: `next`
+
+### Summary
+
+添加/编辑平台时用双复选控制分组归属：[创建默认分组](默认勾=旧行为) + [加入已有分组](chips 多选)；都不勾=平台游离、ensure 永不补建。覆盖手动添加 + cc-switch 导入(批量) + platform_update 编辑。持久化靠 Platform.auto_group 列（Migration 022, DEFAULT 1 老库不变）；ensure_platform_groups 按 auto_group 持久跳过。
+
+### Main Changes
+
+- **backend**: Platform.auto_group 字段 + Create/UpdatePlatform 入参(auto_group + join_group_ids)；migration 022 guarded ALTER；create/update/ensure 逻辑；新增 sync_platform_manual_groups helper(platform 维度全量同步，靠 group.auto_from_platform 区分手动/auto 组，auto 永不动)；抽 create_auto_group_for 复用。
+- **frontend**: api.ts 类型双写；Platforms.tsx 表单双复选 + 编辑态反查手动组(auto 组排除)；CcSwitchImport.tsx 批量选择器 + post-import 按名匹配 platform_update 回挂；i18n 8 语言 5 key。
+- **关键发现**: apply::apply 的 insert_platform_row 不设 auto_group(靠 DB DEFAULT 1)也不建 auto 组 → cc-switch 导入平台靠 ensure 后续补；故 cc-switch 组回挂走 post-import platform_update（非改 apply 路径）。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1b7d25d` | feat(platform): 添加平台时支持选择不建分组或加入指定分组 (backend) |
+| `e2cd9b2` | feat(platform): 添加平台时选择分组 (frontend 表单 + cc-switch 批量 + i18n) |
+
+### Testing
+
+- [OK] cargo test 328 passed (326 + 2 新: auto_group 持久化 + sync 全路径)
+- [OK] cargo clippy 0 lint (除已接受 block future-incompat)
+- [OK] tsc 0 error / vite build ✓ / check-i18n 零缺失
+- [pending] dev-app 手动验收留给用户
+
+### Status
+
+[OK] **Completed** — 自主 finish
+
+### Next Steps
+
+- None - task complete
