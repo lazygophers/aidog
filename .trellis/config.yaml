@@ -30,7 +30,8 @@ max_journal_lines: 2000
 #
 # Accepts: true / false / yes / no / 1 / 0 / on / off (case-insensitive).
 #
-# session_auto_commit: true
+# [trellisx] 强制闭环收尾依赖 archive 自动提交 (apply 注入)
+session_auto_commit: true
 
 #-------------------------------------------------------------------------------
 # Task Lifecycle Hooks
@@ -96,6 +97,8 @@ hooks:
   after_start:
     - "python3 .trellis/scripts/trellisx-worktree.py start"
     - "python3 .trellis/scripts/trellisx-taskmd.py sync start"
+  after_finish:
+    - "python3 .trellis/scripts/trellisx-finish.py"
   after_archive:
     - "python3 .trellis/scripts/trellisx-worktree.py archive"
     - "python3 .trellis/scripts/trellisx-taskmd.py sync archive"
