@@ -1007,6 +1007,39 @@ async fn handle_proxy_inner(
                 None
             }
         });
+
+    // ── UA 透传分支（[protocol-same-proto-passthrough] 扩展，PRD §5 级别 1）──
+    // 仅当 path 推断的入站协议在平台无任何对应 endpoint（matched_ep == None，
+    // 现状会落入 platform_type + ClientType::Default 有损兜底）时尝试：
+    // 按入站 User-Agent 推断客户端原生协议（claude-cli→anthropic / codex→openai_responses），
+    // 若平台确有该协议的 endpoint → matched_ep 改指向该 UA-endpoint，并以该协议为透传 wire 协议。
+    // UA 不识别 / 平台无该协议 endpoint → matched_ep 保持 None，回退现有兜底（零行为变更）。
+    // matched_ep 命中（path 已支持）时不介入。
+    let (matched_ep, passthrough_proto) = if matched_ep.is_none() {
+        let ua_proto = orig_headers
+            .get("user-agent")
+            .and_then(|v| v.to_str().ok())
+            .and_then(infer_passthrough_protocol_from_ua);
+        match ua_proto {
+            Some(p) => match route.platform.endpoints.iter().find(|ep| ep_proto(ep) == p) {
+                Some(ep) => {
+                    tracing::info!(
+                        platform = %route.platform.name, platform_id = route.platform.id,
+                        source_protocol = %source_protocol, ua_protocol = %p,
+                        "ua-passthrough: path protocol unsupported by platform, routing to UA-inferred endpoint"
+                    );
+                    (Some(ep), Some(p))
+                }
+                // UA 命中但平台无该协议 endpoint（级别 2）→ 回退现有兜底
+                None => (matched_ep, None),
+            },
+            // UA 不识别（级别 3）→ 回退现有兜底
+            None => (matched_ep, None),
+        }
+    } else {
+        (matched_ep, None)
+    };
+
     let (target_protocol_enum, target_base_url, client_type, coding_plan) = matched_ep
         .map(|ep| (&ep.protocol, ep.base_url.clone(), ep.client_type.clone(), ep.coding_plan))
         .unwrap_or((&route.platform.platform_type, route.platform.base_url.clone(), ClientType::Default, false));
@@ -1020,9 +1053,14 @@ async fn handle_proxy_inner(
     // 鉴权 / URL / coding_plan / usage 提取等旁路改写仍全部保留。
     // 注意：openai_responses→openai 的跨协议回退命中时 target_protocol != source_protocol，
     // 不算透传，仍走 convert_request（必须真转换）。
-    let same_protocol_passthrough = matched_ep
-        .map(|ep| ep_proto(ep) == source_protocol)
-        .unwrap_or(false);
+    // 透传判定：
+    // - 级别 0（现状）：端点协议精确等于 path 推断的 source_protocol。
+    // - 级别 1（UA 透传）：passthrough_proto == Some(p) 且端点协议等于 UA 推断协议 p
+    //   → 端点协议 == source_protocol 不成立（否则 matched_ep 在级别 0 已命中），故单独判定。
+    let same_protocol_passthrough = match passthrough_proto {
+        Some(p) => matched_ep.map(|ep| ep_proto(ep) == p).unwrap_or(false),
+        None => matched_ep.map(|ep| ep_proto(ep) == source_protocol).unwrap_or(false),
+    };
 
     // Upsert #3: route resolved
     log.actual_model = actual_model.clone();
@@ -2817,6 +2855,26 @@ fn detect_source_protocol(path: &str) -> String {
     }
 }
 
+/// 按入站 User-Agent 推断客户端"原生" wire 协议（仅用于 UA 透传分支，见 [protocol-same-proto-passthrough] 扩展）。
+///
+/// 复用现有出站合成 UA 的子串特征规则（`claude_code_ua` / `codex_ua`）应用到入站匹配：
+/// - 含 `claude-cli`（Claude Code CLI/VSCode/SDK/GhAction 全家族）→ `"anthropic"`
+/// - 含 `codex`（codex_cli_rs / Codex/ / codex desktop / codex-vscode 全家族）→ `"openai_responses"`
+/// - 其它（Cursor / Windsurf / gemini-cli / 未知 / 缺失）→ None（回退现有处理）
+///
+/// 大小写不敏感（Codex TUI UA 为 `Codex/...`，需匹配 `codex`）。返回的字面量与
+/// `detect_source_protocol` / `ep_proto` 产出的协议名一致，便于直接比对 endpoint。
+fn infer_passthrough_protocol_from_ua(ua: &str) -> Option<&'static str> {
+    let lower = ua.to_lowercase();
+    if lower.contains("claude-cli") {
+        Some("anthropic")
+    } else if lower.contains("codex") {
+        Some("openai_responses")
+    } else {
+        None
+    }
+}
+
 /// 在已取出的分组列表中按 group name 精确匹配，匹配不到再按 path 前缀匹配。
 /// 单次 list_groups → 同一 Vec 上跑两种匹配，避免热路径重复全表读 + 重复 mappings JSON 解析。
 /// 行为等价于原「先 name 后 path」优先级。
@@ -3518,6 +3576,75 @@ mod tests {
             .map(|p| format!("{:?}", p).to_lowercase() == "openai")
             .unwrap_or(false);
         assert!(!pass, "no matched endpoint must NOT passthrough");
+    }
+
+    // ── UA → 透传协议推断：claude-cli→anthropic / codex→openai_responses / 其它→None ──
+    #[test]
+    fn infer_passthrough_protocol_from_ua_mapping() {
+        use super::infer_passthrough_protocol_from_ua as infer;
+        // Claude Code 家族（全部含 claude-cli 前缀）
+        assert_eq!(infer("claude-cli/1.0.117 (external, cli)"), Some("anthropic"));
+        assert_eq!(infer("claude-cli/1.0.117 (external, claude-vscode, agent-sdk/0.1.30)"), Some("anthropic"));
+        // Codex 家族（codex_cli_rs / Codex/ / codex desktop / codex-vscode；大小写不敏感）
+        assert_eq!(infer("codex_cli_rs/0.38.0 (MacOS; arm64) Terminal"), Some("openai_responses"));
+        assert_eq!(infer("Codex/0.38.0"), Some("openai_responses"));
+        assert_eq!(infer("codex desktop/0.38.0"), Some("openai_responses"));
+        assert_eq!(infer("codex-vscode/0.38.0"), Some("openai_responses"));
+        // 不识别（Cursor / Windsurf / gemini-cli / 未知 / 空）→ None
+        assert_eq!(infer("Cursor/0.50.7"), None);
+        assert_eq!(infer("Windsurf/1.5.0"), None);
+        assert_eq!(infer("gemini-cli/0.1.0"), None);
+        assert_eq!(infer("curl/8.0"), None);
+        assert_eq!(infer(""), None);
+    }
+
+    // ── UA 透传三级回退分支判定（镜像插入点逻辑：matched_ep==None 时按 UA 推断）──
+    // 级别 1：UA 命中 + 平台有该协议 endpoint → 透传 wire = UA 协议。
+    // 级别 2：UA 命中 + 平台无该协议 endpoint → 回退（不透传）。
+    // 级别 3：UA 不识别 → 回退（不透传）。
+    #[test]
+    fn ua_passthrough_three_level_fallback() {
+        use super::infer_passthrough_protocol_from_ua as infer;
+        // 模拟平台端点协议集合（小写名）
+        let try_passthrough = |ua: &str, platform_protos: &[&str], source_matched: bool| -> Option<&'static str> {
+            // path 已被支持（source_matched=true）→ 不介入
+            if source_matched {
+                return None;
+            }
+            // matched_ep == None → 尝试 UA 推断
+            let p = infer(ua)?;
+            // 平台需确有该协议 endpoint
+            if platform_protos.contains(&p) {
+                Some(p)
+            } else {
+                None
+            }
+        };
+        // 级别 1：codex UA + 平台有 openai_responses → 透传该协议
+        assert_eq!(
+            try_passthrough("codex_cli_rs/0.38.0", &["openai_responses", "anthropic"], false),
+            Some("openai_responses")
+        );
+        // 级别 1：claude-cli + 平台有 anthropic → 透传 anthropic
+        assert_eq!(
+            try_passthrough("claude-cli/1.0.117 (external, cli)", &["anthropic"], false),
+            Some("anthropic")
+        );
+        // 级别 2：codex UA 但平台只有 openai（无 openai_responses）→ 回退
+        assert_eq!(
+            try_passthrough("codex_cli_rs/0.38.0", &["openai", "anthropic"], false),
+            None
+        );
+        // 级别 3：UA 不识别 → 回退
+        assert_eq!(
+            try_passthrough("Cursor/0.50.7", &["anthropic", "openai_responses"], false),
+            None
+        );
+        // 级别 0：path 已被平台支持（source_matched）→ 不介入，UA 不参与
+        assert_eq!(
+            try_passthrough("codex_cli_rs/0.38.0", &["openai_responses"], true),
+            None
+        );
     }
 
     // ── 透传 model remap：仅 patch model 字段，messages/tools 结构原样保留 ──
