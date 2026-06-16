@@ -27,6 +27,7 @@ import {
 import { useApp } from "../../context/AppContext";
 import { SectionIcon } from "./editors";
 import { IconCheck } from "../icons";
+import { CcSwitchImportSection } from "./CcSwitchImport";
 import { StatChip } from "../shared/StatChip";
 import type { ColorLevel } from "../shared/colorScale";
 
@@ -292,6 +293,9 @@ export function ImportExportTab() {
 
         {report && <ReportView report={report} t={t} scopeLabel={(s: string) => scopeLabel(t, s)} />}
       </section>
+
+      {/* ── 从 cc-switch 导入区（异源单向，仅 claude + codex provider）── */}
+      <CcSwitchImportSection onReport={(r) => { setReport(r); reloadFromDB().catch(() => {}); }} />
 
       <ScheduledBackupSection />
 

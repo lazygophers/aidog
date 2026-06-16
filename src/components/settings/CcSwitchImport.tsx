@@ -1,0 +1,587 @@
+// cc-switch 导入子模块 UI（ImportExport 第三块卡片）。
+// 检测 cc-switch 配置 → 读 providers（仅 claude + codex）→ 前端匹配回退链
+// → 选择性导入（级 1 provider 多选 + 级 2 维度 D1/D2/D4）→ 预览冲突 → 应用。
+//
+// 复用：
+// - 后端 ccswitchApi.detect/read/import（services/api.ts）。
+// - 前端 matchCcProvider + ccProviderToPlatformJson（utils/ccswitchMatch.ts）。
+// - 冲突 UI（ConflictRow + decisions Map，复用 ImportExport.tsx 既有模式）。
+// - 不新增 export scope，走 apply::apply 写入。
+
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
+import { open } from "@tauri-apps/plugin-dialog";
+import {
+  ccswitchApi,
+  type CcProvider,
+  type CcswitchDetection,
+  type ConflictItem,
+  type ConflictDecision,
+  type ImportDecision,
+  type ImportReport,
+  type Protocol,
+} from "../../services/api";
+import { matchCcProvider, ccProviderToPlatformJson, DEFAULT_DIMS, type CcImportDims } from "../../utils/ccswitchMatch";
+import { SectionIcon } from "./editors";
+import { IconCheck } from "../icons";
+import { StatChip } from "../shared/StatChip";
+import type { ColorLevel } from "../shared/colorScale";
+
+function protocolColor(matchedBy: string): ColorLevel {
+  switch (matchedBy) {
+    case "preset_keyword":
+      return "success";
+    case "base_url_host":
+      return "success";
+    default:
+      return "warning";
+  }
+}
+
+function matchBadgeKey(matchedBy: string, t: TFunction): string {
+  switch (matchedBy) {
+    case "preset_keyword":
+      return t("importExport.ccswitch.matched", "命中");
+    case "base_url_host":
+      return t("importExport.ccswitch.hostMatch", "host");
+    default:
+      return t("importExport.ccswitch.fallback", "回退");
+  }
+}
+
+export function CcSwitchImportSection({
+  onReport,
+}: {
+  onReport: (r: ImportReport) => void;
+}) {
+  const { t } = useTranslation();
+  const [detection, setDetection] = useState<CcswitchDetection | null>(null);
+  const [detecting, setDetecting] = useState(false);
+  const [providers, setProviders] = useState<CcProvider[]>([]);
+  const [existingNames, setExistingNames] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [dims, setDims] = useState<CcImportDims>({ ...DEFAULT_DIMS });
+  const [reading, setReading] = useState(false);
+  const [conflicts, setConflicts] = useState<ConflictItem[]>([]);
+  const [decisions, setDecisions] = useState<Map<string, ImportDecision>>(new Map());
+  const [importing, setImporting] = useState(false);
+  const [error, setError] = useState("");
+
+  const handleDetect = async (overridePath?: string) => {
+    setError("");
+    setDetecting(true);
+    try {
+      const d = await ccswitchApi.detect(overridePath);
+      setDetection(d);
+      if (d.found) {
+        await handleRead(d.path ?? undefined);
+      } else {
+        // 清空。
+        setProviders([]);
+        setExistingNames(new Set());
+        setSelected(new Set());
+        setConflicts([]);
+        setDecisions(new Map());
+      }
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setDetecting(false);
+    }
+  };
+
+  const handleRead = async (path?: string) => {
+    setError("");
+    setReading(true);
+    try {
+      const r = await ccswitchApi.read(path);
+      setProviders(r.providers);
+      setExistingNames(new Set(r.existingPlatformNames));
+      // 默认全选。
+      setSelected(new Set(r.providers.map((p) => p.id)));
+      setConflicts([]);
+      setDecisions(new Map());
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setReading(false);
+    }
+  };
+
+  const handlePickDir = async () => {
+    const picked = await open({ directory: true, multiple: false });
+    if (picked && typeof picked === "string") {
+      await handleDetect(picked);
+    }
+  };
+
+  const toggleProvider = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const decisionKey = (scope: string, key: string) => `${scope}::${key}`;
+
+  const setDecision = (c: ConflictItem, d: ImportDecision) => {
+    setDecisions((prev) => {
+      const next = new Map(prev);
+      next.set(decisionKey(c.scope, c.key), d);
+      return next;
+    });
+  };
+
+  /** 预览冲突：对选中 provider 做匹配 → 转 Platform JSON → 与现有 name diff。 */
+  const handlePreview = () => {
+    setError("");
+    const items: ConflictItem[] = [];
+    for (const p of providers) {
+      if (!selected.has(p.id)) continue;
+      if (existingNames.has(p.name)) {
+        items.push({
+          scope: "platform",
+          key: p.name,
+          existing_summary: t("importExport.ccswitch.conflictExisting", "已存在同名平台「{{name}}」", { name: p.name }),
+          incoming_summary: t("importExport.ccswitch.conflictIncoming", "导入将覆盖「{{name}}」配置", { name: p.name }),
+        });
+      }
+    }
+    setConflicts(items);
+    // 默认全部 overwrite。
+    const map = new Map<string, ImportDecision>();
+    for (const c of items) {
+      map.set(decisionKey(c.scope, c.key), { kind: "overwrite" });
+    }
+    setDecisions(map);
+  };
+
+  const handleImport = async () => {
+    setError("");
+    setImporting(true);
+    try {
+      // 构造 Platform JSON payload（仅选中的）。
+      const payload: Record<string, unknown>[] = [];
+      for (const p of providers) {
+        if (!selected.has(p.id)) continue;
+        const match = matchCcProvider(p);
+        const json = ccProviderToPlatformJson(p, match, dims);
+        // 应用 rename 决策（若用户选了 rename）。
+        const dk = decisionKey("platform", p.name);
+        const dec = decisions.get(dk);
+        if (dec?.kind === "rename") {
+          json.name = dec.new_key;
+        } else if (dec?.kind === "skip") {
+          continue;
+        }
+        payload.push(json);
+      }
+      if (payload.length === 0) {
+        setError(t("importExport.ccswitch.nothingSelected", "没有可导入的项（全部跳过或未选中）"));
+        return;
+      }
+      const ds: ConflictDecision[] = Array.from(decisions.entries()).map(([k, d]) => {
+        const [scope, key] = k.split("::");
+        return { scope, key, decision: d };
+      });
+      const r = await ccswitchApi.import(payload, ds);
+      onReport(r);
+      setConflicts([]);
+      setDecisions(new Map());
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const selectedCount = selected.size;
+  const conflictCount = conflicts.length;
+
+  return (
+    <section className="glass" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
+      <SectionHeaderSimple
+        icon="download"
+        title={t("importExport.ccswitch.title", "从 cc-switch 导入")}
+        desc={t(
+          "importExport.ccswitch.desc",
+          "读取本地 cc-switch 配置（仅 claude + codex provider），按 base_url 自动识别平台类型。选择性导入 + 冲突逐项决策。",
+        )}
+      />
+
+      {/* 检测 + 手动选目录 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <button
+          onClick={() => handleDetect()}
+          disabled={detecting || reading}
+          className="btn btn-primary"
+          style={{ padding: "7px 16px", fontSize: 13 }}
+        >
+          {detecting
+            ? t("importExport.ccswitch.detecting", "检测中…")
+            : t("importExport.ccswitch.detectBtn", "检测 cc-switch")}
+        </button>
+        <button
+          onClick={handlePickDir}
+          disabled={detecting || reading}
+          style={{
+            padding: "7px 14px", fontSize: 12, cursor: "pointer",
+            borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
+            background: "transparent", color: "var(--text-secondary)",
+          }}
+        >
+          {t("importExport.ccswitch.selectDir", "手动选择目录")}
+        </button>
+        {detection && detection.found && (
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <StatChip
+              value={String(detection.providerCount)}
+              label={t("importExport.ccswitch.providerCount", "个")}
+              level="success"
+            />
+            <code style={{ fontSize: 11, color: "var(--text-tertiary)", wordBreak: "break-all" }}>
+              {detection.path}
+            </code>
+          </div>
+        )}
+        {detection && !detection.found && (
+          <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+            {t("importExport.ccswitch.notDetected", "未检测到，可手动选择目录")}
+          </span>
+        )}
+      </div>
+
+      {/* provider 列表 + 维度勾选 */}
+      {providers.length > 0 && (
+        <>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+            <strong style={{ fontSize: 14, color: "var(--text-primary)" }}>
+              {t("importExport.ccswitch.providerList", "供应商列表")}
+            </strong>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <TextButtonSimple
+                onClick={() => setSelected(new Set(providers.map((p) => p.id)))}
+              >
+                {t("importExport.selectAll", "全选")}
+              </TextButtonSimple>
+              <TextButtonSimple onClick={() => setSelected(new Set())}>
+                {t("importExport.deselectAll", "反选")}
+              </TextButtonSimple>
+              <StatChip value={`${selectedCount}/${providers.length}`} label={t("importExport.selectedLabel", "已选")} level={selectedCount > 0 ? "success" : "neutral"} />
+            </div>
+          </div>
+
+          {/* 维度勾选条（级 2）*/}
+          <div style={{ display: "flex", alignItems: "center", gap: 16, padding: "8px 12px", borderRadius: "var(--radius-md)", background: "var(--bg-subtle)", flexWrap: "wrap" }}>
+            <DimCheckbox
+              checked={dims.d1}
+              onChange={(v) => setDims((d) => ({ ...d, d1: v }))}
+              label={t("importExport.ccswitch.dimPlatformType", "平台类型")}
+              hint={t("importExport.ccswitch.dimPlatformTypeHint", "含 endpoints")}
+              disabled
+            />
+            <DimCheckbox
+              checked={dims.d2}
+              onChange={(v) => setDims((d) => ({ ...d, d2: v }))}
+              label={t("importExport.ccswitch.dimModels", "模型映射")}
+              hint={t("importExport.ccswitch.dimModelsHint", "ANTHROPIC_MODEL / codex model")}
+            />
+            <DimCheckbox
+              checked={dims.d4}
+              onChange={(v) => setDims((d) => ({ ...d, d4: v }))}
+              label={t("importExport.ccswitch.dimApiKey", "密钥")}
+              hint={t("importExport.ccswitch.dimApiKeyHint", "api_key")}
+            />
+          </div>
+
+          {/* provider 行 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {providers.map((p) => {
+              const match = matchCcProvider(p);
+              const isConflict = existingNames.has(p.name);
+              const isSelected = selected.has(p.id);
+              return (
+                <ProviderRow
+                  key={p.id}
+                  provider={p}
+                  matchProtocol={match.protocol}
+                  matchLabel={match.matchedLabel}
+                  matchedBy={match.matchedBy}
+                  conflict={isConflict}
+                  selected={isSelected}
+                  onToggle={() => toggleProvider(p.id)}
+                  noKey={!p.detectedApiKey}
+                  t={t}
+                />
+              );
+            })}
+          </div>
+
+          {/* 预览 + 导入按钮 */}
+          <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <button
+              onClick={handlePreview}
+              disabled={selectedCount === 0}
+              style={{
+                padding: "7px 14px", fontSize: 13, cursor: "pointer",
+                borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
+                background: "transparent", color: "var(--text-primary)",
+                opacity: selectedCount === 0 ? 0.5 : 1,
+              }}
+            >
+              {t("importExport.ccswitch.preview", "预览冲突")}
+            </button>
+            <button
+              onClick={handleImport}
+              disabled={importing || selectedCount === 0}
+              className="btn btn-primary"
+              style={{ padding: "7px 16px", fontSize: 13 }}
+            >
+              {importing
+                ? t("importExport.applying", "导入中…")
+                : t("importExport.ccswitch.importBtn", "导入 {{n}} 项", { n: selectedCount })}
+            </button>
+          </div>
+        </>
+      )}
+
+      {/* 冲突列表 */}
+      {conflictCount > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <strong style={{ fontSize: 14, color: "var(--color-warning)" }}>
+            {t("importExport.conflicts", "冲突（{{n}} 项）", { n: conflictCount })}
+          </strong>
+          {conflicts.map((c) => {
+            const dk = decisionKey(c.scope, c.key);
+            const cur = decisions.get(dk) || { kind: "overwrite" };
+            return (
+              <ConflictRowSimple
+                key={dk}
+                item={c}
+                current={cur}
+                onChange={(d) => setDecision(c, d)}
+                t={t}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {error && (
+        <div
+          style={{
+            padding: "8px 12px", fontSize: 12, borderRadius: "var(--radius-md)",
+            color: "var(--color-danger)", background: "var(--color-danger-bg)",
+            border: "1px solid var(--color-danger)",
+          }}
+        >
+          {error}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─── 子组件 ─────────────────────────────────────────────────
+
+function SectionHeaderSimple({ icon, title, desc }: { icon: string; title: string; desc: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <SectionIcon name={icon} size={18} style={{ color: "var(--accent)" }} />
+        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "var(--text-primary)" }}>{title}</h3>
+      </div>
+      <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{desc}</p>
+    </div>
+  );
+}
+
+function TextButtonSimple({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      style={{
+        background: "transparent", border: "none", color: "var(--accent)",
+        fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0,
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
+function DimCheckbox({
+  checked,
+  onChange,
+  label,
+  hint,
+  disabled,
+}: {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  label: string;
+  hint?: string;
+  disabled?: boolean;
+}) {
+  return (
+    <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: disabled ? "default" : "pointer", opacity: disabled ? 0.7 : 1 }}>
+      <input
+        type="checkbox"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        style={{ display: "none" }}
+      />
+      <span
+        style={{
+          width: 16, height: 16, borderRadius: 4,
+          border: `1px solid ${checked ? "var(--accent)" : "var(--border-default)"}`,
+          background: checked ? "var(--accent)" : "transparent",
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+        }}
+      >
+        {checked && <IconCheck size={11} color="#fff" strokeWidth={2.5} />}
+      </span>
+      <span style={{ fontSize: 13, color: "var(--text-primary)", fontWeight: 500 }}>{label}</span>
+      {hint && <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{hint}</span>}
+    </label>
+  );
+}
+
+function ProviderRow({
+  provider,
+  matchProtocol,
+  matchLabel,
+  matchedBy,
+  conflict,
+  selected,
+  onToggle,
+  noKey,
+  t,
+}: {
+  provider: CcProvider;
+  matchProtocol: Protocol;
+  matchLabel?: string;
+  matchedBy: string;
+  conflict: boolean;
+  selected: boolean;
+  onToggle: () => void;
+  noKey: boolean;
+  t: TFunction;
+}) {
+  const badgeLevel = protocolColor(matchedBy);
+  return (
+    <div
+      className="glass-surface"
+      role="button"
+      tabIndex={0}
+      onClick={onToggle}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          onToggle();
+        }
+      }}
+      style={{
+        padding: 12, borderRadius: "var(--radius-md)", cursor: "pointer",
+        border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
+        background: selected ? "var(--accent-subtle)" : "transparent",
+        display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap",
+      }}
+    >
+      <span
+        style={{
+          width: 18, height: 18, borderRadius: "50%",
+          display: "inline-flex", alignItems: "center", justifyContent: "center",
+          border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
+          background: selected ? "var(--accent)" : "transparent",
+          flexShrink: 0,
+        }}
+      >
+        {selected && <IconCheck size={12} color="#fff" strokeWidth={2.5} />}
+      </span>
+      <span style={{ fontSize: 11, color: "var(--text-tertiary)", textTransform: "uppercase" }}>
+        {provider.appType}
+      </span>
+      <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13 }}>{provider.name}</span>
+      <StatChip value={matchLabel ?? matchProtocol} label={matchBadgeKey(matchedBy, t)} level={badgeLevel} />
+      {provider.detectedBaseUrl && (
+        <code style={{ fontSize: 11, color: "var(--text-tertiary)", wordBreak: "break-all" }}>
+          {provider.detectedBaseUrl}
+        </code>
+      )}
+      {conflict && (
+        <StatChip value={t("importExport.ccswitch.conflict", "冲突")} label="" level="danger" />
+      )}
+      {noKey && (
+        <StatChip value={t("importExport.ccswitch.noKey", "无密钥")} label="" level="warning" />
+      )}
+    </div>
+  );
+}
+
+function ConflictRowSimple({
+  item,
+  current,
+  onChange,
+  t,
+}: {
+  item: ConflictItem;
+  current: ImportDecision;
+  onChange: (d: ImportDecision) => void;
+  t: TFunction;
+}) {
+  const isRename = current.kind === "rename";
+  return (
+    <div
+      className="glass-surface"
+      style={{
+        padding: 12, borderRadius: "var(--radius-md)",
+        border: "1px solid var(--border)",
+        display: "flex", flexDirection: "column", gap: 8,
+      }}
+    >
+      <span style={{ fontWeight: 600, color: "var(--text-primary)", fontSize: 13, wordBreak: "break-all" }}>
+        {item.key}
+      </span>
+      <div style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{item.existing_summary}</div>
+      <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+        {(["overwrite", "skip", "rename"] as const).map((kind, i) => {
+          const active = current.kind === kind;
+          const labelKey = kind === "overwrite" ? "importExport.overwrite" : kind === "skip" ? "importExport.skip" : "importExport.rename";
+          const defaultLabel = kind === "overwrite" ? "覆盖" : kind === "skip" ? "跳过" : "重命名";
+          return (
+            <button
+              key={kind}
+              onClick={() => {
+                if (kind === "rename") onChange({ kind: "rename", new_key: item.key + "-imported" });
+                else onChange({ kind });
+              }}
+              style={{
+                padding: "5px 12px", fontSize: 12, fontWeight: active ? 600 : 500, cursor: "pointer",
+                border: "none",
+                borderLeft: i > 0 ? "1px solid var(--border)" : "none",
+                background: active ? "var(--accent-subtle)" : "transparent",
+                color: active ? "var(--accent)" : "var(--text-secondary)",
+              }}
+            >
+              {t(labelKey, defaultLabel)}
+            </button>
+          );
+        })}
+        {isRename && (
+          <input
+            className="input"
+            type="text"
+            value={(current as { kind: "rename"; new_key: string }).new_key}
+            onChange={(e) => onChange({ kind: "rename", new_key: e.target.value })}
+            style={{ width: 220 }}
+          />
+        )}
+      </div>
+    </div>
+  );
+}

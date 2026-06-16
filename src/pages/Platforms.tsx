@@ -12,9 +12,9 @@ import { pinyinMatch } from "../utils/pinyin";
 import { SmartPasteModal, type SmartPasteApplyResult } from "../components/platforms/SmartPasteModal";
 
 /** 支持的协议选项（含 coding plan 变体） */
-type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[] };
+export type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[] };
 
-const PROTOCOLS: ProtocolOption[] = [
+export const PROTOCOLS: ProtocolOption[] = [
   // ── 官方 ──
   { value: "anthropic", label: "Anthropic（Claude）", keywords: ["claude", "克劳德", "官方"] },
   { value: "openai", label: "OpenAI", keywords: ["gpt", "chatgpt", "官方"] },
@@ -147,7 +147,7 @@ function healthStatus(recentTotal: number, recentFailures: number): HealthStatus
 
 /** 根据 ProtocolOption 生成默认端点（含 coding_plan 标记）
  *  数据来源：cc-switch 各平台官方配置 */
-function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): PlatformEndpoint[] {
+export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): PlatformEndpoint[] {
   const cp = !!codingPlan;
   const base: Partial<Record<Protocol, PlatformEndpoint[]>> = {
     // ── 官方 ──
