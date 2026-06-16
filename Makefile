@@ -1,48 +1,3 @@
-.DEFAULT_GOAL := help
-
-# === Config ===
-PRODUCT_NAME := AiDog
-TAURI_DIR    := src-tauri
-
-# === Colors ===
-CYAN  := \033[36m
-GREEN := \033[32m
-BOLD  := \033[1m
-RESET := \033[0m
-
-##@ Development
-
-.PHONY: run
-run: ## Start dev server with hot reload (frontend + Rust HMR)
-	@printf "$(GREEN)▶ Starting Tauri dev server...$(RESET)\n"
-	cargo tauri dev
-
-.PHONY: dev-frontend
-dev-frontend: ## Start only the frontend dev server (Vite HMR)
-	@printf "$(GREEN)▶ Starting Vite dev server...$(RESET)\n"
-	yarn dev
-
-##@ Build
-
-.PHONY: release
-release: ## Build release bundle for current platform
-	@printf "$(GREEN)▶ Building $(PRODUCT_NAME) release...$(RESET)\n"
-	cargo tauri build
-	@printf "$(CYAN)✓ Release artifacts:$(RESET)\n"
-	@ls -lh $(TAURI_DIR)/target/release/bundle/ 2>/dev/null || true
-
-.PHONY: release-dmg
-release-dmg: ## Build macOS .dmg only
-	@printf "$(GREEN)▶ Building macOS DMG...$(RESET)\n"
-	cargo tauri build --bundles dmg
-	@ls -lh $(TAURI_DIR)/target/release/bundle/dmg/ 2>/dev/null || true
-
-.PHONY: release-msi
-release-msi: ## Build Windows .msi only (cross-compile)
-	@printf "$(GREEN)▶ Building Windows MSI...$(RESET)\n"
-	cargo tauri build --bundles msi --target x86_64-pc-windows-msvc
-	@ls -lh $(TAURI_DIR)/target/x86_64-pc-windows-msvc/release/bundle/msi/ 2>/dev/null || true
-
 ##@ Maintenance
 
 .PHONY: check
@@ -66,6 +21,13 @@ clean: ## Remove build artifacts
 .PHONY: install
 install: ## Install frontend dependencies
 	yarn install
+
+##@ Pricing
+
+.PHONY: prices-sync
+prices-sync: ## Sync model prices/max_tokens → data/models.json (single entry, runs all platform scrapers)
+	@printf "$(GREEN)▶ Aggregating model pricing → data/models.json...$(RESET)\n"
+	cd scripts/pricing && uv run python aggregate.py
 
 ##@ Help
 
