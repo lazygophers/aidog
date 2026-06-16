@@ -6,6 +6,7 @@ on:
     branches: [master]
     paths:
       - ".version"
+      - ".github/workflows/release.yml"
   workflow_dispatch:
 
 permissions:
