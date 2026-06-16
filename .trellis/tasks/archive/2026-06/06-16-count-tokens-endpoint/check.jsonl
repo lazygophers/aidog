@@ -1,0 +1,1 @@
+{"file": ".trellis/tasks/06-16-count-tokens-endpoint/prd.md", "reason": "第5节验收标准(6条可测)+第6节影响面(零回归约束:不改 converter passthrough_api_path/convert_request,前置分流隔离)。check 比对依据。"}
