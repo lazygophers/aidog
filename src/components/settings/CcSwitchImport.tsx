@@ -14,6 +14,8 @@ import type { TFunction } from "i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
   ccswitchApi,
+  platformApi,
+  groupDetailApi,
   type CcProvider,
   type CcswitchDetection,
   type ConflictItem,
@@ -21,6 +23,7 @@ import {
   type ImportDecision,
   type ImportReport,
   type Protocol,
+  type GroupDetail,
 } from "../../services/api";
 import { matchCcProvider, ccProviderToPlatformJson, DEFAULT_DIMS, type CcImportDims } from "../../utils/ccswitchMatch";
 import { SectionIcon } from "./editors";
@@ -67,6 +70,10 @@ export function CcSwitchImportSection({
   const [decisions, setDecisions] = useState<Map<string, ImportDecision>>(new Map());
   const [importing, setImporting] = useState(false);
   const [error, setError] = useState("");
+  // 批量分组归属（作用于本次导入的全部平台）：默认建默认分组 = 现行行为。
+  const [batchAutoGroup, setBatchAutoGroup] = useState(true);
+  const [batchJoinGroupIds, setBatchJoinGroupIds] = useState<number[]>([]);
+  const [groupDetails, setGroupDetails] = useState<GroupDetail[]>([]);
 
   const handleDetect = async (overridePath?: string) => {
     setError("");
@@ -102,6 +109,8 @@ export function CcSwitchImportSection({
       setSelected(new Set(r.providers.map((p) => p.id)));
       setConflicts([]);
       setDecisions(new Map());
+      // 拉分组列表供「加入已有分组」multi-select（失败不阻断）。
+      groupDetailApi.list().then(setGroupDetails).catch(() => {});
     } catch (e) {
       setError(String(e));
     } finally {
@@ -188,6 +197,18 @@ export function CcSwitchImportSection({
         return { scope, key, decision: d };
       });
       const r = await ccswitchApi.import(payload, ds);
+      // 批量分组归属回挂：按最终名匹配建出的平台，复用 platform_update
+      // （auto_group 对账 + join 全量同步）。失败不阻断导入报告（平台已建好）。
+      try {
+        const finalNames = payload.map(j => String(j.name));
+        const all = await platformApi.list();
+        const imported = all.filter(p => finalNames.includes(p.name));
+        await Promise.all(imported.map(p => platformApi.update({
+          id: p.id, auto_group: batchAutoGroup, join_group_ids: batchJoinGroupIds,
+        })));
+      } catch (e) {
+        console.error("cc-switch group assign failed:", e);
+      }
       onReport(r);
       setConflicts([]);
       setDecisions(new Map());
@@ -318,6 +339,43 @@ export function CcSwitchImportSection({
                 />
               );
             })}
+          </div>
+
+          {/* 批量分组归属（作用于本次导入的全部平台） */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+              {t("importExport.ccswitch.groupAssignHint", "导入后这些平台加入哪些分组（批量，作用于全部已导入平台）")}
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+              <input type="checkbox" checked={batchAutoGroup} onChange={e => setBatchAutoGroup(e.target.checked)} />
+              {t("platform.groupAssignAuto", "创建默认分组")}
+            </label>
+            {groupDetails.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {groupDetails.map(gd => {
+                  const checked = batchJoinGroupIds.includes(gd.group.id);
+                  return (
+                    <label
+                      key={gd.group.id}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 4,
+                        padding: "3px 10px", borderRadius: 999, fontSize: 12, cursor: "pointer",
+                        border: "1px solid var(--border)",
+                        background: checked ? "var(--accent-subtle)" : "transparent",
+                      }}
+                    >
+                      <input
+                        type="checkbox" checked={checked}
+                        onChange={e => setBatchJoinGroupIds(prev => e.target.checked
+                          ? [...prev, gd.group.id]
+                          : prev.filter(id => id !== gd.group.id))}
+                      />
+                      {gd.group.name}
+                    </label>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* 预览 + 导入按钮 */}
