@@ -847,6 +847,15 @@ async fn handle_proxy_inner(
         .await;
     }
 
+    // ── Anthropic count_tokens 子端点分流（必须在 parse_incoming_request 之前）──
+    // claude-cli 发实际对话前会 POST /v1/messages/count_tokens 预估 token 数。
+    // 该 path 前缀匹配 /v1/messages，若不前置分流会被当普通 messages 转发，且出站
+    // passthrough_api_path 写死 /v1/messages 吞掉 count_tokens 尾段 → 上游按 messages
+    // 处理 count_tokens 形态 body 而崩溃（GLM 实测 500）。命中 → 透传优先 + 本地估算兜底。
+    if is_count_tokens_endpoint(&path) {
+        return handle_count_tokens(&state, &mut log, &log_settings, &group, &bytes, start).await;
+    }
+
     // ── 解析 ChatRequest（按入站协议解析） ──
     let req_value: serde_json::Value = match serde_json::from_slice(&bytes) {
         Ok(v) => v,
@@ -2250,6 +2259,223 @@ async fn handle_responses_subendpoint(
     response
 }
 
+/// 判定请求 path（已含 group/proxy 前缀）是否为 Anthropic count_tokens 端点。
+/// strip 任意前缀后尾段为 `/v1/messages/count_tokens`（可带末尾斜杠）→ true。
+/// 与 is_responses_subendpoint 同款 strip（path.find("/v1/")），无 /v1/ 前缀 → false。
+fn is_count_tokens_endpoint(path: &str) -> bool {
+    let api_path = match path.find("/v1/") {
+        Some(idx) => &path[idx..],
+        None => return false,
+    };
+    api_path
+        .trim_end_matches('/')
+        .ends_with("/v1/messages/count_tokens")
+}
+
+/// 本地近似估算 anthropic count_tokens body 的 input_tokens（透传失败兜底）。
+/// 启发式：累计 system + 全部 messages 文本 + tools 定义的字符数，按 ~4 字符/token 折算
+/// （英文经验值；中文偏低但 count_tokens 仅用于客户端预估，不参与计费，可接受偏差）。
+/// 拿不到任何文本字段 → 返回保底 1（避免返回 0 误导客户端流程）。
+fn estimate_input_tokens(body: &Value) -> i64 {
+    fn collect_text(v: &Value, acc: &mut usize) {
+        match v {
+            Value::String(s) => *acc += s.len(),
+            Value::Array(arr) => arr.iter().for_each(|e| collect_text(e, acc)),
+            Value::Object(map) => map.values().for_each(|e| collect_text(e, acc)),
+            _ => {}
+        }
+    }
+    let mut chars = 0usize;
+    if let Some(obj) = body.as_object() {
+        for key in ["system", "messages", "tools"] {
+            if let Some(v) = obj.get(key) {
+                collect_text(v, &mut chars);
+            }
+        }
+    }
+    let tokens = chars.div_ceil(4) as i64;
+    tokens.max(1)
+}
+
+/// Anthropic `/v1/messages/count_tokens` 子端点：透传优先 + 本地估算兜底（方案 X）。
+/// 1. 复用 select_candidates_ctx 选首选平台 + 拿模型映射（claude-opus-4-8 → glm-5.1）。
+/// 2. 取该平台 anthropic 端点 base_url（无则回退平台主 base_url），URL = base_url + `/v1/messages/count_tokens`
+///    （遵 url-construction-rule：anthropic base_url 不含 /v1，仅拼 endpoint 后缀，与 build_models_url 同款）。
+/// 3. 透传客户端原始 body（仅 patch model 字段为路由目标模型），x-api-key + anthropic-version 鉴权 POST。
+/// 4. 上游 2xx → 原样回客户端（anthropic count_tokens 响应 schema）。
+/// 5. 上游 4xx/5xx 或连接失败（平台不支持该端点）→ 本地估算 `{"input_tokens": N}` 返 200，
+///    不返回错误，避免 claude-cli 预估流程被上游 500/404 阻断。
+/// proxy_log：source/target protocol=anthropic，upstream_request_url 含尾段，status 记真实结果。
+async fn handle_count_tokens(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    log_settings: &ProxyLogSettings,
+    group: &Group,
+    bytes: &[u8],
+    start: std::time::Instant,
+) -> Response {
+    log.source_protocol = "anthropic".to_string();
+    log.target_protocol = "anthropic".to_string();
+
+    // 原始 body（用于透传 + 估算兜底）+ 入站 model
+    let raw_body: Value = serde_json::from_slice(bytes).unwrap_or(Value::Null);
+    let requested_model = raw_body
+        .get("model")
+        .and_then(|m| m.as_str())
+        .unwrap_or_default()
+        .to_string();
+    log.model = requested_model.clone();
+
+    // 本地估算值（透传失败时回客户端；提前算好，避免分支重复）
+    let est_tokens = estimate_input_tokens(&raw_body);
+    let est_body = serde_json::json!({ "input_tokens": est_tokens }).to_string();
+    // 兜底响应：返回本地估算 `{"input_tokens":N}` 200，并把回客户端正文记入 log.user_response_body
+    // （与 handle_responses_subendpoint 成功路径一致：客户端实际收到的正文落库）。
+    let est_response = |body: &str| -> Response {
+        (
+            StatusCode::OK,
+            [(axum::http::header::CONTENT_TYPE, "application/json")],
+            body.to_string(),
+        )
+            .into_response()
+    };
+    // 在各兜底分支统一回写 log 的客户端响应正文/头（est_response 闭包不可借 &mut log，故在调用点写 log）。
+    macro_rules! fallback_log {
+        () => {{
+            log.input_tokens = est_tokens as i32;
+            log.user_response_body = est_body.clone();
+            log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+            log.duration_ms = start.elapsed().as_millis() as i32;
+        }};
+    }
+
+    // 路由选平台（复用 group→platform 选择，拿模型映射目标）
+    let sched_settings = super::db::get_scheduling_settings(&state.db).await;
+    let sched_ctx = ScheduleCtx {
+        scheduler: &state.scheduler,
+        sticky: &state.sticky,
+        settings: &sched_settings,
+        sticky_key: Some(format!("{}|count_tokens", group.name)),
+    };
+    let candidate_set =
+        match select_candidates_ctx(&state.db, group, &requested_model, Some(&sched_ctx)).await {
+            Ok(c) => c,
+            Err(e) => {
+                // 路由失败 → 本地估算兜底（不阻断 claude-cli）
+                tracing::warn!(group = %group.name, model = %requested_model, error = %e, "count_tokens: route failed, falling back to local estimate");
+                log.status_code = 200;
+                log.response_body = format!("route error (local estimate fallback): {e}");
+                fallback_log!();
+                upsert_log(state, log, log_settings).await;
+                return est_response(&est_body);
+            }
+        };
+    let route = match candidate_set.candidates.into_iter().next() {
+        Some(r) => r,
+        None => {
+            tracing::warn!(group = %group.name, "count_tokens: no candidate platform, local estimate fallback");
+            log.status_code = 200;
+            log.response_body = "no candidate platform (local estimate fallback)".to_string();
+            fallback_log!();
+            upsert_log(state, log, log_settings).await;
+            return est_response(&est_body);
+        }
+    };
+
+    let actual_model = route.target_model.clone();
+    log.platform_id = route.platform.id;
+    log.actual_model = actual_model.clone();
+
+    // 取 anthropic 端点 base_url（无则回退平台主 base_url）
+    let base_url = route
+        .platform
+        .endpoints
+        .iter()
+        .find(|ep| matches!(ep.protocol, Protocol::Anthropic))
+        .map(|ep| ep.base_url.clone())
+        .unwrap_or_else(|| route.platform.base_url.clone());
+    // URL：base_url + /v1/messages/count_tokens（anthropic base_url 不含 /v1，与 build_models_url 同款拼接）
+    let url = format!(
+        "{}/v1/messages/count_tokens",
+        base_url.trim_end_matches('/')
+    );
+    log.upstream_request_url = url.clone();
+    log.upstream_request_headers =
+        r#"{"x-api-key":"[REDACTED]","anthropic-version":"2023-06-01"}"#.to_string();
+
+    // 透传 body：仅 patch model 字段为路由目标模型
+    let mut upstream_body = raw_body.clone();
+    if let Some(obj) = upstream_body.as_object_mut() {
+        obj.insert("model".to_string(), Value::String(actual_model.clone()));
+    }
+    let upstream_body_str = serde_json::to_string(&upstream_body).unwrap_or_default();
+    log.upstream_request_body = format_pretty_json(&upstream_body_str);
+
+    let system_timeout = get_system_timeout(&state.db).await;
+    let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 60 };
+    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
+    let client = super::http_client::build_http_client(
+        &state.db, req_timeout, conn_timeout, Some(&route.platform.extra), None,
+    )
+    .await;
+
+    let rb = client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .header("x-api-key", &route.platform.api_key)
+        .header("anthropic-version", "2023-06-01")
+        .body(upstream_body_str.clone());
+    tracing::info!(group = %group.name, platform = %route.platform.name, model = %actual_model, url = %url, "count_tokens upstream request");
+
+    let resp = match rb.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            // 连接失败 / 超时 → 本地估算兜底（不阻断 claude-cli）
+            tracing::warn!(url = %url, error = %e, "count_tokens upstream request failed, local estimate fallback");
+            log.upstream_status_code = 0;
+            log.status_code = 200;
+            log.response_body = format!("upstream error (local estimate fallback): {e}");
+            fallback_log!();
+            upsert_log(state, log, log_settings).await;
+            return est_response(&est_body);
+        }
+    };
+
+    let status = resp.status();
+    log.upstream_status_code = status.as_u16() as i32;
+    let body = resp.bytes().await.unwrap_or_default();
+    let body_str = String::from_utf8_lossy(&body).to_string();
+
+    if status.is_success() {
+        // 上游支持 count_tokens → 原样回客户端真实值
+        log.status_code = status.as_u16() as i32;
+        log.response_body = body_str.clone();
+        log.user_response_body = body_str;
+        log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+        log.input_tokens = serde_json::from_slice::<Value>(&body)
+            .ok()
+            .and_then(|v| v.get("input_tokens").and_then(|t| t.as_i64()))
+            .unwrap_or(0) as i32;
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        tracing::info!(url = %url, status = status.as_u16(), "count_tokens upstream responded (passthrough)");
+        upsert_log(state, log, log_settings).await;
+        let mut response = (StatusCode::OK, body.to_vec()).into_response();
+        response.headers_mut().insert(
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("application/json"),
+        );
+        return response;
+    }
+
+    // 上游不支持该端点（4xx/5xx）→ 本地估算兜底，返回 200 而非透传错误
+    tracing::warn!(url = %url, upstream_status = status.as_u16(), "count_tokens upstream unsupported, local estimate fallback");
+    log.status_code = 200;
+    log.response_body = format!("upstream {} (local estimate fallback): {}", status.as_u16(), body_str);
+    fallback_log!();
+    upsert_log(state, log, log_settings).await;
+    est_response(&est_body)
+}
+
 /// 构建透传转发 header：原样保留客户端全部 header（含 Authorization OAuth），
 /// 仅剔除 hop-by-hop（Host / Content-Length，由 reqwest 按目标 URL + body 重设）。
 fn passthrough_headers(orig: &axum::http::HeaderMap) -> reqwest::header::HeaderMap {
@@ -3161,6 +3387,72 @@ mod tests {
             build("https://api.openai.com/v1/", "/proxy/v1/responses/resp_abc/input_items"),
             "https://api.openai.com/v1/responses/resp_abc/input_items"
         );
+    }
+
+    // ── count_tokens 端点识别：尾段 /v1/messages/count_tokens 才命中，普通 /v1/messages 不命中 ──
+    #[test]
+    fn count_tokens_endpoint_detection() {
+        use super::is_count_tokens_endpoint;
+        // 命中（关键修复点）
+        assert!(is_count_tokens_endpoint("/proxy/v1/messages/count_tokens"));
+        assert!(is_count_tokens_endpoint("/glm-coding-plan-auto/v1/messages/count_tokens"));
+        assert!(is_count_tokens_endpoint("/v1/messages/count_tokens"));
+        assert!(is_count_tokens_endpoint("/v1/messages/count_tokens/")); // 容尾斜杠
+        // 普通 messages → 不命中（关键回归：普通对话路径不被新分流拦）
+        assert!(!is_count_tokens_endpoint("/proxy/v1/messages"));
+        assert!(!is_count_tokens_endpoint("/v1/messages"));
+        assert!(!is_count_tokens_endpoint("/v1/messages/"));
+        // 无 /v1/ 前缀 / 其他端点 → 不命中
+        assert!(!is_count_tokens_endpoint("/proxy/messages/count_tokens"));
+        assert!(!is_count_tokens_endpoint("/v1/chat/completions"));
+        assert!(!is_count_tokens_endpoint("/v1/responses/resp_1"));
+    }
+
+    // ── count_tokens 上游 URL 构造：anthropic base_url(不含 /v1) + /v1/messages/count_tokens ──
+    #[test]
+    fn count_tokens_url_construction() {
+        let build = |base_url: &str| format!("{}/v1/messages/count_tokens", base_url.trim_end_matches('/'));
+        // GLM anthropic 端点（base_url 不含 /v1）→ 拼出含尾段的完整 URL
+        assert_eq!(
+            build("https://open.bigmodel.cn/api/anthropic"),
+            "https://open.bigmodel.cn/api/anthropic/v1/messages/count_tokens"
+        );
+        // anthropic 官方 base_url → 同款
+        assert_eq!(
+            build("https://api.anthropic.com"),
+            "https://api.anthropic.com/v1/messages/count_tokens"
+        );
+        // base_url 末尾带斜杠 → trim 后正确，不双斜杠
+        assert_eq!(
+            build("https://api.anthropic.com/"),
+            "https://api.anthropic.com/v1/messages/count_tokens"
+        );
+    }
+
+    // ── 本地估算兜底：累计文本字符数 ~4 字符/token，保底 1 ──
+    #[test]
+    fn count_tokens_local_estimate() {
+        use super::estimate_input_tokens;
+        // 空 body / 无文本字段 → 保底 1（不返回 0 误导客户端）
+        assert_eq!(estimate_input_tokens(&serde_json::json!({})), 1);
+        assert_eq!(estimate_input_tokens(&serde_json::Value::Null), 1);
+        // messages 递归累计全部字符串值：role "user"(4) + content "abcdefgh"(8) = 12 → ceil(12/4)=3
+        let body = serde_json::json!({
+            "model": "claude-opus-4-8",
+            "messages": [{"role": "user", "content": "abcdefgh"}]
+        });
+        assert_eq!(estimate_input_tokens(&body), 3);
+        // system + messages + tools 全字符串值累计：
+        // system "syst"(4) + role "user"(4) + content "msgs"(4) + tool name "x"(1) + desc "tdsc"(4) = 17 → ceil(17/4)=5
+        let body = serde_json::json!({
+            "system": "syst",
+            "messages": [{"role": "user", "content": "msgs"}],
+            "tools": [{"name": "x", "description": "tdsc"}]
+        });
+        assert_eq!(estimate_input_tokens(&body), 5);
+        // model 字段不计入文本估算（仅 system/messages/tools）
+        let with_model = serde_json::json!({ "model": "very-long-model-name-not-counted" });
+        assert_eq!(estimate_input_tokens(&with_model), 1);
     }
 
     // ── 同协议透传判定：仅端点协议精确等于入站协议才透传 ──
