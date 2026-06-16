@@ -290,7 +290,6 @@
   "importExport.scope.codex": "Paramètres Codex",
   "importExport.scope.group": "Groupes",
   "importExport.scope.groupPlatform": "Liens Groupe↔Plateforme",
-  "importExport.scope.modelPrice": "Table des prix des modèles",
   "importExport.scope.platform": "Plateformes",
   "importExport.scope.setting": "Paramètres globaux (thème/langue/proxy/notification, etc.)",
   "importExport.scope.skills": "Skills (installation npx + état activé)",
@@ -298,7 +297,6 @@
   "importExport.scopeDesc.codex": "Configuration Codex",
   "importExport.scopeDesc.group": "Groupes et stratégie de planification",
   "importExport.scopeDesc.groupPlatform": "Associations groupe-plateforme",
-  "importExport.scopeDesc.modelPrice": "Données de tarification des modèles",
   "importExport.scopeDesc.platform": "Connexions et identifiants de plateforme",
   "importExport.scopeDesc.setting": "Thème / langue / proxy / notifications",
   "importExport.scopeDesc.skills": "Installation npx + état d'activation",
@@ -723,7 +721,7 @@
   "pricing.clearFilter": "Effacer",
   "pricing.defaultPlatform": "Plateforme par défaut",
   "pricing.delete": "Supprimer",
-  "pricing.empty": "Aucune donnée de prix. Cliquez sur « Sync maintenant » pour récupérer depuis LiteLLM",
+  "pricing.empty": "Aucune donnée de prix. Cliquez sur « Sync maintenant » pour récupérer depuis GitHub",
   "pricing.fallback": "Prix de repli $/M tokens",
   "pricing.input": "Entrée",
   "pricing.inputPrice": "Entrée $/M",
@@ -735,7 +733,7 @@
   "pricing.outputPrice": "Sortie $/M",
   "pricing.searchPlaceholder": "Rechercher un nom de modèle...",
   "pricing.source": "Source",
-  "pricing.syncDesc": "Synchroniser la grille tarifaire des modèles depuis LiteLLM (incl. les prix par plateforme)",
+  "pricing.syncDesc": "Synchroniser la grille tarifaire + max_tokens depuis GitHub (incl. prix par plateforme)",
   "pricing.syncNow": "Sync maintenant",
   "pricing.syncResult": "Sync terminé : +{added} ajoutés, ~{updated} mis à jour, {failed} échoués ({total} au total)",
   "pricing.syncTitle": "Sync des prix",
@@ -1470,5 +1468,7 @@
   "updater.releaseNotes": "Notes de version",
   "updater.updateFailed": "Échec de la mise à jour",
   "updater.updateNow": "Mettre à jour maintenant",
-  "updater.updating": "Mise à jour…"
+  "updater.updating": "Mise à jour…",
+  "pricing.contextWindow": "Contexte",
+  "pricing.maxOutput": "Sortie max"
 }

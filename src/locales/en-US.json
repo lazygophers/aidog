@@ -290,7 +290,6 @@
   "importExport.scope.codex": "Codex settings",
   "importExport.scope.group": "Groups",
   "importExport.scope.groupPlatform": "Group↔Platform links",
-  "importExport.scope.modelPrice": "Model price table",
   "importExport.scope.platform": "Platforms",
   "importExport.scope.setting": "Global settings (theme/language/proxy/notification, etc.)",
   "importExport.scope.skills": "Skills (npx install + enable state)",
@@ -298,7 +297,6 @@
   "importExport.scopeDesc.codex": "Codex configuration",
   "importExport.scopeDesc.group": "Groups & scheduling strategy",
   "importExport.scopeDesc.groupPlatform": "Group-to-platform associations",
-  "importExport.scopeDesc.modelPrice": "Model pricing data",
   "importExport.scopeDesc.platform": "Platform connections & credentials",
   "importExport.scopeDesc.setting": "Theme / language / proxy / notifications",
   "importExport.scopeDesc.skills": "npx install + enable state",
@@ -701,7 +699,7 @@
   "pricing.clearFilter": "Clear",
   "pricing.defaultPlatform": "Default Platform",
   "pricing.delete": "Delete",
-  "pricing.empty": "No pricing data yet. Click \"Sync Now\" to fetch from LiteLLM",
+  "pricing.empty": "No pricing data yet. Click \"Sync Now\" to fetch from GitHub",
   "pricing.fallback": "Fallback price $/M tokens",
   "pricing.input": "Input",
   "pricing.inputPrice": "Input $/M",
@@ -713,7 +711,7 @@
   "pricing.outputPrice": "Output $/M",
   "pricing.searchPlaceholder": "Search model name...",
   "pricing.source": "Source",
-  "pricing.syncDesc": "Sync model pricing from LiteLLM (incl. per-platform prices)",
+  "pricing.syncDesc": "Sync model pricing + max_tokens from GitHub (incl. per-platform prices)",
   "pricing.syncNow": "Sync Now",
   "pricing.syncResult": "Sync complete: +{added} added, ~{updated} updated, {failed} failed ({total} total)",
   "pricing.syncTitle": "Price Sync",
@@ -1448,5 +1446,7 @@
   "updater.releaseNotes": "Release notes",
   "updater.updateFailed": "Update failed",
   "updater.updateNow": "Update now",
-  "updater.updating": "Updating…"
+  "updater.updating": "Updating…",
+  "pricing.contextWindow": "Context",
+  "pricing.maxOutput": "Max Output"
 }
