@@ -107,7 +107,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
     setGranularity(p === "today" ? "hourly" : "daily");
   };
   const [groupBy, setGroupBy] = useState<"platform" | "model" | "group">("platform");
-  const [filterGroup, setFilterGroup] = useState(initialFilter?.groupId ?? "");
+  const [filterGroup, setFilterGroup] = useState(initialFilter?.groupName ?? "");
   const [filterModel, setFilterModel] = useState("");
   const [filterPlatform, setFilterPlatform] = useState(initialFilter?.platformId ? String(initialFilter.platformId) : "");
   const [groups, setGroups] = useState<GroupDetail[]>([]);

@@ -1117,6 +1117,7 @@ interface PlatformCardActions {
   onToggleEnabled: (p: Platform) => void;
   onEdit: (p: Platform) => void;
   onDelete: (id: number) => void;
+  onViewLogs: (p: Platform) => void;
   onQuickTest: (p: Platform) => void;
   onCustomTest: (p: Platform) => void;
   onFaviconFailed: (id: number) => void;
@@ -1314,6 +1315,12 @@ const PlatformCard = memo(function PlatformCard({
                               </svg>
                             </button>
                           </div>
+                          <button className="btn btn-ghost btn-icon" title={t("platform.viewLogs", "查看日志")} onClick={(e) => { e.stopPropagation(); actions.onViewLogs(p); }}>
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M2 2h10v10H2z" />
+                              <path d="M4 5h6M4 7h4M4 9h5" />
+                            </svg>
+                          </button>
                           <button className="btn btn-ghost btn-icon" onClick={(e) => { e.stopPropagation(); actions.onEdit(p); }}>
                             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                               <path d="M10 2l2 2-7 7H3v-2l7-7z" />
@@ -1467,7 +1474,7 @@ const PlatformCard = memo(function PlatformCard({
   );
 });
 
-export function Platforms() {
+export function Platforms({ onNavigate }: { onNavigate?: (id: string, context?: { platformId?: number; platformName?: string }) => void }) {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   // ── Drag reorder for platform list ──
@@ -1768,6 +1775,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
   };
 
+  // 跳转该平台的日志（带 platformId 筛选上下文）。
+  const handleViewLogs = (p: Platform) => {
+    onNavigate?.("logs", { platformId: p.id, platformName: p.name });
+  };
+
   const handleEdit = async (p: Platform) => {
     setName(p.name); setProtocol(p.platform_type); setApiKey(p.api_key);
     // 检测 endpoints 中是否有 coding_plan
@@ -1963,12 +1975,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // 卡片操作集合：用 latest-ref 持有最新闭包，对外暴露稳定引用，保证 PlatformCard memo 生效
   const actionsRef = useRef({
     handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
-    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDelete,
+    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDelete, handleViewLogs,
     handleQuickTest, setTestingPlatform, setFaviconFailed,
   });
   actionsRef.current = {
     handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
-    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDelete,
+    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDelete, handleViewLogs,
     handleQuickTest, setTestingPlatform, setFaviconFailed,
   };
   const cardActions = useMemo<PlatformCardActions>(() => ({
@@ -1980,6 +1992,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     onToggleEnabled: (p) => actionsRef.current.handleToggle(p),
     onEdit: (p) => actionsRef.current.handleEdit(p),
     onDelete: (id) => actionsRef.current.handleDelete(id),
+    onViewLogs: (p) => actionsRef.current.handleViewLogs(p),
     onQuickTest: (p) => actionsRef.current.handleQuickTest(p),
     onCustomTest: (p) => actionsRef.current.setTestingPlatform(p),
     onFaviconFailed: (id) => actionsRef.current.setFaviconFailed(prev => new Set(prev).add(id)),

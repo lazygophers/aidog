@@ -50,7 +50,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [groups, setGroups] = useState<GroupDetail[]>([]);
   const [filterPlatform, setFilterPlatform] = useState<string>(initialFilter?.platformId ? String(initialFilter.platformId) : "");   // platform_id or ""
-  const [filterGroup, setFilterGroup] = useState<string>(initialFilter?.groupId ?? "");
+  const [filterGroup, setFilterGroup] = useState<string>(initialFilter?.groupName ?? "");
   const [filterStatus, setFilterStatus] = useState<string>("");       // "" | "success" | "error"
   const [filterTime, setFilterTime] = useState<TimePreset>("all");
   const [filterModelType, setFilterModelType] = useState<"original" | "actual">("actual");

@@ -260,7 +260,7 @@ async function fetchGroupStats(
   return { statsMap, balanceMap };
 }
 
-export function Groups() {
+export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { groupId?: string; groupName?: string }) => void }) {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -835,6 +835,11 @@ export function Groups() {
                 <CopyButton text={group.name} title={t("group.copyApiKeyTitle", "复制 API Key（= 分组名）")} size={14} />
                 <CopyButton text={buildClaudeCommand(group.name)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} size={14} />
                 <CopyButton text={buildCodexCommand(group.name)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
+                <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onNavigate?.("stats", { groupId: String(group.id), groupName: group.name }); }} title={t("group.viewStats", "查看统计")}>
+                  <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
+                  </svg>
+                </button>
                 <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
