@@ -32,7 +32,7 @@
 | fix-tts-backend-init | 修复TTS后端初始化失败 | — | 已完成 | 收尾 | 100% | — |
 | huashu-nuwa-desc-empty | huashu-nuwa desc空不显示分隔符 | — | 已完成 | 收尾 | 100% | — |
 | fix-model-test-mock | Mock 平台 model_test 走本地生成响应 (补 Mock 分支, 不再 502) | — | 已完成 | 收尾 | 100% | — |
-| fix-notif-template-stale | 通知文案变更未及时生效 | — | 规划中 | 规划 | 0% | — |
+| fix-notif-template-stale | 通知文案变更未及时生效 | — | 已完成 | 收尾 | 100% | — |
 | fix-notif-no-popup | 通知 notification_test 命令无系统弹窗 (osascript 绝对路径根治) | — | 已完成 | 收尾 | 100% | — |
 | fix-skills-install-claude-code | skills 安装 claude code 未生效 (spawn npx 注入 HOME) | — | 已完成 | 收尾 | 100% | — |
 | notif-perm-guidance | macOS 通知授权分层引导: 启动 request_permission + 设置页深链系统通知 + 签名公证文档 | — | 已完成 | 收尾 | 100% | — |
@@ -64,3 +64,4 @@
 | stats-model-filter-only-recorded | 使用统计模型筛选仅含有记录的模型 | — | 已完成 | 收尾 | 100% | — |
 | stats-trend-curve-granularity | Stats 请求趋势改曲线+分钟/5分钟粒度自动降级 | — | 已完成 | 收尾 | 100% | — |
 | menu-ia-redesign | 菜单与导航信息架构重构 | — | 进行中 | 规划 | 0% | — |
+| request-headers-not-recorded | 请求头未记录诊断修复 (request_id=729d085103e246b1bc34888527541117) | — | 已完成 | 收尾 | 100% | — |
