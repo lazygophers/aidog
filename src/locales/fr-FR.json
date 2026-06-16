@@ -349,6 +349,8 @@
   "logs.clearConfirm": "Confirmer l'effacement de tous les journaux ? Action irréversible.",
   "logs.clearFilter": "Effacer",
   "logs.connFailed": "Échec de connexion",
+  "logs.notCaptured": "Non capturé",
+  "logs.upstreamStatus": "Statut amont",
   "logs.copyAll": "Copier toutes les infos",
   "logs.copyRequestId": "Copier l'ID de requête",
   "logs.detail": "Détails de la requête",

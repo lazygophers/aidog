@@ -349,6 +349,8 @@
   "logs.clearConfirm": "すべてのログを消去しますか？この操作は元に戻せません。",
   "logs.clearFilter": "クリア",
   "logs.connFailed": "接続失敗",
+  "logs.notCaptured": "未取得",
+  "logs.upstreamStatus": "上流ステータス",
   "logs.copyAll": "完全な情報をコピー",
   "logs.copyRequestId": "リクエスト ID をコピー",
   "logs.detail": "リクエスト詳細",

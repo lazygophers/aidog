@@ -327,6 +327,8 @@
   "logs.clearConfirm": "¿Borrar todos los registros? No se puede deshacer.",
   "logs.clearFilter": "Limpiar",
   "logs.connFailed": "Conexión fallida",
+  "logs.notCaptured": "No capturado",
+  "logs.upstreamStatus": "Estado ascendente",
   "logs.copyAll": "Copiar info completa",
   "logs.copyRequestId": "Copiar ID de solicitud",
   "logs.detail": "Detalle de petición",

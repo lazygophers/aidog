@@ -349,6 +349,8 @@
   "logs.clearConfirm": "تأكيد مسح كل السجلات؟ لا يمكن التراجع.",
   "logs.clearFilter": "مسح",
   "logs.connFailed": "فشل الاتصال",
+  "logs.notCaptured": "غير ملتقط",
+  "logs.upstreamStatus": "حالة المنبع",
   "logs.copyAll": "نسخ المعلومات الكاملة",
   "logs.copyRequestId": "نسخ معرّف الطلب",
   "logs.detail": "تفاصيل الطلب",

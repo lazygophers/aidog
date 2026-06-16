@@ -349,6 +349,8 @@
   "logs.clearConfirm": "Alle Protokolle löschen bestätigen? Nicht rückgängig zu machen.",
   "logs.clearFilter": "Löschen",
   "logs.connFailed": "Verbindung fehlgeschlagen",
+  "logs.notCaptured": "Nicht erfasst",
+  "logs.upstreamStatus": "Upstream-Status",
   "logs.copyAll": "Vollständige Info kopieren",
   "logs.copyRequestId": "Anfrage-ID kopieren",
   "logs.detail": "Anfragedetails",

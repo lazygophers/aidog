@@ -327,6 +327,8 @@
   "logs.clearConfirm": "Clear all logs? This cannot be undone.",
   "logs.clearFilter": "Clear",
   "logs.connFailed": "Conn failed",
+  "logs.notCaptured": "Not captured",
+  "logs.upstreamStatus": "Upstream status",
   "logs.copyAll": "Copy full info",
   "logs.copyRequestId": "Copy Request ID",
   "logs.detail": "Request Detail",

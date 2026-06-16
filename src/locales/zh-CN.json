@@ -327,6 +327,8 @@
   "logs.clearConfirm": "确认清除所有日志？此操作不可撤销。",
   "logs.clearFilter": "清除",
   "logs.connFailed": "连接失败",
+  "logs.notCaptured": "未捕获",
+  "logs.upstreamStatus": "上游状态",
   "logs.copyAll": "复制完整信息",
   "logs.copyRequestId": "复制请求 ID",
   "logs.detail": "请求详情",

@@ -349,6 +349,8 @@
   "logs.clearConfirm": "Подтвердить очистку всех журналов? Это действие необратимо.",
   "logs.clearFilter": "Очистить",
   "logs.connFailed": "Сбой соединения",
+  "logs.notCaptured": "Не зафиксирован",
+  "logs.upstreamStatus": "Статус восходящего потока",
   "logs.copyAll": "Копировать полную информацию",
   "logs.copyRequestId": "Копировать ID запроса",
   "logs.detail": "Детали запроса",
