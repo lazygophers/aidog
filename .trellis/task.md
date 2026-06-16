@@ -5,7 +5,7 @@
 
 | ID | 名称 | 描述 | 状态 | 阶段 | 进度 | worktree |
 | --- | --- | --- | --- | --- | --- | --- |
-| scheduled-backup | 定时备份: 用户设间隔导出全量数据 + 默认保留7天 | — | 进行中 | plan | 0% | — |
+| scheduled-backup | 定时备份: 用户设间隔导出全量数据 + 默认保留7天 | — | 已完成 | 收尾 | 100% | — |
 | platform-smart-paste | 平台添加智能识别: 剪贴板粘贴解析 base_url/平台/apikey(base64自动解码) | — | completed | finish | 100 | .trellis/worktrees/06-14-platform-smart-paste |
 | readme-redesign | README 重写: 安装/使用详化 + 功能核对 + 视觉重设计 | — | 已完成 | 收尾 | 100% | — |
 | readme-7lang-sync | README 同步 7 语言 | — | 已完成 | 收尾 | 100% | — |
@@ -82,5 +82,6 @@
 | max-tokens-cap | max_tokens 入站 parse(anthropic/gemini) + router 转换前裁剪(仅超上限裁, 未传不注入) | — | 已完成 | 收尾 | 100% | — |
 | blackhole | 熔断候选空回退透传(单平台不blackhole) | — | 已完成 | 收尾 | 100% | — |
 | stream-error-graceful-passthrough | stream-error-graceful-passthrough | — | 进行中 | 规划 | 0% | — |
-| scheduled-backup | 定时备份: 用户设间隔导出全量数据 + 默认保留7天 | — | 进行中 | plan | 0% | — |
-| count-tokens-endpoint | 修复 count_tokens 端点协议未支持（错转发到 /messages 致上游 500） | — | 规划中 | 规划 | 0% | — |
+| scheduled-backup | 定时备份: 用户设间隔导出全量数据 + 默认保留7天 | — | 已完成 | 收尾 | 100% | — |
+| count-tokens-endpoint | 修复 count_tokens 端点协议未支持（错转发到 /messages 致上游 500）方案X 透传优先+本地估算兜底 | @nico | 已完成 | 收尾 | 100% | — |
+| batches-endpoint | 适配 /v1/messages/batches Batches API 端点 (create/list/retrieve/cancel/results) | — | 规划中 | 规划 | 0% | — |
