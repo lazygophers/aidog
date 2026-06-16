@@ -266,6 +266,12 @@ impl Db {
                        updated_at     INTEGER NOT NULL
                      );",
                 )?;
+                // Migration 021: model_price 加模型信息列（max_tokens / context_window）。
+                // 列为索引快速读取（出站裁剪、列表展示）；price_data JSON 仍存完整原始数据。
+                // NULL = 未知/无限制。源见 migrations/008_model_info_columns.sql。
+                let _ = conn.execute("ALTER TABLE model_price ADD COLUMN max_input_tokens INTEGER", []);
+                let _ = conn.execute("ALTER TABLE model_price ADD COLUMN max_output_tokens INTEGER", []);
+                let _ = conn.execute("ALTER TABLE model_price ADD COLUMN context_window INTEGER", []);
                 Ok(())
             })
             .await
@@ -2774,7 +2780,7 @@ ELSE proxy_log.platform_id END";
 // ─── Model Price CRUD ──────────────────────────────────────
 
 const MODEL_PRICE_COLUMNS: &str =
-    "id, model_name, source, price_data, created_at, updated_at, deleted_at";
+    "id, model_name, source, price_data, max_input_tokens, max_output_tokens, context_window, created_at, updated_at, deleted_at";
 
 fn row_to_model_price(row: &rusqlite::Row) -> SqlResult<super::models::ModelPrice> {
     Ok(super::models::ModelPrice {
@@ -2782,9 +2788,12 @@ fn row_to_model_price(row: &rusqlite::Row) -> SqlResult<super::models::ModelPric
         model_name: row.get(1)?,
         source: row.get(2)?,
         price_data: row.get(3)?,
-        created_at: row.get(4)?,
-        updated_at: row.get(5)?,
-        deleted_at: row.get(6)?,
+        max_input_tokens: row.get::<_, Option<i64>>(4)?,
+        max_output_tokens: row.get::<_, Option<i64>>(5)?,
+        context_window: row.get::<_, Option<i64>>(6)?,
+        created_at: row.get(7)?,
+        updated_at: row.get(8)?,
+        deleted_at: row.get(9)?,
     })
 }
 
@@ -2805,6 +2814,9 @@ fn price_data_to_summary(mp: &super::models::ModelPrice) -> super::models::Model
         input_price: input.map(|v| v * 1_000_000.0),
         output_price: output.map(|v| v * 1_000_000.0),
         cache_read_price: cache_read.map(|v| v * 1_000_000.0),
+        max_input_tokens: mp.max_input_tokens,
+        max_output_tokens: mp.max_output_tokens,
+        context_window: mp.context_window,
         updated_at: mp.updated_at,
     }
 }
@@ -2849,7 +2861,7 @@ pub async fn count_model_prices(db: &Db) -> Result<u32, String> {
         .map_err(|e| e.to_string())
 }
 
-/// 获取指定模型的最新价格记录（优先 manual > litellm）
+/// 获取指定模型的最新价格记录（优先 manual > github）
 pub async fn get_model_price(db: &Db, model_name: &str) -> Result<Option<super::models::ModelPrice>, String> {
     let model_name = model_name.to_string();
     db.0
@@ -2861,9 +2873,9 @@ pub async fn get_model_price(db: &Db, model_name: &str) -> Result<Option<super::
             if let Some(mp) = stmt.query_row(params![model_name], row_to_model_price).optional()? {
                 return Ok(Some(mp));
             }
-            // 回退到 litellm
+            // 回退到 github（同步源）
             let mut stmt2 = conn.prepare(
-                &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE model_name = ?1 AND source = 'litellm' AND deleted_at = 0")
+                &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE model_name = ?1 AND source = 'github' AND deleted_at = 0")
             )?;
             Ok(stmt2.query_row(params![model_name], row_to_model_price).optional()?)
         })
@@ -2877,6 +2889,9 @@ pub async fn upsert_model_price(
     model_name: &str,
     source: &str,
     price_data: &str,
+    max_input_tokens: Option<i64>,
+    max_output_tokens: Option<i64>,
+    context_window: Option<i64>,
 ) -> Result<(), String> {
     let ts = now();
     let model_name = model_name.to_string();
@@ -2885,10 +2900,16 @@ pub async fn upsert_model_price(
     db.0
         .call(move |conn| {
             conn.execute(
-                "INSERT INTO model_price (model_name, source, price_data, created_at, updated_at, deleted_at)
-                 VALUES (?1, ?2, ?3, ?4, ?4, 0)
-                 ON CONFLICT(model_name, source) DO UPDATE SET price_data = ?3, updated_at = ?4, deleted_at = 0",
-                params![model_name, source, price_data, ts],
+                "INSERT INTO model_price (model_name, source, price_data, max_input_tokens, max_output_tokens, context_window, created_at, updated_at, deleted_at)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7, 0)
+                 ON CONFLICT(model_name, source) DO UPDATE SET
+                   price_data = ?3,
+                   max_input_tokens = ?4,
+                   max_output_tokens = ?5,
+                   context_window = ?6,
+                   updated_at = ?7,
+                   deleted_at = 0",
+                params![model_name, source, price_data, max_input_tokens, max_output_tokens, context_window, ts],
             )?;
             Ok(())
         })
@@ -2896,16 +2917,20 @@ pub async fn upsert_model_price(
         .map_err(|e| format!("upsert model price: {e}"))
 }
 
-/// Delete a model price by name (soft delete all sources)
-pub async fn delete_model_price(db: &Db, model_name: &str) -> Result<(), String> {
-    let model_name = model_name.to_string();
-    db.0
-        .call(move |conn| {
-            conn.execute("UPDATE model_price SET deleted_at = ?1 WHERE model_name = ?2 AND deleted_at = 0", params![now(), model_name])?;
-            Ok(())
-        })
-        .await
-        .map_err(|e| format!("delete model price: {e}"))
+/// 取模型最大输出 token（出站裁剪用）。列优先，NULL 时回退 price_data JSON。
+/// 返回 None = 未知/无限制（不裁剪）。
+#[allow(dead_code)] // 消费方: router.rs max_tokens 裁剪 (PR5)
+pub async fn get_model_max_output_tokens(db: &Db, model_name: &str) -> Result<Option<i64>, String> {
+    let mp = get_model_price(db, model_name).await?;
+    if let Some(m) = mp {
+        if let Some(v) = m.max_output_tokens {
+            return Ok(Some(v));
+        }
+        // 回退 price_data JSON（旧库 / 手动录入仅写 JSON 的兼容路径）
+        let pd: serde_json::Value = serde_json::from_str(&m.price_data).unwrap_or_default();
+        return Ok(pd.get("max_output_tokens").and_then(|v| v.as_i64()));
+    }
+    Ok(None)
 }
 
 /// 解析价格：model_name + platform_type → ResolvedPrice

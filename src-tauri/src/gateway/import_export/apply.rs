@@ -418,6 +418,9 @@ async fn apply_db(
             &m.model_name,
             &m.source,
             &m.price_data,
+            m.max_input_tokens,
+            m.max_output_tokens,
+            m.context_window,
         )
         .await
         {
