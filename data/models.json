@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-06-16T07:31:30Z",
+  "generated_at": "2026-06-16T08:29:25Z",
   "models": {
     "deepseek-v4-flash": {
       "default_platform": "deepseek",
@@ -3987,21 +3987,6 @@
         "openrouter": {
           "input_cost_per_token": 5e-8,
           "output_cost_per_token": 8e-8
-        }
-      }
-    },
-    "deepseek-r1-distill-qwen-32b": {
-      "default_platform": "deepseek",
-      "input_cost_per_token": 2.9e-7,
-      "output_cost_per_token": 2.9e-7,
-      "cache_read_input_token_cost": 0.0,
-      "max_input_tokens": 128000,
-      "max_output_tokens": 32768,
-      "context_window": 128000,
-      "pricing": {
-        "openrouter": {
-          "input_cost_per_token": 2.9e-7,
-          "output_cost_per_token": 2.9e-7
         }
       }
     },
