@@ -65,4 +65,6 @@
 | stats-trend-curve-granularity | Stats 请求趋势改曲线+分钟/5分钟粒度自动降级 | — | 已完成 | 收尾 | 100% | — |
 | menu-ia-redesign | 菜单与导航信息架构重构 | — | 进行中 | 规划 | 0% | — |
 | request-headers-not-recorded | 请求头未记录诊断修复 (request_id=729d085103e246b1bc34888527541117) | — | 已完成 | 收尾 | 100% | — |
-| linuxdo-badge-acknowledgement-only | LINUX DO 徽章移至致谢区 (去顶部重复) | — | 规划中 | 规划 | 0% | — |
+| linuxdo-badge-acknowledgement-only | LINUX DO 徽章移至致谢区 (去顶部重复) | — | 已完成 | 收尾 | 100% | — |
+| license-badge-agpl-fix | License badge/section 修正为 AGPL-3.0 (实际协议) | — | 已完成 | 收尾 | 100% | — |
+| docs-nav-api-dedup | docs 顶部栏 API 接口重复/缺失修复 (_nav.json) | — | 已完成 | 收尾 | 100% | — |
