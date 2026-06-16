@@ -78,7 +78,32 @@ jobs:
           tagName: v${{ steps.v.outputs.version }}
           releaseName: AiDog v${{ steps.v.outputs.version }}
           releaseBody: |
-            自动构建发布。下载对应平台安装包；客户端「关于」页可检查更新。
+            ## 🐕 AiDog — 统一管理你的 AI API 网关
+
+            本地桌面应用 · 无需上云 · 50+ 平台一键聚合 · 智能路由 · 用量统计
+
+            ### 📦 下载
+
+            | 平台 | 安装包 |
+            | --- | --- |
+            | macOS（Apple Silicon + Intel） | `*_universal.dmg` |
+            | Windows x64 | `*_x64-setup.exe`（推荐）/ `*_x64_en-US.msi` |
+
+            ### 🍎 macOS 首次打开
+
+            应用未经 Apple 公证，若提示「已损坏」或「无法验证开发者」，执行一次后即可打开：
+
+            ```bash
+            xattr -dr com.apple.quarantine /Applications/AiDog.app
+            ```
+
+            ### 🔄 自动更新
+
+            客户端「关于」页可检查并一键更新；`.sig` / `latest.json` 为更新签名文件，无需手动下载。
+
+            ### 📖 文档
+
+            https://lazygophers.github.io/aidog/zh/
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
