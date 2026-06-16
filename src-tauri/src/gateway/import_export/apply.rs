@@ -1,7 +1,7 @@
 //! 导入应用器：解密 → 校验 → 冲突检测 → 按决策写入 db + 文件。
 //!
 //! 写入顺序（外键依赖）：codex/claude-code 文件 → group → platform →
-//! group_platform → setting → model_price → skills。
+//! group_platform → setting → skills。
 
 use std::collections::BTreeMap;
 
@@ -44,9 +44,6 @@ pub async fn preview(file_bytes: &[u8], db: &Db) -> Result<ImportPreview, String
             payload.claude_code_global.is_some() as usize
                 + payload.claude_code_group_settings.len(),
         );
-    }
-    if !payload.model_price.is_empty() {
-        counts.insert(super::SCOPE_MODEL_PRICE.to_string(), payload.model_price.len());
     }
     if !payload.skills.is_empty() {
         counts.insert(super::SCOPE_SKILLS.to_string(), payload.skills.len());
@@ -116,23 +113,6 @@ async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<ConflictItem
                 key: ck.clone(),
                 existing_summary: format!("已存在设置「{ck}」"),
                 incoming_summary: format!("导入将覆盖设置「{ck}」"),
-            });
-        }
-    }
-
-    let existing_model_names: std::collections::BTreeSet<String> =
-        crate::gateway::db::list_all_model_prices_full(db)
-            .await?
-            .into_iter()
-            .map(|m| m.model_name)
-            .collect();
-    for m in &payload.model_price {
-        if existing_model_names.contains(&m.model_name) {
-            out.push(ConflictItem {
-                scope: super::SCOPE_MODEL_PRICE.to_string(),
-                key: m.model_name.clone(),
-                existing_summary: format!("已存在价格「{}」", m.model_name),
-                incoming_summary: format!("导入将覆盖价格「{}」", m.model_name),
             });
         }
     }
@@ -215,7 +195,7 @@ pub async fn apply(
     // 1. 文件类（codex / claude-code）——先备份再写。
     apply_files(&payload, &dec, &mut report)?;
 
-    // 2. group → platform → group_platform → setting → model_price（db 事务内）。
+    // 2. group → platform → group_platform → setting（db 事务内）。
     apply_db(&payload, &dec, db, &mut report).await?;
     // 事务内直写 setting/group 表，绕过了 set_setting/group 函数的缓存失效钩子，
     // 故导入完成后显式失效 setting + group 两类热路径缓存，避免代理读到旧配置/分组。
@@ -325,7 +305,7 @@ fn backup_and_write(
     Ok(())
 }
 
-/// db 写入（group / platform / group_platform / setting / model_price）。
+/// db 写入（group / platform / group_platform / setting）。
 async fn apply_db(
     payload: &Payload,
     dec: &BTreeMap<(String, String), &Decision>,
@@ -401,34 +381,6 @@ async fn apply_db(
                 .push(format!("setting「{ck}」: {e}"));
         } else {
             bump(&mut report.applied, super::SCOPE_SETTING);
-        }
-    }
-
-    // model_price
-    for m in &payload.model_price {
-        let decision = dec
-            .get(&(super::SCOPE_MODEL_PRICE.to_string(), m.model_name.clone()))
-            .copied();
-        if should_skip(decision) {
-            bump(&mut report.skipped, super::SCOPE_MODEL_PRICE);
-            continue;
-        }
-        if let Err(e) = crate::gateway::db::upsert_model_price(
-            db,
-            &m.model_name,
-            &m.source,
-            &m.price_data,
-            m.max_input_tokens,
-            m.max_output_tokens,
-            m.context_window,
-        )
-        .await
-        {
-            report
-                .errors
-                .push(format!("model_price「{}」: {e}", m.model_name));
-        } else {
-            bump(&mut report.applied, super::SCOPE_MODEL_PRICE);
         }
     }
 

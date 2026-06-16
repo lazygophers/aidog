@@ -1,7 +1,7 @@
 //! 导入导出子系统。
 //!
 //! 把 aidog 的可配置数据（platform / group / setting / codex / claude-code
-//! settings / model_price / skills）序列化为加密单文件 `.aidogx`，
+//! settings / skills）序列化为加密单文件 `.aidogx`，
 //! 供用户跨机器迁移。文件密钥经字节混淆隐藏在头部，程序可重组、人眼无法分辨。
 //!
 //! 模块：
@@ -26,7 +26,6 @@ pub const SCOPE_GROUP_PLATFORM: &str = "group_platform";
 pub const SCOPE_SETTING: &str = "setting";
 pub const SCOPE_CODEX: &str = "codex";
 pub const SCOPE_CLAUDE_CODE: &str = "claude_code";
-pub const SCOPE_MODEL_PRICE: &str = "model_price";
 pub const SCOPE_SKILLS: &str = "skills";
 
 /// 命名文本对（group name → 文件内容）。
@@ -75,8 +74,6 @@ pub struct Payload {
     #[serde(default)]
     pub claude_code_group_settings: Vec<NamedText>,
     #[serde(default)]
-    pub model_price: Vec<super::models::ModelPrice>,
-    #[serde(default)]
     pub skills: Vec<skills_sync::SkillExportEntry>,
 }
 
@@ -114,7 +111,7 @@ impl Payload {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ConflictItem {
     pub scope: String,
-    /// 唯一键：platform/group=名称；setting=scope:key；model_price=model_name；
+    /// 唯一键：platform/group=名称；setting=scope:key；
     /// codex/claude_code 文件=文件名。
     pub key: String,
     pub existing_summary: String,

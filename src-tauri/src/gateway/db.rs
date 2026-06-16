@@ -2821,20 +2821,6 @@ fn price_data_to_summary(mp: &super::models::ModelPrice) -> super::models::Model
     }
 }
 
-/// 导入导出用：全部 model_price 完整行（含 price_data 原始 JSON）。
-pub async fn list_all_model_prices_full(db: &Db) -> Result<Vec<super::models::ModelPrice>, String> {
-    db.0
-        .call(move |conn| {
-            let mut stmt = conn.prepare(&format!(
-                "SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 ORDER BY model_name"
-            ))?;
-            let rows = stmt.query_map([], row_to_model_price)?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
-        })
-        .await
-        .map_err(|e| e.to_string())
-}
-
 pub async fn list_model_prices(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::models::ModelPriceSummary>, String> {
     db.0
         .call(move |conn| {

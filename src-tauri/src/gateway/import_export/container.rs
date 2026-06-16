@@ -315,7 +315,6 @@ mod payload_tests {
             codex_profiles: vec![],
             claude_code_global: None,
             claude_code_group_settings: vec![],
-            model_price: vec![],
             skills: vec![],
         };
         let bytes = p.serialize_with_checksum().unwrap();
@@ -344,7 +343,6 @@ mod payload_tests {
             codex_profiles: vec![],
             claude_code_global: None,
             claude_code_group_settings: vec![],
-            model_price: vec![],
             skills: vec![],
         };
         let bytes = p.serialize_with_checksum().unwrap();
