@@ -1,3 +1,30 @@
+PRODUCT_NAME := aidog
+TAURI_DIR    := src-tauri
+
+BOLD  := \033[1m
+CYAN  := \033[36m
+GREEN := \033[32m
+RESET := \033[0m
+
+##@ Build
+
+.PHONY: build
+build: ## Build frontend (tsc && vite build)
+	@printf "$(CYAN)▶ Building frontend...$(RESET)\n"
+	yarn build
+
+.PHONY: release
+release: ## Build local installer for current platform → $(TAURI_DIR)/target/release/bundle/
+	@printf "$(GREEN)▶ Building release installer ($(PRODUCT_NAME))...$(RESET)\n"
+	yarn tauri build
+	@printf "$(GREEN)✔ Bundles → $(TAURI_DIR)/target/release/bundle/$(RESET)\n"
+
+.PHONY: release-debug
+release-debug: ## Build installer with debug symbols (faster, larger)
+	@printf "$(GREEN)▶ Building debug installer ($(PRODUCT_NAME))...$(RESET)\n"
+	yarn tauri build --debug
+	@printf "$(GREEN)✔ Bundles → $(TAURI_DIR)/target/debug/bundle/$(RESET)\n"
+
 ##@ Maintenance
 
 .PHONY: check
