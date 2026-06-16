@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, memo } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail } from "../services/api";
 import { getPlatformLogo, getFaviconUrl } from "../assets/platforms";
 import { IconBolt, IconCost, IconCheck, IconClose, IconCoin, IconClock } from "../components/icons";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel, levelColor, levelBg, codingTierLevel, cycleMsForTier, usageLevelToColor, type ColorLevel } from "../components/shared";
@@ -1596,6 +1596,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [breakerHalfOpenMax, setBreakerHalfOpenMax] = useState<string>("");
   // 全局调度+熔断默认（用于展示「继承默认 N」），只读消费。
   const [breakerDefaults, setBreakerDefaults] = useState<SchedulingBreakerSettings | null>(null);
+  // 分组归属选项：auto_group（是否建默认分组，默认勾）+ join_group_ids（加入的已有分组）。
+  // groupDetails 供 multi-select 渲染 + 编辑态反查平台当前手动组成员。
+  const [autoGroup, setAutoGroup] = useState(true);
+  const [joinGroupIds, setJoinGroupIds] = useState<number[]>([]);
+  const [groupDetails, setGroupDetails] = useState<GroupDetail[]>([]);
 
   const isMock = protocol === "mock";
   // Claude Code 订阅纯透传：客户端自带订阅 OAuth 认证，aidog 原样转发。
@@ -1717,6 +1722,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
   useEffect(() => { load(); }, []);
 
+  // 分组列表（multi-select 数据源 + 编辑态反查手动组归属）。本地查询，失败不阻断编辑。
+  useEffect(() => {
+    groupDetailApi.list().then(setGroupDetails).catch(() => {});
+  }, []);
+
   // 全局调度+熔断默认（展示「继承默认 N」用），读失败不阻断编辑。
   useEffect(() => {
     (async () => {
@@ -1773,6 +1783,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setNewApiConfig({ ...DEFAULT_NEWAPI_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
+    setAutoGroup(true); setJoinGroupIds([]);
   };
 
   // 跳转该平台的日志（带 platformId 筛选上下文）。
@@ -1804,6 +1815,18 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setBreakerFailureThreshold(p.breaker_failure_threshold > 0 ? String(p.breaker_failure_threshold) : "");
     setBreakerOpenSecs(p.breaker_open_secs > 0 ? String(p.breaker_open_secs) : "");
     setBreakerHalfOpenMax(p.breaker_half_open_max > 0 ? String(p.breaker_half_open_max) : "");
+    setAutoGroup(p.auto_group);
+    // 反查该平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
+    try {
+      const gds = await groupDetailApi.list();
+      setGroupDetails(gds);
+      setJoinGroupIds(gds
+        .filter(gd => gd.group.auto_from_platform !== String(p.id)
+          && gd.platforms.some(gp => gp.platform.id === p.id))
+        .map(gd => gd.group.id));
+    } catch {
+      setJoinGroupIds([]);
+    }
 
     // Load global + platform Claude Code config
     try {
@@ -1902,6 +1925,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           breaker_failure_threshold: toBreakerNum(breakerFailureThreshold),
           breaker_open_secs: toBreakerNum(breakerOpenSecs),
           breaker_half_open_max: toBreakerNum(breakerHalfOpenMax),
+          auto_group: autoGroup,
+          join_group_ids: joinGroupIds,
         });
         savedId = editing.id;
       } else {
@@ -1911,6 +1936,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           models: modelsPayload, available_models: availablePayload,
           endpoints: endpoints.length > 0 ? endpoints : undefined,
           manual_budgets: manualBudgetsPayload.length > 0 ? manualBudgetsPayload : undefined,
+          auto_group: autoGroup,
+          join_group_ids: joinGroupIds,
         });
         savedId = created.id;
       }
@@ -2627,6 +2654,56 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   onChange={e => setBreakerHalfOpenMax(e.target.value)}
                 />
               </div>
+            </FormSection>
+          )}
+
+          {/* 分组归属：是否建默认分组 + 加入已有分组（多选 chips）。
+              可同时勾；都不选 = 平台不在任何分组（游离，ensure 永不补建）。 */}
+          {!isPassthrough && (
+            <FormSection
+              title={t("platform.groupAssignTitle", "分组归属")}
+              desc={t("platform.groupAssignDesc", "可同时创建默认分组并加入其他已有分组；都不选则该平台不在任何分组。")}
+            >
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
+                <input type="checkbox" checked={autoGroup} onChange={e => setAutoGroup(e.target.checked)} />
+                {t("platform.groupAssignAuto", "创建默认分组")}
+              </label>
+              {groupDetails.length > 0 && (
+                <>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", margin: "10px 0 6px" }}>
+                    {t("platform.groupAssignJoin", "加入已有分组")}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {groupDetails
+                      // 编辑态隐藏该平台自己的 auto 分组（由上方复选框管理）。
+                      .filter(gd => !editing || gd.group.auto_from_platform !== String(editing.id))
+                      .map(gd => {
+                        const checked = joinGroupIds.includes(gd.group.id);
+                        return (
+                          <label
+                            key={gd.group.id}
+                            style={{
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              padding: "3px 10px", borderRadius: 999, fontSize: 12, cursor: "pointer",
+                              border: "1px solid var(--border)",
+                              background: checked ? "var(--accent-subtle)" : "transparent",
+                            }}
+                          >
+                            <input
+                              type="checkbox" checked={checked}
+                              onChange={e => {
+                                setJoinGroupIds(prev => e.target.checked
+                                  ? [...prev, gd.group.id]
+                                  : prev.filter(id => id !== gd.group.id));
+                              }}
+                            />
+                            {gd.group.name}
+                          </label>
+                        );
+                      })}
+                  </div>
+                </>
+              )}
             </FormSection>
           )}
 

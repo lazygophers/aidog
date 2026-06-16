@@ -204,6 +204,8 @@ export interface Platform {
   tray_display: string;
   /** 手动预算限额列表（无上游 quota 平台；请求驱动扣减 + 耗尽阻断）。 */
   manual_budgets: ManualBudget[];
+  /** 是否为该平台自动创建/维护默认分组（false = 不建且 ensure 永久跳过）。 */
+  auto_group: boolean;
   /** 余额使用速率配色级别（后端 platform_list 按动态窗口日速率算 days_remaining 填充，只读）。
    *  "red"|"yellow"|"green"|"neutral"；空串 = 无数据 → 前端退中性。前端只消费不重算阈值。 */
   balance_level?: string;
@@ -333,6 +335,10 @@ export const platformApi = {
     available_models?: string[];
     endpoints?: PlatformEndpoint[];
     manual_budgets?: ManualBudget[];
+    /** 是否自动创建默认分组（省略=true 旧行为；false=不建且 ensure 永久跳过）。 */
+    auto_group?: boolean;
+    /** 额外加入的已有分组 ID 列表（plain membership）。 */
+    join_group_ids?: number[];
   }) => invoke<Platform>("platform_create", { input }),
 
   list: () => invoke<Platform[]>("platform_list"),
@@ -358,6 +364,10 @@ export const platformApi = {
     breaker_failure_threshold?: number;
     breaker_open_secs?: number;
     breaker_half_open_max?: number;
+    /** 重设是否自动创建默认分组（省略=不变；false=删既有 auto 分组并停止维护）。 */
+    auto_group?: boolean;
+    /** 全量同步该平台的手动组成员关系（省略=不动）。 */
+    join_group_ids?: number[];
   }) => invoke<Platform>("platform_update", { input }),
 
   delete: (id: number) => invoke<void>("platform_delete", { id }),
