@@ -6,7 +6,7 @@
 
 cc-switch（github.com/farion1231/cc-switch）是被广泛使用的 Claude Code / Codex / Gemini 供应商切换工具。aidog 的平台预设最初就移植自 cc-switch 的 presets（见记忆 `platform-protocol-design`：「预设来源：cc-switch 的 presets JSON，已全部移植到 `getDefaultEndpoints()`」）。大量 aidog 目标用户的现有配置都存在 cc-switch 里。
 
-**目标**：在 aidog 现有「导入导出」模块新增一个「从 cc-switch 导入」入口，读取 cc-switch 本地配置，按 `base_url` 自动适配到 aidog 平台预设，转换为 aidog 的 Platform（+ 可选模型映射 / 代理 / 密钥 / 自动更新设置），允许用户勾选要导入哪些供应商和哪些配置维度，逐项处理与现有 Platform 的冲突。
+**目标**：在 aidog 现有「导入导出」模块新增一个「从 cc-switch 导入」入口，读取 cc-switch 本地配置，按 `base_url` 自动适配到 aidog 平台预设，转换为 aidog 的 Platform（含可选模型映射 + 密钥同步），允许用户勾选要导入哪些供应商和哪些配置维度（仅 D1/D2/D4，D3 代理与 D5 设备设置已决策不导入），逐项处理与现有 Platform 的冲突。
 
 **非目标**：不做反向（aidog → cc-switch 导出）；不接管 cc-switch 的运行时切换；不导入 cc-switch 的 MCP / prompts / skills / 代理日志 / 健康状态 / 定价表（见 Out of Scope）。
 
@@ -37,7 +37,7 @@ providers(
 provider_endpoints(provider_id, app_type, url, added_at)   -- 端点候选/测速列表
 ```
 
-- **`app_type`** 取值：`claude` / `codex` / `gemini` / `opencode` / `hermes` / `openclaw` / `omo`（实证：`commands/config.rs` 的 `validate_common_config_snippet` 与 `app_config.rs` AppType）。aidog 只关心 `claude` 与 `codex`（+ 可选 `gemini`）。
+- **`app_type`** 取值：`claude` / `codex` / `gemini` / `opencode` / `hermes` / `openclaw` / `omo`（实证：`commands/config.rs` 的 `validate_common_config_snippet` 与 `app_config.rs` AppType）。aidog MVP 仅导入 `claude` 与 `codex`（gemini 及其余已用户决策移出 MVP，见 Out of Scope）。
 - **`settings_config`** 是该供应商对应**目标 app 配置文件的片段**，形态因 app_type 而异（见下表）。
 - `is_current` 标识当前激活供应商；`in_failover_queue` 是 cc-switch 的故障转移队列成员标识。
 
@@ -101,7 +101,7 @@ cc-switch 的「导出配置」是 **SQL dump**（`export_config_to_file` → `d
 | `settingsConfig.env.ANTHROPIC_MODEL` / `_DEFAULT_*_MODEL`；codex `config.model` | `platform.models`(PlatformModels 各 slot) | 模型映射（需求 2） |
 | `provider_endpoints.url` | `platform.endpoints[].base_url`（多候选） | 多端点候选 |
 | 经 base_url 匹配得到的 aidog preset | `platform.platform_type`(Protocol 枚举) | **平台类型识别（需求 1）** |
-| `~/.cc-switch/settings.json autoStart` 等 | aidog setting scope（`app` 等）/ 不导入 | 自动更新等（需求 5，见 Open Q） |
+| `~/.cc-switch/settings.json autoStart` 等 | aidog setting scope（`app` 等）/ 不导入 | 自动更新等（需求 5，**用户决策不导入**，归 Out of Scope） |
 | cc-switch `meta` / `category` / `icon` | （丢弃或入 platform extra，可选） | 非核心 |
 
 ---
@@ -121,10 +121,10 @@ cc-switch 的「导出配置」是 **SQL dump**（`export_config_to_file` → `d
 - Codex 类：config.toml `model` → 主模型 slot。
 - 写入 aidog `platform.models`（`PlatformModels`，models.rs:235）；未提供的 slot 留空（向后兼容，由 fetchModels 兜底，见记忆 `platform-default-model`）。
 
-### D3. 代理配置（需求 3）
+### D3. 代理配置（需求 3）— **决策：不导入（归 Out of Scope）**
 
-- cc-switch 代理配置存于 DB `proxy_config` 表（app_type 维度：listen_address/port/timeout/熔断阈值等），与 aidog 的 ProxyLogSettings / breaker 字段**语义不完全对齐**。
-- **MVP 决策（待确认）**：代理配置默认**不导入**（cc-switch 的 proxy_config 是它自己的本地代理服务器配置，aidog 有独立代理子系统，强行映射易错）。若用户需要，作为可勾选的「实验性」子项，仅映射可安全对应的字段（端口/监听地址）。详见 Open Questions。
+- cc-switch 代理配置存于 DB `proxy_config` 表（app_type 维度：listen_address/port/timeout/熔断阈值等），与 aidog 的 ProxyLogSettings / breaker 字段**语义不对齐**：cc-switch proxy_config 是它自身的本地代理服务器配置，aidog 有独立代理子系统（gateway/proxy.rs + breaker.rs），强行映射易错且双写腐化。
+- **用户最终决策（2026-06-16）**：MVP **不导入**。归 Out of Scope。后续如需要，作为独立增量任务重新评估。
 
 ### D4. 密钥同步（需求 4）
 
@@ -133,11 +133,10 @@ cc-switch 的「导出配置」是 **SQL dump**（`export_config_to_file` → `d
 - 密钥为空字符串的 provider（cc-switch preset 模板）→ 仍导入平台但 api_key 留空，UI 提示需补填。
 - 密钥不进日志（沿用现有 import_export 安全边界）。
 
-### D5. 控制的自动更新等（需求 5）
+### D5. 控制的自动更新等（需求 5）— **决策：不导入（归 Out of Scope）**
 
-- cc-switch 的 `~/.cc-switch/settings.json` 含 `autoStart` / `windowBehavior` / `theme` / `language` 等设备级设置。
-- aidog 对应概念：开机自启、自动更新（version-cicd-updater 子系统）、主题、语言（setting scope=app）。
-- **MVP 决策（待确认）**：仅迁移有明确对应的（如 language → aidog locale）；`autoStart` 映射到 aidog 自启设置（若存在对应能力）。cc-switch 特有的（windowBehavior、各 configDir）丢弃。详见 Open Questions。
+- cc-switch 的 `~/.cc-switch/settings.json` 含 `autoStart` / `windowBehavior` / `theme` / `language` 等设备级设置；这些是 cc-switch 应用自身的设备级偏好，与 aidog 的应用设置子系统（setting scope=app，记忆 `version-cicd-updater` 等）字段语义无可靠 1:1 对齐。
+- **用户最终决策（2026-06-16）**：MVP **不导入**。归 Out of Scope。后续如需要，作为独立增量任务重新评估。
 
 ---
 
@@ -188,7 +187,7 @@ cc-switch 的「导出配置」是 **SQL dump**（`export_config_to_file` → `d
 
 **选择性导入两级粒度**：
 - 级 1：**选哪些供应商**（provider 列表多选，默认全选；展示 name + 识别出的 platform_type + base_url + 是否冲突）。
-- 级 2：**选哪些配置维度**（勾选框：平台类型✓ / 模型映射 / 密钥 / 代理 / 自动更新等——对应 D1–D5，默认勾选 D1+D2+D4，D3/D5 默认关）。
+- 级 2：**选哪些配置维度**（勾选框：平台类型✓ / 模型映射 / 密钥——仅对应 D1+D2+D4，D3/D5 已决策移除）。
 
 ### 选择性导入 UI 方案
 
@@ -196,7 +195,7 @@ cc-switch 的「导出配置」是 **SQL dump**（`export_config_to_file` → `d
 
 1. 「检测 cc-switch」按钮 → 调 `ccswitch_detect`，显示找到的配置路径（或「未检测到，可手动选择目录」）。
 2. provider 列表（级 1 多选）：每行 checkbox + 平台名 + 识别徽标（platform_type，匹配成功/回退用不同色，复用 StatChip / colorScale）+ base_url + 冲突标记。
-3. 维度勾选条（级 2）：D1–D5 复选。
+3. 维度勾选条（级 2）：D1 平台类型 / D2 模型映射 / D4 密钥 三项复选（D3/D5 已决策移除）。
 4. 「预览」→ 复用现有 conflict 弹窗逐项决策（`ConflictItem` / `setDecision`）。
 5. 「导入」→ `ccswitch_import` → `ImportReport`（applied/skipped/errors）。
 6. i18n：新增 `importExport.ccswitch.*` key，8 语言全补（沿用 check-i18n.mjs 防线，记忆 `frontend-i18n-coverage`）。
@@ -207,16 +206,18 @@ cc-switch 的「导出配置」是 **SQL dump**（`export_config_to_file` → `d
 
 **MVP 包含**：
 - 读取 cc-switch 当前 SQLite（`cc-switch.db` providers 表）+ 旧 `config.json` 两种源。
-- app_type ∈ {claude, codex} 的 provider 导入（gemini 视情况，见 Open Q）。
+- app_type ∈ **{claude, codex}** 的 provider 导入（gemini / opencode / hermes / openclaw / omo 全部不导入，见 Out of Scope）。
 - D1（平台类型识别 + base_url 适配回退链）、D2（模型映射）、D4（密钥同步）。
-- 供应商多选 + 维度勾选 + 复用现有冲突逐项决策。
+- 供应商多选 + 维度勾选（仅 D1/D2/D4 三项，D3/D5 已移除）+ 复用现有冲突逐项决策。
 
 **Out of Scope（明确不做）**：
 - aidog → cc-switch 反向导出。
 - 导入 cc-switch 的 MCP servers / prompts / skills（aidog 有独立 MCP/Skills 模块，语义不同）。
 - 导入 proxy_request_logs / provider_health / model_pricing / stream_check_logs。
 - 接管 cc-switch 的 `is_current` 运行时激活态、`in_failover_queue` 故障转移队列。
-- D3（代理配置）、D5（自动更新等）若确认语义不可靠对齐则降级为「不做 / 仅 language」。
+- **D3（代理配置）**：用户决策不导入（cc-switch proxy_config 与 aidog 代理子系统语义不对齐）。
+- **D5（自动更新/设备设置）**：用户决策不导入（cc-switch 设备级偏好无可靠映射）。
+- **gemini / opencode / hermes / openclaw / omo app_type**：用户决策仅 claude + codex，其余 app_type 不导入。
 - 吃 cc-switch 的 `.sql` 导出文件（直接读原始存储）。
 - 加密 / `.aidogx` 容器（cc-switch import 是明文外部源，无需）。
 
@@ -225,10 +226,11 @@ cc-switch 的「导出配置」是 **SQL dump**（`export_config_to_file` → `d
 ## 验收标准
 
 - [ ] 检测到本机/指定目录的 cc-switch 配置（DB 或 config.json），列出全部 claude/codex provider。
+- [ ] **app_type 仅 claude + codex**：gemini 及其他 app_type（opencode/hermes/openclaw/omo）的 provider 不在列表中（实现层过滤）。
 - [ ] 每个 provider 正确识别 platform_type：命中 preset 关键词或 base_url host → 对应 Protocol；未命中 → claude 类回退 anthropic、codex 类回退 openai(_responses)。回退链 4 步全覆盖且有单测。
 - [ ] 模型映射：ANTHROPIC_MODEL / DEFAULT_*_MODEL / codex model 正确落 PlatformModels 对应 slot。
 - [ ] 密钥：AUTH_TOKEN/API_KEY/OPENAI_API_KEY 正确落 platform.api_key；空密钥不报错。
-- [ ] 选择性导入：能取消勾选个别 provider 与个别维度（D1–D5），结果只写勾选项。
+- [ ] 选择性导入：能取消勾选个别 provider；级 2 维度勾选固定为 D1+D2+D4 三项（D3 代理 / D5 设备设置不在勾选项中），结果只写勾选项。
 - [ ] 冲突：与现有同名 Platform 冲突时走现有逐项 Overwrite/Skip/Rename 决策（复用 import_export 机制，不新造）。
 - [ ] 集成点落到具体：新增 `ccswitch_*` command + 复用 `apply.rs` upsert/冲突；UI 在 ImportExport.tsx 第三块；不新增 export scope。
 - [ ] `cargo clippy` / `cargo test` / tsc 零 warning；i18n 8 语言 check-i18n 零缺失。
@@ -242,18 +244,13 @@ cc-switch 的「导出配置」是 **SQL dump**（`export_config_to_file` → `d
 
 **Decision**：cc-switch import 作为 import_export 模块的**第三个平行入口**（异源单向），后端新增 `ccswitch_*` command 读原始存储 + 转中间表示，平台匹配回退链放**前端纯函数**（复用 PROTOCOLS preset + getDefaultEndpoints + platformPaste.ts matchPlatform/guessProtocol），最终转成 `Payload.platform` 复用现有 preview/apply 冲突机制。不新增 export scope，不引入加密。
 
-**Consequences**：复用最大化、双写风险最低；代价是前后端需约定一个 cc-switch provider 中间表示 DTO。代理/自动更新维度因语义不对齐降级为可选/不做。需用真实 cc-switch.db 样本核实 codex provider 的 settings_config 列精确 JSON 结构。
+**Consequences**：复用最大化、双写风险最低；代价是前后端需约定一个 cc-switch provider 中间表示 DTO。代理（D3）/ 自动更新（D5）/ gemini app_type 已用户决策**不导入**（语义不对齐或范围外），归 Out of Scope，后续如需要作独立增量任务重新评估。需用真实 cc-switch.db 样本核实 codex provider 的 settings_config 列精确 JSON 结构。
 
 ---
 
 ## 拆分建议（parent/child）
 
-判定：**单一交付为主，可选拆 2 child**。核心链路（读源 → 匹配回退 → 转换 → 复用 apply → UI）耦合紧，建议作为 parent 主交付一次性完成 D1+D2+D4 + UI + 集成。两个可独立验收的增量：
-
-- **child-1（可选，实验性）**：D3 代理配置导入（依赖 parent 的中间表示 DTO 落地后再做；语义对齐风险高，独立验收）。
-- **child-2（可选）**：D5 自动更新/设备设置迁移（同样依赖 parent；范围小且独立）。
-
-若 D3/D5 在 Open Questions 确认为「不做」，则退化为**单一交付**，无 child。
+判定：**单一交付，无 child**。D3/D5 已用户决策不导入，gemini 已移出 MVP，故 prd 原「可选拆 2 child」方案退化——核心链路（读源 → 匹配回退 → 转换 → 复用 apply → UI）耦合紧，作为单一交付一次性完成 D1+D2+D4 + UI + 集成。后续如需重新评估 D3/D5/gemini，作为独立增量任务立项。
 
 ---
 
