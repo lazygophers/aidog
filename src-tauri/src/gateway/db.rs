@@ -272,6 +272,9 @@ impl Db {
                 let _ = conn.execute("ALTER TABLE model_price ADD COLUMN max_input_tokens INTEGER", []);
                 let _ = conn.execute("ALTER TABLE model_price ADD COLUMN max_output_tokens INTEGER", []);
                 let _ = conn.execute("ALTER TABLE model_price ADD COLUMN context_window INTEGER", []);
+                // Migration 022: platform auto_group 开关（false = 不建/不维护默认分组，
+                // ensure_platform_groups 永久跳过）。DEFAULT 1 = 老平台保持旧行为。
+                let _ = conn.execute("ALTER TABLE platform ADD COLUMN auto_group INTEGER NOT NULL DEFAULT 1", []);
                 Ok(())
             })
             .await
@@ -467,11 +470,11 @@ fn retention_cutoff(days: u32) -> Option<i64> {
 
 /// SELECT 列序
 const PLATFORM_COLUMNS: &str =
-    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, breaker_failure_threshold, breaker_open_secs, breaker_half_open_max";
+    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, breaker_failure_threshold, breaker_open_secs, breaker_half_open_max, auto_group";
 
 /// 同 PLATFORM_COLUMNS，但每列加 `p.` 限定，用于与其他表 JOIN 时消除同名列歧义（如 created_at/updated_at）
 const PLATFORM_COLUMNS_PREFIXED: &str =
-    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display, p.sort_order, p.manual_budgets, p.status, p.auto_disabled_until, p.auto_disable_strikes, p.breaker_failure_threshold, p.breaker_open_secs, p.breaker_half_open_max";
+    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display, p.sort_order, p.manual_budgets, p.status, p.auto_disabled_until, p.auto_disable_strikes, p.breaker_failure_threshold, p.breaker_open_secs, p.breaker_half_open_max, p.auto_group";
 
 /// 从查询行构造 Platform
 fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -507,6 +510,7 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         breaker_failure_threshold: row.get::<_, i64>(23)? as u32,
         breaker_open_secs: row.get::<_, i64>(24)? as u64,
         breaker_half_open_max: row.get::<_, i64>(25)? as u32,
+        auto_group: row.get::<_, i64>(26)? == 1,
         balance_level: String::new(),
     })
 }
@@ -536,10 +540,11 @@ pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platf
             let base_url = input.base_url.clone();
             let api_key = input.api_key.clone();
             let extra = input.extra.clone();
+            let auto_group = input.auto_group.unwrap_or(true) as i64;
             move |conn| {
                 conn.execute(
-                    "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-                    params![name, platform_type_str, base_url, api_key, extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str],
+                    "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets, auto_group) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                    params![name, platform_type_str, base_url, api_key, extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str, auto_group],
                 )?;
                 Ok(conn.last_insert_rowid() as u64)
             }
@@ -568,6 +573,7 @@ pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platf
         show_in_tray: false,
         tray_display: "balance".to_string(),
         sort_order: 0,
+        auto_group: input.auto_group.unwrap_or(true),
         manual_budgets,
         status: super::models::PlatformStatus::Enabled,
         auto_disabled_until: 0,
@@ -673,6 +679,7 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
         breaker_open_secs: input.breaker_open_secs.unwrap_or(existing.breaker_open_secs),
         breaker_half_open_max: input.breaker_half_open_max.unwrap_or(existing.breaker_half_open_max),
         manual_budgets,
+        auto_group: input.auto_group.unwrap_or(existing.auto_group),
         updated_at: now(),
         ..existing
     };
@@ -695,11 +702,12 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
             let breaker_failure_threshold = updated.breaker_failure_threshold as i64;
             let breaker_open_secs = updated.breaker_open_secs as i64;
             let breaker_half_open_max = updated.breaker_half_open_max as i64;
+            let auto_group = updated.auto_group as i64;
             let updated_at = updated.updated_at;
             let id = updated.id as i64;
             move |conn| {
                 conn.execute(
-                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14, breaker_failure_threshold=?15, breaker_open_secs=?16, breaker_half_open_max=?17 WHERE id=?18",
+                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14, breaker_failure_threshold=?15, breaker_open_secs=?16, breaker_half_open_max=?17, auto_group=?18 WHERE id=?19",
                     params![
                         name,
                         platform_type_str,
@@ -718,6 +726,7 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
                         breaker_failure_threshold,
                         breaker_open_secs,
                         breaker_half_open_max,
+                        auto_group,
                         id,
                     ],
                 )?;
@@ -1434,6 +1443,81 @@ pub async fn set_group_platforms(
         .map_err(|e| format!("set group platforms: {e}"))
 }
 
+/// 全量同步某平台的「手动」组成员关系（platform_update 用）：
+/// 把 platform 加入 `target_group_ids` 内的每个组、移出不在列表内的手动组。
+/// **auto 分组（`group.auto_from_platform` 非空）永不动**——仅操作手动组。
+/// group_platform 表本身无 auto 标记，靠 join `group.auto_from_platform` 区分。
+pub async fn sync_platform_manual_groups(
+    db: &Db,
+    platform_id: u64,
+    target_group_ids: &[u64],
+) -> Result<(), String> {
+    // 该平台当前所在的所有 (group_id, auto_from_platform)。
+    let current: Vec<(i64, String)> = db
+        .0
+        .call(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT g.id, g.auto_from_platform FROM group_platform gp \
+                 JOIN \"group\" g ON gp.group_id = g.id \
+                 WHERE gp.platform_id = ?1 AND gp.deleted_at = 0 AND g.deleted_at = 0",
+            )?;
+            let rows = stmt
+                .query_map(params![platform_id as i64], |r| {
+                    Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
+                })?
+                .collect::<SqlResult<Vec<_>>>()?;
+            Ok(rows)
+        })
+        .await
+        .map_err(|e| format!("sync_platform_manual_groups: list current: {e}"))?;
+
+    let target: std::collections::HashSet<i64> =
+        target_group_ids.iter().map(|&g| g as i64).collect();
+
+    // 移出：当前在、target 不含、且非 auto 组。
+    for (gid, auto_from) in &current {
+        if auto_from.is_empty() && !target.contains(gid) {
+            let gid = *gid;
+            db.0
+                .call(move |conn| {
+                    conn.execute(
+                        "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2",
+                        params![gid, platform_id as i64],
+                    )?;
+                    Ok(())
+                })
+                .await
+                .map_err(|e| format!("sync_platform_manual_groups: remove from group {gid}: {e}"))?;
+        }
+    }
+
+    // 加入：target 含、当前不在的组。复用 set_group_platforms 追加本平台（保留组内其他平台）。
+    for &gid in &target {
+        let already = current.iter().any(|(g, _)| *g == gid);
+        if !already {
+            let existing = get_group_platforms(db, gid as u64).await.unwrap_or_default();
+            let mut inputs: Vec<GroupPlatformInput> = existing
+                .into_iter()
+                .map(|d| GroupPlatformInput {
+                    platform_id: d.platform.id,
+                    priority: Some(d.priority),
+                    weight: Some(d.weight),
+                })
+                .collect();
+            if !inputs.iter().any(|i| i.platform_id == platform_id) {
+                inputs.push(GroupPlatformInput {
+                    platform_id,
+                    priority: Some(0),
+                    weight: Some(1),
+                });
+            }
+            set_group_platforms(db, gid as u64, &inputs).await?;
+        }
+    }
+
+    Ok(())
+}
+
 pub async fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlatformDetail>, String> {
     db.0
         .call(move |conn| {
@@ -1482,6 +1566,7 @@ pub async fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlat
                     breaker_failure_threshold: row.get::<_, i64>(25)? as u32,
                     breaker_open_secs: row.get::<_, i64>(26)? as u64,
                     breaker_half_open_max: row.get::<_, i64>(27)? as u32,
+                    auto_group: row.get::<_, i64>(28)? == 1,
                     balance_level: String::new(),
                 },
                 priority: row.get(0)?,
@@ -3382,6 +3467,8 @@ mod tests {
             available_models: None,
             endpoints: None,
             manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
         }
     }
 
@@ -3999,6 +4086,66 @@ decimals: None,
         assert_eq!(list_groups(&db).await.unwrap().len(), 0);
     }
 
+    // ── 平台 auto_group 开关：持久化 + 手动组成员全量同步（auto 组不动）──
+
+    #[tokio::test]
+    async fn create_platform_persists_auto_group() {
+        let db = test_db().await;
+        // None → 默认 true（旧行为不变）。
+        let mut input = sample_platform("ag-default");
+        input.auto_group = None;
+        let p = create_platform(&db, input).await.unwrap();
+        assert!(get_platform(&db, p.id).await.unwrap().unwrap().auto_group, "None→true");
+
+        // 显式 false。
+        let mut input = sample_platform("ag-off");
+        input.auto_group = Some(false);
+        let p = create_platform(&db, input).await.unwrap();
+        assert!(!get_platform(&db, p.id).await.unwrap().unwrap().auto_group, "Some(false)");
+
+        // 显式 true。
+        let mut input = sample_platform("ag-on");
+        input.auto_group = Some(true);
+        let p = create_platform(&db, input).await.unwrap();
+        assert!(get_platform(&db, p.id).await.unwrap().unwrap().auto_group, "Some(true)");
+    }
+
+    #[tokio::test]
+    async fn sync_platform_manual_groups_adds_removes_preserves_auto() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("sync-p")).await.unwrap();
+        // 一个 auto 组（auto_from_platform 非空）+ 两个手动组。
+        let auto_g = create_group(&db, CreateGroup {
+            name: "auto-g".into(), path: "/auto".into(),
+            routing_mode: RoutingMode::Failover,
+            auto_from_platform: p.id.to_string(),
+            request_timeout_secs: 0, connect_timeout_secs: 0,
+            source_protocol: None, max_retries: 2, model_mappings: vec![],
+        }).await.unwrap();
+        set_group_platforms(&db, auto_g.id, &[GroupPlatformInput {
+            platform_id: p.id, priority: Some(0), weight: Some(1),
+        }]).await.unwrap();
+        let m1 = create_group(&db, sample_group("m1", "/m1", vec![])).await.unwrap();
+        let m2 = create_group(&db, sample_group("m2", "/m2", vec![])).await.unwrap();
+
+        // 初始：加入 m1，不动 m2、auto 组。
+        sync_platform_manual_groups(&db, p.id, &[m1.id]).await.unwrap();
+        assert_eq!(get_group_platforms(&db, m1.id).await.unwrap().len(), 1);
+        assert_eq!(get_group_platforms(&db, m2.id).await.unwrap().len(), 0);
+        assert_eq!(get_group_platforms(&db, auto_g.id).await.unwrap().len(), 1, "auto 组应在");
+
+        // 全量同步 → 移出 m1、加入 m2。
+        sync_platform_manual_groups(&db, p.id, &[m2.id]).await.unwrap();
+        assert_eq!(get_group_platforms(&db, m1.id).await.unwrap().len(), 0, "m1 应被移出");
+        assert_eq!(get_group_platforms(&db, m2.id).await.unwrap().len(), 1, "m2 应被加入");
+        assert_eq!(get_group_platforms(&db, auto_g.id).await.unwrap().len(), 1, "auto 组不受手动同步影响");
+
+        // 清空手动组（空 target）→ auto 组仍在。
+        sync_platform_manual_groups(&db, p.id, &[]).await.unwrap();
+        assert_eq!(get_group_platforms(&db, m2.id).await.unwrap().len(), 0);
+        assert_eq!(get_group_platforms(&db, auto_g.id).await.unwrap().len(), 1, "清空手动组不删 auto");
+    }
+
     // ── S1 async DB：增删改查全路径（内存库，验证 tokio-rusqlite 闭包往返）──
     #[tokio::test]
     async fn s1_async_platform_crud_roundtrip() {
@@ -4031,6 +4178,8 @@ decimals: None,
             breaker_failure_threshold: None,
             breaker_open_secs: None,
             breaker_half_open_max: None,
+            auto_group: None,
+            join_group_ids: None,
         }).await.unwrap();
         assert_eq!(updated.base_url, "https://crud.example/v2");
         assert_eq!(get_platform(&db, created.id).await.unwrap().unwrap().base_url, "https://crud.example/v2");
@@ -4090,6 +4239,7 @@ decimals: None,
             extra: None, models: None, available_models: None, endpoints: None,
             enabled: None, status: Some(PlatformStatus::Disabled), manual_budgets: None,
             breaker_failure_threshold: None, breaker_open_secs: None, breaker_half_open_max: None,
+            auto_group: None, join_group_ids: None,
         }).await.unwrap();
         assert_eq!(upd.status, PlatformStatus::Disabled);
         assert!(!upd.enabled);
@@ -4116,6 +4266,7 @@ decimals: None,
             extra: None, models: None, available_models: None, endpoints: None,
             enabled: None, status: None, manual_budgets: None,
             breaker_failure_threshold: None, breaker_open_secs: None, breaker_half_open_max: None,
+            auto_group: None, join_group_ids: None,
         }).await.unwrap();
         assert_eq!(upd.status, PlatformStatus::Enabled, "改 api_key 立即恢复");
         assert_eq!(upd.auto_disable_strikes, 0);

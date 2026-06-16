@@ -466,6 +466,11 @@ pub struct Platform {
     /// 排序权重（越小越靠前），0 = 按 created_at 排序
     #[serde(default)]
     pub sort_order: i64,
+    /// 是否为该平台自动创建/维护默认分组（true=当前行为；false=不建且
+    /// `ensure_platform_groups` 永久跳过）。添加平台时用户可选，持久化以确保
+    /// 「不要分组」的选择跨重启生效。
+    #[serde(default)]
+    pub auto_group: bool,
     /// 手动预算限额列表（仅无上游 quota 自动支持平台；请求驱动扣减 + 耗尽阻断）
     #[serde(default)]
     pub manual_budgets: Vec<ManualBudget>,
@@ -492,6 +497,12 @@ pub struct CreatePlatform {
     pub endpoints: Option<Vec<PlatformEndpoint>>,
     #[serde(default)]
     pub manual_budgets: Option<Vec<ManualBudget>>,
+    /// 是否自动创建默认分组（None→true 保持旧行为；false=不建且 ensure 永久跳过）。
+    #[serde(default)]
+    pub auto_group: Option<bool>,
+    /// 额外加入的已有分组 ID 列表（plain membership，不写 auto_from_platform）。
+    #[serde(default)]
+    pub join_group_ids: Option<Vec<u64>>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -514,6 +525,13 @@ pub struct UpdatePlatform {
     pub breaker_failure_threshold: Option<u32>,
     pub breaker_open_secs: Option<u64>,
     pub breaker_half_open_max: Option<u32>,
+    /// 重设是否自动创建默认分组（None=不变；Some(false)=删既有 auto 分组并停止维护）。
+    #[serde(default)]
+    pub auto_group: Option<bool>,
+    /// 全量同步该平台的手动组成员关系（None=不动；Some(set)=加入 set 内、移出 set 外，
+    /// auto 分组不受影响）。
+    #[serde(default)]
+    pub join_group_ids: Option<Vec<u64>>,
 }
 
 // ─── Group ─────────────────────────────────────────────────

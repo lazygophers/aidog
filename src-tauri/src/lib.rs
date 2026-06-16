@@ -69,6 +69,10 @@ async fn ensure_platform_groups(db: &Db) {
         .map(|g| g.auto_from_platform)
         .collect();
     for platform in &platforms {
+        // 用户显式选「不创建分组」的平台 → 永久跳过（auto_group 持久化标记）。
+        if !platform.auto_group {
+            continue;
+        }
         // 检查是否已存在关联此平台的分组
         let platform_id_str = platform.id.to_string();
         if existing_auto.contains(&platform_id_str) {
@@ -138,45 +142,57 @@ fn about_info() -> AboutInfo {
 
 // ─── Platform Commands ─────────────────────────────────────
 
+/// 为平台创建默认 auto 分组并关联（name `{slug}-auto`，path `/{proto}-{id}`，
+/// Failover / max_retries 2）。供 platform_create（勾选默认分组）与
+/// platform_update（补建缺失的 auto 分组）复用，避免两处重复构造。
+async fn create_auto_group_for(db: &Db, platform: &Platform) -> Result<(), String> {
+    let protocol_str = format!("{:?}", platform.platform_type).to_lowercase();
+    let group_path = format!("/{}-{}", protocol_str, platform.id);
+    let group_name = slugify(&format!("{}-auto", platform.name));
+    let group = db::create_group(db, CreateGroup {
+        name: group_name,
+        path: group_path,
+        routing_mode: RoutingMode::Failover,
+        auto_from_platform: platform.id.to_string(),
+        request_timeout_secs: 0,
+        connect_timeout_secs: 0,
+        source_protocol: None,
+        max_retries: 2,
+        model_mappings: Vec::new(),
+    }).await?;
+    db::set_group_platforms(db, group.id, &[GroupPlatformInput {
+        platform_id: platform.id,
+        priority: Some(0),
+        weight: Some(1),
+    }]).await?;
+    tracing::info!(platform_id = platform.id, group_id = group.id, "created auto group for platform");
+    Ok(())
+}
+
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
     tracing::debug!(command = "platform_create", name = %input.name, "command invoked");
+    // 分组选项先捕获（input 随即 move 进 create_platform）。
+    let auto_group = input.auto_group.unwrap_or(true);
+    let join_group_ids = input.join_group_ids.clone().unwrap_or_default();
     let platform = db::create_platform(&db, input).await
         .map_err(|e| { tracing::error!(command = "platform_create", error = %e, "create platform failed"); e })?;
 
-    // 自动创建分组，path 按 protocol + 平台 ID 生成
-    let protocol_str = format!("{:?}", platform.platform_type).to_lowercase();
-    let group_path = format!("/{}-{}", protocol_str, platform.id);
-    let group_name = slugify(&format!("{}-auto", platform.name));
+    // ① 创建默认分组（用户勾选；默认勾 = 旧行为）。
+    if auto_group {
+        if let Err(e) = create_auto_group_for(&db, &platform).await {
+            tracing::error!(command = "platform_create", platform_id = platform.id, error = %e, "auto-create group failed");
+            return Err(e);
+        }
+    }
 
-    let group = db::create_group(
-        &db,
-        CreateGroup {
-            name: group_name,
-            path: group_path,
-            routing_mode: RoutingMode::Failover,
-            auto_from_platform: platform.id.to_string(),
-            request_timeout_secs: 0,
-            connect_timeout_secs: 0,
-            source_protocol: None,
-            max_retries: 2,
-            model_mappings: Vec::new(),
-        },
-    ).await
-        .map_err(|e| { tracing::error!(command = "platform_create", platform_id = platform.id, error = %e, "auto-create group failed"); e })?;
-
-    // 将平台关联到自动分组
-    db::set_group_platforms(
-        &db,
-        group.id,
-        &[GroupPlatformInput {
-            platform_id: platform.id,
-            priority: Some(0),
-            weight: Some(1),
-        }],
-    ).await
-        .map_err(|e| { tracing::error!(command = "platform_create", platform_id = platform.id, error = %e, "set_group_platforms failed"); e })?;
+    // ② 加入用户指定的已有分组（plain membership；sync 跳过 auto 组，对新平台即纯追加）。
+    if !join_group_ids.is_empty() {
+        if let Err(e) = db::sync_platform_manual_groups(&db, platform.id, &join_group_ids).await {
+            tracing::warn!(command = "platform_create", platform_id = platform.id, error = %e, "join groups failed");
+        }
+    }
 
     Ok(platform)
 }
@@ -217,36 +233,35 @@ async fn platform_get(id: u64, db: State<'_, Db>) -> Result<Option<Platform>, St
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
     tracing::debug!(command = "platform_update", id = input.id, "command invoked");
+    // 分组选项先捕获（input 随即 move 进 update_platform）。
+    let join_group_ids = input.join_group_ids.clone();
     let platform = db::update_platform(&db, input).await
         .map_err(|e| { tracing::error!(command = "platform_update", error = %e, "update platform failed"); e })?;
-    // 确保该平台有关联分组，若无则自动创建
+
+    // auto 分组对账：desired = platform.auto_group（update_platform 已合并 input.auto_group）。
+    // desired && 无 auto 组 → 补建；!desired && 有 auto 组 → force_delete（auto 组只含本平台）。
     let groups = db::list_groups(&db).await.unwrap_or_default();
     let platform_id_str = platform.id.to_string();
-    let exists = groups.iter().any(|g| g.auto_from_platform == platform_id_str);
-    if !exists {
-        let protocol_str = format!("{:?}", platform.platform_type).to_lowercase();
-        let group_path = format!("/{}-{}", protocol_str, platform.id);
-        let group_name = slugify(&format!("{}-auto", platform.name));
-        if let Ok(group) = db::create_group(&db, CreateGroup {
-            name: group_name,
-            path: group_path,
-            routing_mode: RoutingMode::Failover,
-            auto_from_platform: platform_id_str.clone(),
-            request_timeout_secs: 0,
-            connect_timeout_secs: 0,
-            source_protocol: None,
-            max_retries: 2,
-            model_mappings: Vec::new(),
-        }).await {
-            if let Err(e) = db::set_group_platforms(&db, group.id, &[GroupPlatformInput {
-                platform_id: platform.id,
-                priority: Some(0),
-                weight: Some(1),
-            }]).await {
-                tracing::warn!(command = "platform_update", platform_id = platform.id, error = %e, "auto-create group: set_group_platforms failed");
+    let existing_auto = groups.iter().find(|g| g.auto_from_platform == platform_id_str);
+    if platform.auto_group && existing_auto.is_none() {
+        if let Err(e) = create_auto_group_for(&db, &platform).await {
+            tracing::warn!(command = "platform_update", platform_id = platform.id, error = %e, "auto-create group failed");
+        }
+    } else if !platform.auto_group {
+        if let Some(g) = existing_auto {
+            if let Err(e) = db::force_delete_group(&db, g.id).await {
+                tracing::warn!(command = "platform_update", platform_id = platform.id, group_id = g.id, error = %e, "force delete auto group failed");
             }
         }
     }
+
+    // join_group_ids：全量同步手动组成员关系（auto 组不动；None=不改）。
+    if let Some(ids) = join_group_ids {
+        if let Err(e) = db::sync_platform_manual_groups(&db, platform.id, &ids).await {
+            tracing::warn!(command = "platform_update", platform_id = platform.id, error = %e, "sync manual groups failed");
+        }
+    }
+
     Ok(platform)
 }
 
