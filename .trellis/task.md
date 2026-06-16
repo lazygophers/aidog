@@ -69,3 +69,4 @@
 | license-badge-agpl-fix | License badge/section 修正为 AGPL-3.0 (实际协议) | — | 已完成 | 收尾 | 100% | — |
 | docs-nav-api-dedup | docs 顶部栏 API 接口重复/缺失修复 (_nav.json) | — | 已完成 | 收尾 | 100% | — |
 | ci-checkout-node24 | 升级 CI actions/checkout 到 Node 24 兼容版（消除 Node 20 deprecation） | — | 已完成 | 收尾 | 100% | — |
+| tray-column-dead-code | 清除 TrayColumn macOS 专属字段在非 macOS 的 dead_code warning | — | 已完成 | 收尾 | 100% | — |
