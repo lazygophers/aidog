@@ -6,6 +6,10 @@ CYAN  := \033[36m
 GREEN := \033[32m
 RESET := \033[0m
 
+# 签名私钥 fallback: env 未设则读 ~/.tauri/aidog.key 内容 (updater artifact 签名所需)
+TAURI_SIGNING_PRIVATE_KEY ?= $(shell cat $(HOME)/.tauri/aidog.key 2>/dev/null)
+export TAURI_SIGNING_PRIVATE_KEY
+
 ##@ Build
 
 .PHONY: build
