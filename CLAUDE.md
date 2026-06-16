@@ -66,8 +66,9 @@ src-tauri/src/
 - balance（余额）维持平台级：关联 platforms 的 `est_balance_remaining` 求和，无 per-group 概念，不按 group_name 拆。
 
 ### Local API
-- 所有 API 端点以 `/api/` 开头，仅允许 POST 方法
+- 应用 API 端点以 `/api/` 开头，仅允许 POST 方法
 - `POST /api/group-info`：Authorization Bearer `<group_name>` 鉴权，localhost-only
+- `GET /` + `GET /proxy`：健康端点，返回 `{"service":"aidog","ok":true}`，无鉴权、不落 proxy_log、跳过组路由（客户端启动探测命中代理根 URL 用，禁删）
 - statusline bash 脚本通过 `ANTHROPIC_BASE_URL`（推导代理根 URL）+ `ANTHROPIC_AUTH_TOKEN`（= group_name）调用端点
 - `settings.{group}.json` 禁止包含 `_aidog_statusline` / `_aidog_subagent_statusline`（`do_sync_group_settings` 会 strip）
 
