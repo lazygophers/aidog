@@ -86,3 +86,5 @@
 | count-tokens-endpoint | 修复 count_tokens 端点协议未支持（错转发到 /messages 致上游 500）方案X 透传优先+本地估算兜底 | @nico | 已完成 | 收尾 | 100% | — |
 | cc-switch-import | 导入 cc-switch 平台配置 (平台/模型映射/代理/密钥/自动更新), 集成进导入导出并允许选择性导入 | — | 规划中 | 规划 | 0% | — |
 | logs-status-code | Logs 增加 status code 展示 (用户请求/上游请求/每上游请求状态) | — | 已完成 | 收尾 | 100% | — |
+| backup-default-on | 定时备份默认启用 (enabled 默认 true, 每天一份留7天) | — | 已完成 | 收尾 | 100% | — |
+| proxy-ua-passthrough | /proxy/ 前缀请求按 UA 选择透传协议: 不支持则默认透传(UA 推断目标协议), UA 不识别或平台不支持则回退现有处理方案 | — | 进行中 | 规划 | 0% | — |
