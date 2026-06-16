@@ -3,7 +3,7 @@
   "name": "model-info-source",
   "title": "模型信息中心化: 移除旧价格同步, 改 GitHub JSON 为唯一信源 (price/max_tokens/context)",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

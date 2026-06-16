@@ -3,7 +3,7 @@
   "name": "max-tokens-cap",
   "title": "max_tokens 入站 parse(anthropic/gemini) + router 转换前裁剪(仅超上限裁, 未传不注入)",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

@@ -3,7 +3,7 @@
   "name": "pricing-python",
   "title": "Python 定价工程 + data/models.json 首版 (scripts/pricing/ uv + 11 scraper + Makefile 单入口)",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

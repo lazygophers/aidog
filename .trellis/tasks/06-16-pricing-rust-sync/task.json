@@ -3,7 +3,7 @@
   "name": "pricing-rust-sync",
   "title": "Rust: migration 008 max_*列 + 同步源换 GitHub raw + db max_* + 移除旧 price_sync/upsert/delete + import_export 移除 model_price scope",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
