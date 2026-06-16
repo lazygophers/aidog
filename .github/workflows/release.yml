@@ -31,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version: 20
 
@@ -41,7 +41,7 @@ jobs:
       # yarn@4(berry) 依赖缓存：setup-node 的 cache:yarn 在 corepack 前跑会读错目录，故用显式 cache。
       # restore/save 分离：默认 actions/cache 在 job 失败时跳过 save，拆开后 save 步带 if:always() 保证失败也缓存。
       - name: Restore yarn cache
-        uses: actions/cache/restore@v4
+        uses: actions/cache/restore@v5
         with:
           path: .yarn/cache
           key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
@@ -87,7 +87,7 @@ jobs:
       # 保存 yarn 缓存：if:always() 保证 build 失败也存（与 restore 同 key；命中精确 key 时 actions/cache 自动跳过写入）。
       - name: Save yarn cache
         if: always()
-        uses: actions/cache/save@v4
+        uses: actions/cache/save@v5
         with:
           path: .yarn/cache
           key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
