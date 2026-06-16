@@ -10,6 +10,14 @@ edition = "2021"
 name = "aidog_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
+# Release 编译换速度：CI(GitHub Actions) macOS 10×/Windows 2× 计费，更快编译 = 更少 billed minutes。
+# 桌面代理 app 无需极致优化；codegen-units 提高并行、关 lto、opt-level 降一档、strip 去符号。
+[profile.release]
+codegen-units = 256
+lto = false
+opt-level = 2
+strip = true
+
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 

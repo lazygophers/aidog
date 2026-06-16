@@ -13,17 +13,7 @@ permissions:
   contents: write
 
 jobs:
-  read-version:
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.v.outputs.version }}
-    steps:
-      - uses: actions/checkout@v5
-      - id: v
-        run: echo "version=$(tr -d '[:space:]' < .version)" >> "$GITHUB_OUTPUT"
-
   release:
-    needs: read-version
     strategy:
       fail-fast: false
       matrix:
@@ -35,6 +25,9 @@ jobs:
             args: ""
             target: ""
     runs-on: ${{ matrix.platform }}
+    # 强制 yarn(berry) 缓存落到项目本地 .yarn/cache：跨平台路径确定，供下方 actions/cache 缓存。
+    env:
+      YARN_ENABLE_GLOBAL_CACHE: "false"
     steps:
       - uses: actions/checkout@v5
 
@@ -44,6 +37,14 @@ jobs:
 
       - name: Enable Corepack
         run: corepack enable
+
+      # yarn@4(berry) 依赖缓存：setup-node 的 cache:yarn 在 corepack 前跑会读错目录，故用显式 cache。
+      - name: Cache yarn deps
+        uses: actions/cache@v4
+        with:
+          path: .yarn/cache
+          key: ${{ runner.os }}-yarn-${{ hashFiles('yarn.lock') }}
+          restore-keys: ${{ runner.os }}-yarn-
 
       - uses: dtolnay/rust-toolchain@stable
         with:
@@ -59,6 +60,12 @@ jobs:
       - name: Verify version sync (.version 单一源)
         run: node scripts/sync-version.mjs --check
 
+      # 内联读版本号（曾是独立 read-version job，为一行 echo 起整台 ubuntu runner，浪费一次 spin-up）。
+      - name: Read version (.version 单一源)
+        id: v
+        shell: bash
+        run: echo "version=$(tr -d '[:space:]' < .version)" >> "$GITHUB_OUTPUT"
+
       - name: Build & publish (tauri-action)
         uses: tauri-apps/tauri-action@v0
         env:
@@ -66,8 +73,8 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          tagName: v${{ needs.read-version.outputs.version }}
-          releaseName: AiDog v${{ needs.read-version.outputs.version }}
+          tagName: v${{ steps.v.outputs.version }}
+          releaseName: AiDog v${{ steps.v.outputs.version }}
           releaseBody: |
             自动构建发布。下载对应平台安装包；客户端「关于」页可检查更新。
           releaseDraft: false
