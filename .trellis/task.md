@@ -75,8 +75,8 @@
 | updater-pubkey-gitignore | updater 新签名密钥对 (改 pubkey + gitignore) | — | 已完成 | 收尾 | 100% | — |
 | ci-actions-node-24 | CI actions 升级到 Node 24 兼容版 | — | 已完成 | 收尾 | 100% | — |
 | release-v0-1-0 | 优化 release 发布文本 (模板+v0.1.0) | — | 已完成 | 收尾 | 100% | — |
-| model-info-source | 模型信息中心化: 移除旧价格同步, 改 GitHub JSON 为唯一信源 (price/max_tokens/context) | — | 进行中 | 完成 | 100 | — |
-| pricing-python | Python 定价工程 + data/models.json 首版 (scripts/pricing/ uv + 11 scraper + Makefile 单入口) | — | 进行中 | 完成 | 100% | .worktrees/06-16-pricing-python |
-| pricing-rust-sync | Rust: migration 008 max_*列 + 同步源换 GitHub raw + db max_* + 移除旧 price_sync/upsert/delete + import_export 移除 model_price scope | — | 进行中 | 完成 | 100% | — |
-| pricing-frontend | 前端 PricingTab 改造: 移除手动编辑/删除 + 加 max_tokens/context 列 + 文案 GitHub + api.ts + i18n 7 语言 | — | 进行中 | 完成 | 100 | — |
-| max-tokens-cap | max_tokens 入站 parse(anthropic/gemini) + router 转换前裁剪(仅超上限裁, 未传不注入) | — | 进行中 | 完成 | 100% | — |
+| model-info-source | 模型信息中心化: 移除旧价格同步, 改 GitHub JSON 为唯一信源 (price/max_tokens/context) | — | 已完成 | 收尾 | 100% | — |
+| pricing-python | Python 定价工程 + data/models.json 首版 (scripts/pricing/ uv + 11 scraper + Makefile 单入口) | — | 已完成 | 收尾 | 100% | .worktrees/06-16-pricing-python |
+| pricing-rust-sync | Rust: migration 008 max_*列 + 同步源换 GitHub raw + db max_* + 移除旧 price_sync/upsert/delete + import_export 移除 model_price scope | — | 已完成 | 收尾 | 100% | — |
+| pricing-frontend | 前端 PricingTab 改造: 移除手动编辑/删除 + 加 max_tokens/context 列 + 文案 GitHub + api.ts + i18n 7 语言 | — | 已完成 | 收尾 | 100% | — |
+| max-tokens-cap | max_tokens 入站 parse(anthropic/gemini) + router 转换前裁剪(仅超上限裁, 未传不注入) | — | 已完成 | 收尾 | 100% | — |
