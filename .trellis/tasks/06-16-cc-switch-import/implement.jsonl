@@ -1,1 +1,4 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/06-16-cc-switch-import/prd.md", "reason": "字段映射表/base_url 回退链/apply 复用方案/ADR — 执行真值"}
+{"file": ".trellis/tasks/06-16-cc-switch-import/implement.md", "reason": "ST0-ST4 subtask 划分 + 风险 + file:line 锚点"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "CcProvider DTO 前后端一致性 + payload.platform JSON 形态"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "i18n key 命名/UI 复用(StatChip/colorScale) + 匹配函数纯函数规约"}

@@ -3,7 +3,7 @@
   "name": "cc-switch-import",
   "title": "导入 cc-switch 平台配置 (平台/模型映射/代理/密钥/自动更新), 集成进导入导出并允许选择性导入",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

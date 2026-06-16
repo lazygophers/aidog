@@ -68,7 +68,7 @@ function tryBase64Decode(s: string): string | null {
  * 归一化用于平台关键字匹配：小写 + 非 alnum/CJK → 空格 + 折叠空白。
  * 与 Platforms.tsx 既有「空格分词 substring」关键字惯例对齐。
  */
-function normalizeForMatch(s: string): string {
+export function normalizeForMatch(s: string): string {
   return s
     .toLowerCase()
     .replace(/[^a-z0-9一-鿿]+/gi, " ")
@@ -111,7 +111,7 @@ function extractApiKeys(text: string): string[] {
   return keys;
 }
 
-function guessProtocol(url: string): ParsedProtocol {
+export function guessProtocol(url: string): ParsedProtocol {
   const u = url.toLowerCase();
   if (/anthrop/.test(u)) return "anthropic"; // 容错截断 "anthropi"
   if (/gemini|generativelanguage/.test(u)) return "gemini";
@@ -137,7 +137,7 @@ function extractBaseUrls(text: string): ParsedBaseUrl[] {
 }
 
 /** 匹配内置平台 preset（首个命中胜出，与 presets 列表顺序一致）。 */
-function matchPlatform(
+export function matchPlatform(
   text: string,
   presets: PastePresetRef[],
 ): { value: string; label: string } | null {

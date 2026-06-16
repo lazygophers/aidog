@@ -1619,6 +1619,61 @@ export const importExportApi = {
     invoke<ImportReport>("import_apply", { path, decisions }),
 };
 
+// ─── cc-switch 导入（异源单向，仅 claude + codex provider）───
+
+/** codex provider config.toml 解析后字段（后端已解析，前端直接消费）。 */
+export interface CodexConfigParsed {
+  model?: string;
+  modelProvider?: string;
+  baseUrl?: string;
+  wireApi?: string;
+  providerName?: string;
+}
+
+/** cc-switch provider 中间表示（后端 DTO，camelCase）。 */
+export interface CcProvider {
+  id: string;
+  appType: "claude" | "codex";
+  name: string;
+  /** 原始 settings_config JSON。 */
+  settingsConfig: Record<string, unknown>;
+  websiteUrl?: string;
+  /** claude: env.ANTHROPIC_BASE_URL；codex: config.toml base_url。 */
+  detectedBaseUrl?: string;
+  /** claude: env.ANTHROPIC_AUTH_TOKEN/API_KEY；codex: auth.OPENAI_API_KEY。 */
+  detectedApiKey?: string;
+  /** codex 专用：解析后的 config.toml 字段。claude 为 undefined。 */
+  codexConfigParsed?: CodexConfigParsed;
+}
+
+export interface CcswitchDetection {
+  found: boolean;
+  path?: string;
+  /** `sqlite` | `json` | `none`。 */
+  sourceType: string;
+  providerCount: number;
+}
+
+export interface CcswitchReadResult {
+  sourceType: string;
+  path: string;
+  providers: CcProvider[];
+  /** 与现有 aidog 同名 platform 冲突的 name 集合。 */
+  existingPlatformNames: string[];
+}
+
+export const ccswitchApi = {
+  /** 探测 cc-switch 配置存在性 + 路径。 */
+  detect: (overridePath?: string) =>
+    invoke<CcswitchDetection>("ccswitch_detect", { overridePath }),
+  /** 读取 providers（仅 claude + codex）。 */
+  read: (path?: string) =>
+    invoke<CcswitchReadResult>("ccswitch_read", { path }),
+  /** 接收前端转换好的 Platform JSON + 决策，走 apply::apply 写入。 */
+  import: (platformPayload: unknown[], decisions: ConflictDecision[]) =>
+    invoke<ImportReport>("ccswitch_import", { platformPayload, decisions }),
+};
+
 // ─── 定时备份 ───────────────────────────────────────────────
 
 /** 定时备份设置（字段 snake_case，与后端 BackupSettings 对齐）。 */

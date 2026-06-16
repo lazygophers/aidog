@@ -11,10 +11,12 @@
 //! - [`skills_sync`]：skills 自动化（npx add/enable/disable）。
 
 pub mod apply;
+pub mod ccswitch;
 pub mod collect;
 pub mod container;
 pub mod skills_sync;
 
+pub use ccswitch::{CcswitchDetection, CcswitchReadResult};
 pub use container::{decrypt, encrypt};
 
 use serde::{Deserialize, Serialize};

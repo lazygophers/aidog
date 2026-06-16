@@ -1985,6 +1985,44 @@ async fn import_apply(
     gateway::import_export::apply::apply(payload, &decisions, &db).await
 }
 
+/// cc-switch 导入：探测本地 cc-switch 配置（SQLite / 旧 JSON）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn ccswitch_detect(
+    override_path: Option<String>,
+) -> Result<gateway::import_export::CcswitchDetection, String> {
+    tracing::debug!(command = "ccswitch_detect", "command invoked");
+    gateway::import_export::ccswitch::detect(override_path).await
+}
+
+/// cc-switch 导入：读取 providers（仅 claude + codex），返回原始 DTO。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn ccswitch_read(
+    db: State<'_, Db>,
+    path: Option<String>,
+) -> Result<gateway::import_export::CcswitchReadResult, String> {
+    tracing::debug!(command = "ccswitch_read", "command invoked");
+    gateway::import_export::ccswitch::read(&db, path).await
+}
+
+/// cc-switch 导入：接收前端转换好的 Platform JSON + 决策，走 apply::apply 写入。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn ccswitch_import(
+    db: State<'_, Db>,
+    platform_payload: Vec<serde_json::Value>,
+    decisions: Vec<gateway::import_export::ConflictDecision>,
+) -> Result<gateway::import_export::ImportReport, String> {
+    tracing::debug!(
+        command = "ccswitch_import",
+        payload_count = platform_payload.len(),
+        decisions = decisions.len(),
+        "command invoked"
+    );
+    gateway::import_export::ccswitch::import(platform_payload, &decisions, &db).await
+}
+
 /// 测试通知：直接走分发逻辑（前端设置页"测试"按钮），不经 /api/notify 端点。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
@@ -3749,6 +3787,9 @@ pub fn run() {
             backup_run_now,
             import_read_file,
             import_apply,
+            ccswitch_detect,
+            ccswitch_read,
+            ccswitch_import,
             // App Logging
             app_log_settings_get,
             app_log_settings_set,
