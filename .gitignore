@@ -49,3 +49,4 @@ doc_build/
 # Tauri updater signing private key (never commit)
 *.key
 .tauri-signing*
+.claude/worktrees/
