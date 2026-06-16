@@ -10,7 +10,7 @@ App de escritorio · Sin nube · 50+ plataformas en un solo lugar · Enrutamient
 [![GitHub Release](https://img.shields.io/github/v/release/lazygophers/aidog?logo=github&label=release)](https://github.com/lazygophers/aidog/releases/latest)
 [![License](https://img.shields.io/badge/license-MIT-blue)](#license)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?logo=tauri&logoColor=white)](https://github.com/lazygophers/aidog/releases/latest)
-[![Aprobado por LINUX DO](https://ld.xh.do/ld-badge.svg)](https://linux.do)
+[![LINUX DO](https://ld.xh.do/ld-badge.svg)](https://linux.do)
 [![GitHub Stars](https://img.shields.io/github/stars/lazygophers/aidog?style=social)](https://github.com/lazygophers/aidog/stargazers)
 [![Downloads](https://img.shields.io/github/downloads/lazygophers/aidog/total?logo=github)](https://github.com/lazygophers/aidog/releases)
 [![Last Commit](https://img.shields.io/github/last-commit/lazygophers/aidog?logo=git&logoColor=white)](https://github.com/lazygophers/aidog/commits)
@@ -258,6 +258,12 @@ Sitio completo de docs 👉 <https://lazygophers.github.io/aidog/es/>
 ## IDE recomendado
 
 [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer).
+
+## Agradecimientos
+
+[![LINUX DO](https://ld.xh.do/ld-badge.svg)](https://linux.do)
+
+Gracias a la comunidad [LINUX DO](https://linux.do).
 
 ## Licencia
 
