@@ -3,7 +3,7 @@ use axum::{
     extract::{Request, State as AxumState},
     http::StatusCode,
     response::{IntoResponse, Response},
-    routing::post,
+    routing::{get, post},
     Json, Router,
 };
 use futures::StreamExt;
@@ -63,6 +63,11 @@ pub async fn start_proxy(
     let app = Router::new()
         .route("/api/group-info", post(handle_group_info))
         .route("/api/notify", post(handle_notify))
+        // 健康端点：客户端（Claude Code / Codex 启动探测等）会命中代理根 URL（含 / 前缀），
+        // 无 Authorization 不应进 handle_proxy 走 404，也不应落 proxy_log 污染统计。
+        // 仅返回 200 + 身份 JSON，跳过组路由 / 日志 / 上游。
+        .route("/", get(handle_root))
+        .route("/proxy", get(handle_root))
         .fallback(handle_proxy)
         .with_state(state);
 
@@ -132,6 +137,20 @@ struct CodingTierResp {
     level: String,
     /// 预期重置 unix 秒；无可靠来源时 null（statusline 红色时择机展示）。
     reset_at: Option<i64>,
+}
+
+/// 健康端点（`GET /` 与 `GET /proxy`）：客户端启动探测命中代理根 URL 时，
+/// 既无 Authorization 也无上游请求语义 —— 直接返回 200 + 身份 JSON，
+/// 不进 handle_proxy（否则 resolve_group None → 404）也不落 proxy_log（避免污染统计）。
+async fn handle_root() -> Response {
+    (
+        StatusCode::OK,
+        Json(serde_json::json!({
+            "service": "aidog",
+            "ok": true,
+        })),
+    )
+        .into_response()
 }
 
 /// 分组信息端点 — 仅单平台分组返回本地预估值。
