@@ -563,3 +563,38 @@ Rspress 文档站升级：iOS 蓝品牌主题(globalStyles CSS 变量)+7 语言 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 17: cc-switch 导入误报「未检测到」（文件实存）
+
+**Date**: 2026-06-16
+**Task**: cc-switch 探测误报未检测到（文件实存）
+**Branch**: `next`
+
+### Summary
+
+设置页「检测 cc-switch」报配置未检测到，但 `~/.cc-switch/cc-switch.db` 实存。根因：`detect()` 返回 .db **文件**路径，前端回传 `read()`，旧 `read()` 无条件重跑 `detect(path)`，后者把文件路径当**目录** join 出 `…/cc-switch.db/cc-switch.db` → `exists()=false` → 误报。方案 B：`read()` 收文件路径直读（按文件名定 source_type：config.json→json 否则 sqlite），缺省/目录/不存在才探测。抽 `direct_source_if_file` 纯函数 + 3 单测（回归 sqlite 文件路径 / config.json 分类 / dir·missing·empty→None）。
+
+### Main Changes
+
+- `src-tauri/src/gateway/import_export/ccswitch.rs`：`read()` 改用 `direct_source_if_file` 分流 + 新增该纯函数 + 3 单测。签名不变，前端/import/apply 无改动。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `79fe155` | fix(ccswitch): read() 收文件路径直读不再误报未检测到 |
+
+### Testing
+
+- [OK] `cargo test --lib ...ccswitch` 11 passed（原 8 + 新 3）
+- [OK] `cargo clippy --lib` 0 lint（唯一 warning = 已接受的第三方 block v0.1.6 future-incompat）
+- [pending] dev-app 手动验收留给用户（真实 cc-switch.db）
+
+### Status
+
+[OK] **Completed** — 自主 finish（用户授权不再等手动确认）
+
+### Next Steps
+
+- None - task complete
