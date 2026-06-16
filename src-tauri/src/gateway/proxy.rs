@@ -2338,6 +2338,7 @@ fn estimate_input_tokens(body: &Value) -> i64 {
 /// 4. 上游 2xx → 原样回客户端（anthropic count_tokens 响应 schema）。
 /// 5. 上游 4xx/5xx 或连接失败（平台不支持该端点）→ 本地估算 `{"input_tokens": N}` 返 200，
 ///    不返回错误，避免 claude-cli 预估流程被上游 500/404 阻断。
+///
 /// proxy_log：source/target protocol=anthropic，upstream_request_url 含尾段，status 记真实结果。
 async fn handle_count_tokens(
     state: &Arc<ProxyState>,

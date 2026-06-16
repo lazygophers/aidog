@@ -1925,9 +1925,12 @@ async fn backup_settings_get(db: State<'_, Db>) -> Result<gateway::backup::Backu
 #[tauri::command]
 async fn backup_settings_set(
     db: State<'_, Db>,
-    settings: gateway::backup::BackupSettings,
+    mut settings: gateway::backup::BackupSettings,
 ) -> Result<gateway::backup::BackupSettings, String> {
     tracing::debug!(command = "backup_settings_set", "command invoked");
+    // 走过此命令 (UI 保存入口) = 用户手动确认, 强制标记为当前版本;
+    // 前端不传 defaults_version → serde default=0, 这里覆写后即便 enabled=false 也永久尊重。
+    settings.defaults_version = gateway::backup::CURRENT_DEFAULTS_VERSION;
     let sanitized = settings.sanitized();
     sanitized.save(&db).await?;
     Ok(sanitized)

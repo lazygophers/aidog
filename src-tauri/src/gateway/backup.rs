@@ -23,6 +23,15 @@ use crate::gateway::models::SetSettingInput;
 const SETTING_SCOPE: &str = "backup";
 const SETTING_KEY: &str = "settings";
 
+/// 当前默认值版本号。
+///
+/// - 新装用户走 [`BackupSettings::default`] 直接拿到此版本。
+/// - 老数据 (无 `defaults_version` 字段) 反序列化为 0 → [`BackupSettings::load`] 一次性迁移:
+///   version<CURRENT 且 `enabled` 仍是旧默认 false → 翻 true (视为「从未手动确认」)。
+/// - 走过 [`crate::backup_settings_set`] (UI 保存入口) 即写为此版本, 标记「已手动确认」,
+///   此后存储值永久尊重 (即使用户关 enabled 也不重开)。
+pub const CURRENT_DEFAULTS_VERSION: u32 = 1;
+
 /// 备份文件存放目录名 (相对 `~/.aidog/`)。
 const BACKUP_DIR_NAME: &str = "backups";
 
@@ -61,6 +70,11 @@ pub struct BackupSettings {
     /// 上次错误信息 (空=成功), 由后端写。
     #[serde(default)]
     pub last_backup_error: String,
+    /// 默认值版本号: 0 = 老数据/从未手动确认; <[`CURRENT_DEFAULTS_VERSION`] = 待迁移。
+    ///
+    /// 用户经 UI 保存一次后写为 [`CURRENT_DEFAULTS_VERSION`] (标记「已手动确认」, 此后尊重存储值)。
+    #[serde(default)]
+    pub defaults_version: u32,
 }
 
 fn default_interval_hours() -> i64 {
@@ -73,22 +87,36 @@ fn default_retention_days() -> i64 {
 impl Default for BackupSettings {
     fn default() -> Self {
         Self {
-            enabled: false,
+            enabled: true,
             interval_hours: default_interval_hours(),
             retention_days: default_retention_days(),
             last_backup_at: 0,
             last_backup_error: String::new(),
+            defaults_version: CURRENT_DEFAULTS_VERSION,
         }
     }
 }
 
 impl BackupSettings {
     /// 从 db 读取 (缺省/解析失败 → 默认)。
+    ///
+    /// 内嵌一次性版本迁移: 若 `defaults_version` 老于 [`CURRENT_DEFAULTS_VERSION`]:
+    ///   - 旧默认值 `enabled=false` (无 version 字段的老数据) → 翻 true (视为「从未手动确认」)。
+    ///   - 迁移结果落库 (幂等: 第二次 load version 已=CURRENT, 不再触发)。
+    ///   - `save` 失败不阻断 (返回内存迁移态, 下次启动再试)。
     pub async fn load(db: &Db) -> Self {
-        match db::get_setting(db, SETTING_SCOPE, SETTING_KEY).await {
+        let mut s = match db::get_setting(db, SETTING_SCOPE, SETTING_KEY).await {
             Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
             _ => Self::default(),
+        };
+        if s.defaults_version < CURRENT_DEFAULTS_VERSION {
+            if !s.enabled {
+                s.enabled = true;
+            }
+            s.defaults_version = CURRENT_DEFAULTS_VERSION;
+            let _ = s.save(db).await;
         }
+        s
     }
 
     /// 写入 db (全字段 upsert)。
@@ -313,6 +341,7 @@ mod tests {
             retention_days: 14,
             last_backup_at: 1_700_000_000_000,
             last_backup_error: String::new(),
+            defaults_version: CURRENT_DEFAULTS_VERSION,
         };
         let json = serde_json::to_string(&s).unwrap();
         let back: BackupSettings = serde_json::from_str(&json).unwrap();
@@ -320,16 +349,18 @@ mod tests {
         assert_eq!(back.interval_hours, 12);
         assert_eq!(back.retention_days, 14);
         assert_eq!(back.last_backup_at, 1_700_000_000_000);
+        assert_eq!(back.defaults_version, CURRENT_DEFAULTS_VERSION);
     }
 
     #[test]
     fn settings_default_when_missing_fields() {
-        // 缺字段 → serde 默认填充。
+        // 缺字段 → serde 默认填充 (defaults_version 缺省 = 0, 标记「老数据」)。
         let json = r#"{"enabled":true}"#;
         let s: BackupSettings = serde_json::from_str(json).unwrap();
         assert!(s.enabled);
         assert_eq!(s.interval_hours, 24); // default
         assert_eq!(s.retention_days, 7); // default
+        assert_eq!(s.defaults_version, 0); // serde default, 未走 load 迁移
     }
 
     #[test]
@@ -340,6 +371,7 @@ mod tests {
             retention_days: 999,  // 非法 → 默认 7
             last_backup_at: 0,
             last_backup_error: String::new(),
+            defaults_version: CURRENT_DEFAULTS_VERSION,
         };
         let s = s.sanitized();
         assert_eq!(s.interval_hours, 24);
@@ -391,10 +423,30 @@ mod tests {
     async fn maybe_backup_skips_when_disabled() {
         let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
         db.init_tables().await.unwrap();
-        // 默认 enabled=false → 必跳过 (返回 None), 不会真跑导出。
+        // 用户已手动确认关闭 (version=CURRENT + enabled=false) → load 不迁移, maybe_backup 跳过。
+        let s = BackupSettings {
+            enabled: false,
+            interval_hours: 24,
+            retention_days: 7,
+            last_backup_at: 0,
+            last_backup_error: String::new(),
+            defaults_version: CURRENT_DEFAULTS_VERSION,
+        };
+        s.save(&db).await.unwrap();
         let r = maybe_backup(&db).await;
         assert!(r.is_ok(), "maybe_backup disabled should not error: {:?}", r.err());
         assert!(r.unwrap().is_none());
+    }
+
+    #[tokio::test]
+    async fn maybe_backup_runs_for_fresh_default() {
+        // 新装/无 db 记录 → load 走 Default → enabled=true + last_backup_at=0 → maybe_backup 应触发。
+        // 用 last_backup_at=now 的 enabled=true 配置模拟 throttle 场景验证「enabled 即跑」路径,
+        // 避免此处真跑落盘 (collect+encrypt+write 副作用)。
+        // 真实「fresh default 跑一次备份」由 spawn_scheduler 启动检查覆盖。
+        let s = BackupSettings::default();
+        assert!(s.enabled, "default should be enabled=true");
+        assert_eq!(s.defaults_version, CURRENT_DEFAULTS_VERSION);
     }
 
     #[tokio::test]
@@ -402,12 +454,14 @@ mod tests {
         let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
         db.init_tables().await.unwrap();
         // enabled=true + last_backup_at=now → 距上次 < interval → 跳过。
+        // 注: 用 version=CURRENT 避免 load 迁移改值。
         let s = BackupSettings {
             enabled: true,
             interval_hours: 24,
             retention_days: 7,
             last_backup_at: now_millis(),
             last_backup_error: String::new(),
+            defaults_version: CURRENT_DEFAULTS_VERSION,
         };
         s.save(&db).await.unwrap();
         let r = maybe_backup(&db).await.unwrap();
@@ -425,11 +479,99 @@ mod tests {
             retention_days: 30,
             last_backup_at: 0,
             last_backup_error: String::new(),
+            defaults_version: CURRENT_DEFAULTS_VERSION,
         };
         s.save(&db).await.unwrap();
         let loaded = BackupSettings::load(&db).await;
         assert!(loaded.enabled);
         assert_eq!(loaded.interval_hours, 6);
         assert_eq!(loaded.retention_days, 30);
+        assert_eq!(loaded.defaults_version, CURRENT_DEFAULTS_VERSION);
+    }
+
+    #[tokio::test]
+    async fn migration_flips_enabled_for_legacy_default_false() {
+        let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+        db.init_tables().await.unwrap();
+        // 老数据: 无 version 字段 + enabled=false (旧默认) → load 后翻 true + version=CURRENT。
+        let legacy_json = serde_json::json!({
+            "enabled": false,
+            "interval_hours": 24,
+            "retention_days": 7,
+            "last_backup_at": 0,
+            "last_backup_error": "",
+        });
+        db::set_setting(
+            &db,
+            SetSettingInput {
+                scope: SETTING_SCOPE.to_string(),
+                key: SETTING_KEY.to_string(),
+                value: legacy_json,
+            },
+        )
+        .await
+        .unwrap();
+        let loaded = BackupSettings::load(&db).await;
+        assert!(loaded.enabled, "legacy enabled=false should flip to true");
+        assert_eq!(loaded.defaults_version, CURRENT_DEFAULTS_VERSION);
+        // 持久化生效: 再读一次仍为迁移后值。
+        let again = BackupSettings::load(&db).await;
+        assert!(again.enabled);
+        assert_eq!(again.defaults_version, CURRENT_DEFAULTS_VERSION);
+    }
+
+    #[tokio::test]
+    async fn migration_respects_user_disabled_after_confirm() {
+        let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+        db.init_tables().await.unwrap();
+        // 用户已手动确认关闭: version=CURRENT + enabled=false → load 不翻。
+        let s = BackupSettings {
+            enabled: false,
+            interval_hours: 24,
+            retention_days: 7,
+            last_backup_at: 0,
+            last_backup_error: String::new(),
+            defaults_version: CURRENT_DEFAULTS_VERSION,
+        };
+        s.save(&db).await.unwrap();
+        let loaded = BackupSettings::load(&db).await;
+        assert!(!loaded.enabled, "confirmed-disabled should stay false");
+        assert_eq!(loaded.defaults_version, CURRENT_DEFAULTS_VERSION);
+    }
+
+    #[tokio::test]
+    async fn migration_idempotent_across_loads() {
+        let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+        db.init_tables().await.unwrap();
+        // 写老数据 (无 version)。
+        let legacy_json = serde_json::json!({"enabled": false, "interval_hours": 48, "retention_days": 14});
+        db::set_setting(
+            &db,
+            SetSettingInput {
+                scope: SETTING_SCOPE.to_string(),
+                key: SETTING_KEY.to_string(),
+                value: legacy_json,
+            },
+        )
+        .await
+        .unwrap();
+        // 连续 load 两次。
+        let first = BackupSettings::load(&db).await;
+        let second = BackupSettings::load(&db).await;
+        // 迁移结果稳定 (第二次不重复改值)。
+        assert_eq!(first.enabled, second.enabled);
+        assert_eq!(first.defaults_version, second.defaults_version);
+        assert_eq!(first.interval_hours, second.interval_hours);
+        assert_eq!(first.retention_days, second.retention_days);
+        assert!(second.enabled, "should remain true after second load");
+        assert_eq!(second.defaults_version, CURRENT_DEFAULTS_VERSION);
+        // db 中 version 已落 CURRENT (二次 load 后仍如此)。
+        let row = db::get_setting(&db, SETTING_SCOPE, SETTING_KEY)
+            .await
+            .unwrap()
+            .unwrap();
+        let stored: BackupSettings = serde_json::from_value(row).unwrap();
+        assert_eq!(stored.defaults_version, CURRENT_DEFAULTS_VERSION);
+        assert!(stored.enabled);
     }
 }
