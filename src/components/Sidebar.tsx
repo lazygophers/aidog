@@ -112,16 +112,27 @@ export interface NavItem {
   id: string;
   icon: string;
   labelKey: string;
+  /** 所属 section（顶级分组）i18n key；相邻同 section 归为一节，节头可折叠。 */
+  section?: string;
   /** 可选未读 badge 计数（> 0 时显示）。 */
   badge?: number;
   /** 可选折叠子菜单；存在时该项渲染为可展开分组。 */
   children?: NavChild[];
 }
 
+/** 跨页快捷跳转携带的筛选上下文（平台→日志 / 分组→统计 等）。 */
+export interface NavContext {
+  platformId?: number;
+  platformName?: string;
+  groupId?: string;
+  groupName?: string;
+  model?: string;
+}
+
 interface SidebarProps {
   navItems: NavItem[];
   activeId: string;
-  onNavigate: (id: string) => void;
+  onNavigate: (id: string, context?: NavContext) => void;
 }
 
 // ── Dropdown Component ──
@@ -217,6 +228,17 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
   const [langOpen, setLangOpen] = useState(false);
   // 折叠子菜单展开态：用户 toggle 覆盖；未覆盖时 active 所在组自动展开。
   const [expandedNav, setExpandedNav] = useState<Record<string, boolean>>({});
+  // section 折叠态：用户 toggle 覆盖；未覆盖时 active 所在 section 自动展开。
+  const [collapsedSection, setCollapsedSection] = useState<Record<string, boolean>>({});
+
+  // 顶级 section 分组：相邻同 section key 聚为一节。
+  const sections: { key: string; items: NavItem[] }[] = [];
+  for (const it of navItems) {
+    const sk = it.section ?? "";
+    const last = sections[sections.length - 1];
+    if (last && last.key === sk) last.items.push(it);
+    else sections.push({ key: sk, items: [it] });
+  }
 
   return (
     <aside
@@ -256,13 +278,47 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
 
       {/* Navigation — 纵向滚动: 窗口矮/分组展开多时 nav 项溢出可滚 (minHeight:0 是 flex 子项 overflow 生效关键) */}
       <nav style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", gap: 2, overflowY: "auto" }}>
-        {navItems.map((item) => {
+        {sections.map((sec) => {
+          // section 内是否有 active 项（任一 item.id 匹配 activeId 顶级或其子页）。
           const topId = activeId.split("/")[0];
-          const isActive = item.id === topId;
-          const hasChildren = !!item.children && item.children.length > 0;
-          const inThis = activeId.startsWith(item.id + "/");
-          const expanded = expandedNav[item.id] ?? (inThis ? true : false);
+          const activeInSection = sec.items.some(it => it.id === topId || activeId.startsWith(it.id + "/"));
+          const collapsed = (collapsedSection[sec.key] ?? false) && !activeInSection;
+          // 无 section key（空串）= 平铺区，不渲染节头。
+          const hasHeader = sec.key !== "";
           return (
+            <div key={sec.key || "_"} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              {hasHeader && (
+                <button
+                  className="btn btn-ghost"
+                  style={{
+                    justifyContent: "space-between",
+                    padding: "8px 10px 4px",
+                    fontSize: 10,
+                    fontWeight: 700,
+                    color: "var(--text-tertiary)",
+                    opacity: 0.7,
+                    letterSpacing: "0.5px",
+                    textTransform: "uppercase",
+                    background: "transparent",
+                    height: "auto",
+                  }}
+                  onClick={() => setCollapsedSection((s) => ({ ...s, [sec.key]: !collapsed }))}
+                >
+                  <span>{t(sec.key)}</span>
+                  <span style={{
+                    opacity: 0.5,
+                    transform: collapsed ? "rotate(-90deg)" : "none",
+                    transition: "transform 200ms",
+                    display: "inline-flex",
+                  }}>{icons.chevron}</span>
+                </button>
+              )}
+              {(!hasHeader || !collapsed) && sec.items.map((item) => {
+                const isActive = item.id === topId;
+                const hasChildren = !!item.children && item.children.length > 0;
+                const inThis = activeId.startsWith(item.id + "/");
+                const expanded = expandedNav[item.id] ?? (inThis ? true : false);
+                return (
             <div key={item.id} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
               <button
                 className="btn btn-ghost"
@@ -377,6 +433,9 @@ export function Sidebar({ navItems, activeId, onNavigate }: SidebarProps) {
                   })()}
                 </div>
               )}
+            </div>
+                );
+              })}
             </div>
           );
         })}

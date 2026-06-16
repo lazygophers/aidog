@@ -63,4 +63,4 @@
 | home-trend-smooth | 首页趋势曲线改平滑(Catmull-Rom 贝塞尔, 替直折线) | — | 已完成 | 收尾 | 100% | — |
 | stats-model-filter-only-recorded | 使用统计模型筛选仅含有记录的模型 | — | 已完成 | 收尾 | 100% | — |
 | stats-trend-curve-granularity | Stats 请求趋势改曲线+分钟/5分钟粒度自动降级 | — | 已完成 | 收尾 | 100% | — |
-| menu-ia-redesign | 菜单与导航信息架构重构 | — | 规划中 | 规划 | 0% | — |
+| menu-ia-redesign | 菜单与导航信息架构重构 | — | 进行中 | 规划 | 0% | — |

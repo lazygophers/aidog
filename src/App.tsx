@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { listen } from "@tauri-apps/api/event";
-import { Sidebar, type NavItem } from "./components/Sidebar";
+import { Sidebar, type NavItem, type NavContext } from "./components/Sidebar";
 import { Home } from "./pages/Home";
 import { Platforms } from "./pages/Platforms";
 import { Groups } from "./pages/Groups";
@@ -22,18 +22,19 @@ import type { Update } from "@tauri-apps/plugin-updater";
 import { requestNavigation } from "./utils/navGuard";
 
 const BASE_NAV: NavItem[] = [
-  { id: "home", icon: "home", labelKey: "nav.home" },
-  { id: "platforms", icon: "platforms", labelKey: "nav.platforms" },
-  { id: "groups", icon: "groups", labelKey: "nav.groups" },
-  { id: "stats", icon: "stats", labelKey: "nav.stats" },
-  { id: "logs", icon: "logs", labelKey: "nav.logs" },
-  { id: "notifications", icon: "notifications", labelKey: "nav.notifications" },
-  { id: "skills", icon: "skills", labelKey: "nav.skills" },
-  { id: "mcp", icon: "mcp", labelKey: "nav.mcp" },
+  { id: "home", icon: "home", labelKey: "nav.home", section: "nav.section.overview" },
+  { id: "platforms", icon: "platforms", labelKey: "nav.platforms", section: "nav.section.proxy" },
+  { id: "groups", icon: "groups", labelKey: "nav.groups", section: "nav.section.proxy" },
+  { id: "stats", icon: "stats", labelKey: "nav.stats", section: "nav.section.observe" },
+  { id: "logs", icon: "logs", labelKey: "nav.logs", section: "nav.section.observe" },
+  { id: "notifications", icon: "notifications", labelKey: "nav.notifications", section: "nav.section.observe" },
+  { id: "skills", icon: "skills", labelKey: "nav.skills", section: "nav.section.extension" },
+  { id: "mcp", icon: "mcp", labelKey: "nav.mcp", section: "nav.section.extension" },
   {
     id: "settings",
     icon: "settings",
     labelKey: "nav.settings",
+    section: "nav.section.system",
     children: [
       { id: "settings/system", labelKey: "appSettings.systemTab", group: "nav.settingsGroup.general" },
       { id: "settings/claude", labelKey: "appSettings.claudeTab", group: "nav.settingsGroup.integration" },
@@ -47,11 +48,12 @@ const BASE_NAV: NavItem[] = [
       { id: "settings/importexport", labelKey: "appSettings.importExportTab", group: "nav.settingsGroup.config" },
     ],
   },
-  { id: "about", icon: "about", labelKey: "nav.about" },
+  { id: "about", icon: "about", labelKey: "nav.about", section: "nav.section.system" },
 ];
 
 function App() {
   const [activeNav, setActiveNav] = useState("home");
+  const [navContext, setNavContext] = useState<NavContext>({});
   const [logEnabled, setLogEnabled] = useState(false);
   const [notifEnabled, setNotifEnabled] = useState(true);
   const [pendingUpdate, setPendingUpdate] = useState<Update | null>(null);
@@ -93,11 +95,12 @@ function App() {
       .catch(() => {});
   }, []);
 
-  const handleNavigate = (id: string) => {
-    if (id === activeNav) return;
+  const handleNavigate = (id: string, context?: NavContext) => {
+    if (id === activeNav && !context) return;
     // A dirty page (e.g. Claude Code Settings) may intercept the switch.
     requestNavigation(() => {
       setActiveNav(id);
+      setNavContext(context ?? {});
       if (id === "logs") {
         proxyLogApi.getSettings()
           .then(s => setLogEnabled(s.enabled))
@@ -143,8 +146,8 @@ function App() {
           {effectiveNav === "platforms" && <Platforms />}
           {effectiveNav === "groups" && <Groups />}
           {effectiveNav === "settings" && <AppSettings tab={settingsTab} onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
-          {effectiveNav === "logs" && <Logs />}
-          {effectiveNav === "stats" && <Stats />}
+          {effectiveNav === "logs" && <Logs initialFilter={navContext} />}
+          {effectiveNav === "stats" && <Stats initialFilter={navContext} />}
           {effectiveNav === "notifications" && <Notifications onNavigate={handleNavigate} />}
           {effectiveNav === "skills" && <Skills />}
         {effectiveNav === "mcp" && <Mcp />}

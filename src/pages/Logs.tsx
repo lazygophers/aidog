@@ -36,7 +36,7 @@ function timePresetToRange(preset: TimePreset): { start?: number; end?: number }
   return { start: now - (ms[preset] ?? 0), end: now };
 }
 
-export function Logs() {
+export function Logs({ initialFilter }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupName?: string } }) {
   const { t } = useTranslation();
   const [logs, setLogs] = useState<ProxyLogSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -49,8 +49,8 @@ export function Logs() {
   // ── Filter state ──
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [groups, setGroups] = useState<GroupDetail[]>([]);
-  const [filterPlatform, setFilterPlatform] = useState<string>("");   // platform_id or ""
-  const [filterGroup, setFilterGroup] = useState<string>("");
+  const [filterPlatform, setFilterPlatform] = useState<string>(initialFilter?.platformId ? String(initialFilter.platformId) : "");   // platform_id or ""
+  const [filterGroup, setFilterGroup] = useState<string>(initialFilter?.groupId ?? "");
   const [filterStatus, setFilterStatus] = useState<string>("");       // "" | "success" | "error"
   const [filterTime, setFilterTime] = useState<TimePreset>("all");
   const [filterModelType, setFilterModelType] = useState<"original" | "actual">("actual");

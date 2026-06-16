@@ -92,7 +92,7 @@ type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 50;
 
-export function Stats() {
+export function Stats({ initialFilter }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupName?: string } }) {
   const { t } = useTranslation();
   const [data, setData] = useState<StatsResult | null>(null);
   const [prevOverview, setPrevOverview] = useState<StatsOverview | null>(null);
@@ -107,9 +107,9 @@ export function Stats() {
     setGranularity(p === "today" ? "hourly" : "daily");
   };
   const [groupBy, setGroupBy] = useState<"platform" | "model" | "group">("platform");
-  const [filterGroup, setFilterGroup] = useState("");
+  const [filterGroup, setFilterGroup] = useState(initialFilter?.groupId ?? "");
   const [filterModel, setFilterModel] = useState("");
-  const [filterPlatform, setFilterPlatform] = useState("");
+  const [filterPlatform, setFilterPlatform] = useState(initialFilter?.platformId ? String(initialFilter.platformId) : "");
   const [groups, setGroups] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
 
