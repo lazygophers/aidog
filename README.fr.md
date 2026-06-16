@@ -8,7 +8,7 @@ Application de bureau · Sans cloud · 50+ plateformes en un · Routage intellig
 
 [![Documentation](https://img.shields.io/badge/docs-lazygophers.github.io/aidog-0a66c2?logo=sphinx&logoColor=white)](https://lazygophers.github.io/aidog/fr/)
 [![GitHub Release](https://img.shields.io/github/v/release/lazygophers/aidog?logo=github&label=release)](https://github.com/lazygophers/aidog/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-blue)](#license)
+[![License](https://img.shields.io/badge/license-AGPL_3.0-blue)](#license)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?logo=tauri&logoColor=white)](https://github.com/lazygophers/aidog/releases/latest)
 [![GitHub Stars](https://img.shields.io/github/stars/lazygophers/aidog?style=social)](https://github.com/lazygophers/aidog/stargazers)
 [![Downloads](https://img.shields.io/github/downloads/lazygophers/aidog/total?logo=github)](https://github.com/lazygophers/aidog/releases)
@@ -266,4 +266,6 @@ Merci à la communauté [LINUX DO](https://linux.do).
 
 ## Licence
 
-MIT
+[GNU AGPL-3.0-or-later](LICENSE) © AiDog
+
+Ce projet est sous licence GNU Affero General Public License v3 ou supérieure. Si vous modifiez ce logiciel et le fournissez comme service réseau, vous devez divulguer le code source correspondant aux utilisateurs.

@@ -8,7 +8,7 @@ App de escritorio · Sin nube · 50+ plataformas en un solo lugar · Enrutamient
 
 [![Documentation](https://img.shields.io/badge/docs-lazygophers.github.io/aidog-0a66c2?logo=sphinx&logoColor=white)](https://lazygophers.github.io/aidog/es/)
 [![GitHub Release](https://img.shields.io/github/v/release/lazygophers/aidog?logo=github&label=release)](https://github.com/lazygophers/aidog/releases/latest)
-[![License](https://img.shields.io/badge/license-MIT-blue)](#license)
+[![License](https://img.shields.io/badge/license-AGPL_3.0-blue)](#license)
 [![Platforms](https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey?logo=tauri&logoColor=white)](https://github.com/lazygophers/aidog/releases/latest)
 [![GitHub Stars](https://img.shields.io/github/stars/lazygophers/aidog?style=social)](https://github.com/lazygophers/aidog/stargazers)
 [![Downloads](https://img.shields.io/github/downloads/lazygophers/aidog/total?logo=github)](https://github.com/lazygophers/aidog/releases)
@@ -266,4 +266,6 @@ Gracias a la comunidad [LINUX DO](https://linux.do).
 
 ## Licencia
 
-MIT
+[GNU AGPL-3.0-or-later](LICENSE) © AiDog
+
+Este proyecto está licenciado bajo la GNU Affero General Public License v3 o superior. Si modificas este software y lo ofreces como servicio de red, debes divulgar el código fuente correspondiente a los usuarios.
