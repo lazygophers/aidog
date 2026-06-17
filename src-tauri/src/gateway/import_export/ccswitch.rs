@@ -442,6 +442,37 @@ fn parse_toml_kv(line: &str) -> Option<(String, String)> {
     Some((key, val))
 }
 
+// ── apply 复用入口 ──────────────────────────────────────────
+
+/// 把前端转换好的 platform payload + 决策应用进 aidog DB。
+/// 复用 [`super::apply::apply`]，不另造一套写入路径。
+pub async fn import(
+    platform_payload: Vec<serde_json::Value>,
+    decisions: &[super::ConflictDecision],
+    db: &Db,
+) -> Result<super::ImportReport, String> {
+    let payload = super::Payload {
+        manifest: super::Manifest {
+            format_version: 1,
+            aidog_version: env!("CARGO_PKG_VERSION").to_string(),
+            created_at: chrono::Utc::now().to_rfc3339(),
+            source_machine: "cc-switch-import".to_string(),
+            scopes: vec![super::SCOPE_PLATFORM.to_string()],
+            checksum: String::new(),
+        },
+        platform: platform_payload,
+        group: Vec::new(),
+        group_platform: Vec::new(),
+        setting: Vec::new(),
+        codex_global: None,
+        codex_profiles: Vec::new(),
+        claude_code_global: None,
+        claude_code_group_settings: Vec::new(),
+        skills: Vec::new(),
+    };
+    super::apply::apply(payload, decisions, db).await
+}
+
 // ── 单测 ────────────────────────────────────────────────────
 
 #[cfg(test)]
@@ -639,35 +670,4 @@ mod tests {
 
         std::fs::remove_dir_all(&dir).ok();
     }
-}
-
-// ── apply 复用入口 ──────────────────────────────────────────
-
-/// 把前端转换好的 platform payload + 决策应用进 aidog DB。
-/// 复用 [`super::apply::apply`]，不另造一套写入路径。
-pub async fn import(
-    platform_payload: Vec<serde_json::Value>,
-    decisions: &[super::ConflictDecision],
-    db: &Db,
-) -> Result<super::ImportReport, String> {
-    let payload = super::Payload {
-        manifest: super::Manifest {
-            format_version: 1,
-            aidog_version: env!("CARGO_PKG_VERSION").to_string(),
-            created_at: chrono::Utc::now().to_rfc3339(),
-            source_machine: "cc-switch-import".to_string(),
-            scopes: vec![super::SCOPE_PLATFORM.to_string()],
-            checksum: String::new(),
-        },
-        platform: platform_payload,
-        group: Vec::new(),
-        group_platform: Vec::new(),
-        setting: Vec::new(),
-        codex_global: None,
-        codex_profiles: Vec::new(),
-        claude_code_global: None,
-        claude_code_group_settings: Vec::new(),
-        skills: Vec::new(),
-    };
-    super::apply::apply(payload, decisions, db).await
 }
