@@ -846,7 +846,7 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
                   </svg>
                 </button>
-                {!group.auto_from_platform && (
+                {(!group.auto_from_platform || gps.length === 0) && (
                   <button className="btn btn-ghost btn-icon btn-danger" onClick={(e) => { e.stopPropagation(); handleDeleteGroup(group.id); }}>
                     <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
