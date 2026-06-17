@@ -744,7 +744,7 @@ async fn handle_proxy_inner(
         let mut h = serde_json::Map::new();
         for (k, v) in req.headers() {
             if let Ok(s) = v.to_str() {
-                if k == "authorization" {
+                if is_sensitive_auth_header(k.as_str()) {
                     h.insert(k.to_string(), Value::String("[REDACTED]".into()));
                 } else {
                     h.insert(k.to_string(), Value::String(s.to_string()));
@@ -1943,7 +1943,7 @@ async fn handle_passthrough(
         let mut h = serde_json::Map::new();
         for (k, v) in &fwd_headers {
             let name = k.as_str();
-            if name.eq_ignore_ascii_case("authorization") {
+            if is_sensitive_auth_header(name) {
                 h.insert(name.to_string(), Value::String("[REDACTED]".into()));
             } else if let Ok(s) = v.to_str() {
                 h.insert(name.to_string(), Value::String(s.to_string()));
@@ -2274,7 +2274,10 @@ pub fn apply_models_auth(
         Protocol::Anthropic => rb
             .header("x-api-key", api_key)
             .header("anthropic-version", "2023-06-01"),
-        _ => rb.header("Authorization", format!("Bearer {api_key}")),
+        // openai/兼容：Bearer 之外叠加 api-key 头（小米 token-plan openai 端点要求），其他上游忽略未知头。
+        _ => rb
+            .header("Authorization", format!("Bearer {api_key}"))
+            .header("api-key", api_key),
     }
 }
 
@@ -2697,6 +2700,20 @@ const STRIPPED_ON_CONVERT_PASSTHROUGH: &[&str] = &[
     "user-agent",
     "content-type",
 ];
+
+/// 鉴权凭证头名（proxy_log 脱敏判定，不区分大小写）。
+/// `api-key` 系小米 token-plan openai 端点要求的鉴权头（与 Authorization 同发），属凭证须 redact。
+const SENSITIVE_AUTH_HEADERS: &[&str] = &[
+    "authorization",
+    "api-key",
+    "x-api-key",
+    "x-goog-api-key",
+];
+
+/// 判定 header 是否为需脱敏的鉴权凭证头（不区分大小写）。
+fn is_sensitive_auth_header(name: &str) -> bool {
+    SENSITIVE_AUTH_HEADERS.iter().any(|h| name.eq_ignore_ascii_case(h))
+}
 
 /// convert 路径透传入站头底座：全量入站头，剔 hop-by-hop + auth/UA/CT（由 apply 覆盖）。
 /// 其余（anthropic-* / x-stainless-* / x-app / session-id / originator / version / 未知自定义头）
@@ -3126,7 +3143,10 @@ fn apply_default_headers(
             rb = rb.header("x-goog-api-key", api_key);
         }
         _ => {
-            rb = rb.header("Authorization", format!("Bearer {api_key}"));
+            // openai/兼容：Bearer 之外叠加 api-key 头（小米 token-plan openai 端点要求）。
+            rb = rb
+                .header("Authorization", format!("Bearer {api_key}"))
+                .header("api-key", api_key);
         }
     }
     rb
@@ -3152,13 +3172,18 @@ fn apply_claude_code_family_headers(
             rb = rb.header("x-api-key", api_key);
         }
         super::models::Protocol::OpenAI => {
-            rb = rb.header("Authorization", format!("Bearer {api_key}"));
+            // openai：Bearer 之外叠加 api-key 头（小米 token-plan openai 端点要求）。
+            rb = rb
+                .header("Authorization", format!("Bearer {api_key}"))
+                .header("api-key", api_key);
         }
         super::models::Protocol::Gemini => {
             rb = rb.header("x-goog-api-key", api_key);
         }
         _ => {
-            rb = rb.header("Authorization", format!("Bearer {api_key}"));
+            rb = rb
+                .header("Authorization", format!("Bearer {api_key}"))
+                .header("api-key", api_key);
         }
     }
     rb
@@ -3178,8 +3203,10 @@ fn apply_codex_family_headers(
 
     match protocol {
         super::models::Protocol::OpenAI => {
+            // openai：Bearer 之外叠加 api-key 头（小米 token-plan openai 端点要求）。
             rb = rb
                 .header("Authorization", format!("Bearer {api_key}"))
+                .header("api-key", api_key)
                 .header("OpenAI-Beta", "responses=experimental")
                 .header("conversation_id", uuid_sim())
                 .header("session_id", uuid_sim());
