@@ -378,7 +378,7 @@ function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Partial<Rec
   const cp = !!codingPlan;
   const presets: Partial<Record<Protocol, Partial<Record<ModelSlot, string>>>> = {
     // ── 官方 ──
-    anthropic: { default: "claude-opus-4-8", opus: "claude-opus-4-8", sonnet: "claude-sonnet-4-6", haiku: "claude-haiku-4-6" },
+    anthropic: { default: "claude-opus-4-8", opus: "claude-opus-4-8", sonnet: "claude-sonnet-4-6", haiku: "claude-haiku-4-5" },
     openai: { gpt: "gpt-5.5" },
     codex: { gpt: "gpt-5.5-codex" }, // TODO 核对 codex 变体确切 API id，截至2026-06 未从官方 docs 确认
     // gemini: 槽位语义不匹配（无 opus/sonnet/gpt 对应），留空待用户填或拉取
@@ -399,6 +399,144 @@ function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Partial<Rec
     xiaomi_mimo: { default: "mimo-v2.5-pro" },
   };
   return { ...(presets[protocol] || {}) };
+}
+
+/** 平台内置候选模型列表（供模型槽位下拉冷启动兜底）。
+ *  未刷新（fetchModels）时槽位下拉展示此列表；刷新成功后改用接口 available_models。
+ *  数据来自 .trellis/tasks/06-17-platform-model-list/research/*.md（一方/聚合/第三方三组核查）。
+ *  约定：列表有序，旗舰/默认在前，**首项 = getDefaultModels 默认值**（保 route resolve 行为）。
+ *  查不到官方列表的平台返回 []（完全靠 fetchModels 兜底，不编造）。
+ *  模型名月级腐化，运行时必靠 fetchModels 拉取真实可用集。 */
+function getDefaultModelList(protocol: Protocol, codingPlan?: boolean): string[] {
+  // 截至 2026-06-17 核对官方（信源见 research/models-{firstparty,aggregator,thirdparty}.md）
+  const cp = !!codingPlan;
+
+  // Claude 旗舰候选列表（第三方/中转组 22 平台共用，连字符 API id）
+  const CLAUDE_FLAGSHIP = [
+    "claude-opus-4-8",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5",
+    "claude-opus-4-7",
+    "claude-opus-4-6",
+    "claude-opus-4-5",
+    "claude-sonnet-4-5",
+  ];
+
+  const lists: Partial<Record<Protocol, string[]>> = {
+    // ── 一方官方（research/models-firstparty.md）──
+    anthropic: ["claude-opus-4-8", "claude-sonnet-4-6", "claude-haiku-4-5"],
+    openai: ["gpt-5.5"], // OpenAI docs SPA 未官方确认，沿用现有
+    codex: ["gpt-5.5-codex"], // 未官方确认，留 fetchModels 兜底
+    // gemini: 槽位语义不匹配，留空靠 fetchModels
+    glm: ["glm-5.2", "glm-5.1", "glm-5", "glm-5-turbo", "glm-4.7", "glm-4.7-flash", "glm-4.6", "glm-4.5-air"],
+    glm_en: ["glm-5.2", "glm-5.1", "glm-5", "glm-5-turbo", "glm-4.7", "glm-4.7-flash", "glm-4.6", "glm-4.5-air"],
+    kimi: cp
+      ? ["kimi-k2.7-code", "kimi-k2.7-code-highspeed", "kimi-k2.6", "kimi-k2.5"]
+      : ["kimi-k2.6", "kimi-k2.5", "kimi-k2-thinking", "kimi-latest"],
+    minimax: ["MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.5", "MiniMax-M2.1", "MiniMax-M2"], // M3 大小写推测，见 research
+    minimax_en: ["MiniMax-M3", "MiniMax-M2.7", "MiniMax-M2.5", "MiniMax-M2.1", "MiniMax-M2"],
+    bailian: cp
+      ? ["qwen3-coder-plus", "qwen3-coder-flash", "qwen3.7-max", "qwen3.7-plus", "qwen3.6-flash"]
+      : ["qwen3.7-max", "qwen3.7-plus", "qwen3.6-flash", "qwen3.5-omni-plus", "qwen3-coder-plus", "qwen3-coder-flash"],
+    // bailian_coding: 透传端点无独立列表，留空靠 fetchModels
+    deepseek: ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"],
+    stepfun: ["step-3.7-flash", "step-3.5-flash"],
+    stepfun_en: ["step-3.7-flash", "step-3.5-flash"],
+    doubao: ["doubao-seed-2-0-pro", "doubao-seed-2-0-code-preview", "doubao-seed-2-0-lite", "doubao-seed-2-0-mini"], // 短横线非点号
+    doubao_seed: ["doubao-seed-2-0-pro", "doubao-seed-2-0-code-preview", "doubao-seed-2-0-lite", "doubao-seed-2-0-mini"],
+    byteplus: ["doubao-seed-2-0-pro", "doubao-seed-2-0-code-preview", "doubao-seed-2-0-lite", "doubao-seed-2-0-mini"],
+    // qianfan: 百度文档 JS-rendered 未拿到确切 chat id，留空靠 fetchModels
+    xiaomi_mimo: ["mimo-v2.5-pro", "mimo-v2-pro", "mimo-v2.5", "mimo-v2-omni", "mimo-v2-flash"],
+    // bailing / longcat: 官方模型文档无静态来源，留空靠 fetchModels
+
+    // ── 聚合平台（research/models-aggregator.md，fetchModels 为主源，列表仅冷启动占位）──
+    openrouter: [
+      "anthropic/claude-opus-4.8", "anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.5",
+      "openai/gpt-5.5", "openai/gpt-5.5-pro", "openai/gpt-5.3-codex",
+      "google/gemini-3.5-flash", "google/gemini-3.1-pro-preview",
+      "deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash",
+      "qwen/qwen3.7-max", "z-ai/glm-5.2", "moonshotai/kimi-k2.7-code", "x-ai/grok-4.3", "minimax/minimax-m3",
+    ],
+    // siliconflow / siliconflow_en: 公开端点需鉴权 + 文档腐化，留空靠 fetchModels
+    aihubmix: [
+      "claude-opus-4-8", "claude-sonnet-4-6", "claude-sonnet-4-5",
+      "gpt-5.5", "gpt-5.5-pro", "gpt-5.3-codex",
+      "gemini-3.5-flash", "gemini-3.1-pro-preview",
+      "deepseek-v4-pro", "deepseek-v4-flash", "qwen3.7-max", "glm-5.2", "kimi-k2.7-code", "grok-4.3",
+    ],
+    dmxapi: [
+      "claude-opus-4-8", "claude-sonnet-4-6", "claude-opus-4-5-20251101",
+      "deepseek-v4-pro", "deepseek-v4-flash",
+      "gpt-5.5", "gpt-5.3-codex", "gemini-3.5-flash", "gemini-3.1-pro-preview",
+      "glm-5.2", "kimi-k2.7-code",
+    ],
+    modelscope: [
+      "deepseek-ai/DeepSeek-V4-Pro", "deepseek-ai/DeepSeek-V4-Flash", "deepseek-ai/DeepSeek-V3.2",
+      "Qwen/Qwen3.5-397B-A17B", "Qwen/Qwen3.5-122B-A10B", "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+      "ZhipuAI/GLM-5.2", "ZhipuAI/GLM-5.1", "ZhipuAI/GLM-5",
+      "moonshotai/Kimi-K2.5", "MiniMax/MiniMax-M3", "MiniMax/MiniMax-M2.7",
+    ],
+    shengsuanyun: [
+      "anthropic/claude-opus-4.8", "anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.5",
+      "openai/gpt-5.5", "openai/gpt-5.3-codex",
+      "google/gemini-3.5-flash", "google/gemini-3.1-pro-preview",
+      "deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash",
+      "ali/qwen3.7-max", "bigmodel/glm-5.2", "moonshot/kimi-k2.7-code", "x-ai/grok-4",
+    ],
+    atlascloud: [
+      "deepseek-ai/DeepSeek-V3.2-Exp", "deepseek-ai/DeepSeek-V3.1-Terminus", "deepseek-ai/DeepSeek-V3-0324",
+      "zai-org/GLM-4.6", "Qwen/Qwen3-235B-A22B-Instruct-2507", "Qwen/Qwen3-Coder",
+      "Qwen/Qwen3-Next-80B-A3B-Instruct", "Qwen/Qwen3-VL-235B-A22B-Instruct",
+      "moonshotai/Kimi-K2-Thinking", "moonshotai/Kimi-K2-Instruct-0905", "MiniMaxAI/MiniMax-M2",
+    ],
+    novita: [
+      "zai-org/glm-5.2", "deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash",
+      "qwen/qwen3.7-max", "moonshotai/kimi-k2.7-code", "minimax/minimax-m3",
+      "zai-org/glm-5.1", "qwen/qwen3.6-plus", "moonshotai/kimi-k2.6", "minimax/minimax-m2.7", "deepseek/deepseek-v3.2",
+    ],
+    // therouter: 全端点 404/需鉴权/SPA，留空靠 fetchModels
+    cherryin: [
+      "anthropic/claude-opus-4.8", "anthropic/claude-sonnet-4.6", "anthropic/claude-opus-4.5",
+      "openai/gpt-5.5", "openai/gpt-5.3-codex",
+      "google/gemini-3.5-flash", "google/gemini-3-pro-preview",
+      "deepseek/deepseek-v4-pro", "deepseek/deepseek-v4-flash", "deepseek/deepseek-v3.2",
+      "agent/glm-5.2", "moonshotai/kimi-k2.7-code", "grok-4",
+    ],
+    nvidia: [
+      "nvidia/nemotron-3-ultra-550b-a55b", "nvidia/nemotron-3-super-120b-a12b",
+      "nvidia/llama-3.3-nemotron-super-49b-v1.5", "deepseek/deepseek-v3.2",
+      "qwen/qwen3.5-397b-a17b", "qwen/qwen3-next-80b-a3b-instruct",
+      "z-ai/glm-5.1", "moonshotai/kimi-k2.6", "minimaxai/minimax-m3",
+      "meta/llama-4-maverick-17b-128e-instruct", "meta/llama-3.3-70b-instruct", "openai/gpt-oss-120b",
+    ],
+
+    // ── 第三方/中转（research/models-thirdparty.md，纯 Claude Code 中转 → Claude 旗舰列表）──
+    packycode: CLAUDE_FLAGSHIP,
+    cubence: CLAUDE_FLAGSHIP,
+    aigocode: CLAUDE_FLAGSHIP,
+    rightcode: CLAUDE_FLAGSHIP,
+    aicodemirror: CLAUDE_FLAGSHIP,
+    pateway: CLAUDE_FLAGSHIP,
+    ccsub: CLAUDE_FLAGSHIP,
+    apikeyfun: CLAUDE_FLAGSHIP,
+    apinebula: CLAUDE_FLAGSHIP,
+    sudocode: CLAUDE_FLAGSHIP,
+    claudeapi: CLAUDE_FLAGSHIP,
+    claudecn: CLAUDE_FLAGSHIP,
+    runapi: CLAUDE_FLAGSHIP,
+    relaxycode: CLAUDE_FLAGSHIP,
+    crazyrouter: CLAUDE_FLAGSHIP,
+    sssaicode: CLAUDE_FLAGSHIP,
+    compshare_coding: CLAUDE_FLAGSHIP,
+    micu: CLAUDE_FLAGSHIP,
+    ctok: CLAUDE_FLAGSHIP,
+    eflowcode: CLAUDE_FLAGSHIP,
+    lemondata: CLAUDE_FLAGSHIP,
+    pipellm: CLAUDE_FLAGSHIP,
+    claude_code: CLAUDE_FLAGSHIP,
+    // compshare / opencode / newapi: 自有/聚合或非 Claude 专用，留空靠 fetchModels
+  };
+  return lists[protocol] ? [...lists[protocol]!] : [];
 }
 
 const PROTOCOL_LABELS: Record<Protocol, string> = {
@@ -2415,10 +2553,15 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             )}
             {MODEL_SLOTS.map(({ key, labelKey }) => {
               const query = models[key].trim().toLowerCase();
-              const filtered = availableModels.length > 0
+              // 下拉源：fetchModels 成功用 available_models，否则用内置候选列表（冷启动兜底）
+              const dropdownSource = availableModels.length > 0
+                ? availableModels
+                : getDefaultModelList(protocol, codingPlan);
+              const hasDropdown = dropdownSource.length > 0;
+              const filtered = hasDropdown
                 ? (query
-                  ? availableModels.filter(m => pinyinMatch(query, m))
-                  : availableModels)
+                  ? dropdownSource.filter(m => pinyinMatch(query, m))
+                  : dropdownSource)
                 : [];
               return (
               <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2431,18 +2574,18 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 <div style={{ position: "relative", flex: 1 }}>
                   <input
                     className="input"
-                    style={{ width: "100%", paddingRight: availableModels.length > 0 ? 28 : undefined }}
+                    style={{ width: "100%", paddingRight: hasDropdown ? 28 : undefined }}
                     placeholder={t(labelKey)}
                     value={models[key]}
                     onChange={(e) => {
                       handleModelChange(key, e.target.value);
-                      if (availableModels.length > 0) setActiveDropdown(key);
+                      if (hasDropdown) setActiveDropdown(key);
                     }}
                     onFocus={() => {
-                      if (availableModels.length > 0) setActiveDropdown(key);
+                      if (hasDropdown) setActiveDropdown(key);
                     }}
                   />
-                  {availableModels.length > 0 && (
+                  {hasDropdown && (
                     <button
                       type="button"
                       className="btn btn-ghost btn-icon"
