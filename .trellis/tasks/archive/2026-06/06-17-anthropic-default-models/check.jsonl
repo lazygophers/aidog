@@ -1,0 +1,1 @@
+{"file": ".claude/skills/aidog-add-platform/references/default-model.md", "reason": "校验：文档 anthropic 默认值与代码 getDefaultModels 一致（default=opus-4-8, haiku=4-6）。"}
