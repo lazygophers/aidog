@@ -171,7 +171,14 @@ impl Serialize for ContentBlock {
 pub struct Tool {
     pub name: String,
     pub description: Option<String>,
+    // 入站工具可能缺 input_schema(如 Anthropic 服务端工具 web_search/bash)；缺失时默认空对象 {},
+    // 避免单个工具字段缺失导致整请求 serde missing field → 400。禁默认 null(破坏上游)。
+    #[serde(default = "default_input_schema")]
     pub input_schema: serde_json::Value,
+}
+
+fn default_input_schema() -> serde_json::Value {
+    serde_json::json!({})
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
