@@ -1,7 +1,7 @@
 """聚合入口 — 唯一调用点 (make prices-sync → uv run python aggregate.py)。
 
 流程: 并发跑 REGISTRY 全部 scraper → 合并去重 → schema 校验 → 原子写 data/models.json。
-某 scraper 失败: 跳过该平台 + 打印, 不阻塞其他平台 (保留旧值由调用方决定, 本进程不删既有条目)。
+某 scraper 失败: 跳过该平台 + 打印 (含 traceback), 不阻塞其他平台 (保留旧值由调用方决定, 本进程不删既有条目)。
 """
 
 from __future__ import annotations
@@ -9,6 +9,8 @@ from __future__ import annotations
 import asyncio
 import json
 import sys
+import time
+import traceback
 from pathlib import Path
 
 from schema import ModelEntry, ModelsFile
@@ -21,31 +23,61 @@ OUTPUT = REPO_ROOT / "data" / "models.json"
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from scrapers import REGISTRY  # noqa: E402
 
+# scraper 模块里抓取目标 URL 的常量名候选 (有则日志显示, 帮排查)
+_URL_ATTRS = ("URL", "PRICING_URL", "API", "SOURCE_URL", "MODELS_URL")
 
-async def run_scraper(module, platform: str) -> tuple[str, dict[str, ModelEntry] | None, str | None]:
+
+def _scraper_url(module) -> str | None:
+    for attr in _URL_ATTRS:
+        v = getattr(module, attr, None)
+        if isinstance(v, str) and v:
+            return v
+    return None
+
+
+async def run_scraper(module, platform: str):
+    """返回 (platform, entries|None, err_str|None, traceback|None, elapsed_s, url)。"""
+    url = _scraper_url(module)
+    t0 = time.monotonic()
     try:
         entries = await module.fetch()
-        return platform, entries, None
+        return platform, entries, None, None, time.monotonic() - t0, url
     except Exception as e:  # noqa: BLE001 — 顶层聚合容错
-        return platform, None, f"{type(e).__name__}: {e}"
+        return (
+            platform,
+            None,
+            f"{type(e).__name__}: {e}",
+            traceback.format_exc(),
+            time.monotonic() - t0,
+            url,
+        )
 
 
 async def main() -> int:
-    print(f"[aggregate] 跑 {len(REGISTRY)} 个 scraper ...")
-    results = await asyncio.gather(*(run_scraper(mod, plat) for mod, plat in REGISTRY))
+    total = len(REGISTRY)
+    print(f"[aggregate] 跑 {total} 个 scraper (并发, 各 ≤30s) ...")
+    tasks = [asyncio.create_task(run_scraper(mod, plat)) for mod, plat in REGISTRY]
 
     models: dict[str, ModelEntry] = {}
     ok = 0
-    for platform, entries, err in results:
+    done = 0
+    for fut in asyncio.as_completed(tasks):
+        platform, entries, err, tb, dt, url = await fut
+        done += 1
+        tag = f"[{done}/{total}]"
+        url_s = f"  → {url}" if url else ""
         if err is not None:
-            print(f"  ✗ {platform}: FAIL ({err})")
+            print(f"  {tag} ✗ {platform}: FAIL ({err}) [{dt:.1f}s]{url_s}")
+            if tb:
+                # 完整堆栈进 stderr, 排查用 (不污染正常 stdout 表格)
+                sys.stderr.write(tb.rstrip() + "\n")
             continue
         if not entries:
-            print(f"  · {platform}: 空 (跳过)")
+            print(f"  {tag} · {platform}: 空 (跳过) [{dt:.1f}s]{url_s}")
             continue
         for name, entry in entries.items():
             _merge(models, name, entry, platform)
-        print(f"  ✓ {platform}: {len(entries)} 模型")
+        print(f"  {tag} ✓ {platform}: {len(entries)} 模型 [{dt:.1f}s]{url_s}")
         ok += 1
 
     out = ModelsFile(models=models)
@@ -54,7 +86,7 @@ async def main() -> int:
     tmp.write_text(out.model_dump_json(indent=2, exclude_none=True), encoding="utf-8")
     tmp.replace(OUTPUT)
     rel = OUTPUT.relative_to(REPO_ROOT) if OUTPUT.is_absolute() and str(OUTPUT).startswith(str(REPO_ROOT)) else OUTPUT
-    print(f"[aggregate] 完成: {ok}/{len(REGISTRY)} 平台, {len(models)} 模型 → {rel}")
+    print(f"[aggregate] 完成: {ok}/{total} 平台出数, {len(models)} 模型 → {rel}")
     return 0
 
 
