@@ -4,6 +4,7 @@
 stepfun 等多平台模型。fill:
 - top-level 价 (近似, 标 openrouter 价; 各平台官方一手价由对应 first-party scraper 覆盖)
 - pricing["openrouter"]
+- pricing[<platform_type>] — PREFIX_MAP 命中时追加该平台 key (同 pp 价, 兜底用)
 - max_input/output_tokens + context_window (模型固有, 平台无关)
 """
 
@@ -76,6 +77,12 @@ async def fetch() -> dict[str, ModelEntry]:
             cache_read_input_token_cost=cache_read or None,
             cache_creation_input_token_cost=cache_write or None,
         )
+        # per-platform pricing: openrouter key 始终写; PREFIX_MAP 命中时追加该 platform_type key
+        # (同 pp 价, 作该平台 openrouter 兜底; 劣后 litellm/first-party, 因 REGISTRY openrouter 在后)
+        pricing_dict: dict[str, PlatformPricing] = {"openrouter": pp}
+        mapped = PREFIX_MAP.get(org)
+        if mapped is not None and mapped != "openrouter":
+            pricing_dict[mapped] = pp.model_copy()
         entry = ModelEntry(
             input_cost_per_token=prompt,
             output_cost_per_token=completion,
@@ -84,11 +91,10 @@ async def fetch() -> dict[str, ModelEntry]:
             max_input_tokens=int(context) if context else None,
             max_output_tokens=int(max_completion) if max_completion else None,
             context_window=int(context) if context else None,
-            pricing={"openrouter": pp},
+            pricing=pricing_dict,
         )
         # 标注 default_platform 为该模型的来源 platform_type (若映射命中)
-        prefix = org
-        entry.default_platform = PREFIX_MAP.get(prefix, "openrouter")
+        entry.default_platform = mapped or "openrouter"
         # 合并同名 (OpenRouter 常有同模型多 variant, 取首个有效)
         if name not in out:
             out[name] = entry
