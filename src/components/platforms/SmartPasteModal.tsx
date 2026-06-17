@@ -3,6 +3,7 @@
 // 解析逻辑见 utils/platformPaste.ts（纯函数）。视觉沿用 glass-elevated overlay 范式。
 
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
   parsePlatformPaste,
@@ -39,7 +40,6 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
   const [text, setText] = useState("");
   const [selKey, setSelKey] = useState("");
   const [selUrl, setSelUrl] = useState("");
-  const [clipErr, setClipErr] = useState(false);
 
   const parsed = useMemo(() => parsePlatformPaste(text, presets), [text, presets]);
 
@@ -49,32 +49,8 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
     setSelUrl(parsed.baseUrls[0]?.url ?? "");
   }, [parsed]);
 
-  // 打开时 best-effort 读剪贴板（拒绝 / 不支持 → 手动粘贴）
-  useEffect(() => {
-    (async () => {
-      try {
-        const clip = await navigator.clipboard.readText();
-        if (clip && clip.trim()) setText(clip);
-      } catch {
-        setClipErr(true);
-      }
-    })();
-  }, []);
-
   const hasResult = parsed.apiKeys.length > 0 || parsed.baseUrls.length > 0 || !!parsed.platform;
   const canApply = !!(selKey || selUrl || parsed.platform);
-
-  const readClipboard = async () => {
-    try {
-      const clip = await navigator.clipboard.readText();
-      if (clip && clip.trim()) {
-        setText(clip);
-        setClipErr(false);
-      }
-    } catch {
-      setClipErr(true);
-    }
-  };
 
   const labelStyle: CSSProperties = {
     fontSize: 12,
@@ -96,7 +72,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
     wordBreak: "break-all",
   };
 
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -147,17 +123,6 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
           onChange={(e) => setText(e.target.value)}
           autoFocus
         />
-
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
-          <button className="btn btn-ghost" style={{ fontSize: 12, padding: "4px 10px" }} onClick={readClipboard}>
-            {t("platform.paste.readClipboard", "读取剪贴板")}
-          </button>
-          {clipErr && (
-            <span style={{ fontSize: 11.5, color: "var(--text-secondary)" }}>
-              {t("platform.paste.clipDenied", "无法读取剪贴板，请手动粘贴")}
-            </span>
-          )}
-        </div>
 
         {/* 识别结果 */}
         <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 14 }}>
@@ -269,6 +234,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
