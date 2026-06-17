@@ -10,11 +10,14 @@ export interface ParsedBaseUrl {
   protocol: ParsedProtocol;
 }
 
-/** Platforms.tsx 的 preset 引用（解析器只需 value/label/keywords 三字段）。 */
+/** Platforms.tsx 的 preset 引用（解析器只需 value/label/keywords/hosts 字段）。 */
 export interface PastePresetRef {
   value: string;
   label: string;
   keywords?: string[];
+  /** base_url hostname 命中这些子串时优先匹配（比 keyword 文本扫更准）。
+   *  存注册域（如 "xiaomimimo.com"）或完整 hostname，多 preset 重叠时最长 host 胜出。 */
+  hosts?: string[];
 }
 
 export interface ParsedPaste {
@@ -136,11 +139,46 @@ function extractBaseUrls(text: string): ParsedBaseUrl[] {
   return out;
 }
 
-/** 匹配内置平台 preset（首个命中胜出，与 presets 列表顺序一致）。 */
+/** 取 base_url 的 hostname（小写）；非法 URL 返回空串。 */
+function urlHost(u: string): string {
+  try {
+    return new URL(u).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+/** 匹配内置平台 preset。
+ *  优先级 1：base_url hostname 命中 preset.hosts（最强信号，多 preset 重叠时最长 host 胜出）。
+ *  优先级 2：keyword 文本扫描（fallback，按 presets 列表顺序首个命中）。 */
 export function matchPlatform(
   text: string,
   presets: PastePresetRef[],
+  baseUrls?: ParsedBaseUrl[],
 ): { value: string; label: string } | null {
+  // 1) base_url host 优先匹配：收集所有命中，取最长 host（最特异）对应的 preset。
+  //    例：粘贴 token-plan-cn.xiaomimimo.com 时，coding plan preset（host 含
+  //    token-plan-cn.xiaomimimo.com）比普通 preset（host 含 xiaomimimo.com）更特异而胜出，
+  //    避免被普通版误匹配。
+  if (baseUrls && baseUrls.length) {
+    const hosts = baseUrls.map((b) => urlHost(b.url)).filter(Boolean);
+    if (hosts.length) {
+      let best: { value: string; label: string } | null = null;
+      let bestLen = 0;
+      for (const p of presets) {
+        for (const h of p.hosts ?? []) {
+          const hl = h.toLowerCase();
+          if (hosts.some((hh) => hh.includes(hl)) && hl.length > bestLen) {
+            best = { value: p.value, label: p.label };
+            bestLen = hl.length;
+          }
+        }
+      }
+      if (best) return best;
+    }
+  }
+
+  // 2) fallback: keyword 文本扫描（与 presets 列表顺序一致，首个命中胜出）。
   const hay = normalizeForMatch(text);
   for (const p of presets) {
     for (const kw of p.keywords ?? []) {
@@ -156,7 +194,7 @@ export function matchPlatform(
 /**
  * 解析粘贴文本 → {apiKeys, baseUrls, platform}。
  * @param text 用户粘贴的原始文案
- * @param presets Platforms.tsx 的 PLATFORM_PRESETS（提供 value/label/keywords）
+ * @param presets Platforms.tsx 的 PLATFORM_PRESETS（提供 value/label/keywords/hosts）
  */
 export function parsePlatformPaste(
   text: string,
@@ -165,9 +203,10 @@ export function parsePlatformPaste(
   if (!text || !text.trim()) {
     return { apiKeys: [], baseUrls: [], platform: null };
   }
+  const baseUrls = extractBaseUrls(text);
   return {
     apiKeys: extractApiKeys(text),
-    baseUrls: extractBaseUrls(text),
-    platform: matchPlatform(text, presets),
+    baseUrls,
+    platform: matchPlatform(text, presets, baseUrls),
   };
 }

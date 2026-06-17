@@ -12,13 +12,13 @@ import { pinyinMatch } from "../utils/pinyin";
 import { SmartPasteModal, type SmartPasteApplyResult } from "../components/platforms/SmartPasteModal";
 
 /** 支持的协议选项（含 coding plan 变体） */
-export type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[] };
+export type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[]; hosts?: string[] };
 
 export const PROTOCOLS: ProtocolOption[] = [
   // ── 官方 ──
   { value: "anthropic", label: "Anthropic（Claude）", keywords: ["claude", "克劳德", "官方"] },
   { value: "openai", label: "OpenAI", keywords: ["gpt", "chatgpt", "官方"] },
-  { value: "codex", label: "Codex", keywords: ["openai", "codex"] },
+  { value: "codex", label: "Codex", keywords: ["codex"] },
   { value: "gemini", label: "Gemini（Google）", keywords: ["google", "谷歌", "gemini"] },
   // ── 国内官方 ──
   { value: "glm", label: "GLM（智谱）", keywords: ["zhipu", "智谱", "bigmodel", "codegeex"] },
@@ -368,6 +368,22 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
   };
   return (base[protocol] || []).map(ep => ({ ...ep }));
 }
+
+/** 从 getDefaultEndpoints 派生 host 子串，注入 PROTOCOLS 供智能识别 base_url 优先匹配。
+ *  按 preset.codingPlan 取对应 cp 分支的 host，避免 coding plan 与普通版互相误匹配
+ *  （例：xiaomi_mimo coding plan 拿 token-plan-cn.xiaomimimo.com，普通版拿 api.xiaomimimo.com）。
+ *  单一事实源：base_url 改动只动 getDefaultEndpoints，host 列表自动跟随。 */
+for (const p of PROTOCOLS) {
+  const hosts = new Set<string>();
+  for (const ep of getDefaultEndpoints(p.value, !!p.codingPlan)) {
+    try {
+      const h = new URL(ep.base_url).hostname.replace(/^www\./, "").toLowerCase();
+      if (h) hosts.add(h);
+    } catch { /* 非法 URL 跳过 */ }
+  }
+  if (hosts.size) p.hosts = [...hosts];
+}
+
 
 /** 主流平台预设默认模型（按 PlatformModels 槽位语义归类）。
  *  与 getDefaultEndpoints 同址同模式：纯前端预设，落 CreatePlatform.models。
