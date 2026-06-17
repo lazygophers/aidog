@@ -12,4 +12,4 @@
 | xiaomi-coding-variant | 小米 MiMo coding plan 平台变体 | — | 已完成 | 收尾 | 100% | .worktrees/06-17-xiaomi-coding-variant |
 | platform-model-list | 平台内置模型列表供下拉选择 | — | 已完成 | 收尾 | 100% | .worktrees/06-17-platform-model-list |
 | openai-apikey-header | openai 协议 api-key 头鉴权适配 (小米 token-plan) | — | 已完成 | 收尾 | 100% | .worktrees/06-17-openai-apikey-header |
-| pricing-full-coverage | Pricing 全平台覆盖 (LiteLLM 兜底骨干 + first-party 最佳信源 + openrouter 修 per-platform) | — | 进行中 | check | 70% (T1-T3✓ check绿; T4-T6待用户) | — |
+| pricing-full-coverage | Pricing scraper 全平台覆盖 (7 first-party 平台补一手价) | — | 已完成 | 收尾 | 100% | — |
