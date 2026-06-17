@@ -2664,10 +2664,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               title={t("platform.groupAssignTitle", "分组归属")}
               desc={t("platform.groupAssignDesc", "可同时创建默认分组并加入其他已有分组；都不选则该平台不在任何分组。")}
             >
-              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
-                <input type="checkbox" checked={autoGroup} onChange={e => setAutoGroup(e.target.checked)} />
-                {t("platform.groupAssignAuto", "创建默认分组")}
-              </label>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <span style={{ fontSize: 13 }}>{t("platform.groupAssignAuto", "创建默认分组")}</span>
+                <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
+                  <input type="checkbox" checked={autoGroup} onChange={e => setAutoGroup(e.target.checked)} style={{ display: "none" }} />
+                  <span className={`toggle ${autoGroup ? "active" : ""}`} />
+                </label>
+              </div>
               {groupDetails.length > 0 && (
                 <>
                   <div style={{ fontSize: 12, color: "var(--text-secondary)", margin: "10px 0 6px" }}>
@@ -2675,30 +2678,29 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {groupDetails
-                      // 编辑态隐藏该平台自己的 auto 分组（由上方复选框管理）。
+                      // 编辑态隐藏该平台自己的 auto 分组（由上方 toggle 管理）。
                       .filter(gd => !editing || gd.group.auto_from_platform !== String(editing.id))
                       .map(gd => {
                         const checked = joinGroupIds.includes(gd.group.id);
                         return (
-                          <label
+                          <button
                             key={gd.group.id}
+                            type="button"
+                            onClick={() => setJoinGroupIds(prev => checked
+                              ? prev.filter(id => id !== gd.group.id)
+                              : [...prev, gd.group.id])}
                             style={{
-                              display: "inline-flex", alignItems: "center", gap: 4,
-                              padding: "3px 10px", borderRadius: 999, fontSize: 12, cursor: "pointer",
-                              border: "1px solid var(--border)",
-                              background: checked ? "var(--accent-subtle)" : "transparent",
+                              display: "inline-flex", alignItems: "center",
+                              padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 500,
+                              cursor: "pointer",
+                              border: `1px solid ${checked ? "var(--accent)" : "var(--border)"}`,
+                              background: checked ? "var(--accent-subtle)" : "var(--bg-glass)",
+                              color: checked ? "var(--accent)" : "var(--text-secondary)",
+                              transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
                             }}
                           >
-                            <input
-                              type="checkbox" checked={checked}
-                              onChange={e => {
-                                setJoinGroupIds(prev => e.target.checked
-                                  ? [...prev, gd.group.id]
-                                  : prev.filter(id => id !== gd.group.id));
-                              }}
-                            />
                             {gd.group.name}
-                          </label>
+                          </button>
                         );
                       })}
                   </div>

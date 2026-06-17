@@ -346,32 +346,36 @@ export function CcSwitchImportSection({
             <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
               {t("importExport.ccswitch.groupAssignHint", "导入后这些平台加入哪些分组（批量，作用于全部已导入平台）")}
             </div>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, cursor: "pointer" }}>
-              <input type="checkbox" checked={batchAutoGroup} onChange={e => setBatchAutoGroup(e.target.checked)} />
-              {t("platform.groupAssignAuto", "创建默认分组")}
-            </label>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <span style={{ fontSize: 13 }}>{t("platform.groupAssignAuto", "创建默认分组")}</span>
+              <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
+                <input type="checkbox" checked={batchAutoGroup} onChange={e => setBatchAutoGroup(e.target.checked)} style={{ display: "none" }} />
+                <span className={`toggle ${batchAutoGroup ? "active" : ""}`} />
+              </label>
+            </div>
             {groupDetails.length > 0 && (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                 {groupDetails.map(gd => {
                   const checked = batchJoinGroupIds.includes(gd.group.id);
                   return (
-                    <label
+                    <button
                       key={gd.group.id}
+                      type="button"
+                      onClick={() => setBatchJoinGroupIds(prev => checked
+                        ? prev.filter(id => id !== gd.group.id)
+                        : [...prev, gd.group.id])}
                       style={{
-                        display: "inline-flex", alignItems: "center", gap: 4,
-                        padding: "3px 10px", borderRadius: 999, fontSize: 12, cursor: "pointer",
-                        border: "1px solid var(--border)",
-                        background: checked ? "var(--accent-subtle)" : "transparent",
+                        display: "inline-flex", alignItems: "center",
+                        padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 500,
+                        cursor: "pointer",
+                        border: `1px solid ${checked ? "var(--accent)" : "var(--border)"}`,
+                        background: checked ? "var(--accent-subtle)" : "var(--bg-glass)",
+                        color: checked ? "var(--accent)" : "var(--text-secondary)",
+                        transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
                       }}
                     >
-                      <input
-                        type="checkbox" checked={checked}
-                        onChange={e => setBatchJoinGroupIds(prev => e.target.checked
-                          ? [...prev, gd.group.id]
-                          : prev.filter(id => id !== gd.group.id))}
-                      />
                       {gd.group.name}
-                    </label>
+                    </button>
                   );
                 })}
               </div>
