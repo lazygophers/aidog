@@ -224,7 +224,7 @@ impl SchedulerState {
 //
 // session 键取法（见 parent design.md §Sticky session 键）：
 // aidog 现有 proxy.rs/models.rs 无 session_id 概念（grep 确认），故 MVP 用
-// `group_name + 客户端稳定标识`（调用侧拼接，本模块只存 String→platform_id）。
+// `group_key + 客户端稳定标识`（调用侧拼接，本模块只存 String→platform_id）。
 // 绑定平台失效（不在候选集 / 熔断 Open）时回退正常调度并重写绑定。
 
 /// Sticky 绑定 TTL（毫秒）：30 分钟无访问淘汰。

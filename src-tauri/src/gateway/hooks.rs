@@ -3,7 +3,7 @@
 //! 职责：
 //! - 生成 hook 脚本到 `~/.aidog/scripts/`：`aidog-notify-complete.py`（POST type=task_complete）、
 //!   `aidog-notify-waiting.py`（type=waiting_input）。脚本用 `ANTHROPIC_BASE_URL` 推导
-//!   `/api/notify` 端点 + `ANTHROPIC_AUTH_TOKEN`（=group_name）Bearer 鉴权，project=cwd basename。
+//!   `/api/notify` 端点 + `ANTHROPIC_AUTH_TOKEN`（=group_key）Bearer 鉴权，project=cwd basename。
 //!   脚本为 Python（stdlib `urllib`/`json`/`os`，无第三方依赖），含 PEP723 内联依赖头，
 //!   由 `uv run --script`（uv 可用）或 `python3`（fallback）执行（执行器写进 command 串）。
 //! - Claude Code 一键注入：把 `hooks.Stop`（任务完成）+ `hooks.Notification`（等待输入）
@@ -55,7 +55,7 @@ pub const MARKER_HOOKS: &str = "_aidog_hooks";
 /// 生成 hook 脚本内容（Python + PEP723，stdlib only）。
 ///
 /// 脚本从 `ANTHROPIC_BASE_URL` 推导 `/api/notify` 端点（strip 末尾 `/proxy` 与版本前缀），
-/// `ANTHROPIC_AUTH_TOKEN`（=group_name）作 Bearer，project=cwd basename 作 `{project}` 变量。
+/// `ANTHROPIC_AUTH_TOKEN`（=group_key）作 Bearer，project=cwd basename 作 `{project}` 变量。
 /// `notif_type` 为 `task_complete` / `waiting_input`。
 ///
 /// 脚本对 Claude Code（hooks.Stop/Notification，从 stdin 收 JSON，cwd=项目目录）与

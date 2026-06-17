@@ -475,7 +475,7 @@ function RuleRow({ rule, onEdit, onToggle, onDelete }: RuleRowProps) {
 export interface MiddlewareRulesPanelProps {
   /** 作用域：global（中间件 tab）/ group / platform（内嵌编辑页） */
   scope: RuleScope;
-  /** group_name 或 platform_id 字符串；global 时空 */
+  /** group_key 或 platform_id 字符串；global 时空 */
   scopeRef?: string;
   /** 内嵌（group/platform）时隐藏总开关相关说明，仅展示该作用域规则 */
   embedded?: boolean;

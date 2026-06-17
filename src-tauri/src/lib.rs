@@ -40,7 +40,7 @@ fn slugify(input: &str) -> String {
 }
 
 /// Validate group name is a valid slug (lowercase alphanumeric + hyphen)
-fn validate_group_name(name: &str) -> Result<(), String> {
+fn validate_group_key(name: &str) -> Result<(), String> {
     if name.is_empty() {
         return Err("group name cannot be empty".to_string());
     }
@@ -78,10 +78,11 @@ async fn ensure_platform_groups(db: &Db) {
         if existing_auto.contains(&platform_id_str) {
             continue;
         }
-        // 自动创建分组（路由纯按 apikey=name，不再生成 path）
-        let group_name = slugify(&format!("{}-auto", platform.name));
+        // 自动创建分组（路由纯按 apikey=group_key，不再生成 path）
+        let group_key = slugify(&format!("{}-auto", platform.name));
         let group = match db::create_group(db, CreateGroup {
-            name: group_name.clone(),
+            name: group_key.clone(),
+            group_key: Some(group_key.clone()),
             routing_mode: RoutingMode::Failover,
             auto_from_platform: platform_id_str.clone(),
             request_timeout_secs: 0,
@@ -102,7 +103,7 @@ async fn ensure_platform_groups(db: &Db) {
         }]).await {
             tracing::error!("ensure_platform_groups: set_group_platforms failed for {}: {e}", platform.name);
         }
-        tracing::info!("ensure_platform_groups: created group '{}' for platform '{}'", group_name, platform.name);
+        tracing::info!("ensure_platform_groups: created group '{}' for platform '{}'", group_key, platform.name);
     }
 }
 
@@ -143,9 +144,10 @@ fn about_info() -> AboutInfo {
 /// Failover / max_retries 2）。供 platform_create（勾选默认分组）与
 /// platform_update（补建缺失的 auto 分组）复用，避免两处重复构造。
 async fn create_auto_group_for(db: &Db, platform: &Platform) -> Result<(), String> {
-    let group_name = slugify(&format!("{}-auto", platform.name));
+    let group_key = slugify(&format!("{}-auto", platform.name));
     let group = db::create_group(db, CreateGroup {
-        name: group_name,
+        name: group_key.clone(),
+        group_key: Some(group_key),
         routing_mode: RoutingMode::Failover,
         auto_from_platform: platform.id.to_string(),
         request_timeout_secs: 0,
@@ -416,7 +418,7 @@ async fn group_create(mut input: CreateGroup, db: State<'_, Db>, app: tauri::App
     tracing::debug!(command = "group_create", name = %input.name, "command invoked");
     // Auto-slugify and validate group name
     input.name = slugify(&input.name);
-    validate_group_name(&input.name)
+    validate_group_key(&input.name)
         .map_err(|e| { tracing::warn!(command = "group_create", error = %e, "invalid group name"); e })?;
     let result = db::create_group(&db, input).await
         .map_err(|e| { tracing::error!(command = "group_create", error = %e, "create group failed"); e })?;
@@ -445,7 +447,7 @@ async fn group_update(mut input: UpdateGroup, db: State<'_, Db>, app: tauri::App
     // Auto-slugify and validate if name is being updated
     if let Some(ref name) = input.name {
         let slug = slugify(name);
-        validate_group_name(&slug)
+        validate_group_key(&slug)
             .map_err(|e| { tracing::warn!(command = "group_update", error = %e, "invalid group name"); e })?;
         input.name = Some(slug);
     }
@@ -842,7 +844,7 @@ async fn model_test(
                      in_tok: i32, out_tok: i32| -> gateway::models::ProxyLog {
         gateway::models::ProxyLog {
             id: request_id.clone(),
-            group_name: "[test]".into(),
+            group_key: "[test]".into(),
             model: model.clone(),
             actual_model: model.clone(),
             source_protocol: "test".into(),
@@ -1098,7 +1100,7 @@ async fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
     }
 }
 
-/// 为所有分组生成 settings.{group_name}.json 配置文件到 ~/.aidog/ 目录
+/// 为所有分组生成 settings.{group_key}.json 配置文件到 ~/.aidog/ 目录
 /// 核心逻辑：可被多个触发点调用
 async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
     let groups = gateway::db::list_groups(db).await?;
@@ -1123,7 +1125,7 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
         });
 
     // Collect current group names for cleanup
-    let group_names: std::collections::HashSet<String> = groups.iter().map(|g| g.name.clone()).collect();
+    let group_keys: std::collections::HashSet<String> = groups.iter().map(|g| g.group_key.clone()).collect();
 
     // 默认通知 hook 物化（镜像 statusLine）：marker `_aidog_hooks.enabled` 为 true 时，
     // 为每个分组 config 注入 hooks.Stop/Notification（strip marker 之前），并对 Codex
@@ -1151,7 +1153,7 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
     let mut written = Vec::new();
 
     for group in &groups {
-        let group_name = &group.name;
+        let group_key = &group.group_key;
 
         let mut config = base_config.clone();
 
@@ -1167,7 +1169,7 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
                 );
                 env_map.insert(
                     "ANTHROPIC_AUTH_TOKEN".to_string(),
-                    serde_json::Value::String(group_name.clone()),
+                    serde_json::Value::String(group_key.clone()),
                 );
             }
         }
@@ -1185,25 +1187,25 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
             obj.remove(gateway::hooks::MARKER_HOOKS);
         }
 
-        let file_path = aidog_dir.join(format!("settings.{}.json", group_name));
+        let file_path = aidog_dir.join(format!("settings.{}.json", group_key));
         let content = serde_json::to_string_pretty(&config)
-            .map_err(|e| format!("serialize config for {}: {e}", group_name))?;
+            .map_err(|e| format!("serialize config for {}: {e}", group_key))?;
 
         // Diff check: only write when content differs
         let existing = std::fs::read_to_string(&file_path).unwrap_or_default();
         if existing != content {
             std::fs::write(&file_path, &content)
-                .map_err(|e| format!("write config for {}: {e}", group_name))?;
+                .map_err(|e| format!("write config for {}: {e}", group_key))?;
             written.push(file_path.to_string_lossy().to_string());
         }
 
         // Codex profile：为该分组生成 `$CODEX_HOME/<group>.config.toml`
         //（profile 文件 = 用户级层，可含 model_providers）。与 Claude Code
         // json 生成并行，互不影响。失败仅记录、不中断（Codex 未装也不应阻塞）。
-        match gateway::codex::write_group_profile(group_name, port) {
+        match gateway::codex::write_group_profile(group_key, port) {
             Ok(Some(p)) => written.push(p),
             Ok(None) => {}
-            Err(e) => tracing::warn!(group = %group_name, error = %e, "codex profile sync failed"),
+            Err(e) => tracing::warn!(group = %group_key, error = %e, "codex profile sync failed"),
         }
     }
 
@@ -1230,10 +1232,10 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
     if let Ok(entries) = std::fs::read_dir(&aidog_dir) {
         for entry in entries.flatten() {
             let name = entry.file_name().to_string_lossy().to_string();
-            if let Some(group_name) = name.strip_prefix("settings.").and_then(|s| s.strip_suffix(".json")) {
-                if !group_names.contains(group_name) {
+            if let Some(group_key) = name.strip_prefix("settings.").and_then(|s| s.strip_suffix(".json")) {
+                if !group_keys.contains(group_key) {
                     if let Err(e) = std::fs::remove_file(entry.path()) {
-                        tracing::debug!(group = %group_name, error = %e, "remove stale settings file failed");
+                        tracing::debug!(group = %group_key, error = %e, "remove stale settings file failed");
                     }
                 }
             }
@@ -1241,7 +1243,7 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
     }
 
     // Cleanup: remove Codex profile files for deleted groups（用户级 config.toml 不动）。
-    if let Err(e) = gateway::codex::cleanup_group_profiles(&group_names) {
+    if let Err(e) = gateway::codex::cleanup_group_profiles(&group_keys) {
         tracing::warn!(error = %e, "codex profile cleanup failed");
     }
 
@@ -1321,9 +1323,9 @@ async fn platform_usage_stats(platform_id: u64, db: State<'_, Db>) -> Result<gat
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn group_usage_stats(group_name: String, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
-    tracing::debug!(command = "group_usage_stats", group_name = %group_name, "command invoked");
-    gateway::db::get_group_usage_stats(&db, &group_name).await
+async fn group_usage_stats(group_key: String, db: State<'_, Db>) -> Result<gateway::models::PlatformUsageStats, String> {
+    tracing::debug!(command = "group_usage_stats", group_key = %group_key, "command invoked");
+    gateway::db::get_group_usage_stats(&db, &group_key).await
 }
 
 #[tauri::command]

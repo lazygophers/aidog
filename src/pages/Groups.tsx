@@ -174,8 +174,8 @@ function shellSquote(s: string): string {
  * `AIDOG_KEY=<group>`（auth token=分组名，aidog 据此路由）+ `codex -p <group>`
  * 选 `~/.codex/<group>.config.toml` profile + bypass approvals/sandbox。
  */
-function buildCodexCommand(groupName: string): string {
-  const g = shellSquote(groupName);
+function buildCodexCommand(groupKey: string): string {
+  const g = shellSquote(groupKey);
   return [
     `AIDOG_KEY=${g}`,
     "codex",
@@ -225,7 +225,7 @@ function CopyButton({ text, title, label, size = 14 }: { text: string; title?: s
 
 /**
  * 拉取每个 group 的使用统计 + 余额。
- * - usage stats：按 proxy_log.group_name 聚合（`groupUsageApi.statsAll` 单次批量），只含本分组请求，共享平台不重复计入。
+ * - usage stats：按 proxy_log.group_key 聚合（`groupUsageApi.statsAll` 单次批量），只含本分组请求，共享平台不重复计入。
  * - balance：关联 platforms 的 est_balance_remaining 求和（平台级属性，无 per-group 概念，维持现状）。
  * load 与 refreshStats 共用，避免两处求和逻辑重复。
  */
@@ -236,13 +236,13 @@ async function fetchGroupStats(
   const platById = new Map(platforms.map(pp => [pp.id, pp]));
   const statsMap: Record<string, PlatformUsageStats> = {};
   const balanceMap: Record<number, number> = {};
-  // usage stats：单次批量 invoke（后端 GROUP BY group_name），消除逐 group N+1 往返。
+  // usage stats：单次批量 invoke（后端 GROUP BY group_key），消除逐 group N+1 往返。
   // 返回 map 仅含有日志的 group；total_requests > 0 时纳入。
   try {
     const all = await groupUsageApi.statsAll();
     for (const g of details) {
-      const s = all[g.group.name];
-      if (s && s.total_requests > 0) statsMap[g.group.name] = s;
+      const s = all[g.group.group_key];
+      if (s && s.total_requests > 0) statsMap[g.group.group_key] = s;
     }
   } catch { /* ignore */ }
   // balance：关联平台余额求和（保持平台级语义，无 HTTP）。
@@ -257,7 +257,7 @@ async function fetchGroupStats(
   return { statsMap, balanceMap };
 }
 
-export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { groupId?: string; groupName?: string }) => void }) {
+export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string }) => void }) {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -298,6 +298,7 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
   // Create mode
   const [showCreate, setShowCreate] = useState(false);
   const [cName, setCName] = useState("");
+  const [cGroupKey, setCGroupKey] = useState("");
   const [cMode, setCMode] = useState<RoutingMode>("failover");
 
   // Mapping form (for quick add in list view)
@@ -382,8 +383,8 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
   // ── Create handler ──
   const handleCreateGroup = async () => {
     try {
-      await groupApi.create({ name: cName, routing_mode: cMode });
-      setCName(""); setCMode("failover"); setShowCreate(false);
+      await groupApi.create({ name: cName, group_key: cGroupKey.trim() || undefined, routing_mode: cMode });
+      setCName(""); setCGroupKey(""); setCMode("failover"); setShowCreate(false);
       load();
     } catch (e) { console.error(e); }
   };
@@ -449,9 +450,9 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
             <div style={{ fontSize: F.title, fontWeight: 700 }}>{editName || t("group.edit")}</div>
             <div className="text-secondary" style={{ fontSize: F.hint, marginTop: 2 }}>#{editTarget.group.id}</div>
           </div>
-          <CopyButton text={editName} label={t("group.apiKey", "API Key")} title={t("group.copyApiKeyTitle", "复制 API Key（= 分组名）")} />
-          <CopyButton text={buildClaudeCommand(editName)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} />
-          <CopyButton text={buildCodexCommand(editName)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} />
+          <CopyButton text={editTarget.group.group_key} label={t("group.apiKey", "API Key")} title={t("group.copyApiKeyTitle", "复制 API Key")} />
+          <CopyButton text={buildClaudeCommand(editTarget.group.group_key)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} />
+          <CopyButton text={buildCodexCommand(editTarget.group.group_key)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} />
           <button className="btn" onClick={cancelEdit}>{t("action.cancel")}</button>
           <button className="btn btn-primary" onClick={saveEdit}
             disabled={!editName}>{t("action.save")}</button>
@@ -466,6 +467,17 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
             <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.name", "名称")}</span>
             <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
               value={editName} onChange={e => dispatchEdit({ type: "patch", patch: { name: e.target.value } })} />
+          </div>
+
+          {/* Group key（锁定，创建后不可改） */}
+          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
+            <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.groupKey", "密钥")}</span>
+            <div style={{ display: "flex", gap: 6, alignItems: "center", minWidth: 0 }}>
+              <input className="input" style={{ fontSize: F.body, padding: S.inputPad, opacity: 0.7 }}
+                value={editTarget.group.group_key} disabled
+                title={t("group.groupKeyLocked", "分组密钥创建后锁定，不可修改")} />
+              <CopyButton text={editTarget.group.group_key} title={t("group.copyApiKeyTitle", "复制 API Key")} size={14} />
+            </div>
           </div>
 
           {/* Routing mode */}
@@ -696,7 +708,7 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
           <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: -8 }}>
             {t("middleware.groupRulesHint", "仅本分组生效，就近覆盖全局同类型规则")}
           </div>
-          <MiddlewareRulesPanel scope="group" scopeRef={editTarget.group.name} embedded />
+          <MiddlewareRulesPanel scope="group" scopeRef={editTarget.group.group_key} embedded />
         </div>
       </div>
     );
@@ -737,10 +749,15 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
           flexDirection: "column",
           gap: 12,
         }}>
-          <input className="input" placeholder={t("group.name")} value={cName}
+          <input className="input" placeholder={t("group.name", "分组名称")} value={cName}
             onChange={(e) => setCName(e.target.value)} />
           <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: -4 }}>
-            {t("group.nameRule", "仅允许小写字母、数字和连字符（自动转换）")}
+            {t("group.nameHint", "分组显示名（中文可读），用于界面展示。")}
+          </div>
+          <input className="input" placeholder={t("group.groupKey", "分组密钥（留空自动生成）")} value={cGroupKey}
+            onChange={(e) => setCGroupKey(e.target.value)} />
+          <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: -4 }}>
+            {t("group.groupKeyHint", "分组密钥（= API Key / 路由识别键）。留空自动生成；创建后锁定不可修改。")}
           </div>
           <select className="input" value={cMode} onChange={(e) => setCMode(e.target.value as RoutingMode)}>
             {ROUTING_MODES.map(m => (
@@ -772,7 +789,7 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
             renderItem={(row, handle) => {
             const { group, platforms: gps, model_mappings } = row.detail;
             const i = details.findIndex(d => d.group.id === group.id);
-            const u = groupStats[group.name];
+            const u = groupStats[group.group_key];
             const balance = groupBalance[group.id];
             const totalTokens = u ? u.total_input_tokens + u.total_output_tokens : 0;
             const sRate = u ? calcSuccessRate(u.success_count, u.total_requests) : 0;
@@ -816,10 +833,10 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
                   </div>
                 </div>
                 {/* Quick actions */}
-                <CopyButton text={group.name} title={t("group.copyApiKeyTitle", "复制 API Key（= 分组名）")} size={14} />
-                <CopyButton text={buildClaudeCommand(group.name)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} size={14} />
-                <CopyButton text={buildCodexCommand(group.name)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
-                <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onNavigate?.("stats", { groupId: String(group.id), groupName: group.name }); }} title={t("group.viewStats", "查看统计")}>
+                <CopyButton text={group.group_key} title={t("group.copyApiKeyTitle", "复制 API Key")} size={14} />
+                <CopyButton text={buildClaudeCommand(group.group_key)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} size={14} />
+                <CopyButton text={buildCodexCommand(group.group_key)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
+                <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key }); }} title={t("group.viewStats", "查看统计")}>
                   <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
                   </svg>

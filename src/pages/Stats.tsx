@@ -92,7 +92,7 @@ type SortDir = "asc" | "desc";
 
 const PAGE_SIZE = 50;
 
-export function Stats({ initialFilter }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupName?: string } }) {
+export function Stats({ initialFilter }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupKey?: string } }) {
   const { t } = useTranslation();
   const [data, setData] = useState<StatsResult | null>(null);
   const [prevOverview, setPrevOverview] = useState<StatsOverview | null>(null);
@@ -107,7 +107,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
     setGranularity(p === "today" ? "hourly" : "daily");
   };
   const [groupBy, setGroupBy] = useState<"platform" | "model" | "group">("platform");
-  const [filterGroup, setFilterGroup] = useState(initialFilter?.groupName ?? "");
+  const [filterGroup, setFilterGroup] = useState(initialFilter?.groupKey ?? "");
   const [filterModel, setFilterModel] = useState("");
   const [filterPlatform, setFilterPlatform] = useState(initialFilter?.platformId ? String(initialFilter.platformId) : "");
   const [groups, setGroups] = useState<GroupDetail[]>([]);
@@ -282,7 +282,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
           onChange={setFilterGroup}
           allLabel={t("stats.allGroups", "全部分组")}
           searchPlaceholder={t("stats.searchGroup", "搜索分组...")}
-          options={groups.map(g => ({ value: g.group.name, label: g.group.name }))}
+          options={groups.map(g => ({ value: g.group.group_key, label: g.group.name }))}
           emptyLabel={t("stats.noMatch", "无匹配")}
         />
 

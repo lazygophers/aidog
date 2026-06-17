@@ -540,6 +540,10 @@ pub struct UpdatePlatform {
 pub struct Group {
     pub id: u64,
     pub name: String,
+    /// 分组密钥：Bearer token + 路由匹配键 + proxy_log 归属键（前端按 group_key 反查 name 显示）。
+    /// UNIQUE。创建时若未提供则自动生成 `gk_<32hex>`；创建后锁定不可改。
+    #[serde(default)]
+    pub group_key: String,
     pub routing_mode: RoutingMode,
     /// 如果由平台自动创建，记录关联平台 ID（十进制字符串；空串表示非自动）
     pub auto_from_platform: String,
@@ -572,6 +576,9 @@ fn default_max_retries() -> u32 { 2 }
 #[derive(Debug, Deserialize)]
 pub struct CreateGroup {
     pub name: String,
+    /// 分组密钥；None 或空 → 自动生成 `gk_<32hex>`。创建后锁定不可改。
+    #[serde(default)]
+    pub group_key: Option<String>,
     pub routing_mode: RoutingMode,
     #[serde(default)]
     pub auto_from_platform: String,
@@ -851,7 +858,7 @@ impl Default for PopoverConfig {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyLog {
     pub id: String,
-    pub group_name: String,
+    pub group_key: String,
     /// 用户请求的原始模型
     pub model: String,
     /// 实际发送给上游的模型（可能因路由映射而不同）
@@ -942,7 +949,7 @@ pub struct PlatformUsageStats {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyLogSummary {
     pub id: String,
-    pub group_name: String,
+    pub group_key: String,
     pub model: String,
     pub actual_model: String,
     pub source_protocol: String,
@@ -966,7 +973,7 @@ pub struct ProxyLogSummary {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct ProxyLogFilter {
     pub platform_id: Option<u64>,
-    pub group_name: Option<String>,
+    pub group_key: Option<String>,
     /// None=全部; Some(200)=仅成功; Some(-1)=仅失败
     pub status: Option<i32>,
     pub time_start: Option<i64>,
@@ -1368,7 +1375,7 @@ impl RuleType {
 pub enum RuleScope {
     /// 全局：所有请求
     Global,
-    /// 分组：scope_ref = group_name
+    /// 分组：scope_ref = group_key
     Group,
     /// 平台：scope_ref = platform_id(字符串)
     Platform,
@@ -1480,7 +1487,7 @@ pub struct MiddlewareRule {
     pub rule_type: RuleType,
     #[serde(default = "default_rule_scope")]
     pub scope: RuleScope,
-    /// group_name | platform_id(字符串) | ''(global)
+    /// group_key | platform_id(字符串) | ''(global)
     #[serde(default)]
     pub scope_ref: String,
     #[serde(default = "default_match_type")]
