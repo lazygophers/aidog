@@ -2815,9 +2815,14 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             {platforms.length > 0 ? `${enabledCount} / ${platforms.length} active` : t("platform.empty")}
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
-          + {t("platform.add")}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button className="btn" onClick={() => { resetForm(); setShowPaste(true); }}>
+            {t("platform.paste.title", "智能识别")}
+          </button>
+          <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
+            + {t("platform.add")}
+          </button>
+        </div>
       </div>
 
       {/* Platform List */}
