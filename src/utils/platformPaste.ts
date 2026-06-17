@@ -32,16 +32,19 @@ export interface ParsedPaste {
 /** 已知 apikey 前缀（长在前，避免 sk- 抢先吃掉 sk-ant-）。 */
 const KEY_PREFIXES = ["sk-ant-", "sk-kimi-", "sk-or-", "sk-proj-", "sk-", "tp-"];
 
-/** CJK 及全角标点区段（用于剔除 key 中混入的防爬汉字）。 */
-const CJK_RE = /[　-〿㐀-䶿一-鿿豈-﫿＀-￯]/g;
+/** CJK 及全角标点区段（用于剔除 key 中混入的防爬汉字）。
+ *  \p{Script=Han} 覆盖全部汉字变体（基本区 + 扩展 A-F + 兼容汉字），比手写区段全；
+ *  另含平假名/片假名 + CJK 标点 + 全角区段。需 u flag。 */
+const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯]/gu;
 
-/** 前缀锚定 token：前缀 + 后续 alnum/_/-，允许中间穿插 CJK（防爬），后面整体剔 CJK。 */
+/** 前缀锚定 token：前缀 + 后续 alnum/_/-，允许中间穿插 CJK（防爬），后面整体 stripCjk 剔除。
+ *  字符类含 \p{Script=Han} 防 CJK 扩展区汉字（如 𠀀）截断匹配。 */
 const PREFIX_TOKEN_RE =
-  /(sk-ant-|sk-kimi-|sk-or-|sk-proj-|sk-|tp-)[A-Za-z0-9_\-㐀-䶿一-鿿]{12,}/g;
+  /(sk-ant-|sk-kimi-|sk-or-|sk-proj-|sk-|tp-)[A-Za-z0-9_\-\p{Script=Han}　-〿＀-￯]{12,}/gu;
 
 /** 赋值锚定：API_KEY= / apikey: / 秘药： / key= 等后跟值。 */
 const ASSIGN_RE =
-  /(?:api[\s_-]*key|secret|token|秘药|密钥|key)\s*[:：=]\s*["'"'《「]?\s*([A-Za-z0-9_\-+/=㐀-䶿一-鿿]{12,})/gi;
+  /(?:api[\s_-]*key|secret|token|秘药|密钥|key)\s*[:：=]\s*["'\u2018\u2019《「]?\s*([A-Za-z0-9_\-+/=\p{Script=Han}　-〿＀-￯]{12,})/giu;
 
 /** 纯 base64 token 形态（无已知前缀时用于 base64 解码启发式）。 */
 const BASE64_RE = /^[A-Za-z0-9+/]{20,}={0,2}$/;
