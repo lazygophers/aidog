@@ -431,7 +431,7 @@ pub async fn estimate_after_request(
         let _ = apply_coding_plan_delta(db, platform_id, total).await;
     } else {
         // 按量平台扣金额
-        if let Ok(price) = super::db::resolve_price(db, model, platform_type, 0.0, 0.0).await {
+        if let Ok(price) = super::db::resolve_price(db, model, platform_type, 0.0, 0.0, input_tokens).await {
             let cost = balance_cost(
                 input_tokens,
                 output_tokens,
@@ -448,7 +448,7 @@ pub async fn estimate_after_request(
     //     est_cost 走 resolve_price（与按量平台一致，含默认价回退）；token 扣总 token。
     {
         let total_tokens = (input_tokens + output_tokens + cache_tokens) as f64;
-        let est_cost = super::db::resolve_price(db, model, platform_type, 0.0, 0.0)
+        let est_cost = super::db::resolve_price(db, model, platform_type, 0.0, 0.0, input_tokens)
             .await
             .map(|price| {
                 balance_cost(

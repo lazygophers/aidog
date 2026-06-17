@@ -21,6 +21,19 @@ class PlatformPricing(BaseModel):
     cache_creation_input_token_cost: Optional[float] = None
 
 
+class ContextTier(BaseModel):
+    """上下文长度阶梯价: input_tokens >= min_tokens 时适用 (覆盖 base)。
+
+    仅非 None 字段覆盖 base 价; None 字段继承 base (如某些模型长档无 cache 价)。
+    典型: OpenAI 旗舰模型 <272K short / ≥272K long 两档。
+    """
+
+    min_tokens: int
+    input_cost_per_token: Optional[float] = None
+    output_cost_per_token: Optional[float] = None
+    cache_read_input_token_cost: Optional[float] = None
+
+
 class ModelEntry(BaseModel):
     """单个模型的完整信息 (price + max_tokens + context)。"""
 
@@ -34,6 +47,9 @@ class ModelEntry(BaseModel):
     max_input_tokens: Optional[int] = None
     max_output_tokens: Optional[int] = None
     context_window: Optional[int] = None
+
+    # 上下文阶梯价 (短档 = top-level base; 长档在此数组)。空 = 单一价, 向后兼容。
+    context_tiers: list[ContextTier] = Field(default_factory=list)
 
     # per-platform 价格覆盖 (key = platform_type serde 裸名, 如 "deepseek"/"openrouter")
     pricing: dict[str, PlatformPricing] = Field(default_factory=dict)

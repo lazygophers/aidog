@@ -1185,9 +1185,10 @@ pub async fn calc_est_cost(
         platform_type,
         settings.fallback_input_price,
         settings.fallback_output_price,
+        input_tokens as i64,
     )
     .await
-    .unwrap_or_else(|_| super::models::ResolvedPrice {
+    .unwrap_or_else(|_| crate::gateway::models::ResolvedPrice {
         // 安全默认：直接用 fallback 默认价（$/M → $/token），保证非 0、不 panic
         input_cost_per_token: settings.fallback_input_price / 1_000_000.0,
         output_cost_per_token: settings.fallback_output_price / 1_000_000.0,
@@ -3011,7 +3012,8 @@ pub async fn resolve_price(
     platform_type: &str,
     fallback_input: f64,
     fallback_output: f64,
-) -> Result<super::models::ResolvedPrice, String> {
+    input_tokens: i64,
+) -> Result<crate::gateway::models::ResolvedPrice, String> {
     let mp = get_model_price(db, model_name).await?;
     let pd: serde_json::Value = match &mp {
         Some(m) => serde_json::from_str(&m.price_data).unwrap_or_default(),
@@ -3024,12 +3026,16 @@ pub async fn resolve_price(
         let output = pricing_node.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
         let cache = pricing_node.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
         if input > 0.0 || output > 0.0 {
-            return Ok(super::models::ResolvedPrice {
-                input_cost_per_token: input,
-                output_cost_per_token: output,
-                cache_read_input_token_cost: cache,
-                source: "platform_override".to_string(),
-            });
+            return Ok(apply_context_tier(
+                crate::gateway::models::ResolvedPrice {
+                    input_cost_per_token: input,
+                    output_cost_per_token: output,
+                    cache_read_input_token_cost: cache,
+                    source: "platform_override".to_string(),
+                },
+                &pd,
+                input_tokens,
+            ));
         }
     }
 
@@ -3038,12 +3044,16 @@ pub async fn resolve_price(
     let top_output = pd.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
     let top_cache = pd.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
     if top_input > 0.0 || top_output > 0.0 {
-        return Ok(super::models::ResolvedPrice {
-            input_cost_per_token: top_input,
-            output_cost_per_token: top_output,
-            cache_read_input_token_cost: top_cache,
-            source: "top_level".to_string(),
-        });
+        return Ok(apply_context_tier(
+            crate::gateway::models::ResolvedPrice {
+                input_cost_per_token: top_input,
+                output_cost_per_token: top_output,
+                cache_read_input_token_cost: top_cache,
+                source: "top_level".to_string(),
+            },
+            &pd,
+            input_tokens,
+        ));
     }
 
     // 3. Try default_platform pricing
@@ -3053,23 +3063,62 @@ pub async fn resolve_price(
             let output = pricing_node.get("output_cost_per_token").and_then(|v| v.as_f64()).unwrap_or(0.0);
             let cache = pricing_node.get("cache_read_input_token_cost").and_then(|v| v.as_f64()).unwrap_or(0.0);
             if input > 0.0 || output > 0.0 {
-                return Ok(super::models::ResolvedPrice {
-                    input_cost_per_token: input,
-                    output_cost_per_token: output,
-                    cache_read_input_token_cost: cache,
-                    source: "default_platform".to_string(),
-                });
+                return Ok(apply_context_tier(
+                    crate::gateway::models::ResolvedPrice {
+                        input_cost_per_token: input,
+                        output_cost_per_token: output,
+                        cache_read_input_token_cost: cache,
+                        source: "default_platform".to_string(),
+                    },
+                    &pd,
+                    input_tokens,
+                ));
             }
         }
     }
 
     // 4. Fallback
-    Ok(super::models::ResolvedPrice {
+    Ok(crate::gateway::models::ResolvedPrice {
         input_cost_per_token: fallback_input / 1_000_000.0,
         output_cost_per_token: fallback_output / 1_000_000.0,
         cache_read_input_token_cost: 0.0,
         source: "fallback".to_string(),
     })
+}
+
+/// 上下文阶梯选档：取 `context_tiers` 中 `min_tokens <= input_tokens` 的最大档，
+/// 非 null 字段覆盖 base 价（null 字段继承 base，如某些模型长档无 cache 价）。
+/// `context_tiers` 缺失/非数组/无命中档 → 返回 base 不变（向后兼容旧 price_data）。
+fn apply_context_tier(
+    mut base: crate::gateway::models::ResolvedPrice,
+    pd: &serde_json::Value,
+    input_tokens: i64,
+) -> crate::gateway::models::ResolvedPrice {
+    let Some(tiers) = pd.get("context_tiers").and_then(|v| v.as_array()) else {
+        return base;
+    };
+    // 选 min_tokens <= input_tokens 中阈值最大的档（最高适用档）
+    let best = tiers
+        .iter()
+        .filter_map(|t| {
+            let min_tokens = t.get("min_tokens").and_then(|v| v.as_i64())?;
+            (min_tokens <= input_tokens).then_some((min_tokens, t))
+        })
+        .max_by_key(|(min_tokens, _)| *min_tokens);
+    let Some((_, tier)) = best else {
+        return base;
+    };
+    if let Some(v) = tier.get("input_cost_per_token").and_then(|v| v.as_f64()) {
+        base.input_cost_per_token = v;
+    }
+    if let Some(v) = tier.get("output_cost_per_token").and_then(|v| v.as_f64()) {
+        base.output_cost_per_token = v;
+    }
+    if let Some(v) = tier.get("cache_read_input_token_cost").and_then(|v| v.as_f64()) {
+        base.cache_read_input_token_cost = v;
+    }
+    base.source.push_str("+tier");
+    base
 }
 
 /// 搜索模型价格
@@ -3336,6 +3385,87 @@ mod tests {
         let db = Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
         db
+    }
+
+    #[test]
+    fn apply_context_tier_selects_long_tier() {
+        // OpenAI gpt-5.5: short in=5e-6/out=3e-5/cache=5e-7, long@272000 in=1e-5/out=4.5e-5/cache=1e-6
+        let pd = serde_json::json!({
+            "input_cost_per_token": 5e-6,
+            "output_cost_per_token": 3e-5,
+            "cache_read_input_token_cost": 5e-7,
+            "context_tiers": [{
+                "min_tokens": 272000,
+                "input_cost_per_token": 1e-5,
+                "output_cost_per_token": 4.5e-5,
+                "cache_read_input_token_cost": 1e-6
+            }]
+        });
+        let base = crate::gateway::models::ResolvedPrice {
+            input_cost_per_token: 5e-6,
+            output_cost_per_token: 3e-5,
+            cache_read_input_token_cost: 5e-7,
+            source: "top_level".to_string(),
+        };
+        // 短档: input < 272000 → base 不变 (无 +tier 后缀)
+        let short = apply_context_tier(base.clone(), &pd, 100_000);
+        assert_eq!(short.input_cost_per_token, 5e-6);
+        assert_eq!(short.output_cost_per_token, 3e-5);
+        assert_eq!(short.source, "top_level");
+        // 长档: input >= 272000 → tier 覆盖
+        let long = apply_context_tier(base.clone(), &pd, 300_000);
+        assert_eq!(long.input_cost_per_token, 1e-5);
+        assert_eq!(long.output_cost_per_token, 4.5e-5);
+        assert_eq!(long.cache_read_input_token_cost, 1e-6);
+        assert_eq!(long.source, "top_level+tier");
+        // 边界: 恰好等于阈值 → long
+        let edge = apply_context_tier(base.clone(), &pd, 272_000);
+        assert_eq!(edge.input_cost_per_token, 1e-5);
+    }
+
+    #[test]
+    fn apply_context_tier_no_tier_passthrough() {
+        // 无 context_tiers 字段 → base 不变 (向后兼容旧 price_data)
+        let pd = serde_json::json!({"input_cost_per_token": 2.5e-6});
+        let base = crate::gateway::models::ResolvedPrice {
+            input_cost_per_token: 2.5e-6,
+            output_cost_per_token: 1.5e-5,
+            cache_read_input_token_cost: 2.5e-7,
+            source: "top_level".to_string(),
+        };
+        let r = apply_context_tier(base.clone(), &pd, 999_999_999);
+        assert_eq!(r.input_cost_per_token, 2.5e-6);
+        assert_eq!(r.source, "top_level");
+        // tiers 为空数组 → 同样不变
+        let pd2 = serde_json::json!({"context_tiers": []});
+        let r2 = apply_context_tier(base, &pd2, 999_999_999);
+        assert_eq!(r2.source, "top_level");
+    }
+
+    #[test]
+    fn apply_context_tier_partial_override() {
+        // 长档仅覆盖部分字段 (如某些模型长档无 cache 价 → 继承 base cache)
+        let pd = serde_json::json!({
+            "input_cost_per_token": 3e-5,
+            "output_cost_per_token": 1.8e-4,
+            "cache_read_input_token_cost": 0.0,
+            "context_tiers": [{
+                "min_tokens": 272000,
+                "input_cost_per_token": 6e-5,
+                "output_cost_per_token": 2.7e-4
+                // cache_read_input_token_cost 缺失 → 继承 base
+            }]
+        });
+        let base = crate::gateway::models::ResolvedPrice {
+            input_cost_per_token: 3e-5,
+            output_cost_per_token: 1.8e-4,
+            cache_read_input_token_cost: 0.0,
+            source: "top_level".to_string(),
+        };
+        let r = apply_context_tier(base, &pd, 300_000);
+        assert_eq!(r.input_cost_per_token, 6e-5);
+        assert_eq!(r.output_cost_per_token, 2.7e-4);
+        assert_eq!(r.cache_read_input_token_cost, 0.0); // 继承 base
     }
 
     #[tokio::test]
