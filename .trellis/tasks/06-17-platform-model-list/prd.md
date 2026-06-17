@@ -11,12 +11,11 @@
 - `getDefaultModels(protocol, cp)`（`:372`）现仅返回单值/槽，覆盖 ~10 平台。
 - 优先级现状：`:1167` available_models>0 用 explicit；`:1992` defaultModel = models.default || available_models[0]。
 
-## Open Questions
+## Decision (ADR-lite)
 
-- [Preference] 内置候选列表覆盖范围：仅一方平台（官方模型列表可知）还是全部 ~60 平台（含聚合/中转，多依赖 fetchModels）？
-- [Preference] 列表值来源：逐平台 WebSearch 核官方候选模型，还是先用现有 getDefaultModels 单值扩成最小列表、后续迭代？
-- 内置列表与 fetchModels 的优先级：available_models 非空 → 用接口列表；空 → 用内置列表。（默认此优先级）
-- 下拉仍允许自由输入自定义 model id？（默认允许，combobox 语义）
+- **Context**: 未刷新时模型槽位无候选下拉，只有单默认值。
+- **Decision**: ①覆盖**全部 ~60 平台**内置候选列表；②值**逐平台 WebSearch 核官方**（聚合/中转平台给「常用代表模型」子集，并注明 fetchModels 为主源）；③优先级 available_models 非空→接口列表，空→内置列表；④下拉保留自由输入（combobox，仍可手输自定义 model id）。
+- **Consequences**: 研究量大（~60 平台官方模型列表），按 3 组并行；列表月级腐化，以核查日期为准 + fetchModels 兜底。代码侧新增 `getDefaultModelList(protocol, cp)` 返回 string[]，编辑器 dropdownSource 改造。
 
 ## Requirements (evolving)
 
