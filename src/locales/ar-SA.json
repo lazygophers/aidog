@@ -700,6 +700,7 @@
   "platform.paste.detected": "النتائج",
   "platform.paste.empty": "يتم الكشف تلقائيًا بعد اللصق.",
   "platform.paste.hint": "الصق النص المشارك لاكتشاف Base URL والمنصة ومفتاح API تلقائيًا (فك ترميز base64 تلقائيًا).",
+  "platform.paste.manualEntry": "يدوي",
   "platform.paste.noPlatform": "لم تتطابق منصة مدمجة؛ سيبقى الاختيار الحالي.",
   "platform.paste.placeholder": "الصق النص هنا…",
   "platform.paste.platform": "المنصة",

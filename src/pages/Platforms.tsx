@@ -1669,6 +1669,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     }
     if (r.apiKey) setApiKey(r.apiKey);
     setShowPaste(false);
+    // 弹窗可能从主列表「添加平台」直达（表单尚未挂载），apply 后显式拉起表单展示已填字段。
+    setShowForm(true);
   };
 
   const load = async () => {
@@ -2796,6 +2798,15 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   return (
     <>
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
+      {/* 智能识别弹窗：主列表「添加平台」直达（与表单分支渲染镜像） */}
+      {showPaste && (
+        <SmartPasteModal
+          presets={PROTOCOLS}
+          onApply={applyPaste}
+          onManualEntry={() => { setShowPaste(false); resetForm(); setShowForm(true); }}
+          onClose={() => setShowPaste(false)}
+        />
+      )}
       {/* Header */}
       <div className="section-header" style={{ justifyContent: "space-between" }}>
         <div>
@@ -2804,7 +2815,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             {platforms.length > 0 ? `${enabledCount} / ${platforms.length} active` : t("platform.empty")}
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
+        <button className="btn btn-primary" onClick={() => { resetForm(); setShowPaste(true); }}>
           + {t("platform.add")}
         </button>
       </div>

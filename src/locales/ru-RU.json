@@ -700,6 +700,7 @@
   "platform.paste.detected": "Результаты",
   "platform.paste.empty": "Распознавание после вставки.",
   "platform.paste.hint": "Вставьте текст, чтобы определить Base URL, платформу и API-ключ (base64 декодируется автоматически).",
+  "platform.paste.manualEntry": "Вручную",
   "platform.paste.noPlatform": "Встроенная платформа не найдена; текущий выбор сохранён.",
   "platform.paste.placeholder": "Вставьте текст сюда…",
   "platform.paste.platform": "Платформа",

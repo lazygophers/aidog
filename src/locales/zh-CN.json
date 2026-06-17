@@ -678,6 +678,7 @@
   "platform.paste.detected": "识别结果",
   "platform.paste.empty": "粘贴文案后自动识别。",
   "platform.paste.hint": "粘贴分享文案，自动识别 Base URL、平台与 API Key（base64 自动解码）。",
+  "platform.paste.manualEntry": "手动填写",
   "platform.paste.noPlatform": "未匹配内置平台，将保持当前平台选择不变。",
   "platform.paste.placeholder": "在此粘贴文案…",
   "platform.paste.platform": "平台",

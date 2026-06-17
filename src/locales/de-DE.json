@@ -700,6 +700,7 @@
   "platform.paste.detected": "Erkannt",
   "platform.paste.empty": "Automatische Erkennung nach dem Einfügen.",
   "platform.paste.hint": "Geteilten Text einfügen, um Base URL, Plattform und API Key automatisch zu erkennen (base64 wird dekodiert).",
+  "platform.paste.manualEntry": "Manuell",
   "platform.paste.noPlatform": "Keine integrierte Plattform erkannt; aktuelle Auswahl bleibt erhalten.",
   "platform.paste.placeholder": "Text hier einfügen…",
   "platform.paste.platform": "Plattform",
