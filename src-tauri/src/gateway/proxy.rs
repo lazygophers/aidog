@@ -3751,4 +3751,57 @@ mod tests {
         assert_eq!(body.get("tools"), orig.get("tools"));
         assert_eq!(body.get("max_tokens"), orig.get("max_tokens"));
     }
+
+    // ── 上游 gzip 压缩响应解压回归（修复 token/成本全 0 + 日志乱码）──
+    // 背景: 上游 GLM anthropic 端点回 content-encoding: gzip。reqwest 启用 gzip feature 后
+    // 由响应头 Content-Encoding 驱动自动解压，resp.bytes() 得明文。本 test 用 flate2 构造
+    // 一段 gzip 压缩的 anthropic usage JSON，解压后喂 extract_usage，断言 token > 0，
+    // 证明「解压后 JSON → extract_usage → token>0」链路成立（reqwest 解压本身为黑盒，
+    // 由 Cargo feature gzip/brotli/deflate/zstd 保证，行为有 docs.rs 官方背书）。
+    #[test]
+    fn gzip_decompressed_anthropic_usage_extracts_tokens() {
+        use flate2::read::GzDecoder;
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        use std::io::{Read, Write};
+
+        // anthropic 非流式响应体（含 usage.input_tokens / output_tokens / cache_read_input_tokens）
+        let json = r#"{
+            "id": "msg_01abc",
+            "type": "message",
+            "role": "assistant",
+            "model": "glm-5.1",
+            "content": [{"type": "text", "text": "hello"}],
+            "stop_reason": "end_turn",
+            "usage": {
+                "input_tokens": 1234,
+                "output_tokens": 567,
+                "cache_read_input_tokens": 89
+            }
+        }"#;
+
+        // 模拟上游：gzip 压缩明文 JSON（等价上游回 content-encoding: gzip）
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(json.as_bytes()).unwrap();
+        let gzipped = encoder.finish().unwrap();
+        // 压缩字节非 UTF-8 可读 → 直接喂 extract_usage 解析失败返回 (0,0,0)（复现旧 bug）
+        let lossy = String::from_utf8_lossy(&gzipped);
+        assert_eq!(
+            extract_usage(&lossy),
+            (0, 0, 0),
+            "压缩字节当文本解析应失败（复现旧 bug）"
+        );
+
+        // 模拟 reqwest 启用 feature 后的解压结果：解压回明文
+        let mut decoder = GzDecoder::new(&gzipped[..]);
+        let mut decompressed = String::new();
+        decoder.read_to_string(&mut decompressed).unwrap();
+
+        // 解压后 JSON → extract_usage → token > 0（修复后语义）
+        let (input, output, cache) = extract_usage(&decompressed);
+        assert_eq!(input, 1234);
+        assert_eq!(output, 567);
+        assert_eq!(cache, 89);
+        assert!(input > 0 && output > 0, "解压后 token 必须 > 0");
+    }
 }
