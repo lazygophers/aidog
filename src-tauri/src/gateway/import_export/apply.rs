@@ -479,7 +479,7 @@ async fn upsert_platform_row(
     effective_name: &str,
     row: &serde_json::Value,
 ) -> Result<(), String> {
-    // platform.name 非唯一（platform 表无 UNIQUE；唯一性在 group.path）。
+    // platform.name 非唯一（platform 表无 UNIQUE；唯一性在 group.name）。
     // 旧逻辑按 name SELECT→UPDATE 在多同名时取任一行 = 覆盖错平台（数据完整性 bug）。
     // 无稳定跨机 platform identity（id 机器本地）→ 始终 INSERT 新行。
     // 重复导入同 provider = 列表多个同名 platform（用户确认接受）。

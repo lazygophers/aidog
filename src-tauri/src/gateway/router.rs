@@ -633,7 +633,7 @@ mod tests {
 
     async fn mk_db_group(db: &db::Db, name: &str, platform_ids: &[u64]) -> Group {
         let g = db::create_group(db, CreateGroup {
-            name: name.into(), path: name.into(),
+            name: name.into(),
             routing_mode: RoutingMode::Failover,
             auto_from_platform: String::new(),
             request_timeout_secs: 0, connect_timeout_secs: 0,

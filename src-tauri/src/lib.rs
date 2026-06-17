@@ -78,13 +78,10 @@ async fn ensure_platform_groups(db: &Db) {
         if existing_auto.contains(&platform_id_str) {
             continue;
         }
-        // 自动创建分组 — path 用平台 ID 前缀避免同名协议冲突
-        let protocol_str = format!("{:?}", platform.platform_type).to_lowercase();
-        let group_path = format!("/{}-{}", protocol_str, platform.id);
+        // 自动创建分组（路由纯按 apikey=name，不再生成 path）
         let group_name = slugify(&format!("{}-auto", platform.name));
         let group = match db::create_group(db, CreateGroup {
             name: group_name.clone(),
-            path: group_path.clone(),
             routing_mode: RoutingMode::Failover,
             auto_from_platform: platform_id_str.clone(),
             request_timeout_secs: 0,
@@ -105,7 +102,7 @@ async fn ensure_platform_groups(db: &Db) {
         }]).await {
             tracing::error!("ensure_platform_groups: set_group_platforms failed for {}: {e}", platform.name);
         }
-        tracing::info!("ensure_platform_groups: created group '{}' path='{}' for platform '{}'", group_name, group_path, platform.name);
+        tracing::info!("ensure_platform_groups: created group '{}' for platform '{}'", group_name, platform.name);
     }
 }
 
@@ -142,16 +139,13 @@ fn about_info() -> AboutInfo {
 
 // ─── Platform Commands ─────────────────────────────────────
 
-/// 为平台创建默认 auto 分组并关联（name `{slug}-auto`，path `/{proto}-{id}`，
+/// 为平台创建默认 auto 分组并关联（name `{slug}-auto`，
 /// Failover / max_retries 2）。供 platform_create（勾选默认分组）与
 /// platform_update（补建缺失的 auto 分组）复用，避免两处重复构造。
 async fn create_auto_group_for(db: &Db, platform: &Platform) -> Result<(), String> {
-    let protocol_str = format!("{:?}", platform.platform_type).to_lowercase();
-    let group_path = format!("/{}-{}", protocol_str, platform.id);
     let group_name = slugify(&format!("{}-auto", platform.name));
     let group = db::create_group(db, CreateGroup {
         name: group_name,
-        path: group_path,
         routing_mode: RoutingMode::Failover,
         auto_from_platform: platform.id.to_string(),
         request_timeout_secs: 0,
@@ -419,7 +413,7 @@ async fn popover_platform_today(db: State<'_, Db>) -> Result<Vec<db::TodayPlatfo
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn group_create(mut input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
-    tracing::debug!(command = "group_create", name = %input.name, path = %input.path, "command invoked");
+    tracing::debug!(command = "group_create", name = %input.name, "command invoked");
     // Auto-slugify and validate group name
     input.name = slugify(&input.name);
     validate_group_name(&input.name)

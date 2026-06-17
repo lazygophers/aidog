@@ -799,7 +799,7 @@ async fn handle_proxy_inner(
 
     // ── 查找分组 ──
     let group = {
-        match resolve_group(&state.db, auth_header.as_deref(), &path).await {
+        match resolve_group(&state.db, auth_header.as_deref()).await {
             Some(g) => g,
             None => {
                 if let Some(ref token) = auth_header {
@@ -2993,7 +2993,7 @@ fn replace_model_in_json(bytes: &[u8], original_model: &str) -> Vec<u8> {
 /// - /v1beta/models/... → gemini
 ///   回退到 anthropic
 fn detect_source_protocol(path: &str) -> String {
-    // Strip group path prefix (e.g. /proxy/v1/chat/completions → /v1/chat/completions)
+    // 定位到 /v1/ 起始（跳过代理根前缀如 /proxy）；分组路由已纯按 apikey，无 group path 前缀
     let api_path = if let Some(idx) = path.find("/v1/") {
         &path[idx..]
     } else if path.contains("/v1beta/") {
@@ -3043,10 +3043,9 @@ fn infer_passthrough_protocol_from_ua(ua: &str) -> Option<&'static str> {
     }
 }
 
-/// 在已取出的分组列表中按 group name 精确匹配，匹配不到再按 path 前缀匹配。
-/// 单次 list_groups → 同一 Vec 上跑两种匹配，避免热路径重复全表读 + 重复 mappings JSON 解析。
-/// 行为等价于原「先 name 后 path」优先级。
-async fn resolve_group(db: &Db, name: Option<&str>, request_path: &str) -> Option<Group> {
+/// 在已取出的分组列表中按 group name（= Authorization Bearer apikey）精确匹配。
+/// 分组路由纯按 apikey，不再支持 URL path 前缀匹配。
+async fn resolve_group(db: &Db, name: Option<&str>) -> Option<Group> {
     let groups = match super::db::list_groups(db).await {
         Ok(g) => g,
         Err(e) => {
@@ -3058,19 +3057,10 @@ async fn resolve_group(db: &Db, name: Option<&str>, request_path: &str) -> Optio
         if let Some(idx) = groups.iter().position(|g| g.name == name) {
             return groups.into_iter().nth(idx);
         }
-        tracing::warn!(token = %name, "resolve_group: token did not match any group name, falling back to path match");
+        tracing::warn!(token = %name, "resolve_group: token did not match any group name");
     }
-    let group_count = groups.len();
-    match groups.into_iter().find(|g| request_path.starts_with(&g.path)) {
-        Some(g) => Some(g),
-        None => {
-            tracing::warn!(
-                path = %request_path, group_count,
-                "resolve_group: no group matched token or path prefix"
-            );
-            None
-        }
-    }
+    tracing::warn!(group_count = groups.len(), "resolve_group: no group matched token");
+    None
 }
 
 // ─── 客户端模拟 Header ────────────────────────────────────────

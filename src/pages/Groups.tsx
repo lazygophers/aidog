@@ -42,7 +42,7 @@ function routingModeDesc(t: TFunction, mode: RoutingMode): string {
   return map[mode] ?? "";
 }
 
-/** Group 图标：仅关联 1 个平台时跟随该平台 logo（与 Platforms 页一致），否则回退 path 文字框。 */
+/** Group 图标：仅关联 1 个平台时跟随该平台 logo（与 Platforms 页一致），否则回退分组名首字文字框。 */
 function GroupIcon({ gps, group }: { gps: GroupDetail["platforms"]; group: GroupDetail["group"] }) {
   const [favFailed, setFavFailed] = useState(false);
   const single = gps.length === 1 ? gps[0].platform : null;
@@ -68,7 +68,7 @@ function GroupIcon({ gps, group }: { gps: GroupDetail["platforms"]; group: Group
       color: group.auto_from_platform ? "var(--text-secondary)" : "var(--accent)",
       fontSize: 13, fontWeight: 700,
     }}>
-      {group.path.slice(0, 3)}
+      {group.name.slice(0, 3)}
     </div>
   );
 }
@@ -89,7 +89,6 @@ interface GroupRow {
 interface EditState {
   target: GroupDetail | null;
   name: string;
-  path: string;
   mode: RoutingMode;
   platformIds: number[];
   mappings: ModelMapping[];
@@ -101,7 +100,6 @@ interface EditState {
 const EMPTY_EDIT: EditState = {
   target: null,
   name: "",
-  path: "",
   mode: "failover",
   platformIds: [],
   mappings: [],
@@ -121,7 +119,6 @@ function editReducer(state: EditState, action: EditAction): EditState {
       return {
         target: action.detail,
         name: action.detail.group.name,
-        path: action.detail.group.path,
         mode: action.detail.group.routing_mode,
         platformIds: action.detail.platforms.map(gp => gp.platform.id),
         mappings: action.detail.model_mappings.map(m => ({
@@ -277,7 +274,6 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
   const {
     target: editTarget,
     name: editName,
-    path: editPath,
     mode: editMode,
     platformIds: editPlatformIds,
     mappings: editMappings,
@@ -302,7 +298,6 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
   // Create mode
   const [showCreate, setShowCreate] = useState(false);
   const [cName, setCName] = useState("");
-  const [cPath, setCPath] = useState("/claude");
   const [cMode, setCMode] = useState<RoutingMode>("failover");
 
   // Mapping form (for quick add in list view)
@@ -363,7 +358,6 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
       await groupApi.update({
         id: editTarget.group.id,
         name: editName,
-        path: editPath,
         routing_mode: editMode,
         request_timeout_secs: editReqTimeout,
         connect_timeout_secs: editConnTimeout,
@@ -388,8 +382,8 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
   // ── Create handler ──
   const handleCreateGroup = async () => {
     try {
-      await groupApi.create({ name: cName, path: cPath, routing_mode: cMode });
-      setCName(""); setCPath("/claude"); setCMode("failover"); setShowCreate(false);
+      await groupApi.create({ name: cName, routing_mode: cMode });
+      setCName(""); setCMode("failover"); setShowCreate(false);
       load();
     } catch (e) { console.error(e); }
   };
@@ -460,7 +454,7 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
           <CopyButton text={buildCodexCommand(editName)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} />
           <button className="btn" onClick={cancelEdit}>{t("action.cancel")}</button>
           <button className="btn btn-primary" onClick={saveEdit}
-            disabled={!editName || !editPath}>{t("action.save")}</button>
+            disabled={!editName}>{t("action.save")}</button>
         </div>
 
         {/* Basic info */}
@@ -472,13 +466,6 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
             <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.name", "名称")}</span>
             <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
               value={editName} onChange={e => dispatchEdit({ type: "patch", patch: { name: e.target.value } })} />
-          </div>
-
-          {/* Path */}
-          <div style={{ display: "grid", gridTemplateColumns: "auto 1fr", alignItems: "center", gap: 12 }}>
-            <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>Path</span>
-            <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
-              value={editPath} onChange={e => dispatchEdit({ type: "patch", patch: { path: e.target.value } })} />
           </div>
 
           {/* Routing mode */}
@@ -755,8 +742,6 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
           <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: -4 }}>
             {t("group.nameRule", "仅允许小写字母、数字和连字符（自动转换）")}
           </div>
-          <input className="input" placeholder="Path (e.g. /claude)" value={cPath}
-            onChange={(e) => setCPath(e.target.value)} />
           <select className="input" value={cMode} onChange={(e) => setCMode(e.target.value as RoutingMode)}>
             {ROUTING_MODES.map(m => (
               <option key={m} value={m}>{routingModeLabel(t, m)}</option>
@@ -766,7 +751,7 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
             <button className="btn" onClick={() => setShowCreate(false)}>{t("action.cancel")}</button>
             <button className="btn btn-primary" onClick={handleCreateGroup}
-              disabled={!cName || !cPath}>{t("action.create")}</button>
+              disabled={!cName}>{t("action.create")}</button>
           </div>
         </div>
       )}
@@ -822,7 +807,6 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
                     )}
                   </div>
                   <div className="text-secondary" style={{ fontSize: 12, display: "flex", gap: 8, marginTop: 1, alignItems: "center", flexWrap: "wrap" }}>
-                    <span>{group.path}</span>
                     <span className="badge badge-muted" style={{ padding: "0 6px" }}>
                       {routingModeLabel(t, group.routing_mode)}
                     </span>

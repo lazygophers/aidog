@@ -540,8 +540,6 @@ pub struct UpdatePlatform {
 pub struct Group {
     pub id: u64,
     pub name: String,
-    /// URL path 前缀，如 "/claude"
-    pub path: String,
     pub routing_mode: RoutingMode,
     /// 如果由平台自动创建，记录关联平台 ID（十进制字符串；空串表示非自动）
     pub auto_from_platform: String,
@@ -574,7 +572,6 @@ fn default_max_retries() -> u32 { 2 }
 #[derive(Debug, Deserialize)]
 pub struct CreateGroup {
     pub name: String,
-    pub path: String,
     pub routing_mode: RoutingMode,
     #[serde(default)]
     pub auto_from_platform: String,
@@ -596,7 +593,6 @@ fn default_source_protocol_opt() -> Option<String> { Some("anthropic".to_string(
 pub struct UpdateGroup {
     pub id: u64,
     pub name: Option<String>,
-    pub path: Option<String>,
     pub routing_mode: Option<RoutingMode>,
     #[serde(default)]
     pub request_timeout_secs: u64,
