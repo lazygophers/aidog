@@ -1,1 +1,6 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": "prd.md", "reason": "决策: 全60平台+逐平台WebSearch+combobox保留自由输入"}
+{"file": "implement.md", "reason": "编排: 3组研究+单一编辑agent(getDefaultModelList+dropdownSource)"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端编码约定"}
+{"file": ".trellis/tasks/06-17-platform-model-list/research/models-firstparty.md", "reason": "Phase R 一方平台模型列表"}
+{"file": ".trellis/tasks/06-17-platform-model-list/research/models-aggregator.md", "reason": "Phase R 聚合平台代表模型"}
+{"file": ".trellis/tasks/06-17-platform-model-list/research/models-thirdparty.md", "reason": "Phase R 第三方/中转模型"}
