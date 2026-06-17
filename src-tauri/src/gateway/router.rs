@@ -663,8 +663,8 @@ mod tests {
         assert_eq!(sched.admission(p.id, &th, now, true), Admission::Reject);
 
         let sticky = StickyTable::new();
-        let mut settings = SchedulingBreakerSettings::default();
-        settings.enabled = true; // 总开关开，否则熔断维度不参与
+        // 总开关开，否则熔断维度不参与
+        let settings = SchedulingBreakerSettings { enabled: true, ..Default::default() };
         let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
 
         // 单平台短路：无视熔断必请求
@@ -733,8 +733,7 @@ mod tests {
         sched.record_failure(p1.id, &th, now);
 
         let sticky = StickyTable::new();
-        let mut settings = SchedulingBreakerSettings::default();
-        settings.enabled = true;
+        let settings = SchedulingBreakerSettings { enabled: true, ..Default::default() };
         let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
 
         // 有健康平台 → 只选 p2（坏的被过滤）
