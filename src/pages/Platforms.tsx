@@ -39,6 +39,7 @@ export const PROTOCOLS: ProtocolOption[] = [
   { value: "qianfan", label: "百度千帆", keywords: ["baidu", "百度", "千帆"] },
   { value: "qianfan", label: "百度千帆 Coding Plan Lite", codingPlan: true, keywords: ["baidu", "百度", "千帆", "qianfan", "coding"] },
   { value: "xiaomi_mimo", label: "小米 MiMo", keywords: ["xiaomi", "小米", "mimo"] },
+  { value: "xiaomi_mimo", label: "小米 MiMo Coding Plan", codingPlan: true, keywords: ["xiaomi coding", "小米编程", "mimo token plan", "token plan"] },
   { value: "bailing", label: "百灵", keywords: ["bailing", "百灵", "tbox"] },
   { value: "longcat", label: "Longcat", keywords: ["longcat", "龙猫"] },
   // ── 聚合平台 ──
@@ -217,7 +218,10 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
     ] : [
       { protocol: "anthropic", base_url: "https://qianfan.baidubce.com/anthropic/coding", client_type: "claude_code" },
     ],
-    xiaomi_mimo: [
+    xiaomi_mimo: cp ? [
+      { protocol: "anthropic", base_url: "https://token-plan-cn.xiaomimimo.com/anthropic", client_type: "claude_code", coding_plan: true },
+      { protocol: "openai", base_url: "https://token-plan-cn.xiaomimimo.com/v1", client_type: "codex_tui", coding_plan: true },
+    ] : [
       { protocol: "anthropic", base_url: "https://api.xiaomimimo.com/anthropic", client_type: "claude_code" },
       { protocol: "openai", base_url: "https://api.xiaomimimo.com/v1", client_type: "codex_tui" },
     ],
