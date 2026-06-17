@@ -1268,6 +1268,8 @@ async fn handle_proxy_inner(
     // ── 捕获上游响应 headers + status ──
     let status = resp.status();
     log.upstream_status_code = status.as_u16() as i32;
+    // clone 上游响应头，供回包前透传筛选用（resp 后续被 bytes()/bytes_stream() 消费）
+    let upstream_resp_headers = resp.headers().clone();
     {
         let mut h = serde_json::Map::new();
         for (k, v) in resp.headers() {
@@ -1420,7 +1422,21 @@ async fn handle_proxy_inner(
             s.into_bytes()
         };
         log.user_response_body = String::from_utf8_lossy(&body).to_string();
-        log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+
+        // ── 透传上游响应头（黑名单剔除 content-encoding/content-length/hop-by-hop）──
+        let mut filtered = filter_upstream_resp_headers(&upstream_resp_headers, false);
+        // 上游缺 content-type 时回退默认 application/json
+        if !filtered
+            .iter()
+            .any(|(n, _)| n == axum::http::header::CONTENT_TYPE)
+        {
+            filtered.push((
+                axum::http::header::CONTENT_TYPE,
+                axum::http::HeaderValue::from_static("application/json"),
+            ));
+        }
+        // 日志字段 = 实际发回客户端的头集合（不再写死 content-type）
+        log.user_response_headers = resp_headers_to_log_json(&filtered);
 
         tracing::info!(
             platform = %route.platform.name, model = %actual_model, status = 200, stream = false,
@@ -1444,12 +1460,15 @@ async fn handle_proxy_inner(
             tracing::Span::current(),
         );
 
-        return (
-            StatusCode::OK,
-            [(axum::http::header::CONTENT_TYPE, "application/json")],
-            body.to_vec(),
-        )
-            .into_response();
+        let mut response = (StatusCode::OK, body.to_vec()).into_response();
+        // into_response 对 Vec<u8> 写死 content-type: application/octet-stream；
+        // HeaderMap::extend 用 append 语义，直接 extend 会产生重复 content-type（octet-stream + 真实值）。
+        // 故先 remove 默认 content-type，再 extend（filtered 已含真实 content-type 或回退 application/json）。
+        response
+            .headers_mut()
+            .remove(axum::http::header::CONTENT_TYPE);
+        response.headers_mut().extend(filtered);
+        return response;
     }
 
     // 流式：转换 SSE 格式为 Anthropic 格式返回
@@ -1619,23 +1638,34 @@ async fn handle_proxy_inner(
 
     // Upsert（返回 stream 前的占位）：标记流进行中，token=0、body 占位；
     // 最终态由 guard.flush（[DONE] 或断连 Drop）覆盖。
+    // ── SSE 三自管头（content-type/cache-control/connection）+ 叠加筛选上游头（is_stream=true 额外剔这三者，防上游覆盖）──
+    let sse_self_managed: [(axum::http::HeaderName, axum::http::HeaderValue); 3] = [
+        (axum::http::header::CONTENT_TYPE, axum::http::HeaderValue::from_static("text/event-stream")),
+        (axum::http::header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-cache")),
+        (axum::http::header::CONNECTION, axum::http::HeaderValue::from_static("keep-alive")),
+    ];
+    let stream_filtered = filter_upstream_resp_headers(&upstream_resp_headers, true);
+    // 日志字段 = 实发头 = SSE 三自管头 + 透传上游头
+    let mut all_stream_headers: Vec<(axum::http::HeaderName, axum::http::HeaderValue)> =
+        sse_self_managed.to_vec();
+    all_stream_headers.extend(stream_filtered.iter().cloned());
+
     log.status_code = 200;
     log.response_body = "[stream]".to_string();
     log.user_response_body = "[stream]".to_string();
-    log.user_response_headers = r#"{"content-type":"text/event-stream","cache-control":"no-cache","connection":"keep-alive"}"#.to_string();
+    log.user_response_headers = resp_headers_to_log_json(&all_stream_headers);
     log.duration_ms = start.elapsed().as_millis() as i32;
     upsert_log(&state, &log, &log_settings).await;
 
-    return (
-        StatusCode::OK,
-        [
-            (axum::http::header::CONTENT_TYPE, "text/event-stream"),
-            (axum::http::header::CACHE_CONTROL, "no-cache"),
-            (axum::http::header::CONNECTION, "keep-alive"),
-        ],
-        body,
-    )
-        .into_response();
+    let mut response = (StatusCode::OK, body).into_response();
+    {
+        let h = response.headers_mut();
+        for (n, v) in sse_self_managed {
+            h.insert(n, v);
+        }
+        h.extend(stream_filtered);
+    }
+    return response;
     } // ── end retry loop (for candidate) ──
 
     // 候选耗尽 / 全部超 max_retries 且未在循环内 return（理论不可达：循环内每条路径均 return 或 continue，
@@ -1650,6 +1680,72 @@ async fn handle_proxy_inner(
     log.attempts = std::mem::take(&mut attempts);
     upsert_log(&state, &log, &log_settings).await;
     (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response()
+}
+
+/// 上游响应头透传黑名单（必剔 + RFC 7230 §6.1 hop-by-hop）。
+/// 全小写常量；HeaderName 本身即小写存储，用 as_str() 比对即可。
+const RESP_HEADER_BLACKLIST: &[&str] = &[
+    // §4.1 必剔（解压/长度/传输编码失真）
+    "content-encoding",
+    "content-length",
+    "transfer-encoding",
+    // §4.2 应剔（hop-by-hop, RFC 7230 §6.1）
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "upgrade",
+];
+
+/// 流式（SSE）额外剔除集：这三个头归 SSE 自管，禁用上游值覆盖 SSE 语义。
+const SSE_EXTRA_BLACKLIST: &[&str] = &["content-type", "cache-control", "connection"];
+
+/// 上游响应头 → 透传给客户端的头（黑名单剔除 + 非法 value 跳过 + 多值逐个保留）。
+///
+/// - `is_stream=false`：仅按 RESP_HEADER_BLACKLIST 剔除（非流式 2xx 路径）。
+/// - `is_stream=true`：在 RESP_HEADER_BLACKLIST 基础上额外剔除 SSE_EXTRA_BLACKLIST，
+///   叠加于调用方设置的 SSE 三自管头之上。
+///
+/// 返回 `Vec<(HeaderName, HeaderValue)>`，调用方用 `extend` 注入 axum Response。
+/// 多值头（如多个 set-cookie）逐项保留（Vec append 语义，不覆盖）。
+/// 无法转为 axum header 类型的非法名/值跳过（不 panic）。
+fn filter_upstream_resp_headers(
+    src: &reqwest::header::HeaderMap,
+    is_stream: bool,
+) -> Vec<(axum::http::HeaderName, axum::http::HeaderValue)> {
+    let mut out = Vec::with_capacity(src.len());
+    for (k, v) in src.iter() {
+        let name = k.as_str(); // HeaderName 已小写
+        if RESP_HEADER_BLACKLIST.iter().any(|b| name.eq_ignore_ascii_case(b)) {
+            continue;
+        }
+        if is_stream && SSE_EXTRA_BLACKLIST.iter().any(|b| name.eq_ignore_ascii_case(b)) {
+            continue;
+        }
+        // reqwest header 类型 → axum(http) header 类型；非法则跳过不 panic
+        if let (Ok(hn), Ok(hv)) = (
+            axum::http::HeaderName::from_bytes(name.as_bytes()),
+            axum::http::HeaderValue::from_bytes(v.as_bytes()),
+        ) {
+            out.push((hn, hv));
+        }
+    }
+    out
+}
+
+/// 把实发头集合（HeaderName, HeaderValue）序列化为日志 JSON 字符串，
+/// 与 upstream_response_headers 同格式 `{name: value}`；多值同名头保留首值（与既有格式约定一致）。
+fn resp_headers_to_log_json(headers: &[(axum::http::HeaderName, axum::http::HeaderValue)]) -> String {
+    let mut h = serde_json::Map::new();
+    for (k, v) in headers {
+        if let Ok(s) = v.to_str() {
+            h.entry(k.as_str().to_string())
+                .or_insert_with(|| Value::String(s.to_string()));
+        }
+    }
+    Value::Object(h).to_string()
 }
 
 /// 截断 attempt error 字段（上游错误体可能很大，attempts JSON 列只存摘要）
@@ -3282,6 +3378,177 @@ fn format_pretty_json(s: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // ── 上游响应头透传筛选 filter_upstream_resp_headers ──
+
+    /// 构造 reqwest HeaderMap（append 语义保留多值）
+    fn rq_headers(pairs: &[(&str, &str)]) -> reqwest::header::HeaderMap {
+        let mut m = reqwest::header::HeaderMap::new();
+        for (k, v) in pairs {
+            let name = reqwest::header::HeaderName::from_bytes(k.as_bytes()).unwrap();
+            m.append(name, reqwest::header::HeaderValue::from_str(v).unwrap());
+        }
+        m
+    }
+
+    fn has(out: &[(axum::http::HeaderName, axum::http::HeaderValue)], name: &str) -> bool {
+        out.iter().any(|(n, _)| n.as_str().eq_ignore_ascii_case(name))
+    }
+    fn val_of<'a>(
+        out: &'a [(axum::http::HeaderName, axum::http::HeaderValue)],
+        name: &str,
+    ) -> Option<&'a str> {
+        out.iter()
+            .find(|(n, _)| n.as_str().eq_ignore_ascii_case(name))
+            .and_then(|(_, v)| v.to_str().ok())
+    }
+    fn count_of(out: &[(axum::http::HeaderName, axum::http::HeaderValue)], name: &str) -> usize {
+        out.iter().filter(|(n, _)| n.as_str().eq_ignore_ascii_case(name)).count()
+    }
+
+    #[test]
+    fn filter_resp_drops_blacklist() {
+        let src = rq_headers(&[
+            ("content-encoding", "gzip"),
+            ("content-length", "123"),
+            ("transfer-encoding", "chunked"),
+            ("connection", "keep-alive"),
+            ("keep-alive", "timeout=5"),
+            ("date", "Tue, 17 Jun 2026 00:00:00 GMT"),
+        ]);
+        let out = filter_upstream_resp_headers(&src, false);
+        assert!(!has(&out, "content-encoding"));
+        assert!(!has(&out, "content-length"));
+        assert!(!has(&out, "transfer-encoding"));
+        assert!(!has(&out, "connection"));
+        assert!(!has(&out, "keep-alive"));
+        // 非黑名单保留
+        assert!(has(&out, "date"));
+    }
+
+    #[test]
+    fn filter_resp_keeps_business_headers() {
+        let src = rq_headers(&[
+            ("date", "Tue, 17 Jun 2026 00:00:00 GMT"),
+            ("x-log-id", "abc123"),
+            ("x-process-time", "0.042"),
+            ("vary", "Accept-Encoding"),
+            ("set-cookie", "sid=1; Path=/"),
+            ("content-type", "application/json; charset=utf-8"),
+        ]);
+        let out = filter_upstream_resp_headers(&src, false);
+        assert_eq!(val_of(&out, "date"), Some("Tue, 17 Jun 2026 00:00:00 GMT"));
+        assert_eq!(val_of(&out, "x-log-id"), Some("abc123"));
+        assert_eq!(val_of(&out, "x-process-time"), Some("0.042"));
+        assert_eq!(val_of(&out, "vary"), Some("Accept-Encoding"));
+        assert_eq!(val_of(&out, "set-cookie"), Some("sid=1; Path=/"));
+        assert_eq!(val_of(&out, "content-type"), Some("application/json; charset=utf-8"));
+    }
+
+    #[test]
+    fn filter_resp_keeps_multiple_set_cookie() {
+        let src = rq_headers(&[
+            ("set-cookie", "a=1; Path=/"),
+            ("set-cookie", "b=2; Path=/"),
+            ("set-cookie", "c=3; Path=/"),
+        ]);
+        let out = filter_upstream_resp_headers(&src, false);
+        assert_eq!(count_of(&out, "set-cookie"), 3, "多值 set-cookie 不得丢值");
+    }
+
+    #[test]
+    fn filter_resp_blacklist_case_insensitive() {
+        let src = rq_headers(&[
+            ("Content-Encoding", "gzip"),
+            ("Transfer-Encoding", "chunked"),
+            ("X-Log-Id", "keep-me"),
+        ]);
+        let out = filter_upstream_resp_headers(&src, false);
+        assert!(!has(&out, "content-encoding"), "大小写混合仍须剔除");
+        assert!(!has(&out, "transfer-encoding"));
+        assert!(has(&out, "x-log-id"));
+    }
+
+    #[test]
+    fn filter_resp_stream_drops_sse_self_managed() {
+        let src = rq_headers(&[
+            ("content-type", "application/json"),
+            ("cache-control", "max-age=60"),
+            ("connection", "close"),
+            ("x-log-id", "from-upstream"),
+            ("date", "Tue, 17 Jun 2026 00:00:00 GMT"),
+        ]);
+        let out = filter_upstream_resp_headers(&src, true);
+        // SSE 自管头不得来自上游
+        assert!(!has(&out, "content-type"));
+        assert!(!has(&out, "cache-control"));
+        assert!(!has(&out, "connection"));
+        // 透传价值头仍保留
+        assert_eq!(val_of(&out, "x-log-id"), Some("from-upstream"));
+        assert!(has(&out, "date"));
+    }
+
+    #[test]
+    fn filter_resp_stream_sse_headers_take_self_managed_values() {
+        // 模拟流式实发头组装：SSE 三自管头 + filter(is_stream=true)
+        let src = rq_headers(&[
+            ("content-type", "application/json"),  // 上游值，须被 SSE 自管覆盖
+            ("cache-control", "max-age=60"),
+            ("connection", "close"),
+            ("x-log-id", "from-upstream"),
+        ]);
+        let sse: [(axum::http::HeaderName, axum::http::HeaderValue); 3] = [
+            (axum::http::header::CONTENT_TYPE, axum::http::HeaderValue::from_static("text/event-stream")),
+            (axum::http::header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-cache")),
+            (axum::http::header::CONNECTION, axum::http::HeaderValue::from_static("keep-alive")),
+        ];
+        let mut all: Vec<(axum::http::HeaderName, axum::http::HeaderValue)> = sse.to_vec();
+        all.extend(filter_upstream_resp_headers(&src, true));
+        assert_eq!(val_of(&all, "content-type"), Some("text/event-stream"));
+        assert_eq!(val_of(&all, "cache-control"), Some("no-cache"));
+        assert_eq!(val_of(&all, "connection"), Some("keep-alive"));
+        assert_eq!(val_of(&all, "x-log-id"), Some("from-upstream"));
+    }
+
+    #[test]
+    fn resp_headers_log_json_first_value_and_format() {
+        let headers = vec![
+            (axum::http::header::CONTENT_TYPE, axum::http::HeaderValue::from_static("application/json")),
+            (
+                axum::http::HeaderName::from_static("x-log-id"),
+                axum::http::HeaderValue::from_static("xyz"),
+            ),
+        ];
+        let json = resp_headers_to_log_json(&headers);
+        let v: Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v.get("content-type").and_then(|x| x.as_str()), Some("application/json"));
+        assert_eq!(v.get("x-log-id").and_then(|x| x.as_str()), Some("xyz"));
+    }
+
+    #[test]
+    fn nonstream_response_has_single_content_type() {
+        // 复现非流式 2xx 成功路径头组装：(StatusCode, Vec<u8>).into_response() 默认写死
+        // content-type: application/octet-stream，须先 remove 再 extend，避免重复 content-type。
+        use axum::response::IntoResponse;
+        let src = rq_headers(&[
+            ("content-type", "application/json; charset=utf-8"),
+            ("x-log-id", "abc"),
+        ]);
+        let filtered = filter_upstream_resp_headers(&src, false);
+        let mut response = (StatusCode::OK, b"{}".to_vec()).into_response();
+        response
+            .headers_mut()
+            .remove(axum::http::header::CONTENT_TYPE);
+        response.headers_mut().extend(filtered);
+        let cts: Vec<_> = response
+            .headers()
+            .get_all(axum::http::header::CONTENT_TYPE)
+            .iter()
+            .map(|v| v.to_str().unwrap().to_string())
+            .collect();
+        assert_eq!(cts, vec!["application/json; charset=utf-8".to_string()], "须单一 content-type 取上游真实值");
+        assert!(response.headers().contains_key("x-log-id"));
+    }
 
     // ── 透传 URL 拼接：base_url(host 根) + 客户端原始 path(+query) ──
 
