@@ -13,6 +13,7 @@ from . import (
     gemini,
     glm,
     kimi,
+    litellm,
     minimax,
     novita,
     openai,
@@ -22,6 +23,7 @@ from . import (
 )
 
 # (module, platform_type) — platform_type 须与 Rust Protocol serde 裸名一致
+# 顺序: first-party 一手价优先 → litellm 骨干兜底 → openrouter 骨干兜底 → 第三方
 REGISTRY = [
     (deepseek, "deepseek"),
     (openai, "openai"),
@@ -31,6 +33,7 @@ REGISTRY = [
     (kimi, "kimi"),
     (minimax, "minimax"),
     (siliconflow, "siliconflow"),
+    (litellm, "litellm"),
     (openrouter, "openrouter"),
     (novita, "novita"),
     (stepfun, "stepfun"),
