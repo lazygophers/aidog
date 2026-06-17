@@ -2193,6 +2193,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
+            {!editing && (
+              <button className="btn" onClick={() => setShowPaste(true)}>
+                {t("platform.paste.title", "智能识别")}
+              </button>
+            )}
             <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
             <button className="btn btn-primary" onClick={handleSave}
               disabled={!name || (isPassthrough ? endpoints.length === 0 : (!isMock && (endpoints.length === 0 || !apiKey)))}>
@@ -2200,6 +2205,14 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             </button>
           </div>
         </div>
+
+        {showPaste && (
+          <SmartPasteModal
+            presets={PROTOCOLS}
+            onApply={applyPaste}
+            onClose={() => setShowPaste(false)}
+          />
+        )}
 
         <div className="animate-fade-in" style={{
           display: "flex",
@@ -2935,15 +2948,6 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   return (
     <>
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-      {/* 智能识别弹窗：主列表「添加平台」直达（与表单分支渲染镜像） */}
-      {showPaste && (
-        <SmartPasteModal
-          presets={PROTOCOLS}
-          onApply={applyPaste}
-          onManualEntry={() => { setShowPaste(false); resetForm(); setShowForm(true); }}
-          onClose={() => setShowPaste(false)}
-        />
-      )}
       {/* Header */}
       <div className="section-header" style={{ justifyContent: "space-between" }}>
         <div>
@@ -2952,7 +2956,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             {platforms.length > 0 ? `${enabledCount} / ${platforms.length} active` : t("platform.empty")}
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => { resetForm(); setShowPaste(true); }}>
+        <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
           + {t("platform.add")}
         </button>
       </div>
