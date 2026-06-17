@@ -285,4 +285,20 @@ mod tests {
         assert_eq!(req.model, "claude-opus-4-8");
         assert!(matches!(req.messages[0].content, MessageContent::Text(_)));
     }
+
+    // ── 入站 anthropic 工具缺 input_schema(如服务端工具 web_search) 不再 400, 默认空对象 ──
+    #[test]
+    fn anthropic_parse_tool_missing_input_schema() {
+        let body = serde_json::json!({
+            "model": "claude-opus-4-8",
+            "messages": [{ "role": "user", "content": "search it" }],
+            "tools": [{ "name": "web_search" }]
+        });
+        let req = parse_incoming_request("anthropic", &body)
+            .expect("tool missing input_schema should still parse");
+        let tools = req.tools.as_ref().expect("tools present");
+        assert_eq!(tools.len(), 1);
+        assert_eq!(tools[0].name, "web_search");
+        assert_eq!(tools[0].input_schema, serde_json::json!({}), "缺失时默认空对象, 非 null");
+    }
 }
