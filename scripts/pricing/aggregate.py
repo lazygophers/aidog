@@ -53,7 +53,8 @@ async def main() -> int:
     tmp = OUTPUT.with_suffix(".json.tmp")
     tmp.write_text(out.model_dump_json(indent=2, exclude_none=True), encoding="utf-8")
     tmp.replace(OUTPUT)
-    print(f"[aggregate] 完成: {ok}/{len(REGISTRY)} 平台, {len(models)} 模型 → {OUTPUT.relative_to(REPO_ROOT)}")
+    rel = OUTPUT.relative_to(REPO_ROOT) if OUTPUT.is_absolute() and str(OUTPUT).startswith(str(REPO_ROOT)) else OUTPUT
+    print(f"[aggregate] 完成: {ok}/{len(REGISTRY)} 平台, {len(models)} 模型 → {rel}")
     return 0
 
 

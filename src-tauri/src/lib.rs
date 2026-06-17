@@ -2872,10 +2872,12 @@ async fn model_price_resolve(
     db: State<'_, Db>,
     model_name: String,
     platform_type: String,
+    input_tokens: Option<i64>,
 ) -> Result<gateway::models::ResolvedPrice, String> {
-    tracing::debug!(command = "model_price_resolve", model_name = %model_name, platform_type = %platform_type, "command invoked");
+    let input_tokens = input_tokens.unwrap_or(0);
+    tracing::debug!(command = "model_price_resolve", model_name = %model_name, platform_type = %platform_type, input_tokens, "command invoked");
     let settings = gateway::price_sync::get_sync_settings(&db).await;
-    gateway::db::resolve_price(&db, &model_name, &platform_type, settings.fallback_input_price, settings.fallback_output_price).await
+    gateway::db::resolve_price(&db, &model_name, &platform_type, settings.fallback_input_price, settings.fallback_output_price, input_tokens).await
 }
 
 #[tauri::command]
