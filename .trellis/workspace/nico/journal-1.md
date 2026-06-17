@@ -672,3 +672,43 @@ Rspress 文档站升级：iOS 蓝品牌主题(globalStyles CSS 变量)+7 语言 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 20: 代理透传入站 header 到上游（convert 路径 + 跨协议兼容）
+
+**Date**: 2026-06-17
+**Task**: proxy-header-passthrough
+**Branch**: `next`
+
+### Summary
+
+convert 路径(apply_client_headers)原硬编码静态 SDK 头(0.60.0/v22.19.0/600)覆盖客户端真实值。改: passthrough_convert_headers 铺底全量入站头(剔 hop-by-hop + auth/UA/CT)，apply 仅覆盖 UA+auth。用户两条要求合一: 全 family 一致透传 + 跨协议兼容(CC 入站转 OpenAI 时 anthropic-*/x-stainless-* 也带，透明自定义头上游忽略不报错)。UA 不透传(路由推断依据)。
+
+### Main Changes
+
+- `src-tauri/src/gateway/proxy.rs`:
+  - 新 `passthrough_convert_headers` + `STRIPPED_ON_CONVERT_PASSTHROUGH`(hop-by-hop + auth/UA/CT)
+  - apply_claude_code/codex/cursor/windsurf/default 删硬编码可变 SDK 头，仅留 UA+auth(codex 留 OpenAI-Beta/session_id/conversation_id)
+  - build_upstream_headers 加 orig 参数，日志反映真实(透传脱敏 cookie + 覆盖 redact_key auth)
+  - 主路径铺底 `passthrough_convert_headers(&orig_headers)` 再 apply
+- `src-tauri/src/lib.rs`: model_test 调用传空 HeaderMap
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `280d412` | feat(proxy): convert 路径全量透传入站 header 到上游(含跨协议) |
+
+### Testing
+
+- [OK] cargo test 331 (329 + 2 新: convert 透传剔 stripped 保 SDK 头 / build_upstream 透传覆盖脱敏)
+- [OK] cargo clippy 0 lint (除已接受 block)
+- [pending] dev 实测 CC 经代理 → 上游收真实 0.94.0/v24.3.0/3000 + anthropic-beta + session-id
+
+### Status
+
+[OK] **Completed** — 自主 finish
+
+### Next Steps
+
+- None - task complete
