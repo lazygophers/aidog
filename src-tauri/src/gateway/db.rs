@@ -275,6 +275,9 @@ impl Db {
                 // Migration 022: platform auto_group 开关（false = 不建/不维护默认分组，
                 // ensure_platform_groups 永久跳过）。DEFAULT 1 = 老平台保持旧行为。
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN auto_group INTEGER NOT NULL DEFAULT 1", []);
+                // Migration 023: 移除 group.path（路由纯按 apikey=group.name）+ name 加 UNIQUE。
+                // 重建表迁移（见 migrations/009_drop_group_path.sql）；列名显式匹配保证幂等。
+                conn.execute_batch(include_str!("../../migrations/009_drop_group_path.sql"))?;
                 Ok(())
             })
             .await
@@ -1214,26 +1217,25 @@ fn parse_mappings(json: &str) -> Vec<ModelMapping> {
 
 /// Group SELECT 列序
 const GROUP_COLUMNS: &str =
-    "id, name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order, max_retries";
+    "id, name, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order, max_retries";
 
 fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
-    let routing_str: String = row.get(3)?;
-    let mappings_str: String = row.get(10)?;
+    let routing_str: String = row.get(2)?;
+    let mappings_str: String = row.get(9)?;
     Ok(Group {
         id: row.get::<_, i64>(0)? as u64,
         name: row.get(1)?,
-        path: row.get(2)?,
         routing_mode: serde_json::from_str(&routing_str).unwrap(),
-        auto_from_platform: row.get(4)?,
-        created_at: row.get(5)?,
-        updated_at: row.get(6)?,
-        request_timeout_secs: row.get::<_, i64>(7)? as u64,
-        connect_timeout_secs: row.get::<_, i64>(8)? as u64,
-        source_protocol: row.get::<_, String>(9)?,
+        auto_from_platform: row.get(3)?,
+        created_at: row.get(4)?,
+        updated_at: row.get(5)?,
+        request_timeout_secs: row.get::<_, i64>(6)? as u64,
+        connect_timeout_secs: row.get::<_, i64>(7)? as u64,
+        source_protocol: row.get::<_, String>(8)?,
         model_mappings: parse_mappings(&mappings_str),
         deleted_at: 0,
-        sort_order: row.get::<_, i64>(11)?,
-        max_retries: row.get::<_, i64>(12)? as u32,
+        sort_order: row.get::<_, i64>(10)?,
+        max_retries: row.get::<_, i64>(11)? as u32,
     })
 }
 
@@ -1247,7 +1249,6 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
         .0
         .call({
             let name = input.name.clone();
-            let path = input.path.clone();
             let auto_from_platform = input.auto_from_platform.clone();
             let request_timeout_secs = input.request_timeout_secs as i64;
             let connect_timeout_secs = input.connect_timeout_secs as i64;
@@ -1255,8 +1256,8 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
             let max_retries = input.max_retries as i64;
             move |conn| {
                 conn.execute(
-                    "INSERT INTO \"group\" (name, path, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, max_retries) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
-                    params![name, path, routing_str, auto_from_platform, ts, ts, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, max_retries],
+                    "INSERT INTO \"group\" (name, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, max_retries) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                    params![name, routing_str, auto_from_platform, ts, ts, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, max_retries],
                 )?;
                 Ok(conn.last_insert_rowid() as u64)
             }
@@ -1268,7 +1269,6 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
     Ok(Group {
         id,
         name: input.name,
-        path: input.path,
         routing_mode: input.routing_mode,
         auto_from_platform: input.auto_from_platform,
         created_at: ts,
@@ -1355,7 +1355,6 @@ pub async fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> 
 
     let updated = Group {
         name: input.name.unwrap_or(existing.name),
-        path: input.path.unwrap_or(existing.path),
         routing_mode: input.routing_mode.unwrap_or(existing.routing_mode),
         request_timeout_secs: if input.request_timeout_secs > 0 { input.request_timeout_secs } else { existing.request_timeout_secs },
         connect_timeout_secs: if input.connect_timeout_secs > 0 { input.connect_timeout_secs } else { existing.connect_timeout_secs },
@@ -1371,7 +1370,6 @@ pub async fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> 
     db.0
         .call({
             let name = updated.name.clone();
-            let path = updated.path.clone();
             let updated_at = updated.updated_at;
             let request_timeout_secs = updated.request_timeout_secs as i64;
             let connect_timeout_secs = updated.connect_timeout_secs as i64;
@@ -1380,8 +1378,8 @@ pub async fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> 
             let id = updated.id as i64;
             move |conn| {
                 conn.execute(
-                    "UPDATE \"group\" SET name=?1, path=?2, routing_mode=?3, updated_at=?4, request_timeout_secs=?5, connect_timeout_secs=?6, source_protocol=?7, model_mappings=?8, max_retries=?9 WHERE id=?10",
-                    params![name, path, routing_str, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, max_retries, id],
+                    "UPDATE \"group\" SET name=?1, routing_mode=?2, updated_at=?3, request_timeout_secs=?4, connect_timeout_secs=?5, source_protocol=?6, model_mappings=?7, max_retries=?8 WHERE id=?9",
+                    params![name, routing_str, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, max_retries, id],
                 )?;
                 Ok(())
             }
@@ -3606,10 +3604,9 @@ mod tests {
         }
     }
 
-    fn sample_group(name: &str, path: &str, mappings: Vec<ModelMapping>) -> CreateGroup {
+    fn sample_group(name: &str, mappings: Vec<ModelMapping>) -> CreateGroup {
         CreateGroup {
             name: name.to_string(),
-            path: path.to_string(),
             routing_mode: RoutingMode::Failover,
             auto_from_platform: String::new(),
             request_timeout_secs: 0,
@@ -3786,7 +3783,7 @@ mod tests {
         let p = create_platform(&db, sample_platform("nn")).await.unwrap();
         assert_eq!(p.extra, "");
 
-        let g = create_group(&db, sample_group("g", "/g", vec![])).await.unwrap();
+        let g = create_group(&db, sample_group("g", vec![])).await.unwrap();
         assert_eq!(g.auto_from_platform, "");
         assert_eq!(g.model_mappings.len(), 0);
 
@@ -3845,7 +3842,7 @@ mod tests {
                 connect_timeout_secs: 0,
             },
         ];
-        let g = create_group(&db, sample_group("mm", "/mm", mappings)).await.unwrap();
+        let g = create_group(&db, sample_group("mm", mappings)).await.unwrap();
 
         let fetched = get_group(&db, g.id).await.unwrap().unwrap();
         assert_eq!(fetched.model_mappings.len(), 2);
@@ -3869,7 +3866,7 @@ mod tests {
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
         }];
-        let g = create_group(&db, sample_group("d", "/d", mappings)).await.unwrap();
+        let g = create_group(&db, sample_group("d", mappings)).await.unwrap();
         // 该分组无关联平台 → get_group_platforms join 为空，规避遗留 BUG-1（见任务遗留）
         let detail = get_group_detail(&db, g.id).await.unwrap().unwrap();
         // detail.model_mappings 来自 group 内联字段（逐字段一致）
@@ -3917,7 +3914,7 @@ mod tests {
         let db = test_db().await;
         let p1 = create_platform(&db, sample_platform("a")).await.unwrap();
         let p2 = create_platform(&db, sample_platform("b")).await.unwrap();
-        let g = create_group(&db, sample_group("g", "/g", vec![])).await.unwrap();
+        let g = create_group(&db, sample_group("g", vec![])).await.unwrap();
 
         set_group_platforms(
             &db,
@@ -4118,7 +4115,7 @@ decimals: None,
         let _p2 = create_platform(&db, sample_platform("p-two")).await.unwrap();
 
         // 自动分组：auto_from_platform = p1.id 的十进制字符串。
-        let mut g = sample_group("autog", "/a", vec![]);
+        let mut g = sample_group("autog", vec![]);
         g.auto_from_platform = p1.id.to_string();
         let group = create_group(&db, g).await.unwrap();
 
@@ -4210,7 +4207,7 @@ decimals: None,
 
         // ── group 缓存 ──
         assert_eq!(list_groups(&db).await.unwrap().len(), 0);
-        let g = create_group(&db, sample_group("gc", "/gc", vec![])).await.unwrap();
+        let g = create_group(&db, sample_group("gc", vec![])).await.unwrap();
         // 缓存失效 → list_groups 见新建 group。
         let groups = list_groups(&db).await.unwrap();
         assert_eq!(groups.len(), 1);
@@ -4250,7 +4247,7 @@ decimals: None,
         let p = create_platform(&db, sample_platform("sync-p")).await.unwrap();
         // 一个 auto 组（auto_from_platform 非空）+ 两个手动组。
         let auto_g = create_group(&db, CreateGroup {
-            name: "auto-g".into(), path: "/auto".into(),
+            name: "auto-g".into(),
             routing_mode: RoutingMode::Failover,
             auto_from_platform: p.id.to_string(),
             request_timeout_secs: 0, connect_timeout_secs: 0,
@@ -4259,8 +4256,8 @@ decimals: None,
         set_group_platforms(&db, auto_g.id, &[GroupPlatformInput {
             platform_id: p.id, priority: Some(0), weight: Some(1),
         }]).await.unwrap();
-        let m1 = create_group(&db, sample_group("m1", "/m1", vec![])).await.unwrap();
-        let m2 = create_group(&db, sample_group("m2", "/m2", vec![])).await.unwrap();
+        let m1 = create_group(&db, sample_group("m1", vec![])).await.unwrap();
+        let m2 = create_group(&db, sample_group("m2", vec![])).await.unwrap();
 
         // 初始：加入 m1，不动 m2、auto 组。
         sync_platform_manual_groups(&db, p.id, &[m1.id]).await.unwrap();
@@ -4411,7 +4408,7 @@ decimals: None,
     #[tokio::test]
     async fn group_max_retries_roundtrip() {
         let db = test_db().await;
-        let mut input = sample_group("mr", "/mr", vec![]);
+        let mut input = sample_group("mr", vec![]);
         input.max_retries = 5;
         let g = create_group(&db, input).await.unwrap();
         assert_eq!(g.max_retries, 5);
@@ -4419,7 +4416,7 @@ decimals: None,
         assert_eq!(fetched.max_retries, 5);
 
         let upd = update_group(&db, UpdateGroup {
-            id: g.id, name: None, path: None, routing_mode: None,
+            id: g.id, name: None, routing_mode: None,
             request_timeout_secs: 0, connect_timeout_secs: 0, source_protocol: None,
             max_retries: Some(0), model_mappings: vec![],
         }).await.unwrap();

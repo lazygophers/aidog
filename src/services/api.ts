@@ -214,7 +214,6 @@ export interface Platform {
 export interface Group {
   id: number;
   name: string;
-  path: string;
   routing_mode: RoutingMode;
   /** 关联的平台 ID（十进制字符串；空串表示非自动） */
   auto_from_platform: string;
@@ -530,7 +529,6 @@ export const popoverConfigApi = {
 export const groupApi = {
   create: (input: {
     name: string;
-    path: string;
     routing_mode: RoutingMode;
   }) => invoke<Group>("group_create", { input }),
 
@@ -541,7 +539,6 @@ export const groupApi = {
   update: (input: {
     id: number;
     name?: string;
-    path?: string;
     routing_mode?: RoutingMode;
     request_timeout_secs?: number;
     connect_timeout_secs?: number;
