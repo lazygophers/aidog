@@ -637,3 +637,38 @@ Rspress 文档站升级：iOS 蓝品牌主题(globalStyles CSS 变量)+7 语言 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 19: 加入已有分组 UI 对齐主题设计
+
+**Date**: 2026-06-17
+**Task**: joingroup-ui-theme-align
+**Branch**: `next`
+
+### Summary
+
+上任务交付的「分组归属」UI 未对齐设计系统：boolean 用裸 checkbox（应 .toggle 开关）、chips 自造 pill 参数漂移。用户选「保留 pill 仅调参」方向。改：boolean→.toggle-wrap+.toggle 开关（同备份启用）；chips 保留 pill(radius 999) 但 label+内嵌 checkbox 改 button 点击切换，全走 CSS 变量(--accent/--accent-subtle/--bg-glass/--border/--text-secondary) + transition，主题自适应。Platforms.tsx + CcSwitchImport.tsx 同步。
+
+### Main Changes
+
+- `src/pages/Platforms.tsx`：分组归属 FormSection（autoGroup toggle + join chips button pill）
+- `src/components/settings/CcSwitchImport.tsx`：批量选择器（batchAutoGroup toggle + batch chips）
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1abe372` | style(platform): 加入已有分组 UI 对齐主题设计 |
+
+### Testing
+
+- [OK] tsc 0 error / vite build ✓
+- [pending] dev-app 视觉确认留给用户（暗/亮主题 + 现用调色板）
+
+### Status
+
+[OK] **Completed** — 自主 finish
+
+### Next Steps
+
+- None - task complete
