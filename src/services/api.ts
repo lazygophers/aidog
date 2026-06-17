@@ -1668,8 +1668,6 @@ export interface CcswitchReadResult {
   sourceType: string;
   path: string;
   providers: CcProvider[];
-  /** 与现有 aidog 同名 platform 冲突的 name 集合。 */
-  existingPlatformNames: string[];
 }
 
 export const ccswitchApi = {

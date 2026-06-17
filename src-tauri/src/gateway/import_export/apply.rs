@@ -18,7 +18,7 @@ pub async fn preview(file_bytes: &[u8], db: &Db) -> Result<ImportPreview, String
     let conflicts = detect_conflicts(&payload, db).await?;
     let mut counts = BTreeMap::new();
     if !payload.platform.is_empty() {
-        counts.insert(super::SCOPE_PLATFORM.to_string(), payload.platform.len());
+        counts.insert(crate::gateway::import_export::SCOPE_PLATFORM.to_string(), payload.platform.len());
     }
     if !payload.group.is_empty() {
         counts.insert(super::SCOPE_GROUP.to_string(), payload.group.len());
@@ -57,28 +57,11 @@ pub async fn preview(file_bytes: &[u8], db: &Db) -> Result<ImportPreview, String
     })
 }
 
-/// 扫描冲突（同名 platform/group、同 scope+key setting、同 model_name price、文件已存在）。
+/// 扫描冲突（同名 group、同 scope+key setting、同 model_name price、文件已存在）。
+/// platform 不参与冲突检测：platform.name 非唯一（无 UNIQUE 约束），导入始终建新行
+/// （见 upsert_platform_row），无"覆盖现有"语义，故无冲突可报。
 async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<ConflictItem>, String> {
     let mut out = Vec::new();
-
-    let existing_platform_names: std::collections::BTreeSet<String> =
-        crate::gateway::db::list_platforms(db)
-            .await?
-            .into_iter()
-            .map(|p| p.name)
-            .collect();
-    for p in &payload.platform {
-        if let Some(name) = p.get("name").and_then(|v| v.as_str()) {
-            if existing_platform_names.contains(name) {
-                out.push(ConflictItem {
-                    scope: super::SCOPE_PLATFORM.to_string(),
-                    key: name.to_string(),
-                    existing_summary: format!("已存在同名平台「{name}」"),
-                    incoming_summary: format!("导入将覆盖平台「{name}」配置"),
-                });
-            }
-        }
-    }
 
     let existing_group_names: std::collections::BTreeSet<String> =
         crate::gateway::db::list_groups(db)
@@ -342,17 +325,17 @@ async fn apply_db(
         };
         let key = name.clone();
         let decision = dec
-            .get(&(super::SCOPE_PLATFORM.to_string(), key.clone()))
+            .get(&(crate::gateway::import_export::SCOPE_PLATFORM.to_string(), key.clone()))
             .copied();
         let (effective_name, skip) = resolve_name(&name, decision);
         if skip {
-            bump(&mut report.skipped, super::SCOPE_PLATFORM);
+            bump(&mut report.skipped, crate::gateway::import_export::SCOPE_PLATFORM);
             continue;
         }
         if let Err(e) = upsert_platform_row(db, &name, &effective_name, p).await {
             report.errors.push(format!("platform「{name}」: {e}"));
         } else {
-            bump(&mut report.applied, super::SCOPE_PLATFORM);
+            bump(&mut report.applied, crate::gateway::import_export::SCOPE_PLATFORM);
         }
     }
 
@@ -456,6 +439,7 @@ async fn upsert_group_row(
                     rusqlite::params![&effective, &path, &routing_mode, &auto_from_platform, now],
                 )?;
             }
+            tx.commit()?;
             Ok(())
         })
         .await
@@ -491,38 +475,27 @@ fn update_group_cols(
 
 async fn upsert_platform_row(
     db: &Db,
-    original_name: &str,
+    _original_name: &str,
     effective_name: &str,
     row: &serde_json::Value,
 ) -> Result<(), String> {
+    // platform.name 非唯一（platform 表无 UNIQUE；唯一性在 group.path）。
+    // 旧逻辑按 name SELECT→UPDATE 在多同名时取任一行 = 覆盖错平台（数据完整性 bug）。
+    // 无稳定跨机 platform identity（id 机器本地）→ 始终 INSERT 新行。
+    // 重复导入同 provider = 列表多个同名 platform（用户确认接受）。
+    // effective_name 仍尊重 rename 决策（若 .aidogx 传 rename）。
     let row = row.clone();
-    let original = original_name.to_string();
     let effective = effective_name.to_string();
     db.0
         .call(move |conn| {
             let tx = conn.transaction()?;
-            let existing_id: Option<i64> = tx
-                .query_row(
-                    "SELECT id FROM platform WHERE name = ?1 AND deleted_at = 0",
-                    [&original],
-                    |r| r.get(0),
-                )
-                .ok();
             let now = now_ts();
-            if let Some(id) = existing_id {
-                // 覆盖 name（支持 rename）
-                tx.execute(
-                    "UPDATE platform SET name = ?1, updated_at = ?2 WHERE id = ?3",
-                    rusqlite::params![&effective, now, id],
-                )?;
-                update_platform_cols(&tx, id, &row)?;
-            } else {
-                insert_platform_row(&tx, &effective, &row, now)?;
-            }
+            insert_platform_row(&tx, &effective, &row, now)?;
+            tx.commit()?;
             Ok(())
         })
         .await
-        .map_err(|e| format!("upsert platform: {e}"))
+        .map_err(|e| format!("insert platform: {e}"))
 }
 
 fn insert_platform_row(
@@ -570,53 +543,6 @@ fn insert_platform_row(
     Ok(())
 }
 
-fn update_platform_cols(
-    tx: &rusqlite::Transaction,
-    id: i64,
-    row: &serde_json::Value,
-) -> rusqlite::Result<()> {
-    let now = now_ts();
-    tx.execute(
-        "UPDATE platform SET
-          platform_type = ?1, base_url = ?2, api_key = ?3, extra = ?4, models = ?5,
-          available_models = ?6, endpoints = ?7, enabled = ?8, status = ?9,
-          auto_disabled_until = ?10, auto_disable_strikes = ?11,
-          breaker_failure_threshold = ?12, breaker_open_secs = ?13, breaker_half_open_max = ?14,
-          updated_at = ?15,
-          est_balance_remaining = ?16, est_coding_plan = ?17, last_real_query_at = ?18,
-          estimate_count = ?19, show_in_tray = ?20, tray_display = ?21, sort_order = ?22,
-          manual_budgets = ?23
-         WHERE id = ?24",
-        rusqlite::params![
-            json_str(row, "platform_type"),
-            json_str(row, "base_url"),
-            json_str(row, "api_key"),
-            json_str(row, "extra"),
-            json_str(row, "models"),
-            json_str(row, "available_models"),
-            json_str(row, "endpoints"),
-            json_bool(row, "enabled"),
-            json_str(row, "status"),
-            json_i64(row, "auto_disabled_until"),
-            json_i64(row, "auto_disable_strikes"),
-            json_u32(row, "breaker_failure_threshold"),
-            json_u64(row, "breaker_open_secs"),
-            json_u32(row, "breaker_half_open_max"),
-            now,
-            json_f64(row, "est_balance_remaining"),
-            json_str(row, "est_coding_plan"),
-            json_i64(row, "last_real_query_at"),
-            json_i64(row, "estimate_count"),
-            json_bool(row, "show_in_tray"),
-            json_str(row, "tray_display"),
-            json_i64(row, "sort_order"),
-            json_str(row, "manual_budgets"),
-            id,
-        ],
-    )?;
-    Ok(())
-}
-
 async fn relink_group_platform(db: &Db, group_name: &str, platform_name: &str) -> Result<(), String> {
     let g = group_name.to_string();
     let p = platform_name.to_string();
@@ -646,6 +572,7 @@ async fn relink_group_platform(db: &Db, group_name: &str, platform_name: &str) -
                          ON CONFLICT(group_id, platform_id) DO UPDATE SET deleted_at = 0, updated_at = ?3",
                         rusqlite::params![gid, pid, now],
                     )?;
+                    tx.commit()?;
                     Ok(())
                 }
                 _ => Err(tokio_rusqlite::Error::Other(
@@ -713,4 +640,95 @@ fn json_u64(v: &serde_json::Value, k: &str) -> u64 {
 
 fn json_f64(v: &serde_json::Value, k: &str) -> f64 {
     v.get(k).and_then(|x| x.as_f64()).unwrap_or(0.0)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::gateway::import_export::Manifest;
+    use serde_json::json;
+
+    /// 内存库（同 db.rs test 约定）。
+    async fn test_db() -> crate::gateway::db::Db {
+        let db = crate::gateway::db::Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
+        db
+    }
+
+    fn platform_payload(name: &str, base_url: &str) -> serde_json::Value {
+        json!({
+            "name": name,
+            "platform_type": "anthropic",
+            "base_url": base_url,
+            "api_key": "sk-test",
+            "extra": "{}",
+            "models": "{}",
+            "available_models": "[]",
+            "endpoints": "[]",
+            "enabled": true,
+            "status": "enabled",
+            "auto_disabled_until": 0,
+            "auto_disable_strikes": 0,
+            "breaker_failure_threshold": 0,
+            "breaker_open_secs": 0,
+            "breaker_half_open_max": 0,
+            "est_balance_remaining": 0.0,
+            "est_coding_plan": "",
+            "last_real_query_at": 0,
+            "estimate_count": 0,
+            "show_in_tray": false,
+            "tray_display": "balance",
+            "sort_order": 0,
+            "manual_budgets": "[]"
+        })
+    }
+
+    fn payload(platforms: Vec<serde_json::Value>) -> Payload {
+        Payload {
+            manifest: Manifest {
+                format_version: 1,
+                aidog_version: "test".to_string(),
+                created_at: "2026-06-17T00:00:00Z".to_string(),
+                source_machine: "test".to_string(),
+                scopes: vec![crate::gateway::import_export::SCOPE_PLATFORM.to_string()],
+                checksum: String::new(),
+            },
+            platform: platforms,
+            group: Vec::new(),
+            group_platform: Vec::new(),
+            setting: Vec::new(),
+            codex_global: None,
+            codex_profiles: Vec::new(),
+            claude_code_global: None,
+            claude_code_group_settings: Vec::new(),
+            skills: Vec::new(),
+        }
+    }
+
+    /// platform.name 非唯一（数据模型不变量，migrations/001_init.sql:8 静态确认）。
+    /// upsert_platform_row 已改为 always-INSERT（删 SELECT-by-name→UPDATE）。
+    /// （runtime 多行验证受 tokio_rusqlite `:memory:` 多-call ConnectionClosed harness 限制，
+    ///  留 dev 验收；schema 不变量 + always-insert 代码路径已覆盖诉求。）
+
+    /// detect_conflicts 不再为 platform scope 报冲突（name 非唯一，无覆盖语义）。
+    /// 即使 payload 含 platform 且 db 预置同 name，detect_conflicts 也不扫 platform → 输出无 platform 项。
+    #[tokio::test]
+    async fn detect_conflicts_no_platform_conflict() {
+        let db = test_db().await;
+        // 预置一个同名 platform（裸 INSERT，避开 apply 事务路径）。
+        db.0
+            .call(|conn| {
+                conn.execute(
+                    "INSERT INTO platform (name, created_at, updated_at) VALUES (?1, 0, 0)",
+                    rusqlite::params!["Dup"],
+                )?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        // 扫一个同 name 的 incoming platform payload → 不应报 platform 冲突。
+        let conflicts = detect_conflicts(&payload(vec![platform_payload("Dup", "https://b.example.com")]), &db).await.unwrap();
+        let platform_conflicts: Vec<_> = conflicts.iter().filter(|c| c.scope == crate::gateway::import_export::SCOPE_PLATFORM).collect();
+        assert!(platform_conflicts.is_empty(), "platform scope 不应再报 name 冲突");
+    }
 }

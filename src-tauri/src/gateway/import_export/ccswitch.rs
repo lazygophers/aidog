@@ -79,8 +79,6 @@ pub struct CcswitchReadResult {
     pub source_type: String,
     pub path: String,
     pub providers: Vec<CcProvider>,
-    /// 与现有 aidog 同名 platform 冲突的 name 集合（前端 preview 用）。
-    pub existing_platform_names: Vec<String>,
 }
 
 // ── 探测 ────────────────────────────────────────────────────
@@ -211,7 +209,7 @@ fn direct_source_if_file(path: Option<&str>) -> Option<(String, String)> {
 }
 
 pub async fn read(
-    db: &Db,
+    _db: &Db,
     path: Option<String>,
 ) -> Result<CcswitchReadResult, String> {
     // path = 文件路径 → 直读（不重跑 detect，避开文件被当目录的错配）；
@@ -236,14 +234,10 @@ pub async fn read(
         _ => Vec::new(),
     };
 
-    let existing = crate::gateway::db::list_platforms(db).await?;
-    let existing_names: Vec<String> = existing.into_iter().map(|p| p.name).collect();
-
     Ok(CcswitchReadResult {
         source_type,
         path: path_str,
         providers,
-        existing_platform_names: existing_names,
     })
 }
 

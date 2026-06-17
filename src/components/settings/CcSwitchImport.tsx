@@ -62,7 +62,6 @@ export function CcSwitchImportSection({
   const [detection, setDetection] = useState<CcswitchDetection | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [providers, setProviders] = useState<CcProvider[]>([]);
-  const [existingNames, setExistingNames] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dims, setDims] = useState<CcImportDims>({ ...DEFAULT_DIMS });
   const [reading, setReading] = useState(false);
@@ -86,7 +85,6 @@ export function CcSwitchImportSection({
       } else {
         // 清空。
         setProviders([]);
-        setExistingNames(new Set());
         setSelected(new Set());
         setConflicts([]);
         setDecisions(new Map());
@@ -104,7 +102,6 @@ export function CcSwitchImportSection({
     try {
       const r = await ccswitchApi.read(path);
       setProviders(r.providers);
-      setExistingNames(new Set(r.existingPlatformNames));
       // 默认全选。
       setSelected(new Set(r.providers.map((p) => p.id)));
       setConflicts([]);
@@ -144,28 +141,13 @@ export function CcSwitchImportSection({
     });
   };
 
-  /** 预览冲突：对选中 provider 做匹配 → 转 Platform JSON → 与现有 name diff。 */
+  // platform.name 非唯一（无 UNIQUE 约束）→ 导入始终建新行，无"覆盖现有"冲突。
+  // conflicts/decisions 保留空态：handleImport 中 skip/rename 决策仍可由用户主动设置，
+  // 但默认全空 = 全部建新（重复导入同 provider = 列表多个同名 platform）。
   const handlePreview = () => {
     setError("");
-    const items: ConflictItem[] = [];
-    for (const p of providers) {
-      if (!selected.has(p.id)) continue;
-      if (existingNames.has(p.name)) {
-        items.push({
-          scope: "platform",
-          key: p.name,
-          existing_summary: t("importExport.ccswitch.conflictExisting", "已存在同名平台「{{name}}」", { name: p.name }),
-          incoming_summary: t("importExport.ccswitch.conflictIncoming", "导入将覆盖「{{name}}」配置", { name: p.name }),
-        });
-      }
-    }
-    setConflicts(items);
-    // 默认全部 overwrite。
-    const map = new Map<string, ImportDecision>();
-    for (const c of items) {
-      map.set(decisionKey(c.scope, c.key), { kind: "overwrite" });
-    }
-    setDecisions(map);
+    setConflicts([]);
+    setDecisions(new Map());
   };
 
   const handleImport = async () => {
@@ -322,7 +304,6 @@ export function CcSwitchImportSection({
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {providers.map((p) => {
               const match = matchCcProvider(p);
-              const isConflict = existingNames.has(p.name);
               const isSelected = selected.has(p.id);
               return (
                 <ProviderRow
@@ -331,7 +312,7 @@ export function CcSwitchImportSection({
                   matchProtocol={match.protocol}
                   matchLabel={match.matchedLabel}
                   matchedBy={match.matchedBy}
-                  conflict={isConflict}
+                  conflict={false}
                   selected={isSelected}
                   onToggle={() => toggleProvider(p.id)}
                   noKey={!p.detectedApiKey}
