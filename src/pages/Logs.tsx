@@ -36,7 +36,7 @@ function timePresetToRange(preset: TimePreset): { start?: number; end?: number }
   return { start: now - (ms[preset] ?? 0), end: now };
 }
 
-export function Logs({ initialFilter }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupName?: string } }) {
+export function Logs({ initialFilter }: { initialFilter?: { platformId?: number; platformName?: string; groupId?: string; groupKey?: string } }) {
   const { t } = useTranslation();
   const [logs, setLogs] = useState<ProxyLogSummary[]>([]);
   const [total, setTotal] = useState(0);
@@ -50,7 +50,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [groups, setGroups] = useState<GroupDetail[]>([]);
   const [filterPlatform, setFilterPlatform] = useState<string>(initialFilter?.platformId ? String(initialFilter.platformId) : "");   // platform_id or ""
-  const [filterGroup, setFilterGroup] = useState<string>(initialFilter?.groupName ?? "");
+  const [filterGroup, setFilterGroup] = useState<string>(initialFilter?.groupKey ?? "");
   const [filterStatus, setFilterStatus] = useState<string>("");       // "" | "success" | "error"
   const [filterTime, setFilterTime] = useState<TimePreset>("all");
   const [filterModelType, setFilterModelType] = useState<"original" | "actual">("actual");
@@ -66,7 +66,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
   const activeFilter: ProxyLogFilter = useMemo(() => {
     const f: ProxyLogFilter = {};
     if (filterPlatform) f.platform_id = Number(filterPlatform);
-    if (filterGroup) f.group_name = filterGroup;
+    if (filterGroup) f.group_key = filterGroup;
     if (filterStatus === "success") f.status = 200;
     else if (filterStatus === "error") f.status = -1;
     const tr = timePresetToRange(filterTime);
@@ -106,7 +106,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
       ``,
       `## Meta`,
       `- ID: ${d.id}`,
-      `- Group: ${d.group_name}`,
+      `- Group: ${d.group_key}`,
       `- Model: ${d.model || "-"}`,
       `- Actual Model: ${d.actual_model || "-"}`,
       `- Source Protocol: ${d.source_protocol || "-"}`,
@@ -239,6 +239,14 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
     return m;
   }, [platforms]);
 
+  // group_key → 显示名 name（日志按 group_key 归属，展示反查人类可读名）
+  const groupNameMap = useMemo(() => {
+    const m = new Map<string, string>();
+    groups.forEach(g => m.set(g.group.group_key, g.group.name));
+    return m;
+  }, [groups]);
+  const groupName = (k: string) => (k && groupNameMap.get(k)) || k;
+
   // ── Detail view ──
   if (detail) {
     const reqHeaders = safeParseJson(detail.request_headers);
@@ -307,7 +315,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
 
         {/* Meta grid */}
         <div className="glass-surface" style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
-          <MetaItem label={t("logs.group", "分组")} value={detail.group_name} />
+          <MetaItem label={t("logs.group", "分组")} value={groupName(detail.group_key)} />
           <MetaItem label={t("logs.model", "原始模型")} value={detail.model || "-"} />
           <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} />
           <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={detail.source_protocol || "-"} />
@@ -444,7 +452,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
         <FilterSelect
           value={filterGroup}
           onChange={setFilterGroup}
-          options={groups.map(g => ({ value: g.group.name, label: g.group.name }))}
+          options={groups.map(g => ({ value: g.group.group_key, label: g.group.name }))}
           placeholder={t("logs.filterGroup", "分组")}
         />
         {/* Status */}
@@ -529,6 +537,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
                     key={log.id}
                     log={log}
                     platformName={platformMap.get(log.platform_id) || "-"}
+                    groupName={groupName(log.group_key)}
                     onOpen={openDetail}
                     onCopy={copyRow}
                     t={t}
@@ -567,19 +576,20 @@ function safeParseJson(str: string): any {
 interface LogRowProps {
   log: ProxyLogSummary;
   platformName: string;
+  groupName: string;
   onOpen: (id: string) => void;
   onCopy: (id: string) => void;
   t: ReturnType<typeof useTranslation>["t"];
 }
 
-const LogRow = memo(function LogRow({ log, platformName, onOpen, onCopy, t }: LogRowProps) {
+const LogRow = memo(function LogRow({ log, platformName, groupName, onOpen, onCopy, t }: LogRowProps) {
   return (
     <tr
       className="log-row"
       onClick={() => onOpen(log.id)}
       style={ROW_STYLE}>
       <TdCell>{new Date(log.created_at).toLocaleString()}</TdCell>
-      <TdCell><span className="badge badge-accent" style={GROUP_BADGE_STYLE}>{log.group_name}</span></TdCell>
+      <TdCell><span className="badge badge-accent" style={GROUP_BADGE_STYLE}>{groupName}</span></TdCell>
       <TdCell>
         <span style={INLINE_FLEX_STYLE}>
           <span style={PLATFORM_NAME_STYLE}>{platformName}</span>

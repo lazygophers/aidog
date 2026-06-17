@@ -65,7 +65,7 @@ pub struct ScheduleCtx<'a> {
     pub scheduler: &'a SchedulerState,
     pub sticky: &'a StickyTable,
     pub settings: &'a SchedulingBreakerSettings,
-    /// Sticky 模式 session 键（group_name + 客户端稳定标识，调用侧拼接）。
+    /// Sticky 模式 session 键（group_key + 客户端稳定标识，调用侧拼接）。
     pub sticky_key: Option<String>,
 }
 
@@ -634,6 +634,7 @@ mod tests {
     async fn mk_db_group(db: &db::Db, name: &str, platform_ids: &[u64]) -> Group {
         let g = db::create_group(db, CreateGroup {
             name: name.into(),
+            group_key: Some(name.into()),
             routing_mode: RoutingMode::Failover,
             auto_from_platform: String::new(),
             request_timeout_secs: 0, connect_timeout_secs: 0,

@@ -57,7 +57,7 @@ pub struct Payload {
     pub platform: Vec<serde_json::Value>,
     #[serde(default)]
     pub group: Vec<serde_json::Value>,
-    /// (group_name, platform_name) — 按名称存，跨机迁移友好。
+    /// (group_key, platform_name) — 按名称存，跨机迁移友好。
     #[serde(default)]
     pub group_platform: Vec<[String; 2]>,
     /// (scope, key, value_json) — setting 表原始行。

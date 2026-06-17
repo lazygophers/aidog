@@ -114,14 +114,14 @@ impl MiddlewareEngine {
 
     /// 作用域就近覆盖解析（CSS 级联语义）：
     /// platform 层(scope=platform, scope_ref=platform_id) 该类型有规则 → 用之；
-    /// 否则 group 层(scope=group, scope_ref=group_name) 有规则 → 用之；
+    /// 否则 group 层(scope=group, scope_ref=group_key) 有规则 → 用之；
     /// 否则 global 层。同 rule_type 内只生效最细粒度存在的那一层（非累加）。
     ///
     /// C2/C3 入站/出站执行层调用。
     pub fn resolve_rules(
         &self,
         rule_type: RuleType,
-        group_name: Option<&str>,
+        group_key: Option<&str>,
         platform_id: Option<i64>,
     ) -> Vec<CompiledRule> {
         let guard = match self.buckets.read() {
@@ -148,7 +148,7 @@ impl MiddlewareEngine {
         }
 
         // group 层
-        if let Some(gname) = group_name {
+        if let Some(gname) = group_key {
             if let Some(bucket) = guard.get(&(rule_type, RuleScope::Group)) {
                 let matched: Vec<CompiledRule> = bucket
                     .iter()
@@ -201,7 +201,7 @@ impl MiddlewareEngine {
         &self,
         settings: &MiddlewareSettings,
         chat_req: &mut ChatRequest,
-        group_name: Option<&str>,
+        group_key: Option<&str>,
     ) -> InboundOutcome {
         if !settings.enabled {
             return InboundOutcome::Continue;
@@ -210,7 +210,7 @@ impl MiddlewareEngine {
             if !settings.type_enabled(rule_type) {
                 continue;
             }
-            let rules = self.resolve_rules(rule_type, group_name, None);
+            let rules = self.resolve_rules(rule_type, group_key, None);
             if let outcome @ InboundOutcome::Blocked { .. } =
                 apply_rules_inbound(rule_type, &rules, chat_req)
             {
@@ -634,7 +634,7 @@ impl MiddlewareEngine {
         &self,
         settings: &MiddlewareSettings,
         body: &mut String,
-        group_name: Option<&str>,
+        group_key: Option<&str>,
         platform_id: Option<i64>,
     ) {
         if !settings.enabled {
@@ -644,7 +644,7 @@ impl MiddlewareEngine {
             if !settings.type_enabled(rule_type) {
                 continue;
             }
-            let rules = self.resolve_rules(rule_type, group_name, platform_id);
+            let rules = self.resolve_rules(rule_type, group_key, platform_id);
             for cr in &rules {
                 apply_outbound_body_rule(rule_type, cr, body);
             }
@@ -661,13 +661,13 @@ impl MiddlewareEngine {
         settings: &MiddlewareSettings,
         status: u16,
         body: &str,
-        group_name: Option<&str>,
+        group_key: Option<&str>,
         platform_id: Option<i64>,
     ) -> Option<ErrorClassification> {
         if !settings.type_enabled(RuleType::ErrorRule) {
             return None;
         }
-        let rules = self.resolve_rules(RuleType::ErrorRule, group_name, platform_id);
+        let rules = self.resolve_rules(RuleType::ErrorRule, group_key, platform_id);
         // 匹配文本 = 状态码 + 上游 body（pattern 可命中其一）。
         let haystack = format!("{status}\n{body}");
         for cr in &rules {
@@ -711,7 +711,7 @@ impl MiddlewareEngine {
         &self,
         settings: &MiddlewareSettings,
         text: &str,
-        group_name: Option<&str>,
+        group_key: Option<&str>,
         platform_id: Option<i64>,
     ) -> String {
         if !settings.enabled {
@@ -727,7 +727,7 @@ impl MiddlewareEngine {
             if !settings.type_enabled(rule_type) {
                 continue;
             }
-            let rules = self.resolve_rules(rule_type, group_name, platform_id);
+            let rules = self.resolve_rules(rule_type, group_key, platform_id);
             for cr in &rules {
                 out = rewrite_chunk_text(rule_type, cr, &out);
             }
@@ -913,7 +913,7 @@ mod tests {
         assert_eq!(r.len(), 1);
         assert_eq!(r[0].rule.pattern, "group");
 
-        // group 不匹配 group_name → 落 global
+        // group 不匹配 group_key → 落 global
         let r2 = engine.resolve_rules(RuleType::Redaction, Some("other-team"), Some(99));
         assert_eq!(r2.len(), 1);
         assert_eq!(r2[0].rule.pattern, "global");

@@ -125,7 +125,7 @@ export interface NavContext {
   platformId?: number;
   platformName?: string;
   groupId?: string;
-  groupName?: string;
+  groupKey?: string;
   model?: string;
 }
 

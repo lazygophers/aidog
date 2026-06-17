@@ -160,7 +160,7 @@ async fn handle_root() -> Response {
 }
 
 /// 分组信息端点 — 仅单平台分组返回本地预估值。
-/// 鉴权：`Authorization: Bearer <group_name>`，localhost-only 端点。
+/// 鉴权：`Authorization: Bearer <group_key>`，localhost-only 端点。
 /// 多平台 / 无平台分组返回 `{ applicable:false, ... }`（200）。
 async fn handle_group_info(
     state: AxumState<Arc<ProxyState>>,
@@ -190,13 +190,13 @@ async fn handle_group_info_inner(
         balance_level: super::usage_color::UsageLevel::Neutral.as_str().to_string(),
     };
 
-    // 从 Authorization: Bearer <token> 提取 group_name
-    let group_name = headers
+    // 从 Authorization: Bearer <token> 提取 group_key
+    let group_key = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .map(|s| s.trim().to_string());
-    let group_name = match group_name {
+    let group_key = match group_key {
         Some(n) if !n.is_empty() => n,
         _ => return StatusCode::UNAUTHORIZED.into_response(),
     };
@@ -209,10 +209,10 @@ async fn handle_group_info_inner(
             return (StatusCode::OK, Json(empty())).into_response();
         }
     };
-    let group = match groups.iter().find(|g| g.name == group_name) {
+    let group = match groups.iter().find(|g| g.group_key == group_key) {
         Some(g) => g,
         None => {
-            tracing::debug!(group = %group_name, "group-info: group not found, not-applicable");
+            tracing::debug!(group = %group_key, "group-info: group not found, not-applicable");
             return (StatusCode::OK, Json(empty())).into_response();
         }
     };
@@ -221,7 +221,7 @@ async fn handle_group_info_inner(
     let platforms = match super::db::get_group_platforms(&state.db, group.id).await {
         Ok(p) => p,
         Err(e) => {
-            tracing::warn!(group = %group_name, error = %e, "group-info: get_group_platforms failed, not-applicable");
+            tracing::warn!(group = %group_key, error = %e, "group-info: get_group_platforms failed, not-applicable");
             return (StatusCode::OK, Json(empty())).into_response();
         }
     };
@@ -231,7 +231,7 @@ async fn handle_group_info_inner(
     let platform = &platforms[0].platform;
 
     // usage 统计（复用现有 db 查询，只读）
-    let stats = super::db::get_group_usage_stats(&state.db, &group.name).await.unwrap_or(
+    let stats = super::db::get_group_usage_stats(&state.db, &group.group_key).await.unwrap_or(
         super::models::PlatformUsageStats {
             total_requests: 0,
             success_count: 0,
@@ -336,7 +336,7 @@ async fn handle_group_info_inner(
     // 余额可用天数：动态窗口日速率（rate_per_hour，prd B）→ days = (balance / rate_per_hour) / 24。
     // 无用量数据 / 无余额 → null（配色中性，不报警）。
     let balance_days_remaining = {
-        let rate_per_hour = super::db::get_group_hourly_rate(&state.db, &group.name).await.unwrap_or(None);
+        let rate_per_hour = super::db::get_group_hourly_rate(&state.db, &group.group_key).await.unwrap_or(None);
         match rate_per_hour {
             Some(rate) if rate > 0.0 && balance > 0.0 => Some((balance / rate) / 24.0),
             _ => None,
@@ -379,9 +379,9 @@ struct NotifyReq {
     vars: std::collections::HashMap<String, String>,
 }
 
-/// 通知端点 — localhost-only，鉴权 `Authorization: Bearer <group_name>`（仿 /api/group-info）。
+/// 通知端点 — localhost-only，鉴权 `Authorization: Bearer <group_key>`（仿 /api/group-info）。
 /// hook 脚本调用此端点触发通知。body `{type, content?, vars?}`。
-/// 鉴权用的 group_name 校验存在性，并作为 `{group}` 变量回填（脚本未显式带 group 时）。
+/// 鉴权用的 group_key 校验存在性，并作为 `{group}` 变量回填（脚本未显式带 group 时）。
 async fn handle_notify(
     state: AxumState<Arc<ProxyState>>,
     headers: axum::http::HeaderMap,
@@ -396,28 +396,30 @@ async fn handle_notify_inner(
     headers: axum::http::HeaderMap,
     body: Bytes,
 ) -> Response {
-    // Bearer group_name 鉴权
-    let group_name = headers
+    // Bearer group_key 鉴权
+    let group_key = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
         .map(|s| s.trim().to_string());
-    let group_name = match group_name {
+    let group_key = match group_key {
         Some(n) if !n.is_empty() => n,
         _ => return StatusCode::UNAUTHORIZED.into_response(),
     };
-    // 校验分组存在（防任意 token 触发；不存在则拒绝）
-    match super::db::list_groups(&state.db).await {
-        Ok(groups) if groups.iter().any(|g| g.name == group_name) => {}
-        Ok(_) => {
-            tracing::debug!(group = %group_name, "notify: group not found, reject");
-            return StatusCode::UNAUTHORIZED.into_response();
-        }
+    // 校验分组存在（防任意 token 触发；不存在则拒绝）；同时取显示名供脚本 {group} 渲染。
+    let group_name = match super::db::list_groups(&state.db).await {
+        Ok(groups) => match groups.iter().find(|g| g.group_key == group_key) {
+            Some(g) => g.name.clone(),
+            None => {
+                tracing::debug!(group = %group_key, "notify: group not found, reject");
+                return StatusCode::UNAUTHORIZED.into_response();
+            }
+        },
         Err(e) => {
             tracing::warn!(error = %e, "notify: list_groups failed");
             return StatusCode::INTERNAL_SERVER_ERROR.into_response();
         }
-    }
+    };
 
     let req: NotifyReq = match serde_json::from_slice(&body) {
         Ok(r) => r,
@@ -427,7 +429,7 @@ async fn handle_notify_inner(
         }
     };
 
-    // 注入内置变量：{group} 默认取鉴权 group；{time} 默认当前本地时间（脚本可覆盖）。
+    // 注入内置变量：{group} 默认取鉴权分组的显示名（name，非 token group_key）；{time} 默认当前本地时间（脚本可覆盖）。
     let mut vars = req.vars;
     vars.entry("group".to_string()).or_insert_with(|| group_name.clone());
     vars.entry("time".to_string()).or_insert_with(|| {
@@ -703,7 +705,7 @@ async fn handle_proxy_inner(
     // ── 初始化日志条目 ──
     let mut log = ProxyLog {
         id: request_id,
-        group_name: String::new(),
+        group_key: String::new(),
         model: String::new(),
         actual_model: String::new(),
         source_protocol: String::new(),  // will be set from group
@@ -820,7 +822,7 @@ async fn handle_proxy_inner(
     };
 
     // Upsert #2: group resolved
-    log.group_name = group.name.clone();
+    log.group_key = group.group_key.clone();
     // Auto-detect source_protocol from request path (group no longer restricts inbound protocol)
     let source_protocol = detect_source_protocol(&path);
     log.source_protocol = source_protocol.clone();
@@ -889,7 +891,7 @@ async fn handle_proxy_inner(
     {
         let mw_settings = super::db::get_middleware_settings(&state.db).await;
         if let InboundOutcome::Blocked { blocked_by, blocked_reason } =
-            state.middleware.apply_inbound(&mw_settings, &mut chat_req, Some(&group.name))
+            state.middleware.apply_inbound(&mw_settings, &mut chat_req, Some(&group.group_key))
         {
             return block_inbound(&state, log, &log_settings, lang, blocked_by, blocked_reason, start).await;
         }
@@ -898,8 +900,8 @@ async fn handle_proxy_inner(
     // ── 路由选择有序候选平台列表（失败逐个重试）──
     // 调度上下文：scheduler(熔断+延迟+在途) / sticky(粘性绑定) / scheduling settings。
     let sched_settings = super::db::get_scheduling_settings(&state.db).await;
-    // Sticky session 键：aidog 无 session_id 概念（见 design.md），用 group_name + 客户端稳定标识。
-    // 稳定标识优先取 x-session-id / session_id header，缺省回退 user-agent；再缺省仅用 group_name。
+    // Sticky session 键：aidog 无 session_id 概念（见 design.md），用 group_key + 客户端稳定标识。
+    // 稳定标识优先取 x-session-id / session_id header，缺省回退 user-agent；再缺省仅用 group_key。
     let sticky_key = {
         let client_id = orig_headers
             .get("x-session-id")
@@ -907,7 +909,7 @@ async fn handle_proxy_inner(
             .or_else(|| orig_headers.get("user-agent"))
             .and_then(|v| v.to_str().ok())
             .unwrap_or("");
-        Some(format!("{}|{}", group.name, client_id))
+        Some(format!("{}|{}", group.group_key, client_id))
     };
     let sched_ctx = ScheduleCtx {
         scheduler: &state.scheduler,
@@ -1331,7 +1333,7 @@ async fn handle_proxy_inner(
             let mw_settings = super::db::get_middleware_settings(&state.db).await;
             state.middleware.classify_error(
                 &mw_settings, code, &body,
-                Some(&group.name), Some(route.platform.id as i64),
+                Some(&group.group_key), Some(route.platform.id as i64),
             )
         };
         let non_retryable = err_class.as_ref().map(|c| !c.retryable).unwrap_or(false);
@@ -1421,7 +1423,7 @@ async fn handle_proxy_inner(
             let mw_settings = super::db::get_middleware_settings(&state.db).await;
             state.middleware.apply_outbound(
                 &mw_settings, &mut s,
-                Some(&group.name), Some(route.platform.id as i64),
+                Some(&group.group_key), Some(route.platform.id as i64),
             );
             s.into_bytes()
         };
@@ -1493,7 +1495,7 @@ async fn handle_proxy_inner(
     let mw_engine = state.middleware.clone();
     let mw_settings = super::db::get_middleware_settings(&state.db).await;
     let mw_active = mw_settings.enabled;
-    let mw_group = group.name.clone();
+    let mw_group = group.group_key.clone();
     let mw_platform_id = route.platform.id as i64;
 
     // ── 旁路聚合器：累积 token + 上游 SSE 原文 + 转换后下发客户端的 SSE。
@@ -2538,7 +2540,7 @@ async fn handle_count_tokens(
         scheduler: &state.scheduler,
         sticky: &state.sticky,
         settings: &sched_settings,
-        sticky_key: Some(format!("{}|count_tokens", group.name)),
+        sticky_key: Some(format!("{}|count_tokens", group.group_key)),
     };
     let candidate_set =
         match select_candidates_ctx(&state.db, group, &requested_model, Some(&sched_ctx)).await {
@@ -3043,9 +3045,9 @@ fn infer_passthrough_protocol_from_ua(ua: &str) -> Option<&'static str> {
     }
 }
 
-/// 在已取出的分组列表中按 group name（= Authorization Bearer apikey）精确匹配。
-/// 分组路由纯按 apikey，不再支持 URL path 前缀匹配。
-async fn resolve_group(db: &Db, name: Option<&str>) -> Option<Group> {
+/// 在已取出的分组列表中按 group_key（= Authorization Bearer apikey）精确匹配。
+/// 分组路由纯按 apikey(group_key)，不再支持 URL path 前缀匹配。
+async fn resolve_group(db: &Db, token: Option<&str>) -> Option<Group> {
     let groups = match super::db::list_groups(db).await {
         Ok(g) => g,
         Err(e) => {
@@ -3053,11 +3055,11 @@ async fn resolve_group(db: &Db, name: Option<&str>) -> Option<Group> {
             return None;
         }
     };
-    if let Some(name) = name {
-        if let Some(idx) = groups.iter().position(|g| g.name == name) {
+    if let Some(token) = token {
+        if let Some(idx) = groups.iter().position(|g| g.group_key == token) {
             return groups.into_iter().nth(idx);
         }
-        tracing::warn!(token = %name, "resolve_group: token did not match any group name");
+        tracing::warn!(token = %token, "resolve_group: token did not match any group_key");
     }
     tracing::warn!(group_count = groups.len(), "resolve_group: no group matched token");
     None

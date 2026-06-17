@@ -278,6 +278,30 @@ impl Db {
                 // Migration 023: 移除 group.path（路由纯按 apikey=group.name）+ name 加 UNIQUE。
                 // 重建表迁移（见 migrations/009_drop_group_path.sql）；列名显式匹配保证幂等。
                 conn.execute_batch(include_str!("../../migrations/009_drop_group_path.sql"))?;
+                // Migration 024: group 拆 group_key（密钥/路由/日志归属键）+ name（显示名）。
+                // group_key UNIQUE: Bearer token + 路由匹配键 + proxy_log 归属键（前端按 group_key 反查 name 显示）。
+                // name UNIQUE: 防重名。老 group.group_key 初值 = 旧 name（statusline 脚本/已分发 token 不破）。
+                // 幂等：PRAGMA 探测 group_key 列存在性，已迁移则跳过重建。
+                let has_group_key = conn
+                    .prepare("PRAGMA table_info(\"group\")")?
+                    .query_map([], |r| r.get::<_, String>(1))?
+                    .filter_map(Result::ok)
+                    .any(|c| c == "group_key");
+                if !has_group_key {
+                    conn.execute_batch(include_str!("../../migrations/010_group_key.sql"))?;
+                }
+                // proxy_log.group_key → group_key（幂等：探测列存在性）。
+                let has_log_group_key = conn
+                    .prepare("PRAGMA table_info(proxy_log)")?
+                    .query_map([], |r| r.get::<_, String>(1))?
+                    .filter_map(Result::ok)
+                    .any(|c| c == "group_key");
+                if !has_log_group_key {
+                    let _ = conn.execute(
+                        "ALTER TABLE proxy_log RENAME COLUMN group_name TO group_key",
+                        [],
+                    );
+                }
                 Ok(())
             })
             .await
@@ -1080,7 +1104,7 @@ pub async fn today_platform_stats(db: &Db) -> Result<Vec<TodayPlatformStat>, Str
     db.0
         .call(move |conn| {
             // 有效平台 id = COALESCE(自动分组回溯, 原 platform_id)。
-            // 自动分组日志 platform_id=0，通过 group_name → "group".auto_from_platform（十进制字符串）回溯。
+            // 自动分组日志 platform_id=0，通过 group_key → "group".auto_from_platform（十进制字符串）回溯。
             // GROUP BY 该有效 id，天然只含当日有日志（已用）的平台。
             let sql = "
                 SELECT eff_pid,
@@ -1092,7 +1116,7 @@ pub async fn today_platform_stats(db: &Db) -> Result<Vec<TodayPlatformStat>, Str
                         CASE WHEN platform_id = 0 THEN COALESCE(
                             (SELECT CAST(g.auto_from_platform AS INTEGER)
                              FROM \"group\" g
-                             WHERE g.name = proxy_log.group_name
+                             WHERE g.name = proxy_log.group_key
                                AND g.auto_from_platform != ''
                                AND g.deleted_at = 0
                              LIMIT 1), 0)
@@ -1217,7 +1241,7 @@ fn parse_mappings(json: &str) -> Vec<ModelMapping> {
 
 /// Group SELECT 列序
 const GROUP_COLUMNS: &str =
-    "id, name, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order, max_retries";
+    "id, name, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order, max_retries, group_key";
 
 fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
     let routing_str: String = row.get(2)?;
@@ -1236,6 +1260,7 @@ fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
         deleted_at: 0,
         sort_order: row.get::<_, i64>(10)?,
         max_retries: row.get::<_, i64>(11)? as u32,
+        group_key: row.get(12)?,
     })
 }
 
@@ -1244,11 +1269,18 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
     let routing_str = serde_json::to_string(&input.routing_mode).unwrap();
     let source_protocol = input.source_protocol.unwrap_or_else(|| "anthropic".to_string());
     let mappings_str = serialize_mappings(&input.model_mappings);
+    // group_key：用户提供则用，否则自动生成 gk_<32hex>（创建后锁定不可改）。
+    let group_key = input
+        .group_key
+        .filter(|s| !s.trim().is_empty())
+        .map(|s| s.trim().to_string())
+        .unwrap_or_else(|| format!("gk_{}", uuid::Uuid::new_v4().simple()));
 
     let id = db
         .0
         .call({
             let name = input.name.clone();
+            let group_key = group_key.clone();
             let auto_from_platform = input.auto_from_platform.clone();
             let request_timeout_secs = input.request_timeout_secs as i64;
             let connect_timeout_secs = input.connect_timeout_secs as i64;
@@ -1256,8 +1288,8 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
             let max_retries = input.max_retries as i64;
             move |conn| {
                 conn.execute(
-                    "INSERT INTO \"group\" (name, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, max_retries) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
-                    params![name, routing_str, auto_from_platform, ts, ts, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, max_retries],
+                    "INSERT INTO \"group\" (name, group_key, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, max_retries) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                    params![name, group_key, routing_str, auto_from_platform, ts, ts, request_timeout_secs, connect_timeout_secs, source_protocol, mappings_str, max_retries],
                 )?;
                 Ok(conn.last_insert_rowid() as u64)
             }
@@ -1269,6 +1301,7 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
     Ok(Group {
         id,
         name: input.name,
+        group_key,
         routing_mode: input.routing_mode,
         auto_from_platform: input.auto_from_platform,
         created_at: ts,
@@ -1991,13 +2024,13 @@ pub async fn clear_notifications(db: &Db) -> Result<(), String> {
 
 /// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
 const PROXY_LOG_COLUMNS: &str =
-    "id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at";
+    "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at";
 
 /// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
 fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
     Ok(super::models::ProxyLog {
         id: row.get(0)?,
-        group_name: row.get(1)?,
+        group_key: row.get(1)?,
         model: row.get(2)?,
         actual_model: row.get(3)?,
         source_protocol: row.get(4)?,
@@ -2041,7 +2074,7 @@ pub async fn upsert_proxy_log(db: &Db, log: super::models::ProxyLog) -> Result<(
             conn.execute(
                 &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
                  VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32)"),
-                params![log.id, log.group_name, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at],
+                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at],
             )?;
             Ok(())
         })
@@ -2059,7 +2092,7 @@ pub async fn upsert_proxy_log(db: &Db, log: super::models::ProxyLog) -> Result<(
 #[derive(Clone, PartialEq)]
 pub struct ProxyLogColumns {
     pub id: String,
-    pub group_name: String,
+    pub group_key: String,
     pub model: String,
     pub actual_model: String,
     pub source_protocol: String,
@@ -2102,7 +2135,7 @@ impl ProxyLogColumns {
         let empty = String::new;
         ProxyLogColumns {
             id: log.id.clone(),
-            group_name: log.group_name.clone(),
+            group_key: log.group_key.clone(),
             model: log.model.clone(),
             actual_model: log.actual_model.clone(),
             source_protocol: log.source_protocol.clone(),
@@ -2146,7 +2179,7 @@ impl ProxyLogColumns {
                 }
             };
         }
-        diff!("group_name", group_name);
+        diff!("group_key", group_key);
         diff!("model", model);
         diff!("actual_model", actual_model);
         diff!("source_protocol", source_protocol);
@@ -2188,7 +2221,7 @@ pub async fn insert_proxy_log_columns(db: &Db, cols: ProxyLogColumns) -> Result<
             conn.execute(
                 &format!("INSERT INTO proxy_log ({PROXY_LOG_COLUMNS})
                  VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32)"),
-                params![cols.id, cols.group_name, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at],
+                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at],
             )?;
             Ok(())
         })
@@ -2228,7 +2261,7 @@ pub async fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<sup
     db.0
         .call(move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at
+                "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at
                  FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
             )?;
             let rows = stmt.query_map(params![limit, offset], row_to_proxy_log_summary)?;
@@ -2242,7 +2275,7 @@ pub async fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<sup
 fn row_to_proxy_log_summary(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLogSummary> {
     Ok(super::models::ProxyLogSummary {
         id: row.get(0)?,
-        group_name: row.get(1)?,
+        group_key: row.get(1)?,
         model: row.get(2)?,
         actual_model: row.get(3)?,
         source_protocol: row.get(4)?,
@@ -2272,7 +2305,7 @@ pub async fn filtered_list_proxy_logs(
             p.push(Box::new(limit));
             p.push(Box::new(offset));
             let sql = format!(
-                "SELECT id, group_name, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at \
+                "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at \
                  FROM proxy_log WHERE deleted_at = 0{where_sql} ORDER BY created_at DESC LIMIT ? OFFSET ?"
             );
             let mut stmt = conn.prepare(&sql)?;
@@ -2312,8 +2345,8 @@ fn build_filter_where(filter: &super::models::ProxyLogFilter) -> (String, Vec<Bo
         p.push(Box::new(*v as i64));
         idx += 1;
     }
-    if let Some(ref v) = filter.group_name {
-        parts.push(format!("AND group_name = ?{idx}"));
+    if let Some(ref v) = filter.group_key {
+        parts.push(format!("AND group_key = ?{idx}"));
         p.push(Box::new(v.clone()));
         idx += 1;
     }
@@ -2483,7 +2516,7 @@ pub async fn get_platform_usage_stats(db: &Db, platform_id: u64) -> Result<super
     db.0
         .call(move |conn| {
             // platform_id 现为整数；自动分组日志可能未带 platform_id（=0），通过 group.auto_from_platform（存十进制字符串）回溯
-            let where_clause = "deleted_at = 0 AND (platform_id = ?1 OR (platform_id = 0 AND group_name IN (SELECT name FROM \"group\" WHERE auto_from_platform = ?2 AND deleted_at = 0)))";
+            let where_clause = "deleted_at = 0 AND (platform_id = ?1 OR (platform_id = 0 AND group_key IN (SELECT name FROM \"group\" WHERE auto_from_platform = ?2 AND deleted_at = 0)))";
             let pid = platform_id as i64;
             let pid_str = platform_id.to_string();
             Ok(usage_stats(conn, where_clause, &[&pid, &pid_str])?)
@@ -2492,19 +2525,19 @@ pub async fn get_platform_usage_stats(db: &Db, platform_id: u64) -> Result<super
         .map_err(|e| format!("platform usage stats: {e}"))
 }
 
-pub async fn get_group_usage_stats(db: &Db, group_name: &str) -> Result<super::models::PlatformUsageStats, String> {
-    let group_name = group_name.to_string();
+pub async fn get_group_usage_stats(db: &Db, group_key: &str) -> Result<super::models::PlatformUsageStats, String> {
+    let group_key = group_key.to_string();
     db.0
         .call(move |conn| {
-            Ok(usage_stats(conn, "group_name = ?1 AND deleted_at = 0", &[&group_name])?)
+            Ok(usage_stats(conn, "group_key = ?1 AND deleted_at = 0", &[&group_key])?)
         })
         .await
         .map_err(|e| format!("group usage stats: {e}"))
 }
 
-/// 批量：单查 `GROUP BY group_name` 返回所有 group → 聚合 map（问题6 N+1 消除）。
+/// 批量：单查 `GROUP BY group_key` 返回所有 group → 聚合 map（问题6 N+1 消除）。
 /// 替代前端逐 group 调 `get_group_usage_stats`（N 次往返 → 1 次）。
-/// `GROUP BY group_name` 天然满足 CLAUDE.md「共享平台不重复计入」：日志按 group_name 归属，
+/// `GROUP BY group_key` 天然满足 CLAUDE.md「共享平台不重复计入」：日志按 group_key 归属，
 /// 同一平台被多 group 共享时各 group 只统计经本 group 进来的请求，无重复。
 /// recent_failures/recent_total/cache_rate 不在批量结果内（Groups 页不渲染，避免每组 5 行子查询）。
 pub async fn get_all_group_usage_stats(
@@ -2513,15 +2546,15 @@ pub async fn get_all_group_usage_stats(
     db.0
         .call(move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT group_name, COUNT(*), \
+                "SELECT group_key, COUNT(*), \
                  SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
                  SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), \
                  COALESCE(SUM(est_cost), 0.0) \
-                 FROM proxy_log WHERE deleted_at = 0 AND group_name <> '' \
-                 GROUP BY group_name",
+                 FROM proxy_log WHERE deleted_at = 0 AND group_key <> '' \
+                 GROUP BY group_key",
             )?;
             let rows = stmt.query_map([], |row| {
-                let group_name: String = row.get(0)?;
+                let group_key: String = row.get(0)?;
                 let total: i64 = row.get(1).unwrap_or(0);
                 let success: i64 = row.get(2).unwrap_or(0);
                 let inp: i64 = row.get(3).unwrap_or(0);
@@ -2529,7 +2562,7 @@ pub async fn get_all_group_usage_stats(
                 let cache: i64 = row.get(5).unwrap_or(0);
                 let cost: f64 = row.get(6).unwrap_or(0.0);
                 Ok((
-                    group_name,
+                    group_key,
                     super::models::PlatformUsageStats {
                         total_requests: total,
                         success_count: success,
@@ -2601,13 +2634,13 @@ fn hourly_rate_inner(
 
 /// 分组动态窗口日用量速率（$ / 小时），供 statusline 余额「剩余可用天数」配色。
 /// 无任何用量 → None（配色侧视作中性 / 不报警）。短持锁，不跨 await。
-pub async fn get_group_hourly_rate(db: &Db, group_name: &str) -> Result<Option<f64>, String> {
+pub async fn get_group_hourly_rate(db: &Db, group_key: &str) -> Result<Option<f64>, String> {
     let now_ms = chrono::Utc::now().timestamp_millis();
     let window_start = now_ms - RATE_MAX_SPAN_MS;
-    let group_name = group_name.to_string();
+    let group_key = group_key.to_string();
     db.0
         .call(move |conn| {
-            Ok(hourly_rate_inner(conn, now_ms, window_start, "group_name = ?2", &[&group_name])?)
+            Ok(hourly_rate_inner(conn, now_ms, window_start, "group_key = ?2", &[&group_key])?)
         })
         .await
         .map_err(|e| format!("group hourly rate: {e}"))
@@ -2624,7 +2657,7 @@ pub async fn get_platform_hourly_rate(db: &Db, platform_id: u64) -> Result<Optio
         .call(move |conn| {
             let pid = platform_id as i64;
             let pid_str = platform_id.to_string();
-            let scope = "platform_id = ?2 OR (platform_id = 0 AND group_name IN (SELECT name FROM \"group\" WHERE auto_from_platform = ?3 AND deleted_at = 0))";
+            let scope = "platform_id = ?2 OR (platform_id = 0 AND group_key IN (SELECT name FROM \"group\" WHERE auto_from_platform = ?3 AND deleted_at = 0))";
             Ok(hourly_rate_inner(conn, now_ms, window_start, scope, &[&pid, &pid_str])?)
         })
         .await
@@ -2699,14 +2732,14 @@ fn query_stats_inner(conn: &Connection, query: &StatsQuery) -> Result<StatsResul
     const EFF_PID: &str = "\
 CASE WHEN proxy_log.platform_id = 0 THEN COALESCE(\
 (SELECT CAST(g.auto_from_platform AS INTEGER) FROM \"group\" g \
- WHERE g.name = proxy_log.group_name AND g.auto_from_platform != '' AND g.deleted_at = 0 LIMIT 1), 0)\
+ WHERE g.name = proxy_log.group_key AND g.auto_from_platform != '' AND g.deleted_at = 0 LIMIT 1), 0)\
 ELSE proxy_log.platform_id END";
 
     // Build WHERE clause（列名一律 proxy_log. 前缀：dimension platform 分支 LEFT JOIN platform 后，
     // deleted_at / created_at 等列两表皆有，裸列名会触发 ambiguous column 错误）
     let mut where_parts = vec!["proxy_log.created_at >= ?1".to_string(), "proxy_log.created_at <= ?2".to_string()];
     if qp.filter_group.is_some() {
-        where_parts.push("proxy_log.group_name = ?3".to_string());
+        where_parts.push("proxy_log.group_key = ?3".to_string());
     }
     if qp.filter_model.is_some() {
         let idx = 3 + qp.filter_group.is_some() as usize;
@@ -2796,7 +2829,7 @@ ELSE proxy_log.platform_id END";
         } else {
             let dim_col = match gb.as_str() {
                 "model" => "actual_model",
-                _ => "group_name",
+                _ => "group_key",
             };
             format!(
                 "SELECT {dim_col}, COUNT(*), \
@@ -2837,7 +2870,7 @@ ELSE proxy_log.platform_id END";
             "proxy_log.created_at <= ?2".to_string(),
         ];
         if qp.filter_group.is_some() {
-            parts.push("proxy_log.group_name = ?3".to_string());
+            parts.push("proxy_log.group_key = ?3".to_string());
         }
         if qp.filter_platform.is_some() {
             let idx = 3 + qp.filter_group.is_some() as usize;
@@ -3607,6 +3640,7 @@ mod tests {
     fn sample_group(name: &str, mappings: Vec<ModelMapping>) -> CreateGroup {
         CreateGroup {
             name: name.to_string(),
+            group_key: Some(name.to_string()),
             routing_mode: RoutingMode::Failover,
             auto_from_platform: String::new(),
             request_timeout_secs: 0,
@@ -3617,10 +3651,10 @@ mod tests {
         }
     }
 
-    fn sample_log(id: &str, group_name: &str, created_at: i64) -> ProxyLog {
+    fn sample_log(id: &str, group_key: &str, created_at: i64) -> ProxyLog {
         ProxyLog {
             id: id.to_string(),
-            group_name: group_name.to_string(),
+            group_key: group_key.to_string(),
             model: "claude-sonnet-4".to_string(),
             actual_model: "glm-4-plus".to_string(),
             source_protocol: "anthropic".to_string(),
@@ -4145,8 +4179,8 @@ decimals: None,
         assert_eq!(s.requests, 2);
     }
 
-    /// 批量 group stats（问题6）：单查 GROUP BY group_name 返回所有 group 聚合，
-    /// 与逐 group get_group_usage_stats 数值一致；不同 group 互不串味；空 group_name 不出现。
+    /// 批量 group stats（问题6）：单查 GROUP BY group_key 返回所有 group 聚合，
+    /// 与逐 group get_group_usage_stats 数值一致；不同 group 互不串味；空 group_key 不出现。
     #[tokio::test]
     async fn all_group_usage_stats_matches_per_group() {
         let db = test_db().await;
@@ -4155,12 +4189,12 @@ decimals: None,
         upsert_proxy_log(&db, sample_log("a1", "ga", now_ms)).await.unwrap();
         upsert_proxy_log(&db, sample_log("a2", "ga", now_ms)).await.unwrap();
         upsert_proxy_log(&db, sample_log("b1", "gb", now_ms)).await.unwrap();
-        // 空 group_name 的日志（未匹配分组场景）：批量结果中不应出现。
+        // 空 group_key 的日志（未匹配分组场景）：批量结果中不应出现。
         upsert_proxy_log(&db, sample_log("e1", "", now_ms)).await.unwrap();
 
         let all = get_all_group_usage_stats(&db).await.unwrap();
         assert_eq!(all.len(), 2, "仅 ga/gb 两个非空 group");
-        assert!(!all.contains_key(""), "空 group_name 不计入");
+        assert!(!all.contains_key(""), "空 group_key 不计入");
 
         // 与逐 group 查询数值逐字段一致。
         for name in ["ga", "gb"] {
@@ -4248,6 +4282,7 @@ decimals: None,
         // 一个 auto 组（auto_from_platform 非空）+ 两个手动组。
         let auto_g = create_group(&db, CreateGroup {
             name: "auto-g".into(),
+            group_key: Some("auto-g".into()),
             routing_mode: RoutingMode::Failover,
             auto_from_platform: p.id.to_string(),
             request_timeout_secs: 0, connect_timeout_secs: 0,
@@ -4569,7 +4604,7 @@ decimals: None,
         assert!(row.user_response_body.is_empty());
         assert!(row.upstream_request_body.is_empty());
         // 非脱敏字段保留。
-        assert_eq!(row.group_name, "grp");
+        assert_eq!(row.group_key, "grp");
         assert_eq!(row.model, "claude-sonnet-4");
     }
 

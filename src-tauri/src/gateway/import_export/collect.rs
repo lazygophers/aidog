@@ -78,12 +78,12 @@ fn collect_codex(payload: &mut Payload) -> Result<(), String> {
     payload.codex_global = read_text_optional(&global);
 
     // 各 group profile = `<group>.config.toml`。从已收集的 group 名遍历。
-    let group_names: Vec<String> = payload
+    let group_keys: Vec<String> = payload
         .group
         .iter()
-        .filter_map(|g| g.get("name").and_then(|v| v.as_str()).map(String::from))
+        .filter_map(|g| g.get("group_key").and_then(|v| v.as_str()).or_else(|| g.get("name").and_then(|v| v.as_str())).map(String::from))
         .collect();
-    for name in &group_names {
+    for name in &group_keys {
         let path = codex::profile_path_public(name)?;
         if let Some(text) = read_text_optional(&path) {
             payload.codex_profiles.push(NamedText {
@@ -103,12 +103,12 @@ fn collect_claude_code(payload: &mut Payload) -> Result<(), String> {
 
     // 各 group ~/.aidog/settings.{group}.json
     let aidog_dir = home.join(".aidog");
-    let group_names: Vec<String> = payload
+    let group_keys: Vec<String> = payload
         .group
         .iter()
-        .filter_map(|g| g.get("name").and_then(|v| v.as_str()).map(String::from))
+        .filter_map(|g| g.get("group_key").and_then(|v| v.as_str()).or_else(|| g.get("name").and_then(|v| v.as_str())).map(String::from))
         .collect();
-    for name in &group_names {
+    for name in &group_keys {
         let path = aidog_dir.join(format!("settings.{name}.json"));
         if let Some(text) = read_text_optional(&path) {
             payload

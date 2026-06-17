@@ -63,20 +63,30 @@ pub async fn preview(file_bytes: &[u8], db: &Db) -> Result<ImportPreview, String
 async fn detect_conflicts(payload: &Payload, db: &Db) -> Result<Vec<ConflictItem>, String> {
     let mut out = Vec::new();
 
-    let existing_group_names: std::collections::BTreeSet<String> =
+    let existing_group_keys: std::collections::BTreeSet<String> =
         crate::gateway::db::list_groups(db)
             .await?
             .into_iter()
-            .map(|g| g.name)
+            .map(|g| g.group_key)
             .collect();
     for g in &payload.group {
-        if let Some(name) = g.get("name").and_then(|v| v.as_str()) {
-            if existing_group_names.contains(name) {
+        // group_key 作冲突键（fallback name 兼容老导出）；name 仅作显示。
+        let gkey = g
+            .get("group_key")
+            .and_then(|v| v.as_str())
+            .or_else(|| g.get("name").and_then(|v| v.as_str()));
+        let gname = g
+            .get("name")
+            .and_then(|v| v.as_str())
+            .or(gkey)
+            .unwrap_or("");
+        if let Some(k) = gkey {
+            if existing_group_keys.contains(k) {
                 out.push(ConflictItem {
                     scope: super::SCOPE_GROUP.to_string(),
-                    key: name.to_string(),
-                    existing_summary: format!("已存在同名分组「{name}」"),
-                    incoming_summary: format!("导入将覆盖分组「{name}」配置"),
+                    key: k.to_string(),
+                    existing_summary: format!("已存在同密钥分组「{gname}」"),
+                    incoming_summary: format!("导入将覆盖分组「{gname}」配置"),
                 });
             }
         }
@@ -301,7 +311,13 @@ async fn apply_db(
             Some(n) => n.to_string(),
             None => continue,
         };
-        let key = name.clone();
+        // group_key 作唯一标识（fallback name 兼容老导出文件）；name 作显示名（冲突可重命名）。
+        let group_key = g
+            .get("group_key")
+            .and_then(|v| v.as_str())
+            .unwrap_or(&name)
+            .to_string();
+        let key = group_key.clone();
         let decision = dec
             .get(&(super::SCOPE_GROUP.to_string(), key.clone()))
             .copied();
@@ -310,7 +326,7 @@ async fn apply_db(
             bump(&mut report.skipped, super::SCOPE_GROUP);
             continue;
         }
-        if let Err(e) = upsert_group_row(db, &name, &effective_name, g).await {
+        if let Err(e) = upsert_group_row(db, &group_key, &effective_name, g).await {
             report.errors.push(format!("group「{name}」: {e}"));
         } else {
             bump(&mut report.applied, super::SCOPE_GROUP);
@@ -389,24 +405,24 @@ fn bump(map: &mut BTreeMap<String, usize>, scope: &str) {
     *map.entry(scope.to_string()).or_insert(0) += 1;
 }
 
-// ── db 行级 upsert（全字段保留，name 冲突时按 effective_name 写） ──
+// ── db 行级 upsert（按 group_key 查重；name 作显示名可重命名；group_key 锁定不改） ──
 
 async fn upsert_group_row(
     db: &Db,
-    original_name: &str,
+    group_key: &str,
     effective_name: &str,
     row: &serde_json::Value,
 ) -> Result<(), String> {
     let row = row.clone();
-    let original = original_name.to_string();
-    let effective = effective_name.to_string();
+    let group_key = group_key.to_string();
+    let effective_name = effective_name.to_string();
     db.0
         .call(move |conn| {
             let tx = conn.transaction()?;
             let existing_id: Option<i64> = tx
                 .query_row(
-                    "SELECT id FROM \"group\" WHERE name = ?1 AND deleted_at = 0",
-                    [&original],
+                    "SELECT id FROM \"group\" WHERE group_key = ?1 AND deleted_at = 0",
+                    [&group_key],
                     |r| r.get(0),
                 )
                 .ok();
@@ -414,15 +430,10 @@ async fn upsert_group_row(
             if let Some(id) = existing_id {
                 tx.execute(
                     "UPDATE \"group\" SET name = ?1 WHERE id = ?2",
-                    rusqlite::params![&effective, id],
+                    rusqlite::params![&effective_name, id],
                 )?;
-                update_group_cols(&tx, id, &row, &effective)?;
+                update_group_cols(&tx, id, &row, &effective_name)?;
             } else {
-                let path = row
-                    .get("path")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("")
-                    .to_string();
                 let routing_mode = row
                     .get("routing_mode")
                     .and_then(|v| v.as_str())
@@ -434,9 +445,9 @@ async fn upsert_group_row(
                     .unwrap_or("")
                     .to_string();
                 tx.execute(
-                    "INSERT INTO \"group\" (name, path, routing_mode, auto_from_platform, sort_order, created_at, updated_at)
+                    "INSERT INTO \"group\" (name, group_key, routing_mode, auto_from_platform, sort_order, created_at, updated_at)
                      VALUES (?1, ?2, ?3, ?4, 0, ?5, ?5)",
-                    rusqlite::params![&effective, &path, &routing_mode, &auto_from_platform, now],
+                    rusqlite::params![&effective_name, &group_key, &routing_mode, &auto_from_platform, now],
                 )?;
             }
             tx.commit()?;
@@ -453,7 +464,6 @@ fn update_group_cols(
     effective: &str,
 ) -> rusqlite::Result<()> {
     let now = now_ts();
-    let path = row.get("path").and_then(|v| v.as_str()).unwrap_or("");
     let routing_mode = row
         .get("routing_mode")
         .and_then(|v| v.as_str())
@@ -467,8 +477,8 @@ fn update_group_cols(
         .and_then(|v| v.as_i64())
         .unwrap_or(0);
     tx.execute(
-        "UPDATE \"group\" SET name = ?1, path = ?2, routing_mode = ?3, auto_from_platform = ?4, sort_order = ?5, updated_at = ?6 WHERE id = ?7",
-        rusqlite::params![effective, path, routing_mode, auto_from_platform, sort_order, now, id],
+        "UPDATE \"group\" SET name = ?1, routing_mode = ?2, auto_from_platform = ?3, sort_order = ?4, updated_at = ?5 WHERE id = ?6",
+        rusqlite::params![effective, routing_mode, auto_from_platform, sort_order, now, id],
     )?;
     Ok(())
 }
@@ -543,8 +553,8 @@ fn insert_platform_row(
     Ok(())
 }
 
-async fn relink_group_platform(db: &Db, group_name: &str, platform_name: &str) -> Result<(), String> {
-    let g = group_name.to_string();
+async fn relink_group_platform(db: &Db, group_key: &str, platform_name: &str) -> Result<(), String> {
+    let g = group_key.to_string();
     let p = platform_name.to_string();
     db.0
         .call(move |conn| {
@@ -709,7 +719,7 @@ mod tests {
     /// upsert_platform_row 已改为 always-INSERT（删 SELECT-by-name→UPDATE）。
     /// （runtime 多行验证受 tokio_rusqlite `:memory:` 多-call ConnectionClosed harness 限制，
     ///  留 dev 验收；schema 不变量 + always-insert 代码路径已覆盖诉求。）
-
+    ///
     /// detect_conflicts 不再为 platform scope 报冲突（name 非唯一，无覆盖语义）。
     /// 即使 payload 含 platform 且 db 预置同 name，detect_conflicts 也不扫 platform → 输出无 platform 项。
     #[tokio::test]

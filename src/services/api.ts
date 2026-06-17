@@ -214,6 +214,8 @@ export interface Platform {
 export interface Group {
   id: number;
   name: string;
+  /** 分组密钥：Bearer token + 路由匹配键 + 日志归属键。UNIQUE。创建后锁定不可改。 */
+  group_key: string;
   routing_mode: RoutingMode;
   /** 关联的平台 ID（十进制字符串；空串表示非自动） */
   auto_from_platform: string;
@@ -401,10 +403,10 @@ export const trayApi = {
 };
 
 export const groupUsageApi = {
-  stats: (groupName: string) =>
-    invoke<PlatformUsageStats>("group_usage_stats", { groupName }),
-  // 批量：单次 invoke 返回所有 group → 聚合 map（group_name → stats），消除前端逐 group N+1 往返。
-  // 后端 GROUP BY group_name，共享平台不重复计入。
+  stats: (groupKey: string) =>
+    invoke<PlatformUsageStats>("group_usage_stats", { groupKey }),
+  // 批量：单次 invoke 返回所有 group → 聚合 map（group_key → stats），消除前端逐 group N+1 往返。
+  // 后端 GROUP BY group_key，共享平台不重复计入。
   statsAll: () =>
     invoke<Record<string, PlatformUsageStats>>("all_group_usage_stats"),
 };
@@ -529,6 +531,8 @@ export const popoverConfigApi = {
 export const groupApi = {
   create: (input: {
     name: string;
+    /** 分组密钥；省略/空 → 后端自动生成 gk_<32hex>。创建后锁定不可改。 */
+    group_key?: string;
     routing_mode: RoutingMode;
   }) => invoke<Group>("group_create", { input }),
 
@@ -620,7 +624,7 @@ export interface ProxyAttempt {
 
 export interface ProxyLogSummary {
   id: string;
-  group_name: string;
+  group_key: string;
   model: string;
   actual_model: string;
   source_protocol: string;
@@ -639,7 +643,7 @@ export interface ProxyLogSummary {
 
 export interface ProxyLogDetail {
   id: string;
-  group_name: string;
+  group_key: string;
   model: string;
   actual_model: string;
   source_protocol: string;
@@ -697,7 +701,7 @@ export interface AppLogSettings {
 
 export interface ProxyLogFilter {
   platform_id?: number;
-  group_name?: string;
+  group_key?: string;
   /** None=all, 200=success, -1=error */
   status?: number;
   time_start?: number;
@@ -774,7 +778,7 @@ export interface MiddlewareRule {
   description: string;
   rule_type: RuleType;
   scope: RuleScope;
-  /** group_name | platform_id(字符串) | ''(global) */
+  /** group_key | platform_id(字符串) | ''(global) */
   scope_ref: string;
   match_type: MatchType;
   /** 匹配模式 / 目标 path / header 名 */
