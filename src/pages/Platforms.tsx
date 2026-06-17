@@ -219,6 +219,7 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
     ],
     xiaomi_mimo: [
       { protocol: "anthropic", base_url: "https://api.xiaomimimo.com/anthropic", client_type: "claude_code" },
+      { protocol: "openai", base_url: "https://api.xiaomimimo.com/v1", client_type: "codex_tui" },
     ],
     bailing: [
       { protocol: "anthropic", base_url: "https://api.tbox.cn/api/anthropic", client_type: "claude_code" },
@@ -379,17 +380,19 @@ function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Partial<Rec
     // gemini: 槽位语义不匹配（无 opus/sonnet/gpt 对应），留空待用户填或拉取
 
     // ── 国内官方 ──
-    // glm-4.6 将 2026-07-09 弃用，后继 glm-5.2；保留 4.6 因 coding plan 仍广用，到期前替换
-    glm: { default: "glm-4.6" },
-    glm_en: { default: "glm-4.6" },
+    // glm-4.6 已被 glm-5.2 取代（2026-06 官方新旗舰）；coding plan 端如遇不兼容回退 4.6
+    glm: { default: "glm-5.2" },
+    glm_en: { default: "glm-5.2" },
     // kimi-k2 原系列 2026-05-25 已停用
     kimi: { default: cp ? "kimi-k2.7-code" : "kimi-k2.6" },
-    minimax: { default: "MiniMax-M2.7" },
-    minimax_en: { default: "MiniMax-M2.7" },
+    minimax: { default: "MiniMax-M3" },
+    minimax_en: { default: "MiniMax-M3" },
     // 百炼（通义千问）；qwen3-max 已被 qwen3.7-max(2026-05-20) 取代
     bailian: { default: "qwen3.7-max" },
     // deepseek-chat 将 2026-07-24 弃用，v4-flash 为后继
     deepseek: { default: "deepseek-v4-flash" },
+    // 小米 MiMo 旗舰文本模型（按量 openai 端点）
+    xiaomi_mimo: { default: "mimo-v2.5-pro" },
   };
   return { ...(presets[protocol] || {}) };
 }
