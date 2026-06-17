@@ -5,5 +5,3 @@
 
 | ID | 名称 | 描述 | 状态 | 阶段 | 进度 | worktree |
 | --- | --- | --- | --- | --- | --- | --- |
-| menu-ia-redesign | 菜单与导航信息架构重构 | — | 已完成 | 收尾 | 100% | — |
-| anthropic-tool-optional-input-schema | 修复 anthropic 入站工具缺 input_schema 致 400 | — | 已完成 | 收尾 | 100% | — |
