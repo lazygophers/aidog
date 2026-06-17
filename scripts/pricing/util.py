@@ -12,3 +12,8 @@ def per_m(usd_per_million: float) -> float:
 def cny_per_m_to_usd_token(cny_per_million: float) -> float:
     """¥/M tokens → $/token。"""
     return (cny_per_million / CNY_PER_USD) / 1_000_000.0
+
+
+def cny_per_1k_to_usd_token(cny_per_1k: float) -> float:
+    """¥/千 Token (阿里云百炼口径) → $/token。"""
+    return (cny_per_1k / CNY_PER_USD) / 1_000.0

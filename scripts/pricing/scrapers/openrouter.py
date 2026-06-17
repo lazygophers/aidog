@@ -25,7 +25,7 @@ PREFIX_MAP: dict[str, str] = {
     "minimax": "minimax",
     "moonshotai": "kimi",
     "stepfun": "stepfun",
-    "qwen": "qwen",
+    "qwen": "bailian",
     "mistralai": "mistral",
     "meta-llama": "meta",
 }

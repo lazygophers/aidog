@@ -9,6 +9,7 @@ aggregate.py 通过 REGISTRY 自动发现并调用, 新增平台只需:
 """
 from . import (
     anthropic,
+    bailian,
     deepseek,
     gemini,
     glm,
@@ -34,6 +35,7 @@ REGISTRY = [
     (kimi, "kimi"),
     (minimax, "minimax"),
     (xiaomi, "xiaomi_mimo"),
+    (bailian, "bailian"),
     (siliconflow, "siliconflow"),
     (litellm, "litellm"),
     (openrouter, "openrouter"),
