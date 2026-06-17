@@ -2193,11 +2193,6 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             )}
           </div>
           <div style={{ display: "flex", gap: 8 }}>
-            {!editing && (
-              <button className="btn" onClick={() => setShowPaste(true)}>
-                {t("platform.paste.title", "智能识别")}
-              </button>
-            )}
             <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
             <button className="btn btn-primary" onClick={handleSave}
               disabled={!name || (isPassthrough ? endpoints.length === 0 : (!isMock && (endpoints.length === 0 || !apiKey)))}>
@@ -2205,14 +2200,6 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             </button>
           </div>
         </div>
-
-        {showPaste && (
-          <SmartPasteModal
-            presets={PROTOCOLS}
-            onApply={applyPaste}
-            onClose={() => setShowPaste(false)}
-          />
-        )}
 
         <div className="animate-fade-in" style={{
           display: "flex",
@@ -2965,7 +2952,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             {platforms.length > 0 ? `${enabledCount} / ${platforms.length} active` : t("platform.empty")}
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
+        <button className="btn btn-primary" onClick={() => { resetForm(); setShowPaste(true); }}>
           + {t("platform.add")}
         </button>
       </div>
