@@ -1397,7 +1397,11 @@ pub async fn delete_group(db: &Db, id: u64) -> Result<(), String> {
     // 检查是否为自动分组
     let group = get_group(db, id).await?.ok_or("group not found")?;
     if !group.auto_from_platform.is_empty() {
-        return Err("auto-created group cannot be deleted manually".to_string());
+        // auto 分组：仅当关联平台已空（源平台已删的孤儿分组）时允许手动删除
+        let plats = get_group_platforms(db, id).await?;
+        if !plats.is_empty() {
+            return Err("auto-created group with linked platforms cannot be deleted manually".to_string());
+        }
     }
     force_delete_group(db, id).await
 }
