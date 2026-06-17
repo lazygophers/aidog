@@ -20,6 +20,7 @@ from . import (
     openrouter,
     siliconflow,
     stepfun,
+    xiaomi,
 )
 
 # (module, platform_type) — platform_type 须与 Rust Protocol serde 裸名一致
@@ -32,6 +33,7 @@ REGISTRY = [
     (glm, "glm"),
     (kimi, "kimi"),
     (minimax, "minimax"),
+    (xiaomi, "xiaomi_mimo"),
     (siliconflow, "siliconflow"),
     (litellm, "litellm"),
     (openrouter, "openrouter"),
