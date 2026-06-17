@@ -1199,6 +1199,10 @@ async fn handle_proxy_inner(
     // ── 解析超时：模型 > 分组 > 系统 ──
     let system_timeout = get_system_timeout(&state.db).await;
     let (req_timeout, conn_timeout) = resolve_timeout(&route.mapping, &group, &system_timeout);
+    // 流式响应 body 读取不计入总超时：reqwest .timeout 覆盖「连接→响应头→body 全部读完」，
+    // 会砍断长 thinking/tool_use 流（body 读取 > request_timeout_secs）致无 message_stop → 客户端
+    // JSON Parse error / 内容残缺。流式禁总超时（传 0），connect_timeout 仍保护连接期，客户端自有超时兜底。
+    let req_timeout = if is_stream { 0 } else { req_timeout };
     let client = super::http_client::build_http_client(
         &state.db, req_timeout, conn_timeout,
         Some(&route.platform.extra), None,
@@ -1921,7 +1925,11 @@ async fn handle_passthrough(
 
     // 解析超时（系统级；透传无 group/model mapping 覆盖）
     let system_timeout = get_system_timeout(&state.db).await;
-    let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 300 };
+    // passthrough 透明 relay：禁用总超时——reqwest .timeout 覆盖「连接→响应头→body 全部读完」，
+    // 会砍断长 SSE 流（thinking/tool_use body 读取 > request_timeout_secs）致无 message_stop → 客户端
+    // JSON Parse error / 内容残缺。透传语义上不替客户端施加任意 body 超时；connect_timeout 仍保护连接期，
+    // 客户端自有超时兜底，上游真断由 stream-error-graceful-passthrough 合成 message_stop 兜底。
+    let req_timeout = 0u64;
     let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
     let client = super::http_client::build_http_client(
         &state.db, req_timeout, conn_timeout,
