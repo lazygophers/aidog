@@ -678,6 +678,7 @@
   "platform.paste.detected": "Detected",
   "platform.paste.empty": "Auto-detected after pasting.",
   "platform.paste.hint": "Paste shared text to auto-detect Base URL, platform and API Key (base64 auto-decoded).",
+  "platform.paste.manualEntry": "Manual",
   "platform.paste.noPlatform": "No built-in platform matched; current selection is kept.",
   "platform.paste.placeholder": "Paste text here…",
   "platform.paste.platform": "Platform",

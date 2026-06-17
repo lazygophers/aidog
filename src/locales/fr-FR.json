@@ -700,6 +700,7 @@
   "platform.paste.detected": "Résultats",
   "platform.paste.empty": "Détection automatique après le collage.",
   "platform.paste.hint": "Collez le texte partagé pour détecter Base URL, plateforme et clé API (base64 décodé automatiquement).",
+  "platform.paste.manualEntry": "Manuel",
   "platform.paste.noPlatform": "Aucune plateforme intégrée trouvée ; la sélection actuelle est conservée.",
   "platform.paste.placeholder": "Collez le texte ici…",
   "platform.paste.platform": "Plateforme",

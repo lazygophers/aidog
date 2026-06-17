@@ -23,6 +23,8 @@ export interface SmartPasteModalProps {
   presets: PastePresetRef[];
   onApply: (r: SmartPasteApplyResult) => void;
   onClose: () => void;
+  /** 可选：跳过识别直接进空表单（主列表「添加平台」直达弹窗时的手动入口）。 */
+  onManualEntry?: () => void;
 }
 
 const PROTO_LABEL: Record<ParsedProtocol, string> = {
@@ -32,7 +34,7 @@ const PROTO_LABEL: Record<ParsedProtocol, string> = {
   unknown: "URL",
 };
 
-export function SmartPasteModal({ presets, onApply, onClose }: SmartPasteModalProps) {
+export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: SmartPasteModalProps) {
   const { t } = useTranslation();
   const [text, setText] = useState("");
   const [selKey, setSelKey] = useState("");
@@ -240,6 +242,11 @@ export function SmartPasteModal({ presets, onApply, onClose }: SmartPasteModalPr
 
         {/* 操作 */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
+          {onManualEntry && (
+            <button className="btn btn-ghost" style={{ fontSize: 13, padding: "6px 14px" }} onClick={onManualEntry}>
+              {t("platform.paste.manualEntry", "手动填写")}
+            </button>
+          )}
           <button className="btn btn-ghost" style={{ fontSize: 13, padding: "6px 14px" }} onClick={onClose}>
             {t("action.cancel", "取消")}
           </button>

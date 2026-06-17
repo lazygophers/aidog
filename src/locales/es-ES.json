@@ -678,6 +678,7 @@
   "platform.paste.detected": "Resultados",
   "platform.paste.empty": "Detección automática tras pegar.",
   "platform.paste.hint": "Pega el texto compartido para detectar Base URL, plataforma y API Key (base64 se decodifica automáticamente).",
+  "platform.paste.manualEntry": "Manual",
   "platform.paste.noPlatform": "No se encontró plataforma integrada; se mantiene la selección actual.",
   "platform.paste.placeholder": "Pega el texto aquí…",
   "platform.paste.platform": "Plataforma",

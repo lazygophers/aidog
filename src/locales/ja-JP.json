@@ -700,6 +700,7 @@
   "platform.paste.detected": "認識結果",
   "platform.paste.empty": "貼り付け後に自動認識します。",
   "platform.paste.hint": "共有テキストを貼り付けて Base URL・プラットフォーム・API キーを自動認識（base64 自動デコード）。",
+  "platform.paste.manualEntry": "手動入力",
   "platform.paste.noPlatform": "組み込みプラットフォームに一致せず、現在の選択を維持します。",
   "platform.paste.placeholder": "ここにテキストを貼り付け…",
   "platform.paste.platform": "プラットフォーム",
