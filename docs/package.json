@@ -1,6 +1,6 @@
 {
   "name": "aidog-docs",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "license": "AGPL-3.0-or-later",
   "packageManager": "yarn@4.16.0",
