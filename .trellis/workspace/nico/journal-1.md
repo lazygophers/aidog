@@ -712,3 +712,38 @@ convert 路径(apply_client_headers)原硬编码静态 SDK 头(0.60.0/v22.19.0/6
 ### Next Steps
 
 - None - task complete
+
+
+## Session 21: Anthropic 默认模型 default=opus-4-8 / haiku=4-6
+
+**Date**: 2026-06-17
+**Task**: anthropic-default-models
+**Branch**: `next`
+
+### Summary
+
+getDefaultModels anthropic preset 加 default slot=claude-opus-4-8(主模型槽，与 opus 同值)；haiku 4-5-20251001→4-6。opus/sonnet 维持。用户指定值即权威(不 WebSearch)。同步 default-model.md 维护文档。
+
+### Main Changes
+
+- `src/pages/Platforms.tsx`: getDefaultModels anthropic preset 一行
+- `.claude/skills/aidog-add-platform/references/default-model.md`: 同步
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `62b862c` | feat(platform): Anthropic 默认模型 default=opus-4-8 / haiku=4-6 |
+
+### Testing
+
+- [OK] tsc 0 error
+- [pending] dev: 添加 Anthropic 平台 → default=opus-4-8 / haiku=4-6
+
+### Status
+
+[OK] **Completed** — 自主 finish
+
+### Next Steps
+
+- None - task complete
