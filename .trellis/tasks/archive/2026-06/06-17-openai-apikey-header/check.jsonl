@@ -1,0 +1,1 @@
+{"file": "prd.md", "reason": "验收: openai 上游含 api-key 头, 不破坏其他平台, cargo 绿"}
