@@ -10,7 +10,7 @@ stepfun 等多平台模型。fill:
 
 from __future__ import annotations
 
-import httpx
+import fetchutil
 from schema import ModelEntry, PlatformPricing
 
 # OpenRouter model id 前缀 → aidog platform_type (Rust Protocol serde 裸名)
@@ -43,7 +43,7 @@ def _f(v) -> float:
 
 
 async def fetch() -> dict[str, ModelEntry]:
-    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0), follow_redirects=True) as c:
+    async with fetchutil.client() as c:
         r = await c.get(API, headers={"User-Agent": "aidog-pricing-sync/0.1"})
         r.raise_for_status()
         data = r.json()
