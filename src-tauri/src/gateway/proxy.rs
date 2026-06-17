@@ -847,6 +847,15 @@ async fn handle_proxy_inner(
         .await;
     }
 
+    // ── Anthropic count_tokens 子端点分流（必须在 parse_incoming_request 之前）──
+    // claude-cli 发实际对话前会 POST /v1/messages/count_tokens 预估 token 数。
+    // 该 path 前缀匹配 /v1/messages，若不前置分流会被当普通 messages 转发，且出站
+    // passthrough_api_path 写死 /v1/messages 吞掉 count_tokens 尾段 → 上游按 messages
+    // 处理 count_tokens 形态 body 而崩溃（GLM 实测 500）。命中 → 透传优先 + 本地估算兜底。
+    if is_count_tokens_endpoint(&path) {
+        return handle_count_tokens(&state, &mut log, &log_settings, &group, &bytes, start).await;
+    }
+
     // ── 解析 ChatRequest（按入站协议解析） ──
     let req_value: serde_json::Value = match serde_json::from_slice(&bytes) {
         Ok(v) => v,
@@ -998,6 +1007,39 @@ async fn handle_proxy_inner(
                 None
             }
         });
+
+    // ── UA 透传分支（[protocol-same-proto-passthrough] 扩展，PRD §5 级别 1）──
+    // 仅当 path 推断的入站协议在平台无任何对应 endpoint（matched_ep == None，
+    // 现状会落入 platform_type + ClientType::Default 有损兜底）时尝试：
+    // 按入站 User-Agent 推断客户端原生协议（claude-cli→anthropic / codex→openai_responses），
+    // 若平台确有该协议的 endpoint → matched_ep 改指向该 UA-endpoint，并以该协议为透传 wire 协议。
+    // UA 不识别 / 平台无该协议 endpoint → matched_ep 保持 None，回退现有兜底（零行为变更）。
+    // matched_ep 命中（path 已支持）时不介入。
+    let (matched_ep, passthrough_proto) = if matched_ep.is_none() {
+        let ua_proto = orig_headers
+            .get("user-agent")
+            .and_then(|v| v.to_str().ok())
+            .and_then(infer_passthrough_protocol_from_ua);
+        match ua_proto {
+            Some(p) => match route.platform.endpoints.iter().find(|ep| ep_proto(ep) == p) {
+                Some(ep) => {
+                    tracing::info!(
+                        platform = %route.platform.name, platform_id = route.platform.id,
+                        source_protocol = %source_protocol, ua_protocol = %p,
+                        "ua-passthrough: path protocol unsupported by platform, routing to UA-inferred endpoint"
+                    );
+                    (Some(ep), Some(p))
+                }
+                // UA 命中但平台无该协议 endpoint（级别 2）→ 回退现有兜底
+                None => (matched_ep, None),
+            },
+            // UA 不识别（级别 3）→ 回退现有兜底
+            None => (matched_ep, None),
+        }
+    } else {
+        (matched_ep, None)
+    };
+
     let (target_protocol_enum, target_base_url, client_type, coding_plan) = matched_ep
         .map(|ep| (&ep.protocol, ep.base_url.clone(), ep.client_type.clone(), ep.coding_plan))
         .unwrap_or((&route.platform.platform_type, route.platform.base_url.clone(), ClientType::Default, false));
@@ -1011,9 +1053,14 @@ async fn handle_proxy_inner(
     // 鉴权 / URL / coding_plan / usage 提取等旁路改写仍全部保留。
     // 注意：openai_responses→openai 的跨协议回退命中时 target_protocol != source_protocol，
     // 不算透传，仍走 convert_request（必须真转换）。
-    let same_protocol_passthrough = matched_ep
-        .map(|ep| ep_proto(ep) == source_protocol)
-        .unwrap_or(false);
+    // 透传判定：
+    // - 级别 0（现状）：端点协议精确等于 path 推断的 source_protocol。
+    // - 级别 1（UA 透传）：passthrough_proto == Some(p) 且端点协议等于 UA 推断协议 p
+    //   → 端点协议 == source_protocol 不成立（否则 matched_ep 在级别 0 已命中），故单独判定。
+    let same_protocol_passthrough = match passthrough_proto {
+        Some(p) => matched_ep.map(|ep| ep_proto(ep) == p).unwrap_or(false),
+        None => matched_ep.map(|ep| ep_proto(ep) == source_protocol).unwrap_or(false),
+    };
 
     // Upsert #3: route resolved
     log.actual_model = actual_model.clone();
@@ -1030,6 +1077,26 @@ async fn handle_proxy_inner(
 
     // 替换模型名
     chat_req.model = actual_model.clone();
+
+    // ── max_tokens 出站裁剪（convert_request 前）──
+    // 客户端 max_tokens 超过选定模型上限时裁剪到上限；未传 / 模型无上限则不动（Q3 保守）。
+    // 仅作用于 convert_request（读 chat_req）；同协议透传分支用原始 req_value 不受影响
+    // （客户端原生协议，上游自纠；已知限制见 report）。
+    {
+        let model_max = super::db::get_model_max_output_tokens(&state.db, &actual_model)
+            .await
+            .ok()
+            .flatten();
+        let (capped, did_cap) = super::router::cap_max_tokens(chat_req.max_tokens, model_max);
+        if did_cap {
+            tracing::info!(
+                model = %actual_model,
+                requested = ?chat_req.max_tokens, capped_to = ?capped,
+                "max_tokens exceeds model limit, capping"
+            );
+            chat_req.max_tokens = capped;
+        }
+    }
 
     // ── 中间件入站规则（platform 层，候选选定后、convert_request 前）──
     // 仅应用 platform 作用域规则（global/group 已在路由前应用，避免重复）。
@@ -1132,20 +1199,28 @@ async fn handle_proxy_inner(
     // ── 解析超时：模型 > 分组 > 系统 ──
     let system_timeout = get_system_timeout(&state.db).await;
     let (req_timeout, conn_timeout) = resolve_timeout(&route.mapping, &group, &system_timeout);
+    // 流式响应 body 读取不计入总超时：reqwest .timeout 覆盖「连接→响应头→body 全部读完」，
+    // 会砍断长 thinking/tool_use 流（body 读取 > request_timeout_secs）致无 message_stop → 客户端
+    // JSON Parse error / 内容残缺。流式禁总超时（传 0），connect_timeout 仍保护连接期，客户端自有超时兜底。
+    let req_timeout = if is_stream { 0 } else { req_timeout };
     let client = super::http_client::build_http_client(
         &state.db, req_timeout, conn_timeout,
         Some(&route.platform.extra), None,
     ).await;
 
-    // ── 构建上游请求头（用于日志记录） ──
-    let upstream_headers = build_upstream_headers(&client_type, target_protocol_enum, &route.platform.api_key);
+    // ── 构建上游请求头 ──
+    // convert 路径：先铺底透传入站头（anthropic-* / x-stainless-* / x-app / session-id 等，
+    // 跨协议也带，上游忽略未知头不报错），再由 apply_client_headers 覆盖 UA + auth + CT。
+    // passthrough_convert_headers 已剔 hop-by-hop + auth/UA/CT（由下方覆盖），无同名多值。
+    let upstream_headers = build_upstream_headers(&client_type, target_protocol_enum, &route.platform.api_key, &orig_headers);
 
     let mut req_builder = client
         .post(&url)
         .header("Content-Type", "application/json")
+        .headers(passthrough_convert_headers(&orig_headers))
         .body(req_body_str.clone());
 
-    // ── 按 client_type + target_protocol 模拟对应客户端 header ──
+    // ── 覆盖 UA + auth（平台 api_key）──
     req_builder = apply_client_headers(req_builder, &client_type, target_protocol_enum, &route.platform.api_key);
 
     // ── 记录上游实际请求 ──
@@ -1197,6 +1272,8 @@ async fn handle_proxy_inner(
     // ── 捕获上游响应 headers + status ──
     let status = resp.status();
     log.upstream_status_code = status.as_u16() as i32;
+    // clone 上游响应头，供回包前透传筛选用（resp 后续被 bytes()/bytes_stream() 消费）
+    let upstream_resp_headers = resp.headers().clone();
     {
         let mut h = serde_json::Map::new();
         for (k, v) in resp.headers() {
@@ -1349,7 +1426,21 @@ async fn handle_proxy_inner(
             s.into_bytes()
         };
         log.user_response_body = String::from_utf8_lossy(&body).to_string();
-        log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+
+        // ── 透传上游响应头（黑名单剔除 content-encoding/content-length/hop-by-hop）──
+        let mut filtered = filter_upstream_resp_headers(&upstream_resp_headers, false);
+        // 上游缺 content-type 时回退默认 application/json
+        if !filtered
+            .iter()
+            .any(|(n, _)| n == axum::http::header::CONTENT_TYPE)
+        {
+            filtered.push((
+                axum::http::header::CONTENT_TYPE,
+                axum::http::HeaderValue::from_static("application/json"),
+            ));
+        }
+        // 日志字段 = 实际发回客户端的头集合（不再写死 content-type）
+        log.user_response_headers = resp_headers_to_log_json(&filtered);
 
         tracing::info!(
             platform = %route.platform.name, model = %actual_model, status = 200, stream = false,
@@ -1373,12 +1464,15 @@ async fn handle_proxy_inner(
             tracing::Span::current(),
         );
 
-        return (
-            StatusCode::OK,
-            [(axum::http::header::CONTENT_TYPE, "application/json")],
-            body.to_vec(),
-        )
-            .into_response();
+        let mut response = (StatusCode::OK, body.to_vec()).into_response();
+        // into_response 对 Vec<u8> 写死 content-type: application/octet-stream；
+        // HeaderMap::extend 用 append 语义，直接 extend 会产生重复 content-type（octet-stream + 真实值）。
+        // 故先 remove 默认 content-type，再 extend（filtered 已含真实 content-type 或回退 application/json）。
+        response
+            .headers_mut()
+            .remove(axum::http::header::CONTENT_TYPE);
+        response.headers_mut().extend(filtered);
+        return response;
     }
 
     // 流式：转换 SSE 格式为 Anthropic 格式返回
@@ -1441,8 +1535,14 @@ async fn handle_proxy_inner(
         let chunk = match chunk_result {
             Ok(c) => c,
             Err(e) => {
-                tracing::warn!(error = %e, "SSE upstream stream chunk error");
-                return Ok::<_, std::io::Error>(Bytes::from(format!("event: error\ndata: {{\"error\":\"{e}\"}}\n\n")));
+                // 上游流中途断裂（如 GLM ~60s 截断）：不向客户端报错，仅记日志 +
+                // 按客户端协议合成干净的 Stop 终止事件收尾，已输出内容保留。
+                // （不再注入 `event: error`，避免 CC 显示 "API Error: error decoding response body"。）
+                tracing::warn!(error = %e, "SSE upstream stream chunk error; closing stream gracefully");
+                let stop = adapter::to_client_sse(&ChatStreamEvent::Stop {
+                    finish_reason: Some("end_turn".to_string()),
+                }, &client_protocol, &model_for_sse).unwrap_or_default();
+                return Ok::<_, std::io::Error>(Bytes::from(stop));
             }
         };
 
@@ -1542,23 +1642,34 @@ async fn handle_proxy_inner(
 
     // Upsert（返回 stream 前的占位）：标记流进行中，token=0、body 占位；
     // 最终态由 guard.flush（[DONE] 或断连 Drop）覆盖。
+    // ── SSE 三自管头（content-type/cache-control/connection）+ 叠加筛选上游头（is_stream=true 额外剔这三者，防上游覆盖）──
+    let sse_self_managed: [(axum::http::HeaderName, axum::http::HeaderValue); 3] = [
+        (axum::http::header::CONTENT_TYPE, axum::http::HeaderValue::from_static("text/event-stream")),
+        (axum::http::header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-cache")),
+        (axum::http::header::CONNECTION, axum::http::HeaderValue::from_static("keep-alive")),
+    ];
+    let stream_filtered = filter_upstream_resp_headers(&upstream_resp_headers, true);
+    // 日志字段 = 实发头 = SSE 三自管头 + 透传上游头
+    let mut all_stream_headers: Vec<(axum::http::HeaderName, axum::http::HeaderValue)> =
+        sse_self_managed.to_vec();
+    all_stream_headers.extend(stream_filtered.iter().cloned());
+
     log.status_code = 200;
     log.response_body = "[stream]".to_string();
     log.user_response_body = "[stream]".to_string();
-    log.user_response_headers = r#"{"content-type":"text/event-stream","cache-control":"no-cache","connection":"keep-alive"}"#.to_string();
+    log.user_response_headers = resp_headers_to_log_json(&all_stream_headers);
     log.duration_ms = start.elapsed().as_millis() as i32;
     upsert_log(&state, &log, &log_settings).await;
 
-    return (
-        StatusCode::OK,
-        [
-            (axum::http::header::CONTENT_TYPE, "text/event-stream"),
-            (axum::http::header::CACHE_CONTROL, "no-cache"),
-            (axum::http::header::CONNECTION, "keep-alive"),
-        ],
-        body,
-    )
-        .into_response();
+    let mut response = (StatusCode::OK, body).into_response();
+    {
+        let h = response.headers_mut();
+        for (n, v) in sse_self_managed {
+            h.insert(n, v);
+        }
+        h.extend(stream_filtered);
+    }
+    return response;
     } // ── end retry loop (for candidate) ──
 
     // 候选耗尽 / 全部超 max_retries 且未在循环内 return（理论不可达：循环内每条路径均 return 或 continue，
@@ -1573,6 +1684,72 @@ async fn handle_proxy_inner(
     log.attempts = std::mem::take(&mut attempts);
     upsert_log(&state, &log, &log_settings).await;
     (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response()
+}
+
+/// 上游响应头透传黑名单（必剔 + RFC 7230 §6.1 hop-by-hop）。
+/// 全小写常量；HeaderName 本身即小写存储，用 as_str() 比对即可。
+const RESP_HEADER_BLACKLIST: &[&str] = &[
+    // §4.1 必剔（解压/长度/传输编码失真）
+    "content-encoding",
+    "content-length",
+    "transfer-encoding",
+    // §4.2 应剔（hop-by-hop, RFC 7230 §6.1）
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "upgrade",
+];
+
+/// 流式（SSE）额外剔除集：这三个头归 SSE 自管，禁用上游值覆盖 SSE 语义。
+const SSE_EXTRA_BLACKLIST: &[&str] = &["content-type", "cache-control", "connection"];
+
+/// 上游响应头 → 透传给客户端的头（黑名单剔除 + 非法 value 跳过 + 多值逐个保留）。
+///
+/// - `is_stream=false`：仅按 RESP_HEADER_BLACKLIST 剔除（非流式 2xx 路径）。
+/// - `is_stream=true`：在 RESP_HEADER_BLACKLIST 基础上额外剔除 SSE_EXTRA_BLACKLIST，
+///   叠加于调用方设置的 SSE 三自管头之上。
+///
+/// 返回 `Vec<(HeaderName, HeaderValue)>`，调用方用 `extend` 注入 axum Response。
+/// 多值头（如多个 set-cookie）逐项保留（Vec append 语义，不覆盖）。
+/// 无法转为 axum header 类型的非法名/值跳过（不 panic）。
+fn filter_upstream_resp_headers(
+    src: &reqwest::header::HeaderMap,
+    is_stream: bool,
+) -> Vec<(axum::http::HeaderName, axum::http::HeaderValue)> {
+    let mut out = Vec::with_capacity(src.len());
+    for (k, v) in src.iter() {
+        let name = k.as_str(); // HeaderName 已小写
+        if RESP_HEADER_BLACKLIST.iter().any(|b| name.eq_ignore_ascii_case(b)) {
+            continue;
+        }
+        if is_stream && SSE_EXTRA_BLACKLIST.iter().any(|b| name.eq_ignore_ascii_case(b)) {
+            continue;
+        }
+        // reqwest header 类型 → axum(http) header 类型；非法则跳过不 panic
+        if let (Ok(hn), Ok(hv)) = (
+            axum::http::HeaderName::from_bytes(name.as_bytes()),
+            axum::http::HeaderValue::from_bytes(v.as_bytes()),
+        ) {
+            out.push((hn, hv));
+        }
+    }
+    out
+}
+
+/// 把实发头集合（HeaderName, HeaderValue）序列化为日志 JSON 字符串，
+/// 与 upstream_response_headers 同格式 `{name: value}`；多值同名头保留首值（与既有格式约定一致）。
+fn resp_headers_to_log_json(headers: &[(axum::http::HeaderName, axum::http::HeaderValue)]) -> String {
+    let mut h = serde_json::Map::new();
+    for (k, v) in headers {
+        if let Ok(s) = v.to_str() {
+            h.entry(k.as_str().to_string())
+                .or_insert_with(|| Value::String(s.to_string()));
+        }
+    }
+    Value::Object(h).to_string()
 }
 
 /// 截断 attempt error 字段（上游错误体可能很大，attempts JSON 列只存摘要）
@@ -1748,7 +1925,11 @@ async fn handle_passthrough(
 
     // 解析超时（系统级；透传无 group/model mapping 覆盖）
     let system_timeout = get_system_timeout(&state.db).await;
-    let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 300 };
+    // passthrough 透明 relay：禁用总超时——reqwest .timeout 覆盖「连接→响应头→body 全部读完」，
+    // 会砍断长 SSE 流（thinking/tool_use body 读取 > request_timeout_secs）致无 message_stop → 客户端
+    // JSON Parse error / 内容残缺。透传语义上不替客户端施加任意 body 超时；connect_timeout 仍保护连接期，
+    // 客户端自有超时兜底，上游真断由 stream-error-graceful-passthrough 合成 message_stop 兜底。
+    let req_timeout = 0u64;
     let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
     let client = super::http_client::build_http_client(
         &state.db, req_timeout, conn_timeout,
@@ -1898,7 +2079,14 @@ async fn handle_passthrough(
     let stream = resp.bytes_stream().map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
-            Err(e) => return Err(std::io::Error::other(e.to_string())),
+            Err(e) => {
+                // 上游流中途断裂：不向客户端报错（避免 CC "error decoding response body"），
+                // 仅记日志 + 合成 anthropic message_stop 干净收尾（claude_code relay wire = anthropic）。
+                tracing::warn!(error = %e, "passthrough upstream stream chunk error; closing stream gracefully");
+                return Ok::<_, std::io::Error>(Bytes::from(
+                    "event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
+                ));
+            }
         };
         // 旁路累积上游 SSE 原文（受 master 开关控制）
         if record_upstream_body {
@@ -2250,6 +2438,224 @@ async fn handle_responses_subendpoint(
     response
 }
 
+/// 判定请求 path（已含 group/proxy 前缀）是否为 Anthropic count_tokens 端点。
+/// strip 任意前缀后尾段为 `/v1/messages/count_tokens`（可带末尾斜杠）→ true。
+/// 与 is_responses_subendpoint 同款 strip（path.find("/v1/")），无 /v1/ 前缀 → false。
+fn is_count_tokens_endpoint(path: &str) -> bool {
+    let api_path = match path.find("/v1/") {
+        Some(idx) => &path[idx..],
+        None => return false,
+    };
+    api_path
+        .trim_end_matches('/')
+        .ends_with("/v1/messages/count_tokens")
+}
+
+/// 本地近似估算 anthropic count_tokens body 的 input_tokens（透传失败兜底）。
+/// 启发式：累计 system + 全部 messages 文本 + tools 定义的字符数，按 ~4 字符/token 折算
+/// （英文经验值；中文偏低但 count_tokens 仅用于客户端预估，不参与计费，可接受偏差）。
+/// 拿不到任何文本字段 → 返回保底 1（避免返回 0 误导客户端流程）。
+fn estimate_input_tokens(body: &Value) -> i64 {
+    fn collect_text(v: &Value, acc: &mut usize) {
+        match v {
+            Value::String(s) => *acc += s.len(),
+            Value::Array(arr) => arr.iter().for_each(|e| collect_text(e, acc)),
+            Value::Object(map) => map.values().for_each(|e| collect_text(e, acc)),
+            _ => {}
+        }
+    }
+    let mut chars = 0usize;
+    if let Some(obj) = body.as_object() {
+        for key in ["system", "messages", "tools"] {
+            if let Some(v) = obj.get(key) {
+                collect_text(v, &mut chars);
+            }
+        }
+    }
+    let tokens = chars.div_ceil(4) as i64;
+    tokens.max(1)
+}
+
+/// Anthropic `/v1/messages/count_tokens` 子端点：透传优先 + 本地估算兜底（方案 X）。
+/// 1. 复用 select_candidates_ctx 选首选平台 + 拿模型映射（claude-opus-4-8 → glm-5.1）。
+/// 2. 取该平台 anthropic 端点 base_url（无则回退平台主 base_url），URL = base_url + `/v1/messages/count_tokens`
+///    （遵 url-construction-rule：anthropic base_url 不含 /v1，仅拼 endpoint 后缀，与 build_models_url 同款）。
+/// 3. 透传客户端原始 body（仅 patch model 字段为路由目标模型），x-api-key + anthropic-version 鉴权 POST。
+/// 4. 上游 2xx → 原样回客户端（anthropic count_tokens 响应 schema）。
+/// 5. 上游 4xx/5xx 或连接失败（平台不支持该端点）→ 本地估算 `{"input_tokens": N}` 返 200，
+///    不返回错误，避免 claude-cli 预估流程被上游 500/404 阻断。
+///
+/// proxy_log：source/target protocol=anthropic，upstream_request_url 含尾段，status 记真实结果。
+async fn handle_count_tokens(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    log_settings: &ProxyLogSettings,
+    group: &Group,
+    bytes: &[u8],
+    start: std::time::Instant,
+) -> Response {
+    log.source_protocol = "anthropic".to_string();
+    log.target_protocol = "anthropic".to_string();
+
+    // 原始 body（用于透传 + 估算兜底）+ 入站 model
+    let raw_body: Value = serde_json::from_slice(bytes).unwrap_or(Value::Null);
+    let requested_model = raw_body
+        .get("model")
+        .and_then(|m| m.as_str())
+        .unwrap_or_default()
+        .to_string();
+    log.model = requested_model.clone();
+
+    // 本地估算值（透传失败时回客户端；提前算好，避免分支重复）
+    let est_tokens = estimate_input_tokens(&raw_body);
+    let est_body = serde_json::json!({ "input_tokens": est_tokens }).to_string();
+    // 兜底响应：返回本地估算 `{"input_tokens":N}` 200，并把回客户端正文记入 log.user_response_body
+    // （与 handle_responses_subendpoint 成功路径一致：客户端实际收到的正文落库）。
+    let est_response = |body: &str| -> Response {
+        (
+            StatusCode::OK,
+            [(axum::http::header::CONTENT_TYPE, "application/json")],
+            body.to_string(),
+        )
+            .into_response()
+    };
+    // 在各兜底分支统一回写 log 的客户端响应正文/头（est_response 闭包不可借 &mut log，故在调用点写 log）。
+    macro_rules! fallback_log {
+        () => {{
+            log.input_tokens = est_tokens as i32;
+            log.user_response_body = est_body.clone();
+            log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+            log.duration_ms = start.elapsed().as_millis() as i32;
+        }};
+    }
+
+    // 路由选平台（复用 group→platform 选择，拿模型映射目标）
+    let sched_settings = super::db::get_scheduling_settings(&state.db).await;
+    let sched_ctx = ScheduleCtx {
+        scheduler: &state.scheduler,
+        sticky: &state.sticky,
+        settings: &sched_settings,
+        sticky_key: Some(format!("{}|count_tokens", group.name)),
+    };
+    let candidate_set =
+        match select_candidates_ctx(&state.db, group, &requested_model, Some(&sched_ctx)).await {
+            Ok(c) => c,
+            Err(e) => {
+                // 路由失败 → 本地估算兜底（不阻断 claude-cli）
+                tracing::warn!(group = %group.name, model = %requested_model, error = %e, "count_tokens: route failed, falling back to local estimate");
+                log.status_code = 200;
+                log.response_body = format!("route error (local estimate fallback): {e}");
+                fallback_log!();
+                upsert_log(state, log, log_settings).await;
+                return est_response(&est_body);
+            }
+        };
+    let route = match candidate_set.candidates.into_iter().next() {
+        Some(r) => r,
+        None => {
+            tracing::warn!(group = %group.name, "count_tokens: no candidate platform, local estimate fallback");
+            log.status_code = 200;
+            log.response_body = "no candidate platform (local estimate fallback)".to_string();
+            fallback_log!();
+            upsert_log(state, log, log_settings).await;
+            return est_response(&est_body);
+        }
+    };
+
+    let actual_model = route.target_model.clone();
+    log.platform_id = route.platform.id;
+    log.actual_model = actual_model.clone();
+
+    // 取 anthropic 端点 base_url（无则回退平台主 base_url）
+    let base_url = route
+        .platform
+        .endpoints
+        .iter()
+        .find(|ep| matches!(ep.protocol, Protocol::Anthropic))
+        .map(|ep| ep.base_url.clone())
+        .unwrap_or_else(|| route.platform.base_url.clone());
+    // URL：base_url + /v1/messages/count_tokens（anthropic base_url 不含 /v1，与 build_models_url 同款拼接）
+    let url = format!(
+        "{}/v1/messages/count_tokens",
+        base_url.trim_end_matches('/')
+    );
+    log.upstream_request_url = url.clone();
+    log.upstream_request_headers =
+        r#"{"x-api-key":"[REDACTED]","anthropic-version":"2023-06-01"}"#.to_string();
+
+    // 透传 body：仅 patch model 字段为路由目标模型
+    let mut upstream_body = raw_body.clone();
+    if let Some(obj) = upstream_body.as_object_mut() {
+        obj.insert("model".to_string(), Value::String(actual_model.clone()));
+    }
+    let upstream_body_str = serde_json::to_string(&upstream_body).unwrap_or_default();
+    log.upstream_request_body = format_pretty_json(&upstream_body_str);
+
+    let system_timeout = get_system_timeout(&state.db).await;
+    let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 60 };
+    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
+    let client = super::http_client::build_http_client(
+        &state.db, req_timeout, conn_timeout, Some(&route.platform.extra), None,
+    )
+    .await;
+
+    let rb = client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .header("x-api-key", &route.platform.api_key)
+        .header("anthropic-version", "2023-06-01")
+        .body(upstream_body_str.clone());
+    tracing::info!(group = %group.name, platform = %route.platform.name, model = %actual_model, url = %url, "count_tokens upstream request");
+
+    let resp = match rb.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            // 连接失败 / 超时 → 本地估算兜底（不阻断 claude-cli）
+            tracing::warn!(url = %url, error = %e, "count_tokens upstream request failed, local estimate fallback");
+            log.upstream_status_code = 0;
+            log.status_code = 200;
+            log.response_body = format!("upstream error (local estimate fallback): {e}");
+            fallback_log!();
+            upsert_log(state, log, log_settings).await;
+            return est_response(&est_body);
+        }
+    };
+
+    let status = resp.status();
+    log.upstream_status_code = status.as_u16() as i32;
+    let body = resp.bytes().await.unwrap_or_default();
+    let body_str = String::from_utf8_lossy(&body).to_string();
+
+    if status.is_success() {
+        // 上游支持 count_tokens → 原样回客户端真实值
+        log.status_code = status.as_u16() as i32;
+        log.response_body = body_str.clone();
+        log.user_response_body = body_str;
+        log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
+        log.input_tokens = serde_json::from_slice::<Value>(&body)
+            .ok()
+            .and_then(|v| v.get("input_tokens").and_then(|t| t.as_i64()))
+            .unwrap_or(0) as i32;
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        tracing::info!(url = %url, status = status.as_u16(), "count_tokens upstream responded (passthrough)");
+        upsert_log(state, log, log_settings).await;
+        let mut response = (StatusCode::OK, body.to_vec()).into_response();
+        response.headers_mut().insert(
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("application/json"),
+        );
+        return response;
+    }
+
+    // 上游不支持该端点（4xx/5xx）→ 本地估算兜底，返回 200 而非透传错误
+    tracing::warn!(url = %url, upstream_status = status.as_u16(), "count_tokens upstream unsupported, local estimate fallback");
+    log.status_code = 200;
+    log.response_body = format!("upstream {} (local estimate fallback): {}", status.as_u16(), body_str);
+    fallback_log!();
+    upsert_log(state, log, log_settings).await;
+    est_response(&est_body)
+}
+
 /// 构建透传转发 header：原样保留客户端全部 header（含 Authorization OAuth），
 /// 仅剔除 hop-by-hop（Host / Content-Length，由 reqwest 按目标 URL + body 重设）。
 fn passthrough_headers(orig: &axum::http::HeaderMap) -> reqwest::header::HeaderMap {
@@ -2257,6 +2663,49 @@ fn passthrough_headers(orig: &axum::http::HeaderMap) -> reqwest::header::HeaderM
     for (k, v) in orig {
         let name = k.as_str();
         if name.eq_ignore_ascii_case("host") || name.eq_ignore_ascii_case("content-length") {
+            continue;
+        }
+        if let (Ok(hn), Ok(hv)) = (
+            reqwest::header::HeaderName::from_bytes(name.as_bytes()),
+            reqwest::header::HeaderValue::from_bytes(v.as_bytes()),
+        ) {
+            out.append(hn, hv);
+        }
+    }
+    out
+}
+
+/// hop-by-hop + 强覆盖头名（convert 路径透传时剔除）。
+/// host / content-length / 标准 hop-by-hop（RFC 7230 §6.1）交给 reqwest 按目标重设；
+/// auth 三件套 / user-agent / content-type 由 apply_client_headers 用平台配置覆盖，
+/// 故透传底座剔除，避免同名 append 造成多值。
+const STRIPPED_ON_CONVERT_PASSTHROUGH: &[&str] = &[
+    "host",
+    "content-length",
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "trailers",
+    "transfer-encoding",
+    "upgrade",
+    "authorization",
+    "x-api-key",
+    "x-goog-api-key",
+    "user-agent",
+    "content-type",
+];
+
+/// convert 路径透传入站头底座：全量入站头，剔 hop-by-hop + auth/UA/CT（由 apply 覆盖）。
+/// 其余（anthropic-* / x-stainless-* / x-app / session-id / originator / version / 未知自定义头）
+/// 原样透传 —— 跨协议（如 CC 入站转 OpenAI）也带，上游忽略未知头不报错，保留利于诊断。
+fn passthrough_convert_headers(orig: &axum::http::HeaderMap) -> reqwest::header::HeaderMap {
+    let mut out = reqwest::header::HeaderMap::new();
+    for (k, v) in orig {
+        let name = k.as_str();
+        if STRIPPED_ON_CONVERT_PASSTHROUGH.iter().any(|s| name.eq_ignore_ascii_case(s)) {
             continue;
         }
         if let (Ok(hn), Ok(hv)) = (
@@ -2557,6 +3006,26 @@ fn detect_source_protocol(path: &str) -> String {
     }
 }
 
+/// 按入站 User-Agent 推断客户端"原生" wire 协议（仅用于 UA 透传分支，见 [protocol-same-proto-passthrough] 扩展）。
+///
+/// 复用现有出站合成 UA 的子串特征规则（`claude_code_ua` / `codex_ua`）应用到入站匹配：
+/// - 含 `claude-cli`（Claude Code CLI/VSCode/SDK/GhAction 全家族）→ `"anthropic"`
+/// - 含 `codex`（codex_cli_rs / Codex/ / codex desktop / codex-vscode 全家族）→ `"openai_responses"`
+/// - 其它（Cursor / Windsurf / gemini-cli / 未知 / 缺失）→ None（回退现有处理）
+///
+/// 大小写不敏感（Codex TUI UA 为 `Codex/...`，需匹配 `codex`）。返回的字面量与
+/// `detect_source_protocol` / `ep_proto` 产出的协议名一致，便于直接比对 endpoint。
+fn infer_passthrough_protocol_from_ua(ua: &str) -> Option<&'static str> {
+    let lower = ua.to_lowercase();
+    if lower.contains("claude-cli") {
+        Some("anthropic")
+    } else if lower.contains("codex") {
+        Some("openai_responses")
+    } else {
+        None
+    }
+}
+
 /// 在已取出的分组列表中按 group name 精确匹配，匹配不到再按 path 前缀匹配。
 /// 单次 list_groups → 同一 Vec 上跑两种匹配，避免热路径重复全表读 + 重复 mappings JSON 解析。
 /// 行为等价于原「先 name 后 path」优先级。
@@ -2648,10 +3117,10 @@ fn apply_default_headers(
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
+    // 仅设 auth（UA/Content-Type 由别处，其余入站头透传）。anthropic-version 走入站透传。
     match protocol {
         super::models::Protocol::Anthropic => {
-            rb = rb.header("anthropic-version", "2023-06-01")
-                .header("x-api-key", api_key);
+            rb = rb.header("x-api-key", api_key);
         }
         super::models::Protocol::Gemini => {
             rb = rb.header("x-goog-api-key", api_key);
@@ -2663,7 +3132,11 @@ fn apply_default_headers(
     rb
 }
 
-/// Claude Code 家族共享 Stainless SDK headers
+/// Claude Code 家族：仅设 User-Agent + auth（覆盖）。
+/// Stainless SDK 头（x-stainless-* / anthropic-version / anthropic-beta /
+/// anthropic-dangerous-direct-browser-access / x-app / x-claude-code-session-id）
+/// 由 convert 路径从入站透传（passthrough_convert_headers），不再硬编码静态默认 ——
+/// 上游可见客户端真实 SDK 版本/会话，跨协议（CC→OpenAI）也带（透明自定义头）。
 /// 来源: @anthropic-ai/claude-code/cli.js — buildHeaders() + fV()
 /// 参考: claude-code-hub client-detector.ts — confirmClaudeCodeSignals()
 fn apply_claude_code_family_headers(
@@ -2672,19 +3145,7 @@ fn apply_claude_code_family_headers(
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
-    rb = rb
-        .header("User-Agent", claude_code_ua(client_type))
-        .header("x-app", "cli")
-        .header("anthropic-version", "2023-06-01")
-        .header("anthropic-dangerous-direct-browser-access", "true")
-        .header("X-Stainless-Lang", "js")
-        .header("X-Stainless-Package-Version", "0.60.0")
-        .header("X-Stainless-OS", "MacOS")
-        .header("X-Stainless-Arch", "arm64")
-        .header("X-Stainless-Runtime", "node")
-        .header("X-Stainless-Runtime-Version", "v22.19.0")
-        .header("X-Stainless-Retry-Count", "0")
-        .header("X-Stainless-Timeout", "600");
+    rb = rb.header("User-Agent", claude_code_ua(client_type));
 
     match protocol {
         super::models::Protocol::Anthropic => {
@@ -2703,7 +3164,8 @@ fn apply_claude_code_family_headers(
     rb
 }
 
-/// Codex 家族共享基础 headers
+/// Codex 家族：仅设 UA + auth + OpenAI 协议必需（OpenAI-Beta / session_id / conversation_id）。
+/// originator/version/Accept 等由入站透传。session_id/conversation_id 入站无则生成。
 /// 来源: codex-rs/core/src/default_client.rs + model_provider_info.rs + client.rs
 /// 参考: claude-code-hub client-detector.ts — CODEX_FAMILY_RULES
 fn apply_codex_family_headers(
@@ -2712,11 +3174,7 @@ fn apply_codex_family_headers(
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
-    rb = rb
-        .header("User-Agent", codex_ua(client_type))
-        .header("originator", "codex_cli_rs")
-        .header("version", "0.38.0")
-        .header("Accept", "text/event-stream");
+    rb = rb.header("User-Agent", codex_ua(client_type));
 
     match protocol {
         super::models::Protocol::OpenAI => {
@@ -2727,9 +3185,7 @@ fn apply_codex_family_headers(
                 .header("session_id", uuid_sim());
         }
         super::models::Protocol::Anthropic => {
-            rb = rb
-                .header("x-api-key", api_key)
-                .header("anthropic-version", "2023-06-01");
+            rb = rb.header("x-api-key", api_key);
         }
         super::models::Protocol::Gemini => {
             rb = rb.header("x-goog-api-key", api_key);
@@ -2741,22 +3197,18 @@ fn apply_codex_family_headers(
     rb
 }
 
-/// 模拟 Cursor IDE 请求头
+/// 模拟 Cursor IDE：仅 UA + auth。x-app / anthropic-version 由入站透传。
 /// 来源: GitHub 逆向 — 使用 Anthropic SDK 但有特定 header 组合
 fn apply_cursor_headers(
     mut rb: reqwest::RequestBuilder,
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
-    rb = rb
-        .header("User-Agent", "Cursor/0.50.7")
-        .header("x-app", "cursor");
+    rb = rb.header("User-Agent", "Cursor/0.50.7");
 
     match protocol {
         super::models::Protocol::Anthropic => {
-            rb = rb
-                .header("anthropic-version", "2023-06-01")
-                .header("x-api-key", api_key);
+            rb = rb.header("x-api-key", api_key);
         }
         super::models::Protocol::OpenAI => {
             rb = rb.header("Authorization", format!("Bearer {api_key}"));
@@ -2771,22 +3223,18 @@ fn apply_cursor_headers(
     rb
 }
 
-/// 模拟 Windsurf IDE 请求头
+/// 模拟 Windsurf IDE：仅 UA + auth。x-app / anthropic-version 由入站透传。
 /// 来源: GitHub 逆向 — 类似 Cursor，使用 Anthropic SDK
 fn apply_windsurf_headers(
     mut rb: reqwest::RequestBuilder,
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
-    rb = rb
-        .header("User-Agent", "Windsurf/1.5.0")
-        .header("x-app", "windsurf");
+    rb = rb.header("User-Agent", "Windsurf/1.5.0");
 
     match protocol {
         super::models::Protocol::Anthropic => {
-            rb = rb
-                .header("anthropic-version", "2023-06-01")
-                .header("x-api-key", api_key);
+            rb = rb.header("x-api-key", api_key);
         }
         super::models::Protocol::OpenAI => {
             rb = rb.header("Authorization", format!("Bearer {api_key}"));
@@ -2817,15 +3265,33 @@ fn uuid_sim() -> String {
     )
 }
 
-/// 构建上游请求头 KV 表（用于日志记录，与 apply_client_headers 保持一致）
-pub fn build_upstream_headers(client_type: &ClientType, protocol: &super::models::Protocol, api_key: &str) -> Vec<(String, String)> {
-    let mut h: Vec<(String, String)> = vec![
-        ("Content-Type".into(), "application/json".into()),
-    ];
-    // auth header
+/// 构建上游请求头 KV 表（用于日志记录，反映实际发送：入站透传 + apply 覆盖）。
+/// 透传头从 orig 取并脱敏（auth/cookie），覆盖头（UA/auth/CT + codex 协议必需）按 apply 逻辑。
+pub fn build_upstream_headers(
+    client_type: &ClientType,
+    protocol: &super::models::Protocol,
+    api_key: &str,
+    orig: &axum::http::HeaderMap,
+) -> Vec<(String, String)> {
+    let mut h: Vec<(String, String)> = Vec::new();
+    // ① 透传入站头（剔 stripped：hop-by-hop + auth/UA/CT）。脱敏敏感值。
+    for (k, v) in orig {
+        let name = k.as_str();
+        if STRIPPED_ON_CONVERT_PASSTHROUGH.iter().any(|s| name.eq_ignore_ascii_case(s)) {
+            continue;
+        }
+        let val = v.to_str().unwrap_or("");
+        let val = if name.eq_ignore_ascii_case("cookie") || name.eq_ignore_ascii_case("set-cookie") {
+            "[REDACTED]".to_string()
+        } else {
+            val.to_string()
+        };
+        h.push((name.to_string(), val));
+    }
+    // ② 覆盖：Content-Type + auth（redact_key 日志安全）+ UA + codex 协议必需。
+    h.push(("Content-Type".into(), "application/json".into()));
     match protocol {
         super::models::Protocol::Anthropic => {
-            h.push(("anthropic-version".into(), "2023-06-01".into()));
             h.push(("x-api-key".into(), redact_key(api_key)));
         }
         super::models::Protocol::Gemini => {
@@ -2835,36 +3301,20 @@ pub fn build_upstream_headers(client_type: &ClientType, protocol: &super::models
             h.push(("Authorization".into(), format!("Bearer {}", redact_key(api_key))));
         }
     }
-    // client-specific headers
     match client_type {
         ClientType::Default => {}
-        // Claude Code family
         ClientType::ClaudeCode
         | ClientType::ClaudeCodeVscode
         | ClientType::ClaudeCodeSdkTs
         | ClientType::ClaudeCodeSdkPy
         | ClientType::ClaudeCodeGhAction => {
             h.push(("User-Agent".into(), claude_code_ua(client_type).into()));
-            h.push(("x-app".into(), "cli".into()));
-            h.push(("anthropic-dangerous-direct-browser-access".into(), "true".into()));
-            h.push(("X-Stainless-Lang".into(), "js".into()));
-            h.push(("X-Stainless-Package-Version".into(), "0.60.0".into()));
-            h.push(("X-Stainless-OS".into(), "MacOS".into()));
-            h.push(("X-Stainless-Arch".into(), "arm64".into()));
-            h.push(("X-Stainless-Runtime".into(), "node".into()));
-            h.push(("X-Stainless-Runtime-Version".into(), "v22.19.0".into()));
-            h.push(("X-Stainless-Retry-Count".into(), "0".into()));
-            h.push(("X-Stainless-Timeout".into(), "600".into()));
         }
-        // Codex family
         ClientType::CodexCli
         | ClientType::CodexTui
         | ClientType::CodexDesktop
         | ClientType::CodexVscode => {
             h.push(("User-Agent".into(), codex_ua(client_type).into()));
-            h.push(("originator".into(), "codex_cli_rs".into()));
-            h.push(("version".into(), "0.38.0".into()));
-            h.push(("Accept".into(), "text/event-stream".into()));
             if matches!(protocol, super::models::Protocol::OpenAI) {
                 h.push(("OpenAI-Beta".into(), "responses=experimental".into()));
                 h.push(("conversation_id".into(), uuid_sim()));
@@ -2873,11 +3323,9 @@ pub fn build_upstream_headers(client_type: &ClientType, protocol: &super::models
         }
         ClientType::Cursor => {
             h.push(("User-Agent".into(), "Cursor/0.50.7".into()));
-            h.push(("x-app".into(), "cursor".into()));
         }
         ClientType::Windsurf => {
             h.push(("User-Agent".into(), "Windsurf/1.5.0".into()));
-            h.push(("x-app".into(), "windsurf".into()));
         }
     }
     h
@@ -2939,6 +3387,177 @@ fn format_pretty_json(s: &str) -> String {
 mod tests {
     use super::*;
 
+    // ── 上游响应头透传筛选 filter_upstream_resp_headers ──
+
+    /// 构造 reqwest HeaderMap（append 语义保留多值）
+    fn rq_headers(pairs: &[(&str, &str)]) -> reqwest::header::HeaderMap {
+        let mut m = reqwest::header::HeaderMap::new();
+        for (k, v) in pairs {
+            let name = reqwest::header::HeaderName::from_bytes(k.as_bytes()).unwrap();
+            m.append(name, reqwest::header::HeaderValue::from_str(v).unwrap());
+        }
+        m
+    }
+
+    fn has(out: &[(axum::http::HeaderName, axum::http::HeaderValue)], name: &str) -> bool {
+        out.iter().any(|(n, _)| n.as_str().eq_ignore_ascii_case(name))
+    }
+    fn val_of<'a>(
+        out: &'a [(axum::http::HeaderName, axum::http::HeaderValue)],
+        name: &str,
+    ) -> Option<&'a str> {
+        out.iter()
+            .find(|(n, _)| n.as_str().eq_ignore_ascii_case(name))
+            .and_then(|(_, v)| v.to_str().ok())
+    }
+    fn count_of(out: &[(axum::http::HeaderName, axum::http::HeaderValue)], name: &str) -> usize {
+        out.iter().filter(|(n, _)| n.as_str().eq_ignore_ascii_case(name)).count()
+    }
+
+    #[test]
+    fn filter_resp_drops_blacklist() {
+        let src = rq_headers(&[
+            ("content-encoding", "gzip"),
+            ("content-length", "123"),
+            ("transfer-encoding", "chunked"),
+            ("connection", "keep-alive"),
+            ("keep-alive", "timeout=5"),
+            ("date", "Tue, 17 Jun 2026 00:00:00 GMT"),
+        ]);
+        let out = filter_upstream_resp_headers(&src, false);
+        assert!(!has(&out, "content-encoding"));
+        assert!(!has(&out, "content-length"));
+        assert!(!has(&out, "transfer-encoding"));
+        assert!(!has(&out, "connection"));
+        assert!(!has(&out, "keep-alive"));
+        // 非黑名单保留
+        assert!(has(&out, "date"));
+    }
+
+    #[test]
+    fn filter_resp_keeps_business_headers() {
+        let src = rq_headers(&[
+            ("date", "Tue, 17 Jun 2026 00:00:00 GMT"),
+            ("x-log-id", "abc123"),
+            ("x-process-time", "0.042"),
+            ("vary", "Accept-Encoding"),
+            ("set-cookie", "sid=1; Path=/"),
+            ("content-type", "application/json; charset=utf-8"),
+        ]);
+        let out = filter_upstream_resp_headers(&src, false);
+        assert_eq!(val_of(&out, "date"), Some("Tue, 17 Jun 2026 00:00:00 GMT"));
+        assert_eq!(val_of(&out, "x-log-id"), Some("abc123"));
+        assert_eq!(val_of(&out, "x-process-time"), Some("0.042"));
+        assert_eq!(val_of(&out, "vary"), Some("Accept-Encoding"));
+        assert_eq!(val_of(&out, "set-cookie"), Some("sid=1; Path=/"));
+        assert_eq!(val_of(&out, "content-type"), Some("application/json; charset=utf-8"));
+    }
+
+    #[test]
+    fn filter_resp_keeps_multiple_set_cookie() {
+        let src = rq_headers(&[
+            ("set-cookie", "a=1; Path=/"),
+            ("set-cookie", "b=2; Path=/"),
+            ("set-cookie", "c=3; Path=/"),
+        ]);
+        let out = filter_upstream_resp_headers(&src, false);
+        assert_eq!(count_of(&out, "set-cookie"), 3, "多值 set-cookie 不得丢值");
+    }
+
+    #[test]
+    fn filter_resp_blacklist_case_insensitive() {
+        let src = rq_headers(&[
+            ("Content-Encoding", "gzip"),
+            ("Transfer-Encoding", "chunked"),
+            ("X-Log-Id", "keep-me"),
+        ]);
+        let out = filter_upstream_resp_headers(&src, false);
+        assert!(!has(&out, "content-encoding"), "大小写混合仍须剔除");
+        assert!(!has(&out, "transfer-encoding"));
+        assert!(has(&out, "x-log-id"));
+    }
+
+    #[test]
+    fn filter_resp_stream_drops_sse_self_managed() {
+        let src = rq_headers(&[
+            ("content-type", "application/json"),
+            ("cache-control", "max-age=60"),
+            ("connection", "close"),
+            ("x-log-id", "from-upstream"),
+            ("date", "Tue, 17 Jun 2026 00:00:00 GMT"),
+        ]);
+        let out = filter_upstream_resp_headers(&src, true);
+        // SSE 自管头不得来自上游
+        assert!(!has(&out, "content-type"));
+        assert!(!has(&out, "cache-control"));
+        assert!(!has(&out, "connection"));
+        // 透传价值头仍保留
+        assert_eq!(val_of(&out, "x-log-id"), Some("from-upstream"));
+        assert!(has(&out, "date"));
+    }
+
+    #[test]
+    fn filter_resp_stream_sse_headers_take_self_managed_values() {
+        // 模拟流式实发头组装：SSE 三自管头 + filter(is_stream=true)
+        let src = rq_headers(&[
+            ("content-type", "application/json"),  // 上游值，须被 SSE 自管覆盖
+            ("cache-control", "max-age=60"),
+            ("connection", "close"),
+            ("x-log-id", "from-upstream"),
+        ]);
+        let sse: [(axum::http::HeaderName, axum::http::HeaderValue); 3] = [
+            (axum::http::header::CONTENT_TYPE, axum::http::HeaderValue::from_static("text/event-stream")),
+            (axum::http::header::CACHE_CONTROL, axum::http::HeaderValue::from_static("no-cache")),
+            (axum::http::header::CONNECTION, axum::http::HeaderValue::from_static("keep-alive")),
+        ];
+        let mut all: Vec<(axum::http::HeaderName, axum::http::HeaderValue)> = sse.to_vec();
+        all.extend(filter_upstream_resp_headers(&src, true));
+        assert_eq!(val_of(&all, "content-type"), Some("text/event-stream"));
+        assert_eq!(val_of(&all, "cache-control"), Some("no-cache"));
+        assert_eq!(val_of(&all, "connection"), Some("keep-alive"));
+        assert_eq!(val_of(&all, "x-log-id"), Some("from-upstream"));
+    }
+
+    #[test]
+    fn resp_headers_log_json_first_value_and_format() {
+        let headers = vec![
+            (axum::http::header::CONTENT_TYPE, axum::http::HeaderValue::from_static("application/json")),
+            (
+                axum::http::HeaderName::from_static("x-log-id"),
+                axum::http::HeaderValue::from_static("xyz"),
+            ),
+        ];
+        let json = resp_headers_to_log_json(&headers);
+        let v: Value = serde_json::from_str(&json).unwrap();
+        assert_eq!(v.get("content-type").and_then(|x| x.as_str()), Some("application/json"));
+        assert_eq!(v.get("x-log-id").and_then(|x| x.as_str()), Some("xyz"));
+    }
+
+    #[test]
+    fn nonstream_response_has_single_content_type() {
+        // 复现非流式 2xx 成功路径头组装：(StatusCode, Vec<u8>).into_response() 默认写死
+        // content-type: application/octet-stream，须先 remove 再 extend，避免重复 content-type。
+        use axum::response::IntoResponse;
+        let src = rq_headers(&[
+            ("content-type", "application/json; charset=utf-8"),
+            ("x-log-id", "abc"),
+        ]);
+        let filtered = filter_upstream_resp_headers(&src, false);
+        let mut response = (StatusCode::OK, b"{}".to_vec()).into_response();
+        response
+            .headers_mut()
+            .remove(axum::http::header::CONTENT_TYPE);
+        response.headers_mut().extend(filtered);
+        let cts: Vec<_> = response
+            .headers()
+            .get_all(axum::http::header::CONTENT_TYPE)
+            .iter()
+            .map(|v| v.to_str().unwrap().to_string())
+            .collect();
+        assert_eq!(cts, vec!["application/json; charset=utf-8".to_string()], "须单一 content-type 取上游真实值");
+        assert!(response.headers().contains_key("x-log-id"));
+    }
+
     // ── 透传 URL 拼接：base_url(host 根) + 客户端原始 path(+query) ──
 
     #[test]
@@ -2998,6 +3617,63 @@ mod tests {
             fwd.get("x-custom").and_then(|v| v.to_str().ok()),
             Some("keep-me")
         );
+    }
+
+    // ── convert 路径透传：剔 hop-by-hop + auth/UA/CT，保留客户端 SDK 头（跨协议也带）──
+    #[test]
+    fn passthrough_convert_strips_hop_and_override_keeps_sdk_headers() {
+        let mut orig = axum::http::HeaderMap::new();
+        // hop-by-hop / 强覆盖（应剔）
+        orig.insert("host", "127.0.0.1:8080".parse().unwrap());
+        orig.insert("content-length", "123".parse().unwrap());
+        orig.insert("connection", "keep-alive".parse().unwrap());
+        orig.insert("authorization", "Bearer sk-inbound".parse().unwrap());
+        orig.insert("user-agent", "inbound-ua/1.0".parse().unwrap());
+        orig.insert("content-type", "text/plain".parse().unwrap());
+        // 客户端 SDK 头（应保留透传）
+        orig.insert("anthropic-beta", "interleaved-thinking-2025-05-14".parse().unwrap());
+        orig.insert("anthropic-version", "2023-06-01".parse().unwrap());
+        orig.insert("x-stainless-package-version", "0.94.0".parse().unwrap());
+        orig.insert("x-stainless-runtime-version", "v24.3.0".parse().unwrap());
+        orig.insert("x-stainless-timeout", "3000".parse().unwrap());
+        orig.insert("x-claude-code-session-id", "sess-abc".parse().unwrap());
+        orig.insert("x-app", "cli".parse().unwrap());
+
+        let fwd = passthrough_convert_headers(&orig);
+
+        // 剔除项
+        for stripped in ["host", "content-length", "connection", "authorization", "user-agent", "content-type"] {
+            assert!(!fwd.contains_key(stripped), "{stripped} must be stripped for convert apply to override");
+        }
+        // 透传项（含跨协议透明的 SDK 头）
+        assert_eq!(fwd.get("anthropic-beta").and_then(|v| v.to_str().ok()), Some("interleaved-thinking-2025-05-14"));
+        assert_eq!(fwd.get("x-stainless-package-version").and_then(|v| v.to_str().ok()), Some("0.94.0"));
+        assert_eq!(fwd.get("x-stainless-runtime-version").and_then(|v| v.to_str().ok()), Some("v24.3.0"));
+        assert_eq!(fwd.get("x-stainless-timeout").and_then(|v| v.to_str().ok()), Some("3000"));
+        assert_eq!(fwd.get("x-claude-code-session-id").and_then(|v| v.to_str().ok()), Some("sess-abc"));
+    }
+
+    // ── build_upstream_headers：透传入站（脱敏）+ 覆盖 UA/auth，日志反映真实上游头 ──
+    #[test]
+    fn build_upstream_headers_passes_through_and_overrides_auth() {
+        let mut orig = axum::http::HeaderMap::new();
+        orig.insert("anthropic-beta", "beta-x".parse().unwrap());
+        orig.insert("x-stainless-package-version", "0.94.0".parse().unwrap());
+        orig.insert("cookie", "secret-cookie".parse().unwrap());
+        orig.insert("authorization", "Bearer sk-inbound".parse().unwrap());
+
+        let h = build_upstream_headers(&ClientType::ClaudeCode, &crate::gateway::models::Protocol::Anthropic, "sk-realkey-1234567890", &orig);
+        let m: std::collections::HashMap<&str, &str> = h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+
+        // 入站 SDK 头透传
+        assert_eq!(m.get("anthropic-beta"), Some(&"beta-x"));
+        assert_eq!(m.get("x-stainless-package-version"), Some(&"0.94.0"));
+        // cookie 脱敏
+        assert_eq!(m.get("cookie"), Some(&"[REDACTED]"));
+        // auth 覆盖为平台 key（redact）+ UA 模拟
+        assert!(m.get("x-api-key").unwrap().contains("****"), "x-api-key must be redacted platform key");
+        assert!(m.get("User-Agent").unwrap().starts_with("claude-cli/"));
+        assert_eq!(m.get("Content-Type"), Some(&"application/json"));
     }
 
     // ── 透传分支不调 convert_request（结构性确认）──
@@ -3163,6 +3839,72 @@ mod tests {
         );
     }
 
+    // ── count_tokens 端点识别：尾段 /v1/messages/count_tokens 才命中，普通 /v1/messages 不命中 ──
+    #[test]
+    fn count_tokens_endpoint_detection() {
+        use super::is_count_tokens_endpoint;
+        // 命中（关键修复点）
+        assert!(is_count_tokens_endpoint("/proxy/v1/messages/count_tokens"));
+        assert!(is_count_tokens_endpoint("/glm-coding-plan-auto/v1/messages/count_tokens"));
+        assert!(is_count_tokens_endpoint("/v1/messages/count_tokens"));
+        assert!(is_count_tokens_endpoint("/v1/messages/count_tokens/")); // 容尾斜杠
+        // 普通 messages → 不命中（关键回归：普通对话路径不被新分流拦）
+        assert!(!is_count_tokens_endpoint("/proxy/v1/messages"));
+        assert!(!is_count_tokens_endpoint("/v1/messages"));
+        assert!(!is_count_tokens_endpoint("/v1/messages/"));
+        // 无 /v1/ 前缀 / 其他端点 → 不命中
+        assert!(!is_count_tokens_endpoint("/proxy/messages/count_tokens"));
+        assert!(!is_count_tokens_endpoint("/v1/chat/completions"));
+        assert!(!is_count_tokens_endpoint("/v1/responses/resp_1"));
+    }
+
+    // ── count_tokens 上游 URL 构造：anthropic base_url(不含 /v1) + /v1/messages/count_tokens ──
+    #[test]
+    fn count_tokens_url_construction() {
+        let build = |base_url: &str| format!("{}/v1/messages/count_tokens", base_url.trim_end_matches('/'));
+        // GLM anthropic 端点（base_url 不含 /v1）→ 拼出含尾段的完整 URL
+        assert_eq!(
+            build("https://open.bigmodel.cn/api/anthropic"),
+            "https://open.bigmodel.cn/api/anthropic/v1/messages/count_tokens"
+        );
+        // anthropic 官方 base_url → 同款
+        assert_eq!(
+            build("https://api.anthropic.com"),
+            "https://api.anthropic.com/v1/messages/count_tokens"
+        );
+        // base_url 末尾带斜杠 → trim 后正确，不双斜杠
+        assert_eq!(
+            build("https://api.anthropic.com/"),
+            "https://api.anthropic.com/v1/messages/count_tokens"
+        );
+    }
+
+    // ── 本地估算兜底：累计文本字符数 ~4 字符/token，保底 1 ──
+    #[test]
+    fn count_tokens_local_estimate() {
+        use super::estimate_input_tokens;
+        // 空 body / 无文本字段 → 保底 1（不返回 0 误导客户端）
+        assert_eq!(estimate_input_tokens(&serde_json::json!({})), 1);
+        assert_eq!(estimate_input_tokens(&serde_json::Value::Null), 1);
+        // messages 递归累计全部字符串值：role "user"(4) + content "abcdefgh"(8) = 12 → ceil(12/4)=3
+        let body = serde_json::json!({
+            "model": "claude-opus-4-8",
+            "messages": [{"role": "user", "content": "abcdefgh"}]
+        });
+        assert_eq!(estimate_input_tokens(&body), 3);
+        // system + messages + tools 全字符串值累计：
+        // system "syst"(4) + role "user"(4) + content "msgs"(4) + tool name "x"(1) + desc "tdsc"(4) = 17 → ceil(17/4)=5
+        let body = serde_json::json!({
+            "system": "syst",
+            "messages": [{"role": "user", "content": "msgs"}],
+            "tools": [{"name": "x", "description": "tdsc"}]
+        });
+        assert_eq!(estimate_input_tokens(&body), 5);
+        // model 字段不计入文本估算（仅 system/messages/tools）
+        let with_model = serde_json::json!({ "model": "very-long-model-name-not-counted" });
+        assert_eq!(estimate_input_tokens(&with_model), 1);
+    }
+
     // ── 同协议透传判定：仅端点协议精确等于入站协议才透传 ──
     // 精确匹配 → 透传；openai_responses→openai 跨协议回退 → 不透传（必须真转换）。
     #[test]
@@ -3194,6 +3936,75 @@ mod tests {
         assert!(!pass, "no matched endpoint must NOT passthrough");
     }
 
+    // ── UA → 透传协议推断：claude-cli→anthropic / codex→openai_responses / 其它→None ──
+    #[test]
+    fn infer_passthrough_protocol_from_ua_mapping() {
+        use super::infer_passthrough_protocol_from_ua as infer;
+        // Claude Code 家族（全部含 claude-cli 前缀）
+        assert_eq!(infer("claude-cli/1.0.117 (external, cli)"), Some("anthropic"));
+        assert_eq!(infer("claude-cli/1.0.117 (external, claude-vscode, agent-sdk/0.1.30)"), Some("anthropic"));
+        // Codex 家族（codex_cli_rs / Codex/ / codex desktop / codex-vscode；大小写不敏感）
+        assert_eq!(infer("codex_cli_rs/0.38.0 (MacOS; arm64) Terminal"), Some("openai_responses"));
+        assert_eq!(infer("Codex/0.38.0"), Some("openai_responses"));
+        assert_eq!(infer("codex desktop/0.38.0"), Some("openai_responses"));
+        assert_eq!(infer("codex-vscode/0.38.0"), Some("openai_responses"));
+        // 不识别（Cursor / Windsurf / gemini-cli / 未知 / 空）→ None
+        assert_eq!(infer("Cursor/0.50.7"), None);
+        assert_eq!(infer("Windsurf/1.5.0"), None);
+        assert_eq!(infer("gemini-cli/0.1.0"), None);
+        assert_eq!(infer("curl/8.0"), None);
+        assert_eq!(infer(""), None);
+    }
+
+    // ── UA 透传三级回退分支判定（镜像插入点逻辑：matched_ep==None 时按 UA 推断）──
+    // 级别 1：UA 命中 + 平台有该协议 endpoint → 透传 wire = UA 协议。
+    // 级别 2：UA 命中 + 平台无该协议 endpoint → 回退（不透传）。
+    // 级别 3：UA 不识别 → 回退（不透传）。
+    #[test]
+    fn ua_passthrough_three_level_fallback() {
+        use super::infer_passthrough_protocol_from_ua as infer;
+        // 模拟平台端点协议集合（小写名）
+        let try_passthrough = |ua: &str, platform_protos: &[&str], source_matched: bool| -> Option<&'static str> {
+            // path 已被支持（source_matched=true）→ 不介入
+            if source_matched {
+                return None;
+            }
+            // matched_ep == None → 尝试 UA 推断
+            let p = infer(ua)?;
+            // 平台需确有该协议 endpoint
+            if platform_protos.contains(&p) {
+                Some(p)
+            } else {
+                None
+            }
+        };
+        // 级别 1：codex UA + 平台有 openai_responses → 透传该协议
+        assert_eq!(
+            try_passthrough("codex_cli_rs/0.38.0", &["openai_responses", "anthropic"], false),
+            Some("openai_responses")
+        );
+        // 级别 1：claude-cli + 平台有 anthropic → 透传 anthropic
+        assert_eq!(
+            try_passthrough("claude-cli/1.0.117 (external, cli)", &["anthropic"], false),
+            Some("anthropic")
+        );
+        // 级别 2：codex UA 但平台只有 openai（无 openai_responses）→ 回退
+        assert_eq!(
+            try_passthrough("codex_cli_rs/0.38.0", &["openai", "anthropic"], false),
+            None
+        );
+        // 级别 3：UA 不识别 → 回退
+        assert_eq!(
+            try_passthrough("Cursor/0.50.7", &["anthropic", "openai_responses"], false),
+            None
+        );
+        // 级别 0：path 已被平台支持（source_matched）→ 不介入，UA 不参与
+        assert_eq!(
+            try_passthrough("codex_cli_rs/0.38.0", &["openai_responses"], true),
+            None
+        );
+    }
+
     // ── 透传 model remap：仅 patch model 字段，messages/tools 结构原样保留 ──
     #[test]
     fn passthrough_patches_model_only() {
@@ -3214,5 +4025,58 @@ mod tests {
         assert_eq!(body.get("messages"), orig.get("messages"));
         assert_eq!(body.get("tools"), orig.get("tools"));
         assert_eq!(body.get("max_tokens"), orig.get("max_tokens"));
+    }
+
+    // ── 上游 gzip 压缩响应解压回归（修复 token/成本全 0 + 日志乱码）──
+    // 背景: 上游 GLM anthropic 端点回 content-encoding: gzip。reqwest 启用 gzip feature 后
+    // 由响应头 Content-Encoding 驱动自动解压，resp.bytes() 得明文。本 test 用 flate2 构造
+    // 一段 gzip 压缩的 anthropic usage JSON，解压后喂 extract_usage，断言 token > 0，
+    // 证明「解压后 JSON → extract_usage → token>0」链路成立（reqwest 解压本身为黑盒，
+    // 由 Cargo feature gzip/brotli/deflate/zstd 保证，行为有 docs.rs 官方背书）。
+    #[test]
+    fn gzip_decompressed_anthropic_usage_extracts_tokens() {
+        use flate2::read::GzDecoder;
+        use flate2::write::GzEncoder;
+        use flate2::Compression;
+        use std::io::{Read, Write};
+
+        // anthropic 非流式响应体（含 usage.input_tokens / output_tokens / cache_read_input_tokens）
+        let json = r#"{
+            "id": "msg_01abc",
+            "type": "message",
+            "role": "assistant",
+            "model": "glm-5.1",
+            "content": [{"type": "text", "text": "hello"}],
+            "stop_reason": "end_turn",
+            "usage": {
+                "input_tokens": 1234,
+                "output_tokens": 567,
+                "cache_read_input_tokens": 89
+            }
+        }"#;
+
+        // 模拟上游：gzip 压缩明文 JSON（等价上游回 content-encoding: gzip）
+        let mut encoder = GzEncoder::new(Vec::new(), Compression::default());
+        encoder.write_all(json.as_bytes()).unwrap();
+        let gzipped = encoder.finish().unwrap();
+        // 压缩字节非 UTF-8 可读 → 直接喂 extract_usage 解析失败返回 (0,0,0)（复现旧 bug）
+        let lossy = String::from_utf8_lossy(&gzipped);
+        assert_eq!(
+            extract_usage(&lossy),
+            (0, 0, 0),
+            "压缩字节当文本解析应失败（复现旧 bug）"
+        );
+
+        // 模拟 reqwest 启用 feature 后的解压结果：解压回明文
+        let mut decoder = GzDecoder::new(&gzipped[..]);
+        let mut decompressed = String::new();
+        decoder.read_to_string(&mut decompressed).unwrap();
+
+        // 解压后 JSON → extract_usage → token > 0（修复后语义）
+        let (input, output, cache) = extract_usage(&decompressed);
+        assert_eq!(input, 1234);
+        assert_eq!(output, 567);
+        assert_eq!(cache, 89);
+        assert!(input > 0 && output > 0, "解压后 token 必须 > 0");
     }
 }

@@ -1,47 +1,38 @@
-.DEFAULT_GOAL := help
-
-# === Config ===
-PRODUCT_NAME := AiDog
+PRODUCT_NAME := aidog
 TAURI_DIR    := src-tauri
 
-# === Colors ===
+BOLD  := \033[1m
 CYAN  := \033[36m
 GREEN := \033[32m
-BOLD  := \033[1m
 RESET := \033[0m
 
-##@ Development
+# 签名私钥 fallback: env 未设则读 ~/.tauri/aidog.key 内容 (updater artifact 签名所需)
+TAURI_SIGNING_PRIVATE_KEY ?= $(shell cat $(HOME)/.tauri/aidog.key 2>/dev/null)
+export TAURI_SIGNING_PRIVATE_KEY
+
+##@ Build
 
 .PHONY: run
 run: ## Start dev server with hot reload (frontend + Rust HMR)
 	@printf "$(GREEN)▶ Starting Tauri dev server...$(RESET)\n"
-	cargo tauri dev
+	yarn tauri dev
 
-.PHONY: dev-frontend
-dev-frontend: ## Start only the frontend dev server (Vite HMR)
-	@printf "$(GREEN)▶ Starting Vite dev server...$(RESET)\n"
-	yarn dev
-
-##@ Build
+.PHONY: build
+build: ## Build frontend (tsc && vite build)
+	@printf "$(CYAN)▶ Building frontend...$(RESET)\n"
+	yarn build
 
 .PHONY: release
-release: ## Build release bundle for current platform
-	@printf "$(GREEN)▶ Building $(PRODUCT_NAME) release...$(RESET)\n"
-	cargo tauri build
-	@printf "$(CYAN)✓ Release artifacts:$(RESET)\n"
-	@ls -lh $(TAURI_DIR)/target/release/bundle/ 2>/dev/null || true
+release: ## Build local installer for current platform → $(TAURI_DIR)/target/release/bundle/
+	@printf "$(GREEN)▶ Building release installer ($(PRODUCT_NAME))...$(RESET)\n"
+	yarn tauri build
+	@printf "$(GREEN)✔ Bundles → $(TAURI_DIR)/target/release/bundle/$(RESET)\n"
 
-.PHONY: release-dmg
-release-dmg: ## Build macOS .dmg only
-	@printf "$(GREEN)▶ Building macOS DMG...$(RESET)\n"
-	cargo tauri build --bundles dmg
-	@ls -lh $(TAURI_DIR)/target/release/bundle/dmg/ 2>/dev/null || true
-
-.PHONY: release-msi
-release-msi: ## Build Windows .msi only (cross-compile)
-	@printf "$(GREEN)▶ Building Windows MSI...$(RESET)\n"
-	cargo tauri build --bundles msi --target x86_64-pc-windows-msvc
-	@ls -lh $(TAURI_DIR)/target/x86_64-pc-windows-msvc/release/bundle/msi/ 2>/dev/null || true
+.PHONY: release-debug
+release-debug: ## Build installer with debug symbols (faster, larger)
+	@printf "$(GREEN)▶ Building debug installer ($(PRODUCT_NAME))...$(RESET)\n"
+	yarn tauri build --debug
+	@printf "$(GREEN)✔ Bundles → $(TAURI_DIR)/target/debug/bundle/$(RESET)\n"
 
 ##@ Maintenance
 
@@ -66,6 +57,13 @@ clean: ## Remove build artifacts
 .PHONY: install
 install: ## Install frontend dependencies
 	yarn install
+
+##@ Pricing
+
+.PHONY: prices-sync
+prices-sync: ## Sync model prices/max_tokens → data/models.json (single entry, runs all platform scrapers)
+	@printf "$(GREEN)▶ Aggregating model pricing → data/models.json...$(RESET)\n"
+	cd scripts/pricing && uv run python aggregate.py
 
 ##@ Help
 

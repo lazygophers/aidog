@@ -26,7 +26,6 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
         codex_profiles: Vec::new(),
         claude_code_global: None,
         claude_code_group_settings: Vec::new(),
-        model_price: Vec::new(),
         skills: Vec::new(),
     };
 
@@ -64,11 +63,6 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
 
     if scope_set.contains(super::SCOPE_CLAUDE_CODE) {
         collect_claude_code(&mut payload)?;
-    }
-
-    if scope_set.contains(super::SCOPE_MODEL_PRICE) {
-        // 导出全部价格（limit 上限足够大）。
-        payload.model_price = crate::gateway::db::list_all_model_prices_full(db).await?;
     }
 
     if scope_set.contains(super::SCOPE_SKILLS) {

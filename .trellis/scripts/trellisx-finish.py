@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 # trellisx 强制收尾 — 一键 commit → merge → archive → 销 worktree。
-# 由 workflow.md finish 段强制调用 (apply 注入): check 通过后 AI 跑此脚本,
-# 不再停在「提醒用户运行 /finish-work」。finish 与 worktree 删除为必须。
+# 两种触发 (同一脚本):
+#   ① after_finish hook 自动调用 (apply 注入 config.yaml): `task.py finish` 触发,
+#      自动收尾, 不靠 AI 记得跑。此时 finish 已清 active 指针, 用 $TASK_JSON_PATH 取 tid。
+#   ② AI/人手动调用 (CLI, --task / 取 task.py current): 兜底, 幂等可重入。
+# finish 与 worktree 删除为必须。
 #
 # 用法: trellisx-finish.py [--task <tid>] [--message "<commit msg>"] [--dry-run]
-#   --task     目标 task id (缺省取 task.py current)
+#   --task     目标 task id (缺省: 先 $TASK_JSON_PATH 后 task.py current)
 #   --message  worktree 提交消息 (缺省 "chore(task): <tid> 收尾提交")
 #   --dry-run  只打印将执行的步骤, 不落地
 #
@@ -60,14 +63,19 @@ def main():
         die("未找到 .trellis/scripts/task.py (非 trellis 项目?)")
     troot = trellis_root_from(taskpy)
 
-    # 1. 定位 active task
+    # 1. 定位 task: --task > $TASK_JSON_PATH (after_finish hook 模式) > task.py current (手动)
+    #    finish 已清 active 指针 → hook 内 current 取不到, 必须靠 $TASK_JSON_PATH。
     tid = args.task
+    if not tid:
+        tjp_env = os.environ.get("TASK_JSON_PATH", "")
+        if tjp_env and os.path.isfile(tjp_env):
+            tid = os.path.basename(os.path.dirname(os.path.abspath(tjp_env)))
     if not tid:
         r = run(["python3", taskpy, "current"])
         line = (r.stdout or "").strip().splitlines()
         path = line[0].strip() if line else ""
         if not path or "tasks/" not in path:
-            die("无 active task (task.py current 为空), 无可收尾对象")
+            die("无 active task ($TASK_JSON_PATH 与 task.py current 均为空), 无可收尾对象")
         tid = os.path.basename(path.rstrip("/"))
     print(f"trellisx-finish: 收尾 task = {tid}")
 

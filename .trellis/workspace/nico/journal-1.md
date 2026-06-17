@@ -563,3 +563,187 @@ Rspress 文档站升级：iOS 蓝品牌主题(globalStyles CSS 变量)+7 语言 
 ### Next Steps
 
 - None - task complete
+
+
+## Session 17: cc-switch 导入误报「未检测到」（文件实存）
+
+**Date**: 2026-06-16
+**Task**: cc-switch 探测误报未检测到（文件实存）
+**Branch**: `next`
+
+### Summary
+
+设置页「检测 cc-switch」报配置未检测到，但 `~/.cc-switch/cc-switch.db` 实存。根因：`detect()` 返回 .db **文件**路径，前端回传 `read()`，旧 `read()` 无条件重跑 `detect(path)`，后者把文件路径当**目录** join 出 `…/cc-switch.db/cc-switch.db` → `exists()=false` → 误报。方案 B：`read()` 收文件路径直读（按文件名定 source_type：config.json→json 否则 sqlite），缺省/目录/不存在才探测。抽 `direct_source_if_file` 纯函数 + 3 单测（回归 sqlite 文件路径 / config.json 分类 / dir·missing·empty→None）。
+
+### Main Changes
+
+- `src-tauri/src/gateway/import_export/ccswitch.rs`：`read()` 改用 `direct_source_if_file` 分流 + 新增该纯函数 + 3 单测。签名不变，前端/import/apply 无改动。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `79fe155` | fix(ccswitch): read() 收文件路径直读不再误报未检测到 |
+
+### Testing
+
+- [OK] `cargo test --lib ...ccswitch` 11 passed（原 8 + 新 3）
+- [OK] `cargo clippy --lib` 0 lint（唯一 warning = 已接受的第三方 block v0.1.6 future-incompat）
+- [pending] dev-app 手动验收留给用户（真实 cc-switch.db）
+
+### Status
+
+[OK] **Completed** — 自主 finish（用户授权不再等手动确认）
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 18: 添加平台时选择分组（不建/加入指定）
+
+**Date**: 2026-06-17
+**Task**: platform-add-group-option
+**Branch**: `next`
+
+### Summary
+
+添加/编辑平台时用双复选控制分组归属：[创建默认分组](默认勾=旧行为) + [加入已有分组](chips 多选)；都不勾=平台游离、ensure 永不补建。覆盖手动添加 + cc-switch 导入(批量) + platform_update 编辑。持久化靠 Platform.auto_group 列（Migration 022, DEFAULT 1 老库不变）；ensure_platform_groups 按 auto_group 持久跳过。
+
+### Main Changes
+
+- **backend**: Platform.auto_group 字段 + Create/UpdatePlatform 入参(auto_group + join_group_ids)；migration 022 guarded ALTER；create/update/ensure 逻辑；新增 sync_platform_manual_groups helper(platform 维度全量同步，靠 group.auto_from_platform 区分手动/auto 组，auto 永不动)；抽 create_auto_group_for 复用。
+- **frontend**: api.ts 类型双写；Platforms.tsx 表单双复选 + 编辑态反查手动组(auto 组排除)；CcSwitchImport.tsx 批量选择器 + post-import 按名匹配 platform_update 回挂；i18n 8 语言 5 key。
+- **关键发现**: apply::apply 的 insert_platform_row 不设 auto_group(靠 DB DEFAULT 1)也不建 auto 组 → cc-switch 导入平台靠 ensure 后续补；故 cc-switch 组回挂走 post-import platform_update（非改 apply 路径）。
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1b7d25d` | feat(platform): 添加平台时支持选择不建分组或加入指定分组 (backend) |
+| `e2cd9b2` | feat(platform): 添加平台时选择分组 (frontend 表单 + cc-switch 批量 + i18n) |
+
+### Testing
+
+- [OK] cargo test 328 passed (326 + 2 新: auto_group 持久化 + sync 全路径)
+- [OK] cargo clippy 0 lint (除已接受 block future-incompat)
+- [OK] tsc 0 error / vite build ✓ / check-i18n 零缺失
+- [pending] dev-app 手动验收留给用户
+
+### Status
+
+[OK] **Completed** — 自主 finish
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 19: 加入已有分组 UI 对齐主题设计
+
+**Date**: 2026-06-17
+**Task**: joingroup-ui-theme-align
+**Branch**: `next`
+
+### Summary
+
+上任务交付的「分组归属」UI 未对齐设计系统：boolean 用裸 checkbox（应 .toggle 开关）、chips 自造 pill 参数漂移。用户选「保留 pill 仅调参」方向。改：boolean→.toggle-wrap+.toggle 开关（同备份启用）；chips 保留 pill(radius 999) 但 label+内嵌 checkbox 改 button 点击切换，全走 CSS 变量(--accent/--accent-subtle/--bg-glass/--border/--text-secondary) + transition，主题自适应。Platforms.tsx + CcSwitchImport.tsx 同步。
+
+### Main Changes
+
+- `src/pages/Platforms.tsx`：分组归属 FormSection（autoGroup toggle + join chips button pill）
+- `src/components/settings/CcSwitchImport.tsx`：批量选择器（batchAutoGroup toggle + batch chips）
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `1abe372` | style(platform): 加入已有分组 UI 对齐主题设计 |
+
+### Testing
+
+- [OK] tsc 0 error / vite build ✓
+- [pending] dev-app 视觉确认留给用户（暗/亮主题 + 现用调色板）
+
+### Status
+
+[OK] **Completed** — 自主 finish
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 20: 代理透传入站 header 到上游（convert 路径 + 跨协议兼容）
+
+**Date**: 2026-06-17
+**Task**: proxy-header-passthrough
+**Branch**: `next`
+
+### Summary
+
+convert 路径(apply_client_headers)原硬编码静态 SDK 头(0.60.0/v22.19.0/600)覆盖客户端真实值。改: passthrough_convert_headers 铺底全量入站头(剔 hop-by-hop + auth/UA/CT)，apply 仅覆盖 UA+auth。用户两条要求合一: 全 family 一致透传 + 跨协议兼容(CC 入站转 OpenAI 时 anthropic-*/x-stainless-* 也带，透明自定义头上游忽略不报错)。UA 不透传(路由推断依据)。
+
+### Main Changes
+
+- `src-tauri/src/gateway/proxy.rs`:
+  - 新 `passthrough_convert_headers` + `STRIPPED_ON_CONVERT_PASSTHROUGH`(hop-by-hop + auth/UA/CT)
+  - apply_claude_code/codex/cursor/windsurf/default 删硬编码可变 SDK 头，仅留 UA+auth(codex 留 OpenAI-Beta/session_id/conversation_id)
+  - build_upstream_headers 加 orig 参数，日志反映真实(透传脱敏 cookie + 覆盖 redact_key auth)
+  - 主路径铺底 `passthrough_convert_headers(&orig_headers)` 再 apply
+- `src-tauri/src/lib.rs`: model_test 调用传空 HeaderMap
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `280d412` | feat(proxy): convert 路径全量透传入站 header 到上游(含跨协议) |
+
+### Testing
+
+- [OK] cargo test 331 (329 + 2 新: convert 透传剔 stripped 保 SDK 头 / build_upstream 透传覆盖脱敏)
+- [OK] cargo clippy 0 lint (除已接受 block)
+- [pending] dev 实测 CC 经代理 → 上游收真实 0.94.0/v24.3.0/3000 + anthropic-beta + session-id
+
+### Status
+
+[OK] **Completed** — 自主 finish
+
+### Next Steps
+
+- None - task complete
+
+
+## Session 21: Anthropic 默认模型 default=opus-4-8 / haiku=4-6
+
+**Date**: 2026-06-17
+**Task**: anthropic-default-models
+**Branch**: `next`
+
+### Summary
+
+getDefaultModels anthropic preset 加 default slot=claude-opus-4-8(主模型槽，与 opus 同值)；haiku 4-5-20251001→4-6。opus/sonnet 维持。用户指定值即权威(不 WebSearch)。同步 default-model.md 维护文档。
+
+### Main Changes
+
+- `src/pages/Platforms.tsx`: getDefaultModels anthropic preset 一行
+- `.claude/skills/aidog-add-platform/references/default-model.md`: 同步
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `62b862c` | feat(platform): Anthropic 默认模型 default=opus-4-8 / haiku=4-6 |
+
+### Testing
+
+- [OK] tsc 0 error
+- [pending] dev: 添加 Anthropic 平台 → default=opus-4-8 / haiku=4-6
+
+### Status
+
+[OK] **Completed** — 自主 finish
+
+### Next Steps
+
+- None - task complete

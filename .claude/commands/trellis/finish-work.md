@@ -42,6 +42,18 @@ Then route:
   > "FYI, dirty files outside this task's scope — leaving them for the other window: `<list>`."
 - **Genuinely unsure** — ask the user once: "Are `<list>` this task's work I forgot to commit, or another window's? (commit / ignore)" — then route per their answer.
 
+<!-- trellisx:start:finishcmd_fullchain -->
+⛔ **trellisx 全链收尾 (在原生 archive/journal 之前先跑)**: 本项目 worktree 隔离, 收尾 MUST 先合并再归档, 否则销毁 worktree 丢提交。
+
+跑 `python3 .trellis/scripts/trellisx-finish.py`:
+① worktree 内 `git add -A` + commit (落 `trellisx-<name>` 分支)
+② `git merge --no-ff trellisx-<name>` 合并回主分支 (冲突 → abort + 报冲突 + 非 0 退出, 转手动禁强解)
+③ `task.py archive <tid>` 归档 + 触发 after_archive 销毁**已合并**的 worktree
+
+跑完后**跳过下方原生 "Step 3: Archive"** (trellisx-finish.py 已 archive), 直接进原生 journal 步骤 (add_session.py)。
+若 trellisx-finish.py 非 0 退出 (合并冲突) → 停, 转手动, 禁继续 journal/宣告 Done。
+<!-- trellisx:end:finishcmd_fullchain -->
+
 ## Step 3: Archive task(s)
 
 ```bash

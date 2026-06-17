@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端约定：控件/样式走既定 CSS 类与设计系统，禁页内自造样式漂移。本任务复用 globals.css 的 .toggle/.badge 即此规约的落实。"}
+{"file": "src/styles/globals.css", "reason": "设计系统源头：.toggle(L285 开关) + .badge/.badge-accent/.badge-muted(L321 徽章) 的精确参数(radius/fontSize/fontWeight/变量)，对齐须逐项匹配。"}

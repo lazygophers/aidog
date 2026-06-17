@@ -313,6 +313,19 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
           <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={detail.source_protocol || "-"} />
           <MetaItem label={t("logs.targetProtocol", "请求格式")} value={detail.target_protocol || "-"} />
           <MetaItem label={t("logs.status", "状态")} value={`${detail.status_code}`} highlight={detail.status_code === 200 ? "ok" : "err"} />
+          <MetaItem
+            label={t("logs.upstreamStatus", "上游状态")}
+            value={
+              detail.upstream_status_code === 0 || detail.upstream_status_code == null
+                ? t("logs.notCaptured", "未捕获")
+                : `${detail.upstream_status_code}`
+            }
+            highlight={
+              detail.upstream_status_code === 0 || detail.upstream_status_code == null
+                ? undefined
+                : detail.upstream_status_code >= 200 && detail.upstream_status_code < 300 ? "ok" : "err"
+            }
+          />
           <MetaItem label={t("logs.stream", "传输")} value={detail.is_stream ? t("logs.streaming", "流式") : t("logs.nonStreaming", "非流式")} />
           <MetaItem label={t("logs.duration", "耗时")} value={`${detail.duration_ms} ms`} />
           <MetaItem label={t("logs.inputTokens", "输入 Token")} value={`${detail.input_tokens}`} />
@@ -322,7 +335,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
         </div>
 
         {/* ── 平台尝试时序（多平台重试时展示每次尝试：平台/状态码/耗时/错误）── */}
-        {detail.attempts && detail.attempts.length > 1 && (
+        {detail.attempts && detail.attempts.length >= 1 && (
           <div className="glass-surface" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               <span style={{ fontSize: F.body, fontWeight: 600 }}>{t("logs.attempts", "尝试记录")}</span>

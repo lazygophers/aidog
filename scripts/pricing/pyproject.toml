@@ -1,0 +1,13 @@
+[project]
+name = "aidog-pricing"
+version = "0.1.0"
+description = "AiDog 模型信息聚合器: 抓取多平台官方定价 → 合并 data/models.json (唯一信源)"
+requires-python = ">=3.11"
+dependencies = [
+    "httpx>=0.27",
+    "selectolax>=0.3",
+    "pydantic>=2.7",
+]
+
+[tool.uv]
+# 单入口: make prices-sync → uv run python aggregate.py

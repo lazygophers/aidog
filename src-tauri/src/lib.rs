@@ -69,6 +69,10 @@ async fn ensure_platform_groups(db: &Db) {
         .map(|g| g.auto_from_platform)
         .collect();
     for platform in &platforms {
+        // 用户显式选「不创建分组」的平台 → 永久跳过（auto_group 持久化标记）。
+        if !platform.auto_group {
+            continue;
+        }
         // 检查是否已存在关联此平台的分组
         let platform_id_str = platform.id.to_string();
         if existing_auto.contains(&platform_id_str) {
@@ -138,45 +142,57 @@ fn about_info() -> AboutInfo {
 
 // ─── Platform Commands ─────────────────────────────────────
 
+/// 为平台创建默认 auto 分组并关联（name `{slug}-auto`，path `/{proto}-{id}`，
+/// Failover / max_retries 2）。供 platform_create（勾选默认分组）与
+/// platform_update（补建缺失的 auto 分组）复用，避免两处重复构造。
+async fn create_auto_group_for(db: &Db, platform: &Platform) -> Result<(), String> {
+    let protocol_str = format!("{:?}", platform.platform_type).to_lowercase();
+    let group_path = format!("/{}-{}", protocol_str, platform.id);
+    let group_name = slugify(&format!("{}-auto", platform.name));
+    let group = db::create_group(db, CreateGroup {
+        name: group_name,
+        path: group_path,
+        routing_mode: RoutingMode::Failover,
+        auto_from_platform: platform.id.to_string(),
+        request_timeout_secs: 0,
+        connect_timeout_secs: 0,
+        source_protocol: None,
+        max_retries: 2,
+        model_mappings: Vec::new(),
+    }).await?;
+    db::set_group_platforms(db, group.id, &[GroupPlatformInput {
+        platform_id: platform.id,
+        priority: Some(0),
+        weight: Some(1),
+    }]).await?;
+    tracing::info!(platform_id = platform.id, group_id = group.id, "created auto group for platform");
+    Ok(())
+}
+
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
     tracing::debug!(command = "platform_create", name = %input.name, "command invoked");
+    // 分组选项先捕获（input 随即 move 进 create_platform）。
+    let auto_group = input.auto_group.unwrap_or(true);
+    let join_group_ids = input.join_group_ids.clone().unwrap_or_default();
     let platform = db::create_platform(&db, input).await
         .map_err(|e| { tracing::error!(command = "platform_create", error = %e, "create platform failed"); e })?;
 
-    // 自动创建分组，path 按 protocol + 平台 ID 生成
-    let protocol_str = format!("{:?}", platform.platform_type).to_lowercase();
-    let group_path = format!("/{}-{}", protocol_str, platform.id);
-    let group_name = slugify(&format!("{}-auto", platform.name));
+    // ① 创建默认分组（用户勾选；默认勾 = 旧行为）。
+    if auto_group {
+        if let Err(e) = create_auto_group_for(&db, &platform).await {
+            tracing::error!(command = "platform_create", platform_id = platform.id, error = %e, "auto-create group failed");
+            return Err(e);
+        }
+    }
 
-    let group = db::create_group(
-        &db,
-        CreateGroup {
-            name: group_name,
-            path: group_path,
-            routing_mode: RoutingMode::Failover,
-            auto_from_platform: platform.id.to_string(),
-            request_timeout_secs: 0,
-            connect_timeout_secs: 0,
-            source_protocol: None,
-            max_retries: 2,
-            model_mappings: Vec::new(),
-        },
-    ).await
-        .map_err(|e| { tracing::error!(command = "platform_create", platform_id = platform.id, error = %e, "auto-create group failed"); e })?;
-
-    // 将平台关联到自动分组
-    db::set_group_platforms(
-        &db,
-        group.id,
-        &[GroupPlatformInput {
-            platform_id: platform.id,
-            priority: Some(0),
-            weight: Some(1),
-        }],
-    ).await
-        .map_err(|e| { tracing::error!(command = "platform_create", platform_id = platform.id, error = %e, "set_group_platforms failed"); e })?;
+    // ② 加入用户指定的已有分组（plain membership；sync 跳过 auto 组，对新平台即纯追加）。
+    if !join_group_ids.is_empty() {
+        if let Err(e) = db::sync_platform_manual_groups(&db, platform.id, &join_group_ids).await {
+            tracing::warn!(command = "platform_create", platform_id = platform.id, error = %e, "join groups failed");
+        }
+    }
 
     Ok(platform)
 }
@@ -217,36 +233,35 @@ async fn platform_get(id: u64, db: State<'_, Db>) -> Result<Option<Platform>, St
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Platform, String> {
     tracing::debug!(command = "platform_update", id = input.id, "command invoked");
+    // 分组选项先捕获（input 随即 move 进 update_platform）。
+    let join_group_ids = input.join_group_ids.clone();
     let platform = db::update_platform(&db, input).await
         .map_err(|e| { tracing::error!(command = "platform_update", error = %e, "update platform failed"); e })?;
-    // 确保该平台有关联分组，若无则自动创建
+
+    // auto 分组对账：desired = platform.auto_group（update_platform 已合并 input.auto_group）。
+    // desired && 无 auto 组 → 补建；!desired && 有 auto 组 → force_delete（auto 组只含本平台）。
     let groups = db::list_groups(&db).await.unwrap_or_default();
     let platform_id_str = platform.id.to_string();
-    let exists = groups.iter().any(|g| g.auto_from_platform == platform_id_str);
-    if !exists {
-        let protocol_str = format!("{:?}", platform.platform_type).to_lowercase();
-        let group_path = format!("/{}-{}", protocol_str, platform.id);
-        let group_name = slugify(&format!("{}-auto", platform.name));
-        if let Ok(group) = db::create_group(&db, CreateGroup {
-            name: group_name,
-            path: group_path,
-            routing_mode: RoutingMode::Failover,
-            auto_from_platform: platform_id_str.clone(),
-            request_timeout_secs: 0,
-            connect_timeout_secs: 0,
-            source_protocol: None,
-            max_retries: 2,
-            model_mappings: Vec::new(),
-        }).await {
-            if let Err(e) = db::set_group_platforms(&db, group.id, &[GroupPlatformInput {
-                platform_id: platform.id,
-                priority: Some(0),
-                weight: Some(1),
-            }]).await {
-                tracing::warn!(command = "platform_update", platform_id = platform.id, error = %e, "auto-create group: set_group_platforms failed");
+    let existing_auto = groups.iter().find(|g| g.auto_from_platform == platform_id_str);
+    if platform.auto_group && existing_auto.is_none() {
+        if let Err(e) = create_auto_group_for(&db, &platform).await {
+            tracing::warn!(command = "platform_update", platform_id = platform.id, error = %e, "auto-create group failed");
+        }
+    } else if !platform.auto_group {
+        if let Some(g) = existing_auto {
+            if let Err(e) = db::force_delete_group(&db, g.id).await {
+                tracing::warn!(command = "platform_update", platform_id = platform.id, group_id = g.id, error = %e, "force delete auto group failed");
             }
         }
     }
+
+    // join_group_ids：全量同步手动组成员关系（auto 组不动；None=不改）。
+    if let Some(ids) = join_group_ids {
+        if let Err(e) = db::sync_platform_manual_groups(&db, platform.id, &ids).await {
+            tracing::warn!(command = "platform_update", platform_id = platform.id, error = %e, "sync manual groups failed");
+        }
+    }
+
     Ok(platform)
 }
 
@@ -809,7 +824,8 @@ async fn model_test(
     let url = format!("{}{}", base_url, api_path);
 
     // ── 使用与 proxy 相同的客户端 header 模拟逻辑 ──
-    let upstream_headers = gateway::proxy::build_upstream_headers(&client_type, &target_protocol, &platform.api_key);
+    // model_test 无入站请求头（平台测试），传空 HeaderMap —— 仅 apply 模拟头，无透传。
+    let upstream_headers = gateway::proxy::build_upstream_headers(&client_type, &target_protocol, &platform.api_key, &axum::http::HeaderMap::new());
 
     let db_arc = Arc::new(db.inner().clone());
     let client = gateway::http_client::build_http_client(
@@ -1914,6 +1930,50 @@ async fn export_to_file(
     Ok(())
 }
 
+/// 读取定时备份设置 (缺省/解析失败 → 默认)。
+#[tauri::command]
+async fn backup_settings_get(db: State<'_, Db>) -> Result<gateway::backup::BackupSettings, String> {
+    tracing::debug!(command = "backup_settings_get", "command invoked");
+    Ok(gateway::backup::BackupSettings::load(&db).await.sanitized())
+}
+
+/// 写入定时备份设置 (前端勾选/改间隔/改保留天数)。
+#[tauri::command]
+async fn backup_settings_set(
+    db: State<'_, Db>,
+    mut settings: gateway::backup::BackupSettings,
+) -> Result<gateway::backup::BackupSettings, String> {
+    tracing::debug!(command = "backup_settings_set", "command invoked");
+    // 走过此命令 (UI 保存入口) = 用户手动确认, 强制标记为当前版本;
+    // 前端不传 defaults_version → serde default=0, 这里覆写后即便 enabled=false 也永久尊重。
+    settings.defaults_version = gateway::backup::CURRENT_DEFAULTS_VERSION;
+    let sanitized = settings.sanitized();
+    sanitized.save(&db).await?;
+    Ok(sanitized)
+}
+
+/// 立即触发一次备份 (忽略 throttle; 失败返回 error, 前端 toast)。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn backup_run_now(db: State<'_, Db>) -> Result<gateway::backup::BackupResult, String> {
+    tracing::debug!(command = "backup_run_now", "command invoked");
+    let ts = chrono::Utc::now().timestamp_millis();
+    match gateway::backup::run_backup(&db).await {
+        Ok(path) => Ok(gateway::backup::BackupResult {
+            ok: true,
+            path: Some(path.to_string_lossy().to_string()),
+            error: None,
+            timestamp: ts,
+        }),
+        Err(e) => Ok(gateway::backup::BackupResult {
+            ok: false,
+            path: None,
+            error: Some(e),
+            timestamp: ts,
+        }),
+    }
+}
+
 /// 导入预览：读文件 → 解密 → 校验 → 扫描冲突，返回前端弹窗所需信息。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
@@ -1939,6 +1999,44 @@ async fn import_apply(
     let plain = gateway::import_export::decrypt(&bytes)?;
     let payload = gateway::import_export::Payload::from_bytes_verified(&plain)?;
     gateway::import_export::apply::apply(payload, &decisions, &db).await
+}
+
+/// cc-switch 导入：探测本地 cc-switch 配置（SQLite / 旧 JSON）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn ccswitch_detect(
+    override_path: Option<String>,
+) -> Result<gateway::import_export::CcswitchDetection, String> {
+    tracing::debug!(command = "ccswitch_detect", "command invoked");
+    gateway::import_export::ccswitch::detect(override_path).await
+}
+
+/// cc-switch 导入：读取 providers（仅 claude + codex），返回原始 DTO。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn ccswitch_read(
+    db: State<'_, Db>,
+    path: Option<String>,
+) -> Result<gateway::import_export::CcswitchReadResult, String> {
+    tracing::debug!(command = "ccswitch_read", "command invoked");
+    gateway::import_export::ccswitch::read(&db, path).await
+}
+
+/// cc-switch 导入：接收前端转换好的 Platform JSON + 决策，走 apply::apply 写入。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn ccswitch_import(
+    db: State<'_, Db>,
+    platform_payload: Vec<serde_json::Value>,
+    decisions: Vec<gateway::import_export::ConflictDecision>,
+) -> Result<gateway::import_export::ImportReport, String> {
+    tracing::debug!(
+        command = "ccswitch_import",
+        payload_count = platform_payload.len(),
+        decisions = decisions.len(),
+        "command invoked"
+    );
+    gateway::import_export::ccswitch::import(platform_payload, &decisions, &db).await
 }
 
 /// 测试通知：直接走分发逻辑（前端设置页"测试"按钮），不经 /api/notify 端点。
@@ -2770,27 +2868,6 @@ async fn model_price_count_filtered(
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn model_price_delete(db: State<'_, Db>, model_name: String) -> Result<(), String> {
-    tracing::debug!(command = "model_price_delete", model_name = %model_name, "command invoked");
-    gateway::db::delete_model_price(&db, &model_name).await
-        .map_err(|e| { tracing::error!(command = "model_price_delete", model_name = %model_name, error = %e, "delete model price failed"); e })
-}
-
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn model_price_upsert(
-    db: State<'_, Db>,
-    model_name: String,
-    source: String,
-    price_data: String,
-) -> Result<(), String> {
-    tracing::debug!(command = "model_price_upsert", model_name = %model_name, source = %source, "command invoked");
-    gateway::db::upsert_model_price(&db, &model_name, &source, &price_data).await
-        .map_err(|e| { tracing::error!(command = "model_price_upsert", model_name = %model_name, error = %e, "upsert model price failed"); e })
-}
-
-#[tauri::command]
-#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_price_resolve(
     db: State<'_, Db>,
     model_name: String,
@@ -2805,7 +2882,7 @@ async fn model_price_resolve(
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn model_price_sync(db: State<'_, Db>) -> Result<gateway::models::PriceSyncResult, String> {
     tracing::debug!(command = "model_price_sync", "command invoked");
-    gateway::price_sync::sync_litellm_prices(&db).await
+    gateway::price_sync::sync_github_prices(&db).await
         .map_err(|e| { tracing::error!(command = "model_price_sync", error = %e, "model price sync failed"); e })
 }
 
@@ -3465,6 +3542,9 @@ pub fn run() {
 
             app.manage(ProxyHandle(StdMutex::new(None)));
 
+            // 定时备份调度器 (spawn_scheduler 内部 spawn 常驻 loop, 启动首次检查补「关机错过」)。
+            gateway::backup::spawn_scheduler(app.handle().clone());
+
             // 通知授权（①）：启动时请求一次系统通知权限。
             // desktop 上 tauri-plugin-notification 为 no-op 返回 Granted（无害）；
             // mobile 会真实弹原生授权框。失败仅 warn，不 panic、不阻塞启动。
@@ -3718,8 +3798,14 @@ pub fn run() {
             mcp_resync,
             // 导入导出子系统
             export_to_file,
+            backup_settings_get,
+            backup_settings_set,
+            backup_run_now,
             import_read_file,
             import_apply,
+            ccswitch_detect,
+            ccswitch_read,
+            ccswitch_import,
             // App Logging
             app_log_settings_get,
             app_log_settings_set,
@@ -3752,8 +3838,6 @@ pub fn run() {
             model_price_search,
 model_price_list_filtered,
 model_price_count_filtered,
-            model_price_delete,
-            model_price_upsert,
             model_price_resolve,
             model_price_sync,
             price_sync_settings_get,

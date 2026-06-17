@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/06-16-proxy-ua-passthrough/prd.md", "reason": "本任务定稿 PRD：§0 四决策、§5 三级回退链、§8 改动点 file:line，实现的唯一权威依据"}
+{"file": "src-tauri/src/gateway/proxy.rs", "reason": "核心改动点：matched_ep 解析(1000-1012)与 same_protocol_passthrough(1023-1025)之间插入 UA 透传分支；新增 infer_protocol_from_ua(~2817)；UA 子串来源 claude_code_ua/codex_ua(2882-2904)；orig_headers UA 读取(773,907)；passthrough 出站(1135-1142)/响应(1414-1512)复用路径"}
+{"file": "src-tauri/src/gateway/adapter/converter.rs", "reason": "passthrough_api_path(54) 产出透传 path，UA 命中后复用，禁额外拼前缀(url-construction-rule)"}
+{"file": "src-tauri/src/gateway/router.rs", "reason": "select_candidates_ctx 候选平台选择 + endpoints 结构上下文，理解 matched_ep 在重试循环内每候选独立判定"}
+{"file": "src-tauri/src/gateway/models.rs", "reason": "Protocol 枚举(合法 wire 协议)、PlatformEndpoint(protocol/base_url/client_type/coding_plan)、ClientType 枚举，UA→协议映射合法性与端点字段取值依据"}
+{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "现有 passthrough 约定，本功能为同协议透传扩展，须保持一致不回归"}

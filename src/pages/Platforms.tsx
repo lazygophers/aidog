@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, memo } from "react";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail } from "../services/api";
 import { getPlatformLogo, getFaviconUrl } from "../assets/platforms";
 import { IconBolt, IconCost, IconCheck, IconClose, IconCoin, IconClock } from "../components/icons";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel, levelColor, levelBg, codingTierLevel, cycleMsForTier, usageLevelToColor, type ColorLevel } from "../components/shared";
@@ -12,9 +12,9 @@ import { pinyinMatch } from "../utils/pinyin";
 import { SmartPasteModal, type SmartPasteApplyResult } from "../components/platforms/SmartPasteModal";
 
 /** 支持的协议选项（含 coding plan 变体） */
-type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[] };
+export type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[] };
 
-const PROTOCOLS: ProtocolOption[] = [
+export const PROTOCOLS: ProtocolOption[] = [
   // ── 官方 ──
   { value: "anthropic", label: "Anthropic（Claude）", keywords: ["claude", "克劳德", "官方"] },
   { value: "openai", label: "OpenAI", keywords: ["gpt", "chatgpt", "官方"] },
@@ -147,7 +147,7 @@ function healthStatus(recentTotal: number, recentFailures: number): HealthStatus
 
 /** 根据 ProtocolOption 生成默认端点（含 coding_plan 标记）
  *  数据来源：cc-switch 各平台官方配置 */
-function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): PlatformEndpoint[] {
+export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): PlatformEndpoint[] {
   const cp = !!codingPlan;
   const base: Partial<Record<Protocol, PlatformEndpoint[]>> = {
     // ── 官方 ──
@@ -373,7 +373,7 @@ function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Partial<Rec
   const cp = !!codingPlan;
   const presets: Partial<Record<Protocol, Partial<Record<ModelSlot, string>>>> = {
     // ── 官方 ──
-    anthropic: { opus: "claude-opus-4-8", sonnet: "claude-sonnet-4-6", haiku: "claude-haiku-4-5-20251001" },
+    anthropic: { default: "claude-opus-4-8", opus: "claude-opus-4-8", sonnet: "claude-sonnet-4-6", haiku: "claude-haiku-4-6" },
     openai: { gpt: "gpt-5.5" },
     codex: { gpt: "gpt-5.5-codex" }, // TODO 核对 codex 变体确切 API id，截至2026-06 未从官方 docs 确认
     // gemini: 槽位语义不匹配（无 opus/sonnet/gpt 对应），留空待用户填或拉取
@@ -1596,6 +1596,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [breakerHalfOpenMax, setBreakerHalfOpenMax] = useState<string>("");
   // 全局调度+熔断默认（用于展示「继承默认 N」），只读消费。
   const [breakerDefaults, setBreakerDefaults] = useState<SchedulingBreakerSettings | null>(null);
+  // 分组归属选项：auto_group（是否建默认分组，默认勾）+ join_group_ids（加入的已有分组）。
+  // groupDetails 供 multi-select 渲染 + 编辑态反查平台当前手动组成员。
+  const [autoGroup, setAutoGroup] = useState(true);
+  const [joinGroupIds, setJoinGroupIds] = useState<number[]>([]);
+  const [groupDetails, setGroupDetails] = useState<GroupDetail[]>([]);
 
   const isMock = protocol === "mock";
   // Claude Code 订阅纯透传：客户端自带订阅 OAuth 认证，aidog 原样转发。
@@ -1664,6 +1669,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     }
     if (r.apiKey) setApiKey(r.apiKey);
     setShowPaste(false);
+    // 弹窗可能从主列表「添加平台」直达（表单尚未挂载），apply 后显式拉起表单展示已填字段。
+    setShowForm(true);
   };
 
   const load = async () => {
@@ -1716,6 +1723,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   };
 
   useEffect(() => { load(); }, []);
+
+  // 分组列表（multi-select 数据源 + 编辑态反查手动组归属）。本地查询，失败不阻断编辑。
+  useEffect(() => {
+    groupDetailApi.list().then(setGroupDetails).catch(() => {});
+  }, []);
 
   // 全局调度+熔断默认（展示「继承默认 N」用），读失败不阻断编辑。
   useEffect(() => {
@@ -1773,6 +1785,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setNewApiConfig({ ...DEFAULT_NEWAPI_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
+    setAutoGroup(true); setJoinGroupIds([]);
   };
 
   // 跳转该平台的日志（带 platformId 筛选上下文）。
@@ -1804,6 +1817,18 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setBreakerFailureThreshold(p.breaker_failure_threshold > 0 ? String(p.breaker_failure_threshold) : "");
     setBreakerOpenSecs(p.breaker_open_secs > 0 ? String(p.breaker_open_secs) : "");
     setBreakerHalfOpenMax(p.breaker_half_open_max > 0 ? String(p.breaker_half_open_max) : "");
+    setAutoGroup(p.auto_group);
+    // 反查该平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
+    try {
+      const gds = await groupDetailApi.list();
+      setGroupDetails(gds);
+      setJoinGroupIds(gds
+        .filter(gd => gd.group.auto_from_platform !== String(p.id)
+          && gd.platforms.some(gp => gp.platform.id === p.id))
+        .map(gd => gd.group.id));
+    } catch {
+      setJoinGroupIds([]);
+    }
 
     // Load global + platform Claude Code config
     try {
@@ -1902,6 +1927,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           breaker_failure_threshold: toBreakerNum(breakerFailureThreshold),
           breaker_open_secs: toBreakerNum(breakerOpenSecs),
           breaker_half_open_max: toBreakerNum(breakerHalfOpenMax),
+          auto_group: autoGroup,
+          join_group_ids: joinGroupIds,
         });
         savedId = editing.id;
       } else {
@@ -1911,6 +1938,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           models: modelsPayload, available_models: availablePayload,
           endpoints: endpoints.length > 0 ? endpoints : undefined,
           manual_budgets: manualBudgetsPayload.length > 0 ? manualBudgetsPayload : undefined,
+          auto_group: autoGroup,
+          join_group_ids: joinGroupIds,
         });
         savedId = created.id;
       }
@@ -2630,6 +2659,58 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             </FormSection>
           )}
 
+          {/* 分组归属：是否建默认分组 + 加入已有分组（多选 chips）。
+              可同时勾；都不选 = 平台不在任何分组（游离，ensure 永不补建）。 */}
+          {!isPassthrough && (
+            <FormSection
+              title={t("platform.groupAssignTitle", "分组归属")}
+              desc={t("platform.groupAssignDesc", "可同时创建默认分组并加入其他已有分组；都不选则该平台不在任何分组。")}
+            >
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <span style={{ fontSize: 13 }}>{t("platform.groupAssignAuto", "创建默认分组")}</span>
+                <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
+                  <input type="checkbox" checked={autoGroup} onChange={e => setAutoGroup(e.target.checked)} style={{ display: "none" }} />
+                  <span className={`toggle ${autoGroup ? "active" : ""}`} />
+                </label>
+              </div>
+              {groupDetails.length > 0 && (
+                <>
+                  <div style={{ fontSize: 12, color: "var(--text-secondary)", margin: "10px 0 6px" }}>
+                    {t("platform.groupAssignJoin", "加入已有分组")}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {groupDetails
+                      // 编辑态隐藏该平台自己的 auto 分组（由上方 toggle 管理）。
+                      .filter(gd => !editing || gd.group.auto_from_platform !== String(editing.id))
+                      .map(gd => {
+                        const checked = joinGroupIds.includes(gd.group.id);
+                        return (
+                          <button
+                            key={gd.group.id}
+                            type="button"
+                            onClick={() => setJoinGroupIds(prev => checked
+                              ? prev.filter(id => id !== gd.group.id)
+                              : [...prev, gd.group.id])}
+                            style={{
+                              display: "inline-flex", alignItems: "center",
+                              padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 500,
+                              cursor: "pointer",
+                              border: `1px solid ${checked ? "var(--accent)" : "var(--border)"}`,
+                              background: checked ? "var(--accent-subtle)" : "var(--bg-glass)",
+                              color: checked ? "var(--accent)" : "var(--text-secondary)",
+                              transition: "all 200ms cubic-bezier(0.4, 0, 0.2, 1)",
+                            }}
+                          >
+                            {gd.group.name}
+                          </button>
+                        );
+                      })}
+                  </div>
+                </>
+              )}
+            </FormSection>
+          )}
+
           {/* Claude Code Config */}
           {editing && (
             <FormSection title={t("settings.claudeCodeConfig")}>
@@ -2717,6 +2798,15 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   return (
     <>
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
+      {/* 智能识别弹窗：主列表「添加平台」直达（与表单分支渲染镜像） */}
+      {showPaste && (
+        <SmartPasteModal
+          presets={PROTOCOLS}
+          onApply={applyPaste}
+          onManualEntry={() => { setShowPaste(false); resetForm(); setShowForm(true); }}
+          onClose={() => setShowPaste(false)}
+        />
+      )}
       {/* Header */}
       <div className="section-header" style={{ justifyContent: "space-between" }}>
         <div>
@@ -2725,7 +2815,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             {platforms.length > 0 ? `${enabledCount} / ${platforms.length} active` : t("platform.empty")}
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
+        <button className="btn btn-primary" onClick={() => { resetForm(); setShowPaste(true); }}>
           + {t("platform.add")}
         </button>
       </div>

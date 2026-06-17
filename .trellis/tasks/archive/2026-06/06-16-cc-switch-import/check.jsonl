@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/06-16-cc-switch-import/prd.md", "reason": "AC 逐条核对(检测/识别/模型映射/密钥/选择性/冲突/集成点)"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "验收 DTO 跨层一致 + 无 preset 双写"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "验收 i18n 8 语言 + 匹配链纯函数 + UI 复用"}

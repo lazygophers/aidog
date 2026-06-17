@@ -2,6 +2,19 @@ use super::db;
 use super::models::*;
 use super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 
+/// 出站 max_tokens 裁剪（convert_request 前调用）。
+///
+/// 保守策略（Q3）：仅当客户端显式传了 max_tokens **且**超过模型上限时裁剪到上限；
+/// 未传（None）不注入默认值；模型无上限记录（None）不裁剪。
+///
+/// 返回 (裁剪后值, 是否发生裁剪)。
+pub fn cap_max_tokens(req_max: Option<u32>, model_max: Option<i64>) -> (Option<u32>, bool) {
+    match (req_max, model_max) {
+        (Some(req), Some(limit)) if limit > 0 && (req as i64) > limit => (Some(limit as u32), true),
+        _ => (req_max, false),
+    }
+}
+
 /// 路由结果
 pub struct RouteResult {
     pub platform: Platform,
@@ -79,11 +92,43 @@ pub async fn select_candidates_ctx(
     let effective_mode = group.routing_mode;
     let breaker_enabled = ctx.map(|c| c.settings.enabled).unwrap_or(false);
 
+    // ── 单平台分组：无视平台状态（auto_disabled / 熔断）必请求 ──
+    // 用户语义：只有多平台分组才需要在乎平台状态做摘除（择优切换到健康平台）；
+    // 单平台无可切目标，摘除只会 blackhole（返回 400 no available platform）。
+    // 故单平台直接纳入唯一平台必请求，哪怕 auto_disabled / 熔断 Open 也尝试。
+    // 例外：手动 Disabled 是用户显式关停意图，仍为唯一硬停（分组无效 → Err）。
+    if group_platforms.len() == 1 {
+        let only = &group_platforms[0];
+        if only.platform.status == PlatformStatus::Disabled {
+            return Err("group's only platform is manually disabled".to_string());
+        }
+        let target_model = mapped_target_model
+            .clone()
+            .unwrap_or_else(|| resolve_model(&only.platform.models, source_model));
+        tracing::info!(
+            group = %group.name, platform = %only.platform.name,
+            status = ?only.platform.status,
+            "single-platform group: bypassing status filter, forcing request"
+        );
+        return Ok(CandidateSet {
+            candidates: vec![RouteResult {
+                platform: only.platform.clone(),
+                target_model,
+                mapping: mapping.cloned(),
+            }],
+        });
+    }
+
     // 1. 拆分候选：先按 auto_disabled 三态分桶（enabled / 过期试探）。
     //    再叠加熔断准入门：[熔断 Open] ∪ [auto_disabled 未到期] 取并集踢出。
     //    HalfOpen 平台限量放行（计入 active）。二者状态独立判定，互不改写。
     let mut active: Vec<&GroupPlatformDetail> = Vec::new();
     let mut probe: Vec<&GroupPlatformDetail> = Vec::new();
+    // 仅被「熔断」踢出的候选（区别于 auto_disabled / 手动 disabled 踢出的）暂存于此，
+    // 携带其 auto_state 以便回退时正确分桶。用于「候选全被熔断踢空 → 回退透传」：
+    // 熔断语义是在多个健康平台间择优摘坏，无可切目标时（单平台分组 / 多平台全坏）
+    // 不应制造空候选 blackhole（否则丢失上游真实 429/5xx + retry-after，客户端无法退避）。
+    let mut breaker_rejected: Vec<(&GroupPlatformDetail, Option<bool>)> = Vec::new();
     for gp in &group_platforms {
         // auto_disabled 维度（DB 持久态）
         let auto_state = candidate_state(&gp.platform, now_ms);
@@ -96,7 +141,11 @@ pub async fn select_candidates_ctx(
                 let (ft, os, hom) = c.settings.effective_thresholds(&gp.platform);
                 let th = BreakerThresholds { failure_threshold: ft, open_secs: os, half_open_max: hom };
                 match c.scheduler.admission(gp.platform.id, &th, now_ms, true) {
-                    Admission::Reject => continue, // 熔断 Open / HalfOpen 名额满 → 踢出
+                    Admission::Reject => {
+                        // 熔断 Open / HalfOpen 名额满 → 暂踢出，留作全空回退候选
+                        breaker_rejected.push((gp, auto_state));
+                        continue;
+                    }
                     Admission::Probe | Admission::Allow => {}
                 }
             }
@@ -105,6 +154,23 @@ pub async fn select_candidates_ctx(
             Some(false) => active.push(gp),
             Some(true) => probe.push(gp),
             None => {}
+        }
+    }
+
+    // ── 候选全被熔断踢空 → 回退透传 ──
+    // 仅当熔断维度踢空（active+probe 皆空）且确有被熔断踢出的候选时回退；
+    // 若空因 auto_disabled / 手动 disabled，则不回退（保持原 Err，下游返回路由错误）。
+    if active.is_empty() && probe.is_empty() && !breaker_rejected.is_empty() {
+        tracing::warn!(
+            group = %group.name, rejected = breaker_rejected.len(),
+            "all candidates circuit-broken; bypassing breaker to passthrough real upstream status"
+        );
+        for (gp, st) in breaker_rejected {
+            match st {
+                Some(false) => active.push(gp),
+                Some(true) => probe.push(gp),
+                None => {}
+            }
         }
     }
 
@@ -413,6 +479,7 @@ mod tests {
             tray_display: String::new(),
             sort_order: 0,
             manual_budgets: vec![],
+            auto_group: true,
             balance_level: String::new(),
         }
     }
@@ -528,5 +595,157 @@ mod tests {
         assert_eq!(candidate_state(&mk_platform(PlatformStatus::AutoDisabled, now + 5000), now), None);
         // auto_disabled 已过退避时间 → 纳入（末尾试探）
         assert_eq!(candidate_state(&mk_platform(PlatformStatus::AutoDisabled, now - 1), now), Some(true));
+    }
+
+    #[test]
+    fn cap_max_tokens_logic() {
+        // 超限 → 裁剪到上限
+        assert_eq!(cap_max_tokens(Some(100_000), Some(8192)), (Some(8192), true));
+        // 未超限 → 原值不变
+        assert_eq!(cap_max_tokens(Some(4096), Some(8192)), (Some(4096), false));
+        // 恰好等于上限 → 不裁剪
+        assert_eq!(cap_max_tokens(Some(8192), Some(8192)), (Some(8192), false));
+        // 客户端未传 → 不注入（None 透传）
+        assert_eq!(cap_max_tokens(None, Some(8192)), (None, false));
+        // 模型无上限记录 → 不裁剪（即便客户端传了巨大值）
+        assert_eq!(cap_max_tokens(Some(1_000_000), None), (Some(1_000_000), false));
+        // 模型上限为 0（异常数据）→ 视作无限制不裁剪
+        assert_eq!(cap_max_tokens(Some(100_000), Some(0)), (Some(100_000), false));
+    }
+
+    async fn mk_test_db() -> db::Db {
+        let db = db::Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
+        db
+    }
+
+    async fn mk_db_platform(db: &db::Db, name: &str) -> Platform {
+        db::create_platform(db, CreatePlatform {
+            name: name.into(),
+            platform_type: Protocol::Anthropic,
+            base_url: "https://example.invalid".into(),
+            api_key: "k".into(),
+            extra: String::new(),
+            models: None, available_models: None, endpoints: None, manual_budgets: None,
+            auto_group: None, join_group_ids: None,
+        }).await.expect("create platform")
+    }
+
+    async fn mk_db_group(db: &db::Db, name: &str, platform_ids: &[u64]) -> Group {
+        let g = db::create_group(db, CreateGroup {
+            name: name.into(), path: name.into(),
+            routing_mode: RoutingMode::Failover,
+            auto_from_platform: String::new(),
+            request_timeout_secs: 0, connect_timeout_secs: 0,
+            source_protocol: Some("anthropic".into()),
+            max_retries: 2, model_mappings: vec![],
+        }).await.expect("create group");
+        let inputs: Vec<GroupPlatformInput> = platform_ids.iter().enumerate()
+            .map(|(i, &pid)| GroupPlatformInput { platform_id: pid, priority: Some(i as i32), weight: Some(1) })
+            .collect();
+        db::set_group_platforms(db, g.id, &inputs).await.expect("set group platforms");
+        g
+    }
+
+    /// 单平台分组：唯一平台熔断 Open 时仍必请求（无视状态），不踢空 blackhole。
+    #[tokio::test]
+    async fn single_platform_forces_request_when_circuit_broken() {
+        let db = mk_test_db().await;
+        let p = mk_db_platform(&db, "GLM").await;
+        let g = mk_db_group(&db, "single", &[p.id]).await;
+
+        // 把唯一平台熔断 Open
+        let sched = SchedulerState::new();
+        let now = db::now();
+        let th = BreakerThresholds { failure_threshold: 1, open_secs: 1800, half_open_max: 2 };
+        sched.inc_inflight(p.id);
+        sched.record_failure(p.id, &th, now);
+        assert_eq!(sched.admission(p.id, &th, now, true), Admission::Reject);
+
+        let sticky = StickyTable::new();
+        // 总开关开，否则熔断维度不参与
+        let settings = SchedulingBreakerSettings { enabled: true, ..Default::default() };
+        let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+        // 单平台短路：无视熔断必请求
+        let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await
+            .expect("single platform must force request, not Err");
+        assert_eq!(set.candidates.len(), 1);
+        assert_eq!(set.candidates[0].platform.id, p.id);
+    }
+
+    /// 单平台分组：唯一平台 auto_disabled（401/403 退避中）时仍必请求。
+    #[tokio::test]
+    async fn single_platform_forces_request_when_auto_disabled() {
+        let db = mk_test_db().await;
+        let p = mk_db_platform(&db, "GLM").await;
+        let g = mk_db_group(&db, "single", &[p.id]).await;
+        // 置 auto_disabled（退避未到期）
+        db::set_platform_auto_disabled(&db, p.id).await.expect("set auto_disabled");
+
+        let sched = SchedulerState::new();
+        let sticky = StickyTable::new();
+        let settings = SchedulingBreakerSettings::default();
+        let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+        let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await
+            .expect("single platform auto_disabled must still force request");
+        assert_eq!(set.candidates.len(), 1);
+        assert_eq!(set.candidates[0].platform.id, p.id);
+    }
+
+    /// 单平台分组：唯一平台手动 Disabled 是显式关停 → 仍 Err（唯一硬停）。
+    #[tokio::test]
+    async fn single_platform_manual_disabled_errs() {
+        let db = mk_test_db().await;
+        let p = mk_db_platform(&db, "GLM").await;
+        let g = mk_db_group(&db, "single", &[p.id]).await;
+        db::update_platform(&db, UpdatePlatform {
+            id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: None, models: None, available_models: None, endpoints: None,
+            enabled: None, status: Some(PlatformStatus::Disabled), manual_budgets: None,
+            breaker_failure_threshold: None, breaker_open_secs: None, breaker_half_open_max: None,
+            auto_group: None, join_group_ids: None,
+        }).await.expect("disable");
+
+        let sched = SchedulerState::new();
+        let sticky = StickyTable::new();
+        let settings = SchedulingBreakerSettings::default();
+        let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+        let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await;
+        assert!(res.is_err(), "manually disabled sole platform must Err");
+    }
+
+    /// 多平台分组：仍按平台状态过滤（一坏一好 → 只选好的）；全坏熔断 → 回退透传。
+    #[tokio::test]
+    async fn multi_platform_respects_status_and_falls_back_when_all_broken() {
+        let db = mk_test_db().await;
+        let p1 = mk_db_platform(&db, "GLM").await;
+        let p2 = mk_db_platform(&db, "GLM2").await;
+        let g = mk_db_group(&db, "multi", &[p1.id, p2.id]).await;
+
+        let sched = SchedulerState::new();
+        let now = db::now();
+        let th = BreakerThresholds { failure_threshold: 1, open_secs: 1800, half_open_max: 2 };
+        // 仅 p1 熔断 Open，p2 健康
+        sched.inc_inflight(p1.id);
+        sched.record_failure(p1.id, &th, now);
+
+        let sticky = StickyTable::new();
+        let settings = SchedulingBreakerSettings { enabled: true, ..Default::default() };
+        let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+        // 有健康平台 → 只选 p2（坏的被过滤）
+        let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await.expect("ok");
+        assert_eq!(set.candidates.len(), 1);
+        assert_eq!(set.candidates[0].platform.id, p2.id);
+
+        // p2 也熔断 → 全坏 → 回退透传，两候选都回（不 blackhole）
+        sched.inc_inflight(p2.id);
+        sched.record_failure(p2.id, &th, now);
+        let set2 = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await
+            .expect("all-broken multi must fall back, not Err");
+        assert_eq!(set2.candidates.len(), 2);
     }
 }

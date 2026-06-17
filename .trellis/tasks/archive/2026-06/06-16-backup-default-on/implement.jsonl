@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "setting scope 读写规约 + 迁移幂等约束 — BackupSettings load 一次性迁移须遵"}
+{"file": ".trellis/tasks/06-16-backup-default-on/prd.md", "reason": "AC + 迁移权衡(version=0 统一翻) 已确认"}

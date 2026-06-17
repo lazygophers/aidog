@@ -1,0 +1,29 @@
+{
+  "id": "aidog-add-platform-skill",
+  "name": "aidog-add-platform-skill",
+  "title": "新增 aidog-add-platform 领域 skill（加/改平台配置工作流）[parent]",
+  "description": "Parent 容器: child A=平台默认模型功能, child B=写 skill。research/ 三份共享。",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "nico",
+  "assignee": "nico",
+  "createdAt": "2026-06-15",
+  "completedAt": "2026-06-16",
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-15-default-model",
+    "06-15-add-platform-skill-doc"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
