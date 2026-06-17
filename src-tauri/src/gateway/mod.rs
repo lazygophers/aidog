@@ -1,4 +1,5 @@
 pub mod adapter;
+pub mod backup;
 pub mod codex;
 pub mod db;
 pub mod estimate;

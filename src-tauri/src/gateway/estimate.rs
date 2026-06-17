@@ -504,6 +504,8 @@ mod tests {
                 available_models: None,
                 endpoints: None,
                 manual_budgets: None,
+                auto_group: None,
+                join_group_ids: None,
             },
         )
         .await

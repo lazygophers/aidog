@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "i18n key 命名/UI 规约/数值格式化约束 — 新增 logs.upstreamStatus+notCaptured 必遵"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "跨层字段一致性 — upstream_status_code 链路 (DB→api.ts→Logs.tsx) 不可断"}

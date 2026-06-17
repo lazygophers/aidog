@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/06-17-passthrough-upstream-resp-headers/prd.md", "reason": "验收来源: build/clippy/test + 筛选函数单测 + 非流式实发头 + 流式 SSE 自管头不被覆盖 + 日志=实发头"}
+{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "校验透传链路未回归"}

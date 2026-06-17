@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/06-17-anthropic-tool-optional-input-schema/prd.md", "reason": "验收标准来源: cargo build/clippy/test + 新增 test + 缺 input_schema 不再 400 + 既有回归"}
+{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "校验入站 anthropic 行为未回归"}

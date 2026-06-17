@@ -204,6 +204,8 @@ export interface Platform {
   tray_display: string;
   /** 手动预算限额列表（无上游 quota 平台；请求驱动扣减 + 耗尽阻断）。 */
   manual_budgets: ManualBudget[];
+  /** 是否为该平台自动创建/维护默认分组（false = 不建且 ensure 永久跳过）。 */
+  auto_group: boolean;
   /** 余额使用速率配色级别（后端 platform_list 按动态窗口日速率算 days_remaining 填充，只读）。
    *  "red"|"yellow"|"green"|"neutral"；空串 = 无数据 → 前端退中性。前端只消费不重算阈值。 */
   balance_level?: string;
@@ -333,6 +335,10 @@ export const platformApi = {
     available_models?: string[];
     endpoints?: PlatformEndpoint[];
     manual_budgets?: ManualBudget[];
+    /** 是否自动创建默认分组（省略=true 旧行为；false=不建且 ensure 永久跳过）。 */
+    auto_group?: boolean;
+    /** 额外加入的已有分组 ID 列表（plain membership）。 */
+    join_group_ids?: number[];
   }) => invoke<Platform>("platform_create", { input }),
 
   list: () => invoke<Platform[]>("platform_list"),
@@ -358,6 +364,10 @@ export const platformApi = {
     breaker_failure_threshold?: number;
     breaker_open_secs?: number;
     breaker_half_open_max?: number;
+    /** 重设是否自动创建默认分组（省略=不变；false=删既有 auto 分组并停止维护）。 */
+    auto_group?: boolean;
+    /** 全量同步该平台的手动组成员关系（省略=不动）。 */
+    join_group_ids?: number[];
   }) => invoke<Platform>("platform_update", { input }),
 
   delete: (id: number) => invoke<void>("platform_delete", { id }),
@@ -1233,6 +1243,12 @@ export interface ModelPriceSummary {
   output_price: number | null;
   /** $/M cache read tokens */
   cache_read_price: number | null;
+  /** 最大输入 token（模型固有，平台无关）。null = 未知。 */
+  max_input_tokens?: number | null;
+  /** 最大输出 token（出站裁剪用）。null = 未知/无限制。 */
+  max_output_tokens?: number | null;
+  /** 上下文窗口。null = 未知。 */
+  context_window?: number | null;
   updated_at: number;
 }
 
@@ -1275,10 +1291,6 @@ export const modelPriceApi = {
     invoke<ModelPriceSummary[]>("model_price_list_filtered", { ...filter, limit, offset }),
   countFiltered: (filter: ModelPriceFilter) =>
     invoke<number>("model_price_count_filtered", { ...filter }),
-  delete: (modelName: string) =>
-    invoke<void>("model_price_delete", { modelName }),
-  upsert: (modelName: string, source: string, priceData: string) =>
-    invoke<void>("model_price_upsert", { modelName, source, priceData }),
   resolve: (modelName: string, platformType: string) =>
     invoke<ResolvedPrice>("model_price_resolve", { modelName, platformType }),
   sync: () =>
@@ -1615,6 +1627,94 @@ export const importExportApi = {
   /** 按决策应用导入。 */
   apply: (path: string, decisions: ConflictDecision[]) =>
     invoke<ImportReport>("import_apply", { path, decisions }),
+};
+
+// ─── cc-switch 导入（异源单向，仅 claude + codex provider）───
+
+/** codex provider config.toml 解析后字段（后端已解析，前端直接消费）。 */
+export interface CodexConfigParsed {
+  model?: string;
+  modelProvider?: string;
+  baseUrl?: string;
+  wireApi?: string;
+  providerName?: string;
+}
+
+/** cc-switch provider 中间表示（后端 DTO，camelCase）。 */
+export interface CcProvider {
+  id: string;
+  appType: "claude" | "codex";
+  name: string;
+  /** 原始 settings_config JSON。 */
+  settingsConfig: Record<string, unknown>;
+  websiteUrl?: string;
+  /** claude: env.ANTHROPIC_BASE_URL；codex: config.toml base_url。 */
+  detectedBaseUrl?: string;
+  /** claude: env.ANTHROPIC_AUTH_TOKEN/API_KEY；codex: auth.OPENAI_API_KEY。 */
+  detectedApiKey?: string;
+  /** codex 专用：解析后的 config.toml 字段。claude 为 undefined。 */
+  codexConfigParsed?: CodexConfigParsed;
+}
+
+export interface CcswitchDetection {
+  found: boolean;
+  path?: string;
+  /** `sqlite` | `json` | `none`。 */
+  sourceType: string;
+  providerCount: number;
+}
+
+export interface CcswitchReadResult {
+  sourceType: string;
+  path: string;
+  providers: CcProvider[];
+  /** 与现有 aidog 同名 platform 冲突的 name 集合。 */
+  existingPlatformNames: string[];
+}
+
+export const ccswitchApi = {
+  /** 探测 cc-switch 配置存在性 + 路径。 */
+  detect: (overridePath?: string) =>
+    invoke<CcswitchDetection>("ccswitch_detect", { overridePath }),
+  /** 读取 providers（仅 claude + codex）。 */
+  read: (path?: string) =>
+    invoke<CcswitchReadResult>("ccswitch_read", { path }),
+  /** 接收前端转换好的 Platform JSON + 决策，走 apply::apply 写入。 */
+  import: (platformPayload: unknown[], decisions: ConflictDecision[]) =>
+    invoke<ImportReport>("ccswitch_import", { platformPayload, decisions }),
+};
+
+// ─── 定时备份 ───────────────────────────────────────────────
+
+/** 定时备份设置（字段 snake_case，与后端 BackupSettings 对齐）。 */
+export interface BackupSettings {
+  enabled: boolean;
+  /** 间隔小时，≥1。 */
+  interval_hours: number;
+  /** 保留天数，1..=90。 */
+  retention_days: number;
+  /** 上次成功备份 epoch 毫秒（0=从未），后端写。 */
+  last_backup_at: number;
+  /** 上次错误信息（空=成功），后端写。 */
+  last_backup_error: string;
+}
+
+/** 立即备份结果。 */
+export interface BackupResult {
+  ok: boolean;
+  path?: string;
+  error?: string;
+  timestamp: number;
+}
+
+export const backupApi = {
+  /** 读取定时备份设置（缺省/解析失败 → 后端默认）。 */
+  get: () => invoke<BackupSettings>("backup_settings_get"),
+  /** 写入设置（后端会 clamp 非法值，返回规范化后的值）。 */
+  set: (settings: BackupSettings) =>
+    invoke<BackupSettings>("backup_settings_set", { settings }),
+  /** 立即触发一次备份（忽略 throttle）。 */
+  runNow: () => invoke<BackupResult>("backup_run_now"),
 };
 
 // ─── About / 版本信息 ───────────────────────────────────────

@@ -27,7 +27,7 @@ function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Partial<Rec
   const cp = !!codingPlan;
   const presets: Partial<Record<Protocol, Partial<Record<ModelSlot, string>>>> = {
     // ── 官方 ──
-    anthropic: { opus: "claude-opus-4-8", sonnet: "claude-sonnet-4-6", haiku: "claude-haiku-4-5-20251001" },
+    anthropic: { default: "claude-opus-4-8", opus: "claude-opus-4-8", sonnet: "claude-sonnet-4-6", haiku: "claude-haiku-4-6" },
     openai:    { gpt: "gpt-5.5" },
     codex:     { gpt: "gpt-5.5-codex" },
     // gemini: 槽位语义不匹配，留空
