@@ -1204,15 +1204,19 @@ async fn handle_proxy_inner(
         Some(&route.platform.extra), None,
     ).await;
 
-    // ── 构建上游请求头（用于日志记录） ──
-    let upstream_headers = build_upstream_headers(&client_type, target_protocol_enum, &route.platform.api_key);
+    // ── 构建上游请求头 ──
+    // convert 路径：先铺底透传入站头（anthropic-* / x-stainless-* / x-app / session-id 等，
+    // 跨协议也带，上游忽略未知头不报错），再由 apply_client_headers 覆盖 UA + auth + CT。
+    // passthrough_convert_headers 已剔 hop-by-hop + auth/UA/CT（由下方覆盖），无同名多值。
+    let upstream_headers = build_upstream_headers(&client_type, target_protocol_enum, &route.platform.api_key, &orig_headers);
 
     let mut req_builder = client
         .post(&url)
         .header("Content-Type", "application/json")
+        .headers(passthrough_convert_headers(&orig_headers))
         .body(req_body_str.clone());
 
-    // ── 按 client_type + target_protocol 模拟对应客户端 header ──
+    // ── 覆盖 UA + auth（平台 api_key）──
     req_builder = apply_client_headers(req_builder, &client_type, target_protocol_enum, &route.platform.api_key);
 
     // ── 记录上游实际请求 ──
@@ -2567,6 +2571,49 @@ fn passthrough_headers(orig: &axum::http::HeaderMap) -> reqwest::header::HeaderM
     out
 }
 
+/// hop-by-hop + 强覆盖头名（convert 路径透传时剔除）。
+/// host / content-length / 标准 hop-by-hop（RFC 7230 §6.1）交给 reqwest 按目标重设；
+/// auth 三件套 / user-agent / content-type 由 apply_client_headers 用平台配置覆盖，
+/// 故透传底座剔除，避免同名 append 造成多值。
+const STRIPPED_ON_CONVERT_PASSTHROUGH: &[&str] = &[
+    "host",
+    "content-length",
+    "connection",
+    "keep-alive",
+    "proxy-authenticate",
+    "proxy-authorization",
+    "te",
+    "trailer",
+    "trailers",
+    "transfer-encoding",
+    "upgrade",
+    "authorization",
+    "x-api-key",
+    "x-goog-api-key",
+    "user-agent",
+    "content-type",
+];
+
+/// convert 路径透传入站头底座：全量入站头，剔 hop-by-hop + auth/UA/CT（由 apply 覆盖）。
+/// 其余（anthropic-* / x-stainless-* / x-app / session-id / originator / version / 未知自定义头）
+/// 原样透传 —— 跨协议（如 CC 入站转 OpenAI）也带，上游忽略未知头不报错，保留利于诊断。
+fn passthrough_convert_headers(orig: &axum::http::HeaderMap) -> reqwest::header::HeaderMap {
+    let mut out = reqwest::header::HeaderMap::new();
+    for (k, v) in orig {
+        let name = k.as_str();
+        if STRIPPED_ON_CONVERT_PASSTHROUGH.iter().any(|s| name.eq_ignore_ascii_case(s)) {
+            continue;
+        }
+        if let (Ok(hn), Ok(hv)) = (
+            reqwest::header::HeaderName::from_bytes(name.as_bytes()),
+            reqwest::header::HeaderValue::from_bytes(v.as_bytes()),
+        ) {
+            out.append(hn, hv);
+        }
+    }
+    out
+}
+
 /// 聚合 SSE body 的上限（字节）。完整记录但防物理崩溃：超限截断 + 标记，禁 panic / OOM。
 /// SQLite 单值上限 ~1GB；取 512MB 为安全上限（拼接 + UTF-8 lossy 仍有余量）。
 const STREAM_BODY_MAX_BYTES: usize = 512 * 1024 * 1024;
@@ -2966,10 +3013,10 @@ fn apply_default_headers(
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
+    // 仅设 auth（UA/Content-Type 由别处，其余入站头透传）。anthropic-version 走入站透传。
     match protocol {
         super::models::Protocol::Anthropic => {
-            rb = rb.header("anthropic-version", "2023-06-01")
-                .header("x-api-key", api_key);
+            rb = rb.header("x-api-key", api_key);
         }
         super::models::Protocol::Gemini => {
             rb = rb.header("x-goog-api-key", api_key);
@@ -2981,7 +3028,11 @@ fn apply_default_headers(
     rb
 }
 
-/// Claude Code 家族共享 Stainless SDK headers
+/// Claude Code 家族：仅设 User-Agent + auth（覆盖）。
+/// Stainless SDK 头（x-stainless-* / anthropic-version / anthropic-beta /
+/// anthropic-dangerous-direct-browser-access / x-app / x-claude-code-session-id）
+/// 由 convert 路径从入站透传（passthrough_convert_headers），不再硬编码静态默认 ——
+/// 上游可见客户端真实 SDK 版本/会话，跨协议（CC→OpenAI）也带（透明自定义头）。
 /// 来源: @anthropic-ai/claude-code/cli.js — buildHeaders() + fV()
 /// 参考: claude-code-hub client-detector.ts — confirmClaudeCodeSignals()
 fn apply_claude_code_family_headers(
@@ -2990,19 +3041,7 @@ fn apply_claude_code_family_headers(
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
-    rb = rb
-        .header("User-Agent", claude_code_ua(client_type))
-        .header("x-app", "cli")
-        .header("anthropic-version", "2023-06-01")
-        .header("anthropic-dangerous-direct-browser-access", "true")
-        .header("X-Stainless-Lang", "js")
-        .header("X-Stainless-Package-Version", "0.60.0")
-        .header("X-Stainless-OS", "MacOS")
-        .header("X-Stainless-Arch", "arm64")
-        .header("X-Stainless-Runtime", "node")
-        .header("X-Stainless-Runtime-Version", "v22.19.0")
-        .header("X-Stainless-Retry-Count", "0")
-        .header("X-Stainless-Timeout", "600");
+    rb = rb.header("User-Agent", claude_code_ua(client_type));
 
     match protocol {
         super::models::Protocol::Anthropic => {
@@ -3021,7 +3060,8 @@ fn apply_claude_code_family_headers(
     rb
 }
 
-/// Codex 家族共享基础 headers
+/// Codex 家族：仅设 UA + auth + OpenAI 协议必需（OpenAI-Beta / session_id / conversation_id）。
+/// originator/version/Accept 等由入站透传。session_id/conversation_id 入站无则生成。
 /// 来源: codex-rs/core/src/default_client.rs + model_provider_info.rs + client.rs
 /// 参考: claude-code-hub client-detector.ts — CODEX_FAMILY_RULES
 fn apply_codex_family_headers(
@@ -3030,11 +3070,7 @@ fn apply_codex_family_headers(
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
-    rb = rb
-        .header("User-Agent", codex_ua(client_type))
-        .header("originator", "codex_cli_rs")
-        .header("version", "0.38.0")
-        .header("Accept", "text/event-stream");
+    rb = rb.header("User-Agent", codex_ua(client_type));
 
     match protocol {
         super::models::Protocol::OpenAI => {
@@ -3045,9 +3081,7 @@ fn apply_codex_family_headers(
                 .header("session_id", uuid_sim());
         }
         super::models::Protocol::Anthropic => {
-            rb = rb
-                .header("x-api-key", api_key)
-                .header("anthropic-version", "2023-06-01");
+            rb = rb.header("x-api-key", api_key);
         }
         super::models::Protocol::Gemini => {
             rb = rb.header("x-goog-api-key", api_key);
@@ -3059,22 +3093,18 @@ fn apply_codex_family_headers(
     rb
 }
 
-/// 模拟 Cursor IDE 请求头
+/// 模拟 Cursor IDE：仅 UA + auth。x-app / anthropic-version 由入站透传。
 /// 来源: GitHub 逆向 — 使用 Anthropic SDK 但有特定 header 组合
 fn apply_cursor_headers(
     mut rb: reqwest::RequestBuilder,
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
-    rb = rb
-        .header("User-Agent", "Cursor/0.50.7")
-        .header("x-app", "cursor");
+    rb = rb.header("User-Agent", "Cursor/0.50.7");
 
     match protocol {
         super::models::Protocol::Anthropic => {
-            rb = rb
-                .header("anthropic-version", "2023-06-01")
-                .header("x-api-key", api_key);
+            rb = rb.header("x-api-key", api_key);
         }
         super::models::Protocol::OpenAI => {
             rb = rb.header("Authorization", format!("Bearer {api_key}"));
@@ -3089,22 +3119,18 @@ fn apply_cursor_headers(
     rb
 }
 
-/// 模拟 Windsurf IDE 请求头
+/// 模拟 Windsurf IDE：仅 UA + auth。x-app / anthropic-version 由入站透传。
 /// 来源: GitHub 逆向 — 类似 Cursor，使用 Anthropic SDK
 fn apply_windsurf_headers(
     mut rb: reqwest::RequestBuilder,
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
-    rb = rb
-        .header("User-Agent", "Windsurf/1.5.0")
-        .header("x-app", "windsurf");
+    rb = rb.header("User-Agent", "Windsurf/1.5.0");
 
     match protocol {
         super::models::Protocol::Anthropic => {
-            rb = rb
-                .header("anthropic-version", "2023-06-01")
-                .header("x-api-key", api_key);
+            rb = rb.header("x-api-key", api_key);
         }
         super::models::Protocol::OpenAI => {
             rb = rb.header("Authorization", format!("Bearer {api_key}"));
@@ -3135,15 +3161,33 @@ fn uuid_sim() -> String {
     )
 }
 
-/// 构建上游请求头 KV 表（用于日志记录，与 apply_client_headers 保持一致）
-pub fn build_upstream_headers(client_type: &ClientType, protocol: &super::models::Protocol, api_key: &str) -> Vec<(String, String)> {
-    let mut h: Vec<(String, String)> = vec![
-        ("Content-Type".into(), "application/json".into()),
-    ];
-    // auth header
+/// 构建上游请求头 KV 表（用于日志记录，反映实际发送：入站透传 + apply 覆盖）。
+/// 透传头从 orig 取并脱敏（auth/cookie），覆盖头（UA/auth/CT + codex 协议必需）按 apply 逻辑。
+pub fn build_upstream_headers(
+    client_type: &ClientType,
+    protocol: &super::models::Protocol,
+    api_key: &str,
+    orig: &axum::http::HeaderMap,
+) -> Vec<(String, String)> {
+    let mut h: Vec<(String, String)> = Vec::new();
+    // ① 透传入站头（剔 stripped：hop-by-hop + auth/UA/CT）。脱敏敏感值。
+    for (k, v) in orig {
+        let name = k.as_str();
+        if STRIPPED_ON_CONVERT_PASSTHROUGH.iter().any(|s| name.eq_ignore_ascii_case(s)) {
+            continue;
+        }
+        let val = v.to_str().unwrap_or("");
+        let val = if name.eq_ignore_ascii_case("cookie") || name.eq_ignore_ascii_case("set-cookie") {
+            "[REDACTED]".to_string()
+        } else {
+            val.to_string()
+        };
+        h.push((name.to_string(), val));
+    }
+    // ② 覆盖：Content-Type + auth（redact_key 日志安全）+ UA + codex 协议必需。
+    h.push(("Content-Type".into(), "application/json".into()));
     match protocol {
         super::models::Protocol::Anthropic => {
-            h.push(("anthropic-version".into(), "2023-06-01".into()));
             h.push(("x-api-key".into(), redact_key(api_key)));
         }
         super::models::Protocol::Gemini => {
@@ -3153,36 +3197,20 @@ pub fn build_upstream_headers(client_type: &ClientType, protocol: &super::models
             h.push(("Authorization".into(), format!("Bearer {}", redact_key(api_key))));
         }
     }
-    // client-specific headers
     match client_type {
         ClientType::Default => {}
-        // Claude Code family
         ClientType::ClaudeCode
         | ClientType::ClaudeCodeVscode
         | ClientType::ClaudeCodeSdkTs
         | ClientType::ClaudeCodeSdkPy
         | ClientType::ClaudeCodeGhAction => {
             h.push(("User-Agent".into(), claude_code_ua(client_type).into()));
-            h.push(("x-app".into(), "cli".into()));
-            h.push(("anthropic-dangerous-direct-browser-access".into(), "true".into()));
-            h.push(("X-Stainless-Lang".into(), "js".into()));
-            h.push(("X-Stainless-Package-Version".into(), "0.60.0".into()));
-            h.push(("X-Stainless-OS".into(), "MacOS".into()));
-            h.push(("X-Stainless-Arch".into(), "arm64".into()));
-            h.push(("X-Stainless-Runtime".into(), "node".into()));
-            h.push(("X-Stainless-Runtime-Version".into(), "v22.19.0".into()));
-            h.push(("X-Stainless-Retry-Count".into(), "0".into()));
-            h.push(("X-Stainless-Timeout".into(), "600".into()));
         }
-        // Codex family
         ClientType::CodexCli
         | ClientType::CodexTui
         | ClientType::CodexDesktop
         | ClientType::CodexVscode => {
             h.push(("User-Agent".into(), codex_ua(client_type).into()));
-            h.push(("originator".into(), "codex_cli_rs".into()));
-            h.push(("version".into(), "0.38.0".into()));
-            h.push(("Accept".into(), "text/event-stream".into()));
             if matches!(protocol, super::models::Protocol::OpenAI) {
                 h.push(("OpenAI-Beta".into(), "responses=experimental".into()));
                 h.push(("conversation_id".into(), uuid_sim()));
@@ -3191,11 +3219,9 @@ pub fn build_upstream_headers(client_type: &ClientType, protocol: &super::models
         }
         ClientType::Cursor => {
             h.push(("User-Agent".into(), "Cursor/0.50.7".into()));
-            h.push(("x-app".into(), "cursor".into()));
         }
         ClientType::Windsurf => {
             h.push(("User-Agent".into(), "Windsurf/1.5.0".into()));
-            h.push(("x-app".into(), "windsurf".into()));
         }
     }
     h
@@ -3316,6 +3342,63 @@ mod tests {
             fwd.get("x-custom").and_then(|v| v.to_str().ok()),
             Some("keep-me")
         );
+    }
+
+    // ── convert 路径透传：剔 hop-by-hop + auth/UA/CT，保留客户端 SDK 头（跨协议也带）──
+    #[test]
+    fn passthrough_convert_strips_hop_and_override_keeps_sdk_headers() {
+        let mut orig = axum::http::HeaderMap::new();
+        // hop-by-hop / 强覆盖（应剔）
+        orig.insert("host", "127.0.0.1:8080".parse().unwrap());
+        orig.insert("content-length", "123".parse().unwrap());
+        orig.insert("connection", "keep-alive".parse().unwrap());
+        orig.insert("authorization", "Bearer sk-inbound".parse().unwrap());
+        orig.insert("user-agent", "inbound-ua/1.0".parse().unwrap());
+        orig.insert("content-type", "text/plain".parse().unwrap());
+        // 客户端 SDK 头（应保留透传）
+        orig.insert("anthropic-beta", "interleaved-thinking-2025-05-14".parse().unwrap());
+        orig.insert("anthropic-version", "2023-06-01".parse().unwrap());
+        orig.insert("x-stainless-package-version", "0.94.0".parse().unwrap());
+        orig.insert("x-stainless-runtime-version", "v24.3.0".parse().unwrap());
+        orig.insert("x-stainless-timeout", "3000".parse().unwrap());
+        orig.insert("x-claude-code-session-id", "sess-abc".parse().unwrap());
+        orig.insert("x-app", "cli".parse().unwrap());
+
+        let fwd = passthrough_convert_headers(&orig);
+
+        // 剔除项
+        for stripped in ["host", "content-length", "connection", "authorization", "user-agent", "content-type"] {
+            assert!(!fwd.contains_key(stripped), "{stripped} must be stripped for convert apply to override");
+        }
+        // 透传项（含跨协议透明的 SDK 头）
+        assert_eq!(fwd.get("anthropic-beta").and_then(|v| v.to_str().ok()), Some("interleaved-thinking-2025-05-14"));
+        assert_eq!(fwd.get("x-stainless-package-version").and_then(|v| v.to_str().ok()), Some("0.94.0"));
+        assert_eq!(fwd.get("x-stainless-runtime-version").and_then(|v| v.to_str().ok()), Some("v24.3.0"));
+        assert_eq!(fwd.get("x-stainless-timeout").and_then(|v| v.to_str().ok()), Some("3000"));
+        assert_eq!(fwd.get("x-claude-code-session-id").and_then(|v| v.to_str().ok()), Some("sess-abc"));
+    }
+
+    // ── build_upstream_headers：透传入站（脱敏）+ 覆盖 UA/auth，日志反映真实上游头 ──
+    #[test]
+    fn build_upstream_headers_passes_through_and_overrides_auth() {
+        let mut orig = axum::http::HeaderMap::new();
+        orig.insert("anthropic-beta", "beta-x".parse().unwrap());
+        orig.insert("x-stainless-package-version", "0.94.0".parse().unwrap());
+        orig.insert("cookie", "secret-cookie".parse().unwrap());
+        orig.insert("authorization", "Bearer sk-inbound".parse().unwrap());
+
+        let h = build_upstream_headers(&ClientType::ClaudeCode, &crate::gateway::models::Protocol::Anthropic, "sk-realkey-1234567890", &orig);
+        let m: std::collections::HashMap<&str, &str> = h.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+
+        // 入站 SDK 头透传
+        assert_eq!(m.get("anthropic-beta"), Some(&"beta-x"));
+        assert_eq!(m.get("x-stainless-package-version"), Some(&"0.94.0"));
+        // cookie 脱敏
+        assert_eq!(m.get("cookie"), Some(&"[REDACTED]"));
+        // auth 覆盖为平台 key（redact）+ UA 模拟
+        assert!(m.get("x-api-key").unwrap().contains("****"), "x-api-key must be redacted platform key");
+        assert!(m.get("User-Agent").unwrap().starts_with("claude-cli/"));
+        assert_eq!(m.get("Content-Type"), Some(&"application/json"));
     }
 
     // ── 透传分支不调 convert_request（结构性确认）──
