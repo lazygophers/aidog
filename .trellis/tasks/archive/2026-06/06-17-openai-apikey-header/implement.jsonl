@@ -1,0 +1,3 @@
+{"file": "prd.md", "reason": "决策: openai 双发 Bearer+api-key, 直接适配"}
+{"file": "implement.md", "reason": "精确改动: proxy.rs 4 处鉴权函数叠加 api-key 头"}
+{"file": ".trellis/spec/backend/index.md", "reason": "后端约定"}
