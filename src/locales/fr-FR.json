@@ -262,6 +262,8 @@
   "home.trendPeak": "Pic",
   "home.trendTitle": "Tendance des requêtes · 24 dernières heures",
   "home.trendTotal": "Total des requêtes",
+  "home.trendRequests": "Requêtes",
+  "home.trendTokens": "Tokens",
   "home.viewGroups": "Voir les groupes",
   "home.viewLogs": "Voir les journaux",
   "home.viewStats": "Voir les stats",

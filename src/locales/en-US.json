@@ -262,6 +262,8 @@
   "home.trendPeak": "Peak",
   "home.trendTitle": "Request Trend · Last 24h",
   "home.trendTotal": "Total Requests",
+  "home.trendRequests": "Requests",
+  "home.trendTokens": "Tokens",
   "home.viewGroups": "View Groups",
   "home.viewLogs": "View Logs",
   "home.viewStats": "View Stats",

@@ -39,23 +39,6 @@ fn slugify(input: &str) -> String {
         .join("-")
 }
 
-/// Validate group name is a valid slug (lowercase alphanumeric + hyphen)
-fn validate_group_key(name: &str) -> Result<(), String> {
-    if name.is_empty() {
-        return Err("group name cannot be empty".to_string());
-    }
-    if !name.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '-') {
-        return Err(format!(
-            "group name '{}' must contain only lowercase letters, digits, and hyphens",
-            name
-        ));
-    }
-    if name.starts_with('-') || name.ends_with('-') {
-        return Err("group name cannot start or end with hyphen".to_string());
-    }
-    Ok(())
-}
-
 /// 为所有平台确保存在关联的自动分组（一个平台一个，相互独立）
 async fn ensure_platform_groups(db: &Db) {
     let platforms = match db::list_platforms(db).await {
@@ -414,12 +397,9 @@ async fn popover_platform_today(db: State<'_, Db>) -> Result<Vec<db::TodayPlatfo
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn group_create(mut input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+async fn group_create(input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
     tracing::debug!(command = "group_create", name = %input.name, "command invoked");
-    // Auto-slugify and validate group name
-    input.name = slugify(&input.name);
-    validate_group_key(&input.name)
-        .map_err(|e| { tracing::warn!(command = "group_create", error = %e, "invalid group name"); e })?;
+    // name 保持原样支持任意 Unicode（含中文），group_key 由 db.rs 自动生成或用户提供
     let result = db::create_group(&db, input).await
         .map_err(|e| { tracing::error!(command = "group_create", error = %e, "create group failed"); e })?;
     try_sync_settings(&app, &db).await;
@@ -442,15 +422,9 @@ async fn group_get(id: u64, db: State<'_, Db>) -> Result<Option<Group>, String> 
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn group_update(mut input: UpdateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
+async fn group_update(input: UpdateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
     tracing::debug!(command = "group_update", id = input.id, "command invoked");
-    // Auto-slugify and validate if name is being updated
-    if let Some(ref name) = input.name {
-        let slug = slugify(name);
-        validate_group_key(&slug)
-            .map_err(|e| { tracing::warn!(command = "group_update", error = %e, "invalid group name"); e })?;
-        input.name = Some(slug);
-    }
+    // name 保持原样支持任意 Unicode（含中文），不转换
     let result = db::update_group(&db, input).await
         .map_err(|e| { tracing::error!(command = "group_update", error = %e, "update group failed"); e })?;
     try_sync_settings(&app, &db).await;

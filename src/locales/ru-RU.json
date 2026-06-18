@@ -262,6 +262,8 @@
   "home.trendPeak": "Пик",
   "home.trendTitle": "Тренд запросов · Последние 24 часа",
   "home.trendTotal": "Всего запросов",
+  "home.trendRequests": "Запросы",
+  "home.trendTokens": "Tokens",
   "home.viewGroups": "Группы",
   "home.viewLogs": "Журналы",
   "home.viewStats": "Статистика",

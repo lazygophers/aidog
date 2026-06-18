@@ -262,6 +262,8 @@
   "home.trendPeak": "峰值",
   "home.trendTitle": "请求趋势 · 今日",
   "home.trendTotal": "总请求",
+  "home.trendRequests": "请求数",
+  "home.trendTokens": "Tokens",
   "home.viewGroups": "查看分组",
   "home.viewLogs": "查看日志",
   "home.viewStats": "查看统计",
