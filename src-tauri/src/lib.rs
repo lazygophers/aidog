@@ -854,7 +854,9 @@ async fn model_test(
         }],
         system: None,
         max_tokens: Some(req.max_tokens.unwrap_or(64)),
-        temperature: Some(0.0),
+        // 不强制 temperature：部分模型（如 Kimi coding plan）只允许 temperature=1，
+        // 发任何其他值会被上游 400 拒绝。省略让上游用模型默认值，避开所有挑剔 temperature 的模型。
+        temperature: None,
         top_p: None,
         stream: Some(false),
         tools: None,
