@@ -1531,5 +1531,7 @@
   "updater.updateFailed": "Ошибка обновления",
   "updater.updateNow": "Обновить сейчас",
   "updater.updating": "Обновление…",
-  "group.dragPlatform": "Перетащите для сортировки / переместить в другую группу"
+  "group.dragPlatform": "Перетащите для сортировки / переместить в другую группу",
+  "group.addPlatformToGroup": "Добавить платформу в эту группу",
+  "platform.groupLocked": "Заблокировано в эту группу"
 }

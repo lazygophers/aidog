@@ -261,9 +261,11 @@ async function fetchGroupStats(
 }
 
 /** 分组内嵌组件（供 Platforms 页使用） */
-export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
+export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform }: {
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string }) => void;
   onGroupsChanged?: () => void;
+  /** 打开平台创建表单；提供 lockedGroupId = 从某分组 ➕ 触发，预绑该分组且锁定归属。 */
+  onCreatePlatform?: (presetGroupIds?: number[], lockedGroupId?: number) => void;
 }) {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
@@ -869,6 +871,11 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
           <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
             + {t("group.add")}
           </button>
+          {onCreatePlatform && (
+            <button className="btn" onClick={() => onCreatePlatform()}>
+              + {t("platform.add", "添加平台")}
+            </button>
+          )}
         </div>
       </div>
 
@@ -972,6 +979,13 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
                     <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
                   </svg>
                 </button>
+                {onCreatePlatform && (
+                  <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onCreatePlatform([group.id], group.id); }} title={t("group.addPlatformToGroup", "在此分组添加平台")}>
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M7 2v10M2 7h10" />
+                    </svg>
+                  </button>
+                )}
                 <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />

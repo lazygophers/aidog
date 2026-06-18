@@ -1509,5 +1509,7 @@
   "updater.updateFailed": "更新失败",
   "updater.updateNow": "立即更新",
   "updater.updating": "更新中…",
-  "group.dragPlatform": "拖拽排序 / 移动到其他分组"
+  "group.dragPlatform": "拖拽排序 / 移动到其他分组",
+  "group.addPlatformToGroup": "在此分组添加平台",
+  "platform.groupLocked": "已锁定到此分组"
 }
