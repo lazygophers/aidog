@@ -1530,5 +1530,6 @@
   "updater.releaseNotes": "Versionshinweise",
   "updater.updateFailed": "Aktualisierung fehlgeschlagen",
   "updater.updateNow": "Jetzt aktualisieren",
-  "updater.updating": "Wird aktualisiert…"
+  "updater.updating": "Wird aktualisiert…",
+  "group.dragPlatform": "Ziehen zum Sortieren / in andere Gruppe verschieben"
 }

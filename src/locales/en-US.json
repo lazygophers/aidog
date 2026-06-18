@@ -1508,5 +1508,6 @@
   "updater.releaseNotes": "Release notes",
   "updater.updateFailed": "Update failed",
   "updater.updateNow": "Update now",
-  "updater.updating": "Updating…"
+  "updater.updating": "Updating…",
+  "group.dragPlatform": "Drag to reorder / move to another group"
 }

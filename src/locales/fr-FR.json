@@ -1530,5 +1530,6 @@
   "updater.releaseNotes": "Notes de version",
   "updater.updateFailed": "Échec de la mise à jour",
   "updater.updateNow": "Mettre à jour maintenant",
-  "updater.updating": "Mise à jour…"
+  "updater.updating": "Mise à jour…",
+  "group.dragPlatform": "Glisser pour réordonner / déplacer vers un autre groupe"
 }

@@ -1352,6 +1352,66 @@ pub async fn reorder_platforms(db: &Db, ordered_ids: &[u64]) -> Result<(), Strin
         .map_err(|e| format!("reorder platform: {e}"))
 }
 
+/// 批量更新某分组内平台的 priority（拖拽排序）。ordered_platform_ids 按序赋 1,2,3…
+pub async fn reorder_group_platforms(
+    db: &Db,
+    group_id: u64,
+    ordered_platform_ids: &[u64],
+) -> Result<(), String> {
+    let group_id = group_id as i64;
+    let ordered = ordered_platform_ids.to_vec();
+    let ts = now();
+    db.0
+        .call(move |conn| {
+            for (i, &pid) in ordered.iter().enumerate() {
+                conn.execute(
+                    "UPDATE group_platform SET priority = ?1, updated_at = ?2 \
+                     WHERE group_id = ?3 AND platform_id = ?4 AND deleted_at = 0",
+                    params![(i + 1) as i64, ts, group_id, pid as i64],
+                )?;
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("reorder group platforms: {e}"))
+}
+
+/// 跨分组移动平台：从 from 组移除、加入 to 组（priority = to 组现有最大 + 1）。
+pub async fn move_group_platform(
+    db: &Db,
+    platform_id: u64,
+    from_group_id: u64,
+    to_group_id: u64,
+) -> Result<(), String> {
+    let pid = platform_id as i64;
+    let from = from_group_id as i64;
+    let to = to_group_id as i64;
+    let ts = now();
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
+                params![from, pid],
+            )?;
+            let max_pri: i64 = conn
+                .query_row(
+                    "SELECT COALESCE(MAX(priority), 0) FROM group_platform \
+                     WHERE group_id = ?1 AND deleted_at = 0",
+                    params![to],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0);
+            conn.execute(
+                "INSERT INTO group_platform (group_id, platform_id, priority, weight, created_at, updated_at) \
+                 VALUES (?1, ?2, ?3, 1, ?4, ?4)",
+                params![to, pid, max_pri + 1, ts],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("move group platform: {e}"))
+}
+
 pub async fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
     if let Ok(g) = db.1.groups.read() {
         if let Some(cached) = g.as_ref() {

@@ -1530,5 +1530,6 @@
   "updater.releaseNotes": "ملاحظات الإصدار",
   "updater.updateFailed": "فشل التحديث",
   "updater.updateNow": "التحديث الآن",
-  "updater.updating": "جارٍ التحديث…"
+  "updater.updating": "جارٍ التحديث…",
+  "group.dragPlatform": "اسحب للترتيب / انقل إلى مجموعة أخرى"
 }

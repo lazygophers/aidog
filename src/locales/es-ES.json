@@ -1508,5 +1508,6 @@
   "updater.releaseNotes": "Notas de la versión",
   "updater.updateFailed": "Error al actualizar",
   "updater.updateNow": "Actualizar ahora",
-  "updater.updating": "Actualizando…"
+  "updater.updating": "Actualizando…",
+  "group.dragPlatform": "Arrastrar para reordenar / mover a otro grupo"
 }

@@ -1,9 +1,10 @@
-import { useState, useEffect, useReducer, useMemo } from "react";
+import { useState, useEffect, useReducer, useMemo, useRef, Fragment } from "react";
+import type { DragEvent as ReactDragEvent } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
   groupDetailApi, groupApi, groupUsageApi, platformApi, proxyApi, onProxyLogUpdated,
-  type GroupDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
+  type GroupDetail, type GroupPlatformDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
   type ModelMapping,
 } from "../services/api";
 import { SortableList } from "../components/SortableList";
@@ -361,6 +362,91 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
     // handlers 来自 usePlatformCards 的 useCallback（稳定）；load 内联故每次重算——分组展开非热路径，可接受
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [cards, load]);
+
+  // ── 分组展开区平台拖拽（HTML5 DnD，不与 dnd-kit 分组排序冲突；天然支持跨分组移动） ──
+  const dndPayload = useRef<{ pid: number; fromGid: number } | null>(null);
+  const [dropIndicator, setDropIndicator] = useState<{ gid: number; idx: number } | null>(null);
+
+  const onPlatDragStart = (e: ReactDragEvent, pid: number, gid: number, cardEl: HTMLElement | null) => {
+    dndPayload.current = { pid, fromGid: gid };
+    e.dataTransfer.effectAllowed = "move";
+    e.dataTransfer.setData("text/plain", String(pid)); // Firefox 触发 dragstart 必填
+    if (cardEl) e.dataTransfer.setDragImage(cardEl, 12, 12);
+  };
+  const onPlatDragEnd = () => { dndPayload.current = null; setDropIndicator(null); };
+
+  // 基于 clientY 计算 drop 到容器内第 idx 张卡片前（末尾 = fullPlats.length）
+  const computeDropIdx = (zoneEl: HTMLElement, clientY: number): number => {
+    const cards = zoneEl.querySelectorAll<HTMLElement>("[data-gp-id]");
+    for (let i = 0; i < cards.length; i++) {
+      const r = cards[i].getBoundingClientRect();
+      if (clientY < r.top + r.height / 2) return i;
+    }
+    return cards.length;
+  };
+
+  const onZoneDragOver = (e: ReactDragEvent, gid: number, zoneEl: HTMLElement) => {
+    if (!dndPayload.current) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    const idx = computeDropIdx(zoneEl, e.clientY);
+    setDropIndicator(prev => (prev?.gid === gid && prev?.idx === idx) ? prev : { gid, idx });
+  };
+
+  const onZoneDrop = (e: ReactDragEvent, gid: number, zoneEl: HTMLElement, fullPlats: Platform[]) => {
+    e.preventDefault();
+    const payload = dndPayload.current;
+    dndPayload.current = null;
+    setDropIndicator(null);
+    if (!payload) return;
+    const idx = computeDropIdx(zoneEl, e.clientY);
+
+    if (payload.fromGid === gid) {
+      // 组内重排
+      const ids = fullPlats.map(p => p.id);
+      const fromIdx = ids.indexOf(payload.pid);
+      if (fromIdx < 0) return;
+      let target = idx;
+      if (fromIdx < idx) target = idx - 1; // 移除拖动项后位置左移
+      if (target === fromIdx) return;
+      const reordered = ids.filter(id => id !== payload.pid);
+      reordered.splice(target, 0, payload.pid);
+      setDetails(prev => prev.map(d => d.group.id !== gid ? d : {
+        ...d,
+        platforms: reordered.map((id, i) => {
+          const gp = d.platforms.find(g => g.platform.id === id)!;
+          return { ...gp, priority: i + 1 };
+        }),
+      }));
+      groupDetailApi.reorderPlatforms(gid, reordered).catch(console.error);
+    } else {
+      // 跨组移动
+      let movedGp: GroupPlatformDetail | undefined;
+      setDetails(prev => {
+        const next = prev.map(d => {
+          if (d.group.id === payload.fromGid) {
+            const gps = d.platforms.filter(g => {
+              if (g.platform.id === payload.pid) { movedGp = g; return false; }
+              return true;
+            });
+            return { ...d, platforms: gps };
+          }
+          return d;
+        });
+        if (!movedGp) return next;
+        return next.map(d => {
+          if (d.group.id !== gid) return d;
+          const newGp = { ...movedGp!, priority: d.platforms.length + 1 };
+          const gps = [...d.platforms];
+          const insertAt = Math.min(idx, gps.length);
+          gps.splice(insertAt, 0, newGp);
+          return { ...d, platforms: gps };
+        });
+      });
+      groupDetailApi.movePlatform(payload.pid, payload.fromGid, gid)
+        .then(() => load()).catch(console.error);
+    }
+  };
 
   // 取代理端口构造 base_url；失败保持兜底 7890。
   useEffect(() => {
@@ -936,25 +1022,58 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
                           .map(gp => platforms.find(pp => pp.id === gp.platform.id))
                           .filter((pp): pp is Platform => !!pp);
                         return (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                          <div
+                            onDragOver={(e) => onZoneDragOver(e, group.id, e.currentTarget as HTMLElement)}
+                            onDrop={(e) => onZoneDrop(e, group.id, e.currentTarget as HTMLElement, fullPlats)}
+                            onDragLeave={(e) => {
+                              if (e.currentTarget === e.target)
+                                setDropIndicator(prev => prev?.gid === group.id ? null : prev);
+                            }}
+                            style={{ display: "flex", flexDirection: "column", gap: 8 }}
+                          >
                             {fullPlats.map((p, idx) => (
-                              <PlatformCard
-                                key={p.id}
-                                platform={p}
-                                index={idx}
-                                isDragging={false}
-                                dragActive={false}
-                                quota={computeQuotaDisplay(p, cards.quotaMap[p.id], !!cards.quotaRealIds[p.id])}
-                                refreshing={!!cards.quotaRefreshing[p.id]}
-                                usage={cards.usageMap[p.id]}
-                                expanded={cards.expandedIds.has(p.id)}
-                                manualResult={cards.testResults[p.id]}
-                                testing={cards.testingId === p.id}
-                                faviconFailed={cards.faviconFailed.has(p.id)}
-                                actions={groupCardActions}
-                                draggable={false}
-                              />
+                              <Fragment key={p.id}>
+                                {dropIndicator?.gid === group.id && dropIndicator.idx === idx && (
+                                  <div style={{ height: 2, background: "var(--accent)", borderRadius: 1, margin: "-3px 0", opacity: 0.7 }} />
+                                )}
+                                <div style={{ display: "flex", gap: 4, alignItems: "stretch" }}>
+                                  {/* HTML5 拖拽把手：组内排序 + 跨分组移动 */}
+                                  <span
+                                    draggable
+                                    onDragStart={(e) => {
+                                      const cardEl = (e.currentTarget as HTMLElement).parentElement?.querySelector("[data-gp-id]") as HTMLElement | null;
+                                      onPlatDragStart(e, p.id, group.id, cardEl);
+                                    }}
+                                    onDragEnd={onPlatDragEnd}
+                                    className="drag-handle drag-handle-inline"
+                                    style={{ cursor: "grab", display: "inline-flex", alignItems: "center", flexShrink: 0, alignSelf: "center" }}
+                                    title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}
+                                  >
+                                    <svg width="12" height="18" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
+                                  </span>
+                                  <div data-gp-id={p.id} style={{ flex: 1, minWidth: 0 }}>
+                                    <PlatformCard
+                                      platform={p}
+                                      index={idx}
+                                      isDragging={false}
+                                      dragActive={false}
+                                      quota={computeQuotaDisplay(p, cards.quotaMap[p.id], !!cards.quotaRealIds[p.id])}
+                                      refreshing={!!cards.quotaRefreshing[p.id]}
+                                      usage={cards.usageMap[p.id]}
+                                      expanded={cards.expandedIds.has(p.id)}
+                                      manualResult={cards.testResults[p.id]}
+                                      testing={cards.testingId === p.id}
+                                      faviconFailed={cards.faviconFailed.has(p.id)}
+                                      actions={groupCardActions}
+                                      draggable={false}
+                                    />
+                                  </div>
+                                </div>
+                              </Fragment>
                             ))}
+                            {dropIndicator?.gid === group.id && dropIndicator.idx === fullPlats.length && (
+                              <div style={{ height: 2, background: "var(--accent)", borderRadius: 1, margin: "-3px 0", opacity: 0.7 }} />
+                            )}
                           </div>
                         );
                       })()}
