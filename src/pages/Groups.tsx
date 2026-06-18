@@ -366,6 +366,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
   // ── 分组展开区平台拖拽（HTML5 DnD，不与 dnd-kit 分组排序冲突；天然支持跨分组移动） ──
   const dndPayload = useRef<{ pid: number; fromGid: number } | null>(null);
   const [dropIndicator, setDropIndicator] = useState<{ gid: number; idx: number } | null>(null);
+  // 拖拽悬停的分组（折叠态整体高亮，展开态配合 dropIndicator 精细指示）
+  const [dragOverGroup, setDragOverGroup] = useState<number | null>(null);
 
   const onPlatDragStart = (e: ReactDragEvent, pid: number, gid: number, cardEl: HTMLElement | null) => {
     dndPayload.current = { pid, fromGid: gid };
@@ -373,9 +375,9 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
     e.dataTransfer.setData("text/plain", String(pid)); // Firefox 触发 dragstart 必填
     if (cardEl) e.dataTransfer.setDragImage(cardEl, 12, 12);
   };
-  const onPlatDragEnd = () => { dndPayload.current = null; setDropIndicator(null); };
+  const onPlatDragEnd = () => { dndPayload.current = null; setDropIndicator(null); setDragOverGroup(null); };
 
-  // 基于 clientY 计算 drop 到容器内第 idx 张卡片前（末尾 = fullPlats.length）
+  // 基于 clientY 计算 drop 到容器内第 idx 张卡片前（末尾 = 卡片数）
   const computeDropIdx = (zoneEl: HTMLElement, clientY: number): number => {
     const cards = zoneEl.querySelectorAll<HTMLElement>("[data-gp-id]");
     for (let i = 0; i < cards.length; i++) {
@@ -389,17 +391,23 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
     if (!dndPayload.current) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
+    setDragOverGroup(gid);
     const idx = computeDropIdx(zoneEl, e.clientY);
     setDropIndicator(prev => (prev?.gid === gid && prev?.idx === idx) ? prev : { gid, idx });
   };
 
-  const onZoneDrop = (e: ReactDragEvent, gid: number, zoneEl: HTMLElement, fullPlats: Platform[]) => {
+  const onZoneDrop = (e: ReactDragEvent, gid: number, zoneEl: HTMLElement) => {
     e.preventDefault();
     const payload = dndPayload.current;
     dndPayload.current = null;
     setDropIndicator(null);
+    setDragOverGroup(null);
     if (!payload) return;
     const idx = computeDropIdx(zoneEl, e.clientY);
+    // 从 details 推导目标分组当前平台顺序（dropzone 已提升到分组 wrapper，fullPlats 不再由调用方传）
+    const fullPlats = (details.find(d => d.group.id === gid)?.platforms ?? [])
+      .map(gp => platforms.find(pp => pp.id === gp.platform.id))
+      .filter((pp): pp is Platform => !!pp);
 
     if (payload.fromGid === gid) {
       // 组内重排
@@ -1004,7 +1012,19 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
             );
 
             return (
-              <div className="animate-fade-in" style={{ animationDelay: `${i * 60}ms` }}>
+              <div
+                className="animate-fade-in"
+                style={{ animationDelay: `${i * 60}ms` }}
+                onDragOver={(e) => onZoneDragOver(e, group.id, e.currentTarget as HTMLElement)}
+                onDrop={(e) => onZoneDrop(e, group.id, e.currentTarget as HTMLElement)}
+                onDragLeave={(e) => {
+                  const related = e.relatedTarget as Node | null;
+                  if (!related || !(e.currentTarget as HTMLElement).contains(related)) {
+                    setDropIndicator(prev => prev?.gid === group.id ? null : prev);
+                    setDragOverGroup(prev => prev === group.id ? null : prev);
+                  }
+                }}
+              >
                 <CompactCard
                   header={header}
                   expanded={expandedGroups.has(group.id)}
@@ -1012,7 +1032,11 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
                     const s = new Set(prev); next ? s.add(group.id) : s.delete(group.id); return s;
                   })}
                   toggleLabel={t("group.toggleDetails", "展开/收起明细")}
-                  style={handle.isDragging ? { opacity: 0.5 } : undefined}
+                  style={handle.isDragging
+                    ? { opacity: 0.5 }
+                    : dragOverGroup === group.id
+                      ? { outline: "2px solid var(--accent)", outlineOffset: 2 }
+                      : undefined}
                 >
                   {(
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }} onClick={e => e.stopPropagation()}>
@@ -1022,15 +1046,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
                           .map(gp => platforms.find(pp => pp.id === gp.platform.id))
                           .filter((pp): pp is Platform => !!pp);
                         return (
-                          <div
-                            onDragOver={(e) => onZoneDragOver(e, group.id, e.currentTarget as HTMLElement)}
-                            onDrop={(e) => onZoneDrop(e, group.id, e.currentTarget as HTMLElement, fullPlats)}
-                            onDragLeave={(e) => {
-                              if (e.currentTarget === e.target)
-                                setDropIndicator(prev => prev?.gid === group.id ? null : prev);
-                            }}
-                            style={{ display: "flex", flexDirection: "column", gap: 8 }}
-                          >
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                             {fullPlats.map((p, idx) => (
                               <Fragment key={p.id}>
                                 {dropIndicator?.gid === group.id && dropIndicator.idx === idx && (
