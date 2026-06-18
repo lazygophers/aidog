@@ -1366,6 +1366,9 @@ export function Platforms({ onNavigate }: { onNavigate?: (id: string, context?: 
   const [saveError, setSaveError] = useState("");
 const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
+  // pointer 拖拽（未分组平台 → 分组）；HTML5 DnD 跨区域在 WKWebView 失效，改 pointer events
+  const [groupDrag, setGroupDrag] = useState<{ pid: number; pname: string; x: number; y: number } | null>(null);
+  const groupHighlightEl = useRef<HTMLElement | null>(null);
   const [showKey, setShowKey] = useState(false);
 
   // Form state
@@ -1498,6 +1501,57 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     try {
       setGroupDetails(await groupDetailApi.list());
     } catch { /* ignore */ }
+  };
+
+  // ── pointer 拖拽未分组平台到分组（绕开 WKWebView HTML5 跨区域 DnD 失效）──
+  const clearGroupHighlight = () => {
+    if (groupHighlightEl.current) {
+      groupHighlightEl.current.style.outline = "";
+      groupHighlightEl.current.style.outlineOffset = "";
+      groupHighlightEl.current = null;
+    }
+  };
+  const findGroupAt = (x: number, y: number): { el: HTMLElement; gid: number } | null => {
+    const el = document.elementFromPoint(x, y) as HTMLElement | null;
+    const groupEl = el?.closest("[data-group-id]") as HTMLElement | null;
+    if (!groupEl) return null;
+    const gid = Number(groupEl.getAttribute("data-group-id"));
+    return Number.isFinite(gid) && gid > 0 ? { el: groupEl, gid } : null;
+  };
+  const onStandaloneGroupPointerDown = (e: React.PointerEvent, p: Platform) => {
+    if (e.button !== 0) return;
+    const tgt = e.target as HTMLElement;
+    // 让位：reorder handle（pointer 排序）+ 交互元素（按钮/输入）
+    if (tgt.closest(".drag-handle-inline, button, a, input, [role=button]")) return;
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    setGroupDrag({ pid: p.id, pname: p.name, x: e.clientX, y: e.clientY });
+  };
+  const onStandaloneGroupPointerMove = (e: React.PointerEvent) => {
+    setGroupDrag(d => d ? { ...d, x: e.clientX, y: e.clientY } : d);
+    if (!groupDrag) return;
+    clearGroupHighlight();
+    const found = findGroupAt(e.clientX, e.clientY);
+    if (found) {
+      found.el.style.outline = "2px solid var(--accent)";
+      found.el.style.outlineOffset = "2px";
+      groupHighlightEl.current = found.el;
+    }
+  };
+  const onStandaloneGroupPointerUp = (e: React.PointerEvent) => {
+    if (!groupDrag) return;
+    const pid = groupDrag.pid;
+    const found = findGroupAt(e.clientX, e.clientY);
+    clearGroupHighlight();
+    setGroupDrag(null);
+    if (!found) return;
+    groupDetailApi.movePlatform(pid, 0, found.gid)
+      .then(() => {
+        setToast({ text: "已加入分组", ok: true });
+        load(); handleGroupsChanged();
+        window.dispatchEvent(new Event("aidog-groups-changed"));
+      })
+      .catch(err => setToast({ text: `加入分组失败: ${err}`, ok: false }));
   };
 
   const load = async () => {
@@ -2707,15 +2761,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     <span className="badge badge-muted" style={{ fontSize: 10 }}>{PROTOCOL_LABELS[draggedPlat.platform_type] || draggedPlat.platform_type}</span>
                   </div>
                 )}
-                {/* 未分组平台支持 HTML5 拖拽加入分组（卡片区域触发）；pointer reorder 仍由 handle span 独占（span 不 draggable，浏览器不沿祖先启动 drag） */}
+                {/* 未分组平台 pointer 拖拽加入分组（按住卡片空白区拖到分组）；HTML5 DnD 跨区域在 WKWebView 失效故用 pointer events */}
                 <div
-                  draggable
-                  onDragStart={(e) => {
-                    (window as unknown as { __aidogDnd?: { pid: number; fromGid: number } }).__aidogDnd = { pid: p.id, fromGid: 0 };
-                    e.dataTransfer.effectAllowed = "move";
-                    e.dataTransfer.setData("text/plain", String(p.id));
-                  }}
-                  onDragEnd={() => { delete (window as unknown as { __aidogDnd?: unknown }).__aidogDnd; }}
+                  onPointerDown={(e) => onStandaloneGroupPointerDown(e, p)}
+                  onPointerMove={onStandaloneGroupPointerMove}
+                  onPointerUp={onStandaloneGroupPointerUp}
+                  style={{ cursor: groupDrag?.pid === p.id ? "grabbing" : undefined }}
                 >
                 <PlatformCard
                   platform={p}
@@ -2775,6 +2826,19 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       )}
 
       {/* Test result toast — Portal 到 body, 脱离页面 transform 祖先(animate-fade-in 等)确保 fixed 相对窗口顶部 */}
+      {groupDrag && createPortal(
+        <div style={{
+          position: "fixed", left: groupDrag.x + 14, top: groupDrag.y + 14,
+          pointerEvents: "none", zIndex: 3000,
+          padding: "6px 12px", borderRadius: 8,
+          background: "var(--accent)", color: "#fff",
+          fontSize: 12, fontWeight: 600,
+          boxShadow: "0 4px 12px rgba(0,0,0,0.35)", opacity: 0.92,
+        }}>
+          {groupDrag.pname}
+        </div>,
+        document.body,
+      )}
       {toast && createPortal(
         <div style={{
           position: "fixed", top: 24, left: "50%", transform: "translateX(-50%)",
