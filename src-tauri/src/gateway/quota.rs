@@ -112,24 +112,102 @@ async fn http_client(db: Option<&Arc<Db>>) -> reqwest::Client {
 /// 统一 quota 出站 GET: 记录请求 path (info 级) + 响应体 (debug 级), 返回解析后的 JSON。
 /// headers 原样设置 (调用方决定是否加 Bearer 前缀)。
 /// 错误前缀保持与各 func 原行为一致: Network / HTTP {status} / Parse。
+/// 所有 quota 出站 HTTP 经此单点, 落 proxy_log (source_protocol="quota"), 与 fetch_models/model_test 同模式。
 async fn quota_get_json(
     db: Option<&Arc<Db>>,
     url: &str,
     headers: &[(&str, String)],
 ) -> Result<serde_json::Value, String> {
     tracing::info!(method = "GET", url = %url, "quota outbound request");
+    let start = std::time::Instant::now();
+    let request_id = uuid::Uuid::new_v4().simple().to_string();
+    let created_at = super::db::now();
+
     let mut rb = http_client(db).await.get(url);
     for (k, v) in headers {
         rb = rb.header(*k, v);
     }
-    let resp = rb.send().await.map_err(|e| format!("Network: {e}"))?;
+    let resp = match rb.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            let msg = format!("Network: {e}");
+            persist_quota_log(db, make_quota_log(&request_id, url, 0, &msg, start.elapsed().as_millis() as i32, created_at)).await;
+            return Err(msg);
+        }
+    };
     let status = resp.status();
+    let upstream_status = status.as_u16() as i32;
     if !status.is_success() {
-        return Err(format!("HTTP {status}"));
+        let msg = format!("HTTP {status}");
+        persist_quota_log(db, make_quota_log(&request_id, url, upstream_status, &msg, start.elapsed().as_millis() as i32, created_at)).await;
+        return Err(msg);
     }
-    let text = resp.text().await.map_err(|e| format!("Parse: {e}"))?;
+    let text = match resp.text().await {
+        Ok(t) => t,
+        Err(e) => {
+            let msg = format!("Parse: {e}");
+            persist_quota_log(db, make_quota_log(&request_id, url, upstream_status, &msg, start.elapsed().as_millis() as i32, created_at)).await;
+            return Err(msg);
+        }
+    };
     tracing::debug!(url = %url, body = %text, "quota response body");
+    // 成功响应落库 (保留 body 原文); parse 失败也落库 (body 已在, 便于排查)
+    persist_quota_log(db, make_quota_log(&request_id, url, upstream_status, &text, start.elapsed().as_millis() as i32, created_at)).await;
     serde_json::from_str(&text).map_err(|e| format!("Parse: {e}"))
+}
+
+/// 构造 quota 日志条目 (复用 fetch_models/model_test 标记约定, platform_id=0)。
+fn make_quota_log(
+    request_id: &str,
+    url: &str,
+    upstream_status: i32,
+    body: &str,
+    duration_ms: i32,
+    created_at: i64,
+) -> super::models::ProxyLog {
+    super::models::ProxyLog {
+        id: request_id.to_string(),
+        group_key: "[quota]".into(),
+        model: String::new(),
+        actual_model: String::new(),
+        source_protocol: "quota".into(),
+        target_protocol: String::new(),
+        platform_id: 0,
+        request_headers: r#"{"source":"quota"}"#.into(),
+        request_body: String::new(),
+        upstream_request_headers: String::new(),
+        upstream_request_body: String::new(),
+        response_body: body.into(),
+        request_url: "/quota".into(),
+        upstream_request_url: url.to_string(),
+        upstream_response_headers: String::new(),
+        upstream_status_code: upstream_status,
+        user_response_headers: r#"{"content-type":"application/json"}"#.to_string(),
+        user_response_body: body.into(),
+        status_code: upstream_status,
+        duration_ms,
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_tokens: 0,
+        est_cost: 0.0,
+        is_stream: false,
+        attempts: Vec::new(),
+        retry_count: 0,
+        blocked_by: String::new(),
+        blocked_reason: String::new(),
+        created_at,
+        updated_at: created_at,
+        deleted_at: 0,
+    }
+}
+
+/// 落库 quota 日志 (仅 db 可写时; 测试传 None 跳过)。
+async fn persist_quota_log(db: Option<&Arc<Db>>, log: super::models::ProxyLog) {
+    if let Some(d) = db {
+        if let Err(e) = super::db::upsert_proxy_log(d, log).await {
+            tracing::warn!(error = %e, "persist quota log failed");
+        }
+    }
 }
 
 // ── 余额查询: DeepSeek ───────────────────────────────────
