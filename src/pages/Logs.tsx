@@ -316,6 +316,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
         {/* Meta grid */}
         <div className="glass-surface" style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
           <MetaItem label={t("logs.group", "分组")} value={groupName(detail.group_key)} />
+          <MetaItem label={t("logs.platform", "平台")} value={platformMap.get(detail.platform_id) || "-"} />
           <MetaItem label={t("logs.model", "原始模型")} value={detail.model || "-"} />
           <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} />
           <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={detail.source_protocol || "-"} />

@@ -403,7 +403,7 @@ async fn run_calibration(
 ) {
     // 锁外 async 真查（构造 Arc<Db> 供 http_client 读系统代理设置）
     let db_arc = std::sync::Arc::new(db.clone());
-    let quota = super::quota::query_quota(Some(&db_arc), base_url, api_key).await;
+    let quota = super::quota::query_quota(Some(&db_arc), base_url, api_key, platform_id as i64).await;
     // 失败时 calibrate_from_quota 自身 early-return（保留预估值，不重置计数/时间，下次请求再试）。
     calibrate_from_quota(db, platform_id, &quota, is_coding_plan).await;
 }
