@@ -2670,7 +2670,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       </div>
 
       {/* 分组段（内嵌） */}
-      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} />
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onToast={setToast} />
 
       {/* 分隔线 */}
       <div style={{ height: 1, background: "var(--border)", margin: "0 0 10px 0" }} />
