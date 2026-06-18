@@ -175,8 +175,14 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
       { protocol: "openai", base_url: "https://api.z.ai/api/paas/v4", client_type: "codex_tui" },
       { protocol: "anthropic", base_url: "https://api.z.ai/api/anthropic", client_type: "claude_code" },
     ],
-    kimi: [
-      { protocol: "openai", base_url: cp ? "https://api.kimi.com/coding/v1" : "https://api.moonshot.cn/v1", client_type: "claude_code", coding_plan: cp },
+    // coding plan：key 仅对 coding host(api.kimi.com/coding)有效，且该 host 无 anthropic 端点
+    // (api.kimi.com/coding/anthropic → 404)；常规 anthropic 端点(api.moonshot.cn/anthropic)需另一把
+    // 常规 key，用 coding key 打过去 401。故 cp 时只给唯一可用的 openai coding 端点(anthropic 入站
+    // 经 convert_request 转 openai)。非 cp 时常规 key 在两个 host 通用，保留双端点。
+    kimi: cp ? [
+      { protocol: "openai", base_url: "https://api.kimi.com/coding/v1", client_type: "claude_code", coding_plan: true },
+    ] : [
+      { protocol: "openai", base_url: "https://api.moonshot.cn/v1", client_type: "claude_code" },
       { protocol: "anthropic", base_url: "https://api.moonshot.cn/anthropic", client_type: "claude_code" },
     ],
     minimax: [
