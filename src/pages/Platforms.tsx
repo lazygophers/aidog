@@ -7,6 +7,7 @@ import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel, levelCo
 import { formatNumber, formatCost, formatPercent } from "../utils/formatters";
 
 import { ModelTestPanel } from "./ModelTestPanel";
+import { GroupsEmbedded } from "./Groups";
 import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
 import { pinyinMatch } from "../utils/pinyin";
 import { SmartPasteModal, type SmartPasteApplyResult } from "../components/platforms/SmartPasteModal";
@@ -1298,6 +1299,7 @@ interface PlatformCardProps {
   testing: boolean;
   faviconFailed: boolean;
   actions: PlatformCardActions;
+  platformMembership?: string[];  // 所属分组名称列表
 }
 
 const PlatformCard = memo(function PlatformCard({
@@ -1314,6 +1316,7 @@ const PlatformCard = memo(function PlatformCard({
   testing,
   faviconFailed: faviconHasFailed,
   actions,
+  platformMembership,
 }: PlatformCardProps) {
   const { t } = useTranslation();
   const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
@@ -1421,6 +1424,16 @@ const PlatformCard = memo(function PlatformCard({
                                 <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                               </svg>
                               {t("platform.autoDisabled", "自动禁用")}
+                            </div>
+                          )}
+                          {/* 所属分组 badge */}
+                          {platformMembership && platformMembership.length > 0 && (
+                            <div style={{ marginTop: 3, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                              {platformMembership.map(gName => (
+                                <span key={gName} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px" }}>
+                                  {gName}
+                                </span>
+                              ))}
                             </div>
                           )}
                         </div>
@@ -1758,10 +1771,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // 全局调度+熔断默认（用于展示「继承默认 N」），只读消费。
   const [breakerDefaults, setBreakerDefaults] = useState<SchedulingBreakerSettings | null>(null);
   // 分组归属选项：auto_group（是否建默认分组，默认勾）+ join_group_ids（加入的已有分组）。
-  // groupDetails 供 multi-select 渲染 + 编辑态反查平台当前手动组成员。
+  // groupDetails 供 multi-select 渲染 + 编辑态反查平台当前手动组成员 + 平台归属映射构建。
   const [autoGroup, setAutoGroup] = useState(true);
   const [joinGroupIds, setJoinGroupIds] = useState<number[]>([]);
   const [groupDetails, setGroupDetails] = useState<GroupDetail[]>([]);
+  // 平台归属映射：platformId → groupNames[]（用于平台卡片显示所属分组 badge）
+  const [platformMembership, setPlatformMembership] = useState<Map<number, string[]>>(new Map());
 
   const isMock = protocol === "mock";
   // Claude Code 订阅纯透传：客户端自带订阅 OAuth 认证，aidog 原样转发。
@@ -1834,6 +1849,21 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setShowForm(true);
   };
 
+  /** 构建平台归属映射（platformId → groupNames[]），复用已加载的 groupDetails */
+  const refreshPlatformMembership = () => {
+    const membership = new Map<number, string[]>();
+    for (const g of groupDetails) {
+      for (const gp of g.platforms) {
+        const pid = gp.platform.id;
+        if (!membership.has(pid)) {
+          membership.set(pid, []);
+        }
+        membership.get(pid)!.push(g.group.name);
+      }
+    }
+    setPlatformMembership(membership);
+  };
+
   const load = async () => {
     setLoading(true);
     let list: Platform[] = [];
@@ -1885,10 +1915,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
   useEffect(() => { load(); }, []);
 
-  // 分组列表（multi-select 数据源 + 编辑态反查手动组归属）。本地查询，失败不阻断编辑。
+  // 分组列表（multi-select 数据源 + 编辑态反查手动组归属 + 平台归属映射）。本地查询，失败不阻断编辑。
   useEffect(() => {
     groupDetailApi.list().then(setGroupDetails).catch(() => {});
   }, []);
+
+  // groupDetails 变化时刷新平台归属映射
+  useEffect(() => { refreshPlatformMembership(); }, [groupDetails]);
 
   // 全局调度+熔断默认（展示「继承默认 N」用），读失败不阻断编辑。
   useEffect(() => {
@@ -2977,6 +3010,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
         </button>
       </div>
 
+      {/* 分组段（内嵌） */}
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={refreshPlatformMembership} />
+
+      {/* 分隔线 */}
+      <div style={{ height: 1, background: "var(--border)", margin: "0 0 10px 0" }} />
+
       {/* Platform List */}
       {loading ? (
         <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
@@ -3022,6 +3061,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   testing={testingId === p.id}
                   faviconFailed={faviconFailed.has(p.id)}
                   actions={cardActions}
+                  platformMembership={platformMembership.get(p.id)}
                 />
               </React.Fragment>
             );
