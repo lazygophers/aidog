@@ -1,6 +1,8 @@
 import { useState, useEffect, useReducer, useMemo, useRef, Fragment } from "react";
-import type { DragEvent as ReactDragEvent } from "react";
+import type { DragEvent as ReactDragEvent, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
+import claudeIcon from "../assets/platforms/claude_code.svg";
+import codexIcon from "../assets/platforms/openai.svg";
 import type { TFunction } from "i18next";
 import {
   groupDetailApi, groupApi, groupUsageApi, platformApi, proxyApi, onProxyLogUpdated,
@@ -195,7 +197,7 @@ const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
 const S = { gap: 18, pad: 28, inputPad: "10px 14px", btnPad: "8px 18px", btnIcon: 34 } as const;
 
 /** Copy text to clipboard with a brief visual feedback */
-function CopyButton({ text, title, label, size = 14 }: { text: string; title?: string; label?: string; size?: number }) {
+function CopyButton({ text, title, label, icon, size = 14 }: { text: string; title?: string; label?: string; icon?: ReactNode; size?: number }) {
   const [copied, setCopied] = useState(false);
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -204,12 +206,13 @@ function CopyButton({ text, title, label, size = 14 }: { text: string; title?: s
       setTimeout(() => setCopied(false), 1500);
     });
   };
+  const hasContent = !!(label || icon);
   return (
     <button
-      className={label ? "btn btn-ghost" : "btn btn-ghost btn-icon"}
+      className={hasContent ? "btn btn-ghost" : "btn btn-ghost btn-icon"}
       onClick={handleCopy}
       title={title || text}
-      style={{ position: "relative", flexShrink: 0, gap: label ? 5 : 0, fontSize: label ? 12 : undefined, padding: label ? "4px 10px" : undefined }}
+      style={{ position: "relative", flexShrink: 0, gap: hasContent ? 5 : 0, fontSize: hasContent ? 12 : undefined, padding: hasContent ? "4px 10px" : undefined }}
     >
       {copied ? (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -221,7 +224,7 @@ function CopyButton({ text, title, label, size = 14 }: { text: string; title?: s
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
       )}
-      {label && <span style={{ fontWeight: 500 }}>{label}</span>}
+      {icon ? icon : (label && <span style={{ fontWeight: 500 }}>{label}</span>)}
     </button>
   );
 }
@@ -582,8 +585,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform }
             <div className="text-secondary" style={{ fontSize: F.hint, marginTop: 2 }}>#{editTarget.group.id}</div>
           </div>
           <CopyButton text={editTarget.group.group_key} label={t("group.apiKey", "API Key")} title={t("group.copyApiKeyTitle", "复制 API Key")} />
-          <CopyButton text={buildClaudeCommand(editTarget.group.group_key)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} />
-          <CopyButton text={buildCodexCommand(editTarget.group.group_key)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} />
+          <CopyButton text={buildClaudeCommand(editTarget.group.group_key)} icon={<img src={claudeIcon} width={14} height={14} alt="Claude" />} title={t("group.copyCommand", "复制 Claude Code 启动命令")} />
+          <CopyButton text={buildCodexCommand(editTarget.group.group_key)} icon={<img src={codexIcon} width={14} height={14} alt="Codex" />} title={t("group.copyCodexCommand", "复制 Codex 命令")} />
           <button className="btn" onClick={cancelEdit}>{t("action.cancel")}</button>
           <button className="btn btn-primary" onClick={saveEdit}
             disabled={!editName}>{t("action.save")}</button>
@@ -972,8 +975,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform }
                 </div>
                 {/* Quick actions */}
                 <CopyButton text={group.group_key} title={t("group.copyApiKeyTitle", "复制 API Key")} size={14} />
-                <CopyButton text={buildClaudeCommand(group.group_key)} label="Claude" title={t("group.copyCommand", "复制 Claude Code 启动命令")} size={14} />
-                <CopyButton text={buildCodexCommand(group.group_key)} label="Codex" title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
+                <CopyButton text={buildClaudeCommand(group.group_key)} icon={<img src={claudeIcon} width={14} height={14} alt="Claude" />} title={t("group.copyCommand", "复制 Claude Code 启动命令")} size={14} />
+                <CopyButton text={buildCodexCommand(group.group_key)} icon={<img src={codexIcon} width={14} height={14} alt="Codex" />} title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
                 <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key }); }} title={t("group.viewStats", "查看统计")}>
                   <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
