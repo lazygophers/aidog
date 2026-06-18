@@ -2088,6 +2088,11 @@ async fn handle_passthrough(
     let record_client_body = log_settings.enabled && log_settings.log_user_request;
 
     // 透传分支无协议转换 → user_response_body 复用 upstream 原文（不单独聚合 client_body）。
+    // 透传 user_response_body == upstream 原文：当 log_user_request 开启时（record_client_body=true）
+    // 闭包把上游 chunk 同步 push 进 client_body，flush 即从 client_body 写 user_response_body。
+    // 故 guard.record_client_body 必须 == record_client_body（曾误设 false，导致 flush 跳过
+    // user_response_body 回写，透传日志的 user_response_body 永不落内容）。
+    let passthrough_user_body = record_client_body;
     let guard = StreamLogGuard {
         agg: agg.clone(),
         est_fired: est_fired.clone(),
@@ -2096,15 +2101,11 @@ async fn handle_passthrough(
         settings: log_settings.clone(),
         start,
         record_upstream_body,
-        // 透传 user_response_body 由 flush 中从 upstream_body 复制（见下方 finalize），此处 client_body 不聚合
-        record_client_body: false,
+        record_client_body: passthrough_user_body,
         req_span: req_span.clone(),
         // 透传分支历史上不做请求驱动预估，保持现状
         est: None,
     };
-    // flush 后由 guard 写 response_body；透传需 user_response_body 同步 = response_body。
-    // 复用 record_client_body 语义：透传时把 upstream 聚合内容也写入 user_response_body。
-    let passthrough_user_body = record_client_body;
 
     // guard 被 move 进闭包；stream 被 Drop（含客户端断连）时 guard.drop 触发兜底 flush。
     let stream = resp.bytes_stream().map(move |chunk_result| {
@@ -2848,12 +2849,34 @@ struct StreamEstCtx {
 }
 
 impl StreamLogGuard {
-    /// 若 chunk 文本含 SSE 终止标记（`data: [DONE]`）则触发 flush。
-    /// 正常结束走此路径回写（token 已累加完整）；未命中则由 Drop 兜底。
+    /// 若 chunk 文本含 SSE 终止标记则触发 flush（确定性回写，不依赖 Drop 兜底）。
+    /// 覆盖两类协议终止符：
+    ///   - OpenAI / 兼容：`data: [DONE]`
+    ///   - Anthropic：`event: message_stop`（含 `data: {"type":"message_stop"}`）—— 原生
+    ///     Anthropic 流**不发 `[DONE]`**，仅以 message_stop 收尾。漏检此标记会使 anthropic→anthropic
+    ///     透传流仅靠 Drop 兜底回写；Drop 内 `tokio::spawn` 在连接 abort 时序下偶发丢写，
+    ///     导致 response_body 永久停在 `[stream]` 占位（见修复）。
+    /// 正常结束走此路径回写（token 已累加完整）；仍未命中（如上游中途断裂无终止符）由 Drop 兜底。
     fn flush_if_done(&self, text: &str) {
         for line in text.lines() {
+            let line = line.trim();
             if let Some(data) = line.strip_prefix("data: ") {
-                if data.trim() == "[DONE]" {
+                let data = data.trim();
+                if data == "[DONE]" {
+                    self.flush();
+                    return;
+                }
+                // Anthropic message_stop 也可能以 data 行携带 type 字段出现
+                if data.contains("\"type\":\"message_stop\"")
+                    || data.contains("\"type\": \"message_stop\"")
+                {
+                    self.flush();
+                    return;
+                }
+            }
+            // SSE event 行形式：`event: message_stop`
+            if let Some(ev) = line.strip_prefix("event: ") {
+                if ev.trim() == "message_stop" {
                     self.flush();
                     return;
                 }
@@ -2898,12 +2921,24 @@ impl StreamLogGuard {
         let upsert_state = self.state.clone();
         let upsert_settings = self.settings.clone();
         let span = self.req_span.clone();
-        tokio::spawn(async move {
+        let task = async move {
             let id = final_log.id.clone();
             upsert_log(&upsert_state, &final_log, &upsert_settings).await;
             // 流式终态：移除 in-flight 列快照，防 map 无限增长。
             remove_log_snapshot(&upsert_state, &id);
-        }.instrument(span));
+        }
+        .instrument(span);
+        // 经显式 runtime handle 落库：Drop（含客户端 abort / 连接 teardown）路径下
+        // 裸 `tokio::spawn` 可能不在 runtime 上下文 → panic 被 Drop 吞掉、最终态丢写
+        // （response_body 停在 `[stream]` 占位）。捕获 handle 后 spawn 始终落到 runtime，
+        // 保证 flush 在所有收尾路径（[DONE] / message_stop / Drop 兜底）确定性回写。
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(task);
+        } else {
+            tracing::warn!(
+                "stream flush: no tokio runtime in scope, final log write skipped (response_body may stay placeholder)"
+            );
+        }
 
         if let Some(est) = &self.est {
             spawn_estimate(
@@ -4328,5 +4363,267 @@ mod tests {
         assert_eq!(output, 567);
         assert_eq!(cache, 89);
         assert!(input > 0 && output > 0, "解压后 token 必须 > 0");
+    }
+
+    // ── StreamLogGuard flush / 终态回写 response_body 回归 ──
+    //   根因：anthropic→anthropic 透传流不发 `[DONE]`（仅 message_stop 收尾），
+    //   旧 flush_if_done 只认 [DONE] → 这类流仅靠 Drop 兜底，Drop 内 tokio::spawn
+    //   在连接 abort 时序下偶发丢写，response_body 永久停在 `[stream]` 占位。
+
+    use std::sync::atomic::AtomicBool;
+
+    /// 构造一个最小可用、初始化好表的临时文件 DB（避免 :memory: 全局缓存跨 test 串味）。
+    async fn flush_test_db() -> (Arc<super::super::db::Db>, std::path::PathBuf) {
+        use std::sync::atomic::AtomicU64;
+        static SEQ: AtomicU64 = AtomicU64::new(0);
+        let mut path = std::env::temp_dir();
+        let uniq = format!(
+            "aidog_flush_test_{}_{}_{}.db",
+            std::process::id(),
+            super::super::db::now(),
+            SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+        );
+        path.push(uniq);
+        let db = super::super::db::Db::new(path.to_str().unwrap())
+            .await
+            .expect("open temp db");
+        db.init_tables().await.expect("init tables");
+        (Arc::new(db), path)
+    }
+
+    fn flush_test_state(db: Arc<super::super::db::Db>) -> Arc<ProxyState> {
+        Arc::new(ProxyState {
+            db,
+            app: None,
+            middleware: Arc::new(MiddlewareEngine::new()),
+            scheduler: Arc::new(super::super::scheduling::SchedulerState::new()),
+            sticky: Arc::new(super::super::scheduling::StickyTable::new()),
+            log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
+        })
+    }
+
+    fn placeholder_stream_log(id: &str) -> ProxyLog {
+        let ts = super::super::db::now();
+        ProxyLog {
+            id: id.to_string(),
+            group_key: "gk_test".to_string(),
+            model: "claude".to_string(),
+            actual_model: "glm-5".to_string(),
+            source_protocol: "anthropic".to_string(),
+            target_protocol: "anthropic".to_string(),
+            platform_id: 0,
+            request_headers: String::new(),
+            request_body: String::new(),
+            upstream_request_headers: String::new(),
+            upstream_request_body: String::new(),
+            response_body: "[stream]".to_string(),
+            request_url: String::new(),
+            upstream_request_url: String::new(),
+            upstream_response_headers: String::new(),
+            upstream_status_code: 200,
+            user_response_headers: String::new(),
+            user_response_body: "[stream]".to_string(),
+            status_code: 200,
+            duration_ms: 0,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_tokens: 0,
+            est_cost: 0.0,
+            is_stream: true,
+            attempts: Vec::new(),
+            retry_count: 0,
+            blocked_by: String::new(),
+            blocked_reason: String::new(),
+            created_at: ts,
+            updated_at: ts,
+            deleted_at: 0,
+        }
+    }
+
+    /// 建一个 StreamLogGuard，settings = 默认（enabled=true, log_user_request=false）。
+    /// upstream_chunks 预先 push 进 agg.upstream_body（模拟流式逐 chunk 累积）。
+    fn make_guard(
+        state: &Arc<ProxyState>,
+        log: ProxyLog,
+        upstream_chunks: &[&str],
+        out_tokens: i32,
+    ) -> StreamLogGuard {
+        let agg = Arc::new(StreamAggregator::new());
+        {
+            let mut up = agg.upstream_body.lock().unwrap();
+            for c in upstream_chunks {
+                up.push(Bytes::from(c.to_string()));
+            }
+        }
+        if out_tokens > 0 {
+            agg.tokens_out
+                .store(out_tokens, std::sync::atomic::Ordering::Relaxed);
+        }
+        StreamLogGuard {
+            agg,
+            est_fired: Arc::new(AtomicBool::new(false)),
+            log,
+            state: state.clone(),
+            settings: ProxyLogSettings::default(),
+            start: std::time::Instant::now(),
+            record_upstream_body: true, // = log_settings.enabled
+            record_client_body: false,  // log_user_request=false
+            req_span: tracing::Span::current(),
+            est: None,
+        }
+    }
+
+    async fn read_response_body(db: &super::super::db::Db, id: &str) -> String {
+        super::super::db::get_proxy_log(db, id)
+            .await
+            .expect("get log")
+            .expect("row exists")
+            .response_body
+    }
+
+    /// 等待 flush 内 tokio::spawn 的落库任务完成（短轮询，最多 ~2s）。
+    async fn await_flush_write(db: &super::super::db::Db, id: &str) -> String {
+        for _ in 0..200 {
+            let body = read_response_body(db, id).await;
+            if body != "[stream]" {
+                return body;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        read_response_body(db, id).await
+    }
+
+    // 1) 正常 [DONE] 收尾（OpenAI 风格）：flush 把聚合上游内容写回 response_body。
+    #[tokio::test]
+    async fn flush_done_writes_aggregated_body() {
+        let (db, path) = flush_test_db().await;
+        let state = flush_test_state(db.clone());
+        let id = "flush_done_0001";
+        let log = placeholder_stream_log(id);
+        super::super::db::insert_proxy_log_columns(
+            &state.db,
+            super::super::db::ProxyLogColumns::from_log(&log, false, false),
+        )
+        .await
+        .unwrap();
+        state
+            .log_snapshots
+            .lock()
+            .unwrap()
+            .insert(id.to_string(), super::super::db::ProxyLogColumns::from_log(&log, false, false));
+
+        let chunks = [
+            "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n",
+            "data: [DONE]\n\n",
+        ];
+        let guard = make_guard(&state, log, &chunks, 7);
+        // 模拟闭包逐 chunk：末 chunk 命中 [DONE] → flush_if_done 触发 flush。
+        guard.flush_if_done(chunks[1]);
+        let body = await_flush_write(&state.db, id).await;
+        assert_ne!(body, "[stream]", "[DONE] 收尾后 response_body 不应停在占位");
+        assert!(body.contains("hi"), "应写回聚合上游内容: {body}");
+
+        drop(guard);
+        let _ = std::fs::remove_file(path);
+    }
+
+    // 2) Anthropic message_stop 收尾（不发 [DONE]）：旧 bug 核心场景。
+    #[tokio::test]
+    async fn flush_message_stop_writes_aggregated_body() {
+        let (db, path) = flush_test_db().await;
+        let state = flush_test_state(db.clone());
+        let id = "flush_mstop_0001";
+        let log = placeholder_stream_log(id);
+        super::super::db::insert_proxy_log_columns(
+            &state.db,
+            super::super::db::ProxyLogColumns::from_log(&log, false, false),
+        )
+        .await
+        .unwrap();
+        state
+            .log_snapshots
+            .lock()
+            .unwrap()
+            .insert(id.to_string(), super::super::db::ProxyLogColumns::from_log(&log, false, false));
+
+        // 典型 anthropic 透传尾块：message_delta + message_stop，无 [DONE]
+        let tail = "event: message_delta\ndata: {\"type\":\"message_delta\"}\n\nevent: message_stop\ndata: {\"type\":\"message_stop\"}\n\n";
+        let chunks = ["event: message_start\ndata: {\"type\":\"message_start\"}\n\n", tail];
+        let guard = make_guard(&state, log, &chunks, 11);
+        // 旧实现 flush_if_done 只认 [DONE] → 此处不触发，response_body 卡占位（bug）。
+        // 修复后认 message_stop → 触发 flush 确定性回写。
+        guard.flush_if_done(tail);
+        let body = await_flush_write(&state.db, id).await;
+        assert_ne!(body, "[stream]", "message_stop 收尾后 response_body 不应停在占位（核心 bug）");
+        assert!(body.contains("message_stop"), "应写回聚合上游内容: {body}");
+
+        drop(guard);
+        let _ = std::fs::remove_file(path);
+    }
+
+    // 3) 客户端断连 / 上游无终止符：Drop 兜底仍写 response_body（已聚合内容）。
+    #[tokio::test]
+    async fn flush_drop_writes_partial_body() {
+        let (db, path) = flush_test_db().await;
+        let state = flush_test_state(db.clone());
+        let id = "flush_drop_0001";
+        let log = placeholder_stream_log(id);
+        super::super::db::insert_proxy_log_columns(
+            &state.db,
+            super::super::db::ProxyLogColumns::from_log(&log, false, false),
+        )
+        .await
+        .unwrap();
+        state
+            .log_snapshots
+            .lock()
+            .unwrap()
+            .insert(id.to_string(), super::super::db::ProxyLogColumns::from_log(&log, false, false));
+
+        // 仅有部分内容，无 [DONE]/message_stop（模拟中途断裂 / 客户端断连）。
+        let chunks = ["event: message_start\ndata: {\"type\":\"message_start\"}\n\n", "data: {\"delta\":{\"text\":\"partial\"}}\n\n"];
+        let guard = make_guard(&state, log, &chunks, 3);
+        // 不调用 flush_if_done（无终止符）；直接 Drop 触发兜底 flush。
+        drop(guard);
+        let body = await_flush_write(&state.db, id).await;
+        assert_ne!(body, "[stream]", "Drop 兜底后 response_body 不应停在占位");
+        assert!(body.contains("partial"), "Drop 应写回已聚合的部分内容: {body}");
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    // 4) 空流（上游回 200 头后秒断 / 仅心跳，零内容）：finalize 成空串，绝不留 [stream]。
+    #[tokio::test]
+    async fn flush_empty_stream_finalizes_to_empty_not_placeholder() {
+        let (db, path) = flush_test_db().await;
+        let state = flush_test_state(db.clone());
+        let id = "flush_empty_0001";
+        let log = placeholder_stream_log(id);
+        super::super::db::insert_proxy_log_columns(
+            &state.db,
+            super::super::db::ProxyLogColumns::from_log(&log, false, false),
+        )
+        .await
+        .unwrap();
+        state
+            .log_snapshots
+            .lock()
+            .unwrap()
+            .insert(id.to_string(), super::super::db::ProxyLogColumns::from_log(&log, false, false));
+
+        let guard = make_guard(&state, log, &[], 0); // 零 upstream chunk
+        drop(guard); // Drop 兜底 flush
+        // 空流：join_stream_body([]) == "" → response_body 应被改写成空串而非占位。
+        for _ in 0..200 {
+            let body = read_response_body(&state.db, id).await;
+            if body != "[stream]" {
+                assert_eq!(body, "", "空流 finalize 应为空串");
+                let _ = std::fs::remove_file(&path);
+                return;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        let _ = std::fs::remove_file(path);
+        panic!("空流 response_body 仍停在 [stream] 占位（finalize 未执行）");
     }
 }
