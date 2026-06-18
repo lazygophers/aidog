@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail } from "../services/api";
 import { IconClose, IconCheck } from "../components/icons";
@@ -2773,8 +2774,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
         </div>
       )}
 
-      {/* Test result toast */}
-      {toast && (
+      {/* Test result toast — Portal 到 body, 脱离页面 transform 祖先(animate-fade-in 等)确保 fixed 相对窗口顶部 */}
+      {toast && createPortal(
         <div style={{
           position: "fixed", top: 24, left: "50%", transform: "translateX(-50%)",
           zIndex: 2000, pointerEvents: "none",
@@ -2786,7 +2787,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           transition: "opacity 0.3s",
         }}>
           <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>{toast.ok ? <IconCheck size={14} color="#fff" /> : <IconClose size={14} color="#fff" />} {toast.text}</span>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
