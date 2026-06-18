@@ -2706,6 +2706,16 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     <span className="badge badge-muted" style={{ fontSize: 10 }}>{PROTOCOL_LABELS[draggedPlat.platform_type] || draggedPlat.platform_type}</span>
                   </div>
                 )}
+                {/* 未分组平台支持 HTML5 拖拽加入分组（卡片区域触发）；pointer reorder 仍由 handle span 独占（span 不 draggable，浏览器不沿祖先启动 drag） */}
+                <div
+                  draggable
+                  onDragStart={(e) => {
+                    (window as unknown as { __aidogDnd?: { pid: number; fromGid: number } }).__aidogDnd = { pid: p.id, fromGid: 0 };
+                    e.dataTransfer.effectAllowed = "move";
+                    e.dataTransfer.setData("text/plain", String(p.id));
+                  }}
+                  onDragEnd={() => { delete (window as unknown as { __aidogDnd?: unknown }).__aidogDnd; }}
+                >
                 <PlatformCard
                   platform={p}
                   index={i}
@@ -2721,6 +2731,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   actions={cardActions}
                   platformMembership={platformMembership.get(p.id)}
                 />
+                </div>
               </React.Fragment>
             );
           })}
