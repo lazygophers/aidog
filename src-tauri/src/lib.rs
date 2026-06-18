@@ -83,12 +83,12 @@ async fn ensure_platform_groups(db: &Db) {
         let group = match db::create_group(db, CreateGroup {
             name: group_key.clone(),
             group_key: Some(group_key.clone()),
-            routing_mode: RoutingMode::Failover,
+            routing_mode: RoutingMode::HealthAware,
             auto_from_platform: platform_id_str.clone(),
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
             source_protocol: None,
-            max_retries: 2,
+            max_retries: 10,
             model_mappings: Vec::new(),
         }).await {
             Ok(g) => g,
@@ -141,19 +141,19 @@ fn about_info() -> AboutInfo {
 // ─── Platform Commands ─────────────────────────────────────
 
 /// 为平台创建默认 auto 分组并关联（name `{slug}-auto`，
-/// Failover / max_retries 2）。供 platform_create（勾选默认分组）与
+/// HealthAware / max_retries 10）。供 platform_create（勾选默认分组）与
 /// platform_update（补建缺失的 auto 分组）复用，避免两处重复构造。
 async fn create_auto_group_for(db: &Db, platform: &Platform) -> Result<(), String> {
     let group_key = slugify(&format!("{}-auto", platform.name));
     let group = db::create_group(db, CreateGroup {
         name: group_key.clone(),
         group_key: Some(group_key),
-        routing_mode: RoutingMode::Failover,
+        routing_mode: RoutingMode::HealthAware,
         auto_from_platform: platform.id.to_string(),
         request_timeout_secs: 0,
         connect_timeout_secs: 0,
         source_protocol: None,
-        max_retries: 2,
+        max_retries: 10,
         model_mappings: Vec::new(),
     }).await?;
     db::set_group_platforms(db, group.id, &[GroupPlatformInput {
