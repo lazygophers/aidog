@@ -1849,21 +1849,23 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setShowForm(true);
   };
 
-  /** 分组变更时刷新平台归属映射：refetch groupDetails 后重建 membership */
+  /** 纯函数：从 groupDetails 构建 platformId → groupNames[] */
+  function buildMembership(gds: GroupDetail[]): Map<number, string[]> {
+    const m = new Map<number, string[]>();
+    for (const g of gds) {
+      for (const gp of g.platforms) {
+        const arr = m.get(gp.platform.id) ?? [];
+        arr.push(g.group.name);
+        m.set(gp.platform.id, arr);
+      }
+    }
+    return m;
+  }
+
+  /** 分组变更：refetch groupDetails，effect 自动重建 membership */
   const handleGroupsChanged = async () => {
     try {
-      const gd = await groupDetailApi.list();
-      setGroupDetails(gd);
-      // 就地重建 membership（避免依赖异步 setGroupDetails）
-      const m = new Map<number, string[]>();
-      for (const g of gd) {
-        for (const gp of g.platforms) {
-          const arr = m.get(gp.platform.id) ?? [];
-          arr.push(g.group.name);
-          m.set(gp.platform.id, arr);
-        }
-      }
-      setPlatformMembership(m);
+      setGroupDetails(await groupDetailApi.list());
     } catch { /* ignore */ }
   };
 
@@ -1922,6 +1924,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   useEffect(() => {
     groupDetailApi.list().then(setGroupDetails).catch(() => {});
   }, []);
+
+  // groupDetails 变化时重建 membership（初始加载 + 所有 setGroupDetails 路径都覆盖）
+  useEffect(() => { setPlatformMembership(buildMembership(groupDetails)); }, [groupDetails]);
 
   // 全局调度+熔断默认（展示「继承默认 N」用），读失败不阻断编辑。
   useEffect(() => {
