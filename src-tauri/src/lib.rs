@@ -705,6 +705,49 @@ async fn platform_fetch_models(
     let db_arc = Arc::new(db.inner().clone());
     let client = gateway::http_client::build_http_client_system(&db_arc, 30, 10).await;
 
+    let start = std::time::Instant::now();
+    let request_id = uuid::Uuid::new_v4().simple().to_string();
+    let created_at = gateway::db::now();
+    let target_protocol = format!("{:?}", protocol).to_lowercase();
+
+    // fetch-models 日志构造器（复用 model_test 标记模式：source_protocol 约定串 + platform_id=0）
+    let make_log = |upstream_status: i32, user_status: i32, body: &str, log_url: &str| -> gateway::models::ProxyLog {
+        gateway::models::ProxyLog {
+            id: request_id.clone(),
+            group_key: "[fetch-models]".into(),
+            model: String::new(),
+            actual_model: String::new(),
+            source_protocol: "fetch-models".into(),
+            target_protocol: target_protocol.clone(),
+            platform_id: 0,
+            request_headers: r#"{"source":"fetch-models"}"#.into(),
+            request_body: String::new(),
+            upstream_request_headers: String::new(),
+            upstream_request_body: String::new(),
+            response_body: body.into(),
+            request_url: "/fetch-models".into(),
+            upstream_request_url: log_url.to_string(),
+            upstream_response_headers: String::new(),
+            upstream_status_code: upstream_status,
+            user_response_headers: r#"{"content-type":"application/json"}"#.to_string(),
+            user_response_body: body.into(),
+            status_code: user_status,
+            duration_ms: start.elapsed().as_millis() as i32,
+            input_tokens: 0,
+            output_tokens: 0,
+            cache_tokens: 0,
+            est_cost: 0.0,
+            is_stream: false,
+            attempts: Vec::new(),
+            retry_count: 0,
+            blocked_by: String::new(),
+            blocked_reason: String::new(),
+            created_at,
+            updated_at: created_at,
+            deleted_at: 0,
+        }
+    };
+
     // Mock / Claude Code 透传平台无真实上游模型列表，不拉取模型
     if matches!(protocol, Protocol::Mock | Protocol::ClaudeCode) {
         return Ok(Vec::new());
@@ -714,17 +757,25 @@ async fn platform_fetch_models(
     let url = gateway::proxy::build_models_url(&protocol, &base_url);
     let rb = gateway::proxy::apply_models_auth(client.get(&url), &protocol, &api_key);
     tracing::info!(method = "GET", url = %url, "fetch models request");
-    let resp = rb
-        .send()
-        .await
-        .map_err(|e| {
+    let resp = match rb.send().await {
+        Ok(r) => r,
+        Err(e) => {
             tracing::error!("fetch models request failed: {e}");
-            format!("fetch models: {e}")
-        })?;
+            if let Err(le) = db::upsert_proxy_log(&db, make_log(0, 502, &format!("upstream error: {e}"), &url)).await {
+                tracing::warn!(command = "platform_fetch_models", error = %le, "persist fetch-models log failed");
+            }
+            return Err(format!("fetch models: {e}"));
+        }
+    };
     let status = resp.status();
     let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
     tracing::info!(url = %url, %status, "fetch models response status");
     tracing::debug!(url = %url, body = %body, "fetch models response body");
+    // 记录 fetch-models 请求到 proxy_log（成功响应，保留原文便于排查）
+    let upstream_status = status.as_u16() as i32;
+    if let Err(le) = db::upsert_proxy_log(&db, make_log(upstream_status, upstream_status, &body, &url)).await {
+        tracing::warn!(command = "platform_fetch_models", error = %le, "persist fetch-models log failed");
+    }
     let resp: Value = serde_json::from_str::<Value>(&body)
         .map_err(|e| {
             tracing::error!("parse response failed: {e}, body={}", &body[..body.len().min(500)]);
