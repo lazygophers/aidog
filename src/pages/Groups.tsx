@@ -453,8 +453,12 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
             return { ...d, platforms: gps };
           }));
         }
+        const gname = details.find(d => d.group.id === gid)?.group.name ?? `#${gid}`;
         groupDetailApi.movePlatform(payload.pid, 0, gid)
-          .then(() => { load(); onGroupsChanged?.(); })
+          .then(() => {
+            onToast?.({ text: `已加入分组 ${gname}`, ok: true });
+            load(); onGroupsChanged?.();
+          })
           .catch((err) => {
             console.error("[aidog-dnd] movePlatform failed", err);
             onToast?.({ text: `加入分组失败: ${err}`, ok: false });
@@ -499,6 +503,13 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
 
   // 请求完成后轻量刷新统计（仅本地 DB 查询，不拉 quota HTTP）
   useEffect(() => onProxyLogUpdated(() => { refreshStats(); }), []);
+
+  // 监听跨组件分组变更（Platforms pointer 拖入分组后通知刷新；HTML5 DnD 跨区域在 WKWebView 失效，改 pointer + window 事件）
+  useEffect(() => {
+    const h = () => { load(); refreshStats(); };
+    window.addEventListener("aidog-groups-changed", h);
+    return () => window.removeEventListener("aidog-groups-changed", h);
+  }, []);
 
   // ── Edit handlers ──
 
@@ -1060,6 +1071,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
             return (
               <div
                 className="animate-fade-in"
+                data-group-id={group.id}
                 style={{ animationDelay: `${i * 60}ms` }}
                 onDragOver={(e) => onZoneDragOver(e, group.id, e.currentTarget as HTMLElement)}
                 onDrop={(e) => onZoneDrop(e, group.id, e.currentTarget as HTMLElement)}
