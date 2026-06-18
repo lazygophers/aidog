@@ -2154,7 +2154,7 @@ async fn platform_query_quota(
     platform_id: Option<u64>, db: State<'_, Db>,
 ) -> Result<PlatformQuota, String> {
     tracing::debug!(command = "platform_query_quota", platform_id = ?platform_id, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
-    let q = gateway::quota::query_quota(Some(&Arc::new(db.inner().clone())), &base_url, &api_key).await;
+    let q = gateway::quota::query_quota(Some(&Arc::new(db.inner().clone())), &base_url, &api_key, platform_id.unwrap_or(0) as i64).await;
     tracing::info!(platform_id = ?platform_id, success = q.success, tiers = ?q.coding_plan.as_ref().map(|c| c.tiers.len()), "quota query result");
     if q.success {
         persist_quota_to_db(&db, platform_id, &q).await;
@@ -2170,7 +2170,7 @@ async fn platform_query_quota_newapi(
     platform_id: Option<u64>, db: State<'_, Db>,
 ) -> Result<PlatformQuota, String> {
     tracing::debug!(command = "platform_query_quota_newapi", platform_id = ?platform_id, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
-    let q = gateway::quota::query_quota_newapi(Some(&Arc::new(db.inner().clone())), &base_url, &api_key, &extra).await;
+    let q = gateway::quota::query_quota_newapi(Some(&Arc::new(db.inner().clone())), &base_url, &api_key, &extra, platform_id.unwrap_or(0) as i64).await;
     tracing::info!(command = "platform_query_quota_newapi", platform_id = ?platform_id, success = q.success, "quota query result");
     if q.success {
         persist_quota_to_db(&db, platform_id, &q).await;
@@ -2215,9 +2215,9 @@ async fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
             let is_newapi = matches!(p.platform_type, gateway::models::Protocol::NewApi);
             // 锁外 async 真查
             let q = if is_newapi {
-                gateway::quota::query_quota_newapi(Some(&db_arc), &p.base_url, &p.api_key, &p.extra).await
+                gateway::quota::query_quota_newapi(Some(&db_arc), &p.base_url, &p.api_key, &p.extra, p.id as i64).await
             } else {
-                gateway::quota::query_quota(Some(&db_arc), &p.base_url, &p.api_key).await
+                gateway::quota::query_quota(Some(&db_arc), &p.base_url, &p.api_key, p.id as i64).await
             };
             if !q.success {
                 return; // 失败保留，下次再试（不重置 last_real_query_at）

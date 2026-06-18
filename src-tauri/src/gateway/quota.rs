@@ -12,6 +12,13 @@ use std::time::Duration;
 
 use super::db::Db;
 
+// 当前 quota 查询归属的平台 ID。
+// query_quota / query_quota_newapi 进入时 scope 设定；quota_get_json 单点落库时读取，
+// 避免沿 10 个 provider 函数链逐层透传 platform_id 签名。未设（如裸调测试）→ 0。
+tokio::task_local! {
+    pub(crate) static QUOTA_PLATFORM_ID: i64;
+}
+
 // ── 公共类型 ──────────────────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -172,7 +179,7 @@ fn make_quota_log(
         actual_model: String::new(),
         source_protocol: "quota".into(),
         target_protocol: String::new(),
-        platform_id: 0,
+        platform_id: QUOTA_PLATFORM_ID.try_get().unwrap_or(0) as u64,
         request_headers: r#"{"source":"quota"}"#.into(),
         request_body: String::new(),
         upstream_request_headers: String::new(),
@@ -447,8 +454,13 @@ async fn query_zhipu_coding_plan(db: Option<&Arc<Db>>, base_url: &str, api_key: 
 }
 // ── 公开入口 ──────────────────────────────────────────────
 
-/// 根据 base_url 自动检测平台并查询余额或 Coding Plan 配额
-pub async fn query_quota(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) -> PlatformQuota {
+/// 根据 base_url 自动检测平台并查询余额或 Coding Plan 配额。
+/// platform_id 透传给落库日志（task_local scope），让 Logs 页能显示归属平台。
+pub async fn query_quota(db: Option<&Arc<Db>>, base_url: &str, api_key: &str, platform_id: i64) -> PlatformQuota {
+    QUOTA_PLATFORM_ID.scope(platform_id, query_quota_inner(db, base_url, api_key)).await
+}
+
+async fn query_quota_inner(db: Option<&Arc<Db>>, base_url: &str, api_key: &str) -> PlatformQuota {
     if api_key.trim().is_empty() {
         return err_quota("API key is empty");
     }
@@ -586,7 +598,11 @@ async fn query_newapi_user_balance(db: Option<&Arc<Db>>, balance_base_url: &str,
 /// base_url: 平台 OpenAI base_url (如 https://instance.com/v1)
 /// api_key:  平台主 API key (用于 token usage 查询)
 /// extra:    platform.extra JSON (含 balance_base_url + balance_api_key)
-pub async fn query_quota_newapi(db: Option<&Arc<Db>>, base_url: &str, api_key: &str, extra: &str) -> PlatformQuota {
+pub async fn query_quota_newapi(db: Option<&Arc<Db>>, base_url: &str, api_key: &str, extra: &str, platform_id: i64) -> PlatformQuota {
+    QUOTA_PLATFORM_ID.scope(platform_id, query_quota_newapi_inner(db, base_url, api_key, extra)).await
+}
+
+async fn query_quota_newapi_inner(db: Option<&Arc<Db>>, base_url: &str, api_key: &str, extra: &str) -> PlatformQuota {
     if api_key.trim().is_empty() {
         return err_quota("New API: api_key required for token usage query");
     }
