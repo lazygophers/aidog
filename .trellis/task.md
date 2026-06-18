@@ -13,3 +13,4 @@
 | platform-model-list | 平台内置模型列表供下拉选择 | — | 已完成 | 收尾 | 100% | .worktrees/06-17-platform-model-list |
 | openai-apikey-header | openai 协议 api-key 头鉴权适配 (小米 token-plan) | — | 已完成 | 收尾 | 100% | .worktrees/06-17-openai-apikey-header |
 | pricing-full-coverage | Pricing scraper 全平台覆盖 (7 first-party 平台补一手价) | — | 已完成 | 收尾 | 100% | — |
+| merge-groups-platforms | 分组内嵌进平台页(侧栏只留平台) | 侧栏移除groups项只留platforms;Groups.tsx重构为GroupsEmbedded内嵌组件;Platforms列表视图顶部植入分组段+平台列表项加所属分组badge(N:N);onGroupsChanged回调刷新归属;后端不动 | 已完成 | 收尾 | 100 | .worktrees/06-18-merge-groups-platforms |
