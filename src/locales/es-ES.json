@@ -705,6 +705,7 @@
   "platform.sectionSpecial": "Configuración especial",
   "platform.selectModel": "Seleccionar modelo",
   "platform.testFail": "Test fallido",
+  "platform.toggleFail": "Error al cambiar",
   "platform.testOk": "Test correcto",
   "platform.toggleDetail": "Mostrar/ocultar detalles",
   "platform.usageLabel": "Usado",

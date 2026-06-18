@@ -727,6 +727,7 @@
   "platform.sectionSpecial": "特殊設定",
   "platform.selectModel": "モデル選択",
   "platform.testFail": "テスト失敗",
+  "platform.toggleFail": "切り替え失敗",
   "platform.testOk": "テスト成功",
   "platform.toggleDetail": "詳細を切り替え",
   "platform.usageLabel": "使用済み",

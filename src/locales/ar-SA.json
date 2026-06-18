@@ -727,6 +727,7 @@
   "platform.sectionSpecial": "إعداد خاص",
   "platform.selectModel": "اختيار",
   "platform.testFail": "فشل الاختبار",
+  "platform.toggleFail": "فشل التبديل",
   "platform.testOk": "نجح الاختبار",
   "platform.toggleDetail": "تبديل التفاصيل",
   "platform.usageLabel": "المُستخدَم",

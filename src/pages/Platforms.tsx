@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type PlatformStatus, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail } from "../services/api";
 import { IconClose, IconCheck } from "../components/icons";
 import { cycleMsForTier, codingTierLevel, type ColorLevel } from "../components/shared";
 
@@ -1896,12 +1896,23 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   };
 
   const handleToggle = async (p: Platform) => {
+    // 三态切换：enabled → disabled；disabled / auto_disabled → enabled（恢复并清退避）。
+    const nextStatus: PlatformStatus = p.status === "enabled" ? "disabled" : "enabled";
+    // 乐观更新：立即本地置换该平台 status，UI 即时响应、不调 load() 全量重拉（避免整页 loading 闪烁）。
+    // status 切换不改分组归属（membership 由 groupDetails 决定），故无需广播 aidog-groups-changed。
+    setPlatforms(prev => prev.map(x =>
+      x.id === p.id ? { ...x, status: nextStatus, enabled: nextStatus === "enabled" } : x));
     try {
-      // 三态切换：enabled → disabled；disabled / auto_disabled → enabled（恢复并清退避）。
-      const nextStatus = p.status === "enabled" ? "disabled" : "enabled";
-      await platformApi.update({ id: p.id, status: nextStatus });
-      load();
-    } catch (e) { console.error(e); }
+      const updated = await platformApi.update({ id: p.id, status: nextStatus });
+      // 用后端返回值校正单个 item（含清退避后的派生字段），仍不动其他平台、不重拉列表。
+      setPlatforms(prev => prev.map(x => x.id === p.id ? updated : x));
+    } catch (e) {
+      console.error(e);
+      // 失败回滚该 item 到原状态 + 报错。
+      setPlatforms(prev => prev.map(x => x.id === p.id ? p : x));
+      setToast({ text: `${p.name}: ${t("platform.toggleFail", "切换失败")}`, ok: false });
+      setTimeout(() => setToast(null), 3000);
+    }
   };
 
   const handleQuickTest = async (p: Platform) => {
