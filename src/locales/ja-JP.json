@@ -1531,5 +1531,7 @@
   "updater.updateFailed": "更新に失敗しました",
   "updater.updateNow": "今すぐ更新",
   "updater.updating": "更新中…",
-  "group.dragPlatform": "ドラッグで並べ替え / 別のグループへ移動"
+  "group.dragPlatform": "ドラッグで並べ替え / 別のグループへ移動",
+  "group.addPlatformToGroup": "このグループにプラットフォームを追加",
+  "platform.groupLocked": "このグループにロック済み"
 }

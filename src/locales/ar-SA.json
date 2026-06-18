@@ -1531,5 +1531,7 @@
   "updater.updateFailed": "فشل التحديث",
   "updater.updateNow": "التحديث الآن",
   "updater.updating": "جارٍ التحديث…",
-  "group.dragPlatform": "اسحب للترتيب / انقل إلى مجموعة أخرى"
+  "group.dragPlatform": "اسحب للترتيب / انقل إلى مجموعة أخرى",
+  "group.addPlatformToGroup": "إضافة منصة إلى هذه المجموعة",
+  "platform.groupLocked": "مقفل على هذه المجموعة"
 }

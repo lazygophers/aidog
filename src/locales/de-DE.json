@@ -1531,5 +1531,7 @@
   "updater.updateFailed": "Aktualisierung fehlgeschlagen",
   "updater.updateNow": "Jetzt aktualisieren",
   "updater.updating": "Wird aktualisiert…",
-  "group.dragPlatform": "Ziehen zum Sortieren / in andere Gruppe verschieben"
+  "group.dragPlatform": "Ziehen zum Sortieren / in andere Gruppe verschieben",
+  "group.addPlatformToGroup": "Plattform zu dieser Gruppe hinzufügen",
+  "platform.groupLocked": "Auf diese Gruppe gesperrt"
 }

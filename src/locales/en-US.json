@@ -1509,5 +1509,7 @@
   "updater.updateFailed": "Update failed",
   "updater.updateNow": "Update now",
   "updater.updating": "Updating…",
-  "group.dragPlatform": "Drag to reorder / move to another group"
+  "group.dragPlatform": "Drag to reorder / move to another group",
+  "group.addPlatformToGroup": "Add platform to this group",
+  "platform.groupLocked": "Locked to this group"
 }

@@ -1395,6 +1395,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [autoGroup, setAutoGroup] = useState(true);
   const [joinGroupIds, setJoinGroupIds] = useState<number[]>([]);
   const [groupDetails, setGroupDetails] = useState<GroupDetail[]>([]);
+  // 锁定分组：从某分组 ➕ 触发创建平台时，预绑该分组且禁止修改归属。
+  const [lockedGroupId, setLockedGroupId] = useState<number | null>(null);
   // 平台归属映射：platformId → groupNames[]（用于平台卡片显示所属分组 badge）
   const [platformMembership, setPlatformMembership] = useState<Map<number, string[]>>(new Map());
 
@@ -1604,7 +1606,21 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setNewApiConfig({ ...DEFAULT_NEWAPI_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
-    setAutoGroup(true); setJoinGroupIds([]);
+    setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null);
+  };
+
+  /** 打开平台创建表单（顶部「添加平台」或分组卡片 ➕ 触发）。
+   *  lockGid 提供时预绑该分组并锁定、关闭 auto_group；否则用默认（建默认分组）。 */
+  const openCreatePlatform = (presetGroupIds?: number[], lockGid?: number) => {
+    resetForm();
+    if (lockGid != null) {
+      setAutoGroup(false);
+      setJoinGroupIds(presetGroupIds && presetGroupIds.length > 0 ? presetGroupIds : [lockGid]);
+      setLockedGroupId(lockGid);
+    }
+    // chips 渲染依赖 groupDetails，确保已加载。
+    groupDetailApi.list().then(setGroupDetails).catch(() => {});
+    setShowForm(true);
   };
 
   // 跳转该平台的日志（带 platformId 筛选上下文）。
@@ -1637,6 +1653,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setBreakerOpenSecs(p.breaker_open_secs > 0 ? String(p.breaker_open_secs) : "");
     setBreakerHalfOpenMax(p.breaker_half_open_max > 0 ? String(p.breaker_half_open_max) : "");
     setAutoGroup(p.auto_group);
+    setLockedGroupId(null);
     // 反查该平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
     try {
       const gds = await groupDetailApi.list();
@@ -2490,14 +2507,23 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               title={t("platform.groupAssignTitle", "分组归属")}
               desc={t("platform.groupAssignDesc", "可同时创建默认分组并加入其他已有分组；都不选则该平台不在任何分组。")}
             >
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                <span style={{ fontSize: 13 }}>{t("platform.groupAssignAuto", "创建默认分组")}</span>
-                <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
-                  <input type="checkbox" checked={autoGroup} onChange={e => setAutoGroup(e.target.checked)} style={{ display: "none" }} />
-                  <span className={`toggle ${autoGroup ? "active" : ""}`} />
-                </label>
-              </div>
-              {groupDetails.length > 0 && (
+              {lockedGroupId != null ? (
+                <div style={{ fontSize: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 6 }}>
+                  <span className="badge badge-muted" style={{ padding: "0 6px" }}>
+                    {groupDetails.find(g => g.group.id === lockedGroupId)?.group.name ?? `#${lockedGroupId}`}
+                  </span>
+                  {t("platform.groupLocked", "已锁定到此分组")}
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <span style={{ fontSize: 13 }}>{t("platform.groupAssignAuto", "创建默认分组")}</span>
+                  <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
+                    <input type="checkbox" checked={autoGroup} onChange={e => setAutoGroup(e.target.checked)} style={{ display: "none" }} />
+                    <span className={`toggle ${autoGroup ? "active" : ""}`} />
+                  </label>
+                </div>
+              )}
+              {lockedGroupId == null && groupDetails.length > 0 && (
                 <>
                   <div style={{ fontSize: 12, color: "var(--text-secondary)", margin: "10px 0 6px" }}>
                     {t("platform.groupAssignJoin", "加入已有分组")}
@@ -2636,7 +2662,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       </div>
 
       {/* 分组段（内嵌） */}
-      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} />
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} />
 
       {/* 分隔线 */}
       <div style={{ height: 1, background: "var(--border)", margin: "0 0 10px 0" }} />

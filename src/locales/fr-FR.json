@@ -1531,5 +1531,7 @@
   "updater.updateFailed": "Échec de la mise à jour",
   "updater.updateNow": "Mettre à jour maintenant",
   "updater.updating": "Mise à jour…",
-  "group.dragPlatform": "Glisser pour réordonner / déplacer vers un autre groupe"
+  "group.dragPlatform": "Glisser pour réordonner / déplacer vers un autre groupe",
+  "group.addPlatformToGroup": "Ajouter une plateforme à ce groupe",
+  "platform.groupLocked": "Verrouillé dans ce groupe"
 }
