@@ -445,9 +445,6 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
           <button className="btn" style={{ gap: 6, fontSize: 13 }} onClick={() => onNavigate("platforms")}>
             <IconPlatforms size={15} /> {t("home.addPlatform", "添加平台")}
           </button>
-          <button className="btn" style={{ gap: 6, fontSize: 13 }} onClick={() => onNavigate("groups")}>
-            <IconPackage size={15} /> {t("home.viewGroups", "查看分组")}
-          </button>
           <button className="btn" style={{ gap: 6, fontSize: 13 }} onClick={() => onNavigate("stats")}>
             <IconStats size={15} /> {t("home.viewStats", "查看统计")}
           </button>

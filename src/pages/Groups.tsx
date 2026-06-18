@@ -257,7 +257,11 @@ async function fetchGroupStats(
   return { statsMap, balanceMap };
 }
 
-export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string }) => void }) {
+/** 分组内嵌组件（供 Platforms 页使用） */
+export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
+  onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string }) => void;
+  onGroupsChanged?: () => void;
+}) {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -374,6 +378,7 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
 
       cancelEdit();
       load();
+      onGroupsChanged?.();
     } catch (e) {
       console.error(e);
       alert(String(e) || "Failed to save group");
@@ -386,6 +391,7 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
       await groupApi.create({ name: cName, group_key: cGroupKey.trim() || undefined, routing_mode: cMode });
       setCName(""); setCGroupKey(""); setCMode("failover"); setShowCreate(false);
       load();
+      onGroupsChanged?.();
     } catch (e) { console.error(e); }
   };
 
@@ -393,6 +399,7 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
     try {
       await groupApi.delete(id);
       load();
+      onGroupsChanged?.();
     } catch (e) {
       alert(String(e) || "Failed to delete group");
     }
@@ -418,6 +425,7 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
       setMSource(""); setMTargetPlatform(""); setMTargetModel("");
       setMappingGroupId(null);
       load();
+      onGroupsChanged?.();
     } catch (e) { console.error(e); }
   };
 
@@ -428,6 +436,7 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
       const next = detail.model_mappings.filter((_, i) => i !== index);
       await groupApi.update({ id: groupId, model_mappings: next });
       load();
+      onGroupsChanged?.();
     } catch (e) { console.error(e); }
   };
 
@@ -717,13 +726,15 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
   // ── List view ──
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
-      {/* Header */}
-      <div className="section-header" style={{ justifyContent: "space-between" }}>
-        <div>
-          <div className="section-title">{t("page.groups")}</div>
-          <div className="section-desc">
-            {details.length > 0 ? `${details.length} ${t("nav.groups").toLowerCase()}` : t("group.empty")}
-          </div>
+      {/* 子区块标题 + 操作栏 */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          <span style={{ fontSize: 18, fontWeight: 700 }}>{t("page.groups")}</span>
+          {details.length > 0 && (
+            <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>
+              {details.length} {t("nav.groups").toLowerCase()}
+            </span>
+          )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           {/* 代理 base_url：只读小字 + 复制按钮 */}
@@ -976,4 +987,9 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
       )}
     </div>
   );
+}
+
+/** 薄壳：保留 Groups 命名导出（兼容潜在引用，若无外部引用可删） */
+export function Groups(props: { onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string }) => void }) {
+  return <GroupsEmbedded {...props} />;
 }
