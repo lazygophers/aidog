@@ -262,6 +262,8 @@
   "home.trendPeak": "Spitze",
   "home.trendTitle": "Anfragetrend · Letzte 24 Std.",
   "home.trendTotal": "Anfragen gesamt",
+  "home.trendRequests": "Anfragen",
+  "home.trendTokens": "Tokens",
   "home.viewGroups": "Gruppen ansehen",
   "home.viewLogs": "Protokolle ansehen",
   "home.viewStats": "Statistiken ansehen",

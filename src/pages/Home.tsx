@@ -78,6 +78,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [trendBuckets, setTrendBuckets] = useState<StatsBucket[]>([]);
   const [loading, setLoading] = useState(true);
+  const [hoveredBucket, setHoveredBucket] = useState<number | null>(null);
 
   // 并行拉取，各区独立 catch 兜底（单 API 失败该区空态，不整页崩）。
   const load = useCallback(async () => {
@@ -176,34 +177,63 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
         )}
       </div>
 
-      {/* 3. 请求趋势 · 今日（hourly 曲线图：单 accent 折线 + 面积填充） */}
+      {/* 3. 请求趋势 · 今日（hourly 双曲线图：请求数 + tokens 总数） */}
       <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.trendTitle", "请求趋势 · 今日")}</div>
           {hasTrend && (
-            <div style={{ display: "flex", gap: 14, fontSize: F.small, color: "var(--text-tertiary)" }}>
-              <span>{t("home.trendPeak", "峰值")} <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{formatNumber(trendPeak)}</span></span>
-              <span>{t("home.trendTotal", "总请求")} <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{formatNumber(trendTotal)}</span></span>
+            <div style={{ display: "flex", gap: 14, fontSize: F.small, alignItems: "center" }}>
+              {/* 图例 */}
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 10, height: 3, background: "var(--accent)", borderRadius: 2 }} />
+                  <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendRequests", "请求数")}</span>
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <span style={{ width: 10, height: 3, background: "var(--color-info)", borderRadius: 2 }} />
+                  <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendTokens", "Tokens")}</span>
+                </span>
+              </div>
+              <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendPeak", "峰值")} <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{formatNumber(trendPeak)}</span></span>
+              <span style={{ color: "var(--text-tertiary)" }}>{t("home.trendTotal", "总请求")} <span style={{ fontWeight: 700, color: "var(--text-secondary)" }}>{formatNumber(trendTotal)}</span></span>
             </div>
           )}
         </div>
         {hasTrend ? (
           (() => {
-            // SVG 曲线图：viewBox 固定坐标系，preserveAspectRatio=none 横向拉满容器，纵向固定高
-            const W = 1000;            // viewBox 宽（任意单位，等比映射到容器宽）
+            // SVG 双曲线图：请求数（accent）+ tokens 总数（info）
+            const W = 1000;            // viewBox 宽
             const H = 80;              // viewBox 高
-            const PAD_T = 6;           // 顶部留白（圆点不被裁）
+            const PAD_T = 6;           // 顶部留白
             const n = trendBuckets.length;
             const plotH = H - PAD_T;
             const xAt = (i: number) => n > 1 ? (i / (n - 1)) * W : W / 2;
-            const yAt = (v: number) => PAD_T + (trendPeak > 0 ? (1 - v / trendPeak) : 1) * plotH;
-            const pts = trendBuckets.map((b, i) => ({ x: xAt(i), y: yAt(b.total_requests), b }));
-            // Catmull-Rom → 三次贝塞尔 平滑曲线（控制点 y clamp 到 [PAD_T, H] 防过冲），共享 util
-            const linePath = smoothPath(pts, PAD_T, H);
-            const areaPath = `${linePath} L ${pts[n - 1].x.toFixed(1)},${H} L ${pts[0].x.toFixed(1)},${H} Z`;
-            const peakIdx = pts.reduce((mi, p, i) => p.b.total_requests > pts[mi].b.total_requests ? i : mi, 0);
+
+            // 请求数归一化（原有逻辑）
+            const yAtRequests = (v: number) => PAD_T + (trendPeak > 0 ? (1 - v / trendPeak) : 1) * plotH;
+
+            // tokens 总数归一化（新加）
+            const tokensPeak = trendBuckets.reduce((m, b) => {
+              const totalTokens = b.input_tokens + b.output_tokens + b.cache_tokens;
+              return Math.max(m, totalTokens);
+            }, 0);
+            const yAtTokens = (v: number) => PAD_T + (tokensPeak > 0 ? (1 - v / tokensPeak) : 1) * plotH;
+
+            const ptsRequests = trendBuckets.map((b, i) => ({ x: xAt(i), y: yAtRequests(b.total_requests), b }));
+            const ptsTokens = trendBuckets.map((b, i) => ({
+              x: xAt(i),
+              y: yAtTokens(b.input_tokens + b.output_tokens + b.cache_tokens),
+              b
+            }));
+
+            const requestsPath = smoothPath(ptsRequests, PAD_T, H);
+            const tokensPath = smoothPath(ptsTokens, PAD_T, H);
+
+            // 峰值索引
+            const peakIdxRequests = ptsRequests.reduce((mi, p, i) => p.b.total_requests > ptsRequests[mi].b.total_requests ? i : mi, 0);
+
             return (
-              <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 2 }}>
                 <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 80, display: "block", overflow: "visible" }}>
                   <defs>
                     <linearGradient id="homeTrendArea" x1="0" y1="0" x2="0" y2="1">
@@ -211,9 +241,14 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                       <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
                     </linearGradient>
                   </defs>
-                  <path d={areaPath} fill="url(#homeTrendArea)" />
+                  {/* 请求数面积填充 */}
                   <path
-                    d={linePath}
+                    d={`${requestsPath} L ${ptsRequests[n - 1].x.toFixed(1)},${H} L ${ptsRequests[0].x.toFixed(1)},${H} Z`}
+                    fill="url(#homeTrendArea)"
+                  />
+                  {/* 请求数曲线（accent） */}
+                  <path
+                    d={requestsPath}
                     fill="none"
                     stroke="var(--accent)"
                     strokeWidth={2}
@@ -221,8 +256,19 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                     strokeLinecap="round"
                     vectorEffect="non-scaling-stroke"
                   />
-                  {/* hover 命中区 + tooltip（每桶一竖条，透明） */}
-                  {pts.map((p, i) => (
+                  {/* tokens 曲线（info，无填充） */}
+                  <path
+                    d={tokensPath}
+                    fill="none"
+                    stroke="var(--color-info)"
+                    strokeWidth={2}
+                    strokeLinejoin="round"
+                    strokeLinecap="round"
+                    vectorEffect="non-scaling-stroke"
+                    opacity={0.85}
+                  />
+                  {/* hover 命中区（每桶一竖条，透明） */}
+                  {ptsRequests.map((p, i) => (
                     <rect
                       key={i}
                       x={(p.x - W / (n * 2)).toFixed(1)}
@@ -230,16 +276,89 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                       width={(W / n).toFixed(1)}
                       height={H}
                       fill="transparent"
-                    >
-                      <title>{`${p.b.time_bucket.slice(-5)} · ${formatNumber(p.b.total_requests)}`}</title>
-                    </rect>
+                      onMouseEnter={() => setHoveredBucket(i)}
+                      onMouseLeave={() => setHoveredBucket(null)}
+                    />
                   ))}
-                  {/* 峰值点高亮（克制，单点） */}
+                  {/* 请求数峰值点高亮 */}
                   {trendPeak > 0 && (
-                    <circle cx={pts[peakIdx].x.toFixed(1)} cy={pts[peakIdx].y.toFixed(1)} r={3.5} fill="var(--accent)" vectorEffect="non-scaling-stroke" />
+                    <circle
+                      cx={ptsRequests[peakIdxRequests].x.toFixed(1)}
+                      cy={ptsRequests[peakIdxRequests].y.toFixed(1)}
+                      r={3.5}
+                      fill="var(--accent)"
+                      vectorEffect="non-scaling-stroke"
+                    />
                   )}
                 </svg>
-                {/* x 轴整点小时标注：每 4 桶，与曲线 x 对齐 */}
+                {/* 自定义 Tooltip */}
+                {hoveredBucket != null && trendBuckets[hoveredBucket] && (
+                  <div
+                    style={{
+                      position: "absolute",
+                      top: -8,
+                      left: `${(xAt(hoveredBucket) / W) * 100}%`,
+                      transform: "translateX(-50%)",
+                      background: "var(--bg-floating)",
+                      border: "1px solid var(--border)",
+                      borderRadius: 8,
+                      padding: "8px 12px",
+                      boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                      pointerEvents: "none",
+                      zIndex: 10,
+                      minWidth: 140,
+                    }}
+                  >
+                    <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
+                      {trendBuckets[hoveredBucket].time_bucket.slice(-5)}
+                    </div>
+                    {/* 请求数 + 变化 */}
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
+                      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{t("home.trendRequests", "请求数")}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--accent)" }}>
+                        {formatNumber(trendBuckets[hoveredBucket].total_requests)}
+                      </span>
+                      {hoveredBucket > 0 && (
+                        <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
+                          {(() => {
+                            const prev = trendBuckets[hoveredBucket - 1].total_requests;
+                            const curr = trendBuckets[hoveredBucket].total_requests;
+                            const diff = curr - prev;
+                            if (prev === 0) {
+                              return <span style={{ color: "var(--color-success)" }}> (+{formatNumber(diff)} new)</span>;
+                            }
+                            const pct = ((diff / prev) * 100).toFixed(0);
+                            const color = diff >= 0 ? "var(--color-success)" : "var(--danger)";
+                            return <span style={{ color }}> ({diff >= 0 ? "+" : ""}{pct}%)</span>;
+                          })()}
+                        </span>
+                      )}
+                    </div>
+                    {/* tokens + 变化 */}
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+                      <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>{t("home.trendTokens", "Tokens")}</span>
+                      <span style={{ fontSize: 12, fontWeight: 600, color: "var(--color-info)" }}>
+                        {formatNumber(trendBuckets[hoveredBucket].input_tokens + trendBuckets[hoveredBucket].output_tokens + trendBuckets[hoveredBucket].cache_tokens)}
+                      </span>
+                      {hoveredBucket > 0 && (
+                        <span style={{ fontSize: 10, color: "var(--text-tertiary)" }}>
+                          {(() => {
+                            const currTokens = trendBuckets[hoveredBucket].input_tokens + trendBuckets[hoveredBucket].output_tokens + trendBuckets[hoveredBucket].cache_tokens;
+                            const prevTokens = trendBuckets[hoveredBucket - 1].input_tokens + trendBuckets[hoveredBucket - 1].output_tokens + trendBuckets[hoveredBucket - 1].cache_tokens;
+                            const diff = currTokens - prevTokens;
+                            if (prevTokens === 0) {
+                              return <span style={{ color: "var(--color-success)" }}> (+{formatNumber(diff)} new)</span>;
+                            }
+                            const pct = ((diff / prevTokens) * 100).toFixed(0);
+                            const color = diff >= 0 ? "var(--color-success)" : "var(--danger)";
+                            return <span style={{ color }}> ({diff >= 0 ? "+" : ""}{pct}%)</span>;
+                          })()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {/* x 轴整点小时标注：每 4 桶 */}
                 <div style={{ position: "relative", height: 12 }}>
                   {trendBuckets.map((b, i) =>
                     i % 4 === 0 ? (

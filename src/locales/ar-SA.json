@@ -262,6 +262,8 @@
   "home.trendPeak": "الذروة",
   "home.trendTitle": "اتجاه الطلبات · آخر 24 ساعة",
   "home.trendTotal": "إجمالي الطلبات",
+  "home.trendRequests": "الطلبات",
+  "home.trendTokens": "Tokens",
   "home.viewGroups": "عرض المجموعات",
   "home.viewLogs": "عرض السجلات",
   "home.viewStats": "عرض الإحصائيات",
