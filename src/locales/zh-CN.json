@@ -705,6 +705,7 @@
   "platform.sectionSpecial": "特例配置",
   "platform.selectModel": "选择模型",
   "platform.testFail": "测试失败",
+  "platform.toggleFail": "切换失败",
   "platform.testOk": "测试成功",
   "platform.toggleDetail": "展开/收起明细",
   "platform.usageLabel": "已使用",

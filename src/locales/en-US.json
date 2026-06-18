@@ -705,6 +705,7 @@
   "platform.sectionSpecial": "Special Config",
   "platform.selectModel": "Select model",
   "platform.testFail": "Test failed",
+  "platform.toggleFail": "Toggle failed",
   "platform.testOk": "Test passed",
   "platform.toggleDetail": "Toggle details",
   "platform.usageLabel": "Used",

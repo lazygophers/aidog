@@ -727,6 +727,7 @@
   "platform.sectionSpecial": "Spezialkonfig",
   "platform.selectModel": "Auswählen",
   "platform.testFail": "Test fehlgeschlagen",
+  "platform.toggleFail": "Umschalten fehlgeschlagen",
   "platform.testOk": "Test bestanden",
   "platform.toggleDetail": "Details umschalten",
   "platform.usageLabel": "Verbraucht",

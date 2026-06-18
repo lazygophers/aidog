@@ -727,6 +727,7 @@
   "platform.sectionSpecial": "Config spéciale",
   "platform.selectModel": "Sélectionner",
   "platform.testFail": "Test échoué",
+  "platform.toggleFail": "Échec du basculement",
   "platform.testOk": "Test réussi",
   "platform.toggleDetail": "Afficher/masquer les détails",
   "platform.usageLabel": "Utilisé",

@@ -727,6 +727,7 @@
   "platform.sectionSpecial": "Спец. настройка",
   "platform.selectModel": "Выбрать",
   "platform.testFail": "Тест не пройден",
+  "platform.toggleFail": "Не удалось переключить",
   "platform.testOk": "Тест пройден",
   "platform.toggleDetail": "Показать/скрыть детали",
   "platform.usageLabel": "Использовано",
