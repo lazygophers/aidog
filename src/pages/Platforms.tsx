@@ -1324,10 +1324,13 @@ export function Platforms({ onNavigate }: { onNavigate?: (id: string, context?: 
     if (platDrag) {
       const effectiveTo = platDrag.from < platDrag.to ? platDrag.to - 1 : platDrag.to;
       if (platDrag.from !== effectiveTo) {
-        const reordered = [...platforms];
+        // 仅在未分组平台子集内重排（platDrag from/to 均为 standalone 索引）。
+        const reordered = [...standalonePlatforms];
         const [moved] = reordered.splice(platDrag.from, 1);
         reordered.splice(effectiveTo, 0, moved);
-        setPlatforms(reordered);
+        // 重建 platforms：已分组平台原位，未分组按新序填回（保 sort_order 全局一致）。
+        let si = 0;
+        setPlatforms(platforms.map(p => platformMembership.has(p.id) ? p : reordered[si++]));
         platformApi.reorder(reordered.map(pp => pp.id)).catch(console.error);
       }
     }
@@ -1399,6 +1402,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [lockedGroupId, setLockedGroupId] = useState<number | null>(null);
   // 平台归属映射：platformId → groupNames[]（用于平台卡片显示所属分组 badge）
   const [platformMembership, setPlatformMembership] = useState<Map<number, string[]>>(new Map());
+  // 未归属任何分组的平台（主列表独立展示）；已分组平台只在 GroupsEmbedded 内展示，避免重复。
+  const standalonePlatforms = useMemo(
+    () => platforms.filter(p => !platformMembership.has(p.id)),
+    [platforms, platformMembership],
+  );
 
   const isMock = protocol === "mock";
   // Claude Code 订阅纯透传：客户端自带订阅 OAuth 认证，aidog 原样转发。
@@ -2677,9 +2685,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               <div className="text-tertiary" style={{ fontSize: 13 }}>{t("platform.empty")}</div>
             </div>
           )}
-          {platforms.map((p, i) => {
+          {standalonePlatforms.map((p, i) => {
             const isDragging = platDrag?.from === i;
-            const draggedPlat = platDrag ? platforms[platDrag.from] : null;
+            const draggedPlat = platDrag ? standalonePlatforms[platDrag.from] : null;
             const draggedColor = draggedPlat ? (PROTOCOL_COLORS[draggedPlat.platform_type] || "var(--accent)") : "";
             return (
               <React.Fragment key={p.id}>
@@ -2717,8 +2725,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             );
           })}
           {platDrag && (() => {
-            if (platDrag.to !== platforms.length) return null;
-            const dp = platforms[platDrag.from];
+            if (platDrag.to !== standalonePlatforms.length) return null;
+            const dp = standalonePlatforms[platDrag.from];
             const dc = PROTOCOL_COLORS[dp.platform_type] || "var(--accent)";
             return (
               <div style={{
