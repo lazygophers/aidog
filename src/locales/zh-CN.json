@@ -1511,5 +1511,12 @@
   "updater.updating": "更新中…",
   "group.dragPlatform": "拖拽排序 / 移动到其他分组",
   "group.addPlatformToGroup": "在此分组添加平台",
-  "platform.groupLocked": "已锁定到此分组"
+  "platform.groupLocked": "已锁定到此分组",
+  "group.testAll": "一键测试本组全部平台",
+  "group.testAllTitle": "测试分组平台",
+  "group.testAllProgress": "测试中… {{done}}/{{total}}",
+  "group.testAllSummary": "完成：{{ok}} 成功 / {{fail}} 失败 / 共 {{total}}",
+  "group.testAllPending": "等待",
+  "group.testAllOk": "成功",
+  "group.testAllFail": "失败"
 }

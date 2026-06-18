@@ -1511,5 +1511,12 @@
   "updater.updating": "Actualizando…",
   "group.dragPlatform": "Arrastrar para reordenar / mover a otro grupo",
   "group.addPlatformToGroup": "Añadir plataforma a este grupo",
-  "platform.groupLocked": "Bloqueado en este grupo"
+  "platform.groupLocked": "Bloqueado en este grupo",
+  "group.testAll": "Probar todas las plataformas del grupo",
+  "group.testAllTitle": "Probar plataformas del grupo",
+  "group.testAllProgress": "Probando… {{done}}/{{total}}",
+  "group.testAllSummary": "Hecho: {{ok}} ok / {{fail}} fallidos / {{total}} total",
+  "group.testAllPending": "En espera",
+  "group.testAllOk": "OK",
+  "group.testAllFail": "Fallido"
 }

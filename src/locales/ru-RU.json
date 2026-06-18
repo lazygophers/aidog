@@ -1533,5 +1533,12 @@
   "updater.updating": "Обновление…",
   "group.dragPlatform": "Перетащите для сортировки / переместить в другую группу",
   "group.addPlatformToGroup": "Добавить платформу в эту группу",
-  "platform.groupLocked": "Заблокировано в эту группу"
+  "platform.groupLocked": "Заблокировано в эту группу",
+  "group.testAll": "Тестировать все платформы группы",
+  "group.testAllTitle": "Тест платформ группы",
+  "group.testAllProgress": "Тестирование… {{done}}/{{total}}",
+  "group.testAllSummary": "Готово: {{ok}} успех / {{fail}} сбой / {{total}} всего",
+  "group.testAllPending": "Ожидание",
+  "group.testAllOk": "Успех",
+  "group.testAllFail": "Сбой"
 }
