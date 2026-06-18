@@ -1,4 +1,4 @@
-import { useState, useEffect, useReducer, useMemo, useRef, Fragment } from "react";
+import { useState, useEffect, useReducer, useMemo, Fragment } from "react";
 import type { DragEvent as ReactDragEvent, ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import claudeIcon from "../assets/platforms/claude_code.svg";
@@ -371,18 +371,24 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   }), [cards, load]);
 
   // ── 分组展开区平台拖拽（HTML5 DnD，不与 dnd-kit 分组排序冲突；天然支持跨分组移动） ──
-  const dndPayload = useRef<{ pid: number; fromGid: number } | null>(null);
+  // payload 挂 window 全局，跨组件共享：Platforms 主列表未分组平台也能拖入分组（fromGid=0）
+  type DndPayload = { pid: number; fromGid: number };
+  const getDnd = (): DndPayload | null => (window as unknown as { __aidogDnd?: DndPayload }).__aidogDnd ?? null;
+  const setDnd = (v: DndPayload | null) => {
+    const w = window as unknown as { __aidogDnd?: DndPayload };
+    if (v) w.__aidogDnd = v; else delete w.__aidogDnd;
+  };
   const [dropIndicator, setDropIndicator] = useState<{ gid: number; idx: number } | null>(null);
   // 拖拽悬停的分组（折叠态整体高亮，展开态配合 dropIndicator 精细指示）
   const [dragOverGroup, setDragOverGroup] = useState<number | null>(null);
 
   const onPlatDragStart = (e: ReactDragEvent, pid: number, gid: number, cardEl: HTMLElement | null) => {
-    dndPayload.current = { pid, fromGid: gid };
+    setDnd({ pid, fromGid: gid });
     e.dataTransfer.effectAllowed = "move";
     e.dataTransfer.setData("text/plain", String(pid)); // Firefox 触发 dragstart 必填
     if (cardEl) e.dataTransfer.setDragImage(cardEl, 12, 12);
   };
-  const onPlatDragEnd = () => { dndPayload.current = null; setDropIndicator(null); setDragOverGroup(null); };
+  const onPlatDragEnd = () => { setDnd(null); setDropIndicator(null); setDragOverGroup(null); };
 
   // 基于 clientY 计算 drop 到容器内第 idx 张卡片前（末尾 = 卡片数）
   const computeDropIdx = (zoneEl: HTMLElement, clientY: number): number => {
@@ -395,7 +401,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   };
 
   const onZoneDragOver = (e: ReactDragEvent, gid: number, zoneEl: HTMLElement) => {
-    if (!dndPayload.current) return;
+    if (!getDnd()) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = "move";
     setDragOverGroup(gid);
@@ -405,8 +411,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
 
   const onZoneDrop = (e: ReactDragEvent, gid: number, zoneEl: HTMLElement) => {
     e.preventDefault();
-    const payload = dndPayload.current;
-    dndPayload.current = null;
+    const payload = getDnd();
+    setDnd(null);
     setDropIndicator(null);
     setDragOverGroup(null);
     if (!payload) return;
@@ -435,31 +441,48 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       }));
       groupDetailApi.reorderPlatforms(gid, reordered).catch(console.error);
     } else {
-      // 跨组移动
-      let movedGp: GroupPlatformDetail | undefined;
-      setDetails(prev => {
-        const next = prev.map(d => {
-          if (d.group.id === payload.fromGid) {
-            const gps = d.platforms.filter(g => {
-              if (g.platform.id === payload.pid) { movedGp = g; return false; }
-              return true;
-            });
+      if (payload.fromGid === 0) {
+        // 从未分组列表拖入（fromGid=0，无源组）: 构造新明细乐观插入目标组
+        const plat = platforms.find(pp => pp.id === payload.pid);
+        if (plat) {
+          setDetails(prev => prev.map(d => {
+            if (d.group.id !== gid) return d;
+            const newGp: GroupPlatformDetail = { platform: plat, priority: d.platforms.length + 1, weight: 1 };
+            const gps = [...d.platforms];
+            gps.splice(Math.min(idx, gps.length), 0, newGp);
             return { ...d, platforms: gps };
-          }
-          return d;
+          }));
+        }
+        groupDetailApi.movePlatform(payload.pid, 0, gid)
+          .then(() => { load(); onGroupsChanged?.(); })
+          .catch(console.error);
+      } else {
+        // 跨组移动
+        let movedGp: GroupPlatformDetail | undefined;
+        setDetails(prev => {
+          const next = prev.map(d => {
+            if (d.group.id === payload.fromGid) {
+              const gps = d.platforms.filter(g => {
+                if (g.platform.id === payload.pid) { movedGp = g; return false; }
+                return true;
+              });
+              return { ...d, platforms: gps };
+            }
+            return d;
+          });
+          if (!movedGp) return next;
+          return next.map(d => {
+            if (d.group.id !== gid) return d;
+            const newGp = { ...movedGp!, priority: d.platforms.length + 1 };
+            const gps = [...d.platforms];
+            const insertAt = Math.min(idx, gps.length);
+            gps.splice(insertAt, 0, newGp);
+            return { ...d, platforms: gps };
+          });
         });
-        if (!movedGp) return next;
-        return next.map(d => {
-          if (d.group.id !== gid) return d;
-          const newGp = { ...movedGp!, priority: d.platforms.length + 1 };
-          const gps = [...d.platforms];
-          const insertAt = Math.min(idx, gps.length);
-          gps.splice(insertAt, 0, newGp);
-          return { ...d, platforms: gps };
-        });
-      });
-      groupDetailApi.movePlatform(payload.pid, payload.fromGid, gid)
-        .then(() => load()).catch(console.error);
+        groupDetailApi.movePlatform(payload.pid, payload.fromGid, gid)
+          .then(() => load()).catch(console.error);
+      }
     }
   };
 
