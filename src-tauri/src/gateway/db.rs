@@ -275,9 +275,18 @@ impl Db {
                 // Migration 022: platform auto_group 开关（false = 不建/不维护默认分组，
                 // ensure_platform_groups 永久跳过）。DEFAULT 1 = 老平台保持旧行为。
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN auto_group INTEGER NOT NULL DEFAULT 1", []);
-                // Migration 023: 移除 group.path（路由纯按 apikey=group.name）+ name 加 UNIQUE。
-                // 重建表迁移（见 migrations/009_drop_group_path.sql）；列名显式匹配保证幂等。
-                conn.execute_batch(include_str!("../../migrations/009_drop_group_path.sql"))?;
+                // Migration 023: 移除 group.path（路由纯按 apikey=group_key）+ name 加 UNIQUE。
+                // 门控：仅老库（仍有 path 列）重建。009 重建出的新表无 group_key 列，会触发 010
+                // 用 name 兜底重建 group_key —— 若 009 无门控每次启动重跑，group_key 会被反复
+                // 覆盖回 name（含中文 name 时污染路由键）。已迁移库无 path 列 → 跳过 → group_key 稳定。
+                let has_group_path = conn
+                    .prepare("PRAGMA table_info(\"group\")")?
+                    .query_map([], |r| r.get::<_, String>(1))?
+                    .filter_map(Result::ok)
+                    .any(|c| c == "path");
+                if has_group_path {
+                    conn.execute_batch(include_str!("../../migrations/009_drop_group_path.sql"))?;
+                }
                 // Migration 024: group 拆 group_key（密钥/路由/日志归属键）+ name（显示名）。
                 // group_key UNIQUE: Bearer token + 路由匹配键 + proxy_log 归属键（前端按 group_key 反查 name 显示）。
                 // name UNIQUE: 防重名。老 group.group_key 初值 = 旧 name（statusline 脚本/已分发 token 不破）。
