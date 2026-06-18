@@ -1533,5 +1533,12 @@
   "updater.updating": "Mise à jour…",
   "group.dragPlatform": "Glisser pour réordonner / déplacer vers un autre groupe",
   "group.addPlatformToGroup": "Ajouter une plateforme à ce groupe",
-  "platform.groupLocked": "Verrouillé dans ce groupe"
+  "platform.groupLocked": "Verrouillé dans ce groupe",
+  "group.testAll": "Tester toutes les plateformes du groupe",
+  "group.testAllTitle": "Tester les plateformes du groupe",
+  "group.testAllProgress": "Test en cours… {{done}}/{{total}}",
+  "group.testAllSummary": "Terminé : {{ok}} réussis / {{fail}} échoués / {{total}} total",
+  "group.testAllPending": "En attente",
+  "group.testAllOk": "OK",
+  "group.testAllFail": "Échec"
 }

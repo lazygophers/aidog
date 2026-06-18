@@ -1,11 +1,12 @@
-import { useState, useEffect, useReducer, useMemo, Fragment } from "react";
-import type { DragEvent as ReactDragEvent, ReactNode } from "react";
+import { useState, useEffect, useReducer, useMemo, useCallback, Fragment } from "react";
+import { createPortal } from "react-dom";
+import type { DragEvent as ReactDragEvent, ReactNode, CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import claudeIcon from "../assets/platforms/claude_code.svg";
 import codexIcon from "../assets/platforms/openai.svg";
 import type { TFunction } from "i18next";
 import {
-  groupDetailApi, groupApi, groupUsageApi, platformApi, proxyApi, onProxyLogUpdated,
+  groupDetailApi, groupApi, groupUsageApi, platformApi, proxyApi, onProxyLogUpdated, modelTestApi,
   type GroupDetail, type GroupPlatformDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
   type ModelMapping,
 } from "../services/api";
@@ -88,6 +89,84 @@ interface SortablePlatform {
 interface GroupRow {
   id: string;
   detail: GroupDetail;
+}
+
+/** 分组一键测试：单平台测试行状态（串行执行，面板实时刷新）。 */
+type GroupTestStatus = "pending" | "testing" | "ok" | "fail";
+interface GroupTestRow {
+  platformId: number;
+  name: string;
+  status: GroupTestStatus;
+  durationMs?: number;
+  error?: string;
+}
+
+/**
+ * 分组一键测试结果面板。逐平台串行测试，行状态实时刷新。
+ * createPortal 挂 body —— 脱离 transform 祖先（liquidGlass/animate-fade-in）避免 fixed 退化，
+ * 参考 toast 修复（commit 0aeff95）与 memory `css-transform-breaks-fixed-modal`。
+ */
+function GroupTestPanel({ groupName, rows, running, onClose, t }: {
+  groupName: string;
+  rows: GroupTestRow[];
+  running: boolean;
+  onClose: () => void;
+  t: TFunction;
+}) {
+  const ok = rows.filter(r => r.status === "ok").length;
+  const fail = rows.filter(r => r.status === "fail").length;
+  const done = ok + fail;
+  const statusStyle = (s: GroupTestStatus): CSSProperties => ({
+    fontSize: 12, fontWeight: 600,
+    color: s === "ok" ? "var(--success)" : s === "fail" ? "var(--danger)" : "var(--text-tertiary)",
+  });
+  const statusText = (r: GroupTestRow): string => {
+    if (r.status === "testing") return "…";
+    if (r.status === "pending") return t("group.testAllPending", "等待");
+    if (r.status === "ok") return t("group.testAllOk", "成功") + (r.durationMs != null ? ` ${r.durationMs}ms` : "");
+    return t("group.testAllFail", "失败");
+  };
+  return createPortal(
+    <div onClick={onClose} style={{
+      position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000,
+      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+    }}>
+      <div className="glass-surface" onClick={e => e.stopPropagation()} style={{
+        width: "min(560px, 92vw)", maxHeight: "80vh", overflow: "auto",
+        display: "flex", flexDirection: "column", gap: 10, padding: 20,
+        background: "var(--bg-floating)",
+      }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+          <div style={{ fontSize: 15, fontWeight: 700 }}>
+            {t("group.testAllTitle", "测试分组平台")}：{groupName}
+          </div>
+          <button className="btn btn-ghost btn-icon" onClick={onClose} disabled={running} title={t("action.dismiss", "关闭")}>
+            <IconClose size={16} />
+          </button>
+        </div>
+        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+          {running
+            ? t("group.testAllProgress", "测试中… {{done}}/{{total}}", { done, total: rows.length })
+            : t("group.testAllSummary", "完成：{{ok}} 成功 / {{fail}} 失败 / 共 {{total}}", { ok, fail, total: rows.length })}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          {rows.map(r => (
+            <div key={r.platformId} style={{
+              display: "flex", alignItems: "center", gap: 10, padding: "6px 8px",
+              borderRadius: "var(--radius-sm)", background: "var(--bg-glass)",
+            }}>
+              <span style={{
+                fontSize: 13, flex: 1, minWidth: 0,
+                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+              }}>{r.name}</span>
+              <span style={statusStyle(r.status)} title={r.error}>{statusText(r)}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
 }
 
 /** 分组编辑表单态（原 8 个 useState 合并为单 reducer，减少分散 setState） */
@@ -381,6 +460,39 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   const [dropIndicator, setDropIndicator] = useState<{ gid: number; idx: number } | null>(null);
   // 拖拽悬停的分组（折叠态整体高亮，展开态配合 dropIndicator 精细指示）
   const [dragOverGroup, setDragOverGroup] = useState<number | null>(null);
+
+  // ── 分组一键测试本组全部平台：串行跑 model_test，结果面板逐行实时刷新 ──
+  const [groupTest, setGroupTest] = useState<{
+    groupId: number; groupName: string; rows: GroupTestRow[]; running: boolean;
+  } | null>(null);
+
+  // 串行测试：与单平台快速测试同参（默认模型 + max_tokens 64），逐平台驱动面板行状态。
+  // 不复用 usePlatformCards 的 testingId/testResults —— 那是单卡态，组级面板独立维护行集合。
+  const handleTestGroup = useCallback(async (group: GroupDetail["group"], gps: GroupPlatformDetail[]) => {
+    if (gps.length === 0) return;
+    const rows: GroupTestRow[] = gps.map(gp => ({
+      platformId: gp.platform.id, name: gp.platform.name, status: "pending",
+    }));
+    setGroupTest({ groupId: group.id, groupName: group.name, rows, running: true });
+    const patchRow = (idx: number, patch: Partial<GroupTestRow>) =>
+      setGroupTest(prev => prev ? { ...prev, rows: prev.rows.map((r, i) => i === idx ? { ...r, ...patch } : r) } : prev);
+    for (let idx = 0; idx < gps.length; idx++) {
+      const gp = gps[idx];
+      patchRow(idx, { status: "testing" });
+      const defaultModel = gp.platform.models.default || gp.platform.available_models[0] || "";
+      const start = Date.now();
+      try {
+        const r = await modelTestApi.test({ platform_id: gp.platform.id, model: defaultModel, max_tokens: 64 });
+        const durationMs = Date.now() - start;
+        patchRow(idx, r.success
+          ? { status: "ok", durationMs }
+          : { status: "fail", durationMs, error: r.error || t("platform.testFail", "测试失败") });
+      } catch (err: any) {
+        patchRow(idx, { status: "fail", durationMs: Date.now() - start, error: err?.message || t("platform.testFail", "测试失败") });
+      }
+    }
+    setGroupTest(prev => prev ? { ...prev, running: false } : prev);
+  }, [t]);
 
   const onPlatDragStart = (e: ReactDragEvent, pid: number, gid: number, cardEl: HTMLElement | null) => {
     setDnd({ pid, fromGid: gid });
@@ -954,6 +1066,17 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
         </div>
       )}
 
+      {/* 分组一键测试结果面板（串行执行，实时刷新行状态） */}
+      {groupTest && (
+        <GroupTestPanel
+          groupName={groupTest.groupName}
+          rows={groupTest.rows}
+          running={groupTest.running}
+          onClose={() => { if (!groupTest.running) setGroupTest(null); }}
+          t={t}
+        />
+      )}
+
       {/* Group List */}
       {loading ? (
         <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
@@ -1021,6 +1144,9 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                   <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
                   </svg>
+                </button>
+                <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); handleTestGroup(group, gps); }} disabled={gps.length === 0 || groupTest?.running === true} title={t("group.testAll", "一键测试本组全部平台")}>
+                  <IconBolt size={14} />
                 </button>
                 {onCreatePlatform && (
                   <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onCreatePlatform([group.id], group.id); }} title={t("group.addPlatformToGroup", "在此分组添加平台")}>

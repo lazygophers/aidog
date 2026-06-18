@@ -1533,5 +1533,12 @@
   "updater.updating": "Wird aktualisiert…",
   "group.dragPlatform": "Ziehen zum Sortieren / in andere Gruppe verschieben",
   "group.addPlatformToGroup": "Plattform zu dieser Gruppe hinzufügen",
-  "platform.groupLocked": "Auf diese Gruppe gesperrt"
+  "platform.groupLocked": "Auf diese Gruppe gesperrt",
+  "group.testAll": "Alle Plattformen der Gruppe testen",
+  "group.testAllTitle": "Gruppenplattformen testen",
+  "group.testAllProgress": "Test läuft… {{done}}/{{total}}",
+  "group.testAllSummary": "Fertig: {{ok}} erfolgreich / {{fail}} fehlgeschlagen / {{total}} gesamt",
+  "group.testAllPending": "Wartend",
+  "group.testAllOk": "OK",
+  "group.testAllFail": "Fehlgeschlagen"
 }

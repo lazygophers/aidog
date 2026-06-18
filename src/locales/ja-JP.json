@@ -1533,5 +1533,12 @@
   "updater.updating": "更新中…",
   "group.dragPlatform": "ドラッグで並べ替え / 別のグループへ移動",
   "group.addPlatformToGroup": "このグループにプラットフォームを追加",
-  "platform.groupLocked": "このグループにロック済み"
+  "platform.groupLocked": "このグループにロック済み",
+  "group.testAll": "グループの全プラットフォームをテスト",
+  "group.testAllTitle": "グループプラットフォームをテスト",
+  "group.testAllProgress": "テスト中… {{done}}/{{total}}",
+  "group.testAllSummary": "完了：成功 {{ok}} / 失敗 {{fail}} / 合計 {{total}}",
+  "group.testAllPending": "待機",
+  "group.testAllOk": "成功",
+  "group.testAllFail": "失敗"
 }

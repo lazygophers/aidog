@@ -1533,5 +1533,12 @@
   "updater.updating": "جارٍ التحديث…",
   "group.dragPlatform": "اسحب للترتيب / انقل إلى مجموعة أخرى",
   "group.addPlatformToGroup": "إضافة منصة إلى هذه المجموعة",
-  "platform.groupLocked": "مقفل على هذه المجموعة"
+  "platform.groupLocked": "مقفل على هذه المجموعة",
+  "group.testAll": "اختبار جميع منصات المجموعة",
+  "group.testAllTitle": "اختبار منصات المجموعة",
+  "group.testAllProgress": "جارٍ الاختبار… {{done}}/{{total}}",
+  "group.testAllSummary": "اكتمل: {{ok}} نجاح / {{fail}} فشل / {{total}} الإجمالي",
+  "group.testAllPending": "بانتظار",
+  "group.testAllOk": "نجاح",
+  "group.testAllFail": "فشل"
 }
