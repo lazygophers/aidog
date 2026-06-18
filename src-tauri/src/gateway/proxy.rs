@@ -1314,7 +1314,7 @@ async fn handle_proxy_inner(
             state.scheduler.record_ignored(route.platform.id);
         }
 
-        // ── 401/403：上游鉴权失败 → 自动禁用平台（指数退避），换下个候选 ──
+        // ── 401/403：上游鉴权失败（key 问题）→ 单次即自动禁用平台（指数退避），换下个候选 ──
         if code == 401 || code == 403 {
             match super::db::set_platform_auto_disabled(&state.db, route.platform.id).await {
                 Ok(until) if until > 0 => tracing::warn!(
@@ -1323,6 +1323,28 @@ async fn handle_proxy_inner(
                 ),
                 Ok(_) => {} // 用户手动 disabled，不动
                 Err(e) => tracing::error!(platform_id = route.platform.id, error = %e, "auto-disable platform failed"),
+            }
+        }
+        // ── 404/405：死端点信号（端点不存在 / 方法不允许，如 nginx "Not Allowed"）。
+        //   与 401/403 共用 auto_disabled + 指数退避机制，但语义不同：404/405 可能是上游瞬时
+        //   配置抖动，故连续累计达阈值（DEAD_ENDPOINT_STRIKE_THRESHOLD）才禁用，防偶发误伤。
+        //   未达阈值仅计数、保持 enabled 继续参与调度；一次 2xx 即清零计数（见下方成功路径）。──
+        else if code == 404 || code == 405 {
+            match super::db::record_dead_endpoint_strike(
+                &state.db, route.platform.id, super::db::DEAD_ENDPOINT_STRIKE_THRESHOLD,
+            ).await {
+                Ok((strikes, until)) if until > 0 => tracing::warn!(
+                    platform = %route.platform.name, platform_id = route.platform.id, status = code,
+                    strikes, auto_disabled_until = until,
+                    "platform auto-disabled (404/405 dead-endpoint, strike threshold reached)"
+                ),
+                Ok((strikes, _)) if strikes > 0 => tracing::info!(
+                    platform = %route.platform.name, platform_id = route.platform.id, status = code,
+                    strikes, threshold = super::db::DEAD_ENDPOINT_STRIKE_THRESHOLD,
+                    "platform dead-endpoint strike accumulating (404/405), not yet disabled"
+                ),
+                Ok(_) => {} // 用户手动 disabled，不动
+                Err(e) => tracing::error!(platform_id = route.platform.id, error = %e, "record dead-endpoint strike failed"),
             }
         }
 
@@ -1392,6 +1414,11 @@ async fn handle_proxy_inner(
         } else {
             tracing::info!(platform = %route.platform.name, platform_id = route.platform.id, "platform recovered from auto-disabled (2xx)");
         }
+    } else if let Err(e) =
+        // 成功一次即证明端点非死端点 → 清零累计的 404/405 strikes（仅 enabled 平台有计数时生效）
+        super::db::reset_dead_endpoint_strikes(&state.db, route.platform.id).await
+    {
+        tracing::error!(platform_id = route.platform.id, error = %e, "reset dead-endpoint strikes failed");
     }
     log.platform_id = route.platform.id;
     log.retry_count = (attempts.len() as i32 - 1).max(0);
