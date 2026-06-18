@@ -23,7 +23,7 @@ SENSITIVE_KEYS = {"authorization", "x-api-key", "x-goog-api-key", "api-key",
                   "apikey", "cookie", "set-cookie", "x-goog-api-client"}
 
 COLS = [
-    "id", "group_name", "model", "actual_model", "source_protocol", "target_protocol",
+    "id", "group_key", "model", "actual_model", "source_protocol", "target_protocol",
     "platform_id", "request_headers", "request_body", "upstream_request_headers",
     "upstream_request_body", "response_body", "request_url", "upstream_request_url",
     "upstream_response_headers", "upstream_status_code", "user_response_headers",
@@ -99,7 +99,7 @@ def print_detail(row, full, raw_mode):
     ok = "✓" if d["status_code"] == 200 else "✗"
     print(f"=== Request {d['id']} {ok} ===")
     print(f"时间      : {fmt_ts(d['created_at'])}")
-    print(f"group     : {d['group_name']}")
+    print(f"group     : {d['group_key']}")
     print(f"model     : {d['model']}  ->  actual: {d['actual_model'] or '(未路由)'}")
     print(f"protocol  : {d['source_protocol'] or '?'}  ->  {d['target_protocol'] or '?'}")
     print(f"platform  : id={d['platform_id']}")
@@ -139,10 +139,10 @@ def print_recent(con, n, group, status):
     where = ["deleted_at=0"]
     params = []
     if group:
-        where.append("group_name=?"); params.append(group)
+        where.append("group_key=?"); params.append(group)
     if status is not None:
         where.append("status_code=?"); params.append(status)
-    sql = (f"SELECT id, created_at, group_name, model, actual_model, status_code, "
+    sql = (f"SELECT id, created_at, group_key, model, actual_model, status_code, "
            f"duration_ms, output_tokens FROM proxy_log WHERE {' AND '.join(where)} "
            f"ORDER BY created_at DESC LIMIT ?")
     params.append(n)
@@ -155,7 +155,7 @@ def print_recent(con, n, group, status):
     for r in rows:
         ok = "200" if r["status_code"] == 200 else f"!{r['status_code']}"
         print(f"{r['id']:32}  {fmt_ts(r['created_at']):19}  {ok:6}  {r['duration_ms']:>6}  "
-              f"{r['output_tokens']:>5}  {r['group_name']} / {r['actual_model'] or r['model']}")
+              f"{r['output_tokens']:>5}  {r['group_key']} / {r['actual_model'] or r['model']}")
     print("\n用 python3 inspect.py <id> 看单条详情")
 
 
