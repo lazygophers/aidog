@@ -999,16 +999,7 @@ async fn handle_proxy_inner(
     // 先精确匹配；openai_responses 源（Codex）若无 Responses 端点，回退到 openai 端点
     // （普通 chat/completions 平台），出站经 to_openai 转换。
     let ep_proto = |ep: &super::models::PlatformEndpoint| format!("{:?}", ep.protocol).to_lowercase();
-    let matched_ep = route.platform.endpoints
-        .iter()
-        .find(|ep| ep_proto(ep) == source_protocol)
-        .or_else(|| {
-            if source_protocol == "openai_responses" {
-                route.platform.endpoints.iter().find(|ep| ep_proto(ep) == "openai")
-            } else {
-                None
-            }
-        });
+    let matched_ep = select_endpoint_for_protocol(&route.platform.endpoints, &source_protocol);
 
     // ── UA 透传分支（[protocol-same-proto-passthrough] 扩展，PRD §5 级别 1）──
     // 仅当 path 推断的入站协议在平台无任何对应 endpoint（matched_ep == None，
@@ -2914,6 +2905,11 @@ impl Drop for StreamLogGuard {
 }
 
 /// 从 SSE event JSON 尽力累计 usage（Anthropic / OpenAI 兼容字段）
+///
+/// 用 fetch_max（只增不减）而非 store（覆盖）：Anthropic 流式语义下 input/cache 在
+/// `message_start` 起始即定值，但后续 `message_delta`（及中转站尾部汇总事件）常携带
+/// `input_tokens: 0`，store 覆盖会把真实 input 清零。output 在 message_delta 里是累计值，
+/// 取流中最大即终值。OpenAI 末尾一次性给全量，从 0 升上去同样安全。
 fn accumulate_sse_usage(
     json: &Value,
     acc_in: &std::sync::atomic::AtomicI32,
@@ -2934,14 +2930,14 @@ fn accumulate_sse_usage(
         .or_else(|| usage.get("prompt_tokens"))
         .and_then(|v| v.as_i64())
     {
-        acc_in.store(i as i32, Relaxed);
+        acc_in.fetch_max(i as i32, Relaxed);
     }
     if let Some(o) = usage
         .get("output_tokens")
         .or_else(|| usage.get("completion_tokens"))
         .and_then(|v| v.as_i64())
     {
-        acc_out.store(o as i32, Relaxed);
+        acc_out.fetch_max(o as i32, Relaxed);
     }
     if let Some(c) = usage
         .get("cache_read_input_tokens")
@@ -2954,7 +2950,7 @@ fn accumulate_sse_usage(
         })
         .or_else(|| usage.get("cache_tokens").and_then(|v| v.as_i64()))
     {
-        acc_cache.store(c as i32, Relaxed);
+        acc_cache.fetch_max(c as i32, Relaxed);
     }
 }
 
@@ -3052,6 +3048,44 @@ fn detect_source_protocol(path: &str) -> String {
 ///
 /// 大小写不敏感（Codex TUI UA 为 `Codex/...`，需匹配 `codex`）。返回的字面量与
 /// `detect_source_protocol` / `ep_proto` 产出的协议名一致，便于直接比对 endpoint。
+/// 按入站协议(`source_protocol`)从平台端点中选目标 endpoint。
+///
+/// ── coding-plan 平台端点排他 ──
+/// coding-plan 平台的 api_key 仅对 coding endpoint(`coding_plan:true`，独立 coding host)有效；
+/// 其非 coding endpoint(如 kimi 的 `api.moonshot.cn/anthropic`)指向常规 API host，需另一把常规 key。
+/// 若按入站协议精确匹配命中一个**非 coding** endpoint，而平台同时含 coding endpoint，
+/// 该非 coding endpoint 会被 coding key 打成 401 并连累整个平台 auto_disabled。
+/// 故平台含任一 coding endpoint 时，仅在 coding endpoint 中按协议匹配；入站协议无对应 coding
+/// endpoint(如 anthropic 入站 + kimi 仅有 openai coding endpoint)→ 回退到 openai coding endpoint，
+/// 出站经 `convert_request`(anthropic→openai)转换。
+///
+/// 非 coding-plan 平台(无任何 coding endpoint)：精确协议匹配；`openai_responses` 源(Codex)无
+/// Responses endpoint 时回退到 openai endpoint(普通 chat/completions 平台，出站经 to_openai 转换)。
+fn select_endpoint_for_protocol<'a>(
+    endpoints: &'a [super::models::PlatformEndpoint],
+    source_protocol: &str,
+) -> Option<&'a super::models::PlatformEndpoint> {
+    let ep_proto = |ep: &super::models::PlatformEndpoint| format!("{:?}", ep.protocol).to_lowercase();
+    let has_coding_ep = endpoints.iter().any(|ep| ep.coding_plan);
+    if has_coding_ep {
+        endpoints
+            .iter()
+            .find(|ep| ep.coding_plan && ep_proto(ep) == source_protocol)
+            .or_else(|| endpoints.iter().find(|ep| ep.coding_plan && ep_proto(ep) == "openai"))
+    } else {
+        endpoints
+            .iter()
+            .find(|ep| ep_proto(ep) == source_protocol)
+            .or_else(|| {
+                if source_protocol == "openai_responses" {
+                    endpoints.iter().find(|ep| ep_proto(ep) == "openai")
+                } else {
+                    None
+                }
+            })
+    }
+}
+
 fn infer_passthrough_protocol_from_ua(ua: &str) -> Option<&'static str> {
     let lower = ua.to_lowercase();
     if lower.contains("claude-cli") {
@@ -3836,13 +3870,90 @@ mod tests {
         assert_eq!(i.load(Relaxed), 10);
         assert_eq!(c.load(Relaxed), 3);
 
-        // OpenAI 顶层 usage
+        // OpenAI 顶层 usage（新 atomics，避免与上面 max 语义相互干扰）
+        let oi = AtomicI32::new(0);
+        let oo = AtomicI32::new(0);
+        let oc = AtomicI32::new(0);
         let oai: Value = serde_json::json!({
             "usage": { "prompt_tokens": 20, "completion_tokens": 7 }
         });
-        accumulate_sse_usage(&oai, &i, &o, &c);
-        assert_eq!(i.load(Relaxed), 20);
-        assert_eq!(o.load(Relaxed), 7);
+        accumulate_sse_usage(&oai, &oi, &oo, &oc);
+        assert_eq!(oi.load(Relaxed), 20);
+        assert_eq!(oo.load(Relaxed), 7);
+    }
+
+    // ── 回归：Anthropic 流式 message_start 的 input/cache 不被尾部 message_delta(input:0) 覆盖 ──
+    // 根因：中转站/relay 的 message_delta 常带 input_tokens:0，store 覆盖会把真实 input 清零。
+    // 期望：fetch_max 语义下 input=356、cache=50880 保留，output 取 delta 累计终值 29。
+    #[test]
+    fn accumulate_sse_usage_anthropic_stream_input_not_clobbered() {
+        use std::sync::atomic::{AtomicI32, Ordering::Relaxed};
+        let i = AtomicI32::new(0);
+        let o = AtomicI32::new(0);
+        let c = AtomicI32::new(0);
+
+        // 1) message_start：input/cache 起始即定值
+        let start: Value = serde_json::json!({
+            "type": "message_start",
+            "message": { "usage": {
+                "input_tokens": 356,
+                "cache_read_input_tokens": 50880,
+                "output_tokens": 1
+            }}
+        });
+        accumulate_sse_usage(&start, &i, &o, &c);
+        assert_eq!(i.load(Relaxed), 356);
+        assert_eq!(c.load(Relaxed), 50880);
+
+        // 2) message_delta（中途）：output 累计上升，input 被中转站带成 0
+        let delta1: Value = serde_json::json!({
+            "type": "message_delta",
+            "usage": { "input_tokens": 0, "output_tokens": 15 }
+        });
+        accumulate_sse_usage(&delta1, &i, &o, &c);
+        assert_eq!(i.load(Relaxed), 356, "input 不可被 message_delta 的 0 清零");
+        assert_eq!(o.load(Relaxed), 15);
+
+        // 3) message_delta（终值）：output 累计终值 29，input 仍 0
+        let delta2: Value = serde_json::json!({
+            "type": "message_delta",
+            "usage": { "input_tokens": 0, "output_tokens": 29 }
+        });
+        accumulate_sse_usage(&delta2, &i, &o, &c);
+        assert_eq!(i.load(Relaxed), 356, "input 终态保留");
+        assert_eq!(c.load(Relaxed), 50880, "cache 终态保留");
+        assert_eq!(o.load(Relaxed), 29, "output 取累计终值");
+    }
+
+    // ── 回归：OpenAI 流式末尾一次性 usage 不因 fetch_max 回退 ──
+    // 中途 chunk 无 usage（None → 不触发），末尾一次性给全量，从 0 升上去。
+    #[test]
+    fn accumulate_sse_usage_openai_stream_final_usage() {
+        use std::sync::atomic::{AtomicI32, Ordering::Relaxed};
+        let i = AtomicI32::new(0);
+        let o = AtomicI32::new(0);
+        let c = AtomicI32::new(0);
+
+        // 中途 chunk：无 usage 字段
+        let mid: Value = serde_json::json!({
+            "choices": [{ "delta": { "content": "hi" } }]
+        });
+        accumulate_sse_usage(&mid, &i, &o, &c);
+        assert_eq!(i.load(Relaxed), 0);
+        assert_eq!(o.load(Relaxed), 0);
+
+        // 末尾 chunk：一次性全量 usage（含 cached_tokens）
+        let last: Value = serde_json::json!({
+            "usage": {
+                "prompt_tokens": 1024,
+                "completion_tokens": 200,
+                "prompt_tokens_details": { "cached_tokens": 512 }
+            }
+        });
+        accumulate_sse_usage(&last, &i, &o, &c);
+        assert_eq!(i.load(Relaxed), 1024);
+        assert_eq!(o.load(Relaxed), 200);
+        assert_eq!(c.load(Relaxed), 512);
     }
 
     // ── Responses API 子端点识别：精确放行 create，拦所有子端点 ──
@@ -3992,6 +4103,60 @@ mod tests {
             .map(|p| format!("{:?}", p).to_lowercase() == "openai")
             .unwrap_or(false);
         assert!(!pass, "no matched endpoint must NOT passthrough");
+    }
+
+    // ── coding-plan 平台端点选择：anthropic 入站不得落到非 coding endpoint(coding key→401) ──
+    #[test]
+    fn select_endpoint_coding_plan_exclusivity() {
+        use super::select_endpoint_for_protocol as sel;
+        use super::super::models::{ClientType, PlatformEndpoint, Protocol};
+        let ep = |proto: Protocol, url: &str, cp: bool| PlatformEndpoint {
+            protocol: proto,
+            base_url: url.to_string(),
+            client_type: ClientType::ClaudeCode,
+            coding_plan: cp,
+        };
+
+        // ── Kimi coding plan：唯一 openai coding endpoint，anthropic 入站须选 coding(转换) ──
+        let kimi_cp = vec![ep(Protocol::OpenAI, "https://api.kimi.com/coding/v1", true)];
+        let m = sel(&kimi_cp, "anthropic").expect("anthropic inbound must resolve to coding endpoint");
+        assert_eq!(m.base_url, "https://api.kimi.com/coding/v1");
+        assert!(m.coding_plan, "selected endpoint must be the coding endpoint");
+        // openai 入站同样落 coding endpoint
+        let m = sel(&kimi_cp, "openai").unwrap();
+        assert!(m.coding_plan);
+
+        // ── 回归：若 coding 平台**仍残留**非 coding anthropic endpoint(旧数据/手填)，
+        //    anthropic 入站绝不能选那个非 coding endpoint(会被 coding key 401) ──
+        let kimi_cp_legacy = vec![
+            ep(Protocol::OpenAI, "https://api.kimi.com/coding/v1", true),
+            ep(Protocol::Anthropic, "https://api.moonshot.cn/anthropic", false),
+        ];
+        let m = sel(&kimi_cp_legacy, "anthropic").unwrap();
+        assert_eq!(
+            m.base_url, "https://api.kimi.com/coding/v1",
+            "anthropic inbound on coding platform must NOT pick the non-coding anthropic endpoint"
+        );
+        assert!(m.coding_plan);
+
+        // ── 非 coding-plan 平台(GLM 常规双端点)：anthropic 入站正常选 anthropic endpoint(行为不变) ──
+        let glm = vec![
+            ep(Protocol::OpenAI, "https://open.bigmodel.cn/api/paas/v4", false),
+            ep(Protocol::Anthropic, "https://open.bigmodel.cn/api/anthropic", false),
+        ];
+        let m = sel(&glm, "anthropic").unwrap();
+        assert_eq!(m.base_url, "https://open.bigmodel.cn/api/anthropic");
+        assert!(!m.coding_plan);
+        // openai 入站选 openai endpoint
+        let m = sel(&glm, "openai").unwrap();
+        assert_eq!(m.base_url, "https://open.bigmodel.cn/api/paas/v4");
+
+        // ── 非 coding-plan：openai_responses 无 Responses endpoint → 回退 openai(行为不变) ──
+        let openai_only = vec![ep(Protocol::OpenAI, "https://api.deepseek.com/v1", false)];
+        let m = sel(&openai_only, "openai_responses").unwrap();
+        assert_eq!(m.base_url, "https://api.deepseek.com/v1");
+        // 无任何匹配且非 openai_responses → None
+        assert!(sel(&openai_only, "gemini").is_none());
     }
 
     // ── UA → 透传协议推断：claude-cli→anthropic / codex→openai_responses / 其它→None ──
