@@ -455,7 +455,11 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
         }
         groupDetailApi.movePlatform(payload.pid, 0, gid)
           .then(() => { load(); onGroupsChanged?.(); })
-          .catch(console.error);
+          .catch((err) => {
+            console.error("[aidog-dnd] movePlatform failed", err);
+            onToast?.({ text: `加入分组失败: ${err}`, ok: false });
+            load(); // 回滚乐观插入
+          });
       } else {
         // 跨组移动
         let movedGp: GroupPlatformDetail | undefined;

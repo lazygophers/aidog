@@ -1402,6 +1402,12 @@ pub async fn move_group_platform(
                 "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
                 params![from, pid],
             )?;
+            // 物理清除目标组内该平台的所有历史行(含软删残留),避免 UNIQUE(group_id,platform_id) 冲突
+            // 场景: 平台曾加入该组又移除(软删行 deleted_at≠0 残留), 重新加入时 INSERT 撞 UNIQUE
+            conn.execute(
+                "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2",
+                params![to, pid],
+            )?;
             let max_pri: i64 = conn
                 .query_row(
                     "SELECT COALESCE(MAX(priority), 0) FROM group_platform \
