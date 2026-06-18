@@ -1874,6 +1874,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       }
 
       resetForm(); load();
+      // 保存可能改变分组归属（join_group_ids / auto_group 建默认组），
+      // 必须刷新 groupDetails 重建 membership，否则已分组平台漏判为未分组、误现于底部未分配区。
+      handleGroupsChanged();
+      window.dispatchEvent(new Event("aidog-groups-changed"));
     } catch (e: any) {
       const msg = e?.toString() || "Unknown error";
       console.error(msg);
