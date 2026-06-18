@@ -952,6 +952,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
                                 testing={cards.testingId === p.id}
                                 faviconFailed={cards.faviconFailed.has(p.id)}
                                 actions={groupCardActions}
+                                draggable={false}
                               />
                             ))}
                           </div>

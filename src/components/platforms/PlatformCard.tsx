@@ -43,6 +43,8 @@ export interface PlatformCardProps {
   faviconFailed: boolean;
   actions: PlatformCardActions;
   platformMembership?: string[];
+  /** 是否显示拖拽把手（默认 true；分组展开区等只读场景传 false） */
+  draggable?: boolean;
 }
 
 // ── PlatformCard 组件 ──
@@ -61,6 +63,7 @@ export const PlatformCard = memo(function PlatformCard({
   faviconFailed: faviconHasFailed,
   actions,
   platformMembership,
+  draggable = true,
 }: PlatformCardProps) {
   const { t } = useTranslation();
   const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
@@ -105,7 +108,8 @@ export const PlatformCard = memo(function PlatformCard({
           <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
             {/* ── 行 1：身份 + 快操作 ── */}
             <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-              {/* 拖拽把手 */}
+              {/* 拖拽把手（分组展开区等只读场景不渲染） */}
+              {draggable && (
               <div
                 className={`drag-handle-inline${isDragging ? " is-active" : ""}`}
                 style={{ cursor: "grab", color: "var(--text-tertiary)", flexShrink: 0, display: "flex", touchAction: "none" }}
@@ -116,6 +120,7 @@ export const PlatformCard = memo(function PlatformCard({
               >
                 <svg width="12" height="18" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
               </div>
+              )}
               {/* Logo + 健康点 */}
               <div style={{ position: "relative", flexShrink: 0 }}>
                 <div style={{
