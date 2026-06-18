@@ -141,7 +141,7 @@ function App() {
       }}>
         <div className="animate-fade-in" key={effectiveNav}>
           {effectiveNav === "home" && <Home onNavigate={handleNavigate} />}
-          {effectiveNav === "platforms" && <Platforms onNavigate={handleNavigate} />}
+          {effectiveNav === "platforms" && <Platforms onNavigate={handleNavigate} initialFilter={navContext} />}
           {effectiveNav === "settings" && <AppSettings tab={settingsTab} onLogSettingsChanged={(enabled) => setLogEnabled(enabled)} onNotifSettingsChanged={(enabled) => setNotifEnabled(enabled)} />}
           {effectiveNav === "logs" && <Logs initialFilter={navContext} />}
           {effectiveNav === "stats" && <Stats initialFilter={navContext} />}

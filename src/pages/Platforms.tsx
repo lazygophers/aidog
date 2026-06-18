@@ -1269,7 +1269,7 @@ function FormSection({ title, desc, action, children }: FormSectionProps) {
   );
 }
 
-export function Platforms({ onNavigate }: { onNavigate?: (id: string, context?: { platformId?: number; platformName?: string }) => void }) {
+export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: string, context?: { platformId?: number; platformName?: string }) => void; initialFilter?: { platformId?: number; platformName?: string } }) {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   // ── Drag reorder for platform list ──
@@ -1604,6 +1604,18 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   };
 
   useEffect(() => { load(); }, []);
+
+  // 外部导航上下文（如分组展开区点「编辑」→ onNavigate("platforms",{platformId})）打开对应平台编辑页。
+  // 用 ref 记录已消费的 platformId，避免后续 load/reload 重复触发；平台列表到手后再匹配，否则等下一次列表更新。
+  const consumedEditPidRef = useRef<number | null>(null);
+  useEffect(() => {
+    const pid = initialFilter?.platformId;
+    if (!pid || consumedEditPidRef.current === pid) return;
+    const target = platforms.find(p => p.id === pid);
+    if (!target) return;  // 列表尚未加载到该平台，待 platforms 更新后重试
+    consumedEditPidRef.current = pid;
+    handleEdit(target);
+  }, [initialFilter?.platformId, platforms]);
 
   // 分组列表（multi-select 数据源 + 编辑态反查手动组归属 + 平台归属映射）。本地查询，失败不阻断编辑。
   useEffect(() => {
