@@ -1,4 +1,4 @@
-import { useState, useEffect, useReducer } from "react";
+import { useState, useEffect, useReducer, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import {
@@ -12,6 +12,8 @@ import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
 import { getPlatformLogo, getFaviconUrl } from "../assets/platforms";
 import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
+import { PlatformCard, type PlatformCardActions } from "../components/platforms/PlatformCard";
+import { usePlatformCards, computeQuotaDisplay } from "../components/platforms/usePlatformCards";
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
 
@@ -335,6 +337,30 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
   };
 
   useEffect(() => { load(); }, []);
+
+  // ── 分组展开区平台卡片：复用 PlatformCard + usePlatformCards（与 Platforms 主列表同款） ──
+  // 单实例 hook 跨所有分组共享 state（quota/usage/expanded/test 按 platformId 索引）。
+  const cards = usePlatformCards({ onNavigate });
+  // 分组卡片受控展开态（header 点击 + chevron 都驱动此 set）。
+  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
+  const toggleGroupExpanded = (id: number) => setExpandedGroups(prev => {
+    const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
+  });
+  // 分组上下文 card actions：拖拽 no-op（分组内禁拖拽）；启停/删除后 load() 刷新本地 platforms。
+  const groupCardActions = useMemo<PlatformCardActions>(() => ({
+    onPointerDown: () => {}, onPointerMove: () => {}, onPointerUp: () => {},
+    onToggleExpanded: cards.toggleExpanded,
+    onRefreshQuota: cards.refreshQuota,
+    onToggleEnabled: async (p) => { await cards.handleToggle(p); load(); },
+    onEdit: cards.handleEdit,
+    onDelete: async (id) => { await cards.handleDelete(id); load(); },
+    onViewLogs: cards.handleViewLogs,
+    onQuickTest: cards.handleQuickTest,
+    onCustomTest: cards.handleCustomTest,
+    onFaviconFailed: (id) => cards.onFaviconFailed(prev => new Set(prev).add(id)),
+    // handlers 来自 usePlatformCards 的 useCallback（稳定）；load 内联故每次重算——分组展开非热路径，可接受
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [cards, load]);
 
   // 取代理端口构造 base_url；失败保持兜底 7890。
   useEffect(() => {
@@ -826,7 +852,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
                 {/* Name + path + routing + platform count */}
                 <div
                   style={{ flex: 1, minWidth: 0, cursor: "pointer" }}
-                  onClick={() => { if (!handle.isDragging) openEdit({ group, platforms: gps, model_mappings }); }}
+                  onClick={() => { if (!handle.isDragging) toggleGroupExpanded(group.id); }}
                 >
                   <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
                     {group.name}
@@ -895,21 +921,43 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
               <div className="animate-fade-in" style={{ animationDelay: `${i * 60}ms` }}>
                 <CompactCard
                   header={header}
+                  expanded={expandedGroups.has(group.id)}
+                  onToggle={(next) => setExpandedGroups(prev => {
+                    const s = new Set(prev); next ? s.add(group.id) : s.delete(group.id); return s;
+                  })}
                   toggleLabel={t("group.toggleDetails", "展开/收起明细")}
                   style={handle.isDragging ? { opacity: 0.5 } : undefined}
                 >
                   {(
                     <div style={{ display: "flex", flexDirection: "column", gap: 10 }} onClick={e => e.stopPropagation()}>
-                      {/* Platform badges */}
-                      {gps.length > 0 && (
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                          {gps.map((g) => (
-                            <span key={g.platform.id} className="badge badge-accent">
-                              {g.platform.name}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      {/* 关联平台：完整 PlatformCard（同 Platforms 主列表），点卡片就地展开详情 */}
+                      {gps.length > 0 && (() => {
+                        const fullPlats = gps
+                          .map(gp => platforms.find(pp => pp.id === gp.platform.id))
+                          .filter((pp): pp is Platform => !!pp);
+                        return (
+                          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                            {fullPlats.map((p, idx) => (
+                              <PlatformCard
+                                key={p.id}
+                                platform={p}
+                                index={idx}
+                                isDragging={false}
+                                dragActive={false}
+                                quota={computeQuotaDisplay(p, cards.quotaMap[p.id], !!cards.quotaRealIds[p.id])}
+                                refreshing={!!cards.quotaRefreshing[p.id]}
+                                usage={cards.usageMap[p.id]}
+                                expanded={cards.expandedIds.has(p.id)}
+                                manualResult={cards.testResults[p.id]}
+                                testing={cards.testingId === p.id}
+                                faviconFailed={cards.faviconFailed.has(p.id)}
+                                actions={groupCardActions}
+                              />
+                            ))}
+                          </div>
+                        );
+                      })()}
+
 
                       {/* Model Mappings */}
                       {model_mappings.length > 0 && (

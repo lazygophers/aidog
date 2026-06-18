@@ -1,16 +1,15 @@
-import React, { useState, useEffect, useRef, useMemo, memo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail } from "../services/api";
-import { getPlatformLogo, getFaviconUrl } from "../assets/platforms";
-import { IconBolt, IconCost, IconCheck, IconClose, IconCoin, IconClock } from "../components/icons";
-import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel, levelColor, levelBg, codingTierLevel, cycleMsForTier, usageLevelToColor, type ColorLevel } from "../components/shared";
-import { formatNumber, formatCost, formatPercent } from "../utils/formatters";
+import { IconClose, IconCheck } from "../components/icons";
+import { cycleMsForTier, codingTierLevel, type ColorLevel } from "../components/shared";
 
 import { ModelTestPanel } from "./ModelTestPanel";
 import { GroupsEmbedded } from "./Groups";
 import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
 import { pinyinMatch } from "../utils/pinyin";
 import { SmartPasteModal, type SmartPasteApplyResult } from "../components/platforms/SmartPasteModal";
+import { PlatformCard, type PlatformCardActions } from "../components/platforms/PlatformCard";
 
 /** 支持的协议选项（含 coding plan 变体） */
 export type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[]; hosts?: string[] };
@@ -131,8 +130,8 @@ function defaultClientForProtocol(protocol: Protocol): ClientType {
 /** 内置平台默认端点：每个平台支持的协议及其 base URL
  * URL 为不含 adapter 路径前缀的基础地址，proxy 会拼接 adapter 路径
  * 来源：各平台官方文档 */
-type HealthStatus = "healthy" | "warning" | "error" | "unknown";
-const HEALTH_COLORS: Record<HealthStatus, string> = {
+export type HealthStatus = "healthy" | "warning" | "error" | "unknown";
+export const HEALTH_COLORS: Record<HealthStatus, string> = {
   healthy: "var(--color-success, var(--color-success))",
   warning: "var(--color-warning, #ff9500)",
   error: "var(--color-danger, #ff3b30)",
@@ -140,7 +139,7 @@ const HEALTH_COLORS: Record<HealthStatus, string> = {
 };
 
 /** 判断平台健康状态：最近 N 次请求中失败次数 */
-function healthStatus(recentTotal: number, recentFailures: number): HealthStatus {
+export function healthStatus(recentTotal: number, recentFailures: number): HealthStatus {
   if (recentTotal === 0) return "unknown";
   if (recentFailures >= recentTotal) return "error";        // 全部失败
   if (recentFailures > 0) return "warning";                  // 有失败
@@ -390,7 +389,7 @@ for (const p of PROTOCOLS) {
  *  与 getDefaultEndpoints 同址同模式：纯前端预设，落 CreatePlatform.models。
  *  仅覆盖主流平台，其余留空（向后兼容，未覆盖平台 models 保持全空）。
  *  模型名取各平台当前主力型号；不确定的不硬填（避免过时/编造）。 */
-function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Partial<Record<ModelSlot, string>> {
+export function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Partial<Record<ModelSlot, string>> {
   // 默认模型截至 2026-06 核对官方发布说明；上游模型迭代月级，过时由 fetchModels 拉取覆盖；维护说明见 .claude/skills/aidog-add-platform/references/default-model.md
   const cp = !!codingPlan;
   const presets: Partial<Record<Protocol, Partial<Record<ModelSlot, string>>>> = {
@@ -556,7 +555,7 @@ function getDefaultModelList(protocol: Protocol, codingPlan?: boolean): string[]
   return lists[protocol] ? [...lists[protocol]!] : [];
 }
 
-const PROTOCOL_LABELS: Record<Protocol, string> = {
+export const PROTOCOL_LABELS: Record<Protocol, string> = {
   // ── AI 请求协议 ──
   openai: "OpenAI",
   openai_responses: "OpenAI Responses",
@@ -631,7 +630,7 @@ const PROTOCOL_LABELS: Record<Protocol, string> = {
 
 const DEFAULT_NAMES = new Set(Object.values(PROTOCOL_LABELS));
 
-const PROTOCOL_COLORS: Record<string, string> = {
+export const PROTOCOL_COLORS: Record<string, string> = {
   // ── 官方 ──
   anthropic: "#D97757",
   openai: "#10A37F",
@@ -703,7 +702,7 @@ const PROTOCOL_COLORS: Record<string, string> = {
   mock: "#8E8E93",
 };
 
-const MODEL_SLOTS: { key: ModelSlot; labelKey: string }[] = [
+export const MODEL_SLOTS: { key: ModelSlot; labelKey: string }[] = [
   { key: "default", labelKey: "platform.modelDefault" },
   { key: "sonnet", labelKey: "platform.modelSonnet" },
   { key: "opus", labelKey: "platform.modelOpus" },
@@ -712,7 +711,7 @@ const MODEL_SLOTS: { key: ModelSlot; labelKey: string }[] = [
 ];
 
 /** 从 PlatformModels 中提取所有非空值（去重） */
-function allModelValues(models: Platform["models"]): string[] {
+export function allModelValues(models: Platform["models"]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
   for (const slot of MODEL_SLOTS) {
@@ -1104,7 +1103,7 @@ function MockConfigEditor({ config, onChange }: MockConfigEditorProps) {
 
 /** 配额展示数据：合并预估(est_*)与真查(quotaMap)，优先级与原列表逻辑一致。
  *  手动刷新校准过(preferReal)→优先真值；否则有预估→预估；冷启动→真查回退。 */
-interface QuotaDisplay {
+export interface QuotaDisplay {
   estimated: boolean;
   /** 余额剩余（用于 BalanceBar）。null 表示无余额数据。 */
   balanceRemaining: number | null;
@@ -1116,7 +1115,7 @@ interface QuotaDisplay {
   hasData: boolean;
 }
 
-function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, preferRealCalibrated: boolean): QuotaDisplay {
+export function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, preferRealCalibrated: boolean): QuotaDisplay {
   const tierRemain = (utilization: number) => Math.max(0, Math.min(100, 100 - utilization));
   const preferReal = preferRealCalibrated && !!q;
   const estCoding = parseEstCodingPlan(p.est_coding_plan);
@@ -1171,7 +1170,7 @@ function computeQuotaDisplay(p: Platform, q: PlatformQuota | undefined, preferRe
 }
 
 /** coding plan 档名 → 简短标签 */
-function tierLabel(name: string): string {
+export function tierLabel(name: string): string {
   if (name === "five_hour") return "5h";
   if (name === "weekly_limit") return "week";
   if (name === "mcp_monthly") return "MCP";
@@ -1179,7 +1178,7 @@ function tierLabel(name: string): string {
 }
 
 /** ISO 8601 或 millis → 剩余时间人类可读字符串 */
-function formatResetCountdown(resetsAt: string | null): string {
+export function formatResetCountdown(resetsAt: string | null): string {
   if (!resetsAt) return "";
   const ts = new Date(resetsAt).getTime();
   if (isNaN(ts)) return "";
@@ -1204,7 +1203,7 @@ function newManualBudget(): ManualBudget {
 }
 
 /** 手动预算剩余展示数据（取剩余比例最低那条；token 单位尽力折算，缺价显 token）。 */
-interface ManualBudgetDisplay {
+export interface ManualBudgetDisplay {
   hasData: boolean;
   /** 剩余值（usd 单位为 $；token 单位为 token 数）。 */
   remaining: number;
@@ -1217,7 +1216,7 @@ interface ManualBudgetDisplay {
 }
 
 /** 从平台 manual_budgets 选「剩余比例最低」那条用于卡片展示。 */
-function computeManualBudgetDisplay(budgets: ManualBudget[] | undefined): ManualBudgetDisplay | null {
+export function computeManualBudgetDisplay(budgets: ManualBudget[] | undefined): ManualBudgetDisplay | null {
   const enabled = (budgets ?? []).filter(b => b.enabled && b.amount > 0);
   if (enabled.length === 0) return null;
   let tightest: ManualBudget | null = null;
@@ -1268,385 +1267,6 @@ function FormSection({ title, desc, action, children }: FormSectionProps) {
     </div>
   );
 }
-
-/** 平台卡片操作集合（父组件以 latest-ref 方式提供稳定引用，避免破坏 memo） */
-interface PlatformCardActions {
-  onPointerDown: (e: React.PointerEvent, index: number) => void;
-  onPointerMove: (e: React.PointerEvent) => void;
-  onPointerUp: () => void;
-  onToggleExpanded: (id: number, next: boolean) => void;
-  onRefreshQuota: (p: Platform) => void;
-  onToggleEnabled: (p: Platform) => void;
-  onEdit: (p: Platform) => void;
-  onDelete: (id: number) => void;
-  onViewLogs: (p: Platform) => void;
-  onQuickTest: (p: Platform) => void;
-  onCustomTest: (p: Platform) => void;
-  onFaviconFailed: (id: number) => void;
-}
-
-interface PlatformCardProps {
-  platform: Platform;
-  index: number;
-  isDragging: boolean;
-  dragActive: boolean;
-  quota: PlatformQuota | undefined;
-  preferReal: boolean;
-  refreshing: boolean;
-  usage: PlatformUsageStats | undefined;
-  expanded: boolean;
-  manualResult: "ok" | "fail" | undefined;
-  testing: boolean;
-  faviconFailed: boolean;
-  actions: PlatformCardActions;
-  platformMembership?: string[];  // 所属分组名称列表
-}
-
-const PlatformCard = memo(function PlatformCard({
-  platform: p,
-  index: i,
-  isDragging,
-  dragActive,
-  quota: q,
-  preferReal,
-  refreshing,
-  usage: u,
-  expanded,
-  manualResult: manual,
-  testing,
-  faviconFailed: faviconHasFailed,
-  actions,
-  platformMembership,
-}: PlatformCardProps) {
-  const { t } = useTranslation();
-  const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
-  // 已配置模型；若全空且无上游可用模型列表，回退展示该平台预设默认模型。
-  const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
-  const configuredModels = (() => {
-    const explicit = allModelValues(p.models);
-    if (explicit.length > 0) return explicit;
-    if ((p.available_models?.length ?? 0) > 0) return explicit;
-    return allModelValues(getDefaultModels(p.platform_type, hasCodingEndpoint));
-  })();
-  const quota = computeQuotaDisplay(p, q, preferReal);
-  const showQuota = p.platform_type !== "mock" && p.platform_type !== "claude_code" && quota.hasData;
-  const mb = computeManualBudgetDisplay(p.manual_budgets);  const total = u ? u.total_input_tokens + u.total_output_tokens : 0;
-  const sr = u && u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
-  const hasDetail = !!u || (p.endpoints && p.endpoints.length > 0) || configuredModels.length > 0 || quota.tiers.length > 0;
-  const health = manual
-    ? (manual === "ok" ? "healthy" : "error")
-    : u ? healthStatus(u.recent_total, u.recent_failures) : "unknown";
-  const logoSvg = getPlatformLogo(p.platform_type);
-  const favicon = !logoSvg && !faviconHasFailed ? getFaviconUrl(p) : null;
-  const getBaseUrl = (proto: Protocol, eps: PlatformEndpoint[]): string => {
-    const primary = eps.find(ep => ep.protocol === proto);
-    if (primary) return primary.base_url;
-    return eps[0]?.base_url || "";
-  };
-  return (
-                  <div
-                    data-platform-id={p.id}
-                    style={{
-                      animationDelay: `${i * 50}ms`,
-                      opacity: dragActive ? (isDragging ? 0 : 0.4) : p.enabled ? 1 : 0.5,
-                      ...(isDragging ? { height: 0, overflow: "hidden", padding: 0, margin: 0, borderWidth: 0, minHeight: 0 } : {}),
-                      transition: "opacity 150ms ease",
-                    }}
-                  >
-                  <CompactCard
-                    expanded={hasDetail ? expanded : undefined}
-                    onToggle={hasDetail ? (next) => actions.onToggleExpanded(p.id, next) : undefined}
-                    toggleLabel={t("platform.toggleDetail", "展开/收起明细")}
-                    header={(
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10, minWidth: 0 }}>
-                        {/* ── 行 1：身份 + 快操作 ── */}
-                        <div style={{ display: "flex", alignItems: "center", gap: 12, minWidth: 0 }}>
-                        {/* 拖拽把手 */}
-                        <div
-                          className={`drag-handle-inline${isDragging ? " is-active" : ""}`}
-                          style={{ cursor: "grab", color: "var(--text-tertiary)", flexShrink: 0, display: "flex", touchAction: "none" }}
-                          onPointerDown={e => actions.onPointerDown(e, i)}
-                          onPointerMove={actions.onPointerMove}
-                          onPointerUp={actions.onPointerUp}
-                          title={t("platform.dragReorder", "拖拽排序")}
-                        >
-                          <svg width="12" height="18" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
-                        </div>
-                        {/* Logo + 健康点 */}
-                        <div style={{ position: "relative", flexShrink: 0 }}>
-                          <div style={{
-                            width: 36, height: 36, borderRadius: "var(--radius-sm)",
-                            display: "flex", alignItems: "center", justifyContent: "center",
-                            background: (logoSvg || favicon) ? "transparent" : `${color}15`,
-                            border: `1px solid ${color}30`,
-                            color: color, fontSize: 12, fontWeight: 700, overflow: "hidden",
-                          }}>
-                            {logoSvg
-                              ? <img src={logoSvg} alt={p.platform_type} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
-                              : favicon
-                                ? <img src={favicon} alt={p.platform_type}
-                                    style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }}
-                                    onError={() => actions.onFaviconFailed(p.id)}
-                                  />
-                                : p.platform_type.slice(0, 2).toUpperCase()
-                            }
-                          </div>
-                          {health !== "unknown" && (
-                            <div style={{
-                              position: "absolute", top: -3, right: -3,
-                              width: 10, height: 10, borderRadius: "50%",
-                              background: HEALTH_COLORS[health],
-                              border: "2px solid var(--bg-primary)",
-                              boxShadow: `0 0 4px ${HEALTH_COLORS[health]}60`,
-                            }} />
-                          )}
-                        </div>
-                        {/* 名称 + 协议·base_url */}
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                          <div className="text-secondary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                            {p.platform_type.toUpperCase()} · {getBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
-                          </div>
-                          {p.status === "auto_disabled" && (
-                            <div
-                              style={{
-                                marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
-                                fontSize: 10, fontWeight: 600, color: "var(--color-warning)",
-                                background: "color-mix(in srgb, var(--color-warning) 14%, transparent)",
-                                border: "1px solid color-mix(in srgb, var(--color-warning) 35%, transparent)",
-                                borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
-                              }}
-                              title={t("platform.autoDisabledHint", "401/403 自动禁用，下次试探时间 {{time}}")
-                                .replace("{{time}}", p.auto_disabled_until > 0 ? new Date(p.auto_disabled_until).toLocaleString() : "-")}
-                            >
-                              <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M12 9v4" /><path d="M12 17h.01" />
-                                <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-                              </svg>
-                              {t("platform.autoDisabled", "自动禁用")}
-                            </div>
-                          )}
-                          {/* 所属分组 badge */}
-                          {platformMembership && platformMembership.length > 0 && (
-                            <div style={{ marginTop: 3, display: "flex", gap: 4, flexWrap: "wrap" }}>
-                              {platformMembership.map(gName => (
-                                <span key={gName} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px" }}>
-                                  {gName}
-                                </span>
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                        {/* 快操作 */}
-                        <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
-                          {showQuota && (
-                            <button
-                              className="btn btn-ghost btn-icon"
-                              style={{ padding: 4, lineHeight: 0, minWidth: "auto" }}
-                              disabled={refreshing}
-                              title={t("platform.quotaRefresh", "刷新额度")}
-                              onClick={(e) => { e.stopPropagation(); actions.onRefreshQuota(p); }}
-                            >
-                              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"
-                                style={refreshing ? { animation: "spin 0.9s linear infinite" } : undefined}>
-                                <path d="M21 12a9 9 0 1 1-2.64-6.36" />
-                                <polyline points="21 3 21 9 15 9" />
-                              </svg>
-                            </button>
-                          )}
-                          <div
-                            className={`toggle ${p.status === "enabled" ? "active" : ""}`}
-                            style={{ cursor: "pointer" }}
-                            onClick={(e) => { e.stopPropagation(); actions.onToggleEnabled(p); }}
-                            title={p.status === "enabled"
-                              ? t("platform.disable", "禁用")
-                              : p.status === "auto_disabled"
-                                ? t("platform.reenable", "重新启用")
-                                : t("platform.enable", "启用")}
-                          />
-                          <div style={{ display: "inline-flex", fontSize: 11 }}>
-                            <button
-                              className="btn btn-ghost"
-                              style={{ fontSize: 11, gap: 4, padding: "3px 8px", borderRadius: "6px 0 0 6px", borderRight: "1px solid var(--border)" }}
-                              disabled={testing}
-                              onClick={(e) => { e.stopPropagation(); actions.onQuickTest(p); }}
-                              title={t("platform.quickTest", "快速测试默认模型")}
-                            >
-                              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-                                <path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z"/>
-                              </svg>
-                              {testing ? "..." : t("platform.quickTest", "快速测试")}
-                            </button>
-                            <button
-                              className="btn btn-ghost"
-                              style={{ fontSize: 11, padding: "3px 6px", borderRadius: "0 6px 6px 0" }}
-                              onClick={(e) => { e.stopPropagation(); actions.onCustomTest(p); }}
-                              title={t("platform.customTest", "自定义测试")}
-                            >
-                              <svg width="10" height="10" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M3 5l4 4 4-4" />
-                              </svg>
-                            </button>
-                          </div>
-                          <button className="btn btn-ghost btn-icon" title={t("platform.viewLogs", "查看日志")} onClick={(e) => { e.stopPropagation(); actions.onViewLogs(p); }}>
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M2 2h10v10H2z" />
-                              <path d="M4 5h6M4 7h4M4 9h5" />
-                            </svg>
-                          </button>
-                          <button className="btn btn-ghost btn-icon" onClick={(e) => { e.stopPropagation(); actions.onEdit(p); }}>
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M10 2l2 2-7 7H3v-2l7-7z" />
-                            </svg>
-                          </button>
-                          <button className="btn btn-ghost btn-icon btn-danger" onClick={(e) => { e.stopPropagation(); actions.onDelete(p.id); }}>
-                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M2 4h10M5 4V2h4v2M4 4v8a1 1 0 001 1h4a1 1 0 001-1V4" />
-                            </svg>
-                          </button>
-                        </div>
-                        </div>
-                        {/* ── 行 2：余额 / 预算 / coding tiers ── */}
-                        {showQuota && (quota.balanceRemaining != null || (mb && mb.hasData) || (quota.balanceRemaining == null && quota.tiers.length > 0)) && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingLeft: 24 }}>
-                        {/* 余额（直显，缺值不渲染）。颜色按后端 balance_level（使用速率）；
-                            neutral（无消费数据）→ undefined 回退现有 total 占比色。 */}
-                        {quota.balanceRemaining != null && (() => {
-                          const balColor = usageLevelToColor(p.balance_level);
-                          return (
-                            <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
-                              <BalanceBar remaining={quota.balanceRemaining} total={quota.balanceTotal} currency={quota.currency === "USD" ? "$" : quota.currency} level={balColor === "neutral" ? undefined : balColor} />
-                            </div>
-                          );
-                        })()}
-                        {/* 手动预算剩余（无上游 quota 平台；取最紧那条，耗尽 danger 标记）*/}
-                        {mb && mb.hasData && (
-                          <div style={{ flexShrink: 0, width: 120, display: "flex", flexDirection: "column", gap: 2 }}>
-                            {mb.unit === "usd" ? (
-                              <BalanceBar remaining={mb.remaining} total={mb.amount} currency="$" />
-                            ) : (
-                              <div style={{ display: "flex", flexDirection: "column", gap: 3, minWidth: 0 }}>
-                                <span style={{ fontWeight: 700, fontSize: 12, color: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--text-primary)" }}>
-                                  {formatNumber(Math.max(0, mb.remaining))}
-                                  <span style={{ fontSize: 9, color: "var(--text-tertiary)", marginLeft: 3 }}>/ {formatNumber(mb.amount)} tok</span>
-                                </span>
-                                <div style={{ height: 4, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", overflow: "hidden" }}>
-                                  <div style={{ width: `${mb.ratio * 100}%`, height: "100%", background: mb.depleted ? "var(--color-danger)" : mb.ratio < 0.2 ? "var(--color-warning)" : "var(--color-success)", borderRadius: "var(--radius-sm)", transition: "width 0.3s ease" }} />
-                                </div>
-                              </div>
-                            )}
-                            <span style={{ fontSize: 9, fontWeight: 700, color: mb.depleted ? "var(--color-danger)" : "var(--text-tertiary)" }}>
-                              {mb.depleted
-                                ? t("platform.manualBudgetDepleted", "额度耗尽")
-                                : t("platform.manualBudgetLabel", "手动预算")}
-                              {mb.unit === "token" && ` · ${t("platform.manualBudgetTokenApprox", "≈未知$")}`}
-                            </span>
-                          </div>
-                        )}
-                        {/* Coding plan tiers（无余额时展示最紧急 tier） */}
-                        {quota.balanceRemaining == null && quota.tiers.length > 0 && (
-                          <div style={{ flexShrink: 0, display: "flex", gap: 4, flexWrap: "wrap", maxWidth: 260 }}>
-                            {quota.tiers.map(tier => {
-                              const isMcp = tier.name === "mcp_monthly";
-                              const value = isMcp && tier.limit != null
-                                ? `${tier.remaining ?? 0}/${tier.limit}`
-                                : `${tier.remainPct.toFixed(0)}%`;
-                              const tierColor = levelColor(tier.level);
-                              const countdown = formatResetCountdown(tier.resetsAt);
-                              return (
-                                <span key={tier.name} style={{
-                                  display: "inline-flex", alignItems: "center", gap: 3,
-                                  padding: "2px 6px", borderRadius: "var(--radius-sm)",
-                                  fontSize: 10, fontWeight: 600,
-                                  background: tier.level === "neutral" ? "var(--bg-glass)" : levelBg(tier.level),
-                                  color: tierColor,
-                                }}>
-                                  <span style={{ fontSize: 11, fontWeight: 700 }}>{value}</span>
-                                  <span style={{ fontSize: 9, opacity: 0.7 }}>{tierLabel(tier.name)}</span>
-                                  {countdown && <span style={{ fontSize: 8, opacity: 0.6 }}>·{countdown}</span>}
-                                </span>
-                              );
-                            })}
-                          </div>
-                        )}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  >
-                    {hasDetail && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                        {/* 已使用统计（色编码，点击展开后才见） */}
-                        {u && (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              <StatChip icon={<IconBolt size={13} />} value={formatNumber(total)} label="tokens" />
-                              <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
-                              <StatChip icon={<IconCheck size={13} />} value={formatPercent(sr)} label="ok" level={successRateLevel(sr, u.total_requests)} />
-                            </div>
-                          </div>
-                        )}
-                        {/* 配额各档明细（coding plan tiers，色编码） */}
-                        {showQuota && quota.tiers.length > 0 && (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.quotaLabel", "额度")}</span>
-                            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                              {quota.tiers.map(tier => {
-                                const countdown = formatResetCountdown(tier.resetsAt);
-                                const value = tier.name === "mcp_monthly" && tier.limit != null
-                                  ? `${tier.remaining ?? 0}/${tier.limit}`
-                                  : `${tier.remainPct.toFixed(0)}%`;
-                                return (
-                                  <div key={tier.name} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                                    <StatChip icon={<IconCoin size={13} />}
-                                      value={value}
-                                      label={tierLabel(tier.name)}
-                                      level={tier.level} />
-                                    {countdown && (
-                                      <span className="text-tertiary" style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 600, paddingLeft: 2 }}>
-                                        <IconClock size={11} />
-                                        {t("platform.resetIn", "重置 {{countdown}}", { countdown })}
-                                      </span>
-                                    )}
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                        {/* Endpoints badges */}
-                        {p.endpoints && p.endpoints.length > 0 && (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.endpoints", "Protocol Endpoints")}</span>
-                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                              {p.endpoints.map((ep, ei) => (
-                                <span key={ei} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px", opacity: 0.85 }}>
-                                  {PROTOCOL_LABELS[ep.protocol] || ep.protocol}
-                                  {ep.coding_plan && <span style={{ color: "var(--color-success)", marginLeft: 2, fontWeight: 700 }}>Code</span>}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                        {/* 模型 badges */}
-                        {configuredModels.length > 0 && (
-                          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                            <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.models")}</span>
-                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-                              {configuredModels.map((m, mi) => (
-                                <span key={mi} className="badge badge-muted" style={{ fontSize: 11, padding: "2px 6px" }}>{m}</span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </CompactCard>
-                  </div>
-  );
-});
 
 export function Platforms({ onNavigate }: { onNavigate?: (id: string, context?: { platformId?: number; platformName?: string }) => void }) {
   const { t } = useTranslation();
@@ -3057,8 +2677,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   index={i}
                   isDragging={isDragging}
                   dragActive={!!platDrag}
-                  quota={quotaMap[p.id]}
-                  preferReal={!!quotaRealIds[p.id]}
+                  quota={computeQuotaDisplay(p, quotaMap[p.id], !!quotaRealIds[p.id])}
                   refreshing={!!quotaRefreshing[p.id]}
                   usage={usageMap[p.id]}
                   expanded={expandedIds.has(p.id)}
