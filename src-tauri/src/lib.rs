@@ -399,6 +399,13 @@ async fn popover_platform_today(db: State<'_, Db>) -> Result<Vec<db::TodayPlatfo
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn group_create(input: CreateGroup, db: State<'_, Db>, app: tauri::AppHandle) -> Result<Group, String> {
     tracing::debug!(command = "group_create", name = %input.name, "command invoked");
+    // group_key 校验：用户提供时只允许 [A-Za-z0-9_-] 且非空；None 则 db.rs 自动生成。
+    if let Some(gk) = &input.group_key {
+        let gk = gk.trim();
+        if gk.is_empty() || !gk.chars().all(|c| c.is_ascii_alphanumeric() || c == '_' || c == '-') {
+            return Err("group_key 只允许英文、数字、下划线、中划线，且不能为空".into());
+        }
+    }
     // name 保持原样支持任意 Unicode（含中文），group_key 由 db.rs 自动生成或用户提供
     let result = db::create_group(&db, input).await
         .map_err(|e| { tracing::error!(command = "group_create", error = %e, "create group failed"); e })?;

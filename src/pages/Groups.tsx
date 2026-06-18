@@ -886,7 +886,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
             {t("group.nameHint", "分组显示名（中文可读），用于界面展示。")}
           </div>
           <input className="input" placeholder={t("group.groupKey", "分组密钥（留空自动生成）")} value={cGroupKey}
-            onChange={(e) => setCGroupKey(e.target.value)} />
+            onChange={(e) => setCGroupKey(e.target.value.replace(/[^\w-]/g, ""))} />
           <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: -4 }}>
             {t("group.groupKeyHint", "分组密钥（= API Key / 路由识别键）。留空自动生成；创建后锁定不可修改。")}
           </div>
