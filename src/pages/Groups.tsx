@@ -214,7 +214,7 @@ function CopyButton({ text, title, label, icon, size = 14 }: { text: string; tit
       title={title || text}
       style={{ position: "relative", flexShrink: 0, gap: hasContent ? 5 : 0, fontSize: hasContent ? 12 : undefined, padding: hasContent ? "4px 10px" : undefined }}
     >
-      {copied ? (
+      {icon ? icon : copied ? (
         <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
           <path d="M20 6L9 17l-5-5" />
         </svg>
@@ -224,7 +224,7 @@ function CopyButton({ text, title, label, icon, size = 14 }: { text: string; tit
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
         </svg>
       )}
-      {icon ? icon : (label && <span style={{ fontWeight: 500 }}>{label}</span>)}
+      {!icon && label && <span style={{ fontWeight: 500 }}>{label}</span>}
     </button>
   );
 }
