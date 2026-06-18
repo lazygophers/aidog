@@ -105,7 +105,7 @@ const EMPTY_EDIT: EditState = {
   mappings: [],
   reqTimeout: 0,
   connTimeout: 0,
-  maxRetries: 2,
+  maxRetries: 10,
 };
 
 type EditAction =
@@ -299,7 +299,7 @@ export function Groups({ onNavigate }: { onNavigate?: (id: string, context?: { g
   const [showCreate, setShowCreate] = useState(false);
   const [cName, setCName] = useState("");
   const [cGroupKey, setCGroupKey] = useState("");
-  const [cMode, setCMode] = useState<RoutingMode>("failover");
+  const [cMode, setCMode] = useState<RoutingMode>("health_aware");
 
   // Mapping form (for quick add in list view)
   const [mappingGroupId, setMappingGroupId] = useState<number | null>(null);

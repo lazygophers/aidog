@@ -571,7 +571,7 @@ pub struct Group {
 }
 
 fn default_source_protocol() -> String { "anthropic".to_string() }
-fn default_max_retries() -> u32 { 2 }
+fn default_max_retries() -> u32 { 10 }
 
 #[derive(Debug, Deserialize)]
 pub struct CreateGroup {
@@ -1632,9 +1632,9 @@ pub struct SchedulingBreakerSettings {
     pub enabled: bool,
 }
 
-fn default_routing_mode_str() -> String { "load_balance".to_string() }
+fn default_routing_mode_str() -> String { "health_aware".to_string() }
 fn default_breaker_failure_threshold() -> u32 { 5 }
-fn default_breaker_open_secs() -> u64 { 1800 }
+fn default_breaker_open_secs() -> u64 { 60 }
 fn default_breaker_half_open_max() -> u32 { 2 }
 
 impl Default for SchedulingBreakerSettings {

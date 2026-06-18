@@ -16,9 +16,9 @@ import {
 const ROUTING_MODES: RoutingMode[] = ["failover", "load_balance", "health_aware", "least_latency", "sticky"];
 
 const DEFAULT_SETTINGS: SchedulingBreakerSettings = {
-  default_routing_mode: "load_balance",
+  default_routing_mode: "health_aware",
   breaker_failure_threshold: 5,
-  breaker_open_secs: 1800,
+  breaker_open_secs: 60,
   breaker_half_open_max: 2,
   enabled: true,
 };
