@@ -1849,19 +1849,22 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setShowForm(true);
   };
 
-  /** 构建平台归属映射（platformId → groupNames[]），复用已加载的 groupDetails */
-  const refreshPlatformMembership = () => {
-    const membership = new Map<number, string[]>();
-    for (const g of groupDetails) {
-      for (const gp of g.platforms) {
-        const pid = gp.platform.id;
-        if (!membership.has(pid)) {
-          membership.set(pid, []);
+  /** 分组变更时刷新平台归属映射：refetch groupDetails 后重建 membership */
+  const handleGroupsChanged = async () => {
+    try {
+      const gd = await groupDetailApi.list();
+      setGroupDetails(gd);
+      // 就地重建 membership（避免依赖异步 setGroupDetails）
+      const m = new Map<number, string[]>();
+      for (const g of gd) {
+        for (const gp of g.platforms) {
+          const arr = m.get(gp.platform.id) ?? [];
+          arr.push(g.group.name);
+          m.set(gp.platform.id, arr);
         }
-        membership.get(pid)!.push(g.group.name);
       }
-    }
-    setPlatformMembership(membership);
+      setPlatformMembership(m);
+    } catch { /* ignore */ }
   };
 
   const load = async () => {
@@ -1919,9 +1922,6 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   useEffect(() => {
     groupDetailApi.list().then(setGroupDetails).catch(() => {});
   }, []);
-
-  // groupDetails 变化时刷新平台归属映射
-  useEffect(() => { refreshPlatformMembership(); }, [groupDetails]);
 
   // 全局调度+熔断默认（展示「继承默认 N」用），读失败不阻断编辑。
   useEffect(() => {
@@ -3011,7 +3011,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       </div>
 
       {/* 分组段（内嵌） */}
-      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={refreshPlatformMembership} />
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} />
 
       {/* 分隔线 */}
       <div style={{ height: 1, background: "var(--border)", margin: "0 0 10px 0" }} />

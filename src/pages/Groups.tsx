@@ -988,8 +988,3 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged }: {
     </div>
   );
 }
-
-/** 薄壳：保留 Groups 命名导出（兼容潜在引用，若无外部引用可删） */
-export function Groups(props: { onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string }) => void }) {
-  return <GroupsEmbedded {...props} />;
-}
