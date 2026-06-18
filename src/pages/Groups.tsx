@@ -152,14 +152,30 @@ function GroupTestPanel({ groupName, rows, running, onClose, t }: {
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {rows.map(r => (
             <div key={r.platformId} style={{
-              display: "flex", alignItems: "center", gap: 10, padding: "6px 8px",
+              display: "flex", flexDirection: "column", gap: 4, padding: "6px 8px",
               borderRadius: "var(--radius-sm)", background: "var(--bg-glass)",
+              borderLeft: r.status === "ok"
+                ? "3px solid var(--success)"
+                : r.status === "fail" ? "3px solid var(--danger)" : "3px solid transparent",
             }}>
-              <span style={{
-                fontSize: 13, flex: 1, minWidth: 0,
-                overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-              }}>{r.name}</span>
-              <span style={statusStyle(r.status)} title={r.error}>{statusText(r)}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <span style={{
+                  fontSize: 13, flex: 1, minWidth: 0,
+                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                }}>{r.name}</span>
+                <span style={statusStyle(r.status)}>{statusText(r)}</span>
+              </div>
+              {r.status === "fail" && r.error && (
+                <div
+                  title={r.error}
+                  style={{
+                    fontSize: 11, color: "var(--danger)",
+                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}
+                >
+                  {r.error}
+                </div>
+              )}
             </div>
           ))}
         </div>
