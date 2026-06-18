@@ -1286,6 +1286,17 @@ async fn handle_proxy_inner(
         log.upstream_response_headers = Value::Object(h).to_string();
     }
 
+    // ── 流式判定以实际上游响应为准：请求 body 的 stream 字段与上游响应 content-type 取并。
+    //   中转站常对未声明 stream 的请求强制以 text/event-stream 响应；若仅凭请求字段会误判为
+    //   非流式，进而用 JSON 解析 SSE 文本拿不到 usage → token/est_cost 全为 0。此处纠偏，
+    //   使任何 SSE 响应都走流式 token 聚合路径。OR 语义保证既有正常流式路径不回归。──
+    let upstream_ct = upstream_resp_headers
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    let is_stream = resolve_is_stream(is_stream, upstream_ct);
+    log.is_stream = is_stream;
+
     if !status.is_success() {
         let body = resp.text().await.unwrap_or_default();
         let duration_ms = start.elapsed().as_millis() as i64;
@@ -2948,6 +2959,13 @@ fn accumulate_sse_usage(
 }
 
 /// Extract input/output/cache tokens from non-stream response JSON
+/// 流式判定：请求 body 的 stream 字段与上游响应 content-type 取并。
+/// 中转站常对未声明 stream 的请求强制以 `text/event-stream` 响应；仅凭请求字段会误判为非流式，
+/// 进而用 JSON 解析 SSE 文本拿不到 usage → token/est_cost 全为 0。OR 语义保证既有流式路径不回归。
+fn resolve_is_stream(req_stream: bool, upstream_content_type: &str) -> bool {
+    req_stream || upstream_content_type.contains("text/event-stream")
+}
+
 fn extract_usage(body: &str) -> (i32, i32, i32) {
     let v: Value = match serde_json::from_str(body) {
         Ok(v) => v,
@@ -3431,6 +3449,27 @@ mod tests {
     }
     fn count_of(out: &[(axum::http::HeaderName, axum::http::HeaderValue)], name: &str) -> usize {
         out.iter().filter(|(n, _)| n.as_str().eq_ignore_ascii_case(name)).count()
+    }
+
+    #[test]
+    fn is_stream_request_false_but_upstream_sse() {
+        // 中转站对未声明 stream 的请求强制以 SSE 响应 → 必须判为流式（修复账目零 token bug）。
+        assert!(resolve_is_stream(false, "text/event-stream"));
+        assert!(resolve_is_stream(false, "text/event-stream; charset=utf-8"));
+    }
+
+    #[test]
+    fn is_stream_request_true_kept() {
+        // 既有正常流式路径不回归。
+        assert!(resolve_is_stream(true, "application/json"));
+        assert!(resolve_is_stream(true, "text/event-stream"));
+    }
+
+    #[test]
+    fn is_stream_non_stream_json() {
+        // 非流式 JSON 响应保持非流式（走 JSON usage 解析路径）。
+        assert!(!resolve_is_stream(false, "application/json"));
+        assert!(!resolve_is_stream(false, ""));
     }
 
     #[test]
