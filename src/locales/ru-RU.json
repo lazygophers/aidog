@@ -1530,5 +1530,6 @@
   "updater.releaseNotes": "Что нового",
   "updater.updateFailed": "Ошибка обновления",
   "updater.updateNow": "Обновить сейчас",
-  "updater.updating": "Обновление…"
+  "updater.updating": "Обновление…",
+  "group.dragPlatform": "Перетащите для сортировки / переместить в другую группу"
 }

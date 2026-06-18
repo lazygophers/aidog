@@ -577,6 +577,14 @@ export const groupDetailApi = {
     invoke<GroupDetail | null>("group_detail", { id }),
 
   list: () => invoke<GroupDetail[]>("group_detail_list"),
+
+  /** 分组内平台拖拽排序：orderedIds 按序赋 priority 1,2,3… */
+  reorderPlatforms: (groupId: number, orderedIds: number[]) =>
+    invoke<void>("group_platform_reorder", { groupId, orderedIds }),
+
+  /** 跨分组移动平台：从 from 组移除、加入 to 组 */
+  movePlatform: (platformId: number, fromGroupId: number, toGroupId: number) =>
+    invoke<void>("group_platform_move", { platformId, fromGroupId, toGroupId }),
 };
 
 // ─── Proxy API ─────────────────────────────────────────────

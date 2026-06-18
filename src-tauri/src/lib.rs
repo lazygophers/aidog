@@ -489,6 +489,37 @@ async fn group_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>, app: tauri::App
     Ok(())
 }
 
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn group_platform_reorder(
+    group_id: u64,
+    ordered_ids: Vec<u64>,
+    db: State<'_, Db>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    tracing::debug!(command = "group_platform_reorder", group_id, count = ordered_ids.len(), "command invoked");
+    db::reorder_group_platforms(&db, group_id, &ordered_ids).await
+        .map_err(|e| { tracing::error!(command = "group_platform_reorder", error = %e, "reorder group platforms failed"); e })?;
+    try_sync_settings(&app, &db).await;
+    Ok(())
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn group_platform_move(
+    platform_id: u64,
+    from_group_id: u64,
+    to_group_id: u64,
+    db: State<'_, Db>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    tracing::debug!(command = "group_platform_move", platform_id, from_group_id, to_group_id, "command invoked");
+    db::move_group_platform(&db, platform_id, from_group_id, to_group_id).await
+        .map_err(|e| { tracing::error!(command = "group_platform_move", error = %e, "move group platform failed"); e })?;
+    try_sync_settings(&app, &db).await;
+    Ok(())
+}
+
 // ─── Proxy Commands ────────────────────────────────────────
 
 use std::sync::Mutex as StdMutex;
@@ -3737,6 +3768,8 @@ pub fn run() {
             group_detail,
             group_detail_list,
             group_reorder,
+            group_platform_reorder,
+            group_platform_move,
             // Proxy
             proxy_start,
             proxy_stop,
