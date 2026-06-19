@@ -837,9 +837,12 @@ async fn model_test(
     let base_url = target_base_url.trim_end_matches('/');
     let url = format!("{}{}", base_url, api_path);
 
+    // OpenCode Zen api_key 兜底（与 proxy.rs 路径对齐，model-test proxy parity）。
+    let eff_api_key = gateway::proxy::resolve_opencode_zen_key(&platform);
+
     // ── 使用与 proxy 相同的客户端 header 模拟逻辑 ──
     // model_test 无入站请求头（平台测试），传空 HeaderMap —— 仅 apply 模拟头，无透传。
-    let upstream_headers = gateway::proxy::build_upstream_headers(&client_type, &target_protocol, &platform.api_key, &axum::http::HeaderMap::new());
+    let upstream_headers = gateway::proxy::build_upstream_headers(&client_type, &target_protocol, &eff_api_key, &axum::http::HeaderMap::new());
 
     let db_arc = Arc::new(db.inner().clone());
     let client = gateway::http_client::build_http_client(
@@ -854,7 +857,7 @@ async fn model_test(
         .post(&url)
         .header("Content-Type", "application/json")
         .body(req_body_str.clone());
-    let req_builder = gateway::proxy::apply_client_headers(req_builder, &client_type, &target_protocol, &platform.api_key);
+    let req_builder = gateway::proxy::apply_client_headers(req_builder, &client_type, &target_protocol, &eff_api_key);
 
     // ── 辅助: 构造测试日志 ──
     let make_log = |body_override: &str, upstream_status: i32, user_status: i32,
