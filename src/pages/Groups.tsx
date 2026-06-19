@@ -16,6 +16,7 @@ import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
 import { getPlatformLogo, getFaviconUrl } from "../assets/platforms";
 import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
+import { ModelTestPanel } from "./ModelTestPanel";
 import { PlatformCard, type PlatformCardActions } from "../components/platforms/PlatformCard";
 import { usePlatformCards, computeQuotaDisplay } from "../components/platforms/usePlatformCards";
 
@@ -1385,6 +1386,24 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                 </CompactCard>
               </div>
             );
+            }}
+          />
+        </div>
+      )}
+
+      {/* 自定义测试弹窗（与 Platforms 主列表同款；handleCustomTest → testingPlatform） */}
+      {cards.testingPlatform !== null && (
+        <div style={{
+          position: "fixed", inset: 0, zIndex: 1000,
+          background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <ModelTestPanel
+            platform={cards.testingPlatform}
+            onClose={() => cards.setTestingPlatform(null)}
+            onResult={(success) => {
+              const tp = cards.testingPlatform;
+              if (tp) cards.setTestResults(prev => ({ ...prev, [tp.id]: success ? "ok" : "fail" }));
             }}
           />
         </div>
