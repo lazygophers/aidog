@@ -1652,8 +1652,22 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     let list: Platform[] = [];
     try {
       list = (await platformApi.list()) || [];
-      setPlatforms(list);
     } catch (e) { console.error(e); }
+
+    // ③⑤ quota 调度状态必须在 setPlatforms（→ DOM 提交 → IntersectionObserver 初次回调）之前同步就绪，
+    //     否则 observer 初次 fire 时 quotaWantMapRef 仍为空 → enqueueQuota 早退 → 首屏卡片 quota 永不查
+    //     （cards 已 intersecting，无后续 isIntersecting 跳变可再触发）。这是「余额/coding plan 全不展示」根因。
+    quotaQueueRef.current = [];
+    quotaScheduledRef.current = new Set();
+    const wantMap = new Map<number, Platform>();
+    const pending: Record<number, boolean> = {};
+    for (const p of list) {
+      if (platformWantsQuota(p)) { wantMap.set(p.id, p); pending[p.id] = true; }
+    }
+    quotaWantMapRef.current = wantMap;
+    setQuotaPending(pending);
+
+    setPlatforms(list);
     // 平台列表到手即渲染，余额/用量改后台渐进填充，禁止外部 quota HTTP 阻塞整页
     setLoading(false);
 
@@ -1666,17 +1680,6 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     finally {
       setUsageLoading(false);
     }
-
-    // ③⑤ 延迟档：重置 quota 调度状态，按需查平台置 pending；入队时机交给 IntersectionObserver（可视优先）。
-    quotaQueueRef.current = [];
-    quotaScheduledRef.current = new Set();
-    const wantMap = new Map<number, Platform>();
-    const pending: Record<number, boolean> = {};
-    for (const p of list) {
-      if (platformWantsQuota(p)) { wantMap.set(p.id, p); pending[p.id] = true; }
-    }
-    quotaWantMapRef.current = wantMap;
-    setQuotaPending(pending);
 
     // 平台「最近一次测试」徽章数据：并行拉取每平台最新 test 日志，有值才填（null 不填 = 不渲染徽章）
     Promise.all(list.map(p => platformApi.lastTestResult(p.id).catch(() => null)))
