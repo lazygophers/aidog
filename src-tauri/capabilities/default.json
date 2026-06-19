@@ -27,6 +27,7 @@
     "dialog:allow-open",
     "updater:default",
     "process:default",
-    "process:allow-restart"
+    "process:allow-restart",
+    "clipboard-manager:allow-read-text"
   ]
 }
