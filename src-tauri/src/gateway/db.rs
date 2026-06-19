@@ -999,7 +999,21 @@ pub async fn update_platform_quota(db: &Db, id: u64, balance: f64, coding_plan_j
 }
 
 pub async fn delete_platform(db: &Db, id: u64) -> Result<(), String> {
-    // 删除关联的自动分组
+    // ① 软删平台 + 物理清除该平台在所有分组（含手动组与 auto 组）的成员关系。
+    //    单事务保证：平台行软删与关联行清理同步，不留指向已删平台的悬空 group_platform。
+    db.0
+        .call(move |conn| {
+            let tx = conn.transaction()?;
+            tx.execute("UPDATE platform SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])?;
+            tx.execute("DELETE FROM group_platform WHERE platform_id = ?1", params![id as i64])?;
+            tx.commit()?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("delete platform: {e}"))?;
+
+    // ② 该平台的 auto 分组：移除其唯一源平台后，仅当组内再无存活平台（孤儿 auto 组）才删除。
+    //    若用户曾手动把别的平台拖进此 auto 组，则保留该组——不可因删源平台连带销毁其余成员的分组。
     let auto_group_ids: Vec<i64> = db
         .0
         .call(move |conn| {
@@ -1011,16 +1025,15 @@ pub async fn delete_platform(db: &Db, id: u64) -> Result<(), String> {
         .map_err(|e| e.to_string())?;
 
     for gid in &auto_group_ids {
-        force_delete_group(db, *gid as u64).await?;
+        // 步骤①已清掉该平台的关联行，此处直接看组内剩余存活平台数。
+        if get_group_platforms(db, *gid as u64).await?.is_empty() {
+            force_delete_group(db, *gid as u64).await?;
+        }
     }
 
-    db.0
-        .call(move |conn| {
-            conn.execute("UPDATE platform SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])?;
-            Ok(())
-        })
-        .await
-        .map_err(|e| format!("delete platform: {e}"))
+    // 关联表已变更，刷新分组缓存（force_delete_group 内部也会刷，但无组可删时这里兜底）。
+    db.invalidate_groups_cache();
+    Ok(())
 }
 
 // ─── Tray 展示（互斥单平台）─────────────────────────────────
@@ -4069,6 +4082,68 @@ mod tests {
             Ok(conn.query_row("SELECT deleted_at FROM platform WHERE id = ?1", params![pid], |r| r.get(0))?)
         }).await.unwrap();
         assert!(deleted_at > 0, "deleted_at should be set, got {deleted_at}");
+    }
+
+    // ── 删平台只清关联，不连带销毁手动组与有其他成员的 auto 组 ──
+    #[tokio::test]
+    async fn delete_platform_preserves_groups_with_other_members() {
+        let db = test_db().await;
+        let p_del = create_platform(&db, sample_platform("del-src")).await.unwrap();
+        let p_keep = create_platform(&db, sample_platform("keep")).await.unwrap();
+
+        // ① 手动组：同时含待删平台与另一存活平台。
+        let m = create_group(&db, sample_group("m-shared", vec![])).await.unwrap();
+        set_group_platforms(&db, m.id, &[
+            GroupPlatformInput { platform_id: p_del.id, priority: Some(0), weight: Some(1) },
+            GroupPlatformInput { platform_id: p_keep.id, priority: Some(1), weight: Some(1) },
+        ]).await.unwrap();
+
+        // ② p_del 的 auto 组，用户额外把 p_keep 也拖了进来。
+        let auto_g = create_group(&db, CreateGroup {
+            name: "del-src-auto".into(), group_key: Some("del-src-auto".into()),
+            routing_mode: RoutingMode::Failover, auto_from_platform: p_del.id.to_string(),
+            request_timeout_secs: 0, connect_timeout_secs: 0,
+            source_protocol: None, max_retries: 2, model_mappings: vec![],
+        }).await.unwrap();
+        set_group_platforms(&db, auto_g.id, &[
+            GroupPlatformInput { platform_id: p_del.id, priority: Some(0), weight: Some(1) },
+            GroupPlatformInput { platform_id: p_keep.id, priority: Some(1), weight: Some(1) },
+        ]).await.unwrap();
+
+        // ③ p_del 的孤儿 auto 组（仅含自己），删平台后应被清掉。
+        let auto_orphan = create_group(&db, CreateGroup {
+            name: "del-src-orphan".into(), group_key: Some("del-src-orphan".into()),
+            routing_mode: RoutingMode::Failover, auto_from_platform: p_del.id.to_string(),
+            request_timeout_secs: 0, connect_timeout_secs: 0,
+            source_protocol: None, max_retries: 2, model_mappings: vec![],
+        }).await.unwrap();
+        set_group_platforms(&db, auto_orphan.id, &[
+            GroupPlatformInput { platform_id: p_del.id, priority: Some(0), weight: Some(1) },
+        ]).await.unwrap();
+
+        delete_platform(&db, p_del.id).await.unwrap();
+
+        // 手动组仍在，仅剩存活平台，悬空关联已清除。
+        assert!(get_group(&db, m.id).await.unwrap().is_some(), "手动组不应被删");
+        let m_plats = get_group_platforms(&db, m.id).await.unwrap();
+        assert_eq!(m_plats.len(), 1, "手动组仅余存活平台");
+        assert_eq!(m_plats[0].platform.id, p_keep.id);
+
+        // 含其他成员的 auto 组保留，只剩 p_keep。
+        assert!(get_group(&db, auto_g.id).await.unwrap().is_some(), "有其他成员的 auto 组不应被删");
+        let a_plats = get_group_platforms(&db, auto_g.id).await.unwrap();
+        assert_eq!(a_plats.len(), 1);
+        assert_eq!(a_plats[0].platform.id, p_keep.id);
+
+        // 孤儿 auto 组（删后无成员）被删。
+        assert!(get_group(&db, auto_orphan.id).await.unwrap().is_none(), "孤儿 auto 组应被删");
+
+        // 全表无指向已删平台的关联残留。
+        let pid = p_del.id as i64;
+        let stale: i64 = db.0.call(move |conn| {
+            Ok(conn.query_row("SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1", params![pid], |r| r.get(0))?)
+        }).await.unwrap();
+        assert_eq!(stale, 0, "不应残留指向已删平台的 group_platform 行");
     }
 
     // ── R10 禁 NULL：未提供 extra 时为空串而非 NULL ──
