@@ -28,6 +28,7 @@ import { useApp } from "../../context/AppContext";
 import { SectionIcon } from "./editors";
 import { IconCheck } from "../icons";
 import { CcSwitchImportSection } from "./CcSwitchImport";
+import { Sub2ApiImportSection } from "./Sub2ApiImport";
 import { StatChip } from "../shared/StatChip";
 import type { ColorLevel } from "../shared/colorScale";
 
@@ -296,6 +297,9 @@ export function ImportExportTab() {
 
       {/* ── 从 cc-switch 导入区（异源单向，仅 claude + codex provider）── */}
       <CcSwitchImportSection onReport={(r) => { setReport(r); reloadFromDB().catch(() => {}); }} />
+
+      {/* ── 从 sub2api 导入区（异源单向，账号数据 JSON 双入口）── */}
+      <Sub2ApiImportSection onReport={(r) => { setReport(r); reloadFromDB().catch(() => {}); }} />
 
       <ScheduledBackupSection />
 
