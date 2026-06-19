@@ -1,6 +1,6 @@
 import React, { memo } from "react";
 import { useTranslation } from "react-i18next";
-import type { Platform, Protocol, PlatformUsageStats } from "../../services/api";
+import type { Platform, Protocol, PlatformUsageStats, LastTestResult } from "../../services/api";
 import { getPlatformLogo, getFaviconUrl } from "../../assets/platforms";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel, usageLevelToColor } from "../shared";
 import { formatNumber, formatCost, formatPercent } from "../../utils/formatters";
@@ -49,6 +49,8 @@ export interface PlatformCardProps {
   platformMembership?: string[];
   /** 是否显示拖拽把手（默认 true；分组展开区等只读场景传 false） */
   draggable?: boolean;
+  /** 最近一次测试结果（来自 proxy_log source_protocol='test' 最新一条）；undefined/无记录不渲染徽章 */
+  lastTest?: LastTestResult;
 }
 
 // ── PlatformCard 组件 ──
@@ -70,6 +72,7 @@ export const PlatformCard = memo(function PlatformCard({
   actions,
   platformMembership,
   draggable = true,
+  lastTest,
 }: PlatformCardProps) {
   const { t } = useTranslation();
   const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
@@ -194,6 +197,8 @@ export const PlatformCard = memo(function PlatformCard({
                     ))}
                   </div>
                 )}
+                {/* 最近一次测试结果徽章（常驻；无记录不渲染） */}
+                {lastTest && <LastTestBadge result={lastTest} />}
               </div>
               {/* 快操作 */}
               <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>
@@ -421,3 +426,49 @@ export const PlatformCard = memo(function PlatformCard({
     </div>
   );
 });
+
+// ── 最近一次测试徽章 ──
+
+/** 毫秒 epoch → 相对时间文案（刚刚 / N 分钟前 / N 小时前 / N 天前）。 */
+function relativeTime(createdMs: number, now: number = Date.now()): string {
+  const diff = Math.max(0, now - createdMs);
+  const sec = Math.floor(diff / 1000);
+  if (sec < 60) return "";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h`;
+  const day = Math.floor(hr / 24);
+  return `${day}d`;
+}
+
+function LastTestBadge({ result }: { result: LastTestResult }) {
+  const { t } = useTranslation();
+  const ok = result.success;
+  const color = ok ? "var(--color-success)" : "var(--color-danger)";
+  const rel = relativeTime(result.created_at);
+  const errorText = !ok && result.error ? result.error.slice(0, 30) : "";
+  return (
+    <div style={{
+      marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
+      fontSize: 10, fontWeight: 600, color,
+      background: `color-mix(in srgb, ${color} 12%, transparent)`,
+      border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
+      borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap", maxWidth: "100%",
+    }}
+      title={ok
+        ? t("platform.lastTestOkHint", "最近测试通过 · {{time}}", { time: new Date(result.created_at).toLocaleString() })
+        : t("platform.lastTestFailHint", "最近测试失败 · {{time}}{{error}}", {
+            time: new Date(result.created_at).toLocaleString(),
+            error: result.error ? `\n${result.error}` : "",
+          })}
+    >
+      <span style={{ fontWeight: 700 }}>{ok ? "✓" : "✗"}</span>
+      {result.duration_ms > 0 && <span>{result.duration_ms}ms</span>}
+      {rel && <span style={{ opacity: 0.85 }}>· {rel}</span>}
+      {!ok && errorText && (
+        <span style={{ opacity: 0.85, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>{errorText}</span>
+      )}
+    </div>
+  );
+}

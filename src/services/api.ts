@@ -287,6 +287,18 @@ export interface PlatformUsageStats {
   total_cost: number;
 }
 
+/** 平台「最近一次测试结果」（来自 proxy_log 中 source_protocol='test' 的最新一条）。 */
+export interface LastTestResult {
+  /** status_code ∈ [200, 300) → true */
+  success: boolean;
+  status_code: number;
+  duration_ms: number;
+  /** proxy_log.created_at（毫秒 epoch） */
+  created_at: number;
+  /** 失败时取 response_body 截断 ~200 字符；成功为空串 */
+  error: string;
+}
+
 /** 从 platform.extra JSON 字符串解析 mock 配置（缺省字段回退默认值） */
 export function parseMockConfig(extra: string): MockConfig {
   if (!extra.trim()) return { ...DEFAULT_MOCK_CONFIG };
@@ -434,6 +446,10 @@ export const platformApi = {
   // 回溯不到的（未知平台）不入 map。JSON 对象键为字符串，按 number 平台 id 索引。
   usageStatsAll: () =>
     invoke<Record<number, PlatformUsageStats>>("all_platform_usage_stats"),
+
+  /** 取该平台最近一次 model_test 结果（无测试记录返回 null）。 */
+  lastTestResult: (platformId: number) =>
+    invoke<LastTestResult | null>("get_last_test_result", { platformId }),
 };
 
 /** 系统托盘 quota 展示（互斥单平台） */
