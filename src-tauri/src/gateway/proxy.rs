@@ -1502,6 +1502,27 @@ async fn handle_proxy_inner(
         log.output_tokens = output_tokens;
         log.cache_tokens = cache_tokens;
 
+        // ── 非流式跨协议响应转换 ──
+        // 流式路径靠 parse_sse→to_client_sse 转换响应格式，但非流式分支历史上**直接透传上游 body**，
+        // 致 source≠target 且非同协议透传时（如 anthropic 客户端 ↔ openai 平台），CC 收到上游原生
+        // openai chat completion JSON（含 tool_calls）而非 anthropic messages → "empty or malformed (200)"。
+        // 这里补齐：同协议透传跳过；否则按 (wire=target, client=source) 转换。返回 None 表示无需转换，透传原文。
+        let body = if !same_protocol_passthrough {
+            let upstream_json: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+            match adapter::convert_response(
+                &upstream_json,
+                target_protocol_enum,
+                &source_protocol,
+                &requested_model,
+            ) {
+                Some(converted) => serde_json::to_vec(&converted).unwrap_or_else(|_| body.to_vec()),
+                None => body.to_vec(),
+            }
+        } else {
+            body.to_vec()
+        };
+        let body = Bytes::from(body);
+
         // Replace model in response back to original if remapped
         let body = if needs_model_remap {
             replace_model_in_json(&body, &requested_model)
