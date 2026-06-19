@@ -995,6 +995,9 @@ async fn handle_proxy_inner(
 
     let actual_model = route.target_model.clone();
 
+    // OpenCode Zen：api_key 留空 → 注入匿名免费 key（$opencode）；用户填了用用户的。
+    let eff_api_key = resolve_opencode_zen_key(&route.platform);
+
     // 尝试匹配端点：按 source_protocol 查找平台是否支持对应协议的端点。
     // 先精确匹配；openai_responses 源（Codex）若无 Responses 端点，回退到 openai 端点
     // （普通 chat/completions 平台），出站经 to_openai 转换。
@@ -1205,7 +1208,7 @@ async fn handle_proxy_inner(
     // convert 路径：先铺底透传入站头（anthropic-* / x-stainless-* / x-app / session-id 等，
     // 跨协议也带，上游忽略未知头不报错），再由 apply_client_headers 覆盖 UA + auth + CT。
     // passthrough_convert_headers 已剔 hop-by-hop + auth/UA/CT（由下方覆盖），无同名多值。
-    let upstream_headers = build_upstream_headers(&client_type, target_protocol_enum, &route.platform.api_key, &orig_headers);
+    let upstream_headers = build_upstream_headers(&client_type, target_protocol_enum, &eff_api_key, &orig_headers);
 
     let mut req_builder = client
         .post(&url)
@@ -1214,7 +1217,7 @@ async fn handle_proxy_inner(
         .body(req_body_str.clone());
 
     // ── 覆盖 UA + auth（平台 api_key）──
-    req_builder = apply_client_headers(req_builder, &client_type, target_protocol_enum, &route.platform.api_key);
+    req_builder = apply_client_headers(req_builder, &client_type, target_protocol_enum, &eff_api_key);
 
     // ── 记录上游实际请求 ──
     log.upstream_request_headers = serde_json::Value::Object(
@@ -1572,7 +1575,7 @@ async fn handle_proxy_inner(
             route.platform.id,
             &route.platform.platform_type,
             route.platform.base_url.clone(),
-            route.platform.api_key.clone(),
+            eff_api_key.clone(),
             actual_model.clone(),
             input_tokens,
             output_tokens,
@@ -1686,7 +1689,7 @@ async fn handle_proxy_inner(
             platform_id: route.platform.id,
             platform_type: route.platform.platform_type.clone(),
             base_url: route.platform.base_url.clone(),
-            api_key: route.platform.api_key.clone(),
+            api_key: eff_api_key.clone(),
             model: actual_model.clone(),
             coding_plan,
         }),
@@ -2473,7 +2476,9 @@ async fn handle_models_passthrough(
     let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
     let client = super::http_client::build_http_client(&state.db, req_timeout, conn_timeout, None, None).await;
 
-    let rb = apply_models_auth(client.get(&url), &protocol, &platform.api_key);
+    // OpenCode Zen 同款兜底：/v1/models 无 auth 也能列，留空时注入 $opencode 与 chat 路径一致。
+    let models_api_key = resolve_opencode_zen_key(&platform);
+    let rb = apply_models_auth(client.get(&url), &protocol, &models_api_key);
     tracing::info!(group = %group.name, platform = %platform.name, url = %url, "models endpoint upstream request");
 
     let resp = match rb.send().await {
@@ -3490,6 +3495,27 @@ async fn resolve_group(db: &Db, token: Option<&str>) -> Option<Group> {
 
 /// 根据客户端类型和目标协议，构建模拟的 HTTP 请求头。
 /// 数据来源：GitHub 逆向分析 + claude-code-hub 参考实现
+/// OpenCode Zen 平台 api_key 解析：用户填了用用户的；留空时注入匿名免费 key `$opencode`
+/// （实测被服务端接受，与 `public` 等价走免费共享限频；裸随机串/$ 大写变体均 401）。
+/// 仅对 base_url 含 `opencode.ai/zen` 的平台生效，其余平台原样返回（空即空）。
+pub fn resolve_opencode_zen_key(platform: &super::models::Platform) -> String {
+    let is_zen = platform.base_url.to_lowercase().contains("opencode.ai/zen")
+        || platform
+            .endpoints
+            .iter()
+            .any(|ep| ep.base_url.to_lowercase().contains("opencode.ai/zen"));
+    opencode_zen_fallback(&platform.api_key, is_zen)
+}
+
+/// `resolve_opencode_zen_key` 的纯决策核（便于单测，免构造 Platform）。
+fn opencode_zen_fallback(api_key: &str, is_zen: bool) -> String {
+    if !api_key.trim().is_empty() || !is_zen {
+        api_key.to_string()
+    } else {
+        "$opencode".to_string()
+    }
+}
+
 pub fn apply_client_headers(
     req_builder: reqwest::RequestBuilder,
     client_type: &ClientType,
@@ -4268,6 +4294,24 @@ mod tests {
         assert!(m.get("x-api-key").unwrap().contains("****"), "x-api-key must be redacted platform key");
         assert!(m.get("User-Agent").unwrap().starts_with("claude-cli/"));
         assert_eq!(m.get("Content-Type"), Some(&"application/json"));
+    }
+
+    // ── OpenCode Zen api_key 兜底（决策核单测）──
+    #[test]
+    fn opencode_zen_fallback_user_key_wins() {
+        assert_eq!(opencode_zen_fallback("$realkey", true), "$realkey");
+        assert_eq!(opencode_zen_fallback("$realkey", false), "$realkey");
+    }
+
+    #[test]
+    fn opencode_zen_fallback_empty_zen_to_literal() {
+        assert_eq!(opencode_zen_fallback("", true), "$opencode");
+        assert_eq!(opencode_zen_fallback("   ", true), "$opencode");
+    }
+
+    #[test]
+    fn opencode_zen_fallback_non_zen_passthrough_empty() {
+        assert_eq!(opencode_zen_fallback("", false), "");
     }
 
     // ── 透传分支不调 convert_request（结构性确认）──
