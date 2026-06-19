@@ -161,15 +161,15 @@ export const PlatformCard = memo(function PlatformCard({
                       : p.platform_type.slice(0, 2).toUpperCase()
                   }
                 </div>
-                {health !== "unknown" && (
-                  <div style={{
-                    position: "absolute", top: -3, right: -3,
-                    width: 10, height: 10, borderRadius: "50%",
-                    background: HEALTH_COLORS[health],
-                    border: "2px solid var(--bg-primary)",
-                    boxShadow: `0 0 4px ${HEALTH_COLORS[health]}60`,
-                  }} />
-                )}
+                {/* 健康点常驻：真实请求成功率驱动（healthy 绿 / error 红 / warning 橙），
+                    无请求且未测试 → unknown 灰色中性点（脱离「必须先手动测试」前提）。 */}
+                <div style={{
+                  position: "absolute", top: -3, right: -3,
+                  width: 10, height: 10, borderRadius: "50%",
+                  background: HEALTH_COLORS[health],
+                  border: "2px solid var(--bg-primary)",
+                  boxShadow: `0 0 4px ${HEALTH_COLORS[health]}60`,
+                }} />
               </div>
               {/* 名称 + 协议·base_url */}
               <div style={{ minWidth: 0, flex: 1 }}>

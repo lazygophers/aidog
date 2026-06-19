@@ -1306,7 +1306,7 @@ pub async fn today_platform_stats(db: &Db) -> Result<Vec<TodayPlatformStat>, Str
     db.0
         .call(move |conn| {
             // 有效平台 id = COALESCE(自动分组回溯, 原 platform_id)。
-            // 自动分组日志 platform_id=0，通过 group_key → "group".auto_from_platform（十进制字符串）回溯。
+            // 自动分组日志 platform_id=0，通过 group.group_key（=proxy_log.group_key）→ auto_from_platform（十进制字符串）回溯。
             // GROUP BY 该有效 id，天然只含当日有日志（已用）的平台。
             let sql = "
                 SELECT eff_pid,
@@ -1318,7 +1318,7 @@ pub async fn today_platform_stats(db: &Db) -> Result<Vec<TodayPlatformStat>, Str
                         CASE WHEN platform_id = 0 THEN COALESCE(
                             (SELECT CAST(g.auto_from_platform AS INTEGER)
                              FROM \"group\" g
-                             WHERE g.name = proxy_log.group_key
+                             WHERE g.group_key = proxy_log.group_key
                                AND g.auto_from_platform != ''
                                AND g.deleted_at = 0
                              LIMIT 1), 0)
@@ -2982,8 +2982,9 @@ fn usage_stats(
 pub async fn get_platform_usage_stats(db: &Db, platform_id: u64) -> Result<super::models::PlatformUsageStats, String> {
     db.0
         .call(move |conn| {
-            // platform_id 现为整数；自动分组日志可能未带 platform_id（=0），通过 group.auto_from_platform（存十进制字符串）回溯
-            let where_clause = "deleted_at = 0 AND (platform_id = ?1 OR (platform_id = 0 AND group_key IN (SELECT name FROM \"group\" WHERE auto_from_platform = ?2 AND deleted_at = 0)))";
+            // platform_id 现为整数；自动分组日志可能未带 platform_id（=0），通过 group.auto_from_platform（存十进制字符串）回溯。
+            // 回溯按 group.group_key 匹配 proxy_log.group_key（gk_<hex>，非显示名 g.name；见 migration 024 / group-name-group-key-split）。
+            let where_clause = "deleted_at = 0 AND (platform_id = ?1 OR (platform_id = 0 AND group_key IN (SELECT group_key FROM \"group\" WHERE auto_from_platform = ?2 AND deleted_at = 0)))";
             let pid = platform_id as i64;
             let pid_str = platform_id.to_string();
             Ok(usage_stats(conn, where_clause, &[&pid, &pid_str])?)
@@ -3105,37 +3106,43 @@ pub async fn get_all_group_usage_stats(
 /// 必须保留 `platform_id = 0` 回溯语义（对齐 `get_platform_usage_stats` / `today_platform_stats`）：
 /// 自动分组日志 `platform_id = 0`，通过 `group_key → "group".auto_from_platform`（十进制字符串）
 /// 回溯到源平台后归并；回溯不到（auto 分组已删 / 非 auto 分组的 platform_id=0）则归 eff_pid=0。
-/// `eff_pid` 计算与 `today_platform_stats`（db.rs:1286）一致。
+/// 回溯 join 键为 `g.group_key = proxy_log.group_key`（proxy_log 存 group.group_key=gk_<hex>，
+/// 非显示名 g.name；见 migration 024 / 记忆 group-name-group-key-split）。
 ///
-/// recent_failures/recent_total/cache_rate 中 recent_* 不在批量结果内（卡片用量区不渲染近期健康，
-/// 避免每平台 5 行子查询）；cache_rate 仍按 inp/cache 算。
+/// recent_total/recent_failures 按每平台最近 5 条（created_at DESC）聚合（语义同
+/// `usage_stats` 单平台版），供平台卡片「健康点」按近期成功率配色。窗口函数 ROW_NUMBER
+/// 单查取每 eff_pid 末 5 条，避免逐平台 5 行子查询往返。cache_rate 按 inp/cache 算。
 pub async fn platform_usage_stats_all(
     db: &Db,
 ) -> Result<std::collections::HashMap<u64, super::models::PlatformUsageStats>, String> {
     db.0
         .call(move |conn| {
-            let mut stmt = conn.prepare(
+            // 公共 eff_pid 派生子查询：platform_id=0 经 group.auto_from_platform 回溯到源平台。
+            const EFF_PID_SUBQUERY: &str = "\
+                SELECT \
+                    CASE WHEN platform_id = 0 THEN COALESCE( \
+                        (SELECT CAST(g.auto_from_platform AS INTEGER) \
+                         FROM \"group\" g \
+                         WHERE g.group_key = proxy_log.group_key \
+                           AND g.auto_from_platform != '' \
+                           AND g.deleted_at = 0 \
+                         LIMIT 1), 0) \
+                    ELSE platform_id END AS eff_pid, \
+                    status_code, input_tokens, output_tokens, cache_tokens, est_cost, created_at \
+                FROM proxy_log \
+                WHERE deleted_at = 0";
+
+            // ① 全量聚合（每 eff_pid 的 total/success/tokens/cost）。
+            let totals_sql = format!(
                 "SELECT eff_pid, \
                  COUNT(*), \
                  SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
                  SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), \
                  COALESCE(SUM(est_cost), 0.0) \
-                 FROM ( \
-                     SELECT \
-                         CASE WHEN platform_id = 0 THEN COALESCE( \
-                             (SELECT CAST(g.auto_from_platform AS INTEGER) \
-                              FROM \"group\" g \
-                              WHERE g.name = proxy_log.group_key \
-                                AND g.auto_from_platform != '' \
-                                AND g.deleted_at = 0 \
-                              LIMIT 1), 0) \
-                         ELSE platform_id END AS eff_pid, \
-                         status_code, input_tokens, output_tokens, cache_tokens, est_cost \
-                     FROM proxy_log \
-                     WHERE deleted_at = 0 \
-                 ) \
-                 GROUP BY eff_pid",
-            )?;
+                 FROM ({EFF_PID_SUBQUERY}) \
+                 GROUP BY eff_pid"
+            );
+            let mut stmt = conn.prepare(&totals_sql)?;
             let rows = stmt.query_map([], |row| {
                 let eff_pid: i64 = row.get(0)?;
                 let total: i64 = row.get(1).unwrap_or(0);
@@ -3167,6 +3174,39 @@ pub async fn platform_usage_stats_all(
                 }
                 map.insert(eff_pid as u64, stats);
             }
+
+            // ② 每平台最近 5 条健康度（recent_total/recent_failures），语义同 usage_stats 单平台版。
+            // ROW_NUMBER() 按 eff_pid 分区、created_at DESC 排序，取 rn<=5。
+            let recent_sql = format!(
+                "SELECT eff_pid, \
+                 COUNT(*), \
+                 SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END) \
+                 FROM ( \
+                     SELECT eff_pid, status_code, \
+                            ROW_NUMBER() OVER (PARTITION BY eff_pid ORDER BY created_at DESC) AS rn \
+                     FROM ({EFF_PID_SUBQUERY}) \
+                 ) \
+                 WHERE rn <= 5 \
+                 GROUP BY eff_pid"
+            );
+            let mut recent_stmt = conn.prepare(&recent_sql)?;
+            let recent_rows = recent_stmt.query_map([], |row| {
+                let eff_pid: i64 = row.get(0)?;
+                let recent_total: i64 = row.get(1).unwrap_or(0);
+                let recent_failures: i64 = row.get(2).unwrap_or(0);
+                Ok((eff_pid, recent_total, recent_failures))
+            })?;
+            for r in recent_rows {
+                let (eff_pid, recent_total, recent_failures) = r?;
+                if eff_pid <= 0 {
+                    continue;
+                }
+                if let Some(stats) = map.get_mut(&(eff_pid as u64)) {
+                    stats.recent_total = recent_total;
+                    stats.recent_failures = recent_failures;
+                }
+            }
+
             Ok(map)
         })
         .await
@@ -4117,8 +4157,10 @@ mod tests {
         let db = test_db().await;
         let p1 = create_platform(&db, sample_platform("P1")).await.unwrap();
         let p2 = create_platform(&db, sample_platform("P2")).await.unwrap();
-        // 自动分组：group_key=auto_p1，auto_from_platform=p1.id（十进制字符串）。
+        // 自动分组：显示名 name=auto_p1，路由/归属键 group_key=gk_auto_p1（刻意 ≠ name，
+        // 复刻真实 gk_<hex> 场景，防回归 join 误用 g.name），auto_from_platform=p1.id（十进制字符串）。
         let mut g = sample_group("auto_p1", vec![]);
+        g.group_key = Some("gk_auto_p1".to_string());
         g.auto_from_platform = p1.id.to_string();
         create_group(&db, g).await.unwrap();
 
@@ -4141,8 +4183,8 @@ mod tests {
         a2.est_cost = 0.0;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a2, false, false)).await.unwrap();
 
-        // platform_id=0 自动分组日志，group_key=auto_p1 → 回溯归 p1。
-        let mut a0 = sample_log("a0", "auto_p1", now);
+        // platform_id=0 自动分组日志，group_key=gk_auto_p1（= group.group_key，≠ name）→ 回溯归 p1。
+        let mut a0 = sample_log("a0", "gk_auto_p1", now);
         a0.platform_id = 0;
         a0.status_code = 200;
         a0.input_tokens = 100;
@@ -4179,6 +4221,9 @@ mod tests {
             assert_eq!(b.total_cache_tokens, single.total_cache_tokens, "pid {pid} cache");
             assert!((b.total_cost - single.total_cost).abs() < 1e-9, "pid {pid} cost");
             assert!((b.cache_rate - single.cache_rate).abs() < 1e-9, "pid {pid} cache_rate");
+            // recent_* 必须与单平台版一致（批量补齐近期健康度，供平台卡片健康点配色）。
+            assert_eq!(b.recent_total, single.recent_total, "pid {pid} recent_total");
+            assert_eq!(b.recent_failures, single.recent_failures, "pid {pid} recent_failures");
         }
 
         // p1 含回溯日志：total=3（a1+a2+a0），success=2，input=117。
@@ -4186,6 +4231,10 @@ mod tests {
         assert_eq!(p1b.total_requests, 3, "p1 含 platform_id=0 回溯归属");
         assert_eq!(p1b.success_count, 2);
         assert_eq!(p1b.total_input_tokens, 117);
+        // p1 近期 3 条（a1 200 / a2 500 / a0 200）：recent_total=3，recent_failures=1（a2）。
+        // 非恒 0 → 平台卡片健康点恢复（healthStatus(3,1)=warning）。
+        assert_eq!(p1b.recent_total, 3, "p1 recent_total 应非 0（健康点回归）");
+        assert_eq!(p1b.recent_failures, 1, "p1 recent_failures（a2 500）");
 
         // 孤儿日志（est_cost=0.99）不得归任何平台 → 平台合计 cost 不含 0.99。
         let summed: f64 = batch.values().map(|s| s.total_cost).sum();
