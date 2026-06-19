@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
   modelTestApi,
@@ -92,9 +93,10 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
 
   const needsModelSelect = mode === "single" || mode === "batch" || mode === "custom";
 
-  return (
+  return createPortal((
     <div style={{
       position: "fixed", inset: 0, background: "rgba(0,0,0,0.4)", zIndex: 100,
+      backdropFilter: "blur(4px)",
       display: "flex", alignItems: "center", justifyContent: "center",
     }} onClick={onClose}>
       <div className="glass-elevated" style={{
@@ -177,5 +179,5 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
         )}
       </div>
     </div>
-  );
+  ), document.body);
 }
