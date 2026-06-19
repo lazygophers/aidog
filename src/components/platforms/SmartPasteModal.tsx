@@ -5,6 +5,7 @@
 import { type CSSProperties, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { readText } from "@tauri-apps/plugin-clipboard-manager";
 import {
   parsePlatformPaste,
   type PastePresetRef,
@@ -42,6 +43,24 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
   const [selUrl, setSelUrl] = useState("");
 
   const parsed = useMemo(() => parsePlatformPaste(text, presets), [text, presets]);
+
+  // 渲染完成自动读剪贴板填入（仅首次 mount 且 text 空；失败静默兜底手动粘贴）。
+  // 走 Tauri 插件非 navigator.clipboard：macOS WKWebView 无手势激活时 navigator API 被拒静默失败，
+  // 而 Tauri Rust 侧 read_text 走权限系统无需手势，可靠。
+  useEffect(() => {
+    let cancelled = false;
+    readText()
+      .then((clip) => {
+        if (!cancelled && clip && clip.trim() && text === "") setText(clip);
+      })
+      .catch(() => {
+        /* 权限不足 / 无剪贴板 → 静默，手动粘贴兜底 */
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // 默认选中首个候选（解析结果变化时重置）
   useEffect(() => {
