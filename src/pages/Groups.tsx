@@ -1543,22 +1543,17 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
         </div>
       )}
 
-      {/* 自定义测试弹窗（与 Platforms 主列表同款；handleCustomTest → testingPlatform） */}
+      {/* 自定义测试弹窗（与 Platforms 主列表同款；handleCustomTest → testingPlatform）
+          ModelTestPanel 自带 overlay 且经 createPortal 挂 body, 此处不再包外层遮罩。 */}
       {cards.testingPlatform !== null && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 1000,
-          background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <ModelTestPanel
-            platform={cards.testingPlatform}
-            onClose={() => cards.setTestingPlatform(null)}
-            onResult={(success) => {
-              const tp = cards.testingPlatform;
-              if (tp) cards.setTestResults(prev => ({ ...prev, [tp.id]: success ? "ok" : "fail" }));
-            }}
-          />
-        </div>
+        <ModelTestPanel
+          platform={cards.testingPlatform}
+          onClose={() => cards.setTestingPlatform(null)}
+          onResult={(success) => {
+            const tp = cards.testingPlatform;
+            if (tp) cards.setTestResults(prev => ({ ...prev, [tp.id]: success ? "ok" : "fail" }));
+          }}
+        />
       )}
 
       {/* 删平台确认弹窗：仅当平台只属本组（删除即销毁平台，破坏性）时出现。

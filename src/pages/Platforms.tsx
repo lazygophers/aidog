@@ -2878,19 +2878,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       </>)}
     </div>
 
-      {/* Custom test overlay */}
+      {/* Custom test overlay — ModelTestPanel 自带 overlay 且经 createPortal 挂 body, 此处不再包外层遮罩。 */}
       {testingPlatform !== null && (
-        <div style={{
-          position: "fixed", inset: 0, zIndex: 1000,
-          background: "rgba(0,0,0,0.4)", backdropFilter: "blur(4px)",
-          display: "flex", alignItems: "center", justifyContent: "center",
-        }}>
-          <ModelTestPanel
-            platform={testingPlatform as Platform}
-            onClose={() => setTestingPlatform(null)}
-            onResult={(success) => { if (testingPlatform) setTestResults(prev => ({ ...prev, [testingPlatform.id]: success ? "ok" : "fail" })); }}
-          />
-        </div>
+        <ModelTestPanel
+          platform={testingPlatform as Platform}
+          onClose={() => setTestingPlatform(null)}
+          onResult={(success) => { if (testingPlatform) setTestResults(prev => ({ ...prev, [testingPlatform.id]: success ? "ok" : "fail" })); }}
+        />
       )}
 
       {/* Test result toast — Portal 到 body, 脱离页面 transform 祖先(animate-fade-in 等)确保 fixed 相对窗口顶部 */}
