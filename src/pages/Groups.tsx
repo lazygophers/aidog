@@ -470,7 +470,7 @@ async function fetchGroupStats(
 }
 
 /** 分组内嵌组件（供 Platforms 页使用） */
-export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onEditPlatform, onToast, onViewModeChange }: {
+export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onEditPlatform, onToast, onViewModeChange, openCreateGroupRef }: {
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string }) => void;
   onGroupsChanged?: () => void;
   /** 打开平台创建表单；提供 lockedGroupId = 从某分组 ➕ 触发，预绑该分组且锁定归属。 */
@@ -482,6 +482,9 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   onToast?: (toast: { text: string; ok: boolean } | null) => void;
   /** 进入/退出全屏视图态（创建/编辑分组）时通知父级，供 Platforms 页隐藏下方未分组平台列表。 */
   onViewModeChange?: (fullscreen: boolean) => void;
+  /** 父级(Platforms)页头「添加分组」按钮经此 ref 触发本组件创建弹窗（按钮已上移到 Platforms 页头）。
+   *  结构型 { current: fn | null } 免 import，与 useRef<fn|null> 兼容。 */
+  openCreateGroupRef?: { current: (() => void) | null };
 }) {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
@@ -516,6 +519,12 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
 
   // Create mode
   const [showCreate, setShowCreate] = useState(false);
+  // 父级页头「添加分组」按钮经此 ref 触发本组件创建弹窗（按钮上移到 Platforms 页）。
+  useEffect(() => {
+    if (!openCreateGroupRef) return;
+    openCreateGroupRef.current = () => setShowCreate(true);
+    return () => { openCreateGroupRef.current = null; };
+  }, [openCreateGroupRef]);
   const [cName, setCName] = useState("");
   const [cGroupKey, setCGroupKey] = useState("");
   const [cMode, setCMode] = useState<RoutingMode>("health_aware");
@@ -1326,14 +1335,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
             <CopyButton text={proxyBaseUrl} label={t("group.copyBaseUrl", "复制代理地址")}
               title={t("group.copyBaseUrlTitle", "复制代理 base_url")} />
           </div>
-          <button className="btn btn-primary" onClick={() => setShowCreate(true)}>
-            + {t("group.add")}
-          </button>
-          {onCreatePlatform && (
-            <button className="btn" onClick={() => onCreatePlatform()}>
-              + {t("platform.add", "添加平台")}
-            </button>
-          )}
         </div>
       </div>
 
