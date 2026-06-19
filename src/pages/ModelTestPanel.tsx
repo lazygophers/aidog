@@ -73,6 +73,8 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
         });
         setResults([...res]);
       }
+      // 每条测试落地（proxy_log source_protocol='test'）后派发全局事件：Platforms 页据此单卡刷新「最近测试」徽章
+      window.dispatchEvent(new CustomEvent("aidog-platform-test-completed", { detail: { platformId: platform.id } }));
     }
     setRunning(false);
     setCurrentIdx(-1);

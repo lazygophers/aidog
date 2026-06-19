@@ -1493,6 +1493,13 @@ async fn all_platform_usage_stats(db: State<'_, Db>) -> Result<std::collections:
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn get_last_test_result(platform_id: u64, db: State<'_, Db>) -> Result<Option<gateway::models::LastTestResult>, String> {
+    tracing::debug!(command = "get_last_test_result", platform_id, "command invoked");
+    gateway::db::get_last_test_result(&db, platform_id).await
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSettings, String> {
     tracing::debug!(command = "proxy_log_settings_get", "command invoked");
     let val = gateway::db::get_setting(&db, "proxy", "logging").await
@@ -4156,6 +4163,7 @@ pub fn run() {
             group_usage_stats,
             all_group_usage_stats,
             all_platform_usage_stats,
+            get_last_test_result,
             // Platform Quota
             platform_query_quota,
             platform_query_quota_newapi,

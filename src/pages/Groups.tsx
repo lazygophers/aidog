@@ -674,6 +674,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       } catch (err: any) {
         patchRow(idx, { status: "fail", durationMs: Date.now() - start, error: err?.message || t("platform.testFail", "测试失败") });
       }
+      // 单平台测完派发全局事件：Platforms 页据此单卡刷新「最近测试」徽章（不在 Groups 维护 lastTestMap）
+      window.dispatchEvent(new CustomEvent("aidog-platform-test-completed", { detail: { platformId: gp.platform.id } }));
     };
     // 有界并发：共享游标 next，启 N 个 worker，各自循环领取下一个 idx 直到耗尽。
     let next = 0;
@@ -1455,6 +1457,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                                       faviconFailed={cards.faviconFailed.has(p.id)}
                                       actions={makeGroupCardActions(group.id)}
                                       draggable={false}
+                                      lastTest={cards.lastTestMap[p.id]}
                                     />
                                   </div>
                                 </div>

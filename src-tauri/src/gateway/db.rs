@@ -2814,6 +2814,51 @@ pub async fn get_platform_usage_stats(db: &Db, platform_id: u64) -> Result<super
         .map_err(|e| format!("platform usage stats: {e}"))
 }
 
+/// 取某 platform 最近一条 `source_protocol='test'` 的 proxy_log（model_test 落日志时 platform_id 为真实 id，
+/// 无需 auto_from_platform 回溯）。返回 None 表示该平台从未测试过。
+pub async fn get_last_test_result(
+    db: &Db,
+    platform_id: u64,
+) -> Result<Option<super::models::LastTestResult>, String> {
+    db.0
+        .call(move |conn| {
+            let pid = platform_id as i64;
+            let mut stmt = conn.prepare(
+                "SELECT status_code, duration_ms, created_at, response_body \
+                 FROM proxy_log \
+                 WHERE deleted_at = 0 AND platform_id = ?1 AND source_protocol = 'test' \
+                 ORDER BY created_at DESC LIMIT 1",
+            )?;
+            let mut rows = stmt.query_map([&pid], |row| {
+                let status_code: i32 = row.get(0).unwrap_or(0);
+                let duration_ms: i32 = row.get(1).unwrap_or(0);
+                let created_at: i64 = row.get(2).unwrap_or(0);
+                let response_body: String = row.get(3).unwrap_or_default();
+                Ok((status_code, duration_ms, created_at, response_body))
+            })?;
+            match rows.next().transpose()? {
+                Some((status_code, duration_ms, created_at, response_body)) => {
+                    let success = (200..300).contains(&status_code);
+                    let error = if success {
+                        String::new()
+                    } else {
+                        response_body.chars().take(200).collect()
+                    };
+                    Ok(Some(super::models::LastTestResult {
+                        success,
+                        status_code,
+                        duration_ms,
+                        created_at,
+                        error,
+                    }))
+                }
+                None => Ok(None),
+            }
+        })
+        .await
+        .map_err(|e| format!("last test result: {e}"))
+}
+
 pub async fn get_group_usage_stats(db: &Db, group_key: &str) -> Result<super::models::PlatformUsageStats, String> {
     let group_key = group_key.to_string();
     db.0

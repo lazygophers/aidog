@@ -1,6 +1,6 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import type { Platform } from "../../services/api";
+import type { Platform, LastTestResult } from "../../services/api";
 import { platformApi, quotaApi, modelTestApi } from "../../services/api";
 import {
   computeQuotaDisplay,
@@ -34,6 +34,9 @@ interface UsePlatformCardsReturn {
   setTestingId: React.Dispatch<React.SetStateAction<number | null>>;
   testingPlatform: Platform | null;
   setTestingPlatform: React.Dispatch<React.SetStateAction<Platform | null>>;
+  lastTestMap: Record<number, LastTestResult>;
+  setLastTestMap: React.Dispatch<React.SetStateAction<Record<number, LastTestResult>>>;
+  refreshLastTest: (platformId: number) => Promise<void>;
   // Actions
   refreshQuota: (p: Platform) => Promise<void>;
   toggleExpanded: (id: number, next: boolean) => void;
@@ -69,6 +72,7 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [testingId, setTestingId] = useState<number | null>(null);
   const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
+  const [lastTestMap, setLastTestMap] = useState<Record<number, LastTestResult>>({});
 
   // 默认的 toast 设置函数
   const setToast = setToastProp ?? (() => {});
@@ -127,7 +131,31 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
     }
     setTestingId(null);
     setTimeout(() => setToast(null), 3000);
+    // 派发全局事件：跨页（Platforms/Groups/ModelTestPanel）订阅者据此单卡刷新「最近测试」徽章
+    window.dispatchEvent(new CustomEvent("aidog-platform-test-completed", { detail: { platformId: p.id } }));
   }, [t, setToast]);
+
+  // 取某平台最近一次测试日志（proxy_log source_protocol='test'），刷新 lastTestMap 对应项
+  const refreshLastTest = useCallback(async (platformId: number) => {
+    try {
+      const r = await platformApi.lastTestResult(platformId);
+      setLastTestMap(prev => {
+        const next = { ...prev };
+        if (r) next[platformId] = r; else delete next[platformId];
+        return next;
+      });
+    } catch { /* ignore */ }
+  }, []);
+
+  // 监听全局测试完成事件：单卡刷新徽章数据
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ platformId: number }>;
+      if (ce.detail?.platformId != null) refreshLastTest(ce.detail.platformId);
+    };
+    window.addEventListener("aidog-platform-test-completed", handler);
+    return () => window.removeEventListener("aidog-platform-test-completed", handler);
+  }, [refreshLastTest]);
 
   // Toggle enabled
   const handleToggle = useCallback(async (p: Platform) => {
@@ -183,6 +211,9 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
     setTestingId,
     testingPlatform,
     setTestingPlatform,
+    lastTestMap,
+    setLastTestMap,
+    refreshLastTest,
     refreshQuota,
     toggleExpanded,
     handleQuickTest,

@@ -988,6 +988,20 @@ pub struct PlatformUsageStats {
     pub total_cost: f64,
 }
 
+/// 平台「最近一次测试结果」（来自 proxy_log 中 source_protocol='test' 的最新一条）。
+/// 供 PlatformCard 常驻徽章消费：ok/fail + 耗时 + 时间。
+#[derive(Debug, Clone, Serialize)]
+pub struct LastTestResult {
+    /// status_code ∈ [200, 300) → true
+    pub success: bool,
+    pub status_code: i32,
+    pub duration_ms: i32,
+    /// proxy_log.created_at（毫秒 epoch）
+    pub created_at: i64,
+    /// 失败时取 response_body 截断 ~200 字符；成功为空串
+    pub error: String,
+}
+
 /// Summary row for list view (excludes large body fields)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProxyLogSummary {

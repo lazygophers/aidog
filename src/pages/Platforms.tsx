@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, parsePlatformBreaker, serializePlatformBreaker, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type PlatformStatus, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, parsePlatformBreaker, serializePlatformBreaker, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type PlatformStatus, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type LastTestResult, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail } from "../services/api";
 import { IconClose, IconCheck } from "../components/icons";
 import { cycleMsForTier, codingTierLevel, type ColorLevel } from "../components/shared";
 
@@ -1373,6 +1373,8 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   // ④ 渐进档 usage 批量待回标志：load 时 true，批量 usageStatsAll 到达后 false → 用量区先骨架后数据。
   const [usageLoading, setUsageLoading] = useState(false);
   const [testResults, setTestResults] = useState<Record<number, "ok" | "fail">>({});
+  // 平台「最近一次测试结果」徽章数据（proxy_log source_protocol='test' 最新一条），随 load() 拉取 + 监听 aidog-platform-test-completed 单卡刷新
+  const [lastTestMap, setLastTestMap] = useState<Record<number, LastTestResult>>({});
   // ③⑤ quota 调度：待领取队列（按可视优先顺序入队）、已调度去重集合、需查 quota 的平台快照。
   //    IntersectionObserver 决定入队时机/优先级，有界 worker pool 控并发上限。用 ref 不触发渲染。
   const quotaQueueRef = useRef<Platform[]>([]);
@@ -1675,6 +1677,17 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     }
     quotaWantMapRef.current = wantMap;
     setQuotaPending(pending);
+
+    // 平台「最近一次测试」徽章数据：并行拉取每平台最新 test 日志，有值才填（null 不填 = 不渲染徽章）
+    Promise.all(list.map(p => platformApi.lastTestResult(p.id).catch(() => null)))
+      .then(results => {
+        const map: Record<number, LastTestResult> = {};
+        results.forEach((r, i) => {
+          if (r && list[i]) map[list[i].id] = r;
+        });
+        setLastTestMap(map);
+      })
+      .catch(() => { /* ignore */ });
   };
 
   /** 轻量刷新：更新平台列表（含 est_balance/est_coding_plan）+ usage stats 批量，不拉 quota HTTP */
@@ -2044,7 +2057,31 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     }
     setTestingId(null);
     setTimeout(() => setToast(null), 3000);
+    // 派发全局事件：跨页（Groups 批量测 / ModelTestPanel 自定义）跑测后切到本页，本页卡片徽章据此即时刷新
+    window.dispatchEvent(new CustomEvent("aidog-platform-test-completed", { detail: { platformId: p.id } }));
   };
+
+  // 拉取某平台最近一次 test 日志，刷新 lastTestMap 对应项（供 aidog-platform-test-completed 监听后调用）
+  const refreshLastTest = useCallback(async (platformId: number) => {
+    try {
+      const r = await platformApi.lastTestResult(platformId);
+      setLastTestMap(prev => {
+        const next = { ...prev };
+        if (r) next[platformId] = r; else delete next[platformId];
+        return next;
+      });
+    } catch { /* ignore */ }
+  }, []);
+
+  // 监听全局测试完成事件：单卡刷新「最近测试」徽章（事件来自本页快速测 / Groups 批量测 / ModelTestPanel）
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ platformId: number }>;
+      if (ce.detail?.platformId != null) refreshLastTest(ce.detail.platformId);
+    };
+    window.addEventListener("aidog-platform-test-completed", handler);
+    return () => window.removeEventListener("aidog-platform-test-completed", handler);
+  }, [refreshLastTest]);
 
   // 卡片操作集合：用 latest-ref 持有最新闭包，对外暴露稳定引用，保证 PlatformCard memo 生效
   const actionsRef = useRef({
@@ -2933,6 +2970,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   faviconFailed={faviconFailed.has(p.id)}
                   actions={cardActions}
                   platformMembership={platformMembership.get(p.id)}
+                  lastTest={lastTestMap[p.id]}
                 />
                 </div>
               </React.Fragment>
