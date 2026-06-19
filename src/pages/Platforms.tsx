@@ -137,7 +137,7 @@ export const HEALTH_COLORS: Record<HealthStatus, string> = {
   healthy: "var(--color-success, var(--color-success))",
   warning: "var(--color-warning, #ff9500)",
   error: "var(--color-danger, #ff3b30)",
-  unknown: "transparent",
+  unknown: "var(--text-tertiary, #8e8e93)",
 };
 
 /** 判断平台健康状态：最近 N 次请求中失败次数 */

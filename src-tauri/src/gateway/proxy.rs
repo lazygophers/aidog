@@ -3401,7 +3401,7 @@ fn detect_source_protocol(path: &str) -> String {
 /// 优先级链（从最优到兜底）：
 ///   1. coding_plan 端点中按入站协议精确匹配（同协议 coding，直发不转换）
 ///      —— 平台同时含多个 coding 端点（如 GLM/千帆/小米：openai coding + anthropic coding）时，
-///         anthropic 入站选 anthropic coding 端点、openai 入站选 openai coding 端点，各走原协议。
+///      anthropic 入站选 anthropic coding 端点、openai 入站选 openai coding 端点，各走原协议。
 ///   2. coding_plan 端点中回退 openai coding（入站无对应同协议 coding 端点时，转换出站）
 ///      —— Kimi coding 仅有 openai coding 端点，anthropic 入站经此回退，`convert_request` 转 openai。
 ///   3. 非 coding 端点按入站协议精确匹配（普通双协议平台，同协议直发）。
