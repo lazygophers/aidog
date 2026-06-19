@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/06-19-platform-list-progressive-load/prd.md", "reason": "需求/范围(A+B)/三档加载设计/①-⑤改动点需求+验收/瓶颈 file:line 引用"}
+{"file": ".trellis/tasks/06-19-platform-list-progressive-load/implement.md", "reason": "执行编排: 依赖关系/共享文件冲突(Platforms.tsx 串行独占)/阶段1后端A∥quota池→阶段2前端C"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "① usage 批量查 + ② proxy_log 索引 migration 须遵 DB 层约定"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "④骨架占位 + ⑤可视区调度前端约定(Liquid Glass/formatters/无 react-router)"}
