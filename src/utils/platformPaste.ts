@@ -49,6 +49,18 @@ const ASSIGN_RE =
 /** 纯 base64 token 形态（无已知前缀时用于 base64 解码启发式）。 */
 const BASE64_RE = /^[A-Za-z0-9+/]{20,}={0,2}$/;
 
+/** 裸 base64 token（无标签兜底扫描；非首尾锚定，扫整段 alnum+/=）。 */
+const BARE_BASE64_RE = /[A-Za-z0-9+/]{24,}={0,2}/g;
+
+/** base64 旁注标记（如「KEY（base64编码）：」中的「（base64编码）」）。
+ *  夹在 key 标签与分隔符之间阻断 ASSIGN_RE 匹配，regex 前先剔除。
+ *  支持全角（）/ 半角 ()，后缀「编码」可选。 */
+const BASE64_NOTE_RE = /[（(]\s*base64[^）)]*[）)]/giu;
+
+/** 解码后键形（短前缀 + 长串），裸 base64 兜底的误报守卫。
+ *  命中「tt-xxx」「sk-xxx」等，排除解码噪声 / URL 片段。 */
+const DECODED_KEY_SHAPE = /^[a-z]{2,8}-[A-Za-z0-9_\-]{20,}$/;
+
 function stripCjk(s: string): string {
   return s.replace(CJK_RE, "");
 }
@@ -90,14 +102,18 @@ function pushUnique(arr: string[], v: string) {
 function extractApiKeys(text: string): string[] {
   const keys: string[] = [];
 
+  // 旁注（如「（base64编码）」）会夹在 key 标签与分隔符之间阻断 ASSIGN_RE，
+  // 先剔除。该短语永不出现于真实 key/url，全局 strip 安全。
+  const cleaned = text.replace(BASE64_NOTE_RE, "");
+
   // 1) 前缀锚定（覆盖 sk-/tp-/sk-kimi-，含防爬汉字穿插）
-  for (const m of text.matchAll(PREFIX_TOKEN_RE)) {
+  for (const m of cleaned.matchAll(PREFIX_TOKEN_RE)) {
     const clean = stripCjk(m[0]);
     if (clean.length >= 16) pushUnique(keys, clean);
   }
 
   // 2) 赋值锚定（覆盖 API_KEY= / 秘药： 等；含无标准前缀 + base64 编码 key）
-  for (const m of text.matchAll(ASSIGN_RE)) {
+  for (const m of cleaned.matchAll(ASSIGN_RE)) {
     const raw = stripCjk(m[1]);
     if (!raw) continue;
     if (hasKnownPrefix(raw)) {
@@ -111,6 +127,16 @@ function extractApiKeys(text: string): string[] {
     } else if (raw.length >= 24) {
       // 解不出也保留原始长串（可能是非标准前缀的明文 key）
       pushUnique(keys, raw);
+    }
+  }
+
+  // 3) 裸 base64 兜底（无 key 标签 / 旁注的整段 base64）。
+  //    decoded 须键形（短前缀 + 长串）或带已知前缀才采纳，排除解码噪声 / URL 片段误报。
+  for (const m of cleaned.matchAll(BARE_BASE64_RE)) {
+    const decoded = tryBase64Decode(m[0]);
+    if (!decoded || decoded.length < 12) continue;
+    if (hasKnownPrefix(decoded) || DECODED_KEY_SHAPE.test(decoded)) {
+      pushUnique(keys, decoded);
     }
   }
 
