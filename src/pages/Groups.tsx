@@ -21,6 +21,9 @@ import { usePlatformCards, computeQuotaDisplay } from "../components/platforms/u
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
 
+/** 分组一键测试并发上限：同时最多 N 个平台在测，完一个补下一个。 */
+const BATCH_TEST_CONCURRENCY = 3;
+
 /** 全部调度策略（与 api.ts RoutingMode 契约对齐，禁裸 string）。 */
 const ROUTING_MODES: RoutingMode[] = ["failover", "load_balance", "health_aware", "least_latency", "sticky"];
 
@@ -140,7 +143,7 @@ function GroupTestPanel({ groupName, rows, running, onClose, t }: {
           <div style={{ fontSize: 15, fontWeight: 700 }}>
             {t("group.testAllTitle", "测试分组平台")}：{groupName}
           </div>
-          <button className="btn btn-ghost btn-icon" onClick={onClose} disabled={running} title={t("action.dismiss", "关闭")}>
+          <button className="btn btn-ghost btn-icon" onClick={onClose} title={t("action.dismiss", "关闭")}>
             <IconClose size={16} />
           </button>
         </div>
@@ -477,12 +480,12 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   // 拖拽悬停的分组（折叠态整体高亮，展开态配合 dropIndicator 精细指示）
   const [dragOverGroup, setDragOverGroup] = useState<number | null>(null);
 
-  // ── 分组一键测试本组全部平台：串行跑 model_test，结果面板逐行实时刷新 ──
+  // ── 分组一键测试本组全部平台：有界并发跑 model_test，结果面板逐行实时刷新 ──
   const [groupTest, setGroupTest] = useState<{
     groupId: number; groupName: string; rows: GroupTestRow[]; running: boolean;
   } | null>(null);
 
-  // 串行测试：与单平台快速测试同参（默认模型 + max_tokens 64），逐平台驱动面板行状态。
+  // 并发测试：与单平台快速测试同参（默认模型 + max_tokens 64），worker-pool（共享 index 游标 + N 个 worker）。
   // 不复用 usePlatformCards 的 testingId/testResults —— 那是单卡态，组级面板独立维护行集合。
   const handleTestGroup = useCallback(async (group: GroupDetail["group"], gps: GroupPlatformDetail[]) => {
     if (gps.length === 0) return;
@@ -490,9 +493,13 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       platformId: gp.platform.id, name: gp.platform.name, status: "pending",
     }));
     setGroupTest({ groupId: group.id, groupName: group.name, rows, running: true });
+    // groupId guard：面板被中途关闭（groupTest=null）或被新一轮测试取代时，在途写回 no-op，不复活面板。
     const patchRow = (idx: number, patch: Partial<GroupTestRow>) =>
-      setGroupTest(prev => prev ? { ...prev, rows: prev.rows.map((r, i) => i === idx ? { ...r, ...patch } : r) } : prev);
-    for (let idx = 0; idx < gps.length; idx++) {
+      setGroupTest(prev =>
+        prev && prev.groupId === group.id
+          ? { ...prev, rows: prev.rows.map((r, i) => i === idx ? { ...r, ...patch } : r) }
+          : prev);
+    const testOne = async (idx: number) => {
       const gp = gps[idx];
       patchRow(idx, { status: "testing" });
       const defaultModel = gp.platform.models.default || gp.platform.available_models[0] || "";
@@ -506,8 +513,21 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       } catch (err: any) {
         patchRow(idx, { status: "fail", durationMs: Date.now() - start, error: err?.message || t("platform.testFail", "测试失败") });
       }
-    }
-    setGroupTest(prev => prev ? { ...prev, running: false } : prev);
+    };
+    // 有界并发：共享游标 next，启 N 个 worker，各自循环领取下一个 idx 直到耗尽。
+    let next = 0;
+    const worker = async () => {
+      while (next < gps.length) {
+        const idx = next++;
+        await testOne(idx);
+      }
+    };
+    const pool = Array.from(
+      { length: Math.min(BATCH_TEST_CONCURRENCY, gps.length) },
+      () => worker(),
+    );
+    await Promise.all(pool);
+    setGroupTest(prev => prev && prev.groupId === group.id ? { ...prev, running: false } : prev);
   }, [t]);
 
   const onPlatDragStart = (e: ReactDragEvent, pid: number, gid: number, cardEl: HTMLElement | null) => {
@@ -1082,13 +1102,13 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
         </div>
       )}
 
-      {/* 分组一键测试结果面板（串行执行，实时刷新行状态） */}
+      {/* 分组一键测试结果面板（有界并发执行，实时刷新行状态；running 态可中途关闭） */}
       {groupTest && (
         <GroupTestPanel
           groupName={groupTest.groupName}
           rows={groupTest.rows}
           running={groupTest.running}
-          onClose={() => { if (!groupTest.running) setGroupTest(null); }}
+          onClose={() => setGroupTest(null)}
           t={t}
         />
       )}
