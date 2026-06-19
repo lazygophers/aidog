@@ -2427,6 +2427,8 @@ async fn handle_models_passthrough(
     lang: Lang,
 ) -> Response {
     // 选分组首个启用平台（endpoint 优先取首个端点协议/URL，否则平台主配置）。
+    // Mock 平台无真实上游（base_url 空），不能 relay 模型列表 —— 跳过，否则
+    // build_models_url 产无 scheme 的相对 URL，reqwest .send() → builder error → 502。
     let group_platforms = match super::db::get_group_platforms(&state.db, group.id).await {
         Ok(p) => p,
         Err(e) => {
@@ -2438,11 +2440,14 @@ async fn handle_models_passthrough(
             return (StatusCode::SERVICE_UNAVAILABLE, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
         }
     };
-    let platform = match group_platforms.iter().find(|gp| gp.platform.enabled) {
+    let platform = match group_platforms
+        .iter()
+        .find(|gp| gp.platform.enabled && !matches!(gp.platform.platform_type, Protocol::Mock))
+    {
         Some(gp) => gp.platform.clone(),
         None => {
-            tracing::warn!(group = %group.name, "models: no enabled platform in group");
-            log.response_body = "no enabled platform for models endpoint".to_string();
+            tracing::warn!(group = %group.name, "models: no enabled upstream platform in group (mock skipped)");
+            log.response_body = "no enabled upstream platform for models endpoint".to_string();
             log.status_code = 503;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(state, log, log_settings).await;
