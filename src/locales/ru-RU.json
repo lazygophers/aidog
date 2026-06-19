@@ -1542,5 +1542,9 @@
   "group.testAllSummary": "Готово: {{ok}} успех / {{fail}} сбой / {{total}} всего",
   "group.testAllPending": "Ожидание",
   "group.testAllOk": "Успех",
-  "group.testAllFail": "Сбой"
+  "group.testAllFail": "Сбой",
+  "group.setAsDefault": "Сделать группой по умолчанию",
+  "group.unsetDefault": "Снять группу по умолчанию",
+  "group.isDefault": "По умолчанию",
+  "group.isDefaultTitle": "Группа по умолчанию: конфиг объединён в ~/.claude/settings.json + ~/.codex/config.toml (Codex требует export AIDOG_KEY=<ключ группы>)"
 }

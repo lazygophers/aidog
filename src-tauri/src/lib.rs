@@ -1125,6 +1125,77 @@ async fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
     }
 }
 
+/// 默认分组：把默认组 config deep merge 写入 `~/.claude/settings.json`（CC 全局）。
+///
+/// deep merge 规则：aidog 管理字段（env.ANTHROPIC_BASE_URL/AUTH_TOKEN、statusLine、
+/// hooks 等）覆盖同键；用户手写的其它字段（permissions / model 等）保留。
+/// 嵌套 object 递归合并；非 object（标量/数组）直接覆盖。
+///
+/// CC 原生支持 settings.json 的 env 字段 → 用户直接 `claude` 不带任何参数/env 即走该组。
+fn write_default_claude_settings(config: &serde_json::Value) -> Result<(), String> {
+    let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
+    let claude_dir = home.join(".claude");
+    std::fs::create_dir_all(&claude_dir)
+        .map_err(|e| format!("create ~/.claude dir: {e}"))?;
+    let settings_path = claude_dir.join("settings.json");
+
+    // 读现有（不存在→空对象）
+    let existing = std::fs::read_to_string(&settings_path).ok();
+    let mut base: serde_json::Value = match existing.as_deref() {
+        Some(s) if !s.trim().is_empty() => serde_json::from_str(s)
+            .map_err(|e| format!("parse existing ~/.claude/settings.json: {e}"))?,
+        _ => serde_json::Value::Object(serde_json::Map::new()),
+    };
+    if !base.is_object() {
+        base = serde_json::Value::Object(serde_json::Map::new());
+    }
+
+    // deep merge：config 叠加到 base
+    merge_json(&mut base, config);
+
+    let new_content = serde_json::to_string_pretty(&base)
+        .map_err(|e| format!("serialize merged ~/.claude/settings.json: {e}"))?;
+    let old_content = existing.unwrap_or_default();
+    if old_content == new_content {
+        return Ok(());
+    }
+
+    std::fs::write(&settings_path, &new_content)
+        .map_err(|e| format!("write ~/.claude/settings.json: {e}"))?;
+    tracing::info!(path = %settings_path.display(), "default group: merged ~/.claude/settings.json");
+    Ok(())
+}
+
+/// JSON deep merge：overlay 叠加到 base（in-place）。
+/// - overlay 非 object → 直接覆盖 base（*base = overlay.clone()）
+/// - overlay 为 object → 逐键递归合并；base 非 object 时先升级为空 object
+/// - overlay 中显式 null → 删 base 同键（等同 strip）
+fn merge_json(base: &mut serde_json::Value, overlay: &serde_json::Value) {
+    match overlay {
+        serde_json::Value::Object(over_map) => {
+            if !base.is_object() {
+                *base = serde_json::Value::Object(serde_json::Map::new());
+            }
+            let base_map = base.as_object_mut().expect("ensured object");
+            for (k, v) in over_map {
+                if v.is_null() {
+                    base_map.remove(k);
+                    continue;
+                }
+                match base_map.get_mut(k) {
+                    Some(existing) => merge_json(existing, v),
+                    None => {
+                        base_map.insert(k.clone(), v.clone());
+                    }
+                }
+            }
+        }
+        _ => {
+            *base = overlay.clone();
+        }
+    }
+}
+
 /// 为所有分组生成 settings.{group_key}.json 配置文件到 ~/.aidog/ 目录
 /// 核心逻辑：可被多个触发点调用
 async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, String> {
@@ -1177,6 +1248,10 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
 
     let mut written = Vec::new();
 
+    // 默认分组捕获：循环内为默认组算出的 config（已 strip 内部 marker），循环结束后
+    // merge 写入 ~/.claude/settings.json 全局。None = 无默认组（循环后跳过全局写入）。
+    let mut default_claude_config: Option<serde_json::Value> = None;
+
     for group in &groups {
         let group_key = &group.group_key;
 
@@ -1224,6 +1299,11 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
             written.push(file_path.to_string_lossy().to_string());
         }
 
+        // 捕获默认组 config（已 strip 内部 marker），循环后 merge 写 ~/.claude/settings.json。
+        if group.is_default {
+            default_claude_config = Some(config.clone());
+        }
+
         // Codex profile：为该分组生成 `$CODEX_HOME/<group>.config.toml`
         //（profile 文件 = 用户级层，可含 model_providers）。与 Claude Code
         // json 生成并行，互不影响。失败仅记录、不中断（Codex 未装也不应阻塞）。
@@ -1231,6 +1311,31 @@ async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<String>, Strin
             Ok(Some(p)) => written.push(p),
             Ok(None) => {}
             Err(e) => tracing::warn!(group = %group_key, error = %e, "codex profile sync failed"),
+        }
+    }
+
+    // 默认分组全局 merge：把默认组 config deep merge 写入 ~/.claude/settings.json
+    // （用户全局，CC 原生支持 settings.json 的 env 字段 → 完整免参数免 env）。
+    // 同时 merge 写入 ~/.codex/config.toml（注入 aidog profile，codex env_key=AIDOG_KEY
+    // 固有限制需用户 export AIDOG_KEY=<group_key>，UI 提示说明）。
+    // 无默认组 → 不主动清除已写入的全局文件（避免误删用户手写配置）；仅 Codex 全局
+    // remove 仅在明确取消默认（group_set_default(None) 路径）触发，本同步路径不主动清。
+    match default_claude_config {
+        Some(config) => {
+            if let Err(e) = write_default_claude_settings(&config) {
+                tracing::warn!(error = %e, "default group: merge ~/.claude/settings.json failed");
+            }
+            if let Err(e) = gateway::codex::write_default_profile_to_config(port) {
+                tracing::warn!(error = %e, "default group: merge ~/.codex/config.toml failed");
+            }
+        }
+        None => {
+            // 无默认组：移除 aidog 之前注入的全局默认 profile（若曾注入过）。
+            // 仅删 aidog 标识，用户其它字段保留。
+            tracing::debug!("no default group, removing aidog global default profile");
+            if let Err(e) = gateway::codex::remove_default_profile_from_config() {
+                tracing::warn!(error = %e, "no default group: remove codex default profile failed");
+            }
         }
     }
 
@@ -1283,6 +1388,25 @@ async fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Result
     let proxy_settings = load_proxy_settings(&app).await?;
     do_sync_group_settings(&db, proxy_settings.port).await
         .map_err(|e| { tracing::error!(command = "sync_group_settings", error = %e, "sync group settings failed"); e })
+}
+
+/// Tauri command — 设置默认分组（单选）。
+/// 设置后该组 config merge 写入 ~/.claude/settings.json + ~/.codex/config.toml，
+/// 用户直接 claude/codex 不带 -c/--profile 即走该组。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn group_set_default(
+    id: Option<u64>,
+    app: tauri::AppHandle,
+    db: State<'_, Db>,
+) -> Result<(), String> {
+    tracing::debug!(command = "group_set_default", id, "command invoked");
+    db::set_default_group(&db, id).await
+        .map_err(|e| { tracing::error!(command = "group_set_default", id, error = %e, "set default group failed"); e })?;
+    let port = load_proxy_settings(&app).await?.port;
+    do_sync_group_settings(&db, port).await
+        .map(|_| ())
+        .map_err(|e| { tracing::error!(command = "group_set_default", error = %e, "sync after set default failed"); e })
 }
 
 // ─── Proxy Log Commands ────────────────────────────────────
@@ -3745,6 +3869,7 @@ pub fn run() {
             group_get,
             group_update,
             group_delete,
+            group_set_default,
             // GroupPlatform
             group_set_platforms,
             group_get_platforms,
@@ -3887,4 +4012,50 @@ model_price_count_filtered,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::merge_json;
+    use serde_json::json;
+
+    /// merge_json deep merge：嵌套 object 递归合并、非 object 直接覆盖、null 删键。
+    #[test]
+    fn merge_json_deep_merges_and_preserves_user_keys() {
+        // 用户已有全局配置（含 aidog 不管的 permissions / 自定义 statusLine）
+        let mut base = json!({
+            "permissions": { "allow": ["Read(*)"] },
+            "env": { "MY_OTHER_VAR": "keep" },
+            "model": "claude-opus",
+            "statusLine": { "type": "command", "command": "user-script" }
+        });
+        // aidog 注入（默认组的 config）
+        let overlay = json!({
+            "env": {
+                "ANTHROPIC_BASE_URL": "http://127.0.0.1:9999/proxy",
+                "ANTHROPIC_AUTH_TOKEN": "gk_abc"
+            },
+            "statusLine": { "type": "command", "command": "aidog-script" }
+        });
+        merge_json(&mut base, &overlay);
+
+        // aidog 字段覆盖
+        assert_eq!(base["env"]["ANTHROPIC_BASE_URL"], "http://127.0.0.1:9999/proxy");
+        assert_eq!(base["env"]["ANTHROPIC_AUTH_TOKEN"], "gk_abc");
+        assert_eq!(base["statusLine"]["command"], "aidog-script");
+        // 用户其它字段保留
+        assert_eq!(base["permissions"]["allow"][0], "Read(*)");
+        assert_eq!(base["env"]["MY_OTHER_VAR"], "keep");
+        assert_eq!(base["model"], "claude-opus");
+    }
+
+    /// merge_json 显式 null 删除 base 同键（用于取消默认时清理 aidog 字段）。
+    #[test]
+    fn merge_json_null_deletes_key() {
+        let mut base = json!({ "env": { "AIDOG_KEY": "x", "keep": "y" } });
+        let overlay = json!({ "env": { "AIDOG_KEY": null } });
+        merge_json(&mut base, &overlay);
+        assert!(base["env"].get("AIDOG_KEY").is_none());
+        assert_eq!(base["env"]["keep"], "y");
+    }
 }

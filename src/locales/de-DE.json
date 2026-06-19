@@ -1542,5 +1542,9 @@
   "group.testAllSummary": "Fertig: {{ok}} erfolgreich / {{fail}} fehlgeschlagen / {{total}} gesamt",
   "group.testAllPending": "Wartend",
   "group.testAllOk": "OK",
-  "group.testAllFail": "Fehlgeschlagen"
+  "group.testAllFail": "Fehlgeschlagen",
+  "group.setAsDefault": "Als Standardgruppe festlegen",
+  "group.unsetDefault": "Standardgruppe aufheben",
+  "group.isDefault": "Standard",
+  "group.isDefaultTitle": "Standardgruppe: Konfiguration in ~/.claude/settings.json + ~/.codex/config.toml zusammengeführt (Codex benötigt export AIDOG_KEY=<Gruppenschlüssel>)"
 }

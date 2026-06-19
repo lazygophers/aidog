@@ -1542,5 +1542,9 @@
   "group.testAllSummary": "Terminé : {{ok}} réussis / {{fail}} échoués / {{total}} total",
   "group.testAllPending": "En attente",
   "group.testAllOk": "OK",
-  "group.testAllFail": "Échec"
+  "group.testAllFail": "Échec",
+  "group.setAsDefault": "Définir comme groupe par défaut",
+  "group.unsetDefault": "Annuler le groupe par défaut",
+  "group.isDefault": "Par défaut",
+  "group.isDefaultTitle": "Groupe par défaut : config fusionnée dans ~/.claude/settings.json + ~/.codex/config.toml (Codex nécessite export AIDOG_KEY=<clé du groupe>)"
 }

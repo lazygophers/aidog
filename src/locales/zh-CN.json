@@ -1520,5 +1520,9 @@
   "group.testAllSummary": "完成：{{ok}} 成功 / {{fail}} 失败 / 共 {{total}}",
   "group.testAllPending": "等待",
   "group.testAllOk": "成功",
-  "group.testAllFail": "失败"
+  "group.testAllFail": "失败",
+  "group.setAsDefault": "设为默认分组",
+  "group.unsetDefault": "取消默认分组",
+  "group.isDefault": "默认",
+  "group.isDefaultTitle": "默认分组：config 已 merge 写入 ~/.claude/settings.json + ~/.codex/config.toml（Codex 需 export AIDOG_KEY=<分组密钥>）"
 }

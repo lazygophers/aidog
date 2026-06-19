@@ -402,6 +402,10 @@ impl Db {
                     let _ = conn.execute("ALTER TABLE platform DROP COLUMN auto_group", []);
                     tracing::info!("migration 026: backfilled breaker into extra + dropped auto_group/breaker_* columns");
                 }
+                // Migration 027: 默认分组标记（单选）。is_default=1 的组 config merge 写入
+                // ~/.claude/settings.json + ~/.codex/config.toml，使用户直接 claude/codex
+                // 不带 -c/--profile 即走该组。幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column。
+                let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0", []);
                 Ok(())
             })
             .await
@@ -1394,7 +1398,7 @@ fn parse_mappings(json: &str) -> Vec<ModelMapping> {
 
 /// Group SELECT 列序
 const GROUP_COLUMNS: &str =
-    "id, name, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order, max_retries, group_key";
+    "id, name, routing_mode, auto_from_platform, created_at, updated_at, request_timeout_secs, connect_timeout_secs, source_protocol, model_mappings, sort_order, max_retries, group_key, is_default";
 
 fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
     let routing_str: String = row.get(2)?;
@@ -1414,6 +1418,7 @@ fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
         sort_order: row.get::<_, i64>(10)?,
         max_retries: row.get::<_, i64>(11)? as u32,
         group_key: row.get(12)?,
+        is_default: row.get::<_, i64>(13)? != 0,
     })
 }
 
@@ -1466,6 +1471,7 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
         deleted_at: 0,
         sort_order: 0,
         max_retries: input.max_retries,
+        is_default: false,
     })
 }
 
@@ -1641,6 +1647,38 @@ pub async fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> 
     db.invalidate_groups_cache();
 
     Ok(updated)
+}
+
+/// 设置默认分组（单选）。目标 id 置 is_default=1，其余全部清零。
+/// 一条 UPDATE 同时清零全部 + 置目标；updated_at 仅刷新被切换的行（保持排序稳定）。
+/// 清除默认（target_id 为 None）时把所有 is_default 置 0。
+pub async fn set_default_group(db: &Db, target_id: Option<u64>) -> Result<(), String> {
+    let ts = now();
+    db.0
+        .call(move |conn| {
+            match target_id {
+                Some(id) => {
+                    conn.execute(
+                        "UPDATE \"group\" \
+                         SET is_default = CASE WHEN id = ?1 THEN 1 ELSE 0 END, \
+                             updated_at = CASE WHEN id = ?1 OR is_default = 1 THEN ?2 ELSE updated_at END \
+                         WHERE deleted_at = 0",
+                        params![id as i64, ts],
+                    )?;
+                }
+                None => {
+                    conn.execute(
+                        "UPDATE \"group\" SET is_default = 0, updated_at = ?1 WHERE is_default = 1 AND deleted_at = 0",
+                        params![ts],
+                    )?;
+                }
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("set default group: {e}"))?;
+    db.invalidate_groups_cache();
+    Ok(())
 }
 
 pub async fn delete_group(db: &Db, id: u64) -> Result<(), String> {
@@ -4746,10 +4784,34 @@ decimals: None,
         let upd = update_group(&db, UpdateGroup {
             id: g.id, name: None, routing_mode: None,
             request_timeout_secs: 0, connect_timeout_secs: 0, source_protocol: None,
-            max_retries: Some(0), model_mappings: vec![],
+            max_retries: Some(0), model_mappings: vec![], is_default: None,
         }).await.unwrap();
         assert_eq!(upd.max_retries, 0);
         assert_eq!(get_group(&db, g.id).await.unwrap().unwrap().max_retries, 0);
+    }
+
+    /// group is_default 单选：set_default_group 同时清零其它 + 置目标；None 清零全部。
+    #[tokio::test]
+    async fn group_set_default_single_select() {
+        let db = test_db().await;
+        let g1 = create_group(&db, sample_group("d1", vec![])).await.unwrap();
+        let g2 = create_group(&db, sample_group("d2", vec![])).await.unwrap();
+        assert!(!get_group(&db, g1.id).await.unwrap().unwrap().is_default);
+        assert!(!get_group(&db, g2.id).await.unwrap().unwrap().is_default);
+
+        set_default_group(&db, Some(g1.id)).await.unwrap();
+        assert!(get_group(&db, g1.id).await.unwrap().unwrap().is_default);
+        assert!(!get_group(&db, g2.id).await.unwrap().unwrap().is_default);
+
+        // 切换默认到 g2 → g1 自动清零（单选）
+        set_default_group(&db, Some(g2.id)).await.unwrap();
+        assert!(!get_group(&db, g1.id).await.unwrap().unwrap().is_default);
+        assert!(get_group(&db, g2.id).await.unwrap().unwrap().is_default);
+
+        // 取消默认 → 全部清零
+        set_default_group(&db, None).await.unwrap();
+        assert!(!get_group(&db, g1.id).await.unwrap().unwrap().is_default);
+        assert!(!get_group(&db, g2.id).await.unwrap().unwrap().is_default);
     }
 
     /// proxy_log attempts JSON 列往返

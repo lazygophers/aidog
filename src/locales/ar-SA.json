@@ -1542,5 +1542,9 @@
   "group.testAllSummary": "اكتمل: {{ok}} نجاح / {{fail}} فشل / {{total}} الإجمالي",
   "group.testAllPending": "بانتظار",
   "group.testAllOk": "نجاح",
-  "group.testAllFail": "فشل"
+  "group.testAllFail": "فشل",
+  "group.setAsDefault": "تعيين كمجموعة افتراضية",
+  "group.unsetDefault": "إلغاء المجموعة الافتراضية",
+  "group.isDefault": "افتراضي",
+  "group.isDefaultTitle": "مجموعة افتراضية: تم دمج الإعدادات في ~/.claude/settings.json + ~/.codex/config.toml (يحتاج Codex إلى export AIDOG_KEY=<مفتاح المجموعة>)"
 }
