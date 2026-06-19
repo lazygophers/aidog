@@ -706,17 +706,20 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       patchRow(idx, { status: "testing" });
       const defaultModel = gp.platform.models.default || gp.platform.available_models[0] || "";
       const start = Date.now();
+      let success = false;
       try {
         const r = await modelTestApi.test({ platform_id: gp.platform.id, model: defaultModel, max_tokens: 64 });
         const durationMs = Date.now() - start;
+        success = r.success;
         patchRow(idx, r.success
           ? { status: "ok", durationMs }
           : { status: "fail", durationMs, error: r.error || t("platform.testFail", "测试失败") });
       } catch (err: any) {
         patchRow(idx, { status: "fail", durationMs: Date.now() - start, error: err?.message || t("platform.testFail", "测试失败") });
       }
-      // 单平台测完派发全局事件：Platforms 页据此单卡刷新「最近测试」徽章（不在 Groups 维护 lastTestMap）
-      window.dispatchEvent(new CustomEvent("aidog-platform-test-completed", { detail: { platformId: gp.platform.id } }));
+      // 携带 success：监听方（usePlatformCards/Platforms）据此写 testResults → 单卡 health 走 manual 分支即时变绿/红；
+      // 同时驱动「最近测试」徽章刷新（不在 Groups 维护 lastTestMap）
+      window.dispatchEvent(new CustomEvent("aidog-platform-test-completed", { detail: { platformId: gp.platform.id, success } }));
     };
     // 有界并发：共享游标 next，启 N 个 worker，各自循环领取下一个 idx 直到耗尽。
     let next = 0;

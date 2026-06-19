@@ -73,8 +73,9 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
         });
         setResults([...res]);
       }
-      // 每条测试落地（proxy_log source_protocol='test'）后派发全局事件：Platforms 页据此单卡刷新「最近测试」徽章
-      window.dispatchEvent(new CustomEvent("aidog-platform-test-completed", { detail: { platformId: platform.id } }));
+      // 每条测试落地（proxy_log source_protocol='test'）后派发全局事件：Platforms 页据此单卡刷新「最近测试」徽章 + health
+      // success 取本轮最后一条结果（成功/失败两分支均已 push 到 res）
+      window.dispatchEvent(new CustomEvent("aidog-platform-test-completed", { detail: { platformId: platform.id, success: res[res.length - 1]?.success ?? false } }));
     }
     setRunning(false);
     setCurrentIdx(-1);

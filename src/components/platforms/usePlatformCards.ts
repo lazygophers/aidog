@@ -117,9 +117,11 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
   // Quick test
   const handleQuickTest = useCallback(async (p: Platform) => {
     setTestingId(p.id);
+    let success = false;
     try {
       const defaultModel = p.models.default || p.available_models[0] || "";
       const r = await modelTestApi.test({ platform_id: p.id, model: defaultModel, max_tokens: 64 });
+      success = r.success;
       setTestResults(prev => ({ ...prev, [p.id]: r.success ? "ok" : "fail" }));
       setToast({ text: r.success
         ? `${p.name}: ${t("platform.testOk", "测试成功")}${r.duration_ms > 0 ? ` (${r.duration_ms}ms)` : ""}`
@@ -131,8 +133,8 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
     }
     setTestingId(null);
     setTimeout(() => setToast(null), 3000);
-    // 派发全局事件：跨页（Platforms/Groups/ModelTestPanel）订阅者据此单卡刷新「最近测试」徽章
-    window.dispatchEvent(new CustomEvent("aidog-platform-test-completed", { detail: { platformId: p.id } }));
+    // 派发全局事件：跨页（Platforms/Groups/ModelTestPanel）订阅者据此单卡刷新「最近测试」徽章 + testResults（health）
+    window.dispatchEvent(new CustomEvent("aidog-platform-test-completed", { detail: { platformId: p.id, success } }));
   }, [t, setToast]);
 
   // 取某平台最近一次测试日志（proxy_log source_protocol='test'），刷新 lastTestMap 对应项
@@ -147,11 +149,17 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
     } catch { /* ignore */ }
   }, []);
 
-  // 监听全局测试完成事件：单卡刷新徽章数据
+  // 监听全局测试完成事件：单卡刷新徽章数据 + 写 testResults（驱动 health 走 manual 分支，
+  // 来自其它页/批量测试的成功/失败信号也即时反映到本页健康点，不必等本卡单测）
   useEffect(() => {
     const handler = (e: Event) => {
-      const ce = e as CustomEvent<{ platformId: number }>;
-      if (ce.detail?.platformId != null) refreshLastTest(ce.detail.platformId);
+      const ce = e as CustomEvent<{ platformId: number; success?: boolean }>;
+      const pid = ce.detail?.platformId;
+      if (pid == null) return;
+      refreshLastTest(pid);
+      if (ce.detail.success != null) {
+        setTestResults(prev => ({ ...prev, [pid]: ce.detail.success ? "ok" : "fail" }));
+      }
     };
     window.addEventListener("aidog-platform-test-completed", handler);
     return () => window.removeEventListener("aidog-platform-test-completed", handler);

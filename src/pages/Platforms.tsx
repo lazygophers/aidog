@@ -140,12 +140,13 @@ export const HEALTH_COLORS: Record<HealthStatus, string> = {
   unknown: "var(--text-tertiary, #8e8e93)",
 };
 
-/** 判断平台健康状态：最近 N 次请求中失败次数 */
+/** 判断平台健康状态：「成功即绿」语义 —— 最近 N 次请求中只要有一次成功即判健康，
+ * 全失败才红，无请求灰。不返回 warning 中间态（避免「能用却显黄」），warning
+ * 仅作类型成员保留供其它语义复用。 */
 export function healthStatus(recentTotal: number, recentFailures: number): HealthStatus {
   if (recentTotal === 0) return "unknown";
   if (recentFailures >= recentTotal) return "error";        // 全部失败
-  if (recentFailures > 0) return "warning";                  // 有失败
-  return "healthy";                                           // 全部成功
+  return "healthy";                                          // 有任一成功即绿
 }
 
 /** 根据 ProtocolOption 生成默认端点（含 coding_plan 标记）
@@ -2049,9 +2050,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
   const handleQuickTest = async (p: Platform) => {
     setTestingId(p.id);
+    let success = false;
     try {
       const defaultModel = p.models.default || p.available_models[0] || "";
       const r = await modelTestApi.test({ platform_id: p.id, model: defaultModel, max_tokens: 64 });
+      success = r.success;
       setTestResults(prev => ({ ...prev, [p.id]: r.success ? "ok" : "fail" }));
       setToast({ text: r.success
         ? `${p.name}: ${t("platform.testOk", "测试成功")}${r.duration_ms > 0 ? ` (${r.duration_ms}ms)` : ""}`
@@ -2063,8 +2066,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     }
     setTestingId(null);
     setTimeout(() => setToast(null), 3000);
-    // 派发全局事件：跨页（Groups 批量测 / ModelTestPanel 自定义）跑测后切到本页，本页卡片徽章据此即时刷新
-    window.dispatchEvent(new CustomEvent("aidog-platform-test-completed", { detail: { platformId: p.id } }));
+    // 派发全局事件：跨页（Groups 批量测 / ModelTestPanel 自定义）跑测后切到本页，本页卡片徽章 + health 据此即时刷新
+    window.dispatchEvent(new CustomEvent("aidog-platform-test-completed", { detail: { platformId: p.id, success } }));
   };
 
   // 拉取某平台最近一次 test 日志，刷新 lastTestMap 对应项（供 aidog-platform-test-completed 监听后调用）
@@ -2079,11 +2082,17 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     } catch { /* ignore */ }
   }, []);
 
-  // 监听全局测试完成事件：单卡刷新「最近测试」徽章（事件来自本页快速测 / Groups 批量测 / ModelTestPanel）
+  // 监听全局测试完成事件：单卡刷新「最近测试」徽章 + 写 testResults（驱动 health 走 manual 分支，
+  // Groups 批量测 / ModelTestPanel 的成功失败信号即时反映到本页健康点）（事件来自本页快速测 / Groups 批量测 / ModelTestPanel）
   useEffect(() => {
     const handler = (e: Event) => {
-      const ce = e as CustomEvent<{ platformId: number }>;
-      if (ce.detail?.platformId != null) refreshLastTest(ce.detail.platformId);
+      const ce = e as CustomEvent<{ platformId: number; success?: boolean }>;
+      const pid = ce.detail?.platformId;
+      if (pid == null) return;
+      refreshLastTest(pid);
+      if (ce.detail.success != null) {
+        setTestResults(prev => ({ ...prev, [pid]: ce.detail.success ? "ok" : "fail" }));
+      }
     };
     window.addEventListener("aidog-platform-test-completed", handler);
     return () => window.removeEventListener("aidog-platform-test-completed", handler);
