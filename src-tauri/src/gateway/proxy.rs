@@ -3382,6 +3382,33 @@ fn detect_source_protocol(path: &str) -> String {
 /// → 连累整个平台 auto_disabled。故**平台含任一 coding 端点时，绝不落到非 coding 端点**：优先级链 1→2
 /// 全部限定 `coding_plan==true`，仅当无任何 coding 端点(普通平台)才进入 3/4。
 /// 这同时满足通用原则：coding 平台的同协议 coding 端点（步骤 1）优先于跨协议转换（步骤 2）。
+/// 从 endpoint 的 `base_url` 提取 host（authority 主机名，小写、不含端口/路径）。
+///
+/// 规则：剥离 `scheme://` 前缀后，取到首个 `/`、`?`、`#` 或 `:`（端口分隔）之前的部分，
+/// 并去掉可能的 `user@` 凭证段，最后小写化。解析失败（空 host）返回 None——
+/// 调用方据此**保守处理**：host 解析不出 → 不视为同 host（宁可走转换也不误用 coding key）。
+fn endpoint_host(base_url: &str) -> Option<String> {
+    let after_scheme = base_url
+        .split_once("://")
+        .map(|(_, rest)| rest)
+        .unwrap_or(base_url);
+    // authority 段：截到首个路径/查询/锚点分隔符之前
+    let authority = after_scheme
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or(after_scheme);
+    // 去掉 userinfo（user:pass@host）
+    let host_port = authority.rsplit_once('@').map(|(_, h)| h).unwrap_or(authority);
+    // 去掉端口（注意 IPv6 字面量含 ':'，但 base_url 平台预设均为域名，简单截端口即可）
+    let host = host_port.split(':').next().unwrap_or(host_port);
+    let host = host.trim().to_lowercase();
+    if host.is_empty() {
+        None
+    } else {
+        Some(host)
+    }
+}
+
 fn select_endpoint_for_protocol<'a>(
     endpoints: &'a [super::models::PlatformEndpoint],
     source_protocol: &str,
@@ -3389,11 +3416,24 @@ fn select_endpoint_for_protocol<'a>(
     let ep_proto = |ep: &super::models::PlatformEndpoint| format!("{:?}", ep.protocol).to_lowercase();
     let has_coding_ep = endpoints.iter().any(|ep| ep.coding_plan);
     if has_coding_ep {
-        // 步骤 1：同协议 coding 端点（直发原协议）；步骤 2：openai coding 兜底（转换出站）。
-        // 两步均限定 coding_plan，绝不落非 coding 端点（防 coding key 打非 coding host 401）。
+        // 步骤 1（加固）：同协议端点直发原协议。采纳条件放宽为 `coding_plan ||
+        // 与某 coding 端点同 host`——后者覆盖 GLM 形态（anthropic 端点 base_url 与
+        // openai coding 端点同 host `open.bigmodel.cn`，同一把 coding key 通用，DB 中
+        // anthropic 端点 coding_plan=false 仍应原协议直发，无需 migration 改数据）。
+        // 跨 host 的同协议端点（Kimi anthropic 端点 host=moonshot.cn ≠ coding host
+        // kimi.com，需另一把常规 key，coding key 打过去 401）不采纳，落步骤 2 转换。
+        // 步骤 2：openai coding 兜底（转换出站）。两步均不落「跨 host 非 coding」端点（防 401）。
+        let key_usable = |ep: &super::models::PlatformEndpoint| {
+            ep.coding_plan
+                || endpoint_host(&ep.base_url).is_some_and(|h| {
+                    endpoints
+                        .iter()
+                        .any(|c| c.coding_plan && endpoint_host(&c.base_url).as_deref() == Some(&h))
+                })
+        };
         endpoints
             .iter()
-            .find(|ep| ep.coding_plan && ep_proto(ep) == source_protocol)
+            .find(|ep| ep_proto(ep) == source_protocol && key_usable(ep))
             .or_else(|| endpoints.iter().find(|ep| ep.coding_plan && ep_proto(ep) == "openai"))
     } else {
         // 普通平台：步骤 3 同协议直发；步骤 4 openai_responses 回退 openai。
@@ -4583,8 +4623,10 @@ mod tests {
         let m = sel(&kimi_cp, "openai").unwrap();
         assert!(m.coding_plan);
 
-        // ── 回归：若 coding 平台**仍残留**非 coding anthropic endpoint(旧数据/手填)，
-        //    anthropic 入站绝不能选那个非 coding endpoint(会被 coding key 401) ──
+        // ── Kimi 跨 host 防 401（核心约束）：openai coding host=api.kimi.com，
+        //    anthropic endpoint host=api.moonshot.cn（cp=false，需另一把常规 key）。
+        //    两 host 不同 → 加固后**不采纳**该 anthropic 端点，anthropic 入站回退 openai coding 转换。
+        //    coding key 绝不打到 moonshot.cn（否则 401 连累整个平台 auto_disabled）。 ──
         let kimi_cp_legacy = vec![
             ep(Protocol::OpenAI, "https://api.kimi.com/coding/v1", true),
             ep(Protocol::Anthropic, "https://api.moonshot.cn/anthropic", false),
@@ -4592,7 +4634,7 @@ mod tests {
         let m = sel(&kimi_cp_legacy, "anthropic").unwrap();
         assert_eq!(
             m.base_url, "https://api.kimi.com/coding/v1",
-            "anthropic inbound on coding platform must NOT pick the non-coding anthropic endpoint"
+            "anthropic inbound on coding platform must NOT pick the cross-host non-coding anthropic endpoint"
         );
         assert!(m.coding_plan);
 
@@ -4608,7 +4650,7 @@ mod tests {
         let m = sel(&glm, "openai").unwrap();
         assert_eq!(m.base_url, "https://open.bigmodel.cn/api/paas/v4");
 
-        // ── GLM Coding Plan(openai coding + anthropic coding 同 host 同 key)：通用原则「同协议优先于转换」──
+        // ── GLM Coding Plan(openai coding cp=true + anthropic cp=true，同 host)：「同协议优先于转换」──
         // anthropic(Claude Code)入站 → 选 anthropic coding 端点原协议直发，不得回退 openai coding 转换。
         let glm_cp = vec![
             ep(Protocol::OpenAI, "https://open.bigmodel.cn/api/coding/paas/v4", true),
@@ -4626,12 +4668,58 @@ mod tests {
         assert_eq!(m.base_url, "https://open.bigmodel.cn/api/coding/paas/v4");
         assert!(m.coding_plan);
 
+        // ── GLM 形态（真实 DB 数据）：openai coding cp=true + anthropic cp=FALSE，同 host ──
+        // 加固后：anthropic 入站凭「与 openai coding 端点同 host(open.bigmodel.cn)、同一把 key 通用」
+        // 采纳该 cp=false anthropic 端点原协议直发，**无需 migration 把它标 cp=true**。
+        let glm_cp_real = vec![
+            ep(Protocol::OpenAI, "https://open.bigmodel.cn/api/coding/paas/v4", true),
+            ep(Protocol::Anthropic, "https://open.bigmodel.cn/api/anthropic", false),
+        ];
+        let m = sel(&glm_cp_real, "anthropic")
+            .expect("anthropic inbound must resolve to the same-host anthropic endpoint");
+        assert_eq!(
+            m.base_url, "https://open.bigmodel.cn/api/anthropic",
+            "GLM (anthropic ep cp=false, same host): anthropic inbound must use anthropic endpoint, no conversion"
+        );
+        // openai 入站仍走 openai coding 端点
+        let m = sel(&glm_cp_real, "openai").unwrap();
+        assert_eq!(m.base_url, "https://open.bigmodel.cn/api/coding/paas/v4");
+        assert!(m.coding_plan);
+
         // ── 非 coding-plan：openai_responses 无 Responses endpoint → 回退 openai(行为不变) ──
         let openai_only = vec![ep(Protocol::OpenAI, "https://api.deepseek.com/v1", false)];
         let m = sel(&openai_only, "openai_responses").unwrap();
         assert_eq!(m.base_url, "https://api.deepseek.com/v1");
         // 无任何匹配且非 openai_responses → None
         assert!(sel(&openai_only, "gemini").is_none());
+    }
+
+    // ── endpoint_host：scheme/端口/路径/userinfo/大小写 边界 ──
+    #[test]
+    fn endpoint_host_extraction() {
+        use super::endpoint_host as host;
+        assert_eq!(host("https://open.bigmodel.cn/api/anthropic").as_deref(), Some("open.bigmodel.cn"));
+        assert_eq!(host("https://open.bigmodel.cn/api/coding/paas/v4").as_deref(), Some("open.bigmodel.cn"));
+        // 端口被剥离
+        assert_eq!(host("http://localhost:8080/v1").as_deref(), Some("localhost"));
+        // 大小写归一
+        assert_eq!(host("https://API.Kimi.COM/coding/v1").as_deref(), Some("api.kimi.com"));
+        // userinfo 被剥离
+        assert_eq!(host("https://user:pass@api.moonshot.cn/anthropic").as_deref(), Some("api.moonshot.cn"));
+        // 无 scheme 也能取 host
+        assert_eq!(host("api.moonshot.cn/anthropic").as_deref(), Some("api.moonshot.cn"));
+        // 跨 host 判定：GLM 同 host，Kimi 异 host
+        assert_eq!(
+            host("https://open.bigmodel.cn/api/coding/paas/v4"),
+            host("https://open.bigmodel.cn/api/anthropic")
+        );
+        assert_ne!(
+            host("https://api.kimi.com/coding/v1"),
+            host("https://api.moonshot.cn/anthropic")
+        );
+        // 空 / 不可解析 → None（保守，不视为同 host）
+        assert_eq!(host(""), None);
+        assert_eq!(host("https://"), None);
     }
 
     // ── UA → 透传协议推断：claude-cli→anthropic / codex→openai_responses / 其它→None ──
