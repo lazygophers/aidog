@@ -222,6 +222,10 @@ export interface Group {
   max_retries: number;
   /** 内联模型映射数组 */
   model_mappings: ModelMapping[];
+  /** 是否为默认分组（单选）：true 时该组 config merge 写入
+   * ~/.claude/settings.json + ~/.codex/config.toml，使用户直接 claude/codex
+   * 不带 -c/--profile 即走该组。 */
+  is_default?: boolean;
 }
 
 export interface GroupPlatformDetail {
@@ -595,6 +599,11 @@ export const groupApi = {
   }) => invoke<Group>("group_update", { input }),
 
   delete: (id: number) => invoke<void>("group_delete", { id }),
+
+  /** 设置默认分组（单选）。传 id=null 取消默认（无默认组）。
+   * 设置后该组 config merge 写入 ~/.claude/settings.json + ~/.codex/config.toml。 */
+  setDefault: (id: number | null) =>
+    invoke<void>("group_set_default", { id }),
 
   /** 拖拽排序：传入按新顺序排列的 group id 列表 */
   reorder: (orderedIds: number[]) =>

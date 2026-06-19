@@ -720,6 +720,18 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     }
   };
 
+  // 切换默认分组：单选。已是默认 → 取消默认；否则设为新默认。
+  const handleToggleDefault = async (group: GroupDetail["group"]) => {
+    try {
+      const nextId = group.is_default ? null : group.id;
+      await groupApi.setDefault(nextId);
+      load();
+      onGroupsChanged?.();
+    } catch (e) {
+      alert(String(e) || "Failed to set default group");
+    }
+  };
+
   // ── Quick mapping (list view) — persists inline via group.update ──
   const handleAddMapping = async () => {
     if (!mappingGroupId || !mSource || mTargetPlatform === "" || !mTargetModel) return;
@@ -1160,6 +1172,9 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                 >
                   <div style={{ fontWeight: 600, fontSize: 14, display: "flex", alignItems: "center", gap: 6 }}>
                     {group.name}
+                    {group.is_default && (
+                      <span className="badge badge-accent" style={{ fontSize: 10, padding: "0 5px", fontWeight: 500 }} title={t("group.isDefaultTitle", "默认分组")}>{t("group.isDefault", "默认")}</span>
+                    )}
                     {group.auto_from_platform && (
                       <span className="badge badge-muted" style={{ fontSize: 10, padding: "0 5px", fontWeight: 500 }}>auto</span>
                     )}
@@ -1192,6 +1207,19 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                     </svg>
                   </button>
                 )}
+                {/* 设为默认分组（单选）：merge 写入 ~/.claude/settings.json + ~/.codex/config.toml */}
+                <button
+                  className="btn btn-ghost btn-icon"
+                  onClick={e => { e.stopPropagation(); handleToggleDefault(group); }}
+                  title={group.is_default
+                    ? t("group.unsetDefault", "取消默认分组")
+                    : t("group.setAsDefault", "设为默认分组")}
+                  style={group.is_default ? { color: "var(--accent)" } : undefined}
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill={group.is_default ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
+                  </svg>
+                </button>
                 <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />

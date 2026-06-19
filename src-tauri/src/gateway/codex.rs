@@ -220,3 +220,105 @@ fn strip_nulls(value: serde_json::Value) -> serde_json::Value {
         other => other,
     }
 }
+
+/// 默认分组：把 aidog profile 注入用户全局 `~/.codex/config.toml`。
+///
+/// 注入内容（与 `build_group_profile_toml` 等价，但 merge 进用户级 config 而非
+/// 独立 profile 文件）：
+///   - 顶层 `model_provider = "aidog"`
+///   - `[model_providers.aidog]`（name / base_url / wire_api=responses / env_key=AIDOG_KEY）
+///
+/// merge 策略：用户已有的 model_providers / 顶层键保留（除非冲突 aidog 键，则覆盖）。
+///
+/// **Codex 固有限制**：profile 的 `env_key="AIDOG_KEY"` 让 codex 从环境变量读 token，
+/// 全局 config.toml 无法内联 token —— 用户须在 shell `export AIDOG_KEY=<group_key>`。
+/// UI 默认组提示文案需说明此限制（与 Claude Code 全局免 env 不同）。
+///
+/// 返回 Some(path) 表示发生写入；None 表示内容未变跳过。
+pub fn write_default_profile_to_config(port: u16) -> Result<Option<String>, String> {
+    let mut config = codex_config_read()?;
+
+    let aidog_profile = serde_json::json!({
+        "name": "aidog proxy",
+        "base_url": format!("http://127.0.0.1:{port}/proxy"),
+        "wire_api": "responses",
+        "env_key": "AIDOG_KEY",
+    });
+
+    // 写 model_provider（顶层标量，覆盖任何现有 aidog/其它 provider 选择）
+    set_obj_path(&mut config, &["model_provider"], serde_json::Value::String("aidog".into()));
+    // merge [model_providers.aidog]
+    set_obj_path(&mut config, &["model_providers", "aidog"], aidog_profile);
+
+    let before = match codex_config_read() {
+        Ok(v) => serde_json::to_string_pretty(&v).unwrap_or_default(),
+        Err(_) => String::new(),
+    };
+    let after = serde_json::to_string_pretty(&config).unwrap_or_default();
+    if before == after {
+        return Ok(None);
+    }
+
+    codex_config_write(config)?;
+    let path = config_path()?;
+    tracing::info!(path = %path.display(), "codex default profile merged into config.toml");
+    Ok(Some(path.to_string_lossy().to_string()))
+}
+
+/// 默认分组取消时从 `~/.codex/config.toml` 移除 aidog 默认 profile。
+///
+/// 仅清除 aidog 注入的 3 处标识：顶层 `model_provider` 若为 "aidog" 则删除、
+/// `[model_providers.aidog]` 整块删除。用户其它字段一律保留。
+/// 不删 model_providers 表本身（用户可能有其它自定义 provider）。
+pub fn remove_default_profile_from_config() -> Result<Option<String>, String> {
+    let mut config = codex_config_read()?;
+
+    let mut changed = false;
+    // 顶层 model_provider == "aidog" → 移除（用户手动设的其它值保留）
+    if config.get("model_provider").and_then(|v| v.as_str()) == Some("aidog") {
+        if let Some(obj) = config.as_object_mut() {
+            obj.remove("model_provider");
+        }
+        changed = true;
+    }
+    // [model_providers.aidog] → 整块删
+    if let Some(providers) = config.get_mut("model_providers").and_then(|v| v.as_object_mut()) {
+        if providers.remove("aidog").is_some() {
+            changed = true;
+        }
+        // 空 providers 表也清理（避免留下空 [model_providers]）
+        if providers.is_empty() {
+            if let Some(obj) = config.as_object_mut() {
+                obj.remove("model_providers");
+            }
+        }
+    }
+
+    if !changed {
+        return Ok(None);
+    }
+
+    let path = config_path()?;
+    codex_config_write(config)?;
+    tracing::info!(path = %path.display(), "codex default profile removed from config.toml");
+    Ok(Some(path.to_string_lossy().to_string()))
+}
+
+/// JSON pointer 写入：按路径在 base 下深定位，叶子覆盖（非 object 直接替换）。
+fn set_obj_path(base: &mut serde_json::Value, path: &[&str], value: serde_json::Value) {
+    if path.is_empty() {
+        *base = value;
+        return;
+    }
+    let head = path[0];
+    if !base.is_object() {
+        *base = serde_json::Value::Object(serde_json::Map::new());
+    }
+    let obj = base.as_object_mut().expect("ensured object");
+    if path.len() == 1 {
+        obj.insert(head.to_string(), value);
+        return;
+    }
+    let entry = obj.entry(head.to_string()).or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
+    set_obj_path(entry, &path[1..], value);
+}

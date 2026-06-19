@@ -1520,5 +1520,9 @@
   "group.testAllSummary": "Hecho: {{ok}} ok / {{fail}} fallidos / {{total}} total",
   "group.testAllPending": "En espera",
   "group.testAllOk": "OK",
-  "group.testAllFail": "Fallido"
+  "group.testAllFail": "Fallido",
+  "group.setAsDefault": "Establecer como grupo predeterminado",
+  "group.unsetDefault": "Quitar grupo predeterminado",
+  "group.isDefault": "Predeterminado",
+  "group.isDefaultTitle": "Grupo predeterminado: configuración fusionada en ~/.claude/settings.json + ~/.codex/config.toml (Codex necesita export AIDOG_KEY=<clave de grupo>)"
 }

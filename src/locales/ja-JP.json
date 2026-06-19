@@ -1542,5 +1542,9 @@
   "group.testAllSummary": "完了：成功 {{ok}} / 失敗 {{fail}} / 合計 {{total}}",
   "group.testAllPending": "待機",
   "group.testAllOk": "成功",
-  "group.testAllFail": "失敗"
+  "group.testAllFail": "失敗",
+  "group.setAsDefault": "デフォルトグループに設定",
+  "group.unsetDefault": "デフォルトグループを解除",
+  "group.isDefault": "デフォルト",
+  "group.isDefaultTitle": "デフォルトグループ：設定は ~/.claude/settings.json + ~/.codex/config.toml にマージ済み（Codex は export AIDOG_KEY=<グループキー> が必要）"
 }
