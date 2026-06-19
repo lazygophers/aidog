@@ -1214,6 +1214,18 @@ export const appLogApi = {
     invoke<void>("app_log_settings_set", { settings }),
 };
 
+// ─── DB Maintenance (Tier 1: VACUUM reclaim) ──────────────
+
+export interface DbCompactResult {
+  before_bytes: number;
+  after_bytes: number;
+}
+
+export const dbApi = {
+  /** 全量 VACUUM 压缩数据库，返回 before/after 字节。锁库期间请求排队。 */
+  compact: () => invoke<DbCompactResult>("db_compact"),
+};
+
 // ─── Claude Code / Codex 联动开关 ──────────────────────────
 
 export interface CcCodexSettings {

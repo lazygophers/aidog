@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
-import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings } from "../services/api";
+import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, dbApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings } from "../services/api";
 import { Settings } from "./Settings";
 import { CodexSettings } from "./CodexSettings";
 import { PricingTab } from "./PricingTab";
@@ -35,6 +35,7 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
   const [logRetHours, setLogRetHours] = useState(3);
   const [message, setMessage] = useState("");
   const [appVersion, setAppVersion] = useState("");
+  const [dbCompacting, setDbCompacting] = useState(false);
   const [proxyClient, setProxyClient] = useState<ProxyClientSettings>({
     enabled: false, proxy_type: "socks5", host: "127.0.0.1", port: 7890,
     username: "", password: "", dns_over_proxy: true,
@@ -167,6 +168,23 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
     try {
       await proxyLogApi.setSettings(settings);
     } catch (e: any) { setMessage(e.toString()); }
+  };
+
+  const handleDbCompact = async () => {
+    // 确认：全量 VACUUM 锁库期间代理请求短暂排队
+    const ok = window.confirm(t("settings.dbCompactHint", "全量 VACUUM，期间代理请求将短暂排队"));
+    if (!ok) return;
+    setDbCompacting(true);
+    try {
+      const r = await dbApi.compact();
+      const beforeMB = (r.before_bytes / 1024 / 1024).toFixed(1);
+      const afterMB = (r.after_bytes / 1024 / 1024).toFixed(1);
+      const pct = r.before_bytes > 0
+        ? Math.round((1 - r.after_bytes / r.before_bytes) * 100)
+        : 0;
+      setMessage(t("settings.dbCompactDone", "{{before}} MB → {{after}} MB（省 {{pct}}%）", { before: beforeMB, after: afterMB, pct: String(pct) }));
+    } catch (e: any) { setMessage(e.toString()); }
+    finally { setDbCompacting(false); }
   };
 
   const handleTimeoutChange = async (req: number, conn: number) => {
@@ -601,6 +619,34 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
                 </div>
               </>
             )}
+          </div>
+
+          {/* DB Maintenance — 全量 VACUUM 压缩数据库（Tier 1 手动回收入口） */}
+          <div className="glass-surface" style={{
+            padding: "16px 20px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.dbCompact", "立即压缩数据库")}</div>
+              <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                {t("settings.dbCompactHint", "全量 VACUUM，期间代理请求将短暂排队")}
+              </div>
+            </div>
+            <button
+              className="btn"
+              onClick={handleDbCompact}
+              disabled={dbCompacting}
+              style={{
+                padding: "7px 16px", fontSize: 13, cursor: dbCompacting ? "not-allowed" : "pointer",
+                borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
+                background: "transparent", color: "var(--text-primary)",
+                opacity: dbCompacting ? 0.6 : 1,
+              }}
+            >
+              {dbCompacting ? t("common.loading", "加载中…") : t("settings.dbCompact", "立即压缩数据库")}
+            </button>
           </div>
 
           {/* Application Logging */}
