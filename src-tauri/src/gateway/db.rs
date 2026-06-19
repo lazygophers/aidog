@@ -1068,6 +1068,121 @@ pub async fn delete_platform(db: &Db, id: u64) -> Result<(), String> {
     Ok(())
 }
 
+/// 清理失效平台（status='auto_disabled'）的结果。
+/// - `deleted_ids`: 被永久删除（软删 platform + 清所有 group_platform + 清孤儿 auto 组）的平台 id。
+/// - `unassigned_ids`: 仅从指定分组移除关联（platform 行保留，因仍属其他分组）的平台 id。
+#[derive(Debug, Clone, serde::Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PurgeResult {
+    pub deleted_ids: Vec<u64>,
+    pub unassigned_ids: Vec<u64>,
+}
+
+/// 一键清理 auto_disabled 平台。
+///
+/// - `group_id = None`（全局）：删除全库所有 `status='auto_disabled'` 且未软删的平台，
+///   逐个复用 [`delete_platform`]（含清孤儿 auto 组 + 刷新分组缓存）。
+/// - `group_id = Some(gid)`（分组级）：仅处理本分组内的 auto_disabled 平台。
+///   - 仅属本分组（活跃成员数 == 1）→ 永久删除（复用 `delete_platform`）。
+///   - 属多分组（共享，活跃成员数 > 1）→ 仅删本分组的 `group_platform` 关联（platform 行保留）。
+///
+/// 共享判定的活跃成员数计数必须 `deleted_at=0` 过滤，否则把已软删关联算进来会误判独占。
+pub async fn purge_auto_disabled_platforms(
+    db: &Db,
+    group_id: Option<u64>,
+) -> Result<PurgeResult, String> {
+    match group_id {
+        // ── 全局：删全库 auto_disabled 平台 ──
+        None => {
+            let ids: Vec<i64> = db
+                .0
+                .call(|conn| {
+                    let mut stmt = conn.prepare(
+                        "SELECT id FROM platform WHERE status = 'auto_disabled' AND deleted_at = 0",
+                    )?;
+                    let rows = stmt.query_map([], |r| r.get::<_, i64>(0))?;
+                    Ok(rows.collect::<SqlResult<Vec<i64>>>()?)
+                })
+                .await
+                .map_err(|e| e.to_string())?;
+
+            let mut deleted_ids = Vec::with_capacity(ids.len());
+            for id in ids {
+                let pid = id as u64;
+                delete_platform(db, pid).await?;
+                deleted_ids.push(pid);
+            }
+            Ok(PurgeResult {
+                deleted_ids,
+                unassigned_ids: Vec::new(),
+            })
+        }
+        // ── 分组级：本分组内 auto_disabled，独占删 / 共享移关联 ──
+        Some(gid) => {
+            let gid_i = gid as i64;
+            // 本分组内 auto_disabled 平台 id（活跃关联 + 平台未软删）。
+            let ids: Vec<i64> = db
+                .0
+                .call(move |conn| {
+                    let mut stmt = conn.prepare(
+                        "SELECT p.id FROM platform p \
+                         JOIN group_platform gp ON gp.platform_id = p.id \
+                         WHERE gp.group_id = ?1 AND gp.deleted_at = 0 \
+                         AND p.status = 'auto_disabled' AND p.deleted_at = 0",
+                    )?;
+                    let rows = stmt.query_map(params![gid_i], |r| r.get::<_, i64>(0))?;
+                    Ok(rows.collect::<SqlResult<Vec<i64>>>()?)
+                })
+                .await
+                .map_err(|e| e.to_string())?;
+
+            let mut deleted_ids = Vec::new();
+            let mut unassigned_ids = Vec::new();
+            for id in ids {
+                let pid = id;
+                // 该平台跨全库的活跃分组成员数（deleted_at=0 过滤，避免软删残留误判独占）。
+                let member_count: i64 = db
+                    .0
+                    .call(move |conn| {
+                        Ok(conn.query_row(
+                            "SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1 AND deleted_at = 0",
+                            params![pid],
+                            |r| r.get::<_, i64>(0),
+                        )?)
+                    })
+                    .await
+                    .map_err(|e| e.to_string())?;
+
+                if member_count <= 1 {
+                    // 独占本分组 → 永久删除（复用 delete_platform：软删 platform + 清所有关联 + 清孤儿 auto 组）。
+                    delete_platform(db, id as u64).await?;
+                    deleted_ids.push(id as u64);
+                } else {
+                    // 共享（属多分组）→ 仅删本分组关联，platform 行保留。
+                    // 对齐 move_group_platform 既有模式（db.rs:1622）：物理 DELETE + deleted_at=0 过滤当前活跃行。
+                    db.0
+                        .call(move |conn| {
+                            conn.execute(
+                                "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
+                                params![gid_i, pid],
+                            )?;
+                            Ok(())
+                        })
+                        .await
+                        .map_err(|e| format!("remove group_platform on purge: {e}"))?;
+                    unassigned_ids.push(id as u64);
+                }
+            }
+            // 关联表已变更，刷新分组缓存（delete_platform 内部已刷，纯移关联场景这里兜底）。
+            db.invalidate_groups_cache();
+            Ok(PurgeResult {
+                deleted_ids,
+                unassigned_ids,
+            })
+        }
+    }
+}
+
 // ─── Tray 展示（互斥单平台）─────────────────────────────────
 
 /// 互斥设置 tray 展示平台：单事务先清所有 show_in_tray，再置选中平台为 1。
@@ -4588,6 +4703,98 @@ mod tests {
         }).await.unwrap();
         assert_eq!(stale, 0, "不应残留指向已删平台的 group_platform 行");
     }
+
+    // ── 一键清理失效平台：全局全删 / 分组独占删 / 分组共享仅移除关联 ──
+    #[tokio::test]
+    async fn purge_auto_disabled_global_deletes_all() {
+        let db = test_db().await;
+        // 两个 auto_disabled + 一个 enabled（应保留）。
+        let p_dead1 = create_platform(&db, sample_platform("dead1")).await.unwrap();
+        let p_dead2 = create_platform(&db, sample_platform("dead2")).await.unwrap();
+        let p_alive = create_platform(&db, sample_platform("alive")).await.unwrap();
+        set_platform_auto_disabled(&db, p_dead1.id).await.unwrap();
+        set_platform_auto_disabled(&db, p_dead2.id).await.unwrap();
+
+        let r = purge_auto_disabled_platforms(&db, None).await.unwrap();
+        assert_eq!(r.deleted_ids.len(), 2, "全局应删两个 auto_disabled");
+        assert!(r.unassigned_ids.is_empty(), "全局模式不应有 unassigned");
+        assert!(r.deleted_ids.contains(&(p_dead1.id as u64)));
+        assert!(r.deleted_ids.contains(&(p_dead2.id as u64)));
+
+        // 已删平台行仍存在但 deleted_at>0；enabled 平台未动。
+        assert!(get_platform(&db, p_dead1.id).await.unwrap().is_none());
+        assert!(get_platform(&db, p_dead2.id).await.unwrap().is_none());
+        assert!(get_platform(&db, p_alive.id).await.unwrap().is_some(), "enabled 平台不应被删");
+    }
+
+    #[tokio::test]
+    async fn purge_auto_disabled_group_exclusive_deletes_shared_unassigns() {
+        let db = test_db().await;
+        // 平台 A：仅属 g1，auto_disabled → 分组级清理应永久删。
+        let p_a = create_platform(&db, sample_platform("a-exclusive")).await.unwrap();
+        // 平台 B：属 g1 + g2，auto_disabled → 分组级清理 g1 应仅移除 g1 关联，平台行保留、g2 关联保留。
+        let p_b = create_platform(&db, sample_platform("b-shared")).await.unwrap();
+        set_platform_auto_disabled(&db, p_a.id).await.unwrap();
+        set_platform_auto_disabled(&db, p_b.id).await.unwrap();
+
+        let g1 = create_group(&db, sample_group("g1", vec![])).await.unwrap();
+        let g2 = create_group(&db, sample_group("g2", vec![])).await.unwrap();
+        set_group_platforms(&db, g1.id, &[
+            GroupPlatformInput { platform_id: p_a.id, priority: Some(0), weight: Some(1), level_priority: None },
+            GroupPlatformInput { platform_id: p_b.id, priority: Some(1), weight: Some(1), level_priority: None },
+        ]).await.unwrap();
+        set_group_platforms(&db, g2.id, &[
+            GroupPlatformInput { platform_id: p_b.id, priority: Some(0), weight: Some(1), level_priority: None },
+        ]).await.unwrap();
+
+        let r = purge_auto_disabled_platforms(&db, Some(g1.id)).await.unwrap();
+        // 独占本分组的 A 被永久删；共享的 B 仅从 g1 移除关联。
+        assert_eq!(r.deleted_ids, vec![p_a.id as u64], "独占本分组的 A 应永久删");
+        assert_eq!(r.unassigned_ids, vec![p_b.id as u64], "共享的 B 应仅移除本分组关联");
+
+        // A 已软删；B 行仍在。
+        assert!(get_platform(&db, p_a.id).await.unwrap().is_none(), "A 应被软删");
+        assert!(get_platform(&db, p_b.id).await.unwrap().is_some(), "B 行应保留");
+
+        // g1 成员已空（A 删 + B 移除）；g2 仍保留 B。
+        let g1_plats = get_group_platforms(&db, g1.id).await.unwrap();
+        assert!(g1_plats.is_empty(), "g1 应无成员残留");
+        let g2_plats = get_group_platforms(&db, g2.id).await.unwrap();
+        assert_eq!(g2_plats.len(), 1, "g2 应仍含 B");
+        assert_eq!(g2_plats[0].platform.id, p_b.id);
+
+        // 全表无指向已删平台 A 的关联残留（delete_platform 清所有 group_platform）。
+        let pid_a = p_a.id as i64;
+        let stale_a: i64 = db.0.call(move |conn| {
+            Ok(conn.query_row("SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1", params![pid_a], |r| r.get(0))?)
+        }).await.unwrap();
+        assert_eq!(stale_a, 0, "A 不应残留任何 group_platform 行");
+    }
+
+    #[tokio::test]
+    async fn purge_auto_disabled_group_skips_enabled() {
+        let db = test_db().await;
+        // 本分组含一个 enabled 平台 + 一个 auto_disabled 平台。
+        let p_alive = create_platform(&db, sample_platform("alive-g")).await.unwrap();
+        let p_dead = create_platform(&db, sample_platform("dead-g")).await.unwrap();
+        set_platform_auto_disabled(&db, p_dead.id).await.unwrap();
+        let g = create_group(&db, sample_group("g", vec![])).await.unwrap();
+        set_group_platforms(&db, g.id, &[
+            GroupPlatformInput { platform_id: p_alive.id, priority: Some(0), weight: Some(1), level_priority: None },
+            GroupPlatformInput { platform_id: p_dead.id, priority: Some(1), weight: Some(1), level_priority: None },
+        ]).await.unwrap();
+
+        let r = purge_auto_disabled_platforms(&db, Some(g.id)).await.unwrap();
+        assert_eq!(r.deleted_ids, vec![p_dead.id as u64], "仅 auto_disabled 应被删");
+        assert!(r.unassigned_ids.is_empty());
+
+        // enabled 平台行 + 分组关联保留。
+        assert!(get_platform(&db, p_alive.id).await.unwrap().is_some());
+        let g_plats = get_group_platforms(&db, g.id).await.unwrap();
+        assert_eq!(g_plats.len(), 1, "g 应仅余 enabled 平台");
+        assert_eq!(g_plats[0].platform.id, p_alive.id);
+    }
+
 
     // ── R10 禁 NULL：未提供 extra 时为空串而非 NULL ──
     #[tokio::test]

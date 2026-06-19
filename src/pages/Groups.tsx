@@ -1430,6 +1430,30 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                     </svg>
                   </button>
                 )}
+                {/* 清理本分组失效（auto_disabled）平台：独占的永久删，共享的仅移除本分组关联 */}
+                <button
+                  className="btn btn-ghost"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    if (!window.confirm(t("group.purgeDisabledConfirm", "将清理本分组失效平台（独占的永久删除，共享的仅从本分组移除），确定？"))) return;
+                    try {
+                      const r = await platformApi.purgeDisabled(group.id);
+                      if (r.deletedIds.length === 0 && r.unassignedIds.length === 0) {
+                        onToast?.({ text: t("platform.purgeDisabledNone", "暂无失效平台"), ok: true });
+                      } else {
+                        onToast?.({ text: t("group.purgeDisabledDone", "已清理：删除 {{deleted}}，移除 {{unassigned}}", { deleted: r.deletedIds.length, unassigned: r.unassignedIds.length }), ok: true });
+                      }
+                      load();
+                      onGroupsChanged?.();
+                    } catch (err) {
+                      onToast?.({ text: `${t("group.purgeDisabled", "清理失效")}: ${err}`, ok: false });
+                    }
+                  }}
+                  title={t("group.purgeDisabled", "清理失效")}
+                  style={{ fontSize: 11, gap: 4, padding: "3px 8px", display: "inline-flex", alignItems: "center", whiteSpace: "nowrap" }}
+                >
+                  {t("group.purgeDisabled", "清理失效")}
+                </button>
                 {/* 设为默认分组（单选）：merge 写入 ~/.claude/settings.json + ~/.codex/config.toml
                     带文字的状态按钮——未默认=幽灵「设为默认」；已默认=accent 填充「默认配置已写入」(点击取消) */}
                 <button

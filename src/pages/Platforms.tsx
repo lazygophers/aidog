@@ -2927,6 +2927,29 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
             + {t("platform.add")}
           </button>
+          <button
+            className="btn btn-ghost"
+            onClick={async () => {
+              if (!window.confirm(t("platform.purgeDisabledConfirm", "将永久删除全库失效(自动禁用)平台，不可恢复，确定？"))) return;
+              try {
+                const r = await platformApi.purgeDisabled();
+                if (r.deletedIds.length === 0) {
+                  setToast({ text: t("platform.purgeDisabledNone", "暂无失效平台"), ok: true });
+                } else {
+                  setToast({ text: t("platform.purgeDisabledDone", "已删除 {{count}} 个失效平台", { count: r.deletedIds.length }), ok: true });
+                }
+                setTimeout(() => setToast(null), 3000);
+                load();
+                handleGroupsChanged();
+              } catch (err) {
+                setToast({ text: `${t("platform.purgeDisabled", "清理失效平台")}: ${err}`, ok: false });
+                setTimeout(() => setToast(null), 3000);
+              }
+            }}
+            title={t("platform.purgeDisabled", "清理失效平台")}
+          >
+            {t("platform.purgeDisabled", "清理失效平台")}
+          </button>
         </div>
       </div>
 
