@@ -1730,19 +1730,13 @@ async fn handle_proxy_inner(
         // usage 提取仍保留（accumulate_sse_usage），est_cost / 统计不丢。
         // 注意：透传下不改写响应 model 字段（保持上游原文，与请求体 model=actual_model 一致）。──
         let out_bytes = if passthrough_response {
-            for line in text.lines() {
-                if let Some(data) = line.strip_prefix("data: ") {
-                    let data = data.trim();
-                    if data == "[DONE]" {
-                        continue;
-                    }
-                    if let Ok(json) = serde_json::from_str::<Value>(data) {
-                        accumulate_sse_usage(&json, &guard.agg.tokens_in, &guard.agg.tokens_out, &guard.agg.tokens_cache);
-                    }
-                }
-            }
+            // 跨 chunk 行重组后累计 usage（逐 chunk .lines() 会因 data: 行被切断而丢 usage）。
+            guard.agg.feed_sse_usage(&text);
             chunk.clone()
         } else {
+            // token 累计走跨 chunk 行重组（逐 chunk .lines() 会因 data: 行被切断丢 usage）。
+            // 协议转换仍逐 chunk 处理（输出格式转换路径，行为不变）。
+            guard.agg.feed_sse_usage(&text);
             let mut output = String::new();
             for line in text.lines() {
                 if let Some(data) = line.strip_prefix("data: ") {
@@ -1754,9 +1748,6 @@ async fn handle_proxy_inner(
                     }
 
                     if let Ok(json) = serde_json::from_str::<Value>(data) {
-                        // token 累计：复用 accumulate_sse_usage（含 Anthropic message.usage 兜底，修复主分支漏读 input_tokens）
-                        accumulate_sse_usage(&json, &guard.agg.tokens_in, &guard.agg.tokens_out, &guard.agg.tokens_cache);
-
                         if let Some(event) = adapter::parse_sse(&json, &protocol) {
                             let event = if !model_for_response.is_empty() {
                                 match event {
@@ -2388,18 +2379,10 @@ async fn handle_passthrough(
                 cl.push(chunk.clone());
             }
         }
-        // 尽力从 SSE data 累计 usage（Anthropic / OpenAI 兼容字段，含 message.usage 兜底），不改写 chunk
+        // 尽力从 SSE data 累计 usage（Anthropic / OpenAI 兼容字段，含 message.usage 兜底），不改写 chunk。
+        // 跨 chunk 行重组：data: 行被切到两个 chunk 时逐 chunk .lines() 会丢 usage。
         let text = String::from_utf8_lossy(&chunk);
-        for line in text.lines() {
-            if let Some(data) = line.strip_prefix("data: ") {
-                if data.trim() == "[DONE]" {
-                    continue;
-                }
-                if let Ok(json) = serde_json::from_str::<Value>(data) {
-                    accumulate_sse_usage(&json, &guard.agg.tokens_in, &guard.agg.tokens_out, &guard.agg.tokens_cache);
-                }
-            }
-        }
+        guard.agg.feed_sse_usage(&text);
         guard.flush_if_done(&text);
         Ok::<_, std::io::Error>(chunk)
     });
@@ -3068,6 +3051,11 @@ struct StreamAggregator {
     tokens_in: std::sync::atomic::AtomicI32,
     tokens_out: std::sync::atomic::AtomicI32,
     tokens_cache: std::sync::atomic::AtomicI32,
+    // SSE 行重组缓冲：网络 chunk 边界与 SSE event 边界不对齐，单个 `data:` 行可能被
+    // 切到两个 reqwest chunk。逐 chunk `.lines()` 解析会把尾部不完整行喂给 serde 解析失败
+    // 静默丢弃 usage（尤其 anthropic 尾部 message_delta 携带最终 input/output_tokens 时）。
+    // 此缓冲保留每个 chunk 末尾未以换行结束的残行，拼到下个 chunk 头部，保证 usage 解析始终见完整行。
+    sse_line_buf: std::sync::Mutex<String>,
 }
 
 impl StreamAggregator {
@@ -3078,7 +3066,40 @@ impl StreamAggregator {
             tokens_in: std::sync::atomic::AtomicI32::new(0),
             tokens_out: std::sync::atomic::AtomicI32::new(0),
             tokens_cache: std::sync::atomic::AtomicI32::new(0),
+            sse_line_buf: std::sync::Mutex::new(String::new()),
         }
+    }
+
+    /// 从一个网络 chunk 的文本累计 SSE usage，跨 chunk 边界重组 `data:` 行。
+    /// 仅用于 usage 提取，不影响向客户端 relay 的原始字节。
+    /// 缓冲未以换行结束的尾部残行，拼到后续 chunk；遇 `[DONE]`/解析失败的行静默跳过。
+    fn feed_sse_usage(&self, text: &str) {
+        let mut buf = match self.sse_line_buf.lock() {
+            Ok(b) => b,
+            Err(_) => return,
+        };
+        buf.push_str(text);
+        // 末尾若无换行，说明最后一行可能被切断 → 保留为残行，仅处理已完整行。
+        let ends_complete = buf.ends_with('\n');
+        let mut remainder = String::new();
+        let mut lines: Vec<String> = buf.split('\n').map(|s| s.to_string()).collect();
+        if !ends_complete {
+            // 最后一段是不完整残行，留到下次。
+            remainder = lines.pop().unwrap_or_default();
+        }
+        for line in &lines {
+            let line = line.trim();
+            if let Some(data) = line.strip_prefix("data: ") {
+                let data = data.trim();
+                if data == "[DONE]" {
+                    continue;
+                }
+                if let Ok(json) = serde_json::from_str::<Value>(data) {
+                    accumulate_sse_usage(&json, &self.tokens_in, &self.tokens_out, &self.tokens_cache);
+                }
+            }
+        }
+        *buf = remainder;
     }
 }
 
@@ -4472,6 +4493,28 @@ mod tests {
         assert_eq!(i.load(Relaxed), 356, "input 终态保留");
         assert_eq!(c.load(Relaxed), 50880, "cache 终态保留");
         assert_eq!(o.load(Relaxed), 29, "output 取累计终值");
+    }
+
+    // ── 回归：尾部 message_delta(usage) 行被切到两个网络 chunk 仍能解析 usage ──
+    // 根因：逐 chunk `.lines()` 解析时，被切断的 `data:` 行喂给 serde 解析失败被静默丢弃，
+    // usage(input/output) 永久丢失 → token=0 / est_cost=0（response_body 完整落库但 token 全 0）。
+    // 期望：feed_sse_usage 跨 chunk 重组残行后，input=723 / output=2922 / cache=84480 正确累计。
+    #[test]
+    fn feed_sse_usage_reassembles_split_chunk_boundary() {
+        use std::sync::atomic::Ordering::Relaxed;
+        let agg = StreamAggregator::new();
+        // 真实复现：长流尾部 message_delta usage 行在某字节处被切成两块。
+        let full = "event: content_block_stop\ndata: {\"type\": \"content_block_stop\", \"index\": 3}\n\nevent: message_delta\ndata: {\"type\": \"message_delta\", \"delta\": {\"stop_reason\": \"tool_use\"}, \"usage\": {\"input_tokens\": 723, \"output_tokens\": 2922, \"cache_read_input_tokens\": 84480}}\n\nevent: message_stop\ndata: {\"type\": \"message_stop\"}\n\n";
+        // 在 message_delta 的 data: 行中间切断（模拟 TCP chunk 边界）。
+        let split_at = full.find("\"output_tokens\"").unwrap();
+        let (head, tail) = full.split_at(split_at);
+        agg.feed_sse_usage(head);
+        // 第一块结束时 message_delta 的 data 行不完整，尚不能解析出 output。
+        assert_eq!(agg.tokens_out.load(Relaxed), 0, "残行未完成前不应误解析");
+        agg.feed_sse_usage(tail);
+        assert_eq!(agg.tokens_in.load(Relaxed), 723, "跨 chunk 重组后 input 正确");
+        assert_eq!(agg.tokens_out.load(Relaxed), 2922, "跨 chunk 重组后 output 正确");
+        assert_eq!(agg.tokens_cache.load(Relaxed), 84480, "跨 chunk 重组后 cache 正确");
     }
 
     // ── 回归：OpenAI 流式末尾一次性 usage 不因 fetch_max 回退 ──
