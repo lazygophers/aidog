@@ -432,15 +432,6 @@ pub struct Platform {
     /// 连续自动禁用次数（指数退避指数）；恢复 enabled 时清零
     #[serde(default)]
     pub auto_disable_strikes: i64,
-    /// 熔断器失败阈值（连续失败达此数 → Open）；0 = 继承全局 SchedulingBreakerSettings 默认。
-    #[serde(default)]
-    pub breaker_failure_threshold: u32,
-    /// 熔断 Open 持续秒数（之后转 HalfOpen 探测）；0 = 继承全局默认。
-    #[serde(default)]
-    pub breaker_open_secs: u64,
-    /// HalfOpen 允许的最大探测请求数；0 = 继承全局默认。
-    #[serde(default)]
-    pub breaker_half_open_max: u32,
     pub created_at: i64,
     pub updated_at: i64,
     #[serde(default)]
@@ -466,11 +457,6 @@ pub struct Platform {
     /// 排序权重（越小越靠前），0 = 按 created_at 排序
     #[serde(default)]
     pub sort_order: i64,
-    /// 是否为该平台自动创建/维护默认分组（true=当前行为；false=不建且
-    /// `ensure_platform_groups` 永久跳过）。添加平台时用户可选，持久化以确保
-    /// 「不要分组」的选择跨重启生效。
-    #[serde(default)]
-    pub auto_group: bool,
     /// 手动预算限额列表（仅无上游 quota 自动支持平台；请求驱动扣减 + 耗尽阻断）
     #[serde(default)]
     pub manual_budgets: Vec<ManualBudget>,
@@ -479,6 +465,53 @@ pub struct Platform {
     /// 缺省空串 → 前端退中性。`skip_deserializing` 避免从前端入参反序列化。
     #[serde(default, skip_deserializing)]
     pub balance_level: String,
+}
+
+/// 平台级熔断阈值覆盖，存于 `platform.extra` JSON 的嵌套对象 `breaker`。
+/// 每字段 0/缺省 = 继承全局 `SchedulingBreakerSettings` 默认（语义同旧顶层列）。
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+pub struct PlatformBreaker {
+    #[serde(default)]
+    pub failure_threshold: u32,
+    #[serde(default)]
+    pub open_secs: u64,
+    #[serde(default)]
+    pub half_open_max: u32,
+}
+
+/// 从 `extra` JSON 字符串解析 `breaker` 嵌套对象；空/非法/缺键 → 全 0（继承全局默认）。
+pub fn parse_breaker(extra: &str) -> PlatformBreaker {
+    if extra.trim().is_empty() {
+        return PlatformBreaker::default();
+    }
+    serde_json::from_str::<serde_json::Value>(extra)
+        .ok()
+        .and_then(|v| v.get("breaker").cloned())
+        .and_then(|b| serde_json::from_value(b).ok())
+        .unwrap_or_default()
+}
+
+/// 把 breaker 阈值合并进 `extra` JSON 的 `breaker` 键（保留 extra 其余字段）。
+/// 三值全 0 时移除 `breaker` 键（无覆盖 → 继承全局，不留空对象）。空 extra → "{}" 起步。
+pub fn merge_breaker_into_extra(extra: &str, b: &PlatformBreaker) -> String {
+    let mut root = serde_json::from_str::<serde_json::Value>(extra.trim())
+        .ok()
+        .filter(|v| v.is_object())
+        .unwrap_or_else(|| serde_json::json!({}));
+    let obj = root.as_object_mut().expect("object");
+    if b.failure_threshold == 0 && b.open_secs == 0 && b.half_open_max == 0 {
+        obj.remove("breaker");
+    } else {
+        obj.insert("breaker".to_string(), serde_json::to_value(b).unwrap_or_default());
+    }
+    serde_json::to_string(&root).unwrap_or_else(|_| "{}".to_string())
+}
+
+impl Platform {
+    /// 解析本平台 `extra.breaker` 覆盖阈值（缺省全 0 = 继承全局默认）。
+    pub fn breaker(&self) -> PlatformBreaker {
+        parse_breaker(&self.extra)
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -497,7 +530,8 @@ pub struct CreatePlatform {
     pub endpoints: Option<Vec<PlatformEndpoint>>,
     #[serde(default)]
     pub manual_budgets: Option<Vec<ManualBudget>>,
-    /// 是否自动创建默认分组（None→true 保持旧行为；false=不建且 ensure 永久跳过）。
+    /// 是否自动创建默认分组（transient 输入，不入库）：None→true 保持旧行为；
+    /// false=创建时不建默认分组。该选择是创建时一次性判断，不持久化。
     #[serde(default)]
     pub auto_group: Option<bool>,
     /// 额外加入的已有分组 ID 列表（plain membership，不写 auto_from_platform）。
@@ -521,15 +555,9 @@ pub struct UpdatePlatform {
     /// 注意：禁止前端直接置 auto_disabled（仅系统 401/403 联动设置）；置 enabled 会清空退避状态。
     pub status: Option<PlatformStatus>,
     pub manual_budgets: Option<Vec<ManualBudget>>,
-    /// 熔断阈值覆盖（0=继承全局默认）；None=不变保留既有值。
-    pub breaker_failure_threshold: Option<u32>,
-    pub breaker_open_secs: Option<u64>,
-    pub breaker_half_open_max: Option<u32>,
-    /// 重设是否自动创建默认分组（None=不变；Some(false)=删既有 auto 分组并停止维护）。
-    #[serde(default)]
-    pub auto_group: Option<bool>,
     /// 全量同步该平台的手动组成员关系（None=不动；Some(set)=加入 set 内、移出 set 外，
     /// auto 分组不受影响）。
+    /// 注：熔断阈值覆盖现走 `extra.breaker`（随 `extra` 字段整体更新），不再有独立列。
     #[serde(default)]
     pub join_group_ids: Option<Vec<u64>>,
 }
@@ -1611,7 +1639,7 @@ impl MiddlewareSettings {
 // ─── Scheduling & Breaker Settings ─────────────────────────
 
 /// 全局调度 + 熔断默认设置（settings KV scope=`scheduling`, key=`settings`）。
-/// Platform 的 breaker_* 字段为 0 时继承本结构对应默认值。
+/// Platform 的 `extra.breaker` 覆盖值为 0/缺省时继承本结构对应默认值。
 /// `enabled=false` 时熔断总开关旁路（候选过滤不踢任何 Open 平台）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SchedulingBreakerSettings {
@@ -1653,18 +1681,19 @@ impl SchedulingBreakerSettings {
     /// 解析某平台的有效熔断阈值：平台字段非 0 用之，否则全局默认。
     /// 返回 (failure_threshold, open_secs, half_open_max)。
     pub fn effective_thresholds(&self, platform: &Platform) -> (u32, u64, u32) {
-        let ft = if platform.breaker_failure_threshold > 0 {
-            platform.breaker_failure_threshold
+        let b = platform.breaker();
+        let ft = if b.failure_threshold > 0 {
+            b.failure_threshold
         } else {
             self.breaker_failure_threshold
         };
-        let os = if platform.breaker_open_secs > 0 {
-            platform.breaker_open_secs
+        let os = if b.open_secs > 0 {
+            b.open_secs
         } else {
             self.breaker_open_secs
         };
-        let hom = if platform.breaker_half_open_max > 0 {
-            platform.breaker_half_open_max
+        let hom = if b.half_open_max > 0 {
+            b.half_open_max
         } else {
             self.breaker_half_open_max
         };
@@ -2217,5 +2246,83 @@ mod middleware_model_tests {
         assert!(!got.tts);
         assert_eq!(got.form, NotifForm::InboxOnly);
         assert_eq!(got.template, "{project} done");
+    }
+
+    /// 最小 Platform，仅设 extra 用于 breaker 解析测试。
+    fn platform_with_extra(extra: &str) -> Platform {
+        Platform {
+            id: 1,
+            name: "p".into(),
+            platform_type: Protocol::Anthropic,
+            base_url: String::new(),
+            api_key: String::new(),
+            extra: extra.into(),
+            models: PlatformModels::default(),
+            available_models: vec![],
+            endpoints: vec![],
+            enabled: true,
+            status: PlatformStatus::Enabled,
+            auto_disabled_until: 0,
+            auto_disable_strikes: 0,
+            created_at: 0,
+            updated_at: 0,
+            deleted_at: 0,
+            est_balance_remaining: 0.0,
+            est_coding_plan: String::new(),
+            last_real_query_at: 0,
+            estimate_count: 0,
+            show_in_tray: false,
+            tray_display: String::new(),
+            sort_order: 0,
+            manual_budgets: vec![],
+            balance_level: String::new(),
+        }
+    }
+
+    #[test]
+    fn parse_merge_breaker_roundtrip() {
+        // 空 / 非法 / 无 breaker 键 → 全 0。
+        assert_eq!(parse_breaker("").failure_threshold, 0);
+        assert_eq!(parse_breaker("not json").open_secs, 0);
+        assert_eq!(parse_breaker(r#"{"mock":{}}"#).half_open_max, 0);
+
+        // merge 写入 → 再解析一致，且保留 extra 其余键。
+        let merged = merge_breaker_into_extra(
+            r#"{"mock":{"x":1}}"#,
+            &PlatformBreaker { failure_threshold: 4, open_secs: 90, half_open_max: 2 },
+        );
+        let v: serde_json::Value = serde_json::from_str(&merged).unwrap();
+        assert_eq!(v["mock"]["x"], 1, "保留 extra 其余键");
+        let b = parse_breaker(&merged);
+        assert_eq!((b.failure_threshold, b.open_secs, b.half_open_max), (4, 90, 2));
+
+        // 全 0 → 移除 breaker 键（无覆盖=继承全局）。
+        let cleared = merge_breaker_into_extra(&merged, &PlatformBreaker::default());
+        let v2: serde_json::Value = serde_json::from_str(&cleared).unwrap();
+        assert!(v2.get("breaker").is_none(), "全 0 移除 breaker 键");
+        assert_eq!(v2["mock"]["x"], 1, "清 breaker 不动其余键");
+    }
+
+    #[test]
+    fn effective_thresholds_extra_override_and_inherit() {
+        let global = SchedulingBreakerSettings::default(); // (5, 60, 2)
+
+        // 缺 extra.breaker → 全继承全局默认。
+        let p_none = platform_with_extra("{}");
+        assert_eq!(global.effective_thresholds(&p_none), (5, 60, 2));
+
+        // extra.breaker 全覆盖。
+        let p_all = platform_with_extra(&merge_breaker_into_extra(
+            "{}",
+            &PlatformBreaker { failure_threshold: 9, open_secs: 120, half_open_max: 4 },
+        ));
+        assert_eq!(global.effective_thresholds(&p_all), (9, 120, 4));
+
+        // 单键覆盖（failure_threshold），其余继承全局；open_secs/half_open_max=0 → 用全局。
+        let p_partial = platform_with_extra(&merge_breaker_into_extra(
+            "{}",
+            &PlatformBreaker { failure_threshold: 8, open_secs: 0, half_open_max: 0 },
+        ));
+        assert_eq!(global.effective_thresholds(&p_partial), (8, 60, 2));
     }
 }
