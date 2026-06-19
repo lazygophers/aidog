@@ -228,6 +228,7 @@
   "group.groupKeyLocked": "グループキーは作成後にロックされ、変更できません",
   "group.isDefault": "デフォルト",
   "group.isDefaultTitle": "デフォルトグループ：設定は ~/.claude/settings.json + ~/.codex/config.toml にマージ済み（Codex は export AIDOG_KEY=<グループキー> が必要）",
+  "group.defaultConfigWritten": "デフォルト設定を書き込み済み",
   "group.loadBalance": "負荷分散",
   "group.mappingsHint": "ソースモデル名をターゲットプラットフォームの具体的なモデルにマッピング",
   "group.maxRetries": "最大リトライ",

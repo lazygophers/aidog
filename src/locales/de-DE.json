@@ -228,6 +228,7 @@
   "group.groupKeyLocked": "Gruppenschlüssel ist nach Erstellung gesperrt und nicht änderbar",
   "group.isDefault": "Standard",
   "group.isDefaultTitle": "Standardgruppe: Konfiguration in ~/.claude/settings.json + ~/.codex/config.toml zusammengeführt (Codex benötigt export AIDOG_KEY=<Gruppenschlüssel>)",
+  "group.defaultConfigWritten": "Standardkonfiguration geschrieben",
   "group.loadBalance": "Load-Balance",
   "group.mappingsHint": "Quellmodellnamen bestimmten Modellen auf der Zielplattform zuordnen",
   "group.maxRetries": "Max. Wiederholungen",

@@ -228,6 +228,7 @@
   "group.groupKeyLocked": "分组密钥创建后锁定，不可修改",
   "group.isDefault": "默认",
   "group.isDefaultTitle": "默认分组：config 已 merge 写入 ~/.claude/settings.json + ~/.codex/config.toml（Codex 需 export AIDOG_KEY=<分组密钥>）",
+  "group.defaultConfigWritten": "默认配置已写入",
   "group.loadBalance": "负载均衡",
   "group.mappingsHint": "将源模型名映射到目标平台的具体模型",
   "group.maxRetries": "最大重试",

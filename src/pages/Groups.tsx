@@ -11,7 +11,7 @@ import {
   type ModelMapping,
 } from "../services/api";
 import { SortableList } from "../components/SortableList";
-import { IconClose, IconCheck, IconBolt, IconCost } from "../components/icons";
+import { IconClose, IconCheck, IconHome, IconBolt, IconCost } from "../components/icons";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../utils/formatters";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
 import { getPlatformLogo, getFaviconUrl } from "../assets/platforms";
@@ -1362,18 +1362,35 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                     </svg>
                   </button>
                 )}
-                {/* 设为默认分组（单选）：merge 写入 ~/.claude/settings.json + ~/.codex/config.toml */}
+                {/* 设为默认分组（单选）：merge 写入 ~/.claude/settings.json + ~/.codex/config.toml
+                    带文字的状态按钮——未默认=幽灵「设为默认」；已默认=accent 填充「默认配置已写入」(点击取消) */}
                 <button
-                  className="btn btn-ghost btn-icon"
-                  onClick={e => { e.stopPropagation(); handleToggleDefault(group); }}
-                  title={group.is_default
+                  className="btn btn-ghost"
+                  aria-pressed={group.is_default}
+                  aria-label={group.is_default
                     ? t("group.unsetDefault", "取消默认分组")
                     : t("group.setAsDefault", "设为默认分组")}
-                  style={group.is_default ? { color: "var(--accent)" } : undefined}
+                  onClick={e => { e.stopPropagation(); handleToggleDefault(group); }}
+                  title={group.is_default
+                    ? t("group.isDefaultTitle", "默认分组：config 已 merge 写入 ~/.claude/settings.json + ~/.codex/config.toml")
+                    : t("group.setAsDefault", "设为默认分组")}
+                  style={{
+                    fontSize: 11, gap: 4, padding: "3px 8px",
+                    display: "inline-flex", alignItems: "center", whiteSpace: "nowrap",
+                    ...(group.is_default ? {
+                      color: "var(--accent)",
+                      background: "color-mix(in srgb, var(--accent) 14%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--accent) 35%, transparent)",
+                      borderRadius: "var(--radius-sm)",
+                    } : {}),
+                  }}
                 >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill={group.is_default ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z" />
-                  </svg>
+                  {group.is_default
+                    ? <IconCheck size={12} />
+                    : <IconHome size={12} />}
+                  {group.is_default
+                    ? t("group.defaultConfigWritten", "默认配置已写入")
+                    : t("group.setAsDefault", "设为默认")}
                 </button>
                 <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); openEdit({ group, platforms: gps, model_mappings }); }} title={t("action.edit", "编辑")}>
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
