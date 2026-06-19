@@ -448,9 +448,10 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   // ── 分组展开区平台卡片：复用 PlatformCard + usePlatformCards（与 Platforms 主列表同款） ──
   // 单实例 hook 跨所有分组共享 state（quota/usage/expanded/test 按 platformId 索引）。
   const cards = usePlatformCards({ onNavigate, setToast: onToast });
-  // 分组卡片受控展开态（header 点击 + chevron 都驱动此 set）。
-  const [expandedGroups, setExpandedGroups] = useState<Set<number>>(new Set());
-  const toggleGroupExpanded = (id: number) => setExpandedGroups(prev => {
+  // 分组展开态：默认全展开。追踪「已折叠」集（默认空 = 全展开），新分组天然展开，
+  // 用户折叠状态跨 reload 保持；toggle 切换折叠集成员。
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
+  const toggleGroupExpanded = (id: number) => setCollapsedGroups(prev => {
     const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
   });
   // 分组上下文 card actions：拖拽 no-op（分组内禁拖拽）；启停/删除后 load() 刷新本地 platforms。
@@ -1043,7 +1044,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       {/* 子区块标题 + 操作栏 */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-          <span style={{ fontSize: 18, fontWeight: 700 }}>{t("page.groups")}</span>
           {details.length > 0 && (
             <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>
               {details.length} {t("nav.groups").toLowerCase()}
@@ -1248,9 +1248,9 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
               >
                 <CompactCard
                   header={header}
-                  expanded={expandedGroups.has(group.id)}
-                  onToggle={(next) => setExpandedGroups(prev => {
-                    const s = new Set(prev); next ? s.add(group.id) : s.delete(group.id); return s;
+                  expanded={!collapsedGroups.has(group.id)}
+                  onToggle={(next) => setCollapsedGroups(prev => {
+                    const s = new Set(prev); next ? s.delete(group.id) : s.add(group.id); return s;
                   })}
                   toggleLabel={t("group.toggleDetails", "展开/收起明细")}
                   style={handle.isDragging
