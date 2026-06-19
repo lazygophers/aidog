@@ -87,6 +87,99 @@ pub fn parse_incoming_request(source_protocol: &str, body: &Value) -> Result<Cha
     }
 }
 
+/// 非流式响应内部归一表示（基于 Anthropic 语义：text + tool_use 块 + stop_reason + usage）。
+///
+/// 上游响应（openai chat completion / anthropic messages / …）先 parse 为本结构，
+/// 再按客户端协议 render，避免把上游原生格式直接透回致客户端解析失败。
+pub struct NonStreamResponse {
+    pub id: String,
+    pub model: String,
+    /// 文本段（按出现顺序，通常单段）
+    pub text: Option<String>,
+    /// 工具调用块：(id, name, input)
+    pub tool_uses: Vec<(String, String, Value)>,
+    /// 统一 stop_reason（anthropic 语义：end_turn / tool_use / max_tokens / stop_sequence）
+    pub stop_reason: String,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub cache_read_tokens: i64,
+}
+
+/// 非流式上游响应 → 客户端协议响应体转换。
+///
+/// - `wire_protocol`: 上游响应体格式（endpoint 协议）。
+/// - `client_protocol`: 客户端期望协议（入站 source_protocol）。
+///
+/// 返回 `Some(Value)` 表示已转换为客户端格式；`None` 表示无需 / 无法转换
+/// （调用方应原样透传上游 body，保持既有行为）。
+///
+/// 当前覆盖 openai(chat completion) → anthropic(messages) 真转换（修复 tool_calls/content
+/// 并存时客户端拿到非 anthropic 结构致 "empty or malformed" 的 bug）；其余跨协议组合暂回退透传。
+pub fn convert_response(
+    body: &Value,
+    wire_protocol: &Protocol,
+    client_protocol: &str,
+    model: &str,
+) -> Option<Value> {
+    // 同语义协议无需转换：客户端要 openai 且上游也是 openai 系列 → 透传。
+    let wire_is_openai = matches!(
+        wire_protocol,
+        Protocol::OpenAI | Protocol::OpenAICompletions
+    ) || !matches!(
+        wire_protocol,
+        Protocol::Anthropic | Protocol::Gemini | Protocol::OpenAIResponses
+    );
+    let client_is_anthropic = !matches!(client_protocol, "openai" | "openai_responses" | "openai_completions" | "gemini");
+
+    // 修复目标场景：上游 openai chat completion → 客户端 anthropic messages。
+    if wire_is_openai && client_is_anthropic {
+        let mut parsed = super::openai::parse_openai_response(body, model)?;
+        // 客户端响应 model 字段统一回填为客户端请求的模型名（与流式 model_for_response 一致），
+        // 避免暴露上游真实模型名 / 触发 CC 模型校验歧义。
+        parsed.model = model.to_string();
+        return Some(render_anthropic_response(&parsed));
+    }
+
+    // 其余组合（同协议透传 / 暂未覆盖的跨协议）：返回 None，调用方透传上游原文。
+    None
+}
+
+/// 渲染归一响应为 Anthropic Messages 非流式响应体。
+fn render_anthropic_response(r: &NonStreamResponse) -> Value {
+    let mut content: Vec<Value> = Vec::new();
+    if let Some(text) = &r.text {
+        if !text.is_empty() {
+            content.push(serde_json::json!({ "type": "text", "text": text }));
+        }
+    }
+    for (id, name, input) in &r.tool_uses {
+        content.push(serde_json::json!({
+            "type": "tool_use",
+            "id": id,
+            "name": name,
+            "input": input,
+        }));
+    }
+    // 兜底：既无 text 也无 tool_use（异常上游）→ 空 text 块，保证 content 非空数组（Anthropic 合法）。
+    if content.is_empty() {
+        content.push(serde_json::json!({ "type": "text", "text": "" }));
+    }
+    serde_json::json!({
+        "id": r.id,
+        "type": "message",
+        "role": "assistant",
+        "model": r.model,
+        "content": content,
+        "stop_reason": r.stop_reason,
+        "stop_sequence": null,
+        "usage": {
+            "input_tokens": r.input_tokens,
+            "output_tokens": r.output_tokens,
+            "cache_read_input_tokens": r.cache_read_tokens,
+        }
+    })
+}
+
 /// 将统一的 ChatStreamEvent 按客户端协议格式化为 SSE
 pub fn to_client_sse(event: &ChatStreamEvent, source_protocol: &str, model: &str) -> Option<String> {
     match source_protocol {
@@ -284,6 +377,122 @@ mod tests {
         let req = parse_incoming_request("anthropic", &body).expect("plain parse");
         assert_eq!(req.model, "claude-opus-4-8");
         assert!(matches!(req.messages[0].content, MessageContent::Text(_)));
+    }
+
+    // ── 非流式 openai→anthropic 响应转换：content + tool_calls 并存(finish_reason=tool_calls) ──
+    // 复现 request 1ef25294 场景：上游 message 同时含 content / reasoning_content / tool_calls。
+    #[test]
+    fn convert_response_openai_to_anthropic_content_and_tools() {
+        let upstream = serde_json::json!({
+            "id": "chatcmpl-x",
+            "model": "glm-4.6",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": "Trellis SessionStart...",
+                    "reasoning_content": "用户触发...(GLM思维链)",
+                    "tool_calls": [{
+                        "id": "call_-7518760127650854872",
+                        "index": 2,
+                        "type": "function",
+                        "function": { "name": "read_file", "arguments": "{\"path\":\"/a\"}" }
+                    }]
+                }
+            }],
+            "usage": { "prompt_tokens": 100, "completion_tokens": 1002,
+                       "prompt_tokens_details": { "cached_tokens": 40 } }
+        });
+        let out = convert_response(&upstream, &Protocol::OpenAI, "anthropic", "claude-opus-4")
+            .expect("openai→anthropic should convert");
+        assert_eq!(out["type"], "message");
+        assert_eq!(out["role"], "assistant");
+        assert_eq!(out["model"], "claude-opus-4", "model 回填为客户端请求模型");
+        assert_eq!(out["stop_reason"], "tool_use", "tool_calls→tool_use");
+        let content = out["content"].as_array().unwrap();
+        // 第一块 text，第二块 tool_use（顺序：text 在前）
+        assert_eq!(content[0]["type"], "text");
+        assert_eq!(content[0]["text"], "Trellis SessionStart...");
+        assert_eq!(content[1]["type"], "tool_use");
+        assert_eq!(content[1]["id"], "call_-7518760127650854872");
+        assert_eq!(content[1]["name"], "read_file");
+        assert_eq!(content[1]["input"]["path"], "/a", "arguments JSON 解析为 input 对象");
+        // usage 映射
+        assert_eq!(out["usage"]["input_tokens"], 100);
+        assert_eq!(out["usage"]["output_tokens"], 1002);
+        assert_eq!(out["usage"]["cache_read_input_tokens"], 40);
+    }
+
+    // ── 纯 tool_calls 无 content：content 数组仅含 tool_use（合法非空） ──
+    #[test]
+    fn convert_response_openai_to_anthropic_tool_only() {
+        let upstream = serde_json::json!({
+            "id": "c1", "model": "glm-4.6",
+            "choices": [{ "index": 0, "finish_reason": "tool_calls", "message": {
+                "role": "assistant", "content": null,
+                "tool_calls": [{ "id": "t1", "type": "function",
+                    "function": { "name": "ls", "arguments": "{}" } }]
+            }}],
+            "usage": { "prompt_tokens": 5, "completion_tokens": 7 }
+        });
+        let out = convert_response(&upstream, &Protocol::OpenAI, "anthropic", "claude").unwrap();
+        let content = out["content"].as_array().unwrap();
+        assert_eq!(content.len(), 1, "无 text 时只含 tool_use");
+        assert_eq!(content[0]["type"], "tool_use");
+        assert_eq!(content[0]["input"], serde_json::json!({}));
+        assert_eq!(out["stop_reason"], "tool_use");
+    }
+
+    // ── 纯文本（finish_reason=stop）→ end_turn + 单 text 块 ──
+    #[test]
+    fn convert_response_openai_to_anthropic_text_only() {
+        let upstream = serde_json::json!({
+            "id": "c2", "model": "glm-4.6",
+            "choices": [{ "index": 0, "finish_reason": "stop", "message": {
+                "role": "assistant", "content": "hello world" } }],
+            "usage": { "prompt_tokens": 3, "completion_tokens": 2 }
+        });
+        let out = convert_response(&upstream, &Protocol::OpenAI, "anthropic", "claude").unwrap();
+        let content = out["content"].as_array().unwrap();
+        assert_eq!(content.len(), 1);
+        assert_eq!(content[0]["type"], "text");
+        assert_eq!(content[0]["text"], "hello world");
+        assert_eq!(out["stop_reason"], "end_turn", "stop→end_turn");
+    }
+
+    // ── finish_reason=length → max_tokens ──
+    #[test]
+    fn convert_response_length_maps_max_tokens() {
+        let upstream = serde_json::json!({
+            "id": "c3", "model": "m",
+            "choices": [{ "index": 0, "finish_reason": "length", "message": {
+                "role": "assistant", "content": "truncated" } }]
+        });
+        let out = convert_response(&upstream, &Protocol::OpenAI, "anthropic", "claude").unwrap();
+        assert_eq!(out["stop_reason"], "max_tokens");
+    }
+
+    // ── reasoning_content 存在不致崩 / 不产空（已隐含在上面，单测显式确认无 content+无 tool 时兜底空 text） ──
+    #[test]
+    fn convert_response_empty_message_yields_nonempty_content() {
+        let upstream = serde_json::json!({
+            "id": "c4", "model": "m",
+            "choices": [{ "index": 0, "finish_reason": "stop", "message": {
+                "role": "assistant", "reasoning_content": "只有思维链" } }]
+        });
+        let out = convert_response(&upstream, &Protocol::OpenAI, "anthropic", "claude").unwrap();
+        let content = out["content"].as_array().unwrap();
+        assert_eq!(content.len(), 1, "兜底空 text 块保证 content 非空");
+        assert_eq!(content[0]["type"], "text");
+        assert_eq!(content[0]["text"], "");
+    }
+
+    // ── 同协议（client=openai, wire=openai）→ None（透传，不转换） ──
+    #[test]
+    fn convert_response_same_proto_returns_none() {
+        let upstream = serde_json::json!({ "choices": [] });
+        assert!(convert_response(&upstream, &Protocol::OpenAI, "openai", "m").is_none());
     }
 
     // ── 入站 anthropic 工具缺 input_schema(如服务端工具 web_search) 不再 400, 默认空对象 ──
