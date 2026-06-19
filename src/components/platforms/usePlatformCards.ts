@@ -32,6 +32,7 @@ interface UsePlatformCardsReturn {
   setQuotaMap: React.Dispatch<React.SetStateAction<Record<number, import("../../services/api").PlatformQuota>>>;
   setTestResults: React.Dispatch<React.SetStateAction<Record<number, "ok" | "fail">>>;
   setTestingId: React.Dispatch<React.SetStateAction<number | null>>;
+  testingPlatform: Platform | null;
   setTestingPlatform: React.Dispatch<React.SetStateAction<Platform | null>>;
   // Actions
   refreshQuota: (p: Platform) => Promise<void>;
@@ -68,7 +69,6 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
   const [expandedIds, setExpandedIds] = useState<Set<number>>(new Set());
   const [testingId, setTestingId] = useState<number | null>(null);
   const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
-  void testingPlatform; // Suppress unused warning（由父组件通过 setTestingPlatform 使用）
 
   // 默认的 toast 设置函数
   const setToast = setToastProp ?? (() => {});
@@ -181,6 +181,7 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
     setQuotaMap,
     setTestResults,
     setTestingId,
+    testingPlatform,
     setTestingPlatform,
     refreshQuota,
     toggleExpanded,

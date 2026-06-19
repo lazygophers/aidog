@@ -3497,9 +3497,12 @@ async fn resolve_group(db: &Db, token: Option<&str>) -> Option<Group> {
 /// 数据来源：GitHub 逆向分析 + claude-code-hub 参考实现
 /// OpenCode Zen 平台 api_key 解析：用户填了用用户的；留空时注入匿名免费 key `$opencode`
 /// （实测被服务端接受，与 `public` 等价走免费共享限频；裸随机串/$ 大写变体均 401）。
-/// 仅对 base_url 含 `opencode.ai/zen` 的平台生效，其余平台原样返回（空即空）。
+/// 对 `Protocol::OpenCodeZen` 平台或 base_url/endpoint 含 `opencode.ai/zen` 的平台生效，
+/// 其余平台原样返回（空即空）。枚举判定与 lib.rs(fetch_models/model_test) 对齐，
+/// 保证自定义 base_url 时 proxy 与 fetch_models 兜底一致（model-test-proxy parity）。
 pub fn resolve_opencode_zen_key(platform: &super::models::Platform) -> String {
-    let is_zen = platform.base_url.to_lowercase().contains("opencode.ai/zen")
+    let is_zen = matches!(platform.platform_type, Protocol::OpenCodeZen)
+        || platform.base_url.to_lowercase().contains("opencode.ai/zen")
         || platform
             .endpoints
             .iter()
