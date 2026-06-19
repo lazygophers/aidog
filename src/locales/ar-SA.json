@@ -734,6 +734,8 @@
   "platform.testOk": "نجح الاختبار",
   "platform.toggleDetail": "تبديل التفاصيل",
   "platform.usageLabel": "المُستخدَم",
+  "platform.usageLoading": "جارٍ تحميل الاستخدام",
+  "platform.quotaLoading": "جارٍ تحميل الحصة",
   "platform.viewLogs": "عرض السجلات",
   "platform.windowUnitDay": "أيام",
   "platform.windowUnitHour": "ساعات",

@@ -406,6 +406,21 @@ impl Db {
                 // ~/.claude/settings.json + ~/.codex/config.toml，使用户直接 claude/codex
                 // 不带 -c/--profile 即走该组。幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column。
                 let _ = conn.execute("ALTER TABLE \"group\" ADD COLUMN is_default INTEGER NOT NULL DEFAULT 0", []);
+                // Migration 028: platform / group 维度用量聚合偏索引（平台列表页 usage 批量化 N+1 消除）。
+                // platform_usage_stats_all 的 eff_pid 子查询按 platform_id 分组 + group_key 回溯，
+                // get_all_group_usage_stats 按 group_key 分组；现有 idx_proxy_log_stats 前导列是
+                // created_at（不覆盖 platform_id/group_key 的等值/分组扫描）。带 WHERE deleted_at=0
+                // 偏索引缩范围、减写放大与磁盘占用。幂等（IF NOT EXISTS），新装/老库均建。
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_platform_id \
+                     ON proxy_log(platform_id) WHERE deleted_at = 0",
+                    [],
+                );
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_group_key \
+                     ON proxy_log(group_key) WHERE deleted_at = 0",
+                    [],
+                );
                 Ok(())
             })
             .await
@@ -2861,6 +2876,80 @@ pub async fn get_all_group_usage_stats(
         .map_err(|e| format!("all group usage stats: {e}"))
 }
 
+/// 批量：单查 `GROUP BY eff_pid` 返回所有平台 → 聚合 map（platform_id → stats）。
+/// 替代前端逐平台调 `get_platform_usage_stats`（N 次往返 / 2N 次 SQL → 1 次往返 / 1 次 SQL）。
+///
+/// 必须保留 `platform_id = 0` 回溯语义（对齐 `get_platform_usage_stats` / `today_platform_stats`）：
+/// 自动分组日志 `platform_id = 0`，通过 `group_key → "group".auto_from_platform`（十进制字符串）
+/// 回溯到源平台后归并；回溯不到（auto 分组已删 / 非 auto 分组的 platform_id=0）则归 eff_pid=0。
+/// `eff_pid` 计算与 `today_platform_stats`（db.rs:1286）一致。
+///
+/// recent_failures/recent_total/cache_rate 中 recent_* 不在批量结果内（卡片用量区不渲染近期健康，
+/// 避免每平台 5 行子查询）；cache_rate 仍按 inp/cache 算。
+pub async fn platform_usage_stats_all(
+    db: &Db,
+) -> Result<std::collections::HashMap<u64, super::models::PlatformUsageStats>, String> {
+    db.0
+        .call(move |conn| {
+            let mut stmt = conn.prepare(
+                "SELECT eff_pid, \
+                 COUNT(*), \
+                 SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
+                 SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), \
+                 COALESCE(SUM(est_cost), 0.0) \
+                 FROM ( \
+                     SELECT \
+                         CASE WHEN platform_id = 0 THEN COALESCE( \
+                             (SELECT CAST(g.auto_from_platform AS INTEGER) \
+                              FROM \"group\" g \
+                              WHERE g.name = proxy_log.group_key \
+                                AND g.auto_from_platform != '' \
+                                AND g.deleted_at = 0 \
+                              LIMIT 1), 0) \
+                         ELSE platform_id END AS eff_pid, \
+                         status_code, input_tokens, output_tokens, cache_tokens, est_cost \
+                     FROM proxy_log \
+                     WHERE deleted_at = 0 \
+                 ) \
+                 GROUP BY eff_pid",
+            )?;
+            let rows = stmt.query_map([], |row| {
+                let eff_pid: i64 = row.get(0)?;
+                let total: i64 = row.get(1).unwrap_or(0);
+                let success: i64 = row.get(2).unwrap_or(0);
+                let inp: i64 = row.get(3).unwrap_or(0);
+                let out: i64 = row.get(4).unwrap_or(0);
+                let cache: i64 = row.get(5).unwrap_or(0);
+                let cost: f64 = row.get(6).unwrap_or(0.0);
+                Ok((
+                    eff_pid,
+                    super::models::PlatformUsageStats {
+                        total_requests: total,
+                        success_count: success,
+                        total_input_tokens: inp,
+                        total_output_tokens: out,
+                        total_cache_tokens: cache,
+                        cache_rate: if inp + cache > 0 { cache as f64 / (inp + cache) as f64 * 100.0 } else { 0.0 },
+                        recent_failures: 0,
+                        recent_total: 0,
+                        total_cost: cost,
+                    },
+                ))
+            })?;
+            let mut map = std::collections::HashMap::new();
+            for r in rows {
+                let (eff_pid, stats) = r?;
+                if eff_pid <= 0 {
+                    continue; // eff_pid=0 = 未知平台（回溯不到），不归任何平台卡片
+                }
+                map.insert(eff_pid as u64, stats);
+            }
+            Ok(map)
+        })
+        .await
+        .map_err(|e| format!("all platform usage stats: {e}"))
+}
+
 /// 动态窗口日速率公共常量。
 const RATE_MIN_SPAN_MS: i64 = 5 * 60 * 1000; // 5min
 const RATE_MAX_SPAN_MS: i64 = 7 * 24 * 60 * 60 * 1000; // 7d
@@ -3796,6 +3885,88 @@ mod tests {
         let res = r2.unwrap();
         println!("overview total_requests = {}", res.overview.total_requests);
         println!("dim entries = {}", res.dimension_data.len());
+    }
+
+    /// 批量 `platform_usage_stats_all` 结果必须逐平台等于单平台 `get_platform_usage_stats`，
+    /// 含 platform_id=0 自动分组日志按 group_key → auto_from_platform 回溯归属源平台。
+    #[tokio::test]
+    async fn platform_usage_stats_all_matches_per_platform() {
+        let db = test_db().await;
+        let p1 = create_platform(&db, sample_platform("P1")).await.unwrap();
+        let p2 = create_platform(&db, sample_platform("P2")).await.unwrap();
+        // 自动分组：group_key=auto_p1，auto_from_platform=p1.id（十进制字符串）。
+        let mut g = sample_group("auto_p1", vec![]);
+        g.auto_from_platform = p1.id.to_string();
+        create_group(&db, g).await.unwrap();
+
+        let now = chrono::Utc::now().timestamp_millis();
+
+        // P1 直挂日志（platform_id=p1）：2 条，1 成功 1 失败。
+        let mut a1 = sample_log("a1", "g1", now);
+        a1.platform_id = p1.id;
+        a1.status_code = 200;
+        a1.input_tokens = 10;
+        a1.output_tokens = 20;
+        a1.cache_tokens = 5;
+        a1.est_cost = 0.01;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a1, false, false)).await.unwrap();
+        let mut a2 = sample_log("a2", "g1", now);
+        a2.platform_id = p1.id;
+        a2.status_code = 500;
+        a2.input_tokens = 7;
+        a2.output_tokens = 0;
+        a2.est_cost = 0.0;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a2, false, false)).await.unwrap();
+
+        // platform_id=0 自动分组日志，group_key=auto_p1 → 回溯归 p1。
+        let mut a0 = sample_log("a0", "auto_p1", now);
+        a0.platform_id = 0;
+        a0.status_code = 200;
+        a0.input_tokens = 100;
+        a0.output_tokens = 200;
+        a0.cache_tokens = 50;
+        a0.est_cost = 0.05;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a0, false, false)).await.unwrap();
+
+        // P2 直挂日志：1 条成功。
+        let mut b1 = sample_log("b1", "g2", now);
+        b1.platform_id = p2.id;
+        b1.status_code = 200;
+        b1.input_tokens = 3;
+        b1.output_tokens = 4;
+        b1.est_cost = 0.002;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b1, false, false)).await.unwrap();
+
+        // 回溯不到的孤儿 platform_id=0 日志（无匹配 auto 分组）→ 不应归任何平台卡片。
+        let mut orphan = sample_log("orphan", "no_such_group", now);
+        orphan.platform_id = 0;
+        orphan.status_code = 200;
+        orphan.est_cost = 0.99;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&orphan, false, false)).await.unwrap();
+
+        let batch = platform_usage_stats_all(&db).await.expect("batch");
+
+        for pid in [p1.id, p2.id] {
+            let single = get_platform_usage_stats(&db, pid).await.expect("single");
+            let b = batch.get(&pid).unwrap_or_else(|| panic!("missing pid {pid} in batch"));
+            assert_eq!(b.total_requests, single.total_requests, "pid {pid} total_requests");
+            assert_eq!(b.success_count, single.success_count, "pid {pid} success_count");
+            assert_eq!(b.total_input_tokens, single.total_input_tokens, "pid {pid} input");
+            assert_eq!(b.total_output_tokens, single.total_output_tokens, "pid {pid} output");
+            assert_eq!(b.total_cache_tokens, single.total_cache_tokens, "pid {pid} cache");
+            assert!((b.total_cost - single.total_cost).abs() < 1e-9, "pid {pid} cost");
+            assert!((b.cache_rate - single.cache_rate).abs() < 1e-9, "pid {pid} cache_rate");
+        }
+
+        // p1 含回溯日志：total=3（a1+a2+a0），success=2，input=117。
+        let p1b = batch.get(&p1.id).unwrap();
+        assert_eq!(p1b.total_requests, 3, "p1 含 platform_id=0 回溯归属");
+        assert_eq!(p1b.success_count, 2);
+        assert_eq!(p1b.total_input_tokens, 117);
+
+        // 孤儿日志（est_cost=0.99）不得归任何平台 → 平台合计 cost 不含 0.99。
+        let summed: f64 = batch.values().map(|s| s.total_cost).sum();
+        assert!(summed < 0.9, "orphan platform_id=0 leaked into platform stats: {summed}");
     }
 
     /// cache_rate 必须 ≤100%：cache_tokens=9900（命中缓存）+ input_tokens=100（新输入），

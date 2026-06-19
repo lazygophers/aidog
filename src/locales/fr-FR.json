@@ -734,6 +734,8 @@
   "platform.testOk": "Test réussi",
   "platform.toggleDetail": "Afficher/masquer les détails",
   "platform.usageLabel": "Utilisé",
+  "platform.usageLoading": "Chargement de l'utilisation",
+  "platform.quotaLoading": "Chargement du quota",
   "platform.viewLogs": "Voir les journaux",
   "platform.windowUnitDay": "Jours",
   "platform.windowUnitHour": "Heures",

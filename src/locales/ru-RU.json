@@ -734,6 +734,8 @@
   "platform.testOk": "Тест пройден",
   "platform.toggleDetail": "Показать/скрыть детали",
   "platform.usageLabel": "Использовано",
+  "platform.usageLoading": "Загрузка использования",
+  "platform.quotaLoading": "Загрузка квоты",
   "platform.viewLogs": "Журналы",
   "platform.windowUnitDay": "Дни",
   "platform.windowUnitHour": "Часы",
