@@ -1386,6 +1386,8 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   const [saveError, setSaveError] = useState("");
 const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [toast, setToast] = useState<{ text: string; ok: boolean } | null>(null);
+  // GroupsEmbedded 进入全屏视图态（创建/编辑分组）时为 true：隐藏下方分隔线 + 未分组平台列表，避免与全屏视图并列。
+  const [groupFullscreen, setGroupFullscreen] = useState(false);
   // pointer 拖拽（未分组平台 → 分组）；HTML5 DnD 跨区域在 WKWebView 失效，改 pointer events
   const [groupDrag, setGroupDrag] = useState<{ pid: number; pname: string; x: number; y: number } | null>(null);
   const groupHighlightEl = useRef<HTMLElement | null>(null);
@@ -2788,8 +2790,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       </div>
 
       {/* 分组段（内嵌） */}
-      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onToast={setToast} />
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onToast={setToast} onViewModeChange={setGroupFullscreen} />
 
+      {/* 全屏视图态（创建/编辑分组）时隐藏分隔线 + 未分组平台列表，避免与全屏视图并列 */}
+      {!groupFullscreen && (<>
       {/* 分隔线 */}
       <div style={{ height: 1, background: "var(--border)", margin: "0 0 10px 0" }} />
 
@@ -2871,6 +2875,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           })()}
         </div>
       )}
+      </>)}
     </div>
 
       {/* Custom test overlay */}
