@@ -712,6 +712,8 @@
   "platform.testOk": "Test passed",
   "platform.toggleDetail": "Toggle details",
   "platform.usageLabel": "Used",
+  "platform.usageLoading": "Loading usage",
+  "platform.quotaLoading": "Loading quota",
   "platform.viewLogs": "View Logs",
   "platform.windowUnitDay": "Days",
   "platform.windowUnitHour": "Hours",

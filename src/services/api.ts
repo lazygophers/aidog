@@ -428,6 +428,12 @@ export const platformApi = {
 
   usageStats: (platformId: number) =>
     invoke<PlatformUsageStats>("platform_usage_stats", { platformId }),
+
+  // 批量：单次 invoke 返回所有平台 → 聚合 map（platform_id → stats），消除前端逐平台 N+1 往返。
+  // 后端 GROUP BY eff_pid，含 platform_id=0 自动分组日志按 group_key 回溯归属源平台；
+  // 回溯不到的（未知平台）不入 map。JSON 对象键为字符串，按 number 平台 id 索引。
+  usageStatsAll: () =>
+    invoke<Record<number, PlatformUsageStats>>("all_platform_usage_stats"),
 };
 
 /** 系统托盘 quota 展示（互斥单平台） */

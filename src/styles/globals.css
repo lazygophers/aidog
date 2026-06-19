@@ -77,6 +77,20 @@ body {
   to { transform: rotate(360deg); }
 }
 
+/* 骨架占位：渐进/延迟档数据未回时占位（平台卡余额/用量区），shimmer 流光，禁空白/旧值闪烁 */
+.skeleton {
+  display: inline-block;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(
+    90deg,
+    var(--bg-glass) 25%,
+    var(--bg-glass-hover) 37%,
+    var(--bg-glass) 63%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
 .animate-fade-in {
   animation: fadeIn 350ms cubic-bezier(0.4, 0, 0.2, 1) both;
 }

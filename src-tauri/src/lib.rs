@@ -1486,6 +1486,13 @@ async fn all_group_usage_stats(db: State<'_, Db>) -> Result<std::collections::Ha
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn all_platform_usage_stats(db: State<'_, Db>) -> Result<std::collections::HashMap<u64, gateway::models::PlatformUsageStats>, String> {
+    tracing::debug!(command = "all_platform_usage_stats", "command invoked");
+    gateway::db::platform_usage_stats_all(&db).await
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn proxy_log_settings_get(db: State<'_, Db>) -> Result<ProxyLogSettings, String> {
     tracing::debug!(command = "proxy_log_settings_get", "command invoked");
     let val = gateway::db::get_setting(&db, "proxy", "logging").await
@@ -4148,6 +4155,7 @@ pub fn run() {
             platform_usage_stats,
             group_usage_stats,
             all_group_usage_stats,
+            all_platform_usage_stats,
             // Platform Quota
             platform_query_quota,
             platform_query_quota_newapi,

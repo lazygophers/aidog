@@ -36,6 +36,10 @@ export interface PlatformCardProps {
   dragActive: boolean;
   quota: QuotaDisplay;
   refreshing: boolean;
+  /** 延迟档 quota 外部 HTTP 待回：余额/配额区显骨架而非 est 旧值，避免闪烁回填（默认 false）。 */
+  quotaPending?: boolean;
+  /** 渐进档 usage 批量待回：用量区显骨架而非空白（默认 false）。 */
+  usagePending?: boolean;
   usage: PlatformUsageStats | undefined;
   expanded: boolean;
   manualResult: "ok" | "fail" | undefined;
@@ -56,6 +60,8 @@ export const PlatformCard = memo(function PlatformCard({
   dragActive,
   quota,
   refreshing,
+  quotaPending = false,
+  usagePending = false,
   usage: u,
   expanded,
   manualResult: manual,
@@ -74,11 +80,14 @@ export const PlatformCard = memo(function PlatformCard({
     if ((p.available_models?.length ?? 0) > 0) return explicit;
     return allModelValues(getDefaultModels(p.platform_type, hasCodingEndpoint));
   })();
-  const showQuota = p.platform_type !== "mock" && p.platform_type !== "claude_code" && quota.hasData;
+  const quotaCapable = p.platform_type !== "mock" && p.platform_type !== "claude_code";
+  const showQuota = quotaCapable && quota.hasData;
+  // ④ 延迟档：可查 quota 的平台数据未回（quotaPending）→ 余额区显骨架而非空白/est 旧值闪烁
+  const showQuotaSkeleton = quotaCapable && !quota.hasData && quotaPending;
   const mb = computeManualBudgetDisplay(p.manual_budgets);
   const total = u ? u.total_input_tokens + u.total_output_tokens : 0;
   const sr = u && u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
-  const hasDetail = !!u || (p.endpoints && p.endpoints.length > 0) || configuredModels.length > 0 || quota.tiers.length > 0;
+  const hasDetail = !!u || usagePending || (p.endpoints && p.endpoints.length > 0) || configuredModels.length > 0 || quota.tiers.length > 0;
   const health = manual
     ? (manual === "ok" ? "healthy" : "error")
     : u ? healthStatus(u.recent_total, u.recent_failures) : "unknown";
@@ -320,6 +329,12 @@ export const PlatformCard = memo(function PlatformCard({
                 )}
               </div>
             )}
+            {/* ④ 余额区骨架：quota 外部 HTTP 待回时占位，禁空白/est 旧值闪烁 */}
+            {showQuotaSkeleton && (
+              <div style={{ display: "flex", alignItems: "center", gap: 10, paddingLeft: 24 }}>
+                <span className="skeleton" style={{ width: 120, height: 22 }} aria-label={t("platform.quotaLoading", "额度加载中")} />
+              </div>
+            )}
           </div>
         )}
       >
@@ -333,6 +348,17 @@ export const PlatformCard = memo(function PlatformCard({
                   <StatChip icon={<IconBolt size={13} />} value={formatNumber(total)} label="tokens" />
                   <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
                   <StatChip icon={<IconCheck size={13} />} value={formatPercent(sr)} label="ok" level={successRateLevel(sr, u.total_requests)} />
+                </div>
+              </div>
+            )}
+            {/* ④ 用量区骨架：渐进档批量 usage 待回时占位（无既有 usage），禁空白 */}
+            {!u && usagePending && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <span className="skeleton" style={{ width: 80, height: 24 }} aria-label={t("platform.usageLoading", "用量加载中")} />
+                  <span className="skeleton" style={{ width: 70, height: 24 }} />
+                  <span className="skeleton" style={{ width: 60, height: 24 }} />
                 </div>
               </div>
             )}
