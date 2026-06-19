@@ -225,7 +225,6 @@ export const PlatformCard = memo(function PlatformCard({
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none">
                       <path d="M13 2L4 14h7l-2 8 9-12h-7l2-8z"/>
                     </svg>
-                    {testing ? "..." : t("platform.quickTest", "快速测试")}
                   </button>
                   <button
                     className="btn btn-ghost"
