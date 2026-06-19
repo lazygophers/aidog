@@ -1436,6 +1436,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // Claude Code 订阅纯透传：客户端自带订阅 OAuth 认证，aidog 原样转发。
   // 仅需 base_url（host 根），api_key 可空，隐藏 endpoints/models 编辑。
   const isPassthrough = protocol === "claude_code";
+  // OpenCode Zen：免费匿名访问（api_key 留空时 proxy 兜底 $opencode），全程不校验 key 存在。
+  const keyOptional = protocol === "opencode_zen";
 
   /** 从 endpoints 中推导主 base_url（匹配主协议的 endpoint，否则取第一个） */
   const getPrimaryBaseUrl = (proto: Protocol, eps: PlatformEndpoint[]): string => {
@@ -1790,7 +1792,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const handleFetchModels = async () => {
     const openaiEp = endpoints.find(ep => ep.protocol === "openai");
     const fetchUrl = openaiEp?.base_url || getPrimaryBaseUrl(protocol, endpoints);
-    if (!fetchUrl || !apiKey) return;
+    // opencode_zen /v1/models 无 auth 可列模型，api_key 可留空（后端兜底 $opencode）。
+    if (!fetchUrl || (!keyOptional && !apiKey)) return;
     setFetching(true); setFetchError("");
     try {
       const fetchProtocol: Protocol = openaiEp ? "openai" : protocol;
@@ -2004,7 +2007,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             )}
             <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
             <button className="btn btn-primary" onClick={handleSave}
-              disabled={!name || (isPassthrough ? endpoints.length === 0 : (!isMock && (endpoints.length === 0 || !apiKey)))}>
+              disabled={!name || (isPassthrough ? endpoints.length === 0 : (!isMock && !keyOptional && (endpoints.length === 0 || !apiKey)))}>
               {editing ? t("action.save") : t("action.create")}
             </button>
           </div>
@@ -2343,7 +2346,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   className="btn btn-ghost"
                   style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
                   onClick={handleFetchModels}
-                  disabled={!apiKey || endpoints.length === 0 || fetching}
+                  disabled={(!keyOptional && !apiKey) || endpoints.length === 0 || fetching}
                 >
                   {fetching ? t("status.loading") : t("platform.fetchModels")}
                 </button>

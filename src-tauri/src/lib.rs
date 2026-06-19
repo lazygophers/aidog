@@ -719,6 +719,10 @@ async fn platform_fetch_models(
     }
 
     // URL + 鉴权与 proxy.rs models 端点 relay 单一事实源（build_models_url / apply_models_auth）。
+    // OpenCode Zen：api_key 留空时注入 $opencode（与 proxy 路径一致；/v1/models 无 auth 亦可）。
+    let is_zen = matches!(protocol, Protocol::OpenCodeZen)
+        || base_url.to_lowercase().contains("opencode.ai/zen");
+    let api_key = gateway::proxy::opencode_zen_fallback(&api_key, is_zen);
     let url = gateway::proxy::build_models_url(&protocol, &base_url);
     let rb = gateway::proxy::apply_models_auth(client.get(&url), &protocol, &api_key);
     tracing::info!(method = "GET", url = %url, "fetch models request");
