@@ -16,3 +16,5 @@
 | merge-groups-platforms | 分组内嵌进平台页(侧栏只留平台) | 侧栏移除groups项只留platforms;Groups.tsx重构为GroupsEmbedded内嵌组件;Platforms列表视图顶部植入分组段+平台列表项加所属分组badge(N:N);onGroupsChanged回调刷新归属;后端不动 | 已完成 | 收尾 | 100 | .worktrees/06-18-merge-groups-platforms |
 | group-full-platform-cards | 分组展开显示完整可展开平台卡片 | GroupsEmbedded分组展开区从badge tag改为完整PlatformCard(同Platforms页),复用PlatformCard+per-platform state(quota/usage/expanded/test);PlatformCard点选就地展开详情;分组头点击改为展开非进编辑;抽共享hook/组件 | 已完成 | 收尾 | 100% | — |
 | group-platform-drag | 分组平台拖拽排序与跨组移动 | 分组展开区平台卡片支持拖拽: 组内重排(group_platform.priority) + 跨组拖拽(源组移除+目标组添加)。后端加 reorder/move 命令; 前端 Groups.tsx 重构为多容器 dnd-kit DnD(单外层 DndContext + 每分组 SortableContext droppable) | 已完成 | 收尾 | 100% | — |
+| platform-schema-cleanup | platform 表 schema 清理: 删 auto_group + breaker_* 移入 extra | — | completed | 收尾 | 100 | — |
+| batch-test-ux | 批量测试: 弹窗可中途关闭 + 并行数改3 | — | completed | 收尾 | 100 | — |
