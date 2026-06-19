@@ -80,7 +80,7 @@ export const PROTOCOLS: ProtocolOption[] = [
   { value: "eflowcode", label: "E-FlowCode", keywords: ["eflowcode", "flowcode"] },
   { value: "lemondata", label: "LemonData", keywords: ["lemondata"] },
   { value: "pipellm", label: "PIPELLM", keywords: ["pipellm"] },
-  { value: "opencode", label: "OpenCode Go", keywords: ["opencode"] },
+  { value: "opencode", label: "OpenCode Zen", keywords: ["opencode", "zen", "opencode.ai"] },
   // ── 中转平台 ──
   { value: "newapi", label: "New API", keywords: ["newapi", "new-api", "one-api", "oneapi", "中转"] },
   // ── 订阅透传 ──
@@ -364,7 +364,10 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
       { protocol: "anthropic", base_url: "https://cc-api.pipellm.ai", client_type: "claude_code" },
     ],
     opencode: [
-      { protocol: "openai", base_url: "https://opencode.ai/zen/go", client_type: "codex_tui" },
+      // OpenCode Zen：标准 OpenAI 兼容端点，免费模型靠 catalog 定价 0（big-pickle/glm-4.7-free 等）。
+      // base_url 含 /v1 前缀，proxy 拼 /chat/completions；/v1/models 无 auth 可列模型。
+      // api_key 用户自填；留空时兜底策略见 proxy 端 resolve_opencode_zen_key。
+      { protocol: "openai", base_url: "https://opencode.ai/zen/v1", client_type: "default" },
     ],
     // ── 中转平台 ──
     newapi: [
@@ -423,6 +426,8 @@ export function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Part
     deepseek: { default: "deepseek-v4-flash" },
     // 小米 MiMo 旗舰文本模型（按量 openai 端点）
     xiaomi_mimo: { default: "mimo-v2.5-pro" },
+    // OpenCode Zen 免费旗舰（catalog 定价 0）；其余免费模型靠 fetchModels /v1/models 拉取
+    opencode: { default: "big-pickle" },
   };
   return { ...(presets[protocol] || {}) };
 }
@@ -629,7 +634,7 @@ export const PROTOCOL_LABELS: Record<Protocol, string> = {
   eflowcode: "E-FlowCode",
   lemondata: "LemonData",
   pipellm: "PIPELLM",
-  opencode: "OpenCode Go",
+  opencode: "OpenCode Zen",
   // ── 订阅透传 ──
   claude_code: "Claude Code 订阅",
   // ── 中转平台 ──
