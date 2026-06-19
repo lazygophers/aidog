@@ -131,6 +131,10 @@ pub enum Protocol {
     PipeLlm,
     #[serde(rename = "opencode")]
     OpenCode,
+    /// OpenCode Zen 免费版（OpenAI 兼容，base_url https://opencode.ai/zen/v1；
+    /// 免费模型靠 catalog 定价 0；api_key 留空时 proxy 注入 $opencode 匿名免费 key）
+    #[serde(rename = "opencode_zen")]
+    OpenCodeZen,
     // ── 中转平台 ──
     #[serde(rename = "newapi")]
     NewApi,
