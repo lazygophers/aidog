@@ -693,6 +693,7 @@
   "platform.quickTest": "Test rápido",
   "platform.quotaEmpty": "Sin datos",
   "platform.quotaLabel": "Cuota",
+  "platform.quotaRemainSuffix": "rest.",
   "platform.quotaNoKey": "Falta clave API",
   "platform.quotaRefresh": "Actualizar cuota",
   "platform.quotaRefreshFail": "Error al actualizar cuota",

@@ -715,6 +715,7 @@
   "platform.quickTest": "Test rapide",
   "platform.quotaEmpty": "Aucune donnée",
   "platform.quotaLabel": "Quota",
+  "platform.quotaRemainSuffix": "rest.",
   "platform.quotaNoKey": "Clé API manquante",
   "platform.quotaRefresh": "Actualiser le quota",
   "platform.quotaRefreshFail": "Échec de l'actualisation du quota",

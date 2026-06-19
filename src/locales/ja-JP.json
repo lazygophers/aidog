@@ -715,6 +715,7 @@
   "platform.quickTest": "クイックテスト",
   "platform.quotaEmpty": "データなし",
   "platform.quotaLabel": "クォータ",
+  "platform.quotaRemainSuffix": "残",
   "platform.quotaNoKey": "APIキー不足",
   "platform.quotaRefresh": "クォータを更新",
   "platform.quotaRefreshFail": "クォータ更新失敗",

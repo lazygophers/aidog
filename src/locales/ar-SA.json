@@ -715,6 +715,7 @@
   "platform.quickTest": "اختبار سريع",
   "platform.quotaEmpty": "لا توجد بيانات",
   "platform.quotaLabel": "الحصة",
+  "platform.quotaRemainSuffix": "متبقٍ",
   "platform.quotaNoKey": "مفتاح API مفقود",
   "platform.quotaRefresh": "تحديث الحصة",
   "platform.quotaRefreshFail": "فشل تحديث الحصة",

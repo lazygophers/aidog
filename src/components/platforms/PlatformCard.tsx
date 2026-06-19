@@ -300,6 +300,7 @@ export const PlatformCard = memo(function PlatformCard({
                       const value = isMcp && tier.limit != null
                         ? `${tier.remaining ?? 0}/${tier.limit}`
                         : `${tier.remainPct.toFixed(0)}%`;
+                      const remainSuffix = t("platform.quotaRemainSuffix", "剩");
                       const tierColor = tier.level === "danger" ? "var(--color-danger)" : tier.level === "warning" ? "var(--color-warning)" : tier.level === "success" ? "var(--color-success)" : "var(--text-secondary)";
                       const countdown = formatResetCountdown(tier.resetsAt);
                       return (
@@ -310,7 +311,7 @@ export const PlatformCard = memo(function PlatformCard({
                           background: tier.level === "neutral" ? "var(--bg-glass)" : tier.level === "danger" ? "var(--color-danger)15" : tier.level === "warning" ? "var(--color-warning)15" : "var(--color-success)15",
                           color: tierColor,
                         }}>
-                          <span style={{ fontSize: 11, fontWeight: 700 }}>{value}</span>
+                          <span style={{ fontSize: 11, fontWeight: 700 }}>{value}<span style={{ fontSize: 8, fontWeight: 600, opacity: 0.65, marginLeft: 1 }}>{remainSuffix}</span></span>
                           <span style={{ fontSize: 9, opacity: 0.7 }}>{tierLabel(tier.name)}</span>
                           {countdown && <span style={{ fontSize: 8, opacity: 0.6 }}>·{countdown}</span>}
                         </span>
@@ -343,9 +344,9 @@ export const PlatformCard = memo(function PlatformCard({
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {quota.tiers.map(tier => {
                     const countdown = formatResetCountdown(tier.resetsAt);
-                    const value = tier.name === "mcp_monthly" && tier.limit != null
+                    const value = (tier.name === "mcp_monthly" && tier.limit != null
                       ? `${tier.remaining ?? 0}/${tier.limit}`
-                      : `${tier.remainPct.toFixed(0)}%`;
+                      : `${tier.remainPct.toFixed(0)}%`) + t("platform.quotaRemainSuffix", "剩");
                     return (
                       <div key={tier.name} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
                         <StatChip icon={<IconCoin size={13} />}
