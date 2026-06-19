@@ -738,6 +738,8 @@
   "platform.toggleDetail": "Mostrar/ocultar detalles",
   "platform.toggleFail": "Error al cambiar",
   "platform.usageLabel": "Usado",
+  "platform.usageLoading": "Cargando uso",
+  "platform.quotaLoading": "Cargando cuota",
   "platform.viewLogs": "Ver registros",
   "platform.windowUnitDay": "Días",
   "platform.windowUnitHour": "Horas",

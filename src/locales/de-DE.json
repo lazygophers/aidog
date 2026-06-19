@@ -760,6 +760,8 @@
   "platform.toggleDetail": "Details umschalten",
   "platform.toggleFail": "Umschalten fehlgeschlagen",
   "platform.usageLabel": "Verbraucht",
+  "platform.usageLoading": "Nutzung wird geladen",
+  "platform.quotaLoading": "Kontingent wird geladen",
   "platform.viewLogs": "Protokolle ansehen",
   "platform.windowUnitDay": "Tage",
   "platform.windowUnitHour": "Stunden",

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, parsePlatformBreaker, serializePlatformBreaker, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type PlatformStatus, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail } from "../services/api";
@@ -649,6 +649,9 @@ export const PROTOCOL_LABELS: Record<Protocol, string> = {
 };
 
 const DEFAULT_NAMES = new Set(Object.values(PROTOCOL_LABELS));
+
+// ③ 延迟档 quota 外部 HTTP 有界并发上限（仿 Groups.tsx BATCH_TEST_CONCURRENCY=3）。
+const QUOTA_CONCURRENCY = 3;
 
 export const PROTOCOL_COLORS: Record<string, string> = {
   // ── 官方 ──
@@ -1364,7 +1367,19 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   // 手动刷新（真查校准）后的平台 id → 优先展示 quotaMap 真值而非预估
   const [quotaRealIds, setQuotaRealIds] = useState<Record<number, boolean>>({});
   const [quotaRefreshing, setQuotaRefreshing] = useState<Record<number, boolean>>({});
+  // ④ 延迟档 quota 待回标志：load 时对所有需查 quota 的平台置 true，HTTP 结算（成功/失败）后置 false。
+  //    余额区据此显骨架而非 est 旧值，避免闪烁回填。
+  const [quotaPending, setQuotaPending] = useState<Record<number, boolean>>({});
+  // ④ 渐进档 usage 批量待回标志：load 时 true，批量 usageStatsAll 到达后 false → 用量区先骨架后数据。
+  const [usageLoading, setUsageLoading] = useState(false);
   const [testResults, setTestResults] = useState<Record<number, "ok" | "fail">>({});
+  // ③⑤ quota 调度：待领取队列（按可视优先顺序入队）、已调度去重集合、需查 quota 的平台快照。
+  //    IntersectionObserver 决定入队时机/优先级，有界 worker pool 控并发上限。用 ref 不触发渲染。
+  const quotaQueueRef = useRef<Platform[]>([]);
+  const quotaScheduledRef = useRef<Set<number>>(new Set());
+  const quotaPoolActiveRef = useRef(0);
+  const quotaWantMapRef = useRef<Map<number, Platform>>(new Map());
+  const platformIObserverRef = useRef<IntersectionObserver | null>(null);
   /** favicon 加载失败的平台 ID 集合（回退到文字缩写） */
   const [faviconFailed, setFaviconFailed] = useState<Set<number>>(new Set());
   /** 列表卡片已展开（显 endpoints/模型明细）的平台 ID 集合 */
@@ -1580,6 +1595,56 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       .catch(err => setToast({ text: `加入分组失败: ${err}`, ok: false }));
   };
 
+  /** 该平台是否需要外部 quota 查询（mock/claude_code 无配额；无 key / 无 base_url 不可查）。 */
+  const platformWantsQuota = useCallback((p: Platform): boolean => {
+    if (p.platform_type === "mock" || p.platform_type === "claude_code") return false;
+    if (!p.api_key) return false;
+    return !!getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []);
+  }, []);
+
+  /** 单平台 quota 查询（成功填 quotaMap），结束后清 pending。供有界并发池 worker 调用。 */
+  const fetchQuotaForPlatform = useCallback(async (p: Platform) => {
+    const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []);
+    try {
+      const q = p.platform_type === "newapi"
+        ? await quotaApi.queryNewapi(baseUrl, p.api_key, p.extra ?? "", p.id)
+        : await quotaApi.query(baseUrl, p.api_key, p.id);
+      if (q.success) setQuotaMap(prev => ({ ...prev, [p.id]: q }));
+    } catch { /* ignore */ }
+    finally {
+      setQuotaPending(prev => { const n = { ...prev }; delete n[p.id]; return n; });
+    }
+  }, []);
+
+  // ③ 有界并发池：共享队列 quotaQueueRef + 至多 QUOTA_CONCURRENCY 个 worker 循环领取。
+  //    入队由 ⑤ IntersectionObserver（可视/未折叠优先）+ 兜底全量补齐触发；scheduled 去重防重复拉。
+  const pumpQuotaPool = useCallback(() => {
+    const spawn = async () => {
+      quotaPoolActiveRef.current++;
+      try {
+        for (;;) {
+          const p = quotaQueueRef.current.shift();
+          if (!p) break;
+          await fetchQuotaForPlatform(p);
+        }
+      } finally {
+        quotaPoolActiveRef.current--;
+      }
+    };
+    while (quotaPoolActiveRef.current < QUOTA_CONCURRENCY && quotaQueueRef.current.length > 0) {
+      void spawn();
+    }
+  }, [fetchQuotaForPlatform]);
+
+  /** 把平台入 quota 队列（去重），并尝试启动 worker 领取。 */
+  const enqueueQuota = useCallback((p: Platform) => {
+    if (quotaScheduledRef.current.has(p.id)) return;
+    if (!quotaWantMapRef.current.has(p.id)) return; // 非本轮需查平台（已结算/不需查）忽略
+    quotaScheduledRef.current.add(p.id);
+    quotaQueueRef.current.push(p);
+    pumpQuotaPool();
+  }, [pumpQuotaPool]);
+
   const load = async () => {
     setLoading(true);
     let list: Platform[] = [];
@@ -1590,46 +1655,60 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     // 平台列表到手即渲染，余额/用量改后台渐进填充，禁止外部 quota HTTP 阻塞整页
     setLoading(false);
 
-    // Usage stats（本地查询）渐进填充
-    list.forEach(async (p) => {
-      try {
-        const s = await platformApi.usageStats(p.id);
-        if (s && s.total_requests > 0) setUsageMap(prev => ({ ...prev, [p.id]: s }));
-      } catch { /* ignore */ }
-    });
+    // ① 渐进档：usage stats 单次批量（GROUP BY platform_id，含 platform_id=0 回溯），替换逐平台 N+1。
+    setUsageLoading(true);
+    try {
+      const all = await platformApi.usageStatsAll();
+      setUsageMap(all || {});
+    } catch { /* ignore */ }
+    finally {
+      setUsageLoading(false);
+    }
 
-    // Quota（balance & coding plan，外部 HTTP，慢）逐平台返回逐个更新
-    // 传 platformId → 后端 calibrate_from_quota 校准 est_balance/est_coding_plan
-    list.forEach(async (p) => {
-      if (!p.api_key) return;
-      const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []);
-      if (!baseUrl) return;
-      try {
-        const q = p.platform_type === "newapi"
-          ? await quotaApi.queryNewapi(baseUrl, p.api_key, p.extra ?? "", p.id)
-          : await quotaApi.query(baseUrl, p.api_key, p.id);
-        if (q.success) setQuotaMap(prev => ({ ...prev, [p.id]: q }));
-      } catch { /* ignore */ }
-    });
+    // ③⑤ 延迟档：重置 quota 调度状态，按需查平台置 pending；入队时机交给 IntersectionObserver（可视优先）。
+    quotaQueueRef.current = [];
+    quotaScheduledRef.current = new Set();
+    const wantMap = new Map<number, Platform>();
+    const pending: Record<number, boolean> = {};
+    for (const p of list) {
+      if (platformWantsQuota(p)) { wantMap.set(p.id, p); pending[p.id] = true; }
+    }
+    quotaWantMapRef.current = wantMap;
+    setQuotaPending(pending);
   };
 
-  /** 轻量刷新：更新平台列表（含 est_balance/est_coding_plan）+ usage stats，不拉 quota HTTP */
+  /** 轻量刷新：更新平台列表（含 est_balance/est_coding_plan）+ usage stats 批量，不拉 quota HTTP */
   const refreshStats = async () => {
     try {
       const list = await platformApi.list();
-      if (list) {
-        setPlatforms(list);
-        list.forEach(async (p) => {
-          try {
-            const s = await platformApi.usageStats(p.id);
-            if (s && s.total_requests > 0) setUsageMap(prev => ({ ...prev, [p.id]: s }));
-          } catch { /* ignore */ }
-        });
-      }
+      if (list) setPlatforms(list);
+      const all = await platformApi.usageStatsAll();
+      setUsageMap(all || {});
     } catch { /* ignore */ }
   };
 
   useEffect(() => { load(); }, []);
+
+  // ⑤ 可视区优先 quota 调度：IntersectionObserver 观察每张卡片（data-platform-id），
+  //    进入视口即入队（enqueueQuota 去重 + 池控并发）；滚动到更多平台时触发其余。
+  //    折叠/隐藏卡片不进视口→不触发；卡片复用（DnD/重排）由 platforms 依赖重建 observer 兜底。
+  useEffect(() => {
+    if (platforms.length === 0) return;
+    const observer = new IntersectionObserver((entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue;
+        const idAttr = (entry.target as HTMLElement).dataset.platformId;
+        if (!idAttr) continue;
+        const pid = Number(idAttr);
+        const p = quotaWantMapRef.current.get(pid);
+        if (p) enqueueQuota(p);
+      }
+    }, { root: null, rootMargin: "200px", threshold: 0 });
+    platformIObserverRef.current = observer;
+    const el = platListRef.current;
+    if (el) el.querySelectorAll<HTMLElement>("[data-platform-id]").forEach(card => observer.observe(card));
+    return () => { observer.disconnect(); platformIObserverRef.current = null; };
+  }, [platforms, enqueueQuota]);
 
   // 外部导航上下文（如分组展开区点「编辑」→ onNavigate("platforms",{platformId})）打开对应平台编辑页。
   // 用 ref 记录已消费的 platformId，避免后续 load/reload 重复触发；平台列表到手后再匹配，否则等下一次列表更新。
@@ -1672,6 +1751,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       setTimeout(() => setToast(null), 3000);
       return;
     }
+    // 手动刷新接管该平台 quota：清初始 pending（避免与 refreshing 旋转图标骨架重叠），显式调度去重也标记。
+    setQuotaPending(prev => { const n = { ...prev }; delete n[p.id]; return n; });
+    quotaScheduledRef.current.add(p.id);
     setQuotaRefreshing((s) => ({ ...s, [p.id]: true }));
     try {
       const baseUrl = getPrimaryBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url;
@@ -2842,6 +2924,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   dragActive={!!platDrag}
                   quota={computeQuotaDisplay(p, quotaMap[p.id], !!quotaRealIds[p.id])}
                   refreshing={!!quotaRefreshing[p.id]}
+                  quotaPending={!!quotaPending[p.id]}
+                  usagePending={usageLoading && !usageMap[p.id]}
                   usage={usageMap[p.id]}
                   expanded={expandedIds.has(p.id)}
                   manualResult={testResults[p.id]}
