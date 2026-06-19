@@ -228,6 +228,7 @@
   "group.groupKeyLocked": "La clave de grupo se bloquea tras la creación y no se puede modificar",
   "group.isDefault": "Predeterminado",
   "group.isDefaultTitle": "Grupo predeterminado: configuración fusionada en ~/.claude/settings.json + ~/.codex/config.toml (Codex necesita export AIDOG_KEY=<clave de grupo>)",
+  "group.defaultConfigWritten": "Configuración predeterminada escrita",
   "group.loadBalance": "Balanceo de carga",
   "group.mappingsHint": "Mapea los nombres de modelos origen a modelos específicos en la plataforma destino",
   "group.maxRetries": "Reintentos máx.",

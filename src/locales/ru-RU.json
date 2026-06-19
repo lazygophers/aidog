@@ -228,6 +228,7 @@
   "group.groupKeyLocked": "Ключ группы блокируется после создания и не может быть изменён",
   "group.isDefault": "По умолчанию",
   "group.isDefaultTitle": "Группа по умолчанию: конфиг объединён в ~/.claude/settings.json + ~/.codex/config.toml (Codex требует export AIDOG_KEY=<ключ группы>)",
+  "group.defaultConfigWritten": "Конфиг по умолчанию записан",
   "group.loadBalance": "Балансировка",
   "group.mappingsHint": "Сопоставляйте имена исходных моделей с конкретными моделями на целевой платформе",
   "group.maxRetries": "Макс. повторов",

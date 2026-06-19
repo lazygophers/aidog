@@ -228,6 +228,7 @@
   "group.groupKeyLocked": "يُقفل مفتاح المجموعة بعد الإنشاء ولا يمكن تعديله",
   "group.isDefault": "افتراضي",
   "group.isDefaultTitle": "مجموعة افتراضية: تم دمج الإعدادات في ~/.claude/settings.json + ~/.codex/config.toml (يحتاج Codex إلى export AIDOG_KEY=<مفتاح المجموعة>)",
+  "group.defaultConfigWritten": "تمت كتابة التكوين الافتراضي",
   "group.loadBalance": "توازن الحمل",
   "group.mappingsHint": "تعيين أسماء النماذج المصدر إلى نماذج محددة على المنصة المستهدفة",
   "group.maxRetries": "أقصى عدد محاولات",

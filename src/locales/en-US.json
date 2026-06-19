@@ -228,6 +228,7 @@
   "group.groupKeyLocked": "Group key is locked after creation and cannot be modified",
   "group.isDefault": "Default",
   "group.isDefaultTitle": "Default group: config merged into ~/.claude/settings.json + ~/.codex/config.toml (Codex needs export AIDOG_KEY=<group key>)",
+  "group.defaultConfigWritten": "Default config written",
   "group.loadBalance": "Load Balance",
   "group.mappingsHint": "Map source model names to specific models on the target platform",
   "group.maxRetries": "Max retries",
