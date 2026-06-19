@@ -715,6 +715,7 @@
   "platform.quickTest": "Schnelltest",
   "platform.quotaEmpty": "Keine Daten",
   "platform.quotaLabel": "Kontingent",
+  "platform.quotaRemainSuffix": "übrig",
   "platform.quotaNoKey": "API-Schlüssel fehlt",
   "platform.quotaRefresh": "Kontingent aktualisieren",
   "platform.quotaRefreshFail": "Kontingentaktualisierung fehlgeschlagen",

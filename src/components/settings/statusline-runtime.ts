@@ -467,8 +467,16 @@ def _coding_text(gi):
             nm = "7d"
         else:
             nm = name
+        # coding plan 配额统一显「剩余%」(= 100 - utilization), 与平台卡片口径一致;
+        # 末尾「剩」字明确标注为剩余而非已用, 避免歧义。utilization 可能为 None → 当 0。
         util = jround(p.get("utilization", 0) or 0)
-        parts.append(nm + " " + jts(util) + "%")
+        remain = util
+        if remain < 0:
+            remain = 0
+        elif remain > 100:
+            remain = 100
+        remain = 100 - remain
+        parts.append(nm + " " + jts(remain) + "%剩")
     return "·".join(parts)
 
 def seg_group_coding(inp, o, gi):

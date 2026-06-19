@@ -715,6 +715,7 @@
   "platform.quickTest": "Быстрый тест",
   "platform.quotaEmpty": "Нет данных",
   "platform.quotaLabel": "Квота",
+  "platform.quotaRemainSuffix": "ост.",
   "platform.quotaNoKey": "Отсутствует API-ключ",
   "platform.quotaRefresh": "Обновить квоту",
   "platform.quotaRefreshFail": "Не удалось обновить квоту",

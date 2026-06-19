@@ -693,6 +693,7 @@
   "platform.quickTest": "快速测试",
   "platform.quotaEmpty": "暂无数据",
   "platform.quotaLabel": "额度",
+  "platform.quotaRemainSuffix": "剩",
   "platform.quotaNoKey": "缺少 API Key",
   "platform.quotaRefresh": "刷新额度",
   "platform.quotaRefreshFail": "刷新额度失败",

@@ -693,6 +693,7 @@
   "platform.quickTest": "Quick Test",
   "platform.quotaEmpty": "No data",
   "platform.quotaLabel": "Quota",
+  "platform.quotaRemainSuffix": "left",
   "platform.quotaNoKey": "Missing API Key",
   "platform.quotaRefresh": "Refresh quota",
   "platform.quotaRefreshFail": "Failed to refresh quota",
