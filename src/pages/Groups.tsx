@@ -561,6 +561,18 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   // ── 分组展开区平台卡片：复用 PlatformCard + usePlatformCards（与 Platforms 主列表同款） ──
   // 单实例 hook 跨所有分组共享 state（quota/usage/expanded/test 按 platformId 索引）。
   const cards = usePlatformCards({ onNavigate, onEdit: onEditPlatform, setToast: onToast });
+  // usePlatformCards 自身不拉 usage（依赖宿主注入），分组展开区卡片的用量区(请求数/token/cost)否则恒空。
+  // 与主列表同源：单次批量 usageStatsAll（platform_id eff_pid 聚合）灌入共享 usageMap。
+  // quota(余额/coding plan) 走 computeQuotaDisplay 的 est 兜底分支即可展示，真查由卡片刷新按钮按需触发。
+  const cardsSetUsageMap = cards.setUsageMap;
+  useEffect(() => {
+    if (platforms.length === 0) return;
+    let alive = true;
+    platformApi.usageStatsAll()
+      .then(all => { if (alive) cardsSetUsageMap(all || {}); })
+      .catch(() => { /* ignore */ });
+    return () => { alive = false; };
+  }, [platforms, cardsSetUsageMap]);
   // 分组展开态：默认全展开。追踪「已折叠」集（默认空 = 全展开），新分组天然展开，
   // 用户折叠状态跨 reload 保持；toggle 切换折叠集成员。
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());
