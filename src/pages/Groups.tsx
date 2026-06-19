@@ -1,4 +1,4 @@
-import { useState, useEffect, useReducer, useMemo, useCallback, Fragment } from "react";
+import { useState, useEffect, useReducer, useCallback, Fragment } from "react";
 import { createPortal } from "react-dom";
 import type { DragEvent as ReactDragEvent, ReactNode, CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
@@ -564,21 +564,70 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   const toggleGroupExpanded = (id: number) => setCollapsedGroups(prev => {
     const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
   });
-  // 分组上下文 card actions：拖拽 no-op（分组内禁拖拽）；启停/删除后 load() 刷新本地 platforms。
-  const groupCardActions = useMemo<PlatformCardActions>(() => ({
+  // 分组卡片「移除平台」确认态：仅当平台只属当前一个分组（删除即销毁平台，破坏性）时弹确认；
+  // 属多组时直接移出本组（保留平台与其他组关联）不弹窗。
+  const [removeTarget, setRemoveTarget] = useState<{ platform: Platform; gid: number } | null>(null);
+
+  // 平台所属分组数（按 platform_id 跨 details 计数），用于判定删除 vs 仅移出。
+  const groupCountOf = useCallback((pid: number): number =>
+    details.reduce((n, d) => n + (d.platforms.some(gp => gp.platform.id === pid) ? 1 : 0), 0),
+  [details]);
+
+  // 仅从当前分组移出该平台（不删平台、不动其他组）：用 group_set_platforms 重设本组平台集（去掉该平台）。
+  // 不用 group_platform_move 到 group 0——那会 INSERT 一行 group_id=0 的幽灵关联（0 非真实分组）。
+  const removePlatformFromGroup = useCallback(async (pid: number, gid: number) => {
+    const detail = details.find(d => d.group.id === gid);
+    if (!detail) return;
+    const remaining = detail.platforms
+      .filter(gp => gp.platform.id !== pid)
+      .map((gp, i) => ({ platform_id: gp.platform.id, priority: i + 1, weight: gp.weight ?? 1 }));
+    try {
+      await groupApi.setPlatforms(gid, remaining);
+      load(); onGroupsChanged?.();
+    } catch (e) {
+      console.error(e);
+      onToast?.({ text: `${t("group.removeFromGroupFailed", "移出分组失败")}: ${e}`, ok: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [details, load, t]);
+
+  // 分组上下文「移除」语义：单属本组→确认后删平台；属多组→直接移出本组。
+  const handleGroupRemovePlatform = useCallback((p: Platform, gid: number) => {
+    if (groupCountOf(p.id) <= 1) {
+      setRemoveTarget({ platform: p, gid });
+    } else {
+      removePlatformFromGroup(p.id, gid);
+    }
+  }, [groupCountOf, removePlatformFromGroup]);
+
+  // 确认删除（仅属本组的平台）：走 delete_platform（连带清关联，后端 026289e 已处理）。
+  const confirmDeletePlatform = useCallback(async () => {
+    if (!removeTarget) return;
+    await cards.handleDelete(removeTarget.platform.id);
+    setRemoveTarget(null);
+    load(); onGroupsChanged?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [removeTarget, cards, load]);
+
+  // 分组上下文 card actions（按 gid 派生）：onDelete 改为「移除」语义（删 vs 移出二分）。
+  // 拖拽 no-op（分组内禁拖拽）；启停后 load() 刷新本地 platforms。
+  const makeGroupCardActions = useCallback((gid: number): PlatformCardActions => ({
     onPointerDown: () => {}, onPointerMove: () => {}, onPointerUp: () => {},
     onToggleExpanded: cards.toggleExpanded,
     onRefreshQuota: cards.refreshQuota,
     onToggleEnabled: async (p) => { await cards.handleToggle(p); load(); },
     onEdit: cards.handleEdit,
-    onDelete: async (id) => { await cards.handleDelete(id); load(); },
+    onDelete: (id) => {
+      const p = platforms.find(pp => pp.id === id);
+      if (p) handleGroupRemovePlatform(p, gid);
+    },
     onViewLogs: cards.handleViewLogs,
     onQuickTest: cards.handleQuickTest,
     onCustomTest: cards.handleCustomTest,
     onFaviconFailed: (id) => cards.onFaviconFailed(prev => new Set(prev).add(id)),
     // handlers 来自 usePlatformCards 的 useCallback（稳定）；load 内联故每次重算——分组展开非热路径，可接受
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [cards, load]);
+  }), [cards, load, platforms, handleGroupRemovePlatform]);
 
   // ── 分组展开区平台拖拽（HTML5 DnD，不与 dnd-kit 分组排序冲突；天然支持跨分组移动） ──
   // payload 挂 window 全局，跨组件共享：Platforms 主列表未分组平台也能拖入分组（fromGid=0）
@@ -1404,7 +1453,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                                       manualResult={cards.testResults[p.id]}
                                       testing={cards.testingId === p.id}
                                       faviconFailed={cards.faviconFailed.has(p.id)}
-                                      actions={groupCardActions}
+                                      actions={makeGroupCardActions(group.id)}
                                       draggable={false}
                                     />
                                   </div>
@@ -1510,6 +1559,37 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
             }}
           />
         </div>
+      )}
+
+      {/* 删平台确认弹窗：仅当平台只属本组（删除即销毁平台，破坏性）时出现。
+          属多组的平台走「仅移出本组」无需确认，不会进此分支。
+          createPortal 挂 body 脱离 transform 祖先，参考 GroupTestPanel。 */}
+      {removeTarget !== null && createPortal(
+        <div onClick={() => setRemoveTarget(null)} style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1001,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        }}>
+          <div className="glass-surface" onClick={e => e.stopPropagation()} style={{
+            width: "min(420px, 92vw)", display: "flex", flexDirection: "column", gap: 14, padding: 20,
+            background: "var(--bg-floating)",
+          }}>
+            <div style={{ fontSize: 15, fontWeight: 700 }}>
+              {t("group.deletePlatformTitle", "删除平台")}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+              {t("group.deletePlatformConfirm", "「{{name}}」仅属此分组，移除将彻底删除该平台及其所有关联，且无法撤销。确认删除？", { name: removeTarget.platform.name })}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button className="btn btn-ghost" onClick={() => setRemoveTarget(null)}>
+                {t("action.cancel", "取消")}
+              </button>
+              <button className="btn btn-danger" onClick={confirmDeletePlatform}>
+                {t("group.deletePlatformAction", "删除平台")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
