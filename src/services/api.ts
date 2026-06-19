@@ -1167,6 +1167,22 @@ export const appLogApi = {
     invoke<void>("app_log_settings_set", { settings }),
 };
 
+// ─── Claude Code / Codex 联动开关 ──────────────────────────
+
+export interface CcCodexSettings {
+  apply_to_claude_plugin: boolean;
+  skip_claude_onboarding: boolean;
+}
+
+export const ccCodexSettingsApi = {
+  get: () => invoke<CcCodexSettings>("cc_codex_settings_get"),
+  set: (partial: Partial<CcCodexSettings>) =>
+    invoke<CcCodexSettings>("cc_codex_settings_set", {
+      apply_to_claude_plugin: partial.apply_to_claude_plugin,
+      skip_claude_onboarding: partial.skip_claude_onboarding,
+    }),
+};
+
 // ─── Statistics Types & API ──────────────────────────────
 
 export interface StatsQuery {

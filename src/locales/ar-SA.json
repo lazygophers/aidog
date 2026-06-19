@@ -1547,5 +1547,14 @@
   "group.setAsDefault": "تعيين كمجموعة افتراضية",
   "group.unsetDefault": "إلغاء المجموعة الافتراضية",
   "group.isDefault": "افتراضي",
-  "group.isDefaultTitle": "مجموعة افتراضية: تم دمج الإعدادات في ~/.claude/settings.json + ~/.codex/config.toml (يحتاج Codex إلى export AIDOG_KEY=<مفتاح المجموعة>)"
+  "group.isDefaultTitle": "مجموعة افتراضية: تم دمج الإعدادات في ~/.claude/settings.json + ~/.codex/config.toml (يحتاج Codex إلى export AIDOG_KEY=<مفتاح المجموعة>)",
+  "appSettings.cccCodexTab": "كلود كود / كوديكس",
+  "ccCodex.introTitle": "تكامل Claude Code / Codex",
+  "ccCodex.introDesc": "تكتب هذه المفاتيح في ملفات الإعداد المحلية لـ Claude Code CLI، لتوجيه الإضافة وواجهة CLI عبر aidog وتخطي الإعداد الأولي.",
+  "ccCodex.applyPlugin.title": "تطبيق على إضافة Claude Code",
+  "ccCodex.applyPlugin.desc": "يكتب primaryApiKey=\"any\" في ~/.claude/config.json بحيث يتم توجيه إضافة Claude Code لـ VS Code عبر البروكسي المحلي. الإيقاف يحذف الحقل.",
+  "ccCodex.skipOnboarding.title": "تخطي إعداد Claude Code",
+  "ccCodex.skipOnboarding.desc": "يكتب hasCompletedOnboarding=true في جذر ~/.claude.json لتخطي إعداد Claude Code عند أول تشغيل. الإيقاف يحذف الحقل.",
+  "ccCodex.applied": "تم التطبيق",
+  "ccCodex.cleared": "تم المسح"
 }
