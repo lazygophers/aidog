@@ -19,4 +19,4 @@
 | platform-schema-cleanup | platform 表 schema 清理: 删 auto_group + breaker_* 移入 extra | — | completed | 收尾 | 100 | — |
 | batch-test-ux | 批量测试: 弹窗可中途关闭 + 并行数改3 | — | completed | 收尾 | 100 | — |
 | platform-list-progressive-load | AI 平台列表页分阶段异步加载优化 | — | 已完成 | 收尾 | 100% | — |
-| platform-card-last-test-badge | platform-card-last-test-badge | — | 规划中 | 规划 | 0% | — |
+| platform-card-last-test-badge | platform-card-last-test-badge | — | 已完成 | 收尾 | 100% | — |
