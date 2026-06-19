@@ -142,7 +142,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
         <button className="btn-active"
           style={{ fontSize: 13, padding: "8px 16px", alignSelf: "flex-start" }}
           onClick={runTest}
-          disabled={running || (needsModelSelect && selectedModels.length === 0 && mode !== "batch")}
+          disabled={running || (needsModelSelect && selectedModels.length === 0 && mode !== "batch" && allModels.length === 0)}
         >
           {running
             ? t("test.running", "测试中...") + (currentIdx >= 0 ? ` (${currentIdx + 1}/${getModels().length})` : "")
