@@ -44,7 +44,7 @@ const PREFIX_TOKEN_RE =
 
 /** 赋值锚定：API_KEY= / apikey: / 秘药： / key= 等后跟值。 */
 const ASSIGN_RE =
-  /["']?(?:api[\s_-]*key|secret|token|秘药|密钥|key|auth[\s_-]*token|(?:[\w-]+)[\s_-]*(?:auth[\s_-]*token|api[\s_-]*key))["']?\s*[:：=]\s*["'\u2018\u2019《「]?\s*([A-Za-z0-9_\-+/=.\p{Script=Han}　-〿＀-￯]{12,})/giu;
+  /["']?(?:api[\s_-]*key|secret|token|秘药|密钥|key|auth[\s_-]*token|(?:[\w-]+)[\s_-]*(?:auth[\s_-]*token|api[\s_-]*key)|api)["']?\s*[:：=]\s*["'\u2018\u2019《「]?\s*([A-Za-z0-9_\-+/=.\p{Script=Han}　-〿＀-￯]{12,})/giu;
 
 /** 纯 base64 token 形态（无已知前缀时用于 base64 解码启发式）。 */
 const BASE64_RE = /^[A-Za-z0-9+/]{20,}={0,2}$/;
@@ -155,9 +155,9 @@ export function guessProtocol(url: string): ParsedProtocol {
 function extractBaseUrls(text: string): ParsedBaseUrl[] {
   const out: ParsedBaseUrl[] = [];
   const seen = new Set<string>();
-  const URL_RE = /https?:\/\/[^\s"'《」】\])，。；、>]+/g;
+  const URL_RE = /https?:\/\/[^\s"'“”‘’《」】\])，。；、>]+/g;
   for (const m of text.matchAll(URL_RE)) {
-    let url = m[0].replace(/[.,;:。，；、)）"'"'》」】>]+$/, "");
+    let url = m[0].replace(/[.,;:。，；、)）"'"'“”‘’》」】>]+$/, "");
     if (!url) continue;
     // 跳过图片 / 静态资源
     if (/\.(png|jpe?g|gif|webp|svg|ico)(\?|$)/i.test(url)) continue;
