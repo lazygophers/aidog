@@ -760,6 +760,8 @@
   "platform.toggleDetail": "Afficher/masquer les détails",
   "platform.toggleFail": "Échec du basculement",
   "platform.usageLabel": "Utilisé",
+  "platform.usageLoading": "Chargement de l'utilisation",
+  "platform.quotaLoading": "Chargement du quota",
   "platform.viewLogs": "Voir les journaux",
   "platform.windowUnitDay": "Jours",
   "platform.windowUnitHour": "Heures",

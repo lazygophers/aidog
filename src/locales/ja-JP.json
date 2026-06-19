@@ -760,6 +760,8 @@
   "platform.toggleDetail": "詳細を切り替え",
   "platform.toggleFail": "切り替え失敗",
   "platform.usageLabel": "使用済み",
+  "platform.usageLoading": "使用量を読み込み中",
+  "platform.quotaLoading": "クォータを読み込み中",
   "platform.viewLogs": "ログを見る",
   "platform.windowUnitDay": "日",
   "platform.windowUnitHour": "時間",

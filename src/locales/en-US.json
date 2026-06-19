@@ -738,6 +738,8 @@
   "platform.toggleDetail": "Toggle details",
   "platform.toggleFail": "Toggle failed",
   "platform.usageLabel": "Used",
+  "platform.usageLoading": "Loading usage",
+  "platform.quotaLoading": "Loading quota",
   "platform.viewLogs": "View Logs",
   "platform.windowUnitDay": "Days",
   "platform.windowUnitHour": "Hours",

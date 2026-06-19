@@ -760,6 +760,8 @@
   "platform.toggleDetail": "Показать/скрыть детали",
   "platform.toggleFail": "Не удалось переключить",
   "platform.usageLabel": "Использовано",
+  "platform.usageLoading": "Загрузка использования",
+  "platform.quotaLoading": "Загрузка квоты",
   "platform.viewLogs": "Журналы",
   "platform.windowUnitDay": "Дни",
   "platform.windowUnitHour": "Часы",
