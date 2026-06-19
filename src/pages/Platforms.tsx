@@ -80,7 +80,8 @@ export const PROTOCOLS: ProtocolOption[] = [
   { value: "eflowcode", label: "E-FlowCode", keywords: ["eflowcode", "flowcode"] },
   { value: "lemondata", label: "LemonData", keywords: ["lemondata"] },
   { value: "pipellm", label: "PIPELLM", keywords: ["pipellm"] },
-  { value: "opencode", label: "OpenCode Zen", keywords: ["opencode", "zen", "opencode.ai"] },
+  { value: "opencode", label: "OpenCode Go", keywords: ["opencode"] },
+  { value: "opencode_zen", label: "OpenCode Zen (Free)", keywords: ["opencode", "zen", "opencode.ai", "free"] },
   // ── 中转平台 ──
   { value: "newapi", label: "New API", keywords: ["newapi", "new-api", "one-api", "oneapi", "中转"] },
   // ── 订阅透传 ──
@@ -364,9 +365,12 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
       { protocol: "anthropic", base_url: "https://cc-api.pipellm.ai", client_type: "claude_code" },
     ],
     opencode: [
-      // OpenCode Zen：标准 OpenAI 兼容端点，免费模型靠 catalog 定价 0（big-pickle/glm-4.7-free 等）。
-      // base_url 含 /v1 前缀，proxy 拼 /chat/completions；/v1/models 无 auth 可列模型。
-      // api_key 用户自填；留空时兜底策略见 proxy 端 resolve_opencode_zen_key。
+      { protocol: "openai", base_url: "https://opencode.ai/zen/go", client_type: "codex_tui" },
+    ],
+    // OpenCode Zen 免费版：标准 OpenAI 兼容端点，免费模型靠 catalog 定价 0（big-pickle/glm-4.7-free 等）。
+    // base_url 含 /v1 前缀，proxy 拼 /chat/completions；/v1/models 无 auth 可列模型。
+    // api_key 用户自填；留空时 proxy 端 resolve_opencode_zen_key 兜底 $opencode（匿名免费，共享限频）。
+    opencode_zen: [
       { protocol: "openai", base_url: "https://opencode.ai/zen/v1", client_type: "default" },
     ],
     // ── 中转平台 ──
@@ -427,7 +431,7 @@ export function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Part
     // 小米 MiMo 旗舰文本模型（按量 openai 端点）
     xiaomi_mimo: { default: "mimo-v2.5-pro" },
     // OpenCode Zen 免费旗舰（catalog 定价 0）；其余免费模型靠 fetchModels /v1/models 拉取
-    opencode: { default: "big-pickle" },
+    opencode_zen: { default: "big-pickle" },
   };
   return { ...(presets[protocol] || {}) };
 }
@@ -634,7 +638,8 @@ export const PROTOCOL_LABELS: Record<Protocol, string> = {
   eflowcode: "E-FlowCode",
   lemondata: "LemonData",
   pipellm: "PIPELLM",
-  opencode: "OpenCode Zen",
+  opencode: "OpenCode Go",
+  opencode_zen: "OpenCode Zen (Free)",
   // ── 订阅透传 ──
   claude_code: "Claude Code 订阅",
   // ── 中转平台 ──
@@ -709,6 +714,7 @@ export const PROTOCOL_COLORS: Record<string, string> = {
   lemondata: "#FFD21E",
   pipellm: "#4285F4",
   opencode: "#211E1E",
+  opencode_zen: "#6E56CF",
   // ── 订阅透传 ──
   claude_code: "#D97757",
   // ── 中转平台 ──
