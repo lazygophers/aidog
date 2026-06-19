@@ -2631,6 +2631,14 @@ fn build_filter_where(filter: &super::models::ProxyLogFilter) -> (String, Vec<Bo
         };
         parts.push(format!("AND {col} = ?{idx}"));
         p.push(Box::new(v.clone()));
+        idx += 1;
+    }
+    if let Some(ref v) = filter.path {
+        let trimmed = v.trim();
+        if !trimmed.is_empty() {
+            parts.push(format!("AND request_url LIKE ?{idx}"));
+            p.push(Box::new(format!("%{}%", trimmed)));
+        }
     }
 
     let where_sql = if parts.is_empty() { String::new() } else { format!(" {}", parts.join(" ")) };

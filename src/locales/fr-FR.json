@@ -387,6 +387,7 @@
   "logs.empty": "Aucun journal",
   "logs.filterGroup": "Groupe",
   "logs.filterModel": "Modèle",
+  "logs.filterPath": "Rechercher chemin (ex. /v1/messages)",
   "logs.filterPlatform": "Plateforme",
   "logs.filterStatus": "Statut",
   "logs.filterTime": "Temps",

@@ -1024,6 +1024,9 @@ pub struct ProxyLogFilter {
     pub model: Option<String>,
     /// "original" = 按 model 列; "actual" = 按 actual_model 列
     pub model_type: Option<String>,
+    /// 路径片段：对 request_url 做 LIKE %v% 模糊匹配
+    #[serde(default)]
+    pub path: Option<String>,
 }
 
 /// Proxy logging settings stored in settings table (scope=proxy, key=logging)

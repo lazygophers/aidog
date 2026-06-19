@@ -55,6 +55,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
   const [filterTime, setFilterTime] = useState<TimePreset>("all");
   const [filterModelType, setFilterModelType] = useState<"original" | "actual">("actual");
   const [filterModelText, setFilterModelText] = useState<string>("");
+  const [filterPath, setFilterPath] = useState<string>("");
 
   // Load platforms & groups for filter dropdowns
   useEffect(() => {
@@ -76,11 +77,12 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
       f.model = filterModelText.trim();
       f.model_type = filterModelType;
     }
+    if (filterPath.trim()) f.path = filterPath.trim();
     return f;
-  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModelText, filterModelType]);
+  }, [filterPlatform, filterGroup, filterStatus, filterTime, filterModelText, filterModelType, filterPath]);
 
   // Check if any filter is active
-  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModelText.trim());
+  const hasFilter = !!(filterPlatform || filterGroup || filterStatus || filterTime !== "all" || filterModelText.trim() || filterPath.trim());
 
   // Collect unique models from a large unfiltered query so options stay stable
   // regardless of the current filter selection.
@@ -206,6 +208,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
     setFilterTime("all");
     setFilterModelText("");
     setFilterModelType("actual");
+    setFilterPath("");
   };
 
   const openDetail = useCallback(async (id: string) => {
@@ -498,6 +501,23 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
           onChange={setFilterModelText}
           options={modelOptions.map(m => ({ value: m, label: m }))}
           placeholder={t("logs.filterModel", "模型")}
+        />
+        {/* Path search — LIKE match on request_url */}
+        <input
+          type="text"
+          value={filterPath}
+          onChange={e => setFilterPath(e.target.value)}
+          placeholder={t("logs.filterPath", "搜索路径（如 /v1/messages）")}
+          style={{
+            fontSize: F.small,
+            padding: "4px 8px",
+            borderRadius: 6,
+            border: "1px solid var(--border)",
+            background: "var(--bg-secondary, rgba(255,255,255,0.05))",
+            color: "var(--text-primary)",
+            maxWidth: 180,
+            minWidth: 120,
+          }}
         />
         {/* Clear */}
         {hasFilter && (

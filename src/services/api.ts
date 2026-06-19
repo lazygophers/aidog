@@ -768,6 +768,8 @@ export interface ProxyLogFilter {
   model?: string;
   /** "original" = model 列, "actual" = actual_model 列 */
   model_type?: "original" | "actual";
+  /** 路径片段：对 request_url 做 LIKE %v% 模糊匹配 */
+  path?: string;
 }
 
 // ─── Proxy Log API ─────────────────────────────────────────
