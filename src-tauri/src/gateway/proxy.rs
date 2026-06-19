@@ -3508,7 +3508,7 @@ pub fn resolve_opencode_zen_key(platform: &super::models::Platform) -> String {
 }
 
 /// `resolve_opencode_zen_key` 的纯决策核（便于单测，免构造 Platform）。
-fn opencode_zen_fallback(api_key: &str, is_zen: bool) -> String {
+pub fn opencode_zen_fallback(api_key: &str, is_zen: bool) -> String {
     if !api_key.trim().is_empty() || !is_zen {
         api_key.to_string()
     } else {
