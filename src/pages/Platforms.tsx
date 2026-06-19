@@ -1803,6 +1803,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
     setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null);
+    // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
+    // 平台第二次编辑会被 consumedEditPidRef 短路（initialFilter.platformId 值不变，effect 亦不重跑）。
+    consumedEditPidRef.current = null;
   };
 
   /** 打开平台创建表单（顶部「添加平台」或分组卡片 ➕ 触发）。
@@ -2909,7 +2912,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       </div>
 
       {/* 分组段（内嵌） */}
-      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onToast={setToast} onViewModeChange={setGroupFullscreen} />
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onToast={setToast} onViewModeChange={setGroupFullscreen} />
 
       {/* 全屏视图态（创建/编辑分组）时隐藏分隔线 + 未分组平台列表，避免与全屏视图并列 */}
       {!groupFullscreen && (<>

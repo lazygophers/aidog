@@ -470,11 +470,14 @@ async function fetchGroupStats(
 }
 
 /** 分组内嵌组件（供 Platforms 页使用） */
-export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onToast, onViewModeChange }: {
+export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onEditPlatform, onToast, onViewModeChange }: {
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string }) => void;
   onGroupsChanged?: () => void;
   /** 打开平台创建表单；提供 lockedGroupId = 从某分组 ➕ 触发，预绑该分组且锁定归属。 */
   onCreatePlatform?: (presetGroupIds?: number[], lockedGroupId?: number) => void;
+  /** 编辑分组展开区平台卡片：父级(Platforms)直接打开同页编辑表单，避免经 onNavigate 往返导航
+   *  （navContext.platformId 不变 + 一次性消费 ref 不复位 → 第二次编辑无反应）。 */
+  onEditPlatform?: (p: Platform) => void;
   /** 透传父级 toast setter（快速测试/额度刷新结果反馈）；不传则 usePlatformCards 兜底空函数。 */
   onToast?: (toast: { text: string; ok: boolean } | null) => void;
   /** 进入/退出全屏视图态（创建/编辑分组）时通知父级，供 Platforms 页隐藏下方未分组平台列表。 */
@@ -557,7 +560,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
 
   // ── 分组展开区平台卡片：复用 PlatformCard + usePlatformCards（与 Platforms 主列表同款） ──
   // 单实例 hook 跨所有分组共享 state（quota/usage/expanded/test 按 platformId 索引）。
-  const cards = usePlatformCards({ onNavigate, setToast: onToast });
+  const cards = usePlatformCards({ onNavigate, onEdit: onEditPlatform, setToast: onToast });
   // 分组展开态：默认全展开。追踪「已折叠」集（默认空 = 全展开），新分组天然展开，
   // 用户折叠状态跨 reload 保持；toggle 切换折叠集成员。
   const [collapsedGroups, setCollapsedGroups] = useState<Set<number>>(new Set());

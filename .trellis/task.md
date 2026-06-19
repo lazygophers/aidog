@@ -23,4 +23,4 @@
 | sub2api-import | 导入导出新增 sub2api 导入 | — | 已完成 | 收尾 | 100% | — |
 | group-default-button-redesign | group-default-button-redesign | — | 已完成 | 收尾 | 100% | — |
 | smart-paste-auto-clipboard | smart-paste-auto-clipboard | — | 已完成 | 收尾 | 100% | — |
-| db-vacuum-hard-delete-retention | db-vacuum-hard-delete-retention | — | 进行中 | 规划 | 0% | — |
+| db-vacuum-hard-delete-retention | db-vacuum-hard-delete-retention | — | 已完成 | 收尾 | 100% | — |
