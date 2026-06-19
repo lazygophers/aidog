@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type PlatformStatus, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, parsePlatformBreaker, serializePlatformBreaker, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type PlatformStatus, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail } from "../services/api";
 import { IconClose, IconCheck } from "../components/icons";
 import { cycleMsForTier, codingTierLevel, type ColorLevel } from "../components/shared";
 
@@ -1732,11 +1732,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setMockConfig(parseMockConfig(p.extra ?? ""));
     setNewApiConfig(parseNewApiConfig(p.extra ?? ""));
     setManualBudgets(p.manual_budgets ?? []);
-    // 熔断覆盖：0 = 继承 → 显示空
-    setBreakerFailureThreshold(p.breaker_failure_threshold > 0 ? String(p.breaker_failure_threshold) : "");
-    setBreakerOpenSecs(p.breaker_open_secs > 0 ? String(p.breaker_open_secs) : "");
-    setBreakerHalfOpenMax(p.breaker_half_open_max > 0 ? String(p.breaker_half_open_max) : "");
-    setAutoGroup(p.auto_group);
+    // 熔断覆盖现存于 extra.breaker：0 = 继承 → 显示空
+    {
+      const brk = parsePlatformBreaker(p.extra ?? "");
+      setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
+      setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
+      setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
+    }
     setLockedGroupId(null);
     // 反查该平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
     try {
@@ -1831,11 +1833,16 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       let extraPayload = extra;
       if (isMock) extraPayload = serializeMockConfig(extra, mockConfig);
       if (protocol === "newapi") extraPayload = serializeNewApiConfig(extraPayload, newApiConfig);
+      // 熔断覆盖现写入 extra.breaker：空 = 继承（写 0 → 移除 breaker 键）；负值钳为 0。
+      const toBreakerNum = (s: string) => Math.max(0, Math.floor(Number(s) || 0));
+      extraPayload = serializePlatformBreaker(extraPayload, {
+        failure_threshold: toBreakerNum(breakerFailureThreshold),
+        open_secs: toBreakerNum(breakerOpenSecs),
+        half_open_max: toBreakerNum(breakerHalfOpenMax),
+      });
       const extraArg = extraPayload ? extraPayload : undefined;
       // 手动预算：所有平台可设（含 mock / 有上游配额支持的平台），仅透传订阅强制清空。
       const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
-      // 熔断覆盖：空 = 继承（写 0）；负值钳为 0。
-      const toBreakerNum = (s: string) => Math.max(0, Math.floor(Number(s) || 0));
       let savedId: number | undefined;
       if (editing) {
         await platformApi.update({
@@ -1844,10 +1851,6 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           models: modelsPayload, available_models: availablePayload,
           endpoints: endpoints.length > 0 ? endpoints : undefined,
           manual_budgets: manualBudgetsPayload,
-          breaker_failure_threshold: toBreakerNum(breakerFailureThreshold),
-          breaker_open_secs: toBreakerNum(breakerOpenSecs),
-          breaker_half_open_max: toBreakerNum(breakerHalfOpenMax),
-          auto_group: autoGroup,
           join_group_ids: joinGroupIds,
         });
         savedId = editing.id;
@@ -2613,7 +2616,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   </span>
                   {t("platform.groupLocked", "已锁定到此分组")}
                 </div>
-              ) : (
+              ) : !editing ? (
+                // 创建默认分组是「创建时一次性判断」，仅创建表单显示；编辑表单不再判断建组。
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <span style={{ fontSize: 13 }}>{t("platform.groupAssignAuto", "创建默认分组")}</span>
                   <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
@@ -2621,7 +2625,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                     <span className={`toggle ${autoGroup ? "active" : ""}`} />
                   </label>
                 </div>
-              )}
+              ) : null}
               {lockedGroupId == null && groupDetails.length > 0 && (
                 <>
                   <div style={{ fontSize: 12, color: "var(--text-secondary)", margin: "10px 0 6px" }}>
