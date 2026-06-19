@@ -465,9 +465,6 @@ mod tests {
             status,
             auto_disabled_until: until,
             auto_disable_strikes: 0,
-            breaker_failure_threshold: 0,
-            breaker_open_secs: 0,
-            breaker_half_open_max: 0,
             created_at: 0,
             updated_at: 0,
             deleted_at: 0,
@@ -479,7 +476,6 @@ mod tests {
             tray_display: String::new(),
             sort_order: 0,
             manual_budgets: vec![],
-            auto_group: true,
             balance_level: String::new(),
         }
     }
@@ -705,8 +701,7 @@ mod tests {
             id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
             extra: None, models: None, available_models: None, endpoints: None,
             enabled: None, status: Some(PlatformStatus::Disabled), manual_budgets: None,
-            breaker_failure_threshold: None, breaker_open_secs: None, breaker_half_open_max: None,
-            auto_group: None, join_group_ids: None,
+            join_group_ids: None,
         }).await.expect("disable");
 
         let sched = SchedulerState::new();

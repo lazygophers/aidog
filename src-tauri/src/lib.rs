@@ -39,57 +39,6 @@ fn slugify(input: &str) -> String {
         .join("-")
 }
 
-/// 为所有平台确保存在关联的自动分组（一个平台一个，相互独立）
-async fn ensure_platform_groups(db: &Db) {
-    let platforms = match db::list_platforms(db).await {
-        Ok(p) => p,
-        Err(e) => { tracing::error!("ensure_platform_groups: list_platforms failed: {e}"); return; }
-    };
-    // 一次性取出已有分组的 auto_from_platform 集合，避免循环内重复全表查询（N+1）
-    let mut existing_auto: std::collections::HashSet<String> = db::list_groups(db).await
-        .unwrap_or_default()
-        .into_iter()
-        .map(|g| g.auto_from_platform)
-        .collect();
-    for platform in &platforms {
-        // 用户显式选「不创建分组」的平台 → 永久跳过（auto_group 持久化标记）。
-        if !platform.auto_group {
-            continue;
-        }
-        // 检查是否已存在关联此平台的分组
-        let platform_id_str = platform.id.to_string();
-        if existing_auto.contains(&platform_id_str) {
-            continue;
-        }
-        // 自动创建分组（路由纯按 apikey=group_key，不再生成 path）
-        let group_key = slugify(&format!("{}-auto", platform.name));
-        let group = match db::create_group(db, CreateGroup {
-            name: group_key.clone(),
-            group_key: Some(group_key.clone()),
-            routing_mode: RoutingMode::HealthAware,
-            auto_from_platform: platform_id_str.clone(),
-            request_timeout_secs: 0,
-            connect_timeout_secs: 0,
-            source_protocol: None,
-            max_retries: 10,
-            model_mappings: Vec::new(),
-        }).await {
-            Ok(g) => g,
-            Err(e) => { tracing::error!("ensure_platform_groups: create_group failed for {}: {e}", platform.name); continue; }
-        };
-        existing_auto.insert(platform_id_str);
-        // 将平台关联到自动分组
-        if let Err(e) = db::set_group_platforms(db, group.id, &[GroupPlatformInput {
-            platform_id: platform.id,
-            priority: Some(0),
-            weight: Some(1),
-        }]).await {
-            tracing::error!("ensure_platform_groups: set_group_platforms failed for {}: {e}", platform.name);
-        }
-        tracing::info!("ensure_platform_groups: created group '{}' for platform '{}'", group_key, platform.name);
-    }
-}
-
 // ─── About / Version Info ──────────────────────────────────
 
 /// 关于页版本信息（字段 snake_case，前端 AboutInfo 对齐）。
@@ -217,22 +166,7 @@ async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Pla
     let platform = db::update_platform(&db, input).await
         .map_err(|e| { tracing::error!(command = "platform_update", error = %e, "update platform failed"); e })?;
 
-    // auto 分组对账：desired = platform.auto_group（update_platform 已合并 input.auto_group）。
-    // desired && 无 auto 组 → 补建；!desired && 有 auto 组 → force_delete（auto 组只含本平台）。
-    let groups = db::list_groups(&db).await.unwrap_or_default();
-    let platform_id_str = platform.id.to_string();
-    let existing_auto = groups.iter().find(|g| g.auto_from_platform == platform_id_str);
-    if platform.auto_group && existing_auto.is_none() {
-        if let Err(e) = create_auto_group_for(&db, &platform).await {
-            tracing::warn!(command = "platform_update", platform_id = platform.id, error = %e, "auto-create group failed");
-        }
-    } else if !platform.auto_group {
-        if let Some(g) = existing_auto {
-            if let Err(e) = db::force_delete_group(&db, g.id).await {
-                tracing::warn!(command = "platform_update", platform_id = platform.id, group_id = g.id, error = %e, "force delete auto group failed");
-            }
-        }
-    }
+    // 自动建默认分组是「创建时一次性判断」（见 platform_create），编辑平台不再触发建组/拆组对账。
 
     // join_group_ids：全量同步手动组成员关系（auto 组不动；None=不改）。
     if let Some(ids) = join_group_ids {
@@ -250,6 +184,25 @@ async fn platform_delete(id: u64, db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "platform_delete", id, "command invoked");
     db::delete_platform(&db, id).await
         .map_err(|e| { tracing::error!(command = "platform_delete", id, error = %e, "delete platform failed"); e })
+}
+
+/// 为平台补建默认 auto 分组（已存在则跳过）。供批量导入（cc-switch / .aidogx）回挂复用：
+/// 这些路径直接 INSERT 平台行、不走 platform_create 的建组副作用，故需显式补建。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn platform_ensure_auto_group(id: u64, db: State<'_, Db>) -> Result<(), String> {
+    tracing::debug!(command = "platform_ensure_auto_group", id, "command invoked");
+    let platform = match db::get_platform(&db, id).await? {
+        Some(p) => p,
+        None => return Err(format!("platform {id} not found")),
+    };
+    // 已有关联 auto 分组 → 跳过（幂等）。
+    let groups = db::list_groups(&db).await.unwrap_or_default();
+    let platform_id_str = platform.id.to_string();
+    if groups.iter().any(|g| g.auto_from_platform == platform_id_str) {
+        return Ok(());
+    }
+    create_auto_group_for(&db, &platform).await
 }
 
 /// 设置 / 清除托盘展示平台（互斥单平台）。
@@ -3580,8 +3533,8 @@ pub fn run() {
             let db = tauri::async_runtime::block_on(async {
                 let db = Db::new(db_path.to_str().unwrap()).await.expect("failed to open database");
                 db.init_tables().await.expect("failed to init tables");
-                // 为所有平台确保存在关联分组（一个平台一个）
-                ensure_platform_groups(&db).await;
+                // 自动建默认分组改为「创建平台时一次性判断」（见 platform_create），
+                // 不再在启动时为所有平台兜底建组（避免覆盖用户「不分组」选择）。
                 db
             });
             app.manage(db);
@@ -3754,6 +3707,7 @@ pub fn run() {
             platform_get,
             platform_update,
             platform_delete,
+            platform_ensure_auto_group,
             platform_set_tray,
             platform_fetch_models,
             // Tray Config

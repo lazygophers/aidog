@@ -352,6 +352,56 @@ impl Db {
                         }
                     }
                 }
+                // Migration 026: platform 表精简 —— 删 auto_group(022) + 3 breaker 列(016)。
+                // auto_group 改为创建时一次性判断（CreatePlatform transient 输入），不持久化。
+                // breaker 阈值覆盖移入 extra JSON 的 breaker 对象（extra.breaker.{failure_threshold,
+                // open_secs, half_open_max}），语义不变（0/缺省=继承全局默认）。
+                // 步骤：① 把每行非 0 breaker 列值无损 backfill 进 extra.breaker；② DROP 4 列。
+                // 幂等：PRAGMA 探测 breaker_failure_threshold 列存在性 —— 存在才迁移，已迁库跳过。
+                let has_breaker_col = conn
+                    .prepare("PRAGMA table_info(platform)")?
+                    .query_map([], |r| r.get::<_, String>(1))?
+                    .filter_map(Result::ok)
+                    .any(|c| c == "breaker_failure_threshold");
+                if has_breaker_col {
+                    // ① backfill：逐行读旧 breaker 列 + extra，合并写回 extra。
+                    let rows: Vec<(i64, String, i64, i64, i64)> = {
+                        let mut stmt = conn.prepare(
+                            "SELECT id, extra, breaker_failure_threshold, breaker_open_secs, breaker_half_open_max FROM platform",
+                        )?;
+                        let mapped = stmt.query_map([], |r| {
+                            Ok((
+                                r.get::<_, i64>(0)?,
+                                r.get::<_, String>(1)?,
+                                r.get::<_, i64>(2)?,
+                                r.get::<_, i64>(3)?,
+                                r.get::<_, i64>(4)?,
+                            ))
+                        })?;
+                        mapped.filter_map(Result::ok).collect()
+                    };
+                    for (id, extra, ft, os, hom) in rows {
+                        if ft == 0 && os == 0 && hom == 0 {
+                            continue; // 无覆盖 → 不动 extra
+                        }
+                        let breaker = super::models::PlatformBreaker {
+                            failure_threshold: ft.max(0) as u32,
+                            open_secs: os.max(0) as u64,
+                            half_open_max: hom.max(0) as u32,
+                        };
+                        let new_extra = super::models::merge_breaker_into_extra(&extra, &breaker);
+                        conn.execute(
+                            "UPDATE platform SET extra = ?1 WHERE id = ?2",
+                            params![new_extra, id],
+                        )?;
+                    }
+                    // ② DROP 4 列（SQLite 3.35+ 支持 ALTER DROP COLUMN，逐列执行）。
+                    let _ = conn.execute("ALTER TABLE platform DROP COLUMN breaker_failure_threshold", []);
+                    let _ = conn.execute("ALTER TABLE platform DROP COLUMN breaker_open_secs", []);
+                    let _ = conn.execute("ALTER TABLE platform DROP COLUMN breaker_half_open_max", []);
+                    let _ = conn.execute("ALTER TABLE platform DROP COLUMN auto_group", []);
+                    tracing::info!("migration 026: backfilled breaker into extra + dropped auto_group/breaker_* columns");
+                }
                 Ok(())
             })
             .await
@@ -547,11 +597,11 @@ fn retention_cutoff(days: u32) -> Option<i64> {
 
 /// SELECT 列序
 const PLATFORM_COLUMNS: &str =
-    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, breaker_failure_threshold, breaker_open_secs, breaker_half_open_max, auto_group";
+    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes";
 
 /// 同 PLATFORM_COLUMNS，但每列加 `p.` 限定，用于与其他表 JOIN 时消除同名列歧义（如 created_at/updated_at）
 const PLATFORM_COLUMNS_PREFIXED: &str =
-    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display, p.sort_order, p.manual_budgets, p.status, p.auto_disabled_until, p.auto_disable_strikes, p.breaker_failure_threshold, p.breaker_open_secs, p.breaker_half_open_max, p.auto_group";
+    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display, p.sort_order, p.manual_budgets, p.status, p.auto_disabled_until, p.auto_disable_strikes";
 
 /// 从查询行构造 Platform
 fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -584,10 +634,6 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         status: super::models::PlatformStatus::from_db_str(&row.get::<_, String>(20)?),
         auto_disabled_until: row.get::<_, i64>(21)?,
         auto_disable_strikes: row.get::<_, i64>(22)?,
-        breaker_failure_threshold: row.get::<_, i64>(23)? as u32,
-        breaker_open_secs: row.get::<_, i64>(24)? as u64,
-        breaker_half_open_max: row.get::<_, i64>(25)? as u32,
-        auto_group: row.get::<_, i64>(26)? == 1,
         balance_level: String::new(),
     })
 }
@@ -617,11 +663,10 @@ pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platf
             let base_url = input.base_url.clone();
             let api_key = input.api_key.clone();
             let extra = input.extra.clone();
-            let auto_group = input.auto_group.unwrap_or(true) as i64;
             move |conn| {
                 conn.execute(
-                    "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets, auto_group) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
-                    params![name, platform_type_str, base_url, api_key, extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str, auto_group],
+                    "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                    params![name, platform_type_str, base_url, api_key, extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str],
                 )?;
                 Ok(conn.last_insert_rowid() as u64)
             }
@@ -650,14 +695,10 @@ pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platf
         show_in_tray: false,
         tray_display: "balance".to_string(),
         sort_order: 0,
-        auto_group: input.auto_group.unwrap_or(true),
         manual_budgets,
         status: super::models::PlatformStatus::Enabled,
         auto_disabled_until: 0,
         auto_disable_strikes: 0,
-        breaker_failure_threshold: 0,
-        breaker_open_secs: 0,
-        breaker_half_open_max: 0,
         balance_level: String::new(),
     })
 }
@@ -752,11 +793,7 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
         status: new_status,
         auto_disabled_until,
         auto_disable_strikes,
-        breaker_failure_threshold: input.breaker_failure_threshold.unwrap_or(existing.breaker_failure_threshold),
-        breaker_open_secs: input.breaker_open_secs.unwrap_or(existing.breaker_open_secs),
-        breaker_half_open_max: input.breaker_half_open_max.unwrap_or(existing.breaker_half_open_max),
         manual_budgets,
-        auto_group: input.auto_group.unwrap_or(existing.auto_group),
         updated_at: now(),
         ..existing
     };
@@ -776,15 +813,11 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
             let status_str = updated.status.as_db_str().to_string();
             let auto_disabled_until = updated.auto_disabled_until;
             let auto_disable_strikes = updated.auto_disable_strikes;
-            let breaker_failure_threshold = updated.breaker_failure_threshold as i64;
-            let breaker_open_secs = updated.breaker_open_secs as i64;
-            let breaker_half_open_max = updated.breaker_half_open_max as i64;
-            let auto_group = updated.auto_group as i64;
             let updated_at = updated.updated_at;
             let id = updated.id as i64;
             move |conn| {
                 conn.execute(
-                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14, breaker_failure_threshold=?15, breaker_open_secs=?16, breaker_half_open_max=?17, auto_group=?18 WHERE id=?19",
+                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14 WHERE id=?15",
                     params![
                         name,
                         platform_type_str,
@@ -800,10 +833,6 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
                         status_str,
                         auto_disabled_until,
                         auto_disable_strikes,
-                        breaker_failure_threshold,
-                        breaker_open_secs,
-                        breaker_half_open_max,
-                        auto_group,
                         id,
                     ],
                 )?;
@@ -1789,10 +1818,6 @@ pub async fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlat
                     status: super::models::PlatformStatus::from_db_str(&row.get::<_, String>(22)?),
                     auto_disabled_until: row.get::<_, i64>(23)?,
                     auto_disable_strikes: row.get::<_, i64>(24)?,
-                    breaker_failure_threshold: row.get::<_, i64>(25)? as u32,
-                    breaker_open_secs: row.get::<_, i64>(26)? as u64,
-                    breaker_half_open_max: row.get::<_, i64>(27)? as u32,
-                    auto_group: row.get::<_, i64>(28)? == 1,
                     balance_level: String::new(),
                 },
                 priority: row.get(0)?,
@@ -4441,28 +4466,42 @@ decimals: None,
         assert_eq!(list_groups(&db).await.unwrap().len(), 0);
     }
 
-    // ── 平台 auto_group 开关：持久化 + 手动组成员全量同步（auto 组不动）──
+    // ── 平台 breaker 配置经 extra 往返 + 手动组成员全量同步（auto 组不动）──
 
     #[tokio::test]
-    async fn create_platform_persists_auto_group() {
+    async fn platform_breaker_roundtrips_via_extra() {
         let db = test_db().await;
-        // None → 默认 true（旧行为不变）。
-        let mut input = sample_platform("ag-default");
-        input.auto_group = None;
+        // create 时把 breaker 覆盖写进 extra.breaker，读回经 Platform::breaker() 解析一致。
+        let mut input = sample_platform("brk");
+        input.extra = super::super::models::merge_breaker_into_extra(
+            "{}",
+            &super::super::models::PlatformBreaker {
+                failure_threshold: 7,
+                open_secs: 120,
+                half_open_max: 3,
+            },
+        );
         let p = create_platform(&db, input).await.unwrap();
-        assert!(get_platform(&db, p.id).await.unwrap().unwrap().auto_group, "None→true");
+        let got = get_platform(&db, p.id).await.unwrap().unwrap();
+        let b = got.breaker();
+        assert_eq!(b.failure_threshold, 7);
+        assert_eq!(b.open_secs, 120);
+        assert_eq!(b.half_open_max, 3);
 
-        // 显式 false。
-        let mut input = sample_platform("ag-off");
-        input.auto_group = Some(false);
-        let p = create_platform(&db, input).await.unwrap();
-        assert!(!get_platform(&db, p.id).await.unwrap().unwrap().auto_group, "Some(false)");
+        // 缺省（空 extra）→ 全 0（继承全局默认）。
+        let p2 = create_platform(&db, sample_platform("brk-default")).await.unwrap();
+        let b2 = get_platform(&db, p2.id).await.unwrap().unwrap().breaker();
+        assert_eq!((b2.failure_threshold, b2.open_secs, b2.half_open_max), (0, 0, 0));
 
-        // 显式 true。
-        let mut input = sample_platform("ag-on");
-        input.auto_group = Some(true);
-        let p = create_platform(&db, input).await.unwrap();
-        assert!(get_platform(&db, p.id).await.unwrap().unwrap().auto_group, "Some(true)");
+        // update 改 extra → breaker 跟随更新。
+        let cleared = super::super::models::merge_breaker_into_extra(&got.extra, &super::super::models::PlatformBreaker::default());
+        update_platform(&db, UpdatePlatform {
+            id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: Some(cleared), models: None, available_models: None, endpoints: None,
+            enabled: None, status: None, manual_budgets: None, join_group_ids: None,
+        }).await.unwrap();
+        let b3 = get_platform(&db, p.id).await.unwrap().unwrap().breaker();
+        assert_eq!((b3.failure_threshold, b3.open_secs, b3.half_open_max), (0, 0, 0), "clear breaker via extra");
     }
 
     #[tokio::test]
@@ -4531,10 +4570,6 @@ decimals: None,
             enabled: None,
             status: None,
             manual_budgets: None,
-            breaker_failure_threshold: None,
-            breaker_open_secs: None,
-            breaker_half_open_max: None,
-            auto_group: None,
             join_group_ids: None,
         }).await.unwrap();
         assert_eq!(updated.base_url, "https://crud.example/v2");
@@ -4594,8 +4629,7 @@ decimals: None,
             id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
             extra: None, models: None, available_models: None, endpoints: None,
             enabled: None, status: Some(PlatformStatus::Disabled), manual_budgets: None,
-            breaker_failure_threshold: None, breaker_open_secs: None, breaker_half_open_max: None,
-            auto_group: None, join_group_ids: None,
+            join_group_ids: None,
         }).await.unwrap();
         assert_eq!(upd.status, PlatformStatus::Disabled);
         assert!(!upd.enabled);
@@ -4669,8 +4703,7 @@ decimals: None,
             id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
             extra: None, models: None, available_models: None, endpoints: None,
             enabled: None, status: Some(PlatformStatus::Disabled), manual_budgets: None,
-            breaker_failure_threshold: None, breaker_open_secs: None, breaker_half_open_max: None,
-            auto_group: None, join_group_ids: None,
+            join_group_ids: None,
         }).await.unwrap();
 
         let (strikes, until) = record_dead_endpoint_strike(&db, p.id, DEAD_ENDPOINT_STRIKE_THRESHOLD).await.unwrap();
@@ -4692,8 +4725,7 @@ decimals: None,
             api_key: Some("sk-new-key".to_string()),
             extra: None, models: None, available_models: None, endpoints: None,
             enabled: None, status: None, manual_budgets: None,
-            breaker_failure_threshold: None, breaker_open_secs: None, breaker_half_open_max: None,
-            auto_group: None, join_group_ids: None,
+            join_group_ids: None,
         }).await.unwrap();
         assert_eq!(upd.status, PlatformStatus::Enabled, "改 api_key 立即恢复");
         assert_eq!(upd.auto_disable_strikes, 0);
