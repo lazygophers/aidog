@@ -387,6 +387,7 @@
   "logs.empty": "ログがありません",
   "logs.filterGroup": "グループ",
   "logs.filterModel": "モデル",
+  "logs.filterPath": "パス検索（例 /v1/messages）",
   "logs.filterPlatform": "プラットフォーム",
   "logs.filterStatus": "ステータス",
   "logs.filterTime": "時間",

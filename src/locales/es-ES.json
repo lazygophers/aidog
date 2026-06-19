@@ -365,6 +365,7 @@
   "logs.empty": "Aún no hay registros.",
   "logs.filterGroup": "Grupo",
   "logs.filterModel": "Modelo",
+  "logs.filterPath": "Buscar ruta (ej. /v1/messages)",
   "logs.filterPlatform": "Plataforma",
   "logs.filterStatus": "Estado",
   "logs.filterTime": "Tiempo",

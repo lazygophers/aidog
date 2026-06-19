@@ -387,6 +387,7 @@
   "logs.empty": "Нет журналов",
   "logs.filterGroup": "Группа",
   "logs.filterModel": "Модель",
+  "logs.filterPath": "Поиск пути (напр. /v1/messages)",
   "logs.filterPlatform": "Платформа",
   "logs.filterStatus": "Статус",
   "logs.filterTime": "Время",

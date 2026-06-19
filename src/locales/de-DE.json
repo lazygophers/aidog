@@ -387,6 +387,7 @@
   "logs.empty": "Keine Protokolle",
   "logs.filterGroup": "Gruppe",
   "logs.filterModel": "Modell",
+  "logs.filterPath": "Pfad suchen (z.B. /v1/messages)",
   "logs.filterPlatform": "Plattform",
   "logs.filterStatus": "Status",
   "logs.filterTime": "Zeit",

@@ -365,6 +365,7 @@
   "logs.empty": "暂无日志",
   "logs.filterGroup": "分组",
   "logs.filterModel": "模型",
+  "logs.filterPath": "搜索路径（如 /v1/messages）",
   "logs.filterPlatform": "平台",
   "logs.filterStatus": "状态",
   "logs.filterTime": "时间",

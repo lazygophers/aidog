@@ -387,6 +387,7 @@
   "logs.empty": "لا توجد سجلات",
   "logs.filterGroup": "مجموعة",
   "logs.filterModel": "النموذج",
+  "logs.filterPath": "ابحث عن المسار (مثل /v1/messages)",
   "logs.filterPlatform": "منصة",
   "logs.filterStatus": "الحالة",
   "logs.filterTime": "الوقت",
