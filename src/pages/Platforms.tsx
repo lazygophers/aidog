@@ -1914,7 +1914,14 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   };
 
   const handleDelete = async (id: number) => {
-    try { await platformApi.delete(id); load(); } catch (e) { console.error(e); }
+    // 删平台后端会清理 group_platform 关联并可能删孤儿 auto 组，
+    // 故须刷新 groupDetails（重建 membership chips + 已分组/未分组归属），仅 load() 平台列表会留陈旧分组态。
+    try {
+      await platformApi.delete(id);
+      load();
+      handleGroupsChanged();
+      window.dispatchEvent(new Event("aidog-groups-changed"));
+    } catch (e) { console.error(e); }
   };
 
   const handleToggle = async (p: Platform) => {
