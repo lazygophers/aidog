@@ -1802,9 +1802,40 @@ export const ccswitchApi = {
   /** 读取 providers（仅 claude + codex）。 */
   read: (path?: string) =>
     invoke<CcswitchReadResult>("ccswitch_read", { path }),
-  /** 接收前端转换好的 Platform JSON + 决策，走 apply::apply 写入。 */
-  import: (platformPayload: unknown[], decisions: ConflictDecision[]) =>
-    invoke<ImportReport>("ccswitch_import", { platformPayload, decisions }),
+  /**
+   * 接收前端转换好的 Platform JSON + 决策，走 apply::apply 写入。
+   * autoGroup=true 时导入后建/加入 `cc-switch` 分组（toggle 默认开）。
+   */
+  import: (platformPayload: unknown[], decisions: ConflictDecision[], autoGroup: boolean) =>
+    invoke<ImportReport>("ccswitch_import", { platformPayload, decisions, autoGroup }),
+};
+
+/** sub2api 账号 DTO（后端解析结果，camelCase）。 */
+export interface Sub2ApiAccount {
+  name: string;
+  /** sub2api 原始 platform 值（小写），前端做 Protocol 映射。 */
+  platform: string;
+  apiKey?: string;
+  baseUrl?: string;
+}
+
+export interface Sub2ApiReadResult {
+  accounts: Sub2ApiAccount[];
+}
+
+export const sub2apiApi = {
+  /** 解析用户提供的 sub2api-data JSON 文本，返回账号 DTO 列表。 */
+  parse: (jsonText: string) =>
+    invoke<Sub2ApiReadResult>("sub2api_parse", { jsonText }),
+  /** 后端读取用户选择的 JSON 文件文本（避开前端 fs scope 限制）。 */
+  readFile: (path: string) =>
+    invoke<string>("sub2api_read_file", { path }),
+  /**
+   * 接收前端转换好的 Platform JSON + 决策，走 apply::apply 写入。
+   * autoGroup=true 时导入后建/加入 `sub2api` 分组（toggle 默认开）。
+   */
+  import: (platformPayload: unknown[], decisions: ConflictDecision[], autoGroup: boolean) =>
+    invoke<ImportReport>("sub2api_import", { platformPayload, decisions, autoGroup }),
 };
 
 // ─── 定时备份 ───────────────────────────────────────────────

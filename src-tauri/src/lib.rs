@@ -2205,14 +2205,56 @@ async fn ccswitch_import(
     db: State<'_, Db>,
     platform_payload: Vec<serde_json::Value>,
     decisions: Vec<gateway::import_export::ConflictDecision>,
+    auto_group: bool,
 ) -> Result<gateway::import_export::ImportReport, String> {
     tracing::debug!(
         command = "ccswitch_import",
         payload_count = platform_payload.len(),
         decisions = decisions.len(),
+        auto_group,
         "command invoked"
     );
-    gateway::import_export::ccswitch::import(platform_payload, &decisions, &db).await
+    gateway::import_export::ccswitch::import(platform_payload, &decisions, auto_group, &db).await
+}
+
+/// sub2api 导入：解析用户提供的 sub2api-data JSON 文本，返回账号 DTO 列表（预览用）。
+/// 无需 db State（纯文本解析）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn sub2api_parse(
+    json_text: String,
+) -> Result<gateway::import_export::Sub2ApiReadResult, String> {
+    tracing::debug!(command = "sub2api_parse", "command invoked");
+    gateway::import_export::sub2api::parse(&json_text)
+}
+
+/// sub2api 导入：读取用户选择的 JSON 文件文本（前端 dialog 选路径 → 后端 std::fs 读，
+/// 避开前端 fs scope 限制，同 import_read_file 路径语义）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn sub2api_read_file(path: String) -> Result<String, String> {
+    tracing::debug!(command = "sub2api_read_file", path = %path, "command invoked");
+    std::fs::read_to_string(&path).map_err(|e| format!("read {path}: {e}"))
+}
+
+/// sub2api 导入：接收前端转换好的 Platform JSON + 决策，走 apply::apply 写入；
+/// auto_group=true 时关联 `sub2api` 分组。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn sub2api_import(
+    db: State<'_, Db>,
+    platform_payload: Vec<serde_json::Value>,
+    decisions: Vec<gateway::import_export::ConflictDecision>,
+    auto_group: bool,
+) -> Result<gateway::import_export::ImportReport, String> {
+    tracing::debug!(
+        command = "sub2api_import",
+        payload_count = platform_payload.len(),
+        decisions = decisions.len(),
+        auto_group,
+        "command invoked"
+    );
+    gateway::import_export::sub2api::import(platform_payload, &decisions, auto_group, &db).await
 }
 
 /// 测试通知：直接走分发逻辑（前端设置页"测试"按钮），不经 /api/notify 端点。
@@ -4156,6 +4198,9 @@ pub fn run() {
             ccswitch_detect,
             ccswitch_read,
             ccswitch_import,
+            sub2api_parse,
+            sub2api_read_file,
+            sub2api_import,
             // App Logging
             app_log_settings_get,
             app_log_settings_set,
