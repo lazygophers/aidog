@@ -167,9 +167,12 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
     ],
 
     // ── 国内官方 ──
+    // GLM(智谱)：openai 与 anthropic 端点同处 open.bigmodel.cn，同一把 key 通用（不像 Kimi 按 host
+    // 拆 coding/常规）。coding plan 时两端点均标 coding_plan=true，使 anthropic(Claude Code)入站走
+    // anthropic coding 端点原协议直发，不再被转换成 openai 走 /api/coding/paas/v4。
     glm: [
       { protocol: "openai", base_url: cp ? "https://open.bigmodel.cn/api/coding/paas/v4" : "https://open.bigmodel.cn/api/paas/v4", client_type: "codex_tui", coding_plan: cp },
-      { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic", client_type: "claude_code" },
+      { protocol: "anthropic", base_url: "https://open.bigmodel.cn/api/anthropic", client_type: "claude_code", coding_plan: cp },
     ],
     glm_en: [
       { protocol: "openai", base_url: "https://api.z.ai/api/paas/v4", client_type: "codex_tui" },

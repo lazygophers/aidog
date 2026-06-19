@@ -3345,17 +3345,22 @@ fn detect_source_protocol(path: &str) -> String {
 /// `detect_source_protocol` / `ep_proto` 产出的协议名一致，便于直接比对 endpoint。
 /// 按入站协议(`source_protocol`)从平台端点中选目标 endpoint。
 ///
-/// ── coding-plan 平台端点排他 ──
-/// coding-plan 平台的 api_key 仅对 coding endpoint(`coding_plan:true`，独立 coding host)有效；
-/// 其非 coding endpoint(如 kimi 的 `api.moonshot.cn/anthropic`)指向常规 API host，需另一把常规 key。
-/// 若按入站协议精确匹配命中一个**非 coding** endpoint，而平台同时含 coding endpoint，
-/// 该非 coding endpoint 会被 coding key 打成 401 并连累整个平台 auto_disabled。
-/// 故平台含任一 coding endpoint 时，仅在 coding endpoint 中按协议匹配；入站协议无对应 coding
-/// endpoint(如 anthropic 入站 + kimi 仅有 openai coding endpoint)→ 回退到 openai coding endpoint，
-/// 出站经 `convert_request`(anthropic→openai)转换。
+/// 通用原则：**尽可能用原协议直发，避免有损转换**（[protocol-same-proto-passthrough]）。
+/// 优先级链（从最优到兜底）：
+///   1. coding_plan 端点中按入站协议精确匹配（同协议 coding，直发不转换）
+///      —— 平台同时含多个 coding 端点（如 GLM/千帆/小米：openai coding + anthropic coding）时，
+///         anthropic 入站选 anthropic coding 端点、openai 入站选 openai coding 端点，各走原协议。
+///   2. coding_plan 端点中回退 openai coding（入站无对应同协议 coding 端点时，转换出站）
+///      —— Kimi coding 仅有 openai coding 端点，anthropic 入站经此回退，`convert_request` 转 openai。
+///   3. 非 coding 端点按入站协议精确匹配（普通双协议平台，同协议直发）。
+///   4. `openai_responses` 源(Codex)无 Responses 端点时回退到 openai 端点（出站经 to_openai 转换）。
 ///
-/// 非 coding-plan 平台(无任何 coding endpoint)：精确协议匹配；`openai_responses` 源(Codex)无
-/// Responses endpoint 时回退到 openai endpoint(普通 chat/completions 平台，出站经 to_openai 转换)。
+/// ── coding-plan 端点排他（防 401，务必保留）──
+/// coding-plan 平台的 api_key **仅对 coding endpoint(`coding_plan:true`)有效**；其非 coding endpoint
+/// (如 kimi 的 `api.moonshot.cn/anthropic`，指向常规 API host)需另一把常规 key，被 coding key 打成 401
+/// → 连累整个平台 auto_disabled。故**平台含任一 coding 端点时，绝不落到非 coding 端点**：优先级链 1→2
+/// 全部限定 `coding_plan==true`，仅当无任何 coding 端点(普通平台)才进入 3/4。
+/// 这同时满足通用原则：coding 平台的同协议 coding 端点（步骤 1）优先于跨协议转换（步骤 2）。
 fn select_endpoint_for_protocol<'a>(
     endpoints: &'a [super::models::PlatformEndpoint],
     source_protocol: &str,
@@ -3363,11 +3368,14 @@ fn select_endpoint_for_protocol<'a>(
     let ep_proto = |ep: &super::models::PlatformEndpoint| format!("{:?}", ep.protocol).to_lowercase();
     let has_coding_ep = endpoints.iter().any(|ep| ep.coding_plan);
     if has_coding_ep {
+        // 步骤 1：同协议 coding 端点（直发原协议）；步骤 2：openai coding 兜底（转换出站）。
+        // 两步均限定 coding_plan，绝不落非 coding 端点（防 coding key 打非 coding host 401）。
         endpoints
             .iter()
             .find(|ep| ep.coding_plan && ep_proto(ep) == source_protocol)
             .or_else(|| endpoints.iter().find(|ep| ep.coding_plan && ep_proto(ep) == "openai"))
     } else {
+        // 普通平台：步骤 3 同协议直发；步骤 4 openai_responses 回退 openai。
         endpoints
             .iter()
             .find(|ep| ep_proto(ep) == source_protocol)
@@ -4578,6 +4586,24 @@ mod tests {
         // openai 入站选 openai endpoint
         let m = sel(&glm, "openai").unwrap();
         assert_eq!(m.base_url, "https://open.bigmodel.cn/api/paas/v4");
+
+        // ── GLM Coding Plan(openai coding + anthropic coding 同 host 同 key)：通用原则「同协议优先于转换」──
+        // anthropic(Claude Code)入站 → 选 anthropic coding 端点原协议直发，不得回退 openai coding 转换。
+        let glm_cp = vec![
+            ep(Protocol::OpenAI, "https://open.bigmodel.cn/api/coding/paas/v4", true),
+            ep(Protocol::Anthropic, "https://open.bigmodel.cn/api/anthropic", true),
+        ];
+        let m = sel(&glm_cp, "anthropic")
+            .expect("anthropic inbound must resolve to the anthropic coding endpoint");
+        assert_eq!(
+            m.base_url, "https://open.bigmodel.cn/api/anthropic",
+            "GLM coding plan: anthropic inbound must use anthropic coding endpoint (no openai conversion)"
+        );
+        assert!(m.coding_plan, "selected endpoint must be the coding endpoint");
+        // openai 入站仍选 openai coding 端点
+        let m = sel(&glm_cp, "openai").unwrap();
+        assert_eq!(m.base_url, "https://open.bigmodel.cn/api/coding/paas/v4");
+        assert!(m.coding_plan);
 
         // ── 非 coding-plan：openai_responses 无 Responses endpoint → 回退 openai(行为不变) ──
         let openai_only = vec![ep(Protocol::OpenAI, "https://api.deepseek.com/v1", false)];
