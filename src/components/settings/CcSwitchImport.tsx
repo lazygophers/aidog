@@ -178,7 +178,8 @@ export function CcSwitchImportSection({
         const [scope, key] = k.split("::");
         return { scope, key, decision: d };
       });
-      const r = await ccswitchApi.import(payload, ds);
+      // autoGroup 开 → 后端 ensure-by-name 建/加入固定 `cc-switch` 分组（toggle 默认开）。
+      const r = await ccswitchApi.import(payload, ds, batchAutoGroup);
       // 批量分组归属回挂：按最终名匹配建出的平台，补建默认分组（ensureAutoGroup，幂等）
       // + 全量同步加入的已有分组（platform_update）。失败不阻断导入报告（平台已建好）。
       try {
@@ -329,7 +330,7 @@ export function CcSwitchImportSection({
               {t("importExport.ccswitch.groupAssignHint", "导入后这些平台加入哪些分组（批量，作用于全部已导入平台）")}
             </div>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <span style={{ fontSize: 13 }}>{t("platform.groupAssignAuto", "创建默认分组")}</span>
+              <span style={{ fontSize: 13 }}>{t("importExport.ccswitch.autoGroup", "导入后自动加入「cc-switch」分组")}</span>
               <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
                 <input type="checkbox" checked={batchAutoGroup} onChange={e => setBatchAutoGroup(e.target.checked)} style={{ display: "none" }} />
                 <span className={`toggle ${batchAutoGroup ? "active" : ""}`} />

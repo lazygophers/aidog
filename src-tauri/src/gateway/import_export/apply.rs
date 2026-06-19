@@ -621,6 +621,97 @@ async fn relink_group_platform(db: &Db, group_key: &str, platform_name: &str) ->
         .map_err(|e| format!("relink: {e}"))
 }
 
+// ── 导入 auto-group（sub2api / cc-switch 两路共享） ──────────────
+//
+// 根因约束：apply 走 insert_platform_row 直接 INSERT，不触发 platform_create
+// 命令级 auto-group 副作用（记忆 import-apply-bypasses-platform-create），故
+// auto-group 必须显式做。
+//
+// 去重策略（main 拍板）：
+// - group 按 name 查找复用（ensure-by-name，不重复建同名组）；
+// - 平台接受重复（platform.name 非 UNIQUE，重复导入重复建平台 = always-INSERT 语义），
+//   关联用本次导入新建的 platform_id 集合，不做跨次去重。
+
+/// 快照当前未删除 platform 的 id 集合（apply 前调用，用于回出本次新建行）。
+pub async fn snapshot_platform_ids(db: &Db) -> Result<std::collections::BTreeSet<i64>, String> {
+    db.0
+        .call(|conn| {
+            let mut stmt =
+                conn.prepare("SELECT id FROM platform WHERE deleted_at = 0")?;
+            let ids = stmt
+                .query_map([], |r| r.get::<_, i64>(0))?
+                .collect::<Result<std::collections::BTreeSet<i64>, _>>()?;
+            Ok(ids)
+        })
+        .await
+        .map_err(|e| format!("snapshot platform ids: {e}"))
+}
+
+/// ensure group(name) 幂等（同名复用，不存在则 create 生成 gk_<32hex>）+ 关联 platform_ids。
+///
+/// `before` 为 apply 前的 platform id 快照；本函数内部重新取全量 id，差集 = 本次新建。
+/// 关联走 group_platform ON CONFLICT 幂等（apply.rs relink 同语义）。
+pub async fn ensure_group_and_attach(
+    db: &Db,
+    group_name: &str,
+    before: &std::collections::BTreeSet<i64>,
+) -> Result<(), String> {
+    let group_name = group_name.to_string();
+    let before = before.clone();
+    db.0
+        .call(move |conn| {
+            let tx = conn.transaction()?;
+            // 1. ensure group by name（命中复用；未命中 create 生成 group_key）。
+            let gid: i64 = match tx
+                .query_row(
+                    "SELECT id FROM \"group\" WHERE name = ?1 AND deleted_at = 0",
+                    [&group_name],
+                    |r| r.get(0),
+                )
+                .ok()
+            {
+                Some(id) => id,
+                None => {
+                    let now = now_ts();
+                    let group_key = format!("gk_{}", uuid::Uuid::new_v4().simple());
+                    tx.execute(
+                        "INSERT INTO \"group\" (name, group_key, routing_mode, auto_from_platform, sort_order, created_at, updated_at)
+                         VALUES (?1, ?2, 'round_robin', '', 0, ?3, ?3)",
+                        rusqlite::params![&group_name, &group_key, now],
+                    )?;
+                    tx.last_insert_rowid()
+                }
+            };
+
+            // 2. 本次新建的 platform id = 全量 − before 快照。
+            let new_ids: Vec<i64> = {
+                let mut stmt =
+                    tx.prepare("SELECT id FROM platform WHERE deleted_at = 0")?;
+                let all = stmt
+                    .query_map([], |r| r.get::<_, i64>(0))?
+                    .collect::<Result<Vec<i64>, _>>()?;
+                all.into_iter().filter(|id| !before.contains(id)).collect()
+            };
+
+            // 3. attach（ON CONFLICT 幂等）。
+            let now = now_ts();
+            for pid in new_ids {
+                tx.execute(
+                    "INSERT INTO group_platform (group_id, platform_id, created_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?3)
+                     ON CONFLICT(group_id, platform_id) DO UPDATE SET deleted_at = 0, updated_at = ?3",
+                    rusqlite::params![gid, pid, now],
+                )?;
+            }
+            tx.commit()?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("ensure_group_and_attach: {e}"))?;
+    db.invalidate_hot_caches();
+    Ok(())
+}
+
 async fn upsert_setting_row(
     db: &Db,
     scope: &str,
@@ -779,6 +870,127 @@ mod tests {
         let extra = effective_extra_with_breaker(&row);
         let b = crate::gateway::models::parse_breaker(&extra);
         assert_eq!((b.failure_threshold, b.open_secs, b.half_open_max), (6, 180, 3));
+    }
+
+    /// 直插一个 platform（绕过 apply 事务），返回 rowid。
+    async fn insert_test_platform(db: &Db, name: &str) -> i64 {
+        let name = name.to_string();
+        db.0
+            .call(move |conn| {
+                conn.execute(
+                    "INSERT INTO platform (name, created_at, updated_at) VALUES (?1, 0, 0)",
+                    rusqlite::params![name],
+                )?;
+                Ok(conn.last_insert_rowid())
+            })
+            .await
+            .unwrap()
+    }
+
+    async fn group_id_by_name(db: &Db, name: &str) -> Option<i64> {
+        let name = name.to_string();
+        db.0
+            .call(move |conn| {
+                Ok(conn
+                    .query_row(
+                        "SELECT id FROM \"group\" WHERE name = ?1 AND deleted_at = 0",
+                        [&name],
+                        |r| r.get::<_, i64>(0),
+                    )
+                    .ok())
+            })
+            .await
+            .unwrap()
+    }
+
+    async fn link_count(db: &Db, gid: i64) -> i64 {
+        db.0
+            .call(move |conn| {
+                Ok(conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM group_platform WHERE group_id = ?1 AND deleted_at = 0",
+                        [gid],
+                        |r| r.get::<_, i64>(0),
+                    )
+                    .unwrap_or(0))
+            })
+            .await
+            .unwrap()
+    }
+
+    /// 组不存在 → 按 name 建组（生成 group_key）+ 关联本次新建 platform。
+    #[tokio::test]
+    async fn ensure_group_creates_when_absent() {
+        let db = test_db().await;
+        // 预置一个旧平台（before 快照含它，不应被关联）。
+        insert_test_platform(&db, "old").await;
+        let before = snapshot_platform_ids(&db).await.unwrap();
+        // 本次"导入"新建两个平台。
+        insert_test_platform(&db, "new1").await;
+        insert_test_platform(&db, "new2").await;
+
+        ensure_group_and_attach(&db, "sub2api", &before).await.unwrap();
+
+        let gid = group_id_by_name(&db, "sub2api").await.expect("group created");
+        // 校验 group_key 生成。
+        let gkey: String = db
+            .0
+            .call(move |conn| {
+                Ok(conn
+                    .query_row("SELECT group_key FROM \"group\" WHERE id = ?1", [gid], |r| {
+                        r.get::<_, String>(0)
+                    })
+                    .unwrap())
+            })
+            .await
+            .unwrap();
+        assert!(gkey.starts_with("gk_"), "group_key 应生成 gk_ 前缀");
+        // 仅关联本次新建的 2 个平台（old 不在内）。
+        assert_eq!(link_count(&db, gid).await, 2);
+    }
+
+    /// 同名组已存在 → 不重复建组，仅 attach（ON CONFLICT 幂等）。
+    #[tokio::test]
+    async fn ensure_group_idempotent() {
+        let db = test_db().await;
+        let before1 = snapshot_platform_ids(&db).await.unwrap();
+        insert_test_platform(&db, "p1").await;
+        ensure_group_and_attach(&db, "sub2api", &before1).await.unwrap();
+        let gid = group_id_by_name(&db, "sub2api").await.unwrap();
+        assert_eq!(link_count(&db, gid).await, 1);
+
+        // 第二次导入：组已存在 → 复用同 id，不重复建组。
+        let before2 = snapshot_platform_ids(&db).await.unwrap();
+        insert_test_platform(&db, "p2").await;
+        ensure_group_and_attach(&db, "sub2api", &before2).await.unwrap();
+        let gid2 = group_id_by_name(&db, "sub2api").await.unwrap();
+        assert_eq!(gid, gid2, "同名组不应重复创建");
+        // 组数确认只有一个。
+        let group_count: i64 = db
+            .0
+            .call(|conn| {
+                Ok(conn
+                    .query_row(
+                        "SELECT COUNT(*) FROM \"group\" WHERE name = 'sub2api' AND deleted_at = 0",
+                        [],
+                        |r| r.get::<_, i64>(0),
+                    )
+                    .unwrap())
+            })
+            .await
+            .unwrap();
+        assert_eq!(group_count, 1);
+        // 第二次关联追加 p2 → 共 2 个关联。
+        assert_eq!(link_count(&db, gid).await, 2);
+    }
+
+    /// auto_group=false 等价于不调 ensure → 不建组（行为契约：import 跳过 ensure）。
+    #[tokio::test]
+    async fn no_ensure_means_no_group() {
+        let db = test_db().await;
+        insert_test_platform(&db, "p").await;
+        // 不调用 ensure_group_and_attach（模拟 auto_group=false）。
+        assert!(group_id_by_name(&db, "sub2api").await.is_none());
     }
 
     /// 新格式导入（breaker 已在 extra）→ 原样保留，不被顶层 0 覆盖。

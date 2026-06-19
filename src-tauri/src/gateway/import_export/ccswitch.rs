@@ -440,11 +440,22 @@ fn parse_toml_kv(line: &str) -> Option<(String, String)> {
 
 /// 把前端转换好的 platform payload + 决策应用进 aidog DB。
 /// 复用 [`super::apply::apply`]，不另造一套写入路径。
+///
+/// `auto_group=true` 时：apply 后 ensure-by-name 建/找 `cc-switch` 分组并关联本次导入平台
+/// （toggle 默认开；关时跳过 ensure，行为完全等同改造前的导入，向后兼容）。
 pub async fn import(
     platform_payload: Vec<serde_json::Value>,
     decisions: &[super::ConflictDecision],
+    auto_group: bool,
     db: &Db,
 ) -> Result<super::ImportReport, String> {
+    // apply 前快照已有 platform id，供 auto-group 回出本次新建行。
+    let before = if auto_group {
+        super::apply::snapshot_platform_ids(db).await?
+    } else {
+        std::collections::BTreeSet::new()
+    };
+
     let payload = super::Payload {
         manifest: super::Manifest {
             format_version: 1,
@@ -464,7 +475,12 @@ pub async fn import(
         claude_code_group_settings: Vec::new(),
         skills: Vec::new(),
     };
-    super::apply::apply(payload, decisions, db).await
+    let report = super::apply::apply(payload, decisions, db).await?;
+
+    if auto_group {
+        super::apply::ensure_group_and_attach(db, "cc-switch", &before).await?;
+    }
+    Ok(report)
 }
 
 // ── 单测 ────────────────────────────────────────────────────
