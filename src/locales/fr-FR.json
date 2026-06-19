@@ -1547,5 +1547,14 @@
   "group.setAsDefault": "Définir comme groupe par défaut",
   "group.unsetDefault": "Annuler le groupe par défaut",
   "group.isDefault": "Par défaut",
-  "group.isDefaultTitle": "Groupe par défaut : config fusionnée dans ~/.claude/settings.json + ~/.codex/config.toml (Codex nécessite export AIDOG_KEY=<clé du groupe>)"
+  "group.isDefaultTitle": "Groupe par défaut : config fusionnée dans ~/.claude/settings.json + ~/.codex/config.toml (Codex nécessite export AIDOG_KEY=<clé du groupe>)",
+  "appSettings.cccCodexTab": "Claude Code / Codex",
+  "ccCodex.introTitle": "Intégration Claude Code / Codex",
+  "ccCodex.introDesc": "Ces interrupteurs écrivent dans les fichiers de configuration locaux de Claude Code CLI, acheminant l'extension et la CLI via aidog et ignorant l'onboarding de premier lancement.",
+  "ccCodex.applyPlugin.title": "Appliquer au plugin Claude Code",
+  "ccCodex.applyPlugin.desc": "Écrit primaryApiKey=\"any\" dans ~/.claude/config.json pour que l'extension VS Code Claude Code passe par le proxy local. Désactivé supprime le champ.",
+  "ccCodex.skipOnboarding.title": "Ignorer l'onboarding Claude Code",
+  "ccCodex.skipOnboarding.desc": "Écrit hasCompletedOnboarding=true à la racine de ~/.claude.json pour ignorer l'onboarding du premier lancement de Claude Code. Désactivé supprime le champ.",
+  "ccCodex.applied": "Appliqué",
+  "ccCodex.cleared": "Effacé"
 }

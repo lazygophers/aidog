@@ -1525,5 +1525,14 @@
   "group.setAsDefault": "设为默认分组",
   "group.unsetDefault": "取消默认分组",
   "group.isDefault": "默认",
-  "group.isDefaultTitle": "默认分组：config 已 merge 写入 ~/.claude/settings.json + ~/.codex/config.toml（Codex 需 export AIDOG_KEY=<分组密钥>）"
+  "group.isDefaultTitle": "默认分组：config 已 merge 写入 ~/.claude/settings.json + ~/.codex/config.toml（Codex 需 export AIDOG_KEY=<分组密钥>）",
+  "appSettings.cccCodexTab": "Claude Code / Codex",
+  "ccCodex.introTitle": "Claude Code / Codex 联动",
+  "ccCodex.introDesc": "以下开关会写入 Claude Code CLI 的本地配置文件，使扩展与 CLI 走 aidog 代理并跳过首启引导。",
+  "ccCodex.applyPlugin.title": "应用到 Claude Code 插件",
+  "ccCodex.applyPlugin.desc": "向 ~/.claude/config.json 写入 primaryApiKey=\"any\"，使 VS Code Claude Code 扩展走本地代理。关闭则移除该字段。",
+  "ccCodex.skipOnboarding.title": "跳过 Claude Code 安装确认",
+  "ccCodex.skipOnboarding.desc": "向 ~/.claude.json 根对象写入 hasCompletedOnboarding=true，跳过 Claude Code 首次启动引导。关闭则移除该字段。",
+  "ccCodex.applied": "已应用",
+  "ccCodex.cleared": "已清除"
 }

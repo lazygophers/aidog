@@ -1547,5 +1547,14 @@
   "group.setAsDefault": "デフォルトグループに設定",
   "group.unsetDefault": "デフォルトグループを解除",
   "group.isDefault": "デフォルト",
-  "group.isDefaultTitle": "デフォルトグループ：設定は ~/.claude/settings.json + ~/.codex/config.toml にマージ済み（Codex は export AIDOG_KEY=<グループキー> が必要）"
+  "group.isDefaultTitle": "デフォルトグループ：設定は ~/.claude/settings.json + ~/.codex/config.toml にマージ済み（Codex は export AIDOG_KEY=<グループキー> が必要）",
+  "appSettings.cccCodexTab": "Claude Code / Codex",
+  "ccCodex.introTitle": "Claude Code / Codex 連携",
+  "ccCodex.introDesc": "これらのスイッチは Claude Code CLI のローカル設定ファイルに書き込み、拡張機能と CLI を aidog 経由にし、初回オンボーディングをスキップします。",
+  "ccCodex.applyPlugin.title": "Claude Code プラグインに適用",
+  "ccCodex.applyPlugin.desc": "~/.claude/config.json に primaryApiKey=\"any\" を書き込み、VS Code Claude Code 拡張がローカルプロキシ経由になるようにします。オフでフィールドを削除します。",
+  "ccCodex.skipOnboarding.title": "Claude Code オンボーディングをスキップ",
+  "ccCodex.skipOnboarding.desc": "~/.claude.json のルートオブジェクトに hasCompletedOnboarding=true を書き込み、Claude Code 初回起動のオンボーディングをスキップします。オフでフィールドを削除します。",
+  "ccCodex.applied": "適用しました",
+  "ccCodex.cleared": "クリアしました"
 }

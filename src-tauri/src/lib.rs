@@ -2972,6 +2972,94 @@ async fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, D
     Ok(())
 }
 
+// ─── Claude Code / Codex 联动开关 ──────────────────────────
+//
+// 两开关存 DB（scope="global", key="cc_codex_settings"），变化时按 diff 触发
+// 写外部文件（仅当值真变才写），失败记 warn 不中断其它字段。
+// - apply_to_claude_plugin → ~/.claude/config.json 的 primaryApiKey="any"
+// - skip_claude_onboarding → ~/.claude.json 的 hasCompletedOnboarding=true
+
+#[derive(serde::Serialize, serde::Deserialize, Clone, Default)]
+struct CcCodexSettings {
+    #[serde(default)]
+    apply_to_claude_plugin: bool,
+    #[serde(default)]
+    skip_claude_onboarding: bool,
+}
+
+async fn load_cc_codex_settings(db: &Db) -> CcCodexSettings {
+    match db::get_setting(db, "global", "cc_codex_settings").await {
+        Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
+        _ => CcCodexSettings::default(),
+    }
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn cc_codex_settings_get(db: State<'_, Db>) -> Result<CcCodexSettings, String> {
+    tracing::debug!(command = "cc_codex_settings_get", "command invoked");
+    Ok(load_cc_codex_settings(&db).await)
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn cc_codex_settings_set(
+    apply_to_claude_plugin: Option<bool>,
+    skip_claude_onboarding: Option<bool>,
+    db: State<'_, Db>,
+) -> Result<CcCodexSettings, String> {
+    tracing::debug!(command = "cc_codex_settings_set", "command invoked");
+    let mut current = load_cc_codex_settings(&db).await;
+
+    // 按字段 diff 触发副作用写文件；失败 warn 不中断其它字段。
+    if let Some(v) = apply_to_claude_plugin {
+        if v != current.apply_to_claude_plugin {
+            let res = if v {
+                gateway::claude_integration::write_plugin_primary_key()
+            } else {
+                gateway::claude_integration::clear_plugin_primary_key()
+            };
+            match res {
+                Ok(_changed) => current.apply_to_claude_plugin = v,
+                Err(e) => tracing::warn!(
+                    command = "cc_codex_settings_set",
+                    field = "apply_to_claude_plugin",
+                    error = %e,
+                    "write ~/.claude/config.json failed; field not persisted"
+                ),
+            }
+        }
+    }
+
+    if let Some(v) = skip_claude_onboarding {
+        if v != current.skip_claude_onboarding {
+            let res = if v {
+                gateway::claude_integration::set_has_completed_onboarding()
+            } else {
+                gateway::claude_integration::clear_has_completed_onboarding()
+            };
+            match res {
+                Ok(_changed) => current.skip_claude_onboarding = v,
+                Err(e) => tracing::warn!(
+                    command = "cc_codex_settings_set",
+                    field = "skip_claude_onboarding",
+                    error = %e,
+                    "write ~/.claude.json failed; field not persisted"
+                ),
+            }
+        }
+    }
+
+    // 写回 DB。
+    let value = serde_json::to_value(&current).map_err(|e| e.to_string())?;
+    db::set_setting(&db, SetSettingInput {
+        scope: "global".to_string(),
+        key: "cc_codex_settings".to_string(),
+        value,
+    }).await?;
+    Ok(current)
+}
+
 // ─── Model Price Commands ──────────────────────────────────
 
 #[tauri::command]
@@ -3974,6 +4062,9 @@ pub fn run() {
             // App Logging
             app_log_settings_get,
             app_log_settings_set,
+            // CC / Codex integration toggles
+            cc_codex_settings_get,
+            cc_codex_settings_set,
             // Settings
             fs_autocomplete,
             settings_get,
