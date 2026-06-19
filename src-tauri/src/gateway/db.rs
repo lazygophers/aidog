@@ -88,6 +88,17 @@ impl Db {
                  PRAGMA busy_timeout=5000; \
                  PRAGMA synchronous=NORMAL;",
             )?;
+            // 新库（无任何表）建表前设 auto_vacuum=INCREMENTAL，让后续 DELETE/free pages
+            // 可被 incremental_vacuum 回收。auto_vacuum 只能建库前设；老库走 migrate_auto_vacuum。
+            // 仅在 sqlite_master 空时设，避免对已有库误改（老库 =NONE 需 VACUUM 重建切换，见 migrate）。
+            let table_count: i64 = c.query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type = 'table'",
+                [],
+                |r| r.get(0),
+            )?;
+            if table_count == 0 {
+                c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL;")?;
+            }
             Ok(())
         })
         .await
@@ -2734,15 +2745,145 @@ pub async fn clear_proxy_logs(db: &Db) -> Result<(), String> {
 }
 
 /// Delete logs older than N days. Pass 0 to skip.
+///
+/// 硬删（`DELETE FROM`），非软删：retention_days 语义 = 过期清除，所有 proxy_log 查询
+/// 均 `WHERE deleted_at = 0`，软删 tombstone 无消费方（无 un-delete UI / 聚合）。
+/// 硬删后调 `incremental_vacuum(100)` 回收 free pages（需 auto_vacuum=INCREMENTAL，老库
+/// 未迁移时为 no-op 不报错）。每次至多回收 100 页避免长锁，busy_timeout=5000 兜底排队。
 pub async fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> Result<(), String> {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     db.0
         .call(move |conn| {
-            conn.execute("UPDATE proxy_log SET deleted_at = ?1 WHERE created_at < ?2 AND deleted_at = 0", params![now(), cutoff])?;
+            conn.execute(
+                "DELETE FROM proxy_log WHERE created_at < ?1 AND deleted_at = 0",
+                params![cutoff],
+            )?;
+            incremental_vacuum_conn(conn, 100);
             Ok(())
         })
         .await
         .map_err(|e| format!("cleanup proxy logs: {e}"))
+}
+
+/// 物理删除所有历史软删 tombstone（`deleted_at != 0`），回收 free pages。
+///
+/// 迁移期（cleanup_proxy_logs 由软删改硬删）清积压 tombstone；日常可被
+/// proxy_log_settings_set 调用链在 retention 硬删后追加触发。
+pub async fn purge_deleted_proxy_logs(db: &Db) -> Result<(), String> {
+    db.0
+        .call(move |conn| {
+            conn.execute("DELETE FROM proxy_log WHERE deleted_at != 0", [])?;
+            incremental_vacuum_conn(conn, 100);
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("purge deleted proxy logs: {e}"))
+}
+
+/// 在给定连接上跑 `PRAGMA incremental_vacuum(N)`，回收至多 N 页 free pages。
+///
+/// auto_vacuum != INCREMENTAL 时为 no-op（SQLite 不报错）；失败仅 warn 不上抛，
+/// 因为回收失败不影响数据正确性，下次 retention/手动压缩仍可重试。
+fn incremental_vacuum_conn(conn: &Connection, max_pages: i64) {
+    // PRAGMA incremental_vacuum 接受一个参数（要回收的最大页数）。rusqlite 用 query
+    // 执行（pragma 返回行集），errors_here 仅 warn。
+    let sql = format!("PRAGMA incremental_vacuum({max_pages})");
+    if let Err(e) = conn.execute_batch(&sql) {
+        tracing::warn!(error = %e, "incremental_vacuum failed (auto_vacuum != INCREMENTAL or busy), will retry later");
+    }
+}
+
+/// 老库 auto_vacuum 迁移：探测当前 auto_vacuum（0=NONE/1=FULL/2=INCREMENTAL），
+/// 非 INCREMENTAL(2) 则 `PRAGMA auto_vacuum=INCREMENTAL` + `VACUUM`（VACUUM 重建库切换模式），
+/// 成功后置 setting(db/compact_migrated_v1)=true 持久标记，幂等。
+///
+/// **VACUUM 不在事务内**（rusqlite 独立调用），锁库期间代理请求排队（busy_timeout 兜底）。
+/// 失败仅返回 Err，调用方（启动 spawn）warn 不阻塞，不置标记，下次启动重试。
+pub async fn migrate_auto_vacuum(db: &Db) -> Result<bool, String> {
+    // 幂等标记：已迁移直接跳过
+    if let Ok(Some(v)) = get_setting(db, "db", "compact_migrated_v1").await {
+        if v == serde_json::Value::Bool(true) {
+            return Ok(false);
+        }
+    }
+    // 探测当前 auto_vacuum 模式
+    let current: i64 = db
+        .0
+        .call(|c| {
+            Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
+        })
+        .await
+        .map_err(|e| format!("probe auto_vacuum: {e}"))?;
+    if current == 2 {
+        // 已是 INCREMENTAL（可能是新装库建表前设过），直接置标记，无需 VACUUM。
+        set_setting(
+            db,
+            SetSettingInput {
+                scope: "db".into(),
+                key: "compact_migrated_v1".into(),
+                value: serde_json::Value::Bool(true),
+            },
+        )
+        .await?;
+        return Ok(false);
+    }
+    // 切换为 INCREMENTAL 并 VACUUM 重建。VACUUM 必须在 autocommit（无活动事务）下执行，
+    // 不能包在 transaction 内；此处独立 execute_batch 调用，rusqlite 默认 autocommit。
+    db.0
+        .call(|c| {
+            // 先 checkpoint 把 WAL 内容合并回主库，避免 WAL+VACUUM 模式约束
+            let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+            c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("migrate auto_vacuum (VACUUM): {e}"))?;
+    set_setting(
+        db,
+        SetSettingInput {
+            scope: "db".into(),
+            key: "compact_migrated_v1".into(),
+            value: serde_json::Value::Bool(true),
+        },
+    )
+    .await?;
+    tracing::info!("db auto_vacuum migrated to INCREMENTAL via VACUUM");
+    Ok(true)
+}
+
+/// 全量 VACUUM 压缩数据库到最小。返回前后字节大小（page_count × page_size）。
+///
+/// 用于设置页「立即压缩数据库」按钮：比 incremental 更激进，整库重写。
+/// VACUUM 不在事务内（独立 conn 调用）；锁库期间请求排队，UI 有警示。
+pub async fn compact_database(db: &Db) -> Result<CompactResult, String> {
+    db.0
+        .call(|c| {
+            let before = db_size_bytes(c)?;
+            // WAL checkpoint 再 VACUUM，避免 WAL 内未合并页漏算
+            let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
+            c.execute_batch("VACUUM;")?;
+            let after = db_size_bytes(c)?;
+            Ok(CompactResult {
+                before_bytes: before,
+                after_bytes: after,
+            })
+        })
+        .await
+        .map_err(|e| format!("compact database: {e}"))
+}
+
+/// `PRAGMA page_count * PRAGMA page_size` = 当前 DB 文件占用的逻辑字节数。
+fn db_size_bytes(conn: &Connection) -> SqlResult<i64> {
+    let pages: i64 = conn.query_row("PRAGMA page_count", [], |r| r.get(0))?;
+    let page_size: i64 = conn.query_row("PRAGMA page_size", [], |r| r.get(0))?;
+    Ok(pages * page_size)
+}
+
+/// 全量 VACUUM 结果（手动「压缩数据库」按钮用）。
+#[derive(Debug, Clone, Serialize)]
+pub struct CompactResult {
+    pub before_bytes: i64,
+    pub after_bytes: i64,
 }
 
 /// Clear user request body fields for logs older than retention_days.
@@ -5484,6 +5625,127 @@ decimals: None,
         }).await.unwrap();
         let s2 = get_notification_settings(&db).await;
         assert!(!s2.enabled && !s2.tts_enabled);
+    }
+
+    // ─── DB Vacuum/Hard-delete (Tier 1 + Tier 2) ───────────────
+
+    /// 辅助：插入一行 proxy_log（指定 created_at），返回 id。
+    async fn insert_proxy_log_at(db: &Db, created_at: i64) -> String {
+        let id = format!("test-{created_at}");
+        let id_clone = id.clone();
+        db.0
+            .call(move |conn| {
+                conn.execute(
+                    "INSERT INTO proxy_log (id, platform_id, group_key, model, source_protocol, \
+                     status_code, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, \
+                     created_at, deleted_at) \
+                     VALUES (?1, 0, '', 'm', 'anthropic', 200, 10, 5, 0, 0.001, 0, ?2, 0)",
+                    params![id_clone, created_at],
+                )?;
+                Ok(())
+            })
+            .await
+            .expect("insert test proxy_log");
+        id
+    }
+
+    /// 辅助：COUNT(*) FROM proxy_log（含 tombstone，不过滤 deleted_at）。
+    async fn count_all_proxy_logs(db: &Db) -> i64 {
+        db.0
+            .call(|conn| Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log", [], |r| r.get(0))?))
+            .await
+            .unwrap()
+    }
+
+    /// cleanup_proxy_logs 硬删：retention_days 内旧行物理删除（COUNT=0），不留 tombstone。
+    #[tokio::test]
+    async fn cleanup_proxy_logs_hard_deletes_old_rows() {
+        let db = test_db().await;
+        // 两行：1 行 100 天前（应删），1 行 1 天前（应保留）。
+        let old_created = (chrono::Utc::now() - chrono::Duration::days(100)).timestamp_millis();
+        let recent_created = (chrono::Utc::now() - chrono::Duration::days(1)).timestamp_millis();
+        insert_proxy_log_at(&db, old_created).await;
+        insert_proxy_log_at(&db, recent_created).await;
+        assert_eq!(count_all_proxy_logs(&db).await, 2);
+
+        // retention_days=30 → 删除 100 天前行，保留 1 天前行
+        cleanup_proxy_logs(&db, 30).await.unwrap();
+        assert_eq!(count_all_proxy_logs(&db).await, 1, "old row should be physically deleted");
+
+        // retention_days=0 → 跳过清理（保持现行为）
+        cleanup_proxy_logs(&db, 0).await.unwrap();
+        assert_eq!(count_all_proxy_logs(&db).await, 1, "retention_days=0 must skip");
+    }
+
+    /// purge_deleted_proxy_logs 清历史 tombstone：软删残留行（deleted_at != 0）物理删除。
+    #[tokio::test]
+    async fn purge_deleted_clears_historical_tombstones() {
+        let db = test_db().await;
+        // 手动软删一行（deleted_at != 0），模拟迁移前积压 tombstone
+        let created = chrono::Utc::now().timestamp_millis();
+        insert_proxy_log_at(&db, created).await;
+        db.0
+            .call(|conn| {
+                conn.execute("UPDATE proxy_log SET deleted_at = ?1 WHERE id LIKE 'test-%'", params![now()])?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        assert_eq!(count_all_proxy_logs(&db).await, 1, "tombstone still occupies row");
+
+        purge_deleted_proxy_logs(&db).await.unwrap();
+        assert_eq!(count_all_proxy_logs(&db).await, 0, "tombstone should be physically purged");
+    }
+
+    /// migrate_auto_vacuum 幂等：内存库 Db::new 建表前已设 auto_vacuum=INCREMENTAL(2)，
+    /// 故迁移探测命中 `current == 2` 分支 → 置标记 + 返回 false（无 VACUUM 必要）。
+    /// 第二次跑因标记为 true 直接跳过。验证标记持久 + 探测后跳过两条幂等路径。
+    #[tokio::test]
+    async fn migrate_auto_vacuum_is_idempotent() {
+        let db = test_db().await;
+        // 迁移前：标记未置
+        let flag_before = get_setting(&db, "db", "compact_migrated_v1").await.unwrap();
+        assert!(flag_before.is_none(), "flag should be absent before migration");
+
+        // 第一次迁移：auto_vacuum 已是 INCREMENTAL（新库建表前设过）→ 置标记 + 返回 false
+        let migrated = migrate_auto_vacuum(&db).await.expect("first migration");
+        assert!(!migrated, "memory db already INCREMENTAL, no VACUUM needed");
+
+        // 标记已置
+        let flag = get_setting(&db, "db", "compact_migrated_v1").await.unwrap();
+        assert_eq!(flag, Some(serde_json::Value::Bool(true)));
+
+        // 第二次迁移：标记 true → 直接跳过，不探测不 VACUUM
+        let migrated2 = migrate_auto_vacuum(&db).await.expect("second migration");
+        assert!(!migrated2, "second call should skip (already marked)");
+
+        // auto_vacuum 保持 INCREMENTAL
+        let av: i64 = db
+            .0
+            .call(|c| Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get(0))?))
+            .await
+            .unwrap();
+        assert_eq!(av, 2, "auto_vacuum should be INCREMENTAL");
+    }
+
+    /// compact_database 全量 VACUUM 返回 before/after 字节，after <= before（压缩单调非增）。
+    #[tokio::test]
+    async fn compact_database_returns_sizes() {
+        let db = test_db().await;
+        // 插入若干行 + 删除一部分，制造 free pages
+        for i in 0..50 {
+            insert_proxy_log_at(&db, chrono::Utc::now().timestamp_millis() + i).await;
+        }
+        db.0
+            .call(|conn| {
+                conn.execute("DELETE FROM proxy_log WHERE id LIKE 'test-%'", [])?;
+                Ok(())
+            })
+            .await
+            .unwrap();
+        let result = compact_database(&db).await.expect("compact");
+        assert!(result.before_bytes > 0, "before_bytes should be positive");
+        assert!(result.after_bytes <= result.before_bytes, "VACUUM should not grow db");
     }
 }
 

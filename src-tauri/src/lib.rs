@@ -1546,11 +1546,16 @@ async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSettings) -
     if let Err(e) = gateway::db::cleanup_upstream_request_fields(&db, settings.upstream_request_retention_days).await {
         tracing::warn!(command = "proxy_log_settings_set", error = %e, "cleanup upstream_request fields failed");
     }
-    // Delete entire log rows older than overall retention
+    // Delete entire log rows older than overall retention (hard delete → physical row removal)
     if settings.retention_days > 0 {
         if let Err(e) = gateway::db::cleanup_proxy_logs(&db, settings.retention_days).await {
             tracing::warn!(command = "proxy_log_settings_set", error = %e, "cleanup proxy_logs failed");
         }
+    }
+    // 清积压 tombstone（本次 cleanup 前历史软删残留）+ incremental_vacuum 回收 free pages。
+    // 软删→硬删迁移期一次性清旧 tombstone；日常 retention_days 已硬删则此步为 no-op + 回收。
+    if let Err(e) = gateway::db::purge_deleted_proxy_logs(&db).await {
+        tracing::warn!(command = "proxy_log_settings_set", error = %e, "purge deleted proxy_logs failed");
     }
     Ok(())
 }
@@ -2148,6 +2153,17 @@ async fn backup_run_now(db: State<'_, Db>) -> Result<gateway::backup::BackupResu
             timestamp: ts,
         }),
     }
+}
+
+// ─── DB Maintenance (Tier 1: VACUUM reclaim) ──────────────
+
+/// 全量 VACUUM 压缩数据库到最小。设置页「立即压缩数据库」按钮入口。
+/// 锁库期间代理写请求排队（busy_timeout 兜底），前端有警示。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn db_compact(db: State<'_, Db>) -> Result<gateway::db::CompactResult, String> {
+    tracing::debug!(command = "db_compact", "command invoked");
+    gateway::db::compact_database(&db).await
 }
 
 /// 导入预览：读文件 → 解密 → 校验 → 扫描冲突，返回前端弹窗所需信息。
@@ -3889,6 +3905,20 @@ pub fn run() {
                 // 不再在启动时为所有平台兜底建组（避免覆盖用户「不分组」选择）。
                 db
             });
+            // 后台 auto_vacuum 迁移：老库（auto_vacuum=NONE）需 VACUUM 重建切到 INCREMENTAL
+            // 才能回收 free pages。非阻塞——spawn 独立 task，失败仅 warn 不置标记，下次启动重试。
+            // VACUUM 锁库期间代理写请求排队（busy_timeout=5000 兜底）。
+            // Db::clone 廉价（仅 channel sender 共享同一后台线程连接），manage 前即可 spawn。
+            {
+                let db_clone = db.clone();
+                tauri::async_runtime::spawn(async move {
+                    match gateway::db::migrate_auto_vacuum(&db_clone).await {
+                        Ok(true) => tracing::info!("db auto_vacuum migration completed on startup"),
+                        Ok(false) => tracing::debug!("db auto_vacuum migration skipped (already migrated or INCREMENTAL)"),
+                        Err(e) => tracing::warn!(error = %e, "db auto_vacuum migration failed on startup, will retry next launch"),
+                    }
+                });
+            }
             app.manage(db);
 
             // 初始化日志（DB 已开，读 DB 设置；迁移遗留文件）
@@ -4130,6 +4160,8 @@ pub fn run() {
             proxy_log_count,
             proxy_log_settings_get,
             proxy_log_settings_set,
+            // DB Maintenance (Tier 1: VACUUM reclaim)
+            db_compact,
             // Proxy Timeout
             proxy_timeout_get,
             proxy_timeout_set,

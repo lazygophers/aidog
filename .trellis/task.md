@@ -20,7 +20,7 @@
 | batch-test-ux | 批量测试: 弹窗可中途关闭 + 并行数改3 | — | completed | 收尾 | 100 | — |
 | platform-list-progressive-load | AI 平台列表页分阶段异步加载优化 | — | 已完成 | 收尾 | 100% | — |
 | platform-card-last-test-badge | platform-card-last-test-badge | — | 已完成 | 收尾 | 100% | — |
-| sub2api-import | 导入导出新增 sub2api 导入 | — | 进行中 | 规划 | 0% | — |
+| sub2api-import | 导入导出新增 sub2api 导入 | — | 已完成 | 收尾 | 100% | — |
 | group-default-button-redesign | group-default-button-redesign | — | 已完成 | 收尾 | 100% | — |
 | smart-paste-auto-clipboard | smart-paste-auto-clipboard | — | 已完成 | 收尾 | 100% | — |
 | db-vacuum-hard-delete-retention | db-vacuum-hard-delete-retention | — | 进行中 | 规划 | 0% | — |
