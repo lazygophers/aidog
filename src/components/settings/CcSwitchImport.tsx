@@ -179,15 +179,16 @@ export function CcSwitchImportSection({
         return { scope, key, decision: d };
       });
       const r = await ccswitchApi.import(payload, ds);
-      // 批量分组归属回挂：按最终名匹配建出的平台，复用 platform_update
-      // （auto_group 对账 + join 全量同步）。失败不阻断导入报告（平台已建好）。
+      // 批量分组归属回挂：按最终名匹配建出的平台，补建默认分组（ensureAutoGroup，幂等）
+      // + 全量同步加入的已有分组（platform_update）。失败不阻断导入报告（平台已建好）。
       try {
         const finalNames = payload.map(j => String(j.name));
         const all = await platformApi.list();
         const imported = all.filter(p => finalNames.includes(p.name));
-        await Promise.all(imported.map(p => platformApi.update({
-          id: p.id, auto_group: batchAutoGroup, join_group_ids: batchJoinGroupIds,
-        })));
+        await Promise.all(imported.map(async p => {
+          if (batchAutoGroup) await platformApi.ensureAutoGroup(p.id);
+          await platformApi.update({ id: p.id, join_group_ids: batchJoinGroupIds });
+        }));
       } catch (e) {
         console.error("cc-switch group assign failed:", e);
       }

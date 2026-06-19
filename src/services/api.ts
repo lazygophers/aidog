@@ -181,12 +181,6 @@ export interface Platform {
   auto_disabled_until: number;
   /** 连续自动禁用次数（指数退避指数）；恢复 enabled 时清零 */
   auto_disable_strikes: number;
-  /** 熔断失败阈值（连续失败达此数 → Open）；0 = 继承全局 SchedulingBreakerSettings 默认。 */
-  breaker_failure_threshold: number;
-  /** 熔断 Open 持续秒数（之后转 HalfOpen 探测）；0 = 继承全局默认。 */
-  breaker_open_secs: number;
-  /** HalfOpen 允许的最大探测请求数；0 = 继承全局默认。 */
-  breaker_half_open_max: number;
   created_at: number;
   updated_at: number;
   deleted_at: number;
@@ -204,8 +198,6 @@ export interface Platform {
   tray_display: string;
   /** 手动预算限额列表（无上游 quota 平台；请求驱动扣减 + 耗尽阻断）。 */
   manual_budgets: ManualBudget[];
-  /** 是否为该平台自动创建/维护默认分组（false = 不建且 ensure 永久跳过）。 */
-  auto_group: boolean;
   /** 余额使用速率配色级别（后端 platform_list 按动态窗口日速率算 days_remaining 填充，只读）。
    *  "red"|"yellow"|"green"|"neutral"；空串 = 无数据 → 前端退中性。前端只消费不重算阈值。 */
   balance_level?: string;
@@ -325,6 +317,58 @@ export function serializeMockConfig(extra: string, mock: MockConfig): string {
   return JSON.stringify(obj);
 }
 
+/** 平台级熔断阈值覆盖，存于 platform.extra JSON 的嵌套对象 breaker。
+ *  每字段 0/缺省 = 继承全局 SchedulingBreakerSettings 默认。 */
+export interface PlatformBreaker {
+  failure_threshold: number;
+  open_secs: number;
+  half_open_max: number;
+}
+
+/** 从 platform.extra JSON 解析 breaker 覆盖（空/非法/缺键 → 全 0 继承全局默认）。 */
+export function parsePlatformBreaker(extra: string): PlatformBreaker {
+  const zero: PlatformBreaker = { failure_threshold: 0, open_secs: 0, half_open_max: 0 };
+  if (!extra.trim()) return zero;
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && "breaker" in parsed) {
+      const b = (parsed as { breaker: unknown }).breaker;
+      if (b && typeof b === "object") {
+        const o = b as Record<string, unknown>;
+        return {
+          failure_threshold: typeof o.failure_threshold === "number" ? o.failure_threshold : 0,
+          open_secs: typeof o.open_secs === "number" ? o.open_secs : 0,
+          half_open_max: typeof o.half_open_max === "number" ? o.half_open_max : 0,
+        };
+      }
+    }
+  } catch {
+    /* 非法 JSON → 回退全 0 */
+  }
+  return zero;
+}
+
+/** 把 breaker 覆盖写回 extra JSON（保留其余键）。三值全 0 → 移除 breaker 键（无覆盖=继承全局）。 */
+export function serializePlatformBreaker(extra: string, b: PlatformBreaker): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch {
+      /* 非法 JSON → 重建 */
+    }
+  }
+  if (b.failure_threshold === 0 && b.open_secs === 0 && b.half_open_max === 0) {
+    delete obj.breaker;
+  } else {
+    obj.breaker = b;
+  }
+  return JSON.stringify(obj);
+}
+
 export const platformApi = {
   create: (input: {
     name: string;
@@ -336,7 +380,7 @@ export const platformApi = {
     available_models?: string[];
     endpoints?: PlatformEndpoint[];
     manual_budgets?: ManualBudget[];
-    /** 是否自动创建默认分组（省略=true 旧行为；false=不建且 ensure 永久跳过）。 */
+    /** 是否自动创建默认分组（transient 创建时一次性判断；省略=true 旧行为；false=不建）。 */
     auto_group?: boolean;
     /** 额外加入的已有分组 ID 列表（plain membership）。 */
     join_group_ids?: number[];
@@ -361,17 +405,15 @@ export const platformApi = {
      *  置 enabled 会清空退避状态（手动恢复）。 */
     status?: PlatformStatus;
     manual_budgets?: ManualBudget[];
-    /** 熔断阈值覆盖（0=继承全局默认）；省略=保留既有值。 */
-    breaker_failure_threshold?: number;
-    breaker_open_secs?: number;
-    breaker_half_open_max?: number;
-    /** 重设是否自动创建默认分组（省略=不变；false=删既有 auto 分组并停止维护）。 */
-    auto_group?: boolean;
+    /** 熔断阈值覆盖现走 extra.breaker（随 extra 整体更新），无独立字段。 */
     /** 全量同步该平台的手动组成员关系（省略=不动）。 */
     join_group_ids?: number[];
   }) => invoke<Platform>("platform_update", { input }),
 
   delete: (id: number) => invoke<void>("platform_delete", { id }),
+
+  /** 为平台补建默认 auto 分组（若已存在则跳过）。供批量导入回挂复用（cc-switch / 导入）。 */
+  ensureAutoGroup: (id: number) => invoke<void>("platform_ensure_auto_group", { id }),
 
   /** 拖拽排序：传入按新顺序排列的 platform id 列表 */
   reorder: (orderedIds: number[]) =>

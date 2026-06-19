@@ -514,21 +514,23 @@ fn insert_platform_row(
     row: &serde_json::Value,
     now: i64,
 ) -> rusqlite::Result<()> {
+    // breaker 阈值现存于 extra.breaker。新格式导出已含 extra.breaker；旧格式（breaker 在顶层）
+    // 双兜底：若顶层有非 0 breaker 列且 extra 内尚无 breaker，则合并进 extra（无损迁入）。
+    let extra = effective_extra_with_breaker(row);
     tx.execute(
         "INSERT INTO platform
          (name, platform_type, base_url, api_key, extra, models, available_models, endpoints,
           enabled, status, auto_disabled_until, auto_disable_strikes,
-          breaker_failure_threshold, breaker_open_secs, breaker_half_open_max,
           created_at, updated_at, deleted_at,
           est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count,
           show_in_tray, tray_display, sort_order, manual_budgets)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?16,0,?17,?18,?19,?20,?21,?22,?23,?24)",
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?13,0,?14,?15,?16,?17,?18,?19,?20,?21)",
         rusqlite::params![
             name,
             json_str(row, "platform_type"),
             json_str(row, "base_url"),
             json_str(row, "api_key"),
-            json_str(row, "extra"),
+            extra,
             json_str(row, "models"),
             json_str(row, "available_models"),
             json_str(row, "endpoints"),
@@ -536,9 +538,6 @@ fn insert_platform_row(
             json_str(row, "status"),
             json_i64(row, "auto_disabled_until"),
             json_i64(row, "auto_disable_strikes"),
-            json_u32(row, "breaker_failure_threshold"),
-            json_u64(row, "breaker_open_secs"),
-            json_u32(row, "breaker_half_open_max"),
             now,
             json_f64(row, "est_balance_remaining"),
             json_str(row, "est_coding_plan"),
@@ -551,6 +550,34 @@ fn insert_platform_row(
         ],
     )?;
     Ok(())
+}
+
+/// 取导入行的 extra，并兼容旧格式：顶层 breaker_* 非 0 且 extra 尚无 breaker → 合并进 extra.breaker。
+/// 新格式 extra 已含 breaker → 原样保留（不被顶层覆盖）。
+fn effective_extra_with_breaker(row: &serde_json::Value) -> String {
+    let extra = json_str(row, "extra");
+    // extra 内已有 breaker 覆盖 → 直接用。
+    let has_extra_breaker = crate::gateway::models::parse_breaker(&extra);
+    if has_extra_breaker.failure_threshold != 0
+        || has_extra_breaker.open_secs != 0
+        || has_extra_breaker.half_open_max != 0
+    {
+        return extra;
+    }
+    let ft = json_u32(row, "breaker_failure_threshold");
+    let os = json_u64(row, "breaker_open_secs");
+    let hom = json_u32(row, "breaker_half_open_max");
+    if ft == 0 && os == 0 && hom == 0 {
+        return extra;
+    }
+    crate::gateway::models::merge_breaker_into_extra(
+        &extra,
+        &crate::gateway::models::PlatformBreaker {
+            failure_threshold: ft,
+            open_secs: os,
+            half_open_max: hom,
+        },
+    )
 }
 
 async fn relink_group_platform(db: &Db, group_key: &str, platform_name: &str) -> Result<(), String> {
@@ -740,5 +767,31 @@ mod tests {
         let conflicts = detect_conflicts(&payload(vec![platform_payload("Dup", "https://b.example.com")]), &db).await.unwrap();
         let platform_conflicts: Vec<_> = conflicts.iter().filter(|c| c.scope == crate::gateway::import_export::SCOPE_PLATFORM).collect();
         assert!(platform_conflicts.is_empty(), "platform scope 不应再报 name 冲突");
+    }
+
+    /// 旧格式导入（breaker 在顶层）→ 无损迁入 extra.breaker。
+    #[test]
+    fn legacy_top_level_breaker_migrates_into_extra() {
+        let mut row = platform_payload("Old", "https://a.example.com");
+        row["breaker_failure_threshold"] = serde_json::json!(6);
+        row["breaker_open_secs"] = serde_json::json!(180);
+        row["breaker_half_open_max"] = serde_json::json!(3);
+        let extra = effective_extra_with_breaker(&row);
+        let b = crate::gateway::models::parse_breaker(&extra);
+        assert_eq!((b.failure_threshold, b.open_secs, b.half_open_max), (6, 180, 3));
+    }
+
+    /// 新格式导入（breaker 已在 extra）→ 原样保留，不被顶层 0 覆盖。
+    #[test]
+    fn new_format_extra_breaker_preserved() {
+        let mut row = platform_payload("New", "https://a.example.com");
+        row["extra"] = serde_json::json!(crate::gateway::models::merge_breaker_into_extra(
+            "{}",
+            &crate::gateway::models::PlatformBreaker { failure_threshold: 9, open_secs: 30, half_open_max: 1 },
+        ));
+        // 顶层全 0（新导出不再含顶层 breaker）。
+        let extra = effective_extra_with_breaker(&row);
+        let b = crate::gateway::models::parse_breaker(&extra);
+        assert_eq!((b.failure_threshold, b.open_secs, b.half_open_max), (9, 30, 1));
     }
 }
