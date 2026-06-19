@@ -13,7 +13,7 @@ import { NotificationSettingsTab } from "../components/settings/NotificationSett
 import { ImportExportTab } from "../components/settings/ImportExport";
 import { CcCodexSettingsTab } from "../components/settings/CcCodexSettings";
 
-export type Tab = "system" | "claude" | "codex" | "ccc_codex" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport";
+export type Tab = "system" | "claude" | "codex" | "cc_codex" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport";
 
 export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged }: { tab: Tab; onLogSettingsChanged?: (enabled: boolean) => void; onNotifSettingsChanged?: (enabled: boolean) => void }) {
   const { t } = useTranslation();
@@ -687,7 +687,7 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
         </div>
       ) : tab === "codex" ? (
         <CodexSettings />
-      ) : tab === "ccc_codex" ? (
+      ) : tab === "cc_codex" ? (
         <CcCodexSettingsTab />
       ) : tab === "importexport" ? (
         <ImportExportTab />

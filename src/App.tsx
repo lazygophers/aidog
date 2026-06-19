@@ -37,7 +37,7 @@ const BASE_NAV: NavItem[] = [
       { id: "settings/system", labelKey: "appSettings.systemTab", group: "nav.settingsGroup.general" },
       { id: "settings/claude", labelKey: "appSettings.claudeTab", group: "nav.settingsGroup.integration" },
       { id: "settings/codex", labelKey: "appSettings.codexTab", group: "nav.settingsGroup.integration" },
-      { id: "settings/ccc_codex", labelKey: "appSettings.cccCodexTab", group: "nav.settingsGroup.integration" },
+      { id: "settings/cc_codex", labelKey: "appSettings.ccCodexTab", group: "nav.settingsGroup.integration" },
       { id: "settings/middleware", labelKey: "appSettings.middlewareTab", group: "nav.settingsGroup.rules" },
       { id: "settings/scheduling", labelKey: "appSettings.schedulingTab", group: "nav.settingsGroup.rules" },
       { id: "settings/notifications", labelKey: "appSettings.notificationsTab", group: "nav.settingsGroup.notification" },
