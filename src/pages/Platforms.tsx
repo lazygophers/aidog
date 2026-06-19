@@ -1398,6 +1398,8 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<Platform | null>(null);
   const [showForm, setShowForm] = useState(false);
+  // GroupsEmbedded「添加分组」弹窗触发 ref（按钮上移到本页页头）。
+  const openCreateGroupRef = useRef<(() => void) | null>(null);
   const [showPaste, setShowPaste] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState("");
@@ -2918,13 +2920,18 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
             {platforms.length > 0 ? `${enabledCount} / ${platforms.length} active` : t("platform.empty")}
           </div>
         </div>
-        <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
-          + {t("platform.add")}
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <button className="btn btn-primary" onClick={() => openCreateGroupRef.current?.()}>
+            + {t("group.add", "添加分组")}
+          </button>
+          <button className="btn btn-primary" onClick={() => { resetForm(); setShowForm(true); }}>
+            + {t("platform.add")}
+          </button>
+        </div>
       </div>
 
       {/* 分组段（内嵌） */}
-      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onToast={setToast} onViewModeChange={setGroupFullscreen} />
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} />
 
       {/* 全屏视图态（创建/编辑分组）时隐藏分隔线 + 未分组平台列表，避免与全屏视图并列 */}
       {!groupFullscreen && (<>
