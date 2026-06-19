@@ -187,6 +187,23 @@ async fn platform_delete(id: u64, db: State<'_, Db>) -> Result<(), String> {
         .map_err(|e| { tracing::error!(command = "platform_delete", id, error = %e, "delete platform failed"); e })
 }
 
+/// 一键清理失效（auto_disabled）平台。
+/// - `group_id = null`：全局，删全库 auto_disabled 平台。
+/// - `group_id = <gid>`：分组级，独占本分组的永久删除，共享（属多分组）的仅从本分组移除关联。
+/// 返回 { deletedIds, unassignedIds }。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn platform_purge_disabled(
+    group_id: Option<u64>,
+    db: State<'_, Db>,
+) -> Result<db::PurgeResult, String> {
+    tracing::debug!(command = "platform_purge_disabled", ?group_id, "command invoked");
+    db::purge_auto_disabled_platforms(&db, group_id).await.map_err(|e| {
+        tracing::error!(command = "platform_purge_disabled", ?group_id, error = %e, "purge disabled platforms failed");
+        e
+    })
+}
+
 /// 为平台补建默认 auto 分组（已存在则跳过）。供批量导入（cc-switch / .aidogx）回挂复用：
 /// 这些路径直接 INSERT 平台行、不走 platform_create 的建组副作用，故需显式补建。
 #[tauri::command]
@@ -4072,6 +4089,34 @@ pub fn run() {
                 });
             }
 
+            // 定时托盘刷新 + 跨日重算：托盘标题（含「今日花费/Token/请求」today_usage）此前
+            // 完全由事件驱动（每请求 / quota 真查 / 配置变更 emit "tray-refresh"）。应用跨本地
+            // 00:00 仍空闲（无新请求）时无任何事件触发 refresh_tray_menu，today_stats 的 SQL 窗口
+            // 已滚到新一天，但标题仍冻结在昨日累计值 → 与手动打开 popover（实时查 today_stats）不一致。
+            // 这里补一个常驻定时器：粗粒度 5 分钟兜底刷新 + 精确对齐下一次本地 00:00，保证跨日后
+            // 标题立即重算。非热路径（≤ 每 5 分钟一次 today_stats 查询 + set_title），不引入高频轮询。
+            #[cfg(target_os = "macos")]
+            {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    use chrono::{Local, TimeZone};
+                    let coarse = std::time::Duration::from_secs(300);
+                    loop {
+                        // 距下一次本地 00:00 的秒数（含 1s 余量越过边界），与粗粒度间隔取小者。
+                        let now = Local::now();
+                        let secs_to_midnight = (now + chrono::Duration::days(1))
+                            .date_naive()
+                            .and_hms_opt(0, 0, 0)
+                            .and_then(|m| Local.from_local_datetime(&m).single())
+                            .map(|m| (m - now).num_seconds().max(0) as u64 + 1)
+                            .unwrap_or(coarse.as_secs());
+                        let sleep = coarse.min(std::time::Duration::from_secs(secs_to_midnight));
+                        tokio::time::sleep(sleep).await;
+                        let _ = refresh_tray_menu(&handle).await;
+                    }
+                });
+            }
+
             // 自动启动代理
             let settings = tauri::async_runtime::block_on(load_proxy_settings(app.handle()))?;
             if settings.autostart {
@@ -4108,6 +4153,7 @@ pub fn run() {
             platform_get,
             platform_update,
             platform_delete,
+            platform_purge_disabled,
             platform_ensure_auto_group,
             platform_set_tray,
             platform_fetch_models,

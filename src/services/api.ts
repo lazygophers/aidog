@@ -435,6 +435,16 @@ export const platformApi = {
 
   delete: (id: number) => invoke<void>("platform_delete", { id }),
 
+  /** 一键清理失效（auto_disabled）平台。
+   *  - 不传 groupId：全局，删全库 auto_disabled 平台（永久删除，复用后端 delete_platform）。
+   *  - 传 groupId：分组级，独占本分组的永久删除，共享（属多分组）的仅从本分组移除关联（platform 行保留）。
+   *  返回 { deletedIds, unassignedIds }：deletedIds = 被永久删除的平台 id；unassignedIds = 仅移除本分组关联的平台 id。 */
+  purgeDisabled: (groupId?: number) =>
+    invoke<{ deletedIds: number[]; unassignedIds: number[] }>(
+      "platform_purge_disabled",
+      { groupId: groupId ?? null },
+    ),
+
   /** 为平台补建默认 auto 分组（若已存在则跳过）。供批量导入回挂复用（cc-switch / 导入）。 */
   ensureAutoGroup: (id: number) => invoke<void>("platform_ensure_auto_group", { id }),
 
