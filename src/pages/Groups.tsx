@@ -89,6 +89,113 @@ interface SortablePlatform {
   platformId: number;
 }
 
+// ── Design tokens (shared by edit/create views; mirror of F/S below) ──
+const PICKER_F = { label: 15, body: 15, hint: 13, small: 12 } as const;
+
+/**
+ * 关联平台选择器：已选平台拖拽重排（顺序=优先级）+ 上下移 + 移除 + 下拉添加。
+ * 编辑视图与创建视图共用，确保两处交互/组件一致（创建时分组尚无 id，故纯受控 platformIds）。
+ */
+function PlatformPicker({ platformIds, options, onChange, t }: {
+  platformIds: number[];
+  options: Platform[];
+  onChange: (ids: number[]) => void;
+  t: TFunction;
+}) {
+  return (
+    <>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <SortableList<SortablePlatform>
+          items={platformIds.map(pid => ({ id: String(pid), platformId: pid }))}
+          onReorder={next => onChange(next.map(row => row.platformId))}
+          renderItem={(row, handle) => {
+            const pid = row.platformId;
+            const i = platformIds.indexOf(pid);
+            const p = options.find(pp => pp.id === pid);
+            if (!p) return null;
+            return (
+              <div style={{
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "8px 12px", borderRadius: "var(--radius-sm)",
+                background: "var(--bg-glass)",
+                border: "1px solid var(--border)",
+                marginBottom: 4,
+                transition: "opacity 0.15s, border-color 0.15s",
+              }}>
+                <span
+                  ref={handle.ref}
+                  {...handle.attributes}
+                  {...handle.listeners}
+                  title={t("group.dragToReorder", "拖动排序")}
+                  style={{
+                    cursor: "grab", color: "var(--text-tertiary)", fontSize: 14,
+                    lineHeight: 1, userSelect: "none", flexShrink: 0, touchAction: "none",
+                  }}
+                >⠿</span>
+                <span style={{ fontSize: PICKER_F.hint, color: "var(--text-tertiary)", width: 20, textAlign: "center" }}>
+                  {i + 1}
+                </span>
+                <span style={{
+                  width: 28, height: 28, borderRadius: "var(--radius-sm)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  background: "var(--accent-subtle)", color: "var(--accent)",
+                  fontSize: 11, fontWeight: 700, flexShrink: 0,
+                }}>
+                  {p.platform_type.slice(0, 2).toUpperCase()}
+                </span>
+                <span style={{ flex: 1, fontSize: PICKER_F.body, fontWeight: 500 }}>{p.name}</span>
+                <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
+                  disabled={i === 0}
+                  onClick={() => {
+                    const ids = [...platformIds];
+                    [ids[i - 1], ids[i]] = [ids[i], ids[i - 1]];
+                    onChange(ids);
+                  }}>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M5 2v6M2 5l3-3 3 3" />
+                  </svg>
+                </button>
+                <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
+                  disabled={i === platformIds.length - 1}
+                  onClick={() => {
+                    const ids = [...platformIds];
+                    [ids[i], ids[i + 1]] = [ids[i + 1], ids[i]];
+                    onChange(ids);
+                  }}>
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                    <path d="M5 8V2M2 5l3 3 3-3" />
+                  </svg>
+                </button>
+                <button type="button" onClick={() => onChange(platformIds.filter(id => id !== pid))} style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "var(--text-tertiary)", fontSize: PICKER_F.small, padding: 4, lineHeight: 1,
+                }}><IconClose size={12} /></button>
+              </div>
+            );
+          }}
+        />
+      </div>
+      {platformIds.length < options.length && (
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <select className="input" style={{ fontSize: PICKER_F.hint, padding: "6px 10px", flex: 1 }}
+            onChange={e => {
+              const pid = Number(e.target.value);
+              if (e.target.value && !platformIds.includes(pid)) {
+                onChange([...platformIds, pid]);
+              }
+              e.target.value = "";
+            }}>
+            <option value="">{t("group.addPlatform", "+ 添加平台")}</option>
+            {options
+              .filter(p => !platformIds.includes(p.id))
+              .map(p => <option key={p.id} value={p.id}>{p.name} ({p.platform_type})</option>)}
+          </select>
+        </div>
+      )}
+    </>
+  );
+}
+
 /** Row model for the sortable group list (GroupDetail has no top-level stable id). */
 interface GroupRow {
   id: string;
@@ -363,13 +470,15 @@ async function fetchGroupStats(
 }
 
 /** 分组内嵌组件（供 Platforms 页使用） */
-export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onToast }: {
+export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onToast, onViewModeChange }: {
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string }) => void;
   onGroupsChanged?: () => void;
   /** 打开平台创建表单；提供 lockedGroupId = 从某分组 ➕ 触发，预绑该分组且锁定归属。 */
   onCreatePlatform?: (presetGroupIds?: number[], lockedGroupId?: number) => void;
   /** 透传父级 toast setter（快速测试/额度刷新结果反馈）；不传则 usePlatformCards 兜底空函数。 */
   onToast?: (toast: { text: string; ok: boolean } | null) => void;
+  /** 进入/退出全屏视图态（创建/编辑分组）时通知父级，供 Platforms 页隐藏下方未分组平台列表。 */
+  onViewModeChange?: (fullscreen: boolean) => void;
 }) {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
@@ -402,23 +511,24 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     groupApi.reorder(reordered.map(d => d.group.id)).catch(console.error);
   };
 
-  // ── Drag reorder for selected platforms (order = routing priority) ──
-  // SortableList yields the fully reordered rows; map back to platform ids to persist on save.
-  const handleReorderPlatforms = (next: SortablePlatform[]) => {
-    dispatchEdit({ type: "patch", patch: { platformIds: next.map(row => row.platformId) } });
-  };
-
   // Create mode
   const [showCreate, setShowCreate] = useState(false);
   const [cName, setCName] = useState("");
   const [cGroupKey, setCGroupKey] = useState("");
   const [cMode, setCMode] = useState<RoutingMode>("health_aware");
+  const [cPlatformIds, setCPlatformIds] = useState<number[]>([]);
 
   // Mapping form (for quick add in list view)
   const [mappingGroupId, setMappingGroupId] = useState<number | null>(null);
   const [mSource, setMSource] = useState("");
   const [mTargetPlatform, setMTargetPlatform] = useState<number | "">("");
   const [mTargetModel, setMTargetModel] = useState("");
+
+  // 全屏视图态（创建/编辑分组）：通知父级隐藏下方未分组平台列表，避免与全屏视图并列。
+  const fullscreenView = editTarget !== null || showCreate;
+  useEffect(() => {
+    onViewModeChange?.(fullscreenView);
+  }, [fullscreenView, onViewModeChange]);
 
   const load = async () => {
     setLoading(true);
@@ -703,8 +813,15 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   // ── Create handler ──
   const handleCreateGroup = async () => {
     try {
-      await groupApi.create({ name: cName, group_key: cGroupKey.trim() || undefined, routing_mode: cMode });
-      setCName(""); setCGroupKey(""); setCMode("failover"); setShowCreate(false);
+      // 创建分组拿回新 group（含 id），再用现有 group_set_platforms 命令关联所选平台（无需改后端）。
+      const group = await groupApi.create({ name: cName, group_key: cGroupKey.trim() || undefined, routing_mode: cMode });
+      if (cPlatformIds.length > 0) {
+        await groupApi.setPlatforms(
+          group.id,
+          cPlatformIds.map((pid, i) => ({ platform_id: pid, priority: i + 1, weight: 1 })),
+        );
+      }
+      setCName(""); setCGroupKey(""); setCMode("failover"); setCPlatformIds([]); setShowCreate(false);
       load();
       onGroupsChanged?.();
     } catch (e) { console.error(e); }
@@ -871,97 +988,12 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
           <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: -8 }}>
             {t("group.platformsHint", "选择并排序此分组使用的平台，顺序决定优先级")}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-            {/* Selected platforms — drag to reorder (order = routing priority) */}
-            <SortableList<SortablePlatform>
-              items={editPlatformIds.map(pid => ({ id: String(pid), platformId: pid }))}
-              onReorder={handleReorderPlatforms}
-              renderItem={(row, handle) => {
-                const pid = row.platformId;
-                const i = editPlatformIds.indexOf(pid);
-                const p = platforms.find(pp => pp.id === pid);
-                if (!p) return null;
-                return (
-                  <div style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "8px 12px", borderRadius: "var(--radius-sm)",
-                    background: "var(--bg-glass)",
-                    border: "1px solid var(--border)",
-                    marginBottom: 4,
-                    transition: "opacity 0.15s, border-color 0.15s",
-                  }}>
-                    <span
-                      ref={handle.ref}
-                      {...handle.attributes}
-                      {...handle.listeners}
-                      title={t("group.dragToReorder", "拖动排序")}
-                      style={{
-                        cursor: "grab", color: "var(--text-tertiary)", fontSize: 14,
-                        lineHeight: 1, userSelect: "none", flexShrink: 0, touchAction: "none",
-                      }}
-                    >⠿</span>
-                    <span style={{ fontSize: F.hint, color: "var(--text-tertiary)", width: 20, textAlign: "center" }}>
-                      {i + 1}
-                    </span>
-                    <span style={{
-                      width: 28, height: 28, borderRadius: "var(--radius-sm)",
-                      display: "flex", alignItems: "center", justifyContent: "center",
-                      background: "var(--accent-subtle)", color: "var(--accent)",
-                      fontSize: 11, fontWeight: 700, flexShrink: 0,
-                    }}>
-                      {p.platform_type.slice(0, 2).toUpperCase()}
-                    </span>
-                    <span style={{ flex: 1, fontSize: F.body, fontWeight: 500 }}>{p.name}</span>
-                    {/* Move up/down */}
-                    <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
-                      disabled={i === 0}
-                      onClick={() => {
-                        const ids = [...editPlatformIds];
-                        [ids[i - 1], ids[i]] = [ids[i], ids[i - 1]];
-                        dispatchEdit({ type: "patch", patch: { platformIds: ids } });
-                      }}>
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                        <path d="M5 2v6M2 5l3-3 3 3" />
-                      </svg>
-                    </button>
-                    <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
-                      disabled={i === editPlatformIds.length - 1}
-                      onClick={() => {
-                        const ids = [...editPlatformIds];
-                        [ids[i], ids[i + 1]] = [ids[i + 1], ids[i]];
-                        dispatchEdit({ type: "patch", patch: { platformIds: ids } });
-                      }}>
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                        <path d="M5 8V2M2 5l3 3 3-3" />
-                      </svg>
-                    </button>
-                    <button type="button" onClick={() => dispatchEdit({ type: "patch", patch: { platformIds: editPlatformIds.filter(id => id !== pid) } })} style={{
-                      background: "none", border: "none", cursor: "pointer",
-                      color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
-                    }}><IconClose size={12} /></button>
-                  </div>
-                );
-              }}
-            />
-          </div>
-          {/* Add platform */}
-          {editPlatformIds.length < editPlatformOptions.length && (
-            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-              <select className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1 }}
-                onChange={e => {
-                  const pid = Number(e.target.value);
-                  if (e.target.value && !editPlatformIds.includes(pid)) {
-                    dispatchEdit({ type: "patch", patch: { platformIds: [...editPlatformIds, pid] } });
-                  }
-                  e.target.value = "";
-                }}>
-                <option value="">{t("group.addPlatform", "+ 添加平台")}</option>
-                {editPlatformOptions
-                  .filter(p => !editPlatformIds.includes(p.id))
-                  .map(p => <option key={p.id} value={p.id}>{p.name} ({p.platform_type})</option>)}
-              </select>
-            </div>
-          )}
+          <PlatformPicker
+            platformIds={editPlatformIds}
+            options={editPlatformOptions}
+            onChange={ids => dispatchEdit({ type: "patch", patch: { platformIds: ids } })}
+            t={t}
+          />
         </div>
 
         {/* Model Mappings */}
@@ -1050,6 +1082,81 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     );
   }
 
+  // ── Create page（独立视图态，复用编辑视图的全屏 + 返回箭头 Header 模式）──
+  if (showCreate) {
+    const closeCreate = () => { setCName(""); setCGroupKey(""); setCMode("failover"); setCPlatformIds([]); setShowCreate(false); };
+    const createPlatformOptions = platforms.filter(p => p.enabled);
+    return (
+      <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
+        {/* Header */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button className="btn btn-ghost btn-icon" onClick={closeCreate} title={t("action.cancel")}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <div style={{ flex: 1 }}>
+            <div style={{ fontSize: F.title, fontWeight: 700 }}>{t("group.add")}</div>
+          </div>
+          <button className="btn" onClick={closeCreate}>{t("action.cancel")}</button>
+          <button className="btn btn-primary" onClick={handleCreateGroup} disabled={!cName}>{t("action.create")}</button>
+        </div>
+
+        {/* Basic info */}
+        <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
+          <div style={{ fontSize: F.label, fontWeight: 600, marginBottom: 4 }}>{t("group.basicInfo", "基本信息")}</div>
+
+          {/* Name */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.name", "名称")}</span>
+            <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+              placeholder={t("group.name", "分组名称")} value={cName}
+              onChange={(e) => setCName(e.target.value)} />
+            <div style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
+              {t("group.nameHint", "分组显示名（中文可读），用于界面展示。")}
+            </div>
+          </div>
+
+          {/* Group key */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.groupKey", "密钥")}</span>
+            <input className="input" style={{ fontSize: F.body, padding: S.inputPad }}
+              placeholder={t("group.groupKey", "分组密钥（留空自动生成）")} value={cGroupKey}
+              onChange={(e) => setCGroupKey(e.target.value.replace(/[^\w-]/g, ""))} />
+            <div style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
+              {t("group.groupKeyHint", "分组密钥（= API Key / 路由识别键）。留空自动生成；创建后锁定不可修改。")}
+            </div>
+          </div>
+
+          {/* Routing mode */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{t("group.routingMode", "路由模式")}</span>
+            <select className="input" style={{ fontSize: F.body, padding: S.inputPad }} value={cMode} onChange={(e) => setCMode(e.target.value as RoutingMode)}>
+              {ROUTING_MODES.map(m => (
+                <option key={m} value={m}>{routingModeLabel(t, m)}</option>
+              ))}
+            </select>
+            <div style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{routingModeDesc(t, cMode)}</div>
+          </div>
+        </div>
+
+        {/* Platforms（与编辑视图共用 PlatformPicker；创建时选定，保存后一并关联） */}
+        <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
+          <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("group.platforms", "关联平台")}</div>
+          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: -8 }}>
+            {t("group.platformsHint", "选择并排序此分组使用的平台，顺序决定优先级")}
+          </div>
+          <PlatformPicker
+            platformIds={cPlatformIds}
+            options={createPlatformOptions}
+            onChange={setCPlatformIds}
+            t={t}
+          />
+        </div>
+      </div>
+    );
+  }
+
   // ── List view ──
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
@@ -1083,38 +1190,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
         </div>
       </div>
 
-      {/* Create Group Form */}
-      {showCreate && (
-        <div className="glass-surface animate-fade-in" style={{
-          padding: 20,
-          display: "flex",
-          flexDirection: "column",
-          gap: 12,
-        }}>
-          <input className="input" placeholder={t("group.name", "分组名称")} value={cName}
-            onChange={(e) => setCName(e.target.value)} />
-          <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: -4 }}>
-            {t("group.nameHint", "分组显示名（中文可读），用于界面展示。")}
-          </div>
-          <input className="input" placeholder={t("group.groupKey", "分组密钥（留空自动生成）")} value={cGroupKey}
-            onChange={(e) => setCGroupKey(e.target.value.replace(/[^\w-]/g, ""))} />
-          <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: -4 }}>
-            {t("group.groupKeyHint", "分组密钥（= API Key / 路由识别键）。留空自动生成；创建后锁定不可修改。")}
-          </div>
-          <select className="input" value={cMode} onChange={(e) => setCMode(e.target.value as RoutingMode)}>
-            {ROUTING_MODES.map(m => (
-              <option key={m} value={m}>{routingModeLabel(t, m)}</option>
-            ))}
-          </select>
-          <div style={{ fontSize: 12, color: "var(--text-tertiary)", marginTop: -4 }}>{routingModeDesc(t, cMode)}</div>
-          <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-            <button className="btn" onClick={() => setShowCreate(false)}>{t("action.cancel")}</button>
-            <button className="btn btn-primary" onClick={handleCreateGroup}
-              disabled={!cName}>{t("action.create")}</button>
-          </div>
-        </div>
-      )}
-
       {/* 分组一键测试结果面板（有界并发执行，实时刷新行状态；running 态可中途关闭） */}
       {groupTest && (
         <GroupTestPanel
@@ -1131,7 +1206,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
         <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {details.length === 0 && !showCreate && (
+          {details.length === 0 && (
             <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
               <div className="text-tertiary" style={{ fontSize: 13 }}>{t("group.empty")}</div>
             </div>
