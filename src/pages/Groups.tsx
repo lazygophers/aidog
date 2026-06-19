@@ -1,6 +1,6 @@
 import { useState, useEffect, useReducer, useCallback, Fragment } from "react";
 import { createPortal } from "react-dom";
-import type { DragEvent as ReactDragEvent, ReactNode, CSSProperties } from "react";
+import type { ReactNode, CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import claudeIcon from "../assets/platforms/claude_code.svg";
 import codexIcon from "../assets/platforms/openai.svg";
@@ -658,14 +658,11 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     });
   }, [onToast, t]);
 
-  // ── 分组展开区平台拖拽（HTML5 DnD，不与 dnd-kit 分组排序冲突；天然支持跨分组移动） ──
-  // payload 挂 window 全局，跨组件共享：Platforms 主列表未分组平台也能拖入分组（fromGid=0）
+  // ── 分组展开区平台拖拽（pointer 事件驱动，不依赖 HTML5 drop —— WKWebView 下 drop 不可靠） ──
+  // 不与 dnd-kit 分组排序冲突：平台拖拽把手与分组排序把手是不同 DOM 节点，dnd-kit 只监听分组 handle。
+  // 注：Platforms 主列表「未分组平台拖入分组」走 Platforms.tsx 自有 pointer 流（直接 movePlatform，fromGid=0），
+  // 不经此处；此处只处理分组展开区内的组内重排 + 跨组移动。
   type DndPayload = { pid: number; fromGid: number };
-  const getDnd = (): DndPayload | null => (window as unknown as { __aidogDnd?: DndPayload }).__aidogDnd ?? null;
-  const setDnd = (v: DndPayload | null) => {
-    const w = window as unknown as { __aidogDnd?: DndPayload };
-    if (v) w.__aidogDnd = v; else delete w.__aidogDnd;
-  };
   const [dropIndicator, setDropIndicator] = useState<{ gid: number; idx: number } | null>(null);
   // 拖拽悬停的分组（折叠态整体高亮，展开态配合 dropIndicator 精细指示）
   const [dragOverGroup, setDragOverGroup] = useState<number | null>(null);
@@ -722,14 +719,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     setGroupTest(prev => prev && prev.groupId === group.id ? { ...prev, running: false } : prev);
   }, [t]);
 
-  const onPlatDragStart = (e: ReactDragEvent, pid: number, gid: number, cardEl: HTMLElement | null) => {
-    setDnd({ pid, fromGid: gid });
-    e.dataTransfer.effectAllowed = "move";
-    e.dataTransfer.setData("text/plain", String(pid)); // Firefox 触发 dragstart 必填
-    if (cardEl) e.dataTransfer.setDragImage(cardEl, 12, 12);
-  };
-  const onPlatDragEnd = () => { setDnd(null); setDropIndicator(null); setDragOverGroup(null); };
-
   // 基于 clientY 计算 drop 到容器内第 idx 张卡片前（末尾 = 卡片数）
   const computeDropIdx = (zoneEl: HTMLElement, clientY: number): number => {
     const cards = zoneEl.querySelectorAll<HTMLElement>("[data-gp-id]");
@@ -740,24 +729,30 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     return cards.length;
   };
 
-  const onZoneDragOver = (e: ReactDragEvent, gid: number, zoneEl: HTMLElement) => {
-    if (!getDnd()) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = "move";
-    setDragOverGroup(gid);
-    const idx = computeDropIdx(zoneEl, e.clientY);
-    setDropIndicator(prev => (prev?.gid === gid && prev?.idx === idx) ? prev : { gid, idx });
+  // ── pointer 拖拽：用 ref 记录当前在拖项 + 拖拽超阈标志（threshold 防误触把手当点击） ──
+  // 不用 state 存「拖拽中」避免每次 pointermove rerender；只在跨过目标格变化时 setDropIndicator/setDragOverGroup。
+  const platDragRef = useState<{
+    payload: DndPayload | null;
+    active: boolean;
+    startX: number;
+    startY: number;
+  }>(() => ({ payload: null, active: false, startX: 0, startY: 0 }))[0];
+
+  // 从 elementFromPoint 反查目标分组 + 插入位（命中分组 wrapper 的 data-group-id，
+  // 容器内卡片 data-gp-id 算 idx）。命中分组外（其它区域）返回 null。
+  const hitTestZone = (clientX: number, clientY: number): { gid: number; idx: number; zoneEl: HTMLElement } | null => {
+    const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    if (!el) return null;
+    const zoneEl = el.closest<HTMLElement>("[data-group-id]");
+    if (!zoneEl) return null;
+    const gid = Number(zoneEl.dataset.groupId);
+    if (!Number.isFinite(gid)) return null;
+    return { gid, idx: computeDropIdx(zoneEl, clientY), zoneEl };
   };
 
-  const onZoneDrop = (e: ReactDragEvent, gid: number, zoneEl: HTMLElement) => {
-    e.preventDefault();
-    const payload = getDnd();
-    setDnd(null);
-    setDropIndicator(null);
-    setDragOverGroup(null);
-    if (!payload) return;
-    const idx = computeDropIdx(zoneEl, e.clientY);
-    // 从 details 推导目标分组当前平台顺序（dropzone 已提升到分组 wrapper，fullPlats 不再由调用方传）
+  // pointerup / 拖拽落定：按 payload + 目标 (gid, idx) 执行组内重排 / 跨组移动 / 未分组拖入。
+  const commitPlatDrop = (gid: number, idx: number, payload: DndPayload) => {
+    // 从 details 推导目标分组当前平台顺序
     const fullPlats = (details.find(d => d.group.id === gid)?.platforms ?? [])
       .map(gp => platforms.find(pp => pp.id === gp.platform.id))
       .filter((pp): pp is Platform => !!pp);
@@ -832,6 +827,60 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
           .then(() => load()).catch(console.error);
       }
     }
+  };
+
+  // 拖拽阈值（px）：pointermove 累计位移超过才视为拖拽，避免误触把手当点击。
+  const PLAT_DRAG_THRESHOLD = 4;
+
+  // pointermove：超阈后置 active，每帧 hit-test 更新 dropIndicator/dragOverGroup。
+  const onPlatPointerMove = (ev: PointerEvent) => {
+    const st = platDragRef;
+    if (!st.payload) return;
+    if (!st.active) {
+      if (Math.abs(ev.clientX - st.startX) + Math.abs(ev.clientY - st.startY) < PLAT_DRAG_THRESHOLD) return;
+      st.active = true;
+    }
+    ev.preventDefault();
+    const hit = hitTestZone(ev.clientX, ev.clientY);
+    if (!hit) {
+      setDragOverGroup(prev => (prev === null ? prev : null));
+      setDropIndicator(prev => (prev === null ? prev : null));
+      return;
+    }
+    setDragOverGroup(prev => (prev === hit.gid ? prev : hit.gid));
+    setDropIndicator(prev => (prev?.gid === hit.gid && prev?.idx === hit.idx) ? prev : { gid: hit.gid, idx: hit.idx });
+  };
+
+  // pointerup：落定（仅当超阈成拖拽且命中目标组）后清理监听与状态。
+  const onPlatPointerUp = (ev: PointerEvent) => {
+    const st = platDragRef;
+    const payload = st.payload;
+    document.removeEventListener("pointermove", onPlatPointerMove);
+    document.removeEventListener("pointerup", onPlatPointerUp);
+    document.removeEventListener("pointercancel", onPlatPointerUp);
+    st.payload = null;
+    const wasActive = st.active;
+    st.active = false;
+    setDropIndicator(null);
+    setDragOverGroup(null);
+    if (!payload || !wasActive) return;
+    const hit = hitTestZone(ev.clientX, ev.clientY);
+    if (!hit) return;
+    commitPlatDrop(hit.gid, hit.idx, payload);
+  };
+
+  // pointerdown 起拖：记录 payload + 起点，挂 document 级 move/up 监听（elementFromPoint 跨组生效）。
+  const onPlatPointerDown = (ev: React.PointerEvent, pid: number, gid: number) => {
+    ev.preventDefault();
+    ev.stopPropagation(); // 不冒泡到 dnd-kit 分组排序把手
+    const st = platDragRef;
+    st.payload = { pid, fromGid: gid };
+    st.active = false;
+    st.startX = ev.clientX;
+    st.startY = ev.clientY;
+    document.addEventListener("pointermove", onPlatPointerMove);
+    document.addEventListener("pointerup", onPlatPointerUp);
+    document.addEventListener("pointercancel", onPlatPointerUp);
   };
 
   // 取代理端口构造 base_url；失败保持兜底 7890。
@@ -1436,15 +1485,6 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                 className="animate-fade-in"
                 data-group-id={group.id}
                 style={{ animationDelay: `${i * 60}ms` }}
-                onDragOver={(e) => onZoneDragOver(e, group.id, e.currentTarget as HTMLElement)}
-                onDrop={(e) => onZoneDrop(e, group.id, e.currentTarget as HTMLElement)}
-                onDragLeave={(e) => {
-                  const related = e.relatedTarget as Node | null;
-                  if (!related || !(e.currentTarget as HTMLElement).contains(related)) {
-                    setDropIndicator(prev => prev?.gid === group.id ? null : prev);
-                    setDragOverGroup(prev => prev === group.id ? null : prev);
-                  }
-                }}
               >
                 <CompactCard
                   header={header}
@@ -1474,16 +1514,11 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                                   <div style={{ height: 2, background: "var(--accent)", borderRadius: 1, margin: "-3px 0", opacity: 0.7 }} />
                                 )}
                                 <div style={{ display: "flex", gap: 4, alignItems: "stretch" }}>
-                                  {/* HTML5 拖拽把手：组内排序 + 跨分组移动 */}
+                                  {/* pointer 拖拽把手：组内排序 + 跨分组移动（WKWebView 下 HTML5 drop 不可靠，改 pointer） */}
                                   <span
-                                    draggable
-                                    onDragStart={(e) => {
-                                      const cardEl = (e.currentTarget as HTMLElement).parentElement?.querySelector("[data-gp-id]") as HTMLElement | null;
-                                      onPlatDragStart(e, p.id, group.id, cardEl);
-                                    }}
-                                    onDragEnd={onPlatDragEnd}
+                                    onPointerDown={(e) => onPlatPointerDown(e, p.id, group.id)}
                                     className="drag-handle drag-handle-inline"
-                                    style={{ cursor: "grab", display: "inline-flex", alignItems: "center", flexShrink: 0, alignSelf: "center" }}
+                                    style={{ cursor: "grab", display: "inline-flex", alignItems: "center", flexShrink: 0, alignSelf: "center", touchAction: "none" }}
                                     title={t("group.dragPlatform", "拖拽排序 / 移动到其他分组")}
                                   >
                                     <svg width="12" height="18" viewBox="0 0 14 20" fill="currentColor"><circle cx="4" cy="3" r="1.8"/><circle cx="4" cy="10" r="1.8"/><circle cx="4" cy="17" r="1.8"/><circle cx="10" cy="3" r="1.8"/><circle cx="10" cy="10" r="1.8"/><circle cx="10" cy="17" r="1.8"/></svg>
