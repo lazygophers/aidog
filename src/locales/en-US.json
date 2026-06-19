@@ -1542,5 +1542,11 @@
   "updater.releaseNotes": "Release notes",
   "updater.updateFailed": "Update failed",
   "updater.updateNow": "Update now",
-  "updater.updating": "Updating…"
+  "updater.updating": "Updating…",
+  "group.levelPriority": "Priority",
+  "group.levelPriorityHint": "Higher value = higher priority (10 = highest); only effective within this group",
+  "group.levelPriorityMax": "10 = highest",
+  "group.levelPriorityUp": "Increase priority",
+  "group.levelPriorityDown": "Decrease priority",
+  "group.levelPriorityFailed": "Failed to save priority: {{err}}"
 }

@@ -629,6 +629,35 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [cards, load, platforms, handleGroupRemovePlatform]);
 
+  // ── per-group 优先级（level_priority）就地编辑：乐观更新 + 失败回滚 + toast ──
+  const handleSetLevelPriority = useCallback((gid: number, pid: number, next: number) => {
+    let prevValue: number | undefined;
+    setDetails(prev => prev.map(d => {
+      if (d.group.id !== gid) return d;
+      return {
+        ...d,
+        platforms: d.platforms.map(gp => {
+          if (gp.platform.id !== pid) return gp;
+          prevValue = gp.level_priority;
+          return { ...gp, level_priority: next };
+        }),
+      };
+    }));
+    groupDetailApi.setPlatformLevelPriority(gid, pid, next).catch(err => {
+      console.error("[aidog] setPlatformLevelPriority failed", err);
+      onToast?.({ text: t("group.levelPriorityFailed", "优先级保存失败: {{err}}", { err: String(err) }), ok: false });
+      // 回滚到改前值
+      setDetails(prev => prev.map(d => {
+        if (d.group.id !== gid) return d;
+        return {
+          ...d,
+          platforms: d.platforms.map(gp =>
+            gp.platform.id === pid ? { ...gp, level_priority: prevValue } : gp),
+        };
+      }));
+    });
+  }, [onToast, t]);
+
   // ── 分组展开区平台拖拽（HTML5 DnD，不与 dnd-kit 分组排序冲突；天然支持跨分组移动） ──
   // payload 挂 window 全局，跨组件共享：Platforms 主列表未分组平台也能拖入分组（fromGid=0）
   type DndPayload = { pid: number; fromGid: number };
@@ -1458,6 +1487,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                                       actions={makeGroupCardActions(group.id)}
                                       draggable={false}
                                       lastTest={cards.lastTestMap[p.id]}
+                                      levelPriority={gps.find(gp => gp.platform.id === p.id)?.level_priority ?? 5}
+                                      onLevelPriorityChange={v => handleSetLevelPriority(group.id, p.id, v)}
                                     />
                                   </div>
                                 </div>

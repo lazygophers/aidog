@@ -1564,5 +1564,11 @@
   "updater.releaseNotes": "更新内容",
   "updater.updateFailed": "更新に失敗しました",
   "updater.updateNow": "今すぐ更新",
-  "updater.updating": "更新中…"
+  "updater.updating": "更新中…",
+  "group.levelPriority": "優先度",
+  "group.levelPriorityHint": "値が大きいほど優先度が高い（10=最高）。このグループ内でのみ有効",
+  "group.levelPriorityMax": "10=最高",
+  "group.levelPriorityUp": "優先度を上げる",
+  "group.levelPriorityDown": "優先度を下げる",
+  "group.levelPriorityFailed": "優先度の保存に失敗しました: {{err}}"
 }

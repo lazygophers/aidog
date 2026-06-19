@@ -92,6 +92,7 @@ async fn create_auto_group_for(db: &Db, platform: &Platform) -> Result<(), Strin
         platform_id: platform.id,
         priority: Some(0),
         weight: Some(1),
+        level_priority: None,
     }]).await?;
     tracing::info!(platform_id = platform.id, group_id = group.id, "created auto group for platform");
     Ok(())
@@ -460,6 +461,22 @@ async fn group_platform_reorder(
     tracing::debug!(command = "group_platform_reorder", group_id, count = ordered_ids.len(), "command invoked");
     db::reorder_group_platforms(&db, group_id, &ordered_ids).await
         .map_err(|e| { tracing::error!(command = "group_platform_reorder", error = %e, "reorder group platforms failed"); e })?;
+    try_sync_settings(&app, &db).await;
+    Ok(())
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn group_platform_set_level_priority(
+    group_id: u64,
+    platform_id: u64,
+    level_priority: i32,
+    db: State<'_, Db>,
+    app: tauri::AppHandle,
+) -> Result<(), String> {
+    tracing::debug!(command = "group_platform_set_level_priority", group_id, platform_id, level_priority, "command invoked");
+    db::set_group_platform_level_priority(&db, group_id, platform_id, level_priority).await
+        .map_err(|e| { tracing::error!(command = "group_platform_set_level_priority", error = %e, "set level_priority failed"); e })?;
     try_sync_settings(&app, &db).await;
     Ok(())
 }
@@ -4044,6 +4061,7 @@ pub fn run() {
             group_detail_list,
             group_reorder,
             group_platform_reorder,
+            group_platform_set_level_priority,
             group_platform_move,
             // Proxy
             proxy_start,
