@@ -456,9 +456,17 @@ def seg_group_spent(inp, o, gi):
     val = "%.2f" % (jround(get(gi, "spent", default=0) * 100) / 100)
     return (o.get("prefix", "$")) + val
 
-def _coding_text(gi):
+# coding plan 配额色阈值：按剩余配额% 着色（与显示数字同口径），与 usage_color.rs
+# 同阈值（<40 红 / <60 黄 / ≥60 绿）。不再消费后端 pace-based level —— 那按剩余时间%
+# 着色，窗口初期 elapsed 小 → pace 大 → 即便配额剩 90%+ 也显红，与显示数字矛盾。
+_CODING_RED_PCT = 40
+_CODING_YELLOW_PCT = 60
+
+
+def _coding_tiers(gi):
+    """每 tier 归一化为 (nm, remain_pct, reset_at)。remain = clamp(100 - utilization, 0, 100)。"""
     plans = get(gi, "coding_plan", default=[])
-    parts = []
+    out = []
     for p in plans:
         name = p.get("name")
         if name == "five_hour":
@@ -467,8 +475,6 @@ def _coding_text(gi):
             nm = "7d"
         else:
             nm = name
-        # coding plan 配额统一显「剩余%」(= 100 - utilization), 与平台卡片口径一致;
-        # 末尾「剩」字明确标注为剩余而非已用, 避免歧义。utilization 可能为 None → 当 0。
         util = jround(p.get("utilization", 0) or 0)
         remain = util
         if remain < 0:
@@ -476,32 +482,39 @@ def _coding_text(gi):
         elif remain > 100:
             remain = 100
         remain = 100 - remain
-        parts.append(nm + " " + jts(remain) + "%剩")
-    return "·".join(parts)
+        out.append((nm, remain, p.get("reset_at")))
+    return out
+
+
+def _coding_text(gi):
+    # 配额剩余%（= 100 - utilization），不带后缀（数字本身即剩余口径）。
+    return "·".join(nm + " " + jts(r) + "%" for (nm, r, _rs) in _coding_tiers(gi))
+
 
 def seg_group_coding(inp, o, gi):
     if not _group_applicable(gi):
         return None
-    plans = get(gi, "coding_plan", default=[])
-    if not plans:
+    tiers = _coding_tiers(gi)
+    if not tiers:
         return None
-    txt = _coding_text(gi)
+    txt = "·".join(nm + " " + jts(r) + "%" for (nm, r, _rs) in tiers)
     if not txt:
         return None
     if o.get("dynamicColor"):
-        levels = [p.get("level") for p in plans]
-        if "red" in levels:
+        # 色按最紧 tier（剩余配额% 最低）定，与显示数字同口径。
+        worst = min(tiers, key=lambda t: t[1])
+        remain = worst[1]
+        if remain < _CODING_RED_PCT:
             c = ANSI_RED
-            resets = [p.get("reset_at") for p in plans if p.get("level") == "red" and p.get("reset_at") is not None]
-            if resets:
-                rs = min(resets)
-                now = _now_epoch()
-                d = rs - now
+            # 红色必须附重置倒计时（取最紧 tier 的 reset_at；无则省略）。
+            rs = worst[2]
+            if rs is not None:
+                d = rs - _now_epoch()
                 if d > 0:
                     h = d // 3600
                     m = (d % 3600) // 60
-                    txt = txt + " (reset " + str(h) + "h" + str(m) + "m)"
-        elif "yellow" in levels:
+                    txt = txt + " (重置 " + str(h) + "h" + str(m) + "m)"
+        elif remain < _CODING_YELLOW_PCT:
             c = ANSI_AMBER
         else:
             c = ANSI_GREEN
