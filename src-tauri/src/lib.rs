@@ -2979,12 +2979,31 @@ async fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, D
 // - apply_to_claude_plugin → ~/.claude/config.json 的 primaryApiKey="any"
 // - skip_claude_onboarding → ~/.claude.json 的 hasCompletedOnboarding=true
 
-#[derive(serde::Serialize, serde::Deserialize, Clone, Default)]
+// 默认值 = 两开关 OFF（UI 显示关）。功能与开关解耦：
+// 启动初始化（ensure_default_cc_codex_settings）在 DB 无记录时写外部文件让功能开箱生效，
+// 但不落 DB 记录、`cc_codex_settings_get` 返 false —— 开关代表用户显式控制，
+// 未操作 = 关（显示关），但功能在用。用户 toggle 后才有 DB 记录，ensure 尊重不再默认写。
+const CC_CODEX_DEFAULT_APPLY: bool = false;
+const CC_CODEX_DEFAULT_SKIP: bool = false;
+
+#[derive(serde::Serialize, serde::Deserialize, Clone)]
 struct CcCodexSettings {
-    #[serde(default)]
+    #[serde(default = "cc_codex_default_apply")]
     apply_to_claude_plugin: bool,
-    #[serde(default)]
+    #[serde(default = "cc_codex_default_skip")]
     skip_claude_onboarding: bool,
+}
+
+fn cc_codex_default_apply() -> bool { CC_CODEX_DEFAULT_APPLY }
+fn cc_codex_default_skip() -> bool { CC_CODEX_DEFAULT_SKIP }
+
+impl Default for CcCodexSettings {
+    fn default() -> Self {
+        Self {
+            apply_to_claude_plugin: CC_CODEX_DEFAULT_APPLY,
+            skip_claude_onboarding: CC_CODEX_DEFAULT_SKIP,
+        }
+    }
 }
 
 async fn load_cc_codex_settings(db: &Db) -> CcCodexSettings {
@@ -2992,6 +3011,41 @@ async fn load_cc_codex_settings(db: &Db) -> CcCodexSettings {
         Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
         _ => CcCodexSettings::default(),
     }
+}
+
+/// 启动初始化：DB **无** cc_codex_settings 记录时（用户未操作过两开关）
+/// 写外部文件（~/.claude/config.json primaryApiKey + ~/.claude.json hasCompletedOnboarding）
+/// 让功能开箱生效，但**不落 DB 记录**，`cc_codex_settings_get` 仍返 false（开关显示关）。
+///
+/// 语义：功能（文件写入）与开关（用户显式控制）解耦。
+/// - 全新库启动 → 文件写入 + DB 无记录 + UI 关。
+/// - 用户 toggle 后才有 DB 记录，下次启动 ensure 看到记录，完全尊重不再默认写。
+///
+/// 幂等：claude_integration 内部对已存在字段做 diff 跳过（重复写无副作用）。
+/// 失败仅 warn 不中断启动。
+async fn ensure_default_cc_codex_settings(db: &Db) -> Result<(), String> {
+    if db::get_setting(db, "global", "cc_codex_settings").await.ok().flatten().is_some() {
+        // 用户已 toggle 过两开关，完全尊重 DB 值，不强制默认写。
+        return Ok(());
+    }
+
+    // 无记录（用户未操作）→ 写两外部文件让功能开箱生效。
+    // 独立 try，失败 warn 不中断另一个；不落 DB 记录。
+    match gateway::claude_integration::write_plugin_primary_key() {
+        Ok(_changed) => tracing::info!("ensure_default_cc_codex_settings: wrote ~/.claude/config.json primaryApiKey"),
+        Err(e) => tracing::warn!(
+            error = %e,
+            "ensure_default_cc_codex_settings: write ~/.claude/config.json failed"
+        ),
+    }
+    match gateway::claude_integration::set_has_completed_onboarding() {
+        Ok(_changed) => tracing::info!("ensure_default_cc_codex_settings: wrote ~/.claude.json hasCompletedOnboarding"),
+        Err(e) => tracing::warn!(
+            error = %e,
+            "ensure_default_cc_codex_settings: write ~/.claude.json failed"
+        ),
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -3779,6 +3833,16 @@ pub fn run() {
                 tauri::async_runtime::block_on(try_sync_settings(handle, &db_state));
             }
 
+            // 启动初始化 CC/Codex 联动开关：DB 无记录时视为默认开（写 ~/.claude/config.json
+            // 与 ~/.claude.json），并落 DB true。开箱即生效，无需进设置页。
+            // 失败仅 warn 不阻塞启动。
+            {
+                let db_state = app.state::<Db>();
+                if let Err(e) = tauri::async_runtime::block_on(ensure_default_cc_codex_settings(&db_state)) {
+                    tracing::warn!(error = %e, "ensure_default_cc_codex_settings failed");
+                }
+            }
+
             // 中间件规则引擎单例（C1）：启动时从 DB 加载规则建缓存；CRUD command 写后 reload。
             {
                 let engine = Arc::new(MiddlewareEngine::new());
@@ -4148,5 +4212,73 @@ mod tests {
         merge_json(&mut base, &overlay);
         assert!(base["env"].get("AIDOG_KEY").is_none());
         assert_eq!(base["env"]["keep"], "y");
+    }
+
+    /// CcCodexSettings 默认 = 两开关 false（UI 显示关，功能与开关解耦）。
+    #[test]
+    fn cc_codex_settings_default_is_off() {
+        let s = super::CcCodexSettings::default();
+        assert!(!s.apply_to_claude_plugin, "default apply_to_claude_plugin must be false");
+        assert!(!s.skip_claude_onboarding, "default skip_claude_onboarding must be false");
+    }
+
+    /// CcCodexSettings 反序列化时缺失字段也走默认 false。
+    #[test]
+    fn cc_codex_settings_deserialize_missing_fields_defaults_false() {
+        let s: super::CcCodexSettings = serde_json::from_value(json!({})).unwrap();
+        assert!(!s.apply_to_claude_plugin);
+        assert!(!s.skip_claude_onboarding);
+    }
+
+    /// ensure_default_cc_codex_settings：DB 无记录 → 写文件但**不落 DB 记录**。
+    ///
+    /// 语义：功能（文件写入）与开关（DB 记录）解耦。无记录代表用户未操作，
+    /// 默认行为写文件让功能生效，但 UI get 返 false（开关显示关）。
+    /// 文件写入需真实 ~/.claude 路径，单测只验 DB 不落记录这一不变量。
+    #[tokio::test]
+    async fn ensure_default_cc_codex_settings_no_record_no_db_write() {
+        let db = crate::Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
+
+        // 首次：无记录
+        super::ensure_default_cc_codex_settings(&db).await.expect("ensure first run");
+
+        // 关键断言：ensure 不落 DB 记录（功能与开关解耦）
+        let rec = crate::gateway::db::get_setting(&db, "global", "cc_codex_settings")
+            .await
+            .expect("query setting");
+        assert!(rec.is_none(), "ensure must NOT create DB record when none existed");
+    }
+
+    /// ensure_default_cc_codex_settings：DB 有记录 → 不改写。
+    ///
+    /// 用户 toggle 过（任意值）→ ensure 完全尊重 DB，不强制默认写。
+    /// 这里验证 ensure 看到记录后 DB 值原样保留。
+    #[tokio::test]
+    async fn ensure_default_cc_codex_settings_respects_existing_record() {
+        let db = crate::Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
+
+        // 预置：用户把两开关都开了（DB true,true）
+        let user_value = serde_json::json!({
+            "apply_to_claude_plugin": true,
+            "skip_claude_onboarding": true,
+        });
+        crate::gateway::db::set_setting(&db, crate::SetSettingInput {
+            scope: "global".to_string(),
+            key: "cc_codex_settings".to_string(),
+            value: user_value,
+        }).await.expect("seed record");
+
+        // 调 ensure：应尊重已有记录
+        super::ensure_default_cc_codex_settings(&db).await.expect("ensure with record");
+
+        let rec = crate::gateway::db::get_setting(&db, "global", "cc_codex_settings")
+            .await
+            .expect("query setting")
+            .expect("record must still exist");
+        let s: super::CcCodexSettings = serde_json::from_value(rec).unwrap();
+        assert!(s.apply_to_claude_plugin, "user's true must be preserved");
+        assert!(s.skip_claude_onboarding, "user's true must be preserved");
     }
 }
