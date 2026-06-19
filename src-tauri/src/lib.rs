@@ -2799,21 +2799,36 @@ async fn load_app_log_settings_from_db(db: &Db) -> logging::AppLogSettings {
         .unwrap_or_default()
 }
 
-/// Load app log settings from file (pre-DB, uses defaults + env)
-fn load_app_log_settings() -> logging::AppLogSettings {
-    // Try loading from a simple JSON file before DB is available
-    let path = dirs::home_dir()
-        .unwrap_or_default()
-        .join(".aidog")
-        .join("log_settings.json");
-    if path.exists() {
-        if let Ok(data) = std::fs::read_to_string(&path) {
-            if let Ok(s) = serde_json::from_str(&data) {
-                return s;
+/// 一次性迁移：把遗留 `~/.aidog/log_settings.json` 导入 DB settings 表后删除文件。
+/// 幂等：文件不存在即空操作；仅当 DB 无该 setting 时写入（不覆盖用户后续 DB 改动）。
+/// app log 设置单一事实源 = DB settings 表，禁独立文件。
+async fn migrate_log_settings_file_to_db(db: &Db) {
+    let path = match dirs::home_dir() {
+        Some(h) => h.join(".aidog").join("log_settings.json"),
+        None => return,
+    };
+    if !path.exists() {
+        return;
+    }
+    if let Ok(content) = std::fs::read_to_string(&path) {
+        if let Ok(settings) = serde_json::from_str::<logging::AppLogSettings>(&content) {
+            if db::get_setting(db, "app", "logging").await.ok().flatten().is_none() {
+                if let Ok(value) = serde_json::to_value(&settings) {
+                    let _ = db::set_setting(
+                        db,
+                        SetSettingInput {
+                            scope: "app".to_string(),
+                            key: "logging".to_string(),
+                            value,
+                        },
+                    )
+                    .await;
+                }
             }
         }
     }
-    logging::AppLogSettings::default()
+    // 无论解析成功与否都删除：坏文件不保留，DB 已是唯一源（缺失则 default）。
+    let _ = std::fs::remove_file(&path);
 }
 
 #[tauri::command]
@@ -2830,13 +2845,6 @@ async fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, D
     let value = serde_json::to_value(&settings).map_err(|e| e.to_string())?;
     db::set_setting(&db, SetSettingInput { scope: "app".to_string(), key: "logging".to_string(), value }).await
         .map_err(|e| { tracing::error!(command = "app_log_settings_set", error = %e, "persist log settings failed"); e })?;
-    // Also persist to file so it's available before DB init on next startup
-    if let Some(dir) = dirs::home_dir() {
-        let path = dir.join(".aidog").join("log_settings.json");
-        if let Err(e) = std::fs::write(&path, serde_json::to_string_pretty(&settings).unwrap_or_default()) {
-            tracing::warn!(command = "app_log_settings_set", error = %e, "write log_settings.json failed");
-        }
-    }
     Ok(())
 }
 
@@ -3529,13 +3537,10 @@ pub fn run() {
             None,
         ))
         .setup(|app| {
-            // 初始化日志（尽早，在 DB 之前）
             let data_dir = aidog_data_dir().expect("failed to resolve data dir");
-            let log_settings = load_app_log_settings();
-            logging::init_logging(&data_dir, &log_settings);
-            logging::cleanup_old_logs(&data_dir, log_settings.retention_hours);
 
-            // 在 data dir 创建 SQLite
+            // 先开 DB 再初始化日志：app log 设置单一事实源 = DB settings 表（禁独立文件）。
+            // 历史 ~/.aidog/log_settings.json 在此一次性迁移进 DB 后删除。
             let db_path = data_dir.join("aidog.db");
             let db = tauri::async_runtime::block_on(async {
                 let db = Db::new(db_path.to_str().unwrap()).await.expect("failed to open database");
@@ -3545,6 +3550,15 @@ pub fn run() {
                 db
             });
             app.manage(db);
+
+            // 初始化日志（DB 已开，读 DB 设置；迁移遗留文件）
+            let (log_settings, ) = tauri::async_runtime::block_on(async {
+                let db_state = app.state::<Db>();
+                migrate_log_settings_file_to_db(&db_state).await;
+                (load_app_log_settings_from_db(&db_state).await,)
+            });
+            logging::init_logging(&data_dir, &log_settings);
+            logging::cleanup_old_logs(&data_dir, log_settings.retention_hours);
 
             // 启动时同步所有 settings 文件（检查不一致并更新）
             {
