@@ -1564,5 +1564,11 @@
   "updater.releaseNotes": "Versionshinweise",
   "updater.updateFailed": "Aktualisierung fehlgeschlagen",
   "updater.updateNow": "Jetzt aktualisieren",
-  "updater.updating": "Wird aktualisiert…"
+  "updater.updating": "Wird aktualisiert…",
+  "group.levelPriority": "Priorität",
+  "group.levelPriorityHint": "Höherer Wert = höhere Priorität (10 = höchste); nur in dieser Gruppe wirksam",
+  "group.levelPriorityMax": "10 = höchste",
+  "group.levelPriorityUp": "Priorität erhöhen",
+  "group.levelPriorityDown": "Priorität verringern",
+  "group.levelPriorityFailed": "Priorität konnte nicht gespeichert werden: {{err}}"
 }

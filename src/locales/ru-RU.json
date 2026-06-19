@@ -1564,5 +1564,11 @@
   "updater.releaseNotes": "Что нового",
   "updater.updateFailed": "Ошибка обновления",
   "updater.updateNow": "Обновить сейчас",
-  "updater.updating": "Обновление…"
+  "updater.updating": "Обновление…",
+  "group.levelPriority": "Приоритет",
+  "group.levelPriorityHint": "Чем больше значение, тем выше приоритет (10 = наивысший); действует только в этой группе",
+  "group.levelPriorityMax": "10 = наивысший",
+  "group.levelPriorityUp": "Повысить приоритет",
+  "group.levelPriorityDown": "Понизить приоритет",
+  "group.levelPriorityFailed": "Не удалось сохранить приоритет: {{err}}"
 }

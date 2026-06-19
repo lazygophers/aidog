@@ -421,6 +421,12 @@ impl Db {
                      ON proxy_log(group_key) WHERE deleted_at = 0",
                     [],
                 );
+                // Migration 029: group_platform per-group 平台优先级 level_priority（1~10，默认 5，10=最高优先）。
+                // 独立于 priority（拖拽排序连续序号）与 weight（负载均衡权重）。
+                // Failover：level_priority 降序 tiebreak；weighted（LoadBalance/HealthAware/Sticky）：有效权重=weight×level_priority；
+                // LeastLatency：延迟 EMA 主导，level_priority 作次级 tiebreaker。
+                // 幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column；老行默认 5。
+                let _ = conn.execute("ALTER TABLE group_platform ADD COLUMN level_priority INTEGER NOT NULL DEFAULT 5", []);
                 Ok(())
             })
             .await
@@ -1563,6 +1569,31 @@ pub async fn reorder_group_platforms(
         .map_err(|e| format!("reorder group platforms: {e}"))
 }
 
+/// 设置某 group×platform 的 level_priority（per-group 平台优先级）。
+/// 入参 clamp 到 [1,10]；仅更新存在的关联行（不存在静默 no-op）。
+pub async fn set_group_platform_level_priority(
+    db: &Db,
+    group_id: u64,
+    platform_id: u64,
+    level_priority: i32,
+) -> Result<(), String> {
+    let lp = crate::gateway::models::clamp_level_priority(level_priority);
+    let gid = group_id as i64;
+    let pid = platform_id as i64;
+    let ts = now();
+    db.0
+        .call(move |conn| {
+            conn.execute(
+                "UPDATE group_platform SET level_priority = ?1, updated_at = ?2 \
+                 WHERE group_id = ?3 AND platform_id = ?4 AND deleted_at = 0",
+                params![lp, ts, gid, pid],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("set group platform level_priority: {e}"))
+}
+
 /// 跨分组移动平台：从 from 组移除、加入 to 组（priority = to 组现有最大 + 1）。
 pub async fn move_group_platform(
     db: &Db,
@@ -1753,9 +1784,12 @@ pub async fn set_group_platforms(
             )?;
 
             for p in &platforms {
+                let lp = super::models::clamp_level_priority(
+                    p.level_priority.unwrap_or_else(super::models::default_level_priority),
+                );
                 conn.execute(
-                    "INSERT INTO group_platform (group_id, platform_id, priority, weight, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
-                    params![group_id as i64, p.platform_id as i64, p.priority.unwrap_or(0), p.weight.unwrap_or(1), ts, ts],
+                    "INSERT INTO group_platform (group_id, platform_id, priority, weight, level_priority, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                    params![group_id as i64, p.platform_id as i64, p.priority.unwrap_or(0), p.weight.unwrap_or(1), lp, ts, ts],
                 )?;
             }
             Ok(())
@@ -1823,6 +1857,7 @@ pub async fn sync_platform_manual_groups(
                     platform_id: d.platform.id,
                     priority: Some(d.priority),
                     weight: Some(d.weight),
+                    level_priority: Some(d.level_priority),
                 })
                 .collect();
             if !inputs.iter().any(|i| i.platform_id == platform_id) {
@@ -1830,6 +1865,7 @@ pub async fn sync_platform_manual_groups(
                     platform_id,
                     priority: Some(0),
                     weight: Some(1),
+                    level_priority: None,
                 });
             }
             set_group_platforms(db, gid as u64, &inputs).await?;
@@ -1845,7 +1881,7 @@ pub async fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlat
     let mut stmt = conn
         .prepare(
             &format!(
-                "SELECT gp.priority, gp.weight, {PLATFORM_COLUMNS_PREFIXED} \
+                "SELECT gp.priority, gp.weight, {PLATFORM_COLUMNS_PREFIXED}, gp.level_priority \
                  FROM group_platform gp JOIN platform p ON gp.platform_id = p.id \
                  WHERE gp.group_id = ?1 AND gp.deleted_at = 0 AND p.deleted_at = 0 ORDER BY gp.priority"
             ),
@@ -1888,6 +1924,7 @@ pub async fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlat
                 },
                 priority: row.get(0)?,
                 weight: row.get(1)?,
+                level_priority: super::models::clamp_level_priority(row.get::<_, i64>(25)? as i32),
             })
         })?;
 
@@ -4310,8 +4347,8 @@ mod tests {
         // ① 手动组：同时含待删平台与另一存活平台。
         let m = create_group(&db, sample_group("m-shared", vec![])).await.unwrap();
         set_group_platforms(&db, m.id, &[
-            GroupPlatformInput { platform_id: p_del.id, priority: Some(0), weight: Some(1) },
-            GroupPlatformInput { platform_id: p_keep.id, priority: Some(1), weight: Some(1) },
+            GroupPlatformInput { platform_id: p_del.id, priority: Some(0), weight: Some(1), level_priority: None },
+            GroupPlatformInput { platform_id: p_keep.id, priority: Some(1), weight: Some(1), level_priority: None },
         ]).await.unwrap();
 
         // ② p_del 的 auto 组，用户额外把 p_keep 也拖了进来。
@@ -4322,8 +4359,8 @@ mod tests {
             source_protocol: None, max_retries: 2, model_mappings: vec![],
         }).await.unwrap();
         set_group_platforms(&db, auto_g.id, &[
-            GroupPlatformInput { platform_id: p_del.id, priority: Some(0), weight: Some(1) },
-            GroupPlatformInput { platform_id: p_keep.id, priority: Some(1), weight: Some(1) },
+            GroupPlatformInput { platform_id: p_del.id, priority: Some(0), weight: Some(1), level_priority: None },
+            GroupPlatformInput { platform_id: p_keep.id, priority: Some(1), weight: Some(1), level_priority: None },
         ]).await.unwrap();
 
         // ③ p_del 的孤儿 auto 组（仅含自己），删平台后应被清掉。
@@ -4334,7 +4371,7 @@ mod tests {
             source_protocol: None, max_retries: 2, model_mappings: vec![],
         }).await.unwrap();
         set_group_platforms(&db, auto_orphan.id, &[
-            GroupPlatformInput { platform_id: p_del.id, priority: Some(0), weight: Some(1) },
+            GroupPlatformInput { platform_id: p_del.id, priority: Some(0), weight: Some(1), level_priority: None },
         ]).await.unwrap();
 
         delete_platform(&db, p_del.id).await.unwrap();
@@ -4506,8 +4543,8 @@ mod tests {
             &db,
             g.id,
             &[
-                GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1) },
-                GroupPlatformInput { platform_id: p2.id, priority: Some(1), weight: Some(2) },
+                GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: None },
+                GroupPlatformInput { platform_id: p2.id, priority: Some(1), weight: Some(2), level_priority: None },
             ],
         ).await
         .unwrap();
@@ -4855,7 +4892,7 @@ decimals: None,
             source_protocol: None, max_retries: 2, model_mappings: vec![],
         }).await.unwrap();
         set_group_platforms(&db, auto_g.id, &[GroupPlatformInput {
-            platform_id: p.id, priority: Some(0), weight: Some(1),
+            platform_id: p.id, priority: Some(0), weight: Some(1), level_priority: None,
         }]).await.unwrap();
         let m1 = create_group(&db, sample_group("m1", vec![])).await.unwrap();
         let m2 = create_group(&db, sample_group("m2", vec![])).await.unwrap();

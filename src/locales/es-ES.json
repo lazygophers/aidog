@@ -1542,5 +1542,11 @@
   "updater.releaseNotes": "Notas de la versión",
   "updater.updateFailed": "Error al actualizar",
   "updater.updateNow": "Actualizar ahora",
-  "updater.updating": "Actualizando…"
+  "updater.updating": "Actualizando…",
+  "group.levelPriority": "Prioridad",
+  "group.levelPriorityHint": "Valor más alto = mayor prioridad (10 = máxima); solo efectivo dentro de este grupo",
+  "group.levelPriorityMax": "10 = máxima",
+  "group.levelPriorityUp": "Aumentar prioridad",
+  "group.levelPriorityDown": "Reducir prioridad",
+  "group.levelPriorityFailed": "Error al guardar la prioridad: {{err}}"
 }

@@ -177,8 +177,9 @@ pub async fn select_candidates_ctx(
     // 2. 按路由模式排序两组
     match effective_mode {
         RoutingMode::Failover => {
-            active.sort_by_key(|gp| gp.priority);
-            probe.sort_by_key(|gp| gp.priority);
+            // level_priority 降序（10 先）为主键，priority 升序为 tiebreak
+            active.sort_by_key(|gp| (std::cmp::Reverse(gp.level_priority), gp.priority));
+            probe.sort_by_key(|gp| (std::cmp::Reverse(gp.level_priority), gp.priority));
         }
         // LoadBalance / HealthAware：健康集加权随机（准入门已摘 Open，等价加权随机 on 健康集）
         RoutingMode::LoadBalance | RoutingMode::HealthAware => {
@@ -247,14 +248,20 @@ pub async fn select_candidates_ctx(
     Ok(CandidateSet { candidates })
 }
 
-/// 负载均衡排序：加权随机决定首个，其余按 weight 降序，保证所有候选都可被重试。
+/// 有效权重 = weight × level_priority（per-group 平台优先级 1~10 乘性放大）。
+/// 默认全 level_priority=5 时各平台等比放大，相对分流比例不变（兼容现状）。
+fn effective_weight(gp: &GroupPlatformDetail) -> i32 {
+    gp.weight.max(0) * super::models::clamp_level_priority(gp.level_priority)
+}
+
+/// 负载均衡排序：加权随机决定首个，其余按有效权重降序，保证所有候选都可被重试。
 fn order_load_balance(platforms: &mut Vec<&GroupPlatformDetail>, seed: i64) {
     if platforms.len() <= 1 {
         return;
     }
-    let total_weight: i32 = platforms.iter().map(|gp| gp.weight.max(0)).sum();
-    // 先按 weight 降序作为基础顺序
-    platforms.sort_by_key(|gp| std::cmp::Reverse(gp.weight));
+    let total_weight: i32 = platforms.iter().map(|gp| effective_weight(gp)).sum();
+    // 先按有效权重降序作为基础顺序
+    platforms.sort_by_key(|gp| std::cmp::Reverse(effective_weight(gp)));
     if total_weight <= 0 {
         return;
     }
@@ -262,7 +269,7 @@ fn order_load_balance(platforms: &mut Vec<&GroupPlatformDetail>, seed: i64) {
     let mut rand_val = (seed.unsigned_abs() as i32) % total_weight;
     let mut pick = 0usize;
     for (i, gp) in platforms.iter().enumerate() {
-        rand_val -= gp.weight.max(0);
+        rand_val -= effective_weight(gp);
         if rand_val < 0 {
             pick = i;
             break;
@@ -281,7 +288,10 @@ fn order_least_latency(platforms: &mut [&GroupPlatformDetail], ctx: Option<&Sche
     platforms.sort_by(|a, b| {
         let la = c.scheduler.latency_ema(a.platform.id).unwrap_or(f64::MAX);
         let lb = c.scheduler.latency_ema(b.platform.id).unwrap_or(f64::MAX);
-        la.partial_cmp(&lb).unwrap_or(std::cmp::Ordering::Equal)
+        // 延迟 EMA 升序为主键；同延迟档时 level_priority 降序（高优先先）为次级 tiebreaker
+        la.partial_cmp(&lb)
+            .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| b.level_priority.cmp(&a.level_priority))
     });
 }
 
@@ -408,7 +418,7 @@ fn resolve_model(models: &PlatformModels, source_model: &str) -> String {
 /// 故障转移：按 priority 升序选第一个 enabled 的
 fn select_failover(platforms: &[GroupPlatformDetail]) -> Result<Platform, String> {
     let mut sorted: Vec<_> = platforms.iter().collect();
-    sorted.sort_by_key(|gp| gp.priority);
+    sorted.sort_by_key(|gp| (std::cmp::Reverse(gp.level_priority), gp.priority));
 
     sorted
         .into_iter()
@@ -424,12 +434,12 @@ fn select_load_balance(platforms: &[GroupPlatformDetail]) -> Result<Platform, St
         return Err("no enabled platform for load balance".to_string());
     }
 
-    let total_weight: i32 = enabled.iter().map(|gp| gp.weight).sum();
+    let total_weight: i32 = enabled.iter().map(|gp| effective_weight(gp)).sum();
     if total_weight <= 0 {
         return Ok(enabled[0].platform.clone());
     }
 
-    // 简单加权随机
+    // 简单加权随机（有效权重 = weight × level_priority）
     let mut rand_val = (std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()
@@ -437,7 +447,7 @@ fn select_load_balance(platforms: &[GroupPlatformDetail]) -> Result<Platform, St
         % total_weight;
 
     for gp in &enabled {
-        rand_val -= gp.weight;
+        rand_val -= effective_weight(gp);
         if rand_val < 0 {
             return Ok(gp.platform.clone());
         }
@@ -487,7 +497,11 @@ mod tests {
     }
 
     fn mk_gp(id: u64, weight: i32, priority: i32) -> GroupPlatformDetail {
-        GroupPlatformDetail { platform: mk_platform_id(id), priority, weight }
+        GroupPlatformDetail { platform: mk_platform_id(id), priority, weight, level_priority: 5 }
+    }
+
+    fn mk_gp_lp(id: u64, weight: i32, priority: i32, level_priority: i32) -> GroupPlatformDetail {
+        GroupPlatformDetail { platform: mk_platform_id(id), priority, weight, level_priority }
     }
 
     fn mk_settings() -> SchedulingBreakerSettings {
@@ -609,6 +623,66 @@ mod tests {
         assert_eq!(cap_max_tokens(Some(100_000), Some(0)), (Some(100_000), false));
     }
 
+    #[test]
+    fn failover_sorts_by_level_priority_desc_then_priority_asc() {
+        // level_priority 降序为主：lp=10 先于 lp=5 先于 lp=1，与 priority(拖拽序)无关。
+        // p1: lp=5 pri=0 / p2: lp=10 pri=2 / p3: lp=1 pri=1 / p4: lp=10 pri=0
+        let gp1 = mk_gp_lp(1, 1, 0, 5);
+        let gp2 = mk_gp_lp(2, 1, 2, 10);
+        let gp3 = mk_gp_lp(3, 1, 1, 1);
+        let gp4 = mk_gp_lp(4, 1, 0, 10);
+        let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3, &gp4];
+        // 复用 select_candidates_ctx 内的 Failover 排序逻辑
+        v.sort_by_key(|gp| (std::cmp::Reverse(gp.level_priority), gp.priority));
+        // lp=10 两个在前，其内部按 priority 升序：p4(pri0) < p2(pri2)；再 lp=5(p1)，再 lp=1(p3)
+        assert_eq!(v.iter().map(|g| g.platform.id).collect::<Vec<_>>(), vec![4, 2, 1, 3]);
+    }
+
+    #[test]
+    fn weighted_effective_weight_is_multiplicative() {
+        // 有效权重 = weight × level_priority。
+        // 默认全 lp=5：等比放大，相对比例不变（兼容现状）。
+        let a = mk_gp_lp(1, 3, 0, 5);
+        let b = mk_gp_lp(2, 2, 0, 5);
+        assert_eq!(effective_weight(&a), 15);
+        assert_eq!(effective_weight(&b), 10);
+        // 默认下比例 15:10 == 原 weight 3:2，分流比例不变
+        assert_eq!(effective_weight(&a) * 2, effective_weight(&b) * 3);
+        // 调高 lp 放大该平台有效权重：weight=1 lp=10 → 10 > weight=2 lp=1 → 2
+        let hi = mk_gp_lp(3, 1, 0, 10);
+        let lo = mk_gp_lp(4, 2, 0, 1);
+        assert_eq!(effective_weight(&hi), 10);
+        assert_eq!(effective_weight(&lo), 2);
+        assert!(effective_weight(&hi) > effective_weight(&lo));
+        // clamp：越界 lp 被夹到 [1,10]
+        let over = mk_gp_lp(5, 1, 0, 99);
+        let under = mk_gp_lp(6, 1, 0, 0);
+        assert_eq!(effective_weight(&over), 10);
+        assert_eq!(effective_weight(&under), 1);
+    }
+
+    #[test]
+    fn least_latency_level_priority_tiebreak() {
+        // 同延迟档时 level_priority 高者先；延迟主导不被 level_priority 推翻。
+        let sched = SchedulerState::new();
+        // p1,p2 同延迟 EMA=100；p3 延迟 200（更慢）
+        sched.inc_inflight(1); sched.record_success(1, 100);
+        sched.inc_inflight(2); sched.record_success(2, 100);
+        sched.inc_inflight(3); sched.record_success(3, 200);
+        let sticky = StickyTable::new();
+        let settings = mk_settings();
+        let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+        // p1 lp=5, p2 lp=10（同延迟，p2 应先）; p3 lp=10 但延迟更高（仍排末尾，延迟主导）
+        let gp1 = mk_gp_lp(1, 1, 0, 5);
+        let gp2 = mk_gp_lp(2, 1, 0, 10);
+        let gp3 = mk_gp_lp(3, 1, 0, 10);
+        let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3];
+        order_least_latency(&mut v, Some(&ctx));
+        // 同延迟 100 档：p2(lp10) 先于 p1(lp5)；p3(延迟200) 末尾（延迟主导，不被高 lp 提前）
+        assert_eq!(v.iter().map(|g| g.platform.id).collect::<Vec<_>>(), vec![2, 1, 3]);
+    }
+
     async fn mk_test_db() -> db::Db {
         let db = db::Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
@@ -638,7 +712,7 @@ mod tests {
             max_retries: 2, model_mappings: vec![],
         }).await.expect("create group");
         let inputs: Vec<GroupPlatformInput> = platform_ids.iter().enumerate()
-            .map(|(i, &pid)| GroupPlatformInput { platform_id: pid, priority: Some(i as i32), weight: Some(1) })
+            .map(|(i, &pid)| GroupPlatformInput { platform_id: pid, priority: Some(i as i32), weight: Some(1), level_priority: None })
             .collect();
         db::set_group_platforms(db, g.id, &inputs).await.expect("set group platforms");
         g

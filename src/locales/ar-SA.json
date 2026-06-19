@@ -1564,5 +1564,11 @@
   "updater.releaseNotes": "ملاحظات الإصدار",
   "updater.updateFailed": "فشل التحديث",
   "updater.updateNow": "التحديث الآن",
-  "updater.updating": "جارٍ التحديث…"
+  "updater.updating": "جارٍ التحديث…",
+  "group.levelPriority": "الأولوية",
+  "group.levelPriorityHint": "كلما زادت القيمة زادت الأولوية (10 = الأعلى)؛ تسري داخل هذه المجموعة فقط",
+  "group.levelPriorityMax": "10 = الأعلى",
+  "group.levelPriorityUp": "رفع الأولوية",
+  "group.levelPriorityDown": "خفض الأولوية",
+  "group.levelPriorityFailed": "فشل حفظ الأولوية: {{err}}"
 }

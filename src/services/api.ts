@@ -232,6 +232,11 @@ export interface GroupPlatformDetail {
   platform: Platform;
   priority: number;
   weight: number;
+  /**
+   * per-group 平台优先级（1~10，默认 5，10=最高优先；数大优先高）。
+   * 后端返回时恒有值；前端乐观插入新明细时可省略（落库走 DEFAULT 5）。
+   */
+  level_priority?: number;
 }
 
 export interface ModelMapping {
@@ -249,6 +254,8 @@ export interface GroupPlatform {
   platform_id: number;
   priority: number;
   weight: number;
+  /** per-group 平台优先级（1~10，默认 5，10=最高优先；数大优先高） */
+  level_priority: number;
 }
 
 export interface GroupDetail {
@@ -633,7 +640,13 @@ export const groupApi = {
 
   setPlatforms: (
     groupId: number,
-    platforms: { platform_id: number; priority?: number; weight?: number }[]
+    platforms: {
+      platform_id: number;
+      priority?: number;
+      weight?: number;
+      /** per-group 平台优先级（1~10，省略 → 默认 5；后端 clamp） */
+      level_priority?: number;
+    }[]
   ) =>
     invoke<void>("group_set_platforms", {
       input: { group_id: groupId, platforms },
@@ -654,6 +667,18 @@ export const groupDetailApi = {
   /** 分组内平台拖拽排序：orderedIds 按序赋 priority 1,2,3… */
   reorderPlatforms: (groupId: number, orderedIds: number[]) =>
     invoke<void>("group_platform_reorder", { groupId, orderedIds }),
+
+  /** 设置某 group×platform 的 level_priority（1~10，后端 clamp 到 [1,10]） */
+  setPlatformLevelPriority: (
+    groupId: number,
+    platformId: number,
+    levelPriority: number
+  ) =>
+    invoke<void>("group_platform_set_level_priority", {
+      groupId,
+      platformId,
+      levelPriority,
+    }),
 
   /** 跨分组移动平台：从 from 组移除、加入 to 组 */
   movePlatform: (platformId: number, fromGroupId: number, toGroupId: number) =>

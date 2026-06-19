@@ -669,10 +669,23 @@ pub struct GroupPlatform {
     pub priority: i32,
     /// 负载均衡权重
     pub weight: i32,
+    /// per-group 平台优先级（1~10，默认 5，10=最高优先；数大优先高）
+    #[serde(default = "default_level_priority")]
+    pub level_priority: i32,
     pub created_at: i64,
     pub updated_at: i64,
     #[serde(default)]
     pub deleted_at: i64,
+}
+
+/// level_priority 默认值（5 = 中等优先）
+pub fn default_level_priority() -> i32 {
+    5
+}
+
+/// 把 level_priority clamp 到合法区间 [1, 10]
+pub fn clamp_level_priority(v: i32) -> i32 {
+    v.clamp(1, 10)
 }
 
 #[derive(Debug, Deserialize)]
@@ -687,6 +700,9 @@ pub struct GroupPlatformInput {
     pub platform_id: u64,
     pub priority: Option<i32>,
     pub weight: Option<i32>,
+    /// per-group 平台优先级（1~10，None → 默认 5）
+    #[serde(default)]
+    pub level_priority: Option<i32>,
 }
 
 // ─── ModelMapping ──────────────────────────────────────────
@@ -720,6 +736,9 @@ pub struct GroupPlatformDetail {
     pub platform: Platform,
     pub priority: i32,
     pub weight: i32,
+    /// per-group 平台优先级（1~10，默认 5，10=最高优先）
+    #[serde(default = "default_level_priority")]
+    pub level_priority: i32,
 }
 
 // ─── Settings (KV) ─────────────────────────────────────────

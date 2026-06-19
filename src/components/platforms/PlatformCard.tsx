@@ -51,6 +51,13 @@ export interface PlatformCardProps {
   draggable?: boolean;
   /** 最近一次测试结果（来自 proxy_log source_protocol='test' 最新一条）；undefined/无记录不渲染徽章 */
   lastTest?: LastTestResult;
+  /**
+   * per-group 优先级（1~10，10=最高优先）。仅分组展开区上下文传入；
+   * 必须与 onLevelPriorityChange 成对传入才渲染编辑控件（主列表不传 → 不串味）。
+   */
+  levelPriority?: number;
+  /** 改 level_priority 回调（v 已 clamp 调用方负责持久化 + 乐观更新）。 */
+  onLevelPriorityChange?: (v: number) => void;
 }
 
 // ── PlatformCard 组件 ──
@@ -73,6 +80,8 @@ export const PlatformCard = memo(function PlatformCard({
   platformMembership,
   draggable = true,
   lastTest,
+  levelPriority,
+  onLevelPriorityChange,
 }: PlatformCardProps) {
   const { t } = useTranslation();
   const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
@@ -269,6 +278,13 @@ export const PlatformCard = memo(function PlatformCard({
                 </button>
               </div>
             </div>
+            {/* ── 行 1.5：per-group 优先级编辑（仅分组展开区上下文，主列表不渲染） ── */}
+            {onLevelPriorityChange && (
+              <LevelPriorityControl
+                value={levelPriority ?? 5}
+                onChange={onLevelPriorityChange}
+              />
+            )}
             {/* ── 行 2：余额 / 预算 / coding tiers ── */}
             {showQuota && (quota.balanceRemaining != null || (mb && mb.hasData) || (quota.balanceRemaining == null && quota.tiers.length > 0)) && (
               <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", paddingLeft: 24 }}>
@@ -440,6 +456,75 @@ function relativeTime(createdMs: number, now: number = Date.now()): string {
   if (hr < 24) return `${hr}h`;
   const day = Math.floor(hr / 24);
   return `${day}d`;
+}
+
+// ── per-group 优先级编辑控件（stepper，1~10，10=最高优先） ──
+
+function LevelPriorityControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const { t } = useTranslation();
+  const clamp = (v: number) => Math.min(10, Math.max(1, v));
+  const set = (v: number) => {
+    const next = clamp(v);
+    if (next !== value) onChange(next);
+  };
+  const btnStyle: React.CSSProperties = {
+    width: 22, height: 22, minWidth: 22, padding: 0, lineHeight: 0,
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
+  };
+  return (
+    <div
+      style={{ display: "flex", alignItems: "center", gap: 8, paddingLeft: 24, flexWrap: "wrap" }}
+      onClick={e => e.stopPropagation()}
+    >
+      <span
+        className="text-tertiary"
+        style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}
+        title={t("group.levelPriorityHint", "数值越大优先级越高（10=最高优先），仅在本分组生效")}
+      >
+        {t("group.levelPriority", "优先级")}
+      </span>
+      <div style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+        <button
+          className="btn btn-ghost btn-icon"
+          style={btnStyle}
+          disabled={value <= 1}
+          title={t("group.levelPriorityDown", "降低优先级")}
+          onClick={e => { e.stopPropagation(); set(value - 1); }}
+        >
+          <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M3 7h8" /></svg>
+        </button>
+        <input
+          type="number"
+          min={1}
+          max={10}
+          value={value}
+          onClick={e => e.stopPropagation()}
+          onChange={e => {
+            const v = parseInt(e.target.value, 10);
+            if (!Number.isNaN(v)) set(v);
+          }}
+          style={{
+            width: 38, textAlign: "center", fontSize: 12, fontWeight: 700,
+            padding: "2px 4px", borderRadius: "var(--radius-sm)",
+            background: "var(--bg-glass)", border: "1px solid var(--border)",
+            color: "var(--text-primary)",
+          }}
+        />
+        <button
+          className="btn btn-ghost btn-icon"
+          style={btnStyle}
+          disabled={value >= 10}
+          title={t("group.levelPriorityUp", "提高优先级")}
+          onClick={e => { e.stopPropagation(); set(value + 1); }}
+        >
+          <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M7 3v8M3 7h8" /></svg>
+        </button>
+      </div>
+      <span className="text-tertiary" style={{ fontSize: 9, opacity: 0.7 }}>
+        {t("group.levelPriorityMax", "10=最高优先")}
+      </span>
+    </div>
+  );
 }
 
 function LastTestBadge({ result }: { result: LastTestResult }) {
