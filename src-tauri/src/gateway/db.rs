@@ -311,6 +311,47 @@ impl Db {
                         [],
                     );
                 }
+                // Migration 025: GLM Coding Plan anthropic 端点补标 coding_plan=true。
+                // 根因：Platforms.tsx glm 预设曾把 anthropic 端点漏标 coding_plan，coding plan 平台
+                // (含 openai coding 端点)的 anthropic(Claude Code)入站经 select_endpoint_for_protocol
+                // 同协议匹配落空 → 回退 openai coding 端点 → 被转换成 openai。GLM 与 Kimi 不同：
+                // openai/anthropic 端点同处 open.bigmodel.cn 同一把 key 通用，anthropic 端点合法。
+                // 仅修「已是 coding plan(有 coding openai 端点)且 anthropic 端点未标 coding_plan」的 GLM 平台。
+                // 幂等：已标 coding_plan 的不动；非 coding plan GLM(无 coding 端点)不动。
+                if let Ok(mut stmt) =
+                    conn.prepare("SELECT id, endpoints FROM platform WHERE platform_type = 'glm'")
+                {
+                    let rows: Vec<(i64, String)> = stmt
+                        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
+                        .ok()
+                        .map(|iter| iter.filter_map(Result::ok).collect())
+                        .unwrap_or_default();
+                    for (id, endpoints_json) in rows {
+                        let mut eps = parse_endpoints(&endpoints_json);
+                        // 仅当该平台确为 coding plan（存在 coding_plan 的 openai 端点）才补标 anthropic。
+                        let is_coding_plan = eps
+                            .iter()
+                            .any(|ep| ep.coding_plan && ep.protocol == Protocol::OpenAI);
+                        if !is_coding_plan {
+                            continue;
+                        }
+                        let mut changed = false;
+                        for ep in &mut eps {
+                            if ep.protocol == Protocol::Anthropic && !ep.coding_plan {
+                                ep.coding_plan = true;
+                                changed = true;
+                            }
+                        }
+                        if changed {
+                            let new_json = serialize_endpoints(&eps);
+                            let _ = conn.execute(
+                                "UPDATE platform SET endpoints = ?1 WHERE id = ?2",
+                                params![new_json, id],
+                            );
+                            tracing::info!(platform_id = id, "migration 025: glm coding-plan anthropic endpoint coding_plan→true");
+                        }
+                    }
+                }
                 Ok(())
             })
             .await
