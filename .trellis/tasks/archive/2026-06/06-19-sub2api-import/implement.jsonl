@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/06-19-sub2api-import/prd.md", "reason": "需求/源格式(sub2api-data JSON+DataAccount)/核心映射表/auto-group 机制(sub2api+cc-switch 双分组+toggle)/流程/验收"}
+{"file": ".trellis/tasks/06-19-sub2api-import/implement.md", "reason": "执行编排: 后端 sub2api.rs 解析+ensure_group_and_attach+lib.rs 命令; 前端双入口+预览下拉+toggle; cc-switch 改造; 依赖序/共享文件串行/单测"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "group/platform 写库 + ensure-by-name 查重 + migration 约定"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "Sub2ApiImport/CcSwitchImport 组件 + 预览下拉/toggle 前端约定(Liquid Glass/无 react-router)"}
