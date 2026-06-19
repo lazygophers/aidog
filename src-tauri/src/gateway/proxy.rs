@@ -1360,16 +1360,30 @@ async fn handle_proxy_inner(
                 Some(&group.group_key), Some(route.platform.id as i64),
             )
         };
-        let non_retryable = err_class.as_ref().map(|c| !c.retryable).unwrap_or(false);
+        // ── 决策 A：状态码硬错圈定 ──
+        //   400 / 422（请求体本身非法）→ 不重试，直接返客户端（换平台无用，避免无谓遍历）。
+        //   其余非 2xx（401/403/404/405/429/5xx/未知）→ 默认可重试（换下个候选）。
+        //   400/422 的硬停优先于中间件 error_rule 的 retryable 分类（status 硬错语义不可被覆盖回可重试）。
+        let status_retryable = is_status_retryable(code);
+        // 中间件 error_rule：仅在 status 本身可重试时，允许其将错误显式降级为 non-retryable（缩小重试面）；
+        //   不允许把硬错（400/422）反向放大为可重试。
+        let mw_non_retryable = err_class.as_ref().map(|c| !c.retryable).unwrap_or(false);
+        let non_retryable = !status_retryable || mw_non_retryable;
         if let Some(ref c) = err_class {
             tracing::info!(
                 matched_by = %c.matched_by, category = %c.category, retryable = c.retryable,
                 status = code, "middleware error_rule classified upstream error"
             );
         }
+        if !status_retryable {
+            tracing::info!(
+                status = code, platform = %route.platform.name,
+                "decision-A: hard request error (400/422), not retrying next platform"
+            );
+        }
 
-        // 非 2xx + retryable（或无命中）→ 换下个候选；候选耗尽 / 超 max_retries 则返回最后一次错误。
-        // non-retryable → 跳过 continue，立即返回（不换候选）。
+        // 可重试（非 400/422 硬错 且 中间件未标 non-retryable）→ 换下个候选；
+        // 候选耗尽 / 超 max_retries 则返回最后一次错误。non-retryable → 立即返回（不换候选）。
         if !non_retryable && !is_last_candidate {
             continue;
         }
@@ -1395,39 +1409,90 @@ async fn handle_proxy_inner(
             .into_response();
     }
 
-    // ── 2xx：成功。若该平台曾 auto_disabled（试探成功）则恢复 enabled 清退避。──
+    // ── 2xx：状态码成功，但「200 + 空/无效响应」按决策 B 仍当作失败重试。──
+    // 成功记账（record_success / 恢复 auto_disabled / 清 strike / attempts.push 成功 / log.attempts）
+    // 推迟到「确认非空有效响应」之后，由 commit_2xx_success! 宏统一执行（避免重复且保证仅真成功才记账）。
     let attempt_latency_ms = attempt_start.elapsed().as_millis() as i64;
-    // 熔断指标：成功 → 更新延迟 EMA + breaker Closed/HalfOpen→Closed + inflight-1。
-    // 注意流式此处为首字节(TTFB)延迟（headers 已到）；作为延迟近似用于 LeastLatency。
-    state.scheduler.record_success(route.platform.id, attempt_latency_ms);
-    attempts.push(ProxyAttempt {
-        platform_id: route.platform.id,
-        platform_name: route.platform.name.clone(),
-        status_code: status.as_u16() as i32,
-        error: String::new(),
-        duration_ms: attempt_latency_ms,
-        ts: attempt_ts,
-    });
-    if route.platform.status == super::models::PlatformStatus::AutoDisabled {
-        if let Err(e) = super::db::recover_platform_auto_disabled(&state.db, route.platform.id).await {
-            tracing::error!(platform_id = route.platform.id, error = %e, "recover auto-disabled platform failed");
-        } else {
-            tracing::info!(platform = %route.platform.name, platform_id = route.platform.id, "platform recovered from auto-disabled (2xx)");
-        }
-    } else if let Err(e) =
-        // 成功一次即证明端点非死端点 → 清零累计的 404/405 strikes（仅 enabled 平台有计数时生效）
-        super::db::reset_dead_endpoint_strikes(&state.db, route.platform.id).await
-    {
-        tracing::error!(platform_id = route.platform.id, error = %e, "reset dead-endpoint strikes failed");
+
+    // 决策 B 失败（200 空响应）时记一次失败 attempt 并 failover；候选耗尽则返回 502。
+    // 与连接错误/超时同语义：熔断计一次失败（record_failure），但不 auto_disable（非鉴权/死端点信号）。
+    macro_rules! retry_on_empty_2xx {
+        ($reason:expr) => {{
+            state.scheduler.record_failure(route.platform.id, &breaker_th, super::db::now());
+            tracing::warn!(
+                platform = %route.platform.name, platform_id = route.platform.id,
+                reason = $reason, "decision-B: upstream 200 but empty/invalid response, failover next platform"
+            );
+            attempts.push(ProxyAttempt {
+                platform_id: route.platform.id,
+                platform_name: route.platform.name.clone(),
+                status_code: 200,
+                error: $reason.to_string(),
+                duration_ms: attempt_latency_ms,
+                ts: attempt_ts,
+            });
+            if !is_last_candidate {
+                continue;
+            }
+            // 候选耗尽：返回 502 + 已记录的 attempts（此时尚未向客户端发任何字节，安全）。
+            log.platform_id = route.platform.id;
+            log.status_code = 502;
+            log.upstream_status_code = status.as_u16() as i32;
+            let err_body = format!("{}: 200 but empty/invalid response", i18n::t(lang, ErrorKey::Upstream));
+            log.response_body = $reason.to_string();
+            log.user_response_body = err_body.clone();
+            log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            log.retry_count = (attempts.len() as i32 - 1).max(0);
+            log.attempts = std::mem::take(&mut attempts);
+            upsert_log(&state, &log, &log_settings).await;
+            return (StatusCode::BAD_GATEWAY, err_body).into_response();
+        }};
     }
-    log.platform_id = route.platform.id;
-    log.retry_count = (attempts.len() as i32 - 1).max(0);
-    log.attempts = std::mem::take(&mut attempts);
+
+    // 真成功记账：熔断成功 + 恢复 auto_disabled + 清 strike + attempts.push 成功 + 填 log.attempts。
+    macro_rules! commit_2xx_success {
+        () => {{
+            // 熔断指标：成功 → 更新延迟 EMA + breaker Closed/HalfOpen→Closed + inflight-1。
+            // 注意流式此处为「首个有效内容」延迟（peek 已收到内容）；作为延迟近似用于 LeastLatency。
+            state.scheduler.record_success(route.platform.id, attempt_latency_ms);
+            attempts.push(ProxyAttempt {
+                platform_id: route.platform.id,
+                platform_name: route.platform.name.clone(),
+                status_code: status.as_u16() as i32,
+                error: String::new(),
+                duration_ms: attempt_latency_ms,
+                ts: attempt_ts,
+            });
+            if route.platform.status == super::models::PlatformStatus::AutoDisabled {
+                if let Err(e) = super::db::recover_platform_auto_disabled(&state.db, route.platform.id).await {
+                    tracing::error!(platform_id = route.platform.id, error = %e, "recover auto-disabled platform failed");
+                } else {
+                    tracing::info!(platform = %route.platform.name, platform_id = route.platform.id, "platform recovered from auto-disabled (2xx)");
+                }
+            } else if let Err(e) =
+                // 成功一次即证明端点非死端点 → 清零累计的 404/405 strikes（仅 enabled 平台有计数时生效）
+                super::db::reset_dead_endpoint_strikes(&state.db, route.platform.id).await
+            {
+                tracing::error!(platform_id = route.platform.id, error = %e, "reset dead-endpoint strikes failed");
+            }
+            log.platform_id = route.platform.id;
+            log.retry_count = (attempts.len() as i32 - 1).max(0);
+            log.attempts = std::mem::take(&mut attempts);
+        }};
+    }
 
     // 非流式：直接透传 JSON
     if !is_stream {
         let body = resp.bytes().await.unwrap_or_default();
         let resp_str = String::from_utf8_lossy(&body).to_string();
+
+        // ── 决策 B（非流式）：200 但空 body / error 结构 / 无有效 choices/content → 失败重试。──
+        if !is_nonstream_body_valid(&resp_str) {
+            retry_on_empty_2xx!("200 but empty/invalid body");
+        }
+        commit_2xx_success!();
+
         let (input_tokens, output_tokens, cache_tokens) = extract_usage(&resp_str);
 
         log.response_body = resp_str.clone();
@@ -1518,6 +1583,51 @@ async fn handle_proxy_inner(
         String::new()
     };
 
+    // ── 决策 B（流式）：提交转发前缓冲(peek)上游首个「有效内容」chunk 再决定。──
+    // 在向客户端发任何字节前，先从上游 SSE 流拉取若干 chunk，扫描累积原文：
+    //   - Meaningful（真实内容事件）→ 提交：把已缓冲的 chunk 原样 prepend 回流，继续既有 relay。
+    //   - EmptyOrError（立即 [DONE] / 立即 error / 流秒断无内容 / 空 body）→ 当作失败 failover（header 未发，安全）。
+    // 仅 peek 到「判定够了」即停（收到首个有效内容立即提交），不缓冲整条流（接受首字节延迟）。
+    // 缓冲上限兜底：累计字节 / chunk 数到上限仍未判定 → 视为已产出内容，提交（避免饿死长 keepalive 流）。
+    const PEEK_MAX_BYTES: usize = 64 * 1024;
+    const PEEK_MAX_CHUNKS: usize = 64;
+    let mut upstream_stream = resp.bytes_stream();
+    let mut peek_buf: Vec<Bytes> = Vec::new();
+    let mut peek_text = String::new();
+    let mut peek_bytes = 0usize;
+    let peek_decision = loop {
+        match upstream_stream.next().await {
+            Some(Ok(chunk)) => {
+                peek_bytes += chunk.len();
+                peek_text.push_str(&String::from_utf8_lossy(&chunk));
+                peek_buf.push(chunk);
+                match classify_stream_first(&peek_text, false) {
+                    StreamPeek::Meaningful => break StreamPeek::Meaningful,
+                    StreamPeek::EmptyOrError => break StreamPeek::EmptyOrError,
+                    StreamPeek::NeedMore => {
+                        if peek_bytes >= PEEK_MAX_BYTES || peek_buf.len() >= PEEK_MAX_CHUNKS {
+                            // 上限兜底：已收到字节但未见明确内容/错误标记 → 保守提交，避免误杀长流。
+                            break StreamPeek::Meaningful;
+                        }
+                    }
+                }
+            }
+            // 上游流秒断（peek 期间出错）→ 与连接错误同语义，failover。
+            Some(Err(e)) => {
+                tracing::warn!(error = %e, "decision-B: upstream stream error during first-chunk peek");
+                break StreamPeek::EmptyOrError;
+            }
+            // 流结束：用 stream_ended=true 收敛判定（无内容 → EmptyOrError）。
+            None => break classify_stream_first(&peek_text, true),
+        }
+    };
+
+    if peek_decision == StreamPeek::EmptyOrError {
+        retry_on_empty_2xx!("200 but empty/invalid stream");
+    }
+    // Meaningful：确认上游真实产出 → 提交成功记账（在构建 guard 前，使 guard 的 log 快照含正确 attempts）。
+    commit_2xx_success!();
+
     // ── 中间件出站流式逐块改写上下文：在构建 stream 闭包前读取 settings（闭包在 req span 外轮询，
     //   不可再 await DB）。引擎 Arc clone 进闭包，每 chunk 文本应用 mask/override/sensitive。
     //   error 已由上游 HTTP 状态码在 forward 后判定（非 2xx 不会走到这里，故流式无需再判 error）。──
@@ -1562,7 +1672,13 @@ async fn handle_proxy_inner(
     };
 
     // guard 被 move 进闭包，随 stream 生命周期存活；stream 被 Drop（含客户端断连）时 guard.drop 触发兜底 flush。
-    let stream = resp.bytes_stream().map(move |chunk_result| {
+    // 决策 B：把 peek 阶段已缓冲的首批 chunk 原样 prepend 回流（不能吞首块），再接上游剩余流；
+    // 下游闭包对缓冲块与后续块一视同仁（token 聚合 / 转换 / finalize 不受影响）。
+    let buffered_head = futures::stream::iter(
+        peek_buf.into_iter().map(Ok::<Bytes, reqwest::Error>),
+    );
+    let upstream_rest = buffered_head.chain(upstream_stream);
+    let stream = upstream_rest.map(move |chunk_result| {
         let chunk = match chunk_result {
             Ok(c) => c,
             Err(e) => {
@@ -1793,6 +1909,122 @@ fn truncate_attempt_error(body: &str) -> String {
         s.push('…');
         s
     }
+}
+
+/// 决策 A：非 2xx 上游状态码是否应 failover 重试下一候选平台。
+///
+/// - **不重试（硬错，换平台也没用）**：400 / 422 —— 请求体本身非法（协议转换产物上游拒收），
+///   遍历其他平台同样会被拒，直接返客户端避免无谓遍历。
+/// - **重试**：401 / 403（鉴权，配合 auto_disabled）、404 / 405（死端点，配合 strike）、
+///   429（限流/配额，换平台可能成功）、所有 5xx（上游故障）、其余未知非 2xx（保守重试）。
+///
+/// 连接错误 / 超时不经此函数（在 send() Err 分支已按可重试处理）。
+/// 注意：中间件 error_rule 的 non-retryable 分类是显式覆盖机制，独立于本函数（见调用点）。
+fn is_status_retryable(code: u16) -> bool {
+    !matches!(code, 400 | 422)
+}
+
+/// 决策 B：流式 200 首块缓冲判定结果。
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StreamPeek {
+    /// 已确认上游在产出有效内容（anthropic 真实事件 / openai choices delta / 通用 data 事件）→ 提交转发。
+    Meaningful,
+    /// 200 但空 / 无效（立即 [DONE] 无内容 / 立即 error 事件 / 流秒断无内容 / 空 body）→ 当作失败重试。
+    EmptyOrError,
+    /// 累积的字节尚不足以判定（仅注释/keepalive/不完整 SSE 帧）→ 继续缓冲下一块。
+    NeedMore,
+}
+
+/// 决策 B：扫描已缓冲的上游 SSE 原文，判定首个「有效内容」是否到达。
+///
+/// 在**上游原始 wire 格式**上判定（转换前），覆盖 anthropic / openai / 同协议透传三类：
+/// - **EmptyOrError**（重试）：首个有效事件是 `error`（`event: error` 或 JSON `{"type":"error"}` / 顶层 `error` 字段）；
+///   或在任何内容事件前先出现 `[DONE]`。
+/// - **Meaningful**（提交）：出现真实内容事件 —— anthropic `message_start`/`content_block_*`/`message_delta`；
+///   openai `choices`（含 delta/role/content/tool_calls/finish_reason）；或任何非 error/非 [DONE] 的 `data:` JSON 事件。
+/// - **NeedMore**：目前只见 SSE 注释行（`:` 开头 keepalive）/ 空行 / `event:` 名行但对应 `data:` 帧尚未到齐。
+///
+/// `stream_ended=true`（上游流已结束）时强制收敛：仍无内容事件 → EmptyOrError（流秒断无内容 / 空 body）。
+fn classify_stream_first(text: &str, stream_ended: bool) -> StreamPeek {
+    let mut saw_any_data = false;
+    for raw in text.lines() {
+        let line = raw.trim();
+        if line.is_empty() || line.starts_with(':') {
+            // SSE 注释 / keepalive / 空分隔行 → 不构成判定依据
+            continue;
+        }
+        // `event: error` 行：下一帧 data 即错误；提前判 error（无需等 data）
+        if let Some(ev) = line.strip_prefix("event:") {
+            if ev.trim().eq_ignore_ascii_case("error") {
+                return StreamPeek::EmptyOrError;
+            }
+            // 其他 event 名行（message_start/content_block_delta...）单独不足以判定，等 data 帧
+            continue;
+        }
+        let Some(data) = line.strip_prefix("data:") else {
+            // 非 SSE 字段行（不完整帧的中段）→ 等更多
+            continue;
+        };
+        let data = data.trim();
+        if data == "[DONE]" {
+            // 任何内容前先 [DONE] → 空响应；内容后的 [DONE] 不会进入本函数（已 Meaningful 提前返回）
+            return StreamPeek::EmptyOrError;
+        }
+        saw_any_data = true;
+        let Ok(json) = serde_json::from_str::<Value>(data) else {
+            // data 帧 JSON 尚不完整（跨 chunk 截断）→ 等更多
+            continue;
+        };
+        // 顶层 error 结构（openai `{"error":{...}}` / anthropic `{"type":"error",...}`）→ 失败
+        let ty = json.get("type").and_then(|v| v.as_str()).unwrap_or("");
+        if ty == "error" || json.get("error").is_some() {
+            return StreamPeek::EmptyOrError;
+        }
+        // 到此即确认上游产出了一个真实（非 error / 非 [DONE]）内容事件 → 提交
+        return StreamPeek::Meaningful;
+    }
+    if stream_ended {
+        // 流已结束仍无任何有效内容事件 → 空响应（哪怕收到过无法解析的残帧也判空）
+        let _ = saw_any_data;
+        StreamPeek::EmptyOrError
+    } else {
+        StreamPeek::NeedMore
+    }
+}
+
+/// 决策 B：非流式 200 响应体是否「非空有效」。返回 false → 当作失败重试下一平台。
+///
+/// 空 body / 不含有效 choices/content / 是 error 结构 → false。
+/// 在**上游原始 JSON**上判定（转换前 / 透传同理）。
+fn is_nonstream_body_valid(body: &str) -> bool {
+    let trimmed = body.trim();
+    if trimmed.is_empty() {
+        return false;
+    }
+    let Ok(json) = serde_json::from_str::<Value>(trimmed) else {
+        // 非 JSON 200 body：保守视为有效（避免把上游非标准但实质有内容的响应误判为空）
+        return true;
+    };
+    // error 结构（顶层 error 字段 / type==error）→ 无效
+    if json.get("error").is_some()
+        || json.get("type").and_then(|v| v.as_str()) == Some("error")
+    {
+        return false;
+    }
+    // openai 风格：choices 非空且含实质内容（message/content/text/delta/tool_calls）
+    if let Some(choices) = json.get("choices").and_then(|v| v.as_array()) {
+        return choices.iter().any(|c| {
+            c.get("message").is_some()
+                || c.get("text").is_some()
+                || c.get("delta").is_some()
+        });
+    }
+    // anthropic 风格：content 数组非空
+    if let Some(content) = json.get("content").and_then(|v| v.as_array()) {
+        return !content.is_empty();
+    }
+    // 其他形态（如 openai responses `output` 等）：非 error 且 JSON 有内容 → 视为有效
+    json.as_object().map(|o| !o.is_empty()).unwrap_or(false)
 }
 
 /// Mock 平台请求处理：本地生成可控假响应（非流式 JSON / 流式 SSE），填假 token 进 log。
@@ -2856,6 +3088,7 @@ impl StreamLogGuard {
     ///     Anthropic 流**不发 `[DONE]`**，仅以 message_stop 收尾。漏检此标记会使 anthropic→anthropic
     ///     透传流仅靠 Drop 兜底回写；Drop 内 `tokio::spawn` 在连接 abort 时序下偶发丢写，
     ///     导致 response_body 永久停在 `[stream]` 占位（见修复）。
+    ///
     /// 正常结束走此路径回写（token 已累加完整）；仍未命中（如上游中途断裂无终止符）由 Drop 兜底。
     fn flush_if_done(&self, text: &str) {
         for line in text.lines() {
@@ -3566,6 +3799,139 @@ mod tests {
         // 非流式 JSON 响应保持非流式（走 JSON usage 解析路径）。
         assert!(!resolve_is_stream(false, "application/json"));
         assert!(!resolve_is_stream(false, ""));
+    }
+
+    // ── 决策 A：failover 重试状态码圈定 is_status_retryable ──
+
+    #[test]
+    fn retry_hard_request_errors_not_retried() {
+        // 400 / 422：请求体本身非法，换平台也没用 → 不重试，直接返客户端。
+        assert!(!is_status_retryable(400));
+        assert!(!is_status_retryable(422));
+    }
+
+    #[test]
+    fn retry_auth_dead_endpoint_retried() {
+        // 401/403（鉴权→auto_disabled）、404/405（死端点→strike）均重试下一平台。
+        assert!(is_status_retryable(401));
+        assert!(is_status_retryable(403));
+        assert!(is_status_retryable(404));
+        assert!(is_status_retryable(405));
+    }
+
+    #[test]
+    fn retry_rate_limit_and_server_errors_retried() {
+        // 429（限流/配额，换平台可能成功）+ 所有 5xx（上游故障）→ 重试。
+        assert!(is_status_retryable(429));
+        assert!(is_status_retryable(500));
+        assert!(is_status_retryable(502));
+        assert!(is_status_retryable(503));
+        assert!(is_status_retryable(504));
+        assert!(is_status_retryable(599));
+    }
+
+    #[test]
+    fn retry_other_4xx_retried_conservatively() {
+        // 其余未列举 4xx（非 400/422 硬错）保守重试，不误把上游临时拒绝当硬错。
+        assert!(is_status_retryable(408)); // request timeout
+        assert!(is_status_retryable(409)); // conflict
+        assert!(is_status_retryable(425)); // too early
+        assert!(is_status_retryable(402)); // 注：本路径不含 manual budget 402（那条在 forward 前短路返回）
+    }
+
+    // ── 决策 B：流式 200 首块判定 classify_stream_first ──
+
+    #[test]
+    fn peek_anthropic_message_start_is_meaningful() {
+        let text = "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"m1\"}}\n\n";
+        assert_eq!(classify_stream_first(text, false), StreamPeek::Meaningful);
+    }
+
+    #[test]
+    fn peek_openai_choices_delta_is_meaningful() {
+        let text = "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n";
+        assert_eq!(classify_stream_first(text, false), StreamPeek::Meaningful);
+    }
+
+    #[test]
+    fn peek_immediate_done_is_empty() {
+        // 任何内容前先 [DONE] → 空响应，应重试。
+        assert_eq!(classify_stream_first("data: [DONE]\n\n", false), StreamPeek::EmptyOrError);
+    }
+
+    #[test]
+    fn peek_event_error_is_empty() {
+        // event: error 行即判错（无需等 data）。
+        let text = "event: error\ndata: {\"type\":\"error\",\"error\":{\"message\":\"boom\"}}\n\n";
+        assert_eq!(classify_stream_first(text, false), StreamPeek::EmptyOrError);
+    }
+
+    #[test]
+    fn peek_error_json_is_empty() {
+        // 无 event 行、直接 data 为 error 结构 → 失败。
+        let text = "data: {\"error\":{\"message\":\"bad\"}}\n\n";
+        assert_eq!(classify_stream_first(text, false), StreamPeek::EmptyOrError);
+        let text2 = "data: {\"type\":\"error\",\"message\":\"bad\"}\n\n";
+        assert_eq!(classify_stream_first(text2, false), StreamPeek::EmptyOrError);
+    }
+
+    #[test]
+    fn peek_keepalive_only_needs_more() {
+        // 仅 SSE 注释 / event 名行 / 空行 → 尚不足以判定，继续缓冲。
+        assert_eq!(classify_stream_first(": ping\n\n", false), StreamPeek::NeedMore);
+        assert_eq!(classify_stream_first("event: message_start\n", false), StreamPeek::NeedMore);
+        assert_eq!(classify_stream_first("", false), StreamPeek::NeedMore);
+    }
+
+    #[test]
+    fn peek_partial_json_frame_needs_more() {
+        // data 帧 JSON 跨 chunk 截断（尚不可解析）→ 等更多，不误判。
+        let text = "data: {\"choices\":[{\"delta\":{\"cont";
+        assert_eq!(classify_stream_first(text, false), StreamPeek::NeedMore);
+    }
+
+    #[test]
+    fn peek_stream_ended_no_content_is_empty() {
+        // 流秒断 / 空 body（结束时仍无有效内容事件）→ 空响应，重试。
+        assert_eq!(classify_stream_first("", true), StreamPeek::EmptyOrError);
+        assert_eq!(classify_stream_first(": ping\n\n", true), StreamPeek::EmptyOrError);
+    }
+
+    // ── 决策 B：非流式 200 body 有效性 is_nonstream_body_valid ──
+
+    #[test]
+    fn nonstream_empty_body_invalid() {
+        assert!(!is_nonstream_body_valid(""));
+        assert!(!is_nonstream_body_valid("   "));
+    }
+
+    #[test]
+    fn nonstream_error_body_invalid() {
+        assert!(!is_nonstream_body_valid("{\"error\":{\"message\":\"bad\"}}"));
+        assert!(!is_nonstream_body_valid("{\"type\":\"error\",\"message\":\"x\"}"));
+    }
+
+    #[test]
+    fn nonstream_valid_openai_and_anthropic() {
+        assert!(is_nonstream_body_valid(
+            "{\"choices\":[{\"message\":{\"role\":\"assistant\",\"content\":\"hi\"}}]}"
+        ));
+        assert!(is_nonstream_body_valid(
+            "{\"content\":[{\"type\":\"text\",\"text\":\"hi\"}],\"role\":\"assistant\"}"
+        ));
+    }
+
+    #[test]
+    fn nonstream_empty_choices_or_content_invalid() {
+        // 200 但 choices/content 为空数组 → 无实质内容，重试。
+        assert!(!is_nonstream_body_valid("{\"choices\":[]}"));
+        assert!(!is_nonstream_body_valid("{\"content\":[]}"));
+    }
+
+    #[test]
+    fn nonstream_non_json_treated_valid() {
+        // 非 JSON 但有内容（上游非标准 200）→ 保守视为有效，不误杀。
+        assert!(is_nonstream_body_valid("plain text response"));
     }
 
     #[test]
