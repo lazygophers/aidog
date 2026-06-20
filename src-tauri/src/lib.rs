@@ -847,7 +847,11 @@ async fn model_test(
             content: gateway::adapter::MessageContent::Text(prompt.clone()),
         }],
         system: None,
-        max_tokens: Some(req.max_tokens.unwrap_or(16)),
+        // 默认 max_tokens 需容纳推理模型（如 MiniMax-M3）的 <think> 前导：
+        //   只给 16 token 会被思维链吃光，finish_reason=length，答案（expected 子串）
+        //   永不出现 → 内容校验失败 → 健康模型被误判 422。给足 1024 让答案有空间产出。
+        //   自定义模式（req.prompt 有值、跳过内容校验）调用方仍可显式传 req.max_tokens 收窄。
+        max_tokens: Some(req.max_tokens.unwrap_or(1024)),
         // 不强制 temperature：部分模型（如 Kimi coding plan）只允许 temperature=1，
         // 发任何其他值会被上游 400 拒绝。省略让上游用模型默认值，避开所有挑剔 temperature 的模型。
         temperature: None,
