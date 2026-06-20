@@ -178,7 +178,7 @@ export function ImportExportTab() {
   const selectedCount = scopes.size;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24, maxWidth: 760 }}>
+    <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%" }}>
       {/* ── 导出区 ── */}
       <section className="glass" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
         <SectionHeader icon="folder" title={t("importExport.exportTitle", "导出")} desc={t("importExport.exportDesc", "勾选要导出的内容，加密为单文件 .aidogx（密钥隐藏在文件内，人眼无法识别）。")} />
