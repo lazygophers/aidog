@@ -572,6 +572,10 @@ export const trayConfigApi = {
  * - "platform_balance" 平台余额 / coding 列（来自 tray 配置）
  * - "cost_trend"       消费趋势曲线（按 scope / time_window 维度）
  * - "platform_metric"  指定平台某时间窗的金额 + token 数值卡（多实例）
+ * - "group_cost"       指定分组某时间窗的金额数值卡（多实例）
+ * - "group_tokens"     指定分组今日 Token 数值卡（input+output，多实例）
+ * - "group_requests"   指定分组今日请求数数值卡（多实例）
+ * - "group_balance"    指定分组余额（组内平台 est_balance_remaining 求和，多实例）
  */
 export type PopoverItemType =
   | "today_cost"
@@ -581,7 +585,11 @@ export type PopoverItemType =
   | "proxy_status"
   | "platform_balance"
   | "cost_trend"
-  | "platform_metric";
+  | "platform_metric"
+  | "group_cost"
+  | "group_tokens"
+  | "group_requests"
+  | "group_balance";
 
 /** cost_trend 卡片统计维度。 */
 export type PopoverTrendScope = "overall" | "group" | "platform";
