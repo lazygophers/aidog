@@ -13,7 +13,7 @@ import {
 } from "../../utils/platformPaste";
 
 export interface SmartPasteApplyResult {
-  platform: { value: string; label: string } | null;
+  platform: { value: string; label: string; codingPlan?: boolean } | null;
   /** 选中的 base_url（按协议类型多选，每类型最多一个）。每项 → 一个 endpoint。 */
   baseUrls: { url: string; protocol: ParsedProtocol }[];
   apiKey: string;

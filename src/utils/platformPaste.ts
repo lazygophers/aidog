@@ -10,7 +10,7 @@ export interface ParsedBaseUrl {
   protocol: ParsedProtocol;
 }
 
-/** Platforms.tsx 的 preset 引用（解析器只需 value/label/keywords/hosts 字段）。 */
+/** Platforms.tsx 的 preset 引用（解析器只需 value/label/keywords/hosts/codingPlan 字段）。 */
 export interface PastePresetRef {
   value: string;
   label: string;
@@ -18,6 +18,9 @@ export interface PastePresetRef {
   /** base_url hostname 命中这些子串时优先匹配（比 keyword 文本扫更准）。
    *  存注册域（如 "xiaomimimo.com"）或完整 hostname，多 preset 重叠时最长 host 胜出。 */
   hosts?: string[];
+  /** coding plan 变体标记：透传到 applyPaste → handleProtocolChange(value, codingPlan)，
+   *  否则同 value 的普通/coding 两 preset 命中后 endpoints 取错（拿普通 base_url）。 */
+  codingPlan?: boolean;
 }
 
 export interface ParsedPaste {
@@ -25,8 +28,9 @@ export interface ParsedPaste {
   apiKeys: string[];
   /** 去重后的候选 base_url（含协议倾向）。 */
   baseUrls: ParsedBaseUrl[];
-  /** 匹配到的内置平台 preset；无匹配为 null（调用方据此决定是否改平台选择）。 */
-  platform: { value: string; label: string } | null;
+  /** 匹配到的内置平台 preset；无匹配为 null（调用方据此决定是否改平台选择）。
+   *  codingPlan 标记透传给 applyPaste 选对普通/coding 变体 endpoints。 */
+  platform: { value: string; label: string; codingPlan?: boolean } | null;
 }
 
 /** 已知 apikey 前缀（长在前，避免 sk- 抢先吃掉 sk-ant-）。 */
@@ -168,37 +172,32 @@ function extractBaseUrls(text: string): ParsedBaseUrl[] {
   return out;
 }
 
-/** 取 base_url 的 hostname（小写）；非法 URL 返回空串。 */
-function urlHost(u: string): string {
-  try {
-    return new URL(u).hostname.toLowerCase();
-  } catch {
-    return "";
-  }
-}
-
 /** 匹配内置平台 preset。
- *  优先级 1：base_url hostname 命中 preset.hosts（最强信号，多 preset 重叠时最长 host 胜出）。
- *  优先级 2：keyword 文本扫描（fallback，按 presets 列表顺序首个命中）。 */
+ *  优先级 1：base_url 完整 URL 子串命中 preset.hosts（最强信号，多 preset 重叠时最长串胜出）。
+ *          hosts 存 hostname（如 api.deepseek.com）或含 path 的 URL 子串（如
+ *          open.bigmodel.cn/api/coding 区分 coding/普通同 host 分裂）。hostname 是 URL 子串
+ *          的特例，故向后兼容。
+ *  优先级 2：keyword 文本扫描（fallback，按 presets 列表顺序首个命中）。
+ *  返回 codingPlan 标记（透传到 applyPaste 选对普通/coding 变体的 endpoints）。 */
 export function matchPlatform(
   text: string,
   presets: PastePresetRef[],
   baseUrls?: ParsedBaseUrl[],
-): { value: string; label: string } | null {
-  // 1) base_url host 优先匹配：收集所有命中，取最长 host（最特异）对应的 preset。
-  //    例：粘贴 token-plan-cn.xiaomimimo.com 时，coding plan preset（host 含
-  //    token-plan-cn.xiaomimimo.com）比普通 preset（host 含 xiaomimimo.com）更特异而胜出，
-  //    避免被普通版误匹配。
+): { value: string; label: string; codingPlan?: boolean } | null {
+  // 1) base_url URL 子串优先匹配：收集所有命中，取最长串（最特异）对应的 preset。
+  //    例：粘贴 token-plan-cn.xiaomimimo.com 时，coding preset（host token-plan-cn.xiaomimimo.com）
+  //    比普通 preset（host api.xiaomimimo.com）更特异而胜出，避免被普通版误匹配。
+  //    同 host 分裂（如 glm open.bigmodel.cn）靠 path 子串（/api/coding vs /api/paas/v4）区分。
   if (baseUrls && baseUrls.length) {
-    const hosts = baseUrls.map((b) => urlHost(b.url)).filter(Boolean);
-    if (hosts.length) {
-      let best: { value: string; label: string } | null = null;
+    const urls = baseUrls.map((b) => b.url.toLowerCase());
+    if (urls.length) {
+      let best: { value: string; label: string; codingPlan?: boolean } | null = null;
       let bestLen = 0;
       for (const p of presets) {
         for (const h of p.hosts ?? []) {
           const hl = h.toLowerCase();
-          if (hosts.some((hh) => hh.includes(hl)) && hl.length > bestLen) {
-            best = { value: p.value, label: p.label };
+          if (urls.some((u) => u.includes(hl)) && hl.length > bestLen) {
+            best = { value: p.value, label: p.label, codingPlan: p.codingPlan };
             bestLen = hl.length;
           }
         }
@@ -213,7 +212,7 @@ export function matchPlatform(
     for (const kw of p.keywords ?? []) {
       const needle = normalizeForMatch(kw);
       if (needle && hay.includes(needle)) {
-        return { value: p.value, label: p.label };
+        return { value: p.value, label: p.label, codingPlan: p.codingPlan };
       }
     }
   }
