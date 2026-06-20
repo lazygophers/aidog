@@ -27,11 +27,12 @@ const ALL_ITEM_TYPES: PopoverItemType[] = [
   "today_cache_rate",
   "today_tokens",
   "platform_today",
+  "platform_metric",
   "cost_trend",
 ];
 
 /** 可重复添加的多实例类型（各自独立配置）。 */
-const MULTI_INSTANCE_TYPES: ReadonlySet<PopoverItemType> = new Set<PopoverItemType>(["cost_trend"]);
+const MULTI_INSTANCE_TYPES: ReadonlySet<PopoverItemType> = new Set<PopoverItemType>(["cost_trend", "platform_metric"]);
 
 /** 指标类型 → i18n key + 默认中文标签。 */
 const TYPE_LABELS: Record<PopoverItemType, { key: string; fallback: string }> = {
@@ -41,15 +42,19 @@ const TYPE_LABELS: Record<PopoverItemType, { key: string; fallback: string }> = 
   today_cache_rate: { key: "popover.todayCacheRate", fallback: "今日缓存率" },
   today_tokens: { key: "popover.todayTokens", fallback: "今日 Token" },
   platform_today: { key: "popover.platformToday", fallback: "各平台今日" },
+  platform_metric: { key: "popover.itemPlatformMetric", fallback: "指定平台指标" },
   cost_trend: { key: "popover.itemCostTrend", fallback: "消费趋势" },
 };
 
 const TREND_WINDOWS: PopoverTrendWindow[] = ["today", "7d", "30d"];
 
-function makeItem(type: PopoverItemType, order: number): PopoverItem {
+function makeItem(type: PopoverItemType, order: number, platforms: Platform[]): PopoverItem {
   const base: PopoverItem = { id: `popover-${type}-${Date.now()}`, item_type: type, visible: true, order };
   if (type === "cost_trend") {
     return { ...base, scope: "overall", scope_ref: null, time_window: "7d" };
+  }
+  if (type === "platform_metric") {
+    return { ...base, scope: "platform", scope_ref: platforms[0] ? String(platforms[0].id) : null, time_window: "today" };
   }
   return base;
 }
@@ -123,7 +128,7 @@ export function PopoverConfigTab() {
   };
 
   const addItem = (type: PopoverItemType) => {
-    persist({ ...config, items: withOrders([...sortedItems, makeItem(type, sortedItems.length)]) });
+    persist({ ...config, items: withOrders([...sortedItems, makeItem(type, sortedItems.length, platforms)]) });
     setShowAddMenu(false);
   };
 
@@ -148,6 +153,9 @@ export function PopoverConfigTab() {
         return t("popover.previewTrend", "消费曲线（{{window}}）", {
           window: t(`popover.trendWindow_${"7d"}`, "近 7 天"),
         });
+      case "platform_metric":
+        // platform_metric 副行走 trendSummary，不经此路径；穷尽兜底。
+        return t("popover.itemPlatformMetric", "指定平台指标");
     }
   };
 
@@ -262,7 +270,9 @@ export function PopoverConfigTab() {
                         {t(TYPE_LABELS[item.item_type].key, TYPE_LABELS[item.item_type].fallback)}
                       </div>
                       <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {item.item_type === "cost_trend" ? trendSummary(item) : previewValue(item.item_type)}
+                        {item.item_type === "cost_trend" || item.item_type === "platform_metric"
+                          ? trendSummary(item)
+                          : previewValue(item.item_type)}
                       </div>
                     </div>
                     <div
@@ -332,6 +342,33 @@ export function PopoverConfigTab() {
                         className="input"
                         style={{ fontSize: 12, width: "auto", minWidth: 100 }}
                         value={item.time_window ?? "7d"}
+                        onChange={(e) => updateItem(item.id, { time_window: e.target.value as PopoverTrendWindow })}
+                      >
+                        {TREND_WINDOWS.map((w) => (
+                          <option key={w} value={w}>
+                            {t(`popover.trendWindow_${w}`, w === "today" ? "今日" : w === "30d" ? "近 30 天" : "近 7 天")}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {item.item_type === "platform_metric" && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingLeft: 24 }}>
+                      <select
+                        className="input"
+                        style={{ fontSize: 12, width: "auto", minWidth: 120 }}
+                        value={item.scope_ref ?? ""}
+                        onChange={(e) => updateItem(item.id, { scope_ref: e.target.value || null })}
+                      >
+                        {platforms.length === 0 && <option value="">{t("popover.trendNoPlatform", "无平台")}</option>}
+                        {platforms.map((p) => (
+                          <option key={p.id} value={String(p.id)}>{p.name}</option>
+                        ))}
+                      </select>
+                      <select
+                        className="input"
+                        style={{ fontSize: 12, width: "auto", minWidth: 100 }}
+                        value={item.time_window ?? "today"}
                         onChange={(e) => updateItem(item.id, { time_window: e.target.value as PopoverTrendWindow })}
                       >
                         {TREND_WINDOWS.map((w) => (

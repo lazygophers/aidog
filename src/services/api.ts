@@ -571,6 +571,7 @@ export const trayConfigApi = {
  * - "proxy_status"     代理状态行
  * - "platform_balance" 平台余额 / coding 列（来自 tray 配置）
  * - "cost_trend"       消费趋势曲线（按 scope / time_window 维度）
+ * - "platform_metric"  指定平台某时间窗的金额 + token 数值卡（多实例）
  */
 export type PopoverItemType =
   | "today_cost"
@@ -579,7 +580,8 @@ export type PopoverItemType =
   | "platform_today"
   | "proxy_status"
   | "platform_balance"
-  | "cost_trend";
+  | "cost_trend"
+  | "platform_metric";
 
 /** cost_trend 卡片统计维度。 */
 export type PopoverTrendScope = "overall" | "group" | "platform";
@@ -594,11 +596,11 @@ export interface PopoverItem {
   item_type: PopoverItemType;
   visible: boolean;
   order: number;
-  /** 仅 cost_trend：统计维度。旧配置无此字段后端默认 "overall"。 */
+  /** cost_trend / platform_metric：统计维度（platform_metric 固定 "platform"）。旧配置无此字段后端默认 "overall"。 */
   scope?: PopoverTrendScope;
-  /** 仅 cost_trend + scope!=overall：group → group_key；platform → platform_id 字符串。 */
+  /** scope!=overall：group → group_key；platform → platform_id 字符串。 */
   scope_ref?: string | null;
-  /** 仅 cost_trend：时间窗。旧配置无此字段后端默认 "7d"。 */
+  /** cost_trend / platform_metric：时间窗。旧配置无此字段后端默认 "7d"。 */
   time_window?: PopoverTrendWindow;
 }
 

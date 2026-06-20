@@ -9,6 +9,7 @@ import type {
   PopoverItem,
   TodayPlatformStat,
   StatsBucket,
+  StatsOverview,
   StatsQuery,
 } from "./services/api";
 import { statsApi } from "./services/api";
@@ -265,6 +266,68 @@ function CostTrendCard({
   );
 }
 
+// ─── Platform metric card ───────────────────────────────────
+
+/** platform_metric 卡片标题（取平台名，兜底 scope_ref）。 */
+function platformMetricTitle(
+  item: PopoverItem,
+  data: PopoverData,
+  t: (k: string, d: string, opts?: Record<string, unknown>) => string,
+): string {
+  const ref = item.scope_ref ?? "";
+  const pid = Number(ref);
+  const p = data.platform_today.find((x) => x.platform_id === pid);
+  const name = p?.platform_name || ref || t("popover.unknownPlatform", "未知平台");
+  return t("popover.platformMetricTitle", "{{name}} 用量", { name });
+}
+
+function PlatformMetricCard({
+  item,
+  data,
+  t,
+}: {
+  item: PopoverItem;
+  data: PopoverData;
+  t: (k: string, d: string, opts?: Record<string, unknown>) => string;
+}) {
+  const [overview, setOverview] = useState<StatsOverview | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    statsApi
+      .query(buildTrendQuery(item))
+      .then((r) => {
+        if (!cancelled) setOverview(r.overview);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [item.scope, item.scope_ref, item.time_window]);
+
+  // token 口径与 today_tokens 对齐（input + output，不含 cache）。
+  const tokens = overview ? overview.total_input_tokens + overview.total_output_tokens : 0;
+
+  return (
+    <div className="popover-section">
+      <div className="popover-stats-title">{platformMetricTitle(item, data, t)}</div>
+      {failed ? (
+        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+      ) : overview === null ? (
+        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+      ) : (
+        <div className="popover-platform-row">
+          <span className="popover-platform-value">{formatCostUsd(overview.total_cost)}</span>
+          <span className="popover-platform-sub">{formatNumber(tokens)} tok</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function renderItem(
   item: PopoverItem,
   data: PopoverData,
@@ -285,6 +348,8 @@ function renderItem(
       return <PlatformToday key={item.id} data={data} />;
     case "cost_trend":
       return <CostTrendCard key={item.id} item={item} data={data} t={t} />;
+    case "platform_metric":
+      return <PlatformMetricCard key={item.id} item={item} data={data} t={t} />;
     default:
       return null;
   }

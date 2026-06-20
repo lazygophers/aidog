@@ -805,6 +805,8 @@
   "popover.noUsageToday": "لا استخدام اليوم",
   "popover.platformToday": "حسب المنصة اليوم",
   "popover.itemCostTrend": "اتجاه التكلفة",
+  "popover.itemPlatformMetric": "مؤشر منصة محددة",
+  "popover.platformMetricTitle": "استخدام {{name}}",
   "popover.trendOverallTitle": "اتجاه التكلفة الإجمالي",
   "popover.trendGroupTitle": "اتجاه تكلفة المجموعة",
   "popover.trendPlatformTitle": "اتجاه تكلفة {{name}}",

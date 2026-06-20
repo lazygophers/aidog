@@ -805,6 +805,8 @@
   "popover.noUsageToday": "本日の使用なし",
   "popover.platformToday": "プラットフォーム別（本日）",
   "popover.itemCostTrend": "コスト推移",
+  "popover.itemPlatformMetric": "指定プラットフォーム指標",
+  "popover.platformMetricTitle": "{{name}} の使用量",
   "popover.trendOverallTitle": "全体のコスト推移",
   "popover.trendGroupTitle": "グループのコスト推移",
   "popover.trendPlatformTitle": "{{name}} のコスト推移",
