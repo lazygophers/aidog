@@ -2547,6 +2547,23 @@ pub async fn clear_notifications(db: &Db) -> Result<(), String> {
         .map_err(|e| format!("clear notifications: {e}"))
 }
 
+/// 删除 N 天前的收件箱通知行。`retention_days == 0` → 跳过（永不清理）。
+///
+/// 硬删（`DELETE FROM`），非软删：notification 表无 deleted_at / tombstone 概念，
+/// 抄 proxy_log retention 模式避 SQLite 体积单调增长（见记忆 db-volume-soft-delete-no-vacuum）。
+/// 硬删后 `incremental_vacuum(100)` 回收 free pages（auto_vacuum != INCREMENTAL 时 no-op）。
+pub async fn cleanup_notifications(db: &Db, retention_days: u32) -> Result<(), String> {
+    let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
+    db.0
+        .call(move |conn| {
+            conn.execute("DELETE FROM notification WHERE created_at < ?1", params![cutoff])?;
+            incremental_vacuum_conn(conn, 100);
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("cleanup notifications: {e}"))
+}
+
 // ─── ProxyLog CRUD ─────────────────────────────────────────
 
 /// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
@@ -5949,6 +5966,38 @@ decimals: None,
         // 清空
         clear_notifications(&db).await.unwrap();
         assert!(list_notifications(&db, 50).await.unwrap().is_empty());
+    }
+
+    // ── Notification retention 硬删（默认 7 天 + 不清理）──
+    #[tokio::test]
+    async fn cleanup_notifications_hard_deletes_old_rows() {
+        let db = test_db().await;
+        let now = now();
+        let old = now - 100 * 24 * 3600 * 1000; // 100 天前
+        let recent = now - 24 * 3600 * 1000; // 1 天前
+        for (ts, title) in [(old, "old"), (recent, "recent")] {
+            db.0
+                .call(move |conn| {
+                    conn.execute(
+                        "INSERT INTO notification (notif_type, title, body, created_at) VALUES ('error', ?1, '', ?2)",
+                        params![title, ts],
+                    )?;
+                    Ok(())
+                })
+                .await
+                .unwrap();
+        }
+        assert_eq!(list_notifications(&db, 50).await.unwrap().len(), 2);
+
+        // retention=7 → 删 100 天前，留 1 天前
+        cleanup_notifications(&db, 7).await.unwrap();
+        let list = list_notifications(&db, 50).await.unwrap();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].title, "recent");
+
+        // retention=0 → 跳过清理（永不清理）
+        cleanup_notifications(&db, 0).await.unwrap();
+        assert_eq!(list_notifications(&db, 50).await.unwrap().len(), 1);
     }
 
     #[tokio::test]
