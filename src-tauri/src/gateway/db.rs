@@ -71,6 +71,17 @@ struct DbCache {
     settings: RwLock<HashMap<(String, String), Option<serde_json::Value>>>,
     /// list_groups() 结果缓存（resolve_group 热路径用），写 group 表时整体失效。
     groups: RwLock<Option<Vec<Group>>>,
+    /// list_group_details() 结果缓存（Groups 页一次拉全量用）。
+    ///
+    /// 内嵌完整 GroupDetail（含 platform 易变字段：est_balance_remaining / status /
+    /// auto_disabled_until / last_real_query_at 等），故须**写时全失效**：任何 group /
+    /// group_platform 结构写、platform create/update/delete、以及 estimate/breaker 对
+    /// platform 易变列的写都失效（宁全勿漏，见 invalidate_group_details_cache 调用点）。
+    ///
+    /// 关键：list_group_details **不在代理 resolve 热路径**（proxy/router 走
+    /// get_group_platforms 直查单组），故 estimate.rs 每请求级写带来的频繁失效只代价
+    /// 「下次 Groups 页打开重建一次」，不影响代理吞吐。
+    group_details: RwLock<Option<Vec<GroupDetail>>>,
 }
 
 /// 异步 SQLite 连接封装。
@@ -167,8 +178,19 @@ impl Db {
     }
 
     /// 失效 list_groups 缓存（任意 group 表写入后调用）。
+    /// group 表写同时影响 GroupDetail（其内嵌 Group），故连带失效 group_details。
     fn invalidate_groups_cache(&self) {
         if let Ok(mut g) = self.1.groups.write() {
+            *g = None;
+        }
+        self.invalidate_group_details_cache();
+    }
+
+    /// 失效 list_group_details 缓存（group_platform 结构写 / platform 写后调用）。
+    /// 独立于 invalidate_groups_cache：group_platform / platform 写不动 group 表，
+    /// 不必清 groups 缓存，但必须清 group_details（其内嵌 platform 关联与易变字段）。
+    pub fn invalidate_group_details_cache(&self) {
+        if let Ok(mut g) = self.1.group_details.write() {
             *g = None;
         }
     }
@@ -500,6 +522,27 @@ impl Db {
                     "UPDATE settings SET key='coding_tools_settings' WHERE scope='global' AND key='cc_codex_settings'",
                     [],
                 );
+
+                // Migration 031: 前瞻覆盖索引 + notification 时间索引。
+                //
+                // ① idx_proxy_log_group_key_stats：覆盖 get_all_group_usage_stats（GROUP BY group_key
+                //    + SUM input/output/cache_tokens + SUM est_cost + status_code 成功率）。现有
+                //    idx_proxy_log_group_key 只含 group_key，SUM/status_code 须回表；本覆盖索引把所有
+                //    被聚合列纳入 → index-only scan 免回表。列序：分组键前导 + 各 SUM/谓词列。
+                //    带 WHERE deleted_at=0 偏索引，与查询谓词对齐、缩范围减写放大。
+                //    当前 13680 行收益有限，proxy_log 增长到数十万行后显著（前瞻）。幂等 IF NOT EXISTS。
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_group_key_stats \
+                     ON proxy_log(group_key, est_cost, input_tokens, output_tokens, cache_tokens, status_code) \
+                     WHERE deleted_at = 0",
+                    [],
+                );
+                // ② idx_notification_created：notification 表原无二级索引，收件箱 ORDER BY created_at DESC
+                //    LIMIT + retention DELETE WHERE created_at< 现走全表扫。低成本、前瞻。幂等。
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_notification_created ON notification(created_at)",
+                    [],
+                );
                 Ok(())
             })
             .await
@@ -771,6 +814,8 @@ pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platf
         })
         .await
         .map_err(|e| format!("create platform: {e}"))?;
+    // 新平台暂不属任何组，理论上不影响现有 GroupDetail；失效仅为防御性一致（成本极低）。
+    db.invalidate_group_details_cache();
 
     Ok(Platform {
         id,
@@ -939,6 +984,8 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
         })
         .await
         .map_err(|e| format!("update platform: {e}"))?;
+    // platform 字段内嵌于 GroupDetail.platforms，更新后须失效以免 Groups 页读旧值。
+    db.invalidate_group_details_cache();
 
     Ok(updated)
 }
@@ -953,7 +1000,8 @@ const AUTO_DISABLE_MAX_STRIKES: i64 = 12; // 2^11 h ≈ 85 天封顶
 /// 返回更新后的退避截止时间戳（毫秒），供日志记录。
 pub async fn set_platform_auto_disabled(db: &Db, id: u64) -> Result<i64, String> {
     let ts = now();
-    db.0
+    let until = db
+        .0
         .call(move |conn| {
             // 读当前状态 + strikes（仅对 enabled / auto_disabled 生效，跳过用户 disabled）
             let row: Option<(String, i64)> = conn
@@ -981,7 +1029,10 @@ pub async fn set_platform_auto_disabled(db: &Db, id: u64) -> Result<i64, String>
             Ok(until)
         })
         .await
-        .map_err(|e| format!("set platform auto-disabled: {e}"))
+        .map_err(|e| format!("set platform auto-disabled: {e}"))?;
+    // status/auto_disabled_until 内嵌于 GroupDetail.platforms，失效保 Groups 页一致。
+    db.invalidate_group_details_cache();
+    Ok(until)
 }
 
 /// 连续多少次 404/405（死端点信号）后才临时禁用平台。
@@ -1001,7 +1052,8 @@ pub async fn record_dead_endpoint_strike(
     threshold: i64,
 ) -> Result<(i64, i64), String> {
     let ts = now();
-    db.0
+    let res = db
+        .0
         .call(move |conn| {
             let row: Option<(String, i64)> = conn
                 .query_row(
@@ -1038,7 +1090,10 @@ pub async fn record_dead_endpoint_strike(
             Ok((new_strikes, until))
         })
         .await
-        .map_err(|e| format!("record dead-endpoint strike: {e}"))
+        .map_err(|e| format!("record dead-endpoint strike: {e}"))?;
+    // strikes/status 内嵌于 GroupDetail.platforms（list_group_details 非热路径，失效廉价）。
+    db.invalidate_group_details_cache();
+    Ok(res)
 }
 
 /// 2xx 成功且平台仍 enabled 但有累计 strikes（死端点累计未达阈值）：清零计数。
@@ -1055,7 +1110,9 @@ pub async fn reset_dead_endpoint_strikes(db: &Db, id: u64) -> Result<(), String>
             Ok(())
         })
         .await
-        .map_err(|e| format!("reset dead-endpoint strikes: {e}"))
+        .map_err(|e| format!("reset dead-endpoint strikes: {e}"))?;
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 /// 2xx 成功：若平台当前为 auto_disabled（试探成功），恢复 enabled 并清退避状态。
@@ -1071,7 +1128,9 @@ pub async fn recover_platform_auto_disabled(db: &Db, id: u64) -> Result<(), Stri
             Ok(())
         })
         .await
-        .map_err(|e| format!("recover platform auto-disabled: {e}"))
+        .map_err(|e| format!("recover platform auto-disabled: {e}"))?;
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 /// 将 quota 查询结果写回 platform 表（余额 + coding plan JSON）。
@@ -1089,7 +1148,9 @@ pub async fn update_platform_quota(db: &Db, id: u64, balance: f64, coding_plan_j
             Ok(())
         })
         .await
-        .map_err(|e| format!("update platform quota: {e}"))
+        .map_err(|e| format!("update platform quota: {e}"))?;
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 pub async fn delete_platform(db: &Db, id: u64) -> Result<(), String> {
@@ -1284,7 +1345,9 @@ pub async fn set_tray_platform(db: &Db, platform_id: u64, tray_display: &str) ->
             Ok(())
         })
         .await
-        .map_err(|e| format!("set tray: {e}"))
+        .map_err(|e| format!("set tray: {e}"))?;
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 /// 清空所有 tray 展示（关闭）。
@@ -1295,7 +1358,9 @@ pub async fn clear_tray(db: &Db) -> Result<(), String> {
             Ok(())
         })
         .await
-        .map_err(|e| format!("clear tray: {e}"))
+        .map_err(|e| format!("clear tray: {e}"))?;
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 /// 取当前 tray 展示平台（show_in_tray = 1），无则 None。
@@ -1750,7 +1815,9 @@ pub async fn reorder_platforms(db: &Db, ordered_ids: &[u64]) -> Result<(), Strin
             Ok(())
         })
         .await
-        .map_err(|e| format!("reorder platform: {e}"))
+        .map_err(|e| format!("reorder platform: {e}"))?;
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 /// 批量更新某分组内平台的 priority（拖拽排序）。ordered_platform_ids 按序赋 1,2,3…
@@ -1774,7 +1841,9 @@ pub async fn reorder_group_platforms(
             Ok(())
         })
         .await
-        .map_err(|e| format!("reorder group platforms: {e}"))
+        .map_err(|e| format!("reorder group platforms: {e}"))?;
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 /// 设置某 group×platform 的 level_priority（per-group 平台优先级）。
@@ -1799,7 +1868,9 @@ pub async fn set_group_platform_level_priority(
             Ok(())
         })
         .await
-        .map_err(|e| format!("set group platform level_priority: {e}"))
+        .map_err(|e| format!("set group platform level_priority: {e}"))?;
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 /// 跨分组移动平台：从 from 组移除、加入 to 组（priority = to 组现有最大 + 1）。
@@ -1841,7 +1912,9 @@ pub async fn move_group_platform(
             Ok(())
         })
         .await
-        .map_err(|e| format!("move group platform: {e}"))
+        .map_err(|e| format!("move group platform: {e}"))?;
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 pub async fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
@@ -2003,7 +2076,9 @@ pub async fn set_group_platforms(
             Ok(())
         })
         .await
-        .map_err(|e| format!("set group platforms: {e}"))
+        .map_err(|e| format!("set group platforms: {e}"))?;
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 /// 全量同步某平台的「手动」组成员关系（platform_update 用）：
@@ -2051,6 +2126,7 @@ pub async fn sync_platform_manual_groups(
                 })
                 .await
                 .map_err(|e| format!("sync_platform_manual_groups: remove from group {gid}: {e}"))?;
+            db.invalidate_group_details_cache();
         }
     }
 
@@ -2162,6 +2238,12 @@ pub async fn get_group_detail(db: &Db, id: u64) -> Result<Option<GroupDetail>, S
 }
 
 pub async fn list_group_details(db: &Db) -> Result<Vec<GroupDetail>, String> {
+    // 缓存命中：Groups 页一次拉全量（消除前端逐组 N+1）+ refreshStats 复用，命中即返 clone。
+    if let Ok(g) = db.1.group_details.read() {
+        if let Some(cached) = g.as_ref() {
+            return Ok(cached.clone());
+        }
+    }
     let groups = list_groups(db).await?;
     let mut details = Vec::with_capacity(groups.len());
     for g in groups {
@@ -2172,6 +2254,9 @@ pub async fn list_group_details(db: &Db) -> Result<Vec<GroupDetail>, String> {
             platforms,
             model_mappings,
         });
+    }
+    if let Ok(mut g) = db.1.group_details.write() {
+        *g = Some(details.clone());
     }
     Ok(details)
 }
@@ -4423,6 +4508,77 @@ mod tests {
         let res = r2.unwrap();
         println!("overview total_requests = {}", res.overview.total_requests);
         println!("dim entries = {}", res.dimension_data.len());
+    }
+
+    /// list_group_details 缓存写时失效一致性：每类写后下次读必拿到新值（无陈旧）。
+    /// 覆盖审计列出的失效面：① set_group_platforms（结构）② update_platform（platform 字段）
+    /// ③ apply_balance_delta（estimate 热路径 est_balance）④ set_group_platform_level_priority
+    /// ⑤ delete_platform（成员移除，经 invalidate_groups_cache 级联）。
+    #[tokio::test]
+    async fn list_group_details_cache_invalidation() {
+        let db = test_db().await;
+        let p1 = create_platform(&db, sample_platform("P1")).await.unwrap();
+        let p2 = create_platform(&db, sample_platform("P2")).await.unwrap();
+        let g = create_group(&db, sample_group("g1", vec![])).await.unwrap();
+
+        // 初次读（无成员）→ 建立缓存。
+        let d0 = list_group_details(&db).await.unwrap();
+        assert_eq!(d0.len(), 1);
+        assert_eq!(d0[0].platforms.len(), 0, "初始无成员");
+
+        // ① set_group_platforms（结构写）→ 缓存须失效，读到 1 个成员。
+        set_group_platforms(&db, g.id, &[
+            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+        ]).await.unwrap();
+        let d1 = list_group_details(&db).await.unwrap();
+        assert_eq!(d1[0].platforms.len(), 1, "set_group_platforms 后缓存仍旧 → 失效漏");
+        assert_eq!(d1[0].platforms[0].platform.id, p1.id);
+
+        // ② update_platform（platform 字段：改名）→ GroupDetail 内嵌 platform 须刷新。
+        let upd = UpdatePlatform {
+            id: p1.id,
+            name: Some("P1-renamed".to_string()),
+            platform_type: None,
+            base_url: None,
+            api_key: None,
+            extra: None,
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: None,
+            manual_budgets: None,
+            join_group_ids: None,
+        };
+        update_platform(&db, upd).await.unwrap();
+        let d2 = list_group_details(&db).await.unwrap();
+        assert_eq!(d2[0].platforms[0].platform.name, "P1-renamed", "update_platform 后缓存仍旧名 → 失效漏");
+
+        // ③ apply_balance_delta（estimate 热路径）→ est_balance_remaining 须反映扣减。
+        // 先置初始余额（update_platform 不写 est_balance，用 update_platform_quota 直写）。
+        update_platform_quota(&db, p1.id, 100.0, "").await.unwrap();
+        let before = list_group_details(&db).await.unwrap()[0].platforms[0].platform.est_balance_remaining;
+        assert!((before - 100.0).abs() < 1e-6, "quota 写后缓存须见 100，实得 {before}");
+        crate::gateway::estimate::apply_balance_delta(&db, p1.id, 30.0).await.unwrap();
+        let after = list_group_details(&db).await.unwrap()[0].platforms[0].platform.est_balance_remaining;
+        assert!((after - 70.0).abs() < 1e-6, "apply_balance_delta 后缓存仍旧值 → 失效漏，实得 {after}");
+
+        // ④ set_group_platform_level_priority → level_priority 须刷新。
+        set_group_platform_level_priority(&db, g.id, p1.id, 9).await.unwrap();
+        let d4 = list_group_details(&db).await.unwrap();
+        assert_eq!(d4[0].platforms[0].level_priority, 9, "level_priority 写后缓存仍旧 → 失效漏");
+
+        // ⑤ delete_platform（成员移除）→ 缓存须见成员清空。
+        // 再加 p2 验证删 p1 后剩 p2（避免组空）。
+        set_group_platforms(&db, g.id, &[
+            GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: Some(5) },
+            GroupPlatformInput { platform_id: p2.id, priority: Some(1), weight: Some(1), level_priority: Some(5) },
+        ]).await.unwrap();
+        assert_eq!(list_group_details(&db).await.unwrap()[0].platforms.len(), 2);
+        delete_platform(&db, p1.id).await.unwrap();
+        let d5 = list_group_details(&db).await.unwrap();
+        assert_eq!(d5[0].platforms.len(), 1, "delete_platform 后缓存仍含已删平台 → 失效漏");
+        assert_eq!(d5[0].platforms[0].platform.id, p2.id);
     }
 
     /// 批量 `query_stats_batch` 必须逐项等于逐卡 `query_stats`（同 query 同结果，顺序对齐）。

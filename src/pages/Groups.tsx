@@ -552,86 +552,88 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   const loadSeqRef = useRef(0);
 
   /**
-   * 三阶段渐进加载（首屏不 await 任何数据，全异步流式，到一阶段渲一阶段）：
-   *   ① 分组列表（group_list 轻量）→ 立即渲染分组骨架（头/容器，平台区空）。
-   *   ② 依次（按组顺序）逐组 group_detail；组内**平台级流式**：拿到组的平台列表后逐个平台
-   *      独立 append 进 platforms（每卡先到先渲，微任务交错让单卡逐个上屏）。某卡慢不阻塞同组下一卡——
-   *      每卡 per-card 重数据（quota/usage/lastTest）由各自 effect/hook 独立异步加载，不走「攒齐全部」批量。
-   *   ③ 未分组平台：platform_list → 灌入剩余 platforms（父级未分组列表 + 余额聚合 + 计数最终校正）。
-   * 计数随**每个平台**渲染经 onCountChange 增量回传父级页头徽章（粒度 = 每平台）。
+   * 加载（invoke 往返 O(1)，流式视觉靠前端分帧而非串行网络往返）：
+   *   ① 一次批量 `group_detail_list`（后端单 invoke 拉全部组+平台，已缓存）+ `platform_list` 并行。
+   *      —— 旧版主路径逐组串行 `group_detail`（N 组 = N 次 invoke RTT）+ 每平台 `await Promise.resolve()`
+   *         （59 次 microtask 让出）= 真正的「分组加载慢」根因，此处改批量消除。
+   *   ② 先渲分组骨架（容器/头，平台区空），再用 **rAF 分帧** 逐组 commit 平台卡（保留流式上屏视觉），
+   *      节奏由前端 requestAnimationFrame 控制，不再靠网络往返制造。某帧渲一组的卡。
+   *   ③ 未分组平台一次性补齐（已含在 platform_list）+ 余额/统计聚合。
+   * 计数随每帧 commit 经 onCountChange 增量回传父级页头徽章。
    */
   const load = async () => {
     const seq = ++loadSeqRef.current;
     const alive = () => seq === loadSeqRef.current;
     setLoading(true);
     onCountChange?.({ total: 0, active: 0 });
-    // 累计「已见平台」集（跨组/未分组去重：共享平台只计一次），随每个平台流入递增回传计数。
+    // 累计「已见平台」集（跨组/未分组去重：共享平台只计一次），随每帧流入递增回传计数。
     const seen = new Map<number, Platform>();
     const reportCount = () => {
       let active = 0;
       for (const p of seen.values()) if (p.enabled) active++;
       onCountChange?.({ total: seen.size, active });
     };
-    // 逐平台 append 进 platforms（去重：已存在则原地替换为最新副本，否则追加）。
-    // 单平台一次 setState → 单卡上屏；microtask 交错让卡片一个一个渲，互不阻塞。
-    const upsertPlatform = (plat: Platform) => {
-      setPlatforms(prev => {
-        const idx = prev.findIndex(p => p.id === plat.id);
-        if (idx === -1) return [...prev, plat];
-        const next = prev.slice();
-        next[idx] = plat;
-        return next;
-      });
+    const upsertPlatform = (prev: Platform[], plat: Platform): Platform[] => {
+      const idx = prev.findIndex(p => p.id === plat.id);
+      if (idx === -1) return [...prev, plat];
+      const next = prev.slice();
+      next[idx] = plat;
+      return next;
     };
+    // 下一帧（rAF；测试/无 rAF 环境兜底 setTimeout(0)）。
+    const nextFrame = (): Promise<void> =>
+      new Promise(resolve => {
+        if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolve());
+        else setTimeout(resolve, 0);
+      });
     try {
-      // ── ① 分组列表 → 骨架渲染 ──
-      const groups = (await groupApi.list()) || [];
+      // ── ① 批量拉全量（O(1) invoke）：group_detail_list（组+平台一次）+ platform_list 并行 ──
+      const [detailsRes, platformsRes] = await Promise.all([
+        groupDetailApi.list(),
+        platformApi.list(),
+      ]);
       if (!alive()) return;
-      const skeleton: GroupDetail[] = groups.map(g => ({
-        group: g,
+      const filledDetails: GroupDetail[] = detailsRes || [];
+      const allPlatforms: Platform[] = platformsRes || [];
+
+      // ── ② 先渲分组骨架（平台区空），随后逐帧 commit 平台卡（流式视觉） ──
+      const skeleton: GroupDetail[] = filledDetails.map(d => ({
+        group: d.group,
         platforms: [],
-        model_mappings: g.model_mappings || [],
+        model_mappings: d.model_mappings || d.group.model_mappings || [],
       }));
       setDetails(skeleton);
-      setPlatforms([]); // 重置：平台级流式从空开始逐个 append（reload 时清旧）
-      setLoading(false); // 骨架已渲，撤掉内部加载态；后续阶段在已渲容器内填充
+      setPlatforms([]); // 重置：流式从空开始逐帧填（reload 时清旧）
+      setLoading(false); // 骨架已渲，撤内部加载态；平台卡在已渲容器内分帧填充
 
-      // ── ② 依次逐组取平台 → 组内平台级流式渲染 ──
-      // 本地累积已填充的 GroupDetail，供阶段末 fetchGroupStats 用（避免再 refetch group_detail_list）。
-      const filledDetails: GroupDetail[] = [];
-      for (const g of groups) {
-        let detail: GroupDetail | null = null;
-        try {
-          detail = await groupDetailApi.get(g.id);
-        } catch (e) { console.error(e); }
-        if (!alive()) return;
-        if (!detail) continue;
-        const filled = detail; // narrow
-        filledDetails.push(filled);
-        // 该组的 gps 一次填入 details（卡片渲染门控在 platforms 是否含该平台，故 gps 整组给无妨）。
+      // 逐组分帧上屏：每帧 commit 一组的平台卡 + 该组 GroupDetail（含 gps），节奏由 rAF 控制。
+      for (const filled of filledDetails) {
+        // 该组 GroupDetail 整组填入 details（卡片渲染门控在 platforms 是否含该平台）。
         setDetails(prev => prev.map(d => d.group.id === filled.group.id ? filled : d));
-        // 组内平台**逐个**流式上屏：每个平台 append + 计数 +1，microtask 交错，单卡互不阻塞。
-        for (const gp of filled.platforms) {
-          upsertPlatform(gp.platform);
-          seen.set(gp.platform.id, gp.platform);
-          reportCount();
-          // 让出事件循环：本卡 setState 先提交渲染，再处理下一卡（单卡慢加载不卡同组其它卡）。
-          await Promise.resolve();
-          if (!alive()) return;
-        }
-      }
-
-      // ── ③ 未分组平台（全量列表）→ 逐个 append 剩余 + 计数最终校正 ──
-      const p = (await platformApi.list()) || [];
-      if (!alive()) return;
-      for (const plat of p) {
-        upsertPlatform(plat); // 已分组的原地刷新为最新副本；未分组的追加
-        seen.set(plat.id, plat);
+        // 该组平台一帧内批量 append（单次 setState，避免组内逐卡 N 次 microtask 让出）。
+        setPlatforms(prev => {
+          let next = prev;
+          for (const gp of filled.platforms) next = upsertPlatform(next, gp.platform);
+          return next;
+        });
+        for (const gp of filled.platforms) seen.set(gp.platform.id, gp.platform);
         reportCount();
+        // 让出一帧：本组卡先提交渲染，下一帧再渲下一组（保留逐组流式上屏视觉）。
+        await nextFrame();
+        if (!alive()) return;
       }
 
-      // ── 统计/余额聚合（用已填充 details + 全量平台，无额外 group_detail_list 往返）──
-      const { statsMap, balanceMap } = await fetchGroupStats(filledDetails, p);
+      // ── ③ 未分组平台（platform_list 已含全量）→ 一次性补齐剩余 + 计数最终校正 ──
+      setPlatforms(prev => {
+        let next = prev;
+        for (const plat of allPlatforms) next = upsertPlatform(next, plat);
+        return next;
+      });
+      for (const plat of allPlatforms) seen.set(plat.id, plat);
+      reportCount();
+
+      // ── 统计/余额聚合（复用已拉的 details + 全量平台，无额外往返）──
+      const { statsMap, balanceMap } = await fetchGroupStats(filledDetails, allPlatforms);
       if (!alive()) return;
       setGroupStats(statsMap);
       setGroupBalance(balanceMap);
