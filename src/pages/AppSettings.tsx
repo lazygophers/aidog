@@ -11,9 +11,9 @@ import { MiddlewareSettingsTab } from "../components/settings/MiddlewareRules";
 import { SchedulingSettingsTab } from "../components/settings/SchedulingSettings";
 import { NotificationSettingsTab } from "../components/settings/NotificationSettings";
 import { ImportExportTab } from "../components/settings/ImportExport";
-import { CcCodexSettingsTab } from "../components/settings/CcCodexSettings";
+import { CodingToolsSettingsTab } from "../components/settings/CodingToolsSettings";
 
-export type Tab = "system" | "claude" | "codex" | "cc_codex" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport";
+export type Tab = "system" | "claude" | "codex" | "coding_tools" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport";
 
 export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged }: { tab: Tab; onLogSettingsChanged?: (enabled: boolean) => void; onNotifSettingsChanged?: (enabled: boolean) => void }) {
   const { t } = useTranslation();
@@ -733,8 +733,8 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
         </div>
       ) : tab === "codex" ? (
         <CodexSettings />
-      ) : tab === "cc_codex" ? (
-        <CcCodexSettingsTab />
+      ) : tab === "coding_tools" ? (
+        <CodingToolsSettingsTab />
       ) : tab === "importexport" ? (
         <ImportExportTab />
       ) : (

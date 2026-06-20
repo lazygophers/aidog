@@ -3088,50 +3088,50 @@ async fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'_, D
     Ok(())
 }
 
-// ─── Claude Code / Codex 联动开关 ──────────────────────────
+// ─── AI 编程工具联动开关 ──────────────────────────
 //
-// 两开关存 DB（scope="global", key="cc_codex_settings"），变化时按 diff 触发
+// 两开关存 DB（scope="global", key="coding_tools_settings"），变化时按 diff 触发
 // 写外部文件（仅当值真变才写），失败记 warn 不中断其它字段。
 // - apply_to_claude_plugin → ~/.claude/config.json 的 primaryApiKey="any"
 // - skip_claude_onboarding → ~/.claude.json 的 hasCompletedOnboarding=true
 
 // 默认值 = 两开关 OFF（UI 显示关）。功能与开关解耦：
-// 启动初始化（ensure_default_cc_codex_settings）在 DB 无记录时写外部文件让功能开箱生效，
-// 但不落 DB 记录、`cc_codex_settings_get` 返 false —— 开关代表用户显式控制，
+// 启动初始化（ensure_default_coding_tools_settings）在 DB 无记录时写外部文件让功能开箱生效，
+// 但不落 DB 记录、`coding_tools_settings_get` 返 false —— 开关代表用户显式控制，
 // 未操作 = 关（显示关），但功能在用。用户 toggle 后才有 DB 记录，ensure 尊重不再默认写。
-const CC_CODEX_DEFAULT_APPLY: bool = false;
-const CC_CODEX_DEFAULT_SKIP: bool = false;
+const CODING_TOOLS_DEFAULT_APPLY: bool = false;
+const CODING_TOOLS_DEFAULT_SKIP: bool = false;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
-struct CcCodexSettings {
-    #[serde(default = "cc_codex_default_apply")]
+struct CodingToolsSettings {
+    #[serde(default = "coding_tools_default_apply")]
     apply_to_claude_plugin: bool,
-    #[serde(default = "cc_codex_default_skip")]
+    #[serde(default = "coding_tools_default_skip")]
     skip_claude_onboarding: bool,
 }
 
-fn cc_codex_default_apply() -> bool { CC_CODEX_DEFAULT_APPLY }
-fn cc_codex_default_skip() -> bool { CC_CODEX_DEFAULT_SKIP }
+fn coding_tools_default_apply() -> bool { CODING_TOOLS_DEFAULT_APPLY }
+fn coding_tools_default_skip() -> bool { CODING_TOOLS_DEFAULT_SKIP }
 
-impl Default for CcCodexSettings {
+impl Default for CodingToolsSettings {
     fn default() -> Self {
         Self {
-            apply_to_claude_plugin: CC_CODEX_DEFAULT_APPLY,
-            skip_claude_onboarding: CC_CODEX_DEFAULT_SKIP,
+            apply_to_claude_plugin: CODING_TOOLS_DEFAULT_APPLY,
+            skip_claude_onboarding: CODING_TOOLS_DEFAULT_SKIP,
         }
     }
 }
 
-async fn load_cc_codex_settings(db: &Db) -> CcCodexSettings {
-    match db::get_setting(db, "global", "cc_codex_settings").await {
+async fn load_coding_tools_settings(db: &Db) -> CodingToolsSettings {
+    match db::get_setting(db, "global", "coding_tools_settings").await {
         Ok(Some(v)) => serde_json::from_value(v).unwrap_or_default(),
-        _ => CcCodexSettings::default(),
+        _ => CodingToolsSettings::default(),
     }
 }
 
-/// 启动初始化：DB **无** cc_codex_settings 记录时（用户未操作过两开关）
+/// 启动初始化：DB **无** coding_tools_settings 记录时（用户未操作过两开关）
 /// 写外部文件（~/.claude/config.json primaryApiKey + ~/.claude.json hasCompletedOnboarding）
-/// 让功能开箱生效，但**不落 DB 记录**，`cc_codex_settings_get` 仍返 false（开关显示关）。
+/// 让功能开箱生效，但**不落 DB 记录**，`coding_tools_settings_get` 仍返 false（开关显示关）。
 ///
 /// 语义：功能（文件写入）与开关（用户显式控制）解耦。
 /// - 全新库启动 → 文件写入 + DB 无记录 + UI 关。
@@ -3139,8 +3139,8 @@ async fn load_cc_codex_settings(db: &Db) -> CcCodexSettings {
 ///
 /// 幂等：claude_integration 内部对已存在字段做 diff 跳过（重复写无副作用）。
 /// 失败仅 warn 不中断启动。
-async fn ensure_default_cc_codex_settings(db: &Db) -> Result<(), String> {
-    if db::get_setting(db, "global", "cc_codex_settings").await.ok().flatten().is_some() {
+async fn ensure_default_coding_tools_settings(db: &Db) -> Result<(), String> {
+    if db::get_setting(db, "global", "coding_tools_settings").await.ok().flatten().is_some() {
         // 用户已 toggle 过两开关，完全尊重 DB 值，不强制默认写。
         return Ok(());
     }
@@ -3148,17 +3148,17 @@ async fn ensure_default_cc_codex_settings(db: &Db) -> Result<(), String> {
     // 无记录（用户未操作）→ 写两外部文件让功能开箱生效。
     // 独立 try，失败 warn 不中断另一个；不落 DB 记录。
     match gateway::claude_integration::write_plugin_primary_key() {
-        Ok(_changed) => tracing::info!("ensure_default_cc_codex_settings: wrote ~/.claude/config.json primaryApiKey"),
+        Ok(_changed) => tracing::info!("ensure_default_coding_tools_settings: wrote ~/.claude/config.json primaryApiKey"),
         Err(e) => tracing::warn!(
             error = %e,
-            "ensure_default_cc_codex_settings: write ~/.claude/config.json failed"
+            "ensure_default_coding_tools_settings: write ~/.claude/config.json failed"
         ),
     }
     match gateway::claude_integration::set_has_completed_onboarding() {
-        Ok(_changed) => tracing::info!("ensure_default_cc_codex_settings: wrote ~/.claude.json hasCompletedOnboarding"),
+        Ok(_changed) => tracing::info!("ensure_default_coding_tools_settings: wrote ~/.claude.json hasCompletedOnboarding"),
         Err(e) => tracing::warn!(
             error = %e,
-            "ensure_default_cc_codex_settings: write ~/.claude.json failed"
+            "ensure_default_coding_tools_settings: write ~/.claude.json failed"
         ),
     }
     Ok(())
@@ -3166,21 +3166,21 @@ async fn ensure_default_cc_codex_settings(db: &Db) -> Result<(), String> {
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn cc_codex_settings_get(db: State<'_, Db>) -> Result<CcCodexSettings, String> {
-    tracing::debug!(command = "cc_codex_settings_get", "command invoked");
-    let current = load_cc_codex_settings(&db).await;
+async fn coding_tools_settings_get(db: State<'_, Db>) -> Result<CodingToolsSettings, String> {
+    tracing::debug!(command = "coding_tools_settings_get", "command invoked");
+    let current = load_coding_tools_settings(&db).await;
     Ok(current)
 }
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-async fn cc_codex_settings_set(
+async fn coding_tools_settings_set(
     apply_to_claude_plugin: Option<bool>,
     skip_claude_onboarding: Option<bool>,
     db: State<'_, Db>,
-) -> Result<CcCodexSettings, String> {
-    tracing::debug!(command = "cc_codex_settings_set", "command invoked");
-    let mut current = load_cc_codex_settings(&db).await;
+) -> Result<CodingToolsSettings, String> {
+    tracing::debug!(command = "coding_tools_settings_set", "command invoked");
+    let mut current = load_coding_tools_settings(&db).await;
 
     // 按字段 diff 触发副作用写文件；写失败立即返 Err（前端回滚 + 显示真因），
     // 不再静默 warn+返原值（旧实现致前端乐观翻转后被 setSettings(原值) 回滚 = 「开关点击无反应」）。
@@ -3195,7 +3195,7 @@ async fn cc_codex_settings_set(
                 Ok(_changed) => current.apply_to_claude_plugin = v,
                 Err(e) => {
                     tracing::warn!(
-                        command = "cc_codex_settings_set",
+                        command = "coding_tools_settings_set",
                         field = "apply_to_claude_plugin",
                         error = %e,
                         "write ~/.claude/config.json failed; field not persisted"
@@ -3217,7 +3217,7 @@ async fn cc_codex_settings_set(
                 Ok(_changed) => current.skip_claude_onboarding = v,
                 Err(e) => {
                     tracing::warn!(
-                        command = "cc_codex_settings_set",
+                        command = "coding_tools_settings_set",
                         field = "skip_claude_onboarding",
                         error = %e,
                         "write ~/.claude.json failed; field not persisted"
@@ -3232,7 +3232,7 @@ async fn cc_codex_settings_set(
     let value = serde_json::to_value(&current).map_err(|e| e.to_string())?;
     db::set_setting(&db, SetSettingInput {
         scope: "global".to_string(),
-        key: "cc_codex_settings".to_string(),
+        key: "coding_tools_settings".to_string(),
         value,
     }).await?;
     Ok(current)
@@ -3977,8 +3977,8 @@ pub fn run() {
             // 失败仅 warn 不阻塞启动。
             {
                 let db_state = app.state::<Db>();
-                if let Err(e) = tauri::async_runtime::block_on(ensure_default_cc_codex_settings(&db_state)) {
-                    tracing::warn!(error = %e, "ensure_default_cc_codex_settings failed");
+                if let Err(e) = tauri::async_runtime::block_on(ensure_default_coding_tools_settings(&db_state)) {
+                    tracing::warn!(error = %e, "ensure_default_coding_tools_settings failed");
                 }
             }
 
@@ -4321,8 +4321,8 @@ pub fn run() {
             app_log_settings_get,
             app_log_settings_set,
             // CC / Codex integration toggles
-            cc_codex_settings_get,
-            cc_codex_settings_set,
+            coding_tools_settings_get,
+            coding_tools_settings_set,
             // Settings
             fs_autocomplete,
             settings_get,
@@ -4410,48 +4410,48 @@ mod tests {
         assert_eq!(base["env"]["keep"], "y");
     }
 
-    /// CcCodexSettings 默认 = 两开关 false（UI 显示关，功能与开关解耦）。
+    /// CodingToolsSettings 默认 = 两开关 false（UI 显示关，功能与开关解耦）。
     #[test]
-    fn cc_codex_settings_default_is_off() {
-        let s = super::CcCodexSettings::default();
+    fn coding_tools_settings_default_is_off() {
+        let s = super::CodingToolsSettings::default();
         assert!(!s.apply_to_claude_plugin, "default apply_to_claude_plugin must be false");
         assert!(!s.skip_claude_onboarding, "default skip_claude_onboarding must be false");
     }
 
-    /// CcCodexSettings 反序列化时缺失字段也走默认 false。
+    /// CodingToolsSettings 反序列化时缺失字段也走默认 false。
     #[test]
-    fn cc_codex_settings_deserialize_missing_fields_defaults_false() {
-        let s: super::CcCodexSettings = serde_json::from_value(json!({})).unwrap();
+    fn coding_tools_settings_deserialize_missing_fields_defaults_false() {
+        let s: super::CodingToolsSettings = serde_json::from_value(json!({})).unwrap();
         assert!(!s.apply_to_claude_plugin);
         assert!(!s.skip_claude_onboarding);
     }
 
-    /// ensure_default_cc_codex_settings：DB 无记录 → 写文件但**不落 DB 记录**。
+    /// ensure_default_coding_tools_settings：DB 无记录 → 写文件但**不落 DB 记录**。
     ///
     /// 语义：功能（文件写入）与开关（DB 记录）解耦。无记录代表用户未操作，
     /// 默认行为写文件让功能生效，但 UI get 返 false（开关显示关）。
     /// 文件写入需真实 ~/.claude 路径，单测只验 DB 不落记录这一不变量。
     #[tokio::test]
-    async fn ensure_default_cc_codex_settings_no_record_no_db_write() {
+    async fn ensure_default_coding_tools_settings_no_record_no_db_write() {
         let db = crate::Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
 
         // 首次：无记录
-        super::ensure_default_cc_codex_settings(&db).await.expect("ensure first run");
+        super::ensure_default_coding_tools_settings(&db).await.expect("ensure first run");
 
         // 关键断言：ensure 不落 DB 记录（功能与开关解耦）
-        let rec = crate::gateway::db::get_setting(&db, "global", "cc_codex_settings")
+        let rec = crate::gateway::db::get_setting(&db, "global", "coding_tools_settings")
             .await
             .expect("query setting");
         assert!(rec.is_none(), "ensure must NOT create DB record when none existed");
     }
 
-    /// ensure_default_cc_codex_settings：DB 有记录 → 不改写。
+    /// ensure_default_coding_tools_settings：DB 有记录 → 不改写。
     ///
     /// 用户 toggle 过（任意值）→ ensure 完全尊重 DB，不强制默认写。
     /// 这里验证 ensure 看到记录后 DB 值原样保留。
     #[tokio::test]
-    async fn ensure_default_cc_codex_settings_respects_existing_record() {
+    async fn ensure_default_coding_tools_settings_respects_existing_record() {
         let db = crate::Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
 
@@ -4462,18 +4462,18 @@ mod tests {
         });
         crate::gateway::db::set_setting(&db, crate::SetSettingInput {
             scope: "global".to_string(),
-            key: "cc_codex_settings".to_string(),
+            key: "coding_tools_settings".to_string(),
             value: user_value,
         }).await.expect("seed record");
 
         // 调 ensure：应尊重已有记录
-        super::ensure_default_cc_codex_settings(&db).await.expect("ensure with record");
+        super::ensure_default_coding_tools_settings(&db).await.expect("ensure with record");
 
-        let rec = crate::gateway::db::get_setting(&db, "global", "cc_codex_settings")
+        let rec = crate::gateway::db::get_setting(&db, "global", "coding_tools_settings")
             .await
             .expect("query setting")
             .expect("record must still exist");
-        let s: super::CcCodexSettings = serde_json::from_value(rec).unwrap();
+        let s: super::CodingToolsSettings = serde_json::from_value(rec).unwrap();
         assert!(s.apply_to_claude_plugin, "user's true must be preserved");
         assert!(s.skip_claude_onboarding, "user's true must be preserved");
     }
