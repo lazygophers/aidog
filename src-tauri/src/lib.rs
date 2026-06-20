@@ -829,13 +829,16 @@ async fn model_test(
     let model = req.model.clone().or(platform.models.default.clone())
         .ok_or_else(|| { tracing::warn!(command = "model_test", platform_id = req.platform_id, "no model specified and no default model configured"); "no model specified and no default model configured".to_string() })?;
 
-    let prompt = req.prompt.clone().unwrap_or_else(|| {
-        let idx = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos() as usize % TEST_PROMPTS.len();
-        TEST_PROMPTS[idx].to_string()
-    });
+    // prompt 来源二选一：
+    //   - req.prompt 有值 → 自定义模式（ModelTestPanel）：跳过随机 + 跳过内容校验，success=响应非空。
+    //   - req.prompt 为空 → 默认/快速测试：随机生成可校验题（算术/常识轮换），expected 用于子串校验。
+    let (prompt, expected) = match req.prompt.clone() {
+        Some(p) => (p, None),
+        None => {
+            let (p, e) = random_test_challenge();
+            (p, Some(e))
+        }
+    };
 
     let chat_req = gateway::adapter::ChatRequest {
         model: model.clone(),
@@ -844,7 +847,7 @@ async fn model_test(
             content: gateway::adapter::MessageContent::Text(prompt.clone()),
         }],
         system: None,
-        max_tokens: Some(req.max_tokens.unwrap_or(64)),
+        max_tokens: Some(req.max_tokens.unwrap_or(16)),
         // 不强制 temperature：部分模型（如 Kimi coding plan）只允许 temperature=1，
         // 发任何其他值会被上游 400 拒绝。省略让上游用模型默认值，避开所有挑剔 temperature 的模型。
         temperature: None,
@@ -1056,19 +1059,26 @@ async fn model_test(
     let response_text = extract_response_text(&resp_json, &target_protocol);
     let (in_tok, out_tok) = extract_test_usage(&resp_json, &target_protocol);
 
+    // 内容校验：
+    //   - expected 有值（随机可校验题）：归一化后响应须含 expected 子串，否则失败。
+    //     容忍模型自然长答（含解释/标点），只要关键词出现即算通过。
+    //   - expected 为 None（自定义 prompt）：跳过内容校验，仅要求响应非空。
+    let success = verify_test_response(&response_text, expected.as_deref());
+    let error = if success { String::new() } else { "响应内容校验失败".to_string() };
+
     let result = ModelTestResult {
-        success: true,
+        success,
         model: model.clone(),
         prompt_preview: truncate_str(&prompt, 100),
         response_preview: truncate_str(&response_text, 300),
         duration_ms,
         input_tokens: in_tok,
         output_tokens: out_tok,
-        error: String::new(),
+        error,
     };
 
     if let Err(le) = db::upsert_proxy_log(&db, make_log(
-        &body, upstream_status_code, 200,
+        &body, upstream_status_code, if success { 200 } else { 422 },
         &upstream_resp_headers, &body, in_tok, out_tok,
     )).await {
         tracing::debug!(command = "model_test", error = %le, "upsert test proxy_log failed");

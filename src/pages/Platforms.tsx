@@ -2060,7 +2060,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     let success = false;
     try {
       const defaultModel = p.models.default || p.available_models[0] || "";
-      const r = await modelTestApi.test({ platform_id: p.id, model: defaultModel, max_tokens: 64 });
+      const r = await modelTestApi.test({ platform_id: p.id, model: defaultModel });
       success = r.success;
       setTestResults(prev => ({ ...prev, [p.id]: r.success ? "ok" : "fail" }));
       setToast({ text: r.success

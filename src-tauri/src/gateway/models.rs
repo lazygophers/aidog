@@ -1273,20 +1273,72 @@ pub struct ModelTestResult {
     pub error: String,
 }
 
-/// Built-in test prompts — short, harmless, clearly not real requests
+/// 内置常识问答题库（问题, 期望关键词）。
+/// 关键词须极短且为模型自然回答的开头，以便在 max_tokens=16 截断下仍可校验。
 #[allow(dead_code)]
-pub const TEST_PROMPTS: &[&str] = &[
-    "Respond with only the word 'hello' in lowercase.",
-    "Calculate 7 x 13 and respond with only the number.",
-    "List exactly 3 primary colors, comma-separated.",
-    "What is the capital of France? Answer in one word.",
-    "Translate 'good morning' to Japanese. One word only.",
-    "Count the letters in 'artificial'. Respond with only the number.",
-    "What is 15% of 200? Answer with only the number.",
-    "Name the 4th planet from the Sun. One word.",
-    "What element has the symbol 'O'? One word.",
-    "How many days are in a leap year? Answer with only the number.",
+pub const TEST_TRIVIA: &[(&str, &str)] = &[
+    ("中国的首都是哪个城市？", "北京"),
+    ("一年有几个月？", "12"),
+    ("水的化学式是什么？", "H2O"),
+    ("地球有几个卫星（月亮）？", "1"),
+    ("一周有几天？", "7"),
+    ("彩虹有几种颜色？", "7"),
+    ("太阳从哪个方向升起？", "东"),
+    ("一个三角形有几条边？", "3"),
+    ("人类有几只手？", "2"),
+    ("英文字母表有几个字母？", "26"),
 ];
+
+/// 生成一道随机可校验的测试题，返回 `(prompt, expected)`。
+/// 两类轮换：算术（随机两位数 +/-/×）与常识问答。
+/// prompt 每次随机 → 防指纹；expected 为归一化后用于子串校验的极短答案。
+#[allow(dead_code)]
+pub fn random_test_challenge() -> (String, String) {
+    use rand::Rng;
+    let mut rng = rand::thread_rng();
+    if rng.gen_bool(0.5) {
+        // 算术：两位数 10..=99
+        let a: i64 = rng.gen_range(10..=99);
+        let b: i64 = rng.gen_range(10..=99);
+        match rng.gen_range(0..3) {
+            0 => (format!("{} 加 {} 等于多少？", a, b), (a + b).to_string()),
+            1 => {
+                // 保证非负，便于关键词在开头
+                let (hi, lo) = if a >= b { (a, b) } else { (b, a) };
+                (format!("{} 减 {} 等于多少？", hi, lo), (hi - lo).to_string())
+            }
+            _ => (format!("{} 乘以 {} 等于多少？", a, b), (a * b).to_string()),
+        }
+    } else {
+        let (q, ans) = TEST_TRIVIA[rng.gen_range(0..TEST_TRIVIA.len())];
+        (q.to_string(), ans.to_string())
+    }
+}
+
+/// 归一化文本用于子串校验：转小写 + 去除空白/标点（仅保留字母数字与 CJK）。
+/// 同一规则同时作用于响应文本与 expected，避免 "H2O"/"h2o"、"北京。"/"北京" 等差异。
+#[allow(dead_code)]
+pub fn normalize_for_match(s: &str) -> String {
+    s.chars()
+        .filter(|c| c.is_alphanumeric())
+        .flat_map(|c| c.to_lowercase())
+        .collect()
+}
+
+/// 测试响应内容校验（产线 model_test 复用，保证单测覆盖真实逻辑）。返回 true=通过。
+///
+/// - `expected = Some(exp)`（随机可校验题）：归一化后响应须含 expected 子串。
+/// - `expected = None`（自定义 prompt）：跳过内容校验，仅要求响应非空。
+#[allow(dead_code)]
+pub fn verify_test_response(response_text: &str, expected: Option<&str>) -> bool {
+    match expected {
+        Some(exp) => {
+            let norm_exp = normalize_for_match(exp);
+            !norm_exp.is_empty() && normalize_for_match(response_text).contains(&norm_exp)
+        }
+        None => !response_text.trim().is_empty(),
+    }
+}
 
 // ─── Model Price ───────────────────────────────────────────
 
@@ -2375,5 +2427,62 @@ mod middleware_model_tests {
             &PlatformBreaker { failure_threshold: 8, open_secs: 0, half_open_max: 0 },
         ));
         assert_eq!(global.effective_thresholds(&p_partial), (8, 60, 2));
+    }
+}
+
+#[cfg(test)]
+mod model_test_challenge_tests {
+    use super::*;
+
+    #[test]
+    fn random_challenge_prompt_varies_and_expected_nonempty() {
+        // 多次生成应出现不止一个 prompt（防指纹）；每条 expected 非空且可在自身校验通过。
+        let mut prompts = std::collections::HashSet::new();
+        for _ in 0..200 {
+            let (p, e) = random_test_challenge();
+            assert!(!p.trim().is_empty(), "prompt 不应为空");
+            assert!(!e.trim().is_empty(), "expected 不应为空");
+            // expected 直接喂回校验必然通过（归一化自反）。
+            assert!(verify_test_response(&e, Some(&e)), "expected 自校验应通过: {e}");
+            prompts.insert(p);
+        }
+        assert!(prompts.len() > 1, "200 次生成应产生多种 prompt，实际 {}", prompts.len());
+    }
+
+    #[test]
+    fn arithmetic_answers_are_correct() {
+        // 算术题答案须为真实计算结果：采样直到覆盖一道加法验证语义。
+        for _ in 0..500 {
+            let (p, e) = random_test_challenge();
+            if let Some(idx) = p.find(" 加 ") {
+                let a: i64 = p[..idx].trim().parse().unwrap();
+                let rest = &p[idx + " 加 ".len()..];
+                let b: i64 = rest[..rest.find(' ').unwrap()].trim().parse().unwrap();
+                assert_eq!(e, (a + b).to_string());
+                return;
+            }
+        }
+        panic!("500 次未抽到加法题");
+    }
+
+    #[test]
+    fn verify_substring_match_tolerates_natural_answers() {
+        // 含子串即通过：模型自然长答 + 标点 + 大小写均应匹配。
+        assert!(verify_test_response("答案是 95。", Some("95")));
+        assert!(verify_test_response("中国的首都是北京，是一座历史名城。", Some("北京")));
+        assert!(verify_test_response("The formula is H2O.", Some("H2O")));
+        assert!(verify_test_response("h2o", Some("H2O"))); // 大小写归一
+        // 不含 expected → 失败。
+        assert!(!verify_test_response("上海", Some("北京")));
+        assert!(!verify_test_response("", Some("12")));
+    }
+
+    #[test]
+    fn verify_custom_mode_skips_content_check() {
+        // expected=None（自定义 prompt）：非空即通过，空白即失败，不做关键词比对。
+        assert!(verify_test_response("任意非空回答", None));
+        assert!(verify_test_response("anything goes here", None));
+        assert!(!verify_test_response("   ", None));
+        assert!(!verify_test_response("", None));
     }
 }
