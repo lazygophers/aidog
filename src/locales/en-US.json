@@ -766,6 +766,7 @@
   "platform.testOk": "Test passed",
   "platform.toggleDetail": "Toggle details",
   "platform.toggleFail": "Toggle failed",
+  "platform.deleteFail": "Delete failed",
   "platform.usageLabel": "Used",
   "platform.usageLoading": "Loading usage",
   "platform.viewLogs": "View Logs",

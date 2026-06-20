@@ -766,6 +766,7 @@
   "platform.testOk": "Test correcto",
   "platform.toggleDetail": "Mostrar/ocultar detalles",
   "platform.toggleFail": "Error al cambiar",
+  "platform.deleteFail": "Error al eliminar",
   "platform.usageLabel": "Usado",
   "platform.usageLoading": "Cargando uso",
   "platform.viewLogs": "Ver registros",

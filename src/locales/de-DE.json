@@ -788,6 +788,7 @@
   "platform.testOk": "Test bestanden",
   "platform.toggleDetail": "Details umschalten",
   "platform.toggleFail": "Umschalten fehlgeschlagen",
+  "platform.deleteFail": "Löschen fehlgeschlagen",
   "platform.usageLabel": "Verbraucht",
   "platform.usageLoading": "Nutzung wird geladen",
   "platform.viewLogs": "Protokolle ansehen",

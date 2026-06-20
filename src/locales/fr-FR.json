@@ -788,6 +788,7 @@
   "platform.testOk": "Test réussi",
   "platform.toggleDetail": "Afficher/masquer les détails",
   "platform.toggleFail": "Échec du basculement",
+  "platform.deleteFail": "Échec de la suppression",
   "platform.usageLabel": "Utilisé",
   "platform.usageLoading": "Chargement de l'utilisation",
   "platform.viewLogs": "Voir les journaux",
