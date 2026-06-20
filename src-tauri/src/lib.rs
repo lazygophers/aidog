@@ -814,6 +814,18 @@ async fn stats_query(
     db::query_stats(&db, &query).await
 }
 
+/// 批量统计查询：浮窗 N 卡一次 IPC 拉全部卡数据，替代每卡独立 `stats_query` fan-out。
+/// 返回顺序与 `queries` 一一对应；单卡值与逐卡 `stats_query` 完全一致。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn stats_query_batch(
+    db: State<'_, Db>,
+    queries: Vec<StatsQuery>,
+) -> Result<Vec<StatsResult>, String> {
+    tracing::debug!(command = "stats_query_batch", count = queries.len(), "command invoked");
+    db::query_stats_batch(&db, queries).await
+}
+
 // ─── Model Testing ─────────────────────────────────────────
 
 #[tauri::command]
@@ -4214,6 +4226,7 @@ pub fn run() {
             tray_config_get,
             tray_config_set,
             tray_today_stats,
+            stats_query_batch,
             popover_data,
             popover_config_get,
             popover_config_set,

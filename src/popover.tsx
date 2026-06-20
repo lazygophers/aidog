@@ -4,10 +4,16 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize, LogicalPosition } from "@tauri-apps/api/window";
 import { useTranslation } from "react-i18next";
 import type { Group, GroupDetail } from "./services/api";
-import { groupApi, groupDetailApi } from "./services/api";
+import { groupApi, groupDetailApi, statsApi } from "./services/api";
 import { applyTheme, DEFAULT_STYLE, DEFAULT_COLOR, DEFAULT_MODE } from "./themes";
 import type { ThemeStyle, ThemeColor, ThemeMode } from "./themes/types";
-import { renderGrid, type PopoverData } from "./components/PopoverCards";
+import {
+  renderGrid,
+  collectStatsQueries,
+  type PopoverData,
+  type PopoverStatsMap,
+  type PopoverStatsCtx,
+} from "./components/PopoverCards";
 import i18n, { ensureLocaleLoaded, type Locale } from "./locales";
 import "./styles/popover.css";
 
@@ -74,6 +80,9 @@ function Popover() {
   const [data, setData] = useState<PopoverData | null>(null);
   const [groups, setGroups] = useState<Group[]>([]);
   const [groupDetails, setGroupDetails] = useState<GroupDetail[] | null>(null);
+  // 各统计卡数据：一次批量 IPC 拉全部（item.id → StatsResult），消除每卡 fan-out。
+  const [statsMap, setStatsMap] = useState<PopoverStatsMap>(new Map());
+  const [statsLoaded, setStatsLoaded] = useState(false);
   const rootRef = React.useRef<HTMLDivElement>(null);
   // tray 下方居中锚点（首次测得后恒定）；当前应用的窗口尺寸（去抖比较用）。
   const centerXRef = React.useRef<number | null>(null);
@@ -86,7 +95,24 @@ function Popover() {
       ensureLocaleLoaded(s.locale).then(() => i18n.changeLanguage(s.locale)).catch(() => {});
     }
     invoke<PopoverData>("popover_data")
-      .then(setData)
+      .then((d) => {
+        setData(d);
+        // config 到手后一次性批量拉所有统计卡数据（cost_trend / platform_metric / group_*）。
+        const { itemIds, queries } = collectStatsQueries(d.config);
+        if (queries.length === 0) {
+          setStatsLoaded(true);
+          return;
+        }
+        statsApi
+          .queryBatch(queries)
+          .then((results) => {
+            const m: PopoverStatsMap = new Map();
+            results.forEach((r, i) => m.set(itemIds[i], r));
+            setStatsMap(m);
+            setStatsLoaded(true);
+          })
+          .catch(() => setStatsLoaded(true));
+      })
       .catch(console.error);
     // 分组名 + 分组余额数据（group_* 卡片用）。顶层一次性 fetch，避免每卡重复请求。
     groupApi.list().then(setGroups).catch(() => {});
@@ -148,9 +174,10 @@ function Popover() {
     return <div ref={rootRef} className="popover-root popover-loading">{t("common.loading", "加载中...")}</div>;
   }
 
+  const statsCtx: PopoverStatsCtx = { map: statsMap, loaded: statsLoaded };
   return (
     <div ref={rootRef} className="popover-root">
-      {renderGrid(data.config, data, groups, groupDetails, t)}
+      {renderGrid(data.config, data, groups, groupDetails, t, statsCtx)}
     </div>
   );
 }
