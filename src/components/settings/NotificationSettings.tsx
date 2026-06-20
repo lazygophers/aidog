@@ -33,6 +33,7 @@ const DEFAULT_SETTINGS: NotifSettings = {
   tts_backend: "cross_platform",
   per_type: {},
   per_event: {},
+  inbox_retention_days: 7,
 };
 
 function ttsBackendLabel(t: ReturnType<typeof useTranslation>["t"], b: TtsBackend): string {
@@ -358,6 +359,54 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         </button>
       </div>
 
+
+      {/* 收件箱历史自动清理：开关（不清理↔保留 N 天）+ 天数输入。后端硬删过期行。 */}
+      {(() => {
+        const retention = settings.inbox_retention_days ?? 7;
+        const cleanupOn = retention > 0;
+        return (
+          <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600 }}>{t("notif.retentionTitle", "通知历史自动清理")}</div>
+                <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                  {t("notif.retentionDesc", "超过保留天数的通知历史将被永久删除；关闭则永久保留")}
+                </div>
+              </div>
+              <div
+                className={`toggle ${cleanupOn ? "active" : ""}`}
+                // 关 → 0（不清理）；开 → 回 7 天默认。
+                onClick={() => persist(prev => ({ ...prev, inbox_retention_days: cleanupOn ? 0 : 7 }))}
+                role="switch"
+                aria-checked={cleanupOn}
+                aria-label={t("notif.retentionTitle", "通知历史自动清理")}
+                tabIndex={0}
+              />
+            </div>
+            {cleanupOn && (
+              <div style={{ display: "flex", gap: 8, alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                  {t("notif.retentionDaysLabel", "保留天数")}
+                </label>
+                <input
+                  type="number"
+                  className="input"
+                  min={1}
+                  max={3650}
+                  style={{ maxWidth: 120, padding: "4px 8px", fontSize: 12 }}
+                  value={retention}
+                  onChange={(e) => {
+                    // 限 [1,3650]；非法输入回退 1（0 仅由开关切「不清理」）。
+                    const n = Math.min(3650, Math.max(1, Math.floor(Number(e.target.value) || 1)));
+                    persist(prev => ({ ...prev, inbox_retention_days: n }));
+                  }}
+                />
+                <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>{t("notif.retentionDaysUnit", "天")}</span>
+              </div>
+            )}
+          </div>
+        );
+      })()}
 
       {/* 默认注入总开关：控制基线 _aidog_hooks.enabled，全分组生效 */}
       <div
