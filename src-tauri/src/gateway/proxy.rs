@@ -242,6 +242,8 @@ async fn handle_group_info_inner(
             recent_failures: 0,
             recent_total: 0,
             total_cost: 0.0,
+            today_tokens: 0,
+            today_cost: 0.0,
         }
     );
 
