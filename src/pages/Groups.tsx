@@ -705,7 +705,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     groupId: number; groupName: string; rows: GroupTestRow[]; running: boolean;
   } | null>(null);
 
-  // 并发测试：与单平台快速测试同参（默认模型 + max_tokens 64），worker-pool（共享 index 游标 + N 个 worker）。
+  // 并发测试：与单平台快速测试同参（默认模型，max_tokens 后端默认 16），worker-pool（共享 index 游标 + N 个 worker）。
   // 不复用 usePlatformCards 的 testingId/testResults —— 那是单卡态，组级面板独立维护行集合。
   const handleTestGroup = useCallback(async (group: GroupDetail["group"], gps: GroupPlatformDetail[]) => {
     if (gps.length === 0) return;
@@ -726,7 +726,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       const start = Date.now();
       let success = false;
       try {
-        const r = await modelTestApi.test({ platform_id: gp.platform.id, model: defaultModel, max_tokens: 64 });
+        const r = await modelTestApi.test({ platform_id: gp.platform.id, model: defaultModel });
         const durationMs = Date.now() - start;
         success = r.success;
         patchRow(idx, r.success

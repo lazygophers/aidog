@@ -61,7 +61,6 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
           platform_id: platform.id,
           model: models[i],
           prompt: (mode === "custom" && customPrompt) ? customPrompt : undefined,
-          max_tokens: 64,
         });
         res.push(r);
         setResults([...res]);
