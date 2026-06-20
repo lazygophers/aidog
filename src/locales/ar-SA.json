@@ -753,6 +753,7 @@
   "platform.paste.apiKey": "API Key",
   "platform.paste.apply": "تعبئة النموذج",
   "platform.paste.baseUrl": "Base URL",
+  "platform.paste.baseUrlMultiHint": "واحد لكل نوع",
   "platform.paste.clipDenied": "تعذّر قراءة الحافظة، الصق يدويًا",
   "platform.paste.detected": "النتائج",
   "platform.paste.empty": "يتم الكشف تلقائيًا بعد اللصق.",

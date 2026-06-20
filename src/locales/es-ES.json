@@ -731,6 +731,7 @@
   "platform.paste.apiKey": "API Key",
   "platform.paste.apply": "Rellenar formulario",
   "platform.paste.baseUrl": "Base URL",
+  "platform.paste.baseUrlMultiHint": "Uno por tipo",
   "platform.paste.clipDenied": "No se puede leer el portapapeles, pega manualmente",
   "platform.paste.detected": "Resultados",
   "platform.paste.empty": "Detección automática tras pegar.",

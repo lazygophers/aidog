@@ -753,6 +753,7 @@
   "platform.paste.apiKey": "API Key",
   "platform.paste.apply": "フォームに入力",
   "platform.paste.baseUrl": "Base URL",
+  "platform.paste.baseUrlMultiHint": "タイプごとに1つ",
   "platform.paste.clipDenied": "クリップボードを読み取れません。手動で貼り付けてください",
   "platform.paste.detected": "認識結果",
   "platform.paste.empty": "貼り付け後に自動認識します。",

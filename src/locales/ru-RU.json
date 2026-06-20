@@ -753,6 +753,7 @@
   "platform.paste.apiKey": "API Key",
   "platform.paste.apply": "Заполнить форму",
   "platform.paste.baseUrl": "Base URL",
+  "platform.paste.baseUrlMultiHint": "По одному на тип",
   "platform.paste.clipDenied": "Не удалось прочитать буфер обмена, вставьте вручную",
   "platform.paste.detected": "Результаты",
   "platform.paste.empty": "Распознавание после вставки.",

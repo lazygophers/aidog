@@ -14,9 +14,8 @@ import {
 
 export interface SmartPasteApplyResult {
   platform: { value: string; label: string } | null;
-  baseUrl: string;
-  /** 选中 base_url 的协议倾向（供调用方写入正确 endpoint）。 */
-  baseUrlProtocol: ParsedProtocol;
+  /** 选中的 base_url（按协议类型多选，每类型最多一个）。每项 → 一个 endpoint。 */
+  baseUrls: { url: string; protocol: ParsedProtocol }[];
   apiKey: string;
 }
 
@@ -40,7 +39,8 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
   const { t } = useTranslation();
   const [text, setText] = useState("");
   const [selKey, setSelKey] = useState("");
-  const [selUrl, setSelUrl] = useState("");
+  // 多选 base_url：按协议类型分组，每类型最多选一个（不同类型可并存 → 多 endpoint）。
+  const [selUrls, setSelUrls] = useState<string[]>([]);
 
   const parsed = useMemo(() => parsePlatformPaste(text, presets), [text, presets]);
 
@@ -62,14 +62,30 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 默认选中首个候选（解析结果变化时重置）
+  // 默认选中：每个协议类型的首个 url（不同类型并存，同类型只取第一个）。
   useEffect(() => {
+    const byProto = new Map<ParsedProtocol, string>();
+    for (const b of parsed.baseUrls) {
+      if (!byProto.has(b.protocol)) byProto.set(b.protocol, b.url);
+    }
+    setSelUrls(Array.from(byProto.values()));
     setSelKey(parsed.apiKeys[0] ?? "");
-    setSelUrl(parsed.baseUrls[0]?.url ?? "");
   }, [parsed]);
 
+  // 切换某 url 选中态：同协议类型内互斥（选新自动替旧），不同类型可并存。
+  const toggleUrl = (url: string, protocol: ParsedProtocol) => {
+    setSelUrls((prev) => {
+      if (prev.includes(url)) {
+        return prev.filter((u) => u !== url);
+      }
+      // 剔除同协议已选，加入新选
+      const sameProtoUrl = parsed.baseUrls.find((b) => b.protocol === protocol && prev.includes(b.url))?.url;
+      return sameProtoUrl ? prev.map((u) => (u === sameProtoUrl ? url : u)) : [...prev, url];
+    });
+  };
+
   const hasResult = parsed.apiKeys.length > 0 || parsed.baseUrls.length > 0 || !!parsed.platform;
-  const canApply = !!(selKey || selUrl || parsed.platform);
+  const canApply = !!(selKey || selUrls.length > 0 || parsed.platform);
 
   const labelStyle: CSSProperties = {
     fontSize: 12,
@@ -169,36 +185,43 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
             </div>
           )}
 
-          {/* Base URL */}
+          {/* Base URL（按协议类型多选：每类型最多一个，不同类型并存 → 多 endpoint） */}
           {parsed.baseUrls.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={labelStyle}>{t("platform.paste.baseUrl", "Base URL")}</div>
-              {parsed.baseUrls.map((b) => (
-                <label
-                  key={b.url}
-                  style={{ ...optRow, borderColor: selUrl === b.url ? "var(--accent)" : "var(--border)" }}
-                >
-                  <input
-                    type="radio"
-                    name="paste-url"
-                    checked={selUrl === b.url}
-                    onChange={() => setSelUrl(b.url)}
-                  />
-                  <span
-                    style={{
-                      flexShrink: 0,
-                      fontSize: 10.5,
-                      padding: "1px 6px",
-                      borderRadius: 4,
-                      background: "var(--accent-subtle)",
-                      color: "var(--accent)",
-                    }}
+              <div style={{ ...labelStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>{t("platform.paste.baseUrl", "Base URL")}</span>
+                <span style={{ fontSize: 10.5, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "none", letterSpacing: 0 }}>
+                  {t("platform.paste.baseUrlMultiHint", "不同类型可各选一个")}
+                </span>
+              </div>
+              {parsed.baseUrls.map((b) => {
+                const checked = selUrls.includes(b.url);
+                return (
+                  <label
+                    key={b.url}
+                    style={{ ...optRow, borderColor: checked ? "var(--accent)" : "var(--border)" }}
                   >
-                    {PROTO_LABEL[b.protocol]}
-                  </span>
-                  <span style={{ color: "var(--text-primary)" }}>{b.url}</span>
-                </label>
-              ))}
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleUrl(b.url, b.protocol)}
+                    />
+                    <span
+                      style={{
+                        flexShrink: 0,
+                        fontSize: 10.5,
+                        padding: "1px 6px",
+                        borderRadius: 4,
+                        background: "var(--accent-subtle)",
+                        color: "var(--accent)",
+                      }}
+                    >
+                      {PROTO_LABEL[b.protocol]}
+                    </span>
+                    <span style={{ color: "var(--text-primary)" }}>{b.url}</span>
+                  </label>
+                );
+              })}
             </div>
           )}
 
@@ -239,11 +262,12 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
             style={{ fontSize: 13, padding: "6px 14px", minWidth: 96 }}
             disabled={!canApply}
             onClick={() => {
-              const urlObj = parsed.baseUrls.find((b) => b.url === selUrl);
+              const selected = parsed.baseUrls
+                .filter((b) => selUrls.includes(b.url))
+                .map((b) => ({ url: b.url, protocol: b.protocol }));
               onApply({
                 platform: parsed.platform,
-                baseUrl: selUrl,
-                baseUrlProtocol: urlObj?.protocol ?? "unknown",
+                baseUrls: selected,
                 apiKey: selKey,
               });
               onClose();
