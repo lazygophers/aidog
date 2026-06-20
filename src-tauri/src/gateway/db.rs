@@ -3531,15 +3531,24 @@ impl QueryParams {
 /// - `5min`   → 每 5 分钟一桶；strftime 无原生 floor，先把 epoch 秒整除 300 再 *300 向下取整到 5min 边界
 /// - `hourly` → 每小时一桶 `%Y-%m-%d %H:00`
 /// - 其余（含 `daily`/None）→ 每天一桶 `%Y-%m-%d`
+///
+/// 时区：必须带 `'localtime'`，使分桶按本地日界/小时切分，与 `today_stats`/`today_platform_stats`
+/// 的 `chrono::Local` 00:00 语义一致。缺 `'localtime'` 时 strftime 默认按 UTC 切桶，东八区会把本地
+/// 同一天的请求拆到相邻 UTC 日/小时桶（曲线按日错位、跨日双峰），属时区 bug。
 fn bucket_time_expr(granularity: Option<&str>) -> String {
     match granularity {
-        Some("minute") => "strftime('%Y-%m-%d %H:%M', created_at/1000, 'unixepoch')".to_string(),
+        Some("minute") => {
+            "strftime('%Y-%m-%d %H:%M', created_at/1000, 'unixepoch', 'localtime')".to_string()
+        }
         // epoch 秒 floor 到 300s 边界后再格式化为分钟（桶 key 形如 "2026-06-16 10:05"）
         Some("5min") => {
-            "strftime('%Y-%m-%d %H:%M', (created_at/1000/300)*300, 'unixepoch')".to_string()
+            "strftime('%Y-%m-%d %H:%M', (created_at/1000/300)*300, 'unixepoch', 'localtime')"
+                .to_string()
         }
-        Some("hourly") => "strftime('%Y-%m-%d %H:00', created_at/1000, 'unixepoch')".to_string(),
-        _ => "strftime('%Y-%m-%d', created_at/1000, 'unixepoch')".to_string(),
+        Some("hourly") => {
+            "strftime('%Y-%m-%d %H:00', created_at/1000, 'unixepoch', 'localtime')".to_string()
+        }
+        _ => "strftime('%Y-%m-%d', created_at/1000, 'unixepoch', 'localtime')".to_string(),
     }
 }
 
@@ -3549,6 +3558,26 @@ pub async fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, Str
         .call(move |conn| {
             query_stats_inner(conn, &query)
                 .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
+        })
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// 批量统计查询：一次 IPC + 一次连接借用内串行跑 N 个 `query_stats_inner`，
+/// 结果顺序与入参 `queries` 一一对应。供浮窗 N 卡聚合，消除每卡独立 IPC 往返。
+///
+/// 单卡值与 `query_stats`（逐卡）完全一致：复用同一 `query_stats_inner`，不合并/不丢维度。
+pub async fn query_stats_batch(db: &Db, queries: Vec<StatsQuery>) -> Result<Vec<StatsResult>, String> {
+    db.0
+        .call(move |conn| {
+            let mut out = Vec::with_capacity(queries.len());
+            for q in &queries {
+                out.push(
+                    query_stats_inner(conn, q)
+                        .map_err(|e| tokio_rusqlite::Error::Other(e.into()))?,
+                );
+            }
+            Ok(out)
         })
         .await
         .map_err(|e| e.to_string())
@@ -4363,6 +4392,114 @@ mod tests {
         let res = r2.unwrap();
         println!("overview total_requests = {}", res.overview.total_requests);
         println!("dim entries = {}", res.dimension_data.len());
+    }
+
+    /// 批量 `query_stats_batch` 必须逐项等于逐卡 `query_stats`（同 query 同结果，顺序对齐）。
+    /// 覆盖浮窗各卡参数组合：overall/platform/group × today(hourly)/7d(daily)。
+    #[tokio::test]
+    async fn query_stats_batch_matches_per_query() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("P1")).await.unwrap();
+        let now = chrono::Utc::now().timestamp_millis();
+
+        // 两条日志：一条挂 P1/g1，一条挂 g2，覆盖 group/platform 过滤分支。
+        let mut a = sample_log("a", "g1", now);
+        a.platform_id = p.id;
+        a.status_code = 200;
+        a.input_tokens = 10;
+        a.output_tokens = 20;
+        a.cache_tokens = 5;
+        a.est_cost = 0.01;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
+        let mut b = sample_log("b", "g2", now);
+        b.platform_id = p.id;
+        b.status_code = 500;
+        b.input_tokens = 3;
+        b.output_tokens = 0;
+        b.est_cost = 0.0;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
+
+        let day = 86_400_000i64;
+        let queries = vec![
+            // overall 7d daily
+            StatsQuery { start: Some(now - 7 * day), end: Some(now), granularity: Some("daily".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: None },
+            // overall today hourly
+            StatsQuery { start: Some(now - day), end: Some(now), granularity: Some("hourly".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: None },
+            // platform 7d daily
+            StatsQuery { start: Some(now - 7 * day), end: Some(now), granularity: Some("daily".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: Some(p.id.to_string()) },
+            // group today hourly
+            StatsQuery { start: Some(now - day), end: Some(now), granularity: Some("hourly".into()), group_by: None, filter_group: Some("g1".into()), filter_model: None, filter_platform: None },
+        ];
+
+        let batch = query_stats_batch(&db, queries.clone()).await.expect("batch");
+        assert_eq!(batch.len(), queries.len(), "batch 长度须等于 query 数");
+
+        for (i, q) in queries.iter().enumerate() {
+            let single = query_stats(&db, q).await.expect("single");
+            let bz = &batch[i];
+            // overview 全字段对账
+            assert_eq!(bz.overview.total_requests, single.overview.total_requests, "q{i} total_requests");
+            assert_eq!(bz.overview.total_input_tokens, single.overview.total_input_tokens, "q{i} input");
+            assert_eq!(bz.overview.total_output_tokens, single.overview.total_output_tokens, "q{i} output");
+            assert_eq!(bz.overview.total_cache_tokens, single.overview.total_cache_tokens, "q{i} cache");
+            assert!((bz.overview.total_cost - single.overview.total_cost).abs() < 1e-12, "q{i} cost");
+            assert!((bz.overview.success_rate - single.overview.success_rate).abs() < 1e-9, "q{i} success_rate");
+            // buckets：桶数与逐桶 cost/req 一致（曲线卡口径）
+            assert_eq!(bz.buckets.len(), single.buckets.len(), "q{i} bucket count");
+            for (j, (bb, sb)) in bz.buckets.iter().zip(single.buckets.iter()).enumerate() {
+                assert_eq!(bb.time_bucket, sb.time_bucket, "q{i} bucket{j} time");
+                assert_eq!(bb.total_requests, sb.total_requests, "q{i} bucket{j} req");
+                assert!((bb.total_cost - sb.total_cost).abs() < 1e-12, "q{i} bucket{j} cost");
+            }
+        }
+    }
+
+    /// `bucket_time_expr` 必须带 `'localtime'`：分桶按本地时区切分，与 today_stats 同语义。
+    /// 缺 localtime 时跨日/小时桶在非 UTC 时区错位（曲线 bug）。
+    #[test]
+    fn bucket_time_expr_uses_localtime() {
+        for g in [None, Some("daily"), Some("hourly"), Some("minute"), Some("5min")] {
+            let expr = bucket_time_expr(g);
+            assert!(expr.contains("'localtime'"), "粒度 {g:?} 的分桶表达式必须含 'localtime'：{expr}");
+            assert!(expr.contains("'unixepoch'"), "粒度 {g:?} 须先 'unixepoch' 再 'localtime'：{expr}");
+        }
+    }
+
+    /// localtime 分桶按本地日界切分：构造跨本地午夜的两条日志，daily 桶须落不同日期键。
+    /// 用 SQLite 自身求出「本地午夜 ±1h」的 epoch ms，避免硬编码时区。
+    #[tokio::test]
+    async fn bucket_daily_splits_on_local_midnight() {
+        let db = test_db().await;
+        // 本地午夜的 epoch 秒：strftime 本地日期 00:00 转回 unixepoch。
+        let local_midnight_ms: i64 = db.0.call(|conn| {
+            let secs: i64 = conn.query_row(
+                "SELECT CAST(strftime('%s', strftime('%Y-%m-%d 00:00:00', 'now', 'localtime'), 'utc') AS INTEGER)",
+                [],
+                |r| r.get(0),
+            )?;
+            Ok(secs * 1000)
+        }).await.unwrap();
+
+        // 午夜前 1 小时 + 午夜后 1 小时 → 本地相邻两天。
+        let before = local_midnight_ms - 3_600_000;
+        let after = local_midnight_ms + 3_600_000;
+        let mut a = sample_log("before", "g1", before);
+        a.est_cost = 0.01;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
+        let mut b = sample_log("after", "g1", after);
+        b.est_cost = 0.02;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
+
+        let q = StatsQuery {
+            start: Some(before - 3_600_000),
+            end: Some(after + 3_600_000),
+            granularity: Some("daily".into()),
+            group_by: None, filter_group: None, filter_model: None, filter_platform: None,
+        };
+        let res = query_stats(&db, &q).await.unwrap();
+        // 本地午夜两侧 → 两个不同的本地日桶。
+        assert_eq!(res.buckets.len(), 2, "跨本地午夜须分到 2 个 daily 桶，得到 {:?}", res.buckets.iter().map(|x| &x.time_bucket).collect::<Vec<_>>());
+        assert_ne!(res.buckets[0].time_bucket, res.buckets[1].time_bucket);
     }
 
     /// 批量 `platform_usage_stats_all` 结果必须逐平台等于单平台 `get_platform_usage_stats`，
