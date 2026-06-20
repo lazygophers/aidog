@@ -1511,16 +1511,19 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     if (r.platform) {
       handleProtocolChange(r.platform.value as Protocol);
     }
-    if (r.baseUrl) {
-      const epProto: Protocol = r.baseUrlProtocol === "unknown" ? "openai" : r.baseUrlProtocol;
+    if (r.baseUrls.length > 0) {
+      // 多类型 base_url 多选：每个选中 url（按协议去重，每协议最多一个）→ 一个 endpoint。
+      // 同协议 endpoint 存在则覆盖 base_url，否则新增；支持 anthropic + openai 双端点平台（如 glm）。
       setEndpoints((prev) => {
-        const eps = [...prev];
-        let idx = eps.findIndex((e) => e.protocol === epProto);
-        if (idx < 0 && eps.length > 0) idx = 0; // 无同协议端点则覆盖首个
-        if (idx >= 0) {
-          eps[idx] = { ...eps[idx], base_url: r.baseUrl };
-        } else {
-          eps.push({ protocol: epProto, base_url: r.baseUrl, client_type: defaultClientForProtocol(epProto) });
+        const eps = prev.map((e) => ({ ...e }));
+        for (const b of r.baseUrls) {
+          const epProto: Protocol = b.protocol === "unknown" ? "openai" : b.protocol;
+          let idx = eps.findIndex((e) => e.protocol === epProto);
+          if (idx >= 0) {
+            eps[idx] = { ...eps[idx], base_url: b.url };
+          } else {
+            eps.push({ protocol: epProto, base_url: b.url, client_type: defaultClientForProtocol(epProto) });
+          }
         }
         return eps;
       });

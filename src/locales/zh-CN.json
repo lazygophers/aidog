@@ -731,6 +731,7 @@
   "platform.paste.apiKey": "API Key",
   "platform.paste.apply": "填入表单",
   "platform.paste.baseUrl": "Base URL",
+  "platform.paste.baseUrlMultiHint": "不同类型可各选一个",
   "platform.paste.clipDenied": "无法读取剪贴板，请手动粘贴",
   "platform.paste.detected": "识别结果",
   "platform.paste.empty": "粘贴文案后自动识别。",

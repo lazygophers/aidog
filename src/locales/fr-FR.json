@@ -753,6 +753,7 @@
   "platform.paste.apiKey": "API Key",
   "platform.paste.apply": "Remplir le formulaire",
   "platform.paste.baseUrl": "Base URL",
+  "platform.paste.baseUrlMultiHint": "Un par type",
   "platform.paste.clipDenied": "Impossible de lire le presse-papiers, collez manuellement",
   "platform.paste.detected": "Résultats",
   "platform.paste.empty": "Détection automatique après le collage.",

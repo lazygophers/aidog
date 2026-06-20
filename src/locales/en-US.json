@@ -731,6 +731,7 @@
   "platform.paste.apiKey": "API Key",
   "platform.paste.apply": "Fill form",
   "platform.paste.baseUrl": "Base URL",
+  "platform.paste.baseUrlMultiHint": "One per type",
   "platform.paste.clipDenied": "Cannot read clipboard, paste manually",
   "platform.paste.detected": "Detected",
   "platform.paste.empty": "Auto-detected after pasting.",

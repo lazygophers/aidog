@@ -753,6 +753,7 @@
   "platform.paste.apiKey": "API Key",
   "platform.paste.apply": "In Formular übernehmen",
   "platform.paste.baseUrl": "Base URL",
+  "platform.paste.baseUrlMultiHint": "Eines pro Typ",
   "platform.paste.clipDenied": "Zwischenablage nicht lesbar, bitte manuell einfügen",
   "platform.paste.detected": "Erkannt",
   "platform.paste.empty": "Automatische Erkennung nach dem Einfügen.",
