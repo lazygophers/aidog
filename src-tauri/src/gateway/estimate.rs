@@ -394,16 +394,24 @@ pub async fn calibrate_from_quota(db: &Db, platform_id: u64, quota: &PlatformQuo
 }
 
 /// 后台校准编排：锁外 await query_quota → 锁内覆盖。失败保留预估（不重置）。
+/// NewApi 平台走专用两步查询（query_quota_newapi），与 lib.rs 手动查询/冷启动一致；
+/// 否则 query_quota 按 base_url 子串分派对 newapi 自定义实例返 "Unsupported" → est 永不主动刷新。
 async fn run_calibration(
     db: &Db,
     platform_id: u64,
+    platform_type: &str,
     base_url: &str,
     api_key: &str,
+    extra: &str,
     is_coding_plan: bool,
 ) {
     // 锁外 async 真查（构造 Arc<Db> 供 http_client 读系统代理设置）
     let db_arc = std::sync::Arc::new(db.clone());
-    let quota = super::quota::query_quota(Some(&db_arc), base_url, api_key, platform_id as i64).await;
+    let quota = if platform_type == "newapi" {
+        super::quota::query_quota_newapi(Some(&db_arc), base_url, api_key, extra, platform_id as i64).await
+    } else {
+        super::quota::query_quota(Some(&db_arc), base_url, api_key, platform_id as i64).await
+    };
     // 失败时 calibrate_from_quota 自身 early-return（保留预估值，不重置计数/时间，下次请求再试）。
     calibrate_from_quota(db, platform_id, &quota, is_coding_plan).await;
 }
@@ -420,6 +428,7 @@ pub async fn estimate_after_request(
     base_url: &str,
     api_key: &str,
     model: &str,
+    extra: &str,
     input_tokens: i64,
     output_tokens: i64,
     cache_tokens: i64,
@@ -474,7 +483,7 @@ pub async fn estimate_after_request(
     // 2. 校准判定（短读，锁外 await）
     if let Ok((last_real, count)) = read_estimate_state(db, platform_id).await {
         if should_calibrate(now(), last_real, count) {
-            run_calibration(db, platform_id, base_url, api_key, is_coding_plan).await;
+            run_calibration(db, platform_id, platform_type, base_url, api_key, extra, is_coding_plan).await;
         }
     }
 }
