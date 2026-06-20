@@ -805,6 +805,8 @@
   "popover.noUsageToday": "Сегодня нет использования",
   "popover.platformToday": "По платформам сегодня",
   "popover.itemCostTrend": "Тренд расходов",
+  "popover.itemPlatformMetric": "Метрика платформы",
+  "popover.platformMetricTitle": "Использование {{name}}",
   "popover.trendOverallTitle": "Общий тренд расходов",
   "popover.trendGroupTitle": "Тренд расходов группы",
   "popover.trendPlatformTitle": "Тренд расходов {{name}}",

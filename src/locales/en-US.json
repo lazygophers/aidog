@@ -783,6 +783,8 @@
   "popover.noUsageToday": "No usage today",
   "popover.platformToday": "Per-platform today",
   "popover.itemCostTrend": "Cost Trend",
+  "popover.itemPlatformMetric": "Platform Metric",
+  "popover.platformMetricTitle": "{{name}} Usage",
   "popover.trendOverallTitle": "Overall Cost Trend",
   "popover.trendGroupTitle": "Group Cost Trend",
   "popover.trendPlatformTitle": "{{name}} Cost Trend",

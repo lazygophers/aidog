@@ -805,6 +805,8 @@
   "popover.noUsageToday": "Aucune utilisation aujourd'hui",
   "popover.platformToday": "Par plateforme aujourd'hui",
   "popover.itemCostTrend": "Tendance des coûts",
+  "popover.itemPlatformMetric": "Métrique de plateforme",
+  "popover.platformMetricTitle": "Utilisation de {{name}}",
   "popover.trendOverallTitle": "Tendance globale des coûts",
   "popover.trendGroupTitle": "Tendance des coûts du groupe",
   "popover.trendPlatformTitle": "Tendance des coûts de {{name}}",

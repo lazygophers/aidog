@@ -783,6 +783,8 @@
   "popover.noUsageToday": "今日暂无用量",
   "popover.platformToday": "各平台今日",
   "popover.itemCostTrend": "消费趋势",
+  "popover.itemPlatformMetric": "指定平台指标",
+  "popover.platformMetricTitle": "{{name}} 用量",
   "popover.trendOverallTitle": "整体消费趋势",
   "popover.trendGroupTitle": "分组消费趋势",
   "popover.trendPlatformTitle": "{{name}} 消费趋势",
