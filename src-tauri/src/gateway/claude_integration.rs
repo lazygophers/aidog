@@ -167,4 +167,29 @@ mod tests {
         assert!(v.is_object());
         assert!(v.as_object().unwrap().is_empty());
     }
+
+    #[test]
+    fn read_corrupt_json_errors_with_filename() {
+        // 损坏 JSON（尾逗号）→ 必须返回 Err，且错误文案含文件名 + "parse" 标记，
+        // 供前端常驻错误态向用户展示真实失败原因。
+        let path = scratch_path("corrupt");
+        std::fs::write(&path, "{\"primaryApiKey\": \"any\",}").unwrap();
+        let err = read_json_object(&path).expect_err("corrupt JSON must error");
+        assert!(err.starts_with("parse "), "err should mark parse stage: {err}");
+        assert!(
+            err.contains(path.to_str().unwrap()),
+            "err should name the offending file: {err}"
+        );
+        let _ = std::fs::remove_file(&path);
+    }
+
+    #[test]
+    fn read_non_object_root_errors_on_write_helpers() {
+        // 根非对象（顶层是数组）→ as_object_mut 失败路径，写助手须返回明确 Err。
+        let path = scratch_path("nonobject");
+        std::fs::write(&path, "[1, 2, 3]").unwrap();
+        let mut root = read_json_object(&path).unwrap();
+        assert!(root.as_object_mut().is_none(), "array root has no object");
+        let _ = std::fs::remove_file(&path);
+    }
 }
