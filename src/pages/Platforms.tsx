@@ -387,16 +387,21 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
   return (base[protocol] || []).map(ep => ({ ...ep }));
 }
 
-/** 从 getDefaultEndpoints 派生 host 子串，注入 PROTOCOLS 供智能识别 base_url 优先匹配。
- *  按 preset.codingPlan 取对应 cp 分支的 host，避免 coding plan 与普通版互相误匹配
- *  （例：xiaomi_mimo coding plan 拿 token-plan-cn.xiaomimimo.com，普通版拿 api.xiaomimimo.com）。
- *  单一事实源：base_url 改动只动 getDefaultEndpoints，host 列表自动跟随。 */
+/** 从 getDefaultEndpoints 派生 URL 子串（host + path），注入 PROTOCOLS 供智能识别 base_url 优先匹配。
+ *  按 preset.codingPlan 取对应 cp 分支，避免 coding plan 与普通版互相误匹配。
+ *  取 host+pathname（非仅 hostname）：同 host 分裂（如 glm open.bigmodel.cn 普通 /api/paas/v4 vs
+ *  coding /api/coding/paas/v4）靠 path 子串区分；不同 host（xiaomi_mimo token-plan-cn vs api）靠 host 区分。
+ *  matchPlatform 最长串胜出 → 最特异 preset 命中。单一事实源：base_url 改动只动 getDefaultEndpoints。 */
 for (const p of PROTOCOLS) {
   const hosts = new Set<string>();
   for (const ep of getDefaultEndpoints(p.value, !!p.codingPlan)) {
     try {
-      const h = new URL(ep.base_url).hostname.replace(/^www\./, "").toLowerCase();
-      if (h) hosts.add(h);
+      const u = new URL(ep.base_url);
+      const host = u.host.replace(/^www\./, "").toLowerCase();
+      // host + path（去尾斜杠），path 为空则仅 host。含 path 让同 host 分裂可区分。
+      const path = u.pathname.replace(/\/+$/, "").toLowerCase();
+      const sub = path && path !== "/" ? host + path : host;
+      if (host) hosts.add(sub);
     } catch { /* 非法 URL 跳过 */ }
   }
   if (hosts.size) p.hosts = [...hosts];
@@ -1508,8 +1513,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const applyPaste = (r: SmartPasteApplyResult) => {
     // 匹配到内置平台 → 走协议切换（设置 name + 默认 endpoints + client_type）。
     // 未匹配 → 不改平台选择（保持当前 protocol/endpoints），仅填 base_url/apiKey。
+    // codingPlan flag 必传：同 value 的普通/coding 两 preset（如 xiaomi_mimo）命中后，
+    // 不传 flag 则 getDefaultEndpoints 拿普通 endpoints（base_url 取错）。
     if (r.platform) {
-      handleProtocolChange(r.platform.value as Protocol);
+      handleProtocolChange(r.platform.value as Protocol, r.platform.codingPlan);
     }
     if (r.baseUrls.length > 0) {
       // 多类型 base_url 多选：每个选中 url（按协议去重，每协议最多一个）→ 一个 endpoint。
