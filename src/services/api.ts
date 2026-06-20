@@ -1247,8 +1247,8 @@ export const ccCodexSettingsApi = {
   get: () => invoke<CcCodexSettings>("cc_codex_settings_get"),
   set: (partial: Partial<CcCodexSettings>) =>
     invoke<CcCodexSettings>("cc_codex_settings_set", {
-      apply_to_claude_plugin: partial.apply_to_claude_plugin,
-      skip_claude_onboarding: partial.skip_claude_onboarding,
+      applyToClaudePlugin: partial.apply_to_claude_plugin,
+      skipClaudeOnboarding: partial.skip_claude_onboarding,
     }),
 };
 
