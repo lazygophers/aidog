@@ -12,26 +12,34 @@ execSync(
 const { parsePlatformPaste } = await import(OUT);
 
 const presets = [
-  { value: "deepseek", label: "DeepSeek", hosts: ["api.deepseek.com"] },
-  { value: "anthropic", label: "Anthropic", hosts: ["api.anthropic.com"] },
+  { value: "deepseek", label: "DeepSeek", hosts: ["api.deepseek.com"], keywords: ["deepseek", "深度求索"] },
+  { value: "anthropic", label: "Anthropic", hosts: ["api.anthropic.com"], keywords: ["claude"] },
+  // mock 占位平台：keyword 含通用子串「测试」，验证永不被自动匹配。
+  { value: "mock", label: "Mock", keywords: ["mock", "测试", "调试", "假数据"] },
 ];
 
 let failed = 0;
-function check(name, text, { base, key, model } = {}) {
+// platform: 传字符串断言 value 命中；传 null 断言「未匹配」（r.platform === null）。
+function check(name, text, { base, key, model, platform } = {}) {
   const r = parsePlatformPaste(text, presets);
   const okBase = base === undefined || r.baseUrls.some((b) => b.url === base);
   const okKey = key === undefined || r.apiKeys.includes(key);
   const okModel = model === undefined || (r.models ?? []).includes(model);
-  const ok = okBase && okKey && okModel;
+  const okPlatform =
+    platform === undefined ||
+    (platform === null ? r.platform === null : r.platform?.value === platform);
+  const ok = okBase && okKey && okModel && okPlatform;
   if (!ok) failed++;
   console.log(`[${ok ? "PASS" : "FAIL"}] ${name}`);
   if (!ok) {
     console.log("  baseUrls:", JSON.stringify(r.baseUrls));
     console.log("  apiKeys :", JSON.stringify(r.apiKeys));
     console.log("  models  :", JSON.stringify(r.models));
+    console.log("  platform:", JSON.stringify(r.platform));
     if (base !== undefined) console.log("  expBase :", base);
     if (key !== undefined) console.log("  expKey  :", key);
     if (model !== undefined) console.log("  expModel:", model);
+    if (platform !== undefined) console.log("  expPlat :", platform);
   }
 }
 
@@ -78,6 +86,34 @@ check("base64 cjk-label compound", `这里分享一个 ${compoundB64} 自己 bas
   key: "sk-WUlbWwvghxZTXuZKi56iEqrQUY8055W4ZkCvsuaAskm3HHw9",
   base: "https://www.supertoken.lol/v1",
   model: "MiniMax-M3",
+});
+
+// ── matchPlatform: mock 永不自动匹配 + 未知 host 不误判 ──
+
+// 未知 host（无预设）粘贴：不该匹配任何平台（绝不该是 mock）。
+check("unknown host not matched as mock", "https://srapi.senran.net/v1  sk_8fed78f353bb_4db3c7142426b201e2c6600236de69b2ce9dc2541f2da7b055fb60ec882f64b5", {
+  base: "https://srapi.senran.net/v1",
+  platform: null,
+});
+
+// 文案含「测试」噪声（论坛分享高发词）：仍不该被 mock 关键字吃掉。
+check("test/debug noise does not trigger mock", "测试一下这个接口 调试用 https://srapi.senran.net/v1", {
+  platform: null,
+});
+
+// 文本直接含「mock」字样也不自动匹配（用户须手动选）。
+check("literal mock keyword not auto-matched", "mock 假数据 本地模拟 https://srapi.senran.net/v1", {
+  platform: null,
+});
+
+// 回归：已知 host 仍正常匹配（host 优先）。
+check("known host still matches (deepseek)", "https://api.deepseek.com/v1  key sk-abc123def456ghi789", {
+  platform: "deepseek",
+});
+
+// 回归：已知 keyword fallback 仍正常匹配（无 host 命中时）。
+check("known keyword fallback still matches", "深度求索 平台分享", {
+  platform: "deepseek",
 });
 
 if (failed > 0) {
