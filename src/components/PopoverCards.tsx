@@ -3,22 +3,24 @@
 // 单一事实源，避免预览与实际渲染漂移。
 // 导出 renderGrid（按 row 二维网格）+ PopoverData / PopoverEntry / PopoverTrayColor 类型。
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useTranslation } from "react-i18next";
 import type {
   TodayStats,
   PopoverConfig,
   PopoverItem,
   TodayPlatformStat,
-  StatsBucket,
   StatsOverview,
   StatsQuery,
+  StatsResult,
   Group,
   GroupDetail,
 } from "../services/api";
-import { statsApi } from "../services/api";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
 import { CostTrendChart } from "./shared/CostTrendChart";
+
+/** 浮窗各统计卡数据：item.id → 该卡批量查询结果（一次 IPC 拉全部，见 popover.tsx）。 */
+export type PopoverStatsMap = Map<string, StatsResult>;
 
 // ─── Types ──────────────────────────────────────────────────
 
@@ -200,6 +202,44 @@ function buildTrendQuery(item: PopoverItem): StatsQuery {
   return q;
 }
 
+/** 需要统计查询的卡片类型（其余卡片用 popover_data / groupDetails，不发查询）。 */
+const STATS_ITEM_TYPES = new Set([
+  "cost_trend",
+  "platform_metric",
+  "group_cost",
+  "group_tokens",
+  "group_requests",
+]);
+
+/** 单卡的查询参数（含 group_tokens/group_requests 强制今日窗）；不需查询 → null。 */
+function buildItemQuery(item: PopoverItem): StatsQuery | null {
+  if (!STATS_ITEM_TYPES.has(item.item_type)) return null;
+  // group_tokens / group_requests 强制今日窗（无视 item.time_window），与原逐卡逻辑一致。
+  const eff =
+    item.item_type === "group_tokens" || item.item_type === "group_requests"
+      ? ({ ...item, time_window: "today" } as PopoverItem)
+      : item;
+  return buildTrendQuery(eff);
+}
+
+/**
+ * 收集浮窗一帧所需的全部统计查询，返回 { itemIds, queries } 平行数组（顺序对齐，供批量 IPC）。
+ * 消费端按下标把 StatsResult 写回 item.id → StatsResult 的 map（见 popover.tsx）。
+ */
+export function collectStatsQueries(config: PopoverConfig): { itemIds: string[]; queries: StatsQuery[] } {
+  const itemIds: string[] = [];
+  const queries: StatsQuery[] = [];
+  for (const item of config.items) {
+    if (!item.visible) continue;
+    const q = buildItemQuery(item);
+    if (q) {
+      itemIds.push(item.id);
+      queries.push(q);
+    }
+  }
+  return { itemIds, queries };
+}
+
 /** cost_trend 卡片标题（体现 scope）。 */
 function trendTitle(item: PopoverItem, data: PopoverData, t: TFn): string {
   const scope = item.scope ?? "overall";
@@ -221,32 +261,20 @@ function CostTrendCard({
   size,
   colorStyle,
   t,
+  stats,
+  statsLoaded,
 }: {
   item: PopoverItem;
   data: PopoverData;
   size: Size;
   colorStyle?: React.CSSProperties;
   t: TFn;
+  stats?: StatsResult;
+  statsLoaded: boolean;
 }) {
-  const [buckets, setBuckets] = useState<StatsBucket[] | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    statsApi
-      .query(buildTrendQuery(item))
-      .then((r) => {
-        if (!cancelled) setBuckets(r.buckets);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // item 配置变化时重查（浮窗生命周期内通常不变）。
-  }, [item.scope, item.scope_ref, item.time_window]);
-
+  // 批量查询已全局拉取：未加载完成 → loading；加载完但本卡缺结果 → failed。
+  const failed = statsLoaded && !stats;
+  const buckets = stats ? stats.buckets : null;
   const total = buckets ? buckets.reduce((s, b) => s + b.total_cost, 0) : 0;
 
   return (
@@ -290,30 +318,19 @@ function PlatformMetricCard({
   size,
   colorStyle,
   t,
+  stats,
+  statsLoaded,
 }: {
   item: PopoverItem;
   data: PopoverData;
   size: Size;
   colorStyle?: React.CSSProperties;
   t: TFn;
+  stats?: StatsResult;
+  statsLoaded: boolean;
 }) {
-  const [overview, setOverview] = useState<StatsOverview | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    statsApi
-      .query(buildTrendQuery(item))
-      .then((r) => {
-        if (!cancelled) setOverview(r.overview);
-      })
-      .catch(() => {
-        if (!cancelled) setFailed(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [item.scope, item.scope_ref, item.time_window]);
+  const failed = statsLoaded && !stats;
+  const overview: StatsOverview | null = stats ? stats.overview : null;
 
   // token 口径与 today_tokens 对齐（input + output，不含 cache）。
   const tokens = overview ? overview.total_input_tokens + overview.total_output_tokens : 0;
@@ -359,24 +376,19 @@ function GroupCostCard({
   size,
   colorStyle,
   t,
+  stats,
+  statsLoaded,
 }: {
   item: PopoverItem;
   groups: Group[];
   size: Size;
   colorStyle?: React.CSSProperties;
   t: TFn;
+  stats?: StatsResult;
+  statsLoaded: boolean;
 }) {
-  const [overview, setOverview] = useState<StatsOverview | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    statsApi
-      .query(buildTrendQuery(item))
-      .then((r) => { if (!cancelled) setOverview(r.overview); })
-      .catch(() => { if (!cancelled) setFailed(true); });
-    return () => { cancelled = true; };
-  }, [item.scope, item.scope_ref, item.time_window]);
+  const failed = statsLoaded && !stats;
+  const overview: StatsOverview | null = stats ? stats.overview : null;
 
   return (
     <div className={`popover-section pc-${size}`}>
@@ -408,26 +420,20 @@ function GroupTokensCard({
   size,
   colorStyle,
   t,
+  stats,
+  statsLoaded,
 }: {
   item: PopoverItem;
   groups: Group[];
   size: Size;
   colorStyle?: React.CSSProperties;
   t: TFn;
+  stats?: StatsResult;
+  statsLoaded: boolean;
 }) {
-  const [overview, setOverview] = useState<StatsOverview | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  // 时间窗强制今日（无视 item.time_window）。
-  const query: PopoverItem = { ...item, time_window: "today" };
-  useEffect(() => {
-    let cancelled = false;
-    statsApi
-      .query(buildTrendQuery(query))
-      .then((r) => { if (!cancelled) setOverview(r.overview); })
-      .catch(() => { if (!cancelled) setFailed(true); });
-    return () => { cancelled = true; };
-  }, [item.scope, item.scope_ref]);
+  // 时间窗强制今日由 buildItemQuery 处理（与原逐卡 query 一致）。
+  const failed = statsLoaded && !stats;
+  const overview: StatsOverview | null = stats ? stats.overview : null;
 
   const tokens = overview ? overview.total_input_tokens + overview.total_output_tokens : 0;
 
@@ -461,25 +467,20 @@ function GroupRequestsCard({
   size,
   colorStyle,
   t,
+  stats,
+  statsLoaded,
 }: {
   item: PopoverItem;
   groups: Group[];
   size: Size;
   colorStyle?: React.CSSProperties;
   t: TFn;
+  stats?: StatsResult;
+  statsLoaded: boolean;
 }) {
-  const [overview, setOverview] = useState<StatsOverview | null>(null);
-  const [failed, setFailed] = useState(false);
-
-  const query: PopoverItem = { ...item, time_window: "today" };
-  useEffect(() => {
-    let cancelled = false;
-    statsApi
-      .query(buildTrendQuery(query))
-      .then((r) => { if (!cancelled) setOverview(r.overview); })
-      .catch(() => { if (!cancelled) setFailed(true); });
-    return () => { cancelled = true; };
-  }, [item.scope, item.scope_ref]);
+  // 时间窗强制今日由 buildItemQuery 处理（与原逐卡 query 一致）。
+  const failed = statsLoaded && !stats;
+  const overview: StatsOverview | null = stats ? stats.overview : null;
 
   return (
     <div className={`popover-section pc-${size}`}>
@@ -549,6 +550,12 @@ function GroupBalanceCard({
   );
 }
 
+/** 统计数据上下文：批量结果 map（item.id → StatsResult）+ 是否已完成首次批量加载。 */
+export interface PopoverStatsCtx {
+  map: PopoverStatsMap;
+  loaded: boolean;
+}
+
 /** 单 item 渲染（按 type 分发，读 size/color）。 */
 export function renderItem(
   item: PopoverItem,
@@ -556,9 +563,12 @@ export function renderItem(
   groups: Group[],
   groupDetails: GroupDetail[] | null,
   t: TFn,
+  statsCtx: PopoverStatsCtx,
 ): React.ReactNode {
   const size = normSize(item.size);
   const cs = valueColorStyle(item);
+  const stats = statsCtx.map.get(item.id);
+  const statsLoaded = statsCtx.loaded;
   switch (item.item_type) {
     case "proxy_status":
       return <ProxyStatus key={item.id} data={data} />;
@@ -573,15 +583,15 @@ export function renderItem(
     case "platform_today":
       return <PlatformToday key={item.id} data={data} size={size} colorStyle={cs} />;
     case "cost_trend":
-      return <CostTrendCard key={item.id} item={item} data={data} size={size} colorStyle={cs} t={t} />;
+      return <CostTrendCard key={item.id} item={item} data={data} size={size} colorStyle={cs} t={t} stats={stats} statsLoaded={statsLoaded} />;
     case "platform_metric":
-      return <PlatformMetricCard key={item.id} item={item} data={data} size={size} colorStyle={cs} t={t} />;
+      return <PlatformMetricCard key={item.id} item={item} data={data} size={size} colorStyle={cs} t={t} stats={stats} statsLoaded={statsLoaded} />;
     case "group_cost":
-      return <GroupCostCard key={item.id} item={item} groups={groups} size={size} colorStyle={cs} t={t} />;
+      return <GroupCostCard key={item.id} item={item} groups={groups} size={size} colorStyle={cs} t={t} stats={stats} statsLoaded={statsLoaded} />;
     case "group_tokens":
-      return <GroupTokensCard key={item.id} item={item} groups={groups} size={size} colorStyle={cs} t={t} />;
+      return <GroupTokensCard key={item.id} item={item} groups={groups} size={size} colorStyle={cs} t={t} stats={stats} statsLoaded={statsLoaded} />;
     case "group_requests":
-      return <GroupRequestsCard key={item.id} item={item} groups={groups} size={size} colorStyle={cs} t={t} />;
+      return <GroupRequestsCard key={item.id} item={item} groups={groups} size={size} colorStyle={cs} t={t} stats={stats} statsLoaded={statsLoaded} />;
     case "group_balance":
       return <GroupBalanceCard key={item.id} item={item} groups={groups} groupDetails={groupDetails} size={size} colorStyle={cs} t={t} />;
     default:
@@ -596,6 +606,7 @@ export function renderGrid(
   groups: Group[],
   groupDetails: GroupDetail[] | null,
   t: TFn,
+  statsCtx: PopoverStatsCtx,
 ): React.ReactNode {
   const visible = config.items.filter((i) => i.visible);
   // 行分组：缺省 row 回退 order（老配置各占一行）。
@@ -618,7 +629,7 @@ export function renderGrid(
       >
         {items.map((item) => (
           <div key={item.id} className="popover-grid-cell">
-            {renderItem(item, data, groups, groupDetails, t)}
+            {renderItem(item, data, groups, groupDetails, t, statsCtx)}
           </div>
         ))}
       </div>
