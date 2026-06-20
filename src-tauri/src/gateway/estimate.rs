@@ -283,7 +283,10 @@ pub async fn apply_balance_delta(db: &Db, platform_id: u64, cost: f64) -> Result
             Ok(())
         })
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    // est_balance_remaining 内嵌于 GroupDetail.platforms；list_group_details 非代理热路径，失效廉价。
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 /// coding plan 预估：一次闭包内 SELECT→修改→UPDATE（read-modify-write 串行，避免并发覆盖）。
@@ -307,7 +310,9 @@ pub async fn apply_coding_plan_delta(db: &Db, platform_id: u64, tokens: f64) -> 
             Ok(())
         })
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 /// 校准覆盖（短写）：用真值覆盖 est_balance_remaining + est_coding_plan，
@@ -329,7 +334,9 @@ pub async fn write_real_quota(
             Ok(())
         })
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 /// 根据真查结果 + 上一窗口预估状态，构造校准后的 est_coding_plan JSON（纯计算 + 一次短读拿 prev）。
