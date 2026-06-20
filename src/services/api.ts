@@ -1095,6 +1095,11 @@ export interface NotificationSettings {
    * 旧配置无此字段 → undefined / 空对象（前端按默认目录展示，用户开启才写入）。
    */
   per_event?: Record<string, EventSetting>;
+  /**
+   * 收件箱历史自动清理保留天数（default 7）。`0` = 不清理（永久保留）。
+   * 后端硬删（参 proxy_log retention），旧配置无此字段 → 后端 serde 回退 7。
+   */
+  inbox_retention_days?: number;
 }
 
 /** 收件箱通知项（notification 表行）。 */

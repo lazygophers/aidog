@@ -2197,6 +2197,16 @@ pub struct NotificationSettings {
     /// 旧配置无此字段 → 空 map（serde default），前端按默认目录展示，用户开启才写入。
     #[serde(default)]
     pub per_event: std::collections::HashMap<String, EventSetting>,
+    /// 收件箱历史自动清理保留天数。default 7。`0` = 不清理（永久保留）。
+    /// 清理为硬删（参 proxy_log retention 模式），避 SQLite 体积单调增长。
+    /// 旧配置无此字段 → serde default 回退 7。
+    #[serde(default = "default_inbox_retention_days")]
+    pub inbox_retention_days: u32,
+}
+
+/// 收件箱默认保留天数（7）。serde 缺省回退用。
+fn default_inbox_retention_days() -> u32 {
+    7
 }
 
 impl Default for NotificationSettings {
@@ -2207,6 +2217,7 @@ impl Default for NotificationSettings {
             tts_backend: TtsBackend::default(),
             per_type: std::collections::HashMap::new(),
             per_event: std::collections::HashMap::new(),
+            inbox_retention_days: default_inbox_retention_days(),
         }
     }
 }
@@ -2471,6 +2482,7 @@ mod middleware_model_tests {
         assert!(s.enabled);
         assert!(s.tts_enabled);
         assert_eq!(s.tts_backend, TtsBackend::CrossPlatform);
+        assert_eq!(s.inbox_retention_days, 7);
         assert!(s.per_type.is_empty());
         // 缺省类型 → 全 true + Full
         let ts = s.type_setting(NotifType::Error);
@@ -2482,6 +2494,8 @@ mod middleware_model_tests {
         assert!(!p.enabled);
         assert!(p.tts_enabled);
         assert_eq!(p.tts_backend, TtsBackend::CrossPlatform);
+        // 旧配置无 inbox_retention_days → serde default 回退 7
+        assert_eq!(p.inbox_retention_days, 7);
 
         // per_type 显式覆盖往返
         let mut s2 = NotificationSettings::default();
