@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import ReactDOM from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getCurrentWindow, LogicalSize, LogicalPosition } from "@tauri-apps/api/window";
 import { useTranslation } from "react-i18next";
 import type {
   TodayStats,
@@ -11,8 +11,10 @@ import type {
   StatsBucket,
   StatsOverview,
   StatsQuery,
+  Group,
+  GroupDetail,
 } from "./services/api";
-import { statsApi } from "./services/api";
+import { statsApi, groupApi, groupDetailApi } from "./services/api";
 import { applyTheme, DEFAULT_STYLE, DEFAULT_COLOR, DEFAULT_MODE } from "./themes";
 import type { ThemeStyle, ThemeColor, ThemeMode } from "./themes/types";
 import { formatNumber, formatCostUsd, formatPercent } from "./utils/formatters";
@@ -328,9 +330,177 @@ function PlatformMetricCard({
   );
 }
 
+// ─── Group metric cards ─────────────────────────────────────
+
+/** group_* 卡片分组名（按 group_key 查 groups，兜底 scope_ref）。 */
+function groupName(
+  item: PopoverItem,
+  groups: Group[],
+  t: (k: string, d: string, opts?: Record<string, unknown>) => string,
+): string {
+  const ref = item.scope_ref ?? "";
+  const g = groups.find((x) => x.group_key === ref);
+  return g?.name || ref || t("popover.trendScopeGroup", "分组");
+}
+
+/** group_cost：分组金额（带时间窗，overview.total_cost）。 */
+function GroupCostCard({
+  item,
+  groups,
+  t,
+}: {
+  item: PopoverItem;
+  groups: Group[];
+  t: (k: string, d: string, opts?: Record<string, unknown>) => string;
+}) {
+  const [overview, setOverview] = useState<StatsOverview | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    statsApi
+      .query(buildTrendQuery(item))
+      .then((r) => { if (!cancelled) setOverview(r.overview); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [item.scope, item.scope_ref, item.time_window]);
+
+  return (
+    <div className="popover-section">
+      <div className="popover-stats-title">{t("popover.groupCostTitle", "{{name}} 金额", { name: groupName(item, groups, t) })}</div>
+      {failed ? (
+        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+      ) : overview === null ? (
+        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+      ) : (
+        <div className="popover-metric-row">
+          <span className="popover-metric-value">{formatCostUsd(overview.total_cost)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** group_tokens：分组今日 Token（input+output，固定今日窗）。 */
+function GroupTokensCard({
+  item,
+  groups,
+  t,
+}: {
+  item: PopoverItem;
+  groups: Group[];
+  t: (k: string, d: string, opts?: Record<string, unknown>) => string;
+}) {
+  const [overview, setOverview] = useState<StatsOverview | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  // 时间窗强制今日（无视 item.time_window）。
+  const query: PopoverItem = { ...item, time_window: "today" };
+  useEffect(() => {
+    let cancelled = false;
+    statsApi
+      .query(buildTrendQuery(query))
+      .then((r) => { if (!cancelled) setOverview(r.overview); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [item.scope, item.scope_ref]);
+
+  const tokens = overview ? overview.total_input_tokens + overview.total_output_tokens : 0;
+
+  return (
+    <div className="popover-section">
+      <div className="popover-stats-title">{t("popover.groupTokensTitle", "{{name}} 今日 Token", { name: groupName(item, groups, t) })}</div>
+      {failed ? (
+        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+      ) : overview === null ? (
+        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+      ) : (
+        <div className="popover-metric-row">
+          <span className="popover-metric-value">{formatNumber(tokens)} tok</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** group_requests：分组今日请求数（固定今日窗，overview.total_requests）。 */
+function GroupRequestsCard({
+  item,
+  groups,
+  t,
+}: {
+  item: PopoverItem;
+  groups: Group[];
+  t: (k: string, d: string, opts?: Record<string, unknown>) => string;
+}) {
+  const [overview, setOverview] = useState<StatsOverview | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  const query: PopoverItem = { ...item, time_window: "today" };
+  useEffect(() => {
+    let cancelled = false;
+    statsApi
+      .query(buildTrendQuery(query))
+      .then((r) => { if (!cancelled) setOverview(r.overview); })
+      .catch(() => { if (!cancelled) setFailed(true); });
+    return () => { cancelled = true; };
+  }, [item.scope, item.scope_ref]);
+
+  return (
+    <div className="popover-section">
+      <div className="popover-stats-title">{t("popover.groupRequestsTitle", "{{name}} 今日请求", { name: groupName(item, groups, t) })}</div>
+      {failed ? (
+        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+      ) : overview === null ? (
+        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+      ) : (
+        <div className="popover-metric-row">
+          <span className="popover-metric-value">{formatNumber(overview.total_requests)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** group_balance：分组余额（组内平台 est_balance_remaining 求和，点时值）。 */
+function GroupBalanceCard({
+  item,
+  groups,
+  groupDetails,
+  t,
+}: {
+  item: PopoverItem;
+  groups: Group[];
+  groupDetails: GroupDetail[] | null;
+  t: (k: string, d: string, opts?: Record<string, unknown>) => string;
+}) {
+  const ref = item.scope_ref ?? "";
+  const detail = groupDetails?.find((d) => d.group.group_key === ref);
+  const balance = detail
+    ? detail.platforms.reduce((sum, p) => sum + (p.platform.est_balance_remaining || 0), 0)
+    : 0;
+
+  return (
+    <div className="popover-section">
+      <div className="popover-stats-title">{t("popover.groupBalanceTitle", "{{name}} 余额", { name: groupName(item, groups, t) })}</div>
+      {groupDetails === null ? (
+        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+      ) : detail === undefined ? (
+        <div className="popover-empty">{t("popover.trendNoGroup", "无分组")}</div>
+      ) : (
+        <div className="popover-metric-row">
+          <span className="popover-metric-value">{formatCostUsd(balance)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function renderItem(
   item: PopoverItem,
   data: PopoverData,
+  groups: Group[],
+  groupDetails: GroupDetail[] | null,
   t: (k: string, d: string, opts?: Record<string, unknown>) => string,
 ): React.ReactNode {
   switch (item.item_type) {
@@ -350,6 +520,14 @@ function renderItem(
       return <CostTrendCard key={item.id} item={item} data={data} t={t} />;
     case "platform_metric":
       return <PlatformMetricCard key={item.id} item={item} data={data} t={t} />;
+    case "group_cost":
+      return <GroupCostCard key={item.id} item={item} groups={groups} t={t} />;
+    case "group_tokens":
+      return <GroupTokensCard key={item.id} item={item} groups={groups} t={t} />;
+    case "group_requests":
+      return <GroupRequestsCard key={item.id} item={item} groups={groups} t={t} />;
+    case "group_balance":
+      return <GroupBalanceCard key={item.id} item={item} groups={groups} groupDetails={groupDetails} t={t} />;
     default:
       return null;
   }
@@ -357,9 +535,24 @@ function renderItem(
 
 // ─── Component ──────────────────────────────────────────────
 
+// ─── Auto-size constants ────────────────────────────────────
+const MIN_W = 300;
+const MAX_W = 480;
+const MIN_H = 80;
+const MAX_H = 600;
+const DELTA = 1; // 尺寸/位置 delta ≤ 1px 不触发，防抖动循环。
+
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
 function Popover() {
   const { t } = useTranslation();
   const [data, setData] = useState<PopoverData | null>(null);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [groupDetails, setGroupDetails] = useState<GroupDetail[] | null>(null);
+  const rootRef = React.useRef<HTMLDivElement>(null);
+  // tray 下方居中锚点（首次测得后恒定）；当前应用的窗口尺寸（去抖比较用）。
+  const centerXRef = React.useRef<number | null>(null);
+  const appliedRef = React.useRef<{ w: number; h: number } | null>(null);
 
   useEffect(() => {
     const s = loadSettings();
@@ -370,6 +563,9 @@ function Popover() {
     invoke<PopoverData>("popover_data")
       .then(setData)
       .catch(console.error);
+    // 分组名 + 分组余额数据（group_* 卡片用）。顶层一次性 fetch，避免每卡重复请求。
+    groupApi.list().then(setGroups).catch(() => {});
+    groupDetailApi.list().then(setGroupDetails).catch(() => setGroupDetails([]));
   }, []);
 
   // 失焦自动关闭
@@ -381,8 +577,50 @@ function Popover() {
     return () => { unlisten.then((fn) => fn()); };
   }, []);
 
+  // 窗口尺寸随内容自适应 + 保持 tray 下方居中。
+  useEffect(() => {
+    if (!data) return;
+    const el = rootRef.current;
+    if (!el) return;
+    const win = getCurrentWindow();
+    let cancelled = false;
+
+    const applySize = async () => {
+      const w = clamp(Math.ceil(el.offsetWidth), MIN_W, MAX_W);
+      const h = clamp(Math.ceil(el.offsetHeight), MIN_H, MAX_H);
+      const prev = appliedRef.current;
+      if (prev && Math.abs(prev.w - w) <= DELTA && Math.abs(prev.h - h) <= DELTA) return;
+      try {
+        // 首次：以当前窗口几何推导居中锚点 center_x（logical），全程恒定。
+        if (centerXRef.current === null) {
+          const pos = await win.outerPosition(); // Physical
+          const scale = await win.scaleFactor();
+          if (cancelled) return;
+          const curW = prev?.w ?? w;
+          centerXRef.current = pos.x / scale + curW / 2;
+        }
+        appliedRef.current = { w, h };
+        await win.setSize(new LogicalSize(w, h));
+        if (cancelled) return;
+        // resize 后按恒定 center_x 重算 x，顶部 y 不变。
+        const pos = await win.outerPosition();
+        const scale = await win.scaleFactor();
+        if (cancelled) return;
+        const yLogical = pos.y / scale;
+        const newX = (centerXRef.current as number) - w / 2;
+        await win.setPosition(new LogicalPosition(Math.round(newX), Math.round(yLogical)));
+      } catch { /* 窗口可能已销毁 */ }
+    };
+
+    void applySize();
+    const ro = new ResizeObserver(() => { void applySize(); });
+    ro.observe(el);
+    return () => { cancelled = true; ro.disconnect(); };
+    // 依赖 data：渲染稳定后首测；后续内容异步加载由 ResizeObserver 兜。
+  }, [data]);
+
   if (!data) {
-    return <div className="popover-root popover-loading">{t("common.loading", "加载中...")}</div>;
+    return <div ref={rootRef} className="popover-root popover-loading">{t("common.loading", "加载中...")}</div>;
   }
 
   const visibleItems = data.config.items
@@ -390,8 +628,8 @@ function Popover() {
     .sort((a, b) => a.order - b.order);
 
   return (
-    <div className="popover-root">
-      {visibleItems.map((item) => renderItem(item, data, t))}
+    <div ref={rootRef} className="popover-root">
+      {visibleItems.map((item) => renderItem(item, data, groups, groupDetails, t))}
     </div>
   );
 }

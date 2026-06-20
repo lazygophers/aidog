@@ -28,11 +28,22 @@ const ALL_ITEM_TYPES: PopoverItemType[] = [
   "today_tokens",
   "platform_today",
   "platform_metric",
+  "group_cost",
+  "group_tokens",
+  "group_requests",
+  "group_balance",
   "cost_trend",
 ];
 
 /** 可重复添加的多实例类型（各自独立配置）。 */
-const MULTI_INSTANCE_TYPES: ReadonlySet<PopoverItemType> = new Set<PopoverItemType>(["cost_trend", "platform_metric"]);
+const MULTI_INSTANCE_TYPES: ReadonlySet<PopoverItemType> = new Set<PopoverItemType>([
+  "cost_trend", "platform_metric", "group_cost", "group_tokens", "group_requests", "group_balance",
+]);
+
+/** group_* 系列：scope 锁 "group"，配置 UI 显示分组下拉。 */
+const GROUP_TYPES: ReadonlySet<PopoverItemType> = new Set<PopoverItemType>([
+  "group_cost", "group_tokens", "group_requests", "group_balance",
+]);
 
 /** 指标类型 → i18n key + 默认中文标签。 */
 const TYPE_LABELS: Record<PopoverItemType, { key: string; fallback: string }> = {
@@ -43,18 +54,29 @@ const TYPE_LABELS: Record<PopoverItemType, { key: string; fallback: string }> = 
   today_tokens: { key: "popover.todayTokens", fallback: "今日 Token" },
   platform_today: { key: "popover.platformToday", fallback: "各平台今日" },
   platform_metric: { key: "popover.itemPlatformMetric", fallback: "指定平台指标" },
+  group_cost: { key: "popover.itemGroupCost", fallback: "分组金额" },
+  group_tokens: { key: "popover.itemGroupTokens", fallback: "分组今日Token" },
+  group_requests: { key: "popover.itemGroupRequests", fallback: "分组今日请求" },
+  group_balance: { key: "popover.itemGroupBalance", fallback: "分组余额" },
   cost_trend: { key: "popover.itemCostTrend", fallback: "消费趋势" },
 };
 
 const TREND_WINDOWS: PopoverTrendWindow[] = ["today", "7d", "30d"];
 
-function makeItem(type: PopoverItemType, order: number, platforms: Platform[]): PopoverItem {
+function makeItem(type: PopoverItemType, order: number, platforms: Platform[], groups: Group[]): PopoverItem {
   const base: PopoverItem = { id: `popover-${type}-${Date.now()}`, item_type: type, visible: true, order };
   if (type === "cost_trend") {
     return { ...base, scope: "overall", scope_ref: null, time_window: "7d" };
   }
   if (type === "platform_metric") {
     return { ...base, scope: "platform", scope_ref: platforms[0] ? String(platforms[0].id) : null, time_window: "today" };
+  }
+  if (GROUP_TYPES.has(type)) {
+    const ref = groups[0]?.group_key ?? null;
+    // group_cost 带时间窗（默认 7d）；tokens/requests 锁今日；balance 无时间窗（点时值）。
+    if (type === "group_cost") return { ...base, scope: "group", scope_ref: ref, time_window: "7d" };
+    if (type === "group_balance") return { ...base, scope: "group", scope_ref: ref };
+    return { ...base, scope: "group", scope_ref: ref, time_window: "today" };
   }
   return base;
 }
@@ -128,7 +150,7 @@ export function PopoverConfigTab() {
   };
 
   const addItem = (type: PopoverItemType) => {
-    persist({ ...config, items: withOrders([...sortedItems, makeItem(type, sortedItems.length, platforms)]) });
+    persist({ ...config, items: withOrders([...sortedItems, makeItem(type, sortedItems.length, platforms, groups)]) });
     setShowAddMenu(false);
   };
 
@@ -156,17 +178,20 @@ export function PopoverConfigTab() {
       case "platform_metric":
         // platform_metric 副行走 trendSummary，不经此路径；穷尽兜底。
         return t("popover.itemPlatformMetric", "指定平台指标");
+      case "group_cost":
+        return t("popover.itemGroupCost", "分组金额");
+      case "group_tokens":
+        return t("popover.itemGroupTokens", "分组今日Token");
+      case "group_requests":
+        return t("popover.itemGroupRequests", "分组今日请求");
+      case "group_balance":
+        return t("popover.itemGroupBalance", "分组余额");
     }
   };
 
-  /** cost_trend 当前配置摘要（标题副行展示 scope + 时间窗）。 */
+  /** cost_trend / platform_metric / group_* 配置摘要（标题副行展示 scope + 时间窗）。 */
   const trendSummary = (item: PopoverItem): string => {
     const scope = item.scope ?? "overall";
-    const win = item.time_window ?? "7d";
-    const winLabel = t(
-      `popover.trendWindow_${win}`,
-      win === "today" ? "今日" : win === "30d" ? "近 30 天" : "近 7 天",
-    );
     let scopeLabel: string;
     if (scope === "platform") {
       const p = platforms.find((x) => String(x.id) === item.scope_ref);
@@ -177,6 +202,13 @@ export function PopoverConfigTab() {
     } else {
       scopeLabel = t("popover.trendScopeOverall", "整体");
     }
+    // group_balance 无时间窗（点时值），副行仅显示分组名。
+    if (item.item_type === "group_balance") return scopeLabel;
+    const win = item.time_window ?? "7d";
+    const winLabel = t(
+      `popover.trendWindow_${win}`,
+      win === "today" ? "今日" : win === "30d" ? "近 30 天" : "近 7 天",
+    );
     return `${scopeLabel} · ${winLabel}`;
   };
 
@@ -270,7 +302,7 @@ export function PopoverConfigTab() {
                         {t(TYPE_LABELS[item.item_type].key, TYPE_LABELS[item.item_type].fallback)}
                       </div>
                       <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {item.item_type === "cost_trend" || item.item_type === "platform_metric"
+                        {item.item_type === "cost_trend" || item.item_type === "platform_metric" || GROUP_TYPES.has(item.item_type)
                           ? trendSummary(item)
                           : previewValue(item.item_type)}
                       </div>
@@ -377,6 +409,36 @@ export function PopoverConfigTab() {
                           </option>
                         ))}
                       </select>
+                    </div>
+                  )}
+                  {GROUP_TYPES.has(item.item_type) && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingLeft: 24 }}>
+                      <select
+                        className="input"
+                        style={{ fontSize: 12, width: "auto", minWidth: 120 }}
+                        value={item.scope_ref ?? ""}
+                        onChange={(e) => updateItem(item.id, { scope_ref: e.target.value || null })}
+                      >
+                        {groups.length === 0 && <option value="">{t("popover.trendNoGroup", "无分组")}</option>}
+                        {groups.map((g) => (
+                          <option key={g.group_key} value={g.group_key}>{g.name}</option>
+                        ))}
+                      </select>
+                      {/* 仅 group_cost 显示时间窗；tokens/requests 锁今日、balance 无窗。 */}
+                      {item.item_type === "group_cost" && (
+                        <select
+                          className="input"
+                          style={{ fontSize: 12, width: "auto", minWidth: 100 }}
+                          value={item.time_window ?? "7d"}
+                          onChange={(e) => updateItem(item.id, { time_window: e.target.value as PopoverTrendWindow })}
+                        >
+                          {TREND_WINDOWS.map((w) => (
+                            <option key={w} value={w}>
+                              {t(`popover.trendWindow_${w}`, w === "today" ? "今日" : w === "30d" ? "近 30 天" : "近 7 天")}
+                            </option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   )}
                 </div>

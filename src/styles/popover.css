@@ -1,15 +1,26 @@
 /* Popover 专用样式 — 透明窗口 + 不透明圆角本体（圆角外透明，无白底） */
 
-html, body, #root {
-  height: 100%;
-  width: 100%;
+html, body {
   margin: 0;
   padding: 0;
   overflow: hidden;
   background: transparent;
 }
 
+/* #root 收缩到内容尺寸（窗口随 .popover-root 实测尺寸自适应，不再 100% 撑满） */
+#root {
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  display: inline-block;
+}
+
 .popover-root {
+  /* 宽高随内容自适应（窗口由 popover.tsx setSize 贴合）；min-width 防过窄抖动 */
+  box-sizing: border-box;
+  width: fit-content;
+  min-width: 280px;
+  max-width: 480px;
   padding: 10px 14px;
   font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
   font-size: 13px;
