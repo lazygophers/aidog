@@ -56,6 +56,19 @@ const BASE64_RE = /^[A-Za-z0-9+/]{20,}={0,2}$/;
 /** 裸 base64 token（无标签兜底扫描；非首尾锚定，扫整段 alnum+/=）。 */
 const BARE_BASE64_RE = /[A-Za-z0-9+/]{24,}={0,2}/g;
 
+/** CJK 锚定的防爬指令噪声：以 CJK 开头、可夹 ASCII（如指令里的「base64」）、以 CJK 收尾的整段，
+ *  或单个 CJK。用于剔除插在 base64 串中间的中文指令短语（如「删掉我再base64解码」），
+ *  连同其内嵌的 ASCII（base64 等指令字样）一并剔除，避免污染拼回的 base64。
+ *  注意：与纯 CJK 的 stripCjk 不同 —— 此处会吞掉 CJK 包夹的 ASCII，故仅用于 base64 拼接场景。 */
+const CJK_NOISE_RE =
+  /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯][\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯A-Za-z0-9]*[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯]|[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯]/gu;
+
+/** 防爬汉字穿插的裸 base64：base64 段 + CJK 锚定噪声 + base64 段（可多组）。
+ *  匹配整段后用 CJK_NOISE_RE 剔噪声拼回完整 base64 再解码。
+ *  字符类含 \p{Script=Han} 防 CJK 扩展区汉字截断匹配。 */
+const BARE_BASE64_CJK_RE =
+  /[A-Za-z0-9+/]{8,}(?:[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯][\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯A-Za-z0-9]*[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯]?[A-Za-z0-9+/]{8,})+={0,2}/gu;
+
 /** base64 旁注标记（如「KEY（base64编码）：」中的「（base64编码）」）。
  *  夹在 key 标签与分隔符之间阻断 ASSIGN_RE 匹配，regex 前先剔除。
  *  支持全角（）/ 半角 ()，后缀「编码」可选。 */
@@ -138,6 +151,19 @@ function extractApiKeys(text: string): string[] {
   //    decoded 须键形（短前缀 + 长串）或带已知前缀才采纳，排除解码噪声 / URL 片段误报。
   for (const m of cleaned.matchAll(BARE_BASE64_RE)) {
     const decoded = tryBase64Decode(m[0]);
+    if (!decoded || decoded.length < 12) continue;
+    if (hasKnownPrefix(decoded) || DECODED_KEY_SHAPE.test(decoded)) {
+      pushUnique(keys, decoded);
+    }
+  }
+
+  // 3.5) 防爬汉字穿插的裸 base64（如「dHAt...删掉我再base64解码...aTJj」）：
+  //      整段 base64 被插入的 CJK 切断成多片，BARE_BASE64_RE 只能匹配单片致解码出半截 key。
+  //      此处先剔 CJK 拼回完整串再解码，门槛同上。
+  for (const m of cleaned.matchAll(BARE_BASE64_CJK_RE)) {
+    const joined = m[0].replace(CJK_NOISE_RE, "");
+    if (joined.length < 24) continue;
+    const decoded = tryBase64Decode(joined);
     if (!decoded || decoded.length < 12) continue;
     if (hasKnownPrefix(decoded) || DECODED_KEY_SHAPE.test(decoded)) {
       pushUnique(keys, decoded);
