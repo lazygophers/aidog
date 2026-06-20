@@ -212,7 +212,10 @@ pub async fn apply_manual_budgets(
             Ok(())
         })
         .await
-        .map_err(|e| e.to_string())
+        .map_err(|e| e.to_string())?;
+    // manual_budgets 内嵌于 GroupDetail.platforms；list_group_details 非代理热路径，失效廉价。
+    db.invalidate_group_details_cache();
+    Ok(())
 }
 
 #[cfg(test)]
