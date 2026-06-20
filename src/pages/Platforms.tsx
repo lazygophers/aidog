@@ -1400,6 +1400,8 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   const [showForm, setShowForm] = useState(false);
   // GroupsEmbedded「添加分组」弹窗触发 ref（按钮上移到本页页头）。
   const openCreateGroupRef = useRef<(() => void) | null>(null);
+  // GroupsEmbedded 跨组件刷新入口（全局 purge 删平台后，触发分组卡内重建）。
+  const groupsReloadRef = useRef<(() => void) | null>(null);
   const [showPaste, setShowPaste] = useState(false);
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState("");
@@ -2941,6 +2943,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 setTimeout(() => setToast(null), 3000);
                 load();
                 handleGroupsChanged();
+                groupsReloadRef.current?.();
               } catch (err) {
                 setToast({ text: `${t("platform.purgeDisabled", "清理失效平台")}: ${err}`, ok: false });
                 setTimeout(() => setToast(null), 3000);
@@ -2954,7 +2957,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       </div>
 
       {/* 分组段（内嵌） */}
-      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} />
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={groupsReloadRef} />
 
       {/* 全屏视图态（创建/编辑分组）时隐藏分隔线 + 未分组平台列表，避免与全屏视图并列 */}
       {!groupFullscreen && (<>

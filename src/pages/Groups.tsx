@@ -470,7 +470,7 @@ async function fetchGroupStats(
 }
 
 /** 分组内嵌组件（供 Platforms 页使用） */
-export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onEditPlatform, onToast, onViewModeChange, openCreateGroupRef }: {
+export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onEditPlatform, onToast, onViewModeChange, openCreateGroupRef, reloadRef }: {
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string }) => void;
   onGroupsChanged?: () => void;
   /** 打开平台创建表单；提供 lockedGroupId = 从某分组 ➕ 触发，预绑该分组且锁定归属。 */
@@ -485,6 +485,9 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   /** 父级(Platforms)页头「添加分组」按钮经此 ref 触发本组件创建弹窗（按钮已上移到 Platforms 页头）。
    *  结构型 { current: fn | null } 免 import，与 useRef<fn|null> 兼容。 */
   openCreateGroupRef?: { current: (() => void) | null };
+  /** 父级(Platforms)跨组件刷新入口（如全局 purge 删平台后），触发本组件 load() 重建分组/平台状态。
+   *  本组件 load() 只在 mount 跑一次，父级 groupDetails 更新不会自动同步到内部 details/platforms。 */
+  reloadRef?: { current: (() => void) | null };
 }) {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
@@ -566,6 +569,12 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   };
 
   useEffect(() => { load(); }, []);
+  // 父级跨组件刷新入口（全局 purge 后触发），绑定本组件 load() 重建分组卡内平台状态。
+  useEffect(() => {
+    if (!reloadRef) return;
+    reloadRef.current = () => { load(); onGroupsChanged?.(); };
+    return () => { reloadRef.current = null; };
+  }, [reloadRef, load, onGroupsChanged]);
 
   // ── 分组展开区平台卡片：复用 PlatformCard + usePlatformCards（与 Platforms 主列表同款） ──
   // 单实例 hook 跨所有分组共享 state（quota/usage/expanded/test 按 platformId 索引）。
