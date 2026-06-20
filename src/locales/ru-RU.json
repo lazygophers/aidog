@@ -788,6 +788,7 @@
   "platform.testOk": "Тест пройден",
   "platform.toggleDetail": "Показать/скрыть детали",
   "platform.toggleFail": "Не удалось переключить",
+  "platform.deleteFail": "Не удалось удалить",
   "platform.usageLabel": "Использовано",
   "platform.usageLoading": "Загрузка использования",
   "platform.viewLogs": "Журналы",
