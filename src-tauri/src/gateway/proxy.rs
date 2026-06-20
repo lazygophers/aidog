@@ -607,6 +607,7 @@ fn spawn_estimate(
     quota_base_url: String,
     api_key: String,
     model: String,
+    extra: String,
     input_tokens: i32,
     output_tokens: i32,
     cache_tokens: i32,
@@ -632,6 +633,7 @@ fn spawn_estimate(
             &quota_base_url,
             &api_key,
             &model,
+            &extra,
             input_tokens as i64,
             output_tokens as i64,
             cache_tokens as i64,
@@ -1577,6 +1579,7 @@ async fn handle_proxy_inner(
             route.platform.base_url.clone(),
             eff_api_key.clone(),
             actual_model.clone(),
+            route.platform.extra.clone(),
             input_tokens,
             output_tokens,
             cache_tokens,
@@ -1691,6 +1694,7 @@ async fn handle_proxy_inner(
             base_url: route.platform.base_url.clone(),
             api_key: eff_api_key.clone(),
             model: actual_model.clone(),
+            extra: route.platform.extra.clone(),
             coding_plan,
         }),
     };
@@ -3129,6 +3133,7 @@ struct StreamEstCtx {
     base_url: String,
     api_key: String,
     model: String,
+    extra: String,
     coding_plan: bool,
 }
 
@@ -3233,6 +3238,7 @@ impl StreamLogGuard {
                 est.base_url.clone(),
                 est.api_key.clone(),
                 est.model.clone(),
+                est.extra.clone(),
                 input_tokens,
                 output_tokens,
                 cache_tokens,
