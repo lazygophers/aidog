@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>aidog 首页改版 · 主题自适应</title>
+<style>
+/* ── 默认变量（被主题 JS 覆盖；这里给 fallback） ───────────────── */
+:root{
+  --bg-base:#2e3440; --bg-elevated:#3b4252; --bg-glass:rgba(59,66,82,.8); --bg-surface:#434c5e;
+  --text-primary:#eceff4; --text-secondary:#d8dee9; --text-tertiary:#81a1c1;
+  --accent:#88c0d0; --accent-1:#88c0d0; --accent-2:#81a1c1; --accent-3:#a3be8c; --accent-4:#ebcb8b; --accent-5:#b48ead;
+  --accent-gradient:linear-gradient(135deg,#88c0d0 0%,#a3be8c 50%,#ebcb8b 100%);
+  --accent-subtle:rgba(136,192,208,.12); --success:#a3be8c; --danger:#bf616a;
+  --border:rgba(216,222,233,.08); --shadow-rgb:0,0,0; --glass-edge:rgba(216,222,233,.06);
+  --radius-sm:10px; --radius-md:14px; --radius-lg:20px; --radius-xl:28px;
+  --glass-blur:24px; --glass-saturate:1.6; --glass-border:1px solid var(--glass-edge);
+  --shadow-sm:0 1px 3px rgba(var(--shadow-rgb),.3); --shadow-md:0 4px 12px rgba(var(--shadow-rgb),.4);
+  --shadow-lg:0 12px 40px rgba(var(--shadow-rgb),.5); --transition:250ms cubic-bezier(.4,0,.2,1);
+  --app-bg-overlay:none;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+  background:var(--bg-base); color:var(--text-primary);
+  padding:0; transition:background var(--transition),color var(--transition);
+  -webkit-font-smoothing:antialiased; min-height:100vh;
+}
+body::before{content:"";position:fixed;inset:0;background:var(--app-bg-overlay);pointer-events:none;z-index:0}
+.wrap{position:relative;z-index:1;max-width:1180px;margin:0 auto;padding:24px 28px 60px}
+
+/* ── 主题切换条 ──────────────────────────────────────────────── */
+.controls{display:flex;flex-wrap:wrap;gap:18px;align-items:center;margin-bottom:28px;
+  padding:14px 18px;border-radius:var(--radius-lg);background:var(--bg-glass);
+  backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border:var(--glass-border);box-shadow:var(--shadow-sm)}
+.ctl-group{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.ctl-label{font-size:11px;color:var(--text-tertiary);letter-spacing:.08em;text-transform:uppercase;margin-right:4px}
+.pill{font-size:12px;padding:5px 11px;border-radius:999px;border:1px solid var(--border);
+  background:transparent;color:var(--text-secondary);cursor:pointer;transition:var(--transition)}
+.pill:hover{background:var(--accent-subtle)}
+.pill.on{background:var(--accent);color:#fff;border-color:transparent;box-shadow:var(--shadow-sm)}
+
+/* ── 卡片基类 ────────────────────────────────────────────────── */
+.card{background:var(--bg-glass);backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  -webkit-backdrop-filter:blur(var(--glass-blur)) saturate(var(--glass-saturate));
+  border:var(--glass-border);border-radius:var(--radius-lg);box-shadow:var(--shadow-md);
+  transition:var(--transition)}
+
+/* ── HERO ────────────────────────────────────────────────────── */
+.hero{display:grid;grid-template-columns:1.35fr 1fr;gap:18px;margin-bottom:18px}
+.hero-main{padding:26px 30px;position:relative;overflow:hidden}
+.hero-main::after{content:"";position:absolute;right:-40px;top:-40px;width:200px;height:200px;
+  background:var(--accent-gradient);opacity:.10;filter:blur(40px);border-radius:50%}
+.eyebrow{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-tertiary);
+  letter-spacing:.04em;margin-bottom:10px}
+.eyebrow .dot{width:7px;height:7px;border-radius:50%;background:var(--success);box-shadow:0 0 0 3px var(--accent-subtle)}
+.bolt{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;
+  background:var(--accent-gradient);color:#fff;font-size:15px;box-shadow:var(--shadow-sm)}
+/* 总计 = 突出主角 */
+.total-num{font-size:clamp(38px,5.4vw,60px);font-weight:800;line-height:1;letter-spacing:-.02em;
+  background:var(--accent-gradient);-webkit-background-clip:text;background-clip:text;color:transparent;
+  font-variant-numeric:tabular-nums;display:inline-block}
+.total-abbr{font-size:.42em;font-weight:600;color:var(--text-tertiary);
+  -webkit-text-fill-color:var(--text-tertiary);margin-left:8px;letter-spacing:0}
+.hero-sub{margin-top:14px;display:flex;gap:26px;flex-wrap:wrap}
+.hero-sub .k{font-size:12px;color:var(--text-tertiary);margin-bottom:3px}
+.hero-sub .v{font-size:17px;font-weight:700;font-variant-numeric:tabular-nums}
+.hero-sub .v small{font-size:12px;font-weight:500;color:var(--text-tertiary)}
+
+/* 今日金额 = 并列突出 */
+.hero-cost{padding:26px 28px;display:flex;flex-direction:column;justify-content:center;gap:6px}
+.cost-num{font-size:clamp(30px,4vw,46px);font-weight:800;letter-spacing:-.02em;line-height:1;
+  color:var(--success);font-variant-numeric:tabular-nums}
+.cost-num .cur{font-size:.5em;font-weight:600;margin-right:2px;color:var(--text-secondary)}
+.cost-meta{display:flex;gap:18px;margin-top:6px}
+.cost-meta div{font-size:12px;color:var(--text-tertiary)}
+.cost-meta b{display:block;font-size:15px;color:var(--text-primary);font-weight:700;margin-top:2px;font-variant-numeric:tabular-nums}
+
+/* ── token 三分卡：整体 / 输入 / 输出 ───────────────────────────── */
+.tok-row{display:grid;grid-template-columns:1.25fr 1fr 1fr;gap:14px;margin-bottom:18px}
+.tok{padding:18px 20px;position:relative}
+.tok .ic{font-size:13px;color:var(--text-tertiary);display:flex;align-items:center;gap:7px;margin-bottom:11px}
+.tok .ic .sq{width:18px;height:18px;border-radius:6px;display:grid;place-items:center;font-size:11px}
+.tok .big{font-size:26px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.tok .abbr{font-size:13px;font-weight:600;color:var(--text-tertiary);margin-left:6px}
+.tok .pct{margin-top:9px;font-size:11.5px;color:var(--text-tertiary)}
+/* 整体/总计卡加重 */
+.tok.total{border:1px solid color-mix(in srgb,var(--accent) 40%,transparent);
+  background:linear-gradient(135deg,var(--accent-subtle),transparent)}
+.tok.total .big{background:var(--accent-gradient);-webkit-background-clip:text;background-clip:text;color:transparent}
+.tok.total .ic .sq{background:var(--accent-gradient);color:#fff}
+.tok.input .ic .sq{background:color-mix(in srgb,var(--accent-2) 30%,transparent);color:var(--accent-2)}
+.tok.output .ic .sq{background:color-mix(in srgb,var(--accent-5) 30%,transparent);color:var(--accent-5)}
+.tok .bar{height:4px;border-radius:2px;background:var(--border);margin-top:10px;overflow:hidden}
+.tok .bar i{display:block;height:100%;border-radius:2px;background:var(--accent-gradient)}
+
+/* ── 次级指标条 ──────────────────────────────────────────────── */
+.mini-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:18px}
+.mini{padding:14px 16px}
+.mini .k{font-size:11.5px;color:var(--text-tertiary);margin-bottom:7px;display:flex;align-items:center;gap:6px}
+.mini .v{font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.mini .v small{font-size:11px;color:var(--text-tertiary);font-weight:500;margin-left:4px}
+.cache .track{height:6px;border-radius:3px;background:var(--border);margin-top:9px;overflow:hidden}
+.cache .track i{display:block;height:100%;background:var(--success);border-radius:3px}
+
+/* ── 趋势图占位 ──────────────────────────────────────────────── */
+.trend{padding:20px 22px}
+.trend h3{font-size:14px;font-weight:700;margin-bottom:2px}
+.trend .sub{font-size:11.5px;color:var(--text-tertiary);margin-bottom:14px}
+.chart{height:150px;border-radius:var(--radius-md);position:relative;overflow:hidden;
+  background:linear-gradient(180deg,var(--accent-subtle),transparent)}
+.chart svg{position:absolute;inset:0;width:100%;height:100%}
+.legend{display:flex;gap:16px;margin-top:12px;flex-wrap:wrap}
+.legend span{font-size:11px;color:var(--text-tertiary);display:flex;align-items:center;gap:5px}
+.legend i{width:14px;height:3px;border-radius:2px;display:inline-block}
+
+.note{margin-top:26px;font-size:11.5px;color:var(--text-tertiary);line-height:1.7;
+  border-top:1px solid var(--border);padding-top:14px}
+.note b{color:var(--text-secondary)}
+@media(max-width:760px){.hero,.tok-row,.mini-row{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- 主题切换条：演示「不同主题不同风格」 -->
+  <div class="controls">
+    <div class="ctl-group"><span class="ctl-label">风格</span><span id="styles"></span></div>
+    <div class="ctl-group"><span class="ctl-label">配色</span><span id="palettes"></span></div>
+    <div class="ctl-group"><span class="ctl-label">模式</span>
+      <button class="pill" data-mode="light">浅色</button>
+      <button class="pill on" data-mode="dark">深色</button>
+    </div>
+  </div>
+
+  <!-- HERO：总计 Tokens 突出 + 今日金额并列 -->
+  <div class="hero">
+    <div class="card hero-main">
+      <div class="eyebrow"><span class="bolt">⚡</span> 真实消耗 Tokens · 总计 <span class="dot" title="实时"></span></div>
+      <div><span class="total-num" id="totalNum">9,102,006,202</span><span class="total-abbr" id="totalAbbr">(91.02 亿)</span></div>
+      <div class="hero-sub">
+        <div><div class="k">总请求数</div><div class="v" id="reqV">83,673</div></div>
+        <div><div class="k">缓存命中率</div><div class="v" style="color:var(--success)">89.7%</div></div>
+        <div><div class="k">活跃平台</div><div class="v">12</div></div>
+      </div>
+    </div>
+
+    <div class="card hero-cost">
+      <div class="eyebrow">今日使用金额</div>
+      <div class="cost-num"><span class="cur">$</span><span id="todayCost">42.68</span></div>
+      <div class="cost-meta">
+        <div>今日 Tokens<b id="todayTok">128,400,000 <small>(1.28亿)</small></b></div>
+        <div>总成本<b style="color:var(--success)">$10,163.18</b></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- token 三分：整体(总计) / 输入 / 输出 -->
+  <div class="tok-row">
+    <div class="card tok total">
+      <div class="ic"><span class="sq">Σ</span> 整体 · 总计</div>
+      <div><span class="big" id="t_total">9,102,006,202</span><span class="abbr" id="t_total_a">(91.02亿)</span></div>
+      <div class="bar"><i style="width:100%"></i></div>
+      <div class="pct">输入 + 输出 + 缓存创建/命中累计</div>
+    </div>
+    <div class="card tok input">
+      <div class="ic"><span class="sq">↓</span> 输入 Input</div>
+      <div><span class="big" id="t_in">849,000,000</span><span class="abbr" id="t_in_a">(8.49亿)</span></div>
+      <div class="bar"><i style="width:62%;background:var(--accent-2)"></i></div>
+      <div class="pct">占总计 9.3% · 新增输入</div>
+    </div>
+    <div class="card tok output">
+      <div class="ic"><span class="sq">↑</span> 输出 Output</div>
+      <div><span class="big" id="t_out">47,268,000</span><span class="abbr" id="t_out_a">(4726.8万)</span></div>
+      <div class="bar"><i style="width:18%;background:var(--accent-5)"></i></div>
+      <div class="pct">占总计 0.5%</div>
+    </div>
+  </div>
+
+  <!-- 次级指标：演示 2000(2k) 小数级简写 -->
+  <div class="mini-row">
+    <div class="card mini"><div class="k">缓存创建</div><div class="v" id="m_create">80,288,000 <small>(8028.8万)</small></div></div>
+    <div class="card mini"><div class="k">缓存命中</div><div class="v" id="m_hit">8,126,000,000 <small>(81.26亿)</small></div></div>
+    <div class="card mini"><div class="k">今日新增输入</div><div class="v" id="m_small">2,000 <small>(2k)</small></div></div>
+    <div class="card mini cache"><div class="k">缓存命中率</div><div class="v" style="color:var(--success)">89.7%</div><div class="track"><i style="width:89.7%"></i></div></div>
+  </div>
+
+  <!-- 趋势图占位（沿用现有「使用趋势」）-->
+  <div class="card trend">
+    <h3>使用趋势</h3><div class="sub">近 30 天 · 成本 / 输入 / 输出 / 缓存</div>
+    <div class="chart">
+      <svg viewBox="0 0 1000 150" preserveAspectRatio="none">
+        <path d="M0,140 C120,138 180,120 240,90 C300,60 340,135 420,132 C520,128 560,95 640,100 C720,105 760,60 840,30 C900,12 950,120 1000,128 L1000,150 L0,150 Z" fill="var(--accent-subtle)"/>
+        <path d="M0,140 C120,138 180,120 240,90 C300,60 340,135 420,132 C520,128 560,95 640,100 C720,105 760,60 840,30 C900,12 950,120 1000,128" fill="none" stroke="var(--accent)" stroke-width="2.5"/>
+        <path d="M0,148 C150,147 250,143 400,144 C550,145 650,140 800,138 C900,137 950,146 1000,146" fill="none" stroke="var(--accent-2)" stroke-width="1.6" opacity=".7"/>
+      </svg>
+    </div>
+    <div class="legend">
+      <span><i style="background:var(--accent)"></i>成本</span>
+      <span><i style="background:var(--accent-2)"></i>输入</span>
+      <span><i style="background:var(--accent-5)"></i>输出</span>
+      <span><i style="background:var(--accent-3)"></i>缓存命中</span>
+    </div>
+  </div>
+
+  <div class="note">
+    <b>设计说明：</b> 总计 Tokens 用渐变巨号 + 「全称 (简写)」突出为页面主角；今日金额并列为次主角（success 色）。
+    整体/输入/输出 三卡，<b>整体卡加重</b>（accent 描边 + 渐变底 + 渐变数字）。所有 token 数值均「<b>全称 (简写)</b>」并排：
+    9,102,006,202 (91.02亿) / 2,000 (2k)。<br>
+    <b>主题自适应：</b>上方切「风格 × 配色 × 模式」实时换主题 —— liquidGlass 毛玻璃 / bento 大圆角粗边 / paper 纸感小圆角 / terminal 零圆角扫描线 / aurora 流光，
+    全部复用 aidog 真实主题变量（style 控结构 radius/blur/shadow，palette 控色）。<b>不同主题 → 不同风格，同一套布局。</b>
+  </div>
+</div>
+
+<script>
+/* ── aidog 真实主题变量（style 结构轴 + palette 色彩轴）──────────── */
+const STYLES={
+ liquidGlass:{label:"毛玻璃",dark:{"--radius-lg":"20px","--radius-md":"14px","--glass-blur":"24px","--glass-saturate":"1.6","--glass-border":"1px solid var(--glass-edge)","--shadow-md":"0 4px 12px rgba(var(--shadow-rgb),.4)","--shadow-sm":"0 1px 3px rgba(var(--shadow-rgb),.3)","--app-bg-overlay":"none"},
+   light:{"--radius-lg":"20px","--radius-md":"14px","--glass-blur":"24px","--glass-saturate":"1.8","--glass-border":"1px solid var(--glass-edge)","--shadow-md":"0 4px 12px rgba(var(--shadow-rgb),.06)","--shadow-sm":"0 1px 3px rgba(var(--shadow-rgb),.04)","--app-bg-overlay":"none"}},
+ bento:{label:"便当",dark:{"--radius-lg":"26px","--radius-md":"20px","--glass-blur":"0px","--glass-saturate":"1","--glass-border":"1.5px solid var(--border)","--shadow-md":"0 2px 8px rgba(var(--shadow-rgb),.4)","--shadow-sm":"0 2px 8px rgba(var(--shadow-rgb),.4)","--app-bg-overlay":"none"},
+   light:{"--radius-lg":"26px","--radius-md":"20px","--glass-blur":"0px","--glass-saturate":"1","--glass-border":"1.5px solid var(--border)","--shadow-md":"0 2px 8px rgba(var(--shadow-rgb),.10)","--shadow-sm":"0 2px 8px rgba(var(--shadow-rgb),.10)","--app-bg-overlay":"none"}},
+ paper:{label:"纸感",dark:{"--radius-lg":"8px","--radius-md":"6px","--glass-blur":"0px","--glass-saturate":"1","--glass-border":"1px solid var(--border)","--shadow-md":"0 1px 3px rgba(var(--shadow-rgb),.4),0 8px 24px rgba(var(--shadow-rgb),.2)","--shadow-sm":"0 1px 3px rgba(var(--shadow-rgb),.4)","--app-bg-overlay":"none"},
+   light:{"--radius-lg":"8px","--radius-md":"6px","--glass-blur":"0px","--glass-saturate":"1","--glass-border":"1px solid var(--border)","--shadow-md":"0 1px 3px rgba(var(--shadow-rgb),.10),0 8px 24px rgba(var(--shadow-rgb),.04)","--shadow-sm":"0 1px 3px rgba(var(--shadow-rgb),.10)","--app-bg-overlay":"none"}},
+ terminal:{label:"终端",dark:{"--radius-lg":"2px","--radius-md":"2px","--glass-blur":"0px","--glass-saturate":"1","--glass-border":"1px solid color-mix(in srgb,var(--accent-1) 50%,transparent)","--shadow-md":"0 0 0 1px rgba(var(--shadow-rgb),.4)","--shadow-sm":"0 0 0 1px rgba(var(--shadow-rgb),.4)","--app-bg-overlay":"repeating-linear-gradient(0deg,rgba(var(--shadow-rgb),.03) 0 1px,transparent 1px 3px)"},
+   light:{"--radius-lg":"2px","--radius-md":"2px","--glass-blur":"0px","--glass-saturate":"1","--glass-border":"1px solid color-mix(in srgb,var(--accent-1) 50%,transparent)","--shadow-md":"0 0 0 1px rgba(var(--shadow-rgb),.4)","--shadow-sm":"0 0 0 1px rgba(var(--shadow-rgb),.4)","--app-bg-overlay":"repeating-linear-gradient(0deg,rgba(var(--shadow-rgb),.03) 0 1px,transparent 1px 3px)"}},
+ aurora:{label:"流光",dark:{"--radius-lg":"22px","--radius-md":"16px","--glass-blur":"16px","--glass-saturate":"1.4","--glass-border":"1px solid var(--glass-edge)","--shadow-md":"0 8px 30px rgba(var(--shadow-rgb),.45)","--shadow-sm":"0 2px 8px rgba(var(--shadow-rgb),.3)","--app-bg-overlay":"radial-gradient(60% 50% at 80% 0%,var(--accent-subtle),transparent),radial-gradient(50% 40% at 0% 100%,var(--accent-subtle),transparent)"},
+   light:{"--radius-lg":"22px","--radius-md":"16px","--glass-blur":"16px","--glass-saturate":"1.5","--glass-border":"1px solid var(--glass-edge)","--shadow-md":"0 8px 30px rgba(var(--shadow-rgb),.10)","--shadow-sm":"0 2px 8px rgba(var(--shadow-rgb),.06)","--app-bg-overlay":"radial-gradient(60% 50% at 80% 0%,var(--accent-subtle),transparent),radial-gradient(50% 40% at 0% 100%,var(--accent-subtle),transparent)"}},
+ sharp:{label:"锐利",dark:{"--radius-lg":"4px","--radius-md":"3px","--glass-blur":"0px","--glass-saturate":"1","--glass-border":"1px solid var(--border)","--shadow-md":"6px 6px 0 rgba(var(--shadow-rgb),.35)","--shadow-sm":"3px 3px 0 rgba(var(--shadow-rgb),.3)","--app-bg-overlay":"none"},
+   light:{"--radius-lg":"4px","--radius-md":"3px","--glass-blur":"0px","--glass-saturate":"1","--glass-border":"1px solid var(--text-primary)","--shadow-md":"6px 6px 0 rgba(var(--shadow-rgb),.18)","--shadow-sm":"3px 3px 0 rgba(var(--shadow-rgb),.15)","--app-bg-overlay":"none"}},
+};
+const PALETTES={
+ nord:{label:"Nord",
+   dark:{"--bg-base":"#2e3440","--bg-elevated":"#3b4252","--bg-glass":"rgba(59,66,82,.8)","--bg-surface":"#434c5e","--text-primary":"#eceff4","--text-secondary":"#d8dee9","--text-tertiary":"#81a1c1","--accent":"#88c0d0","--accent-1":"#88c0d0","--accent-2":"#81a1c1","--accent-3":"#a3be8c","--accent-4":"#ebcb8b","--accent-5":"#b48ead","--accent-gradient":"linear-gradient(135deg,#88c0d0 0%,#a3be8c 50%,#ebcb8b 100%)","--accent-subtle":"rgba(136,192,208,.14)","--success":"#a3be8c","--danger":"#bf616a","--border":"rgba(216,222,233,.10)","--shadow-rgb":"0,0,0","--glass-edge":"rgba(216,222,233,.08)"},
+   light:{"--bg-base":"#eceff4","--bg-elevated":"#e5e9f0","--bg-glass":"rgba(236,239,244,.85)","--bg-surface":"#f5f7fa","--text-primary":"#2e3440","--text-secondary":"#4c566a","--text-tertiary":"#7b88a1","--accent":"#5e81ac","--accent-1":"#5e81ac","--accent-2":"#81a1c1","--accent-3":"#a3be8c","--accent-4":"#ebcb8b","--accent-5":"#b48ead","--accent-gradient":"linear-gradient(135deg,#5e81ac 0%,#a3be8c 50%,#ebcb8b 100%)","--accent-subtle":"rgba(94,129,172,.15)","--success":"#3b7d3b","--danger":"#bf616a","--border":"rgba(76,86,106,.16)","--shadow-rgb":"46,52,64","--glass-edge":"rgba(76,86,106,.12)"}},
+ appleBlue:{label:"Apple Blue",
+   dark:{"--bg-base":"#1c1c1e","--bg-elevated":"#2c2c2e","--bg-glass":"rgba(44,44,46,.78)","--bg-surface":"#3a3a3c","--text-primary":"#f5f5f7","--text-secondary":"#c7c7cc","--text-tertiary":"#8e8e93","--accent":"#0a84ff","--accent-1":"#0a84ff","--accent-2":"#64d2ff","--accent-3":"#30d158","--accent-4":"#ffd60a","--accent-5":"#bf5af2","--accent-gradient":"linear-gradient(135deg,#0a84ff 0%,#64d2ff 50%,#bf5af2 100%)","--accent-subtle":"rgba(10,132,255,.16)","--success":"#30d158","--danger":"#ff453a","--border":"rgba(255,255,255,.10)","--shadow-rgb":"0,0,0","--glass-edge":"rgba(255,255,255,.08)"},
+   light:{"--bg-base":"#f2f2f7","--bg-elevated":"#ffffff","--bg-glass":"rgba(255,255,255,.82)","--bg-surface":"#ffffff","--text-primary":"#1d1d1f","--text-secondary":"#3a3a3c","--text-tertiary":"#8e8e93","--accent":"#007aff","--accent-1":"#007aff","--accent-2":"#32ade6","--accent-3":"#34c759","--accent-4":"#ff9f0a","--accent-5":"#af52de","--accent-gradient":"linear-gradient(135deg,#007aff 0%,#32ade6 50%,#af52de 100%)","--accent-subtle":"rgba(0,122,255,.12)","--success":"#248a3d","--danger":"#ff3b30","--border":"rgba(0,0,0,.10)","--shadow-rgb":"0,0,0","--glass-edge":"rgba(0,0,0,.06)"}},
+ dracula:{label:"Dracula",
+   dark:{"--bg-base":"#282a36","--bg-elevated":"#343746","--bg-glass":"rgba(52,55,70,.8)","--bg-surface":"#44475a","--text-primary":"#f8f8f2","--text-secondary":"#d6d6cf","--text-tertiary":"#9da3b4","--accent":"#bd93f9","--accent-1":"#bd93f9","--accent-2":"#8be9fd","--accent-3":"#50fa7b","--accent-4":"#f1fa8c","--accent-5":"#ff79c6","--accent-gradient":"linear-gradient(135deg,#bd93f9 0%,#8be9fd 50%,#ff79c6 100%)","--accent-subtle":"rgba(189,147,249,.16)","--success":"#50fa7b","--danger":"#ff5555","--border":"rgba(248,248,242,.10)","--shadow-rgb":"0,0,0","--glass-edge":"rgba(248,248,242,.08)"},
+   light:{"--bg-base":"#f5f4fb","--bg-elevated":"#ffffff","--bg-glass":"rgba(255,255,255,.82)","--bg-surface":"#ffffff","--text-primary":"#3b3252","--text-secondary":"#5b5172","--text-tertiary":"#8a82a3","--accent":"#7c3aed","--accent-1":"#7c3aed","--accent-2":"#0891b2","--accent-3":"#16a34a","--accent-4":"#ca8a04","--accent-5":"#db2777","--accent-gradient":"linear-gradient(135deg,#7c3aed 0%,#0891b2 50%,#db2777 100%)","--accent-subtle":"rgba(124,58,237,.12)","--success":"#16a34a","--danger":"#dc2626","--border":"rgba(59,50,82,.14)","--shadow-rgb":"59,50,82","--glass-edge":"rgba(59,50,82,.10)"}},
+ gruvbox:{label:"Gruvbox",
+   dark:{"--bg-base":"#282828","--bg-elevated":"#3c3836","--bg-glass":"rgba(60,56,54,.8)","--bg-surface":"#504945","--text-primary":"#fbf1c7","--text-secondary":"#ebdbb2","--text-tertiary":"#a89984","--accent":"#fe8019","--accent-1":"#fe8019","--accent-2":"#83a598","--accent-3":"#b8bb26","--accent-4":"#fabd2f","--accent-5":"#d3869b","--accent-gradient":"linear-gradient(135deg,#fe8019 0%,#fabd2f 50%,#b8bb26 100%)","--accent-subtle":"rgba(254,128,25,.15)","--success":"#b8bb26","--danger":"#fb4934","--border":"rgba(235,219,178,.10)","--shadow-rgb":"0,0,0","--glass-edge":"rgba(235,219,178,.08)"},
+   light:{"--bg-base":"#fbf1c7","--bg-elevated":"#f2e5bc","--bg-glass":"rgba(251,241,199,.85)","--bg-surface":"#f9f5d7","--text-primary":"#3c3836","--text-secondary":"#504945","--text-tertiary":"#7c6f64","--accent":"#d65d0e","--accent-1":"#d65d0e","--accent-2":"#458588","--accent-3":"#98971a","--accent-4":"#d79921","--accent-5":"#b16286","--accent-gradient":"linear-gradient(135deg,#d65d0e 0%,#d79921 50%,#98971a 100%)","--accent-subtle":"rgba(214,93,14,.14)","--success":"#79740e","--danger":"#cc241d","--border":"rgba(60,56,54,.16)","--shadow-rgb":"60,56,54","--glass-edge":"rgba(60,56,54,.12)"}},
+};
+
+let cur={style:"liquidGlass",palette:"nord",mode:"dark"};
+// URL hash 指定初始主题：#style,palette,mode（用于截图）
+if(location.hash){const[s,p,m]=location.hash.slice(1).split(",");if(STYLES[s])cur.style=s;if(PALETTES[p])cur.palette=p;if(m==="light"||m==="dark")cur.mode=m;}
+function apply(){
+  const root=document.documentElement;
+  const p=PALETTES[cur.palette][cur.mode], s=STYLES[cur.style][cur.mode];
+  Object.entries(p).forEach(([k,v])=>root.style.setProperty(k,v));
+  Object.entries(s).forEach(([k,v])=>root.style.setProperty(k,v));
+}
+// 构建切换 pill
+const sw=document.getElementById("styles");
+Object.entries(STYLES).forEach(([k,v])=>{const b=document.createElement("button");b.className="pill"+(k===cur.style?" on":"");b.textContent=v.label;b.dataset.style=k;sw.appendChild(b)});
+const pw=document.getElementById("palettes");
+Object.entries(PALETTES).forEach(([k,v])=>{const b=document.createElement("button");b.className="pill"+(k===cur.palette?" on":"");b.textContent=v.label;b.dataset.palette=k;pw.appendChild(b)});
+document.body.addEventListener("click",e=>{
+  const t=e.target.closest(".pill");if(!t)return;
+  if(t.dataset.style){cur.style=t.dataset.style;sw.querySelectorAll(".pill").forEach(x=>x.classList.toggle("on",x===t))}
+  if(t.dataset.palette){cur.palette=t.dataset.palette;pw.querySelectorAll(".pill").forEach(x=>x.classList.toggle("on",x===t))}
+  if(t.dataset.mode){cur.mode=t.dataset.mode;document.querySelectorAll("[data-mode]").forEach(x=>x.classList.toggle("on",x===t))}
+  apply();
+});
+apply();
+</script>
+</body>
+</html>
