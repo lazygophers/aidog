@@ -3146,18 +3146,36 @@ pub async fn count_proxy_logs(db: &Db) -> Result<u32, String> {
 
 /// 共用使用量聚合：按给定 WHERE 子句统计总量 + 最近 5 次健康度。
 /// `where_clause` 不含 `WHERE` 关键字；`params` 须与 `where_clause` 占位符一一对应。
+/// 本地当日 00:00 的毫秒 epoch（今日维度聚合的下界）。失败回退 0（=全量当今日，极端容错）。
+fn local_today_start_ms() -> i64 {
+    use chrono::{Local, TimeZone};
+    Local::now()
+        .date_naive()
+        .and_hms_opt(0, 0, 0)
+        .and_then(|dt| Local.from_local_datetime(&dt).single())
+        .map(|d| d.timestamp_millis())
+        .unwrap_or(0)
+}
+
 fn usage_stats(
     conn: &Connection,
     where_clause: &str,
     params: &[&dyn rusqlite::types::ToSql],
 ) -> SqlResult<super::models::PlatformUsageStats> {
+    // 今日下界绑定到 where_clause 之后的下一个占位符（CASE WHEN 内引用，避免改动调用方 params 顺序）。
+    let today_start = local_today_start_ms();
+    let mut q_params: Vec<&dyn rusqlite::types::ToSql> = params.to_vec();
+    let today_idx = q_params.len() + 1;
+    q_params.push(&today_start);
     let stats: super::models::PlatformUsageStats = conn.query_row(
         &format!("SELECT COUNT(*), \
          SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
          SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), \
-         COALESCE(SUM(est_cost), 0.0) \
+         COALESCE(SUM(est_cost), 0.0), \
+         COALESCE(SUM(CASE WHEN created_at >= ?{today_idx} THEN input_tokens + output_tokens ELSE 0 END), 0), \
+         COALESCE(SUM(CASE WHEN created_at >= ?{today_idx} THEN est_cost ELSE 0.0 END), 0.0) \
          FROM proxy_log WHERE {where_clause}"),
-        params,
+        q_params.as_slice(),
         |row| {
             let total: i64 = row.get(0).unwrap_or(0);
             let success: i64 = row.get(1).unwrap_or(0);
@@ -3165,6 +3183,8 @@ fn usage_stats(
             let out: i64 = row.get(3).unwrap_or(0);
             let cache: i64 = row.get(4).unwrap_or(0);
             let cost: f64 = row.get(5).unwrap_or(0.0);
+            let today_tokens: i64 = row.get(6).unwrap_or(0);
+            let today_cost: f64 = row.get(7).unwrap_or(0.0);
             Ok(super::models::PlatformUsageStats {
                 total_requests: total,
                 success_count: success,
@@ -3175,6 +3195,8 @@ fn usage_stats(
                 recent_failures: 0,
                 recent_total: 0,
                 total_cost: cost,
+                today_tokens,
+                today_cost,
             })
         },
     )?;
@@ -3301,6 +3323,8 @@ pub async fn get_all_group_usage_stats(
                         recent_failures: 0,
                         recent_total: 0,
                         total_cost: cost,
+                        today_tokens: 0,
+                        today_cost: 0.0,
                     },
                 ))
             })?;
@@ -3347,18 +3371,21 @@ pub async fn platform_usage_stats_all(
                 FROM proxy_log \
                 WHERE deleted_at = 0";
 
-            // ① 全量聚合（每 eff_pid 的 total/success/tokens/cost）。
+            // ① 全量聚合（每 eff_pid 的 total/success/tokens/cost + 今日 tokens/cost）。
+            let today_start = local_today_start_ms();
             let totals_sql = format!(
                 "SELECT eff_pid, \
                  COUNT(*), \
                  SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
                  SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), \
-                 COALESCE(SUM(est_cost), 0.0) \
+                 COALESCE(SUM(est_cost), 0.0), \
+                 COALESCE(SUM(CASE WHEN created_at >= ?1 THEN input_tokens + output_tokens ELSE 0 END), 0), \
+                 COALESCE(SUM(CASE WHEN created_at >= ?1 THEN est_cost ELSE 0.0 END), 0.0) \
                  FROM ({EFF_PID_SUBQUERY}) \
                  GROUP BY eff_pid"
             );
             let mut stmt = conn.prepare(&totals_sql)?;
-            let rows = stmt.query_map([], |row| {
+            let rows = stmt.query_map([&today_start], |row| {
                 let eff_pid: i64 = row.get(0)?;
                 let total: i64 = row.get(1).unwrap_or(0);
                 let success: i64 = row.get(2).unwrap_or(0);
@@ -3366,6 +3393,8 @@ pub async fn platform_usage_stats_all(
                 let out: i64 = row.get(4).unwrap_or(0);
                 let cache: i64 = row.get(5).unwrap_or(0);
                 let cost: f64 = row.get(6).unwrap_or(0.0);
+                let today_tokens: i64 = row.get(7).unwrap_or(0);
+                let today_cost: f64 = row.get(8).unwrap_or(0.0);
                 Ok((
                     eff_pid,
                     super::models::PlatformUsageStats {
@@ -3378,6 +3407,8 @@ pub async fn platform_usage_stats_all(
                         recent_failures: 0,
                         recent_total: 0,
                         total_cost: cost,
+                        today_tokens,
+                        today_cost,
                     },
                 ))
             })?;

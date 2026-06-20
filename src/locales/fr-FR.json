@@ -1651,5 +1651,7 @@
   "popover.size_m": "Moyen",
   "popover.size_l": "Grand",
   "popover.preview": "Aperçu en direct",
-  "popover.previewHint": "Affiche le popover avec votre disposition actuelle instantanément — sans enregistrer."
+  "popover.previewHint": "Affiche le popover avec votre disposition actuelle instantanément — sans enregistrer.",
+  "platform.todayUsageLabel": "Aujourd'hui",
+  "platform.codingUsedHint": "Tokens cumulés utilisés et coût estimé pour cette plateforme (basé sur les requêtes réelles)"
 }
