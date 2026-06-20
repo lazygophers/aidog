@@ -30,7 +30,9 @@ export function CcCodexSettingsTab() {
       .get()
       .then((s) => {
         // 组件已卸载，或用户在 get 解析前已操作过开关 → 丢弃晚到结果，不覆盖。
-        if (cancelled || dirtyRef.current) return;
+        if (cancelled || dirtyRef.current) {
+          return;
+        }
         setSettings(s);
       })
       .catch((e) => {

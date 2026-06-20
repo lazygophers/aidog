@@ -3168,7 +3168,8 @@ async fn ensure_default_cc_codex_settings(db: &Db) -> Result<(), String> {
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn cc_codex_settings_get(db: State<'_, Db>) -> Result<CcCodexSettings, String> {
     tracing::debug!(command = "cc_codex_settings_get", "command invoked");
-    Ok(load_cc_codex_settings(&db).await)
+    let current = load_cc_codex_settings(&db).await;
+    Ok(current)
 }
 
 #[tauri::command]
