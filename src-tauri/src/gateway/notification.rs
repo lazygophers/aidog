@@ -301,6 +301,25 @@ pub async fn dispatch(
         };
     }
 
+    // CC hook 事件来源守卫：通用 hook 脚本 POST 时带 event、不带 type（见 hooks.rs「不传 type」），
+    // 当 event 存在但未在 per_event 启用时，禁止回退类型路径（type_str="" → from_str_or_default → TaskComplete）
+    // 误派通知。仅 event=None（Codex）或携带显式 type 的旧/Codex 路径才走下方类型路径。
+    if let Some(ev) = event.filter(|e| !e.is_empty()) {
+        if type_str.is_empty() {
+            // 未启用事件：不入库、不触发任何通道。title/body 仅填充返回结构，不产生任何副作用。
+            return DispatchResult {
+                dispatched: false,
+                title: ev.to_string(),
+                body: default_template_for_event(ev).to_string(),
+                tts: false,
+                popup: false,
+                sound: false,
+                inbox: false,
+                inbox_id: None,
+            };
+        }
+    }
+
     // 类型路径（无 event / 未命中 / 未启用）：向后兼容 + Codex。
     let notif_type = NotifType::from_str_or_default(type_str);
     let setting = settings.type_setting(notif_type);
@@ -870,5 +889,40 @@ mod tests {
         assert_eq!(r.body, "aidog 完成");
         let list = super::super::db::list_notifications(&db, 10).await.unwrap();
         assert_eq!(list[0].notif_type, "task_complete");
+    }
+
+    #[tokio::test]
+    async fn dispatch_event_present_empty_type_unenabled_suppressed() {
+        let db = mem_db().await;
+        // 通用 CC hook 脚本：带 event、不带 type（type_str=""）。仅启用 Stop，未启用 SubagentStop。
+        set_notif_settings(&db, serde_json::json!({
+            "enabled": true,
+            "per_type": { "task_complete": { "form": "full", "template": "{project} 完成" } },
+            "per_event": { "Stop": { "enabled": true } }
+        })).await;
+        let v = vars(&[("project", "aidog")]);
+        // SubagentStop 未在 per_event 启用 + type_str="" → 守卫抑制，不回退类型路径误派。
+        let r = dispatch(&db, None, Some("SubagentStop"), "", None, &v).await;
+        assert!(!r.dispatched, "未启用事件不应派发");
+        assert!(!r.inbox, "未启用事件不应入库");
+        let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+        assert_eq!(list.len(), 0, "不应有任何入库记录");
+    }
+
+    #[tokio::test]
+    async fn dispatch_event_explicit_disabled_empty_type_suppressed() {
+        let db = mem_db().await;
+        // SubagentStop 显式 enabled=false，同样被守卫抑制（type_str="" → 不回退类型路径）。
+        set_notif_settings(&db, serde_json::json!({
+            "enabled": true,
+            "per_type": { "task_complete": { "form": "full", "template": "{project} 完成" } },
+            "per_event": { "Stop": { "enabled": true }, "SubagentStop": { "enabled": false } }
+        })).await;
+        let v = vars(&[("project", "aidog")]);
+        let r = dispatch(&db, None, Some("SubagentStop"), "", None, &v).await;
+        assert!(!r.dispatched, "显式禁用事件不应派发");
+        assert!(!r.inbox, "显式禁用事件不应入库");
+        let list = super::super::db::list_notifications(&db, 10).await.unwrap();
+        assert_eq!(list.len(), 0, "不应有任何入库记录");
     }
 }
