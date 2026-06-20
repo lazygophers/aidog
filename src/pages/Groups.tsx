@@ -554,21 +554,34 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   /**
    * 三阶段渐进加载（首屏不 await 任何数据，全异步流式，到一阶段渲一阶段）：
    *   ① 分组列表（group_list 轻量）→ 立即渲染分组骨架（头/容器，平台区空）。
-   *   ② 依次（串行 await）逐组 group_detail → 每组到手即填该组平台（先到先渲，保组顺序）。
-   *   ③ 未分组平台：platform_list → 灌入 platforms（驱动父级未分组列表 + 余额聚合 + 计数校正）。
-   * 计数随各组平台流入经 onCountChange 增量回传父级页头徽章。
+   *   ② 依次（按组顺序）逐组 group_detail；组内**平台级流式**：拿到组的平台列表后逐个平台
+   *      独立 append 进 platforms（每卡先到先渲，微任务交错让单卡逐个上屏）。某卡慢不阻塞同组下一卡——
+   *      每卡 per-card 重数据（quota/usage/lastTest）由各自 effect/hook 独立异步加载，不走「攒齐全部」批量。
+   *   ③ 未分组平台：platform_list → 灌入剩余 platforms（父级未分组列表 + 余额聚合 + 计数最终校正）。
+   * 计数随**每个平台**渲染经 onCountChange 增量回传父级页头徽章（粒度 = 每平台）。
    */
   const load = async () => {
     const seq = ++loadSeqRef.current;
     const alive = () => seq === loadSeqRef.current;
     setLoading(true);
     onCountChange?.({ total: 0, active: 0 });
-    // 累计「已见平台」集（跨组去重：共享平台只计一次），随各组流入递增回传计数。
+    // 累计「已见平台」集（跨组/未分组去重：共享平台只计一次），随每个平台流入递增回传计数。
     const seen = new Map<number, Platform>();
     const reportCount = () => {
       let active = 0;
       for (const p of seen.values()) if (p.enabled) active++;
       onCountChange?.({ total: seen.size, active });
+    };
+    // 逐平台 append 进 platforms（去重：已存在则原地替换为最新副本，否则追加）。
+    // 单平台一次 setState → 单卡上屏；microtask 交错让卡片一个一个渲，互不阻塞。
+    const upsertPlatform = (plat: Platform) => {
+      setPlatforms(prev => {
+        const idx = prev.findIndex(p => p.id === plat.id);
+        if (idx === -1) return [...prev, plat];
+        const next = prev.slice();
+        next[idx] = plat;
+        return next;
+      });
     };
     try {
       // ── ① 分组列表 → 骨架渲染 ──
@@ -580,9 +593,10 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
         model_mappings: g.model_mappings || [],
       }));
       setDetails(skeleton);
+      setPlatforms([]); // 重置：平台级流式从空开始逐个 append（reload 时清旧）
       setLoading(false); // 骨架已渲，撤掉内部加载态；后续阶段在已渲容器内填充
 
-      // ── ② 依次逐组取平台，先到先渲 ──
+      // ── ② 依次逐组取平台 → 组内平台级流式渲染 ──
       // 本地累积已填充的 GroupDetail，供阶段末 fetchGroupStats 用（避免再 refetch group_detail_list）。
       const filledDetails: GroupDetail[] = [];
       for (const g of groups) {
@@ -594,18 +608,27 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
         if (!detail) continue;
         const filled = detail; // narrow
         filledDetails.push(filled);
-        // 增量替换该组条目（保持其余组与顺序不变，避免整列重渲）
+        // 该组的 gps 一次填入 details（卡片渲染门控在 platforms 是否含该平台，故 gps 整组给无妨）。
         setDetails(prev => prev.map(d => d.group.id === filled.group.id ? filled : d));
-        for (const gp of filled.platforms) seen.set(gp.platform.id, gp.platform);
-        reportCount();
+        // 组内平台**逐个**流式上屏：每个平台 append + 计数 +1，microtask 交错，单卡互不阻塞。
+        for (const gp of filled.platforms) {
+          upsertPlatform(gp.platform);
+          seen.set(gp.platform.id, gp.platform);
+          reportCount();
+          // 让出事件循环：本卡 setState 先提交渲染，再处理下一卡（单卡慢加载不卡同组其它卡）。
+          await Promise.resolve();
+          if (!alive()) return;
+        }
       }
 
-      // ── ③ 未分组平台（全量列表）→ 余额聚合 + 计数最终校正 ──
+      // ── ③ 未分组平台（全量列表）→ 逐个 append 剩余 + 计数最终校正 ──
       const p = (await platformApi.list()) || [];
       if (!alive()) return;
-      setPlatforms(p);
-      for (const plat of p) seen.set(plat.id, plat); // 并入未分组平台，total 校正到全量
-      reportCount();
+      for (const plat of p) {
+        upsertPlatform(plat); // 已分组的原地刷新为最新副本；未分组的追加
+        seen.set(plat.id, plat);
+        reportCount();
+      }
 
       // ── 统计/余额聚合（用已填充 details + 全量平台，无额外 group_detail_list 往返）──
       const { statsMap, balanceMap } = await fetchGroupStats(filledDetails, p);
@@ -640,15 +663,24 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   // 单实例 hook 跨所有分组共享 state（quota/usage/expanded/test 按 platformId 索引）。
   const cards = usePlatformCards({ onNavigate, onEdit: onEditPlatform, setToast: onToast });
   // usePlatformCards 自身不拉 usage（依赖宿主注入），分组展开区卡片的用量区(请求数/token/cost)否则恒空。
-  // 与主列表同源：单次批量 usageStatsAll（platform_id eff_pid 聚合）灌入共享 usageMap。
-  // quota(余额/coding plan) 走 computeQuotaDisplay 的 est 兜底分支即可展示，真查由卡片刷新按钮按需触发。
+  // quota(余额/coding plan) 走 computeQuotaDisplay 的 est 兜底分支即可展示，真查由卡片刷新按钮按需触发（已天然每卡独立）。
+  // 平台级流式：usage(请求数/token/cost) 改为**每卡独立**异步加载（platform_usage_stats 单平台查询），
+  // 替换原 usageStatsAll「攒齐全部平台一次性灌入」批量——某卡 usage 查询慢不阻塞同组其它卡上屏/填数。
+  // 已加载过的平台不重复查（usageReqRef 去重）；卡片随 platforms 流式增加，本 effect 增量补查新卡。
   const cardsSetUsageMap = cards.setUsageMap;
+  const usageReqRef = useRef<Set<number>>(new Set());
   useEffect(() => {
-    if (platforms.length === 0) return;
+    if (platforms.length === 0) { usageReqRef.current = new Set(); return; }
     let alive = true;
-    platformApi.usageStatsAll()
-      .then(all => { if (alive) cardsSetUsageMap(all || {}); })
-      .catch(() => { /* ignore */ });
+    for (const p of platforms) {
+      if (usageReqRef.current.has(p.id)) continue; // 本平台 usage 已发起，跳过
+      usageReqRef.current.add(p.id);
+      const pid = p.id;
+      // 不 await、各卡并发独立：到一个填一个，单卡慢不阻塞其它卡。
+      platformApi.usageStats(pid)
+        .then(s => { if (alive && s) cardsSetUsageMap(prev => ({ ...prev, [pid]: s })); })
+        .catch(() => { /* ignore：该卡 usage 缺失不影响其它卡 */ });
+    }
     return () => { alive = false; };
   }, [platforms, cardsSetUsageMap]);
   // 分组展开态：默认全展开。追踪「已折叠」集（默认空 = 全展开），新分组天然展开，
