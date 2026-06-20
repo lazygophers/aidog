@@ -193,3 +193,34 @@ html, body, #root {
   font-style: italic;
   padding: 4px 0;
 }
+
+/* ── cost_trend 曲线卡片 ── */
+.popover-trend-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.popover-trend-value {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.popover-trend-bucket {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.popover-trend-svg {
+  width: 100%;
+  height: 56px;
+  display: block;
+  overflow: visible;
+}

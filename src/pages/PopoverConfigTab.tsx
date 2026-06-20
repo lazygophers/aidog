@@ -2,11 +2,17 @@ import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
   popoverConfigApi,
+  groupApi,
+  platformApi,
   type PopoverConfig,
   type PopoverItem,
   type PopoverItemType,
+  type PopoverTrendScope,
+  type PopoverTrendWindow,
   type TodayPlatformStat,
   type TodayStats,
+  type Group,
+  type Platform,
   trayConfigApi,
 } from "../services/api";
 import { SortableList } from "../components/SortableList";
@@ -21,7 +27,11 @@ const ALL_ITEM_TYPES: PopoverItemType[] = [
   "today_cache_rate",
   "today_tokens",
   "platform_today",
+  "cost_trend",
 ];
+
+/** 可重复添加的多实例类型（各自独立配置）。 */
+const MULTI_INSTANCE_TYPES: ReadonlySet<PopoverItemType> = new Set<PopoverItemType>(["cost_trend"]);
 
 /** 指标类型 → i18n key + 默认中文标签。 */
 const TYPE_LABELS: Record<PopoverItemType, { key: string; fallback: string }> = {
@@ -31,10 +41,17 @@ const TYPE_LABELS: Record<PopoverItemType, { key: string; fallback: string }> = 
   today_cache_rate: { key: "popover.todayCacheRate", fallback: "今日缓存率" },
   today_tokens: { key: "popover.todayTokens", fallback: "今日 Token" },
   platform_today: { key: "popover.platformToday", fallback: "各平台今日" },
+  cost_trend: { key: "popover.itemCostTrend", fallback: "消费趋势" },
 };
 
+const TREND_WINDOWS: PopoverTrendWindow[] = ["today", "7d", "30d"];
+
 function makeItem(type: PopoverItemType, order: number): PopoverItem {
-  return { id: `popover-${type}-${Date.now()}`, item_type: type, visible: true, order };
+  const base: PopoverItem = { id: `popover-${type}-${Date.now()}`, item_type: type, visible: true, order };
+  if (type === "cost_trend") {
+    return { ...base, scope: "overall", scope_ref: null, time_window: "7d" };
+  }
+  return base;
 }
 
 type ListRow = PopoverItem & { id: string };
@@ -44,6 +61,8 @@ export function PopoverConfigTab() {
   const [config, setConfig] = useState<PopoverConfig>({ items: [] });
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null);
   const [platformToday, setPlatformToday] = useState<TodayPlatformStat[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [showAddMenu, setShowAddMenu] = useState(false);
@@ -51,14 +70,18 @@ export function PopoverConfigTab() {
   useEffect(() => {
     (async () => {
       try {
-        const [cfg, stats, pt] = await Promise.all([
+        const [cfg, stats, pt, gs, ps] = await Promise.all([
           popoverConfigApi.get(),
           trayConfigApi.todayStats(),
           popoverConfigApi.platformToday(),
+          groupApi.list(),
+          platformApi.list(),
         ]);
         setConfig(cfg);
         setTodayStats(stats);
         setPlatformToday(pt);
+        setGroups(gs);
+        setPlatforms(ps);
       } catch (e) { console.error(e); }
       setLoading(false);
     })();
@@ -94,6 +117,11 @@ export function PopoverConfigTab() {
     persist({ ...config, items: withOrders(config.items.filter((it) => it.id !== id)) });
   };
 
+  const updateItem = (id: string, patch: Partial<PopoverItem>) => {
+    const items = config.items.map((it) => (it.id === id ? { ...it, ...patch } : it));
+    persist({ ...config, items });
+  };
+
   const addItem = (type: PopoverItemType) => {
     persist({ ...config, items: withOrders([...sortedItems, makeItem(type, sortedItems.length)]) });
     setShowAddMenu(false);
@@ -116,7 +144,32 @@ export function PopoverConfigTab() {
         return platformToday.length === 0
           ? t("popover.noUsageToday", "今日暂无用量")
           : t("popover.previewPlatformCount", "{{count}} 个平台", { count: platformToday.length });
+      case "cost_trend":
+        return t("popover.previewTrend", "消费曲线（{{window}}）", {
+          window: t(`popover.trendWindow_${"7d"}`, "近 7 天"),
+        });
     }
+  };
+
+  /** cost_trend 当前配置摘要（标题副行展示 scope + 时间窗）。 */
+  const trendSummary = (item: PopoverItem): string => {
+    const scope = item.scope ?? "overall";
+    const win = item.time_window ?? "7d";
+    const winLabel = t(
+      `popover.trendWindow_${win}`,
+      win === "today" ? "今日" : win === "30d" ? "近 30 天" : "近 7 天",
+    );
+    let scopeLabel: string;
+    if (scope === "platform") {
+      const p = platforms.find((x) => String(x.id) === item.scope_ref);
+      scopeLabel = p?.name || t("popover.trendScopePlatform", "平台");
+    } else if (scope === "group") {
+      const g = groups.find((x) => x.group_key === item.scope_ref);
+      scopeLabel = g?.name || t("popover.trendScopeGroup", "分组");
+    } else {
+      scopeLabel = t("popover.trendScopeOverall", "整体");
+    }
+    return `${scopeLabel} · ${winLabel}`;
   };
 
   if (loading) {
@@ -124,8 +177,10 @@ export function PopoverConfigTab() {
   }
 
   const usedTypes = new Set(config.items.map((i) => i.item_type));
-  // 单例类型（除 platform_today / 余额列允许，但简单起见允许重复添加除已存在外的所有）：
-  const availableTypes = ALL_ITEM_TYPES.filter((ty) => !usedTypes.has(ty));
+  // 单例类型已添加则隐藏；多实例类型（cost_trend）始终可添加。
+  const availableTypes = ALL_ITEM_TYPES.filter(
+    (ty) => MULTI_INSTANCE_TYPES.has(ty) || !usedTypes.has(ty),
+  );
 
   const gripSvg = (
     <svg width="14" height="20" viewBox="0 0 14 20" fill="currentColor">
@@ -188,43 +243,105 @@ export function PopoverConfigTab() {
             <SortableList<ListRow> items={listRows} onReorder={reorder}
               renderItem={(item, handle) => (
                 <div style={{
-                  display: "flex", alignItems: "center", gap: 10,
+                  display: "flex", flexDirection: "column", gap: 8,
                   padding: "8px 10px", borderRadius: 8,
                   background: "var(--bg-glass)", border: "1px solid var(--border)",
                   opacity: item.visible ? 1 : 0.5,
                 }}>
-                  <span
-                    ref={handle.ref}
-                    {...handle.attributes}
-                    {...handle.listeners}
-                    style={{ cursor: "grab", color: "var(--text-tertiary)", display: "inline-flex", touchAction: "none" }}
-                  >
-                    {gripSvg}
-                  </span>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 13, fontWeight: 500 }}>
-                      {t(TYPE_LABELS[item.item_type].key, TYPE_LABELS[item.item_type].fallback)}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span
+                      ref={handle.ref}
+                      {...handle.attributes}
+                      {...handle.listeners}
+                      style={{ cursor: "grab", color: "var(--text-tertiary)", display: "inline-flex", touchAction: "none" }}
+                    >
+                      {gripSvg}
+                    </span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 500 }}>
+                        {t(TYPE_LABELS[item.item_type].key, TYPE_LABELS[item.item_type].fallback)}
+                      </div>
+                      <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {item.item_type === "cost_trend" ? trendSummary(item) : previewValue(item.item_type)}
+                      </div>
                     </div>
-                    <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                      {previewValue(item.item_type)}
-                    </div>
+                    <div
+                      className={`toggle ${item.visible ? "active" : ""}`}
+                      onClick={() => toggleVisible(item.id)}
+                      role="switch"
+                      aria-checked={item.visible}
+                      tabIndex={0}
+                      title={t("popover.toggleVisible", "显隐")}
+                    />
+                    <button
+                      className="btn btn-ghost"
+                      style={{ fontSize: 12, padding: "2px 8px", color: "var(--status-error, #ff3b30)" }}
+                      onClick={() => removeItem(item.id)}
+                      title={t("common.delete", "删除")}
+                    >
+                      ✕
+                    </button>
                   </div>
-                  <div
-                    className={`toggle ${item.visible ? "active" : ""}`}
-                    onClick={() => toggleVisible(item.id)}
-                    role="switch"
-                    aria-checked={item.visible}
-                    tabIndex={0}
-                    title={t("popover.toggleVisible", "显隐")}
-                  />
-                  <button
-                    className="btn btn-ghost"
-                    style={{ fontSize: 12, padding: "2px 8px", color: "var(--status-error, #ff3b30)" }}
-                    onClick={() => removeItem(item.id)}
-                    title={t("common.delete", "删除")}
-                  >
-                    ✕
-                  </button>
+                  {item.item_type === "cost_trend" && (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingLeft: 24 }}>
+                      <select
+                        className="input"
+                        style={{ fontSize: 12, width: "auto", minWidth: 110 }}
+                        value={item.scope ?? "overall"}
+                        onChange={(e) => {
+                          const scope = e.target.value as PopoverTrendScope;
+                          updateItem(item.id, {
+                            scope,
+                            scope_ref: scope === "overall" ? null
+                              : scope === "platform" ? (platforms[0] ? String(platforms[0].id) : null)
+                              : (groups[0]?.group_key ?? null),
+                          });
+                        }}
+                      >
+                        <option value="overall">{t("popover.trendScopeOverall", "整体")}</option>
+                        <option value="group">{t("popover.trendScopeGroup", "分组")}</option>
+                        <option value="platform">{t("popover.trendScopePlatform", "平台")}</option>
+                      </select>
+                      {item.scope === "group" && (
+                        <select
+                          className="input"
+                          style={{ fontSize: 12, width: "auto", minWidth: 120 }}
+                          value={item.scope_ref ?? ""}
+                          onChange={(e) => updateItem(item.id, { scope_ref: e.target.value || null })}
+                        >
+                          {groups.length === 0 && <option value="">{t("popover.trendNoGroup", "无分组")}</option>}
+                          {groups.map((g) => (
+                            <option key={g.group_key} value={g.group_key}>{g.name}</option>
+                          ))}
+                        </select>
+                      )}
+                      {item.scope === "platform" && (
+                        <select
+                          className="input"
+                          style={{ fontSize: 12, width: "auto", minWidth: 120 }}
+                          value={item.scope_ref ?? ""}
+                          onChange={(e) => updateItem(item.id, { scope_ref: e.target.value || null })}
+                        >
+                          {platforms.length === 0 && <option value="">{t("popover.trendNoPlatform", "无平台")}</option>}
+                          {platforms.map((p) => (
+                            <option key={p.id} value={String(p.id)}>{p.name}</option>
+                          ))}
+                        </select>
+                      )}
+                      <select
+                        className="input"
+                        style={{ fontSize: 12, width: "auto", minWidth: 100 }}
+                        value={item.time_window ?? "7d"}
+                        onChange={(e) => updateItem(item.id, { time_window: e.target.value as PopoverTrendWindow })}
+                      >
+                        {TREND_WINDOWS.map((w) => (
+                          <option key={w} value={w}>
+                            {t(`popover.trendWindow_${w}`, w === "today" ? "今日" : w === "30d" ? "近 30 天" : "近 7 天")}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                 </div>
               )}
             />

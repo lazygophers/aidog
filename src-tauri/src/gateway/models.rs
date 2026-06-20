@@ -864,6 +864,7 @@ impl Default for TrayConfig {
 /// - "platform_today"   各平台当日使用（只含已用，列表）
 /// - "proxy_status"     代理状态行
 /// - "platform_balance" 平台余额 / coding 列（复用 tray 列）
+/// - "cost_trend"       消费趋势曲线（按 scope / time_window 维度）
 ///
 /// 预定义指标集内自由组合增删 / 排序 / 显隐；不接受用户输入任意数据源。
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -877,7 +878,20 @@ pub struct PopoverItem {
     pub visible: bool,
     #[serde(default)]
     pub order: i32,
+    /// 仅 cost_trend 用：曲线统计维度 "overall" | "group" | "platform"。
+    /// 旧配置无此字段 → 默认 "overall"，向后兼容。
+    #[serde(default = "default_popover_scope")]
+    pub scope: String,
+    /// 仅 cost_trend + scope!=overall 用：维度引用（group → group_key；platform → platform_id 字符串）。
+    #[serde(default)]
+    pub scope_ref: Option<String>,
+    /// 仅 cost_trend 用：时间窗 "today" | "7d" | "30d"。旧配置无此字段 → 默认 "7d"。
+    #[serde(default = "default_popover_time_window")]
+    pub time_window: String,
 }
+
+fn default_popover_scope() -> String { "overall".to_string() }
+fn default_popover_time_window() -> String { "7d".to_string() }
 
 fn default_popover_item_type() -> String { "today_cost".to_string() }
 
@@ -909,9 +923,55 @@ impl Default for PopoverConfig {
                     item_type: t.to_string(),
                     visible: true,
                     order: i as i32,
+                    scope: default_popover_scope(),
+                    scope_ref: None,
+                    time_window: default_popover_time_window(),
                 })
                 .collect(),
         }
+    }
+}
+
+#[cfg(test)]
+mod popover_config_model_tests {
+    use super::*;
+
+    #[test]
+    fn legacy_item_without_trend_fields_deserializes() {
+        // 旧配置（无 scope / scope_ref / time_window）必须反序列化成功并取默认值。
+        let json = r#"{"id":"popover-today_cost","item_type":"today_cost","visible":true,"order":2}"#;
+        let item: PopoverItem = serde_json::from_str(json).expect("legacy item must deserialize");
+        assert_eq!(item.item_type, "today_cost");
+        assert_eq!(item.scope, "overall");
+        assert!(item.scope_ref.is_none());
+        assert_eq!(item.time_window, "7d");
+    }
+
+    #[test]
+    fn cost_trend_item_roundtrips() {
+        let item = PopoverItem {
+            id: "popover-trend-1".to_string(),
+            item_type: "cost_trend".to_string(),
+            visible: true,
+            order: 0,
+            scope: "group".to_string(),
+            scope_ref: Some("gk_abc".to_string()),
+            time_window: "30d".to_string(),
+        };
+        let json = serde_json::to_string(&item).unwrap();
+        let back: PopoverItem = serde_json::from_str(&json).unwrap();
+        assert_eq!(back.scope, "group");
+        assert_eq!(back.scope_ref.as_deref(), Some("gk_abc"));
+        assert_eq!(back.time_window, "30d");
+    }
+
+    #[test]
+    fn legacy_config_without_new_fields_deserializes() {
+        let json = r#"{"items":[{"id":"a","item_type":"proxy_status","visible":true,"order":0}]}"#;
+        let cfg: PopoverConfig = serde_json::from_str(json).expect("legacy config must deserialize");
+        assert_eq!(cfg.items.len(), 1);
+        assert_eq!(cfg.items[0].scope, "overall");
+        assert_eq!(cfg.items[0].time_window, "7d");
     }
 }
 
