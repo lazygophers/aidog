@@ -35,9 +35,9 @@ const BASE_NAV: NavItem[] = [
     section: "nav.section.system",
     children: [
       { id: "settings/system", labelKey: "appSettings.systemTab", group: "nav.settingsGroup.general" },
+      { id: "settings/coding_tools", labelKey: "appSettings.codingToolsTab", group: "nav.settingsGroup.integration" },
       { id: "settings/claude", labelKey: "appSettings.claudeTab", group: "nav.settingsGroup.integration" },
       { id: "settings/codex", labelKey: "appSettings.codexTab", group: "nav.settingsGroup.integration" },
-      { id: "settings/coding_tools", labelKey: "appSettings.codingToolsTab", group: "nav.settingsGroup.integration" },
       { id: "settings/middleware", labelKey: "appSettings.middlewareTab", group: "nav.settingsGroup.rules" },
       { id: "settings/scheduling", labelKey: "appSettings.schedulingTab", group: "nav.settingsGroup.rules" },
       { id: "settings/notifications", labelKey: "appSettings.notificationsTab", group: "nav.settingsGroup.notification" },
