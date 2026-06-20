@@ -31,10 +31,13 @@ export interface ParsedPaste {
   /** 匹配到的内置平台 preset；无匹配为 null（调用方据此决定是否改平台选择）。
    *  codingPlan 标记透传给 applyPaste 选对普通/coding 变体 endpoints。 */
   platform: { value: string; label: string; codingPlan?: boolean } | null;
+  /** 去重后的候选模型名（来自 base64 解码的标签复合串「模型名X」）。多为空。 */
+  models: string[];
 }
 
-/** 已知 apikey 前缀（长在前，避免 sk- 抢先吃掉 sk-ant-）。 */
-const KEY_PREFIXES = ["sk-ant-", "sk-kimi-", "sk-or-", "sk-proj-", "sk-", "tp-"];
+/** 已知 apikey 前缀（长在前，避免 sk- 抢先吃掉 sk-ant-）。
+ *  含 sk_（下划线变体，部分中转站用），与 sk- 并列。 */
+const KEY_PREFIXES = ["sk-ant-", "sk-kimi-", "sk-or-", "sk-proj-", "sk-", "sk_", "tp-"];
 
 /** CJK 及全角标点区段（用于剔除 key 中混入的防爬汉字）。
  *  \p{Script=Han} 覆盖全部汉字变体（基本区 + 扩展 A-F + 兼容汉字），比手写区段全；
@@ -44,7 +47,7 @@ const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-
 /** 前缀锚定 token：前缀 + 后续 alnum/_/-，允许中间穿插 CJK（防爬），后面整体 stripCjk 剔除。
  *  字符类含 \p{Script=Han} 防 CJK 扩展区汉字（如 𠀀）截断匹配。 */
 const PREFIX_TOKEN_RE =
-  /(sk-ant-|sk-kimi-|sk-or-|sk-proj-|sk-|tp-)[A-Za-z0-9_\-\.\p{Script=Han}　-〿＀-￯]{12,}/gu;
+  /(sk-ant-|sk-kimi-|sk-or-|sk-proj-|sk-|sk_|tp-)[A-Za-z0-9_\-\.\p{Script=Han}　-〿＀-￯]{12,}/gu;
 
 /** 赋值锚定：API_KEY= / apikey: / 秘药： / key= 等后跟值。 */
 const ASSIGN_RE =
@@ -86,7 +89,8 @@ function hasKnownPrefix(s: string): boolean {
   return KEY_PREFIXES.some((p) => s.startsWith(p));
 }
 
-/** base64 解码（浏览器 atob，非法输入返回 null）。 */
+/** base64 解码（浏览器 atob，非法输入返回 null）。
+ *  仅接受纯可打印 ASCII 结果（排除二进制噪声）；CJK 标签复合串走 tryBase64DecodeUtf8。 */
 function tryBase64Decode(s: string): string | null {
   if (!BASE64_RE.test(s)) return null;
   try {
@@ -97,6 +101,79 @@ function tryBase64Decode(s: string): string | null {
   } catch {
     return null;
   }
+}
+
+/** base64 解码为 UTF-8 字符串。
+ *  atob 产出 Latin-1 字节串，CJK 标签需经 TextDecoder 还原为 UTF-8。
+ *  用于「解码后是中文标签分段复合串」变体（如「令牌sk-...地址https://...模型名X」）。
+ *  非法 base64 / 含控制字符（非可打印 ASCII 且非 CJK）返回 null。 */
+function tryBase64DecodeUtf8(s: string): string | null {
+  if (!BASE64_RE.test(s)) return null;
+  try {
+    const bin = atob(s);
+    const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    const decoded = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    // 须含至少一个 CJK 标签字符，否则交给纯 ASCII 路径（避免与 tryBase64Decode 重复采纳）。
+    if (!CJK_RE.test(decoded)) return null;
+    return decoded;
+  } catch {
+    return null;
+  } finally {
+    CJK_RE.lastIndex = 0; // CJK_RE 带 g flag，test 后须复位 lastIndex
+  }
+}
+
+/** 中文/英文标签词典：解码后复合串按标签切分提取 key/base_url/model。
+ *  CJK 标签（令牌/密钥/地址/接口/模型名/模型）是反爬主标记，可紧贴值无分隔；
+ *  ASCII 标签（key/token/url/base/model）须前置非字母边界 + 后随分隔符，
+ *  否则会误切在值内部（如「superToken」里的 token、URL 里的 base）。 */
+const COMPOUND_LABEL_RE =
+  /(令牌|密钥|接口地址|地址|接口|模型名|模型)\s*[:：=]?\s*|(?<![A-Za-z])(api[_-]?key|key|token|base[_-]?url|url|base|model)\s*[:：=]\s*/giu;
+
+/** 端点子路径后缀（base_url 须截到版本前缀，遵循 url-construction-rule）。 */
+const ENDPOINT_SUFFIX_RE = /\/(?:chat\/completions|messages|responses|completions)\b.*$/i;
+
+interface CompoundParts {
+  apiKey?: string;
+  baseUrl?: string;
+  model?: string;
+}
+
+/** 解析「标签紧贴值」复合串（base64 解码后形态）。
+ *  按 COMPOUND_LABEL_RE 切成 [label, value] 段，按标签语义归位。
+ *  base_url 归一化：去端点后缀（/messages、/chat/completions 等），保留版本前缀（/v1）。 */
+function parseCompoundLabeled(s: string): CompoundParts | null {
+  COMPOUND_LABEL_RE.lastIndex = 0;
+  const segs: { label: string; value: string }[] = [];
+  let lastLabel: string | null = null;
+  let lastEnd = 0;
+  let m: RegExpExecArray | null;
+  while ((m = COMPOUND_LABEL_RE.exec(s)) !== null) {
+    if (lastLabel !== null) {
+      segs.push({ label: lastLabel, value: s.slice(lastEnd, m.index) });
+    }
+    lastLabel = (m[1] ?? m[2]).toLowerCase();
+    lastEnd = COMPOUND_LABEL_RE.lastIndex;
+  }
+  if (lastLabel !== null) segs.push({ label: lastLabel, value: s.slice(lastEnd) });
+  if (!segs.length) return null;
+
+  const parts: CompoundParts = {};
+  for (const { label, value } of segs) {
+    const v = stripCjk(value).trim();
+    if (!v) continue;
+    if (/令牌|密钥|key|token/i.test(label)) {
+      if (!parts.apiKey && v.length >= 12) parts.apiKey = v;
+    } else if (/地址|接口|url|base/i.test(label)) {
+      if (!parts.baseUrl) {
+        const um = v.match(/https?:\/\/\S+/);
+        if (um) parts.baseUrl = um[0].replace(ENDPOINT_SUFFIX_RE, "");
+      }
+    } else if (/模型|model/i.test(label)) {
+      if (!parts.model) parts.model = v;
+    }
+  }
+  return parts.apiKey || parts.baseUrl || parts.model ? parts : null;
 }
 
 /**
@@ -185,9 +262,14 @@ export function guessProtocol(url: string): ParsedProtocol {
 function extractBaseUrls(text: string): ParsedBaseUrl[] {
   const out: ParsedBaseUrl[] = [];
   const seen = new Set<string>();
-  const URL_RE = /https?:\/\/[^\s"'“”‘’《」】\])，。；、>]+/g;
+  // 注意：URL_RE 字符类不排斥全角括号「（」/CJK，故防爬汉字噪声（如「（删除我）」）
+  // 插在明文 host/path 中间时会被整体吞入 URL token。URL 本不含 CJK，故匹配后用
+  // CJK_NOISE_RE 全量剔噪声（含包裹噪声的全角括号）即可还原真实 URL，剔除范围严格限
+  // 于单个 URL token 内，不误伤正文其他中文。
+  const URL_RE = /https?:\/\/[^\s"'“”‘’《」】\])，。；、>]+/gu;
   for (const m of text.matchAll(URL_RE)) {
-    let url = m[0].replace(/[.,;:。，；、)）"'"'“”‘’》」】>]+$/, "");
+    let url = m[0].replace(CJK_NOISE_RE, "");
+    url = url.replace(/[.,;:。，；、)）"'"'“”‘’》」】>]+$/, "");
     if (!url) continue;
     // 跳过图片 / 静态资源
     if (/\.(png|jpe?g|gif|webp|svg|ico)(\?|$)/i.test(url)) continue;
@@ -245,8 +327,24 @@ export function matchPlatform(
   return null;
 }
 
+/** 扫描 base64 token → UTF-8 解码 → 标签复合串解析（第三变体）。
+ *  与「纯 ASCII base64 key」「CJK 噪声插入 base64」不同：此处整段 base64 解码成功，
+ *  但结果是中文标签紧贴值的复合串（如「令牌sk-...地址https://...模型名X」），
+ *  键形守卫会整体拒掉。按标签切分提取 key/base_url/model。 */
+function extractCompoundFromBase64(text: string): CompoundParts[] {
+  const out: CompoundParts[] = [];
+  for (const m of text.matchAll(BARE_BASE64_RE)) {
+    if (m[0].length < 24) continue;
+    const decoded = tryBase64DecodeUtf8(m[0]);
+    if (!decoded) continue;
+    const parts = parseCompoundLabeled(decoded);
+    if (parts) out.push(parts);
+  }
+  return out;
+}
+
 /**
- * 解析粘贴文本 → {apiKeys, baseUrls, platform}。
+ * 解析粘贴文本 → {apiKeys, baseUrls, platform, models}。
  * @param text 用户粘贴的原始文案
  * @param presets Platforms.tsx 的 PLATFORM_PRESETS（提供 value/label/keywords/hosts）
  */
@@ -255,12 +353,25 @@ export function parsePlatformPaste(
   presets: PastePresetRef[],
 ): ParsedPaste {
   if (!text || !text.trim()) {
-    return { apiKeys: [], baseUrls: [], platform: null };
+    return { apiKeys: [], baseUrls: [], platform: null, models: [] };
   }
   const baseUrls = extractBaseUrls(text);
+  const apiKeys = extractApiKeys(text);
+  const models: string[] = [];
+
+  // 第三变体：base64 解码后是中文标签复合串。补提 key/base_url/model。
+  for (const parts of extractCompoundFromBase64(text)) {
+    if (parts.apiKey) pushUnique(apiKeys, parts.apiKey);
+    if (parts.baseUrl && !baseUrls.some((b) => b.url === parts.baseUrl)) {
+      baseUrls.push({ url: parts.baseUrl, protocol: guessProtocol(parts.baseUrl) });
+    }
+    if (parts.model) pushUnique(models, parts.model);
+  }
+
   return {
-    apiKeys: extractApiKeys(text),
+    apiKeys,
     baseUrls,
     platform: matchPlatform(text, presets, baseUrls),
+    models,
   };
 }
