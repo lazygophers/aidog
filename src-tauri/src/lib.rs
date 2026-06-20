@@ -3979,6 +3979,26 @@ pub fn run() {
             // 定时备份调度器 (spawn_scheduler 内部 spawn 常驻 loop, 启动首次检查补「关机错过」)。
             gateway::backup::spawn_scheduler(app.handle().clone());
 
+            // 内置每日定时清理：永久删除软删超过 3 天的平台行（deleted_at>0 且 < now-3d）。
+            // 启动首跑补「关机错过」，之后每 24h 一轮；非关键路径，失败仅 warn。
+            {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    let interval = std::time::Duration::from_secs(24 * 3600);
+                    let older_than_secs: i64 = 3 * 24 * 3600;
+                    loop {
+                        if let Some(db) = handle.try_state::<Db>() {
+                            match gateway::db::purge_old_soft_deleted_platforms(&db, older_than_secs).await {
+                                Ok(n) if n > 0 => tracing::info!(purged = n, "scheduled: purged old soft-deleted platforms"),
+                                Ok(_) => {}
+                                Err(e) => tracing::warn!(error = %e, "scheduled: purge old soft-deleted platforms failed"),
+                            }
+                        }
+                        tokio::time::sleep(interval).await;
+                    }
+                });
+            }
+
             // 通知授权（①）：启动时请求一次系统通知权限。
             // desktop 上 tauri-plugin-notification 为 no-op 返回 Granted（无害）；
             // mobile 会真实弹原生授权框。失败仅 warn，不 panic、不阻塞启动。

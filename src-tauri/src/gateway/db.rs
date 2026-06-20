@@ -1183,6 +1183,26 @@ pub async fn purge_auto_disabled_platforms(
     }
 }
 
+/// 定时清理（内置每日）：永久删除软删超过阈值的平台行。
+/// - 条件：`deleted_at > 0 AND deleted_at < now() - older_than_secs`
+/// - `delete_platform` 软删时已物理清除所有 `group_platform` 关联（db.rs:1040），此处仅 DELETE platform 行，
+///   不留指向已删平台的悬空关联；孤儿 auto 组的清理由 `delete_platform` 当时完成，此处无需重做。
+/// - 返回删除行数。仅日志用途，失败仅 warn（定时任务非关键路径）。
+pub async fn purge_old_soft_deleted_platforms(db: &Db, older_than_secs: i64) -> Result<u64, String> {
+    let cutoff = now() - older_than_secs;
+    let n = db
+        .0
+        .call(move |conn| {
+            Ok(conn.execute(
+                "DELETE FROM platform WHERE deleted_at > 0 AND deleted_at < ?1",
+                params![cutoff],
+            )? as u64)
+        })
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(n)
+}
+
 // ─── Tray 展示（互斥单平台）─────────────────────────────────
 
 /// 互斥设置 tray 展示平台：单事务先清所有 show_in_tray，再置选中平台为 1。
