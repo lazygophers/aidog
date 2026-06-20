@@ -292,6 +292,10 @@ export interface PlatformUsageStats {
   recent_failures: number;
   recent_total: number;
   total_cost: number;
+  /** 今日（本地 00:00 起）token 总量（input + output） */
+  today_tokens: number;
+  /** 今日（本地 00:00 起）预估花费（$） */
+  today_cost: number;
 }
 
 /** 平台「最近一次测试结果」（来自 proxy_log 中 source_protocol='test' 的最新一条）。 */
