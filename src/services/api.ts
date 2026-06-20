@@ -1236,17 +1236,17 @@ export const dbApi = {
   compact: () => invoke<DbCompactResult>("db_compact"),
 };
 
-// ─── Claude Code / Codex 联动开关 ──────────────────────────
+// ─── AI 编程工具联动开关 ──────────────────────────
 
-export interface CcCodexSettings {
+export interface CodingToolsSettings {
   apply_to_claude_plugin: boolean;
   skip_claude_onboarding: boolean;
 }
 
-export const ccCodexSettingsApi = {
-  get: () => invoke<CcCodexSettings>("cc_codex_settings_get"),
-  set: (partial: Partial<CcCodexSettings>) =>
-    invoke<CcCodexSettings>("cc_codex_settings_set", {
+export const codingToolsSettingsApi = {
+  get: () => invoke<CodingToolsSettings>("coding_tools_settings_get"),
+  set: (partial: Partial<CodingToolsSettings>) =>
+    invoke<CodingToolsSettings>("coding_tools_settings_set", {
       applyToClaudePlugin: partial.apply_to_claude_plugin,
       skipClaudeOnboarding: partial.skip_claude_onboarding,
     }),

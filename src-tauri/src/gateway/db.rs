@@ -438,6 +438,15 @@ impl Db {
                 // LeastLatency：延迟 EMA 主导，level_priority 作次级 tiebreaker。
                 // 幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column；老行默认 5。
                 let _ = conn.execute("ALTER TABLE group_platform ADD COLUMN level_priority INTEGER NOT NULL DEFAULT 5", []);
+
+                // Migration 030: 「Claude Code / Codex 联动」重命名为通用「AI 编程工具」。
+                // 把旧 settings key cc_codex_settings 迁到 coding_tools_settings，保留老用户两开关状态
+                // （apply_to_claude_plugin / skip_claude_onboarding），避免重命名后开关回到默认关。
+                // 幂等：仅当存在旧 key 时 UPDATE 改名；新库无旧 key 时空操作。
+                let _ = conn.execute(
+                    "UPDATE settings SET key='coding_tools_settings' WHERE scope='global' AND key='cc_codex_settings'",
+                    [],
+                );
                 Ok(())
             })
             .await
