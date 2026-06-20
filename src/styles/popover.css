@@ -74,6 +74,62 @@ html, body {
   margin-top: 2px;
 }
 
+/* ── 二维网格布局 ── */
+.popover-grid-row {
+  display: grid;
+  gap: 6px;
+  align-items: stretch;
+}
+
+/* 同一行内相邻 cell 间不再画分隔线（行内并排，靠 gap 区隔） */
+.popover-grid-cell {
+  min-width: 0;
+}
+.popover-grid-cell > .popover-section {
+  height: 100%;
+  box-sizing: border-box;
+}
+/* grid cell 内 section 自带边框，去掉「+section」顶边逻辑产生的冗余线 */
+.popover-grid-cell > .popover-section + .popover-section {
+  border-top: none;
+  margin-top: 0;
+}
+
+/* ── s/m/l 尺寸 / 密度变体 ── */
+/* s：紧凑，仅核心数值，弱化标签/副信息间距 */
+.popover-section.pc-s {
+  padding: 3px 0;
+}
+.pc-s .popover-metric-value,
+.pc-s .popover-platform-value {
+  font-size: 13px;
+}
+.pc-s .popover-metric-row {
+  padding: 2px 0;
+}
+
+/* m：当前默认样式（不额外覆盖） */
+
+/* l：更舒展，富信息副标 */
+.popover-section.pc-l {
+  padding: 8px 0;
+}
+.pc-l .popover-metric-value,
+.pc-l .popover-platform-value {
+  font-size: 16px;
+}
+
+/* 富信息副标行（l 档显示同比 / 拆分 / 汇总） */
+.popover-metric-sub {
+  margin-top: 3px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .popover-entry {
   display: flex;
   align-items: center;

@@ -1,23 +1,49 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  DndContext,
+  PointerSensor,
+  KeyboardSensor,
+  useSensor,
+  useSensors,
+  useDroppable,
+  pointerWithin,
+  type DragEndEvent,
+  type DragOverEvent,
+  type DragStartEvent,
+  DragOverlay,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  rectSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import {
   popoverConfigApi,
   groupApi,
+  groupDetailApi,
   platformApi,
   type PopoverConfig,
   type PopoverItem,
   type PopoverItemType,
+  type PopoverItemSize,
   type PopoverTrendScope,
   type PopoverTrendWindow,
+  type RowMeta,
+  type TrayColor,
   type TodayPlatformStat,
   type TodayStats,
   type Group,
+  type GroupDetail,
   type Platform,
   trayConfigApi,
 } from "../services/api";
-import { SortableList } from "../components/SortableList";
 import { usePolling } from "../hooks/usePolling";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
+import { renderGrid, type PopoverData } from "../components/PopoverCards";
+import "../styles/popover.css";
 
 /** 预定义指标集（顺序即添加菜单顺序）。 */
 const ALL_ITEM_TYPES: PopoverItemType[] = [
@@ -63,8 +89,42 @@ const TYPE_LABELS: Record<PopoverItemType, { key: string; fallback: string }> = 
 
 const TREND_WINDOWS: PopoverTrendWindow[] = ["today", "7d", "30d"];
 
-function makeItem(type: PopoverItemType, order: number, platforms: Platform[], groups: Group[]): PopoverItem {
-  const base: PopoverItem = { id: `popover-${type}-${Date.now()}`, item_type: type, visible: true, order };
+const SIZE_OPTIONS: PopoverItemSize[] = ["s", "m", "l"];
+const MAX_COLS = 3;
+
+/** 颜色编辑预设（follow + 3 预设；custom 走 hex input）。 */
+const COLOR_PRESETS: { mode: "follow" | "preset"; value: string; css: string }[] = [
+  { mode: "follow", value: "", css: "var(--text-primary)" },
+  { mode: "preset", value: "red", css: "var(--color-danger, #ff3b30)" },
+  { mode: "preset", value: "green", css: "#32d74b" },
+  { mode: "preset", value: "orange", css: "var(--color-warning, #ff9500)" },
+];
+
+function defaultColor(): TrayColor {
+  return { mode: "follow", value: "" };
+}
+
+/** 6 位 hex 校验（容许带 #）。 */
+function isValidHex(s: string): boolean {
+  return /^#?[0-9a-fA-F]{6}$/.test(s.trim());
+}
+
+function makeItem(
+  type: PopoverItemType,
+  order: number,
+  row: number,
+  platforms: Platform[],
+  groups: Group[],
+): PopoverItem {
+  const base: PopoverItem = {
+    id: `popover-${type}-${Date.now()}`,
+    item_type: type,
+    visible: true,
+    order,
+    row,
+    size: "m",
+    color: defaultColor(),
+  };
   if (type === "cost_trend") {
     return { ...base, scope: "overall", scope_ref: null, time_window: "7d" };
   }
@@ -73,7 +133,6 @@ function makeItem(type: PopoverItemType, order: number, platforms: Platform[], g
   }
   if (GROUP_TYPES.has(type)) {
     const ref = groups[0]?.group_key ?? null;
-    // group_cost 带时间窗（默认 7d）；tokens/requests 锁今日；balance 无时间窗（点时值）。
     if (type === "group_cost") return { ...base, scope: "group", scope_ref: ref, time_window: "7d" };
     if (type === "group_balance") return { ...base, scope: "group", scope_ref: ref };
     return { ...base, scope: "group", scope_ref: ref, time_window: "today" };
@@ -81,18 +140,46 @@ function makeItem(type: PopoverItemType, order: number, platforms: Platform[], g
   return base;
 }
 
-type ListRow = PopoverItem & { id: string };
+/** effectiveRow：row 缺省回退 order（与渲染层一致）。 */
+function effRow(item: PopoverItem): number {
+  return item.row ?? item.order;
+}
+
+/** 把 items 规整为「按 row 升序分组、行号连续从 0、行内按 order 排」的结构，
+ * 并重写 row/order 为规范值，rows[] 与之对齐。返回新 config（幂等）。 */
+function normalizeConfig(items: PopoverItem[], rows: RowMeta[] | undefined): PopoverConfig {
+  const map = new Map<number, PopoverItem[]>();
+  for (const it of items) {
+    const r = effRow(it);
+    const list = map.get(r);
+    if (list) list.push(it);
+    else map.set(r, [it]);
+  }
+  const rowNums = [...map.keys()].sort((a, b) => a - b);
+  const nextItems: PopoverItem[] = [];
+  const nextRows: RowMeta[] = [];
+  rowNums.forEach((oldRow, newRow) => {
+    const list = map.get(oldRow)!.sort((a, b) => a.order - b.order);
+    list.forEach((it, idx) => {
+      nextItems.push({ ...it, row: newRow, order: idx });
+    });
+    nextRows.push({ cols: rows?.[oldRow]?.cols ?? 1 });
+  });
+  return { items: nextItems, rows: nextRows };
+}
 
 export function PopoverConfigTab() {
   const { t } = useTranslation();
-  const [config, setConfig] = useState<PopoverConfig>({ items: [] });
+  const [config, setConfig] = useState<PopoverConfig>({ items: [], rows: [] });
   const [todayStats, setTodayStats] = useState<TodayStats | null>(null);
   const [platformToday, setPlatformToday] = useState<TodayPlatformStat[]>([]);
   const [groups, setGroups] = useState<Group[]>([]);
+  const [groupDetails, setGroupDetails] = useState<GroupDetail[] | null>(null);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [showAddMenu, setShowAddMenu] = useState(false);
+  const [activeId, setActiveId] = useState<string | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -104,7 +191,7 @@ export function PopoverConfigTab() {
           groupApi.list(),
           platformApi.list(),
         ]);
-        setConfig(cfg);
+        setConfig(normalizeConfig(cfg.items, cfg.rows));
         setTodayStats(stats);
         setPlatformToday(pt);
         setGroups(gs);
@@ -112,6 +199,8 @@ export function PopoverConfigTab() {
       } catch (e) { console.error(e); }
       setLoading(false);
     })();
+    // group_balance 预览数据（独立失败兜底）。
+    groupDetailApi.list().then(setGroupDetails).catch(() => setGroupDetails([]));
   }, []);
 
   const refreshStats = useCallback(async () => {
@@ -126,36 +215,124 @@ export function PopoverConfigTab() {
   }, []);
   usePolling(refreshStats, 30_000);
 
-  const persist = async (next: PopoverConfig) => {
+  const persist = async (items: PopoverItem[], rows: RowMeta[] | undefined) => {
+    const next = normalizeConfig(items, rows);
     setConfig(next);
     try { await popoverConfigApi.set(next); } catch (e) { console.error(e); setMessage(String(e)); }
   };
 
-  const withOrders = (items: PopoverItem[]): PopoverItem[] => items.map((it, idx) => ({ ...it, order: idx }));
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
-  const sortedItems = [...config.items].sort((a, b) => a.order - b.order);
+  // ── 行分组视图（渲染用）：row → items（已 normalize，行号连续） ──
+  const rowGroups: PopoverItem[][] = (() => {
+    const map = new Map<number, PopoverItem[]>();
+    for (const it of config.items) {
+      const r = effRow(it);
+      (map.get(r) ?? map.set(r, []).get(r)!).push(it);
+    }
+    const nums = [...map.keys()].sort((a, b) => a - b);
+    return nums.map((n) => map.get(n)!.sort((a, b) => a.order - b.order));
+  })();
+
+  const colsForRow = (row: number): number => config.rows?.[row]?.cols ?? 1;
 
   const toggleVisible = (id: string) => {
     const items = config.items.map((it) => (it.id === id ? { ...it, visible: !it.visible } : it));
-    persist({ ...config, items });
+    persist(items, config.rows);
   };
 
   const removeItem = (id: string) => {
-    persist({ ...config, items: withOrders(config.items.filter((it) => it.id !== id)) });
+    persist(config.items.filter((it) => it.id !== id), config.rows);
   };
 
   const updateItem = (id: string, patch: Partial<PopoverItem>) => {
     const items = config.items.map((it) => (it.id === id ? { ...it, ...patch } : it));
-    persist({ ...config, items });
+    persist(items, config.rows);
   };
 
   const addItem = (type: PopoverItemType) => {
-    persist({ ...config, items: withOrders([...sortedItems, makeItem(type, sortedItems.length, platforms, groups)]) });
+    // 新项追加到新的一行（行号 = 当前最大行 + 1）。
+    const nextRow = rowGroups.length;
+    const newItem = makeItem(type, 0, nextRow, platforms, groups);
+    const rows = [...(config.rows ?? []), { cols: 1 as const }];
+    persist([...config.items, newItem], rows);
     setShowAddMenu(false);
   };
 
-  const reorder = (rows: ListRow[]) => {
-    persist({ ...config, items: withOrders(rows) });
+  const setRowCols = (row: number, cols: number) => {
+    const rows = rowGroups.map((_, r) => ({ cols: (r === row ? cols : colsForRow(r)) as 1 | 2 | 3 }));
+    persist(config.items, rows);
+  };
+
+  const showLayoutHint = () => {
+    setMessage(t("popover.layoutHint", "提示：添加项会新建一行；拖动卡片左上角手柄可跨行/行内调整；每行可设 1-3 列。"));
+  };
+
+  // ── 二维拖拽：跨行 / 行内吸附 ──
+  // 思路：单 DndContext + 每行一个 SortableContext（rectSortingStrategy）。
+  // onDragOver 检测光标所在目标行，实时把 active item 迁到目标行（改 row + 重排 order）。
+  // 落点判定靠 over.id（另一 item）或 row 容器 droppable id（空目标行兜底）。
+  const moveItemToRow = (items: PopoverItem[], activeId: string, targetRow: number, beforeId: string | null): PopoverItem[] => {
+    const active = items.find((i) => i.id === activeId);
+    if (!active) return items;
+    if (effRow(active) === targetRow && (beforeId === null || beforeId === activeId)) return items;
+    // 重建目标行序列。
+    const rest = items.filter((i) => i.id !== activeId);
+    const targetItems = rest.filter((i) => effRow(i) === targetRow).sort((a, b) => a.order - b.order);
+    let insertIdx = targetItems.length;
+    if (beforeId) {
+      const bi = targetItems.findIndex((i) => i.id === beforeId);
+      if (bi >= 0) insertIdx = bi;
+    }
+    targetItems.splice(insertIdx, 0, { ...active, row: targetRow });
+    // 写回 order。
+    const updated = new Map<string, PopoverItem>();
+    targetItems.forEach((it, idx) => updated.set(it.id, { ...it, row: targetRow, order: idx }));
+    return items.map((i) => updated.get(i.id) ?? (i.id === activeId ? { ...i, row: targetRow } : i));
+  };
+
+  /** 从 droppable id 反推目标行号：item id → 其行；"row-N" 容器 id → N。 */
+  const rowOfDroppable = (id: string): { row: number; beforeId: string | null } | null => {
+    if (id.startsWith("row-")) {
+      const n = Number(id.slice(4));
+      return Number.isNaN(n) ? null : { row: n, beforeId: null };
+    }
+    const it = config.items.find((i) => i.id === id);
+    if (!it) return null;
+    return { row: effRow(it), beforeId: id };
+  };
+
+  const handleDragStart = (e: DragStartEvent) => setActiveId(String(e.active.id));
+
+  const handleDragOver = (e: DragOverEvent) => {
+    const { active, over } = e;
+    if (!over) return;
+    const target = rowOfDroppable(String(over.id));
+    if (!target) return;
+    const activeIdStr = String(active.id);
+    const activeItem = config.items.find((i) => i.id === activeIdStr);
+    if (!activeItem) return;
+    // 仅跨行时实时迁移（行内排序交给 dragEnd 处理，避免抖动）。
+    if (effRow(activeItem) !== target.row) {
+      const items = moveItemToRow(config.items, activeIdStr, target.row, target.beforeId);
+      setConfig(normalizeConfig(items, config.rows));
+    }
+  };
+
+  const handleDragEnd = (e: DragEndEvent) => {
+    setActiveId(null);
+    const { active, over } = e;
+    if (!over) { void persist(config.items, config.rows); return; }
+    const activeIdStr = String(active.id);
+    const overIdStr = String(over.id);
+    if (activeIdStr === overIdStr) { void persist(config.items, config.rows); return; }
+    const target = rowOfDroppable(overIdStr);
+    if (!target) { void persist(config.items, config.rows); return; }
+    const items = moveItemToRow(config.items, activeIdStr, target.row, target.beforeId);
+    void persist(items, config.rows);
   };
 
   /** 该 item 的预览值文本（与 popover 渲染对齐）。 */
@@ -176,7 +353,6 @@ export function PopoverConfigTab() {
           window: t(`popover.trendWindow_${"7d"}`, "近 7 天"),
         });
       case "platform_metric":
-        // platform_metric 副行走 trendSummary，不经此路径；穷尽兜底。
         return t("popover.itemPlatformMetric", "指定平台指标");
       case "group_cost":
         return t("popover.itemGroupCost", "分组金额");
@@ -202,7 +378,6 @@ export function PopoverConfigTab() {
     } else {
       scopeLabel = t("popover.trendScopeOverall", "整体");
     }
-    // group_balance 无时间窗（点时值），副行仅显示分组名。
     if (item.item_type === "group_balance") return scopeLabel;
     const win = item.time_window ?? "7d";
     const winLabel = t(
@@ -217,19 +392,21 @@ export function PopoverConfigTab() {
   }
 
   const usedTypes = new Set(config.items.map((i) => i.item_type));
-  // 单例类型已添加则隐藏；多实例类型（cost_trend）始终可添加。
   const availableTypes = ALL_ITEM_TYPES.filter(
     (ty) => MULTI_INSTANCE_TYPES.has(ty) || !usedTypes.has(ty),
   );
 
-  const gripSvg = (
-    <svg width="14" height="20" viewBox="0 0 14 20" fill="currentColor">
-      <circle cx="4" cy="3" r="1.8" /><circle cx="4" cy="10" r="1.8" /><circle cx="4" cy="17" r="1.8" />
-      <circle cx="10" cy="3" r="1.8" /><circle cx="10" cy="10" r="1.8" /><circle cx="10" cy="17" r="1.8" />
-    </svg>
-  );
+  const activeItem = activeId ? config.items.find((i) => i.id === activeId) ?? null : null;
 
-  const listRows: ListRow[] = sortedItems;
+  // 实时预览数据：用 draft config + 已轮询 stats 合成 PopoverData（与真实浮窗共用 renderGrid）。
+  const previewData: PopoverData = {
+    config,
+    entries: [], // platform_balance 余额行来自托盘配置，预览不可得，此处留空（卡片自隐）。
+    today_stats: todayStats ?? { tokens: 0, cache_rate: 0, cost: 0, total_requests: 0 },
+    platform_today: platformToday,
+    proxy_running: true,
+    proxy_port: 0,
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
@@ -237,11 +414,11 @@ export function PopoverConfigTab() {
       <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 6 }}>
         <div style={{ fontSize: 13, fontWeight: 600 }}>{t("popover.title", "浮窗展示")}</div>
         <div className="text-secondary" style={{ fontSize: 12 }}>
-          {t("popover.desc", "托盘图标左击弹出的浮窗内容，可显隐、拖拽排序、增删展示项。")}
+          {t("popover.descGrid", "托盘浮窗内容，可显隐、二维拖拽布局、设每行列数、每卡尺寸与颜色。")}
         </div>
       </div>
 
-      {/* 展示项列表 */}
+      {/* 展示项布局编辑器 */}
       <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ fontSize: 13, fontWeight: 600 }}>{t("popover.items", "展示项")}</div>
@@ -274,181 +451,423 @@ export function PopoverConfigTab() {
           </div>
         </div>
 
-        {listRows.length === 0 ? (
+        {rowGroups.length === 0 ? (
           <div className="text-tertiary" style={{ fontSize: 12, fontStyle: "italic", padding: "8px 0" }}>
             {t("popover.empty", "暂无展示项，点击「添加项」")}
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <SortableList<ListRow> items={listRows} onReorder={reorder}
-              renderItem={(item, handle) => (
+          <DndContext
+            sensors={sensors}
+            collisionDetection={pointerWithin}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {rowGroups.map((items, row) => (
+                <RowContainer
+                  key={`row-${row}`}
+                  row={row}
+                  cols={colsForRow(row)}
+                  items={items}
+                  onSetCols={(c) => setRowCols(row, c)}
+                >
+                  {items.map((item) => (
+                    <SortableCard key={item.id} item={item}>
+                      <CardEditor
+                        item={item}
+                        t={t}
+                        platforms={platforms}
+                        groups={groups}
+                        summary={
+                          item.item_type === "cost_trend" || item.item_type === "platform_metric" || GROUP_TYPES.has(item.item_type)
+                            ? trendSummary(item)
+                            : previewValue(item.item_type)
+                        }
+                        onToggleVisible={() => toggleVisible(item.id)}
+                        onRemove={() => removeItem(item.id)}
+                        onUpdate={(patch) => updateItem(item.id, patch)}
+                      />
+                    </SortableCard>
+                  ))}
+                </RowContainer>
+              ))}
+            </div>
+            <DragOverlay>
+              {activeItem ? (
                 <div style={{
-                  display: "flex", flexDirection: "column", gap: 8,
-                  padding: "8px 10px", borderRadius: 8,
-                  background: "var(--bg-glass)", border: "1px solid var(--border)",
-                  opacity: item.visible ? 1 : 0.5,
+                  padding: "8px 10px", borderRadius: 8, fontSize: 13, fontWeight: 500,
+                  background: "var(--bg-floating, var(--bg-glass))", border: "1px solid var(--accent)",
+                  boxShadow: "var(--shadow-lg)",
                 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span
-                      ref={handle.ref}
-                      {...handle.attributes}
-                      {...handle.listeners}
-                      style={{ cursor: "grab", color: "var(--text-tertiary)", display: "inline-flex", touchAction: "none" }}
-                    >
-                      {gripSvg}
-                    </span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 500 }}>
-                        {t(TYPE_LABELS[item.item_type].key, TYPE_LABELS[item.item_type].fallback)}
-                      </div>
-                      <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {item.item_type === "cost_trend" || item.item_type === "platform_metric" || GROUP_TYPES.has(item.item_type)
-                          ? trendSummary(item)
-                          : previewValue(item.item_type)}
-                      </div>
-                    </div>
-                    <div
-                      className={`toggle ${item.visible ? "active" : ""}`}
-                      onClick={() => toggleVisible(item.id)}
-                      role="switch"
-                      aria-checked={item.visible}
-                      tabIndex={0}
-                      title={t("popover.toggleVisible", "显隐")}
-                    />
-                    <button
-                      className="btn btn-ghost"
-                      style={{ fontSize: 12, padding: "2px 8px", color: "var(--status-error, #ff3b30)" }}
-                      onClick={() => removeItem(item.id)}
-                      title={t("common.delete", "删除")}
-                    >
-                      ✕
-                    </button>
-                  </div>
-                  {item.item_type === "cost_trend" && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingLeft: 24 }}>
-                      <select
-                        className="input"
-                        style={{ fontSize: 12, width: "auto", minWidth: 110 }}
-                        value={item.scope ?? "overall"}
-                        onChange={(e) => {
-                          const scope = e.target.value as PopoverTrendScope;
-                          updateItem(item.id, {
-                            scope,
-                            scope_ref: scope === "overall" ? null
-                              : scope === "platform" ? (platforms[0] ? String(platforms[0].id) : null)
-                              : (groups[0]?.group_key ?? null),
-                          });
-                        }}
-                      >
-                        <option value="overall">{t("popover.trendScopeOverall", "整体")}</option>
-                        <option value="group">{t("popover.trendScopeGroup", "分组")}</option>
-                        <option value="platform">{t("popover.trendScopePlatform", "平台")}</option>
-                      </select>
-                      {item.scope === "group" && (
-                        <select
-                          className="input"
-                          style={{ fontSize: 12, width: "auto", minWidth: 120 }}
-                          value={item.scope_ref ?? ""}
-                          onChange={(e) => updateItem(item.id, { scope_ref: e.target.value || null })}
-                        >
-                          {groups.length === 0 && <option value="">{t("popover.trendNoGroup", "无分组")}</option>}
-                          {groups.map((g) => (
-                            <option key={g.group_key} value={g.group_key}>{g.name}</option>
-                          ))}
-                        </select>
-                      )}
-                      {item.scope === "platform" && (
-                        <select
-                          className="input"
-                          style={{ fontSize: 12, width: "auto", minWidth: 120 }}
-                          value={item.scope_ref ?? ""}
-                          onChange={(e) => updateItem(item.id, { scope_ref: e.target.value || null })}
-                        >
-                          {platforms.length === 0 && <option value="">{t("popover.trendNoPlatform", "无平台")}</option>}
-                          {platforms.map((p) => (
-                            <option key={p.id} value={String(p.id)}>{p.name}</option>
-                          ))}
-                        </select>
-                      )}
-                      <select
-                        className="input"
-                        style={{ fontSize: 12, width: "auto", minWidth: 100 }}
-                        value={item.time_window ?? "7d"}
-                        onChange={(e) => updateItem(item.id, { time_window: e.target.value as PopoverTrendWindow })}
-                      >
-                        {TREND_WINDOWS.map((w) => (
-                          <option key={w} value={w}>
-                            {t(`popover.trendWindow_${w}`, w === "today" ? "今日" : w === "30d" ? "近 30 天" : "近 7 天")}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  {item.item_type === "platform_metric" && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingLeft: 24 }}>
-                      <select
-                        className="input"
-                        style={{ fontSize: 12, width: "auto", minWidth: 120 }}
-                        value={item.scope_ref ?? ""}
-                        onChange={(e) => updateItem(item.id, { scope_ref: e.target.value || null })}
-                      >
-                        {platforms.length === 0 && <option value="">{t("popover.trendNoPlatform", "无平台")}</option>}
-                        {platforms.map((p) => (
-                          <option key={p.id} value={String(p.id)}>{p.name}</option>
-                        ))}
-                      </select>
-                      <select
-                        className="input"
-                        style={{ fontSize: 12, width: "auto", minWidth: 100 }}
-                        value={item.time_window ?? "today"}
-                        onChange={(e) => updateItem(item.id, { time_window: e.target.value as PopoverTrendWindow })}
-                      >
-                        {TREND_WINDOWS.map((w) => (
-                          <option key={w} value={w}>
-                            {t(`popover.trendWindow_${w}`, w === "today" ? "今日" : w === "30d" ? "近 30 天" : "近 7 天")}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  {GROUP_TYPES.has(item.item_type) && (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingLeft: 24 }}>
-                      <select
-                        className="input"
-                        style={{ fontSize: 12, width: "auto", minWidth: 120 }}
-                        value={item.scope_ref ?? ""}
-                        onChange={(e) => updateItem(item.id, { scope_ref: e.target.value || null })}
-                      >
-                        {groups.length === 0 && <option value="">{t("popover.trendNoGroup", "无分组")}</option>}
-                        {groups.map((g) => (
-                          <option key={g.group_key} value={g.group_key}>{g.name}</option>
-                        ))}
-                      </select>
-                      {/* 仅 group_cost 显示时间窗；tokens/requests 锁今日、balance 无窗。 */}
-                      {item.item_type === "group_cost" && (
-                        <select
-                          className="input"
-                          style={{ fontSize: 12, width: "auto", minWidth: 100 }}
-                          value={item.time_window ?? "7d"}
-                          onChange={(e) => updateItem(item.id, { time_window: e.target.value as PopoverTrendWindow })}
-                        >
-                          {TREND_WINDOWS.map((w) => (
-                            <option key={w} value={w}>
-                              {t(`popover.trendWindow_${w}`, w === "today" ? "今日" : w === "30d" ? "近 30 天" : "近 7 天")}
-                            </option>
-                          ))}
-                        </select>
-                      )}
-                    </div>
-                  )}
+                  {t(TYPE_LABELS[activeItem.item_type].key, TYPE_LABELS[activeItem.item_type].fallback)}
                 </div>
-              )}
-            />
-          </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         )}
+
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: 11, padding: "2px 8px", alignSelf: "flex-start", color: "var(--text-tertiary)" }}
+          onClick={showLayoutHint}
+        >
+          {t("popover.rowHintBtn", "布局说明")}
+        </button>
       </div>
 
-      {message && <div className="text-secondary" style={{ fontSize: 12, color: "var(--status-error, #ff3b30)" }}>{message}</div>}
+      {/* 实时预览（draft state，即改即见；与真实浮窗共用 renderGrid） */}
+      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("popover.preview", "实时预览")}</div>
+        <div className="text-secondary" style={{ fontSize: 11 }}>
+          {t("popover.previewHint", "下方按当前布局即时渲染浮窗外观，无需保存。")}
+        </div>
+        <div style={{ display: "flex", justifyContent: "center", padding: "8px 0" }}>
+          {rowGroups.length === 0 ? (
+            <div className="text-tertiary" style={{ fontSize: 12, fontStyle: "italic" }}>
+              {t("popover.empty", "暂无展示项，点击「添加项」")}
+            </div>
+          ) : (
+            <div className="popover-root" style={{ margin: 0 }}>
+              {renderGrid(config, previewData, groups, groupDetails, t)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {message && <div className="text-secondary" style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{message}</div>}
     </div>
+  );
+}
+
+// ── 行容器（droppable）：列数选择 + 该行 grid 子项 ──
+function RowContainer({
+  row, cols, items, onSetCols, children,
+}: {
+  row: number;
+  cols: number;
+  items: PopoverItem[];
+  onSetCols: (c: number) => void;
+  children: React.ReactNode;
+}) {
+  const { t } = useTranslation();
+  const { setNodeRef, isOver } = useDroppable({ id: `row-${row}` });
+  return (
+    <div
+      ref={setNodeRef}
+      style={{
+        border: `1px solid ${isOver ? "var(--accent)" : "var(--border)"}`,
+        borderRadius: 10, padding: 8,
+        background: isOver ? "var(--bg-glass)" : "transparent",
+        display: "flex", flexDirection: "column", gap: 8,
+      }}
+    >
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+          {t("popover.rowLabel", "第 {{n}} 行", { n: row + 1 })}
+        </span>
+        <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{t("popover.cols", "列数")}</span>
+        {[1, 2, 3].map((c) => (
+          <button
+            key={c}
+            style={{
+              fontSize: 11, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+              border: cols === c ? "none" : "1px solid var(--glass-border)",
+              background: cols === c ? "var(--accent)" : "transparent",
+              color: cols === c ? "#fff" : "var(--text-secondary)",
+            }}
+            onClick={() => onSetCols(c)}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+      <SortableContext items={items.map((i) => i.id)} strategy={rectSortingStrategy}>
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: `repeat(${Math.min(cols, MAX_COLS)}, minmax(0, 1fr))`,
+          gap: 8,
+        }}>
+          {children}
+        </div>
+      </SortableContext>
+    </div>
+  );
+}
+
+const gripSvg = (
+  <svg width="12" height="18" viewBox="0 0 14 20" fill="currentColor">
+    <circle cx="4" cy="3" r="1.8" /><circle cx="4" cy="10" r="1.8" /><circle cx="4" cy="17" r="1.8" />
+    <circle cx="10" cy="3" r="1.8" /><circle cx="10" cy="10" r="1.8" /><circle cx="10" cy="17" r="1.8" />
+  </svg>
+);
+
+// ── 单卡（sortable wrapper）：左上角手柄拖拽（PointerSensor，不依赖 WKWebView HTML5 DnD）──
+function SortableCard({ item, children }: { item: PopoverItem; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, setActivatorNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.4 : item.visible ? 1 : 0.5,
+    zIndex: isDragging ? 10 : undefined,
+    position: "relative",
+  };
+  return (
+    <div ref={setNodeRef} style={style}>
+      {children}
+      <span
+        ref={setActivatorNodeRef}
+        {...attributes}
+        {...listeners}
+        style={{
+          position: "absolute", top: 6, left: 6, cursor: "grab",
+          color: "var(--text-tertiary)", display: "inline-flex", touchAction: "none",
+        }}
+      >
+        {gripSvg}
+      </span>
+    </div>
+  );
+}
+
+// ── 卡片编辑体（标题 / 摘要 / 显隐 / 删除 / scope 配置 / 尺寸 / 颜色）──
+function CardEditor({
+  item, t, platforms, groups, summary, onToggleVisible, onRemove, onUpdate,
+}: {
+  item: PopoverItem;
+  t: (k: string, d: string, o?: Record<string, unknown>) => string;
+  platforms: Platform[];
+  groups: Group[];
+  summary: string;
+  onToggleVisible: () => void;
+  onRemove: () => void;
+  onUpdate: (patch: Partial<PopoverItem>) => void;
+}) {
+  const color = item.color ?? defaultColor();
+  const size = item.size ?? "m";
+  return (
+    <div style={{
+      display: "flex", flexDirection: "column", gap: 8,
+      padding: "8px 10px 8px 22px", borderRadius: 8,
+      background: "var(--bg-glass)", border: "1px solid var(--border)",
+      height: "100%", boxSizing: "border-box",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 500 }}>
+            {t(TYPE_LABELS[item.item_type].key, TYPE_LABELS[item.item_type].fallback)}
+          </div>
+          <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+            {summary}
+          </div>
+        </div>
+        <div
+          className={`toggle ${item.visible ? "active" : ""}`}
+          onClick={onToggleVisible}
+          role="switch"
+          aria-checked={item.visible}
+          tabIndex={0}
+          title={t("popover.toggleVisible", "显隐")}
+        />
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: 12, padding: "2px 8px", color: "var(--status-error, #ff3b30)" }}
+          onClick={onRemove}
+          title={t("common.delete", "删除")}
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* scope 配置（cost_trend / platform_metric / group_*） */}
+      <ScopeConfig item={item} t={t} platforms={platforms} groups={groups} onUpdate={onUpdate} />
+
+      {/* 尺寸选择 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+        <span style={{ fontSize: 11, color: "var(--text-secondary)", width: 36 }}>{t("popover.size", "尺寸")}</span>
+        {SIZE_OPTIONS.map((s) => (
+          <button
+            key={s}
+            style={{
+              fontSize: 11, padding: "2px 8px", borderRadius: 4, cursor: "pointer",
+              border: size === s ? "none" : "1px solid var(--glass-border)",
+              background: size === s ? "var(--accent)" : "transparent",
+              color: size === s ? "#fff" : "var(--text-secondary)",
+            }}
+            onClick={() => onUpdate({ size: s })}
+            title={t(`popover.size_${s}`, s === "s" ? "小" : s === "l" ? "大" : "中")}
+          >
+            {s.toUpperCase()}
+          </button>
+        ))}
+      </div>
+
+      {/* 颜色编辑 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+        <span style={{ fontSize: 11, color: "var(--text-secondary)", width: 36 }}>{t("popover.color", "颜色")}</span>
+        {COLOR_PRESETS.map((c) => {
+          const selected = c.mode === "follow"
+            ? color.mode === "follow"
+            : color.mode === "preset" && color.value === c.value;
+          return (
+            <button
+              key={`${c.mode}-${c.value}`}
+              title={c.mode === "follow" ? t("popover.colorFollow", "跟随") : c.value}
+              style={{
+                width: 18, height: 18, borderRadius: "50%", padding: 0, cursor: "pointer",
+                border: selected ? "2px solid var(--accent)" : "1px solid var(--glass-border)",
+                background: c.css,
+              }}
+              onClick={() => onUpdate({ color: { mode: c.mode, value: c.value } })}
+            />
+          );
+        })}
+        {/* custom hex */}
+        <CustomHexInput
+          value={color.mode === "custom" ? color.value : ""}
+          active={color.mode === "custom"}
+          onChange={(hex) => onUpdate({ color: { mode: "custom", value: hex } })}
+          t={t}
+        />
+      </div>
+    </div>
+  );
+}
+
+function CustomHexInput({
+  value, active, onChange, t,
+}: {
+  value: string;
+  active: boolean;
+  onChange: (hex: string) => void;
+  t: (k: string, d: string) => string;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => { setDraft(value); }, [value]);
+  const valid = draft === "" || isValidHex(draft);
+  return (
+    <input
+      className="input"
+      placeholder={t("popover.colorHex", "#RRGGBB")}
+      value={draft}
+      onChange={(e) => {
+        const v = e.target.value;
+        setDraft(v);
+        if (isValidHex(v)) onChange(v.replace(/^#/, ""));
+      }}
+      style={{
+        fontSize: 11, width: 80, padding: "2px 6px",
+        border: active ? "1px solid var(--accent)" : valid ? "1px solid var(--glass-border)" : "1px solid var(--status-error, #ff3b30)",
+      }}
+    />
+  );
+}
+
+// ── scope / 时间窗配置（按 type 分支）──
+function ScopeConfig({
+  item, t, platforms, groups, onUpdate,
+}: {
+  item: PopoverItem;
+  t: (k: string, d: string, o?: Record<string, unknown>) => string;
+  platforms: Platform[];
+  groups: Group[];
+  onUpdate: (patch: Partial<PopoverItem>) => void;
+}) {
+  if (item.item_type === "cost_trend") {
+    return (
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <select
+          className="input"
+          style={{ fontSize: 12, width: "auto", minWidth: 90 }}
+          value={item.scope ?? "overall"}
+          onChange={(e) => {
+            const scope = e.target.value as PopoverTrendScope;
+            onUpdate({
+              scope,
+              scope_ref: scope === "overall" ? null
+                : scope === "platform" ? (platforms[0] ? String(platforms[0].id) : null)
+                : (groups[0]?.group_key ?? null),
+            });
+          }}
+        >
+          <option value="overall">{t("popover.trendScopeOverall", "整体")}</option>
+          <option value="group">{t("popover.trendScopeGroup", "分组")}</option>
+          <option value="platform">{t("popover.trendScopePlatform", "平台")}</option>
+        </select>
+        {item.scope === "group" && (
+          <GroupSelect item={item} groups={groups} t={t} onUpdate={onUpdate} />
+        )}
+        {item.scope === "platform" && (
+          <PlatformSelect item={item} platforms={platforms} t={t} onUpdate={onUpdate} />
+        )}
+        <WindowSelect item={item} t={t} onUpdate={onUpdate} def="7d" />
+      </div>
+    );
+  }
+  if (item.item_type === "platform_metric") {
+    return (
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <PlatformSelect item={item} platforms={platforms} t={t} onUpdate={onUpdate} />
+        <WindowSelect item={item} t={t} onUpdate={onUpdate} def="today" />
+      </div>
+    );
+  }
+  if (GROUP_TYPES.has(item.item_type)) {
+    return (
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+        <GroupSelect item={item} groups={groups} t={t} onUpdate={onUpdate} />
+        {item.item_type === "group_cost" && <WindowSelect item={item} t={t} onUpdate={onUpdate} def="7d" />}
+      </div>
+    );
+  }
+  return null;
+}
+
+function GroupSelect({ item, groups, t, onUpdate }: { item: PopoverItem; groups: Group[]; t: (k: string, d: string) => string; onUpdate: (p: Partial<PopoverItem>) => void }) {
+  return (
+    <select
+      className="input"
+      style={{ fontSize: 12, width: "auto", minWidth: 110 }}
+      value={item.scope_ref ?? ""}
+      onChange={(e) => onUpdate({ scope_ref: e.target.value || null })}
+    >
+      {groups.length === 0 && <option value="">{t("popover.trendNoGroup", "无分组")}</option>}
+      {groups.map((g) => (
+        <option key={g.group_key} value={g.group_key}>{g.name}</option>
+      ))}
+    </select>
+  );
+}
+
+function PlatformSelect({ item, platforms, t, onUpdate }: { item: PopoverItem; platforms: Platform[]; t: (k: string, d: string) => string; onUpdate: (p: Partial<PopoverItem>) => void }) {
+  return (
+    <select
+      className="input"
+      style={{ fontSize: 12, width: "auto", minWidth: 110 }}
+      value={item.scope_ref ?? ""}
+      onChange={(e) => onUpdate({ scope_ref: e.target.value || null })}
+    >
+      {platforms.length === 0 && <option value="">{t("popover.trendNoPlatform", "无平台")}</option>}
+      {platforms.map((p) => (
+        <option key={p.id} value={String(p.id)}>{p.name}</option>
+      ))}
+    </select>
+  );
+}
+
+function WindowSelect({ item, t, onUpdate, def }: { item: PopoverItem; t: (k: string, d: string) => string; onUpdate: (p: Partial<PopoverItem>) => void; def: PopoverTrendWindow }) {
+  return (
+    <select
+      className="input"
+      style={{ fontSize: 12, width: "auto", minWidth: 90 }}
+      value={item.time_window ?? def}
+      onChange={(e) => onUpdate({ time_window: e.target.value as PopoverTrendWindow })}
+    >
+      {TREND_WINDOWS.map((w) => (
+        <option key={w} value={w}>
+          {t(`popover.trendWindow_${w}`, w === "today" ? "今日" : w === "30d" ? "近 30 天" : "近 7 天")}
+        </option>
+      ))}
+    </select>
   );
 }
