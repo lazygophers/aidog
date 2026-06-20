@@ -1743,12 +1743,18 @@ async fn notification_settings_set(
     settings: NotificationSettings,
 ) -> Result<(), String> {
     tracing::debug!(command = "notification_settings_set", "command invoked");
+    let retention_days = settings.inbox_retention_days;
     gateway::db::set_setting(&db, SetSettingInput {
         scope: "notification".to_string(),
         key: "settings".to_string(),
         value: serde_json::to_value(&settings).map_err(|e| format!("serialize notification settings: {e}"))?,
     }).await
-        .map_err(|e| { tracing::error!(command = "notification_settings_set", error = %e, "persist notification settings failed"); e })
+        .map_err(|e| { tracing::error!(command = "notification_settings_set", error = %e, "persist notification settings failed"); e })?;
+    // 改保留天数即时清理一次过期收件箱（非关键路径，失败仅 warn 不阻塞保存）。
+    if let Err(e) = gateway::db::cleanup_notifications(&db, retention_days).await {
+        tracing::warn!(command = "notification_settings_set", error = %e, "cleanup notifications failed");
+    }
+    Ok(())
 }
 
 #[tauri::command]
@@ -4014,6 +4020,11 @@ pub fn run() {
                                 Ok(n) if n > 0 => tracing::info!(purged = n, "scheduled: purged old soft-deleted platforms"),
                                 Ok(_) => {}
                                 Err(e) => tracing::warn!(error = %e, "scheduled: purge old soft-deleted platforms failed"),
+                            }
+                            // 通知收件箱 retention 硬删（默认 7 天；inbox_retention_days=0 → 永不清理）。
+                            let retention_days = gateway::db::get_notification_settings(&db).await.inbox_retention_days;
+                            if let Err(e) = gateway::db::cleanup_notifications(&db, retention_days).await {
+                                tracing::warn!(error = %e, "scheduled: cleanup notifications failed");
                             }
                         }
                         tokio::time::sleep(interval).await;
