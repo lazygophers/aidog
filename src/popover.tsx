@@ -3,10 +3,19 @@ import ReactDOM from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { useTranslation } from "react-i18next";
-import type { TodayStats, PopoverConfig, PopoverItem, TodayPlatformStat } from "./services/api";
+import type {
+  TodayStats,
+  PopoverConfig,
+  PopoverItem,
+  TodayPlatformStat,
+  StatsBucket,
+  StatsQuery,
+} from "./services/api";
+import { statsApi } from "./services/api";
 import { applyTheme, DEFAULT_STYLE, DEFAULT_COLOR, DEFAULT_MODE } from "./themes";
 import type { ThemeStyle, ThemeColor, ThemeMode } from "./themes/types";
 import { formatNumber, formatCostUsd, formatPercent } from "./utils/formatters";
+import { CostTrendChart } from "./components/shared/CostTrendChart";
 import i18n, { ensureLocaleLoaded, type Locale } from "./locales";
 import "./styles/popover.css";
 
@@ -163,7 +172,104 @@ function PlatformToday({ data }: { data: PopoverData }) {
   );
 }
 
-function renderItem(item: PopoverItem, data: PopoverData, t: (k: string, d: string) => string): React.ReactNode {
+// ─── Cost trend card ────────────────────────────────────────
+
+const DAY_MS = 86_400_000;
+
+/** scope/time_window → StatsQuery（overall=不传 filter；today=hourly，7d/30d=daily）。 */
+function buildTrendQuery(item: PopoverItem): StatsQuery {
+  const now = Date.now();
+  const window = item.time_window ?? "7d";
+  let start: number;
+  let granularity: StatsQuery["granularity"];
+  if (window === "today") {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    start = d.getTime();
+    granularity = "hourly";
+  } else {
+    const days = window === "30d" ? 30 : 7;
+    start = now - days * DAY_MS;
+    granularity = "daily";
+  }
+  const q: StatsQuery = { start, end: now, granularity };
+  const scope = item.scope ?? "overall";
+  if (scope === "group" && item.scope_ref) {
+    q.filter_group = item.scope_ref;
+  } else if (scope === "platform" && item.scope_ref) {
+    q.filter_platform = item.scope_ref;
+  }
+  return q;
+}
+
+/** cost_trend 卡片标题（体现 scope）。 */
+function trendTitle(
+  item: PopoverItem,
+  data: PopoverData,
+  t: (k: string, d: string, opts?: Record<string, unknown>) => string,
+): string {
+  const scope = item.scope ?? "overall";
+  if (scope === "platform" && item.scope_ref) {
+    const pid = Number(item.scope_ref);
+    const p = data.platform_today.find((x) => x.platform_id === pid);
+    const name = p?.platform_name || item.scope_ref;
+    return t("popover.trendPlatformTitle", "{{name}} 消费趋势", { name });
+  }
+  if (scope === "group") {
+    return t("popover.trendGroupTitle", "分组消费趋势");
+  }
+  return t("popover.trendOverallTitle", "整体消费趋势");
+}
+
+function CostTrendCard({
+  item,
+  data,
+  t,
+}: {
+  item: PopoverItem;
+  data: PopoverData;
+  t: (k: string, d: string, opts?: Record<string, unknown>) => string;
+}) {
+  const [buckets, setBuckets] = useState<StatsBucket[] | null>(null);
+  const [failed, setFailed] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    statsApi
+      .query(buildTrendQuery(item))
+      .then((r) => {
+        if (!cancelled) setBuckets(r.buckets);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+    };
+    // item 配置变化时重查（浮窗生命周期内通常不变）。
+  }, [item.scope, item.scope_ref, item.time_window]);
+
+  return (
+    <div className="popover-section">
+      <div className="popover-stats-title">{trendTitle(item, data, t)}</div>
+      {failed ? (
+        <div className="popover-empty">{t("popover.trendLoadError", "加载失败")}</div>
+      ) : buckets === null ? (
+        <div className="popover-empty">{t("common.loading", "加载中...")}</div>
+      ) : buckets.length === 0 ? (
+        <div className="popover-empty">{t("popover.noUsageToday", "今日暂无用量")}</div>
+      ) : (
+        <CostTrendChart buckets={buckets} />
+      )}
+    </div>
+  );
+}
+
+function renderItem(
+  item: PopoverItem,
+  data: PopoverData,
+  t: (k: string, d: string, opts?: Record<string, unknown>) => string,
+): React.ReactNode {
   switch (item.item_type) {
     case "proxy_status":
       return <ProxyStatus key={item.id} data={data} />;
@@ -177,6 +283,8 @@ function renderItem(item: PopoverItem, data: PopoverData, t: (k: string, d: stri
       return <MetricRow key={item.id} label={t("popover.todayTokens", "今日 Token")} value={formatNumber(data.today_stats.tokens)} />;
     case "platform_today":
       return <PlatformToday key={item.id} data={data} />;
+    case "cost_trend":
+      return <CostTrendCard key={item.id} item={item} data={data} t={t} />;
     default:
       return null;
   }

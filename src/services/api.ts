@@ -570,6 +570,7 @@ export const trayConfigApi = {
  * - "platform_today"   各平台当日使用（只含已用，列表）
  * - "proxy_status"     代理状态行
  * - "platform_balance" 平台余额 / coding 列（来自 tray 配置）
+ * - "cost_trend"       消费趋势曲线（按 scope / time_window 维度）
  */
 export type PopoverItemType =
   | "today_cost"
@@ -577,15 +578,28 @@ export type PopoverItemType =
   | "today_tokens"
   | "platform_today"
   | "proxy_status"
-  | "platform_balance";
+  | "platform_balance"
+  | "cost_trend";
 
-/** Popover 浮窗单个展示项（预定义指标集内组合）。 */
+/** cost_trend 卡片统计维度。 */
+export type PopoverTrendScope = "overall" | "group" | "platform";
+/** cost_trend 卡片时间窗。 */
+export type PopoverTrendWindow = "today" | "7d" | "30d";
+
+/** Popover 浮窗单个展示项（预定义指标集内组合）。
+ * 跨层字段名与 Rust serde（PopoverItem，无 rename）保持 snake_case 一致。 */
 export interface PopoverItem {
   /** 稳定 id（前端生成，拖拽 key 用）。 */
   id: string;
   item_type: PopoverItemType;
   visible: boolean;
   order: number;
+  /** 仅 cost_trend：统计维度。旧配置无此字段后端默认 "overall"。 */
+  scope?: PopoverTrendScope;
+  /** 仅 cost_trend + scope!=overall：group → group_key；platform → platform_id 字符串。 */
+  scope_ref?: string | null;
+  /** 仅 cost_trend：时间窗。旧配置无此字段后端默认 "7d"。 */
+  time_window?: PopoverTrendWindow;
 }
 
 /** Popover 浮窗整体配置（存 settings: scope="popover", key="config"）。 */

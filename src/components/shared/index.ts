@@ -4,6 +4,7 @@
 export { CompactCard, type CompactCardProps } from "./CompactCard";
 export { StatChip, type StatChipProps } from "./StatChip";
 export { BalanceBar, type BalanceBarProps } from "./BalanceBar";
+export { CostTrendChart, type CostTrendChartProps } from "./CostTrendChart";
 export {
   type ColorLevel,
   levelColor,
