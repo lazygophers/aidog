@@ -10,6 +10,11 @@ export interface ParsedBaseUrl {
   protocol: ParsedProtocol;
 }
 
+/** 永不自动匹配的 preset value（测试/开发占位平台）。
+ *  mock 关键字（"测试"/"调试"/"假数据"）是通用子串，会命中论坛分享文案噪声而误匹配；
+ *  从 matchPlatform 候选中硬排除，用户仍可在下拉里手动选 mock。 */
+const NEVER_AUTO_MATCH = new Set(["mock"]);
+
 /** Platforms.tsx 的 preset 引用（解析器只需 value/label/keywords/hosts/codingPlan 字段）。 */
 export interface PastePresetRef {
   value: string;
@@ -302,6 +307,7 @@ export function matchPlatform(
       let best: { value: string; label: string; codingPlan?: boolean } | null = null;
       let bestLen = 0;
       for (const p of presets) {
+        if (NEVER_AUTO_MATCH.has(p.value)) continue;
         for (const h of p.hosts ?? []) {
           const hl = h.toLowerCase();
           if (urls.some((u) => u.includes(hl)) && hl.length > bestLen) {
@@ -317,6 +323,7 @@ export function matchPlatform(
   // 2) fallback: keyword 文本扫描（与 presets 列表顺序一致，首个命中胜出）。
   const hay = normalizeForMatch(text);
   for (const p of presets) {
+    if (NEVER_AUTO_MATCH.has(p.value)) continue;
     for (const kw of p.keywords ?? []) {
       const needle = normalizeForMatch(kw);
       if (needle && hay.includes(needle)) {
