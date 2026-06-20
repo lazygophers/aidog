@@ -28,7 +28,9 @@ export const PROTOCOLS: ProtocolOption[] = [
   { value: "kimi", label: "Kimi（月之暗面）", keywords: ["moonshot", "月之暗面"] },
   { value: "kimi", label: "Kimi Code Plan", codingPlan: true, keywords: ["kimi编程", "kimi code", "kimi coding"] },
   { value: "minimax", label: "MiniMax（海螺）", keywords: ["海螺", "minimax"] },
+  { value: "minimax", label: "MiniMax Coding Plan", codingPlan: true, keywords: ["海螺编程", "minimax coding", "minimax code"] },
   { value: "minimax_en", label: "MiniMax 国际版", keywords: ["minimax io", "minimax en"] },
+  { value: "minimax_en", label: "MiniMax Coding Plan 国际版", codingPlan: true, keywords: ["minimax coding intl", "海螺编程国际"] },
   { value: "bailian", label: "百炼（阿里）", keywords: ["dashscope", "阿里", "qwen", "通义"] },
   { value: "bailian_coding", label: "百炼编程", keywords: ["dashscope coding", "阿里编程", "百炼编程"] },
   { value: "deepseek", label: "DeepSeek（深度求索）", keywords: ["深度求索", "deepseek"] },
@@ -190,13 +192,16 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
       { protocol: "openai", base_url: "https://api.moonshot.cn/v1", client_type: "claude_code" },
       { protocol: "anthropic", base_url: "https://api.moonshot.cn/anthropic", client_type: "claude_code" },
     ],
+    // MiniMax(海螺)：coding plan 与常规共用同一 host(api.minimaxi.com / api.minimax.io)与 key，
+    // 配额查询走 /v1/api/openplatform/coding_plan/remains(quota.rs)。cp 时仅在端点标 coding_plan=true，
+    // base_url / client_type 不变（无独立 coding host）。
     minimax: [
-      { protocol: "openai", base_url: "https://api.minimaxi.com/v1", client_type: "codex_tui" },
-      { protocol: "anthropic", base_url: "https://api.minimaxi.com/anthropic", client_type: "claude_code" },
+      { protocol: "openai", base_url: "https://api.minimaxi.com/v1", client_type: "codex_tui", coding_plan: cp },
+      { protocol: "anthropic", base_url: "https://api.minimaxi.com/anthropic", client_type: "claude_code", coding_plan: cp },
     ],
     minimax_en: [
-      { protocol: "openai", base_url: "https://api.minimax.io/v1", client_type: "codex_tui" },
-      { protocol: "anthropic", base_url: "https://api.minimax.io/anthropic", client_type: "claude_code" },
+      { protocol: "openai", base_url: "https://api.minimax.io/v1", client_type: "codex_tui", coding_plan: cp },
+      { protocol: "anthropic", base_url: "https://api.minimax.io/anthropic", client_type: "claude_code", coding_plan: cp },
     ],
     bailian: [
       { protocol: "openai", base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1", client_type: "codex_tui" },
