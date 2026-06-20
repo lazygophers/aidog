@@ -6,6 +6,59 @@ use tokio_rusqlite::Connection as AsyncConnection;
 
 use super::models::*;
 
+/// setting 缓存键的借用探测接口：让 `(&str, &str)` 与拥有所有权的 `(String, String)`
+/// 共享同一套 `Hash`/`Eq` 语义，从而命中路径用借用键查 map，零 String 分配。
+///
+/// 标准 `HashMap<(String,String), _>::get` 要求 `Q: Borrow<(String,String)>`，
+/// 而 `(String,String)` 并不 `Borrow<(&str,&str)>`，无法直接借用查找；stable Rust
+/// 也没有 `raw_entry`。用 trait 对象作为 `Borrow` 目标是该场景的惯用解：owned key 与
+/// borrowed key 都实现本 trait，`HashMap<(String,String)>` 借用为 `dyn KeyPair`，
+/// `Hash`/`Eq` 委托到 `(scope, key)` 二元组，二者必然一致。
+trait KeyPair {
+    fn scope(&self) -> &str;
+    fn key(&self) -> &str;
+}
+
+impl KeyPair for (String, String) {
+    fn scope(&self) -> &str {
+        &self.0
+    }
+    fn key(&self) -> &str {
+        &self.1
+    }
+}
+
+impl KeyPair for (&str, &str) {
+    fn scope(&self) -> &str {
+        self.0
+    }
+    fn key(&self) -> &str {
+        self.1
+    }
+}
+
+impl std::hash::Hash for dyn KeyPair + '_ {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        // 必须与 `(String, String)` 的派生 Hash 字节序一致：依次 hash 两个 str。
+        self.scope().hash(state);
+        self.key().hash(state);
+    }
+}
+
+impl PartialEq for dyn KeyPair + '_ {
+    fn eq(&self, other: &Self) -> bool {
+        self.scope() == other.scope() && self.key() == other.key()
+    }
+}
+
+impl Eq for dyn KeyPair + '_ {}
+
+impl<'a> std::borrow::Borrow<dyn KeyPair + 'a> for (String, String) {
+    fn borrow(&self) -> &(dyn KeyPair + 'a) {
+        self
+    }
+}
+
 /// 进程内热路径缓存（随 Db 实例生命周期，clone 共享同一份）。
 ///
 /// 为什么挂在 `Db` 内而非全局 static：cargo test 单进程多线程跑，每个 test 各开一个
@@ -2131,10 +2184,11 @@ pub async fn get_setting(
     key: &str,
 ) -> Result<Option<serde_json::Value>, String> {
     // 缓存命中：热路径（log_settings/lang/sync_settings 每请求多次读）走内存，绕过后台线程往返。
+    // 命中路径零分配：借 `(&str, &str)` 经 `dyn KeyPair` 探测 map，不构造 `(String, String)`。
     {
-        let cache_key = (scope.to_string(), key.to_string());
+        let probe: &dyn KeyPair = &(scope, key);
         if let Ok(g) = db.1.settings.read() {
-            if let Some(hit) = g.get(&cache_key) {
+            if let Some(hit) = g.get(probe) {
                 return Ok(hit.clone());
             }
         }
