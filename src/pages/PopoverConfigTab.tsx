@@ -42,7 +42,14 @@ import {
 } from "../services/api";
 import { usePolling } from "../hooks/usePolling";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
-import { renderGrid, type PopoverData } from "../components/PopoverCards";
+import {
+  renderGrid,
+  collectStatsQueries,
+  type PopoverData,
+  type PopoverStatsMap,
+  type PopoverStatsCtx,
+} from "../components/PopoverCards";
+import { statsApi } from "../services/api";
 import "../styles/popover.css";
 
 /** 预定义指标集（顺序即添加菜单顺序）。 */
@@ -214,6 +221,34 @@ export function PopoverConfigTab() {
     } catch { /* */ }
   }, []);
   usePolling(refreshStats, 30_000);
+
+  // 预览统计：批量拉取当前 config 所需的全部卡数据（一次 IPC），与真实浮窗同口径。
+  const [statsMap, setStatsMap] = useState<PopoverStatsMap>(new Map());
+  const [statsLoaded, setStatsLoaded] = useState(false);
+  const statsKey = JSON.stringify(collectStatsQueries(config));
+  useEffect(() => {
+    let cancelled = false;
+    const { itemIds, queries } = collectStatsQueries(config);
+    if (queries.length === 0) {
+      setStatsMap(new Map());
+      setStatsLoaded(true);
+      return;
+    }
+    statsApi
+      .queryBatch(queries)
+      .then((results) => {
+        if (cancelled) return;
+        const m: PopoverStatsMap = new Map();
+        results.forEach((r, i) => m.set(itemIds[i], r));
+        setStatsMap(m);
+        setStatsLoaded(true);
+      })
+      .catch(() => { if (!cancelled) setStatsLoaded(true); });
+    return () => { cancelled = true; };
+    // eslint 依赖：statsKey 覆盖 config 中影响查询的字段。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statsKey]);
+  const statsCtx: PopoverStatsCtx = { map: statsMap, loaded: statsLoaded };
 
   const persist = async (items: PopoverItem[], rows: RowMeta[] | undefined) => {
     const next = normalizeConfig(items, rows);
@@ -529,7 +564,7 @@ export function PopoverConfigTab() {
             </div>
           ) : (
             <div className="popover-root" style={{ margin: 0 }}>
-              {renderGrid(config, previewData, groups, groupDetails, t)}
+              {renderGrid(config, previewData, groups, groupDetails, t, statsCtx)}
             </div>
           )}
         </div>

@@ -1354,6 +1354,9 @@ export interface StatsResult {
 export const statsApi = {
   query: (query: StatsQuery) =>
     invoke<StatsResult>("stats_query", { query }),
+  /** 批量查询：一次 IPC 拉多卡数据，结果顺序与 queries 一一对应。浮窗 N 卡用，消除 fan-out。 */
+  queryBatch: (queries: StatsQuery[]) =>
+    invoke<StatsResult[]>("stats_query_batch", { queries }),
 };
 
 // ─── Model Testing Types & API ───────────────────────────
