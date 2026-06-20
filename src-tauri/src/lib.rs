@@ -3171,7 +3171,8 @@ async fn cc_codex_settings_set(
     tracing::debug!(command = "cc_codex_settings_set", "command invoked");
     let mut current = load_cc_codex_settings(&db).await;
 
-    // 按字段 diff 触发副作用写文件；失败 warn 不中断其它字段。
+    // 按字段 diff 触发副作用写文件；写失败立即返 Err（前端回滚 + 显示真因），
+    // 不再静默 warn+返原值（旧实现致前端乐观翻转后被 setSettings(原值) 回滚 = 「开关点击无反应」）。
     if let Some(v) = apply_to_claude_plugin {
         if v != current.apply_to_claude_plugin {
             let res = if v {
@@ -3181,12 +3182,15 @@ async fn cc_codex_settings_set(
             };
             match res {
                 Ok(_changed) => current.apply_to_claude_plugin = v,
-                Err(e) => tracing::warn!(
-                    command = "cc_codex_settings_set",
-                    field = "apply_to_claude_plugin",
-                    error = %e,
-                    "write ~/.claude/config.json failed; field not persisted"
-                ),
+                Err(e) => {
+                    tracing::warn!(
+                        command = "cc_codex_settings_set",
+                        field = "apply_to_claude_plugin",
+                        error = %e,
+                        "write ~/.claude/config.json failed; field not persisted"
+                    );
+                    return Err(format!("write ~/.claude/config.json: {e}"));
+                }
             }
         }
     }
@@ -3200,12 +3204,15 @@ async fn cc_codex_settings_set(
             };
             match res {
                 Ok(_changed) => current.skip_claude_onboarding = v,
-                Err(e) => tracing::warn!(
-                    command = "cc_codex_settings_set",
-                    field = "skip_claude_onboarding",
-                    error = %e,
-                    "write ~/.claude.json failed; field not persisted"
-                ),
+                Err(e) => {
+                    tracing::warn!(
+                        command = "cc_codex_settings_set",
+                        field = "skip_claude_onboarding",
+                        error = %e,
+                        "write ~/.claude.json failed; field not persisted"
+                    );
+                    return Err(format!("write ~/.claude.json: {e}"));
+                }
             }
         }
     }
