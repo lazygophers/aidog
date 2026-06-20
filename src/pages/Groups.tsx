@@ -1,4 +1,4 @@
-import { useState, useEffect, useReducer, useCallback, Fragment } from "react";
+import { useState, useEffect, useReducer, useCallback, useRef, Fragment } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode, CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
@@ -470,7 +470,7 @@ async function fetchGroupStats(
 }
 
 /** 分组内嵌组件（供 Platforms 页使用） */
-export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onEditPlatform, onToast, onViewModeChange, openCreateGroupRef, reloadRef }: {
+export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onEditPlatform, onToast, onViewModeChange, openCreateGroupRef, reloadRef, onCountChange }: {
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string }) => void;
   onGroupsChanged?: () => void;
   /** 打开平台创建表单；提供 lockedGroupId = 从某分组 ➕ 触发，预绑该分组且锁定归属。 */
@@ -488,6 +488,9 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   /** 父级(Platforms)跨组件刷新入口（如全局 purge 删平台后），触发本组件 load() 重建分组/平台状态。
    *  本组件 load() 只在 mount 跑一次，父级 groupDetails 更新不会自动同步到内部 details/platforms。 */
   reloadRef?: { current: (() => void) | null };
+  /** 渐进加载计数回传：随各组平台逐组流入而递增/校正（{total, active}），供父级页头
+   *  「N / M active」徽章增量更新。null = 尚未开始/重置回退父级自身列表。 */
+  onCountChange?: (counts: { total: number; active: number } | null) => void;
 }) {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
@@ -545,17 +548,74 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     onViewModeChange?.(fullscreenView);
   }, [fullscreenView, onViewModeChange]);
 
+  // 渐进加载序号守卫：每次 load() 自增，异步阶段回调前比对，丢弃陈旧轮次（reload/StrictMode 双跑）的迟到 setState。
+  const loadSeqRef = useRef(0);
+
+  /**
+   * 三阶段渐进加载（首屏不 await 任何数据，全异步流式，到一阶段渲一阶段）：
+   *   ① 分组列表（group_list 轻量）→ 立即渲染分组骨架（头/容器，平台区空）。
+   *   ② 依次（串行 await）逐组 group_detail → 每组到手即填该组平台（先到先渲，保组顺序）。
+   *   ③ 未分组平台：platform_list → 灌入 platforms（驱动父级未分组列表 + 余额聚合 + 计数校正）。
+   * 计数随各组平台流入经 onCountChange 增量回传父级页头徽章。
+   */
   const load = async () => {
+    const seq = ++loadSeqRef.current;
+    const alive = () => seq === loadSeqRef.current;
     setLoading(true);
+    onCountChange?.({ total: 0, active: 0 });
+    // 累计「已见平台」集（跨组去重：共享平台只计一次），随各组流入递增回传计数。
+    const seen = new Map<number, Platform>();
+    const reportCount = () => {
+      let active = 0;
+      for (const p of seen.values()) if (p.enabled) active++;
+      onCountChange?.({ total: seen.size, active });
+    };
     try {
-      const [d, p] = await Promise.all([groupDetailApi.list(), platformApi.list()]);
-      setDetails(d || []);
-      setPlatforms(p || []);
-      const { statsMap, balanceMap } = await fetchGroupStats(d || [], p || []);
+      // ── ① 分组列表 → 骨架渲染 ──
+      const groups = (await groupApi.list()) || [];
+      if (!alive()) return;
+      const skeleton: GroupDetail[] = groups.map(g => ({
+        group: g,
+        platforms: [],
+        model_mappings: g.model_mappings || [],
+      }));
+      setDetails(skeleton);
+      setLoading(false); // 骨架已渲，撤掉内部加载态；后续阶段在已渲容器内填充
+
+      // ── ② 依次逐组取平台，先到先渲 ──
+      // 本地累积已填充的 GroupDetail，供阶段末 fetchGroupStats 用（避免再 refetch group_detail_list）。
+      const filledDetails: GroupDetail[] = [];
+      for (const g of groups) {
+        let detail: GroupDetail | null = null;
+        try {
+          detail = await groupDetailApi.get(g.id);
+        } catch (e) { console.error(e); }
+        if (!alive()) return;
+        if (!detail) continue;
+        const filled = detail; // narrow
+        filledDetails.push(filled);
+        // 增量替换该组条目（保持其余组与顺序不变，避免整列重渲）
+        setDetails(prev => prev.map(d => d.group.id === filled.group.id ? filled : d));
+        for (const gp of filled.platforms) seen.set(gp.platform.id, gp.platform);
+        reportCount();
+      }
+
+      // ── ③ 未分组平台（全量列表）→ 余额聚合 + 计数最终校正 ──
+      const p = (await platformApi.list()) || [];
+      if (!alive()) return;
+      setPlatforms(p);
+      for (const plat of p) seen.set(plat.id, plat); // 并入未分组平台，total 校正到全量
+      reportCount();
+
+      // ── 统计/余额聚合（用已填充 details + 全量平台，无额外 group_detail_list 往返）──
+      const { statsMap, balanceMap } = await fetchGroupStats(filledDetails, p);
+      if (!alive()) return;
       setGroupStats(statsMap);
       setGroupBalance(balanceMap);
-    } catch (e) { console.error(e); }
-    setLoading(false);
+    } catch (e) {
+      console.error(e);
+      if (alive()) setLoading(false);
+    }
   };
 
   /** 轻量刷新：更新 platforms（含 est_balance_remaining）+ usage stats + group 聚合，不拉 quota HTTP */
