@@ -1301,6 +1301,9 @@ function FormSection({ title, desc, action, children }: FormSectionProps) {
 export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: string, context?: { platformId?: number; platformName?: string }) => void; initialFilter?: { platformId?: number; platformName?: string } }) {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
+  // 渐进加载计数（来自 GroupsEmbedded 逐组流式回传 {total, active}），驱动页头「N / M active」增量更新。
+  // null = 尚未回传 → 回退本页自身 platforms 派生值（如本页列表先于分组流加载完）。
+  const [progressiveCount, setProgressiveCount] = useState<{ total: number; active: number } | null>(null);
   // ── Drag reorder for platform list ──
   const [platDrag, setPlatDrag] = useState<{ from: number; to: number } | null>(null);
   const platListRef = useRef<HTMLDivElement>(null);
@@ -2140,6 +2143,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
   // 列表头部「启用 / 总数」派生值：仅随 platforms 变化，避免每次轮询/拖拽重渲染时重扫全列表
   const enabledCount = useMemo(() => platforms.filter(p => p.enabled).length, [platforms]);
+  // 页头徽章计数：优先用 GroupsEmbedded 渐进回传值（随各组平台逐组流入增量更新），
+  // 回退本页自身 platforms 派生值（progressiveCount 尚未回传 / 被重置时）。
+  const headerActive = progressiveCount ? progressiveCount.active : enabledCount;
+  const headerTotal = progressiveCount ? progressiveCount.total : platforms.length;
 
   // ── Edit / Add form (full page, no list) ──
   if (showForm) {
@@ -2929,7 +2936,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
         <div>
           <div className="section-title">{t("page.platforms")}</div>
           <div className="section-desc">
-            {platforms.length > 0 ? `${enabledCount} / ${platforms.length} active` : t("platform.empty")}
+            {headerTotal > 0 ? `${headerActive} / ${headerTotal} active` : t("platform.empty")}
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2967,7 +2974,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       </div>
 
       {/* 分组段（内嵌） */}
-      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={groupsReloadRef} />
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={groupsReloadRef} onCountChange={setProgressiveCount} />
 
       {/* 全屏视图态（创建/编辑分组）时隐藏分隔线 + 未分组平台列表，避免与全屏视图并列 */}
       {!groupFullscreen && (<>
