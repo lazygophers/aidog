@@ -771,6 +771,7 @@
   "platform.toggleDetail": "Toggle details",
   "platform.toggleFail": "Toggle failed",
   "platform.deleteFail": "Delete failed",
+  "platform.saveFail": "Save failed",
   "platform.usageLabel": "Used",
   "platform.usageLoading": "Loading usage",
   "platform.viewLogs": "View Logs",
