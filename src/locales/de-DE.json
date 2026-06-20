@@ -793,6 +793,7 @@
   "platform.toggleDetail": "Details umschalten",
   "platform.toggleFail": "Umschalten fehlgeschlagen",
   "platform.deleteFail": "Löschen fehlgeschlagen",
+  "platform.saveFail": "Speichern fehlgeschlagen",
   "platform.usageLabel": "Verbraucht",
   "platform.usageLoading": "Nutzung wird geladen",
   "platform.viewLogs": "Protokolle ansehen",

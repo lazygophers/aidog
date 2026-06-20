@@ -793,6 +793,7 @@
   "platform.toggleDetail": "詳細を切り替え",
   "platform.toggleFail": "切り替え失敗",
   "platform.deleteFail": "削除失敗",
+  "platform.saveFail": "保存失敗",
   "platform.usageLabel": "使用済み",
   "platform.usageLoading": "使用量を読み込み中",
   "platform.viewLogs": "ログを見る",
