@@ -1,0 +1,29 @@
+{
+  "id": "test-coverage-80",
+  "name": "test-coverage-80",
+  "title": "单测覆盖率≥80%",
+  "description": "完善整体单元测试覆盖率至少80%",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "nico",
+  "assignee": "nico",
+  "createdAt": "2026-06-20",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-20-test-cov-rust",
+    "06-20-test-cov-frontend"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
