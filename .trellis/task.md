@@ -19,3 +19,7 @@
 | popover-stats-batch | 浮窗统计批量化+UTC修复 | 修浮窗/页面慢: 批量化浮窗N卡统计查询(一次IPC) + 修 bucket_time_expr UTC时区bug(db.rs:3517) | 已完成 | 收尾 | 100 | — |
 | smartpaste-plaintext-noise | 智能粘贴明文反爬变体 | 智能粘贴解析: CJK噪声(如『（删除我）』)插在明文url/apikey中间(非base64)时无法识别, 需剔CJK括号噪声后拼接 | 已完成 | 收尾 | 100 | — |
 | matchplatform-no-mock | matchPlatform禁返回mock | 智能粘贴/平台匹配: 未知host fallback错选mock测试平台, mock任何情况不可被自动识别; 排除mock出matchPlatform候选 | 已完成 | 收尾 | 100 | — |
+| platform-card-usage | 平台卡片消费展示增强 | coding plan 平台补已用tokens+预估金额; 平台列表展开展示总tokens/金额消耗+今日 | 已完成 | 收尾 | 100 | — |
+| newapi-balance-refresh | NewAPI余额主动更新 | NewAPI 平台余额未主动更新, 接入 quota 调度自动刷新 | 已完成 | 收尾 | 100 | — |
+| fix-add-platform-save | 修添加平台保存无反应 | 添加平台点保存没反应(疑 platforms-partial-refresh handleSave 乐观改写回归) | 已完成 | 收尾 | 100 | — |
+| db-index-cache-perf | DB索引+缓存提速 | 分组加载平台慢; 加 sqlite 索引 + 缓存提速, 维持缓存与DB一致 | 进行中 | 实施 | 40 | 06-21-db-index-cache-perf |
