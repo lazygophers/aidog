@@ -771,6 +771,7 @@
   "platform.toggleDetail": "Mostrar/ocultar detalles",
   "platform.toggleFail": "Error al cambiar",
   "platform.deleteFail": "Error al eliminar",
+  "platform.saveFail": "Error al guardar",
   "platform.usageLabel": "Usado",
   "platform.usageLoading": "Cargando uso",
   "platform.viewLogs": "Ver registros",

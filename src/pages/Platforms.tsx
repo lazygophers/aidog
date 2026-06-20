@@ -2102,11 +2102,20 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       // 保存可能改变分组归属（join_group_ids / auto_group 建默认组），
       // 必须刷新 groupDetails 重建 membership，否则已分组平台漏判为未分组、误现于底部未分配区。
       handleGroupsChanged();
+      // 已分组平台（join_group_ids / auto_group）只在 <GroupsEmbedded> 的分组卡内渲染，而该组件渲染门控在
+      // 其**自身** platforms state（Groups.tsx 分组卡 platforms.find），父级乐观 setPlatforms 不会注入。
+      // 仅靠 window 事件依赖 mount 期绑定的 load() 闭包 + 多阶段异步重载，存在「保存成功但分组卡不刷新」窗口
+      // （根因：新平台落入已有分组后既不进父级未分组列表、分组卡又未确定性重载 → UI 无反应、用户重复创建）。
+      // 故与 purge 路径一致，显式调用专用命令式重载入口，确定性重建 GroupsEmbedded 平台态。
+      groupsReloadRef.current?.();
       window.dispatchEvent(new Event("aidog-groups-changed"));
     } catch (e: any) {
       const msg = e?.toString() || "Unknown error";
       console.error(msg);
       setSaveError(msg);
+      // saveError 渲染在长表单底部易被滚出视口（用户感知「无反应」）；额外用全局 toast 即时反馈，禁静默失败。
+      setToast({ text: `${t("platform.saveFail", "保存失败")}: ${msg}`, ok: false });
+      setTimeout(() => setToast(null), 4000);
     }
   };
 
