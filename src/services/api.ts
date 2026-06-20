@@ -596,6 +596,9 @@ export type PopoverTrendScope = "overall" | "group" | "platform";
 /** cost_trend 卡片时间窗。 */
 export type PopoverTrendWindow = "today" | "7d" | "30d";
 
+/** 卡片尺寸 / 内容密度：s=仅核心数值，m=当前样式，l=富信息。旧配置无此字段后端默认 "m"。 */
+export type PopoverItemSize = "s" | "m" | "l";
+
 /** Popover 浮窗单个展示项（预定义指标集内组合）。
  * 跨层字段名与 Rust serde（PopoverItem，无 rename）保持 snake_case 一致。 */
 export interface PopoverItem {
@@ -610,11 +613,25 @@ export interface PopoverItem {
   scope_ref?: string | null;
   /** cost_trend / platform_metric：时间窗。旧配置无此字段后端默认 "7d"。 */
   time_window?: PopoverTrendWindow;
+  /** 二维布局行号。旧配置无此字段后端默认 0；渲染层 `row ?? order` fallback 老用户各占一行。 */
+  row?: number;
+  /** 卡片尺寸 / 内容密度。旧配置无此字段后端默认 "m"。 */
+  size?: PopoverItemSize;
+  /** 卡片数值颜色（复用 tray 三态颜色）。旧配置无此字段后端默认 follow。 */
+  color?: TrayColor;
+}
+
+/** Popover 单行布局元信息（按 row 索引）。缺省 / 越界视为 cols=1。 */
+export interface RowMeta {
+  /** 该行列数 1 | 2 | 3。 */
+  cols: 1 | 2 | 3;
 }
 
 /** Popover 浮窗整体配置（存 settings: scope="popover", key="config"）。 */
 export interface PopoverConfig {
   items: PopoverItem[];
+  /** 各行布局元信息（按 row 索引）；缺省项 / 越界视为 cols=1。旧配置无此字段。 */
+  rows?: RowMeta[];
 }
 
 /** 单平台当日使用（popover「各平台当日」+ 设置预览）。 */
