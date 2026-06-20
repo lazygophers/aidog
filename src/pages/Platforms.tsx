@@ -1392,6 +1392,10 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   // ③⑤ quota 调度：待领取队列（按可视优先顺序入队）、已调度去重集合、需查 quota 的平台快照。
   //    IntersectionObserver 决定入队时机/优先级，有界 worker pool 控并发上限。用 ref 不触发渲染。
   const quotaQueueRef = useRef<Platform[]>([]);
+  // 局部刷新守卫：每次本地乐观写操作（保存/删除/清理）自增 epoch；在途的 load()/refreshStats
+  //   captureEpoch 后异步返回时若 epoch 已变，跳过 setPlatforms(list) 整列表覆盖，防慢后端晚到回弹
+  //   （mount-fetch-late-resolve-overwrites-optimistic 坑）。
+  const platformsEpochRef = useRef(0);
   const quotaScheduledRef = useRef<Set<number>>(new Set());
   const quotaPoolActiveRef = useRef(0);
   const quotaWantMapRef = useRef<Map<number, Platform>>(new Map());
@@ -1614,7 +1618,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     groupDetailApi.movePlatform(pid, 0, found.gid)
       .then(() => {
         setToast({ text: "已加入分组", ok: true });
-        load(); handleGroupsChanged();
+        // 拖到分组只改归属：平台行本身不变，仅刷 groupDetails 重建 membership（卡片即移到目标组），
+        // 无需整页 load()。保留事件广播供 GroupsEmbedded 等跨组件同步。
+        handleGroupsChanged();
         window.dispatchEvent(new Event("aidog-groups-changed"));
       })
       .catch(err => setToast({ text: `加入分组失败: ${err}`, ok: false }));
@@ -1670,12 +1676,27 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     pumpQuotaPool();
   }, [pumpQuotaPool]);
 
+  /** 局部刷新（新建/编辑平台）专用 quota 调度：不走 load() 重置 wantMap 路径，
+   *  故新平台不在 quotaWantMapRef，无法经 enqueueQuota 入队。这里把单平台注入 wantMap + pending
+   *  后入队，确保不走整页 load 的平台余额仍会被查（风险④：load 重置 quota 状态耦合）。 */
+  const scheduleQuotaFor = useCallback((p: Platform) => {
+    if (!platformWantsQuota(p)) return;
+    quotaWantMapRef.current.set(p.id, p);
+    setQuotaPending(prev => ({ ...prev, [p.id]: true }));
+    // 已调度过则先放行重查（编辑可能改了 key/base_url）。
+    quotaScheduledRef.current.delete(p.id);
+    enqueueQuota(p);
+  }, [platformWantsQuota, enqueueQuota]);
+
   const load = async () => {
     setLoading(true);
+    const epoch = platformsEpochRef.current;
     let list: Platform[] = [];
     try {
       list = (await platformApi.list()) || [];
     } catch (e) { console.error(e); }
+    // 在途期间发生本地乐观写（删除/保存/清理）则放弃整列表覆盖，避免晚到 resolve 回弹。
+    if (epoch !== platformsEpochRef.current) { setLoading(false); return; }
 
     // ③⑤ quota 调度状态必须在 setPlatforms（→ DOM 提交 → IntersectionObserver 初次回调）之前同步就绪，
     //     否则 observer 初次 fire 时 quotaWantMapRef 仍为空 → enqueueQuota 早退 → 首屏卡片 quota 永不查
@@ -1716,11 +1737,39 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       .catch(() => { /* ignore */ });
   };
 
-  /** 轻量刷新：更新平台列表（含 est_balance/est_coding_plan）+ usage stats 批量，不拉 quota HTTP */
+  /** 轻量刷新：按 id 局部 merge 派生统计字段（est_balance/est_coding_plan 等）+ usage stats 批量，
+   *  不拉 quota HTTP、不整列表替换。高频被动触发（proxy log 订阅），整列表替换会打断 memo / 拖拽态
+   *  并与乐观操作竞争回弹，故改为：仅更新已存在平台的字段，新增/删除的行交由显式写操作或 load() 处理。 */
   const refreshStats = async () => {
+    const epoch = platformsEpochRef.current;
     try {
       const list = await platformApi.list();
-      if (list) setPlatforms(list);
+      if (list && epoch === platformsEpochRef.current) {
+        const byId = new Map(list.map(p => [p.id, p]));
+        setPlatforms(prev => {
+          let changed = false;
+          const next = prev.map(p => {
+            const fresh = byId.get(p.id);
+            // 只 merge 后台派生的统计字段，保留前端排序/乐观态；字段相同则保引用（利于 memo）。
+            if (!fresh) return p;
+            if (
+              fresh.est_balance_remaining === p.est_balance_remaining &&
+              fresh.est_coding_plan === p.est_coding_plan &&
+              fresh.last_real_query_at === p.last_real_query_at &&
+              fresh.estimate_count === p.estimate_count
+            ) return p;
+            changed = true;
+            return {
+              ...p,
+              est_balance_remaining: fresh.est_balance_remaining,
+              est_coding_plan: fresh.est_coding_plan,
+              last_real_query_at: fresh.last_real_query_at,
+              estimate_count: fresh.estimate_count,
+            };
+          });
+          return changed ? next : prev;
+        });
+      }
       const all = await platformApi.usageStatsAll();
       setUsageMap(all || {});
     } catch { /* ignore */ }
@@ -1986,8 +2035,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       // 手动预算：所有平台可设（含 mock / 有上游配额支持的平台），仅透传订阅强制清空。
       const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
       let savedId: number | undefined;
+      let saved: Platform | undefined;
+      const wasEditing = !!editing;
       if (editing) {
-        await platformApi.update({
+        saved = await platformApi.update({
           id: editing.id, name, platform_type: protocol, base_url: baseUrl, api_key: apiKey,
           extra: extraArg,
           models: modelsPayload, available_models: availablePayload,
@@ -1997,7 +2048,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
         });
         savedId = editing.id;
       } else {
-        const created = await platformApi.create({
+        saved = await platformApi.create({
           name, platform_type: protocol, base_url: baseUrl, api_key: apiKey,
           extra: extraArg,
           models: modelsPayload, available_models: availablePayload,
@@ -2006,7 +2057,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           auto_group: autoGroup,
           join_group_ids: joinGroupIds,
         });
-        savedId = created.id;
+        savedId = saved.id;
       }
 
       // Save Claude Code config overrides for this platform
@@ -2027,7 +2078,27 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
         } catch (e) { /* ignore JSON parse errors for config */ }
       }
 
-      resetForm(); load();
+      resetForm();
+      // 局部刷新：用返回的完整 Platform 单项 setState（编辑=replace / 新建=append），不整页 load()。
+      // 自增 epoch 让任何在途的 load()/refreshStats 放弃覆盖，防晚到 resolve 回弹乐观结果。
+      if (saved) {
+        const savedPlatform = saved;
+        platformsEpochRef.current++;
+        if (wasEditing) {
+          setPlatforms(prev => prev.map(x => x.id === savedPlatform.id ? savedPlatform : x));
+        } else {
+          setPlatforms(prev => prev.some(x => x.id === savedPlatform.id) ? prev : [...prev, savedPlatform]);
+        }
+        // 不走 load() → 不会重置 quota 调度，须显式为该平台补 quota 查询（风险④）。
+        scheduleQuotaFor(savedPlatform);
+        // 单项变更后补刷该平台 usage / 最近测试徽章（load() 原本顺带刷，局部路径须自补）。
+        platformApi.usageStats(savedPlatform.id)
+          .then(u => setUsageMap(prev => ({ ...prev, [savedPlatform.id]: u })))
+          .catch(() => {});
+        platformApi.lastTestResult(savedPlatform.id)
+          .then(r => { if (r) setLastTestMap(prev => ({ ...prev, [savedPlatform.id]: r })); })
+          .catch(() => {});
+      }
       // 保存可能改变分组归属（join_group_ids / auto_group 建默认组），
       // 必须刷新 groupDetails 重建 membership，否则已分组平台漏判为未分组、误现于底部未分配区。
       handleGroupsChanged();
@@ -2041,13 +2112,35 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
   const handleDelete = async (id: number) => {
     // 删平台后端会清理 group_platform 关联并可能删孤儿 auto 组，
-    // 故须刷新 groupDetails（重建 membership chips + 已分组/未分组归属），仅 load() 平台列表会留陈旧分组态。
+    // 故须刷新 groupDetails（重建 membership chips + 已分组/未分组归属），仅刷平台列表会留陈旧分组态。
+    // 局部刷新：乐观从列表按 id 移除（不整页 load），失败回滚。
+    let removed: Platform | undefined;
+    let removedIndex = -1;
+    platformsEpochRef.current++;
+    setPlatforms(prev => {
+      removedIndex = prev.findIndex(x => x.id === id);
+      if (removedIndex >= 0) removed = prev[removedIndex];
+      return prev.filter(x => x.id !== id);
+    });
     try {
       await platformApi.delete(id);
-      load();
       handleGroupsChanged();
       window.dispatchEvent(new Event("aidog-groups-changed"));
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      // 回滚：把被删平台插回原位。
+      if (removed) {
+        const r = removed; const idx = removedIndex;
+        setPlatforms(prev => {
+          if (prev.some(x => x.id === r.id)) return prev;
+          const next = [...prev];
+          next.splice(idx >= 0 && idx <= next.length ? idx : next.length, 0, r);
+          return next;
+        });
+      }
+      setToast({ text: `${t("platform.deleteFail", "删除失败")}`, ok: false });
+      setTimeout(() => setToast(null), 3000);
+    }
   };
 
   const handleToggle = async (p: Platform) => {
@@ -2963,7 +3056,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                   setToast({ text: t("platform.purgeDisabledDone", "已删除 {{count}} 个失效平台", { count: r.deletedIds.length }), ok: true });
                 }
                 setTimeout(() => setToast(null), 3000);
-                load();
+                // 局部刷新：按 deletedIds 批量移除被永久删除的平台（不整页 load）；
+                // unassignedIds（仅移除分组关联，平台行保留）的归属变化由 handleGroupsChanged 重建 membership。
+                if (r.deletedIds.length > 0) {
+                  const del = new Set(r.deletedIds);
+                  platformsEpochRef.current++;
+                  setPlatforms(prev => prev.filter(x => !del.has(x.id)));
+                }
                 handleGroupsChanged();
                 groupsReloadRef.current?.();
               } catch (err) {

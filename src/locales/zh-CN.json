@@ -766,6 +766,7 @@
   "platform.testOk": "测试成功",
   "platform.toggleDetail": "展开/收起明细",
   "platform.toggleFail": "切换失败",
+  "platform.deleteFail": "删除失败",
   "platform.usageLabel": "已使用",
   "platform.usageLoading": "用量加载中",
   "platform.viewLogs": "查看日志",
