@@ -3,7 +3,7 @@
 // 变化时后端按 diff 触发写外部文件（~/.claude/config.json 的 primaryApiKey / ~/.claude.json 的 hasCompletedOnboarding）。
 // 即时保存（无 unsaved state），不走 navGuard 离页拦截。
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ccCodexSettingsApi, type CcCodexSettings } from "../../services/api";
 
@@ -19,18 +19,37 @@ export function CcCodexSettingsTab() {
   // 直到下次操作或修复，确保用户 100% 看到"开关未生效 + 真实原因"。
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  // 用户一旦操作过开关（乐观翻转 + set 确认），mount 的初始 get() 即便晚到也不得覆盖。
+  // 根因：React 19 StrictMode 致 mount effect 双跑，慢 get() 的 resolve 可能晚于用户 toggle，
+  // 无条件 setSettings(get结果) 会把已确认的值改回 DB 旧值（几秒后自动变灰、无报错）。
+  const dirtyRef = useRef(false);
 
   useEffect(() => {
+    let cancelled = false;
     ccCodexSettingsApi
       .get()
-      .then((s) => setSettings(s))
-      .catch((e) => setError(String(e)))
-      .finally(() => setLoading(false));
+      .then((s) => {
+        // 组件已卸载，或用户在 get 解析前已操作过开关 → 丢弃晚到结果，不覆盖。
+        if (cancelled || dirtyRef.current) return;
+        setSettings(s);
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setError(String(e));
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const handleToggle = async (field: keyof CcCodexSettings, next: boolean) => {
     if (busy) return;
     const prev = settings[field];
+    // 标记用户已操作：此后任何晚到的 mount get() resolve 都不得覆盖本地值。
+    dirtyRef.current = true;
     // 进入新操作前清掉旧的成功/错误态，避免陈旧提示干扰判断
     setMessage("");
     setError("");
