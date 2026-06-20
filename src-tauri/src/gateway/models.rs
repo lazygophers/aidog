@@ -888,18 +888,41 @@ pub struct PopoverItem {
     /// 仅 cost_trend 用：时间窗 "today" | "7d" | "30d"。旧配置无此字段 → 默认 "7d"。
     #[serde(default = "default_popover_time_window")]
     pub time_window: String,
+    /// 二维布局行号。旧配置无此字段 → 默认 0；渲染层按 `row || order` fallback，老用户各占一行。
+    #[serde(default)]
+    pub row: i32,
+    /// 卡片尺寸 / 内容密度 "s" | "m" | "l"。旧配置无此字段 → 默认 "m"。
+    #[serde(default = "default_popover_size")]
+    pub size: String,
+    /// 卡片数值颜色（复用 tray 三态颜色）。旧配置无此字段 → 默认 follow。
+    #[serde(default)]
+    pub color: TrayColor,
 }
 
 fn default_popover_scope() -> String { "overall".to_string() }
 fn default_popover_time_window() -> String { "7d".to_string() }
+fn default_popover_size() -> String { "m".to_string() }
 
 fn default_popover_item_type() -> String { "today_cost".to_string() }
+
+/// Popover 单行布局元信息（按 row 索引）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RowMeta {
+    /// 该行列数 1 | 2 | 3。缺省视为 1。
+    #[serde(default = "default_cols")]
+    pub cols: i32,
+}
+
+fn default_cols() -> i32 { 1 }
 
 /// Popover 浮窗整体配置（存 settings: scope="popover", key="config"）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PopoverConfig {
     #[serde(default)]
     pub items: Vec<PopoverItem>,
+    /// 各行布局元信息（按 row 索引）；缺省项 / 越界视为 cols=1。
+    #[serde(default)]
+    pub rows: Vec<RowMeta>,
 }
 
 impl Default for PopoverConfig {
@@ -926,8 +949,12 @@ impl Default for PopoverConfig {
                     scope: default_popover_scope(),
                     scope_ref: None,
                     time_window: default_popover_time_window(),
+                    row: i as i32,
+                    size: default_popover_size(),
+                    color: TrayColor::default(),
                 })
                 .collect(),
+            rows: Vec::new(),
         }
     }
 }
@@ -945,6 +972,11 @@ mod popover_config_model_tests {
         assert_eq!(item.scope, "overall");
         assert!(item.scope_ref.is_none());
         assert_eq!(item.time_window, "7d");
+        // 旧配置无 row/size/color → serde default 兜底。
+        assert_eq!(item.row, 0);
+        assert_eq!(item.size, "m");
+        assert_eq!(item.color.mode, "follow");
+        assert_eq!(item.color.value, "");
     }
 
     #[test]
@@ -957,12 +989,19 @@ mod popover_config_model_tests {
             scope: "group".to_string(),
             scope_ref: Some("gk_abc".to_string()),
             time_window: "30d".to_string(),
+            row: 2,
+            size: "l".to_string(),
+            color: TrayColor { mode: "custom".to_string(), value: "#ff8800".to_string() },
         };
         let json = serde_json::to_string(&item).unwrap();
         let back: PopoverItem = serde_json::from_str(&json).unwrap();
         assert_eq!(back.scope, "group");
         assert_eq!(back.scope_ref.as_deref(), Some("gk_abc"));
         assert_eq!(back.time_window, "30d");
+        assert_eq!(back.row, 2);
+        assert_eq!(back.size, "l");
+        assert_eq!(back.color.mode, "custom");
+        assert_eq!(back.color.value, "#ff8800");
     }
 
     #[test]
@@ -972,6 +1011,53 @@ mod popover_config_model_tests {
         assert_eq!(cfg.items.len(), 1);
         assert_eq!(cfg.items[0].scope, "overall");
         assert_eq!(cfg.items[0].time_window, "7d");
+        // 旧配置无 rows → 空 vec；item 新字段取默认。
+        assert!(cfg.rows.is_empty());
+        assert_eq!(cfg.items[0].row, 0);
+        assert_eq!(cfg.items[0].size, "m");
+        assert_eq!(cfg.items[0].color.mode, "follow");
+    }
+
+    #[test]
+    fn config_with_rows_roundtrips() {
+        // 含二维布局新字段的完整配置往返。
+        let json = r#"{
+            "items":[{"id":"a","item_type":"today_cost","visible":true,"order":0,"row":0,"size":"s","color":{"mode":"preset","value":"green"}}],
+            "rows":[{"cols":2},{"cols":3}]
+        }"#;
+        let cfg: PopoverConfig = serde_json::from_str(json).expect("config with rows must deserialize");
+        assert_eq!(cfg.rows.len(), 2);
+        assert_eq!(cfg.rows[0].cols, 2);
+        assert_eq!(cfg.rows[1].cols, 3);
+        assert_eq!(cfg.items[0].size, "s");
+        assert_eq!(cfg.items[0].color.mode, "preset");
+        assert_eq!(cfg.items[0].color.value, "green");
+
+        // 序列化回去再读，字段保真。
+        let s = serde_json::to_string(&cfg).unwrap();
+        let back: PopoverConfig = serde_json::from_str(&s).unwrap();
+        assert_eq!(back.rows[0].cols, 2);
+        assert_eq!(back.items[0].size, "s");
+    }
+
+    #[test]
+    fn row_meta_without_cols_defaults_to_one() {
+        // rows 项缺 cols → default_cols=1。
+        let json = r#"{"items":[],"rows":[{}]}"#;
+        let cfg: PopoverConfig = serde_json::from_str(json).expect("row without cols must deserialize");
+        assert_eq!(cfg.rows[0].cols, 1);
+    }
+
+    #[test]
+    fn default_config_populates_new_fields() {
+        let cfg = PopoverConfig::default();
+        // 默认配置各 item row=order（各占一行），size="m"，color follow。
+        for (i, item) in cfg.items.iter().enumerate() {
+            assert_eq!(item.row, i as i32);
+            assert_eq!(item.size, "m");
+            assert_eq!(item.color.mode, "follow");
+        }
+        assert!(cfg.rows.is_empty());
     }
 }
 
