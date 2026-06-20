@@ -1651,5 +1651,7 @@
   "popover.size_m": "中",
   "popover.size_l": "大",
   "popover.preview": "ライブプレビュー",
-  "popover.previewHint": "現在のレイアウトでポップオーバーを即時描画します。保存不要。"
+  "popover.previewHint": "現在のレイアウトでポップオーバーを即時描画します。保存不要。",
+  "platform.todayUsageLabel": "本日",
+  "platform.codingUsedHint": "このプラットフォームの累計使用トークンと推定金額（実際のリクエストに基づく推定）"
 }

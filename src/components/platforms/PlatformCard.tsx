@@ -321,6 +321,20 @@ export const PlatformCard = memo(function PlatformCard({
                     </span>
                   </div>
                 )}
+                {/* Coding plan：已用 tokens + 预估金额（折叠态亦可见，配额档无此数据） */}
+                {hasCodingEndpoint && u && (
+                  <div style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", gap: 8 }} title={t("platform.codingUsedHint", "本平台累计已用 tokens 与预估金额（基于实际请求估算）")}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--text-secondary)" }}>
+                      <IconBolt size={12} />
+                      {formatNumber(total)}
+                      <span style={{ fontSize: 9, fontWeight: 600, opacity: 0.6 }}>tok</span>
+                    </span>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 11, fontWeight: 700, color: "var(--text-secondary)" }}>
+                      <IconCost size={12} />
+                      ${formatCost(u.total_cost)}
+                    </span>
+                  </div>
+                )}
                 {/* Coding plan tiers */}
                 {quota.balanceRemaining == null && quota.tiers.length > 0 && (
                   <div style={{ flexShrink: 0, display: "flex", gap: 4, flexWrap: "wrap", maxWidth: 260 }}>
@@ -361,14 +375,23 @@ export const PlatformCard = memo(function PlatformCard({
       >
         {hasDetail && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            {/* 已使用统计 */}
+            {/* 已使用统计（总计 + 今日） */}
             {u && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  <StatChip icon={<IconBolt size={13} />} value={formatNumber(total)} label="tokens" />
-                  <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
-                  <StatChip icon={<IconCheck size={13} />} value={formatPercent(sr)} label="ok" level={successRateLevel(sr, u.total_requests)} />
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.usageLabel", "已使用")}</span>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <StatChip icon={<IconBolt size={13} />} value={formatNumber(total)} label="tokens" />
+                    <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
+                    <StatChip icon={<IconCheck size={13} />} value={formatPercent(sr)} label="ok" level={successRateLevel(sr, u.total_requests)} />
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.todayUsageLabel", "今日")}</span>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <StatChip icon={<IconBolt size={13} />} value={formatNumber(u.today_tokens)} label="tokens" />
+                    <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.today_cost)}`} label="cost" level={costLevel(u.today_cost)} />
+                  </div>
                 </div>
               </div>
             )}
