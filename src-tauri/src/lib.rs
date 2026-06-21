@@ -746,7 +746,6 @@ async fn platform_fetch_models(
             created_at,
             updated_at: created_at,
             deleted_at: 0,
-            is_final: false,
         }
     };
 
@@ -958,7 +957,6 @@ async fn model_test(
             created_at,
             updated_at: created_at,
             deleted_at: 0,
-            is_final: false,
         }
     };
 
