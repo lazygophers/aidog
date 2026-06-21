@@ -472,24 +472,39 @@ pub use query_stats::*;
 pub use model_price::*;
 pub use mcp::*;
 
-// 测试模块（自原 db.rs 单一 #[cfg(test)] mod tests 拆出，每文件 ≤500 行）。
-// test_support 持共享 helper（test_db / sample_* / insert_proxy_log_at 等）。
+// 测试模块：test_<源文件名> 1:1 命名，每个源文件 X.rs 的测试只在 test_X.rs（同目录）。
+// 因 db/ 为扁平目录，所有子模块声明须由父模块 mod.rs 持有（test_X.rs 是 db 的兄弟文件，
+// 非 X 的子目录文件，无法挂在 X.rs 名下）。test_support 持共享夹具（test_db / sample_* 等）。
 #[cfg(test)]
 mod test_support;
 #[cfg(test)]
-mod tests_infra;
+mod test_mod;
 #[cfg(test)]
-mod tests_platform;
+mod test_model_price;
 #[cfg(test)]
-mod tests_platform_lifecycle;
+mod test_query_stats;
 #[cfg(test)]
-mod tests_group;
+mod test_stats_agg;
 #[cfg(test)]
-mod tests_settings;
+mod test_usage_stats;
 #[cfg(test)]
-mod tests_schema;
+mod test_stats_today;
 #[cfg(test)]
-mod tests_stats;
+mod test_group;
 #[cfg(test)]
-mod tests_proxy_log;
+mod test_group_platform;
+#[cfg(test)]
+mod test_platform;
+#[cfg(test)]
+mod test_platform_lifecycle;
+#[cfg(test)]
+mod test_settings;
+#[cfg(test)]
+mod test_proxy_log;
+#[cfg(test)]
+mod test_middleware;
+#[cfg(test)]
+mod test_maintenance;
+#[cfg(test)]
+mod test_schema;
 

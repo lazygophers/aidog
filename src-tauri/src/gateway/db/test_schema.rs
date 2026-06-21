@@ -2,8 +2,6 @@
 use super::*;
 use super::test_support::*;
 
-
-
     // ── R2 单数表名 + "group" 转义：init_tables 成功间接验证 DDL ──
     #[tokio::test]
     async fn r2_singular_table_names_and_group_escaped() {
@@ -57,7 +55,6 @@ use super::test_support::*;
         assert!(p.created_at >= before && p.created_at <= after);
         assert_eq!(p.created_at, p.updated_at);
     }
-
 
 
 
@@ -124,10 +121,6 @@ use super::test_support::*;
     }
 
 
-
-    // ════════════════════════════════════════════════════════════════════
-    // C4：内置预设规则集 seed + 正则命中
-    // ════════════════════════════════════════════════════════════════════
 
     /// 全新 db 首启即 seed 全部内置规则，is_builtin=1 且默认 enabled。
     #[tokio::test]

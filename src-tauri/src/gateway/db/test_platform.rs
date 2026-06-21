@@ -1,10 +1,109 @@
 #![cfg(test)]
 use super::*;
 use super::test_support::*;
+use rusqlite::params;
+
+    /// endpoints 反序列化容错：DB 中含未知 client_type（如旧数据 "anthropic"）的
+    /// endpoint 数组应仍能完整解析，而非因单个未知枚举值整体失败 → 空 Vec → 前端丢失。
+    #[tokio::test]
+    async fn endpoints_with_unknown_client_type_still_parse() {
+        let json = r#"[{"protocol":"openai","base_url":"https://x/v1","client_type":"codex_tui","coding_plan":false},{"protocol":"anthropic","base_url":"https://x/anthropic","client_type":"anthropic","coding_plan":false}]"#;
+        let parsed = parse_endpoints(json);
+        assert_eq!(parsed.len(), 2, "未知 client_type 不应导致整个数组解析失败");
+        assert_eq!(parsed[1].client_type, ClientType::Default, "未知值回退为 Default");
+        assert_eq!(parsed[1].protocol, Protocol::Anthropic);
+
+        // 端到端：写入 DB 后 list_platforms 应带回 endpoints
+        let db = test_db().await;
+        let mut input = sample_platform("p1");
+        input.endpoints = Some(vec![PlatformEndpoint {
+            protocol: Protocol::OpenAI,
+            base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string(),
+            client_type: ClientType::CodexTui,
+            coding_plan: true,
+        }]);
+        create_platform(&db, input).await.unwrap();
+        let listed = list_platforms(&db).await.unwrap();
+        assert_eq!(listed[0].endpoints.len(), 1, "list_platforms 应返回 endpoints");
+    }
 
 
 
-    // ── 平台 breaker 配置经 extra 往返 + 手动组成员全量同步（auto 组不动）──
+    // ── R3 platform_type 列（protocol 改名）往返 ──
+    #[tokio::test]
+    async fn r3_platform_type_roundtrip() {
+        let db = test_db().await;
+        let mut input = sample_platform("pt");
+        input.platform_type = Protocol::Glm;
+        let p = create_platform(&db, input).await.unwrap();
+        let fetched = get_platform(&db, p.id).await.unwrap().unwrap();
+        assert_eq!(fetched.platform_type, Protocol::Glm);
+        // 列名为 platform_type（间接：能写入该列即证明列存在）
+        let pid = p.id as i64;
+        let stored: String = db.call_traced(None, std::panic::Location::caller(), move |conn| {
+            Ok(conn.query_row("SELECT platform_type FROM platform WHERE id = ?1", params![pid], |r| r.get(0))?)
+        }).await.unwrap();
+        assert_eq!(stored, "\"glm\"");
+    }
+
+
+
+    // ── S1 async DB：增删改查全路径（内存库，验证 tokio-rusqlite 闭包往返）──
+    #[tokio::test]
+    async fn s1_async_platform_crud_roundtrip() {
+        let db = test_db().await;
+        // create
+        let mut input = sample_platform("crud");
+        input.base_url = "https://crud.example/v1".to_string();
+        let created = create_platform(&db, input).await.unwrap();
+        assert!(created.id >= 1);
+
+        // read (list + get)
+        assert_eq!(list_platforms(&db).await.unwrap().len(), 1);
+        let got = get_platform(&db, created.id).await.unwrap().unwrap();
+        assert_eq!(got.base_url, "https://crud.example/v1");
+
+        // update
+        let updated = update_platform(&db, UpdatePlatform {
+            id: created.id,
+            name: None,
+            platform_type: None,
+            base_url: Some("https://crud.example/v2".to_string()),
+            api_key: None,
+            extra: None,
+            models: None,
+            available_models: None,
+            endpoints: None,
+            enabled: None,
+            status: None,
+            manual_budgets: None,
+            join_group_ids: None,
+        }).await.unwrap();
+        assert_eq!(updated.base_url, "https://crud.example/v2");
+        assert_eq!(get_platform(&db, created.id).await.unwrap().unwrap().base_url, "https://crud.example/v2");
+
+        // delete（软删）→ list 不含、get None
+        delete_platform(&db, created.id).await.unwrap();
+        assert_eq!(list_platforms(&db).await.unwrap().len(), 0);
+        assert!(get_platform(&db, created.id).await.unwrap().is_none());
+    }
+
+
+
+    // ── S1 async DB：OptionalExtension 路径（query_row().optional() 在闭包内）──
+    #[tokio::test]
+    async fn s1_async_optional_extension_returns_none_for_missing() {
+        let db = test_db().await;
+        // 不存在的 id → get_platform 走 query_row().optional() 返回 None（非 Err）
+        assert!(get_platform(&db, 99_999).await.unwrap().is_none());
+        // 存在则返回 Some
+        let p = create_platform(&db, sample_platform("opt")).await.unwrap();
+        assert!(get_platform(&db, p.id).await.unwrap().is_some());
+        // get_setting 同样走 optional()：缺键 None
+        assert!(get_setting(&db, "nope", "nope").await.unwrap().is_none());
+    }
+
+
 
     #[tokio::test]
     async fn platform_breaker_roundtrips_via_extra() {
