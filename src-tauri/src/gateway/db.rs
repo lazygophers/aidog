@@ -4147,43 +4147,57 @@ pub fn platform_usage_stats_all(
 const RATE_MIN_SPAN_MS: i64 = 5 * 60 * 1000; // 5min
 const RATE_MAX_SPAN_MS: i64 = 7 * 24 * 60 * 60 * 1000; // 7d
 
+/// 本地小时桶文本键 "YYYY-MM-DD HH:00:00" 解析回该桶起点的 UTC ms。无法解析时返回 None。
+/// 与 `utc_ms_to_local_hour_key` 互逆（同本地时区语义）。
+fn local_hour_key_to_utc_ms(key: &str) -> Option<i64> {
+    use chrono::{Local, NaiveDateTime, TimeZone};
+    // key 形如 "2026-06-21 09:00:00"，分秒恒为 00；用完整 %H:%M:%S 解析（chrono 需分秒占位
+    // 才能构成完整 NaiveDateTime，字面 ":00:00" 会解析失败）。
+    let naive = NaiveDateTime::parse_from_str(key, "%Y-%m-%d %H:%M:%S").ok()?;
+    Local.from_local_datetime(&naive).earliest().map(|dt| dt.timestamp_millis())
+}
+
 /// 动态窗口日用量速率核心（同步，锁内调用）。
 ///
-/// 算法（prd B）：`?1` = window_start（now-7d），`scope_sql` 为附加维度过滤（group / platform），
-/// `scope_params` 从 `?3` 起绑定。span = clamp(now - 最早有效 est_cost 数据时间, 5min, 7d)，
-/// `rate_per_hour = SUM(est_cost in span) / span_hours`。无任何用量 → None。
+/// 数据源 = `stats_agg_hourly`（聚合表，不受日志开关影响，关日志仍有值）。
+/// `window_key` = window_start（now-7d）对应的本地小时桶文本键，`scope_sql` 为附加维度过滤
+/// （`group_key = ?` / `platform_id = ?`，agg 表 platform_id 已是回溯后 eff_pid，无需子查询回溯），
+/// `scope_params` 从 `?2` 起绑定。span = clamp(now - 最早有花费小时桶起点, 5min, 7d)，
+/// `rate_per_hour = SUM(sum_est_cost in span) / span_hours`。无任何用量 → None。
 fn hourly_rate_inner(
     conn: &Connection,
     now_ms: i64,
-    window_start: i64,
+    window_key: &str,
     scope_sql: &str,
     scope_params: &[&dyn rusqlite::types::ToSql],
 ) -> SqlResult<Option<f64>> {
-    let mut binds: Vec<&dyn rusqlite::types::ToSql> = vec![&window_start];
+    let mut binds: Vec<&dyn rusqlite::types::ToSql> = vec![&window_key];
     binds.extend_from_slice(scope_params);
-    // 7d 窗口内最早一条有 est_cost(>0) 数据的时间。
+    // 7d 窗口内最早一个有 est_cost(>0) 的小时桶（time_hour 文本桶，字典序 >= 比较）。
     let earliest_sql = format!(
-        "SELECT MIN(created_at) FROM proxy_log \
-         WHERE created_at >= ?1 AND deleted_at = 0 AND est_cost > 0 AND ({scope_sql})"
+        "SELECT MIN(time_hour) FROM stats_agg_hourly \
+         WHERE time_hour >= ?1 AND deleted_at = 0 AND sum_est_cost > 0 AND ({scope_sql})"
     );
-    let earliest: Option<i64> = conn
+    let earliest_key: Option<String> = conn
         .query_row(&earliest_sql, binds.as_slice(), |row| row.get(0))
         .optional()?
         .flatten();
-    let earliest = match earliest {
-        Some(e) => e,
+    let earliest_key = match earliest_key {
+        Some(k) => k,
         None => return Ok(None), // 无任何用量 → None
     };
     let total_sql = format!(
-        "SELECT COALESCE(SUM(est_cost), 0.0) FROM proxy_log \
-         WHERE created_at >= ?1 AND deleted_at = 0 AND ({scope_sql})"
+        "SELECT COALESCE(SUM(sum_est_cost), 0.0) FROM stats_agg_hourly \
+         WHERE time_hour >= ?1 AND deleted_at = 0 AND ({scope_sql})"
     );
     let total: f64 = conn.query_row(&total_sql, binds.as_slice(), |row| row.get(0))?;
     if total <= 0.0 {
         return Ok(None);
     }
-    // span = clamp(now - earliest, 5min, 7d)
-    let span_ms = (now_ms - earliest).clamp(RATE_MIN_SPAN_MS, RATE_MAX_SPAN_MS);
+    // earliest = 最早有花费小时桶的起点 ms；span = clamp(now - earliest, 5min, 7d)。
+    // 解析失败兜底为 now（→ span clamp 到 5min 下限），不致 panic。
+    let earliest_ms = local_hour_key_to_utc_ms(&earliest_key).unwrap_or(now_ms);
+    let span_ms = (now_ms - earliest_ms).clamp(RATE_MIN_SPAN_MS, RATE_MAX_SPAN_MS);
     let span_hours = span_ms as f64 / 3_600_000.0;
     Ok(Some(total / span_hours))
 }
@@ -4195,11 +4209,11 @@ pub fn get_group_hourly_rate<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
     let __db_caller = std::panic::Location::caller();
     async move {
     let now_ms = chrono::Utc::now().timestamp_millis();
-    let window_start = now_ms - RATE_MAX_SPAN_MS;
+    let window_key = utc_ms_to_local_hour_key(now_ms - RATE_MAX_SPAN_MS);
     let group_key = group_key.to_string();
     db
         .call_traced(None, __db_caller, move |conn| {
-            Ok(hourly_rate_inner(conn, now_ms, window_start, "group_key = ?2", &[&group_key])?)
+            Ok(hourly_rate_inner(conn, now_ms, &window_key, "group_key = ?2", &[&group_key])?)
         })
         .await
         .map_err(|e| format!("group hourly rate: {e}"))
@@ -4208,20 +4222,19 @@ pub fn get_group_hourly_rate<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
 
 /// 单平台动态窗口日用量速率（$ / 小时），供 Platforms 列表页余额按速率配色。
 ///
-/// platform 维度过滤同 `get_platform_usage_stats`：自动分组日志可能 platform_id=0，
-/// 经 group.auto_from_platform 回溯。无任何用量 → None（前端退中性）。短持锁，不跨 await。
+/// 数据源 stats_agg_hourly 的 platform_id 列已是回溯后 eff_pid（写入时已按
+/// group.auto_from_platform 回溯 platform_id=0 的自动分组日志），故直接 `platform_id = ?`，
+/// 无需 proxy_log 那套子查询回溯。无任何用量 → None（前端退中性）。短持锁，不跨 await。
 #[track_caller]
 pub fn get_platform_hourly_rate(db: &Db, platform_id: u64) -> impl std::future::Future<Output = Result<Option<f64>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
     let now_ms = chrono::Utc::now().timestamp_millis();
-    let window_start = now_ms - RATE_MAX_SPAN_MS;
+    let window_key = utc_ms_to_local_hour_key(now_ms - RATE_MAX_SPAN_MS);
     db
         .call_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
-            let pid_str = platform_id.to_string();
-            let scope = "platform_id = ?2 OR (platform_id = 0 AND group_key IN (SELECT group_key FROM \"group\" WHERE auto_from_platform = ?3 AND deleted_at = 0))";
-            Ok(hourly_rate_inner(conn, now_ms, window_start, scope, &[&pid, &pid_str])?)
+            Ok(hourly_rate_inner(conn, now_ms, &window_key, "platform_id = ?2", &[&pid])?)
         })
         .await
         .map_err(|e| format!("platform hourly rate: {e}"))
@@ -6044,13 +6057,14 @@ mod tests {
         assert_eq!(listed[0].endpoints.len(), 1, "list_platforms 应返回 endpoints");
     }
 
-    // ── 单平台动态窗口日速率：按 platform_id 过滤 est_cost，span clamp 5min..7d ──
+    // ── 单平台动态窗口日速率：从 stats_agg_hourly 算，按 platform_id 过滤 ──
     #[tokio::test]
     async fn platform_hourly_rate_filters_by_platform() {
         let db = test_db().await;
         let now_ms = now();
-        // platform 1：2h 前一条 est_cost=4.0；platform 2：另一条 est_cost=99（不应计入 p1）。
-        let mut l1 = sample_log("r1", "g", now_ms - 2 * 3_600_000);
+        // platform 1：~2h 前一条 est_cost=4.0；platform 2：另一条 est_cost=99（不应计入 p1）。
+        // 用稍大于 2h 偏移确保 earliest 小时桶起点 >= now-2h（span 上界 ~2h），rate 不被低估。
+        let mut l1 = sample_log("r1", "g", now_ms - 2 * 3_600_000 + 60_000);
         l1.platform_id = 1;
         l1.est_cost = 4.0;
         let mut l2 = sample_log("r2", "g", now_ms - 1_000);
@@ -6058,16 +6072,51 @@ mod tests {
         l2.est_cost = 99.0;
         upsert_proxy_log(&db, l1).await.unwrap();
         upsert_proxy_log(&db, l2).await.unwrap();
+        // 从 proxy_log 回填 stats_agg_hourly（speed rate 现在查 agg 表）。
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
 
-        // p1：span = clamp(now_internal - earliest, 5min, 7d) ≈ 2h → rate ≈ 4.0 / 2 = 2.0 $/h。
-        // 容差放宽：查询内部 now 与测试 now 间有毫秒级时钟差 → span 略大于 2h（rate 略小于 2.0）。
+        // p1：span = clamp(now - earliest桶起点, 5min, 7d)，earliest 桶是 ~2h 前那个整点。
+        // rate = 4.0 / span_hours。span 介于 ~2h（earliest 桶起点）与 ~3h（跨整点）间，
+        // 故 rate 落 [1.0, 2.5]；断言只校验「计入 p1 的 4.0、未串入 p2 的 99」即可。
         let rate = get_platform_hourly_rate(&db, 1).await.unwrap();
-        assert!(rate.is_some());
-        assert!((rate.unwrap() - 2.0).abs() < 0.01, "p1 rate = {rate:?}");
+        assert!(rate.is_some(), "p1 应有速率");
+        let r = rate.unwrap();
+        assert!((1.0..=2.5).contains(&r), "p1 rate 应 ~4.0/2h 量级，got {r}");
 
         // 无任何用量的平台 → None。
         let none = get_platform_hourly_rate(&db, 999).await.unwrap();
         assert!(none.is_none(), "无用量平台应 None，got {none:?}");
+    }
+
+    // ── 关日志场景：proxy_log 无行，仅 stats_agg_hourly 有聚合 → 速率仍可算 ──
+    #[tokio::test]
+    async fn platform_hourly_rate_from_agg_without_logs() {
+        let db = test_db().await;
+        let now_ms = now();
+        // 不写 proxy_log，直接写 agg（模拟关日志期间 proxy 终态仍 upsert_stats_agg）。
+        upsert_stats_agg(
+            &db,
+            StatsAggInput {
+                created_at: now_ms - 2 * 3_600_000 + 60_000,
+                model: "m".into(),
+                group_key: "g".into(),
+                platform_id: 7,
+                status_code: 200,
+                input_tokens: 10,
+                output_tokens: 20,
+                cache_tokens: 0,
+                est_cost: 4.0,
+                duration_ms: 100,
+            },
+        )
+        .await
+        .unwrap();
+
+        // proxy_log 为空（关日志），速率仍应从 agg 表算出。
+        let rate = get_platform_hourly_rate(&db, 7).await.unwrap();
+        assert!(rate.is_some(), "关日志但 agg 有数据，速率不应为 None");
+        let r = rate.unwrap();
+        assert!((1.0..=2.5).contains(&r), "agg-only rate 应 ~4.0/2h 量级，got {r}");
     }
 
     // ── R2 单数表名 + "group" 转义：init_tables 成功间接验证 DDL ──
