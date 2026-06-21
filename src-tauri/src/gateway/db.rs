@@ -7,6 +7,90 @@ use tokio_rusqlite::Connection as AsyncConnection;
 use super::log_util::truncate_sql_literals;
 use super::models::*;
 
+/// Migration 032（旧 011 文件）: 小时级聚合统计表 stats_agg_hourly（建表 + 索引 + 存量一次性回填）。
+/// 统计读取改查预聚合表，写入解耦于日志开关（关日志也写聚合）。回填幂等（NOT EXISTS 空表守卫）。
+/// 内联自原 migrations/011_stats_agg_hourly.sql（逐字保留）。init_tables 与回填测试共用。
+const STATS_AGG_HOURLY_SQL: &str = r#"-- Migration 011 (file) / 032 (inline): 小时级聚合统计表 stats_agg_hourly。
+--
+-- 目的：统计读取（today_stats / today_platform_stats / group usage / Stats hourly+daily）
+-- 从逐请求扫 proxy_log 改为查预聚合表，且【不受 ProxyLogSettings.enabled 日志开关影响】
+-- （关日志也写聚合）。聚合粒度 = 本地时区小时桶 × model × group_key × eff_pid(回溯后平台)。
+--
+-- 列语义：
+--  - time_hour: 本地时区小时桶 "YYYY-MM-DD HH:00:00"（与 bucket_time_expr 'localtime' 对齐）。
+--  - model: actual_model 非空优先，否则 model（与 Stats actual_model 优先一致）。
+--  - group_key: proxy_log.group_key（gk_<hex>，非显示名）。
+--  - platform_id: 存 eff_pid（platform_id=0 经 group.auto_from_platform 回溯后的源平台 id）。
+--  - sum_duration_ms 用 SUM 非 AVG，便于跨桶再聚合；avg 在查询时 = sum/request_count。
+--  - success_count = 2xx；error_count = 终态非 2xx（status_code 不在 200..300）。
+-- UNIQUE(time_hour,model,group_key,platform_id) 是 upsert 的 ON CONFLICT 目标键。
+CREATE TABLE IF NOT EXISTS stats_agg_hourly (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    time_hour         TEXT NOT NULL,
+    model             TEXT NOT NULL DEFAULT '',
+    group_key         TEXT NOT NULL DEFAULT '',
+    platform_id       INTEGER NOT NULL DEFAULT 0,
+    request_count     INTEGER NOT NULL DEFAULT 0,
+    success_count     INTEGER NOT NULL DEFAULT 0,
+    error_count       INTEGER NOT NULL DEFAULT 0,
+    sum_input_tokens  INTEGER NOT NULL DEFAULT 0,
+    sum_output_tokens INTEGER NOT NULL DEFAULT 0,
+    sum_cache_tokens  INTEGER NOT NULL DEFAULT 0,
+    sum_est_cost      REAL NOT NULL DEFAULT 0,
+    sum_duration_ms   INTEGER NOT NULL DEFAULT 0,
+    created_at        INTEGER NOT NULL DEFAULT 0,
+    updated_at        INTEGER NOT NULL DEFAULT 0,
+    deleted_at        INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(time_hour, model, group_key, platform_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_stats_agg_time     ON stats_agg_hourly(time_hour);
+CREATE INDEX IF NOT EXISTS idx_stats_agg_model    ON stats_agg_hourly(model);
+CREATE INDEX IF NOT EXISTS idx_stats_agg_group    ON stats_agg_hourly(group_key);
+CREATE INDEX IF NOT EXISTS idx_stats_agg_platform ON stats_agg_hourly(platform_id);
+
+-- 一次性回填：把存量 proxy_log 按 (本地小时桶, actual_model优先, group_key, eff_pid) 聚合写入。
+-- 幂等：仅当 stats_agg_hourly 为空时回填（NOT EXISTS 守卫），避免重复执行翻倍。
+-- eff_pid 回溯：platform_id=0 时经 group.auto_from_platform（十进制字符串）回溯到源平台。
+-- 仅聚合 deleted_at=0 的有效日志。2xx → success，终态非 2xx → error。
+INSERT INTO stats_agg_hourly
+    (time_hour, model, group_key, platform_id,
+     request_count, success_count, error_count,
+     sum_input_tokens, sum_output_tokens, sum_cache_tokens,
+     sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at)
+SELECT
+    strftime('%Y-%m-%d %H:00:00', created_at/1000, 'unixepoch', 'localtime') AS time_hour,
+    CASE WHEN actual_model != '' THEN actual_model ELSE model END AS model,
+    group_key,
+    CASE WHEN platform_id = 0 THEN COALESCE(
+        (SELECT CAST(g.auto_from_platform AS INTEGER)
+         FROM "group" g
+         WHERE g.group_key = proxy_log.group_key
+           AND g.auto_from_platform != ''
+           AND g.deleted_at = 0
+         LIMIT 1), 0)
+    ELSE platform_id END AS eff_pid,
+    COUNT(*),
+    SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END),
+    SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END),
+    COALESCE(SUM(input_tokens), 0),
+    COALESCE(SUM(output_tokens), 0),
+    COALESCE(SUM(cache_tokens), 0),
+    COALESCE(SUM(est_cost), 0.0),
+    COALESCE(SUM(duration_ms), 0),
+    CAST(strftime('%s','now') AS INTEGER) * 1000,
+    CAST(strftime('%s','now') AS INTEGER) * 1000,
+    0
+FROM proxy_log
+WHERE deleted_at = 0
+  AND NOT EXISTS (SELECT 1 FROM stats_agg_hourly LIMIT 1)
+-- 位置引用 1..4 绑定到 SELECT 输出表达式（time_hour / model别名 / group_key / eff_pid）。
+-- 不可写 `GROUP BY ..., model, ...`：SQLite 会把裸 `model` 优先绑定到 proxy_log 真实列，
+-- 而 SELECT/UNIQUE 用的是 `CASE actual_model 非空优先` 别名；两个 raw model 映射到同一
+-- actual_model 时聚合后输出同一复合键 → 撞 UNIQUE(time_hour,model,group_key,platform_id)。
+GROUP BY 1, 2, 3, 4;
+"#;
+
 /// 单条 DB 操作（一个 `.call` 闭包）的「当前上下文」，由 chokepoint `call_traced`
 /// 在 **DB 后台线程** 进入闭包时设置、退出时清空。
 ///
@@ -340,9 +424,144 @@ impl Db {
         async move {
         self
             .call_traced(None, __db_caller, |conn| {
-                conn.execute_batch(include_str!("../../migrations/001_init.sql"))?;
-                conn.execute_batch(include_str!("../../migrations/002_log_filter_indexes.sql"))?;
-                conn.execute_batch(include_str!("../../migrations/003_model_price.sql"))?;
+                // Migration 001: 基础 schema（platform / group / group_platform / setting / proxy_log）。
+                conn.execute_batch(
+                    r#"-- AiDog Schema (v2 — singular table names, uint64 PKs, ms timestamps, soft delete, no NULL)
+
+PRAGMA journal_mode=WAL;
+PRAGMA foreign_keys=ON;
+
+CREATE TABLE IF NOT EXISTS platform (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    name             TEXT NOT NULL DEFAULT '',
+    platform_type    TEXT NOT NULL DEFAULT '',
+    base_url         TEXT NOT NULL DEFAULT '',
+    api_key          TEXT NOT NULL DEFAULT '',
+    extra            TEXT NOT NULL DEFAULT '',
+    models           TEXT NOT NULL DEFAULT '{}',
+    available_models TEXT NOT NULL DEFAULT '[]',
+    endpoints        TEXT NOT NULL DEFAULT '[]',
+    enabled          INTEGER NOT NULL DEFAULT 1,
+    est_balance_remaining REAL NOT NULL DEFAULT 0,
+    est_coding_plan       TEXT NOT NULL DEFAULT '',
+    last_real_query_at    INTEGER NOT NULL DEFAULT 0,
+    estimate_count        INTEGER NOT NULL DEFAULT 0,
+    show_in_tray          INTEGER NOT NULL DEFAULT 0,
+    tray_display          TEXT NOT NULL DEFAULT 'balance',
+    created_at       INTEGER NOT NULL DEFAULT 0,
+    updated_at       INTEGER NOT NULL DEFAULT 0,
+    deleted_at       INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS "group" (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                 TEXT NOT NULL DEFAULT '',
+    path                 TEXT NOT NULL DEFAULT '',
+    routing_mode         TEXT NOT NULL DEFAULT '',
+    auto_from_platform   TEXT NOT NULL DEFAULT '',
+    source_protocol      TEXT NOT NULL DEFAULT 'anthropic',
+    model_mappings       TEXT NOT NULL DEFAULT '[]',
+    request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    created_at           INTEGER NOT NULL DEFAULT 0,
+    updated_at           INTEGER NOT NULL DEFAULT 0,
+    deleted_at           INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(path)
+);
+
+CREATE TABLE IF NOT EXISTS group_platform (
+    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    group_id    INTEGER NOT NULL DEFAULT 0,
+    platform_id INTEGER NOT NULL DEFAULT 0,
+    priority    INTEGER NOT NULL DEFAULT 0,
+    weight      INTEGER NOT NULL DEFAULT 1,
+    created_at  INTEGER NOT NULL DEFAULT 0,
+    updated_at  INTEGER NOT NULL DEFAULT 0,
+    deleted_at  INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(group_id, platform_id)
+);
+
+CREATE TABLE IF NOT EXISTS setting (
+    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+    scope      TEXT NOT NULL DEFAULT '',
+    key        TEXT NOT NULL DEFAULT '',
+    value      TEXT NOT NULL DEFAULT '{}',
+    created_at INTEGER NOT NULL DEFAULT 0,
+    updated_at INTEGER NOT NULL DEFAULT 0,
+    deleted_at INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(scope, key)
+);
+
+-- proxy_log PK 用无连字符 uuid（请求 ID），R7 uint64 主键规则的明示例外（R8）
+CREATE TABLE IF NOT EXISTS proxy_log (
+    id                        TEXT PRIMARY KEY,
+    group_name                TEXT NOT NULL DEFAULT '',
+    model                     TEXT NOT NULL DEFAULT '',
+    actual_model              TEXT NOT NULL DEFAULT '',
+    source_protocol           TEXT NOT NULL DEFAULT '',
+    target_protocol           TEXT NOT NULL DEFAULT '',
+    platform_id               INTEGER NOT NULL DEFAULT 0,
+    request_headers           TEXT NOT NULL DEFAULT '{}',
+    request_body              TEXT NOT NULL DEFAULT '',
+    upstream_request_headers  TEXT NOT NULL DEFAULT '',
+    upstream_request_body     TEXT NOT NULL DEFAULT '',
+    response_body             TEXT NOT NULL DEFAULT '',
+    request_url               TEXT NOT NULL DEFAULT '',
+    upstream_request_url      TEXT NOT NULL DEFAULT '',
+    upstream_response_headers TEXT NOT NULL DEFAULT '',
+    upstream_status_code      INTEGER NOT NULL DEFAULT 0,
+    user_response_headers     TEXT NOT NULL DEFAULT '',
+    user_response_body        TEXT NOT NULL DEFAULT '',
+    status_code               INTEGER NOT NULL DEFAULT 0,
+    duration_ms               INTEGER NOT NULL DEFAULT 0,
+    input_tokens              INTEGER NOT NULL DEFAULT 0,
+    output_tokens             INTEGER NOT NULL DEFAULT 0,
+    cache_tokens              INTEGER NOT NULL DEFAULT 0,
+    created_at                INTEGER NOT NULL DEFAULT 0,
+    updated_at                INTEGER NOT NULL DEFAULT 0,
+    deleted_at                INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_proxy_log_group ON proxy_log(group_name) WHERE deleted_at = 0;
+CREATE INDEX IF NOT EXISTS idx_proxy_log_created ON proxy_log(created_at) WHERE deleted_at = 0;
+"#,
+                )?;
+                // Migration 002: 请求日志过滤索引。
+                conn.execute_batch(
+                    r#"-- Indexes for proxy log filtering
+
+CREATE INDEX IF NOT EXISTS idx_proxy_log_platform
+    ON proxy_log(platform_id) WHERE deleted_at = 0;
+
+CREATE INDEX IF NOT EXISTS idx_proxy_log_status
+    ON proxy_log(status_code) WHERE deleted_at = 0;
+
+CREATE INDEX IF NOT EXISTS idx_proxy_log_model
+    ON proxy_log(model) WHERE deleted_at = 0;
+
+CREATE INDEX IF NOT EXISTS idx_proxy_log_actual_model
+    ON proxy_log(actual_model) WHERE deleted_at = 0;
+"#,
+                )?;
+                // Migration 003: 模型价格表 model_price。
+                conn.execute_batch(
+                    r#"-- Model price table: stores per-model pricing data synced from LiteLLM or entered manually
+
+CREATE TABLE IF NOT EXISTS model_price (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    model_name       TEXT NOT NULL DEFAULT '',
+    source           TEXT NOT NULL DEFAULT 'manual',  -- 'litellm' | 'manual'
+    price_data       TEXT NOT NULL DEFAULT '{}',       -- JSON: {input_cost_per_token, output_cost_per_token, cache_read_input_token_cost, pricing: {platform_type: {...}}, default_platform, ...}
+    created_at       INTEGER NOT NULL DEFAULT 0,
+    updated_at       INTEGER NOT NULL DEFAULT 0,
+    deleted_at       INTEGER NOT NULL DEFAULT 0,
+    UNIQUE(model_name, source)
+);
+
+CREATE INDEX IF NOT EXISTS idx_model_price_name
+    ON model_price(model_name) WHERE deleted_at = 0;
+"#,
+                )?;
                 // Migration 004: 旧库补预估列（ALTER 无 IF NOT EXISTS → 忽略 duplicate column）
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN est_balance_remaining REAL NOT NULL DEFAULT 0", []);
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN est_coding_plan TEXT NOT NULL DEFAULT ''", []);
@@ -361,7 +580,7 @@ impl Db {
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN manual_budgets TEXT NOT NULL DEFAULT '[]'", []);
                 // Migration 010: proxy_log 流式标记列（流式 SSE 请求显式标记，替代 response_body=="[stream]" 哨兵）
                 let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN is_stream INTEGER NOT NULL DEFAULT 0", []);
-                // Migration 011: 多平台重试 + 401/403 自动禁用 + 尝试记录（见 migrations/007_retry_failover.sql）
+                // Migration 011: 多平台重试 + 401/403 自动禁用 + 尝试记录（旧 007_retry_failover，逻辑已内联）
                 // platform 三态 status + 退避字段；enabled 列保留向后兼容（写入端从 status 同步）
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN status TEXT NOT NULL DEFAULT 'enabled'", []);
                 let _ = conn.execute("ALTER TABLE platform ADD COLUMN auto_disabled_until INTEGER NOT NULL DEFAULT 0", []);
@@ -488,7 +707,7 @@ impl Db {
                 )?;
                 // Migration 021: model_price 加模型信息列（max_tokens / context_window）。
                 // 列为索引快速读取（出站裁剪、列表展示）；price_data JSON 仍存完整原始数据。
-                // NULL = 未知/无限制。源见 migrations/008_model_info_columns.sql。
+                // NULL = 未知/无限制。源自旧 008_model_info_columns（已内联为下方 ALTER）。
                 let _ = conn.execute("ALTER TABLE model_price ADD COLUMN max_input_tokens INTEGER", []);
                 let _ = conn.execute("ALTER TABLE model_price ADD COLUMN max_output_tokens INTEGER", []);
                 let _ = conn.execute("ALTER TABLE model_price ADD COLUMN context_window INTEGER", []);
@@ -505,7 +724,42 @@ impl Db {
                     .filter_map(Result::ok)
                     .any(|c| c == "path");
                 if has_group_path {
-                    conn.execute_batch(include_str!("../../migrations/009_drop_group_path.sql"))?;
+                    conn.execute_batch(
+                        r#"-- Migration 009: 移除 group.path，分组路由纯按 apikey(group.name)。
+-- 原 path 用作 URL 前缀路由 fallback + UNIQUE 标识；现统一按
+-- Authorization Bearer(apikey = group.name) 精确匹配，不再支持路径前缀路由。
+-- SQLite 不能直接 DROP COLUMN + 加表级约束，重建表。
+-- group 无独立 index，重建不丢索引；列名显式匹配保证幂等（path 已删的库 SELECT 同样命中）。
+-- name 加 UNIQUE（apikey 语义唯一，防重名 group 创建）。
+CREATE TABLE IF NOT EXISTS "group_new" (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                 TEXT NOT NULL DEFAULT '',
+    routing_mode         TEXT NOT NULL DEFAULT '',
+    auto_from_platform   TEXT NOT NULL DEFAULT '',
+    source_protocol      TEXT NOT NULL DEFAULT 'anthropic',
+    model_mappings       TEXT NOT NULL DEFAULT '[]',
+    request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    created_at           INTEGER NOT NULL DEFAULT 0,
+    updated_at           INTEGER NOT NULL DEFAULT 0,
+    deleted_at           INTEGER NOT NULL DEFAULT 0,
+    sort_order           INTEGER NOT NULL DEFAULT 0,
+    max_retries          INTEGER NOT NULL DEFAULT 2,
+    UNIQUE(name)
+);
+INSERT INTO "group_new"
+    (id, name, routing_mode, auto_from_platform, source_protocol, model_mappings,
+     request_timeout_secs, connect_timeout_secs, created_at, updated_at, deleted_at,
+     sort_order, max_retries)
+SELECT
+    id, name, routing_mode, auto_from_platform, source_protocol, model_mappings,
+    request_timeout_secs, connect_timeout_secs, created_at, updated_at, deleted_at,
+    sort_order, max_retries
+FROM "group";
+DROP TABLE "group";
+ALTER TABLE "group_new" RENAME TO "group";
+"#,
+                    )?;
                 }
                 // Migration 024: group 拆 group_key（密钥/路由/日志归属键）+ name（显示名）。
                 // group_key UNIQUE: Bearer token + 路由匹配键 + proxy_log 归属键（前端按 group_key 反查 name 显示）。
@@ -517,7 +771,45 @@ impl Db {
                     .filter_map(Result::ok)
                     .any(|c| c == "group_key");
                 if !has_group_key {
-                    conn.execute_batch(include_str!("../../migrations/010_group_key.sql"))?;
+                    conn.execute_batch(
+                        r#"-- Migration 010: group 拆 group_key（密钥/路由/日志归属键）+ name（显示名）。
+-- group_key UNIQUE: Bearer token + 路由匹配键 + proxy_log 归属键（前端按 group_key 反查 name 显示）。
+-- name UNIQUE: 防重名显示。
+-- 老 group.group_key 初值 = 旧 name（statusline 脚本 / 已分发 token 不破，用户后续可改）。
+-- SQLite 不能给现存表加 UNIQUE 列约束，重建表（仿 009_drop_group_path.sql 幂等范式）。
+CREATE TABLE IF NOT EXISTS "group_new" (
+    id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+    name                 TEXT NOT NULL DEFAULT '',
+    group_key            TEXT NOT NULL DEFAULT '',
+    routing_mode         TEXT NOT NULL DEFAULT '',
+    auto_from_platform   TEXT NOT NULL DEFAULT '',
+    source_protocol      TEXT NOT NULL DEFAULT 'anthropic',
+    model_mappings       TEXT NOT NULL DEFAULT '[]',
+    request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
+    created_at           INTEGER NOT NULL DEFAULT 0,
+    updated_at           INTEGER NOT NULL DEFAULT 0,
+    deleted_at           INTEGER NOT NULL DEFAULT 0,
+    sort_order           INTEGER NOT NULL DEFAULT 0,
+    max_retries          INTEGER NOT NULL DEFAULT 2,
+    UNIQUE(name),
+    UNIQUE(group_key)
+);
+-- 仅当源表存在 group_key 列时取已存值，否则用 name 兜底（首次迁移 + 兼容已迁移库）。
+-- SQLite 无 IF_COL_EXISTS；靠列名显式匹配：旧库无 group_key → 用 name 作 group_key。
+INSERT INTO "group_new"
+    (id, name, group_key, routing_mode, auto_from_platform, source_protocol, model_mappings,
+     request_timeout_secs, connect_timeout_secs, created_at, updated_at, deleted_at,
+     sort_order, max_retries)
+SELECT
+    id, name, name, routing_mode, auto_from_platform, source_protocol, model_mappings,
+    request_timeout_secs, connect_timeout_secs, created_at, updated_at, deleted_at,
+    sort_order, max_retries
+FROM "group";
+DROP TABLE "group";
+ALTER TABLE "group_new" RENAME TO "group";
+"#,
+                    )?;
                 }
                 // proxy_log.group_key → group_key（幂等：探测列存在性）。
                 let has_log_group_key = conn
@@ -679,8 +971,8 @@ impl Db {
                 );
                 // Migration 032: 小时级聚合统计表 stats_agg_hourly（建表 + 索引 + 存量一次性回填）。
                 // 统计读取改查预聚合表，写入解耦于日志开关（关日志也写聚合）。回填幂等
-                // （NOT EXISTS 空表守卫），见 migrations/011_stats_agg_hourly.sql。
-                conn.execute_batch(include_str!("../../migrations/011_stats_agg_hourly.sql"))?;
+                // （NOT EXISTS 空表守卫），SQL 内联于本模块顶 STATS_AGG_HOURLY_SQL。
+                conn.execute_batch(STATS_AGG_HOURLY_SQL)?;
                 // Migration 033: 删除无意义的 proxy_log.is_final 列（旧版本曾 ALTER 加过）。
                 // bundled sqlite 支持 DROP COLUMN；列不存在则报错忽略（新库本就无此列）。
                 let _ = conn.execute("ALTER TABLE proxy_log DROP COLUMN is_final", []);
@@ -5925,7 +6217,7 @@ mod tests {
         let n1: i64 = db.call_traced(None, std::panic::Location::caller(), |c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
         // 再跑带 NOT EXISTS 守卫的回填 SQL（模拟 migration 重放）：表非空 → 不插。
         db.call_traced(None, std::panic::Location::caller(), move |c| {
-            c.execute_batch(include_str!("../../migrations/011_stats_agg_hourly.sql"))?;
+            c.execute_batch(STATS_AGG_HOURLY_SQL)?;
             Ok(())
         }).await.unwrap();
         let n2: i64 = db.call_traced(None, std::panic::Location::caller(), |c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
