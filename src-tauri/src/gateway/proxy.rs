@@ -554,6 +554,21 @@ async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLog
         if let Err(e) = super::db::upsert_stats_agg(&state.db, agg_input).await {
             tracing::warn!(error = %e, "stats_agg upsert failed (non-fatal)");
         }
+
+        // (A) 最终日志汇总条：每请求仅一条（复用 agg_mark_first 的一次性 gate，绝不重复）。
+        // request_id = proxy_log.id（完整 32-hex，可串回 proxy_log / req span 的 request_id 字段）。
+        // 同时作为 notification 渲染上下文的 vars 口径来源（request_id 唯一 key + status + tokens + cost）。
+        tracing::info!(
+            target: "final",
+            request_id = %log.id,
+            status = log.status_code,
+            input_tokens = log.input_tokens,
+            output_tokens = log.output_tokens,
+            cache_tokens = log.cache_tokens,
+            est_cost = est_cost,
+            duration_ms = log.duration_ms,
+            "request final"
+        );
     }
 
     if !settings.enabled {
@@ -592,6 +607,11 @@ async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLog
     // 终态由 guard.flush 后显式 remove，不在此误删以免 guard 再 INSERT 撞主键）。
     // 覆盖流式请求在占位前就出错(如 502)的分支，避免快照泄漏。
     let is_terminal = cols.status_code != 0 && cols.response_body != "[stream]";
+    // (B) is_final 标记位：终态节点（首次或重复终态 upsert 均置 1，diff-UPDATE 仅首次实际写、
+    // 之后值相同不再发 SQL）。中间节点保持 0。与 agg 去重 gate 互不耦合：标记位幂等，无需 gate。
+    if is_terminal {
+        cols.is_final = 1;
+    }
 
     // 取上一快照决定 INSERT(首节点) 还是 部分列 UPDATE(后续节点)。
     let prev = {
@@ -774,7 +794,9 @@ async fn handle_proxy(
     // 每请求生成 trace id（复用为 ProxyLog 主键）, 建 span → 该请求生命周期内所有日志
     // 自动携带 req{id=xxxxxxxx} 前缀（含 mock/passthrough 子调用, fmt 默认渲染当前 span）。
     let request_id = uuid::Uuid::new_v4().simple().to_string();
-    let span = tracing::info_span!("req", trace_id = %&request_id[..8]);
+    // 同时挂 8-hex trace_id（兼容现有简短日志习惯）与完整 32-hex request_id（= proxy_log.id，
+    // 可从任一子日志行串回 proxy_log）。该请求生命周期内所有子 tracing 行自动携带两者。
+    let span = tracing::info_span!("req", trace_id = %&request_id[..8], request_id = %request_id);
     handle_proxy_inner(state, req, request_id).instrument(span).await
 }
 
@@ -823,6 +845,7 @@ async fn handle_proxy_inner(
         created_at,
         updated_at: created_at,
         deleted_at: 0,
+        is_final: false,
     };
 
     // ── 读取当前语言（用于错误消息翻译） ──
@@ -5130,6 +5153,7 @@ mod tests {
             created_at: ts,
             updated_at: ts,
             deleted_at: 0,
+            is_final: false,
         }
     }
 
@@ -5347,6 +5371,56 @@ mod tests {
             })
             .await
             .unwrap()
+    }
+
+    /// 查某 proxy_log 行的 is_final 列（不存在返回 -1）。
+    async fn proxy_log_is_final(db: &super::super::db::Db, id: &str) -> i64 {
+        let id = id.to_string();
+        db.0
+            .call(move |c| {
+                Ok(c.query_row(
+                    "SELECT is_final FROM proxy_log WHERE id = ?1",
+                    rusqlite::params![id],
+                    |r| r.get::<_, i64>(0),
+                )
+                .unwrap_or(-1))
+            })
+            .await
+            .unwrap()
+    }
+
+    // is_final 标记位：日志开启路径下，请求到达终态后该行 is_final=1；
+    // 多次终态 upsert_log 重复置位幂等（diff-UPDATE 仅首次实际写、之后值相同 no-op），最终仍为 1。
+    #[tokio::test]
+    async fn is_final_set_once_on_terminal_logging_enabled() {
+        let (db, path) = flush_test_db().await;
+        let state = flush_test_state(db.clone());
+        let id = "is_final_on_0001";
+        let log = terminal_log(id);
+        let settings = ProxyLogSettings::default();
+
+        for _ in 0..8 {
+            upsert_log(&state, &log, &settings).await;
+        }
+        assert_eq!(proxy_log_is_final(&state.db, id).await, 1, "终态行 is_final 应为 1");
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    // is_final：非终态（status==0）行 is_final 保持 0。
+    #[tokio::test]
+    async fn is_final_zero_on_non_terminal() {
+        let (db, path) = flush_test_db().await;
+        let state = flush_test_state(db.clone());
+        let id = "is_final_nonterm_0001";
+        let settings = ProxyLogSettings::default();
+
+        let mut pending = terminal_log(id);
+        pending.status_code = 0; // 未到终态 → 首节点 INSERT，is_final=0
+        upsert_log(&state, &pending, &settings).await;
+        assert_eq!(proxy_log_is_final(&state.db, id).await, 0, "非终态行 is_final 应为 0");
+
+        let _ = std::fs::remove_file(path);
     }
 
     // 5) agg 去重（日志开启路径）：同一 request id 多次 upsert_log 到终态，agg 只计一次。
