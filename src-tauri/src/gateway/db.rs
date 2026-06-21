@@ -3196,6 +3196,33 @@ pub async fn rebuild_stats_agg_from_logs(db: &Db) -> Result<(), String> {
         .map_err(|e| format!("rebuild stats agg: {e}"))
 }
 
+/// 一次性纠正：历史 bug（upsert_log 在请求生命周期被多次调用，终态后每次仍对同一请求 +1，
+/// 实测 stats_agg_hourly ≈ proxy_log 的 ~8 倍虚高）已污染聚合表。版本门控（参考 default-flip
+/// 的 defaults_version 模式 / migrate_auto_vacuum 的 setting 标记）确保仅在下次启动跑一次：
+/// 置标记 setting(stats/agg_rebuild_v1)=true 后永不再跑。
+///
+/// 注意：rebuild 只能从 proxy_log 现存行恢复真值——**关日志期间的请求未落 proxy_log，无法恢复**，
+/// 这部分聚合数据会丢失（可接受：去重修复后新请求计数恢复正确）。
+/// 失败仅返回 Err，调用方（启动 spawn）warn 不置标记，下次启动重试。
+pub async fn rebuild_stats_agg_once_if_needed(db: &Db) -> Result<bool, String> {
+    if let Ok(Some(v)) = get_setting(db, "stats", "agg_rebuild_v1").await {
+        if v == serde_json::Value::Bool(true) {
+            return Ok(false);
+        }
+    }
+    rebuild_stats_agg_from_logs(db).await?;
+    set_setting(
+        db,
+        SetSettingInput {
+            scope: "stats".into(),
+            key: "agg_rebuild_v1".into(),
+            value: serde_json::Value::Bool(true),
+        },
+    )
+    .await?;
+    Ok(true)
+}
+
 /// 按 retention_days 硬删过期聚合行（参考 cleanup_proxy_logs；0=永久保留）。
 /// 截止时间为 UTC ms；与 time_hour 文本桶比较走 created_at 列（行写入时间）。
 pub async fn cleanup_stats_agg(db: &Db, retention_days: u32) -> Result<(), String> {

@@ -4019,6 +4019,17 @@ pub fn run() {
                     }
                 });
             }
+            // 一次性纠正聚合表虚高（agg 重复计数 bug，版本门控只跑一次）。非阻塞 spawn。
+            {
+                let db_clone = db.clone();
+                tauri::async_runtime::spawn(async move {
+                    match gateway::db::rebuild_stats_agg_once_if_needed(&db_clone).await {
+                        Ok(true) => tracing::info!("stats_agg rebuilt from proxy_log (one-time dedup correction)"),
+                        Ok(false) => tracing::debug!("stats_agg rebuild skipped (already corrected)"),
+                        Err(e) => tracing::warn!(error = %e, "stats_agg one-time rebuild failed, will retry next launch"),
+                    }
+                });
+            }
             app.manage(db);
 
             // 初始化日志（DB 已开，读 DB 设置；迁移遗留文件）
