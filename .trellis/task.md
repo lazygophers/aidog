@@ -23,5 +23,5 @@
 | newapi-balance-refresh | NewAPI余额主动更新 | NewAPI 平台余额未主动更新, 接入 quota 调度自动刷新 | 已完成 | 收尾 | 100 | — |
 | fix-add-platform-save | 修添加平台保存无反应 | 添加平台点保存没反应(疑 platforms-partial-refresh handleSave 乐观改写回归) | 已完成 | 收尾 | 100 | — |
 | db-index-cache-perf | DB索引+缓存提速 | 分组加载平台慢; 加 sqlite 索引 + 缓存提速, 维持缓存与DB一致 | 已完成 | 收尾 | 100 | — |
-| rs-file-split | Rust 文件拆分: 所有 .rs ≤500 行(目标≤300) | — | 规划中 | 规划 | 0% | — |
-| split-db | 拆分 db.rs (7884行) 为 db/ 子模块 | — | 规划中 | 规划 | 0% | — |
+| rs-file-split | Rust 文件拆分: 所有 .rs ≤500 行(目标≤300) | — | 已完成 | 收尾 | 100% | — |
+| split-db | 拆分 db.rs (7884行) 为 db/ 子模块 | — | 已完成 | 收尾 | 100% | — |
