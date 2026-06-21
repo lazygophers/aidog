@@ -1603,6 +1603,48 @@ async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSettings) -
     Ok(())
 }
 
+// ─── Stats Settings ─────────────────────────────────────────
+
+use gateway::models::StatsSettings;
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn stats_settings_get(db: State<'_, Db>) -> Result<StatsSettings, String> {
+    tracing::debug!(command = "stats_settings_get", "command invoked");
+    Ok(gateway::db::get_setting(&db, "stats", "settings").await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default())
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn stats_settings_set(db: State<'_, Db>, settings: StatsSettings) -> Result<(), String> {
+    tracing::debug!(command = "stats_settings_set", "command invoked");
+    let value = serde_json::to_value(&settings)
+        .map_err(|e| format!("serialize stats settings: {e}"))?;
+    gateway::db::set_setting(&db, gateway::models::SetSettingInput {
+        scope: "stats".into(),
+        key: "settings".into(),
+        value,
+    }).await
+        .map_err(|e| { tracing::error!(command = "stats_settings_set", error = %e, "persist stats settings failed"); e })?;
+    // 落盘后按新 retention 清理聚合表（0=永久跳过）。
+    if let Err(e) = gateway::db::cleanup_stats_agg(&db, settings.retention_days).await {
+        tracing::warn!(command = "stats_settings_set", error = %e, "cleanup stats_agg failed");
+    }
+    Ok(())
+}
+
+/// 清空 stats_agg_hourly 后从 proxy_log 全量重建（用户启用日志后修复历史聚合用）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+async fn stats_rebuild_from_logs(db: State<'_, Db>) -> Result<(), String> {
+    tracing::debug!(command = "stats_rebuild_from_logs", "command invoked");
+    gateway::db::rebuild_stats_agg_from_logs(&db).await
+}
+
 // ─── Proxy Timeout Settings ─────────────────────────────────
 
 use gateway::models::ProxyTimeoutSettings;
@@ -4039,6 +4081,12 @@ pub fn run() {
                             if let Err(e) = gateway::db::cleanup_notifications(&db, retention_days).await {
                                 tracing::warn!(error = %e, "scheduled: cleanup notifications failed");
                             }
+                            // 聚合统计表 retention 硬删（默认 365 天；stats retention_days=0 → 永不清理）。
+                            let stats_settings: gateway::models::StatsSettings = gateway::db::get_setting(&db, "stats", "settings").await
+                                .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
+                            if let Err(e) = gateway::db::cleanup_stats_agg(&db, stats_settings.retention_days).await {
+                                tracing::warn!(error = %e, "scheduled: cleanup stats_agg failed");
+                            }
                         }
                         tokio::time::sleep(interval).await;
                     }
@@ -4273,6 +4321,10 @@ pub fn run() {
             proxy_log_count,
             proxy_log_settings_get,
             proxy_log_settings_set,
+            // Stats aggregation settings + rebuild
+            stats_settings_get,
+            stats_settings_set,
+            stats_rebuild_from_logs,
             // DB Maintenance (Tier 1: VACUUM reclaim)
             db_compact,
             // Proxy Timeout

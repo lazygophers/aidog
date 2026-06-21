@@ -475,6 +475,48 @@ async fn get_log_settings(db: &Db) -> ProxyLogSettings {
 /// Respects ProxyLogSettings: if logging disabled, does nothing;
 /// if user/upstream recording disabled, clears those fields before writing.
 async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLogSettings) {
+    // ── 聚合统计写入（解耦于日志开关）──
+    // 必须在 `!settings.enabled` 早退之前：关日志时统计仍需写。仅终态请求计入
+    // （status!=0 且非流式占位 "[stream]"，与下方 is_terminal 同判定，避免占位/中间节点重复计）。
+    // est_cost：log 已带则用；否则（关日志路径不会经下方计算）就地走 calc_est_cost 回退链。
+    // 失败非致命：warn 不中断请求。eff_pid 回溯在 upsert_stats_agg 的 SQL 内做。
+    if log.status_code != 0 && log.response_body != "[stream]" {
+        let mut est_cost = log.est_cost;
+        if est_cost == 0.0 && (log.input_tokens > 0 || log.output_tokens > 0) {
+            let model_name = if log.actual_model.is_empty() { &log.model } else { &log.actual_model };
+            let platform_type = super::db::get_platform(&state.db, log.platform_id)
+                .await
+                .ok()
+                .flatten()
+                .map(|p| serde_json::to_string(&p.platform_type).unwrap_or_default().trim_matches('"').to_string())
+                .unwrap_or_default();
+            est_cost = super::db::calc_est_cost(
+                &state.db,
+                model_name,
+                &platform_type,
+                log.input_tokens,
+                log.output_tokens,
+                log.cache_tokens,
+            )
+            .await;
+        }
+        let agg_input = super::db::StatsAggInput {
+            created_at: log.created_at,
+            model: if log.actual_model.is_empty() { log.model.clone() } else { log.actual_model.clone() },
+            group_key: log.group_key.clone(),
+            platform_id: log.platform_id as i64,
+            status_code: log.status_code,
+            input_tokens: log.input_tokens as i64,
+            output_tokens: log.output_tokens as i64,
+            cache_tokens: log.cache_tokens as i64,
+            est_cost,
+            duration_ms: log.duration_ms as i64,
+        };
+        if let Err(e) = super::db::upsert_stats_agg(&state.db, agg_input).await {
+            tracing::warn!(error = %e, "stats_agg upsert failed (non-fatal)");
+        }
+    }
+
     if !settings.enabled {
         return;
     }
@@ -3192,11 +3234,16 @@ impl StreamLogGuard {
         final_log.cache_tokens = cache_tokens;
         final_log.status_code = 200;
         final_log.duration_ms = self.start.elapsed().as_millis() as i32;
-        // 聚合真实 SSE 内容写入 body（受 record 开关控制；upsert_log 仍按 settings 二次过滤）
+        // 聚合真实 SSE 内容写入 body（受 record 开关控制；upsert_log 仍按 settings 二次过滤）。
+        // 无论是否记录正文，都把 response_body 从 "[stream]" 占位改写为真实内容 / 空串，
+        // 使 upsert_log 的终态判定（response_body != "[stream]"）识别本次为流式终态 —— 否则
+        // 关日志正文时占位 "[stream]" 会残留，导致聚合统计漏计流式请求。
         if self.record_upstream_body {
             if let Ok(chunks) = self.agg.upstream_body.lock() {
                 final_log.response_body = join_stream_body(&chunks);
             }
+        } else {
+            final_log.response_body = String::new();
         }
         if self.record_client_body {
             if let Ok(chunks) = self.agg.client_body.lock() {

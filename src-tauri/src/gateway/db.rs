@@ -555,6 +555,10 @@ impl Db {
                     "CREATE INDEX IF NOT EXISTS idx_notification_created ON notification(created_at)",
                     [],
                 );
+                // Migration 032: 小时级聚合统计表 stats_agg_hourly（建表 + 索引 + 存量一次性回填）。
+                // 统计读取改查预聚合表，写入解耦于日志开关（关日志也写聚合）。回填幂等
+                // （NOT EXISTS 空表守卫），见 migrations/011_stats_agg_hourly.sql。
+                conn.execute_batch(include_str!("../../migrations/011_stats_agg_hourly.sql"))?;
                 Ok(())
             })
             .await
@@ -1499,49 +1503,38 @@ pub struct TodayStats {
     pub total_requests: i64,
 }
 
-/// 获取今日统计（本地时区 00:00 起，未删除日志）
+/// 本地「今日 00:00」对应的小时桶文本键 "YYYY-MM-DD 00:00:00"，用于与 stats_agg_hourly.time_hour 做
+/// 字典序 >= 比较（time_hour 已是本地时区桶，文本可比）。
+fn local_today_hour_key() -> String {
+    use chrono::Local;
+    Local::now().format("%Y-%m-%d 00:00:00").to_string()
+}
+
+/// 获取今日统计（本地时区 00:00 起，从聚合表 stats_agg_hourly 查）。
 pub async fn today_stats(db: &Db) -> Result<TodayStats, String> {
-    use chrono::{Local, TimeZone};
-    let today = Local::now().date_naive();
-    let start_dt = today.and_hms_opt(0, 0, 0).ok_or("invalid local midnight")?;
-    let start_local = Local
-        .from_local_datetime(&start_dt)
-        .single()
-        .ok_or("ambiguous local midnight")?;
-    let start_ms = start_local.timestamp_millis();
+    let today_key = local_today_hour_key();
 
     db.0
         .call(move |conn| {
-            // 基础统计
-            let (tokens, cache_tokens, input_tokens, output_tokens, total_requests): (i64, i64, i64, i64, i64) = conn
+            // 基础统计（从聚合表：request_count 即请求数，sum_* 即各 token，sum_est_cost 即花费）。
+            let (input_tokens, output_tokens, cache_tokens, total_requests, cost): (i64, i64, i64, i64, f64) = conn
                 .query_row(
-                    "SELECT COALESCE(SUM(input_tokens + output_tokens), 0), \
-                     COALESCE(SUM(cache_tokens), 0), \
-                     COALESCE(SUM(input_tokens), 0), \
-                     COALESCE(SUM(output_tokens), 0), \
-                     COUNT(*) \
-                     FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
-                    params![start_ms],
+                    "SELECT COALESCE(SUM(sum_input_tokens), 0), \
+                     COALESCE(SUM(sum_output_tokens), 0), \
+                     COALESCE(SUM(sum_cache_tokens), 0), \
+                     COALESCE(SUM(request_count), 0), \
+                     COALESCE(SUM(sum_est_cost), 0.0) \
+                     FROM stats_agg_hourly WHERE time_hour >= ?1 AND deleted_at = 0",
+                    params![today_key],
                     |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
                 )?;
 
+            let tokens = input_tokens + output_tokens;
             let cache_rate = if input_tokens + cache_tokens > 0 {
                 cache_tokens as f64 / (input_tokens + cache_tokens) as f64 * 100.0
             } else {
                 0.0
             };
-
-            // 计算花费：直接使用持久化的 est_cost
-            let cost: f64 = conn
-                .query_row(
-                    "SELECT COALESCE(SUM(est_cost), 0.0) FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
-                    params![start_ms],
-                    |row| row.get(0),
-                )
-                .unwrap_or_else(|e| {
-                    tracing::warn!(error = %e, "today cost sum query failed, reporting cost=0.0");
-                    0.0
-                });
 
             Ok(TodayStats {
                 tokens,
@@ -1578,44 +1571,24 @@ pub struct TodayPlatformStat {
 /// 回溯不到（auto 分组已删 / 非 auto 分组的 platform_id=0）则归 platform_id=0（前端显「未知平台」）。
 /// 平台名 JOIN platform 表（含已软删平台，名仍可显示；查不到则空字符串）。
 pub async fn today_platform_stats(db: &Db) -> Result<Vec<TodayPlatformStat>, String> {
-    use chrono::{Local, TimeZone};
-    let today = Local::now().date_naive();
-    let start_dt = today.and_hms_opt(0, 0, 0).ok_or("invalid local midnight")?;
-    let start_local = Local
-        .from_local_datetime(&start_dt)
-        .single()
-        .ok_or("ambiguous local midnight")?;
-    let start_ms = start_local.timestamp_millis();
+    let today_key = local_today_hour_key();
 
     db.0
         .call(move |conn| {
-            // 有效平台 id = COALESCE(自动分组回溯, 原 platform_id)。
-            // 自动分组日志 platform_id=0，通过 group.group_key（=proxy_log.group_key）→ auto_from_platform（十进制字符串）回溯。
-            // GROUP BY 该有效 id，天然只含当日有日志（已用）的平台。
+            // stats_agg_hourly.platform_id 已是 eff_pid（回溯后源平台 id），直接 GROUP BY 即可，
+            // 无需再跑 auto 回溯子查询。GROUP BY 天然只含当日有用量的平台。
             let sql = "
-                SELECT eff_pid,
-                       COALESCE(SUM(input_tokens + output_tokens), 0) AS tokens,
-                       COALESCE(SUM(est_cost), 0.0) AS cost,
-                       COUNT(*) AS reqs
-                FROM (
-                    SELECT
-                        CASE WHEN platform_id = 0 THEN COALESCE(
-                            (SELECT CAST(g.auto_from_platform AS INTEGER)
-                             FROM \"group\" g
-                             WHERE g.group_key = proxy_log.group_key
-                               AND g.auto_from_platform != ''
-                               AND g.deleted_at = 0
-                             LIMIT 1), 0)
-                        ELSE platform_id END AS eff_pid,
-                        input_tokens, output_tokens, est_cost
-                    FROM proxy_log
-                    WHERE created_at >= ?1 AND deleted_at = 0
-                )
-                GROUP BY eff_pid
+                SELECT platform_id AS eff_pid,
+                       COALESCE(SUM(sum_input_tokens + sum_output_tokens), 0) AS tokens,
+                       COALESCE(SUM(sum_est_cost), 0.0) AS cost,
+                       COALESCE(SUM(request_count), 0) AS reqs
+                FROM stats_agg_hourly
+                WHERE time_hour >= ?1 AND deleted_at = 0
+                GROUP BY platform_id
                 ORDER BY cost DESC, tokens DESC";
             let mut stmt = conn.prepare(sql)?;
             let rows = stmt
-                .query_map(params![start_ms], |row| {
+                .query_map(params![today_key], |row| {
                     let pid: i64 = row.get(0)?;
                     Ok((pid, row.get::<_, i64>(1)?, row.get::<_, f64>(2)?, row.get::<_, i64>(3)?))
                 })?
@@ -3102,6 +3075,141 @@ pub async fn purge_deleted_proxy_logs(db: &Db) -> Result<(), String> {
         .map_err(|e| format!("purge deleted proxy logs: {e}"))
 }
 
+// ─── Stats aggregation (stats_agg_hourly) ──────────────────────
+
+/// eff_pid 回溯表达式：platform_id=0 经 group.auto_from_platform 回溯到源平台 id，否则原 platform_id。
+/// 与 today_platform_stats / platform_usage_stats_all 同语义；join 键为 g.group_key = proxy_log.group_key。
+const AGG_EFF_PID_EXPR: &str = "CASE WHEN platform_id = 0 THEN COALESCE(\
+(SELECT CAST(g.auto_from_platform AS INTEGER) FROM \"group\" g \
+ WHERE g.group_key = proxy_log.group_key AND g.auto_from_platform != '' AND g.deleted_at = 0 LIMIT 1), 0)\
+ELSE platform_id END";
+
+/// 从 proxy_log 全量重建 stats_agg_hourly 的 INSERT SQL（rebuild 与回填共用语义）。
+/// 不带空表守卫（rebuild 先 DELETE 再插）；本地小时桶 + actual_model 优先 + eff_pid 回溯 + deleted_at=0。
+fn agg_rebuild_insert_sql() -> String {
+    format!(
+        "INSERT INTO stats_agg_hourly \
+         (time_hour, model, group_key, platform_id, \
+          request_count, success_count, error_count, \
+          sum_input_tokens, sum_output_tokens, sum_cache_tokens, \
+          sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at) \
+         SELECT \
+           strftime('%Y-%m-%d %H:00:00', created_at/1000, 'unixepoch', 'localtime') AS time_hour, \
+           CASE WHEN actual_model != '' THEN actual_model ELSE model END AS model, \
+           group_key, \
+           {AGG_EFF_PID_EXPR} AS eff_pid, \
+           COUNT(*), \
+           SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
+           SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END), \
+           COALESCE(SUM(input_tokens), 0), COALESCE(SUM(output_tokens), 0), COALESCE(SUM(cache_tokens), 0), \
+           COALESCE(SUM(est_cost), 0.0), COALESCE(SUM(duration_ms), 0), \
+           ?1, ?1, 0 \
+         FROM proxy_log WHERE deleted_at = 0 \
+         GROUP BY 1, 2, 3, 4"
+    )
+}
+
+/// 一条终态请求的聚合增量入参（写入 stats_agg_hourly 的 UPSERT 源）。
+/// eff_pid（platform_id=0 的 auto 回溯）在 UPSERT SQL 内用 CASE 子查询算，调用方传原始 platform_id。
+#[derive(Debug, Clone)]
+pub struct StatsAggInput {
+    /// 创建时间（UTC ms），用于在 SQL 内算本地小时桶。
+    pub created_at: i64,
+    /// 模型名（调用方已取 actual_model 非空否则 model）。
+    pub model: String,
+    pub group_key: String,
+    /// 原始 platform_id（=0 时 SQL 内经 group.auto_from_platform 回溯到 eff_pid）。
+    pub platform_id: i64,
+    pub status_code: i32,
+    pub input_tokens: i64,
+    pub output_tokens: i64,
+    pub cache_tokens: i64,
+    pub est_cost: f64,
+    pub duration_ms: i64,
+}
+
+/// 对一条终态请求按 (time_hour,model,group_key,platform_id) UPSERT 进 stats_agg_hourly。
+/// 写入【不受日志开关影响】：proxy 终态路径无条件调用。失败非致命（调用方 warn 不中断请求）。
+pub async fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> Result<(), String> {
+    db.0
+        .call(move |conn| {
+            let now = chrono::Utc::now().timestamp_millis();
+            // 本地小时桶由 SQL 内 strftime('...','localtime') 算，与 bucket_time_expr/回填一致。
+            let is_2xx = input.status_code >= 200 && input.status_code < 300;
+            let success = if is_2xx { 1i64 } else { 0 };
+            let error = if is_2xx { 0i64 } else { 1 };
+            conn.execute(
+                "INSERT INTO stats_agg_hourly \
+                 (time_hour, model, group_key, platform_id, \
+                  request_count, success_count, error_count, \
+                  sum_input_tokens, sum_output_tokens, sum_cache_tokens, \
+                  sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at) \
+                 VALUES ( \
+                  strftime('%Y-%m-%d %H:00:00', ?1/1000, 'unixepoch', 'localtime'), \
+                  ?2, ?3, \
+                  CASE WHEN ?4 = 0 THEN COALESCE( \
+                    (SELECT CAST(g.auto_from_platform AS INTEGER) FROM \"group\" g \
+                     WHERE g.group_key = ?3 AND g.auto_from_platform != '' AND g.deleted_at = 0 LIMIT 1), 0) \
+                  ELSE ?4 END, \
+                  1, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, 0) \
+                 ON CONFLICT(time_hour, model, group_key, platform_id) DO UPDATE SET \
+                  request_count = request_count + 1, \
+                  success_count = success_count + ?5, \
+                  error_count = error_count + ?6, \
+                  sum_input_tokens = sum_input_tokens + ?7, \
+                  sum_output_tokens = sum_output_tokens + ?8, \
+                  sum_cache_tokens = sum_cache_tokens + ?9, \
+                  sum_est_cost = sum_est_cost + ?10, \
+                  sum_duration_ms = sum_duration_ms + ?11, \
+                  updated_at = ?12",
+                params![
+                    input.created_at,
+                    input.model,
+                    input.group_key,
+                    input.platform_id,
+                    success,
+                    error,
+                    input.input_tokens,
+                    input.output_tokens,
+                    input.cache_tokens,
+                    input.est_cost,
+                    input.duration_ms,
+                    now,
+                ],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("upsert stats agg: {e}"))
+}
+
+/// 清空 stats_agg_hourly 后从 proxy_log 全量重建（用户启用 log 后手动修复用）。
+pub async fn rebuild_stats_agg_from_logs(db: &Db) -> Result<(), String> {
+    db.0
+        .call(move |conn| {
+            conn.execute("DELETE FROM stats_agg_hourly", [])?;
+            let now = chrono::Utc::now().timestamp_millis();
+            conn.execute(&agg_rebuild_insert_sql(), params![now])?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("rebuild stats agg: {e}"))
+}
+
+/// 按 retention_days 硬删过期聚合行（参考 cleanup_proxy_logs；0=永久保留）。
+/// 截止时间为 UTC ms；与 time_hour 文本桶比较走 created_at 列（行写入时间）。
+pub async fn cleanup_stats_agg(db: &Db, retention_days: u32) -> Result<(), String> {
+    let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
+    db.0
+        .call(move |conn| {
+            conn.execute("DELETE FROM stats_agg_hourly WHERE created_at < ?1", params![cutoff])?;
+            incremental_vacuum_conn(conn, 100);
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("cleanup stats agg: {e}"))
+}
+
 /// 在给定连接上跑 `PRAGMA incremental_vacuum(N)`，回收至多 N 页 free pages。
 ///
 /// auto_vacuum != INCREMENTAL 时为 no-op（SQLite 不报错）；失败仅 warn 不上抛，
@@ -3384,9 +3492,45 @@ pub async fn get_last_test_result(
 
 pub async fn get_group_usage_stats(db: &Db, group_key: &str) -> Result<super::models::PlatformUsageStats, String> {
     let group_key = group_key.to_string();
+    let today_key = local_today_hour_key();
     db.0
         .call(move |conn| {
-            Ok(usage_stats(conn, "group_key = ?1 AND deleted_at = 0", &[&group_key])?)
+            // 从聚合表查单组累计 + 今日。recent_failures/recent_total 聚合表无法重建（需逐请求近 5 条），
+            // 置 0（Groups 页不渲染该健康点；与批量版 get_all_group_usage_stats 一致）。
+            let stats = conn.query_row(
+                "SELECT COALESCE(SUM(request_count), 0), \
+                 COALESCE(SUM(success_count), 0), \
+                 COALESCE(SUM(sum_input_tokens), 0), COALESCE(SUM(sum_output_tokens), 0), COALESCE(SUM(sum_cache_tokens), 0), \
+                 COALESCE(SUM(sum_est_cost), 0.0), \
+                 COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN sum_input_tokens + sum_output_tokens ELSE 0 END), 0), \
+                 COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN sum_est_cost ELSE 0.0 END), 0.0) \
+                 FROM stats_agg_hourly WHERE group_key = ?1 AND deleted_at = 0",
+                params![group_key, today_key],
+                |row| {
+                    let total: i64 = row.get(0)?;
+                    let success: i64 = row.get(1)?;
+                    let inp: i64 = row.get(2)?;
+                    let out: i64 = row.get(3)?;
+                    let cache: i64 = row.get(4)?;
+                    let cost: f64 = row.get(5)?;
+                    let today_tokens: i64 = row.get(6)?;
+                    let today_cost: f64 = row.get(7)?;
+                    Ok(super::models::PlatformUsageStats {
+                        total_requests: total,
+                        success_count: success,
+                        total_input_tokens: inp,
+                        total_output_tokens: out,
+                        total_cache_tokens: cache,
+                        cache_rate: if inp + cache > 0 { cache as f64 / (inp + cache) as f64 * 100.0 } else { 0.0 },
+                        recent_failures: 0,
+                        recent_total: 0,
+                        total_cost: cost,
+                        today_tokens,
+                        today_cost,
+                    })
+                },
+            )?;
+            Ok(stats)
         })
         .await
         .map_err(|e| format!("group usage stats: {e}"))
@@ -3403,11 +3547,11 @@ pub async fn get_all_group_usage_stats(
     db.0
         .call(move |conn| {
             let mut stmt = conn.prepare(
-                "SELECT group_key, COUNT(*), \
-                 SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
-                 SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), \
-                 COALESCE(SUM(est_cost), 0.0) \
-                 FROM proxy_log WHERE deleted_at = 0 AND group_key <> '' \
+                "SELECT group_key, COALESCE(SUM(request_count), 0), \
+                 COALESCE(SUM(success_count), 0), \
+                 COALESCE(SUM(sum_input_tokens), 0), COALESCE(SUM(sum_output_tokens), 0), COALESCE(SUM(sum_cache_tokens), 0), \
+                 COALESCE(SUM(sum_est_cost), 0.0) \
+                 FROM stats_agg_hourly WHERE deleted_at = 0 AND group_key <> '' \
                  GROUP BY group_key",
             )?;
             let rows = stmt.query_map([], |row| {
@@ -3721,6 +3865,202 @@ pub async fn query_stats_batch(db: &Db, queries: Vec<StatsQuery>) -> Result<Vec<
         .map_err(|e| e.to_string())
 }
 
+/// UTC ms → 本地小时桶文本键 "YYYY-MM-DD HH:00:00"，用于与 stats_agg_hourly.time_hour 字典序比较。
+fn utc_ms_to_local_hour_key(ms: i64) -> String {
+    use chrono::{Local, TimeZone};
+    Local
+        .timestamp_millis_opt(ms)
+        .single()
+        .map(|dt| dt.format("%Y-%m-%d %H:00:00").to_string())
+        .unwrap_or_default()
+}
+
+/// 从聚合表 stats_agg_hourly 跑统计查询（hourly/daily 粒度 + 任意 filter/group_by）。
+/// 时间范围按本地小时桶字典序比较；daily 桶 = substr(time_hour,1,10)，hourly 桶 = time_hour。
+fn query_stats_inner_agg(
+    conn: &Connection,
+    query: &StatsQuery,
+    start: i64,
+    end: i64,
+) -> Result<StatsResult, String> {
+    // start 向下取整到所属本地小时桶；end 同理（time_hour <= end_hour 含 end 所在整点桶）。
+    let start_key = utc_ms_to_local_hour_key(start);
+    let end_key = utc_ms_to_local_hour_key(end);
+
+    // WHERE：基础时间范围 + 可选 filter。占位符 ?1=start_key ?2=end_key，filter 依次 ?3..。
+    let mut where_parts = vec![
+        "deleted_at = 0".to_string(),
+        "time_hour >= ?1".to_string(),
+        "time_hour <= ?2".to_string(),
+    ];
+    let mut binds: Vec<Box<dyn rusqlite::types::ToSql>> = vec![
+        Box::new(start_key.clone()),
+        Box::new(end_key.clone()),
+    ];
+    if let Some(ref g) = query.filter_group {
+        where_parts.push(format!("group_key = ?{}", binds.len() + 1));
+        binds.push(Box::new(g.clone()));
+    }
+    if let Some(ref m) = query.filter_model {
+        // 聚合表 model 列已是 actual_model 优先值，单列等值即可。
+        where_parts.push(format!("model = ?{}", binds.len() + 1));
+        binds.push(Box::new(m.clone()));
+    }
+    if let Some(ref p) = query.filter_platform {
+        // 聚合表 platform_id 已是 eff_pid，直接整数等值。
+        where_parts.push(format!("platform_id = CAST(?{} AS INTEGER)", binds.len() + 1));
+        binds.push(Box::new(p.clone()));
+    }
+    let where_sql = where_parts.join(" AND ");
+    // platform 维度 LEFT JOIN platform p 时，stats 表别名 s；platform 表也有 deleted_at 列，
+    // 裸 deleted_at 歧义 → 用 s. 前缀版 where（其余列名 platform 表无，不歧义）。
+    let where_sql_s: String = where_parts
+        .iter()
+        .map(|p| p.replace("deleted_at = 0", "s.deleted_at = 0"))
+        .collect::<Vec<_>>()
+        .join(" AND ");
+    let refs: Vec<&dyn rusqlite::types::ToSql> = binds.iter().map(|b| b.as_ref()).collect();
+
+    // ── Overview ──
+    let overview = conn
+        .prepare(&format!(
+            "SELECT COALESCE(SUM(request_count),0), COALESCE(SUM(success_count),0), \
+             COALESCE(SUM(sum_input_tokens),0), COALESCE(SUM(sum_output_tokens),0), COALESCE(SUM(sum_cache_tokens),0), \
+             COALESCE(SUM(sum_duration_ms),0), COALESCE(SUM(request_count),0), COALESCE(SUM(sum_est_cost),0.0) \
+             FROM stats_agg_hourly WHERE {where_sql}"
+        ))
+        .map_err(|e| e.to_string())?
+        .query_row(refs.as_slice(), |row| {
+            let total: i64 = row.get(0).unwrap_or(0);
+            let success: i64 = row.get(1).unwrap_or(0);
+            let inp: i64 = row.get(2).unwrap_or(0);
+            let cache: i64 = row.get(4).unwrap_or(0);
+            let sum_dur: i64 = row.get(5).unwrap_or(0);
+            let req: i64 = row.get(6).unwrap_or(0);
+            Ok(StatsOverview {
+                total_requests: total as i32,
+                success_rate: if total > 0 { success as f64 / total as f64 * 100.0 } else { 0.0 },
+                total_input_tokens: inp,
+                total_output_tokens: row.get(3).unwrap_or(0),
+                total_cache_tokens: cache,
+                cache_rate: if inp + cache > 0 { cache as f64 / (inp + cache) as f64 * 100.0 } else { 0.0 },
+                avg_duration_ms: if req > 0 { sum_dur as f64 / req as f64 } else { 0.0 },
+                total_cost: row.get(7).unwrap_or(0.0),
+            })
+        })
+        .map_err(|e| format!("agg overview: {e}"))?;
+
+    // ── Time buckets ──
+    // hourly → 整个 time_hour 桶；daily → 取前 10 字符（YYYY-MM-DD）。
+    let bucket_expr = match query.granularity.as_deref() {
+        Some("hourly") => "time_hour",
+        _ => "substr(time_hour, 1, 10)",
+    };
+    let buckets: Vec<StatsBucket> = conn
+        .prepare(&format!(
+            "SELECT {bucket_expr} AS b, COALESCE(SUM(request_count),0), COALESCE(SUM(success_count),0), \
+             COALESCE(SUM(error_count),0), COALESCE(SUM(sum_input_tokens),0), COALESCE(SUM(sum_output_tokens),0), \
+             COALESCE(SUM(sum_cache_tokens),0), COALESCE(SUM(sum_duration_ms),0), COALESCE(SUM(request_count),0), \
+             COALESCE(SUM(sum_est_cost),0.0) \
+             FROM stats_agg_hourly WHERE {where_sql} GROUP BY b ORDER BY b"
+        ))
+        .map_err(|e| e.to_string())?
+        .query_map(refs.as_slice(), |row| {
+            let req: i64 = row.get(8).unwrap_or(0);
+            let sum_dur: i64 = row.get(7).unwrap_or(0);
+            Ok(StatsBucket {
+                time_bucket: row.get(0).unwrap_or_default(),
+                total_requests: row.get(1).unwrap_or(0),
+                success_count: row.get(2).unwrap_or(0),
+                error_count: row.get(3).unwrap_or(0),
+                input_tokens: row.get(4).unwrap_or(0),
+                output_tokens: row.get(5).unwrap_or(0),
+                cache_tokens: row.get(6).unwrap_or(0),
+                avg_duration_ms: if req > 0 { sum_dur as f64 / req as f64 } else { 0.0 },
+                total_cost: row.get(9).unwrap_or(0.0),
+            })
+        })
+        .map_err(|e| format!("agg buckets: {e}"))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    // ── Dimension breakdown ──
+    let dimension_data: Vec<DimensionEntry> = if let Some(ref gb) = query.group_by {
+        let dim_sql = if gb == "platform" {
+            // platform_id 已是 eff_pid，LEFT JOIN platform 取真名（含软删平台名仍可显示）。
+            format!(
+                "SELECT COALESCE(p.name, '未知') AS dim, COALESCE(SUM(s.request_count),0), COALESCE(SUM(s.success_count),0), \
+                 COALESCE(SUM(s.sum_input_tokens),0), COALESCE(SUM(s.sum_output_tokens),0), COALESCE(SUM(s.sum_cache_tokens),0), \
+                 COALESCE(SUM(s.sum_duration_ms),0), COALESCE(SUM(s.request_count),0), COALESCE(SUM(s.sum_est_cost),0.0) \
+                 FROM stats_agg_hourly s LEFT JOIN platform p ON p.id = s.platform_id \
+                 WHERE {where_sql_s} GROUP BY s.platform_id ORDER BY 2 DESC LIMIT 50"
+            )
+        } else {
+            let dim_col = match gb.as_str() {
+                "model" => "model",
+                _ => "group_key",
+            };
+            format!(
+                "SELECT {dim_col} AS dim, COALESCE(SUM(request_count),0), COALESCE(SUM(success_count),0), \
+                 COALESCE(SUM(sum_input_tokens),0), COALESCE(SUM(sum_output_tokens),0), COALESCE(SUM(sum_cache_tokens),0), \
+                 COALESCE(SUM(sum_duration_ms),0), COALESCE(SUM(request_count),0), COALESCE(SUM(sum_est_cost),0.0) \
+                 FROM stats_agg_hourly WHERE {where_sql} GROUP BY {dim_col} ORDER BY 2 DESC LIMIT 50"
+            )
+        };
+        conn.prepare(&dim_sql)
+            .map_err(|e| e.to_string())?
+            .query_map(refs.as_slice(), |row| {
+                let req: i64 = row.get(7).unwrap_or(0);
+                let sum_dur: i64 = row.get(6).unwrap_or(0);
+                Ok(DimensionEntry {
+                    name: row.get(0).unwrap_or_default(),
+                    total_requests: row.get(1).unwrap_or(0),
+                    success_count: row.get(2).unwrap_or(0),
+                    input_tokens: row.get(3).unwrap_or(0),
+                    output_tokens: row.get(4).unwrap_or(0),
+                    cache_tokens: row.get(5).unwrap_or(0),
+                    avg_duration_ms: if req > 0 { sum_dur as f64 / req as f64 } else { 0.0 },
+                    total_cost: row.get(8).unwrap_or(0.0),
+                })
+            })
+            .map_err(|e| format!("agg dimension: {e}"))?
+            .filter_map(|r| r.ok())
+            .collect()
+    } else {
+        vec![]
+    };
+
+    // ── available_models（当前时间范围 + group + platform 过滤内的模型集，不含 filter_model）──
+    let mut am_parts = vec![
+        "deleted_at = 0".to_string(),
+        "time_hour >= ?1".to_string(),
+        "time_hour <= ?2".to_string(),
+    ];
+    let mut am_binds: Vec<Box<dyn rusqlite::types::ToSql>> =
+        vec![Box::new(start_key), Box::new(end_key)];
+    if let Some(ref g) = query.filter_group {
+        am_parts.push(format!("group_key = ?{}", am_binds.len() + 1));
+        am_binds.push(Box::new(g.clone()));
+    }
+    if let Some(ref p) = query.filter_platform {
+        am_parts.push(format!("platform_id = CAST(?{} AS INTEGER)", am_binds.len() + 1));
+        am_binds.push(Box::new(p.clone()));
+    }
+    let am_where = am_parts.join(" AND ");
+    let am_refs: Vec<&dyn rusqlite::types::ToSql> = am_binds.iter().map(|b| b.as_ref()).collect();
+    let available_models: Vec<String> = conn
+        .prepare(&format!(
+            "SELECT DISTINCT model FROM stats_agg_hourly WHERE {am_where} AND model != '' ORDER BY model"
+        ))
+        .map_err(|e| e.to_string())?
+        .query_map(am_refs.as_slice(), |row| row.get::<_, String>(0))
+        .map_err(|e| format!("agg available_models: {e}"))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    Ok(StatsResult { overview, buckets, dimension_data, available_models })
+}
+
 fn query_stats_inner(conn: &Connection, query: &StatsQuery) -> Result<StatsResult, String> {
     let end = query.end.unwrap_or_else(|| chrono::Utc::now().timestamp_millis());
     let start = query.start.unwrap_or_else(|| {
@@ -3734,6 +4074,13 @@ fn query_stats_inner(conn: &Connection, query: &StatsQuery) -> Result<StatsResul
         filter_model: query.filter_model.clone(),
         filter_platform: query.filter_platform.clone(),
     };
+
+    // hourly / daily（含 None→daily 默认）粒度从聚合表 stats_agg_hourly 查；
+    // minute / 5min 粒度聚合表不覆盖（hourly 桶无法下钻到分钟），仍走下方 proxy_log 原路径。
+    match query.granularity.as_deref() {
+        Some("minute") | Some("5min") => {} // fall through to proxy_log path
+        _ => return query_stats_inner_agg(conn, query, start, end),
+    }
 
     // 有效 platform_id 表达式：原 platform_id，auto 分组（platform_id=0）经
     // group.auto_from_platform 回溯到源平台（与 get_platform_usage_stats 同语义）。
@@ -4699,6 +5046,8 @@ mod tests {
         b.est_cost = 0.02;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
 
+        // 测试直插 proxy_log（绕过 proxy upsert_log 的聚合写）；daily 粒度读聚合表，须先重建。
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
         let q = StatsQuery {
             start: Some(before - 3_600_000),
             end: Some(after + 3_600_000),
@@ -4813,6 +5162,7 @@ mod tests {
         lg.cache_tokens = 9900;
         lg.output_tokens = 50;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false)).await.unwrap();
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
 
         let ts = today_stats(&db).await.expect("today_stats");
         println!("today cache_rate = {}", ts.cache_rate);
@@ -4842,6 +5192,7 @@ mod tests {
         lg2.model = "gpt-4o".into();
         lg2.actual_model = String::new(); // 回退到 model
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg2, false, false)).await.unwrap();
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
 
         let q = StatsQuery { start: None, end: None, granularity: None, group_by: None, filter_group: None, filter_model: None, filter_platform: None };
         let s = query_stats(&db, &q).await.expect("query_stats");
@@ -4878,6 +5229,8 @@ mod tests {
         }
         let start = base - 60_000;
         let end = base + 20 * 60_000;
+        // hourly 读聚合表，须重建（minute/5min 仍读 proxy_log，不受影响）。
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
 
         // minute：6 个不同分钟 → 6 桶
         let q_min = StatsQuery { start: Some(start), end: Some(end), granularity: Some("minute".into()), group_by: None, filter_group: None, filter_model: None, filter_platform: None };
@@ -4897,6 +5250,93 @@ mod tests {
         let r_h = query_stats(&db, &q_h).await.expect("hourly stats");
         assert_eq!(r_h.buckets.len(), 1, "hourly 应 1 桶: {:?}", r_h.buckets.iter().map(|b| &b.time_bucket).collect::<Vec<_>>());
         assert_eq!(r_h.buckets[0].total_requests, 6, "hourly 桶应聚 6 条");
+    }
+
+    /// upsert_stats_agg：同 (hour,model,group,pid) 累加；2xx→success，非2xx→error。
+    #[tokio::test]
+    async fn upsert_stats_agg_accumulates_and_classifies() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        let mk = |status: i32| StatsAggInput {
+            created_at: now,
+            model: "glm-4-plus".into(),
+            group_key: "g1".into(),
+            platform_id: 1,
+            status_code: status,
+            input_tokens: 10,
+            output_tokens: 20,
+            cache_tokens: 5,
+            est_cost: 0.01,
+            duration_ms: 100,
+        };
+        upsert_stats_agg(&db, mk(200)).await.unwrap();
+        upsert_stats_agg(&db, mk(200)).await.unwrap();
+        upsert_stats_agg(&db, mk(500)).await.unwrap(); // 终态非 2xx → error
+
+        let (req, succ, err, inp, cost): (i64, i64, i64, i64, f64) = db.0.call(|conn| {
+            Ok(conn.query_row(
+                "SELECT request_count, success_count, error_count, sum_input_tokens, sum_est_cost \
+                 FROM stats_agg_hourly WHERE model='glm-4-plus' AND group_key='g1' AND platform_id=1",
+                [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?)),
+            )?)
+        }).await.unwrap();
+        assert_eq!(req, 3, "3 次累加同一桶");
+        assert_eq!(succ, 2, "2 条 2xx");
+        assert_eq!(err, 1, "1 条非 2xx");
+        assert_eq!(inp, 30, "input 累加 10*3");
+        assert!((cost - 0.03).abs() < 1e-9, "cost 累加 0.01*3");
+    }
+
+    /// 回填幂等：migration 011 已在 init 回填；再跑回填 SQL（带 NOT EXISTS 守卫）不应翻倍。
+    #[tokio::test]
+    async fn agg_backfill_idempotent() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&sample_log("x1", "g1", now), false, false)).await.unwrap();
+        // 全量重建一次得到基线行数。
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
+        let n1: i64 = db.0.call(|c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
+        // 再跑带 NOT EXISTS 守卫的回填 SQL（模拟 migration 重放）：表非空 → 不插。
+        db.0.call(move |c| {
+            c.execute_batch(include_str!("../../migrations/011_stats_agg_hourly.sql"))?;
+            Ok(())
+        }).await.unwrap();
+        let n2: i64 = db.0.call(|c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
+        assert_eq!(n1, n2, "回填幂等：重放 migration 不翻倍");
+    }
+
+    /// 回归：两条 raw model 不同但 actual_model 相同（同小时/分组/平台），回填/重建
+    /// 必须按 SELECT 输出别名（actual_model 优先）聚合成一行。否则 `GROUP BY model` 会绑到
+    /// proxy_log 真实列 model → 聚成两行但 SELECT/UNIQUE 复合键相同 → INSERT 撞
+    /// `UNIQUE(time_hour,model,group_key,platform_id)` panic（真实启动 init_tables 必崩）。
+    /// 修法 = migration 011 回填 与 agg_rebuild_insert_sql 都用 `GROUP BY 1,2,3,4` 位置引用消歧。
+    #[tokio::test]
+    async fn agg_rebuild_dedups_raw_models_to_same_actual_model() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        let mut a = sample_log("ra1", "g1", now);
+        a.model = "claude-sonnet-4".into();
+        a.actual_model = "glm-4-plus".into();
+        a.platform_id = 1;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
+        let mut b = sample_log("ra2", "g1", now);
+        b.model = "gpt-4o".into();
+        b.actual_model = "glm-4-plus".into();
+        b.platform_id = 1;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
+
+        // 重建（与 migration 回填共用 GROUP BY 语义）必须不 panic（不撞 UNIQUE）。
+        rebuild_stats_agg_from_logs(&db).await.expect("rebuild must not violate UNIQUE");
+
+        let (rows, reqs): (i64, i64) = db.0.call(|conn| {
+            Ok(conn.query_row(
+                "SELECT COUNT(*), COALESCE(SUM(request_count),0) FROM stats_agg_hourly \
+                 WHERE model = 'glm-4-plus' AND group_key = 'g1' AND platform_id = 1",
+                [], |r| Ok((r.get(0)?, r.get(1)?)),
+            )?)
+        }).await.unwrap();
+        assert_eq!(rows, 1, "两条 raw model 须聚合成一行（actual_model 优先）");
+        assert_eq!(reqs, 2, "聚合行 request_count 应为 2");
     }
 
     fn sample_platform(name: &str) -> CreatePlatform {
@@ -5601,6 +6041,8 @@ decimals: None,
         old.platform_id = p1.id;
         upsert_proxy_log(&db, old).await.unwrap();
 
+        // today_platform_stats 读聚合表；测试经 upsert_proxy_log 直插，须先重建聚合。
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
         let stats = today_platform_stats(&db).await.unwrap();
         // 只 p1 有今日用量（direct + auto 归并），p2 无用量不出现。
         assert_eq!(stats.len(), 1, "仅有用量的平台出现");
@@ -5624,6 +6066,8 @@ decimals: None,
         // 空 group_key 的日志（未匹配分组场景）：批量结果中不应出现。
         upsert_proxy_log(&db, sample_log("e1", "", now_ms)).await.unwrap();
 
+        // group usage 读聚合表；测试直插 proxy_log，须先重建聚合。
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
         let all = get_all_group_usage_stats(&db).await.unwrap();
         assert_eq!(all.len(), 2, "仅 ga/gb 两个非空 group");
         assert!(!all.contains_key(""), "空 group_key 不计入");
