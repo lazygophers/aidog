@@ -791,7 +791,7 @@ async fn handle_proxy_inner(
         }
     };
     log.request_body = String::from_utf8_lossy(&bytes).to_string();
-    tracing::debug!(method = %orig_method, path = %path, body = %log.request_body, "inbound request body");
+    tracing::debug!(method = %orig_method, path = %path, body = %super::log_util::log_body_preview(&log.request_body), "inbound request body");
 
     // Best-effort model extraction
     let raw_model = serde_json::from_slice::<Value>(&bytes)
@@ -1229,7 +1229,7 @@ async fn handle_proxy_inner(
     ).to_string();
     log.upstream_request_body = format_pretty_json(&req_body_str);
     tracing::info!(method = "POST", url = %url, "upstream request");
-    tracing::debug!(method = "POST", url = %url, body = %req_body_str, "upstream request body");
+    tracing::debug!(method = "POST", url = %url, body = %super::log_util::log_body_preview(&req_body_str), "upstream request body");
 
     // ── 熔断指标：本次 forward 尝试前在途 +1；解析本平台有效阈值 ──
     let breaker_th = {
@@ -1303,7 +1303,7 @@ async fn handle_proxy_inner(
             url = %url, platform = %route.platform.name, status = code,
             duration_ms, "upstream returned non-success status"
         );
-        tracing::debug!(url = %url, status = code, body = %body, "upstream error response body");
+        tracing::debug!(url = %url, status = code, body = %super::log_util::log_body_preview(&body), "upstream error response body");
         attempts.push(ProxyAttempt {
             platform_id: route.platform.id,
             platform_name: route.platform.name.clone(),
@@ -2237,7 +2237,7 @@ async fn handle_passthrough(
     };
     log.upstream_request_body = String::from_utf8_lossy(&bytes).to_string();
     tracing::info!(method = %orig_method, url = %url, "passthrough upstream request");
-    tracing::debug!(method = %orig_method, url = %url, body = %log.upstream_request_body, "passthrough upstream request body");
+    tracing::debug!(method = %orig_method, url = %url, body = %super::log_util::log_body_preview(&log.upstream_request_body), "passthrough upstream request body");
 
     let method = match reqwest::Method::from_bytes(orig_method.as_str().as_bytes()) {
         Ok(m) => m,

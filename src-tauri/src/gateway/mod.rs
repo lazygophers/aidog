@@ -6,6 +6,7 @@ pub mod estimate;
 pub mod hooks;
 pub mod http_client;
 pub mod i18n;
+pub mod log_util;
 pub mod manual_budget;
 pub mod middleware;
 pub mod models;

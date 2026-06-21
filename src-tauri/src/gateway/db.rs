@@ -4,7 +4,14 @@ use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use tokio_rusqlite::Connection as AsyncConnection;
 
+use super::log_util::truncate_sql_literals;
 use super::models::*;
+
+/// rusqlite `Connection::trace` 回调（裸 `fn(&str)`，不可捕获状态）。
+/// 把执行的 SQL 经 tracing target=sql / debug 级输出，超长字面量截断防刷屏。
+fn sql_trace_callback(sql: &str) {
+    tracing::debug!(target: "sql", sql = %truncate_sql_literals(sql), "exec sql");
+}
 
 /// setting 缓存键的借用探测接口：让 `(&str, &str)` 与拥有所有权的 `(String, String)`
 /// 共享同一套 `Hash`/`Eq` 语义，从而命中路径用借用键查 map，零 String 分配。
@@ -163,6 +170,11 @@ impl Db {
             if table_count == 0 {
                 c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL;")?;
             }
+            // SQL 追踪：把每条执行的 SQL（rusqlite 0.32 legacy sqlite3_trace 会内联 `?`
+            // 占位的实际值）经 tracing target=sql / debug 级输出。trace 回调签名是裸
+            // `fn(&str)`（不能捕获，必须自由函数），故走 sql_trace_callback。超长字段
+            // 值由 log_util::truncate_sql_literals 截断；仅影响日志输出，不碰 DB 写入。
+            c.trace(Some(sql_trace_callback));
             Ok(())
         })
         .await
