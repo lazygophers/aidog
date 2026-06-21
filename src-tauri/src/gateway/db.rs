@@ -1485,6 +1485,12 @@ pub async fn today_token_total(db: &Db) -> Result<i64, String> {
 pub struct TodayStats {
     /// 今日总 token 数（input + output）
     pub tokens: i64,
+    /// 今日 input token 数
+    pub input_tokens: i64,
+    /// 今日 output token 数
+    pub output_tokens: i64,
+    /// 今日 cache token 数
+    pub cache_tokens: i64,
     /// 今日 cache 命中率（cache_tokens / input_tokens * 100）
     pub cache_rate: f64,
     /// 今日预估花费（$），基于 model_price 定价
@@ -1507,15 +1513,16 @@ pub async fn today_stats(db: &Db) -> Result<TodayStats, String> {
     db.0
         .call(move |conn| {
             // 基础统计
-            let (tokens, cache_tokens, input_tokens, total_requests): (i64, i64, i64, i64) = conn
+            let (tokens, cache_tokens, input_tokens, output_tokens, total_requests): (i64, i64, i64, i64, i64) = conn
                 .query_row(
                     "SELECT COALESCE(SUM(input_tokens + output_tokens), 0), \
                      COALESCE(SUM(cache_tokens), 0), \
                      COALESCE(SUM(input_tokens), 0), \
+                     COALESCE(SUM(output_tokens), 0), \
                      COUNT(*) \
                      FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
                     params![start_ms],
-                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+                    |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?)),
                 )?;
 
             let cache_rate = if input_tokens + cache_tokens > 0 {
@@ -1538,6 +1545,9 @@ pub async fn today_stats(db: &Db) -> Result<TodayStats, String> {
 
             Ok(TodayStats {
                 tokens,
+                input_tokens,
+                output_tokens,
+                cache_tokens,
                 cache_rate,
                 cost,
                 total_requests,

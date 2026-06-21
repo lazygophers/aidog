@@ -1632,5 +1632,8 @@
   "popover.preview": "Vista previa en vivo",
   "popover.previewHint": "Muestra el popover con tu diseño actual al instante, sin guardar.",
   "platform.todayUsageLabel": "Hoy",
-  "platform.codingUsedHint": "Tokens acumulados usados y coste estimado de esta plataforma (basado en solicitudes reales)"
+  "platform.codingUsedHint": "Tokens acumulados usados y coste estimado de esta plataforma (basado en solicitudes reales)",
+  "home.tokenInput": "Entrada",
+  "home.tokenOutput": "Salida",
+  "home.tokenCache": "Caché"
 }

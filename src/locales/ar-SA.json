@@ -1654,5 +1654,8 @@
   "popover.preview": "معاينة مباشرة",
   "popover.previewHint": "يعرض النافذة المنبثقة بتخطيطك الحالي فورًا — دون حاجة للحفظ.",
   "platform.todayUsageLabel": "اليوم",
-  "platform.codingUsedHint": "إجمالي الرموز المستخدمة والتكلفة المقدرة لهذه المنصة (بناءً على الطلبات الفعلية)"
+  "platform.codingUsedHint": "إجمالي الرموز المستخدمة والتكلفة المقدرة لهذه المنصة (بناءً على الطلبات الفعلية)",
+  "home.tokenInput": "إدخال",
+  "home.tokenOutput": "إخراج",
+  "home.tokenCache": "ذاكرة مؤقتة"
 }

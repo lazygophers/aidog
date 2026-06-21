@@ -1632,5 +1632,8 @@
   "popover.preview": "Live preview",
   "popover.previewHint": "Renders the popover with your current layout instantly — no save needed.",
   "platform.todayUsageLabel": "Today",
-  "platform.codingUsedHint": "Cumulative tokens used and estimated cost for this platform (based on actual requests)"
+  "platform.codingUsedHint": "Cumulative tokens used and estimated cost for this platform (based on actual requests)",
+  "home.tokenInput": "Input",
+  "home.tokenOutput": "Output",
+  "home.tokenCache": "Cache"
 }

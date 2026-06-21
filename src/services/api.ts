@@ -550,6 +550,9 @@ export interface TrayConfig {
 /** 今日统计摘要 */
 export interface TodayStats {
   tokens: number;
+  input_tokens: number;
+  output_tokens: number;
+  cache_tokens: number;
   cache_rate: number;
   cost: number;
   total_requests: number;

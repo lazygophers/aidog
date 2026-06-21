@@ -1654,5 +1654,8 @@
   "popover.preview": "Aperçu en direct",
   "popover.previewHint": "Affiche le popover avec votre disposition actuelle instantanément — sans enregistrer.",
   "platform.todayUsageLabel": "Aujourd'hui",
-  "platform.codingUsedHint": "Tokens cumulés utilisés et coût estimé pour cette plateforme (basé sur les requêtes réelles)"
+  "platform.codingUsedHint": "Tokens cumulés utilisés et coût estimé pour cette plateforme (basé sur les requêtes réelles)",
+  "home.tokenInput": "Entrée",
+  "home.tokenOutput": "Sortie",
+  "home.tokenCache": "Cache"
 }

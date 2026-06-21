@@ -3503,7 +3503,8 @@ async fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
             }
             "today_usage" => {
                 let stats = db::today_stats(&db).await.unwrap_or(db::TodayStats {
-                    tokens: 0, cache_rate: 0.0, cost: 0.0, total_requests: 0,
+                    tokens: 0, input_tokens: 0, output_tokens: 0, cache_tokens: 0,
+                    cache_rate: 0.0, cost: 0.0, total_requests: 0,
                 });
                 let metric = item.metric.as_deref().unwrap_or("tokens");
                 let (label, val) = match metric {
