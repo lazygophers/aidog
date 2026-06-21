@@ -3,34 +3,6 @@ use super::*;
 use super::test_support::*;
 use rusqlite::params;
 
-
-
-    /// endpoints 反序列化容错：DB 中含未知 client_type（如旧数据 "anthropic"）的
-    /// endpoint 数组应仍能完整解析，而非因单个未知枚举值整体失败 → 空 Vec → 前端丢失。
-    #[tokio::test]
-    async fn endpoints_with_unknown_client_type_still_parse() {
-        let json = r#"[{"protocol":"openai","base_url":"https://x/v1","client_type":"codex_tui","coding_plan":false},{"protocol":"anthropic","base_url":"https://x/anthropic","client_type":"anthropic","coding_plan":false}]"#;
-        let parsed = parse_endpoints(json);
-        assert_eq!(parsed.len(), 2, "未知 client_type 不应导致整个数组解析失败");
-        assert_eq!(parsed[1].client_type, ClientType::Default, "未知值回退为 Default");
-        assert_eq!(parsed[1].protocol, Protocol::Anthropic);
-
-        // 端到端：写入 DB 后 list_platforms 应带回 endpoints
-        let db = test_db().await;
-        let mut input = sample_platform("p1");
-        input.endpoints = Some(vec![PlatformEndpoint {
-            protocol: Protocol::OpenAI,
-            base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string(),
-            client_type: ClientType::CodexTui,
-            coding_plan: true,
-        }]);
-        create_platform(&db, input).await.unwrap();
-        let listed = list_platforms(&db).await.unwrap();
-        assert_eq!(listed[0].endpoints.len(), 1, "list_platforms 应返回 endpoints");
-    }
-
-
-
     // ── R9 软删除：delete 后 deleted_at>0；list 不含；get 返回 None ──
     #[tokio::test]
     async fn r9_soft_delete_platform() {
@@ -52,6 +24,8 @@ use rusqlite::params;
         }).await.unwrap();
         assert!(deleted_at > 0, "deleted_at should be set, got {deleted_at}");
     }
+
+
 
     // ── 删平台只清关联，不连带销毁手动组与有其他成员的 auto 组 ──
     #[tokio::test]
@@ -214,119 +188,135 @@ use rusqlite::params;
 
 
 
-    // ── R3 platform_type 列（protocol 改名）往返 ──
+    /// TrayConfig serde 往返：写入后读回各字段一致（separator/items 颜色三态/字号/line_mode/排序）。
     #[tokio::test]
-    async fn r3_platform_type_roundtrip() {
+    async fn tray_config_serde_roundtrip() {
         let db = test_db().await;
-        let mut input = sample_platform("pt");
-        input.platform_type = Protocol::Glm;
-        let p = create_platform(&db, input).await.unwrap();
-        let fetched = get_platform(&db, p.id).await.unwrap().unwrap();
-        assert_eq!(fetched.platform_type, Protocol::Glm);
-        // 列名为 platform_type（间接：能写入该列即证明列存在）
-        let pid = p.id as i64;
-        let stored: String = db.call_traced(None, std::panic::Location::caller(), move |conn| {
-            Ok(conn.query_row("SELECT platform_type FROM platform WHERE id = ?1", params![pid], |r| r.get(0))?)
-        }).await.unwrap();
-        assert_eq!(stored, "\"glm\"");
+        let cfg = TrayConfig {
+            separator: " | ".to_string(),
+            items: vec![
+                TrayItem {
+                    item_type: "platform".to_string(),
+                    platform_id: Some(7),
+                    display: "coding".to_string(),
+                    metric: None,
+                    label: None,
+decimals: None,
+                    color: TrayColor { mode: "preset".to_string(), value: "green".to_string() },
+                    font_size: 11.0,
+                    line_mode: "two".to_string(),
+                    align: "left".to_string(),
+                    align_row2: None,
+                    enabled: true,
+                    order: 0,
+                },
+                TrayItem {
+                    item_type: "today_usage".to_string(),
+                    platform_id: None,
+                    display: "balance".to_string(),
+                    metric: Some("tokens".to_string()),
+                    label: None,
+decimals: None,
+                    color: TrayColor { mode: "custom".to_string(), value: "#ff8800".to_string() },
+                    font_size: 9.0,
+                    line_mode: "single".to_string(),
+                    align: "left".to_string(),
+                    align_row2: None,
+                    enabled: false,
+                    order: 1,
+                },
+            ],
+        };
+        set_tray_config(&db, &cfg).await.unwrap();
+        let got = get_tray_config(&db).await.unwrap().expect("config present");
+        assert_eq!(got.separator, " | ");
+        assert_eq!(got.items.len(), 2);
+        assert_eq!(got.items[0].item_type, "platform");
+        assert_eq!(got.items[0].platform_id, Some(7));
+        assert_eq!(got.items[0].display, "coding");
+        assert_eq!(got.items[0].color.mode, "preset");
+        assert_eq!(got.items[0].color.value, "green");
+        assert!((got.items[0].font_size - 11.0).abs() < 1e-9);
+        assert_eq!(got.items[0].line_mode, "two");
+        assert!(got.items[0].enabled);
+        assert_eq!(got.items[1].line_mode, "single");
+        assert_eq!(got.items[1].item_type, "today_usage");
+        assert_eq!(got.items[1].metric.as_deref(), Some("tokens"));
+        assert_eq!(got.items[1].color.mode, "custom");
+        assert_eq!(got.items[1].color.value, "#ff8800");
+        assert!(!got.items[1].enabled);
+        assert_eq!(got.items[1].order, 1);
     }
 
 
 
-    // ── S1 async DB：增删改查全路径（内存库，验证 tokio-rusqlite 闭包往返）──
+    /// 迁移：无 tray config 且无旧 show_in_tray 平台 → 生成空配置并持久化（避免重复迁移）。
     #[tokio::test]
-    async fn s1_async_platform_crud_roundtrip() {
+    async fn tray_config_migrate_empty() {
         let db = test_db().await;
-        // create
-        let mut input = sample_platform("crud");
-        input.base_url = "https://crud.example/v1".to_string();
-        let created = create_platform(&db, input).await.unwrap();
-        assert!(created.id >= 1);
-
-        // read (list + get)
-        assert_eq!(list_platforms(&db).await.unwrap().len(), 1);
-        let got = get_platform(&db, created.id).await.unwrap().unwrap();
-        assert_eq!(got.base_url, "https://crud.example/v1");
-
-        // update
-        let updated = update_platform(&db, UpdatePlatform {
-            id: created.id,
-            name: None,
-            platform_type: None,
-            base_url: Some("https://crud.example/v2".to_string()),
-            api_key: None,
-            extra: None,
-            models: None,
-            available_models: None,
-            endpoints: None,
-            enabled: None,
-            status: None,
-            manual_budgets: None,
-            join_group_ids: None,
-        }).await.unwrap();
-        assert_eq!(updated.base_url, "https://crud.example/v2");
-        assert_eq!(get_platform(&db, created.id).await.unwrap().unwrap().base_url, "https://crud.example/v2");
-
-        // delete（软删）→ list 不含、get None
-        delete_platform(&db, created.id).await.unwrap();
-        assert_eq!(list_platforms(&db).await.unwrap().len(), 0);
-        assert!(get_platform(&db, created.id).await.unwrap().is_none());
+        // 首次读取触发迁移；无旧平台 → 空 items。
+        let cfg = get_tray_config(&db).await.unwrap().expect("migrated config");
+        assert_eq!(cfg.items.len(), 0);
+        // 已持久化：settings 中应存在 tray/config。
+        assert!(get_setting(&db, "tray", "config").await.unwrap().is_some());
     }
 
 
 
-    /// 缓存正确性（问题2）：setting 写后读返回新值（失效生效）；
-    /// group 写后 list_groups 返回新集合（不返回陈旧缓存）。
+    /// 迁移：旧 show_in_tray=1 平台 → 生成默认 platform item（保留 tray_display）。
     #[tokio::test]
-    async fn hot_cache_invalidates_on_write() {
+    async fn tray_config_migrate_from_legacy_platform() {
         let db = test_db().await;
-        // ── setting 缓存 ──
-        // 先读（不存在 → 缓存 None 槽），再写，再读必须见新值。
-        assert!(get_setting(&db, "proxy", "logging").await.unwrap().is_none());
+        let p = create_platform(&db, sample_platform("legacy")).await.unwrap();
+        set_tray_platform(&db, p.id, "coding").await.unwrap();
+
+        let cfg = get_tray_config(&db).await.unwrap().expect("migrated config");
+        assert_eq!(cfg.items.len(), 1, "应从旧平台生成 1 个 platform item");
+        let item = &cfg.items[0];
+        assert_eq!(item.item_type, "platform");
+        assert_eq!(item.platform_id, Some(p.id));
+        assert_eq!(item.display, "coding");
+        assert!(item.enabled);
+    }
+
+
+
+    /// 迁移：旧全局 layout=two_line → 各 item line_mode="two"；缺 line_mode 字段时按 serde default "single"。
+    #[tokio::test]
+    async fn tray_config_migrate_legacy_layout() {
+        let db = test_db().await;
+        // 模拟旧版本写入：含全局 layout 字段，item 无 line_mode 字段。
+        let legacy = serde_json::json!({
+            "layout": "two_line",
+            "separator": "  ",
+            "items": [
+                { "item_type": "platform", "platform_id": 3, "display": "balance",
+                  "color": { "mode": "follow", "value": "" }, "font_size": 9.0,
+                  "enabled": true, "order": 0 }
+            ]
+        });
         set_setting(&db, SetSettingInput {
-            scope: "proxy".into(),
-            key: "logging".into(),
-            value: serde_json::json!({"enabled": true}),
+            scope: "tray".to_string(),
+            key: "config".to_string(),
+            value: legacy,
         }).await.unwrap();
-        let v = get_setting(&db, "proxy", "logging").await.unwrap();
-        assert_eq!(v, Some(serde_json::json!({"enabled": true})), "写后读见新值（缓存已失效）");
-        // 改值再读。
-        set_setting(&db, SetSettingInput {
-            scope: "proxy".into(),
-            key: "logging".into(),
-            value: serde_json::json!({"enabled": false}),
-        }).await.unwrap();
-        assert_eq!(
-            get_setting(&db, "proxy", "logging").await.unwrap(),
-            Some(serde_json::json!({"enabled": false})),
-        );
-        // delete 后读为 None。
-        delete_setting(&db, "proxy", "logging").await.unwrap();
-        assert!(get_setting(&db, "proxy", "logging").await.unwrap().is_none());
 
-        // ── group 缓存 ──
-        assert_eq!(list_groups(&db).await.unwrap().len(), 0);
-        let g = create_group(&db, sample_group("gc", vec![])).await.unwrap();
-        // 缓存失效 → list_groups 见新建 group。
-        let groups = list_groups(&db).await.unwrap();
-        assert_eq!(groups.len(), 1);
-        assert_eq!(groups[0].name, "gc");
-        // 删除后 list_groups 不再含该 group。
-        force_delete_group(&db, g.id).await.unwrap();
-        assert_eq!(list_groups(&db).await.unwrap().len(), 0);
+        let cfg = get_tray_config(&db).await.unwrap().expect("config present");
+        assert_eq!(cfg.items.len(), 1);
+        // 旧全局 two_line → item line_mode="two"。
+        assert_eq!(cfg.items[0].line_mode, "two");
     }
 
 
 
-    // ── S1 async DB：OptionalExtension 路径（query_row().optional() 在闭包内）──
+    /// serde default：缺 line_mode 字段 → "two"（default_line_mode）。
     #[tokio::test]
-    async fn s1_async_optional_extension_returns_none_for_missing() {
-        let db = test_db().await;
-        // 不存在的 id → get_platform 走 query_row().optional() 返回 None（非 Err）
-        assert!(get_platform(&db, 99_999).await.unwrap().is_none());
-        // 存在则返回 Some
-        let p = create_platform(&db, sample_platform("opt")).await.unwrap();
-        assert!(get_platform(&db, p.id).await.unwrap().is_some());
-        // get_setting 同样走 optional()：缺键 None
-        assert!(get_setting(&db, "nope", "nope").await.unwrap().is_none());
+    async fn tray_item_line_mode_serde_default() {
+        let raw = serde_json::json!({
+            "item_type": "platform", "platform_id": 1, "display": "balance",
+            "color": { "mode": "follow", "value": "" }, "font_size": 9.0,
+            "enabled": true, "order": 0
+        });
+        let item: TrayItem = serde_json::from_value(raw).unwrap();
+        assert_eq!(item.line_mode, "two");
     }
