@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
-import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, dbApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings } from "../services/api";
+import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, dbApi, statsApi, statsSettingsApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings } from "../services/api";
 import { Settings } from "./Settings";
 import { CodexSettings } from "./CodexSettings";
 import { PricingTab } from "./PricingTab";
@@ -36,6 +36,8 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
   const [message, setMessage] = useState("");
   const [appVersion, setAppVersion] = useState("");
   const [dbCompacting, setDbCompacting] = useState(false);
+  const [statsRetention, setStatsRetention] = useState(365);
+  const [statsRebuilding, setStatsRebuilding] = useState(false);
   const [proxyClient, setProxyClient] = useState<ProxyClientSettings>({
     enabled: false, proxy_type: "socks5", host: "127.0.0.1", port: 7890,
     username: "", password: "", dns_over_proxy: true,
@@ -89,6 +91,10 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
       try {
         const pc = await proxyApi.getProxyClientSettings();
         setProxyClient(pc);
+      } catch { /* defaults */ }
+      try {
+        const ss = await statsSettingsApi.get();
+        setStatsRetention(ss.retention_days);
       } catch { /* defaults */ }
     })();
   }, []);
@@ -185,6 +191,22 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
       setMessage(t("settings.dbCompactDone", "{{before}} MB → {{after}} MB（省 {{pct}}%）", { before: beforeMB, after: afterMB, pct: String(pct) }));
     } catch (e: any) { setMessage(e.toString()); }
     finally { setDbCompacting(false); }
+  };
+
+  const handleStatsRetentionChange = async (v: number) => {
+    setStatsRetention(v);
+    try {
+      await statsSettingsApi.set({ retention_days: v });
+    } catch (e: any) { setMessage(e.toString()); }
+  };
+
+  const handleStatsRebuild = async () => {
+    setStatsRebuilding(true);
+    try {
+      await statsApi.rebuildFromLogs();
+      setMessage(t("stats.rebuildDone", "聚合统计已从日志重建"));
+    } catch (e: any) { setMessage(e.toString()); }
+    finally { setStatsRebuilding(false); }
   };
 
   const handleTimeoutChange = async (req: number, conn: number) => {
@@ -647,6 +669,55 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
             >
               {dbCompacting ? t("common.loading", "加载中…") : t("settings.dbCompact", "立即压缩数据库")}
             </button>
+          </div>
+
+          {/* Aggregate Stats — 聚合统计表保留与重建（与日志开关解耦：关日志也累计统计） */}
+          <div className="glass-surface" style={{
+            padding: "16px 20px",
+            display: "flex",
+            flexDirection: "column",
+            gap: 12,
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{t("stats.aggSettings", "聚合统计")}</div>
+              <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                {t("stats.aggSettingsHint", "使用统计独立累计，不受请求日志开关影响")}
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
+                {t("stats.aggRetention", "统计保留天数")}
+              </label>
+              <input
+                className="input"
+                type="number"
+                min={0}
+                value={statsRetention}
+                onChange={(e) => handleStatsRetentionChange(Math.max(0, Number(e.target.value)))}
+                style={{ width: 70 }}
+              />
+              <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                {statsRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
+              </span>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+              <div className="text-secondary" style={{ fontSize: 12 }}>
+                {t("stats.rebuildHint", "从历史请求日志全量重建聚合统计表")}
+              </div>
+              <button
+                className="btn"
+                onClick={handleStatsRebuild}
+                disabled={statsRebuilding}
+                style={{
+                  padding: "7px 16px", fontSize: 13, cursor: statsRebuilding ? "not-allowed" : "pointer",
+                  borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
+                  background: "transparent", color: "var(--text-primary)",
+                  opacity: statsRebuilding ? 0.6 : 1, whiteSpace: "nowrap",
+                }}
+              >
+                {statsRebuilding ? t("common.loading", "加载中…") : t("stats.rebuild", "从日志重建统计")}
+              </button>
+            </div>
           </div>
 
           {/* Application Logging */}
