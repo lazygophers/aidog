@@ -1,5 +1,6 @@
-// ─── 首页 · 总览仪表盘 ──────────────────────────────────
-// 一眼概览 + 入口：代理状态/端口 + 今日用量 + 分组/平台速览·总余额 + 快捷操作。
+// ─── 首页 · 指挥中心 (Command Center) ──────────────────────────────────
+// 一屏掌控：顶部代理状态条 → 大 KPI 数字带（今日花费/Token/请求/缓存）→ 放大趋势主图（24h 双曲线）
+// → 底部双栏（分组平台速览·总余额 | 今日平台 Top5）→ 快捷操作。
 // 从现有设计系统长出（Liquid Glass + CSS 变量 + 共享组件 / formatters / usageColor），
 // 真实数据 only，无数据留诚实空态；深度分析留 Stats，本页只做概览与跳转入口。
 
@@ -21,7 +22,7 @@ import {
 } from "../services/api";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
 import { smoothPath } from "../utils/chart";
-import { StatChip, BalanceBar, costLevel, levelColor } from "../components/shared";
+import { BalanceBar, costLevel, levelColor } from "../components/shared";
 import {
   IconCost,
   IconBolt,
@@ -32,7 +33,7 @@ import {
   IconLogs,
 } from "../components/icons";
 
-const F = { title: 20, label: 15, body: 14, hint: 13, small: 12 } as const;
+const F = { title: 20, kpi: 30, label: 15, body: 14, hint: 13, small: 12 } as const;
 const DEFAULT_PORT = 7890;
 const TOP_PLATFORMS = 5;
 
@@ -65,6 +66,21 @@ function CopyButton({ text, title, label, size = 14 }: { text: string; title?: s
       )}
       {label && <span style={{ fontWeight: 500 }}>{label}</span>}
     </button>
+  );
+}
+
+/** 大 KPI 单元：放大数字 + 小图标标签。今日概览的视觉主角之一。 */
+function KpiCell({ icon, value, label, color }: { icon: React.ReactNode; value: string; label: string; color?: string }) {
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 110 }}>
+      <span style={{ fontSize: F.kpi, fontWeight: 700, lineHeight: 1.05, color: color ?? "var(--text-primary)", letterSpacing: "-0.01em" }}>
+        {value}
+      </span>
+      <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 5 }}>
+        <span style={{ display: "inline-flex", opacity: 0.85 }}>{icon}</span>
+        {label}
+      </span>
+    </div>
   );
 }
 
@@ -139,9 +155,9 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
       </div>
 
       {/* 1. 状态条：代理运行状态 + 端口 + 复制 base_url */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+      <div className="glass-surface" style={{ padding: "14px 20px", display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{ width: 9, height: 9, borderRadius: "50%", background: statusColor, flexShrink: 0 }} />
+          <span style={{ width: 9, height: 9, borderRadius: "50%", background: statusColor, flexShrink: 0, boxShadow: running ? "0 0 0 4px color-mix(in srgb, var(--color-success) 18%, transparent)" : "none" }} />
           <span style={{ fontSize: F.body, fontWeight: 600 }}>{t("home.proxyStatus", "代理服务")}</span>
           <span style={{ fontSize: F.body, fontWeight: 700, color: statusColor }}>{statusText}</span>
         </div>
@@ -155,30 +171,30 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
         </div>
       </div>
 
-      {/* 2. 今日概览：StatChip × 4（无数据 → 诚实空态） */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* 2. 大 KPI 数字带：今日花费 / Token / 请求 / 缓存率（视觉主角 · 无数据诚实空态） */}
+      <div className="glass-surface" style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.todayTitle", "今日概览")}</div>
         {hasTodayData ? (
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <StatChip
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 18, columnGap: 28 }}>
+            <KpiCell
               icon={<IconCost size={13} />}
               value={formatCostUsd(today!.cost)}
               label={t("home.cost", "费用")}
               color={levelColor(costLevel(today!.cost))}
             />
-            <StatChip icon={<IconBolt size={13} />} value={formatNumber(today!.tokens)} label={t("home.tokens", "Token")} />
-            <StatChip icon={<IconLogs size={13} />} value={formatNumber(today!.total_requests)} label={t("home.requests", "请求")} />
-            <StatChip icon={<IconPackage size={13} />} value={formatPercent(today!.cache_rate)} label={t("home.cacheRate", "缓存率")} />
+            <KpiCell icon={<IconBolt size={13} />} value={formatNumber(today!.tokens)} label={t("home.tokens", "Token")} />
+            <KpiCell icon={<IconLogs size={13} />} value={formatNumber(today!.total_requests)} label={t("home.requests", "请求")} />
+            <KpiCell icon={<IconPackage size={13} />} value={formatPercent(today!.cache_rate)} label={t("home.cacheRate", "缓存率")} />
           </div>
         ) : (
-          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "4px 0" }}>
+          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "8px 0" }}>
             {t("home.noToday", "今日暂无请求")}
           </div>
         )}
       </div>
 
-      {/* 3. 请求趋势 · 今日（hourly 双曲线图：请求数 + tokens 总数） */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+      {/* 3. 放大趋势主图 · 今日（hourly 双曲线：请求数 + tokens 总数） */}
+      <div className="glass-surface" style={{ padding: "18px 22px", display: "flex", flexDirection: "column", gap: 14 }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.trendTitle", "请求趋势 · 今日")}</div>
           {hasTrend && (
@@ -201,18 +217,18 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
         </div>
         {hasTrend ? (
           (() => {
-            // SVG 双曲线图：请求数（accent）+ tokens 总数（info）
+            // SVG 双曲线图：请求数（accent）+ tokens 总数（info）。指挥中心 → 高度放大到 150。
             const W = 1000;            // viewBox 宽
-            const H = 80;              // viewBox 高
-            const PAD_T = 6;           // 顶部留白
+            const H = 150;             // viewBox 高（放大主图）
+            const PAD_T = 10;          // 顶部留白
             const n = trendBuckets.length;
             const plotH = H - PAD_T;
             const xAt = (i: number) => n > 1 ? (i / (n - 1)) * W : W / 2;
 
-            // 请求数归一化（原有逻辑）
+            // 请求数归一化
             const yAtRequests = (v: number) => PAD_T + (trendPeak > 0 ? (1 - v / trendPeak) : 1) * plotH;
 
-            // tokens 总数归一化（新加）
+            // tokens 总数归一化
             const tokensPeak = trendBuckets.reduce((m, b) => {
               const totalTokens = b.input_tokens + b.output_tokens + b.cache_tokens;
               return Math.max(m, totalTokens);
@@ -234,10 +250,10 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
 
             return (
               <div style={{ position: "relative", display: "flex", flexDirection: "column", gap: 2 }}>
-                <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 80, display: "block", overflow: "visible" }}>
+                <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ width: "100%", height: 150, display: "block", overflow: "visible" }}>
                   <defs>
                     <linearGradient id="homeTrendArea" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.28" />
+                      <stop offset="0%" stopColor="var(--accent)" stopOpacity="0.26" />
                       <stop offset="100%" stopColor="var(--accent)" stopOpacity="0.02" />
                     </linearGradient>
                   </defs>
@@ -382,60 +398,67 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
             );
           })()
         ) : (
-          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "4px 0" }}>
+          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "8px 0" }}>
             {t("home.trendEmpty", "今日暂无请求")}
           </div>
         )}
       </div>
 
-      {/* 4. 分组 / 平台速览 + 总余额 + 平台今日用量 top N */}
-      <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
-        <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.overviewTitle", "分组 / 平台速览")}</div>
-        <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-start" }}>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontSize: F.title, fontWeight: 700 }}>{groups.length}</span>
-            <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("home.groups", "分组")}</span>
-          </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-            <span style={{ fontSize: F.title, fontWeight: 700 }}>{platforms.length}</span>
-            <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
-              {t("home.platforms", "平台")}
-              {platforms.length > 0 && (
-                <span style={{ marginLeft: 4 }}>{t("home.enabledCount", "{{count}} 启用", { count: enabledCount })}</span>
-              )}
-            </span>
+      {/* 4. 底部双栏：左=分组/平台速览·总余额  右=今日平台用量 Top5 */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: 16, alignItems: "stretch" }}>
+        {/* 左：分组/平台速览 + 总余额 */}
+        <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
+          <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.overviewTitle", "分组 / 平台速览")}</div>
+          <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "flex-start" }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: F.title, fontWeight: 700 }}>{groups.length}</span>
+              <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("home.groups", "分组")}</span>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+              <span style={{ fontSize: F.title, fontWeight: 700 }}>{platforms.length}</span>
+              <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
+                {t("home.platforms", "平台")}
+                {platforms.length > 0 && (
+                  <span style={{ marginLeft: 4 }}>{t("home.enabledCount", "{{count}} 启用", { count: enabledCount })}</span>
+                )}
+              </span>
+            </div>
           </div>
           {totalBalance > 0 && (
-            <div style={{ minWidth: 160, display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
               <span style={{ fontSize: F.small, color: "var(--text-tertiary)", display: "inline-flex", alignItems: "center", gap: 4 }}>
                 <IconCard size={12} /> {t("home.totalBalance", "总余额")}
               </span>
               <BalanceBar remaining={totalBalance} />
             </div>
           )}
+          {!loading && groups.length === 0 && platforms.length === 0 && (
+            <div style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("home.noPlatforms", "暂无分组或平台")}</div>
+          )}
         </div>
 
-        {/* 平台今日用量 top N */}
-        {topPlatforms.length > 0 && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, borderTop: "1px solid var(--border)", paddingTop: 12 }}>
-            <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{t("home.topPlatforms", "今日平台用量")}</span>
-            {topPlatforms.map(p => (
-              <div key={p.platform_id} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
-                <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                  <span style={{ fontSize: F.hint, fontWeight: 500, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.platform_name}</span>
-                  <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{formatNumber(p.requests)} · {formatNumber(p.tokens)}</span>
-                  <span style={{ fontSize: F.hint, fontWeight: 700, color: levelColor(costLevel(p.cost)) }}>{formatCostUsd(p.cost)}</span>
+        {/* 右：今日平台用量 Top5 */}
+        <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
+          <span style={{ fontSize: F.label, fontWeight: 600 }}>{t("home.topPlatforms", "今日平台用量")}</span>
+          {topPlatforms.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {topPlatforms.map(p => (
+                <div key={p.platform_id} style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                    <span style={{ fontSize: F.hint, fontWeight: 500, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.platform_name}</span>
+                    <span style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>{formatNumber(p.requests)} · {formatNumber(p.tokens)}</span>
+                    <span style={{ fontSize: F.hint, fontWeight: 700, color: levelColor(costLevel(p.cost)) }}>{formatCostUsd(p.cost)}</span>
+                  </div>
+                  <div style={{ height: 4, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", overflow: "hidden" }}>
+                    <div style={{ width: `${maxPlatformCost > 0 ? (p.cost / maxPlatformCost) * 100 : 0}%`, height: "100%", background: "var(--accent)", borderRadius: "var(--radius-sm)", transition: "width 0.3s ease" }} />
+                  </div>
                 </div>
-                <div style={{ height: 4, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", overflow: "hidden" }}>
-                  <div style={{ width: `${maxPlatformCost > 0 ? (p.cost / maxPlatformCost) * 100 : 0}%`, height: "100%", background: "var(--accent)", borderRadius: "var(--radius-sm)", transition: "width 0.3s ease" }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-        {!loading && groups.length === 0 && platforms.length === 0 && (
-          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)" }}>{t("home.noPlatforms", "暂无分组或平台")}</div>
-        )}
+              ))}
+            </div>
+          ) : (
+            <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "4px 0" }}>{t("home.noToday", "今日暂无请求")}</div>
+          )}
+        </div>
       </div>
 
       {/* 5. 快捷操作 */}
