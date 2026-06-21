@@ -495,6 +495,68 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
     })
 }
 
+/// 将 ChatStreamEvent 转为 OpenAI SSE 格式
+pub fn to_openai_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
+    match event {
+        ChatStreamEvent::Start { id, .. } => Some(format!(
+            "data: {}\n\n",
+            serde_json::json!({
+                "id": id,
+                "object": "chat.completion.chunk",
+                "model": model,
+                "choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}, "finish_reason": null}]
+            })
+        )),
+        ChatStreamEvent::Delta { text } => Some(format!(
+            "data: {}\n\n",
+            serde_json::json!({
+                "id": "",
+                "object": "chat.completion.chunk",
+                "choices": [{"index": 0, "delta": {"content": text}, "finish_reason": null}]
+            })
+        )),
+        ChatStreamEvent::ToolDelta { index, id, name, input } => {
+            let mut parts = Vec::new();
+            if let (Some(id), Some(name)) = (id, name) {
+                parts.push(format!(
+                    "data: {}\n\n",
+                    serde_json::json!({
+                        "id": "",
+                        "object": "chat.completion.chunk",
+                        "choices": [{"index": 0, "delta": {"tool_calls": [{"index": index, "id": id, "type": "function", "function": {"name": name, "arguments": ""}}]}, "finish_reason": null}]
+                    })
+                ));
+            }
+            if let Some(input) = input {
+                parts.push(format!(
+                    "data: {}\n\n",
+                    serde_json::json!({
+                        "id": "",
+                        "object": "chat.completion.chunk",
+                        "choices": [{"index": 0, "delta": {"tool_calls": [{"index": index, "function": {"arguments": input}}]}, "finish_reason": null}]
+                    })
+                ));
+            }
+            if parts.is_empty() { None } else { Some(parts.join("")) }
+        },
+        ChatStreamEvent::Stop { finish_reason } => {
+            let reason = match finish_reason.as_deref().unwrap_or("end_turn") {
+                "end_turn" => "stop",
+                other => other,
+            };
+            Some(format!(
+                "data: {}\n\ndata: [DONE]\n\n",
+                serde_json::json!({
+                    "id": "",
+                    "object": "chat.completion.chunk",
+                    "choices": [{"index": 0, "delta": {}, "finish_reason": reason}]
+                })
+            ))
+        },
+        ChatStreamEvent::Usage { .. } => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -595,67 +657,5 @@ mod tests {
         let out = to_openai(&req);
         assert_eq!(out.messages.len(), 1);
         assert_eq!(out.messages[0].content, Some(Value::String("part1\npart2".into())));
-    }
-}
-
-/// 将 ChatStreamEvent 转为 OpenAI SSE 格式
-pub fn to_openai_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
-    match event {
-        ChatStreamEvent::Start { id, .. } => Some(format!(
-            "data: {}\n\n",
-            serde_json::json!({
-                "id": id,
-                "object": "chat.completion.chunk",
-                "model": model,
-                "choices": [{"index": 0, "delta": {"role": "assistant", "content": ""}, "finish_reason": null}]
-            })
-        )),
-        ChatStreamEvent::Delta { text } => Some(format!(
-            "data: {}\n\n",
-            serde_json::json!({
-                "id": "",
-                "object": "chat.completion.chunk",
-                "choices": [{"index": 0, "delta": {"content": text}, "finish_reason": null}]
-            })
-        )),
-        ChatStreamEvent::ToolDelta { index, id, name, input } => {
-            let mut parts = Vec::new();
-            if let (Some(id), Some(name)) = (id, name) {
-                parts.push(format!(
-                    "data: {}\n\n",
-                    serde_json::json!({
-                        "id": "",
-                        "object": "chat.completion.chunk",
-                        "choices": [{"index": 0, "delta": {"tool_calls": [{"index": index, "id": id, "type": "function", "function": {"name": name, "arguments": ""}}]}, "finish_reason": null}]
-                    })
-                ));
-            }
-            if let Some(input) = input {
-                parts.push(format!(
-                    "data: {}\n\n",
-                    serde_json::json!({
-                        "id": "",
-                        "object": "chat.completion.chunk",
-                        "choices": [{"index": 0, "delta": {"tool_calls": [{"index": index, "function": {"arguments": input}}]}, "finish_reason": null}]
-                    })
-                ));
-            }
-            if parts.is_empty() { None } else { Some(parts.join("")) }
-        },
-        ChatStreamEvent::Stop { finish_reason } => {
-            let reason = match finish_reason.as_deref().unwrap_or("end_turn") {
-                "end_turn" => "stop",
-                other => other,
-            };
-            Some(format!(
-                "data: {}\n\ndata: [DONE]\n\n",
-                serde_json::json!({
-                    "id": "",
-                    "object": "chat.completion.chunk",
-                    "choices": [{"index": 0, "delta": {}, "finish_reason": reason}]
-                })
-            ))
-        },
-        ChatStreamEvent::Usage { .. } => None,
     }
 }
