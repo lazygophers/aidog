@@ -1,0 +1,28 @@
+{
+  "id": "rs-file-split",
+  "name": "rs-file-split",
+  "title": "Rust 文件拆分: 所有 .rs ≤500 行(目标≤300)",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "nico",
+  "assignee": "nico",
+  "createdAt": "2026-06-21",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "06-21-split-db"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}
