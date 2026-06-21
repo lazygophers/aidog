@@ -1133,9 +1133,6 @@ pub struct ProxyLog {
     pub updated_at: i64,
     #[serde(default)]
     pub deleted_at: i64,
-    /// 终态标记：仅请求首个真实终态写入时置 true（见 db.rs upsert_log is_terminal 分支）。
-    #[serde(default)]
-    pub is_final: bool,
 }
 
 /// 平台使用统计（从 proxy_logs 聚合）

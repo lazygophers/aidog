@@ -559,9 +559,9 @@ impl Db {
                 // 统计读取改查预聚合表，写入解耦于日志开关（关日志也写聚合）。回填幂等
                 // （NOT EXISTS 空表守卫），见 migrations/011_stats_agg_hourly.sql。
                 conn.execute_batch(include_str!("../../migrations/011_stats_agg_hourly.sql"))?;
-                // Migration 033: proxy_log 终态标记列 is_final（见 migrations/012_proxy_log_is_final.sql）。
-                // 旧库补列：ALTER 无 IF NOT EXISTS → 重复列报错忽略。终态首次写入时由 upsert_log 置 1。
-                let _ = conn.execute("ALTER TABLE proxy_log ADD COLUMN is_final INTEGER NOT NULL DEFAULT 0", []);
+                // Migration 033: 删除无意义的 proxy_log.is_final 列（旧版本曾 ALTER 加过）。
+                // bundled sqlite 支持 DROP COLUMN；列不存在则报错忽略（新库本就无此列）。
+                let _ = conn.execute("ALTER TABLE proxy_log DROP COLUMN is_final", []);
                 Ok(())
             })
             .await
@@ -2651,7 +2651,7 @@ pub async fn cleanup_notifications(db: &Db, retention_days: u32) -> Result<(), S
 
 /// proxy_log 全列序（INSERT / 单行 SELECT 共用，与表定义列序一致）
 const PROXY_LOG_COLUMNS: &str =
-    "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at, is_final";
+    "id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, request_headers, request_body, upstream_request_headers, upstream_request_body, response_body, request_url, upstream_request_url, upstream_response_headers, upstream_status_code, user_response_headers, user_response_body, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, attempts, retry_count, blocked_by, blocked_reason, created_at, updated_at, deleted_at";
 
 /// 从查询行构造 ProxyLog（列序须与 PROXY_LOG_COLUMNS 一致）
 fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
@@ -2688,7 +2688,6 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
         created_at: row.get(29)?,
         updated_at: row.get(30)?,
         deleted_at: row.get(31)?,
-        is_final: row.get::<_, i64>(32)? == 1,
     })
 }
 
@@ -2701,8 +2700,8 @@ pub async fn upsert_proxy_log(db: &Db, log: super::models::ProxyLog) -> Result<(
             let attempts_str = super::models::serialize_attempts(&log.attempts);
             conn.execute(
                 &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33)"),
-                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at, log.is_final as i64],
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32)"),
+                params![log.id, log.group_key, log.model, log.actual_model, log.source_protocol, log.target_protocol, log.platform_id as i64, log.request_headers, log.request_body, log.upstream_request_headers, log.upstream_request_body, log.response_body, log.request_url, log.upstream_request_url, log.upstream_response_headers, log.upstream_status_code, log.user_response_headers, log.user_response_body, log.status_code, log.duration_ms, log.input_tokens, log.output_tokens, log.cache_tokens, log.est_cost, log.is_stream as i64, attempts_str, log.retry_count, log.blocked_by, log.blocked_reason, log.created_at, log.updated_at, log.deleted_at],
             )?;
             Ok(())
         })
@@ -2751,8 +2750,6 @@ pub struct ProxyLogColumns {
     pub created_at: i64,
     pub updated_at: i64,
     pub deleted_at: i64,
-    /// 终态标记：仅请求首个真实终态（status!=0 且非流式占位）写入时置 1，标记本行为最终结果。
-    pub is_final: i64,
 }
 
 impl ProxyLogColumns {
@@ -2796,8 +2793,6 @@ impl ProxyLogColumns {
             created_at: log.created_at,
             updated_at: log.updated_at,
             deleted_at: log.deleted_at,
-            // 默认沿用 log.is_final；终态置位由 upsert_log 在 is_terminal 分支显式覆盖。
-            is_final: log.is_final as i64,
         }
     }
 
@@ -2842,7 +2837,6 @@ impl ProxyLogColumns {
         diff!("created_at", created_at);
         diff!("updated_at", updated_at);
         diff!("deleted_at", deleted_at);
-        diff!("is_final", is_final);
         out
     }
 }
@@ -2853,8 +2847,8 @@ pub async fn insert_proxy_log_columns(db: &Db, cols: ProxyLogColumns) -> Result<
         .call(move |conn| {
             conn.execute(
                 &format!("INSERT INTO proxy_log ({PROXY_LOG_COLUMNS})
-                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32,?33)"),
-                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at, cols.is_final],
+                 VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32)"),
+                params![cols.id, cols.group_key, cols.model, cols.actual_model, cols.source_protocol, cols.target_protocol, cols.platform_id, cols.request_headers, cols.request_body, cols.upstream_request_headers, cols.upstream_request_body, cols.response_body, cols.request_url, cols.upstream_request_url, cols.upstream_response_headers, cols.upstream_status_code, cols.user_response_headers, cols.user_response_body, cols.status_code, cols.duration_ms, cols.input_tokens, cols.output_tokens, cols.cache_tokens, cols.est_cost, cols.is_stream, cols.attempts, cols.retry_count, cols.blocked_by, cols.blocked_reason, cols.created_at, cols.updated_at, cols.deleted_at],
             )?;
             Ok(())
         })
@@ -5438,7 +5432,6 @@ mod tests {
             created_at,
             updated_at: created_at,
             deleted_at: 0,
-            is_final: false,
         }
     }
 
