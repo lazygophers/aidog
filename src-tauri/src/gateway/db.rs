@@ -17,11 +17,13 @@ use super::models::*;
 /// 读取本上下文，把 request_id + 调用位置拼进 SQL 日志。
 #[derive(Default, Clone)]
 struct DbCallCtx {
-    /// 发起该操作的 request_id（代理请求路径）或固定标签（如 "bg" / command 名）。
-    /// `None` → 日志显示 `-`。
+    /// 发起该操作的真实唯一链路 id：代理请求路径 = request_id；命令 / 后台 / 启动路径 =
+    /// 当前 span（command span 的 trace_id / 后台轮询 span / init span）的 id；环境无任何
+    /// 带 id 的 span 时由 `call_traced` 当场 `new_trace_id()` 兜底生成。**永不为固定常量**。
     req: Option<String>,
-    /// 发起该 `.call` 的 Rust 调用位置（`call_traced` 经 `#[track_caller]` 捕获）。
-    /// `None` → 日志显示 `-`。
+    /// 发起该 `.call` 的 **业务调用位置**（file:line）。由各 Db 公开方法 `#[track_caller]`
+    /// 在入口 `Location::caller()` 捕获后显式传给 `call_traced`，故指向 proxy.rs / lib.rs /
+    /// router.rs 等业务代码，而非 db.rs 内部 helper 行。
     caller: Option<&'static std::panic::Location<'static>>,
 }
 
@@ -48,7 +50,11 @@ fn sql_profile_callback(sql: &str, dur: std::time::Duration) {
     let (req, caller) = CURRENT_DB_CTX.with(|c| {
         let c = c.borrow();
         (
-            c.req.clone().unwrap_or_else(|| "-".to_string()),
+            // call_traced 保证 req 永远是真实唯一 id（环境捕获或兜底生成），此处
+            // unwrap_or 仅防御未经 call_traced 的极端旁路，同样不输出固定常量。
+            c.req
+                .clone()
+                .unwrap_or_else(crate::logging::new_trace_id),
             c.caller.map(fmt_caller).unwrap_or_else(|| "-".to_string()),
         )
     });
@@ -235,29 +241,43 @@ impl Db {
     }
 
     /// DB 调用 chokepoint：与 `tokio_rusqlite::Connection::call` 同形（同闭包签名 / 返回
-    /// 类型），额外接收一个 `req` 标签（代理请求路径传 request_id；后台 / 命令路径传
-    /// `Some("bg")` / 命令名 / `None`）。`#[track_caller]` 捕获**调用本方法的** Rust
-    /// 位置（file:line），与 `req` 一起在闭包进入 DB 线程时写入 `CURRENT_DB_CTX`，供
-    /// `sql_profile_callback` 读出拼进 SQL 日志，闭包结束（含 panic）后清空。
+    /// 类型）。
+    ///
+    /// 链路 id（日志 `req=`）取值优先级：
+    /// 1. 显式 `req`（代理请求路径传 request_id = proxy_log.id）；
+    /// 2. 环境捕获：当前活跃 span（command span 的 trace_id / 后台轮询 span / init span）
+    ///    的链路 id（`crate::logging::current_trace_id()`），免逐站点传参；
+    /// 3. 兜底：`crate::logging::new_trace_id()` 当场生成真实唯一 id。
+    ///
+    /// **永不为 "bg" / "-" 等固定常量。**
+    ///
+    /// `caller` 为 **业务调用位置**，由各 Db 公开方法 `#[track_caller]` 在入口捕获后显式
+    /// 传入（指向 proxy.rs / lib.rs 等业务代码而非 db.rs 内部行）。req + caller 在闭包进入
+    /// DB 线程时写入 `CURRENT_DB_CTX`，供 `sql_profile_callback` 读出拼进 SQL 日志，闭包
+    /// 结束（含 panic）后清空。
     ///
     /// 串行执行保证（tokio-rusqlite 单后台线程）→ 同一时刻仅一个闭包持有该 thread-local，
     /// 不会串味；set/clear 各一次，开销可忽略，无锁竞争。
-    #[track_caller]
     pub fn call_traced<F, R>(
         &self,
         req: Option<&str>,
+        caller: &'static std::panic::Location<'static>,
         f: F,
     ) -> impl std::future::Future<Output = tokio_rusqlite::Result<R>>
     where
         F: FnOnce(&mut Connection) -> tokio_rusqlite::Result<R> + Send + 'static,
         R: Send + 'static,
     {
-        // 在 chokepoint 本体（非 async block）捕获调用位置，确保 `#[track_caller]`
-        // 指向真正的 db 调用方。clone AsyncConnection（仅 channel sender，廉价）并 move
-        // 进 async block，使返回 future 为 `'static`（不借 &self），形态等价于原
-        // `db.0.call(..).await`。
-        let caller = std::panic::Location::caller();
-        let req = req.map(|s| s.to_string());
+        // 在调用方线程（投递 DB 前）解析链路 id：显式 req > 环境 span 捕获 > 兜底生成。
+        // current_trace_id 必须在此（调用方 tokio worker 线程，span 处于活跃态）读取，
+        // 不能在 DB 后台线程读（那里无 span 上下文）。
+        let req = req
+            .map(|s| s.to_string())
+            .or_else(crate::logging::current_trace_id)
+            .unwrap_or_else(crate::logging::new_trace_id);
+        let req = Some(req);
+        // clone AsyncConnection（仅 channel sender，廉价）并 move 进 async block，使返回
+        // future 为 `'static`（不借 &self），形态等价于原 `db.0.call(..).await`。
         let conn = self.0.clone();
         async move {
             // 包装用户闭包：进入 DB 线程时 set 上下文，离开（含 panic）时 guard 清空。
@@ -314,9 +334,12 @@ impl Db {
         self.invalidate_groups_cache();
     }
 
-    pub async fn init_tables(&self) -> Result<(), String> {
+    #[track_caller]
+    pub fn init_tables(&self) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+        let __db_caller = std::panic::Location::caller();
+        async move {
         self
-            .call_traced(None, |conn| {
+            .call_traced(None, __db_caller, |conn| {
                 conn.execute_batch(include_str!("../../migrations/001_init.sql"))?;
                 conn.execute_batch(include_str!("../../migrations/002_log_filter_indexes.sql"))?;
                 conn.execute_batch(include_str!("../../migrations/003_model_price.sql"))?;
@@ -665,6 +688,7 @@ impl Db {
             })
             .await
             .map_err(|e| e.to_string())
+        }
     }
 }
 
@@ -897,7 +921,10 @@ fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
     })
 }
 
-pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platform, String> {
+#[track_caller]
+pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::Future<Output = Result<Platform, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ts = now();
     let platform_type_str = serde_json::to_string(&input.platform_type).unwrap();
     // If name is empty, auto-generate: {platform_type}-{random8}
@@ -917,7 +944,7 @@ pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platf
 
     let id = db
         
-        .call_traced(None, {
+        .call_traced(None, __db_caller, {
             let name = input.name.clone();
             let base_url = input.base_url.clone();
             let api_key = input.api_key.clone();
@@ -962,11 +989,15 @@ pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platf
         auto_disable_strikes: 0,
         balance_level: String::new(),
     })
+    }
 }
 
-pub async fn list_platforms(db: &Db) -> Result<Vec<Platform>, String> {
+#[track_caller]
+pub fn list_platforms(db: &Db) -> impl std::future::Future<Output = Result<Vec<Platform>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, |conn| {
+        .call_traced(None, __db_caller, |conn| {
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE deleted_at = 0 ORDER BY sort_order, created_at");
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], row_to_platform)?;
@@ -974,20 +1005,28 @@ pub async fn list_platforms(db: &Db) -> Result<Vec<Platform>, String> {
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
-pub async fn get_platform(db: &Db, id: u64) -> Result<Option<Platform>, String> {
+#[track_caller]
+pub fn get_platform(db: &Db, id: u64) -> impl std::future::Future<Output = Result<Option<Platform>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE id = ?1 AND deleted_at = 0");
             let mut stmt = conn.prepare(&sql)?;
             Ok(stmt.query_row(params![id as i64], row_to_platform).optional()?)
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
-pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform, String> {
+#[track_caller]
+pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Future<Output = Result<Platform, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let existing = get_platform(db, input.id).await?.ok_or("platform not found")?;
 
     // 手动预算：编辑表单只提供配置（kind/unit/amount/window_hours/enabled），
@@ -1065,7 +1104,7 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
     let endpoints_str = serialize_endpoints(&updated.endpoints);
     let manual_budgets_str = super::models::serialize_manual_budgets(&updated.manual_budgets);
     db
-        .call_traced(None, {
+        .call_traced(None, __db_caller, {
             let name = updated.name.clone();
             let base_url = updated.base_url.clone();
             let api_key = updated.api_key.clone();
@@ -1106,6 +1145,7 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
     db.invalidate_group_details_cache();
 
     Ok(updated)
+    }
 }
 
 /// 自动禁用退避基础时长（1 小时，毫秒）；第 n 次禁用退避 = BASE * 2^(strikes-1)。
@@ -1116,11 +1156,14 @@ const AUTO_DISABLE_MAX_STRIKES: i64 = 12; // 2^11 h ≈ 85 天封顶
 /// 401/403 触发：将平台标记 auto_disabled，strikes++，按指数退避计算下次试探时间。
 /// 仅在当前非用户手动 disabled 时生效（不覆盖用户主动关闭的平台）。
 /// 返回更新后的退避截止时间戳（毫秒），供日志记录。
-pub async fn set_platform_auto_disabled(db: &Db, id: u64) -> Result<i64, String> {
+#[track_caller]
+pub fn set_platform_auto_disabled(db: &Db, id: u64) -> impl std::future::Future<Output = Result<i64, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ts = now();
     let until = db
         
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             // 读当前状态 + strikes（仅对 enabled / auto_disabled 生效，跳过用户 disabled）
             let row: Option<(String, i64)> = conn
                 .query_row(
@@ -1151,6 +1194,7 @@ pub async fn set_platform_auto_disabled(db: &Db, id: u64) -> Result<i64, String>
     // status/auto_disabled_until 内嵌于 GroupDetail.platforms，失效保 Groups 页一致。
     db.invalidate_group_details_cache();
     Ok(until)
+    }
 }
 
 /// 连续多少次 404/405（死端点信号）后才临时禁用平台。
@@ -1164,15 +1208,18 @@ pub const DEAD_ENDPOINT_STRIKE_THRESHOLD: i64 = 3;
 /// 语义：404=端点不存在 / 405=方法不允许 → 该上游路径是死端点；连续 N 次确认非瞬时后隔离。
 /// 退避复用 401/403 同一指数机制（基于达阈后的额外 strikes 计算），不另起一套退避。
 /// 仅在当前非用户手动 disabled 时生效；返回 (新 strikes, 退避截止时间戳 / 未禁则 0)。
-pub async fn record_dead_endpoint_strike(
+#[track_caller]
+pub fn record_dead_endpoint_strike(
     db: &Db,
     id: u64,
     threshold: i64,
-) -> Result<(i64, i64), String> {
+) -> impl std::future::Future<Output = Result<(i64, i64), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ts = now();
     let res = db
         
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let row: Option<(String, i64)> = conn
                 .query_row(
                     "SELECT status, auto_disable_strikes FROM platform WHERE id = ?1 AND deleted_at = 0",
@@ -1212,15 +1259,19 @@ pub async fn record_dead_endpoint_strike(
     // strikes/status 内嵌于 GroupDetail.platforms（list_group_details 非热路径，失效廉价）。
     db.invalidate_group_details_cache();
     Ok(res)
+    }
 }
 
 /// 2xx 成功且平台仍 enabled 但有累计 strikes（死端点累计未达阈值）：清零计数。
 /// 一次成功即证明上游端点并非死端点，连续累计须从头重数（避免跨越长时间的偶发失败误累计）。
 /// 仅作用于 enabled 平台；auto_disabled 平台的恢复走 recover_platform_auto_disabled。
-pub async fn reset_dead_endpoint_strikes(db: &Db, id: u64) -> Result<(), String> {
+#[track_caller]
+pub fn reset_dead_endpoint_strikes(db: &Db, id: u64) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ts = now();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE platform SET auto_disable_strikes=0, updated_at=?1 WHERE id=?2 AND status='enabled' AND auto_disable_strikes>0",
                 params![ts, id as i64],
@@ -1231,14 +1282,18 @@ pub async fn reset_dead_endpoint_strikes(db: &Db, id: u64) -> Result<(), String>
         .map_err(|e| format!("reset dead-endpoint strikes: {e}"))?;
     db.invalidate_group_details_cache();
     Ok(())
+    }
 }
 
 /// 2xx 成功：若平台当前为 auto_disabled（试探成功），恢复 enabled 并清退避状态。
 /// 用户手动 disabled / 已 enabled 平台不动。
-pub async fn recover_platform_auto_disabled(db: &Db, id: u64) -> Result<(), String> {
+#[track_caller]
+pub fn recover_platform_auto_disabled(db: &Db, id: u64) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ts = now();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE platform SET status='enabled', enabled=1, auto_disable_strikes=0, auto_disabled_until=0, updated_at=?1 WHERE id=?2 AND status='auto_disabled'",
                 params![ts, id as i64],
@@ -1249,16 +1304,20 @@ pub async fn recover_platform_auto_disabled(db: &Db, id: u64) -> Result<(), Stri
         .map_err(|e| format!("recover platform auto-disabled: {e}"))?;
     db.invalidate_group_details_cache();
     Ok(())
+    }
 }
 
 /// 将 quota 查询结果写回 platform 表（余额 + coding plan JSON）。
 /// 直写 est_balance/est_coding_plan（不校准、不重置基线）。
 /// 已被 estimate::calibrate_from_quota 取代（真查须严格对齐 est=真实 + 重置拟合基线），保留备用。
 #[allow(dead_code)]
-pub async fn update_platform_quota(db: &Db, id: u64, balance: f64, coding_plan_json: &str) -> Result<(), String> {
+#[track_caller]
+pub fn update_platform_quota<'a>(db: &'a Db, id: u64, balance: f64, coding_plan_json: &'a str) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let coding_plan_json = coding_plan_json.to_string();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE platform SET est_balance_remaining = ?1, est_coding_plan = ?2 WHERE id = ?3",
                 params![balance, coding_plan_json, id as i64],
@@ -1269,13 +1328,17 @@ pub async fn update_platform_quota(db: &Db, id: u64, balance: f64, coding_plan_j
         .map_err(|e| format!("update platform quota: {e}"))?;
     db.invalidate_group_details_cache();
     Ok(())
+    }
 }
 
-pub async fn delete_platform(db: &Db, id: u64) -> Result<(), String> {
+#[track_caller]
+pub fn delete_platform(db: &Db, id: u64) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     // ① 软删平台 + 物理清除该平台在所有分组（含手动组与 auto 组）的成员关系。
     //    单事务保证：平台行软删与关联行清理同步，不留指向已删平台的悬空 group_platform。
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let tx = conn.transaction()?;
             tx.execute("UPDATE platform SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])?;
             tx.execute("DELETE FROM group_platform WHERE platform_id = ?1", params![id as i64])?;
@@ -1289,7 +1352,7 @@ pub async fn delete_platform(db: &Db, id: u64) -> Result<(), String> {
     //    若用户曾手动把别的平台拖进此 auto 组，则保留该组——不可因删源平台连带销毁其余成员的分组。
     let auto_group_ids: Vec<i64> = db
         
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             Ok(conn.prepare("SELECT id FROM \"group\" WHERE auto_from_platform = ?1 AND deleted_at = 0")?
                 .query_map(params![id.to_string()], |row| row.get(0))?
                 .collect::<SqlResult<Vec<i64>>>()?)
@@ -1307,6 +1370,7 @@ pub async fn delete_platform(db: &Db, id: u64) -> Result<(), String> {
     // 关联表已变更，刷新分组缓存（force_delete_group 内部也会刷，但无组可删时这里兜底）。
     db.invalidate_groups_cache();
     Ok(())
+    }
 }
 
 /// 清理失效平台（status='auto_disabled'）的结果。
@@ -1328,16 +1392,19 @@ pub struct PurgeResult {
 ///   - 属多分组（共享，活跃成员数 > 1）→ 仅删本分组的 `group_platform` 关联（platform 行保留）。
 ///
 /// 共享判定的活跃成员数计数必须 `deleted_at=0` 过滤，否则把已软删关联算进来会误判独占。
-pub async fn purge_auto_disabled_platforms(
+#[track_caller]
+pub fn purge_auto_disabled_platforms(
     db: &Db,
     group_id: Option<u64>,
-) -> Result<PurgeResult, String> {
+) -> impl std::future::Future<Output = Result<PurgeResult, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     match group_id {
         // ── 全局：删全库 auto_disabled 平台 ──
         None => {
             let ids: Vec<i64> = db
                 
-                .call_traced(None, |conn| {
+                .call_traced(None, __db_caller, |conn| {
                     let mut stmt = conn.prepare(
                         "SELECT id FROM platform WHERE status = 'auto_disabled' AND deleted_at = 0",
                     )?;
@@ -1364,7 +1431,7 @@ pub async fn purge_auto_disabled_platforms(
             // 本分组内 auto_disabled 平台 id（活跃关联 + 平台未软删）。
             let ids: Vec<i64> = db
                 
-                .call_traced(None, move |conn| {
+                .call_traced(None, __db_caller, move |conn| {
                     let mut stmt = conn.prepare(
                         "SELECT p.id FROM platform p \
                          JOIN group_platform gp ON gp.platform_id = p.id \
@@ -1384,7 +1451,7 @@ pub async fn purge_auto_disabled_platforms(
                 // 该平台跨全库的活跃分组成员数（deleted_at=0 过滤，避免软删残留误判独占）。
                 let member_count: i64 = db
                     
-                    .call_traced(None, move |conn| {
+                    .call_traced(None, __db_caller, move |conn| {
                         Ok(conn.query_row(
                             "SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1 AND deleted_at = 0",
                             params![pid],
@@ -1402,7 +1469,7 @@ pub async fn purge_auto_disabled_platforms(
                     // 共享（属多分组）→ 仅删本分组关联，platform 行保留。
                     // 对齐 move_group_platform 既有模式（db.rs:1622）：物理 DELETE + deleted_at=0 过滤当前活跃行。
                     db
-                        .call_traced(None, move |conn| {
+                        .call_traced(None, __db_caller, move |conn| {
                             conn.execute(
                                 "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
                                 params![gid_i, pid],
@@ -1422,6 +1489,7 @@ pub async fn purge_auto_disabled_platforms(
             })
         }
     }
+    }
 }
 
 /// 定时清理（内置每日）：永久删除软删超过阈值的平台行。
@@ -1429,11 +1497,14 @@ pub async fn purge_auto_disabled_platforms(
 /// - `delete_platform` 软删时已物理清除所有 `group_platform` 关联（db.rs:1040），此处仅 DELETE platform 行，
 ///   不留指向已删平台的悬空关联；孤儿 auto 组的清理由 `delete_platform` 当时完成，此处无需重做。
 /// - 返回删除行数。仅日志用途，失败仅 warn（定时任务非关键路径）。
-pub async fn purge_old_soft_deleted_platforms(db: &Db, older_than_secs: i64) -> Result<u64, String> {
+#[track_caller]
+pub fn purge_old_soft_deleted_platforms(db: &Db, older_than_secs: i64) -> impl std::future::Future<Output = Result<u64, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let cutoff = now() - older_than_secs;
     let n = db
         
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             Ok(conn.execute(
                 "DELETE FROM platform WHERE deleted_at > 0 AND deleted_at < ?1",
                 params![cutoff],
@@ -1442,17 +1513,21 @@ pub async fn purge_old_soft_deleted_platforms(db: &Db, older_than_secs: i64) -> 
         .await
         .map_err(|e| e.to_string())?;
     Ok(n)
+    }
 }
 
 // ─── Tray 展示（互斥单平台）─────────────────────────────────
 
 /// 互斥设置 tray 展示平台：单事务先清所有 show_in_tray，再置选中平台为 1。
 /// `tray_display`: "balance" | "coding"。
-pub async fn set_tray_platform(db: &Db, platform_id: u64, tray_display: &str) -> Result<(), String> {
+#[track_caller]
+pub fn set_tray_platform<'a>(db: &'a Db, platform_id: u64, tray_display: &'a str) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let display = if tray_display == "coding" { "coding" } else { "balance" }.to_string();
     let ts = now();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let tx = conn.transaction()?;
             tx.execute("UPDATE platform SET show_in_tray = 0, updated_at = ?1 WHERE show_in_tray = 1", params![ts])?;
             tx.execute(
@@ -1466,12 +1541,16 @@ pub async fn set_tray_platform(db: &Db, platform_id: u64, tray_display: &str) ->
         .map_err(|e| format!("set tray: {e}"))?;
     db.invalidate_group_details_cache();
     Ok(())
+    }
 }
 
 /// 清空所有 tray 展示（关闭）。
-pub async fn clear_tray(db: &Db) -> Result<(), String> {
+#[track_caller]
+pub fn clear_tray(db: &Db) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute("UPDATE platform SET show_in_tray = 0, updated_at = ?1 WHERE show_in_tray = 1", params![now()])?;
             Ok(())
         })
@@ -1479,18 +1558,23 @@ pub async fn clear_tray(db: &Db) -> Result<(), String> {
         .map_err(|e| format!("clear tray: {e}"))?;
     db.invalidate_group_details_cache();
     Ok(())
+    }
 }
 
 /// 取当前 tray 展示平台（show_in_tray = 1），无则 None。
-pub async fn get_tray_platform(db: &Db) -> Result<Option<Platform>, String> {
+#[track_caller]
+pub fn get_tray_platform(db: &Db) -> impl std::future::Future<Output = Result<Option<Platform>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, |conn| {
+        .call_traced(None, __db_caller, |conn| {
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE show_in_tray = 1 AND deleted_at = 0 LIMIT 1");
             let mut stmt = conn.prepare(&sql)?;
             Ok(stmt.query_row([], row_to_platform).optional()?)
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 // ─── Tray Config (settings: scope="tray", key="config") ────
@@ -1564,7 +1648,10 @@ pub async fn set_tray_config(db: &Db, cfg: &TrayConfig) -> Result<(), String> {
 
 /// 今日（本地时区 00:00 起）累计 token 总量（input + output），未删除日志。
 #[cfg(test)]
-pub async fn today_token_total(db: &Db) -> Result<i64, String> {
+#[track_caller]
+pub fn today_token_total(db: &Db) -> impl std::future::Future<Output = Result<i64, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     use chrono::{Local, TimeZone};
     let today = Local::now().date_naive();
     let start_dt = today.and_hms_opt(0, 0, 0).ok_or("invalid local midnight")?;
@@ -1575,7 +1662,7 @@ pub async fn today_token_total(db: &Db) -> Result<i64, String> {
     let start_ms = start_local.timestamp_millis();
 
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             Ok(conn.query_row(
                 "SELECT COALESCE(SUM(input_tokens + output_tokens), 0) FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
                 params![start_ms],
@@ -1584,6 +1671,7 @@ pub async fn today_token_total(db: &Db) -> Result<i64, String> {
         })
         .await
         .map_err(|e| format!("today token total: {e}"))
+    }
 }
 
 /// 今日统计摘要（供托盘预览使用）
@@ -1613,11 +1701,14 @@ fn local_today_hour_key() -> String {
 }
 
 /// 获取今日统计（本地时区 00:00 起，从聚合表 stats_agg_hourly 查）。
-pub async fn today_stats(db: &Db) -> Result<TodayStats, String> {
+#[track_caller]
+pub fn today_stats(db: &Db) -> impl std::future::Future<Output = Result<TodayStats, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let today_key = local_today_hour_key();
 
     db
-        .call_traced(Some("bg"), move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             // 基础统计（从聚合表：request_count 即请求数，sum_* 即各 token，sum_est_cost 即花费）。
             let (input_tokens, output_tokens, cache_tokens, total_requests, cost): (i64, i64, i64, i64, f64) = conn
                 .query_row(
@@ -1650,6 +1741,7 @@ pub async fn today_stats(db: &Db) -> Result<TodayStats, String> {
         })
         .await
         .map_err(|e| format!("today stats: {e}"))
+    }
 }
 
 /// 单平台当日使用统计（供 popover「各平台当日」展示）。
@@ -1672,11 +1764,14 @@ pub struct TodayPlatformStat {
 /// platform_id=0 的自动分组日志经 `group.auto_from_platform` 回溯到源平台后归并，
 /// 回溯不到（auto 分组已删 / 非 auto 分组的 platform_id=0）则归 platform_id=0（前端显「未知平台」）。
 /// 平台名 JOIN platform 表（含已软删平台，名仍可显示；查不到则空字符串）。
-pub async fn today_platform_stats(db: &Db) -> Result<Vec<TodayPlatformStat>, String> {
+#[track_caller]
+pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result<Vec<TodayPlatformStat>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let today_key = local_today_hour_key();
 
     db
-        .call_traced(Some("bg"), move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             // stats_agg_hourly.platform_id 已是 eff_pid（回溯后源平台 id），直接 GROUP BY 即可，
             // 无需再跑 auto 回溯子查询。GROUP BY 天然只含当日有用量的平台。
             let sql = "
@@ -1717,6 +1812,7 @@ pub async fn today_platform_stats(db: &Db) -> Result<Vec<TodayPlatformStat>, Str
         })
         .await
         .map_err(|e| format!("today platform stats: {e}"))
+    }
 }
 
 // ─── Popover Config (settings: scope="popover", key="config") ─
@@ -1826,7 +1922,10 @@ fn row_to_group(row: &rusqlite::Row) -> SqlResult<Group> {
     })
 }
 
-pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> {
+#[track_caller]
+pub fn create_group(db: &Db, input: CreateGroup) -> impl std::future::Future<Output = Result<Group, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ts = now();
     let routing_str = serde_json::to_string(&input.routing_mode).unwrap();
     let source_protocol = input.source_protocol.unwrap_or_else(|| "anthropic".to_string());
@@ -1840,7 +1939,7 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
 
     let id = db
         
-        .call_traced(None, {
+        .call_traced(None, __db_caller, {
             let name = input.name.clone();
             let group_key = group_key.clone();
             let auto_from_platform = input.auto_from_platform.clone();
@@ -1877,13 +1976,17 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
         max_retries: input.max_retries,
         is_default: false,
     })
+    }
 }
 
 /// 批量更新 group 的 sort_order：接收有序 id 列表，按序赋值 1, 2, 3, …
-pub async fn reorder_groups(db: &Db, ordered_ids: &[u64]) -> Result<(), String> {
+#[track_caller]
+pub fn reorder_groups<'a>(db: &'a Db, ordered_ids: &'a [u64]) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ordered_ids = ordered_ids.to_vec();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             for (i, &id) in ordered_ids.iter().enumerate() {
                 conn.execute(
                     "UPDATE \"group\" SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
@@ -1896,13 +1999,17 @@ pub async fn reorder_groups(db: &Db, ordered_ids: &[u64]) -> Result<(), String> 
         .map_err(|e| format!("reorder group: {e}"))?;
     db.invalidate_groups_cache();
     Ok(())
+    }
 }
 
 /// 批量更新 platform 的 sort_order
-pub async fn reorder_platforms(db: &Db, ordered_ids: &[u64]) -> Result<(), String> {
+#[track_caller]
+pub fn reorder_platforms<'a>(db: &'a Db, ordered_ids: &'a [u64]) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ordered_ids = ordered_ids.to_vec();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             for (i, &id) in ordered_ids.iter().enumerate() {
                 conn.execute(
                     "UPDATE platform SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
@@ -1915,19 +2022,23 @@ pub async fn reorder_platforms(db: &Db, ordered_ids: &[u64]) -> Result<(), Strin
         .map_err(|e| format!("reorder platform: {e}"))?;
     db.invalidate_group_details_cache();
     Ok(())
+    }
 }
 
 /// 批量更新某分组内平台的 priority（拖拽排序）。ordered_platform_ids 按序赋 1,2,3…
-pub async fn reorder_group_platforms(
-    db: &Db,
+#[track_caller]
+pub fn reorder_group_platforms<'a>(
+    db: &'a Db,
     group_id: u64,
-    ordered_platform_ids: &[u64],
-) -> Result<(), String> {
+    ordered_platform_ids: &'a [u64],
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let group_id = group_id as i64;
     let ordered = ordered_platform_ids.to_vec();
     let ts = now();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             for (i, &pid) in ordered.iter().enumerate() {
                 conn.execute(
                     "UPDATE group_platform SET priority = ?1, updated_at = ?2 \
@@ -1941,22 +2052,26 @@ pub async fn reorder_group_platforms(
         .map_err(|e| format!("reorder group platforms: {e}"))?;
     db.invalidate_group_details_cache();
     Ok(())
+    }
 }
 
 /// 设置某 group×platform 的 level_priority（per-group 平台优先级）。
 /// 入参 clamp 到 [1,10]；仅更新存在的关联行（不存在静默 no-op）。
-pub async fn set_group_platform_level_priority(
+#[track_caller]
+pub fn set_group_platform_level_priority(
     db: &Db,
     group_id: u64,
     platform_id: u64,
     level_priority: i32,
-) -> Result<(), String> {
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let lp = crate::gateway::models::clamp_level_priority(level_priority);
     let gid = group_id as i64;
     let pid = platform_id as i64;
     let ts = now();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE group_platform SET level_priority = ?1, updated_at = ?2 \
                  WHERE group_id = ?3 AND platform_id = ?4 AND deleted_at = 0",
@@ -1968,21 +2083,25 @@ pub async fn set_group_platform_level_priority(
         .map_err(|e| format!("set group platform level_priority: {e}"))?;
     db.invalidate_group_details_cache();
     Ok(())
+    }
 }
 
 /// 跨分组移动平台：从 from 组移除、加入 to 组（priority = to 组现有最大 + 1）。
-pub async fn move_group_platform(
+#[track_caller]
+pub fn move_group_platform(
     db: &Db,
     platform_id: u64,
     from_group_id: u64,
     to_group_id: u64,
-) -> Result<(), String> {
+) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let pid = platform_id as i64;
     let from = from_group_id as i64;
     let to = to_group_id as i64;
     let ts = now();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
                 params![from, pid],
@@ -2012,9 +2131,13 @@ pub async fn move_group_platform(
         .map_err(|e| format!("move group platform: {e}"))?;
     db.invalidate_group_details_cache();
     Ok(())
+    }
 }
 
-pub async fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
+#[track_caller]
+pub fn list_groups(db: &Db) -> impl std::future::Future<Output = Result<Vec<Group>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     if let Ok(g) = db.1.groups.read() {
         if let Some(cached) = g.as_ref() {
             return Ok(cached.clone());
@@ -2022,7 +2145,7 @@ pub async fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
     }
     let groups = db
         
-        .call_traced(None, |conn| {
+        .call_traced(None, __db_caller, |conn| {
             let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE deleted_at = 0 ORDER BY sort_order, created_at"))?;
             let rows = stmt.query_map([], row_to_group)?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
@@ -2033,19 +2156,27 @@ pub async fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
         *g = Some(groups.clone());
     }
     Ok(groups)
+    }
 }
 
-pub async fn get_group(db: &Db, id: u64) -> Result<Option<Group>, String> {
+#[track_caller]
+pub fn get_group(db: &Db, id: u64) -> impl std::future::Future<Output = Result<Option<Group>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE id = ?1 AND deleted_at = 0"))?;
             Ok(stmt.query_row(params![id as i64], row_to_group).optional()?)
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
-pub async fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> {
+#[track_caller]
+pub fn update_group(db: &Db, input: UpdateGroup) -> impl std::future::Future<Output = Result<Group, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let existing = get_group(db, input.id).await?.ok_or("group not found")?;
 
     let updated = Group {
@@ -2063,7 +2194,7 @@ pub async fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> 
     let routing_str = serde_json::to_string(&updated.routing_mode).unwrap();
     let mappings_str = serialize_mappings(&updated.model_mappings);
     db
-        .call_traced(None, {
+        .call_traced(None, __db_caller, {
             let name = updated.name.clone();
             let updated_at = updated.updated_at;
             let request_timeout_secs = updated.request_timeout_secs as i64;
@@ -2084,15 +2215,19 @@ pub async fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> 
     db.invalidate_groups_cache();
 
     Ok(updated)
+    }
 }
 
 /// 设置默认分组（单选）。目标 id 置 is_default=1，其余全部清零。
 /// 一条 UPDATE 同时清零全部 + 置目标；updated_at 仅刷新被切换的行（保持排序稳定）。
 /// 清除默认（target_id 为 None）时把所有 is_default 置 0。
-pub async fn set_default_group(db: &Db, target_id: Option<u64>) -> Result<(), String> {
+#[track_caller]
+pub fn set_default_group(db: &Db, target_id: Option<u64>) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ts = now();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             match target_id {
                 Some(id) => {
                     conn.execute(
@@ -2116,6 +2251,7 @@ pub async fn set_default_group(db: &Db, target_id: Option<u64>) -> Result<(), St
         .map_err(|e| format!("set default group: {e}"))?;
     db.invalidate_groups_cache();
     Ok(())
+    }
 }
 
 pub async fn delete_group(db: &Db, id: u64) -> Result<(), String> {
@@ -2132,9 +2268,12 @@ pub async fn delete_group(db: &Db, id: u64) -> Result<(), String> {
 }
 
 /// 强制删除分组（含自动分组），仅供平台删除时内部调用
-pub async fn force_delete_group(db: &Db, id: u64) -> Result<(), String> {
+#[track_caller]
+pub fn force_delete_group(db: &Db, id: u64) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute("UPDATE \"group\" SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])?;
             Ok(())
         })
@@ -2142,19 +2281,23 @@ pub async fn force_delete_group(db: &Db, id: u64) -> Result<(), String> {
         .map_err(|e| format!("delete group: {e}"))?;
     db.invalidate_groups_cache();
     Ok(())
+    }
 }
 
 // ─── GroupPlatform 关联 ────────────────────────────────────
 
-pub async fn set_group_platforms(
-    db: &Db,
+#[track_caller]
+pub fn set_group_platforms<'a>(
+    db: &'a Db,
     group_id: u64,
-    platforms: &[GroupPlatformInput],
-) -> Result<(), String> {
+    platforms: &'a [GroupPlatformInput],
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ts = now();
     let platforms = platforms.to_vec();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             // 物理清除旧关联后重建（关联表无需软删保留）
             conn.execute(
                 "DELETE FROM group_platform WHERE group_id = ?1",
@@ -2176,21 +2319,25 @@ pub async fn set_group_platforms(
         .map_err(|e| format!("set group platforms: {e}"))?;
     db.invalidate_group_details_cache();
     Ok(())
+    }
 }
 
 /// 全量同步某平台的「手动」组成员关系（platform_update 用）：
 /// 把 platform 加入 `target_group_ids` 内的每个组、移出不在列表内的手动组。
 /// **auto 分组（`group.auto_from_platform` 非空）永不动**——仅操作手动组。
 /// group_platform 表本身无 auto 标记，靠 join `group.auto_from_platform` 区分。
-pub async fn sync_platform_manual_groups(
-    db: &Db,
+#[track_caller]
+pub fn sync_platform_manual_groups<'a>(
+    db: &'a Db,
     platform_id: u64,
-    target_group_ids: &[u64],
-) -> Result<(), String> {
+    target_group_ids: &'a [u64],
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     // 该平台当前所在的所有 (group_id, auto_from_platform)。
     let current: Vec<(i64, String)> = db
         
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT g.id, g.auto_from_platform FROM group_platform gp \
                  JOIN \"group\" g ON gp.group_id = g.id \
@@ -2214,7 +2361,7 @@ pub async fn sync_platform_manual_groups(
         if auto_from.is_empty() && !target.contains(gid) {
             let gid = *gid;
             db
-                .call_traced(None, move |conn| {
+                .call_traced(None, __db_caller, move |conn| {
                     conn.execute(
                         "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2",
                         params![gid, platform_id as i64],
@@ -2254,11 +2401,15 @@ pub async fn sync_platform_manual_groups(
     }
 
     Ok(())
+    }
 }
 
-pub async fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlatformDetail>, String> {
+#[track_caller]
+pub fn get_group_platforms(db: &Db, group_id: u64) -> impl std::future::Future<Output = Result<Vec<GroupPlatformDetail>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
     let mut stmt = conn
         .prepare(
             &format!(
@@ -2313,6 +2464,7 @@ pub async fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlat
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 // ─── 聚合查询 ──────────────────────────────────────────────
@@ -2360,11 +2512,14 @@ pub async fn list_group_details(db: &Db) -> Result<Vec<GroupDetail>, String> {
 
 // ─── Settings CRUD ─────────────────────────────────────────
 
-pub async fn get_setting(
-    db: &Db,
-    scope: &str,
-    key: &str,
-) -> Result<Option<serde_json::Value>, String> {
+#[track_caller]
+pub fn get_setting<'a>(
+    db: &'a Db,
+    scope: &'a str,
+    key: &'a str,
+) -> impl std::future::Future<Output = Result<Option<serde_json::Value>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     // 缓存命中：热路径（log_settings/lang/sync_settings 每请求多次读）走内存，绕过后台线程往返。
     // 命中路径零分配：借 `(&str, &str)` 经 `dyn KeyPair` 探测 map，不构造 `(String, String)`。
     {
@@ -2379,7 +2534,7 @@ pub async fn get_setting(
     let key = key.to_string();
     let result = db
         
-        .call_traced(None, {
+        .call_traced(None, __db_caller, {
             let scope = scope.clone();
             let key = key.clone();
             move |conn| {
@@ -2401,14 +2556,18 @@ pub async fn get_setting(
         g.insert((scope, key), result.clone());
     }
     Ok(result)
+    }
 }
 
-pub async fn set_setting(db: &Db, input: SetSettingInput) -> Result<(), String> {
+#[track_caller]
+pub fn set_setting(db: &Db, input: SetSettingInput) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ts = now();
     let value_str =
         serde_json::to_string(&input.value).map_err(|e| format!("serialize setting: {e}"))?;
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "INSERT INTO setting (scope, key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)
                  ON CONFLICT(scope, key) DO UPDATE SET value = ?3, updated_at = ?4, deleted_at = 0",
@@ -2420,13 +2579,17 @@ pub async fn set_setting(db: &Db, input: SetSettingInput) -> Result<(), String> 
         .map_err(|e| format!("upsert setting: {e}"))?;
     db.invalidate_settings_cache();
     Ok(())
+    }
 }
 
-pub async fn delete_setting(db: &Db, scope: &str, key: &str) -> Result<(), String> {
+#[track_caller]
+pub fn delete_setting<'a>(db: &'a Db, scope: &'a str, key: &'a str) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let scope = scope.to_string();
     let key = key.to_string();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE setting SET deleted_at = ?1 WHERE scope = ?2 AND key = ?3",
                 params![now(), scope, key],
@@ -2437,24 +2600,32 @@ pub async fn delete_setting(db: &Db, scope: &str, key: &str) -> Result<(), Strin
         .map_err(|e| format!("delete setting: {e}"))?;
     db.invalidate_settings_cache();
     Ok(())
+    }
 }
 
-pub async fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
+#[track_caller]
+pub fn list_setting_keys<'a>(db: &'a Db, scope: &'a str) -> impl std::future::Future<Output = Result<Vec<String>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let scope = scope.to_string();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare("SELECT key FROM setting WHERE scope = ?1 AND deleted_at = 0 ORDER BY key")?;
             let rows = stmt.query_map(params![scope], |row| row.get(0))?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 /// 导入导出用：列出全部未删除 setting 原始行（scope, key, value_json）。
-pub async fn list_all_settings_raw(db: &Db) -> Result<Vec<(String, String, String)>, String> {
+#[track_caller]
+pub fn list_all_settings_raw(db: &Db) -> impl std::future::Future<Output = Result<Vec<(String, String, String)>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT scope, key, value FROM setting WHERE deleted_at = 0 ORDER BY scope, key",
             )?;
@@ -2465,14 +2636,18 @@ pub async fn list_all_settings_raw(db: &Db) -> Result<Vec<(String, String, Strin
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 /// 导入导出用：列出 group→platform 全部关联（按名称解析，跨机迁移友好）。
-pub async fn list_all_group_platform_pairs(
+#[track_caller]
+pub fn list_all_group_platform_pairs(
     db: &Db,
-) -> Result<Vec<(String, String)>, String> {
+) -> impl std::future::Future<Output = Result<Vec<(String, String)>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT g.name, p.name FROM group_platform gp
                  JOIN \"group\" g ON g.id = gp.group_id
@@ -2486,6 +2661,7 @@ pub async fn list_all_group_platform_pairs(
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 // ─── Middleware Rule CRUD (C1 基座) ────────────────────────
@@ -2527,31 +2703,38 @@ fn row_to_middleware_rule(row: &rusqlite::Row) -> SqlResult<MiddlewareRule> {
 }
 
 /// 列出全部中间件规则（按 priority 升序，再 id 升序）。引擎 reload 与前端列表共用。
-pub async fn list_middleware_rules(db: &Db) -> Result<Vec<MiddlewareRule>, String> {
+#[track_caller]
+pub fn list_middleware_rules(db: &Db) -> impl std::future::Future<Output = Result<Vec<MiddlewareRule>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let sql = format!(
         "SELECT {MIDDLEWARE_RULE_COLUMNS} FROM middleware_rule ORDER BY priority ASC, id ASC"
     );
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], row_to_middleware_rule)?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
-pub async fn create_middleware_rule(
+#[track_caller]
+pub fn create_middleware_rule(
     db: &Db,
     input: CreateMiddlewareRule,
-) -> Result<MiddlewareRule, String> {
+) -> impl std::future::Future<Output = Result<MiddlewareRule, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ts = now();
     let rule_type = input.rule_type.as_str().to_string();
     let scope = input.scope.as_str().to_string();
     let match_type = input.match_type.as_str().to_string();
     let action = input.action.as_str().to_string();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "INSERT INTO middleware_rule
                    (name, description, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at)
@@ -2581,19 +2764,23 @@ pub async fn create_middleware_rule(
         })
         .await
         .map_err(|e| format!("create middleware rule: {e}"))
+    }
 }
 
-pub async fn update_middleware_rule(
+#[track_caller]
+pub fn update_middleware_rule(
     db: &Db,
     input: UpdateMiddlewareRule,
-) -> Result<MiddlewareRule, String> {
+) -> impl std::future::Future<Output = Result<MiddlewareRule, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ts = now();
     let rule_type = input.rule_type.as_str().to_string();
     let scope = input.scope.as_str().to_string();
     let match_type = input.match_type.as_str().to_string();
     let action = input.action.as_str().to_string();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let affected = conn.execute(
                 "UPDATE middleware_rule SET
                    name = ?2, description = ?3, rule_type = ?4, scope = ?5, scope_ref = ?6,
@@ -2630,16 +2817,21 @@ pub async fn update_middleware_rule(
         })
         .await
         .map_err(|e| format!("update middleware rule: {e}"))
+    }
 }
 
-pub async fn delete_middleware_rule(db: &Db, id: i64) -> Result<(), String> {
+#[track_caller]
+pub fn delete_middleware_rule(db: &Db, id: i64) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute("DELETE FROM middleware_rule WHERE id = ?1", params![id])?;
             Ok(())
         })
         .await
         .map_err(|e| format!("delete middleware rule: {e}"))
+    }
 }
 
 /// 读取中间件总设置（settings scope="middleware" key="settings"）。
@@ -2671,18 +2863,21 @@ pub async fn get_notification_settings(db: &Db) -> super::models::NotificationSe
 }
 
 /// 插入收件箱通知，返回新行 id。
-pub async fn insert_notification(
-    db: &Db,
-    notif_type: &str,
-    title: &str,
-    body: &str,
-) -> Result<i64, String> {
+#[track_caller]
+pub fn insert_notification<'a>(
+    db: &'a Db,
+    notif_type: &'a str,
+    title: &'a str,
+    body: &'a str,
+) -> impl std::future::Future<Output = Result<i64, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let notif_type = notif_type.to_string();
     let title = title.to_string();
     let body = body.to_string();
     let ts = now();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "INSERT INTO notification (notif_type, title, body, created_at) VALUES (?1, ?2, ?3, ?4)",
                 params![notif_type, title, body, ts],
@@ -2691,15 +2886,19 @@ pub async fn insert_notification(
         })
         .await
         .map_err(|e| format!("insert notification: {e}"))
+    }
 }
 
 /// 列收件箱（按 created_at 倒序），limit 上限。
-pub async fn list_notifications(
+#[track_caller]
+pub fn list_notifications(
     db: &Db,
     limit: i64,
-) -> Result<Vec<super::models::Notification>, String> {
+) -> impl std::future::Future<Output = Result<Vec<super::models::Notification>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, notif_type, title, body, created_at FROM notification ORDER BY created_at DESC, id DESC LIMIT ?1",
             )?;
@@ -2716,17 +2915,22 @@ pub async fn list_notifications(
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 /// 清空收件箱（删全部行）。
-pub async fn clear_notifications(db: &Db) -> Result<(), String> {
+#[track_caller]
+pub fn clear_notifications(db: &Db) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, |conn| {
+        .call_traced(None, __db_caller, |conn| {
             conn.execute("DELETE FROM notification", [])?;
             Ok(())
         })
         .await
         .map_err(|e| format!("clear notifications: {e}"))
+    }
 }
 
 /// 删除 N 天前的收件箱通知行。`retention_days == 0` → 跳过（永不清理）。
@@ -2734,16 +2938,20 @@ pub async fn clear_notifications(db: &Db) -> Result<(), String> {
 /// 硬删（`DELETE FROM`），非软删：notification 表无 deleted_at / tombstone 概念，
 /// 抄 proxy_log retention 模式避 SQLite 体积单调增长（见记忆 db-volume-soft-delete-no-vacuum）。
 /// 硬删后 `incremental_vacuum(100)` 回收 free pages（auto_vacuum != INCREMENTAL 时 no-op）。
-pub async fn cleanup_notifications(db: &Db, retention_days: u32) -> Result<(), String> {
+#[track_caller]
+pub fn cleanup_notifications(db: &Db, retention_days: u32) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute("DELETE FROM notification WHERE created_at < ?1", params![cutoff])?;
             incremental_vacuum_conn(conn, 100);
             Ok(())
         })
         .await
         .map_err(|e| format!("cleanup notifications: {e}"))
+    }
 }
 
 // ─── ProxyLog CRUD ─────────────────────────────────────────
@@ -2793,9 +3001,12 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
 /// Upsert (INSERT OR REPLACE) a proxy log entry — used for incremental logging.
 /// 取 owned `ProxyLog`：调用方（upsert_log）已为脱敏 clone 一份，此处接管所有权
 /// 直接 move 进后台线程闭包，消除原先「调用方 clone + 本函数再 clone」的双重全量复制。
-pub async fn upsert_proxy_log(db: &Db, log: super::models::ProxyLog) -> Result<(), String> {
+#[track_caller]
+pub fn upsert_proxy_log(db: &Db, log: super::models::ProxyLog) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let attempts_str = super::models::serialize_attempts(&log.attempts);
             conn.execute(
                 &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
@@ -2806,6 +3017,7 @@ pub async fn upsert_proxy_log(db: &Db, log: super::models::ProxyLog) -> Result<(
         })
         .await
         .map_err(|e| format!("upsert proxy log: {e}"))
+    }
 }
 
 /// 渐进式日志的「DB 就绪列快照」：32 列已转成入库类型（脱敏已在构造时就地应用）。
@@ -2941,11 +3153,14 @@ impl ProxyLogColumns {
 }
 
 /// 渐进式日志首节点：INSERT 建行（非 REPLACE，行不应已存在）。失败上抛。
-pub async fn insert_proxy_log_columns(db: &Db, cols: ProxyLogColumns) -> Result<(), String> {
+#[track_caller]
+pub fn insert_proxy_log_columns(db: &Db, cols: ProxyLogColumns) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     // cols.id == proxy_log.id == 请求 span 的 request_id（32-hex），用作 SQL 日志归属键。
     let req_id = cols.id.clone();
     db
-        .call_traced(Some(&req_id), move |conn| {
+        .call_traced(Some(&req_id), __db_caller, move |conn| {
             conn.execute(
                 &format!("INSERT INTO proxy_log ({PROXY_LOG_COLUMNS})
                  VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32)"),
@@ -2955,12 +3170,16 @@ pub async fn insert_proxy_log_columns(db: &Db, cols: ProxyLogColumns) -> Result<
         })
         .await
         .map_err(|e| format!("insert proxy log: {e}"))
+    }
 }
 
 /// 渐进式日志后续节点：仅 UPDATE 相对 `prev` 变化的列。无变化则 no-op（不发 SQL）。
 /// 若目标行不存在（理论不应，节点1 必先 INSERT），UPDATE 影响 0 行，静默（与旧 REPLACE
 /// 的「不存在则建行」语义偏离已由 upsert_log 的快照存在性保证：有快照 ⇒ 已 INSERT 过）。
-pub async fn update_proxy_log_columns(db: &Db, new: ProxyLogColumns, prev: &ProxyLogColumns) -> Result<(), String> {
+#[track_caller]
+pub fn update_proxy_log_columns<'a>(db: &'a Db, new: ProxyLogColumns, prev: &'a ProxyLogColumns) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let changed = new.changed_since(prev);
     if changed.is_empty() {
         return Ok(());
@@ -2969,7 +3188,7 @@ pub async fn update_proxy_log_columns(db: &Db, new: ProxyLogColumns, prev: &Prox
     // id == proxy_log.id == request_id，用作 SQL 日志归属键。
     let req_id = id.clone();
     db
-        .call_traced(Some(&req_id), move |conn| {
+        .call_traced(Some(&req_id), __db_caller, move |conn| {
             let set_sql: String = changed
                 .iter()
                 .enumerate()
@@ -2985,11 +3204,15 @@ pub async fn update_proxy_log_columns(db: &Db, new: ProxyLogColumns, prev: &Prox
         })
         .await
         .map_err(|e| format!("update proxy log: {e}"))
+    }
 }
 
-pub async fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::models::ProxyLogSummary>, String> {
+#[track_caller]
+pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> impl std::future::Future<Output = Result<Vec<super::models::ProxyLogSummary>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at
                  FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
@@ -2999,6 +3222,7 @@ pub async fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<sup
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 /// Summary row mapper (column order must match SELECT)
@@ -3022,15 +3246,18 @@ fn row_to_proxy_log_summary(row: &rusqlite::Row) -> SqlResult<super::models::Pro
     })
 }
 
-pub async fn filtered_list_proxy_logs(
-    db: &Db,
-    filter: &super::models::ProxyLogFilter,
+#[track_caller]
+pub fn filtered_list_proxy_logs<'a>(
+    db: &'a Db,
+    filter: &'a super::models::ProxyLogFilter,
     limit: u32,
     offset: u32,
-) -> Result<Vec<super::models::ProxyLogSummary>, String> {
+) -> impl std::future::Future<Output = Result<Vec<super::models::ProxyLogSummary>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let filter = filter.clone();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let (where_sql, mut p) = build_filter_where(&filter);
             p.push(Box::new(limit));
             p.push(Box::new(offset));
@@ -3045,15 +3272,19 @@ pub async fn filtered_list_proxy_logs(
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
-pub async fn filtered_count_proxy_logs(
-    db: &Db,
-    filter: &super::models::ProxyLogFilter,
-) -> Result<u32, String> {
+#[track_caller]
+pub fn filtered_count_proxy_logs<'a>(
+    db: &'a Db,
+    filter: &'a super::models::ProxyLogFilter,
+) -> impl std::future::Future<Output = Result<u32, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let filter = filter.clone();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let (where_sql, p) = build_filter_where(&filter);
             let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
             let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
@@ -3061,6 +3292,7 @@ pub async fn filtered_count_proxy_logs(
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 /// Build WHERE clause extensions + params from filter.
@@ -3122,10 +3354,13 @@ fn build_filter_where(filter: &super::models::ProxyLogFilter) -> (String, Vec<Bo
     (where_sql, p)
 }
 
-pub async fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog>, String> {
+#[track_caller]
+pub fn get_proxy_log<'a>(db: &'a Db, id: &'a str) -> impl std::future::Future<Output = Result<Option<super::models::ProxyLog>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let id = id.to_string();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(&format!(
                 "SELECT {PROXY_LOG_COLUMNS} FROM proxy_log WHERE id = ?1 AND deleted_at = 0"
             ))?;
@@ -3133,16 +3368,21 @@ pub async fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::Pr
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
-pub async fn clear_proxy_logs(db: &Db) -> Result<(), String> {
+#[track_caller]
+pub fn clear_proxy_logs(db: &Db) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute("UPDATE proxy_log SET deleted_at = ?1 WHERE deleted_at = 0", params![now()])?;
             Ok(())
         })
         .await
         .map_err(|e| format!("clear proxy logs: {e}"))
+    }
 }
 
 /// Delete logs older than N days. Pass 0 to skip.
@@ -3151,10 +3391,13 @@ pub async fn clear_proxy_logs(db: &Db) -> Result<(), String> {
 /// 均 `WHERE deleted_at = 0`，软删 tombstone 无消费方（无 un-delete UI / 聚合）。
 /// 硬删后调 `incremental_vacuum(100)` 回收 free pages（需 auto_vacuum=INCREMENTAL，老库
 /// 未迁移时为 no-op 不报错）。每次至多回收 100 页避免长锁，busy_timeout=5000 兜底排队。
-pub async fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> Result<(), String> {
+#[track_caller]
+pub fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "DELETE FROM proxy_log WHERE created_at < ?1 AND deleted_at = 0",
                 params![cutoff],
@@ -3164,21 +3407,26 @@ pub async fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> Result<(), Stri
         })
         .await
         .map_err(|e| format!("cleanup proxy logs: {e}"))
+    }
 }
 
 /// 物理删除所有历史软删 tombstone（`deleted_at != 0`），回收 free pages。
 ///
 /// 迁移期（cleanup_proxy_logs 由软删改硬删）清积压 tombstone；日常可被
 /// proxy_log_settings_set 调用链在 retention 硬删后追加触发。
-pub async fn purge_deleted_proxy_logs(db: &Db) -> Result<(), String> {
+#[track_caller]
+pub fn purge_deleted_proxy_logs(db: &Db) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute("DELETE FROM proxy_log WHERE deleted_at != 0", [])?;
             incremental_vacuum_conn(conn, 100);
             Ok(())
         })
         .await
         .map_err(|e| format!("purge deleted proxy logs: {e}"))
+    }
 }
 
 // ─── Stats aggregation (stats_agg_hourly) ──────────────────────
@@ -3236,9 +3484,12 @@ pub struct StatsAggInput {
 
 /// 对一条终态请求按 (time_hour,model,group_key,platform_id) UPSERT 进 stats_agg_hourly。
 /// 写入【不受日志开关影响】：proxy 终态路径无条件调用。失败非致命（调用方 warn 不中断请求）。
-pub async fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> Result<(), String> {
+#[track_caller]
+pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let now = chrono::Utc::now().timestamp_millis();
             // 本地小时桶由 SQL 内 strftime('...','localtime') 算，与 bucket_time_expr/回填一致。
             let is_2xx = input.status_code >= 200 && input.status_code < 300;
@@ -3287,12 +3538,16 @@ pub async fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> Result<(), Strin
         })
         .await
         .map_err(|e| format!("upsert stats agg: {e}"))
+    }
 }
 
 /// 清空 stats_agg_hourly 后从 proxy_log 全量重建（用户启用 log 后手动修复用）。
-pub async fn rebuild_stats_agg_from_logs(db: &Db) -> Result<(), String> {
+#[track_caller]
+pub fn rebuild_stats_agg_from_logs(db: &Db) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute("DELETE FROM stats_agg_hourly", [])?;
             let now = chrono::Utc::now().timestamp_millis();
             conn.execute(&agg_rebuild_insert_sql(), params![now])?;
@@ -3300,6 +3555,7 @@ pub async fn rebuild_stats_agg_from_logs(db: &Db) -> Result<(), String> {
         })
         .await
         .map_err(|e| format!("rebuild stats agg: {e}"))
+    }
 }
 
 /// 一次性纠正：历史 bug（upsert_log 在请求生命周期被多次调用，终态后每次仍对同一请求 +1，
@@ -3331,16 +3587,20 @@ pub async fn rebuild_stats_agg_once_if_needed(db: &Db) -> Result<bool, String> {
 
 /// 按 retention_days 硬删过期聚合行（参考 cleanup_proxy_logs；0=永久保留）。
 /// 截止时间为 UTC ms；与 time_hour 文本桶比较走 created_at 列（行写入时间）。
-pub async fn cleanup_stats_agg(db: &Db, retention_days: u32) -> Result<(), String> {
+#[track_caller]
+pub fn cleanup_stats_agg(db: &Db, retention_days: u32) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute("DELETE FROM stats_agg_hourly WHERE created_at < ?1", params![cutoff])?;
             incremental_vacuum_conn(conn, 100);
             Ok(())
         })
         .await
         .map_err(|e| format!("cleanup stats agg: {e}"))
+    }
 }
 
 /// 在给定连接上跑 `PRAGMA incremental_vacuum(N)`，回收至多 N 页 free pages。
@@ -3362,7 +3622,10 @@ fn incremental_vacuum_conn(conn: &Connection, max_pages: i64) {
 ///
 /// **VACUUM 不在事务内**（rusqlite 独立调用），锁库期间代理请求排队（busy_timeout 兜底）。
 /// 失败仅返回 Err，调用方（启动 spawn）warn 不阻塞，不置标记，下次启动重试。
-pub async fn migrate_auto_vacuum(db: &Db) -> Result<bool, String> {
+#[track_caller]
+pub fn migrate_auto_vacuum(db: &Db) -> impl std::future::Future<Output = Result<bool, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     // 幂等标记：已迁移直接跳过
     if let Ok(Some(v)) = get_setting(db, "db", "compact_migrated_v1").await {
         if v == serde_json::Value::Bool(true) {
@@ -3372,7 +3635,7 @@ pub async fn migrate_auto_vacuum(db: &Db) -> Result<bool, String> {
     // 探测当前 auto_vacuum 模式
     let current: i64 = db
         
-        .call_traced(None, |c| {
+        .call_traced(None, __db_caller, |c| {
             Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
         })
         .await
@@ -3393,7 +3656,7 @@ pub async fn migrate_auto_vacuum(db: &Db) -> Result<bool, String> {
     // 切换为 INCREMENTAL 并 VACUUM 重建。VACUUM 必须在 autocommit（无活动事务）下执行，
     // 不能包在 transaction 内；此处独立 execute_batch 调用，rusqlite 默认 autocommit。
     db
-        .call_traced(None, |c| {
+        .call_traced(None, __db_caller, |c| {
             // 先 checkpoint 把 WAL 内容合并回主库，避免 WAL+VACUUM 模式约束
             let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
             c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")?;
@@ -3412,15 +3675,19 @@ pub async fn migrate_auto_vacuum(db: &Db) -> Result<bool, String> {
     .await?;
     tracing::info!("db auto_vacuum migrated to INCREMENTAL via VACUUM");
     Ok(true)
+    }
 }
 
 /// 全量 VACUUM 压缩数据库到最小。返回前后字节大小（page_count × page_size）。
 ///
 /// 用于设置页「立即压缩数据库」按钮：比 incremental 更激进，整库重写。
 /// VACUUM 不在事务内（独立 conn 调用）；锁库期间请求排队，UI 有警示。
-pub async fn compact_database(db: &Db) -> Result<CompactResult, String> {
+#[track_caller]
+pub fn compact_database(db: &Db) -> impl std::future::Future<Output = Result<CompactResult, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, |c| {
+        .call_traced(None, __db_caller, |c| {
             let before = db_size_bytes(c)?;
             // WAL checkpoint 再 VACUUM，避免 WAL 内未合并页漏算
             let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
@@ -3433,6 +3700,7 @@ pub async fn compact_database(db: &Db) -> Result<CompactResult, String> {
         })
         .await
         .map_err(|e| format!("compact database: {e}"))
+    }
 }
 
 /// `PRAGMA page_count * PRAGMA page_size` = 当前 DB 文件占用的逻辑字节数。
@@ -3452,10 +3720,13 @@ pub struct CompactResult {
 /// Clear user request body fields for logs older than retention_days.
 /// `*_headers`（元数据，已脱敏）始终保留至行级 retention 删除；仅清 `*_body`（prompt / 响应正文）。
 /// Does NOT delete the log row — keeps token stats and metadata.
-pub async fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
+#[track_caller]
+pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE proxy_log SET request_body = '', user_response_body = '' WHERE created_at < ?1 AND (request_body != '' OR user_response_body != '')",
                 params![cutoff],
@@ -3464,15 +3735,19 @@ pub async fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> Result
         })
         .await
         .map_err(|e| format!("cleanup user request fields: {e}"))
+    }
 }
 
 /// Clear upstream request body fields for logs older than retention_days.
 /// `*_headers`（元数据，已脱敏）始终保留至行级 retention 删除；仅清 `*_body`（上游请求 / 响应正文）。
 /// Does NOT delete the log row — keeps token stats and metadata.
-pub async fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
+#[track_caller]
+pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> impl std::future::Future<Output = Result<(), String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "UPDATE proxy_log SET upstream_request_body = '' WHERE created_at < ?1 AND upstream_request_body != ''",
                 params![cutoff],
@@ -3481,15 +3756,20 @@ pub async fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> Re
         })
         .await
         .map_err(|e| format!("cleanup upstream request fields: {e}"))
+    }
 }
 
-pub async fn count_proxy_logs(db: &Db) -> Result<u32, String> {
+#[track_caller]
+pub fn count_proxy_logs(db: &Db) -> impl std::future::Future<Output = Result<u32, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0", [], |row| row.get(0))?)
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 /// 共用使用量聚合：按给定 WHERE 子句统计总量 + 最近 5 次健康度。
@@ -3564,9 +3844,12 @@ fn usage_stats(
     })
 }
 
-pub async fn get_platform_usage_stats(db: &Db, platform_id: u64) -> Result<super::models::PlatformUsageStats, String> {
+#[track_caller]
+pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::Future<Output = Result<super::models::PlatformUsageStats, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             // platform_id 现为整数；自动分组日志可能未带 platform_id（=0），通过 group.auto_from_platform（存十进制字符串）回溯。
             // 回溯按 group.group_key 匹配 proxy_log.group_key（gk_<hex>，非显示名 g.name；见 migration 024 / group-name-group-key-split）。
             let where_clause = "deleted_at = 0 AND (platform_id = ?1 OR (platform_id = 0 AND group_key IN (SELECT group_key FROM \"group\" WHERE auto_from_platform = ?2 AND deleted_at = 0)))";
@@ -3576,16 +3859,20 @@ pub async fn get_platform_usage_stats(db: &Db, platform_id: u64) -> Result<super
         })
         .await
         .map_err(|e| format!("platform usage stats: {e}"))
+    }
 }
 
 /// 取某 platform 最近一条 `source_protocol='test'` 的 proxy_log（model_test 落日志时 platform_id 为真实 id，
 /// 无需 auto_from_platform 回溯）。返回 None 表示该平台从未测试过。
-pub async fn get_last_test_result(
+#[track_caller]
+pub fn get_last_test_result(
     db: &Db,
     platform_id: u64,
-) -> Result<Option<super::models::LastTestResult>, String> {
+) -> impl std::future::Future<Output = Result<Option<super::models::LastTestResult>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
             let mut stmt = conn.prepare(
                 "SELECT status_code, duration_ms, created_at, response_body \
@@ -3621,13 +3908,17 @@ pub async fn get_last_test_result(
         })
         .await
         .map_err(|e| format!("last test result: {e}"))
+    }
 }
 
-pub async fn get_group_usage_stats(db: &Db, group_key: &str) -> Result<super::models::PlatformUsageStats, String> {
+#[track_caller]
+pub fn get_group_usage_stats<'a>(db: &'a Db, group_key: &'a str) -> impl std::future::Future<Output = Result<super::models::PlatformUsageStats, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let group_key = group_key.to_string();
     let today_key = local_today_hour_key();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             // 从聚合表查单组累计 + 今日。recent_failures/recent_total 聚合表无法重建（需逐请求近 5 条），
             // 置 0（Groups 页不渲染该健康点；与批量版 get_all_group_usage_stats 一致）。
             let stats = conn.query_row(
@@ -3667,6 +3958,7 @@ pub async fn get_group_usage_stats(db: &Db, group_key: &str) -> Result<super::mo
         })
         .await
         .map_err(|e| format!("group usage stats: {e}"))
+    }
 }
 
 /// 批量：单查 `GROUP BY group_key` 返回所有 group → 聚合 map（问题6 N+1 消除）。
@@ -3674,11 +3966,14 @@ pub async fn get_group_usage_stats(db: &Db, group_key: &str) -> Result<super::mo
 /// `GROUP BY group_key` 天然满足 CLAUDE.md「共享平台不重复计入」：日志按 group_key 归属，
 /// 同一平台被多 group 共享时各 group 只统计经本 group 进来的请求，无重复。
 /// recent_failures/recent_total/cache_rate 不在批量结果内（Groups 页不渲染，避免每组 5 行子查询）。
-pub async fn get_all_group_usage_stats(
+#[track_caller]
+pub fn get_all_group_usage_stats(
     db: &Db,
-) -> Result<std::collections::HashMap<String, super::models::PlatformUsageStats>, String> {
+) -> impl std::future::Future<Output = Result<std::collections::HashMap<String, super::models::PlatformUsageStats>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT group_key, COALESCE(SUM(request_count), 0), \
                  COALESCE(SUM(success_count), 0), \
@@ -3721,6 +4016,7 @@ pub async fn get_all_group_usage_stats(
         })
         .await
         .map_err(|e| format!("all group usage stats: {e}"))
+    }
 }
 
 /// 批量：单查 `GROUP BY eff_pid` 返回所有平台 → 聚合 map（platform_id → stats）。
@@ -3735,11 +4031,14 @@ pub async fn get_all_group_usage_stats(
 /// recent_total/recent_failures 按每平台最近 5 条（created_at DESC）聚合（语义同
 /// `usage_stats` 单平台版），供平台卡片「健康点」按近期成功率配色。窗口函数 ROW_NUMBER
 /// 单查取每 eff_pid 末 5 条，避免逐平台 5 行子查询往返。cache_rate 按 inp/cache 算。
-pub async fn platform_usage_stats_all(
+#[track_caller]
+pub fn platform_usage_stats_all(
     db: &Db,
-) -> Result<std::collections::HashMap<u64, super::models::PlatformUsageStats>, String> {
+) -> impl std::future::Future<Output = Result<std::collections::HashMap<u64, super::models::PlatformUsageStats>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             // 公共 eff_pid 派生子查询：platform_id=0 经 group.auto_from_platform 回溯到源平台。
             const EFF_PID_SUBQUERY: &str = "\
                 SELECT \
@@ -3841,6 +4140,7 @@ pub async fn platform_usage_stats_all(
         })
         .await
         .map_err(|e| format!("all platform usage stats: {e}"))
+    }
 }
 
 /// 动态窗口日速率公共常量。
@@ -3890,27 +4190,34 @@ fn hourly_rate_inner(
 
 /// 分组动态窗口日用量速率（$ / 小时），供 statusline 余额「剩余可用天数」配色。
 /// 无任何用量 → None（配色侧视作中性 / 不报警）。短持锁，不跨 await。
-pub async fn get_group_hourly_rate(db: &Db, group_key: &str) -> Result<Option<f64>, String> {
+#[track_caller]
+pub fn get_group_hourly_rate<'a>(db: &'a Db, group_key: &'a str) -> impl std::future::Future<Output = Result<Option<f64>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let now_ms = chrono::Utc::now().timestamp_millis();
     let window_start = now_ms - RATE_MAX_SPAN_MS;
     let group_key = group_key.to_string();
     db
-        .call_traced(Some("bg"), move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             Ok(hourly_rate_inner(conn, now_ms, window_start, "group_key = ?2", &[&group_key])?)
         })
         .await
         .map_err(|e| format!("group hourly rate: {e}"))
+    }
 }
 
 /// 单平台动态窗口日用量速率（$ / 小时），供 Platforms 列表页余额按速率配色。
 ///
 /// platform 维度过滤同 `get_platform_usage_stats`：自动分组日志可能 platform_id=0，
 /// 经 group.auto_from_platform 回溯。无任何用量 → None（前端退中性）。短持锁，不跨 await。
-pub async fn get_platform_hourly_rate(db: &Db, platform_id: u64) -> Result<Option<f64>, String> {
+#[track_caller]
+pub fn get_platform_hourly_rate(db: &Db, platform_id: u64) -> impl std::future::Future<Output = Result<Option<f64>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let now_ms = chrono::Utc::now().timestamp_millis();
     let window_start = now_ms - RATE_MAX_SPAN_MS;
     db
-        .call_traced(Some("bg"), move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
             let pid_str = platform_id.to_string();
             let scope = "platform_id = ?2 OR (platform_id = 0 AND group_key IN (SELECT group_key FROM \"group\" WHERE auto_from_platform = ?3 AND deleted_at = 0))";
@@ -3918,6 +4225,7 @@ pub async fn get_platform_hourly_rate(db: &Db, platform_id: u64) -> Result<Optio
         })
         .await
         .map_err(|e| format!("platform hourly rate: {e}"))
+    }
 }
 
 struct QueryParams {
@@ -3967,24 +4275,31 @@ fn bucket_time_expr(granularity: Option<&str>) -> String {
     }
 }
 
-pub async fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
+#[track_caller]
+pub fn query_stats<'a>(db: &'a Db, query: &'a StatsQuery) -> impl std::future::Future<Output = Result<StatsResult, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let query = query.clone();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             query_stats_inner(conn, &query)
                 .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 /// 批量统计查询：一次 IPC + 一次连接借用内串行跑 N 个 `query_stats_inner`，
 /// 结果顺序与入参 `queries` 一一对应。供浮窗 N 卡聚合，消除每卡独立 IPC 往返。
 ///
 /// 单卡值与 `query_stats`（逐卡）完全一致：复用同一 `query_stats_inner`，不合并/不丢维度。
-pub async fn query_stats_batch(db: &Db, queries: Vec<StatsQuery>) -> Result<Vec<StatsResult>, String> {
+#[track_caller]
+pub fn query_stats_batch(db: &Db, queries: Vec<StatsQuery>) -> impl std::future::Future<Output = Result<Vec<StatsResult>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let mut out = Vec::with_capacity(queries.len());
             for q in &queries {
                 out.push(
@@ -3996,6 +4311,7 @@ pub async fn query_stats_batch(db: &Db, queries: Vec<StatsQuery>) -> Result<Vec<
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 /// UTC ms → 本地小时桶文本键 "YYYY-MM-DD HH:00:00"，用于与 stats_agg_hourly.time_hour 字典序比较。
@@ -4429,9 +4745,12 @@ fn price_data_to_summary(mp: &super::models::ModelPrice) -> super::models::Model
     }
 }
 
-pub async fn list_model_prices(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::models::ModelPriceSummary>, String> {
+#[track_caller]
+pub fn list_model_prices(db: &Db, limit: u32, offset: u32) -> impl std::future::Future<Output = Result<Vec<super::models::ModelPriceSummary>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 ORDER BY model_name LIMIT ?1 OFFSET ?2")
             )?;
@@ -4444,22 +4763,30 @@ pub async fn list_model_prices(db: &Db, limit: u32, offset: u32) -> Result<Vec<s
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
-pub async fn count_model_prices(db: &Db) -> Result<u32, String> {
+#[track_caller]
+pub fn count_model_prices(db: &Db) -> impl std::future::Future<Output = Result<u32, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             Ok(conn.query_row("SELECT COUNT(*) FROM model_price WHERE deleted_at = 0", [], |row| row.get(0))?)
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 /// 获取指定模型的最新价格记录（优先 manual > github）
-pub async fn get_model_price(db: &Db, model_name: &str) -> Result<Option<super::models::ModelPrice>, String> {
+#[track_caller]
+pub fn get_model_price<'a>(db: &'a Db, model_name: &'a str) -> impl std::future::Future<Output = Result<Option<super::models::ModelPrice>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let model_name = model_name.to_string();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             // 优先取 manual 记录
             let mut stmt = conn.prepare(
                 &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE model_name = ?1 AND source = 'manual' AND deleted_at = 0")
@@ -4475,24 +4802,28 @@ pub async fn get_model_price(db: &Db, model_name: &str) -> Result<Option<super::
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 /// Upsert a model price record (INSERT OR REPLACE by model_name + source)
-pub async fn upsert_model_price(
-    db: &Db,
-    model_name: &str,
-    source: &str,
-    price_data: &str,
+#[track_caller]
+pub fn upsert_model_price<'a>(
+    db: &'a Db,
+    model_name: &'a str,
+    source: &'a str,
+    price_data: &'a str,
     max_input_tokens: Option<i64>,
     max_output_tokens: Option<i64>,
     context_window: Option<i64>,
-) -> Result<(), String> {
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let ts = now();
     let model_name = model_name.to_string();
     let source = source.to_string();
     let price_data = price_data.to_string();
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             conn.execute(
                 "INSERT INTO model_price (model_name, source, price_data, max_input_tokens, max_output_tokens, context_window, created_at, updated_at, deleted_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7, 0)
@@ -4509,6 +4840,7 @@ pub async fn upsert_model_price(
         })
         .await
         .map_err(|e| format!("upsert model price: {e}"))
+    }
 }
 
 /// 取模型最大输出 token（出站裁剪用）。列优先，NULL 时回退 price_data JSON。
@@ -4644,10 +4976,13 @@ fn apply_context_tier(
 }
 
 /// 搜索模型价格
-pub async fn search_model_prices(db: &Db, query: &str, limit: u32) -> Result<Vec<super::models::ModelPriceSummary>, String> {
+#[track_caller]
+pub fn search_model_prices<'a>(db: &'a Db, query: &'a str, limit: u32) -> impl std::future::Future<Output = Result<Vec<super::models::ModelPriceSummary>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let pattern = format!("%{query}%");
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 AND model_name LIKE ?1 ORDER BY model_name LIMIT ?2")
             )?;
@@ -4660,20 +4995,24 @@ pub async fn search_model_prices(db: &Db, query: &str, limit: u32) -> Result<Vec
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 /// Filtered list: optional query (LIKE model_name), optional source, limit, offset.
-pub async fn filtered_list_model_prices(
-    db: &Db,
-    query: Option<&str>,
-    source: Option<&str>,
+#[track_caller]
+pub fn filtered_list_model_prices<'a>(
+    db: &'a Db,
+    query: Option<&'a str>,
+    source: Option<&'a str>,
     limit: u32,
     offset: u32,
-) -> Result<Vec<super::models::ModelPriceSummary>, String> {
+) -> impl std::future::Future<Output = Result<Vec<super::models::ModelPriceSummary>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let query = query.map(|s| s.to_string());
     let source = source.map(|s| s.to_string());
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let query = query.as_deref();
             let source = source.as_deref();
     let mut where_parts = vec!["deleted_at = 0".to_string()];
@@ -4714,18 +5053,22 @@ pub async fn filtered_list_model_prices(
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 /// Count matching model prices with optional filters.
-pub async fn filtered_count_model_prices(
-    db: &Db,
-    query: Option<&str>,
-    source: Option<&str>,
-) -> Result<u32, String> {
+#[track_caller]
+pub fn filtered_count_model_prices<'a>(
+    db: &'a Db,
+    query: Option<&'a str>,
+    source: Option<&'a str>,
+) -> impl std::future::Future<Output = Result<u32, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let query = query.map(|s| s.to_string());
     let source = source.map(|s| s.to_string());
     db
-        .call_traced(None, move |conn| {
+        .call_traced(None, __db_caller, move |conn| {
             let query = query.as_deref();
             let source = source.as_deref();
     let mut where_parts = vec!["deleted_at = 0".to_string()];
@@ -4753,14 +5096,18 @@ pub async fn filtered_count_model_prices(
         })
         .await
         .map_err(|e| e.to_string())
+    }
 }
 
 // ─── MCP server CRUD ───────────────────────────────────────
 // 集中存 MCP server 配置（migration 020）。行结构见 super::mcp::McpServerRow。
 // env_json/headers_json 含原始敏感值，调用方负责脱敏后再返前端。
 
-pub async fn list_mcp_servers(db: &Db) -> Result<Vec<super::mcp::McpServerRow>, String> {
-    db.call_traced(None, move |conn| {
+#[track_caller]
+pub fn list_mcp_servers(db: &Db) -> impl std::future::Future<Output = Result<Vec<super::mcp::McpServerRow>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+    db.call_traced(None, __db_caller, move |conn| {
         let mut stmt = conn.prepare(
             "SELECT id, name, transport, command, args_json, env_json, url, headers_json, \
              enabled_agents, created_at, updated_at FROM mcp_server ORDER BY name",
@@ -4788,14 +5135,18 @@ pub async fn list_mcp_servers(db: &Db) -> Result<Vec<super::mcp::McpServerRow>, 
     })
     .await
     .map_err(|e| format!("list mcp servers: {e}"))
+    }
 }
 
-pub async fn get_mcp_server(
-    db: &Db,
-    name: &str,
-) -> Result<Option<super::mcp::McpServerRow>, String> {
+#[track_caller]
+pub fn get_mcp_server<'a>(
+    db: &'a Db,
+    name: &'a str,
+) -> impl std::future::Future<Output = Result<Option<super::mcp::McpServerRow>, String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let name = name.to_string();
-    db.call_traced(None, move |conn| {
+    db.call_traced(None, __db_caller, move |conn| {
         let mut stmt = conn.prepare(
             "SELECT id, name, transport, command, args_json, env_json, url, headers_json, \
              enabled_agents, created_at, updated_at FROM mcp_server WHERE name = ?1",
@@ -4822,12 +5173,16 @@ pub async fn get_mcp_server(
     })
     .await
     .map_err(|e| format!("get mcp server: {e}"))
+    }
 }
 
 /// INSERT 或 UPDATE（按 name 唯一冲突）。created_at 仅首次写入生效（UPDATE 不覆盖）。
-pub async fn upsert_mcp_server(db: &Db, row: &super::mcp::McpServerRow) -> Result<(), String> {
+#[track_caller]
+pub fn upsert_mcp_server<'a>(db: &'a Db, row: &'a super::mcp::McpServerRow) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let row = row.clone();
-    db.call_traced(None, move |conn| {
+    db.call_traced(None, __db_caller, move |conn| {
         conn.execute(
             "INSERT INTO mcp_server \
              (name, transport, command, args_json, env_json, url, headers_json, enabled_agents, created_at, updated_at) \
@@ -4853,26 +5208,34 @@ pub async fn upsert_mcp_server(db: &Db, row: &super::mcp::McpServerRow) -> Resul
     })
     .await
     .map_err(|e| format!("upsert mcp server: {e}"))
+    }
 }
 
-pub async fn delete_mcp_server(db: &Db, name: &str) -> Result<(), String> {
+#[track_caller]
+pub fn delete_mcp_server<'a>(db: &'a Db, name: &'a str) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let name = name.to_string();
-    db.call_traced(None, move |conn| {
+    db.call_traced(None, __db_caller, move |conn| {
         conn.execute("DELETE FROM mcp_server WHERE name = ?1", params![name])?;
         Ok(())
     })
     .await
     .map_err(|e| format!("delete mcp server: {e}"))
+    }
 }
 
-pub async fn set_mcp_server_enabled_agents(
-    db: &Db,
-    name: &str,
-    agents_csv: &str,
-) -> Result<(), String> {
+#[track_caller]
+pub fn set_mcp_server_enabled_agents<'a>(
+    db: &'a Db,
+    name: &'a str,
+    agents_csv: &'a str,
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
     let name = name.to_string();
     let csv = agents_csv.to_string();
-    db.call_traced(None, move |conn| {
+    db.call_traced(None, __db_caller, move |conn| {
         conn.execute(
             "UPDATE mcp_server SET enabled_agents = ?1, updated_at = ?2 WHERE name = ?3",
             params![csv, now(), name],
@@ -4881,10 +5244,14 @@ pub async fn set_mcp_server_enabled_agents(
     })
     .await
     .map_err(|e| format!("set mcp enabled agents: {e}"))
+    }
 }
 
-pub async fn list_mcp_server_names(db: &Db) -> Result<Vec<String>, String> {
-    db.call_traced(None, move |conn| {
+#[track_caller]
+pub fn list_mcp_server_names(db: &Db) -> impl std::future::Future<Output = Result<Vec<String>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+    db.call_traced(None, __db_caller, move |conn| {
         let mut stmt = conn.prepare("SELECT name FROM mcp_server")?;
         let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
         let mut out = vec![];
@@ -4895,6 +5262,7 @@ pub async fn list_mcp_server_names(db: &Db) -> Result<Vec<String>, String> {
     })
     .await
     .map_err(|e| format!("list mcp server names: {e}"))
+    }
 }
 
 // ─── Tests: DB Schema v2 规范固化 ──────────────────────────
@@ -4934,13 +5302,14 @@ mod tests {
         assert_eq!(caller, "-");
     }
 
-    /// call_traced 进闭包时设上下文（req + caller 可读），闭包结束后清空。
+    /// call_traced 进闭包时设上下文（req + caller 可读），闭包结束后清空；
+    /// 显式 req 原样使用，caller 被捕获。
     #[tokio::test]
     async fn call_traced_sets_and_clears_thread_local() {
         let db = test_db().await;
-        // 闭包内（DB 线程）观测上下文：req 被设为传入标签，caller 非空。
+        // 闭包内（DB 线程）观测上下文：req = 显式传入的 request_id，caller 非空。
         let observed: (Option<String>, bool) = db
-            .call_traced(Some("req-xyz"), |_conn| {
+            .call_traced(Some("req-xyz"), std::panic::Location::caller(), |_conn| {
                 Ok(CURRENT_DB_CTX.with(|c| {
                     let c = c.borrow();
                     (c.req.clone(), c.caller.is_some())
@@ -4951,18 +5320,75 @@ mod tests {
         assert_eq!(observed.0.as_deref(), Some("req-xyz"));
         assert!(observed.1, "caller location should be captured");
 
-        // 同一 DB 线程上下次操作：上一次的上下文已被 guard 清空（不串味）。
-        let after: (Option<String>, bool) = db
-            .call_traced(None, |_conn| {
-                Ok(CURRENT_DB_CTX.with(|c| {
-                    let c = c.borrow();
-                    (c.req.clone(), c.caller.is_some())
-                }))
+        // 同一 DB 线程上下次操作：caller 已被 guard 清空再设新值（不串味）。
+        let after_caller: bool = db
+            .call_traced(Some("req-2"), std::panic::Location::caller(), |_conn| {
+                Ok(CURRENT_DB_CTX.with(|c| c.borrow().caller.is_some()))
             })
             .await
             .expect("call_traced ok");
-        // req=None（本次未传），且 caller 是本次闭包的（非空）— 关键是上次 "req-xyz" 不残留。
-        assert_eq!(after.0, None);
+        assert!(after_caller, "caller re-captured on next call");
+    }
+
+    /// 关键契约：req=None 时**绝不**留空 / 固定常量，而是当场用 new_trace_id() 兜底
+    /// 生成真实唯一 id（8-hex）。无环境 span 时走兜底；不同次调用 id 不同。
+    #[tokio::test]
+    async fn call_traced_none_req_falls_back_to_generated_unique_id() {
+        let db = test_db().await;
+
+        async fn observe_req(db: &Db) -> String {
+            db.call_traced(None, std::panic::Location::caller(), |_conn| {
+                Ok(CURRENT_DB_CTX.with(|c| c.borrow().req.clone()))
+            })
+            .await
+            .expect("call_traced ok")
+            .expect("req must be set, never None")
+        }
+
+        let id1 = observe_req(&db).await;
+        let id2 = observe_req(&db).await;
+
+        // 禁固定常量：不得是历史写死值。
+        assert_ne!(id1, "bg");
+        assert_ne!(id1, "-");
+        assert!(!id1.is_empty(), "req must never be empty");
+        // 兜底 id 形态：new_trace_id() = 8 位小写 hex。
+        assert_eq!(id1.len(), 8, "fallback id is 8-hex: got {id1}");
+        assert!(id1.chars().all(|ch| ch.is_ascii_hexdigit()), "fallback id is hex: {id1}");
+        // 真实唯一：两次兜底 id 不同（无环境 span 复用）。
+        assert_ne!(id1, id2, "each fallback id must be unique");
+    }
+
+    /// req=None 但处于带 trace_id 的活跃 span 内 → 环境捕获该 span 的 id，
+    /// 同一 span 内多次调用共享同一 id（后台轮询周期内所有 SQL 同 id 的依据）。
+    #[tokio::test]
+    async fn call_traced_captures_env_span_trace_id() {
+        // 安装一次性的 TraceIdLayer（测试进程可能已有 global subscriber，用 with_default 作用域）。
+        use tracing_subscriber::layer::SubscriberExt;
+        let subscriber = tracing_subscriber::registry().with(crate::logging::trace_id_layer_for_test());
+        let _guard = tracing::subscriber::set_default(subscriber);
+
+        let db = test_db().await;
+        let tid = crate::logging::new_trace_id();
+        let span = tracing::info_span!("poll_cycle", trace_id = %tid);
+
+        async fn observe_req(db: &Db) -> String {
+            db.call_traced(None, std::panic::Location::caller(), |_conn| {
+                Ok(CURRENT_DB_CTX.with(|c| c.borrow().req.clone()))
+            })
+            .await
+            .expect("ok")
+            .expect("req set")
+        }
+
+        // 关键：call_traced 在调用方线程读 current_trace_id，必须在 span 进入态时同步调用。
+        let _e = span.enter();
+        let a = observe_req(&db).await;
+        let b = observe_req(&db).await;
+        drop(_e);
+
+        assert_eq!(a, tid, "env span trace_id captured as req");
+        assert_eq!(a, b, "same span -> same id across calls");
     }
 
     #[test]
@@ -5215,7 +5641,7 @@ mod tests {
     async fn bucket_daily_splits_on_local_midnight() {
         let db = test_db().await;
         // 本地午夜的 epoch 秒：strftime 本地日期 00:00 转回 unixepoch。
-        let local_midnight_ms: i64 = db.call_traced(None, |conn| {
+        let local_midnight_ms: i64 = db.call_traced(None, std::panic::Location::caller(), |conn| {
             let secs: i64 = conn.query_row(
                 "SELECT CAST(strftime('%s', strftime('%Y-%m-%d 00:00:00', 'now', 'localtime'), 'utc') AS INTEGER)",
                 [],
@@ -5461,7 +5887,7 @@ mod tests {
         upsert_stats_agg(&db, mk(200)).await.unwrap();
         upsert_stats_agg(&db, mk(500)).await.unwrap(); // 终态非 2xx → error
 
-        let (req, succ, err, inp, cost): (i64, i64, i64, i64, f64) = db.call_traced(None, |conn| {
+        let (req, succ, err, inp, cost): (i64, i64, i64, i64, f64) = db.call_traced(None, std::panic::Location::caller(), |conn| {
             Ok(conn.query_row(
                 "SELECT request_count, success_count, error_count, sum_input_tokens, sum_est_cost \
                  FROM stats_agg_hourly WHERE model='glm-4-plus' AND group_key='g1' AND platform_id=1",
@@ -5483,13 +5909,13 @@ mod tests {
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&sample_log("x1", "g1", now), false, false)).await.unwrap();
         // 全量重建一次得到基线行数。
         rebuild_stats_agg_from_logs(&db).await.unwrap();
-        let n1: i64 = db.call_traced(None, |c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
+        let n1: i64 = db.call_traced(None, std::panic::Location::caller(), |c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
         // 再跑带 NOT EXISTS 守卫的回填 SQL（模拟 migration 重放）：表非空 → 不插。
-        db.call_traced(None, move |c| {
+        db.call_traced(None, std::panic::Location::caller(), move |c| {
             c.execute_batch(include_str!("../../migrations/011_stats_agg_hourly.sql"))?;
             Ok(())
         }).await.unwrap();
-        let n2: i64 = db.call_traced(None, |c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
+        let n2: i64 = db.call_traced(None, std::panic::Location::caller(), |c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
         assert_eq!(n1, n2, "回填幂等：重放 migration 不翻倍");
     }
 
@@ -5516,7 +5942,7 @@ mod tests {
         // 重建（与 migration 回填共用 GROUP BY 语义）必须不 panic（不撞 UNIQUE）。
         rebuild_stats_agg_from_logs(&db).await.expect("rebuild must not violate UNIQUE");
 
-        let (rows, reqs): (i64, i64) = db.call_traced(None, |conn| {
+        let (rows, reqs): (i64, i64) = db.call_traced(None, std::panic::Location::caller(), |conn| {
             Ok(conn.query_row(
                 "SELECT COUNT(*), COALESCE(SUM(request_count),0) FROM stats_agg_hourly \
                  WHERE model = 'glm-4-plus' AND group_key = 'g1' AND platform_id = 1",
@@ -5649,7 +6075,7 @@ mod tests {
     async fn r2_singular_table_names_and_group_escaped() {
         // init_tables() 已在 test_db 中执行；进一步断言单数表名存在、复数不存在
         let db = test_db().await;
-        let names: Vec<String> = db.call_traced(None, |conn| {
+        let names: Vec<String> = db.call_traced(None, std::panic::Location::caller(), |conn| {
             Ok(conn
                 .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?
                 .query_map([], |r| r.get(0))?
@@ -5710,7 +6136,7 @@ mod tests {
 
         // 行仍存在且 deleted_at > 0（物理保留）
         let pid = p.id as i64;
-        let deleted_at: i64 = db.call_traced(None, move |conn| {
+        let deleted_at: i64 = db.call_traced(None, std::panic::Location::caller(), move |conn| {
             Ok(conn.query_row("SELECT deleted_at FROM platform WHERE id = ?1", params![pid], |r| r.get(0))?)
         }).await.unwrap();
         assert!(deleted_at > 0, "deleted_at should be set, got {deleted_at}");
@@ -5772,7 +6198,7 @@ mod tests {
 
         // 全表无指向已删平台的关联残留。
         let pid = p_del.id as i64;
-        let stale: i64 = db.call_traced(None, move |conn| {
+        let stale: i64 = db.call_traced(None, std::panic::Location::caller(), move |conn| {
             Ok(conn.query_row("SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1", params![pid], |r| r.get(0))?)
         }).await.unwrap();
         assert_eq!(stale, 0, "不应残留指向已删平台的 group_platform 行");
@@ -5839,7 +6265,7 @@ mod tests {
 
         // 全表无指向已删平台 A 的关联残留（delete_platform 清所有 group_platform）。
         let pid_a = p_a.id as i64;
-        let stale_a: i64 = db.call_traced(None, move |conn| {
+        let stale_a: i64 = db.call_traced(None, std::panic::Location::caller(), move |conn| {
             Ok(conn.query_row("SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1", params![pid_a], |r| r.get(0))?)
         }).await.unwrap();
         assert_eq!(stale_a, 0, "A 不应残留任何 group_platform 行");
@@ -5882,7 +6308,7 @@ mod tests {
         assert_eq!(g.model_mappings.len(), 0);
 
         // 直接断言列值非 NULL
-        let (null_count, g_null): (i64, i64) = db.call_traced(None, |conn| {
+        let (null_count, g_null): (i64, i64) = db.call_traced(None, std::panic::Location::caller(), |conn| {
             let null_count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM platform WHERE extra IS NULL OR base_url IS NULL OR api_key IS NULL",
                 [],
@@ -5910,7 +6336,7 @@ mod tests {
         assert_eq!(fetched.platform_type, Protocol::Glm);
         // 列名为 platform_type（间接：能写入该列即证明列存在）
         let pid = p.id as i64;
-        let stored: String = db.call_traced(None, move |conn| {
+        let stored: String = db.call_traced(None, std::panic::Location::caller(), move |conn| {
             Ok(conn.query_row("SELECT platform_type FROM platform WHERE id = ?1", params![pid], |r| r.get(0))?)
         }).await.unwrap();
         assert_eq!(stored, "\"glm\"");
@@ -6024,7 +6450,7 @@ mod tests {
         assert_eq!(details.len(), 2);
 
         // 代理主键 id 存在且自增
-        let ids: Vec<i64> = db.call_traced(None, |conn| {
+        let ids: Vec<i64> = db.call_traced(None, std::panic::Location::caller(), |conn| {
             Ok(conn
                 .prepare("SELECT id FROM group_platform ORDER BY id")?
                 .query_map([], |r| r.get(0))?
@@ -6955,7 +7381,7 @@ decimals: None,
         let recent = now - 24 * 3600 * 1000; // 1 天前
         for (ts, title) in [(old, "old"), (recent, "recent")] {
             db
-                .call_traced(None, move |conn| {
+                .call_traced(None, std::panic::Location::caller(), move |conn| {
                     conn.execute(
                         "INSERT INTO notification (notif_type, title, body, created_at) VALUES ('error', ?1, '', ?2)",
                         params![title, ts],
@@ -7000,7 +7426,7 @@ decimals: None,
         let id = format!("test-{created_at}");
         let id_clone = id.clone();
         db
-            .call_traced(None, move |conn| {
+            .call_traced(None, std::panic::Location::caller(), move |conn| {
                 conn.execute(
                     "INSERT INTO proxy_log (id, platform_id, group_key, model, source_protocol, \
                      status_code, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, \
@@ -7018,7 +7444,7 @@ decimals: None,
     /// 辅助：COUNT(*) FROM proxy_log（含 tombstone，不过滤 deleted_at）。
     async fn count_all_proxy_logs(db: &Db) -> i64 {
         db
-            .call_traced(None, |conn| Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log", [], |r| r.get(0))?))
+            .call_traced(None, std::panic::Location::caller(), |conn| Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log", [], |r| r.get(0))?))
             .await
             .unwrap()
     }
@@ -7051,7 +7477,7 @@ decimals: None,
         let created = chrono::Utc::now().timestamp_millis();
         insert_proxy_log_at(&db, created).await;
         db
-            .call_traced(None, |conn| {
+            .call_traced(None, std::panic::Location::caller(), |conn| {
                 conn.execute("UPDATE proxy_log SET deleted_at = ?1 WHERE id LIKE 'test-%'", params![now()])?;
                 Ok(())
             })
@@ -7088,7 +7514,7 @@ decimals: None,
         // auto_vacuum 保持 INCREMENTAL
         let av: i64 = db
             
-            .call_traced(None, |c| Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get(0))?))
+            .call_traced(None, std::panic::Location::caller(), |c| Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get(0))?))
             .await
             .unwrap();
         assert_eq!(av, 2, "auto_vacuum should be INCREMENTAL");
@@ -7103,7 +7529,7 @@ decimals: None,
             insert_proxy_log_at(&db, chrono::Utc::now().timestamp_millis() + i).await;
         }
         db
-            .call_traced(None, |conn| {
+            .call_traced(None, std::panic::Location::caller(), |conn| {
                 conn.execute("DELETE FROM proxy_log WHERE id LIKE 'test-%'", [])?;
                 Ok(())
             })

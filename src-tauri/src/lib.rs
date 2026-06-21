@@ -4007,11 +4007,19 @@ pub fn run() {
             // 历史 ~/.aidog/log_settings.json 在此一次性迁移进 DB 后删除。
             let db_path = data_dir.join("aidog.db");
             let db = tauri::async_runtime::block_on(async {
-                let db = Db::new(db_path.to_str().unwrap()).await.expect("failed to open database");
-                db.init_tables().await.expect("failed to init tables");
-                // 自动建默认分组改为「创建平台时一次性判断」（见 platform_create），
-                // 不再在启动时为所有平台兜底建组（避免覆盖用户「不分组」选择）。
-                db
+                use tracing::Instrument;
+                // 启动期 init：包进带真实唯一链路 id 的 span，init_tables 的建表 / 迁移 SQL
+                // 经 call_traced 环境捕获带上该 id（非固定常量）。
+                let init_span = tracing::info_span!("db_init", trace_id = %logging::new_trace_id());
+                async {
+                    let db = Db::new(db_path.to_str().unwrap()).await.expect("failed to open database");
+                    db.init_tables().await.expect("failed to init tables");
+                    // 自动建默认分组改为「创建平台时一次性判断」（见 platform_create），
+                    // 不再在启动时为所有平台兜底建组（避免覆盖用户「不分组」选择）。
+                    db
+                }
+                .instrument(init_span)
+                .await
             });
             // 后台 auto_vacuum 迁移：老库（auto_vacuum=NONE）需 VACUUM 重建切到 INCREMENTAL
             // 才能回收 free pages。非阻塞——spawn 独立 task，失败仅 warn 不置标记，下次启动重试。
@@ -4020,22 +4028,34 @@ pub fn run() {
             {
                 let db_clone = db.clone();
                 tauri::async_runtime::spawn(async move {
-                    match gateway::db::migrate_auto_vacuum(&db_clone).await {
-                        Ok(true) => tracing::info!("db auto_vacuum migration completed on startup"),
-                        Ok(false) => tracing::debug!("db auto_vacuum migration skipped (already migrated or INCREMENTAL)"),
-                        Err(e) => tracing::warn!(error = %e, "db auto_vacuum migration failed on startup, will retry next launch"),
+                    use tracing::Instrument;
+                    let span = tracing::info_span!("db_migrate_auto_vacuum", trace_id = %logging::new_trace_id());
+                    async {
+                        match gateway::db::migrate_auto_vacuum(&db_clone).await {
+                            Ok(true) => tracing::info!("db auto_vacuum migration completed on startup"),
+                            Ok(false) => tracing::debug!("db auto_vacuum migration skipped (already migrated or INCREMENTAL)"),
+                            Err(e) => tracing::warn!(error = %e, "db auto_vacuum migration failed on startup, will retry next launch"),
+                        }
                     }
+                    .instrument(span)
+                    .await
                 });
             }
             // 一次性纠正聚合表虚高（agg 重复计数 bug，版本门控只跑一次）。非阻塞 spawn。
             {
                 let db_clone = db.clone();
                 tauri::async_runtime::spawn(async move {
-                    match gateway::db::rebuild_stats_agg_once_if_needed(&db_clone).await {
-                        Ok(true) => tracing::info!("stats_agg rebuilt from proxy_log (one-time dedup correction)"),
-                        Ok(false) => tracing::debug!("stats_agg rebuild skipped (already corrected)"),
-                        Err(e) => tracing::warn!(error = %e, "stats_agg one-time rebuild failed, will retry next launch"),
+                    use tracing::Instrument;
+                    let span = tracing::info_span!("db_rebuild_stats_agg", trace_id = %logging::new_trace_id());
+                    async {
+                        match gateway::db::rebuild_stats_agg_once_if_needed(&db_clone).await {
+                            Ok(true) => tracing::info!("stats_agg rebuilt from proxy_log (one-time dedup correction)"),
+                            Ok(false) => tracing::debug!("stats_agg rebuild skipped (already corrected)"),
+                            Err(e) => tracing::warn!(error = %e, "stats_agg one-time rebuild failed, will retry next launch"),
+                        }
                     }
+                    .instrument(span)
+                    .await
                 });
             }
             app.manage(db);
@@ -4086,27 +4106,38 @@ pub fn run() {
             {
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
+                    use tracing::Instrument;
                     let interval = std::time::Duration::from_secs(24 * 3600);
                     let older_than_secs: i64 = 3 * 24 * 3600;
                     loop {
-                        if let Some(db) = handle.try_state::<Db>() {
-                            match gateway::db::purge_old_soft_deleted_platforms(&db, older_than_secs).await {
-                                Ok(n) if n > 0 => tracing::info!(purged = n, "scheduled: purged old soft-deleted platforms"),
-                                Ok(_) => {}
-                                Err(e) => tracing::warn!(error = %e, "scheduled: purge old soft-deleted platforms failed"),
-                            }
-                            // 通知收件箱 retention 硬删（默认 7 天；inbox_retention_days=0 → 永不清理）。
-                            let retention_days = gateway::db::get_notification_settings(&db).await.inbox_retention_days;
-                            if let Err(e) = gateway::db::cleanup_notifications(&db, retention_days).await {
-                                tracing::warn!(error = %e, "scheduled: cleanup notifications failed");
-                            }
-                            // 聚合统计表 retention 硬删（默认 365 天；stats retention_days=0 → 永不清理）。
-                            let stats_settings: gateway::models::StatsSettings = gateway::db::get_setting(&db, "stats", "settings").await
-                                .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
-                            if let Err(e) = gateway::db::cleanup_stats_agg(&db, stats_settings.retention_days).await {
-                                tracing::warn!(error = %e, "scheduled: cleanup stats_agg failed");
+                        // 每个清理周期一个真实唯一链路 id：本周期内所有 SQL 共享该 id（SQL 日志
+                        // req= 经 call_traced 的环境捕获自动带上），不同周期 id 不同。
+                        let cycle_span = tracing::info_span!(
+                            "scheduled_cleanup",
+                            trace_id = %logging::new_trace_id()
+                        );
+                        async {
+                            if let Some(db) = handle.try_state::<Db>() {
+                                match gateway::db::purge_old_soft_deleted_platforms(&db, older_than_secs).await {
+                                    Ok(n) if n > 0 => tracing::info!(purged = n, "scheduled: purged old soft-deleted platforms"),
+                                    Ok(_) => {}
+                                    Err(e) => tracing::warn!(error = %e, "scheduled: purge old soft-deleted platforms failed"),
+                                }
+                                // 通知收件箱 retention 硬删（默认 7 天；inbox_retention_days=0 → 永不清理）。
+                                let retention_days = gateway::db::get_notification_settings(&db).await.inbox_retention_days;
+                                if let Err(e) = gateway::db::cleanup_notifications(&db, retention_days).await {
+                                    tracing::warn!(error = %e, "scheduled: cleanup notifications failed");
+                                }
+                                // 聚合统计表 retention 硬删（默认 365 天；stats retention_days=0 → 永不清理）。
+                                let stats_settings: gateway::models::StatsSettings = gateway::db::get_setting(&db, "stats", "settings").await
+                                    .ok().flatten().and_then(|v| serde_json::from_value(v).ok()).unwrap_or_default();
+                                if let Err(e) = gateway::db::cleanup_stats_agg(&db, stats_settings.retention_days).await {
+                                    tracing::warn!(error = %e, "scheduled: cleanup stats_agg failed");
+                                }
                             }
                         }
+                        .instrument(cycle_span)
+                        .await;
                         tokio::time::sleep(interval).await;
                     }
                 });
@@ -4233,6 +4264,7 @@ pub fn run() {
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
                     use chrono::{Local, TimeZone};
+                    use tracing::Instrument;
                     let coarse = std::time::Duration::from_secs(300);
                     loop {
                         // 距下一次本地 00:00 的秒数（含 1s 余量越过边界），与粗粒度间隔取小者。
@@ -4245,7 +4277,12 @@ pub fn run() {
                             .unwrap_or(coarse.as_secs());
                         let sleep = coarse.min(std::time::Duration::from_secs(secs_to_midnight));
                         tokio::time::sleep(sleep).await;
-                        let _ = refresh_tray_menu(&handle).await;
+                        // 每次托盘刷新一个真实唯一链路 id：本次 today_stats 等 SQL 共享该 id。
+                        let cycle_span = tracing::info_span!(
+                            "tray_refresh_tick",
+                            trace_id = %logging::new_trace_id()
+                        );
+                        let _ = refresh_tray_menu(&handle).instrument(cycle_span).await;
                     }
                 });
             }
@@ -4266,7 +4303,9 @@ pub fn run() {
             {
                 let handle = app.handle().clone();
                 tauri::async_runtime::spawn(async move {
-                    cold_start_init_tray_estimates(&handle).await;
+                    use tracing::Instrument;
+                    let span = tracing::info_span!("cold_start_init_tray", trace_id = %logging::new_trace_id());
+                    cold_start_init_tray_estimates(&handle).instrument(span).await;
                 });
             }
 
