@@ -7,10 +7,60 @@ use tokio_rusqlite::Connection as AsyncConnection;
 use super::log_util::truncate_sql_literals;
 use super::models::*;
 
-/// rusqlite `Connection::trace` 回调（裸 `fn(&str)`，不可捕获状态）。
-/// 把执行的 SQL 经 tracing target=sql / debug 级输出，超长字面量截断防刷屏。
-fn sql_trace_callback(sql: &str) {
-    tracing::debug!(target: "sql", sql = %truncate_sql_literals(sql), "exec sql");
+/// 单条 DB 操作（一个 `.call` 闭包）的「当前上下文」，由 chokepoint `call_traced`
+/// 在 **DB 后台线程** 进入闭包时设置、退出时清空。
+///
+/// 为什么是 thread-local 而非 task-local / span 字段：tokio-rusqlite 把所有 `.call`
+/// 闭包顺序投递到 **单一后台线程** 串行执行，与调用方的 tokio worker 线程 / tracing
+/// span 上下文不在同一执行流，span 字段不会跨线程传播。串行执行保证同一时刻该 DB
+/// 线程只跑一个闭包 → thread-local 不会串味。`profile` 回调（同样在 DB 线程触发）
+/// 读取本上下文，把 request_id + 调用位置拼进 SQL 日志。
+#[derive(Default, Clone)]
+struct DbCallCtx {
+    /// 发起该操作的 request_id（代理请求路径）或固定标签（如 "bg" / command 名）。
+    /// `None` → 日志显示 `-`。
+    req: Option<String>,
+    /// 发起该 `.call` 的 Rust 调用位置（`call_traced` 经 `#[track_caller]` 捕获）。
+    /// `None` → 日志显示 `-`。
+    caller: Option<&'static std::panic::Location<'static>>,
+}
+
+thread_local! {
+    /// 当前 DB 操作上下文（仅在 DB 后台线程有意义）。
+    static CURRENT_DB_CTX: std::cell::RefCell<DbCallCtx> = const { std::cell::RefCell::new(DbCallCtx { req: None, caller: None }) };
+}
+
+/// 把 `&Location` 渲染成简短 `文件名:行` 形式（去掉冗长的绝对/相对目录前缀）。
+fn fmt_caller(loc: &std::panic::Location<'_>) -> String {
+    let file = loc.file();
+    // 取最后一段路径（如 src/gateway/db.rs → db.rs），日志更紧凑。
+    let short = file.rsplit(['/', '\\']).next().unwrap_or(file);
+    format!("{short}:{}", loc.line())
+}
+
+/// rusqlite `Connection::profile` 回调（裸 `fn(&str, Duration)`，不可捕获状态）。
+/// 在 SQL 执行**后**触发，一次拿到 SQL 文本 + 执行耗时。读取 DB 线程的
+/// `CURRENT_DB_CTX`（由 `call_traced` 设置）拼出 request_id + 调用位置 + 耗时。
+///
+/// 目标格式：`exec sql [fn=<file:line> req=<id或-> dur=<x.xms>] sql=<截断后>`。
+/// 取代旧的 `trace` 回调（执行前触发、拿不到耗时），避免同一 SQL 重复输出。
+fn sql_profile_callback(sql: &str, dur: std::time::Duration) {
+    let (req, caller) = CURRENT_DB_CTX.with(|c| {
+        let c = c.borrow();
+        (
+            c.req.clone().unwrap_or_else(|| "-".to_string()),
+            c.caller.map(fmt_caller).unwrap_or_else(|| "-".to_string()),
+        )
+    });
+    let dur_ms = dur.as_secs_f64() * 1000.0;
+    tracing::debug!(
+        target: "sql",
+        fn = %caller,
+        req = %req,
+        dur = format!("{dur_ms:.1}ms"),
+        sql = %truncate_sql_literals(sql),
+        "exec sql"
+    );
 }
 
 /// setting 缓存键的借用探测接口：让 `(&str, &str)` 与拥有所有权的 `(String, String)`
@@ -170,16 +220,65 @@ impl Db {
             if table_count == 0 {
                 c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL;")?;
             }
-            // SQL 追踪：把每条执行的 SQL（rusqlite 0.32 legacy sqlite3_trace 会内联 `?`
-            // 占位的实际值）经 tracing target=sql / debug 级输出。trace 回调签名是裸
-            // `fn(&str)`（不能捕获，必须自由函数），故走 sql_trace_callback。超长字段
-            // 值由 log_util::truncate_sql_literals 截断；仅影响日志输出，不碰 DB 写入。
-            c.trace(Some(sql_trace_callback));
+            // SQL 追踪：用 `profile`（sqlite3_profile）替代 legacy `trace`。profile 在 SQL
+            // 执行**后**触发，回调签名 `fn(&str, Duration)`（裸函数，不能捕获，故走
+            // sql_profile_callback），一次拿到内联了 `?` 实际值的 SQL 文本 + 执行耗时。
+            // request_id / 调用位置经 call_traced 设的 thread-local 读出。超长字段值由
+            // log_util::truncate_sql_literals 截断；仅影响日志输出，不碰 DB 写入。
+            // 不再注册 trace 回调，避免同一 SQL 被 trace+profile 重复打印。
+            c.profile(Some(sql_profile_callback));
             Ok(())
         })
         .await
         .map_err(|e| e.to_string())?;
         Ok(Self(conn, Arc::new(DbCache::default())))
+    }
+
+    /// DB 调用 chokepoint：与 `tokio_rusqlite::Connection::call` 同形（同闭包签名 / 返回
+    /// 类型），额外接收一个 `req` 标签（代理请求路径传 request_id；后台 / 命令路径传
+    /// `Some("bg")` / 命令名 / `None`）。`#[track_caller]` 捕获**调用本方法的** Rust
+    /// 位置（file:line），与 `req` 一起在闭包进入 DB 线程时写入 `CURRENT_DB_CTX`，供
+    /// `sql_profile_callback` 读出拼进 SQL 日志，闭包结束（含 panic）后清空。
+    ///
+    /// 串行执行保证（tokio-rusqlite 单后台线程）→ 同一时刻仅一个闭包持有该 thread-local，
+    /// 不会串味；set/clear 各一次，开销可忽略，无锁竞争。
+    #[track_caller]
+    pub fn call_traced<F, R>(
+        &self,
+        req: Option<&str>,
+        f: F,
+    ) -> impl std::future::Future<Output = tokio_rusqlite::Result<R>>
+    where
+        F: FnOnce(&mut Connection) -> tokio_rusqlite::Result<R> + Send + 'static,
+        R: Send + 'static,
+    {
+        // 在 chokepoint 本体（非 async block）捕获调用位置，确保 `#[track_caller]`
+        // 指向真正的 db 调用方。clone AsyncConnection（仅 channel sender，廉价）并 move
+        // 进 async block，使返回 future 为 `'static`（不借 &self），形态等价于原
+        // `db.0.call(..).await`。
+        let caller = std::panic::Location::caller();
+        let req = req.map(|s| s.to_string());
+        let conn = self.0.clone();
+        async move {
+            // 包装用户闭包：进入 DB 线程时 set 上下文，离开（含 panic）时 guard 清空。
+            conn.call(move |conn| {
+                CURRENT_DB_CTX.with(|c| {
+                    *c.borrow_mut() = DbCallCtx {
+                        req: req.clone(),
+                        caller: Some(caller),
+                    };
+                });
+                struct Clear;
+                impl Drop for Clear {
+                    fn drop(&mut self) {
+                        CURRENT_DB_CTX.with(|c| *c.borrow_mut() = DbCallCtx::default());
+                    }
+                }
+                let _clear = Clear;
+                f(conn)
+            })
+            .await
+        }
     }
 
     /// 失效全部 setting 缓存槽（写入端粗粒度失效，settings 写入低频，无需按 key 精修）。
@@ -216,8 +315,8 @@ impl Db {
     }
 
     pub async fn init_tables(&self) -> Result<(), String> {
-        self.0
-            .call(|conn| {
+        self
+            .call_traced(None, |conn| {
                 conn.execute_batch(include_str!("../../migrations/001_init.sql"))?;
                 conn.execute_batch(include_str!("../../migrations/002_log_filter_indexes.sql"))?;
                 conn.execute_batch(include_str!("../../migrations/003_model_price.sql"))?;
@@ -817,8 +916,8 @@ pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platf
     let manual_budgets_str = super::models::serialize_manual_budgets(&manual_budgets);
 
     let id = db
-        .0
-        .call({
+        
+        .call_traced(None, {
             let name = input.name.clone();
             let base_url = input.base_url.clone();
             let api_key = input.api_key.clone();
@@ -866,8 +965,8 @@ pub async fn create_platform(db: &Db, mut input: CreatePlatform) -> Result<Platf
 }
 
 pub async fn list_platforms(db: &Db) -> Result<Vec<Platform>, String> {
-    db.0
-        .call(|conn| {
+    db
+        .call_traced(None, |conn| {
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE deleted_at = 0 ORDER BY sort_order, created_at");
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], row_to_platform)?;
@@ -878,8 +977,8 @@ pub async fn list_platforms(db: &Db) -> Result<Vec<Platform>, String> {
 }
 
 pub async fn get_platform(db: &Db, id: u64) -> Result<Option<Platform>, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE id = ?1 AND deleted_at = 0");
             let mut stmt = conn.prepare(&sql)?;
             Ok(stmt.query_row(params![id as i64], row_to_platform).optional()?)
@@ -965,8 +1064,8 @@ pub async fn update_platform(db: &Db, input: UpdatePlatform) -> Result<Platform,
     let available_str = serialize_available_models(&updated.available_models);
     let endpoints_str = serialize_endpoints(&updated.endpoints);
     let manual_budgets_str = super::models::serialize_manual_budgets(&updated.manual_budgets);
-    db.0
-        .call({
+    db
+        .call_traced(None, {
             let name = updated.name.clone();
             let base_url = updated.base_url.clone();
             let api_key = updated.api_key.clone();
@@ -1020,8 +1119,8 @@ const AUTO_DISABLE_MAX_STRIKES: i64 = 12; // 2^11 h ≈ 85 天封顶
 pub async fn set_platform_auto_disabled(db: &Db, id: u64) -> Result<i64, String> {
     let ts = now();
     let until = db
-        .0
-        .call(move |conn| {
+        
+        .call_traced(None, move |conn| {
             // 读当前状态 + strikes（仅对 enabled / auto_disabled 生效，跳过用户 disabled）
             let row: Option<(String, i64)> = conn
                 .query_row(
@@ -1072,8 +1171,8 @@ pub async fn record_dead_endpoint_strike(
 ) -> Result<(i64, i64), String> {
     let ts = now();
     let res = db
-        .0
-        .call(move |conn| {
+        
+        .call_traced(None, move |conn| {
             let row: Option<(String, i64)> = conn
                 .query_row(
                     "SELECT status, auto_disable_strikes FROM platform WHERE id = ?1 AND deleted_at = 0",
@@ -1120,8 +1219,8 @@ pub async fn record_dead_endpoint_strike(
 /// 仅作用于 enabled 平台；auto_disabled 平台的恢复走 recover_platform_auto_disabled。
 pub async fn reset_dead_endpoint_strikes(db: &Db, id: u64) -> Result<(), String> {
     let ts = now();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute(
                 "UPDATE platform SET auto_disable_strikes=0, updated_at=?1 WHERE id=?2 AND status='enabled' AND auto_disable_strikes>0",
                 params![ts, id as i64],
@@ -1138,8 +1237,8 @@ pub async fn reset_dead_endpoint_strikes(db: &Db, id: u64) -> Result<(), String>
 /// 用户手动 disabled / 已 enabled 平台不动。
 pub async fn recover_platform_auto_disabled(db: &Db, id: u64) -> Result<(), String> {
     let ts = now();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute(
                 "UPDATE platform SET status='enabled', enabled=1, auto_disable_strikes=0, auto_disabled_until=0, updated_at=?1 WHERE id=?2 AND status='auto_disabled'",
                 params![ts, id as i64],
@@ -1158,8 +1257,8 @@ pub async fn recover_platform_auto_disabled(db: &Db, id: u64) -> Result<(), Stri
 #[allow(dead_code)]
 pub async fn update_platform_quota(db: &Db, id: u64, balance: f64, coding_plan_json: &str) -> Result<(), String> {
     let coding_plan_json = coding_plan_json.to_string();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute(
                 "UPDATE platform SET est_balance_remaining = ?1, est_coding_plan = ?2 WHERE id = ?3",
                 params![balance, coding_plan_json, id as i64],
@@ -1175,8 +1274,8 @@ pub async fn update_platform_quota(db: &Db, id: u64, balance: f64, coding_plan_j
 pub async fn delete_platform(db: &Db, id: u64) -> Result<(), String> {
     // ① 软删平台 + 物理清除该平台在所有分组（含手动组与 auto 组）的成员关系。
     //    单事务保证：平台行软删与关联行清理同步，不留指向已删平台的悬空 group_platform。
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let tx = conn.transaction()?;
             tx.execute("UPDATE platform SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])?;
             tx.execute("DELETE FROM group_platform WHERE platform_id = ?1", params![id as i64])?;
@@ -1189,8 +1288,8 @@ pub async fn delete_platform(db: &Db, id: u64) -> Result<(), String> {
     // ② 该平台的 auto 分组：移除其唯一源平台后，仅当组内再无存活平台（孤儿 auto 组）才删除。
     //    若用户曾手动把别的平台拖进此 auto 组，则保留该组——不可因删源平台连带销毁其余成员的分组。
     let auto_group_ids: Vec<i64> = db
-        .0
-        .call(move |conn| {
+        
+        .call_traced(None, move |conn| {
             Ok(conn.prepare("SELECT id FROM \"group\" WHERE auto_from_platform = ?1 AND deleted_at = 0")?
                 .query_map(params![id.to_string()], |row| row.get(0))?
                 .collect::<SqlResult<Vec<i64>>>()?)
@@ -1237,8 +1336,8 @@ pub async fn purge_auto_disabled_platforms(
         // ── 全局：删全库 auto_disabled 平台 ──
         None => {
             let ids: Vec<i64> = db
-                .0
-                .call(|conn| {
+                
+                .call_traced(None, |conn| {
                     let mut stmt = conn.prepare(
                         "SELECT id FROM platform WHERE status = 'auto_disabled' AND deleted_at = 0",
                     )?;
@@ -1264,8 +1363,8 @@ pub async fn purge_auto_disabled_platforms(
             let gid_i = gid as i64;
             // 本分组内 auto_disabled 平台 id（活跃关联 + 平台未软删）。
             let ids: Vec<i64> = db
-                .0
-                .call(move |conn| {
+                
+                .call_traced(None, move |conn| {
                     let mut stmt = conn.prepare(
                         "SELECT p.id FROM platform p \
                          JOIN group_platform gp ON gp.platform_id = p.id \
@@ -1284,8 +1383,8 @@ pub async fn purge_auto_disabled_platforms(
                 let pid = id;
                 // 该平台跨全库的活跃分组成员数（deleted_at=0 过滤，避免软删残留误判独占）。
                 let member_count: i64 = db
-                    .0
-                    .call(move |conn| {
+                    
+                    .call_traced(None, move |conn| {
                         Ok(conn.query_row(
                             "SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1 AND deleted_at = 0",
                             params![pid],
@@ -1302,8 +1401,8 @@ pub async fn purge_auto_disabled_platforms(
                 } else {
                     // 共享（属多分组）→ 仅删本分组关联，platform 行保留。
                     // 对齐 move_group_platform 既有模式（db.rs:1622）：物理 DELETE + deleted_at=0 过滤当前活跃行。
-                    db.0
-                        .call(move |conn| {
+                    db
+                        .call_traced(None, move |conn| {
                             conn.execute(
                                 "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
                                 params![gid_i, pid],
@@ -1333,8 +1432,8 @@ pub async fn purge_auto_disabled_platforms(
 pub async fn purge_old_soft_deleted_platforms(db: &Db, older_than_secs: i64) -> Result<u64, String> {
     let cutoff = now() - older_than_secs;
     let n = db
-        .0
-        .call(move |conn| {
+        
+        .call_traced(None, move |conn| {
             Ok(conn.execute(
                 "DELETE FROM platform WHERE deleted_at > 0 AND deleted_at < ?1",
                 params![cutoff],
@@ -1352,8 +1451,8 @@ pub async fn purge_old_soft_deleted_platforms(db: &Db, older_than_secs: i64) -> 
 pub async fn set_tray_platform(db: &Db, platform_id: u64, tray_display: &str) -> Result<(), String> {
     let display = if tray_display == "coding" { "coding" } else { "balance" }.to_string();
     let ts = now();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let tx = conn.transaction()?;
             tx.execute("UPDATE platform SET show_in_tray = 0, updated_at = ?1 WHERE show_in_tray = 1", params![ts])?;
             tx.execute(
@@ -1371,8 +1470,8 @@ pub async fn set_tray_platform(db: &Db, platform_id: u64, tray_display: &str) ->
 
 /// 清空所有 tray 展示（关闭）。
 pub async fn clear_tray(db: &Db) -> Result<(), String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute("UPDATE platform SET show_in_tray = 0, updated_at = ?1 WHERE show_in_tray = 1", params![now()])?;
             Ok(())
         })
@@ -1384,8 +1483,8 @@ pub async fn clear_tray(db: &Db) -> Result<(), String> {
 
 /// 取当前 tray 展示平台（show_in_tray = 1），无则 None。
 pub async fn get_tray_platform(db: &Db) -> Result<Option<Platform>, String> {
-    db.0
-        .call(|conn| {
+    db
+        .call_traced(None, |conn| {
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE show_in_tray = 1 AND deleted_at = 0 LIMIT 1");
             let mut stmt = conn.prepare(&sql)?;
             Ok(stmt.query_row([], row_to_platform).optional()?)
@@ -1475,8 +1574,8 @@ pub async fn today_token_total(db: &Db) -> Result<i64, String> {
         .ok_or("ambiguous local midnight")?;
     let start_ms = start_local.timestamp_millis();
 
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             Ok(conn.query_row(
                 "SELECT COALESCE(SUM(input_tokens + output_tokens), 0) FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
                 params![start_ms],
@@ -1517,8 +1616,8 @@ fn local_today_hour_key() -> String {
 pub async fn today_stats(db: &Db) -> Result<TodayStats, String> {
     let today_key = local_today_hour_key();
 
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(Some("bg"), move |conn| {
             // 基础统计（从聚合表：request_count 即请求数，sum_* 即各 token，sum_est_cost 即花费）。
             let (input_tokens, output_tokens, cache_tokens, total_requests, cost): (i64, i64, i64, i64, f64) = conn
                 .query_row(
@@ -1576,8 +1675,8 @@ pub struct TodayPlatformStat {
 pub async fn today_platform_stats(db: &Db) -> Result<Vec<TodayPlatformStat>, String> {
     let today_key = local_today_hour_key();
 
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(Some("bg"), move |conn| {
             // stats_agg_hourly.platform_id 已是 eff_pid（回溯后源平台 id），直接 GROUP BY 即可，
             // 无需再跑 auto 回溯子查询。GROUP BY 天然只含当日有用量的平台。
             let sql = "
@@ -1740,8 +1839,8 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
         .unwrap_or_else(|| format!("gk_{}", uuid::Uuid::new_v4().simple()));
 
     let id = db
-        .0
-        .call({
+        
+        .call_traced(None, {
             let name = input.name.clone();
             let group_key = group_key.clone();
             let auto_from_platform = input.auto_from_platform.clone();
@@ -1783,8 +1882,8 @@ pub async fn create_group(db: &Db, input: CreateGroup) -> Result<Group, String> 
 /// 批量更新 group 的 sort_order：接收有序 id 列表，按序赋值 1, 2, 3, …
 pub async fn reorder_groups(db: &Db, ordered_ids: &[u64]) -> Result<(), String> {
     let ordered_ids = ordered_ids.to_vec();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             for (i, &id) in ordered_ids.iter().enumerate() {
                 conn.execute(
                     "UPDATE \"group\" SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
@@ -1802,8 +1901,8 @@ pub async fn reorder_groups(db: &Db, ordered_ids: &[u64]) -> Result<(), String> 
 /// 批量更新 platform 的 sort_order
 pub async fn reorder_platforms(db: &Db, ordered_ids: &[u64]) -> Result<(), String> {
     let ordered_ids = ordered_ids.to_vec();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             for (i, &id) in ordered_ids.iter().enumerate() {
                 conn.execute(
                     "UPDATE platform SET sort_order = ?1, updated_at = ?2 WHERE id = ?3",
@@ -1827,8 +1926,8 @@ pub async fn reorder_group_platforms(
     let group_id = group_id as i64;
     let ordered = ordered_platform_ids.to_vec();
     let ts = now();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             for (i, &pid) in ordered.iter().enumerate() {
                 conn.execute(
                     "UPDATE group_platform SET priority = ?1, updated_at = ?2 \
@@ -1856,8 +1955,8 @@ pub async fn set_group_platform_level_priority(
     let gid = group_id as i64;
     let pid = platform_id as i64;
     let ts = now();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute(
                 "UPDATE group_platform SET level_priority = ?1, updated_at = ?2 \
                  WHERE group_id = ?3 AND platform_id = ?4 AND deleted_at = 0",
@@ -1882,8 +1981,8 @@ pub async fn move_group_platform(
     let from = from_group_id as i64;
     let to = to_group_id as i64;
     let ts = now();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute(
                 "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2 AND deleted_at = 0",
                 params![from, pid],
@@ -1922,8 +2021,8 @@ pub async fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
         }
     }
     let groups = db
-        .0
-        .call(|conn| {
+        
+        .call_traced(None, |conn| {
             let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE deleted_at = 0 ORDER BY sort_order, created_at"))?;
             let rows = stmt.query_map([], row_to_group)?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
@@ -1937,8 +2036,8 @@ pub async fn list_groups(db: &Db) -> Result<Vec<Group>, String> {
 }
 
 pub async fn get_group(db: &Db, id: u64) -> Result<Option<Group>, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE id = ?1 AND deleted_at = 0"))?;
             Ok(stmt.query_row(params![id as i64], row_to_group).optional()?)
         })
@@ -1963,8 +2062,8 @@ pub async fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> 
 
     let routing_str = serde_json::to_string(&updated.routing_mode).unwrap();
     let mappings_str = serialize_mappings(&updated.model_mappings);
-    db.0
-        .call({
+    db
+        .call_traced(None, {
             let name = updated.name.clone();
             let updated_at = updated.updated_at;
             let request_timeout_secs = updated.request_timeout_secs as i64;
@@ -1992,8 +2091,8 @@ pub async fn update_group(db: &Db, input: UpdateGroup) -> Result<Group, String> 
 /// 清除默认（target_id 为 None）时把所有 is_default 置 0。
 pub async fn set_default_group(db: &Db, target_id: Option<u64>) -> Result<(), String> {
     let ts = now();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             match target_id {
                 Some(id) => {
                     conn.execute(
@@ -2034,8 +2133,8 @@ pub async fn delete_group(db: &Db, id: u64) -> Result<(), String> {
 
 /// 强制删除分组（含自动分组），仅供平台删除时内部调用
 pub async fn force_delete_group(db: &Db, id: u64) -> Result<(), String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute("UPDATE \"group\" SET deleted_at = ?1 WHERE id = ?2", params![now(), id as i64])?;
             Ok(())
         })
@@ -2054,8 +2153,8 @@ pub async fn set_group_platforms(
 ) -> Result<(), String> {
     let ts = now();
     let platforms = platforms.to_vec();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             // 物理清除旧关联后重建（关联表无需软删保留）
             conn.execute(
                 "DELETE FROM group_platform WHERE group_id = ?1",
@@ -2090,8 +2189,8 @@ pub async fn sync_platform_manual_groups(
 ) -> Result<(), String> {
     // 该平台当前所在的所有 (group_id, auto_from_platform)。
     let current: Vec<(i64, String)> = db
-        .0
-        .call(move |conn| {
+        
+        .call_traced(None, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT g.id, g.auto_from_platform FROM group_platform gp \
                  JOIN \"group\" g ON gp.group_id = g.id \
@@ -2114,8 +2213,8 @@ pub async fn sync_platform_manual_groups(
     for (gid, auto_from) in &current {
         if auto_from.is_empty() && !target.contains(gid) {
             let gid = *gid;
-            db.0
-                .call(move |conn| {
+            db
+                .call_traced(None, move |conn| {
                     conn.execute(
                         "DELETE FROM group_platform WHERE group_id = ?1 AND platform_id = ?2",
                         params![gid, platform_id as i64],
@@ -2158,8 +2257,8 @@ pub async fn sync_platform_manual_groups(
 }
 
 pub async fn get_group_platforms(db: &Db, group_id: u64) -> Result<Vec<GroupPlatformDetail>, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
     let mut stmt = conn
         .prepare(
             &format!(
@@ -2279,8 +2378,8 @@ pub async fn get_setting(
     let scope = scope.to_string();
     let key = key.to_string();
     let result = db
-        .0
-        .call({
+        
+        .call_traced(None, {
             let scope = scope.clone();
             let key = key.clone();
             move |conn| {
@@ -2308,8 +2407,8 @@ pub async fn set_setting(db: &Db, input: SetSettingInput) -> Result<(), String> 
     let ts = now();
     let value_str =
         serde_json::to_string(&input.value).map_err(|e| format!("serialize setting: {e}"))?;
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute(
                 "INSERT INTO setting (scope, key, value, created_at, updated_at) VALUES (?1, ?2, ?3, ?4, ?4)
                  ON CONFLICT(scope, key) DO UPDATE SET value = ?3, updated_at = ?4, deleted_at = 0",
@@ -2326,8 +2425,8 @@ pub async fn set_setting(db: &Db, input: SetSettingInput) -> Result<(), String> 
 pub async fn delete_setting(db: &Db, scope: &str, key: &str) -> Result<(), String> {
     let scope = scope.to_string();
     let key = key.to_string();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute(
                 "UPDATE setting SET deleted_at = ?1 WHERE scope = ?2 AND key = ?3",
                 params![now(), scope, key],
@@ -2342,8 +2441,8 @@ pub async fn delete_setting(db: &Db, scope: &str, key: &str) -> Result<(), Strin
 
 pub async fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, String> {
     let scope = scope.to_string();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let mut stmt = conn.prepare("SELECT key FROM setting WHERE scope = ?1 AND deleted_at = 0 ORDER BY key")?;
             let rows = stmt.query_map(params![scope], |row| row.get(0))?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
@@ -2354,8 +2453,8 @@ pub async fn list_setting_keys(db: &Db, scope: &str) -> Result<Vec<String>, Stri
 
 /// 导入导出用：列出全部未删除 setting 原始行（scope, key, value_json）。
 pub async fn list_all_settings_raw(db: &Db) -> Result<Vec<(String, String, String)>, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT scope, key, value FROM setting WHERE deleted_at = 0 ORDER BY scope, key",
             )?;
@@ -2372,8 +2471,8 @@ pub async fn list_all_settings_raw(db: &Db) -> Result<Vec<(String, String, Strin
 pub async fn list_all_group_platform_pairs(
     db: &Db,
 ) -> Result<Vec<(String, String)>, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT g.name, p.name FROM group_platform gp
                  JOIN \"group\" g ON g.id = gp.group_id
@@ -2432,8 +2531,8 @@ pub async fn list_middleware_rules(db: &Db) -> Result<Vec<MiddlewareRule>, Strin
     let sql = format!(
         "SELECT {MIDDLEWARE_RULE_COLUMNS} FROM middleware_rule ORDER BY priority ASC, id ASC"
     );
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], row_to_middleware_rule)?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
@@ -2451,8 +2550,8 @@ pub async fn create_middleware_rule(
     let scope = input.scope.as_str().to_string();
     let match_type = input.match_type.as_str().to_string();
     let action = input.action.as_str().to_string();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute(
                 "INSERT INTO middleware_rule
                    (name, description, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at)
@@ -2493,8 +2592,8 @@ pub async fn update_middleware_rule(
     let scope = input.scope.as_str().to_string();
     let match_type = input.match_type.as_str().to_string();
     let action = input.action.as_str().to_string();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let affected = conn.execute(
                 "UPDATE middleware_rule SET
                    name = ?2, description = ?3, rule_type = ?4, scope = ?5, scope_ref = ?6,
@@ -2534,8 +2633,8 @@ pub async fn update_middleware_rule(
 }
 
 pub async fn delete_middleware_rule(db: &Db, id: i64) -> Result<(), String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute("DELETE FROM middleware_rule WHERE id = ?1", params![id])?;
             Ok(())
         })
@@ -2582,8 +2681,8 @@ pub async fn insert_notification(
     let title = title.to_string();
     let body = body.to_string();
     let ts = now();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute(
                 "INSERT INTO notification (notif_type, title, body, created_at) VALUES (?1, ?2, ?3, ?4)",
                 params![notif_type, title, body, ts],
@@ -2599,8 +2698,8 @@ pub async fn list_notifications(
     db: &Db,
     limit: i64,
 ) -> Result<Vec<super::models::Notification>, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, notif_type, title, body, created_at FROM notification ORDER BY created_at DESC, id DESC LIMIT ?1",
             )?;
@@ -2621,8 +2720,8 @@ pub async fn list_notifications(
 
 /// 清空收件箱（删全部行）。
 pub async fn clear_notifications(db: &Db) -> Result<(), String> {
-    db.0
-        .call(|conn| {
+    db
+        .call_traced(None, |conn| {
             conn.execute("DELETE FROM notification", [])?;
             Ok(())
         })
@@ -2637,8 +2736,8 @@ pub async fn clear_notifications(db: &Db) -> Result<(), String> {
 /// 硬删后 `incremental_vacuum(100)` 回收 free pages（auto_vacuum != INCREMENTAL 时 no-op）。
 pub async fn cleanup_notifications(db: &Db, retention_days: u32) -> Result<(), String> {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute("DELETE FROM notification WHERE created_at < ?1", params![cutoff])?;
             incremental_vacuum_conn(conn, 100);
             Ok(())
@@ -2695,8 +2794,8 @@ fn row_to_proxy_log(row: &rusqlite::Row) -> SqlResult<super::models::ProxyLog> {
 /// 取 owned `ProxyLog`：调用方（upsert_log）已为脱敏 clone 一份，此处接管所有权
 /// 直接 move 进后台线程闭包，消除原先「调用方 clone + 本函数再 clone」的双重全量复制。
 pub async fn upsert_proxy_log(db: &Db, log: super::models::ProxyLog) -> Result<(), String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let attempts_str = super::models::serialize_attempts(&log.attempts);
             conn.execute(
                 &format!("INSERT OR REPLACE INTO proxy_log ({PROXY_LOG_COLUMNS})
@@ -2843,8 +2942,10 @@ impl ProxyLogColumns {
 
 /// 渐进式日志首节点：INSERT 建行（非 REPLACE，行不应已存在）。失败上抛。
 pub async fn insert_proxy_log_columns(db: &Db, cols: ProxyLogColumns) -> Result<(), String> {
-    db.0
-        .call(move |conn| {
+    // cols.id == proxy_log.id == 请求 span 的 request_id（32-hex），用作 SQL 日志归属键。
+    let req_id = cols.id.clone();
+    db
+        .call_traced(Some(&req_id), move |conn| {
             conn.execute(
                 &format!("INSERT INTO proxy_log ({PROXY_LOG_COLUMNS})
                  VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22,?23,?24,?25,?26,?27,?28,?29,?30,?31,?32)"),
@@ -2865,8 +2966,10 @@ pub async fn update_proxy_log_columns(db: &Db, new: ProxyLogColumns, prev: &Prox
         return Ok(());
     }
     let id = new.id.clone();
-    db.0
-        .call(move |conn| {
+    // id == proxy_log.id == request_id，用作 SQL 日志归属键。
+    let req_id = id.clone();
+    db
+        .call_traced(Some(&req_id), move |conn| {
             let set_sql: String = changed
                 .iter()
                 .enumerate()
@@ -2885,8 +2988,8 @@ pub async fn update_proxy_log_columns(db: &Db, new: ProxyLogColumns, prev: &Prox
 }
 
 pub async fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::models::ProxyLogSummary>, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at
                  FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
@@ -2926,8 +3029,8 @@ pub async fn filtered_list_proxy_logs(
     offset: u32,
 ) -> Result<Vec<super::models::ProxyLogSummary>, String> {
     let filter = filter.clone();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let (where_sql, mut p) = build_filter_where(&filter);
             p.push(Box::new(limit));
             p.push(Box::new(offset));
@@ -2949,8 +3052,8 @@ pub async fn filtered_count_proxy_logs(
     filter: &super::models::ProxyLogFilter,
 ) -> Result<u32, String> {
     let filter = filter.clone();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let (where_sql, p) = build_filter_where(&filter);
             let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
             let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
@@ -3021,8 +3124,8 @@ fn build_filter_where(filter: &super::models::ProxyLogFilter) -> (String, Vec<Bo
 
 pub async fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::ProxyLog>, String> {
     let id = id.to_string();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let mut stmt = conn.prepare(&format!(
                 "SELECT {PROXY_LOG_COLUMNS} FROM proxy_log WHERE id = ?1 AND deleted_at = 0"
             ))?;
@@ -3033,8 +3136,8 @@ pub async fn get_proxy_log(db: &Db, id: &str) -> Result<Option<super::models::Pr
 }
 
 pub async fn clear_proxy_logs(db: &Db) -> Result<(), String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute("UPDATE proxy_log SET deleted_at = ?1 WHERE deleted_at = 0", params![now()])?;
             Ok(())
         })
@@ -3050,8 +3153,8 @@ pub async fn clear_proxy_logs(db: &Db) -> Result<(), String> {
 /// 未迁移时为 no-op 不报错）。每次至多回收 100 页避免长锁，busy_timeout=5000 兜底排队。
 pub async fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> Result<(), String> {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute(
                 "DELETE FROM proxy_log WHERE created_at < ?1 AND deleted_at = 0",
                 params![cutoff],
@@ -3068,8 +3171,8 @@ pub async fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> Result<(), Stri
 /// 迁移期（cleanup_proxy_logs 由软删改硬删）清积压 tombstone；日常可被
 /// proxy_log_settings_set 调用链在 retention 硬删后追加触发。
 pub async fn purge_deleted_proxy_logs(db: &Db) -> Result<(), String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute("DELETE FROM proxy_log WHERE deleted_at != 0", [])?;
             incremental_vacuum_conn(conn, 100);
             Ok(())
@@ -3134,8 +3237,8 @@ pub struct StatsAggInput {
 /// 对一条终态请求按 (time_hour,model,group_key,platform_id) UPSERT 进 stats_agg_hourly。
 /// 写入【不受日志开关影响】：proxy 终态路径无条件调用。失败非致命（调用方 warn 不中断请求）。
 pub async fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> Result<(), String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let now = chrono::Utc::now().timestamp_millis();
             // 本地小时桶由 SQL 内 strftime('...','localtime') 算，与 bucket_time_expr/回填一致。
             let is_2xx = input.status_code >= 200 && input.status_code < 300;
@@ -3188,8 +3291,8 @@ pub async fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> Result<(), Strin
 
 /// 清空 stats_agg_hourly 后从 proxy_log 全量重建（用户启用 log 后手动修复用）。
 pub async fn rebuild_stats_agg_from_logs(db: &Db) -> Result<(), String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute("DELETE FROM stats_agg_hourly", [])?;
             let now = chrono::Utc::now().timestamp_millis();
             conn.execute(&agg_rebuild_insert_sql(), params![now])?;
@@ -3230,8 +3333,8 @@ pub async fn rebuild_stats_agg_once_if_needed(db: &Db) -> Result<bool, String> {
 /// 截止时间为 UTC ms；与 time_hour 文本桶比较走 created_at 列（行写入时间）。
 pub async fn cleanup_stats_agg(db: &Db, retention_days: u32) -> Result<(), String> {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute("DELETE FROM stats_agg_hourly WHERE created_at < ?1", params![cutoff])?;
             incremental_vacuum_conn(conn, 100);
             Ok(())
@@ -3268,8 +3371,8 @@ pub async fn migrate_auto_vacuum(db: &Db) -> Result<bool, String> {
     }
     // 探测当前 auto_vacuum 模式
     let current: i64 = db
-        .0
-        .call(|c| {
+        
+        .call_traced(None, |c| {
             Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get::<_, i64>(0))?)
         })
         .await
@@ -3289,8 +3392,8 @@ pub async fn migrate_auto_vacuum(db: &Db) -> Result<bool, String> {
     }
     // 切换为 INCREMENTAL 并 VACUUM 重建。VACUUM 必须在 autocommit（无活动事务）下执行，
     // 不能包在 transaction 内；此处独立 execute_batch 调用，rusqlite 默认 autocommit。
-    db.0
-        .call(|c| {
+    db
+        .call_traced(None, |c| {
             // 先 checkpoint 把 WAL 内容合并回主库，避免 WAL+VACUUM 模式约束
             let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
             c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")?;
@@ -3316,8 +3419,8 @@ pub async fn migrate_auto_vacuum(db: &Db) -> Result<bool, String> {
 /// 用于设置页「立即压缩数据库」按钮：比 incremental 更激进，整库重写。
 /// VACUUM 不在事务内（独立 conn 调用）；锁库期间请求排队，UI 有警示。
 pub async fn compact_database(db: &Db) -> Result<CompactResult, String> {
-    db.0
-        .call(|c| {
+    db
+        .call_traced(None, |c| {
             let before = db_size_bytes(c)?;
             // WAL checkpoint 再 VACUUM，避免 WAL 内未合并页漏算
             let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
@@ -3351,8 +3454,8 @@ pub struct CompactResult {
 /// Does NOT delete the log row — keeps token stats and metadata.
 pub async fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute(
                 "UPDATE proxy_log SET request_body = '', user_response_body = '' WHERE created_at < ?1 AND (request_body != '' OR user_response_body != '')",
                 params![cutoff],
@@ -3368,8 +3471,8 @@ pub async fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> Result
 /// Does NOT delete the log row — keeps token stats and metadata.
 pub async fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> Result<(), String> {
     let Some(cutoff) = retention_cutoff(retention_days) else { return Ok(()); };
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute(
                 "UPDATE proxy_log SET upstream_request_body = '' WHERE created_at < ?1 AND upstream_request_body != ''",
                 params![cutoff],
@@ -3381,8 +3484,8 @@ pub async fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> Re
 }
 
 pub async fn count_proxy_logs(db: &Db) -> Result<u32, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0", [], |row| row.get(0))?)
         })
         .await
@@ -3462,8 +3565,8 @@ fn usage_stats(
 }
 
 pub async fn get_platform_usage_stats(db: &Db, platform_id: u64) -> Result<super::models::PlatformUsageStats, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             // platform_id 现为整数；自动分组日志可能未带 platform_id（=0），通过 group.auto_from_platform（存十进制字符串）回溯。
             // 回溯按 group.group_key 匹配 proxy_log.group_key（gk_<hex>，非显示名 g.name；见 migration 024 / group-name-group-key-split）。
             let where_clause = "deleted_at = 0 AND (platform_id = ?1 OR (platform_id = 0 AND group_key IN (SELECT group_key FROM \"group\" WHERE auto_from_platform = ?2 AND deleted_at = 0)))";
@@ -3481,8 +3584,8 @@ pub async fn get_last_test_result(
     db: &Db,
     platform_id: u64,
 ) -> Result<Option<super::models::LastTestResult>, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let pid = platform_id as i64;
             let mut stmt = conn.prepare(
                 "SELECT status_code, duration_ms, created_at, response_body \
@@ -3523,8 +3626,8 @@ pub async fn get_last_test_result(
 pub async fn get_group_usage_stats(db: &Db, group_key: &str) -> Result<super::models::PlatformUsageStats, String> {
     let group_key = group_key.to_string();
     let today_key = local_today_hour_key();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             // 从聚合表查单组累计 + 今日。recent_failures/recent_total 聚合表无法重建（需逐请求近 5 条），
             // 置 0（Groups 页不渲染该健康点；与批量版 get_all_group_usage_stats 一致）。
             let stats = conn.query_row(
@@ -3574,8 +3677,8 @@ pub async fn get_group_usage_stats(db: &Db, group_key: &str) -> Result<super::mo
 pub async fn get_all_group_usage_stats(
     db: &Db,
 ) -> Result<std::collections::HashMap<String, super::models::PlatformUsageStats>, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT group_key, COALESCE(SUM(request_count), 0), \
                  COALESCE(SUM(success_count), 0), \
@@ -3635,8 +3738,8 @@ pub async fn get_all_group_usage_stats(
 pub async fn platform_usage_stats_all(
     db: &Db,
 ) -> Result<std::collections::HashMap<u64, super::models::PlatformUsageStats>, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             // 公共 eff_pid 派生子查询：platform_id=0 经 group.auto_from_platform 回溯到源平台。
             const EFF_PID_SUBQUERY: &str = "\
                 SELECT \
@@ -3791,8 +3894,8 @@ pub async fn get_group_hourly_rate(db: &Db, group_key: &str) -> Result<Option<f6
     let now_ms = chrono::Utc::now().timestamp_millis();
     let window_start = now_ms - RATE_MAX_SPAN_MS;
     let group_key = group_key.to_string();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(Some("bg"), move |conn| {
             Ok(hourly_rate_inner(conn, now_ms, window_start, "group_key = ?2", &[&group_key])?)
         })
         .await
@@ -3806,8 +3909,8 @@ pub async fn get_group_hourly_rate(db: &Db, group_key: &str) -> Result<Option<f6
 pub async fn get_platform_hourly_rate(db: &Db, platform_id: u64) -> Result<Option<f64>, String> {
     let now_ms = chrono::Utc::now().timestamp_millis();
     let window_start = now_ms - RATE_MAX_SPAN_MS;
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(Some("bg"), move |conn| {
             let pid = platform_id as i64;
             let pid_str = platform_id.to_string();
             let scope = "platform_id = ?2 OR (platform_id = 0 AND group_key IN (SELECT group_key FROM \"group\" WHERE auto_from_platform = ?3 AND deleted_at = 0))";
@@ -3866,8 +3969,8 @@ fn bucket_time_expr(granularity: Option<&str>) -> String {
 
 pub async fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, String> {
     let query = query.clone();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             query_stats_inner(conn, &query)
                 .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
         })
@@ -3880,8 +3983,8 @@ pub async fn query_stats(db: &Db, query: &StatsQuery) -> Result<StatsResult, Str
 ///
 /// 单卡值与 `query_stats`（逐卡）完全一致：复用同一 `query_stats_inner`，不合并/不丢维度。
 pub async fn query_stats_batch(db: &Db, queries: Vec<StatsQuery>) -> Result<Vec<StatsResult>, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let mut out = Vec::with_capacity(queries.len());
             for q in &queries {
                 out.push(
@@ -4327,8 +4430,8 @@ fn price_data_to_summary(mp: &super::models::ModelPrice) -> super::models::Model
 }
 
 pub async fn list_model_prices(db: &Db, limit: u32, offset: u32) -> Result<Vec<super::models::ModelPriceSummary>, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let mut stmt = conn.prepare(
                 &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 ORDER BY model_name LIMIT ?1 OFFSET ?2")
             )?;
@@ -4344,8 +4447,8 @@ pub async fn list_model_prices(db: &Db, limit: u32, offset: u32) -> Result<Vec<s
 }
 
 pub async fn count_model_prices(db: &Db) -> Result<u32, String> {
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             Ok(conn.query_row("SELECT COUNT(*) FROM model_price WHERE deleted_at = 0", [], |row| row.get(0))?)
         })
         .await
@@ -4355,8 +4458,8 @@ pub async fn count_model_prices(db: &Db) -> Result<u32, String> {
 /// 获取指定模型的最新价格记录（优先 manual > github）
 pub async fn get_model_price(db: &Db, model_name: &str) -> Result<Option<super::models::ModelPrice>, String> {
     let model_name = model_name.to_string();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             // 优先取 manual 记录
             let mut stmt = conn.prepare(
                 &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE model_name = ?1 AND source = 'manual' AND deleted_at = 0")
@@ -4388,8 +4491,8 @@ pub async fn upsert_model_price(
     let model_name = model_name.to_string();
     let source = source.to_string();
     let price_data = price_data.to_string();
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             conn.execute(
                 "INSERT INTO model_price (model_name, source, price_data, max_input_tokens, max_output_tokens, context_window, created_at, updated_at, deleted_at)
                  VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?7, 0)
@@ -4543,8 +4646,8 @@ fn apply_context_tier(
 /// 搜索模型价格
 pub async fn search_model_prices(db: &Db, query: &str, limit: u32) -> Result<Vec<super::models::ModelPriceSummary>, String> {
     let pattern = format!("%{query}%");
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let mut stmt = conn.prepare(
                 &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 AND model_name LIKE ?1 ORDER BY model_name LIMIT ?2")
             )?;
@@ -4569,8 +4672,8 @@ pub async fn filtered_list_model_prices(
 ) -> Result<Vec<super::models::ModelPriceSummary>, String> {
     let query = query.map(|s| s.to_string());
     let source = source.map(|s| s.to_string());
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let query = query.as_deref();
             let source = source.as_deref();
     let mut where_parts = vec!["deleted_at = 0".to_string()];
@@ -4621,8 +4724,8 @@ pub async fn filtered_count_model_prices(
 ) -> Result<u32, String> {
     let query = query.map(|s| s.to_string());
     let source = source.map(|s| s.to_string());
-    db.0
-        .call(move |conn| {
+    db
+        .call_traced(None, move |conn| {
             let query = query.as_deref();
             let source = source.as_deref();
     let mut where_parts = vec!["deleted_at = 0".to_string()];
@@ -4657,7 +4760,7 @@ pub async fn filtered_count_model_prices(
 // env_json/headers_json 含原始敏感值，调用方负责脱敏后再返前端。
 
 pub async fn list_mcp_servers(db: &Db) -> Result<Vec<super::mcp::McpServerRow>, String> {
-    db.0.call(move |conn| {
+    db.call_traced(None, move |conn| {
         let mut stmt = conn.prepare(
             "SELECT id, name, transport, command, args_json, env_json, url, headers_json, \
              enabled_agents, created_at, updated_at FROM mcp_server ORDER BY name",
@@ -4692,7 +4795,7 @@ pub async fn get_mcp_server(
     name: &str,
 ) -> Result<Option<super::mcp::McpServerRow>, String> {
     let name = name.to_string();
-    db.0.call(move |conn| {
+    db.call_traced(None, move |conn| {
         let mut stmt = conn.prepare(
             "SELECT id, name, transport, command, args_json, env_json, url, headers_json, \
              enabled_agents, created_at, updated_at FROM mcp_server WHERE name = ?1",
@@ -4724,7 +4827,7 @@ pub async fn get_mcp_server(
 /// INSERT 或 UPDATE（按 name 唯一冲突）。created_at 仅首次写入生效（UPDATE 不覆盖）。
 pub async fn upsert_mcp_server(db: &Db, row: &super::mcp::McpServerRow) -> Result<(), String> {
     let row = row.clone();
-    db.0.call(move |conn| {
+    db.call_traced(None, move |conn| {
         conn.execute(
             "INSERT INTO mcp_server \
              (name, transport, command, args_json, env_json, url, headers_json, enabled_agents, created_at, updated_at) \
@@ -4754,7 +4857,7 @@ pub async fn upsert_mcp_server(db: &Db, row: &super::mcp::McpServerRow) -> Resul
 
 pub async fn delete_mcp_server(db: &Db, name: &str) -> Result<(), String> {
     let name = name.to_string();
-    db.0.call(move |conn| {
+    db.call_traced(None, move |conn| {
         conn.execute("DELETE FROM mcp_server WHERE name = ?1", params![name])?;
         Ok(())
     })
@@ -4769,7 +4872,7 @@ pub async fn set_mcp_server_enabled_agents(
 ) -> Result<(), String> {
     let name = name.to_string();
     let csv = agents_csv.to_string();
-    db.0.call(move |conn| {
+    db.call_traced(None, move |conn| {
         conn.execute(
             "UPDATE mcp_server SET enabled_agents = ?1, updated_at = ?2 WHERE name = ?3",
             params![csv, now(), name],
@@ -4781,7 +4884,7 @@ pub async fn set_mcp_server_enabled_agents(
 }
 
 pub async fn list_mcp_server_names(db: &Db) -> Result<Vec<String>, String> {
-    db.0.call(move |conn| {
+    db.call_traced(None, move |conn| {
         let mut stmt = conn.prepare("SELECT name FROM mcp_server")?;
         let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
         let mut out = vec![];
@@ -4804,6 +4907,62 @@ mod tests {
         let db = Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
         db
+    }
+
+    /// fmt_caller 取路径末段 + 行号，紧凑显示。
+    #[test]
+    fn fmt_caller_uses_basename_and_line() {
+        let loc = std::panic::Location::caller(); // 本测试函数所在位置
+        let out = fmt_caller(loc);
+        // 形如 "db.rs:<line>"：含文件名末段 + 冒号 + 数字行号。
+        assert!(out.contains("db.rs:"), "got {out}");
+        assert!(out.rsplit(':').next().unwrap().parse::<u32>().is_ok(), "got {out}");
+    }
+
+    /// 空上下文（无 call_traced 设置）→ profile 回调取值应回退为 "-"。
+    #[test]
+    fn empty_ctx_renders_dash() {
+        CURRENT_DB_CTX.with(|c| *c.borrow_mut() = DbCallCtx::default());
+        let (req, caller) = CURRENT_DB_CTX.with(|c| {
+            let c = c.borrow();
+            (
+                c.req.clone().unwrap_or_else(|| "-".to_string()),
+                c.caller.map(fmt_caller).unwrap_or_else(|| "-".to_string()),
+            )
+        });
+        assert_eq!(req, "-");
+        assert_eq!(caller, "-");
+    }
+
+    /// call_traced 进闭包时设上下文（req + caller 可读），闭包结束后清空。
+    #[tokio::test]
+    async fn call_traced_sets_and_clears_thread_local() {
+        let db = test_db().await;
+        // 闭包内（DB 线程）观测上下文：req 被设为传入标签，caller 非空。
+        let observed: (Option<String>, bool) = db
+            .call_traced(Some("req-xyz"), |_conn| {
+                Ok(CURRENT_DB_CTX.with(|c| {
+                    let c = c.borrow();
+                    (c.req.clone(), c.caller.is_some())
+                }))
+            })
+            .await
+            .expect("call_traced ok");
+        assert_eq!(observed.0.as_deref(), Some("req-xyz"));
+        assert!(observed.1, "caller location should be captured");
+
+        // 同一 DB 线程上下次操作：上一次的上下文已被 guard 清空（不串味）。
+        let after: (Option<String>, bool) = db
+            .call_traced(None, |_conn| {
+                Ok(CURRENT_DB_CTX.with(|c| {
+                    let c = c.borrow();
+                    (c.req.clone(), c.caller.is_some())
+                }))
+            })
+            .await
+            .expect("call_traced ok");
+        // req=None（本次未传），且 caller 是本次闭包的（非空）— 关键是上次 "req-xyz" 不残留。
+        assert_eq!(after.0, None);
     }
 
     #[test]
@@ -5056,7 +5215,7 @@ mod tests {
     async fn bucket_daily_splits_on_local_midnight() {
         let db = test_db().await;
         // 本地午夜的 epoch 秒：strftime 本地日期 00:00 转回 unixepoch。
-        let local_midnight_ms: i64 = db.0.call(|conn| {
+        let local_midnight_ms: i64 = db.call_traced(None, |conn| {
             let secs: i64 = conn.query_row(
                 "SELECT CAST(strftime('%s', strftime('%Y-%m-%d 00:00:00', 'now', 'localtime'), 'utc') AS INTEGER)",
                 [],
@@ -5302,7 +5461,7 @@ mod tests {
         upsert_stats_agg(&db, mk(200)).await.unwrap();
         upsert_stats_agg(&db, mk(500)).await.unwrap(); // 终态非 2xx → error
 
-        let (req, succ, err, inp, cost): (i64, i64, i64, i64, f64) = db.0.call(|conn| {
+        let (req, succ, err, inp, cost): (i64, i64, i64, i64, f64) = db.call_traced(None, |conn| {
             Ok(conn.query_row(
                 "SELECT request_count, success_count, error_count, sum_input_tokens, sum_est_cost \
                  FROM stats_agg_hourly WHERE model='glm-4-plus' AND group_key='g1' AND platform_id=1",
@@ -5324,13 +5483,13 @@ mod tests {
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&sample_log("x1", "g1", now), false, false)).await.unwrap();
         // 全量重建一次得到基线行数。
         rebuild_stats_agg_from_logs(&db).await.unwrap();
-        let n1: i64 = db.0.call(|c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
+        let n1: i64 = db.call_traced(None, |c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
         // 再跑带 NOT EXISTS 守卫的回填 SQL（模拟 migration 重放）：表非空 → 不插。
-        db.0.call(move |c| {
+        db.call_traced(None, move |c| {
             c.execute_batch(include_str!("../../migrations/011_stats_agg_hourly.sql"))?;
             Ok(())
         }).await.unwrap();
-        let n2: i64 = db.0.call(|c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
+        let n2: i64 = db.call_traced(None, |c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
         assert_eq!(n1, n2, "回填幂等：重放 migration 不翻倍");
     }
 
@@ -5357,7 +5516,7 @@ mod tests {
         // 重建（与 migration 回填共用 GROUP BY 语义）必须不 panic（不撞 UNIQUE）。
         rebuild_stats_agg_from_logs(&db).await.expect("rebuild must not violate UNIQUE");
 
-        let (rows, reqs): (i64, i64) = db.0.call(|conn| {
+        let (rows, reqs): (i64, i64) = db.call_traced(None, |conn| {
             Ok(conn.query_row(
                 "SELECT COUNT(*), COALESCE(SUM(request_count),0) FROM stats_agg_hourly \
                  WHERE model = 'glm-4-plus' AND group_key = 'g1' AND platform_id = 1",
@@ -5490,7 +5649,7 @@ mod tests {
     async fn r2_singular_table_names_and_group_escaped() {
         // init_tables() 已在 test_db 中执行；进一步断言单数表名存在、复数不存在
         let db = test_db().await;
-        let names: Vec<String> = db.0.call(|conn| {
+        let names: Vec<String> = db.call_traced(None, |conn| {
             Ok(conn
                 .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")?
                 .query_map([], |r| r.get(0))?
@@ -5551,7 +5710,7 @@ mod tests {
 
         // 行仍存在且 deleted_at > 0（物理保留）
         let pid = p.id as i64;
-        let deleted_at: i64 = db.0.call(move |conn| {
+        let deleted_at: i64 = db.call_traced(None, move |conn| {
             Ok(conn.query_row("SELECT deleted_at FROM platform WHERE id = ?1", params![pid], |r| r.get(0))?)
         }).await.unwrap();
         assert!(deleted_at > 0, "deleted_at should be set, got {deleted_at}");
@@ -5613,7 +5772,7 @@ mod tests {
 
         // 全表无指向已删平台的关联残留。
         let pid = p_del.id as i64;
-        let stale: i64 = db.0.call(move |conn| {
+        let stale: i64 = db.call_traced(None, move |conn| {
             Ok(conn.query_row("SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1", params![pid], |r| r.get(0))?)
         }).await.unwrap();
         assert_eq!(stale, 0, "不应残留指向已删平台的 group_platform 行");
@@ -5680,7 +5839,7 @@ mod tests {
 
         // 全表无指向已删平台 A 的关联残留（delete_platform 清所有 group_platform）。
         let pid_a = p_a.id as i64;
-        let stale_a: i64 = db.0.call(move |conn| {
+        let stale_a: i64 = db.call_traced(None, move |conn| {
             Ok(conn.query_row("SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1", params![pid_a], |r| r.get(0))?)
         }).await.unwrap();
         assert_eq!(stale_a, 0, "A 不应残留任何 group_platform 行");
@@ -5723,7 +5882,7 @@ mod tests {
         assert_eq!(g.model_mappings.len(), 0);
 
         // 直接断言列值非 NULL
-        let (null_count, g_null): (i64, i64) = db.0.call(|conn| {
+        let (null_count, g_null): (i64, i64) = db.call_traced(None, |conn| {
             let null_count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM platform WHERE extra IS NULL OR base_url IS NULL OR api_key IS NULL",
                 [],
@@ -5751,7 +5910,7 @@ mod tests {
         assert_eq!(fetched.platform_type, Protocol::Glm);
         // 列名为 platform_type（间接：能写入该列即证明列存在）
         let pid = p.id as i64;
-        let stored: String = db.0.call(move |conn| {
+        let stored: String = db.call_traced(None, move |conn| {
             Ok(conn.query_row("SELECT platform_type FROM platform WHERE id = ?1", params![pid], |r| r.get(0))?)
         }).await.unwrap();
         assert_eq!(stored, "\"glm\"");
@@ -5865,7 +6024,7 @@ mod tests {
         assert_eq!(details.len(), 2);
 
         // 代理主键 id 存在且自增
-        let ids: Vec<i64> = db.0.call(|conn| {
+        let ids: Vec<i64> = db.call_traced(None, |conn| {
             Ok(conn
                 .prepare("SELECT id FROM group_platform ORDER BY id")?
                 .query_map([], |r| r.get(0))?
@@ -6795,8 +6954,8 @@ decimals: None,
         let old = now - 100 * 24 * 3600 * 1000; // 100 天前
         let recent = now - 24 * 3600 * 1000; // 1 天前
         for (ts, title) in [(old, "old"), (recent, "recent")] {
-            db.0
-                .call(move |conn| {
+            db
+                .call_traced(None, move |conn| {
                     conn.execute(
                         "INSERT INTO notification (notif_type, title, body, created_at) VALUES ('error', ?1, '', ?2)",
                         params![title, ts],
@@ -6840,8 +6999,8 @@ decimals: None,
     async fn insert_proxy_log_at(db: &Db, created_at: i64) -> String {
         let id = format!("test-{created_at}");
         let id_clone = id.clone();
-        db.0
-            .call(move |conn| {
+        db
+            .call_traced(None, move |conn| {
                 conn.execute(
                     "INSERT INTO proxy_log (id, platform_id, group_key, model, source_protocol, \
                      status_code, input_tokens, output_tokens, cache_tokens, est_cost, is_stream, \
@@ -6858,8 +7017,8 @@ decimals: None,
 
     /// 辅助：COUNT(*) FROM proxy_log（含 tombstone，不过滤 deleted_at）。
     async fn count_all_proxy_logs(db: &Db) -> i64 {
-        db.0
-            .call(|conn| Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log", [], |r| r.get(0))?))
+        db
+            .call_traced(None, |conn| Ok(conn.query_row("SELECT COUNT(*) FROM proxy_log", [], |r| r.get(0))?))
             .await
             .unwrap()
     }
@@ -6891,8 +7050,8 @@ decimals: None,
         // 手动软删一行（deleted_at != 0），模拟迁移前积压 tombstone
         let created = chrono::Utc::now().timestamp_millis();
         insert_proxy_log_at(&db, created).await;
-        db.0
-            .call(|conn| {
+        db
+            .call_traced(None, |conn| {
                 conn.execute("UPDATE proxy_log SET deleted_at = ?1 WHERE id LIKE 'test-%'", params![now()])?;
                 Ok(())
             })
@@ -6928,8 +7087,8 @@ decimals: None,
 
         // auto_vacuum 保持 INCREMENTAL
         let av: i64 = db
-            .0
-            .call(|c| Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get(0))?))
+            
+            .call_traced(None, |c| Ok(c.query_row("PRAGMA auto_vacuum", [], |r| r.get(0))?))
             .await
             .unwrap();
         assert_eq!(av, 2, "auto_vacuum should be INCREMENTAL");
@@ -6943,8 +7102,8 @@ decimals: None,
         for i in 0..50 {
             insert_proxy_log_at(&db, chrono::Utc::now().timestamp_millis() + i).await;
         }
-        db.0
-            .call(|conn| {
+        db
+            .call_traced(None, |conn| {
                 conn.execute("DELETE FROM proxy_log WHERE id LIKE 'test-%'", [])?;
                 Ok(())
             })
