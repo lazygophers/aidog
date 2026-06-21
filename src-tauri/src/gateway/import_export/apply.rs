@@ -833,7 +833,7 @@ mod tests {
         }
     }
 
-    /// platform.name 非唯一（数据模型不变量，migrations/001_init.sql:8 静态确认）。
+    /// platform.name 非唯一（数据模型不变量，见 db.rs init_tables 内联 platform 表定义）。
     /// upsert_platform_row 已改为 always-INSERT（删 SELECT-by-name→UPDATE）。
     /// （runtime 多行验证受 tokio_rusqlite `:memory:` 多-call ConnectionClosed harness 限制，
     ///  留 dev 验收；schema 不变量 + always-insert 代码路径已覆盖诉求。）
