@@ -2377,17 +2377,15 @@ async fn notification_test(
     notif_type: String,
     content: Option<String>,
 ) -> Result<gateway::notification::DispatchResult, String> {
-    // 应用行为 key：为本次命令触发的通知生成唯一 key（与代理请求 request_id 口径一致），
-    // 注入 vars 供模板引用，并写入日志便于从日志串回该通知来源。
-    let action_key = crate::logging::new_trace_id();
-    tracing::debug!(command = "notification_test", notif_type = %notif_type, request_id = %action_key, "command invoked");
+    // 应用行为 key 由 dispatch 内部统一解析（取本命令 #[instrument] span 的 trace_id，
+    // 与日志同口径），无需在此手动注入；vars 仅提供模板渲染所需的展示字段。
+    tracing::debug!(command = "notification_test", notif_type = %notif_type, "command invoked");
     let mut vars = std::collections::HashMap::new();
     vars.insert("project".to_string(), "aidog".to_string());
     vars.insert("status".to_string(), "test".to_string());
     vars.insert("time".to_string(), chrono::Local::now().format("%H:%M:%S").to_string());
     vars.insert("session".to_string(), "test-session".to_string());
     vars.insert("group".to_string(), "test".to_string());
-    vars.insert("request_id".to_string(), action_key);
     let db_arc = std::sync::Arc::new(db.inner().clone());
     Ok(gateway::notification::dispatch(&db_arc, Some(&app), None, &notif_type, content.as_deref(), &vars).await)
 }
