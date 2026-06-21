@@ -1260,6 +1260,24 @@ impl Default for ProxyLogSettings {
     }
 }
 
+// ─── Stats Settings ─────────────────────────────────────────
+
+/// 统计聚合表设置（settings 表 scope="stats" key="settings"）。
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct StatsSettings {
+    /// stats_agg_hourly 聚合行保留天数；0 = 永久保留。默认 365。
+    #[serde(default = "default_stats_retention_days")]
+    pub retention_days: u32,
+}
+
+fn default_stats_retention_days() -> u32 { 365 }
+
+impl Default for StatsSettings {
+    fn default() -> Self {
+        Self { retention_days: default_stats_retention_days() }
+    }
+}
+
 // ─── Proxy Timeout Settings ─────────────────────────────────
 
 /// Upstream request timeout configuration (stored in settings table)
