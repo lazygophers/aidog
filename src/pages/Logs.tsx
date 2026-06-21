@@ -25,7 +25,6 @@ const MODEL_NAME_STYLE: React.CSSProperties = { fontWeight: 500, fontSize: F.sma
 const SSE_BADGE_STYLE: React.CSSProperties = { fontSize: 10, padding: "1px 5px", background: "var(--accent-subtle)", color: "var(--accent, #007aff)" };
 const ACTION_BTN_STYLE: React.CSSProperties = { padding: 2 };
 const GROUP_BADGE_STYLE: React.CSSProperties = { fontSize: 11 };
-const REQ_ID_STYLE: React.CSSProperties = { fontFamily: "monospace", fontSize: F.small, color: "var(--text-tertiary)", cursor: "copy" };
 
 /** 时间范围预设 */
 type TimePreset = "all" | "1h" | "6h" | "24h" | "7d" | "30d";
@@ -542,7 +541,6 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
               <thead>
                 <tr style={{ borderBottom: "1px solid var(--border)" }}>
                   <ThCell>{t("logs.time")}</ThCell>
-                  <ThCell>{t("logs.requestId", "请求 ID")}</ThCell>
                   <ThCell>{t("logs.group")}</ThCell>
                   <ThCell>{t("logs.platform", "平台")}</ThCell>
                   <ThCell>{t("logs.model", "原始模型")}</ThCell>
@@ -612,15 +610,6 @@ const LogRow = memo(function LogRow({ log, platformName, groupName, onOpen, onCo
       onClick={() => onOpen(log.id)}
       style={ROW_STYLE}>
       <TdCell>{new Date(log.created_at).toLocaleString()}</TdCell>
-      <TdCell>
-        <span
-          style={REQ_ID_STYLE}
-          title={t("logs.copyRequestId", "复制请求 ID") + ": " + log.id}
-          onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(`request_id=${log.id}`); }}
-        >
-          {log.id.slice(0, 8)}…
-        </span>
-      </TdCell>
       <TdCell><span className="badge badge-accent" style={GROUP_BADGE_STYLE}>{groupName}</span></TdCell>
       <TdCell>
         <span style={INLINE_FLEX_STYLE}>
