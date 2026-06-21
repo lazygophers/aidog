@@ -437,7 +437,7 @@ export function PopoverConfigTab() {
   const previewData: PopoverData = {
     config,
     entries: [], // platform_balance 余额行来自托盘配置，预览不可得，此处留空（卡片自隐）。
-    today_stats: todayStats ?? { tokens: 0, cache_rate: 0, cost: 0, total_requests: 0 },
+    today_stats: todayStats ?? { tokens: 0, input_tokens: 0, output_tokens: 0, cache_tokens: 0, cache_rate: 0, cost: 0, total_requests: 0 },
     platform_today: platformToday,
     proxy_running: true,
     proxy_port: 0,

@@ -188,12 +188,26 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
               color={levelColor(costLevel(today!.cost))}
             />
             <KpiCell icon={<IconBolt size={13} />} value={today!.tokens.toLocaleString("en-US")} sub={formatNumber(today!.tokens)} label={t("home.tokens", "Token")} />
-            <KpiCell icon={<IconLogs size={13} />} value={formatNumber(today!.total_requests)} label={t("home.requests", "请求")} />
+            <KpiCell icon={<IconLogs size={13} />} value={today!.total_requests.toLocaleString("en-US")} sub={formatNumber(today!.total_requests)} label={t("home.requests", "请求")} />
             <KpiCell icon={<IconPackage size={13} />} value={formatPercent(today!.cache_rate)} label={t("home.cacheRate", "缓存率")} />
           </div>
         ) : (
           <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", padding: "8px 0" }}>
             {t("home.noToday", "今日暂无请求")}
+          </div>
+        )}
+        {/* Token 明细：input / output / cache（弱色小号，title 显示完整数） */}
+        {hasTodayData && (
+          <div style={{ display: "flex", gap: 18, flexWrap: "wrap", fontSize: F.small, color: "var(--text-tertiary)", borderTop: "1px solid var(--border)", paddingTop: 12 }}>
+            <span title={today!.input_tokens.toLocaleString("en-US")}>
+              {t("home.tokenInput", "输入")} <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>{formatNumber(today!.input_tokens)}</span>
+            </span>
+            <span title={today!.output_tokens.toLocaleString("en-US")}>
+              {t("home.tokenOutput", "输出")} <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>{formatNumber(today!.output_tokens)}</span>
+            </span>
+            <span title={today!.cache_tokens.toLocaleString("en-US")}>
+              {t("home.tokenCache", "缓存")} <span style={{ fontWeight: 600, color: "var(--text-secondary)" }}>{formatNumber(today!.cache_tokens)}</span>
+            </span>
           </div>
         )}
       </div>

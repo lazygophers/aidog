@@ -1632,5 +1632,8 @@
   "popover.preview": "实时预览",
   "popover.previewHint": "下方按当前布局即时渲染浮窗外观，无需保存。",
   "platform.todayUsageLabel": "今日",
-  "platform.codingUsedHint": "本平台累计已用 tokens 与预估金额（基于实际请求估算）"
+  "platform.codingUsedHint": "本平台累计已用 tokens 与预估金额（基于实际请求估算）",
+  "home.tokenInput": "输入",
+  "home.tokenOutput": "输出",
+  "home.tokenCache": "缓存"
 }
