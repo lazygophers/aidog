@@ -142,23 +142,17 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
       setPrevOverview(prev?.overview ?? null);
 
       // ── 自动降级粒度 ──
+      // hourly/daily 走聚合表（agg）；minute/5min 走 proxy_log。聚合表稀疏（hourly 非空桶 < 4）时
+      // 降级到 proxy_log 的 minute 查询，让短范围走势可读（不再降到 5min，与后端 agg 边界对齐）。
       // 仅在用户选「按小时」且短范围（≤24h，即 today preset）时生效；7d/30d 长范围绝不降到 minute（防桶爆炸）。
-      // 拉到 hourly 后数非空桶（total_requests>0），过稀疏 → 重查更细粒度让走势可读。
       const spanMs = range.end - range.start;
       const H24 = 24 * 60 * 60 * 1000;
-      const H2 = 2 * 60 * 60 * 1000;
       const nonEmpty = result.buckets.filter(b => b.total_requests > 0).length;
       let finalResult = result;
       let finalGran: StatsQuery["granularity"] = granularity;
       if (granularity === "hourly" && spanMs <= H24 && nonEmpty < 4) {
-        // 范围极短（≤2h）直接上 minute；否则先 5min，5min 仍稀疏且范围允许再降 minute
-        if (spanMs <= H2) {
-          const r = await statsApi.query({ ...base, granularity: "minute", start: range.start, end: range.end }).catch(() => null);
-          if (r) { finalResult = r; finalGran = "minute"; }
-        } else {
-          const r5 = await statsApi.query({ ...base, granularity: "5min", start: range.start, end: range.end }).catch(() => null);
-          if (r5) { finalResult = r5; finalGran = "5min"; }
-        }
+        const r = await statsApi.query({ ...base, granularity: "minute", start: range.start, end: range.end }).catch(() => null);
+        if (r) { finalResult = r; finalGran = "minute"; }
       }
       setData(finalResult);
       setEffectiveGran(finalGran);
@@ -381,6 +375,12 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                 <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("stats.requestTrend", "请求趋势")}</div>
                 <div style={{ fontSize: F.small, color: "var(--text-tertiary)" }}>
                   {t("stats.granularityLabel", "粒度")}：{granLabel(effectiveGran, effectiveGran !== granularity, t)}
+                  {(effectiveGran === "minute" || effectiveGran === "5min") && (
+                    <span title={t("stats.fineGranHint", "分钟级数据来自请求日志，仅短期可用（受日志保留天数限制）")}
+                      style={{ marginLeft: 6, color: "var(--color-warning, var(--text-tertiary))", cursor: "help" }}>
+                      {t("stats.fineGranBadge", "· 仅短期可用")}
+                    </span>
+                  )}
                 </div>
               </div>
               {(() => {

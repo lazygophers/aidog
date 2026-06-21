@@ -22,4 +22,4 @@
 | platform-card-usage | 平台卡片消费展示增强 | coding plan 平台补已用tokens+预估金额; 平台列表展开展示总tokens/金额消耗+今日 | 已完成 | 收尾 | 100 | — |
 | newapi-balance-refresh | NewAPI余额主动更新 | NewAPI 平台余额未主动更新, 接入 quota 调度自动刷新 | 已完成 | 收尾 | 100 | — |
 | fix-add-platform-save | 修添加平台保存无反应 | 添加平台点保存没反应(疑 platforms-partial-refresh handleSave 乐观改写回归) | 已完成 | 收尾 | 100 | — |
-| db-index-cache-perf | DB索引+缓存提速 | 分组加载平台慢; 加 sqlite 索引 + 缓存提速, 维持缓存与DB一致 | 进行中 | 实施 | 40 | 06-21-db-index-cache-perf |
+| db-index-cache-perf | DB索引+缓存提速 | 分组加载平台慢; 加 sqlite 索引 + 缓存提速, 维持缓存与DB一致 | 已完成 | 收尾 | 100 | — |
