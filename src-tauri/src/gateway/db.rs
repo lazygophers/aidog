@@ -3780,7 +3780,7 @@ pub async fn get_platform_hourly_rate(db: &Db, platform_id: u64) -> Result<Optio
         .call(move |conn| {
             let pid = platform_id as i64;
             let pid_str = platform_id.to_string();
-            let scope = "platform_id = ?2 OR (platform_id = 0 AND group_key IN (SELECT name FROM \"group\" WHERE auto_from_platform = ?3 AND deleted_at = 0))";
+            let scope = "platform_id = ?2 OR (platform_id = 0 AND group_key IN (SELECT group_key FROM \"group\" WHERE auto_from_platform = ?3 AND deleted_at = 0))";
             Ok(hourly_rate_inner(conn, now_ms, window_start, scope, &[&pid, &pid_str])?)
         })
         .await
@@ -3926,7 +3926,7 @@ fn query_stats_inner_agg(
         .prepare(&format!(
             "SELECT COALESCE(SUM(request_count),0), COALESCE(SUM(success_count),0), \
              COALESCE(SUM(sum_input_tokens),0), COALESCE(SUM(sum_output_tokens),0), COALESCE(SUM(sum_cache_tokens),0), \
-             COALESCE(SUM(sum_duration_ms),0), COALESCE(SUM(request_count),0), COALESCE(SUM(sum_est_cost),0.0) \
+             COALESCE(SUM(sum_duration_ms),0), COALESCE(SUM(sum_est_cost),0.0) \
              FROM stats_agg_hourly WHERE {where_sql}"
         ))
         .map_err(|e| e.to_string())?
@@ -3936,7 +3936,6 @@ fn query_stats_inner_agg(
             let inp: i64 = row.get(2).unwrap_or(0);
             let cache: i64 = row.get(4).unwrap_or(0);
             let sum_dur: i64 = row.get(5).unwrap_or(0);
-            let req: i64 = row.get(6).unwrap_or(0);
             Ok(StatsOverview {
                 total_requests: total as i32,
                 success_rate: if total > 0 { success as f64 / total as f64 * 100.0 } else { 0.0 },
@@ -3944,8 +3943,8 @@ fn query_stats_inner_agg(
                 total_output_tokens: row.get(3).unwrap_or(0),
                 total_cache_tokens: cache,
                 cache_rate: if inp + cache > 0 { cache as f64 / (inp + cache) as f64 * 100.0 } else { 0.0 },
-                avg_duration_ms: if req > 0 { sum_dur as f64 / req as f64 } else { 0.0 },
-                total_cost: row.get(7).unwrap_or(0.0),
+                avg_duration_ms: if total > 0 { sum_dur as f64 / total as f64 } else { 0.0 },
+                total_cost: row.get(6).unwrap_or(0.0),
             })
         })
         .map_err(|e| format!("agg overview: {e}"))?;
@@ -3960,13 +3959,13 @@ fn query_stats_inner_agg(
         .prepare(&format!(
             "SELECT {bucket_expr} AS b, COALESCE(SUM(request_count),0), COALESCE(SUM(success_count),0), \
              COALESCE(SUM(error_count),0), COALESCE(SUM(sum_input_tokens),0), COALESCE(SUM(sum_output_tokens),0), \
-             COALESCE(SUM(sum_cache_tokens),0), COALESCE(SUM(sum_duration_ms),0), COALESCE(SUM(request_count),0), \
+             COALESCE(SUM(sum_cache_tokens),0), COALESCE(SUM(sum_duration_ms),0), \
              COALESCE(SUM(sum_est_cost),0.0) \
              FROM stats_agg_hourly WHERE {where_sql} GROUP BY b ORDER BY b"
         ))
         .map_err(|e| e.to_string())?
         .query_map(refs.as_slice(), |row| {
-            let req: i64 = row.get(8).unwrap_or(0);
+            let req: i64 = row.get(1).unwrap_or(0);
             let sum_dur: i64 = row.get(7).unwrap_or(0);
             Ok(StatsBucket {
                 time_bucket: row.get(0).unwrap_or_default(),
@@ -3977,7 +3976,7 @@ fn query_stats_inner_agg(
                 output_tokens: row.get(5).unwrap_or(0),
                 cache_tokens: row.get(6).unwrap_or(0),
                 avg_duration_ms: if req > 0 { sum_dur as f64 / req as f64 } else { 0.0 },
-                total_cost: row.get(9).unwrap_or(0.0),
+                total_cost: row.get(8).unwrap_or(0.0),
             })
         })
         .map_err(|e| format!("agg buckets: {e}"))?
@@ -3991,7 +3990,7 @@ fn query_stats_inner_agg(
             format!(
                 "SELECT COALESCE(p.name, '未知') AS dim, COALESCE(SUM(s.request_count),0), COALESCE(SUM(s.success_count),0), \
                  COALESCE(SUM(s.sum_input_tokens),0), COALESCE(SUM(s.sum_output_tokens),0), COALESCE(SUM(s.sum_cache_tokens),0), \
-                 COALESCE(SUM(s.sum_duration_ms),0), COALESCE(SUM(s.request_count),0), COALESCE(SUM(s.sum_est_cost),0.0) \
+                 COALESCE(SUM(s.sum_duration_ms),0), COALESCE(SUM(s.sum_est_cost),0.0) \
                  FROM stats_agg_hourly s LEFT JOIN platform p ON p.id = s.platform_id \
                  WHERE {where_sql_s} GROUP BY s.platform_id ORDER BY 2 DESC LIMIT 50"
             )
@@ -4003,14 +4002,14 @@ fn query_stats_inner_agg(
             format!(
                 "SELECT {dim_col} AS dim, COALESCE(SUM(request_count),0), COALESCE(SUM(success_count),0), \
                  COALESCE(SUM(sum_input_tokens),0), COALESCE(SUM(sum_output_tokens),0), COALESCE(SUM(sum_cache_tokens),0), \
-                 COALESCE(SUM(sum_duration_ms),0), COALESCE(SUM(request_count),0), COALESCE(SUM(sum_est_cost),0.0) \
+                 COALESCE(SUM(sum_duration_ms),0), COALESCE(SUM(sum_est_cost),0.0) \
                  FROM stats_agg_hourly WHERE {where_sql} GROUP BY {dim_col} ORDER BY 2 DESC LIMIT 50"
             )
         };
         conn.prepare(&dim_sql)
             .map_err(|e| e.to_string())?
             .query_map(refs.as_slice(), |row| {
-                let req: i64 = row.get(7).unwrap_or(0);
+                let req: i64 = row.get(1).unwrap_or(0);
                 let sum_dur: i64 = row.get(6).unwrap_or(0);
                 Ok(DimensionEntry {
                     name: row.get(0).unwrap_or_default(),
@@ -4020,7 +4019,7 @@ fn query_stats_inner_agg(
                     output_tokens: row.get(4).unwrap_or(0),
                     cache_tokens: row.get(5).unwrap_or(0),
                     avg_duration_ms: if req > 0 { sum_dur as f64 / req as f64 } else { 0.0 },
-                    total_cost: row.get(8).unwrap_or(0.0),
+                    total_cost: row.get(7).unwrap_or(0.0),
                 })
             })
             .map_err(|e| format!("agg dimension: {e}"))?
@@ -4087,7 +4086,7 @@ fn query_stats_inner(conn: &Connection, query: &StatsQuery) -> Result<StatsResul
     const EFF_PID: &str = "\
 CASE WHEN proxy_log.platform_id = 0 THEN COALESCE(\
 (SELECT CAST(g.auto_from_platform AS INTEGER) FROM \"group\" g \
- WHERE g.name = proxy_log.group_key AND g.auto_from_platform != '' AND g.deleted_at = 0 LIMIT 1), 0)\
+ WHERE g.group_key = proxy_log.group_key AND g.auto_from_platform != '' AND g.deleted_at = 0 LIMIT 1), 0)\
 ELSE proxy_log.platform_id END";
 
     // Build WHERE clause（列名一律 proxy_log. 前缀：dimension platform 分支 LEFT JOIN platform 后，
