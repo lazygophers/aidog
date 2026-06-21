@@ -217,6 +217,30 @@ pub async fn dispatch(
 ) -> DispatchResult {
     let settings = super::db::get_notification_settings(db).await;
 
+    // 应用行为追踪 key：与日志 trace_id / 代理 request_id 同口径，标识「触发本次通知的那次操作」。
+    // 来源优先级：① 调用方 vars 已带 request_id（如 /api/notify 脚本透传）> ② 当前活跃 span 的
+    // trace_id / request_id（tauri command #[instrument] / proxy 请求 span / /api/notify 的 notify span
+    // / 后台 span 自动继承）> ③ new_trace_id() 兜底（纯定时器等无操作 span 的来源，如备份失败通知）。
+    // 禁固定值；保证每次 dispatch 都带唯一非空 key。注入 vars 供模板引用 + 写入日志便于串回触发来源。
+    let action_key = vars
+        .get("request_id")
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .or_else(crate::logging::current_trace_id)
+        .unwrap_or_else(crate::logging::new_trace_id);
+    let vars_owned: HashMap<String, String> = {
+        let mut v = vars.clone();
+        v.insert("request_id".to_string(), action_key.clone());
+        v
+    };
+    let vars = &vars_owned;
+    tracing::info!(
+        request_id = %action_key,
+        event = ?event,
+        notif_type = %type_str,
+        "notify: dispatch",
+    );
+
     // event 路径：命中 per_event 且 enabled → 自含分发。
     if let Some(es) = event
         .and_then(|e| settings.event_setting(e))
@@ -738,6 +762,94 @@ mod tests {
         let list = super::super::db::list_notifications(&db, 10).await.unwrap();
         // 未知 type 兜底到 task_complete（通知不丢）
         assert_eq!(list[0].notif_type, "task_complete");
+    }
+
+    // ── 应用行为追踪 key（request_id）注入 ──
+    fn is_trace_key(s: &str) -> bool {
+        // new_trace_id() = 8 位十六进制
+        s.len() == 8 && s.bytes().all(|b| b.is_ascii_hexdigit())
+    }
+
+    #[tokio::test]
+    async fn dispatch_injects_nonempty_unique_action_key() {
+        let db = mem_db().await;
+        set_form(&db, "task_complete", "full", true).await;
+        // 模板引用 {request_id} → body 即为注入的 key（无 span 时走 new_trace_id 兜底）。
+        super::super::db::set_setting(&db, super::super::models::SetSettingInput {
+            scope: "notification".into(),
+            key: "settings".into(),
+            value: serde_json::json!({
+                "enabled": true, "tts_enabled": false, "tts_backend": "cross_platform",
+                "per_type": { "task_complete": { "tts": false, "popup": false, "form": "inbox_only", "template": "{request_id}" } }
+            }),
+        }).await.unwrap();
+        let r = dispatch(&db, None, None, "task_complete", None, &HashMap::new()).await;
+        assert!(r.dispatched);
+        assert!(!r.body.is_empty(), "action key must be non-empty");
+        assert!(is_trace_key(&r.body), "fallback key must be 8-hex trace id, got {:?}", r.body);
+    }
+
+    #[tokio::test]
+    async fn dispatch_different_triggers_get_different_keys() {
+        let db = mem_db().await;
+        super::super::db::set_setting(&db, super::super::models::SetSettingInput {
+            scope: "notification".into(),
+            key: "settings".into(),
+            value: serde_json::json!({
+                "enabled": true, "tts_enabled": false, "tts_backend": "cross_platform",
+                "per_type": { "task_complete": { "tts": false, "popup": false, "form": "inbox_only", "template": "{request_id}" } }
+            }),
+        }).await.unwrap();
+        let r1 = dispatch(&db, None, None, "task_complete", None, &HashMap::new()).await;
+        let r2 = dispatch(&db, None, None, "task_complete", None, &HashMap::new()).await;
+        assert!(is_trace_key(&r1.body) && is_trace_key(&r2.body));
+        assert_ne!(r1.body, r2.body, "两次独立触发须得不同 key");
+    }
+
+    #[tokio::test]
+    async fn dispatch_prefers_caller_request_id_in_vars() {
+        let db = mem_db().await;
+        super::super::db::set_setting(&db, super::super::models::SetSettingInput {
+            scope: "notification".into(),
+            key: "settings".into(),
+            value: serde_json::json!({
+                "enabled": true, "tts_enabled": false, "tts_backend": "cross_platform",
+                "per_type": { "task_complete": { "tts": false, "popup": false, "form": "inbox_only", "template": "{request_id}" } }
+            }),
+        }).await.unwrap();
+        let v = vars(&[("request_id", "deadbeefcafe0001")]);
+        let r = dispatch(&db, None, None, "task_complete", None, &v).await;
+        // 调用方已带 request_id → 原样沿用，不再兜底生成。
+        assert_eq!(r.body, "deadbeefcafe0001");
+    }
+
+    #[tokio::test]
+    async fn dispatch_captures_env_span_trace_id() {
+        // 模拟 tauri command #[instrument] / proxy 请求 span：dispatch 在带 trace_id 的活跃 span 内
+        // 运行时，应捕获该 span 的 id 作为 action key（与日志同口径），而非另造新 id。
+        use tracing_subscriber::layer::SubscriberExt;
+        let subscriber = tracing_subscriber::registry().with(crate::logging::trace_id_layer_for_test());
+        let _guard = tracing::subscriber::set_default(subscriber);
+
+        let db = mem_db().await;
+        super::super::db::set_setting(&db, super::super::models::SetSettingInput {
+            scope: "notification".into(),
+            key: "settings".into(),
+            value: serde_json::json!({
+                "enabled": true, "tts_enabled": false, "tts_backend": "cross_platform",
+                "per_type": { "task_complete": { "tts": false, "popup": false, "form": "inbox_only", "template": "{request_id}" } }
+            }),
+        }).await.unwrap();
+
+        let tid = crate::logging::new_trace_id();
+        let span = tracing::info_span!("notify", trace_id = %tid);
+        let r = {
+            use tracing::Instrument;
+            dispatch(&db, None, None, "task_complete", None, &HashMap::new())
+                .instrument(span)
+                .await
+        };
+        assert_eq!(r.body, tid, "dispatch 应沿用活跃 span 的 trace_id 作为 action key");
     }
 
     // ── N2 hook 事件解析（per_event）──
