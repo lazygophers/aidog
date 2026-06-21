@@ -48,6 +48,37 @@ pub struct ProxyState {
     /// 用 Mutex<HashMap> 而非线程局部：流式 guard 在独立 task/Drop 路径写终态，
     /// 须与 handler 主链路共享同一 id 的快照才能正确 diff。
     pub log_snapshots: std::sync::Mutex<std::collections::HashMap<String, super::db::ProxyLogColumns>>,
+    /// 已聚合（写入 stats_agg_hourly）的请求 id 去重缓存，防重复计数。
+    /// 背景：upsert_log 在单个请求生命周期内被调用 40+ 次（insert + 多次 update + 流式 flush），
+    /// 终态后每次调用仍满足 agg gate → 同一请求被 +1 多次（实测 ~8 倍虚高）。
+    /// 不能复用 log_snapshots 去重：(1) agg 写在 `!settings.enabled` 早退之前，关日志时 snapshot
+    /// 根本不存在；(2) snapshot 在终态后被 remove_log_snapshot 立即移除，而终态 upsert_log 会被
+    /// 反复调用（remove 后下次又见 prev=None），无法据此防止重复 agg。
+    /// 用**有界 FIFO 去重缓存**（非按请求生命周期清理）：插入返回是否首次出现，首次才聚合；
+    /// 容量上限 AGG_DEDUP_CAP，超限按 FIFO 淘汰最旧 id（in-flight + 已完成请求量远小于此上限，
+    /// 同一请求的多次终态调用集中在极短窗口，淘汰不会误判）。HashSet 判存 + VecDeque 记顺序。
+    pub agg_done: std::sync::Mutex<(std::collections::VecDeque<String>, std::collections::HashSet<String>)>,
+}
+
+/// agg 去重缓存容量上限。远大于任一时刻 in-flight + 近期完成请求数，保证同一请求的全部
+/// 重复终态调用窗口内 id 不被淘汰；超限按 FIFO 淘汰最旧，内存有界。
+const AGG_DEDUP_CAP: usize = 8192;
+
+/// 向 agg 去重缓存登记 id；返回 true=首次（应聚合），false=已存在（应跳过）。超容量按 FIFO 淘汰。
+fn agg_mark_first(state: &Arc<ProxyState>, id: &str) -> bool {
+    let mut guard = state.agg_done.lock().unwrap();
+    let (order, seen) = &mut *guard;
+    if seen.contains(id) {
+        return false;
+    }
+    seen.insert(id.to_string());
+    order.push_back(id.to_string());
+    while order.len() > AGG_DEDUP_CAP {
+        if let Some(old) = order.pop_front() {
+            seen.remove(&old);
+        }
+    }
+    true
 }
 
 /// 启动代理服务器，返回 shutdown handle
@@ -64,6 +95,7 @@ pub async fn start_proxy(
         scheduler: Arc::new(super::scheduling::SchedulerState::new()),
         sticky: Arc::new(super::scheduling::StickyTable::new()),
         log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
+        agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
     });
 
     let app = Router::new()
@@ -480,7 +512,14 @@ async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLog
     // （status!=0 且非流式占位 "[stream]"，与下方 is_terminal 同判定，避免占位/中间节点重复计）。
     // est_cost：log 已带则用；否则（关日志路径不会经下方计算）就地走 calc_est_cost 回退链。
     // 失败非致命：warn 不中断请求。eff_pid 回溯在 upsert_stats_agg 的 SQL 内做。
-    if log.status_code != 0 && log.response_body != "[stream]" {
+    //
+    // 去重：upsert_log 在单个请求生命周期内被多次调用（insert + 多次 update + 流式 flush），
+    // 终态后每次调用 gate 仍为真。HashSet::insert 返回 false 表示该 id 已聚合过 → 跳过，
+    // 保证每请求只 +1 一次（id 在 remove_log_snapshot 清理，见下）。
+    let first_agg = log.status_code != 0
+        && log.response_body != "[stream]"
+        && agg_mark_first(state, &log.id);
+    if first_agg {
         let mut est_cost = log.est_cost;
         if est_cost == 0.0 && (log.input_tokens > 0 || log.output_tokens > 0) {
             let model_name = if log.actual_model.is_empty() { &log.model } else { &log.actual_model };
@@ -597,6 +636,8 @@ async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings: &ProxyLog
 
 /// 移除某请求 id 的列快照（终态写入后调用，防止 in-flight 快照 map 无限增长）。
 /// 流式 guard 终态 flush / 非流式终态返回前调用。重复调用安全（不存在即 no-op）。
+/// 注意：不在此清 agg_done——终态 upsert_log 会被反复调用（remove 后下次 prev=None 又走终态），
+/// 在此清会破坏去重；agg_done 自带 FIFO 容量上限，无需按请求清理。
 fn remove_log_snapshot(state: &Arc<ProxyState>, id: &str) {
     state.log_snapshots.lock().unwrap().remove(id);
 }
@@ -5050,6 +5091,7 @@ mod tests {
             scheduler: Arc::new(super::super::scheduling::SchedulerState::new()),
             sticky: Arc::new(super::super::scheduling::StickyTable::new()),
             log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
+            agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
         })
     }
 
@@ -5276,5 +5318,96 @@ mod tests {
         }
         let _ = std::fs::remove_file(path);
         panic!("空流 response_body 仍停在 [stream] 占位（finalize 未执行）");
+    }
+
+    /// 一个终态非流式日志（status!=0, response_body 非 "[stream]"），用于 agg 去重测试。
+    fn terminal_log(id: &str) -> ProxyLog {
+        let mut l = placeholder_stream_log(id);
+        l.is_stream = false;
+        l.response_body = "ok".to_string();
+        l.user_response_body = "ok".to_string();
+        l.input_tokens = 100;
+        l.output_tokens = 200;
+        l.cache_tokens = 0;
+        l.est_cost = 0.5;
+        l.platform_id = 1; // 非 0 避免 eff_pid 回溯子查询依赖（去重逻辑与 pid 无关）
+        l
+    }
+
+    async fn agg_request_count(db: &super::super::db::Db, id_group: &str) -> i64 {
+        let g = id_group.to_string();
+        db.0
+            .call(move |c| {
+                Ok(c.query_row(
+                    "SELECT COALESCE(SUM(request_count),0), COALESCE(SUM(sum_input_tokens),0) \
+                     FROM stats_agg_hourly WHERE group_key = ?1",
+                    rusqlite::params![g],
+                    |r| r.get::<_, i64>(0),
+                )?)
+            })
+            .await
+            .unwrap()
+    }
+
+    // 5) agg 去重（日志开启路径）：同一 request id 多次 upsert_log 到终态，agg 只计一次。
+    //    复现历史 ~8 倍虚高 bug：upsert_log 在请求生命周期被多次调用，终态后每次仍 +1。
+    #[tokio::test]
+    async fn agg_dedup_terminal_counts_once_logging_enabled() {
+        let (db, path) = flush_test_db().await;
+        let state = flush_test_state(db.clone());
+        let id = "agg_dedup_on_0001";
+        let log = terminal_log(id); // group_key = "gk_test"
+        let settings = ProxyLogSettings::default(); // enabled = true
+
+        // 模拟终态后 upsert_log 被重复调用 8 次（insert + 多次 update + flush）。
+        for _ in 0..8 {
+            upsert_log(&state, &log, &settings).await;
+        }
+        let req = agg_request_count(&state.db, "gk_test").await;
+        assert_eq!(req, 1, "8 次终态 upsert_log，agg 只应计 1 次（修复前为 8）");
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    // 6) agg 去重（关日志路径）：enabled=false 时去重仍生效，且 agg_done 清理不泄漏。
+    //    关键：去重写在 enabled gate 之前，独立于 log_snapshots（关日志时不存在）。
+    #[tokio::test]
+    async fn agg_dedup_terminal_counts_once_logging_disabled() {
+        let (db, path) = flush_test_db().await;
+        let state = flush_test_state(db.clone());
+        let id = "agg_dedup_off_0001";
+        let log = terminal_log(id);
+        let settings = ProxyLogSettings { enabled: false, ..Default::default() }; // 关日志路径
+
+        for _ in 0..8 {
+            upsert_log(&state, &log, &settings).await;
+        }
+        let req = agg_request_count(&state.db, "gk_test").await;
+        assert_eq!(req, 1, "关日志时 8 次终态 upsert_log，agg 仍只应计 1 次");
+        // 去重缓存登记了该 id（FIFO 容量上限自动兜内存，不按请求清理）。
+        let _ = id;
+
+        let _ = std::fs::remove_file(path);
+    }
+
+    // 7) 非终态（status==0 / "[stream]" 占位）不计 agg，也不污染 agg_done。
+    #[tokio::test]
+    async fn agg_skips_non_terminal() {
+        let (db, path) = flush_test_db().await;
+        let state = flush_test_state(db.clone());
+        let id = "agg_nonterm_0001";
+        let settings = ProxyLogSettings::default();
+
+        let mut pending = terminal_log(id);
+        pending.status_code = 0; // 未到终态
+        upsert_log(&state, &pending, &settings).await;
+        let placeholder = placeholder_stream_log(id); // response_body = "[stream]"
+        upsert_log(&state, &placeholder, &settings).await;
+
+        let req = agg_request_count(&state.db, "gk_test").await;
+        assert_eq!(req, 0, "非终态请求不应计入 agg");
+        assert!(state.agg_done.lock().unwrap().1.is_empty(), "非终态不应登记 agg 去重缓存");
+
+        let _ = std::fs::remove_file(path);
     }
 }
