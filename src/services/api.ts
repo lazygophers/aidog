@@ -838,6 +838,8 @@ export interface ProxyLogDetail {
   created_at: number;
   updated_at: number;
   deleted_at: number;
+  /** 终态标记：该行为请求的最终结果（后端 upsert_log 终态置位） */
+  is_final?: boolean;
 }
 
 export interface ProxyLogSettings {

@@ -57,7 +57,9 @@ struct AboutInfo {
 }
 
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 fn about_info() -> AboutInfo {
+    tracing::debug!(command = "about_info", "command invoked");
     AboutInfo {
         app_version: env!("CARGO_PKG_VERSION").to_string(),
         tauri_version: tauri::VERSION.to_string(),
@@ -744,6 +746,7 @@ async fn platform_fetch_models(
             created_at,
             updated_at: created_at,
             deleted_at: 0,
+            is_final: false,
         }
     };
 
@@ -955,6 +958,7 @@ async fn model_test(
             created_at,
             updated_at: created_at,
             deleted_at: 0,
+            is_final: false,
         }
     };
 
@@ -2204,6 +2208,7 @@ async fn export_to_file(
 
 /// 读取定时备份设置 (缺省/解析失败 → 默认)。
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn backup_settings_get(db: State<'_, Db>) -> Result<gateway::backup::BackupSettings, String> {
     tracing::debug!(command = "backup_settings_get", "command invoked");
     Ok(gateway::backup::BackupSettings::load(&db).await.sanitized())
@@ -2211,6 +2216,7 @@ async fn backup_settings_get(db: State<'_, Db>) -> Result<gateway::backup::Backu
 
 /// 写入定时备份设置 (前端勾选/改间隔/改保留天数)。
 #[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 async fn backup_settings_set(
     db: State<'_, Db>,
     mut settings: gateway::backup::BackupSettings,
@@ -2373,13 +2379,17 @@ async fn notification_test(
     notif_type: String,
     content: Option<String>,
 ) -> Result<gateway::notification::DispatchResult, String> {
-    tracing::debug!(command = "notification_test", notif_type = %notif_type, "command invoked");
+    // 应用行为 key：为本次命令触发的通知生成唯一 key（与代理请求 request_id 口径一致），
+    // 注入 vars 供模板引用，并写入日志便于从日志串回该通知来源。
+    let action_key = crate::logging::new_trace_id();
+    tracing::debug!(command = "notification_test", notif_type = %notif_type, request_id = %action_key, "command invoked");
     let mut vars = std::collections::HashMap::new();
     vars.insert("project".to_string(), "aidog".to_string());
     vars.insert("status".to_string(), "test".to_string());
     vars.insert("time".to_string(), chrono::Local::now().format("%H:%M:%S").to_string());
     vars.insert("session".to_string(), "test-session".to_string());
     vars.insert("group".to_string(), "test".to_string());
+    vars.insert("request_id".to_string(), action_key);
     let db_arc = std::sync::Arc::new(db.inner().clone());
     Ok(gateway::notification::dispatch(&db_arc, Some(&app), None, &notif_type, content.as_deref(), &vars).await)
 }
