@@ -69,13 +69,18 @@ function CopyButton({ text, title, label, size = 14 }: { text: string; title?: s
   );
 }
 
-/** 大 KPI 单元：放大数字 + 小图标标签。今日概览的视觉主角之一。 */
-function KpiCell({ icon, value, label, color }: { icon: React.ReactNode; value: string; label: string; color?: string }) {
+/** 大 KPI 单元：放大数字 + 可选副文本（如缩写量级）+ 小图标标签。今日概览的视觉主角之一。 */
+function KpiCell({ icon, value, sub, label, color }: { icon: React.ReactNode; value: string; sub?: string; label: string; color?: string }) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 4, minWidth: 110 }}>
       <span style={{ fontSize: F.kpi, fontWeight: 700, lineHeight: 1.05, color: color ?? "var(--text-primary)", letterSpacing: "-0.01em" }}>
         {value}
       </span>
+      {sub && (
+        <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontWeight: 500, lineHeight: 1, marginTop: -1 }}>
+          {sub}
+        </span>
+      )}
       <span style={{ fontSize: F.small, color: "var(--text-tertiary)", fontWeight: 500, display: "inline-flex", alignItems: "center", gap: 5 }}>
         <span style={{ display: "inline-flex", opacity: 0.85 }}>{icon}</span>
         {label}
@@ -182,7 +187,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
               label={t("home.cost", "费用")}
               color={levelColor(costLevel(today!.cost))}
             />
-            <KpiCell icon={<IconBolt size={13} />} value={formatNumber(today!.tokens)} label={t("home.tokens", "Token")} />
+            <KpiCell icon={<IconBolt size={13} />} value={today!.tokens.toLocaleString("en-US")} sub={formatNumber(today!.tokens)} label={t("home.tokens", "Token")} />
             <KpiCell icon={<IconLogs size={13} />} value={formatNumber(today!.total_requests)} label={t("home.requests", "请求")} />
             <KpiCell icon={<IconPackage size={13} />} value={formatPercent(today!.cache_rate)} label={t("home.cacheRate", "缓存率")} />
           </div>
