@@ -773,7 +773,7 @@ async fn platform_fetch_models(
     let status = resp.status();
     let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
     tracing::info!(url = %url, %status, "fetch models response status");
-    tracing::debug!(url = %url, body = %body, "fetch models response body");
+    tracing::debug!(url = %url, body = %gateway::log_util::log_body_preview(&body), "fetch models response body");
     // 记录 fetch-models 请求到 proxy_log（成功响应，保留原文便于排查）
     let upstream_status = status.as_u16() as i32;
     if let Err(le) = db::upsert_proxy_log(&db, make_log(upstream_status, upstream_status, &body, &url)).await {
@@ -1009,7 +1009,7 @@ async fn model_test(
     }
 
     tracing::info!(method = "POST", url = %url, "model test request");
-    tracing::debug!(method = "POST", url = %url, body = %req_body_str, "model test request body");
+    tracing::debug!(method = "POST", url = %url, body = %gateway::log_util::log_body_preview(&req_body_str), "model test request body");
     let resp = match req_builder.send().await {
         Ok(r) => r,
         Err(e) => {

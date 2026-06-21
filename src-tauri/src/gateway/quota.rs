@@ -157,7 +157,7 @@ async fn quota_get_json(
             return Err(msg);
         }
     };
-    tracing::debug!(url = %url, body = %text, "quota response body");
+    tracing::debug!(url = %url, body = %super::log_util::log_body_preview(&text), "quota response body");
     // 成功响应落库 (保留 body 原文); parse 失败也落库 (body 已在, 便于排查)
     persist_quota_log(db, make_quota_log(&request_id, url, upstream_status, &text, start.elapsed().as_millis() as i32, created_at)).await;
     serde_json::from_str(&text).map_err(|e| format!("Parse: {e}"))
