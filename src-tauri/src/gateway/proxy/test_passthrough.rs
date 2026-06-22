@@ -79,18 +79,56 @@ use super::*;
         orig.insert("x-claude-code-session-id", "sess-abc".parse().unwrap());
         orig.insert("x-app", "cli".parse().unwrap());
 
-        let fwd = passthrough_convert_headers(&orig);
+        // 官方 Anthropic 上游：anthropic-beta 保留（依赖 beta 协商能力）
+        let fwd = passthrough_convert_headers(&orig, "https://api.anthropic.com/v1/messages");
 
         // 剔除项
         for stripped in ["host", "content-length", "connection", "authorization", "user-agent", "content-type"] {
             assert!(!fwd.contains_key(stripped), "{stripped} must be stripped for convert apply to override");
         }
-        // 透传项（含跨协议透明的 SDK 头）
+        // 透传项（含跨协议透明的 SDK 头；官方端点 anthropic-beta 保留）
         assert_eq!(fwd.get("anthropic-beta").and_then(|v| v.to_str().ok()), Some("interleaved-thinking-2025-05-14"));
         assert_eq!(fwd.get("x-stainless-package-version").and_then(|v| v.to_str().ok()), Some("0.94.0"));
         assert_eq!(fwd.get("x-stainless-runtime-version").and_then(|v| v.to_str().ok()), Some("v24.3.0"));
         assert_eq!(fwd.get("x-stainless-timeout").and_then(|v| v.to_str().ok()), Some("3000"));
         assert_eq!(fwd.get("x-claude-code-session-id").and_then(|v| v.to_str().ok()), Some("sess-abc"));
+    }
+
+    // ── convert 路径透传 anthropic-beta host 分流：官方保留 / 第三方剔除 ──
+    // 背景: GLM open.bigmodel.cn/api/anthropic 等第三方兼容端点不认新 beta token，
+    // 原样透传致上游 400 code 1210「API 调用参数有误」。官方 api.anthropic.com 依赖 beta 协商，保留。
+    #[test]
+    fn passthrough_convert_anthropic_beta_host_gated() {
+        let mut orig = axum::http::HeaderMap::new();
+        orig.insert("anthropic-beta", "context-1m-2025-08-07,effort-2025-11-24".parse().unwrap());
+        orig.insert("anthropic-version", "2023-06-01".parse().unwrap());
+        orig.insert("x-stainless-package-version", "0.94.0".parse().unwrap());
+
+        // 第三方 GLM anthropic 端点 → 剔 anthropic-beta，其余 SDK 头照常透传
+        let glm = passthrough_convert_headers(&orig, "https://open.bigmodel.cn/api/anthropic/v1/messages");
+        assert!(!glm.contains_key("anthropic-beta"), "anthropic-beta must be stripped for third-party endpoint");
+        assert_eq!(glm.get("anthropic-version").and_then(|v| v.to_str().ok()), Some("2023-06-01"));
+        assert_eq!(glm.get("x-stainless-package-version").and_then(|v| v.to_str().ok()), Some("0.94.0"));
+
+        // 官方 api.anthropic.com（含端口/大小写变体）→ anthropic-beta 保留
+        let official = passthrough_convert_headers(&orig, "https://API.Anthropic.com:443/v1/messages");
+        assert_eq!(
+            official.get("anthropic-beta").and_then(|v| v.to_str().ok()),
+            Some("context-1m-2025-08-07,effort-2025-11-24"),
+            "official anthropic host must keep anthropic-beta"
+        );
+    }
+
+    // ── is_official_anthropic_host: host 提取 + 官方判定（含端口/userinfo/大小写） ──
+    #[test]
+    fn official_anthropic_host_detection() {
+        assert!(is_official_anthropic_host("https://api.anthropic.com/v1/messages"));
+        assert!(is_official_anthropic_host("https://api.anthropic.com:443/v1/messages"));
+        assert!(is_official_anthropic_host("https://API.ANTHROPIC.COM/v1/messages"));
+        // 第三方 / 中转站 host
+        assert!(!is_official_anthropic_host("https://open.bigmodel.cn/api/anthropic/v1/messages"));
+        assert!(!is_official_anthropic_host("https://api.anthropic.com.evil.com/v1/messages"));
+        assert!(!is_official_anthropic_host("https://proxy.example.com/anthropic/v1/messages"));
     }
 
     // ── build_upstream_headers：透传入站（脱敏）+ 覆盖 UA/auth，日志反映真实上游头 ──

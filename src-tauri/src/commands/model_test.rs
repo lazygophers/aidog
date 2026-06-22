@@ -84,7 +84,7 @@ pub async fn model_test(
 
     // ── 使用与 proxy 相同的客户端 header 模拟逻辑 ──
     // model_test 无入站请求头（平台测试），传空 HeaderMap —— 仅 apply 模拟头，无透传。
-    let upstream_headers = gateway::proxy::build_upstream_headers(&client_type, &target_protocol, &eff_api_key, &axum::http::HeaderMap::new());
+    let upstream_headers = gateway::proxy::build_upstream_headers(&client_type, &target_protocol, &eff_api_key, &axum::http::HeaderMap::new(), &url);
 
     let db_arc = Arc::new(db.inner().clone());
     let client = gateway::http_client::build_http_client(
