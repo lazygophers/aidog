@@ -380,7 +380,7 @@ pub(crate) async fn forward_attempt(
         }};
     }
 
-    // 真成功记账：熔断成功 + 恢复 auto_disabled + 清 strike + attempts.push 成功 + 填 log.attempts。
+    // 真成功记账：熔断成功 + 恢复 auto_disabled + attempts.push 成功 + 填 log.attempts。
     macro_rules! commit_2xx_success {
         () => {{
             // 熔断指标：成功 → 更新延迟 EMA + breaker Closed/HalfOpen→Closed + inflight-1。
@@ -400,11 +400,6 @@ pub(crate) async fn forward_attempt(
                 } else {
                     tracing::info!(platform = %route.platform.name, platform_id = route.platform.id, "platform recovered from auto-disabled (2xx)");
                 }
-            } else if let Err(e) =
-                // 成功一次即证明端点非死端点 → 清零累计的 404/405 strikes（仅 enabled 平台有计数时生效）
-                super::db::reset_dead_endpoint_strikes(&state.db, route.platform.id).await
-            {
-                tracing::error!(platform_id = route.platform.id, error = %e, "reset dead-endpoint strikes failed");
             }
             log.platform_id = route.platform.id;
             log.retry_count = (attempts.len() as i32 - 1).max(0);
