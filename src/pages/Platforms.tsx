@@ -866,7 +866,7 @@ function SearchableProtocolSelect({
   useEffect(() => {
     if (!open || !scrollRef.current) return;
     const btn = scrollRef.current.children[highlightedIndex] as HTMLElement | undefined;
-    btn?.scrollIntoView({ block: "nearest" });
+    btn?.scrollIntoView({ block: "center" });
   }, [highlightedIndex, open, filtered.length]);
 
   // 搜索内容变化时重置高亮到第一项
@@ -1467,10 +1467,20 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [lockedGroupId, setLockedGroupId] = useState<number | null>(null);
   // 平台归属映射：platformId → groupNames[]（用于平台卡片显示所属分组 badge）
   const [platformMembership, setPlatformMembership] = useState<Map<number, string[]>>(new Map());
+  // 平台管理页关键词搜索（纯前端 filter，按 name/base_url/协议拼音匹配）
+  const [searchQuery, setSearchQuery] = useState("");
   // 未归属任何分组的平台（主列表独立展示）；已分组平台只在 GroupsEmbedded 内展示，避免重复。
   const standalonePlatforms = useMemo(
-    () => platforms.filter(p => !platformMembership.has(p.id)),
-    [platforms, platformMembership],
+    () => platforms
+      .filter(p => !platformMembership.has(p.id))
+      .filter(p => {
+        const q = searchQuery.trim();
+        if (!q) return true;
+        return pinyinMatch(q, p.name)
+          || pinyinMatch(q, p.base_url)
+          || pinyinMatch(q, p.platform_type);
+      }),
+    [platforms, platformMembership, searchQuery],
   );
 
   const isMock = protocol === "mock";
@@ -3047,6 +3057,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <input
+            className="input"
+            placeholder={t("platform.searchPlaceholder", "搜索平台...")}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{ width: 180, fontSize: 13 }}
+          />
           <button className="btn btn-primary" onClick={() => openCreateGroupRef.current?.()}>
             + {t("group.add", "添加分组")}
           </button>
