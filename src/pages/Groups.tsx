@@ -802,8 +802,10 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   // 并发测试：与单平台快速测试同参（默认模型，max_tokens 后端默认 16），worker-pool（共享 index 游标 + N 个 worker）。
   // 不复用 usePlatformCards 的 testingId/testResults —— 那是单卡态，组级面板独立维护行集合。
   const handleTestGroup = useCallback(async (group: GroupDetail["group"], gps: GroupPlatformDetail[]) => {
-    if (gps.length === 0) return;
-    const rows: GroupTestRow[] = gps.map(gp => ({
+    // 只测启用平台，跳过 disabled / auto_disabled（不出现在 rows、不发测试请求）
+    const enabledGps = gps.filter(gp => gp.platform.status === "enabled");
+    if (enabledGps.length === 0) return;
+    const rows: GroupTestRow[] = enabledGps.map(gp => ({
       platformId: gp.platform.id, name: gp.platform.name, status: "pending",
     }));
     setGroupTest({ groupId: group.id, groupName: group.name, rows, running: true });
@@ -814,7 +816,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
           ? { ...prev, rows: prev.rows.map((r, i) => i === idx ? { ...r, ...patch } : r) }
           : prev);
     const testOne = async (idx: number) => {
-      const gp = gps[idx];
+      const gp = enabledGps[idx];
       patchRow(idx, { status: "testing" });
       const defaultModel = gp.platform.models.default || gp.platform.available_models[0] || "";
       const start = Date.now();
@@ -836,13 +838,13 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     // 有界并发：共享游标 next，启 N 个 worker，各自循环领取下一个 idx 直到耗尽。
     let next = 0;
     const worker = async () => {
-      while (next < gps.length) {
+      while (next < enabledGps.length) {
         const idx = next++;
         await testOne(idx);
       }
     };
     const pool = Array.from(
-      { length: Math.min(BATCH_TEST_CONCURRENCY, gps.length) },
+      { length: Math.min(BATCH_TEST_CONCURRENCY, enabledGps.length) },
       () => worker(),
     );
     await Promise.all(pool);
@@ -1523,7 +1525,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                     <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
                   </svg>
                 </button>
-                <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); handleTestGroup(group, gps); }} disabled={gps.length === 0 || groupTest?.running === true} title={t("group.testAll", "一键测试本组全部平台")}>
+                <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); handleTestGroup(group, gps); }} disabled={gps.filter(gp => gp.platform.status === "enabled").length === 0 || groupTest?.running === true} title={t("group.testAll", "一键测试本组全部平台")}>
                   <IconBolt size={14} />
                 </button>
                 {onCreatePlatform && (
