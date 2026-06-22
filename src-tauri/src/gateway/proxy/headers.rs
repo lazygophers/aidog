@@ -42,6 +42,38 @@ const STRIPPED_ON_CONVERT_PASSTHROUGH: &[&str] = &[
     "content-type",
 ];
 
+/// 判定上游 URL 是否指向 Anthropic 官方接口（host == api.anthropic.com，忽略大小写 + 端口）。
+/// 仅官方接口依赖 `anthropic-beta` 头协商能力（1m-context / interleaved-thinking 等）；
+/// 第三方 anthropic 兼容端点（GLM open.bigmodel.cn / 各中转站）不认新 beta token，
+/// 原样透传会触发上游参数校验失败（如 GLM 400 code 1210）。
+/// 故 convert/forward 透传路径仅对官方接口保留 anthropic-beta，对第三方端点剔除（见 strip_anthropic_beta_for_third_party）。
+pub(crate) fn is_official_anthropic_host(upstream_url: &str) -> bool {
+    // 提取 host：scheme://host[:port]/path → host
+    let after_scheme = upstream_url
+        .split_once("://")
+        .map(|(_, rest)| rest)
+        .unwrap_or(upstream_url);
+    let authority = after_scheme
+        .split(['/', '?', '#'])
+        .next()
+        .unwrap_or("");
+    // 去 userinfo（user:pass@host）+ 端口
+    let host = authority
+        .rsplit_once('@')
+        .map(|(_, h)| h)
+        .unwrap_or(authority)
+        .split(':')
+        .next()
+        .unwrap_or("");
+    host.eq_ignore_ascii_case("api.anthropic.com")
+}
+
+/// 是否应在透传路径剔除入站 `anthropic-beta` 头。
+/// 上游非 Anthropic 官方接口 → true（第三方兼容端点不依赖 beta 协商，原样透传会被参数校验拒）。
+fn strip_anthropic_beta_for_third_party(name: &str, upstream_url: &str) -> bool {
+    name.eq_ignore_ascii_case("anthropic-beta") && !is_official_anthropic_host(upstream_url)
+}
+
 /// 鉴权凭证头名（proxy_log 脱敏判定，不区分大小写）。
 /// `api-key` 系小米 token-plan openai 端点要求的鉴权头（与 Authorization 同发），属凭证须 redact。
 const SENSITIVE_AUTH_HEADERS: &[&str] = &[
@@ -59,11 +91,19 @@ pub(crate) fn is_sensitive_auth_header(name: &str) -> bool {
 /// convert 路径透传入站头底座：全量入站头，剔 hop-by-hop + auth/UA/CT（由 apply 覆盖）。
 /// 其余（anthropic-* / x-stainless-* / x-app / session-id / originator / version / 未知自定义头）
 /// 原样透传 —— 跨协议（如 CC 入站转 OpenAI）也带，上游忽略未知头不报错，保留利于诊断。
-pub(crate) fn passthrough_convert_headers(orig: &axum::http::HeaderMap) -> reqwest::header::HeaderMap {
+/// 例外：`anthropic-beta` 仅发给 Anthropic 官方接口；第三方 anthropic 兼容端点剔除（不认新 beta token，
+/// 原样透传致上游参数校验失败，如 GLM 400 code 1210）。upstream_url 用于 host 判定。
+pub(crate) fn passthrough_convert_headers(
+    orig: &axum::http::HeaderMap,
+    upstream_url: &str,
+) -> reqwest::header::HeaderMap {
     let mut out = reqwest::header::HeaderMap::new();
     for (k, v) in orig {
         let name = k.as_str();
         if STRIPPED_ON_CONVERT_PASSTHROUGH.iter().any(|s| name.eq_ignore_ascii_case(s)) {
+            continue;
+        }
+        if strip_anthropic_beta_for_third_party(name, upstream_url) {
             continue;
         }
         if let (Ok(hn), Ok(hv)) = (
@@ -292,17 +332,22 @@ fn uuid_sim() -> String {
 
 /// 构建上游请求头 KV 表（用于日志记录，反映实际发送：入站透传 + apply 覆盖）。
 /// 透传头从 orig 取并脱敏（auth/cookie），覆盖头（UA/auth/CT + codex 协议必需）按 apply 逻辑。
+/// upstream_url 用于 anthropic-beta host 判定（须与 passthrough_convert_headers 同参，日志与实发一致）。
 pub fn build_upstream_headers(
     client_type: &ClientType,
     protocol: &super::models::Protocol,
     api_key: &str,
     orig: &axum::http::HeaderMap,
+    upstream_url: &str,
 ) -> Vec<(String, String)> {
     let mut h: Vec<(String, String)> = Vec::new();
-    // ① 透传入站头（剔 stripped：hop-by-hop + auth/UA/CT）。脱敏敏感值。
+    // ① 透传入站头（剔 stripped：hop-by-hop + auth/UA/CT；非官方 anthropic 端点剔 anthropic-beta）。脱敏敏感值。
     for (k, v) in orig {
         let name = k.as_str();
         if STRIPPED_ON_CONVERT_PASSTHROUGH.iter().any(|s| name.eq_ignore_ascii_case(s)) {
+            continue;
+        }
+        if strip_anthropic_beta_for_third_party(name, upstream_url) {
             continue;
         }
         let val = v.to_str().unwrap_or("");

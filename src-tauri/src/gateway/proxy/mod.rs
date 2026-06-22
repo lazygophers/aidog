@@ -71,6 +71,9 @@ pub(crate) use group_info::handle_group_info;
 pub(crate) use headers::{
     format_pretty_json, is_sensitive_auth_header, passthrough_convert_headers, passthrough_headers,
 };
+// is_official_anthropic_host 仅 headers 内部 + 测试消费；重导出供 test_passthrough 可达。
+#[allow(unused_imports)]
+pub(crate) use headers::is_official_anthropic_host;
 pub(crate) use health::handle_root;
 pub(crate) use log::{
     block_inbound, get_log_settings, remove_log_snapshot, spawn_estimate, upsert_log,

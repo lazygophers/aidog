@@ -248,12 +248,12 @@ pub(crate) async fn forward_attempt(
     // convert 路径：先铺底透传入站头（anthropic-* / x-stainless-* / x-app / session-id 等，
     // 跨协议也带，上游忽略未知头不报错），再由 apply_client_headers 覆盖 UA + auth + CT。
     // passthrough_convert_headers 已剔 hop-by-hop + auth/UA/CT（由下方覆盖），无同名多值。
-    let upstream_headers = build_upstream_headers(&client_type, target_protocol_enum, &eff_api_key, orig_headers);
+    let upstream_headers = build_upstream_headers(&client_type, target_protocol_enum, &eff_api_key, orig_headers, &url);
 
     let mut req_builder = client
         .post(&url)
         .header("Content-Type", "application/json")
-        .headers(passthrough_convert_headers(orig_headers))
+        .headers(passthrough_convert_headers(orig_headers, &url))
         .body(req_body_str.clone());
 
     // ── 覆盖 UA + auth（平台 api_key）──
