@@ -56,7 +56,7 @@ use super::*;
 
     #[test]
     fn retry_auth_dead_endpoint_retried() {
-        // 401/403（鉴权→auto_disabled）、404/405（死端点→strike）均重试下一平台。
+        // 401/403（鉴权→auto_disabled）、404/405（端点/方法错，仅 failover 不禁用）均重试下一平台。
         assert!(is_status_retryable(401));
         assert!(is_status_retryable(403));
         assert!(is_status_retryable(404));

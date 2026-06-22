@@ -1,6 +1,6 @@
 use super::*;
 
-/// 上游返回非 2xx 时的处理：记录 attempt、熔断/auto_disable/dead-endpoint 计数、
+/// 上游返回非 2xx 时的处理：记录 attempt、熔断计数、401/403 auto_disable、
 /// 中间件 error_rule 分类、决策 A 硬错圈定，决定 failover(Next) 还是返回客户端(Respond)。
 #[allow(clippy::too_many_arguments)]
 pub(crate) async fn handle_non_success(
@@ -45,6 +45,8 @@ pub(crate) async fn handle_non_success(
         }
 
         // ── 401/403：上游鉴权失败（key 问题）→ 单次即自动禁用平台（指数退避），换下个候选 ──
+        //   仅 401/403 触发 auto_disabled；其它任何状态码（含 404/405）一律不自动禁用，
+        //   404/405 仅按决策 A 走 failover 重试（换下个候选），不隔离平台。
         if code == 401 || code == 403 {
             match super::db::set_platform_auto_disabled(&state.db, route.platform.id).await {
                 Ok(until) if until > 0 => tracing::warn!(
@@ -53,28 +55,6 @@ pub(crate) async fn handle_non_success(
                 ),
                 Ok(_) => {} // 用户手动 disabled，不动
                 Err(e) => tracing::error!(platform_id = route.platform.id, error = %e, "auto-disable platform failed"),
-            }
-        }
-        // ── 404/405：死端点信号（端点不存在 / 方法不允许，如 nginx "Not Allowed"）。
-        //   与 401/403 共用 auto_disabled + 指数退避机制，但语义不同：404/405 可能是上游瞬时
-        //   配置抖动，故连续累计达阈值（DEAD_ENDPOINT_STRIKE_THRESHOLD）才禁用，防偶发误伤。
-        //   未达阈值仅计数、保持 enabled 继续参与调度；一次 2xx 即清零计数（见下方成功路径）。──
-        else if code == 404 || code == 405 {
-            match super::db::record_dead_endpoint_strike(
-                &state.db, route.platform.id, super::db::DEAD_ENDPOINT_STRIKE_THRESHOLD,
-            ).await {
-                Ok((strikes, until)) if until > 0 => tracing::warn!(
-                    platform = %route.platform.name, platform_id = route.platform.id, status = code,
-                    strikes, auto_disabled_until = until,
-                    "platform auto-disabled (404/405 dead-endpoint, strike threshold reached)"
-                ),
-                Ok((strikes, _)) if strikes > 0 => tracing::info!(
-                    platform = %route.platform.name, platform_id = route.platform.id, status = code,
-                    strikes, threshold = super::db::DEAD_ENDPOINT_STRIKE_THRESHOLD,
-                    "platform dead-endpoint strike accumulating (404/405), not yet disabled"
-                ),
-                Ok(_) => {} // 用户手动 disabled，不动
-                Err(e) => tracing::error!(platform_id = route.platform.id, error = %e, "record dead-endpoint strike failed"),
             }
         }
 
