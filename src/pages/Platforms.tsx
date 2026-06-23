@@ -36,8 +36,7 @@ export const PROTOCOLS: ProtocolOption[] = [
   { value: "deepseek", label: "DeepSeek（深度求索）", keywords: ["深度求索", "deepseek"] },
   { value: "stepfun", label: "阶跃星辰（StepFun）", keywords: ["stepfun", "阶跃"] },
   { value: "stepfun_en", label: "StepFun 国际版", keywords: ["stepfun ai", "阶跃国际"] },
-  { value: "doubao", label: "火山 Agentplan", keywords: ["火山", "volcengine", "agentplan"] },
-  { value: "doubao_seed", label: "豆包 Seed", keywords: ["豆包", "doubao", "seed"] },
+  { value: "doubao", label: "火山引擎", keywords: ["火山", "volcengine", "agentplan", "豆包", "doubao", "seed", "ark", "volces"] },
   { value: "byteplus", label: "BytePlus", keywords: ["byteplus", "字节国际"] },
   { value: "qianfan", label: "百度千帆", keywords: ["baidu", "百度", "千帆"] },
   { value: "qianfan", label: "百度千帆 Coding Plan Lite", codingPlan: true, keywords: ["baidu", "百度", "千帆", "qianfan", "coding"] },
@@ -222,9 +221,9 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
     ],
     doubao: [
       { protocol: "anthropic", base_url: "https://ark.cn-beijing.volces.com/api/coding", client_type: "claude_code" },
-    ],
-    doubao_seed: [
-      { protocol: "anthropic", base_url: "https://ark.cn-beijing.volces.com/api/compatible", client_type: "claude_code" },
+      // OpenAI Responses 兼容端点（Codex）：base_url 含 /v3，proxy 拼 path；hosts 派生后 /api/coding/v3
+      // 比 /api/coding 更长 → 粘贴 v3 URL 最长子串胜出命中 Responses 端点。
+      { protocol: "openai_responses", base_url: "https://ark.cn-beijing.volces.com/api/coding/v3", client_type: "codex_tui" },
     ],
     byteplus: [
       { protocol: "anthropic", base_url: "https://ark.ap-southeast.bytepluses.com/api/coding", client_type: "claude_code" },
@@ -439,6 +438,8 @@ export function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Part
     bailian: { default: "qwen3.7-max" },
     // deepseek-chat 将 2026-07-24 弃用，v4-flash 为后继
     deepseek: { default: "deepseek-v4-flash" },
+    // 火山引擎（ark）coding 端点旗舰；model id 格式（点 vs 横线）待核实，暂随仓库现行短横线惯例
+    doubao: { default: "doubao-seed-2-0-code" },
     // 小米 MiMo 旗舰文本模型（按量 openai 端点）
     xiaomi_mimo: { default: "mimo-v2.5-pro" },
     // OpenCode Zen 免费旗舰（catalog 定价 0）；其余免费模型靠 fetchModels /v1/models 拉取
@@ -488,8 +489,9 @@ function getDefaultModelList(protocol: Protocol, codingPlan?: boolean): string[]
     deepseek: ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"],
     stepfun: ["step-3.7-flash", "step-3.5-flash"],
     stepfun_en: ["step-3.7-flash", "step-3.5-flash"],
-    doubao: ["doubao-seed-2-0-pro", "doubao-seed-2-0-code-preview", "doubao-seed-2-0-lite", "doubao-seed-2-0-mini"], // 短横线非点号
-    doubao_seed: ["doubao-seed-2-0-pro", "doubao-seed-2-0-code-preview", "doubao-seed-2-0-lite", "doubao-seed-2-0-mini"],
+    // 火山引擎 ark 官方 + 托管多厂商型号。doubao 自有型号沿用仓库短横线惯例（点 vs 横线待核实）；
+    // 跨厂商型号（minimax/glm/deepseek/kimi）保留各厂商原生命名。首项 = getDefaultModels 默认值。
+    doubao: ["doubao-seed-2-0-code", "doubao-seed-2-0-pro", "doubao-seed-2-0-lite", "doubao-seed-code", "minimax-m2.7", "minimax-m3", "glm-5.2", "deepseek-v4-flash", "deepseek-v4-pro", "kimi-k2.6", "kimi-k2.7-code"],
     byteplus: ["doubao-seed-2-0-pro", "doubao-seed-2-0-code-preview", "doubao-seed-2-0-lite", "doubao-seed-2-0-mini"],
     // qianfan: 百度文档 JS-rendered 未拿到确切 chat id，留空靠 fetchModels
     xiaomi_mimo: ["mimo-v2.5-pro", "mimo-v2-pro", "mimo-v2.5", "mimo-v2-omni", "mimo-v2-flash"],
@@ -605,8 +607,7 @@ export const PROTOCOL_LABELS: Record<Protocol, string> = {
   deepseek: "DeepSeek",
   stepfun: "阶跃星辰",
   stepfun_en: "StepFun 国际版",
-  doubao: "火山 Agentplan",
-  doubao_seed: "豆包 Seed",
+  doubao: "火山引擎",
   byteplus: "BytePlus",
   qianfan: "百度千帆",
   xiaomi_mimo: "小米 MiMo",
@@ -684,7 +685,6 @@ export const PROTOCOL_COLORS: Record<string, string> = {
   stepfun: "#16D6D2",
   stepfun_en: "#16D6D2",
   doubao: "#3370FF",
-  doubao_seed: "#3370FF",
   byteplus: "#3370FF",
   qianfan: "#2932E1",
   xiaomi_mimo: "#FF6900",

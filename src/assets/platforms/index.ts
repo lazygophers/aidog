@@ -12,7 +12,6 @@ const ALIASES: Partial<Record<Protocol, string>> = {
   openai_responses: "openai",
   openai_completions: "openai",
   glm_en: "glm",
-  doubao_seed: "doubao",
   bailian_coding: "bailian",
 };
 
