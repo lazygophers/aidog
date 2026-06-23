@@ -7,11 +7,12 @@
 // 全部样式走主题令牌（--radius-*/--shadow-*/--transition/--accent*/--border*/--bg-*/--text-*/--color-*），
 // 随 9 style × 12 palette 自适应；无硬编码主题色、无 emoji。
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { save, open } from "@tauri-apps/plugin-dialog";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { getCurrentWebview } from "@tauri-apps/api/webview";
 import {
   importExportApi,
   backupApi,
@@ -21,6 +22,7 @@ import {
   type ConflictItem,
   type ConflictDecision,
   type ImportDecision,
+  type ImportItem,
   type ImportPreview,
   type ImportReport,
 } from "../../services/api";
@@ -69,10 +71,16 @@ export function ImportExportTab() {
 
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [decisions, setDecisions] = useState<Map<string, ImportDecision>>(new Map());
+  // 逐项勾选白名单（key = `${scope}::${key}`）。默认全选；未勾选项不导入。
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [importPath, setImportPath] = useState("");
   const [importing, setImporting] = useState(false);
   const [report, setReport] = useState<ImportReport | null>(null);
   const [error, setError] = useState("");
+  // 原生文件拖入高亮态（Tauri onDragDropEvent；HTML5 DnD 在 macOS WKWebView 失效，故走原生事件）。
+  const [dragActive, setDragActive] = useState(false);
+  // loadPreview 最新引用，供拖入回调调用（避免 effect 依赖 loadPreview 反复重订阅）。
+  const loadPreviewRef = useRef<(p: string) => Promise<void>>(async () => {});
 
   const toggleScope = (id: ImportExportScope) => {
     setScopes((prev) => {
@@ -109,17 +117,12 @@ export function ImportExportTab() {
     }
   };
 
-  const handlePickFile = async () => {
+  // 读文件 → 预览 → 初始化决策(全 overwrite) + 逐项全选。点击与拖入共享。
+  const loadPreview = async (p: string) => {
     setError("");
     setReport(null);
     setPreview(null);
     try {
-      const selected = await open({
-        multiple: false,
-        filters: [{ name: "AiDog Export", extensions: ["aidogx"] }],
-      });
-      if (!selected || typeof selected !== "string") return;
-      const p = selected as string;
       const prev = await importExportApi.readPreview(p);
       setImportPath(p);
       setPreview(prev);
@@ -129,12 +132,28 @@ export function ImportExportTab() {
         map.set(decisionKey(c.scope, c.key), { kind: "overwrite" });
       }
       setDecisions(map);
+      // 逐项默认全选。
+      setSelectedItems(new Set(prev.items.map((it) => itemKey(it.scope, it.key))));
+    } catch (e) {
+      setError(String(e));
+    }
+  };
+
+  const handlePickFile = async () => {
+    try {
+      const selected = await open({
+        multiple: false,
+        filters: [{ name: "AiDog Export", extensions: ["aidogx"] }],
+      });
+      if (!selected || typeof selected !== "string") return;
+      await loadPreview(selected as string);
     } catch (e) {
       setError(String(e));
     }
   };
 
   const decisionKey = (scope: string, key: string) => `${scope}::${key}`;
+  const itemKey = (scope: string, key: string) => `${scope}::${key}`;
 
   const setDecision = (c: ConflictItem, d: ImportDecision) => {
     setDecisions((prev) => {
@@ -154,6 +173,78 @@ export function ImportExportTab() {
     });
   };
 
+  // ── 逐项勾选操作 ──
+  const toggleItem = (it: ImportItem) => {
+    const k = itemKey(it.scope, it.key);
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  };
+
+  // scope 级全选 / 反选（select=true 选中本 scope 全部条目，false 取消）。
+  const setScopeItems = (scope: string, select: boolean) => {
+    if (!preview) return;
+    setSelectedItems((prev) => {
+      const next = new Set(prev);
+      for (const it of preview.items) {
+        if (it.scope !== scope) continue;
+        const k = itemKey(it.scope, it.key);
+        if (select) next.add(k);
+        else next.delete(k);
+      }
+      return next;
+    });
+  };
+
+  // 全局全选 / 反选。
+  const setAllItems = (select: boolean) => {
+    if (!preview) return;
+    setSelectedItems(select ? new Set(preview.items.map((it) => itemKey(it.scope, it.key))) : new Set());
+  };
+
+  // loadPreview 引用同步（拖入回调读 ref，effect 只订阅一次）。
+  loadPreviewRef.current = loadPreview;
+
+  // 原生文件拖入：Tauri onDragDropEvent（HTML5 onDrop/onDragOver 在 macOS WKWebView drop 不触发）。
+  // enter/over 高亮；drop 取首个 .aidogx 路径走 loadPreview；leave/cancel 清高亮。卸载 unlisten。
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    getCurrentWebview()
+      .onDragDropEvent((event) => {
+        const { type } = event.payload;
+        if (type === "enter" || type === "over") {
+          const paths = (event.payload as { paths?: string[] }).paths ?? [];
+          // 仅当拖入含 .aidogx 时高亮（拖其它文件不误导）。
+          if (type === "enter") setDragActive(paths.some((p) => p.toLowerCase().endsWith(".aidogx")));
+        } else if (type === "drop") {
+          setDragActive(false);
+          const paths = (event.payload as { paths?: string[] }).paths ?? [];
+          const target = paths.find((p) => p.toLowerCase().endsWith(".aidogx"));
+          if (target) {
+            void loadPreviewRef.current(target);
+          } else if (paths.length > 0) {
+            setError(t("importExport.error.notAidogx", "请拖入 .aidogx 备份文件"));
+          }
+        } else {
+          // leave / cancel
+          setDragActive(false);
+        }
+      })
+      .then((fn) => {
+        if (cancelled) fn();
+        else unlisten = fn;
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
+  }, [t]);
+
   const handleApply = async () => {
     if (!importPath) return;
     setError("");
@@ -163,7 +254,11 @@ export function ImportExportTab() {
         const [scope, key] = k.split("::");
         return { scope, key, decision: d };
       });
-      const r = await importExportApi.apply(importPath, ds);
+      // 选中条目白名单：从 preview.items 重建 (scope, key) 对（避免 split "::" 在 g::p 上歧义）。
+      const selection: [string, string][] = (preview?.items ?? [])
+        .filter((it) => selectedItems.has(itemKey(it.scope, it.key)))
+        .map((it) => [it.scope, it.key]);
+      const r = await importExportApi.apply(importPath, ds, selection);
       setReport(r);
       setPreview(null);
       // 应用后从 DB 重读主题/语言偏好（导入 setting scope 含 theme/locale 时即时生效）
@@ -231,11 +326,12 @@ export function ImportExportTab() {
       <section className="glass" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
         <SectionHeader icon="worktree" title={t("importExport.importTitle", "导入")} desc={t("importExport.importDesc", "选择 .aidogx 文件，程序自动解密。冲突项逐条决策；Skill 自动安装并恢复原启用状态。")} />
 
-        {/* 拖放式入口（视觉拖放风，实际点击触发 Tauri open） */}
+        {/* 导入入口：点击选文件 或 原生拖入 .aidogx（dragActive 高亮）。 */}
         <DropZone
           onClick={handlePickFile}
+          active={dragActive}
           title={t("importExport.pickFile", "选择 .aidogx 文件")}
-          hint={t("importExport.dropHint", "自动解密 · Skill 自动安装")}
+          hint={t("importExport.dropHint", "点击选择，或将 .aidogx 拖到此处 · 自动解密 · Skill 自动安装")}
         />
 
         {preview && (
@@ -255,6 +351,20 @@ export function ImportExportTab() {
                 ))}
               </div>
             </div>
+
+            {/* 逐项勾选：按 scope 分组、可折叠、默认全选；未勾项不导入。 */}
+            {preview.items.length > 0 && (
+              <ItemSelector
+                items={preview.items}
+                selected={selectedItems}
+                onToggle={toggleItem}
+                onScopeSet={setScopeItems}
+                onAllSet={setAllItems}
+                itemKey={itemKey}
+                scopeLabel={(s) => scopeLabel(t, s)}
+                t={t}
+              />
+            )}
 
             {preview.conflicts.length > 0 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -284,10 +394,15 @@ export function ImportExportTab() {
               </div>
             )}
 
-            <button onClick={handleApply} disabled={importing} className="btn btn-primary" style={{ alignSelf: "flex-end" }}>
+            <button
+              onClick={handleApply}
+              disabled={importing || selectedItems.size === 0}
+              className="btn btn-primary"
+              style={{ alignSelf: "flex-end" }}
+            >
               {importing
                 ? t("importExport.applying", "导入中…")
-                : t("importExport.applyBtn", "应用导入")}
+                : t("importExport.applyN", "应用导入（{{n}} 项）", { n: selectedItems.size })}
             </button>
           </div>
         )}
@@ -459,9 +574,10 @@ function SuccessPathCard({ message }: { message: string }) {
   );
 }
 
-/** 拖放式导入入口（虚线 glass 区，点击触发 open）。 */
-function DropZone({ onClick, title, hint }: { onClick: () => void; title: string; hint: string }) {
+/** 导入入口（虚线 glass 区）：点击触发 open；原生拖入时 active=true 高亮。 */
+function DropZone({ onClick, active, title, hint }: { onClick: () => void; active: boolean; title: string; hint: string }) {
   const [hover, setHover] = useState(false);
+  const lit = hover || active;
   return (
     <div
       role="button"
@@ -478,10 +594,11 @@ function DropZone({ onClick, title, hint }: { onClick: () => void; title: string
       style={{
         padding: "28px 20px",
         borderRadius: "var(--radius-lg)",
-        border: `1.5px dashed ${hover ? "var(--accent)" : "var(--border)"}`,
-        background: hover ? "var(--accent-subtle)" : "var(--bg-glass)",
+        border: `1.5px dashed ${lit ? "var(--accent)" : "var(--border)"}`,
+        background: lit ? "var(--accent-subtle)" : "var(--bg-glass)",
         cursor: "pointer",
         transition: "var(--transition)",
+        transform: active ? "scale(1.01)" : "none",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -489,9 +606,184 @@ function DropZone({ onClick, title, hint }: { onClick: () => void; title: string
         textAlign: "center",
       }}
     >
-      <SectionIcon name="file" size={28} style={{ color: hover ? "var(--accent)" : "var(--text-secondary)" }} />
+      <SectionIcon name="file" size={28} style={{ color: lit ? "var(--accent)" : "var(--text-secondary)" }} />
       <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>{title}</div>
       <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>{hint}</div>
+    </div>
+  );
+}
+
+/** 小复选框（受控 √ 方块，accent 选中态）。 */
+function CheckBox({ checked, indeterminate }: { checked: boolean; indeterminate?: boolean }) {
+  const on = checked || indeterminate;
+  return (
+    <span
+      style={{
+        width: 16,
+        height: 16,
+        flexShrink: 0,
+        borderRadius: "var(--radius-sm)",
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
+        background: on ? "var(--accent)" : "transparent",
+        transition: "var(--transition)",
+      }}
+    >
+      {checked && !indeterminate && <IconCheck size={11} color="#fff" strokeWidth={3} />}
+      {indeterminate && <span style={{ width: 8, height: 2, background: "#fff", borderRadius: 1 }} />}
+    </span>
+  );
+}
+
+/** 折叠箭头（▸ 旋转，open 时 90°）。 */
+function Chevron({ open }: { open: boolean }) {
+  return (
+    <svg
+      width={12}
+      height={12}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="var(--text-tertiary)"
+      strokeWidth={2.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      style={{ transform: open ? "rotate(90deg)" : "none", transition: "var(--transition)", flexShrink: 0 }}
+    >
+      <polyline points="9 18 15 12 9 6" />
+    </svg>
+  );
+}
+
+/** 逐项勾选器：全局头（全选/反选 + 计数）+ 按 scope 分组可折叠，每组内逐项 checkbox。 */
+function ItemSelector({
+  items,
+  selected,
+  onToggle,
+  onScopeSet,
+  onAllSet,
+  itemKey,
+  scopeLabel,
+  t,
+}: {
+  items: ImportItem[];
+  selected: Set<string>;
+  onToggle: (it: ImportItem) => void;
+  onScopeSet: (scope: string, select: boolean) => void;
+  onAllSet: (select: boolean) => void;
+  itemKey: (scope: string, key: string) => string;
+  scopeLabel: (s: string) => string;
+  t: TFunction;
+}) {
+  // 按 scope 分组（保持出现顺序）。
+  const groups: { scope: string; items: ImportItem[] }[] = [];
+  for (const it of items) {
+    let g = groups.find((x) => x.scope === it.scope);
+    if (!g) {
+      g = { scope: it.scope, items: [] };
+      groups.push(g);
+    }
+    g.items.push(it);
+  }
+  // 默认展开（条目多时用户可手动折叠）。
+  const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
+  const toggleCollapse = (scope: string) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(scope)) next.delete(scope);
+      else next.add(scope);
+      return next;
+    });
+
+  const total = items.length;
+  const selCount = items.filter((it) => selected.has(itemKey(it.scope, it.key))).length;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+        <strong style={{ fontSize: 14, color: "var(--text-primary)" }}>
+          {t("importExport.selectItems", "选择导入项")}
+        </strong>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <TextButton onClick={() => onAllSet(true)}>{t("importExport.selectAll", "全选")}</TextButton>
+          <TextButton onClick={() => onAllSet(false)}>{t("importExport.deselectAll", "反选")}</TextButton>
+          <StatChip value={`${selCount} / ${total}`} label={t("importExport.selectedLabel", "已选")} level={(selCount > 0 ? "success" : "neutral") as ColorLevel} />
+        </div>
+      </div>
+
+      {groups.map((g) => {
+        const open = !collapsed.has(g.scope);
+        const gSel = g.items.filter((it) => selected.has(itemKey(it.scope, it.key))).length;
+        const allOn = gSel === g.items.length;
+        const someOn = gSel > 0 && !allOn;
+        return (
+          <div
+            key={g.scope}
+            className="glass-surface"
+            style={{ borderRadius: "var(--radius-md)", border: "1px solid var(--border)", overflow: "hidden" }}
+          >
+            {/* 组头：折叠箭头 + 组复选框（全选/反选本组）+ 标题 + 计数 */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 8,
+                padding: "10px 12px",
+                cursor: "pointer",
+                background: "var(--bg-glass)",
+              }}
+              onClick={() => toggleCollapse(g.scope)}
+            >
+              <Chevron open={open} />
+              <span
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onScopeSet(g.scope, !allOn);
+                }}
+                style={{ display: "inline-flex" }}
+              >
+                <CheckBox checked={allOn} indeterminate={someOn} />
+              </span>
+              <SectionIcon name={SCOPE_ICON[g.scope] ?? "folder"} size={14} style={{ color: "var(--text-secondary)" }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{scopeLabel(g.scope)}</span>
+              <span style={{ fontSize: 12, color: "var(--text-tertiary)", marginLeft: "auto" }}>
+                {gSel} / {g.items.length}
+              </span>
+            </div>
+
+            {open && (
+              <div style={{ display: "flex", flexDirection: "column" }}>
+                {g.items.map((it) => {
+                  const k = itemKey(it.scope, it.key);
+                  const on = selected.has(k);
+                  return (
+                    <div
+                      key={k}
+                      onClick={() => onToggle(it)}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        padding: "8px 12px 8px 34px",
+                        cursor: "pointer",
+                        borderTop: "1px solid var(--border)",
+                        transition: "var(--transition)",
+                      }}
+                    >
+                      <CheckBox checked={on} />
+                      <span style={{ fontSize: 13, color: "var(--text-primary)", wordBreak: "break-all", flex: 1 }}>{it.label}</span>
+                      {it.conflict && (
+                        <StatChip value={t("importExport.conflictTag", "冲突")} label="" level={"warning" as ColorLevel} />
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
     </div>
   );
 }

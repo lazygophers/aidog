@@ -1603,5 +1603,9 @@
   "stats.rebuildHint": "Fully rebuild the aggregate stats table from historical request logs",
   "stats.rebuildDone": "Aggregate stats rebuilt from logs",
   "stats.fineGranHint": "Minute-level data comes from request logs and is only available short-term (limited by log retention)",
-  "stats.fineGranBadge": "· short-term only"
+  "stats.fineGranBadge": "· short-term only",
+  "importExport.applyN": "Import ({{n}})",
+  "importExport.selectItems": "Select items to import",
+  "importExport.conflictTag": "Conflict",
+  "importExport.error.notAidogx": "Please drop a .aidogx backup file"
 }

@@ -1822,11 +1822,23 @@ export interface ConflictDecision {
   decision: ImportDecision;
 }
 
+/** 单个可导入条目（前端逐项勾选）。scope+key 组合唯一标识，apply 时按白名单过滤。 */
+export interface ImportItem {
+  scope: string;
+  key: string;
+  /** 人类可读标签（平台名 / 分组名 / 设置键 / 文件名）。 */
+  label: string;
+  /** 是否与现有数据冲突（关联到 conflicts 决策子流程）。 */
+  conflict: boolean;
+}
+
 export interface ImportPreview {
   manifest: ImportExportManifest;
   scopes: string[];
   conflicts: ConflictItem[];
   counts: Record<string, number>;
+  /** 全部可导入条目（按 scope 分组逐项勾选）。 */
+  items: ImportItem[];
 }
 
 export interface ImportReport {
@@ -1842,9 +1854,12 @@ export const importExportApi = {
   /** 读文件 → 解密 → 冲突预览。 */
   readPreview: (path: string) =>
     invoke<ImportPreview>("import_read_file", { path }),
-  /** 按决策应用导入。 */
-  apply: (path: string, decisions: ConflictDecision[]) =>
-    invoke<ImportReport>("import_apply", { path, decisions }),
+  /**
+   * 按决策应用导入。
+   * @param selection 选中条目白名单（[scope, key] 对列表）；省略 = 导入全部（旧行为）。
+   */
+  apply: (path: string, decisions: ConflictDecision[], selection?: [string, string][]) =>
+    invoke<ImportReport>("import_apply", { path, decisions, selection }),
 };
 
 // ─── cc-switch 导入（异源单向，仅 claude + codex provider）───
