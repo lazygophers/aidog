@@ -92,3 +92,78 @@ use super::test_support::*;
         assert_eq!(rows, 1, "两条 raw model 须聚合成一行（actual_model 优先）");
         assert_eq!(reqs, 2, "聚合行 request_count 应为 2");
     }
+
+    /// rebuild upsert 语义：已存在的聚合行被 proxy_log 真值【覆盖】，不翻倍、不累加。
+    /// 先 upsert 一条单请求形成桶，再插 2 条同桶 proxy_log，rebuild 后 request_count=2（真值）非 3。
+    #[tokio::test]
+    async fn rebuild_overwrites_existing_row_no_doubling() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        // 先 upsert 一条单请求 → 形成 (hour, glm-4-plus, g1, pid=1) 行，request_count=1。
+        upsert_stats_agg(&db, StatsAggInput {
+            created_at: now,
+            model: "glm-4-plus".into(),
+            group_key: "g1".into(),
+            platform_id: 1,
+            status_code: 200,
+            input_tokens: 99,
+            output_tokens: 0,
+            cache_tokens: 0,
+            est_cost: 9.9,
+            duration_ms: 0,
+        }).await.unwrap();
+
+        // 同桶插 2 条 proxy_log（actual_model=glm-4-plus, platform_id=1, group g1）。
+        for id in ["ow1", "ow2"] {
+            let mut l = sample_log(id, "g1", now);
+            l.actual_model = "glm-4-plus".into();
+            l.platform_id = 1;
+            l.input_tokens = 10;
+            insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l, false, false)).await.unwrap();
+        }
+
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+        let (req, inp): (i64, i64) = db.call_traced(None, std::panic::Location::caller(), |conn| {
+            Ok(conn.query_row(
+                "SELECT request_count, sum_input_tokens FROM stats_agg_hourly \
+                 WHERE model='glm-4-plus' AND group_key='g1' AND platform_id=1",
+                [], |r| Ok((r.get(0)?, r.get(1)?)),
+            )?)
+        }).await.unwrap();
+        assert_eq!(req, 2, "被 proxy_log 真值覆盖（2 条），非累加（1+2=3）");
+        assert_eq!(inp, 20, "input 覆盖为真值 10*2，非 99+20");
+    }
+
+    /// rebuild 不再清空整表：stats_agg 有行但 proxy_log 无对应行时，rebuild 后该行保留。
+    #[tokio::test]
+    async fn rebuild_preserves_rows_without_matching_proxy_log() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        // 形成一条聚合行（模拟关日志期间已聚合但 proxy_log 无对应行）。
+        upsert_stats_agg(&db, StatsAggInput {
+            created_at: now,
+            model: "orphan-model".into(),
+            group_key: "g-orphan".into(),
+            platform_id: 7,
+            status_code: 200,
+            input_tokens: 42,
+            output_tokens: 0,
+            cache_tokens: 0,
+            est_cost: 1.5,
+            duration_ms: 0,
+        }).await.unwrap();
+        // proxy_log 里无任何匹配行 → rebuild 的 SELECT 不会产出该桶。
+
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+        let (req, inp): (i64, i64) = db.call_traced(None, std::panic::Location::caller(), |conn| {
+            Ok(conn.query_row(
+                "SELECT request_count, sum_input_tokens FROM stats_agg_hourly \
+                 WHERE model='orphan-model' AND group_key='g-orphan' AND platform_id=7",
+                [], |r| Ok((r.get(0)?, r.get(1)?)),
+            )?)
+        }).await.unwrap();
+        assert_eq!(req, 1, "无对应 proxy_log 行的旧聚合行须保留（不再清空整表）");
+        assert_eq!(inp, 42, "旧行数值不变");
+    }
