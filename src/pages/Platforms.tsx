@@ -828,6 +828,8 @@ function SearchableProtocolSelect({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 仅键盘导航/打开下拉时才自动滚动；鼠标 hover 改高亮不滚动（避免滚动→hover→滚动死循环）
+  const autoScrollRef = useRef(false);
 
   // 当前选中项的显示文本
   const selectedLabel = PROTOCOLS.find(
@@ -858,15 +860,18 @@ function SearchableProtocolSelect({
     setOpen(true);
     setQuery("");
     const idx = filtered.findIndex(p => p.value === value && !!p.codingPlan === codingPlan);
+    autoScrollRef.current = true;
     setHighlightedIndex(idx >= 0 ? idx : 0);
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
-  // 高亮项变化时滚动到可见区域
+  // 高亮项变化时滚动到可见区域：仅消费 autoScrollRef（键盘/打开）才滚，鼠标 hover 不滚
   useEffect(() => {
     if (!open || !scrollRef.current) return;
+    if (!autoScrollRef.current) return;
+    autoScrollRef.current = false;
     const btn = scrollRef.current.children[highlightedIndex] as HTMLElement | undefined;
-    btn?.scrollIntoView({ block: "center" });
+    btn?.scrollIntoView({ block: "nearest" });
   }, [highlightedIndex, open, filtered.length]);
 
   // 搜索内容变化时重置高亮到第一项
@@ -894,10 +899,12 @@ function SearchableProtocolSelect({
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
+        autoScrollRef.current = true;
         setHighlightedIndex(i => Math.min(i + 1, filtered.length - 1));
         break;
       case "ArrowUp":
         e.preventDefault();
+        autoScrollRef.current = true;
         setHighlightedIndex(i => Math.max(i - 1, 0));
         break;
       case "Enter":
