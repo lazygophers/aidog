@@ -10,6 +10,9 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "tauri": "tauri",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:cov": "vitest run --coverage",
     "check:i18n": "node scripts/check-i18n.mjs",
     "check:statusline-runtime": "node scripts/build-statusline-runtime.mjs --check",
     "test:statusline-golden": "node scripts/statusline-golden/build.mjs check",
@@ -39,11 +42,18 @@
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@testing-library/user-event": "^14.6.1",
     "@types/react": "^19.1.8",
     "@types/react-dom": "^19.1.6",
     "@vitejs/plugin-react": "^4.6.0",
+    "@vitest/coverage-v8": "^4.1.9",
+    "jsdom": "^29.1.1",
     "typescript": "~5.8.3",
-    "vite": "^7.0.4"
+    "vite": "^7.0.4",
+    "vitest": "^4.1.9"
   },
   "resolutions": {
     "esbuild": "0.28.1"
