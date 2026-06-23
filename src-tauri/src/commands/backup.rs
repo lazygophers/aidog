@@ -104,12 +104,22 @@ pub async fn import_apply(
     db: State<'_, Db>,
     path: String,
     decisions: Vec<gateway::import_export::ConflictDecision>,
+    // selection: 选中条目白名单（[scope, key] 对列表）；None = 导入全部（旧客户端兼容）。
+    selection: Option<Vec<(String, String)>>,
 ) -> Result<gateway::import_export::ImportReport, String> {
-    tracing::debug!(command = "import_apply", path = %path, decisions = decisions.len(), "command invoked");
+    tracing::debug!(
+        command = "import_apply",
+        path = %path,
+        decisions = decisions.len(),
+        selection = selection.as_ref().map(|s| s.len()).unwrap_or(0),
+        "command invoked"
+    );
     let bytes = std::fs::read(&path).map_err(|e| format!("read import file: {e}"))?;
     let plain = gateway::import_export::decrypt(&bytes)?;
     let payload = gateway::import_export::Payload::from_bytes_verified(&plain)?;
-    gateway::import_export::apply::apply(payload, &decisions, &db).await
+    let sel: Option<gateway::import_export::Selection> =
+        selection.map(|v| v.into_iter().collect());
+    gateway::import_export::apply::apply(payload, &decisions, sel.as_ref(), &db).await
 }
 
 /// cc-switch 导入：探测本地 cc-switch 配置（SQLite / 旧 JSON）。

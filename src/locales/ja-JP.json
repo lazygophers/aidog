@@ -1625,5 +1625,9 @@
   "stats.rebuildHint": "過去のリクエストログから集計統計テーブルを完全に再構築します",
   "stats.rebuildDone": "集計統計をログから再構築しました",
   "stats.fineGranHint": "分単位のデータはリクエストログ由来で、短期間のみ利用可能です（ログ保持日数に依存）",
-  "stats.fineGranBadge": "· 短期間のみ"
+  "stats.fineGranBadge": "· 短期間のみ",
+  "importExport.applyN": "インポート（{{n}} 件）",
+  "importExport.selectItems": "インポートする項目を選択",
+  "importExport.conflictTag": "競合",
+  "importExport.error.notAidogx": ".aidogx バックアップファイルをドロップしてください"
 }

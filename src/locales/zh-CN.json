@@ -1603,5 +1603,9 @@
   "stats.rebuildHint": "从历史请求日志全量重建聚合统计表",
   "stats.rebuildDone": "聚合统计已从日志重建",
   "stats.fineGranHint": "分钟级数据来自请求日志，仅短期可用（受日志保留天数限制）",
-  "stats.fineGranBadge": "· 仅短期可用"
+  "stats.fineGranBadge": "· 仅短期可用",
+  "importExport.applyN": "应用导入（{{n}} 项）",
+  "importExport.selectItems": "选择导入项",
+  "importExport.conflictTag": "冲突",
+  "importExport.error.notAidogx": "请拖入 .aidogx 备份文件"
 }
