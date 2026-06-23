@@ -36,6 +36,16 @@ const PRESETS: PastePresetRef[] = [
     hosts: ["token-plan-cn.xiaomimimo.com"],
     codingPlan: true,
   },
+  {
+    value: "doubao",
+    label: "火山引擎",
+    keywords: ["火山", "doubao", "volces"],
+    // 单平台双端点派生：/api/coding（anthropic）+ /api/coding/v3（openai_responses）。
+    hosts: [
+      "ark.cn-beijing.volces.com/api/coding",
+      "ark.cn-beijing.volces.com/api/coding/v3",
+    ],
+  },
   { value: "mock", label: "Mock", keywords: ["测试", "mock"] },
 ];
 
@@ -84,6 +94,17 @@ describe("matchPlatform", () => {
       { url: "https://open.bigmodel.cn/api/paas/v4", protocol: "openai" },
     ]);
     expect(normal?.value).toBe("glm");
+  });
+  it("doubao: pasting /api/coding/v3 hits doubao (longest substring = Responses endpoint host)", () => {
+    const v3 = matchPlatform("", PRESETS, [
+      { url: "https://ark.cn-beijing.volces.com/api/coding/v3", protocol: "openai" },
+    ]);
+    expect(v3?.value).toBe("doubao");
+    // /api/coding/v3 (24 chars path) beats /api/coding → most specific host wins.
+    const plain = matchPlatform("", PRESETS, [
+      { url: "https://ark.cn-beijing.volces.com/api/coding", protocol: "anthropic" },
+    ]);
+    expect(plain?.value).toBe("doubao");
   });
   it("falls back to keyword scan when no host match", () => {
     const hit = matchPlatform("使用 deepseek 模型", PRESETS);

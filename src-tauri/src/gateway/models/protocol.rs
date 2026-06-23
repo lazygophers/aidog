@@ -47,8 +47,6 @@ pub enum Protocol {
     StepFunEn,
     #[serde(rename = "doubao")]
     Doubao,
-    #[serde(rename = "doubao_seed")]
-    DoubaoSeed,
     #[serde(rename = "byteplus")]
     BytePlus,
     #[serde(rename = "qianfan")]

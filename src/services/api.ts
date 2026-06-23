@@ -9,7 +9,7 @@ export type Protocol =
   // ── 平台类型 ──
   | "glm" | "glm_en" | "kimi" | "minimax" | "minimax_en" | "codex" | "bailian" | "bailian_coding"
   // ── 国内官方平台 ──
-  | "deepseek" | "stepfun" | "stepfun_en" | "doubao" | "doubao_seed" | "byteplus" | "qianfan"
+  | "deepseek" | "stepfun" | "stepfun_en" | "doubao" | "byteplus" | "qianfan"
   | "xiaomi_mimo" | "bailing" | "longcat"
   // ── 聚合平台 ──
   | "openrouter" | "siliconflow" | "siliconflow_en" | "aihubmix" | "dmxapi" | "modelscope"
