@@ -120,18 +120,39 @@ impl Default for AppLogSettings {
     }
 }
 
+/// 在基础级别上压制第三方 HTTP 栈的 debug 噪声 (如 hyper_util 的 `connected to <ip>:443`)。
+/// 仅在用户未显式设 `RUST_LOG` 时生效; 设了 RUST_LOG 则完全尊重之 (便于细粒度调试)。
+fn default_filter(level: &str) -> EnvFilter {
+    let mut f = EnvFilter::new(level);
+    for noisy in [
+        "hyper=warn",
+        "hyper_util=warn",
+        "reqwest=warn",
+        "rustls=warn",
+        "h2=warn",
+        "tower=warn",
+        "mio=warn",
+        "want=warn",
+    ] {
+        if let Ok(d) = noisy.parse() {
+            f = f.add_directive(d);
+        }
+    }
+    f
+}
+
 /// Initialize logging: dev → console only; release → console + optional file
 pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) {
     // Dev 模式: 无论用户配置如何, 控制台永远 debug 级 (仍允许 RUST_LOG 覆盖以便更细粒度调试)。
     // Release 模式: 遵循用户 settings.level。
     let console_filter = if cfg!(debug_assertions) {
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("debug"))
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| default_filter("debug"))
     } else {
-        EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(&settings.level))
+        EnvFilter::try_from_default_env().unwrap_or_else(|_| default_filter(&settings.level))
     };
     // 文件层始终遵循用户配置 (release-only)。
     let file_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new(&settings.level));
+        .unwrap_or_else(|_| default_filter(&settings.level));
 
     let console_layer = tracing_subscriber::fmt::layer()
         .with_target(false)
