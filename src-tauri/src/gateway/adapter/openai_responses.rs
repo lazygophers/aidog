@@ -211,4 +211,83 @@ mod tests {
         assert!(from_responses(&json!({ "input": "hi" })).is_none());
         assert!(from_responses(&json!({ "model": "x" })).is_none());
     }
+
+    #[test]
+    fn from_responses_system_developer_role() {
+        let body = json!({
+            "model": "gpt-5",
+            "input": [
+                { "role": "developer", "content": "system instruction" },
+                { "role": "user", "content": "hello" }
+            ]
+        });
+        let req = from_responses(&body).unwrap();
+        assert_eq!(req.messages.len(), 2);
+        assert!(matches!(req.messages[0].role, Role::System));
+        assert!(matches!(req.messages[1].role, Role::User));
+    }
+
+    #[test]
+    fn from_responses_tool_role() {
+        let body = json!({
+            "model": "gpt-5",
+            "input": [
+                { "role": "tool", "content": "tool result" }
+            ]
+        });
+        let req = from_responses(&body).unwrap();
+        assert!(matches!(req.messages[0].role, Role::Tool));
+    }
+
+    #[test]
+    fn from_responses_temperature_top_p() {
+        let body = json!({
+            "model": "gpt-5",
+            "input": "hi",
+            "temperature": 0.7,
+            "top_p": 0.9
+        });
+        let req = from_responses(&body).unwrap();
+        assert!((req.temperature.unwrap() - 0.7f32).abs() < 0.01);
+        assert!((req.top_p.unwrap() - 0.9f32).abs() < 0.01);
+    }
+
+    #[test]
+    fn from_responses_array_content_with_none_content() {
+        // item without content → empty string
+        let body = json!({
+            "model": "gpt-5",
+            "input": [
+                { "role": "user" }
+            ]
+        });
+        let req = from_responses(&body).unwrap();
+        assert!(matches!(&req.messages[0].content, MessageContent::Text(t) if t.is_empty()));
+    }
+
+    #[test]
+    fn to_responses_basic() {
+        use super::super::types::{MessageContent, Role};
+        let req = ChatRequest {
+            model: "gpt-5".into(),
+            messages: vec![
+                crate::gateway::adapter::types::Message {
+                    role: Role::User,
+                    content: MessageContent::Text("hello".into()),
+                }
+            ],
+            system: None,
+            max_tokens: Some(1024),
+            temperature: Some(0.5),
+            top_p: None,
+            stream: Some(true),
+            tools: None,
+            tool_choice: None,
+            extra: None,
+        };
+        let out = to_responses(&req);
+        assert_eq!(out.model, "gpt-5");
+        assert_eq!(out.max_output_tokens, Some(1024));
+        assert_eq!(out.stream, Some(true));
+    }
 }

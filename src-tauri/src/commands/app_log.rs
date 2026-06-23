@@ -69,3 +69,7 @@ pub async fn app_log_settings_set(settings: logging::AppLogSettings, db: State<'
         .map_err(|e| { tracing::error!(command = "app_log_settings_set", error = %e, "persist log settings failed"); e })?;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "test_app_log.rs"]
+mod test_app_log;

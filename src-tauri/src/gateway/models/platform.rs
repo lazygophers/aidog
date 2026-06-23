@@ -300,3 +300,140 @@ pub struct UpdatePlatform {
     #[serde(default)]
     pub join_group_ids: Option<Vec<u64>>,
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // ── serialize_attempts / parse_attempts ──
+
+    #[test]
+    fn attempts_roundtrip_empty() {
+        let s = serialize_attempts(&[]);
+        assert_eq!(s, "[]");
+        let v = parse_attempts(&s);
+        assert!(v.is_empty());
+    }
+
+    #[test]
+    fn attempts_roundtrip_with_items() {
+        let items = vec![
+            ProxyAttempt { platform_id: 1, platform_name: "p1".into(), status_code: 200, error: "".into(), duration_ms: 150, ts: 0 },
+            ProxyAttempt { platform_id: 2, platform_name: "p2".into(), status_code: 500, error: "err".into(), duration_ms: 300, ts: 1 },
+        ];
+        let s = serialize_attempts(&items);
+        let parsed = parse_attempts(&s);
+        assert_eq!(parsed.len(), 2);
+        assert_eq!(parsed[0].platform_id, 1);
+        assert_eq!(parsed[1].status_code, 500);
+    }
+
+    #[test]
+    fn parse_attempts_invalid_returns_empty() {
+        let v = parse_attempts("not-json");
+        assert!(v.is_empty());
+    }
+
+    // ── PlatformModels::all_values ──
+
+    #[test]
+    fn platform_models_all_values_deduplicates() {
+        let pm = PlatformModels {
+            default: Some("gpt-4o".into()),
+            sonnet: Some("claude-sonnet-4".into()),
+            opus: Some("gpt-4o".into()), // duplicate
+            haiku: None,
+            gpt: Some("gpt-3.5".into()),
+        };
+        let vals = pm.all_values();
+        assert_eq!(vals.len(), 3, "dedup: {:?}", vals);
+        assert!(vals.contains(&"gpt-4o".to_string()));
+        assert!(vals.contains(&"claude-sonnet-4".to_string()));
+    }
+
+    #[test]
+    fn platform_models_all_values_empty() {
+        let pm = PlatformModels::default();
+        assert!(pm.all_values().is_empty());
+    }
+
+    // ── parse_breaker ──
+
+    #[test]
+    fn parse_breaker_empty_returns_default() {
+        let b = parse_breaker("");
+        assert_eq!(b.failure_threshold, 0);
+        assert_eq!(b.open_secs, 0);
+        assert_eq!(b.half_open_max, 0);
+    }
+
+    #[test]
+    fn parse_breaker_with_values() {
+        let extra = r#"{"breaker":{"failure_threshold":5,"open_secs":30,"half_open_max":2}}"#;
+        let b = parse_breaker(extra);
+        assert_eq!(b.failure_threshold, 5);
+        assert_eq!(b.open_secs, 30);
+        assert_eq!(b.half_open_max, 2);
+    }
+
+    #[test]
+    fn parse_breaker_no_breaker_key_returns_default() {
+        let extra = r#"{"other_field": "value"}"#;
+        let b = parse_breaker(extra);
+        assert_eq!(b.failure_threshold, 0);
+    }
+
+    #[test]
+    fn parse_breaker_invalid_json_returns_default() {
+        let b = parse_breaker("not-json");
+        assert_eq!(b.failure_threshold, 0);
+    }
+
+    // ── merge_breaker_into_extra ──
+
+    #[test]
+    fn merge_breaker_all_zero_removes_breaker_key() {
+        let extra = r#"{"proxy_enabled":true,"breaker":{"failure_threshold":3}}"#;
+        let b = PlatformBreaker { failure_threshold: 0, open_secs: 0, half_open_max: 0 };
+        let out = merge_breaker_into_extra(extra, &b);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert!(v.get("breaker").is_none(), "all-zero should remove breaker: {out}");
+        assert_eq!(v["proxy_enabled"], serde_json::json!(true), "other fields preserved: {out}");
+    }
+
+    #[test]
+    fn merge_breaker_nonzero_inserts_breaker() {
+        let b = PlatformBreaker { failure_threshold: 3, open_secs: 60, half_open_max: 1 };
+        let out = merge_breaker_into_extra("{}", &b);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["breaker"]["failure_threshold"], 3);
+        assert_eq!(v["breaker"]["open_secs"], 60);
+    }
+
+    #[test]
+    fn merge_breaker_empty_extra_starts_empty_object() {
+        let b = PlatformBreaker { failure_threshold: 1, open_secs: 10, half_open_max: 0 };
+        let out = merge_breaker_into_extra("", &b);
+        let v: serde_json::Value = serde_json::from_str(&out).unwrap();
+        assert_eq!(v["breaker"]["failure_threshold"], 1);
+    }
+
+    // ── Platform::breaker() ──
+    #[test]
+    fn platform_breaker_delegates_to_parse_breaker() {
+        let p = Platform {
+            id: 1, name: "p".into(), platform_type: super::Protocol::OpenAI,
+            base_url: "http://x".into(), api_key: "k".into(),
+            extra: r#"{"breaker":{"failure_threshold":7,"open_secs":90,"half_open_max":3}}"#.into(),
+            enabled: true, status: Default::default(), est_balance_remaining: 0.0,
+            models: PlatformModels::default(), available_models: vec![],
+            endpoints: vec![], manual_budgets: vec![],
+            auto_disabled_until: 0, auto_disable_strikes: 0,
+            created_at: 0, updated_at: 0, deleted_at: 0,
+            est_coding_plan: "".into(), last_real_query_at: 0, estimate_count: 0,
+            show_in_tray: false, tray_display: "".into(), sort_order: 0, balance_level: "".into(),
+        };
+        let b = p.breaker();
+        assert_eq!(b.failure_threshold, 7);
+    }
+}

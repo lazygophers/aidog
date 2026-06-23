@@ -179,3 +179,112 @@ fn direct_source_returns_none_for_dir_or_missing_or_empty() {
 
     std::fs::remove_dir_all(&dir).ok();
 }
+
+// ── read_sqlite ──
+#[test]
+fn read_sqlite_returns_providers() {
+    let dir = std::env::temp_dir().join(format!("aidog_ccsw_sqlite_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let db_path = dir.join("cc-switch.db");
+
+    // Create SQLite db with providers table and sample data
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    conn.execute_batch(
+        "CREATE TABLE providers (id TEXT, app_type TEXT, name TEXT, settings_config TEXT, website_url TEXT, sort_index INTEGER);
+         INSERT INTO providers VALUES ('p1', 'claude', 'My Provider', '{\"env\":{\"ANTHROPIC_BASE_URL\":\"https://test.example.com\",\"ANTHROPIC_AUTH_TOKEN\":\"sk-tok\"}}', 'https://example.com', 0);
+         INSERT INTO providers VALUES ('p2', 'codex', 'Codex P', '{\"auth\":{\"OPENAI_API_KEY\":\"sk-x\"},\"config\":\"model = \\\"gpt-4\\\"\\nmodel_provider = \\\"p\\\"\\n[model_providers.p]\\nbase_url = \\\"https://x.com/v1\\\"\\n\"}', NULL, 1);
+         INSERT INTO providers VALUES ('g1', 'gemini', 'Gemini P', '{}', NULL, 2);"
+    ).unwrap();
+    drop(conn);
+
+    let providers = read_sqlite(&db_path).unwrap();
+    std::fs::remove_dir_all(&dir).ok();
+
+    // gemini excluded, only claude + codex
+    assert_eq!(providers.len(), 2);
+    let claude = providers.iter().find(|p| p.app_type == "claude").unwrap();
+    assert_eq!(claude.id, "p1");
+    assert_eq!(claude.detected_base_url.as_deref(), Some("https://test.example.com"));
+    assert_eq!(claude.detected_api_key.as_deref(), Some("sk-tok"));
+    assert_eq!(claude.website_url.as_deref(), Some("https://example.com"));
+
+    let codex = providers.iter().find(|p| p.app_type == "codex").unwrap();
+    assert_eq!(codex.id, "p2");
+    assert_eq!(codex.detected_api_key.as_deref(), Some("sk-x"));
+}
+
+#[test]
+fn read_sqlite_empty_table_returns_empty_vec() {
+    let dir = std::env::temp_dir().join(format!("aidog_ccsw_empty_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let db_path = dir.join("cc-switch.db");
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    conn.execute_batch("CREATE TABLE providers (id TEXT, app_type TEXT, name TEXT, settings_config TEXT, website_url TEXT, sort_index INTEGER)").unwrap();
+    drop(conn);
+
+    let providers = read_sqlite(&db_path).unwrap();
+    std::fs::remove_dir_all(&dir).ok();
+    assert!(providers.is_empty());
+}
+
+// ── read() async integration ──
+#[tokio::test]
+async fn read_async_with_sqlite_file_path() {
+    let dir = std::env::temp_dir().join(format!("aidog_read_async_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let db_path = dir.join("cc-switch.db");
+
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    conn.execute_batch(
+        "CREATE TABLE providers (id TEXT, app_type TEXT, name TEXT, settings_config TEXT, website_url TEXT, sort_index INTEGER);
+         INSERT INTO providers VALUES ('a1', 'claude', 'AlphaProvider', '{\"env\":{\"ANTHROPIC_BASE_URL\":\"https://alpha.com\",\"ANTHROPIC_AUTH_TOKEN\":\"sk-alpha\"}}', NULL, 0);"
+    ).unwrap();
+    drop(conn);
+
+    let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+    db.init_tables().await.unwrap();
+
+    let result = read(&db, Some(db_path.to_string_lossy().to_string())).await.unwrap();
+    std::fs::remove_dir_all(&dir).ok();
+
+    assert_eq!(result.source_type, "sqlite");
+    assert_eq!(result.providers.len(), 1);
+    assert_eq!(result.providers[0].id, "a1");
+    assert_eq!(result.providers[0].detected_base_url.as_deref(), Some("https://alpha.com"));
+}
+
+#[tokio::test]
+async fn read_async_with_config_json_file_path() {
+    let dir = std::env::temp_dir().join(format!("aidog_read_json_async_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let json_path = dir.join("config.json");
+
+    let config = serde_json::json!({
+        "claudeConfig": {
+            "providers": [
+                {"id": "j1", "name": "J1", "settingsConfig": {"env": {"ANTHROPIC_BASE_URL": "https://j1.com", "ANTHROPIC_AUTH_TOKEN": "sk-j1"}}}
+            ]
+        }
+    });
+    std::fs::write(&json_path, config.to_string()).unwrap();
+
+    let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+    db.init_tables().await.unwrap();
+
+    let result = read(&db, Some(json_path.to_string_lossy().to_string())).await.unwrap();
+    std::fs::remove_dir_all(&dir).ok();
+
+    assert_eq!(result.source_type, "json");
+    assert_eq!(result.providers.len(), 1);
+    assert_eq!(result.providers[0].id, "j1");
+}
+
+#[tokio::test]
+async fn read_async_nonexistent_path_returns_err() {
+    let dir = std::env::temp_dir().join(format!("aidog_read_none_{}", std::process::id()));
+    // Don't create dir — no cc-switch.db or config.json
+    let db = crate::gateway::db::Db::new(":memory:").await.unwrap();
+    db.init_tables().await.unwrap();
+    let result = read(&db, Some(dir.to_string_lossy().to_string())).await;
+    assert!(result.is_err(), "missing dir should return Err");
+}

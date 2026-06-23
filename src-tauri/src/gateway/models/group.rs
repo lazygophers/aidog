@@ -157,6 +157,36 @@ pub struct ModelMapping {
     pub connect_timeout_secs: u64,
 }
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_level_priority_is_5() {
+        assert_eq!(default_level_priority(), 5);
+    }
+
+    #[test]
+    fn clamp_level_priority_bounds() {
+        assert_eq!(clamp_level_priority(0), 1);
+        assert_eq!(clamp_level_priority(1), 1);
+        assert_eq!(clamp_level_priority(5), 5);
+        assert_eq!(clamp_level_priority(10), 10);
+        assert_eq!(clamp_level_priority(11), 10);
+        assert_eq!(clamp_level_priority(-5), 1);
+    }
+
+    #[test]
+    fn default_source_protocol_is_anthropic() {
+        assert_eq!(default_source_protocol(), "anthropic");
+    }
+
+    #[test]
+    fn default_max_retries_is_10() {
+        assert_eq!(default_max_retries(), 10);
+    }
+}
+
 // ─── 辅助：带平台详情的分组 ────────────────────────────────
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

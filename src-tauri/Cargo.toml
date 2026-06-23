@@ -25,6 +25,12 @@ tauri-build = { version = "2", features = [] }
 # gzip round-trip 回归测试：构造压缩字节验证解压链路 → extract_usage 解析 token。
 # flate2 是 reqwest gzip feature 的内部依赖，dev-deps 仅供测试显式构造 gzip 输入。
 flate2 = "1"
+# 文件系统隔离测试（codex profile / FS 写入路径），用 tempdir 避免污染真实 ~/.codex。
+tempfile = "3"
+# Tauri `test` feature 仅测试期启用：提供 mock_builder / MockRuntime，用于为 #[command] 薄壳
+# 构造 App + manage(Db) → app.state::<Db>() 获取 State，覆盖 commands/ 层转发路径。
+# 不进生产构建（dev-dependencies 作用域），features 与主 tauri 依赖合并。
+tauri = { version = "2", features = ["test"] }
 
 [dependencies]
 tauri = { version = "2", features = ["tray-icon", "macos-private-api"] }

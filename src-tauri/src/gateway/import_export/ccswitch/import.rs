@@ -48,3 +48,52 @@ pub async fn import(
     }
     Ok(report)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::gateway::import_export::ConflictDecision;
+
+    async fn test_db() -> Db {
+        let db = Db::new(":memory:").await.unwrap();
+        db.init_tables().await.unwrap();
+        db
+    }
+
+    /// 空平台 payload + no auto_group → ImportReport 成功，applied 空.
+    #[tokio::test]
+    async fn import_empty_payload_no_autogroup() {
+        let db = test_db().await;
+        let report = import(vec![], &[], false, &db).await.expect("should succeed");
+        assert!(report.applied.values().sum::<usize>() == 0);
+    }
+
+    /// 空平台 payload + auto_group=true → ensures cc-switch group.
+    #[tokio::test]
+    async fn import_empty_payload_with_autogroup() {
+        let db = test_db().await;
+        let _report = import(vec![], &[], true, &db).await.expect("should succeed");
+        // cc-switch group should exist
+        let groups = crate::gateway::db::list_groups(&db).await.unwrap();
+        assert!(groups.iter().any(|g| g.name == "cc-switch"), "cc-switch group should be created");
+    }
+
+    /// 单平台 payload + auto_group=false → applied platform=1.
+    #[tokio::test]
+    async fn import_single_platform_no_autogroup() {
+        let db = test_db().await;
+        let platform_json = serde_json::json!({
+            "name": "TestPlatform",
+            "platform_type": "openai",
+            "base_url": "https://api.openai.com/v1",
+            "api_key": "sk-test",
+            "endpoints": [],
+            "extra": "{}",
+            "models": [],
+            "available_models": [],
+            "auto_group": true
+        });
+        let report = import(vec![platform_json], &[], false, &db).await.expect("should succeed");
+        assert!(report.applied.values().sum::<usize>() >= 1);
+    }
+}

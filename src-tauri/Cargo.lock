@@ -95,6 +95,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-plugin-process",
  "tauri-plugin-updater",
+ "tempfile",
  "tokio",
  "tokio-rusqlite",
  "toml 0.8.2",

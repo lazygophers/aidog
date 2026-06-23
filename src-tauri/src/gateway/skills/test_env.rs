@@ -26,3 +26,18 @@ fn apply_home_env_sets_home_on_command() {
         assert_eq!(env_of(&cmd, "HOME"), Some(std::ffi::OsStr::new(&h)));
     }
 }
+
+/// check_env exercises probe_env (OnceLock init path) and returns valid SkillsEnv.
+/// Since node/npx are present in the test environment, npx_available should be true.
+#[test]
+fn check_env_does_not_panic_and_is_consistent() {
+    let env1 = check_env();
+    let env2 = check_env(); // second call returns cached value
+    // Both calls should return the same values (OnceLock)
+    assert_eq!(env1.npx_available, env2.npx_available);
+    assert_eq!(env1.node_version, env2.node_version);
+    // node_version, if present, should start with 'v'
+    if let Some(ver) = &env1.node_version {
+        assert!(ver.starts_with('v'), "node version should start with 'v': {ver}");
+    }
+}

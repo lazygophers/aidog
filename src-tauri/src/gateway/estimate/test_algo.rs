@@ -122,3 +122,72 @@ fn calibrate_thresholds() {
     assert!(should_calibrate(now_ms, now_ms, 100));
     assert!(should_calibrate(now_ms, now_ms, 150));
 }
+
+#[test]
+fn balance_cost_sums_components() {
+    let c = balance_cost(100, 50, 200, 1e-6, 2e-6, 5e-7);
+    let expect = 100.0 * 1e-6 + 50.0 * 2e-6 + 200.0 * 5e-7;
+    assert!((c - expect).abs() < 1e-15);
+}
+
+#[test]
+fn apply_tier_delta_zero_tokens_noop() {
+    let mut tier = EstTier { est_utilization: 10.0, has_base: true, limit: 100.0, ..Default::default() };
+    apply_tier_delta(&mut tier, 0.0);
+    assert_eq!(tier.est_utilization, 10.0);
+    apply_tier_delta(&mut tier, -5.0);
+    assert_eq!(tier.est_utilization, 10.0);
+}
+
+#[test]
+fn fitted_increment_clamps_at_100() {
+    let mut tier = EstTier { est_utilization: 99.0, coef_per_token: 1.0, util_at_last_real: 99.0, has_base: false, ..Default::default() };
+    apply_tier_delta(&mut tier, 100.0);
+    assert!((tier.est_utilization - 100.0).abs() < 1e-9);
+}
+
+#[test]
+fn tier_pace_levels_and_as_str() {
+    let mk = |u: f64| EstTier { est_utilization: u, ..Default::default() };
+    assert_eq!(tier_pace(&mk(85.0)), TierPace::Fast);
+    assert_eq!(tier_pace(&mk(50.0)), TierPace::Normal);
+    assert_eq!(tier_pace(&mk(10.0)), TierPace::Busy);
+    assert_eq!(tier_pace(&mk(-1.0)), TierPace::Normal);
+    assert_eq!(tier_pace(&mk(f64::NAN)), TierPace::Normal);
+    assert_eq!(TierPace::Fast.as_str(), "fast");
+    assert_eq!(TierPace::Normal.as_str(), "normal");
+    assert_eq!(TierPace::Busy.as_str(), "busy");
+}
+
+#[test]
+fn tier_usage_level_neutral_and_computed() {
+    // unknown name (no cycle) → Neutral
+    let unknown = EstTier { name: "weird".into(), window_start: 1, est_utilization: 50.0, ..Default::default() };
+    assert_eq!(tier_usage_level(&unknown, now()), crate::gateway::usage_color::UsageLevel::Neutral);
+    // known name but window_start <= 0 → Neutral
+    let no_window = EstTier { name: "five_hour".into(), window_start: 0, ..Default::default() };
+    assert_eq!(tier_usage_level(&no_window, now()), crate::gateway::usage_color::UsageLevel::Neutral);
+    // known name + window_start → computed (just assert it runs and returns a level)
+    let active = EstTier { name: "five_hour".into(), window_start: now(), est_utilization: 50.0, ..Default::default() };
+    let _ = tier_usage_level(&active, now());
+}
+
+#[test]
+fn calibrate_with_resets_at_iso_and_millis() {
+    let prev = EstTier { name: "five_hour".into(), ..Default::default() };
+    // ISO8601 resets_at → window_start derived
+    let cal = calibrate_tier(&prev, "five_hour", 20.0, false, None, Some("2030-01-01T00:00:00Z"), now());
+    assert!(cal.window_start != 0);
+    // bare millis (>1e12) resets_at
+    let cal2 = calibrate_tier(&prev, "five_hour", 20.0, false, None, Some("1893456000000"), now());
+    assert!(cal2.window_start != 0);
+    // bare seconds (<1e12) resets_at → ×1000
+    let cal3 = calibrate_tier(&prev, "five_hour", 20.0, false, None, Some("1893456000"), now());
+    assert!(cal3.window_start != 0);
+    // unparseable resets_at → keep prev.window_start (0)
+    let cal4 = calibrate_tier(&prev, "five_hour", 20.0, false, None, Some("not-a-date"), now());
+    assert_eq!(cal4.window_start, prev.window_start);
+    // unknown name → no cycle → keep prev.window_start
+    let cal5 = calibrate_tier(&prev, "weird", 20.0, false, None, Some("2030-01-01T00:00:00Z"), now());
+    assert_eq!(cal5.window_start, prev.window_start);
+}

@@ -114,3 +114,7 @@ pub fn to_openai_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
         ChatStreamEvent::Usage { .. } => None,
     }
 }
+
+#[cfg(test)]
+#[path = "test_sse.rs"]
+mod test_sse;

@@ -73,3 +73,7 @@ pub async fn install_uv(db: State<'_, Db>) -> Result<bool, String> {
         Err("auto-install uv is only supported on Unix; please install uv manually".to_string())
     }
 }
+
+#[cfg(test)]
+#[path = "test_script_executor.rs"]
+mod test_script_executor;

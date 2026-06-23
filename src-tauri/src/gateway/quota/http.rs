@@ -210,3 +210,7 @@ async fn persist_quota_log(db: Option<&Arc<Db>>, log: crate::gateway::models::Pr
         }
     }
 }
+
+#[cfg(test)]
+#[path = "test_http.rs"]
+mod test_http;

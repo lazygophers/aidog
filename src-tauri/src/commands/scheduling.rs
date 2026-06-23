@@ -36,3 +36,7 @@ pub async fn scheduling_settings_set(
     }).await
         .map_err(|e| { tracing::error!(command = "scheduling_settings_set", error = %e, "persist scheduling settings failed"); e })
 }
+
+#[cfg(test)]
+#[path = "test_scheduling.rs"]
+mod test_scheduling;

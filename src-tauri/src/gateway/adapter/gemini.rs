@@ -299,3 +299,7 @@ pub fn to_gemini_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "test_gemini.rs"]
+mod test_gemini;

@@ -137,6 +137,85 @@ mod tests {
         p
     }
 
+    // ── HomeGuard: redirect HOME to tempdir, protected by ENV_LOCK ──
+    // We can't import from gateway::db::test_support (cfg(test) only), so we replicate it.
+    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    struct HomeGuard {
+        dir: tempfile::TempDir,
+        _lock: std::sync::MutexGuard<'static, ()>,
+        prev_home: Option<String>,
+    }
+    impl HomeGuard {
+        fn new() -> Self {
+            let lock = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+            let dir = tempfile::tempdir().unwrap();
+            let prev_home = std::env::var("HOME").ok();
+            unsafe { std::env::set_var("HOME", dir.path()); }
+            Self { dir, _lock: lock, prev_home }
+        }
+    }
+    impl Drop for HomeGuard {
+        fn drop(&mut self) {
+            unsafe {
+                match &self.prev_home {
+                    Some(v) => std::env::set_var("HOME", v),
+                    None => std::env::remove_var("HOME"),
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn write_plugin_primary_key_creates_and_is_idempotent() {
+        let _g = HomeGuard::new();
+        // First write: creates file, returns true
+        let written = write_plugin_primary_key().unwrap();
+        assert!(written, "first write should return true");
+        // Second write: value already 'any', should skip
+        let written2 = write_plugin_primary_key().unwrap();
+        assert!(!written2, "idempotent: already 'any' should skip");
+    }
+
+    #[test]
+    fn clear_plugin_primary_key_removes_field() {
+        let _g = HomeGuard::new();
+        // File doesn't exist → returns false (no-op)
+        let cleared_before = clear_plugin_primary_key().unwrap();
+        assert!(!cleared_before, "clear on nonexistent file should return false");
+        // Write, then clear
+        write_plugin_primary_key().unwrap();
+        let cleared = clear_plugin_primary_key().unwrap();
+        assert!(cleared, "clear after write should return true");
+        // Second clear: field already gone
+        let cleared2 = clear_plugin_primary_key().unwrap();
+        assert!(!cleared2, "second clear should return false (field gone)");
+    }
+
+    #[test]
+    fn set_and_clear_has_completed_onboarding_roundtrip() {
+        let _g = HomeGuard::new();
+        // Set: creates .claude.json, returns true
+        let set = set_has_completed_onboarding().unwrap();
+        assert!(set, "first set should return true");
+        // Idempotent: already true
+        let set2 = set_has_completed_onboarding().unwrap();
+        assert!(!set2, "second set should return false (already true)");
+        // Clear: removes field, returns true
+        let cleared = clear_has_completed_onboarding().unwrap();
+        assert!(cleared, "clear should return true");
+        // Second clear: field gone, returns false
+        let cleared2 = clear_has_completed_onboarding().unwrap();
+        assert!(!cleared2, "second clear should return false");
+    }
+
+    #[test]
+    fn clear_has_completed_onboarding_nonexistent_file() {
+        let _g = HomeGuard::new();
+        // ~/.claude.json doesn't exist → returns false without error
+        let cleared = clear_has_completed_onboarding().unwrap();
+        assert!(!cleared, "clear on nonexistent file returns false");
+    }
+
     #[test]
     fn write_and_clear_plugin_primary_key_roundtrip() {
         let path = scratch_path("roundtrip");

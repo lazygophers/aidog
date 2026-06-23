@@ -347,3 +347,7 @@ pub async fn update_server(
         .map(McpServerInfo::from)
         .ok_or_else(|| format!("mcp update: row vanished after upsert: {}", row.name))
 }
+
+#[cfg(test)]
+#[path = "test_domain.rs"]
+mod test_domain;

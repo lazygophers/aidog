@@ -1,7 +1,7 @@
 //! db 行级 upsert：group / platform / group_platform / setting + auto-group。
 
 use super::json_helpers::{
-    json_bool, json_f64, json_i64, json_str, json_u32, json_u64, now_ts,
+    json_bool, json_f64, json_i64, json_raw, json_str, json_u32, json_u64, now_ts,
 };
 use crate::gateway::db::Db;
 
@@ -34,11 +34,7 @@ pub(super) async fn upsert_group_row(
                 )?;
                 update_group_cols(&tx, id, &row, &effective_name)?;
             } else {
-                let routing_mode = row
-                    .get("routing_mode")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("round_robin")
-                    .to_string();
+                let routing_mode = routing_mode_json(&row);
                 let auto_from_platform = row
                     .get("auto_from_platform")
                     .and_then(|v| v.as_str())
@@ -57,6 +53,16 @@ pub(super) async fn upsert_group_row(
         .map_err(|e| format!("upsert group: {e}"))
 }
 
+/// routing_mode 在 DB 中以 `serde_json::to_string` 存储、读取时 `from_str` 反序列化。
+/// 导出 payload 的 routing_mode 是 JSON 字符串变体（如 `"failover"`），须保留引号框写回，
+/// 否则 `from_str("failover")` 报 "expected value"。缺省 fallback 用 JSON 引号形式。
+fn routing_mode_json(row: &serde_json::Value) -> String {
+    match row.get("routing_mode") {
+        Some(serde_json::Value::Null) | None => "\"load_balance\"".to_string(),
+        Some(v) => v.to_string(),
+    }
+}
+
 fn update_group_cols(
     tx: &rusqlite::Transaction,
     id: i64,
@@ -64,10 +70,7 @@ fn update_group_cols(
     effective: &str,
 ) -> rusqlite::Result<()> {
     let now = now_ts();
-    let routing_mode = row
-        .get("routing_mode")
-        .and_then(|v| v.as_str())
-        .unwrap_or("round_robin");
+    let routing_mode = routing_mode_json(row);
     let auto_from_platform = row
         .get("auto_from_platform")
         .and_then(|v| v.as_str())
@@ -127,7 +130,7 @@ fn insert_platform_row(
          VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?13,0,?14,?15,?16,?17,?18,?19,?20,?21)",
         rusqlite::params![
             name,
-            json_str(row, "platform_type"),
+            json_raw(row, "platform_type"),
             json_str(row, "base_url"),
             json_str(row, "api_key"),
             extra,
@@ -276,7 +279,7 @@ pub async fn ensure_group_and_attach(
                     let group_key = format!("gk_{}", uuid::Uuid::new_v4().simple());
                     tx.execute(
                         "INSERT INTO \"group\" (name, group_key, routing_mode, auto_from_platform, sort_order, created_at, updated_at)
-                         VALUES (?1, ?2, 'round_robin', '', 0, ?3, ?3)",
+                         VALUES (?1, ?2, '\"load_balance\"', '', 0, ?3, ?3)",
                         rusqlite::params![&group_name, &group_key, now],
                     )?;
                     tx.last_insert_rowid()

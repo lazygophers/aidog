@@ -63,6 +63,11 @@ async fn query_newapi_user_balance(db: Option<&Arc<Db>>, balance_base_url: &str,
         Ok(v) => v,
         Err(e) => return err_quota_platform("newapi", &e),
     };
+    parse_newapi_user_balance(&body)
+}
+
+/// 解析 /api/user/self 响应 → PlatformQuota（纯函数，不触网）。
+pub(crate) fn parse_newapi_user_balance(body: &serde_json::Value) -> PlatformQuota {
     if body.get("success").and_then(|v| v.as_bool()) != Some(true) {
         let msg = body.get("message").and_then(|v| v.as_str()).unwrap_or("Query failed");
         return err_quota_platform("newapi", msg);
@@ -94,6 +99,25 @@ async fn query_newapi_user_balance(db: Option<&Arc<Db>>, balance_base_url: &str,
         }),
         coding_plan: None,
         newapi_user_id: user_id,
+    }
+}
+
+/// 有限额 token → 直接用 token 配额构造余额（纯函数）。
+pub(crate) fn limited_token_quota(total_granted: f64, total_used: f64, total_available: f64) -> PlatformQuota {
+    let remaining = total_available / 500000.0;
+    let used = total_used / 500000.0;
+    let total = total_granted / 500000.0;
+    PlatformQuota {
+        success: true, error: None, queried_at: now_millis(),
+        balance: Some(BalanceInfo {
+            remaining,
+            total: if total > 0.0 { Some(total) } else { None },
+            used: if used > 0.0 { Some(used) } else { None },
+            currency: "USD".into(),
+            is_valid: remaining > 0.0,
+        }),
+        coding_plan: None,
+        newapi_user_id: None,
     }
 }
 
@@ -129,20 +153,10 @@ async fn query_quota_newapi_inner(db: Option<&Arc<Db>>, base_url: &str, api_key:
         }
     } else {
         // Step 2b: 有限额 → 直接用 token 配额
-        let remaining = total_available / 500000.0;
-        let used = total_used / 500000.0;
-        let total = total_granted / 500000.0;
-        PlatformQuota {
-            success: true, error: None, queried_at: now_millis(),
-            balance: Some(BalanceInfo {
-                remaining,
-                total: if total > 0.0 { Some(total) } else { None },
-                used: if used > 0.0 { Some(used) } else { None },
-                currency: "USD".into(),
-                is_valid: remaining > 0.0,
-            }),
-            coding_plan: None,
-            newapi_user_id: None,
-        }
+        limited_token_quota(total_granted, total_used, total_available)
     }
 }
+
+#[cfg(test)]
+#[path = "test_newapi.rs"]
+mod test_newapi;
