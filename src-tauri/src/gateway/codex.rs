@@ -322,3 +322,7 @@ fn set_obj_path(base: &mut serde_json::Value, path: &[&str], value: serde_json::
     let entry = obj.entry(head.to_string()).or_insert_with(|| serde_json::Value::Object(serde_json::Map::new()));
     set_obj_path(entry, &path[1..], value);
 }
+
+#[cfg(test)]
+#[path = "test_codex.rs"]
+mod test_codex;

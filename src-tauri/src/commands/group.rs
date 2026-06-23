@@ -178,3 +178,7 @@ pub async fn group_set_default(
         .map(|_| ())
         .map_err(|e| { tracing::error!(command = "group_set_default", error = %e, "sync after set default failed"); e })
 }
+
+#[cfg(test)]
+#[path = "test_group.rs"]
+mod test_group;

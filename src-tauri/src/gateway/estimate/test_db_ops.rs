@@ -235,3 +235,71 @@ async fn calibrate_from_quota_failure_preserves() {
     assert_eq!(after.last_real_query_at, 12345, "失败不应改 last_real_query_at");
     assert!((after.est_balance_remaining - (50.0 - 1.0)).abs() < 1e-9);
 }
+
+#[tokio::test]
+async fn read_estimate_state_returns_fields() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    write_real_quota(&db, id, 10.0, "", 555).await.unwrap();
+    let (last_real, count) = read_estimate_state(&db, id).await.unwrap();
+    assert_eq!(last_real, 555);
+    assert_eq!(count, 0);
+}
+
+#[test]
+fn build_calibrated_coding_plan_none_returns_default() {
+    let prev = EstCodingPlan::default();
+    let quota = PlatformQuota {
+        success: true,
+        error: None,
+        queried_at: now(),
+        balance: None,
+        coding_plan: None,
+        newapi_user_id: None,
+    };
+    let r = build_calibrated_coding_plan(&prev, &quota);
+    assert!(r.tiers.is_empty());
+}
+
+#[tokio::test]
+async fn estimate_after_request_balance_path_no_calibration() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, false).await;
+    // last_real recent + count low → should_calibrate false → 不触发网络真查
+    write_real_quota(&db, id, 100.0, "", now()).await.unwrap();
+    estimate_after_request(
+        &db,
+        id,
+        "deepseek",
+        "https://example.com",
+        "sk",
+        "deepseek-chat",
+        "",
+        1000,
+        500,
+        0,
+        false, // 非 coding plan
+    )
+    .await;
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    // balance 自减 + estimate_count 增加（resolve_price fallback 默认价 0 → cost 0，但 count 必增）
+    assert!(p.estimate_count >= 1);
+}
+
+#[tokio::test]
+async fn estimate_after_request_coding_path_no_calibration() {
+    let db = mem_db().await;
+    let id = mk_platform(&db, true).await;
+    let plan = EstCodingPlan {
+        tiers: vec![EstTier { name: "five_hour".into(), has_base: true, limit: 10_000.0, ..Default::default() }],
+        level: None,
+    };
+    write_real_quota(&db, id, 0.0, &plan.to_json(), now()).await.unwrap();
+    estimate_after_request(
+        &db, id, "kimi", "https://example.com", "sk", "kimi-k2", "", 1000, 0, 0, true,
+    )
+    .await;
+    let p = db::get_platform(&db, id).await.unwrap().unwrap();
+    let stored = EstCodingPlan::from_json(&p.est_coding_plan);
+    assert!(stored.tiers[0].est_utilization > 0.0);
+}

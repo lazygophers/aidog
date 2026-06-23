@@ -189,3 +189,7 @@ fn t_ar(key: ErrorKey) -> &'static str {
         ErrorKey::MiddlewareBlocked => "تم حظر الطلب بواسطة قاعدة الوسيط",
     }
 }
+
+#[cfg(test)]
+#[path = "test_i18n.rs"]
+mod test_i18n;

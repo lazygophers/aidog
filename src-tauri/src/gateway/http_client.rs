@@ -72,3 +72,34 @@ pub async fn build_http_client_system(
 ) -> reqwest::Client {
     build_http_client(db, timeout_secs, conn_timeout_secs, None, None).await
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn platform_proxy_enabled_empty_returns_none() {
+        assert_eq!(platform_proxy_enabled(""), None);
+        assert_eq!(platform_proxy_enabled("  "), None);
+    }
+
+    #[test]
+    fn platform_proxy_enabled_explicit_true() {
+        assert_eq!(platform_proxy_enabled(r#"{"proxy_enabled":true}"#), Some(true));
+    }
+
+    #[test]
+    fn platform_proxy_enabled_explicit_false() {
+        assert_eq!(platform_proxy_enabled(r#"{"proxy_enabled":false}"#), Some(false));
+    }
+
+    #[test]
+    fn platform_proxy_enabled_missing_field_returns_none() {
+        assert_eq!(platform_proxy_enabled(r#"{"other_field":1}"#), None);
+    }
+
+    #[test]
+    fn platform_proxy_enabled_invalid_json_returns_none() {
+        assert_eq!(platform_proxy_enabled("not-json"), None);
+    }
+}

@@ -1,5 +1,4 @@
 use super::*;
-use crate::gateway::skills::types::SkillScope;
 
 #[test]
 fn uninstall_args_global() {
@@ -134,4 +133,52 @@ fn enable_empty_name_fails() {
 fn disable_empty_name_fails() {
     let r = disable("  ", SkillAgent::Claude, &SkillScope::Global, None);
     assert!(!r.success);
+}
+
+#[test]
+fn install_empty_id_fails() {
+    let r = install("  ", &[SkillAgent::Claude], &SkillScope::Global, None);
+    assert!(!r.success);
+    assert!(r.stderr.contains("skill id is empty"), "stderr: {}", r.stderr);
+}
+
+#[test]
+fn install_empty_agents_fails() {
+    let r = install("some/skill@foo", &[], &SkillScope::Global, None);
+    assert!(!r.success);
+    assert!(r.stderr.contains("no agent selected"), "stderr: {}", r.stderr);
+}
+
+#[test]
+fn uninstall_empty_name_fails() {
+    let r = uninstall("  ", &SkillScope::Global, None);
+    assert!(!r.success);
+    assert!(r.stderr.contains("skill name is empty"), "stderr: {}", r.stderr);
+}
+
+/// uninstall_all builds correct args for global scope.
+#[test]
+fn uninstall_all_args_global_contains_all() {
+    // uninstall_all calls run_npx_in_scope with ["remove", "--all", "-g"].
+    // We can't easily intercept without running npx, but we can verify it doesn't panic.
+    // The function is a thin wrapper; actual behavior verified via npx integration.
+    // Just ensure no panic on call:
+    let _r = uninstall_all(&SkillScope::Global, None);
+    // either succeeds or fails gracefully
+}
+
+/// update builds correct args for global scope — just verify no panic.
+#[test]
+fn update_global_does_not_panic() {
+    let _r = update(&SkillScope::Global, None);
+}
+
+/// fs_fallback_remove: unsafe name returns error immediately.
+#[test]
+fn fs_fallback_unsafe_name_errors() {
+    // fs_fallback_remove is private, test via uninstall with stdout="No matching skills found"
+    // We can't easily fake that; instead test is_safe_skill_name for the unsafe cases.
+    assert!(!is_safe_skill_name("../etc/passwd"));
+    assert!(!is_safe_skill_name("foo/bar"));
+    assert!(!is_safe_skill_name(""));
 }

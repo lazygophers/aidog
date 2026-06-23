@@ -37,3 +37,7 @@ pub async fn proxy_timeout_set(db: State<'_, Db>, settings: ProxyTimeoutSettings
     }).await
         .map_err(|e| { tracing::error!(command = "proxy_timeout_set", error = %e, "persist timeout settings failed"); e })
 }
+
+#[cfg(test)]
+#[path = "test_proxy_timeout.rs"]
+mod test_proxy_timeout;

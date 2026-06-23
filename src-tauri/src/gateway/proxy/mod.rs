@@ -46,6 +46,11 @@ mod retry;
 mod stream;
 mod timeout;
 
+#[cfg(test)]
+mod test_integration;
+#[cfg(test)]
+mod test_group_info;
+
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
 pub use endpoint::{opencode_zen_fallback, resolve_opencode_zen_key};
 pub use handler::handle_proxy;

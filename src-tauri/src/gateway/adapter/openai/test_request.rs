@@ -100,3 +100,108 @@ fn multiple_text_blocks_join_into_string() {
     assert_eq!(out.messages.len(), 1);
     assert_eq!(out.messages[0].content, Some(Value::String("part1\npart2".into())));
 }
+
+// system 字符串消息放在最前
+#[test]
+fn system_text_becomes_first_message() {
+    let mut req = base_req(vec![
+        Message { role: Role::User, content: MessageContent::Text("hello".into()) },
+    ]);
+    req.system = Some(SystemContent::Text("You are helpful".into()));
+    let out = to_openai(&req);
+    assert_eq!(out.messages.len(), 2);
+    assert_eq!(out.messages[0].role, "system");
+    assert_eq!(out.messages[0].content, Some(Value::String("You are helpful".into())));
+    assert_eq!(out.messages[1].role, "user");
+}
+
+// system blocks: 提取 text 字段拼接
+#[test]
+fn system_blocks_extract_text() {
+    let mut req = base_req(vec![
+        Message { role: Role::User, content: MessageContent::Text("q".into()) },
+    ]);
+    req.system = Some(SystemContent::Blocks(vec![
+        serde_json::json!({"type":"text","text":"block1"}),
+        serde_json::json!({"type":"text","text":"block2"}),
+    ]));
+    let out = to_openai(&req);
+    assert_eq!(out.messages[0].role, "system");
+    assert_eq!(out.messages[0].content, Some(Value::String("block1\nblock2".into())));
+}
+
+// 普通 user/assistant 文本消息
+#[test]
+fn plain_text_user_and_assistant() {
+    let req = base_req(vec![
+        Message { role: Role::User, content: MessageContent::Text("question".into()) },
+        Message { role: Role::Assistant, content: MessageContent::Text("answer".into()) },
+    ]);
+    let out = to_openai(&req);
+    assert_eq!(out.messages.len(), 2);
+    assert_eq!(out.messages[0].role, "user");
+    assert_eq!(out.messages[1].role, "assistant");
+}
+
+// system/tool role messages
+#[test]
+fn system_role_message_in_messages() {
+    let req = base_req(vec![
+        Message { role: Role::System, content: MessageContent::Text("sys".into()) },
+    ]);
+    let out = to_openai(&req);
+    assert_eq!(out.messages[0].role, "system");
+}
+
+// tools passthrough
+#[test]
+fn tools_are_converted() {
+    let mut req = base_req(vec![
+        Message { role: Role::User, content: MessageContent::Text("use tool".into()) },
+    ]);
+    req.tools = Some(vec![Tool {
+        name: "my_tool".into(),
+        description: Some("does stuff".into()),
+        input_schema: serde_json::json!({"type":"object"}),
+    }]);
+    let out = to_openai(&req);
+    let tools = out.tools.expect("tools present");
+    assert_eq!(tools.len(), 1);
+    assert_eq!(tools[0].function.name, "my_tool");
+    assert_eq!(tools[0].r#type, "function");
+}
+
+// tool_choice variants
+#[test]
+fn tool_choice_auto() {
+    let mut req = base_req(vec![Message { role: Role::User, content: MessageContent::Text("q".into()) }]);
+    req.tool_choice = Some(ToolChoice::Auto);
+    let out = to_openai(&req);
+    assert_eq!(out.tool_choice, Some(serde_json::json!("auto")));
+}
+
+#[test]
+fn tool_choice_any_maps_to_required() {
+    let mut req = base_req(vec![Message { role: Role::User, content: MessageContent::Text("q".into()) }]);
+    req.tool_choice = Some(ToolChoice::Any);
+    let out = to_openai(&req);
+    assert_eq!(out.tool_choice, Some(serde_json::json!("required")));
+}
+
+#[test]
+fn tool_choice_none() {
+    let mut req = base_req(vec![Message { role: Role::User, content: MessageContent::Text("q".into()) }]);
+    req.tool_choice = Some(ToolChoice::None);
+    let out = to_openai(&req);
+    assert_eq!(out.tool_choice, Some(serde_json::json!("none")));
+}
+
+#[test]
+fn tool_choice_named() {
+    let mut req = base_req(vec![Message { role: Role::User, content: MessageContent::Text("q".into()) }]);
+    req.tool_choice = Some(ToolChoice::Named { name: "my_tool".into() });
+    let out = to_openai(&req);
+    let tc = out.tool_choice.unwrap();
+    assert_eq!(tc["type"], "function");
+    assert_eq!(tc["function"]["name"], "my_tool");
+}

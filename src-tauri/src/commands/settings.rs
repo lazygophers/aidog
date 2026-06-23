@@ -98,3 +98,7 @@ pub fn read_claude_code_settings() -> Result<serde_json::Value, String> {
     let content = std::fs::read_to_string(&path).map_err(|e| { tracing::warn!(command = "read_claude_code_settings", error = %e, "read settings failed"); format!("read settings: {e}") })?;
     serde_json::from_str(&content).map_err(|e| { tracing::warn!(command = "read_claude_code_settings", error = %e, "parse settings failed"); format!("parse settings: {e}") })
 }
+
+#[cfg(test)]
+#[path = "test_settings.rs"]
+mod test_settings;

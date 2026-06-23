@@ -217,3 +217,282 @@ use super::test_support::*;
         assert_eq!(r_h.buckets.len(), 1, "hourly 应 1 桶: {:?}", r_h.buckets.iter().map(|b| &b.time_bucket).collect::<Vec<_>>());
         assert_eq!(r_h.buckets[0].total_requests, 6, "hourly 桶应聚 6 条");
     }
+
+    /// utc_ms_to_local_hour_key 输出格式 "YYYY-MM-DD HH:00:00"。
+    #[test]
+    fn utc_ms_to_local_hour_key_format() {
+        // 2026-01-01 00:00:00 UTC = 1735689600000 ms
+        let key = utc_ms_to_local_hour_key(1735689600000);
+        // 输出必须包含正确格式（本地时区可能与 UTC 不同，只验格式）
+        assert!(key.len() == 19, "key must be 19 chars: {key}");
+        assert!(key.contains(':'), "key must contain ':': {key}");
+        assert!(key.ends_with(":00:00"), "key must end with :00:00: {key}");
+    }
+
+    #[test]
+    fn utc_ms_to_local_hour_key_zero_returns_empty_or_valid() {
+        // 0 ms = 1970-01-01 00:00:00 UTC; may be valid or empty depending on impl
+        let key = utc_ms_to_local_hour_key(0);
+        // either empty or valid format
+        if !key.is_empty() {
+            assert!(key.ends_with(":00:00"), "0ms key format: {key}");
+        }
+    }
+
+    /// bucket_time_expr 返回的 SQL 片段包含正确时区和粒度关键词。
+    #[test]
+    fn bucket_time_expr_minute_granularity() {
+        let expr = bucket_time_expr(Some("minute"));
+        assert!(expr.contains("%H:%M"), "minute expr should contain HH:MM: {expr}");
+        assert!(expr.contains("'localtime'"));
+    }
+
+    #[test]
+    fn bucket_time_expr_5min_granularity() {
+        let expr = bucket_time_expr(Some("5min"));
+        assert!(expr.contains("300"), "5min expr should contain 300s window: {expr}");
+        assert!(expr.contains("'localtime'"));
+    }
+
+    #[test]
+    fn bucket_time_expr_hourly_granularity() {
+        let expr = bucket_time_expr(Some("hourly"));
+        assert!(expr.contains("%H:00"), "hourly expr should contain %H:00: {expr}");
+        assert!(expr.contains("'localtime'"));
+    }
+
+    #[test]
+    fn bucket_time_expr_daily_default() {
+        // None or unknown → daily
+        let d1 = bucket_time_expr(None);
+        let d2 = bucket_time_expr(Some("daily"));
+        let d3 = bucket_time_expr(Some("unknown_granularity"));
+        // All should be same daily format
+        assert!(d1.contains("%Y-%m-%d"), "None should be daily: {d1}");
+        assert_eq!(d1, d2, "None and 'daily' should produce same expression");
+        assert_eq!(d1, d3, "unknown granularity should default to daily");
+    }
+
+    /// group_by=model 维度分解（agg 路径）。
+    #[tokio::test]
+    async fn stats_group_by_model_dimension() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        let mut a = sample_log("ma1", "g1", now);
+        a.model = "gpt-4o".into();
+        a.actual_model = "gpt-4o".into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
+        let mut b = sample_log("ma2", "g1", now);
+        b.model = "claude-sonnet-4".into();
+        b.actual_model = "claude-sonnet-4".into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+        let q = StatsQuery {
+            start: None, end: None,
+            granularity: Some("daily".into()),
+            group_by: Some("model".into()),
+            filter_group: None, filter_model: None, filter_platform: None,
+        };
+        let res = query_stats(&db, &q).await.unwrap();
+        assert_eq!(res.dimension_data.len(), 2, "2 models → 2 dimension entries");
+        let models: Vec<&str> = res.dimension_data.iter().map(|d| d.name.as_str()).collect();
+        assert!(models.contains(&"gpt-4o"), "gpt-4o missing: {:?}", models);
+        assert!(models.contains(&"claude-sonnet-4"), "claude-sonnet-4 missing: {:?}", models);
+    }
+
+    /// group_by=group 维度分解（agg 路径）。
+    #[tokio::test]
+    async fn stats_group_by_group_dimension() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        let mut a = sample_log("ga1", "grpA", now);
+        a.status_code = 200;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
+        let mut b = sample_log("ga2", "grpB", now);
+        b.status_code = 200;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+        let q = StatsQuery {
+            start: None, end: None,
+            granularity: Some("daily".into()),
+            group_by: Some("group".into()),
+            filter_group: None, filter_model: None, filter_platform: None,
+        };
+        let res = query_stats(&db, &q).await.unwrap();
+        assert_eq!(res.dimension_data.len(), 2, "2 groups → 2 dimension entries");
+        let groups: Vec<&str> = res.dimension_data.iter().map(|d| d.name.as_str()).collect();
+        assert!(groups.contains(&"grpA"), "grpA missing: {:?}", groups);
+        assert!(groups.contains(&"grpB"), "grpB missing: {:?}", groups);
+    }
+
+    /// filter_model 过滤 minute 粒度（走 proxy_log 路径，非聚合表）。
+    #[tokio::test]
+    async fn stats_minute_filter_model() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        let mut a = sample_log("fm1", "g1", now);
+        a.model = "gpt-4o".into();
+        a.actual_model = "".into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
+        let mut b = sample_log("fm2", "g1", now);
+        b.model = "claude-sonnet-4".into();
+        b.actual_model = "claude-sonnet-4".into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
+
+        let q = StatsQuery {
+            start: Some(now - 3_600_000), end: Some(now + 3_600_000),
+            granularity: Some("minute".into()),
+            group_by: None,
+            filter_group: None,
+            filter_model: Some("gpt-4o".into()),
+            filter_platform: None,
+        };
+        let res = query_stats(&db, &q).await.unwrap();
+        assert_eq!(res.overview.total_requests, 1, "filter_model=gpt-4o should return 1");
+    }
+
+    /// filter_group + filter_platform minute 路径组合。
+    #[tokio::test]
+    async fn stats_minute_filter_group_and_platform() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("FP")).await.unwrap();
+        let now = chrono::Utc::now().timestamp_millis();
+        let mut a = sample_log("fgp1", "grpFP", now);
+        a.platform_id = p.id;
+        a.status_code = 200;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
+        let mut b = sample_log("fgp2", "grpOther", now);
+        b.platform_id = p.id;
+        b.status_code = 200;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&b, false, false)).await.unwrap();
+
+        let q = StatsQuery {
+            start: Some(now - 3_600_000), end: Some(now + 3_600_000),
+            granularity: Some("minute".into()),
+            group_by: None,
+            filter_group: Some("grpFP".into()),
+            filter_model: None,
+            filter_platform: Some(p.id.to_string()),
+        };
+        let res = query_stats(&db, &q).await.unwrap();
+        assert_eq!(res.overview.total_requests, 1, "filter group+platform should return 1");
+    }
+
+    /// group_by=platform dimension via agg table.
+    #[tokio::test]
+    async fn stats_group_by_platform_dimension() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("DimP")).await.unwrap();
+        let now = chrono::Utc::now().timestamp_millis();
+        let mut a = sample_log("dp1", "g1", now);
+        a.platform_id = p.id;
+        a.status_code = 200;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&a, false, false)).await.unwrap();
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+        let q = StatsQuery {
+            start: None, end: None,
+            granularity: Some("daily".into()),
+            group_by: Some("platform".into()),
+            filter_group: None, filter_model: None, filter_platform: None,
+        };
+        let res = query_stats(&db, &q).await.unwrap();
+        assert!(!res.dimension_data.is_empty(), "platform dimension should have entries");
+        assert!(res.dimension_data.iter().any(|d| d.name == "DimP"), "platform name DimP not found");
+    }
+
+    /// query_stats with no data returns zero overview.
+    #[tokio::test]
+    async fn stats_empty_db_returns_zero_overview() {
+        let db = test_db().await;
+        let q = StatsQuery {
+            start: None, end: None,
+            granularity: Some("daily".into()),
+            group_by: None,
+            filter_group: None, filter_model: None, filter_platform: None,
+        };
+        let res = query_stats(&db, &q).await.unwrap();
+        assert_eq!(res.overview.total_requests, 0);
+        assert_eq!(res.buckets.len(), 0);
+        assert_eq!(res.dimension_data.len(), 0);
+    }
+
+    /// granularity=hourly produces hourly buckets.
+    #[tokio::test]
+    async fn stats_granularity_hourly_produces_hourly_buckets() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        let lg = sample_log("h1", "grp_h", now);
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false)).await.unwrap();
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+        let q = StatsQuery {
+            start: Some(now - 3_600_000),
+            end: Some(now + 3_600_000),
+            granularity: Some("hourly".into()),
+            group_by: None,
+            filter_group: None,
+            filter_model: None,
+            filter_platform: None,
+        };
+        let res = query_stats(&db, &q).await.unwrap();
+        assert_eq!(res.overview.total_requests, 1);
+        assert!(!res.buckets.is_empty(), "hourly granularity should have buckets");
+        // hourly bucket key is YYYY-MM-DD HH:00
+        if let Some(b) = res.buckets.first() {
+            assert!(b.time_bucket.len() >= 10, "hourly bucket key: {}", b.time_bucket);
+        }
+    }
+
+    /// filter_model isolates by model name (uses actual_model field).
+    #[tokio::test]
+    async fn stats_filter_model_isolates_model() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        // stats_agg uses actual_model if non-empty; set actual_model to distinguish
+        let mut lg = sample_log("m1", "grp_m", now);
+        lg.actual_model = "unique-model-xyz".to_string();
+        let mut lg2 = sample_log("m2", "grp_m", now);
+        lg2.actual_model = "other-model-abc".to_string();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg2, false, false)).await.unwrap();
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+        let q = StatsQuery {
+            start: None,
+            end: None,
+            granularity: Some("daily".into()),
+            group_by: None,
+            filter_group: None,
+            filter_model: Some("unique-model-xyz".into()),
+            filter_platform: None,
+        };
+        let res = query_stats(&db, &q).await.unwrap();
+        assert_eq!(res.overview.total_requests, 1, "filter_model should isolate to 1 request");
+    }
+
+    /// group_by=model dimension returns model breakdown (additional).
+    #[tokio::test]
+    async fn stats_group_by_model_dimension_extra() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        let mut lg = sample_log("md1", "grp_md", now);
+        lg.actual_model = "distinct-model-extra".to_string();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&lg, false, false)).await.unwrap();
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+        let q = StatsQuery {
+            start: None,
+            end: None,
+            granularity: Some("daily".into()),
+            group_by: Some("model".into()),
+            filter_group: None,
+            filter_model: None,
+            filter_platform: None,
+        };
+        let res = query_stats(&db, &q).await.unwrap();
+        assert!(!res.dimension_data.is_empty(), "model dimension should have entries");
+        assert!(res.dimension_data.iter().any(|d| d.name == "distinct-model-extra"), "model not found in dim");
+    }

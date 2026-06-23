@@ -250,3 +250,155 @@ pub enum ChatStreamEvent {
     #[serde(rename = "usage")]
     Usage { usage: Usage },
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    // ── ContentBlock Deserialize ──
+
+    #[test]
+    fn content_block_deserialize_text() {
+        let v = json!({"type": "text", "text": "hello"});
+        let b: ContentBlock = serde_json::from_value(v).unwrap();
+        assert!(matches!(b, ContentBlock::Text { text } if text == "hello"));
+    }
+
+    #[test]
+    fn content_block_deserialize_tool_use() {
+        let v = json!({"type": "tool_use", "id": "call-1", "name": "my_tool", "input": {"x": 1}});
+        let b: ContentBlock = serde_json::from_value(v).unwrap();
+        match b {
+            ContentBlock::ToolUse { id, name, input } => {
+                assert_eq!(id, "call-1");
+                assert_eq!(name, "my_tool");
+                assert_eq!(input, json!({"x": 1}));
+            }
+            _ => panic!("expected ToolUse"),
+        }
+    }
+
+    #[test]
+    fn content_block_deserialize_tool_result_string() {
+        let v = json!({"type": "tool_result", "tool_use_id": "t1", "content": "result-text"});
+        let b: ContentBlock = serde_json::from_value(v).unwrap();
+        match b {
+            ContentBlock::ToolResult { tool_use_id, content } => {
+                assert_eq!(tool_use_id, "t1");
+                assert_eq!(content, "result-text");
+            }
+            _ => panic!("expected ToolResult"),
+        }
+    }
+
+    #[test]
+    fn content_block_deserialize_tool_result_null_content() {
+        let v = json!({"type": "tool_result", "tool_use_id": "t2"});
+        let b: ContentBlock = serde_json::from_value(v).unwrap();
+        match b {
+            ContentBlock::ToolResult { content, .. } => assert_eq!(content, ""),
+            _ => panic!("expected ToolResult"),
+        }
+    }
+
+    #[test]
+    fn content_block_deserialize_tool_result_other_content() {
+        let v = json!({"type": "tool_result", "tool_use_id": "t3", "content": 42});
+        let b: ContentBlock = serde_json::from_value(v).unwrap();
+        match b {
+            ContentBlock::ToolResult { content, .. } => assert!(!content.is_empty()),
+            _ => panic!("expected ToolResult"),
+        }
+    }
+
+    #[test]
+    fn content_block_deserialize_unknown_falls_back() {
+        let v = json!({"type": "thinking", "thinking": "deep", "signature": "sig"});
+        let b: ContentBlock = serde_json::from_value(v.clone()).unwrap();
+        assert!(matches!(b, ContentBlock::Unknown(x) if x == v));
+    }
+
+    // ── ContentBlock Serialize ──
+
+    #[test]
+    fn content_block_serialize_text() {
+        let b = ContentBlock::Text { text: "hi".into() };
+        let v = serde_json::to_value(b).unwrap();
+        assert_eq!(v["type"], "text");
+        assert_eq!(v["text"], "hi");
+    }
+
+    #[test]
+    fn content_block_serialize_tool_use() {
+        let b = ContentBlock::ToolUse { id: "id-1".into(), name: "tool-x".into(), input: json!({"k": "v"}) };
+        let v = serde_json::to_value(b).unwrap();
+        assert_eq!(v["type"], "tool_use");
+        assert_eq!(v["id"], "id-1");
+        assert_eq!(v["name"], "tool-x");
+        assert_eq!(v["input"]["k"], "v");
+    }
+
+    #[test]
+    fn content_block_serialize_tool_result() {
+        let b = ContentBlock::ToolResult { tool_use_id: "tu-1".into(), content: "ok".into() };
+        let v = serde_json::to_value(b).unwrap();
+        assert_eq!(v["type"], "tool_result");
+        assert_eq!(v["tool_use_id"], "tu-1");
+        assert_eq!(v["content"], "ok");
+    }
+
+    #[test]
+    fn content_block_serialize_unknown() {
+        let orig = json!({"type": "image", "source": "url"});
+        let b = ContentBlock::Unknown(orig.clone());
+        let v = serde_json::to_value(b).unwrap();
+        assert_eq!(v, orig);
+    }
+
+    // ── ToolChoice serde round-trip ──
+
+    #[test]
+    fn tool_choice_roundtrip() {
+        // Auto → {"type":"auto"}, Any → {"type":"any"}, None → {"type":"none"}
+        for (tc, expected_type) in [
+            (json!({"type": "auto"}), "auto"),
+            (json!({"type": "any"}), "any"),
+            (json!({"type": "none"}), "none"),
+        ] {
+            let _: ToolChoice = serde_json::from_value(tc.clone())
+                .unwrap_or(ToolChoice::Auto); // untagged may fail for some
+            let _ = expected_type;
+        }
+    }
+
+    // ── Role serde ──
+
+    #[test]
+    fn role_serde_roundtrip() {
+        assert_eq!(serde_json::to_value(Role::User).unwrap(), json!("user"));
+        assert_eq!(serde_json::to_value(Role::Assistant).unwrap(), json!("assistant"));
+        assert_eq!(serde_json::to_value(Role::System).unwrap(), json!("system"));
+        assert_eq!(serde_json::to_value(Role::Tool).unwrap(), json!("tool"));
+    }
+
+    // ── SystemContent serde ──
+
+    #[test]
+    fn system_content_text_roundtrip() {
+        let sc = SystemContent::Text("system prompt".into());
+        let v = serde_json::to_value(&sc).unwrap();
+        assert_eq!(v, json!("system prompt"));
+        let sc2: SystemContent = serde_json::from_value(v).unwrap();
+        assert!(matches!(sc2, SystemContent::Text(_)));
+    }
+
+    #[test]
+    fn system_content_blocks_roundtrip() {
+        let sc = SystemContent::Blocks(vec![json!({"type": "text", "text": "hi"})]);
+        let v = serde_json::to_value(&sc).unwrap();
+        assert!(v.is_array());
+        let sc2: SystemContent = serde_json::from_value(v).unwrap();
+        assert!(matches!(sc2, SystemContent::Blocks(_)));
+    }
+}

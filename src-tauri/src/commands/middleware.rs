@@ -95,3 +95,7 @@ pub async fn middleware_settings_set(
     }).await
         .map_err(|e| { tracing::error!(command = "middleware_settings_set", error = %e, "persist middleware settings failed"); e })
 }
+
+#[cfg(test)]
+#[path = "test_middleware.rs"]
+mod test_middleware;

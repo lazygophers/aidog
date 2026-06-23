@@ -148,3 +148,7 @@ pub fn parse_anthropic_sse(data: &Value) -> Option<ChatStreamEvent> {
         _ => None,
     }
 }
+
+#[cfg(test)]
+#[path = "test_anthropic.rs"]
+mod test_anthropic;

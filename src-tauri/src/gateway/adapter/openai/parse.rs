@@ -132,3 +132,7 @@ pub fn from_openai(body: &serde_json::Value) -> Option<ChatRequest> {
         extra: None,
     })
 }
+
+#[cfg(test)]
+#[path = "test_parse.rs"]
+mod test_parse;

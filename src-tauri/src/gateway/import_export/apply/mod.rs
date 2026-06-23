@@ -19,6 +19,10 @@ mod db_rows;
 mod files;
 mod json_helpers;
 
+#[cfg(test)]
+#[path = "test_apply.rs"]
+mod test_apply;
+
 // 对外 API 路径保持 `import_export::apply::X` 不变。
 pub use db_rows::{ensure_group_and_attach, snapshot_platform_ids};
 
