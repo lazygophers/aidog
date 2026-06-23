@@ -3,7 +3,7 @@
   "name": "test-cov-frontend",
   "title": "前端 vitest 框架+分支覆盖≥80%",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

@@ -1,1 +1,8 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/06-20-test-cov-rust/prd.md", "reason": "本任务 PRD：目标口径(line≥80% stable)、commands 全纳入决策、D0-D7 deliverable 拆解"}
+{"file": ".trellis/tasks/06-20-test-cov-rust/research/plan.md", "reason": "覆盖率基线实测、缺口优先级清单、工具链命令、风险与 mock 方案"}
+{"file": ".trellis/spec/backend/index.md", "reason": "后端 spec 索引"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "DB 层约定(in-memory test_support harness 用法)，D4 测试依据"}
+{"file": ".trellis/spec/backend/mock-platform.md", "reason": "mock 平台说明，区分产品 feature 与测试 double，D6 proxy 编排测试参考"}
+{"file": ".trellis/spec/backend/claude-code-passthrough.md", "reason": "passthrough 行为契约，adapter/proxy 测试断言依据"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "跨层规则，Rust↔TS 边界一致性"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "代码复用规则，避免测试重复造轮子"}
