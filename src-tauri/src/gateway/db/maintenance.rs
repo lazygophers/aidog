@@ -58,6 +58,8 @@ pub fn migrate_auto_vacuum(db: &Db) -> impl std::future::Future<Output = Result<
             // 先 checkpoint 把 WAL 内容合并回主库，避免 WAL+VACUUM 模式约束
             let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
             c.execute_batch("PRAGMA auto_vacuum = INCREMENTAL; VACUUM;")?;
+            // VACUUM 清空 sqlite_stat1，重建统计（迁移 034 已建过一次，VACUUM 后须重跑）。
+            let _ = c.execute_batch("ANALYZE;");
             Ok(())
         })
         .await
@@ -90,6 +92,8 @@ pub fn compact_database(db: &Db) -> impl std::future::Future<Output = Result<Com
             // WAL checkpoint 再 VACUUM，避免 WAL 内未合并页漏算
             let _ = c.execute_batch("PRAGMA wal_checkpoint(TRUNCATE);");
             c.execute_batch("VACUUM;")?;
+            // VACUUM 重建库会清空 sqlite_stat1，重跑 ANALYZE 重建统计避免规划器退化。
+            let _ = c.execute_batch("ANALYZE;");
             let after = db_size_bytes(c)?;
             Ok(CompactResult {
                 before_bytes: before,
@@ -138,7 +142,13 @@ pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> impl std::fu
 
 /// Clear upstream request body fields for logs older than retention_days.
 /// `*_headers`（元数据，已脱敏）始终保留至行级 retention 删除；仅清 `*_body`（上游请求 / 响应正文）。
+/// 清理列集 = upstream_request_body（上游请求正文）+ response_body（上游响应正文，
+/// 与请求侧对称归本级 retention）。response_body 是体积大头（实测真实库 376MB），
+/// 此前漏入清理列集长期不回收 —— 本次补入。回客户端正文 user_response_body 归
+/// user_request_retention_days（见 cleanup_user_request_fields，与用户请求侧对称）。
 /// Does NOT delete the log row — keeps token stats and metadata.
+/// 注意：仅改清理逻辑，存量大体积 body 的实际回收发生在用户下次 retention 周期运行
+/// 触发本 UPDATE + 后续 incremental_vacuum，迁移本身不强清存量（避免启动期长锁）。
 #[track_caller]
 pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> impl std::future::Future<Output = Result<(), String>> + '_ {
     let __db_caller = std::panic::Location::caller();
@@ -147,7 +157,7 @@ pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> impl std
     db
         .call_traced(None, __db_caller, move |conn| {
             conn.execute(
-                "UPDATE proxy_log SET upstream_request_body = '' WHERE created_at < ?1 AND upstream_request_body != ''",
+                "UPDATE proxy_log SET upstream_request_body = '', response_body = '' WHERE created_at < ?1 AND (upstream_request_body != '' OR response_body != '')",
                 params![cutoff],
             )?;
             Ok(())
