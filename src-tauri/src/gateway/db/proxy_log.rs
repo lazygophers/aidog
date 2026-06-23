@@ -448,6 +448,9 @@ pub fn cleanup_proxy_logs(db: &Db, retention_days: u32) -> impl std::future::Fut
                 params![cutoff],
             )?;
             incremental_vacuum_conn(conn, 100);
+            // 行删 + free page 回收后选择度变化，重建 sqlite_stat1 给规划器真实统计
+            // （ANALYZE proxy_log 仅扫该表索引，开销随表大小但远低于全库 VACUUM）。
+            let _ = conn.execute("ANALYZE proxy_log", []);
             Ok(())
         })
         .await

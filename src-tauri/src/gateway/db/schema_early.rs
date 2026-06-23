@@ -102,19 +102,15 @@ CREATE TABLE IF NOT EXISTS proxy_log (
     deleted_at                INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_proxy_log_group ON proxy_log(group_name) WHERE deleted_at = 0;
 CREATE INDEX IF NOT EXISTS idx_proxy_log_created ON proxy_log(created_at) WHERE deleted_at = 0;
 "#,
                 )?;
                 // Migration 002: 请求日志过滤索引。
                 conn.execute_batch(
                     r#"-- Indexes for proxy log filtering
-
-CREATE INDEX IF NOT EXISTS idx_proxy_log_platform
-    ON proxy_log(platform_id) WHERE deleted_at = 0;
-
-CREATE INDEX IF NOT EXISTS idx_proxy_log_status
-    ON proxy_log(status_code) WHERE deleted_at = 0;
+-- 注：idx_proxy_log_platform / idx_proxy_log_status 已由 Migration 034 的
+-- 复合索引(platform_id,created_at)/(status_code,created_at) 取代并 DROP，此处不再建
+-- （避免每次 init 建一个随即被 034 删的索引）。model 类保留（用途不同）。
 
 CREATE INDEX IF NOT EXISTS idx_proxy_log_model
     ON proxy_log(model) WHERE deleted_at = 0;

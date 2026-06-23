@@ -274,5 +274,43 @@ ALTER TABLE "group_new" RENAME TO "group";
                 // Migration 033: 删除无意义的 proxy_log.is_final 列（旧版本曾 ALTER 加过）。
                 // bundled sqlite 支持 DROP COLUMN；列不存在则报错忽略（新库本就无此列）。
                 let _ = conn.execute("ALTER TABLE proxy_log DROP COLUMN is_final", []);
+                // Migration 034: proxy_log 索引精简 + 复合化 + ANALYZE 统计。
+                //
+                // ① 删 2 个完全冗余索引：
+                //    idx_proxy_log_group(group_name 旧列，已 RENAME 为 group_key) 与
+                //    idx_proxy_log_platform(platform_id) 分别与 idx_proxy_log_group_key /
+                //    idx_proxy_log_platform_id 同列同 WHERE 条件，纯重复占写放大与磁盘。
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_group", []);
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_platform", []);
+                // ② 建 3 个 (等值列, created_at) 复合偏索引。Logs 页所有 filter 均带
+                //    ORDER BY created_at DESC：纯单列等值索引命中后仍需 TEMP B-TREE 排序
+                //    （EXPLAIN 实测）。复合索引把 created_at 纳入第二列 → 索引天然有序，
+                //    消除 TEMP B-TREE；第一列等值仍覆盖原单列 COUNT/最近N次子查询用途
+                //    （usage_stats.rs 最近5次 / 最近测试 ORDER BY created_at DESC LIMIT）。
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_status_created \
+                     ON proxy_log(status_code, created_at) WHERE deleted_at = 0",
+                    [],
+                );
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_platform_created \
+                     ON proxy_log(platform_id, created_at) WHERE deleted_at = 0",
+                    [],
+                );
+                let _ = conn.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_proxy_log_group_created \
+                     ON proxy_log(group_key, created_at) WHERE deleted_at = 0",
+                    [],
+                );
+                // ③ 删被复合索引取代的纯单列索引。EXPLAIN 实测：删后等值/COUNT 查询走
+                //    复合索引第一列（COUNT 仍 COVERING INDEX，不退化全表扫），filter+ORDER BY
+                //    无 TEMP B-TREE。保留 *_stats / idx_proxy_log_created / model 类索引（用途不同）。
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_status", []);
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_platform_id", []);
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_group_key", []);
+                // ④ ANALYZE 建/重建 sqlite_stat1（真实库从未 ANALYZE，规划器靠默认估算）。
+                //    给规划器真实选择度，避免错选索引。compact/VACUUM 后统计失效，由
+                //    maintenance.rs 维护钩子重建（见 cleanup_proxy_logs / compact_database 后追加）。
+                let _ = conn.execute("ANALYZE proxy_log", []);
     Ok(())
 }
