@@ -61,6 +61,10 @@ use super::test_support::*;
         orphan.est_cost = 0.99;
         insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&orphan, false, false)).await.unwrap();
 
+        // platform usage 累计/今日现读 stats_agg_hourly；测试直插 proxy_log，须先回填聚合表。
+        // recent-5 健康度仍裸查 proxy_log，不依赖此回填。
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
+
         let batch = platform_usage_stats_all(&db).await.expect("batch");
 
         for pid in [p1.id, p2.id] {
