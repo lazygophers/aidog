@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/状态/Hook 强制规则，React.memo/useCallback/useMemo 使用约定，改 Groups.tsx/Platforms.tsx 前必读"}
