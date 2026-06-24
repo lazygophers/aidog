@@ -1,38 +1,100 @@
 use super::*;
-use rusqlite::{params};
+use rusqlite::{params, Connection, OptionalExtension};
 
-/// eff_pid 回溯表达式：platform_id=0 经 group.auto_from_platform 回溯到源平台 id，否则原 platform_id。
-/// 与 today_platform_stats / platform_usage_stats_all 同语义；join 键为 g.group_key = proxy_log.group_key。
-const AGG_EFF_PID_EXPR: &str = "CASE WHEN platform_id = 0 THEN COALESCE(\
-(SELECT CAST(g.auto_from_platform AS INTEGER) FROM \"group\" g \
- WHERE g.group_key = proxy_log.group_key AND g.auto_from_platform != '' AND g.deleted_at = 0 LIMIT 1), 0)\
-ELSE platform_id END";
+/// 聚合复合键：(本地小时桶, actual_model 优先, group_key, eff_pid)。与 stats_agg_hourly
+/// UNIQUE(time_hour,model,group_key,platform_id) 对应。从 proxy_log 重建/回填时内存 GROUP BY 用。
+#[derive(PartialEq, Eq, Hash, Clone)]
+struct AggKey {
+    time_hour: String,
+    model: String,
+    group_key: String,
+    platform_id: i64,
+}
 
-/// 从 proxy_log 重建 stats_agg_hourly 的 UPSERT SQL（rebuild 与回填共用语义）。
-/// 不带空表守卫；本地小时桶 + actual_model 优先 + eff_pid 回溯 + deleted_at=0。
-/// 冲突键 (time_hour,model,group_key,platform_id) 命中时用 excluded 真值【覆盖】（非累加：
-/// SELECT 已是全量 COUNT/SUM 真值，累加会翻倍）；created_at 不写（保留旧行首次创建时间）、deleted_at 不动。
-/// proxy_log 已无对应行的旧聚合数据【保留】（不再被清空）。
-fn agg_rebuild_insert_sql() -> String {
-    format!(
+/// 单桶累计值（与 stats_agg_hourly 的 request_count/success/error/sum_* 列一一对应）。
+#[derive(Default)]
+struct AggBucket {
+    request_count: i64,
+    success_count: i64,
+    error_count: i64,
+    sum_input_tokens: i64,
+    sum_output_tokens: i64,
+    sum_cache_tokens: i64,
+    sum_est_cost: f64,
+    sum_duration_ms: i64,
+}
+
+/// 把全部有效 proxy_log 行按 (本地小时桶, actual_model 优先, group_key, eff_pid) 在内存聚合。
+///
+/// 替代旧 `INSERT ... SELECT ... GROUP BY 1,2,3,4`（含 eff_pid 标量子查询）：
+/// 单表读 proxy_log（无 JOIN/子查询）+ `load_auto_from_map` 内存回溯 eff_pid + `resolve_eff_pid`
+/// 逐行算，再 HashMap 累加。`time_hour` 用 `utc_ms_to_local_hour_key` 复刻
+/// `strftime('%Y-%m-%d %H:00:00', ...,'localtime')`；model 用 actual_model 非空优先（与旧 SELECT 别名一致）。
+/// success=2xx，error=终态非 2xx，与旧 SQL CASE 逐字段等价。
+fn aggregate_proxy_logs(conn: &Connection) -> rusqlite::Result<HashMap<AggKey, AggBucket>> {
+    let auto_map = load_auto_from_map(conn)?;
+    let mut stmt = conn.prepare(
+        "SELECT created_at, \
+                CASE WHEN actual_model != '' THEN actual_model ELSE model END, \
+                group_key, platform_id, status_code, \
+                COALESCE(input_tokens, 0), COALESCE(output_tokens, 0), COALESCE(cache_tokens, 0), \
+                COALESCE(est_cost, 0.0), COALESCE(duration_ms, 0) \
+         FROM proxy_log WHERE deleted_at = 0",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok((
+            r.get::<_, i64>(0)?,    // created_at
+            r.get::<_, String>(1)?, // model（actual 优先）
+            r.get::<_, String>(2)?, // group_key
+            r.get::<_, i64>(3)?,    // platform_id
+            r.get::<_, i64>(4)?,    // status_code
+            r.get::<_, i64>(5)?,    // input
+            r.get::<_, i64>(6)?,    // output
+            r.get::<_, i64>(7)?,    // cache
+            r.get::<_, f64>(8)?,    // est_cost
+            r.get::<_, i64>(9)?,    // duration
+        ))
+    })?;
+
+    let mut map: HashMap<AggKey, AggBucket> = HashMap::new();
+    for r in rows {
+        let (created_at, model, group_key, platform_id, status_code, inp, out, cache, cost, dur) = r?;
+        let eff_pid = resolve_eff_pid(platform_id, &group_key, &auto_map);
+        let key = AggKey {
+            time_hour: utc_ms_to_local_hour_key(created_at),
+            model,
+            group_key,
+            platform_id: eff_pid,
+        };
+        let b = map.entry(key).or_default();
+        b.request_count += 1;
+        let is_2xx = (200..300).contains(&status_code);
+        if is_2xx {
+            b.success_count += 1;
+        } else {
+            b.error_count += 1;
+        }
+        b.sum_input_tokens += inp;
+        b.sum_output_tokens += out;
+        b.sum_cache_tokens += cache;
+        b.sum_est_cost += cost;
+        b.sum_duration_ms += dur;
+    }
+    Ok(map)
+}
+
+/// 把内存聚合结果 UPSERT 进 stats_agg_hourly（rebuild 覆盖写 / 回填首建共用）。
+/// 冲突键 (time_hour,model,group_key,platform_id) 命中时用真值【覆盖】（非累加：聚合已是全量
+/// COUNT/SUM 真值，累加会翻倍）；created_at 仅首建写、命中保留旧值、deleted_at 不动。
+/// proxy_log 已无对应行的旧聚合数据【保留】（不在本批 → 不动）。
+fn upsert_aggregated(conn: &Connection, agg: &HashMap<AggKey, AggBucket>, now: i64) -> rusqlite::Result<()> {
+    let mut stmt = conn.prepare(
         "INSERT INTO stats_agg_hourly \
          (time_hour, model, group_key, platform_id, \
           request_count, success_count, error_count, \
           sum_input_tokens, sum_output_tokens, sum_cache_tokens, \
           sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at) \
-         SELECT \
-           strftime('%Y-%m-%d %H:00:00', created_at/1000, 'unixepoch', 'localtime') AS time_hour, \
-           CASE WHEN actual_model != '' THEN actual_model ELSE model END AS model, \
-           group_key, \
-           {AGG_EFF_PID_EXPR} AS eff_pid, \
-           COUNT(*), \
-           SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
-           SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END), \
-           COALESCE(SUM(input_tokens), 0), COALESCE(SUM(output_tokens), 0), COALESCE(SUM(cache_tokens), 0), \
-           COALESCE(SUM(est_cost), 0.0), COALESCE(SUM(duration_ms), 0), \
-           ?1, ?1, 0 \
-         FROM proxy_log WHERE deleted_at = 0 \
-         GROUP BY 1, 2, 3, 4 \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13, 0) \
          ON CONFLICT(time_hour, model, group_key, platform_id) DO UPDATE SET \
           request_count = excluded.request_count, \
           success_count = excluded.success_count, \
@@ -42,12 +104,38 @@ fn agg_rebuild_insert_sql() -> String {
           sum_cache_tokens = excluded.sum_cache_tokens, \
           sum_est_cost = excluded.sum_est_cost, \
           sum_duration_ms = excluded.sum_duration_ms, \
-          updated_at = excluded.updated_at"
-    )
+          updated_at = excluded.updated_at",
+    )?;
+    for (k, b) in agg {
+        stmt.execute(params![
+            k.time_hour, k.model, k.group_key, k.platform_id,
+            b.request_count, b.success_count, b.error_count,
+            b.sum_input_tokens, b.sum_output_tokens, b.sum_cache_tokens,
+            b.sum_est_cost, b.sum_duration_ms, now,
+        ])?;
+    }
+    Ok(())
+}
+
+/// 存量一次性回填（schema migration 内调用，紧随 stats_agg_hourly 建表 DDL）。
+/// 空表守卫在 Rust 内判（`SELECT 1 FROM stats_agg_hourly LIMIT 1`），替代旧 DDL 串内 `NOT EXISTS`。
+/// 表非空（已回填/已有增量写入）则跳过，避免重复执行翻倍。
+pub(crate) fn backfill_stats_agg_if_empty(conn: &Connection) -> rusqlite::Result<()> {
+    let exists: bool = conn
+        .query_row("SELECT 1 FROM stats_agg_hourly LIMIT 1", [], |_| Ok(true))
+        .optional()?
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
+    let agg = aggregate_proxy_logs(conn)?;
+    let now = chrono::Utc::now().timestamp_millis();
+    upsert_aggregated(conn, &agg, now)
 }
 
 /// 一条终态请求的聚合增量入参（写入 stats_agg_hourly 的 UPSERT 源）。
-/// eff_pid（platform_id=0 的 auto 回溯）在 UPSERT SQL 内用 CASE 子查询算，调用方传原始 platform_id。
+/// eff_pid（platform_id=0 的 auto 回溯）在 UPSERT 写连接内用 `load_auto_from_map`/`resolve_eff_pid`
+/// 内存回溯（写时物化），本结构传【原始】platform_id，函数不再含 SQL 标量子查询。
 #[derive(Debug, Clone)]
 pub struct StatsAggInput {
     /// 创建时间（UTC ms），用于在 SQL 内算本地小时桶。
@@ -55,7 +143,7 @@ pub struct StatsAggInput {
     /// 模型名（调用方已取 actual_model 非空否则 model）。
     pub model: String,
     pub group_key: String,
-    /// 原始 platform_id（=0 时 SQL 内经 group.auto_from_platform 回溯到 eff_pid）。
+    /// 原始 platform_id（=0 时写连接内经 load_auto_from_map 回溯到 eff_pid）。
     pub platform_id: i64,
     pub status_code: i32,
     pub input_tokens: i64,
@@ -66,6 +154,8 @@ pub struct StatsAggInput {
 }
 
 /// 对一条终态请求按 (time_hour,model,group_key,platform_id) UPSERT 进 stats_agg_hourly。
+/// eff_pid 写时物化：platform_id!=0 直接用（零查询）；=0 才 `load_auto_from_map` 内存回溯，
+/// 替代旧 SQL 内 `CASE WHEN ?4=0 THEN (SELECT ... FROM "group")` 标量子查询。
 /// 写入【不受日志开关影响】：proxy 终态路径无条件调用。失败非致命（调用方 warn 不中断请求）。
 #[track_caller]
 pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Future<Output = Result<(), String>> + '_ {
@@ -74,6 +164,13 @@ pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Futu
     db
         .call_traced(None, __db_caller, move |conn| {
             let now = chrono::Utc::now().timestamp_millis();
+            // eff_pid 写时物化：直挂请求(platform_id!=0)零查询；auto 组(=0)才查 group 映射回溯。
+            let eff_pid = if input.platform_id != 0 {
+                input.platform_id
+            } else {
+                let map = load_auto_from_map(conn)?;
+                resolve_eff_pid(0, &input.group_key, &map)
+            };
             // 本地小时桶由 SQL 内 strftime('...','localtime') 算，与 bucket_time_expr/回填一致。
             let is_2xx = input.status_code >= 200 && input.status_code < 300;
             let success = if is_2xx { 1i64 } else { 0 };
@@ -86,11 +183,7 @@ pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Futu
                   sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at) \
                  VALUES ( \
                   strftime('%Y-%m-%d %H:00:00', ?1/1000, 'unixepoch', 'localtime'), \
-                  ?2, ?3, \
-                  CASE WHEN ?4 = 0 THEN COALESCE( \
-                    (SELECT CAST(g.auto_from_platform AS INTEGER) FROM \"group\" g \
-                     WHERE g.group_key = ?3 AND g.auto_from_platform != '' AND g.deleted_at = 0 LIMIT 1), 0) \
-                  ELSE ?4 END, \
+                  ?2, ?3, ?4, \
                   1, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12, 0) \
                  ON CONFLICT(time_hour, model, group_key, platform_id) DO UPDATE SET \
                   request_count = request_count + 1, \
@@ -106,7 +199,7 @@ pub fn upsert_stats_agg(db: &Db, input: StatsAggInput) -> impl std::future::Futu
                     input.created_at,
                     input.model,
                     input.group_key,
-                    input.platform_id,
+                    eff_pid,
                     success,
                     error,
                     input.input_tokens,
@@ -134,7 +227,8 @@ pub fn rebuild_stats_agg_from_logs(db: &Db) -> impl std::future::Future<Output =
     db
         .call_traced(None, __db_caller, move |conn| {
             let now = chrono::Utc::now().timestamp_millis();
-            conn.execute(&agg_rebuild_insert_sql(), params![now])?;
+            let agg = aggregate_proxy_logs(conn)?;
+            upsert_aggregated(conn, &agg, now)?;
             Ok(())
         })
         .await

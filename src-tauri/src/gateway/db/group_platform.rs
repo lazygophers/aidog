@@ -72,13 +72,30 @@ pub fn sync_platform_manual_groups<'a>(
     let current: Vec<(i64, String)> = db
         
         .call_traced(None, __db_caller, move |conn| {
-            let mut stmt = conn.prepare(
-                "SELECT g.id, g.auto_from_platform FROM group_platform gp \
-                 JOIN \"group\" g ON gp.group_id = g.id \
-                 WHERE gp.platform_id = ?1 AND gp.deleted_at = 0 AND g.deleted_at = 0",
+            // 去 JOIN：① 取该平台所在的 group_id 列表；② 按 group_id 批量取 (id, auto_from_platform)，
+            // 内存配对。非热路径、行数极小（单平台所属组数）。
+            let mut gp_stmt = conn.prepare(
+                "SELECT group_id FROM group_platform \
+                 WHERE platform_id = ?1 AND deleted_at = 0",
             )?;
-            let rows = stmt
-                .query_map(params![platform_id as i64], |r| {
+            let group_ids = gp_stmt
+                .query_map(params![platform_id as i64], |r| r.get::<_, i64>(0))?
+                .collect::<SqlResult<Vec<i64>>>()?;
+            if group_ids.is_empty() {
+                return Ok(Vec::new());
+            }
+            // 动态 IN 占位（无子查询）：取未软删组的 auto_from_platform，内存配对回 (gid, auto_from)。
+            let placeholders: Vec<String> =
+                (0..group_ids.len()).map(|i| format!("?{}", i + 1)).collect();
+            let mut g_stmt = conn.prepare(&format!(
+                "SELECT id, auto_from_platform FROM \"group\" \
+                 WHERE id IN ({}) AND deleted_at = 0",
+                placeholders.join(", ")
+            ))?;
+            let binds: Vec<&dyn rusqlite::types::ToSql> =
+                group_ids.iter().map(|g| g as &dyn rusqlite::types::ToSql).collect();
+            let rows = g_stmt
+                .query_map(binds.as_slice(), |r| {
                     Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?))
                 })?
                 .collect::<SqlResult<Vec<_>>>()?;
@@ -138,46 +155,33 @@ pub fn sync_platform_manual_groups<'a>(
     }
 }
 
-/// 从 group_platform JOIN platform 的结果行解析 `GroupPlatformDetail`。
-/// 列序固定：priority(0), weight(1), 平台列(2..=24), level_priority(25)。
-/// get_group_platforms（单组）与 list_group_details（全量批量）共用，保证两路解析逐字一致。
-fn parse_group_platform_row(row: &rusqlite::Row) -> SqlResult<GroupPlatformDetail> {
-    let platform_type_str: String = row.get(4)?;
-    let models_str: String = row.get(8)?;
-    let available_str: String = row.get(9)?;
-    let endpoints_str: String = row.get(10)?;
-    Ok(GroupPlatformDetail {
-        platform: Platform {
-            id: row.get::<_, i64>(2)? as u64,
-            name: row.get(3)?,
-            platform_type: serde_json::from_str(&platform_type_str).unwrap(),
-            base_url: row.get(5)?,
-            api_key: row.get(6)?,
-            extra: row.get(7)?,
-            models: parse_models(&models_str),
-            available_models: parse_available_models(&available_str),
-            endpoints: parse_endpoints(&endpoints_str),
-            enabled: row.get::<_, i64>(11)? == 1,
-            created_at: row.get(12)?,
-            updated_at: row.get(13)?,
-            deleted_at: 0,
-            est_balance_remaining: row.get(14)?,
-            est_coding_plan: row.get(15)?,
-            last_real_query_at: row.get(16)?,
-            estimate_count: row.get(17)?,
-            show_in_tray: row.get::<_, i64>(18)? == 1,
-            tray_display: row.get(19)?,
-            sort_order: row.get::<_, i64>(20)?,
-            manual_budgets: crate::gateway::models::parse_manual_budgets(&row.get::<_, String>(21)?),
-            status: crate::gateway::models::PlatformStatus::from_db_str(&row.get::<_, String>(22)?),
-            auto_disabled_until: row.get::<_, i64>(23)?,
-            auto_disable_strikes: row.get::<_, i64>(24)?,
-            balance_level: String::new(),
-        },
-        priority: row.get(0)?,
-        weight: row.get(1)?,
-        level_priority: crate::gateway::models::clamp_level_priority(row.get::<_, i64>(25)? as i32),
-    })
+/// group_platform 关联行（仅 gp 列），按 priority 升序。供 get_group_platforms 去 JOIN 后
+/// 与批量 platform map 内存重组用。
+struct GpRow {
+    platform_id: i64,
+    priority: i32,
+    weight: i32,
+    level_priority: i32,
+}
+
+/// 单组关联行 + 批量 platform map 内存重组为 `GroupPlatformDetail`（替代旧 gp JOIN platform）。
+/// gp_rows 已按 priority 升序，platforms 软删的（不在 map）跳过（等价旧 WHERE p.deleted_at=0）。
+/// 字段口径：`GpRow`（priority/weight/level_priority）+ `load_platforms_by_ids` 取出的完整 Platform。
+fn recompose_group_details(
+    gp_rows: Vec<GpRow>,
+    platforms: &std::collections::HashMap<i64, Platform>,
+) -> Vec<GroupPlatformDetail> {
+    gp_rows
+        .into_iter()
+        .filter_map(|gp| {
+            platforms.get(&gp.platform_id).map(|p| GroupPlatformDetail {
+                platform: p.clone(),
+                priority: gp.priority,
+                weight: gp.weight,
+                level_priority: crate::gateway::models::clamp_level_priority(gp.level_priority),
+            })
+        })
+        .collect()
 }
 
 #[track_caller]
@@ -186,18 +190,28 @@ pub fn get_group_platforms(db: &Db, group_id: u64) -> impl std::future::Future<O
     async move {
     db
         .call_read_traced(None, __db_caller, move |conn| {
-    let mut stmt = conn
-        .prepare(
-            &format!(
-                "SELECT gp.priority, gp.weight, {PLATFORM_COLUMNS_PREFIXED}, gp.level_priority \
-                 FROM group_platform gp JOIN platform p ON gp.platform_id = p.id \
-                 WHERE gp.group_id = ?1 AND gp.deleted_at = 0 AND p.deleted_at = 0 ORDER BY gp.priority"
-            ),
-        )?;
-
-    let rows = stmt.query_map(params![group_id as i64], parse_group_platform_row)?;
-
-    Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            // 去 JOIN：① 取本组 group_platform 行（保 ORDER BY priority）；② 按 platform_id 批量取
+            // platform；③ 内存按 priority 重组（软删平台不在 map 自然剔除）。
+            let mut gp_stmt = conn.prepare(
+                "SELECT platform_id, priority, weight, level_priority FROM group_platform \
+                 WHERE group_id = ?1 AND deleted_at = 0 ORDER BY priority",
+            )?;
+            let gp_rows = gp_stmt
+                .query_map(params![group_id as i64], |r| {
+                    Ok(GpRow {
+                        platform_id: r.get::<_, i64>(0)?,
+                        priority: r.get::<_, i32>(1)?,
+                        weight: r.get::<_, i32>(2)?,
+                        level_priority: r.get::<_, i64>(3)? as i32,
+                    })
+                })?
+                .collect::<SqlResult<Vec<_>>>()?;
+            if gp_rows.is_empty() {
+                return Ok(Vec::new());
+            }
+            let ids: Vec<i64> = gp_rows.iter().map(|g| g.platform_id).collect();
+            let platforms = load_platforms_by_ids(conn, &ids)?;
+            Ok(recompose_group_details(gp_rows, &platforms))
         })
         .await
         .map_err(|e| e.to_string())
@@ -223,36 +237,103 @@ pub async fn get_group_detail(db: &Db, id: u64) -> Result<Option<GroupDetail>, S
     }))
 }
 
-/// 一次性取**所有**组的平台关联，按 group_id 内存分桶（替代 list_group_details 逐组 N+1）。
-/// 列序与 get_group_platforms 完全一致（priority(0)..level_priority(25)），末尾追加 gp.group_id(26)
-/// 用于分桶；ORDER BY gp.group_id, gp.priority 保证每桶内仍按 priority 升序（与逐组版 ORDER BY 一致）。
+/// 去 JOIN 版的「按 group_id 批量取平台关联」：① 单表查给定 group_ids 的 group_platform 行
+/// （ORDER BY group_id, priority，与逐组版 ORDER BY priority 同口径）；② 按 platform_id 批量取
+/// platform（软删不在 map 自然剔除）；③ 内存按 group_id 分桶重组。无 JOIN/子查询。
+/// 供 list_group_details / list_group_details_paged 共用。
 #[track_caller]
-fn list_all_group_platforms(db: &Db) -> impl std::future::Future<Output = Result<std::collections::HashMap<u64, Vec<GroupPlatformDetail>>, String>> + '_ {
+fn list_group_platforms_for_groups<'a>(
+    db: &'a Db,
+    group_ids: &'a [u64],
+) -> impl std::future::Future<Output = Result<std::collections::HashMap<u64, Vec<GroupPlatformDetail>>, String>> + 'a {
     let __db_caller = std::panic::Location::caller();
     async move {
+    if group_ids.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+    let group_ids: Vec<i64> = group_ids.iter().map(|&g| g as i64).collect();
     db
         .call_read_traced(None, __db_caller, move |conn| {
-            let mut stmt = conn.prepare(&format!(
-                "SELECT gp.priority, gp.weight, {PLATFORM_COLUMNS_PREFIXED}, gp.level_priority, gp.group_id \
-                 FROM group_platform gp JOIN platform p ON gp.platform_id = p.id \
-                 WHERE gp.deleted_at = 0 AND p.deleted_at = 0 ORDER BY gp.group_id, gp.priority"
+            // ① 给定组的 group_platform 行（保 group_id + priority 排序）。
+            let placeholders: Vec<String> =
+                (0..group_ids.len()).map(|i| format!("?{}", i + 1)).collect();
+            let mut gp_stmt = conn.prepare(&format!(
+                "SELECT group_id, platform_id, priority, weight, level_priority \
+                 FROM group_platform \
+                 WHERE deleted_at = 0 AND group_id IN ({}) \
+                 ORDER BY group_id, priority",
+                placeholders.join(", ")
             ))?;
-            let rows = stmt.query_map([], |row| {
-                let detail = parse_group_platform_row(row)?;
-                let group_id: i64 = row.get(26)?;
-                Ok((group_id as u64, detail))
-            })?;
+            let binds: Vec<&dyn rusqlite::types::ToSql> =
+                group_ids.iter().map(|g| g as &dyn rusqlite::types::ToSql).collect();
+            let gp_rows = gp_stmt
+                .query_map(binds.as_slice(), |r| {
+                    Ok((
+                        r.get::<_, i64>(0)?, // group_id
+                        GpRow {
+                            platform_id: r.get::<_, i64>(1)?,
+                            priority: r.get::<_, i32>(2)?,
+                            weight: r.get::<_, i32>(3)?,
+                            level_priority: r.get::<_, i64>(4)? as i32,
+                        },
+                    ))
+                })?
+                .collect::<SqlResult<Vec<_>>>()?;
+            if gp_rows.is_empty() {
+                return Ok(std::collections::HashMap::new());
+            }
+            // ② 按 platform_id 批量取 platform（一次查，软删剔除）。
+            let pids: Vec<i64> = gp_rows.iter().map(|(_, gp)| gp.platform_id).collect();
+            let platforms = load_platforms_by_ids(conn, &pids)?;
+            // ③ 内存按 group_id 分桶重组（gp_rows 已按 group_id, priority 升序，桶内仍按 priority）。
             let mut map: std::collections::HashMap<u64, Vec<GroupPlatformDetail>> =
                 std::collections::HashMap::new();
-            for r in rows {
-                let (gid, detail) = r?;
-                map.entry(gid).or_default().push(detail);
+            for (gid, gp) in gp_rows {
+                if let Some(p) = platforms.get(&gp.platform_id) {
+                    map.entry(gid as u64).or_default().push(GroupPlatformDetail {
+                        platform: p.clone(),
+                        priority: gp.priority,
+                        weight: gp.weight,
+                        level_priority: crate::gateway::models::clamp_level_priority(gp.level_priority),
+                    });
+                }
             }
             Ok(map)
         })
         .await
         .map_err(|e| e.to_string())
     }
+}
+
+/// 分页取分组详情（前端触底加载用，反转 H6 单 JOIN 全量批量）。
+/// 在 list_groups（已缓存、按 sort_order/created_at 排序）结果上切片 `[offset, offset+limit)`，
+/// 仅对本页组取平台关联（无 JOIN，单表 + 内存补平台），不触碰其余组。
+/// 返回本页 `GroupDetail`；offset 越界返回空 Vec（前端据此停止触底加载）。
+pub async fn list_group_details_paged(
+    db: &Db,
+    offset: u64,
+    limit: u64,
+) -> Result<Vec<GroupDetail>, String> {
+    let groups = list_groups(db).await?;
+    let start = (offset as usize).min(groups.len());
+    let end = (start + limit as usize).min(groups.len());
+    let page: Vec<Group> = groups[start..end].to_vec();
+    if page.is_empty() {
+        return Ok(Vec::new());
+    }
+    let gids: Vec<u64> = page.iter().map(|g| g.id).collect();
+    let mut by_group = list_group_platforms_for_groups(db, &gids).await?;
+    let mut details = Vec::with_capacity(page.len());
+    for g in page {
+        let platforms = by_group.remove(&g.id).unwrap_or_default();
+        let model_mappings = g.model_mappings.clone();
+        details.push(GroupDetail {
+            group: g,
+            platforms,
+            model_mappings,
+        });
+    }
+    Ok(details)
 }
 
 pub async fn list_group_details(db: &Db) -> Result<Vec<GroupDetail>, String> {
@@ -263,8 +344,9 @@ pub async fn list_group_details(db: &Db) -> Result<Vec<GroupDetail>, String> {
         }
     }
     let groups = list_groups(db).await?;
-    // 单查取全部组的平台关联，按 group_id 分桶（消除逐组 N+1）。
-    let mut by_group = list_all_group_platforms(db).await?;
+    // 去 JOIN：单查全部组的 group_platform 行 + 批量补 platform，按 group_id 内存分桶（消除逐组 N+1）。
+    let all_gids: Vec<u64> = groups.iter().map(|g| g.id).collect();
+    let mut by_group = list_group_platforms_for_groups(db, &all_gids).await?;
     let mut details = Vec::with_capacity(groups.len());
     for g in groups {
         let platforms = by_group.remove(&g.id).unwrap_or_default();

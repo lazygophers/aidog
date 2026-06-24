@@ -50,6 +50,7 @@ pub fn run() {
             // Aggregate
             crate::commands::group::group_detail,
             crate::commands::group::group_detail_list,
+            crate::commands::group::group_detail_list_paged,
             crate::commands::group::group_reorder,
             crate::commands::group::group_platform_reorder,
             crate::commands::group::group_platform_set_level_priority,
