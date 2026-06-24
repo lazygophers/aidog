@@ -14,7 +14,7 @@
 | notify-retention | 通知自动清理设置 | 通知模块加自动清理(收件箱/历史)设置, 默认7天, 允许关闭不清理 | 已完成 | 收尾 | 100 | — |
 | hourly-stats-rollup | 小时维度统计表 | 新增小时维度预聚合统计表加速统计渲染, 独立task+完善测试 | 已关闭 | 收尾 | 100 | — |
 | test-coverage-80 | 单测覆盖率≥80% | 完善整体单元测试覆盖率至少80% | 规划中 | 规划 | 0% | — |
-| test-cov-rust | Rust 后端分支覆盖≥80% | D0-D7 推 line 覆盖率≥80%; 现 1012 tests, 续推最大缺口模块 | 进行中 | 实施 | 65% | .worktrees/06-20-test-cov-rust |
+| test-cov-rust | Rust 后端分支覆盖≥80% | — | 已完成 | 收尾 | 100% | .worktrees/06-20-test-cov-rust |
 | test-cov-frontend | 前端 vitest 框架+分支覆盖≥80% | — | 已完成 | 收尾 | 100% | — |
 | popover-stats-batch | 浮窗统计批量化+UTC修复 | 修浮窗/页面慢: 批量化浮窗N卡统计查询(一次IPC) + 修 bucket_time_expr UTC时区bug(db.rs:3517) | 已完成 | 收尾 | 100 | — |
 | smartpaste-plaintext-noise | 智能粘贴明文反爬变体 | 智能粘贴解析: CJK噪声(如『（删除我）』)插在明文url/apikey中间(非base64)时无法识别, 需剔CJK括号噪声后拼接 | 已完成 | 收尾 | 100 | — |
