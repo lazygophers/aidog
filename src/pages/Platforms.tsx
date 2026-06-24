@@ -1310,7 +1310,7 @@ function FormSection({ title, desc, action, children }: FormSectionProps) {
   );
 }
 
-export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: string, context?: { platformId?: number; platformName?: string }) => void; initialFilter?: { platformId?: number; platformName?: string } }) {
+export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: string, context?: { platformId?: number; platformName?: string; duplicate?: boolean }) => void; initialFilter?: { platformId?: number; platformName?: string; duplicate?: boolean } }) {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   // 渐进加载计数（来自 GroupsEmbedded 逐组流式回传 {total, active}），驱动页头「N / M active」增量更新。
@@ -1824,8 +1824,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     const target = platforms.find(p => p.id === pid);
     if (!target) return;  // 列表尚未加载到该平台，待 platforms 更新后重试
     consumedEditPidRef.current = pid;
-    handleEdit(target);
-  }, [initialFilter?.platformId, platforms]);
+    if (initialFilter?.duplicate) handleDuplicate(target);
+    else handleEdit(target);
+  }, [initialFilter?.platformId, initialFilter?.duplicate, platforms]);
 
   // 分组列表（multi-select 数据源 + 编辑态反查手动组归属 + 平台归属映射）。本地查询，失败不阻断编辑。
   useEffect(() => {
@@ -1969,6 +1970,60 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       const pv = (platformResult as Record<string, any>) ?? {};
       setGlobalClaudeConfig(gv);
       setClaudeConfigJson(JSON.stringify({ ...gv, ...pv }, null, 2));
+    } catch (e) { console.error(e); }
+  };
+
+  /** 复制平台：复用源平台全部配置灌入表单，但以「新建态」打开（editing=null），保存才新建。
+   *  与 handleEdit 唯一差异：setEditing(null)（不绑定源平台 id）+ Claude 配置仅在存在非空 override diff 时展开。 */
+  const handleDuplicate = async (p: Platform) => {
+    setName(p.name); setProtocol(p.platform_type); setApiKey(p.api_key);
+    const hasCodingPlan = (p.endpoints || []).some(ep => ep.coding_plan);
+    setCodingPlan(hasCodingPlan);
+    setModels({
+      default: p.models.default ?? "",
+      sonnet: p.models.sonnet ?? "",
+      opus: p.models.opus ?? "",
+      haiku: p.models.haiku ?? "",
+      gpt: p.models.gpt ?? "",
+    });
+    setAvailableModels(p.available_models ?? []);
+    setEndpoints(p.endpoints ?? []);
+    setEditing(null); setShowForm(true); setFetchError(""); setSaveError("");
+    setShowClaudeConfig(false); setClaudeConfigJson("");
+    setExtra(p.extra ?? "");
+    setMockConfig(parseMockConfig(p.extra ?? ""));
+    setNewApiConfig(parseNewApiConfig(p.extra ?? ""));
+    setManualBudgets(p.manual_budgets ?? []);
+    {
+      const brk = parsePlatformBreaker(p.extra ?? "");
+      setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
+      setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
+      setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
+    }
+    setLockedGroupId(null);
+    // 反查源平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
+    try {
+      const gds = await groupDetailApi.list();
+      setGroupDetails(gds);
+      setJoinGroupIds(gds
+        .filter(gd => gd.group.auto_from_platform !== String(p.id)
+          && gd.platforms.some(gp => gp.platform.id === p.id))
+        .map(gd => gd.group.id));
+    } catch {
+      setJoinGroupIds([]);
+    }
+
+    // 加载 global + 源平台 Claude Code 配置，合并填入；仅当源平台存在非空 override diff 时展开面板。
+    try {
+      const [globalResult, platformResult] = await Promise.all([
+        settingsApi.get("global", "claude_code"),
+        settingsApi.get(`platform:${p.id}`, "claude_code"),
+      ]);
+      const gv = (globalResult as Record<string, any>) ?? {};
+      const pv = (platformResult as Record<string, any>) ?? {};
+      setGlobalClaudeConfig(gv);
+      setClaudeConfigJson(JSON.stringify({ ...gv, ...pv }, null, 2));
+      if (Object.keys(pv).length > 0) setShowClaudeConfig(true);
     } catch (e) { console.error(e); }
   };
 
@@ -2242,12 +2297,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // 卡片操作集合：用 latest-ref 持有最新闭包，对外暴露稳定引用，保证 PlatformCard memo 生效
   const actionsRef = useRef({
     handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
-    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDelete, handleViewLogs,
+    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDuplicate, handleDelete, handleViewLogs,
     handleQuickTest, setTestingPlatform, setFaviconFailed,
   });
   actionsRef.current = {
     handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
-    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDelete, handleViewLogs,
+    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDuplicate, handleDelete, handleViewLogs,
     handleQuickTest, setTestingPlatform, setFaviconFailed,
   };
   const cardActions = useMemo<PlatformCardActions>(() => ({
@@ -2258,6 +2313,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     onRefreshQuota: (p) => actionsRef.current.refreshQuota(p),
     onToggleEnabled: (p) => actionsRef.current.handleToggle(p),
     onEdit: (p) => actionsRef.current.handleEdit(p),
+    onDuplicate: (p) => actionsRef.current.handleDuplicate(p),
     onDelete: (id) => actionsRef.current.handleDelete(id),
     onViewLogs: (p) => actionsRef.current.handleViewLogs(p),
     onQuickTest: (p) => actionsRef.current.handleQuickTest(p),
@@ -3111,7 +3167,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       </div>
 
       {/* 分组段（内嵌） */}
-      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={groupsReloadRef} onCountChange={setProgressiveCount} />
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onDuplicatePlatform={handleDuplicate} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={groupsReloadRef} onCountChange={setProgressiveCount} />
 
       {/* 全屏视图态（创建/编辑分组）时隐藏分隔线 + 未分组平台列表，避免与全屏视图并列 */}
       {!groupFullscreen && (<>
