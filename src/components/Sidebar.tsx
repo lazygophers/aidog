@@ -127,6 +127,8 @@ export interface NavContext {
   groupId?: string;
   groupKey?: string;
   model?: string;
+  /** 经导航进入平台页时以「复制」（新建态）而非「编辑」打开目标平台。 */
+  duplicate?: boolean;
 }
 
 interface SidebarProps {
