@@ -190,31 +190,36 @@ pub async fn estimate_after_request(
     cache_tokens: i64,
     is_coding_plan: bool,
 ) {
+    // resolve_price 单次解析，余额扣减（balance delta）与手动预算 est_cost 复用同一 ResolvedPrice
+    // （同一 (model, platform_type, input_tokens)，结果等价），避免对余额平台重复解析两次。
+    let resolved_price =
+        crate::gateway::db::resolve_price(db, model, platform_type, 0.0, 0.0, input_tokens)
+            .await
+            .ok();
+
     // 1. 增量预估
     if is_coding_plan {
         let total = (input_tokens + output_tokens + cache_tokens) as f64;
         let _ = apply_coding_plan_delta(db, platform_id, total).await;
-    } else {
+    } else if let Some(ref price) = resolved_price {
         // 按量平台扣金额
-        if let Ok(price) = crate::gateway::db::resolve_price(db, model, platform_type, 0.0, 0.0, input_tokens).await {
-            let cost = balance_cost(
-                input_tokens,
-                output_tokens,
-                cache_tokens,
-                price.input_cost_per_token,
-                price.output_cost_per_token,
-                price.cache_read_input_token_cost,
-            );
-            let _ = apply_balance_delta(db, platform_id, cost).await;
-        }
+        let cost = balance_cost(
+            input_tokens,
+            output_tokens,
+            cache_tokens,
+            price.input_cost_per_token,
+            price.output_cost_per_token,
+            price.cache_read_input_token_cost,
+        );
+        let _ = apply_balance_delta(db, platform_id, cost).await;
     }
 
     // 1b. 手动预算扣减（独立于上游 quota 的并行机制；无 manual_budgets 则 no-op）。
     //     est_cost 走 resolve_price（与按量平台一致，含默认价回退）；token 扣总 token。
     {
         let total_tokens = (input_tokens + output_tokens + cache_tokens) as f64;
-        let est_cost = crate::gateway::db::resolve_price(db, model, platform_type, 0.0, 0.0, input_tokens)
-            .await
+        let est_cost = resolved_price
+            .as_ref()
             .map(|price| {
                 balance_cost(
                     input_tokens,
