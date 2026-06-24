@@ -1,4 +1,4 @@
-import { useState, useEffect, useReducer, useCallback, useRef, Fragment } from "react";
+import { useState, useEffect, useReducer, useCallback, useRef, useMemo, Fragment } from "react";
 import { createPortal } from "react-dom";
 import type { ReactNode, CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,7 +18,7 @@ import { getPlatformLogo, getFaviconUrl } from "../assets/platforms";
 import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
 import { ModelTestPanel } from "./ModelTestPanel";
 import { PlatformCard, type PlatformCardActions } from "../components/platforms/PlatformCard";
-import { usePlatformCards, computeQuotaDisplay } from "../components/platforms/usePlatformCards";
+import { usePlatformCards } from "../components/platforms/usePlatformCards";
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
 
@@ -364,6 +364,15 @@ function allModelValues(models: Platform["models"]): string[] {
   return result;
 }
 
+/** 不可变 upsert：按 id 替换或追加平台（保引用稳定，命中则只换该项）。 */
+function upsertPlatformInto(prev: Platform[], plat: Platform): Platform[] {
+  const idx = prev.findIndex(p => p.id === plat.id);
+  if (idx === -1) return [...prev, plat];
+  const next = prev.slice();
+  next[idx] = plat;
+  return next;
+}
+
 /** Build the `claude` CLI invocation for a given group settings file */
 function buildClaudeCommand(settingsName: string): string {
   return [
@@ -575,13 +584,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       for (const p of seen.values()) if (p.enabled) active++;
       onCountChange?.({ total: seen.size, active });
     };
-    const upsertPlatform = (prev: Platform[], plat: Platform): Platform[] => {
-      const idx = prev.findIndex(p => p.id === plat.id);
-      if (idx === -1) return [...prev, plat];
-      const next = prev.slice();
-      next[idx] = plat;
-      return next;
-    };
+    const upsertPlatform = upsertPlatformInto;
     // 下一帧（rAF；测试/无 rAF 环境兜底 setTimeout(0)）。
     const nextFrame = (): Promise<void> =>
       new Promise(resolve => {
@@ -642,6 +645,44 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     } catch (e) {
       console.error(e);
       if (alive()) setLoading(false);
+    }
+  };
+
+  /**
+   * 单组就地刷新：只重拉该组 detail（group_detail，O(1) 一次往返），原地替换对应 GroupDetail
+   * + 把该组平台 upsert 进 platforms（保留其余组卡引用稳定，避免 load() 全量 setDetails([])/setPlatforms([])
+   * 触发整列表骨架重渲 + 多帧重填的「保存卡顿/闪烁」）。组结构已变（增删组）时回退全量 load()。
+   */
+  const refreshSingleGroup = async (gid: number) => {
+    try {
+      const d = await groupDetailApi.get(gid);
+      if (!d) { load(); return; } // 该组已不存在（被删）→ 全量回退
+      const filled: GroupDetail = {
+        group: d.group,
+        platforms: d.platforms || [],
+        model_mappings: d.model_mappings || d.group.model_mappings || [],
+      };
+      // 组不在当前列表（新建组结构变化）→ 全量 load 以正确插入排序位
+      let found = false;
+      setDetails(prev => {
+        const next = prev.map(x => {
+          if (x.group.id !== gid) return x;
+          found = true;
+          return filled;
+        });
+        return found ? next : prev;
+      });
+      if (!found) { load(); return; }
+      setPlatforms(prev => {
+        let next = prev;
+        for (const gp of filled.platforms) next = upsertPlatformInto(next, gp.platform);
+        return next;
+      });
+      // 该组聚合统计/余额轻量补刷（复用现有批量入口，单组开销可忽略）。
+      refreshStats();
+    } catch (e) {
+      console.error(e);
+      load(); // 失败兜底全量
     }
   };
 
@@ -1068,8 +1109,10 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
         editPlatformIds.map((pid, i) => ({ platform_id: pid, priority: i + 1, weight: 1 })),
       );
 
+      const savedGid = editTarget.group.id;
       cancelEdit();
-      load();
+      // 编辑保存只动单组（基本信息/映射/平台关联）→ 单组就地刷新，不整列表重载（消除保存闪烁/卡顿）。
+      refreshSingleGroup(savedGid);
       onGroupsChanged?.();
     } catch (e) {
       console.error(e);
@@ -1132,10 +1175,11 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
           connect_timeout_secs: 0,
         },
       ];
-      await groupApi.update({ id: mappingGroupId, model_mappings: next });
+      const gid = mappingGroupId;
+      await groupApi.update({ id: gid, model_mappings: next });
       setMSource(""); setMTargetPlatform(""); setMTargetModel("");
       setMappingGroupId(null);
-      load();
+      refreshSingleGroup(gid); // 单组映射变更 → 就地刷新
       onGroupsChanged?.();
     } catch (e) { console.error(e); }
   };
@@ -1146,13 +1190,25 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     try {
       const next = detail.model_mappings.filter((_, i) => i !== index);
       await groupApi.update({ id: groupId, model_mappings: next });
-      load();
+      refreshSingleGroup(groupId); // 单组映射删除 → 就地刷新
       onGroupsChanged?.();
     } catch (e) { console.error(e); }
   };
 
   const selectedPlatform = platforms.find(p => p.id === mTargetPlatform);
   const availableModels = selectedPlatform ? allModelValues(selectedPlatform.models) : [];
+
+  // SortableList items + group→index 映射：按 details 缓存，避免每渲染重建数组
+  // 及列表项内 O(n) findIndex（原 details.findIndex 每项跑致 O(n²)）。
+  const groupRows = useMemo<GroupRow[]>(
+    () => details.map(d => ({ id: String(d.group.id), detail: d })),
+    [details],
+  );
+  const groupIndexById = useMemo(() => {
+    const m = new Map<number, number>();
+    details.forEach((d, i) => m.set(d.group.id, i));
+    return m;
+  }, [details]);
 
   // ── Edit page ──
   if (editTarget) {
@@ -1471,11 +1527,11 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
             </div>
           )}
           <SortableList<GroupRow>
-            items={details.map(d => ({ id: String(d.group.id), detail: d }))}
+            items={groupRows}
             onReorder={handleReorderGroups}
             renderItem={(row, handle) => {
             const { group, platforms: gps, model_mappings } = row.detail;
-            const i = details.findIndex(d => d.group.id === group.id);
+            const i = groupIndexById.get(group.id) ?? 0;
             const u = groupStats[group.group_key];
             const balance = groupBalance[group.id];
             const totalTokens = u ? u.total_input_tokens + u.total_output_tokens : 0;
@@ -1683,7 +1739,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                                       index={idx}
                                       isDragging={false}
                                       dragActive={false}
-                                      quota={computeQuotaDisplay(p, cards.quotaMap[p.id], !!cards.quotaRealIds[p.id])}
+                                      quotaRaw={cards.quotaMap[p.id]}
+                                      quotaPreferReal={!!cards.quotaRealIds[p.id]}
                                       refreshing={!!cards.quotaRefreshing[p.id]}
                                       usage={cards.usageMap[p.id]}
                                       expanded={cards.expandedIds.has(p.id)}
