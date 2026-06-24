@@ -126,13 +126,25 @@ pub fn purge_auto_disabled_platforms(
             let ids: Vec<i64> = db
                 
                 .call_traced(None, __db_caller, move |conn| {
-                    let mut stmt = conn.prepare(
-                        "SELECT p.id FROM platform p \
-                         JOIN group_platform gp ON gp.platform_id = p.id \
-                         WHERE gp.group_id = ?1 AND gp.deleted_at = 0 \
-                         AND p.status = 'auto_disabled' AND p.deleted_at = 0",
+                    // 去 JOIN：① 取本组活跃关联的 platform_id；② 在这些 id 中筛 auto_disabled 且未软删。
+                    let mut gp_stmt = conn.prepare(
+                        "SELECT platform_id FROM group_platform WHERE group_id = ?1 AND deleted_at = 0",
                     )?;
-                    let rows = stmt.query_map(params![gid_i], |r| r.get::<_, i64>(0))?;
+                    let pids: Vec<i64> = gp_stmt
+                        .query_map(params![gid_i], |r| r.get::<_, i64>(0))?
+                        .collect::<SqlResult<Vec<i64>>>()?;
+                    if pids.is_empty() {
+                        return Ok(Vec::new());
+                    }
+                    let placeholders =
+                        (1..=pids.len()).map(|i| format!("?{i}")).collect::<Vec<_>>().join(",");
+                    let mut stmt = conn.prepare(&format!(
+                        "SELECT id FROM platform WHERE id IN ({placeholders}) \
+                         AND status = 'auto_disabled' AND deleted_at = 0"
+                    ))?;
+                    let binds: Vec<&dyn rusqlite::ToSql> =
+                        pids.iter().map(|i| i as &dyn rusqlite::ToSql).collect();
+                    let rows = stmt.query_map(rusqlite::params_from_iter(binds), |r| r.get::<_, i64>(0))?;
                     Ok(rows.collect::<SqlResult<Vec<i64>>>()?)
                 })
                 .await

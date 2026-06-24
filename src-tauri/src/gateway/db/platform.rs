@@ -5,10 +5,6 @@ use rusqlite::{params, OptionalExtension, Result as SqlResult};
 pub(crate) const PLATFORM_COLUMNS: &str =
     "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes";
 
-/// 同 PLATFORM_COLUMNS，但每列加 `p.` 限定，用于与其他表 JOIN 时消除同名列歧义（如 created_at/updated_at）
-pub(crate) const PLATFORM_COLUMNS_PREFIXED: &str =
-    "p.id, p.name, p.platform_type, p.base_url, p.api_key, p.extra, p.models, p.available_models, p.endpoints, p.enabled, p.created_at, p.updated_at, p.est_balance_remaining, p.est_coding_plan, p.last_real_query_at, p.estimate_count, p.show_in_tray, p.tray_display, p.sort_order, p.manual_budgets, p.status, p.auto_disabled_until, p.auto_disable_strikes";
-
 /// 从查询行构造 Platform
 pub(crate) fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
     let platform_type_str: String = row.get(2)?;
@@ -42,6 +38,45 @@ pub(crate) fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         auto_disable_strikes: row.get::<_, i64>(22)?,
         balance_level: String::new(),
     })
+}
+
+/// 平台 id → name 内存映射（含软删平台，名仍可显示）。供统计维度按 platform_id GROUP BY
+/// 后内存回填平台名用，替代旧 `LEFT JOIN platform` 取名（today_platform_stats J6 同模式）。
+pub(crate) fn platform_id_name_map(
+    conn: &rusqlite::Connection,
+) -> SqlResult<std::collections::HashMap<i64, String>> {
+    let mut stmt = conn.prepare_cached("SELECT id, name FROM platform")?;
+    let map = stmt
+        .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))?
+        .collect::<SqlResult<Vec<_>>>()?
+        .into_iter()
+        .collect();
+    Ok(map)
+}
+
+/// 按 id 批量取未软删平台 → id→Platform 映射（动态 IN 占位）。供去 JOIN 后关联表行
+/// 与 platform 内存重组用（get_group_platforms J2 等）。软删平台不返回（等价旧 `p.deleted_at=0`）。
+pub(crate) fn load_platforms_by_ids(
+    conn: &rusqlite::Connection,
+    ids: &[i64],
+) -> SqlResult<std::collections::HashMap<i64, Platform>> {
+    if ids.is_empty() {
+        return Ok(std::collections::HashMap::new());
+    }
+    let placeholders = (1..=ids.len()).map(|i| format!("?{i}")).collect::<Vec<_>>().join(",");
+    let sql = format!(
+        "SELECT {PLATFORM_COLUMNS} FROM platform WHERE id IN ({placeholders}) AND deleted_at = 0"
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let binds: Vec<&dyn rusqlite::ToSql> = ids.iter().map(|i| i as &dyn rusqlite::ToSql).collect();
+    let map = stmt
+        .query_map(rusqlite::params_from_iter(binds), |row| {
+            Ok((row.get::<_, i64>(0)?, row_to_platform(row)?))
+        })?
+        .collect::<SqlResult<Vec<_>>>()?
+        .into_iter()
+        .collect();
+    Ok(map)
 }
 
 #[track_caller]

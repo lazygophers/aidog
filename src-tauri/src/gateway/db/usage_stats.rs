@@ -18,13 +18,45 @@ const AGG_TOTAL_COLS: &str = "COALESCE(SUM(request_count), 0), \
 /// （十进制字符串）回溯，按 group.group_key 匹配 proxy_log.group_key（gk_<hex>，非显示名 g.name；
 /// 见 migration 024 / group-name-group-key-split）。
 fn recent_health_single(conn: &Connection, platform_id: u64) -> (i64, i64) {
-    let where_clause = "deleted_at = 0 AND (platform_id = ?1 OR (platform_id = 0 AND group_key IN (SELECT group_key FROM \"group\" WHERE auto_from_platform = ?2 AND deleted_at = 0)))";
     let pid = platform_id as i64;
     let pid_str = platform_id.to_string();
+    // ① 先取该平台作为 auto_from_platform 源的所有 group_key（替代旧 `group_key IN (SELECT ...)`
+    //    相关子查询）。回溯不到则空列表，仅按 platform_id 直挂匹配。
+    let auto_keys: Vec<String> = {
+        let mut stmt = match conn.prepare(
+            "SELECT group_key FROM \"group\" WHERE auto_from_platform = ?1 AND deleted_at = 0",
+        ) {
+            Ok(s) => s,
+            Err(_) => return (0, 0),
+        };
+        let rows = match stmt.query_map(params![pid_str], |r| r.get::<_, String>(0)) {
+            Ok(r) => r,
+            Err(_) => return (0, 0),
+        };
+        rows.filter_map(|r| r.ok()).collect()
+    };
+    // ② proxy_log 仍裸单表查近 5 条：platform_id 直挂 OR (platform_id=0 AND group_key IN(动态列表))。
+    //    动态构造 ?2,?3,... 占位（无子查询）；auto_keys 为空时退化为纯 platform_id 匹配。
+    let mut binds: Vec<&dyn rusqlite::types::ToSql> = vec![&pid];
+    let group_clause = if auto_keys.is_empty() {
+        String::new()
+    } else {
+        let placeholders: Vec<String> = auto_keys
+            .iter()
+            .enumerate()
+            .map(|(i, _)| format!("?{}", i + 2))
+            .collect();
+        for k in &auto_keys {
+            binds.push(k);
+        }
+        format!(" OR (platform_id = 0 AND group_key IN ({}))", placeholders.join(", "))
+    };
+    let where_clause =
+        format!("deleted_at = 0 AND (platform_id = ?1{group_clause})");
     conn.query_row(
         &format!("SELECT COUNT(*), SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END) \
          FROM (SELECT status_code FROM proxy_log WHERE {where_clause} ORDER BY created_at DESC LIMIT 5)"),
-        params![pid, pid_str],
+        binds.as_slice(),
         |row| Ok((row.get(1).unwrap_or(0), row.get(0).unwrap_or(0))),
     )
     .unwrap_or((0, 0))
@@ -300,38 +332,40 @@ pub fn platform_usage_stats_all(
             }
 
             // ② 每平台最近 5 条健康度（recent_total/recent_failures）仍裸查 proxy_log：
-            // 聚合表无法重建请求级顺序。eff_pid 派生子查询回溯 proxy_log.platform_id=0。
-            // eff_pid 派生单一事实源见 db::eff_pid_case；recent-5 窗口子表 FROM proxy_log 单表，
-            // 外层 platform_id 列无歧义，故列前缀传空串。
-            let eff_pid_subquery = format!(
-                "SELECT {} AS eff_pid, status_code, created_at FROM proxy_log WHERE deleted_at = 0",
-                eff_pid_case("")
-            );
-            // ROW_NUMBER() 按 eff_pid 分区、created_at DESC 排序，取 rn<=5。
-            let recent_sql = format!(
-                "SELECT eff_pid, \
-                 COUNT(*), \
-                 SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END) \
-                 FROM ( \
-                     SELECT eff_pid, status_code, \
-                            ROW_NUMBER() OVER (PARTITION BY eff_pid ORDER BY created_at DESC) AS rn \
-                     FROM ({eff_pid_subquery}) \
-                 ) \
-                 WHERE rn <= 5 \
-                 GROUP BY eff_pid"
-            );
-            let mut recent_stmt = conn.prepare(&recent_sql)?;
-            let recent_rows = recent_stmt.query_map([], |row| {
-                let eff_pid: i64 = row.get(0)?;
-                let recent_total: i64 = row.get(1).unwrap_or(0);
-                let recent_failures: i64 = row.get(2).unwrap_or(0);
-                Ok((eff_pid, recent_total, recent_failures))
+            // 聚合表无法重建请求级顺序。去 eff_pid 标量子查询/窗口函数：单表取
+            // (platform_id, group_key, status_code) 按 created_at DESC，内存逐行回溯 eff_pid，
+            // 每 eff_pid 取前 5 条（已按时间降序），统计 total/failures（与旧 ROW_NUMBER rn<=5 等价）。
+            let auto_map = load_auto_from_map(conn)?;
+            let mut recent_stmt = conn.prepare(
+                "SELECT platform_id, group_key, status_code FROM proxy_log \
+                 WHERE deleted_at = 0 ORDER BY created_at DESC",
+            )?;
+            // eff_pid → (取到的近 5 条计数, 其中失败数)
+            let mut recent: std::collections::HashMap<i64, (i64, i64)> =
+                std::collections::HashMap::new();
+            let mut rows_iter = recent_stmt.query_map([], |row| {
+                Ok((
+                    row.get::<_, i64>(0)?,    // platform_id
+                    row.get::<_, String>(1)?, // group_key
+                    row.get::<_, i64>(2)?,    // status_code
+                ))
             })?;
-            for r in recent_rows {
-                let (eff_pid, recent_total, recent_failures) = r?;
+            for r in rows_iter {
+                let (platform_id, group_key, status_code) = r?;
+                let eff_pid = resolve_eff_pid(platform_id, &group_key, &auto_map);
                 if eff_pid <= 0 {
                     continue;
                 }
+                let entry = recent.entry(eff_pid).or_insert((0, 0));
+                if entry.0 >= 5 {
+                    continue; // 该 eff_pid 已收满近 5 条（行已按 created_at DESC）
+                }
+                entry.0 += 1;
+                if !(200..300).contains(&(status_code as i32)) {
+                    entry.1 += 1;
+                }
+            }
+            for (eff_pid, (recent_total, recent_failures)) in recent {
                 if let Some(stats) = map.get_mut(&(eff_pid as u64)) {
                     stats.recent_total = recent_total;
                     stats.recent_failures = recent_failures;

@@ -106,6 +106,15 @@ pub async fn group_detail_list(db: State<'_, Db>) -> Result<Vec<GroupDetail>, St
     db::list_group_details(&db).await
 }
 
+/// 分页取分组详情（前端触底加载）。offset/limit 为页窗（camelCase invoke）；
+/// 越界返回空 Vec，前端据此停止加载。后端无 JOIN（单表 group_platform + 内存补 platform）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn group_detail_list_paged(offset: u64, limit: u64, db: State<'_, Db>) -> Result<Vec<GroupDetail>, String> {
+    tracing::debug!(command = "group_detail_list_paged", offset, limit, "command invoked");
+    db::list_group_details_paged(&db, offset, limit).await
+}
+
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn group_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>, app: tauri::AppHandle) -> Result<(), String> {
