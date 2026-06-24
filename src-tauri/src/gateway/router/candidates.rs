@@ -4,7 +4,7 @@ use super::super::db;
 use super::super::models::*;
 use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 use super::model_mapping::resolve_model;
-use super::ordering::{apply_sticky, order_least_latency, order_load_balance};
+use super::ordering::{apply_coding_plan_priority, apply_sticky, order_least_latency, order_load_balance};
 use super::{candidate_state, RouteResult};
 
 /// 候选选取结果：有序的候选平台列表（首个为最优先），用于失败逐个重试。
@@ -152,21 +152,30 @@ pub async fn select_candidates_ctx(
             // level_priority 降序（10 先）为主键，priority 升序为 tiebreak
             active.sort_by_key(|gp| (std::cmp::Reverse(gp.level_priority), gp.priority));
             probe.sort_by_key(|gp| (std::cmp::Reverse(gp.level_priority), gp.priority));
+            apply_coding_plan_priority(&mut active);
+            apply_coding_plan_priority(&mut probe);
         }
         // LoadBalance / HealthAware：健康集加权随机（准入门已摘 Open，等价加权随机 on 健康集）
         RoutingMode::LoadBalance | RoutingMode::HealthAware => {
             order_load_balance(&mut active, now_ms);
             order_load_balance(&mut probe, now_ms);
+            apply_coding_plan_priority(&mut active);
+            apply_coding_plan_priority(&mut probe);
         }
         // LeastLatency：按延迟 EMA 升序（无样本视为最大，排末尾）
         RoutingMode::LeastLatency => {
             order_least_latency(&mut active, ctx);
             order_least_latency(&mut probe, ctx);
+            apply_coding_plan_priority(&mut active);
+            apply_coding_plan_priority(&mut probe);
         }
         // Sticky：绑定平台若健康提到首位，否则回退加权随机 + 写绑定
         RoutingMode::Sticky => {
             order_load_balance(&mut active, now_ms);
             order_load_balance(&mut probe, now_ms);
+            // coding plan 偏好须在 apply_sticky 之前应用：否则 sticky 提首后又被分桶打乱。
+            apply_coding_plan_priority(&mut active);
+            apply_coding_plan_priority(&mut probe);
             apply_sticky(&mut active, ctx, now_ms);
         }
     }

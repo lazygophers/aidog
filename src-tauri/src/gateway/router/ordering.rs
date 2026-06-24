@@ -4,6 +4,29 @@ use super::super::models::*;
 use super::candidates::ScheduleCtx;
 use super::effective_weight;
 
+/// 平台是否为 coding plan（订阅制）：任一协议端点标记 `coding_plan=true` 即视为是。
+///
+/// 说明：`coding_plan` 是 **per-endpoint** 标记（`PlatformEndpoint.coding_plan`），
+/// Platform 自身无该布尔字段；与 `db/schema_late.rs` 迁移 025 判定口径一致
+/// （存在 coding_plan 端点即 coding plan 平台）。
+pub(crate) fn is_coding_plan(p: &Platform) -> bool {
+    p.endpoints.iter().any(|ep| ep.coding_plan)
+}
+
+/// coding plan 平台优先：在已按路由模式排好序的候选列表上做**稳定分桶上浮**，
+/// 把 coding plan 平台整体提到非 coding plan 之前，每个桶内部保持入参已有顺序
+/// （mode 排序结果）不变。
+///
+/// 语义：订阅制 coding plan 额度按月包干，无明确依据偏向某平台时优先消耗它以省钱。
+/// 作为主排序键叠加在 per-mode 排序之上（Rust `sort_by_key` 稳定，桶内序保持）。
+/// `!is_coding_plan` 作 key：false(0, coding plan) 排在 true(1) 之前。
+///
+/// 调用约束：须在各 mode 排序之后、`apply_sticky` 与显式 mapping 提首之前，
+/// 对 active / probe 两桶**各自独立**调用（probe 整体在 active 之后，不跨桶上浮）。
+pub(crate) fn apply_coding_plan_priority(platforms: &mut [&GroupPlatformDetail]) {
+    platforms.sort_by_key(|gp| !is_coding_plan(&gp.platform));
+}
+
 /// 负载均衡排序：加权随机决定首个，其余按有效权重降序，保证所有候选都可被重试。
 pub(crate) fn order_load_balance(platforms: &mut Vec<&GroupPlatformDetail>, seed: i64) {
     if platforms.len() <= 1 {
