@@ -5,7 +5,7 @@ use rusqlite::{params};
 pub fn list_mcp_servers(db: &Db) -> impl std::future::Future<Output = Result<Vec<crate::gateway::mcp::McpServerRow>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    db.call_traced(None, __db_caller, move |conn| {
+    db.call_read_traced(None, __db_caller, move |conn| {
         let mut stmt = conn.prepare(
             "SELECT id, name, transport, command, args_json, env_json, url, headers_json, \
              enabled_agents, created_at, updated_at FROM mcp_server ORDER BY name",
@@ -44,7 +44,7 @@ pub fn get_mcp_server<'a>(
     let __db_caller = std::panic::Location::caller();
     async move {
     let name = name.to_string();
-    db.call_traced(None, __db_caller, move |conn| {
+    db.call_read_traced(None, __db_caller, move |conn| {
         let mut stmt = conn.prepare(
             "SELECT id, name, transport, command, args_json, env_json, url, headers_json, \
              enabled_agents, created_at, updated_at FROM mcp_server WHERE name = ?1",
@@ -149,7 +149,7 @@ pub fn set_mcp_server_enabled_agents<'a>(
 pub fn list_mcp_server_names(db: &Db) -> impl std::future::Future<Output = Result<Vec<String>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
     async move {
-    db.call_traced(None, __db_caller, move |conn| {
+    db.call_read_traced(None, __db_caller, move |conn| {
         let mut stmt = conn.prepare("SELECT name FROM mcp_server")?;
         let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
         let mut out = vec![];

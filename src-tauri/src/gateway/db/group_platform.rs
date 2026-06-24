@@ -143,7 +143,7 @@ pub fn get_group_platforms(db: &Db, group_id: u64) -> impl std::future::Future<O
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
     let mut stmt = conn
         .prepare(
             &format!(

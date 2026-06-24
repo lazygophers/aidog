@@ -17,7 +17,7 @@ pub fn today_token_total(db: &Db) -> impl std::future::Future<Output = Result<i6
     let start_ms = start_local.timestamp_millis();
 
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             Ok(conn.query_row(
                 "SELECT COALESCE(SUM(input_tokens + output_tokens), 0) FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
                 params![start_ms],
@@ -63,7 +63,7 @@ pub fn today_stats(db: &Db) -> impl std::future::Future<Output = Result<TodaySta
     let today_key = local_today_hour_key();
 
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             // 基础统计（从聚合表：request_count 即请求数，sum_* 即各 token，sum_est_cost 即花费）。
             let (input_tokens, output_tokens, cache_tokens, total_requests, cost): (i64, i64, i64, i64, f64) = conn
                 .query_row(
@@ -126,7 +126,7 @@ pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result
     let today_key = local_today_hour_key();
 
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             // stats_agg_hourly.platform_id 已是 eff_pid（回溯后源平台 id），直接 GROUP BY 即可，
             // 无需再跑 auto 回溯子查询。GROUP BY 天然只含当日有用量的平台。
             let sql = "
