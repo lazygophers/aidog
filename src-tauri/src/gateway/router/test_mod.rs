@@ -45,6 +45,18 @@ pub(super) fn mk_gp_lp(id: u64, weight: i32, priority: i32, level_priority: i32)
     GroupPlatformDetail { platform: mk_platform_id(id), priority, weight, level_priority }
 }
 
+/// coding plan 候选：platform 带一个 coding_plan=true 的端点（is_coding_plan→true）。
+pub(super) fn mk_gp_cp(id: u64, weight: i32, priority: i32) -> GroupPlatformDetail {
+    let mut p = mk_platform_id(id);
+    p.endpoints = vec![PlatformEndpoint {
+        protocol: Protocol::Anthropic,
+        base_url: String::new(),
+        client_type: Default::default(),
+        coding_plan: true,
+    }];
+    GroupPlatformDetail { platform: p, priority, weight, level_priority: 5 }
+}
+
 #[test]
 fn breaker_union_autodisabled_admission() {
     // 验证熔断 ∪ auto_disabled 取并集：分别独立判定。
