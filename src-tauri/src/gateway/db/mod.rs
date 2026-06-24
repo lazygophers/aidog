@@ -1,10 +1,15 @@
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 use tokio_rusqlite::Connection as AsyncConnection;
 
 use crate::gateway::models::*;
+
+/// 只读连接池大小（单点可调）。WAL 模式下「单写 + 多读并发」红利由这 N 条只读连接吃下，
+/// 让 UI 读查询不再排在代理密集写日志之后。动态扩容（空闲回收 / 加锁扩容）本轮不做。
+const READ_POOL_SIZE: usize = 8;
 
 /// Migration 032（旧 011 文件）: 小时级聚合统计表 stats_agg_hourly（建表 + 索引 + 存量一次性回填）。
 /// 统计读取改查预聚合表，写入解耦于日志开关（关日志也写聚合）。回填幂等（NOT EXISTS 空表守卫）。
@@ -168,13 +173,42 @@ struct DbCache {
     group_details: RwLock<Option<Vec<GroupDetail>>>,
 }
 
+/// 只读连接池句柄：一组只读 `AsyncConnection` + 轮询游标，`Clone` 廉价（仅 Arc 引用计数）。
+///
+/// 每条 `AsyncConnection` 自带独立后台线程，故 `CURRENT_DB_CTX` thread-local 在各读连接间
+/// 天然隔离，不与写连接 / 其他读连接串味。WAL 模式下只读连接看到「最后已提交快照」，
+/// UI 读允许微秒级陈旧（本就异步），换来不被代理密集写串行阻塞。
+///
+/// 🔴 `:memory:` fallback：`:memory:` 下每条物理连接是独立内存库，开新连接会读到空库 →
+/// 测试与单库语义全破。故 `Db::new` 检测到内存库时，`conns` 只放 1 个写连接的 clone，
+/// `pick()` 退化为返回写连接 sender，读写共享同一物理库，一致性保持。
+#[derive(Clone)]
+pub struct ReadPoolHandle {
+    conns: Arc<Vec<AsyncConnection>>,
+    cursor: Arc<AtomicUsize>,
+}
+
+impl ReadPoolHandle {
+    /// 轮询取一条读连接（clone，仅 channel sender，廉价）。`Relaxed` 足够：仅需大致均匀
+    /// 分发，无跨连接顺序依赖。`conns` 非空由 `Db::new` 保证（至少 1 条 fallback 写连接）。
+    fn pick(&self) -> AsyncConnection {
+        let idx = self.cursor.fetch_add(1, Ordering::Relaxed) % self.conns.len();
+        self.conns[idx].clone()
+    }
+}
+
 /// 异步 SQLite 连接封装。
 ///
 /// tokio-rusqlite 内部以单后台线程顺序执行所有 `call` 闭包，天然串行化，
 /// 故无需 `Mutex`。`AsyncConnection` 自身 `Clone + Send + Sync`（内部仅一个 channel sender），
 /// 可直接 `app.manage(Db)` / `State<Db>`，克隆廉价（共享同一后台线程连接）。
+///
+/// - `self.0`：**写连接**（WAL 仅允许单写），承载全部写 / DDL / 事务 / cache 失效路径。
+/// - `self.1`：`Arc<DbCache>` 进程内热缓存（不变，与连接数无关）。
+/// - `self.2`：`ReadPoolHandle` 只读连接池，供 UI 热读路径（stats / 列表 / 日志查询）走
+///   `call_read_traced` 并发查询，不阻塞于写连接队列。
 #[derive(Clone)]
-pub struct Db(pub AsyncConnection, Arc<DbCache>);
+pub struct Db(pub AsyncConnection, Arc<DbCache>, ReadPoolHandle);
 
 /// 从 JSON 字符串反序列化 models
 fn parse_models(json: &str) -> PlatformModels {
@@ -258,7 +292,59 @@ impl Db {
         })
         .await
         .map_err(|e| e.to_string())?;
-        Ok(Self(conn, Arc::new(DbCache::default())))
+
+        let read_pool = Self::build_read_pool(path, &conn).await?;
+        Ok(Self(conn, Arc::new(DbCache::default()), read_pool))
+    }
+
+    /// 构造只读连接池。
+    ///
+    /// 🔴 `:memory:` / in-memory 硬约束：每条物理连接是独立内存库，开新连接读到空库 → 测试
+    /// 全崩。故内存库下池退化为复用写连接（放 1 个 `write_conn.clone()`），读写共享同一物理库。
+    ///
+    /// 非内存库：开 `READ_POOL_SIZE` 条 `SQLITE_OPEN_READ_ONLY | SQLITE_OPEN_NO_MUTEX` 连接，
+    /// 各设与写连接一致的 pragma（`journal_mode=WAL` 读 WAL 必需 / `busy_timeout` / `foreign_keys`）
+    /// + 注册同一 `sql_profile_callback`（否则该连接 SQL 不进日志）。任一连接构造失败即整体失败。
+    async fn build_read_pool(
+        path: &str,
+        write_conn: &AsyncConnection,
+    ) -> Result<ReadPoolHandle, String> {
+        // 内存库判定：":memory:" / 含 "mode=memory"（URI 形式）/ 空路径（rusqlite 视为匿名临时库，
+        // 多连接亦不共享）。任一命中即 fallback 复用写连接。
+        let is_memory =
+            path == ":memory:" || path.contains("mode=memory") || path.is_empty();
+        if is_memory {
+            return Ok(ReadPoolHandle {
+                conns: Arc::new(vec![write_conn.clone()]),
+                cursor: Arc::new(AtomicUsize::new(0)),
+            });
+        }
+
+        let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+        let mut conns = Vec::with_capacity(READ_POOL_SIZE);
+        for _ in 0..READ_POOL_SIZE {
+            let c = AsyncConnection::open_with_flags(path, flags)
+                .await
+                .map_err(|e| e.to_string())?;
+            // 只读连接 pragma：与写连接保持一致（auto_vacuum / synchronous 是写侧概念，只读连接
+            // 无需设；WAL 必设以读到 WAL 已提交快照）。profile 回调让此连接 SQL 同样进 sql 日志。
+            c.call(|c| {
+                c.execute_batch(
+                    "PRAGMA journal_mode=WAL; \
+                     PRAGMA foreign_keys=ON; \
+                     PRAGMA busy_timeout=5000;",
+                )?;
+                c.profile(Some(sql_profile_callback));
+                Ok(())
+            })
+            .await
+            .map_err(|e| e.to_string())?;
+            conns.push(c);
+        }
+        Ok(ReadPoolHandle {
+            conns: Arc::new(conns),
+            cursor: Arc::new(AtomicUsize::new(0)),
+        })
     }
 
     /// DB 调用 chokepoint：与 `tokio_rusqlite::Connection::call` 同形（同闭包签名 / 返回
@@ -302,6 +388,54 @@ impl Db {
         let conn = self.0.clone();
         async move {
             // 包装用户闭包：进入 DB 线程时 set 上下文，离开（含 panic）时 guard 清空。
+            conn.call(move |conn| {
+                CURRENT_DB_CTX.with(|c| {
+                    *c.borrow_mut() = DbCallCtx {
+                        req: req.clone(),
+                        caller: Some(caller),
+                    };
+                });
+                struct Clear;
+                impl Drop for Clear {
+                    fn drop(&mut self) {
+                        CURRENT_DB_CTX.with(|c| *c.borrow_mut() = DbCallCtx::default());
+                    }
+                }
+                let _clear = Clear;
+                f(conn)
+            })
+            .await
+        }
+    }
+
+    /// 只读路径 chokepoint：与 `call_traced` **完整同形 / 同语义**（同闭包签名 + 同 req 解析
+    /// 链 + 同 CURRENT_DB_CTX set/Clear guard + profile 拼日志），唯一差异是连接来源 ——
+    /// 取读池一条只读连接（`self.2.pick()`）而非写连接 `self.0.clone()`。
+    ///
+    /// 仅供**纯 SELECT 无写副作用**的 UI 热读路径使用（stats / 列表 / 日志查询）。写 / DDL /
+    /// 事务 / cache 失效路径必须继续走 `call_traced`（写连接）—— WAL 仅允许单写，且只读连接
+    /// 执行写会 `SQLITE_READONLY` 失败。
+    ///
+    /// thread-local 隔离仍成立：每条读连接自带独立后台线程，`CURRENT_DB_CTX` 不串味。
+    pub fn call_read_traced<F, R>(
+        &self,
+        req: Option<&str>,
+        caller: &'static std::panic::Location<'static>,
+        f: F,
+    ) -> impl std::future::Future<Output = tokio_rusqlite::Result<R>>
+    where
+        F: FnOnce(&mut Connection) -> tokio_rusqlite::Result<R> + Send + 'static,
+        R: Send + 'static,
+    {
+        // 与 call_traced 一致：调用方线程（投递前）解析链路 id，span 在此活跃。
+        let req = req
+            .map(|s| s.to_string())
+            .or_else(crate::logging::current_trace_id)
+            .unwrap_or_else(crate::logging::new_trace_id);
+        let req = Some(req);
+        // 取读池连接（轮询 clone，仅 channel sender）。:memory: fallback 下即写连接 clone。
+        let conn = self.2.pick();
+        async move {
             conn.call(move |conn| {
                 CURRENT_DB_CTX.with(|c| {
                     *c.borrow_mut() = DbCallCtx {
@@ -448,4 +582,6 @@ mod test_middleware;
 mod test_maintenance;
 #[cfg(test)]
 mod test_schema;
+#[cfg(test)]
+mod test_rw_pool;
 

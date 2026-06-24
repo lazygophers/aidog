@@ -120,7 +120,7 @@ pub fn list_platforms(db: &Db) -> impl std::future::Future<Output = Result<Vec<P
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, |conn| {
+        .call_read_traced(None, __db_caller, |conn| {
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE deleted_at = 0 ORDER BY sort_order, created_at");
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], row_to_platform)?;
@@ -136,7 +136,7 @@ pub fn get_platform(db: &Db, id: u64) -> impl std::future::Future<Output = Resul
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let sql = format!("SELECT {PLATFORM_COLUMNS} FROM platform WHERE id = ?1 AND deleted_at = 0");
             let mut stmt = conn.prepare(&sql)?;
             Ok(stmt.query_row(params![id as i64], row_to_platform).optional()?)
