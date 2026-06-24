@@ -138,7 +138,7 @@ pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result
                 WHERE time_hour >= ?1 AND deleted_at = 0
                 GROUP BY platform_id
                 ORDER BY cost DESC, tokens DESC";
-            let mut stmt = conn.prepare(sql)?;
+            let mut stmt = conn.prepare_cached(sql)?;
             let rows = stmt
                 .query_map(params![today_key], |row| {
                     let pid: i64 = row.get(0)?;
@@ -147,7 +147,7 @@ pub fn today_platform_stats(db: &Db) -> impl std::future::Future<Output = Result
                 .collect::<SqlResult<Vec<_>>>()?;
 
             // 平台名映射（含软删平台，名仍可显示）。
-            let mut name_stmt = conn.prepare("SELECT id, name FROM platform")?;
+            let mut name_stmt = conn.prepare_cached("SELECT id, name FROM platform")?;
             let names: std::collections::HashMap<i64, String> = name_stmt
                 .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, String>(1)?)))?
                 .collect::<SqlResult<Vec<_>>>()?

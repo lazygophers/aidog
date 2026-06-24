@@ -1,14 +1,13 @@
-import React, { memo } from "react";
+import React, { memo, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { Platform, Protocol, PlatformUsageStats, LastTestResult } from "../../services/api";
+import type { Platform, Protocol, PlatformUsageStats, LastTestResult, PlatformQuota } from "../../services/api";
 import { getPlatformLogo, getFaviconUrl } from "../../assets/platforms";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel, usageLevelToColor } from "../shared";
 import { formatNumber, formatCost, formatPercent } from "../../utils/formatters";
 import { IconBolt, IconCost, IconCheck, IconCoin, IconClock } from "../icons";
 import {
   PROTOCOL_LABELS, PROTOCOL_COLORS, HEALTH_COLORS,
-  getDefaultModels, computeManualBudgetDisplay,
-  type QuotaDisplay,
+  getDefaultModels, computeManualBudgetDisplay, computeQuotaDisplay,
   allModelValues, tierLabel, formatResetCountdown, healthStatus,
 } from "../../pages/Platforms";
 
@@ -35,7 +34,13 @@ export interface PlatformCardProps {
   index: number;
   isDragging: boolean;
   dragActive: boolean;
-  quota: QuotaDisplay;
+  /**
+   * quota 原始输入：实时查回的 PlatformQuota（未查则 undefined）。
+   * QuotaDisplay 在卡片内 useMemo 计算，避免父组件每渲染现算新对象击穿 memo 浅比较。
+   */
+  quotaRaw: PlatformQuota | undefined;
+  /** 是否优先用真实校准 quota（quotaRealIds 命中）。 */
+  quotaPreferReal: boolean;
   refreshing: boolean;
   /** 延迟档 quota 外部 HTTP 待回：余额/配额区显骨架而非 est 旧值，避免闪烁回填（默认 false）。 */
   quotaPending?: boolean;
@@ -68,7 +73,8 @@ export const PlatformCard = memo(function PlatformCard({
   index: i,
   isDragging,
   dragActive,
-  quota,
+  quotaRaw,
+  quotaPreferReal,
   refreshing,
   quotaPending = false,
   usagePending = false,
@@ -85,6 +91,11 @@ export const PlatformCard = memo(function PlatformCard({
   onLevelPriorityChange,
 }: PlatformCardProps) {
   const { t } = useTranslation();
+  // QuotaDisplay 在卡片内计算并缓存：父列表渲染时不再现算新对象，浅比较稳定 → 局部交互不全卡重渲。
+  const quota = useMemo(
+    () => computeQuotaDisplay(p, quotaRaw, quotaPreferReal),
+    [p, quotaRaw, quotaPreferReal],
+  );
   const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
   const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
   const configuredModels = (() => {
