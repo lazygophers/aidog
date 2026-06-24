@@ -30,24 +30,6 @@ use super::test_support::*;
 
 
 
-    /// today_token_total：仅统计今日（本地 0 点起）未删除日志的 input+output。
-    #[tokio::test]
-    async fn today_token_total_sums_today_only() {
-        use chrono::{Local, Duration};
-        let db = test_db().await;
-        let now_ms = now();
-        // 今日两条：(10+20) + (10+20) = 60
-        upsert_proxy_log(&db, sample_log("a", "g", now_ms)).await.unwrap();
-        upsert_proxy_log(&db, sample_log("b", "g", now_ms)).await.unwrap();
-        // 昨日一条：不计入。
-        let yesterday_ms = (Local::now() - Duration::days(1)).timestamp_millis();
-        upsert_proxy_log(&db, sample_log("c", "g", yesterday_ms)).await.unwrap();
-
-        assert_eq!(today_token_total(&db).await.unwrap(), 60);
-    }
-
-
-
     /// today_platform_stats：按平台分组今日用量；platform_id=0 自动分组日志经
     /// group.auto_from_platform 回溯到源平台后归并；只返回有用量的平台；昨日日志不计。
     #[tokio::test]

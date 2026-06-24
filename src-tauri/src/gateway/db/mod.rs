@@ -49,8 +49,9 @@ CREATE TABLE IF NOT EXISTS stats_agg_hourly (
 );
 
 CREATE INDEX IF NOT EXISTS idx_stats_agg_time     ON stats_agg_hourly(time_hour);
-CREATE INDEX IF NOT EXISTS idx_stats_agg_model    ON stats_agg_hourly(model);
-CREATE INDEX IF NOT EXISTS idx_stats_agg_group    ON stats_agg_hourly(group_key);
+-- idx_stats_agg_model / idx_stats_agg_group 已删（未被任何查询用：model/group_key 等值
+-- 过滤总伴随 time_hour 范围谓词，规划器走 idx_stats_agg_time；纯单列索引仅增写放大）。
+-- 旧库由 migration 035 DROP。详见 SQL/索引审计任务。
 CREATE INDEX IF NOT EXISTS idx_stats_agg_platform ON stats_agg_hourly(platform_id);
 
 -- 一次性回填：把存量 proxy_log 按 (本地小时桶, actual_model优先, group_key, eff_pid) 聚合写入。
@@ -209,6 +210,28 @@ impl ReadPoolHandle {
 ///   `call_read_traced` 并发查询，不阻塞于写连接队列。
 #[derive(Clone)]
 pub struct Db(pub AsyncConnection, Arc<DbCache>, ReadPoolHandle);
+
+/// 有效 platform_id（eff_pid）派生 CASE 表达式——单一事实源。
+///
+/// 业务规则：直挂日志取原 `platform_id`；自动分组日志（`platform_id = 0`）经
+/// `group.auto_from_platform`（十进制字符串）回溯到源平台 id，按 `group.group_key`
+/// 匹配 `proxy_log.group_key`（gk_<hex>，非显示名）。回溯不到则归 0。
+///
+/// `col_prefix` 为外层 `platform_id` 列的限定前缀：
+/// - `"proxy_log."`：query_stats.rs 内联进 SELECT/GROUP BY（dimension platform 分支 LEFT JOIN
+///   platform 后裸列名歧义，须 proxy_log. 前缀）；
+/// - `""`：usage_stats.rs recent-5 窗口子表（FROM proxy_log 单表，无歧义）。
+///
+/// 相关子查询对外层表的关联恒用表名 `proxy_log.group_key`（关联引用须用表名而非裸列），
+/// 两处一致，故无需参数化。
+pub(crate) fn eff_pid_case(col_prefix: &str) -> String {
+    format!(
+        "CASE WHEN {col_prefix}platform_id = 0 THEN COALESCE(\
+(SELECT CAST(g.auto_from_platform AS INTEGER) FROM \"group\" g \
+ WHERE g.group_key = proxy_log.group_key AND g.auto_from_platform != '' AND g.deleted_at = 0 LIMIT 1), 0) \
+ELSE {col_prefix}platform_id END"
+    )
+}
 
 /// 从 JSON 字符串反序列化 models
 fn parse_models(json: &str) -> PlatformModels {

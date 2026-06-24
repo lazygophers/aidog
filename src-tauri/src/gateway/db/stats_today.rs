@@ -1,34 +1,6 @@
 use super::*;
 use rusqlite::{params, Result as SqlResult};
 
-/// 今日（本地时区 00:00 起）累计 token 总量（input + output），未删除日志。
-#[cfg(test)]
-#[track_caller]
-pub fn today_token_total(db: &Db) -> impl std::future::Future<Output = Result<i64, String>> + '_ {
-    let __db_caller = std::panic::Location::caller();
-    async move {
-    use chrono::{Local, TimeZone};
-    let today = Local::now().date_naive();
-    let start_dt = today.and_hms_opt(0, 0, 0).ok_or("invalid local midnight")?;
-    let start_local = Local
-        .from_local_datetime(&start_dt)
-        .single()
-        .ok_or("ambiguous local midnight")?;
-    let start_ms = start_local.timestamp_millis();
-
-    db
-        .call_read_traced(None, __db_caller, move |conn| {
-            Ok(conn.query_row(
-                "SELECT COALESCE(SUM(input_tokens + output_tokens), 0) FROM proxy_log WHERE created_at >= ?1 AND deleted_at = 0",
-                params![start_ms],
-                |row| row.get(0),
-            )?)
-        })
-        .await
-        .map_err(|e| format!("today token total: {e}"))
-    }
-}
-
 /// 今日统计摘要（供托盘预览使用）
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TodayStats {
