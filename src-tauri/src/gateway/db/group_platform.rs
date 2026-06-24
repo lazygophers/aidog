@@ -138,6 +138,48 @@ pub fn sync_platform_manual_groups<'a>(
     }
 }
 
+/// 从 group_platform JOIN platform 的结果行解析 `GroupPlatformDetail`。
+/// 列序固定：priority(0), weight(1), 平台列(2..=24), level_priority(25)。
+/// get_group_platforms（单组）与 list_group_details（全量批量）共用，保证两路解析逐字一致。
+fn parse_group_platform_row(row: &rusqlite::Row) -> SqlResult<GroupPlatformDetail> {
+    let platform_type_str: String = row.get(4)?;
+    let models_str: String = row.get(8)?;
+    let available_str: String = row.get(9)?;
+    let endpoints_str: String = row.get(10)?;
+    Ok(GroupPlatformDetail {
+        platform: Platform {
+            id: row.get::<_, i64>(2)? as u64,
+            name: row.get(3)?,
+            platform_type: serde_json::from_str(&platform_type_str).unwrap(),
+            base_url: row.get(5)?,
+            api_key: row.get(6)?,
+            extra: row.get(7)?,
+            models: parse_models(&models_str),
+            available_models: parse_available_models(&available_str),
+            endpoints: parse_endpoints(&endpoints_str),
+            enabled: row.get::<_, i64>(11)? == 1,
+            created_at: row.get(12)?,
+            updated_at: row.get(13)?,
+            deleted_at: 0,
+            est_balance_remaining: row.get(14)?,
+            est_coding_plan: row.get(15)?,
+            last_real_query_at: row.get(16)?,
+            estimate_count: row.get(17)?,
+            show_in_tray: row.get::<_, i64>(18)? == 1,
+            tray_display: row.get(19)?,
+            sort_order: row.get::<_, i64>(20)?,
+            manual_budgets: crate::gateway::models::parse_manual_budgets(&row.get::<_, String>(21)?),
+            status: crate::gateway::models::PlatformStatus::from_db_str(&row.get::<_, String>(22)?),
+            auto_disabled_until: row.get::<_, i64>(23)?,
+            auto_disable_strikes: row.get::<_, i64>(24)?,
+            balance_level: String::new(),
+        },
+        priority: row.get(0)?,
+        weight: row.get(1)?,
+        level_priority: crate::gateway::models::clamp_level_priority(row.get::<_, i64>(25)? as i32),
+    })
+}
+
 #[track_caller]
 pub fn get_group_platforms(db: &Db, group_id: u64) -> impl std::future::Future<Output = Result<Vec<GroupPlatformDetail>, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
@@ -153,46 +195,7 @@ pub fn get_group_platforms(db: &Db, group_id: u64) -> impl std::future::Future<O
             ),
         )?;
 
-    let rows = stmt
-        .query_map(params![group_id as i64], |row| {
-            // row layout: priority(0), weight(1), then platform columns starting at 2
-            let platform_type_str: String = row.get(4)?;
-            let models_str: String = row.get(8)?;
-            let available_str: String = row.get(9)?;
-            let endpoints_str: String = row.get(10)?;
-            Ok(GroupPlatformDetail {
-                platform: Platform {
-                    id: row.get::<_, i64>(2)? as u64,
-                    name: row.get(3)?,
-                    platform_type: serde_json::from_str(&platform_type_str).unwrap(),
-                    base_url: row.get(5)?,
-                    api_key: row.get(6)?,
-                    extra: row.get(7)?,
-                    models: parse_models(&models_str),
-                    available_models: parse_available_models(&available_str),
-                    endpoints: parse_endpoints(&endpoints_str),
-                    enabled: row.get::<_, i64>(11)? == 1,
-                    created_at: row.get(12)?,
-                    updated_at: row.get(13)?,
-                    deleted_at: 0,
-                    est_balance_remaining: row.get(14)?,
-                    est_coding_plan: row.get(15)?,
-                    last_real_query_at: row.get(16)?,
-                    estimate_count: row.get(17)?,
-                    show_in_tray: row.get::<_, i64>(18)? == 1,
-                    tray_display: row.get(19)?,
-                    sort_order: row.get::<_, i64>(20)?,
-                    manual_budgets: crate::gateway::models::parse_manual_budgets(&row.get::<_, String>(21)?),
-                    status: crate::gateway::models::PlatformStatus::from_db_str(&row.get::<_, String>(22)?),
-                    auto_disabled_until: row.get::<_, i64>(23)?,
-                    auto_disable_strikes: row.get::<_, i64>(24)?,
-                    balance_level: String::new(),
-                },
-                priority: row.get(0)?,
-                weight: row.get(1)?,
-                level_priority: crate::gateway::models::clamp_level_priority(row.get::<_, i64>(25)? as i32),
-            })
-        })?;
+    let rows = stmt.query_map(params![group_id as i64], parse_group_platform_row)?;
 
     Ok(rows.collect::<SqlResult<Vec<_>>>()?)
         })
@@ -220,6 +223,38 @@ pub async fn get_group_detail(db: &Db, id: u64) -> Result<Option<GroupDetail>, S
     }))
 }
 
+/// 一次性取**所有**组的平台关联，按 group_id 内存分桶（替代 list_group_details 逐组 N+1）。
+/// 列序与 get_group_platforms 完全一致（priority(0)..level_priority(25)），末尾追加 gp.group_id(26)
+/// 用于分桶；ORDER BY gp.group_id, gp.priority 保证每桶内仍按 priority 升序（与逐组版 ORDER BY 一致）。
+#[track_caller]
+fn list_all_group_platforms(db: &Db) -> impl std::future::Future<Output = Result<std::collections::HashMap<u64, Vec<GroupPlatformDetail>>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+    db
+        .call_read_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare(&format!(
+                "SELECT gp.priority, gp.weight, {PLATFORM_COLUMNS_PREFIXED}, gp.level_priority, gp.group_id \
+                 FROM group_platform gp JOIN platform p ON gp.platform_id = p.id \
+                 WHERE gp.deleted_at = 0 AND p.deleted_at = 0 ORDER BY gp.group_id, gp.priority"
+            ))?;
+            let rows = stmt.query_map([], |row| {
+                let detail = parse_group_platform_row(row)?;
+                let group_id: i64 = row.get(26)?;
+                Ok((group_id as u64, detail))
+            })?;
+            let mut map: std::collections::HashMap<u64, Vec<GroupPlatformDetail>> =
+                std::collections::HashMap::new();
+            for r in rows {
+                let (gid, detail) = r?;
+                map.entry(gid).or_default().push(detail);
+            }
+            Ok(map)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
 pub async fn list_group_details(db: &Db) -> Result<Vec<GroupDetail>, String> {
     // 缓存命中：Groups 页一次拉全量（消除前端逐组 N+1）+ refreshStats 复用，命中即返 clone。
     if let Ok(g) = db.1.group_details.read() {
@@ -228,9 +263,11 @@ pub async fn list_group_details(db: &Db) -> Result<Vec<GroupDetail>, String> {
         }
     }
     let groups = list_groups(db).await?;
+    // 单查取全部组的平台关联，按 group_id 分桶（消除逐组 N+1）。
+    let mut by_group = list_all_group_platforms(db).await?;
     let mut details = Vec::with_capacity(groups.len());
     for g in groups {
-        let platforms = get_group_platforms(db, g.id).await?;
+        let platforms = by_group.remove(&g.id).unwrap_or_default();
         let model_mappings = g.model_mappings.clone();
         details.push(GroupDetail {
             group: g,

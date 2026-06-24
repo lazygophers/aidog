@@ -102,7 +102,9 @@ CREATE TABLE IF NOT EXISTS proxy_log (
     deleted_at                INTEGER NOT NULL DEFAULT 0
 );
 
-CREATE INDEX IF NOT EXISTS idx_proxy_log_created ON proxy_log(created_at) WHERE deleted_at = 0;
+-- idx_proxy_log_created 已删（纯 created_at 范围扫描总伴随 filter 等值列，走复合
+-- idx_proxy_log_*_created；无 filter 的 ORDER BY created_at DESC 走任一复合索引第二列即有序）。
+-- 旧库由 migration 035 DROP。详见 SQL/索引审计任务。
 "#,
                 )?;
                 // Migration 002: 请求日志过滤索引。
@@ -134,8 +136,8 @@ CREATE TABLE IF NOT EXISTS model_price (
     UNIQUE(model_name, source)
 );
 
-CREATE INDEX IF NOT EXISTS idx_model_price_name
-    ON model_price(model_name) WHERE deleted_at = 0;
+-- idx_model_price_name 已删：UNIQUE(model_name, source) 自带的隐式索引前导列即 model_name，
+-- 已覆盖按 model_name 的等值/前缀查找，单列偏索引纯重复。旧库由 migration 035 DROP。
 "#,
                 )?;
                 // Migration 004: 旧库补预估列（ALTER 无 IF NOT EXISTS → 忽略 duplicate column）

@@ -282,6 +282,15 @@ fn query_stats_inner_agg(
     Ok(StatsResult { overview, buckets, dimension_data, available_models })
 }
 
+/// 成功计数列（2xx → 1）。overview / buckets / dimension 4 段 SELECT 逐字共用，避免重复。
+const SUCCESS_CASE: &str =
+    "SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END)";
+
+/// 各请求级聚合 SELECT 末尾共用的 token / duration / cost 列块（列序固定，row.get 依赖此序）：
+/// SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), COALESCE(SUM(est_cost),0.0)。
+const AGG_TAIL_COLS: &str =
+    "SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), COALESCE(SUM(est_cost), 0.0)";
+
 pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery) -> Result<StatsResult, String> {
     let end = query.end.unwrap_or_else(|| chrono::Utc::now().timestamp_millis());
     let start = query.start.unwrap_or_else(|| {
@@ -305,11 +314,9 @@ pub(crate) fn query_stats_inner(conn: &Connection, query: &StatsQuery) -> Result
 
     // 有效 platform_id 表达式：原 platform_id，auto 分组（platform_id=0）经
     // group.auto_from_platform 回溯到源平台（与 get_platform_usage_stats 同语义）。
-    const EFF_PID: &str = "\
-CASE WHEN proxy_log.platform_id = 0 THEN COALESCE(\
-(SELECT CAST(g.auto_from_platform AS INTEGER) FROM \"group\" g \
- WHERE g.group_key = proxy_log.group_key AND g.auto_from_platform != '' AND g.deleted_at = 0 LIMIT 1), 0)\
-ELSE proxy_log.platform_id END";
+    // 单一事实源见 db::eff_pid_case；此处内联进 SELECT/GROUP BY，列前缀 proxy_log.（dimension
+    // platform 分支 LEFT JOIN platform 后裸列名歧义）。
+    let eff_pid = eff_pid_case("proxy_log.");
 
     // Build WHERE clause（列名一律 proxy_log. 前缀：dimension platform 分支 LEFT JOIN platform 后，
     // deleted_at / created_at 等列两表皆有，裸列名会触发 ambiguous column 错误）
@@ -324,7 +331,7 @@ ELSE proxy_log.platform_id END";
     if qp.filter_platform.is_some() {
         let idx = 3 + qp.filter_group.is_some() as usize + qp.filter_model.is_some() as usize;
         // value = platform_id 十进制字符串；按有效平台 id（含 auto 分组回溯）匹配
-        where_parts.push(format!("({EFF_PID}) = CAST(?{idx} AS INTEGER)"));
+        where_parts.push(format!("({eff_pid}) = CAST(?{idx} AS INTEGER)"));
     }
     let where_sql = where_parts.join(" AND ");
 
@@ -332,10 +339,7 @@ ELSE proxy_log.platform_id END";
 
     // ── Overview ──
     let overview_sql = format!(
-        "SELECT COUNT(*), \
-         SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
-         SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), \
-         COALESCE(SUM(est_cost), 0.0) \
+        "SELECT COUNT(*), {SUCCESS_CASE}, {AGG_TAIL_COLS} \
          FROM proxy_log WHERE deleted_at = 0 AND {where_sql}"
     );
     let p = qp.to_sql_params();
@@ -363,11 +367,9 @@ ELSE proxy_log.platform_id END";
 
     // ── Time buckets ──
     let bucket_sql = format!(
-        "SELECT {bucket_expr}, COUNT(*), \
-         SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
+        "SELECT {bucket_expr}, COUNT(*), {SUCCESS_CASE}, \
          SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END), \
-         SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), \
-         COALESCE(SUM(est_cost), 0.0) \
+         {AGG_TAIL_COLS} \
          FROM proxy_log WHERE deleted_at = 0 AND {where_sql} GROUP BY 1 ORDER BY 1"
     );
     let p = qp.to_sql_params();
@@ -395,12 +397,9 @@ ELSE proxy_log.platform_id END";
         // platform 维度按有效 platform_id（含 auto 分组回溯）聚合，JOIN platform 取真名
         let dim_sql = if gb == "platform" {
             format!(
-                "SELECT COALESCE(p.name, '未知'), COUNT(*), \
-                 SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
-                 SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), \
-                 COALESCE(SUM(est_cost), 0.0) \
-                 FROM proxy_log LEFT JOIN platform p ON p.id = ({EFF_PID}) \
-                 WHERE proxy_log.deleted_at = 0 AND {where_sql} GROUP BY ({EFF_PID}) ORDER BY 2 DESC LIMIT 50"
+                "SELECT COALESCE(p.name, '未知'), COUNT(*), {SUCCESS_CASE}, {AGG_TAIL_COLS} \
+                 FROM proxy_log LEFT JOIN platform p ON p.id = ({eff_pid}) \
+                 WHERE proxy_log.deleted_at = 0 AND {where_sql} GROUP BY ({eff_pid}) ORDER BY 2 DESC LIMIT 50"
             )
         } else {
             let dim_col = match gb.as_str() {
@@ -408,10 +407,7 @@ ELSE proxy_log.platform_id END";
                 _ => "group_key",
             };
             format!(
-                "SELECT {dim_col}, COUNT(*), \
-                 SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END), \
-                 SUM(input_tokens), SUM(output_tokens), SUM(cache_tokens), AVG(duration_ms), \
-                 COALESCE(SUM(est_cost), 0.0) \
+                "SELECT {dim_col}, COUNT(*), {SUCCESS_CASE}, {AGG_TAIL_COLS} \
                  FROM proxy_log WHERE deleted_at = 0 AND {where_sql} GROUP BY 1 ORDER BY 2 DESC LIMIT 50"
             )
         };
@@ -442,6 +438,7 @@ ELSE proxy_log.platform_id END";
     // 使下拉项与筛选语义对齐——选中某项必能命中。
     let am_where = {
         let mut parts = vec![
+            "proxy_log.deleted_at = 0".to_string(),
             "proxy_log.created_at >= ?1".to_string(),
             "proxy_log.created_at <= ?2".to_string(),
         ];
@@ -450,7 +447,7 @@ ELSE proxy_log.platform_id END";
         }
         if qp.filter_platform.is_some() {
             let idx = 3 + qp.filter_group.is_some() as usize;
-            parts.push(format!("({EFF_PID}) = CAST(?{idx} AS INTEGER)"));
+            parts.push(format!("({eff_pid}) = CAST(?{idx} AS INTEGER)"));
         }
         parts.join(" AND ")
     };

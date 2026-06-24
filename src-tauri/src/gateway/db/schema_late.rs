@@ -304,7 +304,8 @@ ALTER TABLE "group_new" RENAME TO "group";
                 );
                 // ③ 删被复合索引取代的纯单列索引。EXPLAIN 实测：删后等值/COUNT 查询走
                 //    复合索引第一列（COUNT 仍 COVERING INDEX，不退化全表扫），filter+ORDER BY
-                //    无 TEMP B-TREE。保留 *_stats / idx_proxy_log_created / model 类索引（用途不同）。
+                //    无 TEMP B-TREE。保留 *_stats / model 类索引（用途不同）。
+                //    （idx_proxy_log_created 后由 migration 035 删——纯 created_at 范围扫描已被复合索引覆盖。）
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_status", []);
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_platform_id", []);
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_group_key", []);
@@ -312,6 +313,18 @@ ALTER TABLE "group_new" RENAME TO "group";
                 //    给规划器真实选择度，避免错选索引。compact/VACUUM 后统计失效，由
                 //    maintenance.rs 维护钩子重建（见 cleanup_proxy_logs / compact_database 后追加）。
                 let _ = conn.execute("ANALYZE proxy_log", []);
+                // Migration 035: 删 4 个冗余 / 未用索引（SQL/索引审计）。无条件幂等 DROP（IF EXISTS）：
+                //  - idx_stats_agg_model / idx_stats_agg_group：model/group_key 等值过滤总伴随
+                //    time_hour 范围谓词，规划器走 idx_stats_agg_time，二者从未被选中。
+                //  - idx_proxy_log_created：纯 created_at 范围扫描已被 034 的复合
+                //    idx_proxy_log_*_created 覆盖（第二列 created_at 天然有序）。
+                //  - idx_model_price_name：UNIQUE(model_name, source) 隐式索引前导列即 model_name，
+                //    已覆盖按 model_name 查找，单列偏索引纯重复。
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_stats_agg_model", []);
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_stats_agg_group", []);
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_created", []);
+                let _ = conn.execute("DROP INDEX IF EXISTS idx_model_price_name", []);
+                tracing::info!("migration 035: dropped 4 redundant/unused indexes");
     Ok(())
 }
 
