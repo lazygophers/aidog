@@ -23,7 +23,7 @@ pub fn get_setting<'a>(
     let key = key.to_string();
     let result = db
         
-        .call_traced(None, __db_caller, {
+        .call_read_traced(None, __db_caller, {
             let scope = scope.clone();
             let key = key.clone();
             move |conn| {
@@ -98,7 +98,7 @@ pub fn list_setting_keys<'a>(db: &'a Db, scope: &'a str) -> impl std::future::Fu
     async move {
     let scope = scope.to_string();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare("SELECT key FROM setting WHERE scope = ?1 AND deleted_at = 0 ORDER BY key")?;
             let rows = stmt.query_map(params![scope], |row| row.get(0))?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
@@ -114,7 +114,7 @@ pub fn list_all_settings_raw(db: &Db) -> impl std::future::Future<Output = Resul
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT scope, key, value FROM setting WHERE deleted_at = 0 ORDER BY scope, key",
             )?;
@@ -136,7 +136,7 @@ pub fn list_all_group_platform_pairs(
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT g.name, p.name FROM group_platform gp
                  JOIN \"group\" g ON g.id = gp.group_id

@@ -259,7 +259,7 @@ pub fn list_groups(db: &Db) -> impl std::future::Future<Output = Result<Vec<Grou
     }
     let groups = db
         
-        .call_traced(None, __db_caller, |conn| {
+        .call_read_traced(None, __db_caller, |conn| {
             let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE deleted_at = 0 ORDER BY sort_order, created_at"))?;
             let rows = stmt.query_map([], row_to_group)?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
@@ -278,7 +278,7 @@ pub fn get_group(db: &Db, id: u64) -> impl std::future::Future<Output = Result<O
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(&format!("SELECT {GROUP_COLUMNS} FROM \"group\" WHERE id = ?1 AND deleted_at = 0"))?;
             Ok(stmt.query_row(params![id as i64], row_to_group).optional()?)
         })
