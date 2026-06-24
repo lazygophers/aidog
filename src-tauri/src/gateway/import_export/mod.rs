@@ -21,6 +21,10 @@ pub use ccswitch::{CcswitchDetection, CcswitchReadResult};
 pub use sub2api::Sub2ApiReadResult;
 pub use container::{decrypt, encrypt};
 
+#[cfg(test)]
+#[path = "test_collect.rs"]
+mod test_collect;
+
 use serde::{Deserialize, Serialize};
 
 /// 导出 / 导入范围标识（前端勾选框 value 与此后端枚举字符串一致）。

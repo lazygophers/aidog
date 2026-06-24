@@ -74,3 +74,7 @@ pub async fn stats_rebuild_from_logs(db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "stats_rebuild_from_logs", "command invoked");
     gateway::db::rebuild_stats_agg_from_logs(&db).await
 }
+
+#[cfg(test)]
+#[path = "test_stats.rs"]
+mod test_stats;

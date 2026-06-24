@@ -257,3 +257,7 @@ pub async fn build_notify_hooks_fragment(db: State<'_, Db>) -> Result<serde_json
         .cloned()
         .unwrap_or_else(|| serde_json::Value::Object(Default::default())))
 }
+
+#[cfg(test)]
+#[path = "test_hooks.rs"]
+mod test_hooks;

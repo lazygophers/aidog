@@ -320,3 +320,75 @@ decimals: None,
         let item: TrayItem = serde_json::from_value(raw).unwrap();
         assert_eq!(item.line_mode, "two");
     }
+
+    /// update_platform_quota 写入余额和 coding_plan，再读回。
+    #[tokio::test]
+    async fn update_platform_quota_persists() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("quota-test")).await.unwrap();
+        update_platform_quota(&db, p.id, 12.34, r#"{"plan":"pro"}"#).await.unwrap();
+        let got = get_platform(&db, p.id).await.unwrap().expect("platform exists");
+        assert!((got.est_balance_remaining - 12.34).abs() < 1e-9);
+        assert_eq!(got.est_coding_plan, r#"{"plan":"pro"}"#);
+    }
+
+    /// purge_old_soft_deleted_platforms 删物理行（deleted_at > 0 且超时）。
+    #[tokio::test]
+    async fn purge_old_soft_deleted_removes_expired_rows() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("purge-old")).await.unwrap();
+        // 软删
+        delete_platform(&db, p.id).await.unwrap();
+        // older_than_secs=-1 → cutoff = now+1, deleted_at < now+1 → 应删
+        let n = purge_old_soft_deleted_platforms(&db, -1).await.unwrap();
+        assert!(n >= 1, "should delete at least 1 old soft-deleted platform, got {n}");
+        // 行已被物理删除，无法按 id 查到（get_platform 只过滤 deleted_at=0）
+        let pid = p.id as i64;
+        let exists: i64 = db.call_traced(None, std::panic::Location::caller(), move |c| {
+            Ok(c.query_row("SELECT COUNT(*) FROM platform WHERE id = ?1", params![pid], |r| r.get(0))?)
+        }).await.unwrap();
+        assert_eq!(exists, 0, "row should be physically deleted");
+    }
+
+    /// purge_old_soft_deleted_platforms 不删尚未超时的软删行（very large older_than_secs）。
+    #[tokio::test]
+    async fn purge_old_soft_deleted_keeps_recent_rows() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("purge-recent")).await.unwrap();
+        delete_platform(&db, p.id).await.unwrap();
+        // older_than_secs=9999999 → cutoff 在未来，deleted_at 不满足 < cutoff
+        let n = purge_old_soft_deleted_platforms(&db, 9_999_999).await.unwrap();
+        assert_eq!(n, 0, "should not delete recently soft-deleted rows");
+    }
+
+    /// set_tray_platform + get_tray_platform + clear_tray 完整流程。
+    #[tokio::test]
+    async fn tray_platform_set_get_clear() {
+        let db = test_db().await;
+        let p1 = create_platform(&db, sample_platform("tray-p1")).await.unwrap();
+        let p2 = create_platform(&db, sample_platform("tray-p2")).await.unwrap();
+
+        // 初始无 tray 平台
+        assert!(get_tray_platform(&db).await.unwrap().is_none());
+
+        // 设置 p1
+        set_tray_platform(&db, p1.id, "balance").await.unwrap();
+        let got = get_tray_platform(&db).await.unwrap().expect("should have tray platform");
+        assert_eq!(got.id, p1.id);
+        assert!(got.show_in_tray);
+        assert_eq!(got.tray_display, "balance");
+
+        // 切换到 p2（互斥：p1 应被清除）
+        set_tray_platform(&db, p2.id, "coding").await.unwrap();
+        let got2 = get_tray_platform(&db).await.unwrap().expect("p2 should be tray");
+        assert_eq!(got2.id, p2.id);
+        assert_eq!(got2.tray_display, "coding");
+
+        // 验证 p1 已无 show_in_tray
+        let p1_row = get_platform(&db, p1.id).await.unwrap().expect("p1 still exists");
+        assert!(!p1_row.show_in_tray);
+
+        // clear_tray
+        clear_tray(&db).await.unwrap();
+        assert!(get_tray_platform(&db).await.unwrap().is_none());
+    }

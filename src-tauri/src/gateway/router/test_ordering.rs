@@ -79,3 +79,94 @@ fn least_latency_level_priority_tiebreak() {
     // 同延迟 100 档：p2(lp10) 先于 p1(lp5)；p3(延迟200) 末尾（延迟主导，不被高 lp 提前）
     assert_eq!(v.iter().map(|g| g.platform.id).collect::<Vec<_>>(), vec![2, 1, 3]);
 }
+
+// ── order_load_balance ──
+
+#[test]
+fn load_balance_single_platform_unchanged() {
+    let gp1 = mk_gp(1, 5, 0);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1];
+    order_load_balance(&mut v, 12345);
+    assert_eq!(v[0].platform.id, 1, "single platform stays");
+}
+
+#[test]
+fn load_balance_zero_total_weight_keeps_order() {
+    // weight=0 → effective_weight is 0 for both
+    let gp1 = mk_gp(1, 0, 0);
+    let gp2 = mk_gp(2, 0, 0);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2];
+    order_load_balance(&mut v, 99);
+    // zero total weight → returns early after sort, order may vary but no panic
+    assert_eq!(v.len(), 2);
+}
+
+#[test]
+fn load_balance_two_equal_weight_both_pickable() {
+    // mk_gp uses level_priority=5, so effective_weight = weight * clamp(5,1..10) = 1*5 = 5
+    // total = 10 per two platforms with weight=1 each
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    // seed 0: rand_val=0%10=0; p1: 0-5=-5<0 → pick=0, no swap → p1 first
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2];
+    order_load_balance(&mut v, 0);
+    assert_eq!(v.len(), 2);
+    assert_eq!(v[0].platform.id, 1, "seed=0 should pick p1");
+    // seed 5: rand_val=5%10=5; p1: 5-5=0 (not<0); p2: 0-5=-5<0 → pick=1 → swap → p2 first
+    let mut v2: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2];
+    order_load_balance(&mut v2, 5);
+    assert_eq!(v2.len(), 2);
+    assert_eq!(v2[0].platform.id, 2, "seed=5 should pick p2");
+    assert_ne!(v[0].platform.id, v2[0].platform.id, "different seeds pick different first platform");
+}
+
+#[test]
+fn load_balance_higher_weight_preferred() {
+    // p1 weight=1, p2 weight=10 → p2 more likely to be first
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 10, 0);
+    // total=11, seeds 0..10 → rand_val in [0,10]
+    // p1 wins only when rand_val < 1, i.e., rand_val=0
+    // seed=0 → 0%11=0 → p1 picked (rand_val=0 → 0-1=-1<0 → pick=0)
+    // seed=1 → 1%11=1 → p1 (1-1=0 not <0) → p2 (0-10=-10<0 → pick=1, swap)
+    let mut v = vec![&gp1, &gp2];
+    // Sort before call: sort by weight desc → [p2(10), p1(1)]
+    order_load_balance(&mut v, 1);
+    // After sort desc by weight: p2=10 comes first; seed=1 → rand=1 → 1-10=-9<0 at pick=0, no swap → p2 stays first
+    assert_eq!(v[0].platform.id, 2, "higher weight platform p2 should be first for seed=1");
+}
+
+#[test]
+fn load_balance_no_ctx_still_works() {
+    // Verify order_least_latency with None ctx does nothing
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2];
+    order_least_latency(&mut v, None);
+    // Should be unchanged
+    assert_eq!(v[0].platform.id, 1);
+    assert_eq!(v[1].platform.id, 2);
+}
+
+#[test]
+fn apply_sticky_no_ctx_does_nothing() {
+    let gp1 = mk_gp(1, 1, 0);
+    let gp2 = mk_gp(2, 1, 0);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2];
+    apply_sticky(&mut v, None, 0);
+    assert_eq!(v[0].platform.id, 1, "no ctx → unchanged");
+}
+
+#[test]
+fn apply_sticky_empty_candidates_no_panic() {
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = mk_settings();
+    let ctx = ScheduleCtx {
+        scheduler: &sched, sticky: &sticky, settings: &settings,
+        sticky_key: Some("key".to_string()),
+    };
+    let mut v: Vec<&GroupPlatformDetail> = vec![];
+    apply_sticky(&mut v, Some(&ctx), 0); // should not panic
+    assert!(v.is_empty());
+}

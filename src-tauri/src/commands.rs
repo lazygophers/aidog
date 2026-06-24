@@ -28,3 +28,7 @@ pub mod stats;
 pub mod sync_settings;
 pub mod tray;
 pub mod tray_render;
+
+#[cfg(test)]
+#[path = "commands/test_harness.rs"]
+pub(crate) mod test_harness;

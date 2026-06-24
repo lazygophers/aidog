@@ -144,3 +144,7 @@ pub async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSetting
     }
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "test_proxy_log.rs"]
+mod test_proxy_log;

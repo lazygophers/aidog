@@ -225,3 +225,7 @@ pub async fn platform_reorder(ordered_ids: Vec<u64>, db: State<'_, Db>) -> Resul
     db::reorder_platforms(&db, &ordered_ids).await
         .map_err(|e| { tracing::error!(command = "platform_reorder", error = %e, "reorder platforms failed"); e })
 }
+
+#[cfg(test)]
+#[path = "test_platform.rs"]
+mod test_platform;

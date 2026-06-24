@@ -112,3 +112,7 @@ pub async fn notification_test_beep() -> Result<(), String> {
     gateway::notification::play_beep();
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "test_notification.rs"]
+mod test_notification;

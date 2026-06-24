@@ -88,3 +88,7 @@ pub fn parse_completions_sse(data: &Value) -> Option<ChatStreamEvent> {
 pub fn to_completions_sse(event: &ChatStreamEvent, model: &str) -> Option<String> {
     super::openai::to_openai_sse(event, model)
 }
+
+#[cfg(test)]
+#[path = "test_openai_completions.rs"]
+mod test_openai_completions;

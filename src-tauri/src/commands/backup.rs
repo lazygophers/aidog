@@ -201,3 +201,7 @@ pub async fn sub2api_import(
     );
     gateway::import_export::sub2api::import(platform_payload, &decisions, auto_group, &db).await
 }
+
+#[cfg(test)]
+#[path = "test_backup.rs"]
+mod test_backup;

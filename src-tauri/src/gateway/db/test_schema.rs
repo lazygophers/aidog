@@ -208,6 +208,84 @@ use super::test_support::*;
 
 
 
+    /// Migration 012: kimi 平台 codex_tui → claude_code 修正。
+    /// 构造一个 legacy 连接（已有 platform 表 + kimi 平台 codex_tui endpoint），
+    /// 再运行 run_migrations_early，验证 endpoint client_type 被改为 claude_code。
+    #[test]
+    fn migration_012_kimi_codex_tui_to_claude_code() {
+        // 裸 rusqlite 连接（不走 Db async wrapper），直接测迁移逻辑
+        let conn = rusqlite::Connection::open_in_memory().unwrap();
+        // 建 platform 表（精简版，含迁移 012 所需列）
+        conn.execute_batch(
+            "CREATE TABLE IF NOT EXISTS platform (
+                id               INTEGER PRIMARY KEY AUTOINCREMENT,
+                name             TEXT NOT NULL DEFAULT '',
+                platform_type    TEXT NOT NULL DEFAULT '',
+                base_url         TEXT NOT NULL DEFAULT '',
+                api_key          TEXT NOT NULL DEFAULT '',
+                extra            TEXT NOT NULL DEFAULT '',
+                models           TEXT NOT NULL DEFAULT '{}',
+                available_models TEXT NOT NULL DEFAULT '[]',
+                endpoints        TEXT NOT NULL DEFAULT '[]',
+                enabled          INTEGER NOT NULL DEFAULT 1,
+                est_balance_remaining REAL NOT NULL DEFAULT 0,
+                est_coding_plan       TEXT NOT NULL DEFAULT '',
+                last_real_query_at    INTEGER NOT NULL DEFAULT 0,
+                estimate_count        INTEGER NOT NULL DEFAULT 0,
+                show_in_tray          INTEGER NOT NULL DEFAULT 0,
+                tray_display          TEXT NOT NULL DEFAULT 'balance',
+                created_at       INTEGER NOT NULL DEFAULT 0,
+                updated_at       INTEGER NOT NULL DEFAULT 0,
+                deleted_at       INTEGER NOT NULL DEFAULT 0
+            );",
+        ).unwrap();
+        // 插入一个 kimi 平台，endpoints 含需修正的 codex_tui coding endpoint
+        let endpoints_json = r#"[
+            {"protocol":"openai","base_url":"https://api.moonshot.cn/v1","client_type":"codex_tui","coding_plan":true},
+            {"protocol":"anthropic","base_url":"https://api.moonshot.cn/anthropic/v1","client_type":"claude_code","coding_plan":false}
+        ]"#;
+        conn.execute(
+            "INSERT INTO platform (name, platform_type, endpoints, created_at, updated_at, deleted_at)
+             VALUES ('kimi-test', 'kimi', ?1, 0, 0, 0)",
+            rusqlite::params![endpoints_json],
+        ).unwrap();
+        // 也插入一个非 kimi 平台（应不受影响）
+        conn.execute(
+            "INSERT INTO platform (name, platform_type, endpoints, created_at, updated_at, deleted_at)
+             VALUES ('other', 'anthropic', '[{\"protocol\":\"openai\",\"base_url\":\"\",\"client_type\":\"codex_tui\",\"coding_plan\":true}]', 0, 0, 0)",
+            [],
+        ).unwrap();
+        // 运行完整 early migrations（CREATE TABLE IF NOT EXISTS 幂等，012 会修正 kimi）
+        run_migrations_early(&conn).expect("run_migrations_early should succeed");
+        // 验证 kimi 平台的 endpoint 被修正
+        let kimi_eps: String = conn.query_row(
+            "SELECT endpoints FROM platform WHERE name = 'kimi-test'",
+            [],
+            |r| r.get(0),
+        ).unwrap();
+        let eps: Vec<serde_json::Value> = serde_json::from_str(&kimi_eps).unwrap();
+        let openai_ep = eps.iter().find(|e| e.get("protocol").and_then(|v| v.as_str()) == Some("openai")).unwrap();
+        assert_eq!(
+            openai_ep.get("client_type").and_then(|v| v.as_str()),
+            Some("claude_code"),
+            "migration 012 should fix codex_tui→claude_code for kimi openai coding endpoint"
+        );
+        // anthropic endpoint 不受影响
+        let anthropic_ep = eps.iter().find(|e| e.get("protocol").and_then(|v| v.as_str()) == Some("anthropic")).unwrap();
+        assert_eq!(
+            anthropic_ep.get("client_type").and_then(|v| v.as_str()),
+            Some("claude_code"),
+            "anthropic endpoint client_type should remain unchanged"
+        );
+        // 非 kimi 平台的 codex_tui 不被修正
+        let other_eps: String = conn.query_row(
+            "SELECT endpoints FROM platform WHERE name = 'other'",
+            [],
+            |r| r.get(0),
+        ).unwrap();
+        assert!(other_eps.contains("codex_tui"), "non-kimi platform endpoint should not be changed");
+    }
+
     /// seed 幂等：重复调用（模拟重启）不重复插入。
     #[tokio::test]
     async fn c4_seed_is_idempotent_on_restart() {

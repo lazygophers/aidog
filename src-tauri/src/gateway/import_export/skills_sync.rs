@@ -202,3 +202,174 @@ fn parse_agent(display: &str) -> Option<SkillAgent> {
 fn bump(report: &mut ImportReport, scope: &str) {
     *report.applied.entry(scope.to_string()).or_insert(0) += 1;
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::gateway::skills::{SkillAgent, SkillScope};
+
+    // ── agent_slug / a_display ──
+    #[test]
+    fn agent_slug_values() {
+        assert_eq!(agent_slug(SkillAgent::Claude), "claude-code");
+        assert_eq!(agent_slug(SkillAgent::Codex), "codex");
+    }
+
+    #[test]
+    fn a_display_values() {
+        assert_eq!(a_display(SkillAgent::Claude), "Claude Code");
+        assert_eq!(a_display(SkillAgent::Codex), "Codex");
+    }
+
+    // ── parse_agent ──
+    #[test]
+    fn parse_agent_known_values() {
+        assert_eq!(parse_agent("Claude Code"), Some(SkillAgent::Claude));
+        assert_eq!(parse_agent("Codex"), Some(SkillAgent::Codex));
+    }
+
+    #[test]
+    fn parse_agent_unknown_returns_none() {
+        assert!(parse_agent("Unknown Agent").is_none());
+        assert!(parse_agent("").is_none());
+        assert!(parse_agent("claude-code").is_none()); // slug, not display name
+    }
+
+    // ── build_add_args ──
+    #[test]
+    fn build_add_args_global_scope() {
+        let args = build_add_args("my-skill", "owner/repo", SkillAgent::Claude, &SkillScope::Global);
+        // Should include: add, source, -s, name, -a, slug, -g, -y
+        assert_eq!(&args[0], "add");
+        assert_eq!(&args[1], "owner/repo");
+        assert_eq!(&args[2], "-s");
+        assert_eq!(&args[3], "my-skill");
+        assert_eq!(&args[4], "-a");
+        assert_eq!(&args[5], "claude-code");
+        assert!(args.contains(&"-g".to_string()), "global scope should add -g");
+        assert!(args.contains(&"-y".to_string()), "should add -y");
+    }
+
+    #[test]
+    fn build_add_args_project_scope_no_global_flag() {
+        let scope = SkillScope::Project { path: "/tmp/myproject".to_string() };
+        let args = build_add_args("tool", "src/tool", SkillAgent::Codex, &scope);
+        assert_eq!(&args[0], "add");
+        assert_eq!(&args[5], "codex");
+        assert!(!args.contains(&"-g".to_string()), "project scope must NOT add -g");
+        assert!(args.contains(&"-y".to_string()));
+    }
+
+    // ── build_remove_args ──
+    #[test]
+    fn build_remove_args_global_scope() {
+        let args = build_remove_args("my-skill", SkillAgent::Codex, &SkillScope::Global);
+        assert_eq!(&args[0], "remove");
+        assert_eq!(&args[2], "my-skill");
+        assert_eq!(&args[4], "codex");
+        assert!(args.contains(&"-g".to_string()));
+        assert!(args.contains(&"-y".to_string()));
+    }
+
+    #[test]
+    fn build_remove_args_project_scope_no_global_flag() {
+        let scope = SkillScope::Project { path: "/tmp/p".to_string() };
+        let args = build_remove_args("s", SkillAgent::Claude, &scope);
+        assert!(!args.contains(&"-g".to_string()), "project scope no -g");
+    }
+
+    // ── all_agents ──
+    #[test]
+    fn all_agents_returns_two_agents() {
+        let agents = all_agents();
+        assert_eq!(agents.len(), 2);
+        assert!(agents.contains(&SkillAgent::Claude));
+        assert!(agents.contains(&SkillAgent::Codex));
+    }
+
+    // ── bump ──
+    #[test]
+    fn bump_increments_report_counter() {
+        let mut report = ImportReport::default();
+        bump(&mut report, "skills");
+        assert_eq!(report.applied.get("skills"), Some(&1));
+        bump(&mut report, "skills");
+        assert_eq!(report.applied.get("skills"), Some(&2));
+        bump(&mut report, "other");
+        assert_eq!(report.applied.get("other"), Some(&1));
+    }
+
+    // ── import_skills edge cases ──
+
+    /// import_skills with empty entries → no errors, no applied.
+    #[test]
+    fn import_skills_empty_entries_no_op() {
+        let mut report = ImportReport::default();
+        import_skills(&[], &mut report);
+        assert!(report.errors.is_empty());
+        assert!(report.applied.is_empty());
+    }
+
+    /// import_skills with unknown agent display → error recorded.
+    #[test]
+    fn import_skills_unknown_agent_records_error() {
+        let entry = SkillExportEntry {
+            name: "skill-x".to_string(),
+            source: "owner/repo".to_string(),
+            scope: SkillScope::Global,
+            agents: vec![AgentState {
+                display: "UnknownAgentXYZ".to_string(),
+                enabled: true,
+            }],
+        };
+        let mut report = ImportReport::default();
+        import_skills(&[entry], &mut report);
+        assert_eq!(report.errors.len(), 1, "should have 1 error for unknown agent");
+        assert!(report.errors[0].contains("unknown agent"), "got: {}", report.errors[0]);
+    }
+
+    /// import_skills with disabled agent → runs remove (which may fail gracefully).
+    #[test]
+    fn import_skills_disabled_agent_runs_remove_gracefully() {
+        let entry = SkillExportEntry {
+            name: "skill-y".to_string(),
+            source: "owner/repo".to_string(),
+            scope: SkillScope::Global,
+            agents: vec![AgentState {
+                display: "Codex".to_string(),
+                enabled: false, // disabled → remove path
+            }],
+        };
+        let mut report = ImportReport::default();
+        import_skills(&[entry], &mut report);
+        // Remove failure is silently ignored (let _ = run_npx); no panic.
+    }
+
+    /// export_skills does not panic (may return empty if npx not available).
+    #[test]
+    fn export_skills_does_not_panic() {
+        let _entries = export_skills();
+        // Either empty (no npx) or populated; must not panic.
+    }
+
+    // ── SkillExportEntry serde roundtrip ──
+    #[test]
+    fn skill_export_entry_serde_roundtrip() {
+        let entry = SkillExportEntry {
+            name: "my-skill".to_string(),
+            source: "owner/repo".to_string(),
+            scope: SkillScope::Global,
+            agents: vec![
+                AgentState { display: "Claude Code".to_string(), enabled: true },
+                AgentState { display: "Codex".to_string(), enabled: false },
+            ],
+        };
+        let json = serde_json::to_string(&entry).unwrap();
+        let decoded: SkillExportEntry = serde_json::from_str(&json).unwrap();
+        assert_eq!(decoded.name, entry.name);
+        assert_eq!(decoded.source, entry.source);
+        assert_eq!(decoded.agents.len(), 2);
+        assert!(decoded.agents[0].enabled);
+        assert!(!decoded.agents[1].enabled);
+    }
+}

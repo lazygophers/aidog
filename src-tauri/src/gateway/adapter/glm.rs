@@ -49,3 +49,79 @@ pub fn to_glm(req: &ChatRequest) -> GlmRequest {
 pub fn parse_glm_sse(data: &Value) -> Option<ChatStreamEvent> {
     super::openai::parse_openai_sse(data)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn sample_req() -> ChatRequest {
+        ChatRequest {
+            model: "glm-4-plus".into(),
+            messages: vec![Message {
+                role: Role::User,
+                content: MessageContent::Text("你好".into()),
+            }],
+            system: None,
+            max_tokens: Some(1024),
+            temperature: Some(0.9),
+            top_p: Some(0.95),
+            stream: Some(false),
+            tools: None,
+            tool_choice: None,
+            extra: None,
+        }
+    }
+
+    #[test]
+    fn to_glm_produces_correct_fields() {
+        let req = sample_req();
+        let result = to_glm(&req);
+        assert_eq!(result.model, "glm-4-plus");
+        assert_eq!(result.messages.len(), 1);
+        assert_eq!(result.max_tokens, Some(1024));
+        assert_eq!(result.temperature, Some(0.9));
+        assert_eq!(result.top_p, Some(0.95));
+        assert_eq!(result.stream, Some(false));
+        assert!(result.web_search.is_none(), "web_search defaults to None");
+    }
+
+    #[test]
+    fn to_glm_serializes_without_null_fields() {
+        let req = sample_req();
+        let result = to_glm(&req);
+        let json = serde_json::to_string(&result).unwrap();
+        assert!(!json.contains("\"web_search\":null"), "web_search=None must be skipped");
+    }
+
+    #[test]
+    fn parse_glm_sse_content_delta() {
+        let data = serde_json::json!({
+            "choices": [{
+                "index": 0,
+                "delta": {"content": "GLM响应"},
+                "finish_reason": null
+            }]
+        });
+        let result = parse_glm_sse(&data);
+        assert!(result.is_some(), "should parse GLM content delta");
+        if let Some(ChatStreamEvent::Delta { text }) = result {
+            assert_eq!(text, "GLM响应");
+        } else {
+            panic!("expected Delta event");
+        }
+    }
+
+    #[test]
+    fn parse_glm_sse_finish_reason_stop() {
+        let data = serde_json::json!({
+            "choices": [{
+                "index": 0,
+                "delta": {},
+                "finish_reason": "stop"
+            }]
+        });
+        let result = parse_glm_sse(&data);
+        assert!(result.is_some(), "should parse stop event");
+        assert!(matches!(result, Some(ChatStreamEvent::Stop { .. })));
+    }
+}

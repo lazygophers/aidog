@@ -95,3 +95,7 @@ pub async fn mcp_resync(db: State<'_, Db>) -> Result<usize, String> {
     tracing::debug!(command = "mcp_resync", "command invoked");
     gateway::mcp::resync_all(&db).await
 }
+
+#[cfg(test)]
+#[path = "test_mcp.rs"]
+mod test_mcp;

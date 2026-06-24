@@ -158,3 +158,62 @@ pub async fn maybe_auto_sync(db: &Db) -> Result<Option<PriceSyncResult>, String>
     let result = sync_github_prices(db).await?;
     Ok(Some(result))
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::gateway::db::test_support::test_db;
+    use crate::gateway::models::PriceSyncSettings;
+
+    #[tokio::test]
+    async fn get_sync_settings_returns_default_when_absent() {
+        let db = test_db().await;
+        let s = get_sync_settings(&db).await;
+        assert!(!s.auto_sync_enabled);
+        assert_eq!(s.sync_interval_secs, 86400);
+        assert_eq!(s.last_sync_at, 0);
+    }
+
+    #[tokio::test]
+    async fn save_and_get_sync_settings_roundtrip() {
+        let db = test_db().await;
+        let settings = PriceSyncSettings {
+            auto_sync_enabled: true,
+            sync_interval_secs: 3600,
+            last_sync_at: 1234567890,
+            fallback_input_price: 5.0,
+            fallback_output_price: 7.0,
+        };
+        save_sync_settings(&db, &settings).await;
+        let got = get_sync_settings(&db).await;
+        assert!(got.auto_sync_enabled);
+        assert_eq!(got.sync_interval_secs, 3600);
+        assert_eq!(got.last_sync_at, 1234567890);
+        assert!((got.fallback_input_price - 5.0).abs() < 1e-9);
+    }
+
+    #[tokio::test]
+    async fn maybe_auto_sync_returns_none_when_disabled() {
+        let db = test_db().await;
+        // auto_sync_enabled = false (default) → should return None without hitting network
+        let result = maybe_auto_sync(&db).await.unwrap();
+        assert!(result.is_none());
+    }
+
+    #[tokio::test]
+    async fn maybe_auto_sync_returns_none_when_not_due() {
+        let db = test_db().await;
+        // enable auto_sync but set last_sync_at to recent time → not due
+        let now = crate::gateway::db::now();
+        let settings = PriceSyncSettings {
+            auto_sync_enabled: true,
+            sync_interval_secs: 86400, // 24h
+            last_sync_at: now - 100,    // only 100ms ago
+            fallback_input_price: 3.0,
+            fallback_output_price: 3.0,
+        };
+        save_sync_settings(&db, &settings).await;
+        let result = maybe_auto_sync(&db).await.unwrap();
+        assert!(result.is_none(), "should not sync when not due");
+    }
+}

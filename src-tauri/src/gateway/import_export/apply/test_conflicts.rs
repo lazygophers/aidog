@@ -88,3 +88,100 @@ async fn detect_conflicts_no_platform_conflict() {
     let platform_conflicts: Vec<_> = conflicts.iter().filter(|c| c.scope == crate::gateway::import_export::SCOPE_PLATFORM).collect();
     assert!(platform_conflicts.is_empty(), "platform scope 不应再报 name 冲突");
 }
+
+/// 同名 group_key 报冲突。
+#[tokio::test]
+async fn detect_conflicts_group_key_conflict() {
+    use crate::gateway::db::create_group;
+    use crate::gateway::models::{CreateGroup, RoutingMode};
+
+    let db = test_db().await;
+    // 建一个已存在的 group
+    create_group(&db, CreateGroup {
+        name: "my-group".to_string(),
+        group_key: Some("gk_existing".to_string()),
+        routing_mode: RoutingMode::Failover,
+        auto_from_platform: String::new(),
+        request_timeout_secs: 0,
+        connect_timeout_secs: 0,
+        source_protocol: None,
+        max_retries: 1,
+        model_mappings: vec![],
+    }).await.unwrap();
+
+    // payload 含同 group_key 的 group
+    let mut p = payload(vec![]);
+    p.group = vec![serde_json::json!({
+        "name": "my-group",
+        "group_key": "gk_existing"
+    })];
+
+    let conflicts = detect_conflicts(&p, &db).await.unwrap();
+    let group_conflicts: Vec<_> = conflicts.iter()
+        .filter(|c| c.scope == crate::gateway::import_export::SCOPE_GROUP)
+        .collect();
+    assert!(!group_conflicts.is_empty(), "should report group conflict for duplicate group_key");
+    assert_eq!(group_conflicts[0].key, "gk_existing");
+}
+
+/// 同 scope+key 的 setting 报冲突。
+#[tokio::test]
+async fn detect_conflicts_setting_conflict() {
+    use crate::gateway::db::set_setting;
+    use crate::gateway::models::SetSettingInput;
+
+    let db = test_db().await;
+    set_setting(&db, SetSettingInput { scope: "proxy".to_string(), key: "port".to_string(), value: serde_json::Value::String("8080".to_string()) }).await.unwrap();
+
+    let mut p = payload(vec![]);
+    p.setting = vec![["proxy".to_string(), "port".to_string(), "9090".to_string()]];
+
+    let conflicts = detect_conflicts(&p, &db).await.unwrap();
+    let setting_conflicts: Vec<_> = conflicts.iter()
+        .filter(|c| c.scope == crate::gateway::import_export::SCOPE_SETTING)
+        .collect();
+    assert!(!setting_conflicts.is_empty(), "should report setting conflict for duplicate scope+key");
+    assert_eq!(setting_conflicts[0].key, "proxy:port");
+}
+
+/// 空 payload 无冲突。
+#[tokio::test]
+async fn detect_conflicts_empty_payload_no_conflicts() {
+    let db = test_db().await;
+    let p = payload(vec![]);
+    let conflicts = detect_conflicts(&p, &db).await.unwrap();
+    assert!(conflicts.is_empty(), "empty payload should have no conflicts");
+}
+
+/// group 无 group_key 字段时（老格式），回退到 name 作 key 匹配。
+#[tokio::test]
+async fn detect_conflicts_group_fallback_to_name_when_no_group_key() {
+    use crate::gateway::db::create_group;
+    use crate::gateway::models::{CreateGroup, RoutingMode};
+
+    let db = test_db().await;
+    // 建一个 group，group_key = name
+    create_group(&db, CreateGroup {
+        name: "fallback-group".to_string(),
+        group_key: Some("fallback-group".to_string()),
+        routing_mode: RoutingMode::Failover,
+        auto_from_platform: String::new(),
+        request_timeout_secs: 0,
+        connect_timeout_secs: 0,
+        source_protocol: None,
+        max_retries: 1,
+        model_mappings: vec![],
+    }).await.unwrap();
+
+    // 老格式 payload: 只有 name, 无 group_key
+    let mut p = payload(vec![]);
+    p.group = vec![serde_json::json!({
+        "name": "fallback-group"
+    })];
+
+    let conflicts = detect_conflicts(&p, &db).await.unwrap();
+    let group_conflicts: Vec<_> = conflicts.iter()
+        .filter(|c| c.scope == crate::gateway::import_export::SCOPE_GROUP)
+        .collect();
+    assert!(!group_conflicts.is_empty(), "old format group should fallback to name for conflict detection");
+}
