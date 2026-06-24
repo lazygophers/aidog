@@ -103,7 +103,7 @@ pub fn get_last_test_result(
     db
         .call_read_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
-            let mut stmt = conn.prepare(
+            let mut stmt = conn.prepare_cached(
                 "SELECT status_code, duration_ms, created_at, response_body \
                  FROM proxy_log \
                  WHERE deleted_at = 0 AND platform_id = ?1 AND source_protocol = 'test' \
@@ -150,7 +150,7 @@ pub fn get_group_usage_stats<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
         .call_read_traced(None, __db_caller, move |conn| {
             // 从聚合表查单组累计 + 今日。recent_failures/recent_total 聚合表无法重建（需逐请求近 5 条），
             // 置 0（Groups 页不渲染该健康点；与批量版 get_all_group_usage_stats 一致）。
-            let stats = conn.query_row(
+            let mut stmt = conn.prepare_cached(
                 "SELECT COALESCE(SUM(request_count), 0), \
                  COALESCE(SUM(success_count), 0), \
                  COALESCE(SUM(sum_input_tokens), 0), COALESCE(SUM(sum_output_tokens), 0), COALESCE(SUM(sum_cache_tokens), 0), \
@@ -158,6 +158,8 @@ pub fn get_group_usage_stats<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
                  COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN sum_input_tokens + sum_output_tokens ELSE 0 END), 0), \
                  COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN sum_est_cost ELSE 0.0 END), 0.0) \
                  FROM stats_agg_hourly WHERE group_key = ?1 AND deleted_at = 0",
+            )?;
+            let stats = stmt.query_row(
                 params![group_key, today_key],
                 |row| {
                     let total: i64 = row.get(0)?;
@@ -203,7 +205,7 @@ pub fn get_all_group_usage_stats(
     async move {
     db
         .call_read_traced(None, __db_caller, move |conn| {
-            let mut stmt = conn.prepare(
+            let mut stmt = conn.prepare_cached(
                 "SELECT group_key, COALESCE(SUM(request_count), 0), \
                  COALESCE(SUM(success_count), 0), \
                  COALESCE(SUM(sum_input_tokens), 0), COALESCE(SUM(sum_output_tokens), 0), COALESCE(SUM(sum_cache_tokens), 0), \
