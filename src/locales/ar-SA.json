@@ -797,6 +797,7 @@
   "platform.usageLabel": "المُستخدَم",
   "platform.usageLoading": "جارٍ تحميل الاستخدام",
   "platform.viewLogs": "عرض السجلات",
+  "platform.duplicate": "نسخ",
   "platform.windowUnitDay": "أيام",
   "platform.windowUnitHour": "ساعات",
   "platform.windowUnitMinute": "دقائق",
@@ -1625,5 +1626,9 @@
   "stats.rebuildHint": "إعادة بناء جدول الإحصائيات المجمعة بالكامل من سجلات الطلبات التاريخية",
   "stats.rebuildDone": "تمت إعادة بناء الإحصائيات المجمعة من السجلات",
   "stats.fineGranHint": "تأتي البيانات على مستوى الدقيقة من سجلات الطلبات وهي متاحة على المدى القصير فقط (محدودة بمدة الاحتفاظ بالسجلات)",
-  "stats.fineGranBadge": "· على المدى القصير فقط"
+  "stats.fineGranBadge": "· على المدى القصير فقط",
+  "importExport.applyN": "استيراد ({{n}})",
+  "importExport.selectItems": "اختر العناصر للاستيراد",
+  "importExport.conflictTag": "تعارض",
+  "importExport.error.notAidogx": "يرجى إسقاط ملف نسخ احتياطي ‎.aidogx"
 }

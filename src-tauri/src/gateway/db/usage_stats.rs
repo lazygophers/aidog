@@ -78,7 +78,7 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             // platform_id 现为整数；自动分组日志可能未带 platform_id（=0），通过 group.auto_from_platform（存十进制字符串）回溯。
             // 回溯按 group.group_key 匹配 proxy_log.group_key（gk_<hex>，非显示名 g.name；见 migration 024 / group-name-group-key-split）。
             let where_clause = "deleted_at = 0 AND (platform_id = ?1 OR (platform_id = 0 AND group_key IN (SELECT group_key FROM \"group\" WHERE auto_from_platform = ?2 AND deleted_at = 0)))";
@@ -101,7 +101,7 @@ pub fn get_last_test_result(
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
             let mut stmt = conn.prepare(
                 "SELECT status_code, duration_ms, created_at, response_body \
@@ -147,7 +147,7 @@ pub fn get_group_usage_stats<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
     let group_key = group_key.to_string();
     let today_key = local_today_hour_key();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             // 从聚合表查单组累计 + 今日。recent_failures/recent_total 聚合表无法重建（需逐请求近 5 条），
             // 置 0（Groups 页不渲染该健康点；与批量版 get_all_group_usage_stats 一致）。
             let stats = conn.query_row(
@@ -202,7 +202,7 @@ pub fn get_all_group_usage_stats(
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT group_key, COALESCE(SUM(request_count), 0), \
                  COALESCE(SUM(success_count), 0), \
@@ -267,7 +267,7 @@ pub fn platform_usage_stats_all(
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             // 公共 eff_pid 派生子查询：platform_id=0 经 group.auto_from_platform 回溯到源平台。
             const EFF_PID_SUBQUERY: &str = "\
                 SELECT \
@@ -441,7 +441,7 @@ pub fn get_group_hourly_rate<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
     let window_key = utc_ms_to_local_hour_key(now_ms - RATE_MAX_SPAN_MS);
     let group_key = group_key.to_string();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             Ok(hourly_rate_inner(conn, now_ms, &window_key, "group_key = ?2", &[&group_key])?)
         })
         .await
@@ -461,7 +461,7 @@ pub fn get_platform_hourly_rate(db: &Db, platform_id: u64) -> impl std::future::
     let now_ms = chrono::Utc::now().timestamp_millis();
     let window_key = utc_ms_to_local_hour_key(now_ms - RATE_MAX_SPAN_MS);
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let pid = platform_id as i64;
             Ok(hourly_rate_inner(conn, now_ms, &window_key, "platform_id = ?2", &[&pid])?)
         })

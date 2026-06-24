@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Test coverage output (vitest)
+coverage/
+
 # Docs build output (Rspress)
 doc_build/
 

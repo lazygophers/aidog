@@ -3,7 +3,7 @@
   "name": "test-cov-rust",
   "title": "Rust 后端分支覆盖≥80%",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

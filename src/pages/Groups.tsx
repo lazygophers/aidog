@@ -470,14 +470,16 @@ async function fetchGroupStats(
 }
 
 /** 分组内嵌组件（供 Platforms 页使用） */
-export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onEditPlatform, onToast, onViewModeChange, openCreateGroupRef, reloadRef, onCountChange }: {
-  onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string }) => void;
+export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onEditPlatform, onDuplicatePlatform, onToast, onViewModeChange, openCreateGroupRef, reloadRef, onCountChange }: {
+  onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean }) => void;
   onGroupsChanged?: () => void;
   /** 打开平台创建表单；提供 lockedGroupId = 从某分组 ➕ 触发，预绑该分组且锁定归属。 */
   onCreatePlatform?: (presetGroupIds?: number[], lockedGroupId?: number) => void;
   /** 编辑分组展开区平台卡片：父级(Platforms)直接打开同页编辑表单，避免经 onNavigate 往返导航
    *  （navContext.platformId 不变 + 一次性消费 ref 不复位 → 第二次编辑无反应）。 */
   onEditPlatform?: (p: Platform) => void;
+  /** 复制分组展开区平台卡片：父级(Platforms)直接打开同页新建表单（灌入源平台配置），同 onEditPlatform 走直调避免 nav 往返。 */
+  onDuplicatePlatform?: (p: Platform) => void;
   /** 透传父级 toast setter（快速测试/额度刷新结果反馈）；不传则 usePlatformCards 兜底空函数。 */
   onToast?: (toast: { text: string; ok: boolean } | null) => void;
   /** 进入/退出全屏视图态（创建/编辑分组）时通知父级，供 Platforms 页隐藏下方未分组平台列表。 */
@@ -744,6 +746,10 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     onRefreshQuota: cards.refreshQuota,
     onToggleEnabled: async (p) => { await cards.handleToggle(p); load(); },
     onEdit: cards.handleEdit,
+    onDuplicate: (p) => {
+      if (onDuplicatePlatform) onDuplicatePlatform(p);
+      else onNavigate?.("platforms", { platformId: p.id, platformName: p.name, duplicate: true });
+    },
     onDelete: (id) => {
       const p = platforms.find(pp => pp.id === id);
       if (p) handleGroupRemovePlatform(p, gid);
@@ -754,7 +760,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     onFaviconFailed: (id) => cards.onFaviconFailed(prev => new Set(prev).add(id)),
     // handlers 来自 usePlatformCards 的 useCallback（稳定）；load 内联故每次重算——分组展开非热路径，可接受
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [cards, load, platforms, handleGroupRemovePlatform]);
+  }), [cards, load, platforms, handleGroupRemovePlatform, onDuplicatePlatform, onNavigate]);
 
   // ── per-group 优先级（level_priority）就地编辑：乐观更新 + 失败回滚 + toast ──
   const handleSetLevelPriority = useCallback((gid: number, pid: number, next: number) => {

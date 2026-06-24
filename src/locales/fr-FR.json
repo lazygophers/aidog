@@ -797,6 +797,7 @@
   "platform.usageLabel": "Utilisé",
   "platform.usageLoading": "Chargement de l'utilisation",
   "platform.viewLogs": "Voir les journaux",
+  "platform.duplicate": "Dupliquer",
   "platform.windowUnitDay": "Jours",
   "platform.windowUnitHour": "Heures",
   "platform.windowUnitMinute": "Minutes",
@@ -1625,5 +1626,9 @@
   "stats.rebuildHint": "Reconstruire entièrement la table des statistiques agrégées à partir des journaux de requêtes historiques",
   "stats.rebuildDone": "Statistiques agrégées reconstruites depuis les journaux",
   "stats.fineGranHint": "Les données à la minute proviennent des journaux de requêtes et ne sont disponibles qu’à court terme (limitées par la rétention des journaux)",
-  "stats.fineGranBadge": "· court terme uniquement"
+  "stats.fineGranBadge": "· court terme uniquement",
+  "importExport.applyN": "Importer ({{n}})",
+  "importExport.selectItems": "Sélectionner les éléments à importer",
+  "importExport.conflictTag": "Conflit",
+  "importExport.error.notAidogx": "Veuillez déposer un fichier de sauvegarde .aidogx"
 }

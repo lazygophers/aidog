@@ -40,6 +40,10 @@ function toPastePresets(protocols: ProtocolOption[]): PastePresetRef[] {
     value: p.value,
     label: p.label,
     keywords: p.keywords,
+    // hosts 由模块加载时从 getDefaultEndpoints 派生注入 PROTOCOLS[].hosts，
+    // 必须透传，否则 matchPlatform 优先级1（host 子串匹配）对所有 preset 失效。
+    hosts: p.hosts,
+    codingPlan: p.codingPlan,
   }));
 }
 
