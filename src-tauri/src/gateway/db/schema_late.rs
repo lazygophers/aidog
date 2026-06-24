@@ -267,10 +267,12 @@ ALTER TABLE "group_new" RENAME TO "group";
                     "CREATE INDEX IF NOT EXISTS idx_notification_created ON notification(created_at)",
                     [],
                 );
-                // Migration 032: 小时级聚合统计表 stats_agg_hourly（建表 + 索引 + 存量一次性回填）。
-                // 统计读取改查预聚合表，写入解耦于日志开关（关日志也写聚合）。回填幂等
-                // （NOT EXISTS 空表守卫），SQL 内联于本模块顶 STATS_AGG_HOURLY_SQL。
+                // Migration 032: 小时级聚合统计表 stats_agg_hourly（建表 + 索引）+ 存量一次性回填。
+                // 统计读取改查预聚合表，写入解耦于日志开关（关日志也写聚合）。
+                // DDL（建表 + 建索引）由 STATS_AGG_HOURLY_SQL 串执行；存量回填改 Rust
+                // backfill_stats_agg_if_empty（内存算 eff_pid + 批量 UPSERT），空表守卫在 Rust 内判。
                 conn.execute_batch(STATS_AGG_HOURLY_SQL)?;
+                backfill_stats_agg_if_empty(conn)?;
                 // Migration 033: 删除无意义的 proxy_log.is_final 列（旧版本曾 ALTER 加过）。
                 // bundled sqlite 支持 DROP COLUMN；列不存在则报错忽略（新库本就无此列）。
                 let _ = conn.execute("ALTER TABLE proxy_log DROP COLUMN is_final", []);

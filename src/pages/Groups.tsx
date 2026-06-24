@@ -901,6 +901,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   const handleReorderGroups = (next: GroupRow[]) => {
     const reordered = next.map(r => r.detail);
     setDetails(reordered);
+    loadedDetailsRef.current = reordered;
     groupApi.reorder(reordered.map(d => d.group.id)).catch(console.error);
   };
 
@@ -932,6 +933,20 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   // 渐进加载序号守卫：每次 load() 自增，异步阶段回调前比对，丢弃陈旧轮次（reload/StrictMode 双跑）的迟到 setState。
   const loadSeqRef = useRef(0);
 
+  // ── 触底加载（J3：反转 H6 单 JOIN 全量批量，改前端分页无限滚动）──
+  // 每页拉一批组 detail（后端 group_detail_list_paged 无 JOIN）；滚到底部 sentinel 触发下一页。
+  const PAGE_SIZE = 12;
+  // 已拉的页数 = 下一页 offset / PAGE_SIZE。loadedPagesRef 与 details 长度解耦（details 可被增量改）。
+  const nextOffsetRef = useRef(0);
+  // 全量平台快照（platform_list 一次拉全，跨页统计/未分组区/余额复用，无需逐页 invoke）。
+  const allPlatformsRef = useRef<Platform[]>([]);
+  // 已拉全部组 detail 累积（跨页累加，供统计聚合复用，避免 detailsRef 受分帧/单组刷新干扰）。
+  const loadedDetailsRef = useRef<GroupDetail[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const loadingMoreRef = useRef(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
   /**
    * 加载（invoke 往返 O(1)，流式视觉靠前端分帧而非串行网络往返）：
    *   ① 一次批量 `group_detail_list`（后端单 invoke 拉全部组+平台，已缓存）+ `platform_list` 并行。
@@ -942,76 +957,97 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
    *   ③ 未分组平台一次性补齐（已含在 platform_list）+ 余额/统计聚合。
    * 计数随每帧 commit 经 onCountChange 增量回传父级页头徽章。
    */
+  /** 计数回传（跨组/未分组去重）：基于「全量平台快照」算 total/active，与分页进度解耦。 */
+  const reportCount = () => {
+    const all = allPlatformsRef.current;
+    let active = 0;
+    for (const p of all) if (p.enabled) active++;
+    onCountChange?.({ total: all.length, active });
+  };
+
+  /** 已拉全部组 detail + 全量平台 → 重算统计/余额（增量加载后复用，无额外组 invoke 往返）。 */
+  const recomputeStats = async (seqAlive: () => boolean) => {
+    const { statsMap, balanceMap } = await fetchGroupStats(loadedDetailsRef.current, allPlatformsRef.current);
+    if (!seqAlive()) return;
+    setGroupStats(statsMap);
+    setGroupBalance(balanceMap);
+  };
+
+  /**
+   * 触底加载下一页组 detail（后端 group_detail_list_paged，无 JOIN）。
+   *   ① 单表分页拉 PAGE_SIZE 组（含其平台关联，后端内存补 platform）；空页 → hasMore=false 停止。
+   *   ② append 到 details + 把本页平台 upsert 进 platforms（保留已渲组卡引用稳定）。
+   *   ③ 统计/余额按累积 details 重算。
+   * seq 守卫：load() 自增 loadSeqRef，分页迟到回调比对丢弃陈旧轮次。
+   */
+  const loadMore = async () => {
+    if (loadingMoreRef.current) return;
+    const seq = loadSeqRef.current;
+    const alive = () => seq === loadSeqRef.current;
+    loadingMoreRef.current = true;
+    setLoadingMore(true);
+    try {
+      const offset = nextOffsetRef.current;
+      const page = (await groupDetailApi.listPaged(offset, PAGE_SIZE)) || [];
+      if (!alive()) return;
+      nextOffsetRef.current = offset + PAGE_SIZE;
+      if (page.length < PAGE_SIZE) setHasMore(false);
+      if (page.length === 0) return;
+
+      const filled: GroupDetail[] = page.map(d => ({
+        group: d.group,
+        platforms: d.platforms || [],
+        model_mappings: d.model_mappings || d.group.model_mappings || [],
+      }));
+      loadedDetailsRef.current = [...loadedDetailsRef.current, ...filled];
+      setDetails(prev => [...prev, ...filled]);
+      setPlatforms(prev => {
+        let next = prev;
+        for (const d of filled) for (const gp of d.platforms) next = upsertPlatformInto(next, gp.platform);
+        return next;
+      });
+      reportCount();
+      await recomputeStats(alive);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      loadingMoreRef.current = false;
+      if (alive()) setLoadingMore(false);
+    }
+  };
+
+  /**
+   * 全量重载（mount / 结构变化）：重置分页游标 + 全量平台快照，拉第一页组 detail（触底加载首屏）。
+   * 后续页由 sentinel IntersectionObserver 经 loadMore 拉取。组列表去 JOIN → 分页（J3 反转 H6）。
+   */
   const load = async () => {
     const seq = ++loadSeqRef.current;
     const alive = () => seq === loadSeqRef.current;
     setLoading(true);
     onCountChange?.({ total: 0, active: 0 });
-    // 累计「已见平台」集（跨组/未分组去重：共享平台只计一次），随每帧流入递增回传计数。
-    const seen = new Map<number, Platform>();
-    const reportCount = () => {
-      let active = 0;
-      for (const p of seen.values()) if (p.enabled) active++;
-      onCountChange?.({ total: seen.size, active });
-    };
-    const upsertPlatform = upsertPlatformInto;
-    // 下一帧（rAF；测试/无 rAF 环境兜底 setTimeout(0)）。
-    const nextFrame = (): Promise<void> =>
-      new Promise(resolve => {
-        if (typeof requestAnimationFrame === "function") requestAnimationFrame(() => resolve());
-        else setTimeout(resolve, 0);
-      });
+    // 重置分页态 + 累积缓存（reload 时清旧）。
+    nextOffsetRef.current = 0;
+    loadedDetailsRef.current = [];
+    loadingMoreRef.current = false;
+    setHasMore(true);
+    setDetails([]);
+    setPlatforms([]);
     try {
-      // ── ① 批量拉全量（O(1) invoke）：group_detail_list（组+平台一次）+ platform_list 并行 ──
-      const [detailsRes, platformsRes] = await Promise.all([
-        groupDetailApi.list(),
-        platformApi.list(),
-      ]);
+      // 全量平台一次拉（统计/未分组区/余额复用，非分页对象）。
+      const allPlatforms: Platform[] = (await platformApi.list()) || [];
       if (!alive()) return;
-      const filledDetails: GroupDetail[] = detailsRes || [];
-      const allPlatforms: Platform[] = platformsRes || [];
-
-      // ── ② 先渲分组骨架（平台区空），随后逐帧 commit 平台卡（流式视觉） ──
-      const skeleton: GroupDetail[] = filledDetails.map(d => ({
-        group: d.group,
-        platforms: [],
-        model_mappings: d.model_mappings || d.group.model_mappings || [],
-      }));
-      setDetails(skeleton);
-      setPlatforms([]); // 重置：流式从空开始逐帧填（reload 时清旧）
-      setLoading(false); // 骨架已渲，撤内部加载态；平台卡在已渲容器内分帧填充
-
-      // 逐组分帧上屏：每帧 commit 一组的平台卡 + 该组 GroupDetail（含 gps），节奏由 rAF 控制。
-      for (const filled of filledDetails) {
-        // 该组 GroupDetail 整组填入 details（卡片渲染门控在 platforms 是否含该平台）。
-        setDetails(prev => prev.map(d => d.group.id === filled.group.id ? filled : d));
-        // 该组平台一帧内批量 append（单次 setState，避免组内逐卡 N 次 microtask 让出）。
-        setPlatforms(prev => {
-          let next = prev;
-          for (const gp of filled.platforms) next = upsertPlatform(next, gp.platform);
-          return next;
-        });
-        for (const gp of filled.platforms) seen.set(gp.platform.id, gp.platform);
-        reportCount();
-        // 让出一帧：本组卡先提交渲染，下一帧再渲下一组（保留逐组流式上屏视觉）。
-        await nextFrame();
-        if (!alive()) return;
-      }
-
-      // ── ③ 未分组平台（platform_list 已含全量）→ 一次性补齐剩余 + 计数最终校正 ──
+      allPlatformsRef.current = allPlatforms;
+      // 未分组平台一次性补齐（platform_list 已含全量；分组平台由 loadMore 各页 upsert）。
       setPlatforms(prev => {
         let next = prev;
-        for (const plat of allPlatforms) next = upsertPlatform(next, plat);
+        for (const plat of allPlatforms) next = upsertPlatformInto(next, plat);
         return next;
       });
-      for (const plat of allPlatforms) seen.set(plat.id, plat);
       reportCount();
+      setLoading(false); // 撤内部加载态；首页组卡经 loadMore 填充
 
-      // ── 统计/余额聚合（复用已拉的 details + 全量平台，无额外往返）──
-      const { statsMap, balanceMap } = await fetchGroupStats(filledDetails, allPlatforms);
-      if (!alive()) return;
-      setGroupStats(statsMap);
-      setGroupBalance(balanceMap);
+      // 首页组 detail（触底加载第一页）。
+      await loadMore();
     } catch (e) {
       console.error(e);
       if (alive()) setLoading(false);
@@ -1043,6 +1079,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
         return found ? next : prev;
       });
       if (!found) { load(); return; }
+      // 累积缓存同步替换该组（统计聚合复用 loadedDetailsRef，避免陈旧）。
+      loadedDetailsRef.current = loadedDetailsRef.current.map(x => x.group.id === gid ? filled : x);
       setPlatforms(prev => {
         let next = prev;
         for (const gp of filled.platforms) next = upsertPlatformInto(next, gp.platform);
@@ -1056,17 +1094,34 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     }
   };
 
-  /** 轻量刷新：更新 platforms（含 est_balance_remaining）+ usage stats + group 聚合，不拉 quota HTTP */
+  /** 轻量刷新：刷新全量平台快照（含 est_balance_remaining）+ 按已加载组重算 usage stats / 余额聚合，
+   *  不拉 quota HTTP、不重拉组（统计基于已触底加载的 loadedDetailsRef，分页一致）。 */
   const refreshStats = async () => {
     try {
-      const [d, p] = await Promise.all([groupDetailApi.list(), platformApi.list()]);
-      const { statsMap, balanceMap } = await fetchGroupStats(d || [], p || []);
+      const p = (await platformApi.list()) || [];
+      allPlatformsRef.current = p;
+      const { statsMap, balanceMap } = await fetchGroupStats(loadedDetailsRef.current, p);
       setGroupStats(statsMap);
       setGroupBalance(balanceMap);
     } catch { /* ignore */ }
   };
 
   useEffect(() => { load(); }, []);
+
+  // ── 触底加载 sentinel：滚到底部（含全屏视图退出后）拉下一页组 detail（J3 无限滚动）。
+  // 依赖 hasMore/loadingMore/loading 重建 observer：避免在加载中/无更多时重复触发；root=null 用视口。
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || !hasMore || loading) return;
+    const io = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting) && !loadingMoreRef.current) {
+        loadMore();
+      }
+    }, { rootMargin: "200px" });
+    io.observe(el);
+    return () => io.disconnect();
+  }, [hasMore, loading, loadingMore]);
+
   // 父级跨组件刷新入口（全局 purge 后触发），绑定本组件 load() 重建分组卡内平台状态。
   useEffect(() => {
     if (!reloadRef) return;
@@ -1984,6 +2039,15 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
             );
             }}
           />
+          {/* 触底加载哨兵：进入视口触发 loadMore 拉下一页（hasMore 时常驻）。 */}
+          {hasMore && details.length > 0 && (
+            <div ref={sentinelRef} style={{ height: 1 }} aria-hidden="true" />
+          )}
+          {loadingMore && (
+            <div className="text-tertiary" style={{ padding: 12, textAlign: "center", fontSize: 12 }}>
+              {t("status.loading")}
+            </div>
+          )}
         </div>
       )}
 

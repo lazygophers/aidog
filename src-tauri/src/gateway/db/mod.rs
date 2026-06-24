@@ -11,9 +11,12 @@ use crate::gateway::models::*;
 /// 让 UI 读查询不再排在代理密集写日志之后。动态扩容（空闲回收 / 加锁扩容）本轮不做。
 const READ_POOL_SIZE: usize = 8;
 
-/// Migration 032（旧 011 文件）: 小时级聚合统计表 stats_agg_hourly（建表 + 索引 + 存量一次性回填）。
-/// 统计读取改查预聚合表，写入解耦于日志开关（关日志也写聚合）。回填幂等（NOT EXISTS 空表守卫）。
-/// 内联自原 migrations/011_stats_agg_hourly.sql（逐字保留）。init_tables 与回填测试共用。
+/// Migration 032（旧 011 文件）: 小时级聚合统计表 stats_agg_hourly（建表 + 索引）。
+/// 统计读取改查预聚合表，写入解耦于日志开关（关日志也写聚合）。
+///
+/// 历史上本 DDL 串还内联了一次性回填 `INSERT ... SELECT`（含 eff_pid 标量子查询 + NOT EXISTS
+/// 空表守卫）。去 JOIN/子查询重构后，回填改由 Rust `backfill_stats_agg_if_empty` 在内存算
+/// eff_pid + 批量 UPSERT（schema_late.rs 紧随本 DDL 调用），DDL 串只保留纯建表 + 建索引。
 const STATS_AGG_HOURLY_SQL: &str = r#"-- Migration 011 (file) / 032 (inline): 小时级聚合统计表 stats_agg_hourly。
 --
 -- 目的：统计读取（today_stats / today_platform_stats / group usage / Stats hourly+daily）
@@ -53,47 +56,6 @@ CREATE INDEX IF NOT EXISTS idx_stats_agg_time     ON stats_agg_hourly(time_hour)
 -- 过滤总伴随 time_hour 范围谓词，规划器走 idx_stats_agg_time；纯单列索引仅增写放大）。
 -- 旧库由 migration 035 DROP。详见 SQL/索引审计任务。
 CREATE INDEX IF NOT EXISTS idx_stats_agg_platform ON stats_agg_hourly(platform_id);
-
--- 一次性回填：把存量 proxy_log 按 (本地小时桶, actual_model优先, group_key, eff_pid) 聚合写入。
--- 幂等：仅当 stats_agg_hourly 为空时回填（NOT EXISTS 守卫），避免重复执行翻倍。
--- eff_pid 回溯：platform_id=0 时经 group.auto_from_platform（十进制字符串）回溯到源平台。
--- 仅聚合 deleted_at=0 的有效日志。2xx → success，终态非 2xx → error。
-INSERT INTO stats_agg_hourly
-    (time_hour, model, group_key, platform_id,
-     request_count, success_count, error_count,
-     sum_input_tokens, sum_output_tokens, sum_cache_tokens,
-     sum_est_cost, sum_duration_ms, created_at, updated_at, deleted_at)
-SELECT
-    strftime('%Y-%m-%d %H:00:00', created_at/1000, 'unixepoch', 'localtime') AS time_hour,
-    CASE WHEN actual_model != '' THEN actual_model ELSE model END AS model,
-    group_key,
-    CASE WHEN platform_id = 0 THEN COALESCE(
-        (SELECT CAST(g.auto_from_platform AS INTEGER)
-         FROM "group" g
-         WHERE g.group_key = proxy_log.group_key
-           AND g.auto_from_platform != ''
-           AND g.deleted_at = 0
-         LIMIT 1), 0)
-    ELSE platform_id END AS eff_pid,
-    COUNT(*),
-    SUM(CASE WHEN status_code >= 200 AND status_code < 300 THEN 1 ELSE 0 END),
-    SUM(CASE WHEN status_code < 200 OR status_code >= 300 THEN 1 ELSE 0 END),
-    COALESCE(SUM(input_tokens), 0),
-    COALESCE(SUM(output_tokens), 0),
-    COALESCE(SUM(cache_tokens), 0),
-    COALESCE(SUM(est_cost), 0.0),
-    COALESCE(SUM(duration_ms), 0),
-    CAST(strftime('%s','now') AS INTEGER) * 1000,
-    CAST(strftime('%s','now') AS INTEGER) * 1000,
-    0
-FROM proxy_log
-WHERE deleted_at = 0
-  AND NOT EXISTS (SELECT 1 FROM stats_agg_hourly LIMIT 1)
--- 位置引用 1..4 绑定到 SELECT 输出表达式（time_hour / model别名 / group_key / eff_pid）。
--- 不可写 `GROUP BY ..., model, ...`：SQLite 会把裸 `model` 优先绑定到 proxy_log 真实列，
--- 而 SELECT/UNIQUE 用的是 `CASE actual_model 非空优先` 别名；两个 raw model 映射到同一
--- actual_model 时聚合后输出同一复合键 → 撞 UNIQUE(time_hour,model,group_key,platform_id)。
-GROUP BY 1, 2, 3, 4;
 "#;
 
 /// setting 缓存键的借用探测接口：让 `(&str, &str)` 与拥有所有权的 `(String, String)`
@@ -211,26 +173,45 @@ impl ReadPoolHandle {
 #[derive(Clone)]
 pub struct Db(pub AsyncConnection, Arc<DbCache>, ReadPoolHandle);
 
-/// 有效 platform_id（eff_pid）派生 CASE 表达式——单一事实源。
+/// eff_pid 回溯映射：`group_key → 源平台 id`（单一事实源，替代旧 SQL 标量子查询 `eff_pid_case`）。
 ///
-/// 业务规则：直挂日志取原 `platform_id`；自动分组日志（`platform_id = 0`）经
-/// `group.auto_from_platform`（十进制字符串）回溯到源平台 id，按 `group.group_key`
-/// 匹配 `proxy_log.group_key`（gk_<hex>，非显示名）。回溯不到则归 0。
+/// 一次单表查 `"group"`（无 JOIN / 子查询，仅 ~15 行），把 `auto_from_platform`（十进制字符串）
+/// 非空且未软删的自动分组建为 `group_key → CAST(auto_from_platform AS INTEGER)` 映射。
+/// 配合 `resolve_eff_pid` 在 Rust 内存逐行回溯，去掉所有读/写路径里的相关子查询。
+pub(crate) fn load_auto_from_map(
+    conn: &Connection,
+) -> rusqlite::Result<HashMap<String, i64>> {
+    let mut stmt = conn.prepare(
+        "SELECT group_key, CAST(auto_from_platform AS INTEGER) FROM \"group\" \
+         WHERE auto_from_platform != '' AND deleted_at = 0",
+    )?;
+    let rows = stmt.query_map([], |r| {
+        Ok((r.get::<_, String>(0)?, r.get::<_, i64>(1)?))
+    })?;
+    let mut map = HashMap::new();
+    for r in rows {
+        let (gk, pid) = r?;
+        map.insert(gk, pid);
+    }
+    Ok(map)
+}
+
+/// 有效 platform_id（eff_pid）纯内存回溯——单一事实源。
 ///
-/// `col_prefix` 为外层 `platform_id` 列的限定前缀：
-/// - `"proxy_log."`：query_stats.rs 内联进 SELECT/GROUP BY（dimension platform 分支 LEFT JOIN
-///   platform 后裸列名歧义，须 proxy_log. 前缀）；
-/// - `""`：usage_stats.rs recent-5 窗口子表（FROM proxy_log 单表，无歧义）。
-///
-/// 相关子查询对外层表的关联恒用表名 `proxy_log.group_key`（关联引用须用表名而非裸列），
-/// 两处一致，故无需参数化。
-pub(crate) fn eff_pid_case(col_prefix: &str) -> String {
-    format!(
-        "CASE WHEN {col_prefix}platform_id = 0 THEN COALESCE(\
-(SELECT CAST(g.auto_from_platform AS INTEGER) FROM \"group\" g \
- WHERE g.group_key = proxy_log.group_key AND g.auto_from_platform != '' AND g.deleted_at = 0 LIMIT 1), 0) \
-ELSE {col_prefix}platform_id END"
-    )
+/// 业务规则：直挂日志（`platform_id != 0`）取原 `platform_id`；自动分组日志（`platform_id = 0`）
+/// 按 `group_key` 在 `load_auto_from_map` 的映射里回溯源平台 id，回溯不到则归 0。
+/// 与旧 `eff_pid_case` SQL CASE 表达式逐字段等价（直挂取原值 / auto 回溯 / 兜底 0）。
+#[inline]
+pub(crate) fn resolve_eff_pid(
+    platform_id: i64,
+    group_key: &str,
+    map: &HashMap<String, i64>,
+) -> i64 {
+    if platform_id != 0 {
+        platform_id
+    } else {
+        map.get(group_key).copied().unwrap_or(0)
+    }
 }
 
 /// 从 JSON 字符串反序列化 models

@@ -722,6 +722,11 @@ export const groupDetailApi = {
 
   list: () => invoke<GroupDetail[]>("group_detail_list"),
 
+  /** 分页取分组详情（触底加载）：offset/limit 页窗，越界返回空数组（前端据此停止）。
+   *  后端无 JOIN（单表 group_platform + 内存补 platform），按 sort_order 排序。 */
+  listPaged: (offset: number, limit: number) =>
+    invoke<GroupDetail[]>("group_detail_list_paged", { offset, limit }),
+
   /** 分组内平台拖拽排序：orderedIds 按序赋 priority 1,2,3… */
   reorderPlatforms: (groupId: number, orderedIds: number[]) =>
     invoke<void>("group_platform_reorder", { groupId, orderedIds }),
