@@ -48,7 +48,7 @@ pub fn list_model_prices(db: &Db, limit: u32, offset: u32) -> impl std::future::
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 ORDER BY model_name LIMIT ?1 OFFSET ?2")
             )?;
@@ -69,7 +69,7 @@ pub fn count_model_prices(db: &Db) -> impl std::future::Future<Output = Result<u
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             Ok(conn.query_row("SELECT COUNT(*) FROM model_price WHERE deleted_at = 0", [], |row| row.get(0))?)
         })
         .await
@@ -84,7 +84,7 @@ pub fn get_model_price<'a>(db: &'a Db, model_name: &'a str) -> impl std::future:
     async move {
     let model_name = model_name.to_string();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             // 优先取 manual 记录
             let mut stmt = conn.prepare(
                 &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE model_name = ?1 AND source = 'manual' AND deleted_at = 0")
@@ -280,7 +280,7 @@ pub fn search_model_prices<'a>(db: &'a Db, query: &'a str, limit: u32) -> impl s
     async move {
     let pattern = format!("%{query}%");
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 AND model_name LIKE ?1 ORDER BY model_name LIMIT ?2")
             )?;
@@ -310,7 +310,7 @@ pub fn filtered_list_model_prices<'a>(
     let query = query.map(|s| s.to_string());
     let source = source.map(|s| s.to_string());
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let query = query.as_deref();
             let source = source.as_deref();
     let mut where_parts = vec!["deleted_at = 0".to_string()];
@@ -366,7 +366,7 @@ pub fn filtered_count_model_prices<'a>(
     let query = query.map(|s| s.to_string());
     let source = source.map(|s| s.to_string());
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let query = query.as_deref();
             let source = source.as_deref();
     let mut where_parts = vec!["deleted_at = 0".to_string()];

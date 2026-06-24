@@ -54,7 +54,7 @@ pub fn query_stats<'a>(db: &'a Db, query: &'a StatsQuery) -> impl std::future::F
     async move {
     let query = query.clone();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             query_stats_inner(conn, &query)
                 .map_err(|e| tokio_rusqlite::Error::Other(e.into()))
         })
@@ -72,7 +72,7 @@ pub fn query_stats_batch(db: &Db, queries: Vec<StatsQuery>) -> impl std::future:
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let mut out = Vec::with_capacity(queries.len());
             for q in &queries {
                 out.push(
