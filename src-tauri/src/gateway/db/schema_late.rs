@@ -1,291 +1,6 @@
 use super::*;
 use rusqlite::{params, Connection, Result as SqlResult};
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use rusqlite::Connection;
-
-    /// Helper: creates a minimal in-memory schema matching what run_migrations_late expects.
-    /// Includes the tables referenced in the migration but with old/legacy schema
-    /// (e.g., group without group_key, group with path).
-    fn make_legacy_conn_with_group_path() -> Connection {
-        let conn = Connection::open_in_memory().unwrap();
-        // Legacy group table WITH path column and WITHOUT group_key column.
-        // Note: stats_agg_hourly is intentionally omitted — migration creates it via CREATE IF NOT EXISTS.
-        conn.execute_batch(r#"
-            CREATE TABLE "group" (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL DEFAULT '',
-                path TEXT NOT NULL DEFAULT '',
-                routing_mode TEXT NOT NULL DEFAULT '',
-                auto_from_platform TEXT NOT NULL DEFAULT '',
-                source_protocol TEXT NOT NULL DEFAULT 'anthropic',
-                model_mappings TEXT NOT NULL DEFAULT '[]',
-                request_timeout_secs INTEGER NOT NULL DEFAULT 0,
-                connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
-                created_at INTEGER NOT NULL DEFAULT 0,
-                updated_at INTEGER NOT NULL DEFAULT 0,
-                deleted_at INTEGER NOT NULL DEFAULT 0,
-                sort_order INTEGER NOT NULL DEFAULT 0,
-                max_retries INTEGER NOT NULL DEFAULT 2
-            );
-            INSERT INTO "group" (name, path, created_at, updated_at) VALUES ('test-group', '/test', 0, 0);
-            CREATE TABLE model_price (id INTEGER PRIMARY KEY, model TEXT, input_price REAL, output_price REAL);
-            CREATE TABLE platform (id INTEGER PRIMARY KEY, name TEXT, platform_type TEXT NOT NULL DEFAULT '', endpoints TEXT NOT NULL DEFAULT '[]', extra TEXT NOT NULL DEFAULT '{}', auto_group INTEGER NOT NULL DEFAULT 1);
-            CREATE TABLE proxy_log (id TEXT PRIMARY KEY, group_name TEXT, platform_id INTEGER, model TEXT, actual_model TEXT, source_protocol TEXT, target_protocol TEXT, status_code INTEGER, duration_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, cache_tokens INTEGER, est_cost REAL, is_stream INTEGER, retry_count INTEGER, blocked_by TEXT, blocked_reason TEXT, request_url TEXT, request_headers TEXT, request_body TEXT, upstream_request_url TEXT, upstream_request_headers TEXT, upstream_request_body TEXT, upstream_status_code INTEGER, upstream_response_headers TEXT, user_response_headers TEXT, user_response_body TEXT, response_body TEXT, created_at INTEGER, updated_at INTEGER, deleted_at INTEGER NOT NULL DEFAULT 0, attempts TEXT);
-            CREATE TABLE IF NOT EXISTS settings (scope TEXT, key TEXT, value TEXT, PRIMARY KEY (scope, key));
-            CREATE TABLE IF NOT EXISTS group_platform (id INTEGER PRIMARY KEY, group_id INTEGER, platform_id INTEGER, priority INTEGER, weight INTEGER);
-            CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
-        "#).unwrap();
-        conn
-    }
-
-    /// run_migrations_late on a legacy DB that has group.path → exercises has_group_path=true branch.
-    #[test]
-    fn migrations_late_group_path_migration_executed() {
-        let conn = make_legacy_conn_with_group_path();
-        // The legacy DB has group.path but no group.group_key.
-        // run_migrations_late should:
-        //   1. Detect has_group_path=true → rebuild group table (removes path, adds UNIQUE(name))
-        //   2. Detect !has_group_key=true → rebuild group table again (adds group_key)
-        let result = run_migrations_late(&conn);
-        assert!(result.is_ok(), "run_migrations_late failed: {:?}", result);
-        // After migration, group_key column should exist.
-        let has_gk = conn
-            .prepare("PRAGMA table_info(\"group\")")
-            .unwrap()
-            .query_map([], |r| r.get::<_, String>(1))
-            .unwrap()
-            .filter_map(Result::ok)
-            .any(|c| c == "group_key");
-        assert!(has_gk, "group_key column should exist after migration");
-        // path column should be gone.
-        let has_path = conn
-            .prepare("PRAGMA table_info(\"group\")")
-            .unwrap()
-            .query_map([], |r| r.get::<_, String>(1))
-            .unwrap()
-            .filter_map(Result::ok)
-            .any(|c| c == "path");
-        assert!(!has_path, "path column should be removed after migration");
-    }
-
-    /// Helper: minimal "fully modern" schema — all conditional migrations skip (idempotent path).
-    /// Uses modern table definitions with group_key, group_key in proxy_log, no breaker columns,
-    /// and includes notification table.
-    fn make_modern_conn() -> Connection {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(r#"
-            CREATE TABLE "group" (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL DEFAULT '',
-                group_key TEXT NOT NULL DEFAULT '',
-                routing_mode TEXT NOT NULL DEFAULT '',
-                auto_from_platform TEXT NOT NULL DEFAULT '',
-                source_protocol TEXT NOT NULL DEFAULT 'anthropic',
-                model_mappings TEXT NOT NULL DEFAULT '[]',
-                request_timeout_secs INTEGER NOT NULL DEFAULT 0,
-                connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
-                created_at INTEGER NOT NULL DEFAULT 0,
-                updated_at INTEGER NOT NULL DEFAULT 0,
-                deleted_at INTEGER NOT NULL DEFAULT 0,
-                sort_order INTEGER NOT NULL DEFAULT 0,
-                max_retries INTEGER NOT NULL DEFAULT 2,
-                UNIQUE(name),
-                UNIQUE(group_key)
-            );
-            CREATE TABLE model_price (id INTEGER PRIMARY KEY, model TEXT, input_price REAL, output_price REAL);
-            CREATE TABLE platform (id INTEGER PRIMARY KEY, name TEXT, platform_type TEXT NOT NULL DEFAULT '', endpoints TEXT NOT NULL DEFAULT '[]', extra TEXT NOT NULL DEFAULT '{}');
-            CREATE TABLE proxy_log (id TEXT PRIMARY KEY, group_key TEXT, platform_id INTEGER, model TEXT, actual_model TEXT, source_protocol TEXT, target_protocol TEXT, status_code INTEGER, duration_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, cache_tokens INTEGER, est_cost REAL, is_stream INTEGER, retry_count INTEGER, blocked_by TEXT, blocked_reason TEXT, request_url TEXT, request_headers TEXT, request_body TEXT, upstream_request_url TEXT, upstream_request_headers TEXT, upstream_request_body TEXT, upstream_status_code INTEGER, upstream_response_headers TEXT, user_response_headers TEXT, user_response_body TEXT, response_body TEXT, created_at INTEGER, updated_at INTEGER, deleted_at INTEGER NOT NULL DEFAULT 0, attempts TEXT);
-            CREATE TABLE IF NOT EXISTS settings (scope TEXT, key TEXT, value TEXT, PRIMARY KEY (scope, key));
-            CREATE TABLE IF NOT EXISTS group_platform (id INTEGER PRIMARY KEY, group_id INTEGER, platform_id INTEGER, priority INTEGER, weight INTEGER);
-            CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
-        "#).unwrap();
-        conn
-    }
-
-    /// run_migrations_late on a fully modern schema (all conditional branches skip) → idempotent.
-    #[test]
-    fn migrations_late_modern_schema_idempotent() {
-        let conn = make_modern_conn();
-        let result = run_migrations_late(&conn);
-        assert!(result.is_ok(), "modern schema migration should succeed: {:?}", result);
-    }
-
-    /// Migration 026: platform with breaker columns → backfill into extra + drop columns.
-    /// Uses a platform row with non-zero breaker values to exercise the backfill branch.
-    #[test]
-    fn migrations_late_breaker_backfill_exercises_026() {
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(r#"
-            CREATE TABLE "group" (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL DEFAULT '',
-                group_key TEXT NOT NULL DEFAULT '',
-                routing_mode TEXT NOT NULL DEFAULT '',
-                auto_from_platform TEXT NOT NULL DEFAULT '',
-                source_protocol TEXT NOT NULL DEFAULT 'anthropic',
-                model_mappings TEXT NOT NULL DEFAULT '[]',
-                request_timeout_secs INTEGER NOT NULL DEFAULT 0,
-                connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
-                created_at INTEGER NOT NULL DEFAULT 0,
-                updated_at INTEGER NOT NULL DEFAULT 0,
-                deleted_at INTEGER NOT NULL DEFAULT 0,
-                sort_order INTEGER NOT NULL DEFAULT 0,
-                max_retries INTEGER NOT NULL DEFAULT 2,
-                UNIQUE(name), UNIQUE(group_key)
-            );
-            CREATE TABLE model_price (id INTEGER PRIMARY KEY, model TEXT, input_price REAL, output_price REAL);
-            CREATE TABLE platform (
-                id INTEGER PRIMARY KEY,
-                name TEXT,
-                platform_type TEXT NOT NULL DEFAULT '',
-                endpoints TEXT NOT NULL DEFAULT '[]',
-                extra TEXT NOT NULL DEFAULT '{}',
-                breaker_failure_threshold INTEGER NOT NULL DEFAULT 0,
-                breaker_open_secs INTEGER NOT NULL DEFAULT 0,
-                breaker_half_open_max INTEGER NOT NULL DEFAULT 0
-            );
-            CREATE TABLE proxy_log (id TEXT PRIMARY KEY, group_key TEXT, platform_id INTEGER, model TEXT, actual_model TEXT, source_protocol TEXT, target_protocol TEXT, status_code INTEGER, duration_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, cache_tokens INTEGER, est_cost REAL, is_stream INTEGER, retry_count INTEGER, blocked_by TEXT, blocked_reason TEXT, request_url TEXT, request_headers TEXT, request_body TEXT, upstream_request_url TEXT, upstream_request_headers TEXT, upstream_request_body TEXT, upstream_status_code INTEGER, upstream_response_headers TEXT, user_response_headers TEXT, user_response_body TEXT, response_body TEXT, created_at INTEGER, updated_at INTEGER, deleted_at INTEGER NOT NULL DEFAULT 0, attempts TEXT);
-            CREATE TABLE IF NOT EXISTS settings (scope TEXT, key TEXT, value TEXT, PRIMARY KEY (scope, key));
-            CREATE TABLE IF NOT EXISTS group_platform (id INTEGER PRIMARY KEY, group_id INTEGER, platform_id INTEGER, priority INTEGER, weight INTEGER);
-            CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
-        "#).unwrap();
-        // Insert a platform with non-zero breaker values to exercise the backfill path.
-        conn.execute(
-            "INSERT INTO platform (name, platform_type, endpoints, extra, breaker_failure_threshold, breaker_open_secs, breaker_half_open_max) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
-            rusqlite::params!["test-plat", "openai", "[]", "{}", 5_i64, 60_i64, 2_i64],
-        ).unwrap();
-        // Also insert a platform with all-zero breaker values (exercises the skip branch).
-        conn.execute(
-            "INSERT INTO platform (name, platform_type, endpoints, extra, breaker_failure_threshold, breaker_open_secs, breaker_half_open_max) VALUES (?1, ?2, ?3, ?4, 0, 0, 0)",
-            rusqlite::params!["zero-plat", "openai", "[]", "{}"],
-        ).unwrap();
-        let result = run_migrations_late(&conn);
-        assert!(result.is_ok(), "breaker backfill migration should succeed: {:?}", result);
-        // After migration, breaker_failure_threshold column should be gone.
-        let has_breaker = conn
-            .prepare("PRAGMA table_info(platform)")
-            .unwrap()
-            .query_map([], |r| r.get::<_, String>(1))
-            .unwrap()
-            .filter_map(Result::ok)
-            .any(|c| c == "breaker_failure_threshold");
-        assert!(!has_breaker, "breaker_failure_threshold should be dropped after migration 026");
-        // The non-zero platform's extra should now contain breaker data.
-        let extra: String = conn
-            .query_row("SELECT extra FROM platform WHERE name = 'test-plat'", [], |r| r.get(0))
-            .unwrap();
-        assert!(extra.contains("breaker") || extra.contains("failure_threshold"),
-            "extra should contain breaker data after backfill, got: {}", extra);
-    }
-
-    /// Migration 025: GLM platform with coding openai endpoint + anthropic endpoint not tagged coding_plan
-    /// → should set anthropic endpoint's coding_plan=true.
-    #[test]
-    fn migrations_late_glm_coding_plan_backfill_025() {
-        let conn = Connection::open_in_memory().unwrap();
-        // GLM platform endpoints: openai with coding_plan=true + anthropic with coding_plan=false.
-        let endpoints_json = serde_json::json!([
-            {
-                "protocol": "openai",
-                "base_url": "",
-                "coding_plan": true
-            },
-            {
-                "protocol": "anthropic",
-                "base_url": "",
-                "coding_plan": false
-            }
-        ]).to_string();
-        conn.execute_batch(r#"
-            CREATE TABLE "group" (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL DEFAULT '',
-                group_key TEXT NOT NULL DEFAULT '',
-                routing_mode TEXT NOT NULL DEFAULT '',
-                auto_from_platform TEXT NOT NULL DEFAULT '',
-                source_protocol TEXT NOT NULL DEFAULT 'anthropic',
-                model_mappings TEXT NOT NULL DEFAULT '[]',
-                request_timeout_secs INTEGER NOT NULL DEFAULT 0,
-                connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
-                created_at INTEGER NOT NULL DEFAULT 0,
-                updated_at INTEGER NOT NULL DEFAULT 0,
-                deleted_at INTEGER NOT NULL DEFAULT 0,
-                sort_order INTEGER NOT NULL DEFAULT 0,
-                max_retries INTEGER NOT NULL DEFAULT 2,
-                UNIQUE(name), UNIQUE(group_key)
-            );
-            CREATE TABLE model_price (id INTEGER PRIMARY KEY, model TEXT, input_price REAL, output_price REAL);
-            CREATE TABLE platform (id INTEGER PRIMARY KEY, name TEXT, platform_type TEXT NOT NULL DEFAULT '', endpoints TEXT NOT NULL DEFAULT '[]', extra TEXT NOT NULL DEFAULT '{}');
-            CREATE TABLE proxy_log (id TEXT PRIMARY KEY, group_key TEXT, platform_id INTEGER, model TEXT, actual_model TEXT, source_protocol TEXT, target_protocol TEXT, status_code INTEGER, duration_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, cache_tokens INTEGER, est_cost REAL, is_stream INTEGER, retry_count INTEGER, blocked_by TEXT, blocked_reason TEXT, request_url TEXT, request_headers TEXT, request_body TEXT, upstream_request_url TEXT, upstream_request_headers TEXT, upstream_request_body TEXT, upstream_status_code INTEGER, upstream_response_headers TEXT, user_response_headers TEXT, user_response_body TEXT, response_body TEXT, created_at INTEGER, updated_at INTEGER, deleted_at INTEGER NOT NULL DEFAULT 0, attempts TEXT);
-            CREATE TABLE IF NOT EXISTS settings (scope TEXT, key TEXT, value TEXT, PRIMARY KEY (scope, key));
-            CREATE TABLE IF NOT EXISTS group_platform (id INTEGER PRIMARY KEY, group_id INTEGER, platform_id INTEGER, priority INTEGER, weight INTEGER);
-            CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
-        "#).unwrap();
-        conn.execute(
-            "INSERT INTO platform (name, platform_type, endpoints, extra) VALUES (?1, 'glm', ?2, '{}')",
-            rusqlite::params!["GLM Test", endpoints_json],
-        ).unwrap();
-        let result = run_migrations_late(&conn);
-        assert!(result.is_ok(), "GLM coding_plan migration should succeed: {:?}", result);
-        // After migration, anthropic endpoint should have coding_plan=true.
-        let ep_json: String = conn
-            .query_row("SELECT endpoints FROM platform WHERE name = 'GLM Test'", [], |r| r.get(0))
-            .unwrap();
-        let eps: Vec<serde_json::Value> = serde_json::from_str(&ep_json).unwrap();
-        let anthropic_ep = eps.iter().find(|ep| ep.get("protocol").and_then(|v| v.as_str()) == Some("anthropic")).unwrap();
-        assert_eq!(
-            anthropic_ep.get("coding_plan").and_then(|v| v.as_bool()),
-            Some(true),
-            "anthropic endpoint should have coding_plan=true after migration 025"
-        );
-    }
-
-    /// run_migrations_late on a DB without group.path but also without group_key → exercises !has_group_key branch.
-    #[test]
-    fn migrations_late_missing_group_key_migration_executed() {
-        let conn = Connection::open_in_memory().unwrap();
-        // Group table without path AND without group_key.
-        conn.execute_batch(r#"
-            CREATE TABLE "group" (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL DEFAULT '',
-                routing_mode TEXT NOT NULL DEFAULT '',
-                auto_from_platform TEXT NOT NULL DEFAULT '',
-                source_protocol TEXT NOT NULL DEFAULT 'anthropic',
-                model_mappings TEXT NOT NULL DEFAULT '[]',
-                request_timeout_secs INTEGER NOT NULL DEFAULT 0,
-                connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
-                created_at INTEGER NOT NULL DEFAULT 0,
-                updated_at INTEGER NOT NULL DEFAULT 0,
-                deleted_at INTEGER NOT NULL DEFAULT 0,
-                sort_order INTEGER NOT NULL DEFAULT 0,
-                max_retries INTEGER NOT NULL DEFAULT 2,
-                UNIQUE(name)
-            );
-            INSERT INTO "group" (name, created_at, updated_at) VALUES ('my-group', 0, 0);
-            CREATE TABLE model_price (id INTEGER PRIMARY KEY, model TEXT, input_price REAL, output_price REAL);
-            CREATE TABLE platform (id INTEGER PRIMARY KEY, name TEXT, platform_type TEXT NOT NULL DEFAULT '', endpoints TEXT NOT NULL DEFAULT '[]', extra TEXT NOT NULL DEFAULT '{}', auto_group INTEGER NOT NULL DEFAULT 1);
-            CREATE TABLE proxy_log (id TEXT PRIMARY KEY, group_name TEXT, platform_id INTEGER, model TEXT, actual_model TEXT, source_protocol TEXT, target_protocol TEXT, status_code INTEGER, duration_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, cache_tokens INTEGER, est_cost REAL, is_stream INTEGER, retry_count INTEGER, blocked_by TEXT, blocked_reason TEXT, request_url TEXT, request_headers TEXT, request_body TEXT, upstream_request_url TEXT, upstream_request_headers TEXT, upstream_request_body TEXT, upstream_status_code INTEGER, upstream_response_headers TEXT, user_response_headers TEXT, user_response_body TEXT, response_body TEXT, created_at INTEGER, updated_at INTEGER, deleted_at INTEGER NOT NULL DEFAULT 0, attempts TEXT);
-            CREATE TABLE IF NOT EXISTS settings (scope TEXT, key TEXT, value TEXT, PRIMARY KEY (scope, key));
-            CREATE TABLE IF NOT EXISTS group_platform (id INTEGER PRIMARY KEY, group_id INTEGER, platform_id INTEGER, priority INTEGER, weight INTEGER);
-            CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
-        "#).unwrap();
-        let result = run_migrations_late(&conn);
-        assert!(result.is_ok(), "run_migrations_late failed: {:?}", result);
-        let has_gk = conn
-            .prepare("PRAGMA table_info(\"group\")")
-            .unwrap()
-            .query_map([], |r| r.get::<_, String>(1))
-            .unwrap()
-            .filter_map(Result::ok)
-            .any(|c| c == "group_key");
-        assert!(has_gk, "group_key should exist after migration");
-    }
-}
-
 /// Migrations 021–033。自 init_tables 拆出（执行顺序不变）。
 pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
                 // Migration 021: model_price 加模型信息列（max_tokens / context_window）。
@@ -598,4 +313,290 @@ ALTER TABLE "group_new" RENAME TO "group";
                 //    maintenance.rs 维护钩子重建（见 cleanup_proxy_logs / compact_database 后追加）。
                 let _ = conn.execute("ANALYZE proxy_log", []);
     Ok(())
+}
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::Connection;
+
+    /// Helper: creates a minimal in-memory schema matching what run_migrations_late expects.
+    /// Includes the tables referenced in the migration but with old/legacy schema
+    /// (e.g., group without group_key, group with path).
+    fn make_legacy_conn_with_group_path() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        // Legacy group table WITH path column and WITHOUT group_key column.
+        // Note: stats_agg_hourly is intentionally omitted — migration creates it via CREATE IF NOT EXISTS.
+        conn.execute_batch(r#"
+            CREATE TABLE "group" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL DEFAULT '',
+                path TEXT NOT NULL DEFAULT '',
+                routing_mode TEXT NOT NULL DEFAULT '',
+                auto_from_platform TEXT NOT NULL DEFAULT '',
+                source_protocol TEXT NOT NULL DEFAULT 'anthropic',
+                model_mappings TEXT NOT NULL DEFAULT '[]',
+                request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+                connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL DEFAULT 0,
+                deleted_at INTEGER NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                max_retries INTEGER NOT NULL DEFAULT 2
+            );
+            INSERT INTO "group" (name, path, created_at, updated_at) VALUES ('test-group', '/test', 0, 0);
+            CREATE TABLE model_price (id INTEGER PRIMARY KEY, model TEXT, input_price REAL, output_price REAL);
+            CREATE TABLE platform (id INTEGER PRIMARY KEY, name TEXT, platform_type TEXT NOT NULL DEFAULT '', endpoints TEXT NOT NULL DEFAULT '[]', extra TEXT NOT NULL DEFAULT '{}', auto_group INTEGER NOT NULL DEFAULT 1);
+            CREATE TABLE proxy_log (id TEXT PRIMARY KEY, group_name TEXT, platform_id INTEGER, model TEXT, actual_model TEXT, source_protocol TEXT, target_protocol TEXT, status_code INTEGER, duration_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, cache_tokens INTEGER, est_cost REAL, is_stream INTEGER, retry_count INTEGER, blocked_by TEXT, blocked_reason TEXT, request_url TEXT, request_headers TEXT, request_body TEXT, upstream_request_url TEXT, upstream_request_headers TEXT, upstream_request_body TEXT, upstream_status_code INTEGER, upstream_response_headers TEXT, user_response_headers TEXT, user_response_body TEXT, response_body TEXT, created_at INTEGER, updated_at INTEGER, deleted_at INTEGER NOT NULL DEFAULT 0, attempts TEXT);
+            CREATE TABLE IF NOT EXISTS settings (scope TEXT, key TEXT, value TEXT, PRIMARY KEY (scope, key));
+            CREATE TABLE IF NOT EXISTS group_platform (id INTEGER PRIMARY KEY, group_id INTEGER, platform_id INTEGER, priority INTEGER, weight INTEGER);
+            CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
+        "#).unwrap();
+        conn
+    }
+
+    /// run_migrations_late on a legacy DB that has group.path → exercises has_group_path=true branch.
+    #[test]
+    fn migrations_late_group_path_migration_executed() {
+        let conn = make_legacy_conn_with_group_path();
+        // The legacy DB has group.path but no group.group_key.
+        // run_migrations_late should:
+        //   1. Detect has_group_path=true → rebuild group table (removes path, adds UNIQUE(name))
+        //   2. Detect !has_group_key=true → rebuild group table again (adds group_key)
+        let result = run_migrations_late(&conn);
+        assert!(result.is_ok(), "run_migrations_late failed: {:?}", result);
+        // After migration, group_key column should exist.
+        let has_gk = conn
+            .prepare("PRAGMA table_info(\"group\")")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|c| c == "group_key");
+        assert!(has_gk, "group_key column should exist after migration");
+        // path column should be gone.
+        let has_path = conn
+            .prepare("PRAGMA table_info(\"group\")")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|c| c == "path");
+        assert!(!has_path, "path column should be removed after migration");
+    }
+
+    /// Helper: minimal "fully modern" schema — all conditional migrations skip (idempotent path).
+    /// Uses modern table definitions with group_key, group_key in proxy_log, no breaker columns,
+    /// and includes notification table.
+    fn make_modern_conn() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(r#"
+            CREATE TABLE "group" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL DEFAULT '',
+                group_key TEXT NOT NULL DEFAULT '',
+                routing_mode TEXT NOT NULL DEFAULT '',
+                auto_from_platform TEXT NOT NULL DEFAULT '',
+                source_protocol TEXT NOT NULL DEFAULT 'anthropic',
+                model_mappings TEXT NOT NULL DEFAULT '[]',
+                request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+                connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL DEFAULT 0,
+                deleted_at INTEGER NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                max_retries INTEGER NOT NULL DEFAULT 2,
+                UNIQUE(name),
+                UNIQUE(group_key)
+            );
+            CREATE TABLE model_price (id INTEGER PRIMARY KEY, model TEXT, input_price REAL, output_price REAL);
+            CREATE TABLE platform (id INTEGER PRIMARY KEY, name TEXT, platform_type TEXT NOT NULL DEFAULT '', endpoints TEXT NOT NULL DEFAULT '[]', extra TEXT NOT NULL DEFAULT '{}');
+            CREATE TABLE proxy_log (id TEXT PRIMARY KEY, group_key TEXT, platform_id INTEGER, model TEXT, actual_model TEXT, source_protocol TEXT, target_protocol TEXT, status_code INTEGER, duration_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, cache_tokens INTEGER, est_cost REAL, is_stream INTEGER, retry_count INTEGER, blocked_by TEXT, blocked_reason TEXT, request_url TEXT, request_headers TEXT, request_body TEXT, upstream_request_url TEXT, upstream_request_headers TEXT, upstream_request_body TEXT, upstream_status_code INTEGER, upstream_response_headers TEXT, user_response_headers TEXT, user_response_body TEXT, response_body TEXT, created_at INTEGER, updated_at INTEGER, deleted_at INTEGER NOT NULL DEFAULT 0, attempts TEXT);
+            CREATE TABLE IF NOT EXISTS settings (scope TEXT, key TEXT, value TEXT, PRIMARY KEY (scope, key));
+            CREATE TABLE IF NOT EXISTS group_platform (id INTEGER PRIMARY KEY, group_id INTEGER, platform_id INTEGER, priority INTEGER, weight INTEGER);
+            CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
+        "#).unwrap();
+        conn
+    }
+
+    /// run_migrations_late on a fully modern schema (all conditional branches skip) → idempotent.
+    #[test]
+    fn migrations_late_modern_schema_idempotent() {
+        let conn = make_modern_conn();
+        let result = run_migrations_late(&conn);
+        assert!(result.is_ok(), "modern schema migration should succeed: {:?}", result);
+    }
+
+    /// Migration 026: platform with breaker columns → backfill into extra + drop columns.
+    /// Uses a platform row with non-zero breaker values to exercise the backfill branch.
+    #[test]
+    fn migrations_late_breaker_backfill_exercises_026() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(r#"
+            CREATE TABLE "group" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL DEFAULT '',
+                group_key TEXT NOT NULL DEFAULT '',
+                routing_mode TEXT NOT NULL DEFAULT '',
+                auto_from_platform TEXT NOT NULL DEFAULT '',
+                source_protocol TEXT NOT NULL DEFAULT 'anthropic',
+                model_mappings TEXT NOT NULL DEFAULT '[]',
+                request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+                connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL DEFAULT 0,
+                deleted_at INTEGER NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                max_retries INTEGER NOT NULL DEFAULT 2,
+                UNIQUE(name), UNIQUE(group_key)
+            );
+            CREATE TABLE model_price (id INTEGER PRIMARY KEY, model TEXT, input_price REAL, output_price REAL);
+            CREATE TABLE platform (
+                id INTEGER PRIMARY KEY,
+                name TEXT,
+                platform_type TEXT NOT NULL DEFAULT '',
+                endpoints TEXT NOT NULL DEFAULT '[]',
+                extra TEXT NOT NULL DEFAULT '{}',
+                breaker_failure_threshold INTEGER NOT NULL DEFAULT 0,
+                breaker_open_secs INTEGER NOT NULL DEFAULT 0,
+                breaker_half_open_max INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE proxy_log (id TEXT PRIMARY KEY, group_key TEXT, platform_id INTEGER, model TEXT, actual_model TEXT, source_protocol TEXT, target_protocol TEXT, status_code INTEGER, duration_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, cache_tokens INTEGER, est_cost REAL, is_stream INTEGER, retry_count INTEGER, blocked_by TEXT, blocked_reason TEXT, request_url TEXT, request_headers TEXT, request_body TEXT, upstream_request_url TEXT, upstream_request_headers TEXT, upstream_request_body TEXT, upstream_status_code INTEGER, upstream_response_headers TEXT, user_response_headers TEXT, user_response_body TEXT, response_body TEXT, created_at INTEGER, updated_at INTEGER, deleted_at INTEGER NOT NULL DEFAULT 0, attempts TEXT);
+            CREATE TABLE IF NOT EXISTS settings (scope TEXT, key TEXT, value TEXT, PRIMARY KEY (scope, key));
+            CREATE TABLE IF NOT EXISTS group_platform (id INTEGER PRIMARY KEY, group_id INTEGER, platform_id INTEGER, priority INTEGER, weight INTEGER);
+            CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
+        "#).unwrap();
+        // Insert a platform with non-zero breaker values to exercise the backfill path.
+        conn.execute(
+            "INSERT INTO platform (name, platform_type, endpoints, extra, breaker_failure_threshold, breaker_open_secs, breaker_half_open_max) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params!["test-plat", "openai", "[]", "{}", 5_i64, 60_i64, 2_i64],
+        ).unwrap();
+        // Also insert a platform with all-zero breaker values (exercises the skip branch).
+        conn.execute(
+            "INSERT INTO platform (name, platform_type, endpoints, extra, breaker_failure_threshold, breaker_open_secs, breaker_half_open_max) VALUES (?1, ?2, ?3, ?4, 0, 0, 0)",
+            rusqlite::params!["zero-plat", "openai", "[]", "{}"],
+        ).unwrap();
+        let result = run_migrations_late(&conn);
+        assert!(result.is_ok(), "breaker backfill migration should succeed: {:?}", result);
+        // After migration, breaker_failure_threshold column should be gone.
+        let has_breaker = conn
+            .prepare("PRAGMA table_info(platform)")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|c| c == "breaker_failure_threshold");
+        assert!(!has_breaker, "breaker_failure_threshold should be dropped after migration 026");
+        // The non-zero platform's extra should now contain breaker data.
+        let extra: String = conn
+            .query_row("SELECT extra FROM platform WHERE name = 'test-plat'", [], |r| r.get(0))
+            .unwrap();
+        assert!(extra.contains("breaker") || extra.contains("failure_threshold"),
+            "extra should contain breaker data after backfill, got: {}", extra);
+    }
+
+    /// Migration 025: GLM platform with coding openai endpoint + anthropic endpoint not tagged coding_plan
+    /// → should set anthropic endpoint's coding_plan=true.
+    #[test]
+    fn migrations_late_glm_coding_plan_backfill_025() {
+        let conn = Connection::open_in_memory().unwrap();
+        // GLM platform endpoints: openai with coding_plan=true + anthropic with coding_plan=false.
+        let endpoints_json = serde_json::json!([
+            {
+                "protocol": "openai",
+                "base_url": "",
+                "coding_plan": true
+            },
+            {
+                "protocol": "anthropic",
+                "base_url": "",
+                "coding_plan": false
+            }
+        ]).to_string();
+        conn.execute_batch(r#"
+            CREATE TABLE "group" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL DEFAULT '',
+                group_key TEXT NOT NULL DEFAULT '',
+                routing_mode TEXT NOT NULL DEFAULT '',
+                auto_from_platform TEXT NOT NULL DEFAULT '',
+                source_protocol TEXT NOT NULL DEFAULT 'anthropic',
+                model_mappings TEXT NOT NULL DEFAULT '[]',
+                request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+                connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL DEFAULT 0,
+                deleted_at INTEGER NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                max_retries INTEGER NOT NULL DEFAULT 2,
+                UNIQUE(name), UNIQUE(group_key)
+            );
+            CREATE TABLE model_price (id INTEGER PRIMARY KEY, model TEXT, input_price REAL, output_price REAL);
+            CREATE TABLE platform (id INTEGER PRIMARY KEY, name TEXT, platform_type TEXT NOT NULL DEFAULT '', endpoints TEXT NOT NULL DEFAULT '[]', extra TEXT NOT NULL DEFAULT '{}');
+            CREATE TABLE proxy_log (id TEXT PRIMARY KEY, group_key TEXT, platform_id INTEGER, model TEXT, actual_model TEXT, source_protocol TEXT, target_protocol TEXT, status_code INTEGER, duration_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, cache_tokens INTEGER, est_cost REAL, is_stream INTEGER, retry_count INTEGER, blocked_by TEXT, blocked_reason TEXT, request_url TEXT, request_headers TEXT, request_body TEXT, upstream_request_url TEXT, upstream_request_headers TEXT, upstream_request_body TEXT, upstream_status_code INTEGER, upstream_response_headers TEXT, user_response_headers TEXT, user_response_body TEXT, response_body TEXT, created_at INTEGER, updated_at INTEGER, deleted_at INTEGER NOT NULL DEFAULT 0, attempts TEXT);
+            CREATE TABLE IF NOT EXISTS settings (scope TEXT, key TEXT, value TEXT, PRIMARY KEY (scope, key));
+            CREATE TABLE IF NOT EXISTS group_platform (id INTEGER PRIMARY KEY, group_id INTEGER, platform_id INTEGER, priority INTEGER, weight INTEGER);
+            CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
+        "#).unwrap();
+        conn.execute(
+            "INSERT INTO platform (name, platform_type, endpoints, extra) VALUES (?1, 'glm', ?2, '{}')",
+            rusqlite::params!["GLM Test", endpoints_json],
+        ).unwrap();
+        let result = run_migrations_late(&conn);
+        assert!(result.is_ok(), "GLM coding_plan migration should succeed: {:?}", result);
+        // After migration, anthropic endpoint should have coding_plan=true.
+        let ep_json: String = conn
+            .query_row("SELECT endpoints FROM platform WHERE name = 'GLM Test'", [], |r| r.get(0))
+            .unwrap();
+        let eps: Vec<serde_json::Value> = serde_json::from_str(&ep_json).unwrap();
+        let anthropic_ep = eps.iter().find(|ep| ep.get("protocol").and_then(|v| v.as_str()) == Some("anthropic")).unwrap();
+        assert_eq!(
+            anthropic_ep.get("coding_plan").and_then(|v| v.as_bool()),
+            Some(true),
+            "anthropic endpoint should have coding_plan=true after migration 025"
+        );
+    }
+
+    /// run_migrations_late on a DB without group.path but also without group_key → exercises !has_group_key branch.
+    #[test]
+    fn migrations_late_missing_group_key_migration_executed() {
+        let conn = Connection::open_in_memory().unwrap();
+        // Group table without path AND without group_key.
+        conn.execute_batch(r#"
+            CREATE TABLE "group" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL DEFAULT '',
+                routing_mode TEXT NOT NULL DEFAULT '',
+                auto_from_platform TEXT NOT NULL DEFAULT '',
+                source_protocol TEXT NOT NULL DEFAULT 'anthropic',
+                model_mappings TEXT NOT NULL DEFAULT '[]',
+                request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+                connect_timeout_secs INTEGER NOT NULL DEFAULT 0,
+                created_at INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL DEFAULT 0,
+                deleted_at INTEGER NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                max_retries INTEGER NOT NULL DEFAULT 2,
+                UNIQUE(name)
+            );
+            INSERT INTO "group" (name, created_at, updated_at) VALUES ('my-group', 0, 0);
+            CREATE TABLE model_price (id INTEGER PRIMARY KEY, model TEXT, input_price REAL, output_price REAL);
+            CREATE TABLE platform (id INTEGER PRIMARY KEY, name TEXT, platform_type TEXT NOT NULL DEFAULT '', endpoints TEXT NOT NULL DEFAULT '[]', extra TEXT NOT NULL DEFAULT '{}', auto_group INTEGER NOT NULL DEFAULT 1);
+            CREATE TABLE proxy_log (id TEXT PRIMARY KEY, group_name TEXT, platform_id INTEGER, model TEXT, actual_model TEXT, source_protocol TEXT, target_protocol TEXT, status_code INTEGER, duration_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, cache_tokens INTEGER, est_cost REAL, is_stream INTEGER, retry_count INTEGER, blocked_by TEXT, blocked_reason TEXT, request_url TEXT, request_headers TEXT, request_body TEXT, upstream_request_url TEXT, upstream_request_headers TEXT, upstream_request_body TEXT, upstream_status_code INTEGER, upstream_response_headers TEXT, user_response_headers TEXT, user_response_body TEXT, response_body TEXT, created_at INTEGER, updated_at INTEGER, deleted_at INTEGER NOT NULL DEFAULT 0, attempts TEXT);
+            CREATE TABLE IF NOT EXISTS settings (scope TEXT, key TEXT, value TEXT, PRIMARY KEY (scope, key));
+            CREATE TABLE IF NOT EXISTS group_platform (id INTEGER PRIMARY KEY, group_id INTEGER, platform_id INTEGER, priority INTEGER, weight INTEGER);
+            CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
+        "#).unwrap();
+        let result = run_migrations_late(&conn);
+        assert!(result.is_ok(), "run_migrations_late failed: {:?}", result);
+        let has_gk = conn
+            .prepare("PRAGMA table_info(\"group\")")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|c| c == "group_key");
+        assert!(has_gk, "group_key should exist after migration");
+    }
 }

@@ -491,3 +491,265 @@ async fn streaming_request_passes_through() {
     // drain body 触发流式聚合
     let _ = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
 }
+
+// ──────────────────────────────────────────────────────────────
+// /v1/responses 子端点：handle_responses_subendpoint 全链路
+// ──────────────────────────────────────────────────────────────
+
+/// 注册一个 OpenAI 平台 + 显式声明 OpenAIResponses endpoint(base_url=stub) + group 关联。
+async fn setup_responses_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
+    use crate::gateway::models::{ClientType, PlatformEndpoint};
+    let plat = crate::gateway::db::create_platform(
+        &state.db,
+        CreatePlatform {
+            name: "respp".into(),
+            platform_type: Protocol::OpenAI,
+            base_url: base_url.to_string(),
+            api_key: "sk-resp".into(),
+            extra: String::new(),
+            models: None,
+            available_models: None,
+            endpoints: Some(vec![PlatformEndpoint {
+                protocol: Protocol::OpenAIResponses,
+                base_url: base_url.to_string(),
+                client_type: ClientType::Default,
+                coding_plan: false,
+            }]),
+            manual_budgets: None,
+            auto_group: None,
+            join_group_ids: None,
+        },
+    )
+    .await
+    .unwrap();
+    let group = crate::gateway::db::create_group(
+        &state.db,
+        crate::gateway::db::test_support::sample_group(gk, vec![]),
+    )
+    .await
+    .unwrap();
+    crate::gateway::db::set_group_platforms(
+        &state.db,
+        group.id,
+        &[GroupPlatformInput {
+            platform_id: plat.id,
+            priority: Some(0),
+            weight: Some(1),
+            level_priority: Some(0),
+        }],
+    )
+    .await
+    .unwrap();
+}
+
+fn responses_get(gk: &str, uri: &str) -> Request {
+    HttpRequest::builder()
+        .method("GET")
+        .uri(uri)
+        .header("authorization", format!("Bearer {gk}"))
+        .body(Body::empty())
+        .unwrap()
+}
+
+/// GET /v1/responses/{id} → handle_responses_subendpoint 选 OpenAIResponses 平台透传上游。
+#[tokio::test]
+async fn responses_subendpoint_get_relays_upstream() {
+    let upstream = spawn_stub_upstream(200, r#"{"id":"resp_1","object":"response"}"#).await;
+    let state = make_state(test_db().await).await;
+    setup_responses_group(&state, "gkresp", &upstream).await;
+
+    let req = responses_get("gkresp", "/v1/responses/resp_1");
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(v.get("id").and_then(|x| x.as_str()), Some("resp_1"));
+
+    // 落库：source/target_protocol = openai_responses
+    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    assert!(logs.iter().any(|l| l.group_key == "gkresp"
+        && l.source_protocol == "openai_responses"
+        && l.status_code == 200));
+}
+
+/// POST /v1/responses/{id}/cancel(带 body) → 原样转发 body + method 保留。
+#[tokio::test]
+async fn responses_subendpoint_post_cancel_forwards_body() {
+    let upstream = spawn_stub_upstream(200, r#"{"id":"resp_2","status":"cancelled"}"#).await;
+    let state = make_state(test_db().await).await;
+    setup_responses_group(&state, "gkrc", &upstream).await;
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/responses/resp_2/cancel")
+        .header("authorization", "Bearer gkrc")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"reason":"user"}"#.to_string()))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+
+    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let summary = logs.iter().find(|l| l.group_key == "gkrc").unwrap();
+    let log = crate::gateway::db::get_proxy_log(&state.db, &summary.id)
+        .await
+        .unwrap()
+        .unwrap();
+    // URL 不重复拼 /v1（base_url 已含 /v1）
+    assert!(log.upstream_request_url.ends_with("/responses/resp_2/cancel"));
+    assert_eq!(log.source_protocol, "openai_responses");
+}
+
+/// 子端点上游 5xx → 透传上游状态码（不重试，记录真实 status）。
+#[tokio::test]
+async fn responses_subendpoint_upstream_error_passthrough() {
+    let upstream = spawn_stub_upstream(404, r#"{"error":"not found"}"#).await;
+    let state = make_state(test_db().await).await;
+    setup_responses_group(&state, "gkr404", &upstream).await;
+
+    let req = responses_get("gkr404", "/v1/responses/resp_missing");
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+}
+
+/// 子端点回退路径：组内平台无 OpenAIResponses endpoint → 取首个 enabled 平台 base_url。
+#[tokio::test]
+async fn responses_subendpoint_fallback_first_enabled_platform() {
+    let upstream = spawn_stub_upstream(200, r#"{"id":"resp_fb","object":"response"}"#).await;
+    let state = make_state(test_db().await).await;
+    // setup_group_with_upstream 注册的是 Anthropic 平台，无 OpenAIResponses endpoint → 走回退
+    setup_group_with_upstream(&state, "gkrfb", &upstream).await;
+
+    let req = responses_get("gkrfb", "/v1/responses/resp_fb");
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    assert!(logs.iter().any(|l| l.group_key == "gkrfb" && l.source_protocol == "openai_responses"));
+}
+
+/// 子端点：组内无任何 enabled 平台 → 503。
+#[tokio::test]
+async fn responses_subendpoint_no_platform_503() {
+    let state = make_state(test_db().await).await;
+    crate::gateway::db::create_group(
+        &state.db,
+        crate::gateway::db::test_support::sample_group("gkrempty", vec![]),
+    )
+    .await
+    .unwrap();
+    let req = responses_get("gkrempty", "/v1/responses/resp_x");
+    let resp = handle_proxy(AxumState(state), req).await;
+    assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
+}
+
+/// 子端点：上游不可达(连不上) → 502 Bad Gateway。
+#[tokio::test]
+async fn responses_subendpoint_upstream_unreachable_502() {
+    let state = make_state(test_db().await).await;
+    // base_url 指向必然连不上的端口
+    setup_responses_group(&state, "gkrdead", "http://127.0.0.1:1").await;
+    let req = responses_get("gkrdead", "/v1/responses/resp_x");
+    let resp = handle_proxy(AxumState(state), req).await;
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+}
+
+// ──────────────────────────────────────────────────────────────
+// /api/notify：handle_notify 鉴权 + dispatch 全链路
+// ──────────────────────────────────────────────────────────────
+
+fn notify_headers(bearer: Option<&str>) -> axum::http::HeaderMap {
+    let mut h = axum::http::HeaderMap::new();
+    if let Some(b) = bearer {
+        h.insert(
+            "authorization",
+            axum::http::HeaderValue::from_str(&format!("Bearer {b}")).unwrap(),
+        );
+    }
+    h
+}
+
+/// notify 无 Authorization → 401。
+#[tokio::test]
+async fn notify_missing_auth_returns_401() {
+    let state = make_state(test_db().await).await;
+    let resp = handle_notify(AxumState(state), notify_headers(None), Bytes::from_static(b"{}")).await;
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+/// notify Bearer 空串 → 401。
+#[tokio::test]
+async fn notify_empty_bearer_returns_401() {
+    let state = make_state(test_db().await).await;
+    let resp = handle_notify(AxumState(state), notify_headers(Some("")), Bytes::from_static(b"{}")).await;
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+/// notify group_key 不存在 → 401（防任意 token 触发）。
+#[tokio::test]
+async fn notify_unknown_group_returns_401() {
+    let state = make_state(test_db().await).await;
+    let resp = handle_notify(
+        AxumState(state),
+        notify_headers(Some("ghost-key")),
+        Bytes::from_static(b"{}"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+}
+
+/// notify 鉴权通过但 body 非法 JSON → 400。
+#[tokio::test]
+async fn notify_bad_body_returns_400() {
+    let state = make_state(test_db().await).await;
+    crate::gateway::db::create_group(
+        &state.db,
+        crate::gateway::db::test_support::sample_group("gkn1", vec![]),
+    )
+    .await
+    .unwrap();
+    let resp = handle_notify(
+        AxumState(state),
+        notify_headers(Some("gkn1")),
+        Bytes::from_static(b"not json"),
+    )
+    .await;
+    assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
+}
+
+/// notify 成功路径：鉴权通过 + 合法 body → 200 + DispatchResult JSON（app=None 仅落 inbox/不弹窗）。
+#[tokio::test]
+async fn notify_success_dispatches_and_returns_result() {
+    let state = make_state(test_db().await).await;
+    crate::gateway::db::create_group(
+        &state.db,
+        crate::gateway::db::test_support::sample_group("gkn2", vec![]),
+    )
+    .await
+    .unwrap();
+    let body = Bytes::from_static(
+        br#"{"type":"TaskComplete","content":"done","vars":{"project":"demo"}}"#,
+    );
+    let resp = handle_notify(AxumState(state.clone()), notify_headers(Some("gkn2")), body).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = axum::body::to_bytes(resp.into_body(), 1 << 20).await.unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+    // DispatchResult 字段存在
+    assert!(v.get("dispatched").is_some());
+    assert!(v.get("inbox").is_some());
+}
+
+/// notify 走 event 字段(CC hook 路径) + 注入内置 {group}/{time} 变量 → 200。
+#[tokio::test]
+async fn notify_event_path_injects_builtin_vars() {
+    let state = make_state(test_db().await).await;
+    crate::gateway::db::create_group(
+        &state.db,
+        crate::gateway::db::test_support::sample_group("gkn3", vec![]),
+    )
+    .await
+    .unwrap();
+    // 仅 event，无 vars → 内置 group/time 注入分支命中
+    let body = Bytes::from_static(br#"{"event":"Stop","content":"hello"}"#);
+    let resp = handle_notify(AxumState(state), notify_headers(Some("gkn3")), body).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+}

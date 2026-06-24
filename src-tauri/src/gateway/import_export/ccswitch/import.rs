@@ -52,7 +52,6 @@ pub async fn import(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::gateway::import_export::ConflictDecision;
 
     async fn test_db() -> Db {
         let db = Db::new(":memory:").await.unwrap();

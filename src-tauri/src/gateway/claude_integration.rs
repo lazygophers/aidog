@@ -141,7 +141,7 @@ mod tests {
     // We can't import from gateway::db::test_support (cfg(test) only), so we replicate it.
     static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
     struct HomeGuard {
-        dir: tempfile::TempDir,
+        _dir: tempfile::TempDir,
         _lock: std::sync::MutexGuard<'static, ()>,
         prev_home: Option<String>,
     }
@@ -151,7 +151,7 @@ mod tests {
             let dir = tempfile::tempdir().unwrap();
             let prev_home = std::env::var("HOME").ok();
             unsafe { std::env::set_var("HOME", dir.path()); }
-            Self { dir, _lock: lock, prev_home }
+            Self { _dir: dir, _lock: lock, prev_home }
         }
     }
     impl Drop for HomeGuard {
