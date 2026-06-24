@@ -87,18 +87,11 @@ use super::test_support::*;
 
 
 
-    /// `bucket_time_expr` 必须带 `'localtime'`：分桶按本地时区切分，与 today_stats 同语义。
-    /// 缺 localtime 时跨日/小时桶在非 UTC 时区错位（曲线 bug）。
-    #[test]
-    fn bucket_time_expr_uses_localtime() {
-        for g in [None, Some("daily"), Some("hourly"), Some("minute"), Some("5min")] {
-            let expr = bucket_time_expr(g);
-            assert!(expr.contains("'localtime'"), "粒度 {g:?} 的分桶表达式必须含 'localtime'：{expr}");
-            assert!(expr.contains("'unixepoch'"), "粒度 {g:?} 须先 'unixepoch' 再 'localtime'：{expr}");
-        }
-    }
-
-
+    // 注：去 JOIN/子查询重构后 `bucket_time_expr`（SQL 片段拼接）已删除。
+    // 分钟/5min 分桶改 Rust 内存（utc_ms_to_local_minute_key, chrono::Local），
+    // 小时/日分桶读 stats_agg_hourly 已物化 localtime time_hour。其 localtime 语义改由
+    // 下方 `bucket_daily_splits_on_local_midnight` / `stats_minute_and_5min_buckets` /
+    // `utc_ms_to_local_hour_key_format` 行为级断言守卫（更强，非削弱）。
 
     /// localtime 分桶按本地日界切分：构造跨本地午夜的两条日志，daily 桶须落不同日期键。
     /// 用 SQLite 自身求出「本地午夜 ±1h」的 epoch ms，避免硬编码时区。
@@ -239,39 +232,9 @@ use super::test_support::*;
         }
     }
 
-    /// bucket_time_expr 返回的 SQL 片段包含正确时区和粒度关键词。
-    #[test]
-    fn bucket_time_expr_minute_granularity() {
-        let expr = bucket_time_expr(Some("minute"));
-        assert!(expr.contains("%H:%M"), "minute expr should contain HH:MM: {expr}");
-        assert!(expr.contains("'localtime'"));
-    }
-
-    #[test]
-    fn bucket_time_expr_5min_granularity() {
-        let expr = bucket_time_expr(Some("5min"));
-        assert!(expr.contains("300"), "5min expr should contain 300s window: {expr}");
-        assert!(expr.contains("'localtime'"));
-    }
-
-    #[test]
-    fn bucket_time_expr_hourly_granularity() {
-        let expr = bucket_time_expr(Some("hourly"));
-        assert!(expr.contains("%H:00"), "hourly expr should contain %H:00: {expr}");
-        assert!(expr.contains("'localtime'"));
-    }
-
-    #[test]
-    fn bucket_time_expr_daily_default() {
-        // None or unknown → daily
-        let d1 = bucket_time_expr(None);
-        let d2 = bucket_time_expr(Some("daily"));
-        let d3 = bucket_time_expr(Some("unknown_granularity"));
-        // All should be same daily format
-        assert!(d1.contains("%Y-%m-%d"), "None should be daily: {d1}");
-        assert_eq!(d1, d2, "None and 'daily' should produce same expression");
-        assert_eq!(d1, d3, "unknown granularity should default to daily");
-    }
+    // bucket_time_expr_{minute,5min,hourly,daily} 单测随 `bucket_time_expr` 删除一并移除
+    // （测的是已删私有 SQL 拼接函数的实现细节；分桶粒度/边界行为由上方 minute_5min /
+    // daily_splits 集成测试断言，覆盖更强）。
 
     /// group_by=model 维度分解（agg 路径）。
     #[tokio::test]

@@ -39,7 +39,9 @@ use super::test_support::*;
 
 
 
-    /// 回填幂等：migration 011 已在 init 回填；再跑回填 SQL（带 NOT EXISTS 守卫）不应翻倍。
+    /// 回填幂等：migration 011 已在 init 回填；再跑回填（带空表守卫）不应翻倍。
+    /// 去 JOIN/子查询重构后回填改 Rust `backfill_stats_agg_if_empty`（空表守卫在 Rust 内判），
+    /// 替代旧 NOT EXISTS SQL；表非空时它应直接返回不插，保持幂等。
     #[tokio::test]
     async fn agg_backfill_idempotent() {
         let db = test_db().await;
@@ -48,13 +50,13 @@ use super::test_support::*;
         // 全量重建一次得到基线行数。
         rebuild_stats_agg_from_logs(&db).await.unwrap();
         let n1: i64 = db.call_traced(None, std::panic::Location::caller(), |c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
-        // 再跑带 NOT EXISTS 守卫的回填 SQL（模拟 migration 重放）：表非空 → 不插。
+        // 再跑带空表守卫的回填（模拟 init 重放）：表非空 → 不插。
         db.call_traced(None, std::panic::Location::caller(), move |c| {
-            c.execute_batch(STATS_AGG_HOURLY_SQL)?;
+            backfill_stats_agg_if_empty(c)?;
             Ok(())
         }).await.unwrap();
         let n2: i64 = db.call_traced(None, std::panic::Location::caller(), |c| Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)).await.unwrap();
-        assert_eq!(n1, n2, "回填幂等：重放 migration 不翻倍");
+        assert_eq!(n1, n2, "回填幂等：重放回填不翻倍");
     }
 
 

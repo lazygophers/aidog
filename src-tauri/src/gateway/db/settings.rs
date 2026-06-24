@@ -137,16 +137,33 @@ pub fn list_all_group_platform_pairs(
     async move {
     db
         .call_read_traced(None, __db_caller, move |conn| {
+            // 去双 JOIN：分别取 group/platform 的 id→name 全表映射 + group_platform 关联，
+            // 内存按 group_id/platform_id 解析名称（任一端缺失则丢弃，等价旧 inner JOIN）。
+            let group_names: std::collections::HashMap<i64, String> = {
+                let mut stmt = conn.prepare("SELECT id, name FROM \"group\"")?;
+                let rows = stmt
+                    .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))?
+                    .collect::<SqlResult<Vec<_>>>()?;
+                rows.into_iter().collect()
+            };
+            let platform_names = platform_id_name_map(conn)?;
             let mut stmt = conn.prepare(
-                "SELECT g.name, p.name FROM group_platform gp
-                 JOIN \"group\" g ON g.id = gp.group_id
-                 JOIN platform p ON p.id = gp.platform_id
-                 WHERE gp.deleted_at = 0 ORDER BY g.name, p.name",
+                "SELECT group_id, platform_id FROM group_platform WHERE deleted_at = 0",
             )?;
-            let rows = stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })?;
-            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+            let pairs = stmt
+                .query_map([], |row| Ok((row.get::<_, i64>(0)?, row.get::<_, i64>(1)?)))?
+                .collect::<SqlResult<Vec<_>>>()?;
+            let mut out: Vec<(String, String)> = pairs
+                .into_iter()
+                .filter_map(|(gid, pid)| {
+                    match (group_names.get(&gid), platform_names.get(&pid)) {
+                        (Some(g), Some(p)) => Some((g.clone(), p.clone())),
+                        _ => None,
+                    }
+                })
+                .collect();
+            out.sort();
+            Ok(out)
         })
         .await
         .map_err(|e| e.to_string())
