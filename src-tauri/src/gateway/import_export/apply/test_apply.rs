@@ -92,7 +92,7 @@ async fn full_collect_apply_into_fresh_db() {
     let payload = collect::collect(&src, &scopes()).await.unwrap();
 
     let target = test_db().await;
-    let report = apply(payload, &[], &target).await.unwrap();
+    let report = apply(payload, &[], None, &target).await.unwrap();
     assert!(report.errors.is_empty(), "errors: {:?}", report.errors);
     assert_eq!(*report.applied.get(SCOPE_PLATFORM).unwrap(), 1);
     assert_eq!(*report.applied.get(SCOPE_GROUP).unwrap(), 1);
@@ -148,7 +148,7 @@ async fn apply_with_skip_and_rename_decisions() {
             },
         },
     ];
-    let report = apply(payload, &decisions, &target).await.unwrap();
+    let report = apply(payload, &decisions, None, &target).await.unwrap();
     assert_eq!(*report.skipped.get(SCOPE_GROUP).unwrap(), 1);
     let plats = crate::gateway::db::list_platforms(&target).await.unwrap();
     assert!(plats.iter().any(|p| p.name == "prenamed"));
@@ -172,7 +172,7 @@ async fn overwrite_existing_group_updates_cols() {
         key: "gsrc".into(),
         decision: Decision::Overwrite,
     }];
-    let report = apply(payload, &decisions, &target).await.unwrap();
+    let report = apply(payload, &decisions, None, &target).await.unwrap();
     assert!(report.errors.is_empty(), "errors: {:?}", report.errors);
 
     // 同 group_key 行被原地更新（id 不变，未新增分组）
@@ -214,7 +214,7 @@ async fn apply_file_scopes_and_setting_skip() {
     }];
 
     let target = test_db().await;
-    let report = apply(payload, &decisions, &target).await.unwrap();
+    let report = apply(payload, &decisions, None, &target).await.unwrap();
     assert!(report.errors.is_empty(), "errors: {:?}", report.errors);
     assert_eq!(*report.skipped.get(SCOPE_SETTING).unwrap(), 1);
     assert_eq!(*report.applied.get(SCOPE_SETTING).unwrap(), 1);

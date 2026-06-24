@@ -126,6 +126,27 @@ pub struct ConflictItem {
     pub incoming_summary: String,
 }
 
+/// 单个可导入条目（前端逐项勾选用）。
+///
+/// `scope` + `key` 组合唯一标识一条可导入数据；`apply` 时按 (scope, key) 白名单过滤。
+/// 各 scope 的 key 约定（与 apply 迭代时构造的键严格一致）：
+/// - platform: `idx:<N>`（platform.name 非唯一，用 payload 数组下标作稳定标识）
+/// - group: group_key（fallback name）
+/// - group_platform: `<g_name>::<p_name>`
+/// - setting: `<scope>:<key>`
+/// - codex: `codex_global` | `codex_profile:<name>`
+/// - claude_code: `claude_code_global` | `claude_code_group:<name>`
+/// - skills: skill name
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportItem {
+    pub scope: String,
+    pub key: String,
+    /// 人类可读标签（平台名 / 分组名 / 设置键 / 文件名）。
+    pub label: String,
+    /// 是否与现有数据冲突（前端把冲突项关联到 conflicts 决策子流程）。
+    pub conflict: bool,
+}
+
 /// 导入预览（解密后返回前端，供冲突弹窗收集决策）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImportPreview {
@@ -134,7 +155,14 @@ pub struct ImportPreview {
     pub conflicts: Vec<ConflictItem>,
     /// 各 scope 待导入条目数（信息展示用）。
     pub counts: std::collections::BTreeMap<String, usize>,
+    /// 全部可导入条目（按 scope 分组前端逐项勾选）。
+    #[serde(default)]
+    pub items: Vec<ImportItem>,
 }
+
+/// 选中条目白名单（apply 时传入）：仅 (scope, key) 命中的条目被导入。
+/// `None` = 不过滤（导入全部，旧行为；ccswitch / sub2api 异源路径用）。
+pub type Selection = std::collections::BTreeSet<(String, String)>;
 
 /// 单条冲突决策。
 #[derive(Debug, Clone, Serialize, Deserialize)]

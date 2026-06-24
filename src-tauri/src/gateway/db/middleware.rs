@@ -46,7 +46,7 @@ pub fn list_middleware_rules(db: &Db) -> impl std::future::Future<Output = Resul
         "SELECT {MIDDLEWARE_RULE_COLUMNS} FROM middleware_rule ORDER BY priority ASC, id ASC"
     );
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(&sql)?;
             let rows = stmt.query_map([], row_to_middleware_rule)?;
             Ok(rows.collect::<SqlResult<Vec<_>>>()?)
@@ -233,7 +233,7 @@ pub fn list_notifications(
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, notif_type, title, body, created_at FROM notification ORDER BY created_at DESC, id DESC LIMIT ?1",
             )?;

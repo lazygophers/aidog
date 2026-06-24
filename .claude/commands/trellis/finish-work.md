@@ -45,9 +45,11 @@ Then route:
 <!-- trellisx:start:finishcmd_fullchain -->
 ⛔ **trellisx 全链收尾 (在原生 archive/journal 之前先跑)**: 本项目 worktree 隔离, 收尾 MUST 先合并再归档, 否则销毁 worktree 丢提交。
 
-跑 `python3 .trellis/scripts/trellisx-finish.py`:
+⓪ **AI 层 — 先确认本 task 的 Workflow / 后台任务已终止 (脚本做不到, 必须 AI 主动)**: 跑收尾脚本前, 用 `TaskList` 查有无悬挂的后台 Workflow/agent 任务 (本 task 的 exec/check 载体 —— **Claude Code Workflow** 或退化的**其他平台 agent 流水线**); 有残留则 `TaskStop` 逐个关闭, 再跑脚本。**`trellisx-finish.py` 只销 worktree, 不关 Workflow/Task** —— 关闭悬挂任务是 AI 层职责, 脚本不代劳。悬挂任务未清就合并/销毁 worktree = 进程仍在写 = 流程错误。
+
+**git 层 — 跑 `python3 .trellis/scripts/trellisx-finish.py`** (确定性脚本):
 ① worktree 内 `git add -A` + commit (落 `trellisx-<name>` 分支)
-② `git merge --no-ff trellisx-<name>` 合并回主分支 (冲突 → abort + 报冲突 + 非 0 退出, 转手动禁强解)
+② `git merge --no-ff trellisx-<name>` 合并回主分支, 子先主后 (冲突 → abort + 报冲突 + 非 0 退出, 转手动禁强解)
 ③ `task.py archive <tid>` 归档 + 触发 after_archive 销毁**已合并**的 worktree
 
 跑完后**跳过下方原生 "Step 3: Archive"** (trellisx-finish.py 已 archive), 直接进原生 journal 步骤 (add_session.py)。

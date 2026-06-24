@@ -36,8 +36,7 @@ export const PROTOCOLS: ProtocolOption[] = [
   { value: "deepseek", label: "DeepSeek（深度求索）", keywords: ["深度求索", "deepseek"] },
   { value: "stepfun", label: "阶跃星辰（StepFun）", keywords: ["stepfun", "阶跃"] },
   { value: "stepfun_en", label: "StepFun 国际版", keywords: ["stepfun ai", "阶跃国际"] },
-  { value: "doubao", label: "火山 Agentplan", keywords: ["火山", "volcengine", "agentplan"] },
-  { value: "doubao_seed", label: "豆包 Seed", keywords: ["豆包", "doubao", "seed"] },
+  { value: "doubao", label: "火山引擎", keywords: ["火山", "volcengine", "agentplan", "豆包", "doubao", "seed", "ark", "volces"] },
   { value: "byteplus", label: "BytePlus", keywords: ["byteplus", "字节国际"] },
   { value: "qianfan", label: "百度千帆", keywords: ["baidu", "百度", "千帆"] },
   { value: "qianfan", label: "百度千帆 Coding Plan Lite", codingPlan: true, keywords: ["baidu", "百度", "千帆", "qianfan", "coding"] },
@@ -222,9 +221,9 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
     ],
     doubao: [
       { protocol: "anthropic", base_url: "https://ark.cn-beijing.volces.com/api/coding", client_type: "claude_code" },
-    ],
-    doubao_seed: [
-      { protocol: "anthropic", base_url: "https://ark.cn-beijing.volces.com/api/compatible", client_type: "claude_code" },
+      // OpenAI Responses 兼容端点（Codex）：base_url 含 /v3，proxy 拼 path；hosts 派生后 /api/coding/v3
+      // 比 /api/coding 更长 → 粘贴 v3 URL 最长子串胜出命中 Responses 端点。
+      { protocol: "openai_responses", base_url: "https://ark.cn-beijing.volces.com/api/coding/v3", client_type: "codex_tui" },
     ],
     byteplus: [
       { protocol: "anthropic", base_url: "https://ark.ap-southeast.bytepluses.com/api/coding", client_type: "claude_code" },
@@ -439,6 +438,8 @@ export function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Part
     bailian: { default: "qwen3.7-max" },
     // deepseek-chat 将 2026-07-24 弃用，v4-flash 为后继
     deepseek: { default: "deepseek-v4-flash" },
+    // 火山引擎（ark）coding 端点旗舰；model id 格式（点 vs 横线）待核实，暂随仓库现行短横线惯例
+    doubao: { default: "doubao-seed-2-0-code" },
     // 小米 MiMo 旗舰文本模型（按量 openai 端点）
     xiaomi_mimo: { default: "mimo-v2.5-pro" },
     // OpenCode Zen 免费旗舰（catalog 定价 0）；其余免费模型靠 fetchModels /v1/models 拉取
@@ -488,8 +489,9 @@ function getDefaultModelList(protocol: Protocol, codingPlan?: boolean): string[]
     deepseek: ["deepseek-v4-flash", "deepseek-v4-pro", "deepseek-chat", "deepseek-reasoner"],
     stepfun: ["step-3.7-flash", "step-3.5-flash"],
     stepfun_en: ["step-3.7-flash", "step-3.5-flash"],
-    doubao: ["doubao-seed-2-0-pro", "doubao-seed-2-0-code-preview", "doubao-seed-2-0-lite", "doubao-seed-2-0-mini"], // 短横线非点号
-    doubao_seed: ["doubao-seed-2-0-pro", "doubao-seed-2-0-code-preview", "doubao-seed-2-0-lite", "doubao-seed-2-0-mini"],
+    // 火山引擎 ark 官方 + 托管多厂商型号。doubao 自有型号沿用仓库短横线惯例（点 vs 横线待核实）；
+    // 跨厂商型号（minimax/glm/deepseek/kimi）保留各厂商原生命名。首项 = getDefaultModels 默认值。
+    doubao: ["doubao-seed-2-0-code", "doubao-seed-2-0-pro", "doubao-seed-2-0-lite", "doubao-seed-code", "minimax-m2.7", "minimax-m3", "glm-5.2", "deepseek-v4-flash", "deepseek-v4-pro", "kimi-k2.6", "kimi-k2.7-code"],
     byteplus: ["doubao-seed-2-0-pro", "doubao-seed-2-0-code-preview", "doubao-seed-2-0-lite", "doubao-seed-2-0-mini"],
     // qianfan: 百度文档 JS-rendered 未拿到确切 chat id，留空靠 fetchModels
     xiaomi_mimo: ["mimo-v2.5-pro", "mimo-v2-pro", "mimo-v2.5", "mimo-v2-omni", "mimo-v2-flash"],
@@ -605,8 +607,7 @@ export const PROTOCOL_LABELS: Record<Protocol, string> = {
   deepseek: "DeepSeek",
   stepfun: "阶跃星辰",
   stepfun_en: "StepFun 国际版",
-  doubao: "火山 Agentplan",
-  doubao_seed: "豆包 Seed",
+  doubao: "火山引擎",
   byteplus: "BytePlus",
   qianfan: "百度千帆",
   xiaomi_mimo: "小米 MiMo",
@@ -684,7 +685,6 @@ export const PROTOCOL_COLORS: Record<string, string> = {
   stepfun: "#16D6D2",
   stepfun_en: "#16D6D2",
   doubao: "#3370FF",
-  doubao_seed: "#3370FF",
   byteplus: "#3370FF",
   qianfan: "#2932E1",
   xiaomi_mimo: "#FF6900",
@@ -828,6 +828,8 @@ function SearchableProtocolSelect({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  // 仅键盘导航/打开下拉时才自动滚动；鼠标 hover 改高亮不滚动（避免滚动→hover→滚动死循环）
+  const autoScrollRef = useRef(false);
 
   // 当前选中项的显示文本
   const selectedLabel = PROTOCOLS.find(
@@ -858,15 +860,18 @@ function SearchableProtocolSelect({
     setOpen(true);
     setQuery("");
     const idx = filtered.findIndex(p => p.value === value && !!p.codingPlan === codingPlan);
+    autoScrollRef.current = true;
     setHighlightedIndex(idx >= 0 ? idx : 0);
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
-  // 高亮项变化时滚动到可见区域
+  // 高亮项变化时滚动到可见区域：仅消费 autoScrollRef（键盘/打开）才滚，鼠标 hover 不滚
   useEffect(() => {
     if (!open || !scrollRef.current) return;
+    if (!autoScrollRef.current) return;
+    autoScrollRef.current = false;
     const btn = scrollRef.current.children[highlightedIndex] as HTMLElement | undefined;
-    btn?.scrollIntoView({ block: "center" });
+    btn?.scrollIntoView({ block: "nearest" });
   }, [highlightedIndex, open, filtered.length]);
 
   // 搜索内容变化时重置高亮到第一项
@@ -894,10 +899,12 @@ function SearchableProtocolSelect({
     switch (e.key) {
       case "ArrowDown":
         e.preventDefault();
+        autoScrollRef.current = true;
         setHighlightedIndex(i => Math.min(i + 1, filtered.length - 1));
         break;
       case "ArrowUp":
         e.preventDefault();
+        autoScrollRef.current = true;
         setHighlightedIndex(i => Math.max(i - 1, 0));
         break;
       case "Enter":
@@ -1303,7 +1310,7 @@ function FormSection({ title, desc, action, children }: FormSectionProps) {
   );
 }
 
-export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: string, context?: { platformId?: number; platformName?: string }) => void; initialFilter?: { platformId?: number; platformName?: string } }) {
+export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: string, context?: { platformId?: number; platformName?: string; duplicate?: boolean }) => void; initialFilter?: { platformId?: number; platformName?: string; duplicate?: boolean } }) {
   const { t } = useTranslation();
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   // 渐进加载计数（来自 GroupsEmbedded 逐组流式回传 {total, active}），驱动页头「N / M active」增量更新。
@@ -1817,8 +1824,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     const target = platforms.find(p => p.id === pid);
     if (!target) return;  // 列表尚未加载到该平台，待 platforms 更新后重试
     consumedEditPidRef.current = pid;
-    handleEdit(target);
-  }, [initialFilter?.platformId, platforms]);
+    if (initialFilter?.duplicate) handleDuplicate(target);
+    else handleEdit(target);
+  }, [initialFilter?.platformId, initialFilter?.duplicate, platforms]);
 
   // 分组列表（multi-select 数据源 + 编辑态反查手动组归属 + 平台归属映射）。本地查询，失败不阻断编辑。
   useEffect(() => {
@@ -1962,6 +1970,60 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       const pv = (platformResult as Record<string, any>) ?? {};
       setGlobalClaudeConfig(gv);
       setClaudeConfigJson(JSON.stringify({ ...gv, ...pv }, null, 2));
+    } catch (e) { console.error(e); }
+  };
+
+  /** 复制平台：复用源平台全部配置灌入表单，但以「新建态」打开（editing=null），保存才新建。
+   *  与 handleEdit 唯一差异：setEditing(null)（不绑定源平台 id）+ Claude 配置仅在存在非空 override diff 时展开。 */
+  const handleDuplicate = async (p: Platform) => {
+    setName(p.name); setProtocol(p.platform_type); setApiKey(p.api_key);
+    const hasCodingPlan = (p.endpoints || []).some(ep => ep.coding_plan);
+    setCodingPlan(hasCodingPlan);
+    setModels({
+      default: p.models.default ?? "",
+      sonnet: p.models.sonnet ?? "",
+      opus: p.models.opus ?? "",
+      haiku: p.models.haiku ?? "",
+      gpt: p.models.gpt ?? "",
+    });
+    setAvailableModels(p.available_models ?? []);
+    setEndpoints(p.endpoints ?? []);
+    setEditing(null); setShowForm(true); setFetchError(""); setSaveError("");
+    setShowClaudeConfig(false); setClaudeConfigJson("");
+    setExtra(p.extra ?? "");
+    setMockConfig(parseMockConfig(p.extra ?? ""));
+    setNewApiConfig(parseNewApiConfig(p.extra ?? ""));
+    setManualBudgets(p.manual_budgets ?? []);
+    {
+      const brk = parsePlatformBreaker(p.extra ?? "");
+      setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
+      setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
+      setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
+    }
+    setLockedGroupId(null);
+    // 反查源平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
+    try {
+      const gds = await groupDetailApi.list();
+      setGroupDetails(gds);
+      setJoinGroupIds(gds
+        .filter(gd => gd.group.auto_from_platform !== String(p.id)
+          && gd.platforms.some(gp => gp.platform.id === p.id))
+        .map(gd => gd.group.id));
+    } catch {
+      setJoinGroupIds([]);
+    }
+
+    // 加载 global + 源平台 Claude Code 配置，合并填入；仅当源平台存在非空 override diff 时展开面板。
+    try {
+      const [globalResult, platformResult] = await Promise.all([
+        settingsApi.get("global", "claude_code"),
+        settingsApi.get(`platform:${p.id}`, "claude_code"),
+      ]);
+      const gv = (globalResult as Record<string, any>) ?? {};
+      const pv = (platformResult as Record<string, any>) ?? {};
+      setGlobalClaudeConfig(gv);
+      setClaudeConfigJson(JSON.stringify({ ...gv, ...pv }, null, 2));
+      if (Object.keys(pv).length > 0) setShowClaudeConfig(true);
     } catch (e) { console.error(e); }
   };
 
@@ -2235,12 +2297,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // 卡片操作集合：用 latest-ref 持有最新闭包，对外暴露稳定引用，保证 PlatformCard memo 生效
   const actionsRef = useRef({
     handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
-    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDelete, handleViewLogs,
+    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDuplicate, handleDelete, handleViewLogs,
     handleQuickTest, setTestingPlatform, setFaviconFailed,
   });
   actionsRef.current = {
     handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
-    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDelete, handleViewLogs,
+    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDuplicate, handleDelete, handleViewLogs,
     handleQuickTest, setTestingPlatform, setFaviconFailed,
   };
   const cardActions = useMemo<PlatformCardActions>(() => ({
@@ -2251,6 +2313,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     onRefreshQuota: (p) => actionsRef.current.refreshQuota(p),
     onToggleEnabled: (p) => actionsRef.current.handleToggle(p),
     onEdit: (p) => actionsRef.current.handleEdit(p),
+    onDuplicate: (p) => actionsRef.current.handleDuplicate(p),
     onDelete: (id) => actionsRef.current.handleDelete(id),
     onViewLogs: (p) => actionsRef.current.handleViewLogs(p),
     onQuickTest: (p) => actionsRef.current.handleQuickTest(p),
@@ -3104,7 +3167,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       </div>
 
       {/* 分组段（内嵌） */}
-      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={groupsReloadRef} onCountChange={setProgressiveCount} />
+      <GroupsEmbedded onNavigate={onNavigate} onGroupsChanged={handleGroupsChanged} onCreatePlatform={openCreatePlatform} onEditPlatform={handleEdit} onDuplicatePlatform={handleDuplicate} onToast={setToast} onViewModeChange={setGroupFullscreen} openCreateGroupRef={openCreateGroupRef} reloadRef={groupsReloadRef} onCountChange={setProgressiveCount} />
 
       {/* 全屏视图态（创建/编辑分组）时隐藏分隔线 + 未分组平台列表，避免与全屏视图并列 */}
       {!groupFullscreen && (<>

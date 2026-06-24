@@ -257,7 +257,7 @@ pub fn list_proxy_logs(db: &Db, limit: u32, offset: u32) -> impl std::future::Fu
     let __db_caller = std::panic::Location::caller();
     async move {
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT id, group_key, model, actual_model, source_protocol, target_protocol, platform_id, status_code, duration_ms, input_tokens, output_tokens, cache_tokens, is_stream, retry_count, created_at
                  FROM proxy_log WHERE deleted_at = 0 ORDER BY created_at DESC LIMIT ?1 OFFSET ?2",
@@ -302,7 +302,7 @@ pub fn filtered_list_proxy_logs<'a>(
     async move {
     let filter = filter.clone();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let (where_sql, mut p) = build_filter_where(&filter);
             p.push(Box::new(limit));
             p.push(Box::new(offset));
@@ -329,7 +329,7 @@ pub fn filtered_count_proxy_logs<'a>(
     async move {
     let filter = filter.clone();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let (where_sql, p) = build_filter_where(&filter);
             let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
             let refs: Vec<&dyn rusqlite::types::ToSql> = p.iter().map(|x| x.as_ref()).collect();
@@ -405,7 +405,7 @@ pub fn get_proxy_log<'a>(db: &'a Db, id: &'a str) -> impl std::future::Future<Ou
     async move {
     let id = id.to_string();
     db
-        .call_traced(None, __db_caller, move |conn| {
+        .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare(&format!(
                 "SELECT {PROXY_LOG_COLUMNS} FROM proxy_log WHERE id = ?1 AND deleted_at = 0"
             ))?;

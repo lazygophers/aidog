@@ -41,7 +41,8 @@ pub async fn import(
         claude_code_group_settings: Vec::new(),
         skills: Vec::new(),
     };
-    let report = apply::apply(payload, decisions, db).await?;
+    // 异源单向导入：不走逐项勾选白名单（payload 自建），导入全部 → None。
+    let report = apply::apply(payload, decisions, None, db).await?;
 
     if auto_group {
         apply::ensure_group_and_attach(db, "cc-switch", &before).await?;

@@ -797,6 +797,7 @@
   "platform.usageLabel": "Verbraucht",
   "platform.usageLoading": "Nutzung wird geladen",
   "platform.viewLogs": "Protokolle ansehen",
+  "platform.duplicate": "Duplizieren",
   "platform.windowUnitDay": "Tage",
   "platform.windowUnitHour": "Stunden",
   "platform.windowUnitMinute": "Minuten",
@@ -1625,5 +1626,9 @@
   "stats.rebuildHint": "Aggregierte Statistiktabelle vollständig aus historischen Anfrageprotokollen neu aufbauen",
   "stats.rebuildDone": "Aggregierte Statistiken aus Protokollen neu aufgebaut",
   "stats.fineGranHint": "Minutengenaue Daten stammen aus Anfrageprotokollen und sind nur kurzfristig verfügbar (durch Protokoll-Aufbewahrung begrenzt)",
-  "stats.fineGranBadge": "· nur kurzfristig"
+  "stats.fineGranBadge": "· nur kurzfristig",
+  "importExport.applyN": "Importieren ({{n}})",
+  "importExport.selectItems": "Zu importierende Elemente auswählen",
+  "importExport.conflictTag": "Konflikt",
+  "importExport.error.notAidogx": "Bitte eine .aidogx-Sicherungsdatei ablegen"
 }
