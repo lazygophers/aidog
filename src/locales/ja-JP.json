@@ -797,6 +797,7 @@
   "platform.usageLabel": "使用済み",
   "platform.usageLoading": "使用量を読み込み中",
   "platform.viewLogs": "ログを見る",
+  "platform.duplicate": "複製",
   "platform.windowUnitDay": "日",
   "platform.windowUnitHour": "時間",
   "platform.windowUnitMinute": "分",
