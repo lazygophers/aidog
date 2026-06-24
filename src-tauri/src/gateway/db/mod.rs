@@ -549,7 +549,7 @@ pub use mcp::*;
 // 因 db/ 为扁平目录，所有子模块声明须由父模块 mod.rs 持有（test_X.rs 是 db 的兄弟文件，
 // 非 X 的子目录文件，无法挂在 X.rs 名下）。test_support 持共享夹具（test_db / sample_* 等）。
 #[cfg(test)]
-mod test_support;
+pub(crate) mod test_support;
 #[cfg(test)]
 mod test_mod;
 #[cfg(test)]
@@ -582,6 +582,8 @@ mod test_middleware;
 mod test_maintenance;
 #[cfg(test)]
 mod test_schema;
+#[cfg(test)]
+mod test_mcp;
 #[cfg(test)]
 mod test_rw_pool;
 

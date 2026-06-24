@@ -12,6 +12,10 @@ mod coding_plan;
 mod http;
 mod newapi;
 
+#[cfg(test)]
+#[path = "test_dispatch.rs"]
+mod test_dispatch;
+
 use std::sync::Arc;
 
 use super::db::Db;

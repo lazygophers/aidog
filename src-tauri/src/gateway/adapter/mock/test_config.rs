@@ -98,6 +98,71 @@ fn per_field_independent_fallback() {
     assert_eq!(cfg.cache_tokens, 3); // extra 兜底
 }
 
+/// body.mock 覆盖所有字段
+#[test]
+fn body_mock_all_fields() {
+    let body = json!({
+        "mock": {
+            "status_code": 503,
+            "delay_ms": 42,
+            "stream_override": false,
+            "response_text": "body-text",
+            "finish_reason": "max_tokens",
+            "input_tokens": 7,
+            "output_tokens": 8,
+            "cache_tokens": 9,
+            "error_mode": "rate_limit_429",
+            "chunk_count": 2
+        }
+    });
+    let cfg = resolve_mock_config("", &empty_req(), &body);
+    assert_eq!(cfg.status_code, 503);
+    assert_eq!(cfg.delay_ms, 42);
+    assert_eq!(cfg.stream_override, Some(false));
+    assert_eq!(cfg.response_text, "body-text");
+    assert_eq!(cfg.finish_reason, "max_tokens");
+    assert_eq!(cfg.input_tokens, 7);
+    assert_eq!(cfg.output_tokens, 8);
+    assert_eq!(cfg.cache_tokens, 9);
+    assert_eq!(cfg.error_mode, "rate_limit_429");
+    assert_eq!(cfg.chunk_count, 2);
+}
+
+/// apply_field branches: response_text + error_mode via message role
+#[test]
+fn apply_field_response_text_and_error_mode_via_role() {
+    let body = json!({
+        "messages": [
+            {"role": "response_text", "content": "from-role"},
+            {"role": "error_mode", "content": "timeout"},
+            {"role": "delay_ms", "content": "999"},
+            {"role": "output_tokens", "content": "77"},
+            {"role": "cache_tokens", "content": "3"},
+        ]
+    });
+    let cfg = resolve_mock_config("", &empty_req(), &body);
+    assert_eq!(cfg.response_text, "from-role");
+    assert_eq!(cfg.error_mode, "timeout");
+    assert_eq!(cfg.delay_ms, 999);
+    assert_eq!(cfg.output_tokens, 77);
+    assert_eq!(cfg.cache_tokens, 3);
+}
+
+/// Blocks content in message role scanning
+#[test]
+fn message_blocks_content_concatenated_for_role_field() {
+    let req = chat_req(vec![Message {
+        role: Role::User,
+        content: MessageContent::Blocks(vec![
+            ContentBlock::Text { text: "10".to_string() },
+        ]),
+    }]);
+    // role=user does not match any field; no change to defaults
+    let cfg = resolve_mock_config("", &req, &json!({}));
+    let def = MockConfig::default();
+    assert_eq!(cfg.input_tokens, def.input_tokens);
+}
+
 // ─── error_mode 字段解析（语义在 handle_mock，纯函数侧验证配置可控） ──
 
 #[test]

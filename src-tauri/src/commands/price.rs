@@ -94,3 +94,7 @@ pub async fn price_sync_settings_set(db: State<'_, Db>, settings: gateway::model
     gateway::price_sync::save_sync_settings(&db, &settings).await;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "test_price.rs"]
+mod test_price;

@@ -42,3 +42,7 @@ pub fn about_info() -> AboutInfo {
         build_time: env!("AIDOG_BUILD_TIME").to_string(),
     }
 }
+
+#[cfg(test)]
+#[path = "test_about.rs"]
+mod test_about;

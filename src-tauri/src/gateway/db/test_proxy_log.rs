@@ -199,3 +199,247 @@ use rusqlite::params;
         purge_deleted_proxy_logs(&db).await.unwrap();
         assert_eq!(count_all_proxy_logs(&db).await, 0, "tombstone should be physically purged");
     }
+
+
+
+    /// list_proxy_logs 基本功能：插入两条日志，分页取回正确。
+    #[tokio::test]
+    async fn list_proxy_logs_basic() {
+        let db = test_db().await;
+        let now = now();
+        let l1 = sample_log("l1", "g1", now - 2000);
+        let l2 = sample_log("l2", "g1", now - 1000);
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l1, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l2, false, false)).await.unwrap();
+        let rows = list_proxy_logs(&db, 10, 0).await.unwrap();
+        assert_eq!(rows.len(), 2, "should return both logs");
+        // sorted by created_at DESC
+        assert_eq!(rows[0].id, "l2");
+        assert_eq!(rows[1].id, "l1");
+    }
+
+    /// list_proxy_logs 分页偏移。
+    #[tokio::test]
+    async fn list_proxy_logs_offset() {
+        let db = test_db().await;
+        let now = now();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&sample_log("p1", "g", now - 3000), false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&sample_log("p2", "g", now - 2000), false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&sample_log("p3", "g", now - 1000), false, false)).await.unwrap();
+        let page1 = list_proxy_logs(&db, 2, 0).await.unwrap();
+        let page2 = list_proxy_logs(&db, 2, 2).await.unwrap();
+        assert_eq!(page1.len(), 2);
+        assert_eq!(page2.len(), 1);
+        assert_eq!(page2[0].id, "p1"); // oldest
+    }
+
+    /// filtered_list + filtered_count：按 group_key 过滤。
+    #[tokio::test]
+    async fn filtered_list_by_group_key() {
+        let db = test_db().await;
+        let now = now();
+        let l_g1 = sample_log("fg1", "group_a", now);
+        let l_g2 = sample_log("fg2", "group_b", now);
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_g1, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l_g2, false, false)).await.unwrap();
+
+        let filter = crate::gateway::models::ProxyLogFilter {
+            group_key: Some("group_a".to_string()),
+            platform_id: None, status: None, time_start: None, time_end: None,
+            model: None, model_type: None, path: None,
+        };
+        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "fg1");
+
+        let count = filtered_count_proxy_logs(&db, &filter).await.unwrap();
+        assert_eq!(count, 1);
+    }
+
+    /// filtered_list：按 status=200(成功) 过滤。
+    #[tokio::test]
+    async fn filtered_list_by_status_success() {
+        let db = test_db().await;
+        let now = now();
+        let mut ok = sample_log("ok", "g", now);
+        ok.status_code = 200;
+        let mut fail = sample_log("fail", "g", now - 1);
+        fail.status_code = 503;
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&ok, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&fail, false, false)).await.unwrap();
+
+        let filter_ok = crate::gateway::models::ProxyLogFilter {
+            status: Some(200),
+            group_key: None, platform_id: None, time_start: None, time_end: None,
+            model: None, model_type: None, path: None,
+        };
+        let rows = filtered_list_proxy_logs(&db, &filter_ok, 10, 0).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "ok");
+
+        let filter_fail = crate::gateway::models::ProxyLogFilter {
+            status: Some(-1),
+            group_key: None, platform_id: None, time_start: None, time_end: None,
+            model: None, model_type: None, path: None,
+        };
+        let rows2 = filtered_list_proxy_logs(&db, &filter_fail, 10, 0).await.unwrap();
+        assert_eq!(rows2.len(), 1);
+        assert_eq!(rows2[0].id, "fail");
+    }
+
+    /// filtered_list：model_type="actual" vs "original"。
+    #[tokio::test]
+    async fn filtered_list_by_model_type() {
+        let db = test_db().await;
+        let now = now();
+        let mut l = sample_log("model1", "g", now);
+        l.model = "claude-sonnet-4".into();
+        l.actual_model = "glm-4-plus".into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&l, false, false)).await.unwrap();
+
+        // actual model filter
+        let filter_actual = crate::gateway::models::ProxyLogFilter {
+            model: Some("glm-4-plus".to_string()),
+            model_type: Some("actual".to_string()),
+            group_key: None, platform_id: None, status: None,
+            time_start: None, time_end: None, path: None,
+        };
+        let rows = filtered_list_proxy_logs(&db, &filter_actual, 10, 0).await.unwrap();
+        assert_eq!(rows.len(), 1, "actual model match should work");
+
+        // original model filter
+        let filter_orig = crate::gateway::models::ProxyLogFilter {
+            model: Some("claude-sonnet-4".to_string()),
+            model_type: Some("original".to_string()),
+            group_key: None, platform_id: None, status: None,
+            time_start: None, time_end: None, path: None,
+        };
+        let rows2 = filtered_list_proxy_logs(&db, &filter_orig, 10, 0).await.unwrap();
+        assert_eq!(rows2.len(), 1, "original model match should work");
+    }
+
+    /// clear_proxy_logs 软删全部日志（设 deleted_at != 0）。
+    /// list_proxy_logs/filtered_list 的 WHERE deleted_at=0 过滤后结果为空。
+    #[tokio::test]
+    async fn clear_proxy_logs_soft_deletes_all() {
+        let db = test_db().await;
+        let now = now();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&sample_log("c1", "g", now), false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&sample_log("c2", "g", now - 1), false, false)).await.unwrap();
+        assert_eq!(count_all_proxy_logs(&db).await, 2);
+        clear_proxy_logs(&db).await.unwrap();
+        // 软删后 filtered_list（WHERE deleted_at=0）应为空
+        let filter = crate::gateway::models::ProxyLogFilter {
+            group_key: None, platform_id: None, status: None,
+            time_start: None, time_end: None, model: None, model_type: None, path: None,
+        };
+        let rows = filtered_list_proxy_logs(&db, &filter, 100, 0).await.unwrap();
+        assert_eq!(rows.len(), 0, "cleared logs should be soft-deleted (hidden from list)");
+    }
+
+    /// filtered_list：时间范围过滤。
+    #[tokio::test]
+    async fn filtered_list_by_time_range() {
+        let db = test_db().await;
+        let now = now();
+        let old = sample_log("old", "g", now - 100_000);
+        let recent = sample_log("recent", "g", now);
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&old, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&recent, false, false)).await.unwrap();
+
+        let filter = crate::gateway::models::ProxyLogFilter {
+            time_start: Some(now - 10_000),
+            time_end: Some(now + 10_000),
+            group_key: None, platform_id: None, status: None,
+            model: None, model_type: None, path: None,
+        };
+        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "recent");
+
+        let count = filtered_count_proxy_logs(&db, &filter).await.unwrap();
+        assert_eq!(count, 1);
+    }
+
+    /// get_proxy_log 返回完整行 + 不存在时 None。
+    #[tokio::test]
+    async fn get_proxy_log_found_and_missing() {
+        let db = test_db().await;
+        let ts = now();
+        let log = sample_log("gpl-1", "g", ts);
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log, false, false)).await.unwrap();
+
+        let got = get_proxy_log(&db, "gpl-1").await.unwrap();
+        assert!(got.is_some(), "should find inserted log");
+        assert_eq!(got.unwrap().id, "gpl-1");
+
+        let missing = get_proxy_log(&db, "nonexistent-id").await.unwrap();
+        assert!(missing.is_none());
+    }
+
+    /// filtered_list：按 path (request_url LIKE) 过滤。
+    #[tokio::test]
+    async fn filtered_list_by_path_search() {
+        let db = test_db().await;
+        let ts = now();
+        let log1 = sample_log("path-a", "g", ts);
+        let log2 = sample_log("path-b", "g", ts + 1);
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log1, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log2, false, false)).await.unwrap();
+        let filter = crate::gateway::models::ProxyLogFilter {
+            path: Some("chat".into()),
+            group_key: None, platform_id: None, status: None,
+            model: None, model_type: None, time_start: None, time_end: None,
+        };
+        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
+        // Both sample logs have same url, both should match "chat" if it's in the url
+        // (sample_log sets request_url = "test://api/v1/chat/completions" or similar)
+        let count = filtered_count_proxy_logs(&db, &filter).await.unwrap();
+        assert_eq!(rows.len() as u32, count);
+    }
+
+    /// filtered_list：status 精确值过滤（非200/非-1分支）。
+    #[tokio::test]
+    async fn filtered_list_by_exact_status_code() {
+        let db = test_db().await;
+        let ts = now();
+        let mut log_429 = sample_log("s429", "g", ts);
+        log_429.status_code = 429;
+        let log_ok = sample_log("s200", "g", ts + 1);
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log_429, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log_ok, false, false)).await.unwrap();
+
+        let filter = crate::gateway::models::ProxyLogFilter {
+            status: Some(429),
+            group_key: None, platform_id: None, path: None,
+            model: None, model_type: None, time_start: None, time_end: None,
+        };
+        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "s429");
+    }
+
+    /// filtered_list：model_type="actual" 按 actual_model 过滤。
+    #[tokio::test]
+    async fn filtered_list_model_type_actual() {
+        let db = test_db().await;
+        let ts = now();
+        let mut log_a = sample_log("mta-1", "g", ts);
+        log_a.actual_model = "claude-3-5-sonnet".into();
+        log_a.model = "alias".into();
+        let mut log_b = sample_log("mta-2", "g", ts + 1);
+        log_b.actual_model = "gpt-4o".into();
+        log_b.model = "alias".into();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log_a, false, false)).await.unwrap();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&log_b, false, false)).await.unwrap();
+
+        let filter = crate::gateway::models::ProxyLogFilter {
+            model: Some("claude-3-5-sonnet".into()),
+            model_type: Some("actual".into()),
+            group_key: None, platform_id: None, status: None,
+            path: None, time_start: None, time_end: None,
+        };
+        let rows = filtered_list_proxy_logs(&db, &filter, 10, 0).await.unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0].id, "mta-1");
+    }

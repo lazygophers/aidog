@@ -106,3 +106,7 @@ pub fn fs_autocomplete(input: String) -> Result<Vec<PathEntry>, String> {
 
     Ok(sorted)
 }
+
+#[cfg(test)]
+#[path = "test_fs_autocomplete.rs"]
+mod test_fs_autocomplete;

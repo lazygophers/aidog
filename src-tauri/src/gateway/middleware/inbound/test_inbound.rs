@@ -175,3 +175,191 @@ fn inbound_platform_only_does_not_apply_global() {
         _ => panic!("expected platform block"),
     }
 }
+
+/// inject system_append on None system.
+#[test]
+fn inbound_inject_system_append_when_no_system() {
+    let mut rule = mk_rule(1, RuleType::DynamicInjection, RuleScope::Global, "", MatchType::Contains, "");
+    rule.action = RuleAction::Inject;
+    rule.config = r#"{"inject_mode":"system_append","value":"POLICY"}"#.to_string();
+    let engine = MiddlewareEngine::new();
+    engine.rebuild_from_rules(vec![rule]);
+
+    let mut req = mk_req(vec![user_msg("hi")], None); // no system
+    let outcome = engine.apply_inbound(&settings_all_on(), &mut req, None);
+    assert_eq!(outcome, InboundOutcome::Continue);
+    match &req.system {
+        Some(SystemContent::Text(t)) => assert!(t.contains("POLICY"), "got: {t}"),
+        _ => panic!("expected system text with injected policy"),
+    }
+}
+
+/// inject system_append on system Blocks.
+#[test]
+fn inbound_inject_system_append_blocks_system() {
+    let mut rule = mk_rule(1, RuleType::DynamicInjection, RuleScope::Global, "", MatchType::Contains, "");
+    rule.action = RuleAction::Inject;
+    rule.config = r#"{"inject_mode":"system_append","value":"APPENDED"}"#.to_string();
+    let engine = MiddlewareEngine::new();
+    engine.rebuild_from_rules(vec![rule]);
+
+    let mut req = mk_req(vec![user_msg("hi")], None);
+    // set Blocks system manually
+    req.system = Some(SystemContent::Blocks(vec![
+        serde_json::json!({"type":"text","text":"initial system"}),
+    ]));
+    let outcome = engine.apply_inbound(&settings_all_on(), &mut req, None);
+    assert_eq!(outcome, InboundOutcome::Continue);
+    match &req.system {
+        Some(SystemContent::Blocks(blocks)) => {
+            let last = blocks.last().unwrap();
+            assert_eq!(last.get("text").and_then(|v| v.as_str()), Some("APPENDED"));
+        }
+        _ => panic!("expected Blocks system"),
+    }
+}
+
+/// inject body_set with empty target → logs warn but does not fail.
+#[test]
+fn inbound_inject_body_set_empty_target_skips() {
+    let mut rule = mk_rule(1, RuleType::DynamicInjection, RuleScope::Global, "", MatchType::Contains, "");
+    rule.action = RuleAction::Inject;
+    rule.config = r#"{"inject_mode":"body_set","target":"","value":"v"}"#.to_string();
+    let engine = MiddlewareEngine::new();
+    engine.rebuild_from_rules(vec![rule]);
+
+    let mut req = mk_req(vec![user_msg("hi")], None);
+    let outcome = engine.apply_inbound(&settings_all_on(), &mut req, None);
+    assert_eq!(outcome, InboundOutcome::Continue);
+    // extra should not be set (empty target → skip)
+    assert!(req.extra.is_none() || req.extra.as_ref().map(|v| v.as_object().map(|o| o.is_empty()).unwrap_or(true)).unwrap_or(true));
+}
+
+/// inject header_set → skipped at inbound layer.
+#[test]
+fn inbound_inject_header_set_skipped() {
+    let mut rule = mk_rule(1, RuleType::DynamicInjection, RuleScope::Global, "", MatchType::Contains, "");
+    rule.action = RuleAction::Inject;
+    rule.config = r#"{"inject_mode":"header_set","target":"X-Custom","value":"val"}"#.to_string();
+    let engine = MiddlewareEngine::new();
+    engine.rebuild_from_rules(vec![rule]);
+
+    let mut req = mk_req(vec![user_msg("hi")], None);
+    let outcome = engine.apply_inbound(&settings_all_on(), &mut req, None);
+    assert_eq!(outcome, InboundOutcome::Continue, "header_set skipped = continue");
+}
+
+/// inject unknown mode → skipped.
+#[test]
+fn inbound_inject_unknown_mode_skipped() {
+    let mut rule = mk_rule(1, RuleType::DynamicInjection, RuleScope::Global, "", MatchType::Contains, "");
+    rule.action = RuleAction::Inject;
+    rule.config = r#"{"inject_mode":"unknown_mode","target":"k","value":"v"}"#.to_string();
+    let engine = MiddlewareEngine::new();
+    engine.rebuild_from_rules(vec![rule]);
+
+    let mut req = mk_req(vec![user_msg("hi")], None);
+    let outcome = engine.apply_inbound(&settings_all_on(), &mut req, None);
+    assert_eq!(outcome, InboundOutcome::Continue);
+}
+
+/// inject with bad config JSON → fail-open (skip), no panic.
+#[test]
+fn inbound_inject_bad_config_fails_open() {
+    let mut rule = mk_rule(1, RuleType::DynamicInjection, RuleScope::Global, "", MatchType::Contains, "");
+    rule.action = RuleAction::Inject;
+    rule.config = "NOT VALID JSON".to_string();
+    let engine = MiddlewareEngine::new();
+    engine.rebuild_from_rules(vec![rule]);
+
+    let mut req = mk_req(vec![user_msg("hi")], None);
+    let outcome = engine.apply_inbound(&settings_all_on(), &mut req, None);
+    assert_eq!(outcome, InboundOutcome::Continue);
+}
+
+/// collect_request_text includes system Blocks text.
+#[test]
+fn collect_request_text_with_system_blocks() {
+    use super::super::super::adapter::SystemContent;
+    let mut req = mk_req(vec![user_msg("msg text")], None);
+    req.system = Some(SystemContent::Blocks(vec![
+        serde_json::json!({"type":"text","text":"block system text"}),
+        serde_json::json!({"type":"other_type"}), // no text field → skip
+    ]));
+    let text = collect_request_text(&req);
+    assert!(text.contains("block system text"), "got: {text}");
+    assert!(text.contains("msg text"));
+}
+
+/// Warn action: matched rule logs but does not block.
+#[test]
+fn inbound_warn_action_does_not_block() {
+    let mut rule = mk_rule(1, RuleType::SensitiveWord, RuleScope::Global, "", MatchType::Contains, "warn_word");
+    rule.action = RuleAction::Warn;
+    let engine = MiddlewareEngine::new();
+    engine.rebuild_from_rules(vec![rule]);
+
+    let mut req = mk_req(vec![user_msg("warn_word present")], None);
+    let outcome = engine.apply_inbound(&settings_all_on(), &mut req, None);
+    assert_eq!(outcome, InboundOutcome::Continue, "Warn should not block");
+}
+
+/// Block rule with non-empty description uses description as reason.
+#[test]
+fn inbound_block_with_description_uses_it() {
+    let mut rule = mk_rule(1, RuleType::RequestFilter, RuleScope::Global, "", MatchType::Contains, "block_this");
+    rule.action = RuleAction::Block;
+    rule.description = "Custom block reason".to_string();
+    let engine = MiddlewareEngine::new();
+    engine.rebuild_from_rules(vec![rule]);
+
+    let mut req = mk_req(vec![user_msg("block_this present")], None);
+    match engine.apply_inbound(&settings_all_on(), &mut req, None) {
+        InboundOutcome::Blocked { blocked_reason, .. } => {
+            assert!(blocked_reason.contains("Custom block reason"), "got: {blocked_reason}");
+        }
+        _ => panic!("expected Blocked"),
+    }
+}
+
+/// apply_mask with fields=["system"] only masks system, not messages.
+#[test]
+fn inbound_mask_system_field_only() {
+    let mut rule = mk_rule(1, RuleType::Redaction, RuleScope::Global, "", MatchType::Contains, "secret");
+    rule.action = RuleAction::Mask;
+    rule.config = r#"{"replacement":"[X]","fields":["system"]}"#.to_string();
+    let engine = MiddlewareEngine::new();
+    engine.rebuild_from_rules(vec![rule]);
+
+    let mut req = mk_req(vec![user_msg("secret in message")], Some("secret in system"));
+    let _ = engine.apply_inbound(&settings_all_on(), &mut req, None);
+    let text = dump_text(&req);
+    // system masked
+    assert!(!text.contains("secret in system"), "system should be masked: {text}");
+    // message should still contain secret (fields=["system"] only)
+    assert!(text.contains("secret in message"), "message should not be masked: {text}");
+}
+
+/// apply_mask with system Blocks.
+#[test]
+fn inbound_mask_system_blocks() {
+    let mut rule = mk_rule(1, RuleType::Redaction, RuleScope::Global, "", MatchType::Contains, "secret");
+    rule.action = RuleAction::Mask;
+    rule.config = r#"{"replacement":"[M]","fields":["system"]}"#.to_string();
+    let engine = MiddlewareEngine::new();
+    engine.rebuild_from_rules(vec![rule]);
+
+    let mut req = mk_req(vec![user_msg("no secret here")], None);
+    req.system = Some(SystemContent::Blocks(vec![
+        serde_json::json!({"type":"text","text":"secret block text"}),
+    ]));
+    let _ = engine.apply_inbound(&settings_all_on(), &mut req, None);
+    match &req.system {
+        Some(SystemContent::Blocks(blocks)) => {
+            let text = blocks[0].get("text").and_then(|v| v.as_str()).unwrap_or("");
+            assert!(!text.contains("secret"), "system block should be masked: {text}");
+            assert!(text.contains("[M]"), "replacement should appear: {text}");
+        }
+        _ => panic!("expected Blocks system"),
+    }
+}

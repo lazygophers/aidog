@@ -173,6 +173,22 @@ impl RoutingMode {
     }
 }
 
+#[cfg(test)]
+mod test_routing_mode {
+    use super::*;
+
+    #[test]
+    fn from_str_or_default_all_variants() {
+        assert_eq!(RoutingMode::from_str_or_default("failover"), RoutingMode::Failover);
+        assert_eq!(RoutingMode::from_str_or_default("health_aware"), RoutingMode::HealthAware);
+        assert_eq!(RoutingMode::from_str_or_default("least_latency"), RoutingMode::LeastLatency);
+        assert_eq!(RoutingMode::from_str_or_default("sticky"), RoutingMode::Sticky);
+        assert_eq!(RoutingMode::from_str_or_default("load_balance"), RoutingMode::LoadBalance);
+        assert_eq!(RoutingMode::from_str_or_default("unknown"), RoutingMode::LoadBalance);
+        assert_eq!(RoutingMode::from_str_or_default(""), RoutingMode::LoadBalance);
+    }
+}
+
 /// 平台状态三态：用户启用 / 用户手动禁用 / 401-403 自动禁用。
 /// 自动禁用与手动禁用必须区分——自动恢复（退避试探 / 改 api_key）只作用于 auto_disabled，
 /// 绝不误开用户主动关闭的平台。
@@ -204,5 +220,26 @@ impl PlatformStatus {
             "auto_disabled" => PlatformStatus::AutoDisabled,
             _ => PlatformStatus::Enabled,
         }
+    }
+}
+
+#[cfg(test)]
+mod test_platform_status {
+    use super::*;
+
+    #[test]
+    fn as_db_str_roundtrip() {
+        assert_eq!(PlatformStatus::Enabled.as_db_str(), "enabled");
+        assert_eq!(PlatformStatus::Disabled.as_db_str(), "disabled");
+        assert_eq!(PlatformStatus::AutoDisabled.as_db_str(), "auto_disabled");
+    }
+
+    #[test]
+    fn from_db_str_all_variants() {
+        assert_eq!(PlatformStatus::from_db_str("enabled"), PlatformStatus::Enabled);
+        assert_eq!(PlatformStatus::from_db_str("disabled"), PlatformStatus::Disabled);
+        assert_eq!(PlatformStatus::from_db_str("auto_disabled"), PlatformStatus::AutoDisabled);
+        assert_eq!(PlatformStatus::from_db_str("unknown"), PlatformStatus::Enabled);
+        assert_eq!(PlatformStatus::from_db_str(""), PlatformStatus::Enabled);
     }
 }

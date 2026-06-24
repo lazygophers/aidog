@@ -54,3 +54,94 @@ use super::test_support::*;
         assert!(result.before_bytes > 0, "before_bytes should be positive");
         assert!(result.after_bytes <= result.before_bytes, "VACUUM should not grow db");
     }
+
+    /// cleanup_user_request_fields 清空旧行 body 字段但不删行。
+    #[tokio::test]
+    async fn cleanup_user_request_fields_clears_old_bodies() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        let old_ts = now - 2 * 24 * 3600 * 1000_i64;
+        // 直接 INSERT 有 body 的老行
+        db.call_traced(None, std::panic::Location::caller(), move |c| {
+            c.execute_batch(&format!(
+                "INSERT INTO proxy_log (id,model,actual_model,group_key,platform_id,\
+                 status_code,input_tokens,output_tokens,cache_tokens,est_cost,duration_ms,\
+                 is_stream,request_url,request_headers,request_body,upstream_request_body,\
+                 upstream_request_headers,response_body,user_response_body,attempts,created_at,updated_at,deleted_at) \
+                 VALUES ('maint-u1','m','','g',1,200,1,1,0,0.0,10,0,'url','{{}}','old-req-body','','{{}}','','old-resp','[]',\
+                 {old_ts},{old_ts},0)"
+            ))?;
+            Ok(())
+        }).await.unwrap();
+
+        cleanup_user_request_fields(&db, 1).await.unwrap();
+
+        let (req_body, resp_body): (String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
+            Ok(c.query_row(
+                "SELECT request_body, user_response_body FROM proxy_log WHERE id='maint-u1'",
+                [], |r| Ok((r.get(0)?, r.get(1)?)),
+            )?)
+        }).await.unwrap();
+        assert_eq!(req_body, "", "request_body should be cleared");
+        assert_eq!(resp_body, "", "user_response_body should be cleared");
+
+        // Row still exists
+        let cnt: i64 = db.call_traced(None, std::panic::Location::caller(), |c| {
+            Ok(c.query_row("SELECT COUNT(*) FROM proxy_log WHERE id='maint-u1'", [], |r| r.get(0))?)
+        }).await.unwrap();
+        assert_eq!(cnt, 1, "row must not be deleted");
+    }
+
+    /// cleanup_upstream_request_fields 清空旧行上游 body 字段但不删行。
+    #[tokio::test]
+    async fn cleanup_upstream_request_fields_clears_old_bodies() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        let old_ts = now - 2 * 24 * 3600 * 1000_i64;
+        db.call_traced(None, std::panic::Location::caller(), move |c| {
+            c.execute_batch(&format!(
+                "INSERT INTO proxy_log (id,model,actual_model,group_key,platform_id,\
+                 status_code,input_tokens,output_tokens,cache_tokens,est_cost,duration_ms,\
+                 is_stream,request_url,request_headers,request_body,upstream_request_body,\
+                 upstream_request_headers,response_body,user_response_body,attempts,created_at,updated_at,deleted_at) \
+                 VALUES ('maint-up1','m','','g',1,200,1,1,0,0.0,10,0,'url','{{}}','','old-up-req','{{}}','old-resp','','[]',\
+                 {old_ts},{old_ts},0)"
+            ))?;
+            Ok(())
+        }).await.unwrap();
+
+        cleanup_upstream_request_fields(&db, 1).await.unwrap();
+
+        let (up_req, resp): (String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
+            Ok(c.query_row(
+                "SELECT upstream_request_body, response_body FROM proxy_log WHERE id='maint-up1'",
+                [], |r| Ok((r.get(0)?, r.get(1)?)),
+            )?)
+        }).await.unwrap();
+        assert_eq!(up_req, "", "upstream_request_body should be cleared");
+        assert_eq!(resp, "", "response_body should be cleared");
+    }
+
+    /// count_proxy_logs returns count of non-deleted rows.
+    #[tokio::test]
+    async fn count_proxy_logs_returns_count() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        for i in 0..3 {
+            insert_proxy_log_at(&db, now + i).await;
+        }
+        let cnt = count_proxy_logs(&db).await.unwrap();
+        assert!(cnt >= 3, "should count all inserted logs: {cnt}");
+    }
+
+    /// cleanup_user/upstream with retention_days=0 returns immediately (no cleanup).
+    #[tokio::test]
+    async fn cleanup_with_zero_retention_is_noop() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        insert_proxy_log_at(&db, now).await;
+        // retention_days=0 → retention_cutoff returns None → early return
+        cleanup_user_request_fields(&db, 0).await.unwrap();
+        cleanup_upstream_request_fields(&db, 0).await.unwrap();
+        // No panic = pass
+    }

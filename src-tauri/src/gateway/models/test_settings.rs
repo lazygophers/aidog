@@ -5,7 +5,7 @@
 
 use super::super::{
     merge_breaker_into_extra, parse_breaker, Platform, PlatformBreaker, PlatformModels, PlatformStatus, Protocol,
-    SchedulingBreakerSettings,
+    ProxyClientSettings, SchedulingBreakerSettings,
 };
 
 /// 最小 Platform，仅设 extra 用于 breaker 解析测试。
@@ -84,4 +84,90 @@ fn effective_thresholds_extra_override_and_inherit() {
         &PlatformBreaker { failure_threshold: 8, open_secs: 0, half_open_max: 0 },
     ));
     assert_eq!(global.effective_thresholds(&p_partial), (8, 60, 2));
+}
+
+// ── ProxyClientSettings::to_reqwest_proxy ──
+
+#[test]
+fn to_reqwest_proxy_disabled_returns_none() {
+    let s = ProxyClientSettings {
+        enabled: false,
+        proxy_type: "socks5".into(),
+        host: "127.0.0.1".into(),
+        port: 7890,
+        username: "".into(),
+        password: "".into(),
+        dns_over_proxy: false,
+    };
+    assert!(s.to_reqwest_proxy().is_none());
+}
+
+#[test]
+fn to_reqwest_proxy_enabled_socks5_returns_some() {
+    let s = ProxyClientSettings {
+        enabled: true,
+        proxy_type: "socks5".into(),
+        host: "127.0.0.1".into(),
+        port: 7890,
+        username: "".into(),
+        password: "".into(),
+        dns_over_proxy: false,
+    };
+    assert!(s.to_reqwest_proxy().is_some());
+}
+
+#[test]
+fn to_reqwest_proxy_socks5h_dns_over_proxy() {
+    let s = ProxyClientSettings {
+        enabled: true,
+        proxy_type: "socks5".into(),
+        host: "127.0.0.1".into(),
+        port: 7890,
+        username: "".into(),
+        password: "".into(),
+        dns_over_proxy: true,
+    };
+    assert!(s.to_reqwest_proxy().is_some());
+}
+
+#[test]
+fn to_reqwest_proxy_http_type() {
+    let s = ProxyClientSettings {
+        enabled: true,
+        proxy_type: "http".into(),
+        host: "127.0.0.1".into(),
+        port: 8080,
+        username: "".into(),
+        password: "".into(),
+        dns_over_proxy: false,
+    };
+    assert!(s.to_reqwest_proxy().is_some());
+}
+
+#[test]
+fn to_reqwest_proxy_https_type() {
+    let s = ProxyClientSettings {
+        enabled: true,
+        proxy_type: "https".into(),
+        host: "127.0.0.1".into(),
+        port: 8080,
+        username: "user".into(),
+        password: "pass".into(),
+        dns_over_proxy: false,
+    };
+    assert!(s.to_reqwest_proxy().is_some());
+}
+
+#[test]
+fn to_reqwest_proxy_with_auth() {
+    let s = ProxyClientSettings {
+        enabled: true,
+        proxy_type: "socks5".into(),
+        host: "127.0.0.1".into(),
+        port: 7890,
+        username: "alice".into(),
+        password: "secret".into(),
+        dns_over_proxy: false,
+    };
+    assert!(s.to_reqwest_proxy().is_some());
 }

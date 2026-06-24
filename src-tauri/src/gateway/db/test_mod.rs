@@ -2,6 +2,101 @@
 use super::*;
 use super::test_support::*;
 
+    // ─── parse/serialize helper tests ─────────────────────────────────────────
+
+    #[test]
+    fn parse_models_valid_json() {
+        let json = r#"{"default":"claude-sonnet-4","sonnet":"claude-sonnet-4"}"#;
+        let m = parse_models(json);
+        assert_eq!(m.default.as_deref(), Some("claude-sonnet-4"));
+        assert_eq!(m.sonnet.as_deref(), Some("claude-sonnet-4"));
+    }
+
+    #[test]
+    fn parse_models_corrupt_json_returns_default() {
+        let m = parse_models("{not valid json");
+        // default() = all None
+        assert!(m.default.is_none(), "corrupt JSON should fall back to empty default");
+    }
+
+    #[test]
+    fn serialize_models_roundtrip() {
+        let m = PlatformModels {
+            default: Some("gpt-4o".to_string()),
+            gpt: Some("gpt-4o".to_string()),
+            ..Default::default()
+        };
+        let json = serialize_models(&m);
+        let back = parse_models(&json);
+        assert_eq!(back.default.as_deref(), Some("gpt-4o"));
+        assert_eq!(back.gpt.as_deref(), Some("gpt-4o"));
+    }
+
+    #[test]
+    fn parse_available_models_valid() {
+        let json = r#"["gpt-4o","claude-sonnet-4"]"#;
+        let v = parse_available_models(json);
+        assert_eq!(v, vec!["gpt-4o", "claude-sonnet-4"]);
+    }
+
+    #[test]
+    fn parse_available_models_corrupt_returns_empty() {
+        let v = parse_available_models("[not valid");
+        assert!(v.is_empty());
+    }
+
+    #[test]
+    fn serialize_available_models_roundtrip() {
+        let models = vec!["m1".to_string(), "m2".to_string()];
+        let json = serialize_available_models(&models);
+        let back = parse_available_models(&json);
+        assert_eq!(back, models);
+    }
+
+    #[test]
+    fn parse_endpoints_valid() {
+        let json = r#"[{"protocol":"anthropic","base_url":"https://api.anthropic.com/v1"}]"#;
+        let eps = parse_endpoints(json);
+        assert_eq!(eps.len(), 1);
+        assert_eq!(eps[0].base_url, "https://api.anthropic.com/v1");
+    }
+
+    #[test]
+    fn parse_endpoints_corrupt_returns_empty() {
+        let eps = parse_endpoints("[{bad");
+        assert!(eps.is_empty());
+    }
+
+    #[test]
+    fn serialize_endpoints_roundtrip() {
+        let eps = vec![crate::gateway::models::PlatformEndpoint {
+            protocol: crate::gateway::models::Protocol::OpenAI,
+            base_url: "https://api.openai.com/v1".to_string(),
+            client_type: crate::gateway::models::ClientType::default(),
+            coding_plan: false,
+        }];
+        let json = serialize_endpoints(&eps);
+        let back = parse_endpoints(&json);
+        assert_eq!(back.len(), 1);
+        assert_eq!(back[0].base_url, "https://api.openai.com/v1");
+    }
+
+    #[test]
+    fn retention_cutoff_zero_returns_none() {
+        assert!(retention_cutoff(0).is_none());
+    }
+
+    #[test]
+    fn retention_cutoff_nonzero_returns_some_past_timestamp() {
+        let cutoff = retention_cutoff(7).unwrap();
+        let now = chrono::Utc::now().timestamp_millis();
+        assert!(cutoff < now, "cutoff should be in the past");
+        let days_ago = now - 7 * 24 * 3600 * 1000;
+        assert!((cutoff - days_ago).abs() < 60_000, "cutoff should be ~7 days ago");
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+
     /// call_traced 进闭包时设上下文（req + caller 可读），闭包结束后清空；
     /// 显式 req 原样使用，caller 被捕获。
     #[tokio::test]

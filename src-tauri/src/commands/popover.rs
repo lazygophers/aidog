@@ -97,3 +97,7 @@ pub async fn popover_platform_today(db: State<'_, Db>) -> Result<Vec<db::TodayPl
     tracing::debug!(command = "popover_platform_today", "command invoked");
     db::today_platform_stats(&db).await
 }
+
+#[cfg(test)]
+#[path = "test_popover.rs"]
+mod test_popover;

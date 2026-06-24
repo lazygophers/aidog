@@ -114,3 +114,97 @@ fn anthropic_parse_tool_missing_input_schema() {
     assert_eq!(tools[0].name, "web_search");
     assert_eq!(tools[0].input_schema, serde_json::json!({}), "缺失时默认空对象, 非 null");
 }
+
+// ── openai 入站解析 ──
+#[test]
+fn openai_parse_incoming_request() {
+    let body = serde_json::json!({
+        "model": "gpt-4o",
+        "messages": [
+            { "role": "user", "content": "hello", "index": 0 }
+        ]
+    });
+    let req = parse_incoming_request("openai", &body).expect("openai parse");
+    assert_eq!(req.model, "gpt-4o");
+}
+
+// ── openai_responses 入站解析 ──
+#[test]
+fn openai_responses_parse_incoming_request() {
+    let body = serde_json::json!({
+        "model": "gpt-4o",
+        "input": [
+            { "role": "user", "content": "hello" }
+        ]
+    });
+    let req = parse_incoming_request("openai_responses", &body).expect("openai_responses parse");
+    assert_eq!(req.model, "gpt-4o");
+}
+
+// ── openai_completions 入站解析 ──
+#[test]
+fn openai_completions_parse_incoming_request() {
+    let body = serde_json::json!({
+        "model": "gpt-3.5-turbo-instruct",
+        "prompt": "Hello world"
+    });
+    let req = parse_incoming_request("openai_completions", &body).expect("openai_completions parse");
+    assert_eq!(req.model, "gpt-3.5-turbo-instruct");
+}
+
+// ── gemini 入站解析 ──
+#[test]
+fn gemini_parse_incoming_request() {
+    let body = serde_json::json!({
+        "model": "gemini-pro",
+        "contents": [{ "role": "user", "parts": [{"text": "hi"}] }]
+    });
+    // May return None for incomplete format — just ensure no panic
+    let _ = parse_incoming_request("gemini", &body);
+}
+
+// ── 无效 anthropic 请求返回 Err ──
+#[test]
+fn anthropic_parse_invalid_returns_err() {
+    let body = serde_json::json!({"invalid": true});
+    // Should error (missing required 'model' field)
+    let result = parse_incoming_request("anthropic", &body);
+    assert!(result.is_err(), "invalid anthropic body should return Err");
+}
+
+// ── convert_request 各 wire 协议 path 校验 ──
+#[test]
+fn convert_request_anthropic_path() {
+    let req = ChatRequest {
+        model: "claude-opus-4".to_string(),
+        messages: vec![],
+        system: None, max_tokens: None, temperature: None, top_p: None,
+        stream: None, tools: None, tool_choice: None, extra: None,
+    };
+    let (_body, path) = convert_request(&req, &Protocol::Anthropic, &Protocol::Anthropic);
+    assert_eq!(path, "/v1/messages");
+}
+
+#[test]
+fn convert_request_openai_completions_path() {
+    let req = ChatRequest {
+        model: "gpt-3.5-turbo-instruct".to_string(),
+        messages: vec![],
+        system: None, max_tokens: None, temperature: None, top_p: None,
+        stream: None, tools: None, tool_choice: None, extra: None,
+    };
+    let (_body, path) = convert_request(&req, &Protocol::OpenAICompletions, &Protocol::OpenAI);
+    assert_eq!(path, "/v1/completions");
+}
+
+#[test]
+fn convert_request_openai_responses_path() {
+    let req = ChatRequest {
+        model: "gpt-4o".to_string(),
+        messages: vec![],
+        system: None, max_tokens: None, temperature: None, top_p: None,
+        stream: None, tools: None, tool_choice: None, extra: None,
+    };
+    let (_body, path) = convert_request(&req, &Protocol::OpenAIResponses, &Protocol::OpenAI);
+    assert_eq!(path, "/v1/responses");
+}

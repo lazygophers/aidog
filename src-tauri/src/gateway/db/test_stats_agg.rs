@@ -93,6 +93,60 @@ use super::test_support::*;
         assert_eq!(reqs, 2, "聚合行 request_count 应为 2");
     }
 
+    /// cleanup_stats_agg 按 retention_days 删除旧行。
+    /// upsert_stats_agg 写 created_at=now，所以只能直接 INSERT 一条旧 created_at 行再测删除。
+    #[tokio::test]
+    async fn cleanup_stats_agg_removes_old_rows() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        // 新行（保留）：直接 INSERT created_at=now
+        let old_ts = now - 2 * 24 * 3600 * 1000_i64; // 2 days ago
+        db.call_traced(None, std::panic::Location::caller(), move |c| {
+            c.execute_batch(&format!(
+                "INSERT INTO stats_agg_hourly \
+                 (time_hour,model,group_key,platform_id,request_count,success_count,error_count,\
+                  sum_input_tokens,sum_output_tokens,sum_cache_tokens,sum_est_cost,sum_duration_ms,\
+                  created_at,updated_at,deleted_at) VALUES \
+                 ('2025-01-01 00:00:00','new-model','g1',1,1,1,0,5,5,0,0.001,50,{now},{now},0), \
+                 ('2025-01-02 00:00:00','old-model','g1',1,1,1,0,5,5,0,0.001,50,{old_ts},{old_ts},0)"
+            ))?;
+            Ok(())
+        }).await.unwrap();
+
+        let before: i64 = db.call_traced(None, std::panic::Location::caller(), |c| {
+            Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)
+        }).await.unwrap();
+        assert_eq!(before, 2, "should have 2 rows before cleanup");
+
+        // retention_days=1 → 2天前的老行应被删
+        cleanup_stats_agg(&db, 1).await.unwrap();
+
+        let after: i64 = db.call_traced(None, std::panic::Location::caller(), |c| {
+            Ok(c.query_row("SELECT COUNT(*) FROM stats_agg_hourly", [], |r| r.get(0))?)
+        }).await.unwrap();
+        assert_eq!(after, 1, "old row should be deleted, new row kept");
+    }
+
+    /// rebuild_stats_agg_once_if_needed: 首次调用触发重建，再次调用跳过。
+    #[tokio::test]
+    async fn rebuild_stats_agg_once_if_needed_runs_once() {
+        let db = test_db().await;
+        let now = chrono::Utc::now().timestamp_millis();
+        insert_proxy_log_columns(&db, ProxyLogColumns::from_log(&sample_log("x1", "g1", now), false, false)).await.unwrap();
+        // 先清空 agg 表（模拟未建）
+        db.call_traced(None, std::panic::Location::caller(), |c| {
+            c.execute_batch("DELETE FROM stats_agg_hourly")?;
+            Ok(())
+        }).await.unwrap();
+
+        let built = rebuild_stats_agg_once_if_needed(&db).await.unwrap();
+        assert!(built, "first call should trigger rebuild and return true");
+
+        // 再次调用应跳过（表已有数据）
+        let again = rebuild_stats_agg_once_if_needed(&db).await.unwrap();
+        assert!(!again, "second call should skip and return false");
+    }
+
     /// rebuild upsert 语义：已存在的聚合行被 proxy_log 真值【覆盖】，不翻倍、不累加。
     /// 先 upsert 一条单请求形成桶，再插 2 条同桶 proxy_log，rebuild 后 request_count=2（真值）非 3。
     #[tokio::test]

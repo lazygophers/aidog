@@ -119,3 +119,7 @@ fn select_load_balance(platforms: &[GroupPlatformDetail]) -> Result<Platform, St
 
     Ok(enabled[0].platform.clone())
 }
+
+#[cfg(test)]
+#[path = "test_selection.rs"]
+mod test_selection;

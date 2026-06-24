@@ -3,6 +3,49 @@
 use super::*;
 use rusqlite::{params};
 
+/// HOME / CODEX_HOME 是进程全局，所有触 FS（写 ~/.aidog、~/.claude、~/.codex）的测试必须
+/// 串行在 **同一把** 锁上，跨模块共享，避免并行线程互相覆盖。
+pub(crate) static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
+/// HOME + CODEX_HOME 指向 tempdir 的 RAII 守卫；Drop 时恢复原值。构造时持有 ENV_LOCK。
+pub(crate) struct HomeGuard {
+    pub(crate) dir: tempfile::TempDir,
+    _lock: std::sync::MutexGuard<'static, ()>,
+    prev_home: Option<String>,
+    prev_codex: Option<String>,
+}
+impl HomeGuard {
+    pub(crate) fn new() -> Self {
+        let lock = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
+        let dir = tempfile::tempdir().unwrap();
+        let prev_home = std::env::var("HOME").ok();
+        let prev_codex = std::env::var("CODEX_HOME").ok();
+        std::fs::create_dir_all(dir.path().join(".codex")).unwrap();
+        unsafe {
+            std::env::set_var("HOME", dir.path());
+            std::env::set_var("CODEX_HOME", dir.path().join(".codex"));
+        }
+        Self { dir, _lock: lock, prev_home, prev_codex }
+    }
+    pub(crate) fn home(&self) -> &std::path::Path {
+        self.dir.path()
+    }
+}
+impl Drop for HomeGuard {
+    fn drop(&mut self) {
+        unsafe {
+            match &self.prev_home {
+                Some(v) => std::env::set_var("HOME", v),
+                None => std::env::remove_var("HOME"),
+            }
+            match &self.prev_codex {
+                Some(v) => std::env::set_var("CODEX_HOME", v),
+                None => std::env::remove_var("CODEX_HOME"),
+            }
+        }
+    }
+}
+
 
     /// 创建一个初始化好的内存库
     pub(crate) async fn test_db() -> Db {

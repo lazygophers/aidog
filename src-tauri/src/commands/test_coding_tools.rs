@@ -68,3 +68,38 @@ use serde_json::json;
         assert!(s.apply_to_claude_plugin, "user's true must be preserved");
         assert!(s.skip_claude_onboarding, "user's true must be preserved");
     }
+
+    /// load_coding_tools_settings: DB 无记录时返回默认值。
+    #[tokio::test]
+    async fn load_coding_tools_settings_no_record_returns_default() {
+        let db = crate::Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
+        let s = super::load_coding_tools_settings(&db).await;
+        assert!(!s.apply_to_claude_plugin);
+        assert!(!s.skip_claude_onboarding);
+    }
+
+    /// load_coding_tools_settings: DB 有记录时返回正确值。
+    #[tokio::test]
+    async fn load_coding_tools_settings_with_record() {
+        let db = crate::Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
+        crate::gateway::db::set_setting(&db, crate::SetSettingInput {
+            scope: "global".to_string(),
+            key: "coding_tools_settings".to_string(),
+            value: serde_json::json!({
+                "apply_to_claude_plugin": true,
+                "skip_claude_onboarding": false,
+            }),
+        }).await.expect("seed record");
+        let s = super::load_coding_tools_settings(&db).await;
+        assert!(s.apply_to_claude_plugin);
+        assert!(!s.skip_claude_onboarding);
+    }
+
+    /// default helper fns.
+    #[test]
+    fn default_helpers() {
+        assert!(!super::coding_tools_default_apply());
+        assert!(!super::coding_tools_default_skip());
+    }
