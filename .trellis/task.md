@@ -30,3 +30,4 @@
 | coding-plan-priority | coding plan 平台优先调度 | — | 已完成 | 收尾 | 100% | — |
 | 06-24-perf-frontend-hotpath | 前端体感卡慢优化 (高频读写热路径) | — | 已完成 | 收尾 | 100% | — |
 | perf-b5-component-split | 巨石组件拆分 (Groups renderItem → SortableRow memo 化) | — | 已完成 | 收尾 | 100% | — |
+| sql-index-audit | SQL/索引效率审计与优化 | — | 已完成 | 收尾 | 100% | — |
