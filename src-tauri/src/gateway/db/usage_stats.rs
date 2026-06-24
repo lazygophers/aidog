@@ -1,6 +1,15 @@
 use super::*;
 use rusqlite::{params, Connection, OptionalExtension, Result as SqlResult};
 
+/// stats_agg_hourly 累计聚合列块（列序固定，row.get 依赖此序）：
+/// SUM(request_count), SUM(success_count), SUM(input/output/cache tokens), SUM(est_cost)。
+/// get_platform_usage_stats / get_group_usage_stats / get_all_group_usage_stats /
+/// platform_usage_stats_all 4 处逐字共用。
+const AGG_TOTAL_COLS: &str = "COALESCE(SUM(request_count), 0), \
+     COALESCE(SUM(success_count), 0), \
+     COALESCE(SUM(sum_input_tokens), 0), COALESCE(SUM(sum_output_tokens), 0), COALESCE(SUM(sum_cache_tokens), 0), \
+     COALESCE(SUM(sum_est_cost), 0.0)";
+
 /// 单平台最近 5 条请求健康度（recent_total / recent_failures），仍裸查 proxy_log：
 /// 聚合表 stats_agg_hourly 丢失请求级顺序无法重建近 5 条。LIMIT 5 走索引、便宜。
 ///
@@ -32,13 +41,10 @@ pub fn get_platform_usage_stats(db: &Db, platform_id: u64) -> impl std::future::
             // 回溯（upsert_stats_agg），故直接 `platform_id = ?1`，无需 proxy_log 那套子查询回溯。
             let pid = platform_id as i64;
             let mut stmt = conn.prepare_cached(
-                "SELECT COALESCE(SUM(request_count), 0), \
-                 COALESCE(SUM(success_count), 0), \
-                 COALESCE(SUM(sum_input_tokens), 0), COALESCE(SUM(sum_output_tokens), 0), COALESCE(SUM(sum_cache_tokens), 0), \
-                 COALESCE(SUM(sum_est_cost), 0.0), \
+                &format!("SELECT {AGG_TOTAL_COLS}, \
                  COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN sum_input_tokens + sum_output_tokens ELSE 0 END), 0), \
                  COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN sum_est_cost ELSE 0.0 END), 0.0) \
-                 FROM stats_agg_hourly WHERE platform_id = ?1 AND deleted_at = 0",
+                 FROM stats_agg_hourly WHERE platform_id = ?1 AND deleted_at = 0"),
             )?;
             let mut stats = stmt.query_row(params![pid, today_key], |row| {
                 let total: i64 = row.get(0)?;
@@ -134,13 +140,10 @@ pub fn get_group_usage_stats<'a>(db: &'a Db, group_key: &'a str) -> impl std::fu
             // 从聚合表查单组累计 + 今日。recent_failures/recent_total 聚合表无法重建（需逐请求近 5 条），
             // 置 0（Groups 页不渲染该健康点；与批量版 get_all_group_usage_stats 一致）。
             let mut stmt = conn.prepare_cached(
-                "SELECT COALESCE(SUM(request_count), 0), \
-                 COALESCE(SUM(success_count), 0), \
-                 COALESCE(SUM(sum_input_tokens), 0), COALESCE(SUM(sum_output_tokens), 0), COALESCE(SUM(sum_cache_tokens), 0), \
-                 COALESCE(SUM(sum_est_cost), 0.0), \
+                &format!("SELECT {AGG_TOTAL_COLS}, \
                  COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN sum_input_tokens + sum_output_tokens ELSE 0 END), 0), \
                  COALESCE(SUM(CASE WHEN time_hour >= ?2 THEN sum_est_cost ELSE 0.0 END), 0.0) \
-                 FROM stats_agg_hourly WHERE group_key = ?1 AND deleted_at = 0",
+                 FROM stats_agg_hourly WHERE group_key = ?1 AND deleted_at = 0"),
             )?;
             let stats = stmt.query_row(
                 params![group_key, today_key],
@@ -189,12 +192,9 @@ pub fn get_all_group_usage_stats(
     db
         .call_read_traced(None, __db_caller, move |conn| {
             let mut stmt = conn.prepare_cached(
-                "SELECT group_key, COALESCE(SUM(request_count), 0), \
-                 COALESCE(SUM(success_count), 0), \
-                 COALESCE(SUM(sum_input_tokens), 0), COALESCE(SUM(sum_output_tokens), 0), COALESCE(SUM(sum_cache_tokens), 0), \
-                 COALESCE(SUM(sum_est_cost), 0.0) \
+                &format!("SELECT group_key, {AGG_TOTAL_COLS} \
                  FROM stats_agg_hourly WHERE deleted_at = 0 AND group_key <> '' \
-                 GROUP BY group_key",
+                 GROUP BY group_key"),
             )?;
             let rows = stmt.query_map([], |row| {
                 let group_key: String = row.get(0)?;
@@ -257,15 +257,11 @@ pub fn platform_usage_stats_all(
             // ① 全量聚合（每 platform_id 的 total/success/tokens/cost + 今日 tokens/cost），
             // 直接从 stats_agg_hourly GROUP BY platform_id（已是 eff_pid，无需回溯）。
             let mut stmt = conn.prepare_cached(
-                "SELECT platform_id, \
-                 COALESCE(SUM(request_count), 0), \
-                 COALESCE(SUM(success_count), 0), \
-                 COALESCE(SUM(sum_input_tokens), 0), COALESCE(SUM(sum_output_tokens), 0), COALESCE(SUM(sum_cache_tokens), 0), \
-                 COALESCE(SUM(sum_est_cost), 0.0), \
+                &format!("SELECT platform_id, {AGG_TOTAL_COLS}, \
                  COALESCE(SUM(CASE WHEN time_hour >= ?1 THEN sum_input_tokens + sum_output_tokens ELSE 0 END), 0), \
                  COALESCE(SUM(CASE WHEN time_hour >= ?1 THEN sum_est_cost ELSE 0.0 END), 0.0) \
                  FROM stats_agg_hourly WHERE deleted_at = 0 \
-                 GROUP BY platform_id",
+                 GROUP BY platform_id"),
             )?;
             let rows = stmt.query_map(params![today_key], |row| {
                 let eff_pid: i64 = row.get(0)?;
@@ -305,19 +301,12 @@ pub fn platform_usage_stats_all(
 
             // ② 每平台最近 5 条健康度（recent_total/recent_failures）仍裸查 proxy_log：
             // 聚合表无法重建请求级顺序。eff_pid 派生子查询回溯 proxy_log.platform_id=0。
-            const EFF_PID_SUBQUERY: &str = "\
-                SELECT \
-                    CASE WHEN platform_id = 0 THEN COALESCE( \
-                        (SELECT CAST(g.auto_from_platform AS INTEGER) \
-                         FROM \"group\" g \
-                         WHERE g.group_key = proxy_log.group_key \
-                           AND g.auto_from_platform != '' \
-                           AND g.deleted_at = 0 \
-                         LIMIT 1), 0) \
-                    ELSE platform_id END AS eff_pid, \
-                    status_code, created_at \
-                FROM proxy_log \
-                WHERE deleted_at = 0";
+            // eff_pid 派生单一事实源见 db::eff_pid_case；recent-5 窗口子表 FROM proxy_log 单表，
+            // 外层 platform_id 列无歧义，故列前缀传空串。
+            let eff_pid_subquery = format!(
+                "SELECT {} AS eff_pid, status_code, created_at FROM proxy_log WHERE deleted_at = 0",
+                eff_pid_case("")
+            );
             // ROW_NUMBER() 按 eff_pid 分区、created_at DESC 排序，取 rn<=5。
             let recent_sql = format!(
                 "SELECT eff_pid, \
@@ -326,7 +315,7 @@ pub fn platform_usage_stats_all(
                  FROM ( \
                      SELECT eff_pid, status_code, \
                             ROW_NUMBER() OVER (PARTITION BY eff_pid ORDER BY created_at DESC) AS rn \
-                     FROM ({EFF_PID_SUBQUERY}) \
+                     FROM ({eff_pid_subquery}) \
                  ) \
                  WHERE rn <= 5 \
                  GROUP BY eff_pid"
