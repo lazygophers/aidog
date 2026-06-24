@@ -29,3 +29,4 @@
 | sqlite-rw-pool | SQLite 读写分离连接池 (修复代理满载 UI 卡顿) | — | 已完成 | 收尾 | 100% | — |
 | coding-plan-priority | coding plan 平台优先调度 | — | 已完成 | 收尾 | 100% | — |
 | 06-24-perf-frontend-hotpath | 前端体感卡慢优化 (高频读写热路径) | — | 已完成 | 收尾 | 100% | — |
+| perf-b5-component-split | 巨石组件拆分 (Groups renderItem → SortableRow memo 化) | — | 进行中 | 规划 | 0% | — |
