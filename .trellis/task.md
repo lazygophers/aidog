@@ -27,4 +27,4 @@
 | split-db | 拆分 db.rs (7884行) 为 db/ 子模块 | — | 已完成 | 收尾 | 100% | — |
 | platform-duplicate | 平台复制功能 (复制后直接进编辑页, 复用全部配置) | — | 已完成 | 收尾 | 100% | — |
 | sqlite-rw-pool | SQLite 读写分离连接池 (修复代理满载 UI 卡顿) | — | 已完成 | 收尾 | 100% | — |
-| coding-plan-priority | coding plan 平台优先调度 | — | 进行中 | 执行 | 60 | .worktrees/06-24-coding-plan-priority |
+| coding-plan-priority | coding plan 平台优先调度 | — | 已完成 | 收尾 | 100% | — |
