@@ -19,6 +19,10 @@ pub struct CachedSkills {
     pub items: Vec<SkillInfo>,
     /// true = 无缓存命中（冷启动），调用方应显加载态 + 强制 refresh。
     pub stale: bool,
+    /// true = `list_refresh` 中 npx 失败 / HOME 缺失，缓存未被更新（保留旧 items）。
+    /// 前端应显「加载失败，显示上次列表」提示。`#[serde(default)]` 向后兼容旧前端。
+    #[serde(default)]
+    pub load_failed: bool,
 }
 
 /// 单 scope 的磁盘缓存条目。
@@ -102,23 +106,50 @@ pub fn list_cached(scope: &SkillScope) -> CachedSkills {
             // 旧 None + 锁文件有 → 补；已有 source → 幂等重赋；第三方 symlink → 保持 None。
             let mut items = entry.items.clone();
             enrich_with_sources(&mut items, scope);
-            CachedSkills { items, stale: false }
+            CachedSkills {
+                items,
+                stale: false,
+                load_failed: false,
+            }
         }
         None => CachedSkills {
             items: Vec::new(),
             stale: true,
+            load_failed: false,
         },
     }
 }
 
 /// 强制跑 npx 取最新，更新内存+磁盘缓存，返回 fresh（stale=false）。
 ///
-/// SWR 的 "revalidate" 半。npx 失败 → 返回空 fresh（不污染已有缓存？这里仍写空覆盖，
-/// 与直跑 `list_installed` 失败语义一致：上游列表真为空 vs 命令失败不可区分，保持简单）。
+/// SWR 的 "revalidate" 半。npx 失败 / HOME 缺失 / JSON 解析失败（`list_installed` 返 `ok=false`）
+/// → **不覆盖已有缓存**，返回旧缓存 items + `stale=true` + `load_failed=true`，让前端显
+/// 「加载失败，显示上次列表」提示而非假空列表。缓存写空是历史 bug（缓存被 npx 失败的空 vec
+/// 覆盖 → UI 显示空，用户误以为 skills 被清理，实际物理文件仍在磁盘）。
 pub fn list_refresh(scope: &SkillScope, proxy_url: Option<&str>) -> CachedSkills {
-    let items = list_installed(scope, proxy_url);
+    let (items, ok) = list_installed(scope, proxy_url);
+    if !ok {
+        // npx 失败：保留旧缓存（内存 → 磁盘），不写空覆盖。
+        // 直接复用 list_cached 取旧 items + 同 stale 语义（有缓存→渲染、无→冷启动），
+        // 仅叠加 load_failed=true 让前端显失败提示。
+        let cached = list_cached(scope);
+        tracing::warn!(
+            scope = ?scope,
+            old_count = cached.items.len(),
+            "list_refresh npx 失败，保留旧缓存 + load_failed=true"
+        );
+        return CachedSkills {
+            items: cached.items,
+            stale: cached.stale,
+            load_failed: true,
+        };
+    }
     write_cache(scope, items.clone());
-    CachedSkills { items, stale: false }
+    CachedSkills {
+        items,
+        stale: false,
+        load_failed: false,
+    }
 }
 
 /// 写入某 scope 缓存（内存 + 落盘）。
