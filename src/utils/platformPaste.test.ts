@@ -5,6 +5,7 @@ import {
   guessProtocol,
   matchPlatform,
   parsePlatformPaste,
+  extractExpiryAt,
   type PastePresetRef,
 } from "./platformPaste";
 
@@ -343,5 +344,63 @@ describe("parsePlatformPaste", () => {
     const txt = "更新于 2026-07-15 by lin2101";
     const out = parsePlatformPaste(txt, PRESETS);
     expect(out.expiresAt).toBeNull();
+  });
+});
+
+describe("extractExpiryAt — MM.DD (月.日) format", () => {
+  // 固定 now = 2026-06-25 12:00 本地，避免跨日/跨年漂移。
+  // 注意：extractExpiryAt 内部 new Date(y, mo-1, d) 走本地时区，测试同样用本地 Date 构造期望值。
+  const NOW = new Date(2026, 5, 25, 12, 0).getTime();
+
+  it("识别 'PRO套餐，6.27到期' → 当年 2026-06-27 23:59:59.999", () => {
+    // 社区分享帖原样本：M.D 到期格式，当年未过 → end-of-day。
+    const ts = extractExpiryAt("分享一个MIMO key，PRO套餐，6.27到期", NOW);
+    expect(ts).not.toBeNull();
+    const d = new Date(ts!);
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth() + 1).toBe(6);
+    expect(d.getDate()).toBe(27);
+    expect(d.getHours()).toBe(23);
+    expect(d.getMinutes()).toBe(59);
+    expect(d.getSeconds()).toBe(59);
+    expect(d.getMilliseconds()).toBe(999);
+  });
+
+  it("语义词在前 ('过期 6.27') 同样识别", () => {
+    const ts = extractExpiryAt("过期 6.27", NOW);
+    expect(ts).not.toBeNull();
+    const d = new Date(ts!);
+    expect(d.getMonth() + 1).toBe(6);
+    expect(d.getDate()).toBe(27);
+    expect(d.getHours()).toBe(23);
+  });
+
+  it("无语义词的 '6.27' → null (收紧防护硬门仍生效)", () => {
+    // 收紧核心：版本号类语境被语义词硬门挡掉。
+    expect(extractExpiryAt("版本 Claude 4.5 发布", NOW)).toBeNull();
+    expect(extractExpiryAt("随机文案 6.27 普通文字", NOW)).toBeNull();
+  });
+
+  it("'12.31到期' 当年未过 → 当年 12-31 23:59:59", () => {
+    // now=2026-06-25, 12-31 仍在未来 → 当年。
+    const ts = extractExpiryAt("12.31到期", NOW);
+    expect(ts).not.toBeNull();
+    const d = new Date(ts!);
+    expect(d.getFullYear()).toBe(2026);
+    expect(d.getMonth() + 1).toBe(12);
+    expect(d.getDate()).toBe(31);
+    expect(d.getHours()).toBe(23);
+    expect(d.getMinutes()).toBe(59);
+  });
+
+  it("'1.15到期' 当年已过 → 推次年 2027-01-15 23:59:59", () => {
+    // now=2026-06-25, 1-15 已过且非今天 → parseCandidate 推次年。
+    const ts = extractExpiryAt("1.15到期", NOW);
+    expect(ts).not.toBeNull();
+    const d = new Date(ts!);
+    expect(d.getFullYear()).toBe(2027);
+    expect(d.getMonth() + 1).toBe(1);
+    expect(d.getDate()).toBe(15);
+    expect(d.getHours()).toBe(23);
   });
 });
