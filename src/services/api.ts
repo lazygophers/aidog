@@ -307,8 +307,10 @@ export interface LastTestResult {
   duration_ms: number;
   /** proxy_log.created_at（毫秒 epoch） */
   created_at: number;
-  /** 失败时取 response_body 截断 ~200 字符；成功为空串 */
+  /** 失败时取 response_body 截断 ~200 字符；成功为空串（短摘要） */
   error: string;
+  /** 测试响应正文（成功/失败均带），截断 ~4000 字符；供前端 JSON 解析结构化展示 */
+  response_body: string;
 }
 
 /** 从 platform.extra JSON 字符串解析 mock 配置（缺省字段回退默认值） */
