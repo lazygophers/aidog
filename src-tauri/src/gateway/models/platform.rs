@@ -57,6 +57,16 @@ impl PlatformModels {
         }
         v
     }
+
+    /// 5 槽位全 None 时为空（用于分享串 `skip_serializing_if`）。
+    /// 直接字段判定零分配，避免 `all_values().is_empty()` 的 Vec 分配。
+    pub fn is_empty(&self) -> bool {
+        self.default.is_none()
+            && self.sonnet.is_none()
+            && self.opus.is_none()
+            && self.haiku.is_none()
+            && self.gpt.is_none()
+    }
 }
 
 // ─── ClientType (客户端模拟) ─────────────────────────────────
