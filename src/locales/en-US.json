@@ -1614,5 +1614,7 @@
   "importExport.error.notAidogx": "Please drop a .aidogx backup file",
   "group.createFailed": "Failed to create group",
   "group.addMappingFailed": "Failed to add mapping",
-  "group.deleteMappingFailed": "Failed to delete mapping"
+  "group.deleteMappingFailed": "Failed to delete mapping",
+  "skills.searchPlaceholder": "Search skills...",
+  "skills.searchEmpty": "No matching skills"
 }

@@ -1636,5 +1636,7 @@
   "importExport.error.notAidogx": "يرجى إسقاط ملف نسخ احتياطي ‎.aidogx",
   "group.createFailed": "فشل إنشاء المجموعة",
   "group.addMappingFailed": "فشل إضافة التعيين",
-  "group.deleteMappingFailed": "فشل حذف التعيين"
+  "group.deleteMappingFailed": "فشل حذف التعيين",
+  "skills.searchPlaceholder": "بحث عن skills...",
+  "skills.searchEmpty": "لا توجد skills مطابقة"
 }

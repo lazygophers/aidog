@@ -1636,5 +1636,7 @@
   "importExport.error.notAidogx": "Veuillez déposer un fichier de sauvegarde .aidogx",
   "group.createFailed": "Échec de la création du groupe",
   "group.addMappingFailed": "Échec de l'ajout du mappage",
-  "group.deleteMappingFailed": "Échec de la suppression du mappage"
+  "group.deleteMappingFailed": "Échec de la suppression du mappage",
+  "skills.searchPlaceholder": "Rechercher des skills...",
+  "skills.searchEmpty": "Aucun skill correspondant"
 }
