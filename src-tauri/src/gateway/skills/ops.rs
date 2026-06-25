@@ -159,12 +159,28 @@ pub fn disable(
     run_npx_in_scope(&args, scope, proxy_url)
 }
 
-/// 更新已装 skills：`npx skills update [-g] -y`。
-pub fn update(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
+/// 构造 update（更新）命令 args：`update [-g] -y`。
+/// 抽出便于单测断言（不真跑 npx）。行为对称 `enable_args` / `disable_args`。
+pub(super) fn update_args(scope: &SkillScope) -> Vec<String> {
     let mut args = vec!["update".to_string()];
     apply_scope(&mut args, scope);
     args.push("-y".to_string());
+    args
+}
+
+/// 更新已装 skills：`npx skills update [-g] -y`。
+pub fn update(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
+    let args = update_args(scope);
     run_npx_in_scope(&args, scope, proxy_url)
+}
+
+/// 构造一键卸载全部命令 args：`remove --all [-g]`。
+/// 抽出便于单测断言（不真跑 npx，避免破坏性 `npx skills remove --all -g` 操作用户 `~/.agents`）。
+/// 行为对称 `enable_args` / `disable_args` / `uninstall_args`。
+pub(super) fn uninstall_all_args(scope: &SkillScope) -> Vec<String> {
+    let mut args = vec!["remove".to_string(), "--all".to_string()];
+    apply_scope(&mut args, scope);
+    args
 }
 
 /// 一键卸载当前 scope 下所有平台所有 skills：`npx skills remove --all [-g]`。
@@ -172,8 +188,7 @@ pub fn update(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
 ///
 /// F3 诊断：执行 npx remove 前记 warn 日志含 scope/args（真物理删，不可恢复）。
 pub fn uninstall_all(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
-    let mut args = vec!["remove".to_string(), "--all".to_string()];
-    apply_scope(&mut args, scope);
+    let args = uninstall_all_args(scope);
     tracing::warn!(
         scope = ?scope,
         args = ?args,
