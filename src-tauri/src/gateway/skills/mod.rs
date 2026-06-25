@@ -27,7 +27,7 @@
 //! - `cache`     list 的 SWR 缓存（进程内 + 磁盘）。
 //! - `catalog`   browse/search/find 及输出解析。
 //! - `ops`       单 skill 写操作（enable/install/disable/update/uninstall）+ fs 兜底删。
-//! - `bulk`      组级/批量写操作（set_group_agent/uninstall_group/align_agents/enable_all）。
+//! - `bulk`      批量写操作（align_agents/enable_all）。
 //! - `detail`    详情只读浏览（文件树 + 单文件读取）。
 
 mod bulk;
@@ -51,7 +51,7 @@ pub use types::{
 #[allow(unused_imports)]
 pub use types::{SkillFile, SkillInfo};
 
-pub use bulk::{align_agents, enable_all, set_group_agent, uninstall_group};
+pub use bulk::{align_agents, enable_all};
 pub use cache::{invalidate, list_cached, list_refresh, CachedSkills};
 pub use catalog::{browse_catalog, search};
 pub use detail::{detail, read_file};
