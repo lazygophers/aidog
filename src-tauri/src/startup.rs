@@ -61,6 +61,7 @@ pub fn run() {
             crate::commands::proxy::proxy_status,
             crate::commands::proxy::proxy_get_settings,
             crate::commands::proxy::proxy_set_autostart,
+            crate::commands::proxy::proxy_set_bind_lan,
             crate::commands::proxy::app_set_autolaunch,
             crate::commands::proxy::app_get_autolaunch,
             crate::commands::proxy::app_set_silent_launch,
