@@ -166,6 +166,7 @@ pub async fn start_proxy(
     port: u16,
     app: Option<tauri::AppHandle>,
     middleware: Arc<MiddlewareEngine>,
+    bind_lan: bool,
 ) -> Result<(tokio::task::JoinHandle<()>, u16), String> {
     let state = Arc::new(ProxyState {
         db,
@@ -190,8 +191,11 @@ pub async fn start_proxy(
 
     // Try binding from port upward; if occupied, try port+1..port+100
     let mut actual_port = port;
+    // bind_lan=true → 0.0.0.0（局域网其他设备可连，靠 group_key Bearer 鉴权兜底）
+    // bind_lan=false → 127.0.0.1（仅本机）
+    let bind_ip: [u8; 4] = if bind_lan { [0, 0, 0, 0] } else { [127, 0, 0, 1] };
     let listener = loop {
-        let addr = std::net::SocketAddr::from(([127, 0, 0, 1], actual_port));
+        let addr = std::net::SocketAddr::from((bind_ip, actual_port));
         match tokio::net::TcpListener::bind(addr).await {
             Ok(l) => break l,
             Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
