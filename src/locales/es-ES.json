@@ -676,6 +676,7 @@
   "platform.expiresAtBadge": "Expira {{time}}",
   "platform.expiresAtClear": "Limpiar",
   "platform.expiresAtHint": "Opcional. Tras la expiración, la plataforma se excluye automáticamente de los candidatos de enrutamiento (equivalente a deshabilitada); modificar o limpiar el valor la restaura.",
+  "platform.expiresAtEnable": "Habilitar expiración",
   "platform.expiresAtSoon": "Expira pronto: {{time}}",
   "platform.fetchEmpty": "No se encontraron modelos",
   "platform.fetchModels": "Obtener modelos",

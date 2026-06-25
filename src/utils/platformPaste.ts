@@ -372,22 +372,26 @@ const DATETIME_RE =
 /** 语义词：文案中出现这些词时，邻近的日期候选优先（过期/到期/exp/expire/有效期）。 */
 const EXPIRY_KEYWORDS = /过期|到期|有效期|即将过期|临近过期|expir(?:e|y|ation)|\bexp\b/giu;
 
-/** 解析单个候选 → 毫秒时间戳（按当年 / 次年补全；返回 0 = 无法解析）。
- *  - YYYY-MM-DD[ HH:MM]：直接构造。
- *  - MM-DD[ HH:MM]：补全年份为当年；若当年该日 < 今天 → 推次年（避免已过日期）。
+/** 解析单个候选 → { ts, dateOnly }。
+ *  ts = 毫秒时间戳（按当年 / 次年补全；返回 0 = 无法解析）。
+ *  dateOnly = true 表示候选未匹配到时间分量（仅日期级，如「2026-07-15」/「7月15日」）；
+ *    调用方据此将 ts 推到当日 end-of-day（23:59:59.999 = 次日前一秒），避免 00:00 致当日误判已过。
+ *  - YYYY-MM-DD[ HH:MM]：直接构造；m[4]/m[5] 缺失 = dateOnly。
+ *  - MM-DD[ HH:MM]：补全年份为当年；若当年该日 < 今天 → 推次年（避免已过日期）；m[8]/m[9] 缺失 = dateOnly。
  */
-function parseCandidate(c: TimeCandidate, now: number): number {
-  const m = DATETIME_RE.exec(c.raw);
-  if (!m) return 0;
-  // 注意：DATETIME_RE 带 g flag，exec 后 lastIndex 会变；此处每次新正则实例更安全。
-  // 但我们已匹配过 c.raw（caller 全局扫），此处重新 exec 单个 c.raw 字符串，从 0 开始，
-  // 由于字符串无状态隔离，重新 exec 单一短串等价。保险起见用新建 RegExp 实例避免 lastIndex 干扰。
-  let y: number, mo: number, d: number, h: number, mi: number;
+function parseCandidate(c: TimeCandidate, now: number): { ts: number; dateOnly: boolean } {
+  // DATETIME_RE 带 g flag，模块级多次 exec 后 lastIndex 残留会漏匹配（潜在 bug，跨测试用例复用同
+  // 一正则实例时浮现）。此处新建无 g flag 实例，exec 始终从位置 0 起匹配。
+  const localRe = new RegExp(DATETIME_RE.source, "u");
+  const m = localRe.exec(c.raw);
+  if (!m) return { ts: 0, dateOnly: false };
+  let y: number, mo: number, d: number, h: number, mi: number, dateOnly: boolean;
   if (m[1]) {
     // YYYY-MM-DD [HH:MM]
     y = parseInt(m[1], 10);
     mo = parseInt(m[2], 10);
     d = parseInt(m[3], 10);
+    dateOnly = !m[4];
     h = m[4] ? parseInt(m[4], 10) : 0;
     mi = m[5] ? parseInt(m[5], 10) : 0;
   } else {
@@ -396,6 +400,7 @@ function parseCandidate(c: TimeCandidate, now: number): number {
     y = nowDate.getFullYear();
     mo = parseInt(m[6], 10);
     d = parseInt(m[7], 10);
+    dateOnly = !m[8];
     h = m[8] ? parseInt(m[8], 10) : 0;
     mi = m[9] ? parseInt(m[9], 10) : 0;
     // 当年该日已过（且非今天）→ 推次年。
@@ -404,10 +409,18 @@ function parseCandidate(c: TimeCandidate, now: number): number {
       y = y + 1;
     }
   }
-  if (!Number.isFinite(mo) || mo < 1 || mo > 12) return 0;
-  if (!Number.isFinite(d) || d < 1 || d > 31) return 0;
+  if (!Number.isFinite(mo) || mo < 1 || mo > 12) return { ts: 0, dateOnly: false };
+  if (!Number.isFinite(d) || d < 1 || d > 31) return { ts: 0, dateOnly: false };
+  // 日期级（无时间分量）→ 推到当日 end-of-day（本地 23:59:59.999 = 次日前一秒）。
+  // 例：「过期 7月15日」识别为 7-15 23:59:59.999，而非 00:00 致当日中午被认作已过期。
+  if (dateOnly) {
+    const end = new Date(y, mo - 1, d);
+    end.setHours(23, 59, 59, 999);
+    const ts = end.getTime();
+    return Number.isFinite(ts) ? { ts, dateOnly } : { ts: 0, dateOnly: false };
+  }
   const ts = new Date(y, mo - 1, d, h, mi).getTime();
-  return Number.isFinite(ts) ? ts : 0;
+  return Number.isFinite(ts) ? { ts, dateOnly } : { ts: 0, dateOnly: false };
 }
 
 /** 从文案中识别过期时间。
@@ -440,7 +453,7 @@ export function extractExpiryAt(text: string, now: number = Date.now()): number 
 
   // 过滤 + 解析为时间戳（保留原始 index 供排序）。
   const parsed = candidates
-    .map(c => ({ c, ts: parseCandidate(c, now) }))
+    .map(c => ({ c, ...parseCandidate(c, now) }))
     .filter(x => x.ts > cutoff);
 
   if (parsed.length === 0) return null;
