@@ -1,9 +1,12 @@
-//! 单 skill 写操作：enable / install / disable / update / uninstall(_all) + 命令 arg 构造 + fs 兜底删。
+//! 单 skill 写操作：enable / install / disable / update / uninstall(_all) + 命令 arg 构造。
+//!
+//! 注：原 `fs_fallback_remove`（非 npx 物理删 `~/.agents/skills`）已于 2026-06-25
+//! skills-removal-recur 止血移除（唯一非用户主动的潜在 fs 删入口）。用户主动 uninstall
+//! 现仅走 `npx skills remove`（npx.rs 有 `cfg(test)` 测试守卫）。第三方/手动 symlink
+//! skill 若 npx 不识别将不删文件 — 止血期可接受降级。
 
 use super::npx::{apply_scope, run_npx_in_scope};
 use super::types::{SkillAgent, SkillScope, SkillsOpResult};
-use std::fs;
-use std::path::PathBuf;
 
 /// 构造 enable（启用）命令 args：`add <path> -a <slug> [-g] -y`。
 /// 用 skill 本地 path 作 add package（list json `path`），对所有 skill 通用，不依赖锁文件 source。
@@ -212,10 +215,13 @@ pub(super) fn uninstall_args(name: &str, scope: &SkillScope) -> Vec<String> {
 /// 卸载单一 skill：`npx skills remove -s <name> [-g] -y`（破坏性，前端二次确认）。
 /// 删规范存储目录 + 所有 agent 的启用配置（symlink / 锁文件项）。
 ///
-/// **fs 兜底**：第三方/手动 symlink skill（如 understand-*，非 npx 装、不在锁文件）
-/// npx remove 返回 "No matching skills found"（exit 0 但没删）。检测到此输出 → fs 兜底
-/// 删规范存储 symlink + 各 agent 目录 symlink（用户决策 A，突破"全 npx"约束，对称于
-/// enable 用 path 绕锁文件）。
+/// **止血决策 (2026-06-25, skills-removal-recur)**：移除原 fs 兜底删路径
+/// (`fs_fallback_remove`)。fs 兜底是唯一非 npx 的 `~/.agents/skills` 物理删入口，
+/// 不受 npx.rs 的 cfg(test) 守卫保护，任何调用链误触都会真删用户数据。
+/// 用户主动卸载现在完全走 `npx skills remove -s <name>`，npx 已有测试守卫；
+/// 第三方/手动 symlink skill（npx 返 "No matching skills found"）卸载将不删文件，
+/// 属止血期可接受降级（用户可在文件管理器手动删 symlink）。
+/// 详见 prd `06-25-skills-removal-recur` 加固方案 3。
 pub fn uninstall(name: &str, scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
     let name = name.trim();
     if name.is_empty() {
@@ -233,31 +239,14 @@ pub fn uninstall(name: &str, scope: &SkillScope, proxy_url: Option<&str>) -> Ski
         trigger = "skills_uninstall",
         "物理删除 skill：npx skills remove -s <name>（真物理删：规范存储 + 所有 agent symlink，不可恢复）"
     );
-    let res = run_npx_in_scope(&args, scope, proxy_url);
-    // 检测 npx 不认该 skill（第三方/手动 symlink，非锁文件注册）→ fs 兜底删。
-    let no_match = res.stdout.contains("No matching skills found")
-        || res.stderr.contains("No matching skills found");
-    if no_match {
-        let (removed, errs) = fs_fallback_remove(name, scope);
-        let success = !removed.is_empty() && errs.is_empty();
-        return SkillsOpResult {
-            success,
-            stdout: format!(
-                "fs fallback removed {} path(s): [{}]",
-                removed.len(),
-                removed.join(", ")
-            ),
-            stderr: if errs.is_empty() {
-                String::new()
-            } else {
-                format!("fs fallback errors: {}", errs.join("; "))
-            },
-        };
-    }
-    res
+    run_npx_in_scope(&args, scope, proxy_url)
 }
 
 /// 校验 skill name 安全（防路径遍历：禁 `..` / `/` / `\` / 空 / `.`）。
+///
+/// 仅测试用：fs 兜底删已在 06-25-skills-removal-recur 止血移除，本函数无生产消费者。
+/// 保留作纵深防御输入校验，后续若恢复兜底删（带更强运行时守卫）可复用。
+#[cfg(test)]
 pub(super) fn is_safe_skill_name(name: &str) -> bool {
     !name.is_empty()
         && name != "."
@@ -265,94 +254,6 @@ pub(super) fn is_safe_skill_name(name: &str) -> bool {
         && !name.contains('/')
         && !name.contains('\\')
         && !name.contains("..")
-}
-
-/// 删除单个路径（symlink → remove_file 不跟随；目录 → remove_dir_all；不存在 → skip）。
-/// 返回 Some(()) 表示删成功，None 表示不存在，Some(Err) 转 errs。
-fn remove_path(p: &PathBuf, removed: &mut Vec<String>, errs: &mut Vec<String>) {
-    let meta = match fs::symlink_metadata(p) {
-        Ok(m) => m,
-        Err(_) => return, // 不存在 → skip
-    };
-    let r = if meta.is_dir() && !meta.file_type().is_symlink() {
-        fs::remove_dir_all(p)
-    } else {
-        fs::remove_file(p) // symlink 或文件：不跟随 symlink target
-    };
-    match r {
-        Ok(()) => removed.push(p.display().to_string()),
-        Err(e) => errs.push(format!("remove {}: {e}", p.display())),
-    }
-}
-
-/// fs 兜底删第三方/手动 symlink skill。返回 (已删路径, 错误)。
-///
-/// - **规范存储**：global `~/.agents/skills/<name>`，project `<project>/.agents/skills/<name>`。
-/// - **各 agent symlink**（仅 global）：扫 `~/` 下 `.` 开头目录（.claude/.codex/.trae-cn/...），
-///   若 `<dir>/skills/<name>` 存在则删。不硬编码 agent 列表，通配扫。
-///
-/// 安全：name 经 `is_safe_skill_name` 校验，防路径遍历。
-fn fs_fallback_remove(name: &str, scope: &SkillScope) -> (Vec<String>, Vec<String>) {
-    let mut removed: Vec<String> = Vec::new();
-    let mut errs: Vec<String> = Vec::new();
-
-    if !is_safe_skill_name(name) {
-        return (removed, vec![format!("unsafe skill name: '{name}'")]);
-    }
-
-    // F3 诊断：fs 兜底删是最激进的路径（直接 rm -rf 第三方 skill 目录），记 warn 日志含 skill/scope。
-    tracing::warn!(
-        skill = %name,
-        scope = ?scope,
-        trigger = "skills_uninstall:fs_fallback",
-        "物理删除 skill：fs 兜底扫 ~/.agents/skills/<name> + ~/.<dotdir>/skills/<name>（第三方/手动 symlink，npx 不认）"
-    );
-
-    // case-insensitive 匹配：`npx skills list` 返 name 小写化，
-    // 但磁盘目录保留原大小写（如 cc-switch 管的 `SkillAnything`）。
-    // 列目录条目，to_lowercase() == name.to_lowercase() 即匹配删除。
-    let name_lc = name.to_lowercase();
-    let remove_in = |dir: &std::path::Path, removed: &mut Vec<String>, errs: &mut Vec<String>| {
-        let Ok(entries) = fs::read_dir(dir) else {
-            return;
-        };
-        for e in entries.flatten() {
-            if e.file_name().to_string_lossy().to_lowercase() == name_lc {
-                remove_path(&e.path(), removed, errs);
-            }
-        }
-    };
-
-    match scope {
-        SkillScope::Global => {
-            if let Some(home) = dirs::home_dir() {
-                // 规范存储
-                remove_in(&home.join(".agents").join("skills"), &mut removed, &mut errs);
-                // 各 agent 目录（home 下 . 开头目录，排除 .agents 本身）
-                if let Ok(entries) = fs::read_dir(&home) {
-                    for e in entries.flatten() {
-                        let dir_name = e.file_name();
-                        let dn = dir_name.to_string_lossy();
-                        if !dn.starts_with('.') || dn == ".agents" {
-                            continue;
-                        }
-                        remove_in(&home.join(dn.as_ref()).join("skills"), &mut removed, &mut errs);
-                    }
-                }
-            } else {
-                errs.push("cannot resolve home directory".to_string());
-            }
-        }
-        SkillScope::Project { path } => {
-            remove_in(
-                &PathBuf::from(path).join(".agents").join("skills"),
-                &mut removed,
-                &mut errs,
-            );
-        }
-    }
-
-    (removed, errs)
 }
 
 #[cfg(test)]
