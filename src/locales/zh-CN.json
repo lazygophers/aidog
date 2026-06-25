@@ -1624,5 +1624,20 @@
   "group.addMappingFailed": "添加映射失败",
   "group.deleteMappingFailed": "删除映射失败",
   "skills.searchPlaceholder": "搜索 skills...",
-  "skills.searchEmpty": "没有匹配的 skills"
+  "skills.searchEmpty": "没有匹配的 skills",
+  "action.close": "关闭",
+  "platform.share.button": "分享",
+  "platform.share.title": "分享平台",
+  "platform.share.warning": "分享内容含明文 API Key，请仅发送给可信对象，切勿公开发布。",
+  "platform.share.format.yaml": "YAML",
+  "platform.share.format.json": "JSON",
+  "platform.share.format.base64": "Base64",
+  "platform.share.copyBtn": "复制",
+  "platform.share.copiedBtn": "已复制",
+  "platform.share.copied": "已复制到剪贴板",
+  "platform.share.autoCopied": "分享内容已自动复制到剪贴板",
+  "platform.share.copyFail": "复制失败，请手动选择内容",
+  "platform.share.exportFail": "生成分享内容失败",
+  "platform.paste.shareDetected": "已识别 AiDog 平台分享",
+  "platform.paste.shareDetectedHint": "点击下方按钮将完整配置（含 API Key）灌入表单。"
 }

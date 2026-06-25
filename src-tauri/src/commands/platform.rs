@@ -98,6 +98,71 @@ pub async fn platform_get(id: u64, db: State<'_, Db>) -> Result<Option<Platform>
     db::get_platform(&db, id).await
 }
 
+/// 单平台可分享配置：剥离 DB 内部 / 运行时字段（id / status / 统计 / 时间戳等），
+/// 仅保留可重新导入的配置字段（含明文 api_key）。
+/// 顶层 `aidog_platform_share: 1` 作为格式标识，接收端据此校验是否为合法分享串。
+/// 含明文 api_key —— 平台分享本质 = 把可用配置给可信对象，由用户显式主动触发。
+/// 前端按所选格式（YAML / JSON / Base64）序列化此结构化对象。
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct SharePlatform {
+    /// 格式标识：恒为 1。接收端校验此字段存在（>0）才视为合法分享串。
+    pub aidog_platform_share: u32,
+    pub name: String,
+    pub platform_type: Protocol,
+    pub base_url: String,
+    pub api_key: String,
+    #[serde(default)]
+    pub extra: String,
+    #[serde(default)]
+    pub models: PlatformModels,
+    #[serde(default)]
+    pub available_models: Vec<String>,
+    #[serde(default)]
+    pub endpoints: Vec<PlatformEndpoint>,
+    #[serde(default)]
+    pub manual_budgets: Vec<ManualBudget>,
+}
+
+/// 导出单平台的可分享数据对象（结构化对象）。
+/// 后端只返回干净的数据对象，格式转换（YAML / JSON / Base64）由前端负责，
+/// 避免后端把 YAML 引入序列化主路径。本地操作，不落 proxy_log。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn platform_share_export(platform_id: u64, db: State<'_, Db>) -> Result<SharePlatform, String> {
+    tracing::debug!(command = "platform_share_export", platform_id, "command invoked");
+    let p = match db::get_platform(&db, platform_id).await? {
+        Some(p) => p,
+        None => return Err(format!("platform {platform_id} not found")),
+    };
+    Ok(SharePlatform {
+        aidog_platform_share: 1,
+        name: p.name,
+        platform_type: p.platform_type,
+        base_url: p.base_url,
+        api_key: p.api_key,
+        extra: p.extra,
+        models: p.models,
+        available_models: p.available_models,
+        endpoints: p.endpoints,
+        manual_budgets: p.manual_budgets,
+    })
+}
+
+/// 解析分享串（serde_yml 是 YAML 超集，可同时解析 YAML / JSON）。
+/// 校验顶层 `aidog_platform_share` 标识存在（>0）；不含则返错，
+/// 接收端据此 fallback 到原杂乱文本解析（无回归）。本地操作，不落 proxy_log。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn platform_share_parse(text: String) -> Result<SharePlatform, String> {
+    tracing::debug!(command = "platform_share_parse", "command invoked");
+    let parsed: SharePlatform = serde_yml::from_str(&text)
+        .map_err(|e| format!("not a valid aidog platform share: {e}"))?;
+    if parsed.aidog_platform_share == 0 {
+        return Err("missing aidog_platform_share marker".to_string());
+    }
+    Ok(parsed)
+}
+
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn platform_update(input: UpdatePlatform, db: State<'_, Db>) -> Result<Platform, String> {

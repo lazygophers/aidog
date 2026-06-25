@@ -1624,5 +1624,20 @@
   "group.addMappingFailed": "Error al añadir la asignación",
   "group.deleteMappingFailed": "Error al eliminar la asignación",
   "skills.searchPlaceholder": "Buscar skills...",
-  "skills.searchEmpty": "No hay skills coincidentes"
+  "skills.searchEmpty": "No hay skills coincidentes",
+  "action.close": "Cerrar",
+  "platform.share.button": "Compartir",
+  "platform.share.title": "Compartir plataforma",
+  "platform.share.warning": "El contenido compartido contiene una clave API en texto plano. Envíalo solo a destinatarios de confianza y nunca lo publiques.",
+  "platform.share.format.yaml": "YAML",
+  "platform.share.format.json": "JSON",
+  "platform.share.format.base64": "Base64",
+  "platform.share.copyBtn": "Copiar",
+  "platform.share.copiedBtn": "Copiado",
+  "platform.share.copied": "Copiado al portapapeles",
+  "platform.share.autoCopied": "Contenido para compartir copiado automáticamente al portapapeles",
+  "platform.share.copyFail": "Error al copiar, seleccione el contenido manualmente",
+  "platform.share.exportFail": "No se pudo generar el contenido para compartir",
+  "platform.paste.shareDetected": "Se detectó un recurso compartido de plataforma AiDog",
+  "platform.paste.shareDetectedHint": "Haz clic en el botón de abajo para rellenar la configuración completa (incluida la clave API) en el formulario."
 }

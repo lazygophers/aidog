@@ -1646,5 +1646,20 @@
   "group.addMappingFailed": "Zuordnung konnte nicht hinzugefügt werden",
   "group.deleteMappingFailed": "Zuordnung konnte nicht gelöscht werden",
   "skills.searchPlaceholder": "Skills suchen...",
-  "skills.searchEmpty": "Keine passenden Skills"
+  "skills.searchEmpty": "Keine passenden Skills",
+  "action.close": "Schließen",
+  "platform.share.button": "Teilen",
+  "platform.share.title": "Plattform teilen",
+  "platform.share.warning": "Der geteilte Inhalt enthält einen API-Schlüssel im Klartext. Senden Sie ihn nur an vertrauenswürdige Empfänger und veröffentlichen Sie ihn niemals.",
+  "platform.share.format.yaml": "YAML",
+  "platform.share.format.json": "JSON",
+  "platform.share.format.base64": "Base64",
+  "platform.share.copyBtn": "Kopieren",
+  "platform.share.copiedBtn": "Kopiert",
+  "platform.share.copied": "In die Zwischenablage kopiert",
+  "platform.share.autoCopied": "Freigabeinhalt automatisch in die Zwischenablage kopiert",
+  "platform.share.copyFail": "Kopieren fehlgeschlagen, bitte Inhalt manuell auswählen",
+  "platform.share.exportFail": "Freigabeinhalt konnte nicht erstellt werden",
+  "platform.paste.shareDetected": "AiDog-Plattformfreigabe erkannt",
+  "platform.paste.shareDetectedHint": "Klicken Sie unten, um die vollständige Konfiguration (inkl. API-Schlüssel) in das Formular zu übernehmen."
 }
