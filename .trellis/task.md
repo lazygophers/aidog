@@ -50,4 +50,6 @@
 | realtime-event-notify | 前端实时数据事件通知替代轮询 | — | 已完成 | 收尾 | 100% | .worktrees/06-25-realtime-event-notify |
 | platform-expiry-toggle | 平台过期时间默认禁用+启用toggle | — | 已完成 | 收尾 | 100% | — |
 | datetime-local-theme | datetime-local 主题适配 | — | 规划中 | 规划 | 0% | — |
-| skills-test-isolation | skills 测试隔离 | — | 进行中 | 规划 | 0% | — |
+| skills-test-isolation | skills 测试隔离 | — | 已完成 | 收尾 | 100% | — |
+| expiry-paste-not-recognized | 粘贴识别过期时间失败 | — | 规划中 | 规划 | 0% | — |
+| skills-removal-deep-audit | skills 被移除问题深度审计 | — | 进行中 | 规划 | 0% | — |
