@@ -1614,5 +1614,7 @@
   "importExport.error.notAidogx": "Arrastre un archivo de respaldo .aidogx",
   "group.createFailed": "Error al crear el grupo",
   "group.addMappingFailed": "Error al añadir la asignación",
-  "group.deleteMappingFailed": "Error al eliminar la asignación"
+  "group.deleteMappingFailed": "Error al eliminar la asignación",
+  "skills.searchPlaceholder": "Buscar skills...",
+  "skills.searchEmpty": "No hay skills coincidentes"
 }
