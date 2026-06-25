@@ -20,6 +20,7 @@ import {
 } from "../services/api";
 import { SkillInstallView } from "./SkillInstallView";
 import { SkillDetailView } from "./SkillDetailView";
+import { pinyinMatch } from "../utils/pinyin";
 import claudeIcon from "../assets/platforms/claude_code.svg";
 import codexIcon from "../assets/platforms/openai.svg";
 
@@ -71,6 +72,21 @@ export function Skills() {
   const writeReady = !!env?.npx_available;
   const scopeInvalid = scopeKind === "project" && projectPath.trim() === "";
 
+  // 已装列表关键词搜索（纯前端 filter，按 name/description/source 拼音匹配）。
+  const [searchQuery, setSearchQuery] = useState("");
+
+  // 搜索过滤后的已装列表（统计/总数仍用全量 installed，搜索只影响列表展示）。
+  const filteredInstalled = useMemo(() => {
+    const q = searchQuery.trim();
+    if (!q) return installed;
+    return installed.filter(
+      (s) =>
+        pinyinMatch(q, s.name) ||
+        pinyinMatch(q, s.description ?? "") ||
+        pinyinMatch(q, s.source ?? ""),
+    );
+  }, [installed, searchQuery]);
+
   // 折叠组集合（key = source 或 "__other__"）。默认全展开。
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
   const toggleGroup = (key: string) =>
@@ -84,7 +100,7 @@ export function Skills() {
   // 按 source 分组：有 source → owner/repo 组（字母序）；无 source → 「其他」组（置末）。
   const groups = useMemo(() => {
     const map = new Map<string, { source: string | null; skills: SkillInfo[] }>();
-    for (const s of installed) {
+    for (const s of filteredInstalled) {
       const key = s.source ?? "__other__";
       if (!map.has(key)) map.set(key, { source: s.source, skills: [] });
       map.get(key)!.skills.push(s);
@@ -94,7 +110,7 @@ export function Skills() {
       if (a.source !== null && b.source === null) return -1;
       return (a.source ?? "").localeCompare(b.source ?? "");
     });
-  }, [installed]);
+  }, [filteredInstalled]);
 
   // 环境探测（进页一次）。
   useEffect(() => {
@@ -628,6 +644,17 @@ export function Skills() {
         </div>
       </div>
 
+      {/* 搜索框（仅有已装 skills 时显示，照 Platforms/Groups 搜索框样式） */}
+      {!installedLoading && installed.length > 0 && (
+        <input
+          className="input"
+          placeholder={t("skills.searchPlaceholder", "搜索 skills...")}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          style={{ fontSize: 13 }}
+        />
+      )}
+
       {/* 已装列表（统一一条/skill） */}
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {installedLoading ? (
@@ -635,6 +662,10 @@ export function Skills() {
         ) : installed.length === 0 ? (
           <div className="glass-surface text-secondary" style={{ padding: "24px 16px", textAlign: "center", fontSize: 13 }}>
             {t("skills.installedEmpty", "当前范围下暂无已安装 skills")}
+          </div>
+        ) : filteredInstalled.length === 0 ? (
+          <div className="glass-surface text-secondary" style={{ padding: "24px 16px", textAlign: "center", fontSize: 13 }}>
+            {t("skills.searchEmpty", "没有匹配的 skills")}
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>

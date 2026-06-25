@@ -1636,5 +1636,7 @@
   "importExport.error.notAidogx": "Bitte eine .aidogx-Sicherungsdatei ablegen",
   "group.createFailed": "Gruppe konnte nicht erstellt werden",
   "group.addMappingFailed": "Zuordnung konnte nicht hinzugefügt werden",
-  "group.deleteMappingFailed": "Zuordnung konnte nicht gelöscht werden"
+  "group.deleteMappingFailed": "Zuordnung konnte nicht gelöscht werden",
+  "skills.searchPlaceholder": "Skills suchen...",
+  "skills.searchEmpty": "Keine passenden Skills"
 }
