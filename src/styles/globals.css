@@ -294,6 +294,39 @@ select.input {
   padding-right: 28px;
 }
 
+/* ── datetime-local / date / time / month 原生控件跟主题 ──
+   .input className 已覆盖 color/bg/border，但 Tauri WKWebView 原生日期控件：
+   (1) 不响应 web color-scheme → 须显式 color-scheme: light dark 兜底弹层明暗；
+   (2) ::-webkit-calendar-picker-indicator 默认黑图标在暗主题下不可见 → 按 data-mode 反色。
+   Platforms.tsx 内联 style={{ colorScheme: themeMode }} 控弹层明暗；此处作为全局兜底 + 染色 indicator。 */
+input[type="datetime-local"],
+input[type="date"],
+input[type="time"],
+input[type="month"],
+input[type="week"] {
+  color-scheme: light dark;
+}
+
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="week"]::-webkit-calendar-picker-indicator {
+  /* 默认（light）保持原生图标本色；暗主题见 :root[data-mode="dark"] 覆盖 */
+  filter: none;
+  cursor: pointer;
+}
+
+/* 暗主题：calendar-picker-indicator 反色（黑图标 → 白图标）。
+   :root[data-mode="dark"] 由 applyTheme 写入，全色板共享。 */
+:root[data-mode="dark"] input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+:root[data-mode="dark"] input[type="date"]::-webkit-calendar-picker-indicator,
+:root[data-mode="dark"] input[type="time"]::-webkit-calendar-picker-indicator,
+:root[data-mode="dark"] input[type="month"]::-webkit-calendar-picker-indicator,
+:root[data-mode="dark"] input[type="week"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
+
 /* ── Toggle Switch ── */
 
 .toggle {
