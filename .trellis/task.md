@@ -32,3 +32,4 @@
 | perf-b5-component-split | 巨石组件拆分 (Groups renderItem → SortableRow memo 化) | — | 已完成 | 收尾 | 100% | — |
 | sql-index-audit | SQL/索引效率审计与优化 | — | 已完成 | 收尾 | 100% | — |
 | db-dejoin-queries | DB 层去 JOIN/子查询重构 | — | 已完成 | 收尾 | 100% | - |
+| 06-25-proxy-lan-bind | 默认代理支持局域网访问 | — | completed | 收尾 | 100 | — |
