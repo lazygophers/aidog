@@ -42,4 +42,8 @@
 | enabled-plugins-delete-visibility | Enabled Plugins 删除按钮可见性 | — | completed | 收尾 | 100 | — |
 | platform-priority-field | 平台编辑创建表单加优先级设置 | — | 已完成 | 收尾 | 100% | — |
 | billing-default-coding-plan | 平台计费类型识别默认coding plan | — | 规划中 | 规划 | 0% | — |
-| mimo-volces-mismatch | mimo coding plan 误识别为火山引擎 | — | 进行中 | 规划 | 0% | — |
+| mimo-volces-mismatch | mimo coding plan 误识别为火山引擎 | — | 已完成 | 收尾 | 100% | — |
+| platform-expiry | 平台过期时间字段与到期自动禁用 | — | 已完成 | 收尾 | 100% | — |
+| skills-cleanup-fix | npx skills 安装的 skills 被清理修复 | — | 已完成 | 收尾 | 100% | — |
+| share-skip-empty | 平台分享零值空值字段不展示 | — | 进行中 | 规划 | 0% | — |
+| proxy-log-inflight-cache | proxy_log in-flight 缓存消除热路径 SELECT | — | 已完成 | 收尾 | 100% | — |
