@@ -125,6 +125,7 @@ describe("parsePlatformPaste", () => {
       baseUrls: [],
       platform: null,
       models: [],
+      expiresAt: null,
     });
     expect(parsePlatformPaste("   ", PRESETS).platform).toBeNull();
   });
@@ -213,5 +214,80 @@ describe("parsePlatformPaste", () => {
     // 文案含 lark_024 (含 ark 子串) 但无火山语义 → 不应命中 doubao
     const out = parsePlatformPaste("由 lin2101 发布 lark_024 文化宣导员 sgp吗", PRESETS);
     expect(out.platform?.value).not.toBe("doubao");
+  });
+
+  it("parses '即将过期 MM-DD HH:MM' from community share text", () => {
+    // 构造一个未来日期的 MM-DD HH:MM（用当前月日 + 1 月）。
+    const now = new Date();
+    const future = new Date(now.getFullYear(), now.getMonth() + 1, 28, 23, 59);
+    const mo = future.getMonth() + 1;
+    const d = future.getDate();
+    const txt = `分享 MIMO token 即将过期 ${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")} 23:59`;
+    const out = parsePlatformPaste(txt, PRESETS);
+    expect(out.expiresAt).not.toBeNull();
+    expect(out.expiresAt! > Date.now()).toBe(true);
+    // 解出的日期应匹配月份/日
+    const parsed = new Date(out.expiresAt!);
+    expect(parsed.getMonth() + 1).toBe(mo);
+    expect(parsed.getDate()).toBe(d);
+    expect(parsed.getHours()).toBe(23);
+    expect(parsed.getMinutes()).toBe(59);
+  });
+
+  it("skips historical dates (older than 7 days) as expiry", () => {
+    // 去年 01-01 → 远早于 now - 7d → 不应回填。
+    const out = parsePlatformPaste("老帖 过期 01-01 00:00", PRESETS);
+    expect(out.expiresAt).toBeNull();
+  });
+
+  it("picks date closest to expiry keyword when multiple candidates", () => {
+    // 两日期：一个邻近「过期」语义，一个远离。取近语义的。
+    const now = new Date();
+    // 近过期词的日期：下月 15 日（未来）
+    const nearFuture = new Date(now.getFullYear(), now.getMonth() + 1, 15, 23, 59);
+    // 远离词的日期：下月 25 日（未来，但更远）
+    const farFuture = new Date(now.getFullYear(), now.getMonth() + 1, 25, 23, 59);
+    const nearMo = String(nearFuture.getMonth() + 1).padStart(2, "0");
+    const nearD = String(nearFuture.getDate()).padStart(2, "0");
+    const farMo = String(farFuture.getMonth() + 1).padStart(2, "0");
+    const farD = String(farFuture.getDate()).padStart(2, "0");
+    // 「过期」前缀 near，far 出现在文末且无语义词邻近。
+    const txt = `过期 ${nearMo}-${nearD} 23:59\n另一条信息 ${farMo}-${farD} 23:59`;
+    const out = parsePlatformPaste(txt, PRESETS);
+    expect(out.expiresAt).not.toBeNull();
+    const parsed = new Date(out.expiresAt!);
+    expect(parsed.getDate()).toBe(15, "should pick near-keyword date (15), got " + parsed.getDate());
+  });
+
+  it("returns null when text has no expiry keyword (tightened mode)", () => {
+    // 收紧（2026-06-25 bug 修复）：无任何「过期/到期/exp/有效期」语义词的文案，
+    // 即便含未来日期也不识别（防「更新于 2026-07-15」「版本计划 08-20」类帖误识别灌表单）。
+    const now = new Date();
+    const future = new Date(now.getFullYear(), now.getMonth() + 1, 10, 12, 0);
+    const mo = String(future.getMonth() + 1).padStart(2, "0");
+    const d = String(future.getDate()).padStart(2, "0");
+    const txt = `活动 ${mo}-${d} 12:00 开始`;
+    const out = parsePlatformPaste(txt, PRESETS);
+    expect(out.expiresAt).toBeNull();
+  });
+
+  it("returns null when keyword present but date too far (> 60 chars)", () => {
+    // 语义词存在但所有日期候选距语义词均 > 60 字符 → 视为无关日期。
+    const now = new Date();
+    const future = new Date(now.getFullYear(), now.getMonth() + 1, 15, 23, 59);
+    const mo = String(future.getMonth() + 1).padStart(2, "0");
+    const d = String(future.getDate()).padStart(2, "0");
+    // 70 字 filler 隔开「过期」与日期 → 距离 > 60 → null。
+    const filler = "x".repeat(70);
+    const txt = `过期${filler}${mo}-${d} 23:59`;
+    const out = parsePlatformPaste(txt, PRESETS);
+    expect(out.expiresAt).toBeNull();
+  });
+
+  it("returns null for plain '更新于 YYYY-MM-DD' without keyword", () => {
+    // 论坛帖更新日期类文案：无过期语义词 → 不识别。
+    const txt = "更新于 2026-07-15 by lin2101";
+    const out = parsePlatformPaste(txt, PRESETS);
+    expect(out.expiresAt).toBeNull();
   });
 });
