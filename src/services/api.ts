@@ -1702,28 +1702,12 @@ export const skillsApi = {
   /** 卸载单一 skill（破坏性）：删规范存储 + 所有 agent 启用配置。 */
   uninstall: (name: string, scope: SkillScope) =>
     invoke<SkillsOpResult>("skills_uninstall", { name, scope }),
-  /** 组级卸载（破坏性）：卸载某 source 分组（groupSource=null = 「其他」组）内所有 skill。 */
-  uninstallGroup: (groupSource: string | null, scope: SkillScope) =>
-    invoke<SkillsOpResult>("skills_uninstall_group", { groupSource, scope }),
   /** 对齐两 agent 的 skills 启用配置（使 to 与 from 完全一致）。 */
   alignAgents: (from: SkillAgent, to: SkillAgent, scope: SkillScope) =>
     invoke<SkillsOpResult>("skills_align_agents", { from, to, scope }),
   /** 为某 agent 启用当前 scope 全部已装 skills（只增不减）。 */
   enableAll: (agent: SkillAgent, scope: SkillScope) =>
     invoke<SkillsOpResult>("skills_enable_all", { agent, scope }),
-  /** 组级 agent 批量：对某 source 组（groupSource=null = 「其他」组）内所有 skill 统一启用/禁用某 agent。 */
-  setGroupAgent: (
-    groupSource: string | null,
-    agent: SkillAgent,
-    enable: boolean,
-    scope: SkillScope,
-  ) =>
-    invoke<SkillsOpResult>("skills_set_group_agent", {
-      groupSource,
-      agent,
-      enable,
-      scope,
-    }),
 };
 
 // ─── MCP 管理 ─────────────────────────────────────────────

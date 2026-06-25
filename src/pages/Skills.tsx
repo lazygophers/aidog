@@ -56,12 +56,6 @@ export function Skills() {
   const [alignOpen, setAlignOpen] = useState(false);
   const [alignFrom, setAlignFrom] = useState<SkillAgent>("claude");
   const [alignTo, setAlignTo] = useState<SkillAgent>("codex");
-  // 组级卸载目标（破坏性，二次确认）。
-  const [uninstallGroupTarget, setUninstallGroupTarget] = useState<{
-    source: string | null;
-    label: string;
-    count: number;
-  } | null>(null);
 
   // 当前 scope 对象（供 API 调用）。
   const scope: SkillScope =
@@ -86,31 +80,6 @@ export function Skills() {
         pinyinMatch(q, s.source ?? ""),
     );
   }, [installed, searchQuery]);
-
-  // 折叠组集合（key = source 或 "__other__"）。默认全展开。
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
-  const toggleGroup = (key: string) =>
-    setCollapsedGroups((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
-
-  // 按 source 分组：有 source → owner/repo 组（字母序）；无 source → 「其他」组（置末）。
-  const groups = useMemo(() => {
-    const map = new Map<string, { source: string | null; skills: SkillInfo[] }>();
-    for (const s of filteredInstalled) {
-      const key = s.source ?? "__other__";
-      if (!map.has(key)) map.set(key, { source: s.source, skills: [] });
-      map.get(key)!.skills.push(s);
-    }
-    return Array.from(map.values()).sort((a, b) => {
-      if (a.source === null && b.source !== null) return 1;
-      if (a.source !== null && b.source === null) return -1;
-      return (a.source ?? "").localeCompare(b.source ?? "");
-    });
-  }, [filteredInstalled]);
 
   // 环境探测（进页一次）。
   useEffect(() => {
@@ -333,24 +302,6 @@ export function Skills() {
     }
   };
 
-  // 组级卸载（破坏性，二次确认 modal 已过）：卸载某 source 组内所有 skill。
-  const handleUninstallGroup = async () => {
-    const target = uninstallGroupTarget;
-    setUninstallGroupTarget(null);
-    if (!target || !writeReady || scopeInvalid || busyKey !== null) return;
-    setBusyKey(`__uninstall_group_${target.source ?? "__other__"}__`);
-    setMessage(null);
-    try {
-      const res = await skillsApi.uninstallGroup(target.source, scope);
-      await applyResult(res, "skills.uninstallDone");
-    } catch (e) {
-      console.error("uninstall group failed", e);
-      setMessage(String(e));
-    } finally {
-      setBusyKey(null);
-    }
-  };
-
   // 对齐配置：使 to 的启用配置与 from 完全一致。
   const handleAlign = async () => {
     if (alignFrom === alignTo) return;
@@ -408,38 +359,6 @@ export function Skills() {
       }
     } catch (e) {
       console.error("enable all failed", e);
-      setMessage(String(e));
-    } finally {
-      setBusyKey(null);
-    }
-  };
-
-  // 组级 agent 批量：全启用→点=批量 disable；部分/全未→点=批量 enable（补齐缺的）。
-  const handleSetGroupAgent = async (source: string | null, agent: SkillAgent) => {
-    const key = `group:${source ?? "__other__"}:${agent}`;
-    if (busyKey !== null) return;
-    const groupSkills = groups.find((g) => g.source === source)?.skills ?? [];
-    if (groupSkills.length === 0) return;
-    const enabledCount = groupSkills.filter((s) => s.enabled_agents.includes(agent)).length;
-    const enable = enabledCount < groupSkills.length;
-    setBusyKey(key);
-    setMessage(null);
-    try {
-      const res = await skillsApi.setGroupAgent(source, agent, enable, scope);
-      if (res.success) {
-        setMessage(
-          t("skills.groupUpdated", "已更新组内 skills", {
-            count: groupSkills.length,
-            agent: t(`skills.agent.${agent}`, agent),
-          }),
-        );
-        await refreshInstalled();
-      } else {
-        const err = res.stderr.trim() || res.stdout.trim() || t("skills.opFailed", "操作失败");
-        setMessage(err);
-      }
-    } catch (e) {
-      console.error("set group agent failed", e);
       setMessage(String(e));
     } finally {
       setBusyKey(null);
@@ -671,202 +590,85 @@ export function Skills() {
             {t("skills.searchEmpty", "没有匹配的 skills")}
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-            {groups.map((group) => {
-              const groupKey = group.source ?? "__other__";
-              const collapsed = collapsedGroups.has(groupKey);
-              const groupLabel = group.source ?? t("skills.groupOther", "其他");
-              return (
-                <div key={groupKey} style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                  {/* 组头：折叠 + owner/repo + 计数 + 组级 agent 批量图标 */}
-                  <div
-                    className="glass-elevated"
-                    style={{ padding: "10px 16px", display: "flex", alignItems: "center", gap: 12 }}
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {filteredInstalled.map((skill) => (
+              <div
+                key={skill.name}
+                className="glass-surface"
+                style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "center" }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    title={t("skills.detail.view", "查看详情")}
+                    style={{ fontSize: 13, fontWeight: 600, padding: 0, cursor: "pointer" }}
+                    onClick={() => setDetailTarget(skill)}
                   >
-                    <button
-                      type="button"
-                      onClick={() => toggleGroup(groupKey)}
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 10,
-                        cursor: "pointer",
-                        background: "transparent",
-                        border: "none",
-                        color: "inherit",
-                      }}
-                      aria-expanded={!collapsed}
-                    >
-                      <span
-                        style={{
-                          fontSize: 11,
-                          display: "inline-block",
-                          transform: collapsed ? "rotate(-90deg)" : "none",
-                          transition: "transform 0.15s",
-                          color: "var(--text-secondary)",
-                        }}
-                      >
-                        ▾
-                      </span>
-                      <span style={{ fontSize: 13, fontWeight: 700, fontFamily: "var(--font-mono, monospace)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {groupLabel}
-                      </span>
-                      <span style={{ fontSize: 11, color: "var(--text-secondary)" }}>
-                        {t("skills.skillCount", "{{n}} 个", { n: group.skills.length })}
-                      </span>
-                    </button>
-                    {/* 组级 agent 批量：全启→disable；部分/全未→enable */}
-                    <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-                      {AGENTS.map((a) => {
-                        const enabledCount = group.skills.filter((s) => s.enabled_agents.includes(a)).length;
-                        const allOn = enabledCount === group.skills.length;
-                        const noneOn = enabledCount === 0;
-                        const busy = busyKey === `group:${groupKey}:${a}`;
-                        const label = t(`skills.agent.${a}`, a);
-                        const aria = allOn
-                          ? t("skills.disableAgent", "关闭 {{agent}}", { agent: label })
-                          : t("skills.enableAgent", "启用 {{agent}}", { agent: label });
-                        return (
-                          <button
-                            key={a}
-                            type="button"
-                            className="glass"
-                            title={aria}
-                            aria-label={aria}
-                            disabled={!writeReady || busyKey !== null}
-                            onClick={() => handleSetGroupAgent(group.source, a)}
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: 4,
-                              padding: "4px 8px",
-                              cursor: writeReady && busyKey === null ? "pointer" : "default",
-                              borderRadius: 8,
-                              border: allOn ? "1.5px solid var(--accent)" : "1px solid var(--border)",
-                              background: allOn ? "var(--accent-subtle)" : "transparent",
-                              opacity: allOn ? 1 : noneOn ? 0.45 : 0.7,
-                              transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
-                            }}
-                          >
-                            <img
-                              src={AGENT_ICONS[a]}
-                              alt={label}
-                              style={{ width: 16, height: 16, filter: allOn ? "none" : "grayscale(1)" }}
-                            />
-                            <span style={{ fontSize: 10, fontWeight: 600 }}>
-                              {busy ? "…" : `${enabledCount}/${group.skills.length}`}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {/* 组级卸载（破坏性，二次确认） */}
-                    <button
-                      className="btn btn-danger"
-                      style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
-                      disabled={!writeReady || busyKey !== null}
-                      onClick={() =>
-                        setUninstallGroupTarget({
-                          source: group.source,
-                          label: groupLabel,
-                          count: group.skills.length,
-                        })
-                      }
-                      title={t("skills.uninstallGroup", "卸载整组")}
-                    >
-                      {busyKey === `__uninstall_group_${groupKey}__`
-                        ? t("skills.uninstalling", "卸载中…")
-                        : t("skills.uninstallGroup", "卸载整组")}
-                    </button>
-                  </div>
-                  {/* 组内行（折叠时隐藏） */}
-                  {!collapsed && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {group.skills.map((skill) => (
-                        <div
-                          key={skill.name}
-                          className="glass-surface"
-                          style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "center" }}
-                        >
-                          <div style={{ flex: 1, minWidth: 0 }}>
-                            <button
-                            type="button"
-                            className="btn btn-ghost"
-                            title={t("skills.detail.view", "查看详情")}
-                            style={{ fontSize: 13, fontWeight: 600, padding: 0, cursor: "pointer" }}
-                            onClick={() => setDetailTarget(skill)}
-                          >
-                            {skill.name}
-                          </button>
-                            {skill.description?.trim() && (
-                              <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>{skill.description}</div>
-                            )}
-                          </div>
-                          {/* 右侧 agent 启用切换 */}
-                          <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
-                            {AGENTS.map((a) => {
-                              const enabled = skill.enabled_agents.includes(a);
-                              const busy = busyKey === `${skill.name}::${a}`;
-                              const label = t(`skills.agent.${a}`, a);
-                              const aria = enabled
-                                ? t("skills.disableAgent", "关闭 {{agent}}", { agent: label })
-                                : t("skills.enableAgent", "启用 {{agent}}", { agent: label });
-                              return (
-                                <button
-                                  key={a}
-                                  type="button"
-                                  className="glass"
-                                  title={aria}
-                                  aria-label={aria}
-                                  aria-pressed={enabled}
-                                  disabled={!writeReady || busyKey !== null}
-                                  onClick={() => handleToggle(skill, a)}
-                                  style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    gap: 6,
-                                    padding: "5px 10px",
-                                    cursor: writeReady && busyKey === null ? "pointer" : "default",
-                                    borderRadius: 10,
-                                    border: enabled ? "1.5px solid var(--accent)" : "1px solid var(--border)",
-                                    background: enabled ? "var(--accent-subtle)" : "transparent",
-                                    opacity: enabled ? 1 : 0.45,
-                                    transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
-                                  }}
-                                >
-                                  <img
-                                    src={AGENT_ICONS[a]}
-                                    alt={label}
-                                    style={{ width: 18, height: 18, filter: enabled ? "none" : "grayscale(1)" }}
-                                  />
-                                  <span style={{ fontSize: 11, fontWeight: 600 }}>
-                                    {busy ? t("skills.toggling", "…") : enabled ? t("skills.on", "启用") : t("skills.off", "未启用")}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
-                          {/* 单条卸载（破坏性，二次确认） */}
-                          <button
-                            className="btn btn-danger"
-                            style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
-                            disabled={!writeReady || busyKey !== null}
-                            onClick={() => setUninstallTarget(skill)}
-                            title={t("skills.uninstall", "卸载")}
-                          >
-                            {busyKey === `__uninstall_single_${skill.name}__`
-                              ? t("skills.uninstalling", "卸载中…")
-                              : t("skills.uninstall", "卸载")}
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                    {skill.name}
+                  </button>
+                  {skill.description?.trim() && (
+                    <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>{skill.description}</div>
                   )}
                 </div>
-              );
-            })}
+                {/* 右侧 agent 启用切换 */}
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexShrink: 0 }}>
+                  {AGENTS.map((a) => {
+                    const enabled = skill.enabled_agents.includes(a);
+                    const busy = busyKey === `${skill.name}::${a}`;
+                    const label = t(`skills.agent.${a}`, a);
+                    const aria = enabled
+                      ? t("skills.disableAgent", "关闭 {{agent}}", { agent: label })
+                      : t("skills.enableAgent", "启用 {{agent}}", { agent: label });
+                    return (
+                      <button
+                        key={a}
+                        type="button"
+                        className="glass"
+                        title={aria}
+                        aria-label={aria}
+                        aria-pressed={enabled}
+                        disabled={!writeReady || busyKey !== null}
+                        onClick={() => handleToggle(skill, a)}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                          padding: "5px 10px",
+                          cursor: writeReady && busyKey === null ? "pointer" : "default",
+                          borderRadius: 10,
+                          border: enabled ? "1.5px solid var(--accent)" : "1px solid var(--border)",
+                          background: enabled ? "var(--accent-subtle)" : "transparent",
+                          opacity: enabled ? 1 : 0.45,
+                          transition: "opacity 0.15s, border-color 0.15s, background 0.15s",
+                        }}
+                      >
+                        <img
+                          src={AGENT_ICONS[a]}
+                          alt={label}
+                          style={{ width: 18, height: 18, filter: enabled ? "none" : "grayscale(1)" }}
+                        />
+                        <span style={{ fontSize: 11, fontWeight: 600 }}>
+                          {busy ? t("skills.toggling", "…") : enabled ? t("skills.on", "启用") : t("skills.off", "未启用")}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {/* 单条卸载（破坏性，二次确认） */}
+                <button
+                  className="btn btn-danger"
+                  style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
+                  disabled={!writeReady || busyKey !== null}
+                  onClick={() => setUninstallTarget(skill)}
+                  title={t("skills.uninstall", "卸载")}
+                >
+                  {busyKey === `__uninstall_single_${skill.name}__`
+                    ? t("skills.uninstalling", "卸载中…")
+                    : t("skills.uninstall", "卸载")}
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -964,53 +766,6 @@ export function Skills() {
               </button>
               <button className="btn btn-danger" style={{ fontSize: 13 }} onClick={handleUninstallSingle}>
                 {t("skills.uninstall", "卸载")}
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body,
-      )}
-
-      {/* 组级卸载二次确认 modal（破坏性，禁 native confirm） */}
-      {uninstallGroupTarget && createPortal(
-        <div
-          onClick={() => setUninstallGroupTarget(null)}
-          style={{
-            position: "fixed",
-            inset: 0,
-            zIndex: 200,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            background: "rgba(0,0,0,0.4)",
-            animation: "fadeIn 150ms ease both",
-          }}
-        >
-          <div
-            className="glass-elevated"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              maxWidth: 420,
-              padding: 24,
-              display: "flex",
-              flexDirection: "column",
-              gap: 16,
-            }}
-          >
-            <div style={{ fontSize: 15, fontWeight: 700 }}>{t("skills.uninstallGroup", "卸载整组")}</div>
-            <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.6 }}>
-              {t(
-                "skills.uninstallGroupConfirm",
-                "将卸载 {{group}} 下 {{count}} 个 skill 及其在所有 agent 的启用配置，不可恢复。确认？",
-                { group: uninstallGroupTarget.label, count: uninstallGroupTarget.count },
-              )}
-            </div>
-            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
-              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setUninstallGroupTarget(null)}>
-                {t("action.cancel", "取消")}
-              </button>
-              <button className="btn btn-danger" style={{ fontSize: 13 }} onClick={handleUninstallGroup}>
-                {t("skills.uninstallGroup", "卸载整组")}
               </button>
             </div>
           </div>
