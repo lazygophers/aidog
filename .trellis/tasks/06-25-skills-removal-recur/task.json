@@ -1,7 +1,7 @@
 {
-  "id": "skills-removal-deep-audit",
-  "name": "skills-removal-deep-audit",
-  "title": "skills 被移除问题深度审计",
+  "id": "skills-removal-recur",
+  "name": "skills-removal-recur",
+  "title": "skills 被移除复现深度审计",
   "description": "",
   "status": "in_progress",
   "dev_type": null,

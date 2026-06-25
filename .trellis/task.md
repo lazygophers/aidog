@@ -52,4 +52,5 @@
 | datetime-local-theme | datetime-local 主题适配 | — | 规划中 | 规划 | 0% | — |
 | skills-test-isolation | skills 测试隔离 | — | 已完成 | 收尾 | 100% | — |
 | expiry-paste-not-recognized | 粘贴识别过期时间失败 | — | 规划中 | 规划 | 0% | — |
-| skills-removal-deep-audit | skills 被移除问题深度审计 | — | 进行中 | 规划 | 0% | — |
+| skills-removal-deep-audit | skills 被移除问题深度审计 | — | 已完成 | 收尾 | 100% | — |
+| skills-removal-recur | skills 被移除复现深度审计 | — | 进行中 | 规划 | 0% | — |
