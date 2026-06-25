@@ -58,7 +58,7 @@ pub async fn popover_data(db: State<'_, Db>, app: tauri::AppHandle) -> Result<Po
         handle.map(|h| h.0.lock().map(|g| g.is_some()).unwrap_or(false)).unwrap_or(false)
     };
     let settings = load_proxy_settings(&app).await.unwrap_or(ProxySettings {
-        port: 9876, autostart: false, silent_launch: false,
+        port: 9876, autostart: false, silent_launch: false, bind_lan: true,
     });
     Ok(PopoverData {
         config,

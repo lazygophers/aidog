@@ -40,9 +40,12 @@ pub(crate) async fn proxy_start(
         .map_err(|e| { tracing::error!(command = "proxy_start", error = %e, "open proxy db failed"); e })?;
     let proxy_db = std::sync::Arc::new(proxy_db);
 
+    // 读取绑定模式（0.0.0.0 LAN / 127.0.0.1 本机）；地址只在 bind 时读取一次。
+    let saved = load_proxy_settings(&app).await.unwrap_or(ProxySettings { port: 9876, autostart: true, silent_launch: false, bind_lan: true });
+
     // 复用 setup 阶段 app.manage 的同一 MiddlewareEngine 单例（CRUD reload 与代理消费同源）。
     let middleware = app.state::<Arc<MiddlewareEngine>>().inner().clone();
-    let (proxy_handle, actual_port) = gateway::proxy::start_proxy(proxy_db, port, Some(app.clone()), middleware).await
+    let (proxy_handle, actual_port) = gateway::proxy::start_proxy(proxy_db, port, Some(app.clone()), middleware, saved.bind_lan).await
         .map_err(|e| { tracing::error!(command = "proxy_start", port, error = %e, "start_proxy failed"); e })?;
 
     {
@@ -51,8 +54,7 @@ pub(crate) async fn proxy_start(
     }
 
     // 保存实际使用的端口到设置
-    let saved = load_proxy_settings(&app).await.unwrap_or(ProxySettings { port: 9876, autostart: true, silent_launch: false });
-    save_proxy_settings(&app, actual_port, true, saved.silent_launch).await?;
+    save_proxy_settings(&app, actual_port, true, saved.silent_launch, saved.bind_lan).await?;
 
     // 同步所有分组的 settings 文件（端口可能变了）
     if let Some(db) = app.try_state::<Db>() {
@@ -87,7 +89,7 @@ pub(crate) async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
 
     // 更新设置
     if let Ok(settings) = load_proxy_settings(&app).await {
-        save_proxy_settings(&app, settings.port, false, settings.silent_launch).await
+        save_proxy_settings(&app, settings.port, false, settings.silent_launch, settings.bind_lan).await
             .map_err(|e| { tracing::error!(command = "proxy_stop", error = %e, "persist proxy settings failed"); e })?;
     }
 
@@ -117,8 +119,23 @@ pub async fn proxy_get_settings(app: tauri::AppHandle) -> Result<ProxySettings, 
 pub async fn proxy_set_autostart(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "proxy_set_autostart", enabled, "command invoked");
     let current = load_proxy_settings(&app).await?;
-    save_proxy_settings(&app, current.port, enabled, current.silent_launch).await
+    save_proxy_settings(&app, current.port, enabled, current.silent_launch, current.bind_lan).await
         .map_err(|e| { tracing::error!(command = "proxy_set_autostart", error = %e, "persist proxy settings failed"); e })?;
+    Ok(())
+}
+
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn proxy_set_bind_lan(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
+    tracing::debug!(command = "proxy_set_bind_lan", enabled, "command invoked");
+    let current = load_proxy_settings(&app).await?;
+    save_proxy_settings(&app, current.port, current.autostart, current.silent_launch, enabled).await
+        .map_err(|e| { tracing::error!(command = "proxy_set_bind_lan", error = %e, "persist proxy settings failed"); e })?;
+    // 绑定地址只在 bind 时读取 → 若代理在跑，重启使新地址生效。
+    if proxy_status(app.clone())? {
+        proxy_stop(app.clone()).await?;
+        proxy_start(current.port, app.clone()).await?;
+    }
     Ok(())
 }
 
@@ -150,7 +167,7 @@ pub fn app_get_autolaunch(app: tauri::AppHandle) -> Result<bool, String> {
 pub async fn app_set_silent_launch(app: tauri::AppHandle, enabled: bool) -> Result<(), String> {
     tracing::debug!(command = "app_set_silent_launch", enabled, "command invoked");
     let current = load_proxy_settings(&app).await?;
-    save_proxy_settings(&app, current.port, current.autostart, enabled).await
+    save_proxy_settings(&app, current.port, current.autostart, enabled, current.bind_lan).await
         .map_err(|e| { tracing::error!(command = "app_set_silent_launch", error = %e, "persist proxy settings failed"); e })?;
     Ok(())
 }

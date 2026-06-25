@@ -268,6 +268,7 @@ export interface ProxySettings {
   port: number;
   autostart: boolean;
   silent_launch: boolean;
+  bind_lan: boolean;
 }
 
 export interface ProxyClientSettings {
@@ -757,6 +758,8 @@ export const proxyApi = {
   getSettings: () => invoke<ProxySettings>("proxy_get_settings"),
   setAutostart: (enabled: boolean) =>
     invoke<void>("proxy_set_autostart", { enabled }),
+  setBindLan: (enabled: boolean) =>
+    invoke<void>("proxy_set_bind_lan", { enabled }),
   setAutolaunch: (enabled: boolean) =>
     invoke<void>("app_set_autolaunch", { enabled }),
   getAutolaunch: () => invoke<boolean>("app_get_autolaunch"),
