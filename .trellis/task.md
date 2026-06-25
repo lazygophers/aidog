@@ -33,9 +33,9 @@
 | sql-index-audit | SQL/索引效率审计与优化 | — | 已完成 | 收尾 | 100% | — |
 | db-dejoin-queries | DB 层去 JOIN/子查询重构 | — | 已完成 | 收尾 | 100% | - |
 | 06-25-proxy-lan-bind | 默认代理支持局域网访问 | — | completed | 收尾 | 100 | — |
-| platform-share | 平台分享 | — | 进行中 | 实现 | 10 | .worktrees/06-25-platform-share |
-| mcp-fullscreen-layout | MCP页面全屏适配 | — | 进行中 | exec | 30 | .worktrees/06-25-mcp-fullscreen-layout |
-| test-result-persist-render | 测试结果持久化+JSON解析展示 | — | 进行中 | exec | 30 | .worktrees/06-25-test-result-persist-render |
-| skills-search | 已安装skills支持搜索 | — | 进行中 | exec | 30 | .worktrees/06-25-skills-search |
+| platform-share | 平台分享 | — | 已完成 | 收尾 | 100% | .worktrees/06-25-platform-share |
+| mcp-fullscreen-layout | MCP页面全屏适配 | — | 已完成 | 收尾 | 100% | .worktrees/06-25-mcp-fullscreen-layout |
+| test-result-persist-render | 测试结果持久化+JSON解析展示 | — | 已完成 | 收尾 | 100% | .worktrees/06-25-test-result-persist-render |
+| skills-search | 已安装skills支持搜索 | — | 已完成 | 收尾 | 100% | .worktrees/06-25-skills-search |
 | skills-empty-ui-fix | 修skills列表UI空显示bug | — | 规划中 | 规划 | 0% | — |
 | skills-remove-grouping | 移除skills分组概念 | — | 规划中 | 规划 | 0% | — |
