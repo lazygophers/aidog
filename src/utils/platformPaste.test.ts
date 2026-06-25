@@ -197,4 +197,21 @@ describe("parsePlatformPaste", () => {
     expect(out.baseUrls.some((b) => b.url.includes("deepseek"))).toBe(true);
     expect(out.models.length).toBeGreaterThan(0);
   });
+
+  it("mimo token plan (tp- prefix via anti-crawl base64) upgrades to coding plan", () => {
+    // 反爬中文插 base64 中间: 剔中文拼接后解码 = tp-cd0mfe829...token
+    const full = Buffer.from("tp-cd0mfe829kk20chvj4n92ujw8synkxw5vqv5z67qx2k569qv").toString("base64");
+    const cut = Math.floor(full.length / 2);
+    const injected = `分享MIMO 即将过期 ${full.slice(0, cut)}使劲蹬啊${full.slice(cut)} 自己蹬不动了 lark_024`;
+    const out = parsePlatformPaste(injected, PRESETS);
+    expect(out.apiKeys.some(k => k.startsWith("tp-"))).toBe(true);
+    expect(out.platform?.value).toBe("xiaomi_mimo");
+    expect(out.platform?.codingPlan).toBe(true);
+  });
+
+  it("lark substring does not false-match doubao (ark keyword too short)", () => {
+    // 文案含 lark_024 (含 ark 子串) 但无火山语义 → 不应命中 doubao
+    const out = parsePlatformPaste("由 lin2101 发布 lark_024 文化宣导员 sgp吗", PRESETS);
+    expect(out.platform?.value).not.toBe("doubao");
+  });
 });

@@ -37,7 +37,7 @@ export const PROTOCOLS: ProtocolOption[] = [
   { value: "deepseek", label: "DeepSeek（深度求索）", keywords: ["深度求索", "deepseek"] },
   { value: "stepfun", label: "阶跃星辰（StepFun）", keywords: ["stepfun", "阶跃"] },
   { value: "stepfun_en", label: "StepFun 国际版", keywords: ["stepfun ai", "阶跃国际"] },
-  { value: "doubao", label: "火山引擎", keywords: ["火山", "volcengine", "agentplan", "豆包", "doubao", "seed", "ark", "volces"] },
+  { value: "doubao", label: "火山引擎", keywords: ["火山", "volcengine", "agentplan", "豆包", "doubao", "seed", "volces"] },
   { value: "byteplus", label: "BytePlus", keywords: ["byteplus", "字节国际"] },
   { value: "qianfan", label: "百度千帆", keywords: ["baidu", "百度", "千帆"] },
   { value: "qianfan", label: "百度千帆 Coding Plan Lite", codingPlan: true, keywords: ["baidu", "百度", "千帆", "qianfan", "coding"] },
