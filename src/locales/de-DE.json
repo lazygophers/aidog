@@ -698,6 +698,7 @@
   "platform.expiresAtBadge": "Läuft ab {{time}}",
   "platform.expiresAtClear": "Leeren",
   "platform.expiresAtHint": "Optional. Nach Ablauf wird die Plattform automatisch von den Routing-Kandidaten ausgeschlossen (entspricht deaktiviert); Ändern oder Leeren des Werts stellt sie wieder her.",
+  "platform.expiresAtEnable": "Ablauf aktivieren",
   "platform.expiresAtSoon": "Läuft bald ab: {{time}}",
   "platform.fetchEmpty": "Keine Modelle gefunden",
   "platform.fetchModels": "Modelle laden",

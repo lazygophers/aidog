@@ -235,9 +235,63 @@ describe("parsePlatformPaste", () => {
   });
 
   it("skips historical dates (older than 7 days) as expiry", () => {
-    // 去年 01-01 → 远早于 now - 7d → 不应回填。
-    const out = parsePlatformPaste("老帖 过期 01-01 00:00", PRESETS);
+    // YYYY-MM-DD 形式的去年日期 → 远早于 now - 7d → 不应回填。
+    // （注意：MM-DD 形式会被 parseCandidate 推到次年，永远落在未来，不能用于测试历史跳过。）
+    const lastYear = new Date().getFullYear() - 1;
+    const out = parsePlatformPaste(`老帖 过期 ${lastYear}-01-01 00:00`, PRESETS);
     expect(out.expiresAt).toBeNull();
+  });
+
+  it("date-level candidate (no time) → end-of-day 23:59:59.999", () => {
+    // 2026-06-25 PRD S3：日期级（无时间分量，如「即将过期 06-28」）→ expiresAt = 该日本地 23:59:59.999。
+    // 不应是 00:00（否则当日中午被认作已过期）。
+    const now = new Date();
+    const future = new Date(now.getFullYear(), now.getMonth() + 1, 28); // 下月 28 日（未来）
+    const mo = String(future.getMonth() + 1).padStart(2, "0");
+    const d = String(future.getDate()).padStart(2, "0");
+    const txt = `即将过期 ${mo}-${d}`;
+    const out = parsePlatformPaste(txt, PRESETS);
+    expect(out.expiresAt).not.toBeNull();
+    const parsed = new Date(out.expiresAt!);
+    expect(parsed.getMonth() + 1).toBe(Number(mo));
+    expect(parsed.getDate()).toBe(Number(d));
+    // 关键：本地时间 23:59:59.999（end-of-day）。
+    expect(parsed.getHours()).toBe(23);
+    expect(parsed.getMinutes()).toBe(59);
+    expect(parsed.getSeconds()).toBe(59);
+    expect(parsed.getMilliseconds()).toBe(999);
+  });
+
+  it("date-level candidate YYYY-MM-DD → end-of-day 23:59:59.999", () => {
+    // 全数字日期 YYYY-MM-DD 无时间分量也走 end-of-day。
+    // 取明年同月同日（避免历史无效）。
+    const now = new Date();
+    const futureY = now.getFullYear() + 1;
+    const mo = String(now.getMonth() + 1).padStart(2, "0");
+    const d = String(now.getDate()).padStart(2, "0");
+    const txt = `过期 ${futureY}-${mo}-${d}`;
+    const out = parsePlatformPaste(txt, PRESETS);
+    expect(out.expiresAt).not.toBeNull();
+    const parsed = new Date(out.expiresAt!);
+    expect(parsed.getHours()).toBe(23);
+    expect(parsed.getMinutes()).toBe(59);
+    expect(parsed.getSeconds()).toBe(59);
+    expect(parsed.getMilliseconds()).toBe(999);
+  });
+
+  it("date+time candidate keeps original time (not end-of-day)", () => {
+    // 带时间分量（HH:MM）→ 保持原时间，不走 end-of-day。
+    const now = new Date();
+    const future = new Date(now.getFullYear(), now.getMonth() + 1, 15, 18, 30);
+    const mo = String(future.getMonth() + 1).padStart(2, "0");
+    const d = String(future.getDate()).padStart(2, "0");
+    const txt = `过期 ${mo}-${d} 18:30`;
+    const out = parsePlatformPaste(txt, PRESETS);
+    expect(out.expiresAt).not.toBeNull();
+    const parsed = new Date(out.expiresAt!);
+    expect(parsed.getHours()).toBe(18);
+    expect(parsed.getMinutes()).toBe(30);
+    expect(parsed.getSeconds()).toBe(0);
   });
 
   it("picks date closest to expiry keyword when multiple candidates", () => {

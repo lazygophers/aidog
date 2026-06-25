@@ -676,6 +676,7 @@
   "platform.expiresAtBadge": "到期 {{time}}",
   "platform.expiresAtClear": "清空",
   "platform.expiresAtHint": "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。",
+  "platform.expiresAtEnable": "启用过期",
   "platform.expiresAtSoon": "临近过期：{{time}}",
   "platform.fetchEmpty": "未获取到可用模型",
   "platform.fetchModels": "一键获取",
