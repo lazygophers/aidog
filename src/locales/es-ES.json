@@ -1608,5 +1608,8 @@
   "importExport.applyN": "Importar ({{n}})",
   "importExport.selectItems": "Seleccionar elementos a importar",
   "importExport.conflictTag": "Conflicto",
-  "importExport.error.notAidogx": "Arrastre un archivo de respaldo .aidogx"
+  "importExport.error.notAidogx": "Arrastre un archivo de respaldo .aidogx",
+  "group.createFailed": "Error al crear el grupo",
+  "group.addMappingFailed": "Error al añadir la asignación",
+  "group.deleteMappingFailed": "Error al eliminar la asignación"
 }

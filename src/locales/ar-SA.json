@@ -1630,5 +1630,8 @@
   "importExport.applyN": "استيراد ({{n}})",
   "importExport.selectItems": "اختر العناصر للاستيراد",
   "importExport.conflictTag": "تعارض",
-  "importExport.error.notAidogx": "يرجى إسقاط ملف نسخ احتياطي ‎.aidogx"
+  "importExport.error.notAidogx": "يرجى إسقاط ملف نسخ احتياطي ‎.aidogx",
+  "group.createFailed": "فشل إنشاء المجموعة",
+  "group.addMappingFailed": "فشل إضافة التعيين",
+  "group.deleteMappingFailed": "فشل حذف التعيين"
 }

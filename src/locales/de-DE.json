@@ -1630,5 +1630,8 @@
   "importExport.applyN": "Importieren ({{n}})",
   "importExport.selectItems": "Zu importierende Elemente auswählen",
   "importExport.conflictTag": "Konflikt",
-  "importExport.error.notAidogx": "Bitte eine .aidogx-Sicherungsdatei ablegen"
+  "importExport.error.notAidogx": "Bitte eine .aidogx-Sicherungsdatei ablegen",
+  "group.createFailed": "Gruppe konnte nicht erstellt werden",
+  "group.addMappingFailed": "Zuordnung konnte nicht hinzugefügt werden",
+  "group.deleteMappingFailed": "Zuordnung konnte nicht gelöscht werden"
 }
