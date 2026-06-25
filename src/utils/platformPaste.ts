@@ -375,10 +375,22 @@ export function parsePlatformPaste(
     if (parts.model) pushUnique(models, parts.model);
   }
 
+  let platform = matchPlatform(text, presets, baseUrls);
+  // coding plan 升级：mimo 普通 preset 命中后，若提取到的 apiKey 是 token plan 前缀（tp-），
+  // 说明是 coding plan token（token-plan-cn.xiaomimimo.com），升级到 coding plan 变体。
+  // 纯 token 粘贴无 base_url，host 匹配触不到 coding plan host，靠 token 前缀补判。
+  if (platform?.value === "xiaomi_mimo" && !platform.codingPlan
+      && apiKeys.some(k => k.startsWith("tp-"))) {
+    const cpPreset = presets.find(p => p.value === "xiaomi_mimo" && p.codingPlan);
+    platform = cpPreset
+      ? { value: platform.value, label: cpPreset.label, codingPlan: true }
+      : { ...platform, codingPlan: true };
+  }
+
   return {
     apiKeys,
     baseUrls,
-    platform: matchPlatform(text, presets, baseUrls),
+    platform,
     models,
   };
 }
