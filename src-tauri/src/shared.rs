@@ -41,12 +41,18 @@ pub(crate) fn slugify(input: &str) -> String {
 /// 代理服务器状态
 pub(crate) struct ProxyHandle(pub(crate) StdMutex<Option<JoinHandle<()>>>);
 
+fn default_bind_lan() -> bool { true }
+
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub(crate) struct ProxySettings {
     pub(crate) port: u16,
     pub(crate) autostart: bool,
     #[serde(default)]
     pub(crate) silent_launch: bool,
+    /// 代理绑定地址：true=0.0.0.0(局域网可访问) / false=127.0.0.1(仅本机)。
+    /// 默认开 LAN（升级后存量用户走 serde default = true）。
+    #[serde(default = "default_bind_lan")]
+    pub(crate) bind_lan: bool,
 }
 
 /// 从 DB 读取 proxy settings；首次运行时自动迁移 proxy_settings.json 文件
@@ -81,7 +87,7 @@ pub(crate) async fn load_proxy_settings(app: &tauri::AppHandle) -> Result<ProxyS
     }
 
     // 默认值
-    Ok(ProxySettings { port: 9876, autostart: true, silent_launch: false })
+    Ok(ProxySettings { port: 9876, autostart: true, silent_launch: false, bind_lan: true })
 }
 
 pub(crate) async fn save_proxy_settings_to_db(db: &Db, settings: &ProxySettings) -> Result<(), String> {
@@ -99,11 +105,12 @@ pub(crate) async fn save_proxy_settings(
     port: u16,
     autostart: bool,
     silent_launch: bool,
+    bind_lan: bool,
 ) -> Result<(), String> {
     let db = app.try_state::<Db>()
         .map(|s| s.inner())
         .ok_or("db not initialized")?;
-    let settings = ProxySettings { port, autostart, silent_launch };
+    let settings = ProxySettings { port, autostart, silent_launch, bind_lan };
     save_proxy_settings_to_db(db, &settings).await
 }
 

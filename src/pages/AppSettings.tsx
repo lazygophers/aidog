@@ -20,6 +20,7 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
   const [running, setRunning] = useState(false);
   const [proxyPort, setProxyPort] = useState(9876);
   const [autostart, setAutostart] = useState(false);
+  const [bindLan, setBindLan] = useState(true);
   const [autolaunch, setAutolaunch] = useState(false);
   const [silentLaunch, setSilentLaunch] = useState(false);
   const [logEnabled, setLogEnabled] = useState(false);
@@ -53,6 +54,7 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
         const s = await proxyApi.getSettings();
         setAutostart(s.autostart);
         setSilentLaunch(s.silent_launch);
+        setBindLan(s.bind_lan);
         setProxyPort(s.port);
       } catch { /* defaults */ }
       try {
@@ -119,6 +121,15 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
     try {
       await proxyApi.setAutostart(val);
       setAutostart(val);
+    } catch (e: any) { setMessage(e.toString()); }
+  };
+
+  const handleBindLanChange = async (val: boolean) => {
+    try {
+      await proxyApi.setBindLan(val);
+      setBindLan(val);
+      // 后端会在代理运行时自动重启使新绑定地址生效。
+      setMessage(t("proxy.bindLanApplied"));
     } catch (e: any) { setMessage(e.toString()); }
   };
 
@@ -319,6 +330,28 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
               onClick={() => handleAutostartChange(!autostart)}
               role="switch"
               aria-checked={autostart}
+              tabIndex={0}
+            />
+          </div>
+
+          {/* Bind LAN — allow other devices on the local network to connect */}
+          <div className="glass-surface" style={{
+            padding: "16px 20px",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.bindLan")}</div>
+              <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                {t("proxy.bindLanDesc")}
+              </div>
+            </div>
+            <div
+              className={`toggle ${bindLan ? "active" : ""}`}
+              onClick={() => handleBindLanChange(!bindLan)}
+              role="switch"
+              aria-checked={bindLan}
               tabIndex={0}
             />
           </div>
