@@ -202,11 +202,11 @@ fn update_args_project_no_g() {
     assert!(!args.contains(&"-g".to_string()));
 }
 
-/// fs_fallback_remove: unsafe name returns error immediately.
+/// is_safe_skill_name: rejects path traversal / empty / dot-only.
+/// 注：fs_fallback_remove 已在 06-25-skills-removal-recur 止血移除（唯一非 npx 物理删入口），
+/// is_safe_skill_name 保留作纵深防御输入校验（后续若恢复兜底删复用）。
 #[test]
 fn fs_fallback_unsafe_name_errors() {
-    // fs_fallback_remove is private, test via uninstall with stdout="No matching skills found"
-    // We can't easily fake that; instead test is_safe_skill_name for the unsafe cases.
     assert!(!is_safe_skill_name("../etc/passwd"));
     assert!(!is_safe_skill_name("foo/bar"));
     assert!(!is_safe_skill_name(""));
