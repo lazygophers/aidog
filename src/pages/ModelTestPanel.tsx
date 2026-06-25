@@ -7,6 +7,7 @@ import {
   type ModelTestResult,
 } from "../services/api";
 import { IconClose, IconCheck } from "../components/icons";
+import { TestResultBody } from "../components/shared";
 
 interface Props {
   platform: Platform;
@@ -170,11 +171,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
                   </div>
                 </div>
                 {r.error && <div style={{ fontSize: 11, color: "var(--danger, #ef4444)", marginTop: 4 }}>{r.error}</div>}
-                {r.response_preview && (
-                  <div style={{ fontSize: 11, color: "var(--text-secondary)", marginTop: 4, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                    {r.response_preview}
-                  </div>
-                )}
+                {r.response_preview && <TestResultBody body={r.response_preview} />}
               </div>
             ))}
           </div>

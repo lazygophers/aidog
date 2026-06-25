@@ -1,8 +1,8 @@
-import React, { memo, useMemo } from "react";
+import React, { memo, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Platform, Protocol, PlatformUsageStats, LastTestResult, PlatformQuota } from "../../services/api";
 import { getPlatformLogo, getFaviconUrl } from "../../assets/platforms";
-import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel, usageLevelToColor } from "../shared";
+import { CompactCard, StatChip, BalanceBar, TestResultBody, successRateLevel, costLevel, usageLevelToColor } from "../shared";
 import { formatNumber, formatCost, formatPercent } from "../../utils/formatters";
 import { IconBolt, IconCost, IconCheck, IconCoin, IconClock } from "../icons";
 import {
@@ -570,30 +570,44 @@ function LevelPriorityControl({ value, onChange }: { value: number; onChange: (v
 
 function LastTestBadge({ result }: { result: LastTestResult }) {
   const { t } = useTranslation();
+  const [open, setOpen] = useState(false);
   const ok = result.success;
   const color = ok ? "var(--color-success)" : "var(--color-danger)";
   const rel = relativeTime(result.created_at);
   const errorText = !ok && result.error ? result.error.slice(0, 30) : "";
+  const hasBody = result.response_body.trim().length > 0;
   return (
-    <div style={{
-      marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
-      fontSize: 10, fontWeight: 600, color,
-      background: `color-mix(in srgb, ${color} 12%, transparent)`,
-      border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
-      borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap", maxWidth: "100%",
-    }}
-      title={ok
-        ? t("platform.lastTestOkHint", "最近测试通过 · {{time}}", { time: new Date(result.created_at).toLocaleString() })
-        : t("platform.lastTestFailHint", "最近测试失败 · {{time}}{{error}}", {
-            time: new Date(result.created_at).toLocaleString(),
-            error: result.error ? `\n${result.error}` : "",
-          })}
-    >
-      <span style={{ fontWeight: 700 }}>{ok ? "✓" : "✗"}</span>
-      {result.duration_ms > 0 && <span>{result.duration_ms}ms</span>}
-      {rel && <span style={{ opacity: 0.85 }}>· {rel}</span>}
-      {!ok && errorText && (
-        <span style={{ opacity: 0.85, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>{errorText}</span>
+    <div style={{ marginTop: 3, maxWidth: "100%" }}>
+      <button
+        type="button"
+        onClick={hasBody ? () => setOpen(o => !o) : undefined}
+        style={{
+          display: "inline-flex", alignItems: "center", gap: 4,
+          fontSize: 10, fontWeight: 600, color,
+          background: `color-mix(in srgb, ${color} 12%, transparent)`,
+          border: `1px solid color-mix(in srgb, ${color} 30%, transparent)`,
+          borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap", maxWidth: "100%",
+          cursor: hasBody ? "pointer" : "default",
+        }}
+        title={ok
+          ? t("platform.lastTestOkHint", "最近测试通过 · {{time}}", { time: new Date(result.created_at).toLocaleString() })
+          : t("platform.lastTestFailHint", "最近测试失败 · {{time}}{{error}}", {
+              time: new Date(result.created_at).toLocaleString(),
+              error: result.error ? `\n${result.error}` : "",
+            })}
+      >
+        <span style={{ fontWeight: 700 }}>{ok ? "✓" : "✗"}</span>
+        {result.duration_ms > 0 && <span>{result.duration_ms}ms</span>}
+        {rel && <span style={{ opacity: 0.85 }}>· {rel}</span>}
+        {!ok && errorText && (
+          <span style={{ opacity: 0.85, overflow: "hidden", textOverflow: "ellipsis", maxWidth: 120 }}>{errorText}</span>
+        )}
+        {hasBody && <span style={{ opacity: 0.7 }}>{open ? "▾" : "▸"}</span>}
+      </button>
+      {open && hasBody && (
+        <div className="glass-surface" style={{ marginTop: 4, padding: "6px 8px", borderRadius: 6, maxWidth: "100%" }}>
+          <TestResultBody body={result.response_body} />
+        </div>
       )}
     </div>
   );

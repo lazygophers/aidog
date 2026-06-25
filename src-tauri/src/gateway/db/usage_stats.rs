@@ -145,12 +145,15 @@ pub fn get_last_test_result(
                     } else {
                         response_body.chars().take(200).collect()
                     };
+                    // 正文截断 ~4000 字符，供前端 JSON 解析结构化展示（成功/失败均带）。
+                    let body_full: String = response_body.chars().take(4000).collect();
                     Ok(Some(crate::gateway::models::LastTestResult {
                         success,
                         status_code,
                         duration_ms,
                         created_at,
                         error,
+                        response_body: body_full,
                     }))
                 }
                 None => Ok(None),
