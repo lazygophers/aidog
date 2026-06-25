@@ -37,5 +37,8 @@
 | mcp-fullscreen-layout | MCP页面全屏适配 | — | 已完成 | 收尾 | 100% | .worktrees/06-25-mcp-fullscreen-layout |
 | test-result-persist-render | 测试结果持久化+JSON解析展示 | — | 已完成 | 收尾 | 100% | .worktrees/06-25-test-result-persist-render |
 | skills-search | 已安装skills支持搜索 | — | 已完成 | 收尾 | 100% | .worktrees/06-25-skills-search |
-| skills-empty-ui-fix | 修skills列表UI空显示bug | — | 规划中 | 规划 | 0% | — |
-| skills-remove-grouping | 移除skills分组概念 | — | 规划中 | 规划 | 0% | — |
+| skills-empty-ui-fix | 修skills列表UI空显示bug | — | completed | 收尾 | 100 | — |
+| skills-remove-grouping | 移除skills分组概念 | — | completed | 收尾 | 100 | — |
+| enabled-plugins-delete-visibility | Enabled Plugins 删除按钮可见性 | — | completed | 收尾 | 100 | — |
+| platform-priority-field | 平台编辑创建表单加优先级设置 | — | 规划中 | 规划 | 0% | — |
+| billing-default-coding-plan | 平台计费类型识别默认coding plan | — | 规划中 | 规划 | 0% | — |
