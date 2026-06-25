@@ -19,6 +19,7 @@ import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
 import { ModelTestPanel } from "./ModelTestPanel";
 import { PlatformCard, type PlatformCardActions } from "../components/platforms/PlatformCard";
 import { usePlatformCards } from "../components/platforms/usePlatformCards";
+import { ShareModal } from "../components/platforms/ShareModal";
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
 
@@ -1212,6 +1213,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     onRefreshQuota: cards.refreshQuota,
     onToggleEnabled: async (p) => { await cards.handleToggle(p); load(); },
     onEdit: cards.handleEdit,
+    onShare: cards.handleShare,
     onDuplicate: (p) => {
       if (onDuplicatePlatform) onDuplicatePlatform(p);
       else onNavigate?.("platforms", { platformId: p.id, platformName: p.name, duplicate: true });
@@ -2070,6 +2072,19 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
             const tp = cards.testingPlatform;
             if (tp) cards.setTestResults(prev => ({ ...prev, [tp.id]: success ? "ok" : "fail" }));
           }}
+        />
+      )}
+
+      {/* 分享弹窗（导出可分享配置 → 含明文 api_key 警示 + 多格式复制） */}
+      {cards.shareData !== null && (
+        <ShareModal
+          share={cards.shareData.share}
+          platformName={cards.shareData.name}
+          onToast={(text, ok) => {
+            onToast?.({ text, ok });
+            setTimeout(() => onToast?.(null), 3000);
+          }}
+          onClose={() => cards.setShareData(null)}
         />
       )}
 
