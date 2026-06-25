@@ -698,6 +698,7 @@
   "platform.expiresAtBadge": "ينتهي {{time}}",
   "platform.expiresAtClear": "مسح",
   "platform.expiresAtHint": "اختياري. بعد انتهاء الصلاحية تُستبعد المنصة تلقائيًا من مرشحي التوجيه (مكافئ للتعطيل)؛ تعديل القيمة أو مسحها يعيد التفعيل.",
+  "platform.expiresAtEnable": "تفعيل الانتهاء",
   "platform.expiresAtSoon": "ينتهي قريبًا: {{time}}",
   "platform.fetchEmpty": "لم يتم العثور على نماذج",
   "platform.fetchModels": "جلب النماذج",

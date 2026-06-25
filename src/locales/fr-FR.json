@@ -698,6 +698,7 @@
   "platform.expiresAtBadge": "Expire {{time}}",
   "platform.expiresAtClear": "Effacer",
   "platform.expiresAtHint": "Optionnel. Après expiration, la plateforme est automatiquement exclue des candidats de routage (équivalent à désactivé) ; modifier ou effacer la valeur la réactive.",
+  "platform.expiresAtEnable": "Activer l'expiration",
   "platform.expiresAtSoon": "Expire bientôt : {{time}}",
   "platform.fetchEmpty": "Aucun modèle trouvé",
   "platform.fetchModels": "Récupérer",
