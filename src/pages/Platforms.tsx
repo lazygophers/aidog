@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, parsePlatformBreaker, serializePlatformBreaker, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type PlatformStatus, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type LastTestResult, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, parsePlatformBreaker, serializePlatformBreaker, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type PlatformStatus, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type LastTestResult, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail, type SharePlatform } from "../services/api";
 import { IconClose, IconCheck } from "../components/icons";
 import { cycleMsForTier, codingTierLevel, type ColorLevel } from "../components/shared";
 
@@ -10,6 +10,7 @@ import { GroupsEmbedded } from "./Groups";
 import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
 import { pinyinMatch } from "../utils/pinyin";
 import { SmartPasteModal, type SmartPasteApplyResult } from "../components/platforms/SmartPasteModal";
+import { ShareModal } from "../components/platforms/ShareModal";
 import { PlatformCard, type PlatformCardActions } from "../components/platforms/PlatformCard";
 
 /** 支持的协议选项（含 coding plan 变体） */
@@ -1427,6 +1428,8 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   // GroupsEmbedded 跨组件刷新入口（全局 purge 删平台后，触发分组卡内重建）。
   const groupsReloadRef = useRef<(() => void) | null>(null);
   const [showPaste, setShowPaste] = useState(false);
+  // 平台分享弹窗：导出成功后持有 { share, name } 渲染 ShareModal（含明文 api_key + 格式切换）。
+  const [shareData, setShareData] = useState<{ share: SharePlatform; name: string } | null>(null);
   const [fetching, setFetching] = useState(false);
   const [fetchError, setFetchError] = useState("");
   const [saveError, setSaveError] = useState("");
@@ -1540,6 +1543,45 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
 
   /** 智能识别弹窗确认后，将解析结果填入添加表单。 */
   const applyPaste = (r: SmartPasteApplyResult) => {
+    // 命中 aidog 平台分享串 → 整体灌表单（含 api_key / models / endpoints / extra / 手动预算）。
+    // 以「新建态」打开（editing=null）：保存才新建平台。优先于零散杂乱解析。
+    if (r.fullShare) {
+      const s = r.fullShare;
+      setName(s.name);
+      setProtocol(s.platform_type);
+      setApiKey(s.api_key);
+      setCodingPlan((s.endpoints || []).some(ep => ep.coding_plan));
+      setModels({
+        default: s.models.default ?? "",
+        sonnet: s.models.sonnet ?? "",
+        opus: s.models.opus ?? "",
+        haiku: s.models.haiku ?? "",
+        gpt: s.models.gpt ?? "",
+      });
+      setAvailableModels(s.available_models ?? []);
+      setEndpoints(s.endpoints ?? []);
+      setManualBudgets(s.manual_budgets ?? []);
+      const extra = s.extra ?? "";
+      setExtra(extra);
+      setMockConfig(parseMockConfig(extra));
+      setNewApiConfig(parseNewApiConfig(extra));
+      {
+        const brk = parsePlatformBreaker(extra);
+        setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
+        setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
+        setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
+      }
+      setEditing(null);
+      setLockedGroupId(null);
+      setJoinGroupIds([]);
+      setShowClaudeConfig(false);
+      setClaudeConfigJson("");
+      setFetchError("");
+      setSaveError("");
+      setShowPaste(false);
+      setShowForm(true);
+      return;
+    }
     // 匹配到内置平台 → 走协议切换（设置 name + 默认 endpoints + client_type）。
     // 未匹配 → 不改平台选择（保持当前 protocol/endpoints），仅填 base_url/apiKey。
     // codingPlan flag 必传：同 value 的普通/coding 两 preset（如 xiaomi_mimo）命中后，
@@ -1973,6 +2015,18 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     } catch (e) { console.error(e); }
   };
 
+  /** 分享平台：拉取可分享配置对象（含明文 api_key）→ 打开 ShareModal（弹窗内自动复制 + 格式切换）。 */
+  const handleShare = async (p: Platform) => {
+    try {
+      const share = await platformApi.shareExport(p.id);
+      setShareData({ share, name: p.name });
+    } catch (err) {
+      console.error("platform share export failed", err);
+      setToast({ text: `${p.name}: ${t("platform.share.exportFail", "生成分享内容失败")}`, ok: false });
+      setTimeout(() => setToast(null), 3000);
+    }
+  };
+
   /** 复制平台：复用源平台全部配置灌入表单，但以「新建态」打开（editing=null），保存才新建。
    *  与 handleEdit 唯一差异：setEditing(null)（不绑定源平台 id）+ Claude 配置仅在存在非空 override diff 时展开。 */
   const handleDuplicate = async (p: Platform) => {
@@ -2297,12 +2351,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // 卡片操作集合：用 latest-ref 持有最新闭包，对外暴露稳定引用，保证 PlatformCard memo 生效
   const actionsRef = useRef({
     handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
-    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDuplicate, handleDelete, handleViewLogs,
+    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleShare, handleDuplicate, handleDelete, handleViewLogs,
     handleQuickTest, setTestingPlatform, setFaviconFailed,
   });
   actionsRef.current = {
     handlePlatPointerDown, handlePlatPointerMove, handlePlatPointerUp,
-    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleDuplicate, handleDelete, handleViewLogs,
+    toggleExpanded, refreshQuota, handleToggle, handleEdit, handleShare, handleDuplicate, handleDelete, handleViewLogs,
     handleQuickTest, setTestingPlatform, setFaviconFailed,
   };
   const cardActions = useMemo<PlatformCardActions>(() => ({
@@ -2313,6 +2367,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     onRefreshQuota: (p) => actionsRef.current.refreshQuota(p),
     onToggleEnabled: (p) => actionsRef.current.handleToggle(p),
     onEdit: (p) => actionsRef.current.handleEdit(p),
+    onShare: (p) => actionsRef.current.handleShare(p),
     onDuplicate: (p) => actionsRef.current.handleDuplicate(p),
     onDelete: (id) => actionsRef.current.handleDelete(id),
     onViewLogs: (p) => actionsRef.current.handleViewLogs(p),
@@ -3281,6 +3336,14 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           {groupDrag.pname}
         </div>,
         document.body,
+      )}
+      {shareData && (
+        <ShareModal
+          share={shareData.share}
+          platformName={shareData.name}
+          onToast={(text, ok) => { setToast({ text, ok }); setTimeout(() => setToast(null), 3000); }}
+          onClose={() => setShareData(null)}
+        />
       )}
       {toast && createPortal(
         <div style={{

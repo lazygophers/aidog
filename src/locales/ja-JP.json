@@ -1646,5 +1646,20 @@
   "group.addMappingFailed": "マッピングの追加に失敗しました",
   "group.deleteMappingFailed": "マッピングの削除に失敗しました",
   "skills.searchPlaceholder": "skills を検索...",
-  "skills.searchEmpty": "一致する skills がありません"
+  "skills.searchEmpty": "一致する skills がありません",
+  "action.close": "閉じる",
+  "platform.share.button": "共有",
+  "platform.share.title": "プラットフォームを共有",
+  "platform.share.warning": "共有内容には平文の API キーが含まれます。信頼できる相手にのみ送信し、公開しないでください。",
+  "platform.share.format.yaml": "YAML",
+  "platform.share.format.json": "JSON",
+  "platform.share.format.base64": "Base64",
+  "platform.share.copyBtn": "コピー",
+  "platform.share.copiedBtn": "コピー済み",
+  "platform.share.copied": "クリップボードにコピーしました",
+  "platform.share.autoCopied": "共有内容をクリップボードに自動コピーしました",
+  "platform.share.copyFail": "コピーに失敗しました。内容を手動で選択してください",
+  "platform.share.exportFail": "共有内容の生成に失敗しました",
+  "platform.paste.shareDetected": "AiDog プラットフォーム共有を検出しました",
+  "platform.paste.shareDetectedHint": "下のボタンをクリックすると、完全な設定（API キーを含む）がフォームに入力されます。"
 }

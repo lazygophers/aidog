@@ -203,6 +203,23 @@ export interface Platform {
   balance_level?: string;
 }
 
+/** 单平台可分享配置（剥离 DB 内部 / 运行时字段，含明文 api_key）。
+ *  后端 platform_share_export 返回结构化对象，前端按 YAML / JSON / Base64 转换；
+ *  platform_share_parse 反向解析（serde_yml 兼容 YAML / JSON 超集）。
+ *  顶层 aidog_platform_share=1 为格式标识，接收端据此校验合法分享串。 */
+export interface SharePlatform {
+  aidog_platform_share: number;
+  name: string;
+  platform_type: Protocol;
+  base_url: string;
+  api_key: string;
+  extra: string;
+  models: PlatformModels;
+  available_models: string[];
+  endpoints: PlatformEndpoint[];
+  manual_budgets: ManualBudget[];
+}
+
 export interface Group {
   id: number;
   name: string;
@@ -474,6 +491,14 @@ export const platformApi = {
   /** 取该平台最近一次 model_test 结果（无测试记录返回 null）。 */
   lastTestResult: (platformId: number) =>
     invoke<LastTestResult | null>("get_last_test_result", { platformId }),
+
+  /** 导出单平台可分享配置（结构化对象，含明文 api_key）。前端按 YAML / JSON / Base64 转换。 */
+  shareExport: (platformId: number) =>
+    invoke<SharePlatform>("platform_share_export", { platformId }),
+
+  /** 解析分享串（YAML / JSON 通吃）；非合法 aidog 分享串 throw → 调用方 fallback 原杂乱文本解析。 */
+  shareParse: (text: string) =>
+    invoke<SharePlatform>("platform_share_parse", { text }),
 };
 
 /** 系统托盘 quota 展示（互斥单平台） */

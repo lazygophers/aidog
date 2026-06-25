@@ -21,6 +21,7 @@ export interface PlatformCardActions {
   onRefreshQuota: (p: Platform) => void;
   onToggleEnabled: (p: Platform) => void;
   onEdit: (p: Platform) => void;
+  onShare: (p: Platform) => void;
   onDuplicate: (p: Platform) => void;
   onDelete: (id: number) => void;
   onViewLogs: (p: Platform) => void;
@@ -281,6 +282,14 @@ export const PlatformCard = memo(function PlatformCard({
                 <button className="btn btn-ghost btn-icon" onClick={(e) => { e.stopPropagation(); actions.onEdit(p); }}>
                   <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M10 2l2 2-7 7H3v-2l7-7z" />
+                  </svg>
+                </button>
+                <button className="btn btn-ghost btn-icon" title={t("platform.share.button", "分享")} onClick={(e) => { e.stopPropagation(); actions.onShare(p); }}>
+                  <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="3" r="1.6" />
+                    <circle cx="3" cy="7" r="1.6" />
+                    <circle cx="11" cy="11" r="1.6" />
+                    <path d="M4.4 6.1l5.2-2.4M4.4 7.9l5.2 2.4" />
                   </svg>
                 </button>
                 <button className="btn btn-ghost btn-icon" title={t("platform.duplicate", "复制")} onClick={(e) => { e.stopPropagation(); actions.onDuplicate(p); }}>
