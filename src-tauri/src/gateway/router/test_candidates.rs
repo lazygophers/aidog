@@ -18,7 +18,7 @@ async fn mk_db_platform(db: &db::Db, name: &str) -> Platform {
         api_key: "k".into(),
         extra: String::new(),
         models: None, available_models: None, endpoints: None, manual_budgets: None,
-        auto_group: None, join_group_ids: None,
+        auto_group: None, join_group_ids: None, default_level_priority: None,
     }).await.expect("create platform")
 }
 
@@ -38,7 +38,7 @@ async fn mk_db_platform_cp(db: &db::Db, name: &str) -> Platform {
             coding_plan: true,
         }]),
         manual_budgets: None,
-        auto_group: None, join_group_ids: None,
+        auto_group: None, join_group_ids: None, default_level_priority: None,
     }).await.expect("create coding-plan platform")
 }
 
@@ -243,8 +243,7 @@ async fn all_platforms_disabled_returns_err() {
             id: pid, name: None, platform_type: None, base_url: None, api_key: None,
             extra: None, models: None, available_models: None, endpoints: None,
             enabled: None, status: Some(PlatformStatus::Disabled), manual_budgets: None,
-            join_group_ids: None,
-        }).await.expect("disable");
+            join_group_ids: None,        }).await.expect("disable");
     }
     let g = mk_db_group(&db, "dis-group", &[p1.id, p2.id]).await;
     let sched = SchedulerState::new();

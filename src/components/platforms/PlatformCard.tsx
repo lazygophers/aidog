@@ -510,7 +510,7 @@ function relativeTime(createdMs: number, now: number = Date.now()): string {
 
 // ── per-group 优先级编辑控件（stepper，1~10，10=最高优先） ──
 
-function LevelPriorityControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+export function LevelPriorityControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const { t } = useTranslation();
   const clamp = (v: number) => Math.min(10, Math.max(1, v));
   const set = (v: number) => {

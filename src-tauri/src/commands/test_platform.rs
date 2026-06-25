@@ -15,7 +15,7 @@ fn sample_create(name: &str, auto_group: Option<bool>, join: Option<Vec<u64>>) -
         endpoints: None,
         manual_budgets: None,
         auto_group,
-        join_group_ids: join,
+        join_group_ids: join, default_level_priority: None,
     }
 }
 

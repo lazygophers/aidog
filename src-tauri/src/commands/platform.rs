@@ -15,7 +15,7 @@ use std::sync::Arc;
 use tauri::Manager;
 
 
-pub(crate) async fn create_auto_group_for(db: &Db, platform: &Platform) -> Result<(), String> {
+pub(crate) async fn create_auto_group_for(db: &Db, platform: &Platform, level_priority: Option<i32>) -> Result<(), String> {
     let group_key = slugify(&format!("{}-auto", platform.name));
     let group = db::create_group(db, CreateGroup {
         name: group_key.clone(),
@@ -32,7 +32,7 @@ pub(crate) async fn create_auto_group_for(db: &Db, platform: &Platform) -> Resul
         platform_id: platform.id,
         priority: Some(0),
         weight: Some(1),
-        level_priority: None,
+        level_priority,
     }]).await?;
     tracing::info!(platform_id = platform.id, group_id = group.id, "created auto group for platform");
     Ok(())
@@ -45,12 +45,13 @@ pub async fn platform_create(input: CreatePlatform, db: State<'_, Db>) -> Result
     // 分组选项先捕获（input 随即 move 进 create_platform）。
     let auto_group = input.auto_group.unwrap_or(true);
     let join_group_ids = input.join_group_ids.clone().unwrap_or_default();
+    let default_level_priority = input.default_level_priority;
     let platform = db::create_platform(&db, input).await
         .map_err(|e| { tracing::error!(command = "platform_create", error = %e, "create platform failed"); e })?;
 
     // ① 创建默认分组（用户勾选；默认勾 = 旧行为）。
     if auto_group {
-        if let Err(e) = create_auto_group_for(&db, &platform).await {
+        if let Err(e) = create_auto_group_for(&db, &platform, default_level_priority).await {
             tracing::error!(command = "platform_create", platform_id = platform.id, error = %e, "auto-create group failed");
             return Err(e);
         }
@@ -225,7 +226,7 @@ pub async fn platform_ensure_auto_group(id: u64, db: State<'_, Db>) -> Result<()
     if groups.iter().any(|g| g.auto_from_platform == platform_id_str) {
         return Ok(());
     }
-    create_auto_group_for(&db, &platform).await
+    create_auto_group_for(&db, &platform, None).await
 }
 
 /// 设置 / 清除托盘展示平台（互斥单平台）。

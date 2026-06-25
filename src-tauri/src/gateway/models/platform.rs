@@ -276,6 +276,11 @@ pub struct CreatePlatform {
     /// 额外加入的已有分组 ID 列表（plain membership，不写 auto_from_platform）。
     #[serde(default)]
     pub join_group_ids: Option<Vec<u64>>,
+    /// 自动创建的默认分组的 per-group level_priority 初值（1~10）。
+    /// transient 输入，不入 platform 表；None→落库走 DEFAULT 5。
+    /// 仅当平台最终归属唯一分组（auto_group 建的默认组）时由前端传入。
+    #[serde(default)]
+    pub default_level_priority: Option<i32>,
 }
 
 #[derive(Debug, Deserialize)]

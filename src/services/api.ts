@@ -431,6 +431,8 @@ export const platformApi = {
     auto_group?: boolean;
     /** 额外加入的已有分组 ID 列表（plain membership）。 */
     join_group_ids?: number[];
+    /** 自动创建的默认分组的 level_priority 初值（1~10）；仅当归属唯一分组时由表单传入。 */
+    default_level_priority?: number;
   }) => invoke<Platform>("platform_create", { input }),
 
   list: () => invoke<Platform[]>("platform_list"),
