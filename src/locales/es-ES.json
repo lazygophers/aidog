@@ -670,6 +670,13 @@
   "platform.enable": "Activar",
   "platform.endpoints": "Endpoints de protocolo",
   "platform.endpointsHint": "Protocolos adicionales que admite esta plataforma con URLs base distintas",
+  "platform.expired": "Expirado",
+  "platform.expiredHint": "Expirado: {{time}}, excluido automáticamente del enrutamiento",
+  "platform.expiresAt": "Expira el",
+  "platform.expiresAtBadge": "Expira {{time}}",
+  "platform.expiresAtClear": "Limpiar",
+  "platform.expiresAtHint": "Opcional. Tras la expiración, la plataforma se excluye automáticamente de los candidatos de enrutamiento (equivalente a deshabilitada); modificar o limpiar el valor la restaura.",
+  "platform.expiresAtSoon": "Expira pronto: {{time}}",
   "platform.fetchEmpty": "No se encontraron modelos",
   "platform.fetchModels": "Obtener modelos",
   "platform.fillAll": "Rellenar todo",
@@ -1636,5 +1643,7 @@
   "platform.share.copyFail": "Error al copiar, seleccione el contenido manualmente",
   "platform.share.exportFail": "No se pudo generar el contenido para compartir",
   "platform.paste.shareDetected": "Se detectó un recurso compartido de plataforma AiDog",
-  "platform.paste.shareDetectedHint": "Haz clic en el botón de abajo para rellenar la configuración completa (incluida la clave API) en el formulario."
+  "platform.paste.shareDetectedHint": "Haz clic en el botón de abajo para rellenar la configuración completa (incluida la clave API) en el formulario.",
+  "skills.loadFailed": "Error al cargar la lista, mostrando última caché. Verifica npx/Node.js y la configuración HOME.",
+  "importExport.skillsScopeHint": "No importado por defecto (para no sobrescribir skills existentes). Marca los elementos a continuación para importar."
 }

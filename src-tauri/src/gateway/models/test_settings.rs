@@ -24,6 +24,7 @@ fn platform_with_extra(extra: &str) -> Platform {
         status: PlatformStatus::Enabled,
         auto_disabled_until: 0,
         auto_disable_strikes: 0,
+        expires_at: 0,
         created_at: 0,
         updated_at: 0,
         deleted_at: 0,

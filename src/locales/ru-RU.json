@@ -692,6 +692,13 @@
   "platform.enable": "Включить",
   "platform.endpoints": "Конечные точки протокола",
   "platform.endpointsHint": "Дополнительные протоколы, поддерживаемые этой платформой с другими базовыми URL",
+  "platform.expired": "Истёк",
+  "platform.expiredHint": "Истёк: {{time}}, автоматически исключён из маршрутизации",
+  "platform.expiresAt": "Истекает",
+  "platform.expiresAtBadge": "Истекает {{time}}",
+  "platform.expiresAtClear": "Очистить",
+  "platform.expiresAtHint": "Необязательно. После истечения срока платформа автоматически исключается из кандидатов маршрутизации (аналогично отключению); изменение или очистка значения восстанавливает её.",
+  "platform.expiresAtSoon": "Скоро истекает: {{time}}",
   "platform.fetchEmpty": "Модели не найдены",
   "platform.fetchModels": "Загрузить",
   "platform.fillAll": "Заполнить все",
@@ -1658,5 +1665,7 @@
   "platform.share.copyFail": "Не удалось скопировать, выделите содержимое вручную",
   "platform.share.exportFail": "Не удалось сформировать содержимое для общего доступа",
   "platform.paste.shareDetected": "Обнаружен общий доступ к платформе AiDog",
-  "platform.paste.shareDetectedHint": "Нажмите кнопку ниже, чтобы заполнить форму полной конфигурацией (включая API-ключ)."
+  "platform.paste.shareDetectedHint": "Нажмите кнопку ниже, чтобы заполнить форму полной конфигурацией (включая API-ключ).",
+  "skills.loadFailed": "Не удалось загрузить список, показан последний кэш. Проверьте npx/Node.js и конфигурацию HOME.",
+  "importExport.skillsScopeHint": "По умолчанию не импортируется (чтобы не затереть существующие skills). Отметьте элементы ниже для импорта."
 }

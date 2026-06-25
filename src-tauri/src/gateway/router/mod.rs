@@ -42,10 +42,16 @@ pub struct RouteResult {
 }
 
 /// 判定平台当前是否可作为候选纳入：
+/// - 过期（`expires_at > 0 && now_ms >= expires_at`）：始终排除（等效自动禁用，
+///   但独立于 status 三态枚举；用户改 expires_at 清空/延后即恢复，无需退避试探）
 /// - Enabled：始终纳入
 /// - AutoDisabled 且已过退避试探时间（now >= until）：纳入（末尾试探）
 /// - Disabled（用户手动）/ AutoDisabled 未到试探时间：排除
 pub(crate) fn candidate_state(platform: &Platform, now_ms: i64) -> Option<bool> {
+    // 过期平台直接排除（独立维度，与 status 正交；enabled + 过期也排除）。
+    if platform.expires_at > 0 && now_ms >= platform.expires_at {
+        return None;
+    }
     match platform.status {
         PlatformStatus::Enabled => Some(false),
         PlatformStatus::AutoDisabled if now_ms >= platform.auto_disabled_until => Some(true),

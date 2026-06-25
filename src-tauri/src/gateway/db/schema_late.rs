@@ -1,7 +1,7 @@
 use super::*;
 use rusqlite::{params, Connection, Result as SqlResult};
 
-/// Migrations 021–033。自 init_tables 拆出（执行顺序不变）。
+/// Migrations 021–036。自 init_tables 拆出（执行顺序不变）。
 pub(crate) fn run_migrations_late(conn: &Connection) -> SqlResult<()> {
                 // Migration 021: model_price 加模型信息列（max_tokens / context_window）。
                 // 列为索引快速读取（出站裁剪、列表展示）；price_data JSON 仍存完整原始数据。
@@ -327,6 +327,13 @@ ALTER TABLE "group_new" RENAME TO "group";
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_proxy_log_created", []);
                 let _ = conn.execute("DROP INDEX IF EXISTS idx_model_price_name", []);
                 tracing::info!("migration 035: dropped 4 redundant/unused indexes");
+                // Migration 036: platform 过期时间（毫秒 unix 时间戳，0 = 永不过期）。
+                // >0 且 now>=expires_at 时路由 candidate_state 排除（等效自动禁用，独立于 status 枚举）；
+                // purge_auto_disabled_platforms 也一并清过期平台。幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column。
+                let _ = conn.execute(
+                    "ALTER TABLE platform ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0",
+                    [],
+                );
     Ok(())
 }
 

@@ -94,15 +94,18 @@ pub fn purge_auto_disabled_platforms(
     let __db_caller = std::panic::Location::caller();
     async move {
     match group_id {
-        // ── 全局：删全库 auto_disabled 平台 ──
+        // ── 全局：删全库 auto_disabled 平台 + 已过期平台 ──
         None => {
+            let now_ms = now();
             let ids: Vec<i64> = db
-                
-                .call_traced(None, __db_caller, |conn| {
+
+                .call_traced(None, __db_caller, move |conn| {
                     let mut stmt = conn.prepare(
-                        "SELECT id FROM platform WHERE status = 'auto_disabled' AND deleted_at = 0",
+                        "SELECT id FROM platform \
+                         WHERE deleted_at = 0 \
+                         AND (status = 'auto_disabled' OR (expires_at > 0 AND expires_at < ?1))",
                     )?;
-                    let rows = stmt.query_map([], |r| r.get::<_, i64>(0))?;
+                    let rows = stmt.query_map(params![now_ms], |r| r.get::<_, i64>(0))?;
                     Ok(rows.collect::<SqlResult<Vec<i64>>>()?)
                 })
                 .await
@@ -119,14 +122,15 @@ pub fn purge_auto_disabled_platforms(
                 unassigned_ids: Vec::new(),
             })
         }
-        // ── 分组级：本分组内 auto_disabled，独占删 / 共享移关联 ──
+        // ── 分组级：本分组内 auto_disabled 或已过期平台，独占删 / 共享移关联 ──
         Some(gid) => {
             let gid_i = gid as i64;
-            // 本分组内 auto_disabled 平台 id（活跃关联 + 平台未软删）。
+            let now_ms = now();
+            // 本分组内 auto_disabled 或已过期平台 id（活跃关联 + 平台未软删）。
             let ids: Vec<i64> = db
-                
+
                 .call_traced(None, __db_caller, move |conn| {
-                    // 去 JOIN：① 取本组活跃关联的 platform_id；② 在这些 id 中筛 auto_disabled 且未软删。
+                    // 去 JOIN：① 取本组活跃关联的 platform_id；② 在这些 id 中筛 auto_disabled 或已过期且未软删。
                     let mut gp_stmt = conn.prepare(
                         "SELECT platform_id FROM group_platform WHERE group_id = ?1 AND deleted_at = 0",
                     )?;
@@ -138,12 +142,16 @@ pub fn purge_auto_disabled_platforms(
                     }
                     let placeholders =
                         (1..=pids.len()).map(|i| format!("?{i}")).collect::<Vec<_>>().join(",");
+                    // now_ms 占 ?{N+1}（N = pids.len()）：动态编号随 pids 长度 +1。
+                    let now_param_idx = pids.len() + 1;
                     let mut stmt = conn.prepare(&format!(
                         "SELECT id FROM platform WHERE id IN ({placeholders}) \
-                         AND status = 'auto_disabled' AND deleted_at = 0"
+                         AND deleted_at = 0 \
+                         AND (status = 'auto_disabled' OR (expires_at > 0 AND expires_at < ?{now_param_idx}))"
                     ))?;
-                    let binds: Vec<&dyn rusqlite::ToSql> =
+                    let mut binds: Vec<&dyn rusqlite::ToSql> =
                         pids.iter().map(|i| i as &dyn rusqlite::ToSql).collect();
+                    binds.push(&now_ms);
                     let rows = stmt.query_map(rusqlite::params_from_iter(binds), |r| r.get::<_, i64>(0))?;
                     Ok(rows.collect::<SqlResult<Vec<i64>>>()?)
                 })

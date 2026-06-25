@@ -15,7 +15,7 @@ fn sample_create(name: &str, auto_group: Option<bool>, join: Option<Vec<u64>>) -
         endpoints: None,
         manual_budgets: None,
         auto_group,
-        join_group_ids: join, default_level_priority: None,
+        join_group_ids: join, default_level_priority: None, expires_at: None,
     }
 }
 
@@ -52,6 +52,7 @@ async fn create_list_get_update_delete_flow() {
         status: None,
         manual_budgets: None,
         join_group_ids: Some(vec![]),
+        expires_at: None,
     };
     let p2 = platform_update(upd, db.clone()).await.unwrap();
     assert_eq!(p2.name, "P1-renamed");

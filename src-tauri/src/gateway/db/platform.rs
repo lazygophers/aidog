@@ -3,7 +3,7 @@ use rusqlite::{params, OptionalExtension, Result as SqlResult};
 
 /// SELECT 列序
 pub(crate) const PLATFORM_COLUMNS: &str =
-    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes";
+    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, expires_at";
 
 /// 从查询行构造 Platform
 pub(crate) fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -36,6 +36,7 @@ pub(crate) fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         status: crate::gateway::models::PlatformStatus::from_db_str(&row.get::<_, String>(20)?),
         auto_disabled_until: row.get::<_, i64>(21)?,
         auto_disable_strikes: row.get::<_, i64>(22)?,
+        expires_at: row.get::<_, i64>(23)?,
         balance_level: String::new(),
     })
 }
@@ -99,9 +100,10 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::
     let endpoints_str = serialize_endpoints(&endpoints);
     let manual_budgets = input.manual_budgets.unwrap_or_default();
     let manual_budgets_str = crate::gateway::models::serialize_manual_budgets(&manual_budgets);
+    let expires_at = input.expires_at.unwrap_or(0).max(0);
 
     let id = db
-        
+
         .call_traced(None, __db_caller, {
             let name = input.name.clone();
             let base_url = input.base_url.clone();
@@ -109,8 +111,8 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::
             let extra = input.extra.clone();
             move |conn| {
                 conn.execute(
-                    "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-                    params![name, platform_type_str, base_url, api_key, extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str],
+                    "INSERT INTO platform (name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, manual_budgets, expires_at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+                    params![name, platform_type_str, base_url, api_key, extra, models_str, available_str, endpoints_str, true as i64, ts, ts, manual_budgets_str, expires_at],
                 )?;
                 Ok(conn.last_insert_rowid() as u64)
             }
@@ -145,6 +147,7 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::
         status: crate::gateway::models::PlatformStatus::Enabled,
         auto_disabled_until: 0,
         auto_disable_strikes: 0,
+        expires_at,
         balance_level: String::new(),
     })
     }
@@ -226,6 +229,13 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
         auto_disable_strikes = 0;
     }
 
+    // 过期时间：None=不动；Some(0)=清空（永不过期）；Some(t)=设为 t（负值钳 0）。
+    // 独立于 status 枚举：用户改值（清空/延后）即恢复路由候选，无需退避试探。
+    let expires_at = match input.expires_at {
+        Some(v) => v.max(0),
+        None => existing.expires_at,
+    };
+
     // ── 改 api_key 自恢复：当前 auto_disabled 且 api_key 变化 → 立即恢复 enabled 清退避 ──
     let new_api_key = input.api_key.clone().unwrap_or_else(|| existing.api_key.clone());
     if existing.status == PlatformStatus::AutoDisabled
@@ -251,6 +261,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
         status: new_status,
         auto_disabled_until,
         auto_disable_strikes,
+        expires_at,
         manual_budgets,
         updated_at: now(),
         ..existing
@@ -271,11 +282,12 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
             let status_str = updated.status.as_db_str().to_string();
             let auto_disabled_until = updated.auto_disabled_until;
             let auto_disable_strikes = updated.auto_disable_strikes;
+            let expires_at = updated.expires_at;
             let updated_at = updated.updated_at;
             let id = updated.id as i64;
             move |conn| {
                 conn.execute(
-                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14 WHERE id=?15",
+                    "UPDATE platform SET name=?1, platform_type=?2, base_url=?3, api_key=?4, extra=?5, models=?6, available_models=?7, endpoints=?8, enabled=?9, updated_at=?10, manual_budgets=?11, status=?12, auto_disabled_until=?13, auto_disable_strikes=?14, expires_at=?15 WHERE id=?16",
                     params![
                         name,
                         platform_type_str,
@@ -291,6 +303,7 @@ pub fn update_platform(db: &Db, input: UpdatePlatform) -> impl std::future::Futu
                         status_str,
                         auto_disabled_until,
                         auto_disable_strikes,
+                        expires_at,
                         id,
                     ],
                 )?;

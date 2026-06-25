@@ -670,6 +670,13 @@
   "platform.enable": "Enable",
   "platform.endpoints": "Protocol Endpoints",
   "platform.endpointsHint": "Additional protocols this platform supports with different base URLs",
+  "platform.expired": "Expired",
+  "platform.expiredHint": "Expired: {{time}}, automatically excluded from routing",
+  "platform.expiresAt": "Expires at",
+  "platform.expiresAtBadge": "Expires {{time}}",
+  "platform.expiresAtClear": "Clear",
+  "platform.expiresAtHint": "Optional. After expiration the platform is automatically excluded from routing candidates (equivalent to disabled); changing or clearing the value restores it.",
+  "platform.expiresAtSoon": "Expiring soon: {{time}}",
   "platform.fetchEmpty": "No models found",
   "platform.fetchModels": "Fetch Models",
   "platform.fillAll": "Fill All",
@@ -1636,5 +1643,7 @@
   "platform.share.copyFail": "Copy failed, please select the content manually",
   "platform.share.exportFail": "Failed to generate share content",
   "platform.paste.shareDetected": "AiDog platform share detected",
-  "platform.paste.shareDetectedHint": "Click the button below to fill the full configuration (including API key) into the form."
+  "platform.paste.shareDetectedHint": "Click the button below to fill the full configuration (including API key) into the form.",
+  "skills.loadFailed": "List load failed, showing last cached. Check npx/Node.js and HOME configuration.",
+  "importExport.skillsScopeHint": "Not imported by default (to prevent overwriting existing skills). Check items below to import."
 }

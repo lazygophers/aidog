@@ -692,6 +692,13 @@
   "platform.enable": "有効化",
   "platform.endpoints": "プロトコルエンドポイント",
   "platform.endpointsHint": "このプラットフォームが異なるベースURLでサポートする追加プロトコル",
+  "platform.expired": "期限切れ",
+  "platform.expiredHint": "期限切れ：{{time}}、ルーティングから自動除外",
+  "platform.expiresAt": "有効期限",
+  "platform.expiresAtBadge": "{{time}} に期限切れ",
+  "platform.expiresAtClear": "クリア",
+  "platform.expiresAtHint": "任意。期限切れ後、このプラットフォームはルーティング候補から自動的に除外されます（無効化と同等）。値を変更またはクリアすると復元されます。",
+  "platform.expiresAtSoon": "まもなく期限切れ：{{time}}",
   "platform.fetchEmpty": "モデルが見つかりません",
   "platform.fetchModels": "モデル取得",
   "platform.fillAll": "一括入力",
@@ -1658,5 +1665,7 @@
   "platform.share.copyFail": "コピーに失敗しました。内容を手動で選択してください",
   "platform.share.exportFail": "共有内容の生成に失敗しました",
   "platform.paste.shareDetected": "AiDog プラットフォーム共有を検出しました",
-  "platform.paste.shareDetectedHint": "下のボタンをクリックすると、完全な設定（API キーを含む）がフォームに入力されます。"
+  "platform.paste.shareDetectedHint": "下のボタンをクリックすると、完全な設定（API キーを含む）がフォームに入力されます。",
+  "skills.loadFailed": "リストの読み込みに失敗しました。前回のキャッシュを表示します。npx/Node.js と HOME 設定を確認してください。",
+  "importExport.skillsScopeHint": "デフォルトではインポートされません（既存の skills を上書きしないため）。インポートするには下の項目にチェックを入れてください。"
 }
