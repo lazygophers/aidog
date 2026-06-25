@@ -1630,5 +1630,8 @@
   "importExport.applyN": "Importer ({{n}})",
   "importExport.selectItems": "Sélectionner les éléments à importer",
   "importExport.conflictTag": "Conflit",
-  "importExport.error.notAidogx": "Veuillez déposer un fichier de sauvegarde .aidogx"
+  "importExport.error.notAidogx": "Veuillez déposer un fichier de sauvegarde .aidogx",
+  "group.createFailed": "Échec de la création du groupe",
+  "group.addMappingFailed": "Échec de l'ajout du mappage",
+  "group.deleteMappingFailed": "Échec de la suppression du mappage"
 }

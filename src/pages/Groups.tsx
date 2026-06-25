@@ -1561,7 +1561,10 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       setCName(""); setCGroupKey(""); setCMode("failover"); setCPlatformIds([]); setShowCreate(false);
       load();
       onGroupsChanged?.();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      onToast?.({ text: `${t("group.createFailed", "创建分组失败")}: ${e}`, ok: false });
+    }
   };
 
   const handleDeleteGroup = useCallback(async (id: number) => {
@@ -1610,9 +1613,12 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       setMappingGroupId(null);
       refreshSingleGroup(gid); // 单组映射变更 → 就地刷新
       onGroupsChanged?.();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      onToast?.({ text: `${t("group.addMappingFailed", "添加映射失败")}: ${e}`, ok: false });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mappingGroupId, mSource, mTargetPlatform, mTargetModel, details, onGroupsChanged]);
+  }, [mappingGroupId, mSource, mTargetPlatform, mTargetModel, details, onGroupsChanged, onToast, t]);
 
   const handlePurgeDisabled = useCallback(async (gid: number) => {
     try {
@@ -1638,9 +1644,12 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       await groupApi.update({ id: groupId, model_mappings: next });
       refreshSingleGroup(groupId); // 单组映射删除 → 就地刷新
       onGroupsChanged?.();
-    } catch (e) { console.error(e); }
+    } catch (e) {
+      console.error(e);
+      onToast?.({ text: `${t("group.deleteMappingFailed", "删除映射失败")}: ${e}`, ok: false });
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [details, onGroupsChanged]);
+  }, [details, onGroupsChanged, onToast, t]);
 
   const selectedPlatform = platforms.find(p => p.id === mTargetPlatform);
   const availableModels = selectedPlatform ? allModelValues(selectedPlatform.models) : [];

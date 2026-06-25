@@ -1630,5 +1630,8 @@
   "importExport.applyN": "インポート（{{n}} 件）",
   "importExport.selectItems": "インポートする項目を選択",
   "importExport.conflictTag": "競合",
-  "importExport.error.notAidogx": ".aidogx バックアップファイルをドロップしてください"
+  "importExport.error.notAidogx": ".aidogx バックアップファイルをドロップしてください",
+  "group.createFailed": "グループの作成に失敗しました",
+  "group.addMappingFailed": "マッピングの追加に失敗しました",
+  "group.deleteMappingFailed": "マッピングの削除に失敗しました"
 }

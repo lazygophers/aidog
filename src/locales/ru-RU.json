@@ -1630,5 +1630,8 @@
   "importExport.applyN": "Импорт ({{n}})",
   "importExport.selectItems": "Выберите элементы для импорта",
   "importExport.conflictTag": "Конфликт",
-  "importExport.error.notAidogx": "Перетащите файл резервной копии .aidogx"
+  "importExport.error.notAidogx": "Перетащите файл резервной копии .aidogx",
+  "group.createFailed": "Не удалось создать группу",
+  "group.addMappingFailed": "Не удалось добавить сопоставление",
+  "group.deleteMappingFailed": "Не удалось удалить сопоставление"
 }
