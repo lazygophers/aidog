@@ -133,10 +133,8 @@ pub fn run() {
             crate::commands::skills::skills_update,
             crate::commands::skills::skills_uninstall_all,
             crate::commands::skills::skills_uninstall,
-            crate::commands::skills::skills_uninstall_group,
             crate::commands::skills::skills_align_agents,
             crate::commands::skills::skills_enable_all,
-            crate::commands::skills::skills_set_group_agent,
             // MCP 管理
             crate::commands::mcp::mcp_list,
             crate::commands::mcp::mcp_scan,
