@@ -6,7 +6,7 @@
 // scope 默认 Global（用户级全局 -g），可选 Project（选某项目目录）。
 // npx/node 缺失 → 顶部提示条引导装 node，不阻塞整页。
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -41,6 +41,8 @@ export function Skills() {
   const [installedLoading, setInstalledLoading] = useState(false);
   // 后台刷新态（SWR revalidate 中，显小"刷新中"指示，不阻塞列表）。
   const [refreshing, setRefreshing] = useState(false);
+  // 上次 listRefresh 成功时间戳（ms），供获焦自动 revalidate 节流，避免每次获焦狂跑 npx。
+  const lastRefreshAtRef = useRef(0);
 
   // 切换中标识："<name>::<agent>" 或 "__update__" / "__uninstall__"；非 null 时禁并发。
   const [busyKey, setBusyKey] = useState<string | null>(null);
@@ -110,6 +112,7 @@ export function Skills() {
     try {
       const res = await skillsApi.listRefresh(scope);
       setInstalled(res.items);
+      lastRefreshAtRef.current = Date.now();
     } catch (e) {
       console.error("refresh installed failed", e);
     } finally {
@@ -154,6 +157,24 @@ export function Skills() {
   useEffect(() => {
     loadInstalled();
   }, [loadInstalled]);
+
+  // 窗口/标签获焦自动 revalidate：捕捉 app 外 CLI 改动（npx skills add/remove），节流 10s + 静默后台。
+  // 仅列表视图 + scope 有效 + 非进行中刷新时触发，复用 refreshInstalled（不整页 loading、不跳列表）。
+  useEffect(() => {
+    const REVALIDATE_THROTTLE_MS = 10_000;
+    const maybeRevalidate = () => {
+      if (document.visibilityState !== "visible") return;
+      if (subView !== "list" || scopeInvalid || refreshing) return;
+      if (Date.now() - lastRefreshAtRef.current < REVALIDATE_THROTTLE_MS) return;
+      refreshInstalled();
+    };
+    window.addEventListener("focus", maybeRevalidate);
+    document.addEventListener("visibilitychange", maybeRevalidate);
+    return () => {
+      window.removeEventListener("focus", maybeRevalidate);
+      document.removeEventListener("visibilitychange", maybeRevalidate);
+    };
+  }, [subView, scopeInvalid, refreshing, refreshInstalled]);
 
   // 操作结果消息自动消失（4s），避免遮屏。
   useEffect(() => {
