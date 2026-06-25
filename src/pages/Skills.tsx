@@ -137,9 +137,11 @@ export function Skills() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scopeKind, projectPath]);
 
-  // 开页/切 scope：纯缓存渲染（命中即 0 子进程，无自动 refresh、无 spinner、无列表跳变）。
-  // 仅冷启动（无缓存命中 stale，或缓存读取失败）才跑一次 listRefresh 填充并落盘（显整页 loading）。
-  // 命中缓存绝不自动跑 npx；用户需最新态时走显式「刷新」按钮（refreshInstalled）。
+  // 开页/切 scope：SWR 缓存渲染 + 后台 revalidate。
+  // 命中缓存 → 瞬间渲染缓存（无 spinner、无列表跳变），再后台 refreshInstalled 取最新覆盖。
+  // 后台 revalidate 是 SWR 本义，也是修复「空缓存粘住」的关键：缓存的 stale 仅表示
+  // 「有无缓存条目」，不表示新鲜度——一个空结果的缓存条目（如首次进页时真空 / npx 失败落空）
+  // 会被永久当权威空态返回，若命中后从不 revalidate，则用户用 CLI 装了 skill 后 UI 永远显空。
   const loadInstalled = useCallback(async () => {
     if (scopeInvalid) {
       setInstalled([]);
@@ -148,8 +150,9 @@ export function Skills() {
     try {
       const cached = await skillsApi.listInstalled(scope);
       if (!cached.stale) {
-        // 命中缓存：瞬间渲染，结束（不自动 refresh）。
+        // 命中缓存：瞬间渲染，再后台 revalidate 纠正过期/空缓存（不阻塞、不整页 loading）。
         setInstalled(cached.items);
+        refreshInstalled();
         return;
       }
       // 冷启动：无缓存 → 落到下方 refresh 填充。
