@@ -45,5 +45,5 @@
 | mimo-volces-mismatch | mimo coding plan 误识别为火山引擎 | — | 已完成 | 收尾 | 100% | — |
 | platform-expiry | 平台过期时间字段与到期自动禁用 | — | 已完成 | 收尾 | 100% | — |
 | skills-cleanup-fix | npx skills 安装的 skills 被清理修复 | — | 已完成 | 收尾 | 100% | — |
-| share-skip-empty | 平台分享零值空值字段不展示 | — | 进行中 | 规划 | 0% | — |
+| share-skip-empty | 平台分享零值空值字段不展示 | — | 已完成 | 收尾 | 100% | — |
 | proxy-log-inflight-cache | proxy_log in-flight 缓存消除热路径 SELECT | — | 已完成 | 收尾 | 100% | — |
