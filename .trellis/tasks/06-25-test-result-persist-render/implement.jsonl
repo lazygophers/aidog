@@ -1,0 +1,5 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/状态/类型/i18n 约定 — 测试结果解析展示渲染"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "若新增/改持久化 command,Rust↔TS 契约对齐"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用 proxy_log/last-test 机制 + formatters/shared 组件,禁重复造"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "测试结果持久化落库约定"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端 pre-dev checklist 入口"}
