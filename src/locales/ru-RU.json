@@ -1152,6 +1152,8 @@
   "settings.platformConfigHint": "Редактировать JSON. Поля, отличные от глобальных, будут сохранены как переопределения.",
   "settings.plugins.autoRefresh": "Автообновление при запуске",
   "settings.plugins.enabledHint": "Формат: plugin-name@marketplace → включить/отключить",
+  "settings.plugins.removePlugin": "Удалить плагин",
+  "settings.plugins.removeMarketplace": "Удалить источник маркетплейса",
   "settings.plugins.localPathPh": "Локальный путь установки (оставьте пустым для автоуправления)",
   "settings.plugins.marketplacesHint": "Именованные определения источников маркетплейса (github / git / directory / settings)",
   "settings.plugins.skipLfs": "Пропустить загрузку LFS",
