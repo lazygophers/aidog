@@ -1130,6 +1130,8 @@
   "settings.platformConfigHint": "Edita la config JSON. Los campos distintos del global se guardarán como sobrescrituras.",
   "settings.plugins.autoRefresh": "Auto-actualizar al inicio",
   "settings.plugins.enabledHint": "Formato: plugin-name@marketplace → activar/desactivar",
+  "settings.plugins.removePlugin": "Eliminar complemento",
+  "settings.plugins.removeMarketplace": "Eliminar marketplace",
   "settings.plugins.localPathPh": "Ruta de instalación local (vacío para auto-gestionar)",
   "settings.plugins.marketplacesHint": "Definiciones de origen de marketplace con nombre (github / git / directorio / ajustes)",
   "settings.plugins.skipLfs": "Saltar descarga LFS",

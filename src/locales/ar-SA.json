@@ -1152,6 +1152,8 @@
   "settings.platformConfigHint": "تحرير JSON. الحقول المختلفة عن العالمي ستُحفظ كتجاوزات.",
   "settings.plugins.autoRefresh": "تحديث تلقائي عند البدء",
   "settings.plugins.enabledHint": "الصيغة: plugin-name@marketplace → تفعيل/تعطيل",
+  "settings.plugins.removePlugin": "حذف الإضافة",
+  "settings.plugins.removeMarketplace": "حذف مصدر السوق",
   "settings.plugins.localPathPh": "مسار التثبيت المحلي (اتركه فارغًا للإدارة التلقائية)",
   "settings.plugins.marketplacesHint": "تعريفات مصادر سوق مُسمّاة (github / git / directory / settings)",
   "settings.plugins.skipLfs": "تخطّي تنزيل LFS",
