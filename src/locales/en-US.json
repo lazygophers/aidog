@@ -1130,6 +1130,8 @@
   "settings.platformConfigHint": "Edit JSON config. Fields different from global will be saved as overrides.",
   "settings.plugins.autoRefresh": "Auto-refresh on startup",
   "settings.plugins.enabledHint": "Format: plugin-name@marketplace → enable/disable",
+  "settings.plugins.removePlugin": "Remove plugin",
+  "settings.plugins.removeMarketplace": "Remove marketplace",
   "settings.plugins.localPathPh": "Local install path (leave empty to auto-manage)",
   "settings.plugins.marketplacesHint": "Named marketplace source definitions (github / git / directory / settings)",
   "settings.plugins.skipLfs": "Skip LFS download",

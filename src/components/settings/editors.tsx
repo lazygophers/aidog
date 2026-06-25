@@ -92,6 +92,7 @@ const ICON_PATHS: Record<string, string> = {
   file: "M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z M14 2v6h6",
   bolt: "M13 2L3 14h9l-1 8 10-12h-9l1-8Z",
   backup: "M21 12a9 9 0 1 1-9-9 9 9 0 0 1 9 9Z M12 7v5l3 2 M4.5 6.5h-2v2 M19.5 17.5h2v-2",
+  trash: "M3 6h18 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6 M10 11v6 M14 11v6",
 };
 
 /** Render named SVG icon (16×16 by default) */
@@ -3046,10 +3047,17 @@ function PluginsEditor({
                 {key}
               </code>
               <Toggle active={val} onChange={(v) => setPluginEnabled(key, v)} />
-              <button type="button" onClick={() => removePlugin(key)} style={{
-                background: "none", border: "none", cursor: "pointer",
-                color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
-              }}><IconClose size={12} /></button>
+              <button type="button" onClick={() => removePlugin(key)}
+                title={t("settings.plugins.removePlugin", "删除插件")}
+                aria-label={t("settings.plugins.removePlugin", "删除插件")}
+                style={{
+                  background: "none", border: "none", cursor: "pointer",
+                  color: "var(--text-secondary)", padding: 4, lineHeight: 1,
+                  marginLeft: 4, display: "inline-flex", alignItems: "center",
+                }}
+                onMouseEnter={(e) => { e.currentTarget.style.color = "var(--danger)"; }}
+                onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-secondary)"; }}
+              ><SvgIcon d={ICON_PATHS.trash} size={15} /></button>
             </div>
           ))}
           <div style={{ display: "flex", gap: 6, alignItems: "center", marginTop: 2 }}>
@@ -3086,10 +3094,17 @@ function PluginsEditor({
                   fontFamily: "monospace",
                 }}>{name}</span>
                 <div style={{ flex: 1 }} />
-                <button type="button" onClick={() => removeMarketplace(name)} style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1,
-                }}><IconClose size={12} /></button>
+                <button type="button" onClick={() => removeMarketplace(name)}
+                  title={t("settings.plugins.removeMarketplace", "删除市场源")}
+                  aria-label={t("settings.plugins.removeMarketplace", "删除市场源")}
+                  style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "var(--text-secondary)", padding: 4, lineHeight: 1,
+                    marginLeft: 4, display: "inline-flex", alignItems: "center",
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.color = "var(--danger)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-secondary)"; }}
+                ><SvgIcon d={ICON_PATHS.trash} size={15} /></button>
               </div>
               <MarketplaceSourceEditor
                 source={mktConfig.source ?? { source: "github" }}

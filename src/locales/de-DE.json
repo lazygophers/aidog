@@ -1152,6 +1152,8 @@
   "settings.platformConfigHint": "JSON-Konfiguration bearbeiten. Abweichende Felder werden als Override gespeichert.",
   "settings.plugins.autoRefresh": "Beim Start automatisch aktualisieren",
   "settings.plugins.enabledHint": "Format: plugin-name@marketplace → aktivieren/deaktivieren",
+  "settings.plugins.removePlugin": "Plugin entfernen",
+  "settings.plugins.removeMarketplace": "Marketplace entfernen",
   "settings.plugins.localPathPh": "Lokaler Installationspfad (leer lassen für automatische Verwaltung)",
   "settings.plugins.marketplacesHint": "Benannte Marketplace-Quelldefinitionen (github / git / directory / settings)",
   "settings.plugins.skipLfs": "LFS-Download überspringen",
