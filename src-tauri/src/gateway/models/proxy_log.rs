@@ -109,8 +109,10 @@ pub struct LastTestResult {
     pub duration_ms: i32,
     /// proxy_log.created_at（毫秒 epoch）
     pub created_at: i64,
-    /// 失败时取 response_body 截断 ~200 字符；成功为空串
+    /// 失败时取 response_body 截断 ~200 字符；成功为空串（徽章 title 短摘要用）
     pub error: String,
+    /// 测试响应正文（成功/失败均带），截断 ~4000 字符；供前端 JSON 解析结构化展示。
+    pub response_body: String,
 }
 
 /// Summary row for list view (excludes large body fields)

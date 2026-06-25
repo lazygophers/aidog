@@ -6,6 +6,12 @@ export { StatChip, type StatChipProps } from "./StatChip";
 export { BalanceBar, type BalanceBarProps } from "./BalanceBar";
 export { CostTrendChart, type CostTrendChartProps } from "./CostTrendChart";
 export {
+  TestResultBody,
+  type TestResultBodyProps,
+  parseTestBody,
+  type ParsedTestBody,
+} from "./TestResultBody";
+export {
   type ColorLevel,
   levelColor,
   levelBg,
