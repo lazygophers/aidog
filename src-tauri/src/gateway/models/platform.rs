@@ -171,6 +171,10 @@ pub struct Platform {
     /// 连续自动禁用次数（指数退避指数）；恢复 enabled 时清零
     #[serde(default)]
     pub auto_disable_strikes: i64,
+    /// 过期时间（毫秒 unix 时间戳，0 = 永不过期）。>0 且 now>=expires_at 时路由 `candidate_state`
+    /// 排除（等效自动禁用，但独立于 status 三态枚举；用户改值清空/延后即恢复，无需退避试探）。
+    #[serde(default)]
+    pub expires_at: i64,
     pub created_at: i64,
     pub updated_at: i64,
     #[serde(default)]
@@ -281,6 +285,10 @@ pub struct CreatePlatform {
     /// 仅当平台最终归属唯一分组（auto_group 建的默认组）时由前端传入。
     #[serde(default)]
     pub default_level_priority: Option<i32>,
+    /// 过期时间（毫秒 unix 时间戳，0 = 永不过期）。
+    /// None /缺省 → 落库 0（永不过期）；Some(t) → 设为 t。过期后路由 candidate_state 排除。
+    #[serde(default)]
+    pub expires_at: Option<i64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -304,6 +312,10 @@ pub struct UpdatePlatform {
     /// 注：熔断阈值覆盖现走 `extra.breaker`（随 `extra` 字段整体更新），不再有独立列。
     #[serde(default)]
     pub join_group_ids: Option<Vec<u64>>,
+    /// 过期时间（毫秒 unix 时间戳）。None=不动；Some(0)=清空（永不过期）；Some(t)=设为 t。
+    /// 过期后路由 candidate_state 排除（独立于 status 三态枚举）。
+    #[serde(default)]
+    pub expires_at: Option<i64>,
 }
 
 #[cfg(test)]
@@ -437,6 +449,7 @@ mod tests {
             created_at: 0, updated_at: 0, deleted_at: 0,
             est_coding_plan: "".into(), last_real_query_at: 0, estimate_count: 0,
             show_in_tray: false, tray_display: "".into(), sort_order: 0, balance_level: "".into(),
+            expires_at: 0,
         };
         let b = p.breaker();
         assert_eq!(b.failure_threshold, 7);

@@ -321,6 +321,80 @@ decimals: None,
         assert_eq!(item.line_mode, "two");
     }
 
+    /// 辅助：直接 UPDATE platform 设 expires_at（测试专用，绕过 update_platform Option 语义）。
+    async fn set_expires_at(db: &Db, id: u64, expires_at: i64) {
+        let pid = id as i64;
+        db.call_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute(
+                "UPDATE platform SET expires_at = ?1 WHERE id = ?2",
+                params![expires_at, pid],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    }
+
+    /// 全局 purge：清 auto_disabled + 已过期（expires_at > 0 且 < now）平台，保留未过期的。
+    #[tokio::test]
+    async fn purge_global_also_deletes_expired_platforms() {
+        let db = test_db().await;
+        // 两个过期 + 一个未过期 + 一个 auto_disabled，均 enabled（隔离 expires_at 维度）。
+        let p_expired1 = create_platform(&db, sample_platform("exp1")).await.unwrap();
+        let p_expired2 = create_platform(&db, sample_platform("exp2")).await.unwrap();
+        let p_future = create_platform(&db, sample_platform("future")).await.unwrap();
+        let p_disabled = create_platform(&db, sample_platform("disabled")).await.unwrap();
+        let now = now();
+        set_expires_at(&db, p_expired1.id, now - 1000).await;
+        set_expires_at(&db, p_expired2.id, now - 1).await;
+        set_expires_at(&db, p_future.id, now + 86_400_000).await;
+        set_platform_auto_disabled(&db, p_disabled.id).await.unwrap();
+
+        let r = purge_auto_disabled_platforms(&db, None).await.unwrap();
+        assert_eq!(r.deleted_ids.len(), 3, "应删 2 过期 + 1 auto_disabled");
+        assert!(r.deleted_ids.contains(&(p_expired1.id as u64)), "过期1 应删");
+        assert!(r.deleted_ids.contains(&(p_expired2.id as u64)), "过期2 应删");
+        assert!(r.deleted_ids.contains(&(p_disabled.id as u64)), "auto_disabled 应删");
+        assert!(get_platform(&db, p_future.id).await.unwrap().is_some(), "未过期平台应保留");
+    }
+
+    /// 分组级 purge：清 auto_disabled + 已过期平台（独占删 / 共享移关联）。
+    #[tokio::test]
+    async fn purge_group_also_deletes_expired_platforms() {
+        let db = test_db().await;
+        // p_exp_excl：仅属 g1，过期 → 分组级清理永久删。
+        let p_exp_excl = create_platform(&db, sample_platform("exp-excl")).await.unwrap();
+        // p_exp_shared：属 g1 + g2，过期 → 仅删 g1 关联，平台行保留。
+        let p_exp_shared = create_platform(&db, sample_platform("exp-shared")).await.unwrap();
+        // p_alive：属 g1，未过期 → 保留。
+        let p_alive = create_platform(&db, sample_platform("alive")).await.unwrap();
+        let now = now();
+        set_expires_at(&db, p_exp_excl.id, now - 1000).await;
+        set_expires_at(&db, p_exp_shared.id, now - 1000).await;
+
+        let g1 = create_group(&db, sample_group("g1", vec![])).await.unwrap();
+        let g2 = create_group(&db, sample_group("g2", vec![])).await.unwrap();
+        set_group_platforms(&db, g1.id, &[
+            GroupPlatformInput { platform_id: p_exp_excl.id, priority: Some(0), weight: Some(1), level_priority: None },
+            GroupPlatformInput { platform_id: p_exp_shared.id, priority: Some(1), weight: Some(1), level_priority: None },
+            GroupPlatformInput { platform_id: p_alive.id, priority: Some(2), weight: Some(1), level_priority: None },
+        ]).await.unwrap();
+        set_group_platforms(&db, g2.id, &[
+            GroupPlatformInput { platform_id: p_exp_shared.id, priority: Some(0), weight: Some(1), level_priority: None },
+        ]).await.unwrap();
+
+        let r = purge_auto_disabled_platforms(&db, Some(g1.id)).await.unwrap();
+        // 独占的过期平台永久删；共享的过期平台仅移 g1 关联。
+        assert_eq!(r.deleted_ids, vec![p_exp_excl.id as u64], "独占过期平台应永久删");
+        assert_eq!(r.unassigned_ids, vec![p_exp_shared.id as u64], "共享过期平台应仅移关联");
+        assert!(get_platform(&db, p_exp_excl.id).await.unwrap().is_none(), "独占过期平台行应软删");
+        assert!(get_platform(&db, p_exp_shared.id).await.unwrap().is_some(), "共享过期平台行应保留");
+        // p_alive 仍在 g1
+        let g1_plats = get_group_platforms(&db, g1.id).await.unwrap();
+        assert_eq!(g1_plats.len(), 1, "g1 仅余未过期平台");
+        assert_eq!(g1_plats[0].platform.id, p_alive.id);
+    }
+
     /// update_platform_quota 写入余额和 coding_plan，再读回。
     #[tokio::test]
     async fn update_platform_quota_persists() {

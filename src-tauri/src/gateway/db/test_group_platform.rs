@@ -41,6 +41,7 @@ use super::test_support::*;
             status: None,
             manual_budgets: None,
             join_group_ids: None,
+            expires_at: None,
         };
         update_platform(&db, upd).await.unwrap();
         let d2 = list_group_details(&db).await.unwrap();

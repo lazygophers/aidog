@@ -209,6 +209,41 @@ export const PlatformCard = memo(function PlatformCard({
                     {t("platform.autoDisabled", "自动禁用")}
                   </div>
                 )}
+                {/* 过期标记（独立维度，与 status 正交）：已过期显红 badge，未过期临近时显小字 */}
+                {p.expires_at > 0 && (() => {
+                  const nowMs = Date.now();
+                  if (nowMs >= p.expires_at) {
+                    return (
+                      <div
+                        style={{
+                          marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
+                          fontSize: 10, fontWeight: 600, color: "var(--color-danger)",
+                          background: "color-mix(in srgb, var(--color-danger) 14%, transparent)",
+                          border: "1px solid color-mix(in srgb, var(--color-danger) 35%, transparent)",
+                          borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
+                        }}
+                        title={t("platform.expiredHint", "已过期：{{time}}，路由自动排除")
+                          .replace("{{time}}", new Date(p.expires_at).toLocaleString())}
+                      >
+                        {t("platform.expired", "已过期")}
+                      </div>
+                    );
+                  }
+                  const soon = p.expires_at - nowMs < 86_400_000; // 24h 内高亮
+                  return (
+                    <div
+                      style={{
+                        marginTop: 3, fontSize: 10, whiteSpace: "nowrap",
+                        color: soon ? "var(--color-warning)" : "var(--text-tertiary)",
+                        fontWeight: soon ? 600 : 500,
+                      }}
+                      title={t("platform.expiresAtHint", "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。")}
+                    >
+                      {t("platform.expiresAtBadge", "到期 {{time}}")
+                        .replace("{{time}}", new Date(p.expires_at).toLocaleString())}
+                    </div>
+                  );
+                })()}
                 {/* 所属分组 badge */}
                 {platformMembership && platformMembership.length > 0 && (
                   <div style={{ marginTop: 3, display: "flex", gap: 4, flexWrap: "wrap" }}>

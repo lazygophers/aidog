@@ -21,6 +21,9 @@ export interface SmartPasteApplyResult {
   /** 命中 aidog 平台分享串（YAML / JSON / Base64）时携带完整配置对象，调用方整体灌表单。
    *  存在时优先于零散 platform/baseUrls/apiKey（后者作为非分享文本的杂乱解析回退）。 */
   fullShare?: SharePlatform;
+  /** 从文案中识别到的过期时间（毫秒时间戳，0/null = 未识别）。
+   *  社区分享帖常见「即将过期 06-28 23:59」格式。 */
+  expiresAt?: number;
 }
 
 export interface SmartPasteModalProps {
@@ -129,6 +132,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
   };
 
   const hasResult = parsed.apiKeys.length > 0 || parsed.baseUrls.length > 0 || !!parsed.platform;
+  const hasExpiry = !!parsed.expiresAt && parsed.expiresAt > 0;
   const canApply = !!share || !!(selKey || selUrls.length > 0 || parsed.platform);
 
   const labelStyle: CSSProperties = {
@@ -316,6 +320,18 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
               ))}
             </div>
           )}
+
+          {/* 过期时间（社区分享帖常见「即将过期 06-28 23:59」） */}
+          {hasExpiry && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <div style={labelStyle}>{t("platform.expiresAt", "过期时间")}</div>
+              <div style={{ ...optRow, cursor: "default", borderColor: "var(--accent)" }}>
+                <span style={{ color: "var(--accent)", fontWeight: 600 }}>
+                  {new Date(parsed.expiresAt!).toLocaleString()}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
         )}
 
@@ -346,6 +362,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
                 platform: parsed.platform,
                 baseUrls: selected,
                 apiKey: selKey,
+                expiresAt: parsed.expiresAt ?? 0,
               });
               onClose();
             }}

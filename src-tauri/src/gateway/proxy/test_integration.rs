@@ -58,7 +58,7 @@ async fn setup_group_with_upstream(state: &Arc<ProxyState>, gk: &str, base_url: 
             endpoints: None,
             manual_budgets: None,
             auto_group: None,
-            join_group_ids: None, default_level_priority: None,
+            join_group_ids: None, default_level_priority: None, expires_at: None,
         },
     )
     .await
@@ -308,7 +308,7 @@ async fn setup_mock_group(state: &Arc<ProxyState>, gk: &str, extra: &str) {
             endpoints: None,
             manual_budgets: None,
             auto_group: None,
-            join_group_ids: None, default_level_priority: None,
+            join_group_ids: None, default_level_priority: None, expires_at: None,
         },
     )
     .await
@@ -413,7 +413,7 @@ async fn setup_passthrough_group(state: &Arc<ProxyState>, gk: &str, base_url: &s
             }]),
             manual_budgets: None,
             auto_group: None,
-            join_group_ids: None, default_level_priority: None,
+            join_group_ids: None, default_level_priority: None, expires_at: None,
         },
     )
     .await
@@ -517,7 +517,7 @@ async fn setup_responses_group(state: &Arc<ProxyState>, gk: &str, base_url: &str
             }]),
             manual_budgets: None,
             auto_group: None,
-            join_group_ids: None, default_level_priority: None,
+            join_group_ids: None, default_level_priority: None, expires_at: None,
         },
     )
     .await

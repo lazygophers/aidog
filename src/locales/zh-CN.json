@@ -670,6 +670,13 @@
   "platform.enable": "启用",
   "platform.endpoints": "协议端点",
   "platform.endpointsHint": "此平台以不同 base URL 支持的附加协议",
+  "platform.expired": "已过期",
+  "platform.expiredHint": "已过期：{{time}}，路由自动排除",
+  "platform.expiresAt": "过期时间",
+  "platform.expiresAtBadge": "到期 {{time}}",
+  "platform.expiresAtClear": "清空",
+  "platform.expiresAtHint": "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。",
+  "platform.expiresAtSoon": "临近过期：{{time}}",
   "platform.fetchEmpty": "未获取到可用模型",
   "platform.fetchModels": "一键获取",
   "platform.fillAll": "一键填充",
@@ -1636,5 +1643,7 @@
   "platform.share.copyFail": "复制失败，请手动选择内容",
   "platform.share.exportFail": "生成分享内容失败",
   "platform.paste.shareDetected": "已识别 AiDog 平台分享",
-  "platform.paste.shareDetectedHint": "点击下方按钮将完整配置（含 API Key）灌入表单。"
+  "platform.paste.shareDetectedHint": "点击下方按钮将完整配置（含 API Key）灌入表单。",
+  "skills.loadFailed": "列表加载失败，显示上次缓存。检查 npx/Node.js 与 HOME 配置。",
+  "importExport.skillsScopeHint": "默认不导入（防止意外覆盖现有 skills）。如需导入，请勾选下方条目。"
 }

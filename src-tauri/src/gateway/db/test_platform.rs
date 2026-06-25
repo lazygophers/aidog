@@ -78,6 +78,7 @@ use rusqlite::params;
             status: None,
             manual_budgets: None,
             join_group_ids: None,
+            expires_at: None,
         }).await.unwrap();
         assert_eq!(updated.base_url, "https://crud.example/v2");
         assert_eq!(get_platform(&db, created.id).await.unwrap().unwrap().base_url, "https://crud.example/v2");
@@ -135,7 +136,7 @@ use rusqlite::params;
         update_platform(&db, UpdatePlatform {
             id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
             extra: Some(cleared), models: None, available_models: None, endpoints: None,
-            enabled: None, status: None, manual_budgets: None, join_group_ids: None,
+            enabled: None, status: None, manual_budgets: None, join_group_ids: None, expires_at: None,
         }).await.unwrap();
         let b3 = get_platform(&db, p.id).await.unwrap().unwrap().breaker();
         assert_eq!((b3.failure_threshold, b3.open_secs, b3.half_open_max), (0, 0, 0), "clear breaker via extra");
@@ -193,7 +194,7 @@ use rusqlite::params;
             id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
             extra: None, models: None, available_models: None, endpoints: None,
             enabled: None, status: Some(PlatformStatus::Disabled), manual_budgets: None,
-            join_group_ids: None,
+            join_group_ids: None, expires_at: None,
         }).await.unwrap();
         assert_eq!(upd.status, PlatformStatus::Disabled);
         assert!(!upd.enabled);
@@ -221,7 +222,7 @@ use rusqlite::params;
             api_key: Some("sk-new-key".to_string()),
             extra: None, models: None, available_models: None, endpoints: None,
             enabled: None, status: None, manual_budgets: None,
-            join_group_ids: None,
+            join_group_ids: None, expires_at: None,
         }).await.unwrap();
         assert_eq!(upd.status, PlatformStatus::Enabled, "改 api_key 立即恢复");
         assert_eq!(upd.auto_disable_strikes, 0);

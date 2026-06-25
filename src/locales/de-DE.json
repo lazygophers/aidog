@@ -692,6 +692,13 @@
   "platform.enable": "Aktivieren",
   "platform.endpoints": "Protokoll-Endpoints",
   "platform.endpointsHint": "Zusätzliche Protokolle, die diese Plattform mit anderen Base-URLs unterstützt",
+  "platform.expired": "Abgelaufen",
+  "platform.expiredHint": "Abgelaufen: {{time}}, automatisch vom Routing ausgeschlossen",
+  "platform.expiresAt": "Läuft ab am",
+  "platform.expiresAtBadge": "Läuft ab {{time}}",
+  "platform.expiresAtClear": "Leeren",
+  "platform.expiresAtHint": "Optional. Nach Ablauf wird die Plattform automatisch von den Routing-Kandidaten ausgeschlossen (entspricht deaktiviert); Ändern oder Leeren des Werts stellt sie wieder her.",
+  "platform.expiresAtSoon": "Läuft bald ab: {{time}}",
   "platform.fetchEmpty": "Keine Modelle gefunden",
   "platform.fetchModels": "Modelle laden",
   "platform.fillAll": "Alle füllen",
@@ -1658,5 +1665,7 @@
   "platform.share.copyFail": "Kopieren fehlgeschlagen, bitte Inhalt manuell auswählen",
   "platform.share.exportFail": "Freigabeinhalt konnte nicht erstellt werden",
   "platform.paste.shareDetected": "AiDog-Plattformfreigabe erkannt",
-  "platform.paste.shareDetectedHint": "Klicken Sie unten, um die vollständige Konfiguration (inkl. API-Schlüssel) in das Formular zu übernehmen."
+  "platform.paste.shareDetectedHint": "Klicken Sie unten, um die vollständige Konfiguration (inkl. API-Schlüssel) in das Formular zu übernehmen.",
+  "skills.loadFailed": "Listenladung fehlgeschlagen, letzter Cache wird angezeigt. Prüfe npx/Node.js und HOME-Konfiguration.",
+  "importExport.skillsScopeHint": "Standardmäßig nicht importiert (um Überschreiben bestehender Skills zu verhindern). Zum Importieren unten Einträge anhaken."
 }

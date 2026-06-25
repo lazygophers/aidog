@@ -201,6 +201,9 @@ export interface Platform {
   /** 余额使用速率配色级别（后端 platform_list 按动态窗口日速率算 days_remaining 填充，只读）。
    *  "red"|"yellow"|"green"|"neutral"；空串 = 无数据 → 前端退中性。前端只消费不重算阈值。 */
   balance_level?: string;
+  /** 过期时间（毫秒 unix 时间戳，0 = 永不过期）。>0 且 now>=expires_at 时路由排除（等效自动禁用）。
+   *  独立于 status 三态：用户改值（清空/延后）即恢复，无需退避试探。 */
+  expires_at: number;
 }
 
 /** 单平台可分享配置（剥离 DB 内部 / 运行时字段，含明文 api_key）。
@@ -433,6 +436,8 @@ export const platformApi = {
     join_group_ids?: number[];
     /** 自动创建的默认分组的 level_priority 初值（1~10）；仅当归属唯一分组时由表单传入。 */
     default_level_priority?: number;
+    /** 过期时间（毫秒 unix 时间戳，0 = 永不过期；>0 到期后路由排除）。 */
+    expires_at?: number;
   }) => invoke<Platform>("platform_create", { input }),
 
   list: () => invoke<Platform[]>("platform_list"),
@@ -457,6 +462,8 @@ export const platformApi = {
     /** 熔断阈值覆盖现走 extra.breaker（随 extra 整体更新），无独立字段。 */
     /** 全量同步该平台的手动组成员关系（省略=不动）。 */
     join_group_ids?: number[];
+    /** 过期时间（毫秒 unix 时间戳）。0 = 清空（永不过期）；>0 到期后路由排除。 */
+    expires_at?: number;
   }) => invoke<Platform>("platform_update", { input }),
 
   delete: (id: number) => invoke<void>("platform_delete", { id }),
@@ -1654,10 +1661,13 @@ export interface SkillFileContent {
  * SWR list 缓存返回（后端 `skills_list_installed` / `skills_list_refresh`）。
  * - items：缓存/最新 skill 列表。
  * - stale：true = 无缓存命中（冷启动），前端应显加载态并强制 refresh。
+ * - load_failed：true = list_refresh 中 npx 失败 / HOME 缺失，缓存未被更新（保留旧 items），
+ *   前端应显「加载失败，显示上次缓存」提示（旧后端未返此字段，默认 false 兼容）。
  */
 export interface CachedSkills {
   items: SkillInfo[];
   stale: boolean;
+  load_failed?: boolean;
 }
 
 export const skillsApi = {

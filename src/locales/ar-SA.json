@@ -692,6 +692,13 @@
   "platform.enable": "تفعيل",
   "platform.endpoints": "نقاط نهاية البروتوكول",
   "platform.endpointsHint": "بروتوكولات إضافية تدعمها هذه المنصة بعناوين URL أساسية مختلفة",
+  "platform.expired": "منتهي الصلاحية",
+  "platform.expiredHint": "منتهي الصلاحية: {{time}}، مستبعد تلقائيًا من التوجيه",
+  "platform.expiresAt": "تاريخ الانتهاء",
+  "platform.expiresAtBadge": "ينتهي {{time}}",
+  "platform.expiresAtClear": "مسح",
+  "platform.expiresAtHint": "اختياري. بعد انتهاء الصلاحية تُستبعد المنصة تلقائيًا من مرشحي التوجيه (مكافئ للتعطيل)؛ تعديل القيمة أو مسحها يعيد التفعيل.",
+  "platform.expiresAtSoon": "ينتهي قريبًا: {{time}}",
   "platform.fetchEmpty": "لم يتم العثور على نماذج",
   "platform.fetchModels": "جلب النماذج",
   "platform.fillAll": "ملء الكل",
@@ -1658,5 +1665,7 @@
   "platform.share.copyFail": "فشل النسخ، يرجى تحديد المحتوى يدويًا",
   "platform.share.exportFail": "فشل في إنشاء محتوى المشاركة",
   "platform.paste.shareDetected": "تم اكتشاف مشاركة منصة AiDog",
-  "platform.paste.shareDetectedHint": "انقر على الزر أدناه لتعبئة الإعدادات الكاملة (بما في ذلك مفتاح API) في النموذج."
+  "platform.paste.shareDetectedHint": "انقر على الزر أدناه لتعبئة الإعدادات الكاملة (بما في ذلك مفتاح API) في النموذج.",
+  "skills.loadFailed": "فشل تحميل القائمة، يتم عرض آخر ذاكرة تخزين مؤقت. تحقق من npx/Node.js وإعداد HOME.",
+  "importExport.skillsScopeHint": "غير مستورد افتراضيًا (لمنع استبدال skills الحالية). حدد العناصر أدناه للاستيراد."
 }

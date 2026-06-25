@@ -16,6 +16,7 @@ pub(super) fn mk_platform(status: PlatformStatus, until: i64) -> Platform {
         status,
         auto_disabled_until: until,
         auto_disable_strikes: 0,
+        expires_at: 0,
         created_at: 0,
         updated_at: 0,
         deleted_at: 0,
@@ -103,6 +104,28 @@ fn candidate_state_filtering() {
     assert_eq!(candidate_state(&mk_platform(PlatformStatus::AutoDisabled, now + 5000), now), None);
     // auto_disabled 已过退避时间 → 纳入（末尾试探）
     assert_eq!(candidate_state(&mk_platform(PlatformStatus::AutoDisabled, now - 1), now), Some(true));
+}
+
+#[test]
+fn candidate_state_expires_at_excludes() {
+    // 过期是独立维度，与 status 正交：expires_at > 0 且 now >= expires_at → None（排除）。
+    let now = 1_000_000i64;
+    // 辅助：构造带 expires_at 的 Platform（mk_platform 不暴露 expires_at，直接改字段）。
+    let mut p_expired = mk_platform(PlatformStatus::Enabled, 0);
+    p_expired.expires_at = now - 1; // 过去 → 已过期
+    assert_eq!(candidate_state(&p_expired, now), None, "enabled + 过期 → 排除");
+    let mut p_expired_auto = mk_platform(PlatformStatus::AutoDisabled, now - 1);
+    p_expired_auto.expires_at = now - 1;
+    assert_eq!(candidate_state(&p_expired_auto, now), None, "auto_disabled(已过退避) + 过期 → 仍排除（过期优先）");
+
+    // 未来过期 → 不影响 status 路径（仍按 status 判定）
+    let mut p_future = mk_platform(PlatformStatus::Enabled, 0);
+    p_future.expires_at = now + 50_000;
+    assert_eq!(candidate_state(&p_future, now), Some(false), "未来过期 + enabled → 仍纳入");
+
+    // expires_at == 0 → 永不过期（不影响）
+    let p_no_expiry = mk_platform(PlatformStatus::Enabled, 0);
+    assert_eq!(candidate_state(&p_no_expiry, now), Some(false), "expires_at=0 → 永不过期");
 }
 
 #[test]
