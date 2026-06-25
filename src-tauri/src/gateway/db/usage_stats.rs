@@ -343,7 +343,7 @@ pub fn platform_usage_stats_all(
             // eff_pid → (取到的近 5 条计数, 其中失败数)
             let mut recent: std::collections::HashMap<i64, (i64, i64)> =
                 std::collections::HashMap::new();
-            let mut rows_iter = recent_stmt.query_map([], |row| {
+            let rows_iter = recent_stmt.query_map([], |row| {
                 Ok((
                     row.get::<_, i64>(0)?,    // platform_id
                     row.get::<_, String>(1)?, // group_key
