@@ -48,6 +48,6 @@
 | share-skip-empty | 平台分享零值空值字段不展示 | — | 已完成 | 收尾 | 100% | — |
 | proxy-log-inflight-cache | proxy_log in-flight 缓存消除热路径 SELECT | — | 已完成 | 收尾 | 100% | — |
 | realtime-event-notify | 前端实时数据事件通知替代轮询 | — | 已完成 | 收尾 | 100% | .worktrees/06-25-realtime-event-notify |
-| platform-expiry-toggle | 平台过期时间默认禁用+启用toggle | — | 进行中 | 规划 | 0% | — |
+| platform-expiry-toggle | 平台过期时间默认禁用+启用toggle | — | 已完成 | 收尾 | 100% | — |
 | datetime-local-theme | datetime-local 主题适配 | — | 规划中 | 规划 | 0% | — |
 | skills-test-isolation | skills 测试隔离 | — | 进行中 | 规划 | 0% | — |
