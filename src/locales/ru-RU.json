@@ -698,6 +698,7 @@
   "platform.expiresAtBadge": "Истекает {{time}}",
   "platform.expiresAtClear": "Очистить",
   "platform.expiresAtHint": "Необязательно. После истечения срока платформа автоматически исключается из кандидатов маршрутизации (аналогично отключению); изменение или очистка значения восстанавливает её.",
+  "platform.expiresAtEnable": "Включить срок действия",
   "platform.expiresAtSoon": "Скоро истекает: {{time}}",
   "platform.fetchEmpty": "Модели не найдены",
   "platform.fetchModels": "Загрузить",

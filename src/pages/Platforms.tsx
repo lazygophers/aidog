@@ -1488,6 +1488,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [levelPriority, setLevelPriority] = useState(5);
   // 过期时间（毫秒 unix 时间戳，0 = 永不过期）。路由候选排除的独立维度（不改 status 三态）。
   const [expiresAt, setExpiresAt] = useState(0);
+  // 「启用过期」toggle：默认 OFF（隐藏 datetime-local）。仅当用户勾选 toggle 才显示日期选择器；
+  // 老平台 expires_at>0 加载时置 ON；粘贴识别填入 expiresAt 但 **保持 toggle OFF**（用户手动启用）。
+  const [expiryEnabled, setExpiryEnabled] = useState(false);
   // 当前主题 mode（light/dark，订阅 documentElement data-mode 变化）。
   // 用于 datetime-local input 的 colorScheme 属性（控 WKWebView 原生日历弹出层明暗）。
   const themeMode = useThemeMode();
@@ -1974,7 +1977,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setNewApiConfig({ ...DEFAULT_NEWAPI_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
-    setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setLevelPriority(5); setExpiresAt(0);
+    setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setLevelPriority(5); setExpiresAt(0); setExpiryEnabled(false);
     // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
     // 平台第二次编辑会被 consumedEditPidRef 短路（initialFilter.platformId 值不变，effect 亦不重跑）。
     consumedEditPidRef.current = null;
@@ -2019,7 +2022,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setMockConfig(parseMockConfig(p.extra ?? ""));
     setNewApiConfig(parseNewApiConfig(p.extra ?? ""));
     setManualBudgets(p.manual_budgets ?? []);
+    // 老平台 expires_at>0 → toggle 默认 ON；=0/未设 → OFF。
     setExpiresAt(p.expires_at ?? 0);
+    setExpiryEnabled((p.expires_at ?? 0) > 0);
     // 熔断覆盖现存于 extra.breaker：0 = 继承 → 显示空
     {
       const brk = parsePlatformBreaker(p.extra ?? "");
@@ -2097,7 +2102,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setMockConfig(parseMockConfig(p.extra ?? ""));
     setNewApiConfig(parseNewApiConfig(p.extra ?? ""));
     setManualBudgets(p.manual_budgets ?? []);
+    // 老平台 expires_at>0 → toggle 默认 ON；=0/未设 → OFF。
     setExpiresAt(p.expires_at ?? 0);
+    setExpiryEnabled((p.expires_at ?? 0) > 0);
     {
       const brk = parsePlatformBreaker(p.extra ?? "");
       setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
@@ -3149,53 +3156,74 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           )}
 
           {/* 过期时间（可选）：设过期后路由自动排除（等效禁用），独立于 status 三态。
-              datetime-local 输入 + 清空按钮；0 = 永不过期。 */}
+              「启用过期」toggle OFF → 隐藏 datetime-local（即便 expiresAt 有识别值也不显示）；
+              toggle ON → 显示 datetime-local；ON→OFF 清零 expiresAt（不生效）。
+              粘贴识别仅填 expiresAt state，不动 expiryEnabled（用户手动启用）。 */}
           <FormSection
             title={t("platform.expiresAt", "过期时间")}
             desc={t("platform.expiresAtHint", "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。")}
           >
-            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-              <input
-                className="input"
-                type="datetime-local"
-                // colorScheme 控 WKWebView 原生日历弹出层明暗；input 本体 color/bg/border 走 .input 的 CSS 变量。
-                style={{ flex: 1, minWidth: 200, colorScheme: themeMode }}
-                // datetime-local 值为 "YYYY-MM-DDTHH:MM" 本地时间；expiresAt=0 → 空串（未设）。
-                value={expiresAt > 0 ? toDatetimeLocal(expiresAt) : ""}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (!v) { setExpiresAt(0); return; }
-                  // 本地时间 "YYYY-MM-DDTHH:MM" → 毫秒时间戳（new Date 按本地时区解析）。
-                  const ms = new Date(v).getTime();
-                  if (Number.isFinite(ms) && ms > 0) setExpiresAt(ms);
-                }}
-              />
-              {expiresAt > 0 && (
-                <button
-                  type="button"
-                  className="btn btn-ghost"
-                  style={{ fontSize: 12, padding: "4px 10px" }}
-                  onClick={() => setExpiresAt(0)}
-                >
-                  {t("platform.expiresAtClear", "清空")}
-                </button>
-              )}
-              {expiresAt > 0 && (
-                <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
-                  {(() => {
-                    const nowMs = Date.now();
-                    if (nowMs >= expiresAt) {
-                      return t("platform.expired", "已过期");
-                    }
-                    const inDay = expiresAt - nowMs < 86_400_000;
-                    const txt = new Date(expiresAt).toLocaleString();
-                    return inDay
-                      ? t("platform.expiresAtSoon", "临近过期：{{time}}", { time: txt })
-                      : txt;
-                  })()}
-                </span>
-              )}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, marginBottom: expiryEnabled ? 8 : 0 }}>
+              <span style={{ fontSize: 13 }}>{t("platform.expiresAtEnable", "启用过期")}</span>
+              <label className="toggle-wrap" style={{ cursor: "pointer", display: "flex", alignItems: "center" }}>
+                <input
+                  type="checkbox"
+                  checked={expiryEnabled}
+                  onChange={e => {
+                    const v = e.target.checked;
+                    setExpiryEnabled(v);
+                    // ON→OFF：清零 expiresAt（不生效）；OFF→ON：保留 expiresAt 若有粘贴识别值（预填）。
+                    if (!v) setExpiresAt(0);
+                  }}
+                  style={{ display: "none" }}
+                />
+                <span className={`toggle ${expiryEnabled ? "active" : ""}`} />
+              </label>
             </div>
+            {expiryEnabled && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                <input
+                  className="input"
+                  type="datetime-local"
+                  // colorScheme 控 WKWebView 原生日历弹出层明暗；input 本体 color/bg/border 走 .input 的 CSS 变量。
+                  style={{ flex: 1, minWidth: 200, colorScheme: themeMode }}
+                  // datetime-local 值为 "YYYY-MM-DDTHH:MM" 本地时间；expiresAt=0 → 空串（未设）。
+                  value={expiresAt > 0 ? toDatetimeLocal(expiresAt) : ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (!v) { setExpiresAt(0); return; }
+                    // 本地时间 "YYYY-MM-DDTHH:MM" → 毫秒时间戳（new Date 按本地时区解析）。
+                    const ms = new Date(v).getTime();
+                    if (Number.isFinite(ms) && ms > 0) setExpiresAt(ms);
+                  }}
+                />
+                {expiresAt > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost"
+                    style={{ fontSize: 12, padding: "4px 10px" }}
+                    onClick={() => setExpiresAt(0)}
+                  >
+                    {t("platform.expiresAtClear", "清空")}
+                  </button>
+                )}
+                {expiresAt > 0 && (
+                  <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                    {(() => {
+                      const nowMs = Date.now();
+                      if (nowMs >= expiresAt) {
+                        return t("platform.expired", "已过期");
+                      }
+                      const inDay = expiresAt - nowMs < 86_400_000;
+                      const txt = new Date(expiresAt).toLocaleString();
+                      return inDay
+                        ? t("platform.expiresAtSoon", "临近过期：{{time}}", { time: txt })
+                        : txt;
+                    })()}
+                  </span>
+                )}
+              </div>
+            )}
           </FormSection>
 
           {/* Claude Code Config */}

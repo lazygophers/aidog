@@ -698,6 +698,7 @@
   "platform.expiresAtBadge": "{{time}} に期限切れ",
   "platform.expiresAtClear": "クリア",
   "platform.expiresAtHint": "任意。期限切れ後、このプラットフォームはルーティング候補から自動的に除外されます（無効化と同等）。値を変更またはクリアすると復元されます。",
+  "platform.expiresAtEnable": "有効期限を有効化",
   "platform.expiresAtSoon": "まもなく期限切れ：{{time}}",
   "platform.fetchEmpty": "モデルが見つかりません",
   "platform.fetchModels": "モデル取得",
