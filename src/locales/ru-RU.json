@@ -1636,5 +1636,7 @@
   "importExport.error.notAidogx": "Перетащите файл резервной копии .aidogx",
   "group.createFailed": "Не удалось создать группу",
   "group.addMappingFailed": "Не удалось добавить сопоставление",
-  "group.deleteMappingFailed": "Не удалось удалить сопоставление"
+  "group.deleteMappingFailed": "Не удалось удалить сопоставление",
+  "skills.searchPlaceholder": "Поиск skills...",
+  "skills.searchEmpty": "Нет подходящих skills"
 }

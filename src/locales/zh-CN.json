@@ -1614,5 +1614,7 @@
   "importExport.error.notAidogx": "请拖入 .aidogx 备份文件",
   "group.createFailed": "创建分组失败",
   "group.addMappingFailed": "添加映射失败",
-  "group.deleteMappingFailed": "删除映射失败"
+  "group.deleteMappingFailed": "删除映射失败",
+  "skills.searchPlaceholder": "搜索 skills...",
+  "skills.searchEmpty": "没有匹配的 skills"
 }
