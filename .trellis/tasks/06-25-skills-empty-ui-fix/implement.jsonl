@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端组件/状态/类型/i18n 约定 — Skills 页改动"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "若涉 Rust↔TS 边界(skills command),契约对齐"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用既有搜索框/pinyin/列表渲染,禁重复造"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端 pre-dev checklist 入口"}
