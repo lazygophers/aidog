@@ -112,15 +112,15 @@ pub struct SharePlatform {
     pub platform_type: Protocol,
     pub base_url: String,
     pub api_key: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub extra: String,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "PlatformModels::is_empty")]
     pub models: PlatformModels,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub available_models: Vec<String>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub endpoints: Vec<PlatformEndpoint>,
-    #[serde(default)]
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub manual_budgets: Vec<ManualBudget>,
 }
 

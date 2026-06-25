@@ -107,3 +107,102 @@ async fn tray_config_and_today_stats() {
     let stats = tray_today_stats(db.clone()).await.unwrap();
     let _ = stats;
 }
+
+// ── SharePlatform: skip_serializing_if 空值剔除 (serde 层) ──
+//
+// 平台分享串 YAML/JSON/Base64 三格式统一在 serde 层剔空值。
+// 这里走 serde_yml::to_string 直接验证序列化产物，绕开 DB / tauri command。
+// PlatformModels 经 commands/platform.rs 的 `use gateway::models::*` 引入（super::* 链）。
+
+use crate::gateway::models::PlatformModels;
+use crate::gateway::models::Protocol;
+
+fn empty_share() -> SharePlatform {
+    SharePlatform {
+        aidog_platform_share: 1,
+        name: "P".into(),
+        platform_type: Protocol::Anthropic,
+        base_url: "https://example.invalid/v1".into(),
+        api_key: "k".into(),
+        extra: String::new(),
+        models: PlatformModels::default(),
+        available_models: vec![],
+        endpoints: vec![],
+        manual_budgets: vec![],
+    }
+}
+
+#[test]
+fn share_empty_fields_skipped_in_yaml() {
+    let s = empty_share();
+    let yaml = serde_yml::to_string(&s).expect("serialize");
+    // 必保留字段
+    assert!(yaml.contains("aidog_platform_share:"), "marker kept: {yaml}");
+    assert!(yaml.contains("name: P"), "name kept: {yaml}");
+    assert!(yaml.contains("base_url:"), "base_url kept: {yaml}");
+    assert!(yaml.contains("api_key:"), "api_key kept (even non-empty here): {yaml}");
+    // 空值字段必须从串里消失
+    assert!(!yaml.contains("extra:"), "empty extra skipped: {yaml}");
+    assert!(!yaml.contains("models:"), "empty models skipped: {yaml}");
+    assert!(!yaml.contains("available_models:"), "empty available_models skipped: {yaml}");
+    assert!(!yaml.contains("endpoints:"), "empty endpoints skipped: {yaml}");
+    assert!(!yaml.contains("manual_budgets:"), "empty manual_budgets skipped: {yaml}");
+}
+
+#[test]
+fn share_empty_api_key_still_present() {
+    // api_key 即便为空串也必须保留（分享核心字段，空 key 便于接收端察觉异常）
+    let mut s = empty_share();
+    s.api_key = String::new();
+    let yaml = serde_yml::to_string(&s).expect("serialize");
+    assert!(yaml.contains("api_key:"), "empty api_key still present: {yaml}");
+}
+
+#[test]
+fn share_nonempty_models_field_kept() {
+    // 任一 models 槽位有值 → 整块 models key 保留
+    let mut s = empty_share();
+    s.models.sonnet = Some("claude-sonnet-4".into());
+    let yaml = serde_yml::to_string(&s).expect("serialize");
+    assert!(yaml.contains("models:"), "models block kept when slot set: {yaml}");
+    assert!(yaml.contains("sonnet: claude-sonnet-4"), "sonnet slot value present: {yaml}");
+    // PlatformModels 槽位自身 skip_serializing_if Option::is_none，未设槽位不出现在 models 块里
+    assert!(!yaml.contains("default:"), "unset models.default skipped inside block: {yaml}");
+    // 其余空字段仍剔除
+    assert!(!yaml.contains("extra:"), "extra still skipped: {yaml}");
+    assert!(!yaml.contains("available_models:"), "available_models still skipped: {yaml}");
+}
+
+#[test]
+fn share_roundtrip_empty_equivalent() {
+    // round-trip: 导出串 → serde_yml 反序列化 → 缺字段回填 default，语义等价
+    let s = empty_share();
+    let yaml = serde_yml::to_string(&s).expect("serialize");
+    let parsed: SharePlatform = serde_yml::from_str(&yaml).expect("parse");
+    assert_eq!(parsed.aidog_platform_share, 1);
+    assert_eq!(parsed.name, "P");
+    assert_eq!(parsed.api_key, "k");
+    // skip 后缺字段回 default
+    assert_eq!(parsed.extra, "", "extra back to empty default");
+    assert!(parsed.models.is_empty(), "models back to all-None default");
+    assert!(parsed.available_models.is_empty());
+    assert!(parsed.endpoints.is_empty());
+    assert!(parsed.manual_budgets.is_empty());
+}
+
+#[test]
+fn share_parse_accepts_string_without_optional_keys() {
+    // 接收端解析: 仅 marker+必填的极简串（模拟他人转发的清爽串）应成功
+    let minimal = r#"
+aidog_platform_share: 1
+name: P2
+platform_type: anthropic
+base_url: https://example.invalid/v1
+api_key: k2
+"#;
+    let parsed: SharePlatform = serde_yml::from_str(minimal).expect("parse minimal");
+    assert_eq!(parsed.name, "P2");
+    assert_eq!(parsed.api_key, "k2");
+    assert_eq!(parsed.extra, "");
+    assert!(parsed.models.is_empty());
+}
