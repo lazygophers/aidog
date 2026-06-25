@@ -4,7 +4,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { getCurrentWindow, LogicalSize, LogicalPosition } from "@tauri-apps/api/window";
 import { useTranslation } from "react-i18next";
 import type { Group, GroupDetail } from "./services/api";
-import { groupApi, groupDetailApi, statsApi } from "./services/api";
+import { groupApi, groupDetailApi, statsApi, onProxyLogUpdated } from "./services/api";
 import { applyTheme, DEFAULT_STYLE, DEFAULT_COLOR, DEFAULT_MODE } from "./themes";
 import type { ThemeStyle, ThemeColor, ThemeMode } from "./themes/types";
 import {
@@ -88,14 +88,13 @@ function Popover() {
   const centerXRef = React.useRef<number | null>(null);
   const appliedRef = React.useRef<{ w: number; h: number } | null>(null);
 
-  useEffect(() => {
-    const s = loadSettings();
-    applyTheme(s.themeStyle, s.themeColor, s.themeMode);
-    if (s.locale) {
-      ensureLocaleLoaded(s.locale).then(() => i18n.changeLanguage(s.locale)).catch(() => {});
-    }
+  // 重拉 popover_data + 统计批量 + 分组列表。mount 首拉 + proxy-log-updated 事件触发复用。
+  // cancel 守卫防慢后端晚到 resolve 覆盖 newer 状态（参考 [[mount-fetch-late-resolve-overwrites-optimistic]]）。
+  const reloadData = React.useCallback(() => {
+    let cancelled = false;
     invoke<PopoverData>("popover_data")
       .then((d) => {
+        if (cancelled) return;
         setData(d);
         // config 到手后一次性批量拉所有统计卡数据（cost_trend / platform_metric / group_*）。
         const { itemIds, queries } = collectStatsQueries(d.config);
@@ -106,18 +105,33 @@ function Popover() {
         statsApi
           .queryBatch(queries)
           .then((results) => {
+            if (cancelled) return;
             const m: PopoverStatsMap = new Map();
             results.forEach((r, i) => m.set(itemIds[i], r));
             setStatsMap(m);
             setStatsLoaded(true);
           })
-          .catch(() => setStatsLoaded(true));
+          .catch(() => { if (!cancelled) setStatsLoaded(true); });
       })
       .catch(console.error);
     // 分组名 + 分组余额数据（group_* 卡片用）。顶层一次性 fetch，避免每卡重复请求。
-    groupApi.list().then(setGroups).catch(() => {});
-    groupDetailApi.list().then(setGroupDetails).catch(() => setGroupDetails([]));
+    groupApi.list().then((v) => { if (!cancelled) setGroups(v); }).catch(() => {});
+    groupDetailApi.list().then((v) => { if (!cancelled) setGroupDetails(v); }).catch(() => { if (!cancelled) setGroupDetails([]); });
+    return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    const s = loadSettings();
+    applyTheme(s.themeStyle, s.themeColor, s.themeMode);
+    if (s.locale) {
+      ensureLocaleLoaded(s.locale).then(() => i18n.changeLanguage(s.locale)).catch(() => {});
+    }
+    const cancel = reloadData();
+    // popover = 独立 Tauri webview window（WebviewWindowBuilder label="popover"，app_setup.rs:209）；
+    // 后端 log.rs:153 app.emit 广播所有 webview，可达 → 事件订阅。1000ms debounce 避免高频 re-render。
+    const unlisten = onProxyLogUpdated(() => { reloadData(); }, 1000);
+    return () => { cancel(); unlisten(); };
+  }, [reloadData]);
 
   // 失焦自动关闭
   useEffect(() => {

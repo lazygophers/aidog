@@ -4,6 +4,7 @@ import {
   proxyLogApi,
   platformApi,
   groupDetailApi,
+  onProxyLogUpdated,
   type ProxyLogSummary,
   type ProxyLogDetail,
   type ProxyLogFilter,
@@ -188,9 +189,11 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
   // Reset offset when filter changes
   useEffect(() => { setOffset(0); }, [hasFilter, activeFilter]);
 
-  // Auto-refresh every 3s on list view（页面不可见时暂停）
+  // 兜底轮询 30s（防事件丢失 + 流式收敛；空闲页可见时 0 IPC，事件不来不刷）
   const refreshList = useCallback(() => { load(true); }, [load]);
-  usePolling(refreshList, 3000, !detail);
+  usePolling(refreshList, 30_000, !detail);
+  // 后端 emit "proxy-log-updated" → 500ms debounce 聚合高频 emit 后实时刷新列表
+  useEffect(() => onProxyLogUpdated(() => { refreshList(); }, 500), [refreshList]);
 
   const handleClear = async () => {
     if (!confirm(t("logs.clearConfirm", "确认清除所有日志？此操作不可撤销。"))) return;
@@ -226,14 +229,16 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
     } catch (err) { console.error(err); }
   }, [copyDetail]);
 
-  // Auto-refresh detail every 2s while viewing（页面不可见时暂停）
+  // 兜底轮询 5s（防流式事件丢失；详情打开时页面可见才跑）
   const refreshDetail = useCallback(() => {
     if (!detail) return;
     proxyLogApi.get(detail.id)
       .then(d => { if (d) setDetail(d); })
       .catch(() => {});
   }, [detail]);
-  usePolling(refreshDetail, 2000, !!detail);
+  usePolling(refreshDetail, 5_000, !!detail);
+  // 后端 emit "proxy-log-updated" → 1000ms debounce（流式单条 log 多次 emit，避免高频 reload 详情）
+  useEffect(() => onProxyLogUpdated(() => { refreshDetail(); }, 1000), [refreshDetail]);
 
   // Build platform lookup — must run before any conditional return to keep hook order stable
   const platformMap = useMemo(() => {
