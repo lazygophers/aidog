@@ -38,6 +38,8 @@ export interface ParsedPaste {
   platform: { value: string; label: string; codingPlan?: boolean } | null;
   /** 去重后的候选模型名（来自 base64 解码的标签复合串「模型名X」）。多为空。 */
   models: string[];
+  /** 从文案中识别的过期时间（毫秒时间戳）；null = 未识别。社区分享帖常见「即将过期 06-28 23:59」。 */
+  expiresAt: number | null;
 }
 
 /** 已知 apikey 前缀（长在前，避免 sk- 抢先吃掉 sk-ant-）。
@@ -350,6 +352,114 @@ function extractCompoundFromBase64(text: string): CompoundParts[] {
   return out;
 }
 
+// ─── 过期时间识别 ─────────────────────────────────────────
+// 收紧模式（2026-06-25 回归 bug 修复）：仅当文案含过期语义词且日期候选距最近语义词 ≤ 60 字符
+// 才识别，防止「更新于 2026-07-15」/「版本计划 08-20」等非过期语境日期被误识别灌表单。
+// 保留：7 天回退保护（早于 now - 7d 视为历史无效）+ 默认补全年份为当年（已过则推次年）。
+
+/** 时间候选：匹配到的字符串 + 字符索引（用于近语义词排序）。 */
+interface TimeCandidate {
+  raw: string;
+  index: number;
+}
+
+/** 全部形如 MM-DD / MM-DD HH:MM / YYYY-MM-DD / YYYY-MM-DD HH:MM 的子串。
+ *  排除看起来像版本号（如 4.5）、URL 中的日期（已被 URL_RE 吞走，此处仅扫纯文本）。
+ *  不匹配纯 HH:MM（易与版本号/比例混淆，且社区帖多以日期锚定）。 */
+const DATETIME_RE =
+  /(?:(\d{4})[-\/](\d{1,2})[-\/](\d{1,2})(?:[ T](\d{1,2}):(\d{1,2}))?)|(?:(\d{1,2})[-\/月](\d{1,2})(?:[日号 T](\d{1,2}):(\d{1,2}))?)/gu;
+
+/** 语义词：文案中出现这些词时，邻近的日期候选优先（过期/到期/exp/expire/有效期）。 */
+const EXPIRY_KEYWORDS = /过期|到期|有效期|即将过期|临近过期|expir(?:e|y|ation)|\bexp\b/giu;
+
+/** 解析单个候选 → 毫秒时间戳（按当年 / 次年补全；返回 0 = 无法解析）。
+ *  - YYYY-MM-DD[ HH:MM]：直接构造。
+ *  - MM-DD[ HH:MM]：补全年份为当年；若当年该日 < 今天 → 推次年（避免已过日期）。
+ */
+function parseCandidate(c: TimeCandidate, now: number): number {
+  const m = DATETIME_RE.exec(c.raw);
+  if (!m) return 0;
+  // 注意：DATETIME_RE 带 g flag，exec 后 lastIndex 会变；此处每次新正则实例更安全。
+  // 但我们已匹配过 c.raw（caller 全局扫），此处重新 exec 单个 c.raw 字符串，从 0 开始，
+  // 由于字符串无状态隔离，重新 exec 单一短串等价。保险起见用新建 RegExp 实例避免 lastIndex 干扰。
+  let y: number, mo: number, d: number, h: number, mi: number;
+  if (m[1]) {
+    // YYYY-MM-DD [HH:MM]
+    y = parseInt(m[1], 10);
+    mo = parseInt(m[2], 10);
+    d = parseInt(m[3], 10);
+    h = m[4] ? parseInt(m[4], 10) : 0;
+    mi = m[5] ? parseInt(m[5], 10) : 0;
+  } else {
+    // MM-DD [HH:MM]
+    const nowDate = new Date(now);
+    y = nowDate.getFullYear();
+    mo = parseInt(m[6], 10);
+    d = parseInt(m[7], 10);
+    h = m[8] ? parseInt(m[8], 10) : 0;
+    mi = m[9] ? parseInt(m[9], 10) : 0;
+    // 当年该日已过（且非今天）→ 推次年。
+    const candidateThisYear = new Date(y, mo - 1, d, h, mi).getTime();
+    if (candidateThisYear < now && (now - candidateThisYear) > 86_400_000) {
+      y = y + 1;
+    }
+  }
+  if (!Number.isFinite(mo) || mo < 1 || mo > 12) return 0;
+  if (!Number.isFinite(d) || d < 1 || d > 31) return 0;
+  const ts = new Date(y, mo - 1, d, h, mi).getTime();
+  return Number.isFinite(ts) ? ts : 0;
+}
+
+/** 从文案中识别过期时间。
+ *  收紧模式（2026-06-25 回归 bug 修复）：必须文案中出现过期语义词（过期/到期/exp/有效期），
+ *  且日期候选距最近语义词 ≤ 60 字符，否则视为无关日期不识别（防「更新于 2026-07-15」类帖误识别）。
+ *  保留 7 天回退保护（早于 now - 7d 视为历史无效）。返回毫秒时间戳或 null。 */
+export function extractExpiryAt(text: string, now: number = Date.now()): number | null {
+  if (!text) return null;
+
+  // 1) 先扫语义词位置 —— 无语义词直接 return null（收紧核心：防非过期语境文案误识别）。
+  const kwPositions: number[] = [];
+  const kwRe = new RegExp(EXPIRY_KEYWORDS.source, "giu");
+  let kw: RegExpExecArray | null;
+  while ((kw = kwRe.exec(text)) !== null) {
+    kwPositions.push(kw.index);
+  }
+  if (kwPositions.length === 0) return null;
+
+  // 2) 收集所有日期候选（带字符位置用于近语义词排序）。
+  const candidates: TimeCandidate[] = [];
+  const re = new RegExp(DATETIME_RE.source, "gu");
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    candidates.push({ raw: m[0], index: m.index });
+  }
+  if (candidates.length === 0) return null;
+
+  // 3) 7 天回退保护门槛。
+  const cutoff = now - 7 * 86_400_000;
+
+  // 过滤 + 解析为时间戳（保留原始 index 供排序）。
+  const parsed = candidates
+    .map(c => ({ c, ts: parseCandidate(c, now) }))
+    .filter(x => x.ts > cutoff);
+
+  if (parsed.length === 0) return null;
+
+  // 4) 按到最近语义词的字符距离升序。
+  parsed.sort((a, b) => {
+    const da = Math.min(...kwPositions.map(p => Math.abs(p - a.c.index)));
+    const db = Math.min(...kwPositions.map(p => Math.abs(p - b.c.index)));
+    return da - db;
+  });
+
+  // 5) 最近候选距语义词 > 60 字符 → 视为无关日期（保守阈值，防邻段不相关日期误识别）。
+  const best = parsed[0];
+  const bestDist = Math.min(...kwPositions.map(p => Math.abs(p - best.c.index)));
+  if (bestDist > 60) return null;
+
+  return best.ts;
+}
+
 /**
  * 解析粘贴文本 → {apiKeys, baseUrls, platform, models}。
  * @param text 用户粘贴的原始文案
@@ -360,7 +470,7 @@ export function parsePlatformPaste(
   presets: PastePresetRef[],
 ): ParsedPaste {
   if (!text || !text.trim()) {
-    return { apiKeys: [], baseUrls: [], platform: null, models: [] };
+    return { apiKeys: [], baseUrls: [], platform: null, models: [], expiresAt: null };
   }
   const baseUrls = extractBaseUrls(text);
   const apiKeys = extractApiKeys(text);
@@ -392,5 +502,6 @@ export function parsePlatformPaste(
     baseUrls,
     platform,
     models,
+    expiresAt: extractExpiryAt(text),
   };
 }

@@ -12,6 +12,7 @@ import { pinyinMatch } from "../utils/pinyin";
 import { SmartPasteModal, type SmartPasteApplyResult } from "../components/platforms/SmartPasteModal";
 import { ShareModal } from "../components/platforms/ShareModal";
 import { PlatformCard, LevelPriorityControl, type PlatformCardActions } from "../components/platforms/PlatformCard";
+import { useThemeMode } from "../themes/useThemeMode";
 
 /** 支持的协议选项（含 coding plan 变体） */
 export type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[]; hosts?: string[] };
@@ -128,6 +129,14 @@ function defaultClientForProtocol(protocol: Protocol): ClientType {
     case "openai": return "codex_tui";
     default: return "default";
   }
+}
+
+/** 毫秒时间戳 → datetime-local input 值 "YYYY-MM-DDTHH:MM"（本地时区，无秒）。
+ *  datetime-local 不解析 ISO Z 后缀，须手动拼本地时间分量。 */
+function toDatetimeLocal(ms: number): string {
+  const d = new Date(ms);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
 
@@ -1477,6 +1486,11 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   // 创建态：唯一分组 = 默认组(autoGroup) 或 joinGroupIds[0] 或 lockedGroupId。
   // 编辑态：从 groupDetails 反查该平台所属分组，唯一才显示。
   const [levelPriority, setLevelPriority] = useState(5);
+  // 过期时间（毫秒 unix 时间戳，0 = 永不过期）。路由候选排除的独立维度（不改 status 三态）。
+  const [expiresAt, setExpiresAt] = useState(0);
+  // 当前主题 mode（light/dark，订阅 documentElement data-mode 变化）。
+  // 用于 datetime-local input 的 colorScheme 属性（控 WKWebView 原生日历弹出层明暗）。
+  const themeMode = useThemeMode();
   // 锁定分组：从某分组 ➕ 触发创建平台时，预绑该分组且禁止修改归属。
   const [lockedGroupId, setLockedGroupId] = useState<number | null>(null);
   // 平台归属映射：platformId → groupNames[]（用于平台卡片显示所属分组 badge）
@@ -1628,6 +1642,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       });
     }
     if (r.apiKey) setApiKey(r.apiKey);
+    // 智能粘贴识别到的过期时间（社区分享帖常见「即将过期 06-28 23:59」）。0/未识别 = 不动。
+    if (r.expiresAt && r.expiresAt > 0) setExpiresAt(r.expiresAt);
     setShowPaste(false);
     // 弹窗可能从主列表「添加平台」直达（表单尚未挂载），apply 后显式拉起表单展示已填字段。
     setShowForm(true);
@@ -1958,7 +1974,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setNewApiConfig({ ...DEFAULT_NEWAPI_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
-    setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setLevelPriority(5);
+    setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setLevelPriority(5); setExpiresAt(0);
     // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
     // 平台第二次编辑会被 consumedEditPidRef 短路（initialFilter.platformId 值不变，effect 亦不重跑）。
     consumedEditPidRef.current = null;
@@ -2003,6 +2019,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setMockConfig(parseMockConfig(p.extra ?? ""));
     setNewApiConfig(parseNewApiConfig(p.extra ?? ""));
     setManualBudgets(p.manual_budgets ?? []);
+    setExpiresAt(p.expires_at ?? 0);
     // 熔断覆盖现存于 extra.breaker：0 = 继承 → 显示空
     {
       const brk = parsePlatformBreaker(p.extra ?? "");
@@ -2080,6 +2097,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setMockConfig(parseMockConfig(p.extra ?? ""));
     setNewApiConfig(parseNewApiConfig(p.extra ?? ""));
     setManualBudgets(p.manual_budgets ?? []);
+    setExpiresAt(p.expires_at ?? 0);
     {
       const brk = parsePlatformBreaker(p.extra ?? "");
       setBreakerFailureThreshold(brk.failure_threshold > 0 ? String(brk.failure_threshold) : "");
@@ -2203,6 +2221,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           endpoints: endpoints.length > 0 ? endpoints : undefined,
           manual_budgets: manualBudgetsPayload,
           join_group_ids: joinGroupIds,
+          expires_at: expiresAt,
         });
         savedId = editing.id;
       } else {
@@ -2216,6 +2235,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           join_group_ids: joinGroupIds,
           // 唯一分组为默认组(autoGroup)时, 后端建组直接用此值, 免前端回查。
           default_level_priority: uniqueGroupInfo.isAuto ? levelPriority : undefined,
+          expires_at: expiresAt,
         });
         savedId = saved.id;
       }
@@ -3127,6 +3147,56 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               )}
             </FormSection>
           )}
+
+          {/* 过期时间（可选）：设过期后路由自动排除（等效禁用），独立于 status 三态。
+              datetime-local 输入 + 清空按钮；0 = 永不过期。 */}
+          <FormSection
+            title={t("platform.expiresAt", "过期时间")}
+            desc={t("platform.expiresAtHint", "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。")}
+          >
+            <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+              <input
+                className="input"
+                type="datetime-local"
+                // colorScheme 控 WKWebView 原生日历弹出层明暗；input 本体 color/bg/border 走 .input 的 CSS 变量。
+                style={{ flex: 1, minWidth: 200, colorScheme: themeMode }}
+                // datetime-local 值为 "YYYY-MM-DDTHH:MM" 本地时间；expiresAt=0 → 空串（未设）。
+                value={expiresAt > 0 ? toDatetimeLocal(expiresAt) : ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (!v) { setExpiresAt(0); return; }
+                  // 本地时间 "YYYY-MM-DDTHH:MM" → 毫秒时间戳（new Date 按本地时区解析）。
+                  const ms = new Date(v).getTime();
+                  if (Number.isFinite(ms) && ms > 0) setExpiresAt(ms);
+                }}
+              />
+              {expiresAt > 0 && (
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  style={{ fontSize: 12, padding: "4px 10px" }}
+                  onClick={() => setExpiresAt(0)}
+                >
+                  {t("platform.expiresAtClear", "清空")}
+                </button>
+              )}
+              {expiresAt > 0 && (
+                <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                  {(() => {
+                    const nowMs = Date.now();
+                    if (nowMs >= expiresAt) {
+                      return t("platform.expired", "已过期");
+                    }
+                    const inDay = expiresAt - nowMs < 86_400_000;
+                    const txt = new Date(expiresAt).toLocaleString();
+                    return inDay
+                      ? t("platform.expiresAtSoon", "临近过期：{{time}}", { time: txt })
+                      : txt;
+                  })()}
+                </span>
+              )}
+            </div>
+          </FormSection>
 
           {/* Claude Code Config */}
           {editing && (
