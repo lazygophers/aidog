@@ -1130,6 +1130,8 @@
   "settings.platformConfigHint": "编辑 JSON 配置，与全局设置不同的字段将作为覆盖保存",
   "settings.plugins.autoRefresh": "启动时自动刷新",
   "settings.plugins.enabledHint": "格式: plugin-name@marketplace → 启用/禁用",
+  "settings.plugins.removePlugin": "删除插件",
+  "settings.plugins.removeMarketplace": "删除市场源",
   "settings.plugins.localPathPh": "本地安装路径（留空自动管理）",
   "settings.plugins.marketplacesHint": "命名市场源定义（github / git / directory / settings）",
   "settings.plugins.skipLfs": "跳过 LFS 下载",

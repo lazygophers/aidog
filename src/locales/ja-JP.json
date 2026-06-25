@@ -1152,6 +1152,8 @@
   "settings.platformConfigHint": "JSON設定を編集。グローバルと異なるフィールドが上書きとして保存されます",
   "settings.plugins.autoRefresh": "起動時に自動更新",
   "settings.plugins.enabledHint": "形式: plugin-name@marketplace → 有効/無効",
+  "settings.plugins.removePlugin": "プラグインを削除",
+  "settings.plugins.removeMarketplace": "マーケットプレイスを削除",
   "settings.plugins.localPathPh": "ローカルインストールパス（空欄で自動管理）",
   "settings.plugins.marketplacesHint": "名前付きマーケットプレイスソース定義（github / git / directory / settings）",
   "settings.plugins.skipLfs": "LFS ダウンロードをスキップ",
