@@ -11,12 +11,16 @@ import {
   type PastePresetRef,
   type ParsedProtocol,
 } from "../../utils/platformPaste";
+import { platformApi, type SharePlatform } from "../../services/api";
 
 export interface SmartPasteApplyResult {
   platform: { value: string; label: string; codingPlan?: boolean } | null;
   /** 选中的 base_url（按协议类型多选，每类型最多一个）。每项 → 一个 endpoint。 */
   baseUrls: { url: string; protocol: ParsedProtocol }[];
   apiKey: string;
+  /** 命中 aidog 平台分享串（YAML / JSON / Base64）时携带完整配置对象，调用方整体灌表单。
+   *  存在时优先于零散 platform/baseUrls/apiKey（后者作为非分享文本的杂乱解析回退）。 */
+  fullShare?: SharePlatform;
 }
 
 export interface SmartPasteModalProps {
@@ -43,6 +47,46 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
   const [selUrls, setSelUrls] = useState<string[]>([]);
 
   const parsed = useMemo(() => parsePlatformPaste(text, presets), [text, presets]);
+  // 命中 aidog 平台分享串（YAML / JSON / Base64）→ 整体灌表单（优先于杂乱解析）。
+  const [share, setShare] = useState<SharePlatform | null>(null);
+
+  // 文本变化时尝试解析 aidog 分享串：先原文（serde_yml 兼容 YAML/JSON），失败再试 base64 解码后解析。
+  // 非分享文本两路都失败 → share=null，回退原杂乱解析（无回归）。
+  useEffect(() => {
+    let cancelled = false;
+    const trimmed = text.trim();
+    if (!trimmed) {
+      setShare(null);
+      return;
+    }
+    const tryParse = async () => {
+      const candidates = [trimmed];
+      // base64 包裹的 YAML：仅当文本像单段 base64 时才尝试解码（避免误伤普通文本）。
+      if (/^[A-Za-z0-9+/=\s]+$/.test(trimmed) && !trimmed.includes(":")) {
+        try {
+          const bin = atob(trimmed.replace(/\s+/g, ""));
+          const bytes = Uint8Array.from(bin, (c) => c.charCodeAt(0));
+          candidates.push(new TextDecoder().decode(bytes));
+        } catch {
+          /* 非合法 base64 → 跳过 */
+        }
+      }
+      for (const c of candidates) {
+        try {
+          const r = await platformApi.shareParse(c);
+          if (!cancelled) setShare(r);
+          return;
+        } catch {
+          /* 非分享串 → 试下一候选 */
+        }
+      }
+      if (!cancelled) setShare(null);
+    };
+    void tryParse();
+    return () => {
+      cancelled = true;
+    };
+  }, [text]);
 
   // 渲染完成自动读剪贴板填入（仅首次 mount 且 text 空；失败静默兜底手动粘贴）。
   // 走 Tauri 插件非 navigator.clipboard：macOS WKWebView 无手势激活时 navigator API 被拒静默失败，
@@ -85,7 +129,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
   };
 
   const hasResult = parsed.apiKeys.length > 0 || parsed.baseUrls.length > 0 || !!parsed.platform;
-  const canApply = !!(selKey || selUrls.length > 0 || parsed.platform);
+  const canApply = !!share || !!(selKey || selUrls.length > 0 || parsed.platform);
 
   const labelStyle: CSSProperties = {
     fontSize: 12,
@@ -159,7 +203,34 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
           autoFocus
         />
 
-        {/* 识别结果 */}
+        {/* aidog 平台分享串命中 → 整体灌表单（优先于杂乱解析） */}
+        {share && (
+          <div
+            style={{
+              marginTop: 16,
+              padding: "12px 14px",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--accent-subtle)",
+              border: "1px solid var(--accent)",
+              display: "flex",
+              flexDirection: "column",
+              gap: 4,
+            }}
+          >
+            <div style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>
+              {t("platform.paste.shareDetected", "已识别 AiDog 平台分享")}
+            </div>
+            <div style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>
+              {share.name} · {share.platform_type.toUpperCase()}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+              {t("platform.paste.shareDetectedHint", "点击下方按钮将完整配置（含 API Key）灌入表单。")}
+            </div>
+          </div>
+        )}
+
+        {/* 识别结果（非分享串的杂乱文本解析） */}
+        {!share && (
         <div style={{ marginTop: 16, display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={labelStyle}>{t("platform.paste.detected", "识别结果")}</div>
 
@@ -246,6 +317,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
             </div>
           )}
         </div>
+        )}
 
         {/* 操作 */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 20 }}>
@@ -262,6 +334,11 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
             style={{ fontSize: 13, padding: "6px 14px", minWidth: 96 }}
             disabled={!canApply}
             onClick={() => {
+              if (share) {
+                onApply({ platform: null, baseUrls: [], apiKey: "", fullShare: share });
+                onClose();
+                return;
+              }
               const selected = parsed.baseUrls
                 .filter((b) => selUrls.includes(b.url))
                 .map((b) => ({ url: b.url, protocol: b.protocol }));

@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import type { Platform, LastTestResult } from "../../services/api";
+import type { Platform, LastTestResult, SharePlatform } from "../../services/api";
 import { platformApi, quotaApi, modelTestApi } from "../../services/api";
 import {
   computeQuotaDisplay,
@@ -45,8 +45,12 @@ interface UsePlatformCardsReturn {
   handleViewLogs: (p: Platform) => void;
   handleDelete: (id: number) => Promise<void>;
   handleEdit: (p: Platform) => void;
+  handleShare: (p: Platform) => Promise<void>;
   handleCustomTest: (p: Platform) => void;
   onFaviconFailed: (fn: (prev: Set<number>) => Set<number>) => void;
+  // Share modal state
+  shareData: { share: SharePlatform; name: string } | null;
+  setShareData: React.Dispatch<React.SetStateAction<{ share: SharePlatform; name: string } | null>>;
 }
 
 // Helper: 从 endpoints 中推导主 base_url
@@ -73,6 +77,7 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
   const [testingId, setTestingId] = useState<number | null>(null);
   const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [lastTestMap, setLastTestMap] = useState<Record<number, LastTestResult>>({});
+  const [shareData, setShareData] = useState<{ share: SharePlatform; name: string } | null>(null);
 
   // 默认的 toast 设置函数
   const setToast = setToastProp ?? (() => {});
@@ -194,6 +199,18 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
     }
   }, [onEditProp, onNavigate]);
 
+  // Share（导出可分享配置 → 打开 ShareModal）
+  const handleShare = useCallback(async (p: Platform) => {
+    try {
+      const share = await platformApi.shareExport(p.id);
+      setShareData({ share, name: p.name });
+    } catch (e) {
+      console.error(e);
+      setToast({ text: `${p.name}: ${t("platform.share.exportFail", "导出分享内容失败")}`, ok: false });
+      setTimeout(() => setToast(null), 3000);
+    }
+  }, [t, setToast]);
+
   // Custom test（由父组件处理）
   const handleCustomTest = useCallback((p: Platform) => {
     setTestingPlatform(p);
@@ -229,8 +246,11 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
     handleViewLogs,
     handleDelete,
     handleEdit,
+    handleShare,
     handleCustomTest,
     onFaviconFailed,
+    shareData,
+    setShareData,
   };
 }
 

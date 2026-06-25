@@ -1636,5 +1636,20 @@
   "importExport.error.notAidogx": "يرجى إسقاط ملف نسخ احتياطي ‎.aidogx",
   "group.createFailed": "فشل إنشاء المجموعة",
   "group.addMappingFailed": "فشل إضافة التعيين",
-  "group.deleteMappingFailed": "فشل حذف التعيين"
+  "group.deleteMappingFailed": "فشل حذف التعيين",
+  "action.close": "إغلاق",
+  "platform.share.button": "مشاركة",
+  "platform.share.title": "مشاركة المنصة",
+  "platform.share.warning": "يحتوي المحتوى المشترك على مفتاح API بنص واضح. أرسله فقط إلى جهات موثوقة ولا تنشره علنًا.",
+  "platform.share.format.yaml": "YAML",
+  "platform.share.format.json": "JSON",
+  "platform.share.format.base64": "Base64",
+  "platform.share.copyBtn": "نسخ",
+  "platform.share.copiedBtn": "تم النسخ",
+  "platform.share.copied": "تم النسخ إلى الحافظة",
+  "platform.share.autoCopied": "تم نسخ محتوى المشاركة تلقائيًا إلى الحافظة",
+  "platform.share.copyFail": "فشل النسخ، يرجى تحديد المحتوى يدويًا",
+  "platform.share.exportFail": "فشل في إنشاء محتوى المشاركة",
+  "platform.paste.shareDetected": "تم اكتشاف مشاركة منصة AiDog",
+  "platform.paste.shareDetectedHint": "انقر على الزر أدناه لتعبئة الإعدادات الكاملة (بما في ذلك مفتاح API) في النموذج."
 }

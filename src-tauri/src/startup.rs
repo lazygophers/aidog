@@ -22,6 +22,8 @@ pub fn run() {
             crate::commands::platform::platform_create,
             crate::commands::platform::platform_list,
             crate::commands::platform::platform_get,
+            crate::commands::platform::platform_share_export,
+            crate::commands::platform::platform_share_parse,
             crate::commands::platform::platform_update,
             crate::commands::platform::platform_delete,
             crate::commands::platform::platform_purge_disabled,

@@ -1636,5 +1636,20 @@
   "importExport.error.notAidogx": "Veuillez déposer un fichier de sauvegarde .aidogx",
   "group.createFailed": "Échec de la création du groupe",
   "group.addMappingFailed": "Échec de l'ajout du mappage",
-  "group.deleteMappingFailed": "Échec de la suppression du mappage"
+  "group.deleteMappingFailed": "Échec de la suppression du mappage",
+  "action.close": "Fermer",
+  "platform.share.button": "Partager",
+  "platform.share.title": "Partager la plateforme",
+  "platform.share.warning": "Le contenu partagé contient une clé API en clair. Ne l'envoyez qu'à des destinataires de confiance et ne le publiez jamais.",
+  "platform.share.format.yaml": "YAML",
+  "platform.share.format.json": "JSON",
+  "platform.share.format.base64": "Base64",
+  "platform.share.copyBtn": "Copier",
+  "platform.share.copiedBtn": "Copié",
+  "platform.share.copied": "Copié dans le presse-papiers",
+  "platform.share.autoCopied": "Contenu de partage copié automatiquement dans le presse-papiers",
+  "platform.share.copyFail": "Échec de la copie, veuillez sélectionner le contenu manuellement",
+  "platform.share.exportFail": "Échec de la génération du contenu de partage",
+  "platform.paste.shareDetected": "Partage de plateforme AiDog détecté",
+  "platform.paste.shareDetectedHint": "Cliquez sur le bouton ci-dessous pour remplir la configuration complète (clé API incluse) dans le formulaire."
 }

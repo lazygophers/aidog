@@ -1636,5 +1636,20 @@
   "importExport.error.notAidogx": "Перетащите файл резервной копии .aidogx",
   "group.createFailed": "Не удалось создать группу",
   "group.addMappingFailed": "Не удалось добавить сопоставление",
-  "group.deleteMappingFailed": "Не удалось удалить сопоставление"
+  "group.deleteMappingFailed": "Не удалось удалить сопоставление",
+  "action.close": "Закрыть",
+  "platform.share.button": "Поделиться",
+  "platform.share.title": "Поделиться платформой",
+  "platform.share.warning": "Передаваемый контент содержит API-ключ в открытом виде. Отправляйте его только доверенным получателям и никогда не публикуйте.",
+  "platform.share.format.yaml": "YAML",
+  "platform.share.format.json": "JSON",
+  "platform.share.format.base64": "Base64",
+  "platform.share.copyBtn": "Копировать",
+  "platform.share.copiedBtn": "Скопировано",
+  "platform.share.copied": "Скопировано в буфер обмена",
+  "platform.share.autoCopied": "Содержимое для общего доступа автоматически скопировано в буфер обмена",
+  "platform.share.copyFail": "Не удалось скопировать, выделите содержимое вручную",
+  "platform.share.exportFail": "Не удалось сформировать содержимое для общего доступа",
+  "platform.paste.shareDetected": "Обнаружен общий доступ к платформе AiDog",
+  "platform.paste.shareDetectedHint": "Нажмите кнопку ниже, чтобы заполнить форму полной конфигурацией (включая API-ключ)."
 }
