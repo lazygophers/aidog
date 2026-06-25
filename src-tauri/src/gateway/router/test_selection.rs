@@ -22,7 +22,7 @@ async fn mk_platform(db: &db::Db, name: &str, models: Option<PlatformModels>) ->
             endpoints: None,
             manual_budgets: None,
             auto_group: None,
-            join_group_ids: None,
+            join_group_ids: None, default_level_priority: None,
         },
     )
     .await

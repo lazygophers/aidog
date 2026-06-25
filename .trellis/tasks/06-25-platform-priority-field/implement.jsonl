@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端表单改动 MUST 读: 组件/state/API/类型/i18n 强制规则"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "CreatePlatform 加字段不改 schema (default_level_priority transient), 但需遵 DB 规范"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "跨 Rust↔TS 边界: CreatePlatform 新字段 default_level_priority 契约对齐"}
+{"file": ".trellis/tasks/06-25-platform-priority-field/prd.md", "reason": "本 task PRD (唯一分组判定 + 创建/编辑路径 + 决策)"}

@@ -11,7 +11,7 @@ import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
 import { pinyinMatch } from "../utils/pinyin";
 import { SmartPasteModal, type SmartPasteApplyResult } from "../components/platforms/SmartPasteModal";
 import { ShareModal } from "../components/platforms/ShareModal";
-import { PlatformCard, type PlatformCardActions } from "../components/platforms/PlatformCard";
+import { PlatformCard, LevelPriorityControl, type PlatformCardActions } from "../components/platforms/PlatformCard";
 
 /** 支持的协议选项（含 coding plan 变体） */
 export type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[]; hosts?: string[] };
@@ -1473,6 +1473,10 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const [autoGroup, setAutoGroup] = useState(true);
   const [joinGroupIds, setJoinGroupIds] = useState<number[]>([]);
   const [groupDetails, setGroupDetails] = useState<GroupDetail[]>([]);
+  // per-group level_priority 表单态（1~10，默认 5）。仅当平台归属唯一分组时可设。
+  // 创建态：唯一分组 = 默认组(autoGroup) 或 joinGroupIds[0] 或 lockedGroupId。
+  // 编辑态：从 groupDetails 反查该平台所属分组，唯一才显示。
+  const [levelPriority, setLevelPriority] = useState(5);
   // 锁定分组：从某分组 ➕ 触发创建平台时，预绑该分组且禁止修改归属。
   const [lockedGroupId, setLockedGroupId] = useState<number | null>(null);
   // 平台归属映射：platformId → groupNames[]（用于平台卡片显示所属分组 badge）
@@ -1501,6 +1505,23 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   const keyOptional = protocol === "opencode_zen";
   // 需要 api_key 但未填（keyOptional 平台不要求）—— fetch/列模型按钮共用的禁用判定。
   const apiKeyMissing = !keyOptional && !apiKey;
+  // 唯一分组判定：平台最终归属恰好一个分组时，表单提供 level_priority 设置。
+  // 创建态 count = (autoGroup?1:0) + joinGroupIds.length + (lockedGroupId?1:0 互斥)；
+  // 编辑态 = auto 组 + 用户改后的 joinGroupIds。
+  const uniqueGroupInfo = useMemo(() => {
+    if (isPassthrough) return { show: false, groupId: null as number | null, isAuto: false };
+    if (editing) {
+      const autoGd = groupDetails.find(gd => gd.group.auto_from_platform === String(editing.id));
+      const total = (autoGd ? 1 : 0) + joinGroupIds.length;
+      if (total === 1) return { show: true, groupId: autoGd ? autoGd.group.id : joinGroupIds[0], isAuto: false };
+      return { show: false, groupId: null, isAuto: false };
+    }
+    if (lockedGroupId != null) return { show: true, groupId: lockedGroupId, isAuto: false };
+    const joinCount = joinGroupIds.length;
+    if (autoGroup && joinCount === 0) return { show: true, groupId: null, isAuto: true };
+    if (!autoGroup && joinCount === 1) return { show: true, groupId: joinGroupIds[0], isAuto: false };
+    return { show: false, groupId: null, isAuto: false };
+  }, [isPassthrough, editing, groupDetails, lockedGroupId, autoGroup, joinGroupIds]);
 
   /** 从 endpoints 中推导主 base_url（匹配主协议的 endpoint，否则取第一个） */
   const getPrimaryBaseUrl = (proto: Protocol, eps: PlatformEndpoint[]): string => {
@@ -1937,7 +1958,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     setNewApiConfig({ ...DEFAULT_NEWAPI_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
-    setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null);
+    setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setLevelPriority(5);
     // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
     // 平台第二次编辑会被 consumedEditPidRef 短路（initialFilter.platformId 值不变，effect 亦不重跑）。
     consumedEditPidRef.current = null;
@@ -1994,10 +2015,21 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     try {
       const gds = await groupDetailApi.list();
       setGroupDetails(gds);
-      setJoinGroupIds(gds
+      const manualIds = gds
         .filter(gd => gd.group.auto_from_platform !== String(p.id)
           && gd.platforms.some(gp => gp.platform.id === p.id))
-        .map(gd => gd.group.id));
+        .map(gd => gd.group.id);
+      setJoinGroupIds(manualIds);
+      // 唯一分组回填 level_priority（auto 组 + 手动组总数==1 才显示控件）。
+      const autoGd = gds.find(gd => gd.group.auto_from_platform === String(p.id));
+      const total = (autoGd ? 1 : 0) + manualIds.length;
+      if (total === 1) {
+        const uniqGd = autoGd ?? gds.find(gd => gd.group.id === manualIds[0]);
+        const lp = uniqGd?.platforms.find(gp => gp.platform.id === p.id)?.level_priority;
+        setLevelPriority(lp ?? 5);
+      } else {
+        setLevelPriority(5);
+      }
     } catch {
       setJoinGroupIds([]);
     }
@@ -2182,8 +2214,18 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           manual_budgets: manualBudgetsPayload.length > 0 ? manualBudgetsPayload : undefined,
           auto_group: autoGroup,
           join_group_ids: joinGroupIds,
+          // 唯一分组为默认组(autoGroup)时, 后端建组直接用此值, 免前端回查。
+          default_level_priority: uniqueGroupInfo.isAuto ? levelPriority : undefined,
         });
         savedId = saved.id;
+      }
+
+      // 唯一分组为已有组(locked/join/editing 唯一关联)时, 平台落库后设其 level_priority。
+      // (autoGroup 默认组路径走后端 default_level_priority, 不在此重复设。)
+      if (savedId && uniqueGroupInfo.show && uniqueGroupInfo.groupId != null && !uniqueGroupInfo.isAuto) {
+        try {
+          await groupDetailApi.setPlatformLevelPriority(uniqueGroupInfo.groupId, savedId, levelPriority);
+        } catch (e) { /* level_priority 非关键路径, 失败不阻塞保存 */ console.warn("set level_priority failed", e); }
       }
 
       // Save Claude Code config overrides for this platform
@@ -3075,6 +3117,13 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                       })}
                   </div>
                 </>
+              )}
+              {/* 唯一分组时提供 per-group 优先级设置（复用 Groups 页同款控件）。
+                  多分组/零分组不显示——语义上 level_priority 属 group×platform 关联。 */}
+              {uniqueGroupInfo.show && (
+                <div style={{ marginTop: 12 }}>
+                  <LevelPriorityControl value={levelPriority} onChange={setLevelPriority} />
+                </div>
               )}
             </FormSection>
           )}

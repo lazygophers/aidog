@@ -24,7 +24,7 @@ async fn mk_platform(db: &Db, coding: bool) -> u64 {
             endpoints: None,
             manual_budgets: None,
             auto_group: None,
-            join_group_ids: None,
+            join_group_ids: None, default_level_priority: None,
         },
     )
     .await
