@@ -38,7 +38,8 @@ pub fn align_agents(
             stderr: String::new(),
         };
     }
-    let skills = list_installed(scope, proxy_url);
+    // `list_installed` 新签名返 (items, ok)；align 取实时态忽略失败信号（ok=false 时 items 空等价 noop）。
+    let (skills, _ok) = list_installed(scope, proxy_url);
     let mut enabled_n = 0usize;
     let mut disabled_n = 0usize;
     let mut errs: Vec<String> = Vec::new();
@@ -87,7 +88,8 @@ pub fn align_agents(
 /// 为某 agent 启用当前 scope 下全部已装 skills（只增不减，非破坏性）。
 /// 逐 skill：agent 未启用则 `enable()`，已启用跳过。
 pub fn enable_all(agent: SkillAgent, scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
-    let skills = list_installed(scope, proxy_url);
+    // `list_installed` 新签名返 (items, ok)；enable_all 取实时态忽略失败信号（ok=false 时 items 空等价 noop）。
+    let (skills, _ok) = list_installed(scope, proxy_url);
     let mut enabled_n = 0usize;
     let mut errs: Vec<String> = Vec::new();
     for s in &skills {

@@ -95,3 +95,79 @@ fn write_read_invalidate_cycle() {
     assert!(after.stale, "should be stale after invalidate");
     assert!(after.items.is_empty());
 }
+
+/// F1: list_refresh npx 失败时（如 project path 不存在 → npx cwd 失败）保留旧缓存 + load_failed=true。
+/// 验证写空覆盖 bug 已修：失败时缓存不被空 vec 覆盖，前端可显示「加载失败，显示上次列表」。
+#[test]
+fn list_refresh_npx_failure_preserves_old_cache() {
+    // 用不存在的 project path 触发 npx 失败（cwd 不存在 → run_npx_in_scope 返 success=false）。
+    // 注意：project scope cache_key 含 path，每个测试用唯一 path 避免与其他测试串扰。
+    let scope = SkillScope::Project {
+        path: format!("/nonexistent/test_cache_fail_{}", std::process::id()),
+    };
+
+    // 1. 先写入一个旧缓存条目（模拟历史成功 list 的结果）。
+    {
+        let key = scope.cache_key();
+        let mut guard = cache_store().lock().unwrap();
+        guard.scopes.insert(
+            key,
+            ScopeCacheEntry {
+                cached_at: 100,
+                items: vec![SkillInfo {
+                    name: "old-skill".to_string(),
+                    enabled_agents: vec![SkillAgent::Claude],
+                    scope: scope.clone(),
+                    installed_path: Some("/p/old".to_string()),
+                    description: None,
+                    source: None,
+                }],
+            },
+        );
+    }
+
+    // 2. list_refresh 触发 npx 失败 → 应回旧 items + stale=false（有缓存） + load_failed=true。
+    let result = list_refresh(&scope, None);
+    assert!(
+        result.load_failed,
+        "list_refresh npx 失败时应返 load_failed=true"
+    );
+    assert_eq!(
+        result.items.len(),
+        1,
+        "应保留旧缓存 items（不被空 vec 覆盖）"
+    );
+    assert_eq!(result.items[0].name, "old-skill");
+    assert!(
+        !result.stale,
+        "有旧缓存时 stale=false（前端可直接渲染 items）"
+    );
+
+    // 3. 验证缓存本身未被空 vec 覆盖（内存中仍是 old-skill）。
+    let cached = list_cached(&scope);
+    assert_eq!(cached.items.len(), 1);
+    assert_eq!(cached.items[0].name, "old-skill");
+
+    // 清理本测试写入的缓存。
+    invalidate(&scope);
+}
+
+/// F1: list_refresh npx 失败 + 无旧缓存（首次进页即失败）→ 返空 items + stale=true + load_failed=true。
+/// 前端应显加载态 + 失败提示（而非假空列表）。
+#[test]
+fn list_refresh_npx_failure_no_cache_returns_stale_load_failed() {
+    let scope = SkillScope::Project {
+        path: format!("/nonexistent/test_cache_fail_nocache_{}", std::process::id()),
+    };
+
+    // 确保无缓存。
+    invalidate(&scope);
+
+    let result = list_refresh(&scope, None);
+    assert!(result.load_failed, "npx 失败应 load_failed=true");
+    assert!(result.items.is_empty(), "无旧缓存时 items 空");
+    assert!(
+        result.stale,
+        "无旧缓存时 stale=true（前端应显加载态/失败提示而非空列表）"
+    );
+}

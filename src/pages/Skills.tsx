@@ -98,6 +98,11 @@ export function Skills() {
       const res = await skillsApi.listRefresh(scope);
       setInstalled(res.items);
       lastRefreshAtRef.current = Date.now();
+      // F1: npx 失败/HOME 缺失时后端返 load_failed=true（保留旧缓存）。显加载失败提示让用户
+      // 知道当前看到的是上次列表而非真清空（防「skills 没了」误判）。
+      if (res.load_failed) {
+        setMessage(t("skills.loadFailed", "列表加载失败，显示上次缓存。检查 npx/Node.js 与 HOME 配置。"));
+      }
     } catch (e) {
       console.error("refresh installed failed", e);
     } finally {
@@ -134,6 +139,9 @@ export function Skills() {
     try {
       const res = await skillsApi.listRefresh(scope);
       setInstalled(res.items);
+      if (res.load_failed) {
+        setMessage(t("skills.loadFailed", "列表加载失败，显示上次缓存。检查 npx/Node.js 与 HOME 配置。"));
+      }
     } catch (e) {
       console.error("list installed (refresh) failed", e);
     } finally {

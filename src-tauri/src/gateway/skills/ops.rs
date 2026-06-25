@@ -130,6 +130,9 @@ pub fn install(
 }
 
 /// 为某 agent 关闭 skill：`npx skills remove -s <name> -a <slug> [-g] -y`。
+///
+/// F3 诊断：执行 npx remove 前记 warn 日志含 skill/scope/args（半物理删，删该 agent symlink），
+/// 便于 support 从事后日志追溯「谁删的」。trigger 由调用方的 `#[tracing::instrument]` span 提供。
 pub fn disable(
     name: &str,
     agent: SkillAgent,
@@ -145,6 +148,14 @@ pub fn disable(
         };
     }
     let args = disable_args(name, agent, scope);
+    tracing::warn!(
+        skill = %name,
+        agent = ?agent,
+        scope = ?scope,
+        args = ?args,
+        trigger = "skills_disable/align_agents",
+        "物理删除 skill：npx skills remove（半物理：删该 agent 启用）"
+    );
     run_npx_in_scope(&args, scope, proxy_url)
 }
 
@@ -158,9 +169,17 @@ pub fn update(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
 
 /// 一键卸载当前 scope 下所有平台所有 skills：`npx skills remove --all [-g]`。
 /// `--all` = `--skill '*' --agent '*' -y`（删规范存储 + 所有 agent symlink）。
+///
+/// F3 诊断：执行 npx remove 前记 warn 日志含 scope/args（真物理删，不可恢复）。
 pub fn uninstall_all(scope: &SkillScope, proxy_url: Option<&str>) -> SkillsOpResult {
     let mut args = vec!["remove".to_string(), "--all".to_string()];
     apply_scope(&mut args, scope);
+    tracing::warn!(
+        scope = ?scope,
+        args = ?args,
+        trigger = "skills_uninstall_all",
+        "物理删除 skill：npx skills remove --all（真物理删：规范存储 + 所有 agent symlink，不可恢复）"
+    );
     run_npx_in_scope(&args, scope, proxy_url)
 }
 
@@ -192,6 +211,13 @@ pub fn uninstall(name: &str, scope: &SkillScope, proxy_url: Option<&str>) -> Ski
         };
     }
     let args = uninstall_args(name, scope);
+    tracing::warn!(
+        skill = %name,
+        scope = ?scope,
+        args = ?args,
+        trigger = "skills_uninstall",
+        "物理删除 skill：npx skills remove -s <name>（真物理删：规范存储 + 所有 agent symlink，不可恢复）"
+    );
     let res = run_npx_in_scope(&args, scope, proxy_url);
     // 检测 npx 不认该 skill（第三方/手动 symlink，非锁文件注册）→ fs 兜底删。
     let no_match = res.stdout.contains("No matching skills found")
@@ -258,6 +284,14 @@ fn fs_fallback_remove(name: &str, scope: &SkillScope) -> (Vec<String>, Vec<Strin
     if !is_safe_skill_name(name) {
         return (removed, vec![format!("unsafe skill name: '{name}'")]);
     }
+
+    // F3 诊断：fs 兜底删是最激进的路径（直接 rm -rf 第三方 skill 目录），记 warn 日志含 skill/scope。
+    tracing::warn!(
+        skill = %name,
+        scope = ?scope,
+        trigger = "skills_uninstall:fs_fallback",
+        "物理删除 skill：fs 兜底扫 ~/.agents/skills/<name> + ~/.<dotdir>/skills/<name>（第三方/手动 symlink，npx 不认）"
+    );
 
     // case-insensitive 匹配：`npx skills list` 返 name 小写化，
     // 但磁盘目录保留原大小写（如 cc-switch 管的 `SkillAnything`）。

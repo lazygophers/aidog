@@ -1,5 +1,9 @@
 //! 列已装 skills：`npx skills list --json` 解析 + SKILL.md 描述 + 锁文件 source 富化。
+//!
+//! 失败信号：`list_installed` 返回 `(items, ok)`，`ok=false` 表示 npx 失败 / HOME 缺失 /
+//! JSON 解析失败，调用方不应覆盖已有缓存（见 `cache::list_refresh`）。
 
+use super::env::resolve_home_env;
 use super::npx::{apply_scope, run_npx_in_scope};
 use super::types::{SkillAgent, SkillInfo, SkillScope};
 use std::collections::HashMap;
@@ -8,20 +12,66 @@ use std::collections::HashMap;
 ///
 /// 走 `npx skills list --json [-g]`，解析 `[{name, path, scope, agents:[...]}]`。
 /// `agents[]` 含某 agent 显示名 = 该 agent 已启用 → 映射为 `enabled_agents`（仅 claude/codex）。
-/// Project scope 在项目目录内执行（不带 `-g`）。命令失败 / 解析失败 → 返回空 vec（不 panic）。
+/// Project scope 在项目目录内执行（不带 `-g`）。
+///
+/// 返回 `(items, ok)`：`ok=true` = npx 成功且 JSON 解析成功（`items` 为真实列表，可能真空）；
+/// `ok=false` = npx 失败 / HOME 缺失 / JSON 解析失败 / stdout 空（`items` 为空 vec，**不可写覆盖
+/// 已有缓存**，避免假空缓存）。让调用方区分「真无 skill」vs「加载失败」。
 ///
 /// 注：SWR 链路用 [`super::cache::list_cached`]（即时缓存）+ [`super::cache::list_refresh`]
-/// （强制刷新）；内部聚合算子（`align_agents` / `enable_all`）仍走本函数取实时态。
-pub fn list_installed(scope: &SkillScope, proxy_url: Option<&str>) -> Vec<SkillInfo> {
+/// （强制刷新）；内部聚合算子（`align_agents` / `enable_all`）仍走本函数取实时态（`ok` 忽略，
+/// 仅用 `items`）。
+pub fn list_installed(scope: &SkillScope, proxy_url: Option<&str>) -> (Vec<SkillInfo>, bool) {
+    // HOME env 防御：home 无法解析（极罕见，launchd 极简 env）时 npx skills 必然漏 agent 检测
+    // 甚至整体失败 → 不如显式失败信号，让上层保留旧缓存而非写空。
+    if resolve_home_env().0.is_none() {
+        tracing::warn!(
+            "list_installed: HOME 无法解析（dirs::home_dir() 和 HOME env 均缺失），skills list 失败"
+        );
+        return (Vec::new(), false);
+    }
     let mut args = vec!["list".to_string(), "--json".to_string()];
     apply_scope(&mut args, scope);
     let res = run_npx_in_scope(&args, scope, proxy_url);
     if !res.success {
-        return Vec::new();
+        tracing::warn!(
+            scope = ?scope,
+            stderr = %truncate_str(&res.stderr, 200),
+            "list_installed: npx skills list 失败"
+        );
+        return (Vec::new(), false);
+    }
+    // npx 成功但 stdout 空 = 异常（list --json 至少返 `[]`）→ 视为失败保守处理（防假空）。
+    if res.stdout.trim().is_empty() {
+        tracing::warn!(
+            scope = ?scope,
+            stderr = %truncate_str(&res.stderr, 200),
+            "list_installed: npx 成功但 stdout 空，视为失败保守处理"
+        );
+        return (Vec::new(), false);
+    }
+    // JSON 解析失败（npx 成功但输出非 JSON）→ 同样视为失败保守（防假空缓存）。
+    // parse_list_json 内部 from_str 失败即返空 vec，这里需在调用前先校验。
+    if serde_json::from_str::<serde_json::Value>(res.stdout.trim()).is_err() {
+        tracing::warn!(
+            scope = ?scope,
+            stdout_preview = %truncate_str(&res.stdout, 200),
+            "list_installed: npx 成功但 stdout 非 JSON，视为失败保守处理"
+        );
+        return (Vec::new(), false);
     }
     let mut items = parse_list_json(&res.stdout, scope);
     enrich_with_sources(&mut items, scope);
-    items
+    (items, true)
+}
+
+/// 截断字符串到 max_chars 字符（多出 `…`），用于日志 stderr 摘要。
+fn truncate_str(s: &str, max_chars: usize) -> String {
+    if s.chars().count() <= max_chars {
+        return s.to_string();
+    }
+    let truncated: String = s.chars().take(max_chars).collect();
+    format!("{truncated}…")
 }
 
 /// 解析 `npx skills list --json` 输出为 `Vec<SkillInfo>`。

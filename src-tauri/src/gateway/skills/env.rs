@@ -47,7 +47,10 @@ fn probe_env() -> SkillsEnv {
 /// `CLAUDE_CONFIG_DIR` 若父 env 已设则透传（保留用户自定义配置目录），未设不强制注入。
 ///
 /// 返回 `(HOME 值, 可选 CLAUDE_CONFIG_DIR)`，纯函数便于单测。
-fn resolve_home_env() -> (Option<String>, Option<String>) {
+///
+/// pub(super)：供 `list::list_installed` 在入口预检 HOME 是否可解析（不可解析即视为 npx 失败，
+/// 避免写空缓存；见 F1 缓存写空防御）。
+pub(super) fn resolve_home_env() -> (Option<String>, Option<String>) {
     let home = dirs::home_dir()
         .map(|h| h.to_string_lossy().into_owned())
         .or_else(|| std::env::var("HOME").ok().filter(|h| !h.is_empty()));
@@ -58,7 +61,11 @@ fn resolve_home_env() -> (Option<String>, Option<String>) {
 }
 
 /// 给 npx 子进程注入 home 相关 env（见 `resolve_home_env`）。
-/// `dirs::home_dir()` 返 None（极罕见）时静默跳过 + warn 日志，不阻断 install 流程。
+///
+/// `dirs::home_dir()` 返 None（极罕见，如 launchd 极简 env）时静默跳过 + warn 日志。
+/// **list 路径** (`list_installed`) 在入口预检 `resolve_home_env().0.is_none()` 并返失败信号
+/// （见 F1 缓存写空防御），避免假空缓存。**install/enable 等写路径** 仍继续执行（即便 HOME
+/// 缺失 npx 也可能用默认 cwd 跑通），失败由 npx 自身 stderr 报。
 pub(super) fn apply_home_env(cmd: &mut Command) {
     let (home, claude_config) = resolve_home_env();
     if let Some(h) = home {

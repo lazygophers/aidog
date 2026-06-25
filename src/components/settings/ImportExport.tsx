@@ -132,8 +132,15 @@ export function ImportExportTab() {
         map.set(decisionKey(c.scope, c.key), { kind: "overwrite" });
       }
       setDecisions(map);
-      // 逐项默认全选。
-      setSelectedItems(new Set(prev.items.map((it) => itemKey(it.scope, it.key))));
+      // 逐项默认全选（**排除 skills scope**：skills 导入可能触发 npx 操作，强制用户显式勾选
+      // skills 才导入，防导入 .aidogx 默认全选误触 — 见 F2 导入误删修复）。
+      setSelectedItems(
+        new Set(
+          prev.items
+            .filter((it) => it.scope !== "skills")
+            .map((it) => itemKey(it.scope, it.key)),
+        ),
+      );
     } catch (e) {
       setError(String(e));
     }
@@ -747,6 +754,21 @@ function ItemSelector({
               </span>
               <SectionIcon name={SCOPE_ICON[g.scope] ?? "folder"} size={14} style={{ color: "var(--text-secondary)" }} />
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{scopeLabel(g.scope)}</span>
+              {/* F2: skills scope 默认不勾选（防导入误删），显眼提示告知用户需手动勾选 */}
+              {g.scope === "skills" && gSel === 0 && (
+                <span
+                  style={{
+                    fontSize: 11,
+                    color: "var(--color-warning)",
+                    background: "var(--color-warning-bg)",
+                    padding: "2px 6px",
+                    borderRadius: "var(--radius-sm)",
+                    marginLeft: 4,
+                  }}
+                >
+                  {t("importExport.skillsScopeHint", "默认不导入，需手动勾选")}
+                </span>
+              )}
               <span style={{ fontSize: 12, color: "var(--text-tertiary)", marginLeft: "auto" }}>
                 {gSel} / {g.items.length}
               </span>

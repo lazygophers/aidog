@@ -39,7 +39,8 @@ pub struct AgentState {
 pub fn export_skills() -> Vec<SkillExportEntry> {
     let scope = SkillScope::Global;
     // 导出仅列本机已装 skills（list 不联网），无需经上游代理 → None。
-    let installed = skills::list_installed(&scope, None);
+    // `list_installed` 新签名返 (items, ok)；导出取实时态忽略失败信号（ok=false 时 installed 空等价导出空）。
+    let (installed, _ok) = skills::list_installed(&scope, None);
     installed
         .into_iter()
         .filter_map(|info| {
@@ -105,9 +106,9 @@ pub fn import_skills(entries: &[SkillExportEntry], report: &mut ImportReport) {
                     ));
                 }
             } else {
-                // 确保未启用：remove（幂等，未装则 no-op）。
-                let args = build_remove_args(&entry.name, agent_enum, scope);
-                let _ = run_npx(&args, scope);
+                // 导入语义只增不减：enabled=false 跳过，不主动 remove（防导入 .aidogx 默认全选时
+                // 误删现有 agent 启用）。保留现状，用户需删可手动在 Skills 页操作。
+                continue;
             }
         }
     }
@@ -122,21 +123,6 @@ fn build_add_args(
     let mut args = vec![
         "add".to_string(),
         source.to_string(),
-        "-s".to_string(),
-        name.to_string(),
-        "-a".to_string(),
-        agent_slug(agent).to_string(),
-    ];
-    if matches!(scope, SkillScope::Global) {
-        args.push("-g".to_string());
-    }
-    args.push("-y".to_string());
-    args
-}
-
-fn build_remove_args(name: &str, agent: SkillAgent, scope: &SkillScope) -> Vec<String> {
-    let mut args = vec![
-        "remove".to_string(),
         "-s".to_string(),
         name.to_string(),
         "-a".to_string(),
@@ -260,23 +246,7 @@ mod tests {
         assert!(args.contains(&"-y".to_string()));
     }
 
-    // ── build_remove_args ──
-    #[test]
-    fn build_remove_args_global_scope() {
-        let args = build_remove_args("my-skill", SkillAgent::Codex, &SkillScope::Global);
-        assert_eq!(&args[0], "remove");
-        assert_eq!(&args[2], "my-skill");
-        assert_eq!(&args[4], "codex");
-        assert!(args.contains(&"-g".to_string()));
-        assert!(args.contains(&"-y".to_string()));
-    }
-
-    #[test]
-    fn build_remove_args_project_scope_no_global_flag() {
-        let scope = SkillScope::Project { path: "/tmp/p".to_string() };
-        let args = build_remove_args("s", SkillAgent::Claude, &scope);
-        assert!(!args.contains(&"-g".to_string()), "project scope no -g");
-    }
+    // ── build_remove_args 已移除（导入只增不减，enabled=false 跳过不 remove）──
 
     // ── all_agents ──
     #[test]
@@ -328,21 +298,24 @@ mod tests {
         assert!(report.errors[0].contains("unknown agent"), "got: {}", report.errors[0]);
     }
 
-    /// import_skills with disabled agent → runs remove (which may fail gracefully).
+    /// import_skills with disabled agent → 跳过不 remove（导入只增不减语义，防误删现有启用）。
+    /// 验证 no-op：不调 npx remove，不记 applied，不记 errors。
     #[test]
-    fn import_skills_disabled_agent_runs_remove_gracefully() {
+    fn import_skills_disabled_agent_skips_no_remove() {
         let entry = SkillExportEntry {
             name: "skill-y".to_string(),
             source: "owner/repo".to_string(),
             scope: SkillScope::Global,
             agents: vec![AgentState {
                 display: "Codex".to_string(),
-                enabled: false, // disabled → remove path
+                enabled: false, // disabled → 跳过，不 remove
             }],
         };
         let mut report = ImportReport::default();
         import_skills(&[entry], &mut report);
-        // Remove failure is silently ignored (let _ = run_npx); no panic.
+        // 完全 no-op：无 applied 计数，无 error，无 panic。
+        assert!(report.applied.is_empty(), "disabled agent should not bump applied");
+        assert!(report.errors.is_empty(), "disabled agent should not produce errors");
     }
 
     /// export_skills does not panic (may return empty if npx not available).
