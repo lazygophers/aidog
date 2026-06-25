@@ -156,21 +156,50 @@ fn uninstall_empty_name_fails() {
     assert!(r.stderr.contains("skill name is empty"), "stderr: {}", r.stderr);
 }
 
-/// uninstall_all builds correct args for global scope.
+/// uninstall_all global scope args：`["remove", "--all", "-g"]`。
+///
+/// **隔离**：原测试调 `uninstall_all(&SkillScope::Global, None)` 真实 shell out
+/// `npx skills remove --all -g`（破坏性，删用户全部 skills），违反测试隔离。
+/// 测试意图（函数名 "args_global_contains_all"）是验 args 构造，非真实执行。
+/// 改调 `uninstall_all_args` 纯函数断言 args：零 npx spawn、零 HOME 读写、线程安全。
 #[test]
 fn uninstall_all_args_global_contains_all() {
-    // uninstall_all calls run_npx_in_scope with ["remove", "--all", "-g"].
-    // We can't easily intercept without running npx, but we can verify it doesn't panic.
-    // The function is a thin wrapper; actual behavior verified via npx integration.
-    // Just ensure no panic on call:
-    let _r = uninstall_all(&SkillScope::Global, None);
-    // either succeeds or fails gracefully
+    let args = uninstall_all_args(&SkillScope::Global);
+    assert_eq!(args, vec!["remove", "--all", "-g"]);
+    assert!(args.contains(&"--all".to_string()));
+    assert!(args.contains(&"-g".to_string()));
 }
 
-/// update builds correct args for global scope — just verify no panic.
+/// uninstall_all project scope args：不带 `-g`（项目内 cwd 执行）。
 #[test]
-fn update_global_does_not_panic() {
-    let _r = update(&SkillScope::Global, None);
+fn uninstall_all_args_project_no_g() {
+    let args = uninstall_all_args(&SkillScope::Project {
+        path: "/proj".to_string(),
+    });
+    assert_eq!(args, vec!["remove", "--all"]);
+    assert!(!args.contains(&"-g".to_string()));
+}
+
+/// update global scope args：`["update", "-g", "-y"]`。
+///
+/// **隔离**：原测试调 `update(&SkillScope::Global, None)` 真实 shell out
+/// `npx skills update -g`（改用户全局 skills），违反测试隔离。
+/// 测试意图是验 args 构造，改调 `update_args` 纯函数断言 args：
+/// 零 npx spawn、零 HOME 读写、线程安全。
+#[test]
+fn update_args_global() {
+    let args = update_args(&SkillScope::Global);
+    assert_eq!(args, vec!["update", "-g", "-y"]);
+}
+
+/// update project scope args：不带 `-g`。
+#[test]
+fn update_args_project_no_g() {
+    let args = update_args(&SkillScope::Project {
+        path: "/proj".to_string(),
+    });
+    assert_eq!(args, vec!["update", "-y"]);
+    assert!(!args.contains(&"-g".to_string()));
 }
 
 /// fs_fallback_remove: unsafe name returns error immediately.
