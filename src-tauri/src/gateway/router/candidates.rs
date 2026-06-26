@@ -4,7 +4,7 @@ use super::super::db;
 use super::super::models::*;
 use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 use super::model_mapping::resolve_model;
-use super::ordering::{apply_coding_plan_priority, apply_sticky, order_least_latency, order_load_balance};
+use super::ordering::{apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_least_latency, order_load_balance};
 use super::{candidate_state, RouteResult};
 
 /// 候选选取结果：有序的候选平台列表（首个为最优先），用于失败逐个重试。
@@ -149,9 +149,23 @@ pub async fn select_candidates_ctx(
     // 2. 按路由模式排序两组
     match effective_mode {
         RoutingMode::Failover => {
-            // level_priority 降序（10 先）为主键，priority 升序为 tiebreak
-            active.sort_by_key(|gp| (std::cmp::Reverse(gp.level_priority), gp.priority));
-            probe.sort_by_key(|gp| (std::cmp::Reverse(gp.level_priority), gp.priority));
+            // 排序键：level_priority 降序（10 先）→ priority 升序 → expires_at 升序（快过期先用，
+            // expires_at=0 视为 i64::MAX 排末尾）。expires_at 是同 priority 内最强"用掉它"信号，
+            // 插在 priority 之后、负载均衡 / coding plan 偏好之前（[platform-expiry-priority]）。
+            active.sort_by_key(|gp| {
+                (
+                    std::cmp::Reverse(gp.level_priority),
+                    gp.priority,
+                    expiry_sort_key(gp.platform.expires_at),
+                )
+            });
+            probe.sort_by_key(|gp| {
+                (
+                    std::cmp::Reverse(gp.level_priority),
+                    gp.priority,
+                    expiry_sort_key(gp.platform.expires_at),
+                )
+            });
             apply_coding_plan_priority(&mut active);
             apply_coding_plan_priority(&mut probe);
         }
