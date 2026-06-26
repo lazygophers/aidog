@@ -57,4 +57,6 @@
 | skills-list-lockfile | skills 列表读全局锁文件免 npx | — | 已完成 | 收尾 | 100% | .worktrees/06-26-skills-list-lockfile |
 | platform-expiry-priority | router 同优先级按过期时间最早调度 | — | 已完成 | 收尾 | 100% | .worktrees/06-26-platform-expiry-priority |
 | share-copy-fail | 分享按钮复制失败修复 | — | 已完成 | 收尾 | 100% | .worktrees/06-26-share-copy-fail |
-| skills-install-ux-redesign | SkillInstallView 交互重设计 | — | 进行中 | exec | 10 | .worktrees/06-26-skills-install-ux-redesign |
+| skills-install-ux-redesign | SkillInstallView 交互重设计 | — | 已完成 | 收尾 | 100% | .worktrees/06-26-skills-install-ux-redesign |
+| skills-install-ux-recovery | SkillInstallView 改动恢复 (worktree 未 commit 丢失) | — | 已完成 | 收尾 | 100% | .worktrees/06-26-skills-install-ux-recovery |
+| expiry-sort-all-modes | 调度同优先级按最早过期排序扩展全模式 | — | 进行中 | 规划 | 0% | — |
