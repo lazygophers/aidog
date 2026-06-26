@@ -30,12 +30,15 @@ const PRESETS: PastePresetRef[] = [
     keywords: ["xiaomi", "mimo"],
     hosts: ["api.xiaomimimo.com"],
   },
+  // 真实 PROTOCOLS 中普通/coding 变体共用同 value（xiaomi_mimo），靠 hosts/codingPlan/
+  // codingKeyPrefixes 区分。机制 B 升级依赖同 value 匹配，fixture 须对齐此结构。
   {
-    value: "xiaomi_mimo_coding",
+    value: "xiaomi_mimo",
     label: "Xiaomi MiMo Coding",
     keywords: [],
     hosts: ["token-plan-cn.xiaomimimo.com"],
     codingPlan: true,
+    codingKeyPrefixes: ["tp-"],
   },
   {
     value: "doubao",
@@ -83,7 +86,7 @@ describe("matchPlatform", () => {
     const hit = matchPlatform("", PRESETS, [
       { url: "https://token-plan-cn.xiaomimimo.com/v1", protocol: "openai" },
     ]);
-    expect(hit?.value).toBe("xiaomi_mimo_coding");
+    expect(hit?.value).toBe("xiaomi_mimo");
     expect(hit?.codingPlan).toBe(true);
   });
   it("distinguishes same-host coding vs normal by path substring", () => {
@@ -209,6 +212,40 @@ describe("parsePlatformPaste", () => {
     expect(out.apiKeys.some(k => k.startsWith("tp-"))).toBe(true);
     expect(out.platform?.value).toBe("xiaomi_mimo");
     expect(out.platform?.codingPlan).toBe(true);
+  });
+
+  it("机制 B：纯 token 粘贴（无 base_url）命中 codingKeyPrefixes → 升级 coding plan", () => {
+    // 无 base_url，host 匹配（机制 A）触不到 coding host；靠 keyword 命中普通 xiaomi_mimo
+    // 后由 tp- 前缀（codingKeyPrefixes 数据驱动）升级到 coding 变体。
+    const out = parsePlatformPaste(
+      "小米 MiMo 套餐 key: tp-abc1234567890defghijklmnop",
+      PRESETS,
+    );
+    expect(out.apiKeys.some(k => k.startsWith("tp-"))).toBe(true);
+    expect(out.platform?.value).toBe("xiaomi_mimo");
+    expect(out.platform?.codingPlan).toBe(true);
+  });
+
+  it("机制 B 守卫：普通 mimo key（无 codingKeyPrefixes 前缀）不误升级 coding plan", () => {
+    // 命中普通 xiaomi_mimo（keyword），key 非 tp- 前缀 → 保持普通版，codingPlan 不置真。
+    const out = parsePlatformPaste(
+      "小米 MiMo 普通版 key: sk-abc1234567890defghijklmnop",
+      PRESETS,
+    );
+    expect(out.platform?.value).toBe("xiaomi_mimo");
+    expect(out.platform?.codingPlan).toBeFalsy();
+  });
+
+  it("MiMo PRO 分享文案：coding plan + expiresAt 联合识别", () => {
+    // 社区分享帖典型形态：token-plan host（机制 A）+ tp- key + 「6.27 到期」。
+    const out = parsePlatformPaste(
+      "MiMo PRO 分享 https://token-plan-cn.xiaomimimo.com/v1 key tp-abc1234567890defghij 6.27 到期",
+      PRESETS,
+    );
+    expect(out.platform?.value).toBe("xiaomi_mimo");
+    expect(out.platform?.codingPlan).toBe(true);
+    expect(out.expiresAt).not.toBeNull();
+    expect(out.expiresAt).toBeGreaterThan(0);
   });
 
   it("lark substring does not false-match doubao (ark keyword too short)", () => {

@@ -44,6 +44,8 @@ function toPastePresets(protocols: ProtocolOption[]): PastePresetRef[] {
     // 必须透传，否则 matchPlatform 优先级1（host 子串匹配）对所有 preset 失效。
     hosts: p.hosts,
     codingPlan: p.codingPlan,
+    // 机制 B 数据源，必须透传，否则纯 token 粘贴的 coding plan 升级（如 tp- 前缀）失效。
+    codingKeyPrefixes: p.codingKeyPrefixes,
   }));
 }
 
