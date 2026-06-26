@@ -64,3 +64,46 @@ export function successRate(successCount: number, totalRequests: number): number
 export function sumTokens(...parts: Array<number | undefined | null>): number {
   return parts.reduce<number>((acc, p) => acc + (typeof p === "number" && !Number.isNaN(p) ? p : 0), 0);
 }
+
+/**
+ * ISO 时间戳 / 毫秒戳 → 本地化日期时间字符串（如 "2026/06/26 下午2:30:00"）。
+ * 收敛 Skills / Platforms 等页面原本各自 `new Date(x).toLocaleString()` 的内联调用。
+ * 输入无效（空 / 非日期字符串 / NaN）→ null（调用方按 null 处理「不显示」）。
+ *
+ * 注：toLocaleString() 不带参数走运行时默认 locale，跨平台/跨 locale 一致性依赖浏览器实现，
+ * 桌面应用场景下足够（macOS WKWebView 走系统 locale）。未来如需强制 locale 可加第二参数。
+ */
+export function formatDateTime(input: string | number | null | undefined): string | null {
+  if (input === null || input === undefined || input === "") return null;
+  const d = typeof input === "number" ? new Date(input) : new Date(input);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString();
+}
+
+/**
+ * ISO 时间戳 / 毫秒戳 → 相对时间简写（如 "3 天前" / "刚刚" / "2 小时前"）。
+ * 用于卡片次要信息行紧凑展示（绝对时间走 formatDateTime，相对时间更易扫读）。
+ * 输入无效 → null。差值 < 1 秒 → "刚刚"；未来时间（> 当前）→ 也用 "刚刚" 兜底（防倒计时 UI）。
+ *
+ * 粒度：秒 / 分 / 时 / 天 / 月（30 天）/ 年（365 天），取最大整数单位。
+ */
+export function formatRelativeTime(input: string | number | null | undefined): string | null {
+  if (input === null || input === undefined || input === "") return null;
+  const d = typeof input === "number" ? new Date(input) : new Date(input);
+  if (Number.isNaN(d.getTime())) return null;
+  const diffMs = Date.now() - d.getTime();
+  // 未来时间兜底为「刚刚」（避免显示负数或倒计时）。
+  const past = Math.max(0, diffMs);
+  const sec = Math.floor(past / 1000);
+  if (sec < 60) return "刚刚";
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min} 分钟前`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr} 小时前`;
+  const day = Math.floor(hr / 24);
+  if (day < 30) return `${day} 天前`;
+  const month = Math.floor(day / 30);
+  if (month < 12) return `${month} 个月前`;
+  const year = Math.floor(day / 365);
+  return `${year} 年前`;
+}
