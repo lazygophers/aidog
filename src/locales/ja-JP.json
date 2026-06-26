@@ -484,6 +484,7 @@
   "logs.targetProtocol": "リクエスト形式",
   "logs.time": "時刻",
   "logs.total": "件",
+  "logs.pageSize": "1ページあたり",
   "logs.upstreamRequest": "アップストリームリクエスト",
   "logs.upstreamStatus": "上流ステータス",
   "logs.userRequest": "ユーザーリクエスト",
