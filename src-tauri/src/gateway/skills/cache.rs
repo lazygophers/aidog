@@ -6,7 +6,7 @@
 //! - 写操作后 `invalidate(scope)` 失效对应 scope（内存 + 磁盘），下次 refresh 重填。
 //!   容错：磁盘损坏 / 缺失 → 当冷启动（空缓存）。原子写（temp + rename）防半文件。
 
-use super::list::{enrich_with_sources, list_installed};
+use super::list::list_installed;
 use super::types::{SkillInfo, SkillScope};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -101,11 +101,10 @@ pub fn list_cached(scope: &SkillScope) -> CachedSkills {
     };
     match guard.scopes.get(&key) {
         Some(entry) => {
-            // 向后兼容：旧缓存 items 无 source 字段（source-grouping task 前写入）。
-            // 命中缓存后 enrich_with_sources 读锁文件补 source（0 npx，cheap）。
-            // 旧 None + 锁文件有 → 补；已有 source → 幂等重赋；第三方 symlink → 保持 None。
-            let mut items = entry.items.clone();
-            enrich_with_sources(&mut items, scope);
+            // 锁文件成为主数据源（2026-06-26 重构）后 source 等 7 字段直接随 SkillInfo 序列化，
+            // 旧版 enrich_with_sources 兜底已不需要（cache 直接 clone 透出）。
+            // 旧缓存 items（source 为 None / 缺新字段）会在下次 list_refresh 时从锁文件回填。
+            let items = entry.items.clone();
             CachedSkills {
                 items,
                 stale: false,
@@ -120,23 +119,23 @@ pub fn list_cached(scope: &SkillScope) -> CachedSkills {
     }
 }
 
-/// 强制跑 npx 取最新，更新内存+磁盘缓存，返回 fresh（stale=false）。
+/// 强制读锁文件取最新，更新内存+磁盘缓存，返回 fresh（stale=false）。
 ///
-/// SWR 的 "revalidate" 半。npx 失败 / HOME 缺失 / JSON 解析失败（`list_installed` 返 `ok=false`）
-/// → **不覆盖已有缓存**，返回旧缓存 items + `stale=true` + `load_failed=true`，让前端显
-/// 「加载失败，显示上次列表」提示而非假空列表。缓存写空是历史 bug（缓存被 npx 失败的空 vec
-/// 覆盖 → UI 显示空，用户误以为 skills 被清理，实际物理文件仍在磁盘）。
+/// SWR 的 "revalidate" 半。锁文件读取失败 / HOME 缺失 / JSON 解析失败 / version 非预期
+/// （`list_installed` 返 `ok=false`）→ **不覆盖已有缓存**，返回旧缓存 items + `stale=true` +
+/// `load_failed=true`，让前端显「加载失败，显示上次列表」提示而非假空列表。缓存写空是历史
+/// bug（缓存被失败的空 vec 覆盖 → UI 显示空，用户误以为 skills 被清理，实际物理文件仍在磁盘）。
 pub fn list_refresh(scope: &SkillScope, proxy_url: Option<&str>) -> CachedSkills {
     let (items, ok) = list_installed(scope, proxy_url);
     if !ok {
-        // npx 失败：保留旧缓存（内存 → 磁盘），不写空覆盖。
+        // 锁文件读取/解析失败：保留旧缓存（内存 → 磁盘），不写空覆盖。
         // 直接复用 list_cached 取旧 items + 同 stale 语义（有缓存→渲染、无→冷启动），
         // 仅叠加 load_failed=true 让前端显失败提示。
         let cached = list_cached(scope);
         tracing::warn!(
             scope = ?scope,
             old_count = cached.items.len(),
-            "list_refresh npx 失败，保留旧缓存 + load_failed=true"
+            "list_refresh 锁文件加载失败，保留旧缓存 + load_failed=true"
         );
         return CachedSkills {
             items: cached.items,
