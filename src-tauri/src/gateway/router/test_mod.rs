@@ -46,6 +46,13 @@ pub(super) fn mk_gp_lp(id: u64, weight: i32, priority: i32, level_priority: i32)
     GroupPlatformDetail { platform: mk_platform_id(id), priority, weight, level_priority }
 }
 
+/// 带 expires_at 的候选（用于 [platform-expiry-priority] 排序测试）。
+pub(super) fn mk_gp_exp(id: u64, weight: i32, priority: i32, expires_at: i64) -> GroupPlatformDetail {
+    let mut p = mk_platform_id(id);
+    p.expires_at = expires_at;
+    GroupPlatformDetail { platform: p, priority, weight, level_priority: 5 }
+}
+
 /// coding plan 候选：platform 带一个 coding_plan=true 的端点（is_coding_plan→true）。
 pub(super) fn mk_gp_cp(id: u64, weight: i32, priority: i32) -> GroupPlatformDetail {
     let mut p = mk_platform_id(id);
