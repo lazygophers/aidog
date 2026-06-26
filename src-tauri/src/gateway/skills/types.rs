@@ -41,14 +41,6 @@ impl SkillAgent {
         }
     }
 
-    /// `npx skills list --json` 的 `agents[]` 显示名。用于解析某 agent 是否启用。
-    pub(super) fn display_name(self) -> &'static str {
-        match self {
-            SkillAgent::Claude => "Claude Code",
-            SkillAgent::Codex => "Codex",
-        }
-    }
-
     /// 目标 agent 全集（UI 仅显示 claude/codex 两个）。
     pub(super) fn all() -> [SkillAgent; 2] {
         [SkillAgent::Claude, SkillAgent::Codex]
@@ -64,21 +56,41 @@ pub struct SkillsEnv {
     pub node_version: Option<String>,
 }
 
-/// 已装 skill 描述（`npx skills list --json` 解析产出，一条/skill，不分 agent）。
+/// 已装 skill 描述（直接读 `~/.agents/.skill-lock.json` + 探测本地 agent symlink 解析产出，
+/// 一条/skill，不分 agent）。所有锁文件独有字段从锁文件反序列化透出（见 prd 字段展示需求）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SkillInfo {
-    /// skill 名。
+    /// skill 名（锁文件 key）。
     pub name: String,
-    /// 已在哪些目标 agent（claude/codex 子集）启用 —— 从 list json `agents[]` 显示名映射。
+    /// 已在哪些目标 agent（claude/codex 子集）启用 —— 探测 `~/.<agent>/skills/<name>` 存在性。
     pub enabled_agents: Vec<SkillAgent>,
     /// 所属 scope。
     pub scope: SkillScope,
-    /// 规范存储路径（list json `path`），读不到为 null。
+    /// 规范存储路径（`~/.agents/skills/<name>` 或 project 下的 `.agents/skills/<name>`），读不到为 null。
     pub installed_path: Option<String>,
-    /// 简介（list json 暂无，预留；读不到为 null）。
+    /// 简介（读 `<path>/SKILL.md` frontmatter description），读不到为 null。
     pub description: Option<String>,
     /// 来源 owner/repo（锁文件 `source` 字段）。第三方/手动 symlink skill（锁文件无条目）→ None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub source: Option<String>,
+    /// 来源类型（锁文件 `sourceType`，如 "github"/"gitlab"）。锁文件无 → None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_type: Option<String>,
+    /// 来源 git URL（锁文件 `sourceUrl`，如 "https://github.com/owner/repo.git"）。锁文件无 → None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source_url: Option<String>,
+    /// skill 文件夹内容 hash（锁文件 `skillFolderHash`，sha1 hex）。诊断用。锁文件无 → None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub skill_folder_hash: Option<String>,
+    /// plugin 名（锁文件 `pluginName`，仅 plugin 安装来源有）。锁文件无 → None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub plugin_name: Option<String>,
+    /// 首次安装时间（锁文件 `installedAt`，ISO 8601）。锁文件无 → None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub installed_at: Option<String>,
+    /// 最近更新时间（锁文件 `updatedAt`，ISO 8601）。锁文件无 → None。
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub updated_at: Option<String>,
 }
 
 /// catalog 条目（可装 skill）。

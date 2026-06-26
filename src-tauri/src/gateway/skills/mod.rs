@@ -1,29 +1,33 @@
 //! Agent Skills 管理子系统。
 //!
-//! **全 npx 化**：list / enable / disable / update 全部 shell out `npx skills`，
-//! 禁手动 fs 扫描 / 删除（复用 Vercel Labs 官方生态，单一事实源）。
-//! - 列表：`npx skills list --json [-g]` → 统一一条/skill，`agents[]` 含显示名（"Claude Code"/"Codex"）= 该 agent 已启用。
-//! - 启用：用 skill 本地 path（list json `path`）作 add package → `npx skills add <path> -a <slug> [-g] -y`（对所有 skill 通用，不依赖锁文件 source）。
-//! - 关闭：`npx skills remove -s <name> -a <slug> [-g] -y`。
-//! - 更新：`npx skills update [-g] -y`。
-//!
-//! 所有变更操作均 shell out npx，不违反"全 npx"约束。
+//! **数据源分层（2026-06-26 重构）**：
+//! - **列表读取** (免 npx)：直接读 `~/.agents/.skill-lock.json`（global）或
+//!   `<project>/.agents/.skill-lock.json`（project），解析为 `Vec<SkillInfo>`
+//!   含 7 个锁文件独有字段。per-agent enable 状态探测 `~/.<agent>/skills/<name>`
+//!   存在性（claude → `~/.claude/skills`、codex → `~/.codex/skills`，与 npx skills CLI
+//!   `agents[agent].globalSkillsDir` 一致）。
+//! - **写操作**（enable/disable/install/update/uninstall）：shell out `npx skills`，
+//!   复用 Vercel Labs 官方生态，单一事实源。
+//!   - 启用：用 skill 本地 path 作 add package → `npx skills add <path> -a <slug> [-g] -y`。
+//!   - 关闭：`npx skills remove -s <name> -a <slug> [-g] -y`。
+//!   - 更新：`npx skills update [-g] -y`。
 //!
 //! shell out 模式参考 `gateway/notification.rs`（`std::process::Command`）。
 //!
 //! Scope 语义：
-//! - `Global` → 用户级全局，命令带 `-g`。
-//! - `Project { path }` → 项目级，命令在项目目录内执行（不带 `-g`）。
+//! - `Global` → 用户级全局，命令带 `-g`，锁文件路径 `~/.agents/.skill-lock.json`。
+//! - `Project { path }` → 项目级，命令在项目目录内执行（不带 `-g`），锁文件路径
+//!   `<path>/.agents/.skill-lock.json`。
 //!
 //! Agent 语义：target agent 决定 `-a <slug>` 参数（claude → `claude-code`、codex → `codex`）
-//! 与 list json `agents[]` 显示名映射（claude → "Claude Code"、codex → "Codex"）。
+//! 与本地 enable 探测目录（claude → `~/.claude/skills`、codex → `~/.codex/skills`）。
 //!
 //! ── 模块划分（结构搬移，行为不变）──
 //! - `types`     数据模型 + 枚举 + 常量。
 //! - `env`       npx/node 探测 + home env 注入。
 //! - `proxy_env` 代理 URL 构造 + 子进程代理 env 注入。
-//! - `npx`       `npx skills <args>` 执行封装 + scope→cwd 路由。
-//! - `list`      list_installed + JSON/frontmatter/锁文件解析。
+//! - `npx`       `npx skills <args>` 执行封装 + scope→cwd 路由（写操作专用）。
+//! - `list`      list_installed（直接读锁文件）+ 锁文件解析 + frontmatter description。
 //! - `cache`     list 的 SWR 缓存（进程内 + 磁盘）。
 //! - `catalog`   browse/search/find 及输出解析。
 //! - `ops`       单 skill 写操作（enable/install/disable/update/uninstall）+ fs 兜底删。
