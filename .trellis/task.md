@@ -41,7 +41,7 @@
 | skills-remove-grouping | 移除skills分组概念 | — | completed | 收尾 | 100 | — |
 | enabled-plugins-delete-visibility | Enabled Plugins 删除按钮可见性 | — | completed | 收尾 | 100 | — |
 | platform-priority-field | 平台编辑创建表单加优先级设置 | — | 已完成 | 收尾 | 100% | — |
-| billing-default-coding-plan | 平台计费类型识别默认coding plan | — | 进行中 | 规划 | 0% | — |
+| billing-default-coding-plan | 平台计费类型识别默认coding plan | — | 已完成 | 收尾 | 100% | — |
 | mimo-volces-mismatch | mimo coding plan 误识别为火山引擎 | — | 已完成 | 收尾 | 100% | — |
 | platform-expiry | 平台过期时间字段与到期自动禁用 | — | 已完成 | 收尾 | 100% | — |
 | skills-cleanup-fix | npx skills 安装的 skills 被清理修复 | — | 已完成 | 收尾 | 100% | — |
