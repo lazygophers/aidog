@@ -16,7 +16,8 @@ import { IconClose } from "../components/icons";
 import { usePolling } from "../hooks/usePolling";
 
 const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
-const PAGE_SIZE = 50;
+const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
+const DEFAULT_PAGE_SIZE = 20;
 
 // ── 行内固定 style 提模块级常量（避免每行每次渲染重建对象，且让 LogRow memo 不被 inline 对象击穿）──
 const ROW_STYLE: React.CSSProperties = { cursor: "pointer", borderBottom: "1px solid var(--border)" };
@@ -43,6 +44,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
   const [logs, setLogs] = useState<ProxyLogSummary[]>([]);
   const [total, setTotal] = useState(0);
   const [offset, setOffset] = useState(0);
+  const [pageSize, setPageSize] = useState<number>(DEFAULT_PAGE_SIZE);
   const [loading, setLoading] = useState(true);
   const [detail, setDetail] = useState<ProxyLogDetail | null>(null);
   const [copied, setCopied] = useState(false);
@@ -168,14 +170,14 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
     try {
       if (hasFilter) {
         const [items, count] = await Promise.all([
-          proxyLogApi.listFiltered(activeFilter, PAGE_SIZE, offset),
+          proxyLogApi.listFiltered(activeFilter, pageSize, offset),
           proxyLogApi.countFiltered(activeFilter),
         ]);
         setLogs(items || []);
         setTotal(count);
       } else {
         const [items, count] = await Promise.all([
-          proxyLogApi.list(PAGE_SIZE, offset),
+          proxyLogApi.list(pageSize, offset),
           proxyLogApi.count(),
         ]);
         setLogs(items || []);
@@ -183,12 +185,12 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
       }
     } catch (e) { console.error(e); }
     if (!silent) setLoading(false);
-  }, [offset, hasFilter, activeFilter]);
+  }, [offset, pageSize, hasFilter, activeFilter]);
 
   useEffect(() => { load(); }, [load]);
 
-  // Reset offset when filter changes
-  useEffect(() => { setOffset(0); }, [hasFilter, activeFilter]);
+  // Reset offset when filter or page size changes (avoid out-of-range empty page)
+  useEffect(() => { setOffset(0); }, [hasFilter, activeFilter, pageSize]);
 
   // 兜底轮询 30s（防事件丢失 + 流式收敛；空闲页可见时 0 IPC，事件不来不刷）
   const refreshList = useCallback(() => { load(true); }, [load]);
@@ -424,8 +426,8 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
   }
 
   // ── List view ──
-  const totalPages = Math.ceil(total / PAGE_SIZE);
-  const currentPage = Math.floor(offset / PAGE_SIZE) + 1;
+  const totalPages = Math.ceil(total / pageSize);
+  const currentPage = Math.floor(offset / pageSize) + 1;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
@@ -580,8 +582,10 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
               currentPage={currentPage}
               totalPages={totalPages}
               total={total}
-              pageSize={PAGE_SIZE}
-              onPageChange={page => setOffset((page - 1) * PAGE_SIZE)}
+              pageSize={pageSize}
+              onPageChange={page => setOffset((page - 1) * pageSize)}
+              onPageSizeChange={setPageSize}
+              t={t}
             />
           )}
         </>
@@ -661,13 +665,15 @@ const LogRow = memo(function LogRow({ log, platformName, groupName, onOpen, onCo
 
 /** 分页导航：首页/上一页/页码按钮/下一页/末页 + 总数 */
 function Pagination({
-  currentPage, totalPages, total, pageSize, onPageChange,
+  currentPage, totalPages, total, pageSize, onPageChange, onPageSizeChange, t,
 }: {
   currentPage: number;
   totalPages: number;
   total: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange: (size: number) => void;
+  t: ReturnType<typeof useTranslation>["t"];
 }) {
   const rangeStart = (currentPage - 1) * pageSize + 1;
   const rangeEnd = Math.min(currentPage * pageSize, total);
@@ -692,9 +698,32 @@ function Pagination({
 
   return (
     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-      <span className="text-tertiary" style={{ fontSize: 12 }}>
-        {rangeStart}–{rangeEnd} / {total}
-      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span className="text-tertiary" style={{ fontSize: 12 }}>
+          {rangeStart}–{rangeEnd} / {total}
+        </span>
+        <label style={{ display: "inline-flex", alignItems: "center", gap: 4 }}>
+          <span className="text-tertiary" style={{ fontSize: 12 }}>{t("logs.pageSize", "每页")}</span>
+          <select
+            aria-label={t("logs.pageSize", "每页")}
+            value={pageSize}
+            onChange={e => onPageSizeChange(Number(e.target.value))}
+            style={{
+              fontSize: F.small,
+              padding: "4px 8px",
+              borderRadius: 6,
+              border: "1px solid var(--border)",
+              background: "var(--bg-secondary, rgba(255,255,255,0.05))",
+              color: "var(--text-primary)",
+              cursor: "pointer",
+            }}
+          >
+            {PAGE_SIZE_OPTIONS.map(size => (
+              <option key={size} value={size}>{size}</option>
+            ))}
+          </select>
+        </label>
+      </div>
       <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
         <button className="btn btn-ghost" style={btnStyle} disabled={currentPage <= 1}
           onClick={() => onPageChange(1)} title="First">⟪</button>

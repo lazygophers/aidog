@@ -484,6 +484,7 @@
   "logs.targetProtocol": "Format de requête",
   "logs.time": "Heure",
   "logs.total": "enregistrements",
+  "logs.pageSize": "Par page",
   "logs.upstreamRequest": "Requête amont",
   "logs.upstreamStatus": "Statut amont",
   "logs.userRequest": "Requête utilisateur",

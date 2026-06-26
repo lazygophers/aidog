@@ -462,6 +462,7 @@
   "logs.targetProtocol": "请求格式",
   "logs.time": "时间",
   "logs.total": "条记录",
+  "logs.pageSize": "每页",
   "logs.upstreamRequest": "上游请求",
   "logs.upstreamStatus": "上游状态",
   "logs.userRequest": "用户请求",
