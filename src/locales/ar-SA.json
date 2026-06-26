@@ -484,6 +484,7 @@
   "logs.targetProtocol": "صيغة الطلب",
   "logs.time": "الوقت",
   "logs.total": "سجل",
+  "logs.pageSize": "لكل صفحة",
   "logs.upstreamRequest": "طلب المنبع",
   "logs.upstreamStatus": "حالة المنبع",
   "logs.userRequest": "طلب المستخدم",

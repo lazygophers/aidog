@@ -462,6 +462,7 @@
   "logs.targetProtocol": "Formato de solicitud",
   "logs.time": "Hora",
   "logs.total": "registros",
+  "logs.pageSize": "Por página",
   "logs.upstreamRequest": "Solicitud upstream",
   "logs.upstreamStatus": "Estado ascendente",
   "logs.userRequest": "Solicitud de usuario",
