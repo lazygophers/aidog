@@ -17,8 +17,12 @@ pub(crate) fn is_coding_plan(p: &Platform) -> bool {
 /// 其余按 `expires_at` 升序（快过期先用，避免额度浪费）。
 ///
 /// 仅对未过期候选调用（已过期的由 `candidate_state` 提前过滤）。
-/// 作为 Failover 模式同 priority 内的强 "用掉它" 信号：插在 priority 之后、
-/// `apply_coding_plan_priority` 与显式 mapping 提首之前。
+/// 作为各路由模式**同档位 tiebreak**的强 "用掉它" 信号：
+/// - Failover：同 priority 内（插在 priority 之后）。
+/// - LeastLatency：同延迟 EMA 档内（插在 EMA 之后、level_priority 之前）。
+/// - LoadBalance / HealthAware / Sticky：同有效权重档内（影响基础重试序，不参与加权随机选首）。
+///
+/// 各模式均不改主排序键；统一在 `apply_coding_plan_priority` 与显式 mapping 提首之前。
 pub(crate) fn expiry_sort_key(expires_at: i64) -> i64 {
     if expires_at > 0 {
         expires_at
@@ -47,8 +51,14 @@ pub(crate) fn order_load_balance(platforms: &mut Vec<&GroupPlatformDetail>, seed
         return;
     }
     let total_weight: i32 = platforms.iter().map(|gp| effective_weight(gp)).sum();
-    // 先按有效权重降序作为基础顺序
-    platforms.sort_by_key(|gp| std::cmp::Reverse(effective_weight(gp)));
+    // 先按有效权重降序作为基础顺序；同权重档内按 expires_at 升序 tiebreak
+    // （快过期先用，省额度）。该 tiebreak 只影响**基础重试顺序**，不参与下方的
+    // 加权随机选首（pick 仍只基于 weight），故不破坏负载均衡首选随机性。
+    platforms.sort_by(|a, b| {
+        std::cmp::Reverse(effective_weight(a))
+            .cmp(&std::cmp::Reverse(effective_weight(b)))
+            .then_with(|| expiry_sort_key(a.platform.expires_at).cmp(&expiry_sort_key(b.platform.expires_at)))
+    });
     if total_weight <= 0 {
         return;
     }
@@ -75,9 +85,12 @@ pub(crate) fn order_least_latency(platforms: &mut [&GroupPlatformDetail], ctx: O
     platforms.sort_by(|a, b| {
         let la = c.scheduler.latency_ema(a.platform.id).unwrap_or(f64::MAX);
         let lb = c.scheduler.latency_ema(b.platform.id).unwrap_or(f64::MAX);
-        // 延迟 EMA 升序为主键；同延迟档时 level_priority 降序（高优先先）为次级 tiebreaker
+        // 延迟 EMA 升序为主键不变；同延迟档内先按 expires_at 升序（快过期先用，省额度），
+        // expiry 是比 level_priority 更强的"用掉它"信号，故置于 level_priority tiebreak 之前；
+        // 再 level_priority 降序（高优先先）为末级 tiebreaker。
         la.partial_cmp(&lb)
             .unwrap_or(std::cmp::Ordering::Equal)
+            .then_with(|| expiry_sort_key(a.platform.expires_at).cmp(&expiry_sort_key(b.platform.expires_at)))
             .then_with(|| b.level_priority.cmp(&a.level_priority))
     });
 }
