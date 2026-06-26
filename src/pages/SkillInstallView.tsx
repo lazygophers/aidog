@@ -221,16 +221,18 @@ export function SkillInstallView({
         </div>
       )}
 
-      {/* 结果列表 */}
-      {effectiveResults.length > 0 && (
+      {/* 结果列表（loading 时隐藏旧数据，避免与新"搜索中"提示并列误导） */}
+      {!loading && effectiveResults.length > 0 && (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {effectiveResults.map((entry) => {
             const agents = selected.get(entry.id) ?? new Set<SkillAgent>();
             const already = installedNames.has(entry.name);
             const noAgent = agents.size === 0;
             const installing = busyId === entry.id;
+            // 并发锁：另一条正在安装时本条按钮禁用，防止 setBusyId 覆盖丢失前一条"安装中"状态。
+            const otherBusy = busyId !== null && !installing;
             const disabled =
-              installing || !writeReady || already || noAgent;
+              installing || otherBusy || !writeReady || already || noAgent;
             return (
               <div
                 key={entry.id}
@@ -291,6 +293,13 @@ export function SkillInstallView({
                     style={{ fontSize: 12, flexShrink: 0 }}
                     disabled={disabled}
                     onClick={() => handleInstall(entry)}
+                    title={
+                      otherBusy
+                        ? t("skills.install.busyOther", {
+                            defaultValue: "等待当前安装完成",
+                          })
+                        : undefined
+                    }
                   >
                     {installing
                       ? t("skills.install.installing", { defaultValue: "安装中…" })

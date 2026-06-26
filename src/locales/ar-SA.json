@@ -1321,6 +1321,7 @@
   "skills.hash": "تجزئة المحتوى",
   "skills.install.addBtn": "+ إضافة",
   "skills.install.back": "← رجوع",
+  "skills.install.busyOther": "في انتظار اكتمال التثبيت الحالي",
   "skills.install.emptyHint": "اكتب كلمة لبدء البحث عن المهارات القابلة للتثبيت",
   "skills.install.install": "تثبيت",
   "skills.install.installFailed": "فشل التثبيت",
