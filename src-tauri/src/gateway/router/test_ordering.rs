@@ -1,6 +1,6 @@
 use super::super::candidates::ScheduleCtx;
 use super::super::super::scheduling::{SchedulerState, StickyTable};
-use super::super::test_mod::{mk_gp, mk_gp_lp};
+use super::super::test_mod::{mk_gp, mk_gp_exp, mk_gp_lp};
 use super::*;
 
 fn mk_settings() -> SchedulingBreakerSettings {
@@ -169,4 +169,101 @@ fn apply_sticky_empty_candidates_no_panic() {
     let mut v: Vec<&GroupPlatformDetail> = vec![];
     apply_sticky(&mut v, Some(&ctx), 0); // should not panic
     assert!(v.is_empty());
+}
+
+// ── expiry_sort_key / [platform-expiry-priority] ──
+
+#[test]
+fn expiry_sort_key_zero_maps_to_max() {
+    // expires_at=0（永不过期）→ i64::MAX（排末尾）
+    assert_eq!(expiry_sort_key(0), i64::MAX);
+    // expires_at>0 → 原值（升序排）
+    assert_eq!(expiry_sort_key(1_000_000), 1_000_000);
+    assert_eq!(expiry_sort_key(i64::MAX), i64::MAX);
+}
+
+#[test]
+fn failover_sorts_by_expiry_asc_within_same_priority() {
+    // 同 level_priority / priority 的三平台，仅 expires_at 不同：
+    // p1: 永不过期(0) / p2: 远未来 / p3: 近未来（快过期）
+    // 期望升序：p3（近）→ p2（远）→ p1（永不过期，末尾）
+    let gp1 = mk_gp_exp(1, 1, 0, 0);
+    let gp2 = mk_gp_exp(2, 1, 0, 10_000_000_000);
+    let gp3 = mk_gp_exp(3, 1, 0, 1_000_000_000);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp1, &gp2, &gp3];
+    v.sort_by_key(|gp| {
+        (
+            std::cmp::Reverse(gp.level_priority),
+            gp.priority,
+            expiry_sort_key(gp.platform.expires_at),
+        )
+    });
+    assert_eq!(
+        v.iter().map(|g| g.platform.id).collect::<Vec<_>>(),
+        vec![3, 2, 1],
+        "expires_at 升序：快过期先（3），远未来次（2），永不过期末（1）"
+    );
+}
+
+#[test]
+fn failover_priority_dominates_expiry() {
+    // priority 主序不变：priority 更优(0) 的平台即便永不过期，仍排在 priority 较差(1) 但快过期平台之前。
+    // 即 expires_at 仅在同 priority 内生效（prd 边界决策 3）。
+    let gp_p0_noexp = mk_gp_exp(1, 1, 0, 0);       // priority 0, 永不过期
+    let gp_p1_expiring = mk_gp_exp(2, 1, 1, 1_000); // priority 1, 快过期
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp_p1_expiring, &gp_p0_noexp];
+    v.sort_by_key(|gp| {
+        (
+            std::cmp::Reverse(gp.level_priority),
+            gp.priority,
+            expiry_sort_key(gp.platform.expires_at),
+        )
+    });
+    assert_eq!(
+        v.iter().map(|g| g.platform.id).collect::<Vec<_>>(),
+        vec![1, 2],
+        "priority 主序：p0 永不过期仍先于 p1 快过期（expires_at 不跨 priority）"
+    );
+}
+
+#[test]
+fn failover_same_expiry_falls_through_to_stable_order() {
+    // 同 priority + 同 expires_at → 排序键全平局，Rust sort 稳定 → 保持入参相对序。
+    let gp_a = mk_gp_exp(1, 1, 0, 5_000);
+    let gp_b = mk_gp_exp(2, 1, 0, 5_000);
+    let gp_c = mk_gp_exp(3, 1, 0, 5_000);
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp_a, &gp_b, &gp_c];
+    v.sort_by_key(|gp| {
+        (
+            std::cmp::Reverse(gp.level_priority),
+            gp.priority,
+            expiry_sort_key(gp.platform.expires_at),
+        )
+    });
+    assert_eq!(
+        v.iter().map(|g| g.platform.id).collect::<Vec<_>>(),
+        vec![1, 2, 3],
+        "同 priority + 同 expires_at → 稳定保持入参序（prd 边界决策 4）"
+    );
+}
+
+#[test]
+fn failover_mixed_expiry_zero_at_end_within_priority() {
+    // 混合场景：同 priority 内，有期限平台（不论快慢）均排在 expires_at=0 之前。
+    let gp_noexp = mk_gp_exp(1, 1, 5, 0);            // 永不过期
+    let gp_far = mk_gp_exp(2, 1, 5, 99_999_999_999); // 远未来
+    let gp_near = mk_gp_exp(3, 1, 5, 1_111);         // 近未来
+    let mut v: Vec<&GroupPlatformDetail> = vec![&gp_noexp, &gp_far, &gp_near];
+    v.sort_by_key(|gp| {
+        (
+            std::cmp::Reverse(gp.level_priority),
+            gp.priority,
+            expiry_sort_key(gp.platform.expires_at),
+        )
+    });
+    assert_eq!(
+        v.iter().map(|g| g.platform.id).collect::<Vec<_>>(),
+        vec![3, 2, 1],
+        "有期限 升序（3 近 → 2 远）→ 永不过期末（1）"
+    );
 }

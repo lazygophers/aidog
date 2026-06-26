@@ -13,6 +13,20 @@ pub(crate) fn is_coding_plan(p: &Platform) -> bool {
     p.endpoints.iter().any(|ep| ep.coding_plan)
 }
 
+/// 过期时间排序键：`expires_at=0`（永不过期）视为 `i64::MAX` 排末尾，
+/// 其余按 `expires_at` 升序（快过期先用，避免额度浪费）。
+///
+/// 仅对未过期候选调用（已过期的由 `candidate_state` 提前过滤）。
+/// 作为 Failover 模式同 priority 内的强 "用掉它" 信号：插在 priority 之后、
+/// `apply_coding_plan_priority` 与显式 mapping 提首之前。
+pub(crate) fn expiry_sort_key(expires_at: i64) -> i64 {
+    if expires_at > 0 {
+        expires_at
+    } else {
+        i64::MAX
+    }
+}
+
 /// coding plan 平台优先：在已按路由模式排好序的候选列表上做**稳定分桶上浮**，
 /// 把 coding plan 平台整体提到非 coding plan 之前，每个桶内部保持入参已有顺序
 /// （mode 排序结果）不变。

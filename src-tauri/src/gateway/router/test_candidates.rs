@@ -456,3 +456,105 @@ async fn explicit_mapping_overrides_coding_plan_preference() {
     assert_eq!(set.candidates[0].platform.id, non.id, "explicit mapping target must stay first over coding plan");
     assert_eq!(set.candidates[0].target_model, "gpt-4o-mapped");
 }
+
+// ── [platform-expiry-priority] 同 priority 内按 expires_at 升序优先 ──
+
+/// 创建带 expires_at 的普通平台。
+async fn mk_db_platform_exp(db: &db::Db, name: &str, expires_at: i64) -> Platform {
+    db::create_platform(db, CreatePlatform {
+        name: name.into(),
+        platform_type: Protocol::Anthropic,
+        base_url: "https://example.invalid".into(),
+        api_key: "k".into(),
+        extra: String::new(),
+        models: None, available_models: None, endpoints: None, manual_budgets: None,
+        auto_group: None, join_group_ids: None, default_level_priority: None,
+        expires_at: Some(expires_at),
+    }).await.expect("create platform with expires_at")
+}
+
+/// Failover 同 priority 候选：未过期的平台中 expires_at 最小者优先调度。
+/// 混合 3 平台同 priority=0：近未来 / 远未来 / 永不过期(0) → 期望近→远→永。
+#[tokio::test]
+async fn failover_prefers_earliest_expiry_within_same_priority() {
+    let db = mk_test_db().await;
+    let now = db::now();
+    let p_near = mk_db_platform_exp(&db, "near", now + 60_000).await;       // 1 分钟后过期
+    let p_far = mk_db_platform_exp(&db, "far", now + 7 * 86_400_000).await; // 7 天后过期
+    let p_forever = mk_db_platform_exp(&db, "forever", 0).await;           // 永不过期
+    // 三平台均 priority=0（同优先级），故意打乱注册顺序验证排序不受注册序影响
+    let g = db::create_group(&db, CreateGroup {
+        name: "exp-group".into(), group_key: Some("exp-group".into()),
+        routing_mode: RoutingMode::Failover, auto_from_platform: String::new(),
+        request_timeout_secs: 0, connect_timeout_secs: 0,
+        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![],
+    }).await.expect("create group");
+    let inputs = vec![
+        GroupPlatformInput { platform_id: p_forever.id, priority: Some(0), weight: Some(1), level_priority: None },
+        GroupPlatformInput { platform_id: p_far.id, priority: Some(0), weight: Some(1), level_priority: None },
+        GroupPlatformInput { platform_id: p_near.id, priority: Some(0), weight: Some(1), level_priority: None },
+    ];
+    db::set_group_platforms(&db, g.id, &inputs).await.expect("set");
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await.expect("ok");
+    assert_eq!(set.candidates.len(), 3);
+    // expires_at 升序：近未来 → 远未来 → 永不过期
+    assert_eq!(set.candidates[0].platform.id, p_near.id, "earliest expiry must be scheduled first");
+    assert_eq!(set.candidates[1].platform.id, p_far.id, "farther expiry second");
+    assert_eq!(set.candidates[2].platform.id, p_forever.id, "never-expiring (0) goes last within same priority");
+}
+
+/// expires_at=0（永不过期）排在所有有期限平台之后，即便 priority 更优也不跨 priority。
+#[tokio::test]
+async fn failover_priority_dominates_over_expiry_in_db() {
+    let db = mk_test_db().await;
+    let now = db::now();
+    // 永不过期但 priority 更优(0) vs 快过期但 priority 较差(1)
+    let p_noexp = mk_db_platform_exp(&db, "noexp-p0", 0).await;
+    let p_expiring = mk_db_platform_exp(&db, "exp-p1", now + 60_000).await;
+    let g = db::create_group(&db, CreateGroup {
+        name: "prio-dom".into(), group_key: Some("prio-dom".into()),
+        routing_mode: RoutingMode::Failover, auto_from_platform: String::new(),
+        request_timeout_secs: 0, connect_timeout_secs: 0,
+        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![],
+    }).await.expect("create group");
+    // p_noexp priority=0（更优）、p_expiring priority=1（较差）
+    let inputs = vec![
+        GroupPlatformInput { platform_id: p_noexp.id, priority: Some(0), weight: Some(1), level_priority: None },
+        GroupPlatformInput { platform_id: p_expiring.id, priority: Some(1), weight: Some(1), level_priority: None },
+    ];
+    db::set_group_platforms(&db, g.id, &inputs).await.expect("set");
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await.expect("ok");
+    // priority 主序：p_noexp(0) 居首，即便永不过期；expires_at 不跨 priority
+    assert_eq!(set.candidates[0].platform.id, p_noexp.id, "priority dominates over expiry");
+    assert_eq!(set.candidates[1].platform.id, p_expiring.id);
+}
+
+/// 已过期平台（now >= expires_at）被 candidate_state 过滤，不参与本需求优先调度。
+#[tokio::test]
+async fn expired_platform_filtered_out_not_prioritized() {
+    let db = mk_test_db().await;
+    let now = db::now();
+    // 已过期（now - 1）+ 永不过期 候选；已过期应被踢，仅永不过期候选返回。
+    let p_expired = mk_db_platform_exp(&db, "expired", now - 1).await;
+    let p_ok = mk_db_platform_exp(&db, "ok", 0).await;
+    let g = mk_db_group(&db, "exp-filter", &[p_expired.id, p_ok.id]).await;
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await.expect("ok");
+    // 已过期 p_expired 被过滤，只剩 p_ok
+    assert_eq!(set.candidates.len(), 1);
+    assert_eq!(set.candidates[0].platform.id, p_ok.id, "expired platform filtered by candidate_state, not prioritized");
+}
