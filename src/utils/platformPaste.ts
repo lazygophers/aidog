@@ -26,6 +26,12 @@ export interface PastePresetRef {
   /** coding plan 变体标记：透传到 applyPaste → handleProtocolChange(value, codingPlan)，
    *  否则同 value 的普通/coding 两 preset 命中后 endpoints 取错（拿普通 base_url）。 */
   codingPlan?: boolean;
+  /** coding plan 专属 token 前缀（仅 coding 变体 preset 填，承载该平台 coding-plan 独有 key 前缀）。
+   *  机制 B（纯 token 粘贴无 base_url，host 子串匹配触不到 coding host）：matchPlatform 命中
+   *  非 coding 变体后，若同 value 存在带本字段的 coding 变体且任一 apiKey 命中其前缀 → 升级到
+   *  coding 变体。前缀须区别于普通版 key（如小米 token-plan 的 "tp-"），同形无法区分则不填，
+   *  仅靠机制 A（host 匹配）。 */
+  codingKeyPrefixes?: string[];
 }
 
 export interface ParsedPaste {
@@ -500,15 +506,19 @@ export function parsePlatformPaste(
   }
 
   let platform = matchPlatform(text, presets, baseUrls);
-  // coding plan 升级：mimo 普通 preset 命中后，若提取到的 apiKey 是 token plan 前缀（tp-），
-  // 说明是 coding plan token（token-plan-cn.xiaomimimo.com），升级到 coding plan 变体。
-  // 纯 token 粘贴无 base_url，host 匹配触不到 coding plan host，靠 token 前缀补判。
-  if (platform?.value === "xiaomi_mimo" && !platform.codingPlan
-      && apiKeys.some(k => k.startsWith("tp-"))) {
-    const cpPreset = presets.find(p => p.value === "xiaomi_mimo" && p.codingPlan);
-    platform = cpPreset
-      ? { value: platform.value, label: cpPreset.label, codingPlan: true }
-      : { ...platform, codingPlan: true };
+  // 机制 B — coding plan token 前缀升级（数据驱动，覆盖所有声明 codingKeyPrefixes 的平台）。
+  // 普通版 preset 命中后，若同 value 存在带 codingKeyPrefixes 的 coding 变体且任一 apiKey 命中其
+  // 前缀 → 升级到 coding 变体。纯 token 粘贴无 base_url，host 匹配（机制 A）触不到 coding host，
+  // 靠 token 前缀补判（如小米 token-plan 的 "tp-"，token-plan-cn.xiaomimimo.com）。
+  if (platform && !platform.codingPlan) {
+    const cpPreset = presets.find(
+      p => p.value === platform!.value && p.codingPlan
+        && (p.codingKeyPrefixes?.length ?? 0) > 0
+        && apiKeys.some(k => p.codingKeyPrefixes!.some(pre => k.startsWith(pre))),
+    );
+    if (cpPreset) {
+      platform = { value: cpPreset.value, label: cpPreset.label, codingPlan: true };
+    }
   }
 
   return {
