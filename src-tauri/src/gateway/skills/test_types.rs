@@ -1,12 +1,10 @@
 use super::*;
 
 #[test]
-fn agent_slug_and_display() {
+fn agent_slug() {
     // 关键修正：claude slug 必须 "claude-code"（旧值 "claude" 是错的）。
     assert_eq!(SkillAgent::Claude.cli_slug(), "claude-code");
     assert_eq!(SkillAgent::Codex.cli_slug(), "codex");
-    assert_eq!(SkillAgent::Claude.display_name(), "Claude Code");
-    assert_eq!(SkillAgent::Codex.display_name(), "Codex");
 }
 
 #[test]

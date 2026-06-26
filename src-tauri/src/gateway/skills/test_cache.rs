@@ -1,22 +1,36 @@
 use super::*;
-use crate::gateway::skills::types::{SkillAgent, SkillInfo, SkillScope};
+use crate::gateway::skills::types::{SkillInfo, SkillScope};
+use std::fs;
+use tempfile::TempDir;
+
+/// 构造一个所有字段均 default 的 SkillInfo（含新增锁文件字段，测试用）。
+fn make_skill(name: &str, scope: SkillScope) -> SkillInfo {
+    SkillInfo {
+        name: name.to_string(),
+        enabled_agents: vec![],
+        scope,
+        installed_path: None,
+        description: None,
+        source: None,
+        source_type: None,
+        source_url: None,
+        skill_folder_hash: None,
+        plugin_name: None,
+        installed_at: None,
+        updated_at: None,
+    }
+}
 
 #[test]
 fn cache_file_roundtrip_serde() {
     // 缓存文件结构可序列化/反序列化往返。
     let mut file = SkillsCacheFile::default();
+    let scope = SkillScope::Global;
     file.scopes.insert(
         "global".to_string(),
         ScopeCacheEntry {
             cached_at: 123,
-            items: vec![SkillInfo {
-                name: "foo".to_string(),
-                enabled_agents: vec![SkillAgent::Claude],
-                scope: SkillScope::Global,
-                installed_path: Some("/p/foo".to_string()),
-                description: None,
-                source: None,
-            }],
+            items: vec![make_skill("foo", scope.clone())],
         },
     );
     let json = serde_json::to_string(&file).unwrap();
@@ -72,14 +86,7 @@ fn write_read_invalidate_cycle() {
             key,
             ScopeCacheEntry {
                 cached_at: 42,
-                items: vec![SkillInfo {
-                    name: "test-skill".to_string(),
-                    enabled_agents: vec![],
-                    scope: scope.clone(),
-                    installed_path: None,
-                    description: None,
-                    source: None,
-                }],
+                items: vec![make_skill("test-skill", scope.clone())],
             },
         );
     }
@@ -96,15 +103,20 @@ fn write_read_invalidate_cycle() {
     assert!(after.items.is_empty());
 }
 
-/// F1: list_refresh npx 失败时（如 project path 不存在 → npx cwd 失败）保留旧缓存 + load_failed=true。
+/// F1: list_refresh 锁文件加载失败时（project scope 下写一份损坏锁文件）保留旧缓存 + load_failed=true。
 /// 验证写空覆盖 bug 已修：失败时缓存不被空 vec 覆盖，前端可显示「加载失败，显示上次列表」。
 #[test]
-fn list_refresh_npx_failure_preserves_old_cache() {
-    // 用不存在的 project path 触发 npx 失败（cwd 不存在 → run_npx_in_scope 返 success=false）。
-    // 注意：project scope cache_key 含 path，每个测试用唯一 path 避免与其他测试串扰。
+fn list_refresh_lockfile_failure_preserves_old_cache() {
+    // project path tempdir + 写一份损坏锁文件触发 ok=false。
+    // 注意：project scope cache_key 含 path，每个测试用唯一 tempdir 避免与其他测试串扰。
+    let tmp = TempDir::new().unwrap();
     let scope = SkillScope::Project {
-        path: format!("/nonexistent/test_cache_fail_{}", std::process::id()),
+        path: tmp.path().to_string_lossy().into_owned(),
     };
+    let agents_dir = tmp.path().join(".agents");
+    fs::create_dir_all(&agents_dir).unwrap();
+    // 损坏 JSON 触发 list_installed 返 ok=false。
+    fs::write(agents_dir.join(".skill-lock.json"), "not json {{{").unwrap();
 
     // 1. 先写入一个旧缓存条目（模拟历史成功 list 的结果）。
     {
@@ -114,23 +126,16 @@ fn list_refresh_npx_failure_preserves_old_cache() {
             key,
             ScopeCacheEntry {
                 cached_at: 100,
-                items: vec![SkillInfo {
-                    name: "old-skill".to_string(),
-                    enabled_agents: vec![SkillAgent::Claude],
-                    scope: scope.clone(),
-                    installed_path: Some("/p/old".to_string()),
-                    description: None,
-                    source: None,
-                }],
+                items: vec![make_skill("old-skill", scope.clone())],
             },
         );
     }
 
-    // 2. list_refresh 触发 npx 失败 → 应回旧 items + stale=false（有缓存） + load_failed=true。
+    // 2. list_refresh 触发锁文件失败 → 应回旧 items + stale=false（有缓存） + load_failed=true。
     let result = list_refresh(&scope, None);
     assert!(
         result.load_failed,
-        "list_refresh npx 失败时应返 load_failed=true"
+        "list_refresh 锁文件失败时应返 load_failed=true"
     );
     assert_eq!(
         result.items.len(),
@@ -152,19 +157,23 @@ fn list_refresh_npx_failure_preserves_old_cache() {
     invalidate(&scope);
 }
 
-/// F1: list_refresh npx 失败 + 无旧缓存（首次进页即失败）→ 返空 items + stale=true + load_failed=true。
+/// F1: list_refresh 锁文件失败 + 无旧缓存（首次进页即失败）→ 返空 items + stale=true + load_failed=true。
 /// 前端应显加载态 + 失败提示（而非假空列表）。
 #[test]
-fn list_refresh_npx_failure_no_cache_returns_stale_load_failed() {
+fn list_refresh_lockfile_failure_no_cache_returns_stale_load_failed() {
+    let tmp = TempDir::new().unwrap();
     let scope = SkillScope::Project {
-        path: format!("/nonexistent/test_cache_fail_nocache_{}", std::process::id()),
+        path: tmp.path().to_string_lossy().into_owned(),
     };
+    let agents_dir = tmp.path().join(".agents");
+    fs::create_dir_all(&agents_dir).unwrap();
+    fs::write(agents_dir.join(".skill-lock.json"), "not json {{{").unwrap();
 
     // 确保无缓存。
     invalidate(&scope);
 
     let result = list_refresh(&scope, None);
-    assert!(result.load_failed, "npx 失败应 load_failed=true");
+    assert!(result.load_failed, "锁文件失败应 load_failed=true");
     assert!(result.items.is_empty(), "无旧缓存时 items 空");
     assert!(
         result.stale,

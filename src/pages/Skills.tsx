@@ -21,6 +21,7 @@ import {
 import { SkillInstallView } from "./SkillInstallView";
 import { SkillDetailView } from "./SkillDetailView";
 import { pinyinMatch } from "../utils/pinyin";
+import { formatDateTime, formatRelativeTime } from "../utils/formatters";
 import claudeIcon from "../assets/platforms/claude_code.svg";
 import codexIcon from "../assets/platforms/openai.svg";
 
@@ -606,17 +607,103 @@ export function Skills() {
                 style={{ padding: "12px 16px", display: "flex", gap: 12, alignItems: "center" }}
               >
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <button
-                    type="button"
-                    className="btn btn-ghost"
-                    title={t("skills.detail.view", "查看详情")}
-                    style={{ fontSize: 13, fontWeight: 600, padding: 0, cursor: "pointer" }}
-                    onClick={() => setDetailTarget(skill)}
-                  >
-                    {skill.name}
-                  </button>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      className="btn btn-ghost"
+                      title={t("skills.detail.view", "查看详情")}
+                      style={{ fontSize: 13, fontWeight: 600, padding: 0, cursor: "pointer" }}
+                      onClick={() => setDetailTarget(skill)}
+                    >
+                      {skill.name}
+                    </button>
+                    {/* 锁文件元数据标签：source / sourceType / plugin / updatedAt 相对时间 */}
+                    {skill.source && (
+                      <a
+                        href={skill.source_url ?? `https://github.com/${skill.source}`}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => {
+                          // Tauri 外链走 opener 由系统处理（普通 a target=_blank 也工作，这里防误关页面）。
+                          e.preventDefault();
+                          window.open(skill.source_url ?? `https://github.com/${skill.source}`, "_blank");
+                        }}
+                        title={skill.source_url ?? skill.source}
+                        style={{
+                          fontSize: 11,
+                          padding: "2px 8px",
+                          borderRadius: 6,
+                          background: "var(--accent-subtle)",
+                          color: "var(--accent)",
+                          textDecoration: "none",
+                          cursor: "pointer",
+                          border: "1px solid var(--border)",
+                        }}
+                      >
+                        {skill.source}
+                      </a>
+                    )}
+                    {skill.source_type && (
+                      <span
+                        title={t("skills.sourceType", "来源类型")}
+                        style={{
+                          fontSize: 10,
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          background: "var(--bg-floating)",
+                          color: "var(--text-secondary)",
+                          border: "1px solid var(--border)",
+                          textTransform: "uppercase",
+                          letterSpacing: 0.3,
+                        }}
+                      >
+                        {skill.source_type}
+                      </span>
+                    )}
+                    {skill.plugin_name && (
+                      <span
+                        title={t("skills.pluginName", "plugin 来源")}
+                        style={{
+                          fontSize: 10,
+                          padding: "2px 6px",
+                          borderRadius: 4,
+                          background: "var(--bg-floating)",
+                          color: "var(--text-secondary)",
+                          border: "1px solid var(--border)",
+                        }}
+                      >
+                        plugin: {skill.plugin_name}
+                      </span>
+                    )}
+                    {skill.updated_at && (
+                      <span
+                        title={`${t("skills.updatedAt", "更新时间")}: ${formatDateTime(skill.updated_at) ?? skill.updated_at}`}
+                        style={{
+                          fontSize: 11,
+                          color: "var(--text-secondary)",
+                        }}
+                      >
+                        {formatRelativeTime(skill.updated_at)}
+                      </span>
+                    )}
+                  </div>
                   {skill.description?.trim() && (
                     <div style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 4 }}>{skill.description}</div>
+                  )}
+                  {/* 安装时间次要行（紧凑） */}
+                  {skill.installed_at && (
+                    <div style={{ fontSize: 10, color: "var(--text-secondary)", marginTop: 2, opacity: 0.8 }}>
+                      <span>{t("skills.installedAt", "安装于")}: </span>
+                      <span title={skill.installed_at}>{formatDateTime(skill.installed_at)}</span>
+                      {skill.skill_folder_hash && (
+                        <>
+                          <span style={{ margin: "0 6px", opacity: 0.5 }}>·</span>
+                          <span title={t("skills.hash", "内容 hash")} style={{ fontFamily: "monospace" }}>
+                            {skill.skill_folder_hash.slice(0, 7)}
+                          </span>
+                        </>
+                      )}
+                    </div>
                   )}
                 </div>
                 {/* 右侧 agent 启用切换 */}

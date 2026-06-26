@@ -1610,7 +1610,9 @@ export interface SkillsEnv {
   node_version: string | null;
 }
 
-/** 已装 skill（`npx skills list --json` 解析，统一一条/skill，不分 agent）。 */
+/** 已装 skill（直接读 `~/.agents/.skill-lock.json` + 探测本地 agent symlink 解析，一条/skill）。
+ *  锁文件独有字段（source/sourceType/sourceUrl/skillFolderHash/pluginName/installedAt/updatedAt）
+ *  从锁文件反序列化透出，旧缓存可能缺（值为 null，下次 refresh 回填）。 */
 export interface SkillInfo {
   name: string;
   /** 已在哪些目标 agent（claude/codex 子集）启用。 */
@@ -1618,8 +1620,20 @@ export interface SkillInfo {
   scope: SkillScope;
   installed_path: string | null;
   description: string | null;
-  /** 来源 owner/repo（锁文件 source）。第三方/手动 symlink skill → null。 */
+  /** 来源 owner/repo（锁文件 `source`）。第三方/手动 symlink skill（锁文件无条目）→ null。 */
   source: string | null;
+  /** 来源类型（锁文件 `sourceType`，如 "github"/"gitlab"）。锁文件无 / 旧缓存 → null。 */
+  source_type: string | null;
+  /** 来源 git URL（锁文件 `sourceUrl`）。锁文件无 / 旧缓存 → null。 */
+  source_url: string | null;
+  /** skill 文件夹 hash（锁文件 `skillFolderHash`，sha1 hex，诊断用）。锁文件无 / 旧缓存 → null。 */
+  skill_folder_hash: string | null;
+  /** plugin 名（锁文件 `pluginName`，仅 plugin 安装来源有）。锁文件无 / 旧缓存 → null。 */
+  plugin_name: string | null;
+  /** 首次安装时间（锁文件 `installedAt`，ISO 8601）。锁文件无 / 旧缓存 → null。 */
+  installed_at: string | null;
+  /** 最近更新时间（锁文件 `updatedAt`，ISO 8601）。锁文件无 / 旧缓存 → null。 */
+  updated_at: string | null;
 }
 
 /** catalog 条目（可装 skill）。 */
