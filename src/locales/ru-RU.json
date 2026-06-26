@@ -484,6 +484,7 @@
   "logs.targetProtocol": "Формат запроса",
   "logs.time": "Время",
   "logs.total": "записей",
+  "logs.pageSize": "На странице",
   "logs.upstreamRequest": "Запрос к апстриму",
   "logs.upstreamStatus": "Статус восходящего потока",
   "logs.userRequest": "Запрос пользователя",

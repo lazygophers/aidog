@@ -484,6 +484,7 @@
   "logs.targetProtocol": "Anfrage-Format",
   "logs.time": "Zeit",
   "logs.total": "Einträge",
+  "logs.pageSize": "Pro Seite",
   "logs.upstreamRequest": "Upstream-Anfrage",
   "logs.upstreamStatus": "Upstream-Status",
   "logs.userRequest": "Nutzeranfrage",

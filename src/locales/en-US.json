@@ -462,6 +462,7 @@
   "logs.targetProtocol": "Request Format",
   "logs.time": "Time",
   "logs.total": "records",
+  "logs.pageSize": "Per page",
   "logs.upstreamRequest": "Upstream Request",
   "logs.upstreamStatus": "Upstream status",
   "logs.userRequest": "User Request",
