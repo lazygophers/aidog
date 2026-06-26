@@ -1321,6 +1321,7 @@
   "skills.hash": "Inhalts-Hash",
   "skills.install.addBtn": "+ Hinzufügen",
   "skills.install.back": "← Zurück",
+  "skills.install.busyOther": "Auf Abschluss der aktuellen Installation warten",
   "skills.install.emptyHint": "Schlüsselwort eingeben, um installierbare Skills zu suchen",
   "skills.install.install": "Installieren",
   "skills.install.installFailed": "Installation fehlgeschlagen",
