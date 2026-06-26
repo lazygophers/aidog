@@ -1299,6 +1299,7 @@
   "skills.hash": "内容 hash",
   "skills.install.addBtn": "+ 添加",
   "skills.install.back": "← 返回",
+  "skills.install.busyOther": "等待当前安装完成",
   "skills.install.emptyHint": "输入关键字开始搜索可安装的 skills",
   "skills.install.install": "安装",
   "skills.install.installFailed": "安装失败",

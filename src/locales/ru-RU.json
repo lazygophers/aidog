@@ -1321,6 +1321,7 @@
   "skills.hash": "Хеш содержимого",
   "skills.install.addBtn": "+ Добавить",
   "skills.install.back": "← Назад",
+  "skills.install.busyOther": "Ожидание завершения текущей установки",
   "skills.install.emptyHint": "Введите ключевое слово для поиска skills",
   "skills.install.install": "Установить",
   "skills.install.installFailed": "Ошибка установки",

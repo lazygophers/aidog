@@ -1321,6 +1321,7 @@
   "skills.hash": "コンテンツハッシュ",
   "skills.install.addBtn": "+ 追加",
   "skills.install.back": "← 戻る",
+  "skills.install.busyOther": "現在のインストール完了を待っています",
   "skills.install.emptyHint": "キーワードを入力してインストール可能な skills を検索",
   "skills.install.install": "インストール",
   "skills.install.installFailed": "インストール失敗",
