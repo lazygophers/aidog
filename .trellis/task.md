@@ -59,4 +59,4 @@
 | share-copy-fail | 分享按钮复制失败修复 | — | 已完成 | 收尾 | 100% | .worktrees/06-26-share-copy-fail |
 | skills-install-ux-redesign | SkillInstallView 交互重设计 | — | 已完成 | 收尾 | 100% | .worktrees/06-26-skills-install-ux-redesign |
 | skills-install-ux-recovery | SkillInstallView 改动恢复 (worktree 未 commit 丢失) | — | 已完成 | 收尾 | 100% | .worktrees/06-26-skills-install-ux-recovery |
-| expiry-sort-all-modes | 调度同优先级按最早过期排序扩展全模式 | — | 进行中 | 规划 | 0% | — |
+| expiry-sort-all-modes | 调度同优先级按最早过期排序扩展全模式 | — | 已完成 | 收尾 | 100% | — |
