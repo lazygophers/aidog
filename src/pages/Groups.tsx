@@ -2,6 +2,7 @@ import { useState, useEffect, useReducer, useCallback, useRef, useMemo, Fragment
 import { createPortal } from "react-dom";
 import type { ReactNode, CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import claudeIcon from "../assets/platforms/claude_code.svg";
 import codexIcon from "../assets/platforms/openai.svg";
 import type { TFunction } from "i18next";
@@ -417,7 +418,9 @@ function CopyButton({ text, title, label, icon, size = 14 }: { text: string; tit
   const [copied, setCopied] = useState(false);
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(text).then(() => {
+    // Tauri writeText 走权限系统（capabilities default.json allow-write-text），
+    // WKWebView 无手势激活时 navigator.clipboard 被拒静默失败，Tauri 路径更可靠（参 ShareModal/SmartPasteModal）。
+    writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
