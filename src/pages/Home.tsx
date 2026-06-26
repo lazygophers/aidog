@@ -20,6 +20,7 @@ import {
   type Platform,
   type StatsBucket,
 } from "../services/api";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
 import { smoothPath } from "../utils/chart";
 import { BalanceBar, costLevel, levelColor } from "../components/shared";
@@ -42,7 +43,9 @@ function CopyButton({ text, title, label, size = 14 }: { text: string; title?: s
   const [copied, setCopied] = useState(false);
   const handleCopy = (e: React.MouseEvent) => {
     e.stopPropagation();
-    navigator.clipboard.writeText(text).then(() => {
+    // Tauri writeText 走权限系统（capabilities default.json allow-write-text），
+    // WKWebView 无手势激活时 navigator.clipboard 被拒静默失败，Tauri 路径更可靠（参 ShareModal/SmartPasteModal）。
+    writeText(text).then(() => {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     });
