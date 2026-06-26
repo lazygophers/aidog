@@ -16,7 +16,7 @@ import { PlatformCard, LevelPriorityControl, type PlatformCardActions } from "..
 import { useThemeMode } from "../themes/useThemeMode";
 
 /** 支持的协议选项（含 coding plan 变体） */
-export type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[]; hosts?: string[] };
+export type ProtocolOption = { value: Protocol; label: string; codingPlan?: boolean; keywords?: string[]; hosts?: string[]; codingKeyPrefixes?: string[] };
 
 export const PROTOCOLS: ProtocolOption[] = [
   // ── 官方 ──
@@ -44,7 +44,7 @@ export const PROTOCOLS: ProtocolOption[] = [
   { value: "qianfan", label: "百度千帆", keywords: ["baidu", "百度", "千帆"] },
   { value: "qianfan", label: "百度千帆 Coding Plan Lite", codingPlan: true, keywords: ["baidu", "百度", "千帆", "qianfan", "coding"] },
   { value: "xiaomi_mimo", label: "小米 MiMo", keywords: ["xiaomi", "小米", "mimo"] },
-  { value: "xiaomi_mimo", label: "小米 MiMo Coding Plan", codingPlan: true, keywords: ["xiaomi coding", "小米编程", "mimo token plan", "token plan"] },
+  { value: "xiaomi_mimo", label: "小米 MiMo Coding Plan", codingPlan: true, keywords: ["xiaomi coding", "小米编程", "mimo token plan", "token plan"], codingKeyPrefixes: ["tp-"] },
   { value: "bailing", label: "百灵", keywords: ["bailing", "百灵", "tbox"] },
   { value: "longcat", label: "Longcat", keywords: ["longcat", "龙猫"] },
   // ── 聚合平台 ──
@@ -1647,7 +1647,12 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
     }
     if (r.apiKey) setApiKey(r.apiKey);
     // 智能粘贴识别到的过期时间（社区分享帖常见「即将过期 06-28 23:59」）。0/未识别 = 不动。
-    if (r.expiresAt && r.expiresAt > 0) setExpiresAt(r.expiresAt);
+    // 识别到则自动启用 expiry toggle，使过期字段在表单可见（与 coding_plan 自动识别对齐），
+    // 否则 toggle 默认 OFF → datetime-local 隐藏 → 用户误判「没识别到过期时间」。
+    if (r.expiresAt && r.expiresAt > 0) {
+      setExpiresAt(r.expiresAt);
+      setExpiryEnabled(true);
+    }
     setShowPaste(false);
     // 弹窗可能从主列表「添加平台」直达（表单尚未挂载），apply 后显式拉起表单展示已填字段。
     setShowForm(true);
@@ -3159,7 +3164,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           {/* 过期时间（可选）：设过期后路由自动排除（等效禁用），独立于 status 三态。
               「启用过期」toggle OFF → 隐藏 datetime-local（即便 expiresAt 有识别值也不显示）；
               toggle ON → 显示 datetime-local；ON→OFF 清零 expiresAt（不生效）。
-              粘贴识别仅填 expiresAt state，不动 expiryEnabled（用户手动启用）。 */}
+              智能粘贴识别到过期时间时 applyPaste 自动置 expiryEnabled=true，使识别值在表单可见。 */}
           <FormSection
             title={t("platform.expiresAt", "过期时间")}
             desc={t("platform.expiresAtHint", "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。")}
