@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, parsePlatformBreaker, serializePlatformBreaker, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type PlatformStatus, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type LastTestResult, type MockConfig, type MockErrorMode, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail, type SharePlatform } from "../services/api";
 import { IconClose, IconCheck } from "../components/icons";
 import { cycleMsForTier, codingTierLevel, type ColorLevel } from "../components/shared";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 
 import { ModelTestPanel } from "./ModelTestPanel";
 import { GroupsEmbedded } from "./Groups";
@@ -2787,7 +2788,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
                 type="button"
                 className="btn btn-ghost btn-icon"
                 title="Copy key"
-                onClick={() => navigator.clipboard.writeText(apiKey)}
+                onClick={() => void writeText(apiKey)}
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />

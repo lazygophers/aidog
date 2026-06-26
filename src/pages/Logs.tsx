@@ -11,6 +11,7 @@ import {
   type Platform,
   type GroupDetail,
 } from "../services/api";
+import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { IconClose } from "../components/icons";
 import { usePolling } from "../hooks/usePolling";
 
@@ -156,7 +157,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
       (d.response_body && d.response_body !== "[stream]") ? fj(d.response_body) : "(streaming, not captured)",
     ];
     try {
-      await navigator.clipboard.writeText(lines.join("\n"));
+      await writeText(lines.join("\n"));
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (e) { console.error(e); }
@@ -307,7 +308,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
             className="btn btn-ghost btn-icon"
             style={{ marginLeft: "auto" }}
             onClick={async () => {
-              await navigator.clipboard.writeText(`request_id=${detail.id}`);
+              await writeText(`request_id=${detail.id}`);
               setCopiedId(true);
               setTimeout(() => setCopiedId(false), 2000);
             }}

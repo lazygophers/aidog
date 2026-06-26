@@ -28,6 +28,7 @@
     "updater:default",
     "process:default",
     "process:allow-restart",
-    "clipboard-manager:allow-read-text"
+    "clipboard-manager:allow-read-text",
+    "clipboard-manager:allow-write-text"
   ]
 }
