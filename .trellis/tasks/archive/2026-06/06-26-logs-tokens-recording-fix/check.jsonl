@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/06-26-logs-tokens-recording-fix/prd.md", "reason": "验收基线：4 项修复各自的验收标准 + 门禁(cargo build/clippy/test、yarn build、check-i18n、迁移幂等)"}
+{"file": ".trellis/tasks/06-26-logs-tokens-recording-fix/research/recording-chain-audit.md", "reason": "核对修复是否命中审计定位的 file:line 与根因，不偏移到范围外(P3/P5/P6/症状③)"}
+{"file": ".trellis/spec/backend/index.md", "reason": "后端 check：Rust 约定、warning 清零、测试覆盖要求"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端 check：i18n 8 locale 全覆盖、组件约定"}
