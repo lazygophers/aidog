@@ -73,6 +73,24 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                     .await
                 });
             }
+            // 一次性纠正历史 count_tokens 计费污染（count_tokens 行曾计入 stats_agg，占全库 cost 17.6%）。
+            // 排除 count_tokens 后覆盖写 + 删孤儿桶，版本门控只跑一次。非阻塞 spawn。
+            {
+                let db_clone = db.clone();
+                tauri::async_runtime::spawn(async move {
+                    use tracing::Instrument;
+                    let span = tracing::info_span!("db_correct_count_tokens_agg", trace_id = %logging::new_trace_id());
+                    async {
+                        match gateway::db::correct_count_tokens_agg_once_if_needed(&db_clone).await {
+                            Ok(true) => tracing::info!("stats_agg corrected: count_tokens contributions removed (one-time)"),
+                            Ok(false) => tracing::debug!("stats_agg count_tokens correction skipped (already done)"),
+                            Err(e) => tracing::warn!(error = %e, "stats_agg count_tokens correction failed, will retry next launch"),
+                        }
+                    }
+                    .instrument(span)
+                    .await
+                });
+            }
             app.manage(db);
 
             // 初始化日志（DB 已开，读 DB 设置；迁移遗留文件）

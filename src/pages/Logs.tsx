@@ -332,7 +332,17 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
           <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} />
           <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={detail.source_protocol || "-"} />
           <MetaItem label={t("logs.targetProtocol", "请求格式")} value={detail.target_protocol || "-"} />
-          <MetaItem label={t("logs.status", "状态")} value={`${detail.status_code}`} highlight={detail.status_code === 200 ? "ok" : "err"} />
+          <MetaItem
+            label={t("logs.status", "状态")}
+            value={
+              detail.status_code === 0
+                ? t("logs.statusIncomplete", "未完成")
+                : detail.status_code === 499
+                  ? t("logs.statusInterrupted", "已中断")
+                  : `${detail.status_code}`
+            }
+            highlight={detail.status_code >= 200 && detail.status_code < 300 ? "ok" : "err"}
+          />
           <MetaItem
             label={t("logs.upstreamStatus", "上游状态")}
             value={
@@ -643,7 +653,11 @@ const LogRow = memo(function LogRow({ log, platformName, groupName, onOpen, onCo
       <TdCell><span style={MODEL_NAME_STYLE}>{log.actual_model || "-"}</span></TdCell>
       <TdCell>
         <span style={{ color: log.status_code >= 200 && log.status_code < 300 ? "var(--color-success, var(--color-success))" : "var(--color-danger, #ff3b30)" }}>
-          {log.status_code}
+          {log.status_code === 0
+            ? t("logs.statusIncomplete", "未完成")
+            : log.status_code === 499
+              ? t("logs.statusInterrupted", "已中断")
+              : log.status_code}
         </span>
       </TdCell>
       <TdCell>{log.duration_ms}ms</TdCell>

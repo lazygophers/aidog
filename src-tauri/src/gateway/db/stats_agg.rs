@@ -33,13 +33,17 @@ struct AggBucket {
 /// success=2xx，error=终态非 2xx，与旧 SQL CASE 逐字段等价。
 fn aggregate_proxy_logs(conn: &Connection) -> rusqlite::Result<HashMap<AggKey, AggBucket>> {
     let auto_map = load_auto_from_map(conn)?;
+    // count_tokens 子端点（/v1/messages/count_tokens）纯计数、不计入 stats_agg 聚合（与增量
+    // 写入路径 log.rs first_agg gate 的 is_count_tokens 排除同口径），故回填/重建时一并排除，
+    // 避免 count_tokens 行的 input_tokens/est_cost 污染聚合总统计（实测占全库 cost 17.6%）。
     let mut stmt = conn.prepare(
         "SELECT created_at, \
                 CASE WHEN actual_model != '' THEN actual_model ELSE model END, \
                 group_key, platform_id, status_code, \
                 COALESCE(input_tokens, 0), COALESCE(output_tokens, 0), COALESCE(cache_tokens, 0), \
                 COALESCE(est_cost, 0.0), COALESCE(duration_ms, 0) \
-         FROM proxy_log WHERE deleted_at = 0",
+         FROM proxy_log WHERE deleted_at = 0 \
+           AND request_url NOT LIKE '%count_tokens%'",
     )?;
     let rows = stmt.query_map([], |r| {
         Ok((
@@ -263,6 +267,76 @@ pub async fn rebuild_stats_agg_once_if_needed(db: &Db) -> Result<bool, String> {
     Ok(true)
 }
 
+/// 一次性纠正：历史 count_tokens 计费污染（count_tokens 行的 input_tokens/est_cost 曾计入
+/// stats_agg_hourly，实测占全库 cost 17.6%）。aggregate_proxy_logs 现已排除 count_tokens 行，
+/// 故此处「覆盖写 + 删孤儿桶」即可把历史聚合纠正到与新规则一致：
+///   ① upsert_aggregated 用【不含 count_tokens 的真值】覆盖所有仍有非-count_tokens 行的桶；
+///   ② 对【纯 count_tokens 桶】（该 (time_hour,model,group_key,platform_id) 在过滤后聚合中已不存在，
+///      但 stats_agg 仍有旧行）→ 删除，否则虚高残留。判定：聚合后存在于 stats_agg 但不在本批 agg key 集合中。
+/// 幂等：版本门控 setting(stats/agg_count_tokens_excluded_v1)=true 后永不再跑。
+/// proxy_log 历史行不动（保留单行审计可见 input_tokens+est_cost）。
+/// 注意：关日志期间未落 proxy_log 的旧桶会被误删——但本项目 P6 已确认日志主开关常开未动，
+/// 且先前 agg_rebuild_v1 纠正同样不保留此类桶，口径一致。
+pub async fn correct_count_tokens_agg_once_if_needed(db: &Db) -> Result<bool, String> {
+    if let Ok(Some(v)) = get_setting(db, "stats", "agg_count_tokens_excluded_v1").await {
+        if v == serde_json::Value::Bool(true) {
+            return Ok(false);
+        }
+    }
+    let __db_caller = std::panic::Location::caller();
+    db.call_traced(None, __db_caller, move |conn| {
+        let now = chrono::Utc::now().timestamp_millis();
+        // 不含 count_tokens 的真值聚合（aggregate_proxy_logs 已过滤 count_tokens）。
+        let agg = aggregate_proxy_logs(conn)?;
+        // ① 覆盖写有 backing 行的桶。
+        upsert_aggregated(conn, &agg, now)?;
+        // ② 删孤儿桶（stats_agg 有但过滤后聚合无 → 纯 count_tokens 贡献，扣净后应为 0）。
+        let keep: std::collections::HashSet<(String, String, String, i64)> = agg
+            .keys()
+            .map(|k| (k.time_hour.clone(), k.model.clone(), k.group_key.clone(), k.platform_id))
+            .collect();
+        let mut existing: Vec<(String, String, String, i64)> = Vec::new();
+        {
+            let mut stmt = conn.prepare(
+                "SELECT time_hour, model, group_key, platform_id FROM stats_agg_hourly",
+            )?;
+            let rows = stmt.query_map([], |r| {
+                Ok((
+                    r.get::<_, String>(0)?,
+                    r.get::<_, String>(1)?,
+                    r.get::<_, String>(2)?,
+                    r.get::<_, i64>(3)?,
+                ))
+            })?;
+            for r in rows {
+                existing.push(r?);
+            }
+        }
+        let mut del = conn.prepare(
+            "DELETE FROM stats_agg_hourly \
+             WHERE time_hour = ?1 AND model = ?2 AND group_key = ?3 AND platform_id = ?4",
+        )?;
+        for k in &existing {
+            if !keep.contains(k) {
+                del.execute(params![k.0, k.1, k.2, k.3])?;
+            }
+        }
+        Ok(())
+    })
+    .await
+    .map_err(|e| format!("correct count_tokens agg: {e}"))?;
+    set_setting(
+        db,
+        SetSettingInput {
+            scope: "stats".into(),
+            key: "agg_count_tokens_excluded_v1".into(),
+            value: serde_json::Value::Bool(true),
+        },
+    )
+    .await?;
+    Ok(true)
+}
+
 /// 按 retention_days 硬删过期聚合行（参考 cleanup_proxy_logs；0=永久保留）。
 /// 截止时间为 UTC ms；与 time_hour 文本桶比较走 created_at 列（行写入时间）。
 #[track_caller]
@@ -278,6 +352,58 @@ pub fn cleanup_stats_agg(db: &Db, retention_days: u32) -> impl std::future::Futu
         })
         .await
         .map_err(|e| format!("cleanup stats agg: {e}"))
+    }
+}
+
+#[cfg(test)]
+mod test_count_tokens_exclusion {
+    use super::aggregate_proxy_logs;
+    use rusqlite::Connection;
+
+    /// 建最小 proxy_log + group 表（aggregate_proxy_logs 依赖 load_auto_from_map 读 "group"）。
+    fn setup() -> Connection {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE \"group\" (group_key TEXT, auto_from_platform TEXT, deleted_at INTEGER DEFAULT 0);
+             CREATE TABLE proxy_log (
+                created_at INTEGER, model TEXT, actual_model TEXT, group_key TEXT,
+                platform_id INTEGER, status_code INTEGER, input_tokens INTEGER,
+                output_tokens INTEGER, cache_tokens INTEGER, est_cost REAL,
+                duration_ms INTEGER, request_url TEXT, deleted_at INTEGER DEFAULT 0
+             );",
+        )
+        .unwrap();
+        conn
+    }
+
+    fn insert(conn: &Connection, url: &str, cost: f64, input: i64) {
+        conn.execute(
+            "INSERT INTO proxy_log (created_at, model, actual_model, group_key, platform_id, \
+             status_code, input_tokens, output_tokens, cache_tokens, est_cost, duration_ms, request_url) \
+             VALUES (?1,'m','m','gk',1,200,?2,0,0,?3,10,?4)",
+            rusqlite::params![1_700_000_000_000i64, input, cost, url],
+        )
+        .unwrap();
+    }
+
+    /// 关键 P0：count_tokens 行（request_url LIKE %count_tokens%）的 est_cost/input_tokens
+    /// 不进 aggregate_proxy_logs 聚合；普通 chat 行照常计入。
+    #[test]
+    fn count_tokens_rows_excluded_from_aggregation() {
+        let conn = setup();
+        insert(&conn, "/glm-auto/v1/messages", 1.5, 100); // 普通对话 → 计入
+        insert(&conn, "/glm-auto/v1/messages/count_tokens", 99.0, 9999); // count_tokens → 排除
+        insert(&conn, "/proxy/v1/messages/count_tokens/", 50.0, 5000); // 容尾斜杠 → 排除
+
+        let agg = aggregate_proxy_logs(&conn).unwrap();
+        let total_cost: f64 = agg.values().map(|b| b.sum_est_cost).sum();
+        let total_input: i64 = agg.values().map(|b| b.sum_input_tokens).sum();
+        let total_reqs: i64 = agg.values().map(|b| b.request_count).sum();
+
+        // 仅普通对话计入：cost=1.5、input=100、1 条请求；99/50 cost 与 9999/5000 tokens 全被滤掉。
+        assert_eq!(total_reqs, 1, "只有 1 条普通对话应计入");
+        assert!((total_cost - 1.5).abs() < 1e-9, "count_tokens cost 必须被排除");
+        assert_eq!(total_input, 100, "count_tokens input_tokens 必须被排除");
     }
 }
 

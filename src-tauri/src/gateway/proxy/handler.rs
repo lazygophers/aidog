@@ -15,7 +15,65 @@ pub async fn handle_proxy(
 }
 
 
+/// 请求级中断兜底 guard：客户端断连 / 请求 future 被 axum drop（任一 .await 未完成返回）时，
+/// 把仍卡在 status_code=0 的 proxy_log 行补写为终态 499（client closed request）。
+/// 正常返回任意 Response（成功 / 各类错误 / 流式 200 占位）即视为「已交接」→ `disarm()` 解除，
+/// 不触发兜底（流式终态由 StreamLogGuard 接管，非流式终态已在 DB 内非 0）。
+/// Drop 内不可 await → tokio::spawn fire-and-forget 落库（与 StreamLogGuard 同款）。
+struct RequestLogGuard {
+    state: Arc<ProxyState>,
+    id: String,
+    start: std::time::Instant,
+    armed: bool,
+}
+
+impl RequestLogGuard {
+    fn disarm(&mut self) {
+        self.armed = false;
+    }
+}
+
+impl Drop for RequestLogGuard {
+    fn drop(&mut self) {
+        if !self.armed {
+            return;
+        }
+        // 499 = client closed request（nginx 约定语义）：请求未达任何服务端终态即被中断。
+        // finalize_incomplete_proxy_log 的 WHERE status_code=0 谓词保证仅翻卡死行，幂等安全。
+        let state = self.state.clone();
+        let id = self.id.clone();
+        let duration_ms = self.start.elapsed().as_millis() as i32;
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            handle.spawn(async move {
+                if let Err(e) =
+                    super::db::finalize_incomplete_proxy_log(&state.db, &id, 499, duration_ms).await
+                {
+                    tracing::warn!(error = %e, id = %id, "finalize incomplete proxy log failed");
+                }
+            });
+        }
+    }
+}
+
 async fn handle_proxy_inner(
+    state: AxumState<Arc<ProxyState>>,
+    req: Request,
+    request_id: String,
+) -> Response {
+    // 中断兜底 guard：core 未正常返回（客户端断连致 future drop）时 Drop 补写终态 499。
+    let mut guard = RequestLogGuard {
+        state: state.0.clone(),
+        id: request_id.clone(),
+        start: std::time::Instant::now(),
+        armed: true,
+    };
+    let resp = handle_proxy_core(state, req, request_id).await;
+    // 已正常返回 Response（含流式占位）→ 解除兜底：非流式终态已在 DB 非 0，流式由 StreamLogGuard 接管。
+    guard.disarm();
+    resp
+}
+
+async fn handle_proxy_core(
     AxumState(state): AxumState<Arc<ProxyState>>,
     req: Request,
     request_id: String,
