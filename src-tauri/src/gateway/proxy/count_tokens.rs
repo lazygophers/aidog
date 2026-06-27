@@ -12,7 +12,10 @@ pub(crate) fn is_count_tokens_endpoint(path: &str) -> bool {
 
 /// 本地近似估算 anthropic count_tokens body 的 input_tokens（透传失败兜底）。
 /// 启发式：累计 system + 全部 messages 文本 + tools 定义的字符数，按 ~4 字符/token 折算
-/// （英文经验值；中文偏低但 count_tokens 仅用于客户端预估，不参与计费，可接受偏差）。
+/// （英文经验值；中文偏低但 count_tokens 仅用于客户端预估，可接受偏差）。
+/// 计费口径：proxy_log 单行仍保留估算的 input_tokens + est_cost（供单行审计可见），
+/// 但聚合路径（log.rs first_agg gate 按 request_url 识别 count_tokens）跳过 stats_agg，
+/// 故不计入 Stats 页/托盘总统计。
 /// 拿不到任何文本字段 → 返回保底 1（避免返回 0 误导客户端流程）。
 pub(crate) fn estimate_input_tokens(body: &Value) -> i64 {
     fn collect_text(v: &Value, acc: &mut usize) {

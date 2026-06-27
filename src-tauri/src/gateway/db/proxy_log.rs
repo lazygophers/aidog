@@ -398,8 +398,12 @@ fn build_filter_where(filter: &crate::gateway::models::ProxyLogFilter) -> (Strin
         if !trimmed.is_empty() {
             parts.push(format!("AND request_url LIKE ?{idx}"));
             p.push(Box::new(format!("%{}%", trimmed)));
+            idx += 1;
         }
     }
+    // idx 在 path（当前最后分支）后递增以防新增绑定参数时错位（命中 logs-path-search-idx-bug）；
+    // path 之后暂无分支，显式消费 idx 避免 unused_assignments warning。
+    let _ = idx;
 
     let where_sql = if parts.is_empty() { String::new() } else { format!(" {}", parts.join(" ")) };
     (where_sql, p)
@@ -433,6 +437,34 @@ pub fn clear_proxy_logs(db: &Db) -> impl std::future::Future<Output = Result<(),
         })
         .await
         .map_err(|e| format!("clear proxy logs: {e}"))
+    }
+}
+
+/// 把某请求 id 仍卡在非终态（status_code=0）的 proxy_log 行补写为终态中断码（client closed）。
+/// 背景：客户端断连 / 请求 future 被 axum drop 时，渐进式 upsert 留下 status_code=0 的占位行
+/// （response_body 空、tokens 空），Logs 页显示空白、用户感知「条目异常」。请求级 Drop guard 兜底调用此函数。
+/// `WHERE status_code = 0` 谓词保证幂等且安全：仅翻已卡死行，绝不覆盖任何已写入的真实终态状态
+/// （正常完成 / 各类错误码 / 流式 200 占位均已非 0，不被触及）。
+#[track_caller]
+pub fn finalize_incomplete_proxy_log<'a>(
+    db: &'a Db,
+    id: &'a str,
+    status_code: i32,
+    duration_ms: i32,
+) -> impl std::future::Future<Output = Result<(), String>> + 'a {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let id = id.to_string();
+        db.call_traced(None, __db_caller, move |conn| {
+            conn.execute(
+                "UPDATE proxy_log SET status_code = ?1, duration_ms = ?2, updated_at = ?3 \
+                 WHERE id = ?4 AND status_code = 0 AND deleted_at = 0",
+                params![status_code, duration_ms, now(), id],
+            )?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("finalize incomplete proxy log: {e}"))
     }
 }
 
@@ -483,5 +515,134 @@ pub fn purge_deleted_proxy_logs(db: &Db) -> impl std::future::Future<Output = Re
     }
 }
 
-// ─── Stats aggregation (stats_agg_hourly) ──────────────────────
+#[cfg(test)]
+mod tests {
+mod test_filter_where {
+    use super::super::build_filter_where;
+    use crate::gateway::models::ProxyLogFilter;
+    use rusqlite::Connection;
+
+    /// 在真实 sqlite 上跑 build_filter_where 产物，验证占位符 ?N 与 bind 参数一一对齐。
+    /// 关键回归（logs-path-search-idx-bug）：path 分支若漏 `idx += 1`，与前面的 model 分支
+    /// 共用同一占位符号 → sqlite 报「wrong number of parameters」或绑错位。
+    fn assert_binds_ok(filter: &ProxyLogFilter) {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            "CREATE TABLE proxy_log (
+                id TEXT, platform_id INTEGER, group_key TEXT, status_code INTEGER,
+                created_at INTEGER, model TEXT, actual_model TEXT, request_url TEXT,
+                deleted_at INTEGER DEFAULT 0
+            );",
+        )
+        .unwrap();
+        let (where_sql, params) = build_filter_where(filter);
+        let sql = format!("SELECT COUNT(*) FROM proxy_log WHERE deleted_at = 0{where_sql}");
+        let bind: Vec<&dyn rusqlite::types::ToSql> = params.iter().map(|b| b.as_ref()).collect();
+        // 若占位符数 ≠ bind 数（idx 错位的直接症状），query_row 会返回 Err，unwrap panic 测试失败
+        let _: i64 = conn
+            .query_row(&sql, bind.as_slice(), |r| r.get(0))
+            .unwrap_or_else(|e| panic!("bind mismatch for sql `{sql}`: {e}"));
+    }
+
+    #[test]
+    fn path_filter_alone_binds_ok() {
+        assert_binds_ok(&ProxyLogFilter {
+            path: Some("count_tokens".into()),
+            ..Default::default()
+        });
+    }
+
+    #[test]
+    fn model_then_path_binds_ok() {
+        // model(?1) + path(?2)：path 分支必须 idx+=1 才能拿到 ?2，否则与 model 撞 ?1。
+        assert_binds_ok(&ProxyLogFilter {
+            model: Some("claude-opus-4-8".into()),
+            path: Some("/v1/messages".into()),
+            ..Default::default()
+        });
+    }
+
+    #[test]
+    fn all_scalar_filters_plus_path_binds_ok() {
+        // 全标量分支 + path：穷举占位符递增链路（platform/group/status/time/model/path）。
+        assert_binds_ok(&ProxyLogFilter {
+            platform_id: Some(7),
+            group_key: Some("gk_x".into()),
+            status: Some(404), // 走 ?N 分支（非 200/-1 特判）
+            time_start: Some(1000),
+            time_end: Some(2000),
+            model: Some("m".into()),
+            model_type: Some("actual".into()),
+            path: Some("p".into()),
+        });
+    }
+}
+
+mod test_finalize_incomplete {
+    use super::super::finalize_incomplete_proxy_log;
+    use crate::gateway::db::Db;
+
+    async fn test_db() -> Db {
+        let db = Db::new(":memory:").await.expect("open memory db");
+        db.init_tables().await.expect("init tables");
+        db
+    }
+
+    async fn insert_log(db: &Db, id: &str, status: i32) {
+        let id = id.to_string();
+        db.call_traced(None, std::panic::Location::caller(), move |conn| {
+            conn.execute(
+                "INSERT INTO proxy_log (id, status_code, duration_ms, created_at, updated_at, deleted_at) \
+                 VALUES (?1, ?2, 0, 0, 0, 0)",
+                rusqlite::params![id, status],
+            )?;
+            Ok(())
+        })
+        .await
+        .unwrap();
+    }
+
+    async fn status_of(db: &Db, id: &str) -> i32 {
+        let id = id.to_string();
+        db.call_traced(None, std::panic::Location::caller(), move |conn| {
+            let v = conn.query_row(
+                "SELECT status_code FROM proxy_log WHERE id = ?1",
+                rusqlite::params![id],
+                |r| r.get::<_, i32>(0),
+            )?;
+            Ok(v)
+        })
+        .await
+        .unwrap()
+    }
+
+    /// P1：finalize 只翻 status_code=0 的卡死行为 499，绝不覆盖已写入的真实终态。
+    #[tokio::test]
+    async fn finalize_flips_only_stuck_zero_rows() {
+        let db = test_db().await;
+        insert_log(&db, "stuck", 0).await; // 卡死占位 → 应翻 499
+        insert_log(&db, "ok", 200).await; // 正常完成 → 不动
+        insert_log(&db, "err", 500).await; // 错误终态 → 不动
+
+        finalize_incomplete_proxy_log(&db, "stuck", 499, 1234).await.unwrap();
+        finalize_incomplete_proxy_log(&db, "ok", 499, 1234).await.unwrap();
+        finalize_incomplete_proxy_log(&db, "err", 499, 1234).await.unwrap();
+
+        assert_eq!(status_of(&db, "stuck").await, 499, "卡死行应翻 499");
+        assert_eq!(status_of(&db, "ok").await, 200, "200 终态不可被覆盖");
+        assert_eq!(status_of(&db, "err").await, 500, "500 终态不可被覆盖");
+    }
+
+    /// P1：幂等——对已翻 499 的行再次 finalize 不再变更（WHERE status_code=0 谓词）。
+    #[tokio::test]
+    async fn finalize_is_idempotent() {
+        let db = test_db().await;
+        insert_log(&db, "x", 0).await;
+        finalize_incomplete_proxy_log(&db, "x", 499, 100).await.unwrap();
+        // 第二次传不同 status，应被 WHERE status_code=0 挡住（已是 499 非 0）
+        finalize_incomplete_proxy_log(&db, "x", 408, 200).await.unwrap();
+        assert_eq!(status_of(&db, "x").await, 499, "二次 finalize 不应覆盖首次终态");
+    }
+}
+}
 

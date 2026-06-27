@@ -477,6 +477,8 @@
   "logs.sourceProtocol": "Format client",
   "logs.status": "Statut",
   "logs.statusError": "Échec",
+  "logs.statusIncomplete": "Incomplet",
+  "logs.statusInterrupted": "Interrompu",
   "logs.statusSuccess": "Succès",
   "logs.stream": "Flux",
   "logs.streamResponse": "(réponse en flux, contenu non enregistré)",
