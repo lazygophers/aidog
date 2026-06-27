@@ -477,6 +477,8 @@
   "logs.sourceProtocol": "クライアント形式",
   "logs.status": "ステータス",
   "logs.statusError": "失敗",
+  "logs.statusIncomplete": "未完了",
+  "logs.statusInterrupted": "中断",
   "logs.statusSuccess": "成功",
   "logs.stream": "ストリーム",
   "logs.streamResponse": "（ストリーミングレスポンス、内容は記録されません）",

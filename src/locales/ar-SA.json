@@ -477,6 +477,8 @@
   "logs.sourceProtocol": "صيغة العميل",
   "logs.status": "الحالة",
   "logs.statusError": "فشل",
+  "logs.statusIncomplete": "غير مكتمل",
+  "logs.statusInterrupted": "تم الانقطاع",
   "logs.statusSuccess": "نجاح",
   "logs.stream": "التدفق",
   "logs.streamResponse": "(استجابة متدفقة، المحتوى غير مسجل)",
