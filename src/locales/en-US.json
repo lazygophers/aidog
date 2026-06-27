@@ -455,6 +455,8 @@
   "logs.sourceProtocol": "Client Format",
   "logs.status": "Status",
   "logs.statusError": "Failed",
+  "logs.statusIncomplete": "Incomplete",
+  "logs.statusInterrupted": "Interrupted",
   "logs.statusSuccess": "Success",
   "logs.stream": "Transport",
   "logs.streamResponse": "(Stream response, content not recorded)",

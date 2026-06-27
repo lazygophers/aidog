@@ -477,6 +477,8 @@
   "logs.sourceProtocol": "Формат клиента",
   "logs.status": "Статус",
   "logs.statusError": "Ошибка",
+  "logs.statusIncomplete": "Не завершено",
+  "logs.statusInterrupted": "Прервано",
   "logs.statusSuccess": "Успех",
   "logs.stream": "Поток",
   "logs.streamResponse": "(потоковый ответ, содержимое не записано)",

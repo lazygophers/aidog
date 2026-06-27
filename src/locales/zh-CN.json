@@ -455,6 +455,8 @@
   "logs.sourceProtocol": "用户格式",
   "logs.status": "状态",
   "logs.statusError": "失败",
+  "logs.statusIncomplete": "未完成",
+  "logs.statusInterrupted": "已中断",
   "logs.statusSuccess": "成功",
   "logs.stream": "传输",
   "logs.streamResponse": "(流式响应，内容未记录)",

@@ -23,8 +23,14 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
     // 去重：upsert_log 在单个请求生命周期内被多次调用（insert + 多次 update + 流式 flush），
     // 终态后每次调用 gate 仍为真。HashSet::insert 返回 false 表示该 id 已聚合过 → 跳过，
     // 保证每请求只 +1 一次（id 在 remove_log_snapshot 清理，见下）。
+    // count_tokens 子端点（/v1/messages/count_tokens）是纯计数调用、不发生推理，不该计入
+    // stats_agg 聚合/总统计（否则 Stats 页/托盘成本虚高，实测占全库 17.6%）。
+    // proxy_log 单行照旧保留 input_tokens + est_cost（供单行审计可见），仅聚合路径跳过。
+    // 识别复用 request_url 判定，避免加列迁移；与 is_count_tokens_endpoint 同款尾段匹配。
+    let is_count_tokens = is_count_tokens_endpoint(&log.request_url);
     let first_agg = log.status_code != 0
         && log.response_body != "[stream]"
+        && !is_count_tokens
         && agg_mark_first(state, &log.id);
     if first_agg {
         let mut est_cost = log.est_cost;
