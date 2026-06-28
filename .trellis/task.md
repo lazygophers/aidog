@@ -63,4 +63,4 @@
 | logs-page-size-selector | 请求日志默认每页20条且可调档 | 请求日志分页默认 20 条/页(原 50)，工具栏加固定档位下拉选择器(20/50/100)允许用户手动切换，不持久化偏好 | 已完成 | 收尾 | 100% | — |
 | 06-26-logs-tokens-recording-fix | 日志与 tokens 记录问题排查修复 | 排查并修复请求日志页 tokens/cost 记零、日志条目不落库、统计聚合错、字段显示错乱四类问题 | 已完成 | 收尾 | 100% | — |
 | 06-28-coding-plan-tier-display-fix | PlatformCard coding plan tier 显示修复 | — | 已完成 | 收尾 | 100% | .worktrees/06-28-06-28-coding-plan-tier-display-fix |
-| volces-codingplan-dual-endpoint | 火山方舟 CodingPlan 双端点智能粘贴识别 + openai 默认配置修复 | — | 规划中 | 规划 | 0% | — |
+| volces-codingplan-dual-endpoint | 火山方舟 CodingPlan 双端点智能粘贴识别 + openai 默认配置修复 | — | 已完成 | 收尾 | 100% | .worktrees/06-28-volces-codingplan-dual-endpoint |
