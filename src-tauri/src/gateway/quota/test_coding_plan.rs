@@ -48,7 +48,7 @@ fn zhipu_units_classify_and_level() {
             "limits": [
                 {"type": "TOKENS_LIMIT", "unit": 3, "percentage": 20.0, "nextResetTime": 1750000000000_i64},
                 {"type": "TOKENS_LIMIT", "unit": 6, "percentage": 55.0, "nextResetTime": 1750100000000_i64},
-                {"type": "TIME_LIMIT", "usage": 100.0, "currentValue": 30.0, "remaining": 70.0, "nextResetTime": 1750200000000_i64}
+                {"type": "TIME_LIMIT", "percentage": 30.0, "usage": 100.0, "remaining": 70.0, "nextResetTime": 1750200000000_i64}
             ]
         }
     }));
@@ -56,6 +56,7 @@ fn zhipu_units_classify_and_level() {
     assert_eq!(tier(&q, "five_hour").utilization, 20.0);
     assert_eq!(tier(&q, "weekly_limit").utilization, 55.0);
     let mcp = tier(&q, "mcp_monthly");
+    // utilization（已用%）= percentage 字段，与 TOKENS_LIMIT 同口径
     assert_eq!(mcp.utilization, 30.0);
     assert_eq!(mcp.limit, Some(100.0));
     assert_eq!(mcp.remaining, Some(70.0));
@@ -69,6 +70,22 @@ fn zhipu_units_classify_and_level() {
         .map(|t| t.name.clone())
         .collect();
     assert_eq!(names, vec!["five_hour", "weekly_limit", "mcp_monthly"]);
+}
+
+#[test]
+fn zhipu_mcp_unused_is_zero_utilization() {
+    // 回归: 用户实测 mcp 月用量 0% 已用 → percentage=0 → utilization=0（剩余 100%）。
+    // 旧实现误用 currentValue/usage 推算，把 0% 已用算成 100% 已用。
+    let q = parse_zhipu_coding_plan(&json!({
+        "success": true,
+        "data": {
+            "limits": [
+                {"type": "TIME_LIMIT", "percentage": 0.0, "usage": 200.0, "remaining": 200.0, "nextResetTime": 1750200000000_i64}
+            ]
+        }
+    }));
+    let mcp = tier(&q, "mcp_monthly");
+    assert_eq!(mcp.utilization, 0.0);
 }
 
 #[test]
