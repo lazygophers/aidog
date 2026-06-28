@@ -473,6 +473,8 @@ def _coding_tiers(gi):
             nm = "5h"
         elif name in ("seven_day", "weekly_limit"):
             nm = "7d"
+        elif name == "mcp_monthly":
+            nm = "mcp（30d）"
         else:
             nm = name
         util = jround(p.get("utilization", 0) or 0)
@@ -491,35 +493,51 @@ def _coding_text(gi):
     return "·".join(nm + " " + jts(r) + "%" for (nm, r, _rs) in _coding_tiers(gi))
 
 
+def _coding_color(remain):
+    # 单 tier 按自身剩余配额% 取色（<40 红 / <60 黄 / ≥60 绿），与显示数字同口径。
+    if remain < _CODING_RED_PCT:
+        return ANSI_RED
+    if remain < _CODING_YELLOW_PCT:
+        return ANSI_AMBER
+    return ANSI_GREEN
+
+
+def _coding_reset_fmt(secs):
+    # 倒计时 d/h/m 三段进位（如 15d23h54m）。<1d 省天段、<1h 省时段。
+    d = secs // 86400
+    h = (secs % 86400) // 3600
+    m = (secs % 3600) // 60
+    if d > 0:
+        return str(d) + "d" + str(h) + "h" + str(m) + "m"
+    if h > 0:
+        return str(h) + "h" + str(m) + "m"
+    return str(m) + "m"
+
+
 def seg_group_coding(inp, o, gi):
     if not _group_applicable(gi):
         return None
     tiers = _coding_tiers(gi)
     if not tiers:
         return None
-    txt = "·".join(nm + " " + jts(r) + "%" for (nm, r, _rs) in tiers)
-    if not txt:
+    plain = "·".join(nm + " " + jts(r) + "%" for (nm, r, _rs) in tiers)
+    if not plain:
         return None
-    if o.get("dynamicColor"):
-        # 色按最紧 tier（剩余配额% 最低）定，与显示数字同口径。
-        worst = min(tiers, key=lambda t: t[1])
-        remain = worst[1]
-        if remain < _CODING_RED_PCT:
-            c = ANSI_RED
-            # 红色必须附重置倒计时（取最紧 tier 的 reset_at；无则省略）。
-            rs = worst[2]
-            if rs is not None:
-                d = rs - _now_epoch()
-                if d > 0:
-                    h = d // 3600
-                    m = (d % 3600) // 60
-                    txt = txt + " (重置 " + str(h) + "h" + str(m) + "m)"
-        elif remain < _CODING_YELLOW_PCT:
-            c = ANSI_AMBER
-        else:
-            c = ANSI_GREEN
-        return ("DYN", fg(c, txt))
-    return txt
+    if not o.get("dynamicColor"):
+        return plain
+    # 每 tier 按自身剩余配额% 独立上色后拼接（不再整行单色，避免某 tier 低把整行染色）。
+    parts = []
+    for (nm, r, _rs) in tiers:
+        parts.append(fg(_coding_color(r), nm + " " + jts(r) + "%"))
+    txt = "·".join(parts)
+    # 重置倒计时取最紧 tier（剩余配额% 最低且有 reset_at），灰色显示、无中文前缀。
+    with_reset = [t for t in tiers if t[2] is not None]
+    if with_reset:
+        worst = min(with_reset, key=lambda t: t[1])
+        d = worst[2] - _now_epoch()
+        if d > 0:
+            txt = txt + " " + fg(CAT_SUBTLE, _coding_reset_fmt(d))
+    return ("DYN", txt)
 
 def seg_group_requests(inp, o, gi):
     if not _group_applicable(gi):

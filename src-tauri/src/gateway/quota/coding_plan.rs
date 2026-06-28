@@ -149,17 +149,21 @@ pub(crate) fn parse_zhipu_coding_plan(body: &serde_json::Value) -> PlatformQuota
                     _ => unclassified.push(entry),
                 }
             } else if limit_type.eq_ignore_ascii_case("TIME_LIMIT") {
-                // MCP 月用量（绝对量）
-                let total = parse_f64_field(item, "usage").unwrap_or(0.0);
-                let used = parse_f64_field(item, "currentValue").unwrap_or(0.0);
-                let remaining = parse_f64_field(item, "remaining").unwrap_or(0.0);
-                let utilization = if total > 0.0 { (used / total) * 100.0 } else { 0.0 };
+                // MCP 月用量。utilization（已用%）直接取 `percentage` 字段，与 TOKENS_LIMIT
+                // 同口径（GLM 上游内部一致：percentage = 已用%）。
+                // 历史 bug: 旧实现用 currentValue/usage 推算 utilization，字段语义与上游相反
+                // （usage 实为剩余量、currentValue 实为额度），导致 0% 已用被算成 100% 已用
+                // → statusline 显 mcp 剩余 0%（实际剩 100%）。
+                // 绝对量字段（limit/remaining）仅保留供精确预估基数，不参与 utilization。
+                let utilization = pct;
+                let limit = parse_f64_field(item, "usage").filter(|v| *v > 0.0);
+                let remaining = parse_f64_field(item, "remaining").filter(|v| *v > 0.0);
                 tiers.push(QuotaTier {
                     name: "mcp_monthly".into(),
                     utilization,
                     resets_at: reset_iso,
-                    limit: if total > 0.0 { Some(total) } else { None },
-                    remaining: if remaining > 0.0 { Some(remaining) } else { None },
+                    limit,
+                    remaining,
                 });
             }
         }
