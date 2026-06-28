@@ -44,7 +44,8 @@ const PRESETS: PastePresetRef[] = [
     value: "doubao",
     label: "火山引擎",
     keywords: ["火山", "doubao", "volces"],
-    // 单平台双端点派生：/api/coding（anthropic）+ /api/coding/v3（openai_responses）。
+    // 单平台多端点派生：/api/coding（anthropic）+ /api/coding/v3（openai + openai_responses，
+    // 同 base_url 协议不同，hosts Set 去重后仍两条）。
     hosts: [
       "ark.cn-beijing.volces.com/api/coding",
       "ark.cn-beijing.volces.com/api/coding/v3",
@@ -109,6 +110,21 @@ describe("matchPlatform", () => {
       { url: "https://ark.cn-beijing.volces.com/api/coding", protocol: "anthropic" },
     ]);
     expect(plain?.value).toBe("doubao");
+  });
+  it("volces dual base_url: both URLs extracted distinctly + matches doubao (no collapse)", () => {
+    // 火山方舟 CodingPlan 分享文案：anthropic /api/coding + openai /api/coding/v3 两条独立 base_url。
+    const out = parsePlatformPaste(
+      "火山方舟 CodingPlan Lite\n" +
+        "Anthropic: https://ark.cn-beijing.volces.com/api/coding\n" +
+        "OpenAI: https://ark.cn-beijing.volces.com/api/coding/v3\n" +
+        "key: sk-volces-1234567890abcdef",
+      PRESETS,
+    );
+    const urls = out.baseUrls.map((b) => b.url);
+    // 两条 base_url 各自保留、不去重塌缩成一个。
+    expect(urls).toContain("https://ark.cn-beijing.volces.com/api/coding");
+    expect(urls).toContain("https://ark.cn-beijing.volces.com/api/coding/v3");
+    expect(out.platform?.value).toBe("doubao");
   });
   it("falls back to keyword scan when no host match", () => {
     const hit = matchPlatform("使用 deepseek 模型", PRESETS);
