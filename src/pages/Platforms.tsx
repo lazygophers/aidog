@@ -232,6 +232,9 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
     ],
     doubao: [
       { protocol: "anthropic", base_url: "https://ark.cn-beijing.volces.com/api/coding", client_type: "claude_code" },
+      // 标准 OpenAI(Chat Completions) 兼容端点：base_url 含 /v3（火山 coding plan 的 openai 侧均 v3 结尾），
+      // proxy 拼 /chat/completions。供非 Codex 的 openai 客户端使用。与 openai_responses 同 base_url、协议不同。
+      { protocol: "openai", base_url: "https://ark.cn-beijing.volces.com/api/coding/v3", client_type: "codex_tui" },
       // OpenAI Responses 兼容端点（Codex）：base_url 含 /v3，proxy 拼 path；hosts 派生后 /api/coding/v3
       // 比 /api/coding 更长 → 粘贴 v3 URL 最长子串胜出命中 Responses 端点。
       { protocol: "openai_responses", base_url: "https://ark.cn-beijing.volces.com/api/coding/v3", client_type: "codex_tui" },
@@ -1629,13 +1632,55 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       handleProtocolChange(r.platform.value as Protocol, r.platform.codingPlan);
     }
     if (r.baseUrls.length > 0) {
-      // 多类型 base_url 多选：每个选中 url（按协议去重，每协议最多一个）→ 一个 endpoint。
-      // 同协议 endpoint 存在则覆盖 base_url，否则新增；支持 anthropic + openai 双端点平台（如 glm）。
       setEndpoints((prev) => {
         const eps = prev.map((e) => ({ ...e }));
+        // 命中内置平台：prev 已是该平台默认 endpoints（handleProtocolChange 填入）。
+        // 按 host+path 最长子串把每条 pasted base_url 映射到对应默认 endpoint 覆盖其 base_url，
+        // 保留该 endpoint 的 protocol/client_type。这样火山双端点（/api/coding→anthropic、
+        // /api/coding/v3→openai/openai_responses）各落各位、不塌缩，且不依赖 guessProtocol
+        // （v3/openai_responses 无法靠协议猜测区分）。同 base_url 多 endpoint（如 v3 同时映射
+        // openai + openai_responses）全部一并覆盖，保持双协议端点。
+        if (r.platform) {
+          const norm = (s: string) => {
+            try {
+              const u = new URL(s);
+              const host = u.host.replace(/^www\./, "").toLowerCase();
+              const path = u.pathname.replace(/\/+$/, "").toLowerCase();
+              return path && path !== "/" ? host + path : host;
+            } catch { return s.toLowerCase(); }
+          };
+          for (const b of r.baseUrls) {
+            const bn = norm(b.url);
+            // 每条 url 选「与之最长公共前缀子串」的默认 endpoint：endpoint host+path 是 url 的前缀
+            // （url 更具体，如 .../api/coding/v3 命中 endpoint .../api/coding/v3），取最长命中。
+            let bestLen = -1;
+            const targets: number[] = [];
+            eps.forEach((e, i) => {
+              const en = norm(e.base_url);
+              // en 须是 bn 的路径边界前缀（url 比默认 endpoint 更具体或相等），避免 codingX 误命中 coding。
+              if (bn === en || bn.startsWith(en + "/")) {
+                if (en.length > bestLen) { bestLen = en.length; targets.length = 0; targets.push(i); }
+                else if (en.length === bestLen) targets.push(i);
+              }
+            });
+            if (targets.length) {
+              for (const i of targets) eps[i] = { ...eps[i], base_url: b.url };
+            } else {
+              // host+path 无匹配（如粘贴裸 host 无版本段，或 preset 与分享 host 不一致）→
+              // 退回按协议去重覆盖：同协议 endpoint 存在则覆盖 base_url，否则新增。
+              const epProto: Protocol = b.protocol === "unknown" ? "openai" : b.protocol;
+              const idx = eps.findIndex((e) => e.protocol === epProto);
+              if (idx >= 0) eps[idx] = { ...eps[idx], base_url: b.url };
+              else eps.push({ protocol: epProto, base_url: b.url, client_type: defaultClientForProtocol(epProto) });
+            }
+          }
+          return eps;
+        }
+        // 未命中平台：按协议去重（每协议最多一个），同协议覆盖 base_url，否则新增。
+        // 支持 anthropic + openai 双端点平台（如 glm）的零散粘贴。
         for (const b of r.baseUrls) {
           const epProto: Protocol = b.protocol === "unknown" ? "openai" : b.protocol;
-          let idx = eps.findIndex((e) => e.protocol === epProto);
+          const idx = eps.findIndex((e) => e.protocol === epProto);
           if (idx >= 0) {
             eps[idx] = { ...eps[idx], base_url: b.url };
           } else {
