@@ -6,6 +6,11 @@
 #   trellisx-taskmd.py update <tid> [--status S] [--phase P] [--progress N] [--worktree W]
 #   trellisx-taskmd.py show [tid]                     # 打印看板 (或某任务行)
 #   trellisx-taskmd.py cleanup [--days 7]             # 清理超 N 天的已完成行
+#   trellisx-taskmd.py map-add <wt> <tid> [创建源]    # upsert worktree↔task 映射 (一对多)
+#   trellisx-taskmd.py map-remove <wt>                # 删一条映射
+#   trellisx-taskmd.py map-get <wt>                   # 命中→stdout tid 退0; 否则退1
+#   trellisx-taskmd.py map-list                       # 打印全部映射
+#   trellisx-taskmd.py lint                           # 合规退0; 否则退1+stderr
 #
 # 列分工: hook(sync) 维护 ID/名称/描述/状态; AI(update) 维护 阶段/进度/worktree。互不覆盖。
 import json, os, re, sys
@@ -19,6 +24,18 @@ HEADER = (
     "> 由 trellisx-workspace 维护 (经 trellisx-taskmd.py); task 生命周期节点后及时更新。\n\n"
     "| ID | 名称 | 描述 | 状态 | 阶段 | 进度 | worktree |\n"
     "| --- | --- | --- | --- | --- | --- | --- |\n"
+)
+
+# 独立的 worktree ↔ task 映射区 (单表设计的明确例外: 主表一行一 task, 但 worktree
+# 可能由 subagent isolation / 手动 git worktree add 建, 无对应 task 行; 此区显式登记
+# 每个活跃 worktree 映射到哪个 task, 无映射的由 WorktreeCreate hook 提醒补登)。
+MAP_MARK = "## Worktree ↔ Task 映射"
+MAP_HEADER = (
+    "\n" + MAP_MARK + "\n\n"
+    "> 每个活跃 worktree 登记映射到的 task (一对多: 同 task 拆多 subagent 各占一行);\n"
+    "> 无映射的 worktree 由 WorktreeCreate hook 提醒补登。\n\n"
+    "| worktree | task | 创建源 |\n"
+    "| --- | --- | --- |\n"
 )
 
 
@@ -100,6 +117,56 @@ def cleanup(md, troot, days):
     return "\n".join(out) + "\n"
 
 
+# ---- worktree ↔ task 映射区 ----
+def _norm_wt(p):
+    # realpath 解 symlink (macOS /var→/private/var; git worktree 与 hook 传路径可能一侧已解析)
+    return os.path.realpath(os.path.expanduser((p or "").strip()))
+
+
+def ensure_map_section(md):
+    """task.md 无映射区 → 追加空映射区。"""
+    return md if MAP_MARK in md else (md.rstrip() + "\n" + MAP_HEADER)
+
+
+def map_rows(md):
+    """解析映射区行 → [(worktree显示, tid, 备注, 原始行)]。"""
+    if MAP_MARK not in md:
+        return []
+    seg = md.split(MAP_MARK, 1)[1]
+    out = []
+    for ln in seg.splitlines():
+        if (ln.startswith("| ") and not ln.startswith("| worktree |")
+                and not ln.startswith("| --- |")):
+            c = row_cells(ln)
+            if len(c) >= 2 and c[0]:
+                out.append((c[0], c[1], c[2] if len(c) > 2 else "", ln))
+    return out
+
+
+def map_find(md, wt):
+    """按 worktree 路径 (规范化匹配) 找映射行 → (显示, tid, 备注, 原始行) 或 None。"""
+    n = _norm_wt(wt)
+    for disp, tid, note, ln in map_rows(md):
+        if _norm_wt(disp) == n:
+            return (disp, tid, note, ln)
+    return None
+
+
+def map_remove_by_tid(md, tid):
+    """移除映射区中 tid 列 == 给定 tid 的所有行 (archive 时清)。"""
+    in_map, keep = False, []
+    for ln in md.splitlines():
+        if MAP_MARK in ln:
+            in_map = True
+        if (in_map and ln.startswith("| ") and not ln.startswith("| worktree |")
+                and not ln.startswith("| --- |")):
+            c = row_cells(ln)
+            if len(c) >= 2 and c[1] == tid:
+                continue  # 丢弃该 task 的映射行
+        keep.append(ln)
+    return "\n".join(keep) + "\n"
+
+
 # ---- 命令分发 ----
 def cmd_sync(action):
     tj = os.environ.get("TASK_JSON_PATH", "")
@@ -136,6 +203,7 @@ def cmd_sync(action):
     md = write_row(md, tid, [title, desc, status_cn, phase, prog, wt])
     if action == "archive":
         md = cleanup(md, troot, 7)
+        md = map_remove_by_tid(md, tid)  # 归档顺带清该 task 的 worktree 映射
     save_md(troot, md)
     print(f"trellisx: task.md 看板已同步 ({tid} → {status_cn})", file=sys.stderr)
 
@@ -202,9 +270,214 @@ def cmd_cleanup(argv):
     print(f"trellisx: 已清理超 {days} 天的已完成行", file=sys.stderr)
 
 
+def cmd_map_add(argv):
+    """map-add <worktree> <tid> [创建源] — 按 worktree 规范化 abspath upsert 一条映射。
+    同 tid 可对多 worktree (各占一行, 一对多); 创建源默认 -。"""
+    if len(argv) < 2:
+        print("用法: map-add <worktree> <tid> [创建源]", file=sys.stderr)
+        sys.exit(1)
+    wt, tid = _norm_wt(argv[0]), argv[1]
+    source = (" ".join(argv[2:]).replace("|", "/").strip()) or "-"
+    troot = find_trellis_root()
+    if not troot:
+        print("trellisx: 未找到 .trellis", file=sys.stderr)
+        sys.exit(1)
+    md = ensure_map_section(load_md(troot))
+    row = f"| {wt} | {tid} | {source} |"
+    found = map_find(md, wt)
+    md = md.replace(found[3], row) if found else (md.rstrip() + "\n" + row + "\n")
+    save_md(troot, md)
+    print(f"trellisx: worktree 映射登记 {wt} → {tid}", file=sys.stderr)
+
+
+def cmd_map_remove(argv):
+    """map-remove <worktree> — 删除一条映射 (worktree 销毁时调)。"""
+    if not argv:
+        print("用法: map-remove <worktree>", file=sys.stderr)
+        sys.exit(1)
+    troot = find_trellis_root()
+    if not troot:
+        sys.exit(0)
+    md = load_md(troot)
+    found = map_find(md, argv[0])
+    if found:
+        md = "\n".join(l for l in md.splitlines() if l != found[3]) + "\n"
+        save_md(troot, md)
+        print(f"trellisx: 移除 worktree 映射 {argv[0]}", file=sys.stderr)
+
+
+def cmd_map_get(argv):
+    """map-get <worktree> — 命中打印 tid 到 stdout 退 0; 否则退 1。"""
+    if not argv:
+        sys.exit(2)
+    troot = find_trellis_root()
+    if not troot:
+        sys.exit(1)  # 无 .trellis → 无映射
+    found = map_find(load_md(troot), argv[0])
+    if found:
+        print(found[1])
+        sys.exit(0)
+    sys.exit(1)  # 无映射
+
+
+def cmd_map_list(_argv):
+    """map-list — 打印全部 worktree↔task 映射。"""
+    troot = find_trellis_root()
+    if not troot:
+        print("trellisx: 未找到 .trellis", file=sys.stderr)
+        sys.exit(1)
+    rows = map_rows(load_md(troot))
+    if not rows:
+        print("(无 worktree 映射)")
+    for disp, tid, src, _ in rows:
+        print(f"{disp} → {tid}  ({src})")
+
+
+def cmd_lint(_argv):
+    """lint — 合规退 0; 否则退 1 + stderr 列问题。
+    规则: 主表数据行 7 列 / 映射区数据行 3 列 / 状态 ∈ {规划中,进行中,已完成} /
+          主表 ID 不重复。"""
+    troot = find_trellis_root()
+    if not troot:
+        print("trellisx: 未找到 .trellis", file=sys.stderr)
+        sys.exit(1)
+    md = load_md(troot)
+    errs = []
+    seg_main, seg_map = md, ""
+    if MAP_MARK in md:
+        seg_main, seg_map = md.split(MAP_MARK, 1)
+    # 主表数据行
+    seen = set()
+    for ln in seg_main.splitlines():
+        if (ln.startswith("| ") and not ln.startswith("| ID |")
+                and not ln.startswith("| --- |")):
+            c = row_cells(ln)
+            if len(c) != 7:
+                errs.append(f"主表数据行列数 {len(c)}≠7: {ln.strip()}")
+                continue
+            if c[3] not in ("规划中", "进行中", "已完成"):
+                errs.append(f"主表状态非法 '{c[3]}': {ln.strip()}")
+            if c[0] in seen:
+                errs.append(f"主表 ID 重复 '{c[0]}'")
+            seen.add(c[0])
+    # 映射区数据行
+    for ln in seg_map.splitlines():
+        if (ln.startswith("| ") and not ln.startswith("| worktree |")
+                and not ln.startswith("| --- |")):
+            c = row_cells(ln)
+            if len(c) != 3:
+                errs.append(f"映射区数据行列数 {len(c)}≠3: {ln.strip()}")
+    if errs:
+        for e in errs:
+            print("trellisx lint: " + e, file=sys.stderr)
+        sys.exit(1)
+    sys.exit(0)
+
+
+PARK_MARK = "## ⚠ 待人工修正 (无法自动归类的行)"
+PARK_HEADER = (
+    "\n" + PARK_MARK + "\n\n"
+    "> 下列行 lint 不合规且无法机械归类 (列数异常且非主表/映射行形态), 已停泊于此防丢失;\n"
+    "> 请人工核对后改回主表或映射区, 或删除。修正后本块应清空。\n\n"
+)
+
+
+def _is_main_data_row(c):
+    """主表数据行: 7 列且第 4 列是合法状态 (中文或英文键)。"""
+    if len(c) != 7:
+        return False
+    return c[3] in ("规划中", "进行中", "已完成") or c[3] in STATUS_CN
+
+
+def _looks_like_map_row(c):
+    """映射数据行: 恰 3 列, 或首列像 worktree 路径 (含 / 或 ~ 或 .worktree)。"""
+    if not c or not c[0]:
+        return False
+    if len(c) == 3:
+        return True
+    first = c[0]
+    return ("/" in first) or first.startswith("~") or (".worktree" in first)
+
+
+def _norm_main_status(c):
+    """英文状态键归一为中文展示值 (planning→规划中 等)。"""
+    if c[3] in STATUS_CN:
+        c[3] = STATUS_CN[c[3]]
+    return c
+
+
+def cmd_fix(_argv):
+    """fix — 机械修复 task.md: 按行形态重新归类到正确表 (主表/映射区), 英文状态归一,
+    主表 ID 去重 (保留首见)。无法归类的行停泊到「待人工修正」块, 不丢数据。
+    仅当内容有变化才写盘 (幂等), 写前备份 task.md.bak。
+    全部可修复 → 退 0; 有残留不可修复行 → 退 1 + stderr 列出。"""
+    troot = find_trellis_root()
+    if not troot:
+        print("trellisx: 未找到 .trellis", file=sys.stderr)
+        sys.exit(1)
+    orig = load_md(troot)
+
+    def is_data_line(ln):
+        return (ln.startswith("| ")
+                and not ln.startswith("| ID |")
+                and not ln.startswith("| 名称 |")
+                and not ln.startswith("| worktree |")
+                and not ln.startswith("| --- |"))
+
+    main_rows, map_seen_lines, map_rows_out, parked = [], set(), [], []
+    seen_ids = set()
+    for ln in orig.splitlines():
+        if not is_data_line(ln):
+            continue
+        c = row_cells(ln)
+        if _is_main_data_row(c):
+            c = _norm_main_status(c)
+            if c[0] in seen_ids:
+                continue  # 去重: 保留首见 ID
+            seen_ids.add(c[0])
+            main_rows.append("| " + " | ".join(c) + " |")
+        elif _looks_like_map_row(c):
+            wt = c[0]
+            tid = c[1] if len(c) > 1 else ""
+            src = c[2] if len(c) > 2 else "-"   # >3 列: 取前 3, 多余丢弃
+            row = f"| {wt} | {tid} | {src or '-'} |"
+            if row not in map_seen_lines:        # 去重
+                map_seen_lines.add(row)
+                map_rows_out.append(row)
+        else:
+            s = ln.strip()
+            if s not in parked:
+                parked.append(s)
+
+    rebuilt = HEADER + ("".join(r + "\n" for r in main_rows))
+    rebuilt += MAP_HEADER + ("".join(r + "\n" for r in map_rows_out))
+    if parked:
+        rebuilt += PARK_HEADER + ("".join(r + "\n" for r in parked))
+
+    if rebuilt != orig:
+        try:
+            open(taskmd_path(troot) + ".bak", "w", encoding="utf-8").write(orig)
+        except Exception:
+            pass
+        save_md(troot, rebuilt)
+        print("trellisx: task.md 已自动修正 (错置行归位/状态归一/去重)", file=sys.stderr)
+    else:
+        print("trellisx: task.md 无需修正", file=sys.stderr)
+
+    if parked:
+        print(f"trellisx fix: {len(parked)} 行无法机械归类, 已停泊「待人工修正」块, 需人工核对:",
+              file=sys.stderr)
+        for s in parked:
+            print("  - " + s, file=sys.stderr)
+        sys.exit(1)
+    sys.exit(0)
+
+
 def main():
     if len(sys.argv) < 2:
-        print("用法: trellisx-taskmd.py <sync|update|show|cleanup> ...", file=sys.stderr)
+        print("用法: trellisx-taskmd.py "
+              "<sync|update|show|cleanup|map-add|map-remove|map-get|map-list|lint|fix> ...",
+              file=sys.stderr)
         sys.exit(1)
     cmd = sys.argv[1]
     if cmd == "sync":
@@ -215,6 +488,18 @@ def main():
         cmd_show(sys.argv[2:])
     elif cmd == "cleanup":
         cmd_cleanup(sys.argv[2:])
+    elif cmd == "map-add":
+        cmd_map_add(sys.argv[2:])
+    elif cmd == "map-remove":
+        cmd_map_remove(sys.argv[2:])
+    elif cmd == "map-get":
+        cmd_map_get(sys.argv[2:])
+    elif cmd == "map-list":
+        cmd_map_list(sys.argv[2:])
+    elif cmd == "lint":
+        cmd_lint(sys.argv[2:])
+    elif cmd == "fix":
+        cmd_fix(sys.argv[2:])
     else:
         print(f"trellisx: 未知命令 {cmd}", file=sys.stderr)
         sys.exit(1)
