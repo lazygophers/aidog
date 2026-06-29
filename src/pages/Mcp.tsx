@@ -69,6 +69,11 @@ export function Mcp() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
 
+  // 粘贴 JSON 导入 modal
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  const [pasteBusy, setPasteBusy] = useState(false);
+
   // 删除确认 modal
   const [deleteTarget, setDeleteTarget] = useState<McpServerInfo | null>(null);
 
@@ -215,6 +220,38 @@ export function Mcp() {
     }
   };
 
+  // ─── 粘贴 JSON 导入 ───
+  const handlePasteImport = async () => {
+    if (!pasteText.trim()) return;
+    setPasteBusy(true);
+    setMessage(null);
+    try {
+      const report = await mcpApi.importJson(pasteText);
+      await refresh();
+      setPasteOpen(false);
+      setPasteText("");
+      const skipped = report.skipped.length;
+      setMessage({
+        kind: skipped > 0 ? "err" : "ok",
+        text:
+          skipped > 0
+            ? t("mcp.importPartial", {
+                ok: report.imported.length,
+                skip: skipped,
+                defaultValue: `导入 ${report.imported.length}，跳过 ${skipped}`,
+              })
+            : t("mcp.imported", {
+                count: report.imported.length,
+                defaultValue: `已导入 ${report.imported.length}`,
+              }),
+      });
+    } catch (e) {
+      setMessage({ kind: "err", text: String(e) });
+    } finally {
+      setPasteBusy(false);
+    }
+  };
+
   // ─── 删除 ───
   const handleDelete = async () => {
     if (!deleteTarget) return;
@@ -347,6 +384,13 @@ export function Mcp() {
           style={btnGhost}
         >
           {t("mcp.add", "添加 MCP")}
+        </button>
+        <button
+          onClick={() => { setPasteText(""); setMessage(null); setPasteOpen(true); }}
+          disabled={busyKey !== null}
+          style={btnGhost}
+        >
+          {t("mcp.pasteImport", "粘贴导入")}
         </button>
         <button
           onClick={handleResync}
@@ -527,6 +571,40 @@ export function Mcp() {
                   {importing
                     ? t("mcp.importing", "导入中…")
                     : t("mcp.import", { count: selected.size, defaultValue: `导入 ${selected.size}` })}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
+
+      {/* 粘贴 JSON 导入 modal */}
+      {pasteOpen &&
+        createPortal(
+          <div style={modalOverlay} onClick={() => !pasteBusy && setPasteOpen(false)}>
+            <div style={modalBody} onClick={(e) => e.stopPropagation()}>
+              <h2 style={{ margin: "0 0 8px", fontSize: 16, fontWeight: 700, color: "var(--text-primary)" }}>
+                {t("mcp.pasteTitle", "粘贴 JSON 导入")}
+              </h2>
+              <p style={{ margin: "0 0 12px", fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.5 }}>
+                {t("mcp.pasteHint", "粘贴 Claude 格式 MCP 配置（含 mcpServers 包裹或直接 名称→配置 映射）。同名跳过，导入后逐 agent 启用。")}
+              </p>
+              <textarea
+                style={{ ...inputStyle, minHeight: 220, fontFamily: "var(--font-mono, monospace)", resize: "vertical" }}
+                value={pasteText}
+                placeholder={'{\n  "mcpServers": {\n    "filesystem": {\n      "command": "npx",\n      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/path"]\n    }\n  }\n}'}
+                onChange={(e) => setPasteText(e.target.value)}
+              />
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 12 }}>
+                <button onClick={() => setPasteOpen(false)} disabled={pasteBusy} style={btnGhost}>
+                  {t("common.cancel", "取消")}
+                </button>
+                <button
+                  onClick={handlePasteImport}
+                  disabled={pasteBusy || !pasteText.trim()}
+                  style={btnPrimary}
+                >
+                  {pasteBusy ? t("mcp.importing", "导入中…") : t("mcp.import", "导入")}
                 </button>
               </div>
             </div>

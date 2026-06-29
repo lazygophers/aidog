@@ -1813,6 +1813,9 @@ export const mcpApi = {
   /** 批量导入（enabled = source agent）。 */
   import: (items: McpImportPayload[]) =>
     invoke<McpImportReport>("mcp_import", { items }),
+  /** 粘贴 JSON 导入（claude.json 协议；enabled 空，同名跳过）。 */
+  importJson: (json: string) =>
+    invoke<McpImportReport>("mcp_import_json", { json }),
   /** per-agent 启用/禁用（同步写/删 agent 配置）。 */
   setAgent: (name: string, agent: McpAgentSlug, enabled: boolean) =>
     invoke<void>("mcp_set_agent", { name, agent, enabled }),

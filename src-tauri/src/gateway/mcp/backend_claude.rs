@@ -33,7 +33,8 @@ fn write_claude_json(path: &PathBuf, root: &serde_json::Value) -> Result<(), Str
 
 /// 解析 claude.json mcpServers entry → McpConfigRaw。
 /// entry 形如 {"type":"stdio","command":..,"args":[..],"env":{..}} 或 http/sse 含 url/headers。
-fn parse_claude_entry(v: &serde_json::Value) -> Option<McpConfigRaw> {
+/// pub(super)：粘贴导入 (domain::parse_pasted_json) 复用同一 claude 协议解析。
+pub(super) fn parse_claude_entry(v: &serde_json::Value) -> Option<McpConfigRaw> {
     let obj = v.as_object()?;
     let type_str = obj.get("type").and_then(|t| t.as_str()).unwrap_or("stdio");
     let transport = McpTransport::parse(type_str);
