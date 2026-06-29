@@ -2572,6 +2572,32 @@ function isFullyManaged(incomingValue: any, path: string, managed: Set<string>):
 }
 
 /**
+ * Claude Code self-written runtime preference fields. aidog never manages these
+ * (its write side only injects `env.ANTHROPIC_BASE_URL` / `env.ANTHROPIC_AUTH_TOKEN`),
+ * so they can't ride the `_aidog_managed` marker — the import diff filters them
+ * here instead. Users don't care about them; surfacing them is pure noise.
+ *
+ * Exact top-level keys + dot-path prefixes (matching the diff's path conventions:
+ * top-level scalar path=key; object child path=`${key}.${childKey}`).
+ */
+const CC_RUNTIME_IGNORE = {
+  exact: new Set([
+    "model",
+    "effortLevel",
+    "ultracode",
+    "maxSkillDescriptionChars",
+    "skipWebFetchPreflight",
+    "workflowKeywordTriggerEnabled",
+  ]),
+  prefixes: ["fileSuggestion.", "env.ANTHROPIC_DEFAULT_"],
+};
+
+function isCcRuntimeIgnored(path: string): boolean {
+  if (CC_RUNTIME_IGNORE.exact.has(path)) return true;
+  return CC_RUNTIME_IGNORE.prefixes.some((p) => path.startsWith(p));
+}
+
+/**
  * Build the diff tree between `current` config and `incoming` source.
  * Skips internal `_aidog_` keys. Object top-level keys expand to child entries.
  *
@@ -2610,7 +2636,12 @@ export function buildImportDiffTree(
         // directly; a deeper-object child whose entire subtree is managed
         // (`extraKnownMarketplaces.x`) is matched via its full incoming leaf set
         // — keeping any user-added sibling/leaf inside that subtree.
-        if (managed.has(childPath) || isFullyManaged(incObj[ck], childPath, managed)) continue;
+        if (
+          managed.has(childPath) ||
+          isCcRuntimeIgnored(childPath) ||
+          isFullyManaged(incObj[ck], childPath, managed)
+        )
+          continue;
         if (JSON.stringify(curObj[ck]) === JSON.stringify(incObj[ck])) continue;
         children.push({
           path: childPath,
@@ -2625,8 +2656,9 @@ export function buildImportDiffTree(
       }
       continue;
     }
-    // Scalar / array top-level leaf: exclude when the whole key is managed.
-    if (managed.has(key)) continue;
+    // Scalar / array top-level leaf: exclude when the whole key is managed
+    // or is a CC self-written runtime preference.
+    if (managed.has(key) || isCcRuntimeIgnored(key)) continue;
     nodes.push({ path: key, label: key, current: cur, incoming: inc });
   }
   return nodes;
