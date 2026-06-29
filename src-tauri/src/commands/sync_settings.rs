@@ -58,11 +58,50 @@ pub(crate) async fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
     }
 }
 
+/// aidog 托管字段 marker 键：写入 `~/.claude/settings.json`，值为 dot-path 字符串数组，
+/// 记录 aidog 默认分组**实际注入/托管**的字段路径（叶子级）。前端「从 Claude Code 导入」
+/// 的字段级 diff 读此 marker 精确排除托管路径，只列用户自加（非托管）的差异。
+/// `_aidog_` 前缀 → 前端 `buildImportDiffTree` 顶层自动跳过；CC 忽略未知 key。
+pub const MARKER_MANAGED: &str = "_aidog_managed";
+
+/// 递归收集 JSON object 的叶子 dot-path（如 `env.ANTHROPIC_BASE_URL`、`enabledPlugins.x@y`）。
+/// - object → 递归每个键，拼 `prefix.key`
+/// - 非 object（标量/数组/null）→ 当前 prefix 即为一个叶子 path
+/// - 跳过 `_aidog_` 前缀键（内部 marker，非真实托管字段）
+///
+/// 用于写入侧把默认组实际写入的字段路径记入托管集（单一事实源）。
+fn collect_leaf_paths(value: &serde_json::Value, prefix: &str, out: &mut Vec<String>) {
+    match value {
+        serde_json::Value::Object(map) => {
+            for (k, v) in map {
+                if k.starts_with("_aidog_") {
+                    continue;
+                }
+                let path = if prefix.is_empty() {
+                    k.clone()
+                } else {
+                    format!("{prefix}.{k}")
+                };
+                collect_leaf_paths(v, &path, out);
+            }
+        }
+        _ => {
+            if !prefix.is_empty() {
+                out.push(prefix.to_string());
+            }
+        }
+    }
+}
+
 /// 默认分组：把默认组 config deep merge 写入 `~/.claude/settings.json`（CC 全局）。
 ///
 /// deep merge 规则：aidog 管理字段（env.ANTHROPIC_BASE_URL/AUTH_TOKEN、statusLine、
 /// hooks 等）覆盖同键；用户手写的其它字段（permissions / model 等）保留。
 /// 嵌套 object 递归合并；非 object（标量/数组）直接覆盖。
+///
+/// 托管 marker：aidog 注入字段的叶子 dot-path（含 base_config 全字段 + env 注入 + hooks +
+/// enabledPlugins/mcpServers 中 aidog 自身写入的条目）写入 `_aidog_managed`。用户事后用命令
+/// 自加的条目（不在本次注入集）不进托管集 → 导入 diff 仍能列出。
 ///
 /// CC 原生支持 settings.json 的 env 字段 → 用户直接 `claude` 不带任何参数/env 即走该组。
 pub(crate) fn write_default_claude_settings(config: &serde_json::Value) -> Result<(), String> {
@@ -83,8 +122,26 @@ pub(crate) fn write_default_claude_settings(config: &serde_json::Value) -> Resul
         base = serde_json::Value::Object(serde_json::Map::new());
     }
 
-    // deep merge：config 叠加到 base
+    // 托管集：aidog 本次注入的叶子 dot-path（基于 config，跳过内部 marker）。
+    // 顺序稳定（递归 + serde_json Map 保插入序），便于幂等 diff。
+    let mut managed: Vec<String> = Vec::new();
+    collect_leaf_paths(config, "", &mut managed);
+
+    // deep merge：config 叠加到 base（不覆盖用户自加的 enabledPlugins/mcpServers 条目）
     merge_json(&mut base, config);
+
+    // 写入/更新托管 marker（替换旧值，反映本次实际注入集）。
+    if let Some(obj) = base.as_object_mut() {
+        obj.insert(
+            MARKER_MANAGED.to_string(),
+            serde_json::Value::Array(
+                managed
+                    .into_iter()
+                    .map(serde_json::Value::String)
+                    .collect(),
+            ),
+        );
+    }
 
     let new_content = serde_json::to_string_pretty(&base)
         .map_err(|e| format!("serialize merged ~/.claude/settings.json: {e}"))?;

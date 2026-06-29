@@ -1,5 +1,5 @@
 //! merge_json deep-merge 单元测试（随源文件 sync_settings.rs 1:1）。
-use super::merge_json;
+use super::{merge_json, MARKER_MANAGED};
 use serde_json::json;
 
     #[test]
@@ -83,4 +83,99 @@ use serde_json::json;
         let before = std::fs::read_to_string(&path).unwrap();
         super::write_default_claude_settings(&config).unwrap();
         assert_eq!(before, std::fs::read_to_string(&path).unwrap());
+    }
+
+    /// collect_leaf_paths：嵌套 object 递归到叶子 dot-path，跳过 `_aidog_` 内部 marker。
+    #[test]
+    fn collect_leaf_paths_nested_and_skips_aidog() {
+        let v = json!({
+            "env": { "ANTHROPIC_BASE_URL": "x", "ANTHROPIC_AUTH_TOKEN": "y" },
+            "statusLine": { "type": "command", "command": "z" },
+            "enabledPlugins": { "a@m": true },
+            "language": "zh-CN",
+            "_aidog_statusline": { "enabled": true }
+        });
+        let mut out = Vec::new();
+        super::collect_leaf_paths(&v, "", &mut out);
+        assert!(out.contains(&"env.ANTHROPIC_BASE_URL".to_string()));
+        assert!(out.contains(&"env.ANTHROPIC_AUTH_TOKEN".to_string()));
+        assert!(out.contains(&"statusLine.type".to_string()));
+        assert!(out.contains(&"statusLine.command".to_string()));
+        assert!(out.contains(&"enabledPlugins.a@m".to_string()));
+        assert!(out.contains(&"language".to_string()));
+        // 内部 marker 不入托管集
+        assert!(!out.iter().any(|p| p.starts_with("_aidog_")));
+    }
+
+    /// collect_leaf_paths 叶子粒度契约（与前端比对一致，防泄漏）：
+    /// - 数组 = 单叶子（不展开索引）→ `hooks.Stop` 整体一个 path（前端 1 层展开后
+    ///   `managed.has("hooks.Stop")` 直接命中）。
+    /// - 深层 object 递归到标量叶子 → `extraKnownMarketplaces.x.source.repo`（前端把
+    ///   `extraKnownMarketplaces.x` 当 1 层子节点，须靠 `isFullyManaged` 子树全叶子 ∈
+    ///   managed 命中排除）。
+    #[test]
+    fn collect_leaf_paths_arrays_are_single_leaf_objects_recurse() {
+        let v = json!({
+            "hooks": {
+                "Stop": [ { "hooks": [ { "type": "command", "command": "aidog-notify.py" } ] } ]
+            },
+            "extraKnownMarketplaces": {
+                "ccplugin-market": { "source": { "repo": "x/y", "source": "github" }, "skipLfs": true }
+            }
+        });
+        let mut out = Vec::new();
+        super::collect_leaf_paths(&v, "", &mut out);
+        // 数组整体一个叶子，不展开索引
+        assert!(out.contains(&"hooks.Stop".to_string()));
+        assert!(!out.iter().any(|p| p.starts_with("hooks.Stop.")));
+        // 深层 object 递归到标量
+        assert!(out.contains(&"extraKnownMarketplaces.ccplugin-market.source.repo".to_string()));
+        assert!(out.contains(&"extraKnownMarketplaces.ccplugin-market.source.source".to_string()));
+        assert!(out.contains(&"extraKnownMarketplaces.ccplugin-market.skipLfs".to_string()));
+    }
+
+    /// write_default_claude_settings：写入 `_aidog_managed` marker，含注入字段叶子 path，
+    /// 且不含用户自加的 enabledPlugins 条目（保留用户条目、仅 aidog 自身条目入托管集）。
+    #[tokio::test]
+    async fn write_default_claude_settings_records_managed_paths() {
+        use crate::gateway::db::test_support::HomeGuard;
+        let h = HomeGuard::new();
+        let claude_dir = h.home().join(".claude");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        let path = claude_dir.join("settings.json");
+        // 用户预置：自装一个插件
+        std::fs::write(
+            &path,
+            r#"{"enabledPlugins":{"user-plugin@user-market":true}}"#,
+        )
+        .unwrap();
+
+        let config = json!({
+            "env": { "ANTHROPIC_BASE_URL": "http://127.0.0.1:9000/proxy", "ANTHROPIC_AUTH_TOKEN": "gk" },
+            "enabledPlugins": { "aidog-plugin@official": true }
+        });
+        super::write_default_claude_settings(&config).unwrap();
+
+        let written: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+
+        // 用户自装条目保留（union merge）
+        assert_eq!(
+            written["enabledPlugins"]["user-plugin@user-market"],
+            true
+        );
+        assert_eq!(written["enabledPlugins"]["aidog-plugin@official"], true);
+
+        // 托管 marker：含 aidog 注入条目，不含用户自加条目
+        let managed: Vec<String> = written[MARKER_MANAGED]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
+        assert!(managed.contains(&"env.ANTHROPIC_BASE_URL".to_string()));
+        assert!(managed.contains(&"env.ANTHROPIC_AUTH_TOKEN".to_string()));
+        assert!(managed.contains(&"enabledPlugins.aidog-plugin@official".to_string()));
+        // 用户自加条目不进托管集 → 导入 diff 能列出
+        assert!(!managed.contains(&"enabledPlugins.user-plugin@user-market".to_string()));
     }
