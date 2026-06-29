@@ -139,6 +139,7 @@ pub fn run() {
             crate::commands::mcp::mcp_list,
             crate::commands::mcp::mcp_scan,
             crate::commands::mcp::mcp_import,
+            crate::commands::mcp::mcp_import_json,
             crate::commands::mcp::mcp_set_agent,
             crate::commands::mcp::mcp_delete,
             crate::commands::mcp::mcp_update,

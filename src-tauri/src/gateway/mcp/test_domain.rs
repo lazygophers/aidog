@@ -324,3 +324,33 @@ async fn update_transport_switch_drops_unsupported_agent() {
     };
     assert!(update_server(&db, "ghost", bad).await.is_err());
 }
+
+// ─── parse_pasted_json（纯解析，无 FS）───
+#[test]
+fn parse_pasted_with_wrapper() {
+    let json = r#"{"mcpServers":{"fs":{"command":"npx","args":["-y","pkg"],"env":{"K":"v"}}}}"#;
+    let out = parse_pasted_json(json).unwrap();
+    assert_eq!(out.len(), 1);
+    let (name, cfg) = &out[0];
+    assert_eq!(name, "fs");
+    assert_eq!(cfg.command, "npx");
+    assert_eq!(cfg.args, vec!["-y", "pkg"]);
+    assert_eq!(cfg.env.get("K").map(String::as_str), Some("v"));
+}
+
+#[test]
+fn parse_pasted_bare_map_and_http() {
+    let json = r#"{"remote":{"type":"http","url":"https://x.dev","headers":{"A":"b"}}}"#;
+    let out = parse_pasted_json(json).unwrap();
+    assert_eq!(out.len(), 1);
+    assert_eq!(out[0].0, "remote");
+    assert_eq!(out[0].1.url, "https://x.dev");
+    assert_eq!(out[0].1.transport.as_str(), "http");
+}
+
+#[test]
+fn parse_pasted_invalid() {
+    assert!(parse_pasted_json("not json").is_err());
+    assert!(parse_pasted_json("[]").is_err()); // 非 object
+    assert!(parse_pasted_json(r#"{"command":"npx"}"#).is_err()); // 无名 entry → 空
+}

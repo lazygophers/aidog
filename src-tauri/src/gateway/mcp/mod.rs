@@ -30,8 +30,8 @@ use backend_codex::CodexBackend;
 
 // 对外路径保持 `gateway::mcp::X` 不变。
 pub use domain::{
-    add_server, delete_server, import_items, resync_all, scan_all, set_agent_enabled,
-    update_server,
+    add_server, delete_server, import_items, import_pasted, resync_all, scan_all,
+    set_agent_enabled, update_server,
 };
 // `mask_env` / `McpTransport` 为对外公共 API（保留 `gateway::mcp::X` 路径），
 // 当前 crate 内无外部引用点，allow 抑制未用 re-export 告警。

@@ -41,6 +41,17 @@ pub async fn mcp_import(
     gateway::mcp::import_items(&db, items).await
 }
 
+/// 粘贴 JSON 导入 MCP（claude.json 协议）：解析 → 入库（enabled 空，不写 agent 配置；同名跳过）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn mcp_import_json(
+    db: State<'_, Db>,
+    json: String,
+) -> Result<gateway::mcp::ImportReport, String> {
+    tracing::debug!(command = "mcp_import_json", "command invoked");
+    gateway::mcp::import_pasted(&db, &json).await
+}
+
 /// per-agent 启用/禁用：改 DB enabled_agents + 同步写/删 agent 配置。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]

@@ -120,6 +120,64 @@ pub async fn import_items(db: &Db, items: Vec<McpImportPayload>) -> Result<Impor
     Ok(ImportReport { imported, skipped })
 }
 
+/// 解析粘贴的 JSON（claude.json 协议）→ (name, cfg) 列表。
+/// 接受两种形态：① 完整 `{"mcpServers": {name: entry}}` ② 裸 `{name: entry}` 映射。
+/// 单条无名 entry（如 `{"command":..}`）无法定名 → 解析为空，由上层报错。
+pub fn parse_pasted_json(json: &str) -> Result<Vec<(String, McpConfigRaw)>, String> {
+    let v: serde_json::Value =
+        serde_json::from_str(json.trim()).map_err(|e| format!("JSON 解析失败: {e}"))?;
+    let obj = v.as_object().ok_or("顶层必须是 JSON object")?;
+    // 有 mcpServers 包裹用其内容，否则整体当 name→entry 映射。
+    let servers = match obj.get("mcpServers").and_then(|m| m.as_object()) {
+        Some(m) => m,
+        None => obj,
+    };
+    let out: Vec<(String, McpConfigRaw)> = servers
+        .iter()
+        .filter_map(|(name, val)| super::backend_claude::parse_claude_entry(val).map(|c| (name.clone(), c)))
+        .collect();
+    if out.is_empty() {
+        return Err("未解析到有效 MCP 配置（需 {\"mcpServers\":{名称:{...}}} 或 {名称:{...}} 格式）".into());
+    }
+    Ok(out)
+}
+
+/// 粘贴导入：解析 JSON → 逐条入 DB（enabled_agents 空，不写 agent 配置；同名跳过）。
+/// 与 add_server 一致：用户后续 set_agent_enabled 逐 agent 启用时才写配置文件。
+pub async fn import_pasted(db: &Db, json: &str) -> Result<ImportReport, String> {
+    let parsed = parse_pasted_json(json)?;
+    let mut imported = vec![];
+    let mut skipped = vec![];
+    for (name, cfg) in parsed {
+        if db::get_mcp_server(db, &name).await?.is_some() {
+            skipped.push(name); // 已存在不覆盖
+            continue;
+        }
+        let now = db::now();
+        let row = McpServerRow {
+            id: 0,
+            name: name.clone(),
+            transport: cfg.transport.as_str().to_string(),
+            command: cfg.command,
+            args_json: serde_json::to_string(&cfg.args).unwrap_or_else(|_| "[]".into()),
+            env_json: serde_json::to_string(&cfg.env).unwrap_or_else(|_| "{}".into()),
+            url: cfg.url,
+            headers_json: serde_json::to_string(&cfg.headers).unwrap_or_else(|_| "{}".into()),
+            enabled_agents: String::new(),
+            created_at: now,
+            updated_at: now,
+        };
+        match db::upsert_mcp_server(db, &row).await {
+            Ok(_) => imported.push(name),
+            Err(e) => {
+                tracing::warn!(error = %e, "mcp import_pasted: upsert failed");
+                skipped.push(name);
+            }
+        }
+    }
+    Ok(ImportReport { imported, skipped })
+}
+
 /// per-agent 启用/禁用：改 DB enabled_agents + 同步写/删 agent 配置。
 pub async fn set_agent_enabled(
     db: &Db,
