@@ -181,6 +181,14 @@ async fn handle_proxy_core(
     // Upsert #1: request received
     upsert_log(&state, &log, &log_settings).await;
 
+    // ── 模型列表端点分流（必须在 resolve_group 之前）──
+    // GET /v1/models | /models 总是返回静态默认模型列表，**不依赖 group / token**：
+    // tokenless / 错 token 的模型发现探测此前在 resolve_group 阶段就 404（晚于旧分流位置），
+    // 故分流前置于 group 解析之前彻底消除 404 根因。不 relay 上游，按 path 协议静态格式化。
+    if orig_method == axum::http::Method::GET && is_models_endpoint(&path) {
+        return handle_models_static(&state, &mut log, &log_settings, &path, start).await;
+    }
+
     // ── 查找分组 ──
     let group = {
         match resolve_group(&state.db, auth_header.as_deref()).await {
@@ -210,13 +218,6 @@ async fn handle_proxy_core(
     log.source_protocol = source_protocol.clone();
     tracing::info!(group = %group.name, source_protocol = %source_protocol, model = %log.model, "group resolved");
     upsert_log(&state, &log, &log_settings).await;
-
-    // ── 模型列表端点分流（必须在 parse_incoming_request 之前）──
-    // GET /v1/models | /models（openai/anthropic 同名）空 body，不能进 chat 解析（EOF 400）。
-    // 命中 → 走 handle_models_passthrough：选分组首个启用平台，relay 上游模型列表。
-    if orig_method == axum::http::Method::GET && is_models_endpoint(&path) {
-        return handle_models_passthrough(&state, &mut log, &log_settings, &group, start, lang).await;
-    }
 
     // ── Responses API 子端点分流（必须在 parse_incoming_request 之前）──
     // retrieve(GET /v1/responses/{id}) / cancel(POST .../{id}/cancel) / delete(DELETE .../{id})
