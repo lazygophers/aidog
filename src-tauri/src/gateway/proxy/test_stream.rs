@@ -248,7 +248,9 @@ use super::*;
         }
     }
 
-    /// 建一个 StreamLogGuard，settings = 默认（enabled=true, log_user_request=false）。
+    /// 建一个 StreamLogGuard，settings 开启上游记录（log_upstream_request=true），
+    /// 以隔离验证 flush 机制本身（占位 → 聚合内容回写），不被 upsert_log 的 strip_upstream
+    /// 二次过滤清空 response_body —— strip 行为另由 db::test_proxy_log 专门覆盖。
     /// upstream_chunks 预先 push 进 agg.upstream_body（模拟流式逐 chunk 累积）。
     fn make_guard(
         state: &Arc<ProxyState>,
@@ -272,7 +274,10 @@ use super::*;
             est_fired: Arc::new(AtomicBool::new(false)),
             log,
             state: state.clone(),
-            settings: ProxyLogSettings::default(),
+            settings: ProxyLogSettings {
+                log_upstream_request: true, // 开启上游记录，使 flush 回写的 response_body 透过 strip 二次闸
+                ..ProxyLogSettings::default()
+            },
             start: std::time::Instant::now(),
             record_upstream_body: true, // = log_settings.enabled
             record_client_body: false,  // log_user_request=false

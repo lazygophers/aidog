@@ -113,12 +113,23 @@ pub struct ProxyLogColumns {
 
 impl ProxyLogColumns {
     /// 由 `ProxyLog` 构造入库列快照。
-    /// `*_headers` 字段（元数据，Authorization 已在上游脱敏为 `[REDACTED]`）始终入库，
-    /// 不受 `log_user_request` / `log_upstream_request` 开关控制；仅 `*_body`（prompt / 响应正文，
-    /// 含敏感内容）受 `strip_user` / `strip_upstream` 控制就地清空。
+    /// 「原始信息」（headers + body + 上游响应正文）按用户 / 上游侧归类，受开关控制就地清空：
+    /// - `strip_user`（!log_user_request）清空用户侧：`request_headers` / `request_body` /
+    ///   `user_response_headers` / `user_response_body`；
+    /// - `strip_upstream`（!log_upstream_request）清空上游侧：`upstream_request_headers` /
+    ///   `upstream_request_body` / `upstream_response_headers` / `response_body`（上游响应正文）。
+    ///
+    /// 关开关后只保留解析后元数据（token / cost / url / status / model 等），不存任何原始 headers/body/正文。
+    /// 开关开启时入库的 Authorization 等敏感头已在上游脱敏为 `[REDACTED]`。
+    /// 例外：流式占位 `"[stream]"` 是控制标记（非敏感内容），strip 时保留，避免破坏 upsert_log
+    /// 的终态判定（`cols.response_body != "[stream]"`）—— 真实正文 / 空串由 stream.rs flush 改写后再经本函数 strip。
     /// attempts 在此序列化一次。仅克隆 String 字段（入库本就需 owned 值），不克隆整 ProxyLog 结构。
     pub fn from_log(log: &crate::gateway::models::ProxyLog, strip_user: bool, strip_upstream: bool) -> Self {
         let empty = String::new;
+        // 占位保留：strip 上游响应正文时，若仍是流式占位则不清空（控制标记，终态判定依赖）。
+        let strip_resp_body = |v: &str| -> String {
+            if v == "[stream]" { v.to_string() } else { empty() }
+        };
         ProxyLogColumns {
             id: log.id.clone(),
             group_key: log.group_key.clone(),
@@ -127,16 +138,16 @@ impl ProxyLogColumns {
             source_protocol: log.source_protocol.clone(),
             target_protocol: log.target_protocol.clone(),
             platform_id: log.platform_id as i64,
-            request_headers: log.request_headers.clone(),
+            request_headers: if strip_user { empty() } else { log.request_headers.clone() },
             request_body: if strip_user { empty() } else { log.request_body.clone() },
-            upstream_request_headers: log.upstream_request_headers.clone(),
+            upstream_request_headers: if strip_upstream { empty() } else { log.upstream_request_headers.clone() },
             upstream_request_body: if strip_upstream { empty() } else { log.upstream_request_body.clone() },
-            response_body: log.response_body.clone(),
+            response_body: if strip_upstream { strip_resp_body(&log.response_body) } else { log.response_body.clone() },
             request_url: log.request_url.clone(),
             upstream_request_url: log.upstream_request_url.clone(),
-            upstream_response_headers: log.upstream_response_headers.clone(),
+            upstream_response_headers: if strip_upstream { empty() } else { log.upstream_response_headers.clone() },
             upstream_status_code: log.upstream_status_code,
-            user_response_headers: log.user_response_headers.clone(),
+            user_response_headers: if strip_user { empty() } else { log.user_response_headers.clone() },
             user_response_body: if strip_user { empty() } else { log.user_response_body.clone() },
             status_code: log.status_code,
             duration_ms: log.duration_ms,
