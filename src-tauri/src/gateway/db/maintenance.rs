@@ -119,8 +119,9 @@ pub struct CompactResult {
     pub after_bytes: i64,
 }
 
-/// Clear user request body fields for logs older than retention_days.
-/// `*_headers`（元数据，已脱敏）始终保留至行级 retention 删除；仅清 `*_body`（prompt / 响应正文）。
+/// Clear user-side raw fields for logs older than retention_days.
+/// 清理列集 = 用户侧「原始信息」全集：request_headers / request_body /
+/// user_response_headers / user_response_body（与 from_log 的 strip_user 列集对称）。
 /// Does NOT delete the log row — keeps token stats and metadata.
 #[track_caller]
 pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> impl std::future::Future<Output = Result<(), String>> + '_ {
@@ -130,7 +131,8 @@ pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> impl std::fu
     db
         .call_traced(None, __db_caller, move |conn| {
             conn.execute(
-                "UPDATE proxy_log SET request_body = '', user_response_body = '' WHERE created_at < ?1 AND (request_body != '' OR user_response_body != '')",
+                "UPDATE proxy_log SET request_headers = '', request_body = '', user_response_headers = '', user_response_body = '' \
+                 WHERE created_at < ?1 AND (request_headers != '' OR request_body != '' OR user_response_headers != '' OR user_response_body != '')",
                 params![cutoff],
             )?;
             Ok(())
@@ -140,12 +142,11 @@ pub fn cleanup_user_request_fields(db: &Db, retention_days: u32) -> impl std::fu
     }
 }
 
-/// Clear upstream request body fields for logs older than retention_days.
-/// `*_headers`（元数据，已脱敏）始终保留至行级 retention 删除；仅清 `*_body`（上游请求 / 响应正文）。
-/// 清理列集 = upstream_request_body（上游请求正文）+ response_body（上游响应正文，
-/// 与请求侧对称归本级 retention）。response_body 是体积大头（实测真实库 376MB），
-/// 此前漏入清理列集长期不回收 —— 本次补入。回客户端正文 user_response_body 归
-/// user_request_retention_days（见 cleanup_user_request_fields，与用户请求侧对称）。
+/// Clear upstream-side raw fields for logs older than retention_days.
+/// 清理列集 = 上游侧「原始信息」全集：upstream_request_headers / upstream_request_body /
+/// upstream_response_headers / response_body（上游响应正文，与 from_log 的 strip_upstream 列集对称）。
+/// response_body 是体积大头（实测真实库 376MB），归本级 retention 回收。回客户端正文
+/// user_response_body 归 user_request_retention_days（见 cleanup_user_request_fields）。
 /// Does NOT delete the log row — keeps token stats and metadata.
 /// 注意：仅改清理逻辑，存量大体积 body 的实际回收发生在用户下次 retention 周期运行
 /// 触发本 UPDATE + 后续 incremental_vacuum，迁移本身不强清存量（避免启动期长锁）。
@@ -157,7 +158,8 @@ pub fn cleanup_upstream_request_fields(db: &Db, retention_days: u32) -> impl std
     db
         .call_traced(None, __db_caller, move |conn| {
             conn.execute(
-                "UPDATE proxy_log SET upstream_request_body = '', response_body = '' WHERE created_at < ?1 AND (upstream_request_body != '' OR response_body != '')",
+                "UPDATE proxy_log SET upstream_request_headers = '', upstream_request_body = '', upstream_response_headers = '', response_body = '' \
+                 WHERE created_at < ?1 AND (upstream_request_headers != '' OR upstream_request_body != '' OR upstream_response_headers != '' OR response_body != '')",
                 params![cutoff],
             )?;
             Ok(())

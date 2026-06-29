@@ -56,10 +56,10 @@ src-tauri/src/
 - 最终 URL = `base_url + provider_api_path`，禁止额外拼接
 
 ### Proxy 日志
-- ProxyLogSettings 控制 3 级记录：master switch / 用户原始请求 / 上游请求
-- `*_headers`（元数据，Authorization 已脱敏 `[REDACTED]`）始终入库、不受 log_user_request / log_upstream_request 开关控制；仅 `*_body`（prompt / 响应正文）受开关控制
+- ProxyLogSettings 控制 3 级记录：master switch(enabled) / 用户原始请求(log_user_request) / 上游请求(log_upstream_request)
+- 「原始信息」= headers + body + 上游响应正文，**均受 log_user_request / log_upstream_request 开关控制**（gate 在 `from_log`，db/proxy_log.rs）。关开关后这些列入库即清空，**只留解析后元数据**（token / cost / url / status / model 等）。按侧归类：用户侧 (request_headers/request_body/user_response_headers/user_response_body) 受 log_user_request；上游侧 (upstream_request_headers/upstream_request_body/upstream_response_headers/response_body) 受 log_upstream_request。开关开启时入库的 Authorization 等敏感头已脱敏 `[REDACTED]`。例外：流式占位 `"[stream]"` 是控制标记，strip 时保留（终态判定依赖）。
 - 3 级 retention：user_request_retention_days(7d) / upstream_request_retention_days(7d) / retention_days(90d)
-- retention 清理只清空 `*_body` 字段（UPDATE SET=''），不删行，不清 headers；retention_days 删整行
+- retention 清理对称清空整侧「原始信息」（headers + body，UPDATE SET=''），不删行；retention_days 删整行
 
 ### Group 统计
 - Group 卡片的 usage stats 按 `proxy_log.group_name` 聚合（后端 `get_group_usage_stats` in `db.rs` + command `group_usage_stats` in `lib.rs` + api `groupUsageApi.stats`），只含本分组请求，被多 group 共享的平台不重复计入。前端 Groups.tsx `fetchGroupStats` 对每个 group 调一次。

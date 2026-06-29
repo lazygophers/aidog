@@ -96,8 +96,8 @@ use rusqlite::params;
 
 
 
-    /// strip(脱敏) 等价性：log_user_request/log_upstream_request 关时，仅 `*_body`
-    /// （prompt / 响应正文）被清空；`*_headers`（元数据，auth 已脱敏）始终保留。
+    /// strip(脱敏) 等价性：log_user_request/log_upstream_request 关时，整侧「原始信息」
+    /// （headers + body + 上游响应正文）全部清空，只留解析后元数据（group_key/model 等）。
     #[tokio::test]
     async fn progressive_columns_strip_equivalence() {
         let db = test_db().await;
@@ -110,24 +110,35 @@ use rusqlite::params;
         log.upstream_request_headers = "up-rh".into();
         log.upstream_request_body = "up-rb".into();
         log.upstream_response_headers = "up-resp-h".into();
+        log.response_body = "{\"ok\":true}".into();
 
-        // strip_user=true, strip_upstream=true → 仅 3 个 body 列清空，4 个 headers 列保留。
+        // strip_user=true, strip_upstream=true → 两侧 headers + body + 上游响应正文全清空。
         let cols = ProxyLogColumns::from_log(&log, true, true);
         insert_proxy_log_columns(&db, cols).await.unwrap();
         let row = get_proxy_log(&db, "strip").await.unwrap().unwrap();
 
-        // headers 始终记录（元数据，auth 已脱敏）。
-        assert_eq!(row.request_headers, "secret-h");
-        assert_eq!(row.user_response_headers, "ur-h");
-        assert_eq!(row.upstream_request_headers, "up-rh");
-        assert_eq!(row.upstream_response_headers, "up-resp-h");
-        // body 受开关控制 → 清空。
+        // headers 受开关控制 → 清空。
+        assert!(row.request_headers.is_empty());
+        assert!(row.user_response_headers.is_empty());
+        assert!(row.upstream_request_headers.is_empty());
+        assert!(row.upstream_response_headers.is_empty());
+        // body + 上游响应正文受开关控制 → 清空。
         assert!(row.request_body.is_empty());
         assert!(row.user_response_body.is_empty());
         assert!(row.upstream_request_body.is_empty());
-        // 非脱敏字段保留。
+        assert!(row.response_body.is_empty());
+        // 解析后元数据保留。
         assert_eq!(row.group_key, "grp");
         assert_eq!(row.model, "claude-sonnet-4");
+    }
+
+    /// strip 时流式占位 `"[stream]"` 是控制标记，须保留（终态判定依赖），不被清空。
+    #[tokio::test]
+    async fn strip_preserves_stream_placeholder() {
+        let mut log = sample_log("strip-stream", "grp", now());
+        log.response_body = "[stream]".into();
+        let cols = ProxyLogColumns::from_log(&log, true, true);
+        assert_eq!(cols.response_body, "[stream]");
     }
 
 

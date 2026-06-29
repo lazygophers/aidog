@@ -163,11 +163,13 @@ pub struct ProxyLogSettings {
     #[serde(default = "default_true")]
     pub enabled: bool,
 
-    /// Whether to record user's original request (headers + body)
+    /// Whether to record user-side raw data (request headers + request body +
+    /// response headers + response body to client). 关闭后这些列入库即清空，只留解析后元数据。
     #[serde(default)]
     pub log_user_request: bool,
 
-    /// Whether to record actual upstream request (headers + body)
+    /// Whether to record upstream-side raw data (upstream request headers + body +
+    /// upstream response headers + upstream response body). 关闭后这些列入库即清空，只留解析后元数据。
     #[serde(default)]
     pub log_upstream_request: bool,
 

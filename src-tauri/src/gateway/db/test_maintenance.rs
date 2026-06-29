@@ -67,8 +67,8 @@ use super::test_support::*;
                 "INSERT INTO proxy_log (id,model,actual_model,group_key,platform_id,\
                  status_code,input_tokens,output_tokens,cache_tokens,est_cost,duration_ms,\
                  is_stream,request_url,request_headers,request_body,upstream_request_body,\
-                 upstream_request_headers,response_body,user_response_body,attempts,created_at,updated_at,deleted_at) \
-                 VALUES ('maint-u1','m','','g',1,200,1,1,0,0.0,10,0,'url','{{}}','old-req-body','','{{}}','','old-resp','[]',\
+                 upstream_request_headers,response_body,user_response_headers,user_response_body,attempts,created_at,updated_at,deleted_at) \
+                 VALUES ('maint-u1','m','','g',1,200,1,1,0,0.0,10,0,'url','{{}}','old-req-body','','{{}}','','old-ur-h','old-resp','[]',\
                  {old_ts},{old_ts},0)"
             ))?;
             Ok(())
@@ -76,13 +76,16 @@ use super::test_support::*;
 
         cleanup_user_request_fields(&db, 1).await.unwrap();
 
-        let (req_body, resp_body): (String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
+        let (req_h, req_body, ur_h, resp_body): (String, String, String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
             Ok(c.query_row(
-                "SELECT request_body, user_response_body FROM proxy_log WHERE id='maint-u1'",
-                [], |r| Ok((r.get(0)?, r.get(1)?)),
+                "SELECT request_headers, request_body, user_response_headers, user_response_body FROM proxy_log WHERE id='maint-u1'",
+                [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
             )?)
         }).await.unwrap();
+        // 用户侧「原始信息」全集（headers + body）均清空。
+        assert_eq!(req_h, "", "request_headers should be cleared");
         assert_eq!(req_body, "", "request_body should be cleared");
+        assert_eq!(ur_h, "", "user_response_headers should be cleared");
         assert_eq!(resp_body, "", "user_response_body should be cleared");
 
         // Row still exists
@@ -103,8 +106,8 @@ use super::test_support::*;
                 "INSERT INTO proxy_log (id,model,actual_model,group_key,platform_id,\
                  status_code,input_tokens,output_tokens,cache_tokens,est_cost,duration_ms,\
                  is_stream,request_url,request_headers,request_body,upstream_request_body,\
-                 upstream_request_headers,response_body,user_response_body,attempts,created_at,updated_at,deleted_at) \
-                 VALUES ('maint-up1','m','','g',1,200,1,1,0,0.0,10,0,'url','{{}}','','old-up-req','{{}}','old-resp','','[]',\
+                 upstream_request_headers,upstream_response_headers,response_body,user_response_body,attempts,created_at,updated_at,deleted_at) \
+                 VALUES ('maint-up1','m','','g',1,200,1,1,0,0.0,10,0,'url','{{}}','','old-up-req','{{}}','old-up-resp-h','old-resp','','[]',\
                  {old_ts},{old_ts},0)"
             ))?;
             Ok(())
@@ -112,13 +115,16 @@ use super::test_support::*;
 
         cleanup_upstream_request_fields(&db, 1).await.unwrap();
 
-        let (up_req, resp): (String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
+        let (up_h, up_req, up_resp_h, resp): (String, String, String, String) = db.call_traced(None, std::panic::Location::caller(), |c| {
             Ok(c.query_row(
-                "SELECT upstream_request_body, response_body FROM proxy_log WHERE id='maint-up1'",
-                [], |r| Ok((r.get(0)?, r.get(1)?)),
+                "SELECT upstream_request_headers, upstream_request_body, upstream_response_headers, response_body FROM proxy_log WHERE id='maint-up1'",
+                [], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
             )?)
         }).await.unwrap();
+        // 上游侧「原始信息」全集（headers + body + 上游响应正文）均清空。
+        assert_eq!(up_h, "", "upstream_request_headers should be cleared");
         assert_eq!(up_req, "", "upstream_request_body should be cleared");
+        assert_eq!(up_resp_h, "", "upstream_response_headers should be cleared");
         assert_eq!(resp, "", "response_body should be cleared");
     }
 
