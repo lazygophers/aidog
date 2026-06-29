@@ -70,3 +70,29 @@ def worktree_paths(groot, tid, pkg="", service="."):
     wt = os.path.join(groot, ".worktrees", name)
     br = f"trellisx-{name}"
     return name, wt, br
+
+
+def parse_map_list(text, tid):
+    """解析 `trellisx-taskmd.py map-list` stdout, 抽出映射到 `tid` 的全部 worktree 路径。
+
+    每行格式 (见 trellisx-taskmd cmd_map_list): `<worktree路径> → <tid>  (<创建源>)`。
+    返回去重 (按 realpath) 后保持出现顺序的 worktree 显示路径列表; 无匹配 → []。
+    纯函数, 不触盘 (realpath 仅做 symlink 规范化用于去重比较)。
+    """
+    out, seen = [], set()
+    for ln in (text or "").splitlines():
+        ln = ln.strip()
+        if " → " not in ln:
+            continue
+        left, right = ln.split(" → ", 1)
+        wt_disp = left.strip()
+        # right 形如 "<tid>  (<源>)" → tid 是首个空白前 token
+        row_tid = right.strip().split()[0] if right.strip().split() else ""
+        if row_tid != tid or not wt_disp:
+            continue
+        key = os.path.realpath(os.path.expanduser(wt_disp))
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(wt_disp)
+    return out

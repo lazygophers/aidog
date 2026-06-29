@@ -30,6 +30,19 @@ if not groot:
 
 name, wt, br = trellisx_wt.worktree_paths(groot, tid, pkg, service)
 
+_taskmd = os.path.join(os.path.dirname(os.path.abspath(__file__)), "trellisx-taskmd.py")
+
+
+def _map(*args):
+    """调同目录 taskmd 维护 worktree↔task 映射 (cwd=troot 确保定位; 缺脚本/异常静默)。"""
+    if os.path.isfile(_taskmd):
+        try:
+            subprocess.run(["python3", _taskmd, *args], cwd=troot,
+                           capture_output=True, timeout=10)
+        except Exception:
+            pass
+
+
 if action == "start":
     if not os.path.isdir(wt):
         subprocess.run(["git", "-C", groot, "worktree", "add", wt, "-b", br],
@@ -37,6 +50,7 @@ if action == "start":
         if service not in (".", None) and not pkg:   # 微服务 → sparse 只检子目录
             subprocess.run(["git", "-C", wt, "sparse-checkout", "set", service],
                            capture_output=True, timeout=10)
+    _map("map-add", wt, tid, "trellisx-start")  # 经 task 建, 已知 tid, 不被 hook 提醒
     print(f"trellisx: worktree → {wt} (源码改动写此 worktree 内)", file=sys.stderr)
 
 elif action == "archive":
@@ -58,4 +72,5 @@ elif action == "archive":
                                capture_output=True, timeout=15)
                 subprocess.run(["git", "-C", groot, "branch", "-d", br],   # -d 安全删, 已确认合并
                                capture_output=True, timeout=10)
+                _map("map-remove", wt)  # 销毁后清映射
                 print(f"trellisx: worktree 已销毁 {wt} (分支已合并回主分支)", file=sys.stderr)
