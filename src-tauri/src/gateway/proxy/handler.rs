@@ -139,11 +139,20 @@ async fn handle_proxy_core(
     };
 
     // Extract auth header and path BEFORE consuming the request
+    // group token 来源: Authorization: Bearer <key> (OpenAI/通用) 或 x-api-key (Anthropic SDK/claude-cli)。
+    // 二者皆承载 group_key —— 只读前者会让原生 Anthropic 客户端 (仅发 x-api-key) 在 resolve_group 落空 → 404 no matching group。
     let auth_header = req.headers()
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|v| v.strip_prefix("Bearer "))
-        .map(|s| s.trim().to_string());
+        .map(|s| s.trim().to_string())
+        .or_else(|| {
+            req.headers()
+                .get("x-api-key")
+                .and_then(|v| v.to_str().ok())
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+        });
     let path = req.uri().path().to_string();
     tracing::info!(method = %req.method(), path = %path, "http request");
 
