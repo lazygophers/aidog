@@ -99,9 +99,12 @@ fn collect_leaf_paths(value: &serde_json::Value, prefix: &str, out: &mut Vec<Str
 /// hooks 等）覆盖同键；用户手写的其它字段（permissions / model 等）保留。
 /// 嵌套 object 递归合并；非 object（标量/数组）直接覆盖。
 ///
-/// 托管 marker：aidog 注入字段的叶子 dot-path（含 base_config 全字段 + env 注入 + hooks +
-/// enabledPlugins/mcpServers 中 aidog 自身写入的条目）写入 `_aidog_managed`。用户事后用命令
-/// 自加的条目（不在本次注入集）不进托管集 → 导入 diff 仍能列出。
+/// 托管 marker：`_aidog_managed` = 本次同步后**整个 settings.json**（merge 完成后）的全部
+/// 叶子 dot-path 快照——既含 aidog 注入字段（env/statusLine/hooks/aidog 自身 plugins），也含
+/// merge 后保留下来的用户已有字段（permissions/model/用户自装 plugins/marketplaces/hooks）。
+/// 前端「从 Claude Code 导入」的字段级 diff 排除该集合 → 仅显示同步**之后**用户新增/改动的字段，
+/// 同步当下的全部内容（含用户自装项）零差异。`collect_leaf_paths` 跳过 `_aidog_` 前缀，故 marker
+/// 不自引用、也不含旧 marker 数组。
 ///
 /// CC 原生支持 settings.json 的 env 字段 → 用户直接 `claude` 不带任何参数/env 即走该组。
 pub(crate) fn write_default_claude_settings(config: &serde_json::Value) -> Result<(), String> {
@@ -122,15 +125,16 @@ pub(crate) fn write_default_claude_settings(config: &serde_json::Value) -> Resul
         base = serde_json::Value::Object(serde_json::Map::new());
     }
 
-    // 托管集：aidog 本次注入的叶子 dot-path（基于 config，跳过内部 marker）。
-    // 顺序稳定（递归 + serde_json Map 保插入序），便于幂等 diff。
-    let mut managed: Vec<String> = Vec::new();
-    collect_leaf_paths(config, "", &mut managed);
-
     // deep merge：config 叠加到 base（不覆盖用户自加的 enabledPlugins/mcpServers 条目）
     merge_json(&mut base, config);
 
-    // 写入/更新托管 marker（替换旧值，反映本次实际注入集）。
+    // 托管集：对 **merge 后的完整 base** 取叶子 dot-path（跳过内部 marker）——含 aidog 注入字段
+    // 与 merge 后保留的用户已有字段。即「上次同步时 settings.json 全部叶子」的快照，导入 diff
+    // 只显示此快照之后的新增/变化。顺序稳定（递归 + serde_json Map 保插入序），便于幂等 diff。
+    let mut managed: Vec<String> = Vec::new();
+    collect_leaf_paths(&base, "", &mut managed);
+
+    // 写入/更新托管 marker（替换旧值，反映本次同步后完整快照）。
     if let Some(obj) = base.as_object_mut() {
         obj.insert(
             MARKER_MANAGED.to_string(),

@@ -134,8 +134,10 @@ use serde_json::json;
         assert!(out.contains(&"extraKnownMarketplaces.ccplugin-market.skipLfs".to_string()));
     }
 
-    /// write_default_claude_settings：写入 `_aidog_managed` marker，含注入字段叶子 path，
-    /// 且不含用户自加的 enabledPlugins 条目（保留用户条目、仅 aidog 自身条目入托管集）。
+    /// write_default_claude_settings：`_aidog_managed` marker = merge 后完整 base 的全部叶子快照。
+    /// 既含 aidog 注入字段，**也含 merge 后保留的用户自装条目**（plugins/marketplaces/hooks），
+    /// 但**不含** `_aidog_managed` 自身（跳 `_aidog_` 前缀，不自引用）。
+    /// 语义：导入 diff 排除此快照 → 同步当下零差异（含用户自装项），仅显示同步之后的新增/变化。
     #[tokio::test]
     async fn write_default_claude_settings_records_managed_paths() {
         use crate::gateway::db::test_support::HomeGuard;
@@ -143,10 +145,10 @@ use serde_json::json;
         let claude_dir = h.home().join(".claude");
         std::fs::create_dir_all(&claude_dir).unwrap();
         let path = claude_dir.join("settings.json");
-        // 用户预置：自装一个插件
+        // 用户预置：自装一个插件 + 一个 marketplace + 一个用户 hook
         std::fs::write(
             &path,
-            r#"{"enabledPlugins":{"user-plugin@user-market":true}}"#,
+            r#"{"enabledPlugins":{"user-plugin@user-market":true},"extraKnownMarketplaces":{"user-market":{"source":{"repo":"u/m","source":"github"}}}}"#,
         )
         .unwrap();
 
@@ -166,7 +168,7 @@ use serde_json::json;
         );
         assert_eq!(written["enabledPlugins"]["aidog-plugin@official"], true);
 
-        // 托管 marker：含 aidog 注入条目，不含用户自加条目
+        // 托管 marker = merge 后完整快照：含 aidog 注入条目 + 用户自装条目
         let managed: Vec<String> = written[MARKER_MANAGED]
             .as_array()
             .unwrap()
@@ -176,6 +178,10 @@ use serde_json::json;
         assert!(managed.contains(&"env.ANTHROPIC_BASE_URL".to_string()));
         assert!(managed.contains(&"env.ANTHROPIC_AUTH_TOKEN".to_string()));
         assert!(managed.contains(&"enabledPlugins.aidog-plugin@official".to_string()));
-        // 用户自加条目不进托管集 → 导入 diff 能列出
-        assert!(!managed.contains(&"enabledPlugins.user-plugin@user-market".to_string()));
+        // 新语义：用户自装条目也进托管集 → 导入 diff 当下零差异
+        assert!(managed.contains(&"enabledPlugins.user-plugin@user-market".to_string()));
+        assert!(managed.contains(&"extraKnownMarketplaces.user-market.source.repo".to_string()));
+        assert!(managed.contains(&"extraKnownMarketplaces.user-market.source.source".to_string()));
+        // marker 不自引用（跳 `_aidog_` 前缀）
+        assert!(!managed.iter().any(|p| p.starts_with("_aidog_")));
     }
