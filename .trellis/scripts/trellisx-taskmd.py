@@ -3,7 +3,7 @@
 #
 # 用法:
 #   trellisx-taskmd.py sync <create|start|archive>   # hook 用: 读 $TASK_JSON_PATH 同步确定性列
-#   trellisx-taskmd.py update <tid> [--status S] [--phase P] [--progress N] [--worktree W]
+#   trellisx-taskmd.py update <tid> [--status S] [--worktree W]
 #   trellisx-taskmd.py show [tid]                     # 打印看板 (或某任务行)
 #   trellisx-taskmd.py cleanup [--days 7]             # 清理超 N 天的已完成行
 #   trellisx-taskmd.py map-add <wt> <tid> [创建源]    # upsert worktree↔task 映射 (一对多)
@@ -11,19 +11,26 @@
 #   trellisx-taskmd.py map-get <wt>                   # 命中→stdout tid 退0; 否则退1
 #   trellisx-taskmd.py map-list                       # 打印全部映射
 #   trellisx-taskmd.py lint                           # 合规退0; 否则退1+stderr
+#   trellisx-taskmd.py fix                            # 机械修复 (列对齐/状态归一/去重)
 #
-# 列分工: hook(sync) 维护 ID/名称/描述/状态; AI(update) 维护 阶段/进度/worktree。互不覆盖。
+# 列分工 (5 列): hook(sync) 维护 ID/名称/描述/状态; AI(update) 细化状态 (阶段) + worktree。
+# 状态列承载生命周期阶段: 规划中/实施中/检查中/收尾/已完成/已归档。
+# 冲突规则: hook sync 写基础态 (规划中/实施中/已完成/已归档); 若 AI 已写细分 (实施中/检查中/收尾),
+#           hook sync 不覆 AI 细分 (如 AI 写"检查中", hook 不会强覆为"实施中")。
 import json, os, re, sys
 from datetime import date
 
-STATUS_CN = {"planning": "规划中", "in_progress": "进行中", "completed": "已完成"}
-PHASE_DEFAULT = {"planning": "规划", "in_progress": "实施", "completed": "收尾"}
-PROG_DEFAULT = {"planning": "0%", "in_progress": "—", "completed": "100%"}
+# 状态列取值 (合并原"状态"+"阶段"): 基础态由 hook sync 写, 细分态由 AI update 写
+STATUS_BASE = {"planning": "规划中", "in_progress": "实施中", "completed": "已完成", "archived": "已归档"}
+# AI 细分态 (hook sync 不覆这些)
+STATUS_REFINED = {"实施中", "检查中", "收尾"}
+# 全部合法状态值 (lint 用)
+STATUS_ALL = set(STATUS_BASE.values()) | STATUS_REFINED
 HEADER = (
     "# Trellis 任务看板\n\n"
     "> 由 trellisx-workspace 维护 (经 trellisx-taskmd.py); task 生命周期节点后及时更新。\n\n"
-    "| ID | 名称 | 描述 | 状态 | 阶段 | 进度 | worktree |\n"
-    "| --- | --- | --- | --- | --- | --- | --- |\n"
+    "| ID | 名称 | 描述 | 状态 | worktree |\n"
+    "| --- | --- | --- | --- | --- |\n"
 )
 
 # 独立的 worktree ↔ task 映射区 (单表设计的明确例外: 主表一行一 task, 但 worktree
@@ -183,40 +190,52 @@ def cmd_sync(action):
     title = (meta.get("title") or tid).replace("|", "/")
     desc = ((meta.get("description") or "").replace("|", "/").strip()) or "—"
     status = meta.get("status") or "planning"
-    status_cn = STATUS_CN.get(status, status)
 
     md = load_md(troot)
     m = find_row(md, tid)
-    if m:  # 保留 AI 列 (阶段/进度/worktree)
+    # 保留 AI 列 (worktree); 状态列按合并规则处理
+    if m:
         c = row_cells(m.group(0))
-        phase = c[4] if len(c) > 4 and c[4] else PHASE_DEFAULT.get(status, "规划")
-        prog = c[5] if len(c) > 5 and c[5] else PROG_DEFAULT.get(status, "—")
-        wt = c[6] if len(c) > 6 and c[6] else "—"
+        # 兼容旧 7 列数据 (迁移期): 取前 3 列 + 状态 + worktree (旧 worktree 在 c[6])
+        cur_status = c[3] if len(c) > 3 and c[3] else STATUS_BASE.get(status, "规划中")
+        # 旧 7 列 → 新 5 列: worktree 原在 c[6], 现在最后一列
+        if len(c) >= 7:
+            wt = c[6] if c[6] else "—"
+        else:
+            wt = c[4] if len(c) > 4 and c[4] else "—"
     else:
-        phase, prog, wt = PHASE_DEFAULT.get(status, "规划"), PROG_DEFAULT.get(status, "—"), "—"
+        cur_status, wt = STATUS_BASE.get(status, "规划中"), "—"
 
+    # 状态合并规则: hook sync 写基础态; 若 AI 已写细分 (实施中/检查中/收尾), 不覆
+    base_status = STATUS_BASE.get(status, status)
     if action == "create":
-        phase, prog = "规划", "0%"
+        new_status = "规划中"
     elif action == "archive":
-        status_cn, phase, prog = "已完成", "收尾", "100%"
+        new_status = "已完成"
+    else:  # start / 一般 sync
+        # 不覆 AI 细分: 若当前是细分态且 task 仍 in_progress, 保留 AI 写的细分
+        if cur_status in STATUS_REFINED and status == "in_progress":
+            new_status = cur_status
+        else:
+            new_status = base_status
 
-    md = write_row(md, tid, [title, desc, status_cn, phase, prog, wt])
+    md = write_row(md, tid, [title, desc, new_status, wt])
     if action == "archive":
         md = cleanup(md, troot, 7)
         md = map_remove_by_tid(md, tid)  # 归档顺带清该 task 的 worktree 映射
     save_md(troot, md)
-    print(f"trellisx: task.md 看板已同步 ({tid} → {status_cn})", file=sys.stderr)
+    print(f"trellisx: task.md 看板已同步 ({tid} → {new_status})", file=sys.stderr)
 
 
 def cmd_update(argv):
     if not argv:
-        print("用法: update <tid> [--status S] [--phase P] [--progress N] [--worktree W]", file=sys.stderr)
+        print("用法: update <tid> [--status S] [--worktree W]", file=sys.stderr)
         sys.exit(1)
     tid = argv[0]
     opts = {}
     i = 1
     while i < len(argv) - 1:
-        if argv[i] in ("--status", "--phase", "--progress", "--worktree"):
+        if argv[i] in ("--status", "--worktree"):
             opts[argv[i][2:]] = argv[i + 1]
             i += 2
         else:
@@ -230,14 +249,17 @@ def cmd_update(argv):
     if not m:
         print(f"trellisx: task.md 无 {tid} 行 (先 sync create)", file=sys.stderr)
         sys.exit(1)
-    c = row_cells(m.group(0))      # [id,名称,描述,状态,阶段,进度,worktree]
-    while len(c) < 7:
-        c.append("—")
-    if "status" in opts: c[3] = opts["status"]
-    if "phase" in opts: c[4] = opts["phase"]
-    if "progress" in opts: c[5] = opts["progress"]
-    if "worktree" in opts: c[6] = opts["worktree"]
-    md = write_row(md, tid, c[1:7])
+    c = row_cells(m.group(0))      # [id,名称,描述,状态,worktree]
+    # 兼容旧 7 列 → 取前 3 列 + 状态 + worktree(旧 c[6])
+    if len(c) >= 7:
+        title, desc, status, wt = c[1], c[2], c[3], c[6]
+    else:
+        while len(c) < 5:
+            c.append("—")
+        title, desc, status, wt = c[1], c[2], c[3], c[4]
+    if "status" in opts: status = opts["status"]
+    if "worktree" in opts: wt = opts["worktree"]
+    md = write_row(md, tid, [title, desc, status, wt])
     save_md(troot, md)
     print(f"trellisx: {tid} 已更新 {opts}", file=sys.stderr)
 
@@ -335,7 +357,7 @@ def cmd_map_list(_argv):
 
 def cmd_lint(_argv):
     """lint — 合规退 0; 否则退 1 + stderr 列问题。
-    规则: 主表数据行 7 列 / 映射区数据行 3 列 / 状态 ∈ {规划中,进行中,已完成} /
+    规则: 主表数据行 5 列 / 映射区数据行 3 列 / 状态 ∈ 合法集 /
           主表 ID 不重复。"""
     troot = find_trellis_root()
     if not troot:
@@ -352,10 +374,10 @@ def cmd_lint(_argv):
         if (ln.startswith("| ") and not ln.startswith("| ID |")
                 and not ln.startswith("| --- |")):
             c = row_cells(ln)
-            if len(c) != 7:
-                errs.append(f"主表数据行列数 {len(c)}≠7: {ln.strip()}")
+            if len(c) != 5:
+                errs.append(f"主表数据行列数 {len(c)}≠5: {ln.strip()}")
                 continue
-            if c[3] not in ("规划中", "进行中", "已完成"):
+            if c[3] not in STATUS_ALL:
                 errs.append(f"主表状态非法 '{c[3]}': {ln.strip()}")
             if c[0] in seen:
                 errs.append(f"主表 ID 重复 '{c[0]}'")
@@ -383,10 +405,10 @@ PARK_HEADER = (
 
 
 def _is_main_data_row(c):
-    """主表数据行: 7 列且第 4 列是合法状态 (中文或英文键)。"""
-    if len(c) != 7:
+    """主表数据行: 5 列且第 4 列是合法状态 (中文或英文键)。"""
+    if len(c) != 5:
         return False
-    return c[3] in ("规划中", "进行中", "已完成") or c[3] in STATUS_CN
+    return c[3] in STATUS_ALL or c[3] in STATUS_BASE
 
 
 def _looks_like_map_row(c):
@@ -400,10 +422,40 @@ def _looks_like_map_row(c):
 
 
 def _norm_main_status(c):
-    """英文状态键归一为中文展示值 (planning→规划中 等)。"""
-    if c[3] in STATUS_CN:
-        c[3] = STATUS_CN[c[3]]
+    """英文状态键归一为中文展示值 (planning→规划中 等); 旧"进行中"→"实施中"。"""
+    if c[3] in STATUS_BASE:
+        c[3] = STATUS_BASE[c[3]]
+    elif c[3] == "进行中":
+        c[3] = "实施中"
     return c
+
+
+def _migrate_old_row(c):
+    """旧 7 列行 (ID/名称/描述/状态/阶段/进度/worktree) → 新 5 列 (ID/名称/描述/状态/worktree)。
+    状态合并: 旧基础态 (规划中/进行中→实施中/已完成) + 旧阶段 (规划/实施/检查/收尾) → 新状态。"""
+    if len(c) < 7:
+        return c  # 非旧格式, 原样返回
+    old_status, old_phase = c[3], c[4]
+    wt = c[6] if len(c) > 6 and c[6] else "—"
+    # 旧基础态归一
+    if old_status == "进行中":
+        base = "实施中"
+    elif old_status in STATUS_BASE.values():
+        base = old_status
+    elif old_status in STATUS_BASE:
+        base = STATUS_BASE[old_status]
+    else:
+        base = old_status
+    # 旧阶段细化 (若旧基础态非已完成/已归档, 阶段可细化)
+    if old_phase == "检查" and base not in ("已完成", "已归档"):
+        new_status = "检查中"
+    elif old_phase == "收尾" and base not in ("已完成", "已归档"):
+        new_status = "收尾"
+    elif old_phase == "实施" and base not in ("已完成", "已归档"):
+        new_status = "实施中"
+    else:
+        new_status = base
+    return [c[0], c[1], c[2], new_status, wt]
 
 
 def cmd_fix(_argv):
@@ -430,6 +482,9 @@ def cmd_fix(_argv):
         if not is_data_line(ln):
             continue
         c = row_cells(ln)
+        # 旧 7 列行先迁移到新 5 列
+        if len(c) >= 7:
+            c = _migrate_old_row(c)
         if _is_main_data_row(c):
             c = _norm_main_status(c)
             if c[0] in seen_ids:
@@ -460,7 +515,7 @@ def cmd_fix(_argv):
         except Exception:
             pass
         save_md(troot, rebuilt)
-        print("trellisx: task.md 已自动修正 (错置行归位/状态归一/去重)", file=sys.stderr)
+        print("trellisx: task.md 已自动修正 (旧列迁移/错置行归位/状态归一/去重)", file=sys.stderr)
     else:
         print("trellisx: task.md 无需修正", file=sys.stderr)
 
