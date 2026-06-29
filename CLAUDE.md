@@ -69,6 +69,7 @@ src-tauri/src/
 - 应用 API 端点以 `/api/` 开头，仅允许 POST 方法
 - `POST /api/group-info`：Authorization Bearer `<group_name>` 鉴权，localhost-only
 - `GET /` + `GET /proxy`：健康端点，返回 `{"service":"aidog","ok":true}`，无鉴权、不落 proxy_log、跳过组路由（客户端启动探测命中代理根 URL 用，禁删）
+- `GET /models` + `GET /v1/models`：总是返回静态默认模型列表（Claude+Codex 官方默认 const），**不依赖 group / token、不 relay 上游**，按 path 协议格式化（含 `/v1/`→openai 列表格式；裸 `/proxy/models`→anthropic 列表格式）。分流前置于 `resolve_group` 之前，tokenless 探测不再 404。仍落 proxy_log(status=200)。静态模型 id 月级腐化需手工核对 `STATIC_MODEL_IDS`（passthrough.rs）。
 - statusline bash 脚本通过 `ANTHROPIC_BASE_URL`（推导代理根 URL）+ `ANTHROPIC_AUTH_TOKEN`（= group_name）调用端点
 - `settings.{group}.json` 禁止包含 `_aidog_statusline` / `_aidog_subagent_statusline`（`do_sync_group_settings` 会 strip）
 
