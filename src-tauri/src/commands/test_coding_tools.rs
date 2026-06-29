@@ -21,9 +21,12 @@ use serde_json::json;
     ///
     /// 语义：功能（文件写入）与开关（DB 记录）解耦。无记录代表用户未操作，
     /// 默认行为写文件让功能生效，但 UI get 返 false（开关显示关）。
-    /// 文件写入需真实 ~/.claude 路径，单测只验 DB 不落记录这一不变量。
+    /// HOME 隔离（tempdir）下，文件写入落到临时目录，单测只验 DB 不落记录这一不变量，
+    /// 杜绝污染真实 ~/.claude。
     #[tokio::test]
     async fn ensure_default_coding_tools_settings_no_record_no_db_write() {
+        use crate::gateway::db::test_support::HomeGuard;
+        let _h = HomeGuard::new();
         let db = crate::Db::new(":memory:").await.expect("open memory db");
         db.init_tables().await.expect("init tables");
 
