@@ -2523,14 +2523,71 @@ function collectLeafPaths(node: DiffNode, out: string[]): void {
 }
 
 /**
+ * Read the aidog-managed dot-path set from the live source's `_aidog_managed`
+ * marker (written by the Rust side `write_default_claude_settings`). These are
+ * the exact leaf paths aidog's default group injected into ~/.claude/settings.json
+ * (env routing vars, statusLine, hooks, aidog's own enabledPlugins/mcpServers
+ * entries, …). The import diff excludes these so only user-added fields surface.
+ *
+ * Missing / malformed marker (no default group, or pre-marker legacy file) →
+ * empty set → diff degrades to its prior behavior (zero regression).
+ */
+export function readManagedPaths(incoming: Record<string, any>): Set<string> {
+  const raw = incoming?.["_aidog_managed"];
+  if (!Array.isArray(raw)) return new Set();
+  return new Set(raw.filter((p): p is string => typeof p === "string"));
+}
+
+/**
+ * Mirror of the Rust `collect_leaf_paths`: walk a value and push the dot-path of
+ * every leaf (scalar / array / null), skipping `_aidog_` keys. Used to compare a
+ * subtree's full leaf set against the managed set so one-level diff nodes
+ * (`hooks.Stop`, `extraKnownMarketplaces.x`) whose *entire* subtree is
+ * aidog-managed can be excluded even though the frontend only expands depth 1.
+ */
+function collectValueLeafPaths(value: any, prefix: string, out: string[]): void {
+  if (isPlainObject(value)) {
+    for (const k of Object.keys(value)) {
+      if (k.startsWith("_aidog_")) continue;
+      const path = prefix === "" ? k : `${prefix}.${k}`;
+      collectValueLeafPaths(value[k], path, out);
+    }
+  } else if (prefix !== "") {
+    out.push(prefix);
+  }
+}
+
+/**
+ * A one-level diff child at `path` is fully managed iff its incoming subtree is
+ * non-empty and every leaf path under it is in `managed`. Returns false when the
+ * subtree contains any user-added (non-managed) leaf, so such nodes stay in the
+ * diff. Exactly matches the Rust leaf granularity (`env.X`, `hooks.Stop.0...`).
+ */
+function isFullyManaged(incomingValue: any, path: string, managed: Set<string>): boolean {
+  if (managed.size === 0) return false;
+  const leaves: string[] = [];
+  collectValueLeafPaths(incomingValue, path, leaves);
+  if (leaves.length === 0) return false;
+  return leaves.every((p) => managed.has(p));
+}
+
+/**
  * Build the diff tree between `current` config and `incoming` source.
  * Skips internal `_aidog_` keys. Object top-level keys expand to child entries.
+ *
+ * `managed` = aidog-managed leaf dot-paths (from `readManagedPaths`); any leaf
+ * whose dot-path is in the set is excluded so the diff lists only user-added
+ * (non-managed) fields. Exclusion is precise to the sub-key: `env.ANTHROPIC_BASE_URL`
+ * is dropped while a user's `env.FOO` is kept. A parent object node is dropped
+ * only when all its diffing children are managed (none remain).
+ *
  * TODO: only one level of nesting is expanded (covers permissions/env/hooks);
  * deeper objects are diffed as a single leaf.
  */
 export function buildImportDiffTree(
   current: Record<string, any>,
   incoming: Record<string, any>,
+  managed: Set<string> = readManagedPaths(incoming),
 ): DiffNode[] {
   const nodes: DiffNode[] = [];
   const keys = new Set([...Object.keys(current), ...Object.keys(incoming)]);
@@ -2547,19 +2604,29 @@ export function buildImportDiffTree(
       const childKeys = new Set([...Object.keys(curObj), ...Object.keys(incObj)]);
       const children: DiffNode[] = [];
       for (const ck of childKeys) {
+        const childPath = `${key}.${ck}`;
+        // Exclude aidog-managed sub-keys. Precise to the child path: a leaf or
+        // array child (`env.ANTHROPIC_BASE_URL`, `hooks.Stop`) is matched
+        // directly; a deeper-object child whose entire subtree is managed
+        // (`extraKnownMarketplaces.x`) is matched via its full incoming leaf set
+        // — keeping any user-added sibling/leaf inside that subtree.
+        if (managed.has(childPath) || isFullyManaged(incObj[ck], childPath, managed)) continue;
         if (JSON.stringify(curObj[ck]) === JSON.stringify(incObj[ck])) continue;
         children.push({
-          path: `${key}.${ck}`,
+          path: childPath,
           label: ck,
           current: curObj[ck],
           incoming: incObj[ck],
         });
       }
+      // All diffing children managed → parent fully managed → drop the node.
       if (children.length > 0) {
         nodes.push({ path: key, label: key, current: cur, incoming: inc, children });
-        continue;
       }
+      continue;
     }
+    // Scalar / array top-level leaf: exclude when the whole key is managed.
+    if (managed.has(key)) continue;
     nodes.push({ path: key, label: key, current: cur, incoming: inc });
   }
   return nodes;
