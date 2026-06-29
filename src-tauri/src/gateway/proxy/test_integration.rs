@@ -202,8 +202,6 @@ async fn malformed_json_body_returns_400() {
     assert_eq!(resp.status(), StatusCode::BAD_REQUEST);
 }
 
-const MODELS_OK: &str = r#"{"data":[{"id":"claude-3"},{"id":"claude-4"}]}"#;
-
 fn get_request(gk: &str, uri: &str) -> Request {
     HttpRequest::builder()
         .method("GET")
@@ -213,12 +211,11 @@ fn get_request(gk: &str, uri: &str) -> Request {
         .unwrap()
 }
 
-/// GET /v1/models → handle_models_passthrough（选组首个启用平台 relay 上游模型列表）。
+/// GET /v1/models（含 group token）→ handle_models_static：openai 格式静态列表，不 relay 上游。
 #[tokio::test]
-async fn models_endpoint_passthrough_relays_upstream() {
-    let upstream = spawn_stub_upstream(200, MODELS_OK).await;
+async fn models_endpoint_returns_static_openai() {
     let state = make_state(test_db().await).await;
-    setup_group_with_upstream(&state, "gkm", &upstream).await;
+    setup_group_with_upstream(&state, "gkm", "http://unused.invalid").await;
 
     let req = get_request("gkm", "/v1/models");
     let resp = handle_proxy(AxumState(state.clone()), req).await;
@@ -227,23 +224,29 @@ async fn models_endpoint_passthrough_relays_upstream() {
         .await
         .unwrap();
     let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
-    assert!(v.get("data").is_some());
+    assert_eq!(v.get("object").and_then(|o| o.as_str()), Some("list"));
+    let data = v.get("data").and_then(|d| d.as_array()).unwrap();
+    assert!(data.iter().any(|m| m.get("id").and_then(|i| i.as_str()) == Some("claude-opus-4-8")));
 }
 
-/// 组内无启用平台 → models passthrough 早退错误。
+/// GET /proxy/models 无 Authorization（tokenless）→ 200 + anthropic 格式静态列表（不再 404）。
 #[tokio::test]
-async fn models_endpoint_no_platform_errors() {
+async fn models_endpoint_tokenless_returns_static_anthropic() {
     let state = make_state(test_db().await).await;
-    // 仅建 group，无平台
-    crate::gateway::db::create_group(
-        &state.db,
-        crate::gateway::db::test_support::sample_group("gkempty", vec![]),
-    )
-    .await
-    .unwrap();
-    let req = get_request("gkempty", "/v1/models");
+    let req = HttpRequest::builder()
+        .method("GET")
+        .uri("/proxy/models")
+        .body(Body::empty())
+        .unwrap();
     let resp = handle_proxy(AxumState(state), req).await;
-    assert!(resp.status().is_client_error() || resp.status().is_server_error());
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = axum::body::to_bytes(resp.into_body(), 1 << 20)
+        .await
+        .unwrap();
+    let v: serde_json::Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(v.get("has_more").and_then(|h| h.as_bool()), Some(false));
+    let data = v.get("data").and_then(|d| d.as_array()).unwrap();
+    assert!(data.iter().any(|m| m.get("type").and_then(|t| t.as_str()) == Some("model")));
 }
 
 /// POST /v1/messages/count_tokens → handle_count_tokens（透传优先 / 本地估算兜底）。
