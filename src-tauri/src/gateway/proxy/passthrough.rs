@@ -223,107 +223,82 @@ pub(crate) async fn handle_passthrough(
     response
 }
 
-/// 模型列表端点 relay：选分组首个启用平台，按平台协议拉上游 /models 并原样 relay status + body。
-/// 不做 model mapping / 重试 / 转换（模型列表无此语义，取第一个可用平台即可）。
-/// 鉴权注入平台凭证（非客户端 group token，上游不认）；URL 遵 url-construction-rule。
-pub(crate) async fn handle_models_passthrough(
+/// 静态默认模型集（Claude + Codex 官方默认）。不反映上游真实可用模型 —— 仅供
+/// 客户端模型发现 UI 探测用（GET /models 无需 group / token）。月级腐化需手工核对。
+/// 最近核对: 2026-06-29。参照前端 getDefaultModels（Platforms.tsx）。
+const STATIC_MODEL_IDS: &[&str] = &[
+    "claude-opus-4-8",
+    "claude-sonnet-4-6",
+    "claude-haiku-4-5",
+    "gpt-5.5-codex",
+    "gpt-5.5",
+];
+
+/// 按入站协议构造静态模型列表 JSON（纯函数，便于单测，免起 HTTP / DB）。
+/// - openai（`/v1/models` 等含 `/v1/`）→ `{"object":"list","data":[{"id","object","created","owned_by"}]}`
+/// - 其余（含 `/proxy/models` 裸路径回退 anthropic）→
+///   `{"data":[{"type","id","display_name","created_at"}],"has_more":false,"first_id","last_id"}`
+pub(crate) fn build_static_models_json(proto: &str) -> Value {
+    if proto == "openai" {
+        let data: Vec<Value> = STATIC_MODEL_IDS
+            .iter()
+            .map(|id| serde_json::json!({
+                "id": id,
+                "object": "model",
+                "created": 0,
+                "owned_by": "aidog",
+            }))
+            .collect();
+        serde_json::json!({ "object": "list", "data": data })
+    } else {
+        let data: Vec<Value> = STATIC_MODEL_IDS
+            .iter()
+            .map(|id| serde_json::json!({
+                "type": "model",
+                "id": id,
+                "display_name": id,
+                "created_at": "2026-01-01T00:00:00Z",
+            }))
+            .collect();
+        let first = STATIC_MODEL_IDS.first().copied().unwrap_or("");
+        let last = STATIC_MODEL_IDS.last().copied().unwrap_or("");
+        serde_json::json!({
+            "data": data,
+            "has_more": false,
+            "first_id": first,
+            "last_id": last,
+        })
+    }
+}
+
+/// GET /models | /v1/models 总是返回静态默认模型列表，**不依赖 group / token、不 relay 上游**。
+/// 行为变化（v0.1.6）：旧 handle_models_passthrough 选组首平台 relay 上游 /models 已被静态列表取代
+/// （用户明确选「总是返回静态」）—— 模型发现开箱即用、tokenless 探测不再 404；代价是不反映上游真实模型集。
+/// 按请求 path 协议格式化（含 `/v1/` → openai，裸 /proxy/models → anthropic）。仍写 proxy_log(status=200)。
+pub(crate) async fn handle_models_static(
     state: &Arc<ProxyState>,
     log: &mut ProxyLog,
     log_settings: &ProxyLogSettings,
-    group: &Group,
+    path: &str,
     start: std::time::Instant,
-    lang: Lang,
 ) -> Response {
-    // 选分组首个启用平台（endpoint 优先取首个端点协议/URL，否则平台主配置）。
-    // Mock 平台无真实上游（base_url 空），不能 relay 模型列表 —— 跳过，否则
-    // build_models_url 产无 scheme 的相对 URL，reqwest .send() → builder error → 502。
-    let group_platforms = match super::db::get_group_platforms(&state.db, group.id).await {
-        Ok(p) => p,
-        Err(e) => {
-            tracing::warn!(group = %group.name, error = %e, "models: get_group_platforms failed");
-            log.response_body = format!("group platforms error: {e}");
-            log.status_code = 503;
-            log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(state, log, log_settings).await;
-            return (StatusCode::SERVICE_UNAVAILABLE, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
-        }
-    };
-    let platform = match group_platforms
-        .iter()
-        .find(|gp| gp.platform.enabled && !matches!(gp.platform.platform_type, Protocol::Mock))
-    {
-        Some(gp) => gp.platform.clone(),
-        None => {
-            tracing::warn!(group = %group.name, "models: no enabled upstream platform in group (mock skipped)");
-            log.response_body = "no enabled upstream platform for models endpoint".to_string();
-            log.status_code = 503;
-            log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(state, log, log_settings).await;
-            return (StatusCode::SERVICE_UNAVAILABLE, i18n::t(lang, ErrorKey::Route)).into_response();
-        }
-    };
+    let proto = detect_source_protocol(path);
+    let body = build_static_models_json(&proto);
+    let body_str = body.to_string();
 
-    // endpoint 优先（首个端点协议/URL），否则平台主配置。api_key 始终取平台凭证。
-    let (protocol, base_url) = if let Some(ep) = platform.endpoints.first() {
-        (ep.protocol.clone(), ep.base_url.clone())
-    } else {
-        (platform.platform_type.clone(), platform.base_url.clone())
-    };
-    let url = build_models_url(&protocol, &base_url);
-
-    log.platform_id = platform.id;
-    log.target_protocol = format!("{:?}", protocol).to_lowercase();
-    log.upstream_request_url = url.clone();
-    log.upstream_request_headers = r#"{"authorization":"[REDACTED]"}"#.to_string();
-
-    let system_timeout = get_system_timeout(&state.db).await;
-    let req_timeout = if system_timeout.request_timeout_secs > 0 { system_timeout.request_timeout_secs } else { 60 };
-    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
-    let client = super::http_client::build_http_client(&state.db, req_timeout, conn_timeout, None, None).await;
-
-    // OpenCode Zen 同款兜底：/v1/models 无 auth 也能列，留空时注入 $opencode 与 chat 路径一致。
-    let models_api_key = resolve_opencode_zen_key(&platform);
-    let rb = apply_models_auth(client.get(&url), &protocol, &models_api_key);
-    tracing::info!(group = %group.name, platform = %platform.name, url = %url, "models endpoint upstream request");
-
-    let resp = match rb.send().await {
-        Ok(r) => r,
-        Err(e) => {
-            tracing::error!(url = %url, error = %e, "models endpoint upstream request failed (502)");
-            log.response_body = format!("upstream error: {e}");
-            log.status_code = 502;
-            log.upstream_status_code = 0;
-            log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
-            log.duration_ms = start.elapsed().as_millis() as i32;
-            upsert_log(state, log, log_settings).await;
-            return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
-        }
-    };
-
-    let status = resp.status();
-    log.upstream_status_code = status.as_u16() as i32;
-    let content_type = resp
-        .headers()
-        .get(reqwest::header::CONTENT_TYPE)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("application/json")
-        .to_string();
-    let body = resp.bytes().await.unwrap_or_default();
-    let body_str = String::from_utf8_lossy(&body).to_string();
-
-    log.status_code = status.as_u16() as i32;
+    log.source_protocol = proto;
+    log.status_code = 200;
     log.response_body = body_str.clone();
-    log.user_response_body = body_str;
-    log.user_response_headers = format!(r#"{{"content-type":"{}"}}"#, content_type);
+    log.user_response_body = body_str.clone();
+    log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
     log.duration_ms = start.elapsed().as_millis() as i32;
-    tracing::info!(url = %url, status = status.as_u16(), "models endpoint upstream responded");
     upsert_log(state, log, log_settings).await;
 
-    let resp_status = StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
-    let mut response = (resp_status, body.to_vec()).into_response();
-    if let Ok(hv) = axum::http::HeaderValue::from_str(&content_type) {
-        response.headers_mut().insert(axum::http::header::CONTENT_TYPE, hv);
-    }
+    let mut response = (StatusCode::OK, body_str).into_response();
+    response.headers_mut().insert(
+        axum::http::header::CONTENT_TYPE,
+        axum::http::HeaderValue::from_static("application/json"),
+    );
     response
 }
 

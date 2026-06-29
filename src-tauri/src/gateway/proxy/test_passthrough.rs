@@ -137,10 +137,10 @@ use super::*;
         let src = include_str!("passthrough.rs");
         // 定位 handle_passthrough 函数体范围
         let start = src.find("async fn handle_passthrough(").expect("fn present");
-        // 下一个函数（handle_models_passthrough）作为结束边界
+        // 下一个 const（STATIC_MODEL_IDS）作为结束边界
         let rest = &src[start + 1..];
         let end = rest
-            .find("async fn handle_models_passthrough(")
+            .find("const STATIC_MODEL_IDS")
             .map(|i| start + 1 + i)
             .unwrap_or(src.len());
         let body = &src[start..end];
@@ -215,6 +215,42 @@ use super::*;
             .unwrap();
         assert_eq!(req.headers().get("authorization").and_then(|v| v.to_str().ok()), Some("Bearer sk-glm"));
         assert!(req.headers().get("x-api-key").is_none());
+    }
+
+    // ── 静态模型列表：openai 格式 = {object:list, data:[{id,object,created,owned_by}]} ──
+    #[test]
+    fn static_models_openai_format() {
+        let v = build_static_models_json("openai");
+        assert_eq!(v.get("object").and_then(|o| o.as_str()), Some("list"));
+        let data = v.get("data").and_then(|d| d.as_array()).expect("data array");
+        assert_eq!(data.len(), super::STATIC_MODEL_IDS.len());
+        let first = &data[0];
+        assert_eq!(first.get("object").and_then(|o| o.as_str()), Some("model"));
+        assert!(first.get("id").and_then(|i| i.as_str()).is_some());
+        assert!(first.get("created").is_some());
+        assert!(first.get("owned_by").is_some());
+        // 模型集内容
+        let ids: Vec<&str> = data.iter().filter_map(|m| m.get("id").and_then(|i| i.as_str())).collect();
+        assert!(ids.contains(&"claude-opus-4-8"));
+        assert!(ids.contains(&"gpt-5.5-codex"));
+        assert!(ids.contains(&"gpt-5.5"));
+    }
+
+    // ── 静态模型列表：anthropic 格式 = {data:[{type:model,id,display_name,created_at}],has_more,first_id,last_id} ──
+    #[test]
+    fn static_models_anthropic_format() {
+        // 裸路径回退 anthropic
+        let v = build_static_models_json("anthropic");
+        let data = v.get("data").and_then(|d| d.as_array()).expect("data array");
+        assert_eq!(data.len(), super::STATIC_MODEL_IDS.len());
+        let first = &data[0];
+        assert_eq!(first.get("type").and_then(|t| t.as_str()), Some("model"));
+        assert!(first.get("id").and_then(|i| i.as_str()).is_some());
+        assert!(first.get("display_name").and_then(|d| d.as_str()).is_some());
+        assert!(first.get("created_at").is_some());
+        assert_eq!(v.get("has_more").and_then(|h| h.as_bool()), Some(false));
+        assert_eq!(v.get("first_id").and_then(|i| i.as_str()), Some("claude-opus-4-8"));
+        assert_eq!(v.get("last_id").and_then(|i| i.as_str()), Some("gpt-5.5"));
     }
 
     // ── SSE usage 累计（Anthropic message.usage + OpenAI 顶层 usage）──
