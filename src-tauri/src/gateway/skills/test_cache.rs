@@ -1,4 +1,5 @@
 use super::*;
+use crate::gateway::db::test_support::HomeGuard;
 use crate::gateway::skills::types::{SkillInfo, SkillScope};
 use std::fs;
 use tempfile::TempDir;
@@ -51,6 +52,9 @@ fn cache_file_corrupt_json_defaults_empty() {
 /// list_cached: cold start (no entry in scope) → stale=true, empty items.
 #[test]
 fn list_cached_cold_start_returns_stale() {
+    // HomeGuard：cache_file_path() 会 create_dir_all(~/.aidog) 并读 skills-cache.json，
+    // 持 guard 重定向 HOME 到 tempdir，避免触碰真实 ~/.aidog。
+    let _h = HomeGuard::new();
     // Use a unique project scope to avoid cross-test contamination with the OnceLock global cache.
     let scope = SkillScope::Project {
         path: format!("/tmp/test_cache_cold_{}", std::process::id()),
@@ -64,6 +68,8 @@ fn list_cached_cold_start_returns_stale() {
 /// invalidate: removing a scope that was never written → no panic.
 #[test]
 fn invalidate_nonexistent_scope_is_noop() {
+    // HomeGuard：invalidate → persist_cache_to_disk 会写 ~/.aidog/skills-cache.json，隔离到 tempdir。
+    let _h = HomeGuard::new();
     let scope = SkillScope::Project {
         path: format!("/tmp/test_cache_invalidate_{}", std::process::id()),
     };
@@ -74,6 +80,9 @@ fn invalidate_nonexistent_scope_is_noop() {
 /// list_cached / invalidate / list_cached roundtrip: write something, read it, invalidate, verify stale.
 #[test]
 fn write_read_invalidate_cycle() {
+    // HomeGuard：write_cache / invalidate → persist_cache_to_disk 落 ~/.aidog/skills-cache.json，
+    // 隔离到 tempdir，避免污染真实文件（实测会改其 mtime）。
+    let _h = HomeGuard::new();
     // Use a unique scope key per test run.
     let scope = SkillScope::Project {
         path: format!("/tmp/test_cache_cycle_{}", std::process::id()),
@@ -107,6 +116,8 @@ fn write_read_invalidate_cycle() {
 /// 验证写空覆盖 bug 已修：失败时缓存不被空 vec 覆盖，前端可显示「加载失败，显示上次列表」。
 #[test]
 fn list_refresh_lockfile_failure_preserves_old_cache() {
+    // HomeGuard：list_refresh / invalidate 经 cache_store/persist 触 ~/.aidog 写盘，隔离到 tempdir。
+    let _h = HomeGuard::new();
     // project path tempdir + 写一份损坏锁文件触发 ok=false。
     // 注意：project scope cache_key 含 path，每个测试用唯一 tempdir 避免与其他测试串扰。
     let tmp = TempDir::new().unwrap();
@@ -161,6 +172,8 @@ fn list_refresh_lockfile_failure_preserves_old_cache() {
 /// 前端应显加载态 + 失败提示（而非假空列表）。
 #[test]
 fn list_refresh_lockfile_failure_no_cache_returns_stale_load_failed() {
+    // HomeGuard：list_refresh / invalidate 经 cache_store/persist 触 ~/.aidog 写盘，隔离到 tempdir。
+    let _h = HomeGuard::new();
     let tmp = TempDir::new().unwrap();
     let scope = SkillScope::Project {
         path: tmp.path().to_string_lossy().into_owned(),
