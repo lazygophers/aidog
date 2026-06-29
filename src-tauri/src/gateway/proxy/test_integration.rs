@@ -123,6 +123,30 @@ async fn unknown_group_token_returns_404() {
     assert_eq!(resp.status(), StatusCode::NOT_FOUND);
 }
 
+/// Anthropic SDK / claude-cli 只发 x-api-key（无 Authorization）→ 也应解析到 group 并转发，不再 404。
+#[tokio::test]
+async fn x_api_key_resolves_group_and_forwards() {
+    let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
+    let state = make_state(test_db().await).await;
+    setup_group_with_upstream(&state, "gkxapi", &upstream).await;
+
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("x-api-key", "gkxapi")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#.to_string(),
+        ))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0)
+        .await
+        .unwrap();
+    assert!(logs.iter().any(|l| l.status_code == 200 && l.group_key == "gkxapi"));
+}
+
 #[tokio::test]
 async fn successful_forward_to_stub_upstream() {
     let upstream = spawn_stub_upstream(200, ANTHROPIC_OK).await;
