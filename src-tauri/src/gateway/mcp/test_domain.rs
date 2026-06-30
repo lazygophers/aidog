@@ -4,50 +4,8 @@
 // 提前 drop 会让并行测试线程交叉改 HOME → 串话。故有意保留 std Mutex 守卫跨 await。
 #![allow(clippy::await_holding_lock)]
 use super::*;
-use crate::gateway::db::test_support::test_db;
+use crate::gateway::db::test_support::{test_db, HomeGuard};
 use std::collections::BTreeMap;
-
-// HOME / CODEX_HOME 进程全局，所有触 FS 的测试（含 commands/hooks 等跨模块）必须串行在
-// **同一把** 锁上 → 复用 db::test_support::ENV_LOCK，避免并行线程互相覆盖 HOME。
-use crate::gateway::db::test_support::ENV_LOCK;
-
-struct HomeGuard {
-    _dir: tempfile::TempDir,
-    prev_home: Option<String>,
-    prev_codex: Option<String>,
-}
-impl HomeGuard {
-    fn new() -> Self {
-        let dir = tempfile::tempdir().unwrap();
-        let prev_home = std::env::var("HOME").ok();
-        let prev_codex = std::env::var("CODEX_HOME").ok();
-        // claude → $HOME/.claude.json；codex → CODEX_HOME（显式指向 tempdir/.codex）。
-        std::fs::create_dir_all(dir.path().join(".codex")).unwrap();
-        unsafe {
-            std::env::set_var("HOME", dir.path());
-            std::env::set_var("CODEX_HOME", dir.path().join(".codex"));
-        }
-        Self {
-            _dir: dir,
-            prev_home,
-            prev_codex,
-        }
-    }
-}
-impl Drop for HomeGuard {
-    fn drop(&mut self) {
-        unsafe {
-            match &self.prev_home {
-                Some(v) => std::env::set_var("HOME", v),
-                None => std::env::remove_var("HOME"),
-            }
-            match &self.prev_codex {
-                Some(v) => std::env::set_var("CODEX_HOME", v),
-                None => std::env::remove_var("CODEX_HOME"),
-            }
-        }
-    }
-}
 
 fn payload(name: &str) -> McpUpdatePayload {
     let mut env = BTreeMap::new();
@@ -65,7 +23,6 @@ fn payload(name: &str) -> McpUpdatePayload {
 
 #[tokio::test]
 async fn add_validation_and_lifecycle() {
-    let _g = ENV_LOCK.lock().unwrap();
     let _home = HomeGuard::new();
     let db = test_db().await;
 
@@ -80,7 +37,6 @@ async fn add_validation_and_lifecycle() {
 
 #[tokio::test]
 async fn set_agent_writes_and_removes_config() {
-    let _g = ENV_LOCK.lock().unwrap();
     let home = HomeGuard::new();
     let db = test_db().await;
     add_server(&db, payload("srv")).await.unwrap();
@@ -89,7 +45,7 @@ async fn set_agent_writes_and_removes_config() {
     set_agent_enabled(&db, "srv", McpAgent::ClaudeCode, true)
         .await
         .unwrap();
-    let claude_json = home._dir.path().join(".claude.json");
+    let claude_json = home.dir.path().join(".claude.json");
     let content = std::fs::read_to_string(&claude_json).unwrap();
     assert!(content.contains("srv"));
     assert!(content.contains("secret123")); // DB 原值写入，非脱敏
@@ -98,7 +54,7 @@ async fn set_agent_writes_and_removes_config() {
     set_agent_enabled(&db, "srv", McpAgent::Codex, true)
         .await
         .unwrap();
-    let toml_path = home._dir.path().join(".codex/config.toml");
+    let toml_path = home.dir.path().join(".codex/config.toml");
     assert!(std::fs::read_to_string(&toml_path).unwrap().contains("srv"));
 
     // 禁用 claude → 从 ~/.claude.json 移除
@@ -118,7 +74,6 @@ async fn set_agent_writes_and_removes_config() {
 
 #[tokio::test]
 async fn set_agent_transport_incompatible_errs() {
-    let _g = ENV_LOCK.lock().unwrap();
     let _home = HomeGuard::new();
     let db = test_db().await;
     // http transport — codex 仅支持 stdio
@@ -136,7 +91,6 @@ async fn set_agent_transport_incompatible_errs() {
 
 #[tokio::test]
 async fn delete_removes_from_agents_and_db() {
-    let _g = ENV_LOCK.lock().unwrap();
     let home = HomeGuard::new();
     let db = test_db().await;
     add_server(&db, payload("srv")).await.unwrap();
@@ -145,7 +99,7 @@ async fn delete_removes_from_agents_and_db() {
         .unwrap();
 
     delete_server(&db, "srv").await.unwrap();
-    let claude_json = home._dir.path().join(".claude.json");
+    let claude_json = home.dir.path().join(".claude.json");
     let content = std::fs::read_to_string(&claude_json).unwrap();
     assert!(!content.contains("\"srv\""));
     assert!(db::get_mcp_server(&db, "srv").await.unwrap().is_none());
@@ -153,7 +107,6 @@ async fn delete_removes_from_agents_and_db() {
 
 #[tokio::test]
 async fn scan_finds_imported_and_unimported() {
-    let _g = ENV_LOCK.lock().unwrap();
     let _home = HomeGuard::new();
     let db = test_db().await;
 
@@ -173,7 +126,6 @@ async fn scan_finds_imported_and_unimported() {
 
 #[tokio::test]
 async fn import_takes_source_real_values() {
-    let _g = ENV_LOCK.lock().unwrap();
     let _home = HomeGuard::new();
     let db = test_db().await;
 
@@ -227,7 +179,6 @@ async fn import_takes_source_real_values() {
 
 #[tokio::test]
 async fn resync_rewrites_enabled_agents() {
-    let _g = ENV_LOCK.lock().unwrap();
     let home = HomeGuard::new();
     let db = test_db().await;
     add_server(&db, payload("srv")).await.unwrap();
@@ -236,7 +187,7 @@ async fn resync_rewrites_enabled_agents() {
         .unwrap();
 
     // 污染：清空 claude.json
-    let claude_json = home._dir.path().join(".claude.json");
+    let claude_json = home.dir.path().join(".claude.json");
     std::fs::write(&claude_json, "{}").unwrap();
 
     let count = resync_all(&db).await.unwrap();
@@ -247,7 +198,6 @@ async fn resync_rewrites_enabled_agents() {
 
 #[tokio::test]
 async fn update_rename_and_masked_merge() {
-    let _g = ENV_LOCK.lock().unwrap();
     let home = HomeGuard::new();
     let db = test_db().await;
     add_server(&db, payload("old")).await.unwrap();
@@ -275,7 +225,7 @@ async fn update_rename_and_masked_merge() {
     let row = db::get_mcp_server(&db, "new").await.unwrap().unwrap();
     assert!(row.env_json.contains("secret123")); // *** merge 回旧明文
 
-    let claude_json = home._dir.path().join(".claude.json");
+    let claude_json = home.dir.path().join(".claude.json");
     let content = std::fs::read_to_string(&claude_json).unwrap();
     assert!(content.contains("new"));
     assert!(!content.contains("\"old\""));
@@ -283,7 +233,6 @@ async fn update_rename_and_masked_merge() {
 
 #[tokio::test]
 async fn update_transport_switch_drops_unsupported_agent() {
-    let _g = ENV_LOCK.lock().unwrap();
     let home = HomeGuard::new();
     let db = test_db().await;
     add_server(&db, payload("srv")).await.unwrap();
@@ -307,7 +256,7 @@ async fn update_transport_switch_drops_unsupported_agent() {
     assert!(!row.enabled_agents.contains("codex"));
 
     // codex config 应已移除
-    let toml_path = home._dir.path().join(".codex/config.toml");
+    let toml_path = home.dir.path().join(".codex/config.toml");
     if let Ok(c) = std::fs::read_to_string(&toml_path) {
         assert!(!c.contains("srv"));
     }

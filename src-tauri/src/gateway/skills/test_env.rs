@@ -1,4 +1,5 @@
 use super::*;
+use crate::gateway::db::test_support::HomeGuard;
 use std::process::Command;
 
 fn env_of<'a>(cmd: &'a Command, key: &str) -> Option<&'a std::ffi::OsStr> {
@@ -23,16 +24,16 @@ fn merge_path_dedups_preserves_order_and_priority() {
 
 #[test]
 fn resolve_home_env_returns_dirs_home() {
+    // 包 HomeGuard：resolve_home_env 读 dirs::home_dir() / HOME env，须指向 tempdir 而非真实 home。
+    let g = HomeGuard::new();
     let (home, _) = resolve_home_env();
-    // 测试环境总有可解析的 home（dirs::home_dir 或 HOME env）。
-    let expected = dirs::home_dir()
-        .map(|h| h.to_string_lossy().into_owned())
-        .or_else(|| std::env::var("HOME").ok().filter(|h| !h.is_empty()));
-    assert_eq!(home, expected);
+    let expected = g.home().to_string_lossy().into_owned();
+    assert_eq!(home.as_deref(), Some(expected.as_str()));
 }
 
 #[test]
 fn apply_home_env_sets_home_on_command() {
+    let _g = HomeGuard::new();
     let mut cmd = Command::new("npx");
     apply_home_env(&mut cmd);
     let (home, _) = resolve_home_env();
@@ -42,8 +43,10 @@ fn apply_home_env_sets_home_on_command() {
 }
 
 /// check_env exercises probe_env (OnceLock init path) and returns valid SkillsEnv.
-/// Since node/npx are present in the test environment, npx_available should be true.
+/// `#[ignore]`：probe_env 内部 spawn 真实 node/npx 二进制（Command::new("node").output()），
+/// 依赖宿主环境；默认 cargo test 跳过，仅 `--ignored` 显式跑。
 #[test]
+#[ignore = "needs host node/npx"]
 fn check_env_does_not_panic_and_is_consistent() {
     let env1 = check_env();
     let env2 = check_env(); // second call returns cached value

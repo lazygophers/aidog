@@ -1,9 +1,12 @@
 #![cfg(test)]
 use super::*;
+use crate::gateway::db::test_support::HomeGuard;
 
 #[test]
 fn expand_path_tilde_and_plain() {
-    let home = dirs::home_dir().unwrap();
+    // 包 HomeGuard：expand_path("~") 读 HOME，须指向 tempdir 而非真实 home。
+    let g = HomeGuard::new();
+    let home = g.home();
     assert_eq!(expand_path("~"), home);
     assert_eq!(expand_path("~/sub"), home.join("sub"));
     assert_eq!(expand_path("/abs/path"), std::path::PathBuf::from("/abs/path"));

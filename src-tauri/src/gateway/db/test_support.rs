@@ -7,12 +7,17 @@ use rusqlite::{params};
 /// 串行在 **同一把** 锁上，跨模块共享，避免并行线程互相覆盖。
 pub(crate) static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
-/// HOME + CODEX_HOME 指向 tempdir 的 RAII 守卫；Drop 时恢复原值。构造时持有 ENV_LOCK。
+/// HOME / CODEX_HOME / CLAUDE_CONFIG_DIR 指向 tempdir 的 RAII 守卫；Drop 时恢复原值。
+/// 构造时持有 ENV_LOCK（跨模块共享，所有 env-mutating 测试串行）。
+/// 吸收了 skills/test_list 的 EnvGuard 语义：CLAUDE_CONFIG_DIR 默认设为 tempdir 内的
+/// `.claude`（与 HOME/.claude 同一物理目录），与原 EnvGuard「remove CLAUDE_CONFIG_DIR」不同，
+/// 但 test_list 的 global 测试本来就把 ~/.claude 建在 HOME 下，等价。
 pub(crate) struct HomeGuard {
     pub(crate) dir: tempfile::TempDir,
     _lock: std::sync::MutexGuard<'static, ()>,
     prev_home: Option<String>,
     prev_codex: Option<String>,
+    prev_claude_cfg: Option<String>,
 }
 impl HomeGuard {
     pub(crate) fn new() -> Self {
@@ -20,12 +25,15 @@ impl HomeGuard {
         let dir = tempfile::tempdir().unwrap();
         let prev_home = std::env::var("HOME").ok();
         let prev_codex = std::env::var("CODEX_HOME").ok();
+        let prev_claude_cfg = std::env::var("CLAUDE_CONFIG_DIR").ok();
         std::fs::create_dir_all(dir.path().join(".codex")).unwrap();
+        std::fs::create_dir_all(dir.path().join(".claude")).unwrap();
         unsafe {
             std::env::set_var("HOME", dir.path());
             std::env::set_var("CODEX_HOME", dir.path().join(".codex"));
+            std::env::set_var("CLAUDE_CONFIG_DIR", dir.path().join(".claude"));
         }
-        Self { dir, _lock: lock, prev_home, prev_codex }
+        Self { dir, _lock: lock, prev_home, prev_codex, prev_claude_cfg }
     }
     pub(crate) fn home(&self) -> &std::path::Path {
         self.dir.path()
@@ -41,6 +49,10 @@ impl Drop for HomeGuard {
             match &self.prev_codex {
                 Some(v) => std::env::set_var("CODEX_HOME", v),
                 None => std::env::remove_var("CODEX_HOME"),
+            }
+            match &self.prev_claude_cfg {
+                Some(v) => std::env::set_var("CLAUDE_CONFIG_DIR", v),
+                None => std::env::remove_var("CLAUDE_CONFIG_DIR"),
             }
         }
     }
