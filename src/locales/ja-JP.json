@@ -205,7 +205,13 @@
   "greet.button": "挨拶",
   "greet.placeholder": "名前を入力...",
   "group": {
-    "sourceProtocol": "受信プロトコル"
+    "sourceProtocol": "受信プロトコル",
+    "envVars": "環境変数",
+    "envVarsHint": "グループ単位のセッション環境変数。sync 時に Claude settings.env へ注入、Codex コマンド コピー時に export として先頭に付加します。",
+    "envVarKey": "変数名 (例: ANTHROPIC_DEFAULT_OPUS_MODEL)",
+    "envVarValue": "値",
+    "envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY は aidog のルーティングフィールドのため、保存時に破棄されます。",
+    "addEnvVar": "環境変数を追加"
   },
   "group.add": "グループ追加",
   "group.addMappingFailed": "マッピングの追加に失敗しました",
@@ -230,6 +236,12 @@
   "group.dragToReorder": "ドラッグで並び替え",
   "group.edit": "編集",
   "group.empty": "グループなし",
+  "group.envVars": "環境変数",
+  "group.envVarsHint": "このグループのセッションレベル環境変数。sync 時に Claude settings.env に注入され、Codex コマンド コピー時に export として先頭に付与されます。",
+  "group.envVarKey": "変数名 (例: ANTHROPIC_DEFAULT_OPUS_MODEL)",
+  "group.envVarValue": "変数値",
+  "group.addEnvVar": "環境変数を追加",
+  "group.envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY は aidog のルーティングフィールドのため、保存時に破棄されます。",
   "group.failover": "フェイルオーバー",
   "group.groupKey": "グループキー（空欄で自動生成）",
   "group.groupKeyHint": "グループキー（= API Key / ルーティング識別子）。空欄なら自動生成、作成後にロックされ変更不可。",
