@@ -28,6 +28,21 @@ async fn spawn_stub_upstream(status: u16, body: &'static str) -> String {
     format!("http://{addr}")
 }
 
+/// 起一个「立即 reset 连接」的上游：accept 后立刻 drop TcpStream，reqwest 收到 connect
+/// 错误 → handle_proxy 映射 502 Bad Gateway。替代原 `http://127.0.0.1:1` 死端口 TCP
+/// （真发起 connect 占用 FD + 依赖宿主网络栈行为）。
+async fn spawn_reset_upstream() -> String {
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        // 每个 incoming 连接立即 drop → 对端收到 connection reset。
+        while let Ok((stream, _)) = listener.accept().await {
+            drop(stream);
+        }
+    });
+    format!("http://{addr}")
+}
+
 async fn make_state(db: crate::gateway::db::Db) -> Arc<ProxyState> {
     Arc::new(ProxyState {
         db: Arc::new(db),
@@ -669,12 +684,13 @@ async fn responses_subendpoint_no_platform_503() {
     assert_eq!(resp.status(), StatusCode::SERVICE_UNAVAILABLE);
 }
 
-/// 子端点：上游不可达(连不上) → 502 Bad Gateway。
+/// 子端点：上游不可达(连接被 reset) → 502 Bad Gateway。
 #[tokio::test]
 async fn responses_subendpoint_upstream_unreachable_502() {
     let state = make_state(test_db().await).await;
-    // base_url 指向必然连不上的端口
-    setup_responses_group(&state, "gkrdead", "http://127.0.0.1:1").await;
+    // 用本地 reset stub 替代死端口 TCP（避免真发起 connect 占 FD + 依赖宿主网络栈）。
+    let upstream = spawn_reset_upstream().await;
+    setup_responses_group(&state, "gkrdead", &upstream).await;
     let req = responses_get("gkrdead", "/v1/responses/resp_x");
     let resp = handle_proxy(AxumState(state), req).await;
     assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);

@@ -1,24 +1,8 @@
 use super::*;
+use crate::gateway::db::test_support::{HomeGuard, ENV_LOCK};
 use std::collections::HashSet;
-use std::sync::Mutex;
 
-// CODEX_HOME 是进程级 env，多测试并行修改会串味 → 全部 codex FS 测试经此锁串行化。
-static ENV_LOCK: Mutex<()> = Mutex::new(());
 
-struct CodexHomeGuard {
-    _lock: std::sync::MutexGuard<'static, ()>,
-    _dir: tempfile::TempDir,
-}
-
-fn set_codex_home() -> CodexHomeGuard {
-    let lock = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let dir = tempfile::tempdir().expect("tempdir");
-    // SAFETY: 测试单线程内（锁持有期间）设置 env。
-    unsafe {
-        std::env::set_var("CODEX_HOME", dir.path());
-    }
-    CodexHomeGuard { _lock: lock, _dir: dir }
-}
 
 #[test]
 fn build_group_profile_toml_shape() {
@@ -32,7 +16,7 @@ fn build_group_profile_toml_shape() {
 
 #[test]
 fn home_and_profile_path_accessors() {
-    let _g = set_codex_home();
+    let _g = HomeGuard::new();
     let home = codex_home_public().unwrap();
     assert!(home.ends_with(home.file_name().unwrap()));
     let pp = profile_path_public("teamA").unwrap();
@@ -41,7 +25,7 @@ fn home_and_profile_path_accessors() {
 
 #[test]
 fn write_group_profile_creates_and_skips_unchanged() {
-    let _g = set_codex_home();
+    let _g = HomeGuard::new();
     let written = write_group_profile("grp", 9000).unwrap();
     assert!(written.is_some());
     // second write, identical content → None (skip)
@@ -54,7 +38,7 @@ fn write_group_profile_creates_and_skips_unchanged() {
 
 #[test]
 fn cleanup_group_profiles_removes_stale() {
-    let _g = set_codex_home();
+    let _g = HomeGuard::new();
     write_group_profile("keep", 9000).unwrap();
     write_group_profile("stale", 9000).unwrap();
     // user-level baseline must never be removed
@@ -72,18 +56,26 @@ fn cleanup_group_profiles_removes_stale() {
 
 #[test]
 fn cleanup_missing_dir_is_ok() {
+    // 不用 HomeGuard（它会把 CODEX_HOME 指向存在的 tempdir）；此测需要 CODEX_HOME 指向不存在路径。
+    // 串行用中心 ENV_LOCK，env 手动 save/restore。
     let _lock = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    // point CODEX_HOME at a non-existent path
+    let prev = std::env::var("CODEX_HOME").ok();
     unsafe {
         std::env::set_var("CODEX_HOME", "/nonexistent/aidog-codex-test-xyz");
     }
     let keep = HashSet::new();
     assert!(cleanup_group_profiles(&keep).is_ok());
+    unsafe {
+        match &prev {
+            Some(v) => std::env::set_var("CODEX_HOME", v),
+            None => std::env::remove_var("CODEX_HOME"),
+        }
+    }
 }
 
 #[test]
 fn config_read_write_roundtrip() {
-    let _g = set_codex_home();
+    let _g = HomeGuard::new();
     // empty (no file) → {}
     let empty = codex_config_read().unwrap();
     assert!(empty.as_object().unwrap().is_empty());
@@ -108,13 +100,13 @@ fn config_read_write_roundtrip() {
 
 #[test]
 fn config_write_rejects_non_object() {
-    let _g = set_codex_home();
+    let _g = HomeGuard::new();
     assert!(codex_config_write(serde_json::json!([1, 2, 3])).is_err());
 }
 
 #[test]
 fn default_profile_inject_and_remove() {
-    let _g = set_codex_home();
+    let _g = HomeGuard::new();
     // inject default profile
     let injected = write_default_profile_to_config(8080).unwrap();
     assert!(injected.is_some());
@@ -140,7 +132,7 @@ fn default_profile_inject_and_remove() {
 
 #[test]
 fn remove_keeps_user_provider_and_non_aidog_model_provider() {
-    let _g = set_codex_home();
+    let _g = HomeGuard::new();
     let val = serde_json::json!({
         "model_provider": "openai",
         "model_providers": {"openai": {"name": "x"}, "aidog": {"name": "aidog proxy"}}

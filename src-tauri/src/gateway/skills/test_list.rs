@@ -1,57 +1,9 @@
 use super::*;
+use crate::gateway::db::test_support::HomeGuard;
 use crate::gateway::skills::types::{SkillAgent, SkillScope};
 use std::fs;
 use std::os::unix::fs::symlink;
-use std::sync::Mutex;
 use tempfile::TempDir;
-
-/// 跨测试互斥锁：避免多个改 HOME/CLAUDE_CONFIG_DIR/CODEX_HOME 的测试并行时互相干扰
-/// （set_var 是进程级，cargo 默认并行跑 test 会串扰）。
-/// 测试内部持有 `let _g = ENV_LOCK.lock().unwrap();` 即可串行化所有 env-mutating 测试。
-static ENV_LOCK: Mutex<()> = Mutex::new(());
-
-/// Save/restore guard：测试期间临时改 HOME/CLAUDE_CONFIG_DIR/CODEX_HOME，
-/// Drop 时还原（避免污染后续测试 / 主仓 env）。
-struct EnvGuard {
-    prev_home: Option<String>,
-    prev_claude_cfg: Option<String>,
-    prev_codex_home: Option<String>,
-}
-impl EnvGuard {
-    fn new(home: &std::path::Path) -> Self {
-        let prev_home = std::env::var("HOME").ok();
-        let prev_claude_cfg = std::env::var("CLAUDE_CONFIG_DIR").ok();
-        let prev_codex_home = std::env::var("CODEX_HOME").ok();
-        unsafe {
-            std::env::set_var("HOME", home);
-            std::env::remove_var("CLAUDE_CONFIG_DIR");
-            std::env::remove_var("CODEX_HOME");
-        }
-        Self {
-            prev_home,
-            prev_claude_cfg,
-            prev_codex_home,
-        }
-    }
-}
-impl Drop for EnvGuard {
-    fn drop(&mut self) {
-        unsafe {
-            match &self.prev_home {
-                Some(v) => std::env::set_var("HOME", v),
-                None => std::env::remove_var("HOME"),
-            }
-            match &self.prev_claude_cfg {
-                Some(v) => std::env::set_var("CLAUDE_CONFIG_DIR", v),
-                None => std::env::remove_var("CLAUDE_CONFIG_DIR"),
-            }
-            match &self.prev_codex_home {
-                Some(v) => std::env::set_var("CODEX_HOME", v),
-                None => std::env::remove_var("CODEX_HOME"),
-            }
-        }
-    }
-}
 
 /// 构造合法锁文件 JSON 文本（含可选字段）。
 fn lock_json(version: i64, skills_body: &str) -> String {
@@ -139,11 +91,9 @@ fn build_skill_infos_emits_all_fields_and_filters_empty() {
 fn list_installed_reads_lockfile_and_detects_symlinks_global() {
     // 真 fs fixture：tempdir 作 HOME，~/.agents/.skill-lock.json + ~/.agents/skills/<n>/SKILL.md
     // + ~/.claude/skills/<n> symlink + ~/.codex/skills/<n> symlink。
-    // 持 ENV_LOCK 串行化 + EnvGuard 还原，避免并行测试改 HOME 串扰。
-    let _g = ENV_LOCK.lock().unwrap();
-    let home = TempDir::new().unwrap();
-    let _env = EnvGuard::new(home.path());
-    let home_path = home.path();
+    // HomeGuard 串行化（持 ENV_LOCK）+ Drop 还原 HOME/CLAUDE_CONFIG_DIR/CODEX_HOME。
+    let g = HomeGuard::new();
+    let home_path = g.home();
 
     let agents_dir = home_path.join(".agents");
     let skills_dir = agents_dir.join("skills");
@@ -196,9 +146,7 @@ fn list_installed_reads_lockfile_and_detects_symlinks_global() {
 #[test]
 fn list_installed_missing_lockfile_returns_empty_ok_global() {
     // 锁文件不存在 = 真空（非失败），返 ok=true + 空 vec。
-    let _g = ENV_LOCK.lock().unwrap();
-    let home = TempDir::new().unwrap();
-    let _env = EnvGuard::new(home.path());
+    let _g = HomeGuard::new();
     let (items, ok) = list_installed(&SkillScope::Global, None);
     assert!(ok);
     assert!(items.is_empty());
@@ -206,10 +154,8 @@ fn list_installed_missing_lockfile_returns_empty_ok_global() {
 
 #[test]
 fn list_installed_bad_lockfile_returns_not_ok_global() {
-    let _g = ENV_LOCK.lock().unwrap();
-    let home = TempDir::new().unwrap();
-    let _env = EnvGuard::new(home.path());
-    let agents_dir = home.path().join(".agents");
+    let g = HomeGuard::new();
+    let agents_dir = g.home().join(".agents");
     fs::create_dir_all(&agents_dir).unwrap();
     fs::write(agents_dir.join(".skill-lock.json"), "not json {{{").unwrap();
     let (items, ok) = list_installed(&SkillScope::Global, None);
@@ -219,10 +165,8 @@ fn list_installed_bad_lockfile_returns_not_ok_global() {
 
 #[test]
 fn list_installed_wrong_version_returns_not_ok_global() {
-    let _g = ENV_LOCK.lock().unwrap();
-    let home = TempDir::new().unwrap();
-    let _env = EnvGuard::new(home.path());
-    let agents_dir = home.path().join(".agents");
+    let g = HomeGuard::new();
+    let agents_dir = g.home().join(".agents");
     fs::create_dir_all(&agents_dir).unwrap();
     fs::write(
         agents_dir.join(".skill-lock.json"),
@@ -322,8 +266,9 @@ fn is_skill_enabled_for_agent_path_traversal_guard() {
 
 #[test]
 fn agent_global_skills_dir_respects_env_override() {
-    // CLAUDE_CONFIG_DIR / CODEX_HOME 优先。
-    let _g = ENV_LOCK.lock().unwrap();
+    // CLAUDE_CONFIG_DIR / CODEX_HOME 优先于 HOME 推导。
+    // HomeGuard 持 ENV_LOCK 串行；scoped_var 在其之上覆盖单 env，Drop 顺序：scoped_var 先还回 HomeGuard 值，HomeGuard 最后还回原值。
+    let _g = HomeGuard::new();
     let tmp = TempDir::new().unwrap();
     let _env_claude = scoped_var("CLAUDE_CONFIG_DIR", tmp.path().join("custom-claude"));
     let d = agent_global_skills_dir(SkillAgent::Claude).unwrap();
