@@ -5,9 +5,8 @@
 | ID | 名称 | 描述 | 状态 | worktree |
 | --- | --- | --- | --- | --- |
 | 06-20-test-coverage-80 | 单测覆盖率≥80% | 完善整体单元测试覆盖率至少80% | 规划中 | — |
-| 06-26-skills-install-ux-recovery | SkillInstallView 改动恢复 (worktree 未 commit 丢失) | — | 实施中 | — |
-| 06-30-import-export-modules-ux | 导入导出补全模块覆盖+对齐菜单IA+导出逐项细粒度 | — | 已完成 | — |
-| proxy-models-404 | fix GET /proxy/models 返回 404 | — | 已完成 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/proxy-models-404 |
+| 06-30-group-env-vars | 分组配置支持环境变量设置 | 分组维度支持自定义环境变量注入 | 实施中 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/06-30-group-env-vars |
+| 06-30-platform-402-autodisable-error-status | 402上游自动禁用免purge + proxy错误记入平台状态 | — | 实施中 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/06-30-platform-402-autodisable-error-status |
 
 ## Worktree ↔ Task 映射
 
@@ -16,4 +15,5 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
-| skills-install-ux-recovery | SkillInstallView 改动恢复 (worktree 未 commit 丢失) | — | 已完成 | — |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/06-30-group-env-vars | 06-30-group-env-vars | trellisx-start |
+| platform-402-autodisable-error-status | 402上游自动禁用免purge + proxy错误记入平台状态 | — | 已完成 | — |
