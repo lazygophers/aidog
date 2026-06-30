@@ -47,6 +47,9 @@ mode: optimize
 - 每个 resource 必须在 `api.ts` 提供 `{ create, list, get, update, delete }` 五件套（若业务需要）
 - list 返回 `T[]`，get 返回 `T | null`
 - create/update 入参 interface 字段必须与 Rust struct 一致
+- **update `#[serde(default)]` 字段须传全量** (MUST): Rust update struct 凡标 `#[serde(default)]` 的集合/Option 字段 (如 `env_vars`/`model_mappings`/`tags`), 前端 update payload **必须携带当前全量值**, 缺省即被 default (`[]`/`None`) 覆盖 → **静默清空已存数据** (非 partial merge, serde 无 `Option<T>` skip 语义除非 `#[serde(default, skip_serializing_if)]` 双标)
+  - 反例: `handleAddMapping` 只传新 mapping 不带 `env_vars` → 后端 default `[]` → 用户已存 env_vars 被清空
+  - 正解: 前端 update 前先持当前全量, 增删后整包传
 
 ## 反模式 (禁)
 
@@ -54,9 +57,11 @@ mode: optimize
 | --- | --- | --- |
 | `invoke(` 散落在组件 / hook 内 | 全部集中到 `services/api.ts` | 契约分散难维护，类型泛型易漏标 |
 | 字段名 camelCase | 一律 snake_case | Tauri serde 反序列化失败，前端拿 `undefined` |
+| 顶级 invoke 参数 key 用 snake_case | 顶级参数 key 用 **camelCase** (InvokeArgs 转换层); 嵌套 struct **字段** 才用 snake_case (serde 默认, 无 rename_all) — 两层正交 | 顶级参数误 snake_case → Rust 拿 `None` 走 default; 嵌套字段误 camelCase → serde 反序列化失败 |
 | enum 值大写 / 驼峰 | lowercase kebab-case | 前端 switch/match 漏命中走默认分支 |
 | 空集合返 `null` | 返 `[]` | 前端 `.map()`/`.length` 抛 `TypeError` 崩页 |
 | `catch` 后静默丢弃 | 至少 `console.error` | 错误吞掉，线上故障无迹可查 |
+| update `#[serde(default)]` 字段前端漏传 | update payload 须含全量 default 字段 | default `[]`/`None` 覆盖已存 → 静默清空数据 |
 | 组件内直接读写 Tauri store / 文件系统 | 必经 `src/services/` 层 | 绕过单向数据流，状态不可追踪 |
 
 ## Verification
