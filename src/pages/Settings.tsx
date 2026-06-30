@@ -233,8 +233,8 @@ export function Settings() {
       }
       setImportDiff({ source, diff });
     } catch (e: any) {
-      setToast(e?.toString?.() ?? "导入失败");
-      setTimeout(() => setToast(""), 3000);
+      setToast(`导入失败：${e?.message ?? e ?? "未知错误"}`);
+      setTimeout(() => setToast(""), 5000);
     }
   };
 
