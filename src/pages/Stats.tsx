@@ -56,6 +56,12 @@ function delta(cur: number, prev: number): number | null {
   return ((cur - prev) / prev) * 100;
 }
 
+// time_bucket 格式随粒度变：daily "YYYY-MM-DD" | minute/5min "YYYY-MM-DD HH:MM" | hourly "YYYY-MM-DD HH:00:00"。
+// x 轴短标：含时间段取 HH:MM（hourly→HH:00），仅日期取 MM-DD。slice(-5) 对 hourly 会误取秒位恒显 "00:00"。
+const tickLabel = (b: string): string => (b.includes(" ") ? b.slice(11, 16) : b.slice(5));
+// tooltip 标题：hourly（19 字符）去尾秒位，避免 ":00:00" 误读为分钟级精度。
+const fullLabel = (b: string): string => (b.length === 19 ? b.slice(0, 16) : b);
+
 // ── 粒度可读标注（趋势图右上角；auto 降级时加「（自动）」后缀让用户知情） ──
 function granLabel(g: StatsQuery["granularity"], auto: boolean, t: TFunction): string {
   const base =
@@ -448,7 +454,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                         />
                       )}
                     </div>
-                    {/* x 轴标注：minute/5min/hourly 显 HH:MM，daily 显 MM-DD（time_bucket 尾 5 字符） */}
+                    {/* x 轴标注：minute/5min/hourly 显 HH:MM，daily 显 MM-DD（见 tickLabel） */}
                     <div style={{ position: "relative", height: 12 }}>
                       {buckets.map((b, i) =>
                         i % step === 0 ? (
@@ -463,7 +469,7 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
                               whiteSpace: "nowrap",
                             }}
                           >
-                            {b.time_bucket.slice(-5)}
+                            {tickLabel(b.time_bucket)}
                           </span>
                         ) : null,
                       )}
@@ -614,7 +620,7 @@ function ChartTooltip({ bucket, pos, t }: ChartTooltipProps) {
         fontSize: F.small,
       }}
     >
-      <div style={{ fontWeight: 700, marginBottom: 2 }}>{bucket.time_bucket}</div>
+      <div style={{ fontWeight: 700, marginBottom: 2 }}>{fullLabel(bucket.time_bucket)}</div>
       <Row label={t("stats.requests", "请求")} value={formatNumber(bucket.total_requests)} />
       <Row label={t("stats.success", "成功")} value={formatNumber(bucket.success_count)}
         color={levelColor(successRateLevel(rate, bucket.total_requests))} />
