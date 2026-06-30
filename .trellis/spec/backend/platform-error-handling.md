@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-30
+updated: 2026-07-01
 rewrite-version: 1
 authored-by: trellisx-spec
 mode: sediment
@@ -9,7 +9,7 @@ mode: sediment
 
 何时被读: 改 proxy 失败处理 / 加平台 / 调 auto_disable / 熔断 / purge / last_error 时
 谁读: main / sub-agent
-不遵守的代价: 配额耗尽平台反复试探拖慢请求 / 可恢复平台被误删需重建 / 误把限流当配额隔离
+不遵守的代价: 限流平台反复试探拖慢请求 / 可恢复平台被误删需重建 / 误把限流当配额隔离
 
 来源 task: 06-30-platform-402-autodisable-error-status
 
@@ -21,11 +21,11 @@ mode: sediment
 
 - `code == 401 || code == 403`(鉴权失败/key 问题)
 - `code == 402`(余额不足, 可充值恢复)
-- `code == 429` 且经 C2 判定为**配额耗尽**
 
-其它任何状态码(含 404/405/429-限流)**禁**自动禁用, 仅按 failover 换下个候选重试。
+429(无论配额耗尽还是限流)**不**触发 auto_disable: classify_429 仅用于 C3 熔断分类, 不进 auto_disable 树。
+其它任何状态码(含 404/405/429)**禁**自动禁用, 仅按 failover 换下个候选重试。
 
-验证: `grep -n 'code == 401 || code == 403 || code == 402 || is_429_quota_exhausted' src-tauri/src/gateway/proxy/non_success.rs` 必须命中。
+验证: `grep -n 'code == 401 || code == 403 || code == 402' src-tauri/src/gateway/proxy/non_success.rs` 必须命中, 且同行无 `|| is_429_quota_exhausted`。
 
 ## C2 — 429 分类只看 message 文本 (MUST NOT 按 error.type)
 
@@ -46,10 +46,11 @@ mode: sediment
 | --- | --- | --- |
 | 5xx | record_failure | 否 |
 | 429-限流 | record_failure | 否 |
-| 401 / 403 / 402 / 429-配额 | record_ignored(不计熔断) | 是 |
+| 429-配额 | record_ignored(不计熔断) | 否(统一走 failover, 不禁用) |
+| 401 / 403 / 402 | record_ignored(不计熔断) | 是 |
 | 其它 4xx(404/405 等) | record_ignored | 否 |
 
-走 auto_disable 的(401/403/402/429-配额)**不参与熔断**, 仅 inflight-1。
+走 auto_disable 的(401/403/402)**不参与熔断**, 仅 inflight-1。
 
 ## C4 — purge 只删 401/403 或已过期 (MUST)
 
