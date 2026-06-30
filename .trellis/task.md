@@ -16,3 +16,4 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
+| skills-install-ux-recovery | SkillInstallView 改动恢复 (worktree 未 commit 丢失) | — | 已完成 | — |
