@@ -1841,6 +1841,8 @@ export type ImportExportScope =
   | "codex"
   | "claude_code"
   | "model_price"
+  | "mcp"
+  | "middleware"
   | "skills";
 
 export interface ImportExportManifest {
@@ -1896,9 +1898,15 @@ export interface ImportReport {
 }
 
 export const importExportApi = {
-  /** 导出勾选范围到用户选择的文件。 */
-  exportToFile: (scopes: ImportExportScope[], path: string) =>
-    invoke<void>("export_to_file", { scopes, path }),
+  /**
+   * 导出勾选范围到用户选择的文件。
+   * @param selection 逐项白名单（[scope, key] 对列表）；省略/null = 导出全部（向后兼容）。
+   */
+  exportToFile: (scopes: ImportExportScope[], path: string, selection?: [string, string][] | null) =>
+    invoke<void>("export_to_file", { scopes, path, selection: selection ?? null }),
+  /** 导出前预览：collect 全量 → 列出可勾选条目（conflicts 恒空）。 */
+  exportPreview: (scopes: ImportExportScope[]) =>
+    invoke<ImportPreview>("export_preview", { scopes }),
   /** 读文件 → 解密 → 冲突预览。 */
   readPreview: (path: string) =>
     invoke<ImportPreview>("import_read_file", { path }),
