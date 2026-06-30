@@ -346,7 +346,45 @@ ALTER TABLE "group_new" RENAME TO "group";
                     "ALTER TABLE platform ADD COLUMN last_error_at INTEGER NOT NULL DEFAULT 0",
                     [],
                 );
+
+                // Migration 039: 重写历史 last_error 残留完整 JSON body 为提取后 message。
+                // 037 加列时 last_error 直接存 `HTTP {code}: {truncate_attempt_error(body)}`（含完整 JSON），
+                // 后续 b9f82ed 才在写入前接入 extract_error_message。3 小时窗口内落库的旧行需一次性重提：
+                // 拆 `HTTP {code}: ` 前缀后的 body → extract_error_message → 命中则重写。
+                // 幂等：重提后行再跑命中相同 message（已是字符串非 JSON），不变；非 JSON / 无字段不动。
+                // 仅处理 message 能提取且与原文不同的，其余（含连接错 / 纯文本限流）保留。
+                // 编号占位说明：038 被 group-env-vars 任务（env_vars 列）先占，本迁移顺延 039。
+                reextract_legacy_last_error(conn);
     Ok(())
+}
+
+/// Migration 039: 把 037 引入但未走 extract_error_message 的历史 last_error 行重提为 message。
+fn reextract_legacy_last_error(conn: &Connection) {
+    // ponytail: SELECT 后逐行 UPDATE，避免 SQLite 无 JSON 函数；行数有限（仅失败过的平台）。
+    let Ok(mut stmt) = conn.prepare("SELECT id, last_error FROM platform WHERE last_error != ''") else {
+        return;
+    };
+    let entries: Vec<(i64, String)> = stmt
+        .query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, String>(1)?)))
+        .ok()
+        .map(|rows| rows.filter_map(Result::ok).collect())
+        .unwrap_or_default();
+    for (id, stored) in entries {
+        // stored = `HTTP {code}: {body}`；只切首个 `: `，保留 message 内可能出现的 `: `。
+        let Some((prefix, body)) = stored.split_once(": ") else {
+            continue; // 无 `: ` 分隔 → 非标准格式（如纯 "HTTP 429"），不动
+        };
+        let Some(msg) = crate::gateway::proxy::extract_error_message(body) else {
+            continue; // body 非 JSON / 无 error.message → 保留原值（纯文本限流/连接错）
+        };
+        let new_val = format!("{prefix}: {msg}");
+        if new_val != stored {
+            let _ = conn.execute(
+                "UPDATE platform SET last_error = ?1 WHERE id = ?2",
+                params![new_val, id],
+            );
+        }
+    }
 }
 
 
@@ -632,5 +670,65 @@ mod tests {
             .filter_map(Result::ok)
             .any(|c| c == "group_key");
         assert!(has_gk, "group_key should exist after migration");
+    }
+
+    /// Migration 039: 历史 last_error 残留完整 JSON body → 重提为 message。幂等。
+    #[test]
+    fn migrations_late_reextract_last_error_039() {
+        let conn = Connection::open_in_memory().unwrap();
+        // 建带 last_error 列的 platform（已过 037），插 3 类典型行：
+        //  - stale JSON body（应被重提为 message）
+        //  - 纯文本限流（非 JSON，保留）
+        //  - 已提取 message（已是字符串非 JSON，保留，验证幂等）
+        conn.execute_batch(r#"
+            CREATE TABLE "group" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL DEFAULT '',
+                group_key TEXT NOT NULL DEFAULT '', routing_mode TEXT NOT NULL DEFAULT '',
+                auto_from_platform TEXT NOT NULL DEFAULT '', source_protocol TEXT NOT NULL DEFAULT 'anthropic',
+                model_mappings TEXT NOT NULL DEFAULT '[]', request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+                connect_timeout_secs INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL DEFAULT 0, deleted_at INTEGER NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0, max_retries INTEGER NOT NULL DEFAULT 2,
+                UNIQUE(name), UNIQUE(group_key)
+            );
+            CREATE TABLE model_price (id INTEGER PRIMARY KEY, model TEXT, input_price REAL, output_price REAL);
+            CREATE TABLE platform (
+                id INTEGER PRIMARY KEY, name TEXT, platform_type TEXT NOT NULL DEFAULT '',
+                endpoints TEXT NOT NULL DEFAULT '[]', extra TEXT NOT NULL DEFAULT '{}',
+                last_error TEXT NOT NULL DEFAULT '', last_error_at INTEGER NOT NULL DEFAULT 0
+            );
+            CREATE TABLE proxy_log (id TEXT PRIMARY KEY, group_key TEXT, platform_id INTEGER, model TEXT, actual_model TEXT, source_protocol TEXT, target_protocol TEXT, status_code INTEGER, duration_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, cache_tokens INTEGER, est_cost REAL, is_stream INTEGER, retry_count INTEGER, blocked_by TEXT, blocked_reason TEXT, request_url TEXT, request_headers TEXT, request_body TEXT, upstream_request_url TEXT, upstream_request_headers TEXT, upstream_request_body TEXT, upstream_status_code INTEGER, upstream_response_headers TEXT, user_response_headers TEXT, user_response_body TEXT, response_body TEXT, created_at INTEGER, updated_at INTEGER, deleted_at INTEGER NOT NULL DEFAULT 0, attempts TEXT);
+            CREATE TABLE IF NOT EXISTS settings (scope TEXT, key TEXT, value TEXT, PRIMARY KEY (scope, key));
+            CREATE TABLE IF NOT EXISTS group_platform (id INTEGER PRIMARY KEY, group_id INTEGER, platform_id INTEGER, priority INTEGER, weight INTEGER);
+            CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
+        "#).unwrap();
+        // stale: 完整 JSON body（afcd6fb 旧路径写入）
+        let stale = r#"HTTP 429: {"error":{"message":"余额不足或无可用资源包,请充值。","type":"upstream_error","param":"","code":"1113"}}"#;
+        // plain: 纯文本限流（非 JSON，保留）
+        let plain = "HTTP 429: Too many requests";
+        // already: 已提取的 message 字符串（再跑幂等，不变）
+        let already = "HTTP 429: quota exhausted";
+        // stale_toplevel: 顶层 message（非嵌套 error.message）—— 另一种命中分支
+        let stale_toplevel = r#"HTTP 401: {"message":"身份验证失败。","type":"1000"}"#;
+        conn.execute(
+            "INSERT INTO platform (name, last_error) VALUES ('stale', ?1), ('plain', ?2), ('already', ?3), ('toplevel', ?4)",
+            rusqlite::params![stale, plain, already, stale_toplevel],
+        ).unwrap();
+
+        let result = run_migrations_late(&conn);
+        assert!(result.is_ok(), "run_migrations_late failed: {:?}", result);
+
+        let get_last_error = |name: &str| -> String {
+            conn.query_row("SELECT last_error FROM platform WHERE name = ?1", [name], |r| r.get(0)).unwrap()
+        };
+        assert_eq!(get_last_error("stale"), "HTTP 429: 余额不足或无可用资源包,请充值。");
+        assert_eq!(get_last_error("plain"), "HTTP 429: Too many requests");
+        assert_eq!(get_last_error("already"), "HTTP 429: quota exhausted");
+        assert_eq!(get_last_error("toplevel"), "HTTP 401: 身份验证失败。");
+
+        // 幂等：再跑一次所有行不变。
+        let _ = run_migrations_late(&conn);
+        assert_eq!(get_last_error("stale"), "HTTP 429: 余额不足或无可用资源包,请充值。");
+        assert_eq!(get_last_error("plain"), "HTTP 429: Too many requests");
     }
 }
