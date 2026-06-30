@@ -125,6 +125,7 @@ pub fn clear_has_completed_onboarding() -> Result<bool, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::gateway::db::test_support::HomeGuard;
 
     fn scratch_path(name: &str) -> PathBuf {
         let mut p = std::env::temp_dir();
@@ -135,34 +136,6 @@ mod tests {
         ));
         let _ = std::fs::remove_file(&p);
         p
-    }
-
-    // ── HomeGuard: redirect HOME to tempdir, protected by ENV_LOCK ──
-    // We can't import from gateway::db::test_support (cfg(test) only), so we replicate it.
-    static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
-    struct HomeGuard {
-        _dir: tempfile::TempDir,
-        _lock: std::sync::MutexGuard<'static, ()>,
-        prev_home: Option<String>,
-    }
-    impl HomeGuard {
-        fn new() -> Self {
-            let lock = ENV_LOCK.lock().unwrap_or_else(|p| p.into_inner());
-            let dir = tempfile::tempdir().unwrap();
-            let prev_home = std::env::var("HOME").ok();
-            unsafe { std::env::set_var("HOME", dir.path()); }
-            Self { _dir: dir, _lock: lock, prev_home }
-        }
-    }
-    impl Drop for HomeGuard {
-        fn drop(&mut self) {
-            unsafe {
-                match &self.prev_home {
-                    Some(v) => std::env::set_var("HOME", v),
-                    None => std::env::remove_var("HOME"),
-                }
-            }
-        }
     }
 
     #[test]
