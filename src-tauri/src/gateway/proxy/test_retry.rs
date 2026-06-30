@@ -324,3 +324,42 @@ use super::*;
 
     // ── 透传 URL 拼接：base_url(host 根) + 客户端原始 path(+query) ──
 
+
+    // ── extract_error_message：嵌套 error.message / 顶层 message / 非 JSON 回退 ──
+    #[test]
+    fn extract_error_message_nested() {
+        let body = r#"{"type":"error","error":{"message":"已达到 Token Plan 用量上限 (2056)","type":"rate_limit_error"}}"#;
+        assert_eq!(
+            extract_error_message(body).as_deref(),
+            Some("已达到 Token Plan 用量上限 (2056)")
+        );
+    }
+
+    #[test]
+    fn extract_error_message_toplevel() {
+        let body = r#"{"message":"quota exhausted","code":429}"#;
+        assert_eq!(extract_error_message(body).as_deref(), Some("quota exhausted"));
+    }
+
+    #[test]
+    fn extract_error_message_non_json_and_empty() {
+        assert_eq!(extract_error_message("Too many requests"), None);
+        assert_eq!(extract_error_message(r#"{"error":{"message":"  "}}"#), None);
+        assert_eq!(extract_error_message(r#"{"foo":"bar"}"#), None);
+    }
+
+    // ── classify_429：配额耗尽=true / 限流=false ──
+    #[test]
+    fn classify_429_quota_exhausted() {
+        assert!(classify_429("quota exhausted"));
+        assert!(classify_429("已达到 Token Plan 用量上限：请升级套餐或购买积分补充用量。 (2056)"));
+        assert!(classify_429("insufficient balance"));
+        assert!(classify_429("余额不足"));
+    }
+
+    #[test]
+    fn classify_429_rate_limit() {
+        assert!(!classify_429("Too many requests"));
+        assert!(!classify_429("rate limit exceeded, please retry"));
+        assert!(!classify_429(""));
+    }
