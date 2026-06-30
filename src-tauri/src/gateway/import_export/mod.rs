@@ -35,6 +35,9 @@ pub const SCOPE_SETTING: &str = "setting";
 pub const SCOPE_CODEX: &str = "codex";
 pub const SCOPE_CLAUDE_CODE: &str = "claude_code";
 pub const SCOPE_SKILLS: &str = "skills";
+pub const SCOPE_MCP: &str = "mcp";
+pub const SCOPE_MIDDLEWARE: &str = "middleware";
+pub const SCOPE_MODEL_PRICE: &str = "model_price";
 
 /// 命名文本对（group name → 文件内容）。
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -83,6 +86,15 @@ pub struct Payload {
     pub claude_code_group_settings: Vec<NamedText>,
     #[serde(default)]
     pub skills: Vec<skills_sync::SkillExportEntry>,
+    /// `mcp_server` 表原始行（含敏感 env/headers JSON）。
+    #[serde(default)]
+    pub mcp: Vec<serde_json::Value>,
+    /// `middleware_rule` 表原始行。
+    #[serde(default)]
+    pub middleware: Vec<serde_json::Value>,
+    /// `model_price` 表完整行（price_data 全量，非 summary）。
+    #[serde(default)]
+    pub model_price: Vec<serde_json::Value>,
 }
 
 impl Payload {

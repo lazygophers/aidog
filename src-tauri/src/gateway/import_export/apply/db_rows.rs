@@ -339,6 +339,58 @@ pub(super) async fn upsert_setting_row(
         .map_err(|e| format!("upsert setting: {e}"))
 }
 
+/// 按 name 查重写入中间件规则（middleware_rule 表无 name UNIQUE 约束，故手动查重避免重复导入）。
+/// 命中同名则 UPDATE（保留原 id/created_at），否则 INSERT。
+pub(super) async fn upsert_middleware_rule_by_name(
+    db: &Db,
+    rule: &crate::gateway::models::MiddlewareRule,
+) -> Result<(), String> {
+    let r = rule.clone();
+    db.0
+        .call(move |conn| {
+            let now = now_ts();
+            let existing_id: Option<i64> = conn
+                .query_row(
+                    "SELECT id FROM middleware_rule WHERE name = ?1",
+                    [&r.name],
+                    |row| row.get(0),
+                )
+                .ok();
+            let rule_type = r.rule_type.as_str();
+            let scope = r.scope.as_str();
+            let match_type = r.match_type.as_str();
+            let action = r.action.as_str();
+            if let Some(id) = existing_id {
+                conn.execute(
+                    "UPDATE middleware_rule SET
+                       description = ?2, rule_type = ?3, scope = ?4, scope_ref = ?5,
+                       match_type = ?6, pattern = ?7, action = ?8, config = ?9, priority = ?10,
+                       enabled = ?11, is_builtin = ?12, updated_at = ?13
+                     WHERE id = ?1",
+                    rusqlite::params![
+                        id, r.description, rule_type, scope, r.scope_ref,
+                        match_type, r.pattern, action, r.config, r.priority,
+                        r.enabled as i64, r.is_builtin as i64, now,
+                    ],
+                )?;
+            } else {
+                conn.execute(
+                    "INSERT INTO middleware_rule
+                       (name, description, rule_type, scope, scope_ref, match_type, pattern, action, config, priority, enabled, is_builtin, created_at, updated_at)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?13)",
+                    rusqlite::params![
+                        r.name, r.description, rule_type, scope, r.scope_ref,
+                        match_type, r.pattern, action, r.config, r.priority,
+                        r.enabled as i64, r.is_builtin as i64, now,
+                    ],
+                )?;
+            }
+            Ok(())
+        })
+        .await
+        .map_err(|e| format!("upsert middleware rule: {e}"))
+}
+
 #[cfg(test)]
 #[path = "test_db_rows.rs"]
 mod test_db_rows;

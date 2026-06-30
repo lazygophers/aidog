@@ -316,6 +316,9 @@ mod payload_tests {
             claude_code_global: None,
             claude_code_group_settings: vec![],
             skills: vec![],
+            mcp: vec![],
+            middleware: vec![],
+            model_price: vec![],
         };
         let bytes = p.serialize_with_checksum().unwrap();
         assert!(!p.manifest.checksum.is_empty());
@@ -344,6 +347,9 @@ mod payload_tests {
             claude_code_global: None,
             claude_code_group_settings: vec![],
             skills: vec![],
+            mcp: vec![],
+            middleware: vec![],
+            model_price: vec![],
         };
         let bytes = p.serialize_with_checksum().unwrap();
         // 篡改 aidog_version（checksum 不变 → 校验失败）。

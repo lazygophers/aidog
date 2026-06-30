@@ -131,6 +131,9 @@ pub async fn import(
         claude_code_global: None,
         claude_code_group_settings: Vec::new(),
         skills: Vec::new(),
+        mcp: Vec::new(),
+        middleware: Vec::new(),
+        model_price: Vec::new(),
     };
     // 异源单向导入：不走逐项勾选白名单（payload 自建），导入全部 → None。
     let report = super::apply::apply(payload, decisions, None, db).await?;
