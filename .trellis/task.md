@@ -17,3 +17,5 @@
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | _(无活跃 worktree)_ | — | — |
+| test-isolation-fix | 测试隔离治理 — 删真实环境 spawn + ENV_LOCK 集中 + lint 守卫 | — | 实施中 | — |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-test-isolation-fix | 07-01-test-isolation-fix | trellisx-start |
