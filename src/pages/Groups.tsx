@@ -9,7 +9,7 @@ import type { TFunction } from "i18next";
 import {
   groupDetailApi, groupApi, groupUsageApi, platformApi, proxyApi, onProxyLogUpdated, modelTestApi,
   type GroupDetail, type GroupPlatformDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
-  type ModelMapping, type PlatformQuota, type LastTestResult,
+  type ModelMapping, type EnvVar, type PlatformQuota, type LastTestResult,
 } from "../services/api";
 import { SortableList, type DragHandleProps } from "../components/SortableList";
 import { IconClose, IconCheck, IconHome, IconBolt, IconCost } from "../components/icons";
@@ -305,6 +305,7 @@ interface EditState {
   mode: RoutingMode;
   platformIds: number[];
   mappings: ModelMapping[];
+  envVars: EnvVar[];
   reqTimeout: number;
   connTimeout: number;
   maxRetries: number;
@@ -316,6 +317,7 @@ const EMPTY_EDIT: EditState = {
   mode: "failover",
   platformIds: [],
   mappings: [],
+  envVars: [],
   reqTimeout: 0,
   connTimeout: 0,
   maxRetries: 10,
@@ -341,6 +343,7 @@ function editReducer(state: EditState, action: EditAction): EditState {
           request_timeout_secs: m.request_timeout_secs,
           connect_timeout_secs: m.connect_timeout_secs,
         })),
+        envVars: action.detail.group.env_vars.map(ev => ({ key: ev.key, value: ev.value })),
         reqTimeout: action.detail.group.request_timeout_secs,
         connTimeout: action.detail.group.connect_timeout_secs,
         maxRetries: action.detail.group.max_retries,
@@ -395,10 +398,18 @@ function shellSquote(s: string): string {
  * Build the `codex` CLI invocation for a given group profile.
  * `AIDOG_KEY=<group>`（auth token=分组名，aidog 据此路由）+ `codex -p <group>`
  * 选 `~/.codex/<group>.config.toml` profile + bypass approvals/sandbox。
+ *
+ * Codex config.toml 不支持 env 注入（research/codex-env-support.md），用户 env_vars
+ * 经前置 `export KEY=VALUE;` 注入 codex 进程环境。AIDOG_KEY 为 aidog 路由 token，
+ * 用户同名变量须丢弃（shell 后者覆盖前者会破坏路由）。
  */
-function buildCodexCommand(groupKey: string): string {
+function buildCodexCommand(groupKey: string, envVars?: EnvVar[]): string {
   const g = shellSquote(groupKey);
+  const exports = (envVars ?? [])
+    .filter(ev => ev.key.trim() !== "" && ev.value !== "" && ev.key !== "AIDOG_KEY")
+    .map(ev => `export ${ev.key}=${shellSquote(ev.value)};`);
   return [
+    ...exports,
     `AIDOG_KEY=${g}`,
     "codex",
     "-p",
@@ -610,7 +621,7 @@ const GroupListItem = memo(function GroupListItem({
         {/* Quick actions */}
         <CopyButton text={group.group_key} title={t("group.copyApiKeyTitle", "复制 API Key")} size={14} />
         <CopyButton text={buildClaudeCommand(group.group_key)} icon={<img src={claudeIcon} width={14} height={14} alt="Claude" />} title={t("group.copyCommand", "复制 Claude Code 启动命令")} size={14} />
-        <CopyButton text={buildCodexCommand(group.group_key)} icon={<img src={codexIcon} width={14} height={14} alt="Codex" />} title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
+        <CopyButton text={buildCodexCommand(group.group_key, group.env_vars)} icon={<img src={codexIcon} width={14} height={14} alt="Codex" />} title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
         <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key }); }} title={t("group.viewStats", "查看统计")}>
           <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
@@ -896,6 +907,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     mode: editMode,
     platformIds: editPlatformIds,
     mappings: editMappings,
+    envVars: editEnvVars,
     reqTimeout: editReqTimeout,
     connTimeout: editConnTimeout,
     maxRetries: editMaxRetries,
@@ -1524,7 +1536,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   const saveEdit = async () => {
     if (!editTarget) return;
     try {
-      // Update group basic info + inline model mappings
+      // Update group basic info + inline model mappings + env vars
       await groupApi.update({
         id: editTarget.group.id,
         name: editName,
@@ -1533,6 +1545,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
         connect_timeout_secs: editConnTimeout,
         max_retries: editMaxRetries,
         model_mappings: editMappings,
+        env_vars: editEnvVars,
       });
 
       // Update platforms
@@ -1613,7 +1626,10 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
         },
       ];
       const gid = mappingGroupId;
-      await groupApi.update({ id: gid, model_mappings: next });
+      // ponytail: quick mapping 编辑走最小 update，但后端 UpdateGroup.env_vars 是
+      // #[serde(default)] Vec（非 Option），缺省 = [] 会清空既有 env_vars。
+      // 同 model_mappings 一并透传 detail 当前值，保持 partial update 语义。
+      await groupApi.update({ id: gid, model_mappings: next, env_vars: detail.group.env_vars });
       setMSource(""); setMTargetPlatform(""); setMTargetModel("");
       setMappingGroupId(null);
       refreshSingleGroup(gid); // 单组映射变更 → 就地刷新
@@ -1646,7 +1662,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     if (!detail) return;
     try {
       const next = detail.model_mappings.filter((_, i) => i !== index);
-      await groupApi.update({ id: groupId, model_mappings: next });
+      // ponytail: 同 handleAddMapping —— env_vars 必须透传，否则被 default 清空。
+      await groupApi.update({ id: groupId, model_mappings: next, env_vars: detail.group.env_vars });
       refreshSingleGroup(groupId); // 单组映射删除 → 就地刷新
       onGroupsChanged?.();
     } catch (e) {
@@ -1689,7 +1706,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
           </div>
           <CopyButton text={editTarget.group.group_key} label={t("group.apiKey", "API Key")} title={t("group.copyApiKeyTitle", "复制 API Key")} />
           <CopyButton text={buildClaudeCommand(editTarget.group.group_key)} icon={<img src={claudeIcon} width={14} height={14} alt="Claude" />} title={t("group.copyCommand", "复制 Claude Code 启动命令")} />
-          <CopyButton text={buildCodexCommand(editTarget.group.group_key)} icon={<img src={codexIcon} width={14} height={14} alt="Codex" />} title={t("group.copyCodexCommand", "复制 Codex 命令")} />
+          <CopyButton text={buildCodexCommand(editTarget.group.group_key, editEnvVars)} icon={<img src={codexIcon} width={14} height={14} alt="Codex" />} title={t("group.copyCodexCommand", "复制 Codex 命令")} />
           <button className="btn" onClick={cancelEdit}>{t("action.cancel")}</button>
           <button className="btn btn-primary" onClick={saveEdit}
             disabled={!editName}>{t("action.save")}</button>
@@ -1850,6 +1867,58 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
             <button type="button" className="btn btn-ghost" style={{ fontSize: F.hint, padding: "6px 12px", alignSelf: "flex-start" }}
               onClick={() => dispatchEdit({ type: "patch", patch: { mappings: [...editMappings, { source_model: "", target_platform_id: 0, target_model: "", request_timeout_secs: 0, connect_timeout_secs: 0 }] } })}>
               + {t("mapping.add", "添加映射")}
+            </button>
+          </div>
+        </div>
+
+        {/* Environment Variables（分组维度；sync 注入 Claude settings.env + Codex 复制命令前置 export） */}
+        <div className="glass-surface" style={{ padding: S.pad, display: "flex", flexDirection: "column", gap: S.gap }}>
+          <div style={{ fontSize: F.label, fontWeight: 600 }}>{t("group.envVars", "环境变量")}</div>
+          <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", marginTop: -8 }}>
+            {t("group.envVarsHint", "本分组会话级环境变量；sync 时注入 Claude settings.env，复制 Codex 命令时前置 export。")}
+          </div>
+
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {editEnvVars.map((ev, i) => {
+              const reserved = ev.key === "ANTHROPIC_BASE_URL" || ev.key === "ANTHROPIC_AUTH_TOKEN" || ev.key === "AIDOG_KEY";
+              return (
+                <div key={i} style={{
+                  display: "flex", gap: 8, alignItems: "center",
+                  padding: "8px 12px", borderRadius: "var(--radius-sm)",
+                  background: "var(--bg-glass)", border: `1px solid ${reserved ? "var(--warning, #d97706)" : "var(--border)"}`,
+                }}>
+                  <input className="input" style={{ fontSize: F.hint, padding: "6px 10px", width: 200, flexShrink: 0, fontFamily: "var(--font-mono, monospace)" }}
+                    placeholder={t("group.envVarKey", "变量名 (如 ANTHROPIC_DEFAULT_OPUS_MODEL)")}
+                    value={ev.key}
+                    onChange={e => {
+                      const next = [...editEnvVars];
+                      next[i] = { ...next[i], key: e.target.value };
+                      dispatchEdit({ type: "patch", patch: { envVars: next } });
+                    }} />
+                  <input className="input" style={{ fontSize: F.hint, padding: "6px 10px", flex: 1, fontFamily: "var(--font-mono, monospace)" }}
+                    placeholder={t("group.envVarValue", "变量值")}
+                    value={ev.value}
+                    onChange={e => {
+                      const next = [...editEnvVars];
+                      next[i] = { ...next[i], value: e.target.value };
+                      dispatchEdit({ type: "patch", patch: { envVars: next } });
+                    }} />
+                  <button type="button" onClick={() => dispatchEdit({ type: "patch", patch: { envVars: editEnvVars.filter((_, j) => j !== i) } })} style={{
+                    background: "none", border: "none", cursor: "pointer",
+                    color: "var(--text-tertiary)", fontSize: F.small, padding: 4, lineHeight: 1, flexShrink: 0,
+                  }}><IconClose size={12} /></button>
+                </div>
+              );
+            })}
+            {editEnvVars.some(ev => ev.key === "ANTHROPIC_BASE_URL" || ev.key === "ANTHROPIC_AUTH_TOKEN" || ev.key === "AIDOG_KEY") && (
+              <div style={{ fontSize: F.small, color: "var(--warning, #d97706)", lineHeight: 1.4 }}>
+                {t("group.envVarReservedHint", "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY 为 aidog 路由字段，保存时将被丢弃。")}
+              </div>
+            )}
+
+            <button type="button" className="btn btn-ghost" style={{ fontSize: F.hint, padding: "6px 12px", alignSelf: "flex-start" }}
+              onClick={() => dispatchEdit({ type: "patch", patch: { envVars: [...editEnvVars, { key: "", value: "" }] } })}>
+              + {t("group.addEnvVar", "添加环境变量")}
             </button>
           </div>
         </div>

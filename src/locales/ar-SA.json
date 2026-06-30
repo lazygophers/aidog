@@ -205,7 +205,13 @@
   "greet.button": "حيّي",
   "greet.placeholder": "أدخل اسماً...",
   "group": {
-    "sourceProtocol": "بروتوكول المصدر"
+    "sourceProtocol": "بروتوكول المصدر",
+    "envVars": "متغيرات البيئة",
+    "envVarsHint": "متغيرات بيئة على مستوى المجموعة؛ تُحقن في Claude settings.env عند المزامنة وتُضاف كـ export عند نسخ أمر Codex.",
+    "envVarKey": "اسم المتغير (مثل ANTHROPIC_DEFAULT_OPUS_MODEL)",
+    "envVarValue": "القيمة",
+    "envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY هي حقول توجيه aidog وسيتم تجاهلها عند الحفظ.",
+    "addEnvVar": "إضافة متغير بيئة"
   },
   "group.add": "إضافة مجموعة",
   "group.addMappingFailed": "فشل إضافة التعيين",
@@ -230,6 +236,12 @@
   "group.dragToReorder": "اسحب لإعادة الترتيب",
   "group.edit": "تحرير",
   "group.empty": "لا توجد مجموعات",
+  "group.envVars": "متغيرات البيئة",
+  "group.envVarsHint": "متغيرات بيئة على مستوى الجلسة لهذه المجموعة؛ تُحقن في Claude settings.env عند المزامنة، وتُسبق كأمر export عند نسخ أمر Codex.",
+  "group.envVarKey": "اسم المتغير (مثل ANTHROPIC_DEFAULT_OPUS_MODEL)",
+  "group.envVarValue": "قيمة المتغير",
+  "group.addEnvVar": "إضافة متغير بيئة",
+  "group.envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY هي حقول توجيه aidog وسيتم تجاهلها عند الحفظ.",
   "group.failover": "تجاوز الفشل",
   "group.groupKey": "مفتاح المجموعة (يُولّد تلقائيًا إذا تُرك فارغًا)",
   "group.groupKeyHint": "مفتاح المجموعة (= مفتاح API / هوية التوجيه). يُولّد تلقائيًا إذا تُرك فارغًا؛ يُقفل بعد الإنشاء ولا يمكن تعديله.",

@@ -205,7 +205,13 @@
   "greet.button": "打招呼",
   "greet.placeholder": "输入名称...",
   "group": {
-    "sourceProtocol": "入站协议"
+    "sourceProtocol": "入站协议",
+    "envVars": "环境变量",
+    "envVarsHint": "本分组会话级环境变量；sync 时注入 Claude settings.env，复制 Codex 命令时前置 export。",
+    "envVarKey": "变量名 (如 ANTHROPIC_DEFAULT_OPUS_MODEL)",
+    "envVarValue": "变量值",
+    "envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY 为 aidog 路由字段，保存时将被丢弃。",
+    "addEnvVar": "添加环境变量"
   },
   "group.add": "添加分组",
   "group.addMappingFailed": "添加映射失败",
@@ -230,6 +236,12 @@
   "group.dragToReorder": "拖动排序",
   "group.edit": "编辑",
   "group.empty": "暂无分组",
+  "group.envVars": "环境变量",
+  "group.envVarsHint": "本分组会话级环境变量；sync 时注入 Claude settings.env，复制 Codex 命令时前置 export。",
+  "group.envVarKey": "变量名 (如 ANTHROPIC_DEFAULT_OPUS_MODEL)",
+  "group.envVarValue": "变量值",
+  "group.addEnvVar": "添加环境变量",
+  "group.envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY 为 aidog 路由字段，保存时将被丢弃。",
   "group.failover": "故障转移",
   "group.groupKey": "分组密钥（留空自动生成）",
   "group.groupKeyHint": "分组密钥（= API Key / 路由识别键）。留空自动生成；创建后锁定不可修改。",

@@ -205,7 +205,13 @@
   "greet.button": "Greet",
   "greet.placeholder": "Enter a name...",
   "group": {
-    "sourceProtocol": "Source Protocol"
+    "sourceProtocol": "Source Protocol",
+    "envVars": "Environment Variables",
+    "envVarsHint": "Per-group session-scoped env vars; injected into Claude settings.env on sync and prepended as export when copying the Codex command.",
+    "envVarKey": "Variable name (e.g. ANTHROPIC_DEFAULT_OPUS_MODEL)",
+    "envVarValue": "Value",
+    "envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY are aidog routing fields and will be dropped on save.",
+    "addEnvVar": "Add env var"
   },
   "group.add": "Add Group",
   "group.addMappingFailed": "Failed to add mapping",
@@ -230,6 +236,12 @@
   "group.dragToReorder": "Drag to reorder",
   "group.edit": "Edit",
   "group.empty": "No groups yet.",
+  "group.envVars": "Environment Variables",
+  "group.envVarsHint": "Session-level env vars for this group; injected into Claude settings.env on sync, and prefixed as export when copying the Codex command.",
+  "group.envVarKey": "Variable name (e.g. ANTHROPIC_DEFAULT_OPUS_MODEL)",
+  "group.envVarValue": "Variable value",
+  "group.addEnvVar": "Add environment variable",
+  "group.envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY are aidog routing fields and will be dropped on save.",
   "group.failover": "Failover",
   "group.groupKey": "Group key (auto-generated if empty)",
   "group.groupKeyHint": "Group key (= API Key / routing identity). Auto-generated if empty; locked after creation.",
