@@ -69,3 +69,8 @@ OR (expires_at > 0 AND expires_at < ?now)
 写 `set_platform_last_error` 前用 `extract_error_message(body)`(retry.rs)提取人类可读 message:
 嵌套 `error.message` → 顶层 `message` → 命中则 `last_error = HTTP {code}: {message}`;
 未命中(非 JSON / 无字段 / 空白)回退 `truncate_attempt_error` 摘要。连接失败/空 2xx 等无 body 站点保持现状。
+
+**历史数据修复**: 037 加列时(afcd6fb)写入路径未走 extract_error_message, 落库的是 `HTTP {code}: {完整 body}`。
+后续 b9f82ed 才接入 C5 规则。037 与接入之间窗口内写入的行需 Migration 039 一次性重提(`schema_late.rs::reextract_legacy_last_error`),
+仅对 body 含 `error.message` / 顶层 `message` 的行重写, 其余(纯文本 / 非 JSON / 已提取过)保留。禁再次加新迁移清这类残留——039 幂等, 已覆盖。
+(编号 038 被 group-env-vars 任务先占, 本迁移顺延 039。)
