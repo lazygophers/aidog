@@ -5,8 +5,8 @@
 | ID | 名称 | 描述 | 状态 | worktree |
 | --- | --- | --- | --- | --- |
 | 06-20-test-coverage-80 | 单测覆盖率≥80% | 完善整体单元测试覆盖率至少80% | 规划中 | — |
-| 06-30-group-env-vars | 分组配置支持环境变量设置 | 分组维度支持自定义环境变量注入 | 实施中 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/06-30-group-env-vars |
-| 06-30-platform-402-autodisable-error-status | 402上游自动禁用免purge + proxy错误记入平台状态 | — | 实施中 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/06-30-platform-402-autodisable-error-status |
+| 06-30-group-env-vars | 分组配置支持环境变量设置 | 分组维度支持自定义环境变量注入 (sync 强写 ANTHROPIC_BASE_URL/AUTH_TOKEN 保护) | 已完成 | — |
+| platform-last-error-msg | 平台最近错误展示提取error.message | DB 残留旧值 Migration 039 重提 + extract_error_message 已正确 | 已完成 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -15,5 +15,4 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/06-30-group-env-vars | 06-30-group-env-vars | trellisx-start |
-| platform-402-autodisable-error-status | 402上游自动禁用免purge + proxy错误记入平台状态 | — | 已完成 | — |
+| _(无活跃 worktree)_ | — | — |
