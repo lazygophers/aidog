@@ -52,7 +52,9 @@ fn run_npx_in_scope_global_readonly_does_not_panic() {
 }
 
 /// run_npx_in_scope Project scope（合法 tempdir）+ 变更命令 不 panic — Project 隔离安全。
+/// `#[ignore]`：真 spawn npx 二进制，依赖宿主装 npx；默认跳过，仅 `--ignored` 显式跑。
 #[test]
+#[ignore = "needs host npx"]
 fn run_npx_in_scope_project_mutating_does_not_panic() {
     let args = vec!["add".to_string(), "owner/repo".to_string()];
     let temp = tempfile::tempdir().expect("tempdir");
@@ -68,7 +70,9 @@ fn run_npx_in_scope_project_mutating_does_not_panic() {
 }
 
 /// run_npx_in_scope Project scope（合法 tempdir）+ 只读命令 不 panic。
+/// `#[ignore]`：真 spawn npx 二进制（即便只读 --version），依赖宿主装 npx；默认跳过。
 #[test]
+#[ignore = "needs host npx"]
 fn run_npx_in_scope_project_readonly_does_not_panic() {
     let args = vec!["--version".to_string()];
     let temp = tempfile::tempdir().expect("tempdir");
@@ -108,7 +112,9 @@ fn run_npx_with_global_flag_readonly_does_not_panic() {
 }
 
 /// run_npx_in_scope project with valid path attempts spawn.
+/// `#[ignore]`：真 spawn npx 二进制，依赖宿主装 npx；默认跳过，仅 `--ignored` 显式跑。
 #[test]
+#[ignore = "needs host npx"]
 fn run_npx_in_scope_project_valid_path_attempts() {
     let args = vec!["--version".to_string()];
     let result = run_npx_in_scope(
