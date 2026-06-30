@@ -7,6 +7,20 @@ fn env_of<'a>(cmd: &'a Command, key: &str) -> Option<&'a std::ffi::OsStr> {
         .and_then(|(_, v)| v)
 }
 
+#[cfg(not(target_os = "windows"))]
+#[test]
+fn merge_path_dedups_preserves_order_and_priority() {
+    // login 在前优先；rest 中重复项丢弃；空段丢弃；保序。
+    assert_eq!(
+        merge_path("/opt/homebrew/bin:/usr/bin", "/usr/bin:/bin::"),
+        "/opt/homebrew/bin:/usr/bin:/bin"
+    );
+    // 完全相同 → 输出等于规范化后的同串（调用方据此判 no-op）。
+    assert_eq!(merge_path("/usr/bin:/bin", "/usr/bin:/bin"), "/usr/bin:/bin");
+    // 空 login → 退化为 rest 去重。
+    assert_eq!(merge_path("", "/bin:/bin"), "/bin");
+}
+
 #[test]
 fn resolve_home_env_returns_dirs_home() {
     let (home, _) = resolve_home_env();

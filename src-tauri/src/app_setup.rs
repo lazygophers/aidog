@@ -16,6 +16,11 @@ use crate::commands::quota::cold_start_init_tray_estimates;
 use tauri::tray::TrayIconBuilder;
 
 pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Error>> {
+            // 最先修运行时 PATH：GUI(launchd/Finder) env 极简，brew/nvm/pyenv 装的
+            // node/npx/python/uv 不在 PATH → skills 检测/安装/导入「环境缺失」。并入登录
+            // shell PATH（幂等、静默、失败不阻断），覆盖后续全部子进程。须在任何子进程 spawn 前。
+            gateway::skills::ensure_runtime_path();
+
             let data_dir = aidog_data_dir().expect("failed to resolve data dir");
 
             // 先开 DB 再初始化日志：app log 设置单一事实源 = DB settings 表（禁独立文件）。

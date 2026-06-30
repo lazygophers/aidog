@@ -7,6 +7,68 @@ use std::sync::OnceLock;
 /// 进程内 env 探测缓存：node/npx 可用性一会话不变，仅首次真探测。
 static ENV_CACHE: OnceLock<SkillsEnv> = OnceLock::new();
 
+/// `ensure_runtime_path` 幂等守卫：仅首次真合并 PATH。
+static PATH_FIXED: OnceLock<()> = OnceLock::new();
+
+/// 把登录 shell 的交互式 PATH 并入当前进程 PATH（幂等，启动时调一次即可）。
+///
+/// **真因**: GUI 经 launchd / Finder 启动，env 极简（PATH 仅 `/usr/bin:/bin:...`）。
+/// 用户用 brew(`/opt/homebrew/bin`)/nvm/pyenv/asdf 装的 node/npx/python/uv 不在此 PATH →
+/// `Command::new("npx")` 直接 spawn 失败，连 `check_env` 探测都误报「未安装」。
+/// 这是 skills 安装 / 导入「环境缺失」的最常见真因：**已装但找不到**，非真没装。
+///
+/// **修复**: spawn 登录 shell 读其交互式 PATH（会 source 用户 rc，含 nvm/pyenv shim 注入），
+/// 合并进进程 PATH（登录 PATH 在前优先），覆盖全部后续子进程（检测 / npx / uv / 导入）。
+/// 静默自动修：失败仅 warn，不打断任何流程。Windows GUI 继承用户 PATH，无此问题 → 跳过。
+pub fn ensure_runtime_path() {
+    PATH_FIXED.get_or_init(|| {
+        if let Some(merged) = probe_login_path() {
+            // edition 2021：set_var 为安全 API，启动早期单线程调用，无并发 env 读写竞争。
+            std::env::set_var("PATH", &merged);
+            tracing::info!("runtime PATH 已并入登录 shell PATH（修 GUI 极简 PATH 致 node/npx/python 找不到）");
+        }
+    });
+}
+
+/// 探测登录 shell 的交互式 PATH 并与当前 PATH 合并（登录在前、去重、保序）。
+/// 返回 None 表示无需 / 无法修（Windows、shell 失败、空、与现状一致）。
+#[cfg(not(target_os = "windows"))]
+fn probe_login_path() -> Option<String> {
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
+    let out = Command::new(&shell)
+        .args(["-ilc", "echo $PATH"])
+        .output()
+        .ok()?;
+    if !out.status.success() {
+        return None;
+    }
+    let login = String::from_utf8_lossy(&out.stdout).trim().to_string();
+    if login.is_empty() {
+        return None;
+    }
+    let current = std::env::var("PATH").unwrap_or_default();
+    let merged = merge_path(&login, &current);
+    (merged != current).then_some(merged)
+}
+
+#[cfg(target_os = "windows")]
+fn probe_login_path() -> Option<String> {
+    None
+}
+
+/// 合并两段 `:` 分隔 PATH：`first` 优先，追加 `rest` 中未出现的项，去重保序，丢空段。
+#[cfg(not(target_os = "windows"))]
+fn merge_path(first: &str, rest: &str) -> String {
+    let mut seen = std::collections::HashSet::new();
+    first
+        .split(':')
+        .chain(rest.split(':'))
+        .filter(|s| !s.is_empty())
+        .filter(|s| seen.insert(s.to_string()))
+        .collect::<Vec<_>>()
+        .join(":")
+}
+
 /// 探测 npx / node 可用性（进程内缓存，仅首次 spawn 子进程）。
 /// 后续调用直接返回缓存值，开页 0 子进程。
 pub fn check_env() -> SkillsEnv {
