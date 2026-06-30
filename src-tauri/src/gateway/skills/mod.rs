@@ -59,7 +59,7 @@ pub use bulk::{align_agents, enable_all};
 pub use cache::{invalidate, list_cached, list_refresh, CachedSkills};
 pub use catalog::{browse_catalog, search};
 pub use detail::{detail, read_file};
-pub use env::check_env;
+pub use env::{check_env, ensure_runtime_path};
 pub use list::list_installed;
 pub use ops::{disable, enable, install, uninstall, uninstall_all, update};
 pub use proxy_env::proxy_env_url;
