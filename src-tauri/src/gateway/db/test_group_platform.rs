@@ -146,8 +146,7 @@ use super::test_support::*;
             routing_mode: RoutingMode::Failover,
             auto_from_platform: p.id.to_string(),
             request_timeout_secs: 0, connect_timeout_secs: 0,
-            source_protocol: None, max_retries: 2, model_mappings: vec![],
-        }).await.unwrap();
+            source_protocol: None, max_retries: 2, model_mappings: vec![], env_vars: vec![],        }).await.unwrap();
         set_group_platforms(&db, auto_g.id, &[GroupPlatformInput {
             platform_id: p.id, priority: Some(0), weight: Some(1), level_priority: None,
         }]).await.unwrap();

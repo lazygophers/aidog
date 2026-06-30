@@ -83,6 +83,7 @@ impl Drop for HomeGuard {
             source_protocol: None,
             max_retries: 2,
             model_mappings: mappings,
+            env_vars: Vec::new(),
         }
     }
 

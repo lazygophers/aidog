@@ -52,7 +52,7 @@ use super::test_support::*;
         let upd = update_group(&db, UpdateGroup {
             id: g.id, name: None, routing_mode: None,
             request_timeout_secs: 0, connect_timeout_secs: 0, source_protocol: None,
-            max_retries: Some(0), model_mappings: vec![], is_default: None,
+            max_retries: Some(0), model_mappings: vec![], env_vars: vec![], is_default: None,
         }).await.unwrap();
         assert_eq!(upd.max_retries, 0);
         assert_eq!(get_group(&db, g.id).await.unwrap().unwrap().max_retries, 0);
@@ -124,8 +124,7 @@ use super::test_support::*;
             connect_timeout_secs: 0,
             source_protocol: None,
             max_retries: None,
-            model_mappings: vec![],
-            is_default: None,
+            model_mappings: vec![], env_vars: vec![],            is_default: None,
         }).await.unwrap();
         assert_eq!(updated.name, "renamed");
         let fetched = get_group(&db, g.id).await.unwrap().unwrap();
@@ -144,8 +143,7 @@ use super::test_support::*;
             connect_timeout_secs: 0,
             source_protocol: None,
             max_retries: None,
-            model_mappings: vec![],
-            is_default: None,
+            model_mappings: vec![], env_vars: vec![],            is_default: None,
         }).await.unwrap();
         assert!(matches!(updated.routing_mode, RoutingMode::LoadBalance));
     }
@@ -162,8 +160,7 @@ use super::test_support::*;
             connect_timeout_secs: 15,
             source_protocol: None,
             max_retries: None,
-            model_mappings: vec![],
-            is_default: None,
+            model_mappings: vec![], env_vars: vec![],            is_default: None,
         }).await.unwrap();
         assert_eq!(updated.request_timeout_secs, 120);
         assert_eq!(updated.connect_timeout_secs, 15);

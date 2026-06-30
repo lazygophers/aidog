@@ -205,7 +205,13 @@
   "greet.button": "Begrüßen",
   "greet.placeholder": "Namen eingeben...",
   "group": {
-    "sourceProtocol": "Quellprotokoll"
+    "sourceProtocol": "Quellprotokoll",
+    "envVars": "Umgebungsvariablen",
+    "envVarsHint": "Pro-Gruppe-Sitzungsumgebungsvariablen; werden beim Synchronisieren in Claude settings.env injiziert und beim Kopieren des Codex-Befehls als export vorangestellt.",
+    "envVarKey": "Variablenname (z.B. ANTHROPIC_DEFAULT_OPUS_MODEL)",
+    "envVarValue": "Wert",
+    "envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY sind aidog-Routingfelder und werden beim Speichern verworfen.",
+    "addEnvVar": "Umgebungsvariable hinzufügen"
   },
   "group.add": "Gruppe hinzufügen",
   "group.addMappingFailed": "Zuordnung konnte nicht hinzugefügt werden",
@@ -230,6 +236,12 @@
   "group.dragToReorder": "Ziehen zum Sortieren",
   "group.edit": "Bearbeiten",
   "group.empty": "Keine Gruppen",
+  "group.envVars": "Umgebungsvariablen",
+  "group.envVarsHint": "Sitzungsweite Umgebungsvariablen für diese Gruppe; werden beim Sync in Claude settings.env eingefügt und beim Kopieren des Codex-Befehls als export vorangestellt.",
+  "group.envVarKey": "Variablenname (z. B. ANTHROPIC_DEFAULT_OPUS_MODEL)",
+  "group.envVarValue": "Variablenwert",
+  "group.addEnvVar": "Umgebungsvariable hinzufügen",
+  "group.envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY sind Routing-Felder von aidog und werden beim Speichern verworfen.",
   "group.failover": "Failover",
   "group.groupKey": "Gruppenschlüssel (bei Leer automatisch generiert)",
   "group.groupKeyHint": "Gruppenschlüssel (= API Key / Routing-Identität). Bei Leer automatisch generiert; nach Erstellung gesperrt.",

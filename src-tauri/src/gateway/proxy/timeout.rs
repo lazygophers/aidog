@@ -52,6 +52,7 @@ mod tests {
             source_protocol: "anthropic".into(),
             sort_order: 0, max_retries: 2,
             model_mappings: vec![], is_default: false,
+            env_vars: vec![],
         }
     }
 

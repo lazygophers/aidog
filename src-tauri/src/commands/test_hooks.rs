@@ -73,8 +73,7 @@ async fn claude_code_inject_remove_and_sync() {
         connect_timeout_secs: 0,
         source_protocol: None,
         max_retries: 2,
-        model_mappings: vec![],
-    }).await.unwrap();
+        model_mappings: vec![], env_vars: vec![],    }).await.unwrap();
 
     // 注入 claude_code hooks（基线配置）
     let invoker = gateway::scripts::ScriptInvoker::from_setting(Some("python3"));

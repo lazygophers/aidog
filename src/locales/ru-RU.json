@@ -205,7 +205,13 @@
   "greet.button": "Приветствовать",
   "greet.placeholder": "Введите имя...",
   "group": {
-    "sourceProtocol": "Исходный протокол"
+    "sourceProtocol": "Исходный протокол",
+    "envVars": "Переменные окружения",
+    "envVarsHint": "Переменные окружения уровня группы; при синхронизации добавляются в Claude settings.env, а при копировании команды Codex добавляются как export.",
+    "envVarKey": "Имя переменной (напр. ANTHROPIC_DEFAULT_OPUS_MODEL)",
+    "envVarValue": "Значение",
+    "envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY — поля маршрутизации aidog и будут отброшены при сохранении.",
+    "addEnvVar": "Добавить переменную окружения"
   },
   "group.add": "Добавить группу",
   "group.addMappingFailed": "Не удалось добавить сопоставление",
@@ -230,6 +236,12 @@
   "group.dragToReorder": "Перетащите для сортировки",
   "group.edit": "Изменить",
   "group.empty": "Нет групп",
+  "group.envVars": "Переменные окружения",
+  "group.envVarsHint": "Переменные окружения уровня сессии для этой группы; при синхронизации внедряются в Claude settings.env, а при копировании команды Codex добавляются как export.",
+  "group.envVarKey": "Имя переменной (напр. ANTHROPIC_DEFAULT_OPUS_MODEL)",
+  "group.envVarValue": "Значение переменной",
+  "group.addEnvVar": "Добавить переменную окружения",
+  "group.envVarReservedHint": "ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN / AIDOG_KEY — маршрутизируемые поля aidog и будут отброшены при сохранении.",
   "group.failover": "Отказоустойчивость",
   "group.groupKey": "Ключ группы (авто-генерация, если пусто)",
   "group.groupKeyHint": "Ключ группы (= API Key / идентичность маршрутизации). Авто-генерация при пустом значении; блокируется после создания.",
