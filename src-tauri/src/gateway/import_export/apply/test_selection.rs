@@ -60,6 +60,9 @@ fn payload_with(platforms: &[&str], settings: &[(&str, &str, &str)]) -> Payload 
         claude_code_global: None,
         claude_code_group_settings: Vec::new(),
         skills: Vec::new(),
+        mcp: Vec::new(),
+        middleware: Vec::new(),
+        model_price: Vec::new(),
     }
 }
 

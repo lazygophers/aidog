@@ -59,6 +59,9 @@ fn payload(platforms: Vec<serde_json::Value>) -> Payload {
         claude_code_global: None,
         claude_code_group_settings: Vec::new(),
         skills: Vec::new(),
+        mcp: Vec::new(),
+        middleware: Vec::new(),
+        model_price: Vec::new(),
     }
 }
 

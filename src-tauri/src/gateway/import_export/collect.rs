@@ -27,6 +27,9 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
         claude_code_global: None,
         claude_code_group_settings: Vec::new(),
         skills: Vec::new(),
+        mcp: Vec::new(),
+        middleware: Vec::new(),
+        model_price: Vec::new(),
     };
 
     if scope_set.contains(super::SCOPE_PLATFORM) {
@@ -67,6 +70,33 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
 
     if scope_set.contains(super::SCOPE_SKILLS) {
         payload.skills = super::skills_sync::export_skills();
+    }
+
+    if scope_set.contains(super::SCOPE_MCP) {
+        let rows = crate::gateway::db::list_mcp_servers(db).await?;
+        payload.mcp = rows
+            .into_iter()
+            .map(serde_json::to_value)
+            .collect::<Result<_, _>>()
+            .map_err(|e| format!("serialize mcp: {e}"))?;
+    }
+
+    if scope_set.contains(super::SCOPE_MIDDLEWARE) {
+        let rows = crate::gateway::db::list_middleware_rules(db).await?;
+        payload.middleware = rows
+            .into_iter()
+            .map(serde_json::to_value)
+            .collect::<Result<_, _>>()
+            .map_err(|e| format!("serialize middleware: {e}"))?;
+    }
+
+    if scope_set.contains(super::SCOPE_MODEL_PRICE) {
+        let rows = crate::gateway::db::list_all_model_prices(db).await?;
+        payload.model_price = rows
+            .into_iter()
+            .map(serde_json::to_value)
+            .collect::<Result<_, _>>()
+            .map_err(|e| format!("serialize model_price: {e}"))?;
     }
 
     Ok(payload)

@@ -49,6 +49,9 @@ const ALL_SCOPES: {
   { id: "setting", labelKey: "importExport.scope.setting", defaultLabel: "全局设置", icon: "bolt", descKey: "importExport.scopeDesc.setting", defaultDesc: "主题 / 语言 / 代理 / 通知等" },
   { id: "codex", labelKey: "importExport.scope.codex", defaultLabel: "Codex 设置", icon: "file", descKey: "importExport.scopeDesc.codex", defaultDesc: "Codex 配置" },
   { id: "claude_code", labelKey: "importExport.scope.claudeCode", defaultLabel: "Claude Code 设置", icon: "memory", descKey: "importExport.scopeDesc.claudeCode", defaultDesc: "Claude Code 配置" },
+  { id: "model_price", labelKey: "importExport.scope.modelPrice", defaultLabel: "模型价格", icon: "pricing", descKey: "importExport.scopeDesc.modelPrice", defaultDesc: "自定义模型定价" },
+  { id: "mcp", labelKey: "importExport.scope.mcp", defaultLabel: "MCP 服务器", icon: "mcp", descKey: "importExport.scopeDesc.mcp", defaultDesc: "MCP 服务器配置 + 启用状态" },
+  { id: "middleware", labelKey: "importExport.scope.middleware", defaultLabel: "中间件规则", icon: "rules", descKey: "importExport.scopeDesc.middleware", defaultDesc: "请求/响应中间件规则" },
   { id: "skills", labelKey: "importExport.scope.skills", defaultLabel: "Skills", icon: "plugins", descKey: "importExport.scopeDesc.skills", defaultDesc: "npx 安装 + 启用状态" },
 ];
 
@@ -60,6 +63,61 @@ function scopeLabel(t: TFunction, scope: string): string {
   return t(entry.labelKey, entry.defaultLabel);
 }
 
+// ── IA 菜单分组（按侧栏菜单组织）──
+// 导出/导入条目不再按裸 scope 平铺，而是按菜单组聚合呈现：
+//   - 平台模块合并 platform + group + group_platform 三 scope 为一组
+//   - setting scope 的条目按其 key 前缀（settingScope）二次归类到对应菜单组
+//     （key 形如 `<settingScope>:<settingKey>`，见后端 build_items setting 约定）
+type MenuGroupId = "platform" | "extension" | "rules" | "scheduling" | "uiPref" | "system";
+
+const MENU_GROUPS: { id: MenuGroupId; labelKey: string; defaultLabel: string; icon: string }[] = [
+  { id: "platform", labelKey: "importExport.menuGroup.platform", defaultLabel: "平台", icon: "network" },
+  { id: "extension", labelKey: "importExport.menuGroup.extension", defaultLabel: "扩展", icon: "plugins" },
+  { id: "rules", labelKey: "importExport.menuGroup.rules", defaultLabel: "规则", icon: "rules" },
+  { id: "scheduling", labelKey: "importExport.menuGroup.scheduling", defaultLabel: "调度", icon: "worktree" },
+  { id: "uiPref", labelKey: "importExport.menuGroup.uiPref", defaultLabel: "界面偏好", icon: "bolt" },
+  { id: "system", labelKey: "importExport.menuGroup.system", defaultLabel: "系统", icon: "settings" },
+];
+
+// scope → 菜单组（setting 例外：按 settingScope 子归类，见 SETTING_SCOPE_GROUP）。
+const SCOPE_MENU_GROUP: Record<string, MenuGroupId> = {
+  platform: "platform",
+  group: "platform",
+  group_platform: "platform",
+  skills: "extension",
+  mcp: "extension",
+  middleware: "rules",
+  codex: "system",
+  claude_code: "system",
+  model_price: "system",
+  setting: "system", // 兜底；细分见 SETTING_SCOPE_GROUP
+};
+
+// setting item 的 settingScope（key 前缀）→ 菜单组。未列出走 system（全局设置）。
+const SETTING_SCOPE_GROUP: Record<string, MenuGroupId> = {
+  scheduling: "scheduling",
+  tray: "uiPref",
+  popover: "uiPref",
+  notification: "uiPref",
+};
+
+// 取某 item 的菜单组 id。setting scope 按 key 前缀细分。
+function menuGroupOf(item: ImportItem): MenuGroupId {
+  if (item.scope === "setting") {
+    const settingScope = item.key.split(":")[0];
+    return SETTING_SCOPE_GROUP[settingScope] ?? "system";
+  }
+  return SCOPE_MENU_GROUP[item.scope] ?? "system";
+}
+
+function menuGroupLabel(t: TFunction, id: string): string {
+  const g = MENU_GROUPS.find((x) => x.id === id);
+  if (!g) return id;
+  return t(g.labelKey, g.defaultLabel);
+}
+
+const MENU_GROUP_ICON: Record<string, string> = Object.fromEntries(MENU_GROUPS.map((g) => [g.id, g.icon]));
+
 export function ImportExportTab() {
   const { t } = useTranslation();
   const { reloadFromDB } = useApp();
@@ -68,6 +126,10 @@ export function ImportExportTab() {
   );
   const [exporting, setExporting] = useState(false);
   const [exportMsg, setExportMsg] = useState("");
+  // 导出预览（逐项勾选）：调 export_preview 拉全量条目，用户增删后只导出勾中项。
+  const [exportPreview, setExportPreview] = useState<ImportPreview | null>(null);
+  const [exportSelected, setExportSelected] = useState<Set<string>>(new Set());
+  const [previewing, setPreviewing] = useState(false);
 
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [decisions, setDecisions] = useState<Map<string, ImportDecision>>(new Map());
@@ -82,23 +144,41 @@ export function ImportExportTab() {
   // loadPreview 最新引用，供拖入回调调用（避免 effect 依赖 loadPreview 反复重订阅）。
   const loadPreviewRef = useRef<(p: string) => Promise<void>>(async () => {});
 
-  const toggleScope = (id: ImportExportScope) => {
-    setScopes((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
   const selectAll = () => setScopes(new Set(ALL_SCOPES.map((s) => s.id)));
   const deselectAll = () => setScopes(new Set());
 
-  const handleExport = async () => {
+  // 步骤1：按选中 scope 拉全量条目预览，默认全选（skills 例外，需手动勾选）。
+  const loadExportPreview = async () => {
     setError("");
     setExportMsg("");
     if (scopes.size === 0) {
       setError(t("importExport.error.noScope", "请至少勾选一项导出范围"));
+      return;
+    }
+    setPreviewing(true);
+    try {
+      const prev = await importExportApi.exportPreview(Array.from(scopes));
+      setExportPreview(prev);
+      setExportSelected(
+        new Set(
+          prev.items
+            .filter((it) => it.scope !== "skills")
+            .map((it) => itemKey(it.scope, it.key)),
+        ),
+      );
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setPreviewing(false);
+    }
+  };
+
+  // 步骤2：导出勾选条目。全选时传 null（全量，省 selection payload，走向后兼容路径）。
+  const handleExport = async () => {
+    setError("");
+    setExportMsg("");
+    if (!exportPreview) {
+      await loadExportPreview();
       return;
     }
     try {
@@ -108,13 +188,45 @@ export function ImportExportTab() {
       });
       if (!path) return;
       setExporting(true);
-      await importExportApi.exportToFile(Array.from(scopes), path);
+      const allSelected = exportSelected.size === exportPreview.items.length;
+      const selection: [string, string][] | null = allSelected
+        ? null
+        : exportPreview.items
+            .filter((it) => exportSelected.has(itemKey(it.scope, it.key)))
+            .map((it) => [it.scope, it.key]);
+      await importExportApi.exportToFile(Array.from(scopes), path, selection);
       setExportMsg(t("importExport.exportDone", "导出成功：{{path}}", { path }));
     } catch (e) {
       setError(String(e));
     } finally {
       setExporting(false);
     }
+  };
+
+  // 导出逐项勾选操作（与导入侧对称，复用 itemKey）。
+  const toggleExportItem = (it: ImportItem) => {
+    const k = itemKey(it.scope, it.key);
+    setExportSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(k)) next.delete(k);
+      else next.add(k);
+      return next;
+    });
+  };
+  const setExportGroupItems = (groupItems: ImportItem[], select: boolean) => {
+    setExportSelected((prev) => {
+      const next = new Set(prev);
+      for (const it of groupItems) {
+        const k = itemKey(it.scope, it.key);
+        if (select) next.add(k);
+        else next.delete(k);
+      }
+      return next;
+    });
+  };
+  const setAllExportItems = (select: boolean) => {
+    if (!exportPreview) return;
+    setExportSelected(select ? new Set(exportPreview.items.map((it) => itemKey(it.scope, it.key))) : new Set());
   };
 
   // 读文件 → 预览 → 初始化决策(全 overwrite) + 逐项全选。点击与拖入共享。
@@ -191,13 +303,11 @@ export function ImportExportTab() {
     });
   };
 
-  // scope 级全选 / 反选（select=true 选中本 scope 全部条目，false 取消）。
-  const setScopeItems = (scope: string, select: boolean) => {
-    if (!preview) return;
+  // 组级全选 / 反选（传入该组全部条目 + 方向）。
+  const setGroupItems = (groupItems: ImportItem[], select: boolean) => {
     setSelectedItems((prev) => {
       const next = new Set(prev);
-      for (const it of preview.items) {
-        if (it.scope !== scope) continue;
+      for (const it of groupItems) {
         const k = itemKey(it.scope, it.key);
         if (select) next.add(k);
         else next.delete(k);
@@ -278,6 +388,32 @@ export function ImportExportTab() {
   };
 
   const selectedCount = scopes.size;
+  const exportSelCount = exportSelected.size;
+
+  // 按菜单组聚合 scope 卡片（platform 三 scope 合并为「平台」一张卡）。
+  const scopeCardGroups: { gid: MenuGroupId; scopeIds: ImportExportScope[] }[] = [];
+  for (const s of ALL_SCOPES) {
+    const gid = SCOPE_MENU_GROUP[s.id] ?? "system";
+    let g = scopeCardGroups.find((x) => x.gid === gid);
+    if (!g) {
+      g = { gid, scopeIds: [] };
+      scopeCardGroups.push(g);
+    }
+    g.scopeIds.push(s.id);
+  }
+  // 切换某菜单组的全部 scope（任一未选则全开，否则全关）。
+  const toggleGroupScopes = (scopeIds: ImportExportScope[]) => {
+    setExportPreview(null);
+    setScopes((prev) => {
+      const next = new Set(prev);
+      const allOn = scopeIds.every((id) => next.has(id));
+      for (const id of scopeIds) {
+        if (allOn) next.delete(id);
+        else next.add(id);
+      }
+      return next;
+    });
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24, width: "100%" }}>
@@ -291,8 +427,8 @@ export function ImportExportTab() {
             <span style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)" }}>
               {t("importExport.scopeHeader", "导出范围")}
             </span>
-            <TextButton onClick={selectAll}>{t("importExport.selectAll", "全选")}</TextButton>
-            <TextButton onClick={deselectAll}>{t("importExport.deselectAll", "反选")}</TextButton>
+            <TextButton onClick={() => { selectAll(); setExportPreview(null); }}>{t("importExport.selectAll", "全选")}</TextButton>
+            <TextButton onClick={() => { deselectAll(); setExportPreview(null); }}>{t("importExport.deselectAll", "反选")}</TextButton>
           </div>
           <StatChip
             value={`${selectedCount} / ${ALL_SCOPES.length}`}
@@ -301,29 +437,75 @@ export function ImportExportTab() {
           />
         </div>
 
-        {/* scope 卡片网格 */}
+        {/* scope 卡片网格：按菜单组聚合（平台三 scope 合并为一张卡）。 */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
-          {ALL_SCOPES.map((s) => (
-            <ScopeCard
-              key={s.id}
-              icon={s.icon}
-              label={t(s.labelKey, s.defaultLabel)}
-              desc={t(s.descKey, s.defaultDesc)}
-              selected={scopes.has(s.id)}
-              onToggle={() => toggleScope(s.id)}
-            />
-          ))}
+          {scopeCardGroups.map((g) => {
+            // 单 scope 组沿用该 scope 的 label/desc/icon；多 scope 组用菜单组标题 + 子 scope 列表描述。
+            const multi = g.scopeIds.length > 1;
+            const allOn = g.scopeIds.every((id) => scopes.has(id));
+            const someOn = g.scopeIds.some((id) => scopes.has(id)) && !allOn;
+            if (!multi) {
+              const s = ALL_SCOPES.find((x) => x.id === g.scopeIds[0])!;
+              return (
+                <ScopeCard
+                  key={g.gid}
+                  icon={s.icon}
+                  label={t(s.labelKey, s.defaultLabel)}
+                  desc={t(s.descKey, s.defaultDesc)}
+                  selected={allOn}
+                  onToggle={() => toggleGroupScopes(g.scopeIds)}
+                />
+              );
+            }
+            const subLabels = g.scopeIds.map((id) => scopeLabel(t, id)).join(" · ");
+            return (
+              <ScopeCard
+                key={g.gid}
+                icon={MENU_GROUP_ICON[g.gid] ?? "folder"}
+                label={menuGroupLabel(t, g.gid)}
+                desc={subLabels}
+                selected={allOn}
+                indeterminate={someOn}
+                onToggle={() => toggleGroupScopes(g.scopeIds)}
+              />
+            );
+          })}
         </div>
+
+        {/* 逐项预览：scope 选定后拉全量条目勾选（默认全选，skills 需手动）。 */}
+        {exportPreview && exportPreview.items.length > 0 && (
+          <ItemSelector
+            items={exportPreview.items}
+            selected={exportSelected}
+            onToggle={toggleExportItem}
+            onGroupSet={setExportGroupItems}
+            onAllSet={setAllExportItems}
+            itemKey={itemKey}
+            groupOf={menuGroupOf}
+            groupLabel={(g) => menuGroupLabel(t, g)}
+            groupIcon={(g) => MENU_GROUP_ICON[g] ?? "folder"}
+            t={t}
+          />
+        )}
+        {exportPreview && exportPreview.items.length === 0 && (
+          <div style={{ fontSize: 13, color: "var(--text-tertiary)" }}>
+            {t("importExport.exportEmpty", "所选范围暂无可导出条目")}
+          </div>
+        )}
 
         <button
           onClick={handleExport}
-          disabled={exporting || selectedCount === 0}
+          disabled={exporting || previewing || selectedCount === 0 || (exportPreview !== null && exportSelCount === 0)}
           className="btn btn-primary"
           style={{ alignSelf: "flex-end" }}
         >
           {exporting
             ? t("importExport.exporting", "导出中…")
-            : t("importExport.exportN", "导出 {{n}} 项", { n: selectedCount })}
+            : previewing
+              ? t("importExport.loadingPreview", "加载中…")
+              : !exportPreview
+                ? t("importExport.previewItems", "预览导出项")
+                : t("importExport.exportN", "导出 {{n}} 项", { n: exportSelCount })}
         </button>
 
         {exportMsg && <SuccessPathCard message={exportMsg} />}
@@ -365,10 +547,12 @@ export function ImportExportTab() {
                 items={preview.items}
                 selected={selectedItems}
                 onToggle={toggleItem}
-                onScopeSet={setScopeItems}
+                onGroupSet={setGroupItems}
                 onAllSet={setAllItems}
                 itemKey={itemKey}
-                scopeLabel={(s) => scopeLabel(t, s)}
+                groupOf={menuGroupOf}
+                groupLabel={(g) => menuGroupLabel(t, g)}
+                groupIcon={(g) => MENU_GROUP_ICON[g] ?? "folder"}
                 t={t}
               />
             )}
@@ -484,15 +668,18 @@ function ScopeCard({
   label,
   desc,
   selected,
+  indeterminate,
   onToggle,
 }: {
   icon: string;
   label: string;
   desc: string;
   selected: boolean;
+  indeterminate?: boolean;
   onToggle: () => void;
 }) {
   const [hover, setHover] = useState(false);
+  const on = selected || indeterminate;
   return (
     <div
       className="glass-surface"
@@ -512,8 +699,8 @@ function ScopeCard({
         padding: 14,
         borderRadius: "var(--radius-lg)",
         cursor: "pointer",
-        border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
-        background: selected ? "var(--accent-subtle)" : "transparent",
+        border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
+        background: on ? "var(--accent-subtle)" : "transparent",
         boxShadow: hover ? "var(--shadow-md)" : "var(--shadow-sm)",
         transform: hover ? "translateY(-1px)" : "none",
         transition: "var(--transition)",
@@ -534,15 +721,16 @@ function ScopeCard({
           display: "inline-flex",
           alignItems: "center",
           justifyContent: "center",
-          border: `1px solid ${selected ? "var(--accent)" : "var(--border)"}`,
-          background: selected ? "var(--accent)" : "transparent",
+          border: `1px solid ${on ? "var(--accent)" : "var(--border)"}`,
+          background: on ? "var(--accent)" : "transparent",
           transition: "var(--transition)",
         }}
       >
-        {selected && <IconCheck size={12} color="#fff" strokeWidth={2.5} />}
+        {selected && !indeterminate && <IconCheck size={12} color="#fff" strokeWidth={2.5} />}
+        {indeterminate && <span style={{ width: 8, height: 2, background: "#fff", borderRadius: 1 }} />}
       </span>
 
-      <SectionIcon name={icon} size={20} style={{ color: selected ? "var(--accent)" : "var(--text-secondary)" }} />
+      <SectionIcon name={icon} size={20} style={{ color: on ? "var(--accent)" : "var(--text-secondary)" }} />
       <div style={{ fontSize: 14, fontWeight: 600, color: "var(--text-primary)", paddingRight: 24 }}>{label}</div>
       <div style={{ fontSize: 12, color: "var(--text-tertiary)", lineHeight: 1.4 }}>{desc}</div>
     </div>
@@ -663,32 +851,42 @@ function Chevron({ open }: { open: boolean }) {
   );
 }
 
-/** 逐项勾选器：全局头（全选/反选 + 计数）+ 按 scope 分组可折叠，每组内逐项 checkbox。 */
+/**
+ * 逐项勾选器：全局头（全选/反选 + 计数）+ 按菜单组分组可折叠，每组内逐项 checkbox。
+ * 导出/导入共用。分组逻辑由 groupOf 注入（默认按菜单组聚合，平台三 scope 合并、setting 子归类）。
+ */
 function ItemSelector({
   items,
   selected,
   onToggle,
-  onScopeSet,
+  onGroupSet,
   onAllSet,
   itemKey,
-  scopeLabel,
+  groupOf,
+  groupLabel,
+  groupIcon,
   t,
 }: {
   items: ImportItem[];
   selected: Set<string>;
   onToggle: (it: ImportItem) => void;
-  onScopeSet: (scope: string, select: boolean) => void;
+  /** 组级全选/反选：传入组内全部 items + select 方向。 */
+  onGroupSet: (groupItems: ImportItem[], select: boolean) => void;
   onAllSet: (select: boolean) => void;
   itemKey: (scope: string, key: string) => string;
-  scopeLabel: (s: string) => string;
+  /** item → 分组 id（默认菜单组）。 */
+  groupOf: (it: ImportItem) => string;
+  groupLabel: (groupId: string) => string;
+  groupIcon: (groupId: string) => string;
   t: TFunction;
 }) {
-  // 按 scope 分组（保持出现顺序）。
-  const groups: { scope: string; items: ImportItem[] }[] = [];
+  // 按菜单组分组（保持出现顺序）。
+  const groups: { gid: string; items: ImportItem[] }[] = [];
   for (const it of items) {
-    let g = groups.find((x) => x.scope === it.scope);
+    const gid = groupOf(it);
+    let g = groups.find((x) => x.gid === gid);
     if (!g) {
-      g = { scope: it.scope, items: [] };
+      g = { gid, items: [] };
       groups.push(g);
     }
     g.items.push(it);
@@ -720,13 +918,16 @@ function ItemSelector({
       </div>
 
       {groups.map((g) => {
-        const open = !collapsed.has(g.scope);
+        const open = !collapsed.has(g.gid);
         const gSel = g.items.filter((it) => selected.has(itemKey(it.scope, it.key))).length;
         const allOn = gSel === g.items.length;
         const someOn = gSel > 0 && !allOn;
+        // skills 条目落在「扩展」组；只要本组含 skills 且全未选则提示。
+        const hasSkills = g.items.some((it) => it.scope === "skills");
+        const skillsSel = g.items.filter((it) => it.scope === "skills" && selected.has(itemKey(it.scope, it.key))).length;
         return (
           <div
-            key={g.scope}
+            key={g.gid}
             className="glass-surface"
             style={{ borderRadius: "var(--radius-md)", border: "1px solid var(--border)", overflow: "hidden" }}
           >
@@ -740,22 +941,22 @@ function ItemSelector({
                 cursor: "pointer",
                 background: "var(--bg-glass)",
               }}
-              onClick={() => toggleCollapse(g.scope)}
+              onClick={() => toggleCollapse(g.gid)}
             >
               <Chevron open={open} />
               <span
                 onClick={(e) => {
                   e.stopPropagation();
-                  onScopeSet(g.scope, !allOn);
+                  onGroupSet(g.items, !allOn);
                 }}
                 style={{ display: "inline-flex" }}
               >
                 <CheckBox checked={allOn} indeterminate={someOn} />
               </span>
-              <SectionIcon name={SCOPE_ICON[g.scope] ?? "folder"} size={14} style={{ color: "var(--text-secondary)" }} />
-              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{scopeLabel(g.scope)}</span>
-              {/* F2: skills scope 默认不勾选（防导入误删），显眼提示告知用户需手动勾选 */}
-              {g.scope === "skills" && gSel === 0 && (
+              <SectionIcon name={groupIcon(g.gid)} size={14} style={{ color: "var(--text-secondary)" }} />
+              <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{groupLabel(g.gid)}</span>
+              {/* F2: skills 条目默认不勾选（防导入误删），显眼提示告知用户需手动勾选 */}
+              {hasSkills && skillsSel === 0 && (
                 <span
                   style={{
                     fontSize: 11,
@@ -766,7 +967,7 @@ function ItemSelector({
                     marginLeft: 4,
                   }}
                 >
-                  {t("importExport.skillsScopeHint", "默认不导入，需手动勾选")}
+                  {t("importExport.skillsScopeHint", "Skills 默认不导入，需手动勾选")}
                 </span>
               )}
               <span style={{ fontSize: 12, color: "var(--text-tertiary)", marginLeft: "auto" }}>
@@ -794,6 +995,7 @@ function ItemSelector({
                       }}
                     >
                       <CheckBox checked={on} />
+                      <SectionIcon name={SCOPE_ICON[it.scope] ?? "folder"} size={12} style={{ color: "var(--text-tertiary)", flexShrink: 0 }} />
                       <span style={{ fontSize: 13, color: "var(--text-primary)", wordBreak: "break-all", flex: 1 }}>{it.label}</span>
                       {it.conflict && (
                         <StatChip value={t("importExport.conflictTag", "冲突")} label="" level={"warning" as ColorLevel} />

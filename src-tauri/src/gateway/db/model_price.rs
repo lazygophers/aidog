@@ -64,6 +64,24 @@ pub fn list_model_prices(db: &Db, limit: u32, offset: u32) -> impl std::future::
     }
 }
 
+/// 列出全部模型价格完整行（含 price_data 全量；导出用，无分页）。
+#[track_caller]
+pub fn list_all_model_prices(db: &Db) -> impl std::future::Future<Output = Result<Vec<crate::gateway::models::ModelPrice>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+    db
+        .call_read_traced(None, __db_caller, move |conn| {
+            let mut stmt = conn.prepare(
+                &format!("SELECT {MODEL_PRICE_COLUMNS} FROM model_price WHERE deleted_at = 0 ORDER BY model_name, source")
+            )?;
+            let rows = stmt.query_map([], row_to_model_price)?;
+            Ok(rows.collect::<SqlResult<Vec<_>>>()?)
+        })
+        .await
+        .map_err(|e| e.to_string())
+    }
+}
+
 #[track_caller]
 pub fn count_model_prices(db: &Db) -> impl std::future::Future<Output = Result<u32, String>> + '_ {
     let __db_caller = std::panic::Location::caller();
