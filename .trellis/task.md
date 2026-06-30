@@ -8,8 +8,8 @@
 | 06-30-group-env-vars | 分组配置支持环境变量设置 | 分组维度支持自定义环境变量注入 (sync 强写 ANTHROPIC_BASE_URL/AUTH_TOKEN 保护) | 已完成 | — |
 | platform-last-error-msg | 平台最近错误展示提取error.message | DB 残留旧值 Migration 039 重提 + extract_error_message 已正确 | 已完成 | — |
 | 06-30-export-ux-i18n | 导出 UX + i18n | 去「预览导出项」按钮改 debounce 自动展开 + 条目级展示 + setting label 本地化 (app:theme→主题) | 已完成 | — |
+| 07-01-platform-429-no-autodisable | 429 不触发自动禁用 | 移除 429-配额从 auto_disable 触发条件 (non_success.rs:68) + spec C1/C3 修订 | 已完成 | — |
 | 07-01-test-isolation-fix | 测试隔离治理 | 删真实环境 spawn + HomeGuard 收拢 4→1 + ENV_LOCK 集中 + grep lint 守卫 | 实施中 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-test-isolation-fix |
-| 07-01-platform-429-no-autodisable | 429 不触发自动禁用 | 移除 429-配额从 auto_disable 触发条件 (non_success.rs:67) + spec C1 修订 | 实施中 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-platform-429-no-autodisable |
 
 ## Worktree ↔ Task 映射
 
@@ -19,4 +19,3 @@
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-test-isolation-fix | 07-01-test-isolation-fix | trellisx-start |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-platform-429-no-autodisable | 07-01-platform-429-no-autodisable | trellisx-start |
