@@ -10,6 +10,7 @@ import {
   getDefaultModels, computeManualBudgetDisplay, computeQuotaDisplay,
   allModelValues, tierLabel, formatResetCountdown, healthStatus,
 } from "../../pages/Platforms";
+import type { HealthStatus } from "../../pages/Platforms";
 
 // ── Props types ──
 
@@ -113,9 +114,21 @@ export const PlatformCard = memo(function PlatformCard({
   const total = u ? u.total_input_tokens + u.total_output_tokens : 0;
   const sr = u && u.total_requests > 0 ? (u.success_count / u.total_requests * 100) : 0;
   const hasDetail = !!u || usagePending || (p.endpoints && p.endpoints.length > 0) || configuredModels.length > 0 || quota.tiers.length > 0;
-  const health = manual
-    ? (manual === "ok" ? "healthy" : "error")
-    : u ? healthStatus(u.recent_total, u.recent_failures) : "unknown";
+  // 健康点派生（R4，纯前端，不加后端字段）：优先按 status + last_error 综合最近健康——
+  //   红 = key 失效（auto_disabled 且 last_error 为 401/403）；
+  //   黄 = 有 last_error 但可恢复（402/429/5xx/连接失败等）；
+  //   绿 = enabled 且无 last_error。其余（手动 disabled 无 error、mock）回退 manual/成功率派生。
+  const keyInvalid = p.status === "auto_disabled"
+    && (p.last_error?.startsWith("HTTP 401") || p.last_error?.startsWith("HTTP 403"));
+  const health: HealthStatus = keyInvalid
+    ? "error"
+    : p.last_error
+      ? "warning"
+      : p.status === "enabled"
+        ? "healthy"
+        : manual
+          ? (manual === "ok" ? "healthy" : "error")
+          : u ? healthStatus(u.recent_total, u.recent_failures) : "unknown";
   const logoSvg = getPlatformLogo(p.platform_type);
   const favicon = !logoSvg && !faviconHasFailed ? getFaviconUrl(p) : null;
   const getBaseUrl = (proto: Protocol, eps: Platform["endpoints"]): string => {
@@ -174,15 +187,22 @@ export const PlatformCard = memo(function PlatformCard({
                       : p.platform_type.slice(0, 2).toUpperCase()
                   }
                 </div>
-                {/* 健康点常驻：真实请求成功率驱动（healthy 绿 / error 红 / warning 橙），
-                    无请求且未测试 → unknown 灰色中性点（脱离「必须先手动测试」前提）。 */}
-                <div style={{
-                  position: "absolute", top: -3, right: -3,
-                  width: 10, height: 10, borderRadius: "50%",
-                  background: HEALTH_COLORS[health],
-                  border: "2px solid var(--bg-primary)",
-                  boxShadow: `0 0 4px ${HEALTH_COLORS[health]}60`,
-                }} />
+                {/* 健康点常驻（R4）：status + last_error 派生（红=key 失效 / 黄=可恢复 / 绿=正常），
+                    无 last_error 时回退成功率/manual；title 复用 lastError 提示文案。 */}
+                <div
+                  style={{
+                    position: "absolute", top: -3, right: -3,
+                    width: 10, height: 10, borderRadius: "50%",
+                    background: HEALTH_COLORS[health],
+                    border: "2px solid var(--bg-primary)",
+                    boxShadow: `0 0 4px ${HEALTH_COLORS[health]}60`,
+                  }}
+                  title={p.last_error
+                    ? t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}")
+                        .replace("{{time}}", (p.last_error_at ?? 0) > 0 ? new Date(p.last_error_at as number).toLocaleString() : "")
+                        .replace("{{error}}", p.last_error)
+                    : undefined}
+                />
               </div>
               {/* 名称 + 协议·base_url */}
               <div style={{ minWidth: 0, flex: 1 }}>
