@@ -101,6 +101,41 @@ const SETTING_SCOPE_GROUP: Record<string, MenuGroupId> = {
   notification: "uiPref",
 };
 
+// setting item 的 `<scope>:<key>` → i18n label key。
+// 后端 build_items 对 setting scope 存裸 key（`app:theme` 等稳定标识），前端展示层做本地化映射；
+// 未命中（新增/未知 setting key）→ 回退裸 key（不崩不空）。
+// 全集来源：grep src-tauri set_setting/get_setting 各 (scope,key) 调用点。
+const SETTING_KEY_LABEL: Record<string, string> = {
+  "app:theme": "importExport.settingLabel.app_theme",
+  "app:locale": "importExport.settingLabel.app_locale",
+  "app:logging": "importExport.settingLabel.app_logging",
+  "app:script_executor": "importExport.settingLabel.app_script_executor",
+  "proxy:settings": "importExport.settingLabel.proxy_settings",
+  "proxy:proxy_client": "importExport.settingLabel.proxy_client",
+  "proxy:timeout": "importExport.settingLabel.proxy_timeout",
+  "proxy:logging": "importExport.settingLabel.proxy_logging",
+  "notification:settings": "importExport.settingLabel.notification_settings",
+  "middleware:settings": "importExport.settingLabel.middleware_settings",
+  "scheduling:settings": "importExport.settingLabel.scheduling_settings",
+  "stats:settings": "importExport.settingLabel.stats_settings",
+  "stats:agg_rebuild_v1": "importExport.settingLabel.stats_agg_rebuild_v1",
+  "stats:agg_count_tokens_excluded_v1": "importExport.settingLabel.stats_agg_count_tokens_excluded_v1",
+  "pricing:sync": "importExport.settingLabel.pricing_sync",
+  "tray:config": "importExport.settingLabel.tray_config",
+  "popover:config": "importExport.settingLabel.popover_config",
+  "global:claude_code": "importExport.settingLabel.global_claude_code",
+  "global:coding_tools_settings": "importExport.settingLabel.global_coding_tools_settings",
+  "backup:settings": "importExport.settingLabel.backup_settings",
+  // ponytail: 内部迁移标记，迁移完成后必落库（db/maintenance.rs），导出高频可见，故补 label 而非裸 key 兜底。
+  "db:compact_migrated_v1": "importExport.settingLabel.db_compact_migrated_v1",
+};
+
+// 取某 setting item 的本地化 label；非 setting scope 或未命中 → 返回 null（调用方回退原 label）。
+function settingLabelKey(item: ImportItem): string | null {
+  if (item.scope !== "setting") return null;
+  return SETTING_KEY_LABEL[item.key] ?? null;
+}
+
 // 取某 item 的菜单组 id。setting scope 按 key 前缀细分。
 function menuGroupOf(item: ImportItem): MenuGroupId {
   if (item.scope === "setting") {
@@ -147,17 +182,19 @@ export function ImportExportTab() {
   const selectAll = () => setScopes(new Set(ALL_SCOPES.map((s) => s.id)));
   const deselectAll = () => setScopes(new Set());
 
-  // 步骤1：按选中 scope 拉全量条目预览，默认全选（skills 例外，需手动勾选）。
-  const loadExportPreview = async () => {
-    setError("");
-    setExportMsg("");
-    if (scopes.size === 0) {
-      setError(t("importExport.error.noScope", "请至少勾选一项导出范围"));
+  // 步骤1：勾 scope 后 debounce(~300ms) 自动拉全量条目预览，默认全选（skills 例外，需手动勾选）。
+  // 取代旧的「预览导出项」按钮 — 勾选即展开条目，连续勾多个 scope 只拉一次（防抖）。
+  const loadExportPreview = async (scopeList: ImportExportScope[]) => {
+    if (scopeList.length === 0) {
+      setExportPreview(null);
+      setExportSelected(new Set());
       return;
     }
     setPreviewing(true);
+    setError("");
+    setExportMsg("");
     try {
-      const prev = await importExportApi.exportPreview(Array.from(scopes));
+      const prev = await importExportApi.exportPreview(scopeList);
       setExportPreview(prev);
       setExportSelected(
         new Set(
@@ -168,19 +205,34 @@ export function ImportExportTab() {
       );
     } catch (e) {
       setError(String(e));
+      setExportPreview(null);
     } finally {
       setPreviewing(false);
     }
   };
 
+  // scopes 变化 → debounce 自动拉预览。依赖 scope 集合的规范化字符串，任何增/删/换都触发。
+  const scopesSig = ALL_SCOPES.map((s) => (scopes.has(s.id) ? "1" : "0")).join("");
+  useEffect(() => {
+    if (scopes.size === 0) {
+      setExportPreview(null);
+      setExportSelected(new Set());
+      return;
+    }
+    const snapshot = Array.from(scopes) as ImportExportScope[];
+    const handle = window.setTimeout(() => {
+      void loadExportPreview(snapshot);
+    }, 300);
+    return () => window.clearTimeout(handle);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopesSig]);
+
   // 步骤2：导出勾选条目。全选时传 null（全量，省 selection payload，走向后兼容路径）。
+  // 条目预览由 scopes 变化的 debounce effect 自动拉取，此处不再兜底触发。
   const handleExport = async () => {
     setError("");
     setExportMsg("");
-    if (!exportPreview) {
-      await loadExportPreview();
-      return;
-    }
+    if (!exportPreview) return;
     try {
       const path = await save({
         defaultPath: `aidog-export-${new Date().toISOString().slice(0, 10)}.aidogx`,
@@ -472,8 +524,24 @@ export function ImportExportTab() {
           })}
         </div>
 
-        {/* 逐项预览：scope 选定后拉全量条目勾选（默认全选，skills 需手动）。 */}
-        {exportPreview && exportPreview.items.length > 0 && (
+        {/* 逐项预览：scope 选定后 debounce 自动拉全量条目勾选（默认全选，skills 需手动）。 */}
+        {previewing && (
+          <div style={{ fontSize: 13, color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 8 }}>
+            <span
+              style={{
+                width: 12,
+                height: 12,
+                borderRadius: "50%",
+                border: "2px solid var(--border)",
+                borderTopColor: "var(--accent)",
+                animation: "spin 0.9s linear infinite",
+                display: "inline-block",
+              }}
+            />
+            {t("importExport.loadingPreview", "加载中…")}
+          </div>
+        )}
+        {!previewing && exportPreview && exportPreview.items.length > 0 && (
           <ItemSelector
             items={exportPreview.items}
             selected={exportSelected}
@@ -487,7 +555,7 @@ export function ImportExportTab() {
             t={t}
           />
         )}
-        {exportPreview && exportPreview.items.length === 0 && (
+        {!previewing && exportPreview && exportPreview.items.length === 0 && (
           <div style={{ fontSize: 13, color: "var(--text-tertiary)" }}>
             {t("importExport.exportEmpty", "所选范围暂无可导出条目")}
           </div>
@@ -495,7 +563,7 @@ export function ImportExportTab() {
 
         <button
           onClick={handleExport}
-          disabled={exporting || previewing || selectedCount === 0 || (exportPreview !== null && exportSelCount === 0)}
+          disabled={exporting || previewing || selectedCount === 0 || (exportPreview !== null && exportSelCount === 0) || (exportPreview === null && scopes.size > 0)}
           className="btn btn-primary"
           style={{ alignSelf: "flex-end" }}
         >
@@ -503,9 +571,9 @@ export function ImportExportTab() {
             ? t("importExport.exporting", "导出中…")
             : previewing
               ? t("importExport.loadingPreview", "加载中…")
-              : !exportPreview
-                ? t("importExport.previewItems", "预览导出项")
-                : t("importExport.exportN", "导出 {{n}} 项", { n: exportSelCount })}
+              : exportPreview
+                ? t("importExport.exportN", "导出 {{n}} 项", { n: exportSelCount })
+                : t("importExport.exportBtn", "导出")}
         </button>
 
         {exportMsg && <SuccessPathCard message={exportMsg} />}
@@ -980,6 +1048,10 @@ function ItemSelector({
                 {g.items.map((it) => {
                   const k = itemKey(it.scope, it.key);
                   const on = selected.has(k);
+                  // setting scope 的 label 后端存裸 key（`app:theme` 等稳定标识），前端按 (scope:key) 映射本地化；
+                  // 未命中映射（新增/未知 setting key）→ 回退裸 key（不崩不空）。
+                  const settingLk = settingLabelKey(it);
+                  const displayLabel = settingLk ? t(settingLk, it.label) : it.label;
                   return (
                     <div
                       key={k}
@@ -996,7 +1068,7 @@ function ItemSelector({
                     >
                       <CheckBox checked={on} />
                       <SectionIcon name={SCOPE_ICON[it.scope] ?? "folder"} size={12} style={{ color: "var(--text-tertiary)", flexShrink: 0 }} />
-                      <span style={{ fontSize: 13, color: "var(--text-primary)", wordBreak: "break-all", flex: 1 }}>{it.label}</span>
+                      <span style={{ fontSize: 13, color: "var(--text-primary)", wordBreak: "break-all", flex: 1 }}>{displayLabel}</span>
                       {it.conflict && (
                         <StatChip value={t("importExport.conflictTag", "冲突")} label="" level={"warning" as ColorLevel} />
                       )}
