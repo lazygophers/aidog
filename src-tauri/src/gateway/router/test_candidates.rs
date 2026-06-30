@@ -54,8 +54,7 @@ async fn mk_db_group_mode(db: &db::Db, name: &str, platform_ids: &[u64], mode: R
         auto_from_platform: String::new(),
         request_timeout_secs: 0, connect_timeout_secs: 0,
         source_protocol: Some("anthropic".into()),
-        max_retries: 2, model_mappings: vec![],
-    }).await.expect("create group");
+        max_retries: 2, model_mappings: vec![], env_vars: vec![],    }).await.expect("create group");
     let inputs: Vec<GroupPlatformInput> = platform_ids.iter().enumerate()
         .map(|(i, &pid)| GroupPlatformInput { platform_id: pid, priority: Some(i as i32), weight: Some(1), level_priority: None })
         .collect();
@@ -215,6 +214,7 @@ async fn model_mapping_prioritizes_target_platform() {
             request_timeout_secs: 0,
             connect_timeout_secs: 0,
         }],
+        env_vars: vec![],
     }).await.expect("create group");
     let inputs = vec![
         GroupPlatformInput { platform_id: p1.id, priority: Some(0), weight: Some(1), level_priority: None },
@@ -322,8 +322,7 @@ async fn failover_prefers_coding_plan_over_priority() {
         name: "mix-fo".into(), group_key: Some("mix-fo".into()),
         routing_mode: RoutingMode::Failover, auto_from_platform: String::new(),
         request_timeout_secs: 0, connect_timeout_secs: 0,
-        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![],
-    }).await.expect("create group");
+        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![], env_vars: vec![],    }).await.expect("create group");
     // 非 cp 给更优 priority(0)，cp 给较差 priority(1) —— 验证 coding plan 偏好覆盖 priority。
     let inputs = vec![
         GroupPlatformInput { platform_id: non.id, priority: Some(0), weight: Some(1), level_priority: None },
@@ -351,8 +350,7 @@ async fn failover_intra_coding_plan_bucket_keeps_priority() {
         name: "cp-bucket".into(), group_key: Some("cp-bucket".into()),
         routing_mode: RoutingMode::Failover, auto_from_platform: String::new(),
         request_timeout_secs: 0, connect_timeout_secs: 0,
-        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![],
-    }).await.expect("create group");
+        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![], env_vars: vec![],    }).await.expect("create group");
     // cp_b priority 更优(0) → 应排 cp_a(1) 之前（桶内 priority 升序）
     let inputs = vec![
         GroupPlatformInput { platform_id: cp_a.id, priority: Some(1), weight: Some(1), level_priority: None },
@@ -379,8 +377,7 @@ async fn load_balance_coding_plan_bucket_first() {
         name: "lb-mix".into(), group_key: Some("lb-mix".into()),
         routing_mode: RoutingMode::LoadBalance, auto_from_platform: String::new(),
         request_timeout_secs: 0, connect_timeout_secs: 0,
-        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![],
-    }).await.expect("create group");
+        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![], env_vars: vec![],    }).await.expect("create group");
     // 给非 cp 更大 weight（加权随机更可能选它）—— 验证 coding plan 桶仍整体在前。
     let inputs = vec![
         GroupPlatformInput { platform_id: non.id, priority: Some(0), weight: Some(100), level_priority: None },
@@ -441,6 +438,7 @@ async fn explicit_mapping_overrides_coding_plan_preference() {
             target_platform_id: non.id,
             request_timeout_secs: 0, connect_timeout_secs: 0,
         }],
+        env_vars: vec![],
     }).await.expect("create group");
     let inputs = vec![
         GroupPlatformInput { platform_id: non.id, priority: Some(0), weight: Some(1), level_priority: None },
@@ -487,8 +485,7 @@ async fn failover_prefers_earliest_expiry_within_same_priority() {
         name: "exp-group".into(), group_key: Some("exp-group".into()),
         routing_mode: RoutingMode::Failover, auto_from_platform: String::new(),
         request_timeout_secs: 0, connect_timeout_secs: 0,
-        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![],
-    }).await.expect("create group");
+        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![], env_vars: vec![],    }).await.expect("create group");
     let inputs = vec![
         GroupPlatformInput { platform_id: p_forever.id, priority: Some(0), weight: Some(1), level_priority: None },
         GroupPlatformInput { platform_id: p_far.id, priority: Some(0), weight: Some(1), level_priority: None },
@@ -520,8 +517,7 @@ async fn failover_priority_dominates_over_expiry_in_db() {
         name: "prio-dom".into(), group_key: Some("prio-dom".into()),
         routing_mode: RoutingMode::Failover, auto_from_platform: String::new(),
         request_timeout_secs: 0, connect_timeout_secs: 0,
-        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![],
-    }).await.expect("create group");
+        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![], env_vars: vec![],    }).await.expect("create group");
     // p_noexp priority=0（更优）、p_expiring priority=1（较差）
     let inputs = vec![
         GroupPlatformInput { platform_id: p_noexp.id, priority: Some(0), weight: Some(1), level_priority: None },
@@ -574,8 +570,7 @@ async fn least_latency_prefers_earliest_expiry_within_same_ema() {
         name: "ll-exp".into(), group_key: Some("ll-exp".into()),
         routing_mode: RoutingMode::LeastLatency, auto_from_platform: String::new(),
         request_timeout_secs: 0, connect_timeout_secs: 0,
-        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![],
-    }).await.expect("create group");
+        source_protocol: Some("anthropic".into()), max_retries: 2, model_mappings: vec![], env_vars: vec![],    }).await.expect("create group");
     let inputs = vec![
         GroupPlatformInput { platform_id: p_forever.id, priority: Some(0), weight: Some(1), level_priority: None },
         GroupPlatformInput { platform_id: p_far.id, priority: Some(0), weight: Some(1), level_priority: None },

@@ -47,8 +47,7 @@ async fn mk_group(
             connect_timeout_secs: 0,
             source_protocol: Some("anthropic".into()),
             max_retries: 2,
-            model_mappings: mappings,
-        },
+            model_mappings: mappings, env_vars: vec![],        },
     )
     .await
     .expect("create group");

@@ -346,6 +346,15 @@ ALTER TABLE "group_new" RENAME TO "group";
                     "ALTER TABLE platform ADD COLUMN last_error_at INTEGER NOT NULL DEFAULT 0",
                     [],
                 );
+
+                // Migration 038: group 自定义环境变量（内联 JSON 数组，仿 model_mappings）。
+                // sync 时注入 settings.{group}.json 的 env block（ANTHROPIC_BASE_URL /
+                // ANTHROPIC_AUTH_TOKEN 由 aidog 强写，用户同名 key 在 sync_settings 过滤丢弃）。
+                // 幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column；老行回填 '[]'。
+                let _ = conn.execute(
+                    "ALTER TABLE \"group\" ADD COLUMN env_vars TEXT NOT NULL DEFAULT '[]'",
+                    [],
+                );
     Ok(())
 }
 

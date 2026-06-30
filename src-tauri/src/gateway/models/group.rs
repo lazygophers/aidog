@@ -35,6 +35,10 @@ pub struct Group {
     /// 模型映射（内联 JSON 数组）
     #[serde(default)]
     pub model_mappings: Vec<ModelMapping>,
+    /// 用户自定义环境变量（内联 JSON 数组）。sync 时注入 settings.{group}.json 的 env block，
+    /// 但同名 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN 被跳过（aidog 强写的 proxy 路由字段）。
+    #[serde(default)]
+    pub env_vars: Vec<EnvVar>,
     /// 是否为默认分组（单选）：true 时该组 config merge 写入
     /// `~/.claude/settings.json` + `~/.codex/config.toml`，使用户直接 `claude`/`codex`
     /// 不带 `-c`/`--profile` 即走此组。全局文件用 deep merge 保护用户其它字段。
@@ -64,6 +68,8 @@ pub struct CreateGroup {
     pub max_retries: u32,
     #[serde(default)]
     pub model_mappings: Vec<ModelMapping>,
+    #[serde(default)]
+    pub env_vars: Vec<EnvVar>,
 }
 
 fn default_source_protocol_opt() -> Option<String> { Some("anthropic".to_string()) }
@@ -84,6 +90,8 @@ pub struct UpdateGroup {
     pub max_retries: Option<u32>,
     #[serde(default)]
     pub model_mappings: Vec<ModelMapping>,
+    #[serde(default)]
+    pub env_vars: Vec<EnvVar>,
     /// 默认分组标记：本字段不参与 update_group UPDATE（默认组经 group_set_default
     /// command + db::set_default_group 单选切换）。这里保留仅为统一 struct 形态，
     /// update_group 返回的 `..existing` 透传原值，不丢失。
@@ -155,6 +163,13 @@ pub struct ModelMapping {
     pub request_timeout_secs: u64,
     #[serde(default)]
     pub connect_timeout_secs: u64,
+}
+
+/// 内联于 group.env_vars JSON 数组的元素（用户自定义环境变量）
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct EnvVar {
+    pub key: String,
+    pub value: String,
 }
 
 #[cfg(test)]
