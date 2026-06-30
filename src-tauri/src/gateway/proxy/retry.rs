@@ -83,9 +83,11 @@ pub(crate) fn extract_error_message(body: &str) -> Option<String> {
     }
 }
 
-/// 区分 429：配额耗尽（true，需 auto_disabled）vs 限流 transient（false，仅熔断+failover）。
+/// 区分 429：配额耗尽（true）vs 限流 transient（false）。仅用于熔断分类（C3）：
+/// 配额耗尽不计熔断（record_ignored），限流计熔断（record_failure）。
+/// 429 不再触发 auto_disable（无论配额还是限流），统一走 failover 换下个候选。
 /// 只看 message 文本，禁按 error.type（MiniMax 配额耗尽 type 也是 rate_limit_error）。
-/// 无 marker 命中默认 false（保守不禁用，避免误杀）。
+/// 无 marker 命中默认 false（保守按限流，避免误判配额）。
 pub(crate) fn classify_429(message: &str) -> bool {
     const QUOTA_MARKERS: [&str; 6] = [
         "quota exhausted",
