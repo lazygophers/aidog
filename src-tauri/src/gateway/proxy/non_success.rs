@@ -49,26 +49,27 @@ pub(crate) async fn handle_non_success(
         ).await;
 
         // ── 429 分类（只看 message 文本，禁按 error.type）：配额耗尽 vs 限流 transient ──
-        //   配额耗尽 → 同 402，auto_disabled + 不计熔断；限流 → 维持现状，record_failure + failover。
+        //   分类用于熔断计数（见下），不再触发 auto_disable：429 统一走 failover 换下个候选。
         let is_429_quota_exhausted = code == 429
             && classify_429(extracted_msg.as_deref().unwrap_or(&body));
 
         // ── 熔断计数：5xx 或 429-限流 计一次失败；401/403/402/429-配额/其他客户端 4xx 不计熔断（仅 inflight-1）。
-        //   熔断与 auto_disabled 解耦：走 auto_disabled 的（401/403/402/429-配额）不参与熔断。──
+        //   熔断与 auto_disabled 解耦：走 auto_disabled 的（401/403/402）不参与熔断。──
         if code >= 500 || (code == 429 && !is_429_quota_exhausted) {
             state.scheduler.record_failure(route.platform.id, breaker_th, super::db::now());
         } else {
             state.scheduler.record_ignored(route.platform.id);
         }
 
-        // ── 自动禁用（指数退避，换下个候选）：401/403 鉴权失败、402 余额不足、429 配额耗尽 ──
-        //   401/403/402 单次即禁用；429 仅配额耗尽类（按 message 分类）禁用，限流类不禁用。
-        //   其它状态码（含 404/405/429-限流）不自动禁用，仅按决策 A 走 failover 重试。
-        if code == 401 || code == 403 || code == 402 || is_429_quota_exhausted {
+        // ── 自动禁用（指数退避，换下个候选）：仅 401/403 鉴权失败、402 余额不足 ──
+        //   401/403/402 单次即禁用；429（无论配额耗尽还是限流）不再触发 auto_disable，
+        //   统一按决策 A 走 failover 换下个候选。熔断仍按 classify_429 区分配额/限流（见上）。
+        //   其它状态码（含 404/405/429）不自动禁用，仅按决策 A 走 failover 重试。
+        if code == 401 || code == 403 || code == 402 {
             match super::db::set_platform_auto_disabled(&state.db, route.platform.id).await {
                 Ok(until) if until > 0 => tracing::warn!(
                     platform = %route.platform.name, platform_id = route.platform.id, status = code,
-                    auto_disabled_until = until, "platform auto-disabled (auth/quota)"
+                    auto_disabled_until = until, "platform auto-disabled (auth/balance)"
                 ),
                 Ok(_) => {} // 用户手动 disabled，不动
                 Err(e) => tracing::error!(platform_id = route.platform.id, error = %e, "auto-disable platform failed"),
