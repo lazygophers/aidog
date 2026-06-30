@@ -8,6 +8,7 @@
 | 06-30-group-env-vars | 分组配置支持环境变量设置 | 分组维度支持自定义环境变量注入 (sync 强写 ANTHROPIC_BASE_URL/AUTH_TOKEN 保护) | 已完成 | — |
 | platform-last-error-msg | 平台最近错误展示提取error.message | DB 残留旧值 Migration 039 重提 + extract_error_message 已正确 | 已完成 | — |
 | 06-30-export-ux-i18n | 导出 UX + i18n | 去「预览导出项」按钮改 debounce 自动展开 + 条目级展示 + setting label 本地化 (app:theme→主题) | 已完成 | — |
+| 07-01-test-isolation-fix | 测试隔离治理 | 删真实环境 spawn + HomeGuard 收拢 4→1 + ENV_LOCK 集中 + grep lint 守卫 | 实施中 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-test-isolation-fix |
 
 ## Worktree ↔ Task 映射
 
@@ -16,6 +17,4 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
-| _(无活跃 worktree)_ | — | — |
-| test-isolation-fix | 测试隔离治理 — 删真实环境 spawn + ENV_LOCK 集中 + lint 守卫 | — | 实施中 | — |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-test-isolation-fix | 07-01-test-isolation-fix | trellisx-start |
