@@ -298,6 +298,9 @@ pub(crate) async fn forward_attempt(
                 duration_ms: attempt_start.elapsed().as_millis() as i64,
                 ts: attempt_ts,
             });
+            let _ = super::db::set_platform_last_error(
+                &state.db, route.platform.id, Some(format!("upstream error: {e}")),
+            ).await;
             if !is_last_candidate {
                 return AttemptOutcome::Next;
             }
@@ -370,6 +373,9 @@ pub(crate) async fn forward_attempt(
                 duration_ms: attempt_latency_ms,
                 ts: attempt_ts,
             });
+            let _ = super::db::set_platform_last_error(
+                &state.db, route.platform.id, Some(format!("HTTP 200: {}", $reason)),
+            ).await;
             if !is_last_candidate {
                 return AttemptOutcome::Next;
             }
@@ -395,6 +401,10 @@ pub(crate) async fn forward_attempt(
             // 熔断指标：成功 → 更新延迟 EMA + breaker Closed/HalfOpen→Closed + inflight-1。
             // 注意流式此处为「首个有效内容」延迟（peek 已收到内容）；作为延迟近似用于 LeastLatency。
             state.scheduler.record_success(route.platform.id, attempt_latency_ms);
+            // 最近一次成功 → 清本平台 last_error。仅在原有 last_error 非空时写，避免成功热路径空写。
+            if !route.platform.last_error.is_empty() {
+                let _ = super::db::set_platform_last_error(&state.db, route.platform.id, None).await;
+            }
             attempts.push(ProxyAttempt {
                 platform_id: route.platform.id,
                 platform_name: route.platform.name.clone(),

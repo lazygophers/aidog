@@ -690,6 +690,8 @@
   "platform.apiKeyOptional": "API Key（可选，透传可留空）",
   "platform.autoDisabled": "自动禁用",
   "platform.autoDisabledHint": "401/403 自动禁用，下次试探时间 {{time}}",
+  "platform.lastError": "最近错误",
+  "platform.lastErrorHint": "最近一次失败 · {{time}}\n{{error}}",
   "platform.breakerDesc": "连续失败达阈值后临时摘除该平台，冷却后半开探测恢复。留空 = 继承系统设置的全局默认值。",
   "platform.breakerFailureThreshold": "失败阈值",
   "platform.breakerHalfOpenMax": "半开探测数",

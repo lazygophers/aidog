@@ -27,14 +27,21 @@ pub(crate) async fn handle_non_success(
             duration_ms, "upstream returned non-success status"
         );
         tracing::debug!(url = %url, status = code, body = %super::log_util::log_body_preview(&body), "upstream error response body");
+        let attempt_err = truncate_attempt_error(&body);
         attempts.push(ProxyAttempt {
             platform_id: route.platform.id,
             platform_name: route.platform.name.clone(),
             status_code: code as i32,
-            error: truncate_attempt_error(&body),
+            error: attempt_err.clone(),
             duration_ms: attempt_start.elapsed().as_millis() as i64,
             ts: attempt_ts,
         });
+
+        // 记本平台最近一次错误（卡片展示，非请求记录实时取）。本平台失败即覆盖，
+        // 其自身下次成功时清空（commit_2xx）。换候选成功不清失败平台的 last_error。
+        let _ = super::db::set_platform_last_error(
+            &state.db, route.platform.id, Some(format!("HTTP {code}: {attempt_err}")),
+        ).await;
 
         // ── 熔断计数：5xx 或 429 计一次失败；401/403/其他客户端 4xx 不计熔断（仅 inflight-1）。
         //   熔断与 auto_disabled 解耦：401/403 走下方 auto_disabled，不参与熔断。──

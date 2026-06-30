@@ -712,6 +712,8 @@
   "platform.apiKeyOptional": "API Key（任意、パススルーの場合は空欄）",
   "platform.autoDisabled": "自動無効",
   "platform.autoDisabledHint": "401/403 で自動無効化、次回試行 {{time}}",
+  "platform.lastError": "最新エラー",
+  "platform.lastErrorHint": "直近の失敗 · {{time}}\n{{error}}",
   "platform.breakerDesc": "連続失敗がしきい値に達するとこのプラットフォームを一時的に除外し、クールダウン後にハーフオープン探索で復帰します。空欄にするとシステム設定のグローバル既定値を継承します。",
   "platform.breakerFailureThreshold": "失敗しきい値",
   "platform.breakerHalfOpenMax": "ハーフオープン探索数",
