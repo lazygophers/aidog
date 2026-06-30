@@ -348,7 +348,8 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                     }}
                   >
                     <div style={{ fontSize: 11, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 6 }}>
-                      {trendBuckets[hoveredBucket].time_bucket.slice(-5)}
+                      {/* hourly 桶 time_bucket = "YYYY-MM-DD HH:00:00"；取 "HH:00"（slice(-5) 会取成秒位 "00:00"）。 */}
+                      {trendBuckets[hoveredBucket].time_bucket.slice(11, 16)}
                     </div>
                     {/* 请求数 + 变化 */}
                     <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 4 }}>
@@ -411,7 +412,7 @@ export function Home({ onNavigate }: { onNavigate: (id: string) => void }) {
                           whiteSpace: "nowrap",
                         }}
                       >
-                        {b.time_bucket.slice(-5).slice(0, 2)}
+                        {b.time_bucket.slice(11, 13)}
                       </span>
                     ) : null
                   )}
