@@ -66,6 +66,39 @@ pub(crate) fn resp_headers_to_log_json(headers: &[(axum::http::HeaderName, axum:
     Value::Object(h).to_string()
 }
 
+/// 从上游错误体提取人类可读 message，优先嵌套 `error.message`，回退顶层 `message`。
+/// 非 JSON / 无字段 / 空白 → None（调用方回退 truncate_attempt_error）。
+pub(crate) fn extract_error_message(body: &str) -> Option<String> {
+    let v: Value = serde_json::from_str(body).ok()?;
+    let msg = v
+        .get("error")
+        .and_then(|e| e.get("message"))
+        .and_then(|m| m.as_str())
+        .or_else(|| v.get("message").and_then(|m| m.as_str()))?;
+    let msg = msg.trim();
+    if msg.is_empty() {
+        None
+    } else {
+        Some(msg.to_string())
+    }
+}
+
+/// 区分 429：配额耗尽（true，需 auto_disabled）vs 限流 transient（false，仅熔断+failover）。
+/// 只看 message 文本，禁按 error.type（MiniMax 配额耗尽 type 也是 rate_limit_error）。
+/// 无 marker 命中默认 false（保守不禁用，避免误杀）。
+pub(crate) fn classify_429(message: &str) -> bool {
+    const QUOTA_MARKERS: [&str; 6] = [
+        "quota exhausted",
+        "用量上限",
+        "token plan",
+        "insufficient",
+        "余额",
+        "积分",
+    ];
+    let lower = message.to_lowercase();
+    QUOTA_MARKERS.iter().any(|m| lower.contains(m))
+}
+
 /// 截断 attempt error 字段（上游错误体可能很大，attempts JSON 列只存摘要）
 pub(crate) fn truncate_attempt_error(body: &str) -> String {
     const MAX: usize = 500;

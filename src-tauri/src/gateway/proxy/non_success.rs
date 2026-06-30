@@ -37,28 +37,38 @@ pub(crate) async fn handle_non_success(
             ts: attempt_ts,
         });
 
+        // 错误体提取人类可读 message（嵌套 error.message / 顶层 message），命中则 last_error
+        // 与 429 分类都基于它；未命中回退 truncate_attempt_error 摘要 / body 原文。
+        let extracted_msg = extract_error_message(&body);
+
         // 记本平台最近一次错误（卡片展示，非请求记录实时取）。本平台失败即覆盖，
         // 其自身下次成功时清空（commit_2xx）。换候选成功不清失败平台的 last_error。
+        let last_error_detail = extracted_msg.clone().unwrap_or_else(|| attempt_err.clone());
         let _ = super::db::set_platform_last_error(
-            &state.db, route.platform.id, Some(format!("HTTP {code}: {attempt_err}")),
+            &state.db, route.platform.id, Some(format!("HTTP {code}: {last_error_detail}")),
         ).await;
 
-        // ── 熔断计数：5xx 或 429 计一次失败；401/403/其他客户端 4xx 不计熔断（仅 inflight-1）。
-        //   熔断与 auto_disabled 解耦：401/403 走下方 auto_disabled，不参与熔断。──
-        if code >= 500 || code == 429 {
+        // ── 429 分类（只看 message 文本，禁按 error.type）：配额耗尽 vs 限流 transient ──
+        //   配额耗尽 → 同 402，auto_disabled + 不计熔断；限流 → 维持现状，record_failure + failover。
+        let is_429_quota_exhausted = code == 429
+            && classify_429(extracted_msg.as_deref().unwrap_or(&body));
+
+        // ── 熔断计数：5xx 或 429-限流 计一次失败；401/403/402/429-配额/其他客户端 4xx 不计熔断（仅 inflight-1）。
+        //   熔断与 auto_disabled 解耦：走 auto_disabled 的（401/403/402/429-配额）不参与熔断。──
+        if code >= 500 || (code == 429 && !is_429_quota_exhausted) {
             state.scheduler.record_failure(route.platform.id, breaker_th, super::db::now());
         } else {
             state.scheduler.record_ignored(route.platform.id);
         }
 
-        // ── 401/403：上游鉴权失败（key 问题）→ 单次即自动禁用平台（指数退避），换下个候选 ──
-        //   仅 401/403 触发 auto_disabled；其它任何状态码（含 404/405）一律不自动禁用，
-        //   404/405 仅按决策 A 走 failover 重试（换下个候选），不隔离平台。
-        if code == 401 || code == 403 {
+        // ── 自动禁用（指数退避，换下个候选）：401/403 鉴权失败、402 余额不足、429 配额耗尽 ──
+        //   401/403/402 单次即禁用；429 仅配额耗尽类（按 message 分类）禁用，限流类不禁用。
+        //   其它状态码（含 404/405/429-限流）不自动禁用，仅按决策 A 走 failover 重试。
+        if code == 401 || code == 403 || code == 402 || is_429_quota_exhausted {
             match super::db::set_platform_auto_disabled(&state.db, route.platform.id).await {
                 Ok(until) if until > 0 => tracing::warn!(
                     platform = %route.platform.name, platform_id = route.platform.id, status = code,
-                    auto_disabled_until = until, "platform auto-disabled (401/403)"
+                    auto_disabled_until = until, "platform auto-disabled (auth/quota)"
                 ),
                 Ok(_) => {} // 用户手动 disabled，不动
                 Err(e) => tracing::error!(platform_id = route.platform.id, error = %e, "auto-disable platform failed"),

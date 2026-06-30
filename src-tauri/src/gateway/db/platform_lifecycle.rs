@@ -100,10 +100,13 @@ pub fn purge_auto_disabled_platforms(
             let ids: Vec<i64> = db
 
                 .call_traced(None, __db_caller, move |conn| {
+                    // auto_disabled 仅删 401/403（key 失效，重建才恢复）；402/429-配额等可恢复
+                    //   auto_disabled（充值后自愈）保留，不被一键清理误删。过期平台照删。
                     let mut stmt = conn.prepare(
                         "SELECT id FROM platform \
                          WHERE deleted_at = 0 \
-                         AND (status = 'auto_disabled' OR (expires_at > 0 AND expires_at < ?1))",
+                         AND ((status = 'auto_disabled' AND (last_error LIKE 'HTTP 401%' OR last_error LIKE 'HTTP 403%')) \
+                              OR (expires_at > 0 AND expires_at < ?1))",
                     )?;
                     let rows = stmt.query_map(params![now_ms], |r| r.get::<_, i64>(0))?;
                     Ok(rows.collect::<SqlResult<Vec<i64>>>()?)
@@ -144,10 +147,12 @@ pub fn purge_auto_disabled_platforms(
                         (1..=pids.len()).map(|i| format!("?{i}")).collect::<Vec<_>>().join(",");
                     // now_ms 占 ?{N+1}（N = pids.len()）：动态编号随 pids 长度 +1。
                     let now_param_idx = pids.len() + 1;
+                    // 同全局：auto_disabled 仅删 401/403；402/429-配额等可恢复保留。过期照删。
                     let mut stmt = conn.prepare(&format!(
                         "SELECT id FROM platform WHERE id IN ({placeholders}) \
                          AND deleted_at = 0 \
-                         AND (status = 'auto_disabled' OR (expires_at > 0 AND expires_at < ?{now_param_idx}))"
+                         AND ((status = 'auto_disabled' AND (last_error LIKE 'HTTP 401%' OR last_error LIKE 'HTTP 403%')) \
+                              OR (expires_at > 0 AND expires_at < ?{now_param_idx}))"
                     ))?;
                     let mut binds: Vec<&dyn rusqlite::ToSql> =
                         pids.iter().map(|i| i as &dyn rusqlite::ToSql).collect();
