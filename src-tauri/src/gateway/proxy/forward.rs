@@ -225,12 +225,21 @@ pub(crate) async fn forward_attempt(
         override_coding_plan_path(&mut api_path, platform_protocol);
     }
 
-    let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
-
     // 构建目标 URL
     let base_url = target_base_url.trim_end_matches('/');
     let url = format!("{}{}", base_url, api_path);
     log.upstream_request_url = url.clone();
+
+    // ── 第三方 anthropic 端点 thinking 回传兜底 ──
+    // thinking 开启时第三方 anthropic-compat 端点(deepseek / 中转站)严格要求每个 assistant 轮回传
+    // thinking block，缺失即 400 "content[].thinking must be passed back"；官方 Anthropic 的
+    // summarized/adaptive 模式无此要求(协商 + 服务端 summarized)，Claude Code 故不回传，跨路由到第三方即炸。
+    // 仅当历史 assistant 轮缺 thinking block(必 400 的不匹配)才剔 body.thinking，正常带 thinking 直传不动。
+    if matches!(target_protocol_enum, Protocol::Anthropic) && !is_official_anthropic_host(&url) {
+        strip_thinking_if_unmatched(&mut req_body);
+    }
+
+    let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
 
     // ── 解析超时：模型 > 分组 > 系统 ──
     let system_timeout = get_system_timeout(&state.db).await;
@@ -481,4 +490,103 @@ pub(crate) async fn forward_attempt(
         )
         .await,
     )
+}
+
+/// 第三方 anthropic 端点 thinking 回传兜底（仅在已判定为非官方 anthropic 端点时调用）。
+///
+/// thinking 开启（`thinking.type != "disabled"`）且历史中任一 assistant 轮缺 thinking block 时，
+/// 剔除 body 的 `thinking` 字段。第三方 anthropic-compat 端点严格要求 thinking 模式下每个 assistant
+/// 轮回传 thinking block，缺失即返回 400 `content[].thinking must be passed back`；官方 Anthropic 的
+/// summarized/adaptive 模式无此约束，Claude Code 故不回传，请求一旦跨路由到第三方即触发该 400。
+/// thinking block 齐全（正常情况）则保留 thinking 字段直传，不影响第三方上的正常推理。
+fn strip_thinking_if_unmatched(body: &mut Value) {
+    let Some(obj) = body.as_object_mut() else { return };
+    let thinking_on = obj
+        .get("thinking")
+        .map(|t| t.get("type").and_then(|v| v.as_str()) != Some("disabled"))
+        .unwrap_or(false);
+    if !thinking_on {
+        return;
+    }
+    let has_unmatched_assistant = obj
+        .get("messages")
+        .and_then(|m| m.as_array())
+        .map(|msgs| {
+            msgs.iter().any(|m| {
+                if m.get("role").and_then(|r| r.as_str()) != Some("assistant") {
+                    return false;
+                }
+                match m.get("content") {
+                    // 块数组：非空且无 thinking block → 不匹配
+                    Some(Value::Array(blocks)) => {
+                        !blocks.is_empty()
+                            && !blocks
+                                .iter()
+                                .any(|b| b.get("type").and_then(|t| t.as_str()) == Some("thinking"))
+                    }
+                    // 纯文本 assistant 轮：thinking 模式下也应携带 thinking，缺失即不匹配
+                    Some(Value::String(s)) => !s.is_empty(),
+                    _ => false,
+                }
+            })
+        })
+        .unwrap_or(false);
+    if has_unmatched_assistant {
+        obj.remove("thinking");
+    }
+}
+
+#[cfg(test)]
+mod test_strip_thinking {
+    use super::strip_thinking_if_unmatched;
+    use serde_json::json;
+
+    #[test]
+    fn strips_when_assistant_turn_lacks_thinking_block() {
+        // 复现 0cea9d32 真因：thinking 开启 + assistant 轮仅 tool_use 无 thinking → 第三方 400
+        let mut body = json!({
+            "thinking": {"type": "adaptive", "display": "summarized"},
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": "hi"}]},
+                {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "x", "input": {}}]},
+            ],
+        });
+        strip_thinking_if_unmatched(&mut body);
+        assert!(body.get("thinking").is_none(), "应剔除 thinking");
+    }
+
+    #[test]
+    fn keeps_thinking_when_blocks_present() {
+        let mut body = json!({
+            "thinking": {"type": "adaptive"},
+            "messages": [
+                {"role": "assistant", "content": [
+                    {"type": "thinking", "thinking": "...", "signature": "s"},
+                    {"type": "tool_use", "id": "t1", "name": "x", "input": {}},
+                ]},
+            ],
+        });
+        strip_thinking_if_unmatched(&mut body);
+        assert!(body.get("thinking").is_some(), "thinking 齐全应保留");
+    }
+
+    #[test]
+    fn noop_when_thinking_off() {
+        let mut body = json!({
+            "messages": [{"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "x", "input": {}}]}],
+        });
+        strip_thinking_if_unmatched(&mut body);
+        assert!(body.get("messages").is_some());
+    }
+
+    #[test]
+    fn keeps_when_only_first_turn_no_assistant() {
+        // 首轮无 assistant：无需回传，保留 thinking
+        let mut body = json!({
+            "thinking": {"type": "adaptive"},
+            "messages": [{"role": "user", "content": [{"type": "text", "text": "hi"}]}],
+        });
+        strip_thinking_if_unmatched(&mut body);
+        assert!(body.get("thinking").is_some(), "无 assistant 轮应保留 thinking");
+    }
 }
