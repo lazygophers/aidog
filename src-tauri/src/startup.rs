@@ -147,6 +147,7 @@ pub fn run() {
             crate::commands::mcp::mcp_resync,
             // 导入导出子系统
             crate::commands::backup::export_to_file,
+            crate::commands::backup::export_preview,
             crate::commands::backup::backup_settings_get,
             crate::commands::backup::backup_settings_set,
             crate::commands::backup::backup_run_now,

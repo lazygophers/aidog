@@ -32,6 +32,9 @@ fn empty_payload(scopes: Vec<String>) -> Payload {
         claude_code_global: None,
         claude_code_group_settings: vec![],
         skills: vec![],
+        mcp: vec![],
+        middleware: vec![],
+        model_price: vec![],
     }
 }
 

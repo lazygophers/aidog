@@ -19,13 +19,48 @@ pub async fn export_to_file(
     db: State<'_, Db>,
     scopes: Vec<String>,
     path: String,
+    // selection: 逐项导出白名单（[scope, key] 对列表）；None = 全量导出（旧客户端兼容）。
+    selection: Option<Vec<(String, String)>>,
 ) -> Result<(), String> {
-    tracing::debug!(command = "export_to_file", scopes = ?scopes, path = %path, "command invoked");
+    tracing::debug!(
+        command = "export_to_file",
+        scopes = ?scopes,
+        path = %path,
+        selection = selection.as_ref().map(|s| s.len()).unwrap_or(0),
+        "command invoked"
+    );
     let mut payload = gateway::import_export::collect::collect(&db, &scopes).await?;
+    let sel: Option<gateway::import_export::Selection> =
+        selection.map(|v| v.into_iter().collect());
+    gateway::import_export::apply::filter_payload(&mut payload, sel.as_ref());
     let bytes = payload.serialize_with_checksum()?;
     let encrypted = gateway::import_export::encrypt(&bytes)?;
     std::fs::write(&path, &encrypted).map_err(|e| format!("write export file: {e}"))?;
     Ok(())
+}
+
+/// 导出预览：collect 指定 scope 全量 → 枚举可导出条目（与导入侧 ImportItem 同构），
+/// 供前端逐项勾选（默认全选）。无文件 IO、不加密。conflicts 恒空（导出无冲突语义）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn export_preview(
+    db: State<'_, Db>,
+    scopes: Vec<String>,
+) -> Result<gateway::import_export::ImportPreview, String> {
+    tracing::debug!(command = "export_preview", scopes = ?scopes, "command invoked");
+    let payload = gateway::import_export::collect::collect(&db, &scopes).await?;
+    let items = gateway::import_export::apply::export_items(&payload);
+    let mut counts = std::collections::BTreeMap::new();
+    for item in &items {
+        *counts.entry(item.scope.clone()).or_insert(0usize) += 1;
+    }
+    Ok(gateway::import_export::ImportPreview {
+        manifest: payload.manifest.clone(),
+        scopes: payload.manifest.scopes.clone(),
+        conflicts: Vec::new(),
+        counts,
+        items,
+    })
 }
 
 /// 读取定时备份设置 (缺省/解析失败 → 默认)。

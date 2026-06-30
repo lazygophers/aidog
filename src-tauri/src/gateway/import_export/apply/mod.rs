@@ -64,6 +64,15 @@ pub async fn preview(file_bytes: &[u8], db: &Db) -> Result<ImportPreview, String
     if !payload.skills.is_empty() {
         counts.insert(super::SCOPE_SKILLS.to_string(), payload.skills.len());
     }
+    if !payload.mcp.is_empty() {
+        counts.insert(super::SCOPE_MCP.to_string(), payload.mcp.len());
+    }
+    if !payload.middleware.is_empty() {
+        counts.insert(super::SCOPE_MIDDLEWARE.to_string(), payload.middleware.len());
+    }
+    if !payload.model_price.is_empty() {
+        counts.insert(super::SCOPE_MODEL_PRICE.to_string(), payload.model_price.len());
+    }
 
     let items = build_items(&payload, &conflicts);
 
@@ -193,6 +202,39 @@ fn build_items(
         });
     }
 
+    // mcp：name 唯一但用数组下标 idx:N 作稳定 key（与 apply_db 迭代一致）；label = name。
+    for (i, m) in payload.mcp.iter().enumerate() {
+        let name = m.get("name").and_then(|v| v.as_str()).unwrap_or("(unnamed)");
+        out.push(ImportItem {
+            scope: SCOPE_MCP.to_string(),
+            key: format!("idx:{i}"),
+            label: name.to_string(),
+            conflict: false,
+        });
+    }
+
+    // middleware：key = idx:N；label = name。
+    for (i, r) in payload.middleware.iter().enumerate() {
+        let name = r.get("name").and_then(|v| v.as_str()).unwrap_or("(unnamed)");
+        out.push(ImportItem {
+            scope: SCOPE_MIDDLEWARE.to_string(),
+            key: format!("idx:{i}"),
+            label: name.to_string(),
+            conflict: false,
+        });
+    }
+
+    // model_price：key = `model:<model_name>`（model_name 唯一）；label = model_name。
+    for mp in &payload.model_price {
+        let name = mp.get("model_name").and_then(|v| v.as_str()).unwrap_or("(unnamed)");
+        out.push(ImportItem {
+            scope: SCOPE_MODEL_PRICE.to_string(),
+            key: format!("model:{name}"),
+            label: name.to_string(),
+            conflict: false,
+        });
+    }
+
     out
 }
 
@@ -204,6 +246,82 @@ fn index_decisions(
         .iter()
         .map(|d| ((d.scope.clone(), d.key.clone()), &d.decision))
         .collect()
+}
+
+/// 导出逐项过滤：按 (scope, key) 白名单裁剪 payload 各字段。`None` = 全量导出（向后兼容）。
+/// key 构造与 [`build_items`] 逐字一致，保证前端勾选项能命中。
+pub fn filter_payload(payload: &mut Payload, selection: Option<&Selection>) {
+    let sel = match selection {
+        None => return,
+        Some(s) => s,
+    };
+    let keep = |scope: &str, key: &str| sel.contains(&(scope.to_string(), key.to_string()));
+
+    let mut platform = Vec::new();
+    for (i, p) in std::mem::take(&mut payload.platform).into_iter().enumerate() {
+        if keep(super::SCOPE_PLATFORM, &format!("idx:{i}")) {
+            platform.push(p);
+        }
+    }
+    payload.platform = platform;
+
+    payload.group.retain(|g| {
+        let name = g.get("name").and_then(|v| v.as_str()).unwrap_or("");
+        let gkey = g.get("group_key").and_then(|v| v.as_str()).unwrap_or(name);
+        keep(super::SCOPE_GROUP, gkey)
+    });
+
+    payload
+        .group_platform
+        .retain(|[g, p]| keep(super::SCOPE_GROUP_PLATFORM, &format!("{g}::{p}")));
+
+    payload
+        .setting
+        .retain(|[scope, key, _]| keep(super::SCOPE_SETTING, &format!("{scope}:{key}")));
+
+    if payload.codex_global.is_some() && !keep(super::SCOPE_CODEX, "codex_global") {
+        payload.codex_global = None;
+    }
+    payload
+        .codex_profiles
+        .retain(|nt| keep(super::SCOPE_CODEX, &format!("codex_profile:{}", nt.name)));
+
+    if payload.claude_code_global.is_some()
+        && !keep(super::SCOPE_CLAUDE_CODE, "claude_code_global")
+    {
+        payload.claude_code_global = None;
+    }
+    payload
+        .claude_code_group_settings
+        .retain(|nt| keep(super::SCOPE_CLAUDE_CODE, &format!("claude_code_group:{}", nt.name)));
+
+    payload.skills.retain(|s| keep(super::SCOPE_SKILLS, &s.name));
+
+    let mut mcp = Vec::new();
+    for (i, m) in std::mem::take(&mut payload.mcp).into_iter().enumerate() {
+        if keep(super::SCOPE_MCP, &format!("idx:{i}")) {
+            mcp.push(m);
+        }
+    }
+    payload.mcp = mcp;
+
+    let mut middleware = Vec::new();
+    for (i, r) in std::mem::take(&mut payload.middleware).into_iter().enumerate() {
+        if keep(super::SCOPE_MIDDLEWARE, &format!("idx:{i}")) {
+            middleware.push(r);
+        }
+    }
+    payload.middleware = middleware;
+
+    payload.model_price.retain(|mp| {
+        let name = mp.get("model_name").and_then(|v| v.as_str()).unwrap_or("");
+        keep(super::SCOPE_MODEL_PRICE, &format!("model:{name}"))
+    });
+}
+
+/// 导出预览：collect 全量 → build_items（无冲突）→ 返回条目供前端逐项勾选。
+pub fn export_items(payload: &Payload) -> Vec<ImportItem> {
+    build_items(payload, &[])
 }
 
 /// 判断条目是否被选中导入。`selection == None` 时一律选中（不过滤，旧行为）。
@@ -349,6 +467,64 @@ async fn apply_db(
                 .push(format!("setting「{ck}」: {e}"));
         } else {
             bump(&mut report.applied, super::SCOPE_SETTING);
+        }
+    }
+
+    // mcp（key = idx:N，与 build_items 一致；upsert by name，UNIQUE 冲突覆盖）
+    for (i, m) in payload.mcp.iter().enumerate() {
+        if !is_selected(selection, super::SCOPE_MCP, &format!("idx:{i}")) {
+            continue;
+        }
+        match serde_json::from_value::<crate::gateway::mcp::McpServerRow>(m.clone()) {
+            Ok(row) => match crate::gateway::db::upsert_mcp_server(db, &row).await {
+                Ok(()) => bump(&mut report.applied, super::SCOPE_MCP),
+                Err(e) => report.errors.push(format!("mcp「{}」: {e}", row.name)),
+            },
+            Err(e) => report.errors.push(format!("mcp parse: {e}")),
+        }
+    }
+
+    // middleware（key = idx:N；按 name upsert，name 非唯一约束 → 手动查重）
+    for (i, r) in payload.middleware.iter().enumerate() {
+        if !is_selected(selection, super::SCOPE_MIDDLEWARE, &format!("idx:{i}")) {
+            continue;
+        }
+        match serde_json::from_value::<crate::gateway::models::MiddlewareRule>(r.clone()) {
+            Ok(rule) => match db_rows::upsert_middleware_rule_by_name(db, &rule).await {
+                Ok(()) => bump(&mut report.applied, super::SCOPE_MIDDLEWARE),
+                Err(e) => report.errors.push(format!("middleware「{}」: {e}", rule.name)),
+            },
+            Err(e) => report.errors.push(format!("middleware parse: {e}")),
+        }
+    }
+
+    // model_price（key = model:<model_name>；upsert by (model_name, source) UNIQUE 覆盖）
+    for mp in &payload.model_price {
+        let model_name = match mp.get("model_name").and_then(|v| v.as_str()) {
+            Some(n) => n.to_string(),
+            None => continue,
+        };
+        if !is_selected(selection, super::SCOPE_MODEL_PRICE, &format!("model:{model_name}")) {
+            continue;
+        }
+        match serde_json::from_value::<crate::gateway::models::ModelPrice>(mp.clone()) {
+            Ok(p) => {
+                let res = crate::gateway::db::upsert_model_price(
+                    db,
+                    &p.model_name,
+                    &p.source,
+                    &p.price_data,
+                    p.max_input_tokens,
+                    p.max_output_tokens,
+                    p.context_window,
+                )
+                .await;
+                match res {
+                    Ok(()) => bump(&mut report.applied, super::SCOPE_MODEL_PRICE),
+                    Err(e) => report.errors.push(format!("model_price「{}」: {e}", p.model_name)),
+                }
+            }
+            Err(e) => report.errors.push(format!("model_price parse: {e}")),
         }
     }
 
