@@ -37,6 +37,8 @@ fn platform_with_extra(extra: &str) -> Platform {
         sort_order: 0,
         manual_budgets: vec![],
         balance_level: String::new(),
+        last_error: String::new(),
+        last_error_at: 0,
     }
 }
 

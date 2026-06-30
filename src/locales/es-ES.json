@@ -690,6 +690,8 @@
   "platform.apiKeyOptional": "Clave API (opcional, vacío para passthrough)",
   "platform.autoDisabled": "Auto-desactivada",
   "platform.autoDisabledHint": "Auto-desactivada por 401/403, siguiente sondeo a las {{time}}",
+  "platform.lastError": "Último error",
+  "platform.lastErrorHint": "Último fallo · {{time}}\n{{error}}",
   "platform.breakerDesc": "Elimina temporalmente esta plataforma tras fallos consecutivos que alcanzan el umbral; recupera mediante sondeos semi-abiertos tras el enfriamiento. Vacío para heredar los predeterminados globales de Ajustes del sistema.",
   "platform.breakerFailureThreshold": "Umbral de fallo",
   "platform.breakerHalfOpenMax": "Sondeos semi-abiertos",

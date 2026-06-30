@@ -712,6 +712,8 @@
   "platform.apiKeyOptional": "API-Schlüssel (optional, leer für Passthrough)",
   "platform.autoDisabled": "Auto-deaktiviert",
   "platform.autoDisabledHint": "Bei 401/403 automatisch deaktiviert, nächster Versuch um {{time}}",
+  "platform.lastError": "Letzter Fehler",
+  "platform.lastErrorHint": "Letzter Fehlschlag · {{time}}\n{{error}}",
   "platform.breakerDesc": "Diese Plattform vorübergehend entfernen, wenn aufeinanderfolgende Fehler den Schwellenwert erreichen; Wiederherstellung über Halb-offen-Prüfungen nach der Abkühlung. Leer lassen, um die globalen Standardwerte aus den Systemeinstellungen zu erben.",
   "platform.breakerFailureThreshold": "Fehlerschwelle",
   "platform.breakerHalfOpenMax": "Halb-offen-Prüfungen",

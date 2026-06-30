@@ -712,6 +712,8 @@
   "platform.apiKeyOptional": "مفتاح API (اختياري، اترك فارغاً للتمرير المباشر)",
   "platform.autoDisabled": "معطّل تلقائيًا",
   "platform.autoDisabledHint": "تعطيل تلقائي عند 401/403، المحاولة التالية في {{time}}",
+  "platform.lastError": "آخر خطأ",
+  "platform.lastErrorHint": "آخر فشل · {{time}}\n{{error}}",
   "platform.breakerDesc": "إزالة هذه المنصة مؤقتًا بعد بلوغ عدد حالات الفشل المتتالية الحد؛ والتعافي عبر فحوص نصف مفتوحة بعد فترة التهدئة. اتركه فارغًا لوراثة القيم الافتراضية العامة من إعدادات النظام.",
   "platform.breakerFailureThreshold": "حد الفشل",
   "platform.breakerHalfOpenMax": "فحوص نصف مفتوحة",

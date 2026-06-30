@@ -690,6 +690,8 @@
   "platform.apiKeyOptional": "API Key (optional, leave empty for passthrough)",
   "platform.autoDisabled": "Auto-disabled",
   "platform.autoDisabledHint": "Auto-disabled on 401/403, next probe at {{time}}",
+  "platform.lastError": "Last error",
+  "platform.lastErrorHint": "Last failure · {{time}}\n{{error}}",
   "platform.breakerDesc": "Temporarily remove this platform after consecutive failures reach the threshold; recover via half-open probes after cooldown. Leave empty to inherit the global defaults from System Settings.",
   "platform.breakerFailureThreshold": "Failure threshold",
   "platform.breakerHalfOpenMax": "Half-open probes",

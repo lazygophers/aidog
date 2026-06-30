@@ -218,6 +218,13 @@ pub struct Platform {
     /// 缺省空串 → 前端退中性。`skip_deserializing` 避免从前端入参反序列化。
     #[serde(default, skip_deserializing)]
     pub balance_level: String,
+    /// 最近一次失败的错误信息（DB 列；上游非 2xx / 连接失败 / 空 2xx 重试时写入，成功时清空）。
+    /// 前端平台卡片展示，非请求记录实时取。空串 = 最近一次成功或无记录。
+    #[serde(default)]
+    pub last_error: String,
+    /// 最近一次错误的毫秒 unix 时间戳（DB 列；0 = 无）。
+    #[serde(default)]
+    pub last_error_at: i64,
 }
 
 /// 平台级熔断阈值覆盖，存于 `platform.extra` JSON 的嵌套对象 `breaker`。
@@ -459,7 +466,7 @@ mod tests {
             created_at: 0, updated_at: 0, deleted_at: 0,
             est_coding_plan: "".into(), last_real_query_at: 0, estimate_count: 0,
             show_in_tray: false, tray_display: "".into(), sort_order: 0, balance_level: "".into(),
-            expires_at: 0,
+            expires_at: 0, last_error: "".into(), last_error_at: 0,
         };
         let b = p.breaker();
         assert_eq!(b.failure_threshold, 7);

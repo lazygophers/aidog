@@ -204,6 +204,10 @@ export interface Platform {
   /** 过期时间（毫秒 unix 时间戳，0 = 永不过期）。>0 且 now>=expires_at 时路由排除（等效自动禁用）。
    *  独立于 status 三态：用户改值（清空/延后）即恢复，无需退避试探。 */
   expires_at: number;
+  /** 最近一次失败的错误信息（系统维护，只读）。空串 = 最近一次成功或无记录；非请求记录实时取。 */
+  last_error?: string;
+  /** 最近一次错误的毫秒 unix 时间戳（系统维护，只读）；0 = 无。 */
+  last_error_at?: number;
 }
 
 /** 单平台可分享配置（剥离 DB 内部 / 运行时字段，含明文 api_key）。

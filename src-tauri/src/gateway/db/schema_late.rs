@@ -334,6 +334,18 @@ ALTER TABLE "group_new" RENAME TO "group";
                     "ALTER TABLE platform ADD COLUMN expires_at INTEGER NOT NULL DEFAULT 0",
                     [],
                 );
+
+                // Migration 037: 平台最近一次错误信息（卡片展示用，非请求记录实时取）。
+                // 上游非 2xx / 连接失败 / 空 2xx 重试时写 last_error+last_error_at；成功时清空。
+                // 幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column。
+                let _ = conn.execute(
+                    "ALTER TABLE platform ADD COLUMN last_error TEXT NOT NULL DEFAULT ''",
+                    [],
+                );
+                let _ = conn.execute(
+                    "ALTER TABLE platform ADD COLUMN last_error_at INTEGER NOT NULL DEFAULT 0",
+                    [],
+                );
     Ok(())
 }
 

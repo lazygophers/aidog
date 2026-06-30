@@ -256,6 +256,28 @@ export const PlatformCard = memo(function PlatformCard({
                 )}
                 {/* 最近一次测试结果徽章（常驻；无记录不渲染） */}
                 {lastTest && <LastTestBadge result={lastTest} />}
+                {/* 最近一次代理错误（系统维护，非请求记录实时取；最近一次成功即清空不渲染） */}
+                {p.last_error && (
+                  <div
+                    style={{
+                      marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4, maxWidth: "100%",
+                      fontSize: 10, fontWeight: 600, color: "var(--color-danger)",
+                      background: "color-mix(in srgb, var(--color-danger) 14%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--color-danger) 35%, transparent)",
+                      borderRadius: 5, padding: "1px 6px",
+                    }}
+                    title={t("platform.lastErrorHint", "最近一次失败 · {{time}}\n{{error}}")
+                      .replace("{{time}}", (p.last_error_at ?? 0) > 0 ? new Date(p.last_error_at as number).toLocaleString() : "-")
+                      .replace("{{error}}", p.last_error)}
+                  >
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                      <circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><path d="M12 16h.01" />
+                    </svg>
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {t("platform.lastError", "最近错误")}: {p.last_error}
+                    </span>
+                  </div>
+                )}
               </div>
               {/* 快操作 */}
               <div style={{ display: "flex", gap: 4, flexShrink: 0, alignItems: "center" }}>

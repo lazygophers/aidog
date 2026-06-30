@@ -712,6 +712,8 @@
   "platform.apiKeyOptional": "Clé API (facultatif, vide pour passthrough)",
   "platform.autoDisabled": "Auto-désactivé",
   "platform.autoDisabledHint": "Auto-désactivé sur 401/403, prochaine tentative à {{time}}",
+  "platform.lastError": "Dernière erreur",
+  "platform.lastErrorHint": "Dernier échec · {{time}}\n{{error}}",
   "platform.breakerDesc": "Retirer temporairement cette plateforme lorsque les échecs consécutifs atteignent le seuil ; récupération par sondes semi-ouvertes après refroidissement. Laisser vide pour hériter des valeurs par défaut globales des paramètres système.",
   "platform.breakerFailureThreshold": "Seuil d'échec",
   "platform.breakerHalfOpenMax": "Sondes semi-ouvertes",

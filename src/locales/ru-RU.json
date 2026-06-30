@@ -712,6 +712,8 @@
   "platform.apiKeyOptional": "API Key (необязательно, пусто для прокси)",
   "platform.autoDisabled": "Авто-отключено",
   "platform.autoDisabledHint": "Авто-отключение при 401/403, следующая попытка в {{time}}",
+  "platform.lastError": "Последняя ошибка",
+  "platform.lastErrorHint": "Последний сбой · {{time}}\n{{error}}",
   "platform.breakerDesc": "Временно исключать эту платформу при достижении порога последовательных сбоев; восстановление через полуоткрытые проверки после охлаждения. Оставьте пустым, чтобы наследовать глобальные значения по умолчанию из системных настроек.",
   "platform.breakerFailureThreshold": "Порог сбоев",
   "platform.breakerHalfOpenMax": "Полуоткрытые проверки",

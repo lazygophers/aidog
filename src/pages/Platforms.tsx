@@ -1906,7 +1906,9 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               fresh.est_balance_remaining === p.est_balance_remaining &&
               fresh.est_coding_plan === p.est_coding_plan &&
               fresh.last_real_query_at === p.last_real_query_at &&
-              fresh.estimate_count === p.estimate_count
+              fresh.estimate_count === p.estimate_count &&
+              fresh.last_error === p.last_error &&
+              fresh.last_error_at === p.last_error_at
             ) return p;
             changed = true;
             return {
@@ -1915,6 +1917,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
               est_coding_plan: fresh.est_coding_plan,
               last_real_query_at: fresh.last_real_query_at,
               estimate_count: fresh.estimate_count,
+              last_error: fresh.last_error,
+              last_error_at: fresh.last_error_at,
             };
           });
           return changed ? next : prev;

@@ -3,7 +3,7 @@ use rusqlite::{params, OptionalExtension, Result as SqlResult};
 
 /// SELECT 列序
 pub(crate) const PLATFORM_COLUMNS: &str =
-    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, expires_at";
+    "id, name, platform_type, base_url, api_key, extra, models, available_models, endpoints, enabled, created_at, updated_at, est_balance_remaining, est_coding_plan, last_real_query_at, estimate_count, show_in_tray, tray_display, sort_order, manual_budgets, status, auto_disabled_until, auto_disable_strikes, expires_at, last_error, last_error_at";
 
 /// 从查询行构造 Platform
 pub(crate) fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
@@ -38,6 +38,8 @@ pub(crate) fn row_to_platform(row: &rusqlite::Row) -> SqlResult<Platform> {
         auto_disable_strikes: row.get::<_, i64>(22)?,
         expires_at: row.get::<_, i64>(23)?,
         balance_level: String::new(),
+        last_error: row.get(24)?,
+        last_error_at: row.get::<_, i64>(25)?,
     })
 }
 
@@ -149,6 +151,8 @@ pub fn create_platform(db: &Db, mut input: CreatePlatform) -> impl std::future::
         auto_disable_strikes: 0,
         expires_at,
         balance_level: String::new(),
+        last_error: String::new(),
+        last_error_at: 0,
     })
     }
 }
@@ -388,5 +392,28 @@ pub fn recover_platform_auto_disabled(db: &Db, id: u64) -> impl std::future::Fut
     db.invalidate_group_details_cache();
     Ok(())
     }
+}
+
+/// 写/清平台最近一次错误信息（卡片展示，非请求记录实时取）。
+/// `Some(msg)` → 记 last_error=msg + last_error_at=now；`None` → 清空 ''/0（最近一次成功）。
+/// 代理热路径调用，单条 SQL；不失效 group_details 缓存（last_error 不入 GroupDetail）。
+pub async fn set_platform_last_error(db: &Db, id: u64, err: Option<String>) -> Result<(), String> {
+    db.0
+        .call(move |conn| {
+            match err {
+                Some(msg) => conn.execute(
+                    "UPDATE platform SET last_error = ?1, last_error_at = ?2 WHERE id = ?3",
+                    params![msg, now(), id as i64],
+                ),
+                None => conn.execute(
+                    "UPDATE platform SET last_error = '', last_error_at = 0 WHERE id = ?1",
+                    params![id as i64],
+                ),
+            }?;
+            Ok(())
+        })
+        .await
+        .map_err(|e| e.to_string())
+        .map(|_| ())
 }
 
