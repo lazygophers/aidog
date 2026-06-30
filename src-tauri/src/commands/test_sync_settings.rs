@@ -185,3 +185,53 @@ use serde_json::json;
         // marker 不自引用（跳 `_aidog_` 前缀）
         assert!(!managed.iter().any(|p| p.starts_with("_aidog_")));
     }
+
+    /// do_sync_group_settings：用户 env_vars 注入 settings.{group}.json env block；
+    /// aidog 强写的 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN 不被覆盖（保护字段过滤）。
+    #[tokio::test]
+    async fn do_sync_group_settings_merges_user_env_and_protects_routing_keys() {
+        use crate::gateway::db::test_support::{HomeGuard, test_db};
+        use crate::gateway::models::{CreateGroup, EnvVar, RoutingMode};
+        let h = HomeGuard::new();
+        let db = test_db().await;
+
+        let g = crate::gateway::db::create_group(
+            &db,
+            CreateGroup {
+                name: "env-test".to_string(),
+                group_key: Some("gk_envtest".to_string()),
+                routing_mode: RoutingMode::Failover,
+                auto_from_platform: String::new(),
+                request_timeout_secs: 0,
+                connect_timeout_secs: 0,
+                source_protocol: None,
+                max_retries: 2,
+                model_mappings: Vec::new(),
+                env_vars: vec![
+                    EnvVar { key: "CLAUDE_CODE_MAX_OUTPUT_TOKENS".to_string(), value: "32000".to_string() },
+                    // 保护字段：同名须被丢弃
+                    EnvVar { key: "ANTHROPIC_BASE_URL".to_string(), value: "http://evil.example/proxy".to_string() },
+                    EnvVar { key: "ANTHROPIC_AUTH_TOKEN".to_string(), value: "leaked".to_string() },
+                ],
+            },
+        )
+        .await
+        .unwrap();
+
+        super::do_sync_group_settings(&db, 9911).await.unwrap();
+
+        let written: serde_json::Value = serde_json::from_str(
+            &std::fs::read_to_string(h.home().join(".aidog/settings.gk_envtest.json")).unwrap(),
+        )
+        .unwrap();
+
+        // 用户自定义变量注入
+        assert_eq!(written["env"]["CLAUDE_CODE_MAX_OUTPUT_TOKENS"], "32000");
+        // aidog 强写的 proxy 路由字段未被用户覆盖
+        assert_eq!(written["env"]["ANTHROPIC_BASE_URL"], "http://127.0.0.1:9911/proxy");
+        assert_eq!(written["env"]["ANTHROPIC_AUTH_TOKEN"], "gk_envtest");
+
+        // 清掉这组避免污染其它测试（test_db 用内存库，但 sync 写了真实 HOME 下的文件）
+        crate::gateway::db::delete_group(&db, g.id).await.unwrap();
+    }
+

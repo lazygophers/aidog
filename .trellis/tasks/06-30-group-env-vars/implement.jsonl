@@ -1,0 +1,6 @@
+{"file": ".trellis/tasks/06-30-group-env-vars/prd.md", "reason": "本任务 PRD: 数据模型/触点/验收/冲突保护决策"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "groups 表加列 env_vars 须遵 DB 规范 (命名/默认值/migration/软删除)"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "Groups.tsx 新增 env 编辑器区块须遵前端组件/状态/i18n 约定"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Rust Group.env_vars ↔ TS api.ts Group 类型 ↔ invoke 参数 camelCase 契约对齐"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "key-value 行编辑器/shell 转义先 grep 复用 (shellSquote/已有 editors.tsx 模式)"}
+{"file": ".trellis/tasks/06-30-group-env-vars/research/codex-env-support.md", "reason": "research 结论决定 Codex 侧实现路径 (config.toml vs buildCodexCommand export)"}

@@ -1,0 +1,5 @@
+{"file": ".trellis/tasks/06-30-group-env-vars/prd.md", "reason": "验收标准来源 (7 条, 含冲突保护/Codex 路径/i18n/导入导出)"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "校验 env_vars 列 migration/默认值/NULL 合规"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "校验前端组件/i18n key 覆盖 (7 语言)"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校验 Rust↔TS 字段名/类型一致 (env_vars ↔ EnvVar[])"}
+{"file": ".trellis/tasks/06-30-group-env-vars/research/codex-env-support.md", "reason": "校验 Codex 侧实现路径与 research 结论一致"}
