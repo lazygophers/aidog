@@ -99,8 +99,11 @@ use rusqlite::params;
         let p_dead1 = create_platform(&db, sample_platform("dead1")).await.unwrap();
         let p_dead2 = create_platform(&db, sample_platform("dead2")).await.unwrap();
         let p_alive = create_platform(&db, sample_platform("alive")).await.unwrap();
+        // R2：auto_disabled 仅 401/403 last_error 才被一键清理删除。
         set_platform_auto_disabled(&db, p_dead1.id).await.unwrap();
         set_platform_auto_disabled(&db, p_dead2.id).await.unwrap();
+        set_platform_last_error(&db, p_dead1.id, Some("HTTP 401: unauthorized".into())).await.unwrap();
+        set_platform_last_error(&db, p_dead2.id, Some("HTTP 403: forbidden".into())).await.unwrap();
 
         let r = purge_auto_disabled_platforms(&db, None).await.unwrap();
         assert_eq!(r.deleted_ids.len(), 2, "全局应删两个 auto_disabled");
@@ -125,6 +128,8 @@ use rusqlite::params;
         let p_b = create_platform(&db, sample_platform("b-shared")).await.unwrap();
         set_platform_auto_disabled(&db, p_a.id).await.unwrap();
         set_platform_auto_disabled(&db, p_b.id).await.unwrap();
+        set_platform_last_error(&db, p_a.id, Some("HTTP 401: bad key".into())).await.unwrap();
+        set_platform_last_error(&db, p_b.id, Some("HTTP 403: forbidden".into())).await.unwrap();
 
         let g1 = create_group(&db, sample_group("g1", vec![])).await.unwrap();
         let g2 = create_group(&db, sample_group("g2", vec![])).await.unwrap();
@@ -169,6 +174,7 @@ use rusqlite::params;
         let p_alive = create_platform(&db, sample_platform("alive-g")).await.unwrap();
         let p_dead = create_platform(&db, sample_platform("dead-g")).await.unwrap();
         set_platform_auto_disabled(&db, p_dead.id).await.unwrap();
+        set_platform_last_error(&db, p_dead.id, Some("HTTP 401: bad key".into())).await.unwrap();
         let g = create_group(&db, sample_group("g", vec![])).await.unwrap();
         set_group_platforms(&db, g.id, &[
             GroupPlatformInput { platform_id: p_alive.id, priority: Some(0), weight: Some(1), level_priority: None },
@@ -349,6 +355,7 @@ decimals: None,
         set_expires_at(&db, p_expired2.id, now - 1).await;
         set_expires_at(&db, p_future.id, now + 86_400_000).await;
         set_platform_auto_disabled(&db, p_disabled.id).await.unwrap();
+        set_platform_last_error(&db, p_disabled.id, Some("HTTP 401: unauthorized".into())).await.unwrap();
 
         let r = purge_auto_disabled_platforms(&db, None).await.unwrap();
         assert_eq!(r.deleted_ids.len(), 3, "应删 2 过期 + 1 auto_disabled");
@@ -465,4 +472,24 @@ decimals: None,
         // clear_tray
         clear_tray(&db).await.unwrap();
         assert!(get_tray_platform(&db).await.unwrap().is_none());
+    }
+
+    /// R2：一键清理只删 401/403 的 auto_disabled；402/429-配额（可充值恢复）保留。
+    #[tokio::test]
+    async fn purge_keeps_recoverable_auto_disabled() {
+        let db = test_db().await;
+        let p_401 = create_platform(&db, sample_platform("p401")).await.unwrap();
+        let p_402 = create_platform(&db, sample_platform("p402")).await.unwrap();
+        let p_429q = create_platform(&db, sample_platform("p429q")).await.unwrap();
+        set_platform_auto_disabled(&db, p_401.id).await.unwrap();
+        set_platform_auto_disabled(&db, p_402.id).await.unwrap();
+        set_platform_auto_disabled(&db, p_429q.id).await.unwrap();
+        set_platform_last_error(&db, p_401.id, Some("HTTP 401: unauthorized".into())).await.unwrap();
+        set_platform_last_error(&db, p_402.id, Some("HTTP 402: 余额不足".into())).await.unwrap();
+        set_platform_last_error(&db, p_429q.id, Some("HTTP 429: 已达到 Token Plan 用量上限".into())).await.unwrap();
+
+        let r = purge_auto_disabled_platforms(&db, None).await.unwrap();
+        assert_eq!(r.deleted_ids, vec![p_401.id as u64], "仅 401 被删");
+        assert!(get_platform(&db, p_402.id).await.unwrap().is_some(), "402 可恢复平台应保留");
+        assert!(get_platform(&db, p_429q.id).await.unwrap().is_some(), "429-配额可恢复平台应保留");
     }
