@@ -43,7 +43,12 @@ export function CostTrendChart({ buckets }: CostTrendChartProps) {
     <div className="popover-trend-chart" onMouseLeave={() => setHoverIdx(null)}>
       <div className="popover-trend-value">
         {formatCostUsd(shownBucket.total_cost)}
-        <span className="popover-trend-bucket">{shownBucket.time_bucket.slice(-5)}</span>
+        {/* time_bucket 含时间段取 HH:MM（hourly "...HH:00:00"→HH:00），仅日期取 MM-DD；slice(-5) 对 hourly 误取秒位 */}
+        <span className="popover-trend-bucket">
+          {shownBucket.time_bucket.includes(" ")
+            ? shownBucket.time_bucket.slice(11, 16)
+            : shownBucket.time_bucket.slice(5)}
+        </span>
       </div>
       <svg
         viewBox={`0 0 ${W} ${Hsvg}`}
