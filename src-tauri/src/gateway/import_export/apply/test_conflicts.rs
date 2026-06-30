@@ -109,8 +109,7 @@ async fn detect_conflicts_group_key_conflict() {
         connect_timeout_secs: 0,
         source_protocol: None,
         max_retries: 1,
-        model_mappings: vec![],
-    }).await.unwrap();
+        model_mappings: vec![], env_vars: vec![],    }).await.unwrap();
 
     // payload 含同 group_key 的 group
     let mut p = payload(vec![]);
@@ -173,8 +172,7 @@ async fn detect_conflicts_group_fallback_to_name_when_no_group_key() {
         connect_timeout_secs: 0,
         source_protocol: None,
         max_retries: 1,
-        model_mappings: vec![],
-    }).await.unwrap();
+        model_mappings: vec![], env_vars: vec![],    }).await.unwrap();
 
     // 老格式 payload: 只有 name, 无 group_key
     let mut p = payload(vec![]);

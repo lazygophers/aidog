@@ -246,6 +246,9 @@ export interface Group {
   max_retries: number;
   /** 内联模型映射数组 */
   model_mappings: ModelMapping[];
+  /** 用户自定义环境变量（内联 JSON 数组）。sync 时注入 settings.{group}.json
+   * 的 env block；aidog 强写的 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN 被跳过。 */
+  env_vars: EnvVar[];
   /** 是否为默认分组（单选）：true 时该组 config merge 写入
    * ~/.claude/settings.json + ~/.codex/config.toml，使用户直接 claude/codex
    * 不带 -c/--profile 即走该组。 */
@@ -270,6 +273,12 @@ export interface ModelMapping {
   /** 超时设置（秒），0 = 继承分组设置 */
   request_timeout_secs: number;
   connect_timeout_secs: number;
+}
+
+/** 内联于 group.env_vars JSON 数组的元素（用户自定义环境变量） */
+export interface EnvVar {
+  key: string;
+  value: string;
 }
 
 export interface GroupPlatform {
@@ -724,6 +733,8 @@ export const groupApi = {
     /** 分组级最大重试次数（0 = 不重试） */
     max_retries?: number;
     model_mappings?: ModelMapping[];
+    /** 用户自定义环境变量（整体替换；同名 ANTHROPIC_BASE_URL/ANTHROPIC_AUTH_TOKEN 后端跳过） */
+    env_vars?: EnvVar[];
   }) => invoke<Group>("group_update", { input }),
 
   delete: (id: number) => invoke<void>("group_delete", { id }),

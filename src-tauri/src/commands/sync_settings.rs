@@ -265,6 +265,22 @@ pub(crate) async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<Str
                     "ANTHROPIC_AUTH_TOKEN".to_string(),
                     serde_json::Value::String(group_key.clone()),
                 );
+                // 注入用户自定义 env_vars（group 维度）。aidog 强写的 proxy 路由字段
+                // ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN 禁止覆盖 —— 同名 key 丢弃 + warn。
+                for ev in &group.env_vars {
+                    let key = ev.key.trim();
+                    if key.is_empty() {
+                        continue;
+                    }
+                    if key == "ANTHROPIC_BASE_URL" || key == "ANTHROPIC_AUTH_TOKEN" {
+                        tracing::warn!(
+                            group = %group_key, env_key = %key,
+                            "user env_var skipped: aidog-managed routing field, cannot override"
+                        );
+                        continue;
+                    }
+                    env_map.insert(key.to_string(), serde_json::Value::String(ev.value.clone()));
+                }
             }
         }
 

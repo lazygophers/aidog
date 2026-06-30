@@ -46,8 +46,7 @@ use rusqlite::params;
             name: "del-src-auto".into(), group_key: Some("del-src-auto".into()),
             routing_mode: RoutingMode::Failover, auto_from_platform: p_del.id.to_string(),
             request_timeout_secs: 0, connect_timeout_secs: 0,
-            source_protocol: None, max_retries: 2, model_mappings: vec![],
-        }).await.unwrap();
+            source_protocol: None, max_retries: 2, model_mappings: vec![], env_vars: vec![],        }).await.unwrap();
         set_group_platforms(&db, auto_g.id, &[
             GroupPlatformInput { platform_id: p_del.id, priority: Some(0), weight: Some(1), level_priority: None },
             GroupPlatformInput { platform_id: p_keep.id, priority: Some(1), weight: Some(1), level_priority: None },
@@ -58,8 +57,7 @@ use rusqlite::params;
             name: "del-src-orphan".into(), group_key: Some("del-src-orphan".into()),
             routing_mode: RoutingMode::Failover, auto_from_platform: p_del.id.to_string(),
             request_timeout_secs: 0, connect_timeout_secs: 0,
-            source_protocol: None, max_retries: 2, model_mappings: vec![],
-        }).await.unwrap();
+            source_protocol: None, max_retries: 2, model_mappings: vec![], env_vars: vec![],        }).await.unwrap();
         set_group_platforms(&db, auto_orphan.id, &[
             GroupPlatformInput { platform_id: p_del.id, priority: Some(0), weight: Some(1), level_priority: None },
         ]).await.unwrap();

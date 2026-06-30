@@ -27,6 +27,7 @@ pub(crate) async fn create_auto_group_for(db: &Db, platform: &Platform, level_pr
         source_protocol: None,
         max_retries: 10,
         model_mappings: Vec::new(),
+        env_vars: Vec::new(),
     }).await?;
     db::set_group_platforms(db, group.id, &[GroupPlatformInput {
         platform_id: platform.id,

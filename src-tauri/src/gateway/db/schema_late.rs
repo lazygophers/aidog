@@ -347,13 +347,21 @@ ALTER TABLE "group_new" RENAME TO "group";
                     [],
                 );
 
+                // Migration 038: group 自定义环境变量（内联 JSON 数组，仿 model_mappings）。
+                // sync 时注入 settings.{group}.json 的 env block（ANTHROPIC_BASE_URL /
+                // ANTHROPIC_AUTH_TOKEN 由 aidog 强写，用户同名 key 在 sync_settings 过滤丢弃）。
+                // 幂等：旧库 ALTER 无 IF NOT EXISTS，忽略 duplicate column；老行回填 '[]'。
+                let _ = conn.execute(
+                    "ALTER TABLE \"group\" ADD COLUMN env_vars TEXT NOT NULL DEFAULT '[]'",
+                    [],
+                );
+
                 // Migration 039: 重写历史 last_error 残留完整 JSON body 为提取后 message。
                 // 037 加列时 last_error 直接存 `HTTP {code}: {truncate_attempt_error(body)}`（含完整 JSON），
                 // 后续 b9f82ed 才在写入前接入 extract_error_message。3 小时窗口内落库的旧行需一次性重提：
                 // 拆 `HTTP {code}: ` 前缀后的 body → extract_error_message → 命中则重写。
                 // 幂等：重提后行再跑命中相同 message（已是字符串非 JSON），不变；非 JSON / 无字段不动。
                 // 仅处理 message 能提取且与原文不同的，其余（含连接错 / 纯文本限流）保留。
-                // 编号占位说明：038 被 group-env-vars 任务（env_vars 列）先占，本迁移顺延 039。
                 reextract_legacy_last_error(conn);
     Ok(())
 }
