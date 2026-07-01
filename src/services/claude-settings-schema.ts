@@ -25,6 +25,13 @@ export interface SettingSection {
 
 // ── Sections ──
 
+/** Claude Code `language` 字段可选值（settings.json 顶层 language key）。
+ *  单一事实源：CLI 集成 tab 与 claudeTab 的 language 字段共用，禁复制。 */
+export const LANGUAGE_OPTIONS: string[] = [
+  "zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE",
+  "es-ES", "pt-BR", "it-IT", "ru-RU", "ar-SA", "hi-IN", "th-TH", "vi-VN",
+];
+
 export const SECTIONS: SettingSection[] = [
   {
     id: "core",
@@ -34,7 +41,7 @@ export const SECTIONS: SettingSection[] = [
       { key: "model", label: "Model", type: "string", placeholder: "e.g. claude-sonnet-4-6, sonnet" },
       { key: "effortLevel", label: "Effort Level", type: "select", options: ["low", "medium", "high", "xhigh"] },
       { key: "outputStyle", label: "Output Style", type: "string", placeholder: "Explanatory, Concise..." },
-      { key: "language", label: "Language", type: "string", placeholder: "zh-CN, en-US, ja-JP...", options: ["zh-CN", "en-US", "ja-JP", "ko-KR", "fr-FR", "de-DE", "es-ES", "pt-BR", "it-IT", "ru-RU", "ar-SA", "hi-IN", "th-TH", "vi-VN"] },
+      { key: "language", label: "Language", type: "string", placeholder: "zh-CN, en-US, ja-JP...", options: LANGUAGE_OPTIONS },
       { key: "agent", label: "Agent", type: "string", description: "将主线程作为命名 subagent 运行" },
       { key: "apiKeyHelper", label: "API Key Helper", type: "string", placeholder: "/bin/generate_temp_api_key.sh", pathType: "file" },
       { key: "modelOverrides", label: "Model Overrides", type: "kv", description: "模型 ID 映射，如 Bedrock ARN" },
