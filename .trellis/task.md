@@ -16,6 +16,11 @@
 | 07-01-export-default-check | 导出默认勾选 skills/mcp | 导出 preview 默认勾选 skills+mcp scope (当前默认不勾需手动) | 已完成 | — |
 | 07-01-export-ux-revisions | 导出 UX 修订 | setting label 补全 (cc_codex/coding_tools 等裸 key i18n) + 菜单组拆分 (platform/group/group_platform 三子类分开, 非一菜单组平铺) | 已完成 | — |
 | 07-01-platform-search-filter | 平台搜索命中只展示命中项 | Platforms 搜索命中平台时只展示命中项, 不连带整组 | 已完成 | — |
+| 07-01-export-extra-cleanup | 导出 extra 默认值清理 + 类型修正 | 导出时空 extra ({}) 默认移除 + extra 序列化为 obj 非 str 类型 | 已完成 | — |
+| 07-01-aidog-deeplink-share | aidog:// 协议 + URL 导入 + skills/mcp 分享 | 注册 aidog:// 协议 (启动自动) + URL 导入平台/skills/mcp + skills/mcp 独立分享按钮 (复用平台分享逻辑) + 粘贴导入 | 规划中 | — |
+| 07-01-deeplink-platform-url ├ child | D2 平台 URL 导入 | aidog://platform 路径: 分享 base64 → URL → 唤起导入 | 规划中 | — |
+| 07-01-deeplink-mcp-share ├ child | D3 mcp 分享 + URL 导入 | mcp 分享按钮 (复用 ShareModal) + aidog://mcp URL 导入 + 粘贴导入 | 规划中 | — |
+| 07-01-deeplink-skill-share ├ child | D4 skills 分享 + URL 导入 | skills 分享 (id 列表) + aidog://skill URL 导入 + 粘贴导入 | 规划中 | — |
 
 ## Worktree ↔ Task 映射
 
