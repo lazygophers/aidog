@@ -205,6 +205,22 @@ function pushUnique(arr: string[], v: string) {
   if (v && !arr.includes(v)) arr.push(v);
 }
 
+/**
+ * 拆分多 key 文本 → 去重候选数组（用于手动表单批量粘入）。
+ * 与 {@link extractApiKeys} 区别：本函数面向「用户可控的整洁输入」（多行 / 逗号 / 分号 / 空白分隔），
+ * 仅做拆分 + trim + 去重 + 剔空，不做防爬汉字 / base64 启发式解码（那是智能识别杂乱论坛文案的活）。
+ * ponytail: 简单 split 足够，乱序文本场景由 SmartPaste 路径的 extractApiKeys 兜。
+ */
+export function splitApiKeys(raw: string): string[] {
+  if (!raw) return [];
+  const out: string[] = [];
+  for (const part of raw.split(/[\s,;]+/)) {
+    const v = part.trim();
+    if (v && !out.includes(v)) out.push(v);
+  }
+  return out;
+}
+
 /** 抽取 apikey 候选。 */
 function extractApiKeys(text: string): string[] {
   const keys: string[] = [];
