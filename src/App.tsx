@@ -94,6 +94,20 @@ function App() {
       .catch(() => {});
   }, []);
 
+  // aidog:// deep link 协议层事件分发：后端 emit `aidog-deep-link` {entity, action, data}，
+  // 这里按 entity 二次分发到 `aidog:<entity>` window CustomEvent，children（D2/D3/D4 的
+  // Platforms/Mcp/Skills 页）各自 addEventListener 接入。D1 只做协议层 + 分发，不处理 import。
+  useEffect(() => {
+    const unlistenPromise = listen<{ entity: string; action: string; data: string }>(
+      "aidog-deep-link",
+      (e) => {
+        const { entity, action, data } = e.payload;
+        window.dispatchEvent(new CustomEvent(`aidog:${entity}`, { detail: { action, data } }));
+      },
+    );
+    return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
+  }, []);
+
   const handleNavigate = (id: string, context?: NavContext) => {
     if (id === activeNav && !context) return;
     // A dirty page (e.g. Claude Code Settings) may intercept the switch.

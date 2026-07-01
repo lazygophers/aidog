@@ -16,6 +16,9 @@ pub fn run() {
             tauri_plugin_autostart::MacosLauncher::LaunchAgent,
             None,
         ))
+        // aidog:// deep link 协议：scheme 注册（macOS bundle / Win registry / Linux .desktop）
+        // + URL 唤起回调。setup 阶段经 DeepLinkExt 挂 on_open_url + 冷启动 get_current 补发。
+        .plugin(tauri_plugin_deep_link::init())
         .setup(|app| crate::app_setup::setup(app))
         .invoke_handler(tauri::generate_handler![
             // Platform
