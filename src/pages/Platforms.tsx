@@ -393,8 +393,11 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
     pipellm: [
       { protocol: "anthropic", base_url: "https://cc-api.pipellm.ai", client_type: "claude_code" },
     ],
+    // opencode zen/go：codex_tui OpenAI 兼容路由根（区别 opencode_zen 的 /zen/v1）。
+    // base_url 必须含 /v1 前缀，proxy build_models_url 拼 /models、provider_api_path 拼 /chat/completions；
+    // 缺 /v1 则 /zen/go/models + /zen/go/chat/completions 双 404（request_id a88d75c5）。
     opencode: [
-      { protocol: "openai", base_url: "https://opencode.ai/zen/go", client_type: "codex_tui" },
+      { protocol: "openai", base_url: "https://opencode.ai/zen/go/v1", client_type: "codex_tui" },
     ],
     // OpenCode Zen 免费版：标准 OpenAI 兼容端点，免费模型靠 catalog 定价 0（big-pickle/glm-4.7-free 等）。
     // base_url 含 /v1 前缀，proxy 拼 /chat/completions；/v1/models 无 auth 可列模型。
