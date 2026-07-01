@@ -47,6 +47,7 @@ export const PROTOCOLS: ProtocolOption[] = [
   { value: "xiaomi_mimo", label: "小米 MiMo Coding Plan", codingPlan: true, keywords: ["xiaomi coding", "小米编程", "mimo token plan", "token plan"], codingKeyPrefixes: ["tp-"] },
   { value: "bailing", label: "百灵", keywords: ["bailing", "百灵", "tbox"] },
   { value: "longcat", label: "Longcat", keywords: ["longcat", "龙猫"] },
+  { value: "sensenova", label: "商汤 SenseNova（日日新）", keywords: ["sensenova", "商汤", "日日新", "token.sensenova"] },
   // ── 聚合平台 ──
   { value: "openrouter", label: "OpenRouter", keywords: ["openrouter", "聚合"] },
   { value: "siliconflow", label: "SiliconFlow", keywords: ["siliconflow", "硅基流动"] },
@@ -261,6 +262,15 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
     longcat: [
       { protocol: "anthropic", base_url: "https://api.longcat.chat/anthropic", client_type: "claude_code" },
     ],
+    // 商汤 SenseNova（日日新）Token Plan 公测全免费：token.sensenova.cn 仅暴露 4 个 LLM 端点，
+    // usage/quota/balance 全 404（无 API-Key 配额接口，同 xiaomi_mimo token-plan），quota.rs 不加 case。
+    // base_url 铁律：openai 端点含 /v1（proxy 拼 /chat/completions）；anthropic 端点裸 host
+    // （https://token.sensenova.cn，proxy 拼 /v1/messages；配 /v1 会 /v1/v1/messages 404）。
+    // responses 端点 /v1/responses 探测返回 404 NOT_FOUND（非 401）→ 不支持，未配。
+    sensenova: [
+      { protocol: "openai", base_url: "https://token.sensenova.cn/v1", client_type: "codex_tui" },
+      { protocol: "anthropic", base_url: "https://token.sensenova.cn", client_type: "claude_code" },
+    ],
 
     // ── 聚合平台 ──
     openrouter: [
@@ -458,6 +468,8 @@ export function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Part
     xiaomi_mimo: { default: "mimo-v2.5-pro" },
     // OpenCode Zen 免费旗舰（catalog 定价 0）；其余免费模型靠 fetchModels /v1/models 拉取
     opencode_zen: { default: "big-pickle" },
+    // 商汤 SenseNova Token Plan 公测全免费；flash-lite 为 chat + 图像理解旗舰（256K）
+    sensenova: { default: "sensenova-6.7-flash-lite" },
   };
   return { ...(presets[protocol] || {}) };
 }
@@ -509,6 +521,8 @@ function getDefaultModelList(protocol: Protocol, codingPlan?: boolean): string[]
     byteplus: ["doubao-seed-2-0-pro", "doubao-seed-2-0-code-preview", "doubao-seed-2-0-lite", "doubao-seed-2-0-mini"],
     // qianfan: 百度文档 JS-rendered 未拿到确切 chat id，留空靠 fetchModels
     xiaomi_mimo: ["mimo-v2.5-pro", "mimo-v2-pro", "mimo-v2.5", "mimo-v2-omni", "mimo-v2-flash"],
+    // 商汤 SenseNova Token Plan：chat + 推理 + 图像生成三模型（公测全免费）。首项 = getDefaultModels 默认值。
+    sensenova: ["sensenova-6.7-flash-lite", "deepseek-v4-flash", "sensenova-u1-fast"],
     // bailing / longcat: 官方模型文档无静态来源，留空靠 fetchModels
 
     // ── 聚合平台（research/models-aggregator.md，fetchModels 为主源，列表仅冷启动占位）──
@@ -627,6 +641,7 @@ export const PROTOCOL_LABELS: Record<Protocol, string> = {
   xiaomi_mimo: "小米 MiMo",
   bailing: "百灵",
   longcat: "Longcat",
+  sensenova: "商汤 SenseNova",
   // ── 聚合平台 ──
   openrouter: "OpenRouter",
   siliconflow: "SiliconFlow",

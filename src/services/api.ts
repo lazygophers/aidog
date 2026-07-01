@@ -10,7 +10,7 @@ export type Protocol =
   | "glm" | "glm_en" | "kimi" | "minimax" | "minimax_en" | "codex" | "bailian" | "bailian_coding"
   // ── 国内官方平台 ──
   | "deepseek" | "stepfun" | "stepfun_en" | "doubao" | "byteplus" | "qianfan"
-  | "xiaomi_mimo" | "bailing" | "longcat"
+  | "xiaomi_mimo" | "bailing" | "longcat" | "sensenova"
   // ── 聚合平台 ──
   | "openrouter" | "siliconflow" | "siliconflow_en" | "aihubmix" | "dmxapi" | "modelscope"
   | "shengsuanyun" | "atlascloud" | "novita" | "therouter" | "cherryin"
