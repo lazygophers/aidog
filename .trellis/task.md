@@ -12,7 +12,7 @@
 | 07-01-test-isolation-fix | 测试隔离治理 | 删真实环境 spawn + HomeGuard 收拢 4→1 + ENV_LOCK 集中 + grep lint 守卫 | 已完成 | — |
 | 07-01-07-01-cli-integration-tab | CLI 集成 tab 改名 + 语言设置 | tab「编程工具」→「CLI 集成」(8 locale key+value) + 新增语言设置项 (复用 claude-settings language sync) | 实施中 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-07-01-cli-integration-tab |
 | 07-01-07-01-sensenova-platform | 商汤 SenseNova 平台支持 | 加商汤日日新平台 (Protocol/adapter/preset/粘贴识别/quota token plan) | 规划中 | — |
-| 07-01-arch-redesign | 全仓架构重设计 | 分包分文件消大文件: 前端 4 巨型 (editors 4609/Platforms 3568/Groups 2195/api 2072) 拆 + 目录重组 + Rust 局部拆 | 规划中 (排队) | — |
+| 07-01-arch-redesign | 全仓架构重设计 | 分包分文件消大文件: 前端 4 巨型 (editors 4609/Platforms 3568/Groups 2195/api 2072) 拆 + 目录重组 + Rust 局部拆 | 规划中 | — |
 
 ## Worktree ↔ Task 映射
 
