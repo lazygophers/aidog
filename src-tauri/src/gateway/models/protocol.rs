@@ -57,6 +57,8 @@ pub enum Protocol {
     BaiLing,
     #[serde(rename = "longcat")]
     Longcat,
+    #[serde(rename = "sensenova")]
+    SenseNova,
     // ── 聚合平台 ──
     #[serde(rename = "openrouter")]
     OpenRouter,
