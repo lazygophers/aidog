@@ -230,12 +230,21 @@ pub(crate) async fn forward_attempt(
     let url = format!("{}{}", base_url, api_path);
     log.upstream_request_url = url.clone();
 
-    // ── 第三方 anthropic 端点不支持字段剔除 ──
+    // ── 第三方 anthropic 端点不支持字段剔除 / 非标结构规整 ──
     // host-gated（仅 !is_official_anthropic_host）：
     //   - context_management：thinking 开启即无条件剔（第三方不认该协商字段；首轮 GLM 1210 + 有历史 DeepSeek 400）
     //   - thinking：仅历史 assistant 轮缺 thinking block（必 400 的不匹配）才剔，齐全直传
+    //   - messages 内 role=system 非标位置规整：非流式多轮（有 assistant 历史）+ messages 内含 role=system
+    //     时，GLM/DeepSeek 等 anthropic-compat 端点拒绝 → 400 code 1210 "API 调用参数有误"
+    //     （DB 全样本交叉验证：9/9 失败均为 no_stream+assistant+messages 内 role=system；
+    //      官方 Anthropic 接受该 CC 注入的非标位置，第三方严格）。规整=将 messages 内 role=system
+    //     合并到顶层 system 数组（语义等价、Anthropic 规范形式），messages 数组移除该消息。
+    //     仅非流式触发：流式 + 同结构当前工作正常（9279 PASS），不动避免回归。
     if matches!(target_protocol_enum, Protocol::Anthropic) && !is_official_anthropic_host(&url) {
         strip_thinking_if_unmatched(&mut req_body);
+        if !is_stream {
+            hoist_mid_messages_system(&mut req_body);
+        }
     }
 
     let req_body_str = serde_json::to_string(&req_body).unwrap_or_default();
@@ -556,6 +565,73 @@ fn strip_thinking_if_unmatched(body: &mut Value) {
     }
 }
 
+/// 第三方 anthropic 端点：messages 内非首位的 role=system 规整到顶层 system 数组。
+///
+/// **根因（DB 全样本取证）**：Claude Code 把 SessionStart/UserPromptSubmit hook 注入的上下文
+/// 以 `role=system` 消息插入 messages 数组中段/末尾（官方 Anthropic 接受该非标位置作为客户端
+/// 约定）。GLM / DeepSeek 等第三方 anthropic-compat 端点严格执行规范（role=system 仅顶层 system
+/// 字段或 messages[0]），多轮 + 非流式场景下拒绝 → 400 code 1210 "API 调用参数有误"。
+///
+/// **DB 交叉验证**（GLM `open.bigmodel.cn/api/anthropic`，10552 条 200 + 9 条 400 全样本）：
+/// 失败全集 = `{no_stream, has_assistant, messages 含 role=system（含中段+末段）}` —— 9/9 命中；
+/// 同结构流式 PASS=1166，非流式 PASS=3（GLM 间歇性接受，3 异常样本均为 14-112 msgs 长上下文）。
+/// 故仅非流式触发规整：流式同结构当前工作正常（host-gated 但 is_stream=true 不动），避免回归。
+///
+/// **规整方式**：messages 内 role=system 消息按出现顺序，content 合并到顶层 `system` 数组
+/// （顶层 system 已是数组则追加 text block；字符串则升级为数组；缺失则新建）。
+/// messages 数组移除该消息，剩余 user/assistant 交替保持原序。仅多轮（含 assistant）才触发：
+/// 首轮无 assistant 时 messages 内 role=system 多为客户端约首约定（DeepSeek/GLM 首轮接受），不动。
+fn hoist_mid_messages_system(body: &mut Value) {
+    let Some(obj) = body.as_object_mut() else { return };
+    let Some(msgs) = obj.get_mut("messages").and_then(|m| m.as_array_mut()) else { return };
+    // 仅多轮（有 assistant 历史）触发：首轮无 assistant 不动（首轮 role=system 第三方接受）。
+    let has_assistant = msgs.iter().any(|m| m.get("role").and_then(|r| r.as_str()) == Some("assistant"));
+    if !has_assistant {
+        return;
+    }
+    // 收集 messages 内 role=system 的 content（保持出现顺序），同时保留非 system 消息原序。
+    let mut hoisted_blocks: Vec<Value> = Vec::new();
+    let mut kept: Vec<Value> = Vec::with_capacity(msgs.len());
+    for m in msgs.drain(..) {
+        if m.get("role").and_then(|r| r.as_str()) == Some("system") {
+            // system message content：字符串 → text block；数组（blocks） → 逐项取
+            match m.get("content") {
+                Some(Value::String(s)) => {
+                    hoisted_blocks.push(serde_json::json!({"type": "text", "text": s}));
+                }
+                Some(Value::Array(blocks)) => {
+                    for b in blocks {
+                        if b.is_object() {
+                            hoisted_blocks.push(b.clone());
+                        }
+                    }
+                }
+                _ => {}
+            }
+        } else {
+            kept.push(m);
+        }
+    }
+    if hoisted_blocks.is_empty() {
+        // 无 system 可规整：还原原 msgs（drain 清空了）
+        *msgs = kept;
+        return;
+    }
+    *msgs = kept;
+    // 合并到顶层 system 数组：现有数组追加；字符串升级；缺失新建。
+    match obj.get_mut("system") {
+        Some(Value::Array(arr)) => arr.extend(hoisted_blocks),
+        Some(Value::String(s)) => {
+            let mut arr = vec![serde_json::json!({"type": "text", "text": s})];
+            arr.extend(hoisted_blocks);
+            obj.insert("system".to_string(), Value::Array(arr));
+        }
+        _ => {
+            obj.insert("system".to_string(), Value::Array(hoisted_blocks));
+        }
+    }
+}
+
 #[cfg(test)]
 mod test_strip_thinking {
     use super::strip_thinking_if_unmatched;
@@ -641,5 +717,137 @@ mod test_strip_thinking {
         strip_thinking_if_unmatched(&mut body);
         assert!(body.get("thinking").is_some(), "首轮无 assistant → has_unmatched=false，thinking 保留");
         assert!(body.get("context_management").is_none(), "thinking 开启即无条件剔 context_management（首轮 GLM 1210 根因）");
+    }
+}
+
+#[cfg(test)]
+mod test_hoist_mid_messages_system {
+    use super::hoist_mid_messages_system;
+    use serde_json::json;
+
+    #[test]
+    fn hoists_mid_system_to_top_level_when_multiturn() {
+        // 复现 GLM 1210 真因（request_id=7c8629eadb074648a71858ae388ea550 等 9 例）：
+        // CC 注入 role=system 进 messages 中段+末段，多轮 + 非流式下 GLM 拒绝 → 400 code 1210。
+        // 规整：messages 内 role=system 合并到顶层 system 数组，messages 仅留 user/assistant。
+        let mut body = json!({
+            "system": [{"type": "text", "text": "base system"}],
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": "q1"}]},
+                {"role": "system", "content": "mid reminder 1"},
+                {"role": "assistant", "content": [{"type": "text", "text": "a1"}]},
+                {"role": "user", "content": "q2"},
+                {"role": "system", "content": "mid reminder 2"},
+                {"role": "assistant", "content": [{"type": "text", "text": "a2"}]},
+                {"role": "user", "content": "q3"},
+                {"role": "system", "content": "trailing reminder"},
+            ],
+        });
+        hoist_mid_messages_system(&mut body);
+        let msgs = body["messages"].as_array().unwrap();
+        // messages 内不再有 role=system
+        assert!(!msgs.iter().any(|m| m["role"] == "system"), "messages 内不应再有 role=system");
+        // user/assistant 交替保留
+        let roles: Vec<&str> = msgs.iter().map(|m| m["role"].as_str().unwrap()).collect();
+        assert_eq!(roles, vec!["user", "assistant", "user", "assistant", "user"]);
+        // 顶层 system 数组追加 3 个 text block（原 1 + 合并 3 = 4）
+        let sys = body["system"].as_array().unwrap();
+        assert_eq!(sys.len(), 4, "顶层 system 数组应含原 1 + 合并 3 = 4 块");
+        assert_eq!(sys[0]["text"], "base system");
+        assert_eq!(sys[1]["text"], "mid reminder 1");
+        assert_eq!(sys[2]["text"], "mid reminder 2");
+        assert_eq!(sys[3]["text"], "trailing reminder");
+    }
+
+    #[test]
+    fn noop_when_no_assistant_first_turn() {
+        // 首轮无 assistant 历史：messages 内 role=system 多为客户端首约定，第三方接受，不动。
+        let mut body = json!({
+            "system": [{"type": "text", "text": "base"}],
+            "messages": [
+                {"role": "user", "content": "hi"},
+                {"role": "system", "content": "ctx"},
+            ],
+        });
+        hoist_mid_messages_system(&mut body);
+        // messages 保持原样（含 role=system）
+        let msgs = body["messages"].as_array().unwrap();
+        assert_eq!(msgs.len(), 2, "首轮无 assistant 不应规整");
+        assert_eq!(msgs[1]["role"], "system");
+        assert_eq!(body["system"].as_array().unwrap().len(), 1, "顶层 system 不变");
+    }
+
+    #[test]
+    fn noop_when_no_mid_system() {
+        // 多轮但 messages 内无 role=system：无需规整
+        let mut body = json!({
+            "system": [{"type": "text", "text": "base"}],
+            "messages": [
+                {"role": "user", "content": "q1"},
+                {"role": "assistant", "content": "a1"},
+                {"role": "user", "content": "q2"},
+            ],
+        });
+        hoist_mid_messages_system(&mut body);
+        assert_eq!(body["messages"].as_array().unwrap().len(), 3, "无 mid-system 不动");
+        assert_eq!(body["system"].as_array().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn upgrades_top_system_str_to_array() {
+        // 顶层 system 是字符串时：升级为数组并追加 mid-system
+        let mut body = json!({
+            "system": "base string",
+            "messages": [
+                {"role": "user", "content": "q1"},
+                {"role": "assistant", "content": "a1"},
+                {"role": "user", "content": "q2"},
+                {"role": "system", "content": "injected"},
+            ],
+        });
+        hoist_mid_messages_system(&mut body);
+        let sys = body["system"].as_array().expect("顶层 system 应升级为数组");
+        assert_eq!(sys.len(), 2);
+        assert_eq!(sys[0]["text"], "base string");
+        assert_eq!(sys[1]["text"], "injected");
+    }
+
+    #[test]
+    fn creates_top_system_when_absent() {
+        // 顶层无 system 字段：mid-system 合并新建
+        let mut body = json!({
+            "messages": [
+                {"role": "user", "content": "q1"},
+                {"role": "assistant", "content": "a1"},
+                {"role": "user", "content": "q2"},
+                {"role": "system", "content": [{"type": "text", "text": "block1"}]},
+            ],
+        });
+        hoist_mid_messages_system(&mut body);
+        let sys = body["system"].as_array().expect("应新建顶层 system 数组");
+        assert_eq!(sys.len(), 1);
+        assert_eq!(sys[0]["text"], "block1");
+    }
+
+    #[test]
+    fn preserves_array_block_content_from_mid_system() {
+        // mid-system content 是数组（blocks）时：逐项合并到顶层 system 数组
+        let mut body = json!({
+            "system": [{"type": "text", "text": "base"}],
+            "messages": [
+                {"role": "user", "content": "q1"},
+                {"role": "assistant", "content": "a1"},
+                {"role": "user", "content": "q2"},
+                {"role": "system", "content": [
+                    {"type": "text", "text": "block a"},
+                    {"type": "text", "text": "block b"},
+                ]},
+            ],
+        });
+        hoist_mid_messages_system(&mut body);
+        let sys = body["system"].as_array().unwrap();
+        assert_eq!(sys.len(), 3, "原 1 + mid-system 2 block = 3");
+        assert_eq!(sys[1]["text"], "block a");
+        assert_eq!(sys[2]["text"], "block b");
     }
 }
