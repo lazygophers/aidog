@@ -215,6 +215,8 @@ yarn tauri build
 
 **前置依赖** — Node.js ≥ 18、Yarn 4.x、Rust toolchain（rustup）、Tauri CLI、各平台系统依赖（见 [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)）。
 
+> 🔗 **dev 模式 deep-link 限制** — `aidog://` 协议由 `tauri-plugin-deep-link` 在 bundle 期写 `Info.plist`（macOS）/ 注册表 / `.desktop` 注册。`yarn tauri dev` 跑的是未打包二进制，macOS 下 `Info.plist` 不生效 → 浏览器点 `aidog://` 不会唤起 dev 实例。验证 deep-link 行为请跑生产构建（`yarn tauri build`），或 dev 下手动 `lsregister` 注册 `.app`。Win/Linux dev 经 `register_all()` 运行时注册，无此限制。
+
 ## 发布与版本管理
 
 **版本唯一可信源 = 根目录 `.version`**（单行 semver，如 `0.1.0`）。所有 manifest（`package.json` / `src-tauri/Cargo.toml` / `src-tauri/tauri.conf.json` / `docs/package.json`）由脚本从 `.version` 同步：
