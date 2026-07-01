@@ -3,7 +3,12 @@
 use std::collections::BTreeSet;
 
 use super::{Manifest, NamedText, Payload};
-use crate::gateway::{codex, db::Db};
+use crate::gateway::{
+    codex,
+    db::Db,
+    models::{Platform, PlatformModels, PlatformEndpoint, Protocol},
+};
+use serde::Serialize;
 
 /// 收集错误（非致命项收集为 payload 缺省值，仅致命错误返回 Err）。
 pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
@@ -36,7 +41,7 @@ pub async fn collect(db: &Db, scopes: &[String]) -> Result<Payload, String> {
         let platforms = crate::gateway::db::list_platforms(db).await?;
         payload.platform = platforms
             .into_iter()
-            .map(serde_json::to_value)
+            .map(|p| serde_json::to_value(to_export(p)))
             .collect::<Result<_, _>>()
             .map_err(|e| format!("serialize platform: {e}"))?;
     }
@@ -147,6 +152,65 @@ fn collect_claude_code(payload: &mut Payload) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+// ── platform 导出清洗（分享场景） ─────────────────────────────
+//
+// 三层清洗（PRD 07-01-export-extra-cleanup）：
+// 1. extra：空 (`{}`/`""`) → 省略；非空 string → parse 为 JSON object 序列化（非裸 string）
+// 2. 配置空值省略：models / available_models / endpoints 空时不进 payload
+// 3. 运行时 + 状态不导出：auto_disabled_until / auto_disable_strikes / expires_at / deleted_at /
+//    est_balance_remaining / est_coding_plan / last_real_query_at / estimate_count / status / enabled /
+//    last_error / last_error_at / balance_level / show_in_tray / tray_display / sort_order / manual_budgets
+//    分享 = 给别人，不带原用户使用数据 / 启用意图。导入缺失字段走 `#[serde(default)]` / json_* 回默认。
+//
+// 用 collect 阶段 transform（不改 Platform Rust 字段类型，不改 DB schema）。
+/// 导出中间结构：白名单字段 + 清洗规则。仅 `to_export` 构造，`collect` 序列化。
+#[derive(Serialize)]
+struct ExportPlatform {
+    id: u64,
+    name: String,
+    platform_type: Protocol,
+    base_url: String,
+    api_key: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    extra: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "PlatformModels::is_empty")]
+    models: PlatformModels,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    available_models: Vec<String>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    endpoints: Vec<PlatformEndpoint>,
+    created_at: i64,
+    updated_at: i64,
+}
+
+/// `Platform` → `ExportPlatform`：extra 空 → None；非空 → parse 为 obj（parse 失败兜底 None）。
+fn to_export(p: Platform) -> ExportPlatform {
+    let extra = parse_export_extra(&p.extra);
+    ExportPlatform {
+        id: p.id,
+        name: p.name,
+        platform_type: p.platform_type,
+        base_url: p.base_url,
+        api_key: p.api_key,
+        extra,
+        models: p.models,
+        available_models: p.available_models,
+        endpoints: p.endpoints,
+        created_at: p.created_at,
+        updated_at: p.updated_at,
+    }
+}
+
+/// 导出 extra 清洗：空 / `{}` / 非法 JSON → None（省略）；合法 obj / 其它 JSON → Some(Value)。
+/// 注：分享场景下 extra 习惯放 JSON object（breaker / mock / newapi）；非法 string 兜底省略（design 决策）。
+fn parse_export_extra(extra: &str) -> Option<serde_json::Value> {
+    let trimmed = extra.trim();
+    if trimmed.is_empty() || trimmed == "{}" {
+        return None;
+    }
+    serde_json::from_str::<serde_json::Value>(trimmed).ok()
 }
 
 fn read_text_optional(path: &std::path::Path) -> Option<String> {
