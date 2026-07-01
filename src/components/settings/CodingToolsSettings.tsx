@@ -1,11 +1,16 @@
-// ─── AI 编程工具联动开关（AppSettings「AI 编程工具」tab）────────────
-// 两联动开关：开关偏好存 app DB（scope=global, key=coding_tools_settings），
+// ─── CLI 集成（AppSettings「CLI 集成」tab）────────────
+// 两联动开关 + 语言选择：开关偏好存 app DB（scope=global, key=coding_tools_settings），
 // 变化时后端按 diff 触发写外部文件（~/.claude/config.json 的 primaryApiKey / ~/.claude.json 的 hasCompletedOnboarding）。
+// 语言字段写 ~/.claude/settings.json 的 language key（复用 claudeTab 同一 sync 路径：
+// settingsApi.set(global, claude_code, …) + configApi.syncGroupSettings()）。
 // 即时保存（无 unsaved state），不走 navGuard 离页拦截。
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { codingToolsSettingsApi, type CodingToolsSettings } from "../../services/api";
+import { codingToolsSettingsApi, settingsApi, configApi, type CodingToolsSettings } from "../../services/api";
+import { LANGUAGE_OPTIONS } from "../../services/claude-settings-schema";
+
+const CLAUDE_CONFIG_KEY = "claude_code";
 
 export function CodingToolsSettingsTab() {
   const { t } = useTranslation();
@@ -13,23 +18,25 @@ export function CodingToolsSettingsTab() {
     apply_to_claude_plugin: false,
     skip_claude_onboarding: false,
   });
+  const [language, setLanguage] = useState<string>("");
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   // 写外部文件失败时的常驻错误态（与瞬时成功提示分离）：失败不自动消失，
   // 直到下次操作或修复，确保用户 100% 看到"开关未生效 + 真实原因"。
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  // 用户一旦操作过开关（乐观翻转 + set 确认），mount 的初始 get() 即便晚到也不得覆盖。
-  // 根因：React 19 StrictMode 致 mount effect 双跑，慢 get() 的 resolve 可能晚于用户 toggle，
+  // 用户一旦操作过开关或语言（乐观翻转 + set 确认），mount 的初始 get() 即便晚到也不得覆盖。
+  // 根因：React 19 StrictMode 致 mount effect 双跑，慢 get() 的 resolve 可能晚于用户操作，
   // 无条件 setSettings(get结果) 会把已确认的值改回 DB 旧值（几秒后自动变灰、无报错）。
   const dirtyRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
+    // 开关偏好
     codingToolsSettingsApi
       .get()
       .then((s) => {
-        // 组件已卸载，或用户在 get 解析前已操作过开关 → 丢弃晚到结果，不覆盖。
+        // 组件已卸载，或用户在 get 解析前已操作过 → 丢弃晚到结果，不覆盖。
         if (cancelled || dirtyRef.current) {
           return;
         }
@@ -41,6 +48,17 @@ export function CodingToolsSettingsTab() {
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
+      });
+    // 语言字段（与 claudeTab 共享同一 claude_code config 对象的 language key）
+    settingsApi
+      .get("global", CLAUDE_CONFIG_KEY)
+      .then((cfg) => {
+        if (cancelled || dirtyRef.current) return;
+        const lang = (cfg as Record<string, any> | null)?.language;
+        if (typeof lang === "string") setLanguage(lang);
+      })
+      .catch(() => {
+        // 语言读失败不阻塞开关加载：留空 option 占位即可
       });
     return () => {
       cancelled = true;
@@ -70,6 +88,36 @@ export function CodingToolsSettingsTab() {
     }
   };
 
+  const handleLanguageChange = async (next: string) => {
+    if (busy || next === language) return;
+    const prev = language;
+    dirtyRef.current = true;
+    setMessage("");
+    setError("");
+    setLanguage(next);
+    setBusy(true);
+    try {
+      // 复用 claudeTab 的持久化路径：读全量 claude_code config → 改 language key →
+      // 写回 DB → sync_group_settings 触发 ~/.claude/settings.json 与 per-group 文件重写。
+      // 严禁自实现 fs 写（PRD D2 硬约束）。
+      const cfg = (await settingsApi.get("global", CLAUDE_CONFIG_KEY)) as Record<string, any> | null;
+      const updated = { ...(cfg ?? {}), language: next };
+      await settingsApi.set("global", CLAUDE_CONFIG_KEY, updated);
+      // best-effort sync，失败不阻塞 DB 已存值（下次任意 sync 路径会补偿）
+      try {
+        await configApi.syncGroupSettings();
+      } catch (e) {
+        console.error("sync_group_settings (language):", e);
+      }
+      setMessage(t("codingTools.applied", "已应用"));
+    } catch (e: any) {
+      setLanguage(prev);
+      setError(t("codingTools.writeFailed", "写入失败") + ": " + String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   if (loading) {
     return <div style={{ padding: 20, color: "var(--text-secondary)" }}>{t("common.loading", "加载中…")}</div>;
   }
@@ -78,7 +126,7 @@ export function CodingToolsSettingsTab() {
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* 说明卡片 */}
       <div className="glass-surface" style={{ padding: "16px 20px" }}>
-        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("codingTools.introTitle", "AI 编程工具联动")}</div>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("codingTools.cliIntegrationTitle", "CLI 集成")}</div>
         <div className="text-secondary" style={{ fontSize: 12, marginTop: 4 }}>
           {t("codingTools.introDesc", "以下开关会写入 Claude Code CLI 的本地配置文件，使扩展与 CLI 走 aidog 代理并跳过首启引导。")}
         </div>
@@ -132,6 +180,37 @@ export function CodingToolsSettingsTab() {
           aria-checked={settings.skip_claude_onboarding}
           tabIndex={0}
         />
+      </div>
+
+      {/* 语言选择：写 ~/.claude/settings.json 的 language key（复用 claudeTab sync 路径） */}
+      <div className="glass-surface" style={{
+        padding: "16px 20px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 16,
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("codingTools.language.title")}</div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {t("codingTools.language.desc")}
+          </div>
+          <div className="text-tertiary" style={{ fontSize: 11, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
+            ~/.claude/settings.json · language
+          </div>
+        </div>
+        <select
+          className="input"
+          style={{ fontSize: 13, minWidth: 180 }}
+          value={language}
+          onChange={(e) => handleLanguageChange(e.target.value)}
+          disabled={busy}
+        >
+          {!language && <option value="">—</option>}
+          {LANGUAGE_OPTIONS.map((lc) => (
+            <option key={lc} value={lc}>{lc}</option>
+          ))}
+        </select>
       </div>
 
       {/* 常驻错误态：写外部文件失败时不可错过，红色 inline、不自动消失 */}
