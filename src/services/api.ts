@@ -1348,7 +1348,7 @@ export const dbApi = {
   compact: () => invoke<DbCompactResult>("db_compact"),
 };
 
-// ─── AI 编程工具联动开关 ──────────────────────────
+// ─── CLI 集成联动开关 ──────────────────────────
 
 export interface CodingToolsSettings {
   apply_to_claude_plugin: boolean;
