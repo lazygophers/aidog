@@ -230,11 +230,10 @@ pub(crate) async fn forward_attempt(
     let url = format!("{}{}", base_url, api_path);
     log.upstream_request_url = url.clone();
 
-    // ── 第三方 anthropic 端点 thinking 回传兜底 ──
-    // thinking 开启时第三方 anthropic-compat 端点(deepseek / 中转站)严格要求每个 assistant 轮回传
-    // thinking block，缺失即 400 "content[].thinking must be passed back"；官方 Anthropic 的
-    // summarized/adaptive 模式无此要求(协商 + 服务端 summarized)，Claude Code 故不回传，跨路由到第三方即炸。
-    // 仅当历史 assistant 轮缺 thinking block(必 400 的不匹配)才剔 body.thinking，正常带 thinking 直传不动。
+    // ── 第三方 anthropic 端点不支持字段剔除 ──
+    // host-gated（仅 !is_official_anthropic_host）：
+    //   - context_management：thinking 开启即无条件剔（第三方不认该协商字段；首轮 GLM 1210 + 有历史 DeepSeek 400）
+    //   - thinking：仅历史 assistant 轮缺 thinking block（必 400 的不匹配）才剔，齐全直传
     if matches!(target_protocol_enum, Protocol::Anthropic) && !is_official_anthropic_host(&url) {
         strip_thinking_if_unmatched(&mut req_body);
     }
@@ -502,20 +501,22 @@ pub(crate) async fn forward_attempt(
     )
 }
 
-/// 第三方 anthropic 端点 thinking 回传兜底（仅在已判定为非官方 anthropic 端点时调用）。
+/// 第三方 anthropic 端点不支持字段剔除（仅在已判定为非官方 anthropic 端点时调用）。
 ///
-/// thinking 开启（`thinking.type != "disabled"`）且历史中任一 assistant 轮缺 thinking block 时，
-/// 剔除 body 的 `thinking` 字段 + `context_management` 字段。第三方 anthropic-compat 端点严格要求
-/// thinking 模式下每个 assistant 轮回传 thinking block，缺失即返回 400
+/// **`context_management`（无条件剔）**：thinking 开启（`thinking.type != "disabled"`）即剔，
+/// 独立于 assistant 历史是否齐全。`context_management` 是官方 Anthropic 服务端协商特性
+/// （Claude Code adaptive/summarized 模式 `clear_thinking_20251015`，让官方服务端自动清历史 thinking），
+/// 第三方 anthropic-compat 端点普遍不实现该协商，保留该字段对第三方无益仅风险。两类复现：
+/// 首轮请求（messages 仅 user，无 assistant 历史）GLM 直拒字段 → 400 code 1210 "API 调用参数有误"
+/// （旧逻辑 `has_unmatched_assistant`=false 漏剔 → 本次修复根因）；有 assistant 历史时 DeepSeek 认字段
+/// 判 thinking mode → 400 "thinking must be passed back"。函数名沿用 `strip_thinking_if_unmatched`
+/// （单调用点 forward.rs，最小 diff；context_management 已超越 thinking unmatched 语义，注释说明）。
+///
+/// **`thinking`（仅 unmatched 时剔）**：thinking 开启且历史任一 assistant 轮缺 thinking block 时剔。
+/// 第三方端点严格要求 thinking 模式下每 assistant 轮回传 thinking block，缺失即 400
 /// `content[].thinking must be passed back`；官方 Anthropic 的 summarized/adaptive 模式无此约束，
-/// Claude Code 故不回传，请求一旦跨路由到第三方即触发该 400。
-///
-/// `context_management` 与 thinking 同源：Claude Code adaptive/summarized 新模式用
-/// `clear_thinking_20251015` edit 协商让官方服务端自动清历史 thinking。第三方端点不认该协商，
-/// 见该字段即判 thinking mode → 严格要求 assistant 轮 content 回传 thinking block。
-/// 故命中 unmatched 时必须同时剔 `context_management`，否则单剔 `thinking` 后第三方仍据
-/// `context_management` 误判 thinking mode 致 400（regression，仅剔 thinking 不够）。
-/// thinking block 齐全（正常情况）则保留两字段直传，不影响第三方上的正常推理。
+/// Claude Code 故不回传，跨路由到第三方即触发该 400。thinking block 齐全（正常情况）保留直传，
+/// 第三方能正常处理。
 fn strip_thinking_if_unmatched(body: &mut Value) {
     let Some(obj) = body.as_object_mut() else { return };
     let thinking_on = obj
@@ -525,6 +526,8 @@ fn strip_thinking_if_unmatched(body: &mut Value) {
     if !thinking_on {
         return;
     }
+    // context_management 无条件剔：第三方端点不认该协商字段（首轮 GLM 1210 + 有历史 DeepSeek 400）
+    obj.remove("context_management");
     let has_unmatched_assistant = obj
         .get("messages")
         .and_then(|m| m.as_array())
@@ -550,7 +553,6 @@ fn strip_thinking_if_unmatched(body: &mut Value) {
         .unwrap_or(false);
     if has_unmatched_assistant {
         obj.remove("thinking");
-        obj.remove("context_management");
     }
 }
 
@@ -610,7 +612,8 @@ mod test_strip_thinking {
         });
         strip_thinking_if_unmatched(&mut body);
         assert!(body.get("thinking").is_some(), "thinking 齐全应保留");
-        assert!(body.get("context_management").is_some(), "thinking 齐全时 context_management 应保留");
+        // context_management 无条件剔（第三方不认该协商字段）
+        assert!(body.get("context_management").is_none(), "thinking 开启即无条件剔 context_management（即使 thinking 齐全）");
     }
 
     #[test]
@@ -625,15 +628,18 @@ mod test_strip_thinking {
     }
 
     #[test]
-    fn keeps_when_only_first_turn_no_assistant() {
-        // 首轮无 assistant：无需回传，保留 thinking
+    fn keeps_thinking_first_turn_no_assistant_but_strips_context_management() {
+        // 复现 request_id=3a76c297 真因（GLM 1210）：首轮请求 messages 仅 user，无 assistant 历史，
+        // thinking adaptive + context_management clear_thinking_20251015。
+        // 旧逻辑 has_unmatched_assistant=false → 两字段皆保留 → GLM 不认 context_management 报 1210。
+        // 修复：context_management 无条件剔（thinking_on 即剔，独立于 has_unmatched）；thinking 无 unmatched 故保留。
         let mut body = json!({
-            "thinking": {"type": "adaptive"},
+            "thinking": {"type": "adaptive", "display": "summarized"},
             "context_management": {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]},
             "messages": [{"role": "user", "content": [{"type": "text", "text": "hi"}]}],
         });
         strip_thinking_if_unmatched(&mut body);
-        assert!(body.get("thinking").is_some(), "无 assistant 轮应保留 thinking");
-        assert!(body.get("context_management").is_some(), "无 unmatched 时 context_management 应保留");
+        assert!(body.get("thinking").is_some(), "首轮无 assistant → has_unmatched=false，thinking 保留");
+        assert!(body.get("context_management").is_none(), "thinking 开启即无条件剔 context_management（首轮 GLM 1210 根因）");
     }
 }
