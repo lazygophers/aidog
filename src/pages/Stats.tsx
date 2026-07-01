@@ -736,7 +736,8 @@ function SearchableFilter({ width, value, onChange, allLabel, searchPlaceholder,
     <div ref={ref} style={{ position: "relative", width }}>
       <button
         className="input"
-        style={{ fontSize: 14, width: "100%", textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+        // ponytail: lineHeight/height 显式锁, 防 .input transition:all + 继承链抖动致 trigger 文字错位
+        style={{ fontSize: 14, lineHeight: 1.5, height: 36, width: "100%", textAlign: "left", cursor: "pointer", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
         onClick={() => setOpen(o => !o)}
       >
         {current ? current.label : allLabel}
@@ -749,7 +750,8 @@ function SearchableFilter({ width, value, onChange, allLabel, searchPlaceholder,
             top: "calc(100% + 4px)",
             left: 0,
             width: Math.max(width, 320),
-            zIndex: 20,
+            // ponytail: zIndex 提到 1000, Stats 下方 OverviewCard/图表 canvas 建立层叠上下文会盖住 zIndex:20 的浮层, 致选项视觉上叠在图表文字上
+            zIndex: 1000,
             borderRadius: "var(--radius-sm)",
             padding: 8,
             display: "flex",
