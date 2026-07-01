@@ -171,6 +171,9 @@ pub struct Platform {
     pub endpoints: Vec<PlatformEndpoint>,
     /// 旧布尔启用位，保留向后兼容（旧读者 / 旧前端）。写入端从 status 同步：
     /// `status==Enabled → true`，否则 false。新逻辑（router 过滤 / 前端三态）走 status。
+    /// `#[serde(default)]`：分享导出不含 enabled（导入回 default false，平台像「全新」）；
+    /// 旧 .aidogx 全字段含 enabled 仍可覆盖。
+    #[serde(default)]
     pub enabled: bool,
     /// 三态状态：enabled / disabled(用户手动) / auto_disabled(401/403 自动)
     #[serde(default)]
