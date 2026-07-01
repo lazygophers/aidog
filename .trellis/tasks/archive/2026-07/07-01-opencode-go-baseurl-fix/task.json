@@ -1,7 +1,7 @@
 {
-  "id": "third-party-context-mgmt-unconditional-strip",
-  "name": "third-party-context-mgmt-unconditional-strip",
-  "title": "第三方 anthropic 端点首轮 context_management 致 GLM 1210",
+  "id": "opencode-go-baseurl-fix",
+  "name": "opencode-go-baseurl-fix",
+  "title": "opencode 协议预设 base_url 缺 /v1 致 fetch-models/推理 404",
   "description": "",
   "status": "completed",
   "dev_type": null,
