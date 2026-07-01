@@ -240,6 +240,12 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
       // OpenAI Responses 兼容端点（Codex）：base_url 含 /v3，proxy 拼 path；hosts 派生后 /api/coding/v3
       // 比 /api/coding 更长 → 粘贴 v3 URL 最长子串胜出命中 Responses 端点。
       { protocol: "openai_responses", base_url: "https://ark.cn-beijing.volces.com/api/coding/v3", client_type: "codex_tui" },
+      // Agent Plan（火山新套餐，区别 Coding Plan 的 /api/coding）：anthropic 兼容端点 /api/plan。
+      // hosts 派生后 /api/plan 与 /api/coding 等长，靠用户粘入的 base_url path 命中对应端点。
+      { protocol: "anthropic", base_url: "https://ark.cn-beijing.volces.com/api/plan", client_type: "claude_code" },
+      // Agent Plan openai 侧：标准 Chat Completions（/api/plan/v3）+ Responses（同 base_url，协议不同）。
+      { protocol: "openai", base_url: "https://ark.cn-beijing.volces.com/api/plan/v3", client_type: "codex_tui" },
+      { protocol: "openai_responses", base_url: "https://ark.cn-beijing.volces.com/api/plan/v3", client_type: "codex_tui" },
     ],
     byteplus: [
       { protocol: "anthropic", base_url: "https://ark.ap-southeast.bytepluses.com/api/coding", client_type: "claude_code" },
