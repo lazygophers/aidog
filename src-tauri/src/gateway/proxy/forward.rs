@@ -505,10 +505,17 @@ pub(crate) async fn forward_attempt(
 /// 第三方 anthropic 端点 thinking 回传兜底（仅在已判定为非官方 anthropic 端点时调用）。
 ///
 /// thinking 开启（`thinking.type != "disabled"`）且历史中任一 assistant 轮缺 thinking block 时，
-/// 剔除 body 的 `thinking` 字段。第三方 anthropic-compat 端点严格要求 thinking 模式下每个 assistant
-/// 轮回传 thinking block，缺失即返回 400 `content[].thinking must be passed back`；官方 Anthropic 的
-/// summarized/adaptive 模式无此约束，Claude Code 故不回传，请求一旦跨路由到第三方即触发该 400。
-/// thinking block 齐全（正常情况）则保留 thinking 字段直传，不影响第三方上的正常推理。
+/// 剔除 body 的 `thinking` 字段 + `context_management` 字段。第三方 anthropic-compat 端点严格要求
+/// thinking 模式下每个 assistant 轮回传 thinking block，缺失即返回 400
+/// `content[].thinking must be passed back`；官方 Anthropic 的 summarized/adaptive 模式无此约束，
+/// Claude Code 故不回传，请求一旦跨路由到第三方即触发该 400。
+///
+/// `context_management` 与 thinking 同源：Claude Code adaptive/summarized 新模式用
+/// `clear_thinking_20251015` edit 协商让官方服务端自动清历史 thinking。第三方端点不认该协商，
+/// 见该字段即判 thinking mode → 严格要求 assistant 轮 content 回传 thinking block。
+/// 故命中 unmatched 时必须同时剔 `context_management`，否则单剔 `thinking` 后第三方仍据
+/// `context_management` 误判 thinking mode 致 400（regression，仅剔 thinking 不够）。
+/// thinking block 齐全（正常情况）则保留两字段直传，不影响第三方上的正常推理。
 fn strip_thinking_if_unmatched(body: &mut Value) {
     let Some(obj) = body.as_object_mut() else { return };
     let thinking_on = obj
@@ -543,6 +550,7 @@ fn strip_thinking_if_unmatched(body: &mut Value) {
         .unwrap_or(false);
     if has_unmatched_assistant {
         obj.remove("thinking");
+        obj.remove("context_management");
     }
 }
 
@@ -556,6 +564,7 @@ mod test_strip_thinking {
         // 复现 0cea9d32 真因：thinking 开启 + assistant 轮仅 tool_use 无 thinking → 第三方 400
         let mut body = json!({
             "thinking": {"type": "adaptive", "display": "summarized"},
+            "context_management": {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]},
             "messages": [
                 {"role": "user", "content": [{"type": "text", "text": "hi"}]},
                 {"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "x", "input": {}}]},
@@ -563,12 +572,35 @@ mod test_strip_thinking {
         });
         strip_thinking_if_unmatched(&mut body);
         assert!(body.get("thinking").is_none(), "应剔除 thinking");
+        assert!(body.get("context_management").is_none(), "应剔除 context_management");
+    }
+
+    #[test]
+    fn strips_context_management_with_adaptive_thinking_no_assistant_block() {
+        // 复现 request_id=1658bb4b 真因：Claude Code adaptive/summarized 模式
+        // (thinking adaptive + context_management clear_thinking_20251015) → assistant 轮不回传 thinking block
+        // → 跨路由到第三方 anthropic 端点(DeepSeek)。单剔 thinking 不够，context_management 保留仍判 thinking mode → 400。
+        // 修复：两字段皆剔。
+        let mut body = json!({
+            "thinking": {"type": "adaptive", "display": "summarized"},
+            "context_management": {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]},
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": "q1"}]},
+                {"role": "assistant", "content": [{"type": "text", "text": "a1"}]},
+                {"role": "user", "content": [{"type": "text", "text": "q2"}]},
+                {"role": "assistant", "content": [{"type": "text", "text": "a2"}]},
+            ],
+        });
+        strip_thinking_if_unmatched(&mut body);
+        assert!(body.get("thinking").is_none(), "应剔除 thinking");
+        assert!(body.get("context_management").is_none(), "应剔除 context_management");
     }
 
     #[test]
     fn keeps_thinking_when_blocks_present() {
         let mut body = json!({
             "thinking": {"type": "adaptive"},
+            "context_management": {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]},
             "messages": [
                 {"role": "assistant", "content": [
                     {"type": "thinking", "thinking": "...", "signature": "s"},
@@ -578,15 +610,18 @@ mod test_strip_thinking {
         });
         strip_thinking_if_unmatched(&mut body);
         assert!(body.get("thinking").is_some(), "thinking 齐全应保留");
+        assert!(body.get("context_management").is_some(), "thinking 齐全时 context_management 应保留");
     }
 
     #[test]
     fn noop_when_thinking_off() {
         let mut body = json!({
+            "context_management": {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]},
             "messages": [{"role": "assistant", "content": [{"type": "tool_use", "id": "t1", "name": "x", "input": {}}]}],
         });
         strip_thinking_if_unmatched(&mut body);
         assert!(body.get("messages").is_some());
+        assert!(body.get("context_management").is_some(), "thinking off 不命中 unmatched，context_management 保留");
     }
 
     #[test]
@@ -594,9 +629,11 @@ mod test_strip_thinking {
         // 首轮无 assistant：无需回传，保留 thinking
         let mut body = json!({
             "thinking": {"type": "adaptive"},
+            "context_management": {"edits": [{"type": "clear_thinking_20251015", "keep": "all"}]},
             "messages": [{"role": "user", "content": [{"type": "text", "text": "hi"}]}],
         });
         strip_thinking_if_unmatched(&mut body);
         assert!(body.get("thinking").is_some(), "无 assistant 轮应保留 thinking");
+        assert!(body.get("context_management").is_some(), "无 unmatched 时 context_management 应保留");
     }
 }
