@@ -21,8 +21,20 @@ import { ModelTestPanel } from "./ModelTestPanel";
 import { PlatformCard, type PlatformCardActions } from "../components/platforms/PlatformCard";
 import { usePlatformCards } from "../components/platforms/usePlatformCards";
 import { ShareModal } from "../components/platforms/ShareModal";
+import { pinyinMatch } from "../utils/pinyin";
 
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
+
+/** 平台搜索匹配（与 Platforms.tsx standalonePlatforms filter 同口径：name/base_url/platform_type 拼音） */
+function platformMatchesQuery(p: Platform, q: string): boolean {
+  return pinyinMatch(q, p.name)
+    || pinyinMatch(q, p.base_url)
+    || pinyinMatch(q, p.platform_type);
+}
+/** 分组名匹配（命中分组名时整组展开，语义合理保留） */
+function groupMatchesQuery(group: GroupDetail["group"], q: string): boolean {
+  return pinyinMatch(q, group.name) || pinyinMatch(q, group.group_key);
+}
 
 /** 分组一键测试并发上限：同时最多 N 个平台在测，完一个补下一个。 */
 const BATCH_TEST_CONCURRENCY = 3;
@@ -525,6 +537,10 @@ interface GroupListItemProps {
   mTargetPlatform: number | "";
   mTargetModel: string;
   availableModels: string[];
+  /** 搜索命中过滤：null/undefined = 不过滤（原行为），Set = 仅渲染 id 命中的平台卡 */
+  visiblePlatformIds: Set<number> | null;
+  /** 搜索态下强制展开（无视 collapsedGroups），让用户直接看到命中平台 */
+  forceExpanded: boolean;
   // 测试状态（一键测试按钮 disabled）
   groupTestRunning: boolean;
   // cards 快照
@@ -562,6 +578,7 @@ const GroupListItem = memo(function GroupListItem({
   detail, index, usageStat: u, balance, platforms,
   isExpanded, isDragOver, dropIndicatorIdx, dropIndicatorTotal,
   showMappingForm, mSource, mTargetPlatform, mTargetModel, availableModels,
+  visiblePlatformIds, forceExpanded,
   groupTestRunning,
   cards, actions, t,
   onToggleExpanded: _onToggleExpanded, onSetCollapsed, onEdit, onDelete, onToggleDefault,
@@ -720,7 +737,9 @@ const GroupListItem = memo(function GroupListItem({
 
   const fullPlats = gps
     .map(gp => platforms.find(pp => pp.id === gp.platform.id))
-    .filter((pp): pp is Platform => !!pp);
+    .filter((pp): pp is Platform => !!pp)
+    // 搜索命中过滤：仅渲染命中平台卡（null = 无搜索，保留原行为）
+    .filter(pp => !visiblePlatformIds || visiblePlatformIds.has(pp.id));
 
   return (
     <div
@@ -730,7 +749,7 @@ const GroupListItem = memo(function GroupListItem({
     >
       <CompactCard
         header={header}
-        expanded={isExpanded}
+        expanded={forceExpanded || isExpanded}
         onToggle={(next) => onSetCollapsed(prev => {
           const s = new Set(prev); next ? s.delete(group.id) : s.add(group.id); return s;
         })}
@@ -864,7 +883,7 @@ const GroupListItem = memo(function GroupListItem({
 });
 
 /** 分组内嵌组件（供 Platforms 页使用） */
-export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onEditPlatform, onDuplicatePlatform, onToast, onViewModeChange, openCreateGroupRef, reloadRef, onCountChange }: {
+export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, onEditPlatform, onDuplicatePlatform, onToast, onViewModeChange, openCreateGroupRef, reloadRef, onCountChange, searchQuery }: {
   onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean }) => void;
   onGroupsChanged?: () => void;
   /** 打开平台创建表单；提供 lockedGroupId = 从某分组 ➕ 触发，预绑该分组且锁定归属。 */
@@ -887,6 +906,9 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   /** 渐进加载计数回传：随各组平台逐组流入而递增/校正（{total, active}），供父级页头
    *  「N / M active」徽章增量更新。null = 尚未开始/重置回退父级自身列表。 */
   onCountChange?: (counts: { total: number; active: number } | null) => void;
+  /** 平台搜索关键词（来自 Platforms 页头搜索框）：命中平台只展示命中项（同组其他折叠），
+   *  命中分组名整组展开；空串 = 不过滤（原行为）。 */
+  searchQuery?: string;
 }) {
   const { t } = useTranslation();
   const [details, setDetails] = useState<GroupDetail[]>([]);
@@ -915,6 +937,9 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
 
   // ── Drag reorder for group list (via shared SortableList @dnd-kit) ──
   const handleReorderGroups = (next: GroupRow[]) => {
+    // ponytail: 搜索态下 groupRows 是过滤子集，此时 setDetails(next) 会丢未命中组（数据丢失）。
+    // 搜索语义本就不适合重排（命中是临时视图），搜索态直接 no-op。
+    if (sq) return;
     const reordered = next.map(r => r.detail);
     setDetails(reordered);
     loadedDetailsRef.current = reordered;
@@ -1676,11 +1701,38 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   const selectedPlatform = platforms.find(p => p.id === mTargetPlatform);
   const availableModels = selectedPlatform ? allModelValues(selectedPlatform.models) : [];
 
+  // 搜索态：trim 后的 query；"" = 未搜索（保原行为）。
+  // per-group 搜索结果：命中分组名 → 整组（visibleIds=null 信号）；否则 → 命中平台 id 集（可能空）。
+  // 整组无任何命中（分组名 + 全部平台都不匹配）的组从列表剔除。
+  const sq = (searchQuery ?? "").trim();
+  const groupSearch = useMemo(() => {
+    if (!sq) return null; // 未搜索：所有组原样展示，无平台过滤
+    const map = new Map<number, { visibleIds: Set<number> | null }>();
+    for (const d of details) {
+      if (groupMatchesQuery(d.group, sq)) {
+        // 命中分组名：整组展开（visibleIds=null = 不过滤组内平台）
+        map.set(d.group.id, { visibleIds: null });
+        continue;
+      }
+      const matched = new Set<number>();
+      for (const gp of d.platforms) {
+        const pp = platforms.find(p => p.id === gp.platform.id);
+        if (pp && platformMatchesQuery(pp, sq)) matched.add(pp.id);
+      }
+      if (matched.size > 0) map.set(d.group.id, { visibleIds: matched });
+      // 否则该组无任何命中，不进 map → 列表剔除
+    }
+    return map;
+  }, [sq, details, platforms]);
+
   // SortableList items + group→index 映射：按 details 缓存，避免每渲染重建数组
   // 及列表项内 O(n) findIndex（原 details.findIndex 每项跑致 O(n²)）。
+  // 搜索态下过滤掉无命中的组（groupSearch 不含其 id）。
   const groupRows = useMemo<GroupRow[]>(
-    () => details.map(d => ({ id: String(d.group.id), detail: d })),
-    [details],
+    () => details
+      .filter(d => !groupSearch || groupSearch.has(d.group.id))
+      .map(d => ({ id: String(d.group.id), detail: d })),
+    [details, groupSearch],
   );
   const groupIndexById = useMemo(() => {
     const m = new Map<number, number>();
@@ -2079,6 +2131,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
             const fullPlatsLen = row.detail.platforms
               .map(gp => platforms.find(pp => pp.id === gp.platform.id))
               .filter(Boolean).length;
+            const gs = groupSearch?.get(group.id) ?? null;
             return (
               <GroupListItem
                 key={group.id}
@@ -2096,6 +2149,8 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
                 mTargetPlatform={mTargetPlatform}
                 mTargetModel={mTargetModel}
                 availableModels={availableModels}
+                visiblePlatformIds={gs?.visibleIds ?? null}
+                forceExpanded={!!gs}
                 groupTestRunning={groupTest?.running === true}
                 cards={cardsSnap}
                 actions={makeGroupCardActions(group.id)}
