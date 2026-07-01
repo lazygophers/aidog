@@ -43,12 +43,14 @@ const PRESETS: PastePresetRef[] = [
   {
     value: "doubao",
     label: "火山引擎",
-    keywords: ["火山", "doubao", "volces"],
-    // 单平台多端点派生：/api/coding（anthropic）+ /api/coding/v3（openai + openai_responses，
-    // 同 base_url 协议不同，hosts Set 去重后仍两条）。
+    keywords: ["火山", "doubao", "volces", "agentplan"],
+    // 单平台多端点派生：coding plan（/api/coding + /api/coding/v3）+
+    // agent plan（/api/plan + /api/plan/v3）。hosts Set 去重后四条。
     hosts: [
       "ark.cn-beijing.volces.com/api/coding",
       "ark.cn-beijing.volces.com/api/coding/v3",
+      "ark.cn-beijing.volces.com/api/plan",
+      "ark.cn-beijing.volces.com/api/plan/v3",
     ],
   },
   { value: "mock", label: "Mock", keywords: ["测试", "mock"] },
@@ -268,6 +270,65 @@ describe("parsePlatformPaste", () => {
     // 文案含 lark_024 (含 ark 子串) 但无火山语义 → 不应命中 doubao
     const out = parsePlatformPaste("由 lin2101 发布 lark_024 文化宣导员 sgp吗", PRESETS);
     expect(out.platform?.value).not.toBe("doubao");
+  });
+
+  it("ark- prefix key extracted (火山方舟 apikey 前缀)", () => {
+    // 火山方舟 key 前缀 ark-，KEY_PREFIXES 锚定后抽取。
+    const out = parsePlatformPaste(
+      "火山 key: ark-9a96aed4c0e474c9c0949581a00fef7c3c6",
+      PRESETS,
+    );
+    expect(out.apiKeys.some(k => k.startsWith("ark-"))).toBe(true);
+    expect(out.apiKeys.some(k => k.includes("9a96aed"))).toBe(true);
+  });
+
+  it("strips circled-numeral anti-crawl chars (①②③ U+2460-247F) from key", () => {
+    // 社区分享防爬：圈数字 ②⑤⑨ 替换明文数字穿插在 key 中。
+    const out = parsePlatformPaste(
+      "key: ark-9a②96aed-4c0e-474c-9c09-49⑤8⑨1a00fef-7c3c6",
+      PRESETS,
+    );
+    expect(out.apiKeys.length).toBeGreaterThan(0);
+    // 圈数字须全部剔除，key 不含任何 Enclosed Alphanumerics。
+    expect(out.apiKeys[0]).not.toMatch(/[①-⓿]/);
+    expect(out.apiKeys.some(k => k.startsWith("ark-9a"))).toBe(true);
+  });
+
+  it("volces agent plan 全流程：识别 doubao + /api/plan 端点 + ark- key + 圈数字剔除", () => {
+    // 用户报文案典型形态：双 base_url（agent plan 端点）+ ark- key + 圈数字防爬。
+    const out = parsePlatformPaste(
+      "火山方舟 Agent Plan 分享\n" +
+        "Anthropic: https://ark.cn-beijing.volces.com/api/plan\n" +
+        "OpenAI: https://ark.cn-beijing.volces.com/api/plan/v3\n" +
+        "apikey: ark-9a②96aed-4c0e-474c-9c09-49⑤8⑨1a00fef-7c3c6（圈数字换成1以此类推）",
+      PRESETS,
+    );
+    // 识别为 doubao
+    expect(out.platform?.value).toBe("doubao");
+    // 双 base_url 均抽出（agent plan 端点，非 coding plan）
+    const urls = out.baseUrls.map(b => b.url);
+    expect(urls).toContain("https://ark.cn-beijing.volces.com/api/plan");
+    expect(urls).toContain("https://ark.cn-beijing.volces.com/api/plan/v3");
+    // ark- key 抽出，圈数字剔除
+    expect(out.apiKeys.some(k => k.startsWith("ark-9a96aed"))).toBe(true);
+    expect(out.apiKeys.some(k => !/[①-⓿]/.test(k))).toBe(true);
+  });
+
+  it("coding plan 不回归：/api/coding 文案仍命中 doubao（非 agent plan 端点）", () => {
+    // 既有 coding plan 文案（无圈数字、sk- key）端点应仍是 /api/coding，不被新 agent plan 干扰。
+    const out = parsePlatformPaste(
+      "火山方舟 CodingPlan\n" +
+        "Anthropic: https://ark.cn-beijing.volces.com/api/coding\n" +
+        "OpenAI: https://ark.cn-beijing.volces.com/api/coding/v3\n" +
+        "key: sk-volces-1234567890abcdef",
+      PRESETS,
+    );
+    expect(out.platform?.value).toBe("doubao");
+    const urls = out.baseUrls.map(b => b.url);
+    expect(urls).toContain("https://ark.cn-beijing.volces.com/api/coding");
+    expect(urls).toContain("https://ark.cn-beijing.volces.com/api/coding/v3");
+    // 不应误抽 agent plan 端点
+    expect(urls.some(u => u.includes("/api/plan"))).toBe(false);
   });
 
   it("parses '即将过期 MM-DD HH:MM' from community share text", () => {
