@@ -65,13 +65,17 @@ function scopeLabel(t: TFunction, scope: string): string {
 
 // ── IA 菜单分组（按侧栏菜单组织）──
 // 导出/导入条目不再按裸 scope 平铺，而是按菜单组聚合呈现：
-//   - 平台模块合并 platform + group + group_platform 三 scope 为一组
+//   - 平台模块三 scope 各自独立子分组（platform / group / group_platform 分开，不一组平铺）
 //   - setting scope 的条目按其 key 前缀（settingScope）二次归类到对应菜单组
 //     （key 形如 `<settingScope>:<settingKey>`，见后端 build_items setting 约定）
-type MenuGroupId = "platform" | "extension" | "rules" | "scheduling" | "uiPref" | "system";
+type MenuGroupId =
+  | "platform" | "group" | "group_platform"
+  | "extension" | "rules" | "scheduling" | "uiPref" | "system";
 
 const MENU_GROUPS: { id: MenuGroupId; labelKey: string; defaultLabel: string; icon: string }[] = [
   { id: "platform", labelKey: "importExport.menuGroup.platform", defaultLabel: "平台", icon: "network" },
+  { id: "group", labelKey: "importExport.menuGroup.group", defaultLabel: "分组", icon: "team" },
+  { id: "group_platform", labelKey: "importExport.menuGroup.groupPlatform", defaultLabel: "分组↔平台关联", icon: "worktree" },
   { id: "extension", labelKey: "importExport.menuGroup.extension", defaultLabel: "扩展", icon: "plugins" },
   { id: "rules", labelKey: "importExport.menuGroup.rules", defaultLabel: "规则", icon: "rules" },
   { id: "scheduling", labelKey: "importExport.menuGroup.scheduling", defaultLabel: "调度", icon: "worktree" },
@@ -79,11 +83,12 @@ const MENU_GROUPS: { id: MenuGroupId; labelKey: string; defaultLabel: string; ic
   { id: "system", labelKey: "importExport.menuGroup.system", defaultLabel: "系统", icon: "settings" },
 ];
 
-// scope → 菜单组（setting 例外：按 settingScope 子归类，见 SETTING_SCOPE_GROUP）。
+// scope → 菜单组（platform/group/group_platform 三 scope 各自独立子分组，避免一菜单组平铺；
+// setting 例外：按 settingScope 子归类，见 SETTING_SCOPE_GROUP）。
 const SCOPE_MENU_GROUP: Record<string, MenuGroupId> = {
   platform: "platform",
-  group: "platform",
-  group_platform: "platform",
+  group: "group",
+  group_platform: "group_platform",
   skills: "extension",
   mcp: "extension",
   middleware: "rules",
@@ -125,6 +130,9 @@ const SETTING_KEY_LABEL: Record<string, string> = {
   "popover:config": "importExport.settingLabel.popover_config",
   "global:claude_code": "importExport.settingLabel.global_claude_code",
   "global:coding_tools_settings": "importExport.settingLabel.global_coding_tools_settings",
+  // ponytail: 旧 key，schema_late.rs migration 030 迁到 coding_tools_settings；
+  // 老 DB 残留未迁时导出仍出此 key，补兜底 label 避免裸 key 展示（迁移另一回事，此处只兜底展示）。
+  "global:cc_codex_settings": "importExport.settingLabel.global_cc_codex_settings",
   "backup:settings": "importExport.settingLabel.backup_settings",
   // ponytail: 内部迁移标记，迁移完成后必落库（db/maintenance.rs），导出高频可见，故补 label 而非裸 key 兜底。
   "db:compact_migrated_v1": "importExport.settingLabel.db_compact_migrated_v1",
@@ -434,7 +442,7 @@ export function ImportExportTab() {
   const selectedCount = scopes.size;
   const exportSelCount = exportSelected.size;
 
-  // 按菜单组聚合 scope 卡片（platform 三 scope 合并为「平台」一张卡）。
+  // 按菜单组聚合 scope 卡片（platform/group/group_platform 三 scope 各自独立一张卡）。
   const scopeCardGroups: { gid: MenuGroupId; scopeIds: ImportExportScope[] }[] = [];
   for (const s of ALL_SCOPES) {
     const gid = SCOPE_MENU_GROUP[s.id] ?? "system";
@@ -481,7 +489,7 @@ export function ImportExportTab() {
           />
         </div>
 
-        {/* scope 卡片网格：按菜单组聚合（平台三 scope 合并为一张卡）。 */}
+        {/* scope 卡片网格：按菜单组聚合（platform/group/group_platform 各自一张卡）。 */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 10 }}>
           {scopeCardGroups.map((g) => {
             // 单 scope 组沿用该 scope 的 label/desc/icon；多 scope 组用菜单组标题 + 子 scope 列表描述。
@@ -913,7 +921,7 @@ function Chevron({ open }: { open: boolean }) {
 
 /**
  * 逐项勾选器：全局头（全选/反选 + 计数）+ 按菜单组分组可折叠，每组内逐项 checkbox。
- * 导出/导入共用。分组逻辑由 groupOf 注入（默认按菜单组聚合，平台三 scope 合并、setting 子归类）。
+ * 导出/导入共用。分组逻辑由 groupOf 注入（默认按菜单组聚合，platform/group/group_platform 三 scope 各自独立、setting 子归类）。
  */
 function ItemSelector({
   items,
