@@ -182,7 +182,7 @@ export function ImportExportTab() {
   const selectAll = () => setScopes(new Set(ALL_SCOPES.map((s) => s.id)));
   const deselectAll = () => setScopes(new Set());
 
-  // 步骤1：勾 scope 后 debounce(~300ms) 自动拉全量条目预览，默认全选（skills 例外，需手动勾选）。
+  // 步骤1：勾 scope 后 debounce(~300ms) 自动拉全量条目预览，默认全选。
   // 取代旧的「预览导出项」按钮 — 勾选即展开条目，连续勾多个 scope 只拉一次（防抖）。
   const loadExportPreview = async (scopeList: ImportExportScope[]) => {
     if (scopeList.length === 0) {
@@ -196,12 +196,9 @@ export function ImportExportTab() {
     try {
       const prev = await importExportApi.exportPreview(scopeList);
       setExportPreview(prev);
+      // 默认全选（含 skills：用户主动定方案 C 删 filter，npx 误删防御由后端守卫兜底）。
       setExportSelected(
-        new Set(
-          prev.items
-            .filter((it) => it.scope !== "skills")
-            .map((it) => itemKey(it.scope, it.key)),
-        ),
+        new Set(prev.items.map((it) => itemKey(it.scope, it.key))),
       );
     } catch (e) {
       setError(String(e));
@@ -296,14 +293,9 @@ export function ImportExportTab() {
         map.set(decisionKey(c.scope, c.key), { kind: "overwrite" });
       }
       setDecisions(map);
-      // 逐项默认全选（**排除 skills scope**：skills 导入可能触发 npx 操作，强制用户显式勾选
-      // skills 才导入，防导入 .aidogx 默认全选误触 — 见 F2 导入误删修复）。
+      // 逐项默认全选（含 skills scope：用户主动定方案 C 删 filter，npx 误删防御由后端守卫兜底）。
       setSelectedItems(
-        new Set(
-          prev.items
-            .filter((it) => it.scope !== "skills")
-            .map((it) => itemKey(it.scope, it.key)),
-        ),
+        new Set(prev.items.map((it) => itemKey(it.scope, it.key))),
       );
     } catch (e) {
       setError(String(e));
@@ -524,7 +516,7 @@ export function ImportExportTab() {
           })}
         </div>
 
-        {/* 逐项预览：scope 选定后 debounce 自动拉全量条目勾选（默认全选，skills 需手动）。 */}
+        {/* 逐项预览：scope 选定后 debounce 自动拉全量条目勾选（默认全选）。 */}
         {previewing && (
           <div style={{ fontSize: 13, color: "var(--text-tertiary)", display: "flex", alignItems: "center", gap: 8 }}>
             <span
@@ -1023,7 +1015,7 @@ function ItemSelector({
               </span>
               <SectionIcon name={groupIcon(g.gid)} size={14} style={{ color: "var(--text-secondary)" }} />
               <span style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{groupLabel(g.gid)}</span>
-              {/* F2: skills 条目默认不勾选（防导入误删），显眼提示告知用户需手动勾选 */}
+              {/* 方案 C 后 skills 默认勾选；用户手动全清 skills 时提醒（npx 操作需留意） */}
               {hasSkills && skillsSel === 0 && (
                 <span
                   style={{
@@ -1035,7 +1027,7 @@ function ItemSelector({
                     marginLeft: 4,
                   }}
                 >
-                  {t("importExport.skillsScopeHint", "Skills 默认不导入，需手动勾选")}
+                  {t("importExport.skillsScopeHint", "未选 Skills（确认无需导入）")}
                 </span>
               )}
               <span style={{ fontSize: 12, color: "var(--text-tertiary)", marginLeft: "auto" }}>
