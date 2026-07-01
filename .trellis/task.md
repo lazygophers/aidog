@@ -10,10 +10,12 @@
 | 06-30-export-ux-i18n | 导出 UX + i18n | 去「预览导出项」按钮改 debounce 自动展开 + 条目级展示 + setting label 本地化 (app:theme→主题) | 已完成 | — |
 | 07-01-platform-429-no-autodisable | 429 不触发自动禁用 | 移除 429-配额从 auto_disable 触发条件 (non_success.rs:68) + spec C1/C3 修订 | 已完成 | — |
 | 07-01-test-isolation-fix | 测试隔离治理 | 删真实环境 spawn + HomeGuard 收拢 4→1 + ENV_LOCK 集中 + grep lint 守卫 | 已完成 | — |
-| 07-01-07-01-cli-integration-tab | CLI 集成 tab 改名 + 语言设置 | tab「编程工具」→「CLI 集成」(8 locale key+value) + 新增语言设置项 (复用 claude-settings language sync) | 实施中 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-07-01-cli-integration-tab |
-| 07-01-07-01-sensenova-platform | 商汤 SenseNova 平台支持 | 加商汤日日新平台 (Protocol/adapter/preset/粘贴识别/quota token plan) | 规划中 | — |
+| 07-01-07-01-cli-integration-tab | CLI 集成 tab 改名 + 语言设置 | tab「编程工具」→「CLI 集成」(8 locale key+value) + 新增语言设置项 (复用 claude-settings language sync) | 已完成 | — |
+| 07-01-07-01-sensenova-platform | 商汤 SenseNova 平台支持 | 加商汤日日新平台 (Protocol/adapter/preset/粘贴识别/quota token plan) | 实施中 | — |
 | 07-01-arch-redesign | 全仓架构重设计 | 分包分文件消大文件: 前端 4 巨型 (editors 4609/Platforms 3568/Groups 2195/api 2072) 拆 + 目录重组 + Rust 局部拆 | 规划中 | — |
-| 07-01-export-default-check | 导出默认勾选 skills/mcp | 导出 preview 默认勾选 skills+mcp scope (当前默认不勾需手动) | 规划中 | — |
+| 07-01-export-default-check | 导出默认勾选 skills/mcp | 导出 preview 默认勾选 skills+mcp scope (当前默认不勾需手动) | 实施中 | — |
+| 07-01-export-ux-revisions | 导出 UX 修订 | setting label 补全 (cc_codex/coding_tools 等裸 key i18n) + 菜单组拆分 (platform/group/group_platform 三子类分开, 非一菜单组平铺) | 规划中 | — |
+| 07-01-platform-search-filter | 平台搜索命中只展示命中项 | Platforms 搜索命中平台时只展示命中项, 不连带整组 | 规划中 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -22,4 +24,5 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-07-01-cli-integration-tab | 07-01-07-01-cli-integration-tab | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-export-default-check | 07-01-export-default-check | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-07-01-sensenova-platform | 07-01-07-01-sensenova-platform | trellisx-start |
