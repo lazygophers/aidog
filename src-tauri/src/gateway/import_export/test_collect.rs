@@ -202,3 +202,122 @@ async fn collect_claude_code_global_reads_file() {
         .unwrap();
     assert!(p.claude_code_global.as_deref().unwrap().contains("opus"));
 }
+
+// ── 平台导出三层清洗（PRD 07-01-export-extra-cleanup） ──
+
+/// 直插一个含给定 extra 的 platform（绕过 create_platform 默认值清洗），返回 id。
+/// platform_type 在 DB 中存为 JSON 序列化字符串（`serde_json::to_string`），故需带引号框。
+async fn insert_platform_with_extra(db: &crate::gateway::db::Db, name: &str, extra: &str) -> i64 {
+    let name = name.to_string();
+    let extra = extra.to_string();
+    db.0.call(move |conn| {
+        conn.execute(
+            "INSERT INTO platform (name, platform_type, base_url, api_key, extra, created_at, updated_at)
+             VALUES (?1, '\"anthropic\"', 'https://x.example.com', 'sk', ?2, 0, 0)",
+            rusqlite::params![name, extra],
+        )?;
+        Ok(conn.last_insert_rowid())
+    })
+    .await
+    .unwrap()
+}
+
+/// 导出清洗：空 extra (`{}` / `""`) 平台无 extra 字段；无运行时字段；无 status / enabled。
+#[tokio::test]
+async fn collect_platform_strips_empty_extra_and_runtime() {
+    let _h = HomeGuard::new();
+    let db = test_db().await;
+    insert_platform_with_extra(&db, "empty-braces", "{}").await;
+    insert_platform_with_extra(&db, "empty-string", "").await;
+
+    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()]).await.unwrap();
+    assert_eq!(p.platform.len(), 2, "应收集 2 个平台");
+
+    for plat in &p.platform {
+        let obj = plat.as_object().expect("platform 是 obj");
+        // 空 extra → 字段省略。
+        assert!(obj.get("extra").is_none(), "空 extra 应省略: {plat}");
+        // 运行时不导出。
+        for k in [
+            "auto_disabled_until",
+            "auto_disable_strikes",
+            "expires_at",
+            "deleted_at",
+            "est_balance_remaining",
+            "est_coding_plan",
+            "last_real_query_at",
+            "last_error",
+            "last_error_at",
+        ] {
+            assert!(!obj.contains_key(k), "运行时字段 {k} 不应导出: {plat}");
+        }
+        // status / enabled 不导出（分享不带原用户启用意图）。
+        assert!(!obj.contains_key("status"), "status 不应导出: {plat}");
+        assert!(!obj.contains_key("enabled"), "enabled 不应导出: {plat}");
+        // 配置空值省略（models / available_models / endpoints 缺省）。
+        assert!(!obj.contains_key("models"), "空 models 应省略: {plat}");
+        assert!(
+            !obj.contains_key("available_models"),
+            "空 available_models 应省略: {plat}"
+        );
+        assert!(!obj.contains_key("endpoints"), "空 endpoints 应省略: {plat}");
+        // 核心配置字段保留。
+        assert!(obj.contains_key("name"));
+        assert!(obj.contains_key("platform_type"));
+        assert!(obj.contains_key("base_url"));
+        assert!(obj.contains_key("api_key"));
+    }
+}
+
+/// 导出清洗：非空 extra 序列化为 JSON object（非裸 string）。
+#[tokio::test]
+async fn collect_platform_extra_as_object() {
+    let _h = HomeGuard::new();
+    let db = test_db().await;
+    insert_platform_with_extra(
+        &db,
+        "with-extra",
+        r#"{"breaker":{"failure_threshold":5,"open_secs":30,"half_open_max":2}}"#,
+    )
+    .await;
+
+    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()]).await.unwrap();
+    assert_eq!(p.platform.len(), 1);
+    let plat = &p.platform[0];
+    let extra = plat.get("extra").expect("非空 extra 应保留");
+    assert!(
+        extra.is_object(),
+        "extra 应为 JSON object 非 string: {extra}"
+    );
+    assert_eq!(extra["breaker"]["failure_threshold"], 5);
+    assert_eq!(extra["breaker"]["open_secs"], 30);
+    assert_eq!(extra["breaker"]["half_open_max"], 2);
+}
+
+/// 导出清洗：非法 extra JSON → 兜底省略（design 决策）。
+#[tokio::test]
+async fn collect_platform_invalid_extra_falls_back_to_omit() {
+    let _h = HomeGuard::new();
+    let db = test_db().await;
+    insert_platform_with_extra(&db, "bad-json", "not-valid-json").await;
+
+    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()]).await.unwrap();
+    assert_eq!(p.platform.len(), 1);
+    let plat = &p.platform[0];
+    assert!(
+        plat.get("extra").is_none(),
+        "非法 extra 应兜底省略: {plat}"
+    );
+}
+
+/// 导出清洗：仅空白字符的 extra → 省略。
+#[tokio::test]
+async fn collect_platform_whitespace_only_extra_omitted() {
+    let _h = HomeGuard::new();
+    let db = test_db().await;
+    insert_platform_with_extra(&db, "ws-only", "   ").await;
+
+    let p = collect::collect(&db, &[SCOPE_PLATFORM.to_string()]).await.unwrap();
+    assert_eq!(p.platform.len(), 1);
+    assert!(p.platform[0].get("extra").is_none());
+}

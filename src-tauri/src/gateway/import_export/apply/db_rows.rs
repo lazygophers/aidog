@@ -120,6 +120,19 @@ fn insert_platform_row(
     // breaker 阈值现存于 extra.breaker。新格式导出已含 extra.breaker；旧格式（breaker 在顶层）
     // 双兜底：若顶层有非 0 breaker 列且 extra 内尚无 breaker，则合并进 extra（无损迁入）。
     let extra = effective_extra_with_breaker(row);
+    // 新格式导出清洗后空配置字段被省略 → json_str 缺失给空串。空串非合法 JSON，
+    // read 端 parse_models/parse_available_models/parse_endpoints 会刷 warn 日志（淹没真实问题）。
+    // 故缺失/空时写标准空 JSON（与 db.rs create_platform serialize_* 默认值对齐）。
+    let models = json_str(row, "models");
+    let models = if models.trim().is_empty() { "{}".to_string() } else { models };
+    let available_models = json_str(row, "available_models");
+    let available_models = if available_models.trim().is_empty() {
+        "[]".to_string()
+    } else {
+        available_models
+    };
+    let endpoints = json_str(row, "endpoints");
+    let endpoints = if endpoints.trim().is_empty() { "[]".to_string() } else { endpoints };
     tx.execute(
         "INSERT INTO platform
          (name, platform_type, base_url, api_key, extra, models, available_models, endpoints,
@@ -134,9 +147,9 @@ fn insert_platform_row(
             json_str(row, "base_url"),
             json_str(row, "api_key"),
             extra,
-            json_str(row, "models"),
-            json_str(row, "available_models"),
-            json_str(row, "endpoints"),
+            models,
+            available_models,
+            endpoints,
             json_bool(row, "enabled"),
             json_str(row, "status"),
             json_i64(row, "auto_disabled_until"),
