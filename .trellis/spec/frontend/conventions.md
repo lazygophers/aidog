@@ -89,6 +89,22 @@ mode: optimize
 - 数据获取必须用 `useEffect + useState<loading>` pattern（见 State Management）
 - 新增 hook 若被 ≥ 2 组件使用，必须提取到独立文件
 
+## Deep-Link 导入契约 (MUST)
+
+> 违反代价: 缓存重放 → 用户重访页面时旧导入弹窗反复弹；URL 承载格式与接收端解析不匹配 → 唤起后导入静默失败。D2 (`20fc5f42` 修热路径重放) + D3 实证，D4 复用。
+
+`aidog://<entity>/import?data=<base64>` (entity = platform|mcp|skill) 唤起链路契约：
+
+- **App.tsx 分发**: deep-link handler 解析 entity/action/data → 写 `window.__aidogDeepLink[entity] = {action, data}` 缓存 → `if(entity==="...") setActiveNav(entity)` 条件挂载目标页 → dispatch `aidog:${entity}` CustomEvent
+- **目标页双路单次消费 (MUST)**: 目标组件 useEffect 两路都消费 deep-link，**两路都 MUST `delete window.__aidogDeepLink[entity]` 防重放**：
+  - mount 路径: 挂载时读 `window.__aidogDeepLink[entity]` → 先 `delete` 再用本地引用处理（禁 use-after-delete，存局部变量）
+  - 运行时路径: `addEventListener('aidog:${entity}', ...)` handler 也 `delete` 同键
+  - 两路互斥: 同一 deep-link 仅产生 1 cache + 1 event，任一路消费后 delete，另一路读不到 → 单次消费
+- **URL base64 恒取接收端可解析格式**: URL 承载的可导入契约恒用**接收端严格解析器接受的格式**。例: mcp `mcp_import_json` 走 `serde_json` 严格解析 → URL base64 恒 `JSON.stringify`（YAML 会被拒）；与 ShareModal 弹窗展示格式（用户可切 yaml/json/base64）解耦——弹窗展示 ≠ URL 承载
+- **SmartPasteModal 粘贴预填**: 粘贴导入复用 SmartPasteModal `initialText` prop（预填 + 跳过自动读剪贴板）
+- **ShareModal 泛化**: 分享弹窗 `<T extends object>` 泛型 + `title`（替代原 `platformName`）+ 可选 i18n keys (`titleKey`/`warningKey`/`urlScheme`/`copyUrlKey`)，向后兼容平台/mcp/skill 调用点
+- 验证: `grep -n "__aidogDeepLink" src/App.tsx src/pages/*.tsx` — 写入点(App.tsx) + 消费点(目标页 mount + addEventListener) + delete 锚点(双路) 齐全；重访页面不重播导入
+
 ## i18n (MUST)
 
 - 所有用户可见文案必须用 `t("key")`，禁硬编码中/英文字面量（含 placeholder / title / aria-label / 错误提示）
