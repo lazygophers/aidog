@@ -500,6 +500,8 @@
   "logs.connFailed": "接続失敗",
   "logs.copyAll": "完全な情報をコピー",
   "logs.copyRequestId": "リクエスト ID をコピー",
+  "logs.copy": "コピー",
+  "logs.copied": "コピー済み",
   "logs.detail": "リクエスト詳細",
   "logs.duration": "所要時間",
   "logs.empty": "ログがありません",

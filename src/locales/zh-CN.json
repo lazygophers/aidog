@@ -478,6 +478,8 @@
   "logs.connFailed": "连接失败",
   "logs.copyAll": "复制完整信息",
   "logs.copyRequestId": "复制请求 ID",
+  "logs.copy": "复制",
+  "logs.copied": "已复制",
   "logs.detail": "请求详情",
   "logs.duration": "耗时",
   "logs.empty": "暂无日志",

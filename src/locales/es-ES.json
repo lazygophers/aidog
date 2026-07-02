@@ -478,6 +478,8 @@
   "logs.connFailed": "Conexión fallida",
   "logs.copyAll": "Copiar info completa",
   "logs.copyRequestId": "Copiar ID de solicitud",
+  "logs.copy": "Copiar",
+  "logs.copied": "Copiado",
   "logs.detail": "Detalle de petición",
   "logs.duration": "Duración",
   "logs.empty": "Aún no hay registros.",

@@ -500,6 +500,8 @@
   "logs.connFailed": "Verbindung fehlgeschlagen",
   "logs.copyAll": "Vollständige Info kopieren",
   "logs.copyRequestId": "Anfrage-ID kopieren",
+  "logs.copy": "Kopieren",
+  "logs.copied": "Kopiert",
   "logs.detail": "Anfragedetails",
   "logs.duration": "Dauer",
   "logs.empty": "Keine Protokolle",
