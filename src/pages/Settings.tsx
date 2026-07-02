@@ -18,6 +18,7 @@ import {
   StatusLineSection,
   ImportDiffModal,
   buildImportDiffTree,
+  readManagedPaths,
   isPlainObject,
   type DiffNode,
   type HooksConfig,
@@ -224,8 +225,10 @@ export function Settings() {
   const handleImportFromClaudeCode = async () => {
     try {
       const source = await claudeSettingsImportApi.readDefault();
+      // Fetch managed paths once (DB-backed), pass into the sync diff builder.
+      const managed = await readManagedPaths();
       // Build nested diff tree: top-level objects expand one level into children.
-      const diff = buildImportDiffTree(config, source);
+      const diff = buildImportDiffTree(config, source, managed);
       if (diff.length === 0) {
         setToast(t("settings.noDiff", "无差异，无需导入"));
         setTimeout(() => setToast(""), 2000);

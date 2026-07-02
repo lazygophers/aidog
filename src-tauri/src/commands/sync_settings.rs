@@ -58,11 +58,17 @@ pub(crate) async fn try_sync_settings(app: &tauri::AppHandle, db: &Db) {
     }
 }
 
-/// aidog 托管字段 marker 键：写入 `~/.claude/settings.json`，值为 dot-path 字符串数组，
-/// 记录 aidog 默认分组**实际注入/托管**的字段路径（叶子级）。前端「从 Claude Code 导入」
-/// 的字段级 diff 读此 marker 精确排除托管路径，只列用户自加（非托管）的差异。
-/// `_aidog_` 前缀 → 前端 `buildImportDiffTree` 顶层自动跳过；CC 忽略未知 key。
+/// aidog 托管字段 marker 键名（历史遗留：曾写入 `~/.claude/settings.json`，现已迁至
+/// aidog 内部 DB `setting` 表 scope=`claude_default_group`/key=`managed_paths`）。
+/// 保留此常量仅用于 sync 时**清除**用户 settings.json 里残留的旧 marker 值——老用户文件
+/// 可能仍含此 key，sync 时显式 remove 避免污染。CC 原本就忽略此未知 key，但用户文件
+/// 不应塞 aidog 内部元数据。
 pub const MARKER_MANAGED: &str = "_aidog_managed";
+
+/// DB 存储托管叶子快照的 scope/key。复用 KV `setting` 表，不加新表/列。
+/// value = JSON 字符串数组（dot-path 叶子集），前端 invoke `get_managed_paths` 读。
+pub const MANAGED_SCOPE: &str = "claude_default_group";
+pub const MANAGED_KEY: &str = "managed_paths";
 
 /// 递归收集 JSON object 的叶子 dot-path（如 `env.ANTHROPIC_BASE_URL`、`enabledPlugins.x@y`）。
 /// - object → 递归每个键，拼 `prefix.key`
@@ -99,15 +105,21 @@ fn collect_leaf_paths(value: &serde_json::Value, prefix: &str, out: &mut Vec<Str
 /// hooks 等）覆盖同键；用户手写的其它字段（permissions / model 等）保留。
 /// 嵌套 object 递归合并；非 object（标量/数组）直接覆盖。
 ///
-/// 托管 marker：`_aidog_managed` = 本次同步后**整个 settings.json**（merge 完成后）的全部
-/// 叶子 dot-path 快照——既含 aidog 注入字段（env/statusLine/hooks/aidog 自身 plugins），也含
-/// merge 后保留下来的用户已有字段（permissions/model/用户自装 plugins/marketplaces/hooks）。
-/// 前端「从 Claude Code 导入」的字段级 diff 排除该集合 → 仅显示同步**之后**用户新增/改动的字段，
-/// 同步当下的全部内容（含用户自装项）零差异。`collect_leaf_paths` 跳过 `_aidog_` 前缀，故 marker
-/// 不自引用、也不含旧 marker 数组。
+/// 托管快照存 aidog 内部 DB `setting` 表（scope=`claude_default_group`/key=`managed_paths`），
+/// = 本次同步后**整个 settings.json**（merge 完成后）的全部叶子 dot-path——既含 aidog 注入字段
+/// （env/statusLine/hooks/aidog 自身 plugins），也含 merge 后保留下来的用户已有字段
+/// （permissions/model/用户自装 plugins/marketplaces/hooks）。前端「从 Claude Code 导入」的
+/// 字段级 diff 排除该集合 → 仅显示同步**之后**用户新增/改动的字段，同步当下的全部内容（含用户
+/// 自装项）零差异。`collect_leaf_paths` 跳过 `_aidog_` 前缀，故快照不含旧 marker 数组。
+///
+/// settings.json 不再写 `_aidog_managed` key（曾写、现已迁 DB）；sync 时显式 remove
+/// 用户文件里残留的旧 marker 值（老用户迁移）。
 ///
 /// CC 原生支持 settings.json 的 env 字段 → 用户直接 `claude` 不带任何参数/env 即走该组。
-pub(crate) fn write_default_claude_settings(config: &serde_json::Value) -> Result<(), String> {
+pub(crate) async fn write_default_claude_settings(
+    db: &Db,
+    config: &serde_json::Value,
+) -> Result<(), String> {
     let home = dirs::home_dir().ok_or("cannot resolve home directory")?;
     let claude_dir = home.join(".claude");
     std::fs::create_dir_all(&claude_dir)
@@ -128,24 +140,29 @@ pub(crate) fn write_default_claude_settings(config: &serde_json::Value) -> Resul
     // deep merge：config 叠加到 base（不覆盖用户自加的 enabledPlugins/mcpServers 条目）
     merge_json(&mut base, config);
 
+    // 清除用户 settings.json 里残留的旧 marker（曾写、现已迁 DB）。显式 remove 连旧值清。
+    if let Some(obj) = base.as_object_mut() {
+        obj.remove(MARKER_MANAGED);
+    }
+
     // 托管集：对 **merge 后的完整 base** 取叶子 dot-path（跳过内部 marker）——含 aidog 注入字段
     // 与 merge 后保留的用户已有字段。即「上次同步时 settings.json 全部叶子」的快照，导入 diff
     // 只显示此快照之后的新增/变化。顺序稳定（递归 + serde_json Map 保插入序），便于幂等 diff。
     let mut managed: Vec<String> = Vec::new();
     collect_leaf_paths(&base, "", &mut managed);
 
-    // 写入/更新托管 marker（替换旧值，反映本次同步后完整快照）。
-    if let Some(obj) = base.as_object_mut() {
-        obj.insert(
-            MARKER_MANAGED.to_string(),
-            serde_json::Value::Array(
-                managed
-                    .into_iter()
-                    .map(serde_json::Value::String)
-                    .collect(),
+    // 写托管快照入 DB（KV 复用，单一事实源；前端 invoke 读）。
+    gateway::db::set_setting(
+        db,
+        gateway::models::SetSettingInput {
+            scope: MANAGED_SCOPE.to_string(),
+            key: MANAGED_KEY.to_string(),
+            value: serde_json::Value::Array(
+                managed.into_iter().map(serde_json::Value::String).collect(),
             ),
-        );
-    }
+        },
+    )
+    .await?;
 
     let new_content = serde_json::to_string_pretty(&base)
         .map_err(|e| format!("serialize merged ~/.claude/settings.json: {e}"))?;
@@ -332,7 +349,7 @@ pub(crate) async fn do_sync_group_settings(db: &Db, port: u16) -> Result<Vec<Str
     // remove 仅在明确取消默认（group_set_default(None) 路径）触发，本同步路径不主动清。
     match default_claude_config {
         Some(config) => {
-            if let Err(e) = write_default_claude_settings(&config) {
+            if let Err(e) = write_default_claude_settings(db, &config).await {
                 tracing::warn!(error = %e, "default group: merge ~/.claude/settings.json failed");
             }
             if let Err(e) = gateway::codex::write_default_profile_to_config(port) {
@@ -398,6 +415,22 @@ pub async fn sync_group_settings(app: tauri::AppHandle, db: State<'_, Db>) -> Re
     let proxy_settings = load_proxy_settings(&app).await?;
     do_sync_group_settings(&db, proxy_settings.port).await
         .map_err(|e| { tracing::error!(command = "sync_group_settings", error = %e, "sync group settings failed"); e })
+}
+
+/// 读默认分组托管叶子 dot-path 快照（DB `setting` 表 scope=`claude_default_group`/
+/// key=`managed_paths`）。前端「从 Claude Code 导入」字段级 diff 据此排除托管字段，
+/// 只列用户新增/改动。空/缺省 → 空数组（diff 降级为不排除，零回归）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn get_managed_paths(db: State<'_, Db>) -> Result<Vec<String>, String> {
+    tracing::debug!(command = "get_managed_paths", "command invoked");
+    let v = gateway::db::get_setting(&db, MANAGED_SCOPE, MANAGED_KEY).await?;
+    Ok(v.and_then(|val| val.as_array().map(|arr| {
+        arr.iter()
+            .filter_map(|x| x.as_str().map(|s| s.to_string()))
+            .collect()
+    }))
+    .unwrap_or_default())
 }
 
 #[cfg(test)]

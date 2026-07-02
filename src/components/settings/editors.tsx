@@ -5,7 +5,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
-import { statuslineApi, notificationApi, type NotifyHooksFragment } from "../../services/api";
+import { statuslineApi, notificationApi, getManagedPaths, type NotifyHooksFragment } from "../../services/api";
 import {
   ENV_VAR_DEFS,
   ENV_VAR_GROUP_ORDER,
@@ -2523,19 +2523,27 @@ function collectLeafPaths(node: DiffNode, out: string[]): void {
 }
 
 /**
- * Read the aidog-managed dot-path set from the live source's `_aidog_managed`
- * marker (written by the Rust side `write_default_claude_settings`). These are
- * the exact leaf paths aidog's default group injected into ~/.claude/settings.json
- * (env routing vars, statusLine, hooks, aidog's own enabledPlugins/mcpServers
- * entries, …). The import diff excludes these so only user-added fields surface.
+ * Read the aidog-managed dot-path set from the aidog internal DB
+ * (command `get_managed_paths` → `setting` table scope=`claude_default_group`/
+ * key=`managed_paths`, written by the Rust side `write_default_claude_settings`).
+ * These are the exact leaf paths aidog's default group injected into
+ * ~/.claude/settings.json (env routing vars, statusLine, hooks, aidog's own
+ * enabledPlugins/mcpServers entries, …). The import diff excludes these so only
+ * user-added fields surface.
  *
- * Missing / malformed marker (no default group, or pre-marker legacy file) →
- * empty set → diff degrades to its prior behavior (zero regression).
+ * Missing / malformed (no default group, or pre-marker legacy) → empty set →
+ * diff degrades to its prior behavior (zero regression).
+ *
+ * Marker used to live in settings.json `_aidog_managed` key; moved to DB to keep
+ * the user's settings.json clean (CC ignored it but it polluted their file).
  */
-export function readManagedPaths(incoming: Record<string, any>): Set<string> {
-  const raw = incoming?.["_aidog_managed"];
-  if (!Array.isArray(raw)) return new Set();
-  return new Set(raw.filter((p): p is string => typeof p === "string"));
+export async function readManagedPaths(): Promise<Set<string>> {
+  try {
+    const paths = await getManagedPaths();
+    return new Set(paths);
+  } catch {
+    return new Set();
+  }
 }
 
 /**
@@ -2613,7 +2621,7 @@ function isCcRuntimeIgnored(path: string): boolean {
 export function buildImportDiffTree(
   current: Record<string, any>,
   incoming: Record<string, any>,
-  managed: Set<string> = readManagedPaths(incoming),
+  managed: Set<string>,
 ): DiffNode[] {
   const nodes: DiffNode[] = [];
   const keys = new Set([...Object.keys(current), ...Object.keys(incoming)]);
