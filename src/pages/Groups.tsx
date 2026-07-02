@@ -1,6 +1,6 @@
 import { useState, useEffect, useReducer, useCallback, useRef, useMemo, Fragment, memo } from "react";
 import { createPortal } from "react-dom";
-import type { ReactNode, CSSProperties } from "react";
+import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import claudeIcon from "../assets/platforms/claude_code.svg";
@@ -9,365 +9,32 @@ import type { TFunction } from "i18next";
 import {
   groupDetailApi, groupApi, groupUsageApi, platformApi, proxyApi, onProxyLogUpdated, modelTestApi,
   type GroupDetail, type GroupPlatformDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
-  type ModelMapping, type EnvVar, type PlatformQuota, type LastTestResult,
+  type ModelMapping, type PlatformQuota, type LastTestResult,
 } from "../services/api";
 import { SortableList, type DragHandleProps } from "../components/SortableList";
 import { IconClose, IconCheck, IconHome, IconBolt, IconCost } from "../components/icons";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../utils/formatters";
 import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
-import { getPlatformLogo, getFaviconUrl } from "../assets/platforms";
 import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
 import { ModelTestPanel } from "./ModelTestPanel";
 import { PlatformCard, type PlatformCardActions } from "../components/platforms/PlatformCard";
 import { usePlatformCards } from "../components/platforms/usePlatformCards";
 import { ShareModal } from "../components/platforms/ShareModal";
-import { pinyinMatch } from "../utils/pinyin";
 import { F, S } from "../domains/shared/tokens";
+import {
+  ROUTING_MODES, routingModeLabel, routingModeDesc,
+  platformMatchesQuery, groupMatchesQuery,
+  buildClaudeCommand, buildCodexCommand,
+  editReducer, EMPTY_EDIT, upsertPlatformInto,
+  GroupIcon, PlatformPicker, GroupTestPanel,
+  type GroupRow, type GroupTestRow,
+  BATCH_TEST_CONCURRENCY,
+} from "../domains/groups";
 
+// ponytail: MODEL_SLOTS 本地副本（D4 消重源），阶段 2 统一指 domains/platforms/models
 const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
 
-/** 平台搜索匹配（与 Platforms.tsx standalonePlatforms filter 同口径：name/base_url/platform_type 拼音） */
-function platformMatchesQuery(p: Platform, q: string): boolean {
-  return pinyinMatch(q, p.name)
-    || pinyinMatch(q, p.base_url)
-    || pinyinMatch(q, p.platform_type);
-}
-/** 分组名匹配（命中分组名时整组展开，语义合理保留） */
-function groupMatchesQuery(group: GroupDetail["group"], q: string): boolean {
-  return pinyinMatch(q, group.name) || pinyinMatch(q, group.group_key);
-}
-
-/** 分组一键测试并发上限：同时最多 N 个平台在测，完一个补下一个。 */
-const BATCH_TEST_CONCURRENCY = 3;
-
-/** 全部调度策略（与 api.ts RoutingMode 契约对齐，禁裸 string）。 */
-const ROUTING_MODES: RoutingMode[] = ["failover", "load_balance", "health_aware", "least_latency", "sticky"];
-
-/** 策略短名（i18n，缺键回退默认中文）。 */
-function routingModeLabel(t: TFunction, mode: RoutingMode): string {
-  const map: Record<RoutingMode, string> = {
-    failover: t("group.failover", "故障转移"),
-    load_balance: t("group.loadBalance", "负载均衡"),
-    health_aware: t("group.routingMode.health_aware", "健康感知"),
-    least_latency: t("group.routingMode.least_latency", "最低延迟"),
-    sticky: t("group.routingMode.sticky", "会话粘性"),
-  };
-  return map[mode] ?? mode;
-}
-
-/** 策略说明（下拉旁提示）。 */
-function routingModeDesc(t: TFunction, mode: RoutingMode): string {
-  const map: Record<RoutingMode, string> = {
-    failover: t("group.routingModeDesc.failover", "按优先级升序选平台，失败逐个回退。"),
-    load_balance: t("group.routingModeDesc.load_balance", "在可用平台间加权随机分流。"),
-    health_aware: t("group.routingModeDesc.health_aware", "摘除熔断平台后，在健康平台间加权随机。"),
-    least_latency: t("group.routingModeDesc.least_latency", "按各平台延迟均值升序优先选最快平台。"),
-    sticky: t("group.routingModeDesc.sticky", "同会话绑定同一平台，失效/熔断后回退加权随机。"),
-  };
-  return map[mode] ?? "";
-}
-
-/** Group 图标：仅关联 1 个平台时跟随该平台 logo（与 Platforms 页一致），否则回退分组名首字文字框。 */
-function GroupIcon({ gps, group }: { gps: GroupDetail["platforms"]; group: GroupDetail["group"] }) {
-  const [favFailed, setFavFailed] = useState(false);
-  const single = gps.length === 1 ? gps[0].platform : null;
-  const logo = single ? getPlatformLogo(single.platform_type) : undefined;
-  const favicon = single && !logo && !favFailed ? getFaviconUrl(single) : null;
-  const box = {
-    width: 32, height: 32, borderRadius: "var(--radius-sm)", flexShrink: 0,
-    display: "flex", alignItems: "center", justifyContent: "center",
-  } as const;
-  if (single && (logo || favicon)) {
-    return (
-      <div style={{ ...box, background: "transparent" }}>
-        <img src={(logo || favicon) as string} alt={single.name}
-          onError={() => { if (favicon) setFavFailed(true); }}
-          style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
-      </div>
-    );
-  }
-  return (
-    <div style={{
-      ...box,
-      background: group.auto_from_platform ? "var(--bg-glass)" : "var(--accent-subtle)",
-      color: group.auto_from_platform ? "var(--text-secondary)" : "var(--accent)",
-      fontSize: 13, fontWeight: 700,
-    }}>
-      {group.name.slice(0, 3)}
-    </div>
-  );
-}
-
-/** Row model for the sortable selected-platforms list (stable string id for @dnd-kit). */
-interface SortablePlatform {
-  id: string;
-  platformId: number;
-}
-
-// ── Design tokens (shared by edit/create views; mirror of F/S below) ──
-const PICKER_F = { label: 15, body: 15, hint: 13, small: 12 } as const;
-
-/**
- * 关联平台选择器：已选平台拖拽重排（顺序=优先级）+ 上下移 + 移除 + 下拉添加。
- * 编辑视图与创建视图共用，确保两处交互/组件一致（创建时分组尚无 id，故纯受控 platformIds）。
- */
-function PlatformPicker({ platformIds, options, onChange, t }: {
-  platformIds: number[];
-  options: Platform[];
-  onChange: (ids: number[]) => void;
-  t: TFunction;
-}) {
-  return (
-    <>
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <SortableList<SortablePlatform>
-          items={platformIds.map(pid => ({ id: String(pid), platformId: pid }))}
-          onReorder={next => onChange(next.map(row => row.platformId))}
-          renderItem={(row, handle) => {
-            const pid = row.platformId;
-            const i = platformIds.indexOf(pid);
-            const p = options.find(pp => pp.id === pid);
-            if (!p) return null;
-            return (
-              <div style={{
-                display: "flex", alignItems: "center", gap: 10,
-                padding: "8px 12px", borderRadius: "var(--radius-sm)",
-                background: "var(--bg-glass)",
-                border: "1px solid var(--border)",
-                marginBottom: 4,
-                transition: "opacity 0.15s, border-color 0.15s",
-              }}>
-                <span
-                  ref={handle.ref}
-                  {...handle.attributes}
-                  {...handle.listeners}
-                  title={t("group.dragToReorder", "拖动排序")}
-                  style={{
-                    cursor: "grab", color: "var(--text-tertiary)", fontSize: 14,
-                    lineHeight: 1, userSelect: "none", flexShrink: 0, touchAction: "none",
-                  }}
-                >⠿</span>
-                <span style={{ fontSize: PICKER_F.hint, color: "var(--text-tertiary)", width: 20, textAlign: "center" }}>
-                  {i + 1}
-                </span>
-                <span style={{
-                  width: 28, height: 28, borderRadius: "var(--radius-sm)",
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  background: "var(--accent-subtle)", color: "var(--accent)",
-                  fontSize: 11, fontWeight: 700, flexShrink: 0,
-                }}>
-                  {p.platform_type.slice(0, 2).toUpperCase()}
-                </span>
-                <span style={{ flex: 1, fontSize: PICKER_F.body, fontWeight: 500 }}>{p.name}</span>
-                <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
-                  disabled={i === 0}
-                  onClick={() => {
-                    const ids = [...platformIds];
-                    [ids[i - 1], ids[i]] = [ids[i], ids[i - 1]];
-                    onChange(ids);
-                  }}>
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                    <path d="M5 2v6M2 5l3-3 3 3" />
-                  </svg>
-                </button>
-                <button type="button" className="btn btn-ghost btn-icon" style={{ width: 24, height: 24, minWidth: 24, padding: 0 }}
-                  disabled={i === platformIds.length - 1}
-                  onClick={() => {
-                    const ids = [...platformIds];
-                    [ids[i], ids[i + 1]] = [ids[i + 1], ids[i]];
-                    onChange(ids);
-                  }}>
-                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                    <path d="M5 8V2M2 5l3 3 3-3" />
-                  </svg>
-                </button>
-                <button type="button" onClick={() => onChange(platformIds.filter(id => id !== pid))} style={{
-                  background: "none", border: "none", cursor: "pointer",
-                  color: "var(--text-tertiary)", fontSize: PICKER_F.small, padding: 4, lineHeight: 1,
-                }}><IconClose size={12} /></button>
-              </div>
-            );
-          }}
-        />
-      </div>
-      {platformIds.length < options.length && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <select className="input" style={{ fontSize: PICKER_F.hint, padding: "6px 10px", flex: 1 }}
-            onChange={e => {
-              const pid = Number(e.target.value);
-              if (e.target.value && !platformIds.includes(pid)) {
-                onChange([...platformIds, pid]);
-              }
-              e.target.value = "";
-            }}>
-            <option value="">{t("group.addPlatform", "+ 添加平台")}</option>
-            {options
-              .filter(p => !platformIds.includes(p.id))
-              .map(p => <option key={p.id} value={p.id}>{p.name} ({p.platform_type})</option>)}
-          </select>
-        </div>
-      )}
-    </>
-  );
-}
-
-/** Row model for the sortable group list (GroupDetail has no top-level stable id). */
-interface GroupRow {
-  id: string;
-  detail: GroupDetail;
-}
-
-/** 分组一键测试：单平台测试行状态（串行执行，面板实时刷新）。 */
-type GroupTestStatus = "pending" | "testing" | "ok" | "fail";
-interface GroupTestRow {
-  platformId: number;
-  name: string;
-  status: GroupTestStatus;
-  durationMs?: number;
-  error?: string;
-}
-
-/**
- * 分组一键测试结果面板。逐平台串行测试，行状态实时刷新。
- * createPortal 挂 body —— 脱离 transform 祖先（liquidGlass/animate-fade-in）避免 fixed 退化，
- * 参考 toast 修复（commit 0aeff95）与 memory `css-transform-breaks-fixed-modal`。
- */
-function GroupTestPanel({ groupName, rows, running, onClose, t }: {
-  groupName: string;
-  rows: GroupTestRow[];
-  running: boolean;
-  onClose: () => void;
-  t: TFunction;
-}) {
-  const ok = rows.filter(r => r.status === "ok").length;
-  const fail = rows.filter(r => r.status === "fail").length;
-  const done = ok + fail;
-  const statusStyle = (s: GroupTestStatus): CSSProperties => ({
-    fontSize: 12, fontWeight: 600,
-    color: s === "ok" ? "var(--success)" : s === "fail" ? "var(--danger)" : "var(--text-tertiary)",
-  });
-  const statusText = (r: GroupTestRow): string => {
-    if (r.status === "testing") return "…";
-    if (r.status === "pending") return t("group.testAllPending", "等待");
-    if (r.status === "ok") return t("group.testAllOk", "成功") + (r.durationMs != null ? ` ${r.durationMs}ms` : "");
-    return t("group.testAllFail", "失败");
-  };
-  return createPortal(
-    <div onClick={onClose} style={{
-      position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1000,
-      display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
-    }}>
-      <div className="glass-surface" onClick={e => e.stopPropagation()} style={{
-        width: "min(560px, 92vw)", maxHeight: "80vh", overflow: "auto",
-        display: "flex", flexDirection: "column", gap: 10, padding: 20,
-        background: "var(--bg-floating)",
-      }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-          <div style={{ fontSize: 15, fontWeight: 700 }}>
-            {t("group.testAllTitle", "测试分组平台")}：{groupName}
-          </div>
-          <button className="btn btn-ghost btn-icon" onClick={onClose} title={t("action.dismiss", "关闭")}>
-            <IconClose size={16} />
-          </button>
-        </div>
-        <div style={{ fontSize: 12, color: "var(--text-secondary)" }}>
-          {running
-            ? t("group.testAllProgress", "测试中… {{done}}/{{total}}", { done, total: rows.length })
-            : t("group.testAllSummary", "完成：{{ok}} 成功 / {{fail}} 失败 / 共 {{total}}", { ok, fail, total: rows.length })}
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-          {rows.map(r => (
-            <div key={r.platformId} style={{
-              display: "flex", flexDirection: "column", gap: 4, padding: "6px 8px",
-              borderRadius: "var(--radius-sm)", background: "var(--bg-glass)",
-              borderLeft: r.status === "ok"
-                ? "3px solid var(--success)"
-                : r.status === "fail" ? "3px solid var(--danger)" : "3px solid transparent",
-            }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <span style={{
-                  fontSize: 13, flex: 1, minWidth: 0,
-                  overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                }}>{r.name}</span>
-                <span style={statusStyle(r.status)}>{statusText(r)}</span>
-              </div>
-              {r.status === "fail" && r.error && (
-                <div
-                  title={r.error}
-                  style={{
-                    fontSize: 11, color: "var(--danger)",
-                    overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                  }}
-                >
-                  {r.error}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-/** 分组编辑表单态（原 8 个 useState 合并为单 reducer，减少分散 setState） */
-interface EditState {
-  target: GroupDetail | null;
-  name: string;
-  mode: RoutingMode;
-  platformIds: number[];
-  mappings: ModelMapping[];
-  envVars: EnvVar[];
-  reqTimeout: number;
-  connTimeout: number;
-  maxRetries: number;
-}
-
-const EMPTY_EDIT: EditState = {
-  target: null,
-  name: "",
-  mode: "failover",
-  platformIds: [],
-  mappings: [],
-  envVars: [],
-  reqTimeout: 0,
-  connTimeout: 0,
-  maxRetries: 10,
-};
-
-type EditAction =
-  | { type: "open"; detail: GroupDetail }
-  | { type: "reset" }
-  | { type: "patch"; patch: Partial<EditState> };
-
-function editReducer(state: EditState, action: EditAction): EditState {
-  switch (action.type) {
-    case "open":
-      return {
-        target: action.detail,
-        name: action.detail.group.name,
-        mode: action.detail.group.routing_mode,
-        platformIds: action.detail.platforms.map(gp => gp.platform.id),
-        mappings: action.detail.model_mappings.map(m => ({
-          source_model: m.source_model,
-          target_platform_id: m.target_platform_id,
-          target_model: m.target_model,
-          request_timeout_secs: m.request_timeout_secs,
-          connect_timeout_secs: m.connect_timeout_secs,
-        })),
-        envVars: action.detail.group.env_vars.map(ev => ({ key: ev.key, value: ev.value })),
-        reqTimeout: action.detail.group.request_timeout_secs,
-        connTimeout: action.detail.group.connect_timeout_secs,
-        maxRetries: action.detail.group.max_retries,
-      };
-    case "reset":
-      return EMPTY_EDIT;
-    case "patch":
-      return { ...state, ...action.patch };
-  }
-}
-
+// ponytail: allModelValues 本地副本（D3），阶段 2 删本处改 import domains/platforms
 /** Extract all non-empty model names (deduplicated) */
 function allModelValues(models: Platform["models"]): string[] {
   const seen = new Set<string>();
@@ -380,57 +47,6 @@ function allModelValues(models: Platform["models"]): string[] {
     }
   }
   return result;
-}
-
-/** 不可变 upsert：按 id 替换或追加平台（保引用稳定，命中则只换该项）。 */
-function upsertPlatformInto(prev: Platform[], plat: Platform): Platform[] {
-  const idx = prev.findIndex(p => p.id === plat.id);
-  if (idx === -1) return [...prev, plat];
-  const next = prev.slice();
-  next[idx] = plat;
-  return next;
-}
-
-/** Build the `claude` CLI invocation for a given group settings file */
-function buildClaudeCommand(settingsName: string): string {
-  return [
-    "claude",
-    "--brief",
-    "--dangerously-skip-permissions",
-    "--settings",
-    `~/.aidog/settings.${settingsName}.json`,
-  ].join(" ");
-}
-
-/** POSIX shell 单引号安全转义（内部单引号闭合/转义/重开），杜绝注入。 */
-function shellSquote(s: string): string {
-  return `'${s.replace(/'/g, "'\\''")}'`;
-}
-
-/**
- * Build the `codex` CLI invocation for a given group profile.
- * `AIDOG_KEY=<group>`（auth token=分组名，aidog 据此路由）+ `codex -p <group>`
- * 选 `~/.codex/<group>.config.toml` profile + bypass approvals/sandbox。
- *
- * Codex config.toml 不支持 env 注入（research/codex-env-support.md），用户 env_vars
- * 经前置 `export KEY=VALUE;` 注入 codex 进程环境。AIDOG_KEY 为 aidog 路由 token，
- * 用户同名变量须丢弃（shell 后者覆盖前者会破坏路由）。
- */
-function buildCodexCommand(groupKey: string, envVars?: EnvVar[]): string {
-  const g = shellSquote(groupKey);
-  const exports = (envVars ?? [])
-    .filter(ev => ev.key.trim() !== "" && ev.value !== "" && ev.key !== "AIDOG_KEY")
-    .map(ev => `export ${ev.key}=${shellSquote(ev.value)};`);
-  return [
-    ...exports,
-    `AIDOG_KEY=${g}`,
-    "codex",
-    "-p",
-    g,
-    "--dangerously-bypass-approvals-and-sandbox",
-    "-a",
-    "never",
-  ].join(" ");
 }
 
 // ─── Design tokens ───
