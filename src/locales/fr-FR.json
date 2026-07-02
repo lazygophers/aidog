@@ -62,6 +62,8 @@
   "codingTools.applyPlugin.desc": "Écrit primaryApiKey=\"any\" dans ~/.claude/config.json pour que l'extension VS Code Claude Code passe par le proxy local. Désactivé supprime le champ.",
   "codingTools.applyPlugin.title": "Appliquer au plugin Claude Code",
   "codingTools.cleared": "Effacé",
+  "codingTools.dateRewrite.desc": "Réécrit les dates au format slash YYYY/MM/DD dans le corps des requêtes vers le format ISO YYYY-MM-DD, pour éviter une détection ciblée comme utilisateur de région chinoise.",
+  "codingTools.dateRewrite.title": "Réécriture du format de date (anti-détection)",
   "codingTools.language.desc": "Écrit le champ language de ~/.claude/settings.json, définissant la langue de session du CLI Claude Code.",
   "codingTools.language.title": "Langue",
   "codingTools.errorHint": "Veuillez vérifier le format JSON du fichier et les autorisations de lecture/écriture, puis réessayez.",

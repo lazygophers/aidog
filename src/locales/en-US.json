@@ -62,6 +62,8 @@
   "codingTools.applyPlugin.desc": "Writes primaryApiKey=\"any\" into ~/.claude/config.json so the VS Code Claude Code extension routes through the local proxy. Off removes the field.",
   "codingTools.applyPlugin.title": "Apply to Claude Code Plugin",
   "codingTools.cleared": "Cleared",
+  "codingTools.dateRewrite.desc": "Rewrites slash-format dates YYYY/MM/DD in request bodies to ISO dashes YYYY-MM-DD, avoiding targeted detection as a Chinese-region user.",
+  "codingTools.dateRewrite.title": "Date Format Rewrite (Anti-Detection)",
   "codingTools.language.desc": "Writes the language field of ~/.claude/settings.json, setting the Claude Code CLI session language.",
   "codingTools.language.title": "Language",
   "codingTools.errorHint": "Please check the file's JSON format and read/write permissions, then retry.",

@@ -72,6 +72,20 @@ pub(crate) fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
             config: r#"{"replacement":"****","fields":["messages","system"]}"#,
             priority: 12,
         },
+        // ── 日期格式改写防检测（redaction，action=mask，global）──
+        // Claude Code system prompt 注入斜杠日期 YYYY/MM/DD（中文区惯用格式），
+        // 易被上游针对性检测识别为中文用户 → 封禁风险。改 ISO 横杠 YYYY-MM-DD。
+        // 复用 redaction 引擎 regex capture（$1-$2-$3），不改 forward.rs。
+        BuiltinRuleSpec {
+            name: "内置·日期格式改写防检测",
+            description: "将 body 中斜杠日期 YYYY/MM/DD 改写为 ISO 横杠 YYYY-MM-DD，防中文用户针对性检测。",
+            rule_type: "redaction",
+            match_type: "regex",
+            pattern: r"(\d{4})/(\d{1,2})/(\d{1,2})",
+            action: "mask",
+            config: r#"{"replacement":"$1-$2-$3","fields":["messages","system"]}"#,
+            priority: 13,
+        },
         // ── 默认 error_rules（error_rule，action=classify，global）──
         BuiltinRuleSpec {
             name: "内置·上下文超限",
