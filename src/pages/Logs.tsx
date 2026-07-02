@@ -69,10 +69,13 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
   }, []);
 
   // Build filter object
+  // 「无平台」= platform_id 0（隧道请求 host 未命中任何平台）；值 "0" truthy 故 if 命中。
+  // 「无分组」= group_key ''（隧道请求无 apikey）；"__none__" sentinel 映射到空串，避与「全部」("") 撞。
+  const NO_GROUP_SENTINEL = "__none__";
   const activeFilter: ProxyLogFilter = useMemo(() => {
     const f: ProxyLogFilter = {};
     if (filterPlatform) f.platform_id = Number(filterPlatform);
-    if (filterGroup) f.group_key = filterGroup;
+    if (filterGroup) f.group_key = filterGroup === NO_GROUP_SENTINEL ? "" : filterGroup;
     if (filterStatus === "success") f.status = 200;
     else if (filterStatus === "error") f.status = -1;
     const tr = timePresetToRange(filterTime);
@@ -482,7 +485,11 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
           width={140}
           value={filterPlatform}
           onChange={setFilterPlatform}
-          options={platforms.map(p => ({ value: String(p.id), label: p.name }))}
+          options={[
+            ...platforms.map(p => ({ value: String(p.id), label: p.name })),
+            // 隧道请求 host 未命中任何平台 → platform_id=0
+            { value: "0", label: t("logs.noPlatform", "无平台") },
+          ]}
           allLabel={t("logs.filterPlatform", "平台")}
           searchPlaceholder={t("stats.searchPlatform", "搜索平台")}
           emptyLabel={t("stats.noMatch", "无匹配结果")}
@@ -492,7 +499,11 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
           width={140}
           value={filterGroup}
           onChange={setFilterGroup}
-          options={groups.map(g => ({ value: g.group.group_key, label: g.group.name }))}
+          options={[
+            ...groups.map(g => ({ value: g.group.group_key, label: g.group.name })),
+            // 隧道请求无 apikey → group_key=''（sentinel 映射见 activeFilter）
+            { value: NO_GROUP_SENTINEL, label: t("logs.noGroup", "无分组") },
+          ]}
           allLabel={t("logs.filterGroup", "分组")}
           searchPlaceholder={t("stats.searchGroup", "搜索分组")}
           emptyLabel={t("stats.noMatch", "无匹配结果")}

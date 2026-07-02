@@ -29,6 +29,7 @@ pub(crate) use super::models::{
 pub(crate) use super::router::{select_candidates_ctx, RouteResult, ScheduleCtx};
 
 mod count_tokens;
+mod connect;
 mod endpoint;
 mod finish;
 mod forward;
@@ -50,6 +51,8 @@ mod timeout;
 mod test_integration;
 #[cfg(test)]
 mod test_group_info;
+#[cfg(test)]
+mod test_connect;
 
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
 pub use endpoint::{opencode_zen_fallback, resolve_opencode_zen_key};
@@ -66,8 +69,8 @@ pub use passthrough::{apply_models_auth, build_models_url};
 // 子模块内部互用项（crate 内可见，便于 handler/各模块交叉调用）。
 pub(crate) use count_tokens::{handle_count_tokens, is_count_tokens_endpoint};
 pub(crate) use endpoint::{
-    detect_source_protocol, infer_passthrough_protocol_from_ua, resolve_group,
-    select_endpoint_for_protocol,
+    detect_source_protocol, infer_passthrough_protocol_from_ua, match_platform_by_host,
+    resolve_group, select_endpoint_for_protocol,
 };
 pub(crate) use finish::{finish_nonstream, finish_stream};
 pub(crate) use forward::{forward_attempt, AttemptOutcome};
@@ -81,7 +84,8 @@ pub(crate) use headers::{
 pub(crate) use headers::is_official_anthropic_host;
 pub(crate) use health::handle_root;
 pub(crate) use log::{
-    block_inbound, get_log_settings, remove_log_snapshot, spawn_estimate, upsert_log,
+    block_inbound, get_log_settings, remove_log_snapshot, spawn_estimate, upsert_connect_log,
+    upsert_log,
 };
 pub(crate) use mock::handle_mock;
 pub(crate) use notify::handle_notify;

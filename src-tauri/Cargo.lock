@@ -75,6 +75,8 @@ dependencies = [
  "flate2",
  "futures",
  "hmac",
+ "hyper",
+ "hyper-util",
  "objc2",
  "objc2-app-kit",
  "objc2-foundation",
