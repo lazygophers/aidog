@@ -24,6 +24,7 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
 import { smoothPath } from "../utils/chart";
 import { BalanceBar, costLevel, levelColor } from "../components/shared";
+import { F } from "../domains/shared/tokens";
 import {
   IconCost,
   IconBolt,
@@ -34,7 +35,6 @@ import {
   IconLogs,
 } from "../components/icons";
 
-const F = { title: 20, kpi: 30, label: 15, body: 14, hint: 13, small: 12 } as const;
 const DEFAULT_PORT = 7890;
 const TOP_PLATFORMS = 5;
 

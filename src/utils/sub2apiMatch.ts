@@ -9,7 +9,7 @@
 // preset 单一事实源住前端（记忆 aidog-add-platform-skill 反直觉点 1）。
 
 import type { Protocol, PlatformEndpoint } from "../services/api";
-import { getDefaultEndpoints } from "../pages/Platforms";
+import { getDefaultEndpoints } from "../domains/platforms";
 import type { Sub2ApiAccount } from "../services/api";
 
 /** sub2api platform 值 → aidog Protocol 直映射表（小写键）。 */

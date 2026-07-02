@@ -16,7 +16,7 @@ import {
   type ImportReport,
   type Protocol,
 } from "../../services/api";
-import { PROTOCOLS } from "../../pages/Platforms";
+import { PROTOCOLS } from "../../domains/platforms";
 import { mapPlatformToProtocol, sub2apiAccountToPlatformJson } from "../../utils/sub2apiMatch";
 import { SectionIcon } from "./editors";
 import { IconCheck } from "../icons";

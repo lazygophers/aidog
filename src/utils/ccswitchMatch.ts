@@ -1,6 +1,6 @@
 // cc-switch provider → aidog Platform 匹配回退链（纯函数）。
 //
-// **禁在 Rust 重复实现 preset 匹配**：preset 单一事实源是 Platforms.tsx
+// **禁在 Rust 重复实现 preset 匹配**：preset 单一事实源是 domains/platforms
 // 的 PROTOCOLS + getDefaultEndpoints，此文件复用之（记忆
 // `aidog-add-platform-skill` 反直觉点 1）。后端 ccswitch.rs 只做原始数据
 // 读取 + DTO 透传。
@@ -13,7 +13,7 @@
 
 import type { Protocol, PlatformEndpoint, PlatformModels } from "../services/api";
 import type { CcProvider } from "../services/api";
-import { PROTOCOLS, getDefaultEndpoints, type ProtocolOption } from "../pages/Platforms";
+import { PROTOCOLS, getDefaultEndpoints, type ProtocolOption } from "../domains/platforms";
 import {
   normalizeForMatch,
   guessProtocol,
