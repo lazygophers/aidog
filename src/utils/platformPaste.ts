@@ -49,22 +49,24 @@ export interface ParsedPaste {
 }
 
 /** 已知 apikey 前缀（长在前，避免 sk- 抢先吃掉 sk-ant-）。
- *  含 sk_（下划线变体，部分中转站用），与 sk- 并列。 */
-const KEY_PREFIXES = ["sk-ant-", "sk-kimi-", "sk-or-", "sk-proj-", "sk-", "sk_", "tp-"];
+ *  含 sk_（下划线变体，部分中转站用），与 sk- 并列。
+ *  ark-：火山方舟（coding/agent plan 通用前缀）。 */
+const KEY_PREFIXES = ["sk-ant-", "sk-kimi-", "sk-or-", "sk-proj-", "sk-", "sk_", "tp-", "ark-"];
 
 /** CJK 及全角标点区段（用于剔除 key 中混入的防爬汉字）。
  *  \p{Script=Han} 覆盖全部汉字变体（基本区 + 扩展 A-F + 兼容汉字），比手写区段全；
- *  另含平假名/片假名 + CJK 标点 + 全角区段。需 u flag。 */
-const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯]/gu;
+ *  另含平假名/片假名 + CJK 标点 + 全角区段 + 圈数字（Enclosed Alphanumerics ①-⓿，
+ *  社区分享防爬用 ②⑤⑨ 等替数字）。需 u flag。 */
+const CJK_RE = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}　-〿＀-￯①-⓿]/gu;
 
 /** 前缀锚定 token：前缀 + 后续 alnum/_/-，允许中间穿插 CJK（防爬），后面整体 stripCjk 剔除。
  *  字符类含 \p{Script=Han} 防 CJK 扩展区汉字（如 𠀀）截断匹配。 */
 const PREFIX_TOKEN_RE =
-  /(sk-ant-|sk-kimi-|sk-or-|sk-proj-|sk-|sk_|tp-)[A-Za-z0-9_\-\.\p{Script=Han}　-〿＀-￯]{12,}/gu;
+  /(sk-ant-|sk-kimi-|sk-or-|sk-proj-|sk-|sk_|tp-|ark-)[A-Za-z0-9_\-\.\p{Script=Han}　-〿＀-￯①-⓿]{12,}/gu;
 
 /** 赋值锚定：API_KEY= / apikey: / 秘药： / key= 等后跟值。 */
 const ASSIGN_RE =
-  /["']?(?:api[\s_-]*key|secret|token|秘药|密钥|key|auth[\s_-]*token|(?:[\w-]+)[\s_-]*(?:auth[\s_-]*token|api[\s_-]*key)|api)["']?\s*[:：=]\s*["'\u2018\u2019《「]?\s*([A-Za-z0-9_\-+/=.\p{Script=Han}　-〿＀-￯]{12,})/giu;
+  /["']?(?:api[\s_-]*key|secret|token|秘药|密钥|key|auth[\s_-]*token|(?:[\w-]+)[\s_-]*(?:auth[\s_-]*token|api[\s_-]*key)|api)["']?\s*[:：=]\s*["'\u2018\u2019《「]?\s*([A-Za-z0-9_\-+/=.\p{Script=Han}　-〿＀-￯①-⓿]{12,})/giu;
 
 /** 纯 base64 token 形态（无已知前缀时用于 base64 解码启发式）。 */
 const BASE64_RE = /^[A-Za-z0-9+/]{20,}={0,2}$/;
@@ -203,6 +205,22 @@ export function normalizeForMatch(s: string): string {
 
 function pushUnique(arr: string[], v: string) {
   if (v && !arr.includes(v)) arr.push(v);
+}
+
+/**
+ * 拆分多 key 文本 → 去重候选数组（用于手动表单批量粘入）。
+ * 与 {@link extractApiKeys} 区别：本函数面向「用户可控的整洁输入」（多行 / 逗号 / 分号 / 空白分隔），
+ * 仅做拆分 + trim + 去重 + 剔空，不做防爬汉字 / base64 启发式解码（那是智能识别杂乱论坛文案的活）。
+ * ponytail: 简单 split 足够，乱序文本场景由 SmartPaste 路径的 extractApiKeys 兜。
+ */
+export function splitApiKeys(raw: string): string[] {
+  if (!raw) return [];
+  const out: string[] = [];
+  for (const part of raw.split(/[\s,;]+/)) {
+    const v = part.trim();
+    if (v && !out.includes(v)) out.push(v);
+  }
+  return out;
 }
 
 /** 抽取 apikey 候选。 */
@@ -345,15 +363,31 @@ export function matchPlatform(
 /** 扫描 base64 token → UTF-8 解码 → 标签复合串解析（第三变体）。
  *  与「纯 ASCII base64 key」「CJK 噪声插入 base64」不同：此处整段 base64 解码成功，
  *  但结果是中文标签紧贴值的复合串（如「令牌sk-...地址https://...模型名X」），
- *  键形守卫会整体拒掉。按标签切分提取 key/base_url/model。 */
+ *  键形守卫会整体拒掉。按标签切分提取 key/base_url/model。
+ *
+ *  标签锚定的盲区：裸 key（无令牌/密钥/key 标签前缀，如 MiMo 文案「接口协议：URL\ntp-...」
+ *  中末尾的 tp- key）会被归入「接口」段被 URL 正则忽略致漏提。故 parseCompoundLabeled 之后，
+ *  若 parts.apiKey 未已填，对 decoded 明文补跑 PREFIX_TOKEN_RE 裸 key 扫描兜底，
+ *  复用 extractApiKeys 同款守卫（stripCjk + 长度≥16 + hasKnownPrefix / DECODED_KEY_SHAPE）。 */
 function extractCompoundFromBase64(text: string): CompoundParts[] {
   const out: CompoundParts[] = [];
   for (const m of text.matchAll(BARE_BASE64_RE)) {
     if (m[0].length < 24) continue;
     const decoded = tryBase64DecodeUtf8(m[0]);
     if (!decoded) continue;
-    const parts = parseCompoundLabeled(decoded);
-    if (parts) out.push(parts);
+    const parts = parseCompoundLabeled(decoded) ?? {};
+    // 裸 key 兜底：parseCompoundLabeled 按标签切分时，无 key 标签的裸 key 漏提；
+    // 此处补扫 PREFIX_TOKEN_RE，守卫同 extractApiKeys（防 URL 片段误命中）。
+    if (!parts.apiKey) {
+      for (const km of decoded.matchAll(PREFIX_TOKEN_RE)) {
+        const clean = stripCjk(km[0]);
+        if (clean.length >= 16 && (hasKnownPrefix(clean) || DECODED_KEY_SHAPE.test(clean))) {
+          parts.apiKey = clean;
+          break;
+        }
+      }
+    }
+    if (parts.apiKey || parts.baseUrl || parts.model) out.push(parts);
   }
   return out;
 }

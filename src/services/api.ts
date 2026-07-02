@@ -830,6 +830,16 @@ export const configApi = {
     invoke<string[]>("sync_group_settings"),
 };
 
+/**
+ * Read the aidog-managed leaf dot-path snapshot from the internal DB
+ * (`setting` table scope=`claude_default_group`/key=`managed_paths`, written by
+ * the default-group sync). Empty/missing → `[]`. Used by the import diff to
+ * exclude managed fields. Marker moved out of settings.json (was `_aidog_managed`)
+ * to keep the user's file clean.
+ */
+export const getManagedPaths = (): Promise<string[]> =>
+  invoke<string[]>("get_managed_paths");
+
 // ─── Proxy Log Types ───────────────────────────────────────
 
 /** 单次平台尝试快照（proxy_log.attempts JSON 数组元素）。 */

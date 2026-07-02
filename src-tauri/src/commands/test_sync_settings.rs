@@ -1,5 +1,5 @@
 //! merge_json deep-merge 单元测试（随源文件 sync_settings.rs 1:1）。
-use super::{merge_json, MARKER_MANAGED};
+use super::{merge_json, MARKER_MANAGED, MANAGED_KEY, MANAGED_SCOPE};
 use serde_json::json;
 
     #[test]
@@ -57,11 +57,25 @@ use serde_json::json;
         assert_eq!(base["k"], "v");
     }
 
-    /// write_default_claude_settings：HOME 隔离下首次写 + deep merge 保留用户字段 + 幂等无写。
+    /// 读 DB `setting` 表里的 managed_paths 快照（test helper：unwrap + 数组化）。
+    async fn read_managed_paths(db: &crate::gateway::db::Db) -> Vec<String> {
+        let v = crate::gateway::db::get_setting(db, MANAGED_SCOPE, MANAGED_KEY)
+            .await
+            .unwrap()
+            .unwrap_or(json!([]));
+        v.as_array()
+            .unwrap()
+            .iter()
+            .map(|x| x.as_str().unwrap().to_string())
+            .collect()
+    }
+
+    /// write_default_claude_settings：HOME + DB 隔离下首次写 + deep merge 保留用户字段 + 幂等无写。
     #[tokio::test]
     async fn write_default_claude_settings_merges_and_idempotent() {
-        use crate::gateway::db::test_support::HomeGuard;
+        use crate::gateway::db::test_support::{HomeGuard, test_db};
         let h = HomeGuard::new();
+        let db = test_db().await;
         // 预置用户配置
         let claude_dir = h.home().join(".claude");
         std::fs::create_dir_all(&claude_dir).unwrap();
@@ -71,17 +85,19 @@ use serde_json::json;
         let config = json!({
             "env": { "ANTHROPIC_BASE_URL": "http://127.0.0.1:9876/proxy", "ANTHROPIC_AUTH_TOKEN": "gk_x" }
         });
-        super::write_default_claude_settings(&config).unwrap();
+        super::write_default_claude_settings(&db, &config).await.unwrap();
 
         let written: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
         assert_eq!(written["env"]["ANTHROPIC_AUTH_TOKEN"], "gk_x");
         assert_eq!(written["permissions"]["allow"][0], "Read(*)"); // 用户字段保留
         assert_eq!(written["model"], "opus");
+        // settings.json 不再写 marker（已迁 DB）
+        assert!(written.get(MARKER_MANAGED).is_none());
 
         // 幂等：再次同 config → 内容不变（命中 old==new 早退）
         let before = std::fs::read_to_string(&path).unwrap();
-        super::write_default_claude_settings(&config).unwrap();
+        super::write_default_claude_settings(&db, &config).await.unwrap();
         assert_eq!(before, std::fs::read_to_string(&path).unwrap());
     }
 
@@ -134,18 +150,19 @@ use serde_json::json;
         assert!(out.contains(&"extraKnownMarketplaces.ccplugin-market.skipLfs".to_string()));
     }
 
-    /// write_default_claude_settings：`_aidog_managed` marker = merge 后完整 base 的全部叶子快照。
-    /// 既含 aidog 注入字段，**也含 merge 后保留的用户自装条目**（plugins/marketplaces/hooks），
-    /// 但**不含** `_aidog_managed` 自身（跳 `_aidog_` 前缀，不自引用）。
+    /// write_default_claude_settings：托管快照存 DB = merge 后完整 base 的全部叶子。
+    /// 既含 aidog 注入字段，**也含 merge 后保留的用户自装条目**（plugins/marketplaces/hooks）。
     /// 语义：导入 diff 排除此快照 → 同步当下零差异（含用户自装项），仅显示同步之后的新增/变化。
+    /// settings.json 不写 marker（已迁 DB）。
     #[tokio::test]
     async fn write_default_claude_settings_records_managed_paths() {
-        use crate::gateway::db::test_support::HomeGuard;
+        use crate::gateway::db::test_support::{HomeGuard, test_db};
         let h = HomeGuard::new();
+        let db = test_db().await;
         let claude_dir = h.home().join(".claude");
         std::fs::create_dir_all(&claude_dir).unwrap();
         let path = claude_dir.join("settings.json");
-        // 用户预置：自装一个插件 + 一个 marketplace + 一个用户 hook
+        // 用户预置：自装一个插件 + 一个 marketplace
         std::fs::write(
             &path,
             r#"{"enabledPlugins":{"user-plugin@user-market":true},"extraKnownMarketplaces":{"user-market":{"source":{"repo":"u/m","source":"github"}}}}"#,
@@ -156,7 +173,7 @@ use serde_json::json;
             "env": { "ANTHROPIC_BASE_URL": "http://127.0.0.1:9000/proxy", "ANTHROPIC_AUTH_TOKEN": "gk" },
             "enabledPlugins": { "aidog-plugin@official": true }
         });
-        super::write_default_claude_settings(&config).unwrap();
+        super::write_default_claude_settings(&db, &config).await.unwrap();
 
         let written: serde_json::Value =
             serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
@@ -168,13 +185,11 @@ use serde_json::json;
         );
         assert_eq!(written["enabledPlugins"]["aidog-plugin@official"], true);
 
-        // 托管 marker = merge 后完整快照：含 aidog 注入条目 + 用户自装条目
-        let managed: Vec<String> = written[MARKER_MANAGED]
-            .as_array()
-            .unwrap()
-            .iter()
-            .map(|v| v.as_str().unwrap().to_string())
-            .collect();
+        // settings.json 不再写 marker
+        assert!(written.get(MARKER_MANAGED).is_none());
+
+        // 托管快照在 DB：= merge 后完整快照，含 aidog 注入条目 + 用户自装条目
+        let managed: Vec<String> = read_managed_paths(&db).await;
         assert!(managed.contains(&"env.ANTHROPIC_BASE_URL".to_string()));
         assert!(managed.contains(&"env.ANTHROPIC_AUTH_TOKEN".to_string()));
         assert!(managed.contains(&"enabledPlugins.aidog-plugin@official".to_string()));
@@ -182,8 +197,44 @@ use serde_json::json;
         assert!(managed.contains(&"enabledPlugins.user-plugin@user-market".to_string()));
         assert!(managed.contains(&"extraKnownMarketplaces.user-market.source.repo".to_string()));
         assert!(managed.contains(&"extraKnownMarketplaces.user-market.source.source".to_string()));
-        // marker 不自引用（跳 `_aidog_` 前缀）
+        // 快照不含 `_aidog_` 前缀（跳过，不自引用）
         assert!(!managed.iter().any(|p| p.starts_with("_aidog_")));
+    }
+
+    /// write_default_claude_settings：老用户 settings.json 残留旧 `_aidog_managed` 值 →
+    /// 再次 sync 后被显式 remove（连旧值清），marker 数据源已迁 DB。
+    #[tokio::test]
+    async fn write_default_claude_settings_strips_legacy_marker() {
+        use crate::gateway::db::test_support::{HomeGuard, test_db};
+        let h = HomeGuard::new();
+        let db = test_db().await;
+        let claude_dir = h.home().join(".claude");
+        std::fs::create_dir_all(&claude_dir).unwrap();
+        let path = claude_dir.join("settings.json");
+        // 老用户文件：含旧 marker 值（历史遗留）
+        std::fs::write(
+            &path,
+            r#"{"env":{"ANTHROPIC_BASE_URL":"http://old/proxy"},"_aidog_managed":["env.ANTHROPIC_BASE_URL","env.ANTHROPIC_AUTH_TOKEN"]}"#,
+        )
+        .unwrap();
+
+        let config = json!({
+            "env": { "ANTHROPIC_BASE_URL": "http://127.0.0.1:9001/proxy", "ANTHROPIC_AUTH_TOKEN": "gk2" }
+        });
+        super::write_default_claude_settings(&db, &config).await.unwrap();
+
+        let written: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        // 旧 marker 被清
+        assert!(written.get(MARKER_MANAGED).is_none());
+        // 新字段写入
+        assert_eq!(written["env"]["ANTHROPIC_BASE_URL"], "http://127.0.0.1:9001/proxy");
+        assert_eq!(written["env"]["ANTHROPIC_AUTH_TOKEN"], "gk2");
+
+        // DB 重新建立托管快照（sync 当下重算覆盖，不读旧 settings 值）
+        let managed: Vec<String> = read_managed_paths(&db).await;
+        assert!(managed.contains(&"env.ANTHROPIC_BASE_URL".to_string()));
+        assert!(managed.contains(&"env.ANTHROPIC_AUTH_TOKEN".to_string()));
     }
 
     /// do_sync_group_settings：用户 env_vars 注入 settings.{group}.json env block；
@@ -234,4 +285,3 @@ use serde_json::json;
         // 清掉这组避免污染其它测试（test_db 用内存库，但 sync 写了真实 HOME 下的文件）
         crate::gateway::db::delete_group(&db, g.id).await.unwrap();
     }
-

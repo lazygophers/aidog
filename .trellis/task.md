@@ -17,10 +17,23 @@
 | 07-01-export-ux-revisions | 导出 UX 修订 | setting label 补全 (cc_codex/coding_tools 等裸 key i18n) + 菜单组拆分 (platform/group/group_platform 三子类分开, 非一菜单组平铺) | 已完成 | — |
 | 07-01-platform-search-filter | 平台搜索命中只展示命中项 | Platforms 搜索命中平台时只展示命中项, 不连带整组 | 已完成 | — |
 | 07-01-export-extra-cleanup | 导出 extra 默认值清理 + 类型修正 | 导出时空 extra ({}) 默认移除 + extra 序列化为 obj 非 str 类型 | 已完成 | — |
-| 07-01-aidog-deeplink-share | aidog:// 协议 + URL 导入 + skills/mcp 分享 | 注册 aidog:// 协议 (启动自动) + URL 导入平台/skills/mcp + skills/mcp 独立分享按钮 (复用平台分享逻辑) + 粘贴导入 | 规划中 | — |
+| 07-01-aidog-deeplink-share | aidog:// 协议 + URL 导入 + skills/mcp 分享 | 注册 aidog:// 协议 (启动自动) + URL 导入平台/skills/mcp + skills/mcp 独立分享按钮 (复用平台分享逻辑) + 粘贴导入 | 实施中 | .worktrees/07-01-aidog-deeplink-share |
 | 07-01-deeplink-platform-url ├ child | D2 平台 URL 导入 | aidog://platform 路径: 分享 base64 → URL → 唤起导入 | 规划中 | — |
 | 07-01-deeplink-mcp-share ├ child | D3 mcp 分享 + URL 导入 | mcp 分享按钮 (复用 ShareModal) + aidog://mcp URL 导入 + 粘贴导入 | 规划中 | — |
 | 07-01-deeplink-skill-share ├ child | D4 skills 分享 + URL 导入 | skills 分享 (id 列表) + aidog://skill URL 导入 + 粘贴导入 | 规划中 | — |
+| 07-01-third-party-context-mgmt-strip | 第三方 anthropic 端点 context_management 致 400 thinking must be passed back | — | 已完成 | .worktrees/07-01-07-01-third-party-context-mgmt-strip |
+| batch-add-platform | 批量添加平台 (多 apikey + 分组关联) | — | 已完成 | — |
+| opencode-go-baseurl-fix | opencode 协议预设 base_url 缺 /v1 致 fetch-models/推理 404 | — | 已完成 | — |
+| third-party-context-mgmt-unconditional-strip | 第三方 anthropic 端点首轮 context_management 致 GLM 1210 | — | 已完成 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-third-party-context-mgmt-unconditional-strip |
+| stats-platform-dropdown-overlap | Stats 平台下拉平台名重叠不可读 | — | 已完成 | — |
+| glm-anthropic-multiturn-1210 | GLM anthropic 端点多轮 tool_use 请求 1210 参数有误 | — | 已完成 | — |
+| volces-agent-plan-paste | 火山方舟 agent plan 智能识别缺失 (ark- 前缀 + 圈数字防爬 + /api/plan 端点) | — | 已完成 | — |
+| proxy-http-relay | /proxy 支持通用 HTTP 代理 + 无平台/无分组筛选 | — | 规划中 | — |
+| stats-logs-filter-unify | Stats/Logs 筛选完全对齐(平台/模型/分组) | — | 已完成 | — |
+| logs-detail-copy-buttons | 请求日志详情每个元素一键复制 | — | 规划中 | — |
+| settings-managed-marker | settings.json 不写 _aidog_managed marker | — | 已完成 | — |
+| paste-base64-recognize | 粘贴 base64 分享文本识别 (MiMo 平台 tp- apikey) | — | 已完成 | — |
+| platform-default-models-audit | 阶跃星辰补默认模型 + 全平台模型清单审计 | — | 实施中 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -29,3 +42,5 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-aidog-deeplink-share | 07-01-aidog-deeplink-share | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-02-platform-default-models-audit | 07-02-platform-default-models-audit | trellisx-start |
