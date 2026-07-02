@@ -43,7 +43,7 @@
 | arch-redesign | 全仓架构重设计 - 分包分文件消大文件 | — | 实施中 | — |
 | filter-item-height | 分组筛选 item 增高 | — | 已完成 | — |
 | recurring-request-error | request 错误链诊断 (3e8b13f0→cb3603ac 必然失败) | — | 已完成 | — |
-| body-date-format-rewrite | body 日期格式改写防检测 (CLI集成开关) | — | 实施中 | — |
+| body-date-format-rewrite | body 日期格式改写防检测 (CLI集成开关) | — | 已完成 | — |
 | cli-lang-select-style | CLI 语言设置 select 样式修正 (label 字号 + select 够用右对齐) | — | 规划中 | — |
 
 ## Worktree ↔ Task 映射
@@ -54,4 +54,3 @@
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-arch-redesign | 07-01-arch-redesign | trellisx-start |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-02-body-date-format-rewrite | 07-02-body-date-format-rewrite | trellisx-start |
