@@ -340,6 +340,47 @@ fn inbound_mask_system_field_only() {
     assert!(text.contains("secret in message"), "message should not be masked: {text}");
 }
 
+/// 内置·日期格式改写防检测：斜杠日期 YYYY/MM/DD → ISO 横杠 YYYY-MM-DD，
+/// 时间冒号（如 15:04）不动。复用 redaction+mask+regex capture 路径。
+#[test]
+fn inbound_mask_redaction_rewrites_slash_date_preserves_time_colon() {
+    let mut rule = mk_rule(1, RuleType::Redaction, RuleScope::Global, "", MatchType::Regex, r"(\d{4})/(\d{1,2})/(\d{1,2})");
+    rule.action = RuleAction::Mask;
+    rule.config = r#"{"replacement":"$1-$2-$3","fields":["messages","system"]}"#.to_string();
+    let engine = MiddlewareEngine::new();
+    engine.rebuild_from_rules(vec![rule]);
+
+    let mut req = mk_req(
+        vec![user_msg("Today's date is 2026/07/02 and time is 15:04")],
+        Some("Today's date is 2026/07/02"),
+    );
+    let outcome = engine.apply_inbound(&settings_all_on(), &mut req, None);
+    assert_eq!(outcome, InboundOutcome::Continue);
+    let text = dump_text(&req);
+    assert!(!text.contains("2026/07/02"), "slash date should be rewritten: {text}");
+    assert!(text.contains("2026-07-02"), "ISO date should appear: {text}");
+    // 时间冒号不动（不在 regex 命中范围）
+    assert!(text.contains("15:04"), "time colon must be preserved: {text}");
+}
+
+/// 规则 disabled（enabled=false）→ rebuild 跳过 → 原样透传。
+#[test]
+fn inbound_mask_redaction_disabled_rule_passes_through() {
+    let mut rule = mk_rule(1, RuleType::Redaction, RuleScope::Global, "", MatchType::Regex, r"(\d{4})/(\d{1,2})/(\d{1,2})");
+    rule.action = RuleAction::Mask;
+    rule.config = r#"{"replacement":"$1-$2-$3","fields":["messages","system"]}"#.to_string();
+    rule.enabled = false;
+    let engine = MiddlewareEngine::new();
+    engine.rebuild_from_rules(vec![rule]);
+
+    let mut req = mk_req(vec![user_msg("Today's date is 2026/07/02")], None);
+    let outcome = engine.apply_inbound(&settings_all_on(), &mut req, None);
+    assert_eq!(outcome, InboundOutcome::Continue);
+    let text = dump_text(&req);
+    assert!(text.contains("2026/07/02"), "disabled rule must pass through: {text}");
+    assert!(!text.contains("2026-07-02"), "no rewrite when disabled: {text}");
+}
+
 /// apply_mask with system Blocks.
 #[test]
 fn inbound_mask_system_blocks() {
