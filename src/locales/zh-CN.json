@@ -1718,5 +1718,10 @@
   "updater.releaseNotes": "更新内容",
   "updater.updateFailed": "更新失败",
   "updater.updateNow": "立即更新",
-  "updater.updating": "更新中…"
+  "updater.updating": "更新中…",
+  "mcp.share": "分享",
+  "mcp.share.title": "分享 MCP",
+  "mcp.share.warning": "分享内容含明文 env/headers（可能含 token/密钥），请仅发送给可信对象，切勿公开发布。",
+  "mcp.share.copyUrl": "复制为 aidog:// 链接",
+  "mcp.share.urlCopied": "已复制 aidog:// 链接"
 }

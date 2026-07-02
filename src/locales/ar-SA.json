@@ -1740,5 +1740,10 @@
   "updater.releaseNotes": "ملاحظات الإصدار",
   "updater.updateFailed": "فشل التحديث",
   "updater.updateNow": "التحديث الآن",
-  "updater.updating": "جارٍ التحديث…"
+  "updater.updating": "جارٍ التحديث…",
+  "mcp.share": "مشاركة",
+  "mcp.share.title": "مشاركة MCP",
+  "mcp.share.warning": "يحتوي المحتوى المشترك على env/headers بنص عادي (قد يتضمن رموز/أسرار). أرسله فقط إلى جهات موثوقة ولا تنشره علنًا.",
+  "mcp.share.copyUrl": "نسخ كرابط aidog://",
+  "mcp.share.urlCopied": "تم نسخ رابط aidog://"
 }
