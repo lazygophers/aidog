@@ -79,7 +79,9 @@ fn json_object_to_map(v: Option<&serde_json::Value>) -> BTreeMap<String, String>
         .unwrap_or_default()
 }
 
-fn build_claude_entry(cfg: &McpConfigRaw) -> serde_json::Value {
+/// 构造 claude.json mcpServers entry（明文含 env/headers 原值）。
+/// pub(super)：分享导出 (domain::share_server) 复用，保证与写入格式一致。
+pub(super) fn build_claude_entry(cfg: &McpConfigRaw) -> serde_json::Value {
     let mut obj = serde_json::Map::new();
     obj.insert(
         "type".to_string(),

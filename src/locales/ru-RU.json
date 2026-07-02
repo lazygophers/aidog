@@ -1740,5 +1740,10 @@
   "updater.releaseNotes": "Что нового",
   "updater.updateFailed": "Ошибка обновления",
   "updater.updateNow": "Обновить сейчас",
-  "updater.updating": "Обновление…"
+  "updater.updating": "Обновление…",
+  "mcp.share": "Поделиться",
+  "mcp.share.title": "Поделиться MCP",
+  "mcp.share.warning": "Общий контент содержит env/headers открытым текстом (могут содержать токены/секреты). Отправляйте только доверенным получателям; не публикуйте публично.",
+  "mcp.share.copyUrl": "Скопировать как ссылку aidog://",
+  "mcp.share.urlCopied": "Ссылка aidog:// скопирована"
 }

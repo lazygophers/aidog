@@ -1718,5 +1718,10 @@
   "updater.releaseNotes": "Release notes",
   "updater.updateFailed": "Update failed",
   "updater.updateNow": "Update now",
-  "updater.updating": "Updating…"
+  "updater.updating": "Updating…",
+  "mcp.share": "Share",
+  "mcp.share.title": "Share MCP",
+  "mcp.share.warning": "The shared content contains plaintext env/headers (may include tokens/secrets). Only send it to trusted recipients; never publish it publicly.",
+  "mcp.share.copyUrl": "Copy as aidog:// link",
+  "mcp.share.urlCopied": "Copied aidog:// link"
 }

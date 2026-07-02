@@ -1854,6 +1854,9 @@ export const mcpApi = {
   delete: (name: string) => invoke<void>("mcp_delete", { name }),
   /** 重新同步全部：从 DB 全量重写所有 enabled agent 配置（修复外部污染如 env:null）。 */
   resync: () => invoke<number>("mcp_resync"),
+  /** 导出单 MCP 可分享对象（claude.json 协议 {mcpServers:{name:entry}}，明文 env/headers）。 */
+  shareExport: (name: string) =>
+    invoke<Record<string, unknown>>("mcp_share_export", { name }),
 };
 
 // ─── 导入导出子系统 ───────────────────────────────────────

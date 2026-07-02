@@ -2206,7 +2206,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       {cards.shareData !== null && (
         <ShareModal
           share={cards.shareData.share}
-          platformName={cards.shareData.name}
+          title={cards.shareData.name}
           onToast={(text, ok) => {
             onToast?.({ text, ok });
             setTimeout(() => onToast?.(null), 3000);
