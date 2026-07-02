@@ -10,7 +10,8 @@ import {
 } from "../services/api";
 import { IconClose } from "../components/icons";
 
-const F = { title: 15, body: 14, hint: 13, small: 12 } as const;
+// ponytail: 统一 token (title 15→20, body 14→15), 视觉差异可忽略
+import { F } from "../domains/shared/tokens";
 const PAGE_SIZE_OPTIONS = [20, 50, 100, 200];
 
 export function PricingTab() {

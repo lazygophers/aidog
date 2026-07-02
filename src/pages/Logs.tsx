@@ -15,8 +15,8 @@ import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { IconClose } from "../components/icons";
 import { usePolling } from "../hooks/usePolling";
 import { FilterDropdown } from "../components/shared";
+import { F } from "../domains/shared/tokens";
 
-const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
 const DEFAULT_PAGE_SIZE = 20;
 

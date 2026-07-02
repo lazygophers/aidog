@@ -5,7 +5,7 @@ import { platformApi, quotaApi, modelTestApi } from "../../services/api";
 import {
   computeQuotaDisplay,
   computeManualBudgetDisplay,
-} from "../../pages/Platforms";
+} from "../../domains/platforms";
 
 // ── Types ──
 
