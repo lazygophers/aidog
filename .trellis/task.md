@@ -27,7 +27,13 @@
 | third-party-context-mgmt-unconditional-strip | 第三方 anthropic 端点首轮 context_management 致 GLM 1210 | — | 已完成 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-third-party-context-mgmt-unconditional-strip |
 | stats-platform-dropdown-overlap | Stats 平台下拉平台名重叠不可读 | — | 已完成 | — |
 | glm-anthropic-multiturn-1210 | GLM anthropic 端点多轮 tool_use 请求 1210 参数有误 | — | 已完成 | — |
-| volces-agent-plan-paste | 火山方舟 agent plan 智能识别缺失 (ark- 前缀 + 圈数字防爬 + /api/plan 端点) | — | 实施中 | — |
+| volces-agent-plan-paste | 火山方舟 agent plan 智能识别缺失 (ark- 前缀 + 圈数字防爬 + /api/plan 端点) | — | 已完成 | — |
+| proxy-http-relay | /proxy 支持通用 HTTP 代理 + 无平台/无分组筛选 | — | 规划中 | — |
+| stats-logs-filter-unify | Stats/Logs 筛选完全对齐(平台/模型/分组) | — | 已完成 | — |
+| logs-detail-copy-buttons | 请求日志详情每个元素一键复制 | — | 规划中 | — |
+| settings-managed-marker | settings.json 不写 _aidog_managed marker | — | 已完成 | — |
+| paste-base64-recognize | 粘贴 base64 分享文本识别 (MiMo 平台 tp- apikey) | — | 已完成 | — |
+| platform-default-models-audit | 阶跃星辰补默认模型 + 全平台模型清单审计 | — | 实施中 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -37,4 +43,4 @@
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-aidog-deeplink-share | 07-01-aidog-deeplink-share | trellisx-start |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-volces-agent-plan-paste | 07-01-volces-agent-plan-paste | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-02-platform-default-models-audit | 07-02-platform-default-models-audit | trellisx-start |
