@@ -113,6 +113,28 @@ pub(crate) fn truncate_attempt_error(body: &str) -> String {
     }
 }
 
+/// 截断 200-but-empty 取证文本（peek_text / resp_str）落 `proxy_log.response_body`。
+///
+/// 上游「200 + 空/无效流（或 body）」时，把上游真实首块原文截断落库用于后续取证（GLM 间歇空流根因）。
+/// 截断格式：≤4KB 原样；超出尾部追加 `…[truncated N bytes]`（N=被截字节数，按 char 边界不切多字节字符）。
+/// 空文本返回空串 → 调用点保留占位兜底文案。
+pub(crate) fn truncate_peek_text(text: &str) -> String {
+    const MAX: usize = 4 * 1024;
+    if text.is_empty() {
+        return String::new();
+    }
+    if text.len() <= MAX {
+        return text.to_string();
+    }
+    // 按字符截断避免切断多字节 UTF-8（SSE 中文事件），累计字节 ≤ MAX。
+    let mut end = 0usize;
+    for (i, _) in text.char_indices().take_while(|(i, _)| *i <= MAX) {
+        end = i;
+    }
+    let head = text[..end].to_string();
+    format!("{}…[truncated {} bytes]", head, text.len() - end)
+}
+
 /// 决策 A：非 2xx 上游状态码是否应 failover 重试下一候选平台。
 ///
 /// - **不重试（硬错，换平台也没用）**：400 / 422 —— 请求体本身非法（协议转换产物上游拒收），
