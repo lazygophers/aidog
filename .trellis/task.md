@@ -44,7 +44,8 @@
 | filter-item-height | 分组筛选 item 增高 | — | 已完成 | — |
 | recurring-request-error | request 错误链诊断 (3e8b13f0→cb3603ac 必然失败) | — | 已完成 | — |
 | body-date-format-rewrite | body 日期格式改写防检测 (CLI集成开关) | — | 已完成 | — |
-| cli-lang-select-style | CLI 语言设置 select 样式修正 (label 字号 + select 够用右对齐) | — | 规划中 | — |
+| cli-lang-select-style | CLI 语言设置 select 样式修正 (label 字号 + select 够用右对齐) | — | 已完成 | — |
+| cli-lang-desc-remove | CLI 语言设置删冗余描述 (去 ~/.claude/settings.json · language 行) | — | 实施中 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -54,3 +55,5 @@
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-arch-redesign | 07-01-arch-redesign | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-02-cli-lang-desc-remove | 07-02-cli-lang-desc-remove | trellisx-start |
+| diag-42617827 | 诊断 request_id=42617827 错误链根因 | — | 规划中 | — |
