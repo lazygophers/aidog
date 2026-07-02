@@ -129,6 +129,9 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
   const chartRef = useRef<HTMLDivElement>(null);
 
+  // 「无分组」sentinel 映射：下拉选「无分组」→ filter_group=''（隧道请求 group_key 空）。
+  // "0" 在平台筛选 truthy，直接透传后端 CAST AS INTEGER = 0（无平台）。
+  const NO_GROUP_SENTINEL = "__none__";
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -136,7 +139,9 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
       const base: Omit<StatsQuery, "start" | "end"> = {
         granularity,
         group_by: groupBy,
-        filter_group: filterGroup || undefined,
+        filter_group: filterGroup
+          ? (filterGroup === NO_GROUP_SENTINEL ? "" : filterGroup)
+          : undefined,
         filter_model: filterModel || undefined,
         filter_platform: filterPlatform || undefined,
       };
@@ -283,7 +288,11 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
           onChange={setFilterGroup}
           allLabel={t("stats.allGroups", "全部分组")}
           searchPlaceholder={t("stats.searchGroup", "搜索分组...")}
-          options={groups.map(g => ({ value: g.group.group_key, label: g.group.name }))}
+          options={[
+            ...groups.map(g => ({ value: g.group.group_key, label: g.group.name })),
+            // 隧道请求无 apikey → group_key=''（sentinel 映射见 load）
+            { value: NO_GROUP_SENTINEL, label: t("stats.noGroup", "无分组") },
+          ]}
           emptyLabel={t("stats.noMatch", "无匹配")}
         />
 
@@ -305,7 +314,8 @@ export function Stats({ initialFilter }: { initialFilter?: { platformId?: number
           onChange={setFilterPlatform}
           allLabel={t("stats.allPlatforms", "全部平台")}
           searchPlaceholder={t("stats.searchPlatform", "搜索平台...")}
-          options={allPlatforms}
+          // 追加「无平台」(platform_id=0，隧道请求 host 未命中)
+          options={[...allPlatforms, { value: "0", label: t("stats.noPlatform", "无平台") }]}
           emptyLabel={t("stats.noMatch", "无匹配")}
         />
       </div>

@@ -69,7 +69,7 @@ pub(crate) fn detect_source_protocol(path: &str) -> String {
 /// 规则：剥离 `scheme://` 前缀后，取到首个 `/`、`?`、`#` 或 `:`（端口分隔）之前的部分，
 /// 并去掉可能的 `user@` 凭证段，最后小写化。解析失败（空 host）返回 None——
 /// 调用方据此**保守处理**：host 解析不出 → 不视为同 host（宁可走转换也不误用 coding key）。
-fn endpoint_host(base_url: &str) -> Option<String> {
+pub(crate) fn endpoint_host(base_url: &str) -> Option<String> {
     let after_scheme = base_url
         .split_once("://")
         .map(|(_, rest)| rest)
@@ -189,6 +189,31 @@ pub fn opencode_zen_fallback(api_key: &str, is_zen: bool) -> String {
     } else {
         "$opencode".to_string()
     }
+}
+
+/// P1 CONNECT 隧道：仅按 CONNECT target host 段比对平台 base_url host。
+///
+/// 复用 `endpoint_host()`（剥 scheme/userinfo/port，小写化）。命中任一启用态平台
+/// （enabled/auto_disabled）的主 base_url 或 endpoints[].base_url host 即返回该 platform_id；
+/// 未命中返回 None（调用方写 platform_id=0）。P1 隧道无 apikey（HTTPS 未解密），
+/// 无法做 group 路由——不计费、不入候选选择，仅 host 标记 proxy_log.platform_id。
+/// 平台数量小，O(n) 全表扫描可接受（CONNECT 每连接一次）。
+pub(crate) async fn match_platform_by_host(db: &Db, connect_host: &str) -> Option<u64> {
+    let target = connect_host.to_lowercase();
+    let platforms = match super::db::list_platforms(db).await {
+        Ok(p) => p,
+        Err(e) => {
+            tracing::warn!(error = %e, "match_platform_by_host: list_platforms failed");
+            return None;
+        }
+    };
+    platforms.iter()
+        .filter(|p| p.status != super::models::PlatformStatus::Disabled)
+        .find(|p| {
+            endpoint_host(&p.base_url).as_deref() == Some(&target)
+                || p.endpoints.iter().any(|ep| endpoint_host(&ep.base_url).as_deref() == Some(&target))
+        })
+        .map(|p| p.id)
 }
 
 #[cfg(test)]
