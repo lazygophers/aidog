@@ -500,6 +500,8 @@
   "logs.connFailed": "فشل الاتصال",
   "logs.copyAll": "نسخ المعلومات الكاملة",
   "logs.copyRequestId": "نسخ معرّف الطلب",
+  "logs.copy": "نسخ",
+  "logs.copied": "تم النسخ",
   "logs.detail": "تفاصيل الطلب",
   "logs.duration": "المدة",
   "logs.empty": "لا توجد سجلات",
