@@ -18,10 +18,12 @@
 - 平台分享产 SharePlatform 对象(YAML→base64)，接收方解码 = 等价智能粘贴输入
 - Platforms.tsx:1602 applyPaste(SmartPasteApplyResult) 填创建表单
 
+## 决策(用户 2026-07-02 锁)
+- **去掉页内「从 URL 导入」按钮** — 仅靠 deep-link 自动唤起(用户选)。D2 极简化:只做 App.tsx 订阅 + 注入 SmartPasteModal。
+
 ## 交付
-1. **App.tsx 订阅 `aidog:platform`** — 拿 detail.data(base64) → 触发打开 SmartPasteModal 预填 data + 自动识别(复用 applyPaste 流程)。冷启动( app 未开时点 URL)由 D1 get_current 补发，此处同样处理。
-2. **Platforms 页「从 URL 导入」按钮** — 工具栏加按钮 → 弹输入框接 `aidog://platform/...` URL → 解析 data → 同 #1 注入 SmartPasteModal。
-3. **i18n** — `platform.importFromUrl` + `platform.importFromUrl.placeholder`，8 locale 全补。
+1. **App.tsx 订阅 `aidog:platform`** — 拿 detail.data(base64) → 触发打开 SmartPasteModal 预填 data + 自动识别(复用 Platforms.tsx:1602 applyPaste 流程)。冷启动(app 未开时点 URL)由 D1 get_current 补发，此处同样处理。需确保订阅在 SmartPasteModal 挂载/Platforms 页 ready 后触发(时序)。
+2. **i18n**(若 UI 文案需) — deep-link 触发无新按钮，文案复用 SmartPasteModal 现有；仅若加 toast 提示「从链接导入」补 key，8 locale。
 
 ## 验收
 - 浏览器点 `aidog://platform/import?data=<base64>` → 唤起 app → SmartPasteModal 弹出识别到平台字段 → 用户确认创建
