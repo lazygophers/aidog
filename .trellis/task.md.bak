@@ -39,6 +39,10 @@
 | deeplink-mcp-share | D3 mcp 分享 + URL 导入 | — | 已完成 | — |
 | deeplink-skill-share | D4 skills 分享 + URL 导入 | — | 已完成 | — |
 | aidog-deeplink-share | aidog:// 协议注册 + URL 导入 + skills/mcp 分享 | — | 已完成 | — |
+| 07-01-proxy-http-relay-p1 | P1 CONNECT 隧道 + 元数据 + 无平台筛选 | — | 已完成 | — |
+| arch-redesign | 全仓架构重设计 - 分包分文件消大文件 | — | 实施中 | — |
+| filter-item-height | 分组筛选 item 增高 | — | 已完成 | — |
+| recurring-request-error | request 错误链诊断 (3e8b13f0→cb3603ac 必然失败) | — | 实施中 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -47,5 +51,6 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
-| 07-01-proxy-http-relay-p1 | P1 CONNECT 隧道 + 元数据 + 无平台筛选 | — | 实施中 | — |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-02-07-01-proxy-http-relay-p1 | 07-02-07-01-proxy-http-relay-p1 | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-arch-redesign | 07-01-arch-redesign | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-02-recurring-request-error | 07-02-recurring-request-error | trellisx-start |
+| body-date-format-rewrite | body 日期格式改写防检测 (CLI集成开关) | — | 规划中 | — |
