@@ -1,9 +1,9 @@
 {
-  "id": "cli-lang-select-style",
-  "name": "cli-lang-select-style",
-  "title": "CLI 语言设置 select 样式修正 (label 字号 + select 够用右对齐)",
+  "id": "cli-lang-desc-remove",
+  "name": "cli-lang-desc-remove",
+  "title": "CLI 语言设置删冗余描述 (去 ~/.claude/settings.json · language 行)",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
