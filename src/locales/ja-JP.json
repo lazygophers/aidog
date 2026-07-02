@@ -62,6 +62,8 @@
   "codingTools.applyPlugin.desc": "~/.claude/config.json に primaryApiKey=\"any\" を書き込み、VS Code Claude Code 拡張がローカルプロキシ経由になるようにします。オフでフィールドを削除します。",
   "codingTools.applyPlugin.title": "Claude Code プラグインに適用",
   "codingTools.cleared": "クリアしました",
+  "codingTools.dateRewrite.desc": "リクエスト body 内のスラッシュ日付 YYYY/MM/DD を ISO ハイフン YYYY-MM-DD に書き換え、中国語圏ユーザーとしての標的型検出を回避します。",
+  "codingTools.dateRewrite.title": "日付フォーマット書き換え（検出回避）",
   "codingTools.language.desc": "~/.claude/settings.json の language フィールドに書き込み、Claude Code CLI のセッション言語を設定します。",
   "codingTools.language.title": "言語",
   "codingTools.errorHint": "ファイルの JSON 形式と読み書き権限を確認してから再試行してください。",
