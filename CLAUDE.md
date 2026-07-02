@@ -75,7 +75,7 @@ src-tauri/src/
 
 ## UI / i18n
 
-- 7 种语言（zh-CN / en-US / ar-SA / fr-FR / de-DE / ru-RU / ja-JP），阿拉伯语 RTL
+- 8 种语言（zh-CN / en-US / ar-SA / fr-FR / de-DE / ru-RU / ja-JP / es-ES），阿拉伯语 RTL
 - 主题架构：每主题 light + dark 两组 CSS 变量，位于 `src/themes/`
 - UI 风格偏好：Liquid Glass
 - 无 react-router：导航是 `App.tsx`(侧栏) + `AppSettings.tsx`(tab) 的本地 state；离页拦截走 `utils/navGuard.ts` 注册表，禁原生 confirm / beforeunload（破坏 Tauri）
