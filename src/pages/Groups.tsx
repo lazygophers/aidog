@@ -1,20 +1,19 @@
 import { useState, useEffect, useReducer, useCallback, useRef, useMemo, Fragment, memo } from "react";
 import { createPortal } from "react-dom";
-import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import claudeIcon from "../assets/platforms/claude_code.svg";
 import codexIcon from "../assets/platforms/openai.svg";
 import type { TFunction } from "i18next";
 import {
   groupDetailApi, groupApi, groupUsageApi, platformApi, proxyApi, onProxyLogUpdated, modelTestApi,
-  type GroupDetail, type GroupPlatformDetail, type Platform, type RoutingMode, type ModelSlot, type PlatformUsageStats,
+  type GroupDetail, type GroupPlatformDetail, type Platform, type RoutingMode, type PlatformUsageStats,
   type ModelMapping, type PlatformQuota, type LastTestResult,
 } from "../services/api";
+import { allModelValues } from "../domains/platforms";
 import { SortableList, type DragHandleProps } from "../components/SortableList";
 import { IconClose, IconCheck, IconHome, IconBolt, IconCost } from "../components/icons";
 import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../utils/formatters";
-import { CompactCard, StatChip, BalanceBar, successRateLevel, costLevel } from "../components/shared";
+import { CompactCard, StatChip, BalanceBar, CopyButton, successRateLevel, costLevel } from "../components/shared";
 import { MiddlewareRulesPanel } from "../components/settings/MiddlewareRules";
 import { ModelTestPanel } from "./ModelTestPanel";
 import { PlatformCard, type PlatformCardActions } from "../components/platforms/PlatformCard";
@@ -31,61 +30,9 @@ import {
   BATCH_TEST_CONCURRENCY,
 } from "../domains/groups";
 
-// ponytail: MODEL_SLOTS 本地副本（D4 消重源），阶段 2 统一指 domains/platforms/models
-const MODEL_SLOTS: ModelSlot[] = ["default", "sonnet", "opus", "haiku", "gpt"];
-
-// ponytail: allModelValues 本地副本（D3），阶段 2 删本处改 import domains/platforms
-/** Extract all non-empty model names (deduplicated) */
-function allModelValues(models: Platform["models"]): string[] {
-  const seen = new Set<string>();
-  const result: string[] = [];
-  for (const slot of MODEL_SLOTS) {
-    const v = models[slot];
-    if (v && !seen.has(v)) {
-      seen.add(v);
-      result.push(v);
-    }
-  }
-  return result;
-}
-
 // ─── Design tokens ───
 // F/S 抽至 ../domains/shared/tokens（消重 D2/D8）
-
-/** Copy text to clipboard with a brief visual feedback */
-function CopyButton({ text, title, label, icon, size = 14 }: { text: string; title?: string; label?: string; icon?: ReactNode; size?: number }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Tauri writeText 走权限系统（capabilities default.json allow-write-text），
-    // WKWebView 无手势激活时 navigator.clipboard 被拒静默失败，Tauri 路径更可靠（参 ShareModal/SmartPasteModal）。
-    writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  const hasContent = !!(label || icon);
-  return (
-    <button
-      className={hasContent ? "btn btn-ghost" : "btn btn-ghost btn-icon"}
-      onClick={handleCopy}
-      title={title || text}
-      style={{ position: "relative", flexShrink: 0, gap: hasContent ? 5 : 0, fontSize: hasContent ? 12 : undefined, padding: hasContent ? "4px 10px" : undefined }}
-    >
-      {icon ? icon : copied ? (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20 6L9 17l-5-5" />
-        </svg>
-      ) : (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-        </svg>
-      )}
-      {!icon && label && <span style={{ fontWeight: 500 }}>{label}</span>}
-    </button>
-  );
-}
+// MODEL_SLOTS / allModelValues / CopyButton 抽至 domains/platforms + components/shared（消重 D3/D4/D6）
 
 /**
  * 拉取每个 group 的使用统计 + 余额。
