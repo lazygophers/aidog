@@ -25,8 +25,29 @@ pub(crate) async fn handle_connect(
     AxumState(state): AxumState<Arc<ProxyState>>,
     req: Request,
 ) -> Response {
-    // CONNECT target = URI authority 形式 "host:port"（RFC 7231 §4.3.6），axum 把它放 path 里。
-    let target = req.uri().path().to_string();
+    // ponytail: CONNECT 是 authority-form URI（RFC 7231 §4.3.6），path() 返空（http 标准），
+    // authority 在 uri().authority()；Host header 兜底。三源皆空 = 客户端坏请求，早返 400
+    // 不进 connect 路径（避免空 target connect("") 必败 502，DB 实证 6 连发全 502 request_url 空）。
+    let target = {
+        let from_path = req.uri().path().trim_start_matches('/');
+        let from_auth = req.uri().authority().map(|a| a.as_str()).unwrap_or("");
+        let from_host = req
+            .headers()
+            .get(axum::http::header::HOST)
+            .and_then(|h| h.to_str().ok())
+            .unwrap_or("");
+        [from_path, from_auth, from_host]
+            .iter()
+            .find(|s| !s.is_empty())
+            .copied()
+            .unwrap_or("")
+            .to_string()
+    };
+    tracing::info!(uri = ?req.uri(), method = ?req.method(), target = %target, "connect recv");
+    if target.is_empty() {
+        tracing::warn!(uri = ?req.uri(), "connect: missing target, returning 400");
+        return (StatusCode::BAD_REQUEST, "CONNECT missing target").into_response();
+    }
     let host_only = target.rsplit_once(':').map(|(h, _)| h).unwrap_or(&target).to_string();
     let on_upgrade = hyper::upgrade::on(req);
 
