@@ -283,13 +283,10 @@ export function CodingToolsSettingsTab() {
           <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
             {t("codingTools.language.desc")}
           </div>
-          <div className="text-tertiary" style={{ fontSize: 11, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
-            ~/.claude/settings.json · language
-          </div>
         </div>
         <select
           className="input"
-          style={{ fontSize: 13 }}
+          style={{ fontSize: 13, width: "auto", padding: "4px 28px 4px 8px" }}
           value={language}
           onChange={(e) => handleLanguageChange(e.target.value)}
           disabled={busy}
