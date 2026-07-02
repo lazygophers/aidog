@@ -108,7 +108,7 @@ function FilterOption({ label, active, onClick }: { label: string; active: boole
         background: active ? "var(--bg-glass)" : "transparent",
         color: active ? "var(--accent)" : "var(--text-primary)",
         fontWeight: active ? 600 : 400,
-        padding: "11px 14px",
+        padding: "20px 14px",
         borderRadius: "var(--radius-sm)",
         cursor: "pointer",
         fontFamily: "inherit",
