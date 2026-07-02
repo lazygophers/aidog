@@ -1,4 +1,4 @@
-import React, { memo, useMemo, useState } from "react";
+import React, { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Platform, Protocol, PlatformUsageStats, LastTestResult, PlatformQuota } from "../../services/api";
 import { getPlatformLogo, getFaviconUrl } from "../../assets/platforms";
@@ -590,9 +590,25 @@ function relativeTime(createdMs: number, now: number = Date.now()): string {
 export function LevelPriorityControl({ value, onChange }: { value: number; onChange: (v: number) => void }) {
   const { t } = useTranslation();
   const clamp = (v: number) => Math.min(10, Math.max(1, v));
+  // 按钮即调：上下按钮=明确确认动作，保留 clamp + 立即 onChange
   const set = (v: number) => {
     const next = clamp(v);
     if (next !== value) onChange(next);
+  };
+  // ponytail: 输入框走本地态编辑，blur/Enter 时 clamp+提交，避免按键中间态打后端
+  const [local, setLocal] = useState(String(value));
+  // 编辑标记：blur 提交前的输入态，防外部 value 变化(回滚)覆盖正在编辑的 local
+  const editingRef = useRef(false);
+  useEffect(() => {
+    if (!editingRef.current) setLocal(String(value));
+  }, [value]);
+  const commit = () => {
+    editingRef.current = false;
+    const v = parseInt(local, 10);
+    if (Number.isNaN(v)) { setLocal(String(value)); return; }
+    const next = clamp(v);
+    if (next !== value) onChange(next);
+    setLocal(String(next)); // 同步显示为 clamp 后值（范围外静默纠正：99→10, 0→1）
   };
   const btnStyle: React.CSSProperties = {
     width: 22, height: 22, minWidth: 22, padding: 0, lineHeight: 0,
@@ -624,12 +640,12 @@ export function LevelPriorityControl({ value, onChange }: { value: number; onCha
           type="number"
           min={1}
           max={10}
-          value={value}
+          value={local}
           onClick={e => e.stopPropagation()}
-          onChange={e => {
-            const v = parseInt(e.target.value, 10);
-            if (!Number.isNaN(v)) set(v);
-          }}
+          onFocus={() => { editingRef.current = true; }}
+          onChange={e => setLocal(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); (e.target as HTMLInputElement).blur(); } }}
           style={{
             width: 38, textAlign: "center", fontSize: 12, fontWeight: 700,
             padding: "2px 4px", borderRadius: "var(--radius-sm)",
