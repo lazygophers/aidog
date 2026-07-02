@@ -279,7 +279,7 @@ export function CodingToolsSettingsTab() {
         gap: 16,
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("codingTools.language.title")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.language.title")}</div>
           <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
             {t("codingTools.language.desc")}
           </div>
@@ -289,7 +289,7 @@ export function CodingToolsSettingsTab() {
         </div>
         <select
           className="input"
-          style={{ fontSize: 13, minWidth: 180 }}
+          style={{ fontSize: 13 }}
           value={language}
           onChange={(e) => handleLanguageChange(e.target.value)}
           disabled={busy}
