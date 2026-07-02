@@ -1,9 +1,9 @@
 {
-  "id": "body-date-format-rewrite",
-  "name": "body-date-format-rewrite",
-  "title": "body 日期格式改写防检测 (CLI集成开关)",
+  "id": "cli-lang-select-style",
+  "name": "cli-lang-select-style",
+  "title": "CLI 语言设置 select 样式修正 (label 字号 + select 够用右对齐)",
   "description": "",
-  "status": "in_progress",
+  "status": "planning",
   "dev_type": null,
   "scope": null,
   "package": null,
