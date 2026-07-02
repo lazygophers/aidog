@@ -261,6 +261,75 @@ pub(crate) fn spawn_estimate(
     }.instrument(span));
 }
 
+/// P1 CONNECT 隧道元数据写入：独立路径，**不走 upsert_log**。
+///
+/// 原因：upsert_log 会触发 `upsert_stats_agg`（污染今日统计 — 隧道不计费，token=0）+
+/// calc_est_cost（0 token 无意义）+ log_snapshots 渐进式 diff（隧道一次性终态，无中间节点）。
+/// 本函数直接构造 `ProxyLogColumns`（全空 body / 0 token / 0 cost）→ insert_proxy_log_columns
+/// 落一行。日志开关（settings.enabled）由调用方判断：disabled 时不调本函数。
+///
+/// 字段语义（PRD 锁）:
+/// - `source_protocol`/`target_protocol` = `"http-connect"`（Logs 页区分隧道请求）
+/// - `platform_id` = host 命中平台 else 0
+/// - `request_url` = CONNECT target（`host:port`）
+/// - `status_code` = 200（隧道建立成功）/ 502（上游连不上）/ 499（客户端断）
+/// - tokens/cost = 0（P1 不解析 body）
+pub(crate) async fn upsert_connect_log(
+    state: &Arc<ProxyState>,
+    id: String,
+    group_key: String,
+    platform_id: u64,
+    request_url: String,
+    status_code: i32,
+    duration_ms: i32,
+) {
+    let now = super::db::now();
+    let cols = super::db::ProxyLogColumns {
+        id,
+        group_key,
+        model: String::new(),
+        actual_model: String::new(),
+        source_protocol: "http-connect".to_string(),
+        target_protocol: "http-connect".to_string(),
+        platform_id: platform_id as i64,
+        request_headers: String::new(),
+        request_body: String::new(),
+        upstream_request_headers: String::new(),
+        upstream_request_body: String::new(),
+        response_body: String::new(),
+        request_url,
+        upstream_request_url: String::new(),
+        upstream_response_headers: String::new(),
+        upstream_status_code: 0,
+        user_response_headers: String::new(),
+        user_response_body: String::new(),
+        status_code,
+        duration_ms,
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_tokens: 0,
+        est_cost: 0.0,
+        is_stream: 0,
+        attempts: String::new(),
+        retry_count: 0,
+        blocked_by: String::new(),
+        blocked_reason: String::new(),
+        created_at: now,
+        updated_at: now,
+        deleted_at: 0,
+    };
+    if let Err(e) = super::db::insert_proxy_log_columns(&state.db, cols).await {
+        tracing::warn!(error = %e, "connect log insert failed (non-fatal)");
+        return;
+    }
+    // 通知前端 Platforms/Stats 刷新（platform_id 可能为 0，前端按需处理）。
+    if let Some(app) = &state.app {
+        use tauri::Emitter;
+        let _ = app.emit("proxy-log-updated", platform_id);
+        let _ = app.emit("tray-refresh", ());
+    }
+}
+
 #[cfg(test)]
 #[path = "test_log.rs"]
 mod test_log;
