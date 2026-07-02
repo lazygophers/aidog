@@ -1474,6 +1474,9 @@ export function Platforms({ onNavigate, initialFilter }: { onNavigate?: (id: str
   // GroupsEmbedded 跨组件刷新入口（全局 purge 删平台后，触发分组卡内重建）。
   const groupsReloadRef = useRef<(() => void) | null>(null);
   const [showPaste, setShowPaste] = useState(false);
+  // aidog://platform/import deep-link 导入：SmartPasteModal 预填文本（来自 URL ?data=<base64>）。
+  // 非空时弹窗以之初始化并跳过自动读剪贴板；null = 正常手动/剪贴板路径。
+  const [pasteInitialText, setPasteInitialText] = useState<string | undefined>(undefined);
   // 平台分享弹窗：导出成功后持有 { share, name } 渲染 ShareModal（含明文 api_key + 格式切换）。
   const [shareData, setShareData] = useState<{ share: SharePlatform; name: string } | null>(null);
   const [fetching, setFetching] = useState(false);
@@ -2078,6 +2081,37 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   };
 
   useEffect(() => { load(); }, []);
+
+  // aidog://platform/import?data=<base64> deep-link 导入入口。
+  // 两路汇入同一 helper：① mount 时取 App.tsx 缓存（冷启动 / 他页唤起 → setActiveNav 挂载本页后到达）；
+  // ② 运行时 window 'aidog:platform' 事件（本页已 mount 的热路径）。base64 → SmartPasteModal 预填 + 自动识别
+  // → applyPaste 流程（用户确认才创建）。data 为空 / 非 base64 → 忽略（SmartPasteModal 内识别兜底）。
+  const openDeepLinkImport = useCallback((data: string) => {
+    if (!data) return;
+    // SmartPasteModal 挂在 `if (showForm)` 分支内，需先开 form 再开 paste 弹窗。
+    // applyPaste(fullShare) 路径整体覆盖所有字段（setEditing(null) 等），故不调 resetForm。
+    setPasteInitialText(data);
+    setShowForm(true);
+    setShowPaste(true);
+  }, []);
+  useEffect(() => {
+    const w = window as unknown as { __aidogDeepLink?: Record<string, { action: string; data: string }> };
+    const cached = w.__aidogDeepLink?.platform;
+    if (cached?.data) {
+      delete w.__aidogDeepLink!.platform; // 消费一次防重复
+      openDeepLinkImport(cached.data);
+    }
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ action: string; data: string }>).detail;
+      if (detail?.data) {
+        // 热路径（本页已 mount）也清缓存，否则离开再回（key={effectiveNav} 重挂载）会重放。
+        delete w.__aidogDeepLink!.platform;
+        openDeepLinkImport(detail.data);
+      }
+    };
+    window.addEventListener("aidog:platform", handler);
+    return () => window.removeEventListener("aidog:platform", handler);
+  }, [openDeepLinkImport]);
 
   // ⑤ 可视区优先 quota 调度：IntersectionObserver 观察每张卡片（data-platform-id），
   //    进入视口即入队（enqueueQuota 去重 + 池控并发）；滚动到更多平台时触发其余。
@@ -2700,7 +2734,8 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
           <SmartPasteModal
             presets={PROTOCOLS}
             onApply={applyPaste}
-            onClose={() => setShowPaste(false)}
+            initialText={pasteInitialText}
+            onClose={() => { setShowPaste(false); setPasteInitialText(undefined); }}
           />
         )}
 
