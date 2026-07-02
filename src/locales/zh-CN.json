@@ -62,6 +62,8 @@
   "codingTools.applyPlugin.desc": "向 ~/.claude/config.json 写入 primaryApiKey=\"any\"，使 VS Code Claude Code 扩展走本地代理。关闭则移除该字段。",
   "codingTools.applyPlugin.title": "应用到 Claude Code 插件",
   "codingTools.cleared": "已清除",
+  "codingTools.dateRewrite.desc": "将请求 body 中的斜杠日期 YYYY/MM/DD 改写为 ISO 横杠 YYYY-MM-DD，避免被上游针对性检测识别为中文用户。",
+  "codingTools.dateRewrite.title": "日期格式改写防检测",
   "codingTools.language.desc": "写入 ~/.claude/settings.json 的 language 字段，设定 Claude Code CLI 会话语言。",
   "codingTools.language.title": "语言",
   "codingTools.errorHint": "请检查该文件的 JSON 格式与读写权限后重试。",
