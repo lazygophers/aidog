@@ -114,6 +114,7 @@ function App() {
         window.dispatchEvent(new CustomEvent(`aidog:${entity}`, { detail: { action, data } }));
         if (entity === "platform") setActiveNav("platforms");
         if (entity === "mcp") setActiveNav("mcp");
+        if (entity === "skill") setActiveNav("skills");
       },
     );
     return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
