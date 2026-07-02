@@ -367,7 +367,7 @@ pub(crate) async fn forward_attempt(
     // 决策 B 失败（200 空响应）时记一次失败 attempt 并 failover；候选耗尽则返回 502。
     // 与连接错误/超时同语义：熔断计一次失败（record_failure），但不 auto_disable（非鉴权/死端点信号）。
     macro_rules! retry_on_empty_2xx {
-        ($reason:expr) => {{
+        ($reason:expr, $upstream_text:expr) => {{
             state.scheduler.record_failure(route.platform.id, &breaker_th, super::db::now());
             tracing::warn!(
                 platform = %route.platform.name, platform_id = route.platform.id,
@@ -392,7 +392,10 @@ pub(crate) async fn forward_attempt(
             log.status_code = 502;
             log.upstream_status_code = status.as_u16() as i32;
             let err_body = format!("{}: 200 but empty/invalid response", i18n::t(lang, ErrorKey::Upstream));
-            log.response_body = $reason.to_string();
+            // 取证：把上游真实首块原文截断（≤4KB + truncated 标记）落 response_body，替代占位文案；
+            // upstream_text 为空时回退占位兜底。下次 GLM 间歇空流复现自动留 DB 证据。
+            let captured = truncate_peek_text($upstream_text);
+            log.response_body = if captured.is_empty() { $reason.to_string() } else { captured };
             log.user_response_body = err_body.clone();
             log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
@@ -441,7 +444,7 @@ pub(crate) async fn forward_attempt(
 
         // ── 决策 B（非流式）：200 但空 body / error 结构 / 无有效 choices/content → 失败重试。──
         if !is_nonstream_body_valid(&resp_str) {
-            retry_on_empty_2xx!("200 but empty/invalid body");
+            retry_on_empty_2xx!("200 but empty/invalid body", &resp_str);
         }
         commit_2xx_success!();
 
@@ -495,7 +498,7 @@ pub(crate) async fn forward_attempt(
     };
 
     if peek_decision == StreamPeek::EmptyOrError {
-        retry_on_empty_2xx!("200 but empty/invalid stream");
+        retry_on_empty_2xx!("200 but empty/invalid stream", &peek_text);
     }
     // Meaningful：确认上游真实产出 → 提交成功记账（在构建 guard 前，使 guard 的 log 快照含正确 attempts）。
     commit_2xx_success!();

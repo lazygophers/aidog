@@ -94,7 +94,7 @@ pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoin
 pub(crate) use retry::{
     classify_429, classify_stream_first, extract_error_message, filter_upstream_resp_headers,
     is_nonstream_body_valid, is_status_retryable, resp_headers_to_log_json, truncate_attempt_error,
-    StreamPeek,
+    truncate_peek_text, StreamPeek,
 };
 pub(crate) use stream::{
     extract_usage, replace_model_in_json, resolve_is_stream, StreamAggregator, StreamEstCtx,
