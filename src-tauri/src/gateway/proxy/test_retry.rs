@@ -363,3 +363,45 @@ use super::*;
         assert!(!classify_429("rate limit exceeded, please retry"));
         assert!(!classify_429(""));
     }
+
+    // ── truncate_peek_text：空流 502 取证截断（≤4KB 原样 / 超出带 truncated 标记 / 空串回退占位）──
+    #[test]
+    fn truncate_peek_text_empty_returns_empty() {
+        // 空文本 → 调用点保留占位兜底（GLM 真空首块也留证据为空串占位）
+        assert_eq!(truncate_peek_text(""), "");
+    }
+
+    #[test]
+    fn truncate_peek_text_short_kept_verbatim() {
+        let s = "data: {\"content\":\"hi\"}\n\n";
+        assert_eq!(truncate_peek_text(s), s);
+        // 临界：恰好 4KB 原样
+        let exactly_4k = "x".repeat(4 * 1024);
+        assert_eq!(truncate_peek_text(&exactly_4k), exactly_4k);
+    }
+
+    #[test]
+    fn truncate_peek_text_long_truncated_with_marker() {
+        // 超出 4KB → 头部 + `…[truncated N bytes]`，N = 原长 - 截断点字节
+        let big = "a".repeat(4 * 1024 + 100);
+        let out = truncate_peek_text(&big);
+        assert!(out.starts_with(&"a".repeat(4 * 1024)));
+        assert!(out.ends_with(&format!("…[truncated {} bytes]", 100)));
+        // 头部不超 4KB
+        let head = out.strip_suffix("…[truncated 100 bytes]").unwrap();
+        assert!(head.len() <= 4 * 1024);
+    }
+
+    #[test]
+    fn truncate_peek_text_multibyte_not_split() {
+        // SSE 中文事件：多字节 UTF-8 不得在字符中间截断（panic 验证 + 长度合规）
+        let mut big = String::new();
+        for _ in 0..2000 {
+            big.push_str("事件"); // 每字符 3 字节
+        }
+        let out = truncate_peek_text(&big);
+        assert!(out.contains("…[truncated"));
+        assert!(out.len() <= 4 * 1024 + 64); // 头 ≤4KB + 标记
+        // 必须仍是合法 UTF-8（从 String 构造即保证，断言标记存在即未 panic）
+        assert!(out.starts_with("事件"));
+    }
