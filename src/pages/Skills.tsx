@@ -20,6 +20,7 @@ import {
 } from "../services/api";
 import { SkillInstallView } from "./SkillInstallView";
 import { SkillDetailView } from "./SkillDetailView";
+import { ShareModal } from "../components/platforms/ShareModal";
 import { pinyinMatch } from "../utils/pinyin";
 import { formatDateTime, formatRelativeTime } from "../utils/formatters";
 import claudeIcon from "../assets/platforms/claude_code.svg";
@@ -27,6 +28,46 @@ import codexIcon from "../assets/platforms/openai.svg";
 
 const AGENTS: SkillAgent[] = ["claude", "codex"];
 const AGENT_ICONS: Record<SkillAgent, string> = { claude: claudeIcon, codex: codexIcon };
+
+/** skill → catalog id（`owner/repo@skill`）。无 source（手动 symlink，非 catalog 来源）→ null，不可分享。 */
+function skillCatalogId(s: SkillInfo): string | null {
+  return s.source && s.name ? `${s.source}@${s.name}` : null;
+}
+
+/** 分享载荷：skill catalog id 列表（接收端 base64 → JSON → skills_install）。 */
+interface SkillSharePayload {
+  skills: string[];
+}
+
+/** 解码 base64 分享文本 → skill id 列表（接受 {skills: [...]} 包裹或裸 [...]）。
+ *  返回 null = 非法格式。明文 base64(JSON) 与 ShareModal.copyUrl 产出对齐。 */
+function decodeSkillShare(text: string): string[] | null {
+  const trimmed = text.trim();
+  if (!trimmed) return null;
+  let json = trimmed;
+  // 形如 base64（[A-Za-z0-9+/=] + 足够长）→ 尝试 atob；失败保持原文本走 JSON.parse。
+  if (/^[A-Za-z0-9+/=\s]+$/.test(trimmed) && trimmed.length > 16) {
+    try {
+      json = atob(trimmed.replace(/\s/g, ""));
+    } catch {
+      // 非 base64，走原文本 JSON.parse。
+    }
+  }
+  try {
+    const parsed: unknown = JSON.parse(json);
+    const ids = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray((parsed as { skills?: unknown })?.skills)
+        ? (parsed as { skills: unknown[] }).skills
+        : null;
+    if (!ids) return null;
+    // 每项必须是 owner/repo@skill 形态（含 @）。
+    const valid = ids.every((id) => typeof id === "string" && id.includes("@"));
+    return valid ? (ids as string[]) : null;
+  } catch {
+    return null;
+  }
+}
 
 export function Skills() {
   const { t } = useTranslation();
@@ -57,6 +98,18 @@ export function Skills() {
   const [alignOpen, setAlignOpen] = useState(false);
   const [alignFrom, setAlignFrom] = useState<SkillAgent>("claude");
   const [alignTo, setAlignTo] = useState<SkillAgent>("codex");
+
+  // 分享 modal（复用 D3 泛化 ShareModal，3 格式切换 + aidog://skill/import 链接）。
+  const [shareData, setShareData] = useState<{ share: SkillSharePayload; name: string } | null>(null);
+  // 粘贴分享文本导入 modal。
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+  // 批量导入确认 modal（列出将装 skill id → scope 选择 → 批量 skills_install）。
+  const [importIds, setImportIds] = useState<string[] | null>(null);
+  const [importAgents, setImportAgents] = useState<Set<SkillAgent>>(() => new Set(AGENTS));
+  const [importScopeKind, setImportScopeKind] = useState<"global" | "project">("global");
+  const [importProjectPath, setImportProjectPath] = useState("");
+  const [importBusy, setImportBusy] = useState(false);
 
   // 当前 scope 对象（供 API 调用）。
   const scope: SkillScope =
@@ -374,6 +427,120 @@ export function Skills() {
     }
   };
 
+  // ─── 分享（catalog id 列表 → 弹泛化 ShareModal）───
+  // source 缺失（手动 symlink，非 catalog 来源）→ 不可分享，按钮已隐藏；此处兜底提示。
+  const handleShare = (skill: SkillInfo) => {
+    const id = skillCatalogId(skill);
+    if (!id) {
+      setMessage(t("skills.share.noSource", "该 skill 非 catalog 来源，无法分享"));
+      return;
+    }
+    setShareData({ share: { skills: [id] }, name: skill.name });
+  };
+
+  // ─── 批量导入（确认对话框 → skills_install per id）───
+  const openImportConfirm = (ids: string[]) => {
+    if (ids.length === 0) return;
+    setImportIds(ids);
+    setImportAgents(new Set(AGENTS));
+    setImportScopeKind("global");
+    setImportProjectPath("");
+  };
+
+  const importScope: SkillScope =
+    importScopeKind === "project"
+      ? { kind: "project", path: importProjectPath }
+      : { kind: "global" };
+
+  const handleImport = async () => {
+    const ids = importIds;
+    if (!ids || importAgents.size === 0) return;
+    if (importScopeKind === "project" && importProjectPath.trim() === "") return;
+    if (!env?.npx_available) {
+      setMessage(t("skills.envMissing", "未检测到 npx / Node.js，安装与更新功能不可用。请先安装 Node.js。"));
+      return;
+    }
+    setImportBusy(true);
+    setMessage(null);
+    const scope = importScope;
+    const agents = Array.from(importAgents);
+    let ok = 0;
+    let fail = 0;
+    const failed: string[] = [];
+    for (const id of ids) {
+      try {
+        const res = await skillsApi.install(id, agents, scope);
+        if (res.success) ok += 1;
+        else {
+          fail += 1;
+          failed.push(id);
+        }
+      } catch (e) {
+        console.error("import skill failed", id, e);
+        fail += 1;
+        failed.push(id);
+      }
+    }
+    setImportIds(null);
+    setImportBusy(false);
+    if (fail === 0) {
+      setMessage(t("skills.importOk", "已导入 {{count}} 项", { count: ok }));
+    } else if (ok === 0) {
+      setMessage(t("skills.importFail", "导入失败 {{count}} 项", { count: fail }));
+    } else {
+      setMessage(
+        t("skills.importPartial", "成功 {{ok}}，失败 {{fail}}", { ok, fail }) +
+          (failed.length > 0 ? `\n${failed.join(", ")}` : ""),
+      );
+    }
+    // 导入目标 scope 可能非当前查看 scope，刷新取真实态。
+    void refreshInstalled();
+  };
+
+  // ─── 粘贴分享文本导入（base64 / JSON → 解码 → 确认对话框）───
+  const handlePasteImport = () => {
+    const ids = decodeSkillShare(pasteText);
+    if (!ids || ids.length === 0) {
+      setMessage(t("skills.importInvalid", "分享文本格式无效"));
+      return;
+    }
+    setPasteOpen(false);
+    setPasteText("");
+    openImportConfirm(ids);
+  };
+
+  // ─── aidog://skill/import?data=<base64> deep-link 导入 ───
+  // 两路汇入（契约见 spec）：① mount 取 App.tsx 缓存（冷启动/他页唤起 setActiveNav 挂载本页后到达）；
+  // ② 运行时 window 'aidog:skill' 事件（本页已 mount 热路径）。
+  // data = toBase64Utf8(JSON) → decodeSkillShare → 确认对话框 → handleImport。
+  const openDeepLinkImport = useCallback((data: string) => {
+    if (!data) return;
+    const ids = decodeSkillShare(data);
+    if (!ids || ids.length === 0) {
+      setMessage(t("skills.importInvalid", "分享文本格式无效"));
+      return;
+    }
+    openImportConfirm(ids);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t]);
+  useEffect(() => {
+    const w = window as unknown as { __aidogDeepLink?: Record<string, { action: string; data: string }> };
+    const cached = w.__aidogDeepLink?.skill;
+    if (cached?.data) {
+      delete w.__aidogDeepLink!.skill; // 消费一次防重复
+      openDeepLinkImport(cached.data);
+    }
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ action: string; data: string }>).detail;
+      if (detail?.data) {
+        delete w.__aidogDeepLink!.skill; // 防重放：事件到达时也清缓存（mount/事件两路都 delete）
+        openDeepLinkImport(detail.data);
+      }
+    };
+    window.addEventListener("aidog:skill", handler);
+    return () => window.removeEventListener("aidog:skill", handler);
+  }, [openDeepLinkImport]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16, width: "100%" }}>
       {/* Header */}
@@ -395,6 +562,15 @@ export function Skills() {
             title={t("skills.install.addBtn", "添加 Skills")}
           >
             {t("skills.install.addBtn", "+ 添加")}
+          </button>
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: 12 }}
+            disabled={busyKey !== null}
+            onClick={() => { setPasteText(""); setMessage(null); setPasteOpen(true); }}
+            title={t("skills.importFromShare", "从分享导入")}
+          >
+            {t("skills.importFromShare", "从分享导入")}
           </button>
           <button
             className="btn btn-ghost"
@@ -750,6 +926,17 @@ export function Skills() {
                     );
                   })}
                 </div>
+                {/* 分享（仅 catalog 来源可分享：source 缺失的手动 symlink skill 隐藏按钮） */}
+                {skillCatalogId(skill) && (
+                  <button
+                    className="btn btn-ghost"
+                    style={{ fontSize: 11, padding: "4px 10px", flexShrink: 0 }}
+                    onClick={() => handleShare(skill)}
+                    title={t("skills.share", "分享")}
+                  >
+                    {t("skills.share", "分享")}
+                  </button>
+                )}
                 {/* 单条卸载（破坏性，二次确认） */}
                 <button
                   className="btn btn-danger"
@@ -942,6 +1129,177 @@ export function Skills() {
       {/* 已装 skill 详情 modal（只读） */}
       {detailTarget && createPortal(
         <SkillDetailView skill={detailTarget} onClose={() => setDetailTarget(null)} />,
+        document.body,
+      )}
+
+      {/* 分享 modal（泛化 ShareModal，3 格式切换 + 复制为 aidog://skill/import 链接） */}
+      {shareData && (
+        <ShareModal
+          share={shareData.share}
+          title={shareData.name}
+          titleKey="skills.share.title"
+          warningKey="skills.share.warning"
+          urlScheme="aidog://skill/import"
+          copyUrlKey="skills.share.copyUrl"
+          onToast={(text) => setMessage(text)}
+          onClose={() => setShareData(null)}
+        />
+      )}
+
+      {/* 粘贴分享文本导入 modal */}
+      {pasteOpen && createPortal(
+        <div
+          onClick={() => setPasteOpen(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 200,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.4)",
+            animation: "fadeIn 150ms ease both",
+          }}
+        >
+          <div
+            className="glass-elevated"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: "min(560px, 90vw)", padding: 20, display: "flex", flexDirection: "column", gap: 10 }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 700 }}>{t("skills.pasteTitle", "从分享导入")}</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+              {t("skills.pasteHint", "粘贴他人分享的 skill 文本（base64 / JSON / aidog:// 链接的 data 部分）。")}
+            </div>
+            <textarea
+              className="input"
+              style={{ minHeight: 160, fontFamily: "var(--font-mono, monospace)", resize: "vertical" }}
+              value={pasteText}
+              placeholder="aidog://skill/import?data=... 或 base64 或 JSON 数组"
+              onChange={(e) => setPasteText(e.target.value)}
+            />
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setPasteOpen(false)}>
+                {t("action.cancel", "取消")}
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ fontSize: 13 }}
+                onClick={handlePasteImport}
+                disabled={!pasteText.trim()}
+              >
+                {t("skills.importBtn", "导入")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+
+      {/* 批量导入确认 modal（列出将装 skill id + scope/agents 选择） */}
+      {importIds && createPortal(
+        <div
+          onClick={() => !importBusy && setImportIds(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            zIndex: 220,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.45)",
+            animation: "fadeIn 150ms ease both",
+            padding: 24,
+          }}
+        >
+          <div
+            className="glass-elevated"
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: "min(560px, 92vw)", maxHeight: "82vh", padding: 22, display: "flex", flexDirection: "column", gap: 12 }}
+          >
+            <div style={{ fontSize: 15, fontWeight: 700 }}>{t("skills.importConfirmTitle", "确认导入 skills")}</div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+              {t("skills.importConfirmDesc", "将安装以下 {{count}} 个 skill（npx skills add，需联网）：", { count: importIds.length })}
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 4, maxHeight: "30vh", overflow: "auto", padding: 8, border: "1px solid var(--border)", borderRadius: 8, background: "var(--bg-glass)" }}>
+              {importIds.map((id) => (
+                <div key={id} style={{ fontSize: 12, fontFamily: "var(--font-mono, monospace)" }}>{id}</div>
+              ))}
+            </div>
+            {/* scope 选择 */}
+            <div style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12 }}>
+              <span className="text-secondary" style={{ minWidth: 56 }}>{t("skills.scope", "范围")}</span>
+              <select
+                className="input"
+                style={{ width: "auto" }}
+                value={importScopeKind}
+                onChange={(e) => setImportScopeKind(e.target.value as "global" | "project")}
+                disabled={importBusy}
+              >
+                <option value="global">{t("skills.scopeGlobal", "用户级（全局）")}</option>
+                <option value="project">{t("skills.scopeProject", "项目级")}</option>
+              </select>
+              {importScopeKind === "project" && (
+                <input
+                  className="input"
+                  style={{ flex: 1 }}
+                  placeholder={t("skills.projectPathPlaceholder", "项目目录绝对路径")}
+                  value={importProjectPath}
+                  onChange={(e) => setImportProjectPath(e.target.value)}
+                  disabled={importBusy}
+                />
+              )}
+            </div>
+            {/* agent 多选 */}
+            <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 12 }}>
+              <span className="text-secondary" style={{ minWidth: 56 }}>{t("skills.importAgents", "目标 agent")}</span>
+              {AGENTS.map((a) => {
+                const on = importAgents.has(a);
+                return (
+                  <button
+                    key={a}
+                    type="button"
+                    className="glass"
+                    onClick={() =>
+                      setImportAgents((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(a)) next.delete(a);
+                        else next.add(a);
+                        return next;
+                      })
+                    }
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      padding: "4px 10px",
+                      borderRadius: 8,
+                      border: on ? "1.5px solid var(--accent)" : "1px solid var(--border)",
+                      background: on ? "var(--accent-subtle)" : "transparent",
+                      opacity: on ? 1 : 0.5,
+                      fontSize: 12,
+                    }}
+                  >
+                    <img src={AGENT_ICONS[a]} alt={a} style={{ width: 16, height: 16 }} />
+                    {t(`skills.agent.${a}`, a)}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 4 }}>
+              <button className="btn btn-ghost" style={{ fontSize: 13 }} onClick={() => setImportIds(null)} disabled={importBusy}>
+                {t("action.cancel", "取消")}
+              </button>
+              <button
+                className="btn btn-primary"
+                style={{ fontSize: 13 }}
+                onClick={() => void handleImport()}
+                disabled={importBusy || importAgents.size === 0 || (importScopeKind === "project" && importProjectPath.trim() === "") || !env?.npx_available}
+              >
+                {importBusy ? t("skills.installing", "导入中…") : t("skills.importBtn", "导入")}
+              </button>
+            </div>
+          </div>
+        </div>,
         document.body,
       )}
     </div>
