@@ -468,12 +468,17 @@ export function getDefaultModels(protocol: Protocol, codingPlan?: boolean): Part
     kimi: { default: cp ? "kimi-k2.7-code" : "kimi-k2.6" },
     minimax: { default: "MiniMax-M3" },
     minimax_en: { default: "MiniMax-M3" },
-    // 百炼（通义千问）；qwen3-max 已被 qwen3.7-max(2026-05-20) 取代
-    bailian: { default: "qwen3.7-max" },
+    // 百炼（通义千问）；qwen3-max 已被 qwen3.7-max(2026-05-20) 取代；coding plan 对齐 lists cp 首项
+    bailian: { default: cp ? "qwen3-coder-plus" : "qwen3.7-max" },
     // deepseek-chat 将 2026-07-24 弃用，v4-flash 为后继
     deepseek: { default: "deepseek-v4-flash" },
+    // 阶跃星辰（research:94 静态确认旗舰；step-3.7-flash 国际/国内同型号）
+    stepfun: { default: "step-3.7-flash" },
+    stepfun_en: { default: "step-3.7-flash" },
     // 火山引擎（ark）coding 端点旗舰；model id 格式（点 vs 横线）待核实，暂随仓库现行短横线惯例
     doubao: { default: "doubao-seed-2-0-code" },
+    // BytePlus 国际 doubao 旗舰（research:106；lists:531 首项一致）
+    byteplus: { default: "doubao-seed-2-0-pro" },
     // 小米 MiMo 旗舰文本模型（按量 openai 端点）
     xiaomi_mimo: { default: "mimo-v2.5-pro" },
     // OpenCode Zen 免费旗舰（catalog 定价 0）；其余免费模型靠 fetchModels /v1/models 拉取
@@ -533,6 +538,9 @@ function getDefaultModelList(protocol: Protocol, codingPlan?: boolean): string[]
     xiaomi_mimo: ["mimo-v2.5-pro", "mimo-v2-pro", "mimo-v2.5", "mimo-v2-omni", "mimo-v2-flash"],
     // 商汤 SenseNova Token Plan：chat + 推理 + 图像生成三模型（公测全免费）。首项 = getDefaultModels 默认值。
     sensenova: ["sensenova-6.7-flash-lite", "deepseek-v4-flash", "sensenova-u1-fast"],
+    // OpenCode Zen 免费版：catalog 定价 0 的免费模型冷启动占位（其余靠 fetchModels /v1/models 拉取）。
+    // 首项 = getDefaultModels 默认值（big-pickle）。
+    opencode_zen: ["big-pickle", "glm-4.7-free"],
     // bailing / longcat: 官方模型文档无静态来源，留空靠 fetchModels
 
     // ── 聚合平台（research/models-aggregator.md，fetchModels 为主源，列表仅冷启动占位）──
