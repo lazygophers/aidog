@@ -14,6 +14,7 @@ import {
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { IconClose } from "../components/icons";
 import { usePolling } from "../hooks/usePolling";
+import { FilterDropdown } from "../components/shared";
 
 const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
 const PAGE_SIZE_OPTIONS = [20, 50, 100] as const;
@@ -464,18 +465,24 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
       {/* ── Filter bar ── */}
       <div className="glass-surface" style={{ padding: "12px 16", display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
         {/* Platform */}
-        <FilterSelect
+        <FilterDropdown
+          width={140}
           value={filterPlatform}
           onChange={setFilterPlatform}
           options={platforms.map(p => ({ value: String(p.id), label: p.name }))}
-          placeholder={t("logs.filterPlatform", "平台")}
+          allLabel={t("logs.filterPlatform", "平台")}
+          searchPlaceholder={t("stats.searchPlatform", "搜索平台")}
+          emptyLabel={t("stats.noMatch", "无匹配结果")}
         />
         {/* Group */}
-        <FilterSelect
+        <FilterDropdown
+          width={140}
           value={filterGroup}
           onChange={setFilterGroup}
           options={groups.map(g => ({ value: g.group.group_key, label: g.group.name }))}
-          placeholder={t("logs.filterGroup", "分组")}
+          allLabel={t("logs.filterGroup", "分组")}
+          searchPlaceholder={t("stats.searchGroup", "搜索分组")}
+          emptyLabel={t("stats.noMatch", "无匹配结果")}
         />
         {/* Status */}
         <FilterSelect
@@ -514,11 +521,14 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
           >{t("logs.model", "原始模型")}</button>
         </div>
         {/* Model dropdown — options from unfiltered query */}
-        <FilterSelect
+        <FilterDropdown
+          width={170}
           value={filterModelText}
           onChange={setFilterModelText}
           options={modelOptions.map(m => ({ value: m, label: m }))}
-          placeholder={t("logs.filterModel", "模型")}
+          allLabel={t("logs.filterModel", "模型")}
+          searchPlaceholder={t("stats.searchModel", "搜索模型")}
+          emptyLabel={t("stats.noMatch", "无匹配结果")}
         />
         {/* Path search — LIKE match on request_url */}
         <input

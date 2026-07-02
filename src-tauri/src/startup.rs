@@ -76,6 +76,7 @@ pub fn run() {
             // Config Export
             crate::commands::sync_settings::export_claude_config,
             crate::commands::sync_settings::sync_group_settings,
+            crate::commands::sync_settings::get_managed_paths,
             // Proxy Logs
             crate::commands::proxy_log::proxy_log_list,
             crate::commands::proxy_log::proxy_log_list_filtered,

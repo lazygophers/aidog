@@ -17,9 +17,11 @@ export interface SmartPasteApplyResult {
   platform: { value: string; label: string; codingPlan?: boolean } | null;
   /** 选中的 base_url（按协议类型多选，每类型最多一个）。每项 → 一个 endpoint。 */
   baseUrls: { url: string; protocol: ParsedProtocol }[];
-  apiKey: string;
+  /** 选中的 apikey 列表（长度 1 = 单平台旧路径，>1 = 批量创建 N 平台）。
+   *  SmartPaste 路径从单选 radio 升级为多选 checkbox（多 key 时），向后兼容单 key 场景。 */
+  apiKeys: string[];
   /** 命中 aidog 平台分享串（YAML / JSON / Base64）时携带完整配置对象，调用方整体灌表单。
-   *  存在时优先于零散 platform/baseUrls/apiKey（后者作为非分享文本的杂乱解析回退）。 */
+   *  存在时优先于零散 platform/baseUrls/apiKeys（后者作为非分享文本的杂乱解析回退）。 */
   fullShare?: SharePlatform;
   /** 从文案中识别到的过期时间（毫秒时间戳，0/null = 未识别）。
    *  社区分享帖常见「即将过期 06-28 23:59」格式。 */
@@ -45,7 +47,8 @@ const PROTO_LABEL: Record<ParsedProtocol, string> = {
 export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: SmartPasteModalProps) {
   const { t } = useTranslation();
   const [text, setText] = useState("");
-  const [selKey, setSelKey] = useState("");
+  // 多 key 场景：selKeys 多选（默认全选）；单 key 场景：selKeys 长度 1（保持单选 UX）。
+  const [selKeys, setSelKeys] = useState<string[]>([]);
   // 多选 base_url：按协议类型分组，每类型最多选一个（不同类型可并存 → 多 endpoint）。
   const [selUrls, setSelUrls] = useState<string[]>([]);
 
@@ -116,8 +119,14 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
       if (!byProto.has(b.protocol)) byProto.set(b.protocol, b.url);
     }
     setSelUrls(Array.from(byProto.values()));
-    setSelKey(parsed.apiKeys[0] ?? "");
+    // 默认全选 key（单 key → 长度 1 数组，向后兼容；多 key → 默认全选走批量）。
+    setSelKeys(parsed.apiKeys.slice());
   }, [parsed]);
+
+  /** 切换某 key 的选中态（多选场景）。 */
+  const toggleKey = (k: string) => {
+    setSelKeys(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k]);
+  };
 
   // 切换某 url 选中态：同协议类型内互斥（选新自动替旧），不同类型可并存。
   const toggleUrl = (url: string, protocol: ParsedProtocol) => {
@@ -133,7 +142,9 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
 
   const hasResult = parsed.apiKeys.length > 0 || parsed.baseUrls.length > 0 || !!parsed.platform;
   const hasExpiry = !!parsed.expiresAt && parsed.expiresAt > 0;
-  const canApply = !!share || !!(selKey || selUrls.length > 0 || parsed.platform);
+  // 单 key 时沿用 selKeys[0] 作为「有选中 key」判定；多 key 时 selKeys 至少 1 个才允许应用。
+  const hasSelKey = parsed.apiKeys.length <= 1 ? !!selKeys[0] : selKeys.length > 0;
+  const canApply = !!share || !!(hasSelKey || selUrls.length > 0 || parsed.platform);
 
   const labelStyle: CSSProperties = {
     fontSize: 12,
@@ -300,24 +311,35 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
             </div>
           )}
 
-          {/* API Key */}
+          {/* API Key（单 key = radio 单选，向后兼容；多 key = checkbox 多选，默认全选 → 批量创建） */}
           {parsed.apiKeys.length > 0 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              <div style={labelStyle}>{t("platform.paste.apiKey", "API Key")}</div>
-              {parsed.apiKeys.map((k) => (
-                <label
-                  key={k}
-                  style={{ ...optRow, borderColor: selKey === k ? "var(--accent)" : "var(--border)" }}
-                >
-                  <input
-                    type="radio"
-                    name="paste-key"
-                    checked={selKey === k}
-                    onChange={() => setSelKey(k)}
-                  />
-                  <span style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono, monospace)" }}>{k}</span>
-                </label>
-              ))}
+              <div style={{ ...labelStyle, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <span>{t("platform.paste.apiKey", "API Key")}</span>
+                {parsed.apiKeys.length > 1 && (
+                  <span style={{ fontSize: 10.5, fontWeight: 500, color: "var(--text-tertiary)", textTransform: "none", letterSpacing: 0 }}>
+                    {t("platform.paste.apiKeyMultiHint", "已选 {{n}}/{{total}}，将批量创建", { n: selKeys.length, total: parsed.apiKeys.length })}
+                  </span>
+                )}
+              </div>
+              {parsed.apiKeys.map((k) => {
+                const multi = parsed.apiKeys.length > 1;
+                const checked = multi ? selKeys.includes(k) : selKeys[0] === k;
+                return (
+                  <label
+                    key={k}
+                    style={{ ...optRow, borderColor: checked ? "var(--accent)" : "var(--border)" }}
+                  >
+                    <input
+                      type={multi ? "checkbox" : "radio"}
+                      name="paste-key"
+                      checked={checked}
+                      onChange={() => (multi ? toggleKey(k) : setSelKeys([k]))}
+                    />
+                    <span style={{ color: "var(--text-primary)", fontFamily: "var(--font-mono, monospace)" }}>{k}</span>
+                  </label>
+                );
+              })}
             </div>
           )}
 
@@ -351,7 +373,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
             disabled={!canApply}
             onClick={() => {
               if (share) {
-                onApply({ platform: null, baseUrls: [], apiKey: "", fullShare: share });
+                onApply({ platform: null, baseUrls: [], apiKeys: [], fullShare: share });
                 onClose();
                 return;
               }
@@ -361,7 +383,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
               onApply({
                 platform: parsed.platform,
                 baseUrls: selected,
-                apiKey: selKey,
+                apiKeys: selKeys,
                 expiresAt: parsed.expiresAt ?? 0,
               });
               onClose();
