@@ -31,18 +31,19 @@
 3. **Rust 局部拆分**（次要）：forward.rs / proxy_log.rs / db/mod.rs（593）按职责拆
 4. **包边界重划**：跨层依赖清理（如 components/settings 是否独立包）
 
-## 待 brainstorm 决策点（排后启动）
-1. **拆分粒度**：每个巨型文件拆成多少子模块？按字段/按功能/按域？
-2. **目录新结构**：src/ 新顶层布局？components/settings 拆几个子包？
-3. **api.ts 拆法**：按 command 域分文件（platform/group/proxy/...）+ barrel index？还是按资源？
-4. **迁移策略**：一次性大改 vs 渐进式（先拆一个文件验证模式再推）？
-5. **载体**：巨型重构（4609 行拆分 + 全仓 import 更新）→ workflow（≥5 同类文件批量 + 多阶段并行）？还是 subagent 编排？
-6. **回归保障**：拆分后 yarn build + cargo test + 手测关键流程；coverage task（排同样后）可作拆分正确性验证
+## 决策锁（2026-07-02 AskUserQuestion，详见 design.md）
+
+1. **拆分粒度**：按域聚簇，每子文件 ≤800 行硬上限（research/section-split-map 已给逐 export 实测 + 拆分映射表）
+2. **目录新结构**：`src/domains/{platforms,groups,settings,shared}` + `services/api/` 子目录（research/dependency-graph 包边界 + 依赖图，无环）
+3. **api.ts 拆法**：13 域文件 + `types.ts` + barrel `index.ts`（零外部 import churn）
+4. **迁移策略**：**渐进分阶段**（api 抽 → 消重 → editors 拆 → 巨型组件二次拆 → Rust 收尾）
+5. **载体**：**subagent 编排**（main 动态 DAG 调度，并发 2；不开 workflow）
+6. **巨型组件二次拆**：UI 区块 + hook 混合（先抽 hook 收 state → 再抽 JSX 区块子组件）
+7. **回归保障**：build + i18n 门禁 + 关键路径手测（不前置测试）
 
 ## 调度
-- **阻塞**：tab/sensenova/coverage 全 finish 后启动（撞车）
-- brainstorm 出 design.md（目录新结构图 + 拆分映射表）→ 评审 → start → exec
-- exec 可能升 workflow（巨型重构，用户同意门槛）
+- brainstorm 已出 `design.md`（目录新结构图 + 拆分映射 + 阶段 mermaid + 验收门）→ grill 对抗校对 → 用户评审 → start
+- exec：subagent 编排，阶段间串行 / 阶段内按文件集判并发（详见 design.md 阶段调度段）
 
 ## 验收（待 brainstorm 细化）
 1. 无 >800 行前端文件（editors/Platforms/Groups/api/ImportExport 全拆）

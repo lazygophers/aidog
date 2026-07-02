@@ -19,7 +19,8 @@
   "pr_url": null,
   "subtasks": [],
   "children": [
-    "07-02-stats-logs-filter-unify"
+    "07-02-stats-logs-filter-unify",
+    "07-02-07-01-proxy-http-relay-p1"
   ],
   "parent": null,
   "relatedFiles": [],

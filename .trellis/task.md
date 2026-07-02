@@ -30,10 +30,16 @@
 | volces-agent-plan-paste | 火山方舟 agent plan 智能识别缺失 (ark- 前缀 + 圈数字防爬 + /api/plan 端点) | — | 已完成 | — |
 | proxy-http-relay | /proxy 支持通用 HTTP 代理 + 无平台/无分组筛选 | — | 规划中 | — |
 | stats-logs-filter-unify | Stats/Logs 筛选完全对齐(平台/模型/分组) | — | 已完成 | — |
-| logs-detail-copy-buttons | 请求日志详情每个元素一键复制 | — | 规划中 | — |
+| logs-detail-copy-buttons | 请求日志详情每个元素一键复制 | — | 已完成 | — |
 | settings-managed-marker | settings.json 不写 _aidog_managed marker | — | 已完成 | — |
 | paste-base64-recognize | 粘贴 base64 分享文本识别 (MiMo 平台 tp- apikey) | — | 已完成 | — |
-| platform-default-models-audit | 阶跃星辰补默认模型 + 全平台模型清单审计 | — | 实施中 | — |
+| platform-default-models-audit | 阶跃星辰补默认模型 + 全平台模型清单审计 | — | 已完成 | — |
+| deeplink-platform-url | D2 平台 URL 导入 | — | 已完成 | — |
+| group-priority-check-timing | 平台分组优先级检查时机改确认后触发 | — | 已完成 | — |
+| deeplink-mcp-share | D3 mcp 分享 + URL 导入 | — | 已完成 | — |
+| deeplink-skill-share | D4 skills 分享 + URL 导入 | — | 已完成 | — |
+| aidog-deeplink-share | aidog:// 协议注册 + URL 导入 + skills/mcp 分享 | — | 已完成 | — |
+| 07-01-proxy-http-relay-p1 | P1 CONNECT 隧道 + 元数据 + 无平台筛选 | — | 已完成 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -42,5 +48,3 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-aidog-deeplink-share | 07-01-aidog-deeplink-share | trellisx-start |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-02-platform-default-models-audit | 07-02-platform-default-models-audit | trellisx-start |
