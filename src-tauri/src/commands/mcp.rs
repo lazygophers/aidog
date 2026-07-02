@@ -107,6 +107,15 @@ pub async fn mcp_resync(db: State<'_, Db>) -> Result<usize, String> {
     gateway::mcp::resync_all(&db).await
 }
 
+/// 导出单 MCP 可分享对象（claude.json 协议 `{mcpServers:{name:entry}}`，明文含 env/headers）。
+/// 接收端走 mcp_import_json，格式自洽。本地操作，不落 proxy_log。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn mcp_share_export(db: State<'_, Db>, name: String) -> Result<serde_json::Value, String> {
+    tracing::debug!(command = "mcp_share_export", name = %name, "command invoked");
+    gateway::mcp::share_server(&db, &name).await
+}
+
 #[cfg(test)]
 #[path = "test_mcp.rs"]
 mod test_mcp;

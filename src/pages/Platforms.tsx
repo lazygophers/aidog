@@ -3735,7 +3735,7 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
       {shareData && (
         <ShareModal
           share={shareData.share}
-          platformName={shareData.name}
+          title={shareData.name}
           onToast={(text, ok) => { setToast({ text, ok }); setTimeout(() => setToast(null), 3000); }}
           onClose={() => setShareData(null)}
         />

@@ -2,6 +2,7 @@
 
 use std::collections::BTreeMap;
 
+use super::backend_claude::build_claude_entry;
 use super::backend_for;
 use super::mask::{mask_env, merge_masked};
 use super::types::{
@@ -176,6 +177,19 @@ pub async fn import_pasted(db: &Db, json: &str) -> Result<ImportReport, String> 
         }
     }
     Ok(ImportReport { imported, skipped })
+}
+
+/// 导出单 MCP 可分享对象：`{mcpServers: {name: entry}}`（claude.json 协议，明文含 env/headers）。
+/// 接收端走 import_pasted（mcp_import_json），格式自洽。本地操作，不落 proxy_log。
+pub async fn share_server(db: &Db, name: &str) -> Result<serde_json::Value, String> {
+    let row = db::get_mcp_server(db, name)
+        .await?
+        .ok_or_else(|| format!("mcp server not found: {name}"))?;
+    let cfg = row.to_raw_cfg();
+    let entry = build_claude_entry(&cfg);
+    let mut servers = serde_json::Map::new();
+    servers.insert(name.to_string(), entry);
+    Ok(serde_json::json!({ "mcpServers": serde_json::Value::Object(servers) }))
 }
 
 /// per-agent 启用/禁用：改 DB enabled_agents + 同步写/删 agent 配置。
