@@ -215,6 +215,8 @@ yarn tauri build
 
 **Prerequisites** — Node.js ≥ 18, Yarn 4.x, Rust toolchain (rustup), Tauri CLI, per-OS system deps (see [Tauri Prerequisites](https://v2.tauri.app/start/prerequisites/)).
 
+> 🔗 **Dev-mode deep-link caveat** — The `aidog://` scheme is registered by `tauri-plugin-deep-link` at bundle time via `Info.plist` (macOS) / registry / `.desktop`. `yarn tauri dev` runs an unpackaged binary, so on macOS the `Info.plist` is inactive → clicking an `aidog://` link in a browser will not launch the dev instance. To verify deep-link behavior, run a production build (`yarn tauri build`), or manually `lsregister` the `.app` in dev. Win/Linux register at runtime via `register_all()`, no such limit.
+
 ## Tech stack
 
 | Layer | Technology |
