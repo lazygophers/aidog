@@ -500,6 +500,8 @@
   "logs.connFailed": "Échec de connexion",
   "logs.copyAll": "Copier toutes les infos",
   "logs.copyRequestId": "Copier l'ID de requête",
+  "logs.copy": "Copier",
+  "logs.copied": "Copié",
   "logs.detail": "Détails de la requête",
   "logs.duration": "Durée",
   "logs.empty": "Aucun journal",

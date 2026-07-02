@@ -500,6 +500,8 @@
   "logs.connFailed": "Сбой соединения",
   "logs.copyAll": "Копировать полную информацию",
   "logs.copyRequestId": "Копировать ID запроса",
+  "logs.copy": "Копировать",
+  "logs.copied": "Скопировано",
   "logs.detail": "Детали запроса",
   "logs.duration": "Длительность",
   "logs.empty": "Нет журналов",

@@ -401,6 +401,14 @@ input[type="week"]::-webkit-calendar-picker-indicator {
   overflow-x: auto;
 }
 
+/* ── 元素级复制按钮（详情页 pre / MetaItem / attempts 右上角浮动，hover 显形）── */
+.copy-btn:hover,
+.copy-btn:focus-visible {
+  opacity: 1 !important;
+  color: var(--text-primary);
+  border-color: var(--accent, #007aff);
+}
+
 /* ── Toast ── */
 
 .toast {

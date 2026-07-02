@@ -327,12 +327,12 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
 
         {/* Meta grid */}
         <div className="glass-surface" style={{ padding: 20, display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
-          <MetaItem label={t("logs.group", "分组")} value={groupName(detail.group_key)} />
-          <MetaItem label={t("logs.platform", "平台")} value={platformMap.get(detail.platform_id) || "-"} />
-          <MetaItem label={t("logs.model", "原始模型")} value={detail.model || "-"} />
-          <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} />
-          <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={detail.source_protocol || "-"} />
-          <MetaItem label={t("logs.targetProtocol", "请求格式")} value={detail.target_protocol || "-"} />
+          <MetaItem label={t("logs.group", "分组")} value={groupName(detail.group_key)} copyText={detail.group_key} t={t} />
+          <MetaItem label={t("logs.platform", "平台")} value={platformMap.get(detail.platform_id) || "-"} copyText={platformMap.get(detail.platform_id)} t={t} />
+          <MetaItem label={t("logs.model", "原始模型")} value={detail.model || "-"} copyText={detail.model} t={t} />
+          <MetaItem label={t("logs.actualModel", "实际模型")} value={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : "-"} copyText={detail.actual_model && detail.actual_model !== detail.model ? detail.actual_model : undefined} t={t} />
+          <MetaItem label={t("logs.sourceProtocol", "用户格式")} value={detail.source_protocol || "-"} copyText={detail.source_protocol} t={t} />
+          <MetaItem label={t("logs.targetProtocol", "请求格式")} value={detail.target_protocol || "-"} copyText={detail.target_protocol} t={t} />
           <MetaItem
             label={t("logs.status", "状态")}
             value={
@@ -343,6 +343,8 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
                   : `${detail.status_code}`
             }
             highlight={detail.status_code >= 200 && detail.status_code < 300 ? "ok" : "err"}
+            copyText={`${detail.status_code}`}
+            t={t}
           />
           <MetaItem
             label={t("logs.upstreamStatus", "上游状态")}
@@ -356,13 +358,19 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
                 ? undefined
                 : detail.upstream_status_code >= 200 && detail.upstream_status_code < 300 ? "ok" : "err"
             }
+            copyText={
+              detail.upstream_status_code === 0 || detail.upstream_status_code == null
+                ? undefined
+                : `${detail.upstream_status_code}`
+            }
+            t={t}
           />
-          <MetaItem label={t("logs.stream", "传输")} value={detail.is_stream ? t("logs.streaming", "流式") : t("logs.nonStreaming", "非流式")} />
-          <MetaItem label={t("logs.duration", "耗时")} value={`${detail.duration_ms} ms`} />
-          <MetaItem label={t("logs.inputTokens", "输入 Token")} value={`${detail.input_tokens}`} />
-          <MetaItem label={t("logs.outputTokens", "输出 Token")} value={`${detail.output_tokens}`} />
-          <MetaItem label={t("logs.cacheTokens", "缓存 Token")} value={`${detail.cache_tokens}`} />
-          <MetaItem label={t("logs.time", "时间")} value={new Date(detail.created_at).toLocaleString()} />
+          <MetaItem label={t("logs.stream", "传输")} value={detail.is_stream ? t("logs.streaming", "流式") : t("logs.nonStreaming", "非流式")} copyText={detail.is_stream ? t("logs.streaming", "流式") : t("logs.nonStreaming", "非流式")} t={t} />
+          <MetaItem label={t("logs.duration", "耗时")} value={`${detail.duration_ms} ms`} copyText={`${detail.duration_ms} ms`} t={t} />
+          <MetaItem label={t("logs.inputTokens", "输入 Token")} value={`${detail.input_tokens}`} copyText={`${detail.input_tokens}`} t={t} />
+          <MetaItem label={t("logs.outputTokens", "输出 Token")} value={`${detail.output_tokens}`} copyText={`${detail.output_tokens}`} t={t} />
+          <MetaItem label={t("logs.cacheTokens", "缓存 Token")} value={`${detail.cache_tokens}`} copyText={`${detail.cache_tokens}`} t={t} />
+          <MetaItem label={t("logs.time", "时间")} value={new Date(detail.created_at).toLocaleString()} copyText={new Date(detail.created_at).toLocaleString()} t={t} />
         </div>
 
         {/* ── 平台尝试时序（多平台重试时展示每次尝试：平台/状态码/耗时/错误）── */}
@@ -377,17 +385,21 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               {detail.attempts.map((a, i) => {
                 const ok = a.status_code >= 200 && a.status_code < 300;
+                const platName = a.platform_name || platformMap.get(a.platform_id) || `#${a.platform_id}`;
+                // 摘要串：平台名 | 状态码 | 耗时ms | 错误(若有)
+                const summary = [platName, String(a.status_code), `${a.duration_ms}ms`, a.error].filter(Boolean).join(" | ");
                 return (
                   <div key={i} style={{
+                    position: "relative",
                     display: "grid", gridTemplateColumns: "24px 1fr auto auto", alignItems: "center", gap: 10,
-                    padding: "6px 10px", borderRadius: 8,
+                    padding: "6px 28px 6px 10px", borderRadius: 8,
                     background: ok ? "color-mix(in srgb, var(--color-success) 8%, transparent)" : "color-mix(in srgb, var(--color-danger) 8%, transparent)",
                     border: `1px solid ${ok ? "color-mix(in srgb, var(--color-success) 25%, transparent)" : "color-mix(in srgb, var(--color-danger) 25%, transparent)"}`,
                   }}>
                     <span style={{ fontSize: 11, color: "var(--text-tertiary)", fontFamily: "monospace" }}>#{i + 1}</span>
                     <span style={{ display: "flex", flexDirection: "column", minWidth: 0 }}>
                       <span style={{ fontSize: F.small, fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {a.platform_name || platformMap.get(a.platform_id) || `#${a.platform_id}`}
+                        {platName}
                       </span>
                       {a.error && (
                         <span style={{ fontSize: 10, color: "var(--color-danger)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={a.error}>
@@ -399,6 +411,7 @@ export function Logs({ initialFilter }: { initialFilter?: { platformId?: number;
                       {a.status_code === 0 ? t("logs.connFailed", "连接失败") : a.status_code}
                     </span>
                     <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{a.duration_ms}ms</span>
+                    <CopyButton text={summary} title={t("logs.copy", "复制")} />
                   </div>
                 );
               })}
@@ -809,16 +822,56 @@ function FilterSelect({
   );
 }
 
-function MetaItem({ label, value, highlight }: { label: string; value: string; highlight?: "ok" | "err" }) {
+// ── 单元素复制按钮（GitHub 风：右上角浮动图标，copied ✓ 2s 反馈）──
+// ponytail: 自管 copied state（不挤占父级 copied/copiedId），复用已 import 的 writeText + 现有 copy/check svg 对
+const COPY_ICON_STYLE: React.CSSProperties = {
+  position: "absolute", top: 4, right: 4, zIndex: 2,
+  display: "inline-flex", alignItems: "center", justifyContent: "center",
+  width: 24, height: 24, padding: 0,
+  background: "color-mix(in srgb, var(--bg-surface) 70%, transparent)",
+  border: "1px solid var(--border)", borderRadius: 6, cursor: "pointer",
+  color: "var(--text-secondary)", opacity: 0.55, transition: "opacity 0.15s ease",
+};
+function CopyButton({ text, title }: { text: string; title?: string }) {
+  const [copied, setCopied] = useState(false);
+  // 空 / 占位串不渲染（未捕获 / streaming / 空 body）
+  if (!text) return null;
   return (
-    <div>
+    <button
+      type="button"
+      className="copy-btn"
+      style={COPY_ICON_STYLE}
+      title={title}
+      onClick={async (e) => {
+        e.stopPropagation();
+        try {
+          await writeText(text);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        } catch (err) { console.error(err); }
+      }}
+    >
+      {copied ? (
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="var(--color-success, var(--color-success))" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M2 7.5l3 3 7-7" /></svg>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="4" y="4" width="8" height="8" rx="1" /><path d="M10 10v1.5a1 1 0 01-1 1h-6a1 1 0 01-1-1v-6a1 1 0 011-1H4.5" /></svg>
+      )}
+    </button>
+  );
+}
+
+function MetaItem({ label, value, highlight, copyText, t }: { label: string; value: string; highlight?: "ok" | "err"; copyText?: string; t?: ReturnType<typeof useTranslation>["t"] }) {
+  return (
+    <div style={{ position: "relative" }}>
       <div style={{ fontSize: F.small, color: "var(--text-tertiary)", marginBottom: 2 }}>{label}</div>
       <div style={{
         fontSize: F.body, fontWeight: 600,
         color: highlight === "ok" ? "var(--color-success, var(--color-success))" : highlight === "err" ? "var(--color-danger, #ff3b30)" : "var(--text-primary)",
+        paddingRight: copyText ? 24 : undefined,
       }}>
         {value}
       </div>
+      {copyText && copyText !== "-" && <CopyButton text={copyText} title={t?.("logs.copy", "复制")} />}
     </div>
   );
 }
@@ -892,6 +945,14 @@ function RequestSectionContent({
 }) {
   const bodyStr = (v: any) => typeof v === "string" ? v : JSON.stringify(v, null, 2);
   const emptyBody = !reqBody && !respBody;
+  // ponytail: 占位串（未捕获 / 流式未记录）不复制的判定基准 — 对比当前 locale 翻译后的占位文本
+  const streamPlaceholder = t("logs.streamResponse", "(流式响应，内容未记录)");
+  const isPlaceholder = (s: string) => !s || s === streamPlaceholder;
+  // headers 展示文本 + 空判定（空对象 "{}" / 空串不可复制）
+  const headersText = (h: any) => typeof h === "string" ? h : JSON.stringify(h, null, 2);
+  const headersEmpty = (h: any) => !h || headersText(h) === "{}";
+  const copyTitle = t("logs.copy", "复制");
+  // 包装器 position:relative 让 CopyButton 绝对定位贴右上，不受 <pre> 内部 overflow:auto 滚动影响（按钮挂外层容器非滚动内容）
 
   if (emptyBody) {
     return (
@@ -906,23 +967,32 @@ function RequestSectionContent({
       {url && (
         <div>
           <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>URL</div>
-          <pre className="code-block" style={{ maxHeight: 60, overflow: "auto", wordBreak: "break-all", whiteSpace: "pre-wrap" }}>{url}</pre>
+          <div style={{ position: "relative" }}>
+            <pre className="code-block" style={{ maxHeight: 60, overflow: "auto", wordBreak: "break-all", whiteSpace: "pre-wrap" }}>{url}</pre>
+            <CopyButton text={url} title={copyTitle} />
+          </div>
         </div>
       )}
       <div>
         <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
           {t("logs.requestHeaders", "请求头")}
         </div>
-        <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>
-          {typeof reqHeaders === "string" ? reqHeaders : JSON.stringify(reqHeaders, null, 2)}
-        </pre>
+        <div style={{ position: "relative" }}>
+          <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>{headersText(reqHeaders)}</pre>
+          {!headersEmpty(reqHeaders) && <CopyButton text={headersText(reqHeaders)} title={copyTitle} />}
+        </div>
       </div>
       <div>
         <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
           {t("logs.requestBody", "请求体")}
         </div>
         {reqBody
-          ? <pre className="code-block" style={{ maxHeight: 300, overflow: "auto" }}>{bodyStr(reqBody)}</pre>
+          ? (
+            <div style={{ position: "relative" }}>
+              <pre className="code-block" style={{ maxHeight: 300, overflow: "auto" }}>{bodyStr(reqBody)}</pre>
+              {!isPlaceholder(bodyStr(reqBody)) && <CopyButton text={bodyStr(reqBody)} title={copyTitle} />}
+            </div>
+          )
           : <div style={{ fontSize: F.hint, color: "var(--text-tertiary)", fontStyle: "italic" }}>-</div>
         }
       </div>
@@ -930,15 +1000,19 @@ function RequestSectionContent({
         <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
           {t("logs.responseHeaders", "响应头")}
         </div>
-        <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>
-          {typeof respHeaders === "string" ? respHeaders : JSON.stringify(respHeaders, null, 2)}
-        </pre>
+        <div style={{ position: "relative" }}>
+          <pre className="code-block" style={{ maxHeight: 200, overflow: "auto" }}>{headersText(respHeaders)}</pre>
+          {!headersEmpty(respHeaders) && <CopyButton text={headersText(respHeaders)} title={copyTitle} />}
+        </div>
       </div>
       <div>
         <div style={{ fontSize: F.small, fontWeight: 600, color: "var(--text-secondary)", marginBottom: 4 }}>
           {t("logs.responseBody", "响应体")}
         </div>
-        <pre className="code-block" style={{ maxHeight: 400, overflow: "auto" }}>{bodyStr(respBody)}</pre>
+        <div style={{ position: "relative" }}>
+          <pre className="code-block" style={{ maxHeight: 400, overflow: "auto" }}>{bodyStr(respBody)}</pre>
+          {!isPlaceholder(bodyStr(respBody)) && <CopyButton text={bodyStr(respBody)} title={copyTitle} />}
+        </div>
       </div>
     </>
   );
