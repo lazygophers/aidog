@@ -3,7 +3,7 @@
   "name": "body-date-format-rewrite",
   "title": "body 日期格式改写防检测 (CLI集成开关)",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
