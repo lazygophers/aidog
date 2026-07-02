@@ -1,6 +1,7 @@
 // ── shared 通用展示组件 barrel ──
 // 供三页（Platforms / Groups / Stats）统一 import。
 
+export { CopyButton, type CopyButtonProps } from "./CopyButton";
 export { CompactCard, type CompactCardProps } from "./CompactCard";
 export { FilterDropdown, type FilterDropdownProps } from "./FilterDropdown";
 export { StatChip, type StatChipProps } from "./StatChip";
