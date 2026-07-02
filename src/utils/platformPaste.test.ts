@@ -232,6 +232,24 @@ describe("parsePlatformPaste", () => {
     expect(out.platform?.codingPlan).toBe(true);
   });
 
+  it("整段 base64 分享文本：裸 key（无标签）解码后补提 + 识别 MiMo coding + /v1 base_url", () => {
+    // 论坛分享帖：整段配置 base64 编码，解码后 key 裸在末尾无「令牌/密钥/key」标签，
+    // parseCompoundLabeled 按「接口」标签切分时把裸 key 归入接口段被 URL 正则忽略致漏提。
+    // 解码得：兼容 OpenAI 接口协议：\nhttps://token-plan-cn.xiaomimimo.com/v1\n
+    //         兼容 Anthropic 接口协议：\nhttps://token-plan-cn.xiaomimimo.com/anthropic\n
+    //         tp-ctzbh681u6dgc5axrzs7rrnfajch92w06q80yr68075wh647
+    const b64 =
+      "5YW85a65IE9wZW5BSSDmjqXlj6PljY/orq7vvJoKaHR0cHM6Ly90b2tlbi1wbGFuLWNuLnhpYW9taW1pbW8uY29tL3YxCuWFvOWuuSBBbnRocm9waWMg5o6l5Y+j5Y2P6K6u77yaCmh0dHBzOi8vdG9rZW4tcGxhbi1jbi54aWFvbWltaW1vLmNvbS9hbnRocm9waWMKdHAtY3R6Ymg2ODF1NmRnYzVheHJ6czdycm5mYWpjaDkydzA2cTgweXI2ODA3NXdoNjQ3";
+    const out = parsePlatformPaste(b64, PRESETS);
+    // 裸 key 经 PREFIX_TOKEN_RE 兜底补提
+    expect(out.apiKeys.some(k => k.startsWith("tp-ctzbh"))).toBe(true);
+    // platform 命中 MiMo coding（token-plan-cn host → coding 变体）
+    expect(out.platform?.value).toBe("xiaomi_mimo");
+    expect(out.platform?.codingPlan).toBe(true);
+    // base_url 含 /v1（首个 OpenAI 兼容端点）
+    expect(out.baseUrls.some(b => b.url === "https://token-plan-cn.xiaomimimo.com/v1")).toBe(true);
+  });
+
   it("机制 B：纯 token 粘贴（无 base_url）命中 codingKeyPrefixes → 升级 coding plan", () => {
     // 无 base_url，host 匹配（机制 A）触不到 coding host；靠 keyword 命中普通 xiaomi_mimo
     // 后由 tp- 前缀（codingKeyPrefixes 数据驱动）升级到 coding 变体。

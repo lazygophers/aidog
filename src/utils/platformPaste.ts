@@ -363,15 +363,31 @@ export function matchPlatform(
 /** 扫描 base64 token → UTF-8 解码 → 标签复合串解析（第三变体）。
  *  与「纯 ASCII base64 key」「CJK 噪声插入 base64」不同：此处整段 base64 解码成功，
  *  但结果是中文标签紧贴值的复合串（如「令牌sk-...地址https://...模型名X」），
- *  键形守卫会整体拒掉。按标签切分提取 key/base_url/model。 */
+ *  键形守卫会整体拒掉。按标签切分提取 key/base_url/model。
+ *
+ *  标签锚定的盲区：裸 key（无令牌/密钥/key 标签前缀，如 MiMo 文案「接口协议：URL\ntp-...」
+ *  中末尾的 tp- key）会被归入「接口」段被 URL 正则忽略致漏提。故 parseCompoundLabeled 之后，
+ *  若 parts.apiKey 未已填，对 decoded 明文补跑 PREFIX_TOKEN_RE 裸 key 扫描兜底，
+ *  复用 extractApiKeys 同款守卫（stripCjk + 长度≥16 + hasKnownPrefix / DECODED_KEY_SHAPE）。 */
 function extractCompoundFromBase64(text: string): CompoundParts[] {
   const out: CompoundParts[] = [];
   for (const m of text.matchAll(BARE_BASE64_RE)) {
     if (m[0].length < 24) continue;
     const decoded = tryBase64DecodeUtf8(m[0]);
     if (!decoded) continue;
-    const parts = parseCompoundLabeled(decoded);
-    if (parts) out.push(parts);
+    const parts = parseCompoundLabeled(decoded) ?? {};
+    // 裸 key 兜底：parseCompoundLabeled 按标签切分时，无 key 标签的裸 key 漏提；
+    // 此处补扫 PREFIX_TOKEN_RE，守卫同 extractApiKeys（防 URL 片段误命中）。
+    if (!parts.apiKey) {
+      for (const km of decoded.matchAll(PREFIX_TOKEN_RE)) {
+        const clean = stripCjk(km[0]);
+        if (clean.length >= 16 && (hasKnownPrefix(clean) || DECODED_KEY_SHAPE.test(clean))) {
+          parts.apiKey = clean;
+          break;
+        }
+      }
+    }
+    if (parts.apiKey || parts.baseUrl || parts.model) out.push(parts);
   }
   return out;
 }
