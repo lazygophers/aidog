@@ -46,6 +46,7 @@
 | body-date-format-rewrite | body 日期格式改写防检测 (CLI集成开关) | — | 已完成 | — |
 | cli-lang-select-style | CLI 语言设置 select 样式修正 (label 字号 + select 够用右对齐) | — | 已完成 | — |
 | cli-lang-desc-remove | CLI 语言设置删冗余描述 (去 ~/.claude/settings.json · language 行) | — | 已完成 | — |
+| diag-42617827 | 诊断 request_id=42617827 错误链根因 | — | 实施中 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -55,4 +56,4 @@
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-arch-redesign | 07-01-arch-redesign | trellisx-start |
-| diag-42617827 | 诊断 request_id=42617827 错误链根因 | — | 已完成 | — |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-02-diag-42617827 | 07-02-diag-42617827 | trellisx-start |
