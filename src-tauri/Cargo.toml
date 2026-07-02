@@ -42,7 +42,11 @@ tauri-plugin-autostart = "2"
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 tauri-plugin-clipboard-manager = "2"
+# aidog:// deep link 协议注册 + macOS RunEvent::Opened / Win/Linux CLI arg 唤起分发。
+tauri-plugin-deep-link = "2"
 serde = { version = "1", features = ["derive"] }
+# deep link URL parse（tauri-plugin-deep-link 透传依赖；显式声明以便命名 Url 类型解析 path/query）。
+url = "2"
 serde_json = "1"
 toml = "0.8"
 uuid = { version = "1", features = ["v4"] }

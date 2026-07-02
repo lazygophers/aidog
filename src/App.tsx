@@ -94,6 +94,30 @@ function App() {
       .catch(() => {});
   }, []);
 
+  // aidog:// deep link 协议层事件分发：后端 emit `aidog-deep-link` {entity, action, data}，
+  // 这里按 entity 二次分发到 `aidog:<entity>` window CustomEvent，children（D2/D3/D4 的
+  // Platforms/Mcp/Skills 页）各自 addEventListener 接入。D1 只做协议层 + 分发，不处理 import。
+  //
+  // D2 补：children 页面是条件挂载（effectiveNav === "platforms" 才挂 <Platforms>），
+  // window CustomEvent 在目标页未 mount 时会丢失（冷启动 + 热唤起当前在他页两路都中招）。
+  // 这里在 dispatch 同时把 payload 缓存到 window.__aidogDeepLink[entity]，目标页 mount 时
+  // 取一次消费（删 key 防重复）；并对 platform entity 主动 setActiveNav("platforms") 触发挂载。
+  // ponytail: per-entity 缓存对象（非队列），单条 last-write-wins，deep-link 不要求保序。
+  useEffect(() => {
+    const unlistenPromise = listen<{ entity: string; action: string; data: string }>(
+      "aidog-deep-link",
+      (e) => {
+        const { entity, action, data } = e.payload;
+        const w = window as unknown as { __aidogDeepLink?: Record<string, { action: string; data: string }> };
+        if (!w.__aidogDeepLink) w.__aidogDeepLink = {};
+        w.__aidogDeepLink[entity] = { action, data };
+        window.dispatchEvent(new CustomEvent(`aidog:${entity}`, { detail: { action, data } }));
+        if (entity === "platform") setActiveNav("platforms");
+      },
+    );
+    return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
+  }, []);
+
   const handleNavigate = (id: string, context?: NavContext) => {
     if (id === activeNav && !context) return;
     // A dirty page (e.g. Claude Code Settings) may intercept the switch.

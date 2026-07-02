@@ -35,6 +35,8 @@ export interface SmartPasteModalProps {
   onClose: () => void;
   /** 可选：跳过识别直接进空表单（主列表「添加平台」直达弹窗时的手动入口）。 */
   onManualEntry?: () => void;
+  /** 可选：预填文本（如 aidog:// deep-link 导入场景）。提供时以此初始化并跳过自动读剪贴板。 */
+  initialText?: string;
 }
 
 const PROTO_LABEL: Record<ParsedProtocol, string> = {
@@ -44,9 +46,9 @@ const PROTO_LABEL: Record<ParsedProtocol, string> = {
   unknown: "URL",
 };
 
-export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: SmartPasteModalProps) {
+export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, initialText }: SmartPasteModalProps) {
   const { t } = useTranslation();
-  const [text, setText] = useState("");
+  const [text, setText] = useState(initialText ?? "");
   // 多 key 场景：selKeys 多选（默认全选）；单 key 场景：selKeys 长度 1（保持单选 UX）。
   const [selKeys, setSelKeys] = useState<string[]>([]);
   // 多选 base_url：按协议类型分组，每类型最多选一个（不同类型可并存 → 多 endpoint）。
@@ -97,7 +99,9 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry }: Sm
   // 渲染完成自动读剪贴板填入（仅首次 mount 且 text 空；失败静默兜底手动粘贴）。
   // 走 Tauri 插件非 navigator.clipboard：macOS WKWebView 无手势激活时 navigator API 被拒静默失败，
   // 而 Tauri Rust 侧 read_text 走权限系统无需手势，可靠。
+  // deep-link 导入（initialText 已预填）跳过：data 来自 URL，不应被剪贴板覆盖。
   useEffect(() => {
+    if (initialText) return;
     let cancelled = false;
     readText()
       .then((clip) => {

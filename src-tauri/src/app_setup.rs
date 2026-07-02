@@ -355,5 +355,11 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 }
             }
 
+            // aidog:// deep link 协议层：挂 on_open_url + 冷启动 get_current 补发 +
+            // Win/Linux register_all。失败仅 warn 不阻塞启动（非关键路径）。
+            // macOS scheme 注册在 bundle 期（Info.plist CFBundleURLTypes）完成，dev 模式
+            // 需手动 LSRegisterURL（见 README / task journal）。
+            crate::deep_link::setup(app.handle());
+
             Ok(())
 }
