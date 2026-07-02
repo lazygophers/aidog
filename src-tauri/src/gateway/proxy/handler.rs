@@ -78,6 +78,13 @@ async fn handle_proxy_core(
     req: Request,
     request_id: String,
 ) -> Response {
+    // P1 CONNECT 隧道早期分流：authority-form URI（`host:port`）走 CONNECT handler，
+    // 不破现有 /proxy AI 协议 path 路由。fallback 命中 CONNECT 时 request_id 已生成，
+    // 直接复用；CONNECT handler 内部自管日志（upsert_connect_log，独立路径）。
+    if req.method() == axum::http::Method::CONNECT {
+        return super::connect::handle_connect(AxumState(state), req).await;
+    }
+
     let start = std::time::Instant::now();
     let created_at = super::db::now();
 

@@ -55,6 +55,12 @@ rusqlite = { version = "0.32", features = ["bundled", "trace"] }
 tokio-rusqlite = { version = "0.6", features = ["bundled"] }
 tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "io-util"] }
 axum = { version = "0.8", features = ["json"] }
+# hyper-util 显式声明：CONNECT 隧道需 `server::conn::auto::upgrade::downcast::<TcpStream>`
+# 取回 axum::serve 被 Rewind<T> 包装的底层 TcpStream + 预读缓冲（research 结论 1）。
+# axum 间接依赖不传 server/server-auto feature，必须显式开启。
+hyper-util = { version = "0.1", features = ["server", "server-auto"] }
+# hyper 显式声明：CONNECT upgrade 取 `hyper::upgrade::on(req)`。axum 间接依赖已锁 1.10.1。
+hyper = { version = "1", features = ["http1"] }
 reqwest = { version = "0.12", features = ["stream", "json", "socks", "gzip", "brotli", "deflate", "zstd"] }
 tower = "0.5"
 futures = "0.3"
