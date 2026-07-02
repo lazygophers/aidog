@@ -2510,6 +2510,10 @@ export interface DiffNode {
   children?: DiffNode[];
 }
 
+// ponytail: D7 刻意不合 — 此处是松版（any 入参 + 仅 typeof object && !null && !Array），
+// editors/diff 渲染走表单配置，结构来自 JSON.parse 不会出现 Map/Date/类实例，宽松判定即可。
+// 另有一份严版在 utils/deepMerge.ts（unknown 入参 + toString 锁 [object Object]），
+// 语义不同，禁合并。见 arch-redesign D7 决策。
 export const isPlainObject = (v: any): v is Record<string, any> =>
   typeof v === "object" && v !== null && !Array.isArray(v);
 

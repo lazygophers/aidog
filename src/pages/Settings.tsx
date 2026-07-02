@@ -26,21 +26,13 @@ import {
 import { materializeStatusline } from "../components/settings/statusline-gen";
 import { SettingsHeader } from "../components/settings/SettingsHeader";
 import { SectionAnchorNav } from "../components/settings/SectionAnchorNav";
+import { stableStringify } from "../components/shared";
 
 const CONFIG_KEY = "claude_code";
 
 // Header + anchor-nav heights drive sticky offsets & scroll-spy margins.
 const HEADER_H = 58;
 const NAV_H = 50;
-
-// Order-insensitive JSON serialization — used as the dirty-state signature
-// so reordered object keys don't register as a change.
-function stableStringify(value: any): string {
-  if (value === null || typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
-  const keys = Object.keys(value).sort();
-  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(value[k])}`).join(",")}}`;
-}
 
 // Materialize the native `statusLine` / `subagentStatusLine` fields from their
 // `_aidog_*` UI drafts at save time — the authoritative, race-free path that
