@@ -39,7 +39,6 @@
 | deeplink-mcp-share | D3 mcp 分享 + URL 导入 | — | 已完成 | — |
 | deeplink-skill-share | D4 skills 分享 + URL 导入 | — | 已完成 | — |
 | aidog-deeplink-share | aidog:// 协议注册 + URL 导入 + skills/mcp 分享 | — | 已完成 | — |
-| 07-01-proxy-http-relay-p1 | P1 CONNECT 隧道 + 元数据 + 无平台筛选 | — | 已完成 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -48,3 +47,5 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
+| 07-01-proxy-http-relay-p1 | P1 CONNECT 隧道 + 元数据 + 无平台筛选 | — | 实施中 | — |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-02-07-01-proxy-http-relay-p1 | 07-02-07-01-proxy-http-relay-p1 | trellisx-start |
