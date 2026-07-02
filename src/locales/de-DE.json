@@ -1740,5 +1740,10 @@
   "updater.releaseNotes": "Versionshinweise",
   "updater.updateFailed": "Aktualisierung fehlgeschlagen",
   "updater.updateNow": "Jetzt aktualisieren",
-  "updater.updating": "Wird aktualisiert…"
+  "updater.updating": "Wird aktualisiert…",
+  "mcp.share": "Teilen",
+  "mcp.share.title": "MCP teilen",
+  "mcp.share.warning": "Der geteilte Inhalt enthält env/headers im Klartext (können Tokens/Secrets enthalten). Nur an vertrauenswürdige Empfänger senden; niemals öffentlich veröffentlichen.",
+  "mcp.share.copyUrl": "Als aidog://-Link kopieren",
+  "mcp.share.urlCopied": "aidog://-Link kopiert"
 }

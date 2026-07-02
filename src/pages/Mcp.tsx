@@ -19,6 +19,7 @@ import {
   type McpUpdatePayload,
   type McpTransport,
 } from "../services/api";
+import { ShareModal } from "../components/platforms/ShareModal";
 import claudeIcon from "../assets/platforms/claude_code.svg";
 import codexIcon from "../assets/platforms/openai.svg";
 
@@ -80,6 +81,9 @@ export function Mcp() {
   // 编辑 modal
   const [editTarget, setEditTarget] = useState<McpServerInfo | null>(null);
   const [editOpen, setEditOpen] = useState(false);
+
+  // 分享 modal（泛化 ShareModal，复用平台三格式切换）
+  const [shareData, setShareData] = useState<{ share: Record<string, unknown>; name: string } | null>(null);
   const [editForm, setEditForm] = useState<{
     name: string;
     transport: McpTransport;
@@ -220,13 +224,26 @@ export function Mcp() {
     }
   };
 
-  // ─── 粘贴 JSON 导入 ───
+  // ─── 粘贴 JSON 导入（含 base64 分享文本识别）───
   const handlePasteImport = async () => {
     if (!pasteText.trim()) return;
     setPasteBusy(true);
     setMessage(null);
     try {
-      const report = await mcpApi.importJson(pasteText);
+      // base64 分享文本（YAML/JSON 经 toBase64Utf8 编码）→ 解码后交给 mcp_import_json。
+      // mcp_import_json 走 serde_json 解析；YAML 是 JSON 超集但非严格 JSON，故仅尝试 JSON.parse 兜底。
+      let json = pasteText.trim();
+      if (/^[A-Za-z0-9+/=\s]+$/.test(json) && json.length > 16) {
+        try {
+          const decoded = atob(json.replace(/\s/g, ""));
+          // 验证解码后是合法 JSON；否则保持原文本走默认路径。
+          JSON.parse(decoded);
+          json = decoded;
+        } catch {
+          // 非 base64 或解码后非 JSON，保持原文本。
+        }
+      }
+      const report = await mcpApi.importJson(json);
       await refresh();
       setPasteOpen(false);
       setPasteText("");
@@ -291,6 +308,65 @@ export function Mcp() {
       return next;
     });
   };
+
+  // ─── 分享（导出可分享配置 → 弹泛化 ShareModal）───
+  const handleShare = async (srv: McpServerInfo) => {
+    setMessage(null);
+    try {
+      const share = await mcpApi.shareExport(srv.name);
+      setShareData({ share, name: srv.name });
+    } catch (e) {
+      setMessage({ kind: "err", text: String(e) });
+    }
+  };
+
+  // ─── aidog://mcp/import?data=<base64> deep-link 导入 ───
+  // 两路汇入：① mount 取 App.tsx 缓存（冷启动/他页唤起 → setActiveNav 挂载本页后到达）；
+  // ② 运行时 window 'aidog:mcp' 事件（本页已 mount 热路径）。
+  // data = toBase64Utf8(JSON) → atob → JSON → mcp_import_json（复用粘贴路径）。
+  const openDeepLinkImport = useCallback(async (data: string) => {
+    if (!data) return;
+    setMessage(null);
+    try {
+      const json = atob(data.replace(/\s/g, ""));
+      const report = await mcpApi.importJson(json);
+      await refresh();
+      const skipped = report.skipped.length;
+      setMessage({
+        kind: skipped > 0 ? "err" : "ok",
+        text:
+          skipped > 0
+            ? t("mcp.importPartial", {
+                ok: report.imported.length,
+                skip: skipped,
+                defaultValue: `导入 ${report.imported.length}，跳过 ${skipped}`,
+              })
+            : t("mcp.imported", {
+                count: report.imported.length,
+                defaultValue: `已导入 ${report.imported.length}`,
+              }),
+      });
+    } catch (e) {
+      setMessage({ kind: "err", text: String(e) });
+    }
+  }, [refresh, t]);
+  useEffect(() => {
+    const w = window as unknown as { __aidogDeepLink?: Record<string, { action: string; data: string }> };
+    const cached = w.__aidogDeepLink?.mcp;
+    if (cached?.data) {
+      delete w.__aidogDeepLink!.mcp; // 消费一次防重复
+      void openDeepLinkImport(cached.data);
+    }
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent<{ action: string; data: string }>).detail;
+      if (detail?.data) {
+        delete w.__aidogDeepLink!.mcp;
+        void openDeepLinkImport(detail.data);
+      }
+    };
+    window.addEventListener("aidog:mcp", handler);
+    return () => window.removeEventListener("aidog:mcp", handler);
+  }, [openDeepLinkImport]);
 
   // ─── 编辑 ───
   const openEdit = (srv: McpServerInfo) => {
@@ -453,6 +529,7 @@ export function Mcp() {
               onToggle={handleToggle}
               onEdit={() => openEdit(srv)}
               onDelete={() => setDeleteTarget(srv)}
+              onShare={() => void handleShare(srv)}
             />
           ))}
         </div>
@@ -726,6 +803,20 @@ export function Mcp() {
           </div>,
           document.body,
         )}
+
+      {/* 分享 modal（泛化 ShareModal，3 格式切换 + 复制为 aidog://mcp/import 链接） */}
+      {shareData && (
+        <ShareModal
+          share={shareData.share}
+          title={shareData.name}
+          titleKey="mcp.share.title"
+          warningKey="mcp.share.warning"
+          urlScheme="aidog://mcp/import"
+          copyUrlKey="mcp.share.copyUrl"
+          onToast={(text, ok) => setMessage({ kind: ok ? "ok" : "err", text })}
+          onClose={() => setShareData(null)}
+        />
+      )}
     </div>
   );
 }
@@ -738,12 +829,14 @@ function McpRow({
   onToggle,
   onEdit,
   onDelete,
+  onShare,
 }: {
   srv: McpServerInfo;
   busyKey: string | null;
   onToggle: (s: McpServerInfo, a: McpAgentSlug) => void;
   onEdit: () => void;
   onDelete: () => void;
+  onShare: () => void;
 }) {
   const { t } = useTranslation();
   return (
@@ -845,6 +938,32 @@ function McpRow({
             </button>
           );
         })}
+
+        {/* 分享 */}
+        <button
+          title={t("mcp.share", "分享")}
+          onClick={onShare}
+          style={{
+            width: 30,
+            height: 30,
+            borderRadius: 8,
+            border: "1px solid var(--border)",
+            background: "transparent",
+            cursor: "pointer",
+            color: "var(--text-secondary)",
+            padding: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="11" cy="4" r="2" />
+            <circle cx="4" cy="7.5" r="2" />
+            <circle cx="11" cy="11" r="2" />
+            <path d="M6 6.5l3-1.5M6 8.5l3 1.5" />
+          </svg>
+        </button>
 
         {/* 编辑 */}
         <button

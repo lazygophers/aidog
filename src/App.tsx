@@ -113,6 +113,7 @@ function App() {
         w.__aidogDeepLink[entity] = { action, data };
         window.dispatchEvent(new CustomEvent(`aidog:${entity}`, { detail: { action, data } }));
         if (entity === "platform") setActiveNav("platforms");
+        if (entity === "mcp") setActiveNav("mcp");
       },
     );
     return () => { unlistenPromise.then((un) => un()).catch((e) => console.error(e)); };
