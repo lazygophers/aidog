@@ -604,4 +604,45 @@ mod tests {
             .windows(host.len())
             .any(|w| w == host.as_bytes())
     }
+
+    // ─── Linux capability validator 契约锁（遗留 #1 修复）──────────────────
+    //
+    // capability mitm-ca.json 的 `linux-shell-ca` 命名命令用 union regex 锁 trust/untrust
+    // 两种 /bin/sh -c 串。本测试镜像 regex 字面 + 用 trust_ca_command / untrust_ca_command
+    // 实际产出（任意 .pem 路径）断言匹配 —— 任一方改动致契约破，测试 fail。
+    //
+    // 当前 OS 非 Linux 时 trust_ca_command / untrust_ca_command 走 macos/windows 分支，
+    // 故 Linux 命令字面用常量构造（与 ca.rs::trust_ca_command Linux 分支字面一致，grep 锁）。
+    #[test]
+    fn ca_linux_capability_validator_matches_commands() {
+        // capability mitm-ca.json linux-shell-ca 的 -c arg validator（union regex）。
+        // 改 regex 必须同步改此字面（双向锁）。
+        let validator = regex::Regex::new(
+            r#"^cp /.+\.pem /usr/local/share/ca-certificates/aidog-ca\.crt && update-ca-certificates$|^rm -f /usr/local/share/ca-certificates/aidog-ca\.crt && update-ca-certificates --fresh$"#,
+        )
+        .expect("validator regex compiles");
+
+        // trust_ca_command Linux 分支产出的 -c 串（ca_pem_path 是动态绝对路径）。
+        let trust_cmd = format!(
+            "cp {} /usr/local/share/ca-certificates/aidog-ca.crt && update-ca-certificates",
+            "/home/user/.aidog/mitm-ca.pem"
+        );
+        // untrust_ca_command Linux 分支产出的 -c 串（静态，不含动态路径）。
+        let untrust_cmd = "rm -f /usr/local/share/ca-certificates/aidog-ca.crt && update-ca-certificates --fresh";
+
+        assert!(validator.is_match(&trust_cmd), "validator must match Linux trust command");
+        assert!(validator.is_match(untrust_cmd), "validator must match Linux untrust command");
+
+        // 反向锁：非法命令（注入 / 路径 traversal / 缺 update）必须被拒。
+        assert!(!validator.is_match("rm -rf /"), "must reject arbitrary rm");
+        assert!(
+            !validator.is_match(
+                "cp /etc/passwd /usr/local/share/ca-certificates/aidog-ca.crt && update-ca-certificates; rm -rf /"),
+            "must reject command chaining injection"
+        );
+        assert!(
+            !validator.is_match("cp /x/y.pem /usr/local/share/ca-certificates/aidog-ca.crt"),
+            "must reject trust missing update-ca-certificates"
+        );
+    }
 }

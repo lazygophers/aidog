@@ -60,7 +60,10 @@ axum = { version = "0.8", features = ["json"] }
 # axum 间接依赖不传 server/server-auto feature，必须显式开启。
 hyper-util = { version = "0.1", features = ["server", "server-auto"] }
 # hyper 显式声明：CONNECT upgrade 取 `hyper::upgrade::on(req)`。axum 间接依赖已锁 1.10.1。
-hyper = { version = "1", features = ["http1"] }
+# http2 显式开启：P3 ST6 MITM 明文隧道用 hyper-util `auto::Builder` 按 H2 preface 分发 h1/h2，
+# auto Builder 需 hyper http2 feature 才能服务 h2 客户端（feature unification 经 reqwest→http2
+# 已传递开启，此处显式声明避免未来 reqwest feature 变动致 h2 runtime fail）。
+hyper = { version = "1", features = ["http1", "http2"] }
 reqwest = { version = "0.12", features = ["stream", "json", "socks", "gzip", "brotli", "deflate", "zstd"] }
 tower = "0.5"
 futures = "0.3"
