@@ -809,6 +809,7 @@
   "platform.expiresAtHint": "Optionnel. Après expiration, la plateforme est automatiquement exclue des candidats de routage (équivalent à désactivé) ; modifier ou effacer la valeur la réactive.",
   "platform.expiresAtSoon": "Expire bientôt : {{time}}",
   "platform.fetchEmpty": "Aucun modèle trouvé",
+  "platform.fetchAuthError": "Échec de l'authentification de la clé API (HTTP {{code}}), veuillez vérifier la clé de la plateforme",
   "platform.fetchModels": "Récupérer",
   "platform.fillAll": "Remplir tout",
   "platform.fillAllHint": "Remplir les champs vides avec le modèle par défaut",

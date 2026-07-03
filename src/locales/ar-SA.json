@@ -809,6 +809,7 @@
   "platform.expiresAtHint": "اختياري. بعد انتهاء الصلاحية تُستبعد المنصة تلقائيًا من مرشحي التوجيه (مكافئ للتعطيل)؛ تعديل القيمة أو مسحها يعيد التفعيل.",
   "platform.expiresAtSoon": "ينتهي قريبًا: {{time}}",
   "platform.fetchEmpty": "لم يتم العثور على نماذج",
+  "platform.fetchAuthError": "فشل مصادقة مفتاح API (HTTP {{code}})، يرجى التحقق من مفتاح المنصة",
   "platform.fetchModels": "جلب النماذج",
   "platform.fillAll": "ملء الكل",
   "platform.fillAllHint": "ملء الحقول الفارغة بالنموذج الافتراضي",

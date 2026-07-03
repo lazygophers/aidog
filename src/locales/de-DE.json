@@ -809,6 +809,7 @@
   "platform.expiresAtHint": "Optional. Nach Ablauf wird die Plattform automatisch von den Routing-Kandidaten ausgeschlossen (entspricht deaktiviert); Ändern oder Leeren des Werts stellt sie wieder her.",
   "platform.expiresAtSoon": "Läuft bald ab: {{time}}",
   "platform.fetchEmpty": "Keine Modelle gefunden",
+  "platform.fetchAuthError": "API-Key-Authentifizierung fehlgeschlagen (HTTP {{code}}), bitte Plattform-Key prüfen",
   "platform.fetchModels": "Modelle laden",
   "platform.fillAll": "Alle füllen",
   "platform.fillAllHint": "Leere Felder mit Standardmodell füllen",
