@@ -117,3 +117,22 @@ mode: optimize
 - 仿函数场景（非组件内）用纯函数 `TFunction` 参数模式注入 `t`，禁直接 import 全局实例
 - **check 前必须跑 `node scripts/check-i18n.mjs`，exit 0（零缺失）才可 finish**。脚本检查四类：(A) `t()` 静态 key 8 locale 覆盖 (B) locale 间 key 集合对齐（并集 = 每个 locale）(C) 动态模板清单人工审计 (D) `labelKey`/`group` 属性字面量覆盖（堵 t(变量) 盲区）
 - 验证: `node scripts/check-i18n.mjs` exit 0；新 key 落地后 `git diff src/locales/` 应见 8 文件同步改动
+
+## Large File Split — facade 模式 (MUST)
+
+> 违反代价: 巨石文件 (>800 行) → 增量改动成本指数增长、merge 冲突频发、agent 上下文爆炸；拆分不守契约 → 外部 import 路径 churn + 业务逻辑迁移丢块。Groups/Platforms/AppSettings/Logs/Skills/Mcp/PopoverConfigTab/StatusLineSection 均已用此模式。
+
+拆分 >800 行文件统一走 facade + 子目录模式：
+
+- **facade 保留同名 export**: 拆后 `<Xxx>.tsx` 退化为编排 facade（仅 mount hook + 子组件，行数 <60），MUST 保留原 `export function <PascalCase>` 签名 → 外部 import 路径零 churn（`grep -rn "from.*pages/Xxx"` 消费点不改）
+- **子目录 `<Xxx>/`**: 拆出的 hook + JSX 子组件放 `src/pages/<Xxx>/` 或 `src/components/.../<Xxx>/`，**禁建 `index.ts` barrel**（facade 同名 export 已保兼容，barrel 多余且违反"唯一入口"原则）
+- **单 hook 抽 state+actions**: 抽一个 `use<Xxx>Data` hook 收全部 state + derived + effect + handler，返回一对象；**禁拆双 hook**（useState + useActions），单 hook 少一层 props 传递更简（useLogsData/useSkillsData/useMcpData 先例）
+- **JSX 按区块抽子组件**: 大 JSX 区块（列表/弹窗/预览/编辑器/面板）抽独立 `.tsx`，通过 props 传 hook 返回值
+- **纯 .ts 数据表外迁用 re-export barrel（唯一例外）**: 纯 .ts 文件（无 React）的大常量数据表（如 `statusline-gen.ts` 的 SEGMENT_DEFS ~540 行）外迁到 `<name>-segments.ts`，原文件用 `export { ... } from "./<name>-segments"` re-export 保导出兼容。**仅此场景允许 barrel**（非组件无法用 facade 模式，数据/函数分离）
+- **逐行外迁零业务变更**: 拆分 = 纯结构搬运，禁顺手改逻辑 / 去"重复" / 简化（标注的 bugfix 注释 / 特殊处理注释原样保留）。逻辑改动另开 task
+- **验收基准**:
+  - 全仓零 >800 行（`find src \( -name '*.tsx' -o -name '*.ts' \) | xargs wc -l | awk '$1>800 && $2!="total"'` 为空）
+  - facade 行数 <60（仅编排）
+  - `yarn build` 绿 + `node scripts/check-i18n.mjs` exit 0
+  - **t() 调用数前后一致**（`grep -oE '\bt\(' <拆前文件>` vs 拆后 sum 相等 = i18n 零 churn 验证）
+  - 外部 import 路径零 churn（消费点 grep 不变）
