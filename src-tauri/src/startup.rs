@@ -19,6 +19,8 @@ pub fn run() {
         // aidog:// deep link 协议：scheme 注册（macOS bundle / Win registry / Linux .desktop）
         // + URL 唤起回调。setup 阶段经 DeepLinkExt 挂 on_open_url + 冷启动 get_current 补发。
         .plugin(tauri_plugin_deep_link::init())
+        // P3 MITM：装假 CA 到系统信任库。shell scope 在 capabilities/mitm-ca.json 限定仅装/卸 CA 命令。
+        .plugin(tauri_plugin_shell::init())
         .setup(|app| crate::app_setup::setup(app))
         .invoke_handler(tauri::generate_handler![
             // Platform
@@ -207,6 +209,16 @@ crate::commands::price::model_price_count_filtered,
             crate::commands::price::price_sync_settings_set,
             // About
             crate::commands::about::about_info,
+            // MITM (P3 ST7) — 白名单配置 + CA 安装状态/引导
+            crate::commands::mitm::mitm_status,
+            crate::commands::mitm::mitm_enable,
+            crate::commands::mitm::mitm_disable,
+            crate::commands::mitm::mitm_install_ca_prepare,
+            crate::commands::mitm::mitm_uninstall_ca_prepare,
+            crate::commands::mitm::mitm_set_ca_installed,
+            crate::commands::mitm::mitm_whitelist_add,
+            crate::commands::mitm::mitm_whitelist_remove,
+            crate::commands::mitm::mitm_whitelist_toggle,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

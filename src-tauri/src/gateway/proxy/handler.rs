@@ -60,6 +60,19 @@ async fn handle_proxy_inner(
     req: Request,
     request_id: String,
 ) -> Response {
+    // P1 CONNECT 隧道早期分流：authority-form URI（`host:port`）走 CONNECT handler，
+    // 不破现有 /proxy AI 协议 path 路由。fallback 命中 CONNECT 时 request_id 已生成，
+    // 直接复用；CONNECT handler 内部自管日志（upsert_connect_log，独立路径）。
+    //
+    // ponytail: CONNECT 分流前置于 guard + handle_proxy_core —— CONNECT 走独立日志路径
+    // （upsert_connect_log），不经 RequestLogGuard 499 兜底（CONNECT 自管 spawn 内终态）。
+    // 分流从 handle_proxy_core 顶部移到此处的关键原因：打破 handle_proxy_core ↔ handle_connect
+    // 互递归（ST5 明文路径在 connect.rs::handle_connect spawn 内调 handle_proxy_core，若分流
+    // 仍在 core 内则递归类型无法证 Send，tokio::spawn 拒绝）。
+    if req.method() == axum::http::Method::CONNECT {
+        return super::connect::handle_connect(state, req).await;
+    }
+
     // 中断兜底 guard：core 未正常返回（客户端断连致 future drop）时 Drop 补写终态 499。
     let mut guard = RequestLogGuard {
         state: state.0.clone(),
@@ -73,18 +86,11 @@ async fn handle_proxy_inner(
     resp
 }
 
-async fn handle_proxy_core(
+pub(crate) async fn handle_proxy_core(
     AxumState(state): AxumState<Arc<ProxyState>>,
     req: Request,
     request_id: String,
 ) -> Response {
-    // P1 CONNECT 隧道早期分流：authority-form URI（`host:port`）走 CONNECT handler，
-    // 不破现有 /proxy AI 协议 path 路由。fallback 命中 CONNECT 时 request_id 已生成，
-    // 直接复用；CONNECT handler 内部自管日志（upsert_connect_log，独立路径）。
-    if req.method() == axum::http::Method::CONNECT {
-        return super::connect::handle_connect(AxumState(state), req).await;
-    }
-
     let start = std::time::Instant::now();
     let created_at = super::db::now();
 
