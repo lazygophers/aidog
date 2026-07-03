@@ -53,6 +53,9 @@
 | mitm-whitelist-clash-rules | MITM 白名单 Clash 规则集全类型支持 + 默认扩充 | — | 已完成 | — |
 | mitm-ca-macos-fix | MITM CA macOS osascript 安装失败修复 (手敲 sudo 成功 / osascript 失败) | — | 已完成 | — |
 | platform-multi-apikey-ui | 平台添加多 apikey 智能识别批量创建 UI | — | 已完成 | — |
+| test-coverage-80 | 单测覆盖率≥80% | 完善整体单元测试覆盖率至少80% | 已完成 | — |
+| proxy-http-relay-p2 | proxy /proxy CONNECT 元数据记账 P2 (timeout/熔断/last_error/tracing) | — | 已完成 | — |
+| mitm-ca-test-detect | mitm CA 安装失败测试驱动检测 P2 (classifyTrustError 后端化单测 + osascript 语法集成) | — | 已完成 | — |
 
 ## Worktree ↔ Task 映射
 
