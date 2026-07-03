@@ -194,11 +194,12 @@ pub fn opencode_zen_fallback(api_key: &str, is_zen: bool) -> String {
 /// P1 CONNECT 隧道：仅按 CONNECT target host 段比对平台 base_url host。
 ///
 /// 复用 `endpoint_host()`（剥 scheme/userinfo/port，小写化）。命中任一启用态平台
-/// （enabled/auto_disabled）的主 base_url 或 endpoints[].base_url host 即返回该 platform_id；
-/// 未命中返回 None（调用方写 platform_id=0）。P1 隧道无 apikey（HTTPS 未解密），
-/// 无法做 group 路由——不计费、不入候选选择，仅 host 标记 proxy_log.platform_id。
-/// 平台数量小，O(n) 全表扫描可接受（CONNECT 每连接一次）。
-pub(crate) async fn match_platform_by_host(db: &Db, connect_host: &str) -> Option<u64> {
+/// （enabled/auto_disabled）的主 base_url 或 endpoints[].base_url host 即返回 `(platform_id, Platform)`
+/// 元组（P2 CONNECT 熔断需 Platform 解析 per-platform breaker 阈值，单次扫描一并返回避免二次 DB
+/// 查询）；未命中返回 None（调用方写 platform_id=0）。P1 隧道无 apikey（HTTPS 未解密），无法做
+/// group 路由——不计费、不入候选选择，仅 host 标记 proxy_log.platform_id。平台数量小，O(n) 全表
+/// 扫描可接受（CONNECT 每连接一次）。
+pub(crate) async fn match_platform_by_host(db: &Db, connect_host: &str) -> Option<(u64, super::models::Platform)> {
     let target = connect_host.to_lowercase();
     let platforms = match super::db::list_platforms(db).await {
         Ok(p) => p,
@@ -213,7 +214,7 @@ pub(crate) async fn match_platform_by_host(db: &Db, connect_host: &str) -> Optio
             endpoint_host(&p.base_url).as_deref() == Some(&target)
                 || p.endpoints.iter().any(|ep| endpoint_host(&ep.base_url).as_deref() == Some(&target))
         })
-        .map(|p| p.id)
+        .map(|p| (p.id, p.clone()))
 }
 
 #[cfg(test)]

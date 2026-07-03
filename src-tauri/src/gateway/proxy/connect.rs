@@ -50,6 +50,20 @@ where
 pub(crate) async fn handle_connect(
     AxumState(state): AxumState<Arc<ProxyState>>,
     req: Request,
+    request_id: String,
+) -> Response {
+    // P2-D：复用 handle_proxy 的 req span —— CONNECT 子日志行携带 trace_id/request_id，
+    // 可从 stderr 串回 proxy_log.id（与 AI 路径 upsert_log 行对齐）。
+    let span = tracing::info_span!(
+        "req", trace_id = %&request_id[..8], request_id = %request_id,
+    );
+    handle_connect_inner(state, req, request_id).instrument(span).await
+}
+
+async fn handle_connect_inner(
+    state: Arc<ProxyState>,
+    req: Request,
+    request_id: String,
 ) -> Response {
     // ponytail: CONNECT 是 authority-form URI（RFC 7231 §4.3.6），path() 返空（http 标准），
     // authority 在 uri().authority()；Host header 兜底。三源皆空 = 客户端坏请求，早返 400
@@ -78,13 +92,37 @@ pub(crate) async fn handle_connect(
     let on_upgrade = hyper::upgrade::on(req);
 
     // P1 平台匹配：仅 host（无 apikey，HTTPS 未解密）。未命中 → None（落 platform_id=0）。
-    let platform_id = match_platform_by_host(&state.db, &host_only).await.unwrap_or(0);
+    // P2-B：match_platform_by_host 返回 (id, Platform)，Platform 用于解 per-platform breaker 阈值。
+    let (platform_id, platform_opt) = match match_platform_by_host(&state.db, &host_only).await {
+        Some((id, p)) => (id, Some(p)),
+        None => (0u64, None),
+    };
 
     // 日志开关：disabled 时整条不落 proxy_log（与 upsert_log 早退语义一致）。
     let settings = get_log_settings(&state.db).await;
     let log_enabled = settings.enabled;
 
-    let request_id = uuid::Uuid::new_v4().simple().to_string();
+    // P2-A：connect 阶段超时（system 级；CONNECT 无 group/model_mapping 输入，仅 system 兜底）。
+    // 隧道建后 idle 不套超时（避长连接 SSE/WebSocket over TLS 误杀），仅 TCP 握手阶段超时。
+    let system_timeout = get_system_timeout(&state.db).await;
+    let conn_timeout_secs = if system_timeout.connect_timeout_secs > 0 {
+        system_timeout.connect_timeout_secs
+    } else {
+        10
+    };
+    // P2-B：本平台熔断阈值（未命中平台 → None，跳过熔断记账）。
+    // ponytail: 用 SchedulingBreakerSettings::default()（全局默认值）而非读 DB —— CONNECT 高频
+    // 小请求，每连一 DB 读增 IO；platform.extra.breaker 覆盖经 effective_thresholds 仍生效（只需
+    // Platform struct，不需 settings 字段非默认值，覆盖在 Platform 自带）。全局默认值的 breaker_*
+    // 字段不影响 effective_thresholds 的 per-platform 覆盖判定（>0 用 platform，否则用全局）。
+    let breaker_th = platform_opt.as_ref().map(|p| {
+        let sched_defaults = super::models::SchedulingBreakerSettings::default();
+        let (ft, os, hom) = sched_defaults.effective_thresholds(p);
+        super::scheduling::BreakerThresholds {
+            failure_threshold: ft, open_secs: os, half_open_max: hom,
+        }
+    });
+
     let start = std::time::Instant::now();
 
     // ST4 MITM 候选预判定：白名单命中 && 非 suspect。（DB 白名单匹配是 IO，suspect 查询是内存锁。）
@@ -96,17 +134,19 @@ pub(crate) async fn handle_connect(
 
     // ── 非 MITM 候选：P1 完整逻辑（spawn 前 TCP 验证 + 502 早返，零回归）─────────────
     if !mitm_candidate {
-        let upstream = match tokio::net::TcpStream::connect(&target).await {
+        // P2-A/B/C：TCP 连接套 timeout + 熔断/last_error 记账（命中平台时）。
+        let upstream = match tcp_connect_accounted(
+            &state, &target, platform_id, breaker_th.as_ref(), conn_timeout_secs,
+        ).await {
             Ok(s) => s,
-            Err(e) => {
-                tracing::warn!(error = %e, target = %target, "connect: upstream TCP failed");
+            Err(()) => {
                 if log_enabled {
                     upsert_connect_log(
                         &state, request_id, String::new(), platform_id,
                         target.clone(), 502, start.elapsed().as_millis() as i32,
                     ).await;
                 }
-                return (StatusCode::BAD_GATEWAY, format!("connect {target} failed: {e}")).into_response();
+                return (StatusCode::BAD_GATEWAY, format!("connect {target} failed")).into_response();
             }
         };
         return spawn_blind_relay(
@@ -146,7 +186,10 @@ pub(crate) async fn handle_connect(
                 // downcast 失败（理论上不应）→ 退化 blind_relay（裸 Upgraded，不进 MITM）。
                 tracing::warn!(target = %target, "downcast TokioIo<TcpStream> failed, blind relay");
                 let client = TokioIo::new(upgraded);
-                blind_relay_after_connect(&st, client, &target, request_id, platform_id, start, log_enabled, &[]).await;
+                blind_relay_after_connect(
+                    &st, client, &target, request_id, platform_id,
+                    breaker_th.as_ref(), conn_timeout_secs, start, log_enabled, &[],
+                ).await;
                 return;
             }
         };
@@ -182,7 +225,10 @@ pub(crate) async fn handle_connect(
         if !parts.read_buf.is_empty() {
             let _ = tokio::io::AsyncWriteExt::write_all(&mut client, &parts.read_buf).await;
         }
-        blind_relay_after_connect(&st, client, &target, request_id, platform_id, start, log_enabled, &[]).await;
+        blind_relay_after_connect(
+            &st, client, &target, request_id, platform_id,
+            breaker_th.as_ref(), conn_timeout_secs, start, log_enabled, &[],
+        ).await;
     });
 
     resp
@@ -192,7 +238,7 @@ pub(crate) async fn handle_connect(
 
 /// P1 blind_relay：上游 TCP 已连，spawn 双向 copy（保留 P1 完整行为含 read_buf flush）。
 ///
-/// ponytail: 8 参数都是必要的隧道上下文（无冗余），打包 struct 仅在这几个 blind_relay
+/// ponytail: 参数都是必要的隧道上下文（无冗余），打包 struct 仅在这几个 blind_relay
 /// helper 间传递无复用价值，YAGNI；allow clippy::too_many_arguments。
 #[allow(clippy::too_many_arguments)]
 fn spawn_blind_relay(
@@ -214,6 +260,10 @@ fn spawn_blind_relay(
             Ok(u) => u,
             Err(e) => {
                 tracing::warn!(error = %e, target = %target, "connect upgrade failed");
+                // upgrade 失败（客户端升级前断）→ inflight-1（不动 breaker/EMA，非上游健康信号）。
+                if platform_id != 0 {
+                    state.scheduler.record_ignored(platform_id);
+                }
                 if log_enabled {
                     upsert_connect_log(
                         &state, request_id, String::new(), platform_id,
@@ -229,6 +279,10 @@ fn spawn_blind_relay(
                 tracing::warn!(target = %target, "downcast TokioIo<TcpStream> failed, blind relay");
                 let client = TokioIo::new(upgraded);
                 bridge_bidir(client, upstream).await;
+                // P2-B：隧道正常关闭 → inflight-1（record_ignored 仅 inflight，不动 breaker/EMA）。
+                if platform_id != 0 {
+                    state.scheduler.record_ignored(platform_id);
+                }
                 log_connect_success(&state, request_id, platform_id, target, start, log_enabled).await;
                 return;
             }
@@ -238,6 +292,10 @@ fn spawn_blind_relay(
             let _ = tokio::io::AsyncWriteExt::write_all(&mut client, &parts.read_buf).await;
         }
         bridge_bidir(client, upstream).await;
+        // P2-B：隧道正常关闭 → inflight-1（record_ignored 仅 inflight，不动 breaker/EMA）。
+        if platform_id != 0 {
+            state.scheduler.record_ignored(platform_id);
+        }
         log_connect_success(&state, request_id, platform_id, target, start, log_enabled).await;
     });
     resp
@@ -248,10 +306,14 @@ fn spawn_blind_relay(
 /// `prefetch` 是已从客户端预读的字节（须先 flush 到上游）；通常空（合法 CONNECT 客户端
 /// 收 200 才发数据），blind_relay 调用方负责 flush，此参数留空数组占位（接口对称）。
 ///
+/// P2-A/B/C：connect 套 timeout + TCP 失败 record_failure + set_platform_last_error +
+/// inflight-1；成功侧 record_ignored（仅 inflight-1，**禁 record_success**，避 CONNECT TCP
+/// 握手延迟污染 LeastLatency EMA —— AI 推理秒级 vs TCP 握手毫秒级）。
+///
 /// ponytail: 抽出避免 blind_relay 逻辑在 handle_connect spawn 内重复（downcast 失败 +
 /// MITM 降级 + read_buf 非空三路径都走 blind_relay）。签名收 `&str` target 因调用方已拥有
 /// String，借用避免 move 后还要用（tracing 等）。
-/// ponytail: 8 参数同 spawn_blind_relay（隧道上下文），allow clippy::too_many_arguments。
+/// ponytail: 参数同 spawn_blind_relay（隧道上下文），allow clippy::too_many_arguments。
 #[allow(clippy::too_many_arguments)]
 async fn blind_relay_after_connect(
     st: &Arc<ProxyState>,
@@ -259,20 +321,86 @@ async fn blind_relay_after_connect(
     target: &str,
     request_id: String,
     platform_id: u64,
+    breaker_th: Option<&super::scheduling::BreakerThresholds>,
+    conn_timeout_secs: u64,
     start: std::time::Instant,
     log_enabled: bool,
     _prefetch: &[u8],
 ) {
-    match tokio::net::TcpStream::connect(target).await {
+    match tcp_connect_accounted(st, target, platform_id, breaker_th, conn_timeout_secs).await {
         Ok(upstream) => {
             bridge_bidir(client, upstream).await;
+            // P2-B：隧道正常关闭 → inflight-1（record_ignored 仅 inflight，不动 breaker/EMA）。
+            if platform_id != 0 {
+                st.scheduler.record_ignored(platform_id);
+            }
             log_connect_success(st, request_id, platform_id, target.to_string(), start, log_enabled).await;
         }
-        Err(e) => {
-            tracing::warn!(error = %e, target, "blind relay: upstream TCP failed");
+        Err(()) => {
             log_connect_502(st, request_id, platform_id, target.to_string(), start, log_enabled).await;
         }
     }
+}
+
+/// P2-A/B/C：TCP 连接 + 元数据记账封装（blind_relay 路径专用）。
+///
+/// - **A. timeout**：`tokio::time::timeout(conn_timeout_secs, TcpStream::connect)` —— 仅 TCP
+///   握手阶段超时，隧道建后 idle 不限（避 SSE/WebSocket over TLS 长连接误杀）。
+/// - **B. 熔断**：命中平台（platform_id != 0 && breaker_th.is_some()）→ connect 前
+///   `inc_inflight`；失败 → `record_failure`；超时（timeout elapsed）→ 同 record_failure。
+///   **成功侧由调用方在隧道关闭后 `record_ignored`**（仅 inflight-1，禁 record_success，
+///   避 CONNECT TCP 握手延迟污染 LeastLatency EMA —— AI 推理秒级 vs TCP 握手毫秒级）。
+/// - **C. last_error**：失败 → `set_platform_last_error`（成功侧禁 recover_platform_auto_disabled，
+///   CONNECT 隧道成功 ≠ 平台 AI API 健康）。
+///
+/// ponytail: 返 `Result<TcpStream, ()>` —— 调用方已统一走 502 log 路径，错误细节在内部已
+/// tracing + record，无需回传 error 字符串（原本 format!("{e}") 仅进 502 body，调试价值低，
+/// 真错误在 tracing warn 行）。最小可工作签名。
+pub(crate) async fn tcp_connect_accounted(
+    st: &Arc<ProxyState>,
+    target: &str,
+    platform_id: u64,
+    breaker_th: Option<&super::scheduling::BreakerThresholds>,
+    conn_timeout_secs: u64,
+) -> Result<tokio::net::TcpStream, ()> {
+    // P2-B：connect 前 inc_inflight（仅命中平台）。
+    if platform_id != 0 {
+        st.scheduler.inc_inflight(platform_id);
+    }
+    let conn = tokio::time::timeout(
+        std::time::Duration::from_secs(conn_timeout_secs),
+        tokio::net::TcpStream::connect(target),
+    ).await;
+    match conn {
+        Ok(Ok(s)) => Ok(s),
+        Ok(Err(e)) => {
+            tracing::warn!(error = %e, target, "connect: upstream TCP failed");
+            record_connect_failure(st, platform_id, breaker_th, format!("connect TCP error: {e}")).await;
+            Err(())
+        }
+        Err(_) => {
+            tracing::warn!(target, secs = conn_timeout_secs, "connect: upstream TCP timeout");
+            record_connect_failure(st, platform_id, breaker_th, format!("connect TCP timeout ({conn_timeout_secs}s)")).await;
+            Err(())
+        }
+    }
+}
+
+/// P2-B/C 失败记账：record_failure（breaker fail 计数）+ set_platform_last_error。
+/// 未命中平台（platform_id=0 / breaker_th=None）→ 仅返回（无平台可挂）。
+async fn record_connect_failure(
+    st: &Arc<ProxyState>,
+    platform_id: u64,
+    breaker_th: Option<&super::scheduling::BreakerThresholds>,
+    err_msg: String,
+) {
+    if platform_id == 0 {
+        return;
+    }
+    if let Some(th) = breaker_th {
+        st.scheduler.record_failure(platform_id, th, super::db::now());
+    }
+    let _ = super::db::set_platform_last_error(&st.db, platform_id, Some(err_msg)).await;
 }
 
 // ── ST4 MITM 路径 ──────────────────────────────────────────────────────────────
