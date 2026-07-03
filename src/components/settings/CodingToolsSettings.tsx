@@ -7,10 +7,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { codingToolsSettingsApi, settingsApi, configApi, type CodingToolsSettings } from "../../services/api";
+import { codingToolsSettingsApi, settingsApi, configApi, middlewareApi, type CodingToolsSettings, type MiddlewareRule } from "../../services/api";
 import { LANGUAGE_OPTIONS } from "../../services/claude-settings-schema";
 
 const CLAUDE_CONFIG_KEY = "claude_code";
+// 内置·日期格式改写防检测 规则名（与 schema.rs builtin_rule_specs 一致）。
+// 该开关镜像 middleware_rule.enabled，不写 coding_tools_settings。
+const DATE_REWRITE_RULE_NAME = "内置·日期格式改写防检测";
 
 export function CodingToolsSettingsTab() {
   const { t } = useTranslation();
@@ -19,6 +22,10 @@ export function CodingToolsSettingsTab() {
     skip_claude_onboarding: false,
   });
   const [language, setLanguage] = useState<string>("");
+  // 日期改写防检测开关：镜像 middleware_rule.enabled（不写 coding_tools_settings）。
+  // null = 加载中/规则未找到，true/false = 规则 enabled。
+  const [dateRewriteEnabled, setDateRewriteEnabled] = useState<boolean | null>(null);
+  const [dateRewriteRuleId, setDateRewriteRuleId] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [message, setMessage] = useState("");
   // 写外部文件失败时的常驻错误态（与瞬时成功提示分离）：失败不自动消失，
@@ -60,6 +67,20 @@ export function CodingToolsSettingsTab() {
       .catch(() => {
         // 语言读失败不阻塞开关加载：留空 option 占位即可
       });
+    // 日期改写规则开关态：从 middleware_rule 读 enabled（按 name filter 内置规则）
+    middlewareApi
+      .listRules()
+      .then((rules) => {
+        if (cancelled || dirtyRef.current) return;
+        const r = rules.find((x: MiddlewareRule) => x.name === DATE_REWRITE_RULE_NAME && x.is_builtin);
+        if (r) {
+          setDateRewriteRuleId(r.id);
+          setDateRewriteEnabled(!!r.enabled);
+        }
+      })
+      .catch(() => {
+        // 规则读取失败不阻塞开关加载：开关保持 null（不渲染翻转态）
+      });
     return () => {
       cancelled = true;
     };
@@ -82,6 +103,47 @@ export function CodingToolsSettingsTab() {
     } catch (e: any) {
       // 写失败：回滚开关到失败前状态 + 常驻红色错误（含后端真实原因），不可错过
       setSettings((s) => ({ ...s, [field]: prev }));
+      setError(t("codingTools.writeFailed", "写入失败") + ": " + String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  // 切「日期格式改写防检测」开关：镜像 middleware_rule.enabled（非 coding_tools_settings）。
+  // UpdateMiddlewareRule 是全量覆盖，须带原规则全部字段，仅翻 enabled。
+  const handleDateRewriteToggle = async (next: boolean) => {
+    if (busy || dateRewriteRuleId == null) return;
+    const prev = dateRewriteEnabled;
+    dirtyRef.current = true;
+    setMessage("");
+    setError("");
+    setDateRewriteEnabled(next);
+    setBusy(true);
+    try {
+      // 重新 list 拿最新规则（避免本地态与 DB 漂移），再 update enabled。
+      const rules = await middlewareApi.listRules();
+      const r = rules.find((x: MiddlewareRule) => x.name === DATE_REWRITE_RULE_NAME && x.is_builtin);
+      if (!r) throw new Error("builtin date-rewrite rule not found");
+      const updated = await middlewareApi.updateRule({
+        id: r.id,
+        name: r.name,
+        description: r.description,
+        rule_type: r.rule_type,
+        scope: r.scope,
+        scope_ref: r.scope_ref,
+        match_type: r.match_type,
+        pattern: r.pattern,
+        action: r.action,
+        config: r.config,
+        priority: r.priority,
+        enabled: next,
+        is_builtin: r.is_builtin,
+      });
+      setDateRewriteRuleId(updated.id);
+      setDateRewriteEnabled(!!updated.enabled);
+      setMessage(next ? t("codingTools.applied", "已应用") : t("codingTools.cleared", "已清除"));
+    } catch (e: any) {
+      setDateRewriteEnabled(prev);
       setError(t("codingTools.writeFailed", "写入失败") + ": " + String(e));
     } finally {
       setBusy(false);
@@ -182,6 +244,32 @@ export function CodingToolsSettingsTab() {
         />
       </div>
 
+      {/* 开关 3：日期格式改写防检测（镜像 middleware_rule.enabled，非 coding_tools_settings） */}
+      <div className="glass-surface" style={{
+        padding: "16px 20px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}>
+        <div style={{ flex: 1, minWidth: 0, paddingRight: 16 }}>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("codingTools.dateRewrite.title")}</div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {t("codingTools.dateRewrite.desc")}
+          </div>
+          <div className="text-tertiary" style={{ fontSize: 11, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
+            middleware · redaction · YYYY/MM/DD → YYYY-MM-DD
+          </div>
+        </div>
+        <div
+          className={`toggle ${dateRewriteEnabled ? "active" : ""}`}
+          onClick={() => dateRewriteEnabled != null && handleDateRewriteToggle(!dateRewriteEnabled)}
+          role="switch"
+          aria-checked={dateRewriteEnabled ?? false}
+          aria-disabled={dateRewriteEnabled == null}
+          tabIndex={dateRewriteEnabled == null ? -1 : 0}
+        />
+      </div>
+
       {/* 语言选择：写 ~/.claude/settings.json 的 language key（复用 claudeTab sync 路径） */}
       <div className="glass-surface" style={{
         padding: "16px 20px",
@@ -191,17 +279,14 @@ export function CodingToolsSettingsTab() {
         gap: 16,
       }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("codingTools.language.title")}</div>
+          <div style={{ fontSize: 14, fontWeight: 600 }}>{t("codingTools.language.title")}</div>
           <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
             {t("codingTools.language.desc")}
-          </div>
-          <div className="text-tertiary" style={{ fontSize: 11, marginTop: 6, fontFamily: "ui-monospace, monospace" }}>
-            ~/.claude/settings.json · language
           </div>
         </div>
         <select
           className="input"
-          style={{ fontSize: 13, minWidth: 180 }}
+          style={{ fontSize: 13, width: "auto", padding: "4px 28px 4px 8px" }}
           value={language}
           onChange={(e) => handleLanguageChange(e.target.value)}
           disabled={busy}

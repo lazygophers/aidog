@@ -11,7 +11,34 @@ use serde_json::Value;
 use std::sync::Arc;
 #[allow(unused_imports)]
 use tauri::Manager;
+use serde::Serialize;
 
+/// fetch-models 失败的结构化错误。前端按 `kind` 分流：
+/// - `Auth`(401/403) → 鉴权问题，立即 break 回退链 + 鉴权专用文案
+/// - `NotFound`(404) → 端点不存在，continue 试下一协议
+/// - `Other`(其余) → 网络错 / 5xx 等，continue 试下一协议
+///
+/// tag="kind" 内部表示：`{"kind":"Auth","code":401,"message":"..."}`。
+/// Tauri command Err 走 serde_json 序列化，enum 需 derive(Serialize)。
+#[derive(Debug, Serialize)]
+#[serde(tag = "kind")]
+pub enum FetchModelsError {
+    Auth { code: u16, message: String },
+    NotFound { code: u16, message: String },
+    Other { code: u16, message: String },
+}
+
+impl FetchModelsError {
+    /// 按 HTTP status code 映射变体。0 = 无 status（网络错 / 读 body 失败等）。
+    fn from_status(code: u16, message: impl Into<String>) -> Self {
+        let message = message.into();
+        match code {
+            401 | 403 => FetchModelsError::Auth { code, message },
+            404 => FetchModelsError::NotFound { code, message },
+            _ => FetchModelsError::Other { code, message },
+        }
+    }
+}
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
@@ -20,7 +47,7 @@ pub async fn platform_fetch_models(
     base_url: String,
     api_key: String,
     db: State<'_, Db>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, FetchModelsError> {
     tracing::debug!(command = "platform_fetch_models", protocol = ?protocol, base_url = %base_url, api_key = "[REDACTED]", "command invoked");
     let db_arc = Arc::new(db.inner().clone());
     let client = gateway::http_client::build_http_client_system(&db_arc, 30, 10).await;
@@ -88,11 +115,14 @@ pub async fn platform_fetch_models(
             if let Err(le) = db::upsert_proxy_log(&db, make_log(0, 502, &format!("upstream error: {e}"), &url)).await {
                 tracing::warn!(command = "platform_fetch_models", error = %le, "persist fetch-models log failed");
             }
-            return Err(format!("fetch models: {e}"));
+            return Err(FetchModelsError::from_status(0, format!("fetch models: {e}")));
         }
     };
     let status = resp.status();
-    let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
+    let body = resp.text().await.map_err(|e| {
+        tracing::error!(url = %url, "read body failed: {e}");
+        FetchModelsError::from_status(0, format!("read body: {e}"))
+    })?;
     tracing::info!(url = %url, %status, "fetch models response status");
     tracing::debug!(url = %url, body = %gateway::log_util::log_body_preview(&body), "fetch models response body");
     // 记录 fetch-models 请求到 proxy_log（成功响应，保留原文便于排查）
@@ -100,10 +130,18 @@ pub async fn platform_fetch_models(
     if let Err(le) = db::upsert_proxy_log(&db, make_log(upstream_status, upstream_status, &body, &url)).await {
         tracing::warn!(command = "platform_fetch_models", error = %le, "persist fetch-models log failed");
     }
+    // 🔴 status code 参与控制流：非 2xx 按 code 映射错误变体（401/403 → Auth, 404 → NotFound, 其余 → Other）。
+    // 之前 401 错误体 {"error":{...}} 是合法 JSON，解析「成功」但无 data → unwrap_or_default() 返空 Vec，
+    // 与 404 表现完全相同，用户无法区分鉴权失败与端点不存在。这里把 status 透传给前端做分流。
+    if !status.is_success() {
+        let code = status.as_u16();
+        tracing::warn!(url = %url, %code, "fetch models non-success status");
+        return Err(FetchModelsError::from_status(code, body));
+    }
     let resp: Value = serde_json::from_str::<Value>(&body)
         .map_err(|e| {
             tracing::error!("parse response failed: {e}, body={}", &body[..body.len().min(500)]);
-            format!("parse response: {e}")
+            FetchModelsError::from_status(status.as_u16(), format!("parse response: {e}"))
         })?;
 
     // 解析 {"data": [{"id": "..."}, ...]} 格式
@@ -121,4 +159,58 @@ pub async fn platform_fetch_models(
         .unwrap_or_default();
 
     Ok(models)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn auth_variant_for_401_403() {
+        let e = FetchModelsError::from_status(401, "bad key");
+        match e {
+            FetchModelsError::Auth { code, message } => {
+                assert_eq!(code, 401);
+                assert_eq!(message, "bad key");
+            }
+            other => panic!("expected Auth, got {other:?}"),
+        }
+        assert!(matches!(
+            FetchModelsError::from_status(403, "forbidden"),
+            FetchModelsError::Auth { .. }
+        ));
+    }
+
+    #[test]
+    fn notfound_variant_for_404() {
+        let e = FetchModelsError::from_status(404, "no route");
+        match e {
+            FetchModelsError::NotFound { code, message } => {
+                assert_eq!(code, 404);
+                assert_eq!(message, "no route");
+            }
+            other => panic!("expected NotFound, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn other_variant_for_rest_including_zero() {
+        assert!(matches!(
+            FetchModelsError::from_status(500, "boom"),
+            FetchModelsError::Other { .. }
+        ));
+        assert!(matches!(
+            FetchModelsError::from_status(0, "network"),
+            FetchModelsError::Other { .. }
+        ));
+    }
+
+    #[test]
+    fn serialize_tag_kind_for_frontend_dispatch() {
+        let e = FetchModelsError::Auth { code: 401, message: "invalid".into() };
+        let v = serde_json::to_value(&e).unwrap();
+        assert_eq!(v["kind"], "Auth");
+        assert_eq!(v["code"], 401);
+        assert_eq!(v["message"], "invalid");
+    }
 }

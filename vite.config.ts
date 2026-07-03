@@ -22,7 +22,8 @@ export default defineConfig(async () => ({
         }
       : undefined,
     watch: {
-      ignored: ["**/src-tauri/**"],
+      // ponytail: 排除 src-tauri + 所有 worktree（task worktree 内 dist 改动会触发误 reload）
+      ignored: ["**/src-tauri/**", "**/.worktrees/**"],
     },
   },
   build: {

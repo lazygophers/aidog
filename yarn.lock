@@ -1169,6 +1169,15 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@tauri-apps/plugin-shell@npm:^2":
+  version: 2.3.5
+  resolution: "@tauri-apps/plugin-shell@npm:2.3.5"
+  dependencies:
+    "@tauri-apps/api": "npm:^2.10.1"
+  checksum: 10c0/555f33efb997a0e1b21c9540b0bb30dcda073009f55f7cdb89eb0587427fdec27b1e6a1df4ab5c08065b7f3f0a61cfefd059ec8be9eafb157c9b6344eb856df2
+  languageName: node
+  linkType: hard
+
 "@tauri-apps/plugin-updater@npm:^2":
   version: 2.10.1
   resolution: "@tauri-apps/plugin-updater@npm:2.10.1"
@@ -1544,6 +1553,7 @@ __metadata:
     "@tauri-apps/plugin-notification": "npm:^2.3.3"
     "@tauri-apps/plugin-opener": "npm:^2"
     "@tauri-apps/plugin-process": "npm:^2"
+    "@tauri-apps/plugin-shell": "npm:^2"
     "@tauri-apps/plugin-updater": "npm:^2"
     "@testing-library/dom": "npm:^10.4.1"
     "@testing-library/jest-dom": "npm:^6.9.1"

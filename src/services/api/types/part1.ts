@@ -55,6 +55,17 @@ export type ClientType =
 
 export type ModelSlot = "default" | "sonnet" | "opus" | "haiku" | "gpt";
 
+/**
+ * fetchModels 失败的结构化错误（镜像后端 FetchModelsError enum，tag=kind）。
+ * 前端 handleFetchModels 按 kind 分流：Auth → 立即 break + 鉴权专用文案；
+ * NotFound / Other → continue 试下一协议 endpoint。
+ */
+export interface FetchModelsError {
+  kind: "Auth" | "NotFound" | "Other";
+  code: number;
+  message: string;
+}
+
 
 export interface PlatformEndpoint {
   protocol: Protocol;

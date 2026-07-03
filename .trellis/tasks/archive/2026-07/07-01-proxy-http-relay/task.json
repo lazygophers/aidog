@@ -1,0 +1,29 @@
+{
+  "id": "proxy-http-relay",
+  "name": "proxy-http-relay",
+  "title": "/proxy 支持通用 HTTP 代理 + 无平台/无分组筛选",
+  "description": "",
+  "status": "completed",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "nico",
+  "assignee": "nico",
+  "createdAt": "2026-07-01",
+  "completedAt": "2026-07-03",
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-02-stats-logs-filter-unify",
+    "07-02-07-01-proxy-http-relay-p1"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {}
+}

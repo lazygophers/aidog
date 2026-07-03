@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, parsePlatformBreaker, serializePlatformBreaker, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type PlatformStatus, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type LastTestResult, type MockConfig, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail, type SharePlatform } from "../services/api";
+import { platformApi, settingsApi, modelTestApi, quotaApi, schedulingApi, groupDetailApi, parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig, parsePlatformBreaker, serializePlatformBreaker, onProxyLogUpdated, DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG, type Platform, type PlatformStatus, type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType, type PlatformUsageStats, type PlatformQuota, type LastTestResult, type MockConfig, type NewApiConfig, type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit, type SchedulingBreakerSettings, type GroupDetail, type SharePlatform, type FetchModelsError } from "../services/api";
 import { IconClose, IconCheck } from "../components/icons";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 
@@ -1090,25 +1090,76 @@ const [testingPlatform, setTestingPlatform] = useState<Platform | null>(null);
   };
 
   /** 一键获取：获取模型列表 + 自动分类 + 持久化
-   *  默认使用 OpenAI 协议 endpoint，回退到主协议 endpoint */
+   *  多协议回退链（通用，非 longcat 专属）：
+   *  - 按优先级 try 各 endpoint：openai 优先 → 主协议 → 其余已配 endpoint
+   *  - 401/403 (Auth) → 鉴权问题，立即 break 回退链 + 鉴权专用文案（鉴权错回退无意义）
+   *  - 404 (NotFound) / 其他错 → continue 试下一协议
+   *  - 首个成功（返非空 models）即 setAvailableModels + break
+   *  - 全部 endpoint 试完仍无结果 → 报最后一条错 */
   const handleFetchModels = async () => {
+    // 回退顺序：openai endpoint 在前 → 主协议 endpoint → 其余 endpoint 去重。
+    const primaryBase = getPrimaryBaseUrl(protocol, endpoints);
     const openaiEp = endpoints.find(ep => ep.protocol === "openai");
-    const fetchUrl = openaiEp?.base_url || getPrimaryBaseUrl(protocol, endpoints);
     // opencode_zen /v1/models 无 auth 可列模型，api_key 可留空（后端兜底 $opencode）。
-    if (!fetchUrl || apiKeyMissing) return;
+    if (apiKeyMissing) return;
+    // 构造有序去重 try 列表：(protocol, base_url)
+    const seen = new Set<string>();
+    const tryList: { proto: Protocol; url: string }[] = [];
+    const push = (proto: Protocol, url: string) => {
+      if (!url) return;
+      const key = `${proto}|${url}`;
+      if (seen.has(key)) return;
+      seen.add(key);
+      tryList.push({ proto, url });
+    };
+    if (openaiEp) push("openai", openaiEp.base_url);
+    if (primaryBase) push(protocol, primaryBase);
+    for (const ep of endpoints) {
+      if (ep.protocol === "openai" || ep.protocol === protocol) continue;
+      push(ep.protocol as Protocol, ep.base_url);
+    }
+    if (tryList.length === 0) return;
     setFetching(true); setFetchError("");
+    let lastError: FetchModelsError | null = null;
+    let fetched = false;
     try {
-      const fetchProtocol: Protocol = openaiEp ? "openai" : protocol;
-      const modelIds = await platformApi.fetchModels(fetchProtocol, fetchUrl, apiKey);
-      if (modelIds.length === 0) {
+      for (const { proto, url } of tryList) {
+        try {
+          const modelIds = await platformApi.fetchModels(proto, url, apiKey);
+          if (modelIds.length === 0) {
+            // 空列表（200 但无 data）不 break，继续试下一 endpoint，但记录为「可能拉不到」
+            continue;
+          }
+          setAvailableModels(modelIds);
+          const categorized = autoCategorize(modelIds);
+          setModels(categorized);
+          lastError = null;
+          fetched = true;
+          break;
+        } catch (e: any) {
+          const err: FetchModelsError | null = e && typeof e === "object" && "kind" in e ? (e as FetchModelsError) : null;
+          if (err && err.kind === "Auth") {
+            // 401/403 鉴权失败：回退无意义，立即 break 报鉴权专用文案
+            lastError = err;
+            break;
+          }
+          // NotFound (404) / Other (网络错 / 5xx) → 记录后 continue 试下一协议
+          if (err) lastError = err;
+          else lastError = { kind: "Other", code: 0, message: e?.toString?.() ?? String(e) };
+        }
+      }
+      if (lastError) {
+        if (lastError.kind === "Auth") {
+          setFetchError(t("platform.fetchAuthError", { code: lastError.code }));
+        } else {
+          setFetchError(lastError.message || t("platform.fetchEmpty"));
+        }
+      } else if (!fetched) {
+        // 回退链全跑完但没成功（所有 endpoint 返空列表）
         setFetchError(t("platform.fetchEmpty"));
-      } else {
-        setAvailableModels(modelIds);
-        const categorized = autoCategorize(modelIds);
-        setModels(categorized);
       }
     } catch (e: any) {
-      setFetchError(e.toString());
+      setFetchError(e?.toString?.() ?? String(e));
     }
     setFetching(false);
   };
