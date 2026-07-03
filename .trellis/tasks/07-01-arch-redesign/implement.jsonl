@@ -1,1 +1,3 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/tasks/07-01-arch-redesign/design.md", "reason": "阶段4 调度 + 决策锁 #6 (hook+JSX 混合) + 每阶段验收门 (yarn build + check:i18n + 无 >800 行)"}
+{"file": ".trellis/tasks/07-01-arch-redesign/research/section-split-map.md", "reason": "§2.2.1 Platforms 主组件二次拆切分点 + §3.2.1 GroupsEmbedded 二次拆区块清单 + 行号边界"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "前端约定 (组件/状态/API/i18n) 重构守门"}
