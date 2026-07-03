@@ -787,6 +787,7 @@
   "platform.expiresAtHint": "可选。到期后该平台自动从路由候选排除（等效禁用），改值或清空即恢复。",
   "platform.expiresAtSoon": "临近过期：{{time}}",
   "platform.fetchEmpty": "未获取到可用模型",
+  "platform.fetchAuthError": "API key 鉴权失败 (HTTP {{code}})，请检查平台 key",
   "platform.fetchModels": "一键获取",
   "platform.fillAll": "一键填充",
   "platform.fillAllHint": "用默认模型覆盖所有槽位",
