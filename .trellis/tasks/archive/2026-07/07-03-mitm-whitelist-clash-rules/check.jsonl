@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/proxy-connect-relay.md", "reason": "MITM 白名单契约验收：CONNECT host=IP 字面命中 ipcidr / host=域名命中 suffix(含裸域)"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "Migration 回填存量 rule_type 不破坏现有 *.anthropic.com 行为"}

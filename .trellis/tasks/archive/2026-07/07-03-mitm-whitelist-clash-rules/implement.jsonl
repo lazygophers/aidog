@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/proxy-connect-relay.md", "reason": "MITM 白名单 host 契约 + CONNECT 隧道分流语义（命中走 MITM / 未命中 P1 盲转）+ group_key 列名"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "mitm_whitelist 表加 rule_type 列 Migration 规范（命名/默认值/回填存量）"}
