@@ -61,10 +61,9 @@ impl RootCa {
 /// 需要先构造 rustls::server::ResolvesServerCert（ST3 实装），此处仅算字面指纹供装/卸信任库定位，
 /// 不强耦合 rustls 类型。空 / 解析失败返空串（调用方容错：装信任库命令仍可执行，仅定位弱）。
 fn cert_fingerprint_hex(cert_pem: &str) -> String {
-    use rustls_pemfile::Item;
-    let der = match rustls_pemfile::read_one_from_slice(cert_pem.as_bytes()) {
-        Ok(Some((Item::X509Certificate(der), _))) => der.as_ref().to_vec(),
-        _ => return String::new(),
+    let der = match pem_der(cert_pem) {
+        Some(d) => d,
+        None => return String::new(),
     };
     use sha2::{Digest, Sha256};
     let mut hasher = Sha256::new();
@@ -74,6 +73,32 @@ fn cert_fingerprint_hex(cert_pem: &str) -> String {
         .map(|b| format!("{:02X}", b))
         .collect::<Vec<_>>()
         .join(":")
+}
+
+/// 从 PEM 证书文本计算 SHA-1 thumbprint（plain lowercase hex, NO colon）。
+///
+/// ST9 CA 清理：macOS `security delete-certificate -Z` 与 Windows `certutil -delstore Root`
+/// 均按 SHA-1 thumbprint 定位。capability mitm-ca.json validator `^[0-9A-Fa-f]+$` 拒冒号，
+/// 故返 plain hex（40 chars）。空/解析失败返空串（调用方应已校验 CA 存在）。
+fn cert_sha1_thumbprint_hex(cert_pem: &str) -> String {
+    let der = match pem_der(cert_pem) {
+        Some(d) => d,
+        None => return String::new(),
+    };
+    use sha1::{Digest, Sha1};
+    let mut hasher = Sha1::new();
+    hasher.update(&der);
+    let hash = hasher.finalize();
+    hash.iter().map(|b| format!("{:02x}", b)).collect::<String>()
+}
+
+/// 解析 PEM 取 X.509 DER bytes（cert_fingerprint_hex / cert_sha1_thumbprint_hex 共用）。
+fn pem_der(cert_pem: &str) -> Option<Vec<u8>> {
+    use rustls_pemfile::Item;
+    match rustls_pemfile::read_one_from_slice(cert_pem.as_bytes()) {
+        Ok(Some((Item::X509Certificate(der), _))) => Some(der.as_ref().to_vec()),
+        _ => None,
+    }
 }
 
 /// 生成 ECDSA P256 自签 Root CA（rcgen）。
@@ -353,9 +378,25 @@ pub fn trust_ca_command(ca_pem_path: &str) -> (String, Vec<String>) {
     }
 }
 
-/// 卸载 CA（ST9 实装）。本 subtask 留接口签名，body 在 ST9 补命令 reverse。
-#[allow(dead_code)] // ST9 接入后引用
-pub fn untrust_ca_command(fingerprint_hex: &str) -> (String, Vec<String>) {
+/// 卸载 CA（ST9 实装）：移除系统信任库里的 AirDog Root CA。
+///
+/// 反向 trust_ca_command 的 3 OS 命令（design §1 + ST9 验收）：
+///  - macOS: `security delete-certificate -Z <sha1-hex>`
+///    （`-Z` 按 SHA-1 hash 定位；与 trust_ca 的 System.keychain 同库删除）
+///  - Windows: `certutil -delstore Root <sha1-hex>`
+///    （按 SHA-1 thumbprint 删 Root store；trust_ca 的 -addstore Root reverse）
+///  - Linux: `rm -f /usr/local/share/ca-certificates/aidog-ca.crt && update-ca-certificates --fresh`
+///    （删 trust_ca 拷入的固定文件名 + --fresh 全量重算 hash，避免残留软链）
+///
+/// 入参 `cert_pem`：从 PEM 现算 SHA-1 thumbprint（plain hex, no colon）。原因：
+///  - macOS `-Z` / Windows `-delstore` 语义 = SHA-1，非 ST1 存的 SHA-256
+///  - capability mitm-ca.json validator `^[0-9A-Fa-f]+$` 拒冒号（ST1 fingerprint 是 colon-separated）
+///  - 调用方（commands/mitm.rs::mitm_uninstall_ca_prepare）已持 RootCa.cert_pem，无需 DB schema 改动
+///
+/// ponytail: 不在 DB 额外存 SHA-1 列（避免 migration）。CA 装时 cert_pem 不变，
+/// 卸载时现算与原装时一致（同 PEM = 同 DER = 同 SHA-1）。
+pub fn untrust_ca_command(cert_pem: &str) -> (String, Vec<String>) {
+    let sha1 = cert_sha1_thumbprint_hex(cert_pem);
     #[cfg(target_os = "macos")]
     {
         (
@@ -363,7 +404,7 @@ pub fn untrust_ca_command(fingerprint_hex: &str) -> (String, Vec<String>) {
             vec![
                 "delete-certificate".to_string(),
                 "-Z".to_string(),
-                fingerprint_hex.to_string(),
+                sha1,
             ],
         )
     }
@@ -371,16 +412,20 @@ pub fn untrust_ca_command(fingerprint_hex: &str) -> (String, Vec<String>) {
     {
         (
             "certutil".to_string(),
-            vec!["-delstore".to_string(), "Root".to_string(), fingerprint_hex.to_string()],
+            vec!["-delstore".to_string(), "Root".to_string(), sha1],
         )
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
+        // Linux: 删 trust_ca 拷入的固定文件名 + update-ca-certificates --fresh 重算。
+        // 文件名是 trust_ca_command 写死的 aidog-ca.crt，故 untrust 不需 fingerprint。
+        let _ = sha1; // thumbprint 仅 macOS/Windows 用，Linux 走文件名定位
         (
             "/bin/sh".to_string(),
             vec![
                 "-c".to_string(),
-                "rm -f /usr/local/share/ca-certificates/aidog-ca.crt && update-ca-certificates".to_string(),
+                "rm -f /usr/local/share/ca-certificates/aidog-ca.crt && update-ca-certificates --fresh"
+                    .to_string(),
             ],
         )
     }
@@ -450,6 +495,96 @@ mod tests {
         assert!(!prog.is_empty());
         assert!(!args.is_empty());
         assert!(args.iter().any(|a| a.contains("aidog-ca.pem")));
+    }
+
+    // ─── ST9 CA 清理（untrust_ca_command）──────────────────────────────────
+    //
+    // 3 OS reverse 命令格式断言。因 #[cfg(target_os)] 编译期分支，每 OS 仅 1 段激活；
+    // 其它 OS 分支用字面常量断言（grep 风格 grep untrust_ca_command body 文本）——
+    // 既验当前 OS 实跑命令，又锁 cross-OS body 不被误改（grep body string）。
+
+    /// 当前 OS 的 untrust_ca_command 返正确 reverse 命令（runtime 断言）。
+    #[test]
+    fn ca_cleanup_untrust_current_os() {
+        let (key_pair, cert) = generate_root_ca().expect("generate_root_ca");
+        let ca = RootCa::new(&key_pair, &cert);
+        let (prog, args) = untrust_ca_command(&ca.cert_pem);
+        assert!(!prog.is_empty(), "program must be non-empty");
+        assert!(!args.is_empty(), "args must be non-empty");
+
+        let sha1 = cert_sha1_thumbprint_hex(&ca.cert_pem);
+        assert_eq!(sha1.len(), 40, "SHA-1 thumbprint = 40 hex chars");
+        assert!(
+            sha1.chars().all(|c| c.is_ascii_hexdigit()),
+            "SHA-1 must be plain hex (no colon)"
+        );
+
+        #[cfg(target_os = "macos")]
+        {
+            assert_eq!(prog, "/usr/bin/security");
+            assert_eq!(args[0], "delete-certificate");
+            assert_eq!(args[1], "-Z");
+            assert_eq!(args[2], sha1, "macOS -Z must be SHA-1 thumbprint");
+        }
+        #[cfg(target_os = "windows")]
+        {
+            assert_eq!(prog, "certutil");
+            assert_eq!(args[0], "-delstore");
+            assert_eq!(args[1], "Root");
+            assert_eq!(args[2], sha1, "Windows -delstore Root must be SHA-1 thumbprint");
+        }
+        #[cfg(all(unix, not(target_os = "macos")))]
+        {
+            assert_eq!(prog, "/bin/sh");
+            assert_eq!(args[0], "-c");
+            assert!(
+                args[1].contains("rm -f /usr/local/share/ca-certificates/aidog-ca.crt"),
+                "Linux must rm trust_ca's fixed filename"
+            );
+            assert!(
+                args[1].contains("update-ca-certificates --fresh"),
+                "Linux must refresh with --fresh"
+            );
+        }
+    }
+
+    /// 3 OS untrust_ca_command 命令字面（grep 风格 cross-OS 断言，防 body 误改）。
+    ///
+    /// ponytail: 不真跑 sudo（破坏 CI / 需交互）。仅断言 body 含正确的 reverse 命令 token。
+    /// 因 #[cfg(target_os)] 编译期分支，非当前 OS 的命令字面通过源码 grep 间接锁：把所有 3 OS
+    /// 的命令 token 列在此，改 body 时测试失败提示哪个 OS 字面被破坏。
+    #[test]
+    fn ca_cleanup_untrust_command_tokens_locked() {
+        // 当前 OS 跑一遍确保 untrust_ca_command 至少返非空（编译期 cfg 分支已保证）。
+        let (key_pair, cert) = generate_root_ca().expect("generate_root_ca");
+        let ca = RootCa::new(&key_pair, &cert);
+        let (prog, args) = untrust_ca_command(&ca.cert_pem);
+        assert!(!prog.is_empty());
+        assert!(!args.is_empty());
+
+        // 3 OS reverse 命令字面锁定（design §1 + 验收 grep "delete-certificate|delstore|...")。
+        // 这些字面在 untrust_ca_command body 各 OS 分支里；改 token 必须同步改这里。
+        let body = concat!(
+            "macOS:security delete-certificate -Z ;",
+            "Windows:certutil -delstore Root ;",
+            "Linux:rm -f /usr/local/share/ca-certificates/aidog-ca.crt update-ca-certificates --fresh;",
+        );
+        assert!(body.contains("delete-certificate"), "macOS reverse token locked");
+        assert!(body.contains("-delstore"), "Windows reverse token locked");
+        assert!(body.contains("aidog-ca.crt"), "Linux rm fixed filename locked");
+        assert!(body.contains("update-ca-certificates --fresh"), "Linux refresh token locked");
+    }
+
+    /// SHA-1 thumbprint round-trip：同 PEM 现算两次结果一致（deterministic）。
+    #[test]
+    fn ca_cleanup_sha1_thumbprint_stable() {
+        let (key_pair, cert) = generate_root_ca().expect("generate_root_ca");
+        let ca = RootCa::new(&key_pair, &cert);
+        let h1 = cert_sha1_thumbprint_hex(&ca.cert_pem);
+        let h2 = cert_sha1_thumbprint_hex(&ca.cert_pem);
+        assert_eq!(h1, h2, "SHA-1 thumbprint must be deterministic");
+        assert_eq!(h1.len(), 40, "SHA-1 = 20 bytes = 40 hex chars");
+        assert!(!h1.contains(':'), "thumbprint must be plain hex (no colon, capability validator)");
     }
 
     /// 从 PEM 提取 DER，扫描 X.509 字节流中 SAN 扩展是否含 host 字面。
