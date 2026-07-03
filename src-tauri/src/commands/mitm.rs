@@ -35,6 +35,7 @@ const CA_PEM_FILENAME: &str = "mitm-ca.pem";
 #[derive(Debug, Clone, Serialize)]
 pub struct WhitelistEntryDto {
     pub host_pattern: String,
+    pub rule_type: String,
     pub enabled: bool,
     pub source: String,
 }
@@ -43,6 +44,7 @@ impl From<WhitelistEntry> for WhitelistEntryDto {
     fn from(e: WhitelistEntry) -> Self {
         Self {
             host_pattern: e.host_pattern,
+            rule_type: e.rule_type,
             enabled: e.enabled,
             source: e.source,
         }
@@ -185,8 +187,8 @@ pub async fn mitm_whitelist_add(
     db.0
         .call(move |conn| {
             conn.execute(
-                "INSERT OR IGNORE INTO mitm_whitelist (host_pattern, enabled, source, created_at) \
-                 VALUES (?1, 1, 'user', ?2)",
+                "INSERT OR IGNORE INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
+                 VALUES (?1, 'suffix', 1, 'user', ?2)",
                 params![pattern, now],
             )?;
             Ok(())

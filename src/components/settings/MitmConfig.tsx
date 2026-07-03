@@ -301,6 +301,26 @@ export function MitmConfigTab() {
                 >
                   {e.source === "default" ? t("mitm.sourceDefault", "默认") : t("mitm.sourceUser", "自定义")}
                 </span>
+                {/* rule_type 标签（domain/suffix/keyword/ipcidr）— source 同风格不同色 */}
+                {(() => {
+                  const rt = e.rule_type ?? "suffix";
+                  const label = rt === "domain" ? t("mitm.ruleDomain", "域名")
+                    : rt === "suffix" ? t("mitm.ruleSuffix", "后缀")
+                    : rt === "keyword" ? t("mitm.ruleKeyword", "关键字")
+                    : rt === "ipcidr" ? t("mitm.ruleIpcidr", "IP 段")
+                    : rt;
+                  return (
+                    <span
+                      style={{
+                        fontSize: 10, padding: "2px 6px", borderRadius: 4,
+                        background: "color-mix(in srgb, var(--color-success, #10b981) 15%, transparent)",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      {label}
+                    </span>
+                  );
+                })()}
                 <div
                   className={`toggle ${e.enabled ? "active" : ""}`}
                   onClick={() => handleToggleEntry(e.host_pattern, !e.enabled)}
