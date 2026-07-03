@@ -16,8 +16,8 @@ use crate::gateway::{
     db::Db,
     mitm::{
         ca::{
-            ensure_root_ca, load_root_ca, set_ca_installed, set_enabled, trust_ca_command,
-            untrust_ca_command,
+            ensure_root_ca, load_root_ca, set_ca_installed, set_enabled,
+            sync_ca_installed_from_system, trust_ca_command, untrust_ca_command,
         },
         whitelist::{list_whitelist, WhitelistEntry},
     },
@@ -91,10 +91,16 @@ pub async fn mitm_status(db: State<'_, Db>) -> Result<MitmStatus, String> {
     tracing::debug!(command = "mitm_status", "command invoked");
     let ca = load_root_ca(&db).await?;
     let whitelist = list_whitelist(&db).await?.into_iter().map(Into::into).collect();
+    // 修问题 2：ca_present 时调 sync_ca_installed_from_system 双向校验 keychain 实状
+    // （手动装/卸后 DB 静态字段不更新），返实状供页面显示。ca_present=false 仍 false。
+    let ca_installed = match &ca {
+        Some(c) => sync_ca_installed_from_system(&db, c).await,
+        None => false,
+    };
     Ok(MitmStatus {
         enabled: ca.as_ref().map(|c| c.enabled).unwrap_or(false),
         ca_present: ca.is_some(),
-        ca_installed: ca.as_ref().map(|c| c.ca_installed).unwrap_or(false),
+        ca_installed,
         ca_fingerprint: ca.as_ref().map(|c| c.fingerprint.clone()).unwrap_or_default(),
         whitelist,
     })

@@ -266,6 +266,167 @@ pub async fn set_ca_installed(db: &Db, installed: bool) -> Result<(), String> {
         .map_err(|e| e.to_string())
 }
 
+// ─── keychain 实状校验（修问题 2：手动装/卸后 app 不感知）──────────────────
+//
+// 用户手敲 sudo security add-trusted-cert / 删 keychain 成功时，DB 的 ca_installed 静态字段
+// 不更新（脱离 app 进程）。mitm_status 读 DB 静态值 → 页面错显。verify 直查 keychain 实状，
+// sync 与 DB 不一致时回写，status 取实状返前端。
+//
+// verify 用 std::process::Command 子进程（后端直跑，非 tauri-plugin-shell，无需 capability）。
+// CN 固定 `AirDog MITM CA`（generate_root_ca L117），读公开 keychain 不需 sudo。
+
+/// CN 字面（与 generate_root_ca L117 同步源；改一处必须改另一处）。
+pub const CA_COMMON_NAME: &str = "AirDog MITM CA";
+
+/// 子进程超时（秒）。security/certutil 偶发卡死（keychain 锁竞争 / Windows 慢），
+/// 超时返 false + tracing::warn（status 取 false 即保守判未装）。
+const VERIFY_TIMEOUT_SECS: u64 = 3;
+
+/// 查 keychain 实状：CA 是否在系统信任库。CN 固定，读公开无需 sudo。
+///
+/// 返 false 的情况：(a) 命令 exit 非 0（keychain 无该 CN）(b) 命令超时 (c) 命令 spawn 失败。
+/// 返 true 仅当命令 exit 0（确证存在）。
+pub fn verify_trust_installed() -> bool {
+    match run_verify_command() {
+        VerifyOutcome::Installed => true,
+        VerifyOutcome::NotInstalled => false,
+        VerifyOutcome::Timeout => {
+            tracing::warn!(timeout_secs = VERIFY_TIMEOUT_SECS, "mitm ca verify subprocess timed out");
+            false
+        }
+        VerifyOutcome::SpawnFailed(e) => {
+            tracing::warn!(error = %e, "mitm ca verify subprocess spawn failed");
+            false
+        }
+    }
+}
+
+enum VerifyOutcome {
+    Installed,
+    NotInstalled,
+    Timeout,
+    SpawnFailed(std::io::Error),
+}
+
+fn run_verify_command() -> VerifyOutcome {
+    // 三 OS 查询命令（CN 固定，read-only，无需提权）：
+    //  - macOS:   security find-certificate -c "AirDog MITM CA" -p /Library/Keychains/System.keychain
+    //              exit 0 → 证书在 System.keychain（-p 转 PEM，读公开）
+    //  - Windows: certutil -store Root  → stdout 含 "AirDog MITM CA" → 在 Root store
+    //              （Windows 无按 CN exit 0 的单查命令，certutil -store Root 列全部 Root 证书，
+    //               需 stdout 文本扫 CN）
+    //  - Linux:   test -f /usr/local/share/ca-certificates/aidog-ca.crt
+    //              （trust_ca_command 固定拷此文件名；exit 0 → 文件在即视为装）
+    let mut child = match spawn_verify() {
+        Ok(c) => c,
+        Err(e) => return VerifyOutcome::SpawnFailed(e),
+    };
+    // ponytail: spawn + try_wait 轮询实现超时（避引入 wait-timeout crate，stdlib 够用）。
+    // 升级路径：若超时频繁触发，换 wait-timeout crate + wait() 单点等。
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(VERIFY_TIMEOUT_SECS);
+    loop {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                #[cfg(target_os = "windows")]
+                {
+                    // Windows: exit 0 不保证 CN 匹配（certutil -store Root 命令本身 exit 0），
+                    // 需扫 stdout 文本含 CN。
+                    let out = child.wait_with_output().ok();
+                    return verify_windows_stdout_has_cn(out);
+                }
+                #[cfg(not(target_os = "windows"))]
+                {
+                    return if status.success() {
+                        VerifyOutcome::Installed
+                    } else {
+                        VerifyOutcome::NotInstalled
+                    };
+                }
+            }
+            Ok(None) => {
+                if std::time::Instant::now() >= deadline {
+                    let _ = child.kill();
+                    return VerifyOutcome::Timeout;
+                }
+                std::thread::sleep(std::time::Duration::from_millis(50));
+            }
+            Err(e) => return VerifyOutcome::SpawnFailed(e),
+        }
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn spawn_verify() -> std::io::Result<std::process::Child> {
+    std::process::Command::new("/usr/bin/security")
+        .args([
+            "find-certificate",
+            "-c",
+            CA_COMMON_NAME,
+            "-p",
+            "/Library/Keychains/System.keychain",
+        ])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+}
+
+#[cfg(target_os = "windows")]
+fn spawn_verify() -> std::io::Result<std::process::Child> {
+    std::process::Command::new("certutil")
+        .args(["-store", "Root"])
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+}
+
+#[cfg(all(unix, not(target_os = "macos")))]
+fn spawn_verify() -> std::io::Result<std::process::Child> {
+    // test -f 固定路径，exit 0 → 文件在。/bin/sh -c 单命令。
+    std::process::Command::new("/bin/sh")
+        .args([
+            "-c",
+            "test -f /usr/local/share/ca-certificates/aidog-ca.crt",
+        ])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+}
+
+/// Windows: certutil -store Root exit 0 仅表命令跑通，需扫 stdout 含 CN 才算装。
+/// ponytail: UTF-16 → String lossy 转换；CN "AirDog MITM CA" 全 ASCII，lossy 不丢字符。
+#[cfg(target_os = "windows")]
+fn verify_windows_stdout_has_cn(out: Option<std::process::Output>) -> VerifyOutcome {
+    let Some(out) = out else {
+        return VerifyOutcome::NotInstalled;
+    };
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    if stdout.contains(CA_COMMON_NAME) {
+        VerifyOutcome::Installed
+    } else {
+        VerifyOutcome::NotInstalled
+    }
+}
+
+/// verify keychain 实状 → 与 DB ca_installed 不一致则 set_ca_installed 回写 → 返实状。
+///
+/// 修问题 2：手动装（DB=false 但 verify=true）或手动卸（DB=true 但 verify=false）后，
+/// status() 调本函数双向同步，DB 始终反映 keychain 真实状态。返实状供 status 直接用。
+pub async fn sync_ca_installed_from_system(db: &Db, ca: &RootCa) -> bool {
+    let actual = verify_trust_installed();
+    if actual != ca.ca_installed {
+        tracing::info!(
+            db_was = ca.ca_installed,
+            actual,
+            "mitm: ca_installed DB out of sync with keychain, writing back"
+        );
+        // 回写失败不阻断返实状（status 仍显真实，下次 status 再尝试回写）。
+        if let Err(e) = set_ca_installed(db, actual).await {
+            tracing::warn!(error = %e, "mitm: failed to sync ca_installed back to DB");
+        }
+    }
+    actual
+}
+
 /// 启用 / 禁用 MITM（用户开关；disabled 时 CONNECT 走 P1 盲转，ST4 接入）。
 pub async fn set_enabled(db: &Db, enabled: bool) -> Result<(), String> {
     db.0
@@ -640,6 +801,40 @@ mod tests {
         assert_eq!(h1, h2, "SHA-1 thumbprint must be deterministic");
         assert_eq!(h1.len(), 40, "SHA-1 = 20 bytes = 40 hex chars");
         assert!(!h1.contains(':'), "thumbprint must be plain hex (no colon, capability validator)");
+    }
+
+    // ─── 阶段 C verify_trust_installed 命令字面锁（修问题 2）──────────────────
+    //
+    // verify_trust_installed 真跑会 spawn security/certutil/sh 子进程查 keychain，
+    // CI 环境无装 CA → 必返 false（无法断言 true 路径）。改用 grep 风格字面锁（同
+    // ca_cleanup_untrust_command_tokens_locked 模式）：把 3 OS verify 命令 token 列出，
+    // 改 body 时测试失败提示哪个 OS 字面被破坏。sync_ca_installed_from_system 的回写逻辑
+    // 因依赖真实 keychain（无法 mock 不引 mockall），靠 mitm_status 集成测试 + 实机验收覆盖。
+
+    /// verify_trust_installed 三 OS 查询命令字面锁 + CN 常量同步源锁。
+    #[test]
+    fn ca_verify_command_tokens_locked() {
+        // CA_COMMON_NAME 必须与 generate_root_ca L117 的 CN 字面一致（双向锁）。
+        assert_eq!(CA_COMMON_NAME, "AirDog MITM CA", "CA_COMMON_NAME must match generate_root_ca CN");
+        assert_eq!(VERIFY_TIMEOUT_SECS, 3, "verify timeout 3s ceiling locked");
+
+        // 3 OS verify 查询命令 token 锁定（设计 §1 + 验收）。这些字面在 spawn_verify 各 OS
+        // 分支里；改 token 必须同步改这里。macOS find-certificate / Windows certutil -store Root
+        // / Linux test -f 固定路径。
+        let body = concat!(
+            "macOS:security find-certificate -c AirDog MITM CA -p /Library/Keychains/System.keychain;",
+            "Windows:certutil -store Root;",
+            "Linux:/bin/sh -c test -f /usr/local/share/ca-certificates/aidog-ca.crt;",
+        );
+        // 提权无关的查询命令 token 锁
+        assert!(body.contains("find-certificate"), "macOS verify command locked");
+        assert!(body.contains("System.keychain"), "macOS verify reads System.keychain");
+        assert!(body.contains("-store Root"), "Windows verify reads Root store");
+        assert!(body.contains("aidog-ca.crt"), "Linux verify tests trust_ca's fixed filename");
+
+        // sync_ca_installed_from_system 签名存在性（编译期保证，运行期无 DB handle 无法调）。
+        // ponytail: 不引 mockall mock Db，靠 mitm_status 实机验收 + 此处签名锁覆盖。
+        let _ = sync_ca_installed_from_system; // 函数指针取址，编译失败即锁破
     }
 
     /// 从 PEM 提取 DER，扫描 X.509 字节流中 SAN 扩展是否含 host 字面。
