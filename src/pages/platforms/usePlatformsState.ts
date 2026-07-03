@@ -99,6 +99,12 @@ export interface PlatformsState extends PlatformsStateParams {
   protocol: Protocol; setProtocol: React.Dispatch<React.SetStateAction<Protocol>>;
   codingPlan: boolean; setCodingPlan: React.Dispatch<React.SetStateAction<boolean>>;
   apiKey: string; setApiKey: React.Dispatch<React.SetStateAction<string>>;
+  batchPreviewKeys: string[] | null;
+  setBatchPreviewKeys: React.Dispatch<React.SetStateAction<string[] | null>>;
+  handleApiKeyChange: (v: string) => void;
+  confirmBatchCreate: () => Promise<void>;
+  cancelBatchPreview: () => void;
+  previewNames: string[];
   models: Record<ModelSlot, string>; setModels: React.Dispatch<React.SetStateAction<Record<ModelSlot, string>>>;
   availableModels: string[]; setAvailableModels: React.Dispatch<React.SetStateAction<string[]>>;
   endpoints: PlatformEndpoint[]; setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;

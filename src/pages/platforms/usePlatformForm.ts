@@ -25,7 +25,7 @@ import {
   autoCategorize,
 } from "../../domains/platforms";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
-import { applyPaste as applyPasteImpl, runBatchCreateFromPaste as runBatchCreateFromPasteImpl, type PlatformPasteCtx } from "./platformPasteApply";
+import { applyPaste as applyPasteImpl, runBatchCreateFromPaste as runBatchCreateFromPasteImpl, previewBatchNames, type PlatformPasteCtx } from "./platformPasteApply";
 
 /** owner（usePlatformsState）注入的 list 侧依赖。所有 form handler 需要的 list state/setters 走此通道。 */
 export interface PlatformFormListDeps {
@@ -80,6 +80,19 @@ export interface PlatformFormState {
   protocol: Protocol; setProtocol: React.Dispatch<React.SetStateAction<Protocol>>;
   codingPlan: boolean; setCodingPlan: React.Dispatch<React.SetStateAction<boolean>>;
   apiKey: string; setApiKey: React.Dispatch<React.SetStateAction<string>>;
+  /** 多 key 预览态：null = 非批量；string[] = 待确认的批量 key 列表（触发 MultiKeyPreview 渲染）。
+   *  创建态 + 非 keyOptional + splitApiKeys(apiKey).length>1 时由 handleApiKeyChange 设置；
+   *  编辑态 / keyOptional / 单 key 均 null（不触发预览）。 */
+  batchPreviewKeys: string[] | null;
+  setBatchPreviewKeys: React.Dispatch<React.SetStateAction<string[] | null>>;
+  /** apiKey input onChange 包装：创建态多 key → setBatchPreviewKeys 触发实时预览（D1）。 */
+  handleApiKeyChange: (v: string) => void;
+  /** 确认批量创建（MultiKeyPreview 确认按钮）：调 runBatchCreateFromPaste → 成功后 resetForm + 关表单。 */
+  confirmBatchCreate: () => Promise<void>;
+  /** 取消批量预览：清 batchPreviewKeys 并把 apiKey 清回单值（用户可重新输入）。 */
+  cancelBatchPreview: () => void;
+  /** 预览 name 列表（batchPreviewKeys 派生，供 MultiKeyPreview 渲染；null 时空数组）。 */
+  previewNames: string[];
   models: Record<ModelSlot, string>; setModels: React.Dispatch<React.SetStateAction<Record<ModelSlot, string>>>;
   availableModels: string[]; setAvailableModels: React.Dispatch<React.SetStateAction<string[]>>;
   endpoints: PlatformEndpoint[]; setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
@@ -150,6 +163,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [protocol, setProtocol] = useState<Protocol>("openai");
   const [codingPlan, setCodingPlan] = useState(false);
   const [apiKey, setApiKey] = useState("");
+  // 多 key 预览态：null = 非批量；string[] = 待确认的批量 key 列表。
+  // 创建态 + 非 keyOptional + splitApiKeys.length>1 → setBatchPreviewKeys(keys) 触发 MultiKeyPreview。
+  const [batchPreviewKeys, setBatchPreviewKeys] = useState<string[] | null>(null);
   const [models, setModels] = useState<Record<ModelSlot, string>>({
     default: "", sonnet: "", opus: "", haiku: "", gpt: "",
   });
@@ -240,6 +256,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
 
   const resetForm = () => {
     setName(""); setProtocol("openai"); setCodingPlan(false); setApiKey("");
+    setBatchPreviewKeys(null);
     setModels({ default: "", sonnet: "", opus: "", haiku: "", gpt: "" });
     setAvailableModels([]); setEndpoints([]);
     setEditing(null); setShowForm(false); setFetchError(""); setSaveError("");
@@ -517,10 +534,50 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setEditing, setLockedGroupId, setJoinGroupIds,
     setShowClaudeConfig, setClaudeConfigJson, setFetchError, setSaveError,
     setShowPaste, setShowForm, setExpiresAt, setExpiryEnabled,
+    setBatchPreviewKeys,
     handleProtocolChange, resetForm,
     platforms, setPlatforms, platformsEpochRef, quota,
     handleGroupsChanged, groupsReloadRef, setToast,
   });
+
+  /** apiKey input onChange 包装：创建态 + 非 keyOptional + 多 key → setBatchPreviewKeys 触发实时预览（D1）。
+   *  编辑态 / keyOptional / 单 key → null（走原保存路径）。复用 splitApiKeys 拆分。 */
+  const handleApiKeyChange = (v: string) => {
+    setApiKey(v);
+    if (!editing && !keyOptional) {
+      const keys = splitApiKeys(v);
+      setBatchPreviewKeys(keys.length > 1 ? keys : null);
+    } else {
+      setBatchPreviewKeys(null);
+    }
+  };
+
+  /** 派生预览 name 列表（batchPreviewKeys → previewBatchNames，供 MultiKeyPreview 渲染）。
+   *  baseName 取 name（手动表单）或 preset label（智能粘贴路径已 setName）；撞名基准 = 当前 platforms。 */
+  const previewNames = useMemo(() => {
+    if (!batchPreviewKeys || batchPreviewKeys.length === 0) return [];
+    const used = new Set(platforms.map(p => p.name));
+    return previewBatchNames(batchPreviewKeys, name, used);
+  }, [batchPreviewKeys, name, platforms]);
+
+  /** 确认批量创建（MultiKeyPreview 确认按钮）：复用 runBatchCreateFromPaste → 成功后 resetForm + 关表单。
+   *  cancel 由 runBatchCreateFromPaste 内部 toast 反馈；本函数仅负责派发，不重复 toast。 */
+  const confirmBatchCreate = async () => {
+    if (!batchPreviewKeys || batchPreviewKeys.length === 0) return;
+    const keys = batchPreviewKeys;
+    setBatchPreviewKeys(null);
+    await runBatchCreateFromPaste(keys);
+  };
+
+  /** 取消批量预览：清 batchPreviewKeys 并把 apiKey 清回单值首 key（用户可重新输入或继续单 key 保存）。 */
+  const cancelBatchPreview = () => {
+    setBatchPreviewKeys(null);
+    // 留首 key 作单值，方便用户转单平台保存（与原智能粘贴单 key 行为对齐）。
+    if (apiKey) {
+      const first = splitApiKeys(apiKey)[0];
+      if (first) setApiKey(first);
+    }
+  };
 
   /** 智能识别弹窗确认后，将解析结果填入添加表单。
    *  ponytail: 实现抽到 platformPasteApply.ts（控制本文件行数），经 ctx 传 form state/setters +
@@ -544,15 +601,12 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
 
   const handleSave = async () => {
     setSaveError("");
-    // 手动表单批量：apikey 字段粘入多 key（多行/逗号/空白/分号）→ 批量创建 N 平台。
-    // 仅创建态触发；编辑态（editing != null）apiKey 是已存在平台的单值，不进入批量。
-    // keyOptional 平台（透传/opencode_zen）apiKey 留空走原路径。
-    if (!editing && !keyOptional) {
-      const keys = splitApiKeys(apiKey);
-      if (keys.length > 1) {
-        await runBatchCreateFromPaste(keys);
-        return;
-      }
+    // 多 key 预览态：保存按钮不直接批量创建，引导用户点 MultiKeyPreview 的「确认批量创建」。
+    // ponytail: 预览态时禁用保存按钮（PlatformEditForm 渲染判定），此处兜底防回车/快捷键触发。
+    if (batchPreviewKeys && batchPreviewKeys.length > 1) {
+      setToast({ text: t("platform.batch.previewFirst", "请先确认下方的批量创建预览"), ok: false });
+      setTimeout(() => setToast(null), 3000);
+      return;
     }
     try {
       const modelsPayload = buildModelsPayload() as Platform["models"] | undefined;
@@ -674,7 +728,10 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     testingPlatform, setTestingPlatform,
     fetching, setFetching, fetchError, setFetchError, saveError, setSaveError,
     name, setName, protocol, setProtocol, codingPlan, setCodingPlan,
-    apiKey, setApiKey, models, setModels, availableModels, setAvailableModels,
+    apiKey, setApiKey,
+    batchPreviewKeys, setBatchPreviewKeys,
+    handleApiKeyChange, confirmBatchCreate, cancelBatchPreview, previewNames,
+    models, setModels, availableModels, setAvailableModels,
     endpoints, setEndpoints, activeDropdown, setActiveDropdown,
     showClaudeConfig, setShowClaudeConfig, claudeConfigJson, setClaudeConfigJson,
     globalClaudeConfig, setGlobalClaudeConfig, extra, setExtra,
