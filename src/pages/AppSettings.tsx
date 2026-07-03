@@ -10,7 +10,7 @@ import { PopoverConfigTab } from "./PopoverConfigTab";
 import { MiddlewareSettingsTab } from "../components/settings/MiddlewareRules";
 import { SchedulingSettingsTab } from "../components/settings/SchedulingSettings";
 import { NotificationSettingsTab } from "../components/settings/NotificationSettings";
-import { ImportExportTab } from "../components/settings/ImportExport";
+import { ImportExportTab } from "../components/settings/ImportExport/ImportExportTab";
 import { CodingToolsSettingsTab } from "../components/settings/CodingToolsSettings";
 
 export type Tab = "system" | "claude" | "codex" | "coding_tools" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport";
