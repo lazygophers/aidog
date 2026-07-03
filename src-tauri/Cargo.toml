@@ -80,6 +80,21 @@ hmac = "0.12"
 rand = "0.8"
 serde_yml = "0.0.13"
 
+# P3 MITM 解密隧道（CONNECT 升级，ST1+ST2+ST3）。
+# rustls 0.23 已是 tauri/rustls-platform-verifier 的间接依赖（Cargo.lock 已锁 0.23.40），
+# 这里显式声明 + ring provider 让 ca.rs 的 ResolvesServerCert / CertifiedKey 类型可用。
+# rcgen 0.14 由 rustls 团队维护，版本同源；动态签 leaf 证书 + 自签 Root CA。
+#   features: x509-parser 是 Issuer::from_ca_cert_pem 的前置（按 CA cert PEM 重建 issuer），
+#   pem 让 Certificate::pem() / KeyPair::serialize_pem 可用。
+# tokio-rustls 0.26 已是 reqwest/rustls-platform-verifier 间接依赖，显式声明用 TlsAcceptor/TlsConnector。
+rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
+rustls-pemfile = "2"
+rcgen = { version = "0.14", features = ["x509-parser", "pem"] }
+tokio-rustls = "0.26"
+# 装 MITM 假 CA 到系统信任库（macOS security / Windows certutil / Linux update-ca-certificates）。
+# scope 在 capabilities/mitm-ca.json 限定仅装 CA 命令，默认 capability 不开放 shell。
+tauri-plugin-shell = "2"
+
 # macOS 托盘小字：直接操作 NSStatusItem button 的 attributedTitle（NSAttributedString + 小号 NSFont）。
 # 版本与 Tauri 2.11 内部依赖对齐（tauri 透传 tray_icon::TrayIcon，其 ns_status_item() 返回 objc2-app-kit NSStatusItem）。
 # Tauri minor 升级可能更新 tray-icon → 需同步本处版本。
