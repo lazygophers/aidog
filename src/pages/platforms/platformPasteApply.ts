@@ -321,8 +321,8 @@ export async function runBatchCreateFromPaste(
       // 进度 toast（每条更新）
       setToast({ text: t("platform.batch.progress", "批量创建中… {{done}}/{{total}}", { done: i + 1, total: keys.length }), ok: true });
     } catch (e: any) {
-      failures.push({ key: k, err: e?.toString() || "Unknown error" });
-      console.error("batch create failed", k, e);
+      failures.push({ key: k.slice(-4), err: e?.toString() || "Unknown error" });
+      console.error("batch create failed", { keyTail: k.slice(-4) }, e);
     }
   }
   // 末尾汇总：成功 X / 失败 Y + 失败 key 列表（失败不静默吞）。
