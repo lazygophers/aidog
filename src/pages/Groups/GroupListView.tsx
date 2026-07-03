@@ -1,0 +1,276 @@
+import { createPortal } from "react-dom";
+import type { TFunction } from "i18next";
+import type { GroupDetail, Platform, PlatformUsageStats } from "../../services/api";
+import type { PlatformCardActions } from "../../components/platforms/PlatformCard";
+import type { usePlatformCards } from "../../components/platforms/usePlatformCards";
+import { SortableList } from "../../components/SortableList";
+import { CopyButton } from "../../components/shared";
+import { ModelTestPanel } from "../ModelTestPanel";
+import { ShareModal } from "../../components/platforms/ShareModal";
+import { GroupTestPanel, type GroupRow } from "../../domains/groups";
+import { GroupListItem, type CardsSnapshot } from "./GroupListItem";
+import type { GroupTestState } from "./useGroupTest";
+
+export interface GroupListViewProps {
+  details: GroupDetail[];
+  platforms: Platform[];
+  t: TFunction;
+  // 视图状态
+  loading: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
+  sentinelRef: React.RefObject<HTMLDivElement | null>;
+  proxyBaseUrl: string;
+  // 列表派生
+  groupRows: GroupRow[];
+  groupIndexById: Map<number, number>;
+  groupStats: Record<string, PlatformUsageStats>;
+  groupBalance: Record<number, number>;
+  groupSearch: Map<number, { visibleIds: Set<number> | null }> | null;
+  collapsedGroups: Set<number>;
+  setCollapsedGroups: React.Dispatch<React.SetStateAction<Set<number>>>;
+  toggleGroupExpanded: (id: number) => void;
+  // 映射表单（列表内快速添加）
+  mappingGroupId: number | null;
+  mSource: string;
+  mTargetPlatform: number | "";
+  mTargetModel: string;
+  availableModels: string[];
+  setMappingGroupId: (id: number | null) => void;
+  setMSource: (v: string) => void;
+  setMTargetPlatform: (v: number | "") => void;
+  setMTargetModel: (v: string) => void;
+  // 拖拽
+  dropIndicator: { gid: number; idx: number } | null;
+  dragOverGroup: number | null;
+  onPlatPointerDown: (e: React.PointerEvent, pid: number, gid: number) => void;
+  // 卡片系统
+  cards: ReturnType<typeof usePlatformCards>;
+  makeGroupCardActions: (gid: number) => PlatformCardActions;
+  // 测试
+  groupTest: GroupTestState | null;
+  setGroupTest: (v: GroupTestState | null) => void;
+  // 删平台确认态
+  removeTarget: { platform: Platform; gid: number } | null;
+  setRemoveTarget: React.Dispatch<React.SetStateAction<{ platform: Platform; gid: number } | null>>;
+  confirmDeletePlatform: () => Promise<void>;
+  // 稳定回调（父级 useCallback）
+  onToast?: (toast: { text: string; ok: boolean } | null) => void;
+  handleReorderGroups: (next: GroupRow[]) => void;
+  openEdit: (detail: GroupDetail) => void;
+  handleDeleteGroup: (id: number) => void;
+  handleToggleDefault: (group: GroupDetail["group"]) => void;
+  handleTestGroup: (group: GroupDetail["group"], gps: GroupDetail["platforms"]) => void;
+  handleDeleteMapping: (groupId: number, index: number) => void;
+  handleAddMapping: () => void;
+  handleSetLevelPriority: (gid: number, pid: number, v: number) => void;
+  handlePurgeDisabled: (gid: number) => void;
+  onCreatePlatform?: (presetGroupIds?: number[], lockedGroupId?: number) => void;
+  onNavigate?: (id: string, context?: { groupId?: string; groupKey?: string; platformId?: number; platformName?: string; duplicate?: boolean }) => void;
+}
+
+/** 分组列表视图：页头操作栏 + 测试面板 + SortableList + 加载哨兵 + 弹窗（自定义测试 / 分享 / 删平台确认）。 */
+export function GroupListView(props: GroupListViewProps) {
+  const {
+    details, platforms, t, loading, loadingMore, hasMore, sentinelRef, proxyBaseUrl,
+    groupRows, groupIndexById, groupStats, groupBalance, groupSearch,
+    collapsedGroups, setCollapsedGroups, toggleGroupExpanded,
+    mappingGroupId, mSource, mTargetPlatform, mTargetModel, availableModels,
+    setMappingGroupId, setMSource, setMTargetPlatform, setMTargetModel,
+    dropIndicator, dragOverGroup, onPlatPointerDown,
+    cards, makeGroupCardActions,
+    groupTest, setGroupTest,
+    removeTarget, setRemoveTarget, confirmDeletePlatform,
+    onToast,
+    handleReorderGroups, openEdit, handleDeleteGroup, handleToggleDefault,
+    handleTestGroup, handleDeleteMapping, handleAddMapping,
+    handleSetLevelPriority, handlePurgeDisabled,
+    onCreatePlatform, onNavigate,
+  } = props;
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
+      {/* 子区块标题 + 操作栏 */}
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+          {details.length > 0 && (
+            <span style={{ fontSize: 13, color: "var(--text-tertiary)" }}>
+              {details.length} {t("nav.groups").toLowerCase()}
+            </span>
+          )}
+        </div>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          {/* 代理 base_url：只读小字 + 复制按钮 */}
+          <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <code style={{
+              fontSize: 12, color: "var(--text-secondary)", background: "var(--bg-glass)",
+              padding: "4px 8px", borderRadius: "var(--radius-sm)", whiteSpace: "nowrap",
+            }}>{proxyBaseUrl}</code>
+            <CopyButton text={proxyBaseUrl} label={t("group.copyBaseUrl", "复制代理地址")}
+              title={t("group.copyBaseUrlTitle", "复制代理 base_url")} />
+          </div>
+        </div>
+      </div>
+
+      {/* 分组一键测试结果面板（有界并发执行，实时刷新行状态；running 态可中途关闭） */}
+      {groupTest && (
+        <GroupTestPanel
+          groupName={groupTest.groupName}
+          rows={groupTest.rows}
+          running={groupTest.running}
+          onClose={() => setGroupTest(null)}
+          t={t}
+        />
+      )}
+
+      {/* Group List */}
+      {loading ? (
+        <div className="text-secondary" style={{ padding: 20 }}>{t("status.loading")}</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {details.length === 0 && (
+            <div className="glass-surface" style={{ padding: 40, textAlign: "center" }}>
+              <div className="text-tertiary" style={{ fontSize: 13 }}>{t("group.empty")}</div>
+            </div>
+          )}
+          <SortableList<GroupRow>
+            items={groupRows}
+            onReorder={handleReorderGroups}
+            renderItem={(row, handle) => {
+            const { group } = row.detail;
+            const i = groupIndexById.get(group.id) ?? 0;
+            const u = groupStats[group.group_key];
+            const balance = groupBalance[group.id];
+            const cardsSnap: CardsSnapshot = {
+              quotaMap: cards.quotaMap,
+              quotaRealIds: cards.quotaRealIds,
+              quotaRefreshing: cards.quotaRefreshing,
+              usageMap: cards.usageMap,
+              expandedIds: cards.expandedIds,
+              testResults: cards.testResults,
+              testingId: cards.testingId,
+              faviconFailed: cards.faviconFailed,
+              lastTestMap: cards.lastTestMap,
+            };
+            const di = dropIndicator?.gid === group.id ? dropIndicator.idx : null;
+            const fullPlatsLen = row.detail.platforms
+              .map(gp => platforms.find(pp => pp.id === gp.platform.id))
+              .filter(Boolean).length;
+            const gs = groupSearch?.get(group.id) ?? null;
+            return (
+              <GroupListItem
+                key={group.id}
+                detail={row.detail}
+                index={i}
+                usageStat={u}
+                balance={balance}
+                platforms={platforms}
+                isExpanded={!collapsedGroups.has(group.id)}
+                isDragOver={dragOverGroup === group.id}
+                dropIndicatorIdx={di}
+                dropIndicatorTotal={fullPlatsLen}
+                showMappingForm={mappingGroupId === group.id}
+                mSource={mSource}
+                mTargetPlatform={mTargetPlatform}
+                mTargetModel={mTargetModel}
+                availableModels={availableModels}
+                visiblePlatformIds={gs?.visibleIds ?? null}
+                forceExpanded={!!gs}
+                groupTestRunning={groupTest?.running === true}
+                cards={cardsSnap}
+                actions={makeGroupCardActions(group.id)}
+                t={t}
+                onToggleExpanded={toggleGroupExpanded}
+                onSetCollapsed={setCollapsedGroups}
+                onEdit={openEdit}
+                onDelete={handleDeleteGroup}
+                onToggleDefault={handleToggleDefault}
+                onTestGroup={handleTestGroup}
+                onCreatePlatform={onCreatePlatform}
+                onNavigate={onNavigate}
+                onPlatPointerDown={onPlatPointerDown}
+                onDeleteMapping={handleDeleteMapping}
+                onSetMappingGroupId={setMappingGroupId}
+                onSetMSource={setMSource}
+                onSetMTargetPlatform={setMTargetPlatform}
+                onSetMTargetModel={setMTargetModel}
+                onAddMapping={handleAddMapping}
+                onSetLevelPriority={handleSetLevelPriority}
+                onPurgeDisabled={handlePurgeDisabled}
+                handle={handle}
+              />
+            );
+            }}
+          />
+          {/* 触底加载哨兵：进入视口触发 loadMore 拉下一页（hasMore 时常驻）。 */}
+          {hasMore && details.length > 0 && (
+            <div ref={sentinelRef} style={{ height: 1 }} aria-hidden="true" />
+          )}
+          {loadingMore && (
+            <div className="text-tertiary" style={{ padding: 12, textAlign: "center", fontSize: 12 }}>
+              {t("status.loading")}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 自定义测试弹窗（与 Platforms 主列表同款；handleCustomTest → testingPlatform）
+          ModelTestPanel 自带 overlay 且经 createPortal 挂 body, 此处不再包外层遮罩。 */}
+      {cards.testingPlatform !== null && (
+        <ModelTestPanel
+          platform={cards.testingPlatform}
+          onClose={() => cards.setTestingPlatform(null)}
+          onResult={(success) => {
+            const tp = cards.testingPlatform;
+            if (tp) cards.setTestResults(prev => ({ ...prev, [tp.id]: success ? "ok" : "fail" }));
+          }}
+        />
+      )}
+
+      {/* 分享弹窗（导出可分享配置 → 含明文 api_key 警示 + 多格式复制） */}
+      {cards.shareData !== null && (
+        <ShareModal
+          share={cards.shareData.share}
+          title={cards.shareData.name}
+          onToast={(text, ok) => {
+            onToast?.({ text, ok });
+            setTimeout(() => onToast?.(null), 3000);
+          }}
+          onClose={() => cards.setShareData(null)}
+        />
+      )}
+
+      {/* 删平台确认弹窗：仅当平台只属本组（删除即销毁平台，破坏性）时出现。
+          属多组的平台走「仅移出本组」无需确认，不会进此分支。
+          createPortal 挂 body 脱离 transform 祖先，参考 GroupTestPanel。 */}
+      {removeTarget !== null && createPortal(
+        <div onClick={() => setRemoveTarget(null)} style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.45)", zIndex: 1001,
+          display: "flex", alignItems: "center", justifyContent: "center", padding: 20,
+        }}>
+          <div className="glass-surface" onClick={e => e.stopPropagation()} style={{
+            width: "min(420px, 92vw)", display: "flex", flexDirection: "column", gap: 14, padding: 20,
+            background: "var(--bg-floating)",
+          }}>
+            <div style={{ fontSize: 15, fontWeight: 700 }}>
+              {t("group.deletePlatformTitle", "删除平台")}
+            </div>
+            <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
+              {t("group.deletePlatformConfirm", "「{{name}}」仅属此分组，移除将彻底删除该平台及其所有关联，且无法撤销。确认删除？", { name: removeTarget.platform.name })}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
+              <button className="btn btn-ghost" onClick={() => setRemoveTarget(null)}>
+                {t("action.cancel", "取消")}
+              </button>
+              <button className="btn btn-danger" onClick={confirmDeletePlatform}>
+                {t("group.deletePlatformAction", "删除平台")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
+    </div>
+  );
+}
+
