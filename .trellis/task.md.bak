@@ -28,7 +28,7 @@
 | stats-platform-dropdown-overlap | Stats 平台下拉平台名重叠不可读 | — | 已完成 | — |
 | glm-anthropic-multiturn-1210 | GLM anthropic 端点多轮 tool_use 请求 1210 参数有误 | — | 已完成 | — |
 | volces-agent-plan-paste | 火山方舟 agent plan 智能识别缺失 (ark- 前缀 + 圈数字防爬 + /api/plan 端点) | — | 已完成 | — |
-| proxy-http-relay | /proxy 支持通用 HTTP 代理 + 无平台/无分组筛选 | — | 规划中 | — |
+| proxy-http-relay | /proxy 支持通用 HTTP 代理 + 无平台/无分组筛选 | — | 已完成 | — |
 | stats-logs-filter-unify | Stats/Logs 筛选完全对齐(平台/模型/分组) | — | 已完成 | — |
 | logs-detail-copy-buttons | 请求日志详情每个元素一键复制 | — | 已完成 | — |
 | settings-managed-marker | settings.json 不写 _aidog_managed marker | — | 已完成 | — |
@@ -46,6 +46,8 @@
 | body-date-format-rewrite | body 日期格式改写防检测 (CLI集成开关) | — | 已完成 | — |
 | cli-lang-select-style | CLI 语言设置 select 样式修正 (label 字号 + select 够用右对齐) | — | 已完成 | — |
 | cli-lang-desc-remove | CLI 语言设置删冗余描述 (去 ~/.claude/settings.json · language 行) | — | 已完成 | — |
+| diag-42617827 | 诊断 request_id=42617827 错误链根因 | — | 已完成 | — |
+| proxy-relay-mitm | proxy MITM 解密隧道 P3 - 客户端保官方协议 + AirDog 拦截采集 | — | 已完成 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -55,4 +57,7 @@
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-arch-redesign | 07-01-arch-redesign | trellisx-start |
-| diag-42617827 | 诊断 request_id=42617827 错误链根因 | — | 已完成 | — |
+| longcat-default-models | Longcat 平台补默认模型列表 | — | 已完成 | — |
+| mitm-ca-elevated-install | MITM CA 自动提权安装 (osascript/UAC/pkexec) | — | 规划中 | — |
+| mitm-whitelist-clash-rules | MITM 白名单 Clash 规则集全类型支持 + 默认扩充 | — | 实施中 | — |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-03-mitm-whitelist-clash-rules | 07-03-mitm-whitelist-clash-rules | trellisx-start |

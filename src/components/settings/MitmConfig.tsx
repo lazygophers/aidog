@@ -3,8 +3,10 @@
 //
 // 流程（design.md D1/D7/D8）：
 //   启用 MITM → 后端 ensure_root_ca 生成 CA → 写 ca.pem 到数据目录
-//   → 前端用 @tauri-apps/plugin-shell Command.create(name, args).execute() 装信任库（sudo 弹窗）
-//   → exit=0 回写 ca_installed=true；非 0 / reject → 标 false + 弹窗给命令+路径引导手动装（D8 兜底）
+//   → 前端用 @tauri-apps/plugin-shell Command.create(name, args).execute() 装信任库
+//     （OS 原生提权：macOS osascript admin / Windows UAC / Linux pkexec，零背景用户无需手敲 sudo）
+//   → exit=0 回写 ca_installed=true；非 0 / reject → classifyTrustError 分类（取消/密码错/无 agent/命令失败）
+//     + 弹窗给 manual_display 真实 sudo 命令 + 路径引导手动装（D8 兜底）
 //
 // 消费 services/api.ts mitmApi 契约（ST7 冻结），只读不改。
 
@@ -16,6 +18,34 @@ import {
   type MitmStatus,
   type CaCommandSpec,
 } from "../../services/api";
+
+/// CA 安装失败分类（research/elevation-feasibility.md Q5 三 OS exit code/stderr 判据）。
+/// 从 capability 命名命令 name（macos-*/windows-*/linux-*）推 OS，避免引入 plugin-os 依赖。
+type TrustErrorKind = "cancel" | "auth_fail" | "no_agent" | "cmd_fail";
+function classifyTrustError(
+  name: string,
+  code: number | null,
+  stderr: string,
+): TrustErrorKind {
+  const lower = stderr.toLowerCase();
+  if (name.startsWith("linux")) {
+    // pkexec: 126=用户取消密码框, 127=auth 失败 / 无 polkit agent, 其他=命令本身失败
+    if (code === 126) return "cancel";
+    if (code === 127) {
+      return lower.includes("agent") || lower.includes("polkit") ? "no_agent" : "auth_fail";
+    }
+    return "cmd_fail";
+  }
+  if (name.startsWith("macos")) {
+    // osascript: exit 恒 1，靠 stderr 区分；(-128)=用户取消, Authorization=密码错/鉴权拒
+    if (lower.includes("(-128)")) return "cancel";
+    if (/(authorization|鉴权)/.test(lower)) return "auth_fail";
+    return "cmd_fail";
+  }
+  // windows: UAC 取消 stderr 含 1223 (ERROR_CANCELLED)
+  if (lower.includes("1223") || /cancel/i.test(lower)) return "cancel";
+  return "cmd_fail";
+}
 
 export function MitmConfigTab() {
   const { t } = useTranslation();
@@ -60,17 +90,24 @@ export function MitmConfigTab() {
     setBusy(true); setError(""); setManualInstall(null);
     try {
       const spec = await mitmApi.installCaPrepare();
-      // tauri-plugin-shell：capability mitm-ca.json 按 name 限定（sudo 弹窗由 OS 触发）。
+      // tauri-plugin-shell：capability mitm-ca.json 按 name 限定（cmd 键），OS 原生提权包装（osascript/UAC/pkexec）。
       const out = await Command.create(spec.name, spec.args).execute();
       const ok = out.code === 0;
       await mitmApi.setCaInstalled(ok);
       if (!ok) {
-        // 失败兜底（D8）：给命令 + 路径引导手动装。
+        // 失败兜底（D8）：分类错误 + 给 manual_display 真实 sudo 命令引导手动装。
         setManualInstall(spec);
-        setError(
-          t("mitm.installFailed", "装信任库失败（exit={{code}}）", { code: String(out.code) })
-          + (out.stderr ? `\n${out.stderr}` : "")
-        );
+        const kind = classifyTrustError(spec.name, out.code, out.stderr ?? "");
+        const base =
+          kind === "cancel"
+            ? t("mitm.installCancel", "已取消安装（未输入密码或点了取消）")
+            : kind === "auth_fail"
+              ? t("mitm.installAuthFail", "密码错误或鉴权被拒，请重试")
+              : kind === "no_agent"
+                ? t("mitm.installNoAgent", "Linux 缺少 polkit 鉴权 agent，请用下方命令手动装")
+                : t("mitm.installFailed", "装信任库失败（exit={{code}}）", { code: String(out.code) });
+        // cmd_fail 附原始 stderr 辅助诊断；其余分类不堆栈 stderr（用户无需看）
+        setError(kind === "cmd_fail" && out.stderr ? `${base}\n${out.stderr}` : base);
       }
       await refresh();
     } catch (e) {
@@ -232,8 +269,11 @@ export function MitmConfigTab() {
                 <div>
                   <span style={{ color: "var(--text-secondary)" }}>{t("mitm.command", "命令：")}</span>
                   <code style={{ fontFamily: "ui-monospace, monospace", wordBreak: "break-all" }}>
-                    {manualInstall.name} {manualInstall.args.join(" ")}
+                    {manualInstall.manual_display}
                   </code>
+                </div>
+                <div style={{ color: "var(--text-tertiary)", fontSize: 11 }}>
+                  {t("mitm.manualInstallHint", "复制上方命令到终端执行（需输入管理员密码）")}
                 </div>
               </div>
             </div>
@@ -301,6 +341,26 @@ export function MitmConfigTab() {
                 >
                   {e.source === "default" ? t("mitm.sourceDefault", "默认") : t("mitm.sourceUser", "自定义")}
                 </span>
+                {/* rule_type 标签（domain/suffix/keyword/ipcidr）— source 同风格不同色 */}
+                {(() => {
+                  const rt = e.rule_type ?? "suffix";
+                  const label = rt === "domain" ? t("mitm.ruleDomain", "域名")
+                    : rt === "suffix" ? t("mitm.ruleSuffix", "后缀")
+                    : rt === "keyword" ? t("mitm.ruleKeyword", "关键字")
+                    : rt === "ipcidr" ? t("mitm.ruleIpcidr", "IP 段")
+                    : rt;
+                  return (
+                    <span
+                      style={{
+                        fontSize: 10, padding: "2px 6px", borderRadius: 4,
+                        background: "color-mix(in srgb, var(--color-success, #10b981) 15%, transparent)",
+                        color: "var(--text-secondary)",
+                      }}
+                    >
+                      {label}
+                    </span>
+                  );
+                })()}
                 <div
                   className={`toggle ${e.enabled ? "active" : ""}`}
                   onClick={() => handleToggleEntry(e.host_pattern, !e.enabled)}

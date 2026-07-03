@@ -101,6 +101,9 @@ webpki-roots = "0.26"
 # 均按 SHA-1 thumbprint 定位证书（capability mitm-ca.json validator `^[0-9A-Fa-f]+$`）。
 # 与 sha2 0.10 同生态（共享 digest 0.10 trait），版本对齐避免重复编译。
 sha1 = "0.10"
+# MITM 白名单 ipcidr 规则（Clash IP-CIDR 语义）：CONNECT 目标 host 段为 IP 字面时做 CIDR contains。
+# 轻量纯 Rust，IPv4+IPv6；不做域名→IP 解析（仅匹配字面 IP 目标，GeoIP/DNS 用户明确不要）。
+ipnet = "2"
 # 装 MITM 假 CA 到系统信任库（macOS security / Windows certutil / Linux update-ca-certificates）。
 # scope 在 capabilities/mitm-ca.json 限定仅装 CA 命令，默认 capability 不开放 shell。
 tauri-plugin-shell = "2"
