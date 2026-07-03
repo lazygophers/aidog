@@ -19,6 +19,7 @@ import {
   ModelsSection, ManualBudgetsSection, BreakerSection, GroupAssignSection,
   ExpirySection, ClaudeConfigSection,
 } from "./formSections";
+import { MultiKeyPreview } from "./MultiKeyPreview";
 
 export function PlatformEditForm({ s }: { s: PlatformsState }) {
   const { t } = useTranslation();
@@ -29,6 +30,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     isMock, isPassthrough, keyOptional, apiKeyMissing,
     mockConfig, setMockConfig,
     apiKey, setApiKey, showKey, setShowKey,
+    batchPreviewKeys, handleApiKeyChange, confirmBatchCreate, cancelBatchPreview, previewNames,
     newApiConfig, setNewApiConfig,
     endpoints, setEndpoints,
     models, handleModelChange, handleModelSelect, activeDropdown, setActiveDropdown,
@@ -69,7 +71,9 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           )}
           <button className="btn" onClick={resetForm}>{t("action.cancel")}</button>
           <button className="btn btn-primary" onClick={handleSave}
-            disabled={!name || (isPassthrough ? endpoints.length === 0 : (!isMock && !keyOptional && (endpoints.length === 0 || !apiKey)))}>
+            disabled={!name
+              || (!!batchPreviewKeys && batchPreviewKeys.length > 1)
+              || (isPassthrough ? endpoints.length === 0 : (!isMock && !keyOptional && (endpoints.length === 0 || !apiKey)))}>
             {editing ? t("action.save") : t("action.create")}
           </button>
         </div>
@@ -146,8 +150,22 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
 
         {/* API Key */}
         <FormSection title={t("platform.sectionAuth", "认证")}>
-          <ApiKeyField value={apiKey} onChange={setApiKey} show={showKey} onToggleShow={() => setShowKey(!showKey)} editing={!!editing} />
+          <ApiKeyField value={apiKey} onChange={handleApiKeyChange} show={showKey} onToggleShow={() => setShowKey(!showKey)} editing={!!editing} />
         </FormSection>
+
+        {/* 多 key 批量创建实时预览（创建态 + 非 keyOptional + 多 key 时触发，D1/D2/D3）。
+            只读确认：name 自动生成 `{base}-{key尾4位}` 撞名追号，确认后复用 runBatchCreateFromPaste。 */}
+        {batchPreviewKeys && batchPreviewKeys.length > 1 && !isMock && !isPassthrough && !keyOptional && (
+          <MultiKeyPreview
+            keys={batchPreviewKeys}
+            previewNames={previewNames}
+            protocol={protocol}
+            baseUrl={getPrimaryBaseUrl(protocol, endpoints)}
+            onConfirm={confirmBatchCreate}
+            onCancel={cancelBatchPreview}
+            t={t}
+          />
+        )}
 
         {/* Models Configuration */}
         <ModelsSection

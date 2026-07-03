@@ -53,6 +53,9 @@ export interface PlatformPasteCtx {
   setShowForm: React.Dispatch<React.SetStateAction<boolean>>;
   setExpiresAt: React.Dispatch<React.SetStateAction<number>>;
   setExpiryEnabled: React.Dispatch<React.SetStateAction<boolean>>;
+  // 多 key 预览态 setter（applyPaste 多 key 分支灌表单后 setBatchPreviewKeys 触发实时预览，
+  // 不再立刻批量创建；由 MultiKeyPreview 确认按钮调 confirmBatchCreate → runBatchCreateFromPaste）。
+  setBatchPreviewKeys: React.Dispatch<React.SetStateAction<string[] | null>>;
   // form handler 引用（applyPaste 多 key 分支触发协议切换 + 批量循环 + 末尾 resetForm）
   handleProtocolChange: (newProtocol: Protocol, newCodingPlan?: boolean) => void;
   resetForm: () => void;
@@ -76,7 +79,7 @@ export function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx): voi
     setShowClaudeConfig, setClaudeConfigJson, setFetchError, setSaveError,
     setShowPaste, setShowForm,
     handleProtocolChange,
-    endpoints, protocol,
+    endpoints,
   } = ctx;
   // 命中 aidog 平台分享串 → 整体灌表单（含 api_key / models / endpoints / extra / 手动预算）。
   // 以「新建态」打开（editing=null）：保存才新建平台。优先于零散杂乱解析。
@@ -185,32 +188,32 @@ export function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx): voi
     }
     return eps;
   };
-  // 单 key → 灌表单走旧路径；多 key → 灌表单后立刻批量创建 N 平台。
+  // 单 key → 灌表单走旧路径；多 key → 灌表单 + setBatchPreviewKeys 触发实时预览（D3：不再立刻创建）。
   // apiKeys 可能为空（用户只粘贴了 base_url 无 key），保留 setApiKey("") 旧行为。
   const keys = r.apiKeys ?? [];
   if (keys.length > 1) {
-    // 多 key 批量：同步计算有效 endpoints / 协议（避免读到 setState 未提交的旧表单态）。
-    // 命中平台 → endpoints 取平台默认 + pasted 覆盖；协议取平台 value。
-    // 未命中平台 → 沿用当前表单 endpoints（用户已选），协议沿用当前 protocol。
+    // 多 key 批量：同步计算有效 endpoints（避免读到 setState 未提交的旧表单态）。
+    // 协议已由上方 handleProtocolChange(r.platform.value...) 落表单（命中平台时），
+    // 未命中平台则沿用当前表单 protocol；此处不再重复设协议。
     const basePrev = r.platform
       ? getDefaultEndpoints(r.platform.value as Protocol, r.platform.codingPlan)
       : endpoints;
     const effectiveEndpoints = computeEndpoints(basePrev);
-    const effectiveProtocol: Protocol = r.platform
-      ? (r.platform.value as Protocol)
-      : protocol;
-    // 灌表单态（让用户可见将批量化创建的配置），再异步触发批量循环。
-    ctx.setApiKey(keys[0]);
+    // 灌表单态（让用户可见将批量化创建的配置），触发预览（与手动表单多 key 同路径，统一预览 UX）。
+    // apiKey 灌多 key 拼接文本（用户可见 + 预览组件读 splitApiKeys 重新拆分）。
+    ctx.setApiKey(keys.join("\n"));
     ctx.setEndpoints(effectiveEndpoints);
     if (r.expiresAt && r.expiresAt > 0) {
       ctx.setExpiresAt(r.expiresAt);
       ctx.setExpiryEnabled(true);
     }
+    ctx.setBatchPreviewKeys(keys);
     ctx.setShowPaste(false);
     ctx.setShowForm(true);
-    void runBatchCreateFromPaste(keys, ctx, r.platform?.label, effectiveEndpoints, effectiveProtocol);
     return;
   }
+  // 单 key / 无 key 路径：清预览态（applyPaste 复用同一 ctx，避免上次多 key 预览残留）。
+  ctx.setBatchPreviewKeys(null);
   if (r.baseUrls.length > 0) {
     ctx.setEndpoints(computeEndpoints);
   }
@@ -225,6 +228,39 @@ export function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx): voi
   ctx.setShowPaste(false);
   // 弹窗可能从主列表「添加平台」直达（表单尚未挂载），apply 后显式拉起表单展示已填字段。
   ctx.setShowForm(true);
+}
+
+/**
+ * 预览批量创建的 name 列表（只读确认用）。
+ * name 规则与 {@link runBatchCreateFromPaste} 完全一致：`{baseName}-{key 尾4位}`，撞名追号 `-2 -3 …`。
+ * ponytail: 单源抽 util，保证预览名 = 实际创建名（撞名态在创建过程中可能继续变化，预览为当前快照）。
+ *
+ * @param keys 已拆分去重的 key 数组
+ * @param baseName 平台名前缀（智能识别路径传 preset label；手动表单传当前 name）
+ * @param usedNames 当前已存在的平台名集合（撞名判定基准；预览用当前快照，实际创建时动态更新）
+ * @returns 与 keys 等长的 name 预览数组
+ */
+export function previewBatchNames(
+  keys: string[],
+  baseName: string,
+  usedNames: Set<string>,
+): string[] {
+  const prefix = (baseName || "Platform").trim();
+  // ponytail: 复制一份避免污染调用方传入的 Set（预览不写回 usedNames，实际创建才写回）。
+  const used = new Set(usedNames);
+  const out: string[] = [];
+  for (const k of keys) {
+    const tail = k.length >= 4 ? k.slice(-4) : k;
+    let pname = `${prefix}-${tail}`;
+    if (used.has(pname)) {
+      let seq = 2;
+      while (used.has(`${pname}-${seq}`)) seq++;
+      pname = `${pname}-${seq}`;
+    }
+    used.add(pname); // 预览内同尾4位连发也追号（与实际创建语义一致）
+    out.push(pname);
+  }
+  return out;
 }
 
 /**
@@ -257,6 +293,7 @@ export async function runBatchCreateFromPaste(
   }
   // 撞名追号：每次创建后即时把成功 name 纳入 used 集合，避免同尾4位连发撞名。
   const usedNames = new Set(ctx.platforms.map(p => p.name));
+  // ponytail: 复用 previewBatchNames 单源逻辑 → 实际创建循环里逐个动态追号（创建中 usedNames 增长）。
   const joinIds = lockedGroupId != null ? [lockedGroupId] : joinGroupIds;
   const auto = lockedGroupId != null ? false : autoGroup;
   let okCount = 0;
@@ -265,14 +302,8 @@ export async function runBatchCreateFromPaste(
   setToast({ text: t("platform.batch.progress", "批量创建中… {{done}}/{{total}}", { done: 0, total: keys.length }), ok: true });
   for (let i = 0; i < keys.length; i++) {
     const k = keys[i];
-    const tail = k.length >= 4 ? k.slice(-4) : k;
-    let pname = `${prefix}-${tail}`;
-    // 撞名（含本次批量已建）追号 -2 -3 …
-    if (usedNames.has(pname)) {
-      let seq = 2;
-      while (usedNames.has(`${pname}-${seq}`)) seq++;
-      pname = `${pname}-${seq}`;
-    }
+    // name 计算复用 previewBatchNames 的单元素版本（保持预览 = 实际创建名一致）。
+    const pname = previewBatchNames([k], prefix, usedNames)[0];
     try {
       const saved = await platformApi.create({
         name: pname, platform_type: proto, base_url: baseUrl, api_key: k,
