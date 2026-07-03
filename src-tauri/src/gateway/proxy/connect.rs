@@ -365,12 +365,32 @@ where
                 }
             };
 
-            // 4. 双向桥接两段 TLS 流（密文透传；明文 Request 解析 + forward 链是 ST5）。
-            //    ST4 阶段：client_tls（解密后明文）↔ upstream_tls（解密后明文）直接桥接，
-            //    等价 TLS 层透明中继（两端都解密后 copy，字节级与 blind_relay 等价；ST5 将
-            //    在此插入 handle_proxy_core 而非 copy）。
-            bridge_bidir(client_tls, *upstream_tls).await;
-            log_connect_success(st, request_id, platform_id, target.to_string(), start, log_enabled).await;
+            // ST5 明文路径：ALPN 协商协议决定走 http/1.1 forward 还是降级密文桥接。
+            // ALPN 协商 h2 → 客户端会发 HTTP/2 帧；本 subtask 只解 http/1.1（D9 归 ST6）。
+            // h2 降级：桥接 client_tls ↔ upstream_tls（都已建立），等价 ST4 字节透传；明文 copy
+            // 两端解密后字节级与 blind_relay 等价。upstream_tls 在 http/1.1 路径丢弃（forward_attempt
+            // 自连上游），h2 路径复用做密文桥接，避免空耗预检连接。
+            let alpn = client_tls.get_ref().1.alpn_protocol();
+            if alpn == Some(b"h2") {
+                tracing::info!(host = host_only, "mitm: ALPN h2 negotiated, ST6 pending, fallback to byte bridge");
+                bridge_bidir(client_tls, *upstream_tls).await;
+                log_connect_success(st, request_id, platform_id, target.to_string(), start, log_enabled).await;
+                return MitmOutcome { handled: true, fallback_reason: "", client_return: None };
+            }
+
+            // 4. ST5 明文 forward：http/1.1 协商成功 → 在 client_tls 上读明文 HTTP Request →
+            //    灌入 handle_proxy_core（middleware/路由/headers/retry/采集/forward_attempt 全套，
+            //    95% 复用）→ 响应明文回写 client_tls（hyper 写回，TLS 层自动加密回客户端）。
+            //    上游由 forward_attempt 内部 http_client 自连（真证书），预检 upstream_tls 丢弃。
+            //    proxy_log 走 handle_proxy_core 内部 upsert_log 全量 AI 记账（body + stats_agg + cost），
+            //    **不走 upsert_connect_log**（盲转专用，避免污染统计）。
+            //
+            // ponytail: http/1.1 only — ST6 加 h2 协议转换（auto Builder + http2 feature）。
+            // ponytail: 预检 upstream_tls 在明文路径被丢弃（forward_attempt 自连），浪费 1 条 TCP+TLS。
+            // 保留预检是为 pinning 探测（探针必须先于 accept 确认上游可信，否则 client 已 accept
+            // 后发现 pinning fail 无法干净降级）。pinning fail 频率低，浪费可接受。
+            drop(upstream_tls);
+            serve_plaintext_http(st.clone(), client_tls, host_only).await;
             MitmOutcome { handled: true, fallback_reason: "", client_return: None }
         }
         super::super::mitm::tls::UpstreamTlsOutcome::PinningSuspect { host, error } => {
@@ -395,6 +415,124 @@ where
                 client_return: Some(client),
             }
         }
+    }
+}
+
+// ── ST5 明文 forward：在 client_tls 上读明文 HTTP → 灌 handle_proxy_core ──────
+
+/// 收集任意 `http_body::Body` 为 `Bytes`，限制总字节防 OOM。
+///
+/// ponytail: 手写 poll_frame 循环 —— axum::body::to_bytes 签名锁死 `axum::body::Body` 类型，
+/// hyper Incoming 不兼容；http_body_util::BodyExt::collect 是传递依赖不直接可见。
+/// 10 行手写 < 加一个 dep，最小可工作解。limit 触发即 err（与 handle_proxy_core 同款语义）。
+async fn collect_body<B>(body: B, limit: usize) -> Result<hyper::body::Bytes, String>
+where
+    B: hyper::body::Body + Unpin,
+    B::Error: std::fmt::Display,
+    B::Data: AsRef<[u8]>,
+{
+    // hyper::body::BytesMut 不存在；Vec<u8> 收集 + 末尾 freeze 成 Bytes。
+    // ponytail: B::Data: AsRef<[u8]> 约束让 extend_from_slice 可用（hyper::body::Bytes impl Buf，
+    // 但 AsRef<[u8]> 是最简 copy 路径，避免引 bytes::Buf trait 路径）。
+    let mut buf: Vec<u8> = Vec::new();
+    // tokio::pin! 安全 pin（B: Unpin，pin 无 unsafe 语义；pin 后 poll_frame 需 Pin<&mut Self>）。
+    tokio::pin!(body);
+    loop {
+        // std::future::poll_fn 避免手写 Future；cx 由 poll_fn 注入。
+        let frame = std::future::poll_fn(|cx| body.as_mut().poll_frame(cx)).await;
+        match frame {
+            None => return Ok(hyper::body::Bytes::from(buf)),
+            Some(Ok(frame)) => {
+                if let Ok(data) = frame.into_data() {
+                    let bytes: &[u8] = data.as_ref();
+                    if buf.len() + bytes.len() > limit {
+                        return Err(format!("body too large (limit {limit} bytes)"));
+                    }
+                    buf.extend_from_slice(bytes);
+                }
+                // 非 data frame（trailers 等）忽略。
+            }
+            Some(Err(e)) => return Err(format!("body read error: {e}")),
+        }
+    }
+}
+
+
+
+/// ST5 明文 forward：在已 accept 的 client_tls（明文）流上用 hyper http1 server 读
+/// 明文 HTTP Request，每条 Request 构造 axum Request 灌入 `handle_proxy_core`（middleware /
+/// 路由 / forward_attempt 全套），响应明文回写 client_tls（hyper 写回，TLS 层自动加密
+/// 回客户端）。支持 HTTP/1.1 keep-alive（一个 TLS 会话内多 Request 循环）。
+///
+/// **proxy_log 记账**：明文路径走 AI 请求全量记账（handle_proxy_core 内 upsert_log，含 body
+/// + stats_agg + cost），**不走 upsert_connect_log**（盲转专用，避免污染统计）。
+///
+/// ponytail: http/1.1 only —— ST6 加 h2（改 auto Builder + 加 hyper http2 feature）。
+/// ponytail: body 完整读（collect_body）而非 streaming 灌入 —— handle_proxy_core 内
+/// 已 to_bytes(10MB) 读一次，此处再 stream 无收益且增复杂度，等价直接 collect。
+/// ponytail: Infallible 错类型 —— handle_proxy_core 返 Response 不返 Err（错误已落 4xx/5xx body），
+/// service_fn 不需要错误传播路径。
+/// ponytail: 不复用 handle_proxy_inner 的 RequestLogGuard —— MITM 明文路径客户端断连时
+/// handle_proxy_core 内部各阶段已 upsert_log 终态，499 兜底语义重叠；YAGNI 不重复 guard。
+async fn serve_plaintext_http<S>(
+    state: Arc<ProxyState>,
+    client_tls: S,
+    host_only: &str,
+) where
+    S: AsyncRead + AsyncWrite + Unpin + Send,
+{
+    // TokioIo 包装：rustls server TlsStream impl tokio AsyncRead/Write，TokioIo 转 hyper Read/Write。
+    let io = TokioIo::new(client_tls);
+    let svc = hyper::service::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
+        let st = state.clone();
+        async move {
+            // hyper::Request<Incoming> → axum::Request<axum::body::Body>：
+            // parts（method/uri/headers）通用，body 收 Bytes 后 Body::from 包装。
+            let (parts, body) = req.into_parts();
+            let bytes = match collect_body(body, 10 * 1024 * 1024).await {
+                Ok(b) => b,
+                Err(e) => {
+                    // body 读失败返 400（与 handle_proxy_core 内同款错误语义）。
+                    tracing::warn!(error = %e, host = host_only, "mitm plaintext: read body failed");
+                    let mut resp = hyper::Response::builder().status(StatusCode::BAD_REQUEST);
+                    if let Some(h) = resp.headers_mut() {
+                        h.insert(axum::http::header::CONTENT_TYPE, axum::http::HeaderValue::from_static("text/plain"));
+                    }
+                    return Ok::<_, std::convert::Infallible>(
+                        resp.body(axum::body::Body::from(format!("read body error: {e}")))
+                            .expect("static response build"),
+                    );
+                }
+            };
+            let axum_req = Request::from_parts(parts, axum::body::Body::from(bytes));
+            // 灌入 handle_proxy_core —— 走完整 AI 请求链（middleware/路由/forward_attempt/采集）。
+            //
+            // 直调 handle_proxy_core 而非 handle_proxy：handle_proxy → handle_proxy_inner 含
+            // CONNECT 分流 → handle_connect（与当前 spawn 互递归，Send 死锁）。core 不分流
+            // CONNECT（分流已在 handle_proxy_inner 顶部），明文 Request method 非 CONNECT 必走
+            // AI 路径，无递归。request_id + span + 499 guard 在本地构造（等价 handle_proxy_inner
+            // 的 guard 语义，客户端断连时 Drop 补写终态 499）。
+            let request_id = uuid::Uuid::new_v4().simple().to_string();
+            let span = tracing::info_span!(
+                "req",
+                trace_id = %&request_id[..8],
+                request_id = %request_id,
+                mitm = %host_only,
+            );
+            let resp: Response = handle_proxy_core(AxumState(st.clone()), axum_req, request_id)
+                .instrument(span)
+                .await;
+            Ok::<_, std::convert::Infallible>(resp)
+        }
+    });
+
+    // http1 keep-alive：一个 TLS 会话内可循环多 Request（client 复用连接发多请求）。
+    // serve_connection future 在 client 关闭连接 / 协议错时返 Err（tracing 后接受）。
+    if let Err(e) = hyper::server::conn::http1::Builder::new()
+        .serve_connection(io, svc)
+        .await
+    {
+        tracing::debug!(error = %e, host = host_only, "mitm plaintext: http1 connection ended");
     }
 }
 

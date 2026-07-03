@@ -296,3 +296,153 @@ async fn connect_mitm_non_candidate_blind_relay_no_regression() {
         "白名单空 → P1 blind_relay 路径必须建隧道返 200（ST4 分流不回归），实际: {resp}"
     );
 }
+
+// ── ST5 明文 forward 接入 ──────────────────────────────────────────────────────
+
+/// ST5 验收：MITM 明文 Request 灌入 handle_proxy_core → 走完整 AI 请求链
+/// （middleware / 路由 / forward_attempt / 采集），proxy_log 落 anthropic 协议行
+/// （**非 http-connect 盲转行**）+ stub 上游回 200 + cost 记账。
+///
+/// 这是 ST5 的核心价值验证：明文 Request 经 handle_proxy_core 后，所有 AI 规则生效
+/// （对盲转的根本区别）。端到端 TLS+CA+client mock 过重，抽核心断言（与 ST4 分流判定
+/// 单测同款策略）：构造明文 Request（模拟 MITM 解密后 hyper 转换出的 axum Request）→
+/// 灌 handle_proxy_core → 断言 source_protocol=anthropic / status=200 / cost 记账。
+///
+/// 与 test_integration::forwards_anthropic_messages_to_upstream 的区别：本测试验证的是
+/// **MITM 明文路径专用的 handle_proxy_core 直调**（不经 handle_proxy_inner CONNECT 分流，
+/// 等价 serve_plaintext_http 的调用路径），确认 ST5 接入点正确。
+#[tokio::test]
+async fn mitm_forward_plaintext_request_hits_ai_path() {
+    use crate::gateway::db::test_support::{sample_group, test_db};
+    use crate::gateway::models::{CreatePlatform, GroupPlatformInput, Protocol};
+
+    // 1. stub 上游 axum server（Anthropic 协议格式 200 响应）。
+    let upstream_body = r#"{"id":"msg_mitm","type":"message","role":"assistant","model":"claude-3","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn","usage":{"input_tokens":5,"output_tokens":3}}"#;
+    let upstream_url = {
+        use axum::routing::any;
+        let app = axum::Router::new().fallback(any(move || async move {
+            (
+                axum::http::StatusCode::OK,
+                [("content-type", "application/json")],
+                upstream_body,
+            )
+        }));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(listener, app).await.ok() });
+        format!("http://{addr}")
+    };
+
+    // 2. ProxyState + group + Anthropic 平台（base_url=stub）。
+    let db = test_db().await;
+    let state = Arc::new(ProxyState {
+        db: Arc::new(db),
+        app: None,
+        middleware: Arc::new(crate::gateway::middleware::MiddlewareEngine::new()),
+        scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
+        sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
+        log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
+        agg_done: std::sync::Mutex::new((
+            std::collections::VecDeque::new(),
+            std::collections::HashSet::new(),
+        )),
+    });
+    let plat = crate::gateway::db::create_platform(&state.db, CreatePlatform {
+        name: "mitm-stub".into(),
+        platform_type: Protocol::Anthropic,
+        base_url: upstream_url,
+        api_key: "sk-up".into(),
+        extra: String::new(),
+        models: None, available_models: None, endpoints: None, manual_budgets: None,
+        auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
+    }).await.unwrap();
+    let group = crate::gateway::db::create_group(&state.db, sample_group("mitm-gk", vec![])).await.unwrap();
+    crate::gateway::db::set_group_platforms(&state.db, group.id, &[GroupPlatformInput {
+        platform_id: plat.id, priority: Some(0), weight: Some(1), level_priority: Some(0),
+    }]).await.unwrap();
+
+    // 3. 构造明文 Request（模拟 MITM 解密后 hyper 转换出的 axum Request）。
+    //    客户端发官方 Anthropic 协议（CONNECT api.anthropic.com:443 + POST /v1/messages），
+    //    aidog MITM 解密后明文 Request 的 method/uri/headers/body 与直连代理一致。
+    let plaintext_req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("authorization", "Bearer mitm-gk")
+        .header("content-type", "application/json")
+        .body(Body::from(
+            r#"{"model":"claude-3","messages":[{"role":"user","content":"hi"}]}"#.to_string(),
+        ))
+        .unwrap();
+
+    // 4. 灌入 handle_proxy_core（ST5 接入点，等价 serve_plaintext_http 内的调用）。
+    let request_id = uuid::Uuid::new_v4().simple().to_string();
+    let resp = handler::handle_proxy_core(AxumState(state.clone()), plaintext_req, request_id.clone()).await;
+
+    // 5. 断言走 AI 路径：响应 200（stub 上游回成功）。
+    assert_eq!(
+        resp.status(),
+        StatusCode::OK,
+        "MITM 明文 Request 灌 handle_proxy_core 必须走 AI 路径返 200（stub 上游成功）"
+    );
+
+    // 6. 断言 proxy_log 落 AI 行（非 http-connect 盲转行）。
+    //    关键：source_protocol=anthropic（detect_source_protocol("/v1/messages")），
+    //    非 http-connect（盲转专用）。这证明明文 Request 走了完整 AI 请求链。
+    let row = crate::gateway::db::get_proxy_log(&state.db, &request_id).await
+        .expect("query proxy_log").expect("proxy_log row must exist");
+    assert_eq!(
+        row.source_protocol, "anthropic",
+        "MITM 明文路径 source_protocol 必须是 anthropic（AI 路径），非 http-connect（盲转路径）"
+    );
+    assert_eq!(row.status_code, 200, "stub 上游 200 必须记账");
+    assert_eq!(row.group_key, "mitm-gk", "group_key 必须解析正确（明文 Authorization 可见）");
+    assert_eq!(row.platform_id, plat.id, "platform_id 必须命中 stub 平台（路由生效）");
+    assert_eq!(row.input_tokens, 5, "input_tokens 必须从上游响应 usage 提取（采集生效）");
+    assert!(row.est_cost > 0.0, "est_cost 必须非 0（cost 估算生效，盲转路径恒 0）");
+}
+
+/// ST5 失败模式回归：明文 Request 缺 Authorization（无 group）→ handle_proxy_core 返 404，
+/// 不走盲转 upsert_connect_log（盲转无 group 概念）。验证 MITM 明文路径与盲转记账独立。
+#[tokio::test]
+async fn mitm_forward_plaintext_no_auth_returns_404_ai_path() {
+    use crate::gateway::db::test_support::test_db;
+
+    let db = test_db().await;
+    let state = Arc::new(ProxyState {
+        db: Arc::new(db),
+        app: None,
+        middleware: Arc::new(crate::gateway::middleware::MiddlewareEngine::new()),
+        scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
+        sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
+        log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
+        agg_done: std::sync::Mutex::new((
+            std::collections::VecDeque::new(),
+            std::collections::HashSet::new(),
+        )),
+    });
+
+    // 明文 Request 无 Authorization（模拟客户端未带 apikey 的官方协议请求）。
+    let plaintext_req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"model":"claude-3","messages":[]}"#.to_string()))
+        .unwrap();
+
+    let request_id = uuid::Uuid::new_v4().simple().to_string();
+    let resp = handler::handle_proxy_core(AxumState(state.clone()), plaintext_req, request_id.clone()).await;
+
+    // AI 路径 404（no matching group），非盲转（盲转无 group 概念，恒 200/502）。
+    assert_eq!(
+        resp.status(),
+        StatusCode::NOT_FOUND,
+        "MITM 明文路径无 group 必须走 AI 路径 404（非盲转 200/502）"
+    );
+
+    // proxy_log 行存在 + status=404（AI 路径全量记账，盲转不落 AI 行）。
+    let row = crate::gateway::db::get_proxy_log(&state.db, &request_id).await
+        .expect("query proxy_log").expect("proxy_log row must exist");
+    assert_eq!(row.status_code, 404, "AI 路径 404 必须落 proxy_log");
+    assert_eq!(row.source_protocol, "", "group 解析失败时 source_protocol 未设（仍非 http-connect）");
+}
+

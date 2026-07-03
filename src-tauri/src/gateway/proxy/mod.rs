@@ -57,6 +57,9 @@ mod test_connect;
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
 pub use endpoint::{opencode_zen_fallback, resolve_opencode_zen_key};
 pub use handler::handle_proxy;
+// ST5：明文 MITM 路径灌入用（CONNECT 分流已移至 handle_proxy_inner，core 只处理 AI 请求，
+// 打破与 handle_connect 的互递归 Send 死锁）。
+pub(crate) use handler::handle_proxy_core;
 pub use headers::{
     apply_client_headers, build_upstream_headers, inject_coding_plan_fields,
     override_coding_plan_path,
