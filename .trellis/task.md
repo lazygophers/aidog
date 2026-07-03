@@ -49,8 +49,10 @@
 | diag-42617827 | 诊断 request_id=42617827 错误链根因 | — | 已完成 | — |
 | proxy-relay-mitm | proxy MITM 解密隧道 P3 - 客户端保官方协议 + AirDog 拦截采集 | — | 已完成 | — |
 | longcat-default-models | Longcat 平台补默认模型列表 | — | 已完成 | — |
-| mitm-ca-elevated-install | MITM CA 自动提权安装 (osascript/UAC/pkexec) | — | 实施中 | — |
+| mitm-ca-elevated-install | MITM CA 自动提权安装 (osascript/UAC/pkexec) | — | 已完成 | — |
 | mitm-whitelist-clash-rules | MITM 白名单 Clash 规则集全类型支持 + 默认扩充 | — | 已完成 | — |
+| mitm-ca-macos-fix | MITM CA macOS osascript 安装失败修复 (手敲 sudo 成功 / osascript 失败) | — | 实施中 | — |
+| platform-multi-apikey-ui | 平台添加多 apikey 智能识别批量创建 UI | — | 规划中 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -60,4 +62,4 @@
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-01-arch-redesign | 07-01-arch-redesign | trellisx-start |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-03-mitm-ca-elevated-install | 07-03-mitm-ca-elevated-install | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-03-mitm-ca-macos-fix | 07-03-mitm-ca-macos-fix | trellisx-start |
