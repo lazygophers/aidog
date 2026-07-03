@@ -475,7 +475,9 @@ where
 /// service_fn 不需要错误传播路径。
 /// ponytail: 不复用 handle_proxy_inner 的 RequestLogGuard —— MITM 明文路径客户端断连时
 /// handle_proxy_core 内部各阶段已 upsert_log 终态，499 兜底语义重叠；YAGNI 不重复 guard。
-async fn serve_plaintext<S>(
+// ponytail: pub(crate) 仅为 ST8 端到端测试直调（绕过 handle_connect 的真上游预检，connect_upstream
+// 写死 webpki-roots 无法 mock）；生产调用方仍只有 handle_mitm。
+pub(crate) async fn serve_plaintext<S>(
     state: Arc<ProxyState>,
     client_tls: S,
     host_only: &str,
