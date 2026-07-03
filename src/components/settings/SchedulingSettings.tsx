@@ -5,15 +5,12 @@
 
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import type { TFunction } from "i18next";
 import {
   schedulingApi,
   type SchedulingBreakerSettings,
   type RoutingMode,
 } from "../../services/api";
-
-// 全部调度策略（与 api.ts RoutingMode 契约对齐，禁裸 string）。
-const ROUTING_MODES: RoutingMode[] = ["failover", "load_balance", "health_aware", "least_latency", "sticky"];
+import { ROUTING_MODES, routingModeLabel } from "../../domains/groups/routing";
 
 const DEFAULT_SETTINGS: SchedulingBreakerSettings = {
   default_routing_mode: "health_aware",
@@ -22,17 +19,6 @@ const DEFAULT_SETTINGS: SchedulingBreakerSettings = {
   breaker_half_open_max: 2,
   enabled: true,
 };
-
-function routingModeLabel(t: TFunction, mode: RoutingMode): string {
-  const map: Record<RoutingMode, string> = {
-    failover: t("group.failover", "故障转移"),
-    load_balance: t("group.loadBalance", "负载均衡"),
-    health_aware: t("group.routingMode.health_aware", "健康感知"),
-    least_latency: t("group.routingMode.least_latency", "最低延迟"),
-    sticky: t("group.routingMode.sticky", "会话粘性"),
-  };
-  return map[mode] ?? mode;
-}
 
 export function SchedulingSettingsTab() {
   const { t } = useTranslation();
