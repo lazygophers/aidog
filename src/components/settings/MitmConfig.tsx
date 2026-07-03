@@ -17,35 +17,12 @@ import {
   mitmApi,
   type MitmStatus,
   type CaCommandSpec,
+  type TrustErrorKind,
 } from "../../services/api";
 
-/// CA 安装失败分类（research/elevation-feasibility.md Q5 三 OS exit code/stderr 判据）。
-/// 从 capability 命名命令 name（macos-*/windows-*/linux-*）推 OS，避免引入 plugin-os 依赖。
-type TrustErrorKind = "cancel" | "auth_fail" | "no_agent" | "cmd_fail";
-function classifyTrustError(
-  name: string,
-  code: number | null,
-  stderr: string,
-): TrustErrorKind {
-  const lower = stderr.toLowerCase();
-  if (name.startsWith("linux")) {
-    // pkexec: 126=用户取消密码框, 127=auth 失败 / 无 polkit agent, 其他=命令本身失败
-    if (code === 126) return "cancel";
-    if (code === 127) {
-      return lower.includes("agent") || lower.includes("polkit") ? "no_agent" : "auth_fail";
-    }
-    return "cmd_fail";
-  }
-  if (name.startsWith("macos")) {
-    // osascript: exit 恒 1，靠 stderr 区分；(-128)=用户取消, Authorization=密码错/鉴权拒
-    if (lower.includes("(-128)")) return "cancel";
-    if (/(authorization|鉴权)/.test(lower)) return "auth_fail";
-    return "cmd_fail";
-  }
-  // windows: UAC 取消 stderr 含 1223 (ERROR_CANCELLED)
-  if (lower.includes("1223") || /cancel/i.test(lower)) return "cancel";
-  return "cmd_fail";
-}
+/// CA 安装失败分类后端化（阶段 B）：分类逻辑真源在后端 `classify_trust_error`（Rust 纯函数 +
+/// 单测矩阵），前端 invoke `mitm_classify_trust_error` 取 TrustErrorKind，消除前后端双源。
+/// 见 ca.rs `classify_trust_error` / `classify_trust_error_linux/macos/windows`。
 
 export function MitmConfigTab() {
   const { t } = useTranslation();
@@ -110,7 +87,9 @@ export function MitmConfigTab() {
       if (!ok) {
         // 失败兜底（D8）：分类错误 + 给 manual_display 真实 sudo 命令引导手动装。
         setManualInstall(spec);
-        const kind = classifyTrustError(spec.name, out.code, out.stderr ?? "");
+        // 阶段 B：分类后端化，invoke 后端 classify_trust_error（Rust 真源 + 单测矩阵）。
+        // code 显式 null 兜底（Tauri shell plugin reject/signal kill 路径 code 可能为 null）。
+        const kind: TrustErrorKind = await mitmApi.classifyTrustError(spec.name, out.code, out.stderr ?? "");
         const base =
           kind === "cancel"
             ? t("mitm.installCancel", "已取消安装（未输入密码或点了取消）")
