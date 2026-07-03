@@ -26,10 +26,10 @@ import {
   type GroupDetail,
 } from "../../services/api";
 import { matchCcProvider, ccProviderToPlatformJson, DEFAULT_DIMS, type CcImportDims } from "../../utils/ccswitchMatch";
-import { SectionIcon } from "./editors";
 import { IconCheck } from "../icons";
 import { StatChip } from "../shared/StatChip";
 import type { ColorLevel } from "../shared/colorScale";
+import { SectionHeader, TextButton } from "./ImportExport/primitives";
 
 function protocolColor(matchedBy: string): ColorLevel {
   switch (matchedBy) {
@@ -208,7 +208,7 @@ export function CcSwitchImportSection({
 
   return (
     <section className="glass" style={{ padding: 20, display: "flex", flexDirection: "column", gap: 16 }}>
-      <SectionHeaderSimple
+      <SectionHeader
         icon="download"
         title={t("importExport.ccswitch.title", "从 cc-switch 导入")}
         desc={t(
@@ -267,14 +267,14 @@ export function CcSwitchImportSection({
               {t("importExport.ccswitch.providerList", "供应商列表")}
             </strong>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <TextButtonSimple
+              <TextButton
                 onClick={() => setSelected(new Set(providers.map((p) => p.id)))}
               >
                 {t("importExport.selectAll", "全选")}
-              </TextButtonSimple>
-              <TextButtonSimple onClick={() => setSelected(new Set())}>
+              </TextButton>
+              <TextButton onClick={() => setSelected(new Set())}>
                 {t("importExport.deselectAll", "反选")}
-              </TextButtonSimple>
+              </TextButton>
               <StatChip value={`${selectedCount}/${providers.length}`} label={t("importExport.selectedLabel", "已选")} level={selectedCount > 0 ? "success" : "neutral"} />
             </div>
           </div>
@@ -431,32 +431,7 @@ export function CcSwitchImportSection({
 }
 
 // ─── 子组件 ─────────────────────────────────────────────────
-
-function SectionHeaderSimple({ icon, title, desc }: { icon: string; title: string; desc: string }) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <SectionIcon name={icon} size={18} style={{ color: "var(--accent)" }} />
-        <h3 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: "var(--text-primary)" }}>{title}</h3>
-      </div>
-      <p style={{ margin: 0, fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>{desc}</p>
-    </div>
-  );
-}
-
-function TextButtonSimple({ onClick, children }: { onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        background: "transparent", border: "none", color: "var(--accent)",
-        fontSize: 13, fontWeight: 500, cursor: "pointer", padding: 0,
-      }}
-    >
-      {children}
-    </button>
-  );
-}
+// SectionHeader / TextButton 已合并到 ./ImportExport/primitives.tsx（消 D-new.1/2）。
 
 function DimCheckbox({
   checked,
