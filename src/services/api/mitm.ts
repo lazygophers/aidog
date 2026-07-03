@@ -11,6 +11,8 @@ export interface WhitelistEntry {
   enabled: boolean;
   /** "default"（系统预填）/ "user"（用户加）。 */
   source: "default" | "user";
+  /** 规则类型（与后端 rule_type 对齐）：domain / suffix / keyword / ipcidr。 */
+  rule_type: "domain" | "suffix" | "keyword" | "ipcidr";
 }
 
 /** MITM 综合状态（与后端 MitmStatus 对齐）。 */
@@ -33,12 +35,16 @@ export interface CaCommandSpec {
   args: string[];
   /** 落盘后的 CA PEM 绝对路径（失败兜底手动装命令展示用）。 */
   ca_pem_path: string;
+  /** 兜底手动装展示的真实 sudo 终端命令（提权失败时弹窗给用户复制执行）。 */
+  manual_display: string;
 }
 
 /** CA 卸载命令 spec（ST9 用）。 */
 export interface CaUninstallSpec {
   name: string;
   args: string[];
+  /** 兜底手动卸展示的真实 sudo 终端命令。 */
+  manual_display: string;
 }
 
 export const mitmApi = {
