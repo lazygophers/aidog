@@ -56,6 +56,8 @@ export function MitmConfigTab() {
   const [newPattern, setNewPattern] = useState("");
   // 手动装命令兜底弹窗（D8）：shell execute 失败 / reject 时展示。
   const [manualInstall, setManualInstall] = useState<CaCommandSpec | null>(null);
+  // 阶段A 诊断：存 execute() 的原始输出（code/stderr/stdout/signal），兜底弹窗里展示给用户复现。
+  const [installResult, setInstallResult] = useState<{ code: number | null; stderr: string; stdout: string; signal: number | null } | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -87,12 +89,23 @@ export function MitmConfigTab() {
 
   // ── 装 CA（D1/D8）─────────────────────────────────────────
   const handleInstallCa = async () => {
-    setBusy(true); setError(""); setManualInstall(null);
+    setBusy(true); setError(""); setManualInstall(null); setInstallResult(null);
     try {
       const spec = await mitmApi.installCaPrepare();
       // tauri-plugin-shell：capability mitm-ca.json 按 name 限定（cmd 键），OS 原生提权包装（osascript/UAC/pkexec）。
       const out = await Command.create(spec.name, spec.args).execute();
       const ok = out.code === 0;
+      // 阶段A 诊断：不论 ok 都打全字段（code/stderr/stdout/signal），定位 osascript 失败真实根因。
+      console.error("[ca-install]", {
+        ok,
+        code: out.code,
+        stderr: out.stderr,
+        stdout: out.stdout,
+        signal: out.signal,
+        name: spec.name,
+        args: spec.args,
+      });
+      setInstallResult({ code: out.code, stderr: out.stderr, stdout: out.stdout, signal: out.signal });
       await mitmApi.setCaInstalled(ok);
       if (!ok) {
         // 失败兜底（D8）：分类错误 + 给 manual_display 真实 sudo 命令引导手动装。
@@ -106,13 +119,20 @@ export function MitmConfigTab() {
               : kind === "no_agent"
                 ? t("mitm.installNoAgent", "Linux 缺少 polkit 鉴权 agent，请用下方命令手动装")
                 : t("mitm.installFailed", "装信任库失败（exit={{code}}）", { code: String(out.code) });
-        // cmd_fail 附原始 stderr 辅助诊断；其余分类不堆栈 stderr（用户无需看）
-        setError(kind === "cmd_fail" && out.stderr ? `${base}\n${out.stderr}` : base);
+        // cmd_fail 附原始 stderr 辅助诊断；其余分类不堆栈 stderr（用户无需看）。
+        // 阶段A 兜底：分类逻辑产出空串（out.code 异常 / i18n 缺失）时也必给非空文案，禁 toast 无文案再现。
+        const detail = kind === "cmd_fail" && out.stderr ? `${base}\n${out.stderr}` : base;
+        setError(detail && detail.trim()
+          ? detail
+          : `exit=${String(out.code)} stderr=${out.stderr ?? "(empty)"} stdout=${out.stdout ?? "(empty)"}`);
       }
       await refresh();
     } catch (e) {
+      // 阶段A 诊断：打印完整 reject 原因（含 capability scope 错误 / 用户取消 sudo 等）。
+      console.error("[ca-install] reject", e);
       // Command.create reject（capability 拒绝 / 用户取消 sudo）→ 兜底手动装。
-      setError(String(e));
+      // 阶段A 兜底：reject 的 e 可能无 message（空 reject）→ 也必给非空文案。
+      setError(String(e) || "(reject 无 message)");
       try {
         const spec = await mitmApi.installCaPrepare();
         setManualInstall(spec);
@@ -272,6 +292,20 @@ export function MitmConfigTab() {
                     {manualInstall.manual_display}
                   </code>
                 </div>
+                {/* 阶段A 诊断：弹窗内直接显 execute() 真实 code/stderr/stdout/signal，用户复现无需开 devtools。 */}
+                {installResult && (
+                  <div style={{
+                    marginTop: 4, padding: 8, borderRadius: "var(--radius-sm)",
+                    background: "color-mix(in srgb, var(--color-error, #ef4444) 8%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--color-error, #ef4444) 25%, transparent)",
+                    fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace",
+                    fontSize: 11, color: "var(--text-secondary)", whiteSpace: "pre-wrap", wordBreak: "break-all",
+                  }}>
+                    <div>exit={String(installResult.code)} signal={String(installResult.signal)}</div>
+                    <div>stderr: {installResult.stderr || "(empty)"}</div>
+                    <div>stdout: {installResult.stdout || "(empty)"}</div>
+                  </div>
+                )}
                 <div style={{ color: "var(--text-tertiary)", fontSize: 11 }}>
                   {t("mitm.manualInstallHint", "复制上方命令到终端执行（需输入管理员密码）")}
                 </div>
