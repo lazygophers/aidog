@@ -787,6 +787,7 @@
   "platform.expiresAtHint": "Optional. After expiration the platform is automatically excluded from routing candidates (equivalent to disabled); changing or clearing the value restores it.",
   "platform.expiresAtSoon": "Expiring soon: {{time}}",
   "platform.fetchEmpty": "No models found",
+  "platform.fetchAuthError": "API key auth failed (HTTP {{code}}), please check platform key",
   "platform.fetchModels": "Fetch Models",
   "platform.fillAll": "Fill All",
   "platform.fillAllHint": "Overwrite all slots with the default model",
