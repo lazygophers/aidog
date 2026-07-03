@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/proxy-connect-relay.md", "reason": "P1 CONNECT 契约, P3 需扩展"}
+{"file": ".trellis/tasks/proxy-http-relay/research/mitm-feasibility.md", "reason": "MITM 技术选型+风险+复用点"}
+{"file": ".trellis/tasks/proxy-http-relay/research/p2-middleware-reuse.md", "reason": "CONNECT vs AI 路径对照+forward 复用点"}
+{"file": ".trellis/tasks/proxy-http-relay/research/scenario-analysis.md", "reason": "场景层判定+两路并存"}
