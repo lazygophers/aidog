@@ -16,7 +16,7 @@ use crate::gateway::{
     db::Db,
     mitm::{
         ca::{
-            ensure_root_ca, load_root_ca, set_ca_installed, set_enabled,
+            classify_trust_error, ensure_root_ca, load_root_ca, set_ca_installed, set_enabled,
             sync_ca_installed_from_system, trust_ca_command, untrust_ca_command,
         },
         whitelist::{list_whitelist, WhitelistEntry},
@@ -174,6 +174,27 @@ pub async fn mitm_uninstall_ca_prepare(db: State<'_, Db>) -> Result<CaUninstallS
 pub async fn mitm_set_ca_installed(db: State<'_, Db>, installed: bool) -> Result<(), String> {
     tracing::debug!(command = "mitm_set_ca_installed", installed, "command invoked");
     set_ca_installed(&db, installed).await
+}
+
+/// 分类 CA 安装失败原因（阶段 B：后端化真源，消除前后端双源分类逻辑）。
+///
+/// 前端 `Command.create(name, args).execute()` exit 非 0 后，调本命令把 (name, code, stderr)
+/// 送后端分类为 `TrustErrorKind`（Cancel/AuthFail/NoAgent/CmdFail），前端按 kind 选 t() 文案。
+///
+/// `code: Option<i32>` 显式建模 Tauri shell plugin `out.code` 可能 null/undefined
+/// （reject / signal kill 路径 code 可能为 null）。
+///
+/// snake_case args：前端 invoke 传 `{ name, code, stderr }`（serde 自动转 snake_case）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn mitm_classify_trust_error(
+    name: String,
+    code: Option<i32>,
+    stderr: String,
+) -> Result<String, String> {
+    tracing::debug!(command = "mitm_classify_trust_error", %name, code, "command invoked");
+    let kind = classify_trust_error(&name, code, &stderr);
+    Ok(kind.as_str().to_string())
 }
 
 // ─── 白名单增删改（内联 SQL，避改 whitelist.rs 公共签名）──────────

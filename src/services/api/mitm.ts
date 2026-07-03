@@ -47,6 +47,12 @@ export interface CaUninstallSpec {
   manual_display: string;
 }
 
+/**
+ * CA 安装失败分类（与后端 `TrustErrorKind` enum 对齐，snake_case）。
+ * 后端 `classify_trust_error` 真源，前端 invoke 后返 union string。
+ */
+export type TrustErrorKind = "cancel" | "auth_fail" | "no_agent" | "cmd_fail";
+
 export const mitmApi = {
   /** 读 MITM 综合状态（CA + 白名单）。 */
   status: () => invoke<MitmStatus>("mitm_status"),
@@ -61,6 +67,13 @@ export const mitmApi = {
   /** shell execute 完成后回写 CA 安装状态。 */
   setCaInstalled: (installed: boolean) =>
     invoke<void>("mitm_set_ca_installed", { installed }),
+  /**
+   * 分类 CA 安装失败原因（阶段 B 后端化真源）。
+   * 入参 (name, code, stderr) 走后端 `classify_trust_error`（三 OS 分支纯函数 + None 兜底）。
+   * `code` 显式 null 兜底（Tauri shell plugin reject/signal kill 路径 code 可能为 null）。
+   */
+  classifyTrustError: (name: string, code: number | null, stderr: string) =>
+    invoke<TrustErrorKind>("mitm_classify_trust_error", { name, code, stderr }),
   /** 加白名单条目。 */
   whitelistAdd: (hostPattern: string) =>
     invoke<void>("mitm_whitelist_add", { input: { host_pattern: hostPattern } }),
