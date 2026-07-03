@@ -209,6 +209,16 @@ crate::commands::price::model_price_count_filtered,
             crate::commands::price::price_sync_settings_set,
             // About
             crate::commands::about::about_info,
+            // MITM (P3 ST7) — 白名单配置 + CA 安装状态/引导
+            crate::commands::mitm::mitm_status,
+            crate::commands::mitm::mitm_enable,
+            crate::commands::mitm::mitm_disable,
+            crate::commands::mitm::mitm_install_ca_prepare,
+            crate::commands::mitm::mitm_uninstall_ca_prepare,
+            crate::commands::mitm::mitm_set_ca_installed,
+            crate::commands::mitm::mitm_whitelist_add,
+            crate::commands::mitm::mitm_whitelist_remove,
+            crate::commands::mitm::mitm_whitelist_toggle,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
