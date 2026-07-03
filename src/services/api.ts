@@ -2103,6 +2103,8 @@ export interface WhitelistEntry {
   enabled: boolean;
   /** "default"（系统预填）/ "user"（用户加）。 */
   source: "default" | "user";
+  /** 规则类型（与后端 rule_type 对齐）：domain / suffix / keyword / ipcidr。 */
+  rule_type: "domain" | "suffix" | "keyword" | "ipcidr";
 }
 
 /** MITM 综合状态（与后端 MitmStatus 对齐）。 */
