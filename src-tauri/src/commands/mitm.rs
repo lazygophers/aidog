@@ -149,7 +149,9 @@ pub async fn mitm_uninstall_ca_prepare(db: State<'_, Db>) -> Result<CaUninstallS
     let ca = load_root_ca(&db)
         .await?
         .ok_or_else(|| "CA not generated".to_string())?;
-    let (name, args) = untrust_command_spec(&ca.fingerprint);
+    // untrust_ca_command 内部从 cert_pem 现算 SHA-1 thumbprint（macOS -Z / Windows -delstore Root）。
+    // ponytail: 不读 ST1 存的 SHA-256 fingerprint（capability validator 拒冒号 + OS 语义要 SHA-1）。
+    let (name, args) = untrust_command_spec(&ca.cert_pem);
     Ok(CaUninstallSpec { name, args })
 }
 
@@ -247,8 +249,8 @@ fn trust_command_spec(ca_pem_path: &std::path::Path) -> (String, Vec<String>) {
     (name, args)
 }
 
-fn untrust_command_spec(fingerprint_hex: &str) -> (String, Vec<String>) {
-    let (_program, args) = untrust_ca_command(fingerprint_hex);
+fn untrust_command_spec(cert_pem: &str) -> (String, Vec<String>) {
+    let (_program, args) = untrust_ca_command(cert_pem);
     let name = current_os_untrust_command_name();
     (name, args)
 }

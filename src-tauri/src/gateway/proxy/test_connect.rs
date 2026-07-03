@@ -194,3 +194,105 @@ async fn connect_tunnel_via_real_proxy_env() {
     let _ = sock.read_exact(&mut echo).await;
     assert_eq!(&echo, b"ping", "隧道建后字节必须双向透传（echo 上游回显）");
 }
+
+// ── ST4 MITM 分流判定单测 ──────────────────────────────────────────────────────
+
+/// ST4 验收：mitm_candidate 分流判定 = 白名单命中 && 非 suspect。
+/// 覆盖三分支：白名单命中且非 suspect → MITM 候选（true）/ 白名单未命中 → blind_relay
+/// （false）/ suspect 标记后 → 降级 blind_relay（false）。
+///
+/// design §4 分流判定 + 失败模式表第 3 行（pinning_suspect → 后续降级）。
+/// ponytail: handle_connect 含 axum spawn + TLS，端到端测过重；抽核心判定逻辑
+/// （matches_db && !is_suspect）单测，验三分支组合行为正确。
+/// test_db 默认 seed `*.anthropic.com` + `*.openai.com`（schema_late seed_default_whitelist），
+/// 故 `api.anthropic.com` 命中白名单、`api.unknown.example` 不命中。
+#[tokio::test]
+async fn connect_mitm_route_split_whitelist_and_suspect() {
+    use crate::gateway::db::test_support;
+    use crate::gateway::mitm::mitm_state;
+    use crate::gateway::mitm::whitelist::matches_db;
+
+    let db = test_support::test_db().await;
+
+    // 1. 白名单命中 + 非 suspect → MITM 候选 true（走 MITM 路径）。
+    let hit_anthropic = matches_db(&db, "api.anthropic.com").await;
+    assert!(hit_anthropic, "test_db 默认 seed *.anthropic.com，必命中");
+    let suspect_anthropic = mitm_state().is_suspect("api.anthropic.com").await;
+    assert!(!suspect_anthropic, "未标记 host is_suspect 必 false");
+    let candidate_mitm = hit_anthropic && !suspect_anthropic;
+    assert!(candidate_mitm, "白名单命中 && 非 suspect → MITM 候选 true");
+
+    // 2. 白名单未命中 → blind_relay（candidate false，无论 suspect）。
+    let miss_unknown = matches_db(&db, "api.unknown.example").await;
+    assert!(!miss_unknown, "未 seed 的 host 必不命中白名单");
+    let candidate_blind = miss_unknown && !mitm_state().is_suspect("api.unknown.example").await;
+    assert!(!candidate_blind, "白名单未命中 → mitm_candidate 必 false（走 P1 blind_relay）");
+
+    // 3. suspect 标记后 → 即便白名单命中也必 false（降级 blind_relay，design 失败模式表第 3 行）。
+    //    用 anthropic host 模拟 pinning fail 后 mark_suspect：后续 candidate 必 false。
+    mitm_state().mark_suspect("api.anthropic.com".into()).await;
+    let suspect_after_mark = mitm_state().is_suspect("api.anthropic.com").await;
+    assert!(suspect_after_mark, "mark_suspect 后 is_suspect 必返 true");
+    let candidate_degraded = hit_anthropic && !suspect_after_mark;
+    assert!(
+        !candidate_degraded,
+        "suspect 标记后即便白名单命中 mitm_candidate 必 false（降级 blind_relay）"
+    );
+}
+
+/// ST4 验收：真实 axum proxy + 非 MITM 候选 host → P1 blind_relay 仍正常建隧道返 200
+/// （不因 MITM 分流引入回归）。
+///
+/// 覆盖 design §4 「白名单未命中 → P1 blind_relay」路径：非候选 host 走 spawn_blind_relay
+/// 完整路径（spawn 前 TCP 验证 + 502 早返 + 隧道桥接），验 ST4 分流不破 P1 行为。
+#[tokio::test]
+async fn connect_mitm_non_candidate_blind_relay_no_regression() {
+    // mock 上游 echo TCP server。
+    let upstream = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let upstream_addr = upstream.local_addr().unwrap();
+    tokio::spawn(async move {
+        while let Ok((mut s, _)) = upstream.accept().await {
+            tokio::spawn(async move {
+                let mut buf = [0u8; 64];
+                loop {
+                    match s.read(&mut buf).await {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => {
+                            if s.write_all(&buf[..n]).await.is_err() {
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+
+    let state = make_state().await;
+    let app = axum::Router::new()
+        .route("/", axum::routing::get(handle_root))
+        .route("/proxy", axum::routing::get(handle_root))
+        .fallback(handle_proxy)
+        .with_state(state);
+    let proxy_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let proxy_addr = proxy_listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(proxy_listener, app).await.ok();
+    });
+
+    // 裸 TcpStream 发 CONNECT（白名单空 → 走 P1 blind_relay 路径，不进 MITM 分流）。
+    let mut sock = tokio::net::TcpStream::connect(proxy_addr).await.unwrap();
+    let req_line = format!(
+        "CONNECT {upstream} HTTP/1.1\r\nHost: {upstream}\r\n\r\n",
+        upstream = upstream_addr
+    );
+    sock.write_all(req_line.as_bytes()).await.unwrap();
+
+    let mut buf = [0u8; 256];
+    let n = sock.read(&mut buf).await.unwrap();
+    let resp = String::from_utf8_lossy(&buf[..n]);
+    assert!(
+        resp.starts_with("HTTP/1.1 200") || resp.starts_with("HTTP/1.0 200"),
+        "白名单空 → P1 blind_relay 路径必须建隧道返 200（ST4 分流不回归），实际: {resp}"
+    );
+}
