@@ -14,6 +14,7 @@ import {
 } from "../services/api";
 import { formatNumber, formatCost, successRate } from "../utils/formatters";
 import { smoothPath } from "../utils/chart";
+import { F } from "../domains/shared/tokens";
 import {
   successRateLevel,
   costLevel,
@@ -21,8 +22,6 @@ import {
   FilterDropdown,
   type ColorLevel,
 } from "../components/shared";
-
-const F = { title: 20, label: 15, body: 15, hint: 13, small: 12 } as const;
 
 type TimePreset = "today" | "7d" | "30d";
 

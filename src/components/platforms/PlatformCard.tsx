@@ -9,8 +9,8 @@ import {
   PROTOCOL_LABELS, PROTOCOL_COLORS, HEALTH_COLORS,
   getDefaultModels, computeManualBudgetDisplay, computeQuotaDisplay,
   allModelValues, tierLabel, formatResetCountdown, healthStatus,
-} from "../../pages/Platforms";
-import type { HealthStatus } from "../../pages/Platforms";
+} from "../../domains/platforms";
+import type { HealthStatus } from "../../domains/platforms";
 
 // ── Props types ──
 

@@ -1,0 +1,202 @@
+import { useTranslation } from "react-i18next";
+import type { SystemSettings } from "./useSystemSettings";
+
+/**
+ * Log recording + Application Logging 两个日志相关 section（原 L562-678 + L757-818）。
+ */
+export function LogSettingsSection({ s }: { s: SystemSettings }) {
+  const { t } = useTranslation();
+  const {
+    logEnabled, logUserReq, logUpstreamReq,
+    userReqRetention, upstreamReqRetention, logRetention,
+    setLogUserReq, setLogUpstreamReq,
+    setUserReqRetention, setUpstreamReqRetention, setLogRetention,
+    handleLogEnabledChange, updateLogSettings,
+    logFileEnabled, logLevel, logRetHours, handleLogSettingsChange,
+  } = s;
+
+  return (
+    <>
+      {/* Log recording */}
+      <div className="glass-surface" style={{
+        padding: "16px 20px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{t("proxy.logRequests", "记录请求日志")}</div>
+            <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+              {t("proxy.logRequestsDesc", "记录代理请求的头部、内容、耗时和 Token 消耗")}
+            </div>
+          </div>
+          <div
+            className={`toggle ${logEnabled ? "active" : ""}`}
+            onClick={() => handleLogEnabledChange(!logEnabled)}
+            role="switch"
+            aria-checked={logEnabled}
+            tabIndex={0}
+          />
+        </div>
+
+        {logEnabled && (
+          <>
+            {/* Sub-toggles for recording scope */}
+            <div style={{ paddingTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>{t("proxy.logUserReq", "记录用户原始请求")}</div>
+                  <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1 }}>
+                    {t("proxy.logUserReqDesc", "用户发送的请求头和请求体")}
+                  </div>
+                </div>
+                <div
+                  className={`toggle ${logUserReq ? "active" : ""}`}
+                  onClick={() => { setLogUserReq(!logUserReq); updateLogSettings({ log_user_request: !logUserReq }); }}
+                  role="switch"
+                  aria-checked={logUserReq}
+                  tabIndex={0}
+                />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 600 }}>{t("proxy.logUpstreamReq", "记录实际上游请求")}</div>
+                  <div className="text-tertiary" style={{ fontSize: 11, marginTop: 1 }}>
+                    {t("proxy.logUpstreamReqDesc", "发送到上游平台的请求头和请求体")}
+                  </div>
+                </div>
+                <div
+                  className={`toggle ${logUpstreamReq ? "active" : ""}`}
+                  onClick={() => { setLogUpstreamReq(!logUpstreamReq); updateLogSettings({ log_upstream_request: !logUpstreamReq }); }}
+                  role="switch"
+                  aria-checked={logUpstreamReq}
+                  tabIndex={0}
+                />
+              </div>
+            </div>
+
+            {/* Retention settings */}
+            <div style={{ paddingTop: 8, borderTop: "1px solid var(--border)", display: "flex", flexDirection: "column", gap: 8 }}>
+              {logUserReq && (
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
+                    {t("proxy.userReqRetention", "原始请求保留天数")}
+                  </label>
+                  <input
+                    className="input"
+                    type="number"
+                    min={0}
+                    value={userReqRetention}
+                    onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUserReqRetention(v); updateLogSettings({ user_request_retention_days: v }); }}
+                    style={{ width: 70 }}
+                  />
+                  <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                    {userReqRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
+                  </span>
+                </div>
+              )}
+              {logUpstreamReq && (
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
+                    {t("proxy.upstreamReqRetention", "上游请求保留天数")}
+                  </label>
+                  <input
+                    className="input"
+                    type="number"
+                    min={0}
+                    value={upstreamReqRetention}
+                    onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setUpstreamReqRetention(v); updateLogSettings({ upstream_request_retention_days: v }); }}
+                    style={{ width: 70 }}
+                  />
+                  <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                    {upstreamReqRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
+                  </span>
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap", minWidth: 120 }}>
+                  {t("proxy.logRetention", "日志记录保留天数")}
+                </label>
+                <input
+                  className="input"
+                  type="number"
+                  min={0}
+                  value={logRetention}
+                  onChange={(e) => { const v = Math.max(0, Number(e.target.value)); setLogRetention(v); updateLogSettings({ retention_days: v }); }}
+                  style={{ width: 70 }}
+                />
+                <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+                  {logRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
+                </span>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Application Logging */}
+      <div className="glass-surface" style={{
+        padding: "16px 20px",
+        display: "flex",
+        flexDirection: "column",
+        gap: 12,
+      }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 600 }}>{t("appLog.title", "应用日志")}</div>
+            <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+              {t("appLog.desc", "控制台日志始终输出；以下设置仅影响日志文件")}
+            </div>
+          </div>
+          <div
+            className={`toggle ${logFileEnabled ? "active" : ""}`}
+            onClick={() => handleLogSettingsChange({ file_enabled: !logFileEnabled })}
+            role="switch"
+            aria-checked={logFileEnabled}
+            tabIndex={0}
+          />
+        </div>
+
+        {logFileEnabled && (
+          <div style={{ display: "flex", gap: 16, alignItems: "center", paddingTop: 8, borderTop: "1px solid var(--border)", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                {t("appLog.level", "日志级别")}
+              </label>
+              <select
+                className="input"
+                value={logLevel}
+                onChange={(e) => handleLogSettingsChange({ level: e.target.value })}
+                style={{ width: 90, padding: "4px 8px", fontSize: 12 }}
+              >
+                {["trace", "debug", "info", "warn", "error"].map((l) => (
+                  <option key={l} value={l}>{l.toUpperCase()}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>
+                {t("appLog.retention", "保留时长")}
+              </label>
+              <input
+                className="input"
+                type="number"
+                min={0}
+                value={logRetHours}
+                onChange={(e) => handleLogSettingsChange({ retention_hours: Math.max(0, Number(e.target.value)) })}
+                style={{ width: 70, padding: "4px 8px", fontSize: 12 }}
+              />
+              <span style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+                {t("appLog.retentionUnit", "小时")}
+              </span>
+            </div>
+            <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>
+              {logRetHours === 0 ? t("appLog.retentionForever", "永久保留") : ""}
+            </span>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}

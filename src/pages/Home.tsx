@@ -20,10 +20,10 @@ import {
   type Platform,
   type StatsBucket,
 } from "../services/api";
-import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { formatNumber, formatCostUsd, formatPercent } from "../utils/formatters";
 import { smoothPath } from "../utils/chart";
-import { BalanceBar, costLevel, levelColor } from "../components/shared";
+import { BalanceBar, costLevel, levelColor, CopyButton } from "../components/shared";
+import { F } from "../domains/shared/tokens";
 import {
   IconCost,
   IconBolt,
@@ -34,43 +34,10 @@ import {
   IconLogs,
 } from "../components/icons";
 
-const F = { title: 20, kpi: 30, label: 15, body: 14, hint: 13, small: 12 } as const;
 const DEFAULT_PORT = 7890;
 const TOP_PLATFORMS = 5;
 
-/** Copy text to clipboard with brief visual feedback（对齐 Groups.tsx CopyButton 模式）。 */
-function CopyButton({ text, title, label, size = 14 }: { text: string; title?: string; label?: string; size?: number }) {
-  const [copied, setCopied] = useState(false);
-  const handleCopy = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    // Tauri writeText 走权限系统（capabilities default.json allow-write-text），
-    // WKWebView 无手势激活时 navigator.clipboard 被拒静默失败，Tauri 路径更可靠（参 ShareModal/SmartPasteModal）。
-    writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  };
-  return (
-    <button
-      className={label ? "btn btn-ghost" : "btn btn-ghost btn-icon"}
-      onClick={handleCopy}
-      title={title || text}
-      style={{ position: "relative", flexShrink: 0, gap: label ? 5 : 0, fontSize: label ? 12 : undefined, padding: label ? "4px 10px" : undefined }}
-    >
-      {copied ? (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M20 6L9 17l-5-5" />
-        </svg>
-      ) : (
-        <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-          <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-        </svg>
-      )}
-      {label && <span style={{ fontWeight: 500 }}>{label}</span>}
-    </button>
-  );
-}
+// CopyButton 抽至 components/shared（消重 D6）
 
 /** 大 KPI 单元：放大数字 + 可选副文本（如缩写量级）+ 小图标标签。今日概览的视觉主角之一。 */
 function KpiCell({ icon, value, sub, label, color }: { icon: React.ReactNode; value: string; sub?: string; label: string; color?: string }) {
