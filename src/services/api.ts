@@ -2123,16 +2123,20 @@ export interface MitmStatus {
 export interface CaCommandSpec {
   /** capability `mitm-ca.json` 的命名命令 key（按 OS）。 */
   name: string;
-  /** 命令参数（含 ca_pem_path）。 */
+  /** 命令参数（含 ca_pem_path + 提权 wrapper）。 */
   args: string[];
-  /** 落盘后的 CA PEM 绝对路径（失败兜底手动装命令展示用）。 */
+  /** 落盘后的 CA PEM 绝对路径。 */
   ca_pem_path: string;
+  /** 兜底手动装展示的真实 sudo 终端命令（提权失败时弹窗给用户复制执行）。 */
+  manual_display: string;
 }
 
 /** CA 卸载命令 spec（ST9 用）。 */
 export interface CaUninstallSpec {
   name: string;
   args: string[];
+  /** 兜底手动卸展示的真实 sudo 终端命令。 */
+  manual_display: string;
 }
 
 export const mitmApi = {

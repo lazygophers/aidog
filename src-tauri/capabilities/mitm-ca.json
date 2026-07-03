@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "mitm-ca",
-  "description": "Capability for installing/uninstalling the MITM root CA into the OS trust store. Scope is tightly locked to the exact CA install/remove commands per OS — no arbitrary shell execution. Linux uses one named shell command `linux-shell-ca` covering both trust (`cp <pem> <dest> && update-ca-certificates`) and untrust (`rm -f <dest> && update-ca-certificates --fresh`); the `-c` arg validator is a union regex locking both forms.",
+  "description": "Capability for installing/uninstalling the MITM root CA into the OS trust store via OS-native elevation (macOS osascript admin / Windows Start-Process RunAs / Linux pkexec). All commands user-triggered, scope-locked via regex; the OS pops its native auth dialog so non-technical users never type sudo. Key must be `cmd` (NOT `command` — tauri-plugin-shell-2.3.5 #[serde(rename=\"cmd\")] silently drops `command` → ProgramNotAllowed).",
   "windows": ["main", "popover"],
   "permissions": [
     {
@@ -9,43 +9,45 @@
       "allow": [
         {
           "name": "macos-trust-ca",
-          "command": "/usr/bin/security",
+          "cmd": "/usr/bin/osascript",
           "args": [
-            "add-trusted-cert",
-            "-d",
-            "-r",
-            "trustRoot",
-            "-k",
-            "/Library/Keychains/System.keychain",
-            { "validator": "^/.+\\.pem$" }
+            "-e",
+            { "validator": "do shell script \"/usr/bin/security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System\\.keychain /.+\\.pem\" with administrator privileges" }
           ]
         },
         {
           "name": "macos-remove-ca",
-          "command": "/usr/bin/security",
+          "cmd": "/usr/bin/osascript",
           "args": [
-            "delete-certificate",
-            "-Z",
-            { "validator": "^[0-9A-Fa-f]+$" }
+            "-e",
+            { "validator": "do shell script \"/usr/bin/security delete-certificate -Z [0-9A-Fa-f]+\" with administrator privileges" }
           ]
         },
         {
           "name": "windows-trust-ca",
-          "command": "certutil",
-          "args": ["-addstore", "-f", "Root", { "validator": "^.+\\.pem$|^\\.+\\.crt$" }]
+          "cmd": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "args": [
+            "-Command",
+            { "validator": "\\$p = Start-Process -FilePath certutil -ArgumentList '-addstore','-f','Root','[A-Za-z]:\\\\.+\\.(pem|crt)' -Verb RunAs -Wait -PassThru; exit \\$p\\.ExitCode" }
+          ]
         },
         {
           "name": "windows-remove-ca",
-          "command": "certutil",
-          "args": ["-delstore", "Root", { "validator": "^[0-9A-Fa-f]+$" }]
+          "cmd": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+          "args": [
+            "-Command",
+            { "validator": "\\$p = Start-Process -FilePath certutil -ArgumentList '-delstore','Root','[0-9A-Fa-f]+' -Verb RunAs -Wait -PassThru; exit \\$p\\.ExitCode" }
+          ]
         },
         {
           "name": "linux-shell-ca",
-          "command": "/bin/sh",
+          "cmd": "/usr/bin/pkexec",
           "args": [
+            "/bin/sh",
             "-c",
             {
-              "validator": "^cp /.+\\.pem /usr/local/share/ca-certificates/aidog-ca\\.crt && update-ca-certificates$|^rm -f /usr/local/share/ca-certificates/aidog-ca\\.crt && update-ca-certificates --fresh$"
+              "validator": "^cp /.+\\.pem /usr/local/share/ca-certificates/aidog-ca\\.crt && update-ca-certificates$|^rm -f /usr/local/share/ca-certificates/aidog-ca\\.crt && update-ca-certificates --fresh$",
+              "raw": true
             }
           ]
         }
