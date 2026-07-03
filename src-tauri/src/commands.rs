@@ -10,6 +10,7 @@ pub mod group;
 pub mod hooks;
 pub mod mcp;
 pub mod middleware;
+pub mod mitm;
 pub mod model_fetch;
 pub mod model_test;
 pub mod notification;

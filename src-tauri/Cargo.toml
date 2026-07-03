@@ -91,6 +91,9 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "logg
 rustls-pemfile = "2"
 rcgen = { version = "0.14", features = ["x509-parser", "pem"] }
 tokio-rustls = "0.26"
+# ST3 tls.rs connect_upstream 用 Mozilla 内置 root store 验证上游真证书。
+# 内置 roots（无系统依赖，跨平台一致，确定性可测）；版本与 rustls 0.23 生态对齐。
+webpki-roots = "0.26"
 # 装 MITM 假 CA 到系统信任库（macOS security / Windows certutil / Linux update-ca-certificates）。
 # scope 在 capabilities/mitm-ca.json 限定仅装 CA 命令，默认 capability 不开放 shell。
 tauri-plugin-shell = "2"
