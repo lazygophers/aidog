@@ -363,12 +363,45 @@ ALTER TABLE "group_new" RENAME TO "group";
                 // 幂等：重提后行再跑命中相同 message（已是字符串非 JSON），不变；非 JSON / 无字段不动。
                 // 仅处理 message 能提取且与原文不同的，其余（含连接错 / 纯文本限流）保留。
                 reextract_legacy_last_error(conn);
+
+                // Migration 040: MITM 假 CA 持久化（P3 ST1，D4/D5）。
+                // 私钥明文存 DB（与现有 DB 安全模型一致：api_key/token/coding_token 同样明文），
+                // DB 文件权限 0600 由 ca.rs 在首次生成时强制（Db::new 不感知 MITM 表）。
+                // 单行设计（id=1）：进程内单例 CA，全局唯一；轮换走 UPDATE，不新增行。
+                // ca_installed 标 sudo 装信任库状态：false 时 MITM 不启用 + UI 引导手动装。
+                conn.execute_batch(
+                    r#"CREATE TABLE IF NOT EXISTS mitm_ca (
+                        id              INTEGER PRIMARY KEY,
+                        private_key_pem TEXT    NOT NULL,
+                        cert_pem        TEXT    NOT NULL,
+                        fingerprint     TEXT    NOT NULL DEFAULT '',
+                        created_at      INTEGER NOT NULL DEFAULT 0,
+                        enabled         INTEGER NOT NULL DEFAULT 0,
+                        ca_installed    INTEGER NOT NULL DEFAULT 0
+                    );"#,
+                )?;
+
+                // Migration 041: MITM 白名单 host suffix（P3 ST2，D6 全局）。
+                // source: 'default' = aidog 预填的 AI host + 已配平台 host；'user' = 用户自定义。
+                // host_pattern 形如 `api.anthropic.com`（精确）或 `*.anthropic.com`（suffix 通配）。
+                // enabled=0 行被忽略（允许用户禁用预填 host 而不删行）。
+                // 默认 AI host 在首次进入迁移且表空时填（idempotent guarded by row count）。
+                conn.execute_batch(
+                    r#"CREATE TABLE IF NOT EXISTS mitm_whitelist (
+                        id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                        host_pattern TEXT    NOT NULL,
+                        enabled      INTEGER NOT NULL DEFAULT 1,
+                        source       TEXT    NOT NULL DEFAULT 'user',
+                        created_at   INTEGER NOT NULL DEFAULT 0,
+                        UNIQUE(host_pattern)
+                    );"#,
+                )?;
+                seed_default_whitelist_if_empty(conn);
     Ok(())
 }
 
 /// Migration 039: 把 037 引入但未走 extract_error_message 的历史 last_error 行重提为 message。
-fn reextract_legacy_last_error(conn: &Connection) {
-    // ponytail: SELECT 后逐行 UPDATE，避免 SQLite 无 JSON 函数；行数有限（仅失败过的平台）。
+fn reextract_legacy_last_error(conn: &Connection) {    // ponytail: SELECT 后逐行 UPDATE，避免 SQLite 无 JSON 函数；行数有限（仅失败过的平台）。
     let Ok(mut stmt) = conn.prepare("SELECT id, last_error FROM platform WHERE last_error != ''") else {
         return;
     };
@@ -390,6 +423,55 @@ fn reextract_legacy_last_error(conn: &Connection) {
             let _ = conn.execute(
                 "UPDATE platform SET last_error = ?1 WHERE id = ?2",
                 params![new_val, id],
+            );
+        }
+    }
+}
+
+/// Migration 041: 首次启用 MITM 时填默认 AI host + 已配平台 base_url host（D6 全局白名单）。
+///
+/// 仅在表为空时填（idempotent）；用户后续可加/禁/删自定义 host 不受影响。
+/// host 来源：
+///  - 固定 AI host 前缀（`*.anthropic.com` / `*.openai.com`）：覆盖官方 API 域族
+///    （api.anthropic.com / claude.ai / api.openai.com / chatgpt.com 等）。
+///  - 已配平台 base_url host（复用 endpoint_host 提取）：跟用户实际配置走，
+///    平台 base_url 改了不会自动重填（用户可手动加），保 migration 简单 + 可预测。
+///    endpoints JSON 内的子端点 host 不在此填（避免 migration 解析 JSON 耦合结构），
+///    后续 whitelist.rs 的 sync_platform_hosts 增量补（ST7 前端 UI 触发）。
+///
+/// ponytail: 全平台 SELECT 后 in-memory 去重 + 批量 INSERT OR IGNORE，平台数小可接受。
+fn seed_default_whitelist_if_empty(conn: &Connection) {
+    let count: i64 = match conn.query_row("SELECT COUNT(*) FROM mitm_whitelist", [], |r| r.get(0)) {
+        Ok(c) => c,
+        Err(_) => return, // 表不存在（不应发生，040/041 同批）→ 不阻塞 migration
+    };
+    if count > 0 {
+        return;
+    }
+    // 固定 AI host 通配前缀（suffix 匹配：`*.anthropic.com` 命中所有 anthropic.com 子域）。
+    const DEFAULT_AI_HOSTS: &[&str] = &["*.anthropic.com", "*.openai.com"];
+    let now = now();
+    for pattern in DEFAULT_AI_HOSTS {
+        let _ = conn.execute(
+            "INSERT OR IGNORE INTO mitm_whitelist (host_pattern, enabled, source, created_at) VALUES (?1, 1, 'default', ?2)",
+            params![pattern, now],
+        );
+    }
+    // 已配平台 base_url host（精确 host，非通配）。仅未删除平台。
+    let Ok(mut stmt) = conn.prepare("SELECT base_url FROM platform WHERE deleted_at = 0 AND base_url != ''")
+    else {
+        return;
+    };
+    let hosts: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(0))
+        .ok()
+        .map(|rows| rows.filter_map(Result::ok).collect())
+        .unwrap_or_default();
+    for base_url in hosts {
+        if let Some(host) = crate::gateway::proxy::endpoint_host(&base_url) {
+            let _ = conn.execute(
+                "INSERT OR IGNORE INTO mitm_whitelist (host_pattern, enabled, source, created_at) VALUES (?1, 1, 'default', ?2)",
+                params![host, now],
             );
         }
     }
@@ -738,5 +820,110 @@ mod tests {
         let _ = run_migrations_late(&conn);
         assert_eq!(get_last_error("stale"), "HTTP 429: 余额不足或无可用资源包,请充值。");
         assert_eq!(get_last_error("plain"), "HTTP 429: Too many requests");
+    }
+
+    /// Migration 040/041: MITM 假 CA 表 + 白名单表 + 默认 host 填充。
+    /// 验证：① 两表建；② 空白名单时填默认 AI host；③ 已配平台 base_url host 被提取填入。
+    /// 幂等：再跑一次默认 host 不重复（INSERT OR IGNORE + 行数守卫）。
+    #[test]
+    fn migrations_late_mitm_tables_and_default_whitelist_040_041() {
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(r#"
+            CREATE TABLE "group" (
+                id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL DEFAULT '',
+                group_key TEXT NOT NULL DEFAULT '', routing_mode TEXT NOT NULL DEFAULT '',
+                auto_from_platform TEXT NOT NULL DEFAULT '', source_protocol TEXT NOT NULL DEFAULT 'anthropic',
+                model_mappings TEXT NOT NULL DEFAULT '[]', request_timeout_secs INTEGER NOT NULL DEFAULT 0,
+                connect_timeout_secs INTEGER NOT NULL DEFAULT 0, created_at INTEGER NOT NULL DEFAULT 0,
+                updated_at INTEGER NOT NULL DEFAULT 0, deleted_at INTEGER NOT NULL DEFAULT 0,
+                sort_order INTEGER NOT NULL DEFAULT 0, max_retries INTEGER NOT NULL DEFAULT 2,
+                UNIQUE(name), UNIQUE(group_key)
+            );
+            CREATE TABLE model_price (id INTEGER PRIMARY KEY, model TEXT, input_price REAL, output_price REAL);
+            CREATE TABLE platform (
+                id INTEGER PRIMARY KEY, name TEXT, platform_type TEXT NOT NULL DEFAULT '',
+                base_url TEXT NOT NULL DEFAULT '', endpoints TEXT NOT NULL DEFAULT '[]',
+                extra TEXT NOT NULL DEFAULT '{}', last_error TEXT NOT NULL DEFAULT '',
+                last_error_at INTEGER NOT NULL DEFAULT 0, env_vars TEXT NOT NULL DEFAULT '[]',
+                expires_at INTEGER NOT NULL DEFAULT 0, deleted_at INTEGER NOT NULL DEFAULT 0
+            );
+            -- 插一个已配平台，验证 base_url host 被提取进默认白名单
+            INSERT INTO platform (name, platform_type, base_url) VALUES ('test-anthropic', 'anthropic', 'https://api.anthropic.com/v1');
+            CREATE TABLE proxy_log (id TEXT PRIMARY KEY, group_key TEXT, platform_id INTEGER, model TEXT, actual_model TEXT, source_protocol TEXT, target_protocol TEXT, status_code INTEGER, duration_ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, cache_tokens INTEGER, est_cost REAL, is_stream INTEGER, retry_count INTEGER, blocked_by TEXT, blocked_reason TEXT, request_url TEXT, request_headers TEXT, request_body TEXT, upstream_request_url TEXT, upstream_request_headers TEXT, upstream_request_body TEXT, upstream_status_code INTEGER, upstream_response_headers TEXT, user_response_headers TEXT, user_response_body TEXT, response_body TEXT, created_at INTEGER, updated_at INTEGER, deleted_at INTEGER NOT NULL DEFAULT 0, attempts TEXT);
+            CREATE TABLE IF NOT EXISTS settings (scope TEXT, key TEXT, value TEXT, PRIMARY KEY (scope, key));
+            CREATE TABLE IF NOT EXISTS group_platform (id INTEGER PRIMARY KEY, group_id INTEGER, platform_id INTEGER, priority INTEGER, weight INTEGER, level_priority INTEGER NOT NULL DEFAULT 5);
+            CREATE TABLE IF NOT EXISTS notification (id TEXT PRIMARY KEY, created_at INTEGER);
+        "#).unwrap();
+
+        let result = run_migrations_late(&conn);
+        assert!(result.is_ok(), "run_migrations_late failed: {:?}", result);
+
+        // ① 两表建
+        let has_mitm_ca: bool = conn
+            .prepare("PRAGMA table_info(mitm_ca)")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|c| c == "cert_pem");
+        assert!(has_mitm_ca, "mitm_ca table should be created");
+
+        let has_mitm_whitelist: bool = conn
+            .prepare("PRAGMA table_info(mitm_whitelist)")
+            .unwrap()
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .filter_map(Result::ok)
+            .any(|c| c == "host_pattern");
+        assert!(has_mitm_whitelist, "mitm_whitelist table should be created");
+
+        // ② 默认 AI host 填入
+        let default_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM mitm_whitelist WHERE source = 'default'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            default_count >= 2,
+            "default whitelist should contain at least anthropic.com + openai.com, got {}",
+            default_count
+        );
+
+        // ③ 已配平台 base_url host 被提取（api.anthropic.com）
+        let has_platform_host: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM mitm_whitelist WHERE host_pattern = 'api.anthropic.com'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap()
+            > 0;
+        assert!(
+            has_platform_host,
+            "platform base_url host 'api.anthropic.com' should be seeded"
+        );
+
+        // 幂等：再跑一次，默认行不重复
+        let _ = run_migrations_late(&conn);
+        let count_after_rerun: i64 = conn
+            .query_row("SELECT COUNT(*) FROM mitm_whitelist", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            count_after_rerun, default_count,
+            "re-running migration should not duplicate default whitelist rows (INSERT OR IGNORE + row count guard)"
+        );
+
+        // ④ 通配默认 host 存在
+        let has_wildcard_anthropic: bool = conn
+            .query_row(
+                "SELECT COUNT(*) FROM mitm_whitelist WHERE host_pattern = '*.anthropic.com'",
+                [],
+                |r| r.get::<_, i64>(0),
+            )
+            .unwrap()
+            > 0;
+        assert!(has_wildcard_anthropic, "*.anthropic.com wildcard should be in default whitelist");
     }
 }

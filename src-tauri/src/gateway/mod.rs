@@ -9,6 +9,7 @@ pub mod i18n;
 pub mod log_util;
 pub mod manual_budget;
 pub mod middleware;
+pub mod mitm;
 pub mod models;
 pub mod notification;
 pub mod price_sync;

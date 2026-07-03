@@ -3,7 +3,7 @@
   "name": "arch-redesign",
   "title": "全仓架构重设计 - 分包分文件消大文件",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

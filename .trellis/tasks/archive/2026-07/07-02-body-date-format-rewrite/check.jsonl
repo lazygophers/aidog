@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "middleware 规则合规 + 种子幂等"}
+{"file": ".trellis/spec/frontend/index.md", "reason": "i18n 8 locale 覆盖 + 跨层契约对齐"}

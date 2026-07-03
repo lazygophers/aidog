@@ -115,6 +115,8 @@ export function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): P
     ],
     longcat: [
       { protocol: "anthropic", base_url: "https://api.longcat.chat/anthropic", client_type: "claude_code" },
+      // openai 端点实证 (2026-07-03 curl)：/openai/v1 返 401 鉴权墙确认存在；/v1/* 全 404 openresty 兜底已证伪。
+      { protocol: "openai", base_url: "https://api.longcat.chat/openai/v1", client_type: "codex_tui" },
     ],
     // 商汤 SenseNova（日日新）Token Plan 公测全免费：token.sensenova.cn 仅暴露 4 个 LLM 端点，
     // usage/quota/balance 全 404（无 API-Key 配额接口，同 xiaomi_mimo token-plan），quota.rs 不加 case。

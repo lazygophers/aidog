@@ -12,8 +12,9 @@ import { SchedulingSettingsTab } from "../components/settings/SchedulingSettings
 import { NotificationSettingsTab } from "../components/settings/NotificationSettings";
 import { ImportExportTab } from "../components/settings/ImportExport/ImportExportTab";
 import { CodingToolsSettingsTab } from "../components/settings/CodingToolsSettings";
+import { MitmConfigTab } from "../components/settings/MitmConfig";
 
-export type Tab = "system" | "claude" | "codex" | "coding_tools" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport";
+export type Tab = "system" | "claude" | "codex" | "coding_tools" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport" | "mitm";
 
 export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged }: { tab: Tab; onLogSettingsChanged?: (enabled: boolean) => void; onNotifSettingsChanged?: (enabled: boolean) => void }) {
   const { t } = useTranslation();
@@ -841,6 +842,8 @@ export function AppSettings({ tab, onLogSettingsChanged, onNotifSettingsChanged 
         <CodingToolsSettingsTab />
       ) : tab === "importexport" ? (
         <ImportExportTab />
+      ) : tab === "mitm" ? (
+        <MitmConfigTab />
       ) : (
         <Settings />
       )}

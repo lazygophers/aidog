@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/07-02-recurring-request-error/research/empty-stream-502.md", "reason": "验证改点覆盖 d3a0ce30 诊断的取证盲区"}
+{"file": ".trellis/spec/backend/platform-error-handling.md", "reason": "错误处理 spec 合规检查"}

@@ -22,6 +22,16 @@ mode: optimize
 - **early return 不破现有路由** — CONNECT 分流必须是 handle_proxy_core 的 early return; GET `/` `/proxy` `/models` `/v1/models` + POST `/api/*` + AI path (`/proxy/v1/messages` 等) 全部走原显式 `.route()` 或 fallback, 不受 CONNECT 分流影响
 - CONNECT 响应: `200 OK + Body::empty()`, **禁 `Connection: upgrade` header** (hyper h1 role.rs 规则, 加了会断隧道)
 
+## CONNECT target 多源解析 (MUST)
+
+> 违反代价: `req.uri().path()` 对 authority-form URI 返空 → `target=""` → `TcpStream::connect("")` 必败 → 隧道自上线 100% 502 (diag-42617827 实证 6 连发全 502)。http 标准: authority-form URI path 段为空, authority 在 `uri().authority()`。
+
+- **target 多源取**: `[uri().path().trim_start_matches('/'), uri().authority().map(|a| a.as_str()), HOST header].iter().find(|s| !s.is_empty())` — 顺序 path → authority → Host header 兜底
+- **禁 `req.uri().path()` 单源** — axum 0.8 / hyper 1 对 authority-form (`CONNECT host:port`) 的 path() 返 `""` (非 `host:port`); 单源取必得空 target
+- **空 target 早返 400** — 三源皆空 = 客户端坏请求, 返 `400 Bad Request` 早退, **禁走 `TcpStream::connect("")` 路径** (必败 502 + 误导诊断)
+- **tracing 取证**: 入口 `info!(uri, method, target, "connect recv")` + 空 target `warn!(uri)` — CONNECT 复现可从 stderr 看真实 URI 结构
+- **host_only 仍从 target `rsplit_once(':')`** — 多源取后 target 形如 `host:port`, rsplit_once 取 host 段喂 `match_platform_by_host`, 逻辑不变
+
 ## hyper-util upgrade downcast 类型 (MUST)
 
 > 违反代价: downcast 类型错 → 取不到底层流 → 隧道空转 / panic。research 说 `downcast::<TcpStream>`, 实测失败。
@@ -61,6 +71,10 @@ mode: optimize
 ```bash
 # CONNECT 分流 early return, 非 CONNECT 原 fallthrough
 grep -n "Method::CONNECT" src-tauri/src/gateway/proxy/handler.rs  # handle_proxy_core 头部
+
+# CONNECT target 多源取 (禁 path() 单源返空致 502)
+grep -n "authority()" src-tauri/src/gateway/proxy/connect.rs  # 多源兜底 target 解析
+grep -n "BAD_REQUEST\|missing target" src-tauri/src/gateway/proxy/connect.rs  # 空 target 早返 400
 
 # CONNECT 响应禁 Connection: upgrade
 grep -n "upgrade" src-tauri/src/gateway/proxy/connect.rs  # 0 处 connection upgrade header
