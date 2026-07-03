@@ -53,10 +53,15 @@ mod test_integration;
 mod test_group_info;
 #[cfg(test)]
 mod test_connect;
+#[cfg(test)]
+mod test_e2e_mitm;
 
 // 对外路径保持 `gateway::proxy::X` 不变：re-export 全部对外 pub 项。
 pub use endpoint::{opencode_zen_fallback, resolve_opencode_zen_key};
 pub use handler::handle_proxy;
+// ST5：明文 MITM 路径灌入用（CONNECT 分流已移至 handle_proxy_inner，core 只处理 AI 请求，
+// 打破与 handle_connect 的互递归 Send 死锁）。
+pub(crate) use handler::handle_proxy_core;
 pub use headers::{
     apply_client_headers, build_upstream_headers, inject_coding_plan_fields,
     override_coding_plan_path,
@@ -69,8 +74,8 @@ pub use passthrough::{apply_models_auth, build_models_url};
 // 子模块内部互用项（crate 内可见，便于 handler/各模块交叉调用）。
 pub(crate) use count_tokens::{handle_count_tokens, is_count_tokens_endpoint};
 pub(crate) use endpoint::{
-    detect_source_protocol, infer_passthrough_protocol_from_ua, match_platform_by_host,
-    resolve_group, select_endpoint_for_protocol,
+    detect_source_protocol, endpoint_host, infer_passthrough_protocol_from_ua,
+    match_platform_by_host, resolve_group, select_endpoint_for_protocol,
 };
 pub(crate) use finish::{finish_nonstream, finish_stream};
 pub(crate) use forward::{forward_attempt, AttemptOutcome};
