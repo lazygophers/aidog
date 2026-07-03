@@ -4,9 +4,11 @@
 //! - **P1 盲转**（默认）：未命中 MITM 白名单 / pinning_suspect / CA 未启用 → TCP 字节双向
 //!   透传，不解密 HTTPS，只记 proxy_log 元数据（host/status/duration/platform_id），
 //!   不计费、不统计字节（用户锁 YAGNI）。
-//! - **P3 MITM**（ST4）：白名单命中 && 非 suspect && CA 已启用 → 上游 TLS 预检（pinning
-//!   探测）成功后 accept 客户端（假 CA 签 leaf）+ 双向桥接两段 TLS 流（密文透传，不解 HTTP）。
-//!   明文 Request 灌 forward_attempt 链是 ST5，本阶段只做 TLS 隧道建立。
+//! - **P3 MITM**（ST4+ST5+ST6）：白名单命中 && 非 suspect && CA 已启用 → 上游 TLS 预检
+//!   （pinning 探测）成功后 accept 客户端（假 CA 签 leaf）+ 在明文 TLS 流上用 hyper-util
+//!   **auto** server（D9：H2 preface 自动分发 h1/h2）读明文 HTTP Request 灌入 handle_proxy_core
+//!   （forward_attempt 全套：middleware/路由/headers/retry/采集）。h1 keep-alive 循环，
+//!   h2 多路复用流（一个 TLS 连接多 Request，每流各灌 core）。
 //!
 //! 关键技术点（research 结论 1 + 5）:
 //! - axum 0.8 `axum::serve` 底层 `hyper_util auto + upgrades`，CONNECT upgrade 默认开启
@@ -312,7 +314,7 @@ async fn handle_mitm<IO>(
     log_enabled: bool,
 ) -> MitmOutcome<IO>
 where
-    IO: AsyncRead + AsyncWrite + Unpin + Send,
+    IO: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     // 1. 取 / 构造 CertSigner（首次从 DB load RootCa；DB 无 CA = 用户未启用 MITM → 降级）。
     let signer = match mitm_state.signer_or_init(&st.db).await {
@@ -365,32 +367,23 @@ where
                 }
             };
 
-            // ST5 明文路径：ALPN 协商协议决定走 http/1.1 forward 还是降级密文桥接。
-            // ALPN 协商 h2 → 客户端会发 HTTP/2 帧；本 subtask 只解 http/1.1（D9 归 ST6）。
-            // h2 降级：桥接 client_tls ↔ upstream_tls（都已建立），等价 ST4 字节透传；明文 copy
-            // 两端解密后字节级与 blind_relay 等价。upstream_tls 在 http/1.1 路径丢弃（forward_attempt
-            // 自连上游），h2 路径复用做密文桥接，避免空耗预检连接。
-            let alpn = client_tls.get_ref().1.alpn_protocol();
-            if alpn == Some(b"h2") {
-                tracing::info!(host = host_only, "mitm: ALPN h2 negotiated, ST6 pending, fallback to byte bridge");
-                bridge_bidir(client_tls, *upstream_tls).await;
-                log_connect_success(st, request_id, platform_id, target.to_string(), start, log_enabled).await;
-                return MitmOutcome { handled: true, fallback_reason: "", client_return: None };
-            }
-
-            // 4. ST5 明文 forward：http/1.1 协商成功 → 在 client_tls 上读明文 HTTP Request →
-            //    灌入 handle_proxy_core（middleware/路由/headers/retry/采集/forward_attempt 全套，
-            //    95% 复用）→ 响应明文回写 client_tls（hyper 写回，TLS 层自动加密回客户端）。
-            //    上游由 forward_attempt 内部 http_client 自连（真证书），预检 upstream_tls 丢弃。
-            //    proxy_log 走 handle_proxy_core 内部 upsert_log 全量 AI 记账（body + stats_agg + cost），
-            //    **不走 upsert_connect_log**（盲转专用，避免污染统计）。
+            // ST5/ST6 明文 forward：在 client_tls 上读明文 HTTP Request（http/1.1 或 h2，
+            // 由 hyper-util auto Builder 按 H2 preface 自动检测）→ 灌入 handle_proxy_core
+            // （middleware/路由/headers/retry/采集/forward_attempt 全套，95% 复用）→ 响应明文
+            // 回写 client_tls（hyper 写回，TLS 层自动加密回客户端）。上游由 forward_attempt 内部
+            // http_client 自连（真证书），预检 upstream_tls 丢弃。
+            // proxy_log 走 handle_proxy_core 内部 upsert_log 全量 AI 记账（body + stats_agg + cost），
+            // **不走 upsert_connect_log**（盲转专用，避免污染统计）。
             //
-            // ponytail: http/1.1 only — ST6 加 h2 协议转换（auto Builder + http2 feature）。
+            // D9 ALPN：ST3 SERVER_ALPN=[h2, http/1.1] 两段 advertise，rustls 按客户端偏好协商。
+            // auto Builder 读明文首字节（H2 preface `PRI * HTTP/2.0...`）分发 h1/h2 server，
+            // 无需手动 ALPN 分流分支（ponytail: 删分支，协议判定收敛到 hyper-util）。
+            //
             // ponytail: 预检 upstream_tls 在明文路径被丢弃（forward_attempt 自连），浪费 1 条 TCP+TLS。
             // 保留预检是为 pinning 探测（探针必须先于 accept 确认上游可信，否则 client 已 accept
             // 后发现 pinning fail 无法干净降级）。pinning fail 频率低，浪费可接受。
             drop(upstream_tls);
-            serve_plaintext_http(st.clone(), client_tls, host_only).await;
+            serve_plaintext(st.clone(), client_tls, host_only).await;
             MitmOutcome { handled: true, fallback_reason: "", client_return: None }
         }
         super::super::mitm::tls::UpstreamTlsOutcome::PinningSuspect { host, error } => {
@@ -459,32 +452,44 @@ where
 
 
 
-/// ST5 明文 forward：在已 accept 的 client_tls（明文）流上用 hyper http1 server 读
-/// 明文 HTTP Request，每条 Request 构造 axum Request 灌入 `handle_proxy_core`（middleware /
-/// 路由 / forward_attempt 全套），响应明文回写 client_tls（hyper 写回，TLS 层自动加密
-/// 回客户端）。支持 HTTP/1.1 keep-alive（一个 TLS 会话内多 Request 循环）。
+/// ST5/ST6 明文 forward：在已 accept 的 client_tls（明文）流上用 hyper-util **auto**
+/// server 读明文 HTTP Request，每条 Request 构造 axum Request 灌入 `handle_proxy_core`
+/// （middleware / 路由 / forward_attempt 全套），响应明文回写 client_tls（hyper 写回，
+/// TLS 层自动加密回客户端）。
+///
+/// **auto Builder（D9）**：`hyper_util::server::conn::auto::Builder` 读明文首字节检测 H2
+/// preface（`PRI * HTTP/2.0\r\n\r\nSM\r\n\r\n`），自动分发 h1 / h2 server。h1 走 keep-alive
+/// 循环，h2 走多路复用流（一个 TLS 连接多 Request，每流各灌 handle_proxy_core）。
+/// 无需在 connect.rs 内做 ALPN 分流分支 —— 协议判定收敛到 hyper-util，connect.rs 只负责
+/// TLS accept + 灌入 core。
 ///
 /// **proxy_log 记账**：明文路径走 AI 请求全量记账（handle_proxy_core 内 upsert_log，含 body
 /// + stats_agg + cost），**不走 upsert_connect_log**（盲转专用，避免污染统计）。
 ///
-/// ponytail: http/1.1 only —— ST6 加 h2（改 auto Builder + 加 hyper http2 feature）。
+/// ponytail: auto Builder 取代 ST5 的 http1::Builder + ST6 计划的 http2::Builder 显式分流，
+/// 一个 Builder 覆盖两协议（ponytail: 删分支优先）。hyper-util server-auto feature 已含
+/// hyper/http2，Cargo.toml 无需改。
 /// ponytail: body 完整读（collect_body）而非 streaming 灌入 —— handle_proxy_core 内
 /// 已 to_bytes(10MB) 读一次，此处再 stream 无收益且增复杂度，等价直接 collect。
 /// ponytail: Infallible 错类型 —— handle_proxy_core 返 Response 不返 Err（错误已落 4xx/5xx body），
 /// service_fn 不需要错误传播路径。
 /// ponytail: 不复用 handle_proxy_inner 的 RequestLogGuard —— MITM 明文路径客户端断连时
 /// handle_proxy_core 内部各阶段已 upsert_log 终态，499 兜底语义重叠；YAGNI 不重复 guard。
-async fn serve_plaintext_http<S>(
+async fn serve_plaintext<S>(
     state: Arc<ProxyState>,
     client_tls: S,
     host_only: &str,
 ) where
-    S: AsyncRead + AsyncWrite + Unpin + Send,
+    S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
 {
     // TokioIo 包装：rustls server TlsStream impl tokio AsyncRead/Write，TokioIo 转 hyper Read/Write。
     let io = TokioIo::new(client_tls);
+    // host_only clone owned —— auto serve_connection 要求 service 'static（h2 多流 future），
+    // 闭包不能 borrow 外层 &str。每连接一次 clone（host 长度有限，开销可忽略）。
+    let host_owned = host_only.to_string();
     let svc = hyper::service::service_fn(move |req: hyper::Request<hyper::body::Incoming>| {
         let st = state.clone();
+        let host = host_owned.clone();
         async move {
             // hyper::Request<Incoming> → axum::Request<axum::body::Body>：
             // parts（method/uri/headers）通用，body 收 Bytes 后 Body::from 包装。
@@ -493,7 +498,7 @@ async fn serve_plaintext_http<S>(
                 Ok(b) => b,
                 Err(e) => {
                     // body 读失败返 400（与 handle_proxy_core 内同款错误语义）。
-                    tracing::warn!(error = %e, host = host_only, "mitm plaintext: read body failed");
+                    tracing::warn!(error = %e, host = %host, "mitm plaintext: read body failed");
                     let mut resp = hyper::Response::builder().status(StatusCode::BAD_REQUEST);
                     if let Some(h) = resp.headers_mut() {
                         h.insert(axum::http::header::CONTENT_TYPE, axum::http::HeaderValue::from_static("text/plain"));
@@ -517,7 +522,7 @@ async fn serve_plaintext_http<S>(
                 "req",
                 trace_id = %&request_id[..8],
                 request_id = %request_id,
-                mitm = %host_only,
+                mitm = %host,
             );
             let resp: Response = handle_proxy_core(AxumState(st.clone()), axum_req, request_id)
                 .instrument(span)
@@ -526,13 +531,12 @@ async fn serve_plaintext_http<S>(
         }
     });
 
-    // http1 keep-alive：一个 TLS 会话内可循环多 Request（client 复用连接发多请求）。
+    // auto Builder：按 H2 preface 自动分发 h1（keep-alive 循环）/ h2（多路复用流）。
+    // TokioExecutor：h2 多流并发执行需 Executor，axum::serve 同款（hyper-util rt tokio feature）。
     // serve_connection future 在 client 关闭连接 / 协议错时返 Err（tracing 后接受）。
-    if let Err(e) = hyper::server::conn::http1::Builder::new()
-        .serve_connection(io, svc)
-        .await
-    {
-        tracing::debug!(error = %e, host = host_only, "mitm plaintext: http1 connection ended");
+    let builder = hyper_util::server::conn::auto::Builder::new(hyper_util::rt::TokioExecutor::new());
+    if let Err(e) = builder.serve_connection(io, svc).await {
+        tracing::debug!(error = %e, host = host_only, "mitm plaintext: connection ended");
     }
 }
 
