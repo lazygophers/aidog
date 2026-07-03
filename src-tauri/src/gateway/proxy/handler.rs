@@ -70,7 +70,9 @@ async fn handle_proxy_inner(
     // 互递归（ST5 明文路径在 connect.rs::handle_connect spawn 内调 handle_proxy_core，若分流
     // 仍在 core 内则递归类型无法证 Send，tokio::spawn 拒绝）。
     if req.method() == axum::http::Method::CONNECT {
-        return super::connect::handle_connect(state, req).await;
+        // P2-D：复用 handle_proxy 已生成的 request_id（已挂 req span），传入 handle_connect
+        // 使 CONNECT 子日志行串回 proxy_log.id（与 AI 路径同款 span 对齐）。
+        return super::connect::handle_connect(state, req, request_id).await;
     }
 
     // 中断兜底 guard：core 未正常返回（客户端断连致 future drop）时 Drop 补写终态 499。

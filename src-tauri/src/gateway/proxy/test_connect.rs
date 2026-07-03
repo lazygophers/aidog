@@ -48,7 +48,7 @@ async fn match_platform_by_host_hits_main_base_url() {
     }).await.expect("create platform");
 
     let hit = endpoint::match_platform_by_host(&db, "api.test-connect-hit.example").await;
-    assert_eq!(hit, Some(p.id), "CONNECT host 命中平台主 base_url 必须返回 platform_id");
+    assert_eq!(hit.map(|(id, _)| id), Some(p.id), "CONNECT host 命中平台主 base_url 必须返回 platform_id");
 
     let miss = endpoint::match_platform_by_host(&db, "api.does-not-exist.example").await;
     assert!(miss.is_none(), "未命中任何平台 base_url host 必须返回 None");
@@ -105,7 +105,7 @@ async fn connect_authority_form_resolves_target() {
         .uri(format!("{upstream_addr}"))
         .body(Body::empty())
         .unwrap();
-    let resp = connect::handle_connect(AxumState(state), req).await;
+    let resp = connect::handle_connect(AxumState(state), req, "test-rid-authority".into()).await;
     assert_eq!(
         resp.status(),
         StatusCode::OK,
@@ -123,7 +123,7 @@ async fn connect_triple_source_empty_returns_400() {
         .uri("/")
         .body(Body::empty())
         .unwrap();
-    let resp = connect::handle_connect(AxumState(state), req).await;
+    let resp = connect::handle_connect(AxumState(state), req, "test-rid-empty".into()).await;
     assert_eq!(
         resp.status(),
         StatusCode::BAD_REQUEST,
@@ -516,6 +516,139 @@ async fn mitm_serve_plaintext_auto_builder_serves_http() {
     // 等 server task 结束（client drop 后 auto serve_connection 返回）。
     drop(sender);
     let _ = server_task.await;
+}
+
+// ── P2 元数据记账对齐（A timeout / B 熔断 / C last_error）──────────────────────
+
+/// P2-A：`tcp_connect_accounted` 套 `tokio::time::timeout` —— 连不可路由 target（10.255.255.1
+/// RFC1918 末尾，路由器丢弃 SYN）+ 短 timeout（1s）→ 必在 1s 级别返 Err(())，不会挂满 OS 默认 ~75s。
+///
+/// 关键断言：返回时间 < 3s（防回归：若漏套 timeout，OS 默认 TCP SYN retry ~75s 才失败，
+/// 测试会卡到 cargo test 默认 60s 超时）。
+#[tokio::test]
+async fn connect_timeout_applied_to_tcp_handshake() {
+    let state = make_state().await;
+    let start = std::time::Instant::now();
+    // 10.255.255.1：典型不可路由地址（本地路由器丢弃 SYN，无 RST，必超时而非拒绝）。
+    let res = connect::tcp_connect_accounted(&state, "10.255.255.1:80", 0, None, 1).await;
+    let elapsed = start.elapsed();
+    assert!(res.is_err(), "不可路由 target 必返 Err(())");
+    assert!(
+        elapsed.as_secs() < 3,
+        "必须套 timeout 在 1s 级别失败（实际 {:?}），防漏套 timeout 致 OS 默认 ~75s SYN retry",
+        elapsed
+    );
+}
+
+/// 取一个未监听的 127.0.0.1 端口地址（bind 后 drop → 端口关闭，connect 必拒绝）。
+fn closed_loopback_target() -> String {
+    let addr = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap();
+    // drop listener 后端口立即关闭，TcpStream::connect 必 RST = connection refused。
+    format!("{addr}")
+}
+
+/// P2-B：TCP 失败（connection refused，未监听端口）→ `scheduler.record_failure` 计入。
+/// 关键断言：breaker_state 从 Closed{fails:0} → Closed{fails:1}（未达阈值仍 Closed，但 fails+1）；
+/// latency EMA 仍 None（record_failure 不更新 EMA，防 CONNECT TCP 握手延迟污染 AI LeastLatency）。
+#[tokio::test]
+async fn connect_failure_records_breaker_fail_count() {
+    use crate::gateway::db::test_support;
+    use crate::gateway::models::{CreatePlatform, Protocol};
+    use crate::gateway::scheduling::{BreakerState, BreakerThresholds};
+
+    let db = test_support::test_db().await;
+    let p = crate::gateway::db::create_platform(&db, CreatePlatform {
+        name: "connect-fail".into(),
+        platform_type: Protocol::Anthropic,
+        base_url: "https://connect-fail.example/v1".into(),
+        api_key: "sk".into(),
+        extra: String::new(),
+        models: None, available_models: None, endpoints: None, manual_budgets: None,
+        auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
+    }).await.unwrap();
+    let state = Arc::new(ProxyState {
+        db: Arc::new(db),
+        app: None,
+        middleware: Arc::new(crate::gateway::middleware::MiddlewareEngine::new()),
+        scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
+        sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
+        log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
+        agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
+    });
+
+    // 触发失败：127.0.0.1 关闭端口（立即 RST = connection refused，秒级失败）。
+    // platform_id = p.id（直接传，模拟 host 匹配后传入）。
+    let th = BreakerThresholds { failure_threshold: 5, open_secs: 60, half_open_max: 2 };
+    let target = closed_loopback_target();
+    let res = connect::tcp_connect_accounted(&state, &target, p.id, Some(&th), 5).await;
+    assert!(res.is_err(), "关闭端口必拒绝连接");
+
+    // 熔断失败计数：Closed{fails:0} → Closed{fails:1}（未达阈值 5 仍 Closed）。
+    let st = state.scheduler.breaker_state(p.id);
+    assert!(
+        matches!(st, BreakerState::Closed { fails } if fails == 1),
+        "TCP 失败必须 record_failure 使 fails=1，实际: {:?}",
+        st
+    );
+    // inflight 必归零（record_failure 内 dec_inflight）。
+    assert_eq!(state.scheduler.inflight(p.id), 0, "失败后 inflight 必归零");
+    // EMA 未被污染（record_failure 不动 latency_ema_ms，仍 None）。
+    assert!(
+        state.scheduler.latency_ema(p.id).is_none(),
+        "record_failure 不应更新 latency EMA（防 CONNECT TCP 握手延迟污染 AI LeastLatency 排序）"
+    );
+
+    // 未命中平台（platform_id=0）→ breaker_th=None → 不计入熔断。
+    let target2 = closed_loopback_target();
+    let _ = connect::tcp_connect_accounted(&state, &target2, 0, None, 5).await;
+    // platform_id=0 不该被任何 breaker 记账。
+}
+
+/// P2-C：TCP 失败 → `db::set_platform_last_error` 写入 platform.last_error 列。
+/// 关键断言：失败后 platform.last_error 非空 + last_error_at > 0。
+#[tokio::test]
+async fn connect_failure_sets_platform_last_error() {
+    use crate::gateway::db::test_support;
+    use crate::gateway::models::{CreatePlatform, Protocol};
+    use crate::gateway::scheduling::BreakerThresholds;
+
+    let db = test_support::test_db().await;
+    let p = crate::gateway::db::create_platform(&db, CreatePlatform {
+        name: "last-err".into(),
+        platform_type: Protocol::Anthropic,
+        base_url: "https://last-err.example/v1".into(),
+        api_key: "sk".into(),
+        extra: String::new(),
+        models: None, available_models: None, endpoints: None, manual_budgets: None,
+        auto_group: None, join_group_ids: None, default_level_priority: None, expires_at: None,
+    }).await.unwrap();
+    let state = Arc::new(ProxyState {
+        db: Arc::new(db),
+        app: None,
+        middleware: Arc::new(crate::gateway::middleware::MiddlewareEngine::new()),
+        scheduler: Arc::new(crate::gateway::scheduling::SchedulerState::new()),
+        sticky: Arc::new(crate::gateway::scheduling::StickyTable::new()),
+        log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
+        agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
+    });
+
+    let th = BreakerThresholds { failure_threshold: 5, open_secs: 60, half_open_max: 2 };
+    let target = closed_loopback_target();
+    let res = connect::tcp_connect_accounted(&state, &target, p.id, Some(&th), 5).await;
+    assert!(res.is_err(), "关闭端口必拒绝连接");
+
+    // 读回 platform，验 last_error 已写。
+    let p_after = crate::gateway::db::get_platform(&state.db, p.id).await.unwrap().unwrap();
+    assert!(
+        !p_after.last_error.is_empty(),
+        "TCP 失败必须 set_platform_last_error 使 last_error 非空，实际: {:?}",
+        p_after.last_error
+    );
+    assert!(
+        p_after.last_error_at > 0,
+        "last_error_at 必须被设为 now()（>0），实际: {}",
+        p_after.last_error_at
+    );
 }
 
 
