@@ -17,6 +17,7 @@ use rcgen::{
     Certificate, CertificateParams, DistinguishedName, DnType, KeyPair, PKCS_ECDSA_P256_SHA256,
 };
 use rusqlite::params;
+use serde::Serialize;
 
 use crate::gateway::db::Db;
 
@@ -616,6 +617,112 @@ pub fn untrust_ca_command(cert_pem: &str) -> (String, Vec<String>, String) {
     }
 }
 
+// ─── CA 安装失败分类（阶段 B：后端化真源，消除前后端双源）──────────────────
+//
+// 原前端 MitmConfig.tsx `classifyTrustError(name, code, stderr)` 纯函数后端化为
+// `classify_trust_error`，三 OS 分支逻辑逐行等价前端（research/elevation-feasibility.md Q5
+// 三 OS exit code/stderr 判据）。前端 invoke 后端单源分类。
+//
+// code: Option<i32> 显式建模 Tauri shell plugin `out.code` 可能 null/undefined
+// （tauri-plugin-shell 在 reject / signal kill 路径 code 可能为 null）。
+
+/// CA 安装失败分类（镜像前端 `TrustErrorKind` union，serde snake_case 对齐）。
+///
+/// 变体语义（前端 t() 文案 key 复用 mitm.installCancel/installAuthFail/installNoAgent/installFailed）：
+///  - `Cancel`：用户取消（密码框关 / UAC 拒）
+///  - `AuthFail`：密码错 / 鉴权被拒
+///  - `NoAgent`：Linux 缺 polkit 鉴权 agent
+///  - `CmdFail`：命令本身失败（兜底，含 code=None）
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum TrustErrorKind {
+    Cancel,
+    AuthFail,
+    NoAgent,
+    CmdFail,
+}
+
+impl TrustErrorKind {
+    /// 序列化为 enum 变体名 string（command 返 String 给前端，serde 友好 + 跨语言无歧义）。
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TrustErrorKind::Cancel => "cancel",
+            TrustErrorKind::AuthFail => "auth_fail",
+            TrustErrorKind::NoAgent => "no_agent",
+            TrustErrorKind::CmdFail => "cmd_fail",
+        }
+    }
+}
+
+/// 按 OS 分类 CA 安装失败原因（编译期 cfg 选当前 OS 分支）。
+///
+/// 入参 `name`：capability 命名命令 name（macos-*/windows-*/linux-*），用于 OS 推导。
+/// `code`：shell execute exit code（Option 显式建模 null 兜底）。`stderr`：shell execute stderr。
+/// 返 `TrustErrorKind`（serde 序列化后前端按 union string 匹配文案 key）。
+///
+/// 三 OS 分支由 `classify_trust_error_linux/macos/windows` 纯函数实现（test 矩阵直调各 OS 函数，
+/// 编译期 cfg 此处仅选当前 OS 入口）。
+pub fn classify_trust_error(name: &str, code: Option<i32>, stderr: &str) -> TrustErrorKind {
+    // ponytail: 不引 plugin-os 依赖，从 capability name 前缀推 OS（同前端原逻辑）。
+    // name / code 是跨 OS 统一签名一部分（macOS/Windows 分支不看 code，但签名保持一致供
+    // command 层 + 测试矩阵统一调用）；各分支显式 `let _ =` 抑制 unused 警告。
+    #[cfg(target_os = "macos")]
+    {
+        let _ = name;
+        let _ = code;
+        classify_trust_error_macos(stderr)
+    }
+    #[cfg(target_os = "windows")]
+    {
+        let _ = name;
+        let _ = code;
+        classify_trust_error_windows(stderr)
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let _ = name;
+        classify_trust_error_linux(code, stderr)
+    }
+}
+
+/// Linux pkexec 分类：126=取消, 127+agent/polkit=NoAgent, 127其他=AuthFail, 其余=CmdFail。
+fn classify_trust_error_linux(code: Option<i32>, stderr: &str) -> TrustErrorKind {
+    let lower = stderr.to_ascii_lowercase();
+    match code {
+        Some(126) => TrustErrorKind::Cancel,
+        Some(127) => {
+            if lower.contains("agent") || lower.contains("polkit") {
+                TrustErrorKind::NoAgent
+            } else {
+                TrustErrorKind::AuthFail
+            }
+        }
+        _ => TrustErrorKind::CmdFail, // 含 code=None 兜底
+    }
+}
+
+/// macOS osascript 分类：exit 恒 1，靠 stderr 区分（(-128)=取消, authorization/鉴权=AuthFail）。
+fn classify_trust_error_macos(stderr: &str) -> TrustErrorKind {
+    let lower = stderr.to_ascii_lowercase();
+    if lower.contains("(-128)") {
+        TrustErrorKind::Cancel
+    } else if lower.contains("authorization") || lower.contains("鉴权") {
+        TrustErrorKind::AuthFail
+    } else {
+        TrustErrorKind::CmdFail
+    }
+}
+
+/// Windows UAC 分类：stderr 含 1223 (ERROR_CANCELLED) / cancel=取消，其余=CmdFail。
+fn classify_trust_error_windows(stderr: &str) -> TrustErrorKind {
+    let lower = stderr.to_ascii_lowercase();
+    if lower.contains("1223") || lower.contains("cancel") {
+        TrustErrorKind::Cancel
+    } else {
+        TrustErrorKind::CmdFail
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -894,5 +1001,237 @@ mod tests {
             !validator.is_match("cp /x/y.pem /usr/local/share/ca-certificates/aidog-ca.crt"),
             "must reject trust missing update-ca-certificates"
         );
+    }
+
+    // ─── 阶段 B：classify_trust_error 单测矩阵（三 OS × 各组合 + None 兜底）────────
+    //
+    // 验收：分类逻辑后端化后，三 OS 各 exit code / stderr 组合产出正确 TrustErrorKind。
+    // 含 code=None 兜底（验证「无文案」根因不是分类崩，而是分类正确返 CmdFail 后文案层兜底）。
+    // 直接调 classify_trust_error_linux/macos/windows 三纯函数（跨平台可测，不依赖编译期 cfg）。
+
+    /// TrustErrorKind::as_str 序列化与前端 union string 对齐（双向锁）。
+    #[test]
+    fn trust_error_kind_as_str_matches_frontend_union() {
+        assert_eq!(TrustErrorKind::Cancel.as_str(), "cancel");
+        assert_eq!(TrustErrorKind::AuthFail.as_str(), "auth_fail");
+        assert_eq!(TrustErrorKind::NoAgent.as_str(), "no_agent");
+        assert_eq!(TrustErrorKind::CmdFail.as_str(), "cmd_fail");
+    }
+
+    /// Linux pkexec 分类矩阵（research/elevation-feasibility.md Q5）。
+    #[test]
+    fn classify_trust_error_linux_matrix() {
+        // 126 = 用户取消密码框
+        assert_eq!(
+            classify_trust_error_linux(Some(126), ""),
+            TrustErrorKind::Cancel,
+            "linux code=126 must classify as Cancel"
+        );
+        // 127 + stderr 含 "agent" → NoAgent
+        assert_eq!(
+            classify_trust_error_linux(Some(127), "Cannot automatically authenticate: no polkit authentication agent available"),
+            TrustErrorKind::NoAgent,
+            "linux code=127 + 'agent' must classify as NoAgent"
+        );
+        // 127 + stderr 含 "polkit" → NoAgent
+        assert_eq!(
+            classify_trust_error_linux(Some(127), "polkit daemon refused"),
+            TrustErrorKind::NoAgent,
+            "linux code=127 + 'polkit' must classify as NoAgent"
+        );
+        // 127 + 其他 stderr → AuthFail
+        assert_eq!(
+            classify_trust_error_linux(Some(127), "Not authorized"),
+            TrustErrorKind::AuthFail,
+            "linux code=127 + other must classify as AuthFail"
+        );
+        // 127 + 空 stderr → AuthFail（无 agent/polkit 关键字即视为密码错）
+        assert_eq!(
+            classify_trust_error_linux(Some(127), ""),
+            TrustErrorKind::AuthFail,
+            "linux code=127 + empty stderr must classify as AuthFail"
+        );
+        // 1（命令本身失败）→ CmdFail
+        assert_eq!(
+            classify_trust_error_linux(Some(1), "update-ca-certificates: command not found"),
+            TrustErrorKind::CmdFail,
+            "linux code=1 must classify as CmdFail"
+        );
+        // 其他 code → CmdFail
+        assert_eq!(
+            classify_trust_error_linux(Some(2), "oops"),
+            TrustErrorKind::CmdFail,
+            "linux code=2 must classify as CmdFail"
+        );
+    }
+
+    /// macOS osascript 分类矩阵（exit 恒 1，靠 stderr 区分）。
+    #[test]
+    fn classify_trust_error_macos_matrix() {
+        // stderr 含 "(-128)" → Cancel（AppleScript user canceled -128）
+        assert_eq!(
+            classify_trust_error_macos("execution error: User canceled. (-128)"),
+            TrustErrorKind::Cancel,
+            "macos stderr with (-128) must classify as Cancel"
+        );
+        // stderr 含 "authorization" → AuthFail
+        assert_eq!(
+            classify_trust_error_macos("Authorization failed (osascript)"),
+            TrustErrorKind::AuthFail,
+            "macos stderr with 'authorization' must classify as AuthFail"
+        );
+        // stderr 含 "鉴权" → AuthFail
+        assert_eq!(
+            classify_trust_error_macos("鉴权被拒"),
+            TrustErrorKind::AuthFail,
+            "macos stderr with '鉴权' must classify as AuthFail"
+        );
+        // 其他 → CmdFail
+        assert_eq!(
+            classify_trust_error_macos("security: SecKeychainItemImport: unknown error"),
+            TrustErrorKind::CmdFail,
+            "macos other stderr must classify as CmdFail"
+        );
+        // 空 stderr → CmdFail
+        assert_eq!(
+            classify_trust_error_macos(""),
+            TrustErrorKind::CmdFail,
+            "macos empty stderr must classify as CmdFail"
+        );
+    }
+
+    /// Windows UAC 分类矩阵（1223=ERROR_CANCELLED）。
+    #[test]
+    fn classify_trust_error_windows_matrix() {
+        // stderr 含 "1223" → Cancel
+        assert_eq!(
+            classify_trust_error_windows("The operation was canceled by the user. (1223)"),
+            TrustErrorKind::Cancel,
+            "windows stderr with 1223 must classify as Cancel"
+        );
+        // stderr 含 "cancel" → Cancel
+        assert_eq!(
+            classify_trust_error_windows("User clicked Cancel on UAC prompt"),
+            TrustErrorKind::Cancel,
+            "windows stderr with 'cancel' must classify as Cancel"
+        );
+        // 其他 → CmdFail
+        assert_eq!(
+            classify_trust_error_windows("certutil: -addstore command failed"),
+            TrustErrorKind::CmdFail,
+            "windows other stderr must classify as CmdFail"
+        );
+        // 空 stderr → CmdFail
+        assert_eq!(
+            classify_trust_error_windows(""),
+            TrustErrorKind::CmdFail,
+            "windows empty stderr must classify as CmdFail"
+        );
+    }
+
+    /// code=None 三 OS 均落 CmdFail 兜底（验证「无文案」根因不是分类崩）。
+    ///
+    /// Tauri shell plugin reject / signal kill 路径 code 可能为 null/undefined。
+    /// 前端原逻辑 null code 在 linux 分支会 fall-through 到 cmd_fail（126/127 都不匹配），
+    /// macos/windows 不看 code 本来就不依赖。后端 Option<i32> 显式建模 + CmdFail 兜底。
+    #[test]
+    fn classify_trust_error_code_none_fallback_cmd_fail() {
+        // macos/windows 不看 code，None 等价空 code（→ CmdFail 对应空 stderr 路径）。
+        assert_eq!(
+            classify_trust_error_macos(""),
+            TrustErrorKind::CmdFail,
+            "macos code=None must fallback CmdFail"
+        );
+        assert_eq!(
+            classify_trust_error_windows(""),
+            TrustErrorKind::CmdFail,
+            "windows code=None must fallback CmdFail"
+        );
+        // linux 显式 None 兜底（match _ 分支含 None）。
+        assert_eq!(
+            classify_trust_error_linux(None, "anything"),
+            TrustErrorKind::CmdFail,
+            "linux code=None must fallback CmdFail (not panic)"
+        );
+    }
+
+    /// classify_trust_error 当前 OS 入口返非 CmdFail 仅在匹配条件命中时（编译期 cfg 选分支）。
+    ///
+    /// 当前 OS 在编译期固定（macos/windows/linux 之一），此测试验入口函数可被调用 + 返合法变体。
+    #[test]
+    fn classify_trust_error_current_os_entry_returns_valid() {
+        // 任一 OS 入口对空 stderr / code=None 都应返 CmdFail（无 panic，无非法变体）。
+        let kind = classify_trust_error("dummy", None, "");
+        // 必须是 4 合法变体之一（编译期 enum 保证，运行期 assert 防回归）。
+        assert!(matches!(
+            kind,
+            TrustErrorKind::Cancel | TrustErrorKind::AuthFail | TrustErrorKind::NoAgent | TrustErrorKind::CmdFail
+        ));
+        // 当前 OS 空 stderr 入口必落 CmdFail（三 OS 一致）。
+        assert_eq!(kind, TrustErrorKind::CmdFail, "current OS empty input must be CmdFail");
+    }
+
+    // ─── 阶段 B：osascript 命令语法集成测试（macOS only）──────────────────────
+    //
+    // 验 trust_ca_command / untrust_ca_command 产出的 AppleScript 串语法合法：
+    //   - macOS：spawn /usr/bin/osacompile -e <AppleScript串> -o /tmp/空.scpt（仅编译不执行）
+    //   - exit 0 = 语法合法；非 0 = AppleScript 串本身有语法错（转义/引号 bug）
+    //   - 非 macOS 平台：空桩占位（保持跨平台 cargo test 绿，CI Linux 不报错）
+
+    /// macOS：trust_ca_command 的 osascript `-e` AppleScript 串经 osacompile 编译通过。
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn osacompile_trust_ca_applescript_valid() {
+        let (_prog, args, _manual) = trust_ca_command("/tmp/aidog-ca-test.pem");
+        // args = ["-e", "do shell script \"...\" with administrator privileges"]
+        assert_eq!(args.len(), 2, "macOS trust args = [-e, <applescript>]");
+        let applescript = &args[1];
+
+        // osacompile -e <串> -o /tmp/aidog-ca-osacompile-trust.scpt：仅编译，不执行，不需 GUI/admin。
+        let out = std::process::Command::new("/usr/bin/osacompile")
+            .args(["-e", applescript, "-o", "/tmp/aidog-ca-osacompile-trust.scpt"])
+            .output()
+            .expect("spawn osacompile");
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            out.status.success(),
+            "osacompile trust AppleScript failed (syntax error in string):\n--- applescript ---\n{applescript}\n--- osacompile stderr ---\n{stderr}"
+        );
+        // 清理 scpt（不残留 /tmp）。
+        let _ = std::fs::remove_file("/tmp/aidog-ca-osacompile-trust.scpt");
+    }
+
+    /// macOS：untrust_ca_command 的 delete-certificate AppleScript 串经 osacompile 编译通过。
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn osacompile_untrust_ca_applescript_valid() {
+        let (key_pair, cert) = generate_root_ca().expect("generate_root_ca");
+        let ca = RootCa::new(&key_pair, &cert);
+        let (_prog, args, _manual) = untrust_ca_command(&ca.cert_pem);
+        assert_eq!(args.len(), 2, "macOS untrust args = [-e, <applescript>]");
+        let applescript = &args[1];
+
+        let out = std::process::Command::new("/usr/bin/osacompile")
+            .args(["-e", applescript, "-o", "/tmp/aidog-ca-osacompile-untrust.scpt"])
+            .output()
+            .expect("spawn osacompile");
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            out.status.success(),
+            "osacompile untrust AppleScript failed (syntax error in string):\n--- applescript ---\n{applescript}\n--- osacompile stderr ---\n{stderr}"
+        );
+        let _ = std::fs::remove_file("/tmp/aidog-ca-osacompile-untrust.scpt");
+    }
+
+    /// 非 macOS 平台空桩（保持 cargo test 跨平台绿，CI Linux 不报 skip/失败）。
+    ///
+    /// ponytail: 空桩而非 #[cfg(skip)]（Rust 无该属性），用 assert!(true) 占位保持 test count 稳定。
+    /// 升级路径：若加 Linux pkexec / Windows PowerShell 语法集成测，各自加 #[cfg] 分支。
+    #[cfg(not(target_os = "macos"))]
+    #[test]
+    fn osacompile_applescript_placeholder_non_macos() {
+        // trust_ca_command / untrust_ca_command 非 macOS 走 pkexec/PowerShell（无 AppleScript 串），
+        // osacompile 集成测 macOS-only，非 macOS 平台空桩占位。
+        assert!(true, "non-macOS platform: osacompile test placeholder");
     }
 }
