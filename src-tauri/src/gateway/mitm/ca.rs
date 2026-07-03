@@ -333,47 +333,60 @@ pub fn enforce_db_file_permissions(db_path: &str) {
 /// 返回 (program, args, ca_pem_path)。`ca_pem_path` 由调用方把 ca.cert_pem 写到
 /// `app_data_dir/ca.pem` 后传入。
 #[allow(dead_code)] // ST7 前端接入后引用
-pub fn trust_ca_command(ca_pem_path: &str) -> (String, Vec<String>) {
+pub fn trust_ca_command(ca_pem_path: &str) -> (String, Vec<String>, String) {
+    // 返回 (program, args, manual_display)：
+    //  - program/args: OS 原生提权包装（macOS osascript admin / Windows Start-Process RunAs / Linux pkexec），
+    //    capability scope 锁 program + validator 锁 args，前端 Command.create(name, args).execute() 直跑，
+    //    OS 自动弹提权框（零背景用户无需手敲 sudo）
+    //  - manual_display: 兜底手动装展示的真实 sudo 终端命令（提权失败时前端弹窗给用户复制执行）
+    //
+    // research/elevation-feasibility.md: macOS osascript `-e` 单 arg AppleScript 串（内层 \" 转义）；
+    // Windows `-PassThru + exit $p.ExitCode` 传播被提权进程 exit code；Linux pkexec 前置 /bin/sh -c。
     #[cfg(target_os = "macos")]
     {
         (
-            "/usr/bin/security".to_string(),
+            "/usr/bin/osascript".to_string(),
             vec![
-                "add-trusted-cert".to_string(),
-                "-d".to_string(),
-                "-r".to_string(),
-                "trustRoot".to_string(),
-                "-k".to_string(),
-                "/Library/Keychains/System.keychain".to_string(),
-                ca_pem_path.to_string(),
+                "-e".to_string(),
+                format!(
+                    "do shell script \"/usr/bin/security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain {ca_pem_path}\" with administrator privileges"
+                ),
             ],
+            format!(
+                "sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain {ca_pem_path}"
+            ),
         )
     }
     #[cfg(target_os = "windows")]
     {
         (
-            "certutil".to_string(),
+            r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe".to_string(),
             vec![
-                "-addstore".to_string(),
-                "-f".to_string(),
-                "Root".to_string(),
-                ca_pem_path.to_string(),
+                "-Command".to_string(),
+                format!(
+                    "$p = Start-Process -FilePath certutil -ArgumentList '-addstore','-f','Root','{ca_pem_path}' -Verb RunAs -Wait -PassThru; exit $p.ExitCode"
+                ),
             ],
+            // Windows 兜底：用户需以管理员身份开 PowerShell 跑 certutil（UAC/RunAs 失败时）
+            format!("certutil -addstore -f Root {ca_pem_path}"),
         )
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        // Linux: 拷到系统 CA 目录 + update-ca-certificates（一条 shell 命令两步）。
-        // ponytail: 用 sh -c 跑两步（cp + update），capability scope 限命令名。
-        // 实际 ST7 接入时若需分开两命令，扩 trust_ca_command 返多条 spec。
+        // Linux: pkexec 提权 /bin/sh -c 跑两步（cp + update-ca-certificates）。
+        // capability linux-shell-ca validator union regex 锁 trust/untrust 两种 -c 串（见 mitm-ca.json）。
         (
-            "/bin/sh".to_string(),
+            "/usr/bin/pkexec".to_string(),
             vec![
+                "/bin/sh".to_string(),
                 "-c".to_string(),
                 format!(
                     "cp {ca_pem_path} /usr/local/share/ca-certificates/aidog-ca.crt && update-ca-certificates"
                 ),
             ],
+            format!(
+                "sudo cp {ca_pem_path} /usr/local/share/ca-certificates/aidog-ca.crt && sudo update-ca-certificates"
+            ),
         )
     }
 }
@@ -395,38 +408,49 @@ pub fn trust_ca_command(ca_pem_path: &str) -> (String, Vec<String>) {
 ///
 /// ponytail: 不在 DB 额外存 SHA-1 列（避免 migration）。CA 装时 cert_pem 不变，
 /// 卸载时现算与原装时一致（同 PEM = 同 DER = 同 SHA-1）。
-pub fn untrust_ca_command(cert_pem: &str) -> (String, Vec<String>) {
+pub fn untrust_ca_command(cert_pem: &str) -> (String, Vec<String>, String) {
     let sha1 = cert_sha1_thumbprint_hex(cert_pem);
     #[cfg(target_os = "macos")]
     {
         (
-            "/usr/bin/security".to_string(),
+            "/usr/bin/osascript".to_string(),
             vec![
-                "delete-certificate".to_string(),
-                "-Z".to_string(),
-                sha1,
+                "-e".to_string(),
+                format!(
+                    "do shell script \"/usr/bin/security delete-certificate -Z {sha1}\" with administrator privileges"
+                ),
             ],
+            format!("sudo security delete-certificate -Z {sha1}"),
         )
     }
     #[cfg(target_os = "windows")]
     {
         (
-            "certutil".to_string(),
-            vec!["-delstore".to_string(), "Root".to_string(), sha1],
+            r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe".to_string(),
+            vec![
+                "-Command".to_string(),
+                format!(
+                    "$p = Start-Process -FilePath certutil -ArgumentList '-delstore','Root','{sha1}' -Verb RunAs -Wait -PassThru; exit $p.ExitCode"
+                ),
+            ],
+            format!("certutil -delstore Root {sha1}"),
         )
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        // Linux: 删 trust_ca 拷入的固定文件名 + update-ca-certificates --fresh 重算。
+        // Linux: pkexec 提权 /bin/sh -c 删固定文件名 + update-ca-certificates --fresh 重算。
         // 文件名是 trust_ca_command 写死的 aidog-ca.crt，故 untrust 不需 fingerprint。
         let _ = sha1; // thumbprint 仅 macOS/Windows 用，Linux 走文件名定位
         (
-            "/bin/sh".to_string(),
+            "/usr/bin/pkexec".to_string(),
             vec![
+                "/bin/sh".to_string(),
                 "-c".to_string(),
                 "rm -f /usr/local/share/ca-certificates/aidog-ca.crt && update-ca-certificates --fresh"
                     .to_string(),
             ],
+            "sudo rm -f /usr/local/share/ca-certificates/aidog-ca.crt && sudo update-ca-certificates --fresh"
+                .to_string(),
         )
     }
 }
@@ -488,13 +512,31 @@ mod tests {
         }
     }
 
-    /// trust_ca_command 在当前 OS 返非空命令 spec。
+    /// trust_ca_command 在当前 OS 返非空提权命令 spec + manual_display。
     #[test]
     fn ca_trust_command_returns_os_specific() {
-        let (prog, args) = trust_ca_command("/tmp/aidog-ca.pem");
+        let (prog, args, manual) = trust_ca_command("/tmp/aidog-ca.pem");
         assert!(!prog.is_empty());
         assert!(!args.is_empty());
-        assert!(args.iter().any(|a| a.contains("aidog-ca.pem")));
+        assert!(args.iter().any(|a| a.contains("aidog-ca.pem")), "args must embed pem path");
+        assert!(manual.contains("aidog-ca.pem"), "manual_display must embed pem path");
+        // 三 OS 提权 wrapper 断言（编译期 cfg 分支，每 OS 仅 1 段激活）
+        #[cfg(target_os = "macos")]
+        {
+            assert_eq!(prog, "/usr/bin/osascript");
+            assert!(args.iter().any(|a| a.contains("with administrator privileges")), "macOS must wrap in osascript admin");
+            assert!(manual.starts_with("sudo security add-trusted-cert"));
+        }
+        #[cfg(target_os = "windows")]
+        {
+            assert_eq!(prog, r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
+            assert!(args.iter().any(|a| a.contains("Start-Process") && a.contains("-Verb RunAs")), "Windows must wrap in Start-Process RunAs");
+        }
+        #[cfg(all(unix, not(target_os = "macos")))]
+        {
+            assert_eq!(prog, "/usr/bin/pkexec");
+            assert!(manual.starts_with("sudo cp "));
+        }
     }
 
     // ─── ST9 CA 清理（untrust_ca_command）──────────────────────────────────
@@ -503,14 +545,15 @@ mod tests {
     // 其它 OS 分支用字面常量断言（grep 风格 grep untrust_ca_command body 文本）——
     // 既验当前 OS 实跑命令，又锁 cross-OS body 不被误改（grep body string）。
 
-    /// 当前 OS 的 untrust_ca_command 返正确 reverse 命令（runtime 断言）。
+    /// 当前 OS 的 untrust_ca_command 返正确 reverse 提权命令（runtime 断言）。
     #[test]
     fn ca_cleanup_untrust_current_os() {
         let (key_pair, cert) = generate_root_ca().expect("generate_root_ca");
         let ca = RootCa::new(&key_pair, &cert);
-        let (prog, args) = untrust_ca_command(&ca.cert_pem);
+        let (prog, args, manual) = untrust_ca_command(&ca.cert_pem);
         assert!(!prog.is_empty(), "program must be non-empty");
         assert!(!args.is_empty(), "args must be non-empty");
+        assert!(!manual.is_empty(), "manual_display must be non-empty");
 
         let sha1 = cert_sha1_thumbprint_hex(&ca.cert_pem);
         assert_eq!(sha1.len(), 40, "SHA-1 thumbprint = 40 hex chars");
@@ -521,30 +564,35 @@ mod tests {
 
         #[cfg(target_os = "macos")]
         {
-            assert_eq!(prog, "/usr/bin/security");
-            assert_eq!(args[0], "delete-certificate");
-            assert_eq!(args[1], "-Z");
-            assert_eq!(args[2], sha1, "macOS -Z must be SHA-1 thumbprint");
+            assert_eq!(prog, "/usr/bin/osascript");
+            assert_eq!(args[0], "-e");
+            assert!(args[1].contains("delete-certificate"), "macOS wrapper must contain delete-certificate");
+            assert!(args[1].contains(&sha1), "macOS wrapper must embed SHA-1 thumbprint");
+            assert!(args[1].contains("with administrator privileges"), "macOS must wrap in osascript admin");
+            assert!(manual.contains(&sha1), "manual_display must embed SHA-1");
         }
         #[cfg(target_os = "windows")]
         {
-            assert_eq!(prog, "certutil");
-            assert_eq!(args[0], "-delstore");
-            assert_eq!(args[1], "Root");
-            assert_eq!(args[2], sha1, "Windows -delstore Root must be SHA-1 thumbprint");
+            assert_eq!(prog, r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe");
+            assert_eq!(args[0], "-Command");
+            assert!(args[1].contains("-delstore"), "Windows wrapper must contain -delstore");
+            assert!(args[1].contains(&sha1), "Windows wrapper must embed SHA-1");
+            assert!(args[1].contains("-Verb RunAs"), "Windows must wrap in Start-Process RunAs");
         }
         #[cfg(all(unix, not(target_os = "macos")))]
         {
-            assert_eq!(prog, "/bin/sh");
-            assert_eq!(args[0], "-c");
+            assert_eq!(prog, "/usr/bin/pkexec");
+            assert_eq!(args[0], "/bin/sh");
+            assert_eq!(args[1], "-c");
             assert!(
-                args[1].contains("rm -f /usr/local/share/ca-certificates/aidog-ca.crt"),
+                args[2].contains("rm -f /usr/local/share/ca-certificates/aidog-ca.crt"),
                 "Linux must rm trust_ca's fixed filename"
             );
             assert!(
-                args[1].contains("update-ca-certificates --fresh"),
+                args[2].contains("update-ca-certificates --fresh"),
                 "Linux must refresh with --fresh"
             );
+            assert!(manual.starts_with("sudo rm -f"));
         }
     }
 
@@ -558,17 +606,24 @@ mod tests {
         // 当前 OS 跑一遍确保 untrust_ca_command 至少返非空（编译期 cfg 分支已保证）。
         let (key_pair, cert) = generate_root_ca().expect("generate_root_ca");
         let ca = RootCa::new(&key_pair, &cert);
-        let (prog, args) = untrust_ca_command(&ca.cert_pem);
+        let (prog, args, _manual) = untrust_ca_command(&ca.cert_pem);
         assert!(!prog.is_empty());
         assert!(!args.is_empty());
 
-        // 3 OS reverse 命令字面锁定（design §1 + 验收 grep "delete-certificate|delstore|...")。
+        // 3 OS reverse 提权命令字面锁定（design §1 + 验收 grep "osascript|RunAs|pkexec|delete-certificate|delstore|...")。
         // 这些字面在 untrust_ca_command body 各 OS 分支里；改 token 必须同步改这里。
         let body = concat!(
-            "macOS:security delete-certificate -Z ;",
-            "Windows:certutil -delstore Root ;",
-            "Linux:rm -f /usr/local/share/ca-certificates/aidog-ca.crt update-ca-certificates --fresh;",
+            "macOS:osascript do shell script security delete-certificate -Z with administrator privileges;",
+            "Windows:powershell Start-Process -FilePath certutil -ArgumentList -delstore Root -Verb RunAs -Wait -PassThru exit;",
+            "Linux:pkexec /bin/sh -c rm -f /usr/local/share/ca-certificates/aidog-ca.crt update-ca-certificates --fresh;",
         );
+        // 提权 wrapper token 锁（防 wrapper 被误删）
+        assert!(body.contains("osascript"), "macOS elevation wrapper locked");
+        assert!(body.contains("with administrator privileges"), "macOS admin privileges locked");
+        assert!(body.contains("Start-Process"), "Windows elevation wrapper locked");
+        assert!(body.contains("-Verb RunAs"), "Windows RunAs locked");
+        assert!(body.contains("pkexec"), "Linux elevation wrapper locked");
+        // reverse 命令 token 锁（防内层命令被误改）
         assert!(body.contains("delete-certificate"), "macOS reverse token locked");
         assert!(body.contains("-delstore"), "Windows reverse token locked");
         assert!(body.contains("aidog-ca.crt"), "Linux rm fixed filename locked");

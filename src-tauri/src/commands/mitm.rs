@@ -66,10 +66,12 @@ pub struct MitmStatus {
 pub struct CaCommandSpec {
     /// capability `mitm-ca.json` 里的命名命令 key（按 OS 选 macos-trust-ca / windows-trust-ca / linux-shell-ca）。
     pub name: String,
-    /// 命令参数（已含 ca_pem_path）。
+    /// 命令参数（已含 ca_pem_path + 提权 wrapper）。
     pub args: Vec<String>,
-    /// 落盘后的 CA PEM 绝对路径（前端展示 + 失败兜底手动装命令用）。
+    /// 落盘后的 CA PEM 绝对路径（前端展示用）。
     pub ca_pem_path: String,
+    /// 兜底手动装展示的真实 sudo 终端命令（提权失败时前端弹窗给用户复制执行）。
+    pub manual_display: String,
 }
 
 /// CA 卸载命令 spec（ST9 实装命令 reverse；当前仅 fingerprint，返 spec 供前端 ST9 接入）。
@@ -77,6 +79,8 @@ pub struct CaCommandSpec {
 pub struct CaUninstallSpec {
     pub name: String,
     pub args: Vec<String>,
+    /// 兜底手动卸展示的真实 sudo 终端命令。
+    pub manual_display: String,
 }
 
 // ─── 状态查询 ───────────────────────────────────────────────
@@ -135,11 +139,12 @@ pub async fn mitm_install_ca_prepare(db: State<'_, Db>) -> Result<CaCommandSpec,
     std::fs::write(&ca_pem_path, &ca.cert_pem)
         .map_err(|e| format!("write ca.pem: {e}"))?;
     // capability 按 OS 限定 3 个命名命令；args 必须匹配 validator 正则（pem 路径 / hex）。
-    let (name, args) = trust_command_spec(&ca_pem_path);
+    let (name, args, manual_display) = trust_command_spec(&ca_pem_path);
     Ok(CaCommandSpec {
         name,
         args,
         ca_pem_path: ca_pem_path.to_string_lossy().into_owned(),
+        manual_display,
     })
 }
 
@@ -153,8 +158,8 @@ pub async fn mitm_uninstall_ca_prepare(db: State<'_, Db>) -> Result<CaUninstallS
         .ok_or_else(|| "CA not generated".to_string())?;
     // untrust_ca_command 内部从 cert_pem 现算 SHA-1 thumbprint（macOS -Z / Windows -delstore Root）。
     // ponytail: 不读 ST1 存的 SHA-256 fingerprint（capability validator 拒冒号 + OS 语义要 SHA-1）。
-    let (name, args) = untrust_command_spec(&ca.cert_pem);
-    Ok(CaUninstallSpec { name, args })
+    let (name, args, manual_display) = untrust_command_spec(&ca.cert_pem);
+    Ok(CaUninstallSpec { name, args, manual_display })
 }
 
 /// 前端 shell execute 完成后回写 CA 安装状态（成功 true / 失败 false）。
@@ -245,17 +250,17 @@ pub async fn mitm_whitelist_toggle(
 // ponytail: name 表硬编码 3 OS 分支，与 mitm-ca.json 同步源。capability 改 name 必须同步改这里；
 // 若加 CI 校验可用，但 ST7 阶段仅 3 条命令，YAGNI。
 
-fn trust_command_spec(ca_pem_path: &std::path::Path) -> (String, Vec<String>) {
-    // 复用 ca.rs 的 args 构造（含路径），仅 name 替换为 capability key。
-    let (_program, args) = trust_ca_command(&ca_pem_path.to_string_lossy());
+fn trust_command_spec(ca_pem_path: &std::path::Path) -> (String, Vec<String>, String) {
+    // 复用 ca.rs 的 args 构造（含提权 wrapper），仅 name 替换为 capability key；manual_display 同源。
+    let (_program, args, manual_display) = trust_ca_command(&ca_pem_path.to_string_lossy());
     let name = current_os_trust_command_name();
-    (name, args)
+    (name, args, manual_display)
 }
 
-fn untrust_command_spec(cert_pem: &str) -> (String, Vec<String>) {
-    let (_program, args) = untrust_ca_command(cert_pem);
+fn untrust_command_spec(cert_pem: &str) -> (String, Vec<String>, String) {
+    let (_program, args, manual_display) = untrust_ca_command(cert_pem);
     let name = current_os_untrust_command_name();
-    (name, args)
+    (name, args, manual_display)
 }
 
 fn current_os_trust_command_name() -> String {

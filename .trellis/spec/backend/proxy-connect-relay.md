@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-02
+updated: 2026-07-03
 rewrite-version: 1
 authored-by: trellisx-spec
 mode: optimize
@@ -87,4 +87,58 @@ grep -n "upsert_connect_log" src-tauri/src/gateway/proxy/log.rs  # 函数体 gre
 
 # schema 列名 group_key
 grep -n "group_key" src-tauri/src/gateway/db/proxy_log.rs  # PROXY_LOG_COLUMNS + struct
+```
+
+## MITM CA 信任库安装 (MUST — 三 OS 原生提权)
+
+> 违反代价: 假 CA 装不进系统信任库 → 客户端不信任 AirDog 签的 host 证书 → MITM 解密全挂；零背景用户面对 `command not found` 兜底弹窗无法自理。research (`07-03-mitm-ca-elevated-install/research/elevation-feasibility.md`) 实证 + 插件源码双源沉淀。
+
+何时被读: 改 `src-tauri/capabilities/mitm-ca.json` / `src-tauri/src/gateway/mitm/ca.rs` (trust_ca_command / untrust_ca_command) / `src-tauri/src/commands/mitm.rs` (CaCommandSpec) 时
+
+### capability 键名必须 `cmd` (MUST — 静默丢弃根因)
+
+> 违反代价: JSON 写 `"command"` → tauri-plugin-shell-2.3.5 `#[serde(rename = "cmd")]` (scope_entry.rs:27) + `EntryRaw` 无 `deny_unknown_fields` → `command` 键**静默丢弃** → scope 解析失败 → `ProgramNotAllowed` → 前端兜底弹窗。**`cargo build` 不报错** (build 期不反序列化 scope，运行时首次 invoke 才 lazy 解析)。
+
+- **capability JSON 命令键必须 `"cmd"`，禁 `"command"`** — 所有 plugin-shell scope entry
+- 校验: `grep -n '"command"' src-tauri/capabilities/*.json` 必须 0 命中
+- 同模式风险: 任何 `capabilities/*.json` 用 plugin-shell scope 的都适用（不只 mitm-ca）
+
+### 三 OS 原生提权 wrapper (MUST — 零背景用户无需手敲 sudo)
+
+> 违反代价: plugin-shell `execute` 不提权 → `security add-trusted-cert -k /Library/Keychains/System.keychain` 等需 root 的命令 exit≠0 → 兜底弹窗。OS 原生提权让 OS 自己弹密码框。
+
+- **macOS**: `cmd: /usr/bin/osascript`, args `["-e", "do shell script \"<inner command>\" with administrator privileges"]` — inner 双引号 AppleScript `\"` 转义
+- **Windows**: `cmd: ...\powershell.exe`, args `["-Command", "$p = Start-Process -FilePath <tool> -ArgumentList ... -Verb RunAs -Wait -PassThru; exit $p.ExitCode"]` — **必须 `-PassThru` + `exit $p.ExitCode`** 传播被提权进程 exit code (不加 exit code 丢失, powershell 自身 exit 0)
+- **Linux**: `cmd: /usr/bin/pkexec`, args `["/bin/sh", "-c", "<inner sh>"]` — 原命令串不变, 仅前置 pkexec
+
+### validator 锚定语义 (MUST — raw 控制 ^...$ 包裹)
+
+> 违反代价: validator regex 写错锚定 → scope 拒合法 args / 纵容非法注入。
+
+- **`raw: false` (默认)**: plugin-shell 自动包 `^...$` 全串匹配 (scope.rs:93-99 fullmatch)
+- **`raw: true`**: 不锚定，validator 自写 `^...$`；**union regex (`A|B`) 必须用 raw:true** (默认包成 `^A|B$` 语义错)
+- validator 是 Rust regex crate (RE2, **不支持 lookahead/回溯**); JSON 反斜杠双重转义 `\\.` `\\$`
+- **validator 必须与 Rust 命令产出 args 字面镜像** (双向锁测试, 见 ca_linux_capability_validator_matches_commands 模式)
+
+### 失败分类 (前端 classifyTrustError, research Q5)
+
+- exit code 三 OS 各异, **靠 stderr 文本区分取消/密码错/无 agent/命令失败**:
+  - macOS osascript: exit 恒 1; stderr `(-128)` = 用户取消, `Authorization` = 密码错
+  - Windows UAC: stderr 含 `1223` (ERROR_CANCELLED) = 取消
+  - Linux pkexec: exit `126` = 取消, `127` = auth 失败 / 无 polkit agent (stderr 含 `agent`/`polkit`), 其他 = 命令失败
+
+### 验证
+
+```bash
+# capability cmd 键 (禁 command)
+grep -n '"command"' src-tauri/capabilities/mitm-ca.json  # 必须 0 命中
+grep -c '"cmd"' src-tauri/capabilities/mitm-ca.json      # 三 OS trust/untrust 5 处
+
+# 三 OS 提权 wrapper (ca.rs trust/untrust)
+cd src-tauri && cargo test ca_trust_command_returns_os_specific -- --nocapture
+cd src-tauri && cargo test ca_cleanup_untrust_current_os -- --nocapture
+cd src-tauri && cargo test ca_cleanup_untrust_command_tokens_locked -- --nocapture  # 三 OS wrapper token 字面锁
+
+# validator 镜像 (capability regex ↔ ca.rs args 产出)
+cd src-tauri && cargo test ca_linux_capability_validator_matches_commands -- --nocapture
 ```
