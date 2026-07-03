@@ -787,6 +787,7 @@
   "platform.expiresAtHint": "Opcional. Tras la expiración, la plataforma se excluye automáticamente de los candidatos de enrutamiento (equivalente a deshabilitada); modificar o limpiar el valor la restaura.",
   "platform.expiresAtSoon": "Expira pronto: {{time}}",
   "platform.fetchEmpty": "No se encontraron modelos",
+  "platform.fetchAuthError": "Error de autenticación de API key (HTTP {{code}}), verifique la clave de la plataforma",
   "platform.fetchModels": "Obtener modelos",
   "platform.fillAll": "Rellenar todo",
   "platform.fillAllHint": "Sobrescribe todos los huecos con el modelo predeterminado",
