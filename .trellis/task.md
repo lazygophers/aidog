@@ -51,7 +51,7 @@
 | longcat-default-models | Longcat 平台补默认模型列表 | — | 已完成 | — |
 | mitm-ca-elevated-install | MITM CA 自动提权安装 (osascript/UAC/pkexec) | — | 已完成 | — |
 | mitm-whitelist-clash-rules | MITM 白名单 Clash 规则集全类型支持 + 默认扩充 | — | 已完成 | — |
-| mitm-ca-macos-fix | MITM CA macOS osascript 安装失败修复 (手敲 sudo 成功 / osascript 失败) | — | 实施中 | — |
+| mitm-ca-macos-fix | MITM CA macOS osascript 安装失败修复 (手敲 sudo 成功 / osascript 失败) | — | 已完成 | — |
 | platform-multi-apikey-ui | 平台添加多 apikey 智能识别批量创建 UI | — | 规划中 | — |
 
 ## Worktree ↔ Task 映射
