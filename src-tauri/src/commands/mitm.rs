@@ -62,7 +62,7 @@ pub struct MitmStatus {
 /// CA 安装命令 spec（前端 `Command.create(name, args).execute()`）。
 #[derive(Debug, Clone, Serialize)]
 pub struct CaCommandSpec {
-    /// capability `mitm-ca.json` 里的命名命令 key（按 OS 选 macos-trust-ca / windows-trust-ca / linux-update-ca）。
+    /// capability `mitm-ca.json` 里的命名命令 key（按 OS 选 macos-trust-ca / windows-trust-ca / linux-shell-ca）。
     pub name: String,
     /// 命令参数（已含 ca_pem_path）。
     pub args: Vec<String>,
@@ -235,9 +235,10 @@ pub async fn mitm_whitelist_toggle(
 
 // ─── OS 命名命令 spec（capability mitm-ca.json 的 name key）──────────
 //
-// capability 的 name 是按 OS 配的（macos-trust-ca / windows-trust-ca / linux-update-ca），
+// capability 的 name 是按 OS 配的（macos-trust-ca / windows-trust-ca / linux-shell-ca），
 // 与 ca.rs::trust_ca_command 返的 (program, args) 中 program 不同（program 是路径 /usr/bin/security，
 // name 是 capability 的命名 key）。这里把 name 与 args 一起返，前端直接喂 Command.create(name, args)。
+// Linux trust/untrust 共用 `linux-shell-ca`（/bin/sh -c），capability validator union regex 锁两形式。
 //
 // ponytail: name 表硬编码 3 OS 分支，与 mitm-ca.json 同步源。capability 改 name 必须同步改这里；
 // 若加 CI 校验可用，但 ST7 阶段仅 3 条命令，YAGNI。
@@ -261,7 +262,9 @@ fn current_os_trust_command_name() -> String {
     #[cfg(target_os = "windows")]
     { "windows-trust-ca".to_string() }
     #[cfg(all(unix, not(target_os = "macos")))]
-    { "linux-update-ca".to_string() }
+    // Linux trust 走 /bin/sh -c "cp <pem> <dest> && update-ca-certificates"（ca.rs::trust_ca_command）。
+    // capability `linux-shell-ca` 用 union regex 同时锁 trust 与 untrust 两种 -c 串。
+    { "linux-shell-ca".to_string() }
 }
 
 fn current_os_untrust_command_name() -> String {
@@ -270,5 +273,7 @@ fn current_os_untrust_command_name() -> String {
     #[cfg(target_os = "windows")]
     { "windows-remove-ca".to_string() }
     #[cfg(all(unix, not(target_os = "macos")))]
-    { "linux-update-ca".to_string() }
+    // Linux untrust 走 /bin/sh -c "rm -f <dest> && update-ca-certificates --fresh"（ca.rs::untrust_ca_command）。
+    // 与 trust 共用 `linux-shell-ca` 命名命令（capability validator union regex 锁两形式）。
+    { "linux-shell-ca".to_string() }
 }
