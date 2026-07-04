@@ -197,13 +197,13 @@ async fn handle_connect_inner(
         // 客户端连接类型 = TokioIo<TokioIo<TcpStream>>（impl tokio AsyncRead/AsyncWrite）。
         let client = TokioIo::new(parts.io);
 
-        // ST4 分流：MITM 候选 && read_buf 空（合法 CONNECT 客户端 read_buf 必空，RFC 7231
-        // §4.3.6 要求客户端收 200 才发数据）→ 走 MITM；read_buf 非空（违规 pipelining）→
-        // 降级 blind_relay（blind_relay 现有 flush 逻辑处理预读字节）。
+        // ST4 分流：MITM 候选 && read_buf 空 → 走 MITM；read_buf 非空（hyper-util speculative
+        // read 预读的客户端字节，如 TLS ClientHello）→ 降级 blind_relay（blind_relay 内部
+        // 已正确 flush read_buf 到 upstream，见 blind_relay_after_connect prefetch 参数）。
         //
         // ponytail: MITM 路径不处理 read_buf —— accept_client 需把预读字节 prepend 到 TLS
-        // 输入流前面（组合 AsyncRead），复杂度 vs 收益失衡（合法客户端 read_buf 空）。
-        // read_buf 非空降级 blind_relay，行为保守正确。
+        // 输入流前面（组合 AsyncRead），复杂度 vs 收益失衡。read_buf 非空降级 blind_relay，
+        // 行为保守正确（blind_relay 把预读字节 flush 到 upstream 非 client）。
         let client_for_blind: Option<_> = if parts.read_buf.is_empty() {
             let outcome = handle_mitm(
                 &st, mitm_state, client, &target, &host_only,
@@ -220,14 +220,13 @@ async fn handle_connect_inner(
         };
 
         // ── blind_relay 降级 / read_buf 非空 路径 ──────────────────────────────
-        let mut client = client_for_blind.expect("client_for_blind set in both branches above");
-        // 预读字节 flush（read_buf 非空时；MITM 降级路径 read_buf 必空，此 flush 为 no-op）。
-        if !parts.read_buf.is_empty() {
-            let _ = tokio::io::AsyncWriteExt::write_all(&mut client, &parts.read_buf).await;
-        }
+        let client = client_for_blind.expect("client_for_blind set in both branches above");
+        // read_buf（speculative read 从客户端预读的字节）通过 prefetch 参数传给
+        // blind_relay_after_connect，由其在 connect upstream 成功后 flush 到 upstream
+        // （写错对象回灌 client 会致 TLS 状态机错乱 RST，见 spawn_blind_relay 同款修复）。
         blind_relay_after_connect(
             &st, client, &target, request_id, platform_id,
-            breaker_th.as_ref(), conn_timeout_secs, start, log_enabled, &[],
+            breaker_th.as_ref(), conn_timeout_secs, start, log_enabled, &parts.read_buf,
         ).await;
     });
 
@@ -236,7 +235,7 @@ async fn handle_connect_inner(
 
 // ── P1 blind_relay 路径 ────────────────────────────────────────────────────────
 
-/// P1 blind_relay：上游 TCP 已连，spawn 双向 copy（保留 P1 完整行为含 read_buf flush）。
+/// P1 blind_relay：上游 TCP 已连，spawn 双向 copy（含 read_buf flush 到 upstream）。
 ///
 /// ponytail: 参数都是必要的隧道上下文（无冗余），打包 struct 仅在这几个 blind_relay
 /// helper 间传递无复用价值，YAGNI；allow clippy::too_many_arguments。
@@ -287,9 +286,13 @@ fn spawn_blind_relay(
                 return;
             }
         };
-        let mut client = TokioIo::new(parts.io);
+        let client = TokioIo::new(parts.io);
+        let mut upstream = upstream;
+        // read_buf 是 hyper-util speculative read 从客户端预读的字节（如 TLS ClientHello），
+        // 必须 flush 到 upstream（上游才收得到）—— 写错对象（回灌 client）会让上游收不到
+        // ClientHello + 客户端收自己字节致 TLS 状态机错乱 RST。
         if !parts.read_buf.is_empty() {
-            let _ = tokio::io::AsyncWriteExt::write_all(&mut client, &parts.read_buf).await;
+            let _ = tokio::io::AsyncWriteExt::write_all(&mut upstream, &parts.read_buf).await;
         }
         bridge_bidir(client, upstream).await;
         // P2-B：隧道正常关闭 → inflight-1（record_ignored 仅 inflight，不动 breaker/EMA）。
@@ -303,8 +306,8 @@ fn spawn_blind_relay(
 
 /// blind_relay 辅助：上游 TCP 未连，先 connect 再 bridge。MITM 降级路径 / downcast 失败路径共用。
 ///
-/// `prefetch` 是已从客户端预读的字节（须先 flush 到上游）；通常空（合法 CONNECT 客户端
-/// 收 200 才发数据），blind_relay 调用方负责 flush，此参数留空数组占位（接口对称）。
+/// `prefetch` 是已从客户端预读的字节（hyper-util speculative read 命中，如 TLS ClientHello），
+/// 须 flush 到 upstream（上游才收得到）；通常空（合法 CONNECT 客户端收 200 才发数据）。
 ///
 /// P2-A/B/C：connect 套 timeout + TCP 失败 record_failure + set_platform_last_error +
 /// inflight-1；成功侧 record_ignored（仅 inflight-1，**禁 record_success**，避 CONNECT TCP
@@ -325,10 +328,14 @@ async fn blind_relay_after_connect(
     conn_timeout_secs: u64,
     start: std::time::Instant,
     log_enabled: bool,
-    _prefetch: &[u8],
+    prefetch: &[u8],
 ) {
     match tcp_connect_accounted(st, target, platform_id, breaker_th, conn_timeout_secs).await {
-        Ok(upstream) => {
+        Ok(mut upstream) => {
+            // 预读字节先 flush 到上游（read_buf 来自客户端 speculative read，上游需收得到）。
+            if !prefetch.is_empty() {
+                let _ = tokio::io::AsyncWriteExt::write_all(&mut upstream, prefetch).await;
+            }
             bridge_bidir(client, upstream).await;
             // P2-B：隧道正常关闭 → inflight-1（record_ignored 仅 inflight，不动 breaker/EMA）。
             if platform_id != 0 {

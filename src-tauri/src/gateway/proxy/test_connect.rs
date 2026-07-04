@@ -195,6 +195,97 @@ async fn connect_tunnel_via_real_proxy_env() {
     assert_eq!(&echo, b"ping", "隧道建后字节必须双向透传（echo 上游回显）");
 }
 
+/// L2 根因回归：CONNECT 200 后客户端立即在同一 socket 流水线写 payload（模拟真实 TLS
+/// 客户端发 ClientHello），hyper-util auto server 的 speculative read 会把 payload 预读
+/// 进 `parts.read_buf`。修复前代码 `write_all(&mut client, &parts.read_buf)` 把 payload
+/// 回灌客户端（上游永远收不到 + 客户端收自己字节 → TLS 状态机错乱 RST）；修复后 flush 到
+/// upstream（上游收得到）。本测试 mock 上游 capture 首字节断言 = payload，暴露 flush 方向 bug。
+#[tokio::test]
+async fn connect_tunnel_flushes_prefetch_to_upstream() {
+    // 1. mock 上游 capture TCP server（accept 一条连，读首字节通过 channel 回传，再 echo）。
+    let upstream = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let upstream_addr = upstream.local_addr().unwrap();
+    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Vec<u8>>();
+    tokio::spawn(async move {
+        while let Ok((mut s, _)) = upstream.accept().await {
+            let tx = tx.clone();
+            tokio::spawn(async move {
+                // ponytail: 读首 N 字节回传 channel（断言上游收到的首字节 = 流水线 payload），
+                // 之后 echo 驱动 client 收回显避免 read 挂死。
+                let mut buf = [0u8; 64];
+                match s.read(&mut buf).await {
+                    Ok(0) | Err(_) => return,
+                    Ok(n) => {
+                        let _ = tx.send(buf[..n].to_vec());
+                        // echo 回客户端（若 client 还在读）。
+                        let _ = s.write_all(&buf[..n]).await;
+                    }
+                }
+                let mut buf2 = [0u8; 64];
+                loop {
+                    match s.read(&mut buf2).await {
+                        Ok(0) | Err(_) => break,
+                        Ok(n) => {
+                            if s.write_all(&buf2[..n]).await.is_err() {
+                                break;
+                            }
+                        }
+                    }
+                }
+            });
+        }
+    });
+
+    // 2. aidog proxy axum server（P1 blind_relay 路径：白名单未命中 host）。
+    let state = make_state().await;
+    let app = axum::Router::new()
+        .route("/", axum::routing::get(handle_root))
+        .route("/proxy", axum::routing::get(handle_root))
+        .fallback(handle_proxy)
+        .with_state(state);
+    let proxy_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let proxy_addr = proxy_listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        axum::serve(proxy_listener, app).await.ok();
+    });
+
+    // 3. 裸 TcpStream 发 CONNECT **且不等响应**立即流水线写 payload（模拟真实 TLS 客户端
+    //    发完 CONNECT 立即发 ClientHello，触发 hyper-util speculative read 把 payload
+    //    预读进 parts.read_buf；现有 connect_tunnel_via_real_proxy_env 严格串行不触发）。
+    let mut sock = tokio::net::TcpStream::connect(proxy_addr).await.unwrap();
+    let req_line = format!(
+        "CONNECT {upstream} HTTP/1.1\r\nHost: {upstream}\r\n\r\n",
+        upstream = upstream_addr
+    );
+    // 单次 write_all 把 CONNECT + payload 灌进 socket buffer，proxy 侧 hyper-util auto server
+    // 写完 200 后 speculative read 命中 payload → read_buf 非空。
+    let mut combined = req_line.into_bytes();
+    combined.extend_from_slice(b"PREFETCH_PAYLOAD");
+    sock.write_all(&combined).await.unwrap();
+
+    // 4. 读 CONNECT 响应 → 断言 200（隧道建立；payload 已在 proxy read_buf 里待 flush）。
+    let mut buf = [0u8; 256];
+    let n = sock.read(&mut buf).await.unwrap();
+    let resp = String::from_utf8_lossy(&buf[..n]);
+    assert!(
+        resp.starts_with("HTTP/1.1 200") || resp.starts_with("HTTP/1.0 200"),
+        "CONNECT 隧道必须建立返 200，实际: {resp}"
+    );
+
+    // 5. 关键断言：mock 上游收到的首字节必须是流水线 payload（修复后 flush 到 upstream）。
+    //    修复前会 fail（payload 被回灌 client → 上游读到空 / 读不到 → channel 超时）。
+    let upstream_first = tokio::time::timeout(
+        std::time::Duration::from_secs(3),
+        rx.recv(),
+    ).await.expect("上游必须在 3s 内收到 flush 的 payload（修复前 flush 错对象致上游永远收不到）");
+    let upstream_first = upstream_first.expect("upstream channel must yield first bytes");
+    assert_eq!(
+        upstream_first, b"PREFETCH_PAYLOAD".to_vec(),
+        "上游首字节必须是客户端流水线写的 payload（修复后 flush 到 upstream）；\
+         修复前 flush 写错对象回灌 client，上游收不到 payload"
+    );
+}
+
 // ── ST4 MITM 分流判定单测 ──────────────────────────────────────────────────────
 
 /// ST4 验收：mitm_candidate 分流判定 = 白名单命中 && 非 suspect。
