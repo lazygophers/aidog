@@ -56,6 +56,7 @@
 | test-coverage-80 | 单测覆盖率≥80% | 完善整体单元测试覆盖率至少80% | 已完成 | — |
 | proxy-http-relay-p2 | proxy /proxy CONNECT 元数据记账 P2 (timeout/熔断/last_error/tracing) | — | 已完成 | — |
 | mitm-ca-test-detect | mitm CA 安装失败测试驱动检测 P2 (classifyTrustError 后端化单测 + osascript 语法集成) | — | 已完成 | — |
+| mitm-whitelist-import-defaults | MITM 解密白名单导入默认按钮 (只添加去重) | — | 已完成 | — |
 
 ## Worktree ↔ Task 映射
 
