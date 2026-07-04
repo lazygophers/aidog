@@ -16,6 +16,59 @@
 
 use crate::gateway::db::Db;
 
+/// 默认白名单规则集（37 条：Claude 3 + OpenAI 34）。
+///
+/// 来源：blackmatrix7/ios_rule_script OpenAI/Claude 规则集（Clash DOMAIN/SUFFIX/KEYWORD/IPCIDR）。
+/// 元组 `(rule_type, pattern)`：rule_type ∈ {domain, suffix, keyword, ipcidr}，
+/// pattern 存规则值（host 域名 / CIDR 串）。
+///
+/// 单源（schema migration 041 seed + 本模块 import_defaults command + 测试 共用此常量）。
+/// 舍弃：IP-ASN 20473（不支持）；GeoIP/DNS 解析（不要）。
+pub const DEFAULT_RULES: &[(&str, &str)] = &[
+    // ── Claude（3 条）─────────────────────────────────────────
+    ("domain", "cdn.usefathom.com"),
+    ("suffix", "anthropic.com"),
+    ("suffix", "claude.ai"),
+    // ── OpenAI domain（7 条）──────────────────────────────────
+    ("domain", "browser-intake-datadoghq.com"),
+    ("domain", "chat.openai.com.cdn.cloudflare.net"),
+    ("domain", "openai-api.arkoselabs.com"),
+    ("domain", "openaicom-api-bdcpf8c6d2e9atf6.z01.azurefd.net"),
+    ("domain", "openaicomproductionae4b.blob.core.windows.net"),
+    ("domain", "production-openaicom-storage.azureedge.net"),
+    ("domain", "static.cloudflareinsights.com"),
+    // ── OpenAI suffix（24 条）─────────────────────────────────
+    ("suffix", "ai.com"),
+    ("suffix", "algolia.net"),
+    ("suffix", "api.statsig.com"),
+    ("suffix", "auth0.com"),
+    ("suffix", "chatgpt.com"),
+    ("suffix", "chatgpt.livekit.cloud"),
+    ("suffix", "client-api.arkoselabs.com"),
+    ("suffix", "events.statsigapi.net"),
+    ("suffix", "featuregates.org"),
+    ("suffix", "host.livekit.cloud"),
+    ("suffix", "identrust.com"),
+    ("suffix", "intercom.io"),
+    ("suffix", "intercomcdn.com"),
+    ("suffix", "launchdarkly.com"),
+    ("suffix", "oaistatic.com"),
+    ("suffix", "oaiusercontent.com"),
+    ("suffix", "observeit.net"),
+    ("suffix", "openai.com"),
+    ("suffix", "openaiapi-site.azureedge.net"),
+    ("suffix", "openaicom.imgix.net"),
+    ("suffix", "segment.io"),
+    ("suffix", "sentry.io"),
+    ("suffix", "stripe.com"),
+    ("suffix", "turn.livekit.cloud"),
+    // ── OpenAI keyword（1 条）──────────────────────────────────
+    ("keyword", "openai"),
+    // ── OpenAI ipcidr（2 条，仅匹配 IP 字面 CONNECT 目标）──────
+    ("ipcidr", "24.199.123.28/32"),
+    ("ipcidr", "64.23.132.171/32"),
+];
+
 /// 白名单行（DB mitm_whitelist 表映射）。
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WhitelistEntry {
@@ -277,5 +330,118 @@ mod tests {
         // 跨类型互斥
         assert!(!matches_host(entries.clone(), "evil.com"));
         assert!(!matches_host(entries, "1.2.3.4"));
+    }
+
+    // ── DEFAULT_RULES 常量完整性 + import_defaults 去重语义 ─────
+
+    #[test]
+    fn default_rules_has_37_unique_patterns() {
+        // 常量完整性：37 条（Claude 3 + OpenAI 34），host_pattern 全唯一（UNIQUE 约束要求）。
+        assert_eq!(DEFAULT_RULES.len(), 37, "DEFAULT_RULES must be 37 entries");
+        let mut patterns: Vec<&str> = DEFAULT_RULES.iter().map(|(_, p)| *p).collect();
+        patterns.sort();
+        let n_unique = patterns.iter().collect::<std::collections::HashSet<_>>().len();
+        assert_eq!(n_unique, 37, "all host_patterns must be unique (DB UNIQUE constraint)");
+        // rule_type 全部合法
+        for (rt, _) in DEFAULT_RULES {
+            assert!(
+                matches!(*rt, "domain" | "suffix" | "keyword" | "ipcidr"),
+                "invalid rule_type: {rt}"
+            );
+        }
+    }
+
+    /// import_defaults 去重：mock DB 已有 1 条默认 + 1 条自定义 → INSERT OR IGNORE
+    /// 仅补 36 条默认缺失（37 - 1 已存在），自定义不动，返 (36, 1)。
+    ///
+    /// 复刻 commands::mitm::mitm_whitelist_import_defaults 的 INSERT 循环（同 SQL + changes() 统计），
+    /// 验幂等去重语义（UNIQUE(host_pattern) 约束 + source='default'）。
+    #[test]
+    fn import_defaults_insert_or_ignore_dedup() {
+        use rusqlite::Connection;
+        let conn = Connection::open_in_memory().unwrap();
+        // 建 mitm_whitelist 表（与 schema migration 040/041 一致：含 rule_type 列 + UNIQUE(host_pattern)）。
+        conn.execute_batch(
+            r#"CREATE TABLE mitm_whitelist (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                host_pattern TEXT NOT NULL,
+                rule_type TEXT NOT NULL DEFAULT 'suffix',
+                enabled INTEGER NOT NULL DEFAULT 1,
+                source TEXT NOT NULL DEFAULT 'user',
+                created_at INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(host_pattern)
+            );"#,
+        )
+        .unwrap();
+
+        // 预置：1 条默认（DEFAULT_RULES 之一：anthropic.com suffix）+ 1 条自定义（非 DEFAULT_RULES）。
+        // 用 DEFAULT_RULES 的真实成员作"已存在的默认"，确保 import 循环到它时 changes()==0。
+        conn.execute(
+            "INSERT INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
+             VALUES ('anthropic.com', 'suffix', 1, 'default', 100)",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
+             VALUES ('my-custom-host.example.com', 'suffix', 1, 'user', 101)",
+            [],
+        )
+        .unwrap();
+
+        // 复刻 command 的 INSERT OR IGNORE 循环 + changes() 统计。
+        let now = 9999_i64;
+        let mut imported = 0usize;
+        let mut skipped = 0usize;
+        for (rule_type, pattern) in DEFAULT_RULES {
+            let n = conn
+                .execute(
+                    "INSERT OR IGNORE INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
+                     VALUES (?1, ?2, 1, 'default', ?3)",
+                    rusqlite::params![pattern, rule_type, now],
+                )
+                .unwrap();
+            if n == 1 {
+                imported += 1;
+            } else {
+                skipped += 1;
+            }
+        }
+
+        // 验收：36 默认新导入（37 - 1 已存在），1 默认跳过（anthropic.com 已在）。
+        assert_eq!(imported, 36, "imported: 37 default rules - 1 pre-existing");
+        assert_eq!(skipped, 1, "skipped: the 1 pre-existing default rule");
+
+        // 自定义条目未被 import 循环触及（不在 DEFAULT_RULES 中），source 仍为 'user'。
+        let custom_source: String = conn
+        .query_row(
+            "SELECT source FROM mitm_whitelist WHERE host_pattern = 'my-custom-host.example.com'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+        assert_eq!(custom_source, "user", "custom entry must be untouched by import");
+
+        // 总行数：37 默认 + 1 自定义 = 38。
+        let total: i64 = conn.query_row("SELECT COUNT(*) FROM mitm_whitelist", [], |r| r.get(0)).unwrap();
+        assert_eq!(total, 38, "total rows: 37 default + 1 custom");
+
+        // 幂等：再跑一次 import，全部 changes()==0 → (0, 37)，行数不变。
+        let mut imported2 = 0usize;
+        let mut skipped2 = 0usize;
+        for (rule_type, pattern) in DEFAULT_RULES {
+            let n = conn
+                .execute(
+                    "INSERT OR IGNORE INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
+                     VALUES (?1, ?2, 1, 'default', ?3)",
+                    rusqlite::params![pattern, rule_type, now],
+                )
+                .unwrap();
+            if n == 1 { imported2 += 1; } else { skipped2 += 1; }
+        }
+        assert_eq!(imported2, 0, "idempotent re-import: 0 new");
+        assert_eq!(skipped2, 37, "idempotent re-import: all 37 skipped");
+        let total2: i64 = conn.query_row("SELECT COUNT(*) FROM mitm_whitelist", [], |r| r.get(0)).unwrap();
+        assert_eq!(total2, 38, "row count unchanged after re-import");
     }
 }
