@@ -12,8 +12,11 @@ export interface WhitelistEntry {
   /** "default"（系统预填）/ "user"（用户加）。 */
   source: "default" | "user";
   /** 规则类型（与后端 rule_type 对齐）：domain / suffix / keyword / ipcidr。 */
-  rule_type: "domain" | "suffix" | "keyword" | "ipcidr";
+  rule_type: WhitelistRuleType;
 }
+
+/** MITM 白名单匹配方式（与后端 valid_rule_type 4 合法值对齐；区别于 proxy RuleType 用 WhitelistRuleType）。 */
+export type WhitelistRuleType = "domain" | "suffix" | "keyword" | "ipcidr";
 
 /** MITM 综合状态（与后端 MitmStatus 对齐）。 */
 export interface MitmStatus {
@@ -74,9 +77,9 @@ export const mitmApi = {
    */
   classifyTrustError: (name: string, code: number | null, stderr: string) =>
     invoke<TrustErrorKind>("mitm_classify_trust_error", { name, code, stderr }),
-  /** 加白名单条目。 */
-  whitelistAdd: (hostPattern: string) =>
-    invoke<void>("mitm_whitelist_add", { input: { host_pattern: hostPattern } }),
+  /** 加白名单条目（rule_type 4 合法值，后端 valid_rule_type 校验 + 归一化入库）。 */
+  whitelistAdd: (hostPattern: string, ruleType: WhitelistRuleType) =>
+    invoke<void>("mitm_whitelist_add", { input: { host_pattern: hostPattern, rule_type: ruleType } }),
   /** 删白名单条目。 */
   whitelistRemove: (hostPattern: string) =>
     invoke<void>("mitm_whitelist_remove", { hostPattern }),
