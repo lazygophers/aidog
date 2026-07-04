@@ -90,4 +90,16 @@ export const mitmApi = {
    */
   importDefaults: () =>
     invoke<{ imported: number; skipped: number }>("mitm_whitelist_import_defaults"),
+  /**
+   * 一键清空白名单（全删 default + user，不可撤销）。
+   * 返删除行数（toast 反馈用）。可重新 importDefaults 恢复 37 条默认。
+   */
+  clearWhitelist: () => invoke<number>("mitm_whitelist_clear"),
+  /**
+   * URL 命中测试：解析 host → 遍历 enabled 规则 → 返命中规则列表。
+   * 仅 enabled 规则参与（反映 MITM 实际行为）。
+   * 跨层契约：与后端 MatchedRuleDto 对齐，前端 invoke 走 camelCase 转换。
+   */
+  testUrl: (url: string) =>
+    invoke<{ host_pattern: string; rule_type: string }[]>("mitm_whitelist_test_url", { url }),
 };
