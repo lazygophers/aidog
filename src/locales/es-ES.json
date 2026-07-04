@@ -637,6 +637,8 @@
   "mitm.caPresent": "Generado: ",
   "mitm.command": "Comando: ",
   "mitm.fingerprint": "Huella: ",
+  "mitm.importDefaults": "Importar lista blanca predeterminada",
+  "mitm.importDefaultsDone": "Se importaron {{imported}} reglas predeterminadas ({{skipped}} ya existían, omitidas)",
   "mitm.installCa": "Instalar CA",
   "mitm.installFailed": "Error al instalar en almacén (exit={{code}})",
   "mitm.installCancel": "Instalación cancelada (sin contraseña o cancelada)",

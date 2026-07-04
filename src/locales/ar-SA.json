@@ -659,6 +659,8 @@
   "mitm.caPresent": "تم الإنشاء: ",
   "mitm.command": "الأمر: ",
   "mitm.fingerprint": "البصمة: ",
+  "mitm.importDefaults": "استيراد القائمة البيضاء الافتراضية",
+  "mitm.importDefaultsDone": "تم استيراد {{imported}} قاعدة افتراضية (تم تخطي {{skipped}} موجودة مسبقًا)",
   "mitm.installCa": "تثبيت CA",
   "mitm.installFailed": "فشل التثبيت في مخزن الثقة (exit={{code}})",
   "mitm.installCancel": "تم إلغاء التثبيت (لم يُدخل كلمة المرور أو تم الإلغاء)",

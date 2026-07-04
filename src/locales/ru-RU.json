@@ -659,6 +659,8 @@
   "mitm.caPresent": "Создан: ",
   "mitm.command": "Команда: ",
   "mitm.fingerprint": "Отпечаток: ",
+  "mitm.importDefaults": "Импортировать белый список по умолчанию",
+  "mitm.importDefaultsDone": "Импортировано {{imported}} правил по умолчанию ({{skipped}} уже существуют, пропущено)",
   "mitm.installCa": "Установить УЦ",
   "mitm.installFailed": "Ошибка установки в хранилище (exit={{code}})",
   "mitm.installCancel": "Установка отменена (пароль не введён или отменён)",

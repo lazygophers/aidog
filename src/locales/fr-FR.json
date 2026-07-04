@@ -659,6 +659,8 @@
   "mitm.caPresent": "Généré : ",
   "mitm.command": "Commande : ",
   "mitm.fingerprint": "Empreinte : ",
+  "mitm.importDefaults": "Importer la liste blanche par défaut",
+  "mitm.importDefaultsDone": "{{imported}} règles par défaut importées ({{skipped}} déjà présentes, ignorées)",
   "mitm.installCa": "Installer le CA",
   "mitm.installFailed": "Échec de l'installation dans le magasin (exit={{code}})",
   "mitm.installCancel": "Installation annulée (aucun mot de passe saisi ou annulation)",

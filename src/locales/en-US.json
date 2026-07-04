@@ -637,6 +637,8 @@
   "mitm.caPresent": "Generated: ",
   "mitm.command": "Command: ",
   "mitm.fingerprint": "Fingerprint: ",
+  "mitm.importDefaults": "Import default whitelist",
+  "mitm.importDefaultsDone": "Imported {{imported}} default rules ({{skipped}} already existed, skipped)",
   "mitm.installCa": "Install CA",
   "mitm.installFailed": "Install to trust store failed (exit={{code}})",
   "mitm.installCancel": "Installation canceled (no password entered or canceled)",
