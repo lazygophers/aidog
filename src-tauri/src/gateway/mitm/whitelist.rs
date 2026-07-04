@@ -109,10 +109,36 @@ where
     false
 }
 
+/// 收集 host 命中的白名单条目（与 `matches_host` 同语义，但返命中规则列表而非布尔）。
+///
+/// 仅遍历 enabled 条目（反映 MITM 实际行为 = 仅 enabled 生效；disabled 不参与匹配）。
+/// 复用 `matches_rule` 单源匹配引擎，禁重复实现（测试 URL 命中与运行时白名单判定走同一逻辑）。
+///
+/// 用途：URL 命中测试 command（用户输入 URL → 解析 host → 本 fn 返命中规则列表，
+/// 前端透明展示哪些规则命中）。
+pub fn evaluate_host(entries: &[WhitelistEntry], host: &str) -> Vec<WhitelistEntry> {
+    let host = host.trim().to_lowercase();
+    if host.is_empty() {
+        return Vec::new();
+    }
+    entries
+        .iter()
+        .filter(|e| e.enabled)
+        .filter(|e| {
+            let rule_value = e.host_pattern.trim().to_lowercase();
+            !rule_value.is_empty() && matches_rule(&host, e.rule_type.as_str(), &rule_value)
+        })
+        .cloned()
+        .collect()
+}
+
 /// 单条规则匹配（按 rule_type 分派）。
 ///
 /// host 已 lower + trim；rule_value 已 lower + trim。
-fn matches_rule(host: &str, rule_type: &str, rule_value: &str) -> bool {
+///
+/// pub：URL 命中测试 command 复用此单源匹配引擎（`evaluate_host` 遍历条目调本 fn），
+/// 禁 command 内联重写匹配逻辑（双源漂移风险）。matches_host 也走此 fn。
+pub fn matches_rule(host: &str, rule_type: &str, rule_value: &str) -> bool {
     match rule_type {
         // domain：host 全串精确匹配（大小写不敏感已 lower 化）。
         "domain" => host == rule_value,
@@ -443,5 +469,82 @@ mod tests {
         assert_eq!(skipped2, 37, "idempotent re-import: all 37 skipped");
         let total2: i64 = conn.query_row("SELECT COUNT(*) FROM mitm_whitelist", [], |r| r.get(0)).unwrap();
         assert_eq!(total2, 38, "row count unchanged after re-import");
+    }
+
+    // ── evaluate_host（返命中规则列表，仅 enabled）──────────────
+
+    #[test]
+    fn evaluate_host_returns_only_enabled_hits() {
+        // mock：domain/suffix/keyword/ipcidr 各 1，含 1 disabled suffix（应被跳过）。
+        let entries = [
+            entry("domain", "api.anthropic.com", true),
+            entry("suffix", "anthropic.com", true),
+            entry("keyword", "openai", true),
+            entry("ipcidr", "24.199.123.28/32", true),
+            entry("suffix", "evil.com", false), // disabled → 不参与
+        ];
+        // api.anthropic.com 命中：domain(api.anthropic.com) + suffix(anthropic.com)。
+        // keyword(openai) 不命中，ipcidr 不命中（域名非 IP 字面）。
+        let hits = evaluate_host(&entries, "api.anthropic.com");
+        assert_eq!(hits.len(), 2, "domain + suffix both hit");
+        let patterns: Vec<&str> = hits.iter().map(|e| e.host_pattern.as_str()).collect();
+        assert!(patterns.contains(&"api.anthropic.com"), "domain hit");
+        assert!(patterns.contains(&"anthropic.com"), "suffix hit");
+        assert!(!patterns.contains(&"evil.com"), "disabled must not match");
+        assert!(!patterns.contains(&"openai"), "keyword miss");
+    }
+
+    /// whitelist_clear：mock N 条 → DELETE FROM → 返 N + 表空（复刻 command 语义）。
+    ///
+    /// PRD 验收要求 cargo test whitelist_clear；本测复刻 commands::mitm::mitm_whitelist_clear
+    /// 的 SQL（DELETE FROM mitm_whitelist 返 changes() 行数），验全删 + 行数计数。
+    #[test]
+    fn whitelist_clear_deletes_all_and_returns_count() {
+        use rusqlite::Connection;
+        let conn = Connection::open_in_memory().unwrap();
+        conn.execute_batch(
+            r#"CREATE TABLE mitm_whitelist (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                host_pattern TEXT NOT NULL,
+                rule_type TEXT NOT NULL DEFAULT 'suffix',
+                enabled INTEGER NOT NULL DEFAULT 1,
+                source TEXT NOT NULL DEFAULT 'user',
+                created_at INTEGER NOT NULL DEFAULT 0,
+                UNIQUE(host_pattern)
+            );"#,
+        )
+        .unwrap();
+        // 预置：3 条 default + 2 条 user = N=5（混 source，验全删不筛）。
+        for (i, src) in ["default", "default", "default", "user", "user"].iter().enumerate() {
+            conn.execute(
+                "INSERT INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
+                 VALUES (?1, 'suffix', 1, ?2, ?3)",
+                rusqlite::params![format!("host{i}.example.com"), src, i as i64],
+            )
+            .unwrap();
+        }
+        let before: i64 = conn.query_row("SELECT COUNT(*) FROM mitm_whitelist", [], |r| r.get(0)).unwrap();
+        assert_eq!(before, 5, "precondition: 5 rows (3 default + 2 user)");
+
+        // 复刻 command 的 DELETE FROM mitm_whitelist（全删，不筛 source）。
+        let n = conn.execute("DELETE FROM mitm_whitelist", []).unwrap();
+
+        // 验收：返 N=5（删除行数）+ 表空。
+        assert_eq!(n, 5, "clear must delete all 5 rows (default + user)");
+        let after: i64 = conn.query_row("SELECT COUNT(*) FROM mitm_whitelist", [], |r| r.get(0)).unwrap();
+        assert_eq!(after, 0, "table must be empty after clear");
+    }
+
+    #[test]
+    fn evaluate_host_empty_host_returns_empty() {
+        let entries = [entry("suffix", "anthropic.com", true)];
+        assert!(evaluate_host(&entries, "").is_empty());
+        assert!(evaluate_host(&entries, "   ").is_empty());
+    }
+
+    #[test]
+    fn evaluate_host_no_hits_returns_empty() {
+        let entries = [entry("suffix", "anthropic.com", true)];
+        assert!(evaluate_host(&entries, "openai.com").is_empty());
     }
 }
