@@ -267,6 +267,54 @@ pub async fn mitm_whitelist_toggle(
         .map_err(|e| e.to_string())
 }
 
+/// 导入默认白名单规则（37 条静态 Claude/OpenAI）。
+///
+/// 用户已有自定义白名单时，表非空 → migration 041 seed 不跑 → 默认规则缺失。
+/// 本命令遍历 `whitelist::DEFAULT_RULES`，INSERT OR IGNORE 仅补缺失项，
+/// 不删不改现有条目（DB 唯一约束 UNIQUE(host_pattern) 保证幂等去重）。
+///
+/// 返 `ImportDefaultsResult { imported, skipped }`：imported = changes()==1（新插入）；
+/// skipped = changes()==0（已存在）。可重复点击（幂等）。
+/// `source='default'` 与 migration seed 一致，便于后续按来源筛/清。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn mitm_whitelist_import_defaults(
+    db: State<'_, Db>,
+) -> Result<ImportDefaultsResult, String> {
+    tracing::debug!(command = "mitm_whitelist_import_defaults", "command invoked");
+    let now = gateway::db::now();
+    db.0
+        .call(move |conn| {
+            let mut imported = 0usize;
+            let mut skipped = 0usize;
+            for (rule_type, pattern) in gateway::mitm::whitelist::DEFAULT_RULES {
+                let n = conn.execute(
+                    "INSERT OR IGNORE INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
+                     VALUES (?1, ?2, 1, 'default', ?3)",
+                    params![pattern, rule_type, now],
+                )?;
+                if n == 1 {
+                    imported += 1;
+                } else {
+                    skipped += 1;
+                }
+            }
+            Ok(ImportDefaultsResult { imported, skipped })
+        })
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// 导入默认白名单的结果计数（前端 toast 反馈用）。
+///
+/// 跨层契约：serde camelCase → 前端 TS `{ imported: number; skipped: number }`。
+/// 不用裸 `(usize, usize)` 元组（serde 序列化为 JSON 数组 `[N,M]`，与前端对象契约不匹配）。
+#[derive(Debug, Clone, Serialize)]
+pub struct ImportDefaultsResult {
+    pub imported: usize,
+    pub skipped: usize,
+}
+
 // ─── OS 命名命令 spec（capability mitm-ca.json 的 name key）──────────
 //
 // capability 的 name 是按 OS 配的（macos-trust-ca / windows-trust-ca / linux-shell-ca），

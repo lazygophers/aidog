@@ -83,4 +83,11 @@ export const mitmApi = {
   /** 切换白名单条目启用态。 */
   whitelistToggle: (hostPattern: string, enabled: boolean) =>
     invoke<void>("mitm_whitelist_toggle", { hostPattern, enabled }),
+  /**
+   * 导入默认白名单规则（37 条静态 Claude/OpenAI）。
+   * INSERT OR IGNORE 仅补缺失项，不删不改现有；可重复点（幂等）。
+   * 返 {imported: 新增数, skipped: 已存在跳过数}。
+   */
+  importDefaults: () =>
+    invoke<{ imported: number; skipped: number }>("mitm_whitelist_import_defaults"),
 };
