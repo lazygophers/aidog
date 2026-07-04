@@ -681,6 +681,7 @@
   "mitm.ruleIpcidr": "CIDR IP",
   "mitm.ruleKeyword": "Ключевое слово",
   "mitm.ruleSuffix": "Суффикс",
+  "mitm.ruleTypeLabel": "Тип соответствия",
   "mitm.searchEmpty": "Нет совпадающих правил",
   "mitm.searchPlaceholder": "Поиск правил…",
   "mitm.sourceDefault": "По умолчанию",

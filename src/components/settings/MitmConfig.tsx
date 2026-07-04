@@ -18,6 +18,7 @@ import {
   type MitmStatus,
   type CaCommandSpec,
   type TrustErrorKind,
+  type WhitelistRuleType,
 } from "../../services/api";
 
 /// CA 安装失败分类后端化（阶段 B）：分类逻辑真源在后端 `classify_trust_error`（Rust 纯函数 +
@@ -32,6 +33,8 @@ export function MitmConfigTab() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [newPattern, setNewPattern] = useState("");
+  // 新建规则的匹配方式（默认 suffix，与历史硬编码一致；添加成功后保持上次选择方便连加同类型）。
+  const [newRuleType, setNewRuleType] = useState<WhitelistRuleType>("suffix");
   // 手动装命令兜底弹窗（D8）：shell execute 失败 / reject 时展示。
   const [manualInstall, setManualInstall] = useState<CaCommandSpec | null>(null);
   // 阶段A 诊断：存 execute() 的原始输出（code/stderr/stdout/signal），兜底弹窗里展示给用户复现。
@@ -126,8 +129,9 @@ export function MitmConfigTab() {
     if (!p) return;
     setBusy(true); setError("");
     try {
-      await mitmApi.whitelistAdd(p);
+      await mitmApi.whitelistAdd(p, newRuleType);
       setNewPattern("");
+      // newRuleType 不重置：用户连加同类型规则方便切换。
       await refresh();
     } catch (e) { setError(String(e)); }
     finally { setBusy(false); }
@@ -382,6 +386,19 @@ export function MitmConfigTab() {
 
           {/* 添加输入 */}
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            {/* 匹配方式 select（4 类型，option label 裸字符串 — 技术常量不译）+ aria-label 国际化 */}
+            <select
+              className="input"
+              value={newRuleType}
+              onChange={(e) => setNewRuleType(e.target.value as WhitelistRuleType)}
+              aria-label={t("mitm.ruleTypeLabel", "匹配方式")}
+              style={{ maxWidth: 120, fontSize: 12 }}
+            >
+              <option value="domain">domain</option>
+              <option value="suffix">suffix</option>
+              <option value="keyword">keyword</option>
+              <option value="ipcidr">ipcidr</option>
+            </select>
             <input
               className="input"
               value={newPattern}
