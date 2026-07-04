@@ -659,6 +659,8 @@
   "mitm.caPresent": "Erstellt: ",
   "mitm.command": "Befehl: ",
   "mitm.fingerprint": "Fingerabdruck: ",
+  "mitm.importDefaults": "Standard-Whitelist importieren",
+  "mitm.importDefaultsDone": "{{imported}} Standard-Regeln importiert ({{skipped}} bereits vorhanden, übersprungen)",
   "mitm.installCa": "CA installieren",
   "mitm.installFailed": "Installation in Trust-Store fehlgeschlagen (exit={{code}})",
   "mitm.installCancel": "Installation abgebrochen (kein Passwort eingegeben oder abgebrochen)",

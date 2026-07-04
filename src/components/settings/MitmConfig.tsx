@@ -30,6 +30,7 @@ export function MitmConfigTab() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
   const [newPattern, setNewPattern] = useState("");
   // 手动装命令兜底弹窗（D8）：shell execute 失败 / reject 时展示。
   const [manualInstall, setManualInstall] = useState<CaCommandSpec | null>(null);
@@ -146,6 +147,17 @@ export function MitmConfigTab() {
       await mitmApi.whitelistRemove(pattern);
       await refresh();
     } catch (e) { setError(String(e)); }
+  };
+
+  // 导入默认白名单（37 条静态规则，INSERT OR IGNORE 仅补缺失项，幂等可重复点）。
+  const handleImportDefaults = async () => {
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const { imported, skipped } = await mitmApi.importDefaults();
+      setMessage(t("mitm.importDefaultsDone", "已导入 {{imported}} 条默认规则（{{skipped}} 条已存在跳过）", { imported, skipped }));
+      await refresh();
+    } catch (e) { setError(String(e)); }
+    finally { setBusy(false); }
   };
 
   if (loading) {
@@ -297,11 +309,21 @@ export function MitmConfigTab() {
       {/* 白名单（启用后展示）*/}
       {enabled && (
         <div className="glass-surface" style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12 }}>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 600 }}>{t("mitm.whitelistTitle", "解密白名单")}</div>
-            <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-              {t("mitm.whitelistDesc", "命中的 host 走 MITM 解密；未命中的走 P1 盲转。支持 *.domain 通配。")}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 600 }}>{t("mitm.whitelistTitle", "解密白名单")}</div>
+              <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+                {t("mitm.whitelistDesc", "命中的 host 走 MITM 解密；未命中的走 P1 盲转。支持 *.domain 通配。")}
+              </div>
             </div>
+            <button
+              className="btn"
+              onClick={handleImportDefaults}
+              disabled={busy}
+              style={{ padding: "6px 12px", fontSize: 12, opacity: busy ? 0.6 : 1, flexShrink: 0 }}
+            >
+              {t("mitm.importDefaults", "导入默认白名单")}
+            </button>
           </div>
 
           {/* 添加输入 */}
@@ -400,6 +422,9 @@ export function MitmConfigTab() {
 
       {error && (
         <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>{error}</div>
+      )}
+      {message && !error && (
+        <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>{message}</div>
       )}
     </div>
   );

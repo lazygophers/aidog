@@ -659,6 +659,8 @@
   "mitm.caPresent": "生成済み: ",
   "mitm.command": "コマンド: ",
   "mitm.fingerprint": "フィンガープリント: ",
+  "mitm.importDefaults": "デフォルトホワイトリストをインポート",
+  "mitm.importDefaultsDone": "デフォルトルール {{imported}} 件をインポートしました（{{skipped}} 件は既存のためスキップ）",
   "mitm.installCa": "CA をインストール",
   "mitm.installFailed": "信頼ストアへのインストール失敗 (exit={{code}})",
   "mitm.installCancel": "インストールがキャンセルされました（パスワード未入力またはキャンセル）",

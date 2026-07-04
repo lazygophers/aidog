@@ -220,6 +220,7 @@ crate::commands::price::model_price_count_filtered,
             crate::commands::mitm::mitm_whitelist_add,
             crate::commands::mitm::mitm_whitelist_remove,
             crate::commands::mitm::mitm_whitelist_toggle,
+            crate::commands::mitm::mitm_whitelist_import_defaults,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

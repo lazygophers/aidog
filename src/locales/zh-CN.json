@@ -637,6 +637,8 @@
   "mitm.caPresent": "已生成：",
   "mitm.command": "命令：",
   "mitm.fingerprint": "指纹：",
+  "mitm.importDefaults": "导入默认白名单",
+  "mitm.importDefaultsDone": "已导入 {{imported}} 条默认规则（{{skipped}} 条已存在跳过）",
   "mitm.installCa": "安装 CA",
   "mitm.installFailed": "装信任库失败（exit={{code}}）",
   "mitm.installCancel": "已取消安装（未输入密码或点了取消）",
