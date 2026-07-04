@@ -681,6 +681,7 @@
   "mitm.ruleIpcidr": "CIDR IP",
   "mitm.ruleKeyword": "كلمة مفتاحية",
   "mitm.ruleSuffix": "لاحقة",
+  "mitm.ruleTypeLabel": "نوع المطابقة",
   "mitm.searchEmpty": "لا توجد قواعد مطابقة",
   "mitm.searchPlaceholder": "بحث في القواعد…",
   "mitm.sourceDefault": "افتراضي",

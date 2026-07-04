@@ -681,6 +681,7 @@
   "mitm.ruleIpcidr": "IP CIDR",
   "mitm.ruleKeyword": "キーワード",
   "mitm.ruleSuffix": "サフィックス",
+  "mitm.ruleTypeLabel": "一致方式",
   "mitm.searchEmpty": "一致するルールなし",
   "mitm.searchPlaceholder": "ルールを検索…",
   "mitm.sourceDefault": "デフォルト",

@@ -659,6 +659,7 @@
   "mitm.ruleIpcidr": "CIDR IP",
   "mitm.ruleKeyword": "Palabra clave",
   "mitm.ruleSuffix": "Sufijo",
+  "mitm.ruleTypeLabel": "Tipo de coincidencia",
   "mitm.searchEmpty": "Sin reglas coincidentes",
   "mitm.searchPlaceholder": "Buscar reglas…",
   "mitm.sourceDefault": "Predeterminado",
