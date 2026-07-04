@@ -659,6 +659,7 @@
   "mitm.ruleIpcidr": "IP CIDR",
   "mitm.ruleKeyword": "Keyword",
   "mitm.ruleSuffix": "Suffix",
+  "mitm.ruleTypeLabel": "Match type",
   "mitm.searchEmpty": "No matching rules",
   "mitm.searchPlaceholder": "Search rules…",
   "mitm.sourceDefault": "Default",

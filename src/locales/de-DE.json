@@ -681,6 +681,7 @@
   "mitm.ruleIpcidr": "IP-CIDR",
   "mitm.ruleKeyword": "Schlüsselwort",
   "mitm.ruleSuffix": "Suffix",
+  "mitm.ruleTypeLabel": "Match-Typ",
   "mitm.searchEmpty": "Keine übereinstimmenden Regeln",
   "mitm.searchPlaceholder": "Regeln durchsuchen…",
   "mitm.sourceDefault": "Standard",

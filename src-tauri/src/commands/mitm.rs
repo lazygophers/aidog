@@ -202,6 +202,25 @@ pub async fn mitm_classify_trust_error(
 #[derive(Debug, Clone, Deserialize)]
 pub struct WhitelistAddInput {
     pub host_pattern: String,
+    /// 规则匹配方式：domain / suffix / keyword / ipcidr（与 whitelist.rs DEFAULT_RULES 同源集合）。
+    /// 前端 select 总传；后端 valid_rule_type 校验后归一化小写入库。
+    pub rule_type: String,
+}
+
+/// 校验 + 归一化 rule_type：返 4 合法值的小写常量，非法返 None。
+///
+/// 单源校验函数：matches_rule 引擎按这 4 值分支，脏值（如 "Suffix" / "regexp"）
+/// 走不到任何分支 → 规则形同死代码。本函数在 add 入口拦截，防脏数据进表。
+/// 归一化小写后返，使 INSERT 与 DEFAULT_RULES / list 展示一致。
+/// 后续 toggle/remove 若加 rule_type 维度可复用。
+fn valid_rule_type(s: &str) -> Option<&'static str> {
+    match s.trim().to_lowercase().as_str() {
+        "domain" => Some("domain"),
+        "suffix" => Some("suffix"),
+        "keyword" => Some("keyword"),
+        "ipcidr" => Some("ipcidr"),
+        _ => None,
+    }
 }
 
 #[tauri::command]
@@ -210,18 +229,20 @@ pub async fn mitm_whitelist_add(
     input: WhitelistAddInput,
     db: State<'_, Db>,
 ) -> Result<(), String> {
-    tracing::debug!(command = "mitm_whitelist_add", pattern = %input.host_pattern, "command invoked");
+    tracing::debug!(command = "mitm_whitelist_add", pattern = %input.host_pattern, rule_type = %input.rule_type, "command invoked");
     let pattern = input.host_pattern.trim().to_lowercase();
     if pattern.is_empty() {
         return Err("host_pattern is empty".to_string());
     }
+    let rule_type = valid_rule_type(&input.rule_type)
+        .ok_or_else(|| format!("invalid rule_type: {}", input.rule_type))?;
     let now = gateway::db::now();
     db.0
         .call(move |conn| {
             conn.execute(
                 "INSERT OR IGNORE INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
-                 VALUES (?1, 'suffix', 1, 'user', ?2)",
-                params![pattern, now],
+                 VALUES (?1, ?2, 1, 'user', ?3)",
+                params![pattern, rule_type, now],
             )?;
             Ok(())
         })
@@ -460,7 +481,7 @@ fn current_os_untrust_command_name() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::parse_host_from_input;
+    use super::{parse_host_from_input, valid_rule_type};
 
     // URL host 解析容错矩阵：完整 URL / scheme-relative / 裸 host / 含 port / 大小写。
     #[test]
@@ -493,5 +514,28 @@ mod tests {
     fn parse_host_empty_input() {
         assert_eq!(parse_host_from_input(""), "");
         assert_eq!(parse_host_from_input("   "), "");
+    }
+
+    // valid_rule_type：4 合法值归一化 + 大小写/空白容错 + 非法返 None（防脏数据进 matches_rule 死分支）。
+    #[test]
+    fn valid_rule_type_four_legal() {
+        assert_eq!(valid_rule_type("domain"), Some("domain"));
+        assert_eq!(valid_rule_type("suffix"), Some("suffix"));
+        assert_eq!(valid_rule_type("keyword"), Some("keyword"));
+        assert_eq!(valid_rule_type("ipcidr"), Some("ipcidr"));
+    }
+
+    #[test]
+    fn valid_rule_type_normalizes_case_and_whitespace() {
+        assert_eq!(valid_rule_type("SUFFIX"), Some("suffix"));
+        assert_eq!(valid_rule_type("  Domain  "), Some("domain"));
+        assert_eq!(valid_rule_type("Ipcidr"), Some("ipcidr"));
+    }
+
+    #[test]
+    fn valid_rule_type_rejects_invalid() {
+        assert_eq!(valid_rule_type("regexp"), None);
+        assert_eq!(valid_rule_type(""), None);
+        assert_eq!(valid_rule_type("suffixx"), None);
     }
 }

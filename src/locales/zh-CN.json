@@ -659,6 +659,7 @@
   "mitm.ruleIpcidr": "IP 段",
   "mitm.ruleKeyword": "关键字",
   "mitm.ruleSuffix": "后缀",
+  "mitm.ruleTypeLabel": "匹配方式",
   "mitm.searchEmpty": "无匹配规则",
   "mitm.searchPlaceholder": "搜索规则…",
   "mitm.sourceDefault": "默认",
