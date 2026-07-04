@@ -19,7 +19,7 @@ use crate::gateway::{
             classify_trust_error, ensure_root_ca, load_root_ca, set_ca_installed, set_enabled,
             sync_ca_installed_from_system, trust_ca_command, untrust_ca_command,
         },
-        whitelist::{list_whitelist, WhitelistEntry},
+        whitelist::{evaluate_host, list_whitelist, WhitelistEntry},
     },
 };
 use crate::shared::aidog_data_dir;
@@ -315,6 +315,104 @@ pub struct ImportDefaultsResult {
     pub skipped: usize,
 }
 
+/// 一键清空白名单（全删 default + user）。
+///
+/// 用户决策：DELETE FROM mitm_whitelist（不按 source 筛）。可重新「导入默认白名单」
+/// 恢复 37 条静态默认（command mitm_whitelist_import_defaults，幂等 INSERT OR IGNORE）。
+/// 返删除行数（前端 toast `mitm.clearDone` 用 {{n}}）。
+///
+/// 安全：不可撤销，前端必走 confirm 弹窗（React state modal，禁 window.confirm 破坏 Tauri）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn mitm_whitelist_clear(db: State<'_, Db>) -> Result<usize, String> {
+    tracing::debug!(command = "mitm_whitelist_clear", "command invoked");
+    db.0
+        .call(move |conn| {
+            let n = conn.execute("DELETE FROM mitm_whitelist", [])?;
+            Ok(n)
+        })
+        .await
+        .map_err(|e| e.to_string())
+}
+
+/// URL 命中测试结果条目（前端展示哪些规则命中）。
+///
+/// 跨层契约：snake_case（与 WhitelistEntryDto 同约定，Tauri 无全局 rename_all）
+/// → 前端 TS `{ host_pattern: string; rule_type: string }[]`。
+/// 不含 enabled/source（命中结果只关心 host_pattern + rule_type，前端展示透明即可）。
+#[derive(Debug, Clone, Serialize)]
+pub struct MatchedRuleDto {
+    pub host_pattern: String,
+    pub rule_type: String,
+}
+
+/// URL 命中测试：解析 URL 取 host → 遍历 enabled 规则 → 返命中规则列表。
+///
+/// host 解析（用 `url` crate，项目已依赖）：
+///  - 完整 URL（`https://api.anthropic.com/v1/messages`）→ url::Url::host_str
+///  - scheme-relative（`//api.anthropic.com/path`）→ 补 dummy scheme 后解析
+///  - 裸 host（`api.anthropic.com`）→ url crate 解析为 path，剥首段作 host 兜底
+///  - 含 port（`api.anthropic.com:443`）→ host_str 自动剥 port
+///
+/// 仅 enabled 规则参与匹配（复用 whitelist::evaluate_host 单源引擎，反映 MITM 实际行为）。
+/// 返命中规则列表（前端展示 host_pattern + rule_type badge），或空 Vec = 未命中。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn mitm_whitelist_test_url(
+    url: String,
+    db: State<'_, Db>,
+) -> Result<Vec<MatchedRuleDto>, String> {
+    tracing::debug!(command = "mitm_whitelist_test_url", %url, "command invoked");
+    let host = parse_host_from_input(&url);
+    let entries = list_whitelist(&db).await?;
+    let hits = evaluate_host(&entries, &host);
+    Ok(hits
+        .into_iter()
+        .map(|e| MatchedRuleDto {
+            host_pattern: e.host_pattern,
+            rule_type: e.rule_type,
+        })
+        .collect())
+}
+
+/// 从用户输入解析 host（容错：完整 URL / scheme-relative / 裸 host / 含 port）。
+///
+/// ponytail: url crate 解析裸 host（`api.anthropic.com`）会把它当 path 首段，
+/// 这里取 path 首段兜底；复杂边缘（IPv6 literal 含 zone / userinfo @）白名单小量场景
+/// 用户手测，YAGNI 不深解析。
+fn parse_host_from_input(input: &str) -> String {
+    let trimmed = input.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    // 完整 URL 或 scheme-relative：url crate 直接解析取 host_str。
+    let candidate = if trimmed.starts_with("//") {
+        format!("dummy:{trimmed}")
+    } else if !trimmed.contains("://") {
+        // 裸 host（无 scheme）：补 dummy:// 让 url crate 当 host 解析。
+        // 含 port（`host:443`）也走此路径，host_str 会自动剥 port。
+        format!("dummy://{trimmed}")
+    } else {
+        trimmed.to_string()
+    };
+    if let Ok(parsed) = url::Url::parse(&candidate) {
+        if let Some(host) = parsed.host_str() {
+            return host.to_lowercase();
+        }
+    }
+    // 兜底：url crate 解析失败 → 取首段（剥 path/port）。
+    // 例：`api.anthropic.com/v1` → `api.anthropic.com`；`api.anthropic.com:443` → `api.anthropic.com`。
+    let no_scheme = trimmed
+        .split("://")
+        .nth(1)
+        .unwrap_or(trimmed);
+    no_scheme
+        .split([ '/', ':', '?', '#' ])
+        .next()
+        .unwrap_or("")
+        .to_lowercase()
+}
+
 // ─── OS 命名命令 spec（capability mitm-ca.json 的 name key）──────────
 //
 // capability 的 name 是按 OS 配的（macos-trust-ca / windows-trust-ca / linux-shell-ca），
@@ -358,4 +456,42 @@ fn current_os_untrust_command_name() -> String {
     // Linux untrust 走 /bin/sh -c "rm -f <dest> && update-ca-certificates --fresh"（ca.rs::untrust_ca_command）。
     // 与 trust 共用 `linux-shell-ca` 命名命令（capability validator union regex 锁两形式）。
     { "linux-shell-ca".to_string() }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_host_from_input;
+
+    // URL host 解析容错矩阵：完整 URL / scheme-relative / 裸 host / 含 port / 大小写。
+    #[test]
+    fn parse_host_full_url() {
+        assert_eq!(parse_host_from_input("https://api.anthropic.com/v1/messages"), "api.anthropic.com");
+    }
+
+    #[test]
+    fn parse_host_bare_host() {
+        assert_eq!(parse_host_from_input("api.anthropic.com"), "api.anthropic.com");
+    }
+
+    #[test]
+    fn parse_host_with_port() {
+        assert_eq!(parse_host_from_input("api.anthropic.com:443"), "api.anthropic.com");
+        assert_eq!(parse_host_from_input("https://api.anthropic.com:8443/path"), "api.anthropic.com");
+    }
+
+    #[test]
+    fn parse_host_scheme_relative() {
+        assert_eq!(parse_host_from_input("//api.anthropic.com/path"), "api.anthropic.com");
+    }
+
+    #[test]
+    fn parse_host_lowercase_normalized() {
+        assert_eq!(parse_host_from_input("https://API.Anthropic.COM/"), "api.anthropic.com");
+    }
+
+    #[test]
+    fn parse_host_empty_input() {
+        assert_eq!(parse_host_from_input(""), "");
+        assert_eq!(parse_host_from_input("   "), "");
+    }
 }

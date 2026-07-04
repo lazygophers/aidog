@@ -10,7 +10,7 @@
 //
 // 消费 services/api.ts mitmApi 契约（ST7 冻结），只读不改。
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Command } from "@tauri-apps/plugin-shell";
 import {
@@ -160,6 +160,40 @@ export function MitmConfigTab() {
     finally { setBusy(false); }
   };
 
+  // ── D2 搜索过滤（前端纯 filter，实时无按钮）────────────────
+  const [search, setSearch] = useState("");
+
+  // ── D3 URL 命中测试 ────────────────────────────────────────
+  const [testUrl, setTestUrl] = useState("");
+  const [testResult, setTestResult] = useState<{ host_pattern: string; rule_type: string }[] | null>(null);
+
+  const handleTestUrl = async () => {
+    const u = testUrl.trim();
+    if (!u) return;
+    setBusy(true); setError(""); setTestResult(null);
+    try {
+      const hits = await mitmApi.testUrl(u);
+      setTestResult(hits);
+    } catch (e) { setError(String(e)); }
+    finally { setBusy(false); }
+  };
+
+  // ── D1 一键清空 + confirm 弹窗（React state modal，禁 window.confirm 破坏 Tauri）──
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+
+  const handleClearConfirm = async () => {
+    setShowClearConfirm(false);
+    setBusy(true); setError(""); setMessage("");
+    try {
+      const n = await mitmApi.clearWhitelist();
+      setMessage(t("mitm.clearDone", "已清空 {{n}} 条白名单规则", { n }));
+      // 清空后清搜索 / 测试结果（列表已空，旧结果无意义）。
+      setSearch(""); setTestUrl(""); setTestResult(null);
+      await refresh();
+    } catch (e) { setError(String(e)); }
+    finally { setBusy(false); }
+  };
+
   if (loading) {
     return (
       <div className="text-secondary" style={{ padding: 20 }}>
@@ -173,6 +207,12 @@ export function MitmConfigTab() {
   const caInstalled = status?.ca_installed ?? false;
   const fingerprint = status?.ca_fingerprint ?? "";
   const whitelist = status?.whitelist ?? [];
+  // D2 搜索过滤（前端纯 filter，host_pattern toLowerCase includes）。
+  const filteredWhitelist = useMemo(() => {
+    const s = search.trim().toLowerCase();
+    if (!s) return whitelist;
+    return whitelist.filter((e) => e.host_pattern.toLowerCase().includes(s));
+  }, [whitelist, search]);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -316,14 +356,28 @@ export function MitmConfigTab() {
                 {t("mitm.whitelistDesc", "命中的 host 走 MITM 解密；未命中的走 P1 盲转。支持 *.domain 通配。")}
               </div>
             </div>
-            <button
-              className="btn"
-              onClick={handleImportDefaults}
-              disabled={busy}
-              style={{ padding: "6px 12px", fontSize: 12, opacity: busy ? 0.6 : 1, flexShrink: 0 }}
-            >
-              {t("mitm.importDefaults", "导入默认白名单")}
-            </button>
+            <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+              <button
+                className="btn"
+                onClick={handleImportDefaults}
+                disabled={busy}
+                style={{ padding: "6px 12px", fontSize: 12, opacity: busy ? 0.6 : 1 }}
+              >
+                {t("mitm.importDefaults", "导入默认白名单")}
+              </button>
+              <button
+                className="btn"
+                onClick={() => setShowClearConfirm(true)}
+                disabled={busy || whitelist.length === 0}
+                style={{
+                  padding: "6px 12px", fontSize: 12,
+                  opacity: busy || whitelist.length === 0 ? 0.6 : 1,
+                  color: "var(--color-error, #ef4444)",
+                }}
+              >
+                {t("mitm.clear", "清空")}
+              </button>
+            </div>
           </div>
 
           {/* 添加输入 */}
@@ -346,14 +400,86 @@ export function MitmConfigTab() {
             </button>
           </div>
 
-          {/* 列表 */}
+          {/* D2 搜索过滤（前端纯 filter，实时无按钮）*/}
+          <input
+            className="input"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t("mitm.searchPlaceholder", "搜索规则…")}
+            style={{ maxWidth: 320, fontSize: 12 }}
+          />
+
+          {/* D3 URL 命中测试 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, padding: "10px 12px", borderRadius: "var(--radius-md)", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
+            <div style={{ fontSize: 12, fontWeight: 600 }}>
+              {t("mitm.testUrlLabel", "URL 命中测试")}
+            </div>
+            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <input
+                className="input"
+                value={testUrl}
+                onChange={(e) => setTestUrl(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter" && testUrl.trim()) handleTestUrl(); }}
+                placeholder={t("mitm.testUrlPlaceholder", "https://api.anthropic.com/v1/messages")}
+                style={{ flex: 1, maxWidth: 360, fontSize: 12 }}
+              />
+              <button
+                className="btn"
+                onClick={handleTestUrl}
+                disabled={busy || !testUrl.trim()}
+                style={{ padding: "6px 14px", fontSize: 12, opacity: busy || !testUrl.trim() ? 0.6 : 1 }}
+              >
+                {t("mitm.testUrlBtn", "测试")}
+              </button>
+            </div>
+            {testResult && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 12 }}>
+                <div style={{ color: "var(--text-secondary)" }}>
+                  {testResult.length > 0
+                    ? t("mitm.testUrlHit", "命中 {{n}} 条规则", { n: testResult.length })
+                    : t("mitm.testNoHit", "未命中任何规则")}
+                </div>
+                {testResult.map((r) => {
+                  const rt = r.rule_type ?? "suffix";
+                  const label = rt === "domain" ? t("mitm.ruleDomain", "域名")
+                    : rt === "suffix" ? t("mitm.ruleSuffix", "后缀")
+                    : rt === "keyword" ? t("mitm.ruleKeyword", "关键字")
+                    : rt === "ipcidr" ? t("mitm.ruleIpcidr", "IP 段")
+                    : rt;
+                  return (
+                    <div key={r.host_pattern} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <code style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 11, wordBreak: "break-all" }}>
+                        {r.host_pattern}
+                      </code>
+                      <span
+                        style={{
+                          fontSize: 10, padding: "2px 6px", borderRadius: 4,
+                          background: "color-mix(in srgb, var(--color-success, #10b981) 15%, transparent)",
+                          color: "var(--text-secondary)",
+                        }}
+                      >
+                        {label}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* 列表（D2 搜索过滤后）*/}
           <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             {whitelist.length === 0 && (
               <div className="text-tertiary" style={{ fontSize: 12 }}>
                 {t("mitm.whitelistEmpty", "（无白名单条目）")}
               </div>
             )}
-            {whitelist.map((e) => (
+            {whitelist.length > 0 && filteredWhitelist.length === 0 && (
+              <div className="text-tertiary" style={{ fontSize: 12 }}>
+                {t("mitm.searchEmpty", "无匹配规则")}
+              </div>
+            )}
+            {filteredWhitelist.map((e) => (
               <div
                 key={e.host_pattern}
                 style={{
@@ -425,6 +551,53 @@ export function MitmConfigTab() {
       )}
       {message && !error && (
         <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>{message}</div>
+      )}
+
+      {/* D1 清空确认弹窗（React state modal，禁 window.confirm 破坏 Tauri）*/}
+      {showClearConfirm && (
+        <div
+          style={{
+            position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0, 0, 0, 0.4)", zIndex: 1000,
+          }}
+          onClick={() => setShowClearConfirm(false)}
+        >
+          <div
+            className="glass-surface"
+            style={{
+              padding: 20, maxWidth: 380, borderRadius: "var(--radius-lg)",
+              display: "flex", flexDirection: "column", gap: 16,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 13, fontWeight: 600 }}>
+              {t("mitm.clear", "清空")}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              {t("mitm.clearConfirm", "确认清空全部 {{n}} 条白名单？此操作不可撤销，但可重新导入默认规则", { n: whitelist.length })}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                className="btn"
+                onClick={() => setShowClearConfirm(false)}
+                style={{ padding: "6px 14px", fontSize: 12 }}
+              >
+                {t("mitm.cancel", "取消")}
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleClearConfirm}
+                disabled={busy}
+                style={{
+                  padding: "6px 14px", fontSize: 12, opacity: busy ? 0.6 : 1,
+                  background: "var(--color-error, #ef4444)",
+                }}
+              >
+                {t("mitm.clear", "清空")}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
