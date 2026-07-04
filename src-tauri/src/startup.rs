@@ -4,6 +4,9 @@ use tauri::Manager;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // rustls 0.23 需显式装 process-level CryptoProvider（ring），否则首次 TLS builder() panic。
+    // 测试侧各自 install_default，生产侧在此统一装一次（幂等，AlreadyInstalled 返 Err 无害）。
+    let _ = rustls::crypto::ring::default_provider().install_default();
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init())
