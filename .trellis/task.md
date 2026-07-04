@@ -64,5 +64,3 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-03-mitm-ca-macos-fix | 07-03-mitm-ca-macos-fix | trellisx-start |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-03-platform-multi-apikey-ui | 07-03-platform-multi-apikey-ui | trellisx-start |
