@@ -1,0 +1,4 @@
+{"file": ".trellis/spec/backend/index.md", "reason": "backend 总入口 + Pre-Development Checklist, 改 proxy 响应头前必读"}
+{"file": ".trellis/spec/backend/proxy-connect-relay.md", "reason": "CONNECT/blind_relay 路径契约 — 注入点只在 AirDog 直构响应, blind_relay 物理不可行"}
+{"file": ".trellis/spec/backend/http-client-forward.md", "reason": "forward 路径上下文, trace_id 取值链 request_id 优先级"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "header 注入跨协议, 确认是否需 TS 侧同步 (大概率不需要, 仅 Rust 注入)"}
