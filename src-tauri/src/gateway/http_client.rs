@@ -49,6 +49,15 @@ pub async fn build_http_client(
         }
     };
 
+    // proxy 协商：
+    // - `use_proxy=true`（用户显式配 DB proxy）：`.proxy(explicit)` 自动关 auto_sys_proxy
+    //   （reqwest 文档：调 .proxy() 后不再读 env），env 代理天然失效。
+    // - `use_proxy=false`：必须显式 `.no_proxy()` 关闭 reqwest 默认的 auto_sys_proxy。
+    //   否则 reqwest 读 HTTPS_PROXY/HTTP_PROXY env —— AirDog 自身就是代理，用户场景常设
+    //   HTTPS_PROXY=127.0.0.1:<aidog_port>，致 forward 到上游的请求又走回 AirDog 自己，
+    //   形成 CONNECT 隧道递归（MITM→forward→reqwest(env proxy=AirDog)→CONNECT→MITM→…），
+    //   最终某层资源耗尽 / h2 stream 中途被 reset，客户端看到 HTTP/2 stream CANCEL。
+    //   转发链禁依赖 env proxy —— 上游连通性由用户在 DB 显式配的 proxy 负责。
     let mut builder = reqwest::Client::builder();
     if timeout_secs > 0 {
         builder = builder.timeout(Duration::from_secs(timeout_secs));
@@ -60,6 +69,8 @@ pub async fn build_http_client(
         if let Some(proxy) = settings.to_reqwest_proxy() {
             builder = builder.proxy(proxy);
         }
+    } else {
+        builder = builder.no_proxy();
     }
     builder.build().unwrap_or_else(|_| reqwest::Client::new())
 }
@@ -101,5 +112,79 @@ mod tests {
     #[test]
     fn platform_proxy_enabled_invalid_json_returns_none() {
         assert_eq!(platform_proxy_enabled("not-json"), None);
+    }
+
+    // ── build_http_client 禁 env proxy 回归（修 HTTP/2 stream CANCEL 根因）──
+    // 背景: 用户场景常设 HTTPS_PROXY=http://127.0.0.1:<aidog_port> 让流量走 AirDog。
+    // forward 到上游的 reqwest 若读 env proxy → 又走 AirDog → CONNECT 隧道递归
+    // → 某层 h2 stream reset → 客户端 HTTP/2 stream CANCEL。
+    // 修复: use_proxy=false 时显式 .no_proxy() 关 reqwest auto_sys_proxy。
+    // 本测试起 stub proxy 计数连接 + stub 上游，设 HTTPS_PROXY env 指向 stub proxy，
+    // 断言经 build_http_client 构的 client 请求上游时不连 stub proxy（env proxy 被禁）。
+    //
+    // ponytail: env::set_var 临时改 + 恢复，单测内顺序执行；其他 #[test] 不触 env，无并行污染。
+    #[tokio::test]
+    async fn build_http_client_disables_env_proxy_when_no_db_proxy() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::sync::Arc;
+
+        // 1. stub proxy：accept 连接计数后立刻 drop（模拟 proxy 端口；不该被连）。
+        let proxy_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let proxy_addr = proxy_listener.local_addr().unwrap();
+        let connect_count = Arc::new(AtomicUsize::new(0));
+        let cc = connect_count.clone();
+        tokio::spawn(async move {
+            loop {
+                match proxy_listener.accept().await {
+                    Ok((stream, _)) => {
+                        cc.fetch_add(1, Ordering::SeqCst);
+                        drop(stream);
+                    }
+                    Err(_) => break,
+                }
+            }
+        });
+
+        // 2. stub 上游 axum server（http，返 200 + 固定 body）。
+        let upstream_body = "upstream-ok";
+        let upstream_app = axum::Router::new().fallback(axum::routing::any(move || async move {
+            (axum::http::StatusCode::OK, upstream_body)
+        }));
+        let up_listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let up_addr = up_listener.local_addr().unwrap();
+        tokio::spawn(async move { axum::serve(up_listener, upstream_app).await.ok() });
+
+        // 3. 设 HTTPS_PROXY env 指向 stub proxy（模拟用户配 AirDog 为系统代理）。
+        let prev_https = std::env::var("HTTPS_PROXY").ok();
+        std::env::set_var("HTTPS_PROXY", format!("http://{proxy_addr}"));
+        std::env::set_var("NO_PROXY", ""); // 清 NO_PROXY 绕过
+
+        // 4. test_db（proxy_client settings 默认空 → use_proxy=false）。
+        let db = crate::gateway::db::test_support::test_db().await;
+        let client = build_http_client(&Arc::new(db), 0, 0, None, None).await;
+
+        // 5. 请求上游：use_proxy=false + .no_proxy() → 直连上游，不连 stub proxy。
+        let url = format!("http://{up_addr}/");
+        let outcome: Result<(), reqwest::Error> = async {
+            let resp = client.get(&url).send().await?;
+            let body = resp.text().await?;
+            assert_eq!(body, "upstream-ok", "必须直连上游拿到 body");
+            Ok::<(), reqwest::Error>(())
+        }
+        .await;
+
+        // 6. 恢复 env（防污染后续测试）。
+        match prev_https {
+            Some(v) => std::env::set_var("HTTPS_PROXY", v),
+            None => std::env::remove_var("HTTPS_PROXY"),
+        }
+
+        outcome.expect("request must succeed via direct connection, not env proxy");
+        // stub proxy 不该被连（连了 = env proxy 生效 = 修复回归）。
+        assert_eq!(
+            connect_count.load(Ordering::SeqCst),
+            0,
+            "use_proxy=false 时 reqwest 必须禁 env proxy（.no_proxy），stub proxy 不应被连"
+        );
     }
 }
