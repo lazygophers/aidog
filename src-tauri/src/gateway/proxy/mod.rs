@@ -76,6 +76,7 @@ pub(crate) use count_tokens::{handle_count_tokens, is_count_tokens_endpoint};
 pub(crate) use endpoint::{
     detect_source_protocol, endpoint_host, infer_passthrough_protocol_from_ua,
     match_platform_by_host, resolve_group, select_endpoint_for_protocol,
+    should_fallback_passthrough,
 };
 pub(crate) use finish::{finish_nonstream, finish_stream};
 pub(crate) use forward::{forward_attempt, AttemptOutcome};
@@ -94,7 +95,9 @@ pub(crate) use log::{
 };
 pub(crate) use mock::handle_mock;
 pub(crate) use notify::handle_notify;
-pub(crate) use passthrough::{handle_models_static, handle_passthrough, is_models_endpoint};
+pub(crate) use passthrough::{
+    forward_passthrough_to_orig_host, handle_models_static, handle_passthrough, is_models_endpoint,
+};
 pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoint};
 pub(crate) use retry::{
     classify_429, classify_stream_first, extract_error_message, filter_upstream_resp_headers,
@@ -147,6 +150,10 @@ pub struct ProxyState {
     /// 容量上限 AGG_DEDUP_CAP，超限按 FIFO 淘汰最旧 id（in-flight + 已完成请求量远小于此上限，
     /// 同一请求的多次终态调用集中在极短窗口，淘汰不会误判）。HashSet 判存 + VecDeque 记顺序。
     pub agg_done: std::sync::Mutex<(std::collections::VecDeque<String>, std::collections::HashSet<String>)>,
+    /// 代理实际监听地址（bind_ip, actual_port）。start_proxy 绑定成功后填入，
+    /// 供 fallback 直通判定识别「代理自身 host 直连」vs「MITM 解密灌入」（Host ≠ 自身）。
+    /// None = 未启动 / 测试构造的 state；fallback 走保守分支（不直通，保留 404）。
+    pub listen_addr: std::sync::OnceLock<(std::net::IpAddr, u16)>,
 }
 
 /// agg 去重缓存容量上限。远大于任一时刻 in-flight + 近期完成请求数，保证同一请求的全部
@@ -186,18 +193,8 @@ pub async fn start_proxy(
         sticky: Arc::new(super::scheduling::StickyTable::new()),
         log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
         agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
+        listen_addr: std::sync::OnceLock::new(),
     });
-
-    let app = Router::new()
-        .route("/api/group-info", post(handle_group_info))
-        .route("/api/notify", post(handle_notify))
-        // 健康端点：客户端（Claude Code / Codex 启动探测等）会命中代理根 URL（含 / 前缀），
-        // 无 Authorization 不应进 handle_proxy 走 404，也不应落 proxy_log 污染统计。
-        // 仅返回 200 + 身份 JSON，跳过组路由 / 日志 / 上游。
-        .route("/", get(handle_root))
-        .route("/proxy", get(handle_root))
-        .fallback(handle_proxy)
-        .with_state(state);
 
     // Try binding from port upward; if occupied, try port+1..port+100
     let mut actual_port = port;
@@ -225,6 +222,24 @@ pub async fn start_proxy(
     };
 
     tracing::info!(port = actual_port, "proxy server bound, starting");
+
+    // 记录实际监听地址供 fallback 直通判定（识别代理自身 host vs MITM 解密灌入）。
+    // OnceLock：bind 成功后地址不变，忽略 set 失败（state 被复用场景理论不存在）。
+    let _ = state.listen_addr.set((
+        std::net::IpAddr::V4(std::net::Ipv4Addr::new(bind_ip[0], bind_ip[1], bind_ip[2], bind_ip[3])),
+        actual_port,
+    ));
+
+    let app = Router::new()
+        .route("/api/group-info", post(handle_group_info))
+        .route("/api/notify", post(handle_notify))
+        // 健康端点：客户端（Claude Code / Codex 启动探测等）会命中代理根 URL（含 / 前缀），
+        // 无 Authorization 不应进 handle_proxy 走 404，也不应落 proxy_log 污染统计。
+        // 仅返回 200 + 身份 JSON，跳过组路由 / 日志 / 上游。
+        .route("/", get(handle_root))
+        .route("/proxy", get(handle_root))
+        .fallback(handle_proxy)
+        .with_state(state);
 
     let handle = tokio::spawn(async move {
         axum::serve(listener, app).await.ok();
