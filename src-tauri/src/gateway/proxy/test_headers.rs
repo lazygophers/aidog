@@ -596,3 +596,39 @@ use super::*;
         let h = headers_from_builder(rb);
         assert!(h.contains_key("Authorization"));
     }
+
+    #[test]
+    fn inject_trace_header_debug_build_inserts_header() {
+        // 测试在 debug build (cargo test 默认 debug) 下运行 → cfg!(debug_assertions) 为 true。
+        // 模拟 `make run` (yarn tauri dev = debug build) 期望路径：响应头含 X-AiDog-Trace。
+        let mut resp = axum::response::Response::new(axum::body::Body::empty());
+        inject_trace_header(&mut resp);
+        if cfg!(debug_assertions) {
+            let h = resp.headers().get("x-aidog-trace");
+            assert!(h.is_some(), "debug build 应注入 X-AiDog-Trace header");
+            let v = h.unwrap().to_str().unwrap();
+            assert!(!v.is_empty(), "X-AiDog-Trace 值非空");
+            // 兜底 id 取自 current_trace_id (None, 测试无活跃 span) → new_trace_id = 8-hex
+            assert_eq!(v.len(), 8, "兜底 new_trace_id 应为 8 位 hex");
+            assert!(v.chars().all(|c| c.is_ascii_hexdigit()), "兜底 id 应为 hex 字符");
+        } else {
+            // release build 路径：不注入（无 header）
+            assert!(resp.headers().get("x-aidog-trace").is_none());
+        }
+    }
+
+    #[test]
+    fn inject_trace_header_does_not_overwrite_existing_headers() {
+        // 验证 helper 不破坏响应已有头（仅 insert 一个新头）。
+        let mut resp = axum::response::Response::new(axum::body::Body::empty());
+        resp.headers_mut().insert(
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("application/json"),
+        );
+        inject_trace_header(&mut resp);
+        assert_eq!(
+            resp.headers().get(axum::http::header::CONTENT_TYPE).unwrap(),
+            "application/json",
+            "已存在的头应保留"
+        );
+    }

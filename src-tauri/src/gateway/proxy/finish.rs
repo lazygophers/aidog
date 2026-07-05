@@ -119,6 +119,7 @@ pub(crate) async fn finish_nonstream(
             .headers_mut()
             .remove(axum::http::header::CONTENT_TYPE);
         response.headers_mut().extend(filtered);
+        inject_trace_header(&mut response);
         response
 }
 
@@ -341,5 +342,6 @@ where
         }
         h.extend(stream_filtered);
     }
+    inject_trace_header(&mut response);
     response
 }

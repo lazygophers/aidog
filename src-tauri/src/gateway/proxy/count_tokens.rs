@@ -74,12 +74,14 @@ pub(crate) async fn handle_count_tokens(
     // 兜底响应：返回本地估算 `{"input_tokens":N}` 200，并把回客户端正文记入 log.user_response_body
     // （与 handle_responses_subendpoint 成功路径一致：客户端实际收到的正文落库）。
     let est_response = |body: &str| -> Response {
-        (
+        let mut r = (
             StatusCode::OK,
             [(axum::http::header::CONTENT_TYPE, "application/json")],
             body.to_string(),
         )
-            .into_response()
+            .into_response();
+        inject_trace_header(&mut r);
+        r
     };
     // 在各兜底分支统一回写 log 的客户端响应正文/头（est_response 闭包不可借 &mut log，故在调用点写 log）。
     macro_rules! fallback_log {
@@ -206,6 +208,7 @@ pub(crate) async fn handle_count_tokens(
             axum::http::header::CONTENT_TYPE,
             axum::http::HeaderValue::from_static("application/json"),
         );
+        inject_trace_header(&mut response);
         return response;
     }
 

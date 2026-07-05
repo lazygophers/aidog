@@ -86,7 +86,9 @@ async fn handle_connect_inner(
     tracing::info!(uri = ?req.uri(), method = ?req.method(), target = %target, "connect recv");
     if target.is_empty() {
         tracing::warn!(uri = ?req.uri(), "connect: missing target, returning 400");
-        return (StatusCode::BAD_REQUEST, "CONNECT missing target").into_response();
+        let mut r = (StatusCode::BAD_REQUEST, "CONNECT missing target").into_response();
+        inject_trace_header(&mut r);
+        return r;
     }
     let host_only = target.rsplit_once(':').map(|(h, _)| h).unwrap_or(&target).to_string();
     let on_upgrade = hyper::upgrade::on(req);
@@ -146,7 +148,9 @@ async fn handle_connect_inner(
                         target.clone(), 502, start.elapsed().as_millis() as i32,
                     ).await;
                 }
-                return (StatusCode::BAD_GATEWAY, format!("connect {target} failed")).into_response();
+                let mut r = (StatusCode::BAD_GATEWAY, format!("connect {target} failed")).into_response();
+                inject_trace_header(&mut r);
+                return r;
             }
         };
         return spawn_blind_relay(
@@ -230,6 +234,10 @@ async fn handle_connect_inner(
         ).await;
     });
 
+    // CONNECT 200 响应是 AirDog 直构（与之后 TCP 字节透传 blind_relay 无关）→ 注入 trace header。
+    // 真正的 blind_relay_after_connect 是 TCP 字节透传（已加密 TLS），物理上无法注入 HTTP 层 header。
+    let mut resp = resp;
+    inject_trace_header(&mut resp);
     resp
 }
 
@@ -301,6 +309,10 @@ fn spawn_blind_relay(
         }
         log_connect_success(&state, request_id, platform_id, target, start, log_enabled).await;
     });
+    // CONNECT 200 直构响应 → 注入 trace header（后续 spawn 内双向 TCP copy 是 blind_relay 字节透传，
+    // 加密 TLS 字节流，物理上无法注入 HTTP 层 header；CONNECT 200 响应本身已注入）。
+    let mut resp = resp;
+    inject_trace_header(&mut resp);
     resp
 }
 
@@ -330,6 +342,9 @@ async fn blind_relay_after_connect(
     log_enabled: bool,
     prefetch: &[u8],
 ) {
+    // blind_relay: TCP 字节透传非 AirDog 构造响应，header 物理不可注入（双向 copy 加密 TLS 字节流，
+    // AirDog 看不见 / 改不了 HTTP 层）。trace header 已在 spawn 前的 CONNECT 200 响应注入，
+    // 此处隧道内的客户端真实 HTTP 请求/响应不经 axum，无 inject_trace_header 调用点。
     match tcp_connect_accounted(st, target, platform_id, breaker_th, conn_timeout_secs).await {
         Ok(mut upstream) => {
             // 预读字节先 flush 到上游（read_buf 来自客户端 speculative read，上游需收得到）。
@@ -639,6 +654,14 @@ pub(crate) async fn serve_plaintext<S>(
                     let mut resp = hyper::Response::builder().status(StatusCode::BAD_REQUEST);
                     if let Some(h) = resp.headers_mut() {
                         h.insert(axum::http::header::CONTENT_TYPE, axum::http::HeaderValue::from_static("text/plain"));
+                        // MITM 明文路径：AirDog 直构响应也注入 trace header（与 axum 路径一致诊断体验）。
+                        if cfg!(debug_assertions) {
+                            let id = crate::logging::current_trace_id()
+                                .unwrap_or_else(crate::logging::new_trace_id);
+                            if let Ok(hv) = axum::http::HeaderValue::from_str(&id) {
+                                h.insert(axum::http::HeaderName::from_static("x-aidog-trace"), hv);
+                            }
+                        }
                     }
                     return Ok::<_, std::convert::Infallible>(
                         resp.body(axum::body::Body::from(format!("read body error: {e}")))

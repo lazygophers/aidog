@@ -191,14 +191,16 @@ pub(crate) async fn forward_attempt(
         log.retry_count = (attempts.len() as i32 - 1).max(0);
         log.attempts = std::mem::take(attempts);
         upsert_log(state, log, log_settings).await;
-        return AttemptOutcome::Respond(
-            (
+        return AttemptOutcome::Respond({
+            let mut r = (
                 StatusCode::PAYMENT_REQUIRED,
                 [(axum::http::header::CONTENT_TYPE, "application/json")],
                 body,
             )
-                .into_response(),
-        );
+                .into_response();
+            inject_trace_header(&mut r);
+            r
+        });
     }
 
     // 协议转换 / 同协议透传：
@@ -321,7 +323,11 @@ pub(crate) async fn forward_attempt(
             log.retry_count = (attempts.len() as i32 - 1).max(0);
             log.attempts = std::mem::take(attempts);
             upsert_log(state, log, log_settings).await;
-            return AttemptOutcome::Respond((StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response());
+            return AttemptOutcome::Respond({
+                let mut r = (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+                inject_trace_header(&mut r);
+                r
+            });
         }
     };
 
@@ -402,7 +408,11 @@ pub(crate) async fn forward_attempt(
             log.retry_count = (attempts.len() as i32 - 1).max(0);
             log.attempts = std::mem::take(attempts);
             upsert_log(state, log, log_settings).await;
-            return AttemptOutcome::Respond((StatusCode::BAD_GATEWAY, err_body).into_response());
+            return AttemptOutcome::Respond({
+                let mut r = (StatusCode::BAD_GATEWAY, err_body).into_response();
+                inject_trace_header(&mut r);
+                r
+            });
         }};
     }
 

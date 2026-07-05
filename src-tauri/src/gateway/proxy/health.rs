@@ -4,12 +4,14 @@ use super::*;
 /// 既无 Authorization 也无上游请求语义 —— 直接返回 200 + 身份 JSON，
 /// 不进 handle_proxy（否则 resolve_group None → 404）也不落 proxy_log（避免污染统计）。
 pub(crate) async fn handle_root() -> Response {
-    (
+    let mut r = (
         StatusCode::OK,
         Json(serde_json::json!({
             "service": "aidog",
             "ok": true,
         })),
     )
-        .into_response()
+        .into_response();
+    inject_trace_header(&mut r);
+    r
 }
