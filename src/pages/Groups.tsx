@@ -51,7 +51,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
 
   // ── 数据加载（分页 / 统计 / 余额聚合）──
   const {
-    details, platforms, setDetails, groupStats, groupBalance,
+    details, platforms, setDetails, groupStats, groupBalance, unmatchedStat,
     loading, loadingMore, hasMore, sentinelRef, proxyBaseUrl,
     load, refreshSingleGroup,
   } = useGroupData({ onCountChange });
@@ -457,6 +457,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       groupIndexById={groupIndexById}
       groupStats={groupStats}
       groupBalance={groupBalance}
+      unmatchedStat={unmatchedStat}
       groupSearch={groupSearch}
       collapsedGroups={collapsedGroups}
       setCollapsedGroups={setCollapsedGroups}
