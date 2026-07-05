@@ -197,3 +197,30 @@ use super::test_support::*;
         assert_eq!(all["ga"].total_requests, 2);
         assert_eq!(all["gb"].total_requests, 1);
     }
+
+    /// 虚拟桶「未匹配」（MITM 解密非 API 流量 fallback 直通）的 group_key 非空 →
+    /// 出现在 get_all_group_usage_stats 批量结果中，不被 group_key <> '' 过滤吞掉。
+    #[tokio::test]
+    async fn unmatched_virtual_bucket_appears_in_group_stats() {
+        let db = test_db().await;
+        let now_ms = now();
+        // 模拟 fallback 直通落库的虚拟桶日志：group_key = "未匹配"，platform_id=0，cost=0。
+        let mut unmatched = sample_log("u1", "未匹配", now_ms);
+        unmatched.platform_id = 0;
+        unmatched.status_code = 200;
+        unmatched.est_cost = 0.0;
+        upsert_proxy_log(&db, unmatched).await.unwrap();
+        // 普通分组的日志，确保不互相串味。
+        upsert_proxy_log(&db, sample_log("g1", "ga", now_ms)).await.unwrap();
+        // 重建聚合表。
+        rebuild_stats_agg_from_logs(&db).await.unwrap();
+
+        let all = get_all_group_usage_stats(&db).await.unwrap();
+        // 虚拟桶应出现（group_key = "未匹配" 非空，不被过滤）。
+        assert!(all.contains_key("未匹配"), "虚拟桶「未匹配」应在批量统计结果中，got keys: {:?}", all.keys().collect::<Vec<_>>());
+        assert_eq!(all["未匹配"].total_requests, 1);
+        assert_eq!(all["未匹配"].total_cost, 0.0, "虚拟桶不计费");
+        // 普通分组也在。
+        assert_eq!(all["ga"].total_requests, 1);
+        assert_eq!(all.len(), 2, "仅「未匹配」+ ga 两个非空 group");
+    }

@@ -312,6 +312,214 @@ pub(crate) fn build_passthrough_url(base_url: &str, uri: &axum::http::Uri) -> St
     format!("{}{}", base, pq)
 }
 
+/// 虚拟「未匹配」桶 group_key（proxy_log.group_key + stats_agg_hourly 聚合键）。
+/// 不入 groups 表；前端 Groups 页只读卡片识别此 key 渲染虚拟桶。
+pub(crate) const UNMATCHED_GROUP_KEY: &str = "未匹配";
+
+/// MITM 解密的非 API 流量未匹配分组时，直通原 host 透明转发。
+/// - URL：`https://{orig Host}{orig path}?{query}`（CONNECT target = orig Host，TLS 由 reqwest 自带 webpki 验证）。
+/// - 透传 method/headers/body，剥 proxy-only headers（Proxy-Authorization / Proxy-Connection / Proxy-Authenticate）。
+/// - proxy_log 落虚拟桶：`group_key="未匹配"` + `platform_id=0` + `cost=0`（不计费），保留 url/status/duration/model 元数据。
+/// - 上游错误（TLS / 超时）→ 返 502 + 落 proxy_log 终态。
+///
+/// ponytail: 复用 handle_passthrough 的响应转发骨架（非流式 bytes relay + 流式 bytes_stream），
+/// 不复用其 source/target_protocol 语义（claude_code）—— 此处是非 AI 普通浏览流量，标 "passthrough_unmatched"。
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn forward_passthrough_to_orig_host(
+    state: &Arc<ProxyState>,
+    log: &mut ProxyLog,
+    log_settings: &ProxyLogSettings,
+    orig_method: axum::http::Method,
+    orig_uri: axum::http::Uri,
+    orig_headers: axum::http::HeaderMap,
+    bytes: axum::body::Bytes,
+    start: std::time::Instant,
+    lang: Lang,
+) -> Response {
+    // 虚拟桶标记：group_key/platform_id/cost 全部归零位（cost=0 不计费由 est_cost 默认 0.0 保证）。
+    log.group_key = UNMATCHED_GROUP_KEY.to_string();
+    log.source_protocol = "passthrough_unmatched".to_string();
+    log.target_protocol = "passthrough_unmatched".to_string();
+
+    // 目标 URL = https://{Host header}{path}?{query}。Host header 含端口（www.baidu.com:443），
+    // 直接拼到 authority 段；缺省 path 用 "/"。
+    let host_header = orig_headers
+        .get(axum::http::header::HOST)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("");
+    if host_header.is_empty() {
+        log.response_body = "passthrough unmatched: missing Host header".to_string();
+        log.status_code = 400;
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        upsert_log(state, log, log_settings).await;
+        return (StatusCode::BAD_REQUEST, "missing Host header").into_response();
+    }
+    let pq = orig_uri
+        .path_and_query()
+        .map(|pq| pq.as_str())
+        .unwrap_or("/");
+    let url = format!("https://{host_header}{pq}");
+    log.upstream_request_url = url.clone();
+
+    // 超时：连接期保护，body 不设总超时（与 handle_passthrough 同款，避免砍长响应）。
+    let system_timeout = get_system_timeout(&state.db).await;
+    let conn_timeout = if system_timeout.connect_timeout_secs > 0 { system_timeout.connect_timeout_secs } else { 10 };
+    let client = super::http_client::build_http_client(
+        &state.db, 0u64, conn_timeout, None, None,
+    ).await;
+
+    // 剥 proxy-only headers（hop-by-hop 由 passthrough_headers 已剔 host/content-length；
+    // 此处补 Proxy-* 系列，避免上游收到代理协商头）。
+    let mut fwd_headers = passthrough_headers(&orig_headers);
+    for name in &["proxy-authorization", "proxy-connection", "proxy-authenticate"] {
+        fwd_headers.remove(*name);
+    }
+    log.upstream_request_headers = {
+        let mut h = serde_json::Map::new();
+        for (k, v) in &fwd_headers {
+            let name = k.as_str();
+            if is_sensitive_auth_header(name) {
+                h.insert(name.to_string(), Value::String("[REDACTED]".into()));
+            } else if let Ok(s) = v.to_str() {
+                h.insert(name.to_string(), Value::String(s.to_string()));
+            }
+        }
+        Value::Object(h).to_string()
+    };
+    log.upstream_request_body = String::from_utf8_lossy(&bytes).to_string();
+    tracing::info!(method = %orig_method, url = %url, "passthrough unmatched → orig host");
+
+    let method = match reqwest::Method::from_bytes(orig_method.as_str().as_bytes()) {
+        Ok(m) => m,
+        Err(_) => reqwest::Method::GET,
+    };
+    let mut req_builder = client.request(method, &url).body(bytes.to_vec());
+    req_builder = req_builder.headers(fwd_headers);
+
+    let resp = match req_builder.send().await {
+        Ok(r) => r,
+        Err(e) => {
+            tracing::warn!(url = %url, error = %e, "passthrough unmatched upstream failed (502)");
+            log.response_body = format!("upstream error: {e}");
+            log.status_code = 502;
+            log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
+            log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
+            log.duration_ms = start.elapsed().as_millis() as i32;
+            upsert_log(state, log, log_settings).await;
+            return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+        }
+    };
+
+    let status = resp.status();
+    log.upstream_status_code = status.as_u16() as i32;
+
+    // 响应头原样照搬（剔 hop-by-hop / 长度类）。
+    let mut resp_header_map = axum::http::HeaderMap::new();
+    {
+        let mut h = serde_json::Map::new();
+        for (k, v) in resp.headers() {
+            if let Ok(s) = v.to_str() {
+                h.insert(k.to_string(), Value::String(s.to_string()));
+            }
+            let name = k.as_str();
+            if name.eq_ignore_ascii_case("content-length")
+                || name.eq_ignore_ascii_case("transfer-encoding")
+                || name.eq_ignore_ascii_case("connection")
+            {
+                continue;
+            }
+            if let (Ok(hn), Ok(hv)) = (
+                axum::http::HeaderName::from_bytes(k.as_str().as_bytes()),
+                axum::http::HeaderValue::from_bytes(v.as_bytes()),
+            ) {
+                resp_header_map.insert(hn, hv);
+            }
+        }
+        log.upstream_response_headers = Value::Object(h).to_string();
+    }
+
+    let content_type = resp
+        .headers()
+        .get(reqwest::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or("")
+        .to_string();
+    let is_stream = content_type.contains("text/event-stream")
+        || resp
+            .headers()
+            .get(reqwest::header::TRANSFER_ENCODING)
+            .and_then(|v| v.to_str().ok())
+            .map(|s| s.contains("chunked"))
+            .unwrap_or(false);
+
+    let resp_status = StatusCode::from_u16(status.as_u16()).unwrap_or(StatusCode::BAD_GATEWAY);
+
+    if !is_stream {
+        let body = resp.bytes().await.unwrap_or_default();
+        let resp_str = String::from_utf8_lossy(&body).to_string();
+        log.response_body = resp_str.clone();
+        log.status_code = status.as_u16() as i32;
+        log.duration_ms = start.elapsed().as_millis() as i32;
+        log.user_response_body = resp_str;
+        log.user_response_headers = log.upstream_response_headers.clone();
+        // cost 保持 0（不计费）；model 保持原始（普通浏览流量通常无 model）。
+        upsert_log(state, log, log_settings).await;
+        let mut response = (resp_status, body.to_vec()).into_response();
+        *response.headers_mut() = resp_header_map;
+        return response;
+    }
+
+    // 流式：原样透传 bytes，不解析（普通浏览流量极少 SSE，仍兜底支持）。
+    log.is_stream = true;
+    log.status_code = status.as_u16() as i32;
+    let record_upstream_body = log_settings.enabled;
+    let record_client_body = log_settings.enabled && log_settings.log_user_request;
+    let agg = Arc::new(StreamAggregator::new());
+    let est_fired = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let req_span = tracing::Span::current();
+    let guard = StreamLogGuard {
+        agg: agg.clone(),
+        est_fired: est_fired.clone(),
+        log: log.clone(),
+        state: state.clone(),
+        settings: log_settings.clone(),
+        start,
+        record_upstream_body,
+        record_client_body,
+        req_span: req_span.clone(),
+        est: None,
+    };
+    let stream = resp.bytes_stream().map(move |chunk_result| {
+        let chunk = match chunk_result {
+            Ok(c) => c,
+            Err(e) => {
+                tracing::warn!(error = %e, "passthrough unmatched stream chunk error; closing");
+                return Ok::<_, std::io::Error>(Bytes::new());
+            }
+        };
+        if record_upstream_body {
+            if let Ok(mut up) = guard.agg.upstream_body.lock() {
+                up.push(chunk.clone());
+            }
+        }
+        if record_client_body {
+            if let Ok(mut cl) = guard.agg.client_body.lock() {
+                cl.push(chunk.clone());
+            }
+        }
+        Ok::<_, std::io::Error>(chunk)
+    });
+    let body = Body::from_stream(stream);
+    log.duration_ms = start.elapsed().as_millis() as i32;
+    log.response_body = "[stream]".to_string();
+    log.user_response_body = "[stream]".to_string();
+    log.user_response_headers = log.upstream_response_headers.clone();
+    upsert_log(state, log, log_settings).await;
+    let mut response = (resp_status, body).into_response();
+    *response.headers_mut() = resp_header_map;
+    response
+}
+
 /// 判定请求 path（已含 group/proxy 前缀）是否为模型列表端点。
 /// strip 任意前缀后尾段为 `/v1/models` | `/models`（openai/anthropic 同名）→ true。
 /// gemini `/v1beta/models` 本期不在代理 relay 范围（标 TODO，见 prd 失败处理）。

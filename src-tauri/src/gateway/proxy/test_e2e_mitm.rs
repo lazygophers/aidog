@@ -56,6 +56,7 @@ async fn make_state_with_ca() -> (Arc<ProxyState>, RootCa) {
             std::collections::VecDeque::new(),
             std::collections::HashSet::new(),
         )),
+        listen_addr: std::sync::OnceLock::new(),
     });
     (state, ca)
 }

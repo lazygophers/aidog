@@ -207,6 +207,7 @@ use super::*;
             sticky: Arc::new(super::super::scheduling::StickyTable::new()),
             log_snapshots: std::sync::Mutex::new(std::collections::HashMap::new()),
             agg_done: std::sync::Mutex::new((std::collections::VecDeque::new(), std::collections::HashSet::new())),
+            listen_addr: std::sync::OnceLock::new(),
         })
     }
 

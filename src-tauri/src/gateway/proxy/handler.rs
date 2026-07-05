@@ -218,6 +218,21 @@ pub(crate) async fn handle_proxy_core(
         match resolve_group(&state.db, auth_header.as_deref()).await {
             Some(g) => g,
             None => {
+                // fallback 直通判定：MITM 解密的非 API 流量（Host ≠ 代理自身监听 host）
+                // 直通原 host 透明转发，落虚拟「未匹配」桶统计（不计费）。
+                // API 流量（错 token / 无 token 直连代理自身）仍 404，不旁路。
+                let host_header = orig_headers
+                    .get(axum::http::header::HOST)
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("");
+                if should_fallback_passthrough(host_header, &path, state.listen_addr.get().copied()) {
+                    tracing::info!(host = %host_header, path = %path, "no matching group → fallback passthrough to orig host");
+                    return forward_passthrough_to_orig_host(
+                        &state, &mut log, &log_settings,
+                        orig_method, orig_uri, orig_headers, bytes,
+                        start, lang,
+                    ).await;
+                }
                 if let Some(ref token) = auth_header {
                     log.response_body = format!("no matching group for token '{}' or path '{}'", token, path);
                     log.status_code = 404;
