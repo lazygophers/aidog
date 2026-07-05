@@ -76,22 +76,34 @@ async fn handle_group_info_inner(
         .map(|s| s.trim().to_string());
     let group_key = match group_key {
         Some(n) if !n.is_empty() => n,
-        _ => return StatusCode::UNAUTHORIZED.into_response(),
+        _ => {
+            let mut r = StatusCode::UNAUTHORIZED.into_response();
+            inject_trace_header(&mut r);
+            return r;
+        }
     };
+
+    macro_rules! ok_empty {
+        () => {{
+            let mut r = (StatusCode::OK, Json(empty())).into_response();
+            inject_trace_header(&mut r);
+            return r;
+        }};
+    }
 
     // 定位分组
     let groups = match super::db::list_groups(&state.db).await {
         Ok(g) => g,
         Err(e) => {
             tracing::warn!(error = %e, "group-info: list_groups failed, returning not-applicable");
-            return (StatusCode::OK, Json(empty())).into_response();
+            ok_empty!();
         }
     };
     let group = match groups.iter().find(|g| g.group_key == group_key) {
         Some(g) => g,
         None => {
             tracing::debug!(group = %group_key, "group-info: group not found, not-applicable");
-            return (StatusCode::OK, Json(empty())).into_response();
+            ok_empty!();
         }
     };
 
@@ -100,11 +112,11 @@ async fn handle_group_info_inner(
         Ok(p) => p,
         Err(e) => {
             tracing::warn!(group = %group_key, error = %e, "group-info: get_group_platforms failed, not-applicable");
-            return (StatusCode::OK, Json(empty())).into_response();
+            ok_empty!();
         }
     };
     if platforms.len() != 1 {
-        return (StatusCode::OK, Json(empty())).into_response();
+        ok_empty!();
     }
     let platform = &platforms[0].platform;
 
@@ -238,5 +250,7 @@ async fn handle_group_info_inner(
         balance_level,
     };
 
-    (StatusCode::OK, Json(resp)).into_response()
+    let mut r = (StatusCode::OK, Json(resp)).into_response();
+    inject_trace_header(&mut r);
+    r
 }

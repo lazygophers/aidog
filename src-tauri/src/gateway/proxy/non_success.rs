@@ -133,7 +133,7 @@ pub(crate) async fn handle_non_success(
         log.retry_count = (attempts.len() as i32 - 1).max(0);
         log.attempts = std::mem::take(attempts);
         upsert_log(state, log, log_settings).await;
-        AttemptOutcome::Respond(
-            (StatusCode::from_u16(out_code).unwrap_or(StatusCode::BAD_GATEWAY), out_body).into_response(),
-        )
+        let mut r = (StatusCode::from_u16(out_code).unwrap_or(StatusCode::BAD_GATEWAY), out_body).into_response();
+        inject_trace_header(&mut r);
+        AttemptOutcome::Respond(r)
 }

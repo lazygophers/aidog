@@ -72,7 +72,9 @@ pub(crate) async fn handle_passthrough(
             log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(state, log, log_settings).await;
-            return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+            let mut r = (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+            inject_trace_header(&mut r);
+            return r;
         }
     };
 
@@ -140,6 +142,7 @@ pub(crate) async fn handle_passthrough(
 
         let mut response = (resp_status, body.to_vec()).into_response();
         *response.headers_mut() = resp_header_map;
+        inject_trace_header(&mut response);
         return response;
     }
 
@@ -220,6 +223,7 @@ pub(crate) async fn handle_passthrough(
 
     let mut response = (resp_status, body).into_response();
     *response.headers_mut() = resp_header_map;
+    inject_trace_header(&mut response);
     response
 }
 
@@ -299,6 +303,7 @@ pub(crate) async fn handle_models_static(
         axum::http::header::CONTENT_TYPE,
         axum::http::HeaderValue::from_static("application/json"),
     );
+    inject_trace_header(&mut response);
     response
 }
 
@@ -352,7 +357,9 @@ pub(crate) async fn forward_passthrough_to_orig_host(
         log.status_code = 400;
         log.duration_ms = start.elapsed().as_millis() as i32;
         upsert_log(state, log, log_settings).await;
-        return (StatusCode::BAD_REQUEST, "missing Host header").into_response();
+        let mut r = (StatusCode::BAD_REQUEST, "missing Host header").into_response();
+        inject_trace_header(&mut r);
+        return r;
     }
     let pq = orig_uri
         .path_and_query()
@@ -406,7 +413,9 @@ pub(crate) async fn forward_passthrough_to_orig_host(
             log.user_response_headers = r#"{"content-type":"text/plain"}"#.to_string();
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(state, log, log_settings).await;
-            return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+            let mut r = (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+            inject_trace_header(&mut r);
+            return r;
         }
     };
 
@@ -466,6 +475,7 @@ pub(crate) async fn forward_passthrough_to_orig_host(
         upsert_log(state, log, log_settings).await;
         let mut response = (resp_status, body.to_vec()).into_response();
         *response.headers_mut() = resp_header_map;
+        inject_trace_header(&mut response);
         return response;
     }
 
@@ -517,6 +527,7 @@ pub(crate) async fn forward_passthrough_to_orig_host(
     upsert_log(state, log, log_settings).await;
     let mut response = (resp_status, body).into_response();
     *response.headers_mut() = resp_header_map;
+    inject_trace_header(&mut response);
     response
 }
 
