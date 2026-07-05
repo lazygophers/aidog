@@ -429,7 +429,7 @@
   "importExport.settingLabel.db_compact_migrated_v1": "データベース圧縮マイグレーションフラグ",
   "importExport.settingLabel.global_cc_codex_settings": "コーディングツール設定（旧）",
   "importExport.settingLabel.global_claude_code": "Claude Code グローバル設定",
-  "importExport.settingLabel.global_coding_tools_settings": "コーディングツール設定",
+  "importExport.settingLabel.global_coding_tools_settings": "CLI 連携設定",
   "importExport.settingLabel.middleware_settings": "ミドルウェア全体設定",
   "importExport.settingLabel.notification_settings": "通知設定",
   "importExport.settingLabel.popover_config": "ポップオーバー設定",

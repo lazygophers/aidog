@@ -429,7 +429,7 @@
   "importExport.settingLabel.db_compact_migrated_v1": "Indicador de migración de compactación de base de datos",
   "importExport.settingLabel.global_cc_codex_settings": "Ajustes de herramientas de programación (heredado)",
   "importExport.settingLabel.global_claude_code": "Configuración global de Claude Code",
-  "importExport.settingLabel.global_coding_tools_settings": "Ajustes de herramientas de programación",
+  "importExport.settingLabel.global_coding_tools_settings": "Ajustes de integración CLI",
   "importExport.settingLabel.middleware_settings": "Ajustes principales del middleware",
   "importExport.settingLabel.notification_settings": "Ajustes de notificaciones",
   "importExport.settingLabel.popover_config": "Configuración del popover",
