@@ -43,7 +43,11 @@ async fn handle_notify_inner(
         .map(|s| s.trim().to_string());
     let group_key = match group_key {
         Some(n) if !n.is_empty() => n,
-        _ => return StatusCode::UNAUTHORIZED.into_response(),
+        _ => {
+            let mut r = StatusCode::UNAUTHORIZED.into_response();
+            inject_trace_header(&mut r);
+            return r;
+        }
     };
     // 校验分组存在（防任意 token 触发；不存在则拒绝）；同时取显示名供脚本 {group} 渲染。
     let group_name = match super::db::list_groups(&state.db).await {
@@ -51,12 +55,16 @@ async fn handle_notify_inner(
             Some(g) => g.name.clone(),
             None => {
                 tracing::debug!(group = %group_key, "notify: group not found, reject");
-                return StatusCode::UNAUTHORIZED.into_response();
+                let mut r = StatusCode::UNAUTHORIZED.into_response();
+                inject_trace_header(&mut r);
+                return r;
             }
         },
         Err(e) => {
             tracing::warn!(error = %e, "notify: list_groups failed");
-            return StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            let mut r = StatusCode::INTERNAL_SERVER_ERROR.into_response();
+            inject_trace_header(&mut r);
+            return r;
         }
     };
 
@@ -64,7 +72,9 @@ async fn handle_notify_inner(
         Ok(r) => r,
         Err(e) => {
             tracing::warn!(error = %e, "notify: invalid body");
-            return (StatusCode::BAD_REQUEST, format!("invalid body: {e}")).into_response();
+            let mut r = (StatusCode::BAD_REQUEST, format!("invalid body: {e}")).into_response();
+            inject_trace_header(&mut r);
+            return r;
         }
     };
 
@@ -95,5 +105,7 @@ async fn handle_notify_inner(
         "notify dispatched"
     );
 
-    (StatusCode::OK, Json(result)).into_response()
+    let mut r = (StatusCode::OK, Json(result)).into_response();
+    inject_trace_header(&mut r);
+    r
 }

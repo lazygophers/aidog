@@ -43,7 +43,11 @@ pub(crate) async fn handle_responses_subendpoint(
             log.status_code = 503;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(state, log, log_settings).await;
-            return (StatusCode::SERVICE_UNAVAILABLE, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
+            return {
+                let mut r = (StatusCode::SERVICE_UNAVAILABLE, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
+                inject_trace_header(&mut r);
+                r
+            };
         }
     };
 
@@ -79,7 +83,11 @@ pub(crate) async fn handle_responses_subendpoint(
                     log.status_code = 503;
                     log.duration_ms = start.elapsed().as_millis() as i32;
                     upsert_log(state, log, log_settings).await;
-                    return (StatusCode::SERVICE_UNAVAILABLE, i18n::t(lang, ErrorKey::Route)).into_response();
+                    return {
+                        let mut r = (StatusCode::SERVICE_UNAVAILABLE, i18n::t(lang, ErrorKey::Route)).into_response();
+                        inject_trace_header(&mut r);
+                        r
+                    };
                 }
             }
         }
@@ -124,7 +132,11 @@ pub(crate) async fn handle_responses_subendpoint(
             log.user_response_body = format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream));
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(state, log, log_settings).await;
-            return (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+            return {
+                let mut r = (StatusCode::BAD_GATEWAY, format!("{}: {e}", i18n::t(lang, ErrorKey::Upstream))).into_response();
+                inject_trace_header(&mut r);
+                r
+            };
         }
     };
 
@@ -152,6 +164,7 @@ pub(crate) async fn handle_responses_subendpoint(
     if let Ok(hv) = axum::http::HeaderValue::from_str(&content_type) {
         response.headers_mut().insert(axum::http::header::CONTENT_TYPE, hv);
     }
+    inject_trace_header(&mut response);
     response
 }
 

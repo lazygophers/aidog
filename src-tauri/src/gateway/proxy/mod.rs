@@ -83,7 +83,8 @@ pub(crate) use forward::{forward_attempt, AttemptOutcome};
 pub(crate) use non_success::handle_non_success;
 pub(crate) use group_info::handle_group_info;
 pub(crate) use headers::{
-    format_pretty_json, is_sensitive_auth_header, passthrough_convert_headers, passthrough_headers,
+    format_pretty_json, inject_trace_header, is_sensitive_auth_header, passthrough_convert_headers,
+    passthrough_headers,
 };
 // is_official_anthropic_host 仅 headers 内部 + 测试消费；重导出供 test_passthrough 可达。
 #[allow(unused_imports)]
