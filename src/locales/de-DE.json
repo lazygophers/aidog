@@ -429,7 +429,7 @@
   "importExport.settingLabel.db_compact_migrated_v1": "Markierung für Datenbank-Komprimierungsmigration",
   "importExport.settingLabel.global_cc_codex_settings": "Einstellungen für Codierungswerkzeuge (veraltet)",
   "importExport.settingLabel.global_claude_code": "Globale Claude-Code-Konfiguration",
-  "importExport.settingLabel.global_coding_tools_settings": "Einstellungen für Codierungswerkzeuge",
+  "importExport.settingLabel.global_coding_tools_settings": "Einstellungen für die CLI-Integration",
   "importExport.settingLabel.middleware_settings": "Middleware-Haupteinstellungen",
   "importExport.settingLabel.notification_settings": "Benachrichtigungseinstellungen",
   "importExport.settingLabel.popover_config": "Popover-Konfiguration",

@@ -429,7 +429,7 @@
   "importExport.settingLabel.db_compact_migrated_v1": "Database compaction migration flag",
   "importExport.settingLabel.global_cc_codex_settings": "Coding tools settings (legacy)",
   "importExport.settingLabel.global_claude_code": "Claude Code global config",
-  "importExport.settingLabel.global_coding_tools_settings": "Coding tools settings",
+  "importExport.settingLabel.global_coding_tools_settings": "CLI Integration settings",
   "importExport.settingLabel.middleware_settings": "Middleware master settings",
   "importExport.settingLabel.notification_settings": "Notification settings",
   "importExport.settingLabel.popover_config": "Popover config",

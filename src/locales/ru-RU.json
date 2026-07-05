@@ -429,7 +429,7 @@
   "importExport.settingLabel.db_compact_migrated_v1": "Флаг миграции сжатия базы данных",
   "importExport.settingLabel.global_cc_codex_settings": "Настройки инструментов программирования (устаревшие)",
   "importExport.settingLabel.global_claude_code": "Глобальная конфигурация Claude Code",
-  "importExport.settingLabel.global_coding_tools_settings": "Настройки инструментов программирования",
+  "importExport.settingLabel.global_coding_tools_settings": "Настройки интеграции CLI",
   "importExport.settingLabel.middleware_settings": "Основные настройки промежуточного слоя",
   "importExport.settingLabel.notification_settings": "Настройки уведомлений",
   "importExport.settingLabel.popover_config": "Конфигурация всплывающей панели",
