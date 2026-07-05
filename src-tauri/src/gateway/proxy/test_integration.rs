@@ -55,6 +55,7 @@ async fn make_state(db: crate::gateway::db::Db) -> Arc<ProxyState> {
             std::collections::VecDeque::new(),
             std::collections::HashSet::new(),
         )),
+        listen_addr: std::sync::OnceLock::new(),
     })
 }
 
@@ -795,4 +796,105 @@ async fn notify_event_path_injects_builtin_vars() {
     let body = Bytes::from_static(br#"{"event":"Stop","content":"hello"}"#);
     let resp = handle_notify(AxumState(state), notify_headers(Some("gkn3")), body).await;
     assert_eq!(resp.status(), StatusCode::OK);
+}
+
+// ── fallback 直通：MITM 解密非 API 流量未匹配分组 → 直通原 host + 虚拟桶统计 ──
+
+/// 纯函数：is_api_endpoint 覆盖清单（主路径 + responses 子端点 + count_tokens + models）。
+#[test]
+fn is_api_endpoint_covers_main_paths() {
+    use super::endpoint::is_api_endpoint;
+    // API paths
+    assert!(is_api_endpoint("/v1/messages"));
+    assert!(is_api_endpoint("/v1/messages/count_tokens"));
+    assert!(is_api_endpoint("/v1/chat/completions"));
+    assert!(is_api_endpoint("/v1/completions"));
+    assert!(is_api_endpoint("/v1/responses"));
+    assert!(is_api_endpoint("/v1/responses/resp_abc"));
+    assert!(is_api_endpoint("/v1/responses/resp_abc/cancel"));
+    assert!(is_api_endpoint("/v1/embeddings"));
+    assert!(is_api_endpoint("/v1/models"));
+    assert!(is_api_endpoint("/proxy/v1/messages"));
+    // 非 API paths
+    assert!(!is_api_endpoint("/"));
+    assert!(!is_api_endpoint("/index.html"));
+    assert!(!is_api_endpoint("/some/path"));
+    assert!(!is_api_endpoint("/proxy/"));
+}
+
+/// 纯函数：should_fallback_passthrough 三分支（MITM 直通 / API 仍 404 / 代理自身 host 不直通）。
+#[test]
+fn should_fallback_passthrough_decision_matrix() {
+    use super::endpoint::should_fallback_passthrough;
+    let listen = Some((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 9892u16));
+
+    // MITM 解密（Host = www.baidu.com，非代理自身）+ 非 API → 直通
+    assert!(should_fallback_passthrough("www.baidu.com", "/", listen));
+    assert!(should_fallback_passthrough("www.baidu.com:443", "/index.html", listen));
+    // API path → 不直通（仍 404），即使 Host 是外部
+    assert!(!should_fallback_passthrough("www.baidu.com", "/v1/messages", listen));
+    assert!(!should_fallback_passthrough("www.baidu.com", "/v1/chat/completions", listen));
+    // 代理自身 host 直连 → 不直通（保留 404）
+    assert!(!should_fallback_passthrough("127.0.0.1:9892", "/v1/messages", listen));
+    assert!(!should_fallback_passthrough("127.0.0.1:9892", "/", listen));
+    assert!(!should_fallback_passthrough("localhost:9892", "/", listen));
+    // listen_addr = None（测试 / 未启动）→ 保守不直通
+    assert!(!should_fallback_passthrough("www.baidu.com", "/", None));
+    // 0.0.0.0 bind：客户端通常连 127.0.0.1，视为自身
+    let listen_lan = Some((std::net::IpAddr::V4(std::net::Ipv4Addr::new(0, 0, 0, 0)), 9892u16));
+    assert!(!should_fallback_passthrough("127.0.0.1:9892", "/", listen_lan));
+    // 非 loopback、非 listen ip 的外部 host → MITM 解密灌入 → 直通
+    assert!(should_fallback_passthrough("api.example.com", "/foo", listen_lan));
+}
+
+/// 无 Authorization + Host = 外部（MITM 解密灌入）+ 非 API path + 上游不可达
+/// → fallback 直通原 host，上游失败返 502，proxy_log 落虚拟桶（group_key="未匹配" / cost=0）。
+#[tokio::test]
+async fn fallback_passthrough_mitm_unmatched_logs_virtual_bucket() {
+    let state = make_state(test_db().await).await;
+    // 设置 listen_addr（模拟 start_proxy 绑定后的状态）。
+    let _ = state.listen_addr.set((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 9892u16));
+
+    // Host = 外部 host（模拟 MITM 解密灌入），path = /（非 API），无 Authorization。
+    // 上游 https://nonexistent.invalid 必然 TLS/DNS 失败 → 502。
+    let req = HttpRequest::builder()
+        .method("GET")
+        .uri("/")
+        .header("host", "nonexistent.invalid")
+        .body(Body::empty())
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    // 上游不可达 → 502
+    assert_eq!(resp.status(), StatusCode::BAD_GATEWAY);
+
+    // 虚拟桶落库：group_key="未匹配"，platform_id=0，cost=0。
+    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    let bucket = logs.iter().find(|l| l.group_key == "未匹配");
+    assert!(bucket.is_some(), "虚拟桶 proxy_log 应落库 (group_key=未匹配), logs: {:?}", logs.iter().map(|l| &l.group_key).collect::<Vec<_>>());
+    let b = bucket.unwrap();
+    assert_eq!(b.platform_id, 0, "虚拟桶 platform_id=0");
+    assert_eq!(b.status_code, 502, "上游不可达 → 502");
+    assert_eq!(b.source_protocol, "passthrough_unmatched", "虚拟桶 source_protocol 标记");
+}
+
+/// API path + 错 token + Host = 代理自身 → 仍 404（不旁路直通）。
+#[tokio::test]
+async fn api_path_wrong_token_still_404_no_bypass() {
+    let state = make_state(test_db().await).await;
+    let _ = state.listen_addr.set((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 9892u16));
+
+    // 错 token + API path + 代理自身 host → 404，不进 fallback。
+    let req = HttpRequest::builder()
+        .method("POST")
+        .uri("/v1/messages")
+        .header("host", "127.0.0.1:9892")
+        .header("authorization", "Bearer wrong-token")
+        .header("content-type", "application/json")
+        .body(Body::from(r#"{"model":"m","messages":[]}"#.to_string()))
+        .unwrap();
+    let resp = handle_proxy(AxumState(state.clone()), req).await;
+    assert_eq!(resp.status(), StatusCode::NOT_FOUND);
+    // 不落虚拟桶
+    let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
+    assert!(!logs.iter().any(|l| l.group_key == "未匹配"), "API path 未匹配不应进虚拟桶");
 }

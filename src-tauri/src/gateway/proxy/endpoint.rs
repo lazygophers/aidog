@@ -217,6 +217,85 @@ pub(crate) async fn match_platform_by_host(db: &Db, connect_host: &str) -> Optio
         .map(|p| (p.id, p.clone()))
 }
 
+/// 判定 path 是否为 AI API 端点（未匹配 token 时应 404，不走 fallback 直通）。
+/// 复用既有 is_models_endpoint / is_responses_subendpoint / is_count_tokens_endpoint，
+/// 补 chat/completions / messages / embeddings 等主路径。
+/// path 已含可能的 /proxy 前缀；按「尾段匹配 / 包含子串」宽松判定，宁误判为 API（保留 404）
+/// 也不漏判（漏判会把配错 token 的 API 流量旁路直通到原 host，违反 PRD 非目标）。
+pub(crate) fn is_api_endpoint(path: &str) -> bool {
+    if super::is_models_endpoint(path) {
+        return true;
+    }
+    if super::is_responses_subendpoint(path) {
+        return true;
+    }
+    if super::is_count_tokens_endpoint(path) {
+        return true;
+    }
+    // 主路径前缀匹配（find 跳过 /proxy 等前缀，与 detect_source_protocol 同款定位逻辑）。
+    let api_path = if let Some(idx) = path.find("/v1/") {
+        &path[idx..]
+    } else {
+        return false;
+    };
+    api_path.starts_with("/v1/messages")
+        || api_path.starts_with("/v1/chat/completions")
+        || api_path.starts_with("/v1/completions")
+        || api_path.starts_with("/v1/responses")
+        || api_path.starts_with("/v1/embeddings")
+        || api_path.starts_with("/v1/images")
+        || api_path.starts_with("/v1/audio")
+}
+
+/// fallback 直通判定：MITM 解密（Host ≠ 代理自身监听 host）且非 API path → 直通原 host。
+/// - `host`：请求 Host header（含端口，如 `www.baidu.com` 或 `127.0.0.1:9892`）。
+/// - `listen_addr`：代理实际监听 (ip, port)（state.listen_addr）；None 走保守分支不直通。
+///
+/// 代理自身 host 直连（API 客户端 `http://127.0.0.1:port/v1/messages`）→ Host = 代理自身 → false。
+/// MITM 解密灌入（CONNECT target = baidu.com，明文 Request Host = baidu.com）→ Host ≠ 代理 → 命中。
+pub(crate) fn should_fallback_passthrough(host: &str, path: &str, listen_addr: Option<(std::net::IpAddr, u16)>) -> bool {
+    if is_api_endpoint(path) {
+        return false;
+    }
+    let Some((ip, port)) = listen_addr else {
+        // 测试 state 或未启动：保守不直通（保留原 404 语义，避免误旁路）。
+        return false;
+    };
+    // 拆 Host header 的 host:port（host 不带端口时整个当作 host）。
+    let (req_host, req_port) = match host.rsplit_once(':') {
+        Some((h, p)) => (h, p.parse::<u16>().ok()),
+        None => (host, None),
+    };
+    let req_host = req_host.trim().to_lowercase();
+    // 代理自身监听 host 候选名（loopback 各形态）。
+    let is_self_host = match req_host.as_str() {
+        "localhost" => true,
+        "127.0.0.1" | "0.0.0.0" => true,  // 0.0.0.0 bind 时客户端通常连 127.0.0.1
+        _ => false,
+    };
+    // 字面量 IPv4 与 listen ip 比较。
+    if !is_self_host {
+        if let Ok(req_ip) = req_host.parse::<std::net::IpAddr>() {
+            if req_ip == ip {
+                // host 是 IP 且等于 listen ip → 视为代理自身（含非 loopback bind）。
+                // port 不匹配仍判自身（避免代理换端口探测被旁路；非 API 流量直连代理本就异常）。
+                let _ = req_port;
+                return false;
+            }
+        }
+        return true;  // 既非 loopback 名也非 listen ip → MITM 解密灌入
+    }
+    // loopback 名 + 端口 = 代理监听端口 → 自身直连。
+    if let Some(rp) = req_port {
+        if rp == port {
+            return false;
+        }
+    }
+    // loopback 名但端口不同（如客户端连 127.0.0.1:80）→ 仍可能是本机其他服务，
+    // 保守视为非自身（允许直通；本机错连概率低，且非 API 不破坏鉴权）。
+    true
+}
+
 #[cfg(test)]
 #[path = "test_endpoint.rs"]
 mod test_endpoint;

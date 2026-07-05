@@ -4,7 +4,9 @@ import type { GroupDetail, Platform, PlatformUsageStats } from "../../services/a
 import type { PlatformCardActions } from "../../components/platforms/PlatformCard";
 import type { usePlatformCards } from "../../components/platforms/usePlatformCards";
 import { SortableList } from "../../components/SortableList";
-import { CopyButton } from "../../components/shared";
+import { CopyButton, StatChip, successRateLevel, costLevel } from "../../components/shared";
+import { formatNumber, formatCost, formatPercent, successRate as calcSuccessRate } from "../../utils/formatters";
+import { IconBolt, IconCost, IconCheck } from "../../components/icons";
 import { ModelTestPanel } from "../ModelTestPanel";
 import { ShareModal } from "../../components/platforms/ShareModal";
 import { GroupTestPanel, type GroupRow } from "../../domains/groups";
@@ -26,6 +28,8 @@ export interface GroupListViewProps {
   groupIndexById: Map<number, number>;
   groupStats: Record<string, PlatformUsageStats>;
   groupBalance: Record<number, number>;
+  /** 虚拟桶「未匹配」（MITM 解密非 API fallback 直通）：undefined = 无此类请求，不渲染卡片 */
+  unmatchedStat: PlatformUsageStats | undefined;
   groupSearch: Map<number, { visibleIds: Set<number> | null }> | null;
   collapsedGroups: Set<number>;
   setCollapsedGroups: React.Dispatch<React.SetStateAction<Set<number>>>;
@@ -73,7 +77,7 @@ export interface GroupListViewProps {
 export function GroupListView(props: GroupListViewProps) {
   const {
     details, platforms, t, loading, loadingMore, hasMore, sentinelRef, proxyBaseUrl,
-    groupRows, groupIndexById, groupStats, groupBalance, groupSearch,
+    groupRows, groupIndexById, groupStats, groupBalance, unmatchedStat, groupSearch,
     collapsedGroups, setCollapsedGroups, toggleGroupExpanded,
     mappingGroupId, mSource, mTargetPlatform, mTargetModel, availableModels,
     setMappingGroupId, setMSource, setMTargetPlatform, setMTargetModel,
@@ -211,6 +215,10 @@ export function GroupListView(props: GroupListViewProps) {
               {t("status.loading")}
             </div>
           )}
+          {/* 虚拟桶「未匹配」只读卡片：MITM 解密非 API 流量 fallback 直通的统计，无平台/余额/编辑。 */}
+          {unmatchedStat && unmatchedStat.total_requests > 0 && (
+            <UnmatchedBucketCard stat={unmatchedStat} t={t} />
+          )}
         </div>
       )}
 
@@ -274,3 +282,34 @@ export function GroupListView(props: GroupListViewProps) {
   );
 }
 
+
+/** 虚拟桶「未匹配」只读卡片：MITM 解密非 API 流量未匹配分组 → fallback 直通原 host 的统计。
+ *  非真实分组（不入 groups 表），仅展示请求数/token/cost(恒0)/成功率，灰色徽标区分，无编辑/平台/余额。 */
+function UnmatchedBucketCard({ stat: u, t }: { stat: PlatformUsageStats; t: TFunction }) {
+  const totalTokens = u.total_input_tokens + u.total_output_tokens;
+  const sRate = calcSuccessRate(u.success_count, u.total_requests);
+  return (
+    <div className="glass-surface" style={{
+      padding: "14px 18px", display: "flex", flexDirection: "column", gap: 8,
+      opacity: 0.85, border: "1px dashed var(--border-color)",
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <span style={{ fontWeight: 600, fontSize: 14 }}>{t("group.unmatched", "未匹配")}</span>
+        <span className="badge badge-muted" style={{ fontSize: 10, padding: "0 6px", fontWeight: 500 }}>
+          {t("group.unmatchedBadge", "虚拟桶")}
+        </span>
+      </div>
+      <div className="text-tertiary" style={{ fontSize: 12, lineHeight: 1.5 }}>
+        {t("group.unmatchedHint", "MITM 解密的非 API 流量未匹配分组时透明转发到原 host，不计费，仅统计请求数。")}
+      </div>
+      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+        <StatChip icon={<IconBolt size={13} />} value={formatNumber(totalTokens)} label="tokens" />
+        <StatChip icon={<IconCost size={13} />} value={`$${formatCost(u.total_cost)}`} label="cost" level={costLevel(u.total_cost)} />
+        {u.total_requests > 0 && (
+          <StatChip icon={<IconCheck size={13} />} value={formatPercent(sRate, 0)} label="ok"
+            level={successRateLevel(sRate, u.total_requests)} />
+        )}
+      </div>
+    </div>
+  );
+}

@@ -14,10 +14,11 @@ import { upsertPlatformInto } from "../../domains/groups";
 export async function fetchGroupStats(
   details: GroupDetail[],
   platforms: Platform[],
-): Promise<{ statsMap: Record<string, PlatformUsageStats>; balanceMap: Record<number, number> }> {
+): Promise<{ statsMap: Record<string, PlatformUsageStats>; balanceMap: Record<number, number>; unmatchedStat?: PlatformUsageStats }> {
   const platById = new Map(platforms.map(pp => [pp.id, pp]));
   const statsMap: Record<string, PlatformUsageStats> = {};
   const balanceMap: Record<number, number> = {};
+  let unmatchedStat: PlatformUsageStats | undefined;
   // usage stats：单次批量 invoke（后端 GROUP BY group_key），消除逐 group N+1 往返。
   try {
     const all = await groupUsageApi.statsAll();
@@ -25,6 +26,9 @@ export async function fetchGroupStats(
       const s = all[g.group.group_key];
       if (s && s.total_requests > 0) statsMap[g.group.group_key] = s;
     }
+    // 虚拟桶「未匹配」：后端 fallback 直通落库的 group_key（非真实分组），单列只读展示。
+    const u = all["未匹配"];
+    if (u && u.total_requests > 0) unmatchedStat = u;
   } catch { /* ignore */ }
   // balance：关联平台余额求和（保持平台级语义，无 HTTP）。
   for (const g of details) {
@@ -35,7 +39,7 @@ export async function fetchGroupStats(
     }
     if (balance > 0) balanceMap[g.group.id] = balance;
   }
-  return { statsMap, balanceMap };
+  return { statsMap, balanceMap, unmatchedStat };
 }
 
 export interface UseGroupDataArgs {
@@ -53,6 +57,8 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
   const [details, setDetails] = useState<GroupDetail[]>([]);
   const [platforms, setPlatforms] = useState<Platform[]>([]);
   const [groupStats, setGroupStats] = useState<Record<string, PlatformUsageStats>>({});
+  // 虚拟桶「未匹配」（MITM 解密非 API 流量 fallback 直通）：只读卡片展示，无平台/余额/编辑。
+  const [unmatchedStat, setUnmatchedStat] = useState<PlatformUsageStats | undefined>(undefined);
   // 聚合余额：关联 platforms 的 est_balance_remaining 求和（platformApi.list 已带，无额外 HTTP）。
   const [groupBalance, setGroupBalance] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(true);
@@ -83,10 +89,11 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
 
   /** 已拉全部组 detail + 全量平台 → 重算统计/余额（增量加载后复用，无额外组 invoke 往返）。 */
   const recomputeStats = async (seqAlive: () => boolean) => {
-    const { statsMap, balanceMap } = await fetchGroupStats(loadedDetailsRef.current, allPlatformsRef.current);
+    const { statsMap, balanceMap, unmatchedStat: u } = await fetchGroupStats(loadedDetailsRef.current, allPlatformsRef.current);
     if (!seqAlive()) return;
     setGroupStats(statsMap);
     setGroupBalance(balanceMap);
+    setUnmatchedStat(u);
   };
 
   /** 轻量刷新：刷新全量平台快照（含 est_balance_remaining）+ 按已加载组重算 usage stats / 余额聚合，
@@ -95,9 +102,10 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
     try {
       const p = (await platformApi.list()) || [];
       allPlatformsRef.current = p;
-      const { statsMap, balanceMap } = await fetchGroupStats(loadedDetailsRef.current, p);
+      const { statsMap, balanceMap, unmatchedStat: u } = await fetchGroupStats(loadedDetailsRef.current, p);
       setGroupStats(statsMap);
       setGroupBalance(balanceMap);
+      setUnmatchedStat(u);
     } catch { /* ignore */ }
   };
 
@@ -249,6 +257,7 @@ export function useGroupData({ onCountChange }: UseGroupDataArgs = {}) {
   return {
     details, platforms, setDetails,
     groupStats, groupBalance, setGroupBalance,
+    unmatchedStat,
     loading, loadingMore, hasMore, sentinelRef,
     proxyBaseUrl, allPlatformsRef,
     load, refreshStats, refreshSingleGroup,

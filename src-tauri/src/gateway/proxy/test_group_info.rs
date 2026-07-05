@@ -18,6 +18,7 @@ async fn make_state(db: crate::gateway::db::Db) -> Arc<ProxyState> {
             std::collections::VecDeque::new(),
             std::collections::HashSet::new(),
         )),
+        listen_addr: std::sync::OnceLock::new(),
     })
 }
 
