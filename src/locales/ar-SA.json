@@ -429,7 +429,7 @@
   "importExport.settingLabel.db_compact_migrated_v1": "علامة ترحيل ضغط قاعدة البيانات",
   "importExport.settingLabel.global_cc_codex_settings": "إعدادات أدوات البرمجة (قديمة)",
   "importExport.settingLabel.global_claude_code": "إعدادات Claude Code العامة",
-  "importExport.settingLabel.global_coding_tools_settings": "إعدادات أدوات البرمجة",
+  "importExport.settingLabel.global_coding_tools_settings": "إعدادات تكامل CLI",
   "importExport.settingLabel.middleware_settings": "إعدادات الوسيطة الرئيسية",
   "importExport.settingLabel.notification_settings": "إعدادات الإشعارات",
   "importExport.settingLabel.popover_config": "تكوين النافذة المنبثقة",
