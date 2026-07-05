@@ -41,7 +41,11 @@ pub(crate) async fn handle_mock(
             log.user_response_body = body_str.clone();
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
             upsert_log(&state, &log, &log_settings).await;
-            return (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response();
+            return {
+                let mut r = (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response();
+                inject_trace_header(&mut r);
+                r
+            };
         }
         "rate_limit_429" => {
             tracing::warn!(platform_id = log.platform_id, "mock error_mode=rate_limit_429 (429)");
@@ -53,15 +57,19 @@ pub(crate) async fn handle_mock(
             log.user_response_body = body_str.clone();
             log.user_response_headers = r#"{"content-type":"application/json","retry-after":"5"}"#.to_string();
             upsert_log(&state, &log, &log_settings).await;
-            return (
-                StatusCode::TOO_MANY_REQUESTS,
-                [
-                    (axum::http::header::CONTENT_TYPE, "application/json"),
-                    (axum::http::header::RETRY_AFTER, "5"),
-                ],
-                body_str,
-            )
-                .into_response();
+            return {
+                let mut r = (
+                    StatusCode::TOO_MANY_REQUESTS,
+                    [
+                        (axum::http::header::CONTENT_TYPE, "application/json"),
+                        (axum::http::header::RETRY_AFTER, "5"),
+                    ],
+                    body_str,
+                )
+                    .into_response();
+                inject_trace_header(&mut r);
+                r
+            };
         }
         "timeout" => {
             tracing::warn!(platform_id = log.platform_id, "mock error_mode=timeout (will sleep then 504)");
@@ -75,8 +83,12 @@ pub(crate) async fn handle_mock(
             log.user_response_body = body_str.clone();
             log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
             upsert_log(&state, &log, &log_settings).await;
-            return (StatusCode::GATEWAY_TIMEOUT, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str)
-                .into_response();
+            return {
+                let mut r = (StatusCode::GATEWAY_TIMEOUT, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str)
+                    .into_response();
+                inject_trace_header(&mut r);
+                r
+            };
         }
         _ => {}
     }
@@ -110,16 +122,20 @@ pub(crate) async fn handle_mock(
         log.user_response_headers = r#"{"content-type":"text/event-stream","cache-control":"no-cache","connection":"keep-alive"}"#.to_string();
         upsert_log(&state, &log, &log_settings).await;
 
-        return (
-            StatusCode::OK,
-            [
-                (axum::http::header::CONTENT_TYPE, "text/event-stream"),
-                (axum::http::header::CACHE_CONTROL, "no-cache"),
-                (axum::http::header::CONNECTION, "keep-alive"),
-            ],
-            body,
-        )
-            .into_response();
+        return {
+            let mut r = (
+                StatusCode::OK,
+                [
+                    (axum::http::header::CONTENT_TYPE, "text/event-stream"),
+                    (axum::http::header::CACHE_CONTROL, "no-cache"),
+                    (axum::http::header::CONNECTION, "keep-alive"),
+                ],
+                body,
+            )
+                .into_response();
+            inject_trace_header(&mut r);
+            r
+        };
     }
 
     // 非流式 JSON
@@ -133,5 +149,7 @@ pub(crate) async fn handle_mock(
     log.user_response_headers = r#"{"content-type":"application/json"}"#.to_string();
     upsert_log(&state, &log, &log_settings).await;
 
-    (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response()
+    let mut r = (status, [(axum::http::header::CONTENT_TYPE, "application/json")], body_str).into_response();
+    inject_trace_header(&mut r);
+    r
 }

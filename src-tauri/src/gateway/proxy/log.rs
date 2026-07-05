@@ -201,12 +201,14 @@ pub(crate) async fn block_inbound(
     log.duration_ms = start.elapsed().as_millis() as i32;
     // est_cost 保持 0（不计费）；不调用 spawn_estimate。
     upsert_log(state, &log, log_settings).await;
-    (
+    let mut r = (
         StatusCode::FORBIDDEN,
         [(axum::http::header::CONTENT_TYPE, "application/json")],
         body,
     )
-        .into_response()
+        .into_response();
+    inject_trace_header(&mut r);
+    r
 }
 
 /// 在后台 tokio::spawn 中执行请求驱动的 quota 预估（不阻塞响应）。

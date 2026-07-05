@@ -189,7 +189,9 @@ pub(crate) async fn handle_proxy_core(
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
-            return (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::ReadBody))).into_response();
+            let mut r = (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::ReadBody))).into_response();
+            inject_trace_header(&mut r);
+            return r;
         }
     };
     log.request_body = String::from_utf8_lossy(&bytes).to_string();
@@ -238,13 +240,17 @@ pub(crate) async fn handle_proxy_core(
                     log.status_code = 404;
                     log.duration_ms = start.elapsed().as_millis() as i32;
                     upsert_log(&state, &log, &log_settings).await;
-                    return (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
+                    let mut r = (StatusCode::NOT_FOUND, log.response_body.clone()).into_response();
+                    inject_trace_header(&mut r);
+                    return r;
                 } else {
                     log.response_body = "no matching group".to_string();
                     log.status_code = 404;
                     log.duration_ms = start.elapsed().as_millis() as i32;
                     upsert_log(&state, &log, &log_settings).await;
-                    return (StatusCode::NOT_FOUND, i18n::t(lang, ErrorKey::NoMatchingGroup)).into_response();
+                    let mut r = (StatusCode::NOT_FOUND, i18n::t(lang, ErrorKey::NoMatchingGroup)).into_response();
+                    inject_trace_header(&mut r);
+                    return r;
                 }
             }
         }
@@ -288,7 +294,9 @@ pub(crate) async fn handle_proxy_core(
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
-            return (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::ParseJson))).into_response();
+            let mut r = (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::ParseJson))).into_response();
+            inject_trace_header(&mut r);
+            return r;
         }
     };
     let mut chat_req: ChatRequest = match adapter::parse_incoming_request(&log.source_protocol, &req_value) {
@@ -298,7 +306,9 @@ pub(crate) async fn handle_proxy_core(
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
-            return (StatusCode::BAD_REQUEST, i18n::t(lang, ErrorKey::ParseRequest)).into_response();
+            let mut r = (StatusCode::BAD_REQUEST, i18n::t(lang, ErrorKey::ParseRequest)).into_response();
+            inject_trace_header(&mut r);
+            return r;
         }
     };
 
@@ -347,7 +357,9 @@ pub(crate) async fn handle_proxy_core(
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
             upsert_log(&state, &log, &log_settings).await;
-            return (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
+            let mut r = (StatusCode::BAD_REQUEST, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
+            inject_trace_header(&mut r);
+            return r;
         }
     };
 
@@ -455,5 +467,7 @@ pub(crate) async fn handle_proxy_core(
     log.retry_count = (attempts.len() as i32 - 1).max(0);
     log.attempts = std::mem::take(&mut attempts);
     upsert_log(&state, &log, &log_settings).await;
-    (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response()
+    let mut r = (StatusCode::SERVICE_UNAVAILABLE, err_body).into_response();
+    inject_trace_header(&mut r);
+    r
 }
