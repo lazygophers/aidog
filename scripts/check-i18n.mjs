@@ -20,7 +20,7 @@
 import { readFileSync } from 'fs';
 import { execFileSync } from 'child_process';
 
-const LOCALES = ['zh-CN', 'en-US', 'ar-SA', 'fr-FR', 'de-DE', 'ru-RU', 'ja-JP', 'es-ES'];
+const LOCALES = ['zh-Hans', 'en-US', 'ar-SA', 'fr-FR', 'de-DE', 'ru-RU', 'ja-JP', 'es-ES'];
 const BASE = 'en-US'; // 动态模板覆盖度基准
 
 function loadLocale(l) {

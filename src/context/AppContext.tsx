@@ -93,7 +93,10 @@ function loadSettingsFromStorage(): Settings {
     // ignore
   }
 
-  const locale: Locale = raw.locale ?? "zh-CN";
+  // locale 透明迁移：老用户 localStorage/DB 存的 "zh-CN" (region 子标签) → "zh-Hans" (BCP 47 script 子标签)。
+  // 重命名后 i18next resources key 改为 zh-Hans，老值不迁移会 fallback 到 en-US（中文用户看英文）。
+  if ((raw.locale as string | undefined) === "zh-CN") raw.locale = "zh-Hans";
+  const locale: Locale = raw.locale ?? "zh-Hans";
   const themeMode: ThemeMode = raw.themeMode ?? DEFAULT_MODE;
 
   // 已是新结构

@@ -472,7 +472,7 @@
   "lang.ja-JP": "日本語",
   "lang.label": "语言",
   "lang.ru-RU": "Русский",
-  "lang.zh-CN": "简体中文",
+  "lang.zh-Hans": "简体中文",
   "logs": {
     "cacheTokens": "缓存 Token"
   },

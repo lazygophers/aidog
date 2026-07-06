@@ -100,19 +100,9 @@ export async function getDefaultModelList(protocol: Protocol, codingPlan?: boole
   return [...list];
 }
 
-/** i18next locale (zh-CN) → JSON name/desc locale key (zh-Hans) 映射。
- *  JSON name/desc 用 BCP 47 script 子标签 (zh-Hans)，前端 i18next 用 zh-CN 区域子标签。
- *  仅 zh 不一致，其余 7 locale 直接透传。 */
-const LOCALE_TO_DEFAULTS: Record<string, DefaultsLocale> = {
-  "zh-CN": "zh-Hans",
-  "en-US": "en-US",
-  "ar-SA": "ar-SA",
-  "fr-FR": "fr-FR",
-  "de-DE": "de-DE",
-  "ru-RU": "ru-RU",
-  "ja-JP": "ja-JP",
-  "es-ES": "es-ES",
-};
+/** i18next locale 与 JSON name/desc locale key 已统一为 BCP 47 script 子标签 (zh-Hans)。
+ *  locale-rename (07-06) 前 i18next 用 zh-CN 区域子标签，需 LOCALE_TO_DEFAULTS 桥接；
+ *  rename 后两端一致，直接用 i18next locale 作 DefaultsLocale 查 name/desc。 */
 
 /** 派生协议本地化显示名（fallback: locale → en-US → protocol key）。
  *  调用方: SearchableProtocolSelect 渲染 + 拼音搜索 + Sub2ApiImport option。
@@ -122,7 +112,7 @@ export async function getProtocolLabel(protocol: Protocol, locale?: string): Pro
   const entry = doc.protocols[protocol];
   const name = entry?.name;
   if (!name) return protocol;
-  const loc = locale ? LOCALE_TO_DEFAULTS[locale] : undefined;
+  const loc = locale ? (locale as DefaultsLocale) : undefined;
   if (loc && name[loc]) return name[loc]!;
   return name["en-US"] ?? protocol;
 }
@@ -133,7 +123,7 @@ export async function getProtocolDesc(protocol: Protocol, locale?: string): Prom
   const entry = doc.protocols[protocol];
   const desc = entry?.desc;
   if (!desc) return "";
-  const loc = locale ? LOCALE_TO_DEFAULTS[locale] : undefined;
+  const loc = locale ? (locale as DefaultsLocale) : undefined;
   if (loc && desc[loc]) return desc[loc]!;
   return desc["en-US"] ?? "";
 }
@@ -148,7 +138,7 @@ export async function getProtocolHomepage(protocol: Protocol): Promise<string> {
  *  codingPlan 变体共用同 value 的 name，调用方自行追加 "Coding Plan" 后缀。 */
 export async function getProtocolLabelMap(locale?: string): Promise<Record<Protocol, string>> {
   const doc = await loadDoc();
-  const loc = locale ? LOCALE_TO_DEFAULTS[locale] : undefined;
+  const loc = locale ? (locale as DefaultsLocale) : undefined;
   const out = {} as Record<Protocol, string>;
   for (const proto of Object.keys(doc.protocols) as Protocol[]) {
     const name = doc.protocols[proto]?.name;
