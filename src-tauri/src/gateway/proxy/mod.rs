@@ -242,7 +242,7 @@ pub async fn start_proxy(
         .fallback(handle_proxy)
         .with_state(state);
 
-    let handle = tokio::spawn(async move {
+    let handle = crate::logging::spawn_traced("axum_serve", async move {
         axum::serve(listener, app).await.ok();
     });
 

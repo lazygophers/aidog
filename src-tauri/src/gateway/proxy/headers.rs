@@ -3,7 +3,7 @@ use super::*;
 /// Debug build (`make run` = yarn tauri dev = debug) 下，给 AirDog 构造的响应注入
 /// `X-AiDog-Trace: <id>`，便于客户端报错（如 h2 CANCEL）时关联 AirDog 侧 proxy_log / span。
 ///
-/// - **id 取值链**：`current_trace_id()`（读线程活跃 span 链最内层 trace_id/request_id）→ 否则 `new_trace_id()`（8-hex 兜底）。
+/// - **id 取值链**：`current_trace_id()`（读线程活跃 span 链最内层 trace_id/request_id）→ 否则 `new_trace_id()`（6 [0-9a-z] 兜底，与日志行 traceid 字段格式一致以保 grep 直达）。
 /// - **gate**：`cfg!(debug_assertions)` 编译期判定；release build 调用点空操作（无 header 插入 + 无运行时开销）。
 /// - **覆盖范围**：凡 AirDog 直构的 proxy 响应（健康端点 / models / group-info / count_tokens / forward / passthrough / responses / mock / non_success / CONNECT 200）。
 /// - **豁免**：`blind_relay_after_connect`（TCP 字节透传，AirDog 看不见/改不了 HTTP 层；CONNECT 200 响应本身已注入）。
