@@ -79,5 +79,5 @@
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-05-mitm-h2-cancel-real-rootcause | 07-05-mitm-h2-cancel-real-rootcause | trellisx-start |
 | forward-http-absolute-form | forward proxy 扩展支持 absolute-form HTTP 转发任意 host | — | 已完成 | — |
-| log-format-field-loss | 日志格式器 MsgCollector 丢非 message event 字段 (fn/req/dur/sql 全丢) | — | 实施中 | — |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-06-log-format-field-loss | 07-06-log-format-field-loss | trellisx-start |
+| log-format-field-loss | 日志格式器 MsgCollector 丢非 message event 字段 (fn/req/dur/sql 全丢) | — | 已完成 | — |
+| delete-platform-keep-empty-group | delete_platform 保留空组不连带 force_delete_group 孤儿 auto 组 | — | 已完成 | — |
