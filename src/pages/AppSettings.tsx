@@ -13,7 +13,7 @@ import { useSystemSettings } from "./AppSettings/useSystemSettings";
 import { ProxyStatusSection, UpstreamProxySection } from "./AppSettings/ProxyStatusSection";
 import { StartupSection } from "./AppSettings/StartupSection";
 import { LogSettingsSection } from "./AppSettings/LogSettingsSection";
-import { SystemMiscSection, DbStatsSection, VersionToastSection } from "./AppSettings/SystemMiscSection";
+import { SystemMiscSection, DbStatsSection, VersionToastSection, DefaultsSyncSection } from "./AppSettings/SystemMiscSection";
 
 export type Tab = "system" | "claude" | "codex" | "coding_tools" | "middleware" | "scheduling" | "notifications" | "pricing" | "tray" | "popover" | "importexport" | "mitm";
 
@@ -46,6 +46,7 @@ function SystemTab({ onLogSettingsChanged }: { onLogSettingsChanged?: (enabled: 
       <SystemMiscSection s={s} />
       <LogSettingsSection s={s} />
       <DbStatsSection s={s} />
+      <DefaultsSyncSection />
       <VersionToastSection s={s} />
     </div>
   );

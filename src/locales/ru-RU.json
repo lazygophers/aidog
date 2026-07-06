@@ -1828,5 +1828,13 @@
   "mcp.share.title": "Поделиться MCP",
   "mcp.share.warning": "Общий контент содержит env/headers открытым текстом (могут содержать токены/секреты). Отправляйте только доверенным получателям; не публикуйте публично.",
   "mcp.share.copyUrl": "Скопировать как ссылку aidog://",
-  "mcp.share.urlCopied": "Ссылка aidog:// скопирована"
+  "mcp.share.urlCopied": "Ссылка aidog:// скопирована",
+  "settings.defaultsSync": "Синхронизация конфигурации по умолчанию",
+  "settings.defaultsSyncHint": "Получает стандартные настройки платформы (конечные точки протоколов / сопоставления моделей) из GitHub и записывает локально при наличии более новых",
+  "settings.defaultsSyncLastUpdated": "Время текущей версии:",
+  "settings.defaultsSyncCheck": "Проверить обновления",
+  "settings.defaultsSyncUpdated": "Обновлено до последней версии (источник: {{source}})",
+  "settings.defaultsSyncUpToDate": "Уже актуально",
+  "settings.defaultsSyncFailed": "Ошибка синхронизации: {{error}} (используется локальная конфигурация)",
+  "settings.defaultsSyncUnknown": "Неизвестно"
 }
