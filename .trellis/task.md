@@ -65,7 +65,7 @@
 | coding-tools-tab-rename-dedup-lang | 编程工具 tab 改名 + claudeTab 语言配置去重 | — | 已完成 | — |
 | h2-passthrough-stream-cancel | MITM 直通转发 HTTP/2 响应流 CANCEL | — | 已完成 | — |
 | mitm-h2-cancel-real-rootcause | MITM h2 stream CANCEL 真根因 (env proxy 已修仍 CANCEL) | — | 实施中 | — |
-| sql-log-full-content | SQL 日志输出完整原始内容而非占位符 | — | 实施中 | — |
+| sql-log-full-content | SQL 日志输出完整原始内容而非占位符 | — | 已完成 | — |
 | proxy-trace-id-header | proxy 响应头注入 X-AiDog-Trace trace-id (debug 模式 MITM/非 MITM 都加) | — | 已完成 | — |
 | app-log-to-file-always | 应用日志启用时强制输出到文件 (无视 debug 模式) | — | 已完成 | — |
 | trace-id-log-format | trace-id 注入日志格式让 header↔日志可 grep | — | 已完成 | — |
@@ -78,4 +78,5 @@
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-05-mitm-h2-cancel-real-rootcause | 07-05-mitm-h2-cancel-real-rootcause | trellisx-start |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-05-sql-log-full-content | 07-05-sql-log-full-content | trellisx-start |
+| forward-http-absolute-form | forward proxy 扩展支持 absolute-form HTTP 转发任意 host | — | 实施中 | — |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-06-forward-http-absolute-form | 07-06-forward-http-absolute-form | trellisx-start |
