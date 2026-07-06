@@ -50,6 +50,13 @@ src-tauri/src/
 
 ## 关键约束
 
+### 平台默认配置 (platform-presets.json)
+- 真值源 = `src-tauri/defaults/platform-presets.json`（60 协议，含 `last_updated` Unix 秒；非 `resources/`）。手维护，禁机器生成覆盖。
+- Rust 入口 `commands/defaults.rs::get_defaults_json`：读 app data (`~/.aidog/platform-presets.json`) → 缺失/损坏回退 `include_str!` bundled（同 `settings.json` 模式，非 Tauri resources）。
+- 前端 4 函数（`src/domains/platforms/defaults.ts` 的 `getDefaultEndpoints` / `getDefaultModels` / `getDefaultModelList` / `defaultClientForProtocol`）**全部 async**；模块级 `docPromise` 单次 RPC 缓存（多次调用复用同一 IPC）。**所有 caller 必须 `await`**（或 `.then`）—— 改动 grep 调用点确认无遗漏，TS 编译会捕获漏 await。
+- mock 协议不在 JSON 内（`platformPaste.ts:15` 从 `matchPlatform` 排除）；`getDefaultEndpoints("mock")` 返 `[]`。
+- coding_plan 分支（cp 三元）字段在 JSON 内分离保留，`injectProtocolHosts` 派生自此单一真值，禁抄第二份。
+
 ### URL 构造
 - `base_url` 含版本前缀（如 `/v1`、`/api/paas/v4`）
 - `provider_api_path()` 只返回 `/chat/completions`
@@ -79,4 +86,5 @@ src-tauri/src/
 - 主题架构：每主题 light + dark 两组 CSS 变量，位于 `src/themes/`
 - UI 风格偏好：Liquid Glass
 - 无 react-router：导航是 `App.tsx`(侧栏) + `AppSettings.tsx`(tab) 的本地 state；离页拦截走 `utils/navGuard.ts` 注册表，禁原生 confirm / beforeunload（破坏 Tauri）
+- modal/confirm 必须 `createPortal(document.body)`：祖先含 `transform`/`backdrop-filter`（liquid glass 主题）会让 `position:fixed` 退化为相对祖先，弹窗只在 page 内居中。详见 memory `modal-window-center-rule`。
 - 数值格式化统一走 `utils/formatters.ts`，禁页内重复定义 formatNumber 等
