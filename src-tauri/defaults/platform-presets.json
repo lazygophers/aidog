@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1783347706,
+  "last_updated": 1783354810,
   "protocols": {
     "anthropic": {
       "client_type": "claude_code",
@@ -27,6 +27,26 @@
           "claude-sonnet-4-6",
           "claude-haiku-4-5"
         ]
+      },
+      "name": {
+        "en-US": "Anthropic",
+        "zh-Hans": "Anthropic",
+        "ar-SA": "Anthropic",
+        "fr-FR": "Anthropic",
+        "de-DE": "Anthropic",
+        "ru-RU": "Anthropic",
+        "ja-JP": "Anthropic",
+        "es-ES": "Anthropic"
+      },
+      "desc": {
+        "en-US": "Anthropic official API for Claude models",
+        "zh-Hans": "Anthropic 官方 API, Claude 系列模型",
+        "ar-SA": "واجهة Anthropic الرسمية لنماذج Claude",
+        "fr-FR": "API officielle Anthropic pour les modèles Claude",
+        "de-DE": "Offizielle Anthropic-API für Claude-Modelle",
+        "ru-RU": "Официальный API Anthropic для моделей Claude",
+        "ja-JP": "Anthropic 公式 API、Claude シリーズモデル",
+        "es-ES": "API oficial de Anthropic para modelos Claude"
       }
     },
     "openai": {
@@ -49,6 +69,26 @@
         "default": [
           "gpt-5.5"
         ]
+      },
+      "name": {
+        "en-US": "OpenAI",
+        "zh-Hans": "OpenAI",
+        "ar-SA": "OpenAI",
+        "fr-FR": "OpenAI",
+        "de-DE": "OpenAI",
+        "ru-RU": "OpenAI",
+        "ja-JP": "OpenAI",
+        "es-ES": "OpenAI"
+      },
+      "desc": {
+        "en-US": "OpenAI official API for GPT models",
+        "zh-Hans": "OpenAI 官方 API, GPT 系列模型",
+        "ar-SA": "واجهة OpenAI الرسمية لنماذج GPT",
+        "fr-FR": "API officielle OpenAI pour les modèles GPT",
+        "de-DE": "Offizielle OpenAI-API für GPT-Modelle",
+        "ru-RU": "Официальный API OpenAI для моделей GPT",
+        "ja-JP": "OpenAI 公式 API、GPT シリーズモデル",
+        "es-ES": "API oficial de OpenAI para modelos GPT"
       }
     },
     "codex": {
@@ -71,6 +111,26 @@
         "default": [
           "gpt-5.5-codex"
         ]
+      },
+      "name": {
+        "en-US": "OpenAI Codex",
+        "zh-Hans": "OpenAI Codex",
+        "ar-SA": "OpenAI Codex",
+        "fr-FR": "OpenAI Codex",
+        "de-DE": "OpenAI Codex",
+        "ru-RU": "OpenAI Codex",
+        "ja-JP": "OpenAI Codex",
+        "es-ES": "OpenAI Codex"
+      },
+      "desc": {
+        "en-US": "OpenAI Codex CLI endpoint for coding models",
+        "zh-Hans": "OpenAI Codex CLI 端点, 面向编程模型",
+        "ar-SA": "نقطة نهاية OpenAI Codex CLI لنماذج البرمجة",
+        "fr-FR": "Point de terminaison OpenAI Codex CLI pour les modèles de code",
+        "de-DE": "OpenAI Codex CLI-Endpunkt für Codierungsmodelle",
+        "ru-RU": "Конечная точка OpenAI Codex CLI для моделей программирования",
+        "ja-JP": "OpenAI Codex CLI エンドポイント、コーディング向けモデル",
+        "es-ES": "Endpoint de OpenAI Codex CLI para modelos de programación"
       }
     },
     "gemini": {
@@ -88,6 +148,26 @@
       },
       "model_list": {
         "default": []
+      },
+      "name": {
+        "en-US": "Gemini",
+        "zh-Hans": "Gemini",
+        "ar-SA": "Gemini",
+        "fr-FR": "Gemini",
+        "de-DE": "Gemini",
+        "ru-RU": "Gemini",
+        "ja-JP": "Gemini",
+        "es-ES": "Gemini"
+      },
+      "desc": {
+        "en-US": "Google Gemini API for Gemini models",
+        "zh-Hans": "Google Gemini API, Gemini 系列模型",
+        "ar-SA": "واجهة Google Gemini لنماذج Gemini",
+        "fr-FR": "API Google Gemini pour les modèles Gemini",
+        "de-DE": "Google Gemini-API für Gemini-Modelle",
+        "ru-RU": "API Google Gemini для моделей Gemini",
+        "ja-JP": "Google Gemini API、Gemini シリーズモデル",
+        "es-ES": "API de Google Gemini para modelos Gemini"
       }
     },
     "glm": {
@@ -151,6 +231,26 @@
           "glm-4.6",
           "glm-4.5-air"
         ]
+      },
+      "name": {
+        "en-US": "GLM (Zhipu AI)",
+        "zh-Hans": "GLM（智谱）",
+        "ar-SA": "GLM (Zhipu AI)",
+        "fr-FR": "GLM (Zhipu AI)",
+        "de-DE": "GLM (Zhipu AI)",
+        "ru-RU": "GLM (Zhipu AI)",
+        "ja-JP": "GLM（ジーフーエム）",
+        "es-ES": "GLM (Zhipu AI)"
+      },
+      "desc": {
+        "en-US": "Zhipu AI BigModel API for GLM models",
+        "zh-Hans": "智谱 BigModel API, GLM 系列模型",
+        "ar-SA": "واجهة Zhipu AI BigModel لنماذج GLM",
+        "fr-FR": "API Zhipu AI BigModel pour les modèles GLM",
+        "de-DE": "Zhipu AI BigModel-API für GLM-Modelle",
+        "ru-RU": "API Zhipu AI BigModel для моделей GLM",
+        "ja-JP": "智謦 BigModel API、GLM シリーズモデル",
+        "es-ES": "API Zhipu AI BigModel para modelos GLM"
       }
     },
     "glm_en": {
@@ -185,6 +285,26 @@
           "glm-4.6",
           "glm-4.5-air"
         ]
+      },
+      "name": {
+        "en-US": "GLM International (z.ai)",
+        "zh-Hans": "GLM 国际版（z.ai）",
+        "ar-SA": "GLM International (z.ai)",
+        "fr-FR": "GLM International (z.ai)",
+        "de-DE": "GLM International (z.ai)",
+        "ru-RU": "GLM International (z.ai)",
+        "ja-JP": "GLM 国際版（z.ai）",
+        "es-ES": "GLM International (z.ai)"
+      },
+      "desc": {
+        "en-US": "Zhipu AI z.ai international endpoint for GLM models",
+        "zh-Hans": "智谱 z.ai 国际端点, GLM 系列模型",
+        "ar-SA": "نقطة نهاية Zhipu AI z.ai الدولية لنماذج GLM",
+        "fr-FR": "Point de terminaison international Zhipu AI z.ai pour les modèles GLM",
+        "de-DE": "Internationales Zhipu AI z.ai-Endpunkt für GLM-Modelle",
+        "ru-RU": "Международная конечная точка Zhipu AI z.ai для моделей GLM",
+        "ja-JP": "智謦 z.ai 国際エンドポイント、GLM シリーズモデル",
+        "es-ES": "Endpoint internacional Zhipu AI z.ai para modelos GLM"
       }
     },
     "kimi": {
@@ -232,6 +352,26 @@
           "kimi-k2.6",
           "kimi-k2.5"
         ]
+      },
+      "name": {
+        "en-US": "Kimi (Moonshot AI)",
+        "zh-Hans": "Kimi（月之暗面）",
+        "ar-SA": "Kimi (Moonshot AI)",
+        "fr-FR": "Kimi (Moonshot AI)",
+        "de-DE": "Kimi (Moonshot AI)",
+        "ru-RU": "Kimi (Moonshot AI)",
+        "ja-JP": "Kimi（月之暗面）",
+        "es-ES": "Kimi (Moonshot AI)"
+      },
+      "desc": {
+        "en-US": "Moonshot AI API for Kimi models",
+        "zh-Hans": "月之暗面 API, Kimi 系列模型",
+        "ar-SA": "واجهة Moonshot AI لنماذج Kimi",
+        "fr-FR": "API Moonshot AI pour les modèles Kimi",
+        "de-DE": "Moonshot AI-API für Kimi-Modelle",
+        "ru-RU": "API Moonshot AI для моделей Kimi",
+        "ja-JP": "月之暗面 API、Kimi シリーズモデル",
+        "es-ES": "API de Moonshot AI para modelos Kimi"
       }
     },
     "minimax": {
@@ -289,6 +429,26 @@
           "MiniMax-M2.1",
           "MiniMax-M2"
         ]
+      },
+      "name": {
+        "en-US": "MiniMax",
+        "zh-Hans": "MiniMax（海螺）",
+        "ar-SA": "MiniMax",
+        "fr-FR": "MiniMax",
+        "de-DE": "MiniMax",
+        "ru-RU": "MiniMax",
+        "ja-JP": "MiniMax（海螺）",
+        "es-ES": "MiniMax"
+      },
+      "desc": {
+        "en-US": "MiniMax API for abab and Hailuo models",
+        "zh-Hans": "MiniMax API, abab 与海螺系列模型",
+        "ar-SA": "واجهة MiniMax لنماذج abab وHailuo",
+        "fr-FR": "API MiniMax pour les modèles abab et Hailuo",
+        "de-DE": "MiniMax-API für abab- und Hailuo-Modelle",
+        "ru-RU": "API MiniMax для моделей abab и Hailuo",
+        "ja-JP": "MiniMax API、abab と海螺シリーズモデル",
+        "es-ES": "API de MiniMax para modelos abab y Hailuo"
       }
     },
     "minimax_en": {
@@ -346,6 +506,26 @@
           "MiniMax-M2.1",
           "MiniMax-M2"
         ]
+      },
+      "name": {
+        "en-US": "MiniMax International",
+        "zh-Hans": "MiniMax 国际版",
+        "ar-SA": "MiniMax International",
+        "fr-FR": "MiniMax International",
+        "de-DE": "MiniMax International",
+        "ru-RU": "MiniMax International",
+        "ja-JP": "MiniMax 国際版",
+        "es-ES": "MiniMax International"
+      },
+      "desc": {
+        "en-US": "MiniMax international (minimax.io) endpoint",
+        "zh-Hans": "MiniMax 国际版（minimax.io）端点",
+        "ar-SA": "نقطة نهاية MiniMax الدولية (minimax.io)",
+        "fr-FR": "Point de terminaison international MiniMax (minimax.io)",
+        "de-DE": "Internationales MiniMax-Endpunkt (minimax.io)",
+        "ru-RU": "Международная конечная точка MiniMax (minimax.io)",
+        "ja-JP": "MiniMax 国際版（minimax.io）エンドポイント",
+        "es-ES": "Endpoint internacional de MiniMax (minimax.io)"
       }
     },
     "bailian": {
@@ -400,6 +580,26 @@
           "qwen3.7-plus",
           "qwen3.6-flash"
         ]
+      },
+      "name": {
+        "en-US": "Bailian (Alibaba Cloud)",
+        "zh-Hans": "百炼（阿里云）",
+        "ar-SA": "Bailian (Alibaba Cloud)",
+        "fr-FR": "Bailian (Alibaba Cloud)",
+        "de-DE": "Bailian (Alibaba Cloud)",
+        "ru-RU": "Bailian (Alibaba Cloud)",
+        "ja-JP": "百炼（Alibaba Cloud）",
+        "es-ES": "Bailian (Alibaba Cloud)"
+      },
+      "desc": {
+        "en-US": "Alibaba Cloud DashScope API for Qwen models",
+        "zh-Hans": "阿里云百炼 DashScope API, 通义千问系列模型",
+        "ar-SA": "واجهة Alibaba Cloud DashScope لنماذج Qwen",
+        "fr-FR": "API Alibaba Cloud DashScope pour les modèles Qwen",
+        "de-DE": "Alibaba Cloud DashScope-API für Qwen-Modelle",
+        "ru-RU": "API Alibaba Cloud DashScope для моделей Qwen",
+        "ja-JP": "阿里雲百煉 DashScope API、Qwen シリーズモデル",
+        "es-ES": "API de Alibaba Cloud DashScope para modelos Qwen"
       }
     },
     "bailian_coding": {
@@ -418,6 +618,26 @@
       },
       "model_list": {
         "default": []
+      },
+      "name": {
+        "en-US": "Bailian Coding",
+        "zh-Hans": "百炼编程",
+        "ar-SA": "Bailian Coding",
+        "fr-FR": "Bailian Coding",
+        "de-DE": "Bailian Coding",
+        "ru-RU": "Bailian Coding",
+        "ja-JP": "百煉プログラミング",
+        "es-ES": "Bailian Coding"
+      },
+      "desc": {
+        "en-US": "Alibaba Cloud DashScope coding endpoint (Anthropic-compatible)",
+        "zh-Hans": "阿里云百炼编程端点（Anthropic 兼容）",
+        "ar-SA": "نقطة نهاية Alibaba Cloud DashScope للبرمجة (متوافقة مع Anthropic)",
+        "fr-FR": "Point de terminaison de codage Alibaba Cloud DashScope (compatible Anthropic)",
+        "de-DE": "Alibaba Cloud DashScope-Codierungs-Endpunkt (Anthropic-kompatibel)",
+        "ru-RU": "Конечная точка программирования Alibaba Cloud DashScope (Anthropic-совместимая)",
+        "ja-JP": "阿里雲百煉プログラミングエンドポイント（Anthropic 互換）",
+        "es-ES": "Endpoint de programación de Alibaba Cloud DashScope (compatible con Anthropic)"
       }
     },
     "deepseek": {
@@ -448,6 +668,26 @@
           "deepseek-chat",
           "deepseek-reasoner"
         ]
+      },
+      "name": {
+        "en-US": "DeepSeek",
+        "zh-Hans": "DeepSeek（深度求索）",
+        "ar-SA": "DeepSeek",
+        "fr-FR": "DeepSeek",
+        "de-DE": "DeepSeek",
+        "ru-RU": "DeepSeek",
+        "ja-JP": "DeepSeek",
+        "es-ES": "DeepSeek"
+      },
+      "desc": {
+        "en-US": "DeepSeek API for DeepSeek models",
+        "zh-Hans": "DeepSeek API, DeepSeek 系列模型",
+        "ar-SA": "واجهة DeepSeek لنماذج DeepSeek",
+        "fr-FR": "API DeepSeek pour les modèles DeepSeek",
+        "de-DE": "DeepSeek-API für DeepSeek-Modelle",
+        "ru-RU": "API DeepSeek для моделей DeepSeek",
+        "ja-JP": "DeepSeek API、DeepSeek シリーズモデル",
+        "es-ES": "API de DeepSeek para modelos DeepSeek"
       }
     },
     "stepfun": {
@@ -471,6 +711,26 @@
           "step-3.7-flash",
           "step-3.5-flash"
         ]
+      },
+      "name": {
+        "en-US": "StepFun",
+        "zh-Hans": "阶跃星辰（StepFun）",
+        "ar-SA": "StepFun",
+        "fr-FR": "StepFun",
+        "de-DE": "StepFun",
+        "ru-RU": "StepFun",
+        "ja-JP": "StepFun",
+        "es-ES": "StepFun"
+      },
+      "desc": {
+        "en-US": "StepFun API for Step models",
+        "zh-Hans": "阶跃星辰 API, Step 系列模型",
+        "ar-SA": "واجهة StepFun لنماذج Step",
+        "fr-FR": "API StepFun pour les modèles Step",
+        "de-DE": "StepFun-API für Step-Modelle",
+        "ru-RU": "API StepFun для моделей Step",
+        "ja-JP": "StepFun API、Step シリーズモデル",
+        "es-ES": "API de StepFun para modelos Step"
       }
     },
     "stepfun_en": {
@@ -494,6 +754,26 @@
           "step-3.7-flash",
           "step-3.5-flash"
         ]
+      },
+      "name": {
+        "en-US": "StepFun International",
+        "zh-Hans": "StepFun 国际版",
+        "ar-SA": "StepFun International",
+        "fr-FR": "StepFun International",
+        "de-DE": "StepFun International",
+        "ru-RU": "StepFun International",
+        "ja-JP": "StepFun 国際版",
+        "es-ES": "StepFun International"
+      },
+      "desc": {
+        "en-US": "StepFun international (stepfun.ai) endpoint",
+        "zh-Hans": "StepFun 国际版（stepfun.ai）端点",
+        "ar-SA": "نقطة نهاية StepFun الدولية (stepfun.ai)",
+        "fr-FR": "Point de terminaison international StepFun (stepfun.ai)",
+        "de-DE": "Internationales StepFun-Endpunkt (stepfun.ai)",
+        "ru-RU": "Международная конечная точка StepFun (stepfun.ai)",
+        "ja-JP": "StepFun 国際版（stepfun.ai）エンドポイント",
+        "es-ES": "Endpoint internacional de StepFun (stepfun.ai)"
       }
     },
     "doubao": {
@@ -551,6 +831,26 @@
           "kimi-k2.6",
           "kimi-k2.7-code"
         ]
+      },
+      "name": {
+        "en-US": "Volcano Engine (ByteDance)",
+        "zh-Hans": "火山引擎（字节跳动）",
+        "ar-SA": "Volcano Engine (ByteDance)",
+        "fr-FR": "Volcano Engine (ByteDance)",
+        "de-DE": "Volcano Engine (ByteDance)",
+        "ru-RU": "Volcano Engine (ByteDance)",
+        "ja-JP": "火山エンジン（ByteDance）",
+        "es-ES": "Volcano Engine (ByteDance)"
+      },
+      "desc": {
+        "en-US": "Volcano Engine Ark API for Doubao models",
+        "zh-Hans": "火山引擎方舟 API, 豆包系列模型",
+        "ar-SA": "واجهة Volcano Engine Ark لنماذج Doubao",
+        "fr-FR": "API Volcano Engine Ark pour les modèles Doubao",
+        "de-DE": "Volcano Engine Ark-API für Doubao-Modelle",
+        "ru-RU": "API Volcano Engine Ark для моделей Doubao",
+        "ja-JP": "火山エンジン方舟 API、豆包シリーズモデル",
+        "es-ES": "API de Volcano Engine Ark para modelos Doubao"
       }
     },
     "byteplus": {
@@ -576,6 +876,26 @@
           "doubao-seed-2-0-lite",
           "doubao-seed-2-0-mini"
         ]
+      },
+      "name": {
+        "en-US": "BytePlus",
+        "zh-Hans": "BytePlus",
+        "ar-SA": "BytePlus",
+        "fr-FR": "BytePlus",
+        "de-DE": "BytePlus",
+        "ru-RU": "BytePlus",
+        "ja-JP": "BytePlus",
+        "es-ES": "BytePlus"
+      },
+      "desc": {
+        "en-US": "ByteDance BytePlus international Ark API",
+        "zh-Hans": "字节跳动 BytePlus 国际方舟 API",
+        "ar-SA": "واجهة ByteDance BytePlus Ark الدولية",
+        "fr-FR": "API internationale ByteDance BytePlus Ark",
+        "de-DE": "Internationale ByteDance BytePlus Ark-API",
+        "ru-RU": "Международный API ByteDance BytePlus Ark",
+        "ja-JP": "ByteDance BytePlus 国際方舟 API",
+        "es-ES": "API internacional ByteDance BytePlus Ark"
       }
     },
     "qianfan": {
@@ -610,6 +930,26 @@
       "model_list": {
         "default": [],
         "coding_plan": []
+      },
+      "name": {
+        "en-US": "Baidu Qianfan",
+        "zh-Hans": "百度千帆",
+        "ar-SA": "Baidu Qianfan",
+        "fr-FR": "Baidu Qianfan",
+        "de-DE": "Baidu Qianfan",
+        "ru-RU": "Baidu Qianfan",
+        "ja-JP": "百度千帆",
+        "es-ES": "Baidu Qianfan"
+      },
+      "desc": {
+        "en-US": "Baidu Qianfan LLM platform for ERNIE models",
+        "zh-Hans": "百度千帆大模型平台, ERNIE 系列模型",
+        "ar-SA": "منصة Baidu Qianfan للنماذج اللغوية الكبيرة لنماذج ERNIE",
+        "fr-FR": "Plateforme LLM Baidu Qianfan pour les modèles ERNIE",
+        "de-DE": "Baidu Qianfan LLM-Plattform für ERNIE-Modelle",
+        "ru-RU": "LLM-платформа Baidu Qianfan для моделей ERNIE",
+        "ja-JP": "百度千帆大モデルプラットフォーム、ERNIE シリーズモデル",
+        "es-ES": "Plataforma LLM de Baidu Qianfan para modelos ERNIE"
       }
     },
     "xiaomi_mimo": {
@@ -665,6 +1005,26 @@
           "mimo-v2-omni",
           "mimo-v2-flash"
         ]
+      },
+      "name": {
+        "en-US": "Xiaomi MiMo",
+        "zh-Hans": "小米 MiMo",
+        "ar-SA": "Xiaomi MiMo",
+        "fr-FR": "Xiaomi MiMo",
+        "de-DE": "Xiaomi MiMo",
+        "ru-RU": "Xiaomi MiMo",
+        "ja-JP": "小米 MiMo",
+        "es-ES": "Xiaomi MiMo"
+      },
+      "desc": {
+        "en-US": "Xiaomi MiMo API for MiMo models",
+        "zh-Hans": "小米 MiMo API, MiMo 系列模型",
+        "ar-SA": "واجهة Xiaomi MiMo لنماذج MiMo",
+        "fr-FR": "API Xiaomi MiMo pour les modèles MiMo",
+        "de-DE": "Xiaomi MiMo-API für MiMo-Modelle",
+        "ru-RU": "API Xiaomi MiMo для моделей MiMo",
+        "ja-JP": "小米 MiMo API、MiMo シリーズモデル",
+        "es-ES": "API de Xiaomi MiMo para modelos MiMo"
       }
     },
     "bailing": {
@@ -683,6 +1043,26 @@
       },
       "model_list": {
         "default": []
+      },
+      "name": {
+        "en-US": "Bailing",
+        "zh-Hans": "百灵",
+        "ar-SA": "Bailing",
+        "fr-FR": "Bailing",
+        "de-DE": "Bailing",
+        "ru-RU": "Bailing",
+        "ja-JP": "ベイリン",
+        "es-ES": "Bailing"
+      },
+      "desc": {
+        "en-US": "Bailing (TBox) API for Claude-compatible models",
+        "zh-Hans": "百灵（TBox）API, Claude 兼容模型",
+        "ar-SA": "واجهة Bailing (TBox) لنماذج متوافقة مع Claude",
+        "fr-FR": "API Bailing (TBox) pour les modèles compatibles Claude",
+        "de-DE": "Bailing (TBox)-API für Claude-kompatible Modelle",
+        "ru-RU": "API Bailing (TBox) для Claude-совместимых моделей",
+        "ja-JP": "百霊（TBox）API、Claude 互換モデル",
+        "es-ES": "API de Bailing (TBox) para modelos compatibles con Claude"
       }
     },
     "longcat": {
@@ -706,6 +1086,26 @@
       },
       "model_list": {
         "default": []
+      },
+      "name": {
+        "en-US": "Longcat",
+        "zh-Hans": "Longcat（龙猫）",
+        "ar-SA": "Longcat",
+        "fr-FR": "Longcat",
+        "de-DE": "Longcat",
+        "ru-RU": "Longcat",
+        "ja-JP": "Longcat（竜猫）",
+        "es-ES": "Longcat"
+      },
+      "desc": {
+        "en-US": "Longcat API for Claude-compatible models",
+        "zh-Hans": "龙猫 API, Claude 兼容模型",
+        "ar-SA": "واجهة Longcat لنماذج متوافقة مع Claude",
+        "fr-FR": "API Longcat pour les modèles compatibles Claude",
+        "de-DE": "Longcat-API für Claude-kompatible Modelle",
+        "ru-RU": "API Longcat для Claude-совместимых моделей",
+        "ja-JP": "竜猫 API、Claude 互換モデル",
+        "es-ES": "API de Longcat para modelos compatibles con Claude"
       }
     },
     "sensenova": {
@@ -735,6 +1135,26 @@
           "deepseek-v4-flash",
           "sensenova-u1-fast"
         ]
+      },
+      "name": {
+        "en-US": "SenseNova (SenseTime)",
+        "zh-Hans": "商汤 SenseNova（日日新）",
+        "ar-SA": "SenseNova (SenseTime)",
+        "fr-FR": "SenseNova (SenseTime)",
+        "de-DE": "SenseNova (SenseTime)",
+        "ru-RU": "SenseNova (SenseTime)",
+        "ja-JP": "センスタイム",
+        "es-ES": "SenseNova (SenseTime)"
+      },
+      "desc": {
+        "en-US": "SenseTime SenseNova API for Nova models",
+        "zh-Hans": "商汤日日新 API, Nova 系列模型",
+        "ar-SA": "واجهة SenseTime SenseNova لنماذج Nova",
+        "fr-FR": "API SenseTime SenseNova pour les modèles Nova",
+        "de-DE": "SenseTime SenseNova-API für Nova-Modelle",
+        "ru-RU": "API SenseTime SenseNova для моделей Nova",
+        "ja-JP": "商湯日日新 API、Nova シリーズモデル",
+        "es-ES": "API de SenseTime SenseNova para modelos Nova"
       }
     },
     "openrouter": {
@@ -778,6 +1198,26 @@
           "x-ai/grok-4.3",
           "minimax/minimax-m3"
         ]
+      },
+      "name": {
+        "en-US": "OpenRouter",
+        "zh-Hans": "OpenRouter",
+        "ar-SA": "OpenRouter",
+        "fr-FR": "OpenRouter",
+        "de-DE": "OpenRouter",
+        "ru-RU": "OpenRouter",
+        "ja-JP": "OpenRouter",
+        "es-ES": "OpenRouter"
+      },
+      "desc": {
+        "en-US": "OpenRouter aggregator routing multiple model providers",
+        "zh-Hans": "OpenRouter 聚合路由, 接入多家模型供应商",
+        "ar-SA": "مجمع OpenRouter يوجه عدة مزودي نماذج",
+        "fr-FR": "Agrégateur OpenRouter routant plusieurs fournisseurs de modèles",
+        "de-DE": "OpenRouter-Aggregator, der mehrere Modellanbieter routet",
+        "ru-RU": "Агрегатор OpenRouter, маршрутизирующий нескольких провайдеров моделей",
+        "ja-JP": "OpenRouter アグリゲータ、複数モデルプロバイダをルーティング",
+        "es-ES": "Agregador OpenRouter que enruta múltiples proveedores de modelos"
       }
     },
     "siliconflow": {
@@ -796,6 +1236,26 @@
       },
       "model_list": {
         "default": []
+      },
+      "name": {
+        "en-US": "SiliconFlow",
+        "zh-Hans": "SiliconFlow（硅基流动）",
+        "ar-SA": "SiliconFlow",
+        "fr-FR": "SiliconFlow",
+        "de-DE": "SiliconFlow",
+        "ru-RU": "SiliconFlow",
+        "ja-JP": "SiliconFlow",
+        "es-ES": "SiliconFlow"
+      },
+      "desc": {
+        "en-US": "SiliconFlow (siliconflow.cn) inference and model API",
+        "zh-Hans": "硅基流动（siliconflow.cn）推理与模型 API",
+        "ar-SA": "واجهة الاستدلال والنماذج من SiliconFlow (siliconflow.cn)",
+        "fr-FR": "API d'inférence et de modèles SiliconFlow (siliconflow.cn)",
+        "de-DE": "SiliconFlow (siliconflow.cn) Inferenz- und Modell-API",
+        "ru-RU": "API вывода и моделей SiliconFlow (siliconflow.cn)",
+        "ja-JP": "SiliconFlow（siliconflow.cn）推論とモデル API",
+        "es-ES": "API de inferencia y modelos de SiliconFlow (siliconflow.cn)"
       }
     },
     "siliconflow_en": {
@@ -814,6 +1274,26 @@
       },
       "model_list": {
         "default": []
+      },
+      "name": {
+        "en-US": "SiliconFlow International",
+        "zh-Hans": "SiliconFlow 国际版",
+        "ar-SA": "SiliconFlow International",
+        "fr-FR": "SiliconFlow International",
+        "de-DE": "SiliconFlow International",
+        "ru-RU": "SiliconFlow International",
+        "ja-JP": "SiliconFlow 国際版",
+        "es-ES": "SiliconFlow International"
+      },
+      "desc": {
+        "en-US": "SiliconFlow international (siliconflow.com) endpoint",
+        "zh-Hans": "硅基流动国际版（siliconflow.com）端点",
+        "ar-SA": "نقطة نهاية SiliconFlow الدولية (siliconflow.com)",
+        "fr-FR": "Point de terminaison international SiliconFlow (siliconflow.com)",
+        "de-DE": "Internationales SiliconFlow-Endpunkt (siliconflow.com)",
+        "ru-RU": "Международная конечная точка SiliconFlow (siliconflow.com)",
+        "ja-JP": "SiliconFlow 国際版（siliconflow.com）エンドポイント",
+        "es-ES": "Endpoint internacional de SiliconFlow (siliconflow.com)"
       }
     },
     "aihubmix": {
@@ -852,6 +1332,26 @@
           "kimi-k2.7-code",
           "grok-4.3"
         ]
+      },
+      "name": {
+        "en-US": "AiHubMix",
+        "zh-Hans": "AiHubMix",
+        "ar-SA": "AiHubMix",
+        "fr-FR": "AiHubMix",
+        "de-DE": "AiHubMix",
+        "ru-RU": "AiHubMix",
+        "ja-JP": "AiHubMix",
+        "es-ES": "AiHubMix"
+      },
+      "desc": {
+        "en-US": "AiHubMix aggregator routing multiple model providers",
+        "zh-Hans": "AiHubMix 聚合路由, 接入多家模型供应商",
+        "ar-SA": "مجمع AiHubMix يوجه عدة مزودي نماذج",
+        "fr-FR": "Agrégateur AiHubMix routant plusieurs fournisseurs de modèles",
+        "de-DE": "AiHubMix-Aggregator, der mehrere Modellanbieter routet",
+        "ru-RU": "Агрегатор AiHubMix, маршрутизирующий нескольких провайдеров моделей",
+        "ja-JP": "AiHubMix アグリゲータ、複数モデルプロバイダをルーティング",
+        "es-ES": "Agregador AiHubMix que enruta múltiples proveedores de modelos"
       }
     },
     "dmxapi": {
@@ -887,6 +1387,26 @@
           "glm-5.2",
           "kimi-k2.7-code"
         ]
+      },
+      "name": {
+        "en-US": "DMXAPI",
+        "zh-Hans": "DMXAPI",
+        "ar-SA": "DMXAPI",
+        "fr-FR": "DMXAPI",
+        "de-DE": "DMXAPI",
+        "ru-RU": "DMXAPI",
+        "ja-JP": "DMXAPI",
+        "es-ES": "DMXAPI"
+      },
+      "desc": {
+        "en-US": "DMXAPI aggregator routing multiple model providers",
+        "zh-Hans": "DMXAPI 聚合路由, 接入多家模型供应商",
+        "ar-SA": "مجمع DMXAPI يوجه عدة مزودي نماذج",
+        "fr-FR": "Agrégateur DMXAPI routant plusieurs fournisseurs de modèles",
+        "de-DE": "DMXAPI-Aggregator, der mehrere Modellanbieter routet",
+        "ru-RU": "Агрегатор DMXAPI, маршрутизирующий нескольких провайдеров моделей",
+        "ja-JP": "DMXAPI アグリゲータ、複数モデルプロバイダをルーティング",
+        "es-ES": "Agregador DMXAPI que enruta múltiples proveedores de modelos"
       }
     },
     "modelscope": {
@@ -918,6 +1438,26 @@
           "MiniMax/MiniMax-M3",
           "MiniMax/MiniMax-M2.7"
         ]
+      },
+      "name": {
+        "en-US": "ModelScope",
+        "zh-Hans": "ModelScope（魔搭）",
+        "ar-SA": "ModelScope",
+        "fr-FR": "ModelScope",
+        "de-DE": "ModelScope",
+        "ru-RU": "ModelScope",
+        "ja-JP": "ModelScope",
+        "es-ES": "ModelScope"
+      },
+      "desc": {
+        "en-US": "Alibaba ModelScope inference API for open-source models",
+        "zh-Hans": "阿里魔搭社区推理 API, 开源模型集合",
+        "ar-SA": "واجهة Alibaba ModelScope الاستدلالية للنماذج مفتوحة المصدر",
+        "fr-FR": "API d'inférence Alibaba ModelScope pour les modèles open source",
+        "de-DE": "Alibaba ModelScope-Inferenz-API für Open-Source-Modelle",
+        "ru-RU": "API вывода Alibaba ModelScope для моделей с открытым исходным кодом",
+        "ja-JP": "阿里魔搭コミュニティ推論 API、オープンソースモデル集合",
+        "es-ES": "API de inferencia de Alibaba ModelScope para modelos de código abierto"
       }
     },
     "shengsuanyun": {
@@ -950,6 +1490,26 @@
           "moonshot/kimi-k2.7-code",
           "x-ai/grok-4"
         ]
+      },
+      "name": {
+        "en-US": "ShengSuanYun",
+        "zh-Hans": "盛算云",
+        "ar-SA": "ShengSuanYun",
+        "fr-FR": "ShengSuanYun",
+        "de-DE": "ShengSuanYun",
+        "ru-RU": "ShengSuanYun",
+        "ja-JP": "盛算雲",
+        "es-ES": "ShengSuanYun"
+      },
+      "desc": {
+        "en-US": "ShengSuanYun aggregator routing multiple model providers",
+        "zh-Hans": "盛算云聚合路由, 接入多家模型供应商",
+        "ar-SA": "مجمع ShengSuanYun يوجه عدة مزودي نماذج",
+        "fr-FR": "Agrégateur ShengSuanYun routant plusieurs fournisseurs de modèles",
+        "de-DE": "ShengSuanYun-Aggregator, der mehrere Modellanbieter routet",
+        "ru-RU": "Агрегатор ShengSuanYun, маршрутизирующий нескольких провайдеров моделей",
+        "ja-JP": "盛算雲アグリゲータ、複数モデルプロバイダをルーティング",
+        "es-ES": "Agregador ShengSuanYun que enruta múltiples proveedores de modelos"
       }
     },
     "atlascloud": {
@@ -980,6 +1540,26 @@
           "moonshotai/Kimi-K2-Instruct-0905",
           "MiniMaxAI/MiniMax-M2"
         ]
+      },
+      "name": {
+        "en-US": "AtlasCloud",
+        "zh-Hans": "AtlasCloud",
+        "ar-SA": "AtlasCloud",
+        "fr-FR": "AtlasCloud",
+        "de-DE": "AtlasCloud",
+        "ru-RU": "AtlasCloud",
+        "ja-JP": "AtlasCloud",
+        "es-ES": "AtlasCloud"
+      },
+      "desc": {
+        "en-US": "AtlasCloud aggregator routing multiple model providers",
+        "zh-Hans": "AtlasCloud 聚合路由, 接入多家模型供应商",
+        "ar-SA": "مجمع AtlasCloud يوجه عدة مزودي نماذج",
+        "fr-FR": "Agrégateur AtlasCloud routant plusieurs fournisseurs de modèles",
+        "de-DE": "AtlasCloud-Aggregator, der mehrere Modellanbieter routet",
+        "ru-RU": "Агрегатор AtlasCloud, маршрутизирующий нескольких провайдеров моделей",
+        "ja-JP": "AtlasCloud アグリゲータ、複数モデルプロバイダをルーティング",
+        "es-ES": "Agregador AtlasCloud que enruta múltiples proveedores de modelos"
       }
     },
     "novita": {
@@ -1010,6 +1590,26 @@
           "minimax/minimax-m2.7",
           "deepseek/deepseek-v3.2"
         ]
+      },
+      "name": {
+        "en-US": "Novita AI",
+        "zh-Hans": "Novita AI",
+        "ar-SA": "Novita AI",
+        "fr-FR": "Novita AI",
+        "de-DE": "Novita AI",
+        "ru-RU": "Novita AI",
+        "ja-JP": "Novita AI",
+        "es-ES": "Novita AI"
+      },
+      "desc": {
+        "en-US": "Novita AI API for LLM and image models",
+        "zh-Hans": "Novita AI API, 大语言与图像模型",
+        "ar-SA": "واجهة Novita AI لنماذج LLM والصور",
+        "fr-FR": "API Novita AI pour les modèles LLM et d'image",
+        "de-DE": "Novita AI-API für LLM- und Bildmodelle",
+        "ru-RU": "API Novita AI для LLM и моделей изображений",
+        "ja-JP": "Novita AI API、大言語と画像モデル",
+        "es-ES": "API de Novita AI para modelos LLM y de imagen"
       }
     },
     "therouter": {
@@ -1028,6 +1628,26 @@
       },
       "model_list": {
         "default": []
+      },
+      "name": {
+        "en-US": "TheRouter",
+        "zh-Hans": "TheRouter",
+        "ar-SA": "TheRouter",
+        "fr-FR": "TheRouter",
+        "de-DE": "TheRouter",
+        "ru-RU": "TheRouter",
+        "ja-JP": "TheRouter",
+        "es-ES": "TheRouter"
+      },
+      "desc": {
+        "en-US": "TheRouter aggregator routing multiple model providers",
+        "zh-Hans": "TheRouter 聚合路由, 接入多家模型供应商",
+        "ar-SA": "مجمع TheRouter يوجه عدة مزودي نماذج",
+        "fr-FR": "Agrégateur TheRouter routant plusieurs fournisseurs de modèles",
+        "de-DE": "TheRouter-Aggregator, der mehrere Modellanbieter routet",
+        "ru-RU": "Агрегатор TheRouter, маршрутизирующий нескольких провайдеров моделей",
+        "ja-JP": "TheRouter アグリゲータ、複数モデルプロバイダをルーティング",
+        "es-ES": "Agregador TheRouter que enruta múltiples proveedores de modelos"
       }
     },
     "cherryin": {
@@ -1060,6 +1680,26 @@
           "moonshotai/kimi-k2.7-code",
           "grok-4"
         ]
+      },
+      "name": {
+        "en-US": "CherryIN",
+        "zh-Hans": "CherryIN",
+        "ar-SA": "CherryIN",
+        "fr-FR": "CherryIN",
+        "de-DE": "CherryIN",
+        "ru-RU": "CherryIN",
+        "ja-JP": "CherryIN",
+        "es-ES": "CherryIN"
+      },
+      "desc": {
+        "en-US": "CherryIN API for Claude-compatible models",
+        "zh-Hans": "CherryIN API, Claude 兼容模型",
+        "ar-SA": "واجهة CherryIN لنماذج متوافقة مع Claude",
+        "fr-FR": "API CherryIN pour les modèles compatibles Claude",
+        "de-DE": "CherryIN-API für Claude-kompatible Modelle",
+        "ru-RU": "API CherryIN для Claude-совместимых моделей",
+        "ja-JP": "CherryIN API、Claude 互換モデル",
+        "es-ES": "API de CherryIN para modelos compatibles con Claude"
       }
     },
     "packycode": {
@@ -1095,6 +1735,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "PackyCode",
+        "zh-Hans": "PackyCode",
+        "ar-SA": "PackyCode",
+        "fr-FR": "PackyCode",
+        "de-DE": "PackyCode",
+        "ru-RU": "PackyCode",
+        "ja-JP": "PackyCode",
+        "es-ES": "PackyCode"
+      },
+      "desc": {
+        "en-US": "PackyCode API for Claude-compatible models",
+        "zh-Hans": "PackyCode API, Claude 兼容模型",
+        "ar-SA": "واجهة PackyCode لنماذج متوافقة مع Claude",
+        "fr-FR": "API PackyCode pour les modèles compatibles Claude",
+        "de-DE": "PackyCode-API für Claude-kompatible Modelle",
+        "ru-RU": "API PackyCode для Claude-совместимых моделей",
+        "ja-JP": "PackyCode API、Claude 互換モデル",
+        "es-ES": "API de PackyCode para modelos compatibles con Claude"
       }
     },
     "cubence": {
@@ -1130,6 +1790,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "Cubence",
+        "zh-Hans": "Cubence",
+        "ar-SA": "Cubence",
+        "fr-FR": "Cubence",
+        "de-DE": "Cubence",
+        "ru-RU": "Cubence",
+        "ja-JP": "Cubence",
+        "es-ES": "Cubence"
+      },
+      "desc": {
+        "en-US": "Cubence API for Claude-compatible models",
+        "zh-Hans": "Cubence API, Claude 兼容模型",
+        "ar-SA": "واجهة Cubence لنماذج متوافقة مع Claude",
+        "fr-FR": "API Cubence pour les modèles compatibles Claude",
+        "de-DE": "Cubence-API für Claude-kompatible Modelle",
+        "ru-RU": "API Cubence для Claude-совместимых моделей",
+        "ja-JP": "Cubence API、Claude 互換モデル",
+        "es-ES": "API de Cubence para modelos compatibles con Claude"
       }
     },
     "aigocode": {
@@ -1165,6 +1845,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "AIGoCode",
+        "zh-Hans": "AIGoCode",
+        "ar-SA": "AIGoCode",
+        "fr-FR": "AIGoCode",
+        "de-DE": "AIGoCode",
+        "ru-RU": "AIGoCode",
+        "ja-JP": "AIGoCode",
+        "es-ES": "AIGoCode"
+      },
+      "desc": {
+        "en-US": "AIGoCode API for Claude-compatible models",
+        "zh-Hans": "AIGoCode API, Claude 兼容模型",
+        "ar-SA": "واجهة AIGoCode لنماذج متوافقة مع Claude",
+        "fr-FR": "API AIGoCode pour les modèles compatibles Claude",
+        "de-DE": "AIGoCode-API für Claude-kompatible Modelle",
+        "ru-RU": "API AIGoCode для Claude-совместимых моделей",
+        "ja-JP": "AIGoCode API、Claude 互換モデル",
+        "es-ES": "API de AIGoCode para modelos compatibles con Claude"
       }
     },
     "rightcode": {
@@ -1196,6 +1896,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "RightCode",
+        "zh-Hans": "RightCode",
+        "ar-SA": "RightCode",
+        "fr-FR": "RightCode",
+        "de-DE": "RightCode",
+        "ru-RU": "RightCode",
+        "ja-JP": "RightCode",
+        "es-ES": "RightCode"
+      },
+      "desc": {
+        "en-US": "RightCode API for Claude-compatible models",
+        "zh-Hans": "RightCode API, Claude 兼容模型",
+        "ar-SA": "واجهة RightCode لنماذج متوافقة مع Claude",
+        "fr-FR": "API RightCode pour les modèles compatibles Claude",
+        "de-DE": "RightCode-API für Claude-kompatible Modelle",
+        "ru-RU": "API RightCode для Claude-совместимых моделей",
+        "ja-JP": "RightCode API、Claude 互換モデル",
+        "es-ES": "API de RightCode para modelos compatibles con Claude"
       }
     },
     "aicodemirror": {
@@ -1231,6 +1951,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "AICodeMirror",
+        "zh-Hans": "AICodeMirror",
+        "ar-SA": "AICodeMirror",
+        "fr-FR": "AICodeMirror",
+        "de-DE": "AICodeMirror",
+        "ru-RU": "AICodeMirror",
+        "ja-JP": "AICodeMirror",
+        "es-ES": "AICodeMirror"
+      },
+      "desc": {
+        "en-US": "AICodeMirror API for Claude-compatible models",
+        "zh-Hans": "AICodeMirror API, Claude 兼容模型",
+        "ar-SA": "واجهة AICodeMirror لنماذج متوافقة مع Claude",
+        "fr-FR": "API AICodeMirror pour les modèles compatibles Claude",
+        "de-DE": "AICodeMirror-API für Claude-kompatible Modelle",
+        "ru-RU": "API AICodeMirror для Claude-совместимых моделей",
+        "ja-JP": "AICodeMirror API、Claude 互換モデル",
+        "es-ES": "API de AICodeMirror para modelos compatibles con Claude"
       }
     },
     "nvidia": {
@@ -1262,6 +2002,26 @@
           "meta/llama-3.3-70b-instruct",
           "openai/gpt-oss-120b"
         ]
+      },
+      "name": {
+        "en-US": "NVIDIA",
+        "zh-Hans": "NVIDIA（英伟达）",
+        "ar-SA": "NVIDIA",
+        "fr-FR": "NVIDIA",
+        "de-DE": "NVIDIA",
+        "ru-RU": "NVIDIA（НВИДИА）",
+        "ja-JP": "NVIDIA（エヌビディア）",
+        "es-ES": "NVIDIA"
+      },
+      "desc": {
+        "en-US": "NVIDIA integrate API for hosted LLM models",
+        "zh-Hans": "NVIDIA integrate API, 托管大语言模型",
+        "ar-SA": "واجهة NVIDIA integrate للنماذج اللغوية الكبيرة المستضافة",
+        "fr-FR": "API NVIDIA integrate pour les modèles LLM hébergés",
+        "de-DE": "NVIDIA integrate-API für gehostete LLM-Modelle",
+        "ru-RU": "API NVIDIA integrate для размещённых LLM-моделей",
+        "ja-JP": "NVIDIA integrate API、ホスト型大言語モデル",
+        "es-ES": "API de NVIDIA integrate para modelos LLM alojados"
       }
     },
     "pateway": {
@@ -1288,6 +2048,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "PatewayAI",
+        "zh-Hans": "PatewayAI",
+        "ar-SA": "PatewayAI",
+        "fr-FR": "PatewayAI",
+        "de-DE": "PatewayAI",
+        "ru-RU": "PatewayAI",
+        "ja-JP": "PatewayAI",
+        "es-ES": "PatewayAI"
+      },
+      "desc": {
+        "en-US": "PatewayAI API for Claude-compatible models",
+        "zh-Hans": "PatewayAI API, Claude 兼容模型",
+        "ar-SA": "واجهة PatewayAI لنماذج متوافقة مع Claude",
+        "fr-FR": "API PatewayAI pour les modèles compatibles Claude",
+        "de-DE": "PatewayAI-API für Claude-kompatible Modelle",
+        "ru-RU": "API PatewayAI для Claude-совместимых моделей",
+        "ja-JP": "PatewayAI API、Claude 互換モデル",
+        "es-ES": "API de PatewayAI para modelos compatibles con Claude"
       }
     },
     "ccsub": {
@@ -1314,6 +2094,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "CCSub",
+        "zh-Hans": "CCSub",
+        "ar-SA": "CCSub",
+        "fr-FR": "CCSub",
+        "de-DE": "CCSub",
+        "ru-RU": "CCSub",
+        "ja-JP": "CCSub",
+        "es-ES": "CCSub"
+      },
+      "desc": {
+        "en-US": "CCSub API for Claude-compatible models",
+        "zh-Hans": "CCSub API, Claude 兼容模型",
+        "ar-SA": "واجهة CCSub لنماذج متوافقة مع Claude",
+        "fr-FR": "API CCSub pour les modèles compatibles Claude",
+        "de-DE": "CCSub-API für Claude-kompatible Modelle",
+        "ru-RU": "API CCSub для Claude-совместимых моделей",
+        "ja-JP": "CCSub API、Claude 互換モデル",
+        "es-ES": "API de CCSub para modelos compatibles con Claude"
       }
     },
     "apikeyfun": {
@@ -1340,6 +2140,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "APIKEY.FUN",
+        "zh-Hans": "APIKEY.FUN",
+        "ar-SA": "APIKEY.FUN",
+        "fr-FR": "APIKEY.FUN",
+        "de-DE": "APIKEY.FUN",
+        "ru-RU": "APIKEY.FUN",
+        "ja-JP": "APIKEY.FUN",
+        "es-ES": "APIKEY.FUN"
+      },
+      "desc": {
+        "en-US": "APIKEY.FUN API for Claude-compatible models",
+        "zh-Hans": "APIKEY.FUN API, Claude 兼容模型",
+        "ar-SA": "واجهة APIKEY.FUN لنماذج متوافقة مع Claude",
+        "fr-FR": "API APIKEY.FUN pour les modèles compatibles Claude",
+        "de-DE": "APIKEY.FUN-API für Claude-kompatible Modelle",
+        "ru-RU": "API APIKEY.FUN для Claude-совместимых моделей",
+        "ja-JP": "APIKEY.FUN API、Claude 互換モデル",
+        "es-ES": "API de APIKEY.FUN para modelos compatibles con Claude"
       }
     },
     "apinebula": {
@@ -1366,6 +2186,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "APINebula",
+        "zh-Hans": "APINebula",
+        "ar-SA": "APINebula",
+        "fr-FR": "APINebula",
+        "de-DE": "APINebula",
+        "ru-RU": "APINebula",
+        "ja-JP": "APINebula",
+        "es-ES": "APINebula"
+      },
+      "desc": {
+        "en-US": "APINebula API for Claude-compatible models",
+        "zh-Hans": "APINebula API, Claude 兼容模型",
+        "ar-SA": "واجهة APINebula لنماذج متوافقة مع Claude",
+        "fr-FR": "API APINebula pour les modèles compatibles Claude",
+        "de-DE": "APINebula-API für Claude-kompatible Modelle",
+        "ru-RU": "API APINebula для Claude-совместимых моделей",
+        "ja-JP": "APINebula API、Claude 互換モデル",
+        "es-ES": "API de APINebula para modelos compatibles con Claude"
       }
     },
     "sudocode": {
@@ -1392,6 +2232,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "SudoCode",
+        "zh-Hans": "SudoCode",
+        "ar-SA": "SudoCode",
+        "fr-FR": "SudoCode",
+        "de-DE": "SudoCode",
+        "ru-RU": "SudoCode",
+        "ja-JP": "SudoCode",
+        "es-ES": "SudoCode"
+      },
+      "desc": {
+        "en-US": "SudoCode API for Claude-compatible models",
+        "zh-Hans": "SudoCode API, Claude 兼容模型",
+        "ar-SA": "واجهة SudoCode لنماذج متوافقة مع Claude",
+        "fr-FR": "API SudoCode pour les modèles compatibles Claude",
+        "de-DE": "SudoCode-API für Claude-kompatible Modelle",
+        "ru-RU": "API SudoCode для Claude-совместимых моделей",
+        "ja-JP": "SudoCode API、Claude 互換モデル",
+        "es-ES": "API de SudoCode para modelos compatibles con Claude"
       }
     },
     "claudeapi": {
@@ -1418,6 +2278,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "ClaudeAPI",
+        "zh-Hans": "ClaudeAPI",
+        "ar-SA": "ClaudeAPI",
+        "fr-FR": "ClaudeAPI",
+        "de-DE": "ClaudeAPI",
+        "ru-RU": "ClaudeAPI",
+        "ja-JP": "ClaudeAPI",
+        "es-ES": "ClaudeAPI"
+      },
+      "desc": {
+        "en-US": "ClaudeAPI proxy for Claude-compatible models",
+        "zh-Hans": "ClaudeAPI 中转, Claude 兼容模型",
+        "ar-SA": "وكيل ClaudeAPI لنماذج متوافقة مع Claude",
+        "fr-FR": "Proxy ClaudeAPI pour les modèles compatibles Claude",
+        "de-DE": "ClaudeAPI-Proxy für Claude-kompatible Modelle",
+        "ru-RU": "Прокси ClaudeAPI для Claude-совместимых моделей",
+        "ja-JP": "ClaudeAPI 中継、Claude 互換モデル",
+        "es-ES": "Proxy ClaudeAPI para modelos compatibles con Claude"
       }
     },
     "claudecn": {
@@ -1444,6 +2324,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "ClaudeCN",
+        "zh-Hans": "ClaudeCN",
+        "ar-SA": "ClaudeCN",
+        "fr-FR": "ClaudeCN",
+        "de-DE": "ClaudeCN",
+        "ru-RU": "ClaudeCN",
+        "ja-JP": "ClaudeCN",
+        "es-ES": "ClaudeCN"
+      },
+      "desc": {
+        "en-US": "ClaudeCN proxy for Claude-compatible models",
+        "zh-Hans": "ClaudeCN 中转, Claude 兼容模型",
+        "ar-SA": "وكيل ClaudeCN لنماذج متوافقة مع Claude",
+        "fr-FR": "Proxy ClaudeCN pour les modèles compatibles Claude",
+        "de-DE": "ClaudeCN-Proxy für Claude-kompatible Modelle",
+        "ru-RU": "Прокси ClaudeCN для Claude-совместимых моделей",
+        "ja-JP": "ClaudeCN 中継、Claude 互換モデル",
+        "es-ES": "Proxy ClaudeCN para modelos compatibles con Claude"
       }
     },
     "runapi": {
@@ -1470,6 +2370,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "RunAPI",
+        "zh-Hans": "RunAPI",
+        "ar-SA": "RunAPI",
+        "fr-FR": "RunAPI",
+        "de-DE": "RunAPI",
+        "ru-RU": "RunAPI",
+        "ja-JP": "RunAPI",
+        "es-ES": "RunAPI"
+      },
+      "desc": {
+        "en-US": "RunAPI proxy for Claude-compatible models",
+        "zh-Hans": "RunAPI 中转, Claude 兼容模型",
+        "ar-SA": "وكيل RunAPI لنماذج متوافقة مع Claude",
+        "fr-FR": "Proxy RunAPI pour les modèles compatibles Claude",
+        "de-DE": "RunAPI-Proxy für Claude-kompatible Modelle",
+        "ru-RU": "Прокси RunAPI для Claude-совместимых моделей",
+        "ja-JP": "RunAPI 中継、Claude 互換モデル",
+        "es-ES": "Proxy RunAPI para modelos compatibles con Claude"
       }
     },
     "relaxycode": {
@@ -1496,6 +2416,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "RelaxyCode",
+        "zh-Hans": "RelaxyCode",
+        "ar-SA": "RelaxyCode",
+        "fr-FR": "RelaxyCode",
+        "de-DE": "RelaxyCode",
+        "ru-RU": "RelaxyCode",
+        "ja-JP": "RelaxyCode",
+        "es-ES": "RelaxyCode"
+      },
+      "desc": {
+        "en-US": "RelaxyCode API for Claude-compatible models",
+        "zh-Hans": "RelaxyCode API, Claude 兼容模型",
+        "ar-SA": "واجهة RelaxyCode لنماذج متوافقة مع Claude",
+        "fr-FR": "API RelaxyCode pour les modèles compatibles Claude",
+        "de-DE": "RelaxyCode-API für Claude-kompatible Modelle",
+        "ru-RU": "API RelaxyCode для Claude-совместимых моделей",
+        "ja-JP": "RelaxyCode API、Claude 互換モデル",
+        "es-ES": "API de RelaxyCode para modelos compatibles con Claude"
       }
     },
     "crazyrouter": {
@@ -1522,6 +2462,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "CrazyRouter",
+        "zh-Hans": "CrazyRouter",
+        "ar-SA": "CrazyRouter",
+        "fr-FR": "CrazyRouter",
+        "de-DE": "CrazyRouter",
+        "ru-RU": "CrazyRouter",
+        "ja-JP": "CrazyRouter",
+        "es-ES": "CrazyRouter"
+      },
+      "desc": {
+        "en-US": "CrazyRouter aggregator routing multiple model providers",
+        "zh-Hans": "CrazyRouter 聚合路由, 接入多家模型供应商",
+        "ar-SA": "مجمع CrazyRouter يوجه عدة مزودي نماذج",
+        "fr-FR": "Agrégateur CrazyRouter routant plusieurs fournisseurs de modèles",
+        "de-DE": "CrazyRouter-Aggregator, der mehrere Modellanbieter routet",
+        "ru-RU": "Агрегатор CrazyRouter, маршрутизирующий нескольких провайдеров моделей",
+        "ja-JP": "CrazyRouter アグリゲータ、複数モデルプロバイダをルーティング",
+        "es-ES": "Agregador CrazyRouter que enruta múltiples proveedores de modelos"
       }
     },
     "sssaicode": {
@@ -1548,6 +2508,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "SSSAiCode",
+        "zh-Hans": "SSSAiCode",
+        "ar-SA": "SSSAiCode",
+        "fr-FR": "SSSAiCode",
+        "de-DE": "SSSAiCode",
+        "ru-RU": "SSSAiCode",
+        "ja-JP": "SSSAiCode",
+        "es-ES": "SSSAiCode"
+      },
+      "desc": {
+        "en-US": "SSSAiCode API for Claude-compatible models",
+        "zh-Hans": "SSSAiCode API, Claude 兼容模型",
+        "ar-SA": "واجهة SSSAiCode لنماذج متوافقة مع Claude",
+        "fr-FR": "API SSSAiCode pour les modèles compatibles Claude",
+        "de-DE": "SSSAiCode-API für Claude-kompatible Modelle",
+        "ru-RU": "API SSSAiCode для Claude-совместимых моделей",
+        "ja-JP": "SSSAiCode API、Claude 互換モデル",
+        "es-ES": "API de SSSAiCode para modelos compatibles con Claude"
       }
     },
     "compshare": {
@@ -1566,6 +2546,26 @@
       },
       "model_list": {
         "default": []
+      },
+      "name": {
+        "en-US": "Compshare (YouYun)",
+        "zh-Hans": "Compshare（优云）",
+        "ar-SA": "Compshare (YouYun)",
+        "fr-FR": "Compshare (YouYun)",
+        "de-DE": "Compshare (YouYun)",
+        "ru-RU": "Compshare (YouYun)",
+        "ja-JP": "Compshare（優雲）",
+        "es-ES": "Compshare (YouYun)"
+      },
+      "desc": {
+        "en-US": "Compshare (UCloud YouYun) API for Claude-compatible models",
+        "zh-Hans": "Compshare（UCloud 优云）API, Claude 兼容模型",
+        "ar-SA": "واجهة Compshare (UCloud YouYun) لنماذج متوافقة مع Claude",
+        "fr-FR": "API Compshare (UCloud YouYun) pour les modèles compatibles Claude",
+        "de-DE": "Compshare (UCloud YouYun)-API für Claude-kompatible Modelle",
+        "ru-RU": "API Compshare (UCloud YouYun) для Claude-совместимых моделей",
+        "ja-JP": "Compshare（UCloud 優雲）API、Claude 互換モデル",
+        "es-ES": "API de Compshare (UCloud YouYun) para modelos compatibles con Claude"
       }
     },
     "compshare_coding": {
@@ -1592,6 +2592,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "Compshare Coding Plan",
+        "zh-Hans": "Compshare Coding Plan",
+        "ar-SA": "Compshare Coding Plan",
+        "fr-FR": "Compshare Coding Plan",
+        "de-DE": "Compshare Coding Plan",
+        "ru-RU": "Compshare Coding Plan",
+        "ja-JP": "Compshare プログラミングプラン",
+        "es-ES": "Compshare Coding Plan"
+      },
+      "desc": {
+        "en-US": "Compshare coding plan endpoint for Claude-compatible models",
+        "zh-Hans": "Compshare 编程套餐端点, Claude 兼容模型",
+        "ar-SA": "نقطة نهاية Compshare Coding Plan لنماذج متوافقة مع Claude",
+        "fr-FR": "Point de terminaison Compshare Coding Plan pour les modèles compatibles Claude",
+        "de-DE": "Compshare Coding Plan-Endpunkt für Claude-kompatible Modelle",
+        "ru-RU": "Конечная точка Compshare Coding Plan для Claude-совместимых моделей",
+        "ja-JP": "Compshare プログラミングプランエンドポイント、Claude 互換モデル",
+        "es-ES": "Endpoint del plan de programación de Compshare para modelos compatibles con Claude"
       }
     },
     "micu": {
@@ -1618,6 +2638,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "Micu",
+        "zh-Hans": "Micu",
+        "ar-SA": "Micu",
+        "fr-FR": "Micu",
+        "de-DE": "Micu",
+        "ru-RU": "Micu",
+        "ja-JP": "Micu",
+        "es-ES": "Micu"
+      },
+      "desc": {
+        "en-US": "Micu API for Claude-compatible models",
+        "zh-Hans": "Micu API, Claude 兼容模型",
+        "ar-SA": "واجهة Micu لنماذج متوافقة مع Claude",
+        "fr-FR": "API Micu pour les modèles compatibles Claude",
+        "de-DE": "Micu-API für Claude-kompatible Modelle",
+        "ru-RU": "API Micu для Claude-совместимых моделей",
+        "ja-JP": "Micu API、Claude 互換モデル",
+        "es-ES": "API de Micu para modelos compatibles con Claude"
       }
     },
     "ctok": {
@@ -1644,6 +2684,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "CTok.ai",
+        "zh-Hans": "CTok.ai",
+        "ar-SA": "CTok.ai",
+        "fr-FR": "CTok.ai",
+        "de-DE": "CTok.ai",
+        "ru-RU": "CTok.ai",
+        "ja-JP": "CTok.ai",
+        "es-ES": "CTok.ai"
+      },
+      "desc": {
+        "en-US": "CTok.ai API for Claude-compatible models",
+        "zh-Hans": "CTok.ai API, Claude 兼容模型",
+        "ar-SA": "واجهة CTok.ai لنماذج متوافقة مع Claude",
+        "fr-FR": "API CTok.ai pour les modèles compatibles Claude",
+        "de-DE": "CTok.ai-API für Claude-kompatible Modelle",
+        "ru-RU": "API CTok.ai для Claude-совместимых моделей",
+        "ja-JP": "CTok.ai API、Claude 互換モデル",
+        "es-ES": "API de CTok.ai para modelos compatibles con Claude"
       }
     },
     "eflowcode": {
@@ -1670,6 +2730,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "E-FlowCode",
+        "zh-Hans": "E-FlowCode",
+        "ar-SA": "E-FlowCode",
+        "fr-FR": "E-FlowCode",
+        "de-DE": "E-FlowCode",
+        "ru-RU": "E-FlowCode",
+        "ja-JP": "E-FlowCode",
+        "es-ES": "E-FlowCode"
+      },
+      "desc": {
+        "en-US": "E-FlowCode API for Claude-compatible models",
+        "zh-Hans": "E-FlowCode API, Claude 兼容模型",
+        "ar-SA": "واجهة E-FlowCode لنماذج متوافقة مع Claude",
+        "fr-FR": "API E-FlowCode pour les modèles compatibles Claude",
+        "de-DE": "E-FlowCode-API für Claude-kompatible Modelle",
+        "ru-RU": "API E-FlowCode для Claude-совместимых моделей",
+        "ja-JP": "E-FlowCode API、Claude 互換モデル",
+        "es-ES": "API de E-FlowCode para modelos compatibles con Claude"
       }
     },
     "lemondata": {
@@ -1696,6 +2776,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "LemonData",
+        "zh-Hans": "LemonData",
+        "ar-SA": "LemonData",
+        "fr-FR": "LemonData",
+        "de-DE": "LemonData",
+        "ru-RU": "LemonData",
+        "ja-JP": "LemonData",
+        "es-ES": "LemonData"
+      },
+      "desc": {
+        "en-US": "LemonData API for Claude-compatible models",
+        "zh-Hans": "LemonData API, Claude 兼容模型",
+        "ar-SA": "واجهة LemonData لنماذج متوافقة مع Claude",
+        "fr-FR": "API LemonData pour les modèles compatibles Claude",
+        "de-DE": "LemonData-API für Claude-kompatible Modelle",
+        "ru-RU": "API LemonData для Claude-совместимых моделей",
+        "ja-JP": "LemonData API、Claude 互換モデル",
+        "es-ES": "API de LemonData para modelos compatibles con Claude"
       }
     },
     "pipellm": {
@@ -1722,6 +2822,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "PIPELLM",
+        "zh-Hans": "PIPELLM",
+        "ar-SA": "PIPELLM",
+        "fr-FR": "PIPELLM",
+        "de-DE": "PIPELLM",
+        "ru-RU": "PIPELLM",
+        "ja-JP": "PIPELLM",
+        "es-ES": "PIPELLM"
+      },
+      "desc": {
+        "en-US": "PIPELLM API for Claude-compatible models",
+        "zh-Hans": "PIPELLM API, Claude 兼容模型",
+        "ar-SA": "واجهة PIPELLM لنماذج متوافقة مع Claude",
+        "fr-FR": "API PIPELLM pour les modèles compatibles Claude",
+        "de-DE": "PIPELLM-API für Claude-kompatible Modelle",
+        "ru-RU": "API PIPELLM для Claude-совместимых моделей",
+        "ja-JP": "PIPELLM API、Claude 互換モデル",
+        "es-ES": "API de PIPELLM para modelos compatibles con Claude"
       }
     },
     "opencode": {
@@ -1740,6 +2860,26 @@
       },
       "model_list": {
         "default": []
+      },
+      "name": {
+        "en-US": "OpenCode Go",
+        "zh-Hans": "OpenCode Go",
+        "ar-SA": "OpenCode Go",
+        "fr-FR": "OpenCode Go",
+        "de-DE": "OpenCode Go",
+        "ru-RU": "OpenCode Go",
+        "ja-JP": "OpenCode Go",
+        "es-ES": "OpenCode Go"
+      },
+      "desc": {
+        "en-US": "OpenCode Go endpoint for Claude-compatible models",
+        "zh-Hans": "OpenCode Go 端点, Claude 兼容模型",
+        "ar-SA": "نقطة نهاية OpenCode Go لنماذج متوافقة مع Claude",
+        "fr-FR": "Point de terminaison OpenCode Go pour les modèles compatibles Claude",
+        "de-DE": "OpenCode Go-Endpunkt für Claude-kompatible Modelle",
+        "ru-RU": "Конечная точка OpenCode Go для Claude-совместимых моделей",
+        "ja-JP": "OpenCode Go エンドポイント、Claude 互換モデル",
+        "es-ES": "Endpoint de OpenCode Go para modelos compatibles con Claude"
       }
     },
     "opencode_zen": {
@@ -1763,6 +2903,26 @@
           "big-pickle",
           "glm-4.7-free"
         ]
+      },
+      "name": {
+        "en-US": "OpenCode Zen (Free)",
+        "zh-Hans": "OpenCode Zen（免费）",
+        "ar-SA": "OpenCode Zen (Free)",
+        "fr-FR": "OpenCode Zen (Free)",
+        "de-DE": "OpenCode Zen (Free)",
+        "ru-RU": "OpenCode Zen (Free)",
+        "ja-JP": "OpenCode Zen（無料）",
+        "es-ES": "OpenCode Zen (Free)"
+      },
+      "desc": {
+        "en-US": "OpenCode Zen free endpoint for Claude-compatible models",
+        "zh-Hans": "OpenCode Zen 免费端点, Claude 兼容模型",
+        "ar-SA": "نقطة نهاية OpenCode Zen المجانية لنماذج متوافقة مع Claude",
+        "fr-FR": "Point de terminaison gratuit OpenCode Zen pour les modèles compatibles Claude",
+        "de-DE": "Kostenloses OpenCode Zen-Endpunkt für Claude-kompatible Modelle",
+        "ru-RU": "Бесплатная конечная точка OpenCode Zen для Claude-совместимых моделей",
+        "ja-JP": "OpenCode Zen 無料エンドポイント、Claude 互換モデル",
+        "es-ES": "Endpoint gratuito de OpenCode Zen para modelos compatibles con Claude"
       }
     },
     "newapi": {
@@ -1781,6 +2941,26 @@
       },
       "model_list": {
         "default": []
+      },
+      "name": {
+        "en-US": "New API",
+        "zh-Hans": "New API",
+        "ar-SA": "New API",
+        "fr-FR": "New API",
+        "de-DE": "New API",
+        "ru-RU": "New API",
+        "ja-JP": "New API",
+        "es-ES": "New API"
+      },
+      "desc": {
+        "en-US": "New API / One-API compatible aggregator instance",
+        "zh-Hans": "New API / One-API 兼容的中转聚合实例",
+        "ar-SA": "مثيل مجمع متوافق مع New API / One-API",
+        "fr-FR": "Instance d'agrégateur compatible New API / One-API",
+        "de-DE": "New API / One-API-kompatible Aggregator-Instanz",
+        "ru-RU": "Совместимый с New API / One-API экземпляр агрегатора",
+        "ja-JP": "New API / One-API 互換の中継アグリゲートインスタンス",
+        "es-ES": "Instancia de agregador compatible con New API / One-API"
       }
     },
     "claude_code": {
@@ -1807,6 +2987,26 @@
           "claude-opus-4-5",
           "claude-sonnet-4-5"
         ]
+      },
+      "name": {
+        "en-US": "Claude Code Subscription (Passthrough)",
+        "zh-Hans": "Claude Code 订阅（透传）",
+        "ar-SA": "Claude Code Subscription (Passthrough)",
+        "fr-FR": "Claude Code Subscription (Passthrough)",
+        "de-DE": "Claude Code Subscription (Passthrough)",
+        "ru-RU": "Claude Code Subscription (Passthrough)",
+        "ja-JP": "Claude Code サブスクリプション（パススルー）",
+        "es-ES": "Claude Code Subscription (Passthrough)"
+      },
+      "desc": {
+        "en-US": "Passthrough for Claude Code subscription auth",
+        "zh-Hans": "Claude Code 订阅鉴权透传",
+        "ar-SA": "تمرير مصادقة اشتراك Claude Code",
+        "fr-FR": "Pass-through pour l'authentification d'abonnement Claude Code",
+        "de-DE": "Pass-through für Claude Code-Abonnementauthentifizierung",
+        "ru-RU": "Прозрачный пропуск аутентификации подписки Claude Code",
+        "ja-JP": "Claude Code サブスクリプション認証のパススルー",
+        "es-ES": "Passthrough para autenticación de suscripción de Claude Code"
       }
     }
   }

@@ -69,6 +69,17 @@
 | proxy-trace-id-header | proxy 响应头注入 X-AiDog-Trace trace-id (debug 模式 MITM/非 MITM 都加) | — | 已完成 | — |
 | app-log-to-file-always | 应用日志启用时强制输出到文件 (无视 debug 模式) | — | 已完成 | — |
 | trace-id-log-format | trace-id 注入日志格式让 header↔日志可 grep | — | 已完成 | — |
+| forward-http-absolute-form | forward proxy 扩展支持 absolute-form HTTP 转发任意 host | — | 已完成 | — |
+| log-format-field-loss | 日志格式器 MsgCollector 丢非 message event 字段 (fn/req/dur/sql 全丢) | — | 已完成 | — |
+| delete-platform-keep-empty-group | delete_platform 保留空组不连带 force_delete_group 孤儿 auto 组 | — | 已完成 | — |
+| modal-window-center-portal | 弹窗全部 createPortal 到 body 实现真窗口居中 | — | 已完成 | — |
+| mitm-chain-full-diagnosis | MITM 链路全诊断: 白名单匹配+log 完整+路由触发+token 解析+h2 cancel | — | 已完成 | — |
+| mitm-decrypt-fallback-404 | mitm 解密流量 fallback 404 + proxy_log url 不完整 | — | 已完成 | — |
+| platform-defaults-json-sync | 平台默认配置 JSON 化 + GitHub master 同步 | — | 规划中 | — |
+| defaults-json-extract | defaults.ts JSON 抽取 + async 化 | — | 已完成 | — |
+| defaults-sync-jsdelivr | defaults.json jsDelivr+raw 同步机制 | — | 已完成 | — |
+| price-sync-jsdelivr-migration | price_sync.rs models.json URL 迁移 jsDelivr | — | 已完成 | — |
+| auto-update-toggle | 自动升级设置开关 (默认开, 设置>系统可关) | — | 已完成 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -77,8 +88,13 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
-| forward-http-absolute-form | forward proxy 扩展支持 absolute-form HTTP 转发任意 host | — | 已完成 | — |
-| log-format-field-loss | 日志格式器 MsgCollector 丢非 message event 字段 (fn/req/dur/sql 全丢) | — | 已完成 | — |
-| delete-platform-keep-empty-group | delete_platform 保留空组不连带 force_delete_group 孤儿 auto 组 | — | 已完成 | — |
-| modal-window-center-portal | 弹窗全部 createPortal 到 body 实现真窗口居中 | — | 已完成 | — |
-| mitm-chain-full-diagnosis | MITM 链路全诊断: 白名单匹配+log 完整+路由触发+token 解析+h2 cancel | — | 已完成 | — |
+| locale-zh-hans-rename | locale code zh-CN → zh-Hans 全量 rename | — | 规划中 | — |
+| group-delete-platform-bug | 分组卡片删除平台仅移除关联未删平台 | — | 已完成 | — |
+| platform-presets-rename | platform-presets.json rename (defaults.json) | — | 已完成 | — |
+| models-json-to-defaults | data/models.json → src-tauri/defaults/models.json 迁移 | — | 规划中 | — |
+| repo-cleanup-empty-temp-bak | 仓库清理: 空文件夹/空文件/临时/备份 | — | 已完成 | — |
+| protocols-i18n-name-desc-search | platform-presets protocols 多语言 name/desc + 搜索 (含拼音) | — | 实施中 | — |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-i18n-name-desc-search | 07-07-protocols-i18n-name-desc-search | trellisx-start |
+| protocols-source-url | platform-presets protocols 数据源站点 URL | — | 实施中 | — |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-source-url | 07-07-protocols-source-url | trellisx-start |
+| protocol-logo-homepage | platform-presets protocols homepage + logo (本地缓存) | — | 规划中 | — |

@@ -1,1 +1,3 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"id":"cross-layer","type":"spec","path":".trellis/spec/guides/cross-layer-rules.md","note":"跨 Rust↔TS 字段对齐 (Rust ProtocolPreset serde ↔ TS Protocol ↔ JSON schema)"}
+{"id":"reuse","type":"spec","path":".trellis/spec/guides/code-reuse-rules.md","note":"写新函数前 grep 已有 (defaults.ts async 模式 / pinyinMatch / PROTOCOLS)"}
+{"id":"frontend-conventions","type":"spec","path":".trellis/spec/frontend/conventions.md","note":"i18n / 状态 / API 调用规范 (defaults.ts 全 async + caller 必 await)"}

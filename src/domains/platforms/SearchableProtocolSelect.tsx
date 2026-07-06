@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Protocol } from "../../services/api";
 import { pinyinMatch } from "../../utils/pinyin";
 import { PROTOCOLS, PROTOCOL_LABELS, PROTOCOL_COLORS } from "./constants";
+import { getProtocolLabel } from "./defaults";
 
 /** 可搜索的协议选择器（支持拼音模糊匹配 + Tab/方向键键盘导航） */
 export function SearchableProtocolSelect({
@@ -12,7 +13,7 @@ export function SearchableProtocolSelect({
   codingPlan: boolean;
   onChange: (proto: Protocol, codingPlan?: boolean) => void | Promise<void>;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(0);
@@ -22,15 +23,39 @@ export function SearchableProtocolSelect({
   // 仅键盘导航/打开下拉时才自动滚动；鼠标 hover 改高亮不滚动（避免滚动→hover→滚动死循环）
   const autoScrollRef = useRef(false);
 
-  // 当前选中项的显示文本
-  const selectedLabel = PROTOCOLS.find(
-    p => p.value === value && !!p.codingPlan === codingPlan
-  )?.label || PROTOCOL_LABELS[value];
+  // 协议本地化 label 映射（value → 按 i18n.language 取 JSON name）。
+  // fallback: locale 缺失 → en-US → value key。docPromise 单次 RPC，切语言重拉。
+  // ponytail: value 作 key（coding 变体共用同 value 的 name，调用方追加 Coding 后缀）
+  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    // 切语言或挂载时拉取；不阻塞渲染，先显 fallback（PROTOCOLS[].label 硬编码）后异步替换
+    (async () => {
+      const entries = await Promise.all(
+        Array.from(new Set(PROTOCOLS.map(p => p.value))).map(async v => [v, await getProtocolLabel(v, i18n.language)] as const)
+      );
+      if (!cancelled) setLabelMap(Object.fromEntries(entries));
+    })();
+    return () => { cancelled = true; };
+  }, [i18n.language]);
 
-  // 按拼音/关键词过滤
+  // 当前选中项的显示文本（优先本地化，coding plan 追加后缀）
+  // ponytail: JSON name 不区分 coding plan，硬编码 fallback label 已含 "Coding Plan" 后缀时直接用
+  const selectedBase = labelMap[value] || PROTOCOL_LABELS[value] || value;
+  const selectedLabel = codingPlan && !/Coding/i.test(selectedBase)
+    ? `${selectedBase} Coding Plan`
+    : selectedBase;
+
+  // 按拼音/关键词过滤 — 用本地化 label（zh-Hans name 含中文，拼音搜索自动生效）
+  // ponytail: labelOf 同步取，filtered 渲染共享
+  const labelOf = (p: typeof PROTOCOLS[number]): string => {
+    const base = labelMap[p.value] || p.label;
+    return p.codingPlan && !/Coding/i.test(base) ? `${base} Coding Plan` : base;
+  };
   const filtered = PROTOCOLS.filter(p => {
     if (!query.trim()) return true;
-    if (pinyinMatch(query, p.label)) return true;
+    if (pinyinMatch(query, labelOf(p))) return true;
+    if (pinyinMatch(query, p.label)) return true; // fallback 英文兜底也参与匹配
     if (p.keywords?.some(kw => pinyinMatch(query, kw))) return true;
     if (pinyinMatch(query, p.value)) return true;
     return false;
@@ -204,7 +229,7 @@ export function SearchableProtocolSelect({
                   }}>
                     {p.value.slice(0, 2).toUpperCase()}
                   </span>
-                  {p.label}
+                  {labelOf(p)}
                   {p.codingPlan && (
                     <span style={{
                       marginLeft: 6, padding: "1px 5px", borderRadius: "var(--radius-sm)",

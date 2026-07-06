@@ -118,6 +118,16 @@ mode: optimize
 - **check 前必须跑 `node scripts/check-i18n.mjs`，exit 0（零缺失）才可 finish**。脚本检查四类：(A) `t()` 静态 key 8 locale 覆盖 (B) locale 间 key 集合对齐（并集 = 每个 locale）(C) 动态模板清单人工审计 (D) `labelKey`/`group` 属性字面量覆盖（堵 t(变量) 盲区）
 - 验证: `node scripts/check-i18n.mjs` exit 0；新 key 落地后 `git diff src/locales/` 应见 8 文件同步改动
 
+### Protocol Metadata 多语言 (MUST)
+
+> 违反代价: protocol metadata (name/desc/source_urls/homepage/logo_url) 字段散乱 → 后续 task 重复决策 + check-i18n 漏校 + 跨层 Rust↔TS 边界 struct 死代码。来源: 07-07-protocols-i18n-name-desc-search。
+
+- **(a) metadata 多语言位置**: protocol name/desc 多语言放 `platform-presets.json` 内嵌 `{name: {<locale>: "..."}, desc: {...}}`, **非** `src/locales/<locale>.json` (后者仅 app UI 文案, dot-notation key)。JSON locale key 用 BCP47 (`zh-Hans` script 子标签), 非 i18next 的 `zh-CN`。
+- **(b) check-i18n.mjs 第 5 类 (E 段)**: 校验 `platform-presets.json` 每 protocol name/desc 8 locale 完整性 (零空 string)。**新增 protocol metadata 字段 (source_urls/homepage/logo_url 等含 locale 维度的字段) MUST 扩展 E 段校验**。
+- **(c) PROTOCOLS[].label 硬编码保留**: `src/domains/platforms/constants.ts` 的 `PROTOCOLS[].label` 硬编码**禁删**, 作内部匹配 fallback (`platformPaste`/`ccswitchMatch`/`usePlatformForm`/`PlatformCard` 用, 非用户直见)。仅用户可见 UI (`SearchableProtocolSelect`/`Sub2ApiImport`/未来 logo 展示) 派生本地化 label via `getProtocolLabel`/`getProtocolLabelMap`/`getProtocolDesc` async helper (复用 `defaults.ts` `docPromise` 单次 RPC 模式, fallback locale→en-US→protocol key)。
+- **(d) 跨层边界 — 禁加 Rust struct**: protocol metadata 字段加 `platform-presets.json` + TS 类型 `src/domains/platforms/defaults.ts DefaultsDoc` 协议条目加可选字段; **禁加 Rust `ProtocolPreset` struct** (`get_defaults_json` 透传 raw String, serde 仅校验 `last_updated` 不解析 protocol 字段, 加 struct=死代码)。
+- **(e) BCP47 locale 桥接 (临时, locale-rename 后移除)**: i18next locale (`zh-CN`) ↔ JSON BCP47 (`zh-Hans`) 映射在 `defaults.ts LOCALE_TO_DEFAULTS`; `07-06-locale-zh-hans-rename` task 完成后统一为 `zh-Hans`, 本条款 + 映射一并移除。
+
 ## Large File Split — facade 模式 (MUST)
 
 > 违反代价: 巨石文件 (>800 行) → 增量改动成本指数增长、merge 冲突频发、agent 上下文爆炸；拆分不守契约 → 外部 import 路径 churn + 业务逻辑迁移丢块。Groups/Platforms/AppSettings/Logs/Skills/Mcp/PopoverConfigTab/StatusLineSection 均已用此模式。
