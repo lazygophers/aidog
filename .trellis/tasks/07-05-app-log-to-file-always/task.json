@@ -3,7 +3,7 @@
   "name": "app-log-to-file-always",
   "title": "应用日志启用时强制输出到文件 (无视 debug 模式)",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

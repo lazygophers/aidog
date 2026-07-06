@@ -67,7 +67,7 @@
 | mitm-h2-cancel-real-rootcause | MITM h2 stream CANCEL 真根因 (env proxy 已修仍 CANCEL) | — | 实施中 | — |
 | sql-log-full-content | SQL 日志输出完整原始内容而非占位符 | — | 规划中 | — |
 | proxy-trace-id-header | proxy 响应头注入 X-AiDog-Trace trace-id (debug 模式 MITM/非 MITM 都加) | — | 已完成 | — |
-| app-log-to-file-always | 应用日志启用时强制输出到文件 (无视 debug 模式) | — | 规划中 | — |
+| app-log-to-file-always | 应用日志启用时强制输出到文件 (无视 debug 模式) | — | 实施中 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -77,3 +77,4 @@
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-05-mitm-h2-cancel-real-rootcause | 07-05-mitm-h2-cancel-real-rootcause | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-05-app-log-to-file-always | 07-05-app-log-to-file-always | - |
