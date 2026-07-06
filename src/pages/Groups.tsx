@@ -150,13 +150,22 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   }, [groupCountOf, removePlatformFromGroup]);
 
   // 确认删除（仅属本组的平台）：走 delete_platform（连带清关联，后端 026289e 已处理）。
+  // 失败时 toast 报错 + 不刷新本地状态（保持弹窗上下文，对齐 usePlatformsState.handleDelete 行为）。
   const confirmDeletePlatform = useCallback(async () => {
     if (!removeTarget) return;
-    await cards.handleDelete(removeTarget.platform.id);
-    setRemoveTarget(null);
-    load(); onGroupsChanged?.();
+    const target = removeTarget;
+    try {
+      await cards.handleDelete(target.platform.id);
+      setRemoveTarget(null);
+      load(); onGroupsChanged?.();
+    } catch (e) {
+      console.error(e);
+      onToast?.({ text: `${t("platform.deleteFail", "删除失败")}: ${e}`, ok: false });
+      setTimeout(() => onToast?.(null), 3000);
+      setRemoveTarget(null);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [removeTarget, cards, load]);
+  }, [removeTarget, cards, load, onToast, t]);
 
   // 分组上下文 card actions（按 gid 派生）：onDelete 改为「移除」语义（删 vs 移出二分）。
   // 拖拽 no-op（分组内禁拖拽）；启停后 load() 刷新本地 platforms。
