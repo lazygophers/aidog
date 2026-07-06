@@ -1828,5 +1828,13 @@
   "mcp.share.title": "Partager MCP",
   "mcp.share.warning": "Le contenu partagé contient env/headers en texte clair (peut inclure des jetons/secrets). Envoyez-le uniquement à des destinataires de confiance ; ne le publiez jamais.",
   "mcp.share.copyUrl": "Copier en lien aidog://",
-  "mcp.share.urlCopied": "Lien aidog:// copié"
+  "mcp.share.urlCopied": "Lien aidog:// copié",
+  "settings.defaultsSync": "Synchronisation de la configuration par défaut",
+  "settings.defaultsSyncHint": "Récupère les valeurs par défaut de plateforme (points de terminaison / correspondances de modèles) depuis GitHub et les écrit localement si plus récentes",
+  "settings.defaultsSyncLastUpdated": "Heure de la version actuelle :",
+  "settings.defaultsSyncCheck": "Vérifier les mises à jour",
+  "settings.defaultsSyncUpdated": "Mis à jour vers la dernière version (source : {{source}})",
+  "settings.defaultsSyncUpToDate": "Déjà à jour",
+  "settings.defaultsSyncFailed": "Échec de la synchronisation : {{error}} (configuration locale utilisée)",
+  "settings.defaultsSyncUnknown": "Inconnu"
 }

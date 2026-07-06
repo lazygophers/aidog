@@ -1828,5 +1828,13 @@
   "mcp.share.title": "مشاركة MCP",
   "mcp.share.warning": "يحتوي المحتوى المشترك على env/headers بنص عادي (قد يتضمن رموز/أسرار). أرسله فقط إلى جهات موثوقة ولا تنشره علنًا.",
   "mcp.share.copyUrl": "نسخ كرابط aidog://",
-  "mcp.share.urlCopied": "تم نسخ رابط aidog://"
+  "mcp.share.urlCopied": "تم نسخ رابط aidog://",
+  "settings.defaultsSync": "مزامنة التكوين الافتراضي",
+  "settings.defaultsSyncHint": "سحب الإعدادات الافتراضية للمنصات (نقاط نهاية البروتوكول / تعيينات النماذج) من GitHub وكتابتها محليًا عند وجود أحدث",
+  "settings.defaultsSyncLastUpdated": "وقت الإصدار الحالي:",
+  "settings.defaultsSyncCheck": "التحقق من التحديثات الآن",
+  "settings.defaultsSyncUpdated": "تم التحديث لأحدث إصدار (المصدر: {{source}})",
+  "settings.defaultsSyncUpToDate": "حتى الآن محدث",
+  "settings.defaultsSyncFailed": "فشلت المزامنة: {{error}} (استخدام التكوين المحلي)",
+  "settings.defaultsSyncUnknown": "غير معروف"
 }

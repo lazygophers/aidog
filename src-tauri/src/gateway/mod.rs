@@ -2,6 +2,7 @@ pub mod adapter;
 pub mod backup;
 pub mod codex;
 pub mod db;
+pub mod defaults_sync;
 pub mod estimate;
 pub mod hooks;
 pub mod http_client;
