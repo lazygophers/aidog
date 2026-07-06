@@ -52,7 +52,7 @@ use rusqlite::params;
             GroupPlatformInput { platform_id: p_keep.id, priority: Some(1), weight: Some(1), level_priority: None },
         ]).await.unwrap();
 
-        // ③ p_del 的孤儿 auto 组（仅含自己），删平台后应被清掉。
+        // ③ p_del 的孤儿 auto 组（仅含自己），删平台后应保留为空组（前端展示空卡，用户手动清）。
         let auto_orphan = create_group(&db, CreateGroup {
             name: "del-src-orphan".into(), group_key: Some("del-src-orphan".into()),
             routing_mode: RoutingMode::Failover, auto_from_platform: p_del.id.to_string(),
@@ -76,8 +76,10 @@ use rusqlite::params;
         assert_eq!(a_plats.len(), 1);
         assert_eq!(a_plats[0].platform.id, p_keep.id);
 
-        // 孤儿 auto 组（删后无成员）被删。
-        assert!(get_group(&db, auto_orphan.id).await.unwrap().is_none(), "孤儿 auto 组应被删");
+        // 孤儿 auto 组保留（删平台只清关联，不连带销毁分组），组内空。
+        assert!(get_group(&db, auto_orphan.id).await.unwrap().is_some(), "孤儿 auto 组应保留");
+        let orphan_plats = get_group_platforms(&db, auto_orphan.id).await.unwrap();
+        assert!(orphan_plats.is_empty(), "孤儿 auto 组组内应空");
 
         // 全表无指向已删平台的关联残留。
         let pid = p_del.id as i64;
@@ -85,6 +87,45 @@ use rusqlite::params;
             Ok(conn.query_row("SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1", params![pid], |r| r.get(0))?)
         }).await.unwrap();
         assert_eq!(stale, 0, "不应残留指向已删平台的 group_platform 行");
+    }
+
+
+
+    // ── 删平台保留所有分组（含孤儿 auto 组），同名 auto 组空卡前端正常展示 ──
+    #[tokio::test]
+    async fn delete_platform_keeps_orphan_auto_group_empty() {
+        let db = test_db().await;
+        let p = create_platform(&db, sample_platform("lone")).await.unwrap();
+        // p 的同名 auto 组（仅含 p）。
+        let g = create_group(&db, CreateGroup {
+            name: "lone-auto".into(), group_key: Some("lone-auto".into()),
+            routing_mode: RoutingMode::Failover, auto_from_platform: p.id.to_string(),
+            request_timeout_secs: 0, connect_timeout_secs: 0,
+            source_protocol: None, max_retries: 2, model_mappings: vec![], env_vars: vec![],
+        }).await.unwrap();
+        set_group_platforms(&db, g.id, &[
+            GroupPlatformInput { platform_id: p.id, priority: Some(0), weight: Some(1), level_priority: None },
+        ]).await.unwrap();
+        assert_eq!(get_group_platforms(&db, g.id).await.unwrap().len(), 1);
+
+        delete_platform(&db, p.id).await.unwrap();
+
+        // p 软删：list 不含，get 返回 None。
+        assert!(list_platforms(&db).await.unwrap().is_empty());
+        assert!(get_platform(&db, p.id).await.unwrap().is_none());
+
+        // 全表无指向 p 的关联残留。
+        let pid = p.id as i64;
+        let stale: i64 = db.call_traced(None, std::panic::Location::caller(), move |conn| {
+            Ok(conn.query_row("SELECT COUNT(*) FROM group_platform WHERE platform_id = ?1", params![pid], |r| r.get(0))?)
+        }).await.unwrap();
+        assert_eq!(stale, 0, "不应残留指向已删平台的 group_platform 行");
+
+        // 同名 auto 组保留（deleted_at=0），组内空。
+        let g_row = get_group(&db, g.id).await.unwrap().expect("孤儿 auto 组应保留");
+        assert_eq!(g_row.id, g.id);
+        let g_plats = get_group_platforms(&db, g.id).await.unwrap();
+        assert!(g_plats.is_empty(), "保留后组内应空");
     }
 
 
