@@ -1,4 +1,8 @@
 import { useTranslation } from "react-i18next";
+import { useEffect, useState } from "react";
+import { getDefaultsJson, syncDefaultsJson } from "../../services/api";
+import type { DefaultsSyncResult } from "../../services/api";
+import { formatDateTime } from "../../utils/formatters";
 import type { SystemSettings } from "./useSystemSettings";
 
 /**
@@ -177,5 +181,95 @@ export function VersionToastSection({ s }: { s: SystemSettings }) {
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * defaults.json 同步区：显示当前 last_updated + 「立即检查更新」按钮 + 同步结果反馈。
+ * 手动触发无视节流。同步失败不破坏现有功能（reader 端自动回退 bundled）。
+ */
+export function DefaultsSyncSection() {
+  const { t } = useTranslation();
+  const [lastUpdated, setLastUpdated] = useState<number | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [result, setResult] = useState<DefaultsSyncResult | null>(null);
+  const [loadErr, setLoadErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    getDefaultsJson()
+      .then((raw) => {
+        if (!alive) return;
+        try {
+          const parsed = JSON.parse(raw) as { last_updated?: number };
+          setLastUpdated(parsed.last_updated ?? null);
+        } catch {
+          setLastUpdated(null);
+        }
+      })
+      .catch((e) => {
+        console.error("[defaultsSync] getDefaultsJson failed:", e);
+        if (alive) setLoadErr(String(e));
+      });
+    return () => { alive = false; };
+  }, [result]);
+
+  const handleSync = async () => {
+    setSyncing(true);
+    try {
+      const r = await syncDefaultsJson();
+      setResult(r);
+    } catch (e) {
+      console.error("[defaultsSync] syncDefaultsJson failed:", e);
+      setResult({ updated: false, lastUpdated: 0, source: "local", error: String(e) });
+    } finally {
+      setSyncing(false);
+    }
+  };
+
+  const feedback = result
+    ? result.error
+      ? t("settings.defaultsSyncFailed", { error: result.error })
+      : result.updated
+        ? t("settings.defaultsSyncUpdated", { source: result.source })
+        : t("settings.defaultsSyncUpToDate")
+    : null;
+
+  return (
+    <div className="glass-surface" style={{
+      padding: "16px 20px",
+      display: "flex",
+      flexDirection: "column",
+      gap: 12,
+    }}>
+      <div>
+        <div style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.defaultsSync")}</div>
+        <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+          {t("settings.defaultsSyncHint")}
+        </div>
+      </div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <div className="text-secondary" style={{ fontSize: 12 }}>
+          {t("settings.defaultsSyncLastUpdated")}{" "}
+          {formatDateTime(lastUpdated ? lastUpdated * 1000 : null) ?? (loadErr ? t("settings.defaultsSyncUnknown") : "—")}
+        </div>
+        <button
+          className="btn"
+          onClick={handleSync}
+          disabled={syncing}
+          style={{
+            padding: "7px 16px", fontSize: 13, cursor: syncing ? "not-allowed" : "pointer",
+            borderRadius: "var(--radius-md)", border: "1px solid var(--border-default)",
+            background: "transparent", color: "var(--text-primary)",
+            opacity: syncing ? 0.6 : 1, whiteSpace: "nowrap",
+          }}
+        >
+          {syncing ? t("common.loading") : t("settings.defaultsSyncCheck")}
+        </button>
+      </div>
+      {feedback && (
+        <div className="text-secondary" style={{ fontSize: 12 }}>{feedback}</div>
+      )}
+    </div>
   );
 }

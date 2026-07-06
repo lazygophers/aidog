@@ -214,6 +214,7 @@ crate::commands::price::model_price_count_filtered,
             crate::commands::about::about_info,
             // Platform defaults JSON
             crate::commands::defaults::get_defaults_json,
+            crate::commands::defaults::sync_defaults_json,
             // MITM (P3 ST7) — 白名单配置 + CA 安装状态/引导
             crate::commands::mitm::mitm_status,
             crate::commands::mitm::mitm_enable,
