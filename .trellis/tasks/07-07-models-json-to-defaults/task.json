@@ -3,7 +3,7 @@
   "name": "models-json-to-defaults",
   "title": "data/models.json → src-tauri/defaults/models.json 迁移",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

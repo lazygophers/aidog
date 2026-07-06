@@ -61,8 +61,8 @@ install: ## Install frontend dependencies
 ##@ Pricing
 
 .PHONY: prices-sync
-prices-sync: ## Sync model prices/max_tokens → data/models.json (single entry, runs all platform scrapers)
-	@printf "$(GREEN)▶ Aggregating model pricing → data/models.json...$(RESET)\n"
+prices-sync: ## Sync model prices/max_tokens → src-tauri/defaults/models.json (single entry, runs all platform scrapers)
+	@printf "$(GREEN)▶ Aggregating model pricing → src-tauri/defaults/models.json...$(RESET)\n"
 	cd scripts/pricing && uv run python aggregate.py
 
 ##@ Help

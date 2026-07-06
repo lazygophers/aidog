@@ -1,4 +1,4 @@
-//! GitHub models.json 同步：拉取 data/models.json（Python 聚合的唯一信源），解析，upsert 入 model_price。
+//! GitHub models.json 同步：拉取 src-tauri/defaults/models.json（Python 聚合的唯一信源），解析，upsert 入 model_price。
 //!
 //! 数据源 = jsDelivr master（cdn.jsdelivr.net）主，raw.githubusercontent fallback。
 //! schema 见 scripts/pricing/schema.py（ModelsFile / ModelEntry / PlatformPricing）。
@@ -9,13 +9,13 @@ use std::sync::Arc;
 
 /// 主源：jsDelivr CDN（master 分支）。CDN 加速 + 边缘缓存，失败/非 200 回退 raw。
 const MODELS_JSON_PRIMARY_URL: &str =
-    "https://cdn.jsdelivr.net/gh/lazygophers/aidog@master/data/models.json";
+    "https://cdn.jsdelivr.net/gh/lazygophers/aidog@master/src-tauri/defaults/models.json";
 
 /// fallback：GitHub raw（master 分支）。jsDelivr 不可达时兜底。
 const MODELS_JSON_FALLBACK_URL: &str =
-    "https://raw.githubusercontent.com/lazygophers/aidog/master/data/models.json";
+    "https://raw.githubusercontent.com/lazygophers/aidog/master/src-tauri/defaults/models.json";
 
-/// Fetch + parse data/models.json，upsert 全部模型（source="github"）。
+/// Fetch + parse src-tauri/defaults/models.json，upsert 全部模型（source="github"）。
 ///
 /// 后台周期同步的每轮入口：建独立 trace_id span（非请求触发），本轮所有日志
 /// 自动带 price_sync{trace_id=xxxxxxxx} 前缀，可按 id grep 出完整一轮同步。

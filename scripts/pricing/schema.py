@@ -1,4 +1,4 @@
-"""data/models.json 的 pydantic schema — 单一事实源。
+"""src-tauri/defaults/models.json 的 pydantic schema — 单一事实源。
 
 Rust 端 ModelPrice / ModelPriceSummary 字段必须与此对齐 (见 design.md)。
 所有价格单位 = $/token (与 LiteLLM 惯例一致, est_cost 直接乘 token 数)。
@@ -56,7 +56,7 @@ class ModelEntry(BaseModel):
 
 
 class ModelsFile(BaseModel):
-    """data/models.json 顶层结构 — GitHub 仓库唯一信源。"""
+    """src-tauri/defaults/models.json 顶层结构 — GitHub 仓库唯一信源。"""
 
     version: int = 1
     generated_at: str = Field(
