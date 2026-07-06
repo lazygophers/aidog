@@ -2,6 +2,7 @@
 // Custom in-app confirm (NOT browser `confirm`, which breaks Tauri).
 // Mirrors the ImportDiffModal overlay/glass-elevated visual language.
 
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { F, S } from "./editors";
 
@@ -23,7 +24,8 @@ export function UnsavedChangesModal({
   saving,
 }: UnsavedChangesModalProps) {
   const { t } = useTranslation();
-  return (
+  // portal 到 body：祖先 transform/backdrop-filter 会让 fixed 退化相对祖先，致弹窗只在 page 内居中。
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -102,6 +104,7 @@ export function UnsavedChangesModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
