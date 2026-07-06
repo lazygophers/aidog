@@ -44,3 +44,12 @@ export const aboutApi = {
   info: () => invoke<AboutInfo>("about_info"),
 };
 
+// ─── Auto-update toggle (gates 启动 daily check；手动按钮不 gate) ──────────
+
+export const autoUpdateApi = {
+  /** 读 auto_update_enabled；缺失默认 true（不打扰存量用户）。 */
+  get: () => invoke<boolean>("get_auto_update_enabled"),
+  /** 持久化 auto_update_enabled（settings KV scope=app key=auto_update_enabled）。 */
+  set: (enabled: boolean) => invoke<void>("set_auto_update_enabled", { enabled }),
+};
+

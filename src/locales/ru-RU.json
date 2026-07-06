@@ -1119,6 +1119,8 @@
   "settings.allSaved": "Сохранено",
   "settings.attribution.commit": "Автор коммита",
   "settings.attribution.pr": "Автор PR",
+  "settings.autoUpdate": "Автопроверка обновлений",
+  "settings.autoUpdateHint": "Автоматически проверять обновления при запуске (ручная проверка на странице «О программе» остаётся доступной, если выключено)",
   "settings.backup.days": "дней (1-90)",
   "settings.backup.desc": "Автоматический экспорт всех данных в зашифрованный .aidogx с заданным интервалом. Сохраняется в ~/.aidog/backups/, просроченные файлы удаляются автоматически.",
   "settings.backup.enable": "Включить плановое резервное копирование",

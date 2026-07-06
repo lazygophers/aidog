@@ -1097,6 +1097,8 @@
   "settings.allSaved": "Guardado",
   "settings.attribution.commit": "Autor del commit",
   "settings.attribution.pr": "Autor del PR",
+  "settings.autoUpdate": "Buscar actualizaciones automáticamente",
+  "settings.autoUpdateHint": "Comprobar actualizaciones automáticamente al iniciar (la comprobación manual en la página Acerca de sigue disponible si se desactiva)",
   "settings.backup.days": "días (1-90)",
   "settings.backup.desc": "Exporta automáticamente todos los datos como .aidogx cifrado a intervalos definidos. Se guarda en ~/.aidog/backups/, los archivos caducados se limpian automáticamente.",
   "settings.backup.enable": "Activar copia programada",

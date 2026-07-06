@@ -15,6 +15,7 @@ import {
   proxyLogApi,
   notificationApi,
   NOTIF_SPEAK,
+  autoUpdateApi,
 } from "./services/api";
 import { checkForUpdateDailyThrottled } from "./services/updater";
 import type { Update } from "@tauri-apps/plugin-updater";
@@ -89,8 +90,10 @@ function App() {
 
   // 每日检测更新：启动调节流检查 (24h)，有更新弹自定义提醒 modal。
   // dev/未签名/无网络失败已在 service 内 catch 静默，不打扰。
+  // 设置开关关闭 → 跳过启动自动检查（手动按钮仍可查）。
   useEffect(() => {
-    checkForUpdateDailyThrottled()
+    autoUpdateApi.get()
+      .then((enabled) => { if (!enabled) return null; return checkForUpdateDailyThrottled(); })
       .then((upd) => { if (upd) setPendingUpdate(upd); })
       .catch(() => {});
   }, []);

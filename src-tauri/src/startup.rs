@@ -172,6 +172,9 @@ pub fn run() {
             // App Logging
             crate::commands::app_log::app_log_settings_get,
             crate::commands::app_log::app_log_settings_set,
+            // Auto-update toggle (gates startup daily check; manual button unaffected)
+            crate::commands::auto_update::get_auto_update_enabled,
+            crate::commands::auto_update::set_auto_update_enabled,
             // CC / Codex integration toggles
             crate::commands::coding_tools::coding_tools_settings_get,
             crate::commands::coding_tools::coding_tools_settings_set,
