@@ -822,29 +822,34 @@ fn is_api_endpoint_covers_main_paths() {
     assert!(!is_api_endpoint("/proxy/"));
 }
 
-/// 纯函数：should_fallback_passthrough 三分支（MITM 直通 / API 仍 404 / 代理自身 host 不直通）。
+/// 纯函数：should_fallback_passthrough 三分支（MITM 直通 / 代理自身 host 不直通 / listen=None 保守）。
+///
+/// Bug B 修法后语义：host 判定前置，**不看 path**。host 非自身（MITM 灌入 / forward proxy）→ 恒 true；
+/// host 自身（含错 token 探测代理）→ 恒 false（保留 404）。原「API path 在外部 host 也不直通」
+/// 用例已删除（那是 Bug B 本身，违反 MITM 透明转发语义）；API path 在 MITM host 直通的场景
+/// 由下方 `mitm_decrypted_api_path_falls_through_to_orig_host` 端到端覆盖。
 #[test]
 fn should_fallback_passthrough_decision_matrix() {
     use super::endpoint::should_fallback_passthrough;
     let listen = Some((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 9892u16));
 
-    // MITM 解密（Host = www.baidu.com，非代理自身）+ 非 API → 直通
-    assert!(should_fallback_passthrough("www.baidu.com", "/", listen));
-    assert!(should_fallback_passthrough("www.baidu.com:443", "/index.html", listen));
-    // API path → 不直通（仍 404），即使 Host 是外部
-    assert!(!should_fallback_passthrough("www.baidu.com", "/v1/messages", listen));
-    assert!(!should_fallback_passthrough("www.baidu.com", "/v1/chat/completions", listen));
+    // MITM 解密（Host = 外部域名，非代理自身）→ 直通，**不看 path**（Bug B 修法核心）
+    assert!(should_fallback_passthrough("www.baidu.com", listen));
+    assert!(should_fallback_passthrough("www.baidu.com:443", listen));
+    // GLM 真实场景 host=open.bigmodel.cn → 直通（path 维度由 e2e 测试覆盖）
+    assert!(should_fallback_passthrough("open.bigmodel.cn", listen));
     // 代理自身 host 直连 → 不直通（保留 404）
-    assert!(!should_fallback_passthrough("127.0.0.1:9892", "/v1/messages", listen));
-    assert!(!should_fallback_passthrough("127.0.0.1:9892", "/", listen));
-    assert!(!should_fallback_passthrough("localhost:9892", "/", listen));
+    assert!(!should_fallback_passthrough("127.0.0.1:9892", listen));
+    assert!(!should_fallback_passthrough("localhost:9892", listen));
     // listen_addr = None（测试 / 未启动）→ 保守不直通
-    assert!(!should_fallback_passthrough("www.baidu.com", "/", None));
+    assert!(!should_fallback_passthrough("www.baidu.com", None));
     // 0.0.0.0 bind：客户端通常连 127.0.0.1，视为自身
     let listen_lan = Some((std::net::IpAddr::V4(std::net::Ipv4Addr::new(0, 0, 0, 0)), 9892u16));
-    assert!(!should_fallback_passthrough("127.0.0.1:9892", "/", listen_lan));
+    assert!(!should_fallback_passthrough("127.0.0.1:9892", listen_lan));
     // 非 loopback、非 listen ip 的外部 host → MITM 解密灌入 → 直通
-    assert!(should_fallback_passthrough("api.example.com", "/foo", listen_lan));
+    assert!(should_fallback_passthrough("api.example.com", listen_lan));
+    // loopback 名 + 端口不匹配 = 本机其他服务 → 允许直通（非 API 不破坏鉴权）
+    assert!(should_fallback_passthrough("localhost:8080", listen));
 }
 
 /// 无 Authorization + Host = 外部（MITM 解密灌入）+ 非 API path + 上游不可达
@@ -897,6 +902,92 @@ async fn api_path_wrong_token_still_404_no_bypass() {
     // 不落虚拟桶
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     assert!(!logs.iter().any(|l| l.group_key == "未匹配"), "API path 未匹配不应进虚拟桶");
+}
+
+/// Bug B 核心修复回归：MITM 解密灌入 + API path（含 /v1/messages）+ 上游真实 key
+/// → fallback 直通原 host（不再 404），proxy_log.request_url 含完整 url（host + path + query）。
+///
+/// 用户场景：智谱 anthropic 兼容端点 host=open.bigmodel.cn + path=/api/anthropic/v1/messages
+/// + Authorization 上游真实 key（代理无对应 group）→ 修复前 is_api_endpoint 拦死 → 404；
+/// 修复后 host 判定前置 → 透明转发原 host（stub 上游接收原始 Authorization + path）。
+///
+/// 用 spawn_stub_http_echo 起本地 stub，通过 raw TCP 发 absolute-form HTTP 请求（与
+/// absolute_form_http_forward_returns_orig_body_not_health_endpoint 同款手法），target=stub。
+/// absolute-form 保留 http scheme（MITM origin-form 无 scheme 默认 https 会失败连 HTTP stub）。
+#[tokio::test]
+async fn mitm_decrypted_api_path_falls_through_to_orig_host() {
+    let state = make_state(test_db().await).await;
+    // 代理监听端口与 stub 不同（stub 端口由 spawn 异步绑定），Host=stub 端口被判为「非自身」→ 直通。
+    let _ = state.listen_addr.set((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 65535u16));
+
+    let stub_url = spawn_stub_http_echo("glm-anthropic-ok-sentinel").await;
+    let proxy_url = spawn_proxy_router(state.clone()).await;
+
+    // raw TCP 发 absolute-form HTTP POST：target=stub 的 /api/anthropic/v1/messages?beta=true。
+    // reqwest/hyper 客户端发 HTTPS forward 会自动转 CONNECT；HTTP forward 走 absolute-form，
+    // 但 reqwest 对 POST + .proxy() 可能转 CONNECT 不可控，故直接手写 h1 字节最贴近 curl -x。
+    let req_bytes = format!(
+        "POST {stub_url}/api/anthropic/v1/messages?beta=true HTTP/1.1\r\n\
+         Host: {stub_authority}\r\n\
+         Authorization: Bearer glm-real-upstream-key\r\n\
+         Content-Type: application/json\r\n\
+         Content-Length: {clen}\r\n\
+         Connection: close\r\n\
+         \r\n\
+         {body}",
+        stub_authority = stub_url.strip_prefix("http://").unwrap_or(&stub_url),
+        clen = r#"{"model":"glm-4.6","messages":[]}"#.len(),
+        body = r#"{"model":"glm-4.6","messages":[]}"#,
+    );
+    let proxy_addr = proxy_url.strip_prefix("http://").unwrap_or(&proxy_url);
+    let mut stream = tokio::net::TcpStream::connect(proxy_addr).await.unwrap();
+    tokio::io::AsyncWriteExt::write_all(&mut stream, req_bytes.as_bytes()).await.unwrap();
+
+    // 读完整响应（Connection: close）。
+    let mut resp_buf = Vec::with_capacity(4096);
+    tokio::io::AsyncReadExt::read_to_end(&mut stream, &mut resp_buf).await.ok();
+    let resp_str = String::from_utf8_lossy(&resp_buf);
+    // Bug B 修复前：is_api_endpoint 拦死 → 404 no matching group；
+    // Bug B 修复后：host 判定前置 → 透明转发 stub → 200 + stub 原文。
+    assert!(
+        resp_str.contains("200 OK") || resp_str.contains("HTTP/1.1 200"),
+        "Bug B 修复：MITM + API path 须透明转发 stub 返 200（修复前 404），实际: {resp_str}"
+    );
+    assert!(
+        resp_str.contains("glm-anthropic-ok-sentinel"),
+        "必须返回 stub 原文（透明转发），实际: {resp_str}"
+    );
+
+    // proxy_log 落虚拟桶 + 完整 url（host + path + query）。
+    let logs = crate::gateway::db::list_proxy_logs(&state.db, 50, 0).await.unwrap();
+    let bucket = logs.iter().find(|l| l.group_key == "未匹配")
+        .expect("虚拟桶 proxy_log 应落库");
+    assert_eq!(bucket.platform_id, 0);
+    assert_eq!(bucket.status_code, 200);
+
+    // Bug A：request_url 含 scheme://host/path?query 完整 url（不再是 origin-form path-only）。
+    let full = crate::gateway::db::get_proxy_log(&state.db, &bucket.id).await.unwrap().unwrap();
+    let stub_authority = stub_url.strip_prefix("http://").unwrap_or(&stub_url);
+    assert!(
+        full.request_url.contains(stub_authority),
+        "request_url 含 host（Bug A 修复），实际: {}",
+        full.request_url
+    );
+    assert!(
+        full.request_url.contains("/api/anthropic/v1/messages?beta=true"),
+        "request_url 含 path+query，实际: {}",
+        full.request_url
+    );
+    assert!(
+        full.request_url.starts_with("http://"),
+        "scheme 自适应：absolute-form http → upstream 用 http://，实际: {}",
+        full.request_url
+    );
+    assert!(
+        full.upstream_request_url == full.request_url,
+        "fallback 直通 upstream_request_url 应等同 request_url，实际: upstream={} request={}",
+        full.upstream_request_url, full.request_url
+    );
 }
 
 // ── forward proxy absolute-form 测试 ──

@@ -317,6 +317,32 @@ pub(crate) fn build_passthrough_url(base_url: &str, uri: &axum::http::Uri) -> St
     format!("{}{}", base, pq)
 }
 
+/// 从 Host header + URI 重构完整 url（`scheme://host/path?query`）。
+///
+/// 用途：origin-form URI（MITM 解密灌入 / reverse proxy）的 `req.uri()` 只含 path 段，
+/// 落 `proxy_log.request_url` / `upstream_request_url` 时缺 host 不可读，须从 Host header 重构。
+/// absolute-form（forward proxy `GET http://host/path`）的 uri 自带 scheme+host，本函数仍兼容
+/// （优先取 uri.scheme_str，fallback "https"）。
+///
+/// 返回 None：缺 Host header / Host 非可见 ASCII（调用方 fallback 到 `uri.to_string()` path-only 行为）。
+/// ponytail: 抽公共 helper 消除 handler.rs / forward_passthrough_to_orig_host 双份 host 重构。
+pub(crate) fn build_url_from_host(
+    headers: &axum::http::HeaderMap,
+    uri: &axum::http::Uri,
+) -> Option<String> {
+    let host = headers
+        .get(axum::http::header::HOST)?
+        .to_str()
+        .ok()?
+        .trim();
+    if host.is_empty() {
+        return None;
+    }
+    let pq = uri.path_and_query().map(|pq| pq.as_str()).unwrap_or("/");
+    let scheme = uri.scheme_str().unwrap_or("https");
+    Some(format!("{scheme}://{host}{pq}"))
+}
+
 /// 虚拟「未匹配」桶 group_key（proxy_log.group_key + stats_agg_hourly 聚合键）。
 /// 不入 groups 表；前端 Groups 页只读卡片识别此 key 渲染虚拟桶。
 pub(crate) const UNMATCHED_GROUP_KEY: &str = "未匹配";
@@ -346,13 +372,11 @@ pub(crate) async fn forward_passthrough_to_orig_host(
     log.source_protocol = "passthrough_unmatched".to_string();
     log.target_protocol = "passthrough_unmatched".to_string();
 
-    // 目标 URL = {scheme}://{Host header}{path}?{query}。scheme 取 orig_uri（absolute-form
-    // 带原 scheme 如 http/https；MITM 解密灌入无 scheme 默认 https）；Host header 含端口。
-    let host_header = orig_headers
-        .get(axum::http::header::HOST)
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("");
-    if host_header.is_empty() {
+    // 目标 URL = {scheme}://{Host header}{path}?{query}，复用 build_url_from_host helper（与
+    // handler.rs request_url 重构同源）。scheme 自适应：absolute-form 保留原 scheme 透传，
+    // MITM 解密灌入（无 scheme，明文 Request URI 仅 path 段）默认 https 保持原行为。
+    let Some(url) = build_url_from_host(&orig_headers, &orig_uri) else {
+        // 缺 Host header / 非可见 ASCII → 400（fallback 直通无目标 host 无法转发）。
         log.response_body = "passthrough unmatched: missing Host header".to_string();
         log.status_code = 400;
         log.duration_ms = start.elapsed().as_millis() as i32;
@@ -360,15 +384,7 @@ pub(crate) async fn forward_passthrough_to_orig_host(
         let mut r = (StatusCode::BAD_REQUEST, "missing Host header").into_response();
         inject_trace_header(&mut r);
         return r;
-    }
-    let pq = orig_uri
-        .path_and_query()
-        .map(|pq| pq.as_str())
-        .unwrap_or("/");
-    // scheme 自适应：forward proxy absolute-form（`GET http://host/`）保留 scheme 透传，
-    // MITM 解密灌入（无 scheme，明文 Request URI 仅 path 段）默认 https 保持原行为。
-    let scheme = orig_uri.scheme_str().unwrap_or("https");
-    let url = format!("{scheme}://{host_header}{pq}");
+    };
     log.upstream_request_url = url.clone();
 
     // 超时：连接期保护，body 不设总超时（与 handle_passthrough 同款，避免砍长响应）。

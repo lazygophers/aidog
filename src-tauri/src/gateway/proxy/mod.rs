@@ -97,7 +97,8 @@ pub(crate) use log::{
 pub(crate) use mock::handle_mock;
 pub(crate) use notify::handle_notify;
 pub(crate) use passthrough::{
-    forward_passthrough_to_orig_host, handle_models_static, handle_passthrough, is_models_endpoint,
+    build_url_from_host, forward_passthrough_to_orig_host, handle_models_static,
+    handle_passthrough, is_models_endpoint,
 };
 pub(crate) use responses::{handle_responses_subendpoint, is_responses_subendpoint};
 pub(crate) use retry::{
