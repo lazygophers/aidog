@@ -8,9 +8,11 @@ pub async fn handle_proxy(
     // 每请求生成 trace id（复用为 ProxyLog 主键）, 建 span → 该请求生命周期内所有日志
     // 自动携带 req{id=xxxxxxxx} 前缀（含 mock/passthrough 子调用, fmt 默认渲染当前 span）。
     let request_id = uuid::Uuid::new_v4().simple().to_string();
-    // 同时挂 8-hex trace_id（兼容现有简短日志习惯）与完整 32-hex request_id（= proxy_log.id，
-    // 可从任一子日志行串回 proxy_log）。该请求生命周期内所有子 tracing 行自动携带两者。
-    let span = tracing::info_span!("req", trace_id = %&request_id[..8], request_id = %request_id);
+    // 同时挂 6-[0-9a-z] trace_id（base36(request_id 前 8 hex 截 31 bit)，可 grep 直达日志行）
+    // 与完整 32-hex request_id（= proxy_log.id 主键，可从任一子日志行串回 proxy_log）。
+    // 该请求生命周期内所有子 tracing 行自动携带两者。
+    let trace_id = crate::logging::trace_id_from_request_id(&request_id);
+    let span = tracing::info_span!("req", trace_id = %trace_id, request_id = %request_id);
     handle_proxy_inner(state, req, request_id).instrument(span).await
 }
 
@@ -43,14 +45,23 @@ impl Drop for RequestLogGuard {
         let state = self.state.clone();
         let id = self.id.clone();
         let duration_ms = self.start.elapsed().as_millis() as i32;
+        // Drop 发生在 req span 仍 enter 状态（future drop 时 span 未 exit）→ spawn_traced
+        // 在父线程读栈拿到 parent trace_id → 包 info_span 让子任务内 thread-local 栈正确。
+        // 保留 Handle::try_current 守卫：Drop 路径可能在 runtime teardown 后触发（罕见），
+        // 守卫避免无 runtime 时 spawn 静默丢失；spawn_traced 内 tokio::spawn 与 handle.spawn
+        // 在 runtime 上下文内等价（tokio::spawn 即 Handle::current().spawn）。
         if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            use tracing::Instrument;
+            let parent = crate::logging::current_trace_id().unwrap_or_else(crate::logging::gen_trace_id);
+            let child = crate::logging::gen_child_id(&parent);
+            let span = tracing::info_span!("spawn", name = %"reqlog_guard", trace_id = %child);
             handle.spawn(async move {
                 if let Err(e) =
                     super::db::finalize_incomplete_proxy_log(&state.db, &id, 499, duration_ms).await
                 {
                     tracing::warn!(error = %e, id = %id, "finalize incomplete proxy log failed");
                 }
-            });
+            }.instrument(span));
         }
     }
 }

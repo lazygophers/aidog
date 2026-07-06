@@ -86,8 +86,8 @@ async fn dispatch_unknown_type_as_task_complete() {
 
 // ── 应用行为追踪 key（request_id）注入 ──
 fn is_trace_key(s: &str) -> bool {
-    // new_trace_id() = 8 位十六进制
-    s.len() == 8 && s.bytes().all(|b| b.is_ascii_hexdigit())
+    // new_trace_id() = 6 位 [0-9a-z] (logging.rs gen_trace_id)
+    s.len() == 6 && s.chars().all(|c| c.is_ascii_digit() || c.is_ascii_lowercase())
 }
 
 #[tokio::test]
@@ -106,7 +106,7 @@ async fn dispatch_injects_nonempty_unique_action_key() {
     let r = dispatch(&db, None, None, "task_complete", None, &HashMap::new()).await;
     assert!(r.dispatched);
     assert!(!r.body.is_empty(), "action key must be non-empty");
-    assert!(is_trace_key(&r.body), "fallback key must be 8-hex trace id, got {:?}", r.body);
+    assert!(is_trace_key(&r.body), "fallback key must be 6 [0-9a-z] trace id, got {:?}", r.body);
 }
 
 #[tokio::test]

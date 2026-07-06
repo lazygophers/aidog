@@ -168,7 +168,7 @@ async fn handle_connect_inner(
         .body(Body::empty())
         .unwrap();
     let st = state.clone();
-    tokio::spawn(async move {
+    crate::logging::spawn_traced("connect_mitm", async move {
         let upgraded = match on_upgrade.await {
             Ok(u) => u,
             Err(e) => {
@@ -262,7 +262,7 @@ fn spawn_blind_relay(
         .status(StatusCode::OK)
         .body(Body::empty())
         .unwrap();
-    tokio::spawn(async move {
+    crate::logging::spawn_traced("connect_blind_relay", async move {
         let upgraded = match on_upgrade.await {
             Ok(u) => u,
             Err(e) => {
