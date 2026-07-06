@@ -1119,6 +1119,8 @@
   "settings.allSaved": "Enregistré",
   "settings.attribution.commit": "Auteur de commit",
   "settings.attribution.pr": "Auteur de PR",
+  "settings.autoUpdate": "Vérification auto des mises à jour",
+  "settings.autoUpdateHint": "Vérifier les mises à jour automatiquement au démarrage (la vérification manuelle sur la page À propos reste disponible si désactivé)",
   "settings.backup.days": "jours (1-90)",
   "settings.backup.desc": "Exporte automatiquement toutes les données en .aidogx chiffré à intervalle défini. Enregistré dans ~/.aidog/backups/, fichiers expirés nettoyés automatiquement.",
   "settings.backup.enable": "Activer la sauvegarde planifiée",

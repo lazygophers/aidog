@@ -1097,6 +1097,8 @@
   "settings.allSaved": "已保存",
   "settings.attribution.commit": "提交作者",
   "settings.attribution.pr": "PR 作者",
+  "settings.autoUpdate": "自动检查更新",
+  "settings.autoUpdateHint": "启动时自动检查更新（关闭后仍可在关于页手动检查）",
   "settings.backup.days": "天（1-90）",
   "settings.backup.desc": "按设定间隔自动导出全部数据为加密 .aidogx，落盘 ~/.aidog/backups/，超期自动清理。",
   "settings.backup.enable": "启用定时备份",
