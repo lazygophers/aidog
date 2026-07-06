@@ -35,3 +35,11 @@ pub async fn get_defaults_json() -> Result<String, String> {
     tracing::debug!(source = "bundled", "defaults.json served from bundled");
     Ok(BUNDLED.to_string())
 }
+
+/// defaults.json 同步（jsDelivr 主 + raw fallback）。无视节流——前端手动按钮专用。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn sync_defaults_json() -> Result<crate::gateway::defaults_sync::DefaultsSyncResult, String> {
+    tracing::debug!(command = "sync_defaults_json", "command invoked");
+    Ok(crate::gateway::defaults_sync::sync_defaults_json().await)
+}

@@ -1804,5 +1804,13 @@
   "mcp.share.title": "Share MCP",
   "mcp.share.warning": "The shared content contains plaintext env/headers (may include tokens/secrets). Only send it to trusted recipients; never publish it publicly.",
   "mcp.share.copyUrl": "Copy as aidog:// link",
-  "mcp.share.urlCopied": "Copied aidog:// link"
+  "mcp.share.urlCopied": "Copied aidog:// link",
+  "settings.defaultsSync": "Default config sync",
+  "settings.defaultsSyncHint": "Pull platform defaults (protocol endpoints / model mappings) from GitHub; write locally when newer",
+  "settings.defaultsSyncLastUpdated": "Current version time:",
+  "settings.defaultsSyncCheck": "Check for updates now",
+  "settings.defaultsSyncUpdated": "Updated to latest version (source: {{source}})",
+  "settings.defaultsSyncUpToDate": "Already up to date",
+  "settings.defaultsSyncFailed": "Sync failed: {{error}} (using local config)",
+  "settings.defaultsSyncUnknown": "Unknown"
 }

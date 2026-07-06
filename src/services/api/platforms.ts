@@ -283,3 +283,16 @@ export function getDefaultsJson(): Promise<string> {
   return invoke<string>("get_defaults_json");
 }
 
+export type DefaultsSyncResult = {
+  updated: boolean;
+  lastUpdated: number;
+  source: "jsdelivr" | "raw" | "local";
+  error?: string;
+};
+
+/** 手动触发 defaults.json 同步（无视节流，jsDelivr 主 + raw fallback）。
+ *  返回 {updated, lastUpdated, source, error} — Rust side serde camelCase 已对齐。 */
+export function syncDefaultsJson(): Promise<DefaultsSyncResult> {
+  return invoke<DefaultsSyncResult>("sync_defaults_json");
+}
+

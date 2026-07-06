@@ -1826,5 +1826,13 @@
   "mcp.share.title": "MCP を共有",
   "mcp.share.warning": "共有内容には平文の env/headers（トークン/シークレットの可能性あり）が含まれます。信頼できる相手にのみ送信し、公開しないでください。",
   "mcp.share.copyUrl": "aidog:// リンクとしてコピー",
-  "mcp.share.urlCopied": "aidog:// リンクをコピーしました"
+  "mcp.share.urlCopied": "aidog:// リンクをコピーしました",
+  "settings.defaultsSync": "デフォルト設定の同期",
+  "settings.defaultsSyncHint": "GitHub からプラットフォームのデフォルト（プロトコルエンドポイント / モデルマッピング）を取得し、新しい場合はローカルに書き込みます",
+  "settings.defaultsSyncLastUpdated": "現在のバージョン時刻:",
+  "settings.defaultsSyncCheck": "今すぐ更新を確認",
+  "settings.defaultsSyncUpdated": "最新バージョンに更新しました（ソース: {{source}}）",
+  "settings.defaultsSyncUpToDate": "最新です",
+  "settings.defaultsSyncFailed": "同期に失敗しました: {{error}}（ローカル設定を使用中）",
+  "settings.defaultsSyncUnknown": "不明"
 }

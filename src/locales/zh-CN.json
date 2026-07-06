@@ -1804,5 +1804,13 @@
   "mcp.share.title": "分享 MCP",
   "mcp.share.warning": "分享内容含明文 env/headers（可能含 token/密钥），请仅发送给可信对象，切勿公开发布。",
   "mcp.share.copyUrl": "复制为 aidog:// 链接",
-  "mcp.share.urlCopied": "已复制 aidog:// 链接"
+  "mcp.share.urlCopied": "已复制 aidog:// 链接",
+  "settings.defaultsSync": "默认配置同步",
+  "settings.defaultsSyncHint": "从 GitHub 拉取平台默认配置（协议端点 / 模型映射），较新版本写入本地",
+  "settings.defaultsSyncLastUpdated": "当前版本时间：",
+  "settings.defaultsSyncCheck": "立即检查更新",
+  "settings.defaultsSyncUpdated": "已更新到最新版本（来源：{{source}}）",
+  "settings.defaultsSyncUpToDate": "已是最新版本",
+  "settings.defaultsSyncFailed": "同步失败：{{error}}（继续使用本地配置）",
+  "settings.defaultsSyncUnknown": "未知"
 }
