@@ -42,33 +42,16 @@ pub fn delete_platform(db: &Db, id: u64) -> impl std::future::Future<Output = Re
         .await
         .map_err(|e| format!("delete platform: {e}"))?;
 
-    // ② 该平台的 auto 分组：移除其唯一源平台后，仅当组内再无存活平台（孤儿 auto 组）才删除。
-    //    若用户曾手动把别的平台拖进此 auto 组，则保留该组——不可因删源平台连带销毁其余成员的分组。
-    let auto_group_ids: Vec<i64> = db
-        
-        .call_traced(None, __db_caller, move |conn| {
-            Ok(conn.prepare("SELECT id FROM \"group\" WHERE auto_from_platform = ?1 AND deleted_at = 0")?
-                .query_map(params![id.to_string()], |row| row.get(0))?
-                .collect::<SqlResult<Vec<i64>>>()?)
-        })
-        .await
-        .map_err(|e| e.to_string())?;
-
-    for gid in &auto_group_ids {
-        // 步骤①已清掉该平台的关联行，此处直接看组内剩余存活平台数。
-        if get_group_platforms(db, *gid as u64).await?.is_empty() {
-            force_delete_group(db, *gid as u64).await?;
-        }
-    }
-
-    // 关联表已变更，刷新分组缓存（force_delete_group 内部也会刷，但无组可删时这里兜底）。
+    // ② 保留所有分组（含孤儿 auto 组）。删平台只清 group_platform 关联，不连带销毁任何分组——
+    //    让用户手动决定空组去留（前端已有 handleDeleteGroup）。空 auto 组在前端 Groups 页正常
+    //    展示为无成员卡片，与手动空组一致。purge_auto_disabled 复用本函数自动同步语义。
     db.invalidate_groups_cache();
     Ok(())
     }
 }
 
 /// 清理失效平台（status='auto_disabled'）的结果。
-/// - `deleted_ids`: 被永久删除（软删 platform + 清所有 group_platform + 清孤儿 auto 组）的平台 id。
+/// - `deleted_ids`: 被永久删除（软删 platform + 清所有 group_platform）的平台 id。分组保留，不连带删孤儿 auto 组。
 /// - `unassigned_ids`: 仅从指定分组移除关联（platform 行保留，因仍属其他分组）的平台 id。
 #[derive(Debug, Clone, serde::Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -80,7 +63,7 @@ pub struct PurgeResult {
 /// 一键清理 auto_disabled 平台。
 ///
 /// - `group_id = None`（全局）：删除全库所有 `status='auto_disabled'` 且未软删的平台，
-///   逐个复用 [`delete_platform`]（含清孤儿 auto 组 + 刷新分组缓存）。
+///   逐个复用 [`delete_platform`]（软删 platform + 清所有关联，保留所有分组）。
 /// - `group_id = Some(gid)`（分组级）：仅处理本分组内的 auto_disabled 平台。
 ///   - 仅属本分组（活跃成员数 == 1）→ 永久删除（复用 `delete_platform`）。
 ///   - 属多分组（共享，活跃成员数 > 1）→ 仅删本分组的 `group_platform` 关联（platform 行保留）。
@@ -181,7 +164,7 @@ pub fn purge_auto_disabled_platforms(
                     .map_err(|e| e.to_string())?;
 
                 if member_count <= 1 {
-                    // 独占本分组 → 永久删除（复用 delete_platform：软删 platform + 清所有关联 + 清孤儿 auto 组）。
+                    // 独占本分组 → 永久删除（复用 delete_platform：软删 platform + 清所有关联，保留分组）。
                     delete_platform(db, id as u64).await?;
                     deleted_ids.push(id as u64);
                 } else {
@@ -213,8 +196,8 @@ pub fn purge_auto_disabled_platforms(
 
 /// 定时清理（内置每日）：永久删除软删超过阈值的平台行。
 /// - 条件：`deleted_at > 0 AND deleted_at < now() - older_than_secs`
-/// - `delete_platform` 软删时已物理清除所有 `group_platform` 关联（db.rs:1040），此处仅 DELETE platform 行，
-///   不留指向已删平台的悬空关联；孤儿 auto 组的清理由 `delete_platform` 当时完成，此处无需重做。
+/// - `delete_platform` 软删时已物理清除所有 `group_platform` 关联，此处仅 DELETE platform 行，
+///   不留指向已删平台的悬空关联。分组保留由 `delete_platform` 当时已保证，此处无需重做。
 /// - 返回删除行数。仅日志用途，失败仅 warn（定时任务非关键路径）。
 #[track_caller]
 pub fn purge_old_soft_deleted_platforms(db: &Db, older_than_secs: i64) -> impl std::future::Future<Output = Result<u64, String>> + '_ {
