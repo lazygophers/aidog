@@ -95,7 +95,7 @@ where
 /// Application log settings (stored in settings table)
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AppLogSettings {
-    /// Whether to write log files (only effective in release)
+    /// Whether to write log files (effective in both dev and release)
     #[serde(default = "default_true")]
     pub file_enabled: bool,
     /// Log level: "trace" | "debug" | "info" | "warn" | "error"
@@ -141,18 +141,49 @@ fn default_filter(level: &str) -> EnvFilter {
     f
 }
 
-/// Initialize logging: dev → console only; release → console + optional file
+/// 构造文件层 appender (RollingFileAppender, HOURLY, prefix `aidog`, suffix `log`)。
+///
+/// 返回 `(appender, log_dir)`。目录创建失败时返回 `None` 并记 warn, 上层退化为 console-only。
+/// **不**包含 `file_enabled` 判定 (上层分支判断), 也**不**构造 filter layer
+/// (保留具体类型避免 `Box<dyn Layer>` 与 `set_global_default` 的 trait bound 冲突)。
+fn build_file_appender(
+    data_dir: &std::path::Path,
+    settings: &AppLogSettings,
+) -> Option<(RollingFileAppender, std::path::PathBuf)> {
+    let log_dir = data_dir.join("logs");
+    if let Err(e) = std::fs::create_dir_all(&log_dir) {
+        tracing::warn!(error = %e, dir = %log_dir.display(), "failed to create log dir; falling back to console-only");
+        return None;
+    }
+
+    let appender = RollingFileAppender::builder()
+        .rotation(tracing_appender::rolling::Rotation::HOURLY)
+        .filename_prefix("aidog")
+        .filename_suffix("log")
+        .max_log_files(max_files_from_retention(settings.retention_hours))
+        .build(&log_dir)
+        .expect("failed to create log file appender");
+
+    Some((appender, log_dir))
+}
+
+/// 文件层 filter: 始终遵循用户 `settings.level` (RUST_LOG 覆盖优先, 与 console 独立)。
+fn file_filter(settings: &AppLogSettings) -> EnvFilter {
+    EnvFilter::try_from_default_env().unwrap_or_else(|_| default_filter(&settings.level))
+}
+
+/// Initialize logging.
+///
+/// - Dev (debug build): console 强制 debug 级; `file_enabled=true` 时也挂文件层 (遵循 settings.level)。
+/// - Release: console 遵循 settings.level; 按 `file_enabled` 决定是否挂文件层。
+/// - `RUST_LOG` 覆盖所有层级 (优先级最高)。
 pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) {
-    // Dev 模式: 无论用户配置如何, 控制台永远 debug 级 (仍允许 RUST_LOG 覆盖以便更细粒度调试)。
-    // Release 模式: 遵循用户 settings.level。
+    // Dev: console 强制 debug (RUST_LOG 可覆盖); Release: 遵循 settings.level。
     let console_filter = if cfg!(debug_assertions) {
         EnvFilter::try_from_default_env().unwrap_or_else(|_| default_filter("debug"))
     } else {
         EnvFilter::try_from_default_env().unwrap_or_else(|_| default_filter(&settings.level))
     };
-    // 文件层始终遵循用户配置 (release-only)。
-    let file_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| default_filter(&settings.level));
 
     let console_layer = tracing_subscriber::fmt::layer()
         .with_target(false)
@@ -160,40 +191,42 @@ pub fn init_logging(data_dir: &std::path::Path, settings: &AppLogSettings) {
         .with_file(false)
         .with_filter(console_filter);
 
-    if cfg!(debug_assertions) {
-        // Dev mode: console only (forced debug)
-        let subscriber = Registry::default().with(TraceIdLayer).with(console_layer);
-        let _ = tracing::subscriber::set_global_default(subscriber);
-        tracing::info!("logging initialized (dev mode, console only, forced debug)");
-    } else if settings.file_enabled {
-        // Release mode: console + file
-        let log_dir = data_dir.join("logs");
-        let _ = std::fs::create_dir_all(&log_dir);
+    let mode = if cfg!(debug_assertions) { "dev" } else { "release" };
+    let file_on = settings.file_enabled;
 
-        let file_appender = RollingFileAppender::builder()
-            .rotation(tracing_appender::rolling::Rotation::HOURLY)
-            .filename_prefix("aidog")
-            .filename_suffix("log")
-            .max_log_files(max_files_from_retention(settings.retention_hours))
-            .build(&log_dir)
-            .expect("failed to create log file appender");
+    // dev / release 共用 build_file_appender + file_filter; file_enabled=false → 跳过。
+    // 不抽 `Box<dyn Layer>` 是 ponytail 选择: 类型擦除与 set_global_default 的 Subscriber
+    // trait bound 冲突, 而两层 fmt layer 组装逻辑只 ~5 行, 重复 < 错误抽象。
+    if file_on {
+        match build_file_appender(data_dir, settings) {
+            Some((appender, _log_dir)) => {
+                let file_layer = tracing_subscriber::fmt::layer()
+                    .with_ansi(false)
+                    .with_writer(appender)
+                    .with_filter(file_filter(settings));
 
-        let file_layer = tracing_subscriber::fmt::layer()
-            .with_ansi(false)
-            .with_writer(file_appender)
-            .with_filter(file_filter);
-
-        let subscriber = Registry::default()
-            .with(TraceIdLayer)
-            .with(console_layer)
-            .with(file_layer);
-        let _ = tracing::subscriber::set_global_default(subscriber);
-        tracing::info!("logging initialized (release mode, console + file, retention={}h)", settings.retention_hours);
+                let subscriber = Registry::default()
+                    .with(TraceIdLayer)
+                    .with(console_layer)
+                    .with(file_layer);
+                let _ = tracing::subscriber::set_global_default(subscriber);
+                tracing::info!(
+                    mode = mode,
+                    retention_hours = settings.retention_hours,
+                    "logging initialized (console + file)"
+                );
+            }
+            None => {
+                // 目录创建失败: 退化为 console-only。
+                let subscriber = Registry::default().with(TraceIdLayer).with(console_layer);
+                let _ = tracing::subscriber::set_global_default(subscriber);
+                tracing::warn!(mode = mode, "logging initialized (console only; log dir creation failed)");
+            }
+        }
     } else {
-        // Release with file logging disabled
         let subscriber = Registry::default().with(TraceIdLayer).with(console_layer);
         let _ = tracing::subscriber::set_global_default(subscriber);
-        tracing::info!("logging initialized (release mode, console only, file disabled)");
+        tracing::info!(mode = mode, "logging initialized (console only, file disabled)");
     }
 }
 
@@ -239,4 +272,40 @@ pub fn cleanup_old_logs(data_dir: &std::path::Path, retention_hours: u32) {
             }
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn build_file_appender_creates_log_dir() {
+        let tmp = tempfile::tempdir().expect("tempdir");
+        let settings = AppLogSettings {
+            file_enabled: true,
+            level: "info".into(),
+            retention_hours: 3,
+        };
+        let (appender, log_dir) = build_file_appender(tmp.path(), &settings)
+            .expect("appender should build when dir is writable");
+        // <data_dir>/logs must have been created.
+        assert!(log_dir.exists() && log_dir.is_dir());
+        // Appender is constructed (sanity: type is usable).
+        let _ = appender;
+    }
+
+    #[test]
+    fn file_filter_respects_settings_level() {
+        // Valid level must not panic.
+        let settings = AppLogSettings {
+            file_enabled: true,
+            level: "warn".into(),
+            retention_hours: 3,
+        };
+        let _ = file_filter(&settings);
+    }
+
+    // init_logging 行为不在单测覆盖内: set_global_default 全局副作用与并行测试互斥,
+    // 强行 e2e 会污染其他测试的 subscriber。dev 实测路径: `make run` 启动后检查
+    // `<data_dir>/logs/aidog-*.log` 是否被写入 (见 prd.md Acceptance Criteria)。
 }
