@@ -1,9 +1,11 @@
 // ─── 发现新版本提醒 modal ───────────────────────────────────
 // 自定义 in-app modal (禁原生 confirm/alert，破坏 Tauri)。
 // 视觉沿用 UnsavedChangesModal 的 overlay + glass-elevated 语言。
-// 不用 transform 终态 (css-transform-breaks-fixed-modal)；glass-elevated 走 var(--bg-floating) 不透明。
+// portal 到 body：祖先 transform/backdrop-filter 会让 fixed 退化相对祖先（即便本组件不使用 transform 终态，
+// 祖先 glass-surface/animation 终态 transform 仍波及），致弹窗只在 page 内居中。glass-elevated 走 var(--bg-floating) 不透明。
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { Update } from "@tauri-apps/plugin-updater";
 import { runUpdate } from "../services/updater";
@@ -33,7 +35,7 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
     }
   };
 
-  return (
+  return createPortal(
     <div
       style={{
         position: "fixed",
@@ -115,6 +117,7 @@ export function UpdatePromptModal({ update, onClose }: UpdatePromptModalProps) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
