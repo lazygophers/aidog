@@ -81,3 +81,4 @@
 | log-format-field-loss | 日志格式器 MsgCollector 丢非 message event 字段 (fn/req/dur/sql 全丢) | — | 已完成 | — |
 | delete-platform-keep-empty-group | delete_platform 保留空组不连带 force_delete_group 孤儿 auto 组 | — | 已完成 | — |
 | modal-window-center-portal | 弹窗全部 createPortal 到 body 实现真窗口居中 | — | 已完成 | — |
+| mitm-chain-full-diagnosis | MITM 链路全诊断: 白名单匹配+log 完整+路由触发+token 解析+h2 cancel | — | 已完成 | — |
