@@ -122,11 +122,11 @@ mode: optimize
 
 > 违反代价: protocol metadata (name/desc/source_urls/homepage/logo_url) 字段散乱 → 后续 task 重复决策 + check-i18n 漏校 + 跨层 Rust↔TS 边界 struct 死代码。来源: 07-07-protocols-i18n-name-desc-search。
 
-- **(a) metadata 多语言位置**: protocol name/desc 多语言放 `platform-presets.json` 内嵌 `{name: {<locale>: "..."}, desc: {...}}`, **非** `src/locales/<locale>.json` (后者仅 app UI 文案, dot-notation key)。JSON locale key 用 BCP47 (`zh-Hans` script 子标签), 非 i18next 的 `zh-CN`。
+- **(a) metadata 多语言位置**: protocol name/desc 多语言放 `platform-presets.json` 内嵌 `{name: {<locale>: "..."}, desc: {...}}`, **非** `src/locales/<locale>.json` (后者仅 app UI 文案, dot-notation key)。JSON locale key 与 i18next locale 统一用 BCP47 (`zh-Hans` script 子标签)。
 - **(b) check-i18n.mjs 第 5 类 (E 段)**: 校验 `platform-presets.json` 每 protocol name/desc 8 locale 完整性 (零空 string)。**新增 protocol metadata 字段 (source_urls/homepage/logo_url 等含 locale 维度的字段) MUST 扩展 E 段校验**。
 - **(c) PROTOCOLS[].label 硬编码保留**: `src/domains/platforms/constants.ts` 的 `PROTOCOLS[].label` 硬编码**禁删**, 作内部匹配 fallback (`platformPaste`/`ccswitchMatch`/`usePlatformForm`/`PlatformCard` 用, 非用户直见)。仅用户可见 UI (`SearchableProtocolSelect`/`Sub2ApiImport`/未来 logo 展示) 派生本地化 label via `getProtocolLabel`/`getProtocolLabelMap`/`getProtocolDesc` async helper (复用 `defaults.ts` `docPromise` 单次 RPC 模式, fallback locale→en-US→protocol key)。
 - **(d) 跨层边界 — 禁加 Rust struct**: protocol metadata 字段加 `platform-presets.json` + TS 类型 `src/domains/platforms/defaults.ts DefaultsDoc` 协议条目加可选字段; **禁加 Rust `ProtocolPreset` struct** (`get_defaults_json` 透传 raw String, serde 仅校验 `last_updated` 不解析 protocol 字段, 加 struct=死代码)。
-- **(e) BCP47 locale 桥接 (临时, locale-rename 后移除)**: i18next locale (`zh-CN`) ↔ JSON BCP47 (`zh-Hans`) 映射在 `defaults.ts LOCALE_TO_DEFAULTS`; `07-06-locale-zh-hans-rename` task 完成后统一为 `zh-Hans`, 本条款 + 映射一并移除。
+- **(e) 已移除**: locale-rename (07-06) 前的 BCP47 (`zh-Hans`) ↔ i18next (`zh-CN`) locale 桥接映射 `LOCALE_TO_DEFAULTS` 已随 rename 一并删除——两端 locale 现统一为 `zh-Hans`, 直接用 i18next locale 作 `DefaultsLocale` 查 name/desc 即可。
 
 ## Large File Split — facade 模式 (MUST)
 

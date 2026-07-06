@@ -13,9 +13,9 @@ import { initReactI18next } from "react-i18next";
 const testI18n = createInstance();
 testI18n.use(initReactI18next).init({
   // 空 resources：任意 dot-notation key 找不到译文 → 回退返回 key 本身。
-  resources: { "zh-CN": { translation: {} } },
-  lng: "zh-CN",
-  fallbackLng: "zh-CN",
+  resources: { "zh-Hans": { translation: {} } },
+  lng: "zh-Hans",
+  fallbackLng: "zh-Hans",
   interpolation: { escapeValue: false },
   // 缺 key 时返回 key（react-i18next 默认行为），不输出告警噪声。
   parseMissingKeyHandler: (key) => key,

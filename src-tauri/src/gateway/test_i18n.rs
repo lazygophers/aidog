@@ -29,6 +29,8 @@ const ALL_LANGS: [Lang; 7] = [
 fn from_locale_all_variants() {
     assert_eq!(Lang::from_locale("zh-CN"), Lang::ZhCn);
     assert_eq!(Lang::from_locale("zh_cn"), Lang::ZhCn);
+    assert_eq!(Lang::from_locale("zh-Hans"), Lang::ZhCn);
+    assert_eq!(Lang::from_locale("zh_hans"), Lang::ZhCn);
     assert_eq!(Lang::from_locale(" zh "), Lang::ZhCn);
     assert_eq!(Lang::from_locale("ja"), Lang::JaJp);
     assert_eq!(Lang::from_locale("fr-FR"), Lang::FrFr);

@@ -1,10 +1,10 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import zhCN from "./zh-CN.json";
+import zhHans from "./zh-Hans.json";
 import enUS from "./en-US.json";
 
 export type Locale =
-  | "zh-CN"
+  | "zh-Hans"
   | "en-US"
   | "ar-SA"
   | "fr-FR"
@@ -14,7 +14,7 @@ export type Locale =
   | "es-ES";
 
 export const ALL_LOCALES: Locale[] = [
-  "zh-CN",
+  "zh-Hans",
   "en-US",
   "ar-SA",
   "fr-FR",
@@ -31,7 +31,7 @@ export function isRTL(locale: Locale): boolean {
   return (RTL_LOCALES as readonly string[]).includes(locale);
 }
 
-// 默认语言 (zh-CN) + fallback (en-US) 同步打包，保证首屏 t() 立即可用；
+// 默认语言 (zh-Hans) + fallback (en-US) 同步打包，保证首屏 t() 立即可用；
 // 其余 5 语言按需 dynamic import，由 Vite 拆为独立 chunk，减小主包体积。
 const lazyLoaders: Partial<Record<Locale, () => Promise<{ default: Record<string, unknown> }>>> = {
   "ar-SA": () => import("./ar-SA.json"),
@@ -44,17 +44,17 @@ const lazyLoaders: Partial<Record<Locale, () => Promise<{ default: Record<string
 
 i18n.use(initReactI18next).init({
   resources: {
-    "zh-CN": { translation: zhCN },
+    "zh-Hans": { translation: zhHans },
     "en-US": { translation: enUS },
   },
-  lng: "zh-CN",
+  lng: "zh-Hans",
   fallbackLng: "en-US",
   interpolation: { escapeValue: false },
 });
 
 /**
  * 确保指定 locale 的翻译资源已加载，再返回。
- * 对已打包 (zh-CN / en-US) 或已加载过的 locale 直接返回。
+ * 对已打包 (zh-Hans / en-US) 或已加载过的 locale 直接返回。
  * 按需 locale 首次切换时 dynamic import 并注入 i18n。
  */
 export async function ensureLocaleLoaded(locale: Locale): Promise<void> {

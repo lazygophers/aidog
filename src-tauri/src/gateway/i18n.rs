@@ -17,7 +17,7 @@ impl Lang {
     /// 从 DB 存储的 locale 字符串解析
     pub fn from_locale(locale: &str) -> Self {
         match locale.trim().to_lowercase().as_str() {
-            "zh-cn" | "zh_cn" | "zh" => Self::ZhCn,
+            "zh-cn" | "zh_cn" | "zh-hans" | "zh_hans" | "zh" => Self::ZhCn,
             "ja-jp" | "ja_jp" | "ja" => Self::JaJp,
             "fr-fr" | "fr_fr" | "fr" => Self::FrFr,
             "de-de" | "de_de" | "de" => Self::DeDe,

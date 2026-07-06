@@ -88,7 +88,7 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
-| locale-zh-hans-rename | locale code zh-CN → zh-Hans 全量 rename | — | 规划中 | — |
+| locale-zh-hans-rename | locale code zh-CN → zh-Hans 全量 rename | — | 实施中 | — |
 | group-delete-platform-bug | 分组卡片删除平台仅移除关联未删平台 | — | 已完成 | — |
 | platform-presets-rename | platform-presets.json rename (defaults.json) | — | 已完成 | — |
 | models-json-to-defaults | data/models.json → src-tauri/defaults/models.json 迁移 | — | 规划中 | — |
@@ -97,5 +97,5 @@
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-i18n-name-desc-search | 07-07-protocols-i18n-name-desc-search | trellisx-start |
 | protocols-source-url | platform-presets protocols 数据源站点 URL | — | 已完成 | — |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-source-url | 07-07-protocols-source-url | trellisx-start |
-| protocol-logo-homepage | platform-presets protocols homepage + logo (本地缓存) | — | 实施中 | — |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocol-logo-homepage | 07-07-protocol-logo-homepage | trellisx-start |
+| protocol-logo-homepage | platform-presets protocols homepage + logo (本地缓存) | — | 已完成 | — |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-06-locale-zh-hans-rename | 07-06-locale-zh-hans-rename | trellisx-start |
