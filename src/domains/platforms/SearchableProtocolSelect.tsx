@@ -2,8 +2,9 @@ import React, { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import type { Protocol } from "../../services/api";
 import { pinyinMatch } from "../../utils/pinyin";
-import { PROTOCOLS, PROTOCOL_LABELS, PROTOCOL_COLORS } from "./constants";
+import { PROTOCOLS, PROTOCOL_LABELS } from "./constants";
 import { getProtocolLabel } from "./defaults";
+import { ProtocolLogo } from "./ProtocolLogo";
 
 /** 可搜索的协议选择器（支持拼音模糊匹配 + Tab/方向键键盘导航） */
 export function SearchableProtocolSelect({
@@ -155,8 +156,9 @@ export function SearchableProtocolSelect({
         }}
         onKeyDown={handleTriggerKey}
       >
-        <span style={{ color: "var(--text-primary)", fontSize: 13 }}>
-          {selectedLabel}
+        <span style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0, color: "var(--text-primary)", fontSize: 13 }}>
+          <ProtocolLogo protocol={value} size={20} />
+          <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{selectedLabel}</span>
         </span>
         <span style={{
           fontSize: 10, color: "var(--text-tertiary)",
@@ -221,15 +223,10 @@ export function SearchableProtocolSelect({
                   }}
                   onMouseEnter={() => setHighlightedIndex(idx)}
                 >
-                  <span style={{
-                    display: "inline-block", padding: "1px 6px", borderRadius: "var(--radius-sm)",
-                    background: `${PROTOCOL_COLORS[p.value] || "var(--accent)"}20`,
-                    color: PROTOCOL_COLORS[p.value] || "var(--accent)",
-                    fontSize: 10, fontWeight: 700, marginRight: 8,
-                  }}>
-                    {p.value.slice(0, 2).toUpperCase()}
+                  <ProtocolLogo protocol={p.value} size={20} />
+                  <span style={{ marginLeft: 8, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {labelOf(p)}
                   </span>
-                  {labelOf(p)}
                   {p.codingPlan && (
                     <span style={{
                       marginLeft: 6, padding: "1px 5px", borderRadius: "var(--radius-sm)",

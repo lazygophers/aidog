@@ -20,6 +20,10 @@ type DefaultsDoc = {
     desc?: Partial<Record<DefaultsLocale, string>>;
     /** 维护用 metadata：官方文档页 + 定价页 URL（非 UI 展示，仅手动核对更新时一站直达）。 */
     source_urls?: { docs: string; pricing: string };
+    /** 官网首页 URL（非文档页；前端平台详情处展示外链）。 */
+    homepage?: string;
+    /** simpleicons.org slug（Rust logo_sync 拼 https://cdn.simpleicons.org/<slug>）；空串走 favicon/clearbit fallback。 */
+    logo_url?: string;
   }>>;
 };
 
@@ -132,6 +136,12 @@ export async function getProtocolDesc(protocol: Protocol, locale?: string): Prom
   const loc = locale ? LOCALE_TO_DEFAULTS[locale] : undefined;
   if (loc && desc[loc]) return desc[loc]!;
   return desc["en-US"] ?? "";
+}
+
+/** 取 protocol 官网首页 URL（平台详情处展示外链；未配置返空串）。 */
+export async function getProtocolHomepage(protocol: Protocol): Promise<string> {
+  const doc = await loadDoc();
+  return doc.protocols[protocol]?.homepage ?? "";
 }
 
 /** 批量取协议 label（一次 RPC 拉全表后内存过滤，避免 N 次 await）。

@@ -7,9 +7,10 @@ import { formatNumber, formatCost, formatPercent } from "../../utils/formatters"
 import { IconBolt, IconCost, IconCheck, IconCoin, IconClock } from "../icons";
 import {
   PROTOCOL_LABELS, PROTOCOL_COLORS, HEALTH_COLORS,
-  getDefaultModels, computeManualBudgetDisplay, computeQuotaDisplay,
+  getDefaultModels, getProtocolHomepage, computeManualBudgetDisplay, computeQuotaDisplay,
   allModelValues, tierLabel, formatResetCountdown, healthStatus,
 } from "../../domains/platforms";
+import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
 import type { HealthStatus } from "../../domains/platforms";
 
 // ── Props types ──
@@ -142,6 +143,21 @@ export const PlatformCard = memo(function PlatformCard({
           : u ? healthStatus(u.recent_total, u.recent_failures) : "unknown";
   const logoSvg = getPlatformLogo(p.platform_type);
   const favicon = !logoSvg && !faviconHasFailed ? getFaviconUrl(p) : null;
+  // 缓存 logo（~/.aidog/logos/<protocol>.png，logo_sync 同步）— Layer 0，优先级最高
+  // ponytail: hook 内部 mount 查路径 + miss 触发后台同步 + onError 清空 fallback 下层
+  const { logoSrc: cachedLogo } = useProtocolLogo(p.platform_type);
+  const [cachedLogoFailed, setCachedLogoFailed] = useState(false);
+  const cachedLogoUrl = cachedLogo && !cachedLogoFailed ? cachedLogo : null;
+  // 平台详情外链（protocol homepage；未配置则不渲染）
+  const [homepage, setHomepage] = useState<string>("");
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const hp = await getProtocolHomepage(p.platform_type);
+      if (!cancelled) setHomepage(hp);
+    })();
+    return () => { cancelled = true; };
+  }, [p.platform_type]);
   const getBaseUrl = (proto: Protocol, eps: Platform["endpoints"]): string => {
     const primary = eps?.find(ep => ep.protocol === proto);
     if (primary) return primary.base_url;
@@ -184,18 +200,21 @@ export const PlatformCard = memo(function PlatformCard({
                 <div style={{
                   width: 36, height: 36, borderRadius: "var(--radius-sm)",
                   display: "flex", alignItems: "center", justifyContent: "center",
-                  background: (logoSvg || favicon) ? "transparent" : `${color}15`,
+                  background: (cachedLogoUrl || logoSvg || favicon) ? "transparent" : `${color}15`,
                   border: `1px solid ${color}30`,
                   color: color, fontSize: 12, fontWeight: 700, overflow: "hidden",
                 }}>
-                  {logoSvg
-                    ? <img src={logoSvg} alt={p.platform_type} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
-                    : favicon
-                      ? <img src={favicon} alt={p.platform_type}
-                          style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }}
-                          onError={() => actions.onFaviconFailed(p.id)}
-                        />
-                      : p.platform_type.slice(0, 2).toUpperCase()
+                  {cachedLogoUrl
+                    ? <img src={cachedLogoUrl} alt={p.platform_type} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }}
+                        onError={() => setCachedLogoFailed(true)} />
+                    : logoSvg
+                      ? <img src={logoSvg} alt={p.platform_type} style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }} />
+                      : favicon
+                        ? <img src={favicon} alt={p.platform_type}
+                            style={{ width: "100%", height: "100%", objectFit: "contain", padding: 4 }}
+                            onError={() => actions.onFaviconFailed(p.id)}
+                          />
+                        : p.platform_type.slice(0, 2).toUpperCase()
                   }
                 </div>
                 {/* 健康点常驻（R4）：status + last_error 派生（红=key 失效 / 黄=可恢复 / 绿=正常），
@@ -490,6 +509,28 @@ export const PlatformCard = memo(function PlatformCard({
       >
         {hasDetail && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {/* 官网外链（platform-presets.json homepage 字段，未配置则不渲染） */}
+            {homepage && (
+              <div>
+                <a
+                  href={homepage}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    fontSize: 11, color: "var(--accent)",
+                    textDecoration: "none", display: "inline-flex", alignItems: "center", gap: 4,
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  title={homepage}
+                >
+                  <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                  {t("platform.homepage", "Homepage")}
+                </a>
+              </div>
+            )}
             {/* 已使用统计（总计 + 今日） */}
             {u && (
               <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

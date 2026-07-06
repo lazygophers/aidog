@@ -801,6 +801,7 @@
   "platform.duplicate": "Duplicate",
   "platform.empty": "No platforms yet. Click above to add one.",
   "platform.enable": "Enable",
+  "platform.homepage": "Homepage",
   "platform.endpoints": "Protocol Endpoints",
   "platform.endpointsHint": "Additional protocols this platform supports with different base URLs",
   "platform.expired": "Expired",
