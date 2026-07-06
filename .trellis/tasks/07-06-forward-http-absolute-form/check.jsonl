@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/07-06-forward-http-absolute-form/prd.md", "reason": "需求 + 验收 + technical approach (路由 middleware + forward_passthrough URL scheme 自适应)"}
+{"file": ".trellis/spec/backend/proxy-connect-relay.md", "reason": "CONNECT 隧道契约 (forward absolute-form 对偶, 共识 listen_addr / fallback 语义)"}
+{"file": ".trellis/spec/backend/logging-format.md", "reason": "traceid 取值链 + inject_trace_header (forward 响应 MUST 注入 x-aidog-trace)"}
+{"file": ".trellis/spec/backend/index.md", "reason": "backend spec 入口"}
