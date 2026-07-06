@@ -231,7 +231,21 @@ pub async fn start_proxy(
         actual_port,
     ));
 
-    let app = Router::new()
+    let app = build_router(state);
+
+    let handle = crate::logging::spawn_traced("axum_serve", async move {
+        axum::serve(listener, app).await.ok();
+    });
+
+    Ok((handle, actual_port))
+}
+
+/// 构建代理 Router：absolute-form forward middleware 包外层，识别 `-x` forward 客户端的
+/// absolute-form URI（`GET http://host/path`）→ 直接转 handle_proxy 走 fallback 直通，
+/// 绕过 `.route("/")` 健康端点（axum 按 `uri.path()` 匹配会劫持 absolute-form 的 `/`）。
+/// path-only URI（reverse proxy 常规请求）→ next.run 进正常路由。
+fn build_router(state: Arc<ProxyState>) -> Router {
+    Router::new()
         .route("/api/group-info", post(handle_group_info))
         .route("/api/notify", post(handle_notify))
         // 健康端点：客户端（Claude Code / Codex 启动探测等）会命中代理根 URL（含 / 前缀），
@@ -240,11 +254,30 @@ pub async fn start_proxy(
         .route("/", get(handle_root))
         .route("/proxy", get(handle_root))
         .fallback(handle_proxy)
-        .with_state(state);
+        .with_state(state.clone())
+        .layer(axum::middleware::from_fn_with_state(
+            state,
+            absolute_form_forward_mw,
+        ))
+}
 
-    let handle = crate::logging::spawn_traced("axum_serve", async move {
-        axum::serve(listener, app).await.ok();
-    });
-
-    Ok((handle, actual_port))
+/// forward proxy absolute-form 识别 middleware：HTTP forward 客户端（curl `-x`）发出
+/// `GET http://www.baidu.com/` 这类 absolute-form URI（含 scheme + authority），
+/// axum 按 `uri.path()`=`/` 匹配 `.route("/")` → 健康端点劫持。
+/// 此处识别 scheme+host 同时存在 → 直接转 handle_proxy（进 fallback 直通原 host），
+/// 不进 axum path 匹配。CONNECT 已在 handle_proxy 入口分流（不触发此 middleware 路径问题）。
+///
+/// ponytail: 复用 handle_proxy 完整请求生命周期（req span / RequestLogGuard / fallback），
+/// 不新写 forward handler；与 MITM fallback 同语义（虚拟桶「未匹配」+ cost=0）。
+async fn absolute_form_forward_mw(
+    axum::extract::State(state): axum::extract::State<Arc<ProxyState>>,
+    req: Request,
+    next: axum::middleware::Next,
+) -> Response {
+    let uri = req.uri();
+    if uri.scheme_str().is_some() && uri.host().is_some() {
+        // absolute-form → forward proxy 客户端请求 → 走 handle_proxy（fallback 直通原 host）。
+        return handle_proxy(axum::extract::State(state), req).await;
+    }
+    next.run(req).await
 }
