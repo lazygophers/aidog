@@ -100,11 +100,22 @@ export const PlatformCard = memo(function PlatformCard({
   );
   const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
   const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
+  // 默认模型异步从 defaults.json 取（4 函数 async 化后），首次渲染为 []，加载完触发更新。
+  const [defaultModels, setDefaultModels] = useState<ReturnType<typeof allModelValues>>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const m = await getDefaultModels(p.platform_type, hasCodingEndpoint);
+      if (!cancelled) setDefaultModels(allModelValues(m));
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.platform_type, hasCodingEndpoint]);
   const configuredModels = (() => {
     const explicit = allModelValues(p.models);
     if (explicit.length > 0) return explicit;
     if ((p.available_models?.length ?? 0) > 0) return explicit;
-    return allModelValues(getDefaultModels(p.platform_type, hasCodingEndpoint));
+    return defaultModels;
   })();
   const quotaCapable = p.platform_type !== "mock" && p.platform_type !== "claude_code";
   const showQuota = quotaCapable && quota.hasData;

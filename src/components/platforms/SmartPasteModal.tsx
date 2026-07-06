@@ -31,7 +31,7 @@ export interface SmartPasteApplyResult {
 export interface SmartPasteModalProps {
   /** Platforms.tsx 的 PLATFORM_PRESETS（须为稳定引用，避免触发解析循环）。 */
   presets: PastePresetRef[];
-  onApply: (r: SmartPasteApplyResult) => void;
+  onApply: (r: SmartPasteApplyResult) => void | Promise<void>;
   onClose: () => void;
   /** 可选：跳过识别直接进空表单（主列表「添加平台」直达弹窗时的手动入口）。 */
   onManualEntry?: () => void;

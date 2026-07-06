@@ -109,11 +109,12 @@ export function Sub2ApiImportSection({
     setImporting(true);
     try {
       const payload: Record<string, unknown>[] = [];
-      accounts.forEach((acc, i) => {
-        if (!selected.has(i)) return;
+      for (let i = 0; i < accounts.length; i++) {
+        const acc = accounts[i];
+        if (!selected.has(i)) continue;
         const protocol = overrides.get(i) ?? mapPlatformToProtocol(acc.platform).protocol;
-        payload.push(sub2apiAccountToPlatformJson(acc, protocol));
-      });
+        payload.push(await sub2apiAccountToPlatformJson(acc, protocol));
+      }
       if (payload.length === 0) {
         setError(t("importExport.sub2api.nothingSelected", "没有可导入的账号（未选中）"));
         return;

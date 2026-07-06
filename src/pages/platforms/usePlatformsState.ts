@@ -142,7 +142,7 @@ export interface PlatformsState extends PlatformsStateParams {
   openCreatePlatform: (presetGroupIds?: number[], lockGid?: number) => void;
   handleEdit: (p: Platform) => Promise<void>;
   handleDuplicate: (p: Platform) => Promise<void>;
-  handleProtocolChange: (newProtocol: Protocol, newCodingPlan?: boolean) => void;
+  handleProtocolChange: (newProtocol: Protocol, newCodingPlan?: boolean) => void | Promise<void>;
   handleModelChange: (slot: ModelSlot, value: string) => void;
   handleModelSelect: (slot: ModelSlot, value: string) => void;
   handleFetchModels: () => Promise<void>;
@@ -154,7 +154,7 @@ export interface PlatformsState extends PlatformsStateParams {
   handleQuickTest: (p: Platform) => Promise<void>;
   handleShare: (p: Platform) => Promise<void>;
   handleViewLogs: (p: Platform) => void;
-  applyPaste: (r: SmartPasteApplyResult) => void;
+  applyPaste: (r: SmartPasteApplyResult) => Promise<void>;
   handlePurgeDisabled: () => Promise<void>;
   runBatchCreateFromPaste: (keys: string[], baseName?: string, effectiveEndpoints?: PlatformEndpoint[], effectiveProtocol?: Protocol) => Promise<void>;
   /** 主 URL 推导 helper（form header desc + fetch models 回退链共用） */
