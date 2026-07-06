@@ -18,6 +18,8 @@ type DefaultsDoc = {
     model_list: { default?: string[]; coding_plan?: string[] };
     name?: Partial<Record<DefaultsLocale, string>>;
     desc?: Partial<Record<DefaultsLocale, string>>;
+    /** 维护用 metadata：官方文档页 + 定价页 URL（非 UI 展示，仅手动核对更新时一站直达）。 */
+    source_urls?: { docs: string; pricing: string };
   }>>;
 };
 
