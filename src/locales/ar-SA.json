@@ -1119,6 +1119,8 @@
   "settings.allSaved": "محفوظ",
   "settings.attribution.commit": "مؤلف الالتزام",
   "settings.attribution.pr": "مؤلف PR",
+  "settings.autoUpdate": "فحص التحديثات تلقائيًا",
+  "settings.autoUpdateHint": "تحقق من وجود تحديثات تلقائيًا عند الإطلاق (الفحص اليدوي في صفحة «حول» يبقى متاحًا عند الإيقاف)",
   "settings.backup.days": "أيام (1-90)",
   "settings.backup.desc": "تصدير جميع البيانات تلقائيًا كملف .aidogx مشفّر على فترات محددة. يُحفظ في ~/.aidog/backups/ مع تنظيف تلقائي للملفات المنتهية.",
   "settings.backup.enable": "تفعيل النسخ الاحتياطي المجدول",
