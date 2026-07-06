@@ -1,0 +1,5 @@
+{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "复用 price_sync.rs 已实现的 jsDelivr+raw 双源回退模式"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "Tauri command 契约 + 前端 invoke 封装字段对齐"}
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "app data KV 写入 ~/.aidog/defaults.json + last_sync 时间戳文件"}
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "设置页同步 UI + invoke 封装"}
