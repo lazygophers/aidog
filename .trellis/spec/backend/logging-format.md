@@ -21,6 +21,17 @@ mode: sediment
 - **禁增减字段** (新加诊断字段统一塞 traceid 段或 msg 内, 不开新段)
 - **console 与 file 共用 `FormatEvent` impl**, 仅 ANSI 标志不同, 字段顺序对称
 
+### msg 段字段渲染契约 (MUST)
+
+> 违反代价: 业务结构化字段全丢（`07-06-log-format-field-loss` 实证：SQL profile / HTTP 诊断 / 关键业务上下文），日志行只剩 message 主体 + traceid。
+
+- **msg 段 MUST 包含 event 全部业务字段**（`key=value` 按 tracing 记录顺序），**禁丢字段**
+- **`message` 字段** → msg 主体（字符串去引号，与现有处理一致）
+- **其他业务字段**（fn / req / dur / sql / method / path 等）→ msg 段尾部追加 `{key}={value} ` 序列
+- **trace_id 字段例外**：5 段格式 traceid 段单独取（span scope / thread-local / gen 三级兜底），event 显式带 trace_id 时**去重**（不进 msg 段 extra，避免重复）
+- **字段值渲染**：字符串字段去引号（与 message 一致）；Debug 类型保留 Debug 格式
+- **MsgCollector 单点实现**：`logging.rs::MsgCollector` 加 `extra: Vec<(String, String)>`，Visit impl 收所有非 message 非 trace_id 字段
+
 ## ANSI 着色 (MUST)
 
 - **console MUST ANSI on** (`AidogFormat { ansi: true }`), file MUST ANSI off (`ansi: false`)
