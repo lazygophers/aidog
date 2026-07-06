@@ -64,7 +64,7 @@
 | unmatched-fallback-default-group | 未匹配分组 fallback 默认分组记录统计不报错 | — | 已完成 | — |
 | coding-tools-tab-rename-dedup-lang | 编程工具 tab 改名 + claudeTab 语言配置去重 | — | 已完成 | — |
 | h2-passthrough-stream-cancel | MITM 直通转发 HTTP/2 响应流 CANCEL | — | 已完成 | — |
-| mitm-h2-cancel-real-rootcause | MITM h2 stream CANCEL 真根因 (env proxy 已修仍 CANCEL) | — | 实施中 | — |
+| mitm-h2-cancel-real-rootcause | MITM h2 stream CANCEL 真根因 (env proxy 已修仍 CANCEL) | — | 已完成 | — |
 | sql-log-full-content | SQL 日志输出完整原始内容而非占位符 | — | 已完成 | — |
 | proxy-trace-id-header | proxy 响应头注入 X-AiDog-Trace trace-id (debug 模式 MITM/非 MITM 都加) | — | 已完成 | — |
 | app-log-to-file-always | 应用日志启用时强制输出到文件 (无视 debug 模式) | — | 已完成 | — |
@@ -77,7 +77,7 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-05-mitm-h2-cancel-real-rootcause | 07-05-mitm-h2-cancel-real-rootcause | trellisx-start |
 | forward-http-absolute-form | forward proxy 扩展支持 absolute-form HTTP 转发任意 host | — | 已完成 | — |
 | log-format-field-loss | 日志格式器 MsgCollector 丢非 message event 字段 (fn/req/dur/sql 全丢) | — | 已完成 | — |
 | delete-platform-keep-empty-group | delete_platform 保留空组不连带 force_delete_group 孤儿 auto 组 | — | 已完成 | — |
+| modal-window-center-portal | 弹窗全部 createPortal 到 body 实现真窗口居中 | — | 已完成 | — |
