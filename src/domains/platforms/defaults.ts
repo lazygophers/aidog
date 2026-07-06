@@ -61,7 +61,7 @@ export async function defaultClientForProtocol(protocol: Protocol): Promise<Clie
 }
 
 /** 根据 ProtocolOption 生成默认端点（含 coding_plan 标记）
- *  数据来源：defaults.json（运行时可被 ~/.aidog/defaults.json 覆盖） */
+ *  数据来源：platform-presets.json（运行时可被 ~/.aidog/platform-presets.json 覆盖） */
 export async function getDefaultEndpoints(protocol: Protocol, codingPlan?: boolean): Promise<PlatformEndpoint[]> {
   const doc = await loadDoc();
   const entry = doc.protocols[protocol];
