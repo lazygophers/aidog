@@ -123,7 +123,7 @@ export interface PlatformFormState {
   openCreatePlatform: (presetGroupIds?: number[], lockGid?: number) => void;
   handleEdit: (p: Platform) => Promise<void>;
   handleDuplicate: (p: Platform) => Promise<void>;
-  handleProtocolChange: (newProtocol: Protocol, newCodingPlan?: boolean) => void;
+  handleProtocolChange: (newProtocol: Protocol, newCodingPlan?: boolean) => void | Promise<void>;
   handleModelChange: (slot: ModelSlot, value: string) => void;
   handleModelSelect: (slot: ModelSlot, value: string) => void;
   handleFetchModels: () => Promise<void>;
@@ -131,7 +131,7 @@ export interface PlatformFormState {
   buildModelsPayload: () => Record<string, string | undefined> | undefined;
   handleSave: () => Promise<void>;
   handleViewLogs: (p: Platform) => void;
-  applyPaste: (r: SmartPasteApplyResult) => void;
+  applyPaste: (r: SmartPasteApplyResult) => Promise<void>;
   runBatchCreateFromPaste: (keys: string[], baseName?: string, effectiveEndpoints?: PlatformEndpoint[], effectiveProtocol?: Protocol) => Promise<void>;
 }
 
@@ -222,14 +222,14 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     return { show: false, groupId: null as number | null, isAuto: false };
   }, [isPassthrough, editing, groupDetails, lockedGroupId, autoGroup, joinGroupIds]);
 
-  const handleProtocolChange = (newProtocol: Protocol, newCodingPlan?: boolean) => {
+  const handleProtocolChange = async (newProtocol: Protocol, newCodingPlan?: boolean) => {
     const cp = !!newCodingPlan;
     // Auto-fill name with protocol label if empty or still at a default name
     if (!name.trim() || DEFAULT_NAMES.has(name)) {
       setName(cp ? `${PROTOCOL_LABELS[newProtocol]} Coding Plan` : PROTOCOL_LABELS[newProtocol]);
     }
     // Auto-fill endpoints from defaults（mock 无真实上游，返回空）
-    const defaultEps = getDefaultEndpoints(newProtocol, cp);
+    const defaultEps = await getDefaultEndpoints(newProtocol, cp);
     if (defaultEps.length > 0) {
       setEndpoints(defaultEps);
     } else {
@@ -237,7 +237,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     }
     // Auto-fill 默认模型预设（与 endpoints 同步随协议切换）。
     // 仅填预设有值的槽位，其余保持空；未覆盖平台返回空对象 = 不改动。
-    const defaultModels = getDefaultModels(newProtocol, cp);
+    const defaultModels = await getDefaultModels(newProtocol, cp);
     setModels({
       default: "", sonnet: "", opus: "", haiku: "", gpt: "",
       ...defaultModels,
@@ -582,9 +582,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   /** 智能识别弹窗确认后，将解析结果填入添加表单。
    *  ponytail: 实现抽到 platformPasteApply.ts（控制本文件行数），经 ctx 传 form state/setters +
    *    list 依赖保持闭包语义；本 wrapper 在每次调用时刷新 ctx 引用最新闭包值。 */
-  const applyPaste = (r: SmartPasteApplyResult) => {
+  const applyPaste = async (r: SmartPasteApplyResult) => {
     const ctx: PlatformPasteCtx = buildPasteCtx();
-    applyPasteImpl(r, ctx);
+    await applyPasteImpl(r, ctx);
   };
 
   /** 批量创建 N 平台（智能识别多 key 或手动表单多 key 共用）。

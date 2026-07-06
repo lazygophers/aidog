@@ -57,7 +57,7 @@ export interface PlatformPasteCtx {
   // 不再立刻批量创建；由 MultiKeyPreview 确认按钮调 confirmBatchCreate → runBatchCreateFromPaste）。
   setBatchPreviewKeys: React.Dispatch<React.SetStateAction<string[] | null>>;
   // form handler 引用（applyPaste 多 key 分支触发协议切换 + 批量循环 + 末尾 resetForm）
-  handleProtocolChange: (newProtocol: Protocol, newCodingPlan?: boolean) => void;
+  handleProtocolChange: (newProtocol: Protocol, newCodingPlan?: boolean) => void | Promise<void>;
   resetForm: () => void;
   // list 侧依赖（批量创建乐观 append + quota 补查 + 分组刷新 + toast）
   platforms: Platform[];
@@ -70,7 +70,7 @@ export interface PlatformPasteCtx {
 }
 
 /** 智能识别弹窗确认后，将解析结果填入添加表单。 */
-export function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx): void {
+export async function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx): Promise<void> {
   const {
     setName, setProtocol, setApiKey, setCodingPlan, setModels, setAvailableModels,
     setEndpoints, setManualBudgets, setExtra, setMockConfig, setNewApiConfig,
@@ -125,12 +125,12 @@ export function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx): voi
   // codingPlan flag 必传：同 value 的普通/coding 两 preset（如 xiaomi_mimo）命中后，
   // 不传 flag 则 getDefaultEndpoints 拿普通 endpoints（base_url 取错）。
   if (r.platform) {
-    handleProtocolChange(r.platform.value as Protocol, r.platform.codingPlan);
+    await handleProtocolChange(r.platform.value as Protocol, r.platform.codingPlan);
   }
   // 同步计算出本批 pasted 应落入的有效 endpoints（供 setEndpoints + 批量分支共用）。
   // ponytail: 把原 setEndpoints(prev=>...) 回调提取为纯函数 computeEndpoints(prev)，
   // 既写表单态又把同值喂给批量创建，避免批量分支读到 setState 未提交的旧 endpoints。
-  const computeEndpoints = (prev: PlatformEndpoint[]): PlatformEndpoint[] => {
+  const computeEndpoints = async (prev: PlatformEndpoint[]): Promise<PlatformEndpoint[]> => {
     const eps = prev.map((e) => ({ ...e }));
     if (r.baseUrls.length === 0) return eps;
     // 命中内置平台：prev 已是该平台默认 endpoints（handleProtocolChange 填入）。
@@ -170,7 +170,7 @@ export function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx): voi
           const epProto: Protocol = b.protocol === "unknown" ? "openai" : b.protocol;
           const idx = eps.findIndex((e) => e.protocol === epProto);
           if (idx >= 0) eps[idx] = { ...eps[idx], base_url: b.url };
-          else eps.push({ protocol: epProto, base_url: b.url, client_type: defaultClientForProtocol(epProto) });
+          else eps.push({ protocol: epProto, base_url: b.url, client_type: await defaultClientForProtocol(epProto) });
         }
       }
       return eps;
@@ -183,7 +183,7 @@ export function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx): voi
       if (idx >= 0) {
         eps[idx] = { ...eps[idx], base_url: b.url };
       } else {
-        eps.push({ protocol: epProto, base_url: b.url, client_type: defaultClientForProtocol(epProto) });
+        eps.push({ protocol: epProto, base_url: b.url, client_type: await defaultClientForProtocol(epProto) });
       }
     }
     return eps;
@@ -196,9 +196,9 @@ export function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx): voi
     // 协议已由上方 handleProtocolChange(r.platform.value...) 落表单（命中平台时），
     // 未命中平台则沿用当前表单 protocol；此处不再重复设协议。
     const basePrev = r.platform
-      ? getDefaultEndpoints(r.platform.value as Protocol, r.platform.codingPlan)
+      ? await getDefaultEndpoints(r.platform.value as Protocol, r.platform.codingPlan)
       : endpoints;
-    const effectiveEndpoints = computeEndpoints(basePrev);
+    const effectiveEndpoints = await computeEndpoints(basePrev);
     // 灌表单态（让用户可见将批量化创建的配置），触发预览（与手动表单多 key 同路径，统一预览 UX）。
     // apiKey 灌多 key 拼接文本（用户可见 + 预览组件读 splitApiKeys 重新拆分）。
     ctx.setApiKey(keys.join("\n"));
@@ -215,7 +215,10 @@ export function applyPaste(r: SmartPasteApplyResult, ctx: PlatformPasteCtx): voi
   // 单 key / 无 key 路径：清预览态（applyPaste 复用同一 ctx，避免上次多 key 预览残留）。
   ctx.setBatchPreviewKeys(null);
   if (r.baseUrls.length > 0) {
-    ctx.setEndpoints(computeEndpoints);
+    // ponytail: 原 setEndpoints(computeEndpoints) 用 setState callback form 拿 prev，
+    // computeEndpoints async 化后无法再走 setState callback（React 不支持 async updater），
+    // 改显式取 ctx.endpoints（ctx 引用调用时刻闭包值，与原 prev 同源）。
+    ctx.setEndpoints(await computeEndpoints(ctx.endpoints));
   }
   if (keys.length === 1) ctx.setApiKey(keys[0]);
   // 智能粘贴识别到的过期时间（社区分享帖常见「即将过期 06-28 23:59」）。0/未识别 = 不动。

@@ -10,7 +10,7 @@ export function SearchableProtocolSelect({
 }: {
   value: Protocol;
   codingPlan: boolean;
-  onChange: (proto: Protocol, codingPlan?: boolean) => void;
+  onChange: (proto: Protocol, codingPlan?: boolean) => void | Promise<void>;
 }) {
   const { t } = useTranslation();
   const [query, setQuery] = useState("");
