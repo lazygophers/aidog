@@ -139,7 +139,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
             // 定时备份调度器 (spawn_scheduler 内部 spawn 常驻 loop, 启动首次检查补「关机错过」)。
             gateway::backup::spawn_scheduler(app.handle().clone());
 
-            // defaults.json 同步调度器（同 backup/scheduler.rs 模式）：单 spawn，启动首跑补
+            // platform-presets.json 同步调度器（同 backup/scheduler.rs 模式）：单 spawn，启动首跑补
             // 「关机错过」+ 24h 循环。非阻塞 spawn，失败仅 warn；不破坏现有功能（child 1 reader
             // 端自动回退 bundled）。maybe_sync_on_startup 内部判 24h 节流，重复触发安全。
             tauri::async_runtime::spawn(async move {
