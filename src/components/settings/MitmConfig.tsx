@@ -126,8 +126,12 @@ export function MitmConfigTab() {
 
   // ── 白名单增删改 ──────────────────────────────────────────
   const handleAdd = async () => {
-    const p = newPattern.trim();
+    let p = newPattern.trim();
     if (!p) return;
+    // suffix 类型 strip 所有前导点（与后端 matches_rule 容错对齐，防 `.cn` / `..cn` 脏数据入 db）。
+    // domain/keyword/ipcidr 不动（domain 精确匹配 / keyword 子串用户可能真要 `.`；ipcidr 无点语义）。
+    if (newRuleType === "suffix") p = p.replace(/^\.+/, "");
+    if (!p) return; // strip 后空（用户输入全点）不加废规则
     setBusy(true); setError("");
     try {
       await mitmApi.whitelistAdd(p, newRuleType);

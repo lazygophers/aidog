@@ -145,7 +145,14 @@ pub fn matches_rule(host: &str, rule_type: &str, rule_value: &str) -> bool {
         // suffix（Clash DOMAIN-SUFFIX 标准）：裸域 + 所有子域。
         // host == rule_value（裸域命中）|| host 以 `.rule_value` 结尾（子域，点前保证跨域 boundary
         // 防 `xanthropic.com` 命中 `anthropic.com`）。
-        "suffix" => host == rule_value || host.ends_with(&format!(".{rule_value}")),
+        // 前导点容错：用户可能写 `.cn` / `..cn`（前导点）入 db，strip 所有前导点归一化后再匹配，
+        // 否则 format!(".{rule_value}") 会产生 `..cn`（双点）永不命中。`.cn`/`cn`/`..cn` 等价命中 `cn`。
+        // 全点 rule_value (`...`) → normalized 空 → 不命中（脏数据兜底）。
+        "suffix" => {
+            let normalized = rule_value.trim_start_matches('.');
+            !normalized.is_empty()
+                && (host == normalized || host.ends_with(&format!(".{normalized}")))
+        }
         // keyword：host 子串（大小写不敏感已 lower 化）。
         "keyword" => host.contains(rule_value),
         // ipcidr：仅匹配 IP 字面 CONNECT 目标。host 解析成 IpAddr 失败 → 域名 → miss。
@@ -243,6 +250,30 @@ mod tests {
         assert!(!matches_host(entries.clone(), "xanthropic.com")); // 无点号 boundary
         assert!(!matches_host(entries.clone(), "anthropic.com.evil.com")); // suffix 后接 evil
         assert!(!matches_host(entries, "x.anthropic.com.evil.com"));
+    }
+
+    // ── suffix 前导点容错（用户写 `.cn` / `..cn` / `cn` 等价命中）──────────
+
+    #[test]
+    fn suffix_leading_dot_matches() {
+        // rule `.cn` 命中 `open.bigmodel.cn`（前导点容错：strip 后等价裸域 `cn`）
+        assert!(matches_rule("open.bigmodel.cn", "suffix", ".cn"));
+        assert!(matches_rule("api.openai.com", "suffix", ".com"));
+    }
+
+    #[test]
+    fn suffix_multi_leading_dot_normalized() {
+        // rule `..cn` 归一化为 `cn` 仍命中（trim_start_matches('.') strip 所有前导点）
+        assert!(matches_rule("open.bigmodel.cn", "suffix", "..cn"));
+        // 裸域 `cn` 也命中（向后兼容，Clash DOMAIN-SUFFIX 标准语义）
+        assert!(matches_rule("open.bigmodel.cn", "suffix", "cn"));
+    }
+
+    #[test]
+    fn suffix_all_dots_empty_misses() {
+        // rule `...` 全点 → normalized 空 → 不命中（脏数据兜底，防 format! 产生 `....` 误匹配）
+        assert!(!matches_rule("open.bigmodel.cn", "suffix", "..."));
+        assert!(!matches_rule("anything.com", "suffix", "."));
     }
 
     // ── keyword（子串，大小写不敏感）────────────────────────────
