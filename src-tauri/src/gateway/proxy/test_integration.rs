@@ -898,3 +898,166 @@ async fn api_path_wrong_token_still_404_no_bypass() {
     let logs = crate::gateway::db::list_proxy_logs(&state.db, 100, 0).await.unwrap();
     assert!(!logs.iter().any(|l| l.group_key == "未匹配"), "API path 未匹配不应进虚拟桶");
 }
+
+// ── forward proxy absolute-form 测试 ──
+//
+// absolute-form URI（`GET http://host/path`）必须绕过 `.route("/")` 健康端点进 handle_proxy
+// 走 fallback 直通（与 MITM 解密灌入同语义）。reverse proxy path-only URI 不受影响。
+//
+// ponytail: 用 `build_router` 起 axum::serve 真 listener，reqwest 客户端配 .proxy() 发
+// absolute-form 请求（reqwest 明文 HTTP 走 absolute-form，非 CONNECT），最贴近 curl `-x` 行为。
+
+/// 起一个 stub HTTP 上游，所有方法/path 返回固定 200 + body（含 sentinel 便于断言）。
+async fn spawn_stub_http_echo(body: &'static str) -> String {
+    let app = axum::Router::new().fallback(axum::routing::any(move || async move {
+        (axum::http::StatusCode::OK, [("content-type", "text/plain")], body)
+    }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.ok() });
+    format!("http://127.0.0.1:{port}", port = addr.port())
+}
+
+/// 起一个代理 Router（build_router + axum::serve），返回 base_url + 共享 state。
+async fn spawn_proxy_router(state: Arc<ProxyState>) -> String {
+    let app = super::build_router(state.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.ok() });
+    format!("http://127.0.0.1:{port}", port = addr.port())
+}
+
+/// 用 reqwest Client 配 .proxy() 发 absolute-form HTTP forward 请求。
+/// reqwest 明文 HTTP + .proxy() → 客户端发 `GET http://host/path HTTP/1.1`（非 CONNECT）。
+async fn forward_proxy_get(proxy_url: &str, target_url: &str) -> reqwest::Response {
+    let client = reqwest::Client::builder()
+        .proxy(reqwest::Proxy::http(proxy_url).unwrap())
+        .build()
+        .unwrap();
+    client.get(target_url).send().await.unwrap()
+}
+
+/// absolute-form HTTP forward：`curl -x http://proxy http://stub/` → 返回 stub 原始正文，
+/// **不**命中 `.route("/")` 健康端点 JSON。proxy_log 落虚拟桶。
+#[tokio::test]
+async fn absolute_form_http_forward_returns_orig_body_not_health_endpoint() {
+    let state = make_state(test_db().await).await;
+    // listen_addr 设为代理自身 loopback（任意端口均可，识别代理自身用）；具体端口由
+    // spawn_proxy_router 异步绑定，should_fallback_passthrough 用 loopback host 名 + 端口
+    // 比对识别。这里设一个**非** stub 端口的 loopback 地址，让外部 host（stub）被判为「非自身」。
+    let _ = state.listen_addr.set((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 65535u16));
+
+    let stub_url = spawn_stub_http_echo("baidu-orig-html-sentinel").await;
+    let proxy_url = spawn_proxy_router(state.clone()).await;
+
+    let resp = forward_proxy_get(&proxy_url, &stub_url).await;
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = resp.text().await.unwrap();
+    assert!(
+        body.contains("baidu-orig-html-sentinel"),
+        "absolute-form forward 必须返回 stub 原始正文（非健康端点 JSON），实际: {body}"
+    );
+    assert!(
+        !body.contains("\"service\":\"aidog\""),
+        "absolute-form forward 不应命中健康端点 JSON，实际: {body}"
+    );
+
+    // proxy_log 落虚拟桶（group_key=未匹配 / cost=0 / source_protocol=passthrough_unmatched）。
+    let logs = crate::gateway::db::list_proxy_logs(&state.db, 50, 0).await.unwrap();
+    let bucket = logs.iter().find(|l| l.group_key == "未匹配");
+    assert!(bucket.is_some(), "absolute-form forward 必须落虚拟桶 proxy_log");
+    let b = bucket.unwrap();
+    assert_eq!(b.platform_id, 0, "虚拟桶 platform_id=0");
+    assert_eq!(b.status_code, 200, "上游 stub 返 200 → 终态 200");
+    assert_eq!(b.source_protocol, "passthrough_unmatched");
+    // 取完整行查 upstream_request_url（summary 不含此字段）。
+    let full = crate::gateway::db::get_proxy_log(&state.db, &b.id).await.unwrap().unwrap();
+    assert_eq!(full.est_cost, 0.0, "虚拟桶不计费");
+    assert!(
+        full.upstream_request_url.contains("127.0.0.1"),
+        "上游 URL 指向 stub，实际: {}",
+        full.upstream_request_url
+    );
+    assert!(
+        full.upstream_request_url.starts_with("http://"),
+        "scheme 自适应：明文 HTTP absolute-form → http:// upstream，实际: {}",
+        full.upstream_request_url
+    );
+}
+
+/// reverse proxy 健康端点不回归：path-only URI（`GET /`）仍命中 `.route("/")` 健康端点返 JSON，
+/// middleware 不误判（path-only 无 scheme/host → next.run 进正常路由）。
+#[tokio::test]
+async fn path_only_uri_still_hits_health_endpoint_no_regression() {
+    let state = make_state(test_db().await).await;
+    let _ = state.listen_addr.set((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 65535u16));
+
+    let proxy_url = spawn_proxy_router(state.clone()).await;
+
+    // 直接 GET proxy_url 的 `/`（path-only URI），不配 forward proxy。
+    let resp = reqwest::Client::new().get(&proxy_url).send().await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body = resp.text().await.unwrap();
+    assert!(
+        body.contains("\"service\":\"aidog\""),
+        "path-only GET / 必须命中健康端点返 aidog JSON（不回归），实际: {body}"
+    );
+
+    // 健康端点不落 proxy_log（跳过日志）。
+    let logs = crate::gateway::db::list_proxy_logs(&state.db, 50, 0).await.unwrap();
+    assert!(logs.is_empty(), "健康端点不落 proxy_log，实际: {logs:?}");
+}
+
+/// absolute-form HTTPS URI（`GET https://host/path`，非 CONNECT）→ middleware 识别后
+/// handle_proxy fallback 直通；scheme 自适应 → upstream_request_url 用 https://。
+///
+/// 现实客户端走 HTTPS forward 普遍发 CONNECT 隧道（CONNECT handler 独立路径），但 absolute-form
+/// HTTPS URI 的协议解析逻辑与 HTTP 同构（middleware 仅识别 scheme+host 即转），此用例锁 URI 构造语义。
+/// 用 raw TCP 手发 absolute-form HTTPS URI（避免 reqwest 自动转 CONNECT），stub 上游用 HTTP
+/// 模拟（fallback 直通构造 https:// URL，TLS 握手失败 → 502，但 proxy_log upstream_request_url
+/// 已落库，可断言 scheme 自适应）。
+#[tokio::test]
+async fn absolute_form_https_uri_scheme_adaptive() {
+    let state = make_state(test_db().await).await;
+    let _ = state.listen_addr.set((std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)), 65535u16));
+
+    let app = super::build_router(state.clone());
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let proxy_addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.ok() });
+
+    // raw TCP 发 absolute-form HTTPS URI（`GET https://example.invalid/ HTTP/1.1`）。
+    // 手写 h1 请求：reqwest/hyper 客户端发 HTTPS forward 会自动转 CONNECT，禁用之需 raw 字节。
+    let req_bytes = b"GET https://example.invalid/path HTTP/1.1\r\n\
+Host: example.invalid\r\n\
+Connection: close\r\n\
+\r\n";
+    let mut stream = tokio::net::TcpStream::connect(proxy_addr).await.unwrap();
+    tokio::io::AsyncWriteExt::write_all(&mut stream, req_bytes).await.unwrap();
+
+    // 读完整响应（Connection: close 上游会关连接）。
+    let mut resp_buf = Vec::with_capacity(4096);
+    tokio::io::AsyncReadExt::read_to_end(&mut stream, &mut resp_buf).await.ok();
+    let resp_str = String::from_utf8_lossy(&resp_buf);
+    // example.invalid 不可达 → 502（fallback 直通构造 https://example.invalid/path 失败）。
+    assert!(
+        resp_str.contains("502") || resp_str.contains("Bad Gateway"),
+        "absolute-form HTTPS → 不可达 host 返 502，实际: {resp_str}"
+    );
+
+    // proxy_log upstream_request_url 必须以 https:// 开头（scheme 自适应生效）。
+    let logs = crate::gateway::db::list_proxy_logs(&state.db, 50, 0).await.unwrap();
+    let bucket = logs.iter().find(|l| l.group_key == "未匹配");
+    let b = bucket.expect("absolute-form HTTPS 必须落虚拟桶 proxy_log");
+    let full = crate::gateway::db::get_proxy_log(&state.db, &b.id).await.unwrap().unwrap();
+    assert!(
+        full.upstream_request_url.starts_with("https://"),
+        "HTTPS absolute-form scheme 自适应 → upstream URL 用 https://，实际: {}",
+        full.upstream_request_url
+    );
+    assert!(
+        full.upstream_request_url.contains("example.invalid"),
+        "upstream URL 含目标 host，实际: {}",
+        full.upstream_request_url
+    );
+}

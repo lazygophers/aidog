@@ -346,8 +346,8 @@ pub(crate) async fn forward_passthrough_to_orig_host(
     log.source_protocol = "passthrough_unmatched".to_string();
     log.target_protocol = "passthrough_unmatched".to_string();
 
-    // 目标 URL = https://{Host header}{path}?{query}。Host header 含端口（www.baidu.com:443），
-    // 直接拼到 authority 段；缺省 path 用 "/"。
+    // 目标 URL = {scheme}://{Host header}{path}?{query}。scheme 取 orig_uri（absolute-form
+    // 带原 scheme 如 http/https；MITM 解密灌入无 scheme 默认 https）；Host header 含端口。
     let host_header = orig_headers
         .get(axum::http::header::HOST)
         .and_then(|v| v.to_str().ok())
@@ -365,7 +365,10 @@ pub(crate) async fn forward_passthrough_to_orig_host(
         .path_and_query()
         .map(|pq| pq.as_str())
         .unwrap_or("/");
-    let url = format!("https://{host_header}{pq}");
+    // scheme 自适应：forward proxy absolute-form（`GET http://host/`）保留 scheme 透传，
+    // MITM 解密灌入（无 scheme，明文 Request URI 仅 path 段）默认 https 保持原行为。
+    let scheme = orig_uri.scheme_str().unwrap_or("https");
+    let url = format!("{scheme}://{host_header}{pq}");
     log.upstream_request_url = url.clone();
 
     // 超时：连接期保护，body 不设总超时（与 handle_passthrough 同款，避免砍长响应）。
