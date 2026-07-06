@@ -184,9 +184,12 @@ export function usePlatformCards(options?: UsePlatformCardsOptions): UsePlatform
     onNavigate?.("logs", { platformId: p.id, platformName: p.name });
   }, [onNavigate]);
 
-  // Delete
+  // Delete — 失败抛出（不吞错误），交调用方决定是否回滚 / 刷新。
+  // 调用方 (Groups confirmDeletePlatform / Platforms handleDelete) 在 catch 里 toast 报错。
+  // ponytail: 不在此 hook 加 toast —— 调用方语义不同（Groups 走 onToast，Platforms 自带 setToast），
+  // 抛出 + 各自处理 = 单一职责，避免重复 toast。
   const handleDelete = useCallback(async (id: number) => {
-    try { await platformApi.delete(id); } catch (e) { console.error(e); }
+    await platformApi.delete(id);
   }, []);
 
   // Edit
