@@ -447,36 +447,55 @@ where
         // 3. file:line func (purple 35)
         let loc = format!("{file}:{line} {func}");
         write!(writer, "{} ", ansi::wrap(35, &loc, ansi))?;
-        // 4. msg (default color, no wrap)
+        // 4. msg (含 message 主体 + 业务字段 key=value, default color, no wrap)
         write!(writer, "{msg} ")?;
+        for (k, v) in &msg_visitor.extra {
+            write!(writer, "{k}={v} ")?;
+        }
         // 5. traceid (cyan 36)
         writeln!(writer, "{}", ansi::wrap(36, &trace_id, ansi))
     }
 }
 
-/// Visit event fields → 抓 message 字段 + 拼成单串。默认 fmt::FormatFields 会打
-/// `key=value key=value message`, 但我们只要 message 主体 (其余字段 (trace_id 等) 已在 span 上
-/// 经 trace_id_from_span_scope 取到, 不重复)。
+/// Visit event fields → 抓 message 字段 + 拼成单串，并把非 message 业务字段按
+/// `key=value` 记录顺序收集到 `extra`（塞 msg 段尾部，禁丢字段）。
+///
+/// - `message` 字段 → msg 主体（去引号与现 message 处理一致）
+/// - `trace_id` 字段 → 跳过（5 段格式 traceid 段由 `trace_id_from_span_scope`
+///   / thread-local / gen 三级兜底单独取，event 显式带则去重避免重复）
+/// - 其余字段 → `extra` push `(name, value)`，value 保留各自类型原貌
+///   （string 字段去引号，Debug 类型保留 Debug 格式）
 ///
 /// event 的 message 来自 `event!("..."` 第一位置参数, 走 `message` 字段名。
 #[derive(Default)]
 struct MsgCollector {
     msg: String,
+    extra: Vec<(String, String)>,
 }
 
 impl tracing::field::Visit for MsgCollector {
     fn record_debug(&mut self, field: &tracing::field::Field, value: &dyn std::fmt::Debug) {
-        if field.name() == "message" {
+        let name = field.name();
+        if name == "message" {
             // message 字段值用 Debug 格式通常带引号, 去之。
             let raw = format!("{value:?}");
             self.msg.push_str(raw.trim_matches('"'));
             self.msg.push(' ');
+        } else if name == "trace_id" {
+            // trace_id 字段去重见上文 doc comment。
+        } else {
+            self.extra.push((name.to_string(), format!("{value:?}")));
         }
     }
     fn record_str(&mut self, field: &tracing::field::Field, value: &str) {
-        if field.name() == "message" {
+        let name = field.name();
+        if name == "message" {
             self.msg.push_str(value);
             self.msg.push(' ');
+        } else if name == "trace_id" {
+            // 同上去重。
+        } else {
+            self.extra.push((name.to_string(), value.to_string()));
         }
     }
 }
@@ -768,6 +787,54 @@ mod tests {
             "all 3 markers must be present; got: {line:?}");
         assert!(lvl.unwrap() < msg.unwrap(), "level must precede msg; got: {line:?}");
         assert!(msg.unwrap() < tid.unwrap(), "msg must precede traceid; got: {line:?}");
+    }
+
+    // ---- MsgCollector 业务字段渲染（回归 07-06-log-format-field-loss）----
+
+    #[test]
+    fn aidog_format_renders_event_fields() {
+        // 直接对照 PRD Acceptance: tracing::debug!(target="sql", fn=, req=, dur=, sql=, "exec sql")
+        // 输出 msg 段必须含全部 4 业务字段 (fn/req/dur/sql)。
+        let out = with_test_subscriber(false, || {
+            tracing::debug!(target: "sql", fn = "db.rs:1", req = "abc", dur = "0.1ms", sql = "SELECT 1", "exec sql");
+        });
+        let line = out.lines().last().unwrap_or("");
+        assert!(line.contains("exec sql"), "msg 主体保留; got: {line:?}");
+        assert!(line.contains("fn="), "fn 字段渲染; got: {line:?}");
+        assert!(line.contains("req="), "req 字段渲染; got: {line:?}");
+        assert!(line.contains("dur="), "dur 字段渲染; got: {line:?}");
+        assert!(line.contains("sql="), "sql 字段渲染; got: {line:?}");
+        // 字段值: sql=SELECT 1 (字符串去引号, 与 message 处理一致)。
+        assert!(line.contains("sql=SELECT 1"), "sql 值去引号; got: {line:?}");
+        // 顺序: msg 主体先于业务字段, 业务字段先于 traceid 段。
+        let msg_idx = line.find("exec sql").unwrap_or(usize::MAX);
+        let fn_idx = line.find("fn=").unwrap_or(usize::MAX);
+        let tid_token = line.split_whitespace().last().unwrap_or("");
+        let tid_idx = line.rfind(tid_token).unwrap_or(usize::MAX);
+        assert!(msg_idx < fn_idx, "msg 主体先于业务字段; got: {line:?}");
+        assert!(fn_idx < tid_idx, "业务字段先于 traceid; got: {line:?}");
+    }
+
+    #[test]
+    fn aidog_format_dedups_event_trace_id_field() {
+        // event 显式带 trace_id 字段（罕见场景）→ 5 段格式 traceid 段单独取 span scope,
+        // event 的 trace_id 字段必须被 MsgCollector 跳过（不进 extra, 避免重复）。
+        let out = with_test_subscriber(false, || {
+            let span = tracing::info_span!("s", trace_id = "topid1");
+            let _enter = span.enter();
+            tracing::info!(trace_id = "fromevent", "msg body");
+        });
+        let line = out.lines().last().unwrap_or("");
+        // 行尾 traceid 段 = span scope 取的 topid1, 不是 event 的 fromevent。
+        let last_token = line.split_whitespace().last().unwrap_or("");
+        assert_eq!(last_token, "topid1", "traceid 段取 span scope; got: {line:?}");
+        // extra 里不能有 trace_id=fromevent（去重生效）。
+        assert!(
+            !line.contains("trace_id=fromevent"),
+            "event trace_id 字段必须去重, 不能进 extra; got: {line:?}"
+        );
+        // 但 message 主体仍在。
+        assert!(line.contains("msg body"), "message 主体渲染; got: {line:?}");
     }
 
     // ---- spawn_traced helper 单测 ----
