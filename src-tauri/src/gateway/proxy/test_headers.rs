@@ -608,9 +608,12 @@ use super::*;
             assert!(h.is_some(), "debug build 应注入 X-AiDog-Trace header");
             let v = h.unwrap().to_str().unwrap();
             assert!(!v.is_empty(), "X-AiDog-Trace 值非空");
-            // 兜底 id 取自 current_trace_id (None, 测试无活跃 span) → new_trace_id = 8-hex
-            assert_eq!(v.len(), 8, "兜底 new_trace_id 应为 8 位 hex");
-            assert!(v.chars().all(|c| c.is_ascii_hexdigit()), "兜底 id 应为 hex 字符");
+            // 兜底 id 取自 current_trace_id (None, 测试无活跃 span) → new_trace_id = 6 [0-9a-z]
+            assert_eq!(v.len(), 6, "兜底 new_trace_id 应为 6 位 [0-9a-z]");
+            assert!(
+                v.chars().all(|c| c.is_ascii_digit() || c.is_ascii_lowercase()),
+                "兜底 id 应为 [0-9a-z] 字符"
+            );
         } else {
             // release build 路径：不注入（无 header）
             assert!(resp.headers().get("x-aidog-trace").is_none());

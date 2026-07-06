@@ -128,7 +128,7 @@ use super::test_support::*;
 
 
     /// 关键契约：req=None 时**绝不**留空 / 固定常量，而是当场用 new_trace_id() 兜底
-    /// 生成真实唯一 id（8-hex）。无环境 span 时走兜底；不同次调用 id 不同。
+    /// 生成真实唯一 id（6 位 [0-9a-z]）。无环境 span 时走兜底；不同次调用 id 不同。
     #[tokio::test]
     async fn call_traced_none_req_falls_back_to_generated_unique_id() {
         let db = test_db().await;
@@ -149,9 +149,12 @@ use super::test_support::*;
         assert_ne!(id1, "bg");
         assert_ne!(id1, "-");
         assert!(!id1.is_empty(), "req must never be empty");
-        // 兜底 id 形态：new_trace_id() = 8 位小写 hex。
-        assert_eq!(id1.len(), 8, "fallback id is 8-hex: got {id1}");
-        assert!(id1.chars().all(|ch| ch.is_ascii_hexdigit()), "fallback id is hex: {id1}");
+        // 兜底 id 形态：new_trace_id() = 6 位 [0-9a-z] (logging.rs gen_trace_id)。
+        assert_eq!(id1.len(), 6, "fallback id is 6 [0-9a-z]: got {id1}");
+        assert!(
+            id1.chars().all(|ch| ch.is_ascii_digit() || ch.is_ascii_lowercase()),
+            "fallback id is [0-9a-z]: {id1}"
+        );
         // 真实唯一：两次兜底 id 不同（无环境 span 复用）。
         assert_ne!(id1, id2, "each fallback id must be unique");
     }
