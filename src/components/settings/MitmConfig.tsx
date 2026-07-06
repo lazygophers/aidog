@@ -10,7 +10,7 @@
 //
 // 消费 services/api.ts mitmApi 契约（ST7 冻结），只读不改。
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import { Command } from "@tauri-apps/plugin-shell";
 import {
@@ -212,11 +212,13 @@ export function MitmConfigTab() {
   const fingerprint = status?.ca_fingerprint ?? "";
   const whitelist = status?.whitelist ?? [];
   // D2 搜索过滤（前端纯 filter，host_pattern toLowerCase includes）。
-  const filteredWhitelist = useMemo(() => {
-    const s = search.trim().toLowerCase();
-    if (!s) return whitelist;
-    return whitelist.filter((e) => e.host_pattern.toLowerCase().includes(s));
-  }, [whitelist, search]);
+  // ponytail: 去 useMemo — 它在 if(loading) early return 之后，违反 Rules of Hooks
+  // (loading 切换致 hooks 数量变化 → React throw "Rendered more hooks than during
+  // the previous render" → MITM tab 白屏)。filter 开销小，普通计算即可。
+  const searchKey = search.trim().toLowerCase();
+  const filteredWhitelist = searchKey
+    ? whitelist.filter((e) => e.host_pattern.toLowerCase().includes(searchKey))
+    : whitelist;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
