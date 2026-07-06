@@ -823,6 +823,7 @@
   "platform.duplicate": "نسخ",
   "platform.empty": "لا توجد منصات",
   "platform.enable": "تفعيل",
+  "platform.homepage": "الصفحة الرئيسية",
   "platform.endpoints": "نقاط نهاية البروتوكول",
   "platform.endpointsHint": "بروتوكولات إضافية تدعمها هذه المنصة بعناوين URL أساسية مختلفة",
   "platform.expired": "منتهي الصلاحية",

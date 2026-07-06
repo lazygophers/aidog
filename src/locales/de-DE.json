@@ -823,6 +823,7 @@
   "platform.duplicate": "Duplizieren",
   "platform.empty": "Keine Plattformen",
   "platform.enable": "Aktivieren",
+  "platform.homepage": "Startseite",
   "platform.endpoints": "Protokoll-Endpoints",
   "platform.endpointsHint": "Zusätzliche Protokolle, die diese Plattform mit anderen Base-URLs unterstützt",
   "platform.expired": "Abgelaufen",

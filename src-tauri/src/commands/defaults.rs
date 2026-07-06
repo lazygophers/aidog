@@ -43,3 +43,35 @@ pub async fn sync_defaults_json() -> Result<crate::gateway::defaults_sync::Defau
     tracing::debug!(command = "sync_defaults_json", "command invoked");
     Ok(crate::gateway::defaults_sync::sync_defaults_json().await)
 }
+
+/// 返回 protocol logo 缓存文件路径（前端 `convertFileSrc` 用）。文件不存在/无缓存目录返空串。
+#[tauri::command]
+pub fn get_protocol_logo_path(protocol: String) -> Result<String, String> {
+    let dir = aidog_data_dir()?;
+    let path = crate::gateway::logo_sync::logo_cache_path(&dir, &protocol);
+    if path.exists() {
+        if let Ok(meta) = std::fs::metadata(&path) {
+            if meta.len() > 0 {
+                return Ok(path.to_string_lossy().into_owned());
+            }
+        }
+    }
+    Ok(String::new())
+}
+
+/// 触发单 protocol 后台 logo 同步（前端懒加载 miss 时调）。非阻塞 spawn，立即返。
+#[tauri::command]
+pub async fn sync_protocol_logo(
+    app: tauri::AppHandle,
+    protocol: String,
+) -> Result<(), String> {
+    use tauri::Manager;
+    let db = app.try_state::<crate::gateway::db::Db>()
+        .map(|s| std::sync::Arc::new(s.inner().clone()))
+        .ok_or("db not initialized")?;
+    let dir = aidog_data_dir()?;
+    tauri::async_runtime::spawn(async move {
+        crate::gateway::logo_sync::sync_one_logo(db, dir, protocol).await;
+    });
+    Ok(())
+}

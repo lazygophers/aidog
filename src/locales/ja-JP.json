@@ -823,6 +823,7 @@
   "platform.duplicate": "複製",
   "platform.empty": "プラットフォームなし",
   "platform.enable": "有効化",
+  "platform.homepage": "ホームページ",
   "platform.endpoints": "プロトコルエンドポイント",
   "platform.endpointsHint": "このプラットフォームが異なるベースURLでサポートする追加プロトコル",
   "platform.expired": "期限切れ",

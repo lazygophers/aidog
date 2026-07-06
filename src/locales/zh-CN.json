@@ -801,6 +801,7 @@
   "platform.duplicate": "复制",
   "platform.empty": "暂无平台，点击上方按钮添加",
   "platform.enable": "启用",
+  "platform.homepage": "官网",
   "platform.endpoints": "协议端点",
   "platform.endpointsHint": "此平台以不同 base URL 支持的附加协议",
   "platform.expired": "已过期",

@@ -93,8 +93,9 @@
 | platform-presets-rename | platform-presets.json rename (defaults.json) | — | 已完成 | — |
 | models-json-to-defaults | data/models.json → src-tauri/defaults/models.json 迁移 | — | 规划中 | — |
 | repo-cleanup-empty-temp-bak | 仓库清理: 空文件夹/空文件/临时/备份 | — | 已完成 | — |
-| protocols-i18n-name-desc-search | platform-presets protocols 多语言 name/desc + 搜索 (含拼音) | — | 实施中 | — |
+| protocols-i18n-name-desc-search | platform-presets protocols 多语言 name/desc + 搜索 (含拼音) | — | 已完成 | — |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-i18n-name-desc-search | 07-07-protocols-i18n-name-desc-search | trellisx-start |
-| protocols-source-url | platform-presets protocols 数据源站点 URL | — | 实施中 | — |
+| protocols-source-url | platform-presets protocols 数据源站点 URL | — | 已完成 | — |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-source-url | 07-07-protocols-source-url | trellisx-start |
-| protocol-logo-homepage | platform-presets protocols homepage + logo (本地缓存) | — | 规划中 | — |
+| protocol-logo-homepage | platform-presets protocols homepage + logo (本地缓存) | — | 实施中 | — |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocol-logo-homepage | 07-07-protocol-logo-homepage | trellisx-start |

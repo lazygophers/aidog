@@ -8,6 +8,7 @@ pub mod hooks;
 pub mod http_client;
 pub mod i18n;
 pub mod log_util;
+pub mod logo_sync;
 pub mod manual_budget;
 pub mod middleware;
 pub mod mitm;

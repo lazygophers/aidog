@@ -823,6 +823,7 @@
   "platform.duplicate": "Дублировать",
   "platform.empty": "Нет платформ",
   "platform.enable": "Включить",
+  "platform.homepage": "Главная страница",
   "platform.endpoints": "Конечные точки протокола",
   "platform.endpointsHint": "Дополнительные протоколы, поддерживаемые этой платформой с другими базовыми URL",
   "platform.expired": "Истёк",

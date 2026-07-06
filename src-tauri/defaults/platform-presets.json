@@ -51,7 +51,9 @@
       "source_urls": {
         "docs": "https://docs.anthropic.com/en/api/overview",
         "pricing": "https://www.anthropic.com/pricing"
-      }
+      },
+      "homepage": "https://www.anthropic.com",
+      "logo_url": "anthropic"
     },
     "openai": {
       "client_type": "codex_tui",
@@ -97,7 +99,9 @@
       "source_urls": {
         "docs": "https://platform.openai.com/docs/api-reference",
         "pricing": "https://openai.com/api/pricing/"
-      }
+      },
+      "homepage": "https://openai.com",
+      "logo_url": ""
     },
     "codex": {
       "client_type": "default",
@@ -143,7 +147,9 @@
       "source_urls": {
         "docs": "https://platform.openai.com/docs/guides/codex",
         "pricing": "https://openai.com/api/pricing/"
-      }
+      },
+      "homepage": "https://openai.com",
+      "logo_url": ""
     },
     "gemini": {
       "client_type": "default",
@@ -184,7 +190,9 @@
       "source_urls": {
         "docs": "https://ai.google.dev/gemini-api/docs",
         "pricing": "https://ai.google.dev/gemini-api/docs/pricing"
-      }
+      },
+      "homepage": "https://ai.google.dev",
+      "logo_url": "googlegemini"
     },
     "glm": {
       "client_type": "default",
@@ -271,7 +279,9 @@
       "source_urls": {
         "docs": "https://docs.bigmodel.cn/cn/guide/start/quick-start",
         "pricing": "https://open.bigmodel.cn/pricing"
-      }
+      },
+      "homepage": "https://www.zhipuai.cn",
+      "logo_url": ""
     },
     "glm_en": {
       "client_type": "default",
@@ -329,7 +339,9 @@
       "source_urls": {
         "docs": "https://docs.z.ai/guide/start/quick-start",
         "pricing": "https://z.ai/pricing"
-      }
+      },
+      "homepage": "https://z.ai",
+      "logo_url": ""
     },
     "kimi": {
       "client_type": "default",
@@ -400,7 +412,9 @@
       "source_urls": {
         "docs": "https://platform.moonshot.cn/docs",
         "pricing": "https://platform.moonshot.cn/docs/pricing"
-      }
+      },
+      "homepage": "https://www.moonshot.cn",
+      "logo_url": "moonshotai"
     },
     "minimax": {
       "client_type": "default",
@@ -481,7 +495,9 @@
       "source_urls": {
         "docs": "https://platform.minimaxi.com/document/Announcement",
         "pricing": "https://platform.minimaxi.com/document/Price"
-      }
+      },
+      "homepage": "https://www.minimaxi.com",
+      "logo_url": "minimax"
     },
     "minimax_en": {
       "client_type": "default",
@@ -562,7 +578,9 @@
       "source_urls": {
         "docs": "https://platform.minimax.io/document/Announcement",
         "pricing": "https://platform.minimax.io/document/Price"
-      }
+      },
+      "homepage": "https://www.minimax.io",
+      "logo_url": "minimax"
     },
     "bailian": {
       "client_type": "default",
@@ -640,7 +658,9 @@
       "source_urls": {
         "docs": "https://help.aliyun.com/zh/model-studio/",
         "pricing": "https://help.aliyun.com/zh/model-studio/billing-for-model-studio"
-      }
+      },
+      "homepage": "https://www.aliyun.com",
+      "logo_url": "alibabacloud"
     },
     "bailian_coding": {
       "client_type": "default",
@@ -682,7 +702,9 @@
       "source_urls": {
         "docs": "https://help.aliyun.com/zh/model-studio/developer-reference/use-claude-code",
         "pricing": "https://help.aliyun.com/zh/model-studio/billing-for-model-studio"
-      }
+      },
+      "homepage": "https://www.aliyun.com",
+      "logo_url": "alibabacloud"
     },
     "deepseek": {
       "client_type": "default",
@@ -736,7 +758,9 @@
       "source_urls": {
         "docs": "https://api-docs.deepseek.com/",
         "pricing": "https://api-docs.deepseek.com/quick_start/pricing"
-      }
+      },
+      "homepage": "https://www.deepseek.com",
+      "logo_url": "deepseek"
     },
     "stepfun": {
       "client_type": "default",
@@ -783,7 +807,9 @@
       "source_urls": {
         "docs": "https://platform.stepfun.com/docs",
         "pricing": "https://platform.stepfun.com/docs/product/price"
-      }
+      },
+      "homepage": "https://www.stepfun.com",
+      "logo_url": ""
     },
     "stepfun_en": {
       "client_type": "default",
@@ -830,7 +856,9 @@
       "source_urls": {
         "docs": "https://platform.stepfun.ai/docs",
         "pricing": "https://platform.stepfun.ai/docs/product/price"
-      }
+      },
+      "homepage": "https://www.stepfun.ai",
+      "logo_url": ""
     },
     "doubao": {
       "client_type": "default",
@@ -911,7 +939,9 @@
       "source_urls": {
         "docs": "https://www.volcengine.com/docs/82379",
         "pricing": "https://www.volcengine.com/docs/6879"
-      }
+      },
+      "homepage": "https://www.volcengine.com",
+      "logo_url": "bytedance"
     },
     "byteplus": {
       "client_type": "default",
@@ -960,7 +990,9 @@
       "source_urls": {
         "docs": "https://www.volcengine.com/docs/82379",
         "pricing": "https://www.volcengine.com/docs/6879"
-      }
+      },
+      "homepage": "https://www.byteplus.com",
+      "logo_url": "bytedance"
     },
     "qianfan": {
       "client_type": "default",
@@ -1018,7 +1050,9 @@
       "source_urls": {
         "docs": "https://cloud.baidu.com/doc/qianfan-api/",
         "pricing": "https://cloud.baidu.com/doc/qianfan-api/s/7m0g3yofv"
-      }
+      },
+      "homepage": "https://cloud.baidu.com",
+      "logo_url": "baidu"
     },
     "xiaomi_mimo": {
       "client_type": "default",
@@ -1097,7 +1131,9 @@
       "source_urls": {
         "docs": "https://mimo.xiaomi.com/",
         "pricing": "https://mimo.xiaomi.com/"
-      }
+      },
+      "homepage": "https://mimo.xiaomi.com",
+      "logo_url": "xiaomi"
     },
     "bailing": {
       "client_type": "default",
@@ -1139,7 +1175,9 @@
       "source_urls": {
         "docs": "https://www.tbox.cn/",
         "pricing": "https://www.tbox.cn/"
-      }
+      },
+      "homepage": "https://www.tbox.cn",
+      "logo_url": ""
     },
     "longcat": {
       "client_type": "default",
@@ -1186,7 +1224,9 @@
       "source_urls": {
         "docs": "https://longcat.chat/",
         "pricing": "https://longcat.chat/pricing"
-      }
+      },
+      "homepage": "https://longcat.chat",
+      "logo_url": ""
     },
     "sensenova": {
       "client_type": "default",
@@ -1239,7 +1279,9 @@
       "source_urls": {
         "docs": "https://platform.sensenova.cn/document",
         "pricing": "https://platform.sensenova.cn/pricing"
-      }
+      },
+      "homepage": "https://www.sense_time.com",
+      "logo_url": ""
     },
     "openrouter": {
       "client_type": "default",
@@ -1306,7 +1348,9 @@
       "source_urls": {
         "docs": "https://openrouter.ai/docs",
         "pricing": "https://openrouter.ai/docs/models"
-      }
+      },
+      "homepage": "https://openrouter.ai",
+      "logo_url": "openrouter"
     },
     "siliconflow": {
       "client_type": "default",
@@ -1348,7 +1392,9 @@
       "source_urls": {
         "docs": "https://docs.siliconflow.cn/",
         "pricing": "https://siliconflow.cn/pricing"
-      }
+      },
+      "homepage": "https://siliconflow.cn",
+      "logo_url": ""
     },
     "siliconflow_en": {
       "client_type": "default",
@@ -1390,7 +1436,9 @@
       "source_urls": {
         "docs": "https://docs.siliconflow.com/",
         "pricing": "https://siliconflow.com/pricing"
-      }
+      },
+      "homepage": "https://siliconflow.com",
+      "logo_url": ""
     },
     "aihubmix": {
       "client_type": "default",
@@ -1452,7 +1500,9 @@
       "source_urls": {
         "docs": "https://docs.aihubmix.com/",
         "pricing": "https://aihubmix.com/pricing"
-      }
+      },
+      "homepage": "https://aihubmix.com",
+      "logo_url": ""
     },
     "dmxapi": {
       "client_type": "default",
@@ -1511,7 +1561,9 @@
       "source_urls": {
         "docs": "https://docs.dmxapi.cn/",
         "pricing": "https://www.dmxapi.cn/pricing"
-      }
+      },
+      "homepage": "https://www.dmxapi.cn",
+      "logo_url": ""
     },
     "modelscope": {
       "client_type": "default",
@@ -1566,7 +1618,9 @@
       "source_urls": {
         "docs": "https://www.modelscope.cn/docs",
         "pricing": "https://www.modelscope.cn/pricing"
-      }
+      },
+      "homepage": "https://www.modelscope.cn",
+      "logo_url": "modelscope"
     },
     "shengsuanyun": {
       "client_type": "default",
@@ -1622,7 +1676,9 @@
       "source_urls": {
         "docs": "https://shengsuanyun.com/docs",
         "pricing": "https://shengsuanyun.com/pricing"
-      }
+      },
+      "homepage": "https://shengsuanyun.com",
+      "logo_url": ""
     },
     "atlascloud": {
       "client_type": "default",
@@ -1676,7 +1732,9 @@
       "source_urls": {
         "docs": "https://docs.atlascloud.ai/",
         "pricing": "https://atlascloud.ai/pricing"
-      }
+      },
+      "homepage": "https://atlascloud.ai",
+      "logo_url": ""
     },
     "novita": {
       "client_type": "default",
@@ -1730,7 +1788,9 @@
       "source_urls": {
         "docs": "https://novita.ai/docs",
         "pricing": "https://novita.ai/pricing"
-      }
+      },
+      "homepage": "https://novita.ai",
+      "logo_url": ""
     },
     "therouter": {
       "client_type": "default",
@@ -1772,7 +1832,9 @@
       "source_urls": {
         "docs": "https://therouter.ai/",
         "pricing": "https://therouter.ai/pricing"
-      }
+      },
+      "homepage": "https://therouter.ai",
+      "logo_url": ""
     },
     "cherryin": {
       "client_type": "default",
@@ -1828,7 +1890,9 @@
       "source_urls": {
         "docs": "https://open.cherryin.net/",
         "pricing": "https://open.cherryin.net/"
-      }
+      },
+      "homepage": "https://cherryin.net",
+      "logo_url": ""
     },
     "packycode": {
       "client_type": "default",
@@ -1887,7 +1951,9 @@
       "source_urls": {
         "docs": "https://docs.packyapi.com/",
         "pricing": "https://www.packyapi.com/pricing"
-      }
+      },
+      "homepage": "https://www.packyapi.com",
+      "logo_url": ""
     },
     "cubence": {
       "client_type": "default",
@@ -1946,7 +2012,9 @@
       "source_urls": {
         "docs": "https://docs.cubence.com/",
         "pricing": "https://cubence.com/pricing"
-      }
+      },
+      "homepage": "https://cubence.com",
+      "logo_url": ""
     },
     "aigocode": {
       "client_type": "default",
@@ -2005,7 +2073,9 @@
       "source_urls": {
         "docs": "https://www.aigocode.com/",
         "pricing": "https://www.aigocode.com/pricing"
-      }
+      },
+      "homepage": "https://www.aigocode.com",
+      "logo_url": ""
     },
     "rightcode": {
       "client_type": "default",
@@ -2060,7 +2130,9 @@
       "source_urls": {
         "docs": "https://docs.right.codes/",
         "pricing": "https://right.codes/pricing"
-      }
+      },
+      "homepage": "https://right.codes",
+      "logo_url": ""
     },
     "aicodemirror": {
       "client_type": "default",
@@ -2119,7 +2191,9 @@
       "source_urls": {
         "docs": "https://www.aicodemirror.com/docs",
         "pricing": "https://www.aicodemirror.com/pricing"
-      }
+      },
+      "homepage": "https://www.aicodemirror.com",
+      "logo_url": ""
     },
     "nvidia": {
       "client_type": "default",
@@ -2174,7 +2248,9 @@
       "source_urls": {
         "docs": "https://docs.api.nvidia.com/",
         "pricing": "https://build.nvidia.com/pricing"
-      }
+      },
+      "homepage": "https://www.nvidia.com",
+      "logo_url": "nvidia"
     },
     "pateway": {
       "client_type": "default",
@@ -2224,7 +2300,9 @@
       "source_urls": {
         "docs": "https://docs.pateway.ai/",
         "pricing": "https://pateway.ai/pricing"
-      }
+      },
+      "homepage": "https://pateway.ai",
+      "logo_url": ""
     },
     "ccsub": {
       "client_type": "default",
@@ -2274,7 +2352,9 @@
       "source_urls": {
         "docs": "https://www.ccsub.net/docs",
         "pricing": "https://www.ccsub.net/pricing"
-      }
+      },
+      "homepage": "https://www.ccsub.net",
+      "logo_url": ""
     },
     "apikeyfun": {
       "client_type": "default",
@@ -2324,7 +2404,9 @@
       "source_urls": {
         "docs": "https://apikey.fun/",
         "pricing": "https://apikey.fun/pricing"
-      }
+      },
+      "homepage": "https://apikey.fun",
+      "logo_url": ""
     },
     "apinebula": {
       "client_type": "default",
@@ -2374,7 +2456,9 @@
       "source_urls": {
         "docs": "https://docs.apinebula.com/",
         "pricing": "https://apinebula.com/pricing"
-      }
+      },
+      "homepage": "https://apinebula.com",
+      "logo_url": ""
     },
     "sudocode": {
       "client_type": "default",
@@ -2424,7 +2508,9 @@
       "source_urls": {
         "docs": "https://docs.sudocode.us/",
         "pricing": "https://sudocode.us/pricing"
-      }
+      },
+      "homepage": "https://sudocode.us",
+      "logo_url": ""
     },
     "claudeapi": {
       "client_type": "default",
@@ -2474,7 +2560,9 @@
       "source_urls": {
         "docs": "https://docs.claudeapi.com/",
         "pricing": "https://claudeapi.com/pricing"
-      }
+      },
+      "homepage": "https://claudeapi.com",
+      "logo_url": ""
     },
     "claudecn": {
       "client_type": "default",
@@ -2524,7 +2612,9 @@
       "source_urls": {
         "docs": "https://claudecn.top/document",
         "pricing": "https://claudecn.top/price"
-      }
+      },
+      "homepage": "https://claudecn.top",
+      "logo_url": ""
     },
     "runapi": {
       "client_type": "default",
@@ -2574,7 +2664,9 @@
       "source_urls": {
         "docs": "https://runapi.co/docs",
         "pricing": "https://runapi.co/pricing"
-      }
+      },
+      "homepage": "https://runapi.co",
+      "logo_url": ""
     },
     "relaxycode": {
       "client_type": "default",
@@ -2624,7 +2716,9 @@
       "source_urls": {
         "docs": "https://www.relaxycode.com/",
         "pricing": "https://www.relaxycode.com/pricing"
-      }
+      },
+      "homepage": "https://relaxycode.com",
+      "logo_url": ""
     },
     "crazyrouter": {
       "client_type": "default",
@@ -2674,7 +2768,9 @@
       "source_urls": {
         "docs": "https://docs.crazyrouter.com/",
         "pricing": "https://crazyrouter.com/pricing"
-      }
+      },
+      "homepage": "https://crazyrouter.com",
+      "logo_url": ""
     },
     "sssaicode": {
       "client_type": "default",
@@ -2724,7 +2820,9 @@
       "source_urls": {
         "docs": "https://node-hk.sssaicodeapi.com/",
         "pricing": "https://node-hk.sssaicodeapi.com/"
-      }
+      },
+      "homepage": "https://sssaicode.com",
+      "logo_url": ""
     },
     "compshare": {
       "client_type": "default",
@@ -2766,7 +2864,9 @@
       "source_urls": {
         "docs": "https://www.compshare.cn/docs/modelverse/models/quick-start",
         "pricing": "https://www.compshare.cn/price-list"
-      }
+      },
+      "homepage": "https://www.compshare.cn",
+      "logo_url": ""
     },
     "compshare_coding": {
       "client_type": "default",
@@ -2816,7 +2916,9 @@
       "source_urls": {
         "docs": "https://www.compshare.cn/docs/modelverse/models/quick-start",
         "pricing": "https://www.compshare.cn/price-list"
-      }
+      },
+      "homepage": "https://www.compshare.cn",
+      "logo_url": ""
     },
     "micu": {
       "client_type": "default",
@@ -2866,7 +2968,9 @@
       "source_urls": {
         "docs": "https://docs.micuapi.ai/",
         "pricing": "https://www.micuapi.ai/pricing"
-      }
+      },
+      "homepage": "https://www.micuapi.ai",
+      "logo_url": ""
     },
     "ctok": {
       "client_type": "default",
@@ -2916,7 +3020,9 @@
       "source_urls": {
         "docs": "https://docs.ctok.ai/",
         "pricing": "https://ctok.ai/pricing"
-      }
+      },
+      "homepage": "https://ctok.ai",
+      "logo_url": ""
     },
     "eflowcode": {
       "client_type": "default",
@@ -2966,7 +3072,9 @@
       "source_urls": {
         "docs": "https://e-flowcode.cc/",
         "pricing": "https://e-flowcode.cc/"
-      }
+      },
+      "homepage": "https://e-flowcode.cc",
+      "logo_url": ""
     },
     "lemondata": {
       "client_type": "default",
@@ -3016,7 +3124,9 @@
       "source_urls": {
         "docs": "https://docs.lemondata.cc/",
         "pricing": "https://lemondata.cc/pricing"
-      }
+      },
+      "homepage": "https://lemondata.cc",
+      "logo_url": ""
     },
     "pipellm": {
       "client_type": "default",
@@ -3066,7 +3176,9 @@
       "source_urls": {
         "docs": "https://docs.pipellm.ai/",
         "pricing": "https://pipellm.ai/pricing"
-      }
+      },
+      "homepage": "https://pipellm.ai",
+      "logo_url": ""
     },
     "opencode": {
       "client_type": "default",
@@ -3108,7 +3220,9 @@
       "source_urls": {
         "docs": "https://opencode.ai/docs/",
         "pricing": "https://opencode.ai/pricing"
-      }
+      },
+      "homepage": "https://opencode.ai",
+      "logo_url": "opencode"
     },
     "opencode_zen": {
       "client_type": "default",
@@ -3155,7 +3269,9 @@
       "source_urls": {
         "docs": "https://opencode.ai/docs/zen/",
         "pricing": "https://opencode.ai/pricing"
-      }
+      },
+      "homepage": "https://opencode.ai",
+      "logo_url": "opencode"
     },
     "newapi": {
       "client_type": "default",
@@ -3197,7 +3313,9 @@
       "source_urls": {
         "docs": "https://docs.newapi.pro/",
         "pricing": "https://docs.newapi.pro/pricing"
-      }
+      },
+      "homepage": "https://docs.newapi.pro",
+      "logo_url": ""
     },
     "claude_code": {
       "client_type": "default",
@@ -3247,7 +3365,9 @@
       "source_urls": {
         "docs": "https://docs.anthropic.com/en/docs/claude-code/overview",
         "pricing": "https://www.anthropic.com/pricing"
-      }
+      },
+      "homepage": "https://www.anthropic.com",
+      "logo_url": "claudecode"
     }
   }
 }

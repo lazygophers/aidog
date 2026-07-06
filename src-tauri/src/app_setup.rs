@@ -162,6 +162,23 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                 }
             });
 
+            // Protocol logo 后台批量同步：启动时预热 `~/.aidog/logos/<protocol>.png`，
+            // 三路 fallback（simpleicons → favicon → clearbit），缓存命中跳过，不阻塞启动。
+            // 非 DB 依赖预热场景：clone 现有 Db handle + app_data_dir 后 spawn，失败仅 debug log。
+            {
+                let db_state = app.state::<Db>();
+                let db = std::sync::Arc::new(db_state.inner().clone());
+                let dir = data_dir.clone();
+                tauri::async_runtime::spawn(async move {
+                    use tracing::Instrument;
+                    let span = tracing::info_span!(
+                        "logo_sync_startup",
+                        trace_id = %logging::new_trace_id()
+                    );
+                    gateway::logo_sync::sync_all_logos(db, dir).instrument(span).await;
+                });
+            }
+
             // 内置每日定时清理：永久删除软删超过 3 天的平台行（deleted_at>0 且 < now-3d）。
             // 启动首跑补「关机错过」，之后每 24h 一轮；非关键路径，失败仅 warn。
             {

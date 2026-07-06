@@ -296,3 +296,14 @@ export function syncDefaultsJson(): Promise<DefaultsSyncResult> {
   return invoke<DefaultsSyncResult>("sync_defaults_json");
 }
 
+/** 返回 protocol logo 缓存文件绝对路径（前端 `convertFileSrc` 用）。
+ *  文件不存在 / size=0 返空串（调用方 fallback 首字母圆圈）。 */
+export function getProtocolLogoPath(protocol: Protocol): Promise<string> {
+  return invoke<string>("get_protocol_logo_path", { protocol });
+}
+
+/** 触发单 protocol 后台 logo 同步（懒加载 miss 时调）。非阻塞 spawn。 */
+export function syncProtocolLogo(protocol: Protocol): Promise<void> {
+  return invoke<void>("sync_protocol_logo", { protocol });
+}
+
