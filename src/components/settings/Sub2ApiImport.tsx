@@ -7,7 +7,7 @@
 // 复用：sub2apiApi.parse/import（services/api.ts）+ mapPlatformToProtocol /
 // sub2apiAccountToPlatformJson（utils/sub2apiMatch.ts）+ apply::apply 写入。
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { open } from "@tauri-apps/plugin-dialog";
 import {
@@ -17,6 +17,7 @@ import {
   type Protocol,
 } from "../../services/api";
 import { PROTOCOLS } from "../../domains/platforms";
+import { getProtocolLabelMap } from "../../domains/platforms/defaults";
 import { mapPlatformToProtocol, sub2apiAccountToPlatformJson } from "../../utils/sub2apiMatch";
 import { SectionIcon } from "./editors";
 import { IconCheck } from "../icons";
@@ -34,7 +35,16 @@ export function Sub2ApiImportSection({
 }: {
   onReport: (r: ImportReport) => void;
 }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const m = await getProtocolLabelMap(i18n.language);
+      if (!cancelled) setLabelMap(m);
+    })();
+    return () => { cancelled = true; };
+  }, [i18n.language]);
   const [pasteText, setPasteText] = useState("");
   const [accounts, setAccounts] = useState<Sub2ApiAccount[]>([]);
   const [selected, setSelected] = useState<Set<number>>(new Set());
@@ -245,7 +255,7 @@ export function Sub2ApiImportSection({
                     style={{ fontSize: 12, padding: "4px 8px", width: "auto", minWidth: 140 }}
                   >
                     {PROTOCOLS.filter((p) => !p.codingPlan).map((p) => (
-                      <option key={`${p.value}-${p.label}`} value={p.value}>{p.label}</option>
+                      <option key={`${p.value}-${p.label}`} value={p.value}>{labelMap[p.value] || p.label}</option>
                     ))}
                   </select>
                   {!map.recognized && !overrides.has(i) && (

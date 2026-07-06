@@ -74,6 +74,20 @@ for (const l of LOCALES) {
   if (miss.length > 0) alignMissing.push({ locale: l, count: miss.length, sample: miss.slice(0, 8) });
 }
 
+// ── E. platform-presets.json protocol name/desc 8 locale 完整性 ──────
+// 每 protocol 必须 8 locale 都有非空 name+desc（缺失 → 切语言时协议选择器裸 key）
+const DEFAULTS_LOCALES = ['en-US', 'zh-Hans', 'ar-SA', 'fr-FR', 'de-DE', 'ru-RU', 'ja-JP', 'es-ES'];
+const presetsRaw = JSON.parse(readFileSync('src-tauri/defaults/platform-presets.json', 'utf8'));
+const presetsProtocols = presetsRaw.protocols || {};
+const protocolMissing = []; // {protocol, field, miss}
+for (const [proto, entry] of Object.entries(presetsProtocols)) {
+  for (const field of ['name', 'desc']) {
+    const obj = entry?.[field] || {};
+    const miss = DEFAULTS_LOCALES.filter(l => !obj[l] || !String(obj[l]).trim());
+    if (miss.length > 0) protocolMissing.push({ protocol: proto, field, miss });
+  }
+}
+
 // ── D. labelKey/group 属性字面量覆盖 (t(变量) 盲区) ──────
 // t(item.labelKey)/t(g.key)/t(section.labelKey) 数据源 = NAV_ITEMS/sections 配置。
 // staticRe/dynRe 都要求 t( 后跟引号/反引号, t(变量) 完全漏扫 → 扫属性字面量堵盲区。
@@ -102,6 +116,7 @@ const log = s => console.log(s);
 
 log(`\n# i18n 检查报告`);
 log(`扫描 ${files.length} 文件 | ${staticKeys.size} 静态 key | ${dynTemplates.size} 动态模板 | ${propKeys.size} 属性字面量 key | ${union.size} locale 并集 key\n`);
+log(`platform-presets.json: ${Object.keys(presetsProtocols).length} protocols × name/desc × ${DEFAULTS_LOCALES.length} locale 校验\n`);
 
 // A
 log(`## A. t() 静态 key 缺失: ${staticMissing.length}`);
@@ -131,6 +146,13 @@ log(`\n## D. labelKey/group 属性字面量缺失 (t(变量) 盲区): ${propMiss
 for (const { key, miss, files } of propMissing.sort((a, b) => a.key.localeCompare(b.key))) {
   const scope = miss.length === LOCALES.length ? '全缺' : `[${miss.join(',')}]`;
   log(`  🔴 ${key} 缺${scope}  ← ${files[0]}${files.length > 1 ? ` +${files.length - 1}` : ''}`);
+  problems++;
+}
+
+// E
+log(`\n## E. platform-presets protocol name/desc locale 缺失: ${protocolMissing.length}`);
+for (const { protocol, field, miss } of protocolMissing) {
+  log(`  🔴 ${protocol}.${field} 缺 [${miss.join(',')}]`);
   problems++;
 }
 
