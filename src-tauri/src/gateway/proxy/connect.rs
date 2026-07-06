@@ -91,6 +91,7 @@ async fn handle_connect_inner(
         return r;
     }
     let host_only = target.rsplit_once(':').map(|(h, _)| h).unwrap_or(&target).to_string();
+    tracing::info!(target = %target, host_only = %host_only, request_id = %request_id, "connect parsed target/host");
     let on_upgrade = hyper::upgrade::on(req);
 
     // P1 平台匹配：仅 host（无 apikey，HTTPS 未解密）。未命中 → None（落 platform_id=0）。
@@ -133,6 +134,11 @@ async fn handle_connect_inner(
     let mitm_candidate = super::super::mitm::whitelist::matches_db(&state.db, &host_only).await
         && !super::super::mitm::mitm_state().is_suspect(&host_only).await;
     let mitm_state = super::super::mitm::mitm_state();
+    tracing::info!(
+        target = %target, host_only = %host_only, request_id = %request_id,
+        mitm_candidate, log_enabled, platform_id,
+        "connect dispatch: mitm_candidate decision",
+    );
 
     // ── 非 MITM 候选：P1 完整逻辑（spawn 前 TCP 验证 + 502 早返，零回归）─────────────
     if !mitm_candidate {
@@ -170,9 +176,12 @@ async fn handle_connect_inner(
     let st = state.clone();
     crate::logging::spawn_traced("connect_mitm", async move {
         let upgraded = match on_upgrade.await {
-            Ok(u) => u,
+            Ok(u) => {
+                tracing::info!(target = %target, request_id = %request_id, "connect upgrade ready → entering MITM/blind dispatch");
+                u
+            }
             Err(e) => {
-                tracing::warn!(error = %e, target = %target, "connect upgrade failed");
+                tracing::warn!(error = %e, target = %target, request_id = %request_id, "connect upgrade failed");
                 if log_enabled {
                     upsert_connect_log(
                         &st, request_id, String::new(), platform_id,
@@ -188,7 +197,7 @@ async fn handle_connect_inner(
             Ok(p) => p,
             Err(upgraded) => {
                 // downcast 失败（理论上不应）→ 退化 blind_relay（裸 Upgraded，不进 MITM）。
-                tracing::warn!(target = %target, "downcast TokioIo<TcpStream> failed, blind relay");
+                tracing::warn!(target = %target, request_id = %request_id, "downcast TokioIo<TcpStream> failed, blind relay");
                 let client = TokioIo::new(upgraded);
                 blind_relay_after_connect(
                     &st, client, &target, request_id, platform_id,
@@ -200,6 +209,11 @@ async fn handle_connect_inner(
         // parts.io = TokioIo<TcpStream>（impl hyper Read/Write）；包一层 TokioIo 转 tokio IO。
         // 客户端连接类型 = TokioIo<TokioIo<TcpStream>>（impl tokio AsyncRead/AsyncWrite）。
         let client = TokioIo::new(parts.io);
+        tracing::info!(
+            target = %target, request_id = %request_id,
+            read_buf_len = parts.read_buf.len(),
+            "connect upgraded: read_buf from speculative read (TLS ClientHello if any)",
+        );
 
         // ST4 分流：MITM 候选 && read_buf 空 → 走 MITM；read_buf 非空（hyper-util speculative
         // read 预读的客户端字节，如 TLS ClientHello）→ 降级 blind_relay（blind_relay 内部
@@ -209,17 +223,20 @@ async fn handle_connect_inner(
         // 输入流前面（组合 AsyncRead），复杂度 vs 收益失衡。read_buf 非空降级 blind_relay，
         // 行为保守正确（blind_relay 把预读字节 flush 到 upstream 非 client）。
         let client_for_blind: Option<_> = if parts.read_buf.is_empty() {
+            tracing::info!(target = %target, request_id = %request_id, "→ handle_mitm (read_buf empty)");
             let outcome = handle_mitm(
                 &st, mitm_state, client, &target, &host_only,
                 request_id.clone(), platform_id, start, log_enabled,
             ).await;
             if outcome.handled {
+                tracing::info!(target = %target, request_id = %request_id, "← handle_mitm handled=true (MITM 隧道建/终态已写)");
                 return; // MITM 成功建隧道或终态日志已写
             }
             // MITM 降级（CA 未启用 / pinning / IO error）→ 拿回 client 走 blind_relay
-            tracing::info!(target = %target, reason = outcome.fallback_reason, "mitm degraded to blind relay");
+            tracing::info!(target = %target, request_id = %request_id, reason = outcome.fallback_reason, "mitm degraded to blind relay");
             outcome.client_return
         } else {
+            tracing::info!(target = %target, request_id = %request_id, read_buf_len = parts.read_buf.len(), "→ blind_relay (read_buf non-empty, skip MITM)");
             Some(client)
         };
 

@@ -36,7 +36,7 @@ use crate::gateway::mitm::tls::accept_client;
 use crate::gateway::models::{CreatePlatform, GroupPlatformInput, Protocol};
 use crate::gateway::{middleware::MiddlewareEngine, scheduling};
 use axum::body::Body;
-use hyper_util::rt::TokioIo;
+use hyper_util::rt::{TokioExecutor, TokioIo};
 use rustls::pki_types::ServerName;
 use std::sync::Arc;
 use tokio::io::{AsyncRead, AsyncWrite};
@@ -235,6 +235,144 @@ async fn mitm_e2e_h1_tls_round_trip() {
     );
 
     drop(sender); // 让 server 端 serve_connection 退出
+}
+
+/// 构造信任指定 CA 且 advertise h2 ALPN 的 rustls client config。
+/// 与 `client_config_trusting_ca` 区别：ALPN 列表 [h2, http/1.1]，模拟 curl --http2 /
+/// 现代浏览器在 MITM 隧道里与 rustls server 协商 h2 的真实场景。
+fn client_config_trusting_ca_h2(ca: &RootCa) -> rustls::ClientConfig {
+    let mut root_store = rustls::RootCertStore::empty();
+    for c in parse_cert_chain_pem(&ca.cert_pem) {
+        root_store.add(c).expect("add CA to root store");
+    }
+    let mut cfg = rustls::ClientConfig::builder()
+        .with_root_certificates(root_store)
+        .with_no_client_auth();
+    // h2 优先（与 mitm/tls.rs SERVER_ALPN 顺序一致），rustls 按对端 advertise 选首个共同协议。
+    cfg.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+    cfg
+}
+
+/// 复现用户场景的 h2 CANCEL：curl -x http://127.0.0.1:<aidog>/proxy https://www.baidu.com/
+/// 经 CONNECT → MITM TLS（h2 ALPN 协商成功）→ 明文 GET / 无 Authorization → resolve_group
+/// 落空 → should_fallback_passthrough=true → forward_passthrough_to_orig_host。
+///
+/// 上游（forward 内 reqwest https://www.baidu.com:443/）无法在单测里 mock 真 https 上游
+/// （reqwest 用 webpki-roots 验证，禁注入自签 CA），故走 forward 的 502 错误分支
+/// （上游不可达 / 任何 reqwest error）。本测试聚焦断言「h2 server 把 Response 完整回传
+/// 给 h2 client，不 RST_STREAM / CANCEL」—— 这是用户报告的 CANCEL 根因定位点。
+///
+/// 若 forward 的 502 响应能在 h2 上干净回传（client 收 502 + body）→ 证明 h2 server 写
+/// 路径正常，CANCEL 根因在 forward 的 200 成功路径（body/headers 构造）→ 进一步缩窄。
+/// 若 502 也 CANCEL → 根因在 h2 server / serve_plaintext 层（非 forward 业务逻辑）。
+#[tokio::test]
+async fn mitm_h2_passthrough_unmatched_returns_response_not_cancel() {
+    let _ = rustls::crypto::ring::default_provider().install_default();
+
+    // 1. ProxyState + CA（DB 存）。listen_addr 必须设（否则 should_fallback_passthrough
+    //    返 false → forward 不触发 → 测不到目标路径）。
+    let (state, ca) = make_state_with_ca().await;
+    let _ = state.listen_addr.set((
+        std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
+        9892u16,
+    ));
+
+    // 2. MITM server：真实 TCP（禁 duplex —— rustls+h2 在 duplex 上易死锁）。
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let mitm_addr = listener.local_addr().unwrap();
+    let signer = Arc::new(CertSigner::new(ca.clone()));
+    let state_for_server = state.clone();
+    let server_host = "www.baidu.com".to_string();
+    tokio::spawn(async move {
+        let (tcp_stream, _) = listener.accept().await.expect("accept client");
+        let client_tls = accept_client(signer, tcp_stream, server_host.clone())
+            .await
+            .expect("TLS accept");
+        connect::serve_plaintext(state_for_server, client_tls, &server_host).await;
+    });
+
+    // 3. mock client：rustls client（信任 CA，advertise h2 ALPN）→ TLS 握手。
+    //    **关键断言点 1**：ALPN 协商必须选出 h2（与 curl --http2 / 浏览器一致）。
+    let tcp = tokio::net::TcpStream::connect(mitm_addr).await.expect("connect MITM");
+    let connector = tokio_rustls::TlsConnector::from(Arc::new(client_config_trusting_ca_h2(&ca)));
+    let server_name = ServerName::try_from("www.baidu.com".to_string()).unwrap();
+    let tls_stream = connector.connect(server_name, tcp).await.expect("TLS handshake");
+    let (_, tls_session) = tls_stream.get_ref();
+    let negotiated_alpn = tls_session.alpn_protocol();
+    assert_eq!(
+        negotiated_alpn.map(|b| std::str::from_utf8(b).unwrap_or("")),
+        Some("h2"),
+        "ALPN 必须协商出 h2（rustls server advertise [h2, http/1.1] + client advertise h2 优先），\
+         协商失败 = MITM h2 链路根本没建立，后续 CANCEL 无从谈起"
+    );
+
+    // 4. hyper h2 client over TLS：handshake → send_request。
+    //    **关键断言点 2**：send_request 必须返回 Response（不 CANCEL）。
+    let (mut sender, conn) = hyper::client::conn::http2::Builder::new(TokioExecutor::new())
+        .handshake(TokioIo::new(tls_stream))
+        .await
+        .expect("h2 client handshake");
+    tokio::spawn(async move { let _ = conn.await; });
+
+    // 模拟 curl GET https://www.baidu.com/ —— 无 Authorization（触发 fallback passthrough），
+    // Host: www.baidu.com（CONNECT target，非代理自身监听 host）。
+    let req = hyper::Request::builder()
+        .method("GET")
+        .uri("/")
+        .header("host", "www.baidu.com")
+        .header("user-agent", "mitm-h2-test")
+        .body(Body::empty())
+        .unwrap();
+    let resp = sender.send_request(req).await.expect(
+        "h2 send_request 必须返回 Response —— 若此处 panic/err 即复现用户 CANCEL: \
+         h2 server 在回响应前/中 RST_STREAM"
+    );
+
+    // 5. **关键断言点**：forward 把上游响应（200 真上游 / 502 上游失败）完整经 h2 回传。
+    //    测试机有外网时 reqwest 直连 baidu 成功 → 200 + html；无外网 → 502 + error 文本。
+    //    **两者都证明 h2 server 写路径正常**：send_request 返 Response + body 完整可读，
+    //    不 RST_STREAM / 不 CANCEL。这才是定位用户 CANCEL 的关键断言（CANCEL 会让 send_request
+    //    先 panic 或 body 读取 err）。
+    let status = resp.status();
+    let body_bytes = collect_incoming_body(resp.into_body(), 64 * 1024)
+        .await
+        .expect("h2 response body 必须可完整读取（CANCEL 会在此 err）");
+    let body_str = String::from_utf8_lossy(&body_bytes);
+    eprintln!(
+        "[mitm_h2_passthrough_unmatched] status={status} body_len={} body_head={:?}",
+        body_bytes.len(),
+        body_str.chars().take(80).collect::<String>()
+    );
+    assert!(
+        status == StatusCode::OK || status == StatusCode::BAD_GATEWAY,
+        "MITM h2 passthrough unmatched: client 必须收到 200（真上游成功）或 502（上游失败兜底），\
+         实际 {status} —— 任何其它状态 / CANCEL 都说明 h2 server 写路径异常"
+    );
+    assert!(
+        !body_bytes.is_empty(),
+        "响应 body 必须非空（200 = html 内容 / 502 = error 文本），实际空 = body 流被吞"
+    );
+
+    // 6. proxy_log 落虚拟「未匹配」桶（forward 路径已执行 + 落库）。
+    tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    let logs = crate::gateway::db::list_proxy_logs(&state.db, 10, 0)
+        .await
+        .expect("list proxy_logs");
+    let row = logs
+        .iter()
+        .find(|r| r.group_key == "未匹配")
+        .expect("passthrough unmatched proxy_log row must exist (forward path executed)");
+    assert_eq!(
+        row.source_protocol, "passthrough_unmatched",
+        "forward 路径必须落 passthrough_unmatched 标记"
+    );
+    assert!(
+        row.status_code == 200 || row.status_code == 502,
+        "forward 必须记账终态（200 真上游成功 / 502 上游失败），实际 {}",
+        row.status_code
+    );
+
+    drop(sender);
 }
 
 /// ST8 验收：h2 端到端剩余风险说明 + 已覆盖的 h2 接入断言引用。
