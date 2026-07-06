@@ -5,6 +5,7 @@
 // 「按类型配置」已移除（仅保留逐 Hook 事件触发）；单 group 注入按钮已删（API 仍保留: injectHooks/removeHooks）。
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import {
@@ -446,8 +447,9 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
         <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>{message}</div>
       )}
 
-      {/* uv 询问 modal：通知 hook 脚本为 Python，uv 缺失时让用户选自动安装或回退 python3 */}
-      {uvModal && (
+      {/* uv 询问 modal：通知 hook 脚本为 Python，uv 缺失时让用户选自动安装或回退 python3。
+          portal 到 body：祖先 transform/backdrop-filter 会让 fixed 退化相对祖先，致弹窗只在 page 内居中。 */}
+      {uvModal && createPortal(
         <div
           style={{
             position: "fixed", inset: 0, zIndex: 1000,
@@ -489,7 +491,8 @@ export function NotificationSettingsTab({ onEnabledChanged }: { onEnabledChanged
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

@@ -11,6 +11,7 @@
 // 消费 services/api.ts mitmApi 契约（ST7 冻结），只读不改。
 
 import { useState, useEffect, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Command } from "@tauri-apps/plugin-shell";
 import {
@@ -572,8 +573,9 @@ export function MitmConfigTab() {
         <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>{message}</div>
       )}
 
-      {/* D1 清空确认弹窗（React state modal，禁 window.confirm 破坏 Tauri）*/}
-      {showClearConfirm && (
+      {/* D1 清空确认弹窗（React state modal，禁 window.confirm 破坏 Tauri）。
+          portal 到 body：祖先 transform/backdrop-filter 会让 fixed 退化相对祖先，致弹窗只在 page 内居中。 */}
+      {showClearConfirm && createPortal(
         <div
           style={{
             position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
@@ -616,7 +618,8 @@ export function MitmConfigTab() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );
