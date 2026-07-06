@@ -1097,6 +1097,8 @@
   "settings.allSaved": "Saved",
   "settings.attribution.commit": "Commit Author",
   "settings.attribution.pr": "PR Author",
+  "settings.autoUpdate": "Auto-check for updates",
+  "settings.autoUpdateHint": "Check for updates automatically on launch (manual check on the About page still works when off)",
   "settings.backup.days": "days (1-90)",
   "settings.backup.desc": "Automatically export all data as encrypted .aidogx at a set interval. Saved to ~/.aidog/backups/, expired files auto-cleaned.",
   "settings.backup.enable": "Enable scheduled backup",

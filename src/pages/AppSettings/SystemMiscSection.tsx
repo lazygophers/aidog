@@ -154,11 +154,34 @@ export function DbStatsSection({ s }: { s: SystemSettings }) {
  */
 export function VersionToastSection({ s }: { s: SystemSettings }) {
   const { t } = useTranslation();
-  const { message, appVersion } = s;
+  const { message, appVersion, autoUpdateEnabled, handleAutoUpdateChange } = s;
 
   return (
     <>
       {message && <div className="toast">{message}</div>}
+
+      {/* Auto-update toggle — 关闭仅跳过启动 daily check；手动按钮仍可查。
+          ponytail: toggle 紧跟版本行，复用 StartupSection 同款 toggle 组件 */}
+      <div className="glass-surface" style={{
+        padding: "16px 20px",
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+      }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 600 }}>{t("settings.autoUpdate")}</div>
+          <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
+            {t("settings.autoUpdateHint")}
+          </div>
+        </div>
+        <div
+          className={`toggle ${autoUpdateEnabled ? "active" : ""}`}
+          onClick={() => handleAutoUpdateChange(!autoUpdateEnabled)}
+          role="switch"
+          aria-checked={autoUpdateEnabled}
+          tabIndex={0}
+        />
+      </div>
 
       {/* App version — 只读展示, 单一事实源 = tauri.conf.json (经 getVersion API) */}
       {appVersion && (

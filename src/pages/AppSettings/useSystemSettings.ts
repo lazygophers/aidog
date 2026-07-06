@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { getVersion } from "@tauri-apps/api/app";
-import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, dbApi, statsApi, statsSettingsApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings } from "../../services/api";
+import { proxyApi, proxyLogApi, proxyTimeoutApi, appLogApi, dbApi, statsApi, statsSettingsApi, autoUpdateApi, type ProxyLogSettings, type AppLogSettings, type ProxyClientSettings } from "../../services/api";
 
 /**
  * system tab 全部 state + actions（AppSettings 拆分自原 L21-240）。
@@ -31,6 +31,7 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
   const [dbCompacting, setDbCompacting] = useState(false);
   const [statsRetention, setStatsRetention] = useState(365);
   const [statsRebuilding, setStatsRebuilding] = useState(false);
+  const [autoUpdateEnabled, setAutoUpdateEnabled] = useState(true);
   const [proxyClient, setProxyClient] = useState<ProxyClientSettings>({
     enabled: false, proxy_type: "socks5", host: "127.0.0.1", port: 7890,
     username: "", password: "", dns_over_proxy: true,
@@ -90,6 +91,10 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
         const ss = await statsSettingsApi.get();
         setStatsRetention(ss.retention_days);
       } catch { /* defaults */ }
+      try {
+        const au = await autoUpdateApi.get();
+        setAutoUpdateEnabled(au);
+      } catch { /* defaults: keep true */ }
     })();
   }, []);
 
@@ -220,6 +225,13 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     } catch (e: any) { setMessage(e.toString()); }
   };
 
+  const handleAutoUpdateChange = async (val: boolean) => {
+    try {
+      await autoUpdateApi.set(val);
+      setAutoUpdateEnabled(val);
+    } catch (e: any) { setMessage(e.toString()); }
+  };
+
   const handleLogSettingsChange = async (partial: Partial<AppLogSettings>) => {
     const next = { file_enabled: logFileEnabled, level: logLevel, retention_hours: logRetHours, ...partial };
     setLogFileEnabled(next.file_enabled);
@@ -237,6 +249,7 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     userReqRetention, upstreamReqRetention, reqTimeout, connTimeout,
     logFileEnabled, logLevel, logRetHours, message, appVersion,
     dbCompacting, statsRetention, statsRebuilding, proxyClient,
+    autoUpdateEnabled,
     // state setters needed directly in JSX (inline onChange)
     setProxyPort, setLogUserReq, setLogUpstreamReq,
     setUserReqRetention, setUpstreamReqRetention, setLogRetention,
@@ -246,7 +259,7 @@ export function useSystemSettings(onLogSettingsChanged?: (enabled: boolean) => v
     handleAutolaunchChange, handleSilentLaunchChange,
     handleProxyClientChange, handleLogEnabledChange, updateLogSettings,
     handleDbCompact, handleStatsRetentionChange, handleStatsRebuild,
-    handleTimeoutChange, handleLogSettingsChange,
+    handleTimeoutChange, handleLogSettingsChange, handleAutoUpdateChange,
   };
 }
 

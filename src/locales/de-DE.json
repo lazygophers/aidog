@@ -1119,6 +1119,8 @@
   "settings.allSaved": "Gespeichert",
   "settings.attribution.commit": "Commit-Autor",
   "settings.attribution.pr": "PR-Autor",
+  "settings.autoUpdate": "Auto-Update-Prüfung",
+  "settings.autoUpdateHint": "Beim Start automatisch nach Updates suchen (manuelle Prüfung auf der Info-Seite bleibt bei Deaktivierung verfügbar)",
   "settings.backup.days": "Tage (1-90)",
   "settings.backup.desc": "Exportiert automatisch alle Daten als verschlüsselte .aidogx-Datei in festgelegten Intervallen. Gespeichert in ~/.aidog/backups/, abgelaufene Dateien werden automatisch bereinigt.",
   "settings.backup.enable": "Geplante Sicherung aktivieren",

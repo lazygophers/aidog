@@ -1119,6 +1119,8 @@
   "settings.allSaved": "保存済み",
   "settings.attribution.commit": "コミット作成者",
   "settings.attribution.pr": "PR 作成者",
+  "settings.autoUpdate": "更新を自動確認",
+  "settings.autoUpdateHint": "起動時に更新を自動確認（オフでも「バージョン情報」ページで手動確認は引き続き利用可）",
   "settings.backup.days": "日（1-90）",
   "settings.backup.desc": "設定した間隔で全データを暗号化 .aidogx として自動エクスポートします。~/.aidog/backups/ に保存され、期限切れファイルは自動クリーンアップされます。",
   "settings.backup.enable": "定期バックアップを有効化",
