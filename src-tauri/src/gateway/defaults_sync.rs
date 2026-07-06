@@ -1,8 +1,8 @@
-//! defaults.json 同步：拉 jsDelivr master `src-tauri/defaults/defaults.json`（主）+ raw fallback。
+//! platform-presets.json 同步：拉 jsDelivr master `src-tauri/defaults/platform-presets.json`（主）+ raw fallback。
 //!
 //! 架构同 price_sync.rs：双源 fetch + 远程 `last_updated`（Unix 秒）与本地比对，远程较新才写。
-//! 写入 app data (`~/.aidog/defaults.json`)，由 commands/defaults.rs 的 reader 自动优先读取。
-//! 节流时间戳：`~/.aidog/defaults.json.last_sync`（Unix 秒）。
+//! 写入 app data (`~/.aidog/platform-presets.json`)，由 commands/defaults.rs 的 reader 自动优先读取。
+//! 节流时间戳：`~/.aidog/platform-presets.json.last_sync`（Unix 秒）。
 //!
 //! 三路触发：
 //! - 启动 hook（maybe_sync_on_startup，24h 节流）
@@ -14,11 +14,11 @@ use serde::Serialize;
 
 /// 主源：jsDelivr CDN（master 分支）。
 const DEFAULTS_JSON_PRIMARY_URL: &str =
-    "https://cdn.jsdelivr.net/gh/lazygophers/aidog@master/src-tauri/defaults/defaults.json";
+    "https://cdn.jsdelivr.net/gh/lazygophers/aidog@master/src-tauri/defaults/platform-presets.json";
 
 /// fallback：GitHub raw（master 分支）。
 const DEFAULTS_JSON_FALLBACK_URL: &str =
-    "https://raw.githubusercontent.com/lazygophers/aidog/master/src-tauri/defaults/defaults.json";
+    "https://raw.githubusercontent.com/lazygophers/aidog/master/src-tauri/defaults/platform-presets.json";
 
 const THROTTLE_SECS: i64 = 24 * 3600;
 
@@ -35,7 +35,7 @@ pub struct DefaultsSyncResult {
 
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn sync_defaults_json() -> DefaultsSyncResult {
-    tracing::info!("defaults.json sync started");
+    tracing::info!("platform-presets.json sync started");
     let fetched = match fetch_defaults_json().await {
         Ok((body, source)) => (body, source),
         Err(e) => {
@@ -70,7 +70,7 @@ pub async fn sync_defaults_json() -> DefaultsSyncResult {
         match write_app_data(&body) {
             Ok(()) => {
                 let _ = write_last_sync_ts(now_secs());
-                tracing::info!(remote_ts, local_ts, source = %source, "defaults.json updated from remote");
+                tracing::info!(remote_ts, local_ts, source = %source, "platform-presets.json updated from remote");
                 DefaultsSyncResult {
                     updated: true,
                     last_updated: remote_ts,
@@ -90,7 +90,7 @@ pub async fn sync_defaults_json() -> DefaultsSyncResult {
         }
     } else {
         let _ = write_last_sync_ts(now_secs());
-        tracing::debug!(remote_ts, local_ts, "defaults.json not newer, skip");
+        tracing::debug!(remote_ts, local_ts, "platform-presets.json not newer, skip");
         DefaultsSyncResult {
             updated: false,
             last_updated: local_ts,
@@ -100,7 +100,7 @@ pub async fn sync_defaults_json() -> DefaultsSyncResult {
     }
 }
 
-/// 启动 hook：24h 节流。节流判定 = 读 `~/.aidog/defaults.json.last_sync`。
+/// 启动 hook：24h 节流。节流判定 = 读 `~/.aidog/platform-presets.json.last_sync`。
 /// 全失败静默（warn log），绝不阻塞启动或破坏现有功能。
 pub async fn maybe_sync_on_startup() {
     if !should_sync_due() {
@@ -123,7 +123,7 @@ fn should_sync_due() -> bool {
 }
 
 async fn fetch_defaults_json() -> Result<(String, String), String> {
-    // ponytail: 无 DB 依赖（defaults.json 是无状态文件），用裸 reqwest::Client。
+    // ponytail: 无 DB 依赖（platform-presets.json 是无状态文件），用裸 reqwest::Client。
     // price_sync 走 build_http_client_system 是因为受系统上游代理设置；defaults 同步
     // 走公网 CDN，无代理需求。timeout 短（30s），失败回退 bundled（reader 端处理）。
     let client = reqwest::Client::builder()
@@ -137,13 +137,13 @@ async fn fetch_defaults_json() -> Result<(String, String), String> {
     ] {
         match fetch_one(&client, url).await {
             Ok(body) => {
-                tracing::info!(source, bytes = body.len(), "defaults.json fetched");
+                tracing::info!(source, bytes = body.len(), "platform-presets.json fetched");
                 return Ok((body, source.into()));
             }
-            Err(e) => tracing::warn!(source, error = %e, "defaults.json fetch failed, trying next"),
+            Err(e) => tracing::warn!(source, error = %e, "platform-presets.json fetch failed, trying next"),
         }
     }
-    Err("defaults.json: all sources failed (jsDelivr + raw)".into())
+    Err("platform-presets.json: all sources failed (jsDelivr + raw)".into())
 }
 
 async fn fetch_one(client: &reqwest::Client, url: &str) -> Result<String, String> {
@@ -154,7 +154,7 @@ async fn fetch_one(client: &reqwest::Client, url: &str) -> Result<String, String
     resp.text().await.map_err(|e| format!("read body: {e}"))
 }
 
-/// 解析 defaults.json top-level `last_updated`（Unix 秒）。
+/// 解析 platform-presets.json top-level `last_updated`（Unix 秒）。
 fn parse_last_updated(body: &str) -> Result<i64, String> {
     let v: serde_json::Value = serde_json::from_str(body).map_err(|e| format!("json: {e}"))?;
     v.get("last_updated")
@@ -163,17 +163,17 @@ fn parse_last_updated(body: &str) -> Result<i64, String> {
 }
 
 fn app_data_path() -> Result<std::path::PathBuf, String> {
-    Ok(aidog_data_dir()?.join("defaults.json"))
+    Ok(aidog_data_dir()?.join("platform-presets.json"))
 }
 
 fn last_sync_path() -> Result<std::path::PathBuf, String> {
-    Ok(aidog_data_dir()?.join("defaults.json.last_sync"))
+    Ok(aidog_data_dir()?.join("platform-presets.json.last_sync"))
 }
 
 fn read_local_last_updated() -> Result<i64, String> {
     let p = app_data_path()?;
     if !p.exists() {
-        return Err("no local defaults.json".into());
+        return Err("no local platform-presets.json".into());
     }
     let body = std::fs::read_to_string(&p).map_err(|e| format!("read: {e}"))?;
     parse_last_updated(&body)

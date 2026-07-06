@@ -277,7 +277,7 @@ export const modelPriceApi = {
 };
 
 /** 平台默认配置（endpoints / models / model_list / client_type），来自 bundled
- *  `defaults/defaults.json`，运行时可被 `~/.aidog/defaults.json` 覆盖（同步链写入）。
+ *  `defaults/platform-presets.json`，运行时可被 `~/.aidog/platform-presets.json` 覆盖（同步链写入）。
  *  返回原始 JSON 字符串，前端解析缓存。 */
 export function getDefaultsJson(): Promise<string> {
   return invoke<string>("get_defaults_json");
@@ -290,7 +290,7 @@ export type DefaultsSyncResult = {
   error?: string;
 };
 
-/** 手动触发 defaults.json 同步（无视节流，jsDelivr 主 + raw fallback）。
+/** 手动触发 platform-presets.json 同步（无视节流，jsDelivr 主 + raw fallback）。
  *  返回 {updated, lastUpdated, source, error} — Rust side serde camelCase 已对齐。 */
 export function syncDefaultsJson(): Promise<DefaultsSyncResult> {
   return invoke<DefaultsSyncResult>("sync_defaults_json");
