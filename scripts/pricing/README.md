@@ -6,9 +6,9 @@
 make prices-sync
 ```
 
-流程：并发跑 `scrapers/` 全部平台 scraper → 合并去重（同名模型 top-level 价取首次非 0、max_* 取首次非空、per-platform 价写入 `pricing[<platform>]`）→ pydantic schema 校验 → 原子写 `data/models.json`。
+流程：并发跑 `scrapers/` 全部平台 scraper → 合并去重（同名模型 top-level 价取首次非 0、max_* 取首次非空、per-platform 价写入 `pricing[<platform>]`）→ pydantic schema 校验 → 原子写 `src-tauri/defaults/models.json`。
 
-`data/models.json` 是 app 端 price/max_tokens 的**唯一真实信源**（app 从 GitHub raw 定时拉取，见 Rust `price_sync.rs`）。
+`src-tauri/defaults/models.json` 是 app 端 price/max_tokens 的**唯一真实信源**（app 从 GitHub raw 定时拉取，见 Rust `price_sync.rs`）。
 
 ## 数据源
 

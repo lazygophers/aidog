@@ -1,6 +1,6 @@
 """聚合入口 — 唯一调用点 (make prices-sync → uv run python aggregate.py)。
 
-流程: 并发跑 REGISTRY 全部 scraper → 合并去重 → schema 校验 → 原子写 data/models.json。
+流程: 并发跑 REGISTRY 全部 scraper → 合并去重 → schema 校验 → 原子写 src-tauri/defaults/models.json。
 某 scraper 失败: 跳过该平台 + 打印 (含 traceback), 不阻塞其他平台 (保留旧值由调用方决定, 本进程不删既有条目)。
 """
 
@@ -17,7 +17,7 @@ from schema import ModelEntry, ModelsFile
 
 # 仓根 = scripts/pricing 的上两级
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
-OUTPUT = REPO_ROOT / "data" / "models.json"
+OUTPUT = REPO_ROOT / "src-tauri" / "defaults" / "models.json"
 
 # 导入 scraper 注册表
 sys.path.insert(0, str(Path(__file__).resolve().parent))
