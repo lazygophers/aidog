@@ -1,14 +1,18 @@
 //! GitHub models.json 同步：拉取 data/models.json（Python 聚合的唯一信源），解析，upsert 入 model_price。
 //!
-//! 数据源 = raw.githubusercontent.com/lazygophers/aidog/master/data/models.json
+//! 数据源 = jsDelivr master（cdn.jsdelivr.net）主，raw.githubusercontent fallback。
 //! schema 见 scripts/pricing/schema.py（ModelsFile / ModelEntry / PlatformPricing）。
 
 use super::db::Db;
 use super::models::PriceSyncResult;
 use std::sync::Arc;
 
-/// 唯一信源：仓内 data/models.json 的 GitHub raw URL（master 分支）。
-const MODELS_JSON_URL: &str =
+/// 主源：jsDelivr CDN（master 分支）。CDN 加速 + 边缘缓存，失败/非 200 回退 raw。
+const MODELS_JSON_PRIMARY_URL: &str =
+    "https://cdn.jsdelivr.net/gh/lazygophers/aidog@master/data/models.json";
+
+/// fallback：GitHub raw（master 分支）。jsDelivr 不可达时兜底。
+const MODELS_JSON_FALLBACK_URL: &str =
     "https://raw.githubusercontent.com/lazygophers/aidog/master/data/models.json";
 
 /// Fetch + parse data/models.json，upsert 全部模型（source="github"）。
@@ -95,21 +99,27 @@ async fn fetch_models_json(db: Option<&Arc<Db>>) -> Result<String, String> {
             .map_err(|e| format!("build http client: {e}"))?,
     };
 
-    let resp = client.get(MODELS_JSON_URL)
-        .send()
-        .await
-        .map_err(|e| format!("fetch models.json: {e}"))?;
-
-    if !resp.status().is_success() {
-        let status = resp.status();
-        tracing::warn!(%status, "models.json fetch: non-success status");
-        return Err(format!("models.json returned status {status}"));
+    // 主源 jsDelivr → fallback raw；任一成功即返回。
+    for (source, url) in [
+        ("jsDelivr", MODELS_JSON_PRIMARY_URL),
+        ("raw", MODELS_JSON_FALLBACK_URL),
+    ] {
+        match fetch_one(&client, url, source).await {
+            Ok(body) => return Ok(body),
+            Err(e) => tracing::warn!(source, error = %e, "models.json fetch failed, trying next source"),
+        }
     }
+    Err("models.json: all sources failed (jsDelivr + raw)".into())
+}
 
-    resp.text().await.map_err(|e| {
-        tracing::warn!(error = %e, "models.json fetch: read response body failed");
-        format!("read models.json response: {e}")
-    })
+async fn fetch_one(client: &reqwest::Client, url: &str, source: &str) -> Result<String, String> {
+    let resp = client.get(url).send().await.map_err(|e| format!("fetch: {e}"))?;
+    if !resp.status().is_success() {
+        return Err(format!("status {}", resp.status()));
+    }
+    let body = resp.text().await.map_err(|e| format!("read body: {e}"))?;
+    tracing::info!(source, bytes = body.len(), "models.json fetched");
+    Ok(body)
 }
 
 /// Read sync settings from DB
