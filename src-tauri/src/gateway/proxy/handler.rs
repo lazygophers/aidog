@@ -182,8 +182,12 @@ pub(crate) async fn handle_proxy_core(
     let path = req.uri().path().to_string();
     tracing::info!(method = %req.method(), path = %path, "http request");
 
-    // ── 记录用户请求 URL ──
-    log.request_url = req.uri().to_string();
+    // ── 记录用户请求 URL（含 host 完整 url：scheme://host/path?query）──
+    // origin-form URI（MITM 解密灌入 / reverse proxy）只有 path 段，须从 Host header 重构完整 url。
+    // absolute-form（forward proxy `GET http://host/path`）req.uri() 本身含 scheme+host，build_url_from_host
+    // 兼容（直接取 uri.scheme_str）；缺 Host header 时 fallback origin-form path-only 行为（不破坏旧日志）。
+    log.request_url = build_url_from_host(req.headers(), req.uri())
+        .unwrap_or_else(|| req.uri().to_string());
 
     // ── 捕获原始请求量（用于 Claude Code 纯透传：未 redact 的真实 header / method / uri）──
     // 现有 log.request_headers 把 Authorization REDACT 了，不可用于透传，故在 into_parts 前 clone 原始量。
@@ -238,7 +242,7 @@ pub(crate) async fn handle_proxy_core(
                     .get(axum::http::header::HOST)
                     .and_then(|v| v.to_str().ok())
                     .unwrap_or("");
-                if should_fallback_passthrough(host_header, &path, state.listen_addr.get().copied()) {
+                if should_fallback_passthrough(host_header, state.listen_addr.get().copied()) {
                     tracing::info!(host = %host_header, path = %path, "no matching group → fallback passthrough to orig host");
                     return forward_passthrough_to_orig_host(
                         &state, &mut log, &log_settings,
