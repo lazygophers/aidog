@@ -1,0 +1,3 @@
+{"file": ".trellis/tasks/07-06-log-format-field-loss/prd.md", "reason": "需求 + 验收 + MsgCollector 修复方案 + spec PATCH"}
+{"file": ".trellis/spec/backend/logging-format.md", "reason": "日志格式 spec (待 PATCH 补字段渲染契约)"}
+{"file": ".trellis/spec/backend/index.md", "reason": "backend spec 入口"}
