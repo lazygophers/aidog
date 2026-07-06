@@ -1,6 +1,7 @@
 // ponytail: 自 StatusLineSection.tsx L100-286 外迁，零逻辑变更。
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
   type RowAlign,
@@ -39,7 +40,8 @@ export function SegmentEditModal({
     ? autoColorPreviewHex(segment.type)
     : (validHex ? color : null);
 
-  return (
+  // portal 到 body：祖先 transform/backdrop-filter 会让 fixed 退化相对祖先，致弹窗只在 page 内居中。
+  return createPortal(
     <div style={{
       position: "fixed", inset: 0, zIndex: 1000,
       display: "flex", alignItems: "center", justifyContent: "center",
@@ -197,6 +199,7 @@ export function SegmentEditModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
