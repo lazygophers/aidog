@@ -3,7 +3,7 @@
   "name": "sql-log-full-content",
   "title": "SQL 日志输出完整原始内容而非占位符",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
