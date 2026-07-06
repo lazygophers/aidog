@@ -10,10 +10,12 @@
 const BODY_PREVIEW_MAX: usize = 28;
 
 /// SQL trace 中单引号字符串字面量超过此字符数即截断。
-const SQL_LITERAL_MAX: usize = 64;
+/// 64KB：覆盖典型 prompt body / 大 JSON 字段，超长字面量仍 `…[truncated +N]` 兜底防日志爆炸。
+const SQL_LITERAL_MAX: usize = 65536;
 
 /// SQL trace 单条语句整体兜底上限（防极端长 SQL 刷屏，字面量截断后仍兜底一次）。
-const SQL_TOTAL_MAX: usize = 4096;
+/// 256KB：4 倍单字面量上限，给多字面量 / 大 SQL 留余量，超长仍 `…[truncated]` 兜底。
+const SQL_TOTAL_MAX: usize = 262144;
 
 /// body 日志预览：≤28 字符原样返回；超长取前 28 字符 + 截断标记 `…[+N]`（N=剩余字符数）。
 ///
@@ -125,10 +127,11 @@ mod tests {
 
     #[test]
     fn sql_long_literal_truncated() {
-        let long = "x".repeat(100);
+        // ponytail: repeat 构造超阈值长字符串，禁手写 65536 字符
+        let long = "x".repeat(SQL_LITERAL_MAX + 36);
         let sql = format!("INSERT INTO t(body) VALUES ('{long}')");
         let out = truncate_sql_literals(&sql);
-        let expected_lit = format!("{}…[truncated +36]", "x".repeat(64));
+        let expected_lit = format!("{}…[truncated +36]", "x".repeat(SQL_LITERAL_MAX));
         assert_eq!(out, format!("INSERT INTO t(body) VALUES ('{expected_lit}')"));
     }
 
