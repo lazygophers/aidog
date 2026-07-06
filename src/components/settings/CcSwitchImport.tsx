@@ -8,7 +8,7 @@
 // - 冲突 UI（ConflictRow + decisions Map，复用 ImportExport.tsx 既有模式）。
 // - 不新增 export scope，走 apply::apply 写入。
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import type { TFunction } from "i18next";
 import { open } from "@tauri-apps/plugin-dialog";
@@ -25,7 +25,7 @@ import {
   type Protocol,
   type GroupDetail,
 } from "../../services/api";
-import { matchCcProvider, ccProviderToPlatformJson, DEFAULT_DIMS, type CcImportDims } from "../../utils/ccswitchMatch";
+import { matchCcProvider, ccProviderToPlatformJson, DEFAULT_DIMS, type CcImportDims, type CcMatchResult } from "../../utils/ccswitchMatch";
 import { IconCheck } from "../icons";
 import { StatChip } from "../shared/StatChip";
 import type { ColorLevel } from "../shared/colorScale";
@@ -62,6 +62,18 @@ export function CcSwitchImportSection({
   const [detection, setDetection] = useState<CcswitchDetection | null>(null);
   const [detecting, setDetecting] = useState(false);
   const [providers, setProviders] = useState<CcProvider[]>([]);
+  // matchCcProvider async 化后预计算匹配结果（render 内禁止 await），按 provider id 缓存。
+  const [matches, setMatches] = useState<Record<string, CcMatchResult>>({});
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const entries = await Promise.all(
+        providers.map(async (p) => [p.id, await matchCcProvider(p)] as const),
+      );
+      if (!cancelled) setMatches(Object.fromEntries(entries));
+    })();
+    return () => { cancelled = true; };
+  }, [providers]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dims, setDims] = useState<CcImportDims>({ ...DEFAULT_DIMS });
   const [reading, setReading] = useState(false);
@@ -158,7 +170,7 @@ export function CcSwitchImportSection({
       const payload: Record<string, unknown>[] = [];
       for (const p of providers) {
         if (!selected.has(p.id)) continue;
-        const match = matchCcProvider(p);
+        const match = await matchCcProvider(p);
         const json = ccProviderToPlatformJson(p, match, dims);
         // 应用 rename 决策（若用户选了 rename）。
         const dk = decisionKey("platform", p.name);
@@ -305,8 +317,10 @@ export function CcSwitchImportSection({
           {/* provider 行 */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {providers.map((p) => {
-              const match = matchCcProvider(p);
+              const match = matches[p.id];
               const isSelected = selected.has(p.id);
+              // match 还在异步计算时跳过行（短暂空态，defaults.json 已缓存极快）
+              if (!match) return null;
               return (
                 <ProviderRow
                   key={p.id}

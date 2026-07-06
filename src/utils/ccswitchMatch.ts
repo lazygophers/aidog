@@ -66,14 +66,14 @@ function hostOf(url: string): string {
  * 对每个 preset 取 getDefaultEndpoints(protocol) 的默认 base_url host，
  * 与 cc-switch base_url host 做子串匹配。
  */
-function matchByBaseUrlHost(
+async function matchByBaseUrlHost(
   baseUrl: string,
   protocols: ProtocolOption[],
-): { protocol: Protocol; codingPlan?: boolean; label: string } | null {
+): Promise<{ protocol: Protocol; codingPlan?: boolean; label: string } | null> {
   const target = normalizeForMatch(hostOf(baseUrl));
   if (!target) return null;
   for (const p of protocols) {
-    const eps = getDefaultEndpoints(p.value, p.codingPlan);
+    const eps = await getDefaultEndpoints(p.value, p.codingPlan);
     for (const ep of eps) {
       const h = normalizeForMatch(hostOf(ep.base_url));
       // 双向子串匹配（preset host 可能是子域，或反之）。
@@ -86,14 +86,14 @@ function matchByBaseUrlHost(
 }
 
 /** 构造命中结果：取 preset 骨架 endpoints，用实际 base_url 覆盖同协议 endpoint。 */
-function buildMatch(
+async function buildMatch(
   protocol: Protocol,
   codingPlan: boolean | undefined,
   matchedBy: MatchedBy,
   baseUrl: string,
   label?: string,
-): CcMatchResult {
-  const skeleton = getDefaultEndpoints(protocol, codingPlan);
+): Promise<CcMatchResult> {
+  const skeleton = await getDefaultEndpoints(protocol, codingPlan);
   const endpoints = baseUrl
     ? skeleton.map((ep) =>
         // 用实际 base_url 覆盖同协议 endpoint；不同协议保留骨架默认。
@@ -158,10 +158,10 @@ function buildClaudeFallback(baseUrl: string): CcMatchResult {
  * @param provider 后端 DTO（已含 detected_base_url / codex_config_parsed）
  * @param protocols Platforms.tsx PROTOCOLS（默认导入）
  */
-export function matchCcProvider(
+export async function matchCcProvider(
   provider: CcProvider,
   protocols: ProtocolOption[] = PROTOCOLS,
-): CcMatchResult {
+): Promise<CcMatchResult> {
   const baseUrl = provider.detectedBaseUrl ?? "";
   const text = `${provider.name} ${baseUrl}`;
 
@@ -181,7 +181,7 @@ export function matchCcProvider(
   }
 
   // 步骤 2：base_url host 匹配。
-  const hostHit = matchByBaseUrlHost(baseUrl, protocols);
+  const hostHit = await matchByBaseUrlHost(baseUrl, protocols);
   if (hostHit) {
     return buildMatch(
       hostHit.protocol,

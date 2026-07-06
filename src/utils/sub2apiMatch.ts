@@ -40,8 +40,8 @@ export function mapPlatformToProtocol(platform: string): Sub2ApiMatch {
 }
 
 /** 构造 endpoints：preset 骨架 + 实际 base_url 覆盖同协议 endpoint。 */
-function buildEndpoints(protocol: Protocol, baseUrl: string): PlatformEndpoint[] {
-  const skeleton = getDefaultEndpoints(protocol);
+async function buildEndpoints(protocol: Protocol, baseUrl: string): Promise<PlatformEndpoint[]> {
+  const skeleton = await getDefaultEndpoints(protocol);
   if (!baseUrl) return skeleton;
   return skeleton.map((ep) =>
     ep.protocol === protocol ? { ...ep, base_url: baseUrl } : ep,
@@ -55,15 +55,15 @@ function buildEndpoints(protocol: Protocol, baseUrl: string): PlatformEndpoint[]
  * @param account 后端解析的账号 DTO
  * @param protocolOverride 用户在预览行下拉手改的 protocol（缺省走 platform 映射）
  */
-export function sub2apiAccountToPlatformJson(
+export async function sub2apiAccountToPlatformJson(
   account: Sub2ApiAccount,
   protocolOverride?: Protocol,
-): Record<string, unknown> {
+): Promise<Record<string, unknown>> {
   const protocol =
     protocolOverride ?? mapPlatformToProtocol(account.platform).protocol;
   // base_url 缺失 → 取 preset 默认（buildEndpoints 内的 getDefaultEndpoints 骨架默认）。
   const providedBaseUrl = account.baseUrl ?? "";
-  const endpoints = buildEndpoints(protocol, providedBaseUrl);
+  const endpoints = await buildEndpoints(protocol, providedBaseUrl);
   // platform.base_url 顶层字段：缺失时取同协议 endpoint 的默认 base_url（预设回退）。
   const baseUrl =
     providedBaseUrl ||

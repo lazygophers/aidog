@@ -276,3 +276,10 @@ export const modelPriceApi = {
     invoke<PriceSyncResult>("model_price_sync"),
 };
 
+/** 平台默认配置（endpoints / models / model_list / client_type），来自 bundled
+ *  `defaults/defaults.json`，运行时可被 `~/.aidog/defaults.json` 覆盖（同步链写入）。
+ *  返回原始 JSON 字符串，前端解析缓存。 */
+export function getDefaultsJson(): Promise<string> {
+  return invoke<string>("get_defaults_json");
+}
+

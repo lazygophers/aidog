@@ -1,6 +1,6 @@
 // formSectionsEndpoints — 编辑页大分区（Endpoints / Models），从 formSections.tsx 拆出控制行数。
 // ponytail: 这两个分区各 ~110-160 行，独立成文件使 formSections.tsx ≤600。仍纯 props 驱动。
-import React from "react";
+import React, { useEffect, useState } from "react";
 import type { TFunction } from "i18next";
 import {
   type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType,
@@ -26,7 +26,12 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
           type="button"
           className="btn btn-ghost"
           style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
-          onClick={() => setEndpoints([...endpoints, { protocol: "openai" as Protocol, base_url: "", client_type: defaultClientForProtocol("openai"), coding_plan: false }])}
+          onClick={() => {
+            // defaultClientForProtocol async 化后取默认客户端类型（仅一处调用，不阻塞渲染）
+            defaultClientForProtocol("openai").then((ct) =>
+              setEndpoints([...endpoints, { protocol: "openai" as Protocol, base_url: "", client_type: ct, coding_plan: false }]),
+            );
+          }}
         >
           + {t("platform.addEndpoint", "Add Endpoint")}
         </button>
@@ -45,9 +50,14 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
             value={ep.protocol}
             onChange={(e) => {
               const newProto = e.target.value as Protocol;
-              const next = [...endpoints];
-              next[idx] = { ...next[idx], protocol: newProto, client_type: defaultClientForProtocol(newProto) };
-              setEndpoints(next);
+              // defaultClientForProtocol async 化后异步取默认客户端类型，更新该 endpoint。
+              defaultClientForProtocol(newProto).then((ct) => {
+                setEndpoints((prev) => {
+                  const next = [...prev];
+                  next[idx] = { ...next[idx], protocol: newProto, client_type: ct };
+                  return next;
+                });
+              });
             }}
           >
             {ENDPOINT_PROTOCOLS.map((p) => (
@@ -141,6 +151,18 @@ export function ModelsSection({ models, handleModelChange, handleModelSelect, ac
   endpointsCount: number;
   t: TFunction;
 }) {
+  // getDefaultModelList async 化后用 state + effect 缓存当前 protocol/codingPlan 的候选列表。
+  // defaults.json 进程内缓存单次 RPC，effect 仅在 protocol/codingPlan 变化时重跑。
+  const [defaultList, setDefaultList] = useState<string[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const list = await getDefaultModelList(protocol, codingPlan);
+      if (!cancelled) setDefaultList(list);
+    })();
+    return () => { cancelled = true; };
+  }, [protocol, codingPlan]);
+
   return (
     <FormSection
       title={t("platform.models")}
@@ -176,7 +198,7 @@ export function ModelsSection({ models, handleModelChange, handleModelSelect, ac
         // 下拉源：fetchModels 成功用 available_models，否则用内置候选列表（冷启动兜底）
         const dropdownSource = availableModels.length > 0
           ? availableModels
-          : getDefaultModelList(protocol, codingPlan);
+          : defaultList;
         const hasDropdown = dropdownSource.length > 0;
         const filtered = hasDropdown
           ? (query

@@ -5,6 +5,7 @@ pub mod about;
 pub mod app_log;
 pub mod backup;
 pub mod coding_tools;
+pub mod defaults;
 pub mod fs_autocomplete;
 pub mod group;
 pub mod hooks;
