@@ -47,6 +47,10 @@
         "ru-RU": "Официальный API Anthropic для моделей Claude",
         "ja-JP": "Anthropic 公式 API、Claude シリーズモデル",
         "es-ES": "API oficial de Anthropic para modelos Claude"
+      },
+      "source_urls": {
+        "docs": "https://docs.anthropic.com/en/api/overview",
+        "pricing": "https://www.anthropic.com/pricing"
       }
     },
     "openai": {
@@ -89,6 +93,10 @@
         "ru-RU": "Официальный API OpenAI для моделей GPT",
         "ja-JP": "OpenAI 公式 API、GPT シリーズモデル",
         "es-ES": "API oficial de OpenAI para modelos GPT"
+      },
+      "source_urls": {
+        "docs": "https://platform.openai.com/docs/api-reference",
+        "pricing": "https://openai.com/api/pricing/"
       }
     },
     "codex": {
@@ -131,6 +139,10 @@
         "ru-RU": "Конечная точка OpenAI Codex CLI для моделей программирования",
         "ja-JP": "OpenAI Codex CLI エンドポイント、コーディング向けモデル",
         "es-ES": "Endpoint de OpenAI Codex CLI para modelos de programación"
+      },
+      "source_urls": {
+        "docs": "https://platform.openai.com/docs/guides/codex",
+        "pricing": "https://openai.com/api/pricing/"
       }
     },
     "gemini": {
@@ -168,6 +180,10 @@
         "ru-RU": "API Google Gemini для моделей Gemini",
         "ja-JP": "Google Gemini API、Gemini シリーズモデル",
         "es-ES": "API de Google Gemini para modelos Gemini"
+      },
+      "source_urls": {
+        "docs": "https://ai.google.dev/gemini-api/docs",
+        "pricing": "https://ai.google.dev/gemini-api/docs/pricing"
       }
     },
     "glm": {
@@ -251,6 +267,10 @@
         "ru-RU": "API Zhipu AI BigModel для моделей GLM",
         "ja-JP": "智謦 BigModel API、GLM シリーズモデル",
         "es-ES": "API Zhipu AI BigModel para modelos GLM"
+      },
+      "source_urls": {
+        "docs": "https://docs.bigmodel.cn/cn/guide/start/quick-start",
+        "pricing": "https://open.bigmodel.cn/pricing"
       }
     },
     "glm_en": {
@@ -305,6 +325,10 @@
         "ru-RU": "Международная конечная точка Zhipu AI z.ai для моделей GLM",
         "ja-JP": "智謦 z.ai 国際エンドポイント、GLM シリーズモデル",
         "es-ES": "Endpoint internacional Zhipu AI z.ai para modelos GLM"
+      },
+      "source_urls": {
+        "docs": "https://docs.z.ai/guide/start/quick-start",
+        "pricing": "https://z.ai/pricing"
       }
     },
     "kimi": {
@@ -372,6 +396,10 @@
         "ru-RU": "API Moonshot AI для моделей Kimi",
         "ja-JP": "月之暗面 API、Kimi シリーズモデル",
         "es-ES": "API de Moonshot AI para modelos Kimi"
+      },
+      "source_urls": {
+        "docs": "https://platform.moonshot.cn/docs",
+        "pricing": "https://platform.moonshot.cn/docs/pricing"
       }
     },
     "minimax": {
@@ -449,6 +477,10 @@
         "ru-RU": "API MiniMax для моделей abab и Hailuo",
         "ja-JP": "MiniMax API、abab と海螺シリーズモデル",
         "es-ES": "API de MiniMax para modelos abab y Hailuo"
+      },
+      "source_urls": {
+        "docs": "https://platform.minimaxi.com/document/Announcement",
+        "pricing": "https://platform.minimaxi.com/document/Price"
       }
     },
     "minimax_en": {
@@ -526,6 +558,10 @@
         "ru-RU": "Международная конечная точка MiniMax (minimax.io)",
         "ja-JP": "MiniMax 国際版（minimax.io）エンドポイント",
         "es-ES": "Endpoint internacional de MiniMax (minimax.io)"
+      },
+      "source_urls": {
+        "docs": "https://platform.minimax.io/document/Announcement",
+        "pricing": "https://platform.minimax.io/document/Price"
       }
     },
     "bailian": {
@@ -600,6 +636,10 @@
         "ru-RU": "API Alibaba Cloud DashScope для моделей Qwen",
         "ja-JP": "阿里雲百煉 DashScope API、Qwen シリーズモデル",
         "es-ES": "API de Alibaba Cloud DashScope para modelos Qwen"
+      },
+      "source_urls": {
+        "docs": "https://help.aliyun.com/zh/model-studio/",
+        "pricing": "https://help.aliyun.com/zh/model-studio/billing-for-model-studio"
       }
     },
     "bailian_coding": {
@@ -638,6 +678,10 @@
         "ru-RU": "Конечная точка программирования Alibaba Cloud DashScope (Anthropic-совместимая)",
         "ja-JP": "阿里雲百煉プログラミングエンドポイント（Anthropic 互換）",
         "es-ES": "Endpoint de programación de Alibaba Cloud DashScope (compatible con Anthropic)"
+      },
+      "source_urls": {
+        "docs": "https://help.aliyun.com/zh/model-studio/developer-reference/use-claude-code",
+        "pricing": "https://help.aliyun.com/zh/model-studio/billing-for-model-studio"
       }
     },
     "deepseek": {
@@ -688,6 +732,10 @@
         "ru-RU": "API DeepSeek для моделей DeepSeek",
         "ja-JP": "DeepSeek API、DeepSeek シリーズモデル",
         "es-ES": "API de DeepSeek para modelos DeepSeek"
+      },
+      "source_urls": {
+        "docs": "https://api-docs.deepseek.com/",
+        "pricing": "https://api-docs.deepseek.com/quick_start/pricing"
       }
     },
     "stepfun": {
@@ -731,6 +779,10 @@
         "ru-RU": "API StepFun для моделей Step",
         "ja-JP": "StepFun API、Step シリーズモデル",
         "es-ES": "API de StepFun para modelos Step"
+      },
+      "source_urls": {
+        "docs": "https://platform.stepfun.com/docs",
+        "pricing": "https://platform.stepfun.com/docs/product/price"
       }
     },
     "stepfun_en": {
@@ -774,6 +826,10 @@
         "ru-RU": "Международная конечная точка StepFun (stepfun.ai)",
         "ja-JP": "StepFun 国際版（stepfun.ai）エンドポイント",
         "es-ES": "Endpoint internacional de StepFun (stepfun.ai)"
+      },
+      "source_urls": {
+        "docs": "https://platform.stepfun.ai/docs",
+        "pricing": "https://platform.stepfun.ai/docs/product/price"
       }
     },
     "doubao": {
@@ -851,6 +907,10 @@
         "ru-RU": "API Volcano Engine Ark для моделей Doubao",
         "ja-JP": "火山エンジン方舟 API、豆包シリーズモデル",
         "es-ES": "API de Volcano Engine Ark para modelos Doubao"
+      },
+      "source_urls": {
+        "docs": "https://www.volcengine.com/docs/82379",
+        "pricing": "https://www.volcengine.com/docs/6879"
       }
     },
     "byteplus": {
@@ -896,6 +956,10 @@
         "ru-RU": "Международный API ByteDance BytePlus Ark",
         "ja-JP": "ByteDance BytePlus 国際方舟 API",
         "es-ES": "API internacional ByteDance BytePlus Ark"
+      },
+      "source_urls": {
+        "docs": "https://www.volcengine.com/docs/82379",
+        "pricing": "https://www.volcengine.com/docs/6879"
       }
     },
     "qianfan": {
@@ -950,6 +1014,10 @@
         "ru-RU": "LLM-платформа Baidu Qianfan для моделей ERNIE",
         "ja-JP": "百度千帆大モデルプラットフォーム、ERNIE シリーズモデル",
         "es-ES": "Plataforma LLM de Baidu Qianfan para modelos ERNIE"
+      },
+      "source_urls": {
+        "docs": "https://cloud.baidu.com/doc/qianfan-api/",
+        "pricing": "https://cloud.baidu.com/doc/qianfan-api/s/7m0g3yofv"
       }
     },
     "xiaomi_mimo": {
@@ -1025,6 +1093,10 @@
         "ru-RU": "API Xiaomi MiMo для моделей MiMo",
         "ja-JP": "小米 MiMo API、MiMo シリーズモデル",
         "es-ES": "API de Xiaomi MiMo para modelos MiMo"
+      },
+      "source_urls": {
+        "docs": "https://mimo.xiaomi.com/",
+        "pricing": "https://mimo.xiaomi.com/"
       }
     },
     "bailing": {
@@ -1063,6 +1135,10 @@
         "ru-RU": "API Bailing (TBox) для Claude-совместимых моделей",
         "ja-JP": "百霊（TBox）API、Claude 互換モデル",
         "es-ES": "API de Bailing (TBox) para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://www.tbox.cn/",
+        "pricing": "https://www.tbox.cn/"
       }
     },
     "longcat": {
@@ -1106,6 +1182,10 @@
         "ru-RU": "API Longcat для Claude-совместимых моделей",
         "ja-JP": "竜猫 API、Claude 互換モデル",
         "es-ES": "API de Longcat para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://longcat.chat/",
+        "pricing": "https://longcat.chat/pricing"
       }
     },
     "sensenova": {
@@ -1155,6 +1235,10 @@
         "ru-RU": "API SenseTime SenseNova для моделей Nova",
         "ja-JP": "商湯日日新 API、Nova シリーズモデル",
         "es-ES": "API de SenseTime SenseNova para modelos Nova"
+      },
+      "source_urls": {
+        "docs": "https://platform.sensenova.cn/document",
+        "pricing": "https://platform.sensenova.cn/pricing"
       }
     },
     "openrouter": {
@@ -1218,6 +1302,10 @@
         "ru-RU": "Агрегатор OpenRouter, маршрутизирующий нескольких провайдеров моделей",
         "ja-JP": "OpenRouter アグリゲータ、複数モデルプロバイダをルーティング",
         "es-ES": "Agregador OpenRouter que enruta múltiples proveedores de modelos"
+      },
+      "source_urls": {
+        "docs": "https://openrouter.ai/docs",
+        "pricing": "https://openrouter.ai/docs/models"
       }
     },
     "siliconflow": {
@@ -1256,6 +1344,10 @@
         "ru-RU": "API вывода и моделей SiliconFlow (siliconflow.cn)",
         "ja-JP": "SiliconFlow（siliconflow.cn）推論とモデル API",
         "es-ES": "API de inferencia y modelos de SiliconFlow (siliconflow.cn)"
+      },
+      "source_urls": {
+        "docs": "https://docs.siliconflow.cn/",
+        "pricing": "https://siliconflow.cn/pricing"
       }
     },
     "siliconflow_en": {
@@ -1294,6 +1386,10 @@
         "ru-RU": "Международная конечная точка SiliconFlow (siliconflow.com)",
         "ja-JP": "SiliconFlow 国際版（siliconflow.com）エンドポイント",
         "es-ES": "Endpoint internacional de SiliconFlow (siliconflow.com)"
+      },
+      "source_urls": {
+        "docs": "https://docs.siliconflow.com/",
+        "pricing": "https://siliconflow.com/pricing"
       }
     },
     "aihubmix": {
@@ -1352,6 +1448,10 @@
         "ru-RU": "Агрегатор AiHubMix, маршрутизирующий нескольких провайдеров моделей",
         "ja-JP": "AiHubMix アグリゲータ、複数モデルプロバイダをルーティング",
         "es-ES": "Agregador AiHubMix que enruta múltiples proveedores de modelos"
+      },
+      "source_urls": {
+        "docs": "https://docs.aihubmix.com/",
+        "pricing": "https://aihubmix.com/pricing"
       }
     },
     "dmxapi": {
@@ -1407,6 +1507,10 @@
         "ru-RU": "Агрегатор DMXAPI, маршрутизирующий нескольких провайдеров моделей",
         "ja-JP": "DMXAPI アグリゲータ、複数モデルプロバイダをルーティング",
         "es-ES": "Agregador DMXAPI que enruta múltiples proveedores de modelos"
+      },
+      "source_urls": {
+        "docs": "https://docs.dmxapi.cn/",
+        "pricing": "https://www.dmxapi.cn/pricing"
       }
     },
     "modelscope": {
@@ -1458,6 +1562,10 @@
         "ru-RU": "API вывода Alibaba ModelScope для моделей с открытым исходным кодом",
         "ja-JP": "阿里魔搭コミュニティ推論 API、オープンソースモデル集合",
         "es-ES": "API de inferencia de Alibaba ModelScope para modelos de código abierto"
+      },
+      "source_urls": {
+        "docs": "https://www.modelscope.cn/docs",
+        "pricing": "https://www.modelscope.cn/pricing"
       }
     },
     "shengsuanyun": {
@@ -1510,6 +1618,10 @@
         "ru-RU": "Агрегатор ShengSuanYun, маршрутизирующий нескольких провайдеров моделей",
         "ja-JP": "盛算雲アグリゲータ、複数モデルプロバイダをルーティング",
         "es-ES": "Agregador ShengSuanYun que enruta múltiples proveedores de modelos"
+      },
+      "source_urls": {
+        "docs": "https://shengsuanyun.com/docs",
+        "pricing": "https://shengsuanyun.com/pricing"
       }
     },
     "atlascloud": {
@@ -1560,6 +1672,10 @@
         "ru-RU": "Агрегатор AtlasCloud, маршрутизирующий нескольких провайдеров моделей",
         "ja-JP": "AtlasCloud アグリゲータ、複数モデルプロバイダをルーティング",
         "es-ES": "Agregador AtlasCloud que enruta múltiples proveedores de modelos"
+      },
+      "source_urls": {
+        "docs": "https://docs.atlascloud.ai/",
+        "pricing": "https://atlascloud.ai/pricing"
       }
     },
     "novita": {
@@ -1610,6 +1726,10 @@
         "ru-RU": "API Novita AI для LLM и моделей изображений",
         "ja-JP": "Novita AI API、大言語と画像モデル",
         "es-ES": "API de Novita AI para modelos LLM y de imagen"
+      },
+      "source_urls": {
+        "docs": "https://novita.ai/docs",
+        "pricing": "https://novita.ai/pricing"
       }
     },
     "therouter": {
@@ -1648,6 +1768,10 @@
         "ru-RU": "Агрегатор TheRouter, маршрутизирующий нескольких провайдеров моделей",
         "ja-JP": "TheRouter アグリゲータ、複数モデルプロバイダをルーティング",
         "es-ES": "Agregador TheRouter que enruta múltiples proveedores de modelos"
+      },
+      "source_urls": {
+        "docs": "https://therouter.ai/",
+        "pricing": "https://therouter.ai/pricing"
       }
     },
     "cherryin": {
@@ -1700,6 +1824,10 @@
         "ru-RU": "API CherryIN для Claude-совместимых моделей",
         "ja-JP": "CherryIN API、Claude 互換モデル",
         "es-ES": "API de CherryIN para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://open.cherryin.net/",
+        "pricing": "https://open.cherryin.net/"
       }
     },
     "packycode": {
@@ -1755,6 +1883,10 @@
         "ru-RU": "API PackyCode для Claude-совместимых моделей",
         "ja-JP": "PackyCode API、Claude 互換モデル",
         "es-ES": "API de PackyCode para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://docs.packyapi.com/",
+        "pricing": "https://www.packyapi.com/pricing"
       }
     },
     "cubence": {
@@ -1810,6 +1942,10 @@
         "ru-RU": "API Cubence для Claude-совместимых моделей",
         "ja-JP": "Cubence API、Claude 互換モデル",
         "es-ES": "API de Cubence para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://docs.cubence.com/",
+        "pricing": "https://cubence.com/pricing"
       }
     },
     "aigocode": {
@@ -1865,6 +2001,10 @@
         "ru-RU": "API AIGoCode для Claude-совместимых моделей",
         "ja-JP": "AIGoCode API、Claude 互換モデル",
         "es-ES": "API de AIGoCode para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://www.aigocode.com/",
+        "pricing": "https://www.aigocode.com/pricing"
       }
     },
     "rightcode": {
@@ -1916,6 +2056,10 @@
         "ru-RU": "API RightCode для Claude-совместимых моделей",
         "ja-JP": "RightCode API、Claude 互換モデル",
         "es-ES": "API de RightCode para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://docs.right.codes/",
+        "pricing": "https://right.codes/pricing"
       }
     },
     "aicodemirror": {
@@ -1971,6 +2115,10 @@
         "ru-RU": "API AICodeMirror для Claude-совместимых моделей",
         "ja-JP": "AICodeMirror API、Claude 互換モデル",
         "es-ES": "API de AICodeMirror para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://www.aicodemirror.com/docs",
+        "pricing": "https://www.aicodemirror.com/pricing"
       }
     },
     "nvidia": {
@@ -2022,6 +2170,10 @@
         "ru-RU": "API NVIDIA integrate для размещённых LLM-моделей",
         "ja-JP": "NVIDIA integrate API、ホスト型大言語モデル",
         "es-ES": "API de NVIDIA integrate para modelos LLM alojados"
+      },
+      "source_urls": {
+        "docs": "https://docs.api.nvidia.com/",
+        "pricing": "https://build.nvidia.com/pricing"
       }
     },
     "pateway": {
@@ -2068,6 +2220,10 @@
         "ru-RU": "API PatewayAI для Claude-совместимых моделей",
         "ja-JP": "PatewayAI API、Claude 互換モデル",
         "es-ES": "API de PatewayAI para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://docs.pateway.ai/",
+        "pricing": "https://pateway.ai/pricing"
       }
     },
     "ccsub": {
@@ -2114,6 +2270,10 @@
         "ru-RU": "API CCSub для Claude-совместимых моделей",
         "ja-JP": "CCSub API、Claude 互換モデル",
         "es-ES": "API de CCSub para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://www.ccsub.net/docs",
+        "pricing": "https://www.ccsub.net/pricing"
       }
     },
     "apikeyfun": {
@@ -2160,6 +2320,10 @@
         "ru-RU": "API APIKEY.FUN для Claude-совместимых моделей",
         "ja-JP": "APIKEY.FUN API、Claude 互換モデル",
         "es-ES": "API de APIKEY.FUN para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://apikey.fun/",
+        "pricing": "https://apikey.fun/pricing"
       }
     },
     "apinebula": {
@@ -2206,6 +2370,10 @@
         "ru-RU": "API APINebula для Claude-совместимых моделей",
         "ja-JP": "APINebula API、Claude 互換モデル",
         "es-ES": "API de APINebula para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://docs.apinebula.com/",
+        "pricing": "https://apinebula.com/pricing"
       }
     },
     "sudocode": {
@@ -2252,6 +2420,10 @@
         "ru-RU": "API SudoCode для Claude-совместимых моделей",
         "ja-JP": "SudoCode API、Claude 互換モデル",
         "es-ES": "API de SudoCode para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://docs.sudocode.us/",
+        "pricing": "https://sudocode.us/pricing"
       }
     },
     "claudeapi": {
@@ -2298,6 +2470,10 @@
         "ru-RU": "Прокси ClaudeAPI для Claude-совместимых моделей",
         "ja-JP": "ClaudeAPI 中継、Claude 互換モデル",
         "es-ES": "Proxy ClaudeAPI para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://docs.claudeapi.com/",
+        "pricing": "https://claudeapi.com/pricing"
       }
     },
     "claudecn": {
@@ -2344,6 +2520,10 @@
         "ru-RU": "Прокси ClaudeCN для Claude-совместимых моделей",
         "ja-JP": "ClaudeCN 中継、Claude 互換モデル",
         "es-ES": "Proxy ClaudeCN para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://claudecn.top/document",
+        "pricing": "https://claudecn.top/price"
       }
     },
     "runapi": {
@@ -2390,6 +2570,10 @@
         "ru-RU": "Прокси RunAPI для Claude-совместимых моделей",
         "ja-JP": "RunAPI 中継、Claude 互換モデル",
         "es-ES": "Proxy RunAPI para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://runapi.co/docs",
+        "pricing": "https://runapi.co/pricing"
       }
     },
     "relaxycode": {
@@ -2436,6 +2620,10 @@
         "ru-RU": "API RelaxyCode для Claude-совместимых моделей",
         "ja-JP": "RelaxyCode API、Claude 互換モデル",
         "es-ES": "API de RelaxyCode para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://www.relaxycode.com/",
+        "pricing": "https://www.relaxycode.com/pricing"
       }
     },
     "crazyrouter": {
@@ -2482,6 +2670,10 @@
         "ru-RU": "Агрегатор CrazyRouter, маршрутизирующий нескольких провайдеров моделей",
         "ja-JP": "CrazyRouter アグリゲータ、複数モデルプロバイダをルーティング",
         "es-ES": "Agregador CrazyRouter que enruta múltiples proveedores de modelos"
+      },
+      "source_urls": {
+        "docs": "https://docs.crazyrouter.com/",
+        "pricing": "https://crazyrouter.com/pricing"
       }
     },
     "sssaicode": {
@@ -2528,6 +2720,10 @@
         "ru-RU": "API SSSAiCode для Claude-совместимых моделей",
         "ja-JP": "SSSAiCode API、Claude 互換モデル",
         "es-ES": "API de SSSAiCode para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://node-hk.sssaicodeapi.com/",
+        "pricing": "https://node-hk.sssaicodeapi.com/"
       }
     },
     "compshare": {
@@ -2566,6 +2762,10 @@
         "ru-RU": "API Compshare (UCloud YouYun) для Claude-совместимых моделей",
         "ja-JP": "Compshare（UCloud 優雲）API、Claude 互換モデル",
         "es-ES": "API de Compshare (UCloud YouYun) para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://www.compshare.cn/docs/modelverse/models/quick-start",
+        "pricing": "https://www.compshare.cn/price-list"
       }
     },
     "compshare_coding": {
@@ -2612,6 +2812,10 @@
         "ru-RU": "Конечная точка Compshare Coding Plan для Claude-совместимых моделей",
         "ja-JP": "Compshare プログラミングプランエンドポイント、Claude 互換モデル",
         "es-ES": "Endpoint del plan de programación de Compshare para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://www.compshare.cn/docs/modelverse/models/quick-start",
+        "pricing": "https://www.compshare.cn/price-list"
       }
     },
     "micu": {
@@ -2658,6 +2862,10 @@
         "ru-RU": "API Micu для Claude-совместимых моделей",
         "ja-JP": "Micu API、Claude 互換モデル",
         "es-ES": "API de Micu para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://docs.micuapi.ai/",
+        "pricing": "https://www.micuapi.ai/pricing"
       }
     },
     "ctok": {
@@ -2704,6 +2912,10 @@
         "ru-RU": "API CTok.ai для Claude-совместимых моделей",
         "ja-JP": "CTok.ai API、Claude 互換モデル",
         "es-ES": "API de CTok.ai para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://docs.ctok.ai/",
+        "pricing": "https://ctok.ai/pricing"
       }
     },
     "eflowcode": {
@@ -2750,6 +2962,10 @@
         "ru-RU": "API E-FlowCode для Claude-совместимых моделей",
         "ja-JP": "E-FlowCode API、Claude 互換モデル",
         "es-ES": "API de E-FlowCode para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://e-flowcode.cc/",
+        "pricing": "https://e-flowcode.cc/"
       }
     },
     "lemondata": {
@@ -2796,6 +3012,10 @@
         "ru-RU": "API LemonData для Claude-совместимых моделей",
         "ja-JP": "LemonData API、Claude 互換モデル",
         "es-ES": "API de LemonData para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://docs.lemondata.cc/",
+        "pricing": "https://lemondata.cc/pricing"
       }
     },
     "pipellm": {
@@ -2842,6 +3062,10 @@
         "ru-RU": "API PIPELLM для Claude-совместимых моделей",
         "ja-JP": "PIPELLM API、Claude 互換モデル",
         "es-ES": "API de PIPELLM para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://docs.pipellm.ai/",
+        "pricing": "https://pipellm.ai/pricing"
       }
     },
     "opencode": {
@@ -2880,6 +3104,10 @@
         "ru-RU": "Конечная точка OpenCode Go для Claude-совместимых моделей",
         "ja-JP": "OpenCode Go エンドポイント、Claude 互換モデル",
         "es-ES": "Endpoint de OpenCode Go para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://opencode.ai/docs/",
+        "pricing": "https://opencode.ai/pricing"
       }
     },
     "opencode_zen": {
@@ -2923,6 +3151,10 @@
         "ru-RU": "Бесплатная конечная точка OpenCode Zen для Claude-совместимых моделей",
         "ja-JP": "OpenCode Zen 無料エンドポイント、Claude 互換モデル",
         "es-ES": "Endpoint gratuito de OpenCode Zen para modelos compatibles con Claude"
+      },
+      "source_urls": {
+        "docs": "https://opencode.ai/docs/zen/",
+        "pricing": "https://opencode.ai/pricing"
       }
     },
     "newapi": {
@@ -2961,6 +3193,10 @@
         "ru-RU": "Совместимый с New API / One-API экземпляр агрегатора",
         "ja-JP": "New API / One-API 互換の中継アグリゲートインスタンス",
         "es-ES": "Instancia de agregador compatible con New API / One-API"
+      },
+      "source_urls": {
+        "docs": "https://docs.newapi.pro/",
+        "pricing": "https://docs.newapi.pro/pricing"
       }
     },
     "claude_code": {
@@ -3007,6 +3243,10 @@
         "ru-RU": "Прозрачный пропуск аутентификации подписки Claude Code",
         "ja-JP": "Claude Code サブスクリプション認証のパススルー",
         "es-ES": "Passthrough para autenticación de suscripción de Claude Code"
+      },
+      "source_urls": {
+        "docs": "https://docs.anthropic.com/en/docs/claude-code/overview",
+        "pricing": "https://www.anthropic.com/pricing"
       }
     }
   }
