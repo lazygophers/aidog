@@ -958,6 +958,8 @@
   "platform.share.format.base64": "Base64",
   "platform.share.format.json": "JSON",
   "platform.share.format.yaml": "YAML",
+  "platform.share.qrTooLong": "Inhalt zu lang für QR-Code, bitte Link kopieren verwenden",
+  "platform.share.scanToImport": "Scannen zum Importieren",
   "platform.share.title": "Plattform teilen",
   "platform.share.warning": "Der geteilte Inhalt enthält einen API-Schlüssel im Klartext. Senden Sie ihn nur an vertrauenswürdige Empfänger und veröffentlichen Sie ihn niemals.",
   "platform.testFail": "Test fehlgeschlagen",

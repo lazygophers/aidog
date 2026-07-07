@@ -194,6 +194,7 @@ export function PlatformListView({ s, cardActions, openCreateGroupRef }: {
         <ShareModal
           share={shareData.share}
           title={shareData.name}
+          urlScheme="aidog://platform/import"
           onToast={(text, ok) => { setToast({ text, ok }); setTimeout(() => setToast(null), 3000); }}
           onClose={() => setShareData(null)}
         />

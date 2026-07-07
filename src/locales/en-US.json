@@ -936,6 +936,8 @@
   "platform.share.format.base64": "Base64",
   "platform.share.format.json": "JSON",
   "platform.share.format.yaml": "YAML",
+  "platform.share.qrTooLong": "Content too long for QR code, use copy link instead",
+  "platform.share.scanToImport": "Scan to import",
   "platform.share.title": "Share Platform",
   "platform.share.warning": "The shared content contains a plaintext API key. Only send it to trusted recipients; never publish it publicly.",
   "platform.testFail": "Test failed",
