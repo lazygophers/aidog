@@ -80,6 +80,14 @@
 | defaults-sync-jsdelivr | defaults.json jsDelivr+raw 同步机制 | — | 已完成 | — |
 | price-sync-jsdelivr-migration | price_sync.rs models.json URL 迁移 jsDelivr | — | 已完成 | — |
 | auto-update-toggle | 自动升级设置开关 (默认开, 设置>系统可关) | — | 已完成 | — |
+| locale-zh-hans-rename | locale code zh-CN → zh-Hans 全量 rename | — | 已完成 | — |
+| group-delete-platform-bug | 分组卡片删除平台仅移除关联未删平台 | — | 已完成 | — |
+| platform-presets-rename | platform-presets.json rename (defaults.json) | — | 已完成 | — |
+| models-json-to-defaults | data/models.json → src-tauri/defaults/models.json 迁移 | — | 已完成 | — |
+| repo-cleanup-empty-temp-bak | 仓库清理: 空文件夹/空文件/临时/备份 | — | 已完成 | — |
+| protocols-i18n-name-desc-search | platform-presets protocols 多语言 name/desc + 搜索 (含拼音) | — | 已完成 | — |
+| protocols-source-url | platform-presets protocols 数据源站点 URL | — | 已完成 | — |
+| protocol-logo-homepage | platform-presets protocols homepage + logo (本地缓存) | — | 已完成 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -88,13 +96,5 @@
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
-| locale-zh-hans-rename | locale code zh-CN → zh-Hans 全量 rename | — | 已完成 | — |
-| group-delete-platform-bug | 分组卡片删除平台仅移除关联未删平台 | — | 已完成 | — |
-| platform-presets-rename | platform-presets.json rename (defaults.json) | — | 已完成 | — |
-| models-json-to-defaults | data/models.json → src-tauri/defaults/models.json 迁移 | — | 已完成 | — |
-| repo-cleanup-empty-temp-bak | 仓库清理: 空文件夹/空文件/临时/备份 | — | 已完成 | — |
-| protocols-i18n-name-desc-search | platform-presets protocols 多语言 name/desc + 搜索 (含拼音) | — | 已完成 | — |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-i18n-name-desc-search | 07-07-protocols-i18n-name-desc-search | trellisx-start |
-| protocols-source-url | platform-presets protocols 数据源站点 URL | — | 已完成 | — |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-source-url | 07-07-protocols-source-url | trellisx-start |
-| protocol-logo-homepage | platform-presets protocols homepage + logo (本地缓存) | — | 已完成 | — |

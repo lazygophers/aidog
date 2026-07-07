@@ -1,5 +1,5 @@
 ---
-updated: 2026-07-06
+updated: 2026-07-07
 rewrite-version: 1
 authored-by: trellisx-spec
 mode: optimize
@@ -26,3 +26,4 @@ mode: optimize
 - [HTTP Client Forward](./http-client-forward.md) — 上游转发 reqwest client 契约（**build_http_client use_proxy=false 分支必须 .no_proxy() 禁 env proxy**, 否则读 HTTPS_PROXY env 指向自己形成 CONNECT 隧道无限递归 → h2 stream CANCEL; use_proxy=true 的 .proxy(explicit) 自动禁 env 无需额外调用; 共享函数一处修复全部 forward 调用点受益)
 - [Proxy Diagnostic Headers](./proxy-diagnostic-headers.md) — debug build 诊断响应 header 注入契约（**MUST 复用 headers.rs::inject_trace_header helper**, id 取值链 current_trace_id→new_trace_id, header 名小写, **blind_relay 物理豁免** TCP 字节透传不可注入, release LLVM dead branch 消除 0 开销)
 - [Logging Format](./logging-format.md) — 日志格式 + traceid 取值链契约（**MUST 5 段字段顺序** time/level/file:line func/msg/traceid, **console ANSI on / file ANSI off**, **traceid 三级兜底** span scope→thread-local→gen, **id 6 [0-9a-z] 多级 `.`**, **base36 双轨映射** proxy 请求反查, **spawn_traced MUST** 异步分支禁裸 tokio::spawn, 健康端点 span MUST, 与 header spec 互为对偶）
+- [Platform Logo Sync](./platform-logo-sync.md) — 协议 logo 三路 fallback 契约（**MUST 顺序固定** simpleicons slug → favicon → clearbit 首成功即止, **命中=size>0** 空文件视 miss, **统一 .png** ICO 也强存, **0 字节拒写** 防永久污染, **复用 build_http_client_system** 禁 env proxy 防递归, presets JSON 读取同 get_defaults_json 优先级独立 include_str!）
