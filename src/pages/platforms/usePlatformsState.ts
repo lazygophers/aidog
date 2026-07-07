@@ -19,6 +19,7 @@ import { pinyinMatch } from "../../utils/pinyin";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
 import { usePlatformQuota, getPrimaryBaseUrl } from "./usePlatformQuota";
 import { usePlatformForm } from "./usePlatformForm";
+import { type PeakWindow } from "../../domains/platforms";
 
 export interface PlatformsStateParams {
   onNavigate?: (id: string, context?: { platformId?: number; platformName?: string; duplicate?: boolean }) => void;
@@ -120,6 +121,8 @@ export interface PlatformsState extends PlatformsStateParams {
   breakerOpenSecs: string; setBreakerOpenSecs: React.Dispatch<React.SetStateAction<string>>;
   breakerHalfOpenMax: string; setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
   breakerDefaults: SchedulingBreakerSettings | null;
+  peakHours: PeakWindow[]; setPeakHours: React.Dispatch<React.SetStateAction<PeakWindow[]>>;
+  peakHoursTz: "local" | "utc"; setPeakHoursTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
   autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
   joinGroupIds: number[]; setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
   levelPriority: number; setLevelPriority: React.Dispatch<React.SetStateAction<number>>;

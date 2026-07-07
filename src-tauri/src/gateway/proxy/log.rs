@@ -49,6 +49,8 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
                 log.input_tokens,
                 log.output_tokens,
                 log.cache_tokens,
+                log.platform_id as i64,
+                log.created_at,
             )
             .await;
         }
@@ -110,6 +112,8 @@ pub(crate) async fn upsert_log(state: &Arc<ProxyState>, log: &ProxyLog, settings
             cols.input_tokens,
             cols.output_tokens,
             cols.cache_tokens,
+            cols.platform_id,
+            cols.created_at,
         )
         .await;
     }

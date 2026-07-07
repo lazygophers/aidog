@@ -11,6 +11,7 @@ import {
   platformApi, settingsApi, groupDetailApi,
   parseMockConfig, serializeMockConfig, parseNewApiConfig, serializeNewApiConfig,
   parsePlatformBreaker, serializePlatformBreaker,
+  parsePlatformPeakHours, serializePlatformPeakHours,
   DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
   type PlatformUsageStats, type LastTestResult, type MockConfig, type NewApiConfig,
@@ -22,7 +23,7 @@ import { type SmartPasteApplyResult } from "../../components/platforms/SmartPast
 import {
   PROTOCOL_LABELS, MODEL_SLOTS, DEFAULT_NAMES,
   getDefaultEndpoints, getDefaultModels,
-  autoCategorize,
+  autoCategorize, type PeakWindow,
 } from "../../domains/platforms";
 import { getPrimaryBaseUrl } from "./usePlatformQuota";
 import { applyPaste as applyPasteImpl, runBatchCreateFromPaste as runBatchCreateFromPasteImpl, previewBatchNames, type PlatformPasteCtx } from "./platformPasteApply";
@@ -108,6 +109,8 @@ export interface PlatformFormState {
   breakerOpenSecs: string; setBreakerOpenSecs: React.Dispatch<React.SetStateAction<string>>;
   breakerHalfOpenMax: string; setBreakerHalfOpenMax: React.Dispatch<React.SetStateAction<string>>;
   breakerDefaults: SchedulingBreakerSettings | null;
+  peakHours: PeakWindow[]; setPeakHours: React.Dispatch<React.SetStateAction<PeakWindow[]>>;
+  peakHoursTz: "local" | "utc"; setPeakHoursTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
   autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
   joinGroupIds: number[]; setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
   levelPriority: number; setLevelPriority: React.Dispatch<React.SetStateAction<number>>;
@@ -185,6 +188,9 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [breakerFailureThreshold, setBreakerFailureThreshold] = useState<string>("");
   const [breakerOpenSecs, setBreakerOpenSecs] = useState<string>("");
   const [breakerHalfOpenMax, setBreakerHalfOpenMax] = useState<string>("");
+  // peak_hours（用户覆盖，存 platform.extra.peak_hours；时区仅前端态，默认本地）
+  const [peakHours, setPeakHours] = useState<PeakWindow[]>([]);
+  const [peakHoursTz, setPeakHoursTz] = useState<"local" | "utc">("local");
   // 分组归属选项：auto_group（是否建默认分组，默认勾）+ join_group_ids（加入的已有分组）。
   const [autoGroup, setAutoGroup] = useState(true);
   const [joinGroupIds, setJoinGroupIds] = useState<number[]>([]);
@@ -265,6 +271,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setNewApiConfig({ ...DEFAULT_NEWAPI_CONFIG });
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
+    setPeakHours([]); setPeakHoursTz("local");
     setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setLevelPriority(5); setExpiresAt(0); setExpiryEnabled(false);
     // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
     // 平台第二次编辑会被 consumedEditPidRef 短路（initialFilter.platformId 值不变，effect 亦不重跑）。
@@ -319,6 +326,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
+    setPeakHours(parsePlatformPeakHours(p.extra ?? ""));
     setLockedGroupId(null);
     // 反查该平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
     try {
@@ -386,6 +394,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       setBreakerOpenSecs(brk.open_secs > 0 ? String(brk.open_secs) : "");
       setBreakerHalfOpenMax(brk.half_open_max > 0 ? String(brk.half_open_max) : "");
     }
+    setPeakHours(parsePlatformPeakHours(p.extra ?? ""));
     setLockedGroupId(null);
     // 反查源平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
     try {
@@ -623,6 +632,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
         open_secs: toBreakerNum(breakerOpenSecs),
         half_open_max: toBreakerNum(breakerHalfOpenMax),
       });
+      // peak_hours：空数组 → 移除键（无覆盖 → 用 preset 默认）；非空写入。
+      extraPayload = serializePlatformPeakHours(extraPayload, peakHours);
       const extraArg = extraPayload ? extraPayload : undefined;
       // 手动预算：所有平台可设（含 mock / 有上游配额支持的平台），仅透传订阅强制清空。
       const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
@@ -741,6 +752,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     breakerOpenSecs, setBreakerOpenSecs,
     breakerHalfOpenMax, setBreakerHalfOpenMax,
     breakerDefaults,
+    peakHours, setPeakHours, peakHoursTz, setPeakHoursTz,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds,
     levelPriority, setLevelPriority, expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
     lockedGroupId, setLockedGroupId,

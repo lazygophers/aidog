@@ -2,6 +2,22 @@ import type { Protocol, PlatformEndpoint, ModelSlot, ClientType } from "../../se
 import { getDefaultsJson } from "../../services/api";
 import { PROTOCOLS } from "./constants";
 
+/** 高峰/低峰时段倍率窗口（多窗口数组，UTC+0 基准）。
+ *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak_hours。
+ *  absent / 空数组 = 无调整（multiplier 1.0）。
+ *  多窗口 first-match wins（数组顺序，命中第一个即用其 multiplier；都不命中 = 1.0）。
+ *  跨天窗口：end_hour < start_hour（半开 [start,end)，22→6 = 22:00-06:00 次日）。 */
+export type PeakWindow = {
+  /** 0-23 UTC+0，含起始 */
+  start_hour: number;
+  /** 0-23 UTC+0，不含结束；<start_hour 表跨天 */
+  end_hour: number;
+  /** >0；>1 加价 / <1 折扣 / =1 无意义（勿存） */
+  multiplier: number;
+  /** 可选；0=Sunday…6=Saturday；absent = 每天适用 */
+  days_of_week?: number[];
+};
+
 /** defaults.json 运行时缓存：进程内只拉一次 Tauri command，5 函数共享。
  *  bundled/app-data 内容在会话内不变；同步链写入由后端覆盖下次进程启动。
  *  ponytail: 模块加载即发 invoke（Promise），5 函数 await 它 — 单次 RPC 共享，零状态机。 */
@@ -24,6 +40,11 @@ type DefaultsDoc = {
     homepage?: string;
     /** simpleicons.org slug（Rust logo_sync 拼 https://cdn.simpleicons.org/<slug>）；空串走 favicon/clearbit fallback。 */
     logo_url?: string;
+    /** 高峰/低峰时段倍率（多窗口，UTC+0 基准）。
+     *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak_hours。
+     *  absent / 空数组 = 无调整（multiplier 1.0）。
+     *  多窗口 first-match wins。跨天: end_hour < start_hour（半开 [start,end)）。 */
+    peak_hours?: PeakWindow[];
   }>>;
 };
 

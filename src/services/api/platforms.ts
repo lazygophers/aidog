@@ -2,6 +2,7 @@
 
 import { invoke } from "@tauri-apps/api/core";
 import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, ModelPriceSummary, ResolvedPrice, PriceSyncResult, ModelPriceFilter } from "./types";
+import type { PeakWindow } from "../../domains/platforms/defaults";
 
 export const DEFAULT_MOCK_CONFIG: MockConfig = {
   status_code: 200,
@@ -142,6 +143,39 @@ export function serializePlatformBreaker(extra: string, b: PlatformBreaker): str
     delete obj.breaker;
   } else {
     obj.breaker = b;
+  }
+  return JSON.stringify(obj);
+}
+
+/** 从 platform.extra JSON 解析 peak_hours 窗口（用户覆盖）。
+ *  缺失 / 非法 / 空数组 → []（caller 退 preset 默认或 1.0）。 */
+export function parsePlatformPeakHours(extra: string): PeakWindow[] {
+  if (!extra.trim()) return [];
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && "peak_hours" in parsed) {
+      const arr = (parsed as { peak_hours: unknown }).peak_hours;
+      if (Array.isArray(arr)) return arr as PeakWindow[];
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+/** 把 peak_hours 窗口写回 extra JSON（保留其余键）。空数组 → 移除 peak_hours 键（无覆盖→用 preset 默认）。 */
+export function serializePlatformPeakHours(extra: string, windows: PeakWindow[]): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* ignore */ }
+  }
+  if (windows.length === 0) {
+    delete obj.peak_hours;
+  } else {
+    obj.peak_hours = windows;
   }
   return JSON.stringify(obj);
 }
