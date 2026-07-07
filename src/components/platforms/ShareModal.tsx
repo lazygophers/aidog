@@ -68,12 +68,11 @@ export function ShareModal<T extends object = Record<string, unknown>>({
   urlScheme,
 }: ShareModalProps<T>) {
   const { t } = useTranslation();
-  const [format, setFormat] = useState<ShareFormat>("yaml");
+  // ponytail: url 格式优先排首位（深链是推荐分享格式），仅 urlScheme 存在时才有
+  const formats: ShareFormat[] = urlScheme ? ["url", ...BASE_FORMATS] : BASE_FORMATS;
+  const [format, setFormat] = useState<ShareFormat>(urlScheme ? "url" : "yaml");
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // ponytail: url 格式仅 urlScheme 存在时可选（深链唤起场景）
-  const formats: ShareFormat[] = urlScheme ? [...BASE_FORMATS, "url"] : BASE_FORMATS;
 
   const text = useMemo(() => formatShare(share, format, urlScheme), [share, format, urlScheme]);
 
