@@ -1,0 +1,29 @@
+{
+  "id": "peak-disable",
+  "name": "peak-disable",
+  "title": "平台高峰期禁用开关 disable_during_peak",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "nico",
+  "assignee": "nico",
+  "createdAt": "2026-07-07",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "07-07-peak-hours-multiplier",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "depends_on": [
+    "peak-hours-multiplier"
+  ]
+}
