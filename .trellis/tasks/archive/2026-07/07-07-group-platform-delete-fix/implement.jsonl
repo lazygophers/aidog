@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/frontend/conventions.md", "reason": "前端 MUST 规则（组件/state/API/类型/Hook），改 Groups.tsx + GroupListView.tsx 前必读"}
+{"file": ".trellis/spec/frontend/locale-tag-cross-layer.md", "reason": "i18n key 跨层一致性（zh-Hans BCP47），新增 4 个 locale key 必遵"}
+{"file": ".trellis/spec/guides/trellisx-conventions.md", "reason": "task 实施 5 步流程 + check 闭环分工"}

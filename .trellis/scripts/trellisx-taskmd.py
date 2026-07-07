@@ -3,7 +3,7 @@
 #
 # 用法:
 #   trellisx-taskmd.py sync <create|start|archive>   # hook 用: 读 $TASK_JSON_PATH 同步确定性列
-#   trellisx-taskmd.py update <tid> [--status S] [--worktree W]
+#   trellisx-taskmd.py update <tid> [--status S] [--worktree W] [--deps "a,b"]
 #   trellisx-taskmd.py show [tid]                     # 打印看板 (或某任务行)
 #   trellisx-taskmd.py cleanup [--days 7]             # 清理超 N 天的已完成行
 #   trellisx-taskmd.py map-add <wt> <tid> [创建源]    # upsert worktree↔task 映射 (一对多)
@@ -13,11 +13,14 @@
 #   trellisx-taskmd.py lint                           # 合规退0; 否则退1+stderr
 #   trellisx-taskmd.py fix                            # 机械修复 (列对齐/状态归一/去重)
 #
-# 列分工 (5 列): hook(sync) 维护 ID/名称/描述/状态; AI(update) 细化状态 (阶段) + worktree。
+# 列分工 (6 列): hook(sync) 维护 ID/名称/描述/状态; AI(update) 细化状态 (阶段) + worktree + 前置。
+# 前置列 (DAG): 该 task 的前置节点 ID (多个逗号分隔), 无依赖填 —。数据源两路:
+#   sync 从 task.json depends_on 渲染 (真值源, 非空优先); update --deps 同时写回 task.json depends_on (真值源) + 看板, 二者恒一致。
+#   真值源写入口两路: task.py set-deps/--depends-on (原生调度器) 与 taskmd update --deps (trellisx-owned), 均落 task.json。
 # 状态列承载生命周期阶段: 规划中/实施中/检查中/收尾/已完成/已归档。
 # 冲突规则: hook sync 写基础态 (规划中/实施中/已完成/已归档); 若 AI 已写细分 (实施中/检查中/收尾),
 #           hook sync 不覆 AI 细分 (如 AI 写"检查中", hook 不会强覆为"实施中")。
-import json, os, re, sys
+import glob, json, os, re, sys
 from datetime import date
 
 # 状态列取值 (合并原"状态"+"阶段"): 基础态由 hook sync 写, 细分态由 AI update 写
@@ -28,9 +31,8 @@ STATUS_REFINED = {"实施中", "检查中", "收尾"}
 STATUS_ALL = set(STATUS_BASE.values()) | STATUS_REFINED
 HEADER = (
     "# Trellis 任务看板\n\n"
-    "> 由 trellisx-workspace 维护 (经 trellisx-taskmd.py); task 生命周期节点后及时更新。\n\n"
-    "| ID | 名称 | 描述 | 状态 | worktree |\n"
-    "| --- | --- | --- | --- | --- |\n"
+    "| ID | 名称 | 描述 | 状态 | worktree | 前置 |\n"
+    "| --- | --- | --- | --- | --- | --- |\n"
 )
 
 # 独立的 worktree ↔ task 映射区 (单表设计的明确例外: 主表一行一 task, 但 worktree
@@ -39,11 +41,13 @@ HEADER = (
 MAP_MARK = "## Worktree ↔ Task 映射"
 MAP_HEADER = (
     "\n" + MAP_MARK + "\n\n"
-    "> 每个活跃 worktree 登记映射到的 task (一对多: 同 task 拆多 subagent 各占一行);\n"
-    "> 无映射的 worktree 由 WorktreeCreate hook 提醒补登。\n\n"
     "| worktree | task | 创建源 |\n"
     "| --- | --- | --- |\n"
 )
+
+# 依赖关系图: 从主表「前置」列自动渲染的 mermaid DAG (每次写盘重建, 恒不 stale)。
+# 前置列是真值投影, 图是其可视化; 无任何依赖边时不出图段。
+GRAPH_MARK = "## 依赖关系图 (DAG)"
 
 
 def trellis_root_from(path):
@@ -76,7 +80,65 @@ def load_md(troot):
     return md
 
 
+def strip_section(md, mark):
+    """删除 md 中以 mark 开头、到下一个 `## ` 段 (或 EOF) 为止的整段。"""
+    if mark not in md:
+        return md
+    head = md.split(mark, 1)[0]
+    rest = md.split(mark, 1)[1]
+    m = re.search(r"(?m)^## ", rest)
+    tail = rest[m.start():] if m else ""
+    return (head.rstrip() + ("\n\n" + tail if tail else "\n")).rstrip() + "\n"
+
+
+def main_edges(md):
+    """从主表 (首个 `## ` 段之前) 的「前置」列抽 DAG 边 → [(前置, task)]。"""
+    seg = re.split(r"(?m)^## ", md, maxsplit=1)[0]
+    edges = []
+    for ln in seg.splitlines():
+        if ln.startswith("| ") and not ln.startswith("| ID |") and not ln.startswith("| --- |"):
+            c = row_cells(ln)
+            if len(c) >= 6 and c[5] and c[5] != "—":
+                for p in c[5].split(","):
+                    p = p.strip()
+                    if p:
+                        edges.append((p, c[0]))
+    return edges
+
+
+def graph_edges(md):
+    """解析已渲染图段的边 → [(前置, task)]; 无图段返回 None (区别于空 [])。"""
+    if GRAPH_MARK not in md:
+        return None
+    seg = md.split(GRAPH_MARK, 1)[1]
+    m = re.search(r"(?m)^## ", seg)
+    if m:
+        seg = seg[:m.start()]
+    edges = []
+    for ln in seg.splitlines():
+        mm = re.match(r"\s*(\S+)\s*-->\s*(\S+)\s*$", ln)
+        if mm:
+            edges.append((mm.group(1), mm.group(2)))
+    return edges
+
+
+def render_graph(md):
+    """重建依赖关系图段: 从主表前置列渲染 mermaid DAG, 插到主表后、映射区前。
+    无依赖边 → 不出图段。恒幂等 (先 strip 旧段再重建)。"""
+    md = strip_section(md, GRAPH_MARK)
+    edges = main_edges(md)
+    if not edges:
+        return md
+    body = "".join(f"  {p} --> {t}\n" for p, t in edges)
+    block = GRAPH_MARK + "\n\n```mermaid\nflowchart TD\n" + body + "```\n"
+    if MAP_MARK in md:
+        head = md.split(MAP_MARK, 1)[0]
+        return head.rstrip() + "\n\n" + block + "\n" + MAP_MARK + md.split(MAP_MARK, 1)[1]
+    return md.rstrip() + "\n\n" + block
+
+
 def save_md(troot, md):
+    md = render_graph(md)  # 每次写盘重建依赖图, 与前置列恒一致
     open(taskmd_path(troot), "w", encoding="utf-8").write(md)
 
 
@@ -91,8 +153,13 @@ def find_row(md, tid):
 
 def write_row(md, tid, cells):
     row = f"| {tid} | " + " | ".join(cells) + " |"
-    m = find_row(md, tid)
-    return re.sub(rf"(?m)^\| {re.escape(tid)} \|.*$", row, md) if m else (md.rstrip() + "\n" + row + "\n")
+    if find_row(md, tid):
+        return re.sub(rf"(?m)^\| {re.escape(tid)} \|.*$", row, md)
+    # 新行插到主表末尾 (首个 `## ` 段之前), 不落到图段/映射区之后
+    m = re.search(r"(?m)^## ", md)
+    if m:
+        return md[:m.start()].rstrip() + "\n" + row + "\n\n" + md[m.start():]
+    return md.rstrip() + "\n" + row + "\n"
 
 
 def completed_at(troot, tid):
@@ -103,6 +170,34 @@ def completed_at(troot, tid):
         except Exception:
             return None
     return None
+
+
+def find_task_json_by_id(troot, tid):
+    """解析看板 tid (slug) → 对应 task.json 路径。dir 带日期前缀故需扫描匹配 id/basename。"""
+    for tj in glob.glob(os.path.join(troot, ".trellis", "tasks", "*", "task.json")):
+        d = os.path.basename(os.path.dirname(tj))
+        if d == tid:
+            return tj
+        try:
+            if json.load(open(tj, encoding="utf-8")).get("id") == tid:
+                return tj
+        except Exception:
+            continue
+    return None
+
+
+def write_depends_on(troot, tid, deps_list):
+    """把看板 --deps 写回 task.json depends_on (真值源), 让 taskmd 成为 trellisx-owned 写入口。"""
+    tj = find_task_json_by_id(troot, tid)
+    if not tj:
+        return False
+    try:
+        data = json.load(open(tj, encoding="utf-8"))
+    except Exception:
+        return False
+    data["depends_on"] = deps_list
+    json.dump(data, open(tj, "w", encoding="utf-8"), ensure_ascii=False, indent=2)
+    return True
 
 
 def cleanup(md, troot, days):
@@ -193,18 +288,21 @@ def cmd_sync(action):
 
     md = load_md(troot)
     m = find_row(md, tid)
-    # 保留 AI 列 (worktree); 状态列按合并规则处理
+    # 保留 AI 列 (worktree/前置); 状态列按合并规则处理
     if m:
         c = row_cells(m.group(0))
         # 兼容旧 7 列数据 (迁移期): 取前 3 列 + 状态 + worktree (旧 worktree 在 c[6])
         cur_status = c[3] if len(c) > 3 and c[3] else STATUS_BASE.get(status, "规划中")
-        # 旧 7 列 → 新 5 列: worktree 原在 c[6], 现在最后一列
-        if len(c) >= 7:
-            wt = c[6] if c[6] else "—"
-        else:
+        if len(c) >= 7:            # 旧 7 列: worktree=c[6], 无前置概念
+            wt, cur_deps = (c[6] if c[6] else "—"), "—"
+        elif len(c) >= 6:          # 新 6 列: worktree=c[4], 前置=c[5]
+            wt = c[4] if c[4] else "—"
+            cur_deps = c[5] if c[5] else "—"
+        else:                      # 5 列 legacy: worktree=c[4], 无前置
             wt = c[4] if len(c) > 4 and c[4] else "—"
+            cur_deps = "—"
     else:
-        cur_status, wt = STATUS_BASE.get(status, "规划中"), "—"
+        cur_status, wt, cur_deps = STATUS_BASE.get(status, "规划中"), "—", "—"
 
     # 状态合并规则: hook sync 写基础态; 若 AI 已写细分 (实施中/检查中/收尾), 不覆
     base_status = STATUS_BASE.get(status, status)
@@ -219,7 +317,10 @@ def cmd_sync(action):
         else:
             new_status = base_status
 
-    md = write_row(md, tid, [title, desc, new_status, wt])
+    # 前置来源合并: task.json depends_on 非空 → 优先渲染; 否则保留看板现值 (让 update --deps 存活)
+    deps_json = ", ".join(meta.get("depends_on") or [])
+    new_deps = deps_json if deps_json else cur_deps
+    md = write_row(md, tid, [title, desc, new_status, wt, new_deps])
     if action == "archive":
         md = cleanup(md, troot, 7)
         md = map_remove_by_tid(md, tid)  # 归档顺带清该 task 的 worktree 映射
@@ -229,13 +330,13 @@ def cmd_sync(action):
 
 def cmd_update(argv):
     if not argv:
-        print("用法: update <tid> [--status S] [--worktree W]", file=sys.stderr)
+        print("用法: update <tid> [--status S] [--worktree W] [--deps \"a,b\"]", file=sys.stderr)
         sys.exit(1)
     tid = argv[0]
     opts = {}
     i = 1
     while i < len(argv) - 1:
-        if argv[i] in ("--status", "--worktree"):
+        if argv[i] in ("--status", "--worktree", "--deps"):
             opts[argv[i][2:]] = argv[i + 1]
             i += 2
         else:
@@ -249,17 +350,22 @@ def cmd_update(argv):
     if not m:
         print(f"trellisx: task.md 无 {tid} 行 (先 sync create)", file=sys.stderr)
         sys.exit(1)
-    c = row_cells(m.group(0))      # [id,名称,描述,状态,worktree]
-    # 兼容旧 7 列 → 取前 3 列 + 状态 + worktree(旧 c[6])
+    c = row_cells(m.group(0))      # [id,名称,描述,状态,worktree,前置]
+    # 兼容旧 7 列 → 取前 3 列 + 状态 + worktree(旧 c[6]), 无前置
     if len(c) >= 7:
-        title, desc, status, wt = c[1], c[2], c[3], c[6]
+        title, desc, status, wt, deps = c[1], c[2], c[3], c[6], "—"
     else:
-        while len(c) < 5:
+        while len(c) < 6:
             c.append("—")
-        title, desc, status, wt = c[1], c[2], c[3], c[4]
+        title, desc, status, wt, deps = c[1], c[2], c[3], c[4], c[5]
     if "status" in opts: status = opts["status"]
     if "worktree" in opts: wt = opts["worktree"]
-    md = write_row(md, tid, [title, desc, status, wt])
+    if "deps" in opts:
+        deps = opts["deps"] or "—"
+        # 写回 task.json depends_on (真值源), taskmd 即 trellisx-owned 写入口
+        deps_list = [d.strip() for d in opts["deps"].split(",") if d.strip()] if opts["deps"] else []
+        write_depends_on(troot, tid, deps_list)
+    md = write_row(md, tid, [title, desc, status, wt, deps])
     save_md(troot, md)
     print(f"trellisx: {tid} 已更新 {opts}", file=sys.stderr)
 
@@ -290,6 +396,94 @@ def cmd_cleanup(argv):
     md = cleanup(load_md(troot), troot, days)
     save_md(troot, md)
     print(f"trellisx: 已清理超 {days} 天的已完成行", file=sys.stderr)
+
+
+def live_tids(troot):
+    """真值源现存 task id 集合 (task.json 的 id 或目录名)。"""
+    out = set()
+    for tj in glob.glob(os.path.join(troot, ".trellis", "tasks", "*", "task.json")):
+        d = os.path.basename(os.path.dirname(tj))
+        out.add(d)
+        try:
+            i = json.load(open(tj, encoding="utf-8")).get("id")
+            if i:
+                out.add(i)
+        except Exception:
+            pass
+    return out
+
+
+def remove_main_row(md, tid):
+    """删主表 (首个 `## ` 段前) 中首列 == tid 的数据行。返回 (新md, 命中数)。"""
+    m = re.search(r"(?m)^## ", md)
+    cut = m.start() if m else len(md)
+    head, tail = md[:cut], md[cut:]
+    keep, n = [], 0
+    for ln in head.splitlines():
+        if ln.startswith("| ") and row_cells(ln)[0] == tid:
+            n += 1
+            continue
+        keep.append(ln)
+    return ("\n".join(keep).rstrip() + "\n" + ("\n" + tail if tail else ""), n)
+
+
+def cmd_del(argv):
+    """del <tid> — 删单个 task 的看板主表行 + 其 worktree 映射行 (图段自动重渲染)。
+    不动 task.json 真值; 用于误建/放弃的 task。命中退 0, 无该行退 1。"""
+    if not argv:
+        print("用法: trellisx-taskmd.py del <tid>", file=sys.stderr)
+        sys.exit(2)
+    tid = argv[0]
+    troot = find_trellis_root()
+    if not troot:
+        print("trellisx: 未找到 .trellis", file=sys.stderr)
+        sys.exit(1)
+    md = load_md(troot)
+    md, n = remove_main_row(md, tid)
+    md = map_remove_by_tid(md, tid)
+    if not n:
+        print(f"trellisx del: 主表无 {tid} 行", file=sys.stderr)
+        sys.exit(1)
+    save_md(troot, md)
+    print(f"trellisx: 已删 {tid} (主表行 + 其映射)", file=sys.stderr)
+    sys.exit(0)
+
+
+def cmd_clean(_argv):
+    """clean — 对账删孤儿: task.json 已不存在的看板主表行 + 映射行 (tid 非 ? 且不在真值集)。
+    区别于 cleanup (时间维度瘦身)。图段自动重渲染。打印删除项。"""
+    troot = find_trellis_root()
+    if not troot:
+        print("trellisx: 未找到 .trellis", file=sys.stderr)
+        sys.exit(1)
+    md = load_md(troot)
+    live = live_tids(troot)
+    # 主表孤儿行
+    orphans = []
+    m = re.search(r"(?m)^## ", md)
+    head = md[:m.start()] if m else md
+    for ln in head.splitlines():
+        if (ln.startswith("| ") and not ln.startswith("| ID |")
+                and not ln.startswith("| --- |")):
+            c = row_cells(ln)
+            if c[0] and c[0] not in live:
+                orphans.append(c[0])
+    for tid in orphans:
+        md, _ = remove_main_row(md, tid)
+        md = map_remove_by_tid(md, tid)
+    # 映射孤儿行 (tid 非 ? 且不在真值集; ? 留给 UserPromptSubmit 补登)
+    map_orphans = [tid for _, tid, _, _ in map_rows(md)
+                   if tid and tid != "?" and tid not in live and tid not in orphans]
+    for tid in map_orphans:
+        md = map_remove_by_tid(md, tid)
+    save_md(troot, md)
+    total = orphans + map_orphans
+    if total:
+        print(f"trellisx: 清理孤儿 {len(total)} 项 (真值已删): {', '.join(total)}",
+              file=sys.stderr)
+    else:
+        print("trellisx: 无孤儿行 (看板与 task.json 一致)", file=sys.stderr)
+    sys.exit(0)
 
 
 def cmd_map_add(argv):
@@ -357,7 +551,7 @@ def cmd_map_list(_argv):
 
 def cmd_lint(_argv):
     """lint — 合规退 0; 否则退 1 + stderr 列问题。
-    规则: 主表数据行 5 列 / 映射区数据行 3 列 / 状态 ∈ 合法集 /
+    规则: 主表数据行 6 列 / 映射区数据行 3 列 / 状态 ∈ 合法集 /
           主表 ID 不重复。"""
     troot = find_trellis_root()
     if not troot:
@@ -374,8 +568,8 @@ def cmd_lint(_argv):
         if (ln.startswith("| ") and not ln.startswith("| ID |")
                 and not ln.startswith("| --- |")):
             c = row_cells(ln)
-            if len(c) != 5:
-                errs.append(f"主表数据行列数 {len(c)}≠5: {ln.strip()}")
+            if len(c) != 6:
+                errs.append(f"主表数据行列数 {len(c)}≠6: {ln.strip()}")
                 continue
             if c[3] not in STATUS_ALL:
                 errs.append(f"主表状态非法 '{c[3]}': {ln.strip()}")
@@ -389,6 +583,14 @@ def cmd_lint(_argv):
             c = row_cells(ln)
             if len(c) != 3:
                 errs.append(f"映射区数据行列数 {len(c)}≠3: {ln.strip()}")
+    # 依赖关系图: 边须 == 主表前置列; 有依赖必出图段, 无依赖必无图段 (跑 fix 收敛)
+    exp, got = sorted(main_edges(md)), graph_edges(md)
+    if exp and got is None:
+        errs.append("有前置依赖但缺 DAG 图段 (跑 fix 重建)")
+    elif not exp and got:
+        errs.append("无前置依赖却有 DAG 图段 (跑 fix 清除)")
+    elif got is not None and sorted(got) != exp:
+        errs.append("DAG 图与前置列不一致 (跑 fix 重建)")
     if errs:
         for e in errs:
             print("trellisx lint: " + e, file=sys.stderr)
@@ -396,17 +598,49 @@ def cmd_lint(_argv):
     sys.exit(0)
 
 
+def cmd_check(_argv):
+    """check — 只读校验看板 ↔ task.json 真值一致性 (lint 是结构自洽, check 是跨源真值)。
+    规则: 每个 task.json 有主表行 / 前置列 == task.json depends_on。
+    一致退 0; 否则退 1 + stderr 列出漂移 (跑 sync 收敛)。"""
+    troot = find_trellis_root()
+    if not troot:
+        print("trellisx: 未找到 .trellis", file=sys.stderr)
+        sys.exit(1)
+    md = load_md(troot)
+    issues = []
+    for tj in glob.glob(os.path.join(troot, ".trellis", "tasks", "*", "task.json")):
+        try:
+            data = json.load(open(tj, encoding="utf-8"))
+        except Exception:
+            issues.append(f"{os.path.dirname(tj)}: task.json 解析失败")
+            continue
+        tid = data.get("id") or os.path.basename(os.path.dirname(tj))
+        deps = sorted(data.get("depends_on") or [])
+        m = find_row(md, tid)
+        if not m:
+            issues.append(f"{tid}: task.json 存在但看板无行 (跑 sync create)")
+            continue
+        c = row_cells(m.group(0))
+        board = [] if len(c) < 6 or c[5] == "—" else [
+            d.strip() for d in c[5].split(",") if d.strip()]
+        if sorted(board) != deps:
+            issues.append(f"{tid}: 前置列 {board or '—'} ≠ depends_on {deps or '[]'}")
+    if issues:
+        for i in issues:
+            print("trellisx check: " + i, file=sys.stderr)
+        sys.exit(1)
+    sys.exit(0)
+
+
 PARK_MARK = "## ⚠ 待人工修正 (无法自动归类的行)"
 PARK_HEADER = (
     "\n" + PARK_MARK + "\n\n"
-    "> 下列行 lint 不合规且无法机械归类 (列数异常且非主表/映射行形态), 已停泊于此防丢失;\n"
-    "> 请人工核对后改回主表或映射区, 或删除。修正后本块应清空。\n\n"
 )
 
 
 def _is_main_data_row(c):
-    """主表数据行: 5 列且第 4 列是合法状态 (中文或英文键)。"""
-    if len(c) != 5:
+    """主表数据行: 6 列且第 4 列是合法状态 (中文或英文键)。"""
+    if len(c) != 6:
         return False
     return c[3] in STATUS_ALL or c[3] in STATUS_BASE
 
@@ -431,7 +665,7 @@ def _norm_main_status(c):
 
 
 def _migrate_old_row(c):
-    """旧 7 列行 (ID/名称/描述/状态/阶段/进度/worktree) → 新 5 列 (ID/名称/描述/状态/worktree)。
+    """旧 7 列行 (ID/名称/描述/状态/阶段/进度/worktree) → 新 6 列 (ID/名称/描述/状态/worktree/前置)。
     状态合并: 旧基础态 (规划中/进行中→实施中/已完成) + 旧阶段 (规划/实施/检查/收尾) → 新状态。"""
     if len(c) < 7:
         return c  # 非旧格式, 原样返回
@@ -455,7 +689,7 @@ def _migrate_old_row(c):
         new_status = "实施中"
     else:
         new_status = base
-    return [c[0], c[1], c[2], new_status, wt]
+    return [c[0], c[1], c[2], new_status, wt, "—"]  # 旧格式无前置概念 → —
 
 
 def cmd_fix(_argv):
@@ -482,9 +716,11 @@ def cmd_fix(_argv):
         if not is_data_line(ln):
             continue
         c = row_cells(ln)
-        # 旧 7 列行先迁移到新 5 列
+        # 旧 7 列行先迁移到新 6 列; 5 列 (旧无前置) 末尾补 —
         if len(c) >= 7:
             c = _migrate_old_row(c)
+        elif len(c) == 5 and (c[3] in STATUS_ALL or c[3] in STATUS_BASE):
+            c = c + ["—"]
         if _is_main_data_row(c):
             c = _norm_main_status(c)
             if c[0] in seen_ids:
@@ -528,10 +764,23 @@ def cmd_fix(_argv):
     sys.exit(0)
 
 
+HELP = """trellisx-taskmd.py — task.md 看板唯一读写入口
+用法: trellisx-taskmd.py <命令> ...
+  sync <create|start|archive>                 从 task.json 同步 (hook 用, 读 $TASK_JSON_PATH)
+  update <tid> [--status S] [--worktree W] [--deps "a,b"]
+  show [tid] | cleanup [--days N] | del <tid> | clean | lint | check | fix
+  map-add <wt> <tid> [源] | map-remove <wt> | map-get <wt> | map-list
+  del=删单个task行 clean=对账删孤儿行(真值已删) cleanup=清超N天已完成行
+  lint=结构自洽(列数/状态/ID/图↔前置列) check=看板↔task.json真值 fix=机械修复"""
+
+
 def main():
+    if any(a in ("-h", "--help") for a in sys.argv[1:]):
+        print(HELP)
+        raise SystemExit(0)
     if len(sys.argv) < 2:
         print("用法: trellisx-taskmd.py "
-              "<sync|update|show|cleanup|map-add|map-remove|map-get|map-list|lint|fix> ...",
+              "<sync|update|show|cleanup|del|clean|map-add|map-remove|map-get|map-list|lint|check|fix> ...",
               file=sys.stderr)
         sys.exit(1)
     cmd = sys.argv[1]
@@ -543,6 +792,10 @@ def main():
         cmd_show(sys.argv[2:])
     elif cmd == "cleanup":
         cmd_cleanup(sys.argv[2:])
+    elif cmd == "del":
+        cmd_del(sys.argv[2:])
+    elif cmd == "clean":
+        cmd_clean(sys.argv[2:])
     elif cmd == "map-add":
         cmd_map_add(sys.argv[2:])
     elif cmd == "map-remove":
@@ -553,6 +806,8 @@ def main():
         cmd_map_list(sys.argv[2:])
     elif cmd == "lint":
         cmd_lint(sys.argv[2:])
+    elif cmd == "check":
+        cmd_check(sys.argv[2:])
     elif cmd == "fix":
         cmd_fix(sys.argv[2:])
     else:
