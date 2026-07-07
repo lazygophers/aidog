@@ -14,6 +14,7 @@ pub mod middleware;
 pub mod mitm;
 pub mod models;
 pub mod notification;
+pub mod peak_hours;
 pub mod price_sync;
 pub mod proxy;
 pub mod quota;

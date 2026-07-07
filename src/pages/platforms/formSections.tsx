@@ -14,7 +14,7 @@ import {
   type NewApiConfig, type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
 import { LevelPriorityControl } from "../../components/platforms/PlatformCard";
-import { newManualBudget } from "../../domains/platforms";
+import { newManualBudget, type PeakWindow } from "../../domains/platforms";
 
 /** 毫秒时间戳 → datetime-local input 值 "YYYY-MM-DDTHH:MM"（本地时区，无秒）。
  *  datetime-local 不解析 ISO Z 后缀，须手动拼本地时间分量。 */
@@ -350,6 +350,144 @@ export function BreakerSection({ defaults, failure, setFailure, openSecs, setOpe
           onChange={e => setHalfOpenMax(e.target.value)}
         />
       </div>
+    </FormSection>
+  );
+}
+
+// ─── Peak Hours（高峰/低峰时段倍率）─────────────────────
+// 时区切换：仅前端运行时态（默认本地，可切 UTC+0），不持久化。
+// 存储恒 UTC+0；展示 / 输入按选中时区换算（display = stored + offset mod 24，保存反向）。
+// offset 用 -new Date().getTimezoneOffset()/60 取本地偏移（DST 安全，禁硬编码表）。
+const LOCAL_OFFSET_HOURS = -new Date().getTimezoneOffset() / 60;
+const WEEKDAY_LABELS = ["S", "M", "T", "W", "T", "F", "S"] as const;
+
+/** 选中的时区模式对应的小时偏移（UTC = 0 / 本地 = LOCAL_OFFSET_HOURS）。 */
+function tzOffset(mode: "local" | "utc"): number {
+  return mode === "local" ? LOCAL_OFFSET_HOURS : 0;
+}
+
+/** UTC 存值 → 选中时区显示值 (mod 24)。 */
+function utcToDisplay(utcHour: number, mode: "local" | "utc"): number {
+  return ((utcHour + tzOffset(mode)) % 24 + 24) % 24;
+}
+
+/** 选中时区输入值 → UTC 存值 (mod 24)。 */
+function displayToUtc(displayHour: number, mode: "local" | "utc"): number {
+  return ((displayHour - tzOffset(mode)) % 24 + 24) % 24;
+}
+
+export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, t }: {
+  windows: PeakWindow[];
+  setWindows: React.Dispatch<React.SetStateAction<PeakWindow[]>>;
+  tzMode: "local" | "utc";
+  setTzMode: React.Dispatch<React.SetStateAction<"local" | "utc">>;
+  t: TFunction;
+}) {
+  const update = (idx: number, patch: Partial<PeakWindow>) => {
+    setWindows(prev => prev.map((w, i) => i === idx ? { ...w, ...patch } : w));
+  };
+  const remove = (idx: number) => {
+    setWindows(prev => prev.filter((_, i) => i !== idx));
+  };
+  const add = () => {
+    setWindows(prev => [...prev, { start_hour: 0, end_hour: 24, multiplier: 1.0 }]);
+  };
+  const toggleDay = (idx: number, day: number) => {
+    setWindows(prev => prev.map((w, i) => {
+      if (i !== idx) return w;
+      const cur = w.days_of_week ?? [];
+      const next = cur.includes(day) ? cur.filter(d => d !== day) : [...cur, day].sort();
+      return { ...w, days_of_week: next.length === 0 ? undefined : next };
+    }));
+  };
+
+  return (
+    <FormSection
+      title={t("platform.peak_hours", "高峰时段倍率")}
+      desc={t("platform.peak_hours_desc", "按 UTC+0 设置时段倍率（>1 加价 / <1 折扣）。多窗口按顺序 first-match；不命中 = 1.0。")}
+      action={
+        <div style={{ display: "flex", gap: 4, padding: 2, background: "var(--bg-glass)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+          {(["local", "utc"] as const).map(m => (
+            <button
+              key={m}
+              type="button"
+              className={`btn btn-ghost ${tzMode === m ? "btn-primary" : ""}`}
+              style={{ padding: "2px 8px", fontSize: 11 }}
+              onClick={() => setTzMode(m)}
+            >
+              {m === "local" ? t("platform.timezone_local", "本地") : t("platform.timezone_utc", "UTC+0")}
+            </button>
+          ))}
+        </div>
+      }
+    >
+      {windows.length === 0 && (
+        <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+          {t("platform.peak_hours_empty", "未配置 → 按预设默认或 1.0（无调整）")}
+        </div>
+      )}
+      {windows.map((w, idx) => (
+        <div key={idx} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: 8, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+            {t("platform.start_hour", "起")}
+            <input
+              className="input" type="number" min={0} max={23} style={{ width: 60 }}
+              value={utcToDisplay(w.start_hour, tzMode)}
+              onChange={e => update(idx, { start_hour: displayToUtc(Number(e.target.value) || 0, tzMode) })}
+            />
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+            {t("platform.end_hour", "止")}
+            <input
+              className="input" type="number" min={0} max={23} style={{ width: 60 }}
+              value={utcToDisplay(w.end_hour, tzMode)}
+              onChange={e => update(idx, { end_hour: displayToUtc(Number(e.target.value) || 0, tzMode) })}
+            />
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+            {t("platform.multiplier", "倍率")}
+            <input
+              className="input" type="number" step={0.1} min={0} style={{ width: 70 }}
+              value={w.multiplier}
+              onChange={e => update(idx, { multiplier: Number(e.target.value) || 1 })}
+            />
+          </label>
+          <div style={{ display: "flex", gap: 2 }}>
+            {WEEKDAY_LABELS.map((lbl, di) => {
+              const active = (w.days_of_week ?? []).includes(di);
+              return (
+                <button
+                  key={di}
+                  type="button"
+                  title={t("platform.days_of_week", "星期（0=周日…6=周六，缺省=每天）")}
+                  onClick={() => toggleDay(idx, di)}
+                  style={{
+                    width: 22, height: 22, padding: 0, fontSize: 11, lineHeight: 1,
+                    borderRadius: "var(--radius-sm)", cursor: "pointer",
+                    background: active ? "var(--accent)" : "transparent",
+                    color: active ? "#fff" : "var(--text-secondary)",
+                    border: "1px solid var(--border)",
+                  }}
+                >
+                  {lbl}
+                </button>
+              );
+            })}
+          </div>
+          <button
+            type="button"
+            className="btn btn-ghost btn-icon"
+            title={t("platform.remove_window", "删除窗口")}
+            onClick={() => remove(idx)}
+            style={{ marginLeft: "auto" }}
+          >
+            ✕
+          </button>
+        </div>
+      ))}
+      <button type="button" className="btn btn-ghost" onClick={add}>
+        + {t("platform.add_window", "添加窗口")}
+      </button>
     </FormSection>
   );
 }
