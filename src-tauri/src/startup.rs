@@ -24,6 +24,15 @@ pub fn run() {
         .plugin(tauri_plugin_deep_link::init())
         // P3 MITM：装假 CA 到系统信任库。shell scope 在 capabilities/mitm-ca.json 限定仅装/卸 CA 命令。
         .plugin(tauri_plugin_shell::init())
+        // popover 失焦即关。tao macOS windowDidResignKey → Rust 此回调（同步派发，先于 webview IPC）；
+        // 旧实现走 popover.tsx onFocusChanged（依赖 webview 就绪 + JS→Rust IPC），实测 macOS 偶发不触发。
+        .on_window_event(|window, event| {
+            if let tauri::WindowEvent::Focused(false) = event {
+                if window.label() == "popover" {
+                    let _ = window.destroy();
+                }
+            }
+        })
         .setup(|app| crate::app_setup::setup(app))
         .invoke_handler(tauri::generate_handler![
             // Platform
