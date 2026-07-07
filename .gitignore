@@ -55,3 +55,6 @@ doc_build/
 .claude/worktrees/
 __pycache__/
 *.pyc
+
+# presets-view generated HTML (make presets-view)
+.aidoc/
