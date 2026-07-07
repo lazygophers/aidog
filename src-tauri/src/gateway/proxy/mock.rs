@@ -96,8 +96,11 @@ pub(crate) async fn handle_mock(
     // 手动预算扣减（mock 也按用量预估扣减，与上游平台一致；仅成功路径，错误模式上方已 return）
     let mb_total = (log.input_tokens + log.output_tokens + log.cache_tokens) as f64;
     if mb_total > 0.0 {
-        let est = super::db::calc_est_cost(&state.db, &log.actual_model, "mock", log.input_tokens, log.output_tokens, log.cache_tokens).await;
-        let _ = super::manual_budget::apply_manual_budgets(&state.db, log.platform_id, est, mb_total, super::db::now()).await;
+        // mock 无 platform.extra / 无 preset 默认 → peak_hours multiplier 恒 1.0；
+        // 传 0 / 0 跳过 peak_hours 查询（calc_est_cost 早退）。
+        let now_ms = super::db::now();
+        let est = super::db::calc_est_cost(&state.db, &log.actual_model, "mock", log.input_tokens, log.output_tokens, log.cache_tokens, 0, now_ms).await;
+        let _ = super::manual_budget::apply_manual_budgets(&state.db, log.platform_id, est, mb_total, now_ms).await;
     }
 
     // stream_override 优先于请求 is_stream

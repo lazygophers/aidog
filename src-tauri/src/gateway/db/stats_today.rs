@@ -170,17 +170,26 @@ pub async fn set_popover_config(db: &Db, cfg: &crate::gateway::models::PopoverCo
     .await
 }
 
-/// 根据 model_price 定价计算单次请求预估花费（$）
+/// 根据 model_price 定价计算单次请求预估花费（$），含 peak_hours 倍率调整。
 ///
 /// 复用 `resolve_price` 的回退链（pricing[platform_type] > top_level >
 /// default_platform > fallback 默认价），与 preview 命令 `model_price_resolve` 行为一致：
 /// 无模型价 / 价为 0 时回退到 `PriceSyncSettings` 的 fallback 默认价（默认 3.0 $/M），不再返回 0。
 ///
+/// peak_hours（高峰/低峰倍率）混合源（PRD 决策 B）：
+/// 1. `platform.extra.peak_hours`（用户覆盖，非空 → 用之）
+/// 2. `default_peak_hours(platform_type)`（bundled preset 默认）
+/// 3. 1.0（无调整）
+///
+/// 倍率 × base cost 落 `est_cost`（无新列；审计凭 time + platform_id 可重建窗口命中）。
+///
 /// 锁安全：本函数不持有 `db.0.lock()`；`get_sync_settings` / `resolve_price`
-/// （内部 `get_model_price`）各自获取并释放 db 锁，不会重入死锁。
+/// （内部 `get_model_price`）/ `get_platform` 各自获取并释放 db 锁，不会重入死锁。
 ///
 /// `platform_type` 传入平台主类型的 serde 裸名（如 `"deepseek"`）以启用 pricing override；
-/// 传 `""` 时 override 不命中，但回退链仍保证非 0。
+/// 传 `""` 时 override 不命中，但回退链仍保证非 0。`platform_id`=0（自动分组日志无源平台）
+/// / `created_at_ms`=0（缺失）时 peak_hours 不生效（multiplier=1.0）。
+#[allow(clippy::too_many_arguments)]
 pub async fn calc_est_cost(
     db: &Db,
     model_name: &str,
@@ -188,6 +197,8 @@ pub async fn calc_est_cost(
     input_tokens: i32,
     output_tokens: i32,
     cache_tokens: i32,
+    platform_id: i64,
+    created_at_ms: i64,
 ) -> f64 {
     let settings = crate::gateway::price_sync::get_sync_settings(db).await;
     let rp = resolve_price(
@@ -207,9 +218,28 @@ pub async fn calc_est_cost(
         source: "fallback".to_string(),
     });
 
-    input_tokens as f64 * rp.input_cost_per_token
+    let base = input_tokens as f64 * rp.input_cost_per_token
         + output_tokens as f64 * rp.output_cost_per_token
-        + cache_tokens as f64 * rp.cache_read_input_token_cost
+        + cache_tokens as f64 * rp.cache_read_input_token_cost;
+
+    // peak_hours 倍率：仅当有真实平台 + 时间戳才查（mock / 隧道 / 缺失上下文 → 1.0）。
+    if platform_id <= 0 || created_at_ms <= 0 {
+        return base;
+    }
+    let windows = platform_peak_hours(db, platform_id, platform_type).await;
+    base * crate::gateway::peak_hours::resolve_multiplier(&windows, created_at_ms)
+}
+
+/// 取某平台的 peak_hours 窗口：用户 `extra.peak_hours` 覆盖优先；空/缺 → bundled preset 默认。
+/// 失败安全：拿不到平台（已删 / 不存在）→ preset 默认；preset 缺 → 空（caller multiplier=1.0）。
+async fn platform_peak_hours(db: &Db, platform_id: i64, platform_type: &str) -> Vec<crate::gateway::peak_hours::PeakWindow> {
+    if let Ok(Some(p)) = get_platform(db, platform_id as u64).await {
+        let user = crate::gateway::peak_hours::parse_platform_peak_hours(&p.extra);
+        if !user.is_empty() {
+            return user;
+        }
+    }
+    crate::gateway::peak_hours::default_peak_hours(platform_type)
 }
 
 // ─── Group CRUD ────────────────────────────────────────────
