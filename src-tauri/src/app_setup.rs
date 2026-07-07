@@ -269,7 +269,7 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                         let x = rx + rw / 2.0 - pw / 2.0;
                         let y = ry + rh;
                         tracing::info!(x, y, pw, ph, scale, "popover position");
-                        if let Err(e) = tauri::webview::WebviewWindowBuilder::new(
+                        match tauri::webview::WebviewWindowBuilder::new(
                             &app, "popover",
                             tauri::WebviewUrl::App("popover.html".into()),
                         )
@@ -280,11 +280,44 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                         .always_on_top(true)
                         .skip_taskbar(true)
                         .focused(true)
-                        .build()
-                        {
-                            tracing::error!(error = %e, "create popover failed");
-                        } else {
-                            tracing::info!("popover window created successfully");
+                        .build() {
+                            Ok(w) => {
+                                #[cfg(target_os = "macos")]
+                                {
+                                    // C1: NSWindow.hidesOnDeactivate —— app 失活自动隐藏 popover,
+                                    // 覆盖 3 失活场景 (点桌面 / silent_launch 主窗 hide 后点别处 / 点
+                                    // Dock 菜单栏空白). tao Focused(false) 只在 windowDidResignKey
+                                    // 触发, floating popover 在 inactive app 不 resignKey → v1 handler
+                                    // 单独不够. Apple docs:
+                                    // https://developer.apple.com/documentation/appkit/nswindow/hidesondeactivate
+                                    use objc2_app_kit::NSWindow;
+                                    use objc2::rc::Retained;
+                                    match w.ns_window() {
+                                        Ok(ptr) => {
+                                            // SAFETY: ns_window() 返回指向主线程上当前 autoreleased
+                                            // NSWindow 的指针；retain_autoreleased 在进行类型转换前获
+                                            // 得所有权。NSWindow 类通过 objc2-app-kit NSWindow feature
+                                            // 绑定（继承自 NSResponder）暴露了 setHidesOnDeactivate。
+                                            let ns_window = unsafe {
+                                                Retained::<NSWindow>::retain_autoreleased(ptr.cast())
+                                            };
+                                            if let Some(ns_window) = ns_window {
+                                                ns_window.setHidesOnDeactivate(true);
+                                                tracing::info!("popover setHidesOnDeactivate:YES applied");
+                                            } else {
+                                                tracing::warn!("popover ns_window pointer was nil");
+                                            }
+                                        }
+                                        Err(e) => {
+                                            tracing::warn!(error = %e, "popover ns_window() unavailable");
+                                        }
+                                    }
+                                }
+                                tracing::info!("popover window created successfully");
+                            }
+                            Err(e) => {
+                                tracing::error!(error = %e, "create popover failed");
+                            }
                         }
                     }
                 })

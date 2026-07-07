@@ -1,6 +1,6 @@
 ---
 updated: 2026-07-07
-rewrite-version: 3
+rewrite-version: 4
 supersedes:
   - guides/cross-layer-thinking-guide.md (v0 descriptive + Trellis internals; v1 renamed → cross-layer-rules.md)
 authored-by: trellisx-spec
@@ -39,6 +39,10 @@ mode: optimize
   - 范式源: Tauri `app.rs` 官方文档示例 (hide window on `Focused(false)`); tao macOS `window_delegate.rs` `window_did_resign_key` 同步 emit `WindowEvent::Focused(false)`
   - label 过滤: handler 内 `if window.label() == "<target>"` 限定窗口, 避免误伤其他窗口
   - 实例: popover 失焦 destroy → `startup.rs` `.on_window_event` 链 (src-tauri/src/startup.rs:29-33)
+- **floating window (`always_on_top=true`) 例外 (MUST)**: `on_window_event Focused(false)` 对 `NSFloatingWindowLevel` 窗口**不够** — macOS 在 3 场景**不**调 `windowDidResignKey:` → `Focused(false)` 不派发: ① 点桌面壁纸 (Finder desktop `canBecomeKeyWindow=NO`, 无窗口接 key) ② 主窗口 `hide()` (silent_launch) 后点别的 app (无可见 key-eligible 窗口接 key) ③ 点菜单栏/Dock 空白。证据: tao 0.35.3 `Focused(false)` 唯一发射点 = `window_delegate.rs:384 windowDidResignKey:`; tao app_delegate 无 `applicationDidResignActive:`; tauri `RunEvent` 无 app 级失活事件
+  - **正解**: floating popover 创建后**额外**调 `NSWindow.setHidesOnDeactivate:YES` (macOS 原生 popover 失活隐藏范式, app 转 inactive 自动隐藏, 覆盖 3 场景)。`setHidesOnDeactivate` 是 `NSWindow` 原生属性 (非 NSPanel 专属, Apple docs 已证), 经 `WebviewWindow::ns_window()` + objc2-app-kit `NSWindow` feature 调用, 6 行 unsafe (retain_autoreleased 拿所有权, 出作用域自动 release)
+  - 组合覆盖: `setHidesOnDeactivate` (app 失活场景) + `on_window_event Focused(false)` (点主窗口场景, 主窗接 key 触发 resignKey) = 全场景
+  - 实例: app_setup.rs popover `.build()` Ok 分支 `#[cfg(target_os="macos")]` 内 `ns_window.setHidesOnDeactivate(true)` (src-tauri/src/app_setup.rs:305)
 
 ## Format Contracts (MUST)
 
