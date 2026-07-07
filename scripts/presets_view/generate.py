@@ -418,7 +418,10 @@ applyFilter();
 
 def render(view_data):
     payload = json.dumps(view_data, ensure_ascii=False)
-    return HTML_TEMPLATE.replace("__DATA__", html.escape(payload))
+    # ponytail: <script type="application/json"> 的 textContent 不反转 HTML 实体，
+    # html.escape 会把 " 转 &quot; 致浏览器 JSON.parse 炸。
+    # 仅 escape "<" 防 </script> 注入；< 不影响 JSON.parse（JS 解码 < 回 <）。
+    return HTML_TEMPLATE.replace("__DATA__", payload.replace("<", "\\u003c"))
 
 
 def main():
