@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1783354810,
+  "last_updated": 1783468800,
   "protocols": {
     "anthropic": {
       "client_type": "claude_code",
@@ -670,6 +670,11 @@
             "protocol": "anthropic",
             "base_url": "https://api.stepfun.com/step_plan",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://api.stepfun.com/v1",
+            "client_type": "codex_tui"
           }
         ]
       },
@@ -719,6 +724,11 @@
             "protocol": "anthropic",
             "base_url": "https://api.stepfun.ai/step_plan",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://api.stepfun.ai/v1",
+            "client_type": "codex_tui"
           }
         ]
       },
@@ -836,6 +846,16 @@
             "protocol": "anthropic",
             "base_url": "https://ark.ap-southeast.bytepluses.com/api/coding",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://ark.ap-southeast.bytepluses.com/api/plan/v3",
+            "client_type": "codex_tui"
+          },
+          {
+            "protocol": "openai_responses",
+            "base_url": "https://ark.ap-southeast.bytepluses.com/api/plan/v3",
+            "client_type": "codex_tui"
           }
         ]
       },
@@ -2110,6 +2130,11 @@
             "protocol": "anthropic",
             "base_url": "https://api.pateway.ai",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://api.pateway.ai/v1",
+            "client_type": "codex_tui"
           }
         ]
       },
@@ -2162,6 +2187,11 @@
             "protocol": "anthropic",
             "base_url": "https://www.ccsub.net",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://www.ccsub.net/v1",
+            "client_type": "codex_tui"
           }
         ]
       },
@@ -2214,6 +2244,16 @@
             "protocol": "anthropic",
             "base_url": "https://api.apikey.fun",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://api.apikey.fun/v1",
+            "client_type": "codex_tui"
+          },
+          {
+            "protocol": "gemini",
+            "base_url": "https://api.apikey.fun",
+            "client_type": "default"
           }
         ]
       },
@@ -2266,6 +2306,16 @@
             "protocol": "anthropic",
             "base_url": "https://apinebula.com",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://apinebula.com/v1",
+            "client_type": "codex_tui"
+          },
+          {
+            "protocol": "gemini",
+            "base_url": "https://apinebula.com",
+            "client_type": "default"
           }
         ]
       },
@@ -2422,6 +2472,11 @@
             "protocol": "anthropic",
             "base_url": "https://claudecn.top",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://claudecn.ai/v1",
+            "client_type": "codex_tui"
           }
         ]
       },
@@ -2526,6 +2581,16 @@
             "protocol": "anthropic",
             "base_url": "https://www.relaxycode.com",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://www.relaxycode.com/v1",
+            "client_type": "codex_tui"
+          },
+          {
+            "protocol": "gemini",
+            "base_url": "https://www.relaxycode.com",
+            "client_type": "default"
           }
         ]
       },
@@ -2578,6 +2643,16 @@
             "protocol": "anthropic",
             "base_url": "https://cn.crazyrouter.com",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://cn.crazyrouter.com/v1",
+            "client_type": "codex_tui"
+          },
+          {
+            "protocol": "gemini",
+            "base_url": "https://cn.crazyrouter.com",
+            "client_type": "default"
           }
         ]
       },
@@ -2682,6 +2757,16 @@
             "protocol": "anthropic",
             "base_url": "https://api.modelverse.cn",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://api.modelverse.cn/v1",
+            "client_type": "codex_tui"
+          },
+          {
+            "protocol": "gemini",
+            "base_url": "https://api.modelverse.cn",
+            "client_type": "default"
           }
         ]
       },
@@ -2934,6 +3019,16 @@
             "protocol": "anthropic",
             "base_url": "https://api.lemondata.cc",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://api.lemondata.cc/v1",
+            "client_type": "codex_tui"
+          },
+          {
+            "protocol": "gemini",
+            "base_url": "https://api.lemondata.cc",
+            "client_type": "default"
           }
         ]
       },
@@ -2986,6 +3081,16 @@
             "protocol": "anthropic",
             "base_url": "https://cc-api.pipellm.ai",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://api.pipellm.ai/openai",
+            "client_type": "codex_tui"
+          },
+          {
+            "protocol": "gemini",
+            "base_url": "https://api.pipellm.ai/gemini",
+            "client_type": "default"
           }
         ]
       },
