@@ -218,42 +218,15 @@
             "client_type": "claude_code",
             "coding_plan": false
           }
-        ],
-        "coding_plan": [
-          {
-            "protocol": "openai",
-            "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
-            "client_type": "codex_tui",
-            "coding_plan": true
-          },
-          {
-            "protocol": "anthropic",
-            "base_url": "https://open.bigmodel.cn/api/anthropic",
-            "client_type": "claude_code",
-            "coding_plan": true
-          }
         ]
       },
       "models": {
         "default": {
           "default": "glm-5.2"
-        },
-        "coding_plan": {
-          "default": "glm-5.2"
         }
       },
       "model_list": {
         "default": [
-          "glm-5.2",
-          "glm-5.1",
-          "glm-5",
-          "glm-5-turbo",
-          "glm-4.7",
-          "glm-4.7-flash",
-          "glm-4.6",
-          "glm-4.5-air"
-        ],
-        "coding_plan": [
           "glm-5.2",
           "glm-5.1",
           "glm-5",
@@ -365,22 +338,11 @@
             "base_url": "https://api.moonshot.cn/anthropic",
             "client_type": "claude_code"
           }
-        ],
-        "coding_plan": [
-          {
-            "protocol": "openai",
-            "base_url": "https://api.kimi.com/coding/v1",
-            "client_type": "claude_code",
-            "coding_plan": true
-          }
         ]
       },
       "models": {
         "default": {
           "default": "kimi-k2.6"
-        },
-        "coding_plan": {
-          "default": "kimi-k2.7-code"
         }
       },
       "model_list": {
@@ -389,12 +351,6 @@
           "kimi-k2.5",
           "kimi-k2-thinking",
           "kimi-latest"
-        ],
-        "coding_plan": [
-          "kimi-k2.7-code",
-          "kimi-k2.7-code-highspeed",
-          "kimi-k2.6",
-          "kimi-k2.5"
         ]
       },
       "name": {
@@ -440,39 +396,15 @@
             "client_type": "claude_code",
             "coding_plan": false
           }
-        ],
-        "coding_plan": [
-          {
-            "protocol": "openai",
-            "base_url": "https://api.minimaxi.com/v1",
-            "client_type": "codex_tui",
-            "coding_plan": true
-          },
-          {
-            "protocol": "anthropic",
-            "base_url": "https://api.minimaxi.com/anthropic",
-            "client_type": "claude_code",
-            "coding_plan": true
-          }
         ]
       },
       "models": {
         "default": {
           "default": "MiniMax-M3"
-        },
-        "coding_plan": {
-          "default": "MiniMax-M3"
         }
       },
       "model_list": {
         "default": [
-          "MiniMax-M3",
-          "MiniMax-M2.7",
-          "MiniMax-M2.5",
-          "MiniMax-M2.1",
-          "MiniMax-M2"
-        ],
-        "coding_plan": [
           "MiniMax-M3",
           "MiniMax-M2.7",
           "MiniMax-M2.5",
@@ -523,39 +455,15 @@
             "client_type": "claude_code",
             "coding_plan": false
           }
-        ],
-        "coding_plan": [
-          {
-            "protocol": "openai",
-            "base_url": "https://api.minimax.io/v1",
-            "client_type": "codex_tui",
-            "coding_plan": true
-          },
-          {
-            "protocol": "anthropic",
-            "base_url": "https://api.minimax.io/anthropic",
-            "client_type": "claude_code",
-            "coding_plan": true
-          }
         ]
       },
       "models": {
         "default": {
           "default": "MiniMax-M3"
-        },
-        "coding_plan": {
-          "default": "MiniMax-M3"
         }
       },
       "model_list": {
         "default": [
-          "MiniMax-M3",
-          "MiniMax-M2.7",
-          "MiniMax-M2.5",
-          "MiniMax-M2.1",
-          "MiniMax-M2"
-        ],
-        "coding_plan": [
           "MiniMax-M3",
           "MiniMax-M2.7",
           "MiniMax-M2.5",
@@ -604,26 +512,11 @@
             "base_url": "https://dashscope.aliyuncs.com/apps/anthropic",
             "client_type": "claude_code"
           }
-        ],
-        "coding_plan": [
-          {
-            "protocol": "openai",
-            "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-            "client_type": "codex_tui"
-          },
-          {
-            "protocol": "anthropic",
-            "base_url": "https://dashscope.aliyuncs.com/apps/anthropic",
-            "client_type": "claude_code"
-          }
         ]
       },
       "models": {
         "default": {
           "default": "qwen3.7-max"
-        },
-        "coding_plan": {
-          "default": "qwen3-coder-plus"
         }
       },
       "model_list": {
@@ -634,13 +527,6 @@
           "qwen3.5-omni-plus",
           "qwen3-coder-plus",
           "qwen3-coder-flash"
-        ],
-        "coding_plan": [
-          "qwen3-coder-plus",
-          "qwen3-coder-flash",
-          "qwen3.7-max",
-          "qwen3.7-plus",
-          "qwen3.6-flash"
         ]
       },
       "name": {
@@ -893,26 +779,6 @@
             "base_url": "https://ark.cn-beijing.volces.com/api/plan/v3",
             "client_type": "codex_tui"
           }
-        ],
-        "coding_plan": [
-          {
-            "protocol": "anthropic",
-            "base_url": "https://ark.cn-beijing.volces.com/api/coding",
-            "client_type": "claude_code",
-            "coding_plan": true
-          },
-          {
-            "protocol": "openai",
-            "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
-            "client_type": "codex_tui",
-            "coding_plan": true
-          },
-          {
-            "protocol": "openai_responses",
-            "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
-            "client_type": "codex_tui",
-            "coding_plan": true
-          }
         ]
       },
       "models": {
@@ -1022,29 +888,13 @@
             "base_url": "https://qianfan.baidubce.com/anthropic/coding",
             "client_type": "claude_code"
           }
-        ],
-        "coding_plan": [
-          {
-            "protocol": "openai",
-            "base_url": "https://qianfan.baidubce.com/v2/coding",
-            "client_type": "codex_tui",
-            "coding_plan": true
-          },
-          {
-            "protocol": "anthropic",
-            "base_url": "https://qianfan.baidubce.com/anthropic/coding",
-            "client_type": "claude_code",
-            "coding_plan": true
-          }
         ]
       },
       "models": {
-        "default": {},
-        "coding_plan": {}
+        "default": {}
       },
       "model_list": {
-        "default": [],
-        "coding_plan": []
+        "default": []
       },
       "name": {
         "en-US": "Baidu Qianfan",
@@ -1087,39 +937,15 @@
             "base_url": "https://api.xiaomimimo.com/v1",
             "client_type": "codex_tui"
           }
-        ],
-        "coding_plan": [
-          {
-            "protocol": "anthropic",
-            "base_url": "https://token-plan-cn.xiaomimimo.com/anthropic",
-            "client_type": "claude_code",
-            "coding_plan": true
-          },
-          {
-            "protocol": "openai",
-            "base_url": "https://token-plan-cn.xiaomimimo.com/v1",
-            "client_type": "codex_tui",
-            "coding_plan": true
-          }
         ]
       },
       "models": {
         "default": {
           "default": "mimo-v2.5-pro"
-        },
-        "coding_plan": {
-          "default": "mimo-v2.5-pro"
         }
       },
       "model_list": {
         "default": [
-          "mimo-v2.5-pro",
-          "mimo-v2-pro",
-          "mimo-v2.5",
-          "mimo-v2-omni",
-          "mimo-v2-flash"
-        ],
-        "coding_plan": [
           "mimo-v2.5-pro",
           "mimo-v2-pro",
           "mimo-v2.5",
