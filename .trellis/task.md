@@ -103,5 +103,4 @@
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-i18n-name-desc-search | 07-07-protocols-i18n-name-desc-search | trellisx-start |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-source-url | 07-07-protocols-source-url | trellisx-start |
-| share-aidog-url-format-option | 分享 aidog:// 链接作为第 4 格式选项 (平级 YAML/JSON/Base64) | — | 实施中 | — |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-share-aidog-url-format-option | 07-07-share-aidog-url-format-option | trellisx-start |
+| share-aidog-url-format-option | 分享 aidog:// 链接作为第 4 格式选项 (平级 YAML/JSON/Base64) | — | 已完成 | — |
