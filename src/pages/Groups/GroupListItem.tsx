@@ -141,9 +141,17 @@ export const GroupListItem = memo(function GroupListItem({
           </div>
         </div>
         {/* Quick actions */}
-        <CopyButton text={group.group_key} title={t("group.copyApiKeyTitle", "复制 API Key")} size={14} />
-        <CopyButton text={buildClaudeCommand(group.group_key)} icon={<img src={claudeIcon} width={14} height={14} alt="Claude" />} title={t("group.copyCommand", "复制 Claude Code 启动命令")} size={14} />
-        <CopyButton text={buildCodexCommand(group.group_key, group.env_vars)} icon={<img src={codexIcon} width={14} height={14} alt="Codex" />} title={t("group.copyCodexCommand", "复制 Codex 命令")} size={14} />
+        <CopyButton
+          text={group.group_key}
+          title={t("group.copyCommand", "复制启动命令")}
+          defaultLabel={t("group.copyCommand", "复制启动命令")}
+          hoverLabel={t("group.copyKeyLabel", "复制密钥")}
+          menu={[
+            { key: "key", label: t("group.menuCopyKey", "API Key"), text: group.group_key },
+            { key: "claude", label: t("group.menuCopyClaude", "Claude 启动命令"), text: buildClaudeCommand(group.group_key), icon: <img src={claudeIcon} width={14} height={14} alt="Claude" /> },
+            { key: "codex", label: t("group.menuCopyCodex", "Codex 启动命令"), text: buildCodexCommand(group.group_key, group.env_vars), icon: <img src={codexIcon} width={14} height={14} alt="Codex" /> },
+          ]}
+        />
         <button className="btn btn-ghost btn-icon" onClick={e => { e.stopPropagation(); onNavigate?.("stats", { groupId: String(group.id), groupKey: group.group_key }); }} title={t("group.viewStats", "查看统计")}>
           <svg width="14" height="14" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M3 15V8M7 15V5M11 15V10M15 15V3" />
