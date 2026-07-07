@@ -16,7 +16,7 @@ import type { PlatformsState } from "./usePlatformsState";
 import {
   FormSection, ApiKeyField,
   NewApiBalanceConfigSection, PassthroughConfigSection, EndpointsSection,
-  ModelsSection, ManualBudgetsSection, BreakerSection, GroupAssignSection,
+  ModelsSection, ManualBudgetsSection, BreakerSection, PeakHoursSection, GroupAssignSection,
   ExpirySection, ClaudeConfigSection,
 } from "./formSections";
 import { MultiKeyPreview } from "./MultiKeyPreview";
@@ -38,6 +38,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     manualBudgets, setManualBudgets,
     breakerDefaults, breakerFailureThreshold, setBreakerFailureThreshold,
     breakerOpenSecs, setBreakerOpenSecs, breakerHalfOpenMax, setBreakerHalfOpenMax,
+    peakHours, setPeakHours, peakHoursTz, setPeakHoursTz,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, lockedGroupId,
     groupDetails, levelPriority, setLevelPriority,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
@@ -192,6 +193,15 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             failure={breakerFailureThreshold} setFailure={setBreakerFailureThreshold}
             openSecs={breakerOpenSecs} setOpenSecs={setBreakerOpenSecs}
             halfOpenMax={breakerHalfOpenMax} setHalfOpenMax={setBreakerHalfOpenMax}
+            t={t}
+          />
+        )}
+
+        {/* Peak Hours 高峰/低峰倍率（仅编辑态可配；空数组 = 用 preset 默认 / 1.0） */}
+        {editing && !isPassthrough && (
+          <PeakHoursSection
+            windows={peakHours} setWindows={setPeakHours}
+            tzMode={peakHoursTz} setTzMode={setPeakHoursTz}
             t={t}
           />
         )}

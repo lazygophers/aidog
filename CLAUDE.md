@@ -56,6 +56,7 @@ src-tauri/src/
 - 前端 4 函数（`src/domains/platforms/defaults.ts` 的 `getDefaultEndpoints` / `getDefaultModels` / `getDefaultModelList` / `defaultClientForProtocol`）**全部 async**；模块级 `docPromise` 单次 RPC 缓存（多次调用复用同一 IPC）。**所有 caller 必须 `await`**（或 `.then`）—— 改动 grep 调用点确认无遗漏，TS 编译会捕获漏 await。
 - mock 协议不在 JSON 内（`platformPaste.ts:15` 从 `matchPlatform` 排除）；`getDefaultEndpoints("mock")` 返 `[]`。
 - coding_plan 分支（cp 三元）字段在 JSON 内分离保留，`injectProtocolHosts` 派生自此单一真值，禁抄第二份。
+- **peak_hours**（高峰/低峰时段倍率，可选）：JSON 内 per-protocol 条目可加 `peak_hours: [{start_hour,end_hour,multiplier,days_of_week?}]`（UTC+0 基准，多窗口数组，first-match wins，跨天 end<start）；当前未填任何协议实际值（absent = 1.0）。`calc_est_cost` 混合源：`platform.extra.peak_hours`（用户覆盖）→ Rust bundled preset default（`gateway/peak_hours.rs` `OnceLock` 解析）→ 1.0。cost = base × multiplier 落 `proxy_log.est_cost` 单列（无新列）。详见 `.wiki/modules/pricing.md`。
 
 ### URL 构造
 - `base_url` 含版本前缀（如 `/v1`、`/api/paas/v4`）
