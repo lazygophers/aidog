@@ -75,7 +75,7 @@
 | modal-window-center-portal | 弹窗全部 createPortal 到 body 实现真窗口居中 | — | 已完成 | — |
 | mitm-chain-full-diagnosis | MITM 链路全诊断: 白名单匹配+log 完整+路由触发+token 解析+h2 cancel | — | 已完成 | — |
 | mitm-decrypt-fallback-404 | mitm 解密流量 fallback 404 + proxy_log url 不完整 | — | 已完成 | — |
-| platform-defaults-json-sync | 平台默认配置 JSON 化 + GitHub master 同步 | — | 规划中 | — |
+| platform-defaults-json-sync | 平台默认配置 JSON 化 + GitHub master 同步 | — | 已完成 | — |
 | defaults-json-extract | defaults.ts JSON 抽取 + async 化 | — | 已完成 | — |
 | defaults-sync-jsdelivr | defaults.json jsDelivr+raw 同步机制 | — | 已完成 | — |
 | price-sync-jsdelivr-migration | price_sync.rs models.json URL 迁移 jsDelivr | — | 已完成 | — |
@@ -91,11 +91,10 @@
 | locale-zh-hans-rename | locale code zh-CN → zh-Hans 全量 rename | — | 已完成 | — |
 | group-delete-platform-bug | 分组卡片删除平台仅移除关联未删平台 | — | 已完成 | — |
 | platform-presets-rename | platform-presets.json rename (defaults.json) | — | 已完成 | — |
-| models-json-to-defaults | data/models.json → src-tauri/defaults/models.json 迁移 | — | 实施中 | — |
+| models-json-to-defaults | data/models.json → src-tauri/defaults/models.json 迁移 | — | 已完成 | — |
 | repo-cleanup-empty-temp-bak | 仓库清理: 空文件夹/空文件/临时/备份 | — | 已完成 | — |
 | protocols-i18n-name-desc-search | platform-presets protocols 多语言 name/desc + 搜索 (含拼音) | — | 已完成 | — |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-i18n-name-desc-search | 07-07-protocols-i18n-name-desc-search | trellisx-start |
 | protocols-source-url | platform-presets protocols 数据源站点 URL | — | 已完成 | — |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-source-url | 07-07-protocols-source-url | trellisx-start |
 | protocol-logo-homepage | platform-presets protocols homepage + logo (本地缓存) | — | 已完成 | — |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-models-json-to-defaults | 07-07-models-json-to-defaults | trellisx-start |
