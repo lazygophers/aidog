@@ -1,6 +1,6 @@
 ---
-updated: 2026-06-11
-rewrite-version: 2
+updated: 2026-07-07
+rewrite-version: 3
 supersedes:
   - guides/cross-layer-thinking-guide.md (v0 descriptive + Trellis internals; v1 renamed → cross-layer-rules.md)
 authored-by: trellisx-spec
@@ -31,6 +31,14 @@ mode: optimize
 - 禁在 React 组件中直接操作 Tauri store / 文件系统 — 必经 `src/services/` 层
 - 异步数据获取必须用 `useEffect + useState<loading>` pattern
 - 错误必须 `catch` 并至少 `console.error`，禁静默丢弃
+
+## Tauri 窗口生命周期事件 (MUST)
+
+- 窗口生命周期事件 (失焦 `Focused` / 关闭 `CloseRequested` / 缩放 `Resized` / 移动 `Moved`) **MUST 在 Rust 端 `Builder::on_window_event` handler 处理**, **禁 webview 端 `getCurrentWindow().onFocusChanged()` 等 IPC 监听做关键副作用** (关闭/隐藏/销毁窗口)
+  - 后果: webview 端监听经 JS→Rust IPC 链, macOS 下偶发失效 (React mount 时序 / IPC 桥未就绪 / event 注册丢) → 失焦不关闭等静默 bug; Rust 端 handler 由 tao 同步派发, 先于且独立于 webview IPC, 根治
+  - 范式源: Tauri `app.rs` 官方文档示例 (hide window on `Focused(false)`); tao macOS `window_delegate.rs` `window_did_resign_key` 同步 emit `WindowEvent::Focused(false)`
+  - label 过滤: handler 内 `if window.label() == "<target>"` 限定窗口, 避免误伤其他窗口
+  - 实例: popover 失焦 destroy → `startup.rs` `.on_window_event` 链 (src-tauri/src/startup.rs:29-33)
 
 ## Format Contracts (MUST)
 
@@ -63,6 +71,7 @@ mode: optimize
 | `catch` 后静默丢弃 | 至少 `console.error` | 错误吞掉，线上故障无迹可查 |
 | update `#[serde(default)]` 字段前端漏传 | update payload 须含全量 default 字段 | default `[]`/`None` 覆盖已存 → 静默清空数据 |
 | 组件内直接读写 Tauri store / 文件系统 | 必经 `src/services/` 层 | 绕过单向数据流，状态不可追踪 |
+| webview `onFocusChanged()` 做关键副作用 (关闭/隐藏/销毁窗口) | Rust 端 `Builder::on_window_event` handler | macOS IPC 链偶发失效 → 失焦不关闭静默 bug |
 
 ## Verification
 
@@ -75,4 +84,7 @@ grep -rn 'invoke(' src/services/api.ts | grep -v 'invoke<'  # 必须 0 行
 
 # snake_case 字段名
 grep -rn 'camelCase\|camel_case' src/services/api.ts  # 必须 0 行
+
+# 窗口生命周期关键副作用只在 Rust on_window_event, 禁 webview IPC 监听
+grep -rn 'onFocusChanged' src/  # 关键副作用必须 0 (仅注释指路 Rust 端可留)
 ```

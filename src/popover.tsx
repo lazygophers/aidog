@@ -133,14 +133,8 @@ function Popover() {
     return () => { cancel(); unlisten(); };
   }, [reloadData]);
 
-  // 失焦自动关闭
-  useEffect(() => {
-    const current = getCurrentWindow();
-    const unlisten = current.onFocusChanged(({ payload: focused }) => {
-      if (!focused) current.destroy().catch(() => {});
-    });
-    return () => { unlisten.then((fn) => fn()); };
-  }, []);
+  // 失焦自动关闭由 Rust 端处理（startup.rs on_window_event Focused(false)），
+  // 不在 webview 内监听：依赖 JS→Rust IPC 的写法在 macOS 下偶发失效。
 
   // 窗口尺寸随内容自适应 + 保持 tray 下方居中。
   useEffect(() => {
