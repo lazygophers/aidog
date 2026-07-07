@@ -8,7 +8,7 @@ import { IconBolt, IconCost, IconCheck, IconClock } from "../icons";
 import {
   PROTOCOL_LABELS, PROTOCOL_COLORS, HEALTH_COLORS,
   getDefaultModels, getProtocolHomepage, computeManualBudgetDisplay, computeQuotaDisplay,
-  allModelValues, tierLabel, formatResetCountdown, healthStatus,
+  allModelValues, tierLabel, formatResetCountdown, formatResetClock, healthStatus,
 } from "../../domains/platforms";
 import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
 import type { HealthStatus } from "../../domains/platforms";
@@ -480,12 +480,13 @@ export const PlatformCard = memo(function PlatformCard({
                       const remainSuffix = t("platform.quotaRemainSuffix", "剩");
                       const tierColor = tier.level === "danger" ? "var(--color-danger)" : tier.level === "warning" ? "var(--color-warning)" : tier.level === "success" ? "var(--color-success)" : "var(--text-secondary)";
                       const countdown = formatResetCountdown(tier.resetsAt);
-                      // ponytail: 进度条块（紧凑态）— 进度条 + 主数 + 档名/倒计时 三层，沿用 tier.level 色口径
+                      const resetClock = formatResetClock(tier.resetsAt);
+                      // ponytail: 进度条块（紧凑态）— 进度条 + 主数 + 档名/倒计时 + clock 四层，沿用 tier.level 色口径
                       return (
                         <div key={tier.name} style={{
                           display: "flex", flexDirection: "column", gap: 2,
                           padding: "3px 6px", borderRadius: "var(--radius-sm)",
-                          minWidth: 64, maxWidth: 110,
+                          minWidth: 64, maxWidth: 120,
                           background: "var(--bg-glass)",
                           border: "1px solid var(--border)",
                         }}>
@@ -502,6 +503,11 @@ export const PlatformCard = memo(function PlatformCard({
                           <span style={{ fontSize: 9, color: "var(--text-tertiary)", whiteSpace: "nowrap", lineHeight: 1.1 }}>
                             {tierLabel(tier.name)}{countdown && ` ·${countdown}`}
                           </span>
+                          {resetClock && (
+                            <span style={{ fontSize: 8, color: "var(--text-tertiary)", whiteSpace: "nowrap", lineHeight: 1.1 }}>
+                              {resetClock}
+                            </span>
+                          )}
                         </div>
                       );
                     })}
@@ -586,6 +592,7 @@ export const PlatformCard = memo(function PlatformCard({
                     const remainSuffix = t("platform.quotaRemainSuffix", "剩");
                     const tierColor = tier.level === "danger" ? "var(--color-danger)" : tier.level === "warning" ? "var(--color-warning)" : tier.level === "success" ? "var(--color-success)" : "var(--text-secondary)";
                     const countdown = formatResetCountdown(tier.resetsAt);
+                    const resetClock = formatResetClock(tier.resetsAt);
                     // ponytail: 进度条块（展开态）— 同款更大版，进度条宽度 = remainPct% 色 = tier.level 语义色
                     return (
                       <div key={tier.name} style={{
@@ -610,7 +617,7 @@ export const PlatformCard = memo(function PlatformCard({
                           {countdown && (
                             <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
                               <IconClock size={11} />
-                              {countdown}
+                              {countdown}{resetClock && ` · ${resetClock}`}
                             </span>
                           )}
                         </span>

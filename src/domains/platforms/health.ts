@@ -118,6 +118,22 @@ export function formatResetCountdown(resetsAt: string | null): string {
   return `${diffMin}m`;
 }
 
+/** ISO 8601 → 绝对重置时间 clock：当天 `HH:mm`，跨天 `M/D HH:mm`，null/无效/已过期 → ""。
+ *  ponytail: 月/日 数字格式跨 locale 通用，避「明天」i18n key。 */
+export function formatResetClock(resetsAt: string | null): string {
+  if (!resetsAt) return "";
+  const ts = new Date(resetsAt).getTime();
+  if (isNaN(ts)) return "";
+  if (ts - Date.now() <= 0) return "";
+  const d = new Date(ts);
+  const clock = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  const now = new Date();
+  const sameDay = d.getFullYear() === now.getFullYear()
+    && d.getMonth() === now.getMonth()
+    && d.getDate() === now.getDate();
+  return sameDay ? clock : `${d.getMonth() + 1}/${d.getDate()} ${clock}`;
+}
+
 // ── 手动预算（无上游 quota 平台）──
 
 /** 生成一条新手动预算的默认值（uuid id + total/usd）。 */
