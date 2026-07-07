@@ -54,10 +54,12 @@ export interface GroupListViewProps {
   // 测试
   groupTest: GroupTestState | null;
   setGroupTest: (v: GroupTestState | null) => void;
-  // 删平台确认态
-  removeTarget: { platform: Platform; gid: number } | null;
-  setRemoveTarget: React.Dispatch<React.SetStateAction<{ platform: Platform; gid: number } | null>>;
+  // 删平台确认态：groupCount/groupNames 作 modal 展示
+  removeTarget: { platform: Platform; gid: number; groupCount: number; groupNames: string[] } | null;
+  setRemoveTarget: React.Dispatch<React.SetStateAction<{ platform: Platform; gid: number; groupCount: number; groupNames: string[] } | null>>;
   confirmDeletePlatform: () => Promise<void>;
+  /** 多组场景「移出本组」按钮接线 */
+  removePlatformFromGroup: (pid: number, gid: number) => Promise<void>;
   // 稳定回调（父级 useCallback）
   onToast?: (toast: { text: string; ok: boolean } | null) => void;
   handleReorderGroups: (next: GroupRow[]) => void;
@@ -84,7 +86,7 @@ export function GroupListView(props: GroupListViewProps) {
     dropIndicator, dragOverGroup, onPlatPointerDown,
     cards, makeGroupCardActions,
     groupTest, setGroupTest,
-    removeTarget, setRemoveTarget, confirmDeletePlatform,
+    removeTarget, setRemoveTarget, confirmDeletePlatform, removePlatformFromGroup,
     onToast,
     handleReorderGroups, openEdit, handleDeleteGroup, handleToggleDefault,
     handleTestGroup, handleDeleteMapping, handleAddMapping,
@@ -249,8 +251,8 @@ export function GroupListView(props: GroupListViewProps) {
         />
       )}
 
-      {/* 删平台确认弹窗：仅当平台只属本组（删除即销毁平台，破坏性）时出现。
-          属多组的平台走「仅移出本组」无需确认，不会进此分支。
+      {/* 删平台确认弹窗：总弹（根因旁路，去 count 决定行为）。
+          单组 → 单按钮「删除平台」（销毁平台）；多组 → 双按钮「移出本组」+「删除平台（全部组）」。
           createPortal 挂 body 脱离 transform 祖先，参考 GroupTestPanel。 */}
       {removeTarget !== null && createPortal(
         <div onClick={() => setRemoveTarget(null)} style={{
@@ -262,17 +264,35 @@ export function GroupListView(props: GroupListViewProps) {
             background: "var(--bg-floating)",
           }}>
             <div style={{ fontSize: 15, fontWeight: 700 }}>
-              {t("group.deletePlatformTitle", "删除平台")}
+              {removeTarget.groupCount > 1
+                ? t("group.deletePlatformMultiTitle", "移出或删除平台")
+                : t("group.deletePlatformTitle", "删除平台")}
             </div>
             <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.5 }}>
-              {t("group.deletePlatformConfirm", "「{{name}}」仅属此分组，移除将彻底删除该平台及其所有关联，且无法撤销。确认删除？", { name: removeTarget.platform.name })}
+              {removeTarget.groupCount > 1
+                ? t("group.deletePlatformMultiDesc",
+                    "「{{name}}」属 {{count}} 个分组：{{groups}}。选择操作：",
+                    { name: removeTarget.platform.name, count: removeTarget.groupCount, groups: removeTarget.groupNames.join("、") })
+                : t("group.deletePlatformConfirm",
+                    "「{{name}}」仅属此分组，移除将彻底删除该平台及其所有关联，且无法撤销。确认删除？",
+                    { name: removeTarget.platform.name })}
             </div>
             <div style={{ display: "flex", justifyContent: "flex-end", gap: 8 }}>
               <button className="btn btn-ghost" onClick={() => setRemoveTarget(null)}>
                 {t("action.cancel", "取消")}
               </button>
+              {removeTarget.groupCount > 1 && (
+                <button className="btn btn-ghost" onClick={() => {
+                  removePlatformFromGroup(removeTarget.platform.id, removeTarget.gid);
+                  setRemoveTarget(null);
+                }}>
+                  {t("group.removeFromGroupAction", "移出本组")}
+                </button>
+              )}
               <button className="btn btn-danger" onClick={confirmDeletePlatform}>
-                {t("group.deletePlatformAction", "删除平台")}
+                {removeTarget.groupCount > 1
+                  ? t("group.deleteFromAllGroupsAction", "删除平台（全部组）")
+                  : t("group.deletePlatformAction", "删除平台")}
               </button>
             </div>
           </div>
