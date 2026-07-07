@@ -115,8 +115,11 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s;
   }), []);
 
-  // 分组卡片「移除平台」确认态：仅当平台只属当前一个分组（删除即销毁平台，破坏性）时弹确认。
-  const [removeTarget, setRemoveTarget] = useState<{ platform: Platform; gid: number } | null>(null);
+  // 分组卡片「移除平台」确认态：总弹 modal 让用户选（单组→删平台；多组→移出本组 or 删全部）。
+  // 根因旁路：去掉 count 决定行为，避免 groupCountOf stale 走错分支。
+  const [removeTarget, setRemoveTarget] = useState<
+    { platform: Platform; gid: number; groupCount: number; groupNames: string[] } | null
+  >(null);
 
   // 平台所属分组数（按 platform_id 跨 details 计数），用于判定删除 vs 仅移出。
   const groupCountOf = useCallback((pid: number): number =>
@@ -140,14 +143,14 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [details, load, t]);
 
-  // 分组上下文「移除」语义：单属本组→确认后删平台；属多组→直接移出本组。
+  // 分组上下文「移除」语义：总弹 modal，让用户明确选（单组→删平台；多组→移出本组 or 删全部）。
   const handleGroupRemovePlatform = useCallback((p: Platform, gid: number) => {
-    if (groupCountOf(p.id) <= 1) {
-      setRemoveTarget({ platform: p, gid });
-    } else {
-      removePlatformFromGroup(p.id, gid);
-    }
-  }, [groupCountOf, removePlatformFromGroup]);
+    const groupCount = groupCountOf(p.id);
+    const groupNames = details
+      .filter(d => d.platforms.some(gp => gp.platform.id === p.id))
+      .map(d => d.group.name);
+    setRemoveTarget({ platform: p, gid, groupCount, groupNames });
+  }, [groupCountOf, details]);
 
   // 确认删除（仅属本组的平台）：走 delete_platform（连带清关联，后端 026289e 已处理）。
   // 失败时 toast 报错 + 不刷新本地状态（保持弹窗上下文，对齐 usePlatformsState.handleDelete 行为）。
@@ -490,6 +493,7 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
       removeTarget={removeTarget}
       setRemoveTarget={setRemoveTarget}
       confirmDeletePlatform={confirmDeletePlatform}
+      removePlatformFromGroup={removePlatformFromGroup}
       onToast={onToast}
       handleReorderGroups={handleReorderGroups}
       openEdit={openEdit}
