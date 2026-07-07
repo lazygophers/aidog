@@ -1817,5 +1817,6 @@
   "settings.defaultsSyncUpdated": "已更新到最新版本（来源：{{source}}）",
   "settings.defaultsSyncUpToDate": "已是最新版本",
   "settings.defaultsSyncFailed": "同步失败：{{error}}（继续使用本地配置）",
-  "settings.defaultsSyncUnknown": "未知"
+  "settings.defaultsSyncUnknown": "未知",
+  "platform.share.format.url": "aidog:// 链接"
 }

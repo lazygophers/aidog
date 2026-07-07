@@ -1839,5 +1839,6 @@
   "settings.defaultsSyncUpdated": "Auf neueste Version aktualisiert (Quelle: {{source}})",
   "settings.defaultsSyncUpToDate": "Bereits aktuell",
   "settings.defaultsSyncFailed": "Synchronisierung fehlgeschlagen: {{error}} (lokale Konfiguration wird verwendet)",
-  "settings.defaultsSyncUnknown": "Unbekannt"
+  "settings.defaultsSyncUnknown": "Unbekannt",
+  "platform.share.format.url": "aidog:// Link"
 }

@@ -1839,5 +1839,6 @@
   "settings.defaultsSyncUpdated": "تم التحديث لأحدث إصدار (المصدر: {{source}})",
   "settings.defaultsSyncUpToDate": "حتى الآن محدث",
   "settings.defaultsSyncFailed": "فشلت المزامنة: {{error}} (استخدام التكوين المحلي)",
-  "settings.defaultsSyncUnknown": "غير معروف"
+  "settings.defaultsSyncUnknown": "غير معروف",
+  "platform.share.format.url": "رابط aidog://"
 }
