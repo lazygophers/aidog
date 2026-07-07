@@ -157,15 +157,23 @@
         "default": [
           {
             "protocol": "gemini",
-            "base_url": "https://generativelanguage.googleapis.com"
+            "base_url": "https://generativelanguage.googleapis.com",
+            "client_type": "default"
           }
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "gemini-2.5-pro"
+        }
       },
       "model_list": {
-        "default": []
+        "default": [
+          "gemini-2.5-pro",
+          "gemini-2.5-flash",
+          "gemini-2.5-flash-lite",
+          "gemini-3.5-flash"
+        ]
       },
       "name": {
         "en-US": "Gemini",
@@ -674,10 +682,16 @@
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "qwen3-coder-plus"
+        }
       },
       "model_list": {
-        "default": []
+        "default": [
+          "qwen3-coder-plus",
+          "qwen3-coder-flash",
+          "qwen3.7-max"
+        ]
       },
       "name": {
         "en-US": "Bailian Coding",
@@ -1304,7 +1318,8 @@
           },
           {
             "protocol": "gemini",
-            "base_url": "https://openrouter.ai/api"
+            "base_url": "https://openrouter.ai/api",
+            "client_type": "default"
           }
         ]
       },
@@ -1915,7 +1930,8 @@
           },
           {
             "protocol": "gemini",
-            "base_url": "https://www.packyapi.com"
+            "base_url": "https://www.packyapi.com",
+            "client_type": "default"
           }
         ]
       },
@@ -1976,7 +1992,8 @@
           },
           {
             "protocol": "gemini",
-            "base_url": "https://api.cubence.com"
+            "base_url": "https://api.cubence.com",
+            "client_type": "default"
           }
         ]
       },
@@ -2037,7 +2054,8 @@
           },
           {
             "protocol": "gemini",
-            "base_url": "https://api.aigocode.com"
+            "base_url": "https://api.aigocode.com",
+            "client_type": "default"
           }
         ]
       },
@@ -2155,7 +2173,8 @@
           },
           {
             "protocol": "gemini",
-            "base_url": "https://api.aicodemirror.com/api/gemini"
+            "base_url": "https://api.aicodemirror.com/api/gemini",
+            "client_type": "default"
           }
         ]
       },
