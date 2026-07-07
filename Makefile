@@ -72,13 +72,6 @@ presets-view: ## Generate interactive HTML from platform-presets.json + models.j
 		*) echo "unsupported OS, open manually: $(PWD)/.aidoc/presets.html" ;; \
 	esac
 
-##@ Pricing
-
-.PHONY: prices-sync
-prices-sync: ## Sync model prices/max_tokens → src-tauri/defaults/models.json (single entry, runs all platform scrapers)
-	@printf "$(GREEN)▶ Aggregating model pricing → src-tauri/defaults/models.json...$(RESET)\n"
-	cd scripts/pricing && uv run python aggregate.py
-
 ##@ Help
 
 .PHONY: help
