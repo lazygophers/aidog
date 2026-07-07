@@ -123,6 +123,7 @@ export interface PlatformsState extends PlatformsStateParams {
   breakerDefaults: SchedulingBreakerSettings | null;
   peakHours: PeakWindow[]; setPeakHours: React.Dispatch<React.SetStateAction<PeakWindow[]>>;
   peakHoursTz: "local" | "utc"; setPeakHoursTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
+  disableDuringPeak: boolean; setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
   autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
   joinGroupIds: number[]; setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
   levelPriority: number; setLevelPriority: React.Dispatch<React.SetStateAction<number>>;

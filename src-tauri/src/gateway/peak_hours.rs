@@ -75,6 +75,39 @@ pub fn resolve_multiplier(windows: &[PeakWindow], epoch_ms: i64) -> f64 {
     1.0
 }
 
+/// first-match 命中任一窗口（跨天 + days_of_week）→ true。空 / 无命中 → false。
+/// 与 `resolve_multiplier` 共享 `hit` 判定，仅返回 bool（caller 不关心 multiplier 值）。
+/// `disable_during_peak` 开关的路由排除用此函数（不调 multiplier）。
+pub fn is_in_peak_window(windows: &[PeakWindow], epoch_ms: i64) -> bool {
+    if windows.is_empty() {
+        return false;
+    }
+    let (hour, weekday) = utc_hour_weekday(epoch_ms);
+    windows.iter().any(|w| hit(w, hour, weekday))
+}
+
+/// 混合源取某平台 peak_hours 窗口：用户 `extra.peak_hours` 覆盖优先；空/缺 → bundled preset 默认。
+/// 等价于 `db::stats_today::platform_peak_hours` 的纯函数版（无 DB 查询），供路由层直接用。
+pub fn peak_hours_for(extra: &str, protocol: &str) -> Vec<PeakWindow> {
+    let user = parse_platform_peak_hours(extra);
+    if !user.is_empty() {
+        return user;
+    }
+    default_peak_hours(protocol)
+}
+
+/// 从 `platform.extra` JSON 解析 `disable_during_peak` 字段；缺失/非法/非 bool → false（默认）。
+/// 与 `parse_platform_peak_hours` / `parse_breaker` 同模式：extra 是 JSON 字符串 blob，禁加 Rust struct 字段。
+pub fn parse_disable_during_peak(extra: &str) -> bool {
+    if extra.trim().is_empty() {
+        return false;
+    }
+    let Ok(v) = serde_json::from_str::<serde_json::Value>(extra) else {
+        return false;
+    };
+    v.get("disable_during_peak").and_then(|x| x.as_bool()).unwrap_or(false)
+}
+
 /// 按 protocol 名（serde rename 裸名，如 "deepseek"）查 bundled preset 默认窗口。
 /// protocol 缺失 / 无 peak_hours 字段 / 解析失败 → 空 Vec（caller 退 1.0）。
 pub fn default_peak_hours(protocol: &str) -> Vec<PeakWindow> {
@@ -210,5 +243,75 @@ mod tests {
     fn default_peak_hours_anthropic_currently_empty() {
         // 当前 preset JSON 未手填 peak_hours，absent → 空（向后兼容）
         assert!(default_peak_hours("anthropic").is_empty());
+    }
+
+    // ── is_in_peak_window ──
+
+    #[test]
+    fn is_in_peak_window_hit() {
+        let windows = vec![w(14, 22, 1.5)];
+        // 2024-01-01T15:00:00Z → hour=15 落在 [14,22) → 命中（基准 1704067200=2024-01-01T00:00:00Z）
+        let ms = DateTime::<Utc>::from_timestamp(1704067200 + 15 * 3600, 0).unwrap().timestamp_millis();
+        assert!(is_in_peak_window(&windows, ms));
+    }
+
+    #[test]
+    fn is_in_peak_window_cross_midnight() {
+        let windows = vec![w(22, 6, 1.5)]; // 跨天 22-06
+        let ms_in = DateTime::<Utc>::from_timestamp(1704067200 + 23 * 3600, 0).unwrap().timestamp_millis(); // 23:00 UTC → 命中
+        let ms_out = DateTime::<Utc>::from_timestamp(1704067200 + 15 * 3600, 0).unwrap().timestamp_millis(); // 15:00 UTC → 不命中
+        assert!(is_in_peak_window(&windows, ms_in));
+        assert!(!is_in_peak_window(&windows, ms_out));
+    }
+
+    #[test]
+    fn is_in_peak_window_no_match() {
+        let windows = vec![w(0, 6, 0.5)];
+        // hour=12 不在 [0,6)（基准 1704067200=2024-01-01T00:00:00Z）
+        let ms = DateTime::<Utc>::from_timestamp(1704067200 + 12 * 3600, 0).unwrap().timestamp_millis();
+        assert!(!is_in_peak_window(&windows, ms));
+    }
+
+    #[test]
+    fn is_in_peak_window_empty() {
+        let ms = 1_700_000_000_000;
+        assert!(!is_in_peak_window(&[], ms));
+    }
+
+    // ── peak_hours_for（混合源）──
+
+    #[test]
+    fn peak_hours_for_user_override_wins() {
+        let user_extra = r#"{"peak_hours":[{"start_hour":14,"end_hour":22,"multiplier":1.5}]}"#;
+        // preset 默认 anthropic 当前为空；用户覆盖应优先
+        let v = peak_hours_for(user_extra, "anthropic");
+        assert_eq!(v.len(), 1);
+        assert_eq!(v[0].multiplier, 1.5);
+    }
+
+    #[test]
+    fn peak_hours_for_empty_extra_falls_back_preset() {
+        // anthropic 当前 preset 无 peak_hours → 空 Vec（caller 退 1.0 / is_in_peak_window=false）
+        assert!(peak_hours_for("", "anthropic").is_empty());
+        assert!(peak_hours_for("{}", "anthropic").is_empty());
+    }
+
+    // ── parse_disable_during_peak ──
+
+    #[test]
+    fn parse_disable_during_peak_true() {
+        assert!(parse_disable_during_peak(r#"{"disable_during_peak":true}"#));
+    }
+
+    #[test]
+    fn parse_disable_during_peak_false_default() {
+        // 缺失 / false / 非法 / 非布尔 → false
+        assert!(!parse_disable_during_peak(""));
+        assert!(!parse_disable_during_peak("not-json"));
+        assert!(!parse_disable_during_peak("{}"));
+        assert!(!parse_disable_during_peak(r#"{"disable_during_peak":false}"#));
+        // 非布尔值（数字/字符串）→ false，禁把 "true" 字符串误判
+        assert!(!parse_disable_during_peak(r#"{"disable_during_peak":"true"}"#));
+        assert!(!parse_disable_during_peak(r#"{"disable_during_peak":1}"#));
     }
 }
