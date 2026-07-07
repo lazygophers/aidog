@@ -14,7 +14,7 @@ import QRCode from "qrcode";
 // ponytail: QR v40 L 级二进制上限 2953B，留余量 2900 触发降级提示
 const QR_MAX_URL_LEN = 2900;
 
-export type ShareFormat = "yaml" | "json" | "base64";
+export type ShareFormat = "yaml" | "json" | "base64" | "url";
 
 export interface ShareModalProps<T extends object = Record<string, unknown>> {
   /** 可分享配置对象（平台 SharePlatform / mcp {mcpServers:...} / 后续 skill 等）。 */
@@ -28,15 +28,15 @@ export interface ShareModalProps<T extends object = Record<string, unknown>> {
   titleKey?: string;
   /** 警示文案 key（默认 platform.share.warning）；mcp 等改用 mcp.share.warning。 */
   warningKey?: string;
-  /** 提供 → 额外渲染「复制为 aidog:// URL」按钮：拼 `${urlScheme}?data=<base64>`。
+  /** 提供 → 格式 tab 增 "url" 选项 + 渲染 QR：拼 `${urlScheme}?data=<base64>`。
    * base64 恒取 JSON 序列化（接收端 mcp_import_json 严格 JSON 解析），与展示格式解耦。
    * 仅 mcp 等需深链唤起（接收端走 mcp_import_json）的场景传。 */
   urlScheme?: string;
-  /** 「复制 URL」按钮文案 key（默认不显示按钮）。 */
+  /** 兼容旧调用点（url 格式 tab 文案 key，默认 platform.share.format.url）。 */
   copyUrlKey?: string;
 }
 
-const FORMATS: ShareFormat[] = ["yaml", "json", "base64"];
+const BASE_FORMATS: ShareFormat[] = ["yaml", "json", "base64"];
 
 /** UTF-8 安全的 base64 编码（btoa 仅接 Latin-1，中文 / emoji 会抛错）。 */
 export function toBase64Utf8(s: string): string {
@@ -46,8 +46,12 @@ export function toBase64Utf8(s: string): string {
   return btoa(bin);
 }
 
-/** 按所选格式把分享对象转文本。base64 包裹 YAML（解析端 serde_yml 兼容）。 */
-function formatShare<T extends object>(share: T, fmt: ShareFormat): string {
+/** 按所选格式把分享对象转文本。base64 包 YAML（解析端 serde_yml 兼容）。
+ * url 格式：拼 `${urlScheme}?data=<base64(JSON)>`（与 QR / 旧 copyUrl 同源）。 */
+function formatShare<T extends object>(share: T, fmt: ShareFormat, urlScheme?: string): string {
+  if (fmt === "url") {
+    return `${urlScheme}?data=${toBase64Utf8(JSON.stringify(share, null, 2))}`;
+  }
   const yaml = yamlStringify(share);
   if (fmt === "yaml") return yaml;
   if (fmt === "json") return JSON.stringify(share, null, 2);
@@ -62,14 +66,16 @@ export function ShareModal<T extends object = Record<string, unknown>>({
   titleKey,
   warningKey,
   urlScheme,
-  copyUrlKey,
 }: ShareModalProps<T>) {
   const { t } = useTranslation();
   const [format, setFormat] = useState<ShareFormat>("yaml");
   const [copied, setCopied] = useState(false);
   const copiedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const text = useMemo(() => formatShare(share, format), [share, format]);
+  // ponytail: url 格式仅 urlScheme 存在时可选（深链唤起场景）
+  const formats: ShareFormat[] = urlScheme ? [...BASE_FORMATS, "url"] : BASE_FORMATS;
+
+  const text = useMemo(() => formatShare(share, format, urlScheme), [share, format, urlScheme]);
 
   // aidog:// 深链 URL（与 copyUrl 同款）。提取为 useMemo 共享：copyUrl 与 QR 同源，避免重复拼接
   const deepLinkUrl = useMemo(() => {
@@ -109,20 +115,6 @@ export function ShareModal<T extends object = Record<string, unknown>>({
       setCopied(true);
       if (copiedTimer.current) clearTimeout(copiedTimer.current);
       copiedTimer.current = setTimeout(() => setCopied(false), 1500);
-    } catch {
-      onToast(t("platform.share.copyFail", "复制失败，请手动选择内容"), false);
-    }
-  };
-
-  // 拼 aidog:// URL（mcp/skill 深链唤起用）。
-  // base64 恒取 JSON 序列化（接收端 mcp_import_json 走严格 JSON 解析；YAML 非严格 JSON 会被拒），
-  // 与弹窗当前展示格式解耦——URL 承载「可导入契约」，展示文本随用户切格式。
-  const copyUrl = async () => {
-    if (!urlScheme) return;
-    try {
-      const url = `${urlScheme}?data=${toBase64Utf8(JSON.stringify(share, null, 2))}`;
-      await writeText(url);
-      onToast(t("mcp.share.urlCopied", "已复制 aidog:// 链接"), true);
     } catch {
       onToast(t("platform.share.copyFail", "复制失败，请手动选择内容"), false);
     }
@@ -204,7 +196,7 @@ export function ShareModal<T extends object = Record<string, unknown>>({
 
         {/* 格式切换器 */}
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          {FORMATS.map((f) => (
+          {formats.map((f) => (
             <button
               key={f}
               type="button"
@@ -288,15 +280,6 @@ export function ShareModal<T extends object = Record<string, unknown>>({
           <button className="btn btn-ghost" style={{ fontSize: 13, padding: "6px 14px" }} onClick={onClose}>
             {t("action.close", "关闭")}
           </button>
-          {urlScheme && (
-            <button
-              className="btn btn-ghost"
-              style={{ fontSize: 13, padding: "6px 14px", marginRight: "auto" }}
-              onClick={() => void copyUrl()}
-            >
-              {t(copyUrlKey ?? "mcp.share.copyUrl", "复制为 aidog:// 链接")}
-            </button>
-          )}
           <button
             className="btn btn-primary"
             style={{ fontSize: 13, padding: "6px 14px", minWidth: 96 }}

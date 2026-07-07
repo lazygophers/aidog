@@ -1817,5 +1817,6 @@
   "settings.defaultsSyncUpdated": "Actualizado a la última versión (origen: {{source}})",
   "settings.defaultsSyncUpToDate": "Ya está actualizado",
   "settings.defaultsSyncFailed": "Error de sincronización: {{error}} (usando configuración local)",
-  "settings.defaultsSyncUnknown": "Desconocido"
+  "settings.defaultsSyncUnknown": "Desconocido",
+  "platform.share.format.url": "Enlace aidog://"
 }

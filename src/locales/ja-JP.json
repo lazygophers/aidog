@@ -1839,5 +1839,6 @@
   "settings.defaultsSyncUpdated": "最新バージョンに更新しました（ソース: {{source}}）",
   "settings.defaultsSyncUpToDate": "最新です",
   "settings.defaultsSyncFailed": "同期に失敗しました: {{error}}（ローカル設定を使用中）",
-  "settings.defaultsSyncUnknown": "不明"
+  "settings.defaultsSyncUnknown": "不明",
+  "platform.share.format.url": "aidog:// リンク"
 }
