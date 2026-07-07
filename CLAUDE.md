@@ -57,6 +57,7 @@ src-tauri/src/
 - mock 协议不在 JSON 内（`platformPaste.ts:15` 从 `matchPlatform` 排除）；`getDefaultEndpoints("mock")` 返 `[]`。
 - coding_plan 分支（cp 三元）字段在 JSON 内分离保留，`injectProtocolHosts` 派生自此单一真值，禁抄第二份。
 - **peak_hours**（高峰/低峰时段倍率，可选）：JSON 内 per-protocol 条目可加 `peak_hours: [{start_hour,end_hour,multiplier,days_of_week?}]`（UTC+0 基准，多窗口数组，first-match wins，跨天 end<start）；当前未填任何协议实际值（absent = 1.0）。`calc_est_cost` 混合源：`platform.extra.peak_hours`（用户覆盖）→ Rust bundled preset default（`gateway/peak_hours.rs` `OnceLock` 解析）→ 1.0。cost = base × multiplier 落 `proxy_log.est_cost` 单列（无新列）。详见 `.wiki/modules/pricing.md`。
+- **disable_during_peak**（高峰期禁用开关，可选）：per-platform 开关 `platform.extra.disable_during_peak`（bool，默认 false）。启用后命中 `peak_hours` 任一窗口时该平台从路由候选排除（与 `expires_at` 同模式：独立维度，不改 status 三态，临时闸门，关开关/出窗口即恢复）。判定复用 `gateway::peak_hours::is_in_peak_window`（与 `resolve_multiplier` 同 hit 逻辑，仅返回 bool）。**单平台组不 bypass**：此开关优先级高于 status bypass（status 维度照旧 bypass auto_disabled / 熔断；高峰禁用维度独立覆盖），单平台组高峰期请求直接 fail。整组所有候选全被高峰排除 → `select_candidates_ctx` 返 `Err("peak_disabled")` → `proxy/handler.rs` route fail 路径落 `proxy_log(blocked_by='router', blocked_reason='peak_hours', status_code=503, est_cost=0)` 审计；其他 NoCandidate 原因（disabled / 熔断无回退）照旧 warn 不落库。前端：`utils/peakHours.ts` `isCurrentlyPeak(windows, nowMs)` 与 Rust 判定对称（cross-layer 一致），PlatformCard 徽标 + formSections 编辑表单「当前: 高峰/非高峰」实时态。
 
 ### URL 构造
 - `base_url` 含版本前缀（如 `/v1`、`/api/paas/v4`）

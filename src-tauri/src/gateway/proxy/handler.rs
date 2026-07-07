@@ -368,6 +368,19 @@ pub(crate) async fn handle_proxy_core(
         Ok(c) => c,
         Err(e) => {
             tracing::warn!(group = %group.name, model = %chat_req.model, error = %e, "route failed");
+            // 整组所有候选被高峰禁用排除 → 落审计 proxy_log（blocked_by='router', blocked_reason='peak_hours'）。
+            // est_cost 保持 0（不计费）；status_code=503（照 route fail 现行错误响应，区别于 NoCandidate 的 400）。
+            if e == "peak_disabled" {
+                log.blocked_by = "router".to_string();
+                log.blocked_reason = "peak_hours".to_string();
+                log.status_code = 503;
+                log.response_body = format!("route error: {e}");
+                log.duration_ms = start.elapsed().as_millis() as i32;
+                upsert_log(&state, &log, &log_settings).await;
+                let mut r = (StatusCode::SERVICE_UNAVAILABLE, format!("{}: {e}", i18n::t(lang, ErrorKey::Route))).into_response();
+                inject_trace_header(&mut r);
+                return r;
+            }
             log.response_body = format!("route error: {e}");
             log.status_code = 400;
             log.duration_ms = start.elapsed().as_millis() as i32;
