@@ -1,7 +1,7 @@
-//! GitHub models.json 同步：拉取 src-tauri/defaults/models.json（Python 聚合的唯一信源），解析，upsert 入 model_price。
+//! GitHub models.json 同步：拉取 src-tauri/defaults/models.json（人工维护的唯一信源），解析，upsert 入 model_price。
 //!
 //! 数据源 = jsDelivr master（cdn.jsdelivr.net）主，raw.githubusercontent fallback。
-//! schema 见 scripts/pricing/schema.py（ModelsFile / ModelEntry / PlatformPricing）。
+//! schema 见 src-tauri/defaults/models.json（人工维护，顶层 models 对象，每项含 input/output/cache_read pricing + max_tokens/context_window）。
 
 use super::db::Db;
 use super::models::PriceSyncResult;
