@@ -73,3 +73,18 @@ return Error("All platforms failed")
 - 排列顺序决定优先级（顺序策略）
 - 权重字段用于加权策略
 - 每个关联可有独立的模型映射覆盖
+
+## 候选过滤维度（candidate_state）
+
+`candidate_state(platform, now_ms)` 按以下正交维度判定平台是否纳入候选（任一命中即排除，互不覆盖）：
+
+1. **过期**（`expires_at > 0 && now_ms >= expires_at`）：等效自动禁用，但独立于 status 三态；改值清空/延后即恢复。
+2. **高峰禁用**（`platform.extra.disable_during_peak == true && is_in_peak_window(peak_hours, now_ms)`）：临时闸门，不改 status；关开关 / 出窗口即恢复。命中 `peak_hours` 任一窗口（first-match，与 `resolve_multiplier` 同 hit 逻辑）即排除。
+3. **status 三态**：Enabled 纳入；AutoDisabled 已过退避时间纳入末尾试探；Disabled（手动）/ AutoDisabled 未到退避 排除。
+
+### 高峰禁用语义细节
+
+- **per-platform 开关**：`platform.extra.disable_during_peak`（bool，默认 false）；preset 可给 per-protocol 默认。判定 helper：`gateway::router::is_peak_disabled`（复用 `peak_hours::is_in_peak_window`）。
+- **单平台组不 bypass**：此开关优先级高于 status bypass（status 维度照旧 bypass auto_disabled / 熔断，必请求），单平台组高峰期请求直接 `Err("peak_disabled")` → 503。
+- **整组全被高峰排除**：`select_candidates_ctx` 返 `Err("peak_disabled")`（区别于普通 NoCandidate 的 `"no available platform..."`）→ `proxy/handler.rs` route fail 路径落 `proxy_log(blocked_by='router', blocked_reason='peak_hours', status_code=503, est_cost=0)` 审计行；其他 NoCandidate 原因照旧 warn 不落库。
+- **前端**：`utils/peakHours.ts` `isCurrentlyPeak(windows, nowMs)` 与 Rust `is_in_peak_window` 逐行对称（cross-layer 一致）。PlatformCard 徽标（列表 + Groups 共享）+ formSections 编辑表单「当前: 高峰/非高峰」实时态。

@@ -131,6 +131,124 @@ async fn single_platform_manual_disabled_errs() {
     assert!(res.is_err(), "manually disabled sole platform must Err");
 }
 
+/// 单平台分组：唯一平台高峰禁用启用 + 当前在 peak window → 不 bypass status，返 Err("peak_disabled")。
+/// 验证 PRD: 高峰禁用优先级高于单平台组 status bypass（status 维度照旧 bypass，本维度不 bypass）。
+#[tokio::test]
+async fn single_platform_peak_disabled_errs() {
+    let db = mk_test_db().await;
+    let p = mk_db_platform(&db, "GLM").await;
+    // 设置 disable_during_peak=true + 跨天窗口 22-06（always 命中：测一个非边界 hour）
+    db::update_platform(&db, UpdatePlatform {
+        id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
+        extra: Some(r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
+        models: None, available_models: None, endpoints: None,
+        enabled: None, status: None, manual_budgets: None,
+        join_group_ids: None, expires_at: None,
+    }).await.expect("set peak-disabled");
+    let g = mk_db_group(&db, "single", &[p.id]).await;
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await;
+    assert!(res.is_err(), "peak-disabled sole platform must Err (no bypass)");
+    if let Err(e) = res {
+        assert_eq!(e, "peak_disabled", "expected peak_disabled error, got: {e}");
+    }
+}
+
+/// 单平台分组：唯一平台高峰禁用启用但**不在** peak window（窗口不覆盖 now）→ 仍 bypass status 必请求。
+/// 验证 status bypass 在非高峰照旧生效（两维度独立，高峰禁用仅在窗口命中时覆盖）。
+#[tokio::test]
+async fn single_platform_peak_disabled_off_peak_still_forces() {
+    let db = mk_test_db().await;
+    let p = mk_db_platform(&db, "GLM").await;
+    // 窗口设为 1-2 点（当前测试在 1-2 点外的概率 ≈ 1；如运行在 1-2 点间会偶发失败，可忽略）
+    db::update_platform(&db, UpdatePlatform {
+        id: p.id, name: None, platform_type: None, base_url: None, api_key: None,
+        extra: Some(r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":1,"end_hour":2,"multiplier":1.5}]}"#.to_string()),
+        models: None, available_models: None, endpoints: None,
+        enabled: None, status: None, manual_budgets: None,
+        join_group_ids: None, expires_at: None,
+    }).await.expect("set peak-disabled off-peak");
+    let g = mk_db_group(&db, "single", &[p.id]).await;
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+    // 极小概率运行在 01:00-02:00 UTC；选择窗口外的概率 22/24 ≈ 92%
+    let now = db::now();
+    let (hour, _) = crate::gateway::peak_hours::utc_hour_weekday(now);
+    if hour == 1 {
+        return; // 偶发跳过
+    }
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await
+        .expect("off-peak: single platform must still force request");
+    assert_eq!(set.candidates.len(), 1);
+    assert_eq!(set.candidates[0].platform.id, p.id);
+}
+
+/// 多平台分组：所有候选高峰禁用 → 返 Err("peak_disabled")（区别于普通 NoCandidate）。
+/// 验证 D5: 整组全被高峰排除时返结构化错误，handler.rs 据此落 proxy_log blocked_reason='peak_hours'。
+#[tokio::test]
+async fn multi_platform_all_peak_disabled_errs() {
+    let db = mk_test_db().await;
+    let p1 = mk_db_platform(&db, "p1").await;
+    let p2 = mk_db_platform(&db, "p2").await;
+    // 两平台都启用高峰禁用 + 24h 全天命中窗口
+    for pid in [p1.id, p2.id] {
+        db::update_platform(&db, UpdatePlatform {
+            id: pid, name: None, platform_type: None, base_url: None, api_key: None,
+            extra: Some(r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
+            models: None, available_models: None, endpoints: None,
+            enabled: None, status: None, manual_budgets: None,
+            join_group_ids: None, expires_at: None,
+        }).await.expect("set peak-disabled");
+    }
+    let g = mk_db_group(&db, "multi", &[p1.id, p2.id]).await;
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+    let res = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await;
+    assert!(res.is_err(), "all peak-disabled must Err");
+    if let Err(e) = res {
+        assert_eq!(e, "peak_disabled", "expected peak_disabled error, got: {e}");
+    }
+}
+
+/// 多平台分组：仅部分候选高峰禁用 → 被排除，其他候选正常纳入（不影响）。
+#[tokio::test]
+async fn multi_platform_partial_peak_disabled_skipped() {
+    let db = mk_test_db().await;
+    let p1 = mk_db_platform(&db, "p1").await; // 高峰禁用
+    let p2 = mk_db_platform(&db, "p2").await; // 正常
+    db::update_platform(&db, UpdatePlatform {
+        id: p1.id, name: None, platform_type: None, base_url: None, api_key: None,
+        extra: Some(r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":0,"end_hour":24,"multiplier":1.5}]}"#.to_string()),
+        models: None, available_models: None, endpoints: None,
+        enabled: None, status: None, manual_budgets: None,
+        join_group_ids: None, expires_at: None,
+    }).await.expect("set p1 peak-disabled");
+    let g = mk_db_group(&db, "multi", &[p1.id, p2.id]).await;
+
+    let sched = SchedulerState::new();
+    let sticky = StickyTable::new();
+    let settings = SchedulingBreakerSettings::default();
+    let ctx = ScheduleCtx { scheduler: &sched, sticky: &sticky, settings: &settings, sticky_key: None };
+
+    let set = select_candidates_ctx(&db, &g, "claude-opus-4-8", Some(&ctx)).await
+        .expect("partial peak-disabled: must still have p2 candidate");
+    assert_eq!(set.candidates.len(), 1);
+    assert_eq!(set.candidates[0].platform.id, p2.id, "only p2 (not peak-disabled) remains");
+}
+
 /// 空平台分组 → Err("group has no platforms").
 #[tokio::test]
 async fn empty_group_returns_err() {

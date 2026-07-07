@@ -44,6 +44,8 @@ pub struct RouteResult {
 /// 判定平台当前是否可作为候选纳入：
 /// - 过期（`expires_at > 0 && now_ms >= expires_at`）：始终排除（等效自动禁用，
 ///   但独立于 status 三态枚举；用户改 expires_at 清空/延后即恢复，无需退避试探）
+/// - 高峰禁用（`extra.disable_during_peak` on 且 now 命中 `peak_hours` 任一窗口）：
+///   始终排除（独立维度，与 status 正交；临时闸门，用户关开关/出窗口即恢复）
 /// - Enabled：始终纳入
 /// - AutoDisabled 且已过退避试探时间（now >= until）：纳入（末尾试探）
 /// - Disabled（用户手动）/ AutoDisabled 未到试探时间：排除
@@ -52,11 +54,32 @@ pub(crate) fn candidate_state(platform: &Platform, now_ms: i64) -> Option<bool> 
     if platform.expires_at > 0 && now_ms >= platform.expires_at {
         return None;
     }
+    // 高峰禁用（与 status 正交，临时闸门，不改 status 三态）：
+    // 开关 on 且 now 落在 peak window 任一窗口 → 排除。用户关开关/出窗口即恢复，无需退避试探。
+    if is_peak_disabled(platform, now_ms) {
+        return None;
+    }
     match platform.status {
         PlatformStatus::Enabled => Some(false),
         PlatformStatus::AutoDisabled if now_ms >= platform.auto_disabled_until => Some(true),
         _ => None,
     }
+}
+
+/// 平台是否被高峰禁用（`extra.disable_during_peak` on 且当前命中 peak window）。
+/// 路由排除用的纯判定函数：与 status 三态正交，不改 status。
+/// 多平台组：candidate_state 返 None 跳过此平台；单平台组：bypass 覆盖（此开关优先级高于 status bypass）。
+pub(crate) fn is_peak_disabled(platform: &Platform, now_ms: i64) -> bool {
+    if !super::peak_hours::parse_disable_during_peak(&platform.extra) {
+        return false;
+    }
+    // serde rename 裸名（如 "anthropic"），同 spawn_estimate / calc_est_cost 取名模式
+    let ptype = serde_json::to_string(&platform.platform_type)
+        .unwrap_or_default()
+        .trim_matches('"')
+        .to_string();
+    let windows = super::peak_hours::peak_hours_for(&platform.extra, &ptype);
+    super::peak_hours::is_in_peak_window(&windows, now_ms)
 }
 
 /// 有效权重 = weight × level_priority（per-group 平台优先级 1~10 乘性放大）。

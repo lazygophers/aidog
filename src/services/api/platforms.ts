@@ -180,6 +180,39 @@ export function serializePlatformPeakHours(extra: string, windows: PeakWindow[])
   return JSON.stringify(obj);
 }
 
+/** 从 platform.extra JSON 解析 disable_during_peak 开关（用户覆盖）。
+ *  缺失 / 非法 / 非布尔 → false（默认）。与 Rust parse_disable_during_peak 对称。 */
+export function parseDisableDuringPeak(extra: string): boolean {
+  if (!extra.trim()) return false;
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && "disable_during_peak" in parsed) {
+      const v = (parsed as { disable_during_peak: unknown }).disable_during_peak;
+      return v === true; // 严格布尔：数字/字符串不误判
+    }
+  } catch { /* ignore */ }
+  return false;
+}
+
+/** 把 disable_during_peak 写回 extra JSON（保留其余键）。false → 移除键（默认行为，无覆盖）。 */
+export function serializeDisableDuringPeak(extra: string, enabled: boolean): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* ignore */ }
+  }
+  if (enabled) {
+    obj.disable_during_peak = true;
+  } else {
+    delete obj.disable_during_peak;
+  }
+  return JSON.stringify(obj);
+}
+
 
 export const platformApi = {
   create: (input: {
