@@ -4,7 +4,7 @@ import type { Platform, Protocol, PlatformUsageStats, LastTestResult, PlatformQu
 import { getPlatformLogo, getFaviconUrl } from "../../assets/platforms";
 import { CompactCard, StatChip, BalanceBar, TestResultBody, successRateLevel, costLevel, usageLevelToColor } from "../shared";
 import { formatNumber, formatCost, formatPercent } from "../../utils/formatters";
-import { IconBolt, IconCost, IconCheck, IconCoin, IconClock } from "../icons";
+import { IconBolt, IconCost, IconCheck, IconClock } from "../icons";
 import {
   PROTOCOL_LABELS, PROTOCOL_COLORS, HEALTH_COLORS,
   getDefaultModels, getProtocolHomepage, computeManualBudgetDisplay, computeQuotaDisplay,
@@ -471,7 +471,7 @@ export const PlatformCard = memo(function PlatformCard({
                 )}
                 {/* Coding plan tiers */}
                 {quota.balanceRemaining == null && quota.tiers.length > 0 && (
-                  <div style={{ flexShrink: 0, display: "flex", gap: 4, flexWrap: "wrap", maxWidth: 260 }}>
+                  <div style={{ flexShrink: 0, display: "flex", gap: 4, flexWrap: "wrap", maxWidth: 300 }}>
                     {quota.tiers.map(tier => {
                       const isMcp = tier.name === "mcp_monthly";
                       const value = isMcp && tier.limit != null
@@ -480,18 +480,29 @@ export const PlatformCard = memo(function PlatformCard({
                       const remainSuffix = t("platform.quotaRemainSuffix", "剩");
                       const tierColor = tier.level === "danger" ? "var(--color-danger)" : tier.level === "warning" ? "var(--color-warning)" : tier.level === "success" ? "var(--color-success)" : "var(--text-secondary)";
                       const countdown = formatResetCountdown(tier.resetsAt);
+                      // ponytail: 进度条块（紧凑态）— 进度条 + 主数 + 档名/倒计时 三层，沿用 tier.level 色口径
                       return (
-                        <span key={tier.name} style={{
-                          display: "inline-flex", alignItems: "center", gap: 3,
-                          padding: "2px 6px", borderRadius: "var(--radius-sm)",
-                          fontSize: 10, fontWeight: 600,
-                          background: tier.level === "neutral" ? "var(--bg-glass)" : tier.level === "danger" ? "var(--color-danger)15" : tier.level === "warning" ? "var(--color-warning)15" : "var(--color-success)15",
-                          color: tierColor,
+                        <div key={tier.name} style={{
+                          display: "flex", flexDirection: "column", gap: 2,
+                          padding: "3px 6px", borderRadius: "var(--radius-sm)",
+                          minWidth: 64, maxWidth: 110,
+                          background: "var(--bg-glass)",
+                          border: "1px solid var(--border)",
                         }}>
-                          <span style={{ fontSize: 11, fontWeight: 700 }}>{value}<span style={{ fontSize: 8, fontWeight: 600, opacity: 0.65, marginLeft: 1 }}>{remainSuffix}</span></span>
-                          <span style={{ fontSize: 9, opacity: 0.7 }}>{tierLabel(tier.name)}</span>
-                          {countdown && <span style={{ fontSize: 8, opacity: 0.6 }}>·{countdown}</span>}
-                        </span>
+                          <div style={{ height: 4, borderRadius: "var(--radius-sm)", background: "var(--bg-primary)", overflow: "hidden" }}>
+                            <div style={{
+                              width: `${Math.max(0, Math.min(100, tier.remainPct))}%`, height: "100%",
+                              background: tierColor, borderRadius: "var(--radius-sm)",
+                              transition: "width 0.3s ease",
+                            }} />
+                          </div>
+                          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.1 }}>
+                            {value}<span style={{ fontSize: 8, fontWeight: 600, opacity: 0.65, marginLeft: 1 }}>{remainSuffix}</span>
+                          </span>
+                          <span style={{ fontSize: 9, color: "var(--text-tertiary)", whiteSpace: "nowrap", lineHeight: 1.1 }}>
+                            {tierLabel(tier.name)}{countdown && ` ·${countdown}`}
+                          </span>
+                        </div>
                       );
                     })}
                   </div>
@@ -568,22 +579,41 @@ export const PlatformCard = memo(function PlatformCard({
                 <span className="text-tertiary" style={{ fontSize: 10, fontWeight: 600, letterSpacing: 0.3 }}>{t("platform.quotaLabel", "额度")}</span>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {quota.tiers.map(tier => {
-                    const countdown = formatResetCountdown(tier.resetsAt);
-                    const value = (tier.name === "mcp_monthly" && tier.limit != null
+                    const isMcp = tier.name === "mcp_monthly";
+                    const value = isMcp && tier.limit != null
                       ? `${tier.remaining ?? 0}/${tier.limit}`
-                      : `${tier.remainPct.toFixed(0)}%`) + t("platform.quotaRemainSuffix", "剩");
+                      : `${tier.remainPct.toFixed(0)}%`;
+                    const remainSuffix = t("platform.quotaRemainSuffix", "剩");
+                    const tierColor = tier.level === "danger" ? "var(--color-danger)" : tier.level === "warning" ? "var(--color-warning)" : tier.level === "success" ? "var(--color-success)" : "var(--text-secondary)";
+                    const countdown = formatResetCountdown(tier.resetsAt);
+                    // ponytail: 进度条块（展开态）— 同款更大版，进度条宽度 = remainPct% 色 = tier.level 语义色
                     return (
-                      <div key={tier.name} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                        <StatChip icon={<IconCoin size={13} />}
-                          value={value}
-                          label={tierLabel(tier.name)}
-                          level={tier.level === "danger" ? "danger" : tier.level === "warning" ? "warning" : tier.level === "success" ? "success" : "neutral"} />
-                        {countdown && (
-                          <span className="text-tertiary" style={{ display: "inline-flex", alignItems: "center", gap: 3, fontSize: 10, fontWeight: 600, paddingLeft: 2 }}>
-                            <IconClock size={11} />
-                            {t("platform.resetIn", "重置 {{countdown}}", { countdown })}
-                          </span>
-                        )}
+                      <div key={tier.name} style={{
+                        display: "flex", flexDirection: "column", gap: 4,
+                        padding: "6px 10px", borderRadius: "var(--radius-sm)",
+                        minWidth: 96, maxWidth: 150,
+                        background: "var(--bg-glass)",
+                        border: "1px solid var(--border)",
+                      }}>
+                        <div style={{ height: 5, borderRadius: "var(--radius-sm)", background: "var(--bg-primary)", overflow: "hidden" }}>
+                          <div style={{
+                            width: `${Math.max(0, Math.min(100, tier.remainPct))}%`, height: "100%",
+                            background: tierColor, borderRadius: "var(--radius-sm)",
+                            transition: "width 0.3s ease",
+                          }} />
+                        </div>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", lineHeight: 1.1 }}>
+                          {value}<span style={{ fontSize: 9, fontWeight: 600, opacity: 0.65, marginLeft: 2 }}>{remainSuffix}</span>
+                        </span>
+                        <span style={{ fontSize: 11, color: "var(--text-tertiary)", display: "inline-flex", alignItems: "center", gap: 4, whiteSpace: "nowrap" }}>
+                          <span>{tierLabel(tier.name)}</span>
+                          {countdown && (
+                            <span style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+                              <IconClock size={11} />
+                              {countdown}
+                            </span>
+                          )}
+                        </span>
                       </div>
                     );
                   })}
