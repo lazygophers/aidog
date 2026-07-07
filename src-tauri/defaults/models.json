@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "generated_at": "2026-06-20T17:02:24Z",
+  "generated_at": "2026-07-08T00:00:00Z",
   "models": {
     "deepseek-v4-flash": {
       "default_platform": "deepseek",
@@ -8297,6 +8297,51 @@
         "openrouter": {
           "input_cost_per_token": 9e-8,
           "output_cost_per_token": 4.5e-7
+        }
+      }
+    },
+    "doubao-seed-2-0-pro": {
+      "default_platform": "doubao",
+      "input_cost_per_token": 4.444444444444444e-7,
+      "output_cost_per_token": 2.2222222222222223e-6,
+      "max_input_tokens": 128000,
+      "max_output_tokens": 32768,
+      "context_window": 128000,
+      "context_tiers": [],
+      "pricing": {
+        "doubao": {
+          "input_cost_per_token": 4.444444444444444e-7,
+          "output_cost_per_token": 2.2222222222222223e-6
+        }
+      }
+    },
+    "doubao-seed-2-0-lite": {
+      "default_platform": "doubao",
+      "input_cost_per_token": 8.333333333333333e-8,
+      "output_cost_per_token": 5e-7,
+      "max_input_tokens": 128000,
+      "max_output_tokens": 32768,
+      "context_window": 128000,
+      "context_tiers": [],
+      "pricing": {
+        "doubao": {
+          "input_cost_per_token": 8.333333333333333e-8,
+          "output_cost_per_token": 5e-7
+        }
+      }
+    },
+    "doubao-seed-2-0-mini": {
+      "default_platform": "doubao",
+      "input_cost_per_token": 2.7777777777777778e-8,
+      "output_cost_per_token": 2.7777777777777778e-7,
+      "max_input_tokens": 128000,
+      "max_output_tokens": 32768,
+      "context_window": 128000,
+      "context_tiers": [],
+      "pricing": {
+        "doubao": {
+          "input_cost_per_token": 2.7777777777777778e-8,
+          "output_cost_per_token": 2.7777777777777778e-7
         }
       }
     },
