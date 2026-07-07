@@ -91,6 +91,8 @@
 | popover-auto-hide | 浮窗自动隐藏 | — | 已完成 | — |
 | platform-share-aidog-url-qrcode | 平台分享补 aidog:// 地址 + 二维码 | — | 已完成 | — |
 | popover-blur-close-bug | 浮窗失焦自动关闭失效 (bug) | — | 已完成 | — |
+| popover-blur-v2 | popover 失焦关闭 v2 (floating window 深挖) | — | 已完成 | — |
+| group-share-aidog-url | group 分享补 aidog:// 链接 + deep-link 完整接收端 | — | 已完成 | — |
 
 ## Worktree ↔ Task 映射
 

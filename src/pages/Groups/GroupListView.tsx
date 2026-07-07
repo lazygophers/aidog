@@ -240,6 +240,7 @@ export function GroupListView(props: GroupListViewProps) {
         <ShareModal
           share={cards.shareData.share}
           title={cards.shareData.name}
+          urlScheme="aidog://platform/import"
           onToast={(text, ok) => {
             onToast?.({ text, ok });
             setTimeout(() => onToast?.(null), 3000);
