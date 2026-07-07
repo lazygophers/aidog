@@ -12,6 +12,8 @@ import {
 } from "../../domains/platforms";
 import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
 import type { HealthStatus } from "../../domains/platforms";
+import { isCurrentlyPeak } from "../../utils/peakHours";
+import { parseDisableDuringPeak, parsePlatformPeakHours } from "../../services/api";
 
 // ── Props types ──
 
@@ -257,6 +259,21 @@ export const PlatformCard = memo(function PlatformCard({
                       <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
                     </svg>
                     {t("platform.autoDisabled", "自动禁用")}
+                  </div>
+                )}
+                {/* 高峰禁用中徽标（独立维度，与 status 正交）：开关 on && now 在 peak window 命中 → 实时显 */}
+                {parseDisableDuringPeak(p.extra ?? "") && isCurrentlyPeak(parsePlatformPeakHours(p.extra ?? ""), Date.now()) && (
+                  <div
+                    style={{
+                      marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
+                      fontSize: 10, fontWeight: 600, color: "var(--color-warning)",
+                      background: "color-mix(in srgb, var(--color-warning) 14%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--color-warning) 35%, transparent)",
+                      borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
+                    }}
+                    title={t("platform.disable_during_peak_desc", "启用后该平台在高峰时段从路由候选排除（不改 status，临时闸门）。")}
+                  >
+                    {t("platform.peak_disabled_badge", "高峰禁用中")}
                   </div>
                 )}
                 {/* 过期标记（独立维度，与 status 正交）：已过期显红 badge，未过期临近时显小字 */}

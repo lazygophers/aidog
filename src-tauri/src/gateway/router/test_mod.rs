@@ -138,6 +138,44 @@ fn candidate_state_expires_at_excludes() {
 }
 
 #[test]
+fn candidate_state_peak_disabled_dimension() {
+    // 高峰禁用是正交维度（不改 status 三态）：开关 on + 命中 peak window → None 排除。
+    // 跨天窗口 22-06 命中：2024-01-01T23:00:00Z（Mon）→ hour=23 落在 [22,6) → is_in_peak_window=true。
+    let ms_in_peak = chrono::DateTime::<chrono::Utc>::from_timestamp(1704154800, 0).unwrap().timestamp_millis();
+    let ms_off_peak = chrono::DateTime::<chrono::Utc>::from_timestamp(1704116400, 0).unwrap().timestamp_millis(); // hour=15
+
+    // 开关 off：不影响（即便 peak window 命中，仍按 status 判定）
+    let mut p_off = mk_platform(PlatformStatus::Enabled, 0);
+    p_off.extra = r#"{"peak_hours":[{"start_hour":22,"end_hour":6,"multiplier":1.5}]}"#.to_string();
+    assert_eq!(candidate_state(&p_off, ms_in_peak), Some(false), "开关 off + peak window → enabled 仍纳入");
+
+    // 开关 on + 非 peak window：仍纳入（与 status 正交）
+    let mut p_on_offpeak = mk_platform(PlatformStatus::Enabled, 0);
+    p_on_offpeak.extra = r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":22,"end_hour":6,"multiplier":1.5}]}"#.to_string();
+    assert_eq!(candidate_state(&p_on_offpeak, ms_off_peak), Some(false), "开关 on + 非 peak window → 仍纳入");
+
+    // 开关 on + peak window → 排除（None）
+    let mut p_on_inpeak = mk_platform(PlatformStatus::Enabled, 0);
+    p_on_inpeak.extra = r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":22,"end_hour":6,"multiplier":1.5}]}"#.to_string();
+    assert_eq!(candidate_state(&p_on_inpeak, ms_in_peak), None, "开关 on + peak window → 排除（与 status 正交）");
+
+    // 开关 on + peak window + AutoDisabled 已过退避 → 仍排除（高峰禁用优先于 status 试探纳入）
+    let mut p_auto = mk_platform(PlatformStatus::AutoDisabled, 0);
+    p_auto.extra = r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":22,"end_hour":6,"multiplier":1.5}]}"#.to_string();
+    assert_eq!(candidate_state(&p_auto, ms_in_peak), None, "auto_disabled(已过退避) + 高峰禁用 → 仍排除");
+
+    // 开关 on + peak window，但 peak_hours 缺失（无窗口）→ 不命中 → 不排除
+    let mut p_no_windows = mk_platform(PlatformStatus::Enabled, 0);
+    p_no_windows.extra = r#"{"disable_during_peak":true}"#.to_string();
+    assert_eq!(candidate_state(&p_no_windows, ms_in_peak), Some(false), "开关 on + 无 peak_hours 窗口 → 不排除");
+
+    // 非 bool 值不误判（"true" 字符串 / 1 数字 → 视为 off）
+    let mut p_str = mk_platform(PlatformStatus::Enabled, 0);
+    p_str.extra = r#"{"disable_during_peak":"true","peak_hours":[{"start_hour":22,"end_hour":6,"multiplier":1.5}]}"#.to_string();
+    assert_eq!(candidate_state(&p_str, ms_in_peak), Some(false), "非布尔 disable_during_peak → 视为 off");
+}
+
+#[test]
 fn cap_max_tokens_logic() {
     // 超限 → 裁剪到上限
     assert_eq!(cap_max_tokens(Some(100_000), Some(8192)), (Some(8192), true));

@@ -5,7 +5,7 @@ use super::super::models::*;
 use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
 use super::model_mapping::resolve_model;
 use super::ordering::{apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_least_latency, order_load_balance};
-use super::{candidate_state, RouteResult};
+use super::{candidate_state, is_peak_disabled, RouteResult};
 
 /// 候选选取结果：有序的候选平台列表（首个为最优先），用于失败逐个重试。
 /// `target_model` / `mapping` 对每个候选独立解析（显式映射命中时全部候选共享映射目标模型；
@@ -74,6 +74,15 @@ pub async fn select_candidates_ctx(
         if only.platform.status == PlatformStatus::Disabled {
             return Err("group's only platform is manually disabled".to_string());
         }
+        // 高峰禁用优先级高于 status bypass：单平台组高峰期请求直接 fail（PRD: 此开关优先级高于 status bypass，
+        // 单平台组不 bypass 此维度）。status 维度照旧 bypass（auto_disabled / 熔断仍必请求）。
+        if is_peak_disabled(&only.platform, now_ms) {
+            tracing::info!(
+                group = %group.name, platform = %only.platform.name,
+                "single-platform group: peak-disabled, request blocked"
+            );
+            return Err("peak_disabled".to_string());
+        }
         let target_model = mapped_target_model
             .clone()
             .unwrap_or_else(|| resolve_model(&only.platform.models, source_model));
@@ -101,11 +110,18 @@ pub async fn select_candidates_ctx(
     // 熔断语义是在多个健康平台间择优摘坏，无可切目标时（单平台分组 / 多平台全坏）
     // 不应制造空候选 blackhole（否则丢失上游真实 429/5xx + retry-after，客户端无法退避）。
     let mut breaker_rejected: Vec<(&GroupPlatformDetail, Option<bool>)> = Vec::new();
+    // 被高峰禁用排除的候选计数：整组全被高峰排除时返特殊 Err "peak_disabled"，
+    // handler.rs 据此落 proxy_log blocked_reason='peak_hours'（区别于普通 NoCandidate）。
+    let mut peak_disabled_count: usize = 0;
     for gp in &group_platforms {
         // auto_disabled 维度（DB 持久态）
         let auto_state = candidate_state(&gp.platform, now_ms);
         if auto_state.is_none() {
-            continue; // 用户手动 disabled / auto_disabled 未到退避 → 跳过
+            // 区分高峰禁用与其他排除原因（disabled / auto_disabled 未到期 / 过期）
+            if is_peak_disabled(&gp.platform, now_ms) {
+                peak_disabled_count += 1;
+            }
+            continue; // 用户手动 disabled / auto_disabled 未到退避 / 高峰禁用 → 跳过
         }
         // 熔断维度（内存态）：仅在有 ctx 且总开关开时判定
         if let Some(c) = ctx {
@@ -213,6 +229,16 @@ pub async fn select_candidates_ctx(
     }
 
     if ordered.is_empty() {
+        // 整组所有候选被高峰禁用排除 → 返特殊 Err，caller handler.rs 据此落审计 proxy_log
+        // (blocked_by='router', blocked_reason='peak_hours', est_cost=0, status_code=503)。
+        // 其他原因（disabled / auto_disabled / 熔断无回退）照旧 NoCandidate warn 不落库。
+        if peak_disabled_count > 0 && peak_disabled_count == group_platforms.len() {
+            tracing::info!(
+                group = %group.name, peak_disabled = peak_disabled_count,
+                "all candidates peak-disabled; returning peak_disabled error for audit log"
+            );
+            return Err("peak_disabled".to_string());
+        }
         return Err("no available platform (all disabled, backing off, or circuit-broken)".to_string());
     }
 

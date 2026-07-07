@@ -15,6 +15,7 @@ import {
 } from "../../services/api";
 import { LevelPriorityControl } from "../../components/platforms/PlatformCard";
 import { newManualBudget, type PeakWindow } from "../../domains/platforms";
+import { isCurrentlyPeak } from "../../utils/peakHours";
 
 /** 毫秒时间戳 → datetime-local input 值 "YYYY-MM-DDTHH:MM"（本地时区，无秒）。
  *  datetime-local 不解析 ISO Z 后缀，须手动拼本地时间分量。 */
@@ -376,11 +377,13 @@ function displayToUtc(displayHour: number, mode: "local" | "utc"): number {
   return ((displayHour - tzOffset(mode)) % 24 + 24) % 24;
 }
 
-export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, t }: {
+export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, t }: {
   windows: PeakWindow[];
   setWindows: React.Dispatch<React.SetStateAction<PeakWindow[]>>;
   tzMode: "local" | "utc";
   setTzMode: React.Dispatch<React.SetStateAction<"local" | "utc">>;
+  disableDuringPeak: boolean;
+  setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
   t: TFunction;
 }) {
   const update = (idx: number, patch: Partial<PeakWindow>) => {
@@ -400,6 +403,9 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, t }: 
       return { ...w, days_of_week: next.length === 0 ? undefined : next };
     }));
   };
+
+  // 高峰禁用预览：实时算（基于当前 windows + now）。无窗口 → 视为非高峰（不会触发排除）。
+  const nowPeak = isCurrentlyPeak(windows, Date.now());
 
   return (
     <FormSection
@@ -421,6 +427,39 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, t }: 
         </div>
       }
     >
+      {/* 高峰禁用开关：启用后该平台在 peak window 命中时从路由候选排除（不改 status，临时闸门）。 */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: 8, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
+        <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-secondary)", cursor: "pointer" }}>
+          <input
+            type="checkbox"
+            checked={disableDuringPeak}
+            onChange={e => setDisableDuringPeak(e.target.checked)}
+          />
+          <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>{t("platform.disable_during_peak", "高峰期禁用")}</span>
+        </label>
+        {/* 实时态预览：仅当开关 on 才显（off 时无意义） */}
+        {disableDuringPeak && (
+          <span
+            style={{
+              fontSize: 11, fontWeight: 600, padding: "2px 8px", borderRadius: 5, whiteSpace: "nowrap",
+              color: nowPeak ? "var(--color-danger)" : "var(--text-tertiary)",
+              background: nowPeak
+                ? "color-mix(in srgb, var(--color-danger) 12%, transparent)"
+                : "transparent",
+              border: nowPeak
+                ? "1px solid color-mix(in srgb, var(--color-danger) 30%, transparent)"
+                : "1px solid var(--border)",
+            }}
+          >
+            {nowPeak
+              ? t("platform.currently_peak", "当前：高峰期")
+              : t("platform.currently_off_peak", "当前：非高峰期")}
+          </span>
+        )}
+        <span style={{ fontSize: 11, color: "var(--text-tertiary)", lineHeight: 1.4, marginLeft: 4 }}>
+          {t("platform.disable_during_peak_desc", "启用后该平台在高峰时段从路由候选排除（不改 status，临时闸门）。")}
+        </span>
+      </div>
       {windows.length === 0 && (
         <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
           {t("platform.peak_hours_empty", "未配置 → 按预设默认或 1.0（无调整）")}

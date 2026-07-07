@@ -39,6 +39,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     breakerDefaults, breakerFailureThreshold, setBreakerFailureThreshold,
     breakerOpenSecs, setBreakerOpenSecs, breakerHalfOpenMax, setBreakerHalfOpenMax,
     peakHours, setPeakHours, peakHoursTz, setPeakHoursTz,
+    disableDuringPeak, setDisableDuringPeak,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, lockedGroupId,
     groupDetails, levelPriority, setLevelPriority,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
@@ -202,6 +203,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           <PeakHoursSection
             windows={peakHours} setWindows={setPeakHours}
             tzMode={peakHoursTz} setTzMode={setPeakHoursTz}
+            disableDuringPeak={disableDuringPeak} setDisableDuringPeak={setDisableDuringPeak}
             t={t}
           />
         )}
