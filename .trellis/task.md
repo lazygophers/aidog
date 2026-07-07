@@ -98,3 +98,4 @@
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-i18n-name-desc-search | 07-07-protocols-i18n-name-desc-search | trellisx-start |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-source-url | 07-07-protocols-source-url | trellisx-start |
+| popover-auto-hide | 浮窗自动隐藏 | — | 已完成 | — |
