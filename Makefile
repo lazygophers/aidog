@@ -58,6 +58,20 @@ clean: ## Remove build artifacts
 install: ## Install frontend dependencies
 	yarn install
 
+##@ Docs
+
+.PHONY: presets-view
+presets-view: ## Generate interactive HTML from platform-presets.json + models.json and open it
+	@printf "$(GREEN)▶ Generating presets HTML...$(RESET)\n"
+	@python3 scripts/presets_view/generate.py
+	@printf "$(GREEN)▶ Opening...$(RESET)\n"
+	@case "$$(uname -s)" in \
+		Darwin) open "$(PWD)/.aidoc/presets.html" ;; \
+		Linux)  (xdg-open "$(PWD)/.aidoc/presets.html" || echo "open manually: $(PWD)/.aidoc/presets.html") ;; \
+		MINGW*|MSYS*|CYGWIN*) start "" "$(PWD)/.aidoc/presets.html" ;; \
+		*) echo "unsupported OS, open manually: $(PWD)/.aidoc/presets.html" ;; \
+	esac
+
 ##@ Pricing
 
 .PHONY: prices-sync
