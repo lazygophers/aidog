@@ -9,6 +9,10 @@ import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import { stringify as yamlStringify } from "yaml";
+import QRCode from "qrcode";
+
+// ponytail: QR v40 L 级二进制上限 2953B，留余量 2900 触发降级提示
+const QR_MAX_URL_LEN = 2900;
 
 export type ShareFormat = "yaml" | "json" | "base64";
 
@@ -67,6 +71,32 @@ export function ShareModal<T extends object = Record<string, unknown>>({
 
   const text = useMemo(() => formatShare(share, format), [share, format]);
 
+  // aidog:// 深链 URL（与 copyUrl 同款）。提取为 useMemo 共享：copyUrl 与 QR 同源，避免重复拼接
+  const deepLinkUrl = useMemo(() => {
+    if (!urlScheme) return null;
+    const url = `${urlScheme}?data=${toBase64Utf8(JSON.stringify(share, null, 2))}`;
+    return url.length > QR_MAX_URL_LEN ? null : url;
+  }, [urlScheme, share]);
+
+  const [qrDataUrl, setQrDataUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!deepLinkUrl) {
+      setQrDataUrl(null);
+      return;
+    }
+    let cancelled = false;
+    QRCode.toDataURL(deepLinkUrl, { errorCorrectionLevel: "L", margin: 1 })
+      .then((d) => {
+        if (!cancelled) setQrDataUrl(d);
+      })
+      .catch(() => {
+        if (!cancelled) setQrDataUrl(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [deepLinkUrl]);
+
   const copy = async (auto: boolean) => {
     try {
       await writeText(text);
@@ -97,6 +127,8 @@ export function ShareModal<T extends object = Record<string, unknown>>({
       onToast(t("platform.share.copyFail", "复制失败，请手动选择内容"), false);
     }
   };
+
+  // ponytail: deepLinkUrl 复用为 QR 内容（已在 useMemo 内做超长降级，此处仅消费）
 
   // 打开即自动复制当前格式（YAML 默认）。仅首次 mount 触发，切换格式不重复自动复制。
   useEffect(() => {
@@ -207,6 +239,49 @@ export function ShareModal<T extends object = Record<string, unknown>>({
         >
           {text}
         </pre>
+
+        {/* QR 区块（仅 urlScheme 存在时显示；超长 / 生成失败 → 降级提示） */}
+        {urlScheme && (
+          <div
+            style={{
+              marginTop: 12,
+              padding: "12px 14px",
+              borderRadius: "var(--radius-sm)",
+              background: "var(--bg-glass)",
+              border: "1px solid var(--border)",
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: 8,
+            }}
+          >
+            <div style={{ fontSize: 12.5, color: "var(--text-secondary)", fontWeight: 600 }}>
+              {t("platform.share.scanToImport", "扫码导入")}
+            </div>
+            {qrDataUrl ? (
+              <img
+                src={qrDataUrl}
+                alt={t("platform.share.scanToImport", "扫码导入")}
+                style={{ width: 160, height: 160, borderRadius: "var(--radius-sm)", display: "block" }}
+              />
+            ) : (
+              <div
+                style={{
+                  fontSize: 12,
+                  color: "var(--text-secondary)",
+                  textAlign: "center",
+                  lineHeight: 1.55,
+                  width: 200,
+                }}
+              >
+                {t(
+                  "platform.share.qrTooLong",
+                  "内容过长，二维码不可用，请用复制链接",
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* 操作 */}
         <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18, flexWrap: "wrap" }}>

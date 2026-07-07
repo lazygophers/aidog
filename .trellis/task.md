@@ -88,6 +88,8 @@
 | protocols-i18n-name-desc-search | platform-presets protocols 多语言 name/desc + 搜索 (含拼音) | — | 已完成 | — |
 | protocols-source-url | platform-presets protocols 数据源站点 URL | — | 已完成 | — |
 | protocol-logo-homepage | platform-presets protocols homepage + logo (本地缓存) | — | 已完成 | — |
+| popover-auto-hide | 浮窗自动隐藏 | — | 已完成 | — |
+| platform-share-aidog-url-qrcode | 平台分享补 aidog:// 地址 + 二维码 | — | 已完成 | — |
 
 ## Worktree ↔ Task 映射
 
@@ -98,4 +100,3 @@
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-i18n-name-desc-search | 07-07-protocols-i18n-name-desc-search | trellisx-start |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-protocols-source-url | 07-07-protocols-source-url | trellisx-start |
-| popover-auto-hide | 浮窗自动隐藏 | — | 已完成 | — |

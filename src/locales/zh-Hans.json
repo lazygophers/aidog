@@ -936,6 +936,8 @@
   "platform.share.format.base64": "Base64",
   "platform.share.format.json": "JSON",
   "platform.share.format.yaml": "YAML",
+  "platform.share.qrTooLong": "内容过长，二维码不可用，请用复制链接",
+  "platform.share.scanToImport": "扫码导入",
   "platform.share.title": "分享平台",
   "platform.share.warning": "分享内容含明文 API Key，请仅发送给可信对象，切勿公开发布。",
   "platform.testFail": "测试失败",

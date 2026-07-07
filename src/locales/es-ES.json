@@ -936,6 +936,8 @@
   "platform.share.format.base64": "Base64",
   "platform.share.format.json": "JSON",
   "platform.share.format.yaml": "YAML",
+  "platform.share.qrTooLong": "Contenido demasiado largo para código QR, use copiar enlace",
+  "platform.share.scanToImport": "Escanear para importar",
   "platform.share.title": "Compartir plataforma",
   "platform.share.warning": "El contenido compartido contiene una clave API en texto plano. Envíalo solo a destinatarios de confianza y nunca lo publiques.",
   "platform.testFail": "Test fallido",

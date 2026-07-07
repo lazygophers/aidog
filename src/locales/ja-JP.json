@@ -958,6 +958,8 @@
   "platform.share.format.base64": "Base64",
   "platform.share.format.json": "JSON",
   "platform.share.format.yaml": "YAML",
+  "platform.share.qrTooLong": "内容が長すぎてQRコードを生成できません。コピー リンクを使用してください",
+  "platform.share.scanToImport": "スキャンしてインポート",
   "platform.share.title": "プラットフォームを共有",
   "platform.share.warning": "共有内容には平文の API キーが含まれます。信頼できる相手にのみ送信し、公開しないでください。",
   "platform.testFail": "テスト失敗",
