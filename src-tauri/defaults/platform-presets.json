@@ -866,21 +866,6 @@
         "default": [
           {
             "protocol": "anthropic",
-            "base_url": "https://ark.cn-beijing.volces.com/api/coding",
-            "client_type": "claude_code"
-          },
-          {
-            "protocol": "openai",
-            "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
-            "client_type": "codex_tui"
-          },
-          {
-            "protocol": "openai_responses",
-            "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
-            "client_type": "codex_tui"
-          },
-          {
-            "protocol": "anthropic",
             "base_url": "https://ark.cn-beijing.volces.com/api/plan",
             "client_type": "claude_code"
           },
@@ -893,6 +878,26 @@
             "protocol": "openai_responses",
             "base_url": "https://ark.cn-beijing.volces.com/api/plan/v3",
             "client_type": "codex_tui"
+          }
+        ],
+        "coding_plan": [
+          {
+            "protocol": "anthropic",
+            "base_url": "https://ark.cn-beijing.volces.com/api/coding",
+            "client_type": "claude_code",
+            "coding_plan": true
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
+            "client_type": "codex_tui",
+            "coding_plan": true
+          },
+          {
+            "protocol": "openai_responses",
+            "base_url": "https://ark.cn-beijing.volces.com/api/coding/v3",
+            "client_type": "codex_tui",
+            "coding_plan": true
           }
         ]
       },
