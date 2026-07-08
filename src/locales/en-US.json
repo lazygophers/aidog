@@ -1859,5 +1859,7 @@
   "logs.cleanupExpiredDone": "Expired logs cleaned up",
   "logs.clearConfirmTitle": "Clear All Logs",
   "logs.cancel": "Cancel",
-  "logs.clearDone": "Cleared"
+  "logs.clearDone": "Cleared",
+  "logs.cleaning": "Cleaning...",
+  "logs.cleanupDisabledHint": "Retention forever mode — no expired logs to clean up"
 }
