@@ -235,6 +235,7 @@ use super::*;
         assert!(ids.contains(&"gpt-5.5"));
         assert!(ids.contains(&"gpt-5.4"));
         assert!(ids.contains(&"gpt-5.4-mini"));
+        assert!(ids.contains(&"gpt-5.4-nano"));
         assert!(!ids.contains(&"gpt-5.5-codex"));
     }
 
@@ -252,7 +253,7 @@ use super::*;
         assert!(first.get("created_at").is_some());
         assert_eq!(v.get("has_more").and_then(|h| h.as_bool()), Some(false));
         assert_eq!(v.get("first_id").and_then(|i| i.as_str()), Some("claude-opus-4-8"));
-        assert_eq!(v.get("last_id").and_then(|i| i.as_str()), Some("gpt-5.4-mini"));
+        assert_eq!(v.get("last_id").and_then(|i| i.as_str()), Some("gpt-5.4-nano"));
     }
 
     // ── SSE usage 累计（Anthropic message.usage + OpenAI 顶层 usage）──

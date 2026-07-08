@@ -237,6 +237,7 @@ const STATIC_MODEL_IDS: &[&str] = &[
     "gpt-5.5",
     "gpt-5.4",
     "gpt-5.4-mini",
+    "gpt-5.4-nano",
 ];
 
 /// 按入站协议构造静态模型列表 JSON（纯函数，便于单测，免起 HTTP / DB）。
