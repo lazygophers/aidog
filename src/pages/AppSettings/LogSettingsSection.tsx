@@ -20,11 +20,11 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
 
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
+  const [message, setMessage] = useState<{ text: string; type: "success" | "error" } | null>(null);
 
-  function flashMessage(msg: string) {
-    setMessage(msg);
-    setTimeout(() => setMessage(""), 3000);
+  function flashMessage(text: string, type: "success" | "error" = "success") {
+    setMessage({ text, type });
+    setTimeout(() => setMessage(null), 3000);
   }
 
   async function handleCleanupExpired() {
@@ -34,10 +34,10 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
     try {
       await proxyLogApi.cleanupExpired();
       console.log("[LogSettings] cleanupExpired done");
-      flashMessage(t("logs.cleanupExpiredDone", "已清理过期日志"));
+      flashMessage(t("logs.cleanupExpiredDone", "已清理过期日志"), "success");
     } catch (e) {
       console.error("[LogSettings] cleanupExpired failed", e);
-      flashMessage(String(e));
+      flashMessage(String(e), "error");
     } finally {
       setBusy(false);
     }
@@ -48,9 +48,9 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
     try {
       await proxyLogApi.clear();
       setShowClearConfirm(false);
-      flashMessage(t("logs.clearDone", "已清空"));
+      flashMessage(t("logs.clearDone", "已清空"), "success");
     } catch (e) {
-      flashMessage(String(e));
+      flashMessage(String(e), "error");
     } finally {
       setBusy(false);
     }
@@ -179,22 +179,33 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                     className="btn"
                     onClick={handleCleanupExpired}
                     disabled={busy || logRetention === 0}
-                    title={logRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : undefined}
-                    style={{ fontSize: 12, padding: "4px 12px" }}
+                    title={logRetention === 0 ? t("logs.cleanupDisabledHint", "永久保留模式，无过期日志可清理") : undefined}
+                    style={{ fontSize: 12, padding: "4px 12px", opacity: busy ? 0.6 : 1 }}
                   >
-                    {t("logs.cleanupExpired", "清理过期")}
+                    {busy ? t("logs.cleaning", "清理中...") : t("logs.cleanupExpired", "清理过期")}
                   </button>
                   <button
                     className="btn btn-danger"
                     onClick={() => setShowClearConfirm(true)}
                     disabled={busy}
-                    style={{ fontSize: 12, padding: "4px 12px" }}
+                    style={{ fontSize: 12, padding: "4px 12px", opacity: busy ? 0.6 : 1 }}
                   >
-                    {t("logs.clear", "清除全部")}
+                    {busy ? t("logs.cleaning", "清理中...") : t("logs.clear", "清除全部")}
                   </button>
                 </div>
                 {message && (
-                  <div className="toast" style={{ fontSize: 12, marginTop: 4 }}>{message}</div>
+                  <div
+                    className="toast"
+                    style={{
+                      fontSize: 12,
+                      marginTop: 4,
+                      color: message.type === "success"
+                        ? "var(--color-success, #22c55e)"
+                        : "var(--color-error, #ef4444)",
+                    }}
+                  >
+                    {message.text}
+                  </div>
                 )}
               </div>
             </div>
@@ -306,7 +317,7 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                   opacity: busy ? 0.6 : 1,
                 }}
               >
-                {t("logs.clear", "清除全部")}
+                {busy ? t("logs.cleaning", "清理中...") : t("logs.clear", "清除全部")}
               </button>
             </div>
           </div>
