@@ -629,6 +629,8 @@
   "middleware.globalRulesHint": "Las reglas globales aplican a todos los grupos/plataformas y pueden sobrescribirse por reglas de nivel grupo/plataforma (gana el más cercano)",
   "middleware.groupRules": "Reglas de middleware de grupo",
   "middleware.groupRulesHint": "Aplican solo a este grupo, sobrescribiendo reglas globales del mismo tipo",
+  "middleware.importDefaults": "Importar reglas predeterminadas",
+  "middleware.importDefaultsDone": "Se importaron {{imported}} reglas predeterminadas ({{skipped}} ya existían, omitidas)",
   "middleware.masterToggle": "Interruptor maestro de middleware",
   "middleware.masterToggleDesc": "Cuando está apagado, todas las reglas se omiten; peticiones/respuestas saltan el procesamiento de middleware",
   "middleware.match.contains": "Contiene",

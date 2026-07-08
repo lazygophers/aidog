@@ -651,6 +651,8 @@
   "middleware.globalRulesHint": "Globale Regeln gelten für alle Gruppen/Plattformen und können durch Gruppen-/Plattformregeln überschrieben werden (näheste gewinnt)",
   "middleware.groupRules": "Gruppen-Middleware-Regeln",
   "middleware.groupRulesHint": "Gelten nur für diese Gruppe und überschreiben globale Regeln desselben Typs",
+  "middleware.importDefaults": "Standard-Regeln importieren",
+  "middleware.importDefaultsDone": "{{imported}} Standard-Regeln importiert ({{skipped}} bereits vorhanden, übersprungen)",
   "middleware.masterToggle": "Middleware-Hauptschalter",
   "middleware.masterToggleDesc": "Wenn aus, werden alle Regeln umgangen; Anfragen/Antworten durchlaufen keine Middleware",
   "middleware.match.contains": "Enthält",

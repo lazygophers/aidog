@@ -629,6 +629,8 @@
   "middleware.globalRulesHint": "Global rules apply to all groups/platforms and can be overridden by group/platform-level rules (nearest wins)",
   "middleware.groupRules": "Group Middleware Rules",
   "middleware.groupRulesHint": "Apply to this group only, overriding global rules of the same type",
+  "middleware.importDefaults": "Import default rules",
+  "middleware.importDefaultsDone": "Imported {{imported}} default rules ({{skipped}} already existed, skipped)",
   "middleware.masterToggle": "Middleware Master Switch",
   "middleware.masterToggleDesc": "When off, all rules are bypassed; requests/responses skip middleware processing",
   "middleware.match.contains": "Contains",

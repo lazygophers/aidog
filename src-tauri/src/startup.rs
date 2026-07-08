@@ -121,6 +121,7 @@ pub fn run() {
             crate::commands::middleware::middleware_delete_rule,
             crate::commands::middleware::middleware_settings_get,
             crate::commands::middleware::middleware_settings_set,
+            crate::commands::middleware::middleware_import_default_rules,
             crate::commands::scheduling::scheduling_settings_get,
             crate::commands::scheduling::scheduling_settings_set,
             // Notification (N1)

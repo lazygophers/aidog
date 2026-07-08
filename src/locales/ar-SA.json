@@ -651,6 +651,8 @@
   "middleware.globalRulesHint": "تنطبق القواعد العامة على جميع المجموعات/المنصات ويمكن تجاوزها بقواعد المجموعة/المنصة (الأقرب يفوز)",
   "middleware.groupRules": "قواعد وسيط المجموعة",
   "middleware.groupRulesHint": "تنطبق على هذه المجموعة فقط وتتجاوز القواعد العامة من نفس النوع",
+  "middleware.importDefaults": "استيراد القواعد الافتراضية",
+  "middleware.importDefaultsDone": "تم استيراد {{imported}} قاعدة افتراضية (تم تخطي {{skipped}} موجودة مسبقًا)",
   "middleware.masterToggle": "مفتاح الوسيط الرئيسي",
   "middleware.masterToggleDesc": "عند الإيقاف يتم تجاوز جميع القواعد؛ لا تمر الطلبات/الاستجابات عبر معالجة الوسيط",
   "middleware.match.contains": "يحتوي",

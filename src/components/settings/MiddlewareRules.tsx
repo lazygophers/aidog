@@ -488,6 +488,8 @@ export function MiddlewareRulesPanel({ scope, scopeRef = "", embedded = false }:
   const [showForm, setShowForm] = useState(false);
   const [editingRule, setEditingRule] = useState<MiddlewareRule | undefined>(undefined);
   const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+  const [importing, setImporting] = useState(false);
 
   const matchesScope = useCallback(
     (r: MiddlewareRule) => r.scope === scope && (scope === "global" || r.scope_ref === scopeRef),
@@ -566,6 +568,22 @@ export function MiddlewareRulesPanel({ scope, scopeRef = "", embedded = false }:
     setShowForm(true);
   };
 
+  // 一键导入默认（内置）中间件规则——复用 mitm importDefaults 模式。
+  // 仅 global scope 显示（内置规则 scope=global）；INSERT 仅补缺失项，幂等可重复点。
+  const handleImportDefaults = async () => {
+    setImporting(true); setError(""); setMessage("");
+    try {
+      const { imported, skipped } = await middlewareApi.importDefaults();
+      setMessage(t("middleware.importDefaultsDone", "已导入 {{imported}} 条默认规则（{{skipped}} 条已存在跳过）", { imported, skipped }));
+      await load();
+    } catch (e) {
+      console.error("import default middleware rules failed", e);
+      setError(String(e));
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
       {!embedded && (
@@ -609,15 +627,32 @@ export function MiddlewareRulesPanel({ scope, scopeRef = "", embedded = false }:
           }}
         />
       ) : (
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: F.hint, alignSelf: "flex-start" }}
-          onClick={openCreate}
-        >
-          + {t("middleware.addRule", "新增规则")}
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <button
+            className="btn btn-ghost"
+            style={{ fontSize: F.hint }}
+            onClick={openCreate}
+          >
+            + {t("middleware.addRule", "新增规则")}
+          </button>
+          {scope === "global" && (
+            <button
+              className="btn btn-ghost"
+              style={{ fontSize: F.hint, opacity: importing ? 0.6 : 1 }}
+              onClick={handleImportDefaults}
+              disabled={importing}
+            >
+              {t("middleware.importDefaults", "导入默认规则")}
+            </button>
+          )}
+        </div>
       )}
 
+      {message && (
+        <div className="toast" style={{ fontSize: 12, wordBreak: "break-all", color: "var(--color-success, #22c55e)" }}>
+          {message}
+        </div>
+      )}
       {error && (
         <div className="toast" style={{ fontSize: 12, wordBreak: "break-all" }}>
           {error}
