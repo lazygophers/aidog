@@ -1,4 +1,7 @@
+import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
+import { proxyLogApi } from "../../services/api/proxy";
 import type { SystemSettings } from "./useSystemSettings";
 
 /**
@@ -14,6 +17,41 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
     handleLogEnabledChange, updateLogSettings,
     logFileEnabled, logLevel, logRetHours, handleLogSettingsChange,
   } = s;
+
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+
+  function flashMessage(msg: string) {
+    setMessage(msg);
+    setTimeout(() => setMessage(""), 3000);
+  }
+
+  async function handleCleanupExpired() {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await proxyLogApi.cleanupExpired();
+      flashMessage(t("logs.cleanupExpiredDone", "已清理过期日志"));
+    } catch (e) {
+      flashMessage(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleClearConfirm() {
+    setBusy(true);
+    try {
+      await proxyLogApi.clear();
+      setShowClearConfirm(false);
+      flashMessage(t("logs.clearDone", "已清空"));
+    } catch (e) {
+      flashMessage(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <>
@@ -130,6 +168,30 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                   {logRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
                 </span>
               </div>
+
+              {/* Cleanup actions — 语义邻近 retention 配置 */}
+              <div style={{ display: "flex", gap: 8, paddingTop: 8, borderTop: "1px solid var(--border)", alignItems: "center", flexWrap: "wrap" }}>
+                <button
+                  className="btn"
+                  onClick={handleCleanupExpired}
+                  disabled={busy || logRetention === 0}
+                  title={logRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : undefined}
+                  style={{ fontSize: 12, padding: "4px 12px" }}
+                >
+                  {t("logs.cleanupExpired", "清理过期")}
+                </button>
+                <button
+                  className="btn btn-danger"
+                  onClick={() => setShowClearConfirm(true)}
+                  disabled={busy}
+                  style={{ fontSize: 12, padding: "4px 12px" }}
+                >
+                  {t("logs.clear", "清除全部")}
+                </button>
+                {message && (
+                  <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{message}</span>
+                )}
+              </div>
             </div>
           </>
         )}
@@ -197,6 +259,55 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
           </div>
         )}
       </div>
+
+      {/* 清空确认 modal — 必须 portal document.body（祖先 transform/backdrop-filter 让 fixed 退化） */}
+      {showClearConfirm && createPortal(
+        <div
+          style={{
+            position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0, 0, 0, 0.4)", zIndex: 1000,
+          }}
+          onClick={() => !busy && setShowClearConfirm(false)}
+        >
+          <div
+            className="glass-surface"
+            style={{
+              padding: 20, maxWidth: 380, borderRadius: "var(--radius-lg)",
+              display: "flex", flexDirection: "column", gap: 16,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 13, fontWeight: 600 }}>
+              {t("logs.clearConfirmTitle", "清空全部日志")}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              {t("logs.clearConfirm", "确认清除所有日志？此操作不可撤销。")}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                className="btn"
+                onClick={() => setShowClearConfirm(false)}
+                disabled={busy}
+                style={{ padding: "6px 14px", fontSize: 12 }}
+              >
+                {t("logs.cancel", "取消")}
+              </button>
+              <button
+                className="btn btn-danger"
+                onClick={handleClearConfirm}
+                disabled={busy}
+                style={{
+                  padding: "6px 14px", fontSize: 12,
+                  opacity: busy ? 0.6 : 1,
+                }}
+              >
+                {t("logs.clear", "清除全部")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 }
