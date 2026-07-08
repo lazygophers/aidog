@@ -229,13 +229,14 @@ pub(crate) async fn handle_passthrough(
 
 /// 静态默认模型集（Claude + Codex 官方默认）。不反映上游真实可用模型 —— 仅供
 /// 客户端模型发现 UI 探测用（GET /models 无需 group / token）。月级腐化需手工核对。
-/// 最近核对: 2026-06-29。参照前端 getDefaultModels（Platforms.tsx）。
+/// 最近核对: 2026-07-08。参照前端 getDefaultModels（Platforms.tsx）。
 const STATIC_MODEL_IDS: &[&str] = &[
     "claude-opus-4-8",
     "claude-sonnet-4-6",
     "claude-haiku-4-5",
-    "gpt-5.5-codex",
     "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.4-mini",
 ];
 
 /// 按入站协议构造静态模型列表 JSON（纯函数，便于单测，免起 HTTP / DB）。
