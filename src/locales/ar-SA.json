@@ -1880,5 +1880,6 @@
   "logs.cleanupExpired": "تنظيف المنتهي",
   "logs.cleanupExpiredDone": "تم تنظيف السجلات المنتهية",
   "logs.clearConfirmTitle": "مسح جميع السجلات",
-  "logs.cancel": "إلغاء"
+  "logs.cancel": "إلغاء",
+  "logs.clearDone": "تم المسح"
 }
