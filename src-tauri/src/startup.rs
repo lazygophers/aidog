@@ -230,6 +230,11 @@ crate::commands::price::model_price_count_filtered,
             crate::commands::price::price_sync_settings_set,
             // About
             crate::commands::about::about_info,
+            // CLI 工具环境（Claude Code / Codex 版本 / 安装 / 升级 / 冲突诊断）
+            crate::commands::cli_env::cli_check_versions,
+            crate::commands::cli_env::cli_install,
+            crate::commands::cli_env::cli_upgrade,
+            crate::commands::cli_env::cli_diagnose_conflicts,
             // Platform defaults JSON
             crate::commands::defaults::get_defaults_json,
             crate::commands::defaults::sync_defaults_json,

@@ -52,3 +52,38 @@ export interface AboutInfo {
   build_time: string;
 }
 
+// ─── CLI 工具环境（Claude Code / Codex）─────────────────────
+// 与后端 `commands::cli_env` 数据结构对齐，snake_case。
+
+/** 单处安装（`which -a` / `where` 枚举 + canonicalize 去重 + source 推断）。 */
+export interface CliInstallation {
+  path: string;
+  version: string | null;
+  runnable: boolean;
+  /** 安装来源：nvm / homebrew / volta / fnm / mise / bun / pnpm / scoop / pip / native / npm-global / system。 */
+  source: string;
+  /** 是否为 PATH 默认命中的那处（`which` / `where` 第一行）。 */
+  is_path_default: boolean;
+}
+
+/** 工具状态（claude / codex）。 */
+export interface CliToolStatus {
+  name: string;
+  installed: boolean;
+  version: string | null;
+  path: string | null;
+  /** 装了但 `--version` 跑不起来（平台二进制损坏等）。 */
+  broken: boolean;
+  /** 多处安装且版本分歧或运行态混合（严阈值）。 */
+  conflict: boolean;
+}
+
+/** 冲突诊断结果。 */
+export interface CliConflict {
+  tool: string;
+  installations: CliInstallation[];
+  is_conflicting: boolean;
+  /** 仅报告 + 建议，不自动卸载（破坏性操作禁主动执行）。 */
+  suggestion: string;
+}
+
