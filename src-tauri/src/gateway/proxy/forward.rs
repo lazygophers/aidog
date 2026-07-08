@@ -244,6 +244,12 @@ pub(crate) async fn forward_attempt(
     //     仅非流式触发：流式 + 同结构当前工作正常（9279 PASS），不动避免回归。
     if matches!(target_protocol_enum, Protocol::Anthropic) && !is_official_anthropic_host(&url) {
         strip_thinking_if_unmatched(&mut req_body);
+        // 无条件剥离 redacted_thinking content block：第三方 anthropic 端点（火山 doubao coding、
+        // deepseek 等）不认该 Claude 4.x extended thinking 加密块 → 400 InvalidParameter
+        // "invalid value: `redacted_thinking`"。同协议 passthrough 不走 to_anthropic 转换
+        // （后者已 filter Unknown 含 redacted_thinking），content 原样透传即触发。redacted 内容
+        // 加密 opaque 不可回放，剥离安全。trace 81dc4466 / 87e3c500 实证。
+        strip_redacted_thinking_blocks(&mut req_body);
         if !is_stream {
             hoist_mid_messages_system(&mut req_body);
         }
@@ -578,6 +584,33 @@ fn strip_thinking_if_unmatched(body: &mut Value) {
     }
 }
 
+/// 第三方 anthropic 端点：无条件剥离 messages[].content 内 `redacted_thinking` block。
+///
+/// **根因（DB 响应体实证）**：Claude 4.x extended thinking 多轮请求含 `redacted_thinking`
+/// content block（Claude Code 回传上轮 protected thinking 的加密关联块）。同协议 passthrough
+/// （anthropic→anthropic, remap=true）不经 `to_anthropic` 转换（adapter/anthropic.rs 已 filter
+/// Unknown 含 redacted_thinking），content 原样透传 → 第三方端点不认该 type → 400 InvalidParameter
+/// `"invalid value: 'redacted_thinking', supported values: 'text','thinking','image','tool_use','tool_result'"`。
+///
+/// **trace 实证**：81dc4466（火山 doubao coding endpoint）+ 87e3c500（deepseek-v4-pro-260425）
+/// 同根因 400。所有第三方 anthropic-compat 端点共性。
+///
+/// **剥离语义**：redacted_thinking 内容为客户端不可解读的加密 opaque blob（仅官方 Anthropic
+/// 能关联上轮 protected thinking），第三方必无法处理，无条件剥离安全。仅遍历数组形态 content
+/// （字符串形态无 block 可剔）。content 变空数组时保留 message 结构（剥离顺序敏感，下游规整
+/// 依赖 message 序列完整）。
+fn strip_redacted_thinking_blocks(body: &mut Value) {
+    let Some(msgs) = body.get_mut("messages").and_then(|m| m.as_array_mut()) else {
+        return;
+    };
+    for m in msgs.iter_mut() {
+        let Some(blocks) = m.get_mut("content").and_then(|c| c.as_array_mut()) else {
+            continue;
+        };
+        blocks.retain(|b| b.get("type").and_then(|t| t.as_str()) != Some("redacted_thinking"));
+    }
+}
+
 /// 第三方 anthropic 端点：messages 内非首位的 role=system 规整到顶层 system 数组。
 ///
 /// **根因（DB 全样本取证）**：Claude Code 把 SessionStart/UserPromptSubmit hook 注入的上下文
@@ -647,7 +680,7 @@ fn hoist_mid_messages_system(body: &mut Value) {
 
 #[cfg(test)]
 mod test_strip_thinking {
-    use super::strip_thinking_if_unmatched;
+    use super::{strip_redacted_thinking_blocks, strip_thinking_if_unmatched};
     use serde_json::json;
 
     #[test]
@@ -730,6 +763,80 @@ mod test_strip_thinking {
         strip_thinking_if_unmatched(&mut body);
         assert!(body.get("thinking").is_some(), "首轮无 assistant → has_unmatched=false，thinking 保留");
         assert!(body.get("context_management").is_none(), "thinking 开启即无条件剔 context_management（首轮 GLM 1210 根因）");
+    }
+
+    #[test]
+    fn test_strip_redacted_thinking_blocks_filters_only_redacted() {
+        // 复现 trace 81dc4466（火山 doubao coding endpoint 400 InvalidParameter）
+        // + 87e3c500（deepseek-v4-pro-260425 同根因）：redacted_thinking block 透传致第三方端点 400。
+        let mut body = json!({
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": "q"}]},
+                {"role": "assistant", "content": [
+                    {"type": "thinking", "thinking": "sig-data", "signature": "s"},
+                    {"type": "redacted_thinking", "data": "encrypted-opaque-blob"},
+                    {"type": "text", "text": "a"},
+                ]},
+                {"role": "user", "content": [
+                    {"type": "tool_result", "tool_use_id": "t1", "content": "r"},
+                    {"type": "redacted_thinking", "data": "encrypted-opaque-blob-2"},
+                ]},
+            ],
+        });
+        strip_redacted_thinking_blocks(&mut body);
+        let msgs = body.get("messages").and_then(|m| m.as_array()).unwrap();
+        // assistant 轮：仅剩 thinking + text
+        let asst = msgs[1].get("content").and_then(|c| c.as_array()).unwrap();
+        assert_eq!(asst.len(), 2, "应仅剥离 redacted_thinking，保留 thinking + text");
+        assert!(
+            asst.iter().all(|b| b.get("type").and_then(|t| t.as_str()) != Some("redacted_thinking")),
+            "无残留 redacted_thinking"
+        );
+        // user 轮：仅剩 tool_result
+        let u2 = msgs[2].get("content").and_then(|c| c.as_array()).unwrap();
+        assert_eq!(u2.len(), 1, "tool_result 保留，仅剔 redacted_thinking");
+        assert_eq!(u2[0].get("type").and_then(|t| t.as_str()), Some("tool_result"));
+    }
+
+    #[test]
+    fn test_strip_redacted_thinking_blocks_all_redacted_keeps_empty_message() {
+        // 全 redacted_thinking 的 message → 剥离后 content 为空数组，但 message 结构保留
+        // （剥离顺序敏感，禁删整条 message）。
+        let mut body = json!({
+            "messages": [
+                {"role": "user", "content": [{"type": "text", "text": "q"}]},
+                {"role": "assistant", "content": [
+                    {"type": "redacted_thinking", "data": "blob-1"},
+                    {"type": "redacted_thinking", "data": "blob-2"},
+                ]},
+            ],
+        });
+        strip_redacted_thinking_blocks(&mut body);
+        let msgs = body.get("messages").and_then(|m| m.as_array()).unwrap();
+        assert_eq!(msgs.len(), 2, "message 数量不变（结构保留）");
+        let asst = msgs[1].get("content").and_then(|c| c.as_array()).unwrap();
+        assert!(asst.is_empty(), "全 redacted_thinking 剥离后 content 为空数组");
+        // user 轮 text block 保留
+        let u = msgs[0].get("content").and_then(|c| c.as_array()).unwrap();
+        assert_eq!(u.len(), 1);
+    }
+
+    #[test]
+    fn test_strip_redacted_thinking_blocks_noop_on_string_content() {
+        // 字符串形态 content 无 block 可剔，不动。
+        let mut body = json!({
+            "messages": [
+                {"role": "user", "content": "plain text"},
+                {"role": "assistant", "content": [{"type": "redacted_thinking", "data": "x"}]},
+            ],
+        });
+        strip_redacted_thinking_blocks(&mut body);
+        let msgs = body.get("messages").and_then(|m| m.as_array()).unwrap();
+        // 字符串 content 原样
+        assert_eq!(msgs[0].get("content").and_then(|c| c.as_str()), Some("plain text"));
+        // assistant 数组内 redacted_thinking 已剔
+        let asst = msgs[1].get("content").and_then(|c| c.as_array()).unwrap();
+        assert!(asst.is_empty());
     }
 }
 
