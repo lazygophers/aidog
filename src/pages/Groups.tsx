@@ -144,11 +144,25 @@ export function GroupsEmbedded({ onNavigate, onGroupsChanged, onCreatePlatform, 
   }, [details, load, t]);
 
   // 分组上下文「移除」语义：总弹 modal，让用户明确选（单组→删平台；多组→移出本组 or 删全部）。
-  const handleGroupRemovePlatform = useCallback((p: Platform, gid: number) => {
-    const groupCount = groupCountOf(p.id);
-    const groupNames = details
-      .filter(d => d.platforms.some(gp => gp.platform.id === p.id))
-      .map(d => d.group.name);
+  // groupCount/groupNames 必须实时拉后端（groupDetailApi.list 走后端缓存，写时 invalidate），
+  // 不能用前端 details（分页 / 乐观更新未刷新）——stale 致 overcount 时 modal 误显「移出本组」，
+  // 单组平台被移出变未分组而非删除（07-08 回归根因）。
+  const handleGroupRemovePlatform = useCallback(async (p: Platform, gid: number) => {
+    let groupCount: number;
+    let groupNames: string[];
+    try {
+      const fresh = await groupDetailApi.list();
+      groupCount = fresh.filter(d => d.platforms.some(gp => gp.platform.id === p.id)).length;
+      groupNames = fresh
+        .filter(d => d.platforms.some(gp => gp.platform.id === p.id))
+        .map(d => d.group.name);
+    } catch {
+      // 后端拉取失败 → 回退到前端 details（可能 stale，但保证 modal 仍能弹出）
+      groupCount = groupCountOf(p.id);
+      groupNames = details
+        .filter(d => d.platforms.some(gp => gp.platform.id === p.id))
+        .map(d => d.group.name);
+    }
     setRemoveTarget({ platform: p, gid, groupCount, groupNames });
   }, [groupCountOf, details]);
 
