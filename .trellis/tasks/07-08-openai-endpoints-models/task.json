@@ -3,7 +3,7 @@
   "name": "openai-endpoints-models",
   "title": "补全 openai endpoints 与 model_list",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,
