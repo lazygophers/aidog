@@ -27,6 +27,3 @@ flowchart TD
 
 | worktree | task | 创建源 |
 | --- | --- | --- |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-group-platform-delete-fix | 07-07-group-platform-delete-fix | trellisx-start |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/.worktrees-07-07-group-platform-delete-fix-07-07-group-platform-delete-fix | 07-07-group-platform-delete-fix | trellisx-start |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-07-peak-hours-multiplier | 07-07-peak-hours-multiplier | trellisx-start |
