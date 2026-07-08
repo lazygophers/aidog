@@ -42,6 +42,7 @@
   "about.localEnv.upgradeSuccess": "{{tool}} mis à niveau avec succès",
   "about.localEnv.upgrading": "Mise à niveau…",
   "about.localEnv.version": "Version",
+  "about.localEnv.latest": "Latest {{version}}",
   "about.os": "Système",
   "about.profile": "Profil de build",
   "about.releases": "Versions",

@@ -93,6 +93,13 @@ export function About() {
     try {
       const list = await cliEnvApi.checkVersions();
       setCliTools(list);
+      // 同时检查更新可用性
+      cliEnvApi.checkUpdates().then((updates) => {
+        setCliTools(updates);
+      }).catch((e) => {
+        // 更新检测失败静默忽略，不影响主流程
+        console.warn("checkUpdates failed:", e);
+      });
     } catch (e) {
       setCliErr(`${t("about.localEnv.checkFailed", "检查失败")}: ${e}`);
     } finally {
@@ -375,7 +382,7 @@ export function About() {
                         : t("about.localEnv.install", "安装")}
                     </button>
                   )}
-                  {s.installed && !s.broken && (
+                  {s.installed && !s.broken && s.has_update === true && (
                     <button
                       className="btn"
                       style={{ fontSize: 12, padding: "4px 10px" }}
@@ -408,6 +415,11 @@ export function About() {
                   <span style={{ fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
                     {s.version || (s.installed ? t("about.localEnv.unknown", "未知") : "—")}
                   </span>
+                  {s.latest_version && (
+                    <span style={{ marginLeft: 8, color: "var(--color-success, #22c55e)" }}>
+                      {t("about.localEnv.latest", "最新 {{version}}", { version: s.latest_version })}
+                    </span>
+                  )}
                 </div>
                 <div style={{ wordBreak: "break-all" }}>
                   <span style={{ color: "var(--text-tertiary)" }}>{t("about.localEnv.path", "路径")}：</span>

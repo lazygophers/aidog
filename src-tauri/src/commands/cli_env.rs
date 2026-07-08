@@ -13,9 +13,33 @@
 //! 多处安装 + (版本分歧 | 运行态混合) 才标红；同版本同能跑两份不打扰。
 
 use std::process::Command;
+use tokio::process::Command as TokioCommand;
 
 /// MVP 工具范围：仅 claude + codex（research 建议降维护成本）。
 pub const TOOLS: &[&str] = &["claude", "codex"];
+
+/// npm registry 包名映射（tool -> npm package）。
+const NPM_PACKAGES: &[(&str, &str)] = &[
+    ("claude", "@anthropic-ai/claude-code"),
+    ("codex", "@openai/codex"),
+];
+
+/// 更新检测缓存（1h TTL）。
+static UPDATE_CACHE_INIT: std::sync::OnceLock<
+    tokio::sync::RwLock<std::collections::HashMap<String, (std::time::Instant, String)>>,
+> = std::sync::OnceLock::new();
+
+/// 缓存 TTL：1 小时。
+const CACHE_TTL: std::time::Duration = std::time::Duration::from_secs(3600);
+
+/// 获取更新缓存（延迟初始化）。
+fn update_cache() -> &'static tokio::sync::RwLock<
+    std::collections::HashMap<String, (std::time::Instant, String)>
+> {
+    UPDATE_CACHE_INIT.get_or_init(|| {
+        tokio::sync::RwLock::new(std::collections::HashMap::new())
+    })
+}
 
 #[derive(serde::Serialize, Clone)]
 pub struct CliInstallation {
@@ -41,6 +65,12 @@ pub struct CliToolStatus {
     pub broken: bool,
     /// 多处安装且版本分歧或运行态混合（严阈值）。
     pub conflict: bool,
+    /// npm registry 最新版本（检测失败/离线时为 None）。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub latest_version: Option<String>,
+    /// 是否有更新可用（None=检测失败/离线，Some(true)=有更新，Some(false)=已是最新）。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub has_update: Option<bool>,
 }
 
 #[derive(serde::Serialize, Clone)]
@@ -63,6 +93,17 @@ fn no_window(cmd: &mut Command) {
 
 #[cfg(not(windows))]
 fn no_window(_cmd: &mut Command) {}
+
+/// tokio::process::Command 版本的 no_window。
+#[cfg(windows)]
+async fn no_window_tokio(cmd: &mut TokioCommand) {
+    use tokio::process::CommandExt;
+    const CREATE_NO_WINDOW: u32 = 0x08000000;
+    cmd.creation_flags(CREATE_NO_WINDOW);
+}
+
+#[cfg(not(windows))]
+async fn no_window_tokio(_cmd: &mut TokioCommand) {}
 
 /// 从 `--version` 输出提取版本号（正则 `\d+\.\d+\.\d+(-[\w.]+)?` 等价实现）。
 /// 兼容 codex 时间戳式 patch（如 `0.1.2505172116`）。
@@ -301,6 +342,8 @@ pub fn cli_check_versions() -> Vec<CliToolStatus> {
                 path,
                 broken,
                 conflict,
+                latest_version: None,
+                has_update: None,
             }
         })
         .collect()
@@ -319,10 +362,10 @@ pub async fn cli_install(tool: String) -> Result<(), String> {
             {
                 // POSIX 优先 native installer（claude.ai/install.sh），失败回退 npm。
                 let script = "tmp=$(mktemp) && curl -fsSL https://claude.ai/install.sh -o $tmp && bash $tmp; status=$?; rm -f $tmp; exit $status";
-                let mut cmd = Command::new("bash");
+                let mut cmd = TokioCommand::new("bash");
                 cmd.arg("-c").arg(script);
-                no_window(&mut cmd);
-                match run_and_check(cmd, "claude install (native)") {
+                no_window_tokio(&mut cmd).await;
+                match run_and_check_async(cmd, "claude install (native)").await {
                     Ok(()) => return Ok(()),
                     Err(native_err) => {
                         tracing::warn!(error = %native_err, "claude native install failed, falling back to npm");
@@ -330,16 +373,16 @@ pub async fn cli_install(tool: String) -> Result<(), String> {
                 }
             }
             // Windows / native 失败回退：npm 全局装
-            let mut cmd = Command::new("npm");
+            let mut cmd = TokioCommand::new("npm");
             cmd.args(["i", "-g", "@anthropic-ai/claude-code@latest"]);
-            no_window(&mut cmd);
-            run_and_check(cmd, "claude install (npm)")
+            no_window_tokio(&mut cmd).await;
+            run_and_check_async(cmd, "claude install (npm)").await
         }
         "codex" => {
-            let mut cmd = Command::new("npm");
+            let mut cmd = TokioCommand::new("npm");
             cmd.args(["i", "-g", "@openai/codex@latest"]);
-            no_window(&mut cmd);
-            run_and_check(cmd, "codex install (npm)")
+            no_window_tokio(&mut cmd).await;
+            run_and_check_async(cmd, "codex install (npm)").await
         }
         _ => Err(format!("unsupported tool: {tool}")),
     }
@@ -355,10 +398,10 @@ pub async fn cli_upgrade(tool: String) -> Result<(), String> {
     match tool.as_str() {
         "claude" => {
             // 优先 `claude update`（native installer 自带子命令）。
-            let mut cmd = Command::new("claude");
+            let mut cmd = TokioCommand::new("claude");
             cmd.arg("update");
-            no_window(&mut cmd);
-            if let Ok(o) = cmd.output() {
+            no_window_tokio(&mut cmd).await;
+            if let Ok(o) = cmd.output().await {
                 if o.status.success() {
                     return Ok(());
                 }
@@ -366,19 +409,19 @@ pub async fn cli_upgrade(tool: String) -> Result<(), String> {
                 tracing::warn!(error = %err, "claude update failed, falling back to npm");
             }
             // npm 兜底
-            let mut cmd = Command::new("npm");
+            let mut cmd = TokioCommand::new("npm");
             cmd.args(["i", "-g", "@anthropic-ai/claude-code@latest"]);
-            no_window(&mut cmd);
-            run_and_check(cmd, "claude upgrade (npm)")
+            no_window_tokio(&mut cmd).await;
+            run_and_check_async(cmd, "claude upgrade (npm)").await
         }
         "codex" => {
             // POSIX 先试 `codex update`；失败 / Windows 走 uninstall + install 自愈。
             #[cfg(unix)]
             {
-                let mut cmd = Command::new("codex");
+                let mut cmd = TokioCommand::new("codex");
                 cmd.arg("update");
-                no_window(&mut cmd);
-                if let Ok(o) = cmd.output() {
+                no_window_tokio(&mut cmd).await;
+                if let Ok(o) = cmd.output().await {
                     if o.status.success() {
                         return Ok(());
                     }
@@ -387,14 +430,14 @@ pub async fn cli_upgrade(tool: String) -> Result<(), String> {
                 }
             }
             // 自愈：uninstall（容忍失败）+ install
-            let mut u = Command::new("npm");
+            let mut u = TokioCommand::new("npm");
             u.args(["uninstall", "-g", "@openai/codex"]);
-            no_window(&mut u);
-            let _ = u.output();
-            let mut i = Command::new("npm");
+            no_window_tokio(&mut u).await;
+            let _ = u.output().await;
+            let mut i = TokioCommand::new("npm");
             i.args(["i", "-g", "@openai/codex@latest"]);
-            no_window(&mut i);
-            run_and_check(i, "codex upgrade (npm reinstall)")
+            no_window_tokio(&mut i).await;
+            run_and_check_async(i, "codex upgrade (npm reinstall)").await
         }
         _ => Err(format!("unsupported tool: {tool}")),
     }
@@ -402,7 +445,7 @@ pub async fn cli_upgrade(tool: String) -> Result<(), String> {
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
-pub fn cli_diagnose_conflicts() -> Vec<CliConflict> {
+pub async fn cli_diagnose_conflicts() -> Vec<CliConflict> {
     tracing::debug!(command = "cli_diagnose_conflicts", "command invoked");
     TOOLS
         .iter()
@@ -436,9 +479,9 @@ pub fn cli_diagnose_conflicts() -> Vec<CliConflict> {
         .collect()
 }
 
-/// 跑命令 + 非 0 退出码转 Err（含 stderr）。
-fn run_and_check(mut cmd: Command, label: &str) -> Result<(), String> {
-    let output = cmd.output().map_err(|e| {
+/// 跑命令 + 非 0 退出码转 Err（含 stderr）。async 版本用于 install/upgrade。
+async fn run_and_check_async(mut cmd: TokioCommand, label: &str) -> Result<(), String> {
+    let output = cmd.output().await.map_err(|e| {
         tracing::error!(command = %label, error = %e, "spawn failed");
         format!("spawn {label}: {e}")
     })?;
@@ -454,6 +497,111 @@ fn run_and_check(mut cmd: Command, label: &str) -> Result<(), String> {
         return Err(format!("{label} failed: {}", combined.trim()));
     }
     Ok(())
+}
+
+/// 从 npm registry 获取指定包的 latest 版本。
+async fn fetch_npm_latest(pkg: &str) -> Option<String> {
+    let url = format!("https://registry.npmjs.org/{}/latest", pkg);
+    let client = reqwest::Client::builder()
+        .no_proxy()
+        .timeout(std::time::Duration::from_secs(8))
+        .build()
+        .ok()?;
+    let resp = client.get(&url).send().await.ok()?;
+    if !resp.status().is_success() {
+        tracing::warn!(package = pkg, status = %resp.status(), "npm registry request failed");
+        return None;
+    }
+    let body = resp.text().await.ok()?;
+    let json: serde_json::Value = serde_json::from_str(&body).ok()?;
+    json.get("version").and_then(|v| v.as_str()).map(|s| s.to_string())
+}
+
+/// semver 比对：local < latest 返回 true（有更新）。
+fn has_update_available(local: &str, latest: &str) -> Option<bool> {
+    let v_local = semver::Version::parse(local).ok()?;
+    let v_latest = semver::Version::parse(latest).ok()?;
+    Some(v_local < v_latest)
+}
+
+/// 检查 CLI 工具是否有更新可用（npm registry + semver 比对）。
+/// 返回值含 latest_version / has_update 字段（检测失败时为 None）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn cli_check_updates() -> Vec<CliToolStatus> {
+    tracing::debug!(command = "cli_check_updates", "command invoked");
+
+    let mut results = Vec::new();
+
+    for &tool in TOOLS {
+        // 先获取本地版本
+        let (installed, version, path) = probe_version(tool);
+        let broken = installed && version.is_none();
+        let conflict = if which_all(tool).len() >= 2 {
+            let installs = enumerate_installations(tool);
+            is_conflicting(&installs)
+        } else {
+            false
+        };
+
+        // 查找对应的 npm 包名
+        let npm_pkg = NPM_PACKAGES
+            .iter()
+            .find(|&&(t, _)| t == tool)
+            .map(|(_, pkg)| *pkg);
+
+        let (latest_version, has_update) = if let Some(pkg) = npm_pkg {
+            // 检查缓存
+            let now = std::time::Instant::now();
+            let cache = update_cache().read().await;
+            let cached = cache.get(tool).and_then(|(ts, v)| {
+                if now.duration_since(*ts) < CACHE_TTL {
+                    Some(v.clone())
+                } else {
+                    None
+                }
+            });
+
+            if let Some(cached_latest) = cached {
+                drop(cache);
+                tracing::debug!(tool = tool, latest_version = %cached_latest, "using cached version");
+                let has_update_val = version.as_ref().and_then(|v| has_update_available(v, &cached_latest));
+                (Some(cached_latest), has_update_val)
+            } else {
+                drop(cache);
+                // 缓存未命中或过期，请求 npm registry
+                match fetch_npm_latest(pkg).await {
+                    Some(latest) => {
+                        tracing::debug!(tool = tool, latest_version = %latest, "fetched from npm registry");
+                        // 更新缓存
+                        let mut cache = update_cache().write().await;
+                        cache.insert(tool.to_string(), (now, latest.clone()));
+                        let has_update_val = version.as_ref().and_then(|v| has_update_available(v, &latest));
+                        (Some(latest), has_update_val)
+                    }
+                    None => {
+                        tracing::warn!(tool = tool, "failed to fetch latest version from npm registry");
+                        (None, None)
+                    }
+                }
+            }
+        } else {
+            (None, None)
+        };
+
+        results.push(CliToolStatus {
+            name: tool.to_string(),
+            installed,
+            version,
+            path,
+            broken,
+            conflict,
+            latest_version,
+            has_update,
+        });
+    }
+
+    results
 }
 
 #[cfg(test)]

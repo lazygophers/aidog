@@ -42,6 +42,7 @@
   "about.localEnv.upgradeSuccess": "{{tool}} 升级成功",
   "about.localEnv.upgrading": "升级中…",
   "about.localEnv.version": "版本",
+  "about.localEnv.latest": "最新 {{version}}",
   "about.os": "操作系统",
   "about.profile": "构建配置",
   "about.releases": "版本发布",

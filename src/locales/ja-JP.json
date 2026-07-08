@@ -42,6 +42,7 @@
   "about.localEnv.upgradeSuccess": "{{tool}} のアップグレードに成功しました",
   "about.localEnv.upgrading": "アップグレード中…",
   "about.localEnv.version": "バージョン",
+  "about.localEnv.latest": "Latest {{version}}",
   "about.os": "OS",
   "about.profile": "ビルド構成",
   "about.releases": "リリース",

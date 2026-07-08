@@ -42,6 +42,7 @@
   "about.localEnv.upgradeSuccess": "{{tool}} успешно обновлен",
   "about.localEnv.upgrading": "Обновление…",
   "about.localEnv.version": "Версия",
+  "about.localEnv.latest": "Latest {{version}}",
   "about.os": "ОС",
   "about.profile": "Профиль сборки",
   "about.releases": "Релизы",

@@ -42,6 +42,7 @@
   "about.localEnv.upgradeSuccess": "تمت ترقية {{tool}} بنجاح",
   "about.localEnv.upgrading": "جارٍ الترقية…",
   "about.localEnv.version": "الإصدار",
+  "about.localEnv.latest": "Latest {{version}}",
   "about.os": "نظام التشغيل",
   "about.profile": "ملف البناء",
   "about.releases": "الإصدارات",

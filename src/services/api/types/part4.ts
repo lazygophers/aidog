@@ -76,6 +76,10 @@ export interface CliToolStatus {
   broken: boolean;
   /** 多处安装且版本分歧或运行态混合（严阈值）。 */
   conflict: boolean;
+  /** npm registry 最新版本（检测失败/离线时为 undefined）。 */
+  latest_version?: string;
+  /** 是否有更新可用（undefined=检测失败/离线，true=有更新，false=已是最新）。 */
+  has_update?: boolean;
 }
 
 /** 冲突诊断结果。 */
