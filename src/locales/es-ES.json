@@ -1858,5 +1858,6 @@
   "logs.cleanupExpired": "Limpiar expirados",
   "logs.cleanupExpiredDone": "Registros expirados limpiados",
   "logs.clearConfirmTitle": "Borrar todos los registros",
-  "logs.cancel": "Cancelar"
+  "logs.cancel": "Cancelar",
+  "logs.clearDone": "Borrado"
 }

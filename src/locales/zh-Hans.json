@@ -1858,5 +1858,6 @@
   "logs.cleanupExpired": "清理过期",
   "logs.cleanupExpiredDone": "已清理过期日志",
   "logs.clearConfirmTitle": "清空全部日志",
-  "logs.cancel": "取消"
+  "logs.cancel": "取消",
+  "logs.clearDone": "已清空"
 }
