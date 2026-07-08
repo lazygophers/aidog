@@ -1876,5 +1876,9 @@
   "settings.defaultsSyncUpToDate": "حتى الآن محدث",
   "settings.defaultsSyncFailed": "فشلت المزامنة: {{error}} (استخدام التكوين المحلي)",
   "settings.defaultsSyncUnknown": "غير معروف",
-  "platform.share.format.url": "رابط aidog://"
+  "platform.share.format.url": "رابط aidog://",
+  "logs.cleanupExpired": "تنظيف المنتهي",
+  "logs.cleanupExpiredDone": "تم تنظيف السجلات المنتهية",
+  "logs.clearConfirmTitle": "مسح جميع السجلات",
+  "logs.cancel": "إلغاء"
 }

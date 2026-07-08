@@ -1876,5 +1876,9 @@
   "settings.defaultsSyncUpToDate": "Déjà à jour",
   "settings.defaultsSyncFailed": "Échec de la synchronisation : {{error}} (configuration locale utilisée)",
   "settings.defaultsSyncUnknown": "Inconnu",
-  "platform.share.format.url": "Lien aidog://"
+  "platform.share.format.url": "Lien aidog://",
+  "logs.cleanupExpired": "Nettoyer expirés",
+  "logs.cleanupExpiredDone": "Journaux expirés nettoyés",
+  "logs.clearConfirmTitle": "Effacer tous les journaux",
+  "logs.cancel": "Annuler"
 }
