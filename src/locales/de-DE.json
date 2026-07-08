@@ -1876,5 +1876,9 @@
   "settings.defaultsSyncUpToDate": "Bereits aktuell",
   "settings.defaultsSyncFailed": "Synchronisierung fehlgeschlagen: {{error}} (lokale Konfiguration wird verwendet)",
   "settings.defaultsSyncUnknown": "Unbekannt",
-  "platform.share.format.url": "aidog:// Link"
+  "platform.share.format.url": "aidog:// Link",
+  "logs.cleanupExpired": "Abgelaufene bereinigen",
+  "logs.cleanupExpiredDone": "Abgelaufene Protokolle bereinigt",
+  "logs.clearConfirmTitle": "Alle Protokolle löschen",
+  "logs.cancel": "Abbrechen"
 }

@@ -1876,5 +1876,9 @@
   "settings.defaultsSyncUpToDate": "Уже актуально",
   "settings.defaultsSyncFailed": "Ошибка синхронизации: {{error}} (используется локальная конфигурация)",
   "settings.defaultsSyncUnknown": "Неизвестно",
-  "platform.share.format.url": "Ссылка aidog://"
+  "platform.share.format.url": "Ссылка aidog://",
+  "logs.cleanupExpired": "Очистить истёкшие",
+  "logs.cleanupExpiredDone": "Истёкшие журналы очищены",
+  "logs.clearConfirmTitle": "Очистить все журналы",
+  "logs.cancel": "Отмена"
 }
