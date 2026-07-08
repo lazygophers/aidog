@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/07-08-anthropic-model-list-complete/prd.md", "reason": "Acceptance Criteria 验收（9 id/sonnet 档/STATIC_MODEL_IDS/cargo build+test+yarn build）"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "跨层一致性校验（preset ↔ passthrough.rs STATIC_MODEL_IDS）"}
