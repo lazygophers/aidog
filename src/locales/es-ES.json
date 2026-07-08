@@ -1854,5 +1854,9 @@
   "settings.defaultsSyncUpToDate": "Ya está actualizado",
   "settings.defaultsSyncFailed": "Error de sincronización: {{error}} (usando configuración local)",
   "settings.defaultsSyncUnknown": "Desconocido",
-  "platform.share.format.url": "Enlace aidog://"
+  "platform.share.format.url": "Enlace aidog://",
+  "logs.cleanupExpired": "Limpiar expirados",
+  "logs.cleanupExpiredDone": "Registros expirados limpiados",
+  "logs.clearConfirmTitle": "Borrar todos los registros",
+  "logs.cancel": "Cancelar"
 }

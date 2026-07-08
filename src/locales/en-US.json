@@ -1854,5 +1854,9 @@
   "settings.defaultsSyncUpToDate": "Already up to date",
   "settings.defaultsSyncFailed": "Sync failed: {{error}} (using local config)",
   "settings.defaultsSyncUnknown": "Unknown",
-  "platform.share.format.url": "aidog:// URL"
+  "platform.share.format.url": "aidog:// URL",
+  "logs.cleanupExpired": "Cleanup Expired",
+  "logs.cleanupExpiredDone": "Expired logs cleaned up",
+  "logs.clearConfirmTitle": "Clear All Logs",
+  "logs.cancel": "Cancel"
 }

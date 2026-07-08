@@ -1876,5 +1876,9 @@
   "settings.defaultsSyncUpToDate": "最新です",
   "settings.defaultsSyncFailed": "同期に失敗しました: {{error}}（ローカル設定を使用中）",
   "settings.defaultsSyncUnknown": "不明",
-  "platform.share.format.url": "aidog:// リンク"
+  "platform.share.format.url": "aidog:// リンク",
+  "logs.cleanupExpired": "期限切れを清理",
+  "logs.cleanupExpiredDone": "期限切れログを清理しました",
+  "logs.clearConfirmTitle": "全ログを消去",
+  "logs.cancel": "キャンセル"
 }

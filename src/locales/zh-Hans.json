@@ -1854,5 +1854,9 @@
   "settings.defaultsSyncUpToDate": "已是最新版本",
   "settings.defaultsSyncFailed": "同步失败：{{error}}（继续使用本地配置）",
   "settings.defaultsSyncUnknown": "未知",
-  "platform.share.format.url": "aidog:// 链接"
+  "platform.share.format.url": "aidog:// 链接",
+  "logs.cleanupExpired": "清理过期",
+  "logs.cleanupExpiredDone": "已清理过期日志",
+  "logs.clearConfirmTitle": "清空全部日志",
+  "logs.cancel": "取消"
 }

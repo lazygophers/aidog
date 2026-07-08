@@ -31,6 +31,8 @@ export function useLogsData(initialFilter?: { platformId?: number; platformName?
   const [detail, setDetail] = useState<ProxyLogDetail | null>(null);
   const [copied, setCopied] = useState(false);
   const [copiedId, setCopiedId] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [cleanupMessage, setCleanupMessage] = useState<string>("");
 
   // ── Filter state ──
   const [platforms, setPlatforms] = useState<Platform[]>([]);
@@ -172,11 +174,21 @@ export function useLogsData(initialFilter?: { platformId?: number; platformName?
   useEffect(() => onProxyLogUpdated(() => { refreshList(); }, 500), [refreshList]);
 
   const handleClear = async () => {
-    if (!confirm(t("logs.clearConfirm", "确认清除所有日志？此操作不可撤销。"))) return;
     try {
       await proxyLogApi.clear();
+      setShowClearConfirm(false);
       setOffset(0);
       load();
+    } catch (e) { console.error(e); }
+  };
+
+  const handleCleanupExpired = async () => {
+    try {
+      await proxyLogApi.cleanupExpired();
+      setOffset(0);
+      load();
+      setCleanupMessage(t("logs.cleanupExpiredDone", "已清理过期日志"));
+      setTimeout(() => setCleanupMessage(""), 3000);
     } catch (e) { console.error(e); }
   };
 
@@ -233,7 +245,8 @@ export function useLogsData(initialFilter?: { platformId?: number; platformName?
     // filter state
     platforms, groups, filterPlatform, filterGroup, filterStatus, filterTime, filterModelType, filterModelText, filterPath,
     setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime, setFilterModelType, setFilterModelText, setFilterPath,
-    modelOptions, hasFilter, clearFilter, handleClear,
+    modelOptions, hasFilter, clearFilter, handleClear, handleCleanupExpired,
+    showClearConfirm, setShowClearConfirm, cleanupMessage,
     // detail state
     detail, setDetail, copied, copiedId, setCopiedId, openDetail, copyDetail, copyRow,
     // maps
