@@ -171,46 +171,46 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
                   {logRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : t("unit.days", "天")}
                 </span>
               </div>
-
-              {/* Cleanup actions — 语义邻近 retention 配置 */}
-              <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <button
-                    className="btn"
-                    onClick={handleCleanupExpired}
-                    disabled={busy || logRetention === 0}
-                    title={logRetention === 0 ? t("logs.cleanupDisabledHint", "永久保留模式，无过期日志可清理") : undefined}
-                    style={{ fontSize: 12, padding: "4px 12px", opacity: busy ? 0.6 : 1 }}
-                  >
-                    {busy ? t("logs.cleaning", "清理中...") : t("logs.cleanupExpired", "清理过期")}
-                  </button>
-                  <button
-                    className="btn btn-danger"
-                    onClick={() => setShowClearConfirm(true)}
-                    disabled={busy}
-                    style={{ fontSize: 12, padding: "4px 12px", opacity: busy ? 0.6 : 1 }}
-                  >
-                    {busy ? t("logs.cleaning", "清理中...") : t("logs.clear", "清除全部")}
-                  </button>
-                </div>
-                {message && (
-                  <div
-                    className="toast"
-                    style={{
-                      fontSize: 12,
-                      marginTop: 4,
-                      color: message.type === "success"
-                        ? "var(--color-success, #22c55e)"
-                        : "var(--color-error, #ef4444)",
-                    }}
-                  >
-                    {message.text}
-                  </div>
-                )}
-              </div>
             </div>
           </>
         )}
+
+        {/* Cleanup actions — 独立于 logEnabled：关闭记录后仍需可清已存日志 */}
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <button
+              className="btn"
+              onClick={handleCleanupExpired}
+              disabled={busy || logRetention === 0}
+              title={logRetention === 0 ? t("logs.cleanupDisabledHint", "永久保留模式，无过期日志可清理") : undefined}
+              style={{ fontSize: 12, padding: "4px 12px", opacity: busy ? 0.6 : 1 }}
+            >
+              {busy ? t("logs.cleaning", "清理中...") : t("logs.cleanupExpired", "清理过期")}
+            </button>
+            <button
+              className="btn btn-danger"
+              onClick={() => setShowClearConfirm(true)}
+              disabled={busy}
+              style={{ fontSize: 12, padding: "4px 12px", opacity: busy ? 0.6 : 1 }}
+            >
+              {busy ? t("logs.cleaning", "清理中...") : t("logs.clear", "清除全部")}
+            </button>
+          </div>
+          {message && (
+            <div
+              className="toast"
+              style={{
+                fontSize: 12,
+                marginTop: 4,
+                color: message.type === "success"
+                  ? "var(--color-success, #22c55e)"
+                  : "var(--color-error, #ef4444)",
+              }}
+            >
+              {message.text}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Application Logging */}
