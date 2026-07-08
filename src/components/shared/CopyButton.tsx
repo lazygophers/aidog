@@ -41,8 +41,30 @@ export function CopyButton({
   const [hovered, setHovered] = useState(false);
   const btnRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  // hover menu 延迟关闭 timer（portal 到 body，button↔menu 移动间隙靠 delay 兜底）
+  const closeTimer = useRef<number | null>(null);
 
   const isMenu = !!menu;
+
+  const cancelClose = () => {
+    if (closeTimer.current !== null) {
+      clearTimeout(closeTimer.current);
+      closeTimer.current = null;
+    }
+  };
+
+  const scheduleClose = (delay: number) => {
+    cancelClose();
+    closeTimer.current = window.setTimeout(() => {
+      setOpen(false);
+      closeTimer.current = null;
+    }, delay);
+  };
+
+  // 卸载时清理 timer，防内存泄漏
+  useEffect(() => {
+    return () => cancelClose();
+  }, []);
 
   const runCopy = (t: string) => {
     // Tauri writeText 走权限系统（capabilities default.json allow-write-text），
@@ -109,8 +131,15 @@ export function CopyButton({
         ref={btnRef}
         className={hasContent ? "btn btn-ghost" : "btn btn-ghost btn-icon"}
         onClick={handleCopy}
-        onMouseEnter={isMenu ? () => setHovered(true) : undefined}
-        onMouseLeave={isMenu ? () => setHovered(false) : undefined}
+        onMouseEnter={isMenu ? () => {
+          cancelClose();
+          setHovered(true);
+          setOpen(true);
+        } : undefined}
+        onMouseLeave={isMenu ? () => {
+          scheduleClose(120);
+          setHovered(false);
+        } : undefined}
         title={title || text}
         style={{ position: "relative", flexShrink: 0, gap: hasContent ? 5 : 0, fontSize: hasContent ? 12 : undefined, padding: hasContent ? "4px 10px" : undefined }}
       >
@@ -142,6 +171,8 @@ export function CopyButton({
             gap: 2,
           }}
           onClick={e => e.stopPropagation()}
+          onMouseEnter={cancelClose}
+          onMouseLeave={() => scheduleClose(120)}
         >
           {menu.map(item => (
             <button
