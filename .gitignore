@@ -58,3 +58,4 @@ __pycache__/
 
 # presets-view generated HTML (make presets-view)
 .aidoc/
+vite.config.js
