@@ -12,6 +12,7 @@
 | openai-endpoints-models | 补全 openai endpoints 与 model_list | — | 已完成 | — | — |
 | fix-volc-coding-fallback-400 | 修复 trace 81dc4466 火山引擎回退 400 parameter_error | — | 已完成 | — | — |
 | delete-platform-regression | 删除平台仅移除分组未删平台 回归 | — | 已完成 | — | — |
+| about-responsive-width | About 页面响应式宽度适配 | — | 规划中 | — | — |
 
 ## Worktree ↔ Task 映射
 
