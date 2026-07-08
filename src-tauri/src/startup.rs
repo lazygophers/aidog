@@ -235,6 +235,7 @@ crate::commands::price::model_price_count_filtered,
             crate::commands::cli_env::cli_install,
             crate::commands::cli_env::cli_upgrade,
             crate::commands::cli_env::cli_diagnose_conflicts,
+            crate::commands::cli_env::cli_check_updates,
             // Platform defaults JSON
             crate::commands::defaults::get_defaults_json,
             crate::commands::defaults::sync_defaults_json,

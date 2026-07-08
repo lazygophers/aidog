@@ -50,6 +50,8 @@ export const aboutApi = {
 export const cliEnvApi = {
   /** 检查 claude / codex 版本 + 路径 + 状态（installed / broken / conflict）。 */
   checkVersions: () => invoke<CliToolStatus[]>("cli_check_versions"),
+  /** 检查更新可用性（latest version + has_update）。 */
+  checkUpdates: () => invoke<CliToolStatus[]>("cli_check_updates"),
   /** 安装（claude POSIX 走 native installer + npm 兜底；codex 走 npm）。 */
   install: (tool: "claude" | "codex") => invoke<void>("cli_install", { tool }),
   /** 升级（claude 走 `claude update` + npm 兜底；codex 走 uninstall + install 自愈）。 */
