@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1783516621,
+  "last_updated": 1783517983,
   "protocols": {
     "anthropic": {
       "client_type": "claude_code",
@@ -17,6 +17,7 @@
         "default": {
           "default": "claude-opus-4-8",
           "opus": "claude-opus-4-8",
+          "fable": "claude-fable-5",
           "sonnet": "claude-sonnet-4-6",
           "haiku": "claude-haiku-4-5"
         }
@@ -24,6 +25,7 @@
       "model_list": {
         "default": [
           "claude-opus-4-8",
+          "claude-fable-5",
           "claude-sonnet-4-6",
           "claude-haiku-4-5"
         ]

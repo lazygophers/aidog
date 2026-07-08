@@ -232,6 +232,7 @@ pub(crate) async fn handle_passthrough(
 /// 最近核对: 2026-07-08。参照前端 getDefaultModels（Platforms.tsx）。
 const STATIC_MODEL_IDS: &[&str] = &[
     "claude-opus-4-8",
+    "claude-fable-5",
     "claude-sonnet-4-6",
     "claude-haiku-4-5",
     "gpt-5.5",
