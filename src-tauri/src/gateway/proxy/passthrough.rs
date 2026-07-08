@@ -231,10 +231,15 @@ pub(crate) async fn handle_passthrough(
 /// 客户端模型发现 UI 探测用（GET /models 无需 group / token）。月级腐化需手工核对。
 /// 最近核对: 2026-07-08。参照前端 getDefaultModels（Platforms.tsx）。
 const STATIC_MODEL_IDS: &[&str] = &[
-    "claude-opus-4-8",
     "claude-fable-5",
-    "claude-sonnet-4-6",
+    "claude-opus-4-8",
+    "claude-sonnet-5",
     "claude-haiku-4-5",
+    "claude-opus-4-7",
+    "claude-opus-4-6",
+    "claude-sonnet-4-6",
+    "claude-opus-4-5-20251101",
+    "claude-sonnet-4-5-20250929",
     "gpt-5.5",
     "gpt-5.4",
     "gpt-5.4-mini",
