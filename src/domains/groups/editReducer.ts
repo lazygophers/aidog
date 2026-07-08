@@ -28,6 +28,9 @@ const PRIVACY_DEFAULT_ENV_VARS: EnvVar[] = [
   { key: "DISABLE_GROWTHBOOK", value: "1" },
   { key: "CLAUDE_CODE_ATTRIBUTION_HEADER", value: "0" },
   { key: "DISABLE_INSTALLATION_CHECKS", value: "1" },
+  { key: "CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF", value: "1" },
+  { key: "CLAUDE_CODE_DISABLE_CRON", value: "1" },
+  { key: "CLAUDE_CODE_DISABLE_OFFICIAL_MARKETPLACE_AUTOINSTALL", value: "1" },
 ];
 
 export const EMPTY_EDIT: EditState = {
