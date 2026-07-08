@@ -232,8 +232,10 @@ use super::*;
         // 模型集内容
         let ids: Vec<&str> = data.iter().filter_map(|m| m.get("id").and_then(|i| i.as_str())).collect();
         assert!(ids.contains(&"claude-opus-4-8"));
-        assert!(ids.contains(&"gpt-5.5-codex"));
         assert!(ids.contains(&"gpt-5.5"));
+        assert!(ids.contains(&"gpt-5.4"));
+        assert!(ids.contains(&"gpt-5.4-mini"));
+        assert!(!ids.contains(&"gpt-5.5-codex"));
     }
 
     // ── 静态模型列表：anthropic 格式 = {data:[{type:model,id,display_name,created_at}],has_more,first_id,last_id} ──
@@ -250,7 +252,7 @@ use super::*;
         assert!(first.get("created_at").is_some());
         assert_eq!(v.get("has_more").and_then(|h| h.as_bool()), Some(false));
         assert_eq!(v.get("first_id").and_then(|i| i.as_str()), Some("claude-opus-4-8"));
-        assert_eq!(v.get("last_id").and_then(|i| i.as_str()), Some("gpt-5.5"));
+        assert_eq!(v.get("last_id").and_then(|i| i.as_str()), Some("gpt-5.4-mini"));
     }
 
     // ── SSE usage 累计（Anthropic message.usage + OpenAI 顶层 usage）──
