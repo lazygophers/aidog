@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1783513632,
+  "last_updated": 1783516621,
   "protocols": {
     "anthropic": {
       "client_type": "claude_code",
@@ -73,7 +73,10 @@
       },
       "model_list": {
         "default": [
-          "gpt-5.5"
+          "gpt-5.5",
+          "gpt-5.4",
+          "gpt-5.4-mini",
+          "gpt-5.4-nano"
         ]
       },
       "name": {
