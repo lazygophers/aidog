@@ -1,0 +1,2 @@
+{"file": ".trellis/tasks/07-08-openai-model-list-complete/prd.md", "reason": "Acceptance Criteria 验收（19 id/STATIC_MODEL_IDS/cargo build+test+yarn build）"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "跨层一致性校验"}
