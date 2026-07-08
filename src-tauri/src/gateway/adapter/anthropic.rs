@@ -54,7 +54,14 @@ pub fn to_anthropic(req: &ChatRequest) -> AnthropicRequest {
                 MessageContent::Blocks(blocks) => {
                     let arr: Vec<Value> = blocks
                         .iter()
-                        .map(|b| serde_json::to_value(b).unwrap())
+                        .filter_map(|b| match b {
+                            // 只保留已知类型;Unknown(thinking/redacted_thinking/image 等)跳过,
+                            // 避免上游不支持 Anthropic 扩展类型导致 400 InvalidParameter
+                            ContentBlock::Text { .. } | ContentBlock::ToolUse { .. } | ContentBlock::ToolResult { .. } => {
+                                Some(serde_json::to_value(b).unwrap())
+                            }
+                            ContentBlock::Unknown(_) => None,
+                        })
                         .collect();
                     Value::Array(arr)
                 }
