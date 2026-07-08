@@ -30,10 +30,13 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
   async function handleCleanupExpired() {
     if (busy) return;
     setBusy(true);
+    console.log("[LogSettings] cleanupExpired start");
     try {
       await proxyLogApi.cleanupExpired();
+      console.log("[LogSettings] cleanupExpired done");
       flashMessage(t("logs.cleanupExpiredDone", "已清理过期日志"));
     } catch (e) {
+      console.error("[LogSettings] cleanupExpired failed", e);
       flashMessage(String(e));
     } finally {
       setBusy(false);
@@ -170,26 +173,28 @@ export function LogSettingsSection({ s }: { s: SystemSettings }) {
               </div>
 
               {/* Cleanup actions — 语义邻近 retention 配置 */}
-              <div style={{ display: "flex", gap: 8, paddingTop: 8, borderTop: "1px solid var(--border)", alignItems: "center", flexWrap: "wrap" }}>
-                <button
-                  className="btn"
-                  onClick={handleCleanupExpired}
-                  disabled={busy || logRetention === 0}
-                  title={logRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : undefined}
-                  style={{ fontSize: 12, padding: "4px 12px" }}
-                >
-                  {t("logs.cleanupExpired", "清理过期")}
-                </button>
-                <button
-                  className="btn btn-danger"
-                  onClick={() => setShowClearConfirm(true)}
-                  disabled={busy}
-                  style={{ fontSize: 12, padding: "4px 12px" }}
-                >
-                  {t("logs.clear", "清除全部")}
-                </button>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4, paddingTop: 8, borderTop: "1px solid var(--border)" }}>
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                  <button
+                    className="btn"
+                    onClick={handleCleanupExpired}
+                    disabled={busy || logRetention === 0}
+                    title={logRetention === 0 ? t("proxy.logRetentionForever", "永久保留") : undefined}
+                    style={{ fontSize: 12, padding: "4px 12px" }}
+                  >
+                    {t("logs.cleanupExpired", "清理过期")}
+                  </button>
+                  <button
+                    className="btn btn-danger"
+                    onClick={() => setShowClearConfirm(true)}
+                    disabled={busy}
+                    style={{ fontSize: 12, padding: "4px 12px" }}
+                  >
+                    {t("logs.clear", "清除全部")}
+                  </button>
+                </div>
                 {message && (
-                  <span style={{ fontSize: 11, color: "var(--text-tertiary)" }}>{message}</span>
+                  <div className="toast" style={{ fontSize: 12, marginTop: 4 }}>{message}</div>
                 )}
               </div>
             </div>
