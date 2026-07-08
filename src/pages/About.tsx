@@ -191,7 +191,18 @@ export function About() {
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 20, maxWidth: 720 }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 20,
+        width: "100%",
+        maxWidth: 720,
+        margin: "0 auto",
+        boxSizing: "border-box",
+        minWidth: 0,
+      }}
+    >
       <div className="section-header">
         <div style={{ flex: 1 }}>
           <div className="section-title">{t("about.title", "关于")}</div>
@@ -216,15 +227,18 @@ export function About() {
                 padding: "12px 0",
                 borderTop: i === 0 ? "none" : "1px solid var(--border)",
                 gap: 16,
+                minWidth: 0,
               }}
             >
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{r.label}</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)", flex: "0 0 auto" }}>{r.label}</div>
               <div
                 style={{
                   fontSize: 13,
                   color: "var(--text-secondary)",
                   wordBreak: "break-all",
                   textAlign: "end",
+                  flex: 1,
+                  minWidth: 0,
                   fontFamily: r.mono
                     ? "ui-monospace, SFMono-Regular, Menlo, monospace"
                     : undefined,
@@ -326,6 +340,7 @@ export function About() {
                 display: "flex",
                 flexDirection: "column",
                 gap: 8,
+                minWidth: 0,
               }}
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
@@ -418,6 +433,8 @@ export function About() {
                     display: "flex",
                     flexDirection: "column",
                     gap: 6,
+                    minWidth: 0,
+                    overflowX: "auto",
                   }}
                 >
                   <div style={{ fontSize: 12, fontWeight: 600, color: "var(--text-primary)" }}>
