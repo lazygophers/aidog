@@ -1881,5 +1881,7 @@
   "logs.cleanupExpiredDone": "期限切れログを清理しました",
   "logs.clearConfirmTitle": "全ログを消去",
   "logs.cancel": "キャンセル",
-  "logs.clearDone": "クリア済み"
+  "logs.clearDone": "クリア済み",
+  "logs.cleaning": "清理中...",
+  "logs.cleanupDisabledHint": "永久保持モード — 期限切れログはありません"
 }

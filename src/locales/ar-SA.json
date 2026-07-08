@@ -1881,5 +1881,7 @@
   "logs.cleanupExpiredDone": "تم تنظيف السجلات المنتهية",
   "logs.clearConfirmTitle": "مسح جميع السجلات",
   "logs.cancel": "إلغاء",
-  "logs.clearDone": "تم المسح"
+  "logs.clearDone": "تم المسح",
+  "logs.cleaning": "جارٍ التنظيف...",
+  "logs.cleanupDisabledHint": "وضع الاحتفاظ للأبد — لا توجد سجلات منتهية لتنظيفها"
 }

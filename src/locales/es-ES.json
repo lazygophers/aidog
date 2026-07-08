@@ -1859,5 +1859,7 @@
   "logs.cleanupExpiredDone": "Registros expirados limpiados",
   "logs.clearConfirmTitle": "Borrar todos los registros",
   "logs.cancel": "Cancelar",
-  "logs.clearDone": "Borrado"
+  "logs.clearDone": "Borrado",
+  "logs.cleaning": "Limpiando...",
+  "logs.cleanupDisabledHint": "Modo de conservación permanente — sin registros expirados que limpiar"
 }

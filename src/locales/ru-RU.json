@@ -1881,5 +1881,7 @@
   "logs.cleanupExpiredDone": "Истёкшие журналы очищены",
   "logs.clearConfirmTitle": "Очистить все журналы",
   "logs.cancel": "Отмена",
-  "logs.clearDone": "Очищено"
+  "logs.clearDone": "Очищено",
+  "logs.cleaning": "Очистка...",
+  "logs.cleanupDisabledHint": "Режим хранения навсегда — нет истёкших журналов для очистки"
 }
