@@ -1,7 +1,7 @@
 // system.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "@tauri-apps/api/core";
-import type { AppLogSettings, ScriptExecutor, DbCompactResult, AboutInfo } from "./types";
+import type { AppLogSettings, ScriptExecutor, DbCompactResult, AboutInfo, CliToolStatus, CliConflict } from "./types";
 
 export const scriptExecutorApi = {
   /** 检测 uv 是否可用（true=已安装）。 */
@@ -42,6 +42,20 @@ export const dbApi = {
 export const aboutApi = {
   /** 读取应用 / 运行时 / 系统 / 构建版本信息。 */
   info: () => invoke<AboutInfo>("about_info"),
+};
+
+// ─── CLI 工具环境（Claude Code / Codex）─────────────────────
+// 后端 spawn 检测 / 安装 / 升级 / 冲突诊断（抄 install_uv 后端 spawn 模式，零 capability 改动）。
+
+export const cliEnvApi = {
+  /** 检查 claude / codex 版本 + 路径 + 状态（installed / broken / conflict）。 */
+  checkVersions: () => invoke<CliToolStatus[]>("cli_check_versions"),
+  /** 安装（claude POSIX 走 native installer + npm 兜底；codex 走 npm）。 */
+  install: (tool: "claude" | "codex") => invoke<void>("cli_install", { tool }),
+  /** 升级（claude 走 `claude update` + npm 兜底；codex 走 uninstall + install 自愈）。 */
+  upgrade: (tool: "claude" | "codex") => invoke<void>("cli_upgrade", { tool }),
+  /** 诊断冲突：`which -a` / `where` 枚举 + canonicalize 去重 + source 推断。 */
+  diagnoseConflicts: () => invoke<CliConflict[]>("cli_diagnose_conflicts"),
 };
 
 // ─── Auto-update toggle (gates 启动 daily check；手动按钮不 gate) ──────────
