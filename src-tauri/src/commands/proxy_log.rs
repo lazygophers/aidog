@@ -124,24 +124,45 @@ pub async fn proxy_log_settings_set(db: State<'_, Db>, settings: ProxyLogSetting
         value,
     }).await
         .map_err(|e| { tracing::error!(command = "proxy_log_settings_set", error = %e, "persist log settings failed"); e })?;
+    run_retention_cleanup(&db, &settings).await;
+    Ok(())
+}
+
+/// 跑 4 步 retention 清理链（user/upstream fields + retention_days + purge tombstone）。
+/// 每步 `tracing::warn!` 容错（单步失败不阻塞其余）。settings_set 与 cleanup_expired 共用。
+async fn run_retention_cleanup(db: &State<'_, Db>, settings: &ProxyLogSettings) {
     // Run field-level cleanup for user/upstream request data
-    if let Err(e) = gateway::db::cleanup_user_request_fields(&db, settings.user_request_retention_days).await {
-        tracing::warn!(command = "proxy_log_settings_set", error = %e, "cleanup user_request fields failed");
+    if let Err(e) = gateway::db::cleanup_user_request_fields(db, settings.user_request_retention_days).await {
+        tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup user_request fields failed");
     }
-    if let Err(e) = gateway::db::cleanup_upstream_request_fields(&db, settings.upstream_request_retention_days).await {
-        tracing::warn!(command = "proxy_log_settings_set", error = %e, "cleanup upstream_request fields failed");
+    if let Err(e) = gateway::db::cleanup_upstream_request_fields(db, settings.upstream_request_retention_days).await {
+        tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup upstream_request fields failed");
     }
     // Delete entire log rows older than overall retention (hard delete → physical row removal)
     if settings.retention_days > 0 {
-        if let Err(e) = gateway::db::cleanup_proxy_logs(&db, settings.retention_days).await {
-            tracing::warn!(command = "proxy_log_settings_set", error = %e, "cleanup proxy_logs failed");
+        if let Err(e) = gateway::db::cleanup_proxy_logs(db, settings.retention_days).await {
+            tracing::warn!(command = "proxy_log_cleanup", error = %e, "cleanup proxy_logs failed");
         }
     }
     // 清积压 tombstone（本次 cleanup 前历史软删残留）+ incremental_vacuum 回收 free pages。
     // 软删→硬删迁移期一次性清旧 tombstone；日常 retention_days 已硬删则此步为 no-op + 回收。
-    if let Err(e) = gateway::db::purge_deleted_proxy_logs(&db).await {
-        tracing::warn!(command = "proxy_log_settings_set", error = %e, "purge deleted proxy_logs failed");
+    if let Err(e) = gateway::db::purge_deleted_proxy_logs(db).await {
+        tracing::warn!(command = "proxy_log_cleanup", error = %e, "purge deleted proxy_logs failed");
     }
+}
+
+/// 按当前 ProxyLogSettings 的保留天数立即清理过期数据，不修改设置。
+/// 复用 settings_set 的清理链（run_retention_cleanup）。
+#[tauri::command]
+#[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
+pub async fn proxy_log_cleanup_expired(db: State<'_, Db>) -> Result<(), String> {
+    tracing::debug!(command = "proxy_log_cleanup_expired", "command invoked");
+    let settings: ProxyLogSettings = gateway::db::get_setting(&db, "proxy", "logging").await
+        .ok()
+        .flatten()
+        .and_then(|v| serde_json::from_value(v).ok())
+        .unwrap_or_default();
+    run_retention_cleanup(&db, &settings).await;
     Ok(())
 }
 

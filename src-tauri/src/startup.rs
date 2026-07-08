@@ -104,6 +104,7 @@ pub fn run() {
             crate::commands::proxy_log::proxy_log_count,
             crate::commands::proxy_log::proxy_log_settings_get,
             crate::commands::proxy_log::proxy_log_settings_set,
+            crate::commands::proxy_log::proxy_log_cleanup_expired,
             // Stats aggregation settings + rebuild
             crate::commands::stats::stats_settings_get,
             crate::commands::stats::stats_settings_set,

@@ -40,6 +40,7 @@ export const proxyLogApi = {
   get: (id: string) =>
     invoke<ProxyLogDetail | null>("proxy_log_get", { id }),
   clear: () => invoke<void>("proxy_log_clear"),
+  cleanupExpired: () => invoke<void>("proxy_log_cleanup_expired"),
   count: () => invoke<number>("proxy_log_count"),
   countFiltered: (filter: ProxyLogFilter) =>
     invoke<number>("proxy_log_count_filtered", { filter }),

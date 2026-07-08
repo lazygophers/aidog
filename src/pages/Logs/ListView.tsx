@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { IconClose } from "../../components/icons";
 import { FilterDropdown } from "../../components/shared";
 import { F } from "../../domains/shared/tokens";
@@ -16,7 +17,8 @@ export function ListView({ d }: { d: LogsData }) {
     filterModelType, filterModelText, filterPath,
     setFilterPlatform, setFilterGroup, setFilterStatus, setFilterTime,
     setFilterModelType, setFilterModelText, setFilterPath,
-    modelOptions, hasFilter, clearFilter, handleClear,
+    modelOptions, hasFilter, clearFilter, handleClear, handleCleanupExpired,
+    showClearConfirm, setShowClearConfirm, cleanupMessage,
     openDetail, copyRow, platformMap, groupName,
   } = d;
 
@@ -33,14 +35,22 @@ export function ListView({ d }: { d: LogsData }) {
             {total > 0 ? `${total} ${t("logs.total", "条记录")}` : t("logs.empty", "暂无日志")}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {cleanupMessage && (
+            <span style={{ fontSize: F.hint, color: "var(--text-secondary)" }}>{cleanupMessage}</span>
+          )}
           <button className="btn" onClick={() => load()} disabled={loading} style={{ fontSize: F.hint }}>
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M1.5 7a5.5 5.5 0 1 1 1.3 3.6M1.5 11V7.5H5" /></svg>
           </button>
           {total > 0 && (
-            <button className="btn btn-danger" onClick={handleClear} style={{ fontSize: F.hint }}>
-              {t("logs.clear", "清除全部")}
-            </button>
+            <>
+              <button className="btn" onClick={handleCleanupExpired} style={{ fontSize: F.hint }}>
+                {t("logs.cleanupExpired", "清理过期")}
+              </button>
+              <button className="btn btn-danger" onClick={() => setShowClearConfirm(true)} style={{ fontSize: F.hint }}>
+                {t("logs.clear", "清除全部")}
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -200,6 +210,54 @@ export function ListView({ d }: { d: LogsData }) {
             />
           )}
         </>
+      )}
+
+      {/* 清空确认弹窗（React state modal，禁 window.confirm 破坏 Tauri）。
+          portal 到 body：祖先 transform/backdrop-filter 会让 fixed 退化相对祖先，致弹窗只在 page 内居中。 */}
+      {showClearConfirm && createPortal(
+        <div
+          style={{
+            position: "fixed", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+            background: "rgba(0, 0, 0, 0.4)", zIndex: 1000,
+          }}
+          onClick={() => setShowClearConfirm(false)}
+        >
+          <div
+            className="glass-surface"
+            style={{
+              padding: 20, maxWidth: 380, borderRadius: "var(--radius-lg)",
+              display: "flex", flexDirection: "column", gap: 16,
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ fontSize: 13, fontWeight: 600 }}>
+              {t("logs.clearConfirmTitle", "清空全部日志")}
+            </div>
+            <div style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.6 }}>
+              {t("logs.clearConfirm", "确认清除所有日志？此操作不可撤销。")}
+            </div>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                className="btn"
+                onClick={() => setShowClearConfirm(false)}
+                style={{ padding: "6px 14px", fontSize: 12 }}
+              >
+                {t("logs.cancel", "取消")}
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleClear}
+                style={{
+                  padding: "6px 14px", fontSize: 12,
+                  background: "var(--color-error, #ef4444)",
+                }}
+              >
+                {t("logs.clear", "清除全部")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
     </div>
   );
