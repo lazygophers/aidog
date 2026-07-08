@@ -9,7 +9,7 @@
 | about-claude-codex-install | 关于页 Claude Code/Codex 版本检查与安装 | — | 规划中 | — | — |
 | add-fable-model | 添加 Fable 模型配置 | — | 规划中 | — | — |
 | codex-model-list | 补全 codex model_list 缺失模型 | — | 已完成 | — | — |
-| openai-endpoints-models | 补全 openai endpoints 与 model_list | — | 实施中 | — | — |
+| openai-endpoints-models | 补全 openai endpoints 与 model_list | — | 已完成 | — | — |
 | fix-volc-coding-fallback-400 | 修复 trace 81dc4466 火山引擎回退 400 parameter_error | — | 已完成 | — | — |
 | delete-platform-regression | 删除平台仅移除分组未删平台 回归 | — | 已完成 | — | — |
 
@@ -18,4 +18,3 @@
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-08-middleware-import-defaults | 07-08-middleware-import-defaults | trellisx-start |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-08-openai-endpoints-models | 07-08-openai-endpoints-models | trellisx-start |
