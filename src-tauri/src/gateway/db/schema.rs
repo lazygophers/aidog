@@ -163,9 +163,29 @@ pub(crate) fn builtin_rule_specs() -> &'static [BuiltinRuleSpec] {
 /// 首启 seed 内置预设中间件规则（C4）。幂等：按 (name, is_builtin=1) 判定，
 /// 已存在跳过——不重新插入也不重新启用（尊重用户对内置规则的禁用状态，内置规则可禁不可硬删）。
 /// 在 [`Db::init_tables`] migration 末尾、同一 connection 闭包内同步调用。
+///
+/// 薄 wrapper：调 [`seed_builtin_middleware_rules_counted`] 忽略计数，保 migration 015 调用点签名不破。
 pub(crate) fn seed_builtin_middleware_rules(conn: &rusqlite::Connection) -> SqlResult<()> {
+    let (inserted, _skipped) = seed_builtin_middleware_rules_counted(conn)?;
+    if inserted > 0 {
+        tracing::info!(inserted, "migration 015: seeded builtin middleware rules");
+    }
+    Ok(())
+}
+
+/// 内置规则 seed 核心：返回 (inserted, skipped) 计数。
+///
+/// 抽出为独立 pub 入口，供 migration 015（经 [`seed_builtin_middleware_rules`] wrapper）
+/// 与 `middleware_import_default_rules` command 共用——禁抄第二份 builtin_rule_specs。
+///
+/// 语义：按 (name, is_builtin=1) 幂等判定，已存在 → skip（不 update enabled，
+/// 尊重用户禁用态）；不存在 → INSERT (enabled=1, is_builtin=1, scope=global)。
+pub(crate) fn seed_builtin_middleware_rules_counted(
+    conn: &rusqlite::Connection,
+) -> SqlResult<(u32, u32)> {
     let ts = now();
     let mut inserted = 0u32;
+    let mut skipped = 0u32;
     for spec in builtin_rule_specs() {
         let exists: bool = conn
             .query_row(
@@ -176,6 +196,7 @@ pub(crate) fn seed_builtin_middleware_rules(conn: &rusqlite::Connection) -> SqlR
             .optional()?
             .is_some();
         if exists {
+            skipped += 1;
             continue;
         }
         conn.execute(
@@ -196,8 +217,5 @@ pub(crate) fn seed_builtin_middleware_rules(conn: &rusqlite::Connection) -> SqlR
         )?;
         inserted += 1;
     }
-    if inserted > 0 {
-        tracing::info!(inserted, "migration 015: seeded builtin middleware rules");
-    }
-    Ok(())
+    Ok((inserted, skipped))
 }

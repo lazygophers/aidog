@@ -651,6 +651,8 @@
   "middleware.globalRulesHint": "Les règles globales s'appliquent à tous les groupes/plateformes et peuvent être remplacées par des règles de groupe/plateforme (la plus proche l'emporte)",
   "middleware.groupRules": "Règles middleware du groupe",
   "middleware.groupRulesHint": "S'appliquent uniquement à ce groupe, remplaçant les règles globales du même type",
+  "middleware.importDefaults": "Importer les règles par défaut",
+  "middleware.importDefaultsDone": "{{imported}} règles par défaut importées ({{skipped}} déjà présentes, ignorées)",
   "middleware.masterToggle": "Interrupteur principal du middleware",
   "middleware.masterToggleDesc": "Désactivé, toutes les règles sont contournées ; les requêtes/réponses ne passent pas par le middleware",
   "middleware.match.contains": "Contient",

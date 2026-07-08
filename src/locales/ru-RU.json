@@ -651,6 +651,8 @@
   "middleware.globalRulesHint": "Глобальные правила действуют для всех групп/платформ и могут переопределяться правилами группы/платформы (ближайшее побеждает)",
   "middleware.groupRules": "Правила middleware группы",
   "middleware.groupRulesHint": "Действуют только для этой группы, переопределяя глобальные правила того же типа",
+  "middleware.importDefaults": "Импортировать правила по умолчанию",
+  "middleware.importDefaultsDone": "Импортировано {{imported}} правил по умолчанию ({{skipped}} уже существуют, пропущено)",
   "middleware.masterToggle": "Главный переключатель middleware",
   "middleware.masterToggleDesc": "При выключении все правила обходятся; запросы/ответы не проходят через middleware",
   "middleware.match.contains": "Содержит",

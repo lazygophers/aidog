@@ -19,6 +19,13 @@ export const middlewareApi = {
   /** 保存中间件总设置。 */
   setSettings: (settings: MiddlewareSettings) =>
     invoke<void>("middleware_settings_set", { settings }),
+  /**
+   * 一键导入默认（内置）中间件规则（10 条）。
+   * INSERT 仅补缺失项，已存在跳过（不重新启用用户禁用的内置规则）；可重复点（幂等）。
+   * 返 {imported: 新增数, skipped: 已存在跳过数}。
+   */
+  importDefaults: () =>
+    invoke<{ imported: number; skipped: number }>("middleware_import_default_rules"),
 };
 
 // ─── Scheduling & Breaker Settings ─────────────────────────

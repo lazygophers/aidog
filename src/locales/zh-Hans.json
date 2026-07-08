@@ -629,6 +629,8 @@
   "middleware.globalRulesHint": "全局规则对所有分组 / 平台生效，可被分组 / 平台级规则就近覆盖",
   "middleware.groupRules": "分组中间件规则",
   "middleware.groupRulesHint": "仅本分组生效，就近覆盖全局同类型规则",
+  "middleware.importDefaults": "导入默认规则",
+  "middleware.importDefaultsDone": "已导入 {{imported}} 条默认规则（{{skipped}} 条已存在跳过）",
   "middleware.masterToggle": "中间件总开关",
   "middleware.masterToggleDesc": "关闭后全部规则旁路，请求 / 响应不经过中间件处理",
   "middleware.match.contains": "包含",

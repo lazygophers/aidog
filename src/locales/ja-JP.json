@@ -651,6 +651,8 @@
   "middleware.globalRulesHint": "グローバルルールは全グループ／プラットフォームに適用され、グループ／プラットフォーム単位のルールで上書きされます（最も近いものが優先）",
   "middleware.groupRules": "グループ ミドルウェアルール",
   "middleware.groupRulesHint": "このグループのみに適用され、同種のグローバルルールを上書きします",
+  "middleware.importDefaults": "デフォルトルールをインポート",
+  "middleware.importDefaultsDone": "デフォルトルール {{imported}} 件をインポートしました（{{skipped}} 件は既存のためスキップ）",
   "middleware.masterToggle": "ミドルウェア マスタースイッチ",
   "middleware.masterToggleDesc": "オフにすると全ルールがバイパスされ、リクエスト／レスポンスはミドルウェア処理を通りません",
   "middleware.match.contains": "含む",
