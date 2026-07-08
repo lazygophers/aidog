@@ -1881,5 +1881,7 @@
   "logs.cleanupExpiredDone": "Journaux expirés nettoyés",
   "logs.clearConfirmTitle": "Effacer tous les journaux",
   "logs.cancel": "Annuler",
-  "logs.clearDone": "Vidé"
+  "logs.clearDone": "Vidé",
+  "logs.cleaning": "Nettoyage...",
+  "logs.cleanupDisabledHint": "Mode conservation illimitée — aucun journal expiré à nettoyer"
 }
