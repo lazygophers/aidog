@@ -68,7 +68,7 @@ fn payload_with(platforms: &[&str], settings: &[(&str, &str, &str)]) -> Payload 
 
 /// 直查未删除平台名（按 sort_order, id），避开 list_platforms 的 platform_type 反序列化。
 async fn platform_names(db: &Db) -> Vec<String> {
-    db.0
+    db.write_conn()
         .call(|conn| {
             let mut stmt = conn
                 .prepare("SELECT name FROM platform WHERE deleted_at = 0 ORDER BY id")?;

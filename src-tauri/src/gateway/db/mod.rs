@@ -160,18 +160,37 @@ impl ReadPoolHandle {
     }
 }
 
+/// 重连上下文：写连接 / 读池 ConnectionClosed 兜底重开所需信息。
+///
+/// tokio_rusqlite `Connection::call` 返 `ConnectionClosed` 意味着后台线程已死
+/// （闭包 panic / 极端 channel drop）→ 该连接句柄**永久报废**，后续所有调用继续返
+/// `ConnectionClosed`。历史上偶发 ~1% 代理 400 "route error: ConnectionClosed"
+/// 即此症（参见 `.trellis/tasks/07-08-route-db-connection-closed/`）。
+///
+/// 兜底：`call_traced` / `call_read_traced` 检测 `ConnectionClosed` 后，用本上下文重开
+/// 连接并重试一次（详见各方法）。`is_memory=true` 时禁用重开（内存库重开会读到空库）。
+struct ReconnectCtx {
+    path: String,
+    is_memory: bool,
+}
+
 /// 异步 SQLite 连接封装。
 ///
-/// tokio-rusqlite 内部以单后台线程顺序执行所有 `call` 闭包，天然串行化，
-/// 故无需 `Mutex`。`AsyncConnection` 自身 `Clone + Send + Sync`（内部仅一个 channel sender），
+/// tokio-rusqlite 内部以单后台线程顺序执行所有 `call` 闭包，天然串行化。
+/// `AsyncConnection` 自身 `Clone + Send + Sync`（内部仅一个 channel sender），
 /// 可直接 `app.manage(Db)` / `State<Db>`，克隆廉价（共享同一后台线程连接）。
 ///
-/// - `self.0`：**写连接**（WAL 仅允许单写），承载全部写 / DDL / 事务 / cache 失效路径。
+/// - `self.0`：**写连接槽**（`Arc<Mutex<AsyncConnection>>`），承载全部写 / DDL / 事务 /
+///   cache 失效路径。Mutex 包裹是**为 ConnectionClosed 后整体替换重开**——后台线程 panic
+///   致 channel 永久关闭时，可在 `call_traced` 内 `*g = new_conn` 替换槽位，后续 clone 拿到
+///   新连接。锁仅瞬时持有（纳秒级 clone / replace），不与 DB 闭包执行重叠，不阻塞其他调用方
+///   （真正串行化由 tokio-rusqlite 单后台线程保证）。访问走 `Db::write_conn()`。
 /// - `self.1`：`Arc<DbCache>` 进程内热缓存（不变，与连接数无关）。
 /// - `self.2`：`ReadPoolHandle` 只读连接池，供 UI 热读路径（stats / 列表 / 日志查询）走
 ///   `call_read_traced` 并发查询，不阻塞于写连接队列。
+/// - `self.3`：`Arc<ReconnectCtx>` 重连上下文（DB 路径 + 是否内存库）。
 #[derive(Clone)]
-pub struct Db(pub AsyncConnection, Arc<DbCache>, ReadPoolHandle);
+pub struct Db(pub Arc<std::sync::Mutex<AsyncConnection>>, Arc<DbCache>, ReadPoolHandle, Arc<ReconnectCtx>);
 
 /// eff_pid 回溯映射：`group_key → 源平台 id`（单一事实源，替代旧 SQL 标量子查询 `eff_pid_case`）。
 ///
@@ -298,7 +317,16 @@ impl Db {
         .map_err(|e| e.to_string())?;
 
         let read_pool = Self::build_read_pool(path, &conn).await?;
-        Ok(Self(conn, Arc::new(DbCache::default()), read_pool))
+        let is_memory = path == ":memory:" || path.contains("mode=memory") || path.is_empty();
+        Ok(Self(
+            Arc::new(std::sync::Mutex::new(conn)),
+            Arc::new(DbCache::default()),
+            read_pool,
+            Arc::new(ReconnectCtx {
+                path: path.to_string(),
+                is_memory,
+            }),
+        ))
     }
 
     /// 构造只读连接池。
@@ -352,7 +380,7 @@ impl Db {
     }
 
     /// DB 调用 chokepoint：与 `tokio_rusqlite::Connection::call` 同形（同闭包签名 / 返回
-    /// 类型）。
+    /// 类型），叠加链路追踪 + **ConnectionClosed 自动重连重试**。
     ///
     /// 链路 id（日志 `req=`）取值优先级：
     /// 1. 显式 `req`（代理请求路径传 request_id = proxy_log.id）；
@@ -369,6 +397,23 @@ impl Db {
     ///
     /// 串行执行保证（tokio-rusqlite 单后台线程）→ 同一时刻仅一个闭包持有该 thread-local，
     /// 不会串味；set/clear 各一次，开销可忽略，无锁竞争。
+    ///
+    /// ## ConnectionClosed 兜底（fix #07-08-route-db-connection-closed）
+    ///
+    /// tokio-rusqlite `Connection::call` 返 `ConnectionClosed` 意味着后台线程已死
+    /// （闭包 panic / channel drop）→ 该连接句柄**永久报废**。首调若返此错误，本方法会：
+    /// 1. 重开一条新写连接（带 pragma + profile 注册）；
+    /// 2. 替换 `self.0` 槽位（其他并发 / 后续调用方下次 clone 即拿到新连接）；
+    /// 3. 在新连接上重试一次原闭包。
+    ///
+    /// 重试上限 = 1 次（避免死循环）。重开失败 / 重试仍失败 → 走原错误路径透传，不掩盖其他 DB 错误。
+    /// `is_memory=true`（测试内存库）禁用重开（内存库重开会读到空库 → 测试全崩）。
+    ///
+    /// **FnOnce 重取机制**：tokio_rusqlite 在 channel 已关闭时（线程死）会 `Err(SendError)`
+    /// 返回 `ConnectionClosed`，闭包**未被实际调用**就被 drop。Rust 类型系统不知道这点，
+    /// 一旦 `f` move 进闭包就拿不回来。本方法用 `Arc<Mutex<Option<F>>>` cell 让闭包内
+    /// 自取——若闭包从未运行（首调失败），`f` 仍在 cell 内可重取用于重试；若闭包已运行消费了
+    /// `f`（极端：线程在闭包运行中 panic），cell 为空，放弃重试透传首调错误。
     pub fn call_traced<F, R>(
         &self,
         req: Option<&str>,
@@ -387,40 +432,83 @@ impl Db {
             .or_else(crate::logging::current_trace_id)
             .unwrap_or_else(crate::logging::new_trace_id);
         let req = Some(req);
-        // clone AsyncConnection（仅 channel sender，廉价）并 move 进 async block，使返回
-        // future 为 `'static`（不借 &self），形态等价于原 `db.0.call(..).await`。
-        let conn = self.0.clone();
+        let slot = self.0.clone();
+        let ctx = self.3.clone();
         async move {
-            // 包装用户闭包：进入 DB 线程时 set 上下文，离开（含 panic）时 guard 清空。
-            conn.call(move |conn| {
-                CURRENT_DB_CTX.with(|c| {
-                    *c.borrow_mut() = DbCallCtx {
-                        req: req.clone(),
-                        caller: Some(caller),
-                    };
-                });
-                struct Clear;
-                impl Drop for Clear {
-                    fn drop(&mut self) {
-                        CURRENT_DB_CTX.with(|c| *c.borrow_mut() = DbCallCtx::default());
-                    }
+            // f 经 cell 共享：闭包内 take；首调闭包未运行则 f 仍在 cell 内可重取。
+            let cell = std::sync::Arc::new(std::sync::Mutex::new(Some(f)));
+            let conn = slot.lock().expect("write conn slot poisoned").clone();
+            let cell1 = cell.clone();
+            let req1 = req.clone();
+            let r1 = conn
+                .call(move |conn: &mut Connection| {
+                    let _g = set_db_ctx(req1, caller);
+                    let f = cell1
+                        .lock()
+                        .expect("f cell poisoned")
+                        .take()
+                        .ok_or(tokio_rusqlite::Error::ConnectionClosed)?;
+                    f(conn)
+                })
+                .await;
+
+            if !matches!(&r1, Err(tokio_rusqlite::Error::ConnectionClosed)) || ctx.is_memory {
+                return r1;
+            }
+
+            tracing::warn!(
+                path = %ctx.path,
+                caller = %crate::gateway::db::trace::fmt_caller(caller),
+                "db write conn returned ConnectionClosed (background thread panic?), reopening and retrying once"
+            );
+
+            let new_conn = match reopen_write_conn(&ctx.path).await {
+                Ok(c) => c,
+                Err(e) => {
+                    tracing::error!(error = %e, path = %ctx.path, "db write conn reopen failed");
+                    return r1;
                 }
-                let _clear = Clear;
-                f(conn)
-            })
-            .await
+            };
+            // 替换槽位：其他并发 / 后续调用方下次 clone 即拿到新连接。
+            *slot.lock().expect("write conn slot poisoned") = new_conn.clone();
+
+            let Some(f_retry) = cell.lock().expect("f cell poisoned").take() else {
+                tracing::warn!(
+                    "db call closure was consumed before ConnectionClosed \
+                     (background thread died mid-call) — cannot retry"
+                );
+                return r1;
+            };
+
+            let req2 = req.clone();
+            new_conn
+                .call(move |conn: &mut Connection| {
+                    let _g = set_db_ctx(req2, caller);
+                    f_retry(conn)
+                })
+                .await
         }
     }
 
     /// 只读路径 chokepoint：与 `call_traced` **完整同形 / 同语义**（同闭包签名 + 同 req 解析
-    /// 链 + 同 CURRENT_DB_CTX set/Clear guard + profile 拼日志），唯一差异是连接来源 ——
-    /// 取读池一条只读连接（`self.2.pick()`）而非写连接 `self.0.clone()`。
+    /// 链 + 同 CURRENT_DB_CTX set/Clear guard + profile 拼日志 + 同 ConnectionClosed 重试），
+    /// 唯一差异是连接来源——取读池一条只读连接（`self.2.pick()`）而非写连接。
     ///
     /// 仅供**纯 SELECT 无写副作用**的 UI 热读路径使用（stats / 列表 / 日志查询）。写 / DDL /
     /// 事务 / cache 失效路径必须继续走 `call_traced`（写连接）—— WAL 仅允许单写，且只读连接
     /// 执行写会 `SQLITE_READONLY` 失败。
     ///
     /// thread-local 隔离仍成立：每条读连接自带独立后台线程，`CURRENT_DB_CTX` 不串味。
+    ///
+    /// ## ConnectionClosed 兜底
+    ///
+    /// 读池为多条独立只读连接（READ_POOL_SIZE）。某条连接死亡时（panic in closure），
+    /// 本方法**首调失败后重试一次**——`pick()` 重新轮询到下一条（大概率不同的存活）连接。
+    /// 不替换死槽位（实现简化，代价：死槽位后续命中仍会触发重试，多 1 次空 channel send +
+    /// 重 pick 开销；READ_POOL_SIZE=8 下 ≈12.5% 调用分摊，可接受）。
+    ///
+    /// `is_memory=true`（测试内存库）下读池 = [写连接.clone()]，与写连接共生死；写连接死亡时
+    /// 本方法重试也会失败——测试代码不会主动杀线程故无影响。生产环境（文件库）读池为独立连接。
     pub fn call_read_traced<F, R>(
         &self,
         req: Option<&str>,
@@ -437,26 +525,44 @@ impl Db {
             .or_else(crate::logging::current_trace_id)
             .unwrap_or_else(crate::logging::new_trace_id);
         let req = Some(req);
-        // 取读池连接（轮询 clone，仅 channel sender）。:memory: fallback 下即写连接 clone。
-        let conn = self.2.pick();
+        let pool = self.2.clone();
         async move {
-            conn.call(move |conn| {
-                CURRENT_DB_CTX.with(|c| {
-                    *c.borrow_mut() = DbCallCtx {
-                        req: req.clone(),
-                        caller: Some(caller),
-                    };
-                });
-                struct Clear;
-                impl Drop for Clear {
-                    fn drop(&mut self) {
-                        CURRENT_DB_CTX.with(|c| *c.borrow_mut() = DbCallCtx::default());
-                    }
-                }
-                let _clear = Clear;
-                f(conn)
-            })
-            .await
+            let cell = std::sync::Arc::new(std::sync::Mutex::new(Some(f)));
+            let conn = pool.pick();
+            let cell1 = cell.clone();
+            let req1 = req.clone();
+            let r1 = conn
+                .call(move |conn: &mut Connection| {
+                    let _g = set_db_ctx(req1, caller);
+                    let f = cell1
+                        .lock()
+                        .expect("f cell poisoned")
+                        .take()
+                        .ok_or(tokio_rusqlite::Error::ConnectionClosed)?;
+                    f(conn)
+                })
+                .await;
+
+            if !matches!(&r1, Err(tokio_rusqlite::Error::ConnectionClosed)) {
+                return r1;
+            }
+
+            tracing::warn!(
+                caller = %crate::gateway::db::trace::fmt_caller(caller),
+                "db read pool slot returned ConnectionClosed, retrying on next slot"
+            );
+
+            let Some(f_retry) = cell.lock().expect("f cell poisoned").take() else {
+                return r1;
+            };
+            let conn2 = pool.pick();
+            let req2 = req.clone();
+            conn2
+                .call(move |conn: &mut Connection| {
+                    let _g = set_db_ctx(req2, caller);
+                    f_retry(conn)
+                })
+                .await
         }
     }
 
@@ -492,6 +598,72 @@ impl Db {
         self.invalidate_settings_cache();
         self.invalidate_groups_cache();
     }
+
+    /// 取写连接的 clone（短暂持锁，纳秒级 channel sender clone）。
+    ///
+    /// 供历史「直接访问 `db.0.call(...)`」调用方平滑迁移：`db.0` 现为
+    /// `Arc<Mutex<AsyncConnection>>`，本方法封装 lock+clone。这些调用方不走 `call_traced`
+    /// 的重连重试机制（保留旧语义，仅代理热路径才需要兜底）。
+    pub fn write_conn(&self) -> AsyncConnection {
+        self.0
+            .lock()
+            .expect("write conn slot poisoned")
+            .clone()
+    }
+
+    /// 测试专用：杀掉下一条读池连接（在闭包里 panic 让 tokio_rusqlite 后台线程退出）。
+    /// 用于验证 `call_read_traced` 在某槽位死亡时能透明重试到下一条。
+    #[cfg(test)]
+    pub(crate) async fn kill_next_read_slot(&self) {
+        let conn = self.2.pick();
+        let _: tokio_rusqlite::Result<()> = conn
+            .call(|_c| panic!("test: kill read pool slot"))
+            .await;
+    }
+}
+
+/// 设置 DB 后台线程 thread-local 上下文（req + caller）。返回 guard，drop 时清空。
+///
+/// 抽出为独立函数：避免在 `call_traced` / `call_read_traced` 的首调 + 重试闭包里重复定义
+/// `struct Clear; impl Drop`。每条闭包内 `let _g = set_db_ctx(...)` 即获得 RAII 守卫。
+fn set_db_ctx(
+    req: Option<String>,
+    caller: &'static std::panic::Location<'static>,
+) -> impl Drop {
+    CURRENT_DB_CTX.with(|c| {
+        *c.borrow_mut() = DbCallCtx {
+            req,
+            caller: Some(caller),
+        };
+    });
+    struct CtxGuard;
+    impl Drop for CtxGuard {
+        fn drop(&mut self) {
+            CURRENT_DB_CTX.with(|c| *c.borrow_mut() = DbCallCtx::default());
+        }
+    }
+    CtxGuard
+}
+
+/// 重开一条写连接（含与 `Db::new` 一致的 pragma + profile 注册）。
+///
+/// 用于 `call_traced` 检测到 `ConnectionClosed` 后的兜底重连。auto_vacuum 不需重设
+/// （仅在「空库」时生效，重开时库已非空）。
+async fn reopen_write_conn(path: &str) -> Result<AsyncConnection, String> {
+    let conn = AsyncConnection::open(path).await.map_err(|e| e.to_string())?;
+    conn.call(|c| {
+        c.execute_batch(
+            "PRAGMA journal_mode=WAL; \
+             PRAGMA foreign_keys=ON; \
+             PRAGMA busy_timeout=5000; \
+             PRAGMA synchronous=NORMAL;",
+        )?;
+        c.profile(Some(sql_profile_callback));
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?;
+    Ok(conn)
 }
 
 /// 当前毫秒级 Unix 时间戳

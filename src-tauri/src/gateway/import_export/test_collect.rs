@@ -210,7 +210,7 @@ async fn collect_claude_code_global_reads_file() {
 async fn insert_platform_with_extra(db: &crate::gateway::db::Db, name: &str, extra: &str) -> i64 {
     let name = name.to_string();
     let extra = extra.to_string();
-    db.0.call(move |conn| {
+    db.write_conn().call(move |conn| {
         conn.execute(
             "INSERT INTO platform (name, platform_type, base_url, api_key, extra, created_at, updated_at)
              VALUES (?1, '\"anthropic\"', 'https://x.example.com', 'sk', ?2, 0, 0)",

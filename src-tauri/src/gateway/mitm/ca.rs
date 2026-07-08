@@ -182,7 +182,7 @@ impl std::error::Error for SignError {}
 
 /// 从 DB 读 RootCa（单行 id=1）。无行返 None；DB 错返 Err。
 pub async fn load_root_ca(db: &Db) -> Result<Option<RootCa>, String> {
-    db.0
+    db.write_conn()
         .call(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT private_key_pem, cert_pem, fingerprint, created_at, enabled, ca_installed \
@@ -213,7 +213,7 @@ pub async fn create_and_store_root_ca(db: &Db) -> Result<RootCa, String> {
     let (key_pair, cert) = generate_root_ca().map_err(|e| e.to_string())?;
     let ca = RootCa::new(&key_pair, &cert);
     let ca_clone = ca.clone();
-    db.0
+    db.write_conn()
         .call(move |conn| {
             conn.execute(
                 "INSERT INTO mitm_ca (id, private_key_pem, cert_pem, fingerprint, created_at, enabled, ca_installed) \
@@ -255,7 +255,7 @@ pub async fn ensure_root_ca(db: &Db) -> Result<RootCa, String> {
 
 /// 标 CA 已装 / 未装信任库（装命令成功 / 失败后调）。
 pub async fn set_ca_installed(db: &Db, installed: bool) -> Result<(), String> {
-    db.0
+    db.write_conn()
         .call(move |conn| {
             conn.execute(
                 "UPDATE mitm_ca SET ca_installed = ?1 WHERE id = ?2",
@@ -430,7 +430,7 @@ pub async fn sync_ca_installed_from_system(db: &Db, ca: &RootCa) -> bool {
 
 /// 启用 / 禁用 MITM（用户开关；disabled 时 CONNECT 走 P1 盲转，ST4 接入）。
 pub async fn set_enabled(db: &Db, enabled: bool) -> Result<(), String> {
-    db.0
+    db.write_conn()
         .call(move |conn| {
             conn.execute(
                 "UPDATE mitm_ca SET enabled = ?1 WHERE id = ?2",

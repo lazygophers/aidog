@@ -53,7 +53,7 @@ fn legacy_top_level_breaker_migrates_into_extra() {
 /// 直插一个 platform（绕过 apply 事务），返回 rowid。
 async fn insert_test_platform(db: &Db, name: &str) -> i64 {
     let name = name.to_string();
-    db.0
+    db.write_conn()
         .call(move |conn| {
             conn.execute(
                 "INSERT INTO platform (name, created_at, updated_at) VALUES (?1, 0, 0)",
@@ -67,7 +67,7 @@ async fn insert_test_platform(db: &Db, name: &str) -> i64 {
 
 async fn group_id_by_name(db: &Db, name: &str) -> Option<i64> {
     let name = name.to_string();
-    db.0
+    db.write_conn()
         .call(move |conn| {
             Ok(conn
                 .query_row(
@@ -82,7 +82,7 @@ async fn group_id_by_name(db: &Db, name: &str) -> Option<i64> {
 }
 
 async fn link_count(db: &Db, gid: i64) -> i64 {
-    db.0
+    db.write_conn()
         .call(move |conn| {
             Ok(conn
                 .query_row(
@@ -111,8 +111,7 @@ async fn ensure_group_creates_when_absent() {
 
     let gid = group_id_by_name(&db, "sub2api").await.expect("group created");
     // 校验 group_key 生成。
-    let gkey: String = db
-        .0
+    let gkey: String = db.write_conn()
         .call(move |conn| {
             Ok(conn
                 .query_row("SELECT group_key FROM \"group\" WHERE id = ?1", [gid], |r| {
@@ -144,8 +143,7 @@ async fn ensure_group_idempotent() {
     let gid2 = group_id_by_name(&db, "sub2api").await.unwrap();
     assert_eq!(gid, gid2, "同名组不应重复创建");
     // 组数确认只有一个。
-    let group_count: i64 = db
-        .0
+    let group_count: i64 = db.write_conn()
         .call(|conn| {
             Ok(conn
                 .query_row(
@@ -225,7 +223,7 @@ async fn new_format_missing_config_fields_write_default_json() {
         "api_key": "sk",
     });
     let now = 0_i64;
-    db.0
+    db.write_conn()
         .call(move |conn| {
             let tx = conn.transaction()?;
             super::insert_platform_row(&tx, "Clean", &row, now)?;
@@ -236,8 +234,7 @@ async fn new_format_missing_config_fields_write_default_json() {
         .unwrap();
 
     // 读回 DB 列值，校验写的是标准空 JSON（非空串）。
-    let (models, available, endpoints): (String, String, String) = db
-        .0
+    let (models, available, endpoints): (String, String, String) = db.write_conn()
         .call(move |conn| {
             Ok(conn.query_row(
                 "SELECT models, available_models, endpoints FROM platform WHERE name = 'Clean'",

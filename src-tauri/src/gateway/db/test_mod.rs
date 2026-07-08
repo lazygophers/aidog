@@ -192,3 +192,167 @@ use super::test_support::*;
         assert_eq!(a, tid, "env span trace_id captured as req");
         assert_eq!(a, b, "same span -> same id across calls");
     }
+
+
+
+    // ─── ConnectionClosed 自动重连重试（fix 07-08-route-db-connection-closed）────────
+
+    /// 抑制后台线程 panic 的 stderr 噪音：测试期间临时换成 no-op panic hook。
+    /// 不影响 panic 行为本身（仍会 unwind 后台线程），只换输出。
+    struct QuietPanicHook;
+    type PanicHook = Box<dyn Fn(&std::panic::PanicHookInfo<'_>) + Send + Sync>;
+    impl QuietPanicHook {
+        fn install() -> impl Drop {
+            let prev = std::panic::take_hook();
+            std::panic::set_hook(Box::new(|_| {}));
+            struct RestoreHook(Option<PanicHook>);
+            impl Drop for RestoreHook {
+                fn drop(&mut self) {
+                    if let Some(h) = self.0.take() {
+                        std::panic::set_hook(h);
+                    }
+                }
+            }
+            RestoreHook(Some(prev))
+        }
+    }
+
+    /// 写连接 panic 致后台线程退出 → `call_traced` 应自动重开 + 重试一次。
+    /// 历史症：tokio_rusqlite 后台线程 panic 后 channel 永久关闭，所有 `.call()` 返
+    /// `ConnectionClosed`；代理 route 路径首调失败直传 → handler 落 400 给用户。
+    /// 本测试杀掉写线程，验证 call_traced 不再透传错误。
+    #[tokio::test]
+    async fn call_traced_reopens_after_panic_kills_thread() {
+        // 文件库（非 :memory:），重开后能读到已建表 / 已写数据。
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("test_reopen.db");
+        let path_str = path.to_string_lossy().to_string();
+        // 清理可能的前次残留。
+        for suffix in ["", "-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{path_str}{suffix}"));
+        }
+
+        let db = Db::new(&path_str).await.expect("open db");
+        db.init_tables().await.expect("init tables");
+
+        // 基线：正常查 1。
+        let n: i64 = db
+            .call_traced(None, std::panic::Location::caller(), |conn| {
+                Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?)
+            })
+            .await
+            .expect("baseline call_traced ok");
+        assert_eq!(n, 1);
+
+        // 杀掉写线程：在闭包里 panic 让 tokio_rusqlite 后台线程退出。
+        let _hook = QuietPanicHook::install();
+        let r_kill: tokio_rusqlite::Result<()> =
+            db.write_conn().call(|_c| panic!("test: kill write thread")).await;
+        drop(_hook);
+        // panic 后该连接句柄返 ConnectionClosed。
+        assert!(
+            matches!(r_kill, Err(tokio_rusqlite::Error::ConnectionClosed)),
+            "expected ConnectionClosed after panic, got {r_kill:?}"
+        );
+
+        // 直接调用方（write_conn）仍拿到死连接 — 验证未自动恢复：
+        let r_dead: tokio_rusqlite::Result<i64> = db
+            .write_conn()
+            .call(|conn| Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?))
+            .await;
+        assert!(
+            matches!(r_dead, Err(tokio_rusqlite::Error::ConnectionClosed)),
+            "write_conn() should still be dead until call_traced heals it"
+        );
+
+        // 关键断言：call_traced 自动重开 + 重试，不返 ConnectionClosed。
+        let n: i64 = db
+            .call_traced(None, std::panic::Location::caller(), |conn| {
+                Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?)
+            })
+            .await
+            .expect("call_traced should auto-reopen and retry");
+        assert_eq!(n, 1);
+
+        // 槽位已替换：write_conn() 现在也指向新连接。
+        let n: i64 = db
+            .write_conn()
+            .call(|conn| Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?))
+            .await
+            .expect("write_conn() should now work after call_traced swapped the slot");
+        assert_eq!(n, 1);
+
+        for suffix in ["", "-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{path_str}{suffix}"));
+        }
+    }
+
+    /// 读池某槽位 panic 致死 → `call_read_traced` 应重试下一条（不同槽位）。
+    /// 关键契约：route 路径首调 `get_group_platforms` 经 `call_read_traced`，
+    /// 单死槽位不应让整次 route 失败。
+    ///
+    /// 测试机制：`kill_next_read_slot` 杀掉 cursor 当前指向的读连接（仅文件库有独立读池）。
+    /// 之后 N 次 `call_read_traced` 中 cursor 必然轮回到死槽位，断言全部透明成功（重试到下一条）。
+    #[tokio::test]
+    async fn call_read_traced_retries_on_dead_pool_slot() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let path = dir.path().join("test_read_retry.db");
+        let path_str = path.to_string_lossy().to_string();
+        for suffix in ["", "-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{path_str}{suffix}"));
+        }
+
+        let db = Db::new(&path_str).await.expect("open file db");
+        db.init_tables().await.expect("init tables");
+
+        // 基线：读路径正常。
+        let n: i64 = db
+            .call_read_traced(None, std::panic::Location::caller(), |conn| {
+                Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?)
+            })
+            .await
+            .expect("baseline read ok");
+        assert_eq!(n, 1);
+
+        // 杀掉下一条读池连接（panic 后台线程）。
+        let _hook = QuietPanicHook::install();
+        db.kill_next_read_slot().await;
+        drop(_hook);
+
+        // 轮询 N 次（N >> READ_POOL_SIZE，必多次命中死槽位）。每次都应透明成功（重试到下一条）。
+        for _ in 0..(READ_POOL_SIZE * 4) {
+            let n: i64 = db
+                .call_read_traced(None, std::panic::Location::caller(), |conn| {
+                    Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?)
+                })
+                .await
+                .expect("call_read_traced should retry on dead slot, never surface ConnectionClosed");
+            assert_eq!(n, 1);
+        }
+
+        for suffix in ["", "-wal", "-shm"] {
+            let _ = std::fs::remove_file(format!("{path_str}{suffix}"));
+        }
+    }
+
+    /// `:memory:` 库禁用重连（重开会读到空库）。杀写线程后 call_traced 应直接透传
+    /// ConnectionClosed 而非尝试重开。生产代码用文件库，不受影响。
+    #[tokio::test]
+    async fn call_traced_skips_reopen_for_memory_db() {
+        let db = test_db().await; // :memory:
+
+        let _hook = QuietPanicHook::install();
+        let _: tokio_rusqlite::Result<()> =
+            db.write_conn().call(|_c| panic!("test: kill memory write thread")).await;
+        drop(_hook);
+
+        let r: tokio_rusqlite::Result<i64> = db
+            .call_traced(None, std::panic::Location::caller(), |conn| {
+                Ok(conn.query_row("SELECT 1", [], |r| r.get(0))?)
+            })
+            .await;
+        assert!(
+            matches!(r, Err(tokio_rusqlite::Error::ConnectionClosed)),
+            "memory db should NOT auto-reopen (would read empty db), got {r:?}"
+        );
+    }

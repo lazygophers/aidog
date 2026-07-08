@@ -86,7 +86,7 @@ use super::*;
 
     async fn agg_request_count(db: &super::super::db::Db, id_group: &str) -> i64 {
         let g = id_group.to_string();
-        db.0
+        db.write_conn()
             .call(move |c| {
                 Ok(c.query_row(
                     "SELECT COALESCE(SUM(request_count),0), COALESCE(SUM(sum_input_tokens),0) \
