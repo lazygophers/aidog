@@ -191,7 +191,7 @@ pub async fn apply_manual_budgets(
     total_tokens: f64,
     now_ms: i64,
 ) -> Result<(), String> {
-    db.0
+    db.write_conn()
         .call(move |conn| {
             let json: String = conn.query_row(
                 "SELECT manual_budgets FROM platform WHERE id = ?1",

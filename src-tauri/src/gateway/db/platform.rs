@@ -398,7 +398,7 @@ pub fn recover_platform_auto_disabled(db: &Db, id: u64) -> impl std::future::Fut
 /// `Some(msg)` → 记 last_error=msg + last_error_at=now；`None` → 清空 ''/0（最近一次成功）。
 /// 代理热路径调用，单条 SQL；不失效 group_details 缓存（last_error 不入 GroupDetail）。
 pub async fn set_platform_last_error(db: &Db, id: u64, err: Option<String>) -> Result<(), String> {
-    db.0
+    db.write_conn()
         .call(move |conn| {
             match err {
                 Some(msg) => conn.execute(

@@ -9,7 +9,7 @@ use crate::gateway::quota::PlatformQuota;
 
 /// 读取平台校准状态（短持锁）
 pub async fn read_estimate_state(db: &Db, platform_id: u64) -> Result<(i64, i64), String> {
-    db.0
+    db.write_conn()
         .call(move |conn| {
             Ok(conn.query_row(
                 "SELECT last_real_query_at, estimate_count FROM platform WHERE id = ?1",
@@ -23,7 +23,7 @@ pub async fn read_estimate_state(db: &Db, platform_id: u64) -> Result<(i64, i64)
 
 /// 余额原子自减 + estimate_count+1（单条 SQL，闭包原子，无 read-modify-write 间隙）
 pub async fn apply_balance_delta(db: &Db, platform_id: u64, cost: f64) -> Result<(), String> {
-    db.0
+    db.write_conn()
         .call(move |conn| {
             conn.execute(
                 "UPDATE platform SET est_balance_remaining = est_balance_remaining - ?1, estimate_count = estimate_count + 1 WHERE id = ?2",
@@ -41,7 +41,7 @@ pub async fn apply_balance_delta(db: &Db, platform_id: u64, cost: f64) -> Result
 /// coding plan 预估：一次闭包内 SELECT→修改→UPDATE（read-modify-write 串行，避免并发覆盖）。
 /// 同时 estimate_count+1。
 pub async fn apply_coding_plan_delta(db: &Db, platform_id: u64, tokens: f64) -> Result<(), String> {
-    db.0
+    db.write_conn()
         .call(move |conn| {
             let json: String = conn.query_row(
                 "SELECT est_coding_plan FROM platform WHERE id = ?1",
@@ -74,7 +74,7 @@ pub async fn write_real_quota(
     now_ms: i64,
 ) -> Result<(), String> {
     let est_coding_plan_json = est_coding_plan_json.to_string();
-    db.0
+    db.write_conn()
         .call(move |conn| {
             conn.execute(
                 "UPDATE platform SET est_balance_remaining = ?1, est_coding_plan = ?2, last_real_query_at = ?3, estimate_count = 0 WHERE id = ?4",
@@ -122,7 +122,7 @@ pub async fn calibrate_from_quota(db: &Db, platform_id: u64, quota: &PlatformQuo
         return;
     }
     let prev_json: String = db
-        .0
+        .write_conn()
         .call(move |conn| {
             Ok(conn
                 .query_row(

@@ -174,7 +174,7 @@ pub fn matches_rule(host: &str, rule_type: &str, rule_value: &str) -> bool {
 ///
 /// 排序：created_at 升序（默认 host 在前，用户加的在后，行为可预测）。
 pub async fn list_whitelist(db: &Db) -> Result<Vec<WhitelistEntry>, String> {
-    db.0
+    db.write_conn()
         .call(move |conn| {
             let mut stmt = conn.prepare(
                 "SELECT host_pattern, rule_type, enabled, source FROM mitm_whitelist ORDER BY created_at ASC",

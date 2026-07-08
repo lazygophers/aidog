@@ -76,7 +76,7 @@ fn payload(platforms: Vec<serde_json::Value>) -> Payload {
 async fn detect_conflicts_no_platform_conflict() {
     let db = test_db().await;
     // 预置一个同名 platform（裸 INSERT，避开 apply 事务路径）。
-    db.0
+    db.write_conn()
         .call(|conn| {
             conn.execute(
                 "INSERT INTO platform (name, created_at, updated_at) VALUES (?1, 0, 0)",

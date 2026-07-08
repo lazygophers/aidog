@@ -237,7 +237,7 @@ pub async fn mitm_whitelist_add(
     let rule_type = valid_rule_type(&input.rule_type)
         .ok_or_else(|| format!("invalid rule_type: {}", input.rule_type))?;
     let now = gateway::db::now();
-    db.0
+    db.write_conn()
         .call(move |conn| {
             conn.execute(
                 "INSERT OR IGNORE INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
@@ -255,7 +255,7 @@ pub async fn mitm_whitelist_add(
 pub async fn mitm_whitelist_remove(host_pattern: String, db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "mitm_whitelist_remove", pattern = %host_pattern, "command invoked");
     let pattern = host_pattern.trim().to_lowercase();
-    db.0
+    db.write_conn()
         .call(move |conn| {
             conn.execute(
                 "DELETE FROM mitm_whitelist WHERE host_pattern = ?1",
@@ -276,7 +276,7 @@ pub async fn mitm_whitelist_toggle(
 ) -> Result<(), String> {
     tracing::debug!(command = "mitm_whitelist_toggle", pattern = %host_pattern, enabled, "command invoked");
     let pattern = host_pattern.trim().to_lowercase();
-    db.0
+    db.write_conn()
         .call(move |conn| {
             conn.execute(
                 "UPDATE mitm_whitelist SET enabled = ?1 WHERE host_pattern = ?2",
@@ -304,7 +304,7 @@ pub async fn mitm_whitelist_import_defaults(
 ) -> Result<ImportDefaultsResult, String> {
     tracing::debug!(command = "mitm_whitelist_import_defaults", "command invoked");
     let now = gateway::db::now();
-    db.0
+    db.write_conn()
         .call(move |conn| {
             let mut imported = 0usize;
             let mut skipped = 0usize;
@@ -347,7 +347,7 @@ pub struct ImportDefaultsResult {
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn mitm_whitelist_clear(db: State<'_, Db>) -> Result<usize, String> {
     tracing::debug!(command = "mitm_whitelist_clear", "command invoked");
-    db.0
+    db.write_conn()
         .call(move |conn| {
             let n = conn.execute("DELETE FROM mitm_whitelist", [])?;
             Ok(n)
