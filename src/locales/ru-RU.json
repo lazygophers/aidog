@@ -1880,5 +1880,6 @@
   "logs.cleanupExpired": "Очистить истёкшие",
   "logs.cleanupExpiredDone": "Истёкшие журналы очищены",
   "logs.clearConfirmTitle": "Очистить все журналы",
-  "logs.cancel": "Отмена"
+  "logs.cancel": "Отмена",
+  "logs.clearDone": "Очищено"
 }

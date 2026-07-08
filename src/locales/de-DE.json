@@ -1880,5 +1880,6 @@
   "logs.cleanupExpired": "Abgelaufene bereinigen",
   "logs.cleanupExpiredDone": "Abgelaufene Protokolle bereinigt",
   "logs.clearConfirmTitle": "Alle Protokolle löschen",
-  "logs.cancel": "Abbrechen"
+  "logs.cancel": "Abbrechen",
+  "logs.clearDone": "Geleert"
 }

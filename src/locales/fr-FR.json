@@ -1880,5 +1880,6 @@
   "logs.cleanupExpired": "Nettoyer expirés",
   "logs.cleanupExpiredDone": "Journaux expirés nettoyés",
   "logs.clearConfirmTitle": "Effacer tous les journaux",
-  "logs.cancel": "Annuler"
+  "logs.cancel": "Annuler",
+  "logs.clearDone": "Vidé"
 }
