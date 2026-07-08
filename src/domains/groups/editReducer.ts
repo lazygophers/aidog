@@ -13,13 +13,30 @@ export interface EditState {
   maxRetries: number;
 }
 
+/**
+ * 新建 group 默认预填隐私 env（禁遥测/增长/反馈）。
+ * 仅「新建」分支使用此初值；编辑已有 group 走 "open" action 覆盖为 group.env_vars，不影响用户已存配置。
+ * per-group 可改可删（不强注入）—— sync_settings.rs 注入逻辑不变。
+ */
+const PRIVACY_DEFAULT_ENV_VARS: EnvVar[] = [
+  { key: "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", value: "1" },
+  { key: "CLAUDE_CODE_ENABLE_TELEMETRY", value: "0" },
+  { key: "CLAUDE_CODE_ENHANCED_TELEMETRY_BETA", value: "0" },
+  { key: "CLAUDE_CODE_DISABLE_FEEDBACK_SURVEY", value: "1" },
+  { key: "CLAUDE_CODE_BYOC_ENABLE_DATADOG", value: "0" },
+  { key: "CLAUDE_CODE_PROPAGATE_TRACEPARENT", value: "0" },
+  { key: "DISABLE_GROWTHBOOK", value: "1" },
+  { key: "CLAUDE_CODE_ATTRIBUTION_HEADER", value: "0" },
+  { key: "DISABLE_INSTALLATION_CHECKS", value: "1" },
+];
+
 export const EMPTY_EDIT: EditState = {
   target: null,
   name: "",
   mode: "failover",
   platformIds: [],
   mappings: [],
-  envVars: [],
+  envVars: PRIVACY_DEFAULT_ENV_VARS,
   reqTimeout: 0,
   connTimeout: 0,
   maxRetries: 10,
