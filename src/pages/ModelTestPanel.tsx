@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import {
@@ -8,6 +8,8 @@ import {
 } from "../services/api";
 import { IconClose, IconCheck } from "../components/icons";
 import { TestResultBody } from "../components/shared";
+import { getProtocolLabel } from "../domains/platforms/defaults";
+import { PROTOCOL_LABELS } from "../domains/platforms/constants";
 
 interface Props {
   platform: Platform;
@@ -18,13 +20,15 @@ interface Props {
 type TestMode = "quick" | "single" | "batch" | "random" | "custom";
 
 export function ModelTestPanel({ platform, onClose, onResult }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [mode, setMode] = useState<TestMode>("quick");
   const [selectedModels, setSelectedModels] = useState<string[]>([]);
   const [customPrompt, setCustomPrompt] = useState("");
   const [results, setResults] = useState<ModelTestResult[]>([]);
   const [running, setRunning] = useState(false);
   const [currentIdx, setCurrentIdx] = useState(-1);
+  // 协议本地化 label（fallback: PROTOCOL_LABELS → key）
+  const [protocolLabel, setProtocolLabel] = useState("");
 
   const allModels = platform.available_models.length > 0
     ? platform.available_models
@@ -47,6 +51,18 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
       prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]
     );
   };
+
+  // 协议本地化 label（依赖 platform.platform_type）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!platform?.platform_type) return;
+      const label = await getProtocolLabel(platform.platform_type, i18n.language);
+      if (!cancelled) setProtocolLabel(label);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language, platform?.platform_type]);
 
   const runTest = async () => {
     const models = getModels();
@@ -110,7 +126,7 @@ export function ModelTestPanel({ platform, onClose, onResult }: Props) {
           <div>
             <div style={{ fontSize: 15, fontWeight: 700 }}>{t("test.title", "模型测试")}</div>
             <div className="text-secondary" style={{ fontSize: 12, marginTop: 2 }}>
-              {platform.name} · {platform.platform_type.toUpperCase()}
+              {platform.name} · {protocolLabel || PROTOCOL_LABELS[platform.platform_type] || platform.platform_type}
             </div>
           </div>
           <button className="btn btn-ghost btn-icon" onClick={onClose}><IconClose size={16} /></button>
