@@ -16,9 +16,10 @@ import type { PlatformsState } from "./usePlatformsState";
 import {
   FormSection, ApiKeyField,
   NewApiBalanceConfigSection, PassthroughConfigSection, EndpointsSection,
-  ModelsSection, ManualBudgetsSection, BreakerSection, PeakHoursSection, TimeModelsSection, GroupAssignSection,
+  ManualBudgetsSection, BreakerSection, PeakHoursSection, GroupAssignSection,
   ExpirySection, ClaudeConfigSection,
 } from "./formSections";
+import { ModelsMatrixSection } from "./ModelsMatrixSection";
 import { MultiKeyPreview } from "./MultiKeyPreview";
 
 export function PlatformEditForm({ s }: { s: PlatformsState }) {
@@ -170,14 +171,15 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
           />
         )}
 
-        {/* Models Configuration */}
-        <ModelsSection
+        {/* Models Matrix — 默认列 + 时段档列合并 card（PRD 07-09） */}
+        <ModelsMatrixSection
           models={models} handleModelChange={handleModelChange} handleModelSelect={handleModelSelect}
           activeDropdown={activeDropdown} setActiveDropdown={setActiveDropdown}
           availableModels={availableModels} protocol={proto} codingPlan={codingPlan}
           fetchError={fetchError} fetching={fetching}
           onFillAll={handleFillAll} onFetchModels={handleFetchModels}
           apiKeyMissing={apiKeyMissing} endpointsCount={endpoints.length}
+          rules={timeModels} setRules={setTimeModels} peakHours={peakHours}
           t={t}
         />
         </>
@@ -206,15 +208,6 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             tzMode={peakHoursTz} setTzMode={setPeakHoursTz}
             disableDuringPeak={disableDuringPeak} setDisableDuringPeak={setDisableDuringPeak}
             protocol={protocol}
-            t={t}
-          />
-        )}
-
-        {/* Time Models 时段模型配置（仅编辑态可配；空数组 = 用默认 models） */}
-        {editing && !isPassthrough && (
-          <TimeModelsSection
-            rules={timeModels} setRules={setTimeModels}
-            peakHours={peakHours}
             t={t}
           />
         )}

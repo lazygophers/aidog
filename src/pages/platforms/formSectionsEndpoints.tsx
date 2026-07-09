@@ -1,14 +1,13 @@
-// formSectionsEndpoints — 编辑页大分区（Endpoints / Models），从 formSections.tsx 拆出控制行数。
-// ponytail: 这两个分区各 ~110-160 行，独立成文件使 formSections.tsx ≤600。仍纯 props 驱动。
-import React, { useEffect, useState } from "react";
+// formSectionsEndpoints — 编辑页 Endpoints 大分区，从 formSections.tsx 拆出控制行数。
+// ponytail: ModelsSection 已被 ModelsMatrixSection 取代（PRD 07-09 合并矩阵 card）。
+import React from "react";
 import type { TFunction } from "i18next";
 import {
-  type Protocol, type ModelSlot, type PlatformEndpoint, type ClientType,
+  type Protocol, type PlatformEndpoint, type ClientType,
 } from "../../services/api";
-import { pinyinMatch } from "../../utils/pinyin";
 import {
-  ENDPOINT_PROTOCOLS, CLIENT_TYPES, MODEL_SLOTS,
-  getDefaultModelList, defaultClientForProtocol,
+  ENDPOINT_PROTOCOLS, CLIENT_TYPES,
+  defaultClientForProtocol,
 } from "../../domains/platforms";
 import { FormSection } from "./formSections";
 
@@ -130,174 +129,6 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
           </button>
         </div>
       ))}
-    </FormSection>
-  );
-}
-
-export function ModelsSection({ models, handleModelChange, handleModelSelect, activeDropdown, setActiveDropdown, availableModels, protocol, codingPlan, fetchError, fetching, onFillAll, onFetchModels, apiKeyMissing, endpointsCount, t }: {
-  models: Record<ModelSlot, string>;
-  handleModelChange: (slot: ModelSlot, value: string) => void;
-  handleModelSelect: (slot: ModelSlot, value: string) => void;
-  activeDropdown: ModelSlot | null;
-  setActiveDropdown: React.Dispatch<React.SetStateAction<ModelSlot | null>>;
-  availableModels: string[];
-  protocol: Protocol;
-  codingPlan: boolean;
-  fetchError: string;
-  fetching: boolean;
-  onFillAll: () => void;
-  onFetchModels: () => void;
-  apiKeyMissing: boolean;
-  endpointsCount: number;
-  t: TFunction;
-}) {
-  // getDefaultModelList async 化后用 state + effect 缓存当前 protocol/codingPlan 的候选列表。
-  // defaults.json 进程内缓存单次 RPC，effect 仅在 protocol/codingPlan 变化时重跑。
-  const [defaultList, setDefaultList] = useState<string[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      const list = await getDefaultModelList(protocol, codingPlan);
-      if (!cancelled) setDefaultList(list);
-    })();
-    return () => { cancelled = true; };
-  }, [protocol, codingPlan]);
-
-  return (
-    <FormSection
-      title={t("platform.models")}
-      action={(
-        <div style={{ display: "flex", gap: 6 }}>
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--text-secondary)" }}
-            onClick={onFillAll}
-            disabled={!models.default.trim()}
-            title={t("platform.fillAllHint")}
-          >
-            {t("platform.fillAll")}
-          </button>
-          <button
-            className="btn btn-ghost"
-            style={{ fontSize: 12, gap: 4, padding: "4px 10px", color: "var(--accent)" }}
-            onClick={onFetchModels}
-            disabled={apiKeyMissing || endpointsCount === 0 || fetching}
-          >
-            {fetching ? t("status.loading") : t("platform.fetchModels")}
-          </button>
-        </div>
-      )}
-    >
-      {fetchError && (
-        <div style={{ fontSize: 12, color: "var(--danger, #e55)", padding: "2px 0" }}>
-          {fetchError}
-        </div>
-      )}
-      {MODEL_SLOTS.map(({ key, labelKey }) => {
-        const query = models[key].trim().toLowerCase();
-        // 下拉源：fetchModels 成功用 available_models，否则用内置候选列表（冷启动兜底）
-        const dropdownSource = availableModels.length > 0
-          ? availableModels
-          : defaultList;
-        const hasDropdown = dropdownSource.length > 0;
-        const filtered = hasDropdown
-          ? (query
-            ? dropdownSource.filter(m => pinyinMatch(query, m))
-            : dropdownSource)
-          : [];
-        return (
-        <div key={key} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <span style={{
-            fontSize: 12, fontWeight: 500, color: "var(--text-tertiary)",
-            width: 56, textAlign: "right", flexShrink: 0,
-          }}>
-            {t(labelKey)}
-          </span>
-          <div style={{ position: "relative", flex: 1 }}>
-            <input
-              className="input"
-              style={{ width: "100%", paddingRight: hasDropdown ? 28 : undefined }}
-              placeholder={t(labelKey)}
-              value={models[key]}
-              onChange={(e) => {
-                handleModelChange(key, e.target.value);
-                if (hasDropdown) setActiveDropdown(key);
-              }}
-              onFocus={() => {
-                if (hasDropdown) setActiveDropdown(key);
-              }}
-            />
-            {hasDropdown && (
-              <button
-                type="button"
-                className="btn btn-ghost btn-icon"
-                style={{
-                  position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
-                  width: 24, height: 24, minWidth: 24, padding: 0,
-                  color: "var(--text-tertiary)", cursor: "pointer",
-                }}
-                onMouseDown={(e) => {
-                  e.preventDefault();
-                  setActiveDropdown(activeDropdown === key ? null : key);
-                }}
-                title={t("platform.selectModel")}
-              >
-                ▾
-              </button>
-            )}
-            {/* 可搜索下拉列表 — 主题化 */}
-            {activeDropdown === key && filtered.length > 0 && (
-              <>
-                <div
-                  style={{ position: "fixed", inset: 0, zIndex: 99 }}
-                  onMouseDown={() => setActiveDropdown(null)}
-                />
-                <div
-                  className="glass-elevated"
-                  style={{
-                    position: "absolute",
-                    top: "100%",
-                    left: 0,
-                    right: 0,
-                    marginTop: 4,
-                    maxHeight: 200,
-                    overflowY: "auto",
-                    zIndex: 100,
-                    padding: 4,
-                    animation: "fadeIn 150ms ease both",
-                  }}
-                >
-                  {filtered.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      className="btn btn-ghost"
-                      style={{
-                        width: "100%",
-                        justifyContent: "flex-start",
-                        padding: "6px 10px",
-                        fontSize: 12,
-                        fontWeight: models[key] === m ? 600 : 400,
-                        color: models[key] === m ? "var(--accent)" : "var(--text-primary)",
-                        background: models[key] === m ? "var(--accent-subtle)" : "transparent",
-                        borderRadius: "var(--radius-sm)",
-                      }}
-                      onMouseDown={(e) => {
-                        e.preventDefault();
-                        handleModelSelect(key, m);
-                        setActiveDropdown(null);
-                      }}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-        );
-      })}
     </FormSection>
   );
 }
