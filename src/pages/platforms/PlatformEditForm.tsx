@@ -2,13 +2,15 @@
 // ponytail: 从 Platforms 主组件抽出的纯展示组件。所有 state 经 props 从 usePlatformsState 传入，
 //   不持有自己的 state；表单分区（endpoints/models/budgets/breaker/group/expires/claude/middleware）
 //   均为 props 驱动的 JSX，无跨组件 setState。
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { SmartPasteModal } from "../../components/platforms/SmartPasteModal";
 import { MiddlewareRulesPanel } from "../../components/settings/MiddlewareRules";
 import {
-  PROTOCOLS, PROTOCOL_COLORS,
+  PROTOCOLS, PROTOCOL_COLORS, PROTOCOL_LABELS,
   SearchableProtocolSelect, MockConfigEditor,
 } from "../../domains/platforms";
+import { getProtocolLabel } from "../../domains/platforms/defaults";
 import { useThemeMode } from "../../themes/useThemeMode";
 import type { PlatformsState } from "./usePlatformsState";
 // 表单分区组件（9 个 section + FormSection / ApiKeyField / toDatetimeLocal）从此导入。
@@ -23,8 +25,12 @@ import { ModelsMatrixSection } from "./ModelsMatrixSection";
 import { MultiKeyPreview } from "./MultiKeyPreview";
 
 export function PlatformEditForm({ s }: { s: PlatformsState }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const themeMode = useThemeMode();
+
+  // 协议本地化 label 映射（key → JSON name）。fallback: PROTOCOL_LABELS 硬编码 → key。
+  // docPromise 单次 RPC 缓存；切语言重拉。同 SearchableProtocolSelect:30-41 模式。
+  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
   const {
     editing, showPaste, pasteInitialText, setShowPaste, setPasteInitialText,
     name, setName, protocol, codingPlan, handleProtocolChange,
@@ -52,6 +58,21 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     handleSave, resetForm, applyPaste, getPrimaryBaseUrl,
   } = s;
 
+  // 协议本地化 label 映射（key → JSON name）。fallback: PROTOCOL_LABELS 硬编码 → key。
+  // docPromise 单次 RPC 缓存；切语言重拉。同 SearchableProtocolSelect:30-41 模式。
+  // ponytail: 仅拉取当前 protocol + editing.platform_type（编辑态）的 label，最小 RPC。
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const keys = Array.from(new Set([protocol, editing?.platform_type].filter(Boolean) as string[]));
+      const entries = await Promise.all(
+        keys.map(async k => [k, await getProtocolLabel(k as any, i18n.language)] as const)
+      );
+      if (!cancelled) setLabelMap(prev => ({ ...prev, ...Object.fromEntries(entries) }));
+    })();
+    return () => { cancelled = true; };
+  }, [i18n.language, protocol, editing?.platform_type]);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Edit page header */}
@@ -64,7 +85,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             {editing ? editing.name : t("platform.add")}
           </div>
           {editing && (
-            <div className="section-desc">{editing.platform_type.toUpperCase()} · {getPrimaryBaseUrl(editing.platform_type, editing.endpoints ?? []) || editing.base_url}</div>
+            <div className="section-desc">{labelMap[editing.platform_type] || PROTOCOL_LABELS[editing.platform_type] || editing.platform_type} · {getPrimaryBaseUrl(editing.platform_type, editing.endpoints ?? []) || editing.base_url}</div>
           )}
         </div>
         <div style={{ display: "flex", gap: 8 }}>
@@ -110,7 +131,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
                 color: PROTOCOL_COLORS[protocol] || "var(--accent)",
                 fontSize: 11, fontWeight: 700,
               }}>
-                {protocol.toUpperCase()}
+                {labelMap[protocol] || PROTOCOL_LABELS[protocol] || protocol}
               </span>
               <span style={{ color: "var(--text-tertiary)", fontSize: 12 }}>
                 {t("platform.protocolLocked", "Protocol cannot be changed after creation")}
