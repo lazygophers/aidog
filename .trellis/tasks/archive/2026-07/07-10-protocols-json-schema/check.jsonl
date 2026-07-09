@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校 JSON key ↔ Rust Protocol serde ↔ 前端 PROTOCOLS 三层对齐"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "校 3 cp key 复用 glm_coding 模板，无重复结构"}

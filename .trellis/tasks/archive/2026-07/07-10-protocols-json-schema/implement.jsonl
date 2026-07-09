@@ -1,0 +1,4 @@
+{"file": ".trellis/tasks/07-10-protocols-json-schema/research/kimi-coding.md", "reason": "kimi_coding key 6 字段真值（base_url/models/key/client_type）+ caveats（api.kimi.com 非 moonshot/固定别名模型/Anthropic 末尾斜杠）"}
+{"file": ".trellis/tasks/07-10-protocols-json-schema/research/qianfan-coding.md", "reason": "qianfan_coding key 6 字段 + BCE IAM 鉴权 + /v2/coding probe 实证"}
+{"file": ".trellis/tasks/07-10-protocols-json-schema/research/xiaomi-mimo-coding.md", "reason": "xiaomi_mimo_coding key 6 字段 + 独立 host + tp- key + api-key header 特例"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "JSON key 与 Rust serde + 前端 TS 三层契约对齐（snake_case serde key）"}
