@@ -1,0 +1,9 @@
+[package]
+name = "commands_platform"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# C1 ws-skeleton: 空壳。C3 才迁 platform/group/model_fetch/stats/price/quota 入此 crate。
+[dependencies]

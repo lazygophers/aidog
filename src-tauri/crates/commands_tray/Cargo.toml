@@ -1,0 +1,9 @@
+[package]
+name = "commands_tray"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# C1 ws-skeleton: 空壳。C8 才迁 tray/tray_render/popover 入此 crate。
+[dependencies]

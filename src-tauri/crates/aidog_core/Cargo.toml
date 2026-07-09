@@ -1,0 +1,9 @@
+[package]
+name = "aidog_core"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# C1 ws-skeleton: 空壳。C2 才迁 gateway/shared/models 入此 crate，并填实业务依赖。
+[dependencies]
