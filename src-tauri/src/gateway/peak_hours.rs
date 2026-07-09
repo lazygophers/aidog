@@ -28,6 +28,21 @@ pub struct PeakWindow {
     /// 月内日过滤（1-31）；缺省 = 不过滤；与 `days_of_week` 在 UI 层互斥（hit 层同时 Some 时取 AND 兜底）。
     #[serde(default)]
     pub days_of_month: Option<Vec<i32>>,
+    /// model scope（model 维度过滤，PRD 07-09 D2）；缺省 / None = 全平台模型生效（向后兼容）。
+    /// 元素支持 `"glm-5.2*"` 后缀通配（覆盖 `glm-5.2` / `glm-5.2-turbo`），exact-first。
+    /// 与 TS `PeakWindow.models?: string[]` 对称（跨层一致，见 cross-layer-rules.md）。
+    #[serde(default)]
+    pub models: Option<Vec<String>>,
+    /// 生效期起点（Unix 秒，PRD 07-09 D2 福利期自动切换）；缺省 / None = 立即可用。
+    /// `epoch_sec < starts_at` → 窗口尚未启用，跳过（first-match 继续后续窗口）。
+    /// 与 TS `PeakWindow.starts_at?: number` 对称。
+    #[serde(default)]
+    pub starts_at: Option<i64>,
+    /// 生效期终点（Unix 秒，PRD 07-09 D2）；缺省 / None = 永久。
+    /// `epoch_sec >= expires_at` → 窗口已失效，跳过。
+    /// 与 TS `PeakWindow.expires_at?: number` 对称。
+    #[serde(default)]
+    pub expires_at: Option<i64>,
 }
 
 /// bundled preset 缓存：首次访问解析一次 `platform-presets.json`，后续直接索引。
@@ -99,28 +114,93 @@ pub(crate) fn hit(w: &PeakWindow, hour: i32, minute: i32, weekday: i32, day_of_m
 }
 
 /// first-match multiplier；空 / 无命中 = 1.0。
-pub fn resolve_multiplier(windows: &[PeakWindow], epoch_ms: i64) -> f64 {
+///
+/// `request_model`：请求模型名（用于 model scope 过滤，PRD 07-09 D2）。
+/// - `""`（空串）= 调用方无 model 上下文 → 跳过 model 过滤（兼容旧行为，向后兼容）
+/// - 窗口 `models` = None → 全平台生效（向后兼容）
+/// - 窗口 `models` = Some(patterns) → request_model 须匹配某 pattern（exact 或 `prefix*` 通配）
+pub fn resolve_multiplier(windows: &[PeakWindow], epoch_ms: i64, request_model: &str) -> f64 {
     if windows.is_empty() {
         return 1.0;
     }
+    let epoch_sec = epoch_ms / 1000;
     let (hour, minute, weekday, day_of_month) = utc_time(epoch_ms);
     for w in windows {
-        if hit(w, hour, minute, weekday, day_of_month) {
-            return w.multiplier;
+        // 生效期判定优先（starts_at/expires_at，Unix 秒；未启用 / 已失效 → 跳过此窗口）
+        if !period_active(w, epoch_sec) {
+            continue;
         }
+        if !hit(w, hour, minute, weekday, day_of_month) {
+            continue;
+        }
+        if !window_models_hit(w, request_model) {
+            continue;
+        }
+        return w.multiplier;
     }
     1.0
 }
 
-/// first-match 命中任一窗口（跨天 + days_of_week / days_of_month）→ true。空 / 无命中 → false。
-/// 与 `resolve_multiplier` 共享 `hit` 判定，仅返回 bool（caller 不关心 multiplier 值）。
-/// `disable_during_peak` 开关的路由排除用此函数（不调 multiplier）。
-pub fn is_in_peak_window(windows: &[PeakWindow], epoch_ms: i64) -> bool {
+/// first-match 命中任一窗口（跨天 + days_of_week / days_of_month + model scope）→ true。
+/// 空 / 无命中 → false。与 `resolve_multiplier` 共享 `hit` + `window_models_hit` 判定，
+/// 仅返回 bool（caller 不关心 multiplier 值）。`disable_during_peak` 开关的路由排除用此函数。
+///
+/// `request_model` 语义同 `resolve_multiplier`：空串 = 无 model 上下文（跳过 model 过滤）。
+pub fn is_in_peak_window(windows: &[PeakWindow], epoch_ms: i64, request_model: &str) -> bool {
     if windows.is_empty() {
         return false;
     }
+    let epoch_sec = epoch_ms / 1000;
     let (hour, minute, weekday, day_of_month) = utc_time(epoch_ms);
-    windows.iter().any(|w| hit(w, hour, minute, weekday, day_of_month))
+    windows.iter().any(|w| {
+        period_active(w, epoch_sec)
+            && hit(w, hour, minute, weekday, day_of_month)
+            && window_models_hit(w, request_model)
+    })
+}
+
+/// 窗口生效期判定（PRD 07-09 D2 福利期自动切换）：
+/// - `starts_at` Some 且 `epoch_sec < starts_at` → 未启用 → false
+/// - `expires_at` Some 且 `epoch_sec >= expires_at` → 已失效 → false
+/// - 否则（含二者均 None = 永久/立即可用）→ true
+///
+/// 判定顺序：生效期 → 时间 → model（见 design §1.2，生效期优先级最高）。
+fn period_active(w: &PeakWindow, epoch_sec: i64) -> bool {
+    if let Some(s) = w.starts_at {
+        if epoch_sec < s {
+            return false;
+        }
+    }
+    if let Some(e) = w.expires_at {
+        if epoch_sec >= e {
+            return false;
+        }
+    }
+    true
+}
+
+/// 窗口 model scope 是否覆盖 `request_model`：
+/// - `request_model == ""` → true（调用方无上下文，跳过过滤，兼容旧行为）
+/// - `w.models == None` → true（窗口未限定，全平台生效）
+/// - `w.models == Some(patterns)` → 任一 pattern 命中（exact 或通配）
+fn window_models_hit(w: &PeakWindow, request_model: &str) -> bool {
+    if request_model.is_empty() {
+        return true;
+    }
+    match &w.models {
+        None => true,
+        Some(patterns) => patterns.iter().any(|p| model_match(p, request_model)),
+    }
+}
+
+/// 单 pattern 与请求模型匹配：exact OR 前缀通配（`"glm-5.2*"` 覆盖 `glm-5.2` / `glm-5.2-turbo`）。
+/// exact-first：非 `*` 结尾走精确匹配；`*` 结尾取前缀，`request_model == prefix` 或 `starts_with(prefix)`。
+fn model_match(pattern: &str, request_model: &str) -> bool {
+    if let Some(prefix) = pattern.strip_suffix('*') {
+        request_model == prefix || request_model.starts_with(prefix)
+    } else {
+        request_model == pattern
+    }
 }
 
 /// 混合源取某平台 peak_hours 窗口：用户 `extra.peak_hours` 覆盖优先；空/缺 → bundled preset 默认。
@@ -188,6 +268,9 @@ mod tests {
             start_minute: None,
             end_minute: None,
             days_of_month: None,
+            models: None,
+            starts_at: None,
+            expires_at: None,
         }
     }
 
@@ -200,6 +283,9 @@ mod tests {
             start_minute: None,
             end_minute: None,
             days_of_month: None,
+            models: None,
+            starts_at: None,
+            expires_at: None,
         }
     }
 
@@ -213,6 +299,9 @@ mod tests {
             start_minute: Some(start_m),
             end_minute: Some(end_m),
             days_of_month: None,
+            models: None,
+            starts_at: None,
+            expires_at: None,
         }
     }
 
@@ -226,6 +315,41 @@ mod tests {
             start_minute: None,
             end_minute: None,
             days_of_month: Some(doms),
+            models: None,
+            starts_at: None,
+            expires_at: None,
+        }
+    }
+
+    /// 带 model scope 的窗口构造 helper（PRD 07-09 D2）
+    fn w_models(start: i32, end: i32, mult: f64, models: Vec<String>) -> PeakWindow {
+        PeakWindow {
+            start_hour: start,
+            end_hour: end,
+            multiplier: mult,
+            days_of_week: None,
+            start_minute: None,
+            end_minute: None,
+            days_of_month: None,
+            models: Some(models),
+            starts_at: None,
+            expires_at: None,
+        }
+    }
+
+    /// 带生效期窗口构造 helper（PRD 07-09 D2 福利期切换）
+    fn w_period(start: i32, end: i32, mult: f64, starts_at: Option<i64>, expires_at: Option<i64>) -> PeakWindow {
+        PeakWindow {
+            start_hour: start,
+            end_hour: end,
+            multiplier: mult,
+            days_of_week: None,
+            start_minute: None,
+            end_minute: None,
+            days_of_month: None,
+            models: None,
+            starts_at,
+            expires_at,
         }
     }
 
@@ -314,6 +438,9 @@ mod tests {
             start_minute: None,
             end_minute: None,
             days_of_month: Some(vec![15]),
+            models: None,
+            starts_at: None,
+            expires_at: None,
         };
         assert!(hit(&win, 12, 0, 0, 15)); // 周日 + 15 日 → 命中
         assert!(!hit(&win, 12, 0, 0, 16)); // 周日 + 16 日 → day_of_month 不过
@@ -328,7 +455,7 @@ mod tests {
         // hour=8 同时落在两窗口，第一个 (0-12) 命中 → 1.5
         // epoch 2024-01-01T08:00:00Z (Mon) → hour=8
         let ms = DateTime::<Utc>::from_timestamp(1704105600, 0).unwrap().timestamp_millis();
-        assert_eq!(resolve_multiplier(&windows, ms), 1.5);
+        assert_eq!(resolve_multiplier(&windows, ms, ""), 1.5);
     }
 
     #[test]
@@ -336,13 +463,13 @@ mod tests {
         let windows = vec![w(0, 6, 0.5)];
         // hour=12 不在 [0,6)
         let ms = DateTime::<Utc>::from_timestamp(1704105600, 0).unwrap().timestamp_millis();
-        assert_eq!(resolve_multiplier(&windows, ms), 1.0);
+        assert_eq!(resolve_multiplier(&windows, ms, ""), 1.0);
     }
 
     #[test]
     fn resolve_empty_returns_one() {
         let ms = 1_700_000_000_000;
-        assert_eq!(resolve_multiplier(&[], ms), 1.0);
+        assert_eq!(resolve_multiplier(&[], ms, ""), 1.0);
     }
 
     // ── utc_hour_weekday / utc_time ──
@@ -380,6 +507,9 @@ mod tests {
         assert_eq!(parsed.start_minute, None);
         assert_eq!(parsed.end_minute, None);
         assert_eq!(parsed.days_of_month, None);
+        assert_eq!(parsed.models, None, "旧 JSON 无 models 字段 → None（全平台生效）");
+        assert_eq!(parsed.starts_at, None, "旧 JSON 无 starts_at → None（立即可用）");
+        assert_eq!(parsed.expires_at, None, "旧 JSON 无 expires_at → None（永久）");
     }
 
     #[test]
@@ -396,6 +526,135 @@ mod tests {
         assert_eq!(parsed.start_minute, Some(1));
         assert_eq!(parsed.end_minute, Some(1));
         assert_eq!(parsed.days_of_month, Some(vec![1, 15]));
+    }
+
+    #[test]
+    fn peak_window_models_field_parse() {
+        // 显式 models 字段：精确 + 通配 pattern 混合
+        let json = r#"{
+            "start_hour": 6,
+            "end_hour": 10,
+            "multiplier": 3.0,
+            "models": ["glm-5.2", "glm-5-turbo"]
+        }"#;
+        let parsed: PeakWindow = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.models, Some(vec!["glm-5.2".to_string(), "glm-5-turbo".to_string()]));
+    }
+
+    #[test]
+    fn peak_window_models_null_treated_as_none() {
+        // 显式 null → None（serde default + Option 双重保险）
+        let json = r#"{"start_hour":6,"end_hour":10,"multiplier":3.0,"models":null}"#;
+        let parsed: PeakWindow = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.models, None);
+    }
+
+    // ── 生效期 starts_at / expires_at（PRD 07-09 D2 福利期自动切换）──
+
+    #[test]
+    fn peak_window_starts_at_expires_at_parse() {
+        let json = r#"{
+            "start_hour": 0,
+            "end_hour": 24,
+            "multiplier": 2.0,
+            "models": ["glm-5.2"],
+            "starts_at": 1759276800,
+            "expires_at": 1800000000
+        }"#;
+        let parsed: PeakWindow = serde_json::from_str(json).unwrap();
+        assert_eq!(parsed.starts_at, Some(1759276800));
+        assert_eq!(parsed.expires_at, Some(1800000000));
+    }
+
+    #[test]
+    fn resolve_multiplier_period_not_yet_started_skips() {
+        // starts_at 在未来（2000000000 = 2033-05-18）→ 当前 ts 1704067200（2024-01-01）尚未启用 → 跳过
+        let windows = vec![w_period(0, 24, 2.0, Some(2_000_000_000), None)];
+        let ms = DateTime::<Utc>::from_timestamp(1704067200, 0).unwrap().timestamp_millis();
+        assert_eq!(resolve_multiplier(&windows, ms, ""), 1.0, "epoch < starts_at → 未启用，返默认 1.0");
+    }
+
+    #[test]
+    fn resolve_multiplier_period_expired_skips() {
+        // expires_at 在过去（1700000000 = 2023-11-14）→ 当前 ts 1704067200 已失效 → 跳过
+        let windows = vec![w_period(0, 24, 2.0, None, Some(1_700_000_000))];
+        let ms = DateTime::<Utc>::from_timestamp(1704067200, 0).unwrap().timestamp_millis();
+        assert_eq!(resolve_multiplier(&windows, ms, ""), 1.0, "epoch >= expires_at → 已失效，返默认 1.0");
+    }
+
+    #[test]
+    fn resolve_multiplier_period_active_hits() {
+        // 生效中：starts_at=1700000000（过去）+ expires_at=2000000000（未来），时间窗口命中 → 命中 2.0
+        let windows = vec![w_period(0, 24, 2.0, Some(1_700_000_000), Some(2_000_000_000))];
+        let ms = DateTime::<Utc>::from_timestamp(1704067200, 0).unwrap().timestamp_millis();
+        assert_eq!(resolve_multiplier(&windows, ms, ""), 2.0, "starts_at <= epoch < expires_at → 生效中，命中");
+    }
+
+    #[test]
+    fn resolve_multiplier_period_absent_permanent() {
+        // starts_at / expires_at 均无 → 永久 / 立即可用（向后兼容），命中
+        let windows = vec![w_period(0, 24, 2.0, None, None)];
+        let ms = DateTime::<Utc>::from_timestamp(1704067200, 0).unwrap().timestamp_millis();
+        assert_eq!(resolve_multiplier(&windows, ms, ""), 2.0, "absent = 永久，命中");
+    }
+
+    #[test]
+    fn resolve_multiplier_period_first_match_with_fallback() {
+        // GLM 实战场景：高峰窗口（永久 3 倍）+ 非高峰兜底窗口（starts_at=10-01 才启用）
+        // 当前 9 月（福利期）+ 时间 7 点（落高峰 6-10）：高峰排前 first-match → 命中 3.0
+        let windows = vec![
+            w_models(6, 10, 3.0, vec!["glm-5.2".into()]),
+            PeakWindow {
+                start_hour: 0,
+                end_hour: 24,
+                multiplier: 2.0,
+                days_of_week: None,
+                start_minute: None,
+                end_minute: None,
+                days_of_month: None,
+                models: Some(vec!["glm-5.2".into()]),
+                starts_at: Some(1_759_276_800), // 2026-10-01 UTC+8
+                expires_at: None,
+            },
+        ];
+        // 2024-01-01T07:00:00Z → hour=7 落 [6,10)
+        let ms = DateTime::<Utc>::from_timestamp(1704067200 + 7 * 3600, 0).unwrap().timestamp_millis();
+        assert_eq!(resolve_multiplier(&windows, ms, "glm-5.2"), 3.0, "高峰窗口 first-match 命中");
+    }
+
+    #[test]
+    fn resolve_multiplier_period_non_peak_before_activation_defaults_to_one() {
+        // 非高峰时段 + 兜底窗口未启用（starts_at 在未来）→ 跳过兜底 → 返默认 1.0（福利期 1 倍抵扣）
+        let windows = vec![
+            w_models(6, 10, 3.0, vec!["glm-5.2".into()]),
+            PeakWindow {
+                start_hour: 0,
+                end_hour: 24,
+                multiplier: 2.0,
+                days_of_week: None,
+                start_minute: None,
+                end_minute: None,
+                days_of_month: None,
+                models: Some(vec!["glm-5.2".into()]),
+                starts_at: Some(1_759_276_800),
+                expires_at: None,
+            },
+        ];
+        // hour=12（非高峰 6-10 外）→ 高峰窗口时间不命中 → 跳过；兜底 starts_at 未到 → 跳过 → 1.0
+        let ms = DateTime::<Utc>::from_timestamp(1704067200 + 12 * 3600, 0).unwrap().timestamp_millis();
+        assert_eq!(resolve_multiplier(&windows, ms, "glm-5.2"), 1.0, "非高峰 + 兜底未启用 → 福利 1.0");
+    }
+
+    #[test]
+    fn is_in_peak_window_period_filter() {
+        // disable_during_peak + 生效期：未启用 / 已失效的窗口不应触发排除
+        let windows_active = vec![w_period(14, 22, 1.5, Some(1_700_000_000), Some(2_000_000_000))];
+        let windows_future = vec![w_period(14, 22, 1.5, Some(2_000_000_000), None)];
+        let windows_expired = vec![w_period(14, 22, 1.5, None, Some(1_700_000_000))];
+        let ms = DateTime::<Utc>::from_timestamp(1704067200 + 15 * 3600, 0).unwrap().timestamp_millis();
+        assert!(is_in_peak_window(&windows_active, ms, ""), "生效中 + 时间命中 → 命中");
+        assert!(!is_in_peak_window(&windows_future, ms, ""), "未启用 → 不命中（不触发排除）");
+        assert!(!is_in_peak_window(&windows_expired, ms, ""), "已失效 → 不命中");
     }
 
     // ── parse_platform_peak_hours ──
@@ -435,7 +694,7 @@ mod tests {
         let windows = vec![w(14, 22, 1.5)];
         // 2024-01-01T15:00:00Z → hour=15 落在 [14,22) → 命中（基准 1704067200=2024-01-01T00:00:00Z）
         let ms = DateTime::<Utc>::from_timestamp(1704067200 + 15 * 3600, 0).unwrap().timestamp_millis();
-        assert!(is_in_peak_window(&windows, ms));
+        assert!(is_in_peak_window(&windows, ms, ""));
     }
 
     #[test]
@@ -443,8 +702,8 @@ mod tests {
         let windows = vec![w(22, 6, 1.5)]; // 跨天 22-06
         let ms_in = DateTime::<Utc>::from_timestamp(1704067200 + 23 * 3600, 0).unwrap().timestamp_millis(); // 23:00 UTC → 命中
         let ms_out = DateTime::<Utc>::from_timestamp(1704067200 + 15 * 3600, 0).unwrap().timestamp_millis(); // 15:00 UTC → 不命中
-        assert!(is_in_peak_window(&windows, ms_in));
-        assert!(!is_in_peak_window(&windows, ms_out));
+        assert!(is_in_peak_window(&windows, ms_in, ""));
+        assert!(!is_in_peak_window(&windows, ms_out, ""));
     }
 
     #[test]
@@ -452,13 +711,102 @@ mod tests {
         let windows = vec![w(0, 6, 0.5)];
         // hour=12 不在 [0,6)（基准 1704067200=2024-01-01T00:00:00Z）
         let ms = DateTime::<Utc>::from_timestamp(1704067200 + 12 * 3600, 0).unwrap().timestamp_millis();
-        assert!(!is_in_peak_window(&windows, ms));
+        assert!(!is_in_peak_window(&windows, ms, ""));
     }
 
     #[test]
     fn is_in_peak_window_empty() {
         let ms = 1_700_000_000_000;
-        assert!(!is_in_peak_window(&[], ms));
+        assert!(!is_in_peak_window(&[], ms, ""));
+    }
+
+    // ── model scope（PRD 07-09 D2）──
+
+    #[test]
+    fn model_match_exact_and_wildcard() {
+        // exact
+        assert!(model_match("glm-5.2", "glm-5.2"));
+        assert!(!model_match("glm-5.2", "glm-5.2-turbo"));
+        assert!(!model_match("glm-5.2", "glm-5-turbo"));
+        // 通配：`prefix*` 覆盖 prefix 自身 + prefix 开头任意后缀
+        assert!(model_match("glm-5.2*", "glm-5.2"));
+        assert!(model_match("glm-5.2*", "glm-5.2-turbo"));
+        assert!(model_match("glm-5.2*", "glm-5.2x"));
+        assert!(!model_match("glm-5.2*", "glm-5-turbo"));
+        // 大小写敏感（不做了 casefold，pattern 须精确大小写）
+        assert!(!model_match("GLM-5.2", "glm-5.2"));
+    }
+
+    #[test]
+    fn resolve_multiplier_models_scope_hit_in_list() {
+        // GLM 规则：高峰 3 倍 仅 glm-5.2 / glm-5-turbo
+        let windows = vec![w_models(6, 10, 3.0, vec!["glm-5.2".into(), "glm-5-turbo".into()])];
+        // 2024-01-01T07:00:00Z → hour=7 落在 [6,10) → 时间命中
+        let ms = DateTime::<Utc>::from_timestamp(1704067200 + 7 * 3600, 0).unwrap().timestamp_millis();
+        assert_eq!(resolve_multiplier(&windows, ms, "glm-5.2"), 3.0, "model 在列表 → 命中 3 倍");
+        assert_eq!(resolve_multiplier(&windows, ms, "glm-5-turbo"), 3.0);
+    }
+
+    #[test]
+    fn resolve_multiplier_models_scope_not_in_list_skips() {
+        let windows = vec![w_models(6, 10, 3.0, vec!["glm-5.2".into(), "glm-5-turbo".into()])];
+        let ms = DateTime::<Utc>::from_timestamp(1704067200 + 7 * 3600, 0).unwrap().timestamp_millis();
+        // model 不在列表 → 该窗口不适用 → 跳过 → 返默认 1.0
+        assert_eq!(resolve_multiplier(&windows, ms, "glm-4"), 1.0);
+        assert_eq!(resolve_multiplier(&windows, ms, "claude-opus-4"), 1.0);
+    }
+
+    #[test]
+    fn resolve_multiplier_models_wildcard_covers_variants() {
+        // 通配 pattern：`glm-5.2*` 覆盖 glm-5.2 / glm-5.2-turbo
+        let windows = vec![w_models(6, 10, 3.0, vec!["glm-5.2*".into()])];
+        let ms = DateTime::<Utc>::from_timestamp(1704067200 + 7 * 3600, 0).unwrap().timestamp_millis();
+        assert_eq!(resolve_multiplier(&windows, ms, "glm-5.2"), 3.0);
+        assert_eq!(resolve_multiplier(&windows, ms, "glm-5.2-turbo"), 3.0);
+        assert_eq!(resolve_multiplier(&windows, ms, "glm-5-turbo"), 1.0, "通配不覆盖 glm-5-turbo");
+    }
+
+    #[test]
+    fn resolve_multiplier_models_absent_all_match() {
+        // window.models = None → 全平台生效（向后兼容）
+        let windows = vec![w(6, 10, 2.0)];
+        let ms = DateTime::<Utc>::from_timestamp(1704067200 + 7 * 3600, 0).unwrap().timestamp_millis();
+        assert_eq!(resolve_multiplier(&windows, ms, "glm-5.2"), 2.0);
+        assert_eq!(resolve_multiplier(&windows, ms, "anything-else"), 2.0);
+        assert_eq!(resolve_multiplier(&windows, ms, ""), 2.0, "空 model 也命中（无 model scope 限制）");
+    }
+
+    #[test]
+    fn resolve_multiplier_empty_request_model_bypasses_filter() {
+        // request_model="" 视为无上下文 → 跳过 model 过滤（即便 window.models 限定也命中）
+        // 语义：caller 暂无 model 上下文时（ST1 适配期）的兼容行为
+        let windows = vec![w_models(6, 10, 3.0, vec!["glm-5.2".into()])];
+        let ms = DateTime::<Utc>::from_timestamp(1704067200 + 7 * 3600, 0).unwrap().timestamp_millis();
+        assert_eq!(resolve_multiplier(&windows, ms, ""), 3.0, "空 model → 跳过过滤，命中窗口");
+    }
+
+    #[test]
+    fn resolve_multiplier_models_first_match_with_scope() {
+        // 两窗口：第一个限定 glm-5.2（时间也命中），第二个不限 model
+        // request=claude-opus → 跳过第一个 → 命中第二个
+        let windows = vec![
+            w_models(0, 24, 3.0, vec!["glm-5.2".into()]),
+            w(0, 24, 1.5),
+        ];
+        let ms = DateTime::<Utc>::from_timestamp(1704067200 + 7 * 3600, 0).unwrap().timestamp_millis();
+        assert_eq!(resolve_multiplier(&windows, ms, "glm-5.2"), 3.0, "glm-5.2 命中第一个");
+        assert_eq!(resolve_multiplier(&windows, ms, "claude-opus-4"), 1.5, "claude-opus 跳过第一个，命中第二个");
+    }
+
+    #[test]
+    fn is_in_peak_window_models_scope() {
+        // disable_during_peak + model scope：仅当 model 在 scope 内且时间命中才算「命中该窗口」
+        let windows = vec![w_models(6, 10, 3.0, vec!["glm-5.2".into(), "glm-5-turbo".into()])];
+        let ms = DateTime::<Utc>::from_timestamp(1704067200 + 7 * 3600, 0).unwrap().timestamp_millis();
+        assert!(is_in_peak_window(&windows, ms, "glm-5.2"), "model 在 scope → 命中");
+        assert!(!is_in_peak_window(&windows, ms, "claude-opus-4"), "model 不在 scope → 不命中 → 不排除");
+        // 空 model → 跳过过滤 → 命中（与 disable_during_peak 默认行为一致：caller 无 model 上下文仍排除）
+        assert!(is_in_peak_window(&windows, ms, ""));
     }
 
     // ── peak_hours_for（混合源）──

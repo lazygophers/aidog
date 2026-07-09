@@ -276,6 +276,40 @@ export const PlatformCard = memo(function PlatformCard({
                     {t("platform.peak_disabled_badge", "高峰禁用中")}
                   </div>
                 )}
+                {/* 高峰生效态徽标（R6 UI 可见性）：平台有 peak_hours && 当前命中 → 显示。
+                    model scope 限定时徽标显「高峰·N模型」+ tooltip 列模型；非限定显「高峰」。
+                    disable_during_peak 已有「高峰禁用中」徽标时跳过（避免重复）。 */}
+                {!parseDisableDuringPeak(p.extra ?? "") && (() => {
+                  const phWindows = parsePlatformPeakHours(p.extra ?? "");
+                  if (phWindows.length === 0) return null;
+                  const nowMs = Date.now();
+                  if (!isCurrentlyPeak(phWindows, nowMs)) return null;
+                  // 复用 isCurrentlyPeak 单窗口调用找当前命中窗口（取其 model scope）。
+                  const hitWin = phWindows.find(w => isCurrentlyPeak([w], nowMs));
+                  const models = hitWin?.models;
+                  const hasScope = models && models.length > 0;
+                  const tooltip = hasScope
+                    ? t("platform.peak_badge_models_tooltip", "受影响模型：{{models}}")
+                        .replace("{{models}}", models!.join(", "))
+                    : t("platform.peak_hours", "高峰时段倍率");
+                  return (
+                    <div
+                      style={{
+                        marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
+                        fontSize: 10, fontWeight: 600, color: "var(--accent)",
+                        background: "color-mix(in srgb, var(--accent) 12%, transparent)",
+                        border: "1px solid color-mix(in srgb, var(--accent) 30%, transparent)",
+                        borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
+                      }}
+                      title={tooltip}
+                    >
+                      {hasScope
+                        ? t("platform.peak_badge_limited", "高峰·{{count}}模型")
+                            .replace("{{count}}", String(models!.length))
+                        : t("platform.peak_badge", "高峰")}
+                    </div>
+                  );
+                })()}
                 {/* 过期标记（独立维度，与 status 正交）：已过期显红 badge，未过期临近时显小字 */}
                 {p.expires_at > 0 && (() => {
                   const nowMs = Date.now();

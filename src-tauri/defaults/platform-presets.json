@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1783581981,
+  "last_updated": 1783594532,
   "protocols": {
     "anthropic": {
       "client_type": "claude_code",
@@ -25,6 +25,7 @@
       "model_list": {
         "default": [
           "claude-fable-5",
+          "claude-mythos-5",
           "claude-opus-4-8",
           "claude-sonnet-5",
           "claude-haiku-4-5",
@@ -141,8 +142,7 @@
       },
       "models": {
         "default": {
-          "gpt": "gpt-5.5",
-          "fast": "gpt-5.4-mini"
+          "gpt": "gpt-5.5"
         }
       },
       "model_list": {
@@ -193,20 +193,19 @@
       },
       "models": {
         "default": {
-          "default": "gemini-2.5-pro",
-          "fast": "gemini-2.5-flash",
-          "thinking": "gemini-3.5-flash"
+          "default": "gemini-2.5-pro"
         }
       },
       "model_list": {
         "default": [
-          "gemini-3.5-flash",
-          "gemini-3.1-pro-preview",
-          "gemini-3.1-flash-lite",
+          "gemini-3",
+          "gemini-3-flash",
           "gemini-3-flash-preview",
           "gemini-2.5-pro",
           "gemini-2.5-flash",
-          "gemini-2.5-flash-lite"
+          "gemini-2.5-flash-lite",
+          "gemini-2.0-flash",
+          "gemini-2.0-flash-lite"
         ]
       },
       "name": {
@@ -256,8 +255,7 @@
       },
       "models": {
         "default": {
-          "default": "glm-5.2",
-          "fast": "glm-4.7-flashx"
+          "default": "glm-5.2"
         }
       },
       "model_list": {
@@ -299,9 +297,90 @@
         "pricing": "https://open.bigmodel.cn/pricing"
       },
       "homepage": "https://www.zhipuai.cn",
+      "logo_url": ""
+    },
+    "glm_coding": {
+      "client_type": "codex_tui",
+      "endpoints": {
+        "default": [
+          {
+            "protocol": "openai",
+            "base_url": "https://open.bigmodel.cn/api/coding/paas/v4",
+            "client_type": "codex_tui",
+            "coding_plan": true
+          },
+          {
+            "protocol": "anthropic",
+            "base_url": "https://open.bigmodel.cn/api/anthropic",
+            "client_type": "claude_code",
+            "coding_plan": true
+          }
+        ]
+      },
+      "models": {
+        "default": {
+          "default": "glm-5.2",
+          "opus": "glm-5.2",
+          "sonnet": "glm-5.2",
+          "gpt": "glm-5-turbo",
+          "haiku": "glm-4.7"
+        }
+      },
+      "model_list": {
+        "default": [
+          "glm-5.2",
+          "glm-5-turbo",
+          "glm-4.7",
+          "glm-5.1",
+          "glm-5"
+        ]
+      },
+      "name": {
+        "en-US": "GLM Coding Plan (Zhipu AI)",
+        "zh-Hans": "GLM 编码套餐（智谱）",
+        "ar-SA": "GLM Coding Plan (Zhipu AI)",
+        "fr-FR": "GLM Coding Plan (Zhipu AI)",
+        "de-DE": "GLM Coding Plan (Zhipu AI)",
+        "ru-RU": "GLM Coding Plan (Zhipu AI)",
+        "ja-JP": "GLM コーディングプラン（智譜）",
+        "es-ES": "GLM Coding Plan (Zhipu AI)"
+      },
+      "desc": {
+        "en-US": "Zhipu AI BigModel Coding Plan endpoint (GLM-5.2 / GLM-5-Turbo count as 3x in peak hours)",
+        "zh-Hans": "智谱编码套餐端点（GLM-5.2 / GLM-5-Turbo 高峰期按 3 倍计）",
+        "ar-SA": "واجهة Zhipu AI BigModel Coding Plan (يحسب GLM-5.2 / GLM-5-Turbo بـ 3x في ساعات الذروة)",
+        "fr-FR": "Endpoint Zhipu AI BigModel Coding Plan (GLM-5.2 / GLM-5-Turbo comptés en 3x aux heures de pointe)",
+        "de-DE": "Zhipu AI BigModel Coding Plan Endpunkt (GLM-5.2 / GLM-5-Turbo werden in Spitzenzeiten 3x gezählt)",
+        "ru-RU": "Эндпоинт Zhipu AI BigModel Coding Plan (GLM-5.2 / GLM-5-Turbo считаются как 3x в часы пик)",
+        "ja-JP": "智譜 BigModel Coding Plan エンドポイント（GLM-5.2 / GLM-5-Turbo はピーク時に3倍カウント）",
+        "es-ES": "Endpoint Zhipu AI BigModel Coding Plan (GLM-5.2 / GLM-5-Turbo cuentan como 3x en horas pico)"
+      },
+      "source_urls": {
+        "docs": "https://docs.bigmodel.cn/cn/coding-plan/quick-start",
+        "pricing": "https://docs.bigmodel.cn/cn/coding-plan/overview"
+      },
+      "homepage": "https://www.zhipuai.cn",
       "logo_url": "",
       "peak_hours": [
-        { "start_hour": 6, "end_hour": 10, "multiplier": 3.0 }
+        {
+          "start_hour": 6,
+          "end_hour": 10,
+          "multiplier": 3.0,
+          "models": [
+            "glm-5.2",
+            "glm-5-turbo"
+          ]
+        },
+        {
+          "start_hour": 0,
+          "end_hour": 24,
+          "multiplier": 2.0,
+          "models": [
+            "glm-5.2",
+            "glm-5-turbo"
+          ],
+          "starts_at": 1790784000
+        }
       ]
     },
     "glm_en": {
@@ -322,8 +401,7 @@
       },
       "models": {
         "default": {
-          "default": "glm-5.2",
-          "fast": "glm-4.7-flashx"
+          "default": "glm-5.2"
         }
       },
       "model_list": {
@@ -374,7 +452,7 @@
           {
             "protocol": "openai",
             "base_url": "https://api.moonshot.cn/v1",
-            "client_type": "claude_code"
+            "client_type": "codex_tui"
           },
           {
             "protocol": "anthropic",
@@ -385,8 +463,7 @@
       },
       "models": {
         "default": {
-          "default": "kimi-k2.7-code",
-          "fast": "kimi-k2.7-code-highspeed"
+          "default": "kimi-k2.7-code"
         }
       },
       "model_list": {
@@ -451,9 +528,7 @@
       "models": {
         "default": {
           "default": "MiniMax-M3",
-          "sonnet": "MiniMax-M2.7",
-          "coder": "MiniMax-M2.5",
-          "fast": "MiniMax-M2.7-highspeed"
+          "sonnet": "MiniMax-M2.7"
         }
       },
       "model_list": {
@@ -516,9 +591,7 @@
       "models": {
         "default": {
           "default": "MiniMax-M3",
-          "sonnet": "MiniMax-M2.7",
-          "coder": "MiniMax-M2.5",
-          "fast": "MiniMax-M2.7-highspeed"
+          "sonnet": "MiniMax-M2.7"
         }
       },
       "model_list": {
@@ -732,8 +805,7 @@
       },
       "models": {
         "default": {
-          "default": "deepseek-v4-flash",
-          "thinking": "deepseek-v4-pro"
+          "default": "deepseek-v4-flash"
         }
       },
       "model_list": {
@@ -820,7 +892,7 @@
       },
       "source_urls": {
         "docs": "https://platform.stepfun.com/docs",
-        "pricing": "https://platform.stepfun.com/docs/product/price"
+        "pricing": "https://platform.stepfun.com/docs"
       },
       "homepage": "https://www.stepfun.com",
       "logo_url": ""
@@ -876,7 +948,7 @@
       },
       "source_urls": {
         "docs": "https://platform.stepfun.ai/docs",
-        "pricing": "https://platform.stepfun.ai/docs/product/price"
+        "pricing": "https://platform.stepfun.ai/docs"
       },
       "homepage": "https://www.stepfun.ai",
       "logo_url": ""
@@ -904,9 +976,7 @@
       },
       "models": {
         "default": {
-          "default": "doubao-seed-2-0-code",
-          "fast": "doubao-seed-2-0-mini",
-          "thinking": "doubao-seed-evolving"
+          "default": "doubao-seed-2-0-code"
         }
       },
       "model_list": {
@@ -981,8 +1051,7 @@
       },
       "models": {
         "default": {
-          "default": "seed-2-0-pro",
-          "fast": "seed-2-0-mini"
+          "default": "seed-2-0-pro"
         }
       },
       "model_list": {
@@ -1073,7 +1142,7 @@
       },
       "source_urls": {
         "docs": "https://cloud.baidu.com/doc/qianfan-api/",
-        "pricing": "https://cloud.baidu.com/doc/qianfan-api/s/7m0g3yofv"
+        "pricing": "https://cloud.baidu.com/product/wenxinworkshop/"
       },
       "homepage": "https://cloud.baidu.com",
       "logo_url": "baidu"
@@ -1102,7 +1171,8 @@
       "model_list": {
         "default": [
           "mimo-v2.5-pro",
-          "mimo-v2.5"
+          "mimo-v2.5",
+          "mimo-v2-flash"
         ]
       },
       "name": {
@@ -1279,7 +1349,7 @@
       },
       "source_urls": {
         "docs": "https://platform.sensenova.cn/document",
-        "pricing": "https://platform.sensenova.cn/pricing"
+        "pricing": "https://platform.sensenova.cn/document"
       },
       "homepage": "https://www.sense_time.com",
       "logo_url": ""
@@ -1307,10 +1377,7 @@
           "sonnet": "anthropic/claude-sonnet-4.6",
           "haiku": "anthropic/claude-haiku-4.5",
           "fable": "anthropic/claude-fable-5",
-          "gpt": "openai/gpt-5.5",
-          "coder": "openai/gpt-5.3-codex",
-          "fast": "google/gemini-3.5-flash",
-          "thinking": "deepseek/deepseek-r1"
+          "gpt": "openai/gpt-5.5"
         }
       },
       "model_list": {
@@ -1379,9 +1446,7 @@
       },
       "models": {
         "default": {
-          "default": "Qwen/Qwen2.5-72B-Instruct",
-          "coder": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
-          "fast": "deepseek-ai/DeepSeek-V4-Flash"
+          "default": "Qwen/Qwen2.5-72B-Instruct"
         }
       },
       "model_list": {
@@ -1453,9 +1518,7 @@
       },
       "models": {
         "default": {
-          "default": "Qwen/Qwen2.5-72B-Instruct",
-          "coder": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
-          "fast": "deepseek-ai/DeepSeek-V4-Flash"
+          "default": "Qwen/Qwen2.5-72B-Instruct"
         }
       },
       "model_list": {
@@ -1535,9 +1598,7 @@
           "default": "claude-sonnet-4-6",
           "opus": "claude-opus-4-8",
           "sonnet": "claude-sonnet-4-6",
-          "gpt": "gpt-5.5",
-          "coder": "kimi-k2.7-code",
-          "fast": "gemini-3.5-flash"
+          "gpt": "gpt-5.5"
         }
       },
       "model_list": {
@@ -1606,9 +1667,7 @@
           "default": "claude-sonnet-4-6",
           "opus": "claude-opus-4-8",
           "sonnet": "claude-sonnet-4-6",
-          "gpt": "gpt-5.5",
-          "coder": "kimi-k2.7-code",
-          "fast": "gemini-3.5-flash"
+          "gpt": "gpt-5.5"
         }
       },
       "model_list": {
@@ -1670,9 +1729,7 @@
       },
       "models": {
         "default": {
-          "default": "Qwen/Qwen3.5-397B-A17B",
-          "coder": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
-          "fast": "deepseek-ai/DeepSeek-V4-Flash"
+          "default": "Qwen/Qwen3.5-397B-A17B"
         }
       },
       "model_list": {
@@ -1784,9 +1841,7 @@
       },
       "models": {
         "default": {
-          "default": "anthropic/claude-sonnet-4.6",
-          "coder": "ali/qwen3-coder-plus",
-          "fast": "google/gemini-3.5-flash"
+          "default": "anthropic/claude-sonnet-4.6"
         }
       },
       "model_list": {
@@ -2178,9 +2233,7 @@
       },
       "models": {
         "default": {
-          "default": "zai-org/glm-5.2",
-          "coder": "moonshotai/kimi-k2.7-code",
-          "fast": "deepseek/deepseek-v4-flash"
+          "default": "zai-org/glm-5.2"
         }
       },
       "model_list": {
@@ -2377,7 +2430,6 @@
       "models": {
         "default": {
           "sonnet": "anthropic/claude-sonnet-4.5",
-          "coder": "openai/gpt-5.2-codex",
           "default": "deepseek/deepseek-v3.2"
         }
       },
@@ -3256,9 +3308,7 @@
       },
       "models": {
         "default": {
-          "default": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
-          "thinking": "nvidia/nemotron-3-ultra-550b-a55b",
-          "coder": "deepseek-ai/deepseek-v4-pro"
+          "default": "nvidia/llama-3.3-nemotron-super-49b-v1.5"
         }
       },
       "model_list": {
@@ -4029,8 +4079,7 @@
       "models": {
         "default": {
           "default": "claude-opus-4-8",
-          "gpt": "gpt-5.5",
-          "fast": "deepseek-v4-flash"
+          "gpt": "gpt-5.5"
         }
       },
       "model_list": {
@@ -4624,12 +4673,14 @@
         "default": {
           "opus": "claude-opus-4-8",
           "sonnet": "claude-sonnet-4-6",
-          "haiku": "claude-haiku-4-5"
+          "haiku": "claude-haiku-4-5",
+          "default": "claude-opus-4-8"
         }
       },
       "model_list": {
         "default": [
           "claude-opus-4-8",
+          "claude-sonnet-5",
           "claude-sonnet-4-6",
           "claude-haiku-4-5",
           "claude-opus-4-7",

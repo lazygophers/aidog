@@ -77,7 +77,7 @@ pub async fn select_candidates_ctx(
         }
         // 高峰禁用优先级高于 status bypass：单平台组高峰期请求直接 fail（PRD: 此开关优先级高于 status bypass，
         // 单平台组不 bypass 此维度）。status 维度照旧 bypass（auto_disabled / 熔断仍必请求）。
-        if is_peak_disabled(&only.platform, now_ms) {
+        if is_peak_disabled(&only.platform, now_ms, source_model) {
             tracing::info!(
                 group = %group.name, platform = %only.platform.name,
                 "single-platform group: peak-disabled, request blocked"
@@ -119,10 +119,10 @@ pub async fn select_candidates_ctx(
     let mut peak_disabled_count: usize = 0;
     for gp in &group_platforms {
         // auto_disabled 维度（DB 持久态）
-        let auto_state = candidate_state(&gp.platform, now_ms);
+        let auto_state = candidate_state(&gp.platform, now_ms, source_model);
         if auto_state.is_none() {
             // 区分高峰禁用与其他排除原因（disabled / auto_disabled 未到期 / 过期）
-            if is_peak_disabled(&gp.platform, now_ms) {
+            if is_peak_disabled(&gp.platform, now_ms, source_model) {
                 peak_disabled_count += 1;
             }
             continue; // 用户手动 disabled / auto_disabled 未到退避 / 高峰禁用 → 跳过
