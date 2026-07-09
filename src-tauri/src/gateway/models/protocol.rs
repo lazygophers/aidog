@@ -33,6 +33,10 @@ pub enum Protocol {
     GlmEn,
     #[serde(rename = "kimi")]
     Kimi,
+    /// Kimi Coding Plan 独立协议（与 glm_coding 同构，JSON key `kimi_coding`，
+    /// 自带独立 endpoints/models/model_list 分支）。
+    #[serde(rename = "kimi_coding")]
+    KimiCoding,
     #[serde(rename = "minimax")]
     MiniMax,
     #[serde(rename = "minimax_en")]
@@ -56,8 +60,14 @@ pub enum Protocol {
     BytePlus,
     #[serde(rename = "qianfan")]
     QianFan,
+    /// QianFan (百度千帆) Coding Plan 独立协议（与 glm_coding 同构，JSON key `qianfan_coding`）。
+    #[serde(rename = "qianfan_coding")]
+    QianfanCoding,
     #[serde(rename = "xiaomi_mimo")]
     XiaomiMimo,
+    /// XiaomiMimo Coding Plan 独立协议（与 glm_coding 同构，JSON key `xiaomi_mimo_coding`）。
+    #[serde(rename = "xiaomi_mimo_coding")]
+    XiaomiMimoCoding,
     #[serde(rename = "bailing")]
     BaiLing,
     #[serde(rename = "longcat")]
@@ -177,6 +187,57 @@ impl RoutingMode {
             "sticky" => RoutingMode::Sticky,
             _ => RoutingMode::LoadBalance,
         }
+    }
+}
+
+#[cfg(test)]
+mod test_protocol_coding_variants {
+    use super::*;
+
+    /// 3 个新增 cp 独立协议 + glm_coding 模板的 serde key round-trip：
+    /// JSON 字符串 ↔ 枚举变体对称（与 platform-presets.json serde rename 对齐）。
+    #[test]
+    fn coding_variants_serde_roundtrip() {
+        // Deserialize（JSON key → 枚举）
+        let cases: &[(&str, Protocol)] = &[
+            ("glm_coding", Protocol::GlmCoding),
+            ("kimi_coding", Protocol::KimiCoding),
+            ("qianfan_coding", Protocol::QianfanCoding),
+            ("xiaomi_mimo_coding", Protocol::XiaomiMimoCoding),
+        ];
+        for (key, expected) in cases {
+            let json = format!("\"{key}\"");
+            let got: Protocol = serde_json::from_str(&json).unwrap_or_else(|e| panic!("{key}: {e}"));
+            assert_eq!(&got, expected, "deserialize mismatch for {key}");
+            // Serialize（枚举 → JSON key，round-trip 对称）
+            let back = serde_json::to_string(&got).unwrap();
+            assert_eq!(back, json, "serialize mismatch for {:?}", expected);
+        }
+    }
+
+    /// 非独立协议基线变体不受新增变体影响。
+    #[test]
+    fn non_coding_base_variants_still_parse() {
+        assert_eq!(
+            serde_json::from_str::<Protocol>("\"kimi\"").unwrap(),
+            Protocol::Kimi
+        );
+        assert_eq!(
+            serde_json::from_str::<Protocol>("\"minimax\"").unwrap(),
+            Protocol::MiniMax
+        );
+        assert_eq!(
+            serde_json::from_str::<Protocol>("\"minimax_en\"").unwrap(),
+            Protocol::MiniMaxEn
+        );
+        assert_eq!(
+            serde_json::from_str::<Protocol>("\"qianfan\"").unwrap(),
+            Protocol::QianFan
+        );
+        assert_eq!(
+            serde_json::from_str::<Protocol>("\"xiaomi_mimo\"").unwrap(),
+            Protocol::XiaomiMimo
+        );
     }
 }
 
