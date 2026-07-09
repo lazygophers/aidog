@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1783530923,
+  "last_updated": 1783581981,
   "protocols": {
     "anthropic": {
       "client_type": "claude_code",
@@ -299,7 +299,10 @@
         "pricing": "https://open.bigmodel.cn/pricing"
       },
       "homepage": "https://www.zhipuai.cn",
-      "logo_url": ""
+      "logo_url": "",
+      "peak_hours": [
+        { "start_hour": 6, "end_hour": 10, "multiplier": 3.0 }
+      ]
     },
     "glm_en": {
       "client_type": "default",
