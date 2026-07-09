@@ -1,10 +1,10 @@
 ---
-updated: 2026-07-07
-rewrite-version: 4
+updated: 2026-07-10
+rewrite-version: 5
 supersedes:
   - guides/cross-layer-thinking-guide.md (v0 descriptive + Trellis internals; v1 renamed → cross-layer-rules.md)
 authored-by: trellisx-spec
-mode: optimize
+mode: sediment
 ---
 
 # Cross-Layer Rules
@@ -76,6 +76,22 @@ mode: optimize
 | update `#[serde(default)]` 字段前端漏传 | update payload 须含全量 default 字段 | default `[]`/`None` 覆盖已存 → 静默清空数据 |
 | 组件内直接读写 Tauri store / 文件系统 | 必经 `src/services/` 层 | 绕过单向数据流，状态不可追踪 |
 | webview `onFocusChanged()` 做关键副作用 (关闭/隐藏/销毁窗口) | Rust 端 `Builder::on_window_event` handler | macOS IPC 链偶发失效 → 失焦不关闭静默 bug |
+
+## 持久化路径换、公共契约零改 (MUST)
+
+换持久化路径（专属表 → `setting` / JSON / 他处）时，跨 Rust↔TS **公共契约层禁改** —— 只换 Rust 内部 DB 调用层：
+
+- **公共契约层 = 三件**：① Rust 数据模型 struct 字段（名 / 类型 / 可空性）② `#[tauri::command]` 函数签名（参数名 / 类型 / 顺序 / 返回类型）③ `#[derive(Serialize, Deserialize)]` 序列化字段名（`#[serde(rename)]` / `rename_all`）
+- **禁** 改这三层任一项 —— 前端 `src/services/api/<域>.ts` invoke 封装零改（cmd 字符串 + args 类型 + 返回泛型全不动）
+- **仅允许** 改 Rust 内部 DB 访问层（`get_setting` / `set_setting` / 裸 SQL → setting 调用换）
+- **后果**：换持久化路径若改公共契约 → 前端 invoke 参数 / 返回类型错位 → 运行时 `undefined` 静默失败，与「新增 command 未同步前端」同类 bug，但更隐蔽（不是漏加，是改坏）
+
+**验收断言（diff 0，可复用）**：换持久化路径任务 finish 前，对 master 跑：
+1. struct 字段 diff 0（`git diff master -- <struct 源文件>` 仅 `#[derive(...)]` 增 `Serialize, Deserialize` 或纯内部方法，字段定义行 0 改）
+2. `#[tauri::command]` 函数签名 diff 0（`git diff master -G '#\[tauri::command\]'` 仅函数体改，签名行 0 改）
+3. 前端 `src/services/api/<域>.ts` diff 0（`git diff master -- src/services/api/<域>.ts` 空）
+
+实例：task 07-09-mitm-tables-to-setting（RootCa 6 字段 + WhitelistEntry 4 字段 + 13 个 `#[tauri::command]` 签名 0 diff，仅 SQL → `get_setting`/`set_setting` 调用换，前端 `src/services/api/mitm.ts` 零改）
 
 ## Verification
 
