@@ -1,8 +1,10 @@
 ---
-updated: 2026-06-11
-rewrite-version: 1
+updated: 2026-07-10
+rewrite-version: 2
+supersedes:
+  - db-conventions.md (v1, 无「专属表 → setting 迁移模式」段)
 authored-by: trellisx-spec
-mode: optimize
+mode: sediment
 ---
 
 # DB Conventions
@@ -63,6 +65,23 @@ mode: optimize
 - schema 破坏式变更必须提供独立一次性迁移脚本（`scripts/`，非 app 运行时代码），迁移完成后删除
 - 迁移脚本必须先备份 `aidog.db.bak` + 迁移后行数校验 + 幂等（可重跑）
 - `init_tables()` 仅执行 `migrations/001_init.sql`，禁堆叠历史 ALTER / 数据修复（这些归迁移脚本）
+
+## 专属表 → setting 迁移模式 (MUST)
+
+域数据从专属表迁通用 `setting` 表时（`scope=<域>, key=<实体>` JSON），走 app 内置编号 migration 序列（`schema_early.rs` / `schema_late.rs`），**单 migration 入口**完成三步，禁拆多 migration：
+
+- **单 migration 原子**：① 旧表数据 JSON 化写 `setting`（`INSERT OR IGNORE` 幂等）② `DROP TABLE IF EXISTS <旧表>` ③ 新库 seed 守卫（`need_seed = NOT EXISTS(setting WHERE scope=<域> AND key=<实体>)`，仅新库或未 seed 时执行）
+- **禁** CREATE 在 migration N / seed 在 N+1 / DROP 在 N+2 散布多 migration —— 中间态库（N 应用但 N+2 未跑）查无表，迁移逻辑断裂
+- **禁** 留 `CREATE TABLE <旧表>` 旧 schema 残留：迁移并入后 `grep -rn "CREATE TABLE.*<旧表名>" src-tauri/src/gateway/db` 必须 0（含 `schema_early.rs` / `schema_late.rs` / 历史 migration）
+- **禁** 留旧 `seed_<entity>_if_empty` 运行时函数 —— seed 并入 migration 单源（运行时函数与 migration 双源会漂移）
+- **幂等**：重跑 migration 零副作用（`INSERT OR IGNORE` + `DROP IF EXISTS` + `need_seed` 守卫三重保障）
+
+**验收断言（双路径 + 幂等，可复用为测试）**：
+1. 旧库 fixture（含旧表行）经 migration → `setting` JSON 含迁移数据 + 旧表 `table_exists=0`
+2. 新库（无旧表）经 migration → `setting` 含 seed 默认值
+3. 重跑 migration → 行数 / JSON 零变化（幂等）
+
+实例：task 07-09-mitm-tables-to-setting migration 043 `migrate_mitm_legacy_tables_to_setting`（删旧 040/041/042 + `seed_default_whitelist_if_empty`，并入单入口；测试 `migrations_late_043_legacy_tables_to_setting` + `migrations_late_mitm_seed_to_setting_043`）
 
 ## Verification
 
