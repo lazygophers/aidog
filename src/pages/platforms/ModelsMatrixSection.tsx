@@ -181,7 +181,7 @@ export function ModelsMatrixSection({
       <div style={{ position: "relative", width: "100%" }}>
         <input
           className="input"
-          style={{ width: "100%", fontSize: 11, padding: "4px 6px", paddingRight: hasDropdown ? 22 : undefined }}
+          style={{ width: "100%", fontSize: 13, padding: "6px 8px", paddingRight: hasDropdown ? 24 : undefined }}
           placeholder={t("platform.models_placeholder", "模型名")}
           value={value}
           onChange={(e) => {
@@ -198,7 +198,7 @@ export function ModelsMatrixSection({
             className="btn btn-ghost btn-icon"
             style={{
               position: "absolute", right: 2, top: "50%", transform: "translateY(-50%)",
-              width: 20, height: 20, minWidth: 20, padding: 0,
+              width: 22, height: 22, minWidth: 22, padding: 0,
               color: "var(--text-tertiary)", cursor: "pointer",
             }}
             onMouseDown={(e) => {
@@ -239,8 +239,8 @@ export function ModelsMatrixSection({
                   style={{
                     width: "100%",
                     justifyContent: "flex-start",
-                    padding: "6px 10px",
-                    fontSize: 12,
+                    padding: "8px 12px",
+                    fontSize: 13,
                     fontWeight: value === m ? 600 : 400,
                     color: value === m ? "var(--accent)" : "var(--text-primary)",
                     background: value === m ? "var(--accent-subtle)" : "transparent",
@@ -325,7 +325,7 @@ export function ModelsMatrixSection({
           <div style={rowStyle}>
             <div style={{ width: LABEL_W, flexShrink: 0 }} />
             {/* 默认列头 */}
-            <div style={{ flex: 1, minWidth: 80, textAlign: "center", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)" }}>
+            <div style={{ flex: 1, minWidth: 80, textAlign: "center", fontSize: 13, fontWeight: 600, color: "var(--text-secondary)" }}>
               {t("platform.modelDefault")}
             </div>
             {/* 时段档列头 */}
@@ -341,7 +341,7 @@ export function ModelsMatrixSection({
                   type="button"
                   className="btn btn-ghost"
                   style={{
-                    fontSize: 10, padding: "3px 4px", cursor: "pointer",
+                    fontSize: 12, padding: "3px 4px", cursor: "pointer",
                     color: "var(--text-secondary)", whiteSpace: "nowrap",
                     overflow: "hidden", textOverflow: "ellipsis",
                     border: "1px solid var(--border)", borderRadius: "var(--radius-sm)",
@@ -355,7 +355,7 @@ export function ModelsMatrixSection({
                   <button
                     type="button"
                     className="btn btn-ghost btn-icon"
-                    style={{ padding: "1px 4px", fontSize: 10 }}
+                    style={{ padding: "1px 4px", fontSize: 12 }}
                     disabled={idx === 0}
                     onClick={() => moveUp(idx)}
                     title={t("action.moveUp", "上移")}
@@ -365,7 +365,7 @@ export function ModelsMatrixSection({
                   <button
                     type="button"
                     className="btn btn-ghost btn-icon"
-                    style={{ padding: "1px 4px", fontSize: 10 }}
+                    style={{ padding: "1px 4px", fontSize: 12 }}
                     disabled={idx === rules.length - 1}
                     onClick={() => moveDown(idx)}
                     title={t("action.moveDown", "下移")}
@@ -375,7 +375,7 @@ export function ModelsMatrixSection({
                   <button
                     type="button"
                     className="btn btn-ghost btn-icon btn-danger"
-                    style={{ padding: "1px 4px", fontSize: 10 }}
+                    style={{ padding: "1px 4px", fontSize: 12 }}
                     onClick={() => removeRule(idx)}
                     title={t("action.delete", "删除")}
                   >
@@ -392,7 +392,7 @@ export function ModelsMatrixSection({
               {/* 左侧固定 slot 标签 */}
               <div style={{
                 width: LABEL_W, flexShrink: 0,
-                fontSize: 11, fontWeight: 500, color: "var(--text-tertiary)",
+                fontSize: 13, fontWeight: 500, color: "var(--text-tertiary)",
                 textAlign: "right",
               }}>
                 {t(labelKey)}
@@ -421,7 +421,7 @@ export function ModelsMatrixSection({
           ))}
 
           {rules.length === 0 && (
-            <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontStyle: "italic", paddingLeft: LABEL_W + 8 }}>
+            <div style={{ fontSize: 13, color: "var(--text-tertiary)", fontStyle: "italic", paddingLeft: LABEL_W + 8 }}>
               {t("platform.time_models_empty", "未配置 → 全时段用默认模型档")}
             </div>
           )}
@@ -450,7 +450,7 @@ export function ModelsMatrixSection({
             background: "var(--bg-surface)", borderRadius: "var(--radius-md)",
             padding: 16, maxWidth: 400, width: "100%", border: "1px solid var(--border)",
           }}>
-            <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 600 }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: 13, fontWeight: 600 }}>
               {t("platform.time_models_import_confirm_title", "导入高峰时段配置？")}
             </h3>
             <p style={{ margin: "0 0 16px", fontSize: 12, color: "var(--text-secondary)" }}>
