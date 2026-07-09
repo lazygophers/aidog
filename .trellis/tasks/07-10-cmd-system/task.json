@@ -1,0 +1,29 @@
+{
+  "id": "cmd-system",
+  "name": "cmd-system",
+  "title": "C6 commands-system crate",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "nico",
+  "assignee": "nico",
+  "createdAt": "2026-07-10",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [],
+  "parent": "07-10-commands-restructure",
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "depends_on": [
+    "07-10-core-extract"
+  ]
+}
