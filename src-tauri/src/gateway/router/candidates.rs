@@ -3,6 +3,7 @@
 use super::super::db;
 use super::super::models::*;
 use super::super::scheduling::{Admission, BreakerThresholds, SchedulerState, StickyTable};
+use super::super::time_models;
 use super::model_mapping::resolve_model;
 use super::ordering::{apply_coding_plan_priority, apply_sticky, expiry_sort_key, order_least_latency, order_load_balance};
 use super::{candidate_state, is_peak_disabled, RouteResult};
@@ -83,9 +84,12 @@ pub async fn select_candidates_ctx(
             );
             return Err("peak_disabled".to_string());
         }
+        // 时段模型：先解析 time_models 获取 effective_models，再用 resolve_model
+        let time_rules = time_models::parse_platform_time_models(&only.platform.extra);
+        let effective_models = time_models::resolve_time_models(&time_rules, &only.platform.models, now_ms);
         let target_model = mapped_target_model
             .clone()
-            .unwrap_or_else(|| resolve_model(&only.platform.models, source_model));
+            .unwrap_or_else(|| resolve_model(&effective_models, source_model));
         tracing::info!(
             group = %group.name, platform = %only.platform.name,
             status = ?only.platform.status,
@@ -249,7 +253,10 @@ pub async fn select_candidates_ctx(
             let target_model = if let Some(ref tm) = mapped_target_model {
                 tm.clone()
             } else {
-                resolve_model(&gp.platform.models, source_model)
+                // 时段模型：先解析 time_models 获取 effective_models，再用 resolve_model
+                let time_rules = time_models::parse_platform_time_models(&gp.platform.extra);
+                let effective_models = time_models::resolve_time_models(&time_rules, &gp.platform.models, now_ms);
+                resolve_model(&effective_models, source_model)
             };
             RouteResult {
                 platform: gp.platform.clone(),

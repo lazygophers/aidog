@@ -22,6 +22,7 @@ pub mod router;
 pub mod scheduling;
 pub mod scripts;
 pub mod skills;
+pub mod time_models;
 pub mod usage_color;
 pub mod import_export;
 pub mod mcp;

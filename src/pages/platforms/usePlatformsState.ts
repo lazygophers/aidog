@@ -14,6 +14,7 @@ import {
   type PlatformUsageStats, type LastTestResult,
   type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
   type ModelSlot, type MockConfig, type NewApiConfig, type ManualBudget,
+  type TimeModelRule,
 } from "../../services/api";
 import { pinyinMatch } from "../../utils/pinyin";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
@@ -124,6 +125,7 @@ export interface PlatformsState extends PlatformsStateParams {
   peakHours: PeakWindow[]; setPeakHours: React.Dispatch<React.SetStateAction<PeakWindow[]>>;
   peakHoursTz: "local" | "utc"; setPeakHoursTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
   disableDuringPeak: boolean; setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
+  timeModels: TimeModelRule[]; setTimeModels: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
   autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
   joinGroupIds: number[]; setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
   levelPriority: number; setLevelPriority: React.Dispatch<React.SetStateAction<number>>;

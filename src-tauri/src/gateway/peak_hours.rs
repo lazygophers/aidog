@@ -47,7 +47,7 @@ pub fn utc_hour_weekday(epoch_ms: i64) -> (i32, i32) {
 }
 
 /// hour 命中窗口？days_of_week 过滤 + 跨天 (end<start) / 同天 [start,end) 半开判定。
-fn hit(w: &PeakWindow, hour: i32, weekday: i32) -> bool {
+pub(crate) fn hit(w: &PeakWindow, hour: i32, weekday: i32) -> bool {
     if let Some(days) = &w.days_of_week {
         if !days.contains(&weekday) {
             return false;
