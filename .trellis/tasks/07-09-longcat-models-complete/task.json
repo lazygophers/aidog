@@ -1,9 +1,9 @@
 {
-  "id": "modelscope-models-complete",
-  "name": "modelscope-models-complete",
-  "title": "补全 modelscope model_list+endpoints 全部官方信息",
+  "id": "longcat-models-complete",
+  "name": "longcat-models-complete",
+  "title": "补全 longcat model_list+endpoints 全部官方信息",
   "description": "",
-  "status": "in_progress",
+  "status": "planning",
   "dev_type": null,
   "scope": null,
   "package": null,
