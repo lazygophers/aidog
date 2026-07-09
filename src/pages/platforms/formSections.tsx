@@ -5,7 +5,8 @@
 //
 // 共用 helpers（FormSection / ApiKeyField / toDatetimeLocal）也在此导出，供 PlatformEditForm 主组件消费。
 //   EndpointsSection / ModelsSection 已移到 formSectionsEndpoints.tsx（体积大），通过末尾 re-export 暴露。
-import React from "react";
+import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { TFunction } from "i18next";
 import { writeText } from "@tauri-apps/plugin-clipboard-manager";
 import {
@@ -14,7 +15,7 @@ import {
   type NewApiConfig, type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
 import { LevelPriorityControl } from "../../components/platforms/PlatformCard";
-import { newManualBudget, type PeakWindow } from "../../domains/platforms";
+import { newManualBudget, type PeakWindow, getDefaultPeakHours } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/peakHours";
 
 /** 毫秒时间戳 → datetime-local input 值 "YYYY-MM-DDTHH:MM"（本地时区，无秒）。
@@ -377,15 +378,32 @@ function displayToUtc(displayHour: number, mode: "local" | "utc"): number {
   return ((displayHour - tzOffset(mode)) % 24 + 24) % 24;
 }
 
-export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, t }: {
+export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, protocol, t }: {
   windows: PeakWindow[];
   setWindows: React.Dispatch<React.SetStateAction<PeakWindow[]>>;
   tzMode: "local" | "utc";
   setTzMode: React.Dispatch<React.SetStateAction<"local" | "utc">>;
   disableDuringPeak: boolean;
   setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
+  protocol: Protocol;
   t: TFunction;
 }) {
+  const [defaultCache, setDefaultCache] = useState<PeakWindow[] | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+
+  useEffect(() => {
+    getDefaultPeakHours(protocol).then(setDefaultCache);
+  }, [protocol]);
+
+  const handleImportDefault = () => {
+    if (!defaultCache || defaultCache.length === 0) return;
+    const copied = defaultCache.map(w => ({
+      ...w,
+      days_of_week: w.days_of_week ? [...w.days_of_week] : undefined,
+    }));
+    setWindows(copied);
+    setModalOpen(false);
+  };
   const update = (idx: number, patch: Partial<PeakWindow>) => {
     setWindows(prev => prev.map((w, i) => i === idx ? { ...w, ...patch } : w));
   };
@@ -412,18 +430,30 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
       title={t("platform.peak_hours", "高峰时段倍率")}
       desc={t("platform.peak_hours_desc", "按 UTC+0 设置时段倍率（>1 加价 / <1 折扣）。多窗口按顺序 first-match；不命中 = 1.0。")}
       action={
-        <div style={{ display: "flex", gap: 4, padding: 2, background: "var(--bg-glass)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
-          {(["local", "utc"] as const).map(m => (
-            <button
-              key={m}
-              type="button"
-              className={`btn btn-ghost ${tzMode === m ? "btn-primary" : ""}`}
-              style={{ padding: "2px 8px", fontSize: 11 }}
-              onClick={() => setTzMode(m)}
-            >
-              {m === "local" ? t("platform.timezone_local", "本地") : t("platform.timezone_utc", "UTC+0")}
-            </button>
-          ))}
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 4, padding: 2, background: "var(--bg-glass)", borderRadius: "var(--radius-sm)", border: "1px solid var(--border)" }}>
+            {(["local", "utc"] as const).map(m => (
+              <button
+                key={m}
+                type="button"
+                className={`btn btn-ghost ${tzMode === m ? "btn-primary" : ""}`}
+                style={{ padding: "2px 8px", fontSize: 11 }}
+                onClick={() => setTzMode(m)}
+              >
+                {m === "local" ? t("platform.timezone_local", "本地") : t("platform.timezone_utc", "UTC+0")}
+              </button>
+            ))}
+          </div>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ padding: "2px 8px", fontSize: 11, whiteSpace: "nowrap" }}
+            disabled={!defaultCache || defaultCache.length === 0}
+            title={!defaultCache || defaultCache.length === 0 ? t("platform.peak_hours_no_default", "该平台无默认高峰配置") : ""}
+            onClick={() => setModalOpen(true)}
+          >
+            {t("platform.peak_hours_import_default", "导入默认配置")}
+          </button>
         </div>
       }
     >
@@ -527,6 +557,42 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
       <button type="button" className="btn btn-ghost" onClick={add}>
         + {t("platform.add_window", "添加窗口")}
       </button>
+      {modalOpen && createPortal(
+        <div style={{
+          position: "fixed", top: 0, left: 0, right: 0, bottom: 0,
+          background: "rgba(0,0,0,0.4)", zIndex: 1000,
+          display: "flex", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{
+            background: "var(--bg-glass)", padding: 20, borderRadius: "var(--radius-md)",
+            border: "1px solid var(--border)", maxWidth: 400, width: "90%",
+          }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 600 }}>
+              {t("platform.peak_hours_overwrite_confirm_title", "覆盖高峰配置？")}
+            </h3>
+            <p style={{ margin: "0 0 16px", fontSize: 12, color: "var(--text-secondary)" }}>
+              {t("platform.peak_hours_overwrite_confirm_body", "当前高峰配置将被默认值替换（{{count}} 个窗口），此操作不可撤销。").replace("{{count}}", String(defaultCache?.length ?? 0))}
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setModalOpen(false)}
+              >
+                {t("platform.peak_hours_overwrite_cancel_button", "取消")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleImportDefault}
+              >
+                {t("platform.peak_hours_overwrite_confirm_button", "确认")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </FormSection>
   );
 }
