@@ -1,0 +1,41 @@
+{
+  "id": "commands-restructure",
+  "name": "commands-restructure",
+  "title": "src-tauri commands 按域合理分包",
+  "description": "",
+  "status": "planning",
+  "dev_type": null,
+  "scope": null,
+  "package": null,
+  "priority": "P2",
+  "creator": "nico",
+  "assignee": "nico",
+  "createdAt": "2026-07-10",
+  "completedAt": null,
+  "branch": null,
+  "base_branch": "master",
+  "worktree_path": null,
+  "commit": null,
+  "pr_url": null,
+  "subtasks": [],
+  "children": [
+    "07-10-ws-skeleton",
+    "07-10-core-extract",
+    "07-10-cmd-platform",
+    "07-10-cmd-proxy",
+    "07-10-cmd-config",
+    "07-10-cmd-system",
+    "07-10-cmd-ai-tools",
+    "07-10-cmd-tray",
+    "07-10-cmd-cli-env",
+    "07-10-app-wiring"
+  ],
+  "parent": null,
+  "relatedFiles": [],
+  "notes": "",
+  "meta": {},
+  "depends_on": [
+    "07-09-mitm-tables-to-setting",
+    "07-10-protocols-rust-enum"
+  ]
+}
