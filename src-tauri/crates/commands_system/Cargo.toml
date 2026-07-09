@@ -1,0 +1,9 @@
+[package]
+name = "commands_system"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# C1 ws-skeleton: 空壳。C6 才迁 about/app_log/auto_update/backup/notification/scheduling/fs_autocomplete 入此 crate。
+[dependencies]

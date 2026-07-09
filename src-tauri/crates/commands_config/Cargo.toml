@@ -1,0 +1,9 @@
+[package]
+name = "commands_config"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# C1 ws-skeleton: 空壳。C5 才迁 settings/defaults + sync/hooks 薄壳入此 crate。
+[dependencies]

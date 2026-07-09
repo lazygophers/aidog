@@ -122,6 +122,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "aidog_core"
+version = "0.1.5"
+
+[[package]]
+name = "aidog_test_util"
+version = "0.1.5"
+
+[[package]]
 name = "alloc-no-stdlib"
 version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -868,6 +876,34 @@ dependencies = [
  "bytes",
  "memchr",
 ]
+
+[[package]]
+name = "commands_ai_tools"
+version = "0.1.5"
+
+[[package]]
+name = "commands_cli_env"
+version = "0.1.5"
+
+[[package]]
+name = "commands_config"
+version = "0.1.5"
+
+[[package]]
+name = "commands_platform"
+version = "0.1.5"
+
+[[package]]
+name = "commands_proxy"
+version = "0.1.5"
+
+[[package]]
+name = "commands_system"
+version = "0.1.5"
+
+[[package]]
+name = "commands_tray"
+version = "0.1.5"
 
 [[package]]
 name = "compression-codecs"
