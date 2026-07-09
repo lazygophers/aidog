@@ -1,0 +1,9 @@
+[package]
+name = "commands_cli_env"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# C1 ws-skeleton: 空壳。C9 才迁 cli_env 入此 crate。
+[dependencies]

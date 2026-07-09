@@ -1,0 +1,9 @@
+[package]
+name = "commands_ai_tools"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# C1 ws-skeleton: 空壳。C7 才迁 coding_tools/mcp/skills/script_executor/model_test 入此 crate。
+[dependencies]
