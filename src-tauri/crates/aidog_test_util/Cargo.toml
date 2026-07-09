@@ -1,0 +1,9 @@
+[package]
+name = "aidog_test_util"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# C1 ws-skeleton: 空壳。C3+ 各 commands crate dev-deps 引此 crate（mock_app_with_db 等）。
+[dependencies]

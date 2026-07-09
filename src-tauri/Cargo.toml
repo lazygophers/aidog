@@ -1,3 +1,93 @@
+# =============================================================================
+# Workspace root（C1 ws-skeleton）
+# 本文件既属 workspace root 又是 root package `aidog`（过渡，C10 才挪 crates/aidog/）
+# 子 crate（crates/*）空壳；gateway/commands 迁移留 C2+。
+# =============================================================================
+[workspace]
+members = ["crates/*"]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+version = "0.1.5"
+authors = ["落心"]
+license = "AGPL-3.0-or-later"
+
+# 共享依赖版本集中声明（design.md 约束 1）：子 crate 用 `{ workspace = true }` 引，
+# 禁子 crate 自定版本。当前 root `aidog` 过渡期保留下面独立 [dependencies]，
+# C2/C3+ 才逐步切到 workspace 引用。
+[workspace.dependencies]
+# Tauri 生态
+tauri = { version = "2", features = ["protocol-asset", "tray-icon", "macos-private-api"] }
+tauri-build = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+tauri-plugin-notification = "2"
+tauri-plugin-fs = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-autostart = "2"
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+tauri-plugin-clipboard-manager = "2"
+tauri-plugin-deep-link = "2"
+tauri-plugin-shell = "2"
+# 序列化 / 数据格式
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+serde_yml = "0.0.13"
+toml = "0.8"
+url = "2"
+# 异步运行时 / 并发
+tokio = { version = "1", features = ["sync", "rt-multi-thread", "macros", "io-util", "process"] }
+futures = "0.3"
+# 存储
+rusqlite = { version = "0.32", features = ["bundled", "trace"] }
+tokio-rusqlite = { version = "0.6", features = ["bundled"] }
+# Web / 代理
+axum = { version = "0.8", features = ["json"] }
+hyper-util = { version = "0.1", features = ["server", "server-auto"] }
+hyper = { version = "1", features = ["http1", "http2"] }
+reqwest = { version = "0.12", features = ["stream", "json", "socks", "gzip", "brotli", "deflate", "zstd"] }
+tower = "0.5"
+# 日志
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["fmt", "env-filter"] }
+tracing-appender = "0.2"
+# 通用工具
+uuid = { version = "1", features = ["v4"] }
+chrono = { version = "0.4", features = ["serde"] }
+dirs = "6"
+regex = "1"
+semver = "1"
+ipnet = "2"
+# TTS / 加密 / 杂项
+tts = "0.26"
+aes-gcm = "0.11"
+sha2 = "0.11"
+sha1 = "0.10"
+hmac = "0.13"
+rand = "0.8"
+# MITM TLS（rustls 生态）
+rustls = { version = "0.23", default-features = false, features = ["ring", "logging", "std", "tls12"] }
+rustls-pemfile = "2"
+rcgen = { version = "0.14", features = ["x509-parser", "pem"] }
+tokio-rustls = "0.26"
+webpki-roots = "0.26"
+# 测试期 dev-deps（C3+ 各 commands crate dev-deps 引）
+tempfile = "3"
+flate2 = "1"
+
+# Release 编译换速度：CI(GitHub Actions) macOS 10×/Windows 2× 计费，更快编译 = 更少 billed minutes。
+# 桌面代理 app 无需极致优化；codegen-units 提高并行、关 lto、opt-level 降一档、strip 去符号。
+# workspace root [profile.*] 对所有 workspace member 生效。
+[profile.release]
+codegen-units = 256
+lto = false
+opt-level = 2
+strip = true
+
+# =============================================================================
+# root package `aidog`（过渡，C10 才挪 crates/aidog/）
+# =============================================================================
 [package]
 name = "aidog"
 version = "0.1.5"
@@ -9,14 +99,6 @@ edition = "2024"
 [lib]
 name = "aidog_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
-
-# Release 编译换速度：CI(GitHub Actions) macOS 10×/Windows 2× 计费，更快编译 = 更少 billed minutes。
-# 桌面代理 app 无需极致优化；codegen-units 提高并行、关 lto、opt-level 降一档、strip 去符号。
-[profile.release]
-codegen-units = 256
-lto = false
-opt-level = 2
-strip = true
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
@@ -88,7 +170,7 @@ semver = "1"
 # P3 MITM 解密隧道（CONNECT 升级，ST1+ST2+ST3）。
 # rustls 0.23 已是 tauri/rustls-platform-verifier 的间接依赖（Cargo.lock 已锁 0.23.40），
 # 这里显式声明 + ring provider 让 ca.rs 的 ResolvesServerCert / CertifiedKey 类型可用。
-# rcgen 0.14 由 rustls 团队维护，版本同源；动态签 leaf 证书 + 自签 Root CA。
+# rcgen 0.14 由 rustls 团队管理，版本同源；动态签 leaf 证书 + 自签 Root CA。
 #   features: x509-parser 是 Issuer::from_ca_cert_pem 的前置（按 CA cert PEM 重建 issuer），
 #   pem 让 Certificate::pem() / KeyPair::serialize_pem 可用。
 # tokio-rustls 0.26 已是 reqwest/rustls-platform-verifier 间接依赖，显式声明用 TlsAcceptor/TlsConnector。
@@ -117,4 +199,3 @@ tauri-plugin-shell = "2"
 objc2 = "0.6"
 objc2-foundation = { version = "0.3", features = ["NSString", "NSDictionary", "NSAttributedString", "NSGeometry", "NSValue"] }
 objc2-app-kit = { version = "0.3", features = ["NSStatusItem", "NSStatusBarButton", "NSButton", "NSControl", "NSResponder", "NSView", "NSWindow", "NSFont", "NSParagraphStyle", "NSAttributedString", "NSColor", "objc2-core-foundation"] }
-

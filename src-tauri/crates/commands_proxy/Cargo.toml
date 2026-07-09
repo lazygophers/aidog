@@ -1,0 +1,9 @@
+[package]
+name = "commands_proxy"
+edition = { workspace = true }
+version = { workspace = true }
+authors = { workspace = true }
+license = { workspace = true }
+
+# C1 ws-skeleton: 空壳。C4 才迁 proxy/proxy_log/proxy_timeout/middleware/mitm 入此 crate。
+[dependencies]
