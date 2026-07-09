@@ -155,9 +155,13 @@ mod tests {
         tokio::spawn(async move { axum::serve(up_listener, upstream_app).await.ok() });
 
         // 3. 设 HTTPS_PROXY env 指向 stub proxy（模拟用户配 AirDog 为系统代理）。
+        // edition 2024：std::env::set_var / remove_var 标记 unsafe（多线程 mutating env UB），
+        // 单测内顺序执行无并发，包 unsafe 块满足编译检查。
         let prev_https = std::env::var("HTTPS_PROXY").ok();
-        std::env::set_var("HTTPS_PROXY", format!("http://{proxy_addr}"));
-        std::env::set_var("NO_PROXY", ""); // 清 NO_PROXY 绕过
+        unsafe {
+            std::env::set_var("HTTPS_PROXY", format!("http://{proxy_addr}"));
+            std::env::set_var("NO_PROXY", ""); // 清 NO_PROXY 绕过
+        }
 
         // 4. test_db（proxy_client settings 默认空 → use_proxy=false）。
         let db = crate::gateway::db::test_support::test_db().await;
@@ -175,8 +179,8 @@ mod tests {
 
         // 6. 恢复 env（防污染后续测试）。
         match prev_https {
-            Some(v) => std::env::set_var("HTTPS_PROXY", v),
-            None => std::env::remove_var("HTTPS_PROXY"),
+            Some(v) => unsafe { std::env::set_var("HTTPS_PROXY", v) },
+            None => unsafe { std::env::remove_var("HTTPS_PROXY") },
         }
 
         outcome.expect("request must succeed via direct connection, not env proxy");

@@ -29,10 +29,10 @@
 //! 完整性靠三层：HMAC（防篡改头 + 密文）→ GCM tag（防密文篡改 + 解密失败）→ 上层 manifest.checksum。
 
 use aes_gcm::{
-    aead::{Aead, KeyInit},
-    Aes256Gcm, Key, Nonce,
+    aead::{Aead, KeyInit, Nonce as AeadNonce},
+    Aes256Gcm, Key,
 };
-use hmac::{Hmac, Mac};
+use hmac::{Hmac, KeyInit as HmacKeyInit, Mac};
 use rand::RngCore;
 use sha2::{Digest, Sha256};
 
@@ -102,10 +102,10 @@ pub fn encrypt(plaintext: &[u8]) -> Result<Vec<u8>, String> {
     rng.fill_bytes(&mut nonce_bytes);
 
     // AES-256-GCM 加密（输出含末尾 16B tag）。
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
-    let nonce = Nonce::from_slice(&nonce_bytes);
+    let cipher = Aes256Gcm::new(&Key::<Aes256Gcm>::try_from(&key[..]).expect("AES key 32B"));
+    let nonce: AeadNonce<Aes256Gcm> = nonce_bytes[..].try_into().expect("nonce 12B");
     let ciphertext = cipher
-        .encrypt(nonce, plaintext)
+        .encrypt(&nonce, plaintext)
         .map_err(|e| format!("aes-gcm encrypt: {e}"))?;
 
     // 组装文件：header + ciphertext。
@@ -125,7 +125,7 @@ pub fn encrypt(plaintext: &[u8]) -> Result<Vec<u8>, String> {
 
     // HMAC over [0, end-of-ciphertext)。
     let mut mac =
-        <HmacSha256 as Mac>::new_from_slice(&hmac_key()).map_err(|e| format!("hmac init: {e}"))?;
+        <HmacSha256 as HmacKeyInit>::new_from_slice(&hmac_key()).map_err(|e| format!("hmac init: {e}"))?;
     mac.update(&out);
     let tag = mac.finalize().into_bytes();
     out.extend_from_slice(&tag);
@@ -178,7 +178,7 @@ pub fn decrypt(file: &[u8]) -> Result<Vec<u8>, String> {
     let body_end = file.len() - HMAC_LEN;
     let stored_hmac = &file[body_end..];
     let mut mac =
-        <HmacSha256 as Mac>::new_from_slice(&hmac_key()).map_err(|e| format!("hmac init: {e}"))?;
+        <HmacSha256 as HmacKeyInit>::new_from_slice(&hmac_key()).map_err(|e| format!("hmac init: {e}"))?;
     mac.update(&file[..body_end]);
     mac.verify_slice(stored_hmac)
         .map_err(|_| "hmac verification failed: file corrupted or tampered".to_string())?;
@@ -205,10 +205,10 @@ pub fn decrypt(file: &[u8]) -> Result<Vec<u8>, String> {
     let nonce_bytes = &file[nonce_start..nonce_end];
     let ciphertext = &file[ct_start..ct_end];
 
-    let cipher = Aes256Gcm::new(Key::<Aes256Gcm>::from_slice(&key));
-    let nonce = Nonce::from_slice(nonce_bytes);
+    let cipher = Aes256Gcm::new(&Key::<Aes256Gcm>::try_from(&key[..]).expect("AES key 32B"));
+    let nonce: AeadNonce<Aes256Gcm> = nonce_bytes.try_into().expect("nonce 12B");
     let plaintext = cipher
-        .decrypt(nonce, ciphertext)
+        .decrypt(&nonce, ciphertext)
         .map_err(|_| "aes-gcm decrypt failed: wrong key or corrupted ciphertext".to_string())?;
 
     let _ = key;
