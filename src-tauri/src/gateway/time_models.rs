@@ -39,8 +39,8 @@ pub fn resolve_time_models(
         return default_models.clone();
     }
 
-    // 复用 peak_hours 的 utc_hour_weekday 和 hit 判定
-    let (hour, weekday) = crate::gateway::peak_hours::utc_hour_weekday(epoch_ms);
+    // 复用 peak_hours 的 utc_time 和 hit 判定（含 minute + day_of_month）
+    let (hour, minute, weekday, day_of_month) = crate::gateway::peak_hours::utc_time(epoch_ms);
 
     // first-match: 遍历 rules，找到第一个命中的窗口
     for rule in rules {
@@ -48,7 +48,7 @@ pub fn resolve_time_models(
             // 转换窗口为 PeakWindow 格式进行判定
             for w in windows {
                 if let Some(parsed) = parse_peak_window(w) {
-                    if crate::gateway::peak_hours::hit(&parsed, hour, weekday) {
+                    if crate::gateway::peak_hours::hit(&parsed, hour, minute, weekday, day_of_month) {
                         // 命中：解析该 rule 的 models
                         if let Some(models_val) = rule.get("models") {
                             if let Ok(models) = serde_json::from_value::<PlatformModels>(models_val.clone()) {
@@ -65,7 +65,7 @@ pub fn resolve_time_models(
     default_models.clone()
 }
 
-/// 解析单个窗口（从 JSON Value），失败返回 None
+/// 解析单个窗口（从 JSON Value），失败返回 None。支持 minute + day_of_month（向后兼容旧 schema）。
 fn parse_peak_window(v: &serde_json::Value) -> Option<crate::gateway::peak_hours::PeakWindow> {
     use serde::Deserialize;
     #[derive(Deserialize)]
@@ -74,6 +74,12 @@ fn parse_peak_window(v: &serde_json::Value) -> Option<crate::gateway::peak_hours
         end_hour: i32,
         #[serde(default)]
         days_of_week: Option<Vec<i32>>,
+        #[serde(default)]
+        start_minute: Option<i32>,
+        #[serde(default)]
+        end_minute: Option<i32>,
+        #[serde(default)]
+        days_of_month: Option<Vec<i32>>,
     }
     let helper: WindowHelper = serde_json::from_value(v.clone()).ok()?;
     // multiplier 字段不需要，设 1.0
@@ -82,6 +88,9 @@ fn parse_peak_window(v: &serde_json::Value) -> Option<crate::gateway::peak_hours
         end_hour: helper.end_hour,
         multiplier: 1.0,
         days_of_week: helper.days_of_week,
+        start_minute: helper.start_minute,
+        end_minute: helper.end_minute,
+        days_of_month: helper.days_of_month,
     })
 }
 
