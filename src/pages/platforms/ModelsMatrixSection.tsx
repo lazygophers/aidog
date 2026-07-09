@@ -262,11 +262,11 @@ export function ModelsMatrixSection({
     );
   };
 
-  // 列宽：固定 160px（PRD spec ~160px）；slot label 列 64px 固定。
-  const COL_W = 160;
+  // 列宽：默认列 + 时段档列 flex:1 平均分割（单列占满，多列均分）；
+  // minWidth:80 软下限防极窄，极多列时外层 overflowX 滚动。slot label 列 64px 固定。
   const LABEL_W = 64;
   const rowStyle: React.CSSProperties = {
-    display: "flex", gap: 8, minWidth: "max-content", alignItems: "center",
+    display: "flex", gap: 8, width: "100%", alignItems: "center",
   };
 
   return (
@@ -320,12 +320,12 @@ export function ModelsMatrixSection({
 
       {/* 矩阵主体：横向滚动，列宽固定 */}
       <div style={{ overflowX: "auto", paddingBottom: 4 }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: 6, minWidth: "max-content" }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, width: "100%" }}>
           {/* 列头行 */}
           <div style={rowStyle}>
             <div style={{ width: LABEL_W, flexShrink: 0 }} />
             {/* 默认列头 */}
-            <div style={{ width: COL_W, flexShrink: 0, textAlign: "center", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)" }}>
+            <div style={{ flex: 1, minWidth: 80, textAlign: "center", fontSize: 11, fontWeight: 600, color: "var(--text-secondary)" }}>
               {t("platform.modelDefault")}
             </div>
             {/* 时段档列头 */}
@@ -333,7 +333,7 @@ export function ModelsMatrixSection({
               <div
                 key={`hdr-${idx}`}
                 style={{
-                  width: COL_W, flexShrink: 0, display: "flex", flexDirection: "column",
+                  flex: 1, minWidth: 80, display: "flex", flexDirection: "column",
                   gap: 2, alignItems: "stretch",
                 }}
               >
@@ -398,7 +398,7 @@ export function ModelsMatrixSection({
                 {t(labelKey)}
               </div>
               {/* 默认列单元格 */}
-              <div style={{ width: COL_W, flexShrink: 0 }}>
+              <div style={{ flex: 1, minWidth: 80 }}>
                 {renderCell(
                   `d:${key}`,
                   models[key],
@@ -408,7 +408,7 @@ export function ModelsMatrixSection({
               </div>
               {/* 时段档列单元格 */}
               {rules.map((rule, idx) => (
-                <div key={`r${idx}-${key}`} style={{ width: COL_W, flexShrink: 0 }}>
+                <div key={`r${idx}-${key}`} style={{ flex: 1, minWidth: 80 }}>
                   {renderCell(
                     `r${idx}:${key}`,
                     rule.models[key] ?? "",
