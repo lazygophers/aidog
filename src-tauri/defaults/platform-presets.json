@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1783594532,
+  "last_updated": 1783597913,
   "protocols": {
     "anthropic": {
       "client_type": "claude_code",
@@ -4700,17 +4700,17 @@
         "es-ES": "CTok.ai"
       },
       "desc": {
-        "en-US": "CTok.ai API gateway for Claude, GPT and Gemini models",
-        "zh-Hans": "CTok.ai API 网关, 支持 Claude / GPT / Gemini 多模型",
-        "ar-SA": "بوابة CTok.ai لنماذج Claude و GPT و Gemini",
-        "fr-FR": "Passerelle CTok.ai pour les modèles Claude, GPT et Gemini",
-        "de-DE": "CTok.ai-API-Gateway für Claude-, GPT- und Gemini-Modelle",
-        "ru-RU": "Шлюз CTok.ai для моделей Claude, GPT и Gemini",
-        "ja-JP": "Claude / GPT / Gemini 対応 CTok.ai API ゲートウェイ",
-        "es-ES": "Gateway CTok.ai para modelos Claude, GPT y Gemini"
+        "en-US": "CTok.ai API gateway for Claude, GPT and Gemini models (Claude-first; Claude Code carpooling)",
+        "zh-Hans": "CTok.ai API 网关, 支持 Claude / GPT / Gemini 多模型(主推 Claude / Claude Code 拼车)",
+        "ar-SA": "بوابة CTok.ai لنماذج Claude و GPT و Gemini (تركيز على Claude / Claude Code)",
+        "fr-FR": "Passerelle CTok.ai pour les modèles Claude, GPT et Gemini (Claude d'abord ; covoiturage Claude Code)",
+        "de-DE": "CTok.ai-API-Gateway für Claude-, GPT- und Gemini-Modelle (Claude-first; Claude Code-Mitnutzung)",
+        "ru-RU": "Шлюз CTok.ai для моделей Claude, GPT и Gemini (акцент на Claude / Claude Code)",
+        "ja-JP": "Claude / GPT / Gemini 対応 CTok.ai API ゲートウェイ（Claude 主力 / Claude Code カーシェア）",
+        "es-ES": "Gateway CTok.ai para modelos Claude, GPT y Gemini (Claude primero; Claude Code compartido)"
       },
       "source_urls": {
-        "docs": "https://api.ctok.ai/",
+        "docs": "https://ctok.ai/claude-code-setup-ctok",
         "pricing": "https://api.ctok.ai/"
       },
       "homepage": "https://ctok.ai",
