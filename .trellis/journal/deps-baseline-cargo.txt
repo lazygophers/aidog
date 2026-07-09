@@ -1,0 +1,66 @@
+aidog v0.1.5 (/Users/luoxin/persons/lyxamour/aidog/.worktrees/07-09-deps-upgrade-stable/src-tauri)
+├── aes-gcm v0.10.3
+├── axum v0.8.9
+├── chrono v0.4.45
+├── dirs v5.0.1
+├── futures v0.3.32
+├── hmac v0.12.1
+├── hyper v1.10.1
+├── hyper-util v0.1.20
+├── ipnet v2.12.0
+├── objc2 v0.6.4
+├── objc2-app-kit v0.3.2
+├── objc2-foundation v0.3.2
+├── rand v0.8.6
+├── rcgen v0.14.8
+├── regex v1.12.3
+├── reqwest v0.12.28
+├── rusqlite v0.32.1
+├── rustls v0.23.40
+├── rustls-pemfile v2.2.0
+├── semver v1.0.28
+├── serde v1.0.228
+├── serde_json v1.0.150
+├── serde_yml v0.0.13
+├── sha1 v0.10.6
+├── sha2 v0.10.9
+├── tauri v2.11.2
+│   [build-dependencies]
+├── tauri-plugin-autostart v2.5.1
+│   [build-dependencies]
+├── tauri-plugin-clipboard-manager v2.3.2
+│   [build-dependencies]
+├── tauri-plugin-deep-link v2.4.9
+│   [build-dependencies]
+├── tauri-plugin-dialog v2.7.1
+│   [build-dependencies]
+├── tauri-plugin-fs v2.5.1
+│   [build-dependencies]
+├── tauri-plugin-notification v2.3.3
+│   [build-dependencies]
+├── tauri-plugin-opener v2.5.4
+│   [build-dependencies]
+├── tauri-plugin-process v2.3.1
+│   [build-dependencies]
+├── tauri-plugin-shell v2.3.5
+│   [build-dependencies]
+├── tauri-plugin-updater v2.10.1
+│   [build-dependencies]
+├── tokio v1.52.3
+├── tokio-rusqlite v0.6.0
+├── tokio-rustls v0.26.4
+├── toml v0.8.2
+├── tower v0.5.3
+├── tracing v0.1.44
+├── tracing-appender v0.2.5
+├── tracing-subscriber v0.3.23
+├── tts v0.26.3
+├── url v2.5.8
+├── uuid v1.23.2
+└── webpki-roots v0.26.11
+[build-dependencies]
+└── tauri-build v2.6.2
+[dev-dependencies]
+├── flate2 v1.1.9
+├── tauri v2.11.2 (*)
+└── tempfile v3.27.0
