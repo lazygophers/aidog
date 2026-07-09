@@ -227,7 +227,7 @@ pub async fn calc_est_cost(
         return base;
     }
     let windows = platform_peak_hours(db, platform_id, platform_type).await;
-    base * crate::gateway::peak_hours::resolve_multiplier(&windows, created_at_ms)
+    base * crate::gateway::peak_hours::resolve_multiplier(&windows, created_at_ms, model_name)
 }
 
 /// 取某平台的 peak_hours 窗口：用户 `extra.peak_hours` 覆盖优先；空/缺 → bundled preset 默认。

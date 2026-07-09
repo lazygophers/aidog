@@ -24,6 +24,11 @@ pub enum Protocol {
     ClaudeCode,
     #[serde(rename = "glm")]
     Glm,
+    /// 智谱 GLM Coding Plan 独立协议（PRD 07-09 D1）：编码套餐端点
+    /// base_url `/api/coding/paas/v4`（比普通版多 `/coding/`），peak_hours 仅 GLM-5.2 / 5-Turbo 高阶倍率。
+    /// 用户决策恢复独立协议（2026-07-09），与 endpoint `coding_plan` flag 机制并存。
+    #[serde(rename = "glm_coding")]
+    GlmCoding,
     #[serde(rename = "glm_en")]
     GlmEn,
     #[serde(rename = "kimi")]

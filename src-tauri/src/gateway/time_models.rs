@@ -82,7 +82,8 @@ fn parse_peak_window(v: &serde_json::Value) -> Option<crate::gateway::peak_hours
         days_of_month: Option<Vec<i32>>,
     }
     let helper: WindowHelper = serde_json::from_value(v.clone()).ok()?;
-    // multiplier 字段不需要，设 1.0
+    // multiplier 字段不需要，设 1.0；time_models 仅用时间维度切换 models，model scope 不参与
+    // （peak_hours 的 model scope 过滤语义不适用 time_models，故 models 字段不解析 / 不传递到 hit）
     Some(crate::gateway::peak_hours::PeakWindow {
         start_hour: helper.start_hour,
         end_hour: helper.end_hour,
@@ -91,6 +92,9 @@ fn parse_peak_window(v: &serde_json::Value) -> Option<crate::gateway::peak_hours
         start_minute: helper.start_minute,
         end_minute: helper.end_minute,
         days_of_month: helper.days_of_month,
+        models: None,
+        starts_at: None,
+        expires_at: None,
     })
 }
 

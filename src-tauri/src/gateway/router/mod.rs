@@ -49,14 +49,17 @@ pub struct RouteResult {
 /// - Enabled：始终纳入
 /// - AutoDisabled 且已过退避试探时间（now >= until）：纳入（末尾试探）
 /// - Disabled（用户手动）/ AutoDisabled 未到试探时间：排除
-pub(crate) fn candidate_state(platform: &Platform, now_ms: i64) -> Option<bool> {
+///
+/// `request_model`：当前请求的模型名（用于 peak_hours model scope 过滤，PRD 07-09 D2）。
+/// 传 `""` = 无 model 上下文 → 跳过 model 过滤（兼容旧行为）。
+pub(crate) fn candidate_state(platform: &Platform, now_ms: i64, request_model: &str) -> Option<bool> {
     // 过期平台直接排除（独立维度，与 status 正交；enabled + 过期也排除）。
     if platform.expires_at > 0 && now_ms >= platform.expires_at {
         return None;
     }
     // 高峰禁用（与 status 正交，临时闸门，不改 status 三态）：
     // 开关 on 且 now 落在 peak window 任一窗口 → 排除。用户关开关/出窗口即恢复，无需退避试探。
-    if is_peak_disabled(platform, now_ms) {
+    if is_peak_disabled(platform, now_ms, request_model) {
         return None;
     }
     match platform.status {
@@ -69,7 +72,10 @@ pub(crate) fn candidate_state(platform: &Platform, now_ms: i64) -> Option<bool> 
 /// 平台是否被高峰禁用（`extra.disable_during_peak` on 且当前命中 peak window）。
 /// 路由排除用的纯判定函数：与 status 三态正交，不改 status。
 /// 多平台组：candidate_state 返 None 跳过此平台；单平台组：bypass 覆盖（此开关优先级高于 status bypass）。
-pub(crate) fn is_peak_disabled(platform: &Platform, now_ms: i64) -> bool {
+///
+/// `request_model`：当前请求模型名（peak_hours model scope 过滤，PRD 07-09 D2）。
+/// 传 `""` = 无 model 上下文 → 跳过 model 过滤（兼容旧行为）。
+pub(crate) fn is_peak_disabled(platform: &Platform, now_ms: i64, request_model: &str) -> bool {
     if !super::peak_hours::parse_disable_during_peak(&platform.extra) {
         return false;
     }
@@ -79,7 +85,7 @@ pub(crate) fn is_peak_disabled(platform: &Platform, now_ms: i64) -> bool {
         .trim_matches('"')
         .to_string();
     let windows = super::peak_hours::peak_hours_for(&platform.extra, &ptype);
-    super::peak_hours::is_in_peak_window(&windows, now_ms)
+    super::peak_hours::is_in_peak_window(&windows, now_ms, request_model)
 }
 
 /// 有效权重 = weight × level_priority（per-group 平台优先级 1~10 乘性放大）。

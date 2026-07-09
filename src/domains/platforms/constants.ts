@@ -11,7 +11,7 @@ export const PROTOCOLS: ProtocolOption[] = [
   { value: "gemini", label: "Gemini（Google）", keywords: ["google", "谷歌", "gemini"] },
   // ── 国内官方 ──
   { value: "glm", label: "GLM（智谱）", keywords: ["zhipu", "智谱", "bigmodel", "codegeex"] },
-  { value: "glm", label: "GLM Coding Plan", codingPlan: true, keywords: ["智谱编程", "codegeex", "glm code"] },
+  { value: "glm_coding", label: "GLM Coding Plan", codingPlan: true, keywords: ["智谱编程", "codegeex", "glm code", "glm coding"] },
   { value: "glm_en", label: "GLM 国际版（z.ai）", keywords: ["z.ai", "zhipu en", "智谱国际"] },
   { value: "kimi", label: "Kimi（月之暗面）", keywords: ["moonshot", "月之暗面"] },
   { value: "kimi", label: "Kimi Code Plan", codingPlan: true, keywords: ["kimi编程", "kimi code", "kimi coding"] },
@@ -118,6 +118,7 @@ export const PROTOCOL_LABELS: Record<Protocol, string> = {
   gemini: "Gemini",
   // ── 平台类型 ──
   glm: "GLM",
+  glm_coding: "GLM Coding",
   glm_en: "GLM 国际版",
   kimi: "Kimi",
   minimax: "MiniMax",
@@ -198,6 +199,7 @@ export const PROTOCOL_COLORS: Record<string, string> = {
   gemini: "#4285F4",
   // ── 国内官方 ──
   glm: "#3B5FEC",
+  glm_coding: "#3B5FEC",
   glm_en: "#3B5FEC",
   kimi: "#1783FF",
   minimax: "#FF6B6B",

@@ -81,10 +81,10 @@ fn breaker_union_autodisabled_admission() {
     assert_eq!(sched.admission(2, &th, now, true), Admission::Allow);
     // auto_disabled 维度独立：candidate_state 判定（不被熔断改写）
     let p_auto = mk_platform(PlatformStatus::AutoDisabled, now + 5000);
-    assert_eq!(candidate_state(&p_auto, now), None); // auto_disabled 未到期 → 排除
+    assert_eq!(candidate_state(&p_auto, now, ""), None); // auto_disabled 未到期 → 排除
     // 熔断状态不影响 candidate_state（auto_disabled 维度）
     let p_enabled = mk_platform_id(1);
-    assert_eq!(candidate_state(&p_enabled, now), Some(false)); // 仍 enabled（熔断不改 DB status）
+    assert_eq!(candidate_state(&p_enabled, now, ""), Some(false)); // 仍 enabled（熔断不改 DB status）
 }
 
 #[test]
@@ -106,13 +106,13 @@ fn breaker_does_not_overwrite_autodisabled() {
 fn candidate_state_filtering() {
     let now = 1_000_000i64;
     // enabled → 始终纳入（非试探）
-    assert_eq!(candidate_state(&mk_platform(PlatformStatus::Enabled, 0), now), Some(false));
+    assert_eq!(candidate_state(&mk_platform(PlatformStatus::Enabled, 0), now, ""), Some(false));
     // 用户手动 disabled → 排除
-    assert_eq!(candidate_state(&mk_platform(PlatformStatus::Disabled, 0), now), None);
+    assert_eq!(candidate_state(&mk_platform(PlatformStatus::Disabled, 0), now, ""), None);
     // auto_disabled 未到退避时间 → 排除
-    assert_eq!(candidate_state(&mk_platform(PlatformStatus::AutoDisabled, now + 5000), now), None);
+    assert_eq!(candidate_state(&mk_platform(PlatformStatus::AutoDisabled, now + 5000), now, ""), None);
     // auto_disabled 已过退避时间 → 纳入（末尾试探）
-    assert_eq!(candidate_state(&mk_platform(PlatformStatus::AutoDisabled, now - 1), now), Some(true));
+    assert_eq!(candidate_state(&mk_platform(PlatformStatus::AutoDisabled, now - 1), now, ""), Some(true));
 }
 
 #[test]
@@ -122,19 +122,19 @@ fn candidate_state_expires_at_excludes() {
     // 辅助：构造带 expires_at 的 Platform（mk_platform 不暴露 expires_at，直接改字段）。
     let mut p_expired = mk_platform(PlatformStatus::Enabled, 0);
     p_expired.expires_at = now - 1; // 过去 → 已过期
-    assert_eq!(candidate_state(&p_expired, now), None, "enabled + 过期 → 排除");
+    assert_eq!(candidate_state(&p_expired, now, ""), None, "enabled + 过期 → 排除");
     let mut p_expired_auto = mk_platform(PlatformStatus::AutoDisabled, now - 1);
     p_expired_auto.expires_at = now - 1;
-    assert_eq!(candidate_state(&p_expired_auto, now), None, "auto_disabled(已过退避) + 过期 → 仍排除（过期优先）");
+    assert_eq!(candidate_state(&p_expired_auto, now, ""), None, "auto_disabled(已过退避) + 过期 → 仍排除（过期优先）");
 
     // 未来过期 → 不影响 status 路径（仍按 status 判定）
     let mut p_future = mk_platform(PlatformStatus::Enabled, 0);
     p_future.expires_at = now + 50_000;
-    assert_eq!(candidate_state(&p_future, now), Some(false), "未来过期 + enabled → 仍纳入");
+    assert_eq!(candidate_state(&p_future, now, ""), Some(false), "未来过期 + enabled → 仍纳入");
 
     // expires_at == 0 → 永不过期（不影响）
     let p_no_expiry = mk_platform(PlatformStatus::Enabled, 0);
-    assert_eq!(candidate_state(&p_no_expiry, now), Some(false), "expires_at=0 → 永不过期");
+    assert_eq!(candidate_state(&p_no_expiry, now, ""), Some(false), "expires_at=0 → 永不过期");
 }
 
 #[test]
@@ -147,32 +147,32 @@ fn candidate_state_peak_disabled_dimension() {
     // 开关 off：不影响（即便 peak window 命中，仍按 status 判定）
     let mut p_off = mk_platform(PlatformStatus::Enabled, 0);
     p_off.extra = r#"{"peak_hours":[{"start_hour":22,"end_hour":6,"multiplier":1.5}]}"#.to_string();
-    assert_eq!(candidate_state(&p_off, ms_in_peak), Some(false), "开关 off + peak window → enabled 仍纳入");
+    assert_eq!(candidate_state(&p_off, ms_in_peak, ""), Some(false), "开关 off + peak window → enabled 仍纳入");
 
     // 开关 on + 非 peak window：仍纳入（与 status 正交）
     let mut p_on_offpeak = mk_platform(PlatformStatus::Enabled, 0);
     p_on_offpeak.extra = r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":22,"end_hour":6,"multiplier":1.5}]}"#.to_string();
-    assert_eq!(candidate_state(&p_on_offpeak, ms_off_peak), Some(false), "开关 on + 非 peak window → 仍纳入");
+    assert_eq!(candidate_state(&p_on_offpeak, ms_off_peak, ""), Some(false), "开关 on + 非 peak window → 仍纳入");
 
     // 开关 on + peak window → 排除（None）
     let mut p_on_inpeak = mk_platform(PlatformStatus::Enabled, 0);
     p_on_inpeak.extra = r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":22,"end_hour":6,"multiplier":1.5}]}"#.to_string();
-    assert_eq!(candidate_state(&p_on_inpeak, ms_in_peak), None, "开关 on + peak window → 排除（与 status 正交）");
+    assert_eq!(candidate_state(&p_on_inpeak, ms_in_peak, ""), None, "开关 on + peak window → 排除（与 status 正交）");
 
     // 开关 on + peak window + AutoDisabled 已过退避 → 仍排除（高峰禁用优先于 status 试探纳入）
     let mut p_auto = mk_platform(PlatformStatus::AutoDisabled, 0);
     p_auto.extra = r#"{"disable_during_peak":true,"peak_hours":[{"start_hour":22,"end_hour":6,"multiplier":1.5}]}"#.to_string();
-    assert_eq!(candidate_state(&p_auto, ms_in_peak), None, "auto_disabled(已过退避) + 高峰禁用 → 仍排除");
+    assert_eq!(candidate_state(&p_auto, ms_in_peak, ""), None, "auto_disabled(已过退避) + 高峰禁用 → 仍排除");
 
     // 开关 on + peak window，但 peak_hours 缺失（无窗口）→ 不命中 → 不排除
     let mut p_no_windows = mk_platform(PlatformStatus::Enabled, 0);
     p_no_windows.extra = r#"{"disable_during_peak":true}"#.to_string();
-    assert_eq!(candidate_state(&p_no_windows, ms_in_peak), Some(false), "开关 on + 无 peak_hours 窗口 → 不排除");
+    assert_eq!(candidate_state(&p_no_windows, ms_in_peak, ""), Some(false), "开关 on + 无 peak_hours 窗口 → 不排除");
 
     // 非 bool 值不误判（"true" 字符串 / 1 数字 → 视为 off）
     let mut p_str = mk_platform(PlatformStatus::Enabled, 0);
     p_str.extra = r#"{"disable_during_peak":"true","peak_hours":[{"start_hour":22,"end_hour":6,"multiplier":1.5}]}"#.to_string();
-    assert_eq!(candidate_state(&p_str, ms_in_peak), Some(false), "非布尔 disable_during_peak → 视为 off");
+    assert_eq!(candidate_state(&p_str, ms_in_peak, ""), Some(false), "非布尔 disable_during_peak → 视为 off");
 }
 
 #[test]

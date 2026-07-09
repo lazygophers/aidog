@@ -25,6 +25,18 @@ export type PeakWindow = {
   /** 月内日过滤 (1-31)；缺省 = 不过滤；与 `days_of_week` 在 UI 层互斥
    *  （hit 层同时 Some 取 AND 兜底，正常不触发）。与 Rust `PeakWindow.days_of_month` 对称。 */
   days_of_month?: number[];
+  /** model scope（model 维度过滤，PRD 07-09 D2）；缺省 / undefined = 全平台模型生效（向后兼容）。
+   *  元素支持 `"glm-5.2*"` 后缀通配（覆盖 `glm-5.2` / `glm-5.2-turbo`），exact-first。
+   *  与 Rust `PeakWindow.models: Option<Vec<String>>` 对称（跨层一致，见 cross-layer-rules.md）。 */
+  models?: string[];
+  /** 生效期起点（Unix 秒，PRD 07-09 D2 福利期自动切换）；缺省 / undefined = 立即可用。
+   *  `epoch_sec < starts_at` → 窗口尚未启用，跳过此窗口（first-match 继续后续）。
+   *  与 Rust `PeakWindow.starts_at: Option<i64>` 对称。 */
+  starts_at?: number;
+  /** 生效期终点（Unix 秒，PRD 07-09 D2）；缺省 / undefined = 永久。
+   *  `epoch_sec >= expires_at` → 窗口已失效，跳过此窗口。
+   *  与 Rust `PeakWindow.expires_at: Option<i64>` 对称。 */
+  expires_at?: number;
 };
 
 /** defaults.json 运行时缓存：进程内只拉一次 Tauri command，5 函数共享。
@@ -139,6 +151,7 @@ export async function getDefaultPeakHours(protocol: Protocol): Promise<PeakWindo
     ...w,
     days_of_week: w.days_of_week ? [...w.days_of_week] : undefined,
     days_of_month: w.days_of_month ? [...w.days_of_month] : undefined,
+    models: w.models ? [...w.models] : undefined,
   }));
 }
 
