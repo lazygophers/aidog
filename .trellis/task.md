@@ -11,12 +11,12 @@
 | protocols-json-schema | JSON schema 扩展 + 5 cp key | — | 实施中 | — | — |
 | protocols-rust-enum | Rust Protocol +5 cp 变体全链 | — | 规划中 | — | 07-10-protocols-json-schema |
 | protocols-frontend-derive | 前端派生层 + 删 3 常量 + 调用点 async | — | 规划中 | — | 07-10-protocols-json-schema, 07-10-protocols-rust-enum |
-| commands-restructure | src-tauri commands 按域合理分包 | — | 规划中 | — | 07-09-mitm-tables-to-setting,07-10-protocols-rust-enum |
+| commands-restructure | src-tauri commands 按域合理分包 | — | 规划中 | — | 07-09-mitm-tables-to-setting, 07-10-protocols-rust-enum |
 | deps-upgrade-stable | 依赖全部升级最新稳定版 | — | 已完成 | — | — |
 | ws-skeleton | C1 workspace 骨架 + 空门禁 | — | 规划中 | — | — |
-| core-extract | C2 aidog_core 提取 + 业务下沉 | — | 规划中 | — | 07-10-ws-skeleton |
+| core-extract | C2 aidog_core 提取 + 业务下沉 | — | 规划中 | — | 07-10-ws-skeleton,07-10-protocols-rust-enum |
 | cmd-platform | C3 commands-platform crate | — | 规划中 | — | 07-10-core-extract |
-| cmd-proxy | C4 commands-proxy crate | — | 规划中 | — | 07-10-core-extract |
+| cmd-proxy | C4 commands-proxy crate | — | 规划中 | — | 07-10-core-extract,07-09-mitm-tables-to-setting |
 | cmd-config | C5 commands-config crate | — | 规划中 | — | 07-10-core-extract |
 | cmd-system | C6 commands-system crate | — | 规划中 | — | 07-10-core-extract |
 | cmd-ai-tools | C7 commands-ai-tools crate | — | 规划中 | — | 07-10-core-extract |
@@ -34,8 +34,10 @@ flowchart TD
   07-09-mitm-tables-to-setting --> commands-restructure
   07-10-protocols-rust-enum --> commands-restructure
   07-10-ws-skeleton --> core-extract
+  07-10-protocols-rust-enum --> core-extract
   07-10-core-extract --> cmd-platform
   07-10-core-extract --> cmd-proxy
+  07-09-mitm-tables-to-setting --> cmd-proxy
   07-10-core-extract --> cmd-config
   07-10-core-extract --> cmd-system
   07-10-core-extract --> cmd-ai-tools
@@ -55,3 +57,4 @@ flowchart TD
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-10-protocols-json-schema | 07-10-protocols-json-schema | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-10-commands-restructure | 07-10-commands-restructure | trellisx-start |
