@@ -2,6 +2,7 @@ import type { TFunction } from "i18next";
 import type { Platform } from "../../services/api";
 import { SortableList } from "../../components/SortableList";
 import { IconClose } from "../../components/icons";
+import { PROTOCOL_LABELS } from "../platforms";
 
 /** Row model for the sortable selected-platforms list (stable string id for @dnd-kit). */
 export interface SortablePlatform {
@@ -16,11 +17,14 @@ export const PICKER_F = { label: 15, body: 15, hint: 13, small: 12 } as const;
  * 关联平台选择器：已选平台拖拽重排（顺序=优先级）+ 上下移 + 移除 + 下拉添加。
  * 编辑视图与创建视图共用，确保两处交互/组件一致（创建时分组尚无 id，故纯受控 platformIds）。
  */
-export function PlatformPicker({ platformIds, options, onChange, t }: {
+export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: {
   platformIds: number[];
   options: Platform[];
   onChange: (ids: number[]) => void;
   t: TFunction;
+  /** 协议本地化 label 全表（父组件一次性 getProtocolLabelMap 取，sync 渲染避免每 option async）。
+   *  缺省回退 PROTOCOL_LABELS 常量 → platform_type key（与 PlatformCard 三级回退链同范式）。 */
+  labelMap?: Record<string, string>;
 }) {
   return (
     <>
@@ -108,7 +112,7 @@ export function PlatformPicker({ platformIds, options, onChange, t }: {
             <option value="">{t("group.addPlatform", "+ 添加平台")}</option>
             {options
               .filter(p => !platformIds.includes(p.id))
-              .map(p => <option key={p.id} value={p.id}>{p.name} ({p.platform_type})</option>)}
+              .map(p => <option key={p.id} value={p.id}>{p.name} ({labelMap?.[p.platform_type] || PROTOCOL_LABELS[p.platform_type] || p.platform_type})</option>)}
           </select>
         </div>
       )}

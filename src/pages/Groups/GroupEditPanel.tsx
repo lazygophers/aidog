@@ -1,9 +1,11 @@
 import type { TFunction } from "i18next";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import claudeIcon from "../../assets/platforms/claude_code.svg";
 import codexIcon from "../../assets/platforms/openai.svg";
 import type { Platform, RoutingMode } from "../../services/api";
 import type { EditState, EditAction } from "../../domains/groups";
-import { allModelValues } from "../../domains/platforms";
+import { allModelValues, getProtocolLabelMap } from "../../domains/platforms";
 import { F, S } from "../../domains/shared/tokens";
 import { ROUTING_MODES, routingModeLabel, routingModeDesc, buildClaudeCommand, buildCodexCommand, PlatformPicker } from "../../domains/groups";
 import { CopyButton } from "../../components/shared";
@@ -25,6 +27,14 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
     mappings: editMappings, envVars: editEnvVars, reqTimeout: editReqTimeout,
     connTimeout: editConnTimeout, maxRetries: editMaxRetries } = edit;
   const editPlatformOptions = platforms.filter(p => p.enabled);
+  const { i18n } = useTranslation();
+  // 协议 label 全表（一次 RPC，i18n.language 变化重取；PlatformPicker 下拉 option 共享）
+  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    getProtocolLabelMap(i18n.language).then(m => { if (!cancelled) setLabelMap(m); });
+    return () => { cancelled = true; };
+  }, [i18n.language]);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 20, width: "100%" }}>
       {/* Header */}
@@ -128,6 +138,7 @@ export function GroupEditPanel({ edit, dispatchEdit, platforms, t, onCancel, onS
           options={editPlatformOptions}
           onChange={ids => dispatchEdit({ type: "patch", patch: { platformIds: ids } })}
           t={t}
+          labelMap={labelMap}
         />
       </div>
 
