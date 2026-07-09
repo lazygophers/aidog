@@ -1997,25 +1997,137 @@
             "protocol": "anthropic",
             "base_url": "https://api.atlascloud.ai",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://api.atlascloud.ai/v1",
+            "client_type": "codex_tui"
           }
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "openai/gpt-5.5",
+          "opus": "anthropic/claude-opus-4.8",
+          "haiku": "anthropic/claude-haiku-4.5-20251001"
+        }
       },
       "model_list": {
         "default": [
-          "deepseek-ai/DeepSeek-V3.2-Exp",
+          "anthropic/claude-haiku-4.5-20251001",
+          "anthropic/claude-haiku-4.5-20251001-coding",
+          "anthropic/claude-opus-4-20250514",
+          "anthropic/claude-opus-4-20250514-coding",
+          "anthropic/claude-opus-4.1-20250805",
+          "anthropic/claude-opus-4.1-20250805-coding",
+          "anthropic/claude-opus-4.5-20251101",
+          "anthropic/claude-opus-4.5-20251101-coding",
+          "anthropic/claude-opus-4.6",
+          "anthropic/claude-opus-4.6-coding",
+          "anthropic/claude-opus-4.7",
+          "anthropic/claude-opus-4.7-coding",
+          "anthropic/claude-opus-4.8",
+          "anthropic/claude-opus-4.8-coding",
+          "anthropic/claude-sonnet-4-20250514",
+          "anthropic/claude-sonnet-4-20250514-coding",
+          "anthropic/claude-sonnet-4.5-20250929",
+          "anthropic/claude-sonnet-4.5-20250929-coding",
+          "anthropic/claude-sonnet-4.6",
+          "anthropic/claude-sonnet-4.6-coding",
+          "bytedance/doubao-seed-1.6-251015",
+          "bytedance/doubao-seed-1.6-flash-250828",
+          "bytedance/doubao-seed-1.8-251228",
+          "bytedance/doubao-seed-2.0-code-preview-260215",
+          "bytedance/doubao-seed-2.0-lite-260428",
+          "bytedance/doubao-seed-2.0-mini-260428",
+          "bytedance/doubao-seed-2.0-pro-260215",
+          "bytedance/doubao-seed-2.1-pro-260628",
+          "bytedance/doubao-seed-2.1-turbo-260628",
+          "bytedance/doubao-seed-evolving",
+          "deepseek-ai/DeepSeek-V3.1",
           "deepseek-ai/DeepSeek-V3.1-Terminus",
-          "deepseek-ai/DeepSeek-V3-0324",
-          "zai-org/GLM-4.6",
+          "deepseek-ai/DeepSeek-V3.2-Exp",
+          "deepseek-ai/deepseek-ocr",
+          "deepseek-ai/deepseek-v3.2",
+          "deepseek-ai/deepseek-v4-flash",
+          "deepseek-ai/deepseek-v4-pro",
+          "google/gemini-2.0-flash",
+          "google/gemini-2.0-flash-lite",
+          "google/gemini-2.5-flash",
+          "google/gemini-2.5-flash-image",
+          "google/gemini-2.5-flash-lite",
+          "google/gemini-2.5-pro",
+          "google/gemini-3-flash-preview",
+          "google/gemini-3-pro-image-preview",
+          "google/gemini-3.1-flash-image",
+          "google/gemini-3.1-flash-image-preview",
+          "google/gemini-3.1-flash-lite",
+          "google/gemini-3.1-pro-preview",
+          "google/gemini-3.5-flash",
+          "kwaipilot/kat-coder-air-v2.5",
+          "kwaipilot/kat-coder-pro-v2",
+          "kwaipilot/kat-coder-pro-v2.5",
+          "meituan-longcat/longcat-2.0",
+          "minimaxai/minimax-m2.5",
+          "minimaxai/minimax-m2.7",
+          "minimaxai/minimax-m3",
+          "moonshotai/kimi-k2.5",
+          "moonshotai/kimi-k2.6",
+          "moonshotai/kimi-k2.7-code",
+          "openai/gpt-4.1",
+          "openai/gpt-4.1-mini",
+          "openai/gpt-4.1-nano",
+          "openai/gpt-4o",
+          "openai/gpt-4o-mini",
+          "openai/gpt-5",
+          "openai/gpt-5-chat",
+          "openai/gpt-5-codex",
+          "openai/gpt-5-mini",
+          "openai/gpt-5-nano",
+          "openai/gpt-5-pro",
+          "openai/gpt-5.1",
+          "openai/gpt-5.1-chat",
+          "openai/gpt-5.1-codex",
+          "openai/gpt-5.1-codex-max",
+          "openai/gpt-5.1-codex-mini",
+          "openai/gpt-5.2",
+          "openai/gpt-5.2-chat",
+          "openai/gpt-5.2-codex",
+          "openai/gpt-5.3-codex",
+          "openai/gpt-5.4",
+          "openai/gpt-5.4-mini",
+          "openai/gpt-5.4-nano",
+          "openai/gpt-5.5",
+          "openai/gpt-image-2",
+          "openai/o1",
+          "openai/o3",
+          "openai/o3-mini",
+          "openai/o3-pro",
+          "openai/o4-mini",
           "Qwen/Qwen3-235B-A22B-Instruct-2507",
-          "Qwen/Qwen3-Coder",
-          "Qwen/Qwen3-Next-80B-A3B-Instruct",
-          "Qwen/Qwen3-VL-235B-A22B-Instruct",
-          "moonshotai/Kimi-K2-Thinking",
-          "moonshotai/Kimi-K2-Instruct-0905",
-          "MiniMaxAI/MiniMax-M2"
+          "qwen/qwen3-vl-235b-a22b-thinking",
+          "qwen/qwen3.5-122b-a10b",
+          "qwen/qwen3.5-27b",
+          "qwen/qwen3.5-35b-a3b",
+          "qwen/qwen3.5-397b-a17b",
+          "qwen/qwen3.5-flash",
+          "qwen/qwen3.5-plus",
+          "qwen/qwen3.6-35b-a3b",
+          "qwen/qwen3.6-plus",
+          "qwen/qwen3.7-max",
+          "qwen/qwen3.7-plus",
+          "tencent/hy3",
+          "xai/grok-4.3",
+          "xai/grok-build-0.1",
+          "xiaomi/mimo-v2.5",
+          "xiaomi/mimo-v2.5-pro",
+          "zai-org/GLM-4.6",
+          "zai-org/glm-4.7",
+          "zai-org/glm-5",
+          "zai-org/glm-5-turbo",
+          "zai-org/glm-5.1",
+          "zai-org/glm-5.2",
+          "zai-org/glm-5v-turbo"
         ]
       },
       "name": {
@@ -2153,27 +2265,164 @@
             "protocol": "anthropic",
             "base_url": "https://open.cherryin.net",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://open.cherryin.net/v1",
+            "client_type": "codex_tui"
+          },
+          {
+            "protocol": "gemini",
+            "base_url": "https://open.cherryin.net",
+            "client_type": "default"
           }
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "opus": "anthropic/claude-opus-4.8",
+          "gpt": "openai/gpt-5.5",
+          "default": "agent/glm-5.2"
+        }
       },
       "model_list": {
         "default": [
-          "anthropic/claude-opus-4.8",
-          "anthropic/claude-sonnet-4.6",
+          "anthropic/claude-haiku-4.5",
           "anthropic/claude-opus-4.5",
-          "openai/gpt-5.5",
+          "anthropic/claude-opus-4.6",
+          "anthropic/claude-opus-4.7",
+          "anthropic/claude-opus-4.8",
+          "anthropic/claude-sonnet-4",
+          "anthropic/claude-sonnet-4.5",
+          "anthropic/claude-sonnet-4.6",
+          "anthropic/claude-sonnet-5",
+          "openai/gpt-4.1",
+          "openai/gpt-4.1-mini",
+          "openai/gpt-4.1-nano",
+          "openai/gpt-4o",
+          "openai/gpt-4o-mini",
+          "openai/gpt-5",
+          "openai/gpt-5-chat",
+          "openai/gpt-5-codex",
+          "openai/gpt-5-mini",
+          "openai/gpt-5-nano",
+          "openai/gpt-5-pro",
+          "openai/gpt-5.1",
+          "openai/gpt-5.1-chat",
+          "openai/gpt-5.1-codex",
+          "openai/gpt-5.2",
+          "openai/gpt-5.2-chat",
+          "openai/gpt-5.2-codex",
+          "openai/gpt-5.3-chat",
           "openai/gpt-5.3-codex",
-          "google/gemini-3.5-flash",
+          "openai/gpt-5.4",
+          "openai/gpt-5.4-mini",
+          "openai/gpt-5.4-nano",
+          "openai/gpt-5.4-pro",
+          "openai/gpt-5.5",
+          "openai/o1",
+          "openai/o1-mini",
+          "openai/o3",
+          "openai/o4-mini",
+          "google/gemini-2.5-flash",
+          "google/gemini-2.5-flash-image",
+          "google/gemini-2.5-flash-lite",
+          "google/gemini-2.5-pro",
+          "google/gemini-3-flash-preview",
+          "google/gemini-3-pro-image-preview",
           "google/gemini-3-pro-preview",
-          "deepseek/deepseek-v4-pro",
-          "deepseek/deepseek-v4-flash",
+          "google/gemini-3.1-flash-image-preview",
+          "google/gemini-3.1-flash-lite-preview",
+          "google/gemini-3.1-pro-preview",
+          "google/gemini-3.5-flash",
+          "agent/deepseek-v3.2",
+          "agent/deepseek-v3.2(free)",
+          "agent/deepseek-v4-flash",
+          "agent/deepseek-v4-pro",
+          "deepseek/deepseek-ocr(free)",
+          "deepseek/deepseek-v3.1-terminus",
           "deepseek/deepseek-v3.2",
-          "agent/glm-5.2",
+          "deepseek/deepseek-v3.2(free)",
+          "deepseek/deepseek-v4-flash",
+          "deepseek/deepseek-v4-flash(free)",
+          "deepseek/deepseek-v4-pro",
+          "agent/kimi-k2-0905",
+          "agent/kimi-k2-thinking",
+          "agent/kimi-k2.5",
+          "agent/kimi-k2.6",
+          "agent/kimi-k2.7-code",
+          "moonshotai/kimi-k2-0905",
+          "moonshotai/kimi-k2-instruct",
+          "moonshotai/kimi-k2-thinking",
+          "moonshotai/kimi-k2-thinking-turbo",
+          "moonshotai/kimi-k2.5",
+          "moonshotai/kimi-k2.6",
           "moonshotai/kimi-k2.7-code",
-          "grok-4"
+          "agent/glm-4.6",
+          "agent/glm-4.7",
+          "agent/glm-5",
+          "agent/glm-5.1",
+          "agent/glm-5.2",
+          "z-ai/glm-4.6",
+          "z-ai/glm-4.7",
+          "z-ai/glm-5",
+          "z-ai/glm-5.1",
+          "z-ai/glm-5.2",
+          "x-ai/grok-3",
+          "x-ai/grok-3-mini",
+          "x-ai/grok-4",
+          "x-ai/grok-4-1-fast-non-reasoning",
+          "x-ai/grok-4-1-fast-reasoning",
+          "x-ai/grok-4-fast-non-reasoning",
+          "x-ai/grok-4-fast-reasoning",
+          "x-ai/grok-4.3",
+          "x-ai/grok-code-fast-1",
+          "agent/minimax-m2.5",
+          "agent/minimax-m2.5-highspeed",
+          "agent/minimax-m2.7",
+          "agent/minimax-m2.7-highspeed",
+          "minimax/minimax-m2.1",
+          "minimax/minimax-m2.1--lightning",
+          "minimax/minimax-m2.5",
+          "minimax/minimax-m2.5-highspeed",
+          "minimax/minimax-m2.7",
+          "minimax/minimax-m2.7-highspeed",
+          "minimax/minimax-m3",
+          "agent/qwen3.5-flash",
+          "agent/qwen3.5-plus",
+          "agent/qwen3.6-plus",
+          "agent/qwen3.7-max",
+          "qwen/qwen3-235b-a22b-instruct-2507",
+          "qwen/qwen3-235b-a22b-thinking-2507",
+          "qwen/qwen3-30b-a3b-instruct-2507",
+          "qwen/qwen3-30b-a3b-instruct-2507(free)",
+          "qwen/qwen3-30b-a3b-thinking-2507",
+          "qwen/qwen3-coder-30b-a3b-instruct(free)",
+          "qwen/qwen3-coder-480b-a35b-instruct",
+          "qwen/qwen3-coder-flash",
+          "qwen/qwen3-coder-plus",
+          "qwen/qwen3-max",
+          "qwen/qwen3-next-80b-a3b-instruct",
+          "qwen/qwen3-vl-235b-a22b-instruct",
+          "qwen/qwen3-vl-235b-a22b-thinking",
+          "qwen/qwen3-vl-30b-a3b-instruct(free)",
+          "qwen/qwen3-vl-30b-a3b-thinking(free)",
+          "qwen/qwen3-vl-flash",
+          "qwen/qwen3-vl-plus",
+          "qwen/qwen3.5-122b-a10b",
+          "qwen/qwen3.5-27b",
+          "qwen/qwen3.5-35b-a3b",
+          "qwen/qwen3.5-35b-a3b(free)",
+          "qwen/qwen3.5-397b-a17b",
+          "qwen/qwen3.5-4b(free)",
+          "qwen/qwen3.5-9b(free)",
+          "qwen/qwen3.5-flash",
+          "qwen/qwen3.5-plus",
+          "qwen/qwen3.6-plus",
+          "qwen/qwen3.7-max",
+          "bytedance/seed-oss-36b-instruct(free)",
+          "tencent/hunyuan-mt-7b(free)",
+          "stepfun-ai/step-3.5-flash(free)"
         ]
       },
       "name": {
@@ -2349,17 +2598,25 @@
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "claude-sonnet-4-6",
+          "opus": "claude-opus-4-8",
+          "haiku": "claude-haiku-4-5"
+        }
       },
       "model_list": {
         "default": [
           "claude-opus-4-8",
-          "claude-sonnet-4-6",
-          "claude-haiku-4-5",
           "claude-opus-4-7",
           "claude-opus-4-6",
-          "claude-opus-4-5",
-          "claude-sonnet-4-5"
+          "claude-sonnet-4-6",
+          "claude-haiku-4-5",
+          "gpt-5.5",
+          "gpt-5.4",
+          "gpt-5.4-mini",
+          "gemini-3.1-pro-preview",
+          "gemini-3.5-flash",
+          "gemini-3-flash-preview"
         ]
       },
       "name": {
@@ -2373,14 +2630,14 @@
         "es-ES": "AIGoCode"
       },
       "desc": {
-        "en-US": "AIGoCode API for Claude-compatible models",
-        "zh-Hans": "AIGoCode API, Claude 兼容模型",
-        "ar-SA": "واجهة AIGoCode لنماذج متوافقة مع Claude",
-        "fr-FR": "API AIGoCode pour les modèles compatibles Claude",
-        "de-DE": "AIGoCode-API für Claude-kompatible Modelle",
-        "ru-RU": "API AIGoCode для Claude-совместимых моделей",
-        "ja-JP": "AIGoCode API、Claude 互換モデル",
-        "es-ES": "API de AIGoCode para modelos compatibles con Claude"
+        "zh-Hans": "AIGoCode 多供应商聚合平台，支持 Claude/GPT/Gemini 协议",
+        "en-US": "AIGoCode multi-provider aggregator (Claude/GPT/Gemini protocols)",
+        "ar-SA": "منصة AIGoCode متعددة المزودين (بروتوكولات Claude/GPT/Gemini)",
+        "fr-FR": "Agrégateur multi-fournisseurs AIGoCode (protocoles Claude/GPT/Gemini)",
+        "de-DE": "AIGoCode Multi-Provider-Aggregator (Claude/GPT/Gemini-Protokolle)",
+        "ru-RU": "Мультипровайдерная агрегация AIGoCode (протоколы Claude/GPT/Gemini)",
+        "ja-JP": "AIGoCode マルチプロバイダ集約（Claude/GPT/Gemini プロトコル）",
+        "es-ES": "Agregador multiproveedor AIGoCode (protocolos Claude/GPT/Gemini)"
       },
       "source_urls": {
         "docs": "https://www.aigocode.com/",
@@ -2468,7 +2725,11 @@
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "sonnet": "claude-sonnet-4-6",
+          "opus": "claude-opus-4-8",
+          "haiku": "claude-haiku-4-5"
+        }
       },
       "model_list": {
         "default": [
@@ -2635,21 +2896,42 @@
             "protocol": "openai",
             "base_url": "https://www.ccsub.net/v1",
             "client_type": "codex_tui"
+          },
+          {
+            "protocol": "gemini",
+            "base_url": "https://www.ccsub.net",
+            "client_type": "default"
           }
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "sonnet": "claude-sonnet-4-6",
+          "opus": "claude-opus-4-8",
+          "haiku": "claude-haiku-4-5"
+        }
       },
       "model_list": {
         "default": [
           "claude-opus-4-8",
-          "claude-sonnet-4-6",
-          "claude-haiku-4-5",
-          "claude-opus-4-7",
           "claude-opus-4-6",
           "claude-opus-4-5",
-          "claude-sonnet-4-5"
+          "claude-sonnet-5",
+          "claude-sonnet-4-6",
+          "claude-sonnet-4-5",
+          "claude-haiku-4-5",
+          "gpt-5.4",
+          "gpt-5",
+          "gpt-5-mini",
+          "gpt-4o",
+          "o3",
+          "o3-pro",
+          "o4-mini",
+          "codex-mini-latest",
+          "gemini-3.5-flash",
+          "gemini-2.5-pro",
+          "gemini-2.5-flash",
+          "gemini-2.5-flash-lite"
         ]
       },
       "name": {
@@ -2663,14 +2945,14 @@
         "es-ES": "CCSub"
       },
       "desc": {
-        "en-US": "CCSub API for Claude-compatible models",
-        "zh-Hans": "CCSub API, Claude 兼容模型",
-        "ar-SA": "واجهة CCSub لنماذج متوافقة مع Claude",
-        "fr-FR": "API CCSub pour les modèles compatibles Claude",
-        "de-DE": "CCSub-API für Claude-kompatible Modelle",
-        "ru-RU": "API CCSub для Claude-совместимых моделей",
-        "ja-JP": "CCSub API、Claude 互換モデル",
-        "es-ES": "API de CCSub para modelos compatibles con Claude"
+        "en-US": "CCSub multi-vendor AI API relay (Claude / GPT / Gemini)",
+        "zh-Hans": "CCSub 多供应商 AI API 中转（Claude / GPT / Gemini）",
+        "ar-SA": "بوابة CCSub متعددة الموردين لواجهات AI (Claude / GPT / Gemini)",
+        "fr-FR": "Relais API IA multi-fournisseurs CCSub (Claude / GPT / Gemini)",
+        "de-DE": "CCSub Multi-Vendor KI-API-Relay (Claude / GPT / Gemini)",
+        "ru-RU": "Мультивендорный релей AI API CCSub (Claude / GPT / Gemini)",
+        "ja-JP": "CCSub マルチベンダー AI API 中継（Claude / GPT / Gemini）",
+        "es-ES": "Relé API IA multi-proveedor de CCSub (Claude / GPT / Gemini)"
       },
       "source_urls": {
         "docs": "https://www.ccsub.net/docs",
@@ -2701,7 +2983,11 @@
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "claude-sonnet-4-6",
+          "opus": "claude-opus-4-8",
+          "haiku": "claude-haiku-4-5"
+        }
       },
       "model_list": {
         "default": [
@@ -2725,14 +3011,14 @@
         "es-ES": "APIKEY.FUN"
       },
       "desc": {
-        "en-US": "APIKEY.FUN API for Claude-compatible models",
-        "zh-Hans": "APIKEY.FUN API, Claude 兼容模型",
-        "ar-SA": "واجهة APIKEY.FUN لنماذج متوافقة مع Claude",
-        "fr-FR": "API APIKEY.FUN pour les modèles compatibles Claude",
-        "de-DE": "APIKEY.FUN-API für Claude-kompatible Modelle",
-        "ru-RU": "API APIKEY.FUN для Claude-совместимых моделей",
-        "ja-JP": "APIKEY.FUN API、Claude 互換モデル",
-        "es-ES": "API de APIKEY.FUN para modelos compatibles con Claude"
+        "zh-Hans": "APIKEY.FUN 多供应商 AI 网关，支持 Claude/GPT/Gemini 协议",
+        "en-US": "APIKEY.FUN universal AI gateway (Claude/GPT/Gemini protocols)",
+        "ar-SA": "بوابة APIKEY.FUN الذكاء الاصطناعي الشاملة (بروتوكولات Claude/GPT/Gemini)",
+        "fr-FR": "Passerelle AI universelle APIKEY.FUN (protocoles Claude/GPT/Gemini)",
+        "de-DE": "APIKEY.FUN universelles AI-Gateway (Claude/GPT/Gemini-Protokolle)",
+        "ru-RU": "Универсальный AI-шлюз APIKEY.FUN (протоколы Claude/GPT/Gemini)",
+        "ja-JP": "APIKEY.FUN ユニバーサル AI ゲートウェイ（Claude/GPT/Gemini プロトコル）",
+        "es-ES": "Puerta de enlace AI universal APIKEY.FUN (protocolos Claude/GPT/Gemini)"
       },
       "source_urls": {
         "docs": "https://apikey.fun/",
@@ -2763,17 +3049,34 @@
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "claude-sonnet-4-6",
+          "opus": "claude-opus-4-8",
+          "haiku": "claude-haiku-4-5"
+        }
       },
       "model_list": {
         "default": [
           "claude-opus-4-8",
-          "claude-sonnet-4-6",
-          "claude-haiku-4-5",
+          "claude-fable-5",
+          "claude-sonnet-5",
           "claude-opus-4-7",
+          "claude-sonnet-4-6",
           "claude-opus-4-6",
-          "claude-opus-4-5",
-          "claude-sonnet-4-5"
+          "claude-haiku-4-5",
+          "claude-sonnet-4-5",
+          "gpt-5.5",
+          "gpt-5.4",
+          "gpt-5.4-mini",
+          "gpt-5.5-openai-compact",
+          "gpt-image-2",
+          "gemini-3.1-pro-preview",
+          "gemini-3.5-flash",
+          "gemini-2.5-pro",
+          "gemini-2.5-flash-lite",
+          "gemini-3-pro-image-preview",
+          "gemini-3.1-flash-image-preview",
+          "codex-auto-review"
         ]
       },
       "name": {
@@ -2787,14 +3090,14 @@
         "es-ES": "APINebula"
       },
       "desc": {
-        "en-US": "APINebula API for Claude-compatible models",
-        "zh-Hans": "APINebula API, Claude 兼容模型",
-        "ar-SA": "واجهة APINebula لنماذج متوافقة مع Claude",
-        "fr-FR": "API APINebula pour les modèles compatibles Claude",
-        "de-DE": "APINebula-API für Claude-kompatible Modelle",
-        "ru-RU": "API APINebula для Claude-совместимых моделей",
-        "ja-JP": "APINebula API、Claude 互換モデル",
-        "es-ES": "API de APINebula para modelos compatibles con Claude"
+        "zh-Hans": "APINebula AI 模型聚合平台，支持 OpenAI/Claude/Gemini 协议",
+        "en-US": "APINebula unified AI model hub (OpenAI/Claude/Gemini protocols)",
+        "ar-SA": "مركز APINebula الموحد لنماذج الذكاء الاصطناعي (بروتوكولات OpenAI/Claude/Gemini)",
+        "fr-FR": "Hub AI unifié APINebula (protocoles OpenAI/Claude/Gemini)",
+        "de-DE": "APINebula einheitliches AI-Modell-Hub (OpenAI/Claude/Gemini-Protokolle)",
+        "ru-RU": "Единый хаб AI-моделей APINebula (протоколы OpenAI/Claude/Gemini)",
+        "ja-JP": "APINebula 統合 AI モデルハブ（OpenAI/Claude/Gemini プロトコル）",
+        "es-ES": "Hub unificado de modelos AI APINebula (protocolos OpenAI/Claude/Gemini)"
       },
       "source_urls": {
         "docs": "https://docs.apinebula.com/",
@@ -2867,17 +3170,23 @@
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "sonnet": "claude-sonnet-5",
+          "opus": "claude-opus-4-8",
+          "haiku": "claude-haiku-4-5"
+        }
       },
       "model_list": {
         "default": [
+          "claude-fable-5",
+          "claude-sonnet-5",
           "claude-opus-4-8",
-          "claude-sonnet-4-6",
-          "claude-haiku-4-5",
           "claude-opus-4-7",
           "claude-opus-4-6",
           "claude-opus-4-5",
-          "claude-sonnet-4-5"
+          "claude-sonnet-4-6",
+          "claude-sonnet-4-5",
+          "claude-haiku-4-5"
         ]
       },
       "name": {
@@ -2891,18 +3200,18 @@
         "es-ES": "ClaudeAPI"
       },
       "desc": {
-        "en-US": "ClaudeAPI proxy for Claude-compatible models",
-        "zh-Hans": "ClaudeAPI 中转, Claude 兼容模型",
-        "ar-SA": "وكيل ClaudeAPI لنماذج متوافقة مع Claude",
-        "fr-FR": "Proxy ClaudeAPI pour les modèles compatibles Claude",
-        "de-DE": "ClaudeAPI-Proxy für Claude-kompatible Modelle",
-        "ru-RU": "Прокси ClaudeAPI для Claude-совместимых моделей",
-        "ja-JP": "ClaudeAPI 中継、Claude 互換モデル",
-        "es-ES": "Proxy ClaudeAPI para modelos compatibles con Claude"
+        "en-US": "Anthropic Claude API third-party proxy, 20% cheaper than official",
+        "zh-Hans": "Anthropic Claude API 第三方中转，官价 8 折",
+        "ar-SA": "وكيل طرف ثالث لـ Anthropic Claude API، أرخص بنسبة 20% من الرسمي",
+        "fr-FR": "Proxy tiers Anthropic Claude API, 20% moins cher que l'officiel",
+        "de-DE": "Drittanbieter-Proxy für Anthropic Claude API, 20% günstiger als offiziell",
+        "ru-RU": "Сторонний прокси Anthropic Claude API, на 20% дешевле официального",
+        "ja-JP": "Anthropic Claude API サードパーティ中継、公式より 20% 安い",
+        "es-ES": "Proxy de terceros de Anthropic Claude API, 20% más barato que el oficial"
       },
       "source_urls": {
-        "docs": "https://docs.claudeapi.com/",
-        "pricing": "https://claudeapi.com/pricing"
+        "docs": "https://apito.ai/en/blog/getting-started/claude-api-model-id-list/",
+        "pricing": "https://apito.ai/en/blog/pricing/claude-api-pricing-guide/"
       },
       "homepage": "https://claudeapi.com",
       "logo_url": ""
@@ -2913,7 +3222,7 @@
         "default": [
           {
             "protocol": "anthropic",
-            "base_url": "https://claudecn.top",
+            "base_url": "https://claudecn.ai",
             "client_type": "claude_code"
           },
           {
@@ -2924,7 +3233,11 @@
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "sonnet": "claude-sonnet-4-6",
+          "opus": "claude-opus-4-8",
+          "haiku": "claude-haiku-4-5"
+        }
       },
       "model_list": {
         "default": [
@@ -2948,14 +3261,14 @@
         "es-ES": "ClaudeCN"
       },
       "desc": {
-        "en-US": "ClaudeCN proxy for Claude-compatible models",
-        "zh-Hans": "ClaudeCN 中转, Claude 兼容模型",
-        "ar-SA": "وكيل ClaudeCN لنماذج متوافقة مع Claude",
-        "fr-FR": "Proxy ClaudeCN pour les modèles compatibles Claude",
-        "de-DE": "ClaudeCN-Proxy für Claude-kompatible Modelle",
-        "ru-RU": "Прокси ClaudeCN для Claude-совместимых моделей",
-        "ja-JP": "ClaudeCN 中継、Claude 互換モデル",
-        "es-ES": "Proxy ClaudeCN para modelos compatibles con Claude"
+        "en-US": "ClaudeCN multi-model gateway (Claude / GPT / Gemini)",
+        "zh-Hans": "ClaudeCN 多模型聚合中转（Claude / GPT / Gemini）",
+        "ar-SA": "بوابة ClaudeCN متعددة النماذج (Claude / GPT / Gemini)",
+        "fr-FR": "Passerelle multi-modèles ClaudeCN (Claude / GPT / Gemini)",
+        "de-DE": "ClaudeCN Multi-Modell-Gateway (Claude / GPT / Gemini)",
+        "ru-RU": "Мультимодельный шлюз ClaudeCN (Claude / GPT / Gemini)",
+        "ja-JP": "ClaudeCN マルチモデルゲートウェイ（Claude / GPT / Gemini）",
+        "es-ES": "Pasarela multimodelo ClaudeCN (Claude / GPT / Gemini)"
       },
       "source_urls": {
         "docs": "https://claudecn.top/document",
@@ -3100,17 +3413,178 @@
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "claude-opus-4-8",
+          "gpt": "gpt-5.5",
+          "fast": "deepseek-v4-flash"
+        }
       },
       "model_list": {
         "default": [
-          "claude-opus-4-8",
-          "claude-sonnet-4-6",
+          "claude-fable-5",
           "claude-haiku-4-5",
-          "claude-opus-4-7",
-          "claude-opus-4-6",
           "claude-opus-4-5",
-          "claude-sonnet-4-5"
+          "claude-opus-4-6",
+          "claude-opus-4-7",
+          "claude-opus-4-8",
+          "claude-sonnet-4-5",
+          "claude-sonnet-4-6",
+          "claude-sonnet-5",
+          "gpt-4.1",
+          "gpt-4.1-mini",
+          "gpt-4.1-nano",
+          "gpt-4o",
+          "gpt-4o-mini",
+          "gpt-5",
+          "gpt-5-codex",
+          "gpt-5-mini",
+          "gpt-5-nano",
+          "gpt-5.1",
+          "gpt-5.1-codex",
+          "gpt-5.1-codex-max",
+          "gpt-5.1-codex-mini",
+          "gpt-5.2-pro",
+          "gpt-5.4",
+          "gpt-5.4-pro",
+          "gpt-5.5",
+          "gpt-5.5-pro",
+          "gpt-image-2",
+          "gemini-2.5-flash",
+          "gemini-2.5-flash-lite",
+          "gemini-2.5-pro",
+          "gemini-3-flash",
+          "gemini-3.1-flash-lite",
+          "gemini-3.1-pro",
+          "gemini-3.5-flash",
+          "deepseek-v4-flash",
+          "deepseek-v4-pro",
+          "qwen-max",
+          "qwen-max-longcontext",
+          "qwen-plus",
+          "qwen-turbo",
+          "qwen-vl-max-latest",
+          "qwen-image-2.0",
+          "qwen-image-max",
+          "qwen-image-plus",
+          "qwen3-235b-a22b",
+          "qwen3-coder-plus",
+          "qwen3-max",
+          "qwen3-vl-flash",
+          "qwen3-vl-plus",
+          "qwen3.5-flash",
+          "qwen3.5-plus",
+          "qwen3.6-flash",
+          "qwen3.6-plus",
+          "qwen3.7-max",
+          "qwen3.7-plus",
+          "glm-3-turbo",
+          "glm-5",
+          "glm-5-turbo",
+          "glm-5.1",
+          "glm-5.2",
+          "glm-5v-turbo",
+          "glm-ocr",
+          "MiniMax-M2.5",
+          "MiniMax-M2.7",
+          "MiniMax-M3",
+          "kimi-k2-0905-preview",
+          "kimi-k2.5",
+          "kimi-k2.6",
+          "grok-4",
+          "grok-4-0709",
+          "grok-4-1-fast-non-reasoning",
+          "grok-4-1-fast-reasoning",
+          "grok-4-fast-non-reasoning",
+          "grok-4-fast-reasoning",
+          "grok-4.1",
+          "grok-4.2",
+          "o1",
+          "o1-mini",
+          "o3",
+          "o3-mini",
+          "o3-pro",
+          "o4-mini",
+          "llama-3.1-405b",
+          "llama-3.1-70b",
+          "llama-3.1-8b",
+          "llama-3.2-11b-vision-instruct",
+          "llama-3.2-1b-instruct",
+          "llama-3.2-3b-instruct",
+          "llama-3.2-90b-vision-instruct",
+          "doubao-seed-1-6-251015",
+          "doubao-seed-1-6-flash-250615",
+          "doubao-seed-1-6-flash-250828",
+          "doubao-seed-1-6-vision-250815",
+          "doubao-seed-code-preview-251028",
+          "doubao-seedance-1-0-lite-i2v",
+          "doubao-seedance-1-0-lite-t2v",
+          "doubao-seedance-1-0-pro",
+          "doubao-seedance-1-0-pro-fast",
+          "doubao-seedance-1-5-pro",
+          "doubao-seedance-2-0",
+          "doubao-seedance-2-0-fast",
+          "doubao-seedream-4-0",
+          "doubao-seedream-4-5",
+          "doubao-seedream-5-0",
+          "mimo-v2-flash",
+          "mimo-v2-omni",
+          "mimo-v2-pro",
+          "aigc-video-gv-3.1",
+          "aigc-video-gv-3.1-fast",
+          "aigc-video-gv-3.1-lite",
+          "aigc-video-kling-1.6",
+          "aigc-video-kling-2.0",
+          "aigc-video-kling-2.1",
+          "aigc-video-kling-2.5-turbo",
+          "aigc-video-kling-2.6",
+          "aigc-video-kling-2.6-motion-control",
+          "aigc-video-kling-3.0",
+          "aigc-video-kling-3.0-motion-control",
+          "aigc-video-kling-3.0-turbo",
+          "aigc-video-kling-avatar",
+          "aigc-video-kling-identifyface",
+          "aigc-video-kling-o1",
+          "kling-v2-5-turbo",
+          "kling-v2-6",
+          "kling-v3",
+          "veo-3.1",
+          "veo-3.1-fast",
+          "wan2.2-i2v-flash",
+          "wan2.2-i2v-plus",
+          "wan2.2-kf2v-flash",
+          "wan2.2-s2v",
+          "wan2.2-t2v-plus",
+          "wan2.5-t2v-preview",
+          "youtu-vita",
+          "aigc-image-kling-3.0",
+          "cogview-3-flash",
+          "cogview-4",
+          "dall-e-3",
+          "mj_imagine",
+          "mj_upscale",
+          "mj_variation",
+          "nano-banana",
+          "nano-banana-2",
+          "nano-banana-pro",
+          "suno_music",
+          "tts-1",
+          "tts-1-1106",
+          "tts-1-hd-1106",
+          "whisper-1",
+          "gte-rerank-v2",
+          "text-embedding-3-large",
+          "text-embedding-3-small",
+          "text-embedding-v1",
+          "babbage-002",
+          "chat-seededit",
+          "davinci-002",
+          "search",
+          "text-ada-001",
+          "text-babbage-001",
+          "text-curie-001",
+          "text-davinci-edit-001",
+          "text-moderation-latest",
+          "text-moderation-stable"
         ]
       },
       "name": {
@@ -3214,10 +3688,135 @@
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "sonnet": "claude-sonnet-5",
+          "opus": "claude-opus-4-8",
+          "default": "deepseek-v4-pro"
+        }
       },
       "model_list": {
-        "default": []
+        "default": [
+          "claude-fable-5",
+          "claude-haiku-4-5-20251001",
+          "claude-opus-4-1-20250805",
+          "claude-opus-4-5-20251101",
+          "claude-opus-4-5-20251101-thinking",
+          "claude-opus-4-6",
+          "claude-opus-4-7",
+          "claude-opus-4-8",
+          "claude-sonnet-4-5-20250929",
+          "claude-sonnet-4-5-20250929-thinking",
+          "claude-sonnet-4-6",
+          "claude-sonnet-4.5",
+          "claude-sonnet-4.5-thinking",
+          "claude-sonnet-5",
+          "gpt-4.1-mini",
+          "gpt-4.1-nano",
+          "gpt-4o-mini",
+          "gpt-5",
+          "gpt-5-codex",
+          "gpt-5.1",
+          "gpt-5.1-codex",
+          "gpt-5.1-codex-max",
+          "gpt-5.1-codex-mini",
+          "gpt-5.2",
+          "gpt-5.2-codex",
+          "gpt-5.3-codex",
+          "gpt-5.4",
+          "gpt-5.4-mini",
+          "gpt-5.4-nano",
+          "gpt-5.4-pro",
+          "gpt-5.5",
+          "openai/gpt-4.1",
+          "openai/gpt-4o",
+          "openai/gpt-5",
+          "openai/gpt-5-mini",
+          "openai/gpt-5-nano",
+          "openai/gpt-5.1",
+          "openai/gpt-5.1-codex",
+          "openai/gpt-5.1-codex-mini",
+          "openai/gpt-5.2",
+          "gemini-2.5-flash",
+          "gemini-2.5-pro",
+          "gemini-3-flash-preview",
+          "gemini-3.5-flash",
+          "gemini-3.1-pro-preview",
+          "google/gemma-3-27b-it",
+          "google/gemma-4-31b-it",
+          "publishers/google/models/gemini-3-flash-preview",
+          "publishers/google/models/gemini-3-pro-image-preview",
+          "publishers/google/models/gemini-3.1-pro-preview",
+          "deepseek-v4-flash",
+          "deepseek-v4-pro",
+          "deepseek-ai/DeepSeek-V3.2",
+          "deepseek-ai/DeepSeek-V3.2-Exp",
+          "Qwen/QwQ-32B",
+          "Qwen/Qwen3-235B-A22B-Thinking-2507",
+          "Qwen/Qwen3-30B-A3B-Thinking",
+          "Qwen/Qwen3-Coder",
+          "Qwen/Qwen3-Max",
+          "Qwen/Qwen3-VL-235B-A22B-Instruct",
+          "Qwen/Qwen3-VL-235B-A22B-Thinking",
+          "Qwen/Qwen3-vl-Plus",
+          "qwen3-30b-a3b",
+          "qwen3-coder-30b-a3b-instruct",
+          "qwen3-coder-plus",
+          "qwen3-max-preview",
+          "qwen3-vl-flash",
+          "qwen3.5-plus",
+          "qwen3.6-35b-a3b",
+          "qwen3.6-plus",
+          "qwen3.7-max",
+          "qwen3.7-plus",
+          "glm-5-turbo",
+          "glm-5.1",
+          "glm-5.2",
+          "glm-5v-turbo",
+          "zai-org/glm-4.6",
+          "zai-org/glm-4.6v",
+          "zai-org/glm-4.7",
+          "zai-org/glm-5",
+          "kimi-k2.6",
+          "kimi-k2.7-code",
+          "moonshot/kimi-k2.5",
+          "moonshotai/Kimi-K2-Instruct",
+          "moonshotai/kimi-k2.5",
+          "MiniMax-Hailuo-02",
+          "MiniMax-Hailuo-2.3",
+          "MiniMax-Hailuo-2.3-Fast",
+          "MiniMax-M2",
+          "MiniMax-M2.1",
+          "MiniMax-M2.1-lightning",
+          "MiniMax-M2.5",
+          "MiniMax-M2.5-lightning",
+          "MiniMax-M2.7",
+          "MiniMax-M2.7-highspeed",
+          "MiniMax-M3",
+          "ByteDance/doubao-1-5-pro-32k-250115",
+          "ByteDance/doubao-seed-1.6",
+          "doubao-1-5-pro-32k-character-250715",
+          "doubao-seed-1-6-lite-251015",
+          "doubao-seed-2-0-code-preview-260215",
+          "doubao-seed-2-0-lite-260215",
+          "doubao-seed-2-0-mini-260215",
+          "doubao-seed-2-0-pro-260215",
+          "doubao-seed-2-1-pro-260628",
+          "doubao-seed-2-1-turbo-260628",
+          "doubao-seed-evolving",
+          "baidu/ernie-4.5-turbo-128k",
+          "baidu/ernie-4.5-turbo-vl-32k",
+          "grok-4",
+          "grok-4-1-fast-non-reasoning",
+          "grok-4-1-fast-reasoning",
+          "grok-4-fast",
+          "grok-4-fast-reasoning",
+          "grok-4.20-0309-non-reasoning",
+          "grok-4.20-0309-reasoning",
+          "grok-4.3",
+          "codex-mini-latest",
+          "mimo-v2.5",
+          "mimo-v2.5-pro"
+        ]
       },
       "name": {
         "en-US": "Compshare (YouYun)",
@@ -3230,14 +3829,14 @@
         "es-ES": "Compshare (YouYun)"
       },
       "desc": {
-        "en-US": "Compshare (UCloud YouYun) API for Claude-compatible models",
-        "zh-Hans": "Compshare（UCloud 优云）API, Claude 兼容模型",
-        "ar-SA": "واجهة Compshare (UCloud YouYun) لنماذج متوافقة مع Claude",
-        "fr-FR": "API Compshare (UCloud YouYun) pour les modèles compatibles Claude",
-        "de-DE": "Compshare (UCloud YouYun)-API für Claude-kompatible Modelle",
-        "ru-RU": "API Compshare (UCloud YouYun) для Claude-совместимых моделей",
-        "ja-JP": "Compshare（UCloud 優雲）API、Claude 互換モデル",
-        "es-ES": "API de Compshare (UCloud YouYun) para modelos compatibles con Claude"
+        "en-US": "Compshare ModelVerse multi-vendor AI API (Claude / GPT / Gemini / DeepSeek / Qwen / GLM)",
+        "zh-Hans": "Compshare ModelVerse 多供应商 AI API（Claude / GPT / Gemini / DeepSeek / Qwen / GLM）",
+        "ar-SA": "Compshare ModelVerse واجهة AI متعددة الموردين (Claude / GPT / Gemini / DeepSeek / Qwen / GLM)",
+        "fr-FR": "API IA multi-fournisseurs Compshare ModelVerse (Claude / GPT / Gemini / DeepSeek / Qwen / GLM)",
+        "de-DE": "Compshare ModelVerse Multi-Vendor KI-API (Claude / GPT / Gemini / DeepSeek / Qwen / GLM)",
+        "ru-RU": "Мультивендорный AI API Compshare ModelVerse (Claude / GPT / Gemini / DeepSeek / Qwen / GLM)",
+        "ja-JP": "Compshare ModelVerse マルチベンダー AI API（Claude / GPT / Gemini / DeepSeek / Qwen / GLM）",
+        "es-ES": "API IA multi-proveedor Compshare ModelVerse (Claude / GPT / Gemini / DeepSeek / Qwen / GLM)"
       },
       "source_urls": {
         "docs": "https://www.compshare.cn/docs/modelverse/models/quick-start",
@@ -3258,7 +3857,11 @@
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "sonnet": "claude-sonnet-4-6",
+          "opus": "claude-opus-4-8",
+          "haiku": "claude-haiku-4-5"
+        }
       },
       "model_list": {
         "default": [
@@ -3358,11 +3961,25 @@
             "protocol": "anthropic",
             "base_url": "https://api.ctok.ai",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://api.ctok.ai/v1",
+            "client_type": "codex_tui"
+          },
+          {
+            "protocol": "gemini",
+            "base_url": "https://api.ctok.ai",
+            "client_type": "default"
           }
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "opus": "claude-opus-4-8",
+          "sonnet": "claude-sonnet-4-6",
+          "haiku": "claude-haiku-4-5"
+        }
       },
       "model_list": {
         "default": [
@@ -3386,18 +4003,18 @@
         "es-ES": "CTok.ai"
       },
       "desc": {
-        "en-US": "CTok.ai API for Claude-compatible models",
-        "zh-Hans": "CTok.ai API, Claude 兼容模型",
-        "ar-SA": "واجهة CTok.ai لنماذج متوافقة مع Claude",
-        "fr-FR": "API CTok.ai pour les modèles compatibles Claude",
-        "de-DE": "CTok.ai-API für Claude-kompatible Modelle",
-        "ru-RU": "API CTok.ai для Claude-совместимых моделей",
-        "ja-JP": "CTok.ai API、Claude 互換モデル",
-        "es-ES": "API de CTok.ai para modelos compatibles con Claude"
+        "en-US": "CTok.ai API gateway for Claude, GPT and Gemini models",
+        "zh-Hans": "CTok.ai API 网关, 支持 Claude / GPT / Gemini 多模型",
+        "ar-SA": "بوابة CTok.ai لنماذج Claude و GPT و Gemini",
+        "fr-FR": "Passerelle CTok.ai pour les modèles Claude, GPT et Gemini",
+        "de-DE": "CTok.ai-API-Gateway für Claude-, GPT- und Gemini-Modelle",
+        "ru-RU": "Шлюз CTok.ai для моделей Claude, GPT и Gemini",
+        "ja-JP": "Claude / GPT / Gemini 対応 CTok.ai API ゲートウェイ",
+        "es-ES": "Gateway CTok.ai para modelos Claude, GPT y Gemini"
       },
       "source_urls": {
-        "docs": "https://docs.ctok.ai/",
-        "pricing": "https://ctok.ai/pricing"
+        "docs": "https://api.ctok.ai/",
+        "pricing": "https://api.ctok.ai/"
       },
       "homepage": "https://ctok.ai",
       "logo_url": ""
