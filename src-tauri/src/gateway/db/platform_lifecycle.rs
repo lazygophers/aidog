@@ -199,6 +199,11 @@ pub fn purge_auto_disabled_platforms(
 /// - `delete_platform` 软删时已物理清除所有 `group_platform` 关联，此处仅 DELETE platform 行，
 ///   不留指向已删平台的悬空关联。分组保留由 `delete_platform` 当时已保证，此处无需重做。
 /// - 返回删除行数。仅日志用途，失败仅 warn（定时任务非关键路径）。
+///
+/// 自 2026-07-09 起定时清理已切到 `maintenance::purge_all_soft_deleted`（全表统一），本函数
+/// 仅保留作单表快路径 primitive + 专项测试（test_platform_lifecycle.rs::purge_old_soft_deleted_*）
+/// 的被测对象；保留意图见 PRD `07-09-purge-all-soft-deleted` R3.1。
+#[allow(dead_code)]
 #[track_caller]
 pub fn purge_old_soft_deleted_platforms(db: &Db, older_than_secs: i64) -> impl std::future::Future<Output = Result<u64, String>> + '_ {
     let __db_caller = std::panic::Location::caller();

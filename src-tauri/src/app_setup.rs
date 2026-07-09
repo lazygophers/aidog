@@ -196,10 +196,20 @@ pub(crate) fn setup(app: &mut tauri::App) -> Result<(), Box<dyn std::error::Erro
                         );
                         async {
                             if let Some(db) = handle.try_state::<Db>() {
-                                match gateway::db::purge_old_soft_deleted_platforms(&db, older_than_secs).await {
-                                    Ok(n) if n > 0 => tracing::info!(purged = n, "scheduled: purged old soft-deleted platforms"),
-                                    Ok(_) => {}
-                                    Err(e) => tracing::warn!(error = %e, "scheduled: purge old soft-deleted platforms failed"),
+                                match gateway::db::purge_all_soft_deleted(&db, older_than_secs).await {
+                                    Ok(map) if !map.is_empty() && map.values().any(|&n| n > 0) => {
+                                        tracing::info!(
+                                            purged = ?map,
+                                            "scheduled: purged old soft-deleted rows across all tables"
+                                        );
+                                    }
+                                    Ok(_) => tracing::debug!(
+                                        "scheduled: purge_all_soft_deleted ran, nothing to delete"
+                                    ),
+                                    Err(e) => tracing::warn!(
+                                        error = %e,
+                                        "scheduled: purge_all_soft_deleted failed (all tables errored)"
+                                    ),
                                 }
                                 // 通知收件箱 retention 硬删（默认 7 天；inbox_retention_days=0 → 永不清理）。
                                 let retention_days = gateway::db::get_notification_settings(&db).await.inbox_retention_days;

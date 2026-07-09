@@ -1,6 +1,77 @@
 use super::*;
 use rusqlite::{params, Connection, Result as SqlResult};
 
+/// 含 `deleted_at` 列、纳入每日统一软删清理的表清单。
+///
+/// **真值源**：`schema_early.rs` CREATE TABLE（grep 确认每表含 `deleted_at INTEGER ...`）。
+/// 清单内每表由 `purge_all_soft_deleted` 跑 `DELETE WHERE deleted_at > 0 AND deleted_at < cutoff`。
+/// 缺 `deleted_at` 列的表（如 `middleware_rule` / `notification` / `mcp_server` —— 三表均无软删列）
+/// **禁** 入清单：DELETE 会因 Unknown column 炸运行时；运行时 schema 漂移新增/删除列时
+/// `purge_all_soft_deleted` 的 per-table 错误兜底（warn + skip）会吞掉单表失败，不阻塞他表。
+///
+/// `"group"` 是 SQL 保留字，SQL 标识符引号必须保留；map key 用 `group`（去引号）便于日志可读。
+pub(crate) const SOFT_DELETE_TABLES: &[(&str, &str)] = &[
+    // (SQL 标识符（含引号）, map key / 日志名（去引号）)
+    ("platform", "platform"),
+    ("\"group\"", "group"),
+    ("group_platform", "group_platform"),
+    ("setting", "setting"),
+    ("proxy_log", "proxy_log"),
+    ("model_price", "model_price"),
+];
+
+/// 每日定时清理：跨表永久删除软删行（`deleted_at > 0 AND deleted_at < now - older_than_secs`）。
+///
+/// - 表驱动：遍历 `SOFT_DELETE_TABLES`，每表独立 `call_traced` DELETE。
+/// - 容错：单表失败（如 schema 漂移致缺列、SQL 错误）→ `tracing::warn!(table, error)` + 该表不插 map + 继续；
+///   全部失败才返 Err（罕见，仅保留 Result 语义）。
+/// - 返回 `HashMap<表名(去引号), 删除行数>`：调用方记 per-table 日志，空 map 或全 0 由调用方降级 debug。
+/// - `older_than_secs`：秒为单位的阈值；`deleted_at` 列存毫秒级 Unix 时间戳（与 `now()` 一致），
+///   故 cutoff = `now() - older_than_secs * 1000`。
+///
+/// 与 `platform_lifecycle::purge_old_soft_deleted_platforms`（单表快路径，测试依赖，保留）和
+/// `proxy_log::purge_deleted_proxy_logs`（无阈值全删语义不同，保留）独立。
+pub fn purge_all_soft_deleted(
+    db: &Db,
+    older_than_secs: i64,
+) -> impl std::future::Future<Output = Result<std::collections::HashMap<String, u64>, String>> + '_ {
+    let __db_caller = std::panic::Location::caller();
+    async move {
+        let cutoff_ms = now() - older_than_secs.saturating_mul(1000);
+        let mut map: std::collections::HashMap<String, u64> = std::collections::HashMap::new();
+        let mut failures: u32 = 0;
+        for &(sql_ident, key) in SOFT_DELETE_TABLES {
+            let sql = format!(
+                "DELETE FROM {sql_ident} WHERE deleted_at > 0 AND deleted_at < ?1"
+            );
+            let res = db
+                .call_traced(None, __db_caller, move |conn| {
+                    Ok(conn.execute(&sql, params![cutoff_ms])? as u64)
+                })
+                .await;
+            match res {
+                Ok(n) => {
+                    map.insert(key.to_string(), n);
+                }
+                Err(e) => {
+                    failures += 1;
+                    tracing::warn!(
+                        table = key,
+                        error = %e,
+                        "purge_all_soft_deleted: skip table (schema drift or SQL error)"
+                    );
+                }
+            }
+        }
+        if failures as usize == SOFT_DELETE_TABLES.len() {
+            return Err(format!(
+                "purge_all_soft_deleted: all {failures} tables failed"
+            ));
+        }
+        Ok(map)
+    }
+}
+
 /// 在给定连接上跑 `PRAGMA incremental_vacuum(N)`，回收至多 N 页 free pages。
 ///
 /// auto_vacuum != INCREMENTAL 时为 no-op（SQLite 不报错）；失败仅 warn 不上抛，
