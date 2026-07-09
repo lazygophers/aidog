@@ -28,7 +28,7 @@ export function toDatetimeLocal(ms: number): string {
 }
 
 /** Unix 秒 → datetime-local 字符串（本地时区）；0/undefined → 空串。
- *  PRD 07-09 D2：peak_hours starts_at/expires_at 用 Unix 秒存储。 */
+ *  PRD 07-09 D2：peak_hours start_at/end_at 用 Unix 秒存储。 */
 function secToLocalInput(sec: number | undefined): string {
   if (!sec || sec <= 0) return "";
   return toDatetimeLocal(sec * 1000);
@@ -665,32 +665,32 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
               </datalist>
             </div>
           </div>
-          {/* 生效期：starts_at / expires_at（Unix 秒 ↔ datetime-local）。
+          {/* 生效期：start_at / end_at（Unix 秒 ↔ datetime-local）。
               空 = 立即可用 / 永久；福利期自动切换用（design §1.3）。 */}
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-              {t("platform.peak_hours_starts_at", "生效起始")}
+              {t("platform.peak_hours_start_at", "生效起始")}
               <input
                 className="input"
                 type="datetime-local"
                 style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
-                value={secToLocalInput(w.starts_at)}
+                value={secToLocalInput(w.start_at)}
                 onChange={e => {
                   const sec = localInputToSec(e.target.value);
-                  update(idx, sec == null ? { starts_at: undefined } : { starts_at: sec });
+                  update(idx, sec == null ? { start_at: undefined } : { start_at: sec });
                 }}
               />
             </label>
             <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-              {t("platform.peak_hours_expires_at", "生效截止")}
+              {t("platform.peak_hours_end_at", "生效截止")}
               <input
                 className="input"
                 type="datetime-local"
                 style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
-                value={secToLocalInput(w.expires_at)}
+                value={secToLocalInput(w.end_at)}
                 onChange={e => {
                   const sec = localInputToSec(e.target.value);
-                  update(idx, sec == null ? { expires_at: undefined } : { expires_at: sec });
+                  update(idx, sec == null ? { end_at: undefined } : { end_at: sec });
                 }}
               />
             </label>
