@@ -121,6 +121,14 @@ export async function getDefaultModelList(protocol: Protocol, codingPlan?: boole
   return [...list];
 }
 
+/** preset 该协议的 peak_hours 默认（用户覆盖存 platform.extra.peak_hours；absent/空 = 1.0 无调整）。
+ *  deep copy 防 mutate 污染 docPromise 缓存。 */
+export async function getDefaultPeakHours(protocol: Protocol): Promise<PeakWindow[]> {
+  const doc = await loadDoc();
+  const list = doc.protocols[protocol]?.peak_hours ?? [];
+  return list.map(w => ({ ...w, days_of_week: w.days_of_week ? [...w.days_of_week] : undefined }));
+}
+
 /** i18next locale 与 JSON name/desc locale key 已统一为 BCP 47 script 子标签 (zh-Hans)。
  *  locale-rename (07-06) 前 i18next 用 zh-CN 区域子标签，需 LOCALE_TO_DEFAULTS 桥接；
  *  rename 后两端一致，直接用 i18next locale 作 DefaultsLocale 查 name/desc。 */

@@ -204,6 +204,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             windows={peakHours} setWindows={setPeakHours}
             tzMode={peakHoursTz} setTzMode={setPeakHoursTz}
             disableDuringPeak={disableDuringPeak} setDisableDuringPeak={setDisableDuringPeak}
+            protocol={protocol}
             t={t}
           />
         )}
