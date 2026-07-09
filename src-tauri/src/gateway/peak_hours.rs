@@ -34,15 +34,15 @@ pub struct PeakWindow {
     #[serde(default)]
     pub models: Option<Vec<String>>,
     /// 生效期起点（Unix 秒，PRD 07-09 D2 福利期自动切换）；缺省 / None = 立即可用。
-    /// `epoch_sec < starts_at` → 窗口尚未启用，跳过（first-match 继续后续窗口）。
-    /// 与 TS `PeakWindow.starts_at?: number` 对称。
+    /// `epoch_sec < start_at` → 窗口尚未启用，跳过（first-match 继续后续窗口）。
+    /// 与 TS `PeakWindow.start_at?: number` 对称。
     #[serde(default)]
-    pub starts_at: Option<i64>,
+    pub start_at: Option<i64>,
     /// 生效期终点（Unix 秒，PRD 07-09 D2）；缺省 / None = 永久。
-    /// `epoch_sec >= expires_at` → 窗口已失效，跳过。
-    /// 与 TS `PeakWindow.expires_at?: number` 对称。
+    /// `epoch_sec >= end_at` → 窗口已失效，跳过。
+    /// 与 TS `PeakWindow.end_at?: number` 对称。
     #[serde(default)]
-    pub expires_at: Option<i64>,
+    pub end_at: Option<i64>,
 }
 
 /// bundled preset 缓存：首次访问解析一次 `platform-presets.json`，后续直接索引。
@@ -126,7 +126,7 @@ pub fn resolve_multiplier(windows: &[PeakWindow], epoch_ms: i64, request_model: 
     let epoch_sec = epoch_ms / 1000;
     let (hour, minute, weekday, day_of_month) = utc_time(epoch_ms);
     for w in windows {
-        // 生效期判定优先（starts_at/expires_at，Unix 秒；未启用 / 已失效 → 跳过此窗口）
+        // 生效期判定优先（start_at/end_at，Unix 秒；未启用 / 已失效 → 跳过此窗口）
         if !period_active(w, epoch_sec) {
             continue;
         }
@@ -160,18 +160,18 @@ pub fn is_in_peak_window(windows: &[PeakWindow], epoch_ms: i64, request_model: &
 }
 
 /// 窗口生效期判定（PRD 07-09 D2 福利期自动切换）：
-/// - `starts_at` Some 且 `epoch_sec < starts_at` → 未启用 → false
-/// - `expires_at` Some 且 `epoch_sec >= expires_at` → 已失效 → false
+/// - `start_at` Some 且 `epoch_sec < start_at` → 未启用 → false
+/// - `end_at` Some 且 `epoch_sec >= end_at` → 已失效 → false
 /// - 否则（含二者均 None = 永久/立即可用）→ true
 ///
 /// 判定顺序：生效期 → 时间 → model（见 design §1.2，生效期优先级最高）。
 fn period_active(w: &PeakWindow, epoch_sec: i64) -> bool {
-    if let Some(s) = w.starts_at {
+    if let Some(s) = w.start_at {
         if epoch_sec < s {
             return false;
         }
     }
-    if let Some(e) = w.expires_at {
+    if let Some(e) = w.end_at {
         if epoch_sec >= e {
             return false;
         }
@@ -269,8 +269,8 @@ mod tests {
             end_minute: None,
             days_of_month: None,
             models: None,
-            starts_at: None,
-            expires_at: None,
+            start_at: None,
+            end_at: None,
         }
     }
 
@@ -284,8 +284,8 @@ mod tests {
             end_minute: None,
             days_of_month: None,
             models: None,
-            starts_at: None,
-            expires_at: None,
+            start_at: None,
+            end_at: None,
         }
     }
 
@@ -300,8 +300,8 @@ mod tests {
             end_minute: Some(end_m),
             days_of_month: None,
             models: None,
-            starts_at: None,
-            expires_at: None,
+            start_at: None,
+            end_at: None,
         }
     }
 
@@ -316,8 +316,8 @@ mod tests {
             end_minute: None,
             days_of_month: Some(doms),
             models: None,
-            starts_at: None,
-            expires_at: None,
+            start_at: None,
+            end_at: None,
         }
     }
 
@@ -332,13 +332,13 @@ mod tests {
             end_minute: None,
             days_of_month: None,
             models: Some(models),
-            starts_at: None,
-            expires_at: None,
+            start_at: None,
+            end_at: None,
         }
     }
 
     /// 带生效期窗口构造 helper（PRD 07-09 D2 福利期切换）
-    fn w_period(start: i32, end: i32, mult: f64, starts_at: Option<i64>, expires_at: Option<i64>) -> PeakWindow {
+    fn w_period(start: i32, end: i32, mult: f64, start_at: Option<i64>, end_at: Option<i64>) -> PeakWindow {
         PeakWindow {
             start_hour: start,
             end_hour: end,
@@ -348,8 +348,8 @@ mod tests {
             end_minute: None,
             days_of_month: None,
             models: None,
-            starts_at,
-            expires_at,
+            start_at,
+            end_at,
         }
     }
 
@@ -439,8 +439,8 @@ mod tests {
             end_minute: None,
             days_of_month: Some(vec![15]),
             models: None,
-            starts_at: None,
-            expires_at: None,
+            start_at: None,
+            end_at: None,
         };
         assert!(hit(&win, 12, 0, 0, 15)); // 周日 + 15 日 → 命中
         assert!(!hit(&win, 12, 0, 0, 16)); // 周日 + 16 日 → day_of_month 不过
@@ -508,8 +508,8 @@ mod tests {
         assert_eq!(parsed.end_minute, None);
         assert_eq!(parsed.days_of_month, None);
         assert_eq!(parsed.models, None, "旧 JSON 无 models 字段 → None（全平台生效）");
-        assert_eq!(parsed.starts_at, None, "旧 JSON 无 starts_at → None（立即可用）");
-        assert_eq!(parsed.expires_at, None, "旧 JSON 无 expires_at → None（永久）");
+        assert_eq!(parsed.start_at, None, "旧 JSON 无 start_at → None（立即可用）");
+        assert_eq!(parsed.end_at, None, "旧 JSON 无 end_at → None（永久）");
     }
 
     #[test]
@@ -549,50 +549,50 @@ mod tests {
         assert_eq!(parsed.models, None);
     }
 
-    // ── 生效期 starts_at / expires_at（PRD 07-09 D2 福利期自动切换）──
+    // ── 生效期 start_at / end_at（PRD 07-09 D2 福利期自动切换）──
 
     #[test]
-    fn peak_window_starts_at_expires_at_parse() {
+    fn peak_window_start_at_end_at_parse() {
         let json = r#"{
             "start_hour": 0,
             "end_hour": 24,
             "multiplier": 2.0,
             "models": ["glm-5.2"],
-            "starts_at": 1759276800,
-            "expires_at": 1800000000
+            "start_at": 1759276800,
+            "end_at": 1800000000
         }"#;
         let parsed: PeakWindow = serde_json::from_str(json).unwrap();
-        assert_eq!(parsed.starts_at, Some(1759276800));
-        assert_eq!(parsed.expires_at, Some(1800000000));
+        assert_eq!(parsed.start_at, Some(1759276800));
+        assert_eq!(parsed.end_at, Some(1800000000));
     }
 
     #[test]
     fn resolve_multiplier_period_not_yet_started_skips() {
-        // starts_at 在未来（2000000000 = 2033-05-18）→ 当前 ts 1704067200（2024-01-01）尚未启用 → 跳过
+        // start_at 在未来（2000000000 = 2033-05-18）→ 当前 ts 1704067200（2024-01-01）尚未启用 → 跳过
         let windows = vec![w_period(0, 24, 2.0, Some(2_000_000_000), None)];
         let ms = DateTime::<Utc>::from_timestamp(1704067200, 0).unwrap().timestamp_millis();
-        assert_eq!(resolve_multiplier(&windows, ms, ""), 1.0, "epoch < starts_at → 未启用，返默认 1.0");
+        assert_eq!(resolve_multiplier(&windows, ms, ""), 1.0, "epoch < start_at → 未启用，返默认 1.0");
     }
 
     #[test]
     fn resolve_multiplier_period_expired_skips() {
-        // expires_at 在过去（1700000000 = 2023-11-14）→ 当前 ts 1704067200 已失效 → 跳过
+        // end_at 在过去（1700000000 = 2023-11-14）→ 当前 ts 1704067200 已失效 → 跳过
         let windows = vec![w_period(0, 24, 2.0, None, Some(1_700_000_000))];
         let ms = DateTime::<Utc>::from_timestamp(1704067200, 0).unwrap().timestamp_millis();
-        assert_eq!(resolve_multiplier(&windows, ms, ""), 1.0, "epoch >= expires_at → 已失效，返默认 1.0");
+        assert_eq!(resolve_multiplier(&windows, ms, ""), 1.0, "epoch >= end_at → 已失效，返默认 1.0");
     }
 
     #[test]
     fn resolve_multiplier_period_active_hits() {
-        // 生效中：starts_at=1700000000（过去）+ expires_at=2000000000（未来），时间窗口命中 → 命中 2.0
+        // 生效中：start_at=1700000000（过去）+ end_at=2000000000（未来），时间窗口命中 → 命中 2.0
         let windows = vec![w_period(0, 24, 2.0, Some(1_700_000_000), Some(2_000_000_000))];
         let ms = DateTime::<Utc>::from_timestamp(1704067200, 0).unwrap().timestamp_millis();
-        assert_eq!(resolve_multiplier(&windows, ms, ""), 2.0, "starts_at <= epoch < expires_at → 生效中，命中");
+        assert_eq!(resolve_multiplier(&windows, ms, ""), 2.0, "start_at <= epoch < end_at → 生效中，命中");
     }
 
     #[test]
     fn resolve_multiplier_period_absent_permanent() {
-        // starts_at / expires_at 均无 → 永久 / 立即可用（向后兼容），命中
+        // start_at / end_at 均无 → 永久 / 立即可用（向后兼容），命中
         let windows = vec![w_period(0, 24, 2.0, None, None)];
         let ms = DateTime::<Utc>::from_timestamp(1704067200, 0).unwrap().timestamp_millis();
         assert_eq!(resolve_multiplier(&windows, ms, ""), 2.0, "absent = 永久，命中");
@@ -600,7 +600,7 @@ mod tests {
 
     #[test]
     fn resolve_multiplier_period_first_match_with_fallback() {
-        // GLM 实战场景：高峰窗口（永久 3 倍）+ 非高峰兜底窗口（starts_at=10-01 才启用）
+        // GLM 实战场景：高峰窗口（永久 3 倍）+ 非高峰兜底窗口（start_at=10-01 才启用）
         // 当前 9 月（福利期）+ 时间 7 点（落高峰 6-10）：高峰排前 first-match → 命中 3.0
         let windows = vec![
             w_models(6, 10, 3.0, vec!["glm-5.2".into()]),
@@ -613,8 +613,8 @@ mod tests {
                 end_minute: None,
                 days_of_month: None,
                 models: Some(vec!["glm-5.2".into()]),
-                starts_at: Some(1_759_276_800), // 2026-10-01 UTC+8
-                expires_at: None,
+                start_at: Some(1_759_276_800), // 2026-10-01 UTC+8
+                end_at: None,
             },
         ];
         // 2024-01-01T07:00:00Z → hour=7 落 [6,10)
@@ -624,7 +624,7 @@ mod tests {
 
     #[test]
     fn resolve_multiplier_period_non_peak_before_activation_defaults_to_one() {
-        // 非高峰时段 + 兜底窗口未启用（starts_at 在未来）→ 跳过兜底 → 返默认 1.0（福利期 1 倍抵扣）
+        // 非高峰时段 + 兜底窗口未启用（start_at 在未来）→ 跳过兜底 → 返默认 1.0（福利期 1 倍抵扣）
         let windows = vec![
             w_models(6, 10, 3.0, vec!["glm-5.2".into()]),
             PeakWindow {
@@ -636,11 +636,11 @@ mod tests {
                 end_minute: None,
                 days_of_month: None,
                 models: Some(vec!["glm-5.2".into()]),
-                starts_at: Some(1_759_276_800),
-                expires_at: None,
+                start_at: Some(1_759_276_800),
+                end_at: None,
             },
         ];
-        // hour=12（非高峰 6-10 外）→ 高峰窗口时间不命中 → 跳过；兜底 starts_at 未到 → 跳过 → 1.0
+        // hour=12（非高峰 6-10 外）→ 高峰窗口时间不命中 → 跳过；兜底 start_at 未到 → 跳过 → 1.0
         let ms = DateTime::<Utc>::from_timestamp(1704067200 + 12 * 3600, 0).unwrap().timestamp_millis();
         assert_eq!(resolve_multiplier(&windows, ms, "glm-5.2"), 1.0, "非高峰 + 兜底未启用 → 福利 1.0");
     }
