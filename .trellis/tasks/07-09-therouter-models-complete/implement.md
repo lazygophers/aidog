@@ -20,7 +20,8 @@
 6. 改 `models.default`：三档（anthropic/claude-sonnet-4.5 / openai/gpt-5.2-codex / deepseek/deepseek-v3.2）
 7. 改 `desc` 8 语言（参考 prd 英文/中文，其余 6 语言按现有平台风格翻译）
 8. 验证：`python3 -c "import json;json.load(open('src-tauri/defaults/platform-presets.json'))"` 通过
-9. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));t=d['protocols']['therouter'];print(len(t['endpoints']['default']),len(t['model_list']['default']),list(t['models']['default'].keys()))"`
+9. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));t=d['protocols']['therouter'];print(len(t['endpoints']['default']),len(t['model_list']['default']),t['models']['default'])"`
+   预期输出含三档档位映射：`{'sonnet': 'anthropic/claude-sonnet-4.5', 'coder': 'openai/gpt-5.2-codex', 'default': 'deepseek/deepseek-v3.2'}`
 
 ## 验收（对齐 prd）
 

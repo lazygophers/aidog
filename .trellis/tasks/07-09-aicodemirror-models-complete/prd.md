@@ -42,12 +42,14 @@ AICodeMirror (aicodemirror.com) 是 **纯 Claude 代理共享平台**（前身 C
 
 ### 3. models.default（补三档，当前空）
 
+档位名 key → model id string（对齐 `Partial<Record<ModelSlot, string>>`，与 20 官方 protocol 同构）：
+
 ```json
 "models": {
   "default": {
-    "claude-sonnet-4-6": {},
-    "claude-opus-4-8": {},
-    "claude-haiku-4-5": {}
+    "sonnet": "claude-sonnet-4-6",
+    "opus": "claude-opus-4-8",
+    "haiku": "claude-haiku-4-5"
   }
 }
 ```

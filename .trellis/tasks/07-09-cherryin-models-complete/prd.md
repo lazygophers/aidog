@@ -41,12 +41,14 @@ CherryIN (open.cherryin.net) 是基于 new-api 的聚合路由网关，官方 `/
 
 ### 3. models.default（三档默认）
 
+档位名 key → model id string（对齐 `Partial<Record<ModelSlot, string>>`，与 20 官方 protocol 同构）：
+
 ```json
 "models": {
   "default": {
-    "anthropic/claude-opus-4.8": {},
-    "openai/gpt-5.5": {},
-    "agent/glm-5.2": {}
+    "opus": "anthropic/claude-opus-4.8",
+    "gpt": "openai/gpt-5.5",
+    "default": "agent/glm-5.2"
   }
 }
 ```
@@ -66,7 +68,7 @@ CherryIN (open.cherryin.net) 是基于 new-api 的聚合路由网关，官方 `/
 
 ## Out of Scope
 
-- 上下文窗口字段（pricing API 不返回，`models.default` value 留空 object，后续手补）
+- 上下文窗口字段（pricing API 不返回，`models.default` value 用 model id string 不带额外字段，后续手补）
 - 其他协议块改动
 - STATIC_MODEL_IDS（passthrough.rs）— 仅 anthropic/openai/codex/gemini 官方协议静态列表，cherryin 不涉
 

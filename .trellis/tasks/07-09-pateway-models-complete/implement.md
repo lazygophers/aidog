@@ -27,7 +27,8 @@
 7. 改 `desc` 8 语言
 8. 改 `source_urls`：docs → `https://pateway.ai/docs/`，pricing → `https://pateway.ai/docs/pricing.html`
 9. 验证 JSON 合法
-10. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));p=d['protocols']['pateway'];print(len(p['model_list']['default']),list(p['models']['default'].keys()),p['source_urls'])"`
+10. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));p=d['protocols']['pateway'];print(len(p['model_list']['default']),p['models']['default'],p['source_urls'])"`
+   预期输出含三档档位映射：`{'sonnet': 'claude-sonnet-4-6', 'gpt': 'gpt-5.5', 'default': 'deepseek-v4-pro'}`
 
 ## 验收（对齐 prd）
 

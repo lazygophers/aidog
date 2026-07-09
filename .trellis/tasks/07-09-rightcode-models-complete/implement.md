@@ -25,7 +25,8 @@
 7. 改 `desc` 8 语言
 8. 改 `source_urls.pricing`：`https://right.codes/pricing` → `https://right.codes/models/public`
 9. 验证 JSON 合法
-10. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));r=d['protocols']['rightcode'];print(len(r['endpoints']['default']),len(r['model_list']['default']),list(r['models']['default'].keys()),r['source_urls']['pricing'])"`
+10. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));r=d['protocols']['rightcode'];print(len(r['endpoints']['default']),len(r['model_list']['default']),r['models']['default'],r['source_urls']['pricing'])"`
+   预期输出含三档档位映射：`{'sonnet': 'claude-sonnet-5', 'gpt': 'gpt-5.5', 'default': 'deepseek-v4-pro'}`
 
 ## 验收（对齐 prd）
 

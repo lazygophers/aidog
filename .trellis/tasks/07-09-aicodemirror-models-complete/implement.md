@@ -21,7 +21,8 @@
 6. desc 保留（"Claude 兼容" 准确）
 7. 改 `models.default`：补三档（claude-sonnet-4-6 / claude-opus-4-8 / claude-haiku-4-5）
 8. 验证 JSON 合法
-9. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));a=d['protocols']['aicodemirror'];print(list(a['models']['default'].keys()),len(a['model_list']['default']),len(a['endpoints']['default']))"`
+9. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));a=d['protocols']['aicodemirror'];print(a['models']['default'],len(a['model_list']['default']),len(a['endpoints']['default']))"`
+   预期输出：`{'sonnet': 'claude-sonnet-4-6', 'opus': 'claude-opus-4-8', 'haiku': 'claude-haiku-4-5'} 7 3`
 
 ## 验收（对齐 prd）
 

@@ -23,7 +23,8 @@
 6. 改 `models.default`：三档（nvidia/llama-3.3-nemotron-super-49b-v1.5 / nvidia/nemotron-3-ultra-550b-a55b / deepseek-ai/deepseek-v4-pro）
 7. 改 `desc` 8 语言
 8. 验证 JSON 合法
-9. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));n=d['protocols']['nvidia'];print(len(n['model_list']['default']),list(n['models']['default'].keys()),'deepseek/deepseek-v3.2' not in n['model_list']['default'],'z-ai/glm-5.2' in n['model_list']['default'])"`
+9. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));n=d['protocols']['nvidia'];print(len(n['model_list']['default']),n['models']['default'],'deepseek/deepseek-v3.2' not in n['model_list']['default'],'z-ai/glm-5.2' in n['model_list']['default'])"`
+   预期输出含三档档位映射：`{'default': 'nvidia/llama-3.3-nemotron-super-49b-v1.5', 'thinking': 'nvidia/nemotron-3-ultra-550b-a55b', 'coder': 'deepseek-ai/deepseek-v4-pro'}`
 
 ## 验收（对齐 prd）
 
