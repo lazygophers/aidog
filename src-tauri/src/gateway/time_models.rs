@@ -93,8 +93,8 @@ fn parse_peak_window(v: &serde_json::Value) -> Option<crate::gateway::peak_hours
         end_minute: helper.end_minute,
         days_of_month: helper.days_of_month,
         models: None,
-        starts_at: None,
-        expires_at: None,
+        start_at: None,
+        end_at: None,
     })
 }
 

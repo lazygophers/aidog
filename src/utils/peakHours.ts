@@ -6,8 +6,8 @@ import type { PeakWindow } from "../domains/platforms/defaults";
 
 /** 当前 UTC 时刻命中窗口？
  *  与 Rust `peak_hours::hit` + `window_models_hit` + `period_active` 逐行对称：
- *   - 生效期判定（PRD 07-09 D2，优先级最高）：starts_at Some 且 epoch_sec < starts_at → 未启用跳过；
- *     expires_at Some 且 epoch_sec >= expires_at → 已失效跳过；二者均 absent = 永久/立即可用。
+ *   - 生效期判定（PRD 07-09 D2，优先级最高）：start_at Some 且 epoch_sec < start_at → 未启用跳过；
+ *     end_at Some 且 epoch_sec >= end_at → 已失效跳过；二者均 absent = 永久/立即可用。
  *   - days_of_week 过滤（含则需在列表里；双 Some 与 days_of_month 取 AND 兜底）
  *   - days_of_month 过滤（含则当前 day_of_month 需在列表里）
  *   - 绝对分钟半开区间：t_min = hour*60 + minute；
@@ -28,8 +28,8 @@ function hit(
   epochSec: number,
 ): boolean {
   // 生效期判定（与 Rust period_active 对称，优先级最高）
-  if (w.starts_at !== undefined && epochSec < w.starts_at) return false;
-  if (w.expires_at !== undefined && epochSec >= w.expires_at) return false;
+  if (w.start_at !== undefined && epochSec < w.start_at) return false;
+  if (w.end_at !== undefined && epochSec >= w.end_at) return false;
   if (w.days_of_week && !w.days_of_week.includes(weekday)) return false;
   if (w.days_of_month && !w.days_of_month.includes(dayOfMonth)) return false;
   const tMin = hour * 60 + minute;

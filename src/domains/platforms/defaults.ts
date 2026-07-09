@@ -30,13 +30,13 @@ export type PeakWindow = {
    *  与 Rust `PeakWindow.models: Option<Vec<String>>` 对称（跨层一致，见 cross-layer-rules.md）。 */
   models?: string[];
   /** 生效期起点（Unix 秒，PRD 07-09 D2 福利期自动切换）；缺省 / undefined = 立即可用。
-   *  `epoch_sec < starts_at` → 窗口尚未启用，跳过此窗口（first-match 继续后续）。
-   *  与 Rust `PeakWindow.starts_at: Option<i64>` 对称。 */
-  starts_at?: number;
+   *  `epoch_sec < start_at` → 窗口尚未启用，跳过此窗口（first-match 继续后续）。
+   *  与 Rust `PeakWindow.start_at: Option<i64>` 对称。 */
+  start_at?: number;
   /** 生效期终点（Unix 秒，PRD 07-09 D2）；缺省 / undefined = 永久。
-   *  `epoch_sec >= expires_at` → 窗口已失效，跳过此窗口。
-   *  与 Rust `PeakWindow.expires_at: Option<i64>` 对称。 */
-  expires_at?: number;
+   *  `epoch_sec >= end_at` → 窗口已失效，跳过此窗口。
+   *  与 Rust `PeakWindow.end_at: Option<i64>` 对称。 */
+  end_at?: number;
 };
 
 /** defaults.json 运行时缓存：进程内只拉一次 Tauri command，5 函数共享。
