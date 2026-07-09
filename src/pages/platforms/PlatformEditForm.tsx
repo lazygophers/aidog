@@ -16,7 +16,7 @@ import type { PlatformsState } from "./usePlatformsState";
 import {
   FormSection, ApiKeyField,
   NewApiBalanceConfigSection, PassthroughConfigSection, EndpointsSection,
-  ModelsSection, ManualBudgetsSection, BreakerSection, PeakHoursSection, GroupAssignSection,
+  ModelsSection, ManualBudgetsSection, BreakerSection, PeakHoursSection, TimeModelsSection, GroupAssignSection,
   ExpirySection, ClaudeConfigSection,
 } from "./formSections";
 import { MultiKeyPreview } from "./MultiKeyPreview";
@@ -40,6 +40,7 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
     breakerOpenSecs, setBreakerOpenSecs, breakerHalfOpenMax, setBreakerHalfOpenMax,
     peakHours, setPeakHours, peakHoursTz, setPeakHoursTz,
     disableDuringPeak, setDisableDuringPeak,
+    timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds, lockedGroupId,
     groupDetails, levelPriority, setLevelPriority,
     expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
@@ -205,6 +206,15 @@ export function PlatformEditForm({ s }: { s: PlatformsState }) {
             tzMode={peakHoursTz} setTzMode={setPeakHoursTz}
             disableDuringPeak={disableDuringPeak} setDisableDuringPeak={setDisableDuringPeak}
             protocol={protocol}
+            t={t}
+          />
+        )}
+
+        {/* Time Models 时段模型配置（仅编辑态可配；空数组 = 用默认 models） */}
+        {editing && !isPassthrough && (
+          <TimeModelsSection
+            rules={timeModels} setRules={setTimeModels}
+            peakHours={peakHours}
             t={t}
           />
         )}

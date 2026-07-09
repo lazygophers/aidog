@@ -13,6 +13,7 @@ import {
   type Platform, type Protocol, type PlatformEndpoint,
   type ManualBudget, type ManualBudgetKind, type ManualBudgetUnit, type WindowUnit,
   type NewApiConfig, type SchedulingBreakerSettings, type GroupDetail,
+  type TimeModelRule,
 } from "../../services/api";
 import { LevelPriorityControl } from "../../components/platforms/PlatformCard";
 import { newManualBudget, type PeakWindow, getDefaultPeakHours } from "../../domains/platforms";
@@ -587,6 +588,275 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
                 onClick={handleImportDefault}
               >
                 {t("platform.peak_hours_overwrite_confirm_button", "确认")}
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </FormSection>
+  );
+}
+
+// ─── Time Models（时段模型配置）─────────────────────────────
+export function TimeModelsSection({ rules, setRules, peakHours, t }: {
+  rules: TimeModelRule[];
+  setRules: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
+  peakHours: PeakWindow[];
+  t: TFunction;
+}) {
+  const [importModalOpen, setImportModalOpen] = useState(false);
+
+  const add = () => {
+    setRules([...rules, { windows: [], models: {} }]);
+  };
+
+  const remove = (idx: number) => {
+    setRules(rules.filter((_, i) => i !== idx));
+  };
+
+  const moveUp = (idx: number) => {
+    if (idx === 0) return;
+    const next = [...rules];
+    [next[idx - 1], next[idx]] = [next[idx], next[idx - 1]];
+    setRules(next);
+  };
+
+  const moveDown = (idx: number) => {
+    if (idx === rules.length - 1) return;
+    const next = [...rules];
+    [next[idx], next[idx + 1]] = [next[idx + 1], next[idx]];
+    setRules(next);
+  };
+
+  const updateRule = (idx: number, patch: Partial<TimeModelRule>) => {
+    setRules(rules.map((r, i) => i === idx ? { ...r, ...patch } : r));
+  };
+
+  const updateRuleModel = (idx: number, slot: string, value: string) => {
+    setRules(rules.map((r, i) => {
+      if (i !== idx) return r;
+      return { ...r, models: { ...r.models, [slot]: value || undefined } };
+    }));
+  };
+
+  const importFromPeakHours = () => {
+    if (peakHours.length === 0) return;
+    // 复制 peak_hours windows 为新 rule 的 windows（独立，不联动）
+    const newRule: TimeModelRule = {
+      windows: peakHours.map(w => ({ ...w })),
+      models: {},
+    };
+    setRules([...rules, newRule]);
+    setImportModalOpen(false);
+  };
+
+  return (
+    <FormSection
+      title={t("platform.time_models_title", "时段模型配置")}
+      desc={t("platform.time_models_desc", "按时段切换主力模型档；命中窗口用该档，未中用默认。数组顺序 = 优先级（first-match wins）。")}
+      action={
+        <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ padding: "2px 8px", fontSize: 11, whiteSpace: "nowrap" }}
+            disabled={peakHours.length === 0}
+            title={peakHours.length === 0 ? t("platform.time_models_no_peak", "当前无高峰时段配置") : ""}
+            onClick={() => setImportModalOpen(true)}
+          >
+            {t("platform.time_models_import_peak", "从高峰时段导入")}
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ padding: "2px 8px", fontSize: 11 }}
+            onClick={add}
+          >
+            + {t("platform.time_models_add", "添加规则")}
+          </button>
+        </div>
+      }
+    >
+      {rules.length === 0 && (
+        <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
+          {t("platform.time_models_empty", "未配置 → 全时段用默认模型档")}
+        </div>
+      )}
+      {rules.map((rule, idx) => (
+        <div key={idx} style={{ display: "flex", flexDirection: "column", gap: 8, padding: 12, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", border: "1px solid var(--border)", marginBottom: idx < rules.length - 1 ? 8 : 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: "var(--text-secondary)" }}>
+              {t("platform.time_models_rule", "规则")} #{idx + 1}
+            </span>
+            <div style={{ display: "flex", gap: 4 }}>
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon"
+                style={{ padding: "2px 6px", fontSize: 11 }}
+                disabled={idx === 0}
+                onClick={() => moveUp(idx)}
+                title={t("action.moveUp", "上移")}
+              >
+                ↑
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon"
+                style={{ padding: "2px 6px", fontSize: 11 }}
+                disabled={idx === rules.length - 1}
+                onClick={() => moveDown(idx)}
+                title={t("action.moveDown", "下移")}
+              >
+                ↓
+              </button>
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon btn-danger"
+                style={{ padding: "4px 8px", fontSize: 11 }}
+                onClick={() => remove(idx)}
+                title={t("action.delete", "删除")}
+              >
+                ×
+              </button>
+            </div>
+          </div>
+
+          {/* Windows 编辑器（复用 PeakHoursSection 的窗口输入 UI） */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600 }}>
+              {t("platform.time_models_windows", "时段窗口")}
+            </div>
+            {rule.windows.length === 0 ? (
+              <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontStyle: "italic" }}>
+                {t("platform.time_models_no_windows", "无窗口 → 永不命中")}
+              </div>
+            ) : (
+              rule.windows.map((w, widx) => (
+                <div key={widx} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+                    {t("platform.start_hour", "起")}
+                    <input
+                      className="input" type="number" min={0} max={23} style={{ width: 50 }}
+                      value={w.start_hour}
+                      onChange={e => {
+                        const next = [...rule.windows];
+                        next[widx] = { ...next[widx], start_hour: Number(e.target.value) || 0 };
+                        updateRule(idx, { windows: next });
+                      }}
+                    />
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+                    {t("platform.end_hour", "止")}
+                    <input
+                      className="input" type="number" min={0} max={24} style={{ width: 50 }}
+                      value={w.end_hour}
+                      onChange={e => {
+                        const next = [...rule.windows];
+                        next[widx] = { ...next[widx], end_hour: Number(e.target.value) || 0 };
+                        updateRule(idx, { windows: next });
+                      }}
+                    />
+                  </label>
+                  <label style={{ display: "flex", alignItems: "center", gap: 2, fontSize: 10, color: "var(--text-tertiary)" }}>
+                    {WEEKDAY_LABELS.map((d, di) => (
+                      <button
+                        key={d}
+                        type="button"
+                        className={`btn btn-ghost ${(w.days_of_week ?? []).includes(di) ? "btn-primary" : ""}`}
+                        style={{ padding: "1px 4px", fontSize: 9, minWidth: 18 }}
+                        onClick={() => {
+                          const cur = w.days_of_week ?? [];
+                          const next = cur.includes(di) ? cur.filter((d: number) => d !== di) : [...cur, di].sort();
+                          const windows = [...rule.windows];
+                          windows[widx] = { ...windows[widx], days_of_week: next.length === 0 ? undefined : next };
+                          updateRule(idx, { windows });
+                        }}
+                      >
+                        {d}
+                      </button>
+                    ))}
+                  </label>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-icon btn-danger"
+                    style={{ padding: "2px 6px", fontSize: 10, marginLeft: "auto" }}
+                    onClick={() => {
+                      const next = rule.windows.filter((_, i) => i !== widx);
+                      updateRule(idx, { windows: next });
+                    }}
+                  >
+                    ×
+                  </button>
+                </div>
+              ))
+            )}
+            <button
+              type="button"
+              className="btn btn-ghost"
+              style={{ padding: "2px 8px", fontSize: 11, alignSelf: "flex-start" }}
+              onClick={() => {
+                updateRule(idx, { windows: [...rule.windows, { start_hour: 0, end_hour: 24, multiplier: 1.0 }] });
+              }}
+            >
+              + {t("platform.time_models_add_window", "添加窗口")}
+            </button>
+          </div>
+
+          {/* 5 槽模型输入 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ fontSize: 11, color: "var(--text-tertiary)", fontWeight: 600 }}>
+              {t("platform.time_models_models", "模型档位（覆盖默认）")}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+              {(["default", "sonnet", "opus", "haiku", "gpt"] as const).map(slot => (
+                <label key={slot} style={{ display: "flex", flexDirection: "column", gap: 2, fontSize: 11 }}>
+                  <span style={{ color: "var(--text-secondary)" }}>{slot}</span>
+                  <input
+                    className="input"
+                    type="text"
+                    placeholder={t("platform.models_placeholder", "模型名")}
+                    value={rule.models[slot] ?? ""}
+                    onChange={e => updateRuleModel(idx, slot, e.target.value)}
+                    style={{ width: 140, fontSize: 11 }}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+      ))}
+
+      {/* 导入确认 modal */}
+      {importModalOpen && createPortal(
+        <div style={{
+          position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", display: "flex",
+          alignItems: "center", justifyContent: "center", zIndex: 9999,
+        }}>
+          <div style={{
+            background: "var(--bg-surface)", borderRadius: "var(--radius-md)",
+            padding: 16, maxWidth: 400, width: "100%", border: "1px solid var(--border)",
+          }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 600 }}>
+              {t("platform.time_models_import_confirm_title", "导入高峰时段配置？")}
+            </h3>
+            <p style={{ margin: "0 0 16px", fontSize: 12, color: "var(--text-secondary)" }}>
+              {t("platform.time_models_import_confirm_body", "将基于当前高峰时段（{{count}} 个窗口）创建新规则，独立可编辑。").replace("{{count}}", String(peakHours.length))}
+            </p>
+            <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={() => setImportModalOpen(false)}
+              >
+                {t("action.cancel", "取消")}
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={importFromPeakHours}
+              >
+                {t("platform.time_models_import_confirm_button", "确认")}
               </button>
             </div>
           </div>

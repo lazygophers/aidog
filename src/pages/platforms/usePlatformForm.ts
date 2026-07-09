@@ -13,11 +13,12 @@ import {
   parsePlatformBreaker, serializePlatformBreaker,
   parsePlatformPeakHours, serializePlatformPeakHours,
   parseDisableDuringPeak, serializeDisableDuringPeak,
+  parsePlatformTimeModels, serializePlatformTimeModels,
   DEFAULT_MOCK_CONFIG, DEFAULT_NEWAPI_CONFIG,
   type Platform, type Protocol, type ModelSlot, type PlatformEndpoint,
   type PlatformUsageStats, type LastTestResult, type MockConfig, type NewApiConfig,
   type ManualBudget, type SchedulingBreakerSettings, type GroupDetail, type SharePlatform,
-  type FetchModelsError,
+  type FetchModelsError, type TimeModelRule,
 } from "../../services/api";
 import { splitApiKeys } from "../../utils/platformPaste";
 import { type SmartPasteApplyResult } from "../../components/platforms/SmartPasteModal";
@@ -114,6 +115,8 @@ export interface PlatformFormState {
   peakHoursTz: "local" | "utc"; setPeakHoursTz: React.Dispatch<React.SetStateAction<"local" | "utc">>;
   /** disable_during_peak 开关（用户覆盖，存 platform.extra.disable_during_peak；默认 false）。 */
   disableDuringPeak: boolean; setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
+  /** time_models：时段模型规则列表（按时段切换主力模型档） */
+  timeModels: TimeModelRule[]; setTimeModels: React.Dispatch<React.SetStateAction<TimeModelRule[]>>;
   autoGroup: boolean; setAutoGroup: React.Dispatch<React.SetStateAction<boolean>>;
   joinGroupIds: number[]; setJoinGroupIds: React.Dispatch<React.SetStateAction<number[]>>;
   levelPriority: number; setLevelPriority: React.Dispatch<React.SetStateAction<number>>;
@@ -196,6 +199,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
   const [peakHoursTz, setPeakHoursTz] = useState<"local" | "utc">("local");
   // disable_during_peak（用户覆盖，存 platform.extra.disable_during_peak；默认 false）
   const [disableDuringPeak, setDisableDuringPeak] = useState<boolean>(false);
+  // time_models（时段模型规则，存 platform.extra.time_models；默认空数组）
+  const [timeModels, setTimeModels] = useState<TimeModelRule[]>([]);
   // 分组归属选项：auto_group（是否建默认分组，默认勾）+ join_group_ids（加入的已有分组）。
   const [autoGroup, setAutoGroup] = useState(true);
   const [joinGroupIds, setJoinGroupIds] = useState<number[]>([]);
@@ -277,6 +282,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     setManualBudgets([]);
     setBreakerFailureThreshold(""); setBreakerOpenSecs(""); setBreakerHalfOpenMax("");
     setPeakHours([]); setPeakHoursTz("local"); setDisableDuringPeak(false);
+    setTimeModels([]);
     setAutoGroup(true); setJoinGroupIds([]); setLockedGroupId(null); setLevelPriority(5); setExpiresAt(0); setExpiryEnabled(false);
     // 关闭表单时复位「已消费的外部编辑导航 platformId」一次性 ref：否则经 onNavigate 进来的同一
     // 平台第二次编辑会被 consumedEditPidRef 短路（initialFilter.platformId 值不变，effect 亦不重跑）。
@@ -333,6 +339,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     }
     setPeakHours(parsePlatformPeakHours(p.extra ?? ""));
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? ""));
+    setTimeModels(parsePlatformTimeModels(p.extra ?? ""));
     setLockedGroupId(null);
     // 反查该平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
     try {
@@ -402,6 +409,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     }
     setPeakHours(parsePlatformPeakHours(p.extra ?? ""));
     setDisableDuringPeak(parseDisableDuringPeak(p.extra ?? ""));
+    setTimeModels(parsePlatformTimeModels(p.extra ?? ""));
     setLockedGroupId(null);
     // 反查源平台当前手动组成员（排除其 auto 分组），作为「加入已有分组」初始值。
     try {
@@ -643,6 +651,8 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
       extraPayload = serializePlatformPeakHours(extraPayload, peakHours);
       // disable_during_peak：false → 移除键（默认行为）；true → 写入。
       extraPayload = serializeDisableDuringPeak(extraPayload, disableDuringPeak);
+      // time_models：空数组 → 移除键（无规则 → 用 default）；非空写入。
+      extraPayload = serializePlatformTimeModels(extraPayload, timeModels);
       const extraArg = extraPayload ? extraPayload : undefined;
       // 手动预算：所有平台可设（含 mock / 有上游配额支持的平台），仅透传订阅强制清空。
       const manualBudgetsPayload: ManualBudget[] = isPassthrough ? [] : manualBudgets;
@@ -763,6 +773,7 @@ export function usePlatformForm(listDeps: PlatformFormListDeps): PlatformFormSta
     breakerDefaults,
     peakHours, setPeakHours, peakHoursTz, setPeakHoursTz,
     disableDuringPeak, setDisableDuringPeak,
+    timeModels, setTimeModels,
     autoGroup, setAutoGroup, joinGroupIds, setJoinGroupIds,
     levelPriority, setLevelPriority, expiresAt, setExpiresAt, expiryEnabled, setExpiryEnabled,
     lockedGroupId, setLockedGroupId,

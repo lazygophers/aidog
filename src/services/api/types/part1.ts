@@ -2,6 +2,8 @@
 // 由 types.ts barrel 统一 re-export；外部应 `import type { X } from "../types"`，
 // 不直接 import 本文件（分片边界为实现细节）。
 
+import type { PeakWindow } from "../../../domains/platforms/defaults";
+
 
 // ─── Types ─────────────────────────────────────────────────
 
@@ -81,6 +83,14 @@ export interface PlatformModels {
   opus?: string;
   haiku?: string;
   gpt?: string;
+}
+
+/** 时段模型规则：按时段窗口切换主力模型档（time_models） */
+export interface TimeModelRule {
+  /** 时段窗口列表（复用 PeakWindow 定义，multiplier 字段忽略） */
+  windows: PeakWindow[];
+  /** 5 槽模型配置（default/opus/sonnet/haiku/gpt） */
+  models: PlatformModels;
 }
 
 

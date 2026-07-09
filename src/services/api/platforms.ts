@@ -1,7 +1,7 @@
 // platforms.ts — 从 services/api.ts 拆出（arch-redesign）；纯移动，零逻辑变更。
 
 import { invoke } from "@tauri-apps/api/core";
-import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, ModelPriceSummary, ResolvedPrice, PriceSyncResult, ModelPriceFilter } from "./types";
+import type { Protocol, PlatformStatus, PlatformEndpoint, PlatformModels, MockConfig, NewApiConfig, ManualBudget, Platform, SharePlatform, PlatformUsageStats, LastTestResult, PlatformBreaker, ModelTestRequest, ModelTestResult, PlatformQuota, ModelPriceSummary, ResolvedPrice, PriceSyncResult, ModelPriceFilter, TimeModelRule } from "./types";
 import type { PeakWindow } from "../../domains/platforms/defaults";
 
 export const DEFAULT_MOCK_CONFIG: MockConfig = {
@@ -209,6 +209,39 @@ export function serializeDisableDuringPeak(extra: string, enabled: boolean): str
     obj.disable_during_peak = true;
   } else {
     delete obj.disable_during_peak;
+  }
+  return JSON.stringify(obj);
+}
+
+/** 从 platform.extra JSON 解析 time_models 规则（用户级配置，preset 不带）。
+ *  缺失 / 非法 / 空数组 → []（无时段规则，用 platform.models default）。 */
+export function parsePlatformTimeModels(extra: string): TimeModelRule[] {
+  if (!extra.trim()) return [];
+  try {
+    const parsed: unknown = JSON.parse(extra);
+    if (parsed && typeof parsed === "object" && "time_models" in parsed) {
+      const arr = (parsed as { time_models: unknown }).time_models;
+      if (Array.isArray(arr)) return arr as TimeModelRule[];
+    }
+  } catch { /* ignore */ }
+  return [];
+}
+
+/** 把 time_models 规则写回 extra JSON（保留其余键）。空数组 → 移除 time_models 键（无规则→用 default）。 */
+export function serializePlatformTimeModels(extra: string, rules: TimeModelRule[]): string {
+  let obj: Record<string, unknown> = {};
+  if (extra.trim()) {
+    try {
+      const parsed: unknown = JSON.parse(extra);
+      if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+        obj = parsed as Record<string, unknown>;
+      }
+    } catch { /* ignore */ }
+  }
+  if (rules.length === 0) {
+    delete obj.time_models;
+  } else {
+    obj.time_models = rules;
   }
   return JSON.stringify(obj);
 }

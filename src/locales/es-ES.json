@@ -1904,5 +1904,22 @@
   "logs.cancel": "Cancelar",
   "logs.clearDone": "Borrado",
   "logs.cleaning": "Limpiando...",
-  "logs.cleanupDisabledHint": "Modo de conservación permanente — sin registros expirados que limpiar"
+  "logs.cleanupDisabledHint": "Modo de conservación permanente — sin registros expirados que limpiar",
+  "platform.time_models_title": "Configuración de modelos por franja horaria",
+  "platform.time_models_desc": "Cambia los slots de modelo principal por franja horaria; usa el slot cuando coincida, default en caso contrario. Orden del array = prioridad (first-match wins).",
+  "platform.time_models_import_peak": "Importar desde horas pico",
+  "platform.time_models_add": "Añadir regla",
+  "platform.time_models_empty": "Sin reglas → usar modelos default todo el día",
+  "platform.time_models_no_peak": "No hay horas pico configuradas",
+  "platform.time_models_rule": "Regla",
+  "platform.time_models_windows": "Franjas horarias",
+  "platform.time_models_no_windows": "Sin ventanas → nunca coincide",
+  "platform.time_models_add_window": "Añadir ventana",
+  "platform.time_models_models": "Slots de modelo (sobrescribe default)",
+  "platform.time_models_import_confirm_title": "¿Importar config de horas pico?",
+  "platform.time_models_import_confirm_body": "Crear nueva regla basada en horas pico actuales ({{count}} ventanas). Independiente y editable.",
+  "platform.time_models_import_confirm_button": "Confirmar",
+  "platform.models_placeholder": "ej. claude-sonnet-4-5",
+  "action.moveDown": "Bajar",
+  "action.moveUp": "Subir"
 }
