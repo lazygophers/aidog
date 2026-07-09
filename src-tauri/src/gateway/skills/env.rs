@@ -23,8 +23,8 @@ static PATH_FIXED: OnceLock<()> = OnceLock::new();
 pub fn ensure_runtime_path() {
     PATH_FIXED.get_or_init(|| {
         if let Some(merged) = probe_login_path() {
-            // edition 2021：set_var 为安全 API，启动早期单线程调用，无并发 env 读写竞争。
-            std::env::set_var("PATH", &merged);
+            // edition 2024：set_var 为 unsafe fn（env mutation 可致数据竞争），启动早期单线程调用无并发竞争。
+            unsafe { std::env::set_var("PATH", &merged); }
             tracing::info!("runtime PATH 已并入登录 shell PATH（修 GUI 极简 PATH 致 node/npx/python 找不到）");
         }
     });
