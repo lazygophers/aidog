@@ -125,8 +125,14 @@ async fn preview_roundtrip_via_encrypt() {
     let target = test_db().await;
     let pv = preview(&cipher, &target).await.unwrap();
     assert!(pv.counts.get(SCOPE_PLATFORM).copied().unwrap_or(0) >= 1);
-    // 空目标库 → 无冲突
-    assert!(pv.conflicts.is_empty());
+    // 空目标库 → 无用户数据冲突（mitm:whitelist 是 migration 自动 seed 的默认值，
+    // src/target 均有同 key → 会报 conflict，属预期 migration 产物非用户数据，过滤后断言空）
+    let non_mitm_conflicts: Vec<_> = pv
+        .conflicts
+        .iter()
+        .filter(|c| !c.key.starts_with("mitm:"))
+        .collect();
+    assert!(non_mitm_conflicts.is_empty(), "non-mitm conflicts: {:?}", non_mitm_conflicts);
 }
 
 #[tokio::test]

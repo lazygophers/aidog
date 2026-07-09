@@ -4,8 +4,7 @@
 //! - 状态查询 / 启用 / CA 安装准备 / 白名单增删改
 //!
 //! 设计约束：
-//! - 禁改 mitm Rust 模块公共签名（ST3 在跑）→ 白名单写 SQL（INSERT/DELETE/UPDATE enabled）
-//!   本 subtask 内联在 command 层，复用 ST2 已建的 mitm_whitelist 表 + list_whitelist 读 API。
+//! - 白名单读写走 setting 表（scope=mitm, key=whitelist JSON 数组），read-modify-write 整数组。
 //! - CA 装/卸信任库走 tauri-plugin-shell execute（capability mitm-ca.json 限定的命名命令）。
 //!   本命令只把 cert_pem 落到 `~/.aidog/mitm-ca.pem` + 返命令 spec（capability name + args），
 //!   前端用 `@tauri-apps/plugin-shell` `Command.create(name, args).execute()` 触发 sudo 弹窗（D8）。
@@ -13,7 +12,7 @@
 
 use crate::gateway::{
     self,
-    db::Db,
+    db::{get_setting, set_setting, Db},
     mitm::{
         ca::{
             classify_trust_error, ensure_root_ca, load_root_ca, set_ca_installed, set_enabled,
@@ -22,16 +21,21 @@ use crate::gateway::{
         whitelist::{evaluate_host, list_whitelist, WhitelistEntry},
     },
 };
+use crate::gateway::models::SetSettingInput;
 use crate::shared::aidog_data_dir;
-use rusqlite::params;
 use serde::{Deserialize, Serialize};
 use tauri::State;
+
+/// MITM 配置在 setting 表的 scope（与 ca.rs / whitelist.rs 共用）。
+const MITM_SCOPE: &str = "mitm";
+/// 白名单数组在 setting 表的 key。
+const MITM_WHITELIST_KEY: &str = "whitelist";
 
 /// CA PEM 在数据目录的文件名（capability mitm-ca.json validator 正则要求 `^.+\.pem$`）。
 const CA_PEM_FILENAME: &str = "mitm-ca.pem";
 
-/// 前端展示用的白名单行（DTO：whitelist.rs 的 WhitelistEntry 未派生 Serialize，
-/// 此处镜像字段做序列化层，避改 ST2 公共签名）。
+/// 前端展示用的白名单行（DTO：whitelist.rs 的 WhitelistEntry 现已派生 Serialize/Deserialize，
+/// 但本 DTO 保留作为前端契约层，避改 ST2 公共签名 / Tauri invoke 返回类型）。
 #[derive(Debug, Clone, Serialize)]
 pub struct WhitelistEntryDto {
     pub host_pattern: String,
@@ -197,7 +201,7 @@ pub async fn mitm_classify_trust_error(
     Ok(kind.as_str().to_string())
 }
 
-// ─── 白名单增删改（内联 SQL，避改 whitelist.rs 公共签名）──────────
+// ─── 白名单增删改（read-modify-write setting 数组）──────────
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct WhitelistAddInput {
@@ -210,9 +214,8 @@ pub struct WhitelistAddInput {
 /// 校验 + 归一化 rule_type：返 4 合法值的小写常量，非法返 None。
 ///
 /// 单源校验函数：matches_rule 引擎按这 4 值分支，脏值（如 "Suffix" / "regexp"）
-/// 走不到任何分支 → 规则形同死代码。本函数在 add 入口拦截，防脏数据进表。
-/// 归一化小写后返，使 INSERT 与 DEFAULT_RULES / list 展示一致。
-/// 后续 toggle/remove 若加 rule_type 维度可复用。
+/// 走不到任何分支 → 规则形同死代码。本函数在 add 入口拦截，防脏数据进数组。
+/// 归一化小写后返，使新条目与 DEFAULT_RULES / list 展示一致。
 fn valid_rule_type(s: &str) -> Option<&'static str> {
     match s.trim().to_lowercase().as_str() {
         "domain" => Some("domain"),
@@ -221,6 +224,28 @@ fn valid_rule_type(s: &str) -> Option<&'static str> {
         "ipcidr" => Some("ipcidr"),
         _ => None,
     }
+}
+
+/// 从 setting 读白名单数组（None / 解析失败 → 空 Vec，与 list_whitelist 同 fallback）。
+async fn load_whitelist_array(db: &Db) -> Result<Vec<WhitelistEntry>, String> {
+    match get_setting(db, MITM_SCOPE, MITM_WHITELIST_KEY).await? {
+        Some(v) => serde_json::from_value::<Vec<WhitelistEntry>>(v).map_err(|e| format!("parse whitelist: {e}")),
+        None => Ok(Vec::new()),
+    }
+}
+
+/// 把白名单数组写回 setting（set_setting upsert + invalidate cache）。
+async fn save_whitelist_array(db: &Db, entries: Vec<WhitelistEntry>) -> Result<(), String> {
+    let value = serde_json::to_value(&entries).map_err(|e| format!("serialize whitelist: {e}"))?;
+    set_setting(
+        db,
+        SetSettingInput {
+            scope: MITM_SCOPE.to_string(),
+            key: MITM_WHITELIST_KEY.to_string(),
+            value,
+        },
+    )
+    .await
 }
 
 #[tauri::command]
@@ -236,18 +261,18 @@ pub async fn mitm_whitelist_add(
     }
     let rule_type = valid_rule_type(&input.rule_type)
         .ok_or_else(|| format!("invalid rule_type: {}", input.rule_type))?;
-    let now = gateway::db::now();
-    db.write_conn()
-        .call(move |conn| {
-            conn.execute(
-                "INSERT OR IGNORE INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
-                 VALUES (?1, ?2, 1, 'user', ?3)",
-                params![pattern, rule_type, now],
-            )?;
-            Ok(())
-        })
-        .await
-        .map_err(|e| e.to_string())
+    // read-modify-write：load → 重复静默成功（等价旧 INSERT OR IGNORE）→ push → save。
+    let mut entries = load_whitelist_array(&db).await?;
+    if entries.iter().any(|e| e.host_pattern == pattern) {
+        return Ok(()); // 重复静默成功（幂等，与旧 INSERT OR IGNORE 等价）
+    }
+    entries.push(WhitelistEntry {
+        host_pattern: pattern,
+        rule_type: rule_type.to_string(),
+        enabled: true,
+        source: "user".to_string(),
+    });
+    save_whitelist_array(&db, entries).await
 }
 
 #[tauri::command]
@@ -255,16 +280,10 @@ pub async fn mitm_whitelist_add(
 pub async fn mitm_whitelist_remove(host_pattern: String, db: State<'_, Db>) -> Result<(), String> {
     tracing::debug!(command = "mitm_whitelist_remove", pattern = %host_pattern, "command invoked");
     let pattern = host_pattern.trim().to_lowercase();
-    db.write_conn()
-        .call(move |conn| {
-            conn.execute(
-                "DELETE FROM mitm_whitelist WHERE host_pattern = ?1",
-                params![pattern],
-            )?;
-            Ok(())
-        })
-        .await
-        .map_err(|e| e.to_string())
+    // read-modify-write：load → filter 掉匹配项 → save（保序）。
+    let mut entries = load_whitelist_array(&db).await?;
+    entries.retain(|e| e.host_pattern != pattern);
+    save_whitelist_array(&db, entries).await
 }
 
 #[tauri::command]
@@ -276,54 +295,47 @@ pub async fn mitm_whitelist_toggle(
 ) -> Result<(), String> {
     tracing::debug!(command = "mitm_whitelist_toggle", pattern = %host_pattern, enabled, "command invoked");
     let pattern = host_pattern.trim().to_lowercase();
-    db.write_conn()
-        .call(move |conn| {
-            conn.execute(
-                "UPDATE mitm_whitelist SET enabled = ?1 WHERE host_pattern = ?2",
-                params![enabled as i64, pattern],
-            )?;
-            Ok(())
-        })
-        .await
-        .map_err(|e| e.to_string())
+    // read-modify-write：load → map 改匹配项 enabled → save（保序）。
+    let mut entries = load_whitelist_array(&db).await?;
+    for e in entries.iter_mut() {
+        if e.host_pattern == pattern {
+            e.enabled = enabled;
+        }
+    }
+    save_whitelist_array(&db, entries).await
 }
 
 /// 导入默认白名单规则（37 条静态 Claude/OpenAI）。
 ///
-/// 用户已有自定义白名单时，表非空 → migration 041 seed 不跑 → 默认规则缺失。
-/// 本命令遍历 `whitelist::DEFAULT_RULES`，INSERT OR IGNORE 仅补缺失项，
-/// 不删不改现有条目（DB 唯一约束 UNIQUE(host_pattern) 保证幂等去重）。
+/// read-modify-write：load 当前数组 → 对 DEFAULT_RULES 每条，数组中无同 host_pattern
+/// 则 push（source='default'）→ save 整数组。幂等：再跑跳过已存在。
 ///
-/// 返 `ImportDefaultsResult { imported, skipped }`：imported = changes()==1（新插入）；
-/// skipped = changes()==0（已存在）。可重复点击（幂等）。
-/// `source='default'` 与 migration seed 一致，便于后续按来源筛/清。
+/// 返 `ImportDefaultsResult { imported, skipped }`：imported = 新插入；skipped = 已存在。
+/// 可重复点击（幂等）。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn mitm_whitelist_import_defaults(
     db: State<'_, Db>,
 ) -> Result<ImportDefaultsResult, String> {
     tracing::debug!(command = "mitm_whitelist_import_defaults", "command invoked");
-    let now = gateway::db::now();
-    db.write_conn()
-        .call(move |conn| {
-            let mut imported = 0usize;
-            let mut skipped = 0usize;
-            for (rule_type, pattern) in gateway::mitm::whitelist::DEFAULT_RULES {
-                let n = conn.execute(
-                    "INSERT OR IGNORE INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
-                     VALUES (?1, ?2, 1, 'default', ?3)",
-                    params![pattern, rule_type, now],
-                )?;
-                if n == 1 {
-                    imported += 1;
-                } else {
-                    skipped += 1;
-                }
-            }
-            Ok(ImportDefaultsResult { imported, skipped })
-        })
-        .await
-        .map_err(|e| e.to_string())
+    let mut entries = load_whitelist_array(&db).await?;
+    let mut imported = 0usize;
+    let mut skipped = 0usize;
+    for (rule_type, pattern) in gateway::mitm::whitelist::DEFAULT_RULES {
+        if entries.iter().any(|e| e.host_pattern == *pattern) {
+            skipped += 1;
+        } else {
+            entries.push(WhitelistEntry {
+                host_pattern: pattern.to_string(),
+                rule_type: rule_type.to_string(),
+                enabled: true,
+                source: "default".to_string(),
+            });
+            imported += 1;
+        }
+    }
+    save_whitelist_array(&db, entries).await?;
+    Ok(ImportDefaultsResult { imported, skipped })
 }
 
 /// 导入默认白名单的结果计数（前端 toast 反馈用）。
@@ -338,22 +350,19 @@ pub struct ImportDefaultsResult {
 
 /// 一键清空白名单（全删 default + user）。
 ///
-/// 用户决策：DELETE FROM mitm_whitelist（不按 source 筛）。可重新「导入默认白名单」
-/// 恢复 37 条静态默认（command mitm_whitelist_import_defaults，幂等 INSERT OR IGNORE）。
-/// 返删除行数（前端 toast `mitm.clearDone` 用 {{n}}）。
+/// 用户决策：写空数组 `[]`（不按 source 筛）。可重新「导入默认白名单」
+/// 恢复 37 条静态默认（command mitm_whitelist_import_defaults，幂等去重）。
+/// 返删除条数（前端 toast `mitm.clearDone` 用 {{n}}）= 清前数组长度。
 ///
 /// 安全：不可撤销，前端必走 confirm 弹窗（React state modal，禁 window.confirm 破坏 Tauri）。
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %crate::logging::new_trace_id()))]
 pub async fn mitm_whitelist_clear(db: State<'_, Db>) -> Result<usize, String> {
     tracing::debug!(command = "mitm_whitelist_clear", "command invoked");
-    db.write_conn()
-        .call(move |conn| {
-            let n = conn.execute("DELETE FROM mitm_whitelist", [])?;
-            Ok(n)
-        })
-        .await
-        .map_err(|e| e.to_string())
+    let entries = load_whitelist_array(&db).await?;
+    let n = entries.len();
+    save_whitelist_array(&db, Vec::new()).await?;
+    Ok(n)
 }
 
 /// URL 命中测试结果条目（前端展示哪些规则命中）。
