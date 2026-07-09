@@ -1,6 +1,6 @@
 {
   "version": "1",
-  "last_updated": 1783597913,
+  "last_updated": 1783599760,
   "protocols": {
     "anthropic": {
       "client_type": "claude_code",
@@ -300,6 +300,7 @@
       "logo_url": ""
     },
     "glm_coding": {
+      "is_coding_plan": true,
       "client_type": "codex_tui",
       "endpoints": {
         "default": [
@@ -736,6 +737,7 @@
       "logo_url": "alibabacloud"
     },
     "bailian_coding": {
+      "is_coding_plan": true,
       "client_type": "default",
       "endpoints": {
         "default": [
@@ -4527,6 +4529,7 @@
       "logo_url": ""
     },
     "compshare_coding": {
+      "is_coding_plan": true,
       "client_type": "default",
       "endpoints": {
         "default": [
