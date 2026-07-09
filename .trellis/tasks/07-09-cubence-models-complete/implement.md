@@ -21,7 +21,8 @@
 6. 改 `models.default`：三档（claude-sonnet-4-6 / gpt-5.5 / gemini-3-pro-preview）
 7. 改 `desc` 8 语言（范围修正，参考 prd 英文/中文文案，其余按现有风格翻译）
 8. 验证：`python3 -c "import json;json.load(open('src-tauri/defaults/platform-presets.json'))"` 通过
-9. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));c=d['protocols']['cubence'];print(len(c['model_list']['default']),list(c['models']['default'].keys()),c['desc']['en-US'][:50])"`
+9. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));c=d['protocols']['cubence'];print(len(c['model_list']['default']),c['models']['default'],c['desc']['en-US'][:50])"`
+   预期输出含三档档位映射：`{'sonnet': 'claude-sonnet-4-6', 'gpt': 'gpt-5.5', 'default': 'gemini-3-pro-preview'}`
 
 ## 验收（对齐 prd）
 

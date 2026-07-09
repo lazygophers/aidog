@@ -40,14 +40,16 @@ Cubence (cubence.com) 是 **Claude + GPT + Gemini 三大 AI 一站式代理**（
 
 🔴 **排除** `gpt-image-2`（图像生成专用，非聊天代理路由范围，且需单独 share group）。
 
-### 3. models.default（三档默认，model id key）
+### 3. models.default（三档默认，档位名 key → model id string）
+
+档位名 key → model id string（对齐 `Partial<Record<ModelSlot, string>>`，与 20 官方 protocol 同构）：
 
 ```json
 "models": {
   "default": {
-    "claude-sonnet-4-6": {},
-    "gpt-5.5": {},
-    "gemini-3-pro-preview": {}
+    "sonnet": "claude-sonnet-4-6",
+    "gpt": "gpt-5.5",
+    "default": "gemini-3-pro-preview"
   }
 }
 ```
@@ -72,7 +74,7 @@ Cubence (cubence.com) 是 **Claude + GPT + Gemini 三大 AI 一站式代理**（
 
 ## Out of Scope
 
-- 上下文窗口字段（文档仅给 claude-opus-4-7=200000，其余未知，value 留空 object）
+- 上下文窗口字段（文档仅给 claude-opus-4-7=200000，其余未知，不附带在 models.default 内）
 - gpt-image-2（图像专用，排除）
 - 备用线路 endpoint（api-dmit/api-bwg/api-cf，非必要）
 - 官方文档未罗列的模型（数据局限，需用户控制台核实，本研究已穷尽文档明文）

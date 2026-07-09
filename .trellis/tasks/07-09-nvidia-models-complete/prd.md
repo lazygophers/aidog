@@ -52,17 +52,19 @@ NVIDIA build (integrate.api.nvidia.com) 是 **OpenAI 兼容托管平台**，**12
 
 ### 3. models.default（三档默认）
 
+档位名 key → model id string（对齐 `Partial<Record<ModelSlot, string>>`，与 20 官方 protocol 同构）：
+
 ```json
 "models": {
   "default": {
-    "nvidia/llama-3.3-nemotron-super-49b-v1.5": {},
-    "nvidia/nemotron-3-ultra-550b-a55b": {},
-    "deepseek-ai/deepseek-v4-pro": {}
+    "default": "nvidia/llama-3.3-nemotron-super-49b-v1.5",
+    "thinking": "nvidia/nemotron-3-ultra-550b-a55b",
+    "coder": "deepseek-ai/deepseek-v4-pro"
   }
 }
 ```
 
-三档：NVIDIA 主力通用（49B Nemotron Super v1.5）/ 推理旗舰（Nemotron 3 Ultra 550B）/ 第三方旗舰（DeepSeek V4 Pro）。
+三档：NVIDIA 主力通用（49B Nemotron Super v1.5，slot `default`）/ 推理旗舰（Nemotron 3 Ultra 550B，slot `thinking`）/ 第三方旗舰（DeepSeek V4 Pro，slot `coder`，DeepSeek 强编程向，推测归类）。
 
 ### 4. desc 改写（8 语言）
 

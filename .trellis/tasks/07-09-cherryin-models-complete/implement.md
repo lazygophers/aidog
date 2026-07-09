@@ -20,7 +20,8 @@
 5. 改 `model_list.default`：按 research 各供应商表**逐条提取全部对话模型**（排除纯 embedding/rerank/image-gen 专用），含 agent/ 双 entry + free 模型，grok-4 → x-ai/grok-4
 6. 改 `models.default`：三档（anthropic/claude-opus-4.8 / openai/gpt-5.5 / agent/glm-5.2）
 7. 验证：`python3 -c "import json;json.load(open('src-tauri/defaults/platform-presets.json'))"` 通过
-8. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));c=d['protocols']['cherryin'];print(len(c['model_list']['default']),len(c['endpoints']['default']),list(c['models']['default'].keys()))"` 输出 model_list 条数 / 3 端点 / 三档 key
+8. 验证：`python3 -c "import json;d=json.load(open('src-tauri/defaults/platform-presets.json'));c=d['protocols']['cherryin'];print(len(c['model_list']['default']),len(c['endpoints']['default']),c['models']['default'])"` 输出 model_list 条数 / 3 端点 / 三档档位映射
+   预期输出三档档位映射：`{'opus': 'anthropic/claude-opus-4.8', 'gpt': 'openai/gpt-5.5', 'default': 'agent/glm-5.2'}`
 
 ## 验收（对齐 prd Acceptance Criteria）
 

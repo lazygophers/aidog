@@ -44,12 +44,14 @@ PatewayAI (pateway.ai) 是 **多供应商聚合平台**（非 claude-only），5
 
 ### 3. models.default（三档默认）
 
+档位名 key → model id string（对齐 `Partial<Record<ModelSlot, string>>`，与 20 官方 protocol 同构）：
+
 ```json
 "models": {
   "default": {
-    "claude-sonnet-4-6": {},
-    "gpt-5.5": {},
-    "deepseek-v4-pro": {}
+    "sonnet": "claude-sonnet-4-6",
+    "gpt": "gpt-5.5",
+    "default": "deepseek-v4-pro"
   }
 }
 ```
@@ -88,7 +90,7 @@ PatewayAI (pateway.ai) 是 **多供应商聚合平台**（非 claude-only），5
 
 ## Out of Scope
 
-- 上下文窗口字段（pricing 仅给档位分界，未显式 max context）
+- 上下文窗口字段（pricing 仅给档位分界，未显式 max context，不附带在 models.default 内）
 - gemini 协议（不支持）
 - 日期化别名（pricing 统一裸 id，沿用）
 - `/v1/models` 动态全量（需用户 Key，静态三源交叉已覆盖；建议用户真实 Key 终检）

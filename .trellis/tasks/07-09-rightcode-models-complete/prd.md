@@ -59,12 +59,14 @@ RightCode (right.codes) 是 **多供应商按渠道分发平台**（非统一网
 
 ### 3. models.default（三档默认）
 
+档位名 key → model id string（对齐 `Partial<Record<ModelSlot, string>>`，与 20 官方 protocol 同构）：
+
 ```json
 "models": {
   "default": {
-    "claude-sonnet-5": {},
-    "gpt-5.5": {},
-    "deepseek-v4-pro": {}
+    "sonnet": "claude-sonnet-5",
+    "gpt": "gpt-5.5",
+    "default": "deepseek-v4-pro"
   }
 }
 ```
@@ -98,7 +100,7 @@ RightCode (right.codes) 是 **多供应商按渠道分发平台**（非统一网
 - 阿里系测试渠道（即便 id 已知，官方标勿用）
 - claude-aws 逆向（不稳定）
 - 画图模型（非 chat）
-- 上下文窗口字段
+- 上下文窗口字段（不附带在 models.default 内）
 - STATIC_MODEL_IDS
 - 其他协议块
 

@@ -57,17 +57,19 @@ base_url 规则：openai 必带 `/v1`；anthropic/gemini 仅 host（框架自拼
 
 ### 3. models.default（三档默认）
 
+档位名 key → model id string（对齐 `Partial<Record<ModelSlot, string>>`，与 20 官方 protocol 同构）：
+
 ```json
 "models": {
   "default": {
-    "anthropic/claude-sonnet-4.5": {},
-    "openai/gpt-5.2-codex": {},
-    "deepseek/deepseek-v3.2": {}
+    "sonnet": "anthropic/claude-sonnet-4.5",
+    "coder": "openai/gpt-5.2-codex",
+    "default": "deepseek/deepseek-v3.2"
   }
 }
 ```
 
-三档：Claude 主力（sonnet-4.5，cc 默认档）/ OpenAI 编程旗舰（gpt-5.2-codex）/ 国产通用（deepseek-v3.2 主线含 Sparse Attention）。
+三档：Claude 主力（sonnet-4.5，cc 默认档）/ OpenAI 编程旗舰（gpt-5.2-codex，slot `coder`）/ 国产通用（deepseek-v3.2 主线含 Sparse Attention，slot `default`）。
 
 ### 4. desc 改写（8 语言）
 
@@ -88,7 +90,7 @@ base_url 规则：openai 必带 `/v1`；anthropic/gemini 仅 host（框架自拼
 
 ## Out of Scope
 
-- 上下文窗口字段（value 留空 object）
+- 上下文窗口字段（不附带在 models.default 内）
 - 价格字段（实时价走 price_sync.rs）
 - STATIC_MODEL_IDS
 - 其他协议块
