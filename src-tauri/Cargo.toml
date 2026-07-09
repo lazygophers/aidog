@@ -2,9 +2,9 @@
 name = "aidog"
 version = "0.1.5"
 description = "AiDog Desktop App"
-authors = ["you"]
+authors = ["落心"]
 license = "AGPL-3.0-or-later"
-edition = "2021"
+edition = "2024"
 
 [lib]
 name = "aidog_lib"
