@@ -12,6 +12,8 @@ import {
   type ParsedProtocol,
 } from "../../utils/platformPaste";
 import { platformApi, type SharePlatform } from "../../services/api";
+import { getProtocolLabel } from "../../domains/platforms/defaults";
+import { PROTOCOL_LABELS } from "../../domains/platforms/constants";
 
 export interface SmartPasteApplyResult {
   platform: { value: string; label: string; codingPlan?: boolean } | null;
@@ -47,7 +49,7 @@ const PROTO_LABEL: Record<ParsedProtocol, string> = {
 };
 
 export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, initialText }: SmartPasteModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [text, setText] = useState(initialText ?? "");
   // 多 key 场景：selKeys 多选（默认全选）；单 key 场景：selKeys 长度 1（保持单选 UX）。
   const [selKeys, setSelKeys] = useState<string[]>([]);
@@ -57,6 +59,8 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
   const parsed = useMemo(() => parsePlatformPaste(text, presets), [text, presets]);
   // 命中 aidog 平台分享串（YAML / JSON / Base64）→ 整体灌表单（优先于杂乱解析）。
   const [share, setShare] = useState<SharePlatform | null>(null);
+  // 协议本地化 label（fallback: PROTOCOL_LABELS → key）
+  const [protocolLabel, setProtocolLabel] = useState("");
 
   // 文本变化时尝试解析 aidog 分享串：先原文（serde_yml 兼容 YAML/JSON），失败再试 base64 解码后解析。
   // 非分享文本两路都失败 → share=null，回退原杂乱解析（无回归）。
@@ -115,6 +119,18 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // 协议本地化 label（依赖 share.platform_type）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!share?.platform_type) return;
+      const label = await getProtocolLabel(share.platform_type, i18n.language);
+      if (!cancelled) setProtocolLabel(label);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language, share?.platform_type]);
 
   // 默认选中：每个协议类型的首个 url（不同类型并存，同类型只取第一个）。
   useEffect(() => {
@@ -240,7 +256,7 @@ export function SmartPasteModal({ presets, onApply, onClose, onManualEntry, init
               {t("platform.paste.shareDetected", "已识别 AiDog 平台分享")}
             </div>
             <div style={{ fontSize: 12.5, color: "var(--text-secondary)" }}>
-              {share.name} · {share.platform_type.toUpperCase()}
+              {share.name} · {protocolLabel || PROTOCOL_LABELS[share.platform_type] || share.platform_type}
             </div>
             <div style={{ fontSize: 12, color: "var(--text-tertiary)" }}>
               {t("platform.paste.shareDetectedHint", "点击下方按钮将完整配置（含 API Key）灌入表单。")}

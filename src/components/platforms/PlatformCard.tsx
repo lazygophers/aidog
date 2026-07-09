@@ -10,6 +10,7 @@ import {
   getDefaultModels, getProtocolHomepage, isCodingPlanProtocol, computeManualBudgetDisplay, computeQuotaDisplay,
   allModelValues, tierLabel, formatResetCountdown, formatResetClock, healthStatus,
 } from "../../domains/platforms";
+import { getProtocolLabel } from "../../domains/platforms/defaults";
 import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
 import type { HealthStatus } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/peakHours";
@@ -95,7 +96,7 @@ export const PlatformCard = memo(function PlatformCard({
   levelPriority,
   onLevelPriorityChange,
 }: PlatformCardProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   // QuotaDisplay 在卡片内计算并缓存：父列表渲染时不再现算新对象，浅比较稳定 → 局部交互不全卡重渲。
   const quota = useMemo(
     () => computeQuotaDisplay(p, quotaRaw, quotaPreferReal),
@@ -171,6 +172,17 @@ export const PlatformCard = memo(function PlatformCard({
     })();
     return () => { cancelled = true; };
   }, [p.platform_type]);
+  // 协议本地化 label（fallback: PROTOCOL_LABELS → key）
+  const [protocolLabel, setProtocolLabel] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const label = await getProtocolLabel(p.platform_type, i18n.language);
+      if (!cancelled) setProtocolLabel(label);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language, p.platform_type]);
   const getBaseUrl = (proto: Protocol, eps: Platform["endpoints"]): string => {
     const primary = eps?.find(ep => ep.protocol === proto);
     if (primary) return primary.base_url;
@@ -266,7 +278,7 @@ export const PlatformCard = memo(function PlatformCard({
                   </div>
                 )}
                 <div className="text-secondary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                  {p.platform_type.toUpperCase()} · {getBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
+                  {protocolLabel || PROTOCOL_LABELS[p.platform_type] || p.platform_type} · {getBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
                 </div>
                 {p.status === "auto_disabled" && (
                   <div
