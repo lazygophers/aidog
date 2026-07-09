@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "R4 DefaultsSyncResult.userModified 字段 Rust serde camelCase ↔ TS api.ts 类型对齐"}
+{"file": ".trellis/spec/guides/code-reuse-rules.md", "reason": "grep 查既有 sha256/hash 工具 + DefaultsSyncResult 扩展点，避免重复造轮"}
+{"file": ".trellis/spec/backend/logging-format.md", "reason": "新增 tracing::warn 校验失败日志需遵循 trace_id + 结构化字段规范"}
