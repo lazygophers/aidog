@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "校 setting 操作合规（缓存失效/invalidate 调用）"}
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "校公共签名零改（RootCa/WhitelistEntry/5 command 前端契约）"}
