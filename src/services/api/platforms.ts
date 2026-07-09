@@ -388,6 +388,10 @@ export type DefaultsSyncResult = {
   lastUpdated: number;
   source: "jsdelivr" | "raw" | "local";
   error?: string;
+  /** 启动 hook 检测到用户手工修改 app data 后跳过同步时为 true；
+   *  手动按钮路径恒 false。R3.5 / R4.1，Rust serde camelCase 对齐。
+   *  可选：旧后端响应无此字段 → undefined（向后兼容）。 */
+  userModified?: boolean;
 };
 
 /** 手动触发 platform-presets.json 同步（无视节流，jsDelivr 主 + raw fallback）。
