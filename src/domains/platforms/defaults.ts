@@ -16,6 +16,15 @@ export type PeakWindow = {
   multiplier: number;
   /** 可选；0=Sunday…6=Saturday；absent = 每天适用 */
   days_of_week?: number[];
+  /** 分钟精度起点 (0-59)；缺省 = 0（仅 hour 精度，向后兼容旧数据）。
+   *  与 Rust `PeakWindow.start_minute` 对称（serde Option，#[serde(default)]）。 */
+  start_minute?: number;
+  /** 分钟精度终点 (0-59)；缺省 = 0（仅 hour 精度，向后兼容旧数据）。
+   *  与 Rust `PeakWindow.end_minute` 对称。 */
+  end_minute?: number;
+  /** 月内日过滤 (1-31)；缺省 = 不过滤；与 `days_of_week` 在 UI 层互斥
+   *  （hit 层同时 Some 取 AND 兜底，正常不触发）。与 Rust `PeakWindow.days_of_month` 对称。 */
+  days_of_month?: number[];
 };
 
 /** defaults.json 运行时缓存：进程内只拉一次 Tauri command，5 函数共享。
@@ -126,7 +135,11 @@ export async function getDefaultModelList(protocol: Protocol, codingPlan?: boole
 export async function getDefaultPeakHours(protocol: Protocol): Promise<PeakWindow[]> {
   const doc = await loadDoc();
   const list = doc.protocols[protocol]?.peak_hours ?? [];
-  return list.map(w => ({ ...w, days_of_week: w.days_of_week ? [...w.days_of_week] : undefined }));
+  return list.map(w => ({
+    ...w,
+    days_of_week: w.days_of_week ? [...w.days_of_week] : undefined,
+    days_of_month: w.days_of_month ? [...w.days_of_month] : undefined,
+  }));
 }
 
 /** i18next locale 与 JSON name/desc locale key 已统一为 BCP 47 script 子标签 (zh-Hans)。
