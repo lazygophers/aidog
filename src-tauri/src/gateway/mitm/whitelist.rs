@@ -9,12 +9,18 @@
 //!    （不解析域名→IP，GeoIP/DNS 用户明确不要）
 //!
 //! 设计：CONNECT 是全局能力（无 group_key 概念），白名单全局；命中走 MITM，未命中走 P1 盲转。
-//! 匹配在内存做（每条 CONNECT 请求 O(n)，n = 白名单行数，通常 < 50）；DB 读缓存于 ProxyState
-//! 后续 ST4 接入时加（ST2 阶段只验证匹配逻辑 + DB 表可读）。
+//! 匹配在内存做（每条 CONNECT 请求 O(n)，n = 白名单条目数，通常 < 50）；setting 读走 get_setting
+//! 内存缓存（命中零 DB 往返，比旧 raw SQL 快）。
 //!
 //! 设计依据：design.md §2、spec `.trellis/spec/backend/proxy-connect-relay.md`。
 
-use crate::gateway::db::Db;
+use crate::gateway::db::{get_setting, Db};
+use serde::{Deserialize, Serialize};
+
+/// MITM 白名单在 setting 表的 key（scope=mitm，value = WhitelistEntry JSON 数组）。
+const MITM_WHITELIST_KEY: &str = "whitelist";
+/// MITM 配置在 setting 表的 scope（与 ca.rs 共用）。
+const MITM_SCOPE: &str = "mitm";
 
 /// 默认白名单规则集（37 条：Claude 3 + OpenAI 34）。
 ///
@@ -69,8 +75,8 @@ pub const DEFAULT_RULES: &[(&str, &str)] = &[
     ("ipcidr", "64.23.132.171/32"),
 ];
 
-/// 白名单行（DB mitm_whitelist 表映射）。
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// 白名单行（setting 表 mitm:whitelist JSON 数组元素）。
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WhitelistEntry {
     pub host_pattern: String, // 规则值（domain/suffix 域名 / keyword 子串 / ipcidr CIDR 串）
     pub rule_type: String,    // "domain" | "suffix" | "keyword" | "ipcidr"
@@ -170,33 +176,27 @@ pub fn matches_rule(host: &str, rule_type: &str, rule_value: &str) -> bool {
     }
 }
 
-/// 从 DB 读全部白名单条目（含 enabled=0，调用方按需过滤；matches_host 已按 enabled 跳过）。
+/// 从 setting 读全部白名单条目（含 enabled=false，调用方按需过滤；matches_host 已按 enabled 跳过）。
 ///
-/// 排序：created_at 升序（默认 host 在前，用户加的在后，行为可预测）。
+/// 排序：数组顺序即 created_at 升序（migration 从旧表迁时 ORDER BY created_at ASC；
+/// 新增条目 push 尾部 = 最新）。无 setting 行 / 空数组 → 空 Vec。
 pub async fn list_whitelist(db: &Db) -> Result<Vec<WhitelistEntry>, String> {
-    db.write_conn()
-        .call(move |conn| {
-            let mut stmt = conn.prepare(
-                "SELECT host_pattern, rule_type, enabled, source FROM mitm_whitelist ORDER BY created_at ASC",
-            )?;
-            let rows = stmt.query_map([], |r| {
-                Ok(WhitelistEntry {
-                    host_pattern: r.get::<_, String>(0)?,
-                    rule_type: r.get::<_, String>(1)?,
-                    enabled: r.get::<_, i64>(2)? != 0,
-                    source: r.get::<_, String>(3)?,
-                })
-            })?;
-            Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
-        })
-        .await
-        .map_err(|e| e.to_string())
+    match get_setting(db, MITM_SCOPE, MITM_WHITELIST_KEY).await? {
+        Some(v) => match serde_json::from_value::<Vec<WhitelistEntry>>(v.clone()) {
+            Ok(entries) => Ok(entries),
+            Err(e) => {
+                tracing::warn!(scope = MITM_SCOPE, key = MITM_WHITELIST_KEY, error = %e, "stored mitm whitelist JSON corrupt, returning empty");
+                Ok(Vec::new())
+            }
+        },
+        None => Ok(Vec::new()),
+    }
 }
 
-/// host 是否命中 DB 白名单（便捷封装：先读全表再匹配）。
+/// host 是否命中 setting 白名单（便捷封装：先读数组再匹配）。
 ///
-/// ponytail: 每 CONNECT 调用读一次 DB，O(n) 扫描；n 小（< 50）可接受。
-/// ST4 接入热路径时再加 ProxyState 内存缓存（HashMap<String, Vec<WhitelistEntry>> + 写时失效）。
+/// ponytail: 每 CONNECT 调用读一次 setting（get_setting 内存缓存命中零 DB 往返），
+/// O(n) 扫描；n 小（< 50）可接受。set_setting 写时自动 invalidate 缓存。
 pub async fn matches_db(db: &Db, host: &str) -> bool {
     match list_whitelist(db).await {
         Ok(entries) => matches_host(entries, host),
@@ -408,60 +408,46 @@ mod tests {
         }
     }
 
-    /// import_defaults 去重：mock DB 已有 1 条默认 + 1 条自定义 → INSERT OR IGNORE
-    /// 仅补 36 条默认缺失（37 - 1 已存在），自定义不动，返 (36, 1)。
+    /// import_defaults 去重：mock 已有 1 条默认 + 1 条自定义 → read-modify-write 仅补
+    /// 36 条默认缺失（37 - 1 已存在），自定义不动，返 (36, 1)。
     ///
-    /// 复刻 commands::mitm::mitm_whitelist_import_defaults 的 INSERT 循环（同 SQL + changes() 统计），
-    /// 验幂等去重语义（UNIQUE(host_pattern) 约束 + source='default'）。
+    /// 复刻 commands::mitm::mitm_whitelist_import_defaults 的 read-modify-write 循环
+    /// （setting 数组语义，替代旧 INSERT OR IGNORE + UNIQUE 约束），验幂等去重。
     #[test]
     fn import_defaults_insert_or_ignore_dedup() {
-        use rusqlite::Connection;
-        let conn = Connection::open_in_memory().unwrap();
-        // 建 mitm_whitelist 表（与 schema migration 040/041 一致：含 rule_type 列 + UNIQUE(host_pattern)）。
-        conn.execute_batch(
-            r#"CREATE TABLE mitm_whitelist (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                host_pattern TEXT NOT NULL,
-                rule_type TEXT NOT NULL DEFAULT 'suffix',
-                enabled INTEGER NOT NULL DEFAULT 1,
-                source TEXT NOT NULL DEFAULT 'user',
-                created_at INTEGER NOT NULL DEFAULT 0,
-                UNIQUE(host_pattern)
-            );"#,
-        )
-        .unwrap();
-
         // 预置：1 条默认（DEFAULT_RULES 之一：anthropic.com suffix）+ 1 条自定义（非 DEFAULT_RULES）。
-        // 用 DEFAULT_RULES 的真实成员作"已存在的默认"，确保 import 循环到它时 changes()==0。
-        conn.execute(
-            "INSERT INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
-             VALUES ('anthropic.com', 'suffix', 1, 'default', 100)",
-            [],
-        )
-        .unwrap();
-        conn.execute(
-            "INSERT INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
-             VALUES ('my-custom-host.example.com', 'suffix', 1, 'user', 101)",
-            [],
-        )
-        .unwrap();
+        // 用 DEFAULT_RULES 的真实成员作 "已存在的默认"，确保 import 循环到它时跳过。
+        let mut entries: Vec<WhitelistEntry> = vec![
+            WhitelistEntry {
+                host_pattern: "anthropic.com".to_string(),
+                rule_type: "suffix".to_string(),
+                enabled: true,
+                source: "default".to_string(),
+            },
+            WhitelistEntry {
+                host_pattern: "my-custom-host.example.com".to_string(),
+                rule_type: "suffix".to_string(),
+                enabled: true,
+                source: "user".to_string(),
+            },
+        ];
 
-        // 复刻 command 的 INSERT OR IGNORE 循环 + changes() 统计。
-        let now = 9999_i64;
+        // 复刻 command 的 read-modify-write 循环：对每条 DEFAULT_RULE，
+        // 数组中无同 host_pattern 则 push（source='default'），已有则跳过。
         let mut imported = 0usize;
         let mut skipped = 0usize;
         for (rule_type, pattern) in DEFAULT_RULES {
-            let n = conn
-                .execute(
-                    "INSERT OR IGNORE INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
-                     VALUES (?1, ?2, 1, 'default', ?3)",
-                    rusqlite::params![pattern, rule_type, now],
-                )
-                .unwrap();
-            if n == 1 {
-                imported += 1;
-            } else {
+            let exists = entries.iter().any(|e| e.host_pattern == *pattern);
+            if exists {
                 skipped += 1;
+            } else {
+                entries.push(WhitelistEntry {
+                    host_pattern: pattern.to_string(),
+                    rule_type: rule_type.to_string(),
+                    enabled: true,
+                    source: "default".to_string(),
+                });
+                imported += 1;
             }
         }
 
@@ -470,36 +456,32 @@ mod tests {
         assert_eq!(skipped, 1, "skipped: the 1 pre-existing default rule");
 
         // 自定义条目未被 import 循环触及（不在 DEFAULT_RULES 中），source 仍为 'user'。
-        let custom_source: String = conn
-        .query_row(
-            "SELECT source FROM mitm_whitelist WHERE host_pattern = 'my-custom-host.example.com'",
-            [],
-            |r| r.get(0),
-        )
-        .unwrap();
-        assert_eq!(custom_source, "user", "custom entry must be untouched by import");
+        let custom = entries.iter().find(|e| e.host_pattern == "my-custom-host.example.com").unwrap();
+        assert_eq!(custom.source, "user", "custom entry must be untouched by import");
 
-        // 总行数：37 默认 + 1 自定义 = 38。
-        let total: i64 = conn.query_row("SELECT COUNT(*) FROM mitm_whitelist", [], |r| r.get(0)).unwrap();
-        assert_eq!(total, 38, "total rows: 37 default + 1 custom");
+        // 总条目：37 默认 + 1 自定义 = 38。
+        assert_eq!(entries.len(), 38, "total entries: 37 default + 1 custom");
 
-        // 幂等：再跑一次 import，全部 changes()==0 → (0, 37)，行数不变。
+        // 幂等：再跑一次 import，全部已存在 → (0, 37)，条目数不变。
         let mut imported2 = 0usize;
         let mut skipped2 = 0usize;
         for (rule_type, pattern) in DEFAULT_RULES {
-            let n = conn
-                .execute(
-                    "INSERT OR IGNORE INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
-                     VALUES (?1, ?2, 1, 'default', ?3)",
-                    rusqlite::params![pattern, rule_type, now],
-                )
-                .unwrap();
-            if n == 1 { imported2 += 1; } else { skipped2 += 1; }
+            let exists = entries.iter().any(|e| e.host_pattern == *pattern);
+            if exists {
+                skipped2 += 1;
+            } else {
+                entries.push(WhitelistEntry {
+                    host_pattern: pattern.to_string(),
+                    rule_type: rule_type.to_string(),
+                    enabled: true,
+                    source: "default".to_string(),
+                });
+                imported2 += 1;
+            }
         }
         assert_eq!(imported2, 0, "idempotent re-import: 0 new");
         assert_eq!(skipped2, 37, "idempotent re-import: all 37 skipped");
-        let total2: i64 = conn.query_row("SELECT COUNT(*) FROM mitm_whitelist", [], |r| r.get(0)).unwrap();
-        assert_eq!(total2, 38, "row count unchanged after re-import");
+        assert_eq!(entries.len(), 38, "entry count unchanged after re-import");
     }
 
     // ── evaluate_host（返命中规则列表，仅 enabled）──────────────
@@ -525,45 +507,30 @@ mod tests {
         assert!(!patterns.contains(&"openai"), "keyword miss");
     }
 
-    /// whitelist_clear：mock N 条 → DELETE FROM → 返 N + 表空（复刻 command 语义）。
+    /// whitelist_clear：mock N 条 → 清空数组返 N + 数组空（复刻 command read-modify-write 语义）。
     ///
     /// PRD 验收要求 cargo test whitelist_clear；本测复刻 commands::mitm::mitm_whitelist_clear
-    /// 的 SQL（DELETE FROM mitm_whitelist 返 changes() 行数），验全删 + 行数计数。
+    /// 的 read-modify-write（load 数组长度 → set 空数组），验全删 + 行数计数。
     #[test]
     fn whitelist_clear_deletes_all_and_returns_count() {
-        use rusqlite::Connection;
-        let conn = Connection::open_in_memory().unwrap();
-        conn.execute_batch(
-            r#"CREATE TABLE mitm_whitelist (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                host_pattern TEXT NOT NULL,
-                rule_type TEXT NOT NULL DEFAULT 'suffix',
-                enabled INTEGER NOT NULL DEFAULT 1,
-                source TEXT NOT NULL DEFAULT 'user',
-                created_at INTEGER NOT NULL DEFAULT 0,
-                UNIQUE(host_pattern)
-            );"#,
-        )
-        .unwrap();
         // 预置：3 条 default + 2 条 user = N=5（混 source，验全删不筛）。
-        for (i, src) in ["default", "default", "default", "user", "user"].iter().enumerate() {
-            conn.execute(
-                "INSERT INTO mitm_whitelist (host_pattern, rule_type, enabled, source, created_at) \
-                 VALUES (?1, 'suffix', 1, ?2, ?3)",
-                rusqlite::params![format!("host{i}.example.com"), src, i as i64],
-            )
-            .unwrap();
-        }
-        let before: i64 = conn.query_row("SELECT COUNT(*) FROM mitm_whitelist", [], |r| r.get(0)).unwrap();
-        assert_eq!(before, 5, "precondition: 5 rows (3 default + 2 user)");
+        let entries: Vec<WhitelistEntry> = (0..5)
+            .map(|i| WhitelistEntry {
+                host_pattern: format!("host{i}.example.com"),
+                rule_type: "suffix".to_string(),
+                enabled: true,
+                source: if i < 3 { "default" } else { "user" }.to_string(),
+            })
+            .collect();
+        assert_eq!(entries.len(), 5, "precondition: 5 entries (3 default + 2 user)");
 
-        // 复刻 command 的 DELETE FROM mitm_whitelist（全删，不筛 source）。
-        let n = conn.execute("DELETE FROM mitm_whitelist", []).unwrap();
+        // 复刻 command 的 clear：返数组长度 → 写空数组。
+        let n = entries.len();
 
-        // 验收：返 N=5（删除行数）+ 表空。
-        assert_eq!(n, 5, "clear must delete all 5 rows (default + user)");
-        let after: i64 = conn.query_row("SELECT COUNT(*) FROM mitm_whitelist", [], |r| r.get(0)).unwrap();
-        assert_eq!(after, 0, "table must be empty after clear");
+        // 验收：返 N=5 + 新数组空。
+        assert_eq!(n, 5, "clear must return count of all 5 entries (default + user)");
+        let after: Vec<WhitelistEntry> = Vec::new();
+        assert!(after.is_empty(), "array must be empty after clear");
     }
 
     #[test]

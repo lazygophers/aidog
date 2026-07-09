@@ -2,7 +2,7 @@
 //!
 //! 职责：
 //!  - 生成 ECDSA P256 自签 Root CA（rcgen）
-//!  - 持久化到 DB（mitm_ca 表，明文 + DB 文件权限 0600，D4/D5）
+//!  - 持久化到 setting 表（scope=mitm, key=ca，明文 + DB 文件权限 0600，D4/D5）
 //!  - 动态签 host 证书（按 SNI / CONNECT target host 签，ST3 用）
 //!  - 装信任库（macOS `security add-trusted-cert` / Windows `certutil -addstore` / Linux
 //!    `update-ca-certificates`，经 tauri-plugin-shell + sudo 弹窗，D1/D8）
@@ -16,19 +16,21 @@
 use rcgen::{
     Certificate, CertificateParams, DistinguishedName, DnType, KeyPair, PKCS_ECDSA_P256_SHA256,
 };
-use rusqlite::params;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-use crate::gateway::db::Db;
+use crate::gateway::db::{get_setting, set_setting, Db};
+use crate::gateway::models::SetSettingInput;
 
-/// CA 唯一 id（mitm_ca 表单行设计，id 固定 1）。
-const CA_ROW_ID: i64 = 1;
+/// MITM 配置在 setting 表的 scope（与 app/global/middleware 同级）。
+const MITM_SCOPE: &str = "mitm";
+/// CA 对象在 setting 表的 key（单 JSON 对象：RootCa 序列化）。
+const MITM_CA_KEY: &str = "ca";
 
-/// Root CA 物化（PEM 双段 + 元数据），从 DB 加载或新建后存 DB。
+/// Root CA 物化（PEM 双段 + 元数据），从 setting 加载或新建后存 setting。
 ///
 /// `private_key_pem` / `cert_pem` 直接 rcgen 序列化产物；`KeyPair` / rustls `CertifiedKey`
 /// 在 ST3 用时按需从 PEM 反序列化重建（不在本结构常驻，避免 ca.rs 依赖 rustls server 类型）。
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RootCa {
     pub private_key_pem: String,
     pub cert_pem: String,
@@ -178,67 +180,38 @@ impl From<rcgen::Error> for SignError {
 
 impl std::error::Error for SignError {}
 
-// ─── DB 持久化 ───────────────────────────────────────────────────────────
+// ─── setting 持久化（scope=mitm, key=ca）─────────────────────────────────
 
-/// 从 DB 读 RootCa（单行 id=1）。无行返 None；DB 错返 Err。
+/// 从 setting 读 RootCa（scope=mitm, key=ca）。无行返 None；解析失败返 None（tracing::warn）。
 pub async fn load_root_ca(db: &Db) -> Result<Option<RootCa>, String> {
-    db.write_conn()
-        .call(move |conn| {
-            let mut stmt = conn.prepare(
-                "SELECT private_key_pem, cert_pem, fingerprint, created_at, enabled, ca_installed \
-                 FROM mitm_ca WHERE id = ?1",
-            )?;
-            let row = stmt
-                .query_row(params![CA_ROW_ID], |r| {
-                    Ok(RootCa {
-                        private_key_pem: r.get::<_, String>(0)?,
-                        cert_pem: r.get::<_, String>(1)?,
-                        fingerprint: r.get::<_, String>(2)?,
-                        created_at: r.get::<_, i64>(3)?,
-                        enabled: r.get::<_, i64>(4)? != 0,
-                        ca_installed: r.get::<_, i64>(5)? != 0,
-                    })
-                })
-                .ok();
-            Ok(row)
-        })
-        .await
-        .map_err(|e| e.to_string())
+    match get_setting(db, MITM_SCOPE, MITM_CA_KEY).await? {
+        Some(v) => match serde_json::from_value::<RootCa>(v.clone()) {
+            Ok(ca) => Ok(Some(ca)),
+            Err(e) => {
+                tracing::warn!(scope = MITM_SCOPE, key = MITM_CA_KEY, error = %e, "stored mitm ca JSON corrupt, returning None");
+                Ok(None)
+            }
+        },
+        None => Ok(None),
+    }
 }
 
-/// 生成新 Root CA 并存 DB（覆盖旧行，D7 首次启用 / CA 轮换路径）。
+/// 生成新 Root CA 并存 setting（覆盖旧对象，D7 首次启用 / CA 轮换路径）。
 ///
 /// D5: DB 文件权限 0600 由 `enforce_db_file_permissions` 在 Db::new 之后（CA 生成前）保证。
 pub async fn create_and_store_root_ca(db: &Db) -> Result<RootCa, String> {
     let (key_pair, cert) = generate_root_ca().map_err(|e| e.to_string())?;
     let ca = RootCa::new(&key_pair, &cert);
-    let ca_clone = ca.clone();
-    db.write_conn()
-        .call(move |conn| {
-            conn.execute(
-                "INSERT INTO mitm_ca (id, private_key_pem, cert_pem, fingerprint, created_at, enabled, ca_installed) \
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7) \
-                 ON CONFLICT(id) DO UPDATE SET \
-                    private_key_pem = excluded.private_key_pem, \
-                    cert_pem = excluded.cert_pem, \
-                    fingerprint = excluded.fingerprint, \
-                    created_at = excluded.created_at, \
-                    enabled = excluded.enabled, \
-                    ca_installed = excluded.ca_installed",
-                params![
-                    CA_ROW_ID,
-                    ca_clone.private_key_pem,
-                    ca_clone.cert_pem,
-                    ca_clone.fingerprint,
-                    ca_clone.created_at,
-                    ca_clone.enabled as i64,
-                    ca_clone.ca_installed as i64,
-                ],
-            )?;
-            Ok(())
-        })
-        .await
-        .map_err(|e| e.to_string())?;
+    let value = serde_json::to_value(&ca).map_err(|e| format!("serialize RootCa: {e}"))?;
+    set_setting(
+        db,
+        SetSettingInput {
+            scope: MITM_SCOPE.to_string(),
+            key: MITM_CA_KEY.to_string(),
+            value,
+        },
+    )
+    .await?;
     Ok(ca)
 }
 
@@ -254,17 +227,24 @@ pub async fn ensure_root_ca(db: &Db) -> Result<RootCa, String> {
 }
 
 /// 标 CA 已装 / 未装信任库（装命令成功 / 失败后调）。
+///
+/// read-modify-write：load → 改 ca_installed → set_setting 整对象回写。
+/// CA 装信任库是用户低频操作，单 async fn 内串行，无并发竞争。
 pub async fn set_ca_installed(db: &Db, installed: bool) -> Result<(), String> {
-    db.write_conn()
-        .call(move |conn| {
-            conn.execute(
-                "UPDATE mitm_ca SET ca_installed = ?1 WHERE id = ?2",
-                params![installed as i64, CA_ROW_ID],
-            )?;
-            Ok(())
-        })
-        .await
-        .map_err(|e| e.to_string())
+    let mut ca = load_root_ca(db)
+        .await?
+        .ok_or_else(|| "CA not generated".to_string())?;
+    ca.ca_installed = installed;
+    let value = serde_json::to_value(&ca).map_err(|e| format!("serialize RootCa: {e}"))?;
+    set_setting(
+        db,
+        SetSettingInput {
+            scope: MITM_SCOPE.to_string(),
+            key: MITM_CA_KEY.to_string(),
+            value,
+        },
+    )
+    .await
 }
 
 // ─── keychain 实状校验（修问题 2：手动装/卸后 app 不感知）──────────────────
@@ -429,17 +409,23 @@ pub async fn sync_ca_installed_from_system(db: &Db, ca: &RootCa) -> bool {
 }
 
 /// 启用 / 禁用 MITM（用户开关；disabled 时 CONNECT 走 P1 盲转，ST4 接入）。
+///
+/// read-modify-write：load → 改 enabled → set_setting 整对象回写（与 set_ca_installed 同模式）。
 pub async fn set_enabled(db: &Db, enabled: bool) -> Result<(), String> {
-    db.write_conn()
-        .call(move |conn| {
-            conn.execute(
-                "UPDATE mitm_ca SET enabled = ?1 WHERE id = ?2",
-                params![enabled as i64, CA_ROW_ID],
-            )?;
-            Ok(())
-        })
-        .await
-        .map_err(|e| e.to_string())
+    let mut ca = load_root_ca(db)
+        .await?
+        .ok_or_else(|| "CA not generated".to_string())?;
+    ca.enabled = enabled;
+    let value = serde_json::to_value(&ca).map_err(|e| format!("serialize RootCa: {e}"))?;
+    set_setting(
+        db,
+        SetSettingInput {
+            scope: MITM_SCOPE.to_string(),
+            key: MITM_CA_KEY.to_string(),
+            value,
+        },
+    )
+    .await
 }
 
 // ─── DB 文件权限（D5）────────────────────────────────────────────────────
