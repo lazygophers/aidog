@@ -10,7 +10,7 @@ import {
   getDefaultModels, getProtocolHomepage, isCodingPlanProtocol, computeManualBudgetDisplay, computeQuotaDisplay,
   allModelValues, tierLabel, formatResetCountdown, formatResetClock, healthStatus,
 } from "../../domains/platforms";
-import { getProtocolLabel } from "../../domains/platforms/defaults";
+import { getProtocolLabel, getProtocolLabelMap } from "../../domains/platforms/defaults";
 import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
 import type { HealthStatus } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/peakHours";
@@ -183,6 +183,14 @@ export const PlatformCard = memo(function PlatformCard({
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [i18n.language, p.platform_type]);
+  // 批量协议 labelMap（endpoint badge 覆盖所有 ep.protocol，单 protocol state 不够）
+  const [labelMap, setLabelMap] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    getProtocolLabelMap(i18n.language).then(m => { if (!cancelled) setLabelMap(m); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [i18n.language]);
   const getBaseUrl = (proto: Protocol, eps: Platform["endpoints"]): string => {
     const primary = eps?.find(ep => ep.protocol === proto);
     if (primary) return primary.base_url;
@@ -723,7 +731,7 @@ export const PlatformCard = memo(function PlatformCard({
                 <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
                   {p.endpoints.map((ep, ei) => (
                     <span key={ei} className="badge badge-muted" style={{ fontSize: 10, padding: "1px 6px", opacity: 0.85 }}>
-                      {PROTOCOL_LABELS[ep.protocol] || ep.protocol}
+                      {labelMap?.[ep.protocol] || PROTOCOL_LABELS[ep.protocol] || ep.protocol}
                       {ep.coding_plan && <span style={{ color: "var(--color-success)", marginLeft: 2, fontWeight: 700 }}>Code</span>}
                     </span>
                   ))}
