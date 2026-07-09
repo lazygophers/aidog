@@ -49,6 +49,10 @@ type DefaultsDoc = {
   version?: string;
   last_updated?: number;
   protocols: Partial<Record<Protocol, {
+    /** 协议层 coding plan 套餐标记（真值源）：true = 整套协议走 coding 套餐（独立子域 / 配额计费）。
+     *  与 endpoint 级 `coding_plan` flag 语义不同（端点路由级）；两者并存。
+     *  absent = false（向后兼容）。与 Rust `gateway::coding_plan::default_is_coding_plan` 对称。 */
+    is_coding_plan?: boolean;
     client_type?: ClientType;
     endpoints: { default?: PlatformEndpoint[]; coding_plan?: PlatformEndpoint[] };
     models: { default?: Partial<Record<ModelSlot, string>>; coding_plan?: Partial<Record<ModelSlot, string>> };
@@ -187,6 +191,15 @@ export async function getProtocolDesc(protocol: Protocol, locale?: string): Prom
 export async function getProtocolHomepage(protocol: Protocol): Promise<string> {
   const doc = await loadDoc();
   return doc.protocols[protocol]?.homepage ?? "";
+}
+
+/** 协议是否标记为 coding plan 套餐（数据驱动真值源，非硬编码协议键名）。
+ *  PlatformCard「Coding Plan」徽标据此判断；3 协议 glm_coding / bailian_coding /
+ *  compshare_coding 的 JSON 条目标 `is_coding_plan: true`，其他 absent = false（向后兼容）。
+ *  与 Rust `gateway::coding_plan::default_is_coding_plan` 对称（跨层一致）。 */
+export async function isCodingPlanProtocol(protocol: Protocol): Promise<boolean> {
+  const doc = await loadDoc();
+  return doc.protocols[protocol]?.is_coding_plan ?? false;
 }
 
 /** 批量取协议 label（一次 RPC 拉全表后内存过滤，避免 N 次 await）。

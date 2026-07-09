@@ -7,7 +7,7 @@ import { formatNumber, formatCost, formatPercent } from "../../utils/formatters"
 import { IconBolt, IconCost, IconCheck, IconClock } from "../icons";
 import {
   PROTOCOL_LABELS, PROTOCOL_COLORS, HEALTH_COLORS,
-  getDefaultModels, getProtocolHomepage, computeManualBudgetDisplay, computeQuotaDisplay,
+  getDefaultModels, getProtocolHomepage, isCodingPlanProtocol, computeManualBudgetDisplay, computeQuotaDisplay,
   allModelValues, tierLabel, formatResetCountdown, formatResetClock, healthStatus,
 } from "../../domains/platforms";
 import { useProtocolLogo } from "../../domains/platforms/useProtocolLogo";
@@ -103,6 +103,17 @@ export const PlatformCard = memo(function PlatformCard({
   );
   const color = PROTOCOL_COLORS[p.platform_type] || "var(--accent)";
   const hasCodingEndpoint = (p.endpoints ?? []).some(ep => ep.coding_plan);
+  // 协议层 coding plan 套餐标记（数据驱动，读 preset.is_coding_plan 真值源；非硬编码协议键名）。
+  const [isCpProtocol, setIsCpProtocol] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const flag = await isCodingPlanProtocol(p.platform_type);
+      if (!cancelled) setIsCpProtocol(flag);
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [p.platform_type]);
   // 默认模型异步从 defaults.json 取（4 函数 async 化后），首次渲染为 []，加载完触发更新。
   const [defaultModels, setDefaultModels] = useState<ReturnType<typeof allModelValues>>([]);
   useEffect(() => {
@@ -239,6 +250,21 @@ export const PlatformCard = memo(function PlatformCard({
               {/* 名称 + 协议·base_url */}
               <div style={{ minWidth: 0, flex: 1 }}>
                 <div style={{ fontWeight: 600, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                {/* Coding Plan 套餐协议徽标（数据驱动：读 preset.is_coding_plan，非硬编码协议键名） */}
+                {isCpProtocol && (
+                  <div
+                    style={{
+                      marginTop: 3, display: "inline-flex", alignItems: "center", gap: 4,
+                      fontSize: 10, fontWeight: 600, color: "var(--color-success)",
+                      background: "color-mix(in srgb, var(--color-success) 12%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--color-success) 30%, transparent)",
+                      borderRadius: 5, padding: "1px 6px", whiteSpace: "nowrap",
+                    }}
+                    title={t("platform.codingPlanHint", "Coding Plan 套餐协议：走独立子域 / 配额计费")}
+                  >
+                    {t("platform.codingPlanBadge", "Coding Plan")}
+                  </div>
+                )}
                 <div className="text-secondary" style={{ fontSize: 11, marginTop: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {p.platform_type.toUpperCase()} · {getBaseUrl(p.platform_type, p.endpoints ?? []) || p.base_url}
                 </div>
