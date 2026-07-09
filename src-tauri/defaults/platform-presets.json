@@ -141,14 +141,16 @@
       },
       "models": {
         "default": {
-          "gpt": "gpt-5.5"
+          "gpt": "gpt-5.5",
+          "fast": "gpt-5.4-mini"
         }
       },
       "model_list": {
         "default": [
           "gpt-5.5",
           "gpt-5.4",
-          "gpt-5.4-mini"
+          "gpt-5.4-mini",
+          "gpt-5.3-codex-spark"
         ]
       },
       "name": {
@@ -191,15 +193,20 @@
       },
       "models": {
         "default": {
-          "default": "gemini-2.5-pro"
+          "default": "gemini-2.5-pro",
+          "fast": "gemini-2.5-flash",
+          "thinking": "gemini-3.5-flash"
         }
       },
       "model_list": {
         "default": [
+          "gemini-3.5-flash",
+          "gemini-3.1-pro-preview",
+          "gemini-3.1-flash-lite",
+          "gemini-3-flash-preview",
           "gemini-2.5-pro",
           "gemini-2.5-flash",
-          "gemini-2.5-flash-lite",
-          "gemini-3.5-flash"
+          "gemini-2.5-flash-lite"
         ]
       },
       "name": {
@@ -249,7 +256,8 @@
       },
       "models": {
         "default": {
-          "default": "glm-5.2"
+          "default": "glm-5.2",
+          "fast": "glm-4.7-flashx"
         }
       },
       "model_list": {
@@ -259,9 +267,11 @@
           "glm-5",
           "glm-5-turbo",
           "glm-4.7",
+          "glm-4.7-flashx",
           "glm-4.7-flash",
           "glm-4.6",
-          "glm-4.5-air"
+          "glm-4.5-air",
+          "glm-4.5-airx"
         ]
       },
       "name": {
@@ -309,7 +319,8 @@
       },
       "models": {
         "default": {
-          "default": "glm-5.2"
+          "default": "glm-5.2",
+          "fast": "glm-4.7-flashx"
         }
       },
       "model_list": {
@@ -319,9 +330,11 @@
           "glm-5",
           "glm-5-turbo",
           "glm-4.7",
+          "glm-4.7-flashx",
           "glm-4.7-flash",
           "glm-4.6",
-          "glm-4.5-air"
+          "glm-4.5-air",
+          "glm-4.5-airx"
         ]
       },
       "name": {
@@ -362,22 +375,29 @@
           },
           {
             "protocol": "anthropic",
-            "base_url": "https://api.moonshot.cn/anthropic",
+            "base_url": "https://platform.moonshot.cn/anthropic",
             "client_type": "claude_code"
           }
         ]
       },
       "models": {
         "default": {
-          "default": "kimi-k2.6"
+          "default": "kimi-k2.7-code",
+          "fast": "kimi-k2.7-code-highspeed"
         }
       },
       "model_list": {
         "default": [
+          "kimi-k2.7-code",
+          "kimi-k2.7-code-highspeed",
           "kimi-k2.6",
           "kimi-k2.5",
-          "kimi-k2-thinking",
-          "kimi-latest"
+          "moonshot-v1-8k",
+          "moonshot-v1-32k",
+          "moonshot-v1-128k",
+          "moonshot-v1-8k-vision-preview",
+          "moonshot-v1-32k-vision-preview",
+          "moonshot-v1-128k-vision-preview"
         ]
       },
       "name": {
@@ -402,7 +422,7 @@
       },
       "source_urls": {
         "docs": "https://platform.moonshot.cn/docs",
-        "pricing": "https://platform.moonshot.cn/docs/pricing"
+        "pricing": "https://platform.moonshot.cn/docs/pricing/chat"
       },
       "homepage": "https://www.moonshot.cn",
       "logo_url": "moonshotai"
@@ -427,15 +447,21 @@
       },
       "models": {
         "default": {
-          "default": "MiniMax-M3"
+          "default": "MiniMax-M3",
+          "sonnet": "MiniMax-M2.7",
+          "coder": "MiniMax-M2.5",
+          "fast": "MiniMax-M2.7-highspeed"
         }
       },
       "model_list": {
         "default": [
           "MiniMax-M3",
           "MiniMax-M2.7",
+          "MiniMax-M2.7-highspeed",
           "MiniMax-M2.5",
+          "MiniMax-M2.5-highspeed",
           "MiniMax-M2.1",
+          "MiniMax-M2.1-highspeed",
           "MiniMax-M2"
         ]
       },
@@ -450,14 +476,14 @@
         "es-ES": "MiniMax"
       },
       "desc": {
-        "en-US": "MiniMax API for abab and Hailuo models",
-        "zh-Hans": "MiniMax API, abab 与海螺系列模型",
-        "ar-SA": "واجهة MiniMax لنماذج abab وHailuo",
-        "fr-FR": "API MiniMax pour les modèles abab et Hailuo",
-        "de-DE": "MiniMax-API für abab- und Hailuo-Modelle",
-        "ru-RU": "API MiniMax для моделей abab и Hailuo",
-        "ja-JP": "MiniMax API、abab と海螺シリーズモデル",
-        "es-ES": "API de MiniMax para modelos abab y Hailuo"
+        "en-US": "MiniMax API for Hailuo M-series models",
+        "zh-Hans": "MiniMax API, 海螺 M 系列模型",
+        "ar-SA": "واجهة MiniMax لنماذج سلسلة Hailuo M",
+        "fr-FR": "API MiniMax pour les modèles série Hailuo M",
+        "de-DE": "MiniMax-API für Hailuo M-Serien-Modelle",
+        "ru-RU": "API MiniMax для моделей серии Hailuo M",
+        "ja-JP": "MiniMax API、海螺 M シリーズモデル",
+        "es-ES": "API de MiniMax para modelos serie Hailuo M"
       },
       "source_urls": {
         "docs": "https://platform.minimaxi.com/document/Announcement",
@@ -486,15 +512,21 @@
       },
       "models": {
         "default": {
-          "default": "MiniMax-M3"
+          "default": "MiniMax-M3",
+          "sonnet": "MiniMax-M2.7",
+          "coder": "MiniMax-M2.5",
+          "fast": "MiniMax-M2.7-highspeed"
         }
       },
       "model_list": {
         "default": [
           "MiniMax-M3",
           "MiniMax-M2.7",
+          "MiniMax-M2.7-highspeed",
           "MiniMax-M2.5",
+          "MiniMax-M2.5-highspeed",
           "MiniMax-M2.1",
+          "MiniMax-M2.1-highspeed",
           "MiniMax-M2"
         ]
       },
@@ -509,14 +541,14 @@
         "es-ES": "MiniMax International"
       },
       "desc": {
-        "en-US": "MiniMax international (minimax.io) endpoint",
-        "zh-Hans": "MiniMax 国际版（minimax.io）端点",
-        "ar-SA": "نقطة نهاية MiniMax الدولية (minimax.io)",
-        "fr-FR": "Point de terminaison international MiniMax (minimax.io)",
-        "de-DE": "Internationales MiniMax-Endpunkt (minimax.io)",
-        "ru-RU": "Международная конечная точка MiniMax (minimax.io)",
-        "ja-JP": "MiniMax 国際版（minimax.io）エンドポイント",
-        "es-ES": "Endpoint internacional de MiniMax (minimax.io)"
+        "en-US": "MiniMax API for Hailuo M-series models",
+        "zh-Hans": "MiniMax API, 海螺 M 系列模型",
+        "ar-SA": "واجهة MiniMax لنماذج سلسلة Hailuo M",
+        "fr-FR": "API MiniMax pour les modèles série Hailuo M",
+        "de-DE": "MiniMax-API für Hailuo M-Serien-Modelle",
+        "ru-RU": "API MiniMax для моделей серии Hailuo M",
+        "ja-JP": "MiniMax API、海螺 M シリーズモデル",
+        "es-ES": "API de MiniMax para modelos serie Hailuo M"
       },
       "source_urls": {
         "docs": "https://platform.minimax.io/document/Announcement",
@@ -697,15 +729,14 @@
       },
       "models": {
         "default": {
-          "default": "deepseek-v4-flash"
+          "default": "deepseek-v4-flash",
+          "thinking": "deepseek-v4-pro"
         }
       },
       "model_list": {
         "default": [
           "deepseek-v4-flash",
-          "deepseek-v4-pro",
-          "deepseek-chat",
-          "deepseek-reasoner"
+          "deepseek-v4-pro"
         ]
       },
       "name": {
@@ -759,7 +790,9 @@
       "model_list": {
         "default": [
           "step-3.7-flash",
-          "step-3.5-flash"
+          "step-3.5-flash",
+          "step-3.5-flash-2603",
+          "step-1o-turbo-vision"
         ]
       },
       "name": {
@@ -813,7 +846,9 @@
       "model_list": {
         "default": [
           "step-3.7-flash",
-          "step-3.5-flash"
+          "step-3.5-flash",
+          "step-3.5-flash-2603",
+          "step-1o-turbo-vision"
         ]
       },
       "name": {
@@ -866,15 +901,24 @@
       },
       "models": {
         "default": {
-          "default": "doubao-seed-2-0-code"
+          "default": "doubao-seed-2-0-code",
+          "fast": "doubao-seed-2-0-mini",
+          "thinking": "doubao-seed-evolving"
         }
       },
       "model_list": {
         "default": [
+          "doubao-seed-evolving",
+          "doubao-seed-2-1-pro-260628",
+          "doubao-seed-2-1-turbo-260628",
           "doubao-seed-2-0-code",
           "doubao-seed-2-0-pro",
           "doubao-seed-2-0-lite",
+          "doubao-seed-2-0-mini",
           "doubao-seed-code",
+          "doubao-seed-character",
+          "doubao-seed-1.8",
+          "doubao-seed-1.6",
           "minimax-m2.7",
           "minimax-m3",
           "glm-5.2",
@@ -906,7 +950,7 @@
       },
       "source_urls": {
         "docs": "https://www.volcengine.com/docs/82379",
-        "pricing": "https://www.volcengine.com/docs/6879"
+        "pricing": "https://www.volcengine.com/docs/82379/1544106"
       },
       "homepage": "https://www.volcengine.com",
       "logo_url": "bytedance"
@@ -934,15 +978,21 @@
       },
       "models": {
         "default": {
-          "default": "doubao-seed-2-0-pro"
+          "default": "seed-2-0-pro",
+          "fast": "seed-2-0-mini"
         }
       },
       "model_list": {
         "default": [
-          "doubao-seed-2-0-pro",
-          "doubao-seed-2-0-code-preview",
-          "doubao-seed-2-0-lite",
-          "doubao-seed-2-0-mini"
+          "seed-2-0-pro",
+          "seed-2-0-code-preview",
+          "seed-2-0-lite",
+          "seed-2-0-mini",
+          "seed-1-8",
+          "seed-1-6",
+          "glm-5-2",
+          "deepseek-v4-pro",
+          "deepseek-v4-flash"
         ]
       },
       "name": {
@@ -966,8 +1016,8 @@
         "es-ES": "API internacional ByteDance BytePlus Ark"
       },
       "source_urls": {
-        "docs": "https://www.volcengine.com/docs/82379",
-        "pricing": "https://www.volcengine.com/docs/6879"
+        "docs": "https://docs.byteplus.com/en/docs/ModelArk",
+        "pricing": "https://docs.byteplus.com/en/docs/ModelArk/1544106"
       },
       "homepage": "https://www.byteplus.com",
       "logo_url": "bytedance"
@@ -984,10 +1034,19 @@
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "ernie-4.5-turbo"
+        }
       },
       "model_list": {
-        "default": []
+        "default": [
+          "ernie-5.1",
+          "ernie-5.0",
+          "ernie-4.5-turbo-vl",
+          "ernie-4.5-turbo",
+          "ernie-x1-turbo",
+          "ernie-x1.1-preview"
+        ]
       },
       "name": {
         "en-US": "Baidu Qianfan",
@@ -1040,10 +1099,7 @@
       "model_list": {
         "default": [
           "mimo-v2.5-pro",
-          "mimo-v2-pro",
-          "mimo-v2.5",
-          "mimo-v2-omni",
-          "mimo-v2-flash"
+          "mimo-v2.5"
         ]
       },
       "name": {
@@ -1067,8 +1123,8 @@
         "es-ES": "API de Xiaomi MiMo para modelos MiMo"
       },
       "source_urls": {
-        "docs": "https://mimo.xiaomi.com/",
-        "pricing": "https://mimo.xiaomi.com/"
+        "docs": "https://platform.xiaomimimo.com/docs",
+        "pricing": "https://platform.xiaomimimo.com/docs/en-US/quick-start/summary/model"
       },
       "homepage": "https://mimo.xiaomi.com",
       "logo_url": "xiaomi"
@@ -1134,10 +1190,14 @@
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "LongCat-2.0"
+        }
       },
       "model_list": {
-        "default": []
+        "default": [
+          "LongCat-2.0"
+        ]
       },
       "name": {
         "en-US": "Longcat",
@@ -1190,8 +1250,8 @@
       "model_list": {
         "default": [
           "sensenova-6.7-flash-lite",
-          "deepseek-v4-flash",
-          "sensenova-u1-fast"
+          "sensenova-u1-fast",
+          "deepseek-v4-flash"
         ]
       },
       "name": {
@@ -1205,14 +1265,14 @@
         "es-ES": "SenseNova (SenseTime)"
       },
       "desc": {
-        "en-US": "SenseTime SenseNova API for Nova models",
-        "zh-Hans": "商汤日日新 API, Nova 系列模型",
-        "ar-SA": "واجهة SenseTime SenseNova لنماذج Nova",
-        "fr-FR": "API SenseTime SenseNova pour les modèles Nova",
-        "de-DE": "SenseTime SenseNova-API für Nova-Modelle",
-        "ru-RU": "API SenseTime SenseNova для моделей Nova",
-        "ja-JP": "商湯日日新 API、Nova シリーズモデル",
-        "es-ES": "API de SenseTime SenseNova para modelos Nova"
+        "en-US": "SenseTime SenseNova API for SenseNova models",
+        "zh-Hans": "商汤日日新 API, SenseNova 系列模型",
+        "ar-SA": "واجهة برمجة تطبيقات SenseNova من SenseTime لنماذج SenseNova",
+        "fr-FR": "API SenseNova de SenseTime pour les modèles SenseNova",
+        "de-DE": "SenseTime SenseNova API für SenseNova-Modelle",
+        "ru-RU": "API SenseNova от SenseTime для моделей SenseNova",
+        "ja-JP": "SenseTime SenseNova API、SenseNova シリーズモデル",
+        "es-ES": "API SenseNova de SenseTime para modelos SenseNova"
       },
       "source_urls": {
         "docs": "https://platform.sensenova.cn/document",
@@ -1234,22 +1294,28 @@
             "protocol": "openai",
             "base_url": "https://openrouter.ai/api/v1",
             "client_type": "codex_tui"
-          },
-          {
-            "protocol": "gemini",
-            "base_url": "https://openrouter.ai/api",
-            "client_type": "default"
           }
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "anthropic/claude-sonnet-4.6",
+          "opus": "anthropic/claude-opus-4.8",
+          "sonnet": "anthropic/claude-sonnet-4.6",
+          "haiku": "anthropic/claude-haiku-4.5",
+          "fable": "anthropic/claude-fable-5",
+          "gpt": "openai/gpt-5.5",
+          "coder": "openai/gpt-5.3-codex",
+          "fast": "google/gemini-3.5-flash",
+          "thinking": "deepseek/deepseek-r1"
+        }
       },
       "model_list": {
         "default": [
           "anthropic/claude-opus-4.8",
           "anthropic/claude-sonnet-4.6",
-          "anthropic/claude-opus-4.5",
+          "anthropic/claude-haiku-4.5",
+          "anthropic/claude-fable-5",
           "openai/gpt-5.5",
           "openai/gpt-5.5-pro",
           "openai/gpt-5.3-codex",
@@ -1257,6 +1323,7 @@
           "google/gemini-3.1-pro-preview",
           "deepseek/deepseek-v4-pro",
           "deepseek/deepseek-v4-flash",
+          "deepseek/deepseek-r1",
           "qwen/qwen3.7-max",
           "z-ai/glm-5.2",
           "moonshotai/kimi-k2.7-code",
@@ -1299,14 +1366,44 @@
             "protocol": "anthropic",
             "base_url": "https://api.siliconflow.cn",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://api.siliconflow.cn/v1",
+            "client_type": "codex_tui"
           }
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "Qwen/Qwen2.5-72B-Instruct",
+          "coder": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+          "fast": "deepseek-ai/DeepSeek-V4-Flash"
+        }
       },
       "model_list": {
-        "default": []
+        "default": [
+          "Qwen/Qwen2.5-72B-Instruct",
+          "Qwen/Qwen3.5-27B",
+          "Qwen/Qwen3.5-9B",
+          "deepseek-ai/DeepSeek-V4-Flash",
+          "deepseek-ai/DeepSeek-V3.2",
+          "deepseek-ai/DeepSeek-R1",
+          "zai-org/GLM-4.7",
+          "zai-org/GLM-4.6",
+          "moonshotai/Kimi-K2-Instruct-0905",
+          "moonshotai/Kimi-K2.6",
+          "MiniMaxAI/MiniMax-M2.5",
+          "tencent/Hunyuan-A13B-Instruct",
+          "ByteDance-Seed/Seed-OSS-36B-Instruct",
+          "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+          "meta-llama/Meta-Llama-3.1-8B-Instruct",
+          "google/gemma-4-26B-A4B-it",
+          "openai/gpt-oss-120b",
+          "Qwen/Qwen2.5-Coder-32B-Instruct",
+          "baidu/ERNIE-4.5-300B-A47B",
+          "inclusionAI/Ling-flash-2.0"
+        ]
       },
       "name": {
         "en-US": "SiliconFlow",
@@ -1343,14 +1440,44 @@
             "protocol": "anthropic",
             "base_url": "https://api.siliconflow.com",
             "client_type": "claude_code"
+          },
+          {
+            "protocol": "openai",
+            "base_url": "https://api.siliconflow.com/v1",
+            "client_type": "codex_tui"
           }
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "Qwen/Qwen2.5-72B-Instruct",
+          "coder": "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+          "fast": "deepseek-ai/DeepSeek-V4-Flash"
+        }
       },
       "model_list": {
-        "default": []
+        "default": [
+          "Qwen/Qwen2.5-72B-Instruct",
+          "Qwen/Qwen3.5-27B",
+          "Qwen/Qwen3.5-9B",
+          "deepseek-ai/DeepSeek-V4-Flash",
+          "deepseek-ai/DeepSeek-V3.2",
+          "deepseek-ai/DeepSeek-R1",
+          "zai-org/GLM-4.7",
+          "zai-org/GLM-4.6",
+          "moonshotai/Kimi-K2-Instruct-0905",
+          "moonshotai/Kimi-K2.6",
+          "MiniMaxAI/MiniMax-M2.5",
+          "tencent/Hunyuan-A13B-Instruct",
+          "ByteDance-Seed/Seed-OSS-36B-Instruct",
+          "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+          "meta-llama/Meta-Llama-3.1-8B-Instruct",
+          "google/gemma-4-26B-A4B-it",
+          "openai/gpt-oss-120b",
+          "Qwen/Qwen2.5-Coder-32B-Instruct",
+          "baidu/ERNIE-4.5-300B-A47B",
+          "inclusionAI/Ling-flash-2.0"
+        ]
       },
       "name": {
         "en-US": "SiliconFlow International",
@@ -1392,11 +1519,23 @@
             "protocol": "openai",
             "base_url": "https://aihubmix.com/v1",
             "client_type": "codex_tui"
+          },
+          {
+            "protocol": "gemini",
+            "base_url": "https://aihubmix.com",
+            "client_type": "default"
           }
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "claude-sonnet-4-6",
+          "opus": "claude-opus-4-8",
+          "sonnet": "claude-sonnet-4-6",
+          "gpt": "gpt-5.5",
+          "coder": "kimi-k2.7-code",
+          "fast": "gemini-3.5-flash"
+        }
       },
       "model_list": {
         "default": [
@@ -1460,13 +1599,19 @@
         ]
       },
       "models": {
-        "default": {}
+        "default": {
+          "default": "claude-sonnet-4-6",
+          "opus": "claude-opus-4-8",
+          "sonnet": "claude-sonnet-4-6",
+          "gpt": "gpt-5.5",
+          "coder": "kimi-k2.7-code",
+          "fast": "gemini-3.5-flash"
+        }
       },
       "model_list": {
         "default": [
           "claude-opus-4-8",
           "claude-sonnet-4-6",
-          "claude-opus-4-5-20251101",
           "deepseek-v4-pro",
           "deepseek-v4-flash",
           "gpt-5.5",
