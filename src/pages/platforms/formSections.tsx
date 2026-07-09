@@ -15,8 +15,9 @@ import {
   type NewApiConfig, type SchedulingBreakerSettings, type GroupDetail,
 } from "../../services/api";
 import { LevelPriorityControl } from "../../components/platforms/PlatformCard";
-import { newManualBudget, type PeakWindow, getDefaultPeakHours } from "../../domains/platforms";
+import { newManualBudget, type PeakWindow, getDefaultPeakHours, getDefaultModelList } from "../../domains/platforms";
 import { isCurrentlyPeak } from "../../utils/peakHours";
+import type { ThemeMode } from "../../themes/types";
 
 /** 毫秒时间戳 → datetime-local input 值 "YYYY-MM-DDTHH:MM"（本地时区，无秒）。
  *  datetime-local 不解析 ISO Z 后缀，须手动拼本地时间分量。 */
@@ -24,6 +25,21 @@ export function toDatetimeLocal(ms: number): string {
   const d = new Date(ms);
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/** Unix 秒 → datetime-local 字符串（本地时区）；0/undefined → 空串。
+ *  PRD 07-09 D2：peak_hours starts_at/expires_at 用 Unix 秒存储。 */
+function secToLocalInput(sec: number | undefined): string {
+  if (!sec || sec <= 0) return "";
+  return toDatetimeLocal(sec * 1000);
+}
+
+/** datetime-local 字符串 → Unix 秒；空串/非法 → null（caller 据此清 undefined）。 */
+function localInputToSec(v: string): number | null {
+  if (!v) return null;
+  const ms = new Date(v).getTime();
+  if (!Number.isFinite(ms) || ms <= 0) return null;
+  return Math.floor(ms / 1000);
 }
 
 /** 编辑页分区卡片：glass-surface 容器 + 标题 + 可选描述 + 内容区，统一视觉层次。 */
@@ -378,7 +394,7 @@ function displayToUtc(displayHour: number, mode: "local" | "utc"): number {
   return ((displayHour - tzOffset(mode)) % 24 + 24) % 24;
 }
 
-export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, protocol, t }: {
+export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disableDuringPeak, setDisableDuringPeak, protocol, themeMode, t }: {
   windows: PeakWindow[];
   setWindows: React.Dispatch<React.SetStateAction<PeakWindow[]>>;
   tzMode: "local" | "utc";
@@ -386,13 +402,27 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
   disableDuringPeak: boolean;
   setDisableDuringPeak: React.Dispatch<React.SetStateAction<boolean>>;
   protocol: Protocol;
+  themeMode: ThemeMode;
   t: TFunction;
 }) {
   const [defaultCache, setDefaultCache] = useState<PeakWindow[] | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  // model scope 候选列表：从 preset model_list 拉取，chip 编辑 + datalist 自动补全用。
+  const [modelList, setModelList] = useState<string[]>([]);
+  // 每窗口 model 输入框临时态（idx → 输入串），Enter/逗号/失定提交为 chip。
+  const [modelInput, setModelInput] = useState<Record<number, string>>({});
 
   useEffect(() => {
     getDefaultPeakHours(protocol).then(setDefaultCache);
+  }, [protocol]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const list = await getDefaultModelList(protocol);
+      if (!cancelled) setModelList(list);
+    })();
+    return () => { cancelled = true; };
   }, [protocol]);
 
   const handleImportDefault = () => {
@@ -400,6 +430,7 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
     const copied = defaultCache.map(w => ({
       ...w,
       days_of_week: w.days_of_week ? [...w.days_of_week] : undefined,
+      models: w.models ? [...w.models] : undefined,
     }));
     setWindows(copied);
     setModalOpen(false);
@@ -419,6 +450,26 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
       const cur = w.days_of_week ?? [];
       const next = cur.includes(day) ? cur.filter(d => d !== day) : [...cur, day].sort();
       return { ...w, days_of_week: next.length === 0 ? undefined : next };
+    }));
+  };
+  /** model chip 添加（去重 + trim；空串忽略）。 */
+  const addModel = (idx: number, raw: string) => {
+    const v = raw.trim();
+    if (!v) return;
+    setWindows(prev => prev.map((w, i) => {
+      if (i !== idx) return w;
+      const cur = w.models ?? [];
+      if (cur.includes(v)) return w;
+      return { ...w, models: [...cur, v] };
+    }));
+  };
+  /** model chip 删除；删空 → models 字段置 undefined（= 全平台，向后兼容）。 */
+  const removeModel = (idx: number, mIdx: number) => {
+    setWindows(prev => prev.map((w, i) => {
+      if (i !== idx) return w;
+      const cur = w.models ?? [];
+      const next = cur.filter((_, j) => j !== mIdx);
+      return { ...w, models: next.length === 0 ? undefined : next };
     }));
   };
 
@@ -496,62 +547,154 @@ export function PeakHoursSection({ windows, setWindows, tzMode, setTzMode, disab
         </div>
       )}
       {windows.map((w, idx) => (
-        <div key={idx} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8, padding: 8, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
-            {t("platform.start_hour", "起")}
-            <input
-              className="input" type="number" min={0} max={23} style={{ width: 60 }}
-              value={utcToDisplay(w.start_hour, tzMode)}
-              onChange={e => update(idx, { start_hour: displayToUtc(Number(e.target.value) || 0, tzMode) })}
-            />
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
-            {t("platform.end_hour", "止")}
-            <input
-              className="input" type="number" min={0} max={23} style={{ width: 60 }}
-              value={utcToDisplay(w.end_hour, tzMode)}
-              onChange={e => update(idx, { end_hour: displayToUtc(Number(e.target.value) || 0, tzMode) })}
-            />
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
-            {t("platform.multiplier", "倍率")}
-            <input
-              className="input" type="number" step={0.1} min={0} style={{ width: 70 }}
-              value={w.multiplier}
-              onChange={e => update(idx, { multiplier: Number(e.target.value) || 1 })}
-            />
-          </label>
-          <div style={{ display: "flex", gap: 2 }}>
-            {WEEKDAY_LABELS.map((lbl, di) => {
-              const active = (w.days_of_week ?? []).includes(di);
-              return (
-                <button
-                  key={di}
-                  type="button"
-                  title={t("platform.days_of_week", "星期（0=周日…6=周六，缺省=每天）")}
-                  onClick={() => toggleDay(idx, di)}
-                  style={{
-                    width: 22, height: 22, padding: 0, fontSize: 11, lineHeight: 1,
-                    borderRadius: "var(--radius-sm)", cursor: "pointer",
-                    background: active ? "var(--accent)" : "transparent",
-                    color: active ? "#fff" : "var(--text-secondary)",
-                    border: "1px solid var(--border)",
-                  }}
-                >
-                  {lbl}
-                </button>
-              );
-            })}
+        <div key={idx} style={{ display: "flex", flexDirection: "column", gap: 6, padding: 8, borderRadius: "var(--radius-sm)", background: "var(--bg-glass)", border: "1px solid var(--border)" }}>
+          {/* 顶行：时段 + 倍率 + 周日 + 删除 */}
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+              {t("platform.start_hour", "起")}
+              <input
+                className="input" type="number" min={0} max={23} style={{ width: 60 }}
+                value={utcToDisplay(w.start_hour, tzMode)}
+                onChange={e => update(idx, { start_hour: displayToUtc(Number(e.target.value) || 0, tzMode) })}
+              />
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+              {t("platform.end_hour", "止")}
+              <input
+                className="input" type="number" min={0} max={23} style={{ width: 60 }}
+                value={utcToDisplay(w.end_hour, tzMode)}
+                onChange={e => update(idx, { end_hour: displayToUtc(Number(e.target.value) || 0, tzMode) })}
+              />
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12, color: "var(--text-secondary)" }}>
+              {t("platform.multiplier", "倍率")}
+              <input
+                className="input" type="number" step={0.1} min={0} style={{ width: 70 }}
+                value={w.multiplier}
+                onChange={e => update(idx, { multiplier: Number(e.target.value) || 1 })}
+              />
+            </label>
+            <div style={{ display: "flex", gap: 2 }}>
+              {WEEKDAY_LABELS.map((lbl, di) => {
+                const active = (w.days_of_week ?? []).includes(di);
+                return (
+                  <button
+                    key={di}
+                    type="button"
+                    title={t("platform.days_of_week", "星期（0=周日…6=周六，缺省=每天）")}
+                    onClick={() => toggleDay(idx, di)}
+                    style={{
+                      width: 22, height: 22, padding: 0, fontSize: 11, lineHeight: 1,
+                      borderRadius: "var(--radius-sm)", cursor: "pointer",
+                      background: active ? "var(--accent)" : "transparent",
+                      color: active ? "#fff" : "var(--text-secondary)",
+                      border: "1px solid var(--border)",
+                    }}
+                  >
+                    {lbl}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon"
+              title={t("platform.remove_window", "删除窗口")}
+              onClick={() => remove(idx)}
+              style={{ marginLeft: "auto" }}
+            >
+              ✕
+            </button>
           </div>
-          <button
-            type="button"
-            className="btn btn-ghost btn-icon"
-            title={t("platform.remove_window", "删除窗口")}
-            onClick={() => remove(idx)}
-            style={{ marginLeft: "auto" }}
-          >
-            ✕
-          </button>
+          {/* model scope（受影响模型）：chip 多选 + 自由输入（支持 `prefix*` 通配）。
+              absent / 空 = 全平台（标「全部模型」），UI 暴露 model 维度过滤可见性。 */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            <div style={{ fontSize: 11, color: "var(--text-secondary)" }}>
+              {t("platform.peak_hours_model_scope", "受影响模型")}
+              {(!w.models || w.models.length === 0) && (
+                <span style={{ color: "var(--text-tertiary)", marginLeft: 4 }}>
+                  · {t("platform.peak_hours_model_scope_all", "全部模型")}
+                </span>
+              )}
+            </div>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, alignItems: "center" }}>
+              {(w.models ?? []).map((m, mi) => (
+                <span
+                  key={mi}
+                  className="badge badge-muted"
+                  style={{ fontSize: 10, padding: "2px 6px", display: "inline-flex", alignItems: "center", gap: 4 }}
+                >
+                  {m}
+                  <button
+                    type="button"
+                    onClick={() => removeModel(idx, mi)}
+                    style={{
+                      border: "none", background: "transparent", color: "var(--text-tertiary)",
+                      cursor: "pointer", padding: 0, lineHeight: 1, fontSize: 12,
+                    }}
+                    title={t("platform.remove_window", "删除窗口")}
+                  >
+                    ✕
+                  </button>
+                </span>
+              ))}
+              <input
+                className="input"
+                style={{ width: 160, fontSize: 11, padding: "2px 6px" }}
+                list={`peak-models-${idx}`}
+                placeholder={t("platform.peak_hours_model_placeholder", "模型名或 前缀*")}
+                value={modelInput[idx] ?? ""}
+                onChange={e => setModelInput(s => ({ ...s, [idx]: e.target.value }))}
+                onKeyDown={e => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    addModel(idx, modelInput[idx] ?? "");
+                    setModelInput(s => ({ ...s, [idx]: "" }));
+                  }
+                }}
+                onBlur={() => {
+                  const v = (modelInput[idx] ?? "").trim();
+                  if (v) {
+                    addModel(idx, v);
+                    setModelInput(s => ({ ...s, [idx]: "" }));
+                  }
+                }}
+              />
+              <datalist id={`peak-models-${idx}`}>
+                {modelList.map(m => <option key={m} value={m} />)}
+              </datalist>
+            </div>
+          </div>
+          {/* 生效期：starts_at / expires_at（Unix 秒 ↔ datetime-local）。
+              空 = 立即可用 / 永久；福利期自动切换用（design §1.3）。 */}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+              {t("platform.peak_hours_starts_at", "生效起始")}
+              <input
+                className="input"
+                type="datetime-local"
+                style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
+                value={secToLocalInput(w.starts_at)}
+                onChange={e => {
+                  const sec = localInputToSec(e.target.value);
+                  update(idx, sec == null ? { starts_at: undefined } : { starts_at: sec });
+                }}
+              />
+            </label>
+            <label style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+              {t("platform.peak_hours_expires_at", "生效截止")}
+              <input
+                className="input"
+                type="datetime-local"
+                style={{ width: 180, fontSize: 11, padding: "2px 6px", colorScheme: themeMode }}
+                value={secToLocalInput(w.expires_at)}
+                onChange={e => {
+                  const sec = localInputToSec(e.target.value);
+                  update(idx, sec == null ? { expires_at: undefined } : { expires_at: sec });
+                }}
+              />
+            </label>
+          </div>
         </div>
       ))}
       <button type="button" className="btn btn-ghost" onClick={add}>

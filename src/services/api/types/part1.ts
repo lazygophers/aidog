@@ -11,7 +11,7 @@ export type Protocol =
   // ── AI 请求协议（endpoint 协议）──
   | "anthropic" | "openai" | "openai_responses" | "openai_completions" | "gemini"
   // ── 平台类型 ──
-  | "glm" | "glm_en" | "kimi" | "minimax" | "minimax_en" | "codex" | "bailian" | "bailian_coding"
+  | "glm" | "glm_coding" | "glm_en" | "kimi" | "minimax" | "minimax_en" | "codex" | "bailian" | "bailian_coding"
   // ── 国内官方平台 ──
   | "deepseek" | "stepfun" | "stepfun_en" | "doubao" | "byteplus" | "qianfan"
   | "xiaomi_mimo" | "bailing" | "longcat" | "sensenova"
