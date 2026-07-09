@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/guides/cross-layer-rules.md", "reason": "验收 Rust serde 字段 ↔ TS 类型对齐"}
+{"file": ".trellis/spec/backend/logging-format.md", "reason": "校验失败日志格式合规"}
