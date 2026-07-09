@@ -1,7 +1,8 @@
 //! 协议层 coding plan 套餐标记（`is_coding_plan: bool`）。
 //!
 //! 真值源同 `platform-presets.json`：标记整套餐协议（glm_coding / bailian_coding /
-//! compshare_coding），与 endpoint 级 `coding_plan` flag（端点路由级，语义不同）并存。
+//! compshare_coding / kimi_coding / qianfan_coding / xiaomi_mimo_coding），与
+//! endpoint 级 `coding_plan` flag（端点路由级，语义不同）并存。
 //! 缺字段 / 解析失败 / protocol 未列 → false（向后兼容）。
 //!
 //! 与 TS `defaults.ts::isCodingPlanProtocol` 对称（跨层一致，见 cross-layer-rules.md）。
@@ -58,6 +59,21 @@ mod tests {
     #[test]
     fn compshare_coding_flagged() {
         assert!(default_is_coding_plan("compshare_coding"));
+    }
+
+    #[test]
+    fn kimi_coding_flagged() {
+        assert!(default_is_coding_plan("kimi_coding"));
+    }
+
+    #[test]
+    fn qianfan_coding_flagged() {
+        assert!(default_is_coding_plan("qianfan_coding"));
+    }
+
+    #[test]
+    fn xiaomi_mimo_coding_flagged() {
+        assert!(default_is_coding_plan("xiaomi_mimo_coding"));
     }
 
     #[test]
