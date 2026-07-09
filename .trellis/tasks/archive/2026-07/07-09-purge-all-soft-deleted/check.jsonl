@@ -1,0 +1,2 @@
+{"file": ".trellis/spec/backend/db-conventions.md", "reason": "验收 DB 操作合规 + call_traced"}
+{"file": ".trellis/spec/backend/logging-format.md", "reason": "日志格式 + per-table 计数结构化字段"}
