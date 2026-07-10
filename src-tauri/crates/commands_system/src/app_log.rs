@@ -13,7 +13,7 @@ use std::sync::Arc;
 use tauri::Manager;
 
 
-pub(crate) async fn load_app_log_settings_from_db(db: &Db) -> logging::AppLogSettings {
+pub async fn load_app_log_settings_from_db(db: &Db) -> logging::AppLogSettings {
     db::get_setting(db, "app", "logging").await
         .ok()
         .flatten()
@@ -24,7 +24,7 @@ pub(crate) async fn load_app_log_settings_from_db(db: &Db) -> logging::AppLogSet
 /// 一次性迁移：把遗留 `~/.aidog/log_settings.json` 导入 DB settings 表后删除文件。
 /// 幂等：文件不存在即空操作；仅当 DB 无该 setting 时写入（不覆盖用户后续 DB 改动）。
 /// app log 设置单一事实源 = DB settings 表，禁独立文件。
-pub(crate) async fn migrate_log_settings_file_to_db(db: &Db) {
+pub async fn migrate_log_settings_file_to_db(db: &Db) {
     let path = match dirs::home_dir() {
         Some(h) => h.join(".aidog").join("log_settings.json"),
         None => return,

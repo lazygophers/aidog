@@ -16,7 +16,7 @@ use tauri::Manager;
 use serde::Serialize;
 
 #[derive(Serialize)]
-pub(crate) struct PathEntry {
+pub struct PathEntry {
     name: String,
     full_path: String,
     is_dir: bool,
