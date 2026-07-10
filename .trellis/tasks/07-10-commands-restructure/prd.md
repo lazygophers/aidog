@@ -45,7 +45,12 @@
 2. **路径策略**（用户选「嵌套破路径」）：`crate::commands::X::Y` → `commands_X::Y`（跨 crate），`crate::gateway::` → `aidog_core::gateway::`（commands crate 视角）；core 内部保持 `crate::gateway::`。
 3. **跨 crate 依赖**（用户要"减依赖"，但选 workspace 边界强制而非 trait 反转）：commands crate 间禁互依赖（编译期阻断），跨 crate 边仅 commands_* → aidog_core（单向）。当前 5 条跨 command 域边按如下处理：
    - `group`/`proxy` → `sync_settings`：commands-platform / commands-proxy 依赖 commands-config？**禁**（commands 间禁互依赖）→ 把 `do_sync_group_settings` / `try_sync_settings` 下沉到 **aidog_core**（它是 platform/proxy/config 共用的业务逻辑，本就属核心）。commands-config 仅做 `#[tauri::command]` 薄壳调 core。
-   - `platform`/`proxy` → `tray_render::refresh_tray_menu`：refresh 触发是 UI 状态变更通知 → 下沉到 aidog_core（或经 Tauri event 由 app crate 监听）。
+   - `platform`/`proxy` → `tray_render::refresh_tray_menu`：refresh 触发是 UI 状态变更通知 → **下沉到 aidog_core（C2 done）+ Tauri event 解耦 concrete impl 依赖（cmd-proxy 落地，2026-07-10）**。`refresh_tray_menu` fn 已在 aidog_core，但其 concrete impl `TrayMenuBuildImpl` 留 `commands_platform::tray`（C3 临时居所，C8 才迁 commands_tray）。proxy 域迁 commands_proxy 后若直调 `refresh_tray_menu(&app, &commands_platform::tray::TrayMenuBuildImpl)` → commands_proxy→commands_platform 跨边违硬规。**解耦方案 A（复用现有 `tray-refresh` 事件，cmd-proxy exec 实证优于新事件）**：
+     - **emitter**: `commands_proxy::proxy::proxy_start` / `proxy_stop` 成功后 `app.emit("tray-refresh", ())`（**复用现有事件**，非新事件 —— 同域 precedent：`aidog_core::gateway::proxy::log::emit_tray_events` proxy 日志路径已 emit `tray-refresh` 刷托盘，同语义「proxy 状态变更 → 刷托盘」）
+     - **listener**: **零新代码**，复用 `app_setup.rs:391-398` 现有 `app.listen("tray-refresh", ...)` listener（已调 `refresh_tray_menu(&handle, &commands_platform::tray::TrayMenuBuildImpl)`）—— app crate (crates/aidog) 依赖 commands_platform 合法（binary crate 依赖所有 commands_*）
+     - **commands_proxy 零 commands 依赖**（仅 → aidog_core + tauri），违硬规消除
+     - **C8 cmd-tray 迁 tray.rs 后**：listener 内 `commands_platform::tray::TrayMenuBuildImpl` 改 `commands_tray::tray::TrayMenuBuildImpl`（app crate dep 改，listener 一行改）
+     - **C8 复查清单**：`crates/commands_platform/src/platform.rs:253,276` 仍直调 `refresh_tray_menu(&app, &super::tray::TrayMenuBuildImpl)`（commands_platform 内部 `super::tray::` 解析，无跨 crate 边，C3 临时保留合法）—— C8 cmd-tray 迁 tray.rs 到 commands_tray 时，platform.rs 这两处需同样改 emit `tray-refresh`（同 C4 模式），届时 platform.rs 跨 crate 边才出现
    - `popover` → `tray::tray_layout` + `tray_render` → `tray`：**popover 入 commands-tray crate**（域重划：popover 本就是 tray 派生数据展示），tray_render 留 tray 同包。
    - `hooks` ↔ `sync_settings`：同 commands-config 包内，OK。
    - `middleware` → `mitm::ImportDefaultsResult`：同 commands-proxy 包内，OK。
