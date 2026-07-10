@@ -62,7 +62,7 @@ pub(crate) async fn persist_quota_to_db(db: &Db, platform_id: Option<u64>, q: &P
 /// 后台触发一次真查并校准对齐 est=真实。避免冷启动 tray 显 0/旧偏差大。
 /// 不阻塞：每平台 spawn 独立 async（锁外 await 真查，calibrate_from_quota 短持锁写）。
 /// 真查完成后发 tray-refresh，让主线程刷新托盘显示。
-pub(crate) async fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
+pub async fn cold_start_init_tray_estimates(app: &tauri::AppHandle) {
     let Some(db_state) = app.try_state::<Db>() else { return };
     let Ok(Some(config)) = db::get_tray_config(&db_state).await else { return };
     // 收集 tray 启用、platform 类型、且 last_real_query_at==0 的平台

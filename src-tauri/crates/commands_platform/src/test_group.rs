@@ -1,6 +1,6 @@
 #![cfg(test)]
 use super::*;
-use crate::commands::test_harness::mock_app_with_db;
+use aidog_test_util::mock_app_with_db;
 use tauri::Manager;
 
 fn sample_group_input(name: &str) -> CreateGroup {

@@ -26,9 +26,10 @@ use aidog_core::tray_render::TrayMenuBuild;
 use std::future::Future;
 use std::pin::Pin;
 
-/// TrayMenuBuild 的 commands::tray 实现：把 core 的 refresh_tray_menu 调用桥接到本文件的
-/// build_tray_menu / tray_layout / tray_separator。
-pub(crate) struct TrayMenuBuildImpl;
+/// TrayMenuBuild 的 commands_platform::tray 实现：把 core 的 refresh_tray_menu 调用桥接到本文件的
+/// build_tray_menu / tray_layout / tray_separator。root aidog crate（popover/app_setup/proxy）
+/// 经 commands_platform::tray::TrayMenuBuildImpl 路径引（C8 cmd-tray 迁 commands-tray）。
+pub struct TrayMenuBuildImpl;
 
 impl TrayMenuBuild for TrayMenuBuildImpl {
     fn build_menu<'a>(
@@ -70,7 +71,7 @@ pub(crate) fn platform_item_parts(platform: &Platform, display: &str) -> (String
 /// 从托盘配置生成有序渲染布局（已按 order 排序、跳过 disabled、跳过取数失败项）。
 /// separator items 不生成列，而是作为相邻数据列之间的间隙。
 /// gaps[i] = columns[i] 与 columns[i+1] 之间的间隙；None = 默认空白。
-pub(crate) async fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
+pub async fn tray_layout(app: &tauri::AppHandle) -> TrayLayout {
     let empty = TrayLayout { columns: Vec::new(), gaps: Vec::new() };
     let Some(db) = app.try_state::<Db>() else { return empty; };
     let Ok(Some(config)) = db::get_tray_config(&db).await else { return empty; };
@@ -166,7 +167,7 @@ pub(crate) async fn tray_quota_text(app: &tauri::AppHandle) -> Option<String> {
     Some(texts.join(&default_sep))
 }
 
-pub(crate) async fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wry>, String> {
+pub async fn build_tray_menu(app: &tauri::AppHandle) -> Result<tauri::menu::Menu<tauri::Wry>, String> {
     let running = {
         let handle = app.state::<ProxyHandle>();
         let h = handle.0.lock().map_err(|e| e.to_string())?;

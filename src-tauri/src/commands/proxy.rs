@@ -64,7 +64,7 @@ pub(crate) async fn proxy_start(
     }
 
     // 更新托盘菜单
-    refresh_tray_menu(&app, &super::tray::TrayMenuBuildImpl).await?;
+    refresh_tray_menu(&app, &commands_platform::tray::TrayMenuBuildImpl).await?;
 
     let msg = if actual_port != port {
         format!("proxy started on port {} ({} was occupied)", actual_port, port)
@@ -93,7 +93,7 @@ pub(crate) async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
             .map_err(|e| { tracing::error!(command = "proxy_stop", error = %e, "persist proxy settings failed"); e })?;
     }
 
-    refresh_tray_menu(&app, &super::tray::TrayMenuBuildImpl).await?;
+    refresh_tray_menu(&app, &commands_platform::tray::TrayMenuBuildImpl).await?;
     tracing::info!(command = "proxy_stop", "proxy stopped");
     Ok(())
 }
