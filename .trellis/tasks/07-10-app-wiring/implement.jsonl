@@ -1,1 +1,3 @@
-{"_example": "Fill with {\"file\": \"<path>\", \"reason\": \"<why>\"}. Put spec/research files only — no code paths. Run `python3 .trellis/scripts/get_context.py --mode packages` to list available specs. Delete this line once real entries are added."}
+{"file": ".trellis/spec/backend/crate-boundaries.md", "reason": "workspace 边界 5 规则 + grep 验收 —— C10 app-wiring 验证 root aidog binary crate deps 全 7 commands_* + aidog_core, commands.rs 零残留 mod, startup.rs 零 crate::commands:: 残留"}
+{"file": ".trellis/spec/backend/cargo-workspace.md", "reason": "workspace 重构过程契约 —— R5 全绿门禁 (build/test/clippy --workspace + GUI 冒烟)"}
+{"file": ".trellis/tasks/07-10-commands-restructure/prd.md", "reason": "parent prd R4 app crate wiring (binary deps + generate_handler 路径) + R5 Tauri 集成验证 (build/test/clippy + yarn tauri dev/build 冒烟) + 决策 6 build/run/release 不变"}
