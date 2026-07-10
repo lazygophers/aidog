@@ -1961,5 +1961,7 @@
   "logs.clearDone": "تم المسح",
   "logs.cleaning": "جارٍ التنظيف...",
   "logs.cleanupDisabledHint": "وضع الاحتفاظ للأبد — لا توجد سجلات منتهية لتنظيفها",
-  "platform.models_placeholder": "مثل claude-sonnet-4-5"
+  "platform.models_placeholder": "مثل claude-sonnet-4-5",
+  "settings.clientTypesSync": "مزامنة أنواع محاكاة العملاء",
+  "settings.clientTypesSyncHint": "سحب قاموس أنواع العملاء (13 إدخال مع اسم/وصف متعدد اللغات) من GitHub وكتابته محليًا عند وجود أحدث"
 }

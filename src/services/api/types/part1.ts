@@ -49,11 +49,11 @@ export type RoutingMode =
 export type PlatformStatus = "enabled" | "disabled" | "auto_disabled";
 
 
-export type ClientType =
-  | "default"
-  | "claude_code" | "claude_code_vscode" | "claude_code_sdk_ts" | "claude_code_sdk_py" | "claude_code_gh_action"
-  | "codex_cli" | "codex_tui" | "codex_desktop" | "codex_vscode"
-  | "cursor" | "windsurf";
+/** 可模拟的客户端类型（JSON 驱动，serde arbitrary）。
+ *  真值源：`src-tauri/defaults/client-types.json`（13 entry，见 prd `07-10-client-types-json-sync`）。
+ *  远端 / DB 任何字符串都原值保留；前端展示走 `buildClientTypesFromPresets` 派生层
+ *  （invoke `get_client_types_json` → locale 派生 label），禁直读 github / 文件系统。 */
+export type ClientType = string;
 
 
 export type ModelSlot = "default" | "sonnet" | "opus" | "haiku" | "gpt";

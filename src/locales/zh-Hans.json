@@ -1939,5 +1939,7 @@
   "logs.clearDone": "已清空",
   "logs.cleaning": "清理中...",
   "logs.cleanupDisabledHint": "永久保留模式，无过期日志可清理",
-  "platform.models_placeholder": "如 claude-sonnet-4-5"
+  "platform.models_placeholder": "如 claude-sonnet-4-5",
+  "settings.clientTypesSync": "客户端模拟类型同步",
+  "settings.clientTypesSyncHint": "从 GitHub 拉取客户端类型字典（13 条 name/desc 多语言），较新版本写入本地"
 }

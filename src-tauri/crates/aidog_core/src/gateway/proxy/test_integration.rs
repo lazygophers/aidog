@@ -437,7 +437,7 @@ async fn mock_platform_stream_override() {
 
 /// 注册 Anthropic 平台并显式声明 Anthropic endpoint（同协议透传判定命中）。
 async fn setup_passthrough_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
-    use crate::gateway::models::{ClientType, PlatformEndpoint};
+    use crate::gateway::models::PlatformEndpoint;
     let plat = crate::gateway::db::create_platform(
         &state.db,
         CreatePlatform {
@@ -451,7 +451,7 @@ async fn setup_passthrough_group(state: &Arc<ProxyState>, gk: &str, base_url: &s
             endpoints: Some(vec![PlatformEndpoint {
                 protocol: Protocol::Anthropic,
                 base_url: base_url.to_string(),
-                client_type: ClientType::Default,
+                client_type: "default".to_string(),
                 coding_plan: false,
             }]),
             manual_budgets: None,
@@ -541,7 +541,7 @@ async fn streaming_request_passes_through() {
 
 /// 注册一个 OpenAI 平台 + 显式声明 OpenAIResponses endpoint(base_url=stub) + group 关联。
 async fn setup_responses_group(state: &Arc<ProxyState>, gk: &str, base_url: &str) {
-    use crate::gateway::models::{ClientType, PlatformEndpoint};
+    use crate::gateway::models::PlatformEndpoint;
     let plat = crate::gateway::db::create_platform(
         &state.db,
         CreatePlatform {
@@ -555,7 +555,7 @@ async fn setup_responses_group(state: &Arc<ProxyState>, gk: &str, base_url: &str
             endpoints: Some(vec![PlatformEndpoint {
                 protocol: Protocol::OpenAIResponses,
                 base_url: base_url.to_string(),
-                client_type: ClientType::Default,
+                client_type: "default".to_string(),
                 coding_plan: false,
             }]),
             manual_budgets: None,

@@ -1,5 +1,5 @@
 import type { Protocol, PlatformEndpoint, ModelSlot, ClientType } from "../../services/api";
-import { getDefaultsJson } from "../../services/api";
+import { getDefaultsJson, getClientTypesJson } from "../../services/api";
 import type { ProtocolOption } from "./constants";
 
 /** 高峰/低峰时段倍率窗口（多窗口数组，UTC+0 基准）。
@@ -292,6 +292,82 @@ export async function getProtocolColorMap(): Promise<Partial<Record<Protocol, st
   for (const proto of Object.keys(doc.protocols) as Protocol[]) {
     const color = doc.protocols[proto]?.color;
     if (color) out[proto] = color;
+  }
+  return out;
+}
+
+// ─── Client Types 派生层（替代旧模块级 CLIENT_TYPES 硬编码常量） ─────────────
+
+/** client-types.json 单 entry（12 条：1 默认 + 5 Claude Code + 4 Codex + 2 IDE；value/group/name{8 locale}/desc{8 locale}）。
+ *  真值源 `src-tauri/defaults/client-types.json`，运行时可被 `~/.aidog/client-types.json` 覆盖。
+ *  前端禁直读 github / 文件系统，一律 invoke `get_client_types_json`。 */
+export type ClientTypeEntry = {
+  value: ClientType;
+  /** 分组名（"Claude Code" / "Codex" / "IDE" / "" 默认）；UI optgroup 用 */
+  group: string;
+  name: Partial<Record<DefaultsLocale, string>>;
+  desc?: Partial<Record<DefaultsLocale, string>>;
+};
+
+type ClientTypesDoc = {
+  version?: string;
+  last_updated?: number;
+  client_types: ClientTypeEntry[];
+};
+
+/** client-types.json 运行时缓存：进程内只拉一次 Tauri command。
+ *  同 docPromise 模式：模块加载即发 invoke（Promise），多函数 await 它 — 单次 RPC 共享。 */
+let clientTypesDocPromise: Promise<ClientTypesDoc> | null = null;
+
+async function loadClientTypesDoc(): Promise<ClientTypesDoc> {
+  if (!clientTypesDocPromise) {
+    clientTypesDocPromise = getClientTypesJson()
+      .then((raw) => {
+        try {
+          const parsed = JSON.parse(raw) as ClientTypesDoc;
+          if (parsed && Array.isArray(parsed.client_types)) return parsed;
+        } catch (e) {
+          console.warn("[client-types] parse client-types.json failed:", e);
+        }
+        return { client_types: [] } as ClientTypesDoc;
+      })
+      .catch((e) => {
+        console.warn("[client-types] get_client_types_json failed:", e);
+        return { client_types: [] } as ClientTypesDoc;
+      });
+  }
+  return clientTypesDocPromise;
+}
+
+/** 测试专用：清缓存让下一轮 loadClientTypesDoc 重新走 mockIPC（生产代码禁调）。 */
+export function __resetClientTypesCacheForTests(): void {
+  clientTypesDocPromise = null;
+}
+
+/** 派生客户端类型列表（替代旧模块级 CLIENT_TYPES 硬编码常量）。
+ *  loadClientTypesDoc → 每 entry 派生 {value, group, label}。
+ *  - label: name[locale] || name["en-US"] || value（三级回退链）。
+ *  调用方：formSectionsEndpoints 下拉 + 其他 CLIENT_TYPES 引用点。
+ *  ponytail: 复用 clientTypesDocPromise 单次 RPC，纯函数式派生，零状态机。 */
+export async function buildClientTypesFromPresets(locale?: string): Promise<Array<{ value: ClientType; group: string; label: string }>> {
+  const doc = await loadClientTypesDoc();
+  const loc = locale ? (locale as DefaultsLocale) : undefined;
+  return doc.client_types.map((entry) => {
+    const name = entry.name;
+    const label = (name && ((loc && name[loc]) || name["en-US"])) || entry.value;
+    return { value: entry.value, group: entry.group, label };
+  });
+}
+
+/** 批量取 client_type value → label 映射（一次 RPC 拉全表后内存过滤，避免 N 次 await）。
+ *  调用方需 label 时优先用本函数；未知 value 不写入（调用方回退原 value 展示）。 */
+export async function getClientTypeLabelMap(locale?: string): Promise<Record<string, string>> {
+  const doc = await loadClientTypesDoc();
+  const loc = locale ? (locale as DefaultsLocale) : undefined;
+  const out: Record<string, string> = {};
+  for (const entry of doc.client_types) {
+    const name = entry.name;
+    out[entry.value] = (name && ((loc && name[loc]) || name["en-US"])) || entry.value;
   }
   return out;
 }
