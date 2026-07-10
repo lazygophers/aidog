@@ -18,7 +18,7 @@
 | cmd-platform | C3 commands-platform crate | — | 已完成 | — | 07-10-core-extract |
 | cmd-proxy | C4 commands-proxy crate | — | 已完成 | — | 07-10-core-extract, 07-09-mitm-tables-to-setting |
 | cmd-config | C5 commands-config crate | — | 已完成 | — | 07-10-core-extract |
-| cmd-system | C6 commands-system crate | — | 规划中 | — | 07-10-core-extract |
+| cmd-system | C6 commands-system crate | — | 实施中 | — | 07-10-core-extract |
 | cmd-ai-tools | C7 commands-ai-tools crate | — | 规划中 | — | 07-10-core-extract |
 | cmd-tray | C8 commands-tray crate（含 popover 域重划） | — | 规划中 | — | 07-10-core-extract |
 | cmd-cli-env | C9 commands-cli-env crate | — | 规划中 | — | 07-10-core-extract |
@@ -63,3 +63,4 @@ flowchart TD
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-10-commands-restructure | 07-10-commands-restructure | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-10-cmd-system | 07-10-cmd-system | trellisx-start |
