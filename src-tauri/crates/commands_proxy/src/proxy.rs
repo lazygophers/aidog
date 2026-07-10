@@ -1,7 +1,10 @@
 use aidog_core::shared::*;
 use aidog_core::sync_settings::do_sync_group_settings;
-use aidog_core::tray_render::refresh_tray_menu;
 use aidog_core::gateway::middleware::MiddlewareEngine;
+// 托盘刷新经 Tauri event 解耦：emit "tray-refresh"，app crate setup() 内已有 listener
+// (app_setup.rs:395) 调 refresh_tray_menu + TrayMenuBuildImpl。复用现有事件 +
+// listener（同 proxy/log.rs:164 同域 precedent），避 commands_proxy → commands_platform
+// 跨 command 依赖 + 零新 wiring 代码。
 use aidog_core::gateway::{self, db::{self, Db}};
 #[allow(unused_imports)]
 use aidog_core::logging;
@@ -14,12 +17,12 @@ use serde_json::Value;
 #[allow(unused_imports)]
 use std::sync::Arc;
 #[allow(unused_imports)]
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
-pub(crate) async fn proxy_start(
+pub async fn proxy_start(
     port: u16,
     app: tauri::AppHandle,
 ) -> Result<String, String> {
@@ -63,8 +66,8 @@ pub(crate) async fn proxy_start(
         }
     }
 
-    // 更新托盘菜单
-    refresh_tray_menu(&app, &commands_platform::tray::TrayMenuBuildImpl).await?;
+    // 通知 app crate 刷新托盘菜单（emit "tray-refresh"，listener 在 app_setup.rs:395）
+    let _ = app.emit("tray-refresh", ());
 
     let msg = if actual_port != port {
         format!("proxy started on port {} ({} was occupied)", actual_port, port)
@@ -77,7 +80,7 @@ pub(crate) async fn proxy_start(
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
-pub(crate) async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
+pub async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
     tracing::debug!(command = "proxy_stop", "command invoked");
     let handle = app.state::<ProxyHandle>();
     {
@@ -93,7 +96,8 @@ pub(crate) async fn proxy_stop(app: tauri::AppHandle) -> Result<(), String> {
             .map_err(|e| { tracing::error!(command = "proxy_stop", error = %e, "persist proxy settings failed"); e })?;
     }
 
-    refresh_tray_menu(&app, &commands_platform::tray::TrayMenuBuildImpl).await?;
+    // 通知 app crate 刷新托盘菜单（emit "tray-refresh"，listener 在 app_setup.rs:395）
+    let _ = app.emit("tray-refresh", ());
     tracing::info!(command = "proxy_stop", "proxy stopped");
     Ok(())
 }

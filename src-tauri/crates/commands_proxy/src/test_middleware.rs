@@ -1,6 +1,6 @@
 #![cfg(test)]
 use super::*;
-use crate::commands::test_harness::mock_app_with_db_and_engine;
+use aidog_test_util::mock_app_with_db_and_engine;
 use tauri::Manager;
 
 fn create_payload(name: &str) -> CreateMiddlewareRule {

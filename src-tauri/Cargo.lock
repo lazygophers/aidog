@@ -73,6 +73,7 @@ dependencies = [
  "axum",
  "chrono",
  "commands_platform",
+ "commands_proxy",
  "dirs 6.0.0",
  "flate2",
  "futures",
@@ -954,6 +955,17 @@ dependencies = [
 [[package]]
 name = "commands_proxy"
 version = "0.1.5"
+dependencies = [
+ "aidog_core",
+ "aidog_test_util",
+ "serde",
+ "serde_json",
+ "tauri",
+ "tauri-plugin-autostart",
+ "tokio",
+ "tracing",
+ "url",
+]
 
 [[package]]
 name = "commands_system"
