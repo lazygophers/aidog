@@ -15,7 +15,7 @@
 | deps-upgrade-stable | 依赖全部升级最新稳定版 | — | 已完成 | — | — |
 | ws-skeleton | C1 workspace 骨架 + 空门禁 | — | 已完成 | — | — |
 | core-extract | C2 aidog_core 提取 + 业务下沉 | — | 已完成 | — | 07-10-ws-skeleton, 07-10-protocols-rust-enum |
-| cmd-platform | C3 commands-platform crate | — | 规划中 | — | 07-10-core-extract |
+| cmd-platform | C3 commands-platform crate | — | 已完成 | — | 07-10-core-extract |
 | cmd-proxy | C4 commands-proxy crate | — | 规划中 | — | 07-10-core-extract,07-09-mitm-tables-to-setting |
 | cmd-config | C5 commands-config crate | — | 规划中 | — | 07-10-core-extract |
 | cmd-system | C6 commands-system crate | — | 规划中 | — | 07-10-core-extract |
@@ -25,6 +25,9 @@
 | app-wiring | C10 app crate wiring + Tauri 验证 | — | 规划中 | — | 07-10-cmd-platform,07-10-cmd-proxy,07-10-cmd-config,07-10-cmd-system,07-10-cmd-ai-tools,07-10-cmd-tray,07-10-cmd-cli-env |
 | mitm-tables-to-setting | 移除 mitm_ca/mitm_whitelist 表，数据迁 setting | — | 已完成 | — | — |
 | client-types-json-sync | CLIENT_TYPES 移除 → defaults JSON 独立 + 远端同步 | — | 已完成 | — | — |
+| client-types-headers-expand | client-types.json simulation header 全补全（~/.aidog 真实请求驱动） | — | 已完成 | — | — |
+| protocol-name-display | 平台协议创建后锁定 + preset name 派生展示 | — | 已完成 | — | — |
+| groups-delete-only-removes-from-group | Groups 单组平台点删除只移除分组未销毁 | — | 规划中 | — | — |
 
 ## 依赖关系图 (DAG)
 
