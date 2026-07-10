@@ -24,7 +24,7 @@
 | cmd-cli-env | C9 commands-cli-env crate | — | 规划中 | — | 07-10-core-extract |
 | app-wiring | C10 app crate wiring + Tauri 验证 | — | 规划中 | — | 07-10-cmd-platform,07-10-cmd-proxy,07-10-cmd-config,07-10-cmd-system,07-10-cmd-ai-tools,07-10-cmd-tray,07-10-cmd-cli-env |
 | mitm-tables-to-setting | 移除 mitm_ca/mitm_whitelist 表，数据迁 setting | — | 已完成 | — | — |
-| client-types-json-sync | CLIENT_TYPES 移除 → defaults JSON 独立 + 远端同步 | — | 实施中 | — | — |
+| client-types-json-sync | CLIENT_TYPES 移除 → defaults JSON 独立 + 远端同步 | — | 已完成 | — | — |
 
 ## 依赖关系图 (DAG)
 
@@ -59,4 +59,3 @@ flowchart TD
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-10-commands-restructure | 07-10-commands-restructure | trellisx-start |
-| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-10-client-types-json-sync | 07-10-client-types-json-sync | trellisx-start |
