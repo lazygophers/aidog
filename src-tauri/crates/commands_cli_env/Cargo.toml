@@ -5,5 +5,18 @@ version = { workspace = true }
 authors = { workspace = true }
 license = { workspace = true }
 
-# C1 ws-skeleton: 空壳。C9 才迁 cli_env 入此 crate。
+# C9 commands-cli-env：cli_env 域（Claude Code / Codex CLI 版本 / 安装 / 升级 / 冲突诊断）。
+# 铁律：禁依赖其他 commands_* crate（跨域边下沉 aidog_core）。
 [dependencies]
+aidog_core = { path = "../aidog_core" }
+tauri = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+reqwest = { workspace = true }
+semver = { workspace = true }
+tracing = { workspace = true }
+
+[dev-dependencies]
+aidog_test_util = { path = "../aidog_test_util" }
+tauri = { workspace = true, features = ["test"] }

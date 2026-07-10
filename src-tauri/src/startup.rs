@@ -231,11 +231,11 @@ pub fn run() {
             // About
             commands_system::about::about_info,
             // CLI 工具环境（Claude Code / Codex 版本 / 安装 / 升级 / 冲突诊断）
-            crate::commands::cli_env::cli_check_versions,
-            crate::commands::cli_env::cli_install,
-            crate::commands::cli_env::cli_upgrade,
-            crate::commands::cli_env::cli_diagnose_conflicts,
-            crate::commands::cli_env::cli_check_updates,
+            commands_cli_env::cli_env::cli_check_versions,
+            commands_cli_env::cli_env::cli_install,
+            commands_cli_env::cli_env::cli_upgrade,
+            commands_cli_env::cli_env::cli_diagnose_conflicts,
+            commands_cli_env::cli_env::cli_check_updates,
             // Platform defaults JSON
             commands_config::defaults::get_defaults_json,
             commands_config::defaults::sync_defaults_json,
