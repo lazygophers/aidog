@@ -74,14 +74,15 @@ for (const l of LOCALES) {
   if (miss.length > 0) alignMissing.push({ locale: l, count: miss.length, sample: miss.slice(0, 8) });
 }
 
-// ── E. platform-presets.json protocol name/desc 8 locale 完整性 ──────
-// 每 protocol 必须 8 locale 都有非空 name+desc（缺失 → 切语言时协议选择器裸 key）
+// ── E. platform-presets.json protocol name 8 locale 完整性 ──────
+// 每 protocol 必须 8 locale 都有非空 name（缺失 → 切语言时协议选择器裸 key）
+// 注：desc 字段 2026-07-10 删除（无 UI 消费），不再校验
 const DEFAULTS_LOCALES = ['en-US', 'zh-Hans', 'ar-SA', 'fr-FR', 'de-DE', 'ru-RU', 'ja-JP', 'es-ES'];
 const presetsRaw = JSON.parse(readFileSync('src-tauri/defaults/platform-presets.json', 'utf8'));
 const presetsProtocols = presetsRaw.protocols || {};
 const protocolMissing = []; // {protocol, field, miss}
 for (const [proto, entry] of Object.entries(presetsProtocols)) {
-  for (const field of ['name', 'desc']) {
+  for (const field of ['name']) {
     const obj = entry?.[field] || {};
     const miss = DEFAULTS_LOCALES.filter(l => !obj[l] || !String(obj[l]).trim());
     if (miss.length > 0) protocolMissing.push({ protocol: proto, field, miss });
@@ -116,7 +117,7 @@ const log = s => console.log(s);
 
 log(`\n# i18n 检查报告`);
 log(`扫描 ${files.length} 文件 | ${staticKeys.size} 静态 key | ${dynTemplates.size} 动态模板 | ${propKeys.size} 属性字面量 key | ${union.size} locale 并集 key\n`);
-log(`platform-presets.json: ${Object.keys(presetsProtocols).length} protocols × name/desc × ${DEFAULTS_LOCALES.length} locale 校验\n`);
+log(`platform-presets.json: ${Object.keys(presetsProtocols).length} protocols × name × ${DEFAULTS_LOCALES.length} locale 校验\n`);
 
 // A
 log(`## A. t() 静态 key 缺失: ${staticMissing.length}`);
@@ -150,7 +151,7 @@ for (const { key, miss, files } of propMissing.sort((a, b) => a.key.localeCompar
 }
 
 // E
-log(`\n## E. platform-presets protocol name/desc locale 缺失: ${protocolMissing.length}`);
+log(`\n## E. platform-presets protocol name locale 缺失: ${protocolMissing.length}`);
 for (const { protocol, field, miss } of protocolMissing) {
   log(`  🔴 ${protocol}.${field} 缺 [${miss.join(',')}]`);
   problems++;
