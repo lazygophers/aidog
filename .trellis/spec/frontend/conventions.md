@@ -1,5 +1,5 @@
 ---
-updated: 2026-06-12
+updated: 2026-07-10
 rewrite-version: 1
 supersedes:
   - component-guidelines.md
@@ -57,6 +57,19 @@ mode: optimize
 - 禁在 Context 外部直接读写 localStorage — 必经 `loadSettings` / `saveSettings`
 - 异步数据获取必须用 `useEffect(() => { load() }, [])` + `useState<boolean>` loading pattern
 - 验证: `grep -rn 'localStorage' src/ | grep -v 'AppContext'` 必须 0 行
+
+## CRUD 刷新链契约 (MUST)
+
+> 违反代价: 后端真删/真改的 CRUD 入口（如 `platformApi.delete`）仅刷关联 state（groupDetails）不刷实体所属 state（platforms）→ 被删实体 stale 残留 → 派生层（standalonePlatforms）误归类 → 用户见「只移除分组未销毁」假象。来源: 07-08 修 modal groupCount stale 漏刷新链 → 07-10-groups-delete-only-removes-from-group 根治（独立信号 `onPlatformDeleted` + `refreshPlatforms` 全量 refetch + `++epoch`）。
+
+- **全入口扫描 (MUST)**: `platformApi.delete`（及任何后端真删/真改的 CRUD 入口）的全调用点 MUST grep 扫齐 `src/`，确认无遗漏入口（含被调对象 vs 独立入口区分 —— `usePlatformCards.handleDelete` 是被调对象非独立入口，仅 Groups 页调）
+- **受影响 state 必刷 (MUST)**: 每入口 MUST 触发**受影响 state 全量刷新链**：
+  - 被删/改实体所属 state（如 platforms）MUST 刷新 —— 乐观 `setPlatforms(prev => prev.filter(...))`（同页入口， Platforms handleDelete L475-490 模式）**或** 全量 `refreshPlatforms`（跨页入口，`platformApi.list() + setPlatforms + ++platformsEpochRef`）
+  - **禁仅刷关联 state**（groupDetails / onGroupsChanged）致被删实体 stale 残留
+  - 刷新必含 `++platformsEpochRef`（或同层 epoch）触发派生层（membership / standalonePlatforms / usageMap）重算，否则派生层 stale
+- **独立信号优先 (MUST)**: 跨 hook 协作的刷新链 MUST 用独立 callback（如 `onPlatformDeleted?: () => void`），**禁复用宽语义 callback**（如 `onGroupsChanged` 当前语义 = group 结构变更 → 刷 groupDetails）刷非自身职责的 state —— 复用会污染其他调用点（group 增删 / 平台拖拽误触发 platforms refetch）
+- **hook 级回归测试 (MUST)**: 每入口写 hook 级 `renderHook` 回归测试（mock `services/api` namespace + 子系统整包 mock + IntersectionObserver polyfill），断言：删后 state 不含被删 id + epoch ++ + 派生层排除被删实体 + `platformApi.delete` 被调（两路径：跨页信号链入口 + 同页乐观更新入口）
+- **验证 (grep 可复用)**: `grep -rn 'platformApi.delete' src/` 列全入口 → 每入口核有 `setPlatforms`/`refreshPlatforms` 触发 + `++epoch`；`yarn test` 含每入口 renderHook 回归
 
 ## API Layer (MUST)
 

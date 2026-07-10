@@ -3,7 +3,7 @@
   "name": "groups-delete-only-removes-from-group",
   "title": "Groups 单组平台点删除只移除分组未销毁",
   "description": "",
-  "status": "planning",
+  "status": "in_progress",
   "dev_type": null,
   "scope": null,
   "package": null,

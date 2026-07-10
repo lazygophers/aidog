@@ -27,7 +27,7 @@
 | client-types-json-sync | CLIENT_TYPES 移除 → defaults JSON 独立 + 远端同步 | — | 已完成 | — | — |
 | client-types-headers-expand | client-types.json simulation header 全补全（~/.aidog 真实请求驱动） | — | 已完成 | — | — |
 | protocol-name-display | 平台协议创建后锁定 + preset name 派生展示 | — | 已完成 | — | — |
-| groups-delete-only-removes-from-group | Groups 单组平台点删除只移除分组未销毁 | — | 规划中 | — | — |
+| groups-delete-only-removes-from-group | Groups 单组平台点删除只移除分组未销毁 | — | 实施中 | — | — |
 
 ## 依赖关系图 (DAG)
 
@@ -62,3 +62,4 @@ flowchart TD
 | worktree | task | 创建源 |
 | --- | --- | --- |
 | /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-10-commands-restructure | 07-10-commands-restructure | trellisx-start |
+| /Users/luoxin/persons/lyxamour/aidog/.worktrees/07-10-groups-delete-only-removes-from-group | 07-10-groups-delete-only-removes-from-group | trellisx-start |
