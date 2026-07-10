@@ -9,9 +9,9 @@
 //! 不走 Tauri resources（项目现行约定）。
 use aidog_core::shared::aidog_data_dir;
 
-const BUNDLED: &str = include_str!("../../defaults/platform-presets.json");
+const BUNDLED: &str = include_str!("../../../defaults/platform-presets.json");
 
-const CLIENT_TYPES_BUNDLED: &str = include_str!("../../defaults/client-types.json");
+const CLIENT_TYPES_BUNDLED: &str = include_str!("../../../defaults/client-types.json");
 
 #[tauri::command]
 #[tracing::instrument(skip_all, fields(trace_id = %aidog_core::logging::new_trace_id()))]
