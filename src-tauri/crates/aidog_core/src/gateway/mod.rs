@@ -1,5 +1,6 @@
 pub mod adapter;
 pub mod backup;
+pub mod client_types_sync;
 pub mod codex;
 pub mod db;
 pub mod defaults_sync;

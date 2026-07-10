@@ -142,48 +142,44 @@ pub fn apply_client_headers(
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
-    match client_type {
-        ClientType::Default => apply_default_headers(req_builder, protocol, api_key),
+    match client_type.as_str() {
+        "default" => apply_default_headers(req_builder, protocol, api_key),
         // Claude Code family — 共享 Stainless SDK headers，仅 UA 不同
-        ClientType::ClaudeCode
-        | ClientType::ClaudeCodeVscode
-        | ClientType::ClaudeCodeSdkTs
-        | ClientType::ClaudeCodeSdkPy
-        | ClientType::ClaudeCodeGhAction => {
+        "claude_code" | "claude_code_vscode" | "claude_code_sdk_ts" | "claude_code_sdk_py" | "claude_code_gh_action" => {
             apply_claude_code_family_headers(req_builder, client_type, protocol, api_key)
         }
         // Codex family — 共享 Codex 基础 headers，仅 UA 不同
-        ClientType::CodexCli
-        | ClientType::CodexTui
-        | ClientType::CodexDesktop
-        | ClientType::CodexVscode => {
+        "codex_cli" | "codex_tui" | "codex_desktop" | "codex_vscode" => {
             apply_codex_family_headers(req_builder, client_type, protocol, api_key)
         }
-        ClientType::Cursor => apply_cursor_headers(req_builder, protocol, api_key),
-        ClientType::Windsurf => apply_windsurf_headers(req_builder, protocol, api_key),
+        "cursor" => apply_cursor_headers(req_builder, protocol, api_key),
+        "windsurf" => apply_windsurf_headers(req_builder, protocol, api_key),
+        // 未知值：保守等价 default（不注入任何 UA / family 头，仅 auth）。
+        // client-types.json 远端扩展未知 value 时不会破header 构造。
+        _ => apply_default_headers(req_builder, protocol, api_key),
     }
 }
 
 /// 根据 ClientType 子变体返回 Claude Code 家族的 User-Agent 字符串。
 /// 格式: claude-cli/<version> (external, <entrypoint>[, agent-sdk/<sdk_ver>])
 fn claude_code_ua(client_type: &ClientType) -> &'static str {
-    match client_type {
-        ClientType::ClaudeCode => "claude-cli/1.0.117 (external, cli)",
-        ClientType::ClaudeCodeVscode => "claude-cli/1.0.117 (external, claude-vscode, agent-sdk/0.1.30)",
-        ClientType::ClaudeCodeSdkTs => "claude-cli/1.0.117 (external, sdk-ts)",
-        ClientType::ClaudeCodeSdkPy => "claude-cli/1.0.117 (external, sdk-py)",
-        ClientType::ClaudeCodeGhAction => "claude-cli/1.0.117 (external, claude-code-github-action)",
+    match client_type.as_str() {
+        "claude_code" => "claude-cli/1.0.117 (external, cli)",
+        "claude_code_vscode" => "claude-cli/1.0.117 (external, claude-vscode, agent-sdk/0.1.30)",
+        "claude_code_sdk_ts" => "claude-cli/1.0.117 (external, sdk-ts)",
+        "claude_code_sdk_py" => "claude-cli/1.0.117 (external, sdk-py)",
+        "claude_code_gh_action" => "claude-cli/1.0.117 (external, claude-code-github-action)",
         _ => "claude-cli/1.0.117 (external, cli)",
     }
 }
 
 /// 根据 ClientType 子变体返回 Codex 家族的 User-Agent 字符串
 fn codex_ua(client_type: &ClientType) -> &'static str {
-    match client_type {
-        ClientType::CodexCli => "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal",
-        ClientType::CodexTui => "Codex/0.38.0",
-        ClientType::CodexDesktop => "codex desktop/0.38.0",
-        ClientType::CodexVscode => "codex-vscode/0.38.0",
+    match client_type.as_str() {
+        "codex_cli" => "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal",
+        "codex_tui" => "Codex/0.38.0",
+        "codex_desktop" => "codex desktop/0.38.0",
+        "codex_vscode" => "codex-vscode/0.38.0",
         _ => "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal",
     }
 }
@@ -392,19 +388,12 @@ pub fn build_upstream_headers(
             h.push(("Authorization".into(), format!("Bearer {}", redact_key(api_key))));
         }
     }
-    match client_type {
-        ClientType::Default => {}
-        ClientType::ClaudeCode
-        | ClientType::ClaudeCodeVscode
-        | ClientType::ClaudeCodeSdkTs
-        | ClientType::ClaudeCodeSdkPy
-        | ClientType::ClaudeCodeGhAction => {
+    match client_type.as_str() {
+        "default" => {}
+        "claude_code" | "claude_code_vscode" | "claude_code_sdk_ts" | "claude_code_sdk_py" | "claude_code_gh_action" => {
             h.push(("User-Agent".into(), claude_code_ua(client_type).into()));
         }
-        ClientType::CodexCli
-        | ClientType::CodexTui
-        | ClientType::CodexDesktop
-        | ClientType::CodexVscode => {
+        "codex_cli" | "codex_tui" | "codex_desktop" | "codex_vscode" => {
             h.push(("User-Agent".into(), codex_ua(client_type).into()));
             if matches!(protocol, super::models::Protocol::OpenAI) {
                 h.push(("OpenAI-Beta".into(), "responses=experimental".into()));
@@ -412,12 +401,15 @@ pub fn build_upstream_headers(
                 h.push(("session_id".into(), uuid_sim()));
             }
         }
-        ClientType::Cursor => {
+        "cursor" => {
             h.push(("User-Agent".into(), "Cursor/0.50.7".into()));
         }
-        ClientType::Windsurf => {
+        "windsurf" => {
             h.push(("User-Agent".into(), "Windsurf/1.5.0".into()));
         }
+        // 未知值：保守等价 default（不注入任何 UA），保留原 client_type 字符串
+        // 供 proxy_log 审计；与 apply_client_headers 兜底分支对称。
+        _ => {}
     }
     h
 }

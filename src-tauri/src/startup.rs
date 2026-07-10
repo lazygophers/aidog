@@ -241,6 +241,9 @@ crate::commands::price::model_price_count_filtered,
             crate::commands::defaults::sync_defaults_json,
             crate::commands::defaults::get_protocol_logo_path,
             crate::commands::defaults::sync_protocol_logo,
+            // Client types JSON (13 client_type entries, sync 链同 defaults_sync)
+            crate::commands::defaults::get_client_types_json,
+            crate::commands::defaults::sync_client_types_json,
             // MITM (P3 ST7) — 白名单配置 + CA 安装状态/引导
             crate::commands::mitm::mitm_status,
             crate::commands::mitm::mitm_enable,

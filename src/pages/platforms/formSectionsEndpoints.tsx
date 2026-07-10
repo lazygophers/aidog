@@ -2,12 +2,14 @@
 // ponytail: ModelsSection 已被 ModelsMatrixSection 取代（PRD 07-09 合并矩阵 card）。
 import React from "react";
 import type { TFunction } from "i18next";
+import { useTranslation } from "react-i18next";
 import {
   type Protocol, type PlatformEndpoint, type ClientType,
 } from "../../services/api";
 import {
-  ENDPOINT_PROTOCOLS, CLIENT_TYPES,
+  ENDPOINT_PROTOCOLS,
   defaultClientForProtocol,
+  buildClientTypesFromPresets,
 } from "../../domains/platforms";
 import { FormSection } from "./formSections";
 
@@ -16,6 +18,19 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
   setEndpoints: React.Dispatch<React.SetStateAction<PlatformEndpoint[]>>;
   t: TFunction;
 }) {
+  const { i18n } = useTranslation();
+  // CLIENT_TYPES 删除（JSON 派生）：仿 C3 buildProtocolsFromPresets 范式 — useState 空初始
+  // + useEffect + cancelled flag + locale key [i18n.language]，确保切语言时重拉派生层。
+  // 禁前端直读 github / 文件系统，一律 invoke get_client_types_json（封装在 buildClientTypesFromPresets 内）。
+  const [clientTypeOptions, setClientTypeOptions] = React.useState<Array<{ value: ClientType; group: string; label: string }>>([]);
+  React.useEffect(() => {
+    let cancelled = false;
+    buildClientTypesFromPresets(i18n.language).then((list) => {
+      if (!cancelled) setClientTypeOptions(list);
+    }).catch(() => { /* best-effort，空列表保下拉不崩 */ });
+    return () => { cancelled = true; };
+  }, [i18n.language]);
+
   return (
     <FormSection
       title={t("platform.endpoints", "Protocol Endpoints")}
@@ -85,10 +100,25 @@ export function EndpointsSection({ endpoints, setEndpoints, t }: {
             }}
             title={t("platform.clientType", "客户端模拟")}
           >
-            <option value="default">{t(CLIENT_TYPES[0].labelKey!)}</option>
-            {["Claude Code", "Codex", "IDE"].map(group => (
+            {/* 默认条目（group === ""）：单独置顶，沿用 platform.mockDefault i18n 文案 */}
+            {clientTypeOptions
+              .filter((c) => c.group === "")
+              .map((c) => (
+                <option key={c.value} value={c.value}>
+                  {t("platform.mockDefault", c.label)}
+                </option>
+              ))}
+            {/* 分组条目：按 group optgroup 聚合（Claude Code / Codex / IDE） */}
+            {Object.entries(
+              clientTypeOptions
+                .filter((c) => c.group !== "")
+                .reduce<Record<string, typeof clientTypeOptions>>((acc, c) => {
+                  (acc[c.group] ||= []).push(c);
+                  return acc;
+                }, {}),
+            ).map(([group, items]) => (
               <optgroup key={group} label={group}>
-                {CLIENT_TYPES.filter(c => c.group === group).map(c => (
+                {items.map((c) => (
                   <option key={c.value} value={c.value}>{c.label}</option>
                 ))}
               </optgroup>
