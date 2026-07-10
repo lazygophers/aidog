@@ -1,6 +1,6 @@
 ---
 updated: 2026-07-10
-rewrite-version: 3
+rewrite-version: 4
 supersedes:
   - backend/index.md (v1, 无 cargo-workspace / protocol-enum-extension 条目)
 authored-by: trellisx-spec
@@ -32,3 +32,4 @@ mode: sediment
 - [Proxy Diagnostic Headers](./proxy-diagnostic-headers.md) — debug build 诊断响应 header 注入契约（**MUST 复用 headers.rs::inject_trace_header helper**, id 取值链 current_trace_id→new_trace_id, header 名小写, **blind_relay 物理豁免** TCP 字节透传不可注入, release LLVM dead branch 消除 0 开销)
 - [Logging Format](./logging-format.md) — 日志格式 + traceid 取值链契约（**MUST 5 段字段顺序** time/level/file:line func/msg/traceid, **console ANSI on / file ANSI off**, **traceid 三级兜底** span scope→thread-local→gen, **id 6 [0-9a-z] 多级 `.`**, **base36 双轨映射** proxy 请求反查, **spawn_traced MUST** 异步分支禁裸 tokio::spawn, 健康端点 span MUST, 与 header spec 互为对偶）
 - [Platform Logo Sync](./platform-logo-sync.md) — 协议 logo 三路 fallback 契约（**MUST 顺序固定** simpleicons slug → favicon → clearbit 首成功即止, **命中=size>0** 空文件视 miss, **统一 .png** ICO 也强存, **0 字节拒写** 防永久污染, **复用 build_http_client_system** 禁 env proxy 防递归, presets JSON 读取同 get_defaults_json 优先级独立 include_str!）
+- [远端 defaults JSON 同步链范式](./remote-json-sync.md) — `defaults/*.json` 真值源远端自动同步 **7 件套 MUST**（双源 jsDelivr 主+raw fallback / last_updated 比对 / 24h 节流 / 三路触发 startup hook+daily timer+手动按钮 / validate_structure schema gate 远端⊇bundled / .hash 用户定制保护 / reader app data 优先 bundled fallback）+ **前端禁直读 github 一律 invoke**（先例 defaults_sync.rs + client_types_sync.rs）
