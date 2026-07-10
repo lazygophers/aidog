@@ -136,196 +136,178 @@ pub(crate) fn passthrough_convert_headers(
     }
     out
 }
+// ── client-types.json simulation 配置驱动 ─────────────────────────────────────
+//
+// 真值源 = `src-tauri/defaults/client-types.json`（每 entry `simulation` 字段全自包含
+// UA + auth 矩阵 + 占位符）。Rust 执行引擎**禁写任何 client_type 特定代码依赖**
+// （用户逐字约束）—— 所有 client_type 差异由 JSON 配置表达，本文件仅提供通用：
+//   1. 配置加载（OnceLock 启动加载，禁每请求读盘/IPC）
+//   2. protocol key 查表（serde rename → auth headers 数组，`default` 兜底）
+//   3. 占位符引擎（`{api_key}` / `{uuid}` → 运行时值，非 client_type 特定）
+//
+// 远端同步链见 `client_types_sync.rs`（7 件套），schema gate 已扩 simulation 校验。
+// 数据流硬规：simulation 由 Rust 内部消费，前端不感知（仅消费 label/group/name 展示层）。
+
+/// 编译期编入的本地真值（与 `commands/defaults.rs::CLIENT_TYPES_BUNDLED` 同源，各自 include_str!）。
+const BUNDLED_CLIENT_TYPES: &str = include_str!("../../../../../defaults/client-types.json");
+
+/// 单条 simulation header 定义（name + value 模板，value 含占位符由引擎替换）。
+#[derive(Debug, Clone, serde::Deserialize)]
+struct SimulationHeader {
+    name: String,
+    value: String,
+}
+
+/// per-protocol auth 矩阵：serde rename key（`anthropic`/`openai`/`gemini`/...）→ headers 数组。
+/// 含保留 key `default` 兜底未知 protocol。
+type AuthMatrix = std::collections::HashMap<String, Vec<SimulationHeader>>;
+
+/// 单 entry 的 simulation 配置（全自包含，禁 family 继承）。
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+struct Simulation {
+    /// 缺省 = 不注入 UA（如 `default` entry）。
+    #[serde(default)]
+    user_agent: Option<String>,
+    #[serde(default)]
+    auth: AuthMatrix,
+}
+
+/// client-types.json 顶层文档（仅消费 simulation 相关字段，label/desc 忽略）。
+#[derive(Debug, Clone, serde::Deserialize)]
+struct ClientTypesDoc {
+    client_types: Vec<ClientTypeEntry>,
+}
+
+#[derive(Debug, Clone, serde::Deserialize)]
+struct ClientTypeEntry {
+    value: String,
+    #[serde(default)]
+    simulation: Simulation,
+}
+
+/// 启动加载缓存：`client_type.as_str()` → Simulation（缺省 entry 不在 map = 等价 default 行为）。
+static SIMULATION_CACHE: std::sync::OnceLock<std::collections::HashMap<String, Simulation>> =
+    std::sync::OnceLock::new();
+
+/// 读 client-types.json body（app data 优先 → bundled fallback；同 `get_client_types_json` reader）。
+/// 启动一次（OnceLock get_or_init），禁每请求读盘。
+fn load_client_types_body() -> String {
+    let dir = match crate::shared::aidog_data_dir() {
+        Ok(d) => d,
+        Err(_) => return BUNDLED_CLIENT_TYPES.to_string(),
+    };
+    let path = dir.join("client-types.json");
+    if !path.exists() {
+        return BUNDLED_CLIENT_TYPES.to_string();
+    }
+    match std::fs::read_to_string(&path) {
+        Ok(content)
+            if !content.trim().is_empty()
+                && serde_json::from_str::<serde_json::Value>(&content).is_ok() =>
+        {
+            content
+        }
+        _ => {
+            tracing::warn!(
+                path = %path.display(),
+                "client-types.json empty/corrupt in sim load, fallback to bundled"
+            );
+            BUNDLED_CLIENT_TYPES.to_string()
+        }
+    }
+}
+
+/// 首次访问解析 simulation map；解析失败兜底空 map（apply 路径再兜底 Bearer）。
+fn simulation_map() -> &'static std::collections::HashMap<String, Simulation> {
+    SIMULATION_CACHE.get_or_init(|| {
+        let body = load_client_types_body();
+        match serde_json::from_str::<ClientTypesDoc>(&body) {
+            Ok(doc) => doc
+                .client_types
+                .into_iter()
+                .map(|e| (e.value, e.simulation))
+                .collect(),
+            Err(e) => {
+                tracing::warn!(
+                    error = %e,
+                    "client-types.json simulation parse failed (should never happen), using empty map"
+                );
+                std::collections::HashMap::new()
+            }
+        }
+    })
+}
+
+/// 取 protocol 的 serde rename 字符串（如 `Protocol::Anthropic` → `"anthropic"`）。
+/// 用于查 simulation.auth 矩阵的 protocol key。
+fn protocol_serde_name(protocol: &super::models::Protocol) -> String {
+    serde_json::to_value(protocol)
+        .ok()
+        .and_then(|v| v.as_str().map(|s| s.to_string()))
+        .unwrap_or_else(|| "default".into())
+}
+
+/// 占位符引擎：通用 `{key}` 替换，非 client_type 特定。
+///   `{api_key}` → 调用方提供值（apply 路径 = 平台 api_key；日志路径 = redact_key(api_key)）
+///   `{uuid}`    → uuid_sim() 运行时生成（每次调用新 uuid）
+fn fill_placeholder(template: &str, api_key_value: &str) -> String {
+    template
+        .replace("{api_key}", api_key_value)
+        .replace("{uuid}", &uuid_sim())
+}
+
+/// 查 simulation entry 的 protocol-specific headers 数组（缺失 protocol key → `default` 兜底；
+/// `default` 也缺 → 空切片，apply 路径再兜底 Bearer）。
+fn resolve_auth_headers<'a>(
+    sim: &'a Simulation,
+    protocol_key: &str,
+) -> &'a [SimulationHeader] {
+    sim.auth
+        .get(protocol_key)
+        .or_else(|| sim.auth.get("default"))
+        .map(|v| v.as_slice())
+        .unwrap_or(&[])
+}
+
+/// 未知 client_type（JSON 无 entry）→ 回落 `default` entry 的 simulation（PRD R2：
+/// 「等价 default」语义）—— default entry 的 auth 矩阵覆盖 anthropic/openai/gemini/default，
+/// 与重构前 `match _ => apply_default_headers` 行为对齐。`default` 也缺 → Bearer-only 终极兜底。
+fn resolve_simulation<'a>(
+    map: &'a std::collections::HashMap<String, Simulation>,
+    client_type: &str,
+) -> Option<&'a Simulation> {
+    map.get(client_type)
+        .or_else(|| map.get("default"))
+}
+
 pub fn apply_client_headers(
     req_builder: reqwest::RequestBuilder,
     client_type: &ClientType,
     protocol: &super::models::Protocol,
     api_key: &str,
 ) -> reqwest::RequestBuilder {
-    match client_type.as_str() {
-        "default" => apply_default_headers(req_builder, protocol, api_key),
-        // Claude Code family — 共享 Stainless SDK headers，仅 UA 不同
-        "claude_code" | "claude_code_vscode" | "claude_code_sdk_ts" | "claude_code_sdk_py" | "claude_code_gh_action" => {
-            apply_claude_code_family_headers(req_builder, client_type, protocol, api_key)
-        }
-        // Codex family — 共享 Codex 基础 headers，仅 UA 不同
-        "codex_cli" | "codex_tui" | "codex_desktop" | "codex_vscode" => {
-            apply_codex_family_headers(req_builder, client_type, protocol, api_key)
-        }
-        "cursor" => apply_cursor_headers(req_builder, protocol, api_key),
-        "windsurf" => apply_windsurf_headers(req_builder, protocol, api_key),
-        // 未知值：保守等价 default（不注入任何 UA / family 头，仅 auth）。
-        // client-types.json 远端扩展未知 value 时不会破header 构造。
-        _ => apply_default_headers(req_builder, protocol, api_key),
+    let map = simulation_map();
+    // 未知 client_type → 回落 `default` entry（等价旧 apply_default_headers，保留 client_type 审计字符串）。
+    // default entry 的 user_agent 缺省 → 不注入 UA（与旧 default 行为一致）。
+    let sim = resolve_simulation(map, client_type.as_str());
+    let mut rb = req_builder;
+
+    // ① UA（若 simulation.user_agent 存在；default entry 无 UA）
+    if let Some(ua) = sim.and_then(|s| s.user_agent.as_deref()) {
+        rb = rb.header("User-Agent", ua);
     }
-}
 
-/// 根据 ClientType 子变体返回 Claude Code 家族的 User-Agent 字符串。
-/// 格式: claude-cli/<version> (external, <entrypoint>[, agent-sdk/<sdk_ver>])
-fn claude_code_ua(client_type: &ClientType) -> &'static str {
-    match client_type.as_str() {
-        "claude_code" => "claude-cli/1.0.117 (external, cli)",
-        "claude_code_vscode" => "claude-cli/1.0.117 (external, claude-vscode, agent-sdk/0.1.30)",
-        "claude_code_sdk_ts" => "claude-cli/1.0.117 (external, sdk-ts)",
-        "claude_code_sdk_py" => "claude-cli/1.0.117 (external, sdk-py)",
-        "claude_code_gh_action" => "claude-cli/1.0.117 (external, claude-code-github-action)",
-        _ => "claude-cli/1.0.117 (external, cli)",
-    }
-}
-
-/// 根据 ClientType 子变体返回 Codex 家族的 User-Agent 字符串
-fn codex_ua(client_type: &ClientType) -> &'static str {
-    match client_type.as_str() {
-        "codex_cli" => "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal",
-        "codex_tui" => "Codex/0.38.0",
-        "codex_desktop" => "codex desktop/0.38.0",
-        "codex_vscode" => "codex-vscode/0.38.0",
-        _ => "codex_cli_rs/0.38.0 (MacOS; arm64) Terminal",
-    }
-}
-
-fn apply_default_headers(
-    mut rb: reqwest::RequestBuilder,
-    protocol: &super::models::Protocol,
-    api_key: &str,
-) -> reqwest::RequestBuilder {
-    // 仅设 auth（UA/Content-Type 由别处，其余入站头透传）。anthropic-version 走入站透传。
-    match protocol {
-        super::models::Protocol::Anthropic => {
-            rb = rb.header("x-api-key", api_key);
-        }
-        super::models::Protocol::Gemini => {
-            rb = rb.header("x-goog-api-key", api_key);
-        }
-        _ => {
-            // openai/兼容：Bearer 之外叠加 api-key 头（小米 token-plan openai 端点要求）。
-            rb = rb
-                .header("Authorization", format!("Bearer {api_key}"))
-                .header("api-key", api_key);
-        }
-    }
-    rb
-}
-
-/// Claude Code 家族：仅设 User-Agent + auth（覆盖）。
-/// Stainless SDK 头（x-stainless-* / anthropic-version / anthropic-beta /
-/// anthropic-dangerous-direct-browser-access / x-app / x-claude-code-session-id）
-/// 由 convert 路径从入站透传（passthrough_convert_headers），不再硬编码静态默认 ——
-/// 上游可见客户端真实 SDK 版本/会话，跨协议（CC→OpenAI）也带（透明自定义头）。
-/// 来源: @anthropic-ai/claude-code/cli.js — buildHeaders() + fV()
-/// 参考: claude-code-hub client-detector.ts — confirmClaudeCodeSignals()
-fn apply_claude_code_family_headers(
-    mut rb: reqwest::RequestBuilder,
-    client_type: &ClientType,
-    protocol: &super::models::Protocol,
-    api_key: &str,
-) -> reqwest::RequestBuilder {
-    rb = rb.header("User-Agent", claude_code_ua(client_type));
-
-    match protocol {
-        super::models::Protocol::Anthropic => {
-            rb = rb.header("x-api-key", api_key);
-        }
-        super::models::Protocol::OpenAI => {
-            // openai：Bearer 之外叠加 api-key 头（小米 token-plan openai 端点要求）。
-            rb = rb
-                .header("Authorization", format!("Bearer {api_key}"))
-                .header("api-key", api_key);
-        }
-        super::models::Protocol::Gemini => {
-            rb = rb.header("x-goog-api-key", api_key);
-        }
-        _ => {
-            rb = rb
-                .header("Authorization", format!("Bearer {api_key}"))
-                .header("api-key", api_key);
-        }
-    }
-    rb
-}
-
-/// Codex 家族：仅设 UA + auth + OpenAI 协议必需（OpenAI-Beta / session_id / conversation_id）。
-/// originator/version/Accept 等由入站透传。session_id/conversation_id 入站无则生成。
-/// 来源: codex-rs/core/src/default_client.rs + model_provider_info.rs + client.rs
-/// 参考: claude-code-hub client-detector.ts — CODEX_FAMILY_RULES
-fn apply_codex_family_headers(
-    mut rb: reqwest::RequestBuilder,
-    client_type: &ClientType,
-    protocol: &super::models::Protocol,
-    api_key: &str,
-) -> reqwest::RequestBuilder {
-    rb = rb.header("User-Agent", codex_ua(client_type));
-
-    match protocol {
-        super::models::Protocol::OpenAI => {
-            // openai：Bearer 之外叠加 api-key 头（小米 token-plan openai 端点要求）。
-            rb = rb
-                .header("Authorization", format!("Bearer {api_key}"))
-                .header("api-key", api_key)
-                .header("OpenAI-Beta", "responses=experimental")
-                .header("conversation_id", uuid_sim())
-                .header("session_id", uuid_sim());
-        }
-        super::models::Protocol::Anthropic => {
-            rb = rb.header("x-api-key", api_key);
-        }
-        super::models::Protocol::Gemini => {
-            rb = rb.header("x-goog-api-key", api_key);
-        }
-        _ => {
-            rb = rb.header("Authorization", format!("Bearer {api_key}"));
-        }
-    }
-    rb
-}
-
-/// 模拟 Cursor IDE：仅 UA + auth。x-app / anthropic-version 由入站透传。
-/// 来源: GitHub 逆向 — 使用 Anthropic SDK 但有特定 header 组合
-fn apply_cursor_headers(
-    mut rb: reqwest::RequestBuilder,
-    protocol: &super::models::Protocol,
-    api_key: &str,
-) -> reqwest::RequestBuilder {
-    rb = rb.header("User-Agent", "Cursor/0.50.7");
-
-    match protocol {
-        super::models::Protocol::Anthropic => {
-            rb = rb.header("x-api-key", api_key);
-        }
-        super::models::Protocol::OpenAI => {
-            rb = rb.header("Authorization", format!("Bearer {api_key}"));
-        }
-        super::models::Protocol::Gemini => {
-            rb = rb.header("x-goog-api-key", api_key);
-        }
-        _ => {
-            rb = rb.header("Authorization", format!("Bearer {api_key}"));
-        }
-    }
-    rb
-}
-
-/// 模拟 Windsurf IDE：仅 UA + auth。x-app / anthropic-version 由入站透传。
-/// 来源: GitHub 逆向 — 类似 Cursor，使用 Anthropic SDK
-fn apply_windsurf_headers(
-    mut rb: reqwest::RequestBuilder,
-    protocol: &super::models::Protocol,
-    api_key: &str,
-) -> reqwest::RequestBuilder {
-    rb = rb.header("User-Agent", "Windsurf/1.5.0");
-
-    match protocol {
-        super::models::Protocol::Anthropic => {
-            rb = rb.header("x-api-key", api_key);
-        }
-        super::models::Protocol::OpenAI => {
-            rb = rb.header("Authorization", format!("Bearer {api_key}"));
-        }
-        super::models::Protocol::Gemini => {
-            rb = rb.header("x-goog-api-key", api_key);
-        }
-        _ => {
-            rb = rb.header("Authorization", format!("Bearer {api_key}"));
+    // ② auth headers（protocol key → default protocol 兜底；全缺 → Bearer only 终极兜底）
+    let protocol_key = protocol_serde_name(protocol);
+    let headers = sim
+        .map(|s| resolve_auth_headers(s, &protocol_key))
+        .unwrap_or(&[]);
+    if headers.is_empty() {
+        // simulation/auth 完全缺（含 default entry 被远端裁剪的极端情况）：保守 Bearer only。
+        rb = rb.header("Authorization", format!("Bearer {api_key}"));
+    } else {
+        for h in headers {
+            rb = rb.header(&h.name, fill_placeholder(&h.value, api_key));
         }
     }
     rb
@@ -348,8 +330,10 @@ fn uuid_sim() -> String {
 }
 
 /// 构建上游请求头 KV 表（用于日志记录，反映实际发送：入站透传 + apply 覆盖）。
-/// 透传头从 orig 取并脱敏（auth/cookie），覆盖头（UA/auth/CT + codex 协议必需）按 apply 逻辑。
+/// 透传头从 orig 取并脱敏（auth/cookie），覆盖头（UA/auth/CT + extra headers）复用
+/// 同一 simulation 配置（与 apply_client_headers 同源，日志镜像实发）。
 /// upstream_url 用于 anthropic-beta host 判定（须与 passthrough_convert_headers 同参，日志与实发一致）。
+/// api_key 经 redact_key 脱敏后再填占位符（日志安全）。
 pub fn build_upstream_headers(
     client_type: &ClientType,
     protocol: &super::models::Protocol,
@@ -375,41 +359,26 @@ pub fn build_upstream_headers(
         };
         h.push((name.to_string(), val));
     }
-    // ② 覆盖：Content-Type + auth（redact_key 日志安全）+ UA + codex 协议必需。
+    // ② 覆盖：Content-Type + simulation 配置驱动的 UA/auth/extra headers（占位符用 redact_key 脱敏）。
     h.push(("Content-Type".into(), "application/json".into()));
-    match protocol {
-        super::models::Protocol::Anthropic => {
-            h.push(("x-api-key".into(), redact_key(api_key)));
-        }
-        super::models::Protocol::Gemini => {
-            h.push(("x-goog-api-key".into(), redact_key(api_key)));
-        }
-        _ => {
-            h.push(("Authorization".into(), format!("Bearer {}", redact_key(api_key))));
-        }
+    let map = simulation_map();
+    // 未知 client_type → 回落 `default` entry（与 apply_client_headers 对称，保日志镜像与实发一致）。
+    let sim = resolve_simulation(map, client_type.as_str());
+    let redacted = redact_key(api_key);
+    if let Some(ua) = sim.and_then(|s| s.user_agent.as_deref()) {
+        h.push(("User-Agent".into(), ua.to_string()));
     }
-    match client_type.as_str() {
-        "default" => {}
-        "claude_code" | "claude_code_vscode" | "claude_code_sdk_ts" | "claude_code_sdk_py" | "claude_code_gh_action" => {
-            h.push(("User-Agent".into(), claude_code_ua(client_type).into()));
+    let protocol_key = protocol_serde_name(protocol);
+    let headers = sim
+        .map(|s| resolve_auth_headers(s, &protocol_key))
+        .unwrap_or(&[]);
+    if headers.is_empty() {
+        // simulation/auth 完全缺（含 default entry 被远端裁剪）：保守 Bearer only（与 apply_client_headers 对称）。
+        h.push(("Authorization".into(), format!("Bearer {redacted}")));
+    } else {
+        for hdr in headers {
+            h.push((hdr.name.clone(), fill_placeholder(&hdr.value, &redacted)));
         }
-        "codex_cli" | "codex_tui" | "codex_desktop" | "codex_vscode" => {
-            h.push(("User-Agent".into(), codex_ua(client_type).into()));
-            if matches!(protocol, super::models::Protocol::OpenAI) {
-                h.push(("OpenAI-Beta".into(), "responses=experimental".into()));
-                h.push(("conversation_id".into(), uuid_sim()));
-                h.push(("session_id".into(), uuid_sim()));
-            }
-        }
-        "cursor" => {
-            h.push(("User-Agent".into(), "Cursor/0.50.7".into()));
-        }
-        "windsurf" => {
-            h.push(("User-Agent".into(), "Windsurf/1.5.0".into()));
-        }
-        // 未知值：保守等价 default（不注入任何 UA），保留原 client_type 字符串
-        // 供 proxy_log 审计；与 apply_client_headers 兜底分支对称。
-        _ => {}
     }
     h
 }

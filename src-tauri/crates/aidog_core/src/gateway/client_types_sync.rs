@@ -220,6 +220,9 @@ fn bundled_value() -> &'static serde_json::Value {
 /// - body 可解析为 object，顶层含 `client_types` 数组
 /// - 远端 value 集合 ⊇ 本地 bundled（可增不可减，前向兼容；新 client_type 不丢）
 /// - 远端每个 entry 含 `value`(string) / `group`(string) / `name`(object) 关键字段
+/// - 若 entry 含 `simulation`：`user_agent`(可选 string) + `auth`(object，每 protocol key
+///   对应数组，每元素含 `name`(string) + `value`(string))；simulation 缺省时运行时兜底
+///   Bearer-only，不阻塞远端新增 entry。
 ///
 /// 不校验 desc / locale 完整性（值细节），仅存在性 + 粗类型，平衡安全与前向兼容。
 pub(crate) fn validate_structure(body: &str) -> Result<(), String> {
@@ -254,6 +257,10 @@ pub(crate) fn validate_structure(body: &str) -> Result<(), String> {
         if !obj.get("name").map(|v| v.is_object()).unwrap_or(false) {
             return Err(format!("client_types[{i}]: missing/invalid name"));
         }
+        // simulation 结构完整性（若存在）：驱动 Rust 执行引擎，结构错位会致运行时 apply 失败。
+        if let Some(sim) = obj.get("simulation") {
+            validate_simulation_structure(i, sim)?;
+        }
     }
 
     // 收集 bundled value 集合，远端必须 ⊇ 本地（per-entry 字段齐后，再判定 value 集合完整）
@@ -271,6 +278,53 @@ pub(crate) fn validate_structure(body: &str) -> Result<(), String> {
         }
     }
 
+    Ok(())
+}
+
+/// 校验单 entry 的 `simulation` 结构（仅当字段存在时调用）。
+///
+/// 合法结构：
+/// - `user_agent`：可选，存在时须为 string
+/// - `auth`：须为 object；每 key（protocol serde rename 或保留 `default`）对应数组，
+///   数组每元素须为 object 含 `name`(string) + `value`(string)
+///
+/// simulation 字段缺省（远端新增 entry 未带）→ 跳过校验，运行时兜底 Bearer-only。
+fn validate_simulation_structure(i: usize, sim: &serde_json::Value) -> Result<(), String> {
+    let obj = sim
+        .as_object()
+        .ok_or_else(|| format!("client_types[{i}]: simulation must be object"))?;
+    if let Some(ua) = obj.get("user_agent")
+        && !ua.is_string()
+    {
+        return Err(format!("client_types[{i}]: simulation.user_agent must be string"));
+    }
+    if let Some(auth) = obj.get("auth") {
+        let auth_obj = auth
+            .as_object()
+            .ok_or_else(|| format!("client_types[{i}]: simulation.auth must be object"))?;
+        for (proto_key, headers) in auth_obj {
+            let arr = headers
+                .as_array()
+                .ok_or_else(|| {
+                    format!("client_types[{i}]: simulation.auth.{proto_key} must be array")
+                })?;
+            for (j, h) in arr.iter().enumerate() {
+                let h_obj = h.as_object().ok_or_else(|| {
+                    format!("client_types[{i}]: simulation.auth.{proto_key}[{j}] must be object")
+                })?;
+                if !h_obj.get("name").map(|v| v.is_string()).unwrap_or(false) {
+                    return Err(format!(
+                        "client_types[{i}]: simulation.auth.{proto_key}[{j}] missing/invalid name"
+                    ));
+                }
+                if !h_obj.get("value").map(|v| v.is_string()).unwrap_or(false) {
+                    return Err(format!(
+                        "client_types[{i}]: simulation.auth.{proto_key}[{j}] missing/invalid value"
+                    ));
+                }
+            }
+        }
+    }
     Ok(())
 }
 
@@ -480,6 +534,83 @@ mod tests {
         let body = r#"[1,2,3]"#;
         let err = validate_structure(body).unwrap_err();
         assert!(err.contains("top level"), "unexpected err: {err}");
+    }
+
+    // ===== simulation 字段校验（R4）=====
+
+    /// bundled 12 entry 全含合法 simulation → Ok（基线 sanity）。
+    #[test]
+    fn validate_structure_bundled_simulation_ok() {
+        assert!(validate_structure(BUNDLED).is_ok());
+    }
+
+    /// 某 entry simulation 非 object（给 string）→ Err。
+    #[test]
+    fn validate_structure_simulation_not_object_fails() {
+        let mut v: serde_json::Value = serde_json::from_str(BUNDLED).unwrap();
+        v["client_types"][1]["simulation"] = serde_json::json!("oops");
+        let body = serde_json::to_string(&v).unwrap();
+        let err = validate_structure(&body).unwrap_err();
+        assert!(err.contains("simulation must be object"), "unexpected err: {err}");
+    }
+
+    /// simulation.user_agent 类型错位（给 number）→ Err。
+    #[test]
+    fn validate_structure_simulation_user_agent_wrong_type_fails() {
+        let mut v: serde_json::Value = serde_json::from_str(BUNDLED).unwrap();
+        v["client_types"][1]["simulation"]["user_agent"] = serde_json::json!(42);
+        let body = serde_json::to_string(&v).unwrap();
+        let err = validate_structure(&body).unwrap_err();
+        assert!(
+            err.contains("user_agent must be string"),
+            "unexpected err: {err}"
+        );
+    }
+
+    /// simulation.auth 非 object → Err。
+    #[test]
+    fn validate_structure_simulation_auth_not_object_fails() {
+        let mut v: serde_json::Value = serde_json::from_str(BUNDLED).unwrap();
+        v["client_types"][1]["simulation"]["auth"] = serde_json::json!(["x"]);
+        let body = serde_json::to_string(&v).unwrap();
+        let err = validate_structure(&body).unwrap_err();
+        assert!(err.contains("auth must be object"), "unexpected err: {err}");
+    }
+
+    /// simulation.auth.<protocol> 数组元素缺 name → Err。
+    #[test]
+    fn validate_structure_simulation_header_missing_name_fails() {
+        let mut v: serde_json::Value = serde_json::from_str(BUNDLED).unwrap();
+        v["client_types"][1]["simulation"]["auth"]["openai"] =
+            serde_json::json!([{"value": "Bearer {api_key}"}]);
+        let body = serde_json::to_string(&v).unwrap();
+        let err = validate_structure(&body).unwrap_err();
+        assert!(err.contains("missing/invalid name"), "unexpected err: {err}");
+    }
+
+    /// simulation.auth.<protocol> 非 数组 → Err。
+    #[test]
+    fn validate_structure_simulation_protocol_not_array_fails() {
+        let mut v: serde_json::Value = serde_json::from_str(BUNDLED).unwrap();
+        v["client_types"][1]["simulation"]["auth"]["openai"] =
+            serde_json::json!({"name": "Authorization"});
+        let body = serde_json::to_string(&v).unwrap();
+        let err = validate_structure(&body).unwrap_err();
+        assert!(err.contains("must be array"), "unexpected err: {err}");
+    }
+
+    /// 远端新增 entry 不带 simulation → Ok（前向兼容，运行时 Bearer-only 兜底）。
+    #[test]
+    fn validate_structure_new_entry_without_simulation_ok() {
+        let mut v: serde_json::Value = serde_json::from_str(BUNDLED).unwrap();
+        let arr = v.get_mut("client_types").unwrap().as_array_mut().unwrap();
+        arr.push(serde_json::json!({
+            "value": "brand_new_no_sim",
+            "group": "X",
+            "name": { "en-US": "New" }
+        }));
+        let body = serde_json::to_string(&v).unwrap();
+        assert!(validate_structure(&body).is_ok());
     }
 
     /// user_modified 检测逻辑（不依赖真实 fs）。
