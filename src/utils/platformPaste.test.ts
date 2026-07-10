@@ -30,7 +30,7 @@ const PRESETS: PastePresetRef[] = [
     keywords: ["xiaomi", "mimo"],
     hosts: ["api.xiaomimimo.com"],
   },
-  // 真实 PROTOCOLS 中普通/coding 变体共用同 value（xiaomi_mimo），靠 hosts/codingPlan/
+  // 真实 buildProtocolsFromPresets 输出中普通/coding 变体共用同 value（xiaomi_mimo），靠 hosts/codingPlan/
   // codingKeyPrefixes 区分。机制 B 升级依赖同 value 匹配，fixture 须对齐此结构。
   {
     value: "xiaomi_mimo",

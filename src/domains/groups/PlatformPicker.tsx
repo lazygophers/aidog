@@ -2,7 +2,6 @@ import type { TFunction } from "i18next";
 import type { Platform } from "../../services/api";
 import { SortableList } from "../../components/SortableList";
 import { IconClose } from "../../components/icons";
-import { PROTOCOL_LABELS } from "../platforms";
 
 /** Row model for the sortable selected-platforms list (stable string id for @dnd-kit). */
 export interface SortablePlatform {
@@ -23,7 +22,7 @@ export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: 
   onChange: (ids: number[]) => void;
   t: TFunction;
   /** 协议本地化 label 全表（父组件一次性 getProtocolLabelMap 取，sync 渲染避免每 option async）。
-   *  缺省回退 PROTOCOL_LABELS 常量 → platform_type key（与 PlatformCard 三级回退链同范式）。 */
+   *  缺省回退 platform_type key（与 PlatformCard 二级回退链同范式）。 */
   labelMap?: Record<string, string>;
 }) {
   return (
@@ -112,7 +111,7 @@ export function PlatformPicker({ platformIds, options, onChange, t, labelMap }: 
             <option value="">{t("group.addPlatform", "+ 添加平台")}</option>
             {options
               .filter(p => !platformIds.includes(p.id))
-              .map(p => <option key={p.id} value={p.id}>{p.name} ({labelMap?.[p.platform_type] || PROTOCOL_LABELS[p.platform_type] || p.platform_type})</option>)}
+              .map(p => <option key={p.id} value={p.id}>{p.name} ({labelMap?.[p.platform_type] || p.platform_type})</option>)}
           </select>
         </div>
       )}

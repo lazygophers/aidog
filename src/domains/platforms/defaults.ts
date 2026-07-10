@@ -1,6 +1,6 @@
 import type { Protocol, PlatformEndpoint, ModelSlot, ClientType } from "../../services/api";
 import { getDefaultsJson } from "../../services/api";
-import { PROTOCOLS } from "./constants";
+import type { ProtocolOption } from "./constants";
 
 /** 高峰/低峰时段倍率窗口（多窗口数组，UTC+0 基准）。
  *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak_hours。
@@ -65,6 +65,13 @@ type DefaultsDoc = {
     homepage?: string;
     /** simpleicons.org slug（Rust logo_sync 拼 https://cdn.simpleicons.org/<slug>）；空串走 favicon/clearbit fallback。 */
     logo_url?: string;
+    /** 品牌色（hex，用于 PlatformCard / ProtocolLogo 等圆圈 fallback 背景）。
+     *  派生层 getProtocolColorMap 从此字段派生；absent → 调用方回退 var(--accent)。 */
+    color?: string;
+    /** 协议搜索关键词（拼音/子串匹配用）；派生层 buildProtocolsFromPresets 透传到 ProtocolOption.keywords。 */
+    keywords?: string[];
+    /** coding plan 专属 token 前缀（如小米 token-plan 的 "tp-"）；机制 B 升级用。 */
+    codingKeyPrefixes?: string[];
     /** 高峰/低峰时段倍率（多窗口，UTC+0 基准）。
      *  preset 给 per-protocol 默认；用户覆盖存 platform.extra.peak_hours。
      *  absent / 空数组 = 无调整（multiplier 1.0）。
@@ -216,28 +223,75 @@ export async function getProtocolLabelMap(locale?: string): Promise<Record<Proto
   return out;
 }
 
-/** 从 getDefaultEndpoints 派生 URL 子串（host + path），注入 PROTOCOLS 供智能识别 base_url 优先匹配。
+/** 从 getDefaultEndpoints 派生 URL 子串（host + path），供智能识别 base_url 优先匹配。
  *  按 preset.codingPlan 取对应 cp 分支，避免 coding plan 与普通版互相误匹配。
  *  取 host+pathname（非仅 hostname）：同 host 分裂（如 glm open.bigmodel.cn 普通 /api/paas/v4 vs
  *  coding /api/coding/paas/v4）靠 path 子串区分；不同 host（xiaomi_mimo token-plan-cn vs api）靠 host 区分。
  *  matchPlatform 最长串胜出 → 最特异 preset 命中。单一事实源：base_url 改动只动 getDefaultEndpoints。
  *
- *  async 化后改显式初始化：调用方（应用启动期）await 一次，PROTOCOLS[].hosts 写入后稳定。
- *  旧版模块加载即跑 → 现版需调用方确保 host 注入早于第一个 matchPlatform 查询（应用 init 时序）。 */
-export async function injectProtocolHosts(): Promise<void> {
-  for (const p of PROTOCOLS) {
-    const hosts = new Set<string>();
-    const eps = await getDefaultEndpoints(p.value, !!p.codingPlan);
-    for (const ep of eps) {
-      try {
-        const u = new URL(ep.base_url);
-        const host = u.host.replace(/^www\./, "").toLowerCase();
-        // host + path（去尾斜杠），path 为空则仅 host。含 path 让同 host 分裂可区分。
-        const path = u.pathname.replace(/\/+$/, "").toLowerCase();
-        const sub = path && path !== "/" ? host + path : host;
-        if (host) hosts.add(sub);
-      } catch { /* 非法 URL 跳过 */ }
-    }
-    if (hosts.size) p.hosts = [...hosts];
+ *  注：buildProtocolsFromPresets 内联本逻辑（hosts 直接写入 ProtocolOption.hosts），
+ *  无独立 inject 步骤（旧 PROTOCOLS 模块级常量已删除）。 */
+function deriveProtocolHosts(eps: PlatformEndpoint[]): string[] {
+  const hosts = new Set<string>();
+  for (const ep of eps) {
+    try {
+      const u = new URL(ep.base_url);
+      const host = u.host.replace(/^www\./, "").toLowerCase();
+      // host + path（去尾斜杠），path 为空则仅 host。含 path 让同 host 分裂可区分。
+      const path = u.pathname.replace(/\/+$/, "").toLowerCase();
+      const sub = path && path !== "/" ? host + path : host;
+      if (host) hosts.add(sub);
+    } catch { /* 非法 URL 跳过 */ }
   }
+  return [...hosts];
+}
+
+/** 派生 ProtocolOption 列表（替代旧模块级 PROTOCOLS 硬编码常量）。
+ *  loadDoc → 每 key 派生 {value, label, codingPlan, keywords, hosts, codingKeyPrefixes}。
+ *  - label: name[locale] || name["en-US"] || key（三级回退链）；
+ *  - codingPlan: is_coding_plan || false；
+ *  - keywords: keywords || []；
+ *  - hosts: 派生自 endpoints（host+path 子串，含 cp 分支），并入旧 injectProtocolHosts 逻辑；
+ *  - codingKeyPrefixes: codingKeyPrefixes || []。
+ *  调用方：SearchableProtocolSelect / Sub2ApiImport / PlatformEditForm / ccswitchMatch 等。
+ *  ponytail: 复用 docPromise 单次 RPC，纯函数式派生，零状态机。 */
+export async function buildProtocolsFromPresets(locale?: string): Promise<ProtocolOption[]> {
+  const doc = await loadDoc();
+  const loc = locale ? (locale as DefaultsLocale) : undefined;
+  const out: ProtocolOption[] = [];
+  for (const proto of Object.keys(doc.protocols) as Protocol[]) {
+    const entry = doc.protocols[proto];
+    if (!entry) continue;
+    const name = entry.name;
+    const label = (name && ((loc && name[loc]) || name["en-US"])) || proto;
+    const codingPlan = !!entry.is_coding_plan;
+    // hosts: 合并 default + coding_plan 分支端点（cp 协议自身也带 endpoints）
+    const epsAll = [
+      ...(entry.endpoints?.default ?? []),
+      ...(entry.endpoints?.coding_plan ?? []),
+    ];
+    const hosts = deriveProtocolHosts(epsAll);
+    out.push({
+      value: proto,
+      label,
+      codingPlan,
+      keywords: entry.keywords ?? [],
+      ...(hosts.length ? { hosts } : {}),
+      ...(entry.codingKeyPrefixes?.length ? { codingKeyPrefixes: entry.codingKeyPrefixes } : {}),
+    });
+  }
+  return out;
+}
+
+/** 派生协议品牌色映射（替代旧模块级 PROTOCOL_COLORS 硬编码常量）。
+ *  loadDoc → 每 key color 字段；absent 不写入（调用方回退 var(--accent)）。
+ *  调用方：ProtocolLogo / PlatformCard / PlatformListView / PlatformEditForm。 */
+export async function getProtocolColorMap(): Promise<Partial<Record<Protocol, string>>> {
+  const doc = await loadDoc();
+  const out: Partial<Record<Protocol, string>> = {};
+  for (const proto of Object.keys(doc.protocols) as Protocol[]) {
+    const color = doc.protocols[proto]?.color;
+    if (color) out[proto] = color;
+  }
+  return out;
 }
