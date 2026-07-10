@@ -42,7 +42,7 @@ export type PeakWindow = {
 /** defaults.json 运行时缓存：进程内只拉一次 Tauri command，5 函数共享。
  *  bundled/app-data 内容在会话内不变；同步链写入由后端覆盖下次进程启动。
  *  ponytail: 模块加载即发 invoke（Promise），5 函数 await 它 — 单次 RPC 共享，零状态机。 */
-/** JSON 内 name/desc 用的 8 locale BCP 47 标识（zh 用 script 子标签 zh-Hans）。 */
+/** JSON 内 name 用的 8 locale BCP 47 标识（zh 用 script 子标签 zh-Hans）。 */
 export type DefaultsLocale = "en-US" | "zh-Hans" | "ar-SA" | "fr-FR" | "de-DE" | "ru-RU" | "ja-JP" | "es-ES";
 
 type DefaultsDoc = {
@@ -58,7 +58,6 @@ type DefaultsDoc = {
     models: { default?: Partial<Record<ModelSlot, string>>; coding_plan?: Partial<Record<ModelSlot, string>> };
     model_list: { default?: string[]; coding_plan?: string[] };
     name?: Partial<Record<DefaultsLocale, string>>;
-    desc?: Partial<Record<DefaultsLocale, string>>;
     /** 维护用 metadata：官方文档页 + 定价页 URL（非 UI 展示，仅手动核对更新时一站直达）。 */
     source_urls?: { docs: string; pricing: string };
     /** 官网首页 URL（非文档页；前端平台详情处展示外链）。 */
@@ -166,9 +165,9 @@ export async function getDefaultPeakHours(protocol: Protocol): Promise<PeakWindo
   }));
 }
 
-/** i18next locale 与 JSON name/desc locale key 已统一为 BCP 47 script 子标签 (zh-Hans)。
+/** i18next locale 与 JSON name locale key 已统一为 BCP 47 script 子标签 (zh-Hans)。
  *  locale-rename (07-06) 前 i18next 用 zh-CN 区域子标签，需 LOCALE_TO_DEFAULTS 桥接；
- *  rename 后两端一致，直接用 i18next locale 作 DefaultsLocale 查 name/desc。 */
+ *  rename 后两端一致，直接用 i18next locale 作 DefaultsLocale 查 name。 */
 
 /** 派生协议本地化显示名（fallback: locale → en-US → protocol key）。
  *  调用方: SearchableProtocolSelect 渲染 + 拼音搜索 + Sub2ApiImport option。
@@ -181,17 +180,6 @@ export async function getProtocolLabel(protocol: Protocol, locale?: string): Pro
   const loc = locale ? (locale as DefaultsLocale) : undefined;
   if (loc && name[loc]) return name[loc]!;
   return name["en-US"] ?? protocol;
-}
-
-/** 派生协议本地化描述（fallback: locale → en-US → 空串）。 */
-export async function getProtocolDesc(protocol: Protocol, locale?: string): Promise<string> {
-  const doc = await loadDoc();
-  const entry = doc.protocols[protocol];
-  const desc = entry?.desc;
-  if (!desc) return "";
-  const loc = locale ? (locale as DefaultsLocale) : undefined;
-  if (loc && desc[loc]) return desc[loc]!;
-  return desc["en-US"] ?? "";
 }
 
 /** 取 protocol 官网首页 URL（平台详情处展示外链；未配置返空串）。 */
