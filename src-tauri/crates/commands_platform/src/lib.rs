@@ -11,7 +11,3 @@ pub mod model_fetch;
 pub mod stats;
 pub mod price;
 pub mod quota;
-// tray.rs 暂居此 crate（C3 阶段）：platform 域调用 refresh_tray_menu 需注入 TrayMenuBuildImpl
-// 实现；tray.rs 与 platform 在 C3 同 crate 内可直调，C8 cmd-tray 阶段再迁 commands-tray。
-// root aidog crate（popover/app_setup/proxy）经 commands_platform::tray::* 路径引。
-pub mod tray;

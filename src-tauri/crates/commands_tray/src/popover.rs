@@ -1,5 +1,5 @@
 use aidog_core::shared::*;
-use commands_platform::tray::tray_layout;
+use crate::tray::tray_layout;
 use aidog_core::gateway::{self, db::{self, Db}};
 #[allow(unused_imports)]
 use aidog_core::logging;
@@ -16,7 +16,7 @@ use tauri::Manager;
 
 
 #[derive(serde::Serialize)]
-pub(crate) struct PopoverEntry {
+pub struct PopoverEntry {
     name: String,
     value: String,
     color: TrayColor,
@@ -27,7 +27,7 @@ pub(crate) struct PopoverEntry {
 /// 内容完全由 `config.items` 的 order + visible 驱动；后端按所含 type 一次性返回所有可能用到的数据
 /// （tray 列 / 今日统计 / 各平台当日 / 代理状态），前端按配置顺序裁剪展示。
 #[derive(serde::Serialize)]
-pub(crate) struct PopoverData {
+pub struct PopoverData {
     /// 配置本身（前端据此排序 + 显隐渲染）。
     config: gateway::models::PopoverConfig,
     /// 平台余额 / coding 列（来自 tray 配置，对应 item type "platform_balance"）。
